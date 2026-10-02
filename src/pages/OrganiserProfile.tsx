@@ -467,8 +467,16 @@ const PAST_YEARS_VISIBLE = 3;
 
 // Scrolls a section's top into view without touching the URL hash (a hash
 // link adds a history entry and cannot target a section that renders late).
+const scrollBehavior = (): ScrollBehavior =>
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 const scrollToId = (id: string) => {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById(id)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
+};
+// Collapsing a long list: bring the section top back only if it has scrolled
+// above the viewport -- otherwise scrollIntoView would move the page DOWN.
+const scrollBackIfAbove = (id: string) => {
+  const el = document.getElementById(id);
+  if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
 };
 
 // Builds EventRow props for a single occurrence. EventRow itself stays
@@ -1066,10 +1074,8 @@ const OrganiserProfile = () => {
   // A long bio is clamped to 3 lines in About with a More toggle.
   const aboutIsLong = (entity.bio?.length ?? 0) > 180;
 
-  // Contact sits under the stats as one row of quiet 44px icon buttons; WhatsApp
-  // is the single accent. Email is always offered -- it used to vanish on
-  // desktop whenever a WhatsApp number existed.
-  const iconBtn: React.CSSProperties = { width: 44, height: 44, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(12,10,13,0.45)', border: '1px solid rgba(246,241,234,0.18)', color: D.cream, textDecoration: 'none', flexShrink: 0 };
+  // Email is always offered -- it used to vanish on desktop whenever a
+  // WhatsApp number existed.
   // The extract* helpers return the platform name when no handle is found;
   // avoid announcing "Instagram Instagram".
   const labelWithHandle = (platform: string, handle: string | null | undefined) =>
@@ -1077,33 +1083,62 @@ const OrganiserProfile = () => {
   const igHandle = instagramUrl ? extractIgHandle(instagramRaw) : null;
   const fbHandle = facebookUrl ? extractFbHandle(facebookRaw) : null;
   const siteDomain = websiteUrl ? extractDomain(websiteRaw) : null;
+  // Contact list: icon tile + small label + value + copy button per row, then
+  // labelled social pills underneath (reference: choiceqr venue page).
+  // navigator.clipboard is undefined on plain-HTTP origins and some in-app
+  // browsers; say so rather than letting the tap do nothing.
+  const copyValue = (value: string, noun: string) => {
+    const failed = () => toast({ title: `Couldn't copy the ${noun}`, variant: 'destructive' });
+    if (!navigator.clipboard?.writeText) { failed(); return; }
+    navigator.clipboard.writeText(value).then(() => toast({ title: `${noun.charAt(0).toUpperCase()}${noun.slice(1)} copied` }), failed);
+  };
+  const iconTile: React.CSSProperties = { width: 44, height: 44, borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(246,241,234,0.06)', color: D.cream, flexShrink: 0 };
+  const rowLabel: React.CSSProperties = { fontSize: 12, color: 'rgba(246,241,234,0.6)', fontWeight: 600, margin: 0 };
+  const rowValue: React.CSSProperties = { fontSize: 14, color: D.cream, textDecoration: 'none', wordBreak: 'break-word' };
+  const copyBtn: React.CSSProperties = { width: 44, height: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: D.gold, cursor: 'pointer', flexShrink: 0 };
+  const socialPill: React.CSSProperties = { height: 44, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '0 14px', borderRadius: 10, fontSize: 14, color: D.cream, textDecoration: 'none' };
+  const copyIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>;
+  const contactItems = [
+    whatsappUrl && contactPhone ? { key: 'wa', label: 'WhatsApp', copyNoun: 'WhatsApp number', value: contactPhone.trim(), href: whatsappUrl, external: true, icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><path d="M3 21l1.7-5A8 8 0 1 1 8 19.3z"/></svg> } : null,
+    mailtoHref && contactEmail ? { key: 'email', label: 'Email', copyNoun: 'email address', value: contactEmail.trim(), href: mailtoHref, external: false, icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg> } : null,
+  ].filter((x): x is NonNullable<typeof x> => x !== null);
+  const hasSocials = !!(instagramUrl || facebookUrl || websiteUrl);
   const contactRow = hasContact ? (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-      {whatsappUrl && (
-        <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{ height: 44, display: 'inline-flex', alignItems: 'center', gap: 7, padding: '0 16px', borderRadius: 100, fontSize: 13, fontWeight: 700, color: '#fff', background: '#117D42', textDecoration: 'none' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" aria-hidden="true"><path d="M3 21l1.7-5A8 8 0 1 1 8 19.3z"/></svg>
-          WhatsApp
-        </a>
-      )}
-      {instagramUrl && (
-        <a href={instagramUrl} target="_blank" rel="noopener noreferrer" aria-label={labelWithHandle('Instagram', igHandle)} title={igHandle ?? undefined} style={iconBtn}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>
-        </a>
-      )}
-      {facebookUrl && (
-        <a href={facebookUrl} target="_blank" rel="noopener noreferrer" aria-label={labelWithHandle('Facebook', fbHandle)} title={fbHandle ?? undefined} style={iconBtn}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 9h3V6h-3c-1.7 0-3 1.3-3 3v2H8.5v3H11v7h3v-7h2.4l.6-3H14V9z"/></svg>
-        </a>
-      )}
-      {websiteUrl && (
-        <a href={websiteUrl} target="_blank" rel="noopener noreferrer" aria-label={labelWithHandle('Website', siteDomain)} title={siteDomain ?? undefined} style={iconBtn}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg>
-        </a>
-      )}
-      {mailtoHref && (
-        <a href={mailtoHref} aria-label={`Email ${contactEmail}`} title={contactEmail ?? undefined} style={iconBtn}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
-        </a>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 480 }}>
+      {contactItems.map((c) => (
+        <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={c.key === 'wa' ? { ...iconTile, color: '#25D366', background: 'rgba(37,211,102,0.12)' } : iconTile}>{c.icon}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={rowLabel}>{c.label}</p>
+            <a href={c.href} {...(c.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})} className="rounded-sm hover:underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400" style={rowValue}>{c.value}</a>
+          </div>
+          <button type="button" onClick={() => copyValue(c.value, c.copyNoun)} aria-label={`Copy ${c.copyNoun}`} className="rounded-lg bg-transparent transition-colors hover:bg-white/5 active:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={copyBtn}>{copyIcon}</button>
+        </div>
+      ))}
+      {hasSocials && (
+        <>
+          <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 16, margin: '8px 0 0', color: D.cream }}>Online</h2>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {instagramUrl && (
+              <a href={instagramUrl} target="_blank" rel="noopener noreferrer" aria-label={labelWithHandle('Instagram', igHandle)} className="bg-white/[0.06] transition-colors hover:bg-white/10 active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={socialPill}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>
+                Instagram
+              </a>
+            )}
+            {facebookUrl && (
+              <a href={facebookUrl} target="_blank" rel="noopener noreferrer" aria-label={labelWithHandle('Facebook', fbHandle)} className="bg-white/[0.06] transition-colors hover:bg-white/10 active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={socialPill}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 9h3V6h-3c-1.7 0-3 1.3-3 3v2H8.5v3H11v7h3v-7h2.4l.6-3H14V9z"/></svg>
+                Facebook
+              </a>
+            )}
+            {websiteUrl && (
+              <a href={websiteUrl} target="_blank" rel="noopener noreferrer" aria-label={labelWithHandle('Website', siteDomain)} className="bg-white/[0.06] transition-colors hover:bg-white/10 active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={socialPill}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg>
+                {siteDomain && siteDomain !== 'Website' ? siteDomain : 'Website'}
+              </a>
+            )}
+          </div>
+        </>
       )}
     </div>
   ) : null;
@@ -1249,9 +1284,6 @@ const OrganiserProfile = () => {
         {contactRow && (
           <div className="flex flex-col items-center gap-2 px-5 py-3 md:items-start md:px-12" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
             {contactRow}
-            {mailtoHref && contactEmail && !whatsappUrl && (
-              <a href={mailtoHref} className="max-w-full truncate text-xs no-underline" style={{ color: 'rgba(246,241,234,0.75)' }}>{contactEmail}</a>
-            )}
           </div>
         )}
 
@@ -1322,7 +1354,7 @@ const OrganiserProfile = () => {
               )}
             </div>
             {upcomingListItems.length > UPCOMING_VISIBLE && (
-              <button onClick={() => { if (showAllUpcoming) scrollToId('upcoming'); setShowAllUpcoming((v) => !v); }} aria-expanded={showAllUpcoming} style={moreBtn}>
+              <button onClick={() => { if (showAllUpcoming) scrollBackIfAbove('upcoming'); setShowAllUpcoming((v) => !v); }} aria-expanded={showAllUpcoming} style={moreBtn}>
                 {showAllUpcoming ? 'Show fewer' : `Show all ${totalUpcomingDateCount} dates`}
               </button>
             )}
@@ -1399,7 +1431,7 @@ const OrganiserProfile = () => {
                     })}
                     {group.events.length > PAST_ROWS_PER_YEAR && (
                       <button
-                        onClick={() => { if (expandedPastYears.has(group.year)) scrollToId(`past-${group.year}`); setExpandedPastYears((prev) => { const next = new Set(prev); if (next.has(group.year)) next.delete(group.year); else next.add(group.year); return next; }); }}
+                        onClick={() => { if (expandedPastYears.has(group.year)) scrollBackIfAbove(`past-${group.year}`); setExpandedPastYears((prev) => { const next = new Set(prev); if (next.has(group.year)) next.delete(group.year); else next.add(group.year); return next; }); }}
                         aria-expanded={expandedPastYears.has(group.year)}
                         style={{ ...moreBtn, fontSize: 12 }}
                       >
@@ -1411,7 +1443,7 @@ const OrganiserProfile = () => {
               ); })}
             </div>
             {pastByYear.length > PAST_YEARS_VISIBLE && (
-              <button onClick={() => { if (showAllPastYears) scrollToId('past'); setShowAllPastYears((v) => !v); }} aria-expanded={showAllPastYears} style={moreBtn}>
+              <button onClick={() => { if (showAllPastYears) scrollBackIfAbove('past'); setShowAllPastYears((v) => !v); }} aria-expanded={showAllPastYears} style={moreBtn}>
                 {showAllPastYears ? 'Show fewer years' : `Show earlier years (${hiddenPastYears.length})`}
               </button>
             )}
