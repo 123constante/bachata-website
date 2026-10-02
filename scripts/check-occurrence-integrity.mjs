@@ -3,16 +3,16 @@
  * CI contract check — occurrence integrity aggregator (Occurrence Integrity arc,
  * 2026-06-05). Calls public.check_occurrence_integrity_v1(), which folds every
  * occurrence date/time/program/mirror sub-check into one verdict:
- *   p5_legacy_date_sync, instance_time_canonical, instance_end_canonical,
- *   program_format
+ *   p5_legacy_date_sync, program_format
  *   (per_date_program retired with its guard, M5 2026-09-30; session_override_mirror
  *   retired with the per-date mirror, admin M5 Stage E step C6, 2026-10-02;
  *   program_day_integrity retired with the legacy programme mirror, admin M5 Stage E
- *   step C7b, 2026-10-02).
+ *   step C7b, 2026-10-02; instance_time_canonical and instance_end_canonical retired
+ *   with the legacy date guards, admin M5 Stage E step C8a, 2026-10-02).
  *
  * status='ok' means no invariant drifted above its baseline (currently 0 for all —
  * the arc cleared the 29 P5<->legacy date drifts). Any regression reds this gate.
- * This step is a backstop over the individual #20/#25 steps; it can never be
+ * This step is a backstop over the individual sub-check steps; it can never be
  * forgotten when a new sub-check is added to the aggregator.
  *
  * Local:  node scripts/check-occurrence-integrity.mjs
