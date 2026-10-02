@@ -8,6 +8,7 @@ import { HeaderSearch } from '@/components/search/HeaderSearch';
 import { SearchTrigger } from '@/components/search/SearchTrigger';
 import { cn } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
+import { WHATSAPP_GROUP_URL } from '@/lib/contactLinks';
 
 // NO framer-motion here (perf, Pillar A): the header mounts on every page, so
 // a `motion.*` import would drag the whole library into the first-load bundle.
@@ -15,7 +16,6 @@ import { flags } from '@/lib/featureFlags';
 // #app-header transition), reduced-motion gated by CSS media query.
 
 const EVENT_DETAIL_RE = /^\/event\/[^/]+/i;
-const WHATSAPP_URL = 'https://chat.whatsapp.com/DdbNEnPvRLDGTBMbzcuDcz?mode=gi_t';
 
 const WhatsAppGlyph = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
@@ -39,7 +39,7 @@ const NAV_ITEMS: {
   ...(flags.rafflesPage
     ? [{ label: 'Raffles', emoji: '\u{1F381}', fixedPath: '/raffles', external: false, duration: 1.7 }]
     : []),
-  { label: 'Community',  emoji: null,                 fixedPath: WHATSAPP_URL,  external: true,  duration: 2.0 },
+  { label: 'Community',  emoji: null,                 fixedPath: WHATSAPP_GROUP_URL,  external: true,  duration: 2.0 },
 ];
 
 export const GlobalHeader = () => {

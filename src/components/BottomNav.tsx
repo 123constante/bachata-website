@@ -4,6 +4,7 @@ import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { cn } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
+import { WHATSAPP_GROUP_URL } from '@/lib/contactLinks';
 
 // NO framer-motion here (perf, Pillar A): BottomNav mounts on every page, so a
 // `motion.*` import would drag the whole library into the first-load bundle.
@@ -11,8 +12,6 @@ import { flags } from '@/lib/featureFlags';
 // transform on a wrapper span (separate element so the two transforms compose);
 // the active-tab bar is a plain div -- the framer layoutId slide between tabs
 // was the one visual this intentionally gives up.
-
-const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/DdbNEnPvRLDGTBMbzcuDcz?mode=gi_t';
 
 const WhatsAppGlyph = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">

@@ -1427,26 +1427,31 @@
 /* ---- Chrome micro-animations (perf: replaced framer-motion) ----------------
    GlobalHeader / BottomNav / GlobalFooter are mounted on EVERY page, so their
    framer-motion imports put the whole ~28KB-gz library on the first-load
-   critical path -- purely for these bobbing emojis, a header blur fade and the
-   footer CTA flourish. Same visuals in CSS; framer-motion now loads only with
+   critical path -- purely for these bobbing emojis and a header blur fade.
+   Same visuals in CSS; framer-motion now loads only with
    the lazy routes that genuinely animate. Do not reintroduce `motion.*` into
    chrome components -- scripts/check-bundle-budget.mjs is the tripwire. */
 @keyframes chrome-bob-sm { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 @keyframes chrome-bob    { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-@keyframes footer-beam   { 0% { transform: translateX(-30px); } 100% { transform: translateX(220px); } }
-@keyframes footer-shout {
-  0%, 100% { transform: rotate(-8deg) translateY(0); }
-  50%      { transform: rotate(0deg) translateY(-3px); }
-}
 /* inline-block: transforms are ignored on inline boxes. --bob-dur staggers the
    per-emoji rhythm the framer variants had (1.4s-2.0s). */
 .chrome-bob-sm { display: inline-block; animation: chrome-bob-sm var(--bob-dur, 1.6s) ease-in-out infinite; }
 .chrome-bob    { display: inline-block; animation: chrome-bob    var(--bob-dur, 1.6s) ease-in-out infinite; }
-.footer-beam   { animation: footer-beam 3.4s linear infinite; }
-.footer-shout  { display: inline-block; transform-origin: 50% 80%; animation: footer-shout 1.4s ease-in-out infinite; }
+/* GlobalFooter clearance for page-level fixed bottom action bars
+   (EventStickyActionBar on event + festival pages, VenueStickyBar on venue
+   pages). AppChrome's spacer only clears the BottomNav, so without this the
+   footer's last rows sit under the bar. Driven by the bar's own presence, not
+   by route patterns, so a new page that mounts a bar is covered automatically.
+   "mobile" bars are md:hidden, so they only need clearance below md. */
+body:has([data-sticky-action-bar="always"]) .site-footer { padding-bottom: 6rem; }
+/* Scoped below md instead of reset above it: a reset would have to restate the
+   footer's own responsive padding (pb-6 lg:pb-10) and silently drift from it. */
+@media (max-width: 767.98px) {
+  body:has([data-sticky-action-bar="mobile"]) .site-footer { padding-bottom: 6rem; }
+}
 /* Replaces useReducedMotion(): the JSX no longer branches; CSS owns the gate. */
 @media (prefers-reduced-motion: reduce) {
-  .chrome-bob-sm, .chrome-bob, .footer-beam, .footer-shout { animation: none; }
+  .chrome-bob-sm, .chrome-bob { animation: none; }
 }
 /* Header background/blur fade on scroll -- was framer-motion animate={{...}}. */
 #app-header { transition: background-color 0.3s ease, backdrop-filter 0.3s ease, -webkit-backdrop-filter 0.3s ease; }

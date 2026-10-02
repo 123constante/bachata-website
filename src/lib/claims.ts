@@ -27,6 +27,7 @@
  */
 
 import { constantClaim } from './evidence';
+import { INSTAGRAM_URL } from './contactLinks';
 
 /** buildEventJsonLd.ts and buildEventListJsonLd.ts both assert this,
  *  unconditionally, for every event: the calendar carries only in-person
@@ -111,11 +112,11 @@ export const WEBSITE_SEARCH_QUERY_INPUT_SPEC = constantClaim(
 
 /** buildOrganizationJsonLd.ts's sameAs: our own official channel list. */
 export const ORG_SAME_AS = constantClaim(
-  ['https://www.instagram.com/bachata.community.uk/'],
+  [INSTAGRAM_URL],
   {
     claim: 'Organization.sameAs',
-    source: 'Official channel list, hand-maintained as new ones go live.',
-    verifiedOn: '2026-09-09',
+    source: 'Official channel list, hand-maintained as new ones go live. Instagram is @bachata.calendar (owner-confirmed 2026-10-02), read from contactLinks.ts so the footer link and this list cannot drift.',
+    verifiedOn: '2026-10-02',
     reviewEvery: '180d',
   },
 );

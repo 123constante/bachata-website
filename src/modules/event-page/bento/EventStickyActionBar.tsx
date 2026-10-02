@@ -132,6 +132,9 @@ export const EventStickyActionBar = ({
   return createPortal(
     <div
       className="pointer-events-none fixed inset-x-0 z-40"
+      // GlobalFooter clearance: index.css adds bottom padding to .site-footer
+      // while any [data-sticky-action-bar] is mounted.
+      data-sticky-action-bar="always"
       style={{ bottom: 'calc(58px + env(safe-area-inset-bottom))' }}
     >
       <div

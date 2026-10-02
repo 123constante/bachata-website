@@ -1,97 +1,29 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { FooterLinks } from '@/components/layout/FooterLinks';
 
 // NO framer-motion here (perf, Pillar A): the footer mounts on every page, so
 // a `motion.*` import would drag the whole library into the first-load bundle.
-// The CTA spotlight beam + megaphone wiggle live in index.css (.footer-beam /
-// .footer-shout), reduced-motion gated by CSS media query.
 
 const HIDDEN_RE = /^\/(auth|onboarding)(\/|$)/i;
-
-const WHATSAPP_NUMBER = '447577576006';
-const WHATSAPP_MESSAGE = "Hi! I'd like to list my events on Bachata Calendar.";
-const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
-
-const WEEKDAYS = [
-  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
-] as const;
-
-const GUIDES: ReadonlyArray<readonly [string, string]> = [
-  ['London Bachata Guide', '/london-bachata-guide'],
-  ['Beginners', '/learn-bachata-london'],
-  ['Parties', '/parties'],
-  ['Classes', '/classes'],
-  ['FAQ', '/faq'],
-];
 
 export const GlobalFooter = () => {
   const { pathname } = useLocation();
   if (HIDDEN_RE.test(pathname)) return null;
 
+  // `site-footer`: index.css raises the bottom padding while a page-level fixed
+  // action bar ([data-sticky-action-bar]) is mounted, so the footer's last rows
+  // never sit under it. Pure CSS, so SSR and hydration render identically.
+  // mt-16 / lg:mt-20: the footer owns its separation from the page, so every
+  // page gets the same minimum gap whatever bottom padding it happens to end
+  // with (measured 0-32px on several pages before this).
   return (
     <footer
       role="contentinfo"
-      className="relative border-t border-primary/10 bg-background px-4 pb-5 pt-4"
+      // Brand-gold panel: full contrast against the dark pages (the Fatsoma
+      // principle -- footer on its own surface -- in our colour).
+      className="site-footer relative mt-16 bg-primary px-4 pb-6 pt-10 lg:mt-20 lg:pb-10 lg:pt-14"
     >
-      {/* Decorative orange line -- matches the GlobalHeader top accent */}
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary/55 to-transparent" />
-
-      {/* Sitewide guide + weekday links */}
-      <nav aria-label="Guides and weekday pages" className="mb-4 space-y-1.5 text-xs">
-        <p className="flex flex-wrap items-baseline gap-x-0.5 gap-y-0.5 leading-relaxed">
-          <span className="mr-1 font-bold uppercase tracking-wide text-muted-foreground">Guides:</span>
-          {GUIDES.map(([label, to], i) => (
-            <span key={to}>
-              {i > 0 && (
-                <span aria-hidden="true" className="mx-0.5 text-muted-foreground/40">&middot;</span>
-              )}
-              <Link to={to} className="text-muted-foreground transition-colors hover:text-primary">
-                {label}
-              </Link>
-            </span>
-          ))}
-        </p>
-        <p className="flex flex-wrap items-baseline gap-x-0.5 gap-y-0.5 leading-relaxed">
-          <span className="mr-1 font-bold uppercase tracking-wide text-muted-foreground">By day:</span>
-          {WEEKDAYS.map((d, i) => (
-            <span key={d}>
-              {i > 0 && (
-                <span aria-hidden="true" className="mx-0.5 text-muted-foreground/40">&middot;</span>
-              )}
-              <Link
-                to={`/bachata-london-${d.toLowerCase()}`}
-                className="text-muted-foreground transition-colors hover:text-primary"
-              >
-                {d}
-              </Link>
-            </span>
-          ))}
-        </p>
-      </nav>
-
-      <div className="flex justify-center">
-        <a
-          href={WHATSAPP_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Get listed as an organiser via WhatsApp"
-          className="relative inline-flex items-center gap-2 overflow-hidden rounded-full border border-primary/40 bg-primary/10 px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wider text-primary no-underline transition-colors hover:bg-primary/15"
-        >
-          {/* Spotlight beam sweeping left-to-right across the pill */}
-          <span
-            aria-hidden="true"
-            className="footer-beam pointer-events-none absolute inset-y-0 left-0 w-8"
-            style={{
-              background:
-                'radial-gradient(ellipse at center, hsl(25 100% 62% / 0.55) 0%, transparent 70%)',
-              filter: 'blur(4px)',
-            }}
-          />
-          <span className="footer-shout relative z-10 text-base leading-none" aria-hidden="true">
-            &#128227;
-          </span>
-          <span className="relative z-10">Get Listed</span>
-        </a>
-      </div>
+      <FooterLinks />
     </footer>
   );
 };
