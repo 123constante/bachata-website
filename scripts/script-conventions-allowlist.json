@@ -38,9 +38,6 @@
   "scripts/check-festival-detail-span.mjs": {
     "R5:unproven-exit-contract": 1
   },
-  "scripts/check-festival-publish-readiness.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-festival-span.mjs": {
     "R4:no-canary": 1
   },
@@ -118,12 +115,6 @@
     "R4:no-canary": 1
   },
   "scripts/check-p5-legacy-program-parity.mjs": {
-    "R4:no-canary": 1
-  },
-  "scripts/check-p5-orphan-series.mjs": {
-    "R4:no-canary": 1
-  },
-  "scripts/check-p5-public-read-contract.mjs": {
     "R4:no-canary": 1
   },
   "scripts/check-p5-session-people-parity.mjs": {

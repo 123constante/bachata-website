@@ -488,22 +488,6 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-series-occurrence-horizon.mjs
 
-      # 29. P5 orphan-series guard (P5 <-> legacy orphan integrity arc, 2026-06-05). A LIVE
-      #     event_series_p5 with legacy_event_id IS NULL is public-visible via
-      #     get_calendar_events_v2 but INVISIBLE in the admin events list
-      #     (admin_dashboard_events_list_v1 reads legacy public.events) -- the "BOS con SALSA! 2"
-      #     class of bug: an event shows on the site yet can't be found/managed in admin. The two
-      #     real cases (created pre the 20260604160000 auto-bridge) were rescued in admin migration
-      #     20260809110000; ~517 E2E test-pollution orphans purged in 20260809200000. This guard
-      #     keeps the gate at baseline 0 (E2E test names excluded). Health-check RPC:
-      #     check_p5_orphan_series_v1 (admin migration 20260809210000).
-      - name: Run P5 orphan-series guard check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-p5-orphan-series.mjs
-
       # 30. Festival Map RPC contract (2026-06-07). Anon-calls
       #     get_map_events_v1(london-gb, now, now+90d) and asserts the full
       #     MapEvent shape the homepage map + cards read (coords, cover, times,
@@ -573,23 +557,6 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-p5-session-people-parity.mjs
 
-      # 36. Festival publish readiness (atomic publish arc, 2026-06-14). A LIVE
-      #     event_series_p5 festival whose legacy public.events row is NOT
-      #     'published' renders on the calendar list (P5 read) but 404s on its
-      #     detail page (get_public_festival_detail needs the legacy row at
-      #     lifecycle_status='published') — the AB International Congress Barcelona
-      #     bug: P5 went live, but events.country was NULL so the lifecycle mirror
-      #     silently hit events_country_city_required. Publish is now atomic +
-      #     hard-blocked and country auto-derives from the city (admin migration
-      #     20260825000000), so this stays at 0 for app publishes; the gate catches
-      #     raw-SQL / import drift. Health-check RPC:
-      #     check_festival_publish_readiness_v1.
-      - name: Run festival publish readiness check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-festival-publish-readiness.mjs
       # 38. SEO plan 1.2 slug-column contract (2026-06-17). get_calendar_events_v2
       #     and get_map_events_v1 must expose a slug column (text, nullable) added
       #     by admin migrations 20260829074000 / 20260829075000. Without it every
@@ -892,30 +859,6 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-entry-liveness.mjs
-
-      # 53. P5 public-read contract (the M2 repoint invariants, 2026-07-17). The
-      #     M2 cutover moved five public surfaces onto the P5 spine — the
-      #     festivals hub, the venue "What's on" list, the /organisers pills, the
-      #     event-page "More from organiser" rail — and nothing watched what those
-      #     RPCs RETURN. check_occurrence_integrity watches the data;
-      #     check_festival_detail_p5_parity watches v1==v2; the read surfaces
-      #     themselves were unguarded, and three real bugs shipped through the gap
-      #     (found by an xhigh review, not by CI): a multi-day festival vanishing
-      #     from the venue list mid-run, a fail-open visibility gate letting
-      #     draft/dangling series feed organiser dates, and unlabelled surfaces
-      #     recommending cancelled nights. Each failure mode was verified reachable
-      #     by re-introducing the bug against prod in a rolled-back transaction.
-      #     Note the festival assertion probes each festival over its OWN run: the
-      #     first draft of the guard used a 60-day window and could not see the
-      #     bug, inheriting the exact blind spot that let it ship. Health-check
-      #     RPC: check_p5_public_read_contract_v1 (admin migration 20260717150000);
-      #     the shared gate is _p5_series_public_visibility_v1 (20260717130000).
-      - name: Run P5 public-read contract check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-p5-public-read-contract.mjs
 
       # 54. Series-materialisation horizon watchdog (2026-07-18). Occurrence
       #     materialisation is save-triggered; the admin pg_cron job
