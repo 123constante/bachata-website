@@ -180,7 +180,6 @@ const TARGETS = [
   { rel: 'scripts/check-og-render-health.mjs' },
   { rel: 'scripts/check-og-scrape-evidence.mjs' },
   { rel: 'scripts/check-origin-consumers.mjs' },
-  { rel: 'scripts/check-override-mirror-ghost.mjs' },
   { rel: 'scripts/check-plan-hygiene.mjs' },
   { rel: 'scripts/check-pr-mergeable.mjs' },
   { rel: 'scripts/check-program-day-offsets.mjs' },

@@ -15,8 +15,8 @@
  * 0/0 on 2026-06-15 (admin migrations 20260827030000 / 20260827040000).
  *
  * GATING: data.ok === true iff base-roster drifted_series = 0 (legacy_only +
- * p5_only). The per-occurrence overlay (occurrence_overlay in the payload) is
- * reported but NOT gated — converging it is the §5.7d read cutover's job (#53).
+ * p5_only). The per-occurrence overlay arm was removed by admin M5 Stage E step
+ * C6 (2026-10-02), which stopped the per-date mirror it compared against.
  * Repair (base roster): link unlinked P5 items to their legacy items
  * (event_series_program_item_p5.legacy_program_item_id) + re-run the people
  * backfill; pattern in admin migration 20260827040000.
@@ -85,10 +85,7 @@ if (data?.ok !== true) {
   process.exit(1);
 }
 
-const ov = data.occurrence_overlay || {};
 console.log(
-  `\nP5↔legacy session-people parity: ok (base roster 0/0; ${data.total_live_series} live series). ` +
-  `Per-occurrence overlay (non-gating, #53): legacy_overrides=${ov.legacy_session_people_overrides ?? 0}, ` +
-  `legacy_added_sessions=${ov.legacy_added_sessions ?? 0}, p5_deltas=${ov.p5_session_people_deltas ?? 0}.`,
+  `\nP5↔legacy session-people parity: ok (base roster 0/0; ${data.total_live_series} live series).`,
 );
 process.exit(0);

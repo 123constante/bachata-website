@@ -497,7 +497,7 @@ export function fromFestivalSchedule(items: FestivalScheduleItem[]): ScheduleSes
       // Branded festival stamps -> 24h "HH:MM" via the sanctioned reader, then
       // through the SAME toMins as every other path. toMins itself must stay
       // string-typed: the occurrence-override program feeds it bare "HH:MM"
-      // by DB construction (recompute_override_payload_program_v1).
+      // by DB construction (get_occurrence_override_program_v1 to_char's HH24:MI).
       const startHHMM = formatWallClockTime(item.startTime, { hour12: false });
       const startMins = toMins(startHHMM);
       const endMins = toMins(formatWallClockTime(item.endTime, { hour12: false })) ?? (startMins !== null ? startMins + 60 : null);

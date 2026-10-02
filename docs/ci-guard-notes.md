@@ -83,7 +83,7 @@ All in `scripts/check-*.mjs`, enforced by CI.
 - Override-mirror ghost rows (#68) &mdash; `calendar_occurrences` rows still
   carrying `is_override = true` after the P5 override row emptied, with no
   override content anywhere. Hit in prod 2026-08-19. Calls
-  `check_override_mirror_ghost_v1()` (admin `20260704140000`). **The symptom is
+  `check_override_mirror_ghost_v1()` (admin `20260704140000`). RETIRED 2026-10-02 with the per-date mirror (admin M5 Stage E step C6); the step and script are gone, and the shared `.env` parser canary moved to `check-program-day-offsets.mjs`. **The symptom is
   in the ADMIN editor, not on a public page here** &mdash; an OVR/deviation
   badge that never clears; `is_override` appears in this repo only in the
   generated types. It is guarded from here because the admin migration wires it
