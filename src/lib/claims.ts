@@ -115,7 +115,7 @@ export const ORG_SAME_AS = constantClaim(
   [INSTAGRAM_URL],
   {
     claim: 'Organization.sameAs',
-    source: 'Official channel list, hand-maintained as new ones go live. Instagram is @bachata.calendar (owner-confirmed 2026-10-02), read from contactLinks.ts so the footer link and this list cannot drift.',
+    source: 'Official channel list, hand-maintained as new ones go live. Instagram is @bachata.calendar (owner-confirmed 2026-10-02), read from contactLinks.tsx so the footer link and this list cannot drift.',
     verifiedOn: '2026-10-02',
     reviewEvery: '180d',
   },
