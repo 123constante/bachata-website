@@ -165,79 +165,41 @@ rollback tags `pre-migration-collapse-website` / `pre-migration-collapse-admin`.
 
 ## File-write safety (mandatory for agents)
 
-This repo lives on a Windows mount via Cowork &rarr; FUSE &rarr; virtio-fs &rarr;
-NTFS. Three corruption modes for writes >~2 KB: null-byte injection, silent
-truncation, mount eventual-consistency (a fresh read sees stale content).
+Source files over 2 KB go through `scripts/safe-edit.py` (SURGICAL &mdash; the
+default for an existing file) or `scripts/safe-write.py` (FULL-BODY &mdash; new
+files, whole rewrites, any safe-edit refusal). `.claude/hooks/pre-write-block.sh`
+refuses a raw `Edit`/`Write` on them and prints the exact invocation with your
+path substituted &mdash; read what it prints; it cannot drift from the script.
+Why: the Cowork &rarr; FUSE &rarr; NTFS mount corrupted large writes (null bytes,
+silent truncation, stale reads).
 
-**You do not need the recipes here.** `.claude/hooks/pre-write-block.sh` refuses
-raw `Edit`/`Write` on a source file when the target or the content exceeds 2 KB,
-and prints the exact invocation to run &mdash; both paths, with your file's path
-already substituted, the column-0 marker rule, and the full exit-code table.
-Read what it prints; it is more complete than any copy kept here, and it cannot
-drift from the script. Extensions it guards: `.ts .tsx .jsx .js .cjs .mjs .json
-.sql .yml .yaml .sh .py` &mdash; **`.md` is not among them**, so a large doc
-rewrite is unguarded and is exactly where the mount bites unwatched.
-
-The two paths, so you recognise them: **`scripts/safe-edit.py`** (SURGICAL &mdash;
-the default for a file that already exists; transports only the changed hunk, so
-a 15 KB component costs a 20-line patch rather than two 15 KB round-trips) and
-**`scripts/safe-write.py`** (FULL-BODY &mdash; new files, whole-file rewrites, and
-any `safe-edit.py` refusal). `safe-write.py` is the ONE write path &mdash;
-`safe-edit.py` writes through it, so both get the same mount defences; the
-surgical path is a transport optimisation, never a replacement.
-
-**Two gotchas the hook does NOT print**, both learned the hard way: a hunk whose
-own payload contains the `@@SAFE-EDIT-*@@` marker lines (i.e. editing THIS
-section) collides with the parser &mdash; use full-body for it. And a payload
-containing a bare `HUNK` line at column 0 closes the outer heredoc early and
-leaks the rest into your shell.
-
-**Other guardrails:**
-- `PostToolUse` hook (`.claude/hooks/post-write-check.sh`) &mdash; parse-checks
-  files >2 KB after any Edit/Write
-- `.githooks/pre-commit` &mdash; integrity check on staged files
-- `npm run check:integrity` &mdash; full tree scan (`bin/check-integrity.sh`)
-- `npm run repair:corrupt` &mdash; auto-restore corrupted files from HEAD
-- `scripts/hooks/session-lock.mjs` &mdash; advisory session lock (hooks:
-  SessionStart acquire, per-turn heartbeat, SessionEnd release; 90-min staleness
-  backstop; a live foreign lock warns with the other session's branch &mdash;
-  work in a `git worktree` then). `bin/session-lock.sh` is a thin CLI wrapper
-  for manual use
-
-CRLF auto-applied to source extensions. Override with `--lf` if needed.
+- **`.md` is NOT guarded** &mdash; a large doc rewrite is unwatched.
+- A hunk whose payload contains the `@@SAFE-EDIT-*@@` marker lines (editing the
+  safe-edit docs) collides with the parser &mdash; use full-body.
+- A payload with a bare `HUNK` line at column 0 closes the outer heredoc early.
+- Recovery: `npm run check:integrity`, `npm run repair:corrupt`. A live foreign
+  session lock (`scripts/hooks/session-lock.mjs`) means work in a `git worktree`.
+- CRLF is auto-applied to source extensions; `--lf` overrides.
 
 ---
 
 ## CI workflows
 
-| Workflow | Trigger | Checks |
-|----------|---------|--------|
-| `db-contract-check.yml` | push/PR/daily 06:00 UTC | DB contract checks (venue, coords, program, program-day offsets, security, FK, occurrence integrity, series horizon, map, image refs, event covers, etc.) — count them, don't trust a number here: `grep -c '^      - name: Run ' .github/workflows/db-contract-check.yml` |
-| `architecture-guard.yml` | push/PR | Source integrity + architecture lint + guardrails (legacy-tables, legacy-program-RPCs, images, image widths, plan-hygiene canary, workflow artifact policy, **entry-point dispatch proof**, mojibake). **Does NOT run eslint** |
-| `e2e-smoke.yml` | push/PR | Playwright smoke suite |
-| `types-drift.yml` | daily 06:17 UTC + PR | Detects `types.ts` drift vs the live schema (honest detector; goes red) |
-| `types-drift-autoheal.yml` | daily 06:47 UTC + dispatch | Heals that drift into ONE rolling `bot/types-regen` PR for review |
-| `workflow-lint.yml` | push/PR | Workflow file validation |
-| `pr-mergeable-guard.yml` | push to main + hourly + dispatch | Every open PR is `MERGEABLE` and has at least one **Actions** check run that RAN. Deliberately **not** a `pull_request` workflow &mdash; that trigger is what fails to queue on a conflicting PR |
-| `ci-budget-guard.yml` | daily + dispatch (+ push on its own files) | What this account's CI **costs**: held Actions artifact pool and minutes, account-wide. Lives here because this repo is public and therefore never metered, so it keeps running when a $0 budget pauses the private repos. Needs the `CI_BUDGET_GITHUB_TOKEN` secret; a missing or expired one is **exit 2, never a green 0-byte report** |
+Every workflow with its trigger and checks:
+[`docs/ci-guard-notes.md`](docs/ci-guard-notes.md#workflow-inventory). What
+matters without opening it:
 
-**The conflicting-PR trap.** A conflicting PR's `pull_request` workflows never
-queue at all — the gates cease to exist rather than fail, while Vercel keeps
-reporting green, so the board looks fine when it isn't. Full mechanism, why
-`pr-mergeable-guard.yml` isn't a `pull_request` trigger, and the fixtures:
-[`docs/ci-guard-notes.md`](docs/ci-guard-notes.md#the-conflicting-pr-trap-pr-mergeable-guardyml).
-`npm run check:pr-mergeable`.
-
-**Key DB contract checks and the per-guard record: [`docs/ci-guard-notes.md`](docs/ci-guard-notes.md).**
-That file holds the numbered check list (#1&ndash;#69), the guards whose green is
-narrower than it looks (#65 live image refs, #68 override-mirror ghosts, #69 OG
-bake health, `check-og-images.mjs`'s bypassed preview arm, `check-sitemap-fetchable.mjs`),
-and **the six rules `check-script-conventions.mjs` enforces &mdash; read that before
-writing a new guard.** Do not pin a check count in prose: count them with
-`grep -c '^      - name: Run ' .github/workflows/db-contract-check.yml`.
-
-`check-og-images.mjs` is NOT in `db-contract-check.yml` (it needs a live deploy,
-not a DB connection); run it manually via `npm run check:og`.
+- `architecture-guard.yml` does **NOT** run eslint.
+- **The conflicting-PR trap.** A conflicting PR's `pull_request` workflows never
+  queue &mdash; the gates cease to exist rather than fail, while Vercel stays
+  green. `pr-mergeable-guard.yml` (push/hourly, deliberately NOT `pull_request`)
+  catches it; `npm run check:pr-mergeable`.
+- The numbered DB contract checks, the guards whose green is narrower than it
+  looks, and **the six rules `check-script-conventions.mjs` enforces &mdash; read
+  those before writing a new guard** &mdash; are all in that doc. Never pin a
+  check count in prose: `grep -c '^      - name: Run ' .github/workflows/db-contract-check.yml`.
+- `check-og-images.mjs` needs a live deploy, so it is not in
+  `db-contract-check.yml`; run `npm run check:og`.
 
 ---
 
@@ -289,35 +251,29 @@ fixture parity between repos.
 
 ---
 
-## Operating model (pointer — doctrine lives in the project memory dir)
+## Operating model (pointer -- doctrine lives in the project memory dir)
 
 Classify every request and say the class: TRIVIAL / BUILD-visual /
-BUILD-non-visual / MIGRATE / GUARD-CI / PERF / AUDIT / ARC — pipelines in
-`feedback_operating_model.md` (project memory; read it before classifying).
-Non-trivial work runs the 7-step workflow. Every code-bearing working diff gets
-`/code-review` BEFORE commit — Ricky types it when told; findings become edits,
-never follow-up commits. SQL/guards → xhigh; keystone/arc-close/DB-contract
-PRs → ultra.
+BUILD-non-visual / MIGRATE / GUARD-CI / PERF / AUDIT / ARC &mdash; pipelines in
+`feedback_operating_model.md` (project memory). Non-trivial work runs the
+7-step workflow. Decisions reach Ricky as clickable questions at genuine forks
+only. Every code-bearing diff gets
+`/code-review` BEFORE commit &mdash; Ricky types it when told; findings become
+edits, never follow-up commits. SQL/guards &rarr; xhigh; keystone/arc-close/
+DB-contract PRs &rarr; ultra.
 
-**Review depth is bounded by blast radius, and the stopping rule is stated OUT
-LOUD before the round runs.** User-facing or data-integrity changes get two
-rounds. A CI-guard change gets ONE. In either case, a finding the reviewer
-proves by MUTATION — a gate that stays green against the mutant it exists to
-catch — means revert now, queue the original defect, and do not open another
-round. Fixes to findings are unreviewed code, so a second round that finds
-defects *inside* the first round's fixes is the signal, not a setback to push
-through. Earned 2026-08-11 (og scrape: 7 rounds, 8 drafts, ~86 findings) and
-2026-08-14 (teacher/DJ baseline: 2 rounds, 15 then 12 findings, my own
-mutation-tested canary proven blind three ways — reverted, nothing shipped).
+**State the stopping rule out loud before a review round runs.** User-facing or
+data-integrity changes get two rounds; a CI-guard change gets ONE. A finding
+proved by MUTATION (the gate stays green against the mutant it exists to catch)
+means revert now and queue the defect &mdash; no further round. Fixes to findings
+are unreviewed code.
 
-Arc plans carry the mandatory per-PR model/effort table
-(`feedback_model_effort_matrix.md`); phase starts write `.claude/arc-state.json`
-and state the phase's required /model + effort in one line (the arc-checkpoint hook injects the pin; a mismatch is declared and recorded, never a halt). Ship gate: `npm run pre-ship`
-+ the pre-push receipt gate (`scripts/ship-gate.mjs`). Decisions reach Ricky as
-clickable questions at genuine forks only. Session economy (same memory file):
-delegate bulk reads to subagents, read only what you edit, edit existing files
-with `scripts/safe-edit.py`, and SAY when to start a fresh session — Ricky is
-never left to guess.
+Arc plans carry the per-PR model/effort table (`feedback_model_effort_matrix.md`);
+phase starts write `.claude/arc-state.json` and state the phase's required
+/model + effort in one line (a mismatch is declared and recorded, never a
+halt). Ship gate: `npm run pre-ship` + the
+pre-push receipt gate (`scripts/ship-gate.mjs`). Session economy: delegate bulk
+reads, read only what you edit, and SAY when to start a fresh session.
 
 ## Recent changes
 
