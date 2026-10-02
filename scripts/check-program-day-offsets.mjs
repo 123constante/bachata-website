@@ -7,7 +7,8 @@
  * Every one of them compares two DERIVED VIEWS of the same day set, so a defect
  * in the source appears identically on both sides and cancels:
  *
- *   #26 check_program_day_integrity_v1  -- legacy day date vs item rollover
+ *   #26 check_program_day_integrity_v1 (retired with the legacy programme
+ *       mirror, admin M5 Stage E step C7b, 2026-10-02) -- legacy day date vs item rollover
  *       date. The mirror STAMPS item timestamps from the merged day's date, so
  *       the two agree by construction.
  *   #40 check_festival_occurrence_span_v1 -- calendar distinct dates vs

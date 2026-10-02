@@ -32,9 +32,6 @@
   "scripts/check-epp-display-name-drift.mjs": {
     "R4:no-canary": 1
   },
-  "scripts/check-event-program-duration.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-festival-detail-span.mjs": {
     "R5:unproven-exit-contract": 1
   },
@@ -111,12 +108,6 @@
     "R1:empty-sample": 1,
     "R4:no-canary": 1
   },
-  "scripts/check-p5-legacy-program-parity.mjs": {
-    "R4:no-canary": 1
-  },
-  "scripts/check-p5-session-people-parity.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-p5-unmaterialised.mjs": {
     "R4:no-canary": 1
   },
@@ -133,13 +124,7 @@
   "scripts/check-pr-mergeable.mjs": {
     "R5:unproven-exit-contract": 1
   },
-  "scripts/check-program-day-integrity.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-program-save-idempotency-contract.mjs": {
-    "R4:no-canary": 1
-  },
-  "scripts/check-program-schema-contract.mjs": {
     "R4:no-canary": 1
   },
   "scripts/check-public-rpc-latency.mjs": {
@@ -183,9 +168,6 @@
     "R4:no-canary": 1
   },
   "scripts/check-series-occurrence-horizon.mjs": {
-    "R4:no-canary": 1
-  },
-  "scripts/check-session-people-display-name-contract.mjs": {
     "R4:no-canary": 1
   },
   "scripts/check-slug-column.mjs": {
