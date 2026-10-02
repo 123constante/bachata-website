@@ -91,9 +91,6 @@
     "R1:walled-preview": 1,
     "R5:unproven-exit-contract": 1
   },
-  "scripts/check-organiser-link-contract.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-organiser-past-events-rpc.mjs": {
     "R1:empty-sample": 1,
     "R4:no-canary": 1
