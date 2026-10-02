@@ -37,7 +37,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isEntryPoint } from './lib/entry-point.mjs';
-import { readEnvFiles, readEnvDirs, firstValue } from './lib/dotenv.mjs';
+import { parseDotEnv, readEnvFiles, readEnvDirs, firstValue } from './lib/dotenv.mjs';
 
 /** The RPC runs four small aggregates over ~420 series and one LATERAL over
  *  the live festivals. It shares a 5-minute job budget with ~60 sibling steps,
@@ -319,8 +319,9 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 /**
  * readEnvFiles and readEnvDirs now come from ./lib/dotenv.mjs (imported
- * above), shared with the sibling guard (check-override-mirror-ghost.mjs,
- * #68). EXTRACTED 2026-08-22, closing the gap this file used to name here:
+ * above). Its sibling guard (check-override-mirror-ghost.mjs, #68) retired
+ * with the per-date mirror (admin M5 Stage E step C6, 2026-10-02); the parser's
+ * own edge cases moved from that guard's canary into this one. EXTRACTED 2026-08-22, closing the gap this file used to name here:
  * this guard's own parser used to strip only double quotes, never handled
  * `export `, and never stripped an inline comment -- "PR A's, not this
  * one's", deferred until the shared parser was actually correct. It now is
@@ -509,7 +510,7 @@ function driveMain(argv, { env = { VITE_SUPABASE_URL: 'u', VITE_SUPABASE_PUBLISH
 // EQUALITY, not a floor. A canary with slack can silently lose a rung -- the
 // floor-shaped version of this number would still print PASS after someone
 // deleted the two self-inconsistency cases. Add a case, update this number.
-const EXPECTED_CASES = 56;
+const EXPECTED_CASES = 74;
 
 export async function selfTest(log = console.log) {
   const cases = [
@@ -791,7 +792,7 @@ export async function selfTest(log = console.log) {
     // (a sequential edit log: a later REAL value legitimately replaces an
     // earlier one, e.g. an operator rotating a credential by appending a
     // corrected line -- see ./lib/dotenv.mjs). Both guards now agree.
-    ['TWO real values for the same key in one file -- the LATER one wins, matching #68 (check-override-mirror-ghost.mjs)',
+    ['TWO real values for the same key in one file -- the LATER one wins, matching the shared parser (a later real value wins within a file)',
       () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'offsets-later-wins-'));
         try {
@@ -854,10 +855,9 @@ export async function selfTest(log = console.log) {
     // still glued to the URL under the pre-extraction parser -- both wrong in
     // ways this guard's own suite never had a case to catch, because its old
     // parser could not do either job. One case is enough here: the parser's
-    // OWN edge cases (NBSP, tabs, blank-vs-comment) are #68's canary, driven
-    // against the identical shared function -- duplicating that battery here
-    // would prove the same code twice, not prove more of it.
-    ['readEnvFiles now shares #68 (check-override-mirror-ghost.mjs)\'s parser -- ' +
+    // OWN edge cases (NBSP, tabs, blank-vs-comment) are driven at the end of
+    // this suite (moved from #68's canary when that guard retired).
+    ['readEnvFiles uses the shared ./lib/dotenv.mjs parser -- ' +
      '`export ` and an unquoted trailing comment are both honoured, closing the ' +
      'gap this file used to defer to "PR A"',
       () => {
@@ -873,6 +873,324 @@ export async function selfTest(log = console.log) {
           fs.rmSync(dir, { recursive: true, force: true });
         }
       }, 'https://x.supabase.co|single-quoted'],
+  );
+
+  // THE SHARED .env PARSER (./lib/dotenv.mjs), whose bugs all present as a
+  // missing-secret exit 2. Moved VERBATIM from check-override-mirror-ghost.mjs
+  // (#68) when admin M5 Stage E step C6 (2026-10-02) dropped
+  // check_override_mirror_ghost_v1 and that guard was deleted; this suite is
+  // now the parser's only canary. `add` keeps the moved cases byte-identical.
+  const add = (name, run, want) => cases.push([name, run, want]);
+  // --- The .env parser, whose bugs all present as a missing-secret exit 2 ---
+  add(
+    'the .env parser strips BOTH quote styles, honours `export `, and ignores comments',
+    () => {
+      const parsed = parseDotEnv(
+        // The comment carries an `=` on purpose. With a plain `# comment` the
+        // comment test and the no-`=` test are indistinguishable, so the `||`
+        // joining them could be flipped with the case still green.
+        ['# commented=out', "export A='one'", 'B="two"', 'C=three', 'no-equals', 'D=', ''].join('\n'),
+      );
+      return Object.keys(parsed).sort().join(',') + '|' + parsed.A + parsed.B + parsed.C;
+    },
+    'A,B,C,D|onetwothree',
+  );
+  /**
+   * The QUOTE-STRIPPING EDGES. The condition is a length test AND a matched
+   * pair of either quote style, and every one of those three joins was
+   * flippable while the suite stayed green -- the fixture above only ever fed
+   * it well-formed values. A .env holding `KEY=it's` is not exotic.
+   */
+  add(
+    'the parser strips only MATCHED pairs, and only where there is something between them',
+    () => {
+      const parsed = parseDotEnv(
+        ['M=mixed"', "N=mixed'", 'P="', 'Q=""', "R=''"].join('\n'),
+      );
+      return [parsed.M, parsed.N, parsed.P, '[' + parsed.Q + ']', '[' + parsed.R + ']'].join('|');
+    },
+    'mixed"|mixed' + "'" + '|"|[]|[]',
+  );
+  /**
+   * A null-prototype bag, driven rather than asserted by reading. With a plain
+   * `{}` the first key below is swallowed -- assigning `__proto__` sets the
+   * prototype instead of a property -- and `constructor` reads back as a
+   * function from Object.prototype. In the one module whose bugs all present as
+   * a confusing missing-credentials 2, that is the worst possible failure mode
+   * to add.
+   */
+  add(
+    'the parser returns a NULL-PROTOTYPE bag, so __proto__ and constructor are ordinary keys',
+    () => {
+      const parsed = parseDotEnv(['__proto__=x', 'constructor=y', 'K=v'].join('\n'));
+      return (
+        Object.getPrototypeOf(parsed) + '|' + parsed.__proto__ + '|' + parsed.constructor + '|' + parsed.K
+      );
+    },
+    'null|x|y|v',
+  );
+  /**
+   * An UNQUOTED trailing comment. Left in the value it reaches createClient as
+   * part of a URL, which throws "Invalid URL" -- so the guard answers
+   * COULD NOT MEASURE instead of the branch that names the two secrets an
+   * operator has to set. Inside quotes a `#` is data and stays.
+   */
+  add(
+    'the parser drops an unquoted trailing comment, and keeps a quoted hash',
+    () => {
+      const parsed = parseDotEnv(
+        ['U=https://x.supabase.co # prod', 'V=plain#nospace', 'W="keep # this"'].join('\n'),
+      );
+      return parsed.U + '|' + parsed.V + '|' + parsed.W;
+    },
+    'https://x.supabase.co|plain#nospace|keep # this',
+  );
+  /**
+   * v2 (2026-08-22): the comment needle was the literal `' #'`, so anything
+   * OTHER than a plain space before `#` defeated it -- a TAB, or a
+   * comment-only remainder where the outer `.trim()` had already eaten the
+   * whitespace the needle keyed on. All FOUR shapes measured wrong on the
+   * pre-v2 parser (driven, not read -- a differential run against the old
+   * code printed `# set in Vercel`, `# cmt`, a leaked TAB+comment inside the
+   * URL, and `#b` respectively, all non-blank/non-clean).
+   */
+  add(
+    'a comment-only value is BLANK regardless of what whitespace precedes the #',
+    () => {
+      const parsed = parseDotEnv(
+        ['A=' + '\t' + '# set in Vercel', 'B=  # cmt', 'C=' + '\t' + ' #b'].join('\n'),
+      );
+      return '[' + parsed.A + ']|[' + parsed.B + ']|[' + parsed.C + ']';
+    },
+    '[]|[]|[]',
+  );
+  add(
+    'a TAB, not just a space, strips a trailing comment out of the VALUE',
+    () => {
+      const parsed = parseDotEnv('A=https://x.supabase.co' + '\t' + '# prod');
+      return parsed.A;
+    },
+    'https://x.supabase.co',
+  );
+  /**
+   * The needle still requires an ACTUAL preceding whitespace character --
+   * never the bare fact of being first -- so a `#` with nothing before it at
+   * all is still data, unchanged from the pre-v2 parser. Pinned separately
+   * from the case above so the two do not collapse into one accidentally
+   * correct predicate.
+   */
+  add(
+    'a # with NOTHING before it -- not even trimmed whitespace -- is still data, not a comment',
+    () => {
+      const parsed = parseDotEnv(['A=#nospace', 'B=a#b'].join('\n'));
+      return parsed.A + '|' + parsed.B;
+    },
+    '#nospace|a#b',
+  );
+  /**
+   * v2 (2026-08-22): the within-FILE assignment used to be unconditional --
+   * `vars[key] = value` on every matching line, last one standing -- so a
+   * leftover blank (or quoted-but-blank) duplicate beneath a real value
+   * silently won. `.trim() === ''`, matching readEnvFiles/readEnvDirs in
+   * ./lib/dotenv.mjs.
+   */
+  add(
+    'a blank duplicate LOWER in the same file does not overwrite a real value above it',
+    () => {
+      const parsed = parseDotEnv(['A=real', 'A="   "', 'B=real', 'B='].join('\n'));
+      return parsed.A + '|' + parsed.B;
+    },
+    'real|real',
+  );
+  /**
+   * The OTHER direction, and it is a DIFFERENT branch of the predicate: this
+   * one drives whether a whitespace-only STORED value still counts as blank
+   * when a REAL value follows it, not whether a blank later value can
+   * overwrite a real earlier one. `.trim() === ''` vs a bare `=== ''` agree on
+   * every case above (nothing there stores a non-empty-but-blank string first)
+   * -- only this ordering tells them apart, and only this case caught, by
+   * MUTATION, that `.trim()` had not actually been proven yet.
+   */
+  add(
+    'a whitespace-only value stored FIRST does not block a real value below it',
+    () => {
+      const parsed = parseDotEnv(['A="   "', 'A=real'].join('\n'));
+      return parsed.A;
+    },
+    'real',
+  );
+  /**
+   * Found in review, by direct execution: the FIRST cut of this rule was
+   * unconditional first-non-blank-wins, copied from readEnvFiles's own
+   * cross-file merge rule in ./lib/dotenv.mjs --
+   * correct THERE because file order is a priority list, wrong HERE, where
+   * lines are a sequential edit log and a later REAL value (an operator
+   * rotating a credential by appending a corrected line) must still win.
+   * `KEY=old\nKEY=new` silently kept `old` under that first cut.
+   */
+  add(
+    'TWO real values for the same key in one file -- the LATER one wins, same as before this fix',
+    () => {
+      const parsed = parseDotEnv(['KEY=old-value', 'KEY=new-value'].join('\n'));
+      return parsed.KEY;
+    },
+    'new-value',
+  );
+  /**
+   * Found in review, by direct execution: the FIRST cut of the needle used
+   * the regex `\s` class, which also matches NBSP (U+00A0) and the Unicode
+   * line/paragraph separators -- not just the space and tab the fix exists
+   * for. `keepme\u00A0#stillpartofvalue` lost everything from the NBSP
+   * onward under that first cut; only an ASCII space or tab is a comment
+   * marker, matching the old parser's literal `' #'` needle in kind, just
+   * not tied to a single-space width.
+   */
+  add(
+    'an NBSP before # is NOT a comment marker -- only an ASCII space or tab is',
+    () => {
+      const parsed = parseDotEnv('A=keepme\u00A0#stillpartofvalue');
+      return parsed.A;
+    },
+    'keepme\u00A0#stillpartofvalue',
+  );
+  /**
+   * Both halves of the OR need `.trim()`, not just the first: a
+   * whitespace-only stored value (from a QUOTED blank, `="   "`) must still
+   * read as blank when a later line for the same key is blank too -- a bare
+   * `=== ''` on the second clause alone passes every case above (nothing
+   * else stores a non-empty-but-blank string and then follows it with
+   * another blank), so only this exact ordering tells the two apart.
+   */
+  add(
+    'a whitespace-only stored value still reads as blank against a LATER blank, not just a later real one',
+    () => {
+      const parsed = parseDotEnv(['A="   "', 'A=""'].join('\n'));
+      return '[' + parsed.A + ']';
+    },
+    '[]',
+  );
+  /**
+   * NOT one of v2's two fixes, and deliberately left this way: quote-stripping
+   * still runs only when the TRIMMED value itself ends in a matching quote, so
+   * a quoted value with a trailing comment keeps its literal quote characters.
+   * Closing it needs the comment scan to be quote-AWARE (skip a `#` that sits
+   * inside an open quote, e.g. `A="a # b"` a case above, which must NOT
+   * become a comment) -- a bigger, structural change than 'the needle' or
+   * 'the blank predicate', and the exact shape of scope-widening that sank
+   * both earlier attempts at this parser. Pinned here, not silently fixed, so
+   * a future change to this stays a deliberate decision instead of a re-drift.
+   */
+  add(
+    'DEFERRED, not fixed here: a quoted value with a trailing comment keeps its literal quotes',
+    () => {
+      const parsed = parseDotEnv('A="https://x" # prod');
+      return parsed.A;
+    },
+    '"https://x"',
+  );
+  /**
+   * The FILE SET, not just the parser, driven against a real temporary
+   * directory rather than a stubbed filesystem -- the property being proven is
+   * which files on disk are opened and in what order.
+   *
+   * RESIDUAL, stated rather than papered over: this drives readEnvFiles, not
+   * defaultReadDotEnv, so the binding of ROOT itself is still unproven here --
+   * every case injects readDotEnv over it. Removing that function's default
+   * parameter is what stops the binding being silently overridable; proving it
+   * needs a fixture root the module cannot be pointed at.
+   */
+  add(
+    'the reader takes .env.local, .env and .env.development, and the FIRST file wins',
+    () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ghost-env-'));
+      try {
+        fs.writeFileSync(path.join(dir, '.env.local'), 'K=from-local\n');
+        fs.writeFileSync(path.join(dir, '.env'), 'K=from-env\nONLY_ENV=yes\n');
+        fs.writeFileSync(path.join(dir, '.env.development'), 'ONLY_DEV=yes\n');
+        const got = readEnvFiles(dir);
+        return got.K + '|' + got.ONLY_ENV + '|' + got.ONLY_DEV;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    },
+    'from-local|yes|yes',
+  );
+  /**
+   * FIRST NON-BLANK, not first PRESENT -- the same source-shadowing defect
+   * firstValue() carries a paragraph about, one layer lower and covered by
+   * nothing until review drove it. A stale `VITE_SUPABASE_URL=` in .env.local
+   * made the guard exit 2 blaming absent secrets that were in .env.
+   */
+  add(
+    'a BLANK value in an earlier file does not shadow a real one in a later file',
+    () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ghost-blank-'));
+      try {
+        fs.writeFileSync(path.join(dir, '.env.local'), 'K=\nJ=from-local\n');
+        fs.writeFileSync(path.join(dir, '.env'), 'K=from-env\nJ=from-env\n');
+        const got = readEnvFiles(dir);
+        return got.K + '|' + got.J;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    },
+    'from-env|from-local',
+  );
+
+  /**
+   * readEnvDirs: ROOT then cwd, additive. Two real temp directories, because
+   * the property being proven is which DIRECTORY wins, not which file within
+   * one does -- that half is proven above.
+   */
+  add(
+    'readEnvDirs prefers the FIRST directory in the list for a name both define',
+    () => {
+      const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'ghost-dirA-'));
+      const dirB = fs.mkdtempSync(path.join(os.tmpdir(), 'ghost-dirB-'));
+      try {
+        fs.writeFileSync(path.join(dirA, '.env'), 'K=from-A\n');
+        fs.writeFileSync(path.join(dirB, '.env'), 'K=from-B\nONLY_B=yes\n');
+        const got = readEnvDirs([dirA, dirB]);
+        return got.K + '|' + got.ONLY_B;
+      } finally {
+        fs.rmSync(dirA, { recursive: true, force: true });
+        fs.rmSync(dirB, { recursive: true, force: true });
+      }
+    },
+    'from-A|yes',
+  );
+  add(
+    'readEnvDirs: a BLANK value in the first directory does not shadow a real one in the second -- additive, not a replacement',
+    () => {
+      const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'ghost-dirA2-'));
+      const dirB = fs.mkdtempSync(path.join(os.tmpdir(), 'ghost-dirB2-'));
+      try {
+        fs.writeFileSync(path.join(dirA, '.env'), 'K=\n');
+        fs.writeFileSync(path.join(dirB, '.env'), 'K=from-B\n');
+        const got = readEnvDirs([dirA, dirB]);
+        return got.K;
+      } finally {
+        fs.rmSync(dirA, { recursive: true, force: true });
+        fs.rmSync(dirB, { recursive: true, force: true });
+      }
+    },
+    'from-B',
+  );
+  add(
+    // Named for what it proves, not for defaultReadDotEnv's collapse branch --
+    // that branch feeds THIS call, but is itself in the residual gap above,
+    // unproven by any case here.
+    'readEnvDirs reads ONE directory fine when the list has one entry',
+    () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ghost-dirOne-'));
+      try {
+        fs.writeFileSync(path.join(dir, '.env'), 'K=solo\n');
+        return readEnvDirs([dir]).K;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    },
+    'solo',
   );
 
   let failed = 0;

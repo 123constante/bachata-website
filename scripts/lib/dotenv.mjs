@@ -1,5 +1,6 @@
-// Shared .env parsing and precedence rules for scripts/check-override-mirror-ghost.mjs
-// (#68) and scripts/check-program-day-offsets.mjs (#67).
+// Shared .env parsing and precedence rules, first for scripts/check-override-mirror-ghost.mjs
+// (#68, retired 2026-10-02 with the per-date mirror) and scripts/check-program-day-offsets.mjs
+// (#67, which now carries this parser's canary).
 //
 // EXTRACTED 2026-08-22, on the third attempt at this seam. The first attempt
 // (queued-dotenv-rpc-unification-reverted.md) moved this pair before the

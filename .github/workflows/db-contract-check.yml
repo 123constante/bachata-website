@@ -86,9 +86,10 @@ name: DB Contract Check
 # 19. RETIRED (M5 guard remediation, 2026-09-30): the per-date program
 #     canonical-vs-JSON-shadow contract and its sync-mutation test both
 #     measured the LEGACY per-date overlay (calendar_occurrences.override_payload
-#     vs calendar_occurrence_* tables). The P5 overlay is canonical; its mirror
-#     is still covered by the aggregator's session_override_mirror arm and the
-#     P5 legacy program parity step below. The mutation test also INSERTed
+#     vs calendar_occurrence_* tables). The P5 overlay is canonical, and admin
+#     M5 Stage E step C6 (2026-10-02) stopped mirroring it to legacy at all,
+#     dropping the aggregator's session_override_mirror arm and the #44/#68
+#     mirror guards with it. The mutation test also INSERTed
 #     legacy events rows nightly. Both RPCs are dropped by the admin migration
 #     that follows this PR.
 # 20. The occurrence instance_start/end vs canonical program contract
@@ -707,26 +708,6 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-occurrence-p5-materialised-canonical.mjs
 
-      # 44. Per-occurrence override identity sync (P5 typed columns -> legacy
-      #     override_payload), 2026-06-22. calendar_occurrences.override_payload is
-      #     the legacy shape the public event-detail read consumes; its identity keys
-      #     (name/poster_url/ticket_url/description/level) are now a pure derived
-      #     projection of event_occurrence_override_p5, maintained by one trigger
-      #     (trg_mirror_p5_override_identity_to_legacy, admin migration 20260925000000).
-      #     The old per-writer dirty-key-gated mirror left a partial edit (retitling one
-      #     date of a recurring series) with a stale payload, so the date's overridden
-      #     cover/ticket/title silently never reached the website (the "Antoni y Belen -
-      #     Poolside Glam" report). forward_drift_count is GATED at 0; reverse_orphan_count
-      #     (payload identity with no typed row, e.g. legacy admin_bulk_patch_occurrences_v1
-      #     writes) is reported, non-gating. Health-check RPC:
-      #     check_override_payload_identity_sync_v1.
-      - name: Run per-occurrence override identity sync check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-override-identity-sync.mjs
-
       # 45. Reverse-orphan occurrence guard (duplicate-date cancel-400 fix, 2026-06-24).
       #     A legacy-backed P5 series could hold, on the same date, BOTH an unlinked
       #     pure-P5 occurrence (event_occurrence_p5.legacy_occurrence_id IS NULL, minted
@@ -1170,67 +1151,6 @@ jobs:
         run: |
           node scripts/check-program-day-offsets.mjs --self-test
           node scripts/check-program-day-offsets.mjs
-
-      # 68. Override-mirror ghost rows (2026-08-21). calendar_occurrences rows
-      #     left carrying is_override = true after the P5 override row emptied,
-      #     with no override content anywhere -- no venue or city, an empty
-      #     payload, no session or added-session overrides. Hit in prod on
-      #     2026-08-19.
-      #
-      #     THE SYMPTOM IS IN THE ADMIN EDITOR, not on this repo's public pages:
-      #     an OVR/deviation badge that never clears. A grep of src/ finds
-      #     is_override in the generated types and nowhere else. An earlier
-      #     draft of this comment claimed a public event page renders its badge
-      #     off the flag; that was false. It is guarded from here because the
-      #     admin migration wires it here -- 20260704140000's header names this
-      #     workflow and this script -- and because the drift is a DATA fault
-      #     whichever surface reads it. Anon-callable; no Docker, no service key.
-      #
-      #     ZERO ROWS MEASURED IS EXIT 2, NOT A PASS. Prod carried 357 rows with
-      #     is_override=true when last measured (2026-08-21; 355 on 2026-08-19),
-      #     of which ZERO were ghosts -- so a total of 0 means the read broke,
-      #     not that the data got clean. That figure is a DATED READING and
-      #     nothing gates on it; the floor is > 0 and no tighter on purpose,
-      #     because any larger number would be one nobody measured.
-      #
-      #     Payload SHAPE drift is 2 as well, and a readable ghost_count is read
-      #     BEFORE the fields it does not depend on -- the design argument for
-      #     both, and the measured defects behind them, are in the script's
-      #     header rather than repeated here. Read that file before changing
-      #     this step.
-      #
-      #     --self-test runs FIRST and BARE, exactly as #67 above and the other
-      #     two guards on this seam do. Do NOT re-add a per-step tee/grep for
-      #     the canary's PASS line: an earlier draft had one, it covered ONE of
-      #     the four steps built on this seam, and Ricky's decision (2026-08-20,
-      #     re-confirmed 2026-08-21) is that this class is closed repo-wide or
-      #     not at all. What that costs is measured: a generated 174-mutant
-      #     sweep over the guard leaves exactly one silent survivor -- the
-      #     --self-test exit code cut to 0, which prints FAIL and exits 0. The
-      #     identical hole is on #66, #67 and og-scrape-evidence, which is the
-      #     argument for one instrument rather than a fourth copy of a wrapper.
-      #     Census and expected shape: queued-r7-dispatch-exit-wiring.md.
-      #
-      #     The step timeout is the only bound that cannot be defeated from
-      #     inside the script. Worst case from inside is 20s + a 2s wait + 20s;
-      #     raising either constant, or adding a second retry, eats the 5-minute
-      #     job budget and the step that gets cancelled is the outbound image
-      #     sweep at #65, which then fails as CANCELLED rather than by name. For
-      #     scale: this workflow ran 1m36s-2m6s across the twelve runs before
-      #     2026-08-21.
-      #
-      #     Retires WITH the legacy mirror at single-engine convergence Lever 1E:
-      #     is_override legitimately reaches 0 there and this step then reds
-      #     permanently. Delete the step at that point. Do not relax the floor.
-      - name: Run override-mirror ghost check
-        if: always()
-        timeout-minutes: 2
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: |
-          node scripts/check-override-mirror-ghost.mjs --self-test
-          node scripts/check-override-mirror-ghost.mjs
 
       # 65. Live image references (2026-07-29). HEAD-checks every image URL
       #     reachable from a public surface (list_public_image_refs_v1, admin
