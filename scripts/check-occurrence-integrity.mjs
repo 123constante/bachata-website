@@ -3,12 +3,13 @@
  * CI contract check — occurrence integrity aggregator (Occurrence Integrity arc,
  * 2026-06-05). Calls public.check_occurrence_integrity_v1(), which folds every
  * occurrence date/time/program/mirror sub-check into one verdict:
- *   p5_legacy_date_sync, program_format
+ *   program_format
  *   (per_date_program retired with its guard, M5 2026-09-30; session_override_mirror
  *   retired with the per-date mirror, admin M5 Stage E step C6, 2026-10-02;
  *   program_day_integrity retired with the legacy programme mirror, admin M5 Stage E
  *   step C7b, 2026-10-02; instance_time_canonical and instance_end_canonical retired
- *   with the legacy date guards, admin M5 Stage E step C8a, 2026-10-02).
+ *   with the legacy date guards, admin M5 Stage E step C8a, 2026-10-02;
+ *   p5_legacy_date_sync retires with the legacy date mirror, admin M5 Stage E step C8b).
  *
  * status='ok' means no invariant drifted above its baseline (currently 0 for all —
  * the arc cleared the 29 P5<->legacy date drifts). Any regression reds this gate.

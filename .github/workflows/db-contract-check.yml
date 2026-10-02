@@ -408,11 +408,10 @@ jobs:
         run: node scripts/check-cancelled-occurrence-passthrough.mjs
 
       # 27. Occurrence integrity aggregator (Occurrence Integrity arc time-convergence,
-      #     2026-06-05). One rollup over date-sync, instance start/end, program-day,
-      #     program format, and the NEW P5->legacy session-override mirror parity
-      #     (the per-date shadow arm retired with #19). Backstops #20/#25/#26 and the
-      #     new mirror invariant in a
-      #     single gate that can't be forgotten. Mechanical drift is repairable via
+      #     2026-06-05). One rollup over the occurrence sub-checks; since admin M5
+      #     Stage E C6-C8b only program format remains (date-sync, instance start/end,
+      #     program-day and the mirror-parity arms retired with the legacy mirrors).
+      #     A single gate that can't be forgotten. Mechanical drift is repairable via
       #     self_heal_occurrence_integrity_v1(); date direction is a human call.
       - name: Run occurrence integrity aggregator check
         if: always()
@@ -621,26 +620,6 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-occurrence-p5-materialised-canonical.mjs
-
-      # 45. Reverse-orphan occurrence guard (duplicate-date cancel-400 fix, 2026-06-24).
-      #     A legacy-backed P5 series could hold, on the same date, BOTH an unlinked
-      #     pure-P5 occurrence (event_occurrence_p5.legacy_occurrence_id IS NULL, minted
-      #     by series.add_date / recurrence) AND an unlinked legacy calendar_occurrences
-      #     row. admin_event_workspace then emitted that date TWICE — once with the P5 id,
-      #     once with the legacy id — and the P5 command path rejected the legacy id with
-      #     'not_found', so the editor's cancel-occurrence button 400'd ("That event or
-      #     date no longer exists"). Root cause: _cmd_series_add_date_p5 minted the P5 occ
-      #     + a legacy mirror but never linked them. Healed + prevented + de-duped by admin
-      #     migrations 20261001000000 / 20261001010000 / 20261001020000. collision_count is
-      #     GATED at 0; reverse_orphan_count (harmless past/draft/test rows) is reported,
-      #     non-gating. Health-check RPC: check_reverse_orphan_occurrence_v1 (admin
-      #     migration 20261001030000).
-      - name: Run reverse-orphan occurrence guard check
-        if: always()
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-reverse-orphan-occurrence.mjs
 
       # 46. Public time-pairing guard (the "in -1 days" family, 2026-07-02).
       #     Occurrence times are London wall-clock stored as-if-UTC, so public
