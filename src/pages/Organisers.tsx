@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { londonDaysBetweenKeys } from '@/lib/londonDate';
+import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
 import { useLondonToday } from '@/hooks/useLondonToday';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -28,8 +29,6 @@ const D_SIDEBAR = '#0e0e13';
 const D_CARD    = '#1a1a20';
 const D_BORDER  = 'rgba(255,255,255,.07)';
 const D_GOLD    = '#d3a84c';
-
-const WA_URL = 'https://wa.me/447577576006?text=' + encodeURIComponent("Hi! I'd like to list my events on Bachata Calendar.");
 
 const CAT_DOT: Record<string, string> = {
   'Promoter':        '#d3a84c',
@@ -519,7 +518,7 @@ const Organisers = () => {
 
           <div style={{ padding: '14px 12px', borderTop: '1px solid rgba(255,255,255,.06)', flexShrink: 0 }}>
             <a
-              href={WA_URL}
+              href={WHATSAPP_GET_LISTED_URL}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -693,7 +692,7 @@ const Organisers = () => {
                   <div style={{ fontSize: 12, color: '#86858c', marginTop: 1 }}>Add your events in minutes</div>
                 </div>
                 <a
-                  href={WA_URL}
+                  href={WHATSAPP_GET_LISTED_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{

@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { SITE_ORIGIN, type SeoInput } from '@/lib/seo';
 import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
+import { INSTAGRAM_URL } from '@/lib/contactLinks';
 
 interface Faq {
   q: string;
@@ -238,13 +239,13 @@ const FAQS: Faq[] = [
       <>
         Stay for the social after a class - partner rotation means you meet most of the
         room in an hour. London also has a 1,800-member bachata WhatsApp community run by
-        Bachata Community UK that shares what&rsquo;s on each week; find us on Instagram{' '}
+        Bachata Community UK that shares what&rsquo;s on each week. Follow Bachata Calendar on Instagram{' '}
         <a
-          href="https://www.instagram.com/bachata.community.uk/"
+          href={INSTAGRAM_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="text-primary underline"
-        >@bachata.community.uk</a>.
+        >@bachata.calendar</a>.
       </>
     ),
   },

@@ -47,7 +47,7 @@ import {
 } from './cards/cards';
 import { AllEventsList } from './cards/AllEventsList';
 import { LocateControl } from './cards/LocateControl';
-import { HomeExploreLinks } from '@/components/home/HomeExploreLinks';
+import { FooterLinks } from '@/components/layout/FooterLinks';
 import { MAP_PLACEHOLDERS } from './mapPlaceholders';
 // The tile provider's required credit, for the pre-mount still. Safe to import
 // into this EAGER, server-rendered shell: basemapTiles.ts has no imports of its
@@ -463,7 +463,19 @@ export default function HomeMapShell({
               )}
             </>
           )}
-          {!loading && !error && <HomeExploreLinks />}
+          {/* The home suppresses GlobalFooter (full-bleed map), so the footer's
+              links close the feed instead -- same component, so the two never
+              drift. */}
+          {!loading && !error && (
+            // Same gold panel as GlobalFooter, bled to the feed's edges by
+            // cancelling its px-3/md:px-4 and pb-3/md:pb-8. relative z-[1]
+            // lifts it over the .hm-side::after foot fade (index.css), which
+            // would otherwise smudge the panel's bottom edge dark; rows above
+            // still fade, and the scroller's overflow clips the panel.
+            <div className="relative z-[1] -mx-3 -mb-3 mt-10 bg-primary px-3 pb-6 pt-10 md:-mx-4 md:-mb-8 md:px-4 lg:mt-16 lg:pb-10 lg:pt-14">
+              <FooterLinks label="Explore bachata in London" />
+            </div>
+          )}
         </div>
       </div>
     </div>

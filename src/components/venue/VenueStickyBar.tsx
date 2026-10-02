@@ -27,6 +27,8 @@ export default function VenueStickyBar({
   const node = (
     <div
       className="fixed inset-x-0 z-40 px-4 pb-3 pt-2.5 md:hidden"
+      // "mobile" matches md:hidden -- footer clearance only below md (index.css).
+      data-sticky-action-bar="mobile"
       style={{
         ...(venueGoldInvertTheme as React.CSSProperties),
         bottom:
