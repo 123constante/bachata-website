@@ -237,6 +237,7 @@ for (const width of [390, 768, 1280]) {
       await sheet.getByTestId('action-cancel').click();
       await expect(sheet.getByTestId('cancel-confirm')).toBeDisabled();
       await sheet.getByTestId('cancel-reason').filter({ hasText: 'Venue closed' }).click();
+      await page.screenshot({ path: `test-results/organiser-date-sheet-${width}.png` });
       await sheet.getByTestId('cancel-confirm').click();
       await expect(sheet.getByTestId('date-done')).toContainText('Sun 11 Oct is cancelled.');
       expectEnvelope(fake.sent[2], 'occ-2', 1, { kind: 'occurrence.cancel', payload: { cancelled: true, reason: 'Venue closed' } });
