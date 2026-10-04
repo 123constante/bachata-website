@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronDown, LogOut } from 'lucide-react';
+import { Check, ChevronDown, LogOut, Users } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { Button } from '@/components/ui/button';
@@ -178,6 +178,16 @@ function AccountPage() {
                   ))}
                 </ul>
               </section>
+            )}
+
+            {selected && (
+              <Link
+                to={`/account/team/${selected.id}`}
+                className="text-sm text-primary inline-flex items-center gap-1"
+                data-testid="team-link"
+              >
+                <Users className="w-4 h-4" aria-hidden="true" /> Team and access requests
+              </Link>
             )}
 
             {organisers.length === 0 || showOnboarding ? (
