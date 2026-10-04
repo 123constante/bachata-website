@@ -167,6 +167,7 @@ const TARGETS = [
   { rel: 'scripts/_serve-build.mjs' },
   { rel: 'scripts/apply-firewall.mjs' },
   { rel: 'scripts/check-bundle-budget.mjs' },
+  { rel: 'scripts/ci-live-db-gate.mjs' },
   { rel: 'scripts/check-ci-budget.mjs' },
   { rel: 'scripts/check-deployment-storage.mjs' },
   { rel: 'scripts/check-firewall-drift.mjs' },
