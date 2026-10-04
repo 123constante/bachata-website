@@ -1,0 +1,58 @@
+name: Bot PR for cloud branches
+
+# Copied from bachata-admin (same file); the PR numbers below are that repo's.
+# Cloud sessions (claude.ai/code) push with the OWNER's credential (the GitHub proxy swaps it
+# in), so a PR they open is owner-authored and the owner cannot approve it. This job opens the
+# PR AS THE BOT (secret BOT_PR_TOKEN) when a claude/** or ccr-* branch is pushed and has no open PR.
+# A branch whose PR already merged gets no new one: a push after that merge (a main-merge racing the
+# owner's merge) only ever opened empty duplicates (#547, #553, #554). New work goes on a new branch.
+# A PAT-opened PR fires the normal pull_request checks. The cloud session pushes and never
+# opens the PR itself; it may edit the body afterwards with `gh api -X PATCH`.
+
+on:
+  push:
+    branches: ["claude/**", "ccr-*"]
+
+concurrency:
+  group: bot-pr-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  open-pr:
+    if: ${{ !github.event.deleted }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Open the PR as the bot if the branch has none
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          BRANCH: ${{ github.ref_name }}
+          BASE: ${{ github.event.repository.default_branch }}
+          SUBJECT: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          [ -n "${BOT_TOKEN:-}" ] || { echo "::error::secret BOT_PR_TOKEN is not set"; exit 1; }
+          api() { curl -sS -H "Authorization: Bearer $BOT_TOKEN" -H "Accept: application/vnd.github+json" "$@"; }
+          existing="$(api "https://api.github.com/repos/$REPO/pulls?state=open&head=$OWNER:$BRANCH" \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);if(!Array.isArray(a)){console.error(s);process.exit(2)}console.log(a.map(p=>"#"+p.number).join(" "))})')"
+          if [ -n "$existing" ]; then echo "Already has an open PR: $existing"; exit 0; fi
+          merged="$(api "https://api.github.com/repos/$REPO/pulls?state=closed&head=$OWNER:$BRANCH&per_page=100" \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);if(!Array.isArray(a)){console.error(s);process.exit(2)}console.log(a.filter(p=>p.merged_at).map(p=>"#"+p.number).join(" "))})')"
+          if [ -n "$merged" ]; then
+            echo "::warning::$BRANCH already shipped in $merged (merged), so this push opens no PR. Put new work on a new branch cut from $BASE."
+            echo "No PR opened: $BRANCH already shipped in $merged. Put new work on a new branch cut from $BASE." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node -e '
+            const title = (process.env.SUBJECT || process.env.BRANCH).split("\n")[0].slice(0, 250);
+            const body = "Opened by the bot for cloud branch `" + process.env.BRANCH + "` so the owner can approve it. The session fills in this description.\n\nRaised by .github/workflows/bot-pr.yml.";
+            require("fs").writeFileSync("pr.json", JSON.stringify({ title, head: process.env.BRANCH, base: process.env.BASE, body }));
+          '
+          code="$(api -o resp.json -w '%{http_code}' -X POST "https://api.github.com/repos/$REPO/pulls" --data @pr.json)"
+          if [ "$code" = "201" ]; then node -e 'const p=require("./resp.json");console.log("Opened #"+p.number+" as "+p.user.login)'
+          elif [ "$code" = "422" ] && grep -q "No commits between" resp.json; then echo "No commits ahead of $BASE yet; the next push retries."
+          else echo "::error::PR creation failed (HTTP $code)"; cat resp.json; exit 1; fi
