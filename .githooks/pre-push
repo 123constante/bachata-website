@@ -49,7 +49,7 @@ exec >&2
 #          scope". Refusing is the honest answer -- a gate must never claim to have
 #          checked what it did not look at. Check the branch out and push it, or set
 #          SHIP_GATE_ALLOW_UNSCOPED_REF=1 to say so deliberately.
-#   1. Unit gate (npm run test:unit) -- blocks a red unit suite from reaching the
+#   1. Unit gate (npm run test:unit:offline, no live-DB suites) -- blocks a red unit suite from reaching the
 #      remote. Complements .githooks/pre-commit (source integrity), so combined hook
 #      coverage is integrity + unit. The full lint/typecheck/e2e ladder stays in
 #      `npm run pre-ship`, which is the deliberate one-command ship gate.
@@ -120,8 +120,12 @@ fi
 # pool can fail spuriously. If this fails mid-workflow, re-push once the workflow has
 # finished rather than reaching for --no-verify.
 # --reporter=dot keeps a green run to a few lines; a failure still prints in full.
-echo "> pre-push: unit gate (npm run test:unit)..."
-if ! npm run test:unit -- --reporter=dot; then
+# OFFLINE on purpose: the *.contract.test.ts suites call the PRODUCTION database, and
+# running them on every push was a measured load source behind the 2026-10-04 statement
+# timeout bursts (public SSR 500s). CI still runs them on DB-facing PRs (ci-live-db-gate)
+# and on main; `npm run pre-ship` still runs the full test:unit.
+echo "> pre-push: unit gate (npm run test:unit:offline)..."
+if ! npm run test:unit:offline -- --reporter=dot; then
     echo "x Unit gate failed -- not pushing. Fix the tests (or push --no-verify to bypass)."
     exit 1
 fi
