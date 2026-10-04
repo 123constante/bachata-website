@@ -5,6 +5,14 @@ import type { HomeSeriesFull } from './homeModel';
 import type { Json } from '@/integrations/supabase/types';
 import { parseDateDetail, parseWorkspace, type DateDetail, type SeriesWorkspace } from './seriesModel';
 import { upsertCommand, type CommandEnvelope, type OwnerCommand } from './seriesCommands';
+import {
+  parseIncomingRequests,
+  parseRemoval,
+  parseTeam,
+  type IncomingAccessRequest,
+  type MemberRemoval,
+  type TeamMember,
+} from './teamModel';
 
 export { claimHint, type ClaimHint } from './claimHint';
 
@@ -35,6 +43,8 @@ export interface HomeOrganiser {
   role: 'owner' | 'manager';
   latest_decision: Decision | null;
   series: HomeSeriesFull[];
+  /** The owner and manager rows (admin D7); parse with parseTeam. Absent before D7. */
+  team?: unknown;
 }
 
 export interface OrganiserHome {
@@ -241,6 +251,61 @@ export async function runOccurrenceCommand(env: CommandEnvelope): Promise<Comman
  */
 export function createSeriesCommand(payload: Record<string, unknown>, organiserId: string): OwnerCommand {
   return upsertCommand({ ...payload, organiser_ids: [organiserId] });
+}
+
+// ---- W6: team and access requests --------------------------------------------
+
+export const incomingAccessRequestsQueryKey = (organiserId: string | undefined) =>
+  ['incoming-access-requests', organiserId] as const;
+
+/** The organiser's team as organiser_home_v1 lists it to an owner or manager. */
+export const teamOf = (organiser: HomeOrganiser | null | undefined): TeamMember[] => parseTeam(organiser?.team);
+
+/**
+ * The OPEN requests to join one organiser, with the requester's email and
+ * message (D4 'incoming' scope: an owner or manager of that organiser; anyone
+ * else is refused not_authorised). The rows also carry organiser_id, which this
+ * per-organiser read does not need, so the model never names it.
+ */
+export async function fetchIncomingAccessRequests(organiserId: string): Promise<IncomingAccessRequest[]> {
+  const { data, error } = await supabase.rpc('list_organiser_access_requests_v1', {
+    p_organiser_id: organiserId,
+    p_scope: 'incoming',
+  });
+  if (error) throw error;
+  return parseIncomingRequests(data);
+}
+
+export type AccessDecision = 'grant' | 'decline';
+
+/**
+ * Grant (as a manager: D-8 exposes owner and manager, and v1 adds managers
+ * only) or decline a request. An owner of the organiser or an admin; a
+ * manager is refused not_authorised. No note is sent in v1.
+ */
+export async function resolveAccessRequest(requestId: string, decision: AccessDecision) {
+  const { data, error } = await supabase.rpc('resolve_organiser_access_request_v1', {
+    p_request_id: requestId,
+    p_decision: decision,
+    ...(decision === 'grant' ? { p_member_role: 'manager' } : {}),
+  });
+  if (error) throw error;
+  const row = (data ?? {}) as Record<string, unknown>;
+  return { requestId, decision, memberRole: typeof row.member_role === 'string' ? row.member_role : null };
+}
+
+/**
+ * Remove a member (an owner removes a manager) or leave (the caller names
+ * themself). The server refuses the last owner (last_owner) and an owner
+ * naming another owner (cannot_remove_owner); see teamErrorMessage.
+ */
+export async function removeOrganiserMember(organiserId: string, userId: string): Promise<MemberRemoval> {
+  const { data, error } = await supabase.rpc('remove_organiser_member_v1', {
+    p_organiser_id: organiserId,
+    p_user_id: userId,
+  });
+  if (error) throw error;
+  return parseRemoval(data, userId);
 }
 
 export const LIFECYCLE_LABEL: Record<string, string> = {

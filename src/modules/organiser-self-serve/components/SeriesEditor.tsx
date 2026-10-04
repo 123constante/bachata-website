@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { CalendarPlus, Check, ExternalLink, Info, Loader2 } from 'lucide-react';
+import { CalendarPlus, Check, Info, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +36,7 @@ import {
   type WorkspaceDate,
 } from '../seriesModel';
 import { DateActionSheet } from './DateActionSheet';
+import { ReviewStrip } from './ReviewStrip';
 import { useOwnerCommand } from './useOwnerCommand';
 import { VenuePicker } from './VenuePicker';
 
@@ -350,11 +350,6 @@ export function SeriesEditor({ workspace, today }: { workspace: SeriesWorkspace;
         <div className="min-w-0">
           <h1 className="text-lg font-semibold leading-tight" data-testid="series-title">{series.name}</h1>
           <p className="text-xs text-muted-foreground">{scheduleSummary(series)}</p>
-          {live && (
-            <Link to={`/event/${series.slug ?? series.id}`} className="text-xs text-primary inline-flex items-center gap-1 mt-1" data-testid="series-view-as-dancer">
-              View as a dancer <ExternalLink className="w-3 h-3" aria-hidden="true" />
-            </Link>
-          )}
         </div>
         <Badge variant={live ? 'default' : 'secondary'} className="text-[11px] shrink-0" data-testid="series-lifecycle">
           {LIFECYCLE_LABEL[series.lifecycle_status] ?? series.lifecycle_status}
@@ -366,6 +361,10 @@ export function SeriesEditor({ workspace, today }: { workspace: SeriesWorkspace;
           <Check className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" /> {confirmation}
         </p>
       )}
+
+      {/* W6 (05-A): where the series is in review, the admin's message when it was
+          returned, "Send for review", and "View as a dancer" once it is public. */}
+      <ReviewStrip series={series} onSaved={setConfirmation} />
 
       <p className="rounded-md border border-border bg-muted/30 p-3 text-xs flex items-start gap-2" data-testid="scope-note">
         <Info className="w-4 h-4 shrink-0 text-primary" aria-hidden="true" />

@@ -40,6 +40,7 @@ const Auth = lazyWithRetry(() => import("../pages/Auth"));
 const Account = lazyWithRetry(() => import("../pages/Account"));
 const AccountSeries = lazyWithRetry(() => import("../pages/AccountSeries"));
 const AccountNew = lazyWithRetry(() => import("../pages/AccountNew"));
+const AccountTeam = lazyWithRetry(() => import("../pages/AccountTeam"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
@@ -175,6 +176,11 @@ export const AnimatedRoutes = () => {
             <Route path="/account/series/:seriesId" element={
               flags.organiserSelfServe
                 ? <PageTransition><AccountSeries /></PageTransition>
+                : <Navigate to="/" replace />
+            } />
+            <Route path="/account/team/:organiserId?" element={
+              flags.organiserSelfServe
+                ? <PageTransition><AccountTeam /></PageTransition>
                 : <Navigate to="/" replace />
             } />
 
