@@ -377,7 +377,7 @@ Moved here from the root CLAUDE.md (2026-10-02) so it loads on demand, not every
 
 | Workflow | Trigger | Checks |
 |----------|---------|--------|
-| `db-contract-check.yml` | push/PR/daily 06:00 UTC | DB contract checks (venue, coords, program, program-day offsets, security, FK, occurrence integrity, series horizon, map, image refs, event covers, etc.) — count them, don't trust a number here: `grep -c '^      - name: Run ' .github/workflows/db-contract-check.yml` |
+| `db-contract-check.yml` | push/daily 06:00 UTC/dispatch; PR **only when the diff is DB-facing** (`scripts/ci-live-db-gate.mjs` owns the rule + path list, shared with `unit-tests.yml`'s live contract suites; a skip shows `contract-check` SKIPPED with the reason in the `live-db-gate` summary) | DB contract checks (venue, coords, program, program-day offsets, security, FK, occurrence integrity, series horizon, map, image refs, event covers, etc.) — count them, don't trust a number here: `grep -c '^      - name: Run ' .github/workflows/db-contract-check.yml` |
 | `architecture-guard.yml` | push/PR | Source integrity + architecture lint + guardrails (legacy-tables, legacy-program-RPCs, images, image widths, plan-hygiene canary, workflow artifact policy, **entry-point dispatch proof**, mojibake). **Does NOT run eslint** |
 | `e2e-smoke.yml` | push/PR | Playwright smoke suite |
 | `types-drift.yml` | daily 06:17 UTC + PR | Detects `types.ts` drift vs the live schema (honest detector; goes red) |
