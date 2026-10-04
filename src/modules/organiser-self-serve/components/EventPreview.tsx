@@ -25,7 +25,7 @@ export function EventPreview({ model }: { model: PreviewModel }) {
       <div className="rounded-xl overflow-hidden border" style={{ background: SITE.card, borderColor: SITE.line, color: SITE.cream }}>
         <div className="relative h-36 flex items-end p-3" style={{ background: image ? '#0E0F13' : EVENT_ROW_POSTER_FALLBACKS[0] }}>
           {image && (
-            <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover" onError={() => setBroken(image)} data-testid="preview-image" />
+            <img src={image} alt="" loading="eager" className="absolute inset-0 h-full w-full object-cover" onError={() => setBroken(image)} data-testid="preview-image" />
           )}
           <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(12,10,13,.9))' }} aria-hidden="true" />
           <h3 className="relative text-xl font-semibold leading-tight break-words" data-testid="preview-title">{model.title}</h3>
