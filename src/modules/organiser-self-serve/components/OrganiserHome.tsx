@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CalendarPlus, ExternalLink, Loader2, Send } from 'lucide-react';
+import { AlertTriangle, CalendarPlus, ExternalLink, Loader2, Plus, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -21,8 +21,8 @@ import {
  * The organiser home (Lever 2 W2): mockup 01-B, series cards with their next
  * dates, under 01-C's "needs you" notice. Each card opens the series page
  * (W4, /account/series/:id), where one date is changed too (W5); "New event"
- * arrives with W3. The one write here is the organiser's own "Send for
- * review" (admin D6, mockup 05-A).
+ * opens the create screen (W3, /account/new) for this organiser. The other write
+ * here is the organiser's own "Send for review" (admin D6, mockup 05-A).
  */
 
 function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }) {
@@ -137,11 +137,18 @@ export function OrganiserHome({
             )}
           </p>
         </div>
-        {!live && (
-          <Badge variant="secondary" className="text-[11px] shrink-0" data-testid="organiser-status">
-            {LIFECYCLE_LABEL[organiser.lifecycle_status] ?? organiser.lifecycle_status}
-          </Badge>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {!live && (
+            <Badge variant="secondary" className="text-[11px]" data-testid="organiser-status">
+              {LIFECYCLE_LABEL[organiser.lifecycle_status] ?? organiser.lifecycle_status}
+            </Badge>
+          )}
+          <Button asChild size="sm">
+            <Link to={`/account/new?organiser=${organiser.id}`} data-testid="new-event">
+              <Plus className="w-4 h-4" aria-hidden="true" /> New event
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {status.note && (
@@ -197,8 +204,7 @@ export function OrganiserHome({
         <div className="rounded-md border border-dashed border-border p-3 text-sm flex items-start gap-2" data-testid="home-empty">
           <CalendarPlus className="w-4 h-4 mt-0.5 text-primary shrink-0" aria-hidden="true" />
           <span>
-            No events yet. Creating parties and classes here is coming next; until then, send them to the Bachata
-            Calendar team on the Community chat and we&rsquo;ll list them for you.
+            No events yet. Tap <span className="font-medium">New event</span> to add a party or a weekly class; the team checks it before it goes live.
           </span>
         </div>
       ) : (

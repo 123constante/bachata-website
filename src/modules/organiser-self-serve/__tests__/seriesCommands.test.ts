@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   OWNER_CANCEL_KEYS,
+  OWNER_CATEGORIES,
   OWNER_COMMAND_KINDS,
+  OWNER_CREATE_KEYS,
   OWNER_OVERRIDE_KEYS,
   OWNER_UPSERT_KEYS,
   addDateCommand,
@@ -25,10 +27,11 @@ import {
 // The server's owner allowlist, copied from the admin repo's
 // supabase/migrations/20261108180000_p5_owner_allowlist_recurring_create_v1.sql
 // (apply_aggregate_write_p5: v_owner_kinds, v_owner_upsert_keys,
-// v_owner_override_keys, v_owner_cancel_keys; the newest redefinition as of
-// 2026-10-04). The Website cannot read that file in CI, so the literal is
-// pinned here: when the server list changes, this spec and the mirror change
-// together.
+// v_owner_override_keys, v_owner_cancel_keys), as redefined by the D7 body in
+// 20261109130000_p5_owner_category_v1.sql (category joins the upsert and create
+// key lists; the value set is party | class | workshop). The Website cannot
+// read that file in CI, so the literal is pinned here: when the server list
+// changes, this spec and the mirror change together.
 const SERVER_OWNER_KINDS = [
   'series.upsert', 'series.add_date', 'series.remove_date', 'occurrence.set_time',
   'series.set_lifecycle', 'occurrence.cancel', 'occurrence.set_override', 'series.skip_date',
@@ -38,8 +41,14 @@ const SERVER_UPSERT_KEYS = [
   'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',
   'default_duration_minutes', 'default_start_date', 'default_level', 'default_ticket_url',
   'default_description', 'default_cover_image_url', 'default_music_styles', 'default_gallery',
-  'default_video_urls', 'timezone',
+  'default_video_urls', 'timezone', 'category',
 ];
+// v_owner_create_keys is this list plus 'format' and the organiser key; the
+// organiser key is the legacy name the architecture lint bans in src/, so the
+// Website attaches it in selfServeApi.ts (createSeriesCommand, pinned in
+// createModel.test.ts) and the mirror below stops at 'format'.
+const SERVER_CREATE_KEYS_WITHOUT_ORGANISER = [...SERVER_UPSERT_KEYS, 'format'];
+const SERVER_OWNER_CATEGORIES = ['party', 'class', 'workshop'];
 const SERVER_OVERRIDE_KEYS = ['venue_id', 'city_id', 'cancellation_reason_label', 'cover_image_url', 'ticket_url', 'description'];
 const SERVER_CANCEL_KEYS = ['cancelled', 'reason'];
 
@@ -60,6 +69,9 @@ describe('the owner allowlist mirror', () => {
     expect([...OWNER_UPSERT_KEYS].sort()).toEqual([...SERVER_UPSERT_KEYS].sort());
     expect([...OWNER_OVERRIDE_KEYS].sort()).toEqual([...SERVER_OVERRIDE_KEYS].sort());
     expect([...OWNER_CANCEL_KEYS].sort()).toEqual([...SERVER_CANCEL_KEYS].sort());
+    expect([...OWNER_CREATE_KEYS].sort()).toEqual([...SERVER_CREATE_KEYS_WITHOUT_ORGANISER].sort());
+    expect([...OWNER_CATEGORIES]).toEqual(SERVER_OWNER_CATEGORIES);
+    expect(OWNER_CATEGORIES as readonly string[]).not.toContain('masterclass');
   });
 
   it('never sends an admin-only override key (the handler accepts them, the owner gate refuses)', () => {

@@ -16,6 +16,12 @@ export interface OwnerCommandVars {
   targetId: string;
   version: number | null;
   command: OwnerCommand;
+  /**
+   * Reuse a key across retries of the SAME write (W3's create): the server
+   * replays a key that already succeeded and stores nothing for a refusal, so a
+   * retry after a lost reply returns the original result instead of failing.
+   */
+  idempotencyKey?: string;
 }
 
 /**
@@ -34,8 +40,8 @@ export function useOwnerCommand(seriesId: string) {
   };
 
   return useMutation<CommandResponse, Error, OwnerCommandVars>({
-    mutationFn: ({ targetId, version, command }) => {
-      const env = envelope(targetId, version, command);
+    mutationFn: ({ targetId, version, command, idempotencyKey }) => {
+      const env = envelope(targetId, version, command, idempotencyKey);
       return command.kind.startsWith('series.') ? runSeriesCommand(env) : runOccurrenceCommand(env);
     },
     onSuccess: (res, vars) => {

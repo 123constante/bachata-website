@@ -1,6 +1,7 @@
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft } from 'lucide-react';
+import { Check, ChevronLeft } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,16 @@ const isRefusal = (error: unknown) =>
 function AccountSeriesPage() {
   const { user } = useAuth();
   const { seriesId = '' } = useParams<{ seriesId: string }>();
+  // The create screen (W3) lands here with what it just did. Read once, then
+  // cleared from the history entry so a reload or Back does not repeat it.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [created] = useState(() => (location.state as { created?: 'draft' | 'submitted' } | null)?.created ?? null);
+  useEffect(() => {
+    if ((location.state as { created?: unknown } | null)?.created) {
+      navigate(location.pathname + location.search + location.hash, { replace: true, state: null });
+    }
+  }, [location.state, location.pathname, location.search, location.hash, navigate]);
   const today = useLondonToday();
   const workspace = useQuery({
     queryKey: seriesWorkspaceQueryKey(seriesId),
@@ -45,6 +56,14 @@ function AccountSeriesPage() {
         <Link to="/account" className="text-xs text-primary inline-flex items-center gap-1">
           <ChevronLeft className="w-3 h-3" aria-hidden="true" /> My events
         </Link>
+        {created && (
+          <p className="text-sm text-primary flex items-start gap-2" role="status" data-testid="series-created">
+            <Check className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+            {created === 'submitted'
+              ? 'Sent for review. The Bachata Calendar team usually answers within a day.'
+              : 'Saved as a draft. Dancers will not see it until it is submitted and approved.'}
+          </p>
+        )}
         {workspace.isLoading ? (
           <div className="space-y-2">
             <Skeleton className="h-8 w-2/3 rounded-md" />
