@@ -642,7 +642,9 @@ describe("Phase 2 WIRING -- the parts that fail silently if never registered", (
   it("pre-push early-exits on a deletion-only push, runs the unit gate, then the ship gate", () => {
     const hook = read(".githooks/pre-push");
     expect(hook).toContain("*[!0]*"); // the all-zero local sha test
-    expect(hook).toContain("npm run test:unit");
+    // OFFLINE: the live contract suites hit the production DB on every push.
+    expect(hook).toContain("if ! npm run test:unit:offline -- ");
+    expect(hook).not.toMatch(/npm run test:unit -- /);
     expect(hook).toContain("scripts/ship-gate.mjs");
     // the ORDER matters: triage before the unit suite, or a deletion push pays for
     // it. Anchor on the EXECUTABLE lines, not the bare names -- the header docblock
@@ -651,7 +653,7 @@ describe("Phase 2 WIRING -- the parts that fail silently if never registered", (
     // (That is not hypothetical: this assertion was written the naive way first and
     // failed on its own docblock.)
     const triage = hook.indexOf("*[!0]*");
-    const unit = hook.indexOf("if ! npm run test:unit");
+    const unit = hook.indexOf("if ! npm run test:unit:offline");
     const gate = hook.indexOf("$REPO_ROOT/scripts/ship-gate.mjs");
     expect(triage).toBeGreaterThan(-1);
     expect(unit).toBeGreaterThan(-1);

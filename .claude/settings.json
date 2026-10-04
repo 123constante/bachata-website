@@ -124,6 +124,15 @@
             "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/session-lock.mjs heartbeat --hook"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/ctx-gate-cloud.mjs",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -205,6 +214,15 @@
           {
             "type": "command",
             "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/review-stamp.mjs"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/ctx-gate-cloud.mjs",
+            "timeout": 10
           }
         ]
       }
