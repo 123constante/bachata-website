@@ -122,7 +122,6 @@ const Profile = () => {
             <ProfileEntryRouter
                 user={user}
                 loading={loading}
-                ids={ids}
                 availableRoles={availableRoles}
                 activeRole={activeRole}
                 onSelectRole={handleSelectRole}
