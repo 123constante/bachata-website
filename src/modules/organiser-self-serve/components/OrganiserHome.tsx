@@ -1,0 +1,166 @@
+import { Link } from 'react-router-dom';
+import { AlertTriangle, CalendarPlus, ExternalLink } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { LIFECYCLE_LABEL, type HomeOrganiser } from '../selfServeApi';
+import {
+  CATEGORY_LABEL,
+  FORMAT_LABEL,
+  attentionItems,
+  dateLabel,
+  isCancelled,
+  localAsZTime,
+  type HomeSeriesFull,
+} from '../homeModel';
+
+/**
+ * The organiser home (Lever 2 W2): mockup 01-B, series cards with their next
+ * dates, under 01-C's "needs you" notice. Read-only in this slice: the
+ * per-date and per-series actions arrive with W4 (series editor) and W5
+ * (change one date), and "New event" with W3.
+ */
+
+function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }) {
+  const live = series.lifecycle_status === 'live';
+  const meta = [
+    series.category ? CATEGORY_LABEL[series.category] ?? series.category : null,
+    series.format ? FORMAT_LABEL[series.format] ?? series.format : null,
+    series.default_local_start_time ? series.default_local_start_time.slice(0, 5) : null,
+  ].filter(Boolean);
+  const more = Math.max(0, (Number(series.upcoming_count) || 0) - series.next_dates.length);
+
+  return (
+    <li className="rounded-md border border-border p-3 space-y-2" data-testid="series-card">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-semibold leading-tight truncate">{series.name}</p>
+          {meta.length > 0 && <p className="text-xs text-muted-foreground">{meta.join(' · ')}</p>}
+        </div>
+        <Badge variant={live ? 'default' : 'secondary'} className="text-[11px] shrink-0">
+          {LIFECYCLE_LABEL[series.lifecycle_status] ?? series.lifecycle_status}
+        </Badge>
+      </div>
+
+      {series.next_dates.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No upcoming dates.</p>
+      ) : (
+        <ul className="divide-y divide-border/60" aria-label={`Next dates for ${series.name}`}>
+          {series.next_dates.map((d) => {
+            const cancelled = isCancelled(d);
+            const time = localAsZTime(d.materialised_start_utc);
+            return (
+              <li key={d.occurrence_id} className="flex items-center gap-2 py-1.5 text-sm" data-testid="series-date">
+                <span className={cn('w-20 shrink-0 font-medium', d.occurrence_date === today && 'text-primary')}>
+                  {dateLabel(d.occurrence_date, today)}
+                </span>
+                {cancelled ? (
+                  <span className="text-destructive text-xs font-medium" data-testid="date-cancelled">Cancelled</span>
+                ) : (
+                  <span className="text-muted-foreground text-xs">{time ?? 'Time to be confirmed'}</span>
+                )}
+                {d.has_own_changes && (
+                  <span className="ml-auto text-[11px] text-muted-foreground border border-border rounded px-1.5 py-0.5">
+                    Own changes
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <div className="flex items-center gap-3 text-xs">
+        <span className="text-muted-foreground">
+          {Number(series.upcoming_count) || 0} upcoming {Number(series.upcoming_count) === 1 ? 'date' : 'dates'}
+          {more > 0 ? ` (${more} more)` : ''}
+        </span>
+        {live && (
+          <Link
+            to={`/event/${series.slug ?? series.id}`}
+            className="ml-auto inline-flex items-center gap-1 text-primary"
+            data-testid="view-as-dancer"
+          >
+            View as a dancer <ExternalLink className="w-3 h-3" aria-hidden="true" />
+          </Link>
+        )}
+      </div>
+    </li>
+  );
+}
+
+export function OrganiserHome({ organiser, today }: { organiser: HomeOrganiser; today: string }) {
+  const series = organiser.series as HomeSeriesFull[];
+  const attention = attentionItems(series, today);
+  const live = organiser.lifecycle_status === 'live';
+
+  return (
+    <section className="space-y-3" data-testid="organiser-home">
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold">My events</h2>
+          <p className="text-xs text-muted-foreground truncate">
+            {organiser.name}
+            {live && (
+              <>
+                {' · '}
+                <Link to={`/organisers/${organiser.slug ?? organiser.id}`} className="text-primary inline-flex items-center gap-1">
+                  Public page <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                </Link>
+              </>
+            )}
+          </p>
+        </div>
+        {!live && (
+          <Badge variant="secondary" className="text-[11px] shrink-0" data-testid="organiser-status">
+            {LIFECYCLE_LABEL[organiser.lifecycle_status] ?? organiser.lifecycle_status}
+          </Badge>
+        )}
+      </div>
+
+      {organiser.lifecycle_status === 'draft' && (
+        <p className="text-xs text-muted-foreground">
+          {organiser.name} is not public yet. Once the team approves it you can add your events.
+        </p>
+      )}
+      {organiser.lifecycle_status === 'pending_review' && (
+        <p className="text-xs text-muted-foreground">The team is checking {organiser.name}, usually within a day.</p>
+      )}
+      {organiser.lifecycle_status === 'rejected' && (
+        <p className="text-xs text-destructive">
+          {organiser.name} needs changes{organiser.latest_decision?.reason ? `: ${organiser.latest_decision.reason}` : '.'}
+        </p>
+      )}
+
+      {attention.length > 0 && (
+        <div
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-1"
+          role="status"
+          data-testid="attention-notice"
+        >
+          <p className="font-semibold flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-500" aria-hidden="true" /> Needs you
+          </p>
+          <ul className="space-y-0.5">
+            {attention.map((item, i) => (
+              <li key={`${item.kind}-${item.seriesId}-${i}`} data-testid={`attention-${item.kind}`}>{item.text}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {series.length === 0 ? (
+        <div className="rounded-md border border-dashed border-border p-3 text-sm flex items-start gap-2" data-testid="home-empty">
+          <CalendarPlus className="w-4 h-4 mt-0.5 text-primary shrink-0" aria-hidden="true" />
+          <span>
+            No events yet. Creating parties and classes here is coming next; until then, send them to the Bachata
+            Calendar team on the Community chat and we&rsquo;ll list them for you.
+          </span>
+        </div>
+      ) : (
+        <ul className="grid gap-3 md:grid-cols-2" data-testid="series-list">
+          {series.map((s) => <SeriesCard key={s.id} series={s} today={today} />)}
+        </ul>
+      )}
+    </section>
+  );
+}
