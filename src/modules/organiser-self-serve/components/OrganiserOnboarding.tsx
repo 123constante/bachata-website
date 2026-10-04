@@ -266,7 +266,7 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
                       instagram: form.instagram,
                       website: form.website,
                     }),
-                  `${form.name.trim()} is saved as a draft. Add your events, then send it for review.`,
+                  `${form.name.trim()} is saved. The team checks new organisers; once it is live you can add your events.`,
                 );
               }}
               data-testid="create-form"

@@ -45,7 +45,7 @@ function OrganiserRow({ org }: { org: HomeOrganiser }) {
           {org.role === 'owner' ? 'Owner' : 'Manager'} &middot; {org.series.length} series &middot; {upcoming} upcoming dates
         </p>
         {org.lifecycle_status === 'draft' && (
-          <p className="text-xs text-muted-foreground mt-1">Not public yet. Next: add your events and send it for review.</p>
+          <p className="text-xs text-muted-foreground mt-1">Not public yet. Once the team approves it you can add your events.</p>
         )}
         {org.lifecycle_status === 'pending_review' && (
           <p className="text-xs text-muted-foreground mt-1">The team is checking it, usually within a day.</p>
