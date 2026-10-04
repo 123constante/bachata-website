@@ -279,7 +279,7 @@ type RpcPerson = {
   sort_order: number | null;
   level: string | null;
 };
-type RpcItem = {
+export type RpcItem = {
   id: string;
   title: string | null;
   type: string | null;
@@ -326,9 +326,25 @@ export const isRenderableTimelessItem = (item: RpcItem): boolean => {
   return hasTitle || hasPeople || hasLevels;
 };
 
-function parseProgramItems(data: unknown): ScheduleSession[] {
+/** A DATE-TIME session (admin D8): on a series with no programme times, an
+ *  organiser's "Change the time" for one date stores that date's start and end
+ *  as ONE added session (sort_order -1, title = the event name, no people,
+ *  levels or room). It is the date's own time, which the headline already
+ *  shows, not a one-off programme item, so it never renders as a schedule row
+ *  (it would read as "Special tonight" with the event's own name). No admin
+ *  added session on prod has sort_order -1 (measured 2026-10-04). */
+export const isDateTimeSession = (item: RpcItem): boolean => {
+  if (item.added_only !== true || item.sort_order !== -1) return false;
+  const hasPeople = Array.isArray(item.people) && item.people.length > 0;
+  const hasLevels = Array.isArray(item.levels) && item.levels.length > 0;
+  const hasRoom = typeof item.room === 'string' && item.room.trim().length > 0;
+  return !hasPeople && !hasLevels && !hasRoom;
+};
+
+export function parseProgramItems(data: unknown): ScheduleSession[] {
   const items = (data as unknown as RpcItem[]) ?? [];
   return items
+    .filter((item) => !isDateTimeSession(item))
     .filter((item) => toMins(item.start_time) !== null || isRenderableTimelessItem(item))
     .map((item, idx): ScheduleSession => {
       const startMins = toMins(item.start_time);

@@ -125,6 +125,11 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
   { match: /^has_bookings/, message: 'People have already booked this date, so it cannot be removed. Cancel it instead, so they see why.' },
   { match: /^no_sessions_for_time_override/, message: 'This date has no session times to move yet. Ask the Bachata Calendar team to set up the class times.' },
   { match: /cancellation_reasons label/, message: 'Choose a reason. Dancers see it.' },
+  // D8: a reason only goes with a cancelled date (an un-cancel in another tab, then a stale reason save).
+  { match: /cancellation_reason_label needs a cancelled date/, message: 'A reason only shows on a cancelled date. This date is not cancelled, so there is nothing to explain.' },
+  // D8: the price list and the Instagram link (series.upsert default_passes / instagram_url).
+  { match: /series\.upsert default_passes/, message: 'Check the prices: up to 10, each with a name and a price like 12 or 12.50.' },
+  { match: /instagram_url must be blank or an instagram\.com link/, message: 'Enter an Instagram link, like https://www.instagram.com/yourname.' },
   { match: /must be blank or an http\(s\) URL|must be null or an array of http\(s\) URLs/, message: 'Enter a full link starting with https://.' },
   { match: /description is longer than/, message: 'Keep the note under 4,000 characters.' },
   { match: /must name an existing venue/, message: 'That venue is not on Bachata Calendar yet.' },
