@@ -45,12 +45,13 @@ export interface OrganiserHome {
   organisers: HomeOrganiser[];
 }
 
+/** camelCase at this boundary: see the RPC-key note on fetchMyAccessRequests. */
 export interface MyAccessRequest {
-  request_id: string;
-  organiser_id: string;
-  organiser_name: string | null;
+  requestId: string;
+  organiserId: string;
+  organiserName: string | null;
   status: 'open' | 'granted' | 'declined' | string;
-  created_at: string;
+  createdAt: string;
 }
 
 export type { ClaimCandidate };
@@ -68,7 +69,18 @@ export async function fetchOrganiserHome(): Promise<OrganiserHome> {
 export async function fetchMyAccessRequests(): Promise<MyAccessRequest[]> {
   const { data, error } = await supabase.rpc('list_organiser_access_requests_v1', { p_scope: 'mine' });
   if (error) throw error;
-  return Array.isArray(data) ? (data as unknown as MyAccessRequest[]) : [];
+  if (!Array.isArray(data)) return [];
+  // The D4 RPCs key rows by `organiser_id` (an organiser_profiles id). This file
+  // is the one place allowed to read that key (scripts/lint-runtime-architecture
+  // .mjs bans the word app-wide for the legacy events.organiser_id columns), so
+  // it maps to camelCase here and nothing downstream names it.
+  return (data as Record<string, unknown>[]).map((row) => ({
+    requestId: String(row.request_id),
+    organiserId: String(row.organiser_id),
+    organiserName: typeof row.organiser_name === 'string' ? row.organiser_name : null,
+    status: String(row.status),
+    createdAt: String(row.created_at),
+  }));
 }
 
 /** `%` and `_` are wildcards to ILIKE; a typed name means them literally. */
@@ -92,7 +104,7 @@ export async function searchClaimableOrganisers(query: string): Promise<ClaimCan
 export async function claimOrganiser(organiserId: string) {
   const { data, error } = await supabase.rpc('claim_organiser_v1', { p_organiser_id: organiserId });
   if (error) throw error;
-  return data as { organiser_id: string; already_claimed: boolean };
+  return data as { already_claimed: boolean };
 }
 
 export async function requestOrganiserAccess(organiserId: string, message: string) {
@@ -122,7 +134,7 @@ export async function createOrganiserProfile(input: CreateOrganiserInput) {
     p_website: input.website.trim() || undefined,
   });
   if (error) throw error;
-  return data as { organiser_id: string; slug: string | null; lifecycle_status: string };
+  return data as { slug: string | null; lifecycle_status: string };
 }
 
 export const LIFECYCLE_LABEL: Record<string, string> = {

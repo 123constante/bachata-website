@@ -53,6 +53,10 @@ const RULES = [
     id: 'no-legacy-organiser-fields',
     message: 'Forbidden legacy field: organiser_id / organiser_ids',
     pattern: /\borganiser_ids?\b/,
+    // The Lever 2 self-serve RPCs (claim/request/create/list, admin repo D4)
+    // return `organiser_id` = an organiser_profiles id, not the legacy column.
+    // Only their boundary file may read the key; it maps it to camelCase.
+    allowFiles: new Set(['src/modules/organiser-self-serve/selfServeApi.ts']),
   },
   {
     id: 'no-event-organisers-linkage',

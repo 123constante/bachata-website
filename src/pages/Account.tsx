@@ -92,7 +92,7 @@ function AccountPage() {
   const organisers = useMemo(() => home.data?.organisers ?? [], [home.data]);
   const myIds = useMemo(() => new Set(organisers.map((o) => o.id)), [organisers]);
   const openRequests = useMemo(() => (requests.data ?? []).filter((r) => r.status === 'open'), [requests.data]);
-  const requestedIds = useMemo(() => new Set(openRequests.map((r) => r.organiser_id)), [openRequests]);
+  const requestedIds = useMemo(() => new Set(openRequests.map((r) => r.organiserId)), [openRequests]);
   const mailboxProven = isMailboxProvenToken(session?.access_token);
 
   const refresh = (message: string) => {
@@ -159,9 +159,9 @@ function AccountPage() {
                 <h2 className="text-base font-semibold">Waiting for an answer</h2>
                 <ul className="space-y-1">
                   {openRequests.map((r) => (
-                    <li key={r.request_id} className="text-sm text-muted-foreground">
-                      Access to <span className="text-foreground">{r.organiser_name ?? 'an organiser'}</span>{' '}
-                      &middot; asked {new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    <li key={r.requestId} className="text-sm text-muted-foreground">
+                      Access to <span className="text-foreground">{r.organiserName ?? 'an organiser'}</span>{' '}
+                      &middot; asked {new Date(r.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                     </li>
                   ))}
                 </ul>
