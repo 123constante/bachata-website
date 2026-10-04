@@ -33,6 +33,10 @@ export const flags = {
   // Default: true in dev, false in prod until Phase 2 migration lands.
   enableEventTracking: import.meta.env.VITE_ENABLE_EVENT_TRACKING !== 'false',
   enableProfileTracking: import.meta.env.VITE_ENABLE_PROFILE_TRACKING !== 'false',
+  // Organiser self-serve (Lever 2: /account, onboarding, organiser home).
+  // OFF in production until launch; the route redirects home and the header
+  // shows no account entry while false.
+  organiserSelfServe:  import.meta.env.VITE_ENABLE_ORGANISER_SELF_SERVE === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the

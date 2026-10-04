@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
@@ -20,6 +20,10 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
+  // One redirect per mount. While the /auth navigation is still pending (a
+  // slow route-manifest fetch), re-renders re-ran this effect and each
+  // navigate() aborted the previous one: a loop that never reached /auth.
+  const redirectedRef = useRef(false);
 
   useEffect(() => {
     // `authStatus === "ready"`, NOT `!isLoading` (supabase-defer arc, P5).
@@ -29,7 +33,8 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
     // from a signed-out visitor. Redirecting on that bounced a genuinely
     // authenticated user to /auth over a transient chunk failure. Only a
     // RESOLVED absence of a user may redirect.
-    if (shouldRedirectToAuth(authStatus, user)) {
+    if (!redirectedRef.current && shouldRedirectToAuth(authStatus, user)) {
+      redirectedRef.current = true;
       const returnTo = `${location.pathname}${location.search}`;
       const needsSignup = location.pathname === "/profile" || location.pathname.startsWith("/create-");
       const targetMode = needsSignup ? "signup" : "signin";

@@ -8,6 +8,7 @@ import { resolveCanonicalCity } from "@/lib/city-canonical";
 import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo, stashPendingReturnTo } from "@/lib/authRouting";
 import { hasDancerProfileBasics, inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 import GlobalLayout from "@/components/layout/GlobalLayout";
+import { flags } from "@/lib/featureFlags";
 
 const VALID_ROLES: Record<string, string> = {
   organiser: "/create-organiser-profile",
@@ -99,7 +100,11 @@ const AuthCallback = () => {
             return;
           }
 
-          if (preferredRole && preferredRole !== "dancer" && VALID_ROLES[preferredRole]) {
+          if (flags.organiserSelfServe) {
+            // The /profile and /create-*-profile routes below were retired
+            // 2026-09-12; with self-serve on, /account is the landing.
+            navigate("/account", { replace: true });
+          } else if (preferredRole && preferredRole !== "dancer" && VALID_ROLES[preferredRole]) {
             navigate(`/create-${preferredRole}-profile`, { replace: true });
           } else {
             navigate("/profile", { replace: true });

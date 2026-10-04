@@ -2,13 +2,14 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, UserRound } from 'lucide-react';
 import bachataCalendarLogo from '@/assets/brand/bachata-calendar-logo.png';
 import { HeaderSearch } from '@/components/search/HeaderSearch';
 import { SearchTrigger } from '@/components/search/SearchTrigger';
 import { cn } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
 import { WHATSAPP_GROUP_URL } from '@/lib/contactLinks';
+import { useAuth } from '@/hooks/useAuth';
 
 // NO framer-motion here (perf, Pillar A): the header mounts on every page, so
 // a `motion.*` import would drag the whole library into the first-load bundle.
@@ -49,6 +50,9 @@ export const GlobalHeader = () => {
   const homePath = buildCityPath(citySlug);
   const { pathname } = useLocation();
   const isEventDetail = EVENT_DETAIL_RE.test(pathname);
+  const { user } = useAuth();
+  // Organiser self-serve (Lever 2 W1): the only signed-in entry point.
+  const showAccount = flags.organiserSelfServe && !!user && !searching;
 
   useEffect(() => {
     // rAF-coalesced (perf): the cost here is `window.scrollY`, a synchronous
@@ -175,6 +179,20 @@ export const GlobalHeader = () => {
         <div className="hidden md:block flex-1" />
 
         {flags.searchV5 ? <SearchTrigger /> : <HeaderSearch expanded={searching} onExpandedChange={setSearching} />}
+
+        {showAccount && (
+          <Link
+            to="/account"
+            className={cn(
+              'inline-flex items-center justify-center w-8 h-8 rounded-md shrink-0 transition-colors',
+              pathname === '/account' ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-primary/5',
+            )}
+            aria-label="Your account"
+            data-testid="header-account-link"
+          >
+            <UserRound className="w-5 h-5" aria-hidden="true" />
+          </Link>
+        )}
       </nav>
 
       {/* Decorative orange line */}
