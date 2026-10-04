@@ -5,6 +5,11 @@ import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { flags } from '@/lib/featureFlags';
+import { ManagedBadge, PublicClaimCard } from '@/modules/organiser-self-serve/components/PublicClaimCard';
+import { publicClaimKind } from '@/modules/organiser-self-serve/publicClaim';
+import { myAccessRequestsQueryKey, organiserHomeQueryKey } from '@/modules/organiser-self-serve/selfServeApi';
+import { isMailboxProvenToken } from '@/modules/organiser-self-serve/sessionProof';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Pencil, Loader2, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -626,9 +631,11 @@ const OrganiserProfile = () => {
     buildPath: (s) => `/organisers/${s}`,
   });
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  // W7: decoded once per token, not per render of this page.
+  const mailboxProven = useMemo(() => isMailboxProvenToken(session?.access_token), [session?.access_token]);
 
   const isMobile = useIsMobile();
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -818,19 +825,10 @@ const OrganiserProfile = () => {
   // Deleted for the reason BentoPage.tsx gives, whose census also says which
   // useSeo calls are LIVE -- do not generalise from route type (arc W22).
 
-  const handleClaim = async () => {
-    if (!id || !user?.id) return;
-    try {
-      const { error } = await supabase.from('organiser_profiles').update({ claimed_by: user.id }).eq('id', id).is('claimed_by', null);
-      if (error) throw error;
-      toast({ title: 'Profile claimed', description: 'You can now edit this organiser profile.' });
-      queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(id) });
-    } catch (err) {
-      console.error('Claim error:', err);
-      toast({ title: 'Failed to claim profile', description: 'Something went wrong. Please try again.', variant: 'destructive' });
-    }
-  };
-
+  // Claiming goes through claim_organiser_v1 (Lever 2 W7, PublicClaimCard
+  // below). The direct `claimed_by` UPDATE that stood here is retired: D4's
+  // contract pairs every claimed_by with an entity_members owner row, which
+  // only the RPC writes.
   const openEditModal = () => {
     if (!entity) return;
     const ep = entity as EntityProfile;
@@ -1048,7 +1046,14 @@ const OrganiserProfile = () => {
   const hasContact = !!(instagramUrl || facebookUrl || websiteUrl || whatsappUrl || mailtoHref);
 
   const isClaimedByUser = entity.claimed_by === user?.id;
-  const canClaim        = !!user && !entity.claimed_by;
+  // W7: "Managed by the organiser" once claimed (D4 keeps claimed_by paired
+  // with an owner member), and the "Is this you?" card while unclaimed. Both
+  // behind the self-serve flag, off in production until launch.
+  const claimOrganiserInput = { id: entity.id, name: entity.name, claimedBy: entity.claimed_by, contactEmail: ep.contact_email };
+  const claimUser = user ? { id: user.id, email: user.email } : null;
+  const claimKind = publicClaimKind(flags.organiserSelfServe, claimOrganiserInput, claimUser);
+  const showManagedBadge = claimKind === 'managed';
+  const publicPath = `/organisers/${resolved.slug ?? routeParam ?? ''}`;
 
   const cityName = entity.cities?.name ?? ep.city ?? null;
   const metaLine = [organisationCategory, cityName].filter(Boolean).join(' \u00b7 ');
@@ -1193,11 +1198,6 @@ const OrganiserProfile = () => {
                 <Pencil className="w-4 h-4" />
               </button>
             )}
-            {canClaim && (
-              <button onClick={handleClaim} style={{ height: 44, padding: '0 16px', borderRadius: 100, background: 'rgba(12,10,13,0.5)', backdropFilter: 'blur(6px)', border: '1px solid rgba(246,241,234,0.16)', color: D.gold, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                Claim
-              </button>
-            )}
           </div>
 
           {/* Mobile */}
@@ -1206,6 +1206,7 @@ const OrganiserProfile = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
               {metaLine && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
               {ep.is_verified && <VerifiedBadge size="sm" />}
+              {showManagedBadge && <ManagedBadge size="sm" />}
             </div>
             {/* Static gold gradient, no shimmer sweep -- that mechanical
                 highlight-scroll is the generic premium-SaaS hero tell; the
@@ -1232,6 +1233,7 @@ const OrganiserProfile = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
                   {metaLine && <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
                   {ep.is_verified && <VerifiedBadge size="md" />}
+                  {showManagedBadge && <ManagedBadge size="md" />}
                 </div>
                 <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(48px,5vw,78px)', lineHeight: 0.95, margin: '0 0 12px', letterSpacing: '-0.01em', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
                   {entity.name}
@@ -1286,6 +1288,25 @@ const OrganiserProfile = () => {
             {contactRow}
           </div>
         )}
+
+        {/* W7 (mockup 06-A): "Is this you?" while the organiser is unclaimed.
+            Renders nothing when the flag is off or the organiser is managed;
+            signed out it offers sign-in back to this page. The RPCs decide. */}
+        <PublicClaimCard
+          key={entity.id}
+          enabled={flags.organiserSelfServe}
+          organiser={claimOrganiserInput}
+          user={claimUser}
+          mailboxProven={mailboxProven}
+          returnTo={publicPath}
+          onChanged={(outcome) => {
+            // The badge reads the refetched row; /account's home and request
+            // lists are cached under the user and must not show the old state.
+            if (outcome !== 'requested') void queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(id) });
+            if (outcome === 'claimed') void queryClient.invalidateQueries({ queryKey: organiserHomeQueryKey(user?.id) });
+            if (outcome !== 'stale') void queryClient.invalidateQueries({ queryKey: myAccessRequestsQueryKey(user?.id) });
+          }}
+        />
 
         {/* EMPTY PROFILE -- no bio, no contact links, no events, no team. The
             realistic case: a freshly claimed profile with nothing added yet.

@@ -8,9 +8,11 @@ import { Input } from '@/components/ui/input';
  * D-7 / D-11: prove the mailbox without leaving the page. Sends a 6-digit
  * code to the signed-in email and verifies it, which replaces the session
  * with one whose `amr` carries `otp` -- the evidence claim_organiser_v1
- * accepts. `onProven` runs once the new session is in place.
+ * accepts. `onProven` runs once the new session is in place. `returnTo` is
+ * where the emailed LINK lands (the code path never leaves the page): /account
+ * by default, the public organiser page when the proof was asked for there.
  */
-export function EmailCodeProof({ email, onProven }: { email: string; onProven: () => void }) {
+export function EmailCodeProof({ email, onProven, returnTo = '/account' }: { email: string; onProven: () => void; returnTo?: string }) {
   const [sent, setSent] = useState(false);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -23,7 +25,7 @@ export function EmailCodeProof({ email, onProven }: { email: string; onProven: (
       email,
       options: {
         shouldCreateUser: false,
-        emailRedirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent('/account')}`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(returnTo)}`,
       },
     });
     setBusy(false);
