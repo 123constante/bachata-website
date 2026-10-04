@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarPlus, Check, Info, Loader2 } from 'lucide-react';
+import { CalendarPlus, Check, Info, Loader2, Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,17 +21,21 @@ import {
   basicsFormFromSeries,
   dateLabel,
   formToDraft,
+  instagramUrlOk,
   isCancelledDate,
   isRuleDate,
   keepsOwnChanges,
   lifecycleActions,
   localAsZTime,
+  newPassRow,
+  passRowsProblem,
   removedUpcoming,
   scheduleSummary,
   scopeNote,
   upcomingDates,
   type BasicsForm,
   type LifecycleAction,
+  type PassRow,
   type SeriesWorkspace,
   type WorkspaceDate,
 } from '../seriesModel';
@@ -48,6 +52,51 @@ import { VenuePicker } from './VenuePicker';
  */
 
 const sameForm = (a: BasicsForm, b: BasicsForm) => JSON.stringify(a) === JSON.stringify(b);
+
+/** The price list (admin D8): a name and a price per row, up to 10; [] clears it. */
+function PricesField({ rows, onChange }: { rows: PassRow[] | null; onChange: (rows: PassRow[]) => void }) {
+  if (rows === null) {
+    return (
+      <p className="text-[11px] text-muted-foreground" data-testid="prices-team">
+        Prices were set by the Bachata Calendar team. Ask them to change them.
+      </p>
+    );
+  }
+  const update = (i: number, patch: Partial<PassRow>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  return (
+    <div className="space-y-1" data-testid="prices-field">
+      {rows.length === 0 && <p className="text-[11px] text-muted-foreground">No prices yet.</p>}
+      {rows.map((row, i) => (
+        <div key={row.id} className="flex items-center gap-2" data-testid="price-row">
+          <Input
+            aria-label={`Price ${i + 1} name`}
+            placeholder="Entry"
+            value={row.name}
+            maxLength={120}
+            onChange={(e) => update(i, { name: e.target.value })}
+            className="h-9 text-sm flex-1 min-w-0"
+          />
+          <Input
+            aria-label={`Price ${i + 1} amount`}
+            placeholder={`Price (${row.currency ?? 'GBP'})`}
+            inputMode="decimal"
+            value={row.price}
+            onChange={(e) => update(i, { price: e.target.value })}
+            className="h-9 text-sm w-24"
+          />
+          <Button type="button" size="sm" variant="ghost" className="h-9 px-2" aria-label={`Remove price ${i + 1}`} onClick={() => onChange(rows.filter((_, j) => j !== i))}>
+            <X className="w-4 h-4" aria-hidden="true" />
+          </Button>
+        </div>
+      ))}
+      {rows.length < 10 && (
+        <Button type="button" size="sm" variant="outline" className="h-8" data-testid="price-add" onClick={() => onChange([...rows, { ...newPassRow(), currency: 'GBP' }])}>
+          <Plus className="w-4 h-4" aria-hidden="true" /> Add a price
+        </Button>
+      )}
+    </div>
+  );
+}
 
 function BasicsSection({ workspace, onSaved }: { workspace: SeriesWorkspace; onSaved: (text: string) => void }) {
   const { series } = workspace;
@@ -69,7 +118,9 @@ function BasicsSection({ workspace, onSaved }: { workspace: SeriesWorkspace; onS
   const draft = formToDraft(form);
   const before = formToDraft(baseline.current);
   const dirty = hasBasicsChanges(before, draft);
-  const valid = form.name.trim().length > 0 && /^\d{2}:\d{2}$/.test(form.startTime);
+  const pricesProblem = passRowsProblem(form.passes);
+  const instagramOk = instagramUrlOk(form.instagramUrl ?? '');
+  const valid = form.name.trim().length > 0 && /^\d{2}:\d{2}$/.test(form.startTime) && !pricesProblem && instagramOk;
 
   const save = async () => {
     setError(null);
@@ -127,8 +178,18 @@ function BasicsSection({ workspace, onSaved }: { workspace: SeriesWorkspace; onS
         <Label htmlFor="series-cover" className="text-xs">Cover picture link</Label>
         <Input id="series-cover" type="url" inputMode="url" placeholder="https://" value={form.coverImageUrl} onChange={(e) => set('coverImageUrl', e.target.value)} className="h-9 text-sm" />
       </div>
+      <div className="space-y-1">
+        <Label htmlFor="series-instagram" className="text-xs">Instagram link</Label>
+        <Input id="series-instagram" type="url" inputMode="url" placeholder="https://www.instagram.com/" value={form.instagramUrl ?? ''} onChange={(e) => set('instagramUrl', e.target.value)} className="h-9 text-sm" />
+        {!instagramOk && <p className="text-[11px] text-destructive" data-testid="instagram-hint">Use an instagram.com link, like https://www.instagram.com/yourname.</p>}
+      </div>
+      <fieldset className="space-y-1">
+        <legend className="text-xs font-medium mb-1">Prices</legend>
+        <PricesField rows={form.passes ?? null} onChange={(rows) => set('passes', rows)} />
+        {pricesProblem && <p className="text-[11px] text-destructive" data-testid="prices-hint">{pricesProblem}</p>}
+      </fieldset>
       <p className="text-[11px] text-muted-foreground">
-        Price, Instagram and the class programme are set by the Bachata Calendar team for now.
+        The class programme is set by the Bachata Calendar team for now.
       </p>
       {error && <p className="text-xs text-destructive" role="alert" data-testid="basics-error">{error}</p>}
       <div className="flex flex-wrap justify-end gap-2">

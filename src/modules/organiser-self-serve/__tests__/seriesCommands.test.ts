@@ -29,7 +29,9 @@ import {
 // (apply_aggregate_write_p5: v_owner_kinds, v_owner_upsert_keys,
 // v_owner_override_keys, v_owner_cancel_keys), as redefined by the D7 body in
 // 20261109130000_p5_owner_category_v1.sql (category joins the upsert and create
-// key lists; the value set is party | class | workshop). The Website cannot
+// key lists; the value set is party | class | workshop) and by the D8 body in
+// 20261109180000_p5_owner_writes_time_price_instagram_v1.sql (default_passes and
+// instagram_url join both lists). The Website cannot
 // read that file in CI, so the literal is pinned here: when the server list
 // changes, this spec and the mirror change together.
 const SERVER_OWNER_KINDS = [
@@ -41,7 +43,7 @@ const SERVER_UPSERT_KEYS = [
   'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',
   'default_duration_minutes', 'default_start_date', 'default_level', 'default_ticket_url',
   'default_description', 'default_cover_image_url', 'default_music_styles', 'default_gallery',
-  'default_video_urls', 'timezone', 'category',
+  'default_video_urls', 'timezone', 'category', 'default_passes', 'instagram_url',
 ];
 // v_owner_create_keys is this list plus 'format' and the organiser key; the
 // organiser key is the legacy name the architecture lint bans in src/, so the

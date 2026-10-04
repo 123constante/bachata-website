@@ -30,6 +30,7 @@ import {
   durationMinutes,
   endTime,
   isRuleDate,
+  setTimeDoneCopy,
   type WorkspaceDate,
   type WorkspaceSeries,
 } from '../seriesModel';
@@ -127,7 +128,10 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
   const usualTime = usualStart ? (usualEnd ? `${usualStart}–${usualEnd}` : usualStart) : null;
   const seriesVenue = venueName(venues.data, series.default_venue_id);
   const cancelled = d ? d.cancelled : date.lifecycle_status === 'cancelled';
-  const canMoveTime = hasSessions || date.added_sessions_count > 0;
+  // A series with no programme times: the server keeps this date's own time in a
+  // date-time session it creates (admin D8), so every date can move.
+  // "Usual time" also shows once such a date has its own time (its added session).
+  const hasOwnTime = date.session_overrides_count > 0 || (!hasSessions && date.added_sessions_count > 0);
   const ruleDate = isRuleDate(date.occurrence_date, series);
   const live = series.lifecycle_status === 'live';
 
@@ -146,13 +150,14 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
     setView(next);
   };
 
-  const run = async (cmd: OwnerCommand, done: { title: string; body: string; undo?: OwnerCommand }) => {
+  type Done = { title: string; body: string; undo?: OwnerCommand };
+  const run = async (cmd: OwnerCommand, done: Done | ((response: unknown) => Done)) => {
     setError(null);
     try {
       const target = cmd.kind.startsWith('series.') ? seriesId : date.id;
       const version = cmd.kind.startsWith('series.') ? series.version : d?.version ?? date.version;
-      await command.mutateAsync({ targetId: target, version, command: cmd });
-      setDoneText(done);
+      const response = await command.mutateAsync({ targetId: target, version, command: cmd });
+      setDoneText(typeof done === 'function' ? done(response) : done);
       setView('done');
     } catch (err) {
       setError(commandErrorMessage(err));
@@ -241,10 +246,9 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                   <MenuItem
                     icon={<Clock className="w-4 h-4" />}
                     title="Change the time"
-                    hint={canMoveTime ? (usualTime ? `Usually ${usualTime}` : null) : 'The class times are set by the Bachata Calendar team for now.'}
+                    hint={usualTime ? `Usually ${usualTime}` : null}
                     testId="action-time"
                     onClick={() => open3C('time')}
-                    disabled={!canMoveTime}
                   />
                 )}
                 {!cancelled && (
@@ -322,7 +326,9 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
             </div>
           ) : view === 'time' ? (
             <div className="space-y-3" data-testid="time-panel">
-              <p className="text-xs text-muted-foreground">Every session on {label} moves with the start time. Other dates stay {usualTime ?? 'as the series'}.</p>
+              <p className="text-xs text-muted-foreground">
+                {hasSessions ? `Every session on ${label} moves with the start time.` : `Only ${label} changes.`} Other dates stay {usualTime ?? 'as the series'}.
+              </p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="date-start" className="text-xs">Starts</Label>
@@ -338,16 +344,14 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
               <div className="flex flex-wrap items-center gap-2 justify-between">
                 {back}
                 <div className="flex gap-2">
-                  {date.session_overrides_count > 0 && (
+                  {hasOwnTime && (
                     <Button type="button" size="sm" variant="outline" disabled={busy} data-testid="time-reset"
                       onClick={() => void run(resetTimeCommand(), { title: `${label} is back to the usual time.`, body: usualTime ? `Starts ${usualStart} as the series.` : 'It follows the series again.' })}>
                       Usual time
                     </Button>
                   )}
-                  {saveButton('Save the time', () => void run(setTimeCommand(start, end || null), {
-                    title: `${label} now starts at ${start}.`,
-                    body: 'Only this date moves. Every other date keeps the series time.',
-                  }), !/^\d{2}:\d{2}$/.test(start))}
+                  {saveButton('Save the time', () => void run(setTimeCommand(start, end || null), (response) => setTimeDoneCopy(label, start, response)),
+                    !/^\d{2}:\d{2}$/.test(start))}
                 </div>
               </div>
             </div>

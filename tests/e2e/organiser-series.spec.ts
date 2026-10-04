@@ -163,13 +163,17 @@ async function openSeries(page: Page, opts: { hasSessions?: boolean; workspaceRe
         d.reason = payload.cancelled ? String(payload.reason) : d.reason;
         d.has_override = true;
       }
+      // Admin D8: on a series with no programme times the first move of a date
+      // creates its date-time session and says so with date_session_created.
+      const dateSessionCreated = kind === 'occurrence.set_time' && opts.hasSessions === false && d.session_overrides_count === 0;
       if (kind === 'occurrence.set_time') {
         d.start = String(payload.new_local_start);
         d.end = String(payload.new_local_end ?? d.end);
         d.session_overrides_count = 1;
       }
       d.version += 1;
-      return json(route, { ok: true, data: {}, audit_id: 'a', new_version: d.version });
+      const data = dateSessionCreated ? { applied: { start: d.start, end: d.end }, date_session_created: true } : {};
+      return json(route, { ok: true, data, audit_id: 'a', new_version: d.version });
     }
     if (path.endsWith('/rest/v1/cancellation_reasons')) return json(route, REASONS);
     if (path.endsWith('/rpc/get_public_venues_list_v4')) return json(route, VENUES);
@@ -299,14 +303,23 @@ test('a version conflict keeps what the organiser typed', async ({ page }) => {
   await expect(page.getByLabel('Name')).toHaveValue('Typed name');
 });
 
-test('a series with no programme times cannot move one date (the server would refuse)', async ({ page }) => {
-  await openSeries(page, { hasSessions: false });
+test('a series with no programme times can move one date (admin D8: the date gets its own time)', async ({ page }) => {
+  const fake = await openSeries(page, { hasSessions: false });
   await row(page, TODAY).getByTestId('date-open').click();
   const sheet = page.getByTestId('date-sheet');
-  await expect(sheet.getByTestId('action-time')).toBeDisabled();
-  await expect(sheet.getByTestId('action-time')).toContainText('set by the Bachata Calendar team');
   // A rule date is a break; an off-rule date would be "Remove".
   await expect(sheet.getByTestId('action-skip')).toBeVisible();
+  await expect(sheet.getByTestId('action-time')).toBeEnabled();
+  await expect(sheet.getByTestId('action-time')).not.toContainText('set by the Bachata Calendar team');
+  await sheet.getByTestId('action-time').click();
+  await expect(sheet.getByTestId('time-panel')).toContainText('Only');
+  await sheet.locator('#date-start').fill('22:30');
+  await sheet.locator('#date-end').fill('01:30');
+  await sheet.getByTestId('date-save').click();
+  await expect(sheet.getByTestId('date-done')).toContainText('now has its own time: 22:30\u201301:30.');
+  await expect(sheet.getByTestId('date-done')).not.toContainText('session');
+  const sent = fake.sent[fake.sent.length - 1];
+  expect(sent?.command).toEqual({ kind: 'occurrence.set_time', payload: { new_local_start: '22:30', new_local_end: '01:30' } });
 });
 
 test("another organiser's series shows the refusal, not an editor", async ({ page }) => {
