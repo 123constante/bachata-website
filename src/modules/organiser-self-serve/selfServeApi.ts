@@ -54,7 +54,9 @@ export interface MyAccessRequest {
 
 export type { ClaimCandidate };
 
-export const organiserHomeQueryKey = (userId: string | undefined) => ['organiser-home', userId] as const;
+/** Prefix of every organiser-home query: what a write to an organiser or its series invalidates. */
+export const ORGANISER_HOME_KEY = ['organiser-home'] as const;
+export const organiserHomeQueryKey = (userId: string | undefined) => [...ORGANISER_HOME_KEY, userId] as const;
 export const myAccessRequestsQueryKey = (userId: string | undefined) => ['my-access-requests', userId] as const;
 
 export async function fetchOrganiserHome(): Promise<OrganiserHome> {
@@ -139,7 +141,7 @@ export async function createOrganiserProfile(input: CreateOrganiserInput) {
   return {
     organiserId: typeof row.organiser_id === 'string' ? row.organiser_id : null,
     slug: typeof row.slug === 'string' ? row.slug : null,
-    lifecycleStatus: String(row.lifecycle_status ?? 'draft'),
+    lifecycleStatus: typeof row.lifecycle_status === 'string' ? row.lifecycle_status : 'draft',
   };
 }
 

@@ -85,13 +85,17 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
     setNote('');
   };
 
-  const run = async (action: () => Promise<unknown>, success: string) => {
+  /**
+   * Runs one claim, request or create. `focus` reads, off the action's result,
+   * the organiser the page should open next (a create names the new one).
+   */
+  const run = async <T,>(action: () => Promise<T>, success: string, focus?: (result: T) => string | null) => {
     setBusy(true);
     setFailure(null);
     try {
-      const focus = await action();
+      const result = await action();
       setPanel(null);
-      onChanged(success, typeof focus === 'string' ? focus : undefined);
+      onChanged(success, focus?.(result) ?? undefined);
     } catch (error) {
       const copy = selfServeErrorCopy(error);
       setFailure(copy);
@@ -260,17 +264,16 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
               onSubmit={(e) => {
                 e.preventDefault();
                 void run(
-                  async () =>
-                    (
-                      await createOrganiserProfile({
-                        name: form.name,
-                        cityId: form.cityId,
-                        contactEmail: form.useMyEmail ? email : '',
-                        instagram: form.instagram,
-                        website: form.website,
-                      })
-                    ).organiserId,
+                  () =>
+                    createOrganiserProfile({
+                      name: form.name,
+                      cityId: form.cityId,
+                      contactEmail: form.useMyEmail ? email : '',
+                      instagram: form.instagram,
+                      website: form.website,
+                    }),
                   `${form.name.trim()} is saved as a draft. Send it for review below; the team checks new organisers within a day.`,
+                  (created) => created.organiserId,
                 );
               }}
               data-testid="create-form"

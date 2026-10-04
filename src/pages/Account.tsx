@@ -20,7 +20,6 @@ import {
   myAccessRequestsQueryKey,
   organiserHomeQueryKey,
   type HomeOrganiser,
-  type OrganiserHome as OrganiserHomeData,
 } from '@/modules/organiser-self-serve/selfServeApi';
 import { isMailboxProvenToken } from '@/modules/organiser-self-serve/sessionProof';
 
@@ -85,30 +84,18 @@ function AccountPage() {
   const requestedIds = useMemo(() => new Set(openRequests.map((r) => r.organiserId)), [openRequests]);
   const mailboxProven = isMailboxProvenToken(session?.access_token);
 
-  const refresh = (message: string, organiserId?: string) => {
+  // The confirmation line sits at the top of the page, above the fold on a phone.
+  const announce = (message: string) => {
     setConfirmation(message);
-    if (organiserId) setSelectedId(organiserId);
-    setShowOnboarding(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    void queryClient.invalidateQueries({ queryKey: organiserHomeQueryKey(user?.id) });
-    void queryClient.invalidateQueries({ queryKey: myAccessRequestsQueryKey(user?.id) });
   };
 
-  // The submit landed: show the organiser as In review at once (the selector
-  // row and the home header), then re-read the server's view.
-  const sentForReview = (organiserId: string) => {
-    queryClient.setQueryData<OrganiserHomeData>(organiserHomeQueryKey(user?.id), (current) =>
-      current
-        ? {
-            ...current,
-            organisers: current.organisers.map((o) =>
-              o.id === organiserId ? { ...o, lifecycle_status: 'pending_review' } : o,
-            ),
-          }
-        : current,
-    );
-    setConfirmation('Sent for review. The team checks new organisers within a day.');
+  const refresh = (message: string, organiserId?: string) => {
+    announce(message);
+    if (organiserId) setSelectedId(organiserId);
+    setShowOnboarding(false);
     void queryClient.invalidateQueries({ queryKey: organiserHomeQueryKey(user?.id) });
+    void queryClient.invalidateQueries({ queryKey: myAccessRequestsQueryKey(user?.id) });
   };
 
   const handleSignOut = async () => {
@@ -146,7 +133,8 @@ function AccountPage() {
             <Skeleton className="h-14 w-full rounded-md" />
             <Skeleton className="h-14 w-full rounded-md" />
           </div>
-        ) : home.isError ? (
+        ) : home.isError && !home.data ? (
+          // A home that never loaded. A failed RELOAD (after a write) keeps the organisers on screen.
           <div className="rounded-md border border-border p-3 space-y-2" role="alert">
             <p className="text-sm">We couldn&rsquo;t load your organisers.</p>
             <Button size="sm" variant="outline" onClick={() => void home.refetch()}>Try again</Button>
@@ -170,7 +158,12 @@ function AccountPage() {
             )}
 
             {selected && (
-              <OrganiserHome organiser={selected} today={home.data?.today ?? ''} onSentForReview={sentForReview} />
+              <OrganiserHome
+                key={selected.id}
+                organiser={selected}
+                today={home.data?.today ?? ''}
+                onSentForReview={() => announce('Sent for review.')}
+              />
             )}
 
             {openRequests.length > 0 && (

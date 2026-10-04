@@ -81,8 +81,10 @@ const COPY: Record<string, SelfServeErrorCopy> = {
     message: 'Only an owner or manager of this organiser can send it for review.',
     next: null,
   },
+  // Raised for every lifecycle outside draft and rejected (pending_review, live,
+  // paused, ended, archived). The home reloads on it (useSendForReview).
   invalid_state: {
-    message: 'This organiser is already in review or live, so there is nothing to send. Refresh to see where it is.',
+    message: 'Nothing to send: this organiser is already in review, live, or no longer active.',
     next: null,
   },
 };
@@ -150,3 +152,4 @@ export function commandErrorMessage(error: unknown): string {
 
 export const isVersionConflict = (error: unknown) =>
   !!error && typeof error === 'object' && /^version_conflict/.test(String((error as { message?: unknown }).message ?? ''));
+

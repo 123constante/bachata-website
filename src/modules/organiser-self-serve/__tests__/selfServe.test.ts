@@ -38,7 +38,7 @@ describe('selfServeErrors', () => {
 
   it('explains each submit refusal in plain words', () => {
     expect(selfServeErrorCopy({ message: 'invalid_state', code: 'P0001' }).message).toBe(
-      'This organiser is already in review or live, so there is nothing to send. Refresh to see where it is.',
+      'Nothing to send: this organiser is already in review, live, or no longer active.',
     );
     expect(selfServeErrorCopy({ message: 'not_authorised' }).message).toBe(
       'Only an owner or manager of this organiser can send it for review.',

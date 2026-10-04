@@ -1,11 +1,11 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, CalendarPlus, ExternalLink, Loader2, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LIFECYCLE_LABEL, submitOrganiserProfile, type HomeOrganiser } from '../selfServeApi';
+import { LIFECYCLE_LABEL, type HomeOrganiser, type SubmittedOrganiser } from '../selfServeApi';
 import { selfServeErrorCopy } from '../selfServeErrors';
+import { useSendForReview } from './useSendForReview';
 import {
   CATEGORY_LABEL,
   FORMAT_LABEL,
@@ -24,39 +24,6 @@ import {
  * arrives with W3. The one write here is the organiser's own "Send for
  * review" (admin D6, mockup 05-A).
  */
-
-/** "Send for review" for a draft or rejected organiser; the refusal copy shows under it. */
-function SendForReview({ organiser, onSent }: { organiser: HomeOrganiser; onSent: (organiserId: string) => void }) {
-  const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
-
-  const send = async () => {
-    setBusy(true);
-    setFailure(null);
-    try {
-      await submitOrganiserProfile(organiser.id);
-      onSent(organiser.id);
-    } catch (error) {
-      setFailure(selfServeErrorCopy(error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="space-y-1">
-      <Button size="sm" disabled={busy} onClick={() => void send()} data-testid="send-for-review">
-        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" aria-hidden="true" />}
-        Send for review
-      </Button>
-      {failure && (
-        <p className="text-xs text-destructive" role="alert" data-testid="send-for-review-error">
-          {failure}
-        </p>
-      )}
-    </div>
-  );
-}
 
 function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }) {
   const live = series.lifecycle_status === 'live';
@@ -78,7 +45,7 @@ function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }
           >
             {series.name}
           </Link>
-          {meta.length > 0 && <p className="text-xs text-muted-foreground">{meta.join(' · ')}</p>}
+          {meta.length > 0 && <p className="text-xs text-muted-foreground">{meta.join(' \u00B7 ')}</p>}
         </div>
         <Badge variant={live ? 'default' : 'secondary'} className="text-[11px] shrink-0">
           {LIFECYCLE_LABEL[series.lifecycle_status] ?? series.lifecycle_status}
@@ -142,13 +109,16 @@ export function OrganiserHome({
 }: {
   organiser: HomeOrganiser;
   today: string;
-  /** After a successful "Send for review": the page refreshes the home. */
-  onSentForReview: (organiserId: string) => void;
+  /** After a successful "Send for review" (the home is already patched and reloading): the page confirms it. */
+  onSentForReview: (sent: SubmittedOrganiser) => void;
 }) {
   const series = organiser.series as HomeSeriesFull[];
   const attention = attentionItems(series, today);
   const live = organiser.lifecycle_status === 'live';
   const status = organiserStatusView(organiser.name, organiser.lifecycle_status, organiser.latest_decision?.reason);
+  // The page keys this component by organiser, so a send's state is one organiser's.
+  const send = useSendForReview(onSentForReview);
+  const refusal = send.error ? selfServeErrorCopy(send.error).message : null;
 
   return (
     <section className="space-y-3" data-testid="organiser-home">
@@ -159,7 +129,7 @@ export function OrganiserHome({
             {organiser.name}
             {live && (
               <>
-                {' · '}
+                {' '}&middot;{' '}
                 <Link to={`/organisers/${organiser.slug ?? organiser.id}`} className="text-primary inline-flex items-center gap-1">
                   Public page <ExternalLink className="w-3 h-3" aria-hidden="true" />
                 </Link>
@@ -182,7 +152,29 @@ export function OrganiserHome({
           {status.note}
         </p>
       )}
-      {status.canSendForReview && <SendForReview key={organiser.id} organiser={organiser} onSent={onSentForReview} />}
+      {status.canSendForReview && (
+        <Button
+          size="sm"
+          disabled={send.isPending}
+          aria-busy={send.isPending}
+          onClick={() => send.mutate(organiser.id)}
+          data-testid="send-for-review"
+        >
+          {send.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Send className="w-4 h-4" aria-hidden="true" />
+          )}
+          Send for review
+        </Button>
+      )}
+      {/* Outside the button's branch: a refusal reloads the home, and when the reloaded
+          organiser is no longer sendable the button goes but its explanation stays. */}
+      {refusal && (
+        <p className="text-xs text-destructive" role="alert" data-testid="send-for-review-error">
+          {refusal}
+        </p>
+      )}
 
       {attention.length > 0 && (
         <div
