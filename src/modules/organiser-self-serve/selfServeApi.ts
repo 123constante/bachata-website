@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { NOT_DEACTIVATED } from '@/lib/notDeactivatedFilter';
 import type { ClaimCandidate } from './claimHint';
+import type { HomeSeriesFull } from './homeModel';
 
 export { claimHint, type ClaimHint } from './claimHint';
 
@@ -21,14 +22,6 @@ export interface Decision {
   created_at: string;
 }
 
-export interface HomeSeries {
-  id: string;
-  name: string;
-  slug: string | null;
-  lifecycle_status: OrganiserLifecycle;
-  upcoming_count: number;
-}
-
 export interface HomeOrganiser {
   id: string;
   name: string;
@@ -38,10 +31,12 @@ export interface HomeOrganiser {
   lifecycle_status: OrganiserLifecycle;
   role: 'owner' | 'manager';
   latest_decision: Decision | null;
-  series: HomeSeries[];
+  series: HomeSeriesFull[];
 }
 
 export interface OrganiserHome {
+  /** London calendar date the server computed the home for, YYYY-MM-DD. */
+  today: string;
   organisers: HomeOrganiser[];
 }
 
@@ -62,8 +57,11 @@ export const myAccessRequestsQueryKey = (userId: string | undefined) => ['my-acc
 export async function fetchOrganiserHome(): Promise<OrganiserHome> {
   const { data, error } = await supabase.rpc('organiser_home_v1');
   if (error) throw error;
-  const home = (data ?? {}) as { organisers?: HomeOrganiser[] };
-  return { organisers: Array.isArray(home.organisers) ? home.organisers : [] };
+  const home = (data ?? {}) as { today?: string; organisers?: HomeOrganiser[] };
+  return {
+    today: typeof home.today === 'string' ? home.today : '',
+    organisers: Array.isArray(home.organisers) ? home.organisers : [],
+  };
 }
 
 export async function fetchMyAccessRequests(): Promise<MyAccessRequest[]> {

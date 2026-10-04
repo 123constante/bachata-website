@@ -112,7 +112,7 @@ for (const width of [390, 768, 1280]) {
       await row(page, ORGS.matches.name).getByTestId('claim-open').click();
       await page.getByTestId('claim-confirm').click();
       await expect(page.getByTestId('account-confirmation')).toContainText('is yours');
-      await expect(page.getByTestId('my-organiser')).toContainText(ORGS.matches.name);
+      await expect(page.getByTestId('organiser-home')).toContainText(ORGS.matches.name);
       expect(calls.claim).toEqual([ORGS.matches.id]);
     });
 
