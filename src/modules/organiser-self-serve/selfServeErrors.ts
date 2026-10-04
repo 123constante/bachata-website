@@ -99,3 +99,45 @@ export function selfServeErrorCopy(error: unknown): SelfServeErrorCopy {
 
 /** Exposed for the spec that pins every code the server can raise. */
 export const KNOWN_SELF_SERVE_CODES = Object.keys(COPY);
+
+/**
+ * Series and date commands (W4/W5: series_command_p5, occurrence_command_p5,
+ * admin_event_workspace_p5). Unlike the D4 RPCs these raise a prefixed
+ * message, often with detail after it ("permission_denied: occurrence.cancel
+ * needs a reason that is a cancellation_reasons label"), so the copy is chosen
+ * by matching the message, most specific first. Raw server text is never
+ * shown: anything unmatched gets the generic line.
+ */
+export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
+  { match: /^version_conflict/, message: 'This changed somewhere else after you opened it. We have reloaded it; check it and save again.' },
+  { match: /on a past date is admin-only|^past_date/, message: 'That date has already happened, so it can no longer be changed.' },
+  { match: /^has_bookings/, message: 'People have already booked this date, so it cannot be removed. Cancel it instead, so they see why.' },
+  { match: /^no_sessions_for_time_override/, message: 'This date has no session times to move yet. Ask the Bachata Calendar team to set up the class times.' },
+  { match: /cancellation_reasons label/, message: 'Choose a reason. Dancers see it.' },
+  { match: /must be blank or an http\(s\) URL|must be null or an array of http\(s\) URLs/, message: 'Enter a full link starting with https://.' },
+  { match: /description is longer than/, message: 'Keep the note under 4,000 characters.' },
+  { match: /must name an existing venue/, message: 'That venue is not on Bachata Calendar yet.' },
+  { match: /default_duration_minutes/, message: 'The end time must be after the start, and within 20 hours.' },
+  { match: /must be a HH:MM time|must be blank or a HH:MM time/, message: 'Enter the time as hours and minutes, like 19:30.' },
+  { match: /date must be a YYYY-MM-DD date/, message: 'Choose a date.' },
+  { match: /is not an owner transition|^lifecycle_transition_denied/, message: 'That status change is not available for this event right now.' },
+  { match: /is not a date the recurrence rule/, message: 'The weekly pattern changed since this date was taken off, so it cannot be put back as a break. Add it as a date instead.' },
+  { match: /is not a break on series/, message: 'That date is already back on the list. Reload the page.' },
+  { match: /^publish_blocked/, message: 'This event needs more details before it can go live again. Ask the Bachata Calendar team.' },
+  { match: /^invalid_payload: name required/, message: 'Enter the event name.' },
+  { match: /^(not_found|series_not_found)/, message: 'This date or event no longer exists. Reload the page.' },
+  { match: /^permission_denied/, message: 'You cannot make that change here. Ask the Bachata Calendar team.' },
+];
+
+export function commandErrorMessage(error: unknown): string {
+  const message = error && typeof error === 'object' ? (error as { message?: unknown }).message : null;
+  if (typeof message === 'string') {
+    const text = message.trim();
+    const hit = COMMAND_COPY.find((c) => c.match.test(text));
+    if (hit) return hit.message;
+  }
+  return GENERIC.message;
+}
+
+export const isVersionConflict = (error: unknown) =>
+  !!error && typeof error === 'object' && /^version_conflict/.test(String((error as { message?: unknown }).message ?? ''));
