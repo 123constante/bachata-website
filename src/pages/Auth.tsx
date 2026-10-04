@@ -17,6 +17,7 @@ import MagicLinkConfirmation from "@/components/MagicLinkConfirmation";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
 import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import GlobalLayout from "@/components/layout/GlobalLayout";
+import { flags } from "@/lib/featureFlags";
 import { SIGNUP_STEPS, getNextStep, getPreviousStep, getStepIndex, type SignupStep } from "@/lib/auth-signup-resolver";
 
 const ROLE_OPTIONS: { label: string; icon: typeof Sparkles; value: EntryRole; description: string }[] = [
@@ -48,7 +49,9 @@ const AuthContent = () => {
   };
 
   const explicitReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
-  const returnTo = explicitReturnTo || "/";
+  // With organiser self-serve on, a sign-in with no destination lands on
+  // /account (Lever 2 W1) instead of the homepage.
+  const returnTo = explicitReturnTo || (flags.organiserSelfServe ? "/account" : "/");
   const userType = searchParams.get("userType");
   const mode = searchParams.get("mode") || "signup";
 

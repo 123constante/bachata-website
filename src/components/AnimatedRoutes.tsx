@@ -37,6 +37,7 @@ const Vendors = lazyWithRetry(() => import("../pages/Vendors"));
 const VendorDetail = lazyWithRetry(() => import("../pages/VendorDetail"));
 const Raffles = lazyWithRetry(() => import("../pages/Raffles"));
 const Auth = lazyWithRetry(() => import("../pages/Auth"));
+const Account = lazyWithRetry(() => import("../pages/Account"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
@@ -156,6 +157,14 @@ export const AnimatedRoutes = () => {
             {/* Website self-service routes (create-event, edit-event, create-profile,
                 edit-profile, onboarding, etc.) retired 2026-09-12. Public pages and
                 auth remain; use Admin editor (EventEditorV2) for organiser event creation. */}
+
+            {/* Organiser self-serve (Lever 2). Flag-gated like /raffles: off,
+                it redirects home rather than rendering a placeholder. */}
+            <Route path="/account" element={
+              flags.organiserSelfServe
+                ? <PageTransition><Account /></PageTransition>
+                : <Navigate to="/" replace />
+            } />
 
             <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
             <Route path="/auth/callback" element={<PageTransition><AuthCallback /></PageTransition>} />

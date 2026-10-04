@@ -56,6 +56,8 @@ export const SITE_IA = {
   raffles:          { label: 'Raffles',           path: '/raffles' },
   allProfiles:      { label: 'All Profiles',      path: '/all-profiles' },
   profile:          { label: 'Profile',           path: '/profile' },
+  // Signed-in, noindex (Lever 2 W1); never reaches a crawler's BreadcrumbList.
+  account:          { label: 'Your account',      path: '/account' },
   search:           { label: 'Search',            path: '/search' },
   faq:              { label: 'FAQ',               path: '/faq' },
   notFound:         { label: 'Page not found' },

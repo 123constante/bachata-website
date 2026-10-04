@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import ListingRequestForm from '@/components/ListingRequestForm';
 import type { ListingSection } from '@/lib/featureFlags';
@@ -11,36 +12,6 @@ interface ComingSoonGateProps {
   /** Section value submitted with the listing request &mdash; must match the listing_request_section enum. */
   section: ListingSection;
   children: ReactNode;
-}
-
-// While we're gated, set <meta name="robots" content="noindex,nofollow"> so
-// search engines don't index the placeholder. Restore the prior content
-// (or remove the meta entirely if we added it) on unmount.
-function useNoindexMeta(active: boolean) {
-  useEffect(() => {
-    if (!active || typeof document === 'undefined') return;
-
-    const head = document.head;
-    let meta = head.querySelector<HTMLMetaElement>('meta[name="robots"]');
-    const previousContent = meta?.getAttribute('content') ?? null;
-    const createdHere = !meta;
-
-    if (!meta) {
-      meta = document.createElement('meta');
-      meta.setAttribute('name', 'robots');
-      head.appendChild(meta);
-    }
-    meta.setAttribute('content', 'noindex,nofollow');
-
-    return () => {
-      if (!meta) return;
-      if (createdHere) {
-        meta.parentNode?.removeChild(meta);
-      } else if (previousContent !== null) {
-        meta.setAttribute('content', previousContent);
-      }
-    };
-  }, [active]);
 }
 
 export default function ComingSoonGate({
