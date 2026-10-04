@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CalendarPlus, ExternalLink, Plus } from 'lucide-react';
+import { AlertTriangle, CalendarPlus, ExternalLink, Loader2, Plus, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LIFECYCLE_LABEL, type HomeOrganiser } from '../selfServeApi';
+import { LIFECYCLE_LABEL, type HomeOrganiser, type SubmittedOrganiser } from '../selfServeApi';
+import { selfServeErrorCopy } from '../selfServeErrors';
+import { useSendForReview } from './useSendForReview';
 import {
   CATEGORY_LABEL,
   FORMAT_LABEL,
@@ -11,6 +13,7 @@ import {
   dateLabel,
   isCancelled,
   localAsZTime,
+  organiserStatusView,
   type HomeSeriesFull,
 } from '../homeModel';
 
@@ -18,7 +21,8 @@ import {
  * The organiser home (Lever 2 W2): mockup 01-B, series cards with their next
  * dates, under 01-C's "needs you" notice. Each card opens the series page
  * (W4, /account/series/:id), where one date is changed too (W5); "New event"
- * opens the create screen (W3, /account/new) for this organiser.
+ * opens the create screen (W3, /account/new) for this organiser. The other write
+ * here is the organiser's own "Send for review" (admin D6, mockup 05-A).
  */
 
 function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }) {
@@ -41,7 +45,7 @@ function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }
           >
             {series.name}
           </Link>
-          {meta.length > 0 && <p className="text-xs text-muted-foreground">{meta.join(' · ')}</p>}
+          {meta.length > 0 && <p className="text-xs text-muted-foreground">{meta.join(' \u00B7 ')}</p>}
         </div>
         <Badge variant={live ? 'default' : 'secondary'} className="text-[11px] shrink-0">
           {LIFECYCLE_LABEL[series.lifecycle_status] ?? series.lifecycle_status}
@@ -98,10 +102,23 @@ function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }
   );
 }
 
-export function OrganiserHome({ organiser, today }: { organiser: HomeOrganiser; today: string }) {
+export function OrganiserHome({
+  organiser,
+  today,
+  onSentForReview,
+}: {
+  organiser: HomeOrganiser;
+  today: string;
+  /** After a successful "Send for review" (the home is already patched and reloading): the page confirms it. */
+  onSentForReview: (sent: SubmittedOrganiser) => void;
+}) {
   const series = organiser.series as HomeSeriesFull[];
   const attention = attentionItems(series, today);
   const live = organiser.lifecycle_status === 'live';
+  const status = organiserStatusView(organiser.name, organiser.lifecycle_status, organiser.latest_decision?.reason);
+  // The page keys this component by organiser, so a send's state is one organiser's.
+  const send = useSendForReview(onSentForReview);
+  const refusal = send.error ? selfServeErrorCopy(send.error).message : null;
 
   return (
     <section className="space-y-3" data-testid="organiser-home">
@@ -112,7 +129,7 @@ export function OrganiserHome({ organiser, today }: { organiser: HomeOrganiser; 
             {organiser.name}
             {live && (
               <>
-                {' · '}
+                {' '}&middot;{' '}
                 <Link to={`/organisers/${organiser.slug ?? organiser.id}`} className="text-primary inline-flex items-center gap-1">
                   Public page <ExternalLink className="w-3 h-3" aria-hidden="true" />
                 </Link>
@@ -134,17 +151,35 @@ export function OrganiserHome({ organiser, today }: { organiser: HomeOrganiser; 
         </div>
       </div>
 
-      {organiser.lifecycle_status === 'draft' && (
-        <p className="text-xs text-muted-foreground">
-          {organiser.name} is not public yet. Once the team approves it you can add your events.
+      {status.note && (
+        <p
+          className={cn('text-xs', status.tone === 'destructive' ? 'text-destructive' : 'text-muted-foreground')}
+          data-testid="organiser-status-note"
+        >
+          {status.note}
         </p>
       )}
-      {organiser.lifecycle_status === 'pending_review' && (
-        <p className="text-xs text-muted-foreground">The team is checking {organiser.name}, usually within a day.</p>
+      {status.canSendForReview && (
+        <Button
+          size="sm"
+          disabled={send.isPending}
+          aria-busy={send.isPending}
+          onClick={() => send.mutate(organiser.id)}
+          data-testid="send-for-review"
+        >
+          {send.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Send className="w-4 h-4" aria-hidden="true" />
+          )}
+          Send for review
+        </Button>
       )}
-      {organiser.lifecycle_status === 'rejected' && (
-        <p className="text-xs text-destructive">
-          {organiser.name} needs changes{organiser.latest_decision?.reason ? `: ${organiser.latest_decision.reason}` : '.'}
+      {/* Outside the button's branch: a refusal reloads the home, and when the reloaded
+          organiser is no longer sendable the button goes but its explanation stays. */}
+      {refusal && (
+        <p className="text-xs text-destructive" role="alert" data-testid="send-for-review-error">
+          {refusal}
         </p>
       )}
 

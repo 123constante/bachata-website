@@ -29,8 +29,10 @@ interface Props {
   /**
    * Called after any successful claim, request or create with the line to
    * confirm it. The PAGE shows it: a first organiser unmounts this component.
+   * A create also names the new organiser, so the page opens its home, where
+   * "Send for review" waits (mockup 05-A: a draft is sent as its own step).
    */
-  onChanged: (confirmation: string) => void;
+  onChanged: (confirmation: string, organiserId?: string) => void;
 }
 
 type Panel =
@@ -83,13 +85,17 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
     setNote('');
   };
 
-  const run = async (action: () => Promise<unknown>, success: string) => {
+  /**
+   * Runs one claim, request or create. `focus` reads, off the action's result,
+   * the organiser the page should open next (a create names the new one).
+   */
+  const run = async <T,>(action: () => Promise<T>, success: string, focus?: (result: T) => string | null) => {
     setBusy(true);
     setFailure(null);
     try {
-      await action();
+      const result = await action();
       setPanel(null);
-      onChanged(success);
+      onChanged(success, focus?.(result) ?? undefined);
     } catch (error) {
       const copy = selfServeErrorCopy(error);
       setFailure(copy);
@@ -266,7 +272,8 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
                       instagram: form.instagram,
                       website: form.website,
                     }),
-                  `${form.name.trim()} is saved. The team checks new organisers; once it is live you can add your events.`,
+                  `${form.name.trim()} is saved as a draft. Send it for review below; the team checks new organisers within a day.`,
+                  (created) => created.organiserId,
                 );
               }}
               data-testid="create-form"

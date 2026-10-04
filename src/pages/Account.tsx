@@ -84,10 +84,16 @@ function AccountPage() {
   const requestedIds = useMemo(() => new Set(openRequests.map((r) => r.organiserId)), [openRequests]);
   const mailboxProven = isMailboxProvenToken(session?.access_token);
 
-  const refresh = (message: string) => {
+  // The confirmation line sits at the top of the page, above the fold on a phone.
+  const announce = (message: string) => {
     setConfirmation(message);
-    setShowOnboarding(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const refresh = (message: string, organiserId?: string) => {
+    announce(message);
+    if (organiserId) setSelectedId(organiserId);
+    setShowOnboarding(false);
     void queryClient.invalidateQueries({ queryKey: organiserHomeQueryKey(user?.id) });
     void queryClient.invalidateQueries({ queryKey: myAccessRequestsQueryKey(user?.id) });
   };
@@ -127,7 +133,8 @@ function AccountPage() {
             <Skeleton className="h-14 w-full rounded-md" />
             <Skeleton className="h-14 w-full rounded-md" />
           </div>
-        ) : home.isError ? (
+        ) : home.isError && !home.data ? (
+          // A home that never loaded. A failed RELOAD (after a write) keeps the organisers on screen.
           <div className="rounded-md border border-border p-3 space-y-2" role="alert">
             <p className="text-sm">We couldn&rsquo;t load your organisers.</p>
             <Button size="sm" variant="outline" onClick={() => void home.refetch()}>Try again</Button>
@@ -150,7 +157,14 @@ function AccountPage() {
               </section>
             )}
 
-            {selected && <OrganiserHome organiser={selected} today={home.data?.today ?? ''} />}
+            {selected && (
+              <OrganiserHome
+                key={selected.id}
+                organiser={selected}
+                today={home.data?.today ?? ''}
+                onSentForReview={() => announce('Sent for review.')}
+              />
+            )}
 
             {openRequests.length > 0 && (
               <section className="space-y-2" data-testid="my-access-requests">

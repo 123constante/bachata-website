@@ -33,8 +33,9 @@ export async function fetchFestivalEventRow(
 // `legacy_event_id = <id> OR (id = <id> AND legacy_event_id IS NULL)` --
 // covering both cases -- and it filters lifecycle_status IN
 // ('live','paused','ended'), returning NULL otherwise, so it IS the
-// visibility gate. A direct table read would not be one: event_series_p5's
-// anon RLS is still behind FF_DB_SELF_SERVE_RLS.
+// visibility gate. A direct table read would not be one, and anon cannot make
+// it anyway: event_series_p5's select policy is admin-only (admin D6 retired
+// FF_DB_SELF_SERVE_RLS).
 //
 // The returned object carries the same shape the removed legacy-table read
 // used to produce, so the `as FestivalEvent` cast in FestivalDetail and the

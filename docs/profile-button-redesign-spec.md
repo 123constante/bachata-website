@@ -1,5 +1,7 @@
 # Profile Button Redesign Spec
 
+> Retired (Lever 2 W7, 2026-10-04): `/profile` and `/create-organiser-profile` have had no route since the 2026-09-12 route cutover, so `src/pages/CreateOrganiserProfile.tsx` and `src/components/profile/ManageProfilesHub.tsx` (the role-management surface named below) were deleted; organiser claim, request-access and create live on `/account` behind `VITE_ENABLE_ORGANISER_SELF_SERVE`, and "Is this you?" on the public organiser page. The rest of this spec describes the unrouted `src/pages/Profile.tsx` chain as it stood.
+
 > Implemented state (Feb 2026): Multi-role profile entry uses selector-only switching (no top-level Continue/My Profiles hub cards). This spec reflects current shipped behavior plus forward-looking decisions marked as open or phased.
 
 Status legend:

@@ -8,7 +8,6 @@ import { DJDashboard } from '@/components/profile/DJDashboard';
 import { VendorDashboard } from '@/components/profile/VendorDashboard';
 import { VideographerDashboard } from '@/components/profile/VideographerDashboard';
 import { ProfileSelector } from '@/components/profile/ProfileSelector';
-import { ManageProfilesHub } from '@/components/profile/ManageProfilesHub';
 import { UserRole } from '@/hooks/useUserIds';
 import { trackAnalyticsEvent } from '@/lib/analytics';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,19 +17,9 @@ const ROLE_CREATE_ROUTES: Record<string, string> = {
   videographer: '/create-videographer-profile',
 };
 
-interface ProfileEntryIds {
-  dancerId: string | null;
-  dancerProfileComplete: boolean;
-  organiserId: string | null;
-  teacherId: string | null;
-  videographerId: string | null;
-  vendorId: string | null;
-}
-
 interface ProfileEntryRouterProps {
   user: unknown | null;
   loading: boolean;
-  ids: ProfileEntryIds;
   availableRoles: UserRole[];
   activeRole: UserRole;
   onSelectRole: (role: UserRole) => void;
@@ -41,7 +30,6 @@ interface ProfileEntryRouterProps {
 export const ProfileEntryRouter = ({
   user,
   loading,
-  ids,
   availableRoles,
   activeRole,
   onSelectRole,
@@ -161,10 +149,6 @@ export const ProfileEntryRouter = ({
         {activeRole === 'dj' && <DJDashboard />}
         {activeRole === 'videographer' && <VideographerDashboard />}
         {activeRole === 'vendor' && <VendorDashboard />}
-
-        <div className='pt-0 pb-0'>
-          <ManageProfilesHub ids={ids} onRefreshRoles={onRefreshRoles} onSignOut={onSignOut} mode='strip' />
-        </div>
       </div>
     </div>
   );

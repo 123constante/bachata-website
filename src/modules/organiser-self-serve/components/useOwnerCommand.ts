@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+  ORGANISER_HOME_KEY,
   dateDetailQueryKey,
   runOccurrenceCommand,
   runSeriesCommand,
@@ -34,7 +35,7 @@ export function useOwnerCommand(seriesId: string) {
   const queryClient = useQueryClient();
   const reload = (occurrenceId?: string) => {
     void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
-    void queryClient.invalidateQueries({ queryKey: ['organiser-home'] });
+    void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
     if (occurrenceId) void queryClient.invalidateQueries({ queryKey: dateDetailQueryKey(occurrenceId) });
   };
 

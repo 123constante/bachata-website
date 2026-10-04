@@ -9,6 +9,14 @@ name: Unit & Contract Tests
 # so the same Supabase secrets db-contract-check.yml uses are required. The
 # tests read process.env.VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
 # directly; pure-logic tests ignore them.
+#
+# On pull_request the London leg runs those live suites only when the diff
+# touches a DB-facing path (scripts/ci-live-db-gate.mjs owns the rule and the
+# path list, shared with db-contract-check.yml). Otherwise it runs
+# `test:unit:offline` -- everything except *.contract.test.ts -- with the
+# Supabase secrets withheld, so nothing in it can reach prod. Push to main
+# always runs the full live set. Why: 2026-10-04, two full CI suites starting
+# saturated prod (68 statement-timeout cancels, public site 500s ~3 min each).
 
 on:
   pull_request:
@@ -45,8 +53,12 @@ jobs:
     env:
       TZ: ${{ matrix.tz }}
     steps:
+      # fetch-depth 2: on pull_request the checkout is the merge commit, and the
+      # live-DB gate below diffs it against its first parent (the base tip).
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -75,10 +87,28 @@ jobs:
             python3 -c "import yaml"
           fi
 
+      # Only the London (full) leg carries the live contract suites, so only it
+      # asks. Non-PR events always come back live=true.
+      - name: Decide whether the live contract suites run
+        id: gate
+        if: matrix.scope == 'full'
+        run: node scripts/ci-live-db-gate.mjs
+
       - name: Run unit + contract suite
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          # Replaced by an unroutable stub when the gate said live=false: the
+          # offline set must not be ABLE to reach prod, not merely be expected
+          # not to. A stub, not an empty value, because modules such as
+          # src/integrations/supabase/client.ts call createClient() at import
+          # time and throw on an empty URL (useEventGuestList.cache.test.ts,
+          # measured); `.invalid` never resolves, so an accidental call fails
+          # loudly instead of loading prod. Only an explicit 'false' swaps in
+          # the stub; a missing gate output (tz legs, or a broken gate) keeps
+          # today's behaviour exactly -- the real secrets, or empty where a PR
+          # gets none (Dependabot).
+          VITE_SUPABASE_URL: ${{ steps.gate.outputs.live == 'false' && 'https://ci-offline-no-db.invalid' || secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ steps.gate.outputs.live == 'false' && 'ci-offline-placeholder-not-a-real-key' || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          LIVE_DB: ${{ steps.gate.outputs.live }}
         # tz-sensitive scope: the calendar-time helpers and the calendar-day
         # transforms that construct/compare local Dates. Everything else is
         # timezone-inert and runs once under Europe/London.
@@ -117,7 +147,12 @@ jobs:
             # the *EdgeTtl.test.ts family, which runs in its own serial pass.
             # Without the second line those specs would silently stop running
             # under London, which is a coverage loss wearing a green tick.
-            npm run test:unit
+            if [ "$LIVE_DB" = "false" ]; then
+              echo "::notice title=Live contract suites SKIPPED::No DB-facing path changed in this PR; running test:unit:offline (no *.contract.test.ts, no Supabase secrets). See the gate step summary. Push to main runs them."
+              npm run test:unit:offline
+            else
+              npm run test:unit
+            fi
             npm run test:unit:timing
           else
             # --no-file-parallelism, matching the serial pass the London leg
