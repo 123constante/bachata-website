@@ -17,13 +17,32 @@ export const OWNER_COMMAND_KINDS = [
   'series.unskip_date', 'series.set_recurrence', 'series.stop_repeating', 'series.end_run',
 ] as const;
 
-/** series.upsert keys an owner may send on an EXISTING series. */
+/**
+ * series.upsert keys an owner may send on an EXISTING series. `category` joined
+ * the list with admin D7 (20261109130000_p5_owner_category_v1.sql); the server
+ * refuses a category change on a live series, so the basics form never sends it.
+ */
 export const OWNER_UPSERT_KEYS = [
   'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',
   'default_duration_minutes', 'default_start_date', 'default_level', 'default_ticket_url',
   'default_description', 'default_cover_image_url', 'default_music_styles', 'default_gallery',
-  'default_video_urls', 'timezone',
+  'default_video_urls', 'timezone', 'category',
 ] as const;
+
+/**
+ * series.upsert keys an owner may send on a CREATE (admin D3 v_owner_create_keys):
+ * the list above plus `format`, plus the organiser key, which names the one
+ * organiser the series belongs to. That key is the legacy column name the
+ * architecture lint bans app-wide, so selfServeApi.ts (the one allow-listed
+ * file) attaches it in createSeriesCommand; this mirror lists what the create
+ * screen itself may emit.
+ */
+export const OWNER_CREATE_KEYS = [...OWNER_UPSERT_KEYS, 'format'] as const;
+
+/** The categories an owner may create (admin D7): party, class, workshop. masterclass is admin-only. */
+export const OWNER_CATEGORIES = ['party', 'class', 'workshop'] as const;
+export type OwnerCategory = (typeof OWNER_CATEGORIES)[number];
+export type OwnerFormat = 'one_off' | 'recurring';
 
 /** occurrence.set_override keys an owner may send (one date's own changes). */
 export const OWNER_OVERRIDE_KEYS = [
@@ -121,7 +140,9 @@ export const addDateCommand = (date: string): OwnerCommand => ({ kind: 'series.a
 export const removeDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.remove_date', payload: { occurrence_id: occurrenceId } });
 export const skipDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.skip_date', payload: { occurrence_id: occurrenceId } });
 export const unskipDateCommand = (date: string): OwnerCommand => ({ kind: 'series.unskip_date', payload: { date } });
-export const lifecycleCommand = (to: 'paused' | 'live' | 'archived'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
+export const lifecycleCommand = (to: 'paused' | 'live' | 'archived' | 'pending_review'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
+/** draft -> pending_review, the owner's submit (admin D1 _owner_lifecycle_transition_allowed_p5). */
+export const submitForReviewCommand = (): OwnerCommand => lifecycleCommand('pending_review');
 
 // ---- one date (W5) -------------------------------------------------------------
 
@@ -150,3 +171,66 @@ export function overrideCommand(patch: OverridePatch): OwnerCommand {
   if (Object.keys(payload).length === 0) throw new Error('overrideCommand: empty patch');
   return { kind: 'occurrence.set_override', payload };
 }
+
+// ---- create (W3) ---------------------------------------------------------------
+
+/**
+ * A create is a series.upsert whose target_id names no row: the handler inserts
+ * the series under that id (COALESCE(p_series_id, gen_random_uuid())), so the
+ * screen chooses the id up front and lands on /account/series/:id afterwards.
+ */
+export const newSeriesId = newIdempotencyKey;
+
+/**
+ * The series' wall-clock zone. The handler stores 'UTC' when the key is absent
+ * (measured on E2E 2026-10-04), which would shift every London time, so a
+ * create always sends it.
+ */
+export const SERIES_TIMEZONE = 'Europe/London';
+
+/** The create screen's draft: the basics plus what only a create may set. */
+export interface CreateDraft extends BasicsDraft {
+  category: OwnerCategory;
+  format: OwnerFormat;
+  /** The party's date, or the weekly class's first date (YYYY-MM-DD, London). */
+  startDate: string;
+}
+
+/** The optional text fields a create sends only when set (keys from FIELD_KEY). */
+const CREATE_TEXT_FIELDS = ['level', 'ticketUrl', 'coverImageUrl', 'description'] as const;
+
+/**
+ * series.upsert payload for a create, WITHOUT the organiser key (see
+ * OWNER_CREATE_KEYS). Always: name, format, category, the start date, the start
+ * time and the time zone. Optional fields go only when set: a create with an
+ * absent key lands NULL anyway, and a blank would echo through the handler's
+ * NULLIF for nothing.
+ */
+export function createPayload(draft: CreateDraft): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    name: draft.name.trim(),
+    format: draft.format,
+    category: draft.category,
+    default_start_date: draft.startDate,
+    default_local_start_time: draft.startTime,
+    timezone: SERIES_TIMEZONE,
+  };
+  if (draft.durationMinutes) payload.default_duration_minutes = draft.durationMinutes;
+  if (draft.venueId) payload.default_venue_id = draft.venueId;
+  CREATE_TEXT_FIELDS.forEach((field) => {
+    const value = draft[field].trim();
+    if (value) payload[FIELD_KEY[field]] = value;
+  });
+  return payload;
+}
+
+/**
+ * The one rule an owner may set (admin D3 _owner_weekly_rule_problem_p5): every
+ * week on ONE weekday (0 = Sunday .. 6 = Saturday), open-ended. The rule
+ * materialises from the series' default_start_date, so the create sends the
+ * first date there and the weekday here.
+ */
+export const weeklyRuleCommand = (weekday: number): OwnerCommand => ({
+  kind: 'series.set_recurrence',
+  payload: { mode: 'weekly', weekdays: [weekday], end: { kind: 'none' } },
+});

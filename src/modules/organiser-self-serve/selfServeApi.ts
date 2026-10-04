@@ -4,7 +4,7 @@ import type { ClaimCandidate } from './claimHint';
 import type { HomeSeriesFull } from './homeModel';
 import type { Json } from '@/integrations/supabase/types';
 import { parseDateDetail, parseWorkspace, type DateDetail, type SeriesWorkspace } from './seriesModel';
-import type { CommandEnvelope } from './seriesCommands';
+import { upsertCommand, type CommandEnvelope, type OwnerCommand } from './seriesCommands';
 
 export { claimHint, type ClaimHint } from './claimHint';
 
@@ -196,6 +196,21 @@ export async function runOccurrenceCommand(env: CommandEnvelope): Promise<Comman
   const { data, error } = await supabase.rpc('occurrence_command_p5', { p_envelope: env as unknown as Json });
   if (error) throw error;
   return (data ?? { ok: true }) as unknown as CommandResponse;
+}
+
+// ---- W3: create ----------------------------------------------------------------
+
+/**
+ * The create envelope's command: the payload the create screen built
+ * (seriesCommands.createPayload) plus the organiser the series belongs to. The
+ * server's create rule (admin migration 20261108180000, D-12) wants
+ * `organiser_ids` naming exactly one organiser the caller owns or manages. That
+ * key is the legacy column name scripts/lint-runtime-architecture.mjs bans
+ * app-wide, so it is attached here, in the one allow-listed file, and nothing
+ * else in the module spells it.
+ */
+export function createSeriesCommand(payload: Record<string, unknown>, organiserId: string): OwnerCommand {
+  return upsertCommand({ ...payload, organiser_ids: [organiserId] });
 }
 
 export const LIFECYCLE_LABEL: Record<string, string> = {

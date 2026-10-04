@@ -126,6 +126,13 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
   { match: /^publish_blocked/, message: 'This event needs more details before it can go live again. Ask the Bachata Calendar team.' },
   { match: /^invalid_payload: name required/, message: 'Enter the event name.' },
   { match: /^(not_found|series_not_found)/, message: 'This date or event no longer exists. Reload the page.' },
+  // W3, the create (admin D3/D7 refusals on series.upsert (create) and series.set_recurrence).
+  { match: /\(create\) needs a live organiser/, message: 'Your organiser is not public yet. Once the Bachata Calendar team approves it you can add events.' },
+  { match: /naming one organiser the caller owns or manages/, message: 'Choose one of your organisers.' },
+  { match: /category must be party, class or workshop|category on a live series is admin-only/, message: 'That kind of event cannot be set here. Ask the Bachata Calendar team.' },
+  { match: /format must be one_off or recurring/, message: 'Choose a party or a weekly class.' },
+  { match: /default_start_date cannot be set to a past date|end\.date must not be before today/, message: 'Choose a date from today on.' },
+  { match: /^permission_denied: series\.set_recurrence/, message: 'The weekly pattern could not be saved. Pick one weekday and a first date from today on.' },
   { match: /^permission_denied/, message: 'You cannot make that change here. Ask the Bachata Calendar team.' },
 ];
 
@@ -138,6 +145,14 @@ export function commandErrorMessage(error: unknown): string {
   }
   return GENERIC.message;
 }
+
+/**
+ * True when the SERVER answered with a refusal (PostgREST carries the SQLSTATE in
+ * `code`, P0001 for every RAISE). A dropped connection reaches supabase-js as a
+ * fetch error with an empty code: the write may or may not have landed.
+ */
+export const isServerRefusal = (error: unknown) =>
+  !!error && typeof error === 'object' && typeof (error as { code?: unknown }).code === 'string' && (error as { code: string }).code.trim() !== '';
 
 export const isVersionConflict = (error: unknown) =>
   !!error && typeof error === 'object' && /^version_conflict/.test(String((error as { message?: unknown }).message ?? ''));

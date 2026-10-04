@@ -39,6 +39,7 @@ const Raffles = lazyWithRetry(() => import("../pages/Raffles"));
 const Auth = lazyWithRetry(() => import("../pages/Auth"));
 const Account = lazyWithRetry(() => import("../pages/Account"));
 const AccountSeries = lazyWithRetry(() => import("../pages/AccountSeries"));
+const AccountNew = lazyWithRetry(() => import("../pages/AccountNew"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
@@ -164,6 +165,11 @@ export const AnimatedRoutes = () => {
             <Route path="/account" element={
               flags.organiserSelfServe
                 ? <PageTransition><Account /></PageTransition>
+                : <Navigate to="/" replace />
+            } />
+            <Route path="/account/new" element={
+              flags.organiserSelfServe
+                ? <PageTransition><AccountNew /></PageTransition>
                 : <Navigate to="/" replace />
             } />
             <Route path="/account/series/:seriesId" element={
