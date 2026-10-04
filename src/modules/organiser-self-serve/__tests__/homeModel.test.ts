@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attentionItems, dateLabel, localAsZTime, type HomeSeriesFull } from '../homeModel';
+import { attentionItems, dateLabel, localAsZTime, organiserStatusView, type HomeSeriesFull } from '../homeModel';
 
 const TODAY = '2026-10-04';
 
@@ -72,5 +72,28 @@ describe('attentionItems', () => {
     expect(attentionItems([series({ next_dates: [date(TODAY, { lifecycle_status: 'cancelled' })] })], TODAY).map((i) => i.kind))
       .toEqual(['cancelled']);
     expect(attentionItems([series({ lifecycle_status: 'draft', next_dates: [date(TODAY)] })], TODAY)).toEqual([]);
+  });
+});
+
+describe('organiserStatusView', () => {
+  it('offers "Send for review" for exactly the states submit_organiser_profile_v1 admits', () => {
+    const offered = ['draft', 'rejected', 'pending_review', 'live', 'paused', 'ended', 'archived']
+      .filter((s) => organiserStatusView('Ritmo', s, null).canSendForReview);
+    expect(offered).toEqual(['draft', 'rejected']);
+  });
+
+  it('shows a rejected organiser its reason before the button', () => {
+    expect(organiserStatusView('Ritmo', 'rejected', '  Add your Instagram ')).toEqual({
+      note: 'Ritmo needs changes: Add your Instagram',
+      tone: 'destructive',
+      canSendForReview: true,
+    });
+    expect(organiserStatusView('Ritmo', 'rejected', null).note).toBe('Ritmo needs changes.');
+  });
+
+  it('tells an organiser in review how long the team takes, and says nothing when live', () => {
+    expect(organiserStatusView('Ritmo', 'pending_review', 'old reason').note).toBe('The team checks new organisers within a day.');
+    expect(organiserStatusView('Ritmo', 'live', null).note).toBeNull();
+    expect(organiserStatusView('Ritmo', 'draft', null).note).toContain('Send it for review');
   });
 });

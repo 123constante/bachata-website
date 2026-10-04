@@ -2,7 +2,7 @@
  * Refusal codes raised by the organiser self-serve RPCs (admin repo, Lever 2
  * D4: claim_organiser_v1, request_organiser_access_v1,
  * create_organiser_profile_v1, list_organiser_access_requests_v1, and the
- * shared _caller_proven_email_p5 helper). Each RPC refuses with
+ * shared _caller_proven_email_p5 helper; D6: submit_organiser_profile_v1). Each RPC refuses with
  * `RAISE EXCEPTION '<code>'`, which PostgREST returns as `error.message`.
  *
  * The UI shows the copy for a KNOWN code and a generic line for anything
@@ -76,6 +76,17 @@ const COPY: Record<string, SelfServeErrorCopy> = {
     message: 'You already have three organisers waiting. Finish or remove one first.',
     next: null,
   },
+  // D6 submit_organiser_profile_v1.
+  not_authorised: {
+    message: 'Only an owner or manager of this organiser can send it for review.',
+    next: null,
+  },
+  // Raised for every lifecycle outside draft and rejected (pending_review, live,
+  // paused, ended, archived). The home reloads on it (useSendForReview).
+  invalid_state: {
+    message: 'Nothing to send: this organiser is already in review, live, or no longer active.',
+    next: null,
+  },
 };
 
 const GENERIC: SelfServeErrorCopy = {
@@ -141,3 +152,4 @@ export function commandErrorMessage(error: unknown): string {
 
 export const isVersionConflict = (error: unknown) =>
   !!error && typeof error === 'object' && /^version_conflict/.test(String((error as { message?: unknown }).message ?? ''));
+

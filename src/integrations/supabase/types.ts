@@ -10317,17 +10317,6 @@ export type Database = {
         Args: { p_phone_e164: string }
         Returns: Json
       }
-      apply_4tier_rls: {
-        Args: {
-          p_city_col: string
-          p_entity_type: string
-          p_id_col: string
-          p_lifecycle_col: string
-          p_preserve_open_when_off?: boolean
-          p_table: string
-        }
-        Returns: undefined
-      }
       apply_aggregate_write_p5: { Args: { p_envelope: Json }; Returns: Json }
       approve_city_request: {
         Args: {
@@ -11793,6 +11782,10 @@ export type Database = {
         Args: { p_venue_id: string }
         Returns: undefined
       }
+      remove_organiser_member_v1: {
+        Args: { p_organiser_id: string; p_user_id: string }
+        Returns: Json
+      }
       report_dancer_survivor_sidecar_violations_v1: {
         Args: never
         Returns: Json
@@ -11952,6 +11945,10 @@ export type Database = {
         Returns: Json
       }
       submit_listing_request_v1: { Args: { p_payload: Json }; Returns: Json }
+      submit_organiser_profile_v1: {
+        Args: { p_organiser_id: string }
+        Returns: Json
+      }
       submit_raffle_entry: {
         Args: {
           p_consent_version: string

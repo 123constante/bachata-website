@@ -13,6 +13,8 @@ const SERVER_CODES = [
   'request_already_open', 'request_limit_reached', 'name_required', 'name_too_long', 'name_invalid',
   'city_required', 'city_not_found', 'contact_email_not_own', 'invalid_instagram', 'invalid_website',
   'organiser_name_taken', 'draft_limit_reached',
+  // D6 submit_organiser_profile_v1 (admin 20261109110000).
+  'not_authorised', 'invalid_state',
 ];
 
 const token = (payload: unknown) =>
@@ -32,6 +34,17 @@ describe('selfServeErrors', () => {
     expect(selfServeErrorCode(raw)).toBeNull();
     expect(selfServeErrorCopy(raw).message).toBe('Something went wrong. Please try again.');
     expect(selfServeErrorCopy({ message: 'some_future_code' }).message).toBe('Something went wrong. Please try again.');
+  });
+
+  it('explains each submit refusal in plain words', () => {
+    expect(selfServeErrorCopy({ message: 'invalid_state', code: 'P0001' }).message).toBe(
+      'Nothing to send: this organiser is already in review, live, or no longer active.',
+    );
+    expect(selfServeErrorCopy({ message: 'not_authorised' }).message).toBe(
+      'Only an owner or manager of this organiser can send it for review.',
+    );
+    expect(selfServeErrorCopy({ message: 'organiser_not_found' }).message).toBe('That organiser no longer exists.');
+    expect(selfServeErrorCopy({ message: 'authentication_required' }).next).toBe('sign_in');
   });
 
   it('routes a claim refusal to "request access" and an unproven mailbox to re-auth', () => {

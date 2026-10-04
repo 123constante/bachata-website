@@ -54,7 +54,9 @@ export interface MyAccessRequest {
 
 export type { ClaimCandidate };
 
-export const organiserHomeQueryKey = (userId: string | undefined) => ['organiser-home', userId] as const;
+/** Prefix of every organiser-home query: what a write to an organiser or its series invalidates. */
+export const ORGANISER_HOME_KEY = ['organiser-home'] as const;
+export const organiserHomeQueryKey = (userId: string | undefined) => [...ORGANISER_HOME_KEY, userId] as const;
 export const myAccessRequestsQueryKey = (userId: string | undefined) => ['my-access-requests', userId] as const;
 
 export async function fetchOrganiserHome(): Promise<OrganiserHome> {
@@ -135,7 +137,35 @@ export async function createOrganiserProfile(input: CreateOrganiserInput) {
     p_website: input.website.trim() || undefined,
   });
   if (error) throw error;
-  return data as { slug: string | null; lifecycle_status: string };
+  const row = (data ?? {}) as Record<string, unknown>;
+  return {
+    organiserId: typeof row.organiser_id === 'string' ? row.organiser_id : null,
+    slug: typeof row.slug === 'string' ? row.slug : null,
+    lifecycleStatus: typeof row.lifecycle_status === 'string' ? row.lifecycle_status : 'draft',
+  };
+}
+
+/** camelCase at this boundary, as for fetchMyAccessRequests. */
+export interface SubmittedOrganiser {
+  organiserId: string;
+  fromState: string;
+  lifecycleStatus: string;
+}
+
+/**
+ * Send a draft or rejected organiser for review (admin D6,
+ * submit_organiser_profile_v1). The server moves it to pending_review and
+ * records the submit; an owner or manager only.
+ */
+export async function submitOrganiserProfile(organiserId: string): Promise<SubmittedOrganiser> {
+  const { data, error } = await supabase.rpc('submit_organiser_profile_v1', { p_organiser_id: organiserId });
+  if (error) throw error;
+  const row = (data ?? {}) as Record<string, unknown>;
+  return {
+    organiserId: typeof row.organiser_id === 'string' ? row.organiser_id : organiserId,
+    fromState: String(row.from_state ?? ''),
+    lifecycleStatus: typeof row.lifecycle_status === 'string' ? row.lifecycle_status : 'pending_review',
+  };
 }
 
 // ---- W4/W5: the series page and one date --------------------------------------
