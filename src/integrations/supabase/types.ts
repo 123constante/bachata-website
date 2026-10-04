@@ -11782,6 +11782,10 @@ export type Database = {
         Args: { p_venue_id: string }
         Returns: undefined
       }
+      remove_organiser_member_v1: {
+        Args: { p_organiser_id: string; p_user_id: string }
+        Returns: Json
+      }
       report_dancer_survivor_sidecar_violations_v1: {
         Args: never
         Returns: Json
