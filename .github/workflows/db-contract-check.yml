@@ -159,7 +159,47 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Decides whether THIS run may call the production database. Always "run" on
+  # push to main, schedule and workflow_dispatch; on pull_request only when the
+  # diff touches a DB-facing path (rules and the one path list:
+  # scripts/ci-live-db-gate.mjs). The 2026-10-04 incident: two full suites
+  # (main post-merge for #517, then the workflow-only PR #520) saturated prod,
+  # 68 statement-timeout cancels, and visitors got HTTP 500 for ~3 min each.
+  # On a skip the reason is written to this job's summary, and contract-check
+  # below reports SKIPPED rather than a green it did not earn.
+  live-db-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    outputs:
+      live: ${{ steps.gate.outputs.live }}
+      reason: ${{ steps.gate.outputs.reason }}
+    steps:
+      # fetch-depth 2: on pull_request the checkout is the merge commit, and the
+      # gate diffs it against its first parent (the base branch tip).
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # Proves every rule in both directions first. If it fails this job goes
+      # red and contract-check still runs (its `if` treats a missing output as
+      # live), so a broken gate is loud and never un-watches anything.
+      - name: Live-DB gate self-test
+        run: node scripts/ci-live-db-gate.mjs --self-test
+      - name: Decide whether the live prod-DB sweep runs
+        id: gate
+        run: node scripts/ci-live-db-gate.mjs
+
   contract-check:
+    needs: live-db-gate
+    # `!= 'false'` rather than `== 'true'`: if the gate job itself breaks (no
+    # output), the sweep still runs. A broken gate must cost one more sweep,
+    # never silently un-watch the nightly. `!cancelled()` replaces the implicit
+    # success() so a failed gate does not skip this job.
+    if: ${{ !cancelled() && needs.live-db-gate.outputs.live != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Needed by the "Announce failure" step at the end of this job. The default
