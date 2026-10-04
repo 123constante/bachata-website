@@ -2,6 +2,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { NOT_DEACTIVATED } from '@/lib/notDeactivatedFilter';
 import type { ClaimCandidate } from './claimHint';
 import type { HomeSeriesFull } from './homeModel';
+import type { Json } from '@/integrations/supabase/types';
+import { parseDateDetail, parseWorkspace, type DateDetail, type SeriesWorkspace } from './seriesModel';
+import type { CommandEnvelope } from './seriesCommands';
 
 export { claimHint, type ClaimHint } from './claimHint';
 
@@ -163,6 +166,66 @@ export async function submitOrganiserProfile(organiserId: string): Promise<Submi
   };
 }
 
+// ---- W4/W5: the series page and one date --------------------------------------
+
+export const seriesWorkspaceQueryKey = (seriesId: string | undefined) => ['series-workspace', seriesId] as const;
+export const dateDetailQueryKey = (occurrenceId: string | undefined) => ['date-detail', occurrenceId] as const;
+
+/**
+ * The series with its programme and its dates (the newest 100, by date).
+ * admin_event_workspace_p5 admits an organiser member of the series
+ * (_assert_can_edit_series_p5); anyone else gets permission_denied.
+ */
+export async function fetchSeriesWorkspace(seriesId: string): Promise<SeriesWorkspace> {
+  const { data, error } = await supabase.rpc('admin_event_workspace_p5', { p_series_id: seriesId });
+  if (error) throw error;
+  return parseWorkspace(data);
+}
+
+/** One date as it stands, overrides included (event_view_p5, organiser viewer role). */
+export async function fetchDateDetail(occurrenceId: string): Promise<DateDetail> {
+  const { data, error } = await supabase.rpc('event_view_p5', {
+    p_target: { occurrence_id: occurrenceId },
+    p_viewer: { role: 'organiser' },
+  });
+  if (error) throw error;
+  return parseDateDetail(data);
+}
+
+export interface CancellationReason {
+  key: string;
+  label: string;
+}
+
+/** The reasons an owner may give (the server checks the label against this table). */
+export async function fetchCancellationReasons(): Promise<CancellationReason[]> {
+  const { data, error } = await supabase
+    .from('cancellation_reasons')
+    .select('key, label')
+    .is('archived_at', null)
+    .order('sort_order');
+  if (error) throw error;
+  return (data ?? []) as CancellationReason[];
+}
+
+export interface CommandResponse {
+  ok: boolean;
+  new_version?: number;
+  data?: Record<string, unknown>;
+}
+
+export async function runSeriesCommand(env: CommandEnvelope): Promise<CommandResponse> {
+  const { data, error } = await supabase.rpc('series_command_p5', { p_envelope: env as unknown as Json });
+  if (error) throw error;
+  return (data ?? { ok: true }) as unknown as CommandResponse;
+}
+
+export async function runOccurrenceCommand(env: CommandEnvelope): Promise<CommandResponse> {
+  const { data, error } = await supabase.rpc('occurrence_command_p5', { p_envelope: env as unknown as Json });
+  if (error) throw error;
+  return (data ?? { ok: true }) as unknown as CommandResponse;
+}
+
 export const LIFECYCLE_LABEL: Record<string, string> = {
   draft: 'Draft',
   pending_review: 'In review',
@@ -170,4 +233,5 @@ export const LIFECYCLE_LABEL: Record<string, string> = {
   rejected: 'Changes needed',
   paused: 'Paused',
   ended: 'Ended',
+  archived: 'Archived',
 };
