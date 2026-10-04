@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CalendarPlus, ExternalLink } from 'lucide-react';
+import { AlertTriangle, CalendarPlus, ExternalLink, Loader2, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LIFECYCLE_LABEL, type HomeOrganiser } from '../selfServeApi';
+import { LIFECYCLE_LABEL, submitOrganiserProfile, type HomeOrganiser } from '../selfServeApi';
+import { selfServeErrorCopy } from '../selfServeErrors';
 import {
   CATEGORY_LABEL,
   FORMAT_LABEL,
@@ -10,6 +13,7 @@ import {
   dateLabel,
   isCancelled,
   localAsZTime,
+  organiserStatusView,
   type HomeSeriesFull,
 } from '../homeModel';
 
@@ -17,8 +21,42 @@ import {
  * The organiser home (Lever 2 W2): mockup 01-B, series cards with their next
  * dates, under 01-C's "needs you" notice. Read-only in this slice: the
  * per-date and per-series actions arrive with W4 (series editor) and W5
- * (change one date), and "New event" with W3.
+ * (change one date), and "New event" with W3. The one write here is the
+ * organiser's own "Send for review" (admin D6, mockup 05-A).
  */
+
+/** "Send for review" for a draft or rejected organiser; the refusal copy shows under it. */
+function SendForReview({ organiser, onSent }: { organiser: HomeOrganiser; onSent: (organiserId: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  const send = async () => {
+    setBusy(true);
+    setFailure(null);
+    try {
+      await submitOrganiserProfile(organiser.id);
+      onSent(organiser.id);
+    } catch (error) {
+      setFailure(selfServeErrorCopy(error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1">
+      <Button size="sm" disabled={busy} onClick={() => void send()} data-testid="send-for-review">
+        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" aria-hidden="true" />}
+        Send for review
+      </Button>
+      {failure && (
+        <p className="text-xs text-destructive" role="alert" data-testid="send-for-review-error">
+          {failure}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }) {
   const live = series.lifecycle_status === 'live';
@@ -88,10 +126,20 @@ function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }
   );
 }
 
-export function OrganiserHome({ organiser, today }: { organiser: HomeOrganiser; today: string }) {
+export function OrganiserHome({
+  organiser,
+  today,
+  onSentForReview,
+}: {
+  organiser: HomeOrganiser;
+  today: string;
+  /** After a successful "Send for review": the page refreshes the home. */
+  onSentForReview: (organiserId: string) => void;
+}) {
   const series = organiser.series as HomeSeriesFull[];
   const attention = attentionItems(series, today);
   const live = organiser.lifecycle_status === 'live';
+  const status = organiserStatusView(organiser.name, organiser.lifecycle_status, organiser.latest_decision?.reason);
 
   return (
     <section className="space-y-3" data-testid="organiser-home">
@@ -117,19 +165,15 @@ export function OrganiserHome({ organiser, today }: { organiser: HomeOrganiser; 
         )}
       </div>
 
-      {organiser.lifecycle_status === 'draft' && (
-        <p className="text-xs text-muted-foreground">
-          {organiser.name} is not public yet. Once the team approves it you can add your events.
+      {status.note && (
+        <p
+          className={cn('text-xs', status.tone === 'destructive' ? 'text-destructive' : 'text-muted-foreground')}
+          data-testid="organiser-status-note"
+        >
+          {status.note}
         </p>
       )}
-      {organiser.lifecycle_status === 'pending_review' && (
-        <p className="text-xs text-muted-foreground">The team is checking {organiser.name}, usually within a day.</p>
-      )}
-      {organiser.lifecycle_status === 'rejected' && (
-        <p className="text-xs text-destructive">
-          {organiser.name} needs changes{organiser.latest_decision?.reason ? `: ${organiser.latest_decision.reason}` : '.'}
-        </p>
-      )}
+      {status.canSendForReview && <SendForReview key={organiser.id} organiser={organiser} onSent={onSentForReview} />}
 
       {attention.length > 0 && (
         <div

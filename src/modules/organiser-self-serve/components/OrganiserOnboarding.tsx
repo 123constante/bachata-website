@@ -29,8 +29,10 @@ interface Props {
   /**
    * Called after any successful claim, request or create with the line to
    * confirm it. The PAGE shows it: a first organiser unmounts this component.
+   * A create also names the new organiser, so the page opens its home, where
+   * "Send for review" waits (mockup 05-A: a draft is sent as its own step).
    */
-  onChanged: (confirmation: string) => void;
+  onChanged: (confirmation: string, organiserId?: string) => void;
 }
 
 type Panel =
@@ -87,9 +89,9 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
     setBusy(true);
     setFailure(null);
     try {
-      await action();
+      const focus = await action();
       setPanel(null);
-      onChanged(success);
+      onChanged(success, typeof focus === 'string' ? focus : undefined);
     } catch (error) {
       const copy = selfServeErrorCopy(error);
       setFailure(copy);
@@ -258,15 +260,17 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
               onSubmit={(e) => {
                 e.preventDefault();
                 void run(
-                  () =>
-                    createOrganiserProfile({
-                      name: form.name,
-                      cityId: form.cityId,
-                      contactEmail: form.useMyEmail ? email : '',
-                      instagram: form.instagram,
-                      website: form.website,
-                    }),
-                  `${form.name.trim()} is saved. The team checks new organisers; once it is live you can add your events.`,
+                  async () =>
+                    (
+                      await createOrganiserProfile({
+                        name: form.name,
+                        cityId: form.cityId,
+                        contactEmail: form.useMyEmail ? email : '',
+                        instagram: form.instagram,
+                        website: form.website,
+                      })
+                    ).organiserId,
+                  `${form.name.trim()} is saved as a draft. Send it for review below; the team checks new organisers within a day.`,
                 );
               }}
               data-testid="create-form"

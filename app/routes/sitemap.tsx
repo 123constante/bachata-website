@@ -99,8 +99,8 @@ type ProfileRow = { id: string; slug: string | null; updated_at: string | null }
 // Repointed off the legacy `events` table onto the P5-native
 // list_public_event_urls_v1 RPC (bachata-admin-11april repo,
 // docs/m2-site-verdicts.json, app/routes/sitemap.tsx, must_repoint).
-// event_series_p5 is NOT anon-selectable directly (its RLS self-serve policy is
-// dead behind the OFF FF_DB_SELF_SERVE_RLS flag -- only is_admin() can read it),
+// event_series_p5 is NOT anon-selectable directly (its select policy is
+// admin-only, (SELECT is_admin()), since admin D6 retired FF_DB_SELF_SERVE_RLS),
 // so unlike fetchVenues/fetchDancerProfiles/fetchOrganiserProfiles below this
 // goes through an RPC rather than `db.from(...)`. The RPC's visibility gate is
 // the EXACT predicate resolve_public_event_ref_v1 uses to decide whether

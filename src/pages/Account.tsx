@@ -20,6 +20,7 @@ import {
   myAccessRequestsQueryKey,
   organiserHomeQueryKey,
   type HomeOrganiser,
+  type OrganiserHome as OrganiserHomeData,
 } from '@/modules/organiser-self-serve/selfServeApi';
 import { isMailboxProvenToken } from '@/modules/organiser-self-serve/sessionProof';
 
@@ -84,12 +85,30 @@ function AccountPage() {
   const requestedIds = useMemo(() => new Set(openRequests.map((r) => r.organiserId)), [openRequests]);
   const mailboxProven = isMailboxProvenToken(session?.access_token);
 
-  const refresh = (message: string) => {
+  const refresh = (message: string, organiserId?: string) => {
     setConfirmation(message);
+    if (organiserId) setSelectedId(organiserId);
     setShowOnboarding(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     void queryClient.invalidateQueries({ queryKey: organiserHomeQueryKey(user?.id) });
     void queryClient.invalidateQueries({ queryKey: myAccessRequestsQueryKey(user?.id) });
+  };
+
+  // The submit landed: show the organiser as In review at once (the selector
+  // row and the home header), then re-read the server's view.
+  const sentForReview = (organiserId: string) => {
+    queryClient.setQueryData<OrganiserHomeData>(organiserHomeQueryKey(user?.id), (current) =>
+      current
+        ? {
+            ...current,
+            organisers: current.organisers.map((o) =>
+              o.id === organiserId ? { ...o, lifecycle_status: 'pending_review' } : o,
+            ),
+          }
+        : current,
+    );
+    setConfirmation('Sent for review. The team checks new organisers within a day.');
+    void queryClient.invalidateQueries({ queryKey: organiserHomeQueryKey(user?.id) });
   };
 
   const handleSignOut = async () => {
@@ -150,7 +169,9 @@ function AccountPage() {
               </section>
             )}
 
-            {selected && <OrganiserHome organiser={selected} today={home.data?.today ?? ''} />}
+            {selected && (
+              <OrganiserHome organiser={selected} today={home.data?.today ?? ''} onSentForReview={sentForReview} />
+            )}
 
             {openRequests.length > 0 && (
               <section className="space-y-2" data-testid="my-access-requests">

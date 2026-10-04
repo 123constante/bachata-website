@@ -2,7 +2,7 @@
  * Refusal codes raised by the organiser self-serve RPCs (admin repo, Lever 2
  * D4: claim_organiser_v1, request_organiser_access_v1,
  * create_organiser_profile_v1, list_organiser_access_requests_v1, and the
- * shared _caller_proven_email_p5 helper). Each RPC refuses with
+ * shared _caller_proven_email_p5 helper; D6: submit_organiser_profile_v1). Each RPC refuses with
  * `RAISE EXCEPTION '<code>'`, which PostgREST returns as `error.message`.
  *
  * The UI shows the copy for a KNOWN code and a generic line for anything
@@ -74,6 +74,15 @@ const COPY: Record<string, SelfServeErrorCopy> = {
   },
   draft_limit_reached: {
     message: 'You already have three organisers waiting. Finish or remove one first.',
+    next: null,
+  },
+  // D6 submit_organiser_profile_v1.
+  not_authorised: {
+    message: 'Only an owner or manager of this organiser can send it for review.',
+    next: null,
+  },
+  invalid_state: {
+    message: 'This organiser is already in review or live, so there is nothing to send. Refresh to see where it is.',
     next: null,
   },
 };

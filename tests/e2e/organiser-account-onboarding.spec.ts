@@ -26,7 +26,15 @@ const json = (route: Route, body: unknown, status = 200) =>
 
 const refuse = (route: Route, code: string) => json(route, { code: 'P0001', message: code, details: null, hint: null }, 400);
 
-type Calls = { claim: string[]; request: { id: string; message?: string }[] };
+type Calls = {
+  claim: string[];
+  request: { id: string; message?: string }[];
+  create: Record<string, unknown>[];
+  submit: Record<string, unknown>[];
+};
+
+const CREATED_ID = 'bbbbbbbb-0000-0000-0000-000000000001';
+const LONDON = { id: 'cccccccc-0000-0000-0000-000000000001', name: 'London', slug: 'london', country_name: 'United Kingdom' };
 
 async function signIn(page: Page, method: 'otp' | 'password') {
   const user = { id: userId, aud: 'authenticated', role: 'authenticated', email, user_metadata: {} };
@@ -48,8 +56,10 @@ async function signIn(page: Page, method: 'otp' | 'password') {
 }
 
 async function mockApis(page: Page, opts: { claim?: 'ok' | string } = {}): Promise<Calls> {
-  const calls: Calls = { claim: [], request: [] };
+  const calls: Calls = { claim: [], request: [], create: [], submit: [] };
   let claimed = false;
+  // The organiser create_organiser_profile_v1 made, as organiser_home_v1 then lists it.
+  let created: { lifecycle_status: string } | null = null;
   await page.route('**/rest/v1/**', async (route) => {
     const url = new URL(route.request().url());
     const body = route.request().postDataJSON?.() ?? null;
@@ -58,8 +68,22 @@ async function mockApis(page: Page, opts: { claim?: 'ok' | string } = {}): Promi
         organisers: claimed
           ? [{ id: ORGS.matches.id, name: ORGS.matches.name, slug: 'ritmo', avatar_url: null, city_id: null,
                lifecycle_status: 'live', role: 'owner', latest_decision: null, series: [] }]
-          : [],
+          : created
+            ? [{ id: CREATED_ID, name: 'Salsa & Bachata Leeds', slug: null, avatar_url: null, city_id: LONDON.id,
+                 lifecycle_status: created.lifecycle_status, role: 'owner', latest_decision: null, series: [] }]
+            : [],
       });
+    }
+    if (url.pathname.endsWith('/rpc/search_cities')) return json(route, [LONDON]);
+    if (url.pathname.endsWith('/rpc/create_organiser_profile_v1')) {
+      calls.create.push(body);
+      created = { lifecycle_status: 'draft' };
+      return json(route, { organiser_id: CREATED_ID, slug: null, lifecycle_status: 'draft', member_role: 'owner', is_primary: true });
+    }
+    if (url.pathname.endsWith('/rpc/submit_organiser_profile_v1')) {
+      calls.submit.push(body);
+      if (created) created.lifecycle_status = 'pending_review';
+      return json(route, { organiser_id: body?.p_organiser_id, from_state: 'draft', lifecycle_status: 'pending_review', audit_id: 'a1' });
     }
     if (url.pathname.endsWith('/rpc/list_organiser_access_requests_v1')) return json(route, []);
     if (url.pathname.endsWith('/rpc/claim_organiser_v1')) {
@@ -137,6 +161,28 @@ for (const width of [390, 768, 1280]) {
       await page.getByTestId('request-send').click();
       await expect(page.getByTestId('account-confirmation')).toContainText('Request sent');
       expect(calls.request).toEqual([{ id: ORGS.matches.id, message: 'I run the Tuesday classes' }]);
+    });
+
+    test('creating an organiser lands on its home, which offers "Send for review"', async ({ page }) => {
+      await signIn(page, 'otp');
+      const calls = await mockApis(page);
+      await page.goto('/account');
+      await page.getByTestId('create-open').click();
+      await page.getByTestId('create-name').fill('Salsa & Bachata Leeds');
+      await page.getByTestId('create-form').getByRole('combobox').click();
+      await page.getByRole('option', { name: /London/ }).click();
+      await page.getByTestId('create-submit').click();
+
+      await expect(page.getByTestId('account-confirmation')).toContainText('saved as a draft');
+      await expect(page.getByTestId('organiser-home')).toContainText('Salsa & Bachata Leeds');
+      await expect(page.getByTestId('organiser-status')).toHaveText('Draft');
+      expect(calls.create).toHaveLength(1);
+      expect(calls.submit).toEqual([]);
+
+      await page.getByTestId('send-for-review').click();
+      await expect(page.getByTestId('organiser-status')).toHaveText('In review');
+      await expect(page.getByTestId('organiser-status-note')).toHaveText('The team checks new organisers within a day.');
+      expect(calls.submit).toEqual([{ p_organiser_id: CREATED_ID }]);
     });
   });
 }
