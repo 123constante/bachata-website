@@ -295,8 +295,8 @@ export interface LifecycleAction {
 /**
  * Pause, resume and archive: the owner transitions the server admits
  * (_owner_lifecycle_transition_allowed_p5, admin migration 20261108130000)
- * restricted to the three this screen offers. Submitting a draft for review
- * belongs to W6.
+ * restricted to the three this screen offers. Submitting a draft or a
+ * returned series for review is the review strip's (W6, ReviewStrip.tsx).
  */
 const OWNER_TRANSITIONS: Record<string, LifecycleTarget[]> = {
   draft: ['archived'],

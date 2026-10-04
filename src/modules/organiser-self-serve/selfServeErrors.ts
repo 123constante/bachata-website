@@ -153,3 +153,37 @@ export function commandErrorMessage(error: unknown): string {
 export const isVersionConflict = (error: unknown) =>
   !!error && typeof error === 'object' && /^version_conflict/.test(String((error as { message?: unknown }).message ?? ''));
 
+/**
+ * The team page (W6): remove_organiser_member_v1 (admin D7, 20261109140000)
+ * and the access-request reads and decisions (D4, 20261108220000:
+ * list_organiser_access_requests_v1, resolve_organiser_access_request_v1).
+ * Bare codes like the D4 RPCs above. Kept apart from COPY because
+ * `not_authorised` means something different here (an owner-only move) than
+ * on the other RPCs that raise it.
+ */
+export const TEAM_COPY: Record<string, string> = {
+  authentication_required: 'Please sign in first.',
+  organiser_id_required: 'Choose an organiser first.',
+  user_id_required: 'Choose who to remove first.',
+  not_authorised: 'Only an owner of this organiser can do that. As a manager you can leave the team.',
+  organiser_not_found: 'That organiser no longer exists.',
+  not_a_member: 'That person is no longer on the team. Reload the page.',
+  cannot_remove_owner: 'Another owner cannot be removed here. They can leave themselves, or ask the Bachata Calendar team.',
+  last_owner: 'You are the only owner, so you cannot leave. Ask the Bachata Calendar team to add another owner first.',
+  request_id_required: 'Choose a request first.',
+  invalid_decision: 'Something went wrong. Please try again.',
+  invalid_member_role: 'Something went wrong. Please try again.',
+  request_not_found: 'That request no longer exists. Reload the page.',
+  request_not_open: 'That request was already answered. Reload the page.',
+  note_too_long: 'Keep the note under 500 characters.',
+  note_invalid: 'The note contains characters we cannot accept.',
+  invalid_scope: 'Something went wrong. Please try again.',
+};
+
+export function teamErrorMessage(error: unknown): string {
+  const code = selfServeErrorCode(error);
+  return (code && TEAM_COPY[code]) || GENERIC.message;
+}
+
+/** Exposed for the spec that pins every code the D7 / D4 team RPCs can raise. */
+export const KNOWN_TEAM_CODES = Object.keys(TEAM_COPY);

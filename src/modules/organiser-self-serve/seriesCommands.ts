@@ -121,7 +121,9 @@ export const addDateCommand = (date: string): OwnerCommand => ({ kind: 'series.a
 export const removeDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.remove_date', payload: { occurrence_id: occurrenceId } });
 export const skipDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.skip_date', payload: { occurrence_id: occurrenceId } });
 export const unskipDateCommand = (date: string): OwnerCommand => ({ kind: 'series.unskip_date', payload: { date } });
-export const lifecycleCommand = (to: 'paused' | 'live' | 'archived'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
+export const lifecycleCommand = (to: 'paused' | 'live' | 'archived' | 'pending_review'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
+/** Send a draft or returned series for review (W6; _owner_lifecycle_transition_allowed_p5 admits draft|rejected -> pending_review). */
+export const submitForReviewCommand = (): OwnerCommand => lifecycleCommand('pending_review');
 
 // ---- one date (W5) -------------------------------------------------------------
 
