@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KNOWN_SELF_SERVE_CODES, selfServeErrorCode, selfServeErrorCopy } from '../selfServeErrors';
+import { KNOWN_SELF_SERVE_CODES, commandErrorMessage, isVersionConflict, selfServeErrorCode, selfServeErrorCopy } from '../selfServeErrors';
 import { isMailboxProvenToken } from '../sessionProof';
 import { claimHint } from '../claimHint';
 
@@ -73,5 +73,42 @@ describe('claimHint', () => {
     expect(claimHint({ id: 'o1', claimed_by: null, contact_email: 'DIEGO@example.com' }, me, none)).toBe('email_matches');
     expect(claimHint({ id: 'o1', claimed_by: null, contact_email: 'ana@example.com' }, me, none)).toBe('email_differs');
     expect(claimHint({ id: 'o1', claimed_by: null, contact_email: '  ' }, me, none)).toBe('no_email');
+  });
+});
+
+describe('commandErrorMessage (series and date commands)', () => {
+  // Real messages from apply_aggregate_write_p5 and its handlers (admin repo,
+  // 20261108180000 and the handler bodies read on E2E 2026-10-04).
+  const cases: Array<[string, RegExp]> = [
+    ['version_conflict: expected 3, got 4', /changed somewhere else/],
+    ['permission_denied: occurrence.cancel on a past date is admin-only', /already happened/],
+    ['past_date: break on 2026-10-01 is already past and cannot be restored', /already happened/],
+    ['has_bookings: occurrence x on 2026-10-11 has attendance or guest-list entries and cannot be deleted (cancel it instead)', /Cancel it instead/],
+    ['no_sessions_for_time_override: this date has no sessions; add one in the date editor first (occurrence_id=x)', /no session times/],
+    ['permission_denied: occurrence.cancel needs a reason that is a cancellation_reasons label', /Choose a reason/],
+    ['permission_denied: occurrence.set_override ticket_url must be blank or an http(s) URL', /https:\/\//],
+    ['permission_denied: series.upsert default_cover_image_url must be blank or an http(s) URL', /https:\/\//],
+    ['permission_denied: occurrence.set_override venue_id must name an existing venue', /venue is not on Bachata Calendar/],
+    ['permission_denied: series.set_lifecycle live -> draft is not an owner transition', /status change/],
+    ['invalid_transition: 2026-10-18 is not a date the recurrence rule of series x generates -- the rule changed', /Add it as a date instead/],
+    ['permission_denied: caller does not own series 123', /cannot make that change/],
+    ['permission_denied: occurrence.set_override keys are admin-only: title', /cannot make that change/],
+    ['invalid_payload: name required', /Enter the event name/],
+  ];
+
+  it.each(cases)('%s', (message, expected) => {
+    expect(commandErrorMessage({ message, code: 'P0001' })).toMatch(expected);
+  });
+
+  it('never shows raw server text', () => {
+    for (const message of ['relation "x" does not exist', 'some new refusal', '']) {
+      expect(commandErrorMessage({ message })).toBe('Something went wrong. Please try again.');
+    }
+    expect(commandErrorMessage(null)).toBe('Something went wrong. Please try again.');
+  });
+
+  it('spots a version conflict', () => {
+    expect(isVersionConflict({ message: 'version_conflict: expected 1, got 2' })).toBe(true);
+    expect(isVersionConflict({ message: 'permission_denied' })).toBe(false);
   });
 });

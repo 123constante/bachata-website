@@ -15,9 +15,9 @@ import {
 
 /**
  * The organiser home (Lever 2 W2): mockup 01-B, series cards with their next
- * dates, under 01-C's "needs you" notice. Read-only in this slice: the
- * per-date and per-series actions arrive with W4 (series editor) and W5
- * (change one date), and "New event" with W3.
+ * dates, under 01-C's "needs you" notice. Each card opens the series page
+ * (W4, /account/series/:id), where one date is changed too (W5); "New event"
+ * arrives with W3.
  */
 
 function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }) {
@@ -33,7 +33,13 @@ function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }
     <li className="rounded-md border border-border p-3 space-y-2" data-testid="series-card">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-base font-semibold leading-tight truncate">{series.name}</p>
+          <Link
+            to={`/account/series/${series.id}`}
+            className="block text-base font-semibold leading-tight truncate hover:text-primary"
+            data-testid="series-open"
+          >
+            {series.name}
+          </Link>
           {meta.length > 0 && <p className="text-xs text-muted-foreground">{meta.join(' · ')}</p>}
         </div>
         <Badge variant={live ? 'default' : 'secondary'} className="text-[11px] shrink-0">
@@ -74,10 +80,13 @@ function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }
           {Number(series.upcoming_count) || 0} upcoming {Number(series.upcoming_count) === 1 ? 'date' : 'dates'}
           {more > 0 ? ` (${more} more)` : ''}
         </span>
+        <Link to={`/account/series/${series.id}`} className="ml-auto text-primary font-medium" data-testid="series-manage">
+          Edit and dates
+        </Link>
         {live && (
           <Link
             to={`/event/${series.slug ?? series.id}`}
-            className="ml-auto inline-flex items-center gap-1 text-primary"
+            className="inline-flex items-center gap-1 text-primary"
             data-testid="view-as-dancer"
           >
             View as a dancer <ExternalLink className="w-3 h-3" aria-hidden="true" />
