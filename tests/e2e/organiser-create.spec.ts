@@ -151,7 +151,7 @@ for (const width of [390, 768, 1280]) {
       const fake = await openCreate(page);
       await expect(page.getByTestId('kind-weekly_class')).toHaveAttribute('aria-pressed', 'true');
       await expect(page.getByTestId('submit-review')).toBeDisabled();
-      await expect(page.getByTestId('create-missing')).toHaveText('To continue, add a name, the first date and a start time.');
+      await expect(page.getByTestId('create-missing')).toHaveText('To continue, add a name, the first date, a start time and a venue. A draft can be saved without a venue.');
 
       await page.locator('#create-name').fill('Tuesday Bachata Class');
       // Choosing the day picks the next such date from today (a Sunday): Tue 6 Oct.
