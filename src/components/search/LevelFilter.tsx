@@ -1,9 +1,18 @@
-import { LEVEL_OPTIONS, type SeriesLevel } from '@/hooks/useSeriesLevelRating';
+import type { SeriesLevel } from '@/hooks/useSeriesLevelRating';
 import { cn } from '@/lib/utils';
 
 // Dancer-rated series level on /search (search_public_v6, flags.searchV6).
-// Labels come from the rating hook so search and the event-page rating prompt
-// can never disagree on the wording of a level.
+// The labels mirror LEVEL_OPTIONS in the rating hook, but are declared here on
+// purpose: a VALUE import of the hook makes it a module shared by /search and
+// /event/:id, which splits it into its own chunk and adds a first-load request
+// to every event view. `satisfies` keeps the values locked to SeriesLevel.
+const LEVEL_OPTIONS = [
+  { value: 'beginner', label: 'Beginner' },
+  { value: 'improver', label: 'Improver' },
+  { value: 'intermediate', label: 'Intermediate' },
+  { value: 'advanced', label: 'Advanced' },
+  { value: 'open_level', label: 'Open level' },
+] as const satisfies ReadonlyArray<{ value: SeriesLevel; label: string }>;
 
 const LEVEL_VALUES = new Set<string>(LEVEL_OPTIONS.map((o) => o.value));
 
