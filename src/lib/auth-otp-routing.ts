@@ -31,3 +31,21 @@ export function shouldHonorReturnTo(input: {
   if (!input.returnTo) return false;
   return !input.isSignupFlow || input.organiserSelfServe;
 }
+
+// What /auth shows after /auth/callback bounced the visitor back with
+// `callbackError` (Lever 2 walk S5: an expired magic link used to land on the
+// plain sign-in form with no explanation). Unknown reasons show nothing.
+export function callbackErrorCopy(reason: string | null): string | null {
+  switch (reason) {
+    case "expired":
+      return "That sign-in link has expired or was already used. Enter your email and we'll send you a new one.";
+    case "invalid":
+      return "That sign-in link didn't work. Enter your email and we'll send you a new one.";
+    case "timeout":
+      return "Signing you in took too long. Enter your email and we'll send you a new link.";
+    case "manual":
+      return "To sign in, enter your email and we'll send you a link.";
+    default:
+      return null;
+  }
+}
