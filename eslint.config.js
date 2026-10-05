@@ -28,7 +28,6 @@ const ALLOWED_BARE_AVATAR_FILES = [
   // Auth + onboarding flows — the avatar shown is the signed-in user's own.
   "src/components/auth/ProfileEntryFlow.tsx",
   "src/components/MagicLinkConfirmation.tsx",
-  "src/pages/CreateProfile.tsx",
   // Decorative / non-person uses — bottom nav, brand assets.
   "src/components/BottomNav.tsx",
   "src/components/HeroCarousel.tsx",
