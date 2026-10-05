@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { reviewStrip } from '../reviewModel';
+import { SUBMIT_NEEDS_VENUE, reviewStrip } from '../reviewModel';
 import { lifecycleCommand, submitForReviewCommand } from '../seriesCommands';
 
 const returned = { action: 'rejected', to_state: 'rejected', reason: 'Add the price and confirm the venue.', created_at: '2026-10-01T18:00:00+00:00' };
@@ -51,5 +51,21 @@ describe('submitForReviewCommand', () => {
   it('is series.set_lifecycle to pending_review, the one key the server reads', () => {
     expect(submitForReviewCommand()).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'pending_review' } });
     expect(submitForReviewCommand()).toEqual(lifecycleCommand('pending_review'));
+  });
+});
+
+describe('the venue gate on "Send for review" (Lever 2 B2)', () => {
+  it('a draft or returned series with no venue keeps the button but says what is missing', () => {
+    expect(reviewStrip('draft', null, { hasVenue: false }).submit).toEqual({ label: 'Send for review' });
+    expect(reviewStrip('draft', null, { hasVenue: false }).submitMissing).toBe(SUBMIT_NEEDS_VENUE);
+    expect(reviewStrip('rejected', null, { hasVenue: false }).submitMissing).toBe(SUBMIT_NEEDS_VENUE);
+  });
+
+  it('a series with a venue, or one that cannot be submitted, carries no hint', () => {
+    expect(reviewStrip('draft', null, { hasVenue: true }).submitMissing).toBeNull();
+    expect(reviewStrip('draft', null).submitMissing).toBeNull();
+    for (const status of ['pending_review', 'live', 'paused', 'ended', 'archived']) {
+      expect(reviewStrip(status, null, { hasVenue: false }).submitMissing).toBeNull();
+    }
   });
 });

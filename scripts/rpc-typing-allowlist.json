@@ -47,6 +47,9 @@
   "src/modules/event-page/useEventPageQuery.ts": {
     "event_view_p5": 1
   },
+  "src/modules/organiser-self-serve/components/publicVenues.ts": {
+    "get_organiser_venue_options_v1": 1
+  },
   "src/pages/CreateProfile.tsx": {
     "claim_dancer_profile": 1
   },

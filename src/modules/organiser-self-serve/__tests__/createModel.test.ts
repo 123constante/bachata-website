@@ -13,6 +13,7 @@ import {
   nextDateOnWeekday,
   previewModel,
   problemsSentence,
+  submitHint,
   weekdayOf,
   type CreateForm,
 } from '../createModel';
@@ -103,6 +104,32 @@ describe('createProblems', () => {
     expect(createProblems({ ...weeklyForm, endTime: '15:00' }, TODAY)).toEqual([]);
     expect(createProblems(weeklyForm, TODAY)).toEqual([]);
     expect(createProblems(partyForm, TODAY)).toEqual([]);
+  });
+});
+
+describe('the submit gate (Lever 2 B2: approval refuses a series with no venue)', () => {
+  const noVenue: CreateForm = { ...weeklyForm, venueId: null };
+
+  it('a draft saves without a venue, but submitting needs one', () => {
+    expect(createProblems(noVenue, TODAY)).toEqual([]);
+    expect(createProblems(noVenue, TODAY, { forSubmit: true })).toEqual(['a venue']);
+    expect(createProblems(weeklyForm, TODAY, { forSubmit: true })).toEqual([]);
+    expect(createProblems({ ...partyForm, venueId: 'ven-1' }, TODAY, { forSubmit: true })).toEqual([]);
+  });
+
+  it('lists the venue in form order, after the times and before the links', () => {
+    expect(createProblems(emptyCreateForm(), TODAY, { forSubmit: true })).toEqual(['a name', 'the first date', 'a start time', 'a venue']);
+    expect(createProblems({ ...noVenue, ticketUrl: 'tickets.example' }, TODAY, { forSubmit: true })).toEqual([
+      'a venue',
+      'a ticket link starting with https://',
+    ]);
+  });
+
+  it('the hint says what submitting still needs, and that a draft does not need the venue', () => {
+    expect(submitHint(weeklyForm, TODAY)).toBeNull();
+    expect(submitHint(noVenue, TODAY)).toBe('To submit for review, add a venue. You can save a draft without one.');
+    expect(submitHint({ ...noVenue, name: '' }, TODAY)).toBe('To continue, add a name and a venue. A draft can be saved without a venue.');
+    expect(submitHint({ ...weeklyForm, name: '' }, TODAY)).toBe('To continue, add a name.');
   });
 });
 

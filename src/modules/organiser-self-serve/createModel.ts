@@ -103,8 +103,12 @@ export const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value.trim(
  * for it ("To continue, add a name and the first date."). Empty = ready. The
  * server checks the same things again (admin D3's payload arm); this list only
  * keeps the buttons honest.
+ *
+ * `forSubmit` adds the venue (Lever 2 B2): "Save draft" works without one, but the
+ * admin's approval refuses a series with no venue (event_publish_readiness_v1,
+ * "publish_blocked: missing a venue"), so "Submit for review" needs it.
  */
-export function createProblems(form: CreateForm, today: string): string[] {
+export function createProblems(form: CreateForm, today: string, { forSubmit = false }: { forSubmit?: boolean } = {}): string[] {
   const problems: string[] = [];
   if (!form.name.trim()) problems.push('a name');
   if (!ISO_DATE.test(form.date)) problems.push(form.kind === 'party' ? 'the date' : 'the first date');
@@ -117,6 +121,7 @@ export function createProblems(form: CreateForm, today: string): string[] {
   else if (form.endTime && HHMM.test(form.startTime) && (minutesBetween(form.startTime, form.endTime) ?? 0) > 20 * 60) {
     problems.push('an end time within 20 hours of the start');
   }
+  if (forSubmit && !form.venueId) problems.push('a venue');
   if (form.ticketUrl.trim() && !isHttpUrl(form.ticketUrl)) problems.push('a ticket link starting with https://');
   if (form.coverImageUrl.trim() && !isHttpUrl(form.coverImageUrl)) problems.push('a picture link starting with https://');
   if (form.description.length > 4000) problems.push('a description under 4,000 characters');
@@ -128,6 +133,18 @@ export function problemsSentence(problems: string[]): string | null {
   if (problems.length === 0) return null;
   const list = problems.length === 1 ? problems[0] : `${problems.slice(0, -1).join(', ')} and ${problems[problems.length - 1]}`;
   return `To continue, add ${list}.`;
+}
+
+/**
+ * The line under the buttons: what "Submit for review" still needs, saying when only
+ * the venue stands between the form and a draft. Null when both buttons are ready.
+ */
+export function submitHint(form: CreateForm, today: string): string | null {
+  const draft = createProblems(form, today);
+  const submit = createProblems(form, today, { forSubmit: true });
+  if (submit.length === 0) return null;
+  if (draft.length === 0) return 'To submit for review, add a venue. You can save a draft without one.';
+  return `${problemsSentence(submit)}${submit.length > draft.length ? ' A draft can be saved without a venue.' : ''}`;
 }
 
 /**

@@ -36,7 +36,7 @@ import {
 } from '../seriesModel';
 import { useOwnerCommand } from './useOwnerCommand';
 import { VenuePicker } from './VenuePicker';
-import { usePublicVenues, venueName } from './publicVenues';
+import { useVenueOptions, venueName } from './publicVenues';
 
 /**
  * Change one date (Lever 2 W5, mockup 03-A): an action sheet of named
@@ -97,7 +97,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
   const [picture, setPicture] = useState('');
   const [ticket, setTicket] = useState('');
   const command = useOwnerCommand(seriesId);
-  const venues = usePublicVenues();
+  const venues = useVenueOptions();
 
   const detail = useQuery({
     queryKey: dateDetailQueryKey(date.id),

@@ -27,6 +27,11 @@ export interface ReviewStripModel {
   returnedAt: string | null;
   /** The submit button, when the server admits the move. */
   submit: { label: string } | null;
+  /**
+   * Why that button is disabled, or null. The approval refuses a series with no venue
+   * (event_publish_readiness_v1, "missing a venue"; Lever 2 B2), so it is not sent without one.
+   */
+  submitMissing: string | null;
   /** True when event_view_p5 serves the series to the public (live, paused, ended). */
   publicPage: boolean;
   /** Why "View as a dancer" is missing, when it is. */
@@ -45,9 +50,16 @@ const steps = (draft: StepState, review: StepState, live: StepState, reviewLabel
 const PUBLIC_STATES = new Set(['live', 'paused', 'ended']);
 const NO_PREVIEW = 'Dancers cannot see it yet. "View as a dancer" appears once it is live.';
 
-export function reviewStrip(status: string, decision: HomeDecision | null | undefined): ReviewStripModel {
+export const SUBMIT_NEEDS_VENUE = 'To send it for review, add a venue under Venue and save it.';
+
+export function reviewStrip(
+  status: string,
+  decision: HomeDecision | null | undefined,
+  { hasVenue = true }: { hasVenue?: boolean } = {},
+): ReviewStripModel {
   const publicPage = PUBLIC_STATES.has(status);
-  const base = { reason: null, returnedAt: null, submit: null, publicPage, previewNote: publicPage ? null : NO_PREVIEW };
+  const submitMissing = hasVenue ? null : SUBMIT_NEEDS_VENUE;
+  const base = { reason: null, returnedAt: null, submit: null, submitMissing: null, publicPage, previewNote: publicPage ? null : NO_PREVIEW };
   switch (status) {
     case 'draft':
       return {
@@ -56,6 +68,7 @@ export function reviewStrip(status: string, decision: HomeDecision | null | unde
         headline: 'Draft, not public yet',
         detail: 'Send it for review when it is ready. The Bachata Calendar team usually answers within a day.',
         submit: { label: 'Send for review' },
+        submitMissing,
       };
     case 'pending_review':
       return {
@@ -74,6 +87,7 @@ export function reviewStrip(status: string, decision: HomeDecision | null | unde
         reason: returned?.reason?.trim() || null,
         returnedAt: returned?.created_at ?? null,
         submit: { label: 'Send again for review' },
+        submitMissing,
       };
     }
     case 'live':
