@@ -20,12 +20,12 @@ import {
   followUpCommands,
   dateForWeekday,
   previewModel,
-  problemsSentence,
+  submitHint,
   weekdayOf,
   type CreateForm,
 } from '../createModel';
 import { EventPreview } from './EventPreview';
-import { usePublicVenues, venueName } from './publicVenues';
+import { useVenueOptions, venueName } from './publicVenues';
 import { useOwnerCommand } from './useOwnerCommand';
 import { VenuePicker } from './VenuePicker';
 
@@ -70,7 +70,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
    */
   const [unsure, setUnsure] = useState(false);
   const command = useOwnerCommand(seriesId);
-  const venues = usePublicVenues();
+  const venues = useVenueOptions();
   // Synchronous: two clicks in one frame must not both start a create (state lags a render).
   const inFlight = useRef(false);
   // The follow-ups still to send once the create landed, each with ONE key kept across
@@ -82,7 +82,8 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
   const organiser = organisers.find((o) => o.id === organiserId) ?? organisers[0] ?? null;
   const block = organiser ? createBlock(organiser) : 'Set up your organiser first.';
   const problems = createProblems(form, today);
-  const missing = problemsSentence(problems);
+  const submitBlocked = createProblems(form, today, { forSubmit: true }).length > 0;
+  const missing = submitHint(form, today);
   const preview = previewModel(form, venueName(venues.data, form.venueId), organiser?.name ?? '', today);
   const weekday = weekdayOf(form.date);
   const weekly = form.kind === 'weekly_class';
@@ -91,7 +92,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
   const set = <K extends keyof CreateForm>(key: K, value: CreateForm[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   const run = async (submit: boolean) => {
-    if (!organiser || !canSend || inFlight.current) return;
+    if (!organiser || !canSend || (submit && submitBlocked) || inFlight.current) return;
     inFlight.current = true;
     try {
       await sendAll(organiser.id, submit);
@@ -253,8 +254,8 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
 
         <div className="space-y-1">
           <Label htmlFor="create-venue" className="text-xs">Where</Label>
-          <VenuePicker id="create-venue" value={form.venueId} onChange={(id) => set('venueId', id)} />
-          <p className="text-[11px] text-muted-foreground">Pick a venue the calendar knows. A new one is the team&rsquo;s to add: send it to them.</p>
+          <VenuePicker id="create-venue" value={form.venueId} onChange={(id) => set('venueId', id)} organiserName={organiser?.name ?? null} />
+          <p className="text-[11px] text-muted-foreground">Needed to submit for review. Not listed? Search for it, then ask the team to add it.</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -316,7 +317,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
               <Button type="button" size="sm" variant="outline" disabled={!canSend} onClick={() => void run(false)} data-testid="save-draft">
                 {running === 'draft' && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Save draft
               </Button>
-              <Button type="button" size="sm" disabled={!canSend} onClick={() => void run(true)} data-testid="submit-review">
+              <Button type="button" size="sm" disabled={!canSend || submitBlocked} onClick={() => void run(true)} data-testid="submit-review">
                 {running === 'submit' && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Submit for review
               </Button>
             </div>

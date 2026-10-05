@@ -176,6 +176,8 @@ async function openSeries(page: Page, opts: { hasSessions?: boolean; workspaceRe
       return json(route, { ok: true, data, audit_id: 'a', new_version: d.version });
     }
     if (path.endsWith('/rest/v1/cancellation_reasons')) return json(route, REASONS);
+    // The organiser picker reads get_organiser_venue_options_v1 first (B2); v4 is only its fallback.
+    if (path.endsWith('/rpc/get_organiser_venue_options_v1')) return json(route, VENUES);
     if (path.endsWith('/rpc/get_public_venues_list_v4')) return json(route, VENUES);
     if (path.endsWith('/rpc/organiser_home_v1')) {
       return json(route, {

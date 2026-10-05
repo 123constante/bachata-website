@@ -53,7 +53,7 @@ export function ReviewStrip({ series, onSaved }: { series: WorkspaceSeries; onSa
   const decision = home.data?.organisers
     .flatMap((o) => o.series as HomeSeriesFull[])
     .find((s) => s.id === series.id)?.latest_decision;
-  const model = reviewStrip(series.lifecycle_status, decision);
+  const model = reviewStrip(series.lifecycle_status, decision, { hasVenue: !!series.default_venue_id });
   const command = useOwnerCommand(series.id);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,7 +93,7 @@ export function ReviewStrip({ series, onSaved }: { series: WorkspaceSeries; onSa
       )}
       <div className="flex flex-wrap items-center gap-2">
         {model.submit && (
-          <Button type="button" size="sm" disabled={command.isPending} onClick={() => void submit()} data-testid="review-submit">
+          <Button type="button" size="sm" disabled={command.isPending || !!model.submitMissing} onClick={() => void submit()} data-testid="review-submit">
             {command.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} {model.submit.label}
           </Button>
         )}
@@ -109,6 +109,9 @@ export function ReviewStrip({ series, onSaved }: { series: WorkspaceSeries; onSa
           <p className="text-xs text-muted-foreground" data-testid="review-preview-note">{model.previewNote}</p>
         )}
       </div>
+      {model.submit && model.submitMissing && (
+        <p className="text-[11px] text-muted-foreground" data-testid="review-missing">{model.submitMissing}</p>
+      )}
       {error && <p className="text-xs text-destructive" role="alert" data-testid="review-error">{error}</p>}
     </section>
   );
