@@ -13,6 +13,10 @@ const userId = '11111111-1111-1111-1111-111111111111';
 // Sunday 4 Oct 2026 (BST), noon in London.
 const NOW = new Date('2026-10-04T11:00:00Z');
 const TODAY = '2026-10-04';
+// B1: the city ids the create can send. LONDON is what the venue's city name resolves to;
+// ORG_CITY is the organiser's own city_id (home), used when the venue has no city.
+const LONDON_ID = 'cccccccc-0000-0000-0000-000000000001';
+const ORG_CITY_ID = 'cccccccc-0000-0000-0000-000000000002';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const b64url = (value: unknown) =>
@@ -44,6 +48,7 @@ interface Fake {
 const VENUES = [
   { id: 'ven-1', name: 'Studio 3, Battersea Arts Hub', neighbourhood: 'Battersea', city_name: 'London' },
   { id: 'ven-2', name: 'Salsa Cellar Soho', neighbourhood: 'Soho', city_name: 'London' },
+  { id: 'ven-3', name: 'Cityless Hall', neighbourhood: null, city_name: null },
 ];
 
 const organiser = (over: Record<string, unknown>) => ({
@@ -56,7 +61,12 @@ const ORGANISERS = [
   organiser({ id: 'org-2', name: 'Ritmo Sundays', slug: null, lifecycle_status: 'draft' }),
 ];
 
-async function openCreate(page: Page, path = '/account/new?organiser=org-1'): Promise<Fake> {
+async function openCreate(
+  page: Page,
+  path = '/account/new?organiser=org-1',
+  opts: { organiserCityId?: string | null } = {},
+): Promise<Fake> {
+  const organisers = ORGANISERS.map((o) => ({ ...o, city_id: opts.organiserCityId ?? null }));
   const fake: Fake = { sent: [], refuse: {}, created: null, replay: new Map(), loseNextCreateReply: false };
   const user = { id: userId, aud: 'authenticated', role: 'authenticated', email: 'diego@ritmo.example', user_metadata: {} };
   const token = `${b64url({ alg: 'HS256' })}.${b64url({ sub: userId, amr: [{ method: 'otp', timestamp: 1 }] })}.sig`;
@@ -73,8 +83,14 @@ async function openCreate(page: Page, path = '/account/new?organiser=org-1'): Pr
     const path = new URL(route.request().url()).pathname;
     const body = route.request().postDataJSON?.() ?? null;
 
-    if (path.endsWith('/rpc/organiser_home_v1')) return json(route, { today: TODAY, organisers: ORGANISERS });
+    if (path.endsWith('/rpc/organiser_home_v1')) return json(route, { today: TODAY, organisers });
     // The organiser picker reads get_organiser_venue_options_v1 first (B2); v4 is only its fallback.
+    // The shared city resolver (src/lib/city-canonical.ts): name -> id, then the cities row.
+    if (path.endsWith('/rpc/resolve_city_id')) return json(route, body?.p_city === 'London' ? LONDON_ID : null);
+    if (path.endsWith('/cities')) {
+      const row = { id: LONDON_ID, name: 'London', slug: 'london' };
+      return json(route, route.request().headers().accept?.includes('vnd.pgrst.object') ? row : [row]);
+    }
     if (path.endsWith('/rpc/get_organiser_venue_options_v1')) return json(route, VENUES);
     if (path.endsWith('/rpc/get_public_venues_list_v4')) return json(route, VENUES);
     if (path.endsWith('/rpc/series_command_p5')) {
@@ -150,7 +166,8 @@ for (const width of [390, 768, 1280]) {
     test.use({ viewport: { width, height: 900 } });
 
     test('a weekly class: the preview follows the form; submit sends the create, the weekly rule and the review move, then lands on the series page', async ({ page }) => {
-      const fake = await openCreate(page);
+      // The organiser has a different city: the venue's city (London) still wins.
+      const fake = await openCreate(page, undefined, { organiserCityId: ORG_CITY_ID });
       await expect(page.getByTestId('kind-weekly_class')).toHaveAttribute('aria-pressed', 'true');
       await expect(page.getByTestId('submit-review')).toBeDisabled();
       await expect(page.getByTestId('create-missing')).toHaveText('To continue, add a name, the first date, a start time and a venue. A draft can be saved without a venue.');
@@ -205,7 +222,7 @@ for (const width of [390, 768, 1280]) {
         payload: {
           name: 'Tuesday Bachata Class', format: 'recurring', category: 'class', default_start_date: '2026-10-06',
           default_local_start_time: '19:00', timezone: 'Europe/London', default_duration_minutes: 150, default_venue_id: 'ven-1',
-          default_level: 'beginner', default_ticket_url: 'https://tickets.example/tue', default_description: 'Friendly weekly class.',
+          default_city_id: LONDON_ID, default_level: 'beginner', default_ticket_url: 'https://tickets.example/tue', default_description: 'Friendly weekly class.',
           organiser_ids: ['org-1'],
         },
       });
@@ -238,6 +255,38 @@ for (const width of [390, 768, 1280]) {
         default_local_start_time: '20:00', timezone: 'Europe/London', organiser_ids: ['org-1'],
       });
       expect(fake.sent[1]).toMatchObject({ target_id: fake.sent[0].target_id, expected_version: 2, command: { kind: 'series.add_date', payload: { date: '2026-10-17' } } });
+    });
+
+    test('B1: a venue with no city sends the organiser city as default_city_id', async ({ page }) => {
+      const fake = await openCreate(page, undefined, { organiserCityId: ORG_CITY_ID });
+      await page.getByTestId('kind-party').click();
+      await page.locator('#create-name').fill('Cityless Venue Party');
+      await page.locator('#create-date').fill('2026-10-17');
+      await page.locator('#create-start').fill('20:00');
+      await pickVenue(page, 'Cityless');
+      await page.getByTestId('save-draft').click();
+      await expect(page).toHaveURL(/\/account\/series\/[0-9a-f-]{36}$/);
+      expect(fake.sent[0].command.payload).toEqual({
+        name: 'Cityless Venue Party', format: 'one_off', category: 'party', default_start_date: '2026-10-17',
+        default_local_start_time: '20:00', timezone: 'Europe/London', default_venue_id: 'ven-3', default_city_id: ORG_CITY_ID,
+        organiser_ids: ['org-1'],
+      });
+    });
+
+    test('B1: no venue city and no organiser city leaves default_city_id out (never invented)', async ({ page }) => {
+      const fake = await openCreate(page, undefined, { organiserCityId: null });
+      await page.getByTestId('kind-party').click();
+      await page.locator('#create-name').fill('No City Anywhere');
+      await page.locator('#create-date').fill('2026-10-17');
+      await page.locator('#create-start').fill('20:00');
+      await pickVenue(page, 'Cityless');
+      await page.getByTestId('save-draft').click();
+      await expect(page).toHaveURL(/\/account\/series\/[0-9a-f-]{36}$/);
+      expect(fake.sent[0].command.payload).toEqual({
+        name: 'No City Anywhere', format: 'one_off', category: 'party', default_start_date: '2026-10-17',
+        default_local_start_time: '20:00', timezone: 'Europe/London', default_venue_id: 'ven-3', organiser_ids: ['org-1'],
+      });
+      expect('default_city_id' in fake.sent[0].command.payload).toBe(false);
     });
 
     test('a draft organiser cannot create yet: the buttons say why, and switching to the live one lifts it', async ({ page }) => {

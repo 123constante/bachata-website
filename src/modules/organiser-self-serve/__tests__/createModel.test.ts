@@ -180,6 +180,14 @@ describe('createPayload', () => {
     expect(keys.filter((k) => !(OWNER_CREATE_KEYS as readonly string[]).includes(k))).toEqual([]);
   });
 
+  it('adds default_city_id only when a city is known (B1: the server takes the city only from the payload)', () => {
+    expect(createPayload(createDraft(partyForm), 'city-1').default_city_id).toBe('city-1');
+    expect('default_city_id' in createPayload(createDraft(partyForm), null)).toBe(false);
+    expect('default_city_id' in createPayload(createDraft(partyForm))).toBe(false);
+    const keys = Object.keys(createPayload(createDraft(weeklyForm), 'city-1'));
+    expect(keys.filter((k) => !(OWNER_CREATE_KEYS as readonly string[]).includes(k))).toEqual([]);
+  });
+
   it('an end at or before the start crosses midnight; no end means no duration', () => {
     expect(createPayload(createDraft({ ...partyForm, endTime: '01:00' })).default_duration_minutes).toBe(300);
     expect('default_duration_minutes' in createPayload(createDraft(partyForm))).toBe(false);

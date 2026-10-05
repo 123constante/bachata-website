@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { LIFECYCLE_LABEL, createSeriesCommand, type HomeOrganiser } from '../selfServeApi';
+import { resolveCreateCityId } from '../createCity';
 import { createPayload, newIdempotencyKey, newSeriesId, type OwnerCommand } from '../seriesCommands';
 import { commandErrorMessage, isServerRefusal } from '../selfServeErrors';
 import { LEVEL_OPTIONS } from '../seriesModel';
@@ -106,11 +107,13 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
     setRunning(submit ? 'submit' : 'draft');
     let version: number | null = null;
     try {
+      const venueCity = venues.data?.find((v) => v.id === form.venueId)?.city_name ?? null;
+      const cityId = await resolveCreateCityId({ venueCityName: venueCity, organiserCityId: organiser?.city_id ?? null });
       const res = await command.mutateAsync({
         targetId: seriesId,
         version: null,
         idempotencyKey: createKey,
-        command: createSeriesCommand(createPayload(createDraft(form)), orgId),
+        command: createSeriesCommand(createPayload(createDraft(form), cityId), orgId),
       });
       version = typeof res.new_version === 'number' ? res.new_version : null;
       setUnsure(false);

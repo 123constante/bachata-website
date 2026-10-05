@@ -85,11 +85,16 @@ async function start(page: Page): Promise<Server> {
     const path = new URL(route.request().url()).pathname;
     const body = (route.request().postDataJSON?.() ?? {}) as Record<string, unknown>;
     const rpc = path.match(/\/rpc\/([a-z0-9_]+)$/)?.[1];
+    if (!rpc && path.endsWith('/cities')) {
+      const row = { id: LONDON.id, name: 'London', slug: LONDON.slug };
+      return json(route, route.request().headers().accept?.includes('vnd.pgrst.object') ? row : [row]);
+    }
     if (!rpc) return json(route, []);
     if (rpc !== 'organiser_home_v1') server.rpcs.push(rpc);
 
     if (rpc === 'organiser_home_v1') return json(route, home());
     if (rpc === 'search_cities') return json(route, [LONDON]);
+    if (rpc === 'resolve_city_id') return json(route, body.p_city === 'London' ? LONDON.id : null);
     if (rpc === 'get_organiser_venue_options_v1' || rpc === 'get_public_venues_list_v4') return json(route, VENUES);
 
     if (rpc === 'create_organiser_profile_v1') {
@@ -221,7 +226,7 @@ for (const width of [390, 768, 1280]) {
       await expect(page.getByTestId('review-strip')).toHaveAttribute('data-status', 'pending_review');
       await expect(page.getByTestId('review-strip').getByTestId('review-headline')).toHaveText('Waiting for the Bachata Calendar team');
       expect(server.envelopes.map((e) => e.command.kind)).toEqual(['series.upsert', 'series.set_recurrence', 'series.set_lifecycle']);
-      expect(server.envelopes[0].command.payload).toMatchObject({ organiser_ids: [ORG_ID], default_venue_id: 'ven-1', category: 'class' });
+      expect(server.envelopes[0].command.payload).toMatchObject({ organiser_ids: [ORG_ID], default_venue_id: 'ven-1', default_city_id: LONDON.id, category: 'class' });
       const seriesUrl = page.url();
 
       // 5. The team approves the class: the same page, re-read, is live and links the public page.
