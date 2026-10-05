@@ -98,24 +98,27 @@ interface P5CompatSnapshot {
 // (server) so the server prefetches exactly what the client will render.
 // Gate on:
 // - format === 'festival' (P5 canonical field, Phase 8 primary signal), OR
-// - content-sniff fallback: MULTI-DAY schedule (>=2 distinct YYYY-MM-DD day
-//   keys), OR festival passes (standard events never have passes).
-// The content-sniff is kept as a COALESCE because legacy-only / null-format
-// events must not misroute to "Festival not found" (plan Phase 8, critique
-// P0-5). NB: a single dated day is NOT a festival signal -- P5 standard events
-// mirror their program into legacy event_program_items with a concrete day,
-// so "any YYYY-MM-DD day" mis-classified them. >=2 distinct days keeps real
-// multi-day festivals while letting single-day standard events resolve
-// correctly. NB: this is INTENTIONALLY not src/lib/eventFormat.ts's
-// isFestivalByFormat -- the event page layers a richer content-sniff
-// (multi-day schedule / passes) on top of `format === 'festival'` rather than
-// a raw `type` fallback, so a null-format legacy festival still routes to the
-// festival hub instead of "Festival not found".
+// - ONLY when format is null (a legacy row with no format backfill): a
+//   MULTI-DAY schedule (>=2 distinct YYYY-MM-DD day keys).
+// A non-null format other than 'festival' is never a festival. FestivalDetail
+// can only render a format === 'festival' series (fetchFestivalEventRow returns
+// null for anything else), so routing any other format there is a guaranteed
+// "Festival not found".
+// Passes are NOT a festival signal (Lever 2 walk B1): D8 lets an owner write
+// default_passes on any weekly class or party, so "standard events never have
+// passes" stopped being true and a priced class rendered "Festival not found".
+// NB: a single dated day is NOT a festival signal -- P5 standard events mirror
+// their program into legacy event_program_items with a concrete day, so "any
+// YYYY-MM-DD day" mis-classified them. NB: this is INTENTIONALLY not
+// src/lib/eventFormat.ts's isFestivalByFormat -- the null-format fallback here
+// sniffs the schedule rather than the raw legacy `type`.
 export function sniffIsFestival(
   snapshot: Pick<EventPageSnapshot, 'event'> | null | undefined,
-  festivalDetail: Pick<FestivalDetail, 'schedule' | 'passes'> | null | undefined,
+  festivalDetail: Pick<FestivalDetail, 'schedule'> | null | undefined,
 ): boolean {
-  if (snapshot?.event.format === 'festival') return true;
+  const format = snapshot?.event.format;
+  if (format === 'festival') return true;
+  if (format != null) return false;
   if (!festivalDetail) return false;
   // wallClockExactDateKey is non-null only for a bare date-only value, exactly
   // reproducing the old anchored /^\d{4}-\d{2}-\d{2}$/ match (a time-suffixed
@@ -123,5 +126,5 @@ export function sniffIsFestival(
   const distinctDays = new Set(
     festivalDetail.schedule.map((s) => wallClockExactDateKey(s.day)).filter((k): k is string => k !== null),
   );
-  return distinctDays.size >= 2 || festivalDetail.passes.length > 0;
+  return distinctDays.size >= 2;
 }

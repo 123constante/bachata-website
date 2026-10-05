@@ -25,7 +25,7 @@ export interface EventFormatFields {
  * matters for legacy-only series that never got a format backfill.
  *
  * NB: the event page (`useEventPage.ts`) layers a richer content-sniff
- * (multi-day schedule / has-passes) on top of `format === 'festival'` instead of
+ * (multi-day schedule for a null format) on top of `format === 'festival'` instead of
  * this `type` fallback, because a null-format legacy festival must not misroute to
  * "Festival not found". Map/calendar surfaces use this simpler predicate.
  */

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { CityPicker } from "@/components/ui/city-picker";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-intent";
+import { OTP_NO_ACCOUNT_NOTICE, isOtpSignupDisabledError } from "@/lib/auth-otp-routing";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
 import MagicLinkConfirmation from "@/components/MagicLinkConfirmation";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
@@ -136,6 +137,20 @@ const AuthContent = () => {
     }
   };
 
+  // Keeps every other query param (returnTo above all), so the sign-up that
+  // follows still ends where the sign-in would have.
+  const switchToSignup = (notice: string | null) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("mode", "signup");
+    if (selectedRole) {
+      nextParams.set("userType", selectedRole);
+    }
+    setSearchParams(nextParams, { replace: true });
+    setStep2Touched(false);
+    setManualStep("role");
+    setAuthNotice(notice);
+  };
+
   const handleSendMagicLink = async () => {
     const normalizedEmail = normalizeEmail(email);
     if (!isValidEmail(normalizedEmail)) {
@@ -169,15 +184,7 @@ const AuthContent = () => {
       });
       transition.analytics.forEach((event) => trackAnalyticsEvent(event.event, event.payload));
       if (transition.nextIntent === "new") {
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.set("mode", "signup");
-        if (selectedRole) {
-          nextParams.set("userType", selectedRole);
-        }
-        setSearchParams(nextParams, { replace: true });
-        setStep2Touched(false);
-        setManualStep("role");
-        setAuthNotice(transition.notice || null);
+        switchToSignup(transition.notice || null);
         return;
       }
     }
@@ -212,8 +219,16 @@ const AuthContent = () => {
       localStorage.setItem("auth_last_email", normalizedEmail);
       trackAnalyticsEvent("auth_viewed", { mode: isCreateAccount ? "signup" : "signin", source: "magic_link_sent" });
     } catch (error: any) {
-      const message = String(error?.message || "").toLowerCase();
-      const isSignupDisabled = message.includes("signups not allowed") || message.includes("signup not allowed");
+      const isSignupDisabled = isOtpSignupDisabledError(error);
+      // Sign-in for an email with no account. The pre-lookup above can't catch
+      // it (account_exists_by_email is not anon-callable, so it answers
+      // "unknown"), and this 422 is the first time we learn it. Move to
+      // "Create account" with the email kept instead of a dead-end toast.
+      if (isSignupDisabled && !isCreateAccount) {
+        trackAnalyticsEvent("auth_auto_switched_to_signup", { source: "auth_page", reason: "email_not_found" });
+        switchToSignup(OTP_NO_ACCOUNT_NOTICE);
+        return;
+      }
       toast({
         title: "Unable to send link",
         description: isSignupDisabled
