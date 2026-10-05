@@ -2815,6 +2815,45 @@ export type Database = {
           },
         ]
       }
+      event_series_level_rating_p5: {
+        Row: {
+          created_at: string
+          dancer_id: string
+          level: string
+          series_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dancer_id: string
+          level: string
+          series_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dancer_id?: string
+          level?: string
+          series_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_series_level_rating_p5_dancer_id_fkey"
+            columns: ["dancer_id"]
+            isOneToOne: false
+            referencedRelation: "dancer_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_series_level_rating_p5_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_series_organiser_p5: {
         Row: {
           created_at: string
@@ -7693,7 +7732,25 @@ export type Database = {
         }
         Returns: undefined
       }
+      _command_audit_refusal_p5: {
+        Args: {
+          p_envelope: Json
+          p_sqlerrm: string
+          p_sqlstate: string
+          p_surface: string
+        }
+        Returns: undefined
+      }
       _command_failure_code_p5: { Args: { p_sqlerrm: string }; Returns: string }
+      _command_refusal_audit_sql_p5: {
+        Args: {
+          p_envelope: Json
+          p_sqlerrm: string
+          p_sqlstate: string
+          p_surface: string
+        }
+        Returns: string
+      }
       _command_result_err_p5: {
         Args: { p_code: string; p_contract?: string; p_message: string }
         Returns: Json
@@ -8412,6 +8469,16 @@ export type Database = {
       _self_serve_text_problem_p5: {
         Args: { p_max: number; p_multiline: boolean; p_text: string }
         Returns: string
+      }
+      _series_level_derived_p5_v1: {
+        Args: { p_series_ids: string[] }
+        Returns: {
+          counts: Json
+          derived_level: string
+          series_id: string
+          threshold: number
+          vote_count: number
+        }[]
       }
       _snapshot_occurrence_p5: {
         Args: { p_occurrence_id: string }
@@ -10448,6 +10515,7 @@ export type Database = {
       check_search_public_v5_contract_v1: { Args: never; Returns: Json }
       check_security_phase2_3_policies_v1: { Args: never; Returns: Json }
       check_self_serve_contract_v1: { Args: never; Returns: Json }
+      check_series_level_derivation_v1: { Args: never; Returns: Json }
       check_series_materialisation_contract_v1: { Args: never; Returns: Json }
       check_series_organiser_junction_parity_v1: { Args: never; Returns: Json }
       check_slug_resolver_p5_parity_v1: { Args: never; Returns: Json }
@@ -10870,6 +10938,7 @@ export type Database = {
         Args: { p_organiser_id: string }
         Returns: Json[]
       }
+      get_organiser_venue_options_v1: { Args: never; Returns: Json[] }
       get_popular_searches_v1: {
         Args: { p_city_slug?: string; p_limit?: number }
         Returns: {
@@ -11948,7 +12017,10 @@ export type Database = {
       }
       self_heal_occurrence_integrity_v1: { Args: never; Returns: Json }
       series_command_p5: { Args: { p_envelope: Json }; Returns: Json }
-      series_level_summary_p5_v1: { Args: { p_series_id: string }; Returns: Json }
+      series_level_summary_p5_v1: {
+        Args: { p_series_id: string }
+        Returns: Json
+      }
       set_attendance: {
         Args: { p_event_id: string; p_status?: string }
         Returns: {
