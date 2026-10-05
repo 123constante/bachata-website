@@ -35,9 +35,10 @@ function AccountNewPage() {
   const organisers = home.data?.organisers ?? [];
 
   return (
-    <GlobalLayout breadcrumbs={buildBreadcrumbs('account.new')} floatingCount={0}>
-      <div className="max-w-2xl lg:max-w-5xl mx-auto px-4 pt-3 pb-24 space-y-4" data-testid="account-new-page">
-        <Link to="/account" className="text-xs text-primary inline-flex items-center gap-1">
+    <div className="tap-44-crumbs contents">
+      <GlobalLayout breadcrumbs={buildBreadcrumbs('account.new')} floatingCount={0}>
+      <div className="max-w-2xl lg:max-w-5xl mx-auto px-4 pt-3 pb-24 space-y-4 tap-44" data-testid="account-new-page">
+        <Link to="/account" className="text-xs text-primary tap-link gap-1">
           <ChevronLeft className="w-3 h-3" aria-hidden="true" /> My events
         </Link>
         <h1 className="text-lg font-semibold leading-tight">New event</h1>
@@ -55,14 +56,15 @@ function AccountNewPage() {
           <div className="rounded-md border border-border p-3 space-y-2" data-testid="create-no-organiser">
             <p className="text-sm font-semibold">Set up your organiser first.</p>
             <p className="text-xs text-muted-foreground">
-              Events belong to an organiser. <Link to="/account" className="text-primary">Claim yours or create one</Link>, then come back here.
+              Events belong to an organiser. <Link to="/account" className="text-primary tap-link-inline">Claim yours or create one</Link>, then come back here.
             </p>
           </div>
         ) : (
           <CreateEventForm organisers={organisers} initialOrganiserId={params.get('organiser')} today={today} />
         )}
       </div>
-    </GlobalLayout>
+      </GlobalLayout>
+    </div>
   );
 }
 

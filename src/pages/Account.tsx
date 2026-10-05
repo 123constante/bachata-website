@@ -112,8 +112,9 @@ function AccountPage() {
   if (!user) return null;
 
   return (
-    <GlobalLayout breadcrumbs={buildBreadcrumbs('account')} floatingCount={0}>
-      <div className="max-w-2xl mx-auto px-4 pt-3 pb-24 space-y-4" data-testid="account-page">
+    <div className="tap-44-crumbs contents">
+      <GlobalLayout breadcrumbs={buildBreadcrumbs('account')} floatingCount={0}>
+      <div className="max-w-2xl mx-auto px-4 pt-3 pb-24 space-y-4 tap-44" data-testid="account-page">
         <header className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-lg font-semibold">Your account</h1>
@@ -204,7 +205,7 @@ function AccountPage() {
             {selected && (
               <Link
                 to={`/account/team/${selected.id}`}
-                className="text-sm text-primary inline-flex items-center gap-1"
+                className="text-sm text-primary tap-link gap-1"
                 data-testid="team-link"
               >
                 <Users className="w-4 h-4" aria-hidden="true" /> Team and access requests
@@ -223,7 +224,7 @@ function AccountPage() {
             ) : (
               <button
                 type="button"
-                className="text-sm text-primary inline-flex items-center gap-1"
+                className="text-sm text-primary tap-link gap-1"
                 onClick={() => setShowOnboarding(true)}
               >
                 Add another organiser <ChevronDown className="w-4 h-4" aria-hidden="true" />
@@ -232,13 +233,14 @@ function AccountPage() {
 
             {organisers.length === 0 && (
               <p className="text-xs text-muted-foreground">
-                Just here to dance? <Link to="/" className="text-primary">Skip this and browse events</Link>.
+                Just here to dance? <Link to="/" className="text-primary tap-link-inline">Skip this and browse events</Link>.
               </p>
             )}
           </>
         )}
       </div>
-    </GlobalLayout>
+      </GlobalLayout>
+    </div>
   );
 }
 

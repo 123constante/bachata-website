@@ -314,7 +314,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
             </p>
           ) : (
             <div className="flex flex-wrap justify-end gap-2">
-              <Button asChild size="sm" variant="ghost" className="lg:hidden mr-auto">
+              <Button asChild size="sm" variant="ghost" className="lg:hidden mr-auto min-h-[44px]">
                 <a href="#create-preview"><Eye className="w-4 h-4" aria-hidden="true" /> Preview</a>
               </Button>
               <Button type="button" size="sm" variant="outline" disabled={!canSend} onClick={() => void run(false)} data-testid="save-draft">

@@ -297,7 +297,7 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
                 <Input id="create-website" value={form.website} placeholder="https://" className="h-9 text-sm"
                   onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
               </div>
-              <label className="sm:col-span-2 flex items-center gap-2 text-xs text-muted-foreground">
+              <label className="sm:col-span-2 flex items-center gap-2 text-xs text-muted-foreground min-h-[44px]">
                 <input type="checkbox" checked={form.useMyEmail}
                   onChange={(e) => setForm((f) => ({ ...f, useMyEmail: e.target.checked }))} />
                 Show {email || 'my email'} as the contact email

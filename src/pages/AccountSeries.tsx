@@ -51,9 +51,10 @@ function AccountSeriesPage() {
   const refused = workspace.isError && isRefusal(workspace.error);
 
   return (
-    <GlobalLayout breadcrumbs={[...buildBreadcrumbs('account'), { label: name ?? 'Event' }]} floatingCount={0}>
-      <div className="max-w-2xl lg:max-w-5xl mx-auto px-4 pt-3 pb-24 space-y-4" data-testid="account-series-page">
-        <Link to="/account" className="text-xs text-primary inline-flex items-center gap-1">
+    <div className="tap-44-crumbs contents">
+      <GlobalLayout breadcrumbs={[...buildBreadcrumbs('account'), { label: name ?? 'Event' }]} floatingCount={0}>
+      <div className="max-w-2xl lg:max-w-5xl mx-auto px-4 pt-3 pb-24 space-y-4 tap-44" data-testid="account-series-page">
+        <Link to="/account" className="text-xs text-primary tap-link gap-1">
           <ChevronLeft className="w-3 h-3" aria-hidden="true" /> My events
         </Link>
         {created && (
@@ -85,7 +86,8 @@ function AccountSeriesPage() {
           <SeriesEditor workspace={workspace.data} today={today} />
         )}
       </div>
-    </GlobalLayout>
+      </GlobalLayout>
+    </div>
   );
 }
 

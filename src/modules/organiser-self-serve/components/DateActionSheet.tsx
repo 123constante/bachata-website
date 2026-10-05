@@ -210,7 +210,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
         side="bottom"
         // Above the fixed BottomNav (also z-50), which would otherwise cover the sheet's buttons.
         overlayClassName="z-[90]"
-        className="z-[90] max-h-[92vh] overflow-y-auto rounded-t-xl pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:max-w-lg sm:mx-auto sm:left-0 sm:right-0"
+        className="tap-44 z-[90] max-h-[92vh] overflow-y-auto rounded-t-xl pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:max-w-lg sm:mx-auto sm:left-0 sm:right-0"
         data-testid="date-sheet"
       >
         <div className="space-y-1 pr-8">
@@ -350,7 +350,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                   <p>
                     That is {spanWarning.duration} long, ending {spanWarning.endsNextDay ? 'the next day ' : ''}at {end}. Did you mean a different end time?
                   </p>
-                  <label className="flex items-start gap-2">
+                  <label className="flex items-start gap-2 min-h-[44px]">
                     <input
                       type="checkbox"
                       checked={longConfirmed}
@@ -442,7 +442,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
               <p className="text-xs text-muted-foreground">{doneText?.body}</p>
               <div className="flex flex-wrap items-center gap-3 justify-end">
                 {live && (
-                  <Link to={`/event/${series.slug ?? series.id}`} className="text-xs text-primary inline-flex items-center gap-1 mr-auto">
+                  <Link to={`/event/${series.slug ?? series.id}`} className="text-xs text-primary tap-link gap-1 mr-auto">
                     View as a dancer <ExternalLink className="w-3 h-3" aria-hidden="true" />
                   </Link>
                 )}

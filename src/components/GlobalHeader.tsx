@@ -184,7 +184,7 @@ export const GlobalHeader = () => {
           <Link
             to="/account"
             className={cn(
-              'inline-flex items-center justify-center w-8 h-8 rounded-md shrink-0 transition-colors',
+              'inline-flex items-center justify-center w-[44px] h-[44px] rounded-md shrink-0 transition-colors',
               pathname === '/account' ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-primary/5',
             )}
             aria-label="Your account"

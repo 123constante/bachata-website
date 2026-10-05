@@ -819,6 +819,42 @@
   }
 }
 
+/* Lever 2 S4: organiser self-serve screens (/account, /account/new,
+   /account/series/:id, /account/team/:id, and the date sheet) get 44px tap
+   targets (PRODUCT.md: touch targets minimum 44px). Scoped by class so no
+   shared primitive (Button, Input) changes for the rest of the site. */
+.tap-44 :is(button, select, input:not([type='checkbox'], [type='radio'], [type='hidden'], [type='range'], [type='file'])) {
+  min-height: 44px;
+}
+.tap-44 button[aria-label]:not([aria-label='']) {
+  min-width: 44px;
+}
+/* Text links: the text size is untouched, only the hit area grows. */
+.tap-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+/* A link inside a sentence: 44px hit area, but the line keeps its height. */
+.tap-link-inline {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-block: -14px;
+  vertical-align: middle;
+}
+/* A block link that truncates: padding grows the hit area. */
+.tap-pad {
+  padding-block: 14px;
+  margin-block: -14px;
+}
+/* The shared breadcrumb row, on the self-serve screens only. */
+.tap-44-crumbs nav[aria-label='breadcrumb'] a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
 @layer components {
   .container {
     max-width: 1200px;
