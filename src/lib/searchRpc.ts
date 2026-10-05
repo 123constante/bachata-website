@@ -31,6 +31,10 @@ export interface SearchResult {
   eventType: string | null;
   startTime: string | null;
   href: string;
+  // search_public_v6 only (flags.searchV6): dancer-rated series level, null
+  // until the series has enough ratings. Absent on every v4/v5 result.
+  derivedLevel?: string | null;
+  levelVoteCount?: number;
 }
 
 // search_public_v2 -- events / venues / organisers text-match by name.
@@ -65,6 +69,8 @@ interface V3EventRow {
   city_slug: string | null;
   event_type: string | null;
   start_time: string | null;
+  derived_level?: string | null;  // v6 only
+  level_vote_count?: number;      // v6 only
 }
 
 interface V3OrganiserRow {
@@ -127,10 +133,13 @@ export async function searchPublicV3(
   citySlug?: string | null,
   sectionLimit = 12,
   includePast = false,
+  levels: string[] | null = null,
 ): Promise<SearchResult[]> {
   const term = query.trim();
   if (!term) return [];
-  const fn = flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
+  // v6 is a strict superset of v5's envelope, so it wins over searchV5 when on.
+  // `levels` is only ever sent to v6; with searchV6 off the call is unchanged.
+  const fn = flags.searchV6 ? 'search_public_v6' : flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
   // Global festivals are fetched separately so a festival in ANOTHER city still
   // surfaces in search (mirrors prior v3/v4 behaviour). They come from the
   // P5-native shared festivals-list seam (module-cached, so the per-keystroke
@@ -152,6 +161,7 @@ export async function searchPublicV3(
         p_city_slug: citySlug ?? null,
         p_section_limit: sectionLimit,
         p_include_past: includePast,
+        ...(flags.searchV6 ? { p_level: levels && levels.length ? levels : null } : {}),
       }),
     ),
     fetchPublicFestivalsList(),
@@ -199,6 +209,9 @@ export async function searchPublicV3(
       eventType: e.event_type,
       startTime: e.start_time,
       href: e.event_type === 'festival' ? `/festival/${e.id}` : hrefFor('event', e.id),
+      ...(flags.searchV6
+        ? { derivedLevel: e.derived_level ?? null, levelVoteCount: e.level_vote_count ?? 0 }
+        : {}),
     })),
     ...globalFests,
     ...(payload.venues ?? []).map((v): SearchResult => ({

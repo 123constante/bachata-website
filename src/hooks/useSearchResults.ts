@@ -9,6 +9,10 @@ export interface SearchResultEvent {
   city_slug: string | null;
   event_type: string | null;
   start_time: string | null;
+  // search_public_v6 only (flags.searchV6). derived_level is null until the
+  // series has enough dancer ratings; absent on v4/v5 envelopes.
+  derived_level?: string | null;
+  level_vote_count?: number;
 }
 
 export interface SearchResultOrganiser {
@@ -61,6 +65,9 @@ export interface SearchResultsPayload {
   cities: SearchResultCity[];
   total_count: number;
   did_you_mean: string | null;
+  // v6 only: null when no level is selected, otherwise how many matching
+  // events the level filter hid because they are not rated yet.
+  unrated_event_count?: number | null;
 }
 
 export interface SearchFilterOpts {
@@ -72,6 +79,7 @@ export interface SearchFilterOpts {
   dateFrom?: string | null;   // YYYY-MM-DD (v5 only)
   dateTo?: string | null;     // v5 only
   citySlugOverride?: string | null;
+  levels?: string[];          // dancer-rated level (v6 only, flags.searchV6)
 }
 
 type RpcResult = { data: Partial<SearchResultsPayload> | null; error: { message: string } | null };
@@ -91,17 +99,21 @@ export function useSearchResults(
   const styles = opts.styles && opts.styles.length ? opts.styles : null;
   const from = opts.dateFrom || null;
   const to = opts.dateTo || null;
+  const levels = opts.levels && opts.levels.length ? opts.levels : null;
+  const v6 = flags.searchV6;
 
   return useQuery<SearchResultsPayload>({
     // searchV5 is a build-time constant but keep it in the key so a flag flip
-    // between builds never serves a stale v4 envelope.
-    queryKey: ['search-results', term, city, includePast, etype, formats, categories, styles, from, to, flags.searchV5],
+    // between builds never serves a stale v4 envelope. The v6 tail is only
+    // appended when that flag is on, so the flag-off key is unchanged.
+    queryKey: ['search-results', term, city, includePast, etype, formats, categories, styles, from, to, flags.searchV5, ...(v6 ? ['v6', levels] : [])],
     enabled: term.length > 0,
     // Phase 3 (IO optimization arc, resumed): 60s -> 3min.
     staleTime: 3 * 60_000,
     queryFn: async () => {
-      const fn = flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
-      const args: Record<string, unknown> = flags.searchV5
+      // v6 is a strict superset of v5 (same args + p_level), so it wins when on.
+      const fn = v6 ? 'search_public_v6' : flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
+      const args: Record<string, unknown> = v6 || flags.searchV5
         ? {
             p_query: term,
             p_city_slug: city,
@@ -114,6 +126,7 @@ export function useSearchResults(
             p_date_to: to,
             p_format: formats,
             p_category: categories,
+            ...(v6 ? { p_level: levels } : {}),
           }
         : { p_query: term, p_city_slug: city, p_section_limit: 8, p_include_past: includePast };
 
@@ -122,7 +135,7 @@ export function useSearchResults(
       const d = data ?? {};
       // Read v5-only keys defensively so a v4 DB (vendors/cities/did_you_mean
       // absent) still resolves to a complete, well-typed envelope.
-      return {
+      const base = {
         query: d.query ?? term,
         events: d.events ?? [],
         organisers: d.organisers ?? [],
@@ -134,6 +147,16 @@ export function useSearchResults(
         cities: d.cities ?? [],
         total_count: d.total_count ?? 0,
         did_you_mean: d.did_you_mean ?? null,
+      };
+      if (!v6) return base;
+      return {
+        ...base,
+        events: base.events.map((e) => ({
+          ...e,
+          derived_level: e.derived_level ?? null,
+          level_vote_count: e.level_vote_count ?? 0,
+        })),
+        unrated_event_count: d.unrated_event_count ?? null,
       };
     },
   });

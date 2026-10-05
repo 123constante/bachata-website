@@ -23,6 +23,10 @@ export const flags = {
   // When false the existing HeaderSearch omnibox (search_public_v4) renders
   // unchanged, so prod is untouched until this flips per-environment.
   searchV5:            import.meta.env.VITE_ENABLE_SEARCH_V5 === 'true',
+  // search_public_v6 = v5 + dancer-rated series level (derived_level,
+  // level_vote_count per event, unrated_event_count, p_level filter) and the
+  // level chips on /search. OFF: every search path stays on v5/v4 unchanged.
+  searchV6:            import.meta.env.VITE_ENABLE_SEARCH_V6 === 'true',
   // Self-owned RUM (web-vitals -> record_web_vital_v1, see lib/webVitals.ts).
   // OFF until the admin-repo migration ships the RPC; flipping this in Vercel
   // env enables reporting with no code change.

@@ -11930,6 +11930,22 @@ export type Database = {
         }
         Returns: Json
       }
+      search_public_v6: {
+        Args: {
+          p_category?: string[]
+          p_city_slug?: string
+          p_date_from?: string
+          p_date_to?: string
+          p_event_type?: string[]
+          p_format?: string[]
+          p_include_past?: boolean
+          p_level?: string[]
+          p_query: string
+          p_section_limit?: number
+          p_styles?: string[]
+        }
+        Returns: Json
+      }
       self_heal_occurrence_integrity_v1: { Args: never; Returns: Json }
       series_command_p5: { Args: { p_envelope: Json }; Returns: Json }
       series_level_summary_p5_v1: { Args: { p_series_id: string }; Returns: Json }
