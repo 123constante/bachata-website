@@ -306,8 +306,12 @@ const CREATE_TEXT_FIELDS = ['level', 'ticketUrl', 'coverImageUrl', 'description'
  * time and the time zone. Optional fields go only when set: a create with an
  * absent key lands NULL anyway, and a blank would echo through the handler's
  * NULLIF for nothing.
+ *
+ * `cityId` is the series' default_city_id (Lever 2 B1): the server takes the city
+ * only from this payload, and a series with no city cannot be approved. Sent only
+ * when known (see createCity.resolveCreateCityId); never guessed.
  */
-export function createPayload(draft: CreateDraft): Record<string, unknown> {
+export function createPayload(draft: CreateDraft, cityId?: string | null): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     name: draft.name.trim(),
     format: draft.format,
@@ -318,6 +322,7 @@ export function createPayload(draft: CreateDraft): Record<string, unknown> {
   };
   if (draft.durationMinutes) payload.default_duration_minutes = draft.durationMinutes;
   if (draft.venueId) payload.default_venue_id = draft.venueId;
+  if (cityId) payload.default_city_id = cityId;
   CREATE_TEXT_FIELDS.forEach((field) => {
     const value = draft[field].trim();
     if (value) payload[FIELD_KEY[field]] = value;
