@@ -58,7 +58,7 @@ export function EmailCodeProof({ email, onProven, returnTo = '/account' }: { ema
   };
 
   return (
-    <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2" data-testid="email-code-proof">
+    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2" data-testid="email-code-proof">
       <p className="text-sm flex items-start gap-2">
         <MailCheck className="w-4 h-4 mt-0.5 shrink-0 text-primary" aria-hidden="true" />
         <span>
@@ -78,7 +78,7 @@ export function EmailCodeProof({ email, onProven, returnTo = '/account' }: { ema
             aria-label="The code from your email"
             data-testid="email-code-input"
           />
-          <Button size="sm" onClick={() => void verify()} disabled={busy} data-testid="email-code-verify">
+          <Button size="sm" className="rounded-full min-h-[44px]" onClick={() => void verify()} disabled={busy} data-testid="email-code-verify">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm'}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => void send()} disabled={busy}>
@@ -86,11 +86,11 @@ export function EmailCodeProof({ email, onProven, returnTo = '/account' }: { ema
           </Button>
         </div>
       ) : (
-        <Button size="sm" onClick={() => void send()} disabled={busy} data-testid="email-code-send">
+        <Button size="sm" className="rounded-full min-h-[44px]" onClick={() => void send()} disabled={busy} data-testid="email-code-send">
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Email me a code'}
         </Button>
       )}
-      {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
     </div>
   );
 }
