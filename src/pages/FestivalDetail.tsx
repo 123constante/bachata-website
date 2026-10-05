@@ -1949,8 +1949,8 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
   const endedRunRange = isEnded ? formatRunRange(endedRanFrom, endedOn) : null;
   // The NOUN is derived from the real format/type/category, never hard-coded to
   // "festival". This page is reached by sniffIsFestival, which is BROADER than
-  // format === 'festival' -- it also routes a multi-day-schedule or passes-carrying
-  // series here whatever its format says. Hard-coding the word would print "This
+  // format === 'festival' -- it also routes a NULL-format series with a multi-day
+  // schedule here. Hard-coding the word would print "This
   // festival has finished" on a course, and would contradict the og:description,
   // which derives the same noun from the same three fields (endedShareDescription).
   const endedFormat = endedSource ? endedSource.format : (snapshotPayload?.event?.format ?? null);

@@ -9,6 +9,7 @@ import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo, stashPendingReturnTo } fr
 import { hasDancerProfileBasics, inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { flags } from "@/lib/featureFlags";
+import { shouldHonorReturnTo } from "@/lib/auth-otp-routing";
 
 const VALID_ROLES: Record<string, string> = {
   organiser: "/create-organiser-profile",
@@ -88,7 +89,9 @@ const AuthCallback = () => {
         // The routing tail, which used to be spelled out twice -- once per
         // branch -- and had to be kept in step by hand.
         const routeOnwards = () => {
-          if (!isSignupFlow && safeReturnTo) {
+          // A sign-up honours returnTo too once self-serve is on, so "Sign in
+          // to claim" -> new account lands back on the claim card (Lever 2 B3).
+          if (safeReturnTo && shouldHonorReturnTo({ returnTo: safeReturnTo, isSignupFlow, organiserSelfServe: flags.organiserSelfServe })) {
             navigate(safeReturnTo, { replace: true });
             return;
           }
