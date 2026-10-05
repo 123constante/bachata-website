@@ -8068,10 +8068,15 @@ export type Database = {
       }
       _owner_create_organiser_id_p5: { Args: never; Returns: string }
       _owner_date_shape_ok_p5: { Args: { p_value: string }; Returns: boolean }
+      _owner_instagram_url_ok_p5: {
+        Args: { p_value: string }
+        Returns: boolean
+      }
       _owner_lifecycle_transition_allowed_p5: {
         Args: { p_from: string; p_to: string }
         Returns: boolean
       }
+      _owner_passes_problem_p5: { Args: { p_passes: Json }; Returns: string }
       _owner_public_url_ok_p5: { Args: { p_value: string }; Returns: boolean }
       _owner_reference_id_ok_p5: {
         Args: { p_key: string; p_value: string }
@@ -9226,6 +9231,33 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_list_organiser_edits_v1: {
+        Args: {
+          p_before?: string
+          p_before_id?: string
+          p_limit?: number
+          p_outcome?: string
+          p_since?: string
+        }
+        Returns: {
+          actor_email: string
+          actor_id: string
+          audit_id: string
+          changed_fields: string[]
+          command_kind: string
+          detail: string
+          error_code: string
+          is_create: boolean
+          occurrence_date: string
+          occurrence_id: string
+          outcome: string
+          series_id: string
+          series_name: string
+          target_id: string
+          target_kind: string
+          ts: string
+        }[]
+      }
       admin_list_organiser_options_v1: {
         Args: {
           p_controlled_ids?: string[]
@@ -9293,7 +9325,9 @@ export type Database = {
           lifecycle_status: string
           name: string
           organiser_ids: string[]
+          public_slug: string
           submitted_at: string
+          submitter_email: string
           target_id: string
           target_type: string
         }[]
@@ -10409,6 +10443,7 @@ export type Database = {
       check_raffle_capacity_contract_v1: { Args: never; Returns: Json }
       check_raffle_draw_snapshot_contract_v1: { Args: never; Returns: Json }
       check_raffle_winners_contract_v1: { Args: never; Returns: Json }
+      check_rpc_bodies_v1: { Args: { p_names: string[] }; Returns: Json[] }
       check_rpc_body_v1: { Args: { p_name: string }; Returns: Json }
       check_search_public_v5_contract_v1: { Args: never; Returns: Json }
       check_security_phase2_3_policies_v1: { Args: never; Returns: Json }
