@@ -24,11 +24,10 @@ export type SeriesLevelSummary = {
 export const seriesLevelQueryKey = (seriesId: string | null | undefined, userId?: string) =>
   ['series-level-summary', seriesId, userId ?? null] as const;
 
-// Both RPCs landed after the last types regen, so they are called untyped here.
 const fetchSummary = async (seriesId: string): Promise<SeriesLevelSummary | null> => {
-  const { data, error } = await supabase.rpc('series_level_summary_p5_v1' as never, {
+  const { data, error } = await supabase.rpc('series_level_summary_p5_v1', {
     p_series_id: seriesId,
-  } as never);
+  });
   if (error) throw error;
   return (data as SeriesLevelSummary | null) ?? null;
 };
@@ -52,10 +51,10 @@ export const useSeriesLevelRating = (seriesId: string | null | undefined) => {
 
   const mutation = useMutation({
     mutationFn: async (level: SeriesLevel) => {
-      const { error } = await supabase.rpc('rate_series_level_p5_v1' as never, {
-        p_series_id: seriesId,
+      const { error } = await supabase.rpc('rate_series_level_p5_v1', {
+        p_series_id: seriesId as string,
         p_level: level,
-      } as never);
+      });
       if (error) throw error;
       return level;
     },

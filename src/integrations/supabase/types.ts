@@ -11661,6 +11661,10 @@ export type Database = {
         }
         Returns: Json
       }
+      rate_series_level_p5_v1: {
+        Args: { p_level: string; p_series_id: string }
+        Returns: Json
+      }
       recompute_daily_health_metrics_v1: { Args: never; Returns: Json }
       recompute_event_occurrence_times_v1: {
         Args: { p_event_id: string }
@@ -11928,6 +11932,7 @@ export type Database = {
       }
       self_heal_occurrence_integrity_v1: { Args: never; Returns: Json }
       series_command_p5: { Args: { p_envelope: Json }; Returns: Json }
+      series_level_summary_p5_v1: { Args: { p_series_id: string }; Returns: Json }
       set_attendance: {
         Args: { p_event_id: string; p_status?: string }
         Returns: {
