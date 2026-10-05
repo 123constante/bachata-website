@@ -28,9 +28,10 @@ function AccountTeamPage() {
   const organiser = organiserId ? organisers.find((o) => o.id === organiserId) ?? null : organisers[0] ?? null;
 
   return (
-    <GlobalLayout breadcrumbs={buildBreadcrumbs('accountTeam')} floatingCount={0}>
-      <div className="max-w-2xl lg:max-w-5xl mx-auto px-4 pt-3 pb-24 space-y-4" data-testid="account-team-page">
-        <Link to="/account" className="text-xs text-primary inline-flex items-center gap-1">
+    <div className="tap-44-crumbs contents">
+      <GlobalLayout breadcrumbs={buildBreadcrumbs('accountTeam')} floatingCount={0}>
+      <div className="max-w-2xl lg:max-w-5xl mx-auto px-4 pt-3 pb-24 space-y-4 tap-44" data-testid="account-team-page">
+        <Link to="/account" className="text-xs text-primary tap-link gap-1">
           <ChevronLeft className="w-3 h-3" aria-hidden="true" /> My events
         </Link>
         {home.isLoading ? (
@@ -48,7 +49,7 @@ function AccountTeamPage() {
             <p className="text-sm font-semibold">This team isn&rsquo;t yours to see.</p>
             <p className="text-xs text-muted-foreground">
               {organisers.length === 0 ? 'You do not run an organiser yet.' : 'It belongs to an organiser you don’t help run.'}{' '}
-              <Link to="/account" className="text-primary">Back to your account</Link>.
+              <Link to="/account" className="text-primary tap-link-inline">Back to your account</Link>.
             </p>
           </div>
         ) : (
@@ -61,7 +62,8 @@ function AccountTeamPage() {
           </>
         )}
       </div>
-    </GlobalLayout>
+      </GlobalLayout>
+    </div>
   );
 }
 

@@ -40,7 +40,7 @@ function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }
         <div className="min-w-0 flex-1">
           <Link
             to={`/account/series/${series.id}`}
-            className="block text-base font-semibold leading-tight truncate hover:text-primary"
+            className="block text-base font-semibold leading-tight truncate hover:text-primary tap-pad"
             data-testid="series-open"
           >
             {series.name}
@@ -85,13 +85,13 @@ function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }
           {Number(series.upcoming_count) || 0} upcoming {Number(series.upcoming_count) === 1 ? 'date' : 'dates'}
           {more > 0 ? ` (${more} more)` : ''}
         </span>
-        <Link to={`/account/series/${series.id}`} className="ml-auto text-primary font-medium" data-testid="series-manage">
+        <Link to={`/account/series/${series.id}`} className="ml-auto text-primary font-medium tap-link" data-testid="series-manage">
           Edit and dates
         </Link>
         {live && (
           <Link
             to={`/event/${series.slug ?? series.id}`}
-            className="inline-flex items-center gap-1 text-primary"
+            className="tap-link gap-1 text-primary"
             data-testid="view-as-dancer"
           >
             View as a dancer <ExternalLink className="w-3 h-3" aria-hidden="true" />
@@ -130,7 +130,7 @@ export function OrganiserHome({
             {live && (
               <>
                 {' '}&middot;{' '}
-                <Link to={`/organisers/${organiser.slug ?? organiser.id}`} className="text-primary inline-flex items-center gap-1">
+                <Link to={`/organisers/${organiser.slug ?? organiser.id}`} className="text-primary tap-link-inline gap-1">
                   Public page <ExternalLink className="w-3 h-3" aria-hidden="true" />
                 </Link>
               </>
@@ -143,7 +143,7 @@ export function OrganiserHome({
               {LIFECYCLE_LABEL[organiser.lifecycle_status] ?? organiser.lifecycle_status}
             </Badge>
           )}
-          <Button asChild size="sm">
+          <Button asChild size="sm" className="min-h-[44px]">
             <Link to={`/account/new?organiser=${organiser.id}`} data-testid="new-event">
               <Plus className="w-4 h-4" aria-hidden="true" /> New event
             </Link>

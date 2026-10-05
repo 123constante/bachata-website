@@ -43,7 +43,7 @@ export function VenuePicker({ id, value, onChange, fallbackLabel = 'Venue set by
       <div className="flex items-center gap-2 text-sm">
         <MapPin className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate" data-testid={`${id}-current`}>{current}</span>
-        <button type="button" className="text-xs text-primary shrink-0" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <button type="button" className="text-xs text-primary shrink-0 tap-link" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
           {open ? 'Keep this venue' : 'Change venue'}
         </button>
       </div>
@@ -89,7 +89,7 @@ export function VenuePicker({ id, value, onChange, fallbackLabel = 'Venue set by
           {query.trim().length >= 2 && !venues.isLoading && matches.length === 0 && !asking && (
             <p className="text-xs text-muted-foreground" data-testid="venue-no-match">
               No venue matches.{' '}
-              <button type="button" className="text-primary font-medium" onClick={() => setAsking(true)} data-testid="venue-request-open">
+              <button type="button" className="text-primary font-medium tap-link-inline" onClick={() => setAsking(true)} data-testid="venue-request-open">
                 Ask the team to add it
               </button>
             </p>

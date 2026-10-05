@@ -100,7 +100,7 @@ export function ReviewStrip({ series, onSaved }: { series: WorkspaceSeries; onSa
         {model.publicPage ? (
           <Link
             to={`/event/${series.slug ?? series.id}`}
-            className="text-xs text-primary inline-flex items-center gap-1"
+            className="text-xs text-primary tap-link gap-1"
             data-testid="series-view-as-dancer"
           >
             View as a dancer <ExternalLink className="w-3 h-3" aria-hidden="true" />

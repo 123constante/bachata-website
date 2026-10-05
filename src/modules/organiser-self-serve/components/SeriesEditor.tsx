@@ -275,7 +275,7 @@ function DatesSection({ workspace, today, onSaved }: { workspace: SeriesWorkspac
         </ul>
       )}
       {upcoming.length > PAGE && (
-        <button type="button" className="text-xs text-primary" onClick={() => setShowAll((s) => !s)}>
+        <button type="button" className="text-xs text-primary tap-link" onClick={() => setShowAll((s) => !s)}>
           {showAll ? 'Show fewer' : `Show all ${upcoming.length} dates`}
         </button>
       )}
@@ -307,7 +307,7 @@ function DatesSection({ workspace, today, onSaved }: { workspace: SeriesWorkspac
                 <span className="w-24 shrink-0 text-muted-foreground">{dateLabel(date, today)}</span>
                 <button
                   type="button"
-                  className="text-xs text-primary"
+                  className="text-xs text-primary tap-link"
                   disabled={command.isPending}
                   data-testid="date-put-back"
                   onClick={() => void runSeries(
