@@ -50,7 +50,7 @@ const NO_LIFECYCLE = {
 
 const EMPTY_PAGE_MODEL: EventPageModel = {
   page: { state: 'loading', canEdit: false, title: '', message: null, ...NO_LIFECYCLE },
-  identity: { title: '', eventId: null, occurrenceId: null, statusLabel: null, eventType: null, eventFormat: null, level: null, musicStyles: [] },
+  identity: { title: '', eventId: null, occurrenceId: null, statusLabel: null, eventType: null, eventFormat: null, level: null, derivedLevel: null, levelVoteCount: null, musicStyles: [] },
   hero: { imageUrl: null, imageAlt: '', monogram: 'EV', mediaState: 'fallback' },
   actions: { ticketUrl: null, websiteUrl: null, facebookUrl: null, instagramUrl: null, whatsappLink: null, tiktokUrl: null, livestreamUrl: null, pricing: null, hasAny: false },
   schedule: { dateLabel: null, shortDateLabel: null, timeLabel: null, timezoneLabel: null, keyTimes: null, isCancelled: false, isVisible: false },
@@ -158,6 +158,8 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
       eventType: snapshot.event.type,
       eventFormat: snapshot.event.format,
       level: snapshot.event.level,
+      derivedLevel: snapshot.event.derivedLevel ?? null,
+      levelVoteCount: snapshot.event.levelVoteCount ?? null,
       musicStyles: snapshot.event.musicStyles,
     },
     hero: {

@@ -4,7 +4,7 @@ import type { Json } from '@/integrations/supabase/types';
 import { resolveEventImage } from '@/lib/utils';
 import { safeExternalHref } from '@/lib/url';
 import { asEventTimeZone, asWallClock, type WallClock } from '@/lib/time/wallClock';
-import type { EventPageEventLevel, EventPageKeyTimes, EventPagePerson, EventPagePromoCode, EventPageSnapshot, EventPageSnapshotOccurrence, EventPageTicket } from '@/modules/event-page/types';
+import type { EventPageDerivedLevel, EventPageEventLevel, EventPageKeyTimes, EventPagePerson, EventPagePromoCode, EventPageSnapshot, EventPageSnapshotOccurrence, EventPageTicket } from '@/modules/event-page/types';
 
 // ---------------------------------------------------------------------------
 // JSON helpers — safe extraction from untyped RPC payloads
@@ -39,6 +39,12 @@ const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : [
 const asEventLevel = (value: unknown): EventPageEventLevel => {
   const s = asString(value);
   return s === 'beginner' || s === 'intermediate' || s === 'advanced' || s === 'all_levels' ? s : null;
+};
+
+const DERIVED_LEVELS: readonly string[] = ['beginner', 'improver', 'intermediate', 'advanced', 'open_level'];
+const asDerivedLevel = (value: unknown): EventPageDerivedLevel | null => {
+  const s = asString(value);
+  return s !== null && DERIVED_LEVELS.includes(s) ? (s as EventPageDerivedLevel) : null;
 };
 
 const requireObject = (value: unknown, label: string): JsonRecord => {
@@ -176,6 +182,8 @@ export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null
         .filter((s): s is string => s !== null),
       paymentMethods: asString(event.payment_methods),
       level: asEventLevel(event.level),
+      derivedLevel: asDerivedLevel(event.derived_level),
+      levelVoteCount: typeof event.level_vote_count === 'number' ? event.level_vote_count : null,
       keyTimes: (() => {
         const kt = asObject(event.key_times);
         if (!kt) return null;

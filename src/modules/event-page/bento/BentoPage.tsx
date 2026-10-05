@@ -20,6 +20,7 @@ import { pickPlayableVideo } from '@/lib/parseVenueVideoUrl';
 import { DateBlock } from '@/modules/event-page/bento/blocks/DateBlock';
 import { DescriptionBlock } from '@/modules/event-page/bento/blocks/DescriptionBlock';
 import { OrganiserCardBlock } from '@/modules/event-page/bento/blocks/OrganiserCardBlock';
+import { DerivedLevelBadge } from '@/modules/event-page/bento/blocks/DerivedLevelBadge';
 import { MusicStylesRow } from '@/modules/event-page/bento/blocks/MusicStylesRow';
 import { LevelRatingPrompt } from '@/components/LevelRatingPrompt';
 import { GroupChatBlock } from '@/modules/event-page/bento/blocks/GroupChatBlock';
@@ -580,6 +581,11 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         {!over && !occurrence?.isCancelled && (
           <GroupChatBlock url={pageModel.actions.whatsappLink} eventId={eventId} />
         )}
+
+        <DerivedLevelBadge
+          derivedLevel={pageModel.identity.derivedLevel}
+          levelVoteCount={pageModel.identity.levelVoteCount}
+        />
 
         {!occurrence?.isCancelled && <LevelRatingPrompt seriesId={eventId} />}
 

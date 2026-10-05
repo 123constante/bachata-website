@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronDown, LogOut, Users } from 'lucide-react';
@@ -66,6 +66,7 @@ function AccountPage() {
   const [signOutNote, setSignOutNote] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const confirmationRef = useRef<HTMLParagraphElement>(null);
 
   const home = useQuery({
     queryKey: organiserHomeQueryKey(user?.id),
@@ -100,6 +101,15 @@ function AccountPage() {
     void queryClient.invalidateQueries({ queryKey: myAccessRequestsQueryKey(user?.id) });
   };
 
+  // The onboarding card unmounts on success, so bring the confirmation into view
+  // and focus it for screen readers; the scroll-to-top alone can miss it.
+  useEffect(() => {
+    if (!confirmation) return;
+    const el = confirmationRef.current;
+    el?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    el?.focus({ preventScroll: true });
+  }, [confirmation]);
+
   const handleSignOut = async () => {
     const outcome = await signOut();
     if (outcome === 'failed') {
@@ -126,7 +136,7 @@ function AccountPage() {
         </header>
         {signOutNote && <p className="text-xs text-destructive" role="alert">{signOutNote}</p>}
         {confirmation && (
-          <p className="text-sm text-primary flex items-start gap-2" role="status" data-testid="account-confirmation">
+          <p ref={confirmationRef} tabIndex={-1} className="text-sm text-primary flex items-start gap-2 outline-none" role="status" data-testid="account-confirmation">
             <Check className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" /> {confirmation}
           </p>
         )}
