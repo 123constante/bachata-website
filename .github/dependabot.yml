@@ -73,6 +73,13 @@ updates:
       - dependency-name: "@supabase/supabase-js"
         update-types: [version-update:semver-major]
 
+      # @hookform/resolvers is pinned ~5.2.2 (PR #540). 5.4+ declare optional peers
+      # (@typeschema/main -> valibot 0.39) that fail npm ERESOLVE against the valibot 1.x
+      # pulled in by @react-router/dev, so the grouped PR (#544) failed its Vercel build.
+      # Lift this ignore only once that peer chain resolves.
+      - dependency-name: "@hookform/resolvers"
+        versions: [">=5.3.0"]
+
       # The UI layer became cache-tuned on 2026-08-14, when P1 of the
       # vendor-cost arc pinned it into vendor-ui + vendor-ui-modal to cut
       # first-load REQUEST count (Vercel edge requests were at 180% of
