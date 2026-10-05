@@ -156,7 +156,7 @@ for (const width of [390, 768, 1280]) {
       await search(page);
       await row(page, ORGS.matches.name).getByTestId('claim-open').click();
       await page.getByTestId('claim-confirm').click();
-      await expect(page.getByTestId('onboarding-error')).toContainText('different contact email');
+      await expect(page.getByTestId(`onboarding-error-${ORGS.matches.id}`)).toContainText('different contact email');
       await page.getByTestId('request-note').fill('I run the Tuesday classes');
       await page.getByTestId('request-send').click();
       await expect(page.getByTestId('account-confirmation')).toContainText('Request sent');
