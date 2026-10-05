@@ -74,6 +74,8 @@ async function openCreate(page: Page, path = '/account/new?organiser=org-1'): Pr
     const body = route.request().postDataJSON?.() ?? null;
 
     if (path.endsWith('/rpc/organiser_home_v1')) return json(route, { today: TODAY, organisers: ORGANISERS });
+    // The organiser picker reads get_organiser_venue_options_v1 first (B2); v4 is only its fallback.
+    if (path.endsWith('/rpc/get_organiser_venue_options_v1')) return json(route, VENUES);
     if (path.endsWith('/rpc/get_public_venues_list_v4')) return json(route, VENUES);
     if (path.endsWith('/rpc/series_command_p5')) {
       const env = body?.p_envelope as Envelope;
