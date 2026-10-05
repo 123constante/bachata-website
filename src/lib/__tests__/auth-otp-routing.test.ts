@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isOtpSignupDisabledError, shouldHonorReturnTo } from "@/lib/auth-otp-routing";
+import { callbackErrorCopy, isOtpSignupDisabledError, shouldHonorReturnTo } from "@/lib/auth-otp-routing";
 
 describe("isOtpSignupDisabledError", () => {
   it("matches the GoTrue 422 otp_disabled code", () => {
@@ -37,5 +37,20 @@ describe("shouldHonorReturnTo", () => {
 
   it("no returnTo, nothing to honour", () => {
     expect(shouldHonorReturnTo({ returnTo: null, isSignupFlow: false, organiserSelfServe: true })).toBe(false);
+  });
+});
+
+describe("callbackErrorCopy", () => {
+  it("explains each reason the callback can bounce with", () => {
+    expect(callbackErrorCopy("expired")).toMatch(/expired or was already used/);
+    expect(callbackErrorCopy("invalid")).toMatch(/didn't work/);
+    expect(callbackErrorCopy("timeout")).toMatch(/too long/);
+    expect(callbackErrorCopy("manual")).toMatch(/enter your email/i);
+  });
+
+  it("shows nothing for no reason or an unknown one", () => {
+    expect(callbackErrorCopy(null)).toBeNull();
+    expect(callbackErrorCopy("")).toBeNull();
+    expect(callbackErrorCopy("<script>")).toBeNull();
   });
 });

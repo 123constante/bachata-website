@@ -33,7 +33,8 @@ const AuthCallback = () => {
   };
 
   const navigateToSignInFallback = (reason: "expired" | "invalid" | "manual" | "timeout") => {
-    navigate(`/auth?mode=signin&callbackError=${reason}`, { replace: true });
+    const returnToParam = safeReturnTo ? `&returnTo=${encodeURIComponent(safeReturnTo)}` : "";
+    navigate(`/auth?mode=signin&callbackError=${reason}${returnToParam}`, { replace: true });
   };
 
   const resolveRolePreference = (pendingRole: string | null, metaRoleRaw: unknown) => {

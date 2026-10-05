@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { CityPicker } from "@/components/ui/city-picker";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-intent";
-import { OTP_NO_ACCOUNT_NOTICE, isOtpSignupDisabledError } from "@/lib/auth-otp-routing";
+import { OTP_NO_ACCOUNT_NOTICE, callbackErrorCopy, isOtpSignupDisabledError } from "@/lib/auth-otp-routing";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
 import MagicLinkConfirmation from "@/components/MagicLinkConfirmation";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
@@ -60,6 +60,7 @@ const AuthContent = () => {
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [isExitOpen, setIsExitOpen] = useState(false);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const callbackNotice = mode === "signin" ? callbackErrorCopy(searchParams.get("callbackError")) : null;
 
   const [stepDirection, setStepDirection] = useState(1);
   const [step2Touched, setStep2Touched] = useState(false);
@@ -377,6 +378,17 @@ const AuthContent = () => {
               />
             </div>
           </motion.div>
+        )}
+
+        {callbackNotice && (
+          <div
+            role="alert"
+            data-testid="auth-callback-notice"
+            className="flex items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 text-amber-300" />
+            <p>{callbackNotice}</p>
+          </div>
         )}
 
         {authNotice && (
