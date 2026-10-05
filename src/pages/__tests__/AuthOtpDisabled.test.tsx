@@ -24,6 +24,7 @@ vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { c
 vi.mock('@/components/ui/city-picker', () => ({ CityPicker: () => null }));
 
 import Auth from '../Auth';
+import { installJsdomPolyfills } from '../../../tests/client/jsdomPolyfills';
 
 const RETURN_TO = '/organisers/ritmo';
 let lastSearch = '';
@@ -44,10 +45,13 @@ function mount(path = `/auth?mode=signin&returnTo=${encodeURIComponent(RETURN_TO
 
 async function sendMagicLink(email: string) {
   fireEvent.change(screen.getByLabelText(/email/i), { target: { value: email } });
-  fireEvent.click(screen.getByRole('button', { name: /send magic link/i }));
+  fireEvent.click(screen.getByRole('button', { name: /email me a (sign-in )?link/i }));
 }
 
 beforeEach(() => {
+  // The sent-state now renders the code box (input-otp needs ResizeObserver).
+  installJsdomPolyfills();
+  document.elementFromPoint = () => null;
   localStorage.clear();
   lastSearch = '';
   rpc.mockReset();
@@ -83,17 +87,18 @@ describe('Auth sign-in with an email that has no account', () => {
     expect(toast).not.toHaveBeenCalled();
     expect(screen.queryByText(/Signups are disabled for OTP/)).toBeNull();
     // The sign-in card is gone and the email the user typed is kept in the form.
-    expect(screen.queryByRole('button', { name: /send magic link/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /email me a (sign-in )?link/i })).toBeNull();
     expect(localStorage.getItem('auth_last_email')).toBeNull();
   });
 
-  it('a different send failure in sign-in mode still shows the generic toast and stays in sign-in', async () => {
+  it('a different send failure in sign-in mode still shows the generic inline error and stays in sign-in', async () => {
     signInWithOtp.mockResolvedValue({ data: null, error: { status: 500, message: 'boom' } });
     mount();
     await sendMagicLink('someone@example.com');
 
-    await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
-    expect(toast.mock.calls[0][0]).toMatchObject({ title: 'Unable to send link' });
+    // The PR #560 skin shows the send error inline, not as a toast.
+    await waitFor(() => expect(screen.getByText(/couldn.t send your email/i)).toBeTruthy());
+    expect(toast).not.toHaveBeenCalled();
     expect(new URLSearchParams(lastSearch).get('mode')).toBe('signin');
   });
 

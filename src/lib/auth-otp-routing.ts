@@ -2,6 +2,13 @@
 // components so they can be unit-tested without a Supabase client.
 
 // Shown when sign-in mode discovers the email has no account (Lever 2 walk B3).
+/**
+ * Digits in the emailed sign-in code. Must equal Supabase auth
+ * `mailer_otp_length` (production: 8). Single source: the code box, its
+ * labels and the tests all derive from this.
+ */
+export const OTP_CODE_LENGTH = 8;
+
 export const OTP_NO_ACCOUNT_NOTICE = "No account for this email yet. Create one to continue.";
 
 // signInWithOtp({ shouldCreateUser: false }) for an email with no account

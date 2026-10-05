@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, ArrowLeft, Calendar, Camera, Check, GraduationCap, Mail, MapPin, Music, ShoppingBag, Sparkles, User, X } from "lucide-react";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { AlertCircle, ArrowLeft, Calendar, Camera, Check, ChevronDown, GraduationCap, Mail, Music, ShoppingBag, Sparkles, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CityPicker } from "@/components/ui/city-picker";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-intent";
 import { OTP_NO_ACCOUNT_NOTICE, callbackErrorCopy, isOtpSignupDisabledError } from "@/lib/auth-otp-routing";
+import { sanitizeReturnTo } from "@/lib/authRouting";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
 import MagicLinkConfirmation from "@/components/MagicLinkConfirmation";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
@@ -30,24 +30,40 @@ const ROLE_OPTIONS: { label: string; icon: typeof Sparkles; value: EntryRole; de
   { label: "Vendor", icon: ShoppingBag, value: "vendor", description: "Sell products to the dance community" },
 ];
 
+const DANCER_ROLE = ROLE_OPTIONS[0];
+const OTHER_ROLES = ROLE_OPTIONS.slice(1);
+
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 80 : -80, opacity: 0 }),
   center: { x: 0, opacity: 1 },
   exit: (dir: number) => ({ x: dir > 0 ? -80 : 80, opacity: 0 }),
 };
 
+type FieldErrors = {
+  email?: string;
+  firstName?: string;
+  city?: string;
+  role?: string;
+  send?: string;
+};
+
+const SEND_ERROR_ID = "auth-send-error";
+
+const FieldError = ({ id, message }: { id: string; message?: string }) =>
+  message ? (
+    <p id={id} role="alert" className="text-sm text-destructive">
+      {message}
+    </p>
+  ) : null;
+
+const invalidProps = (id: string, message?: string) =>
+  message ? { "aria-invalid": true as const, "aria-describedby": id } : {};
+
 const AuthContent = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const { formState, setFirstName, setCityId, setCityName, setRole, updateEmail } = useAuthForm();
-  const sanitizeReturnTo = (value: string | null) => {
-    if (!value) return null;
-    const trimmed = value.trim();
-    if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
-    if (trimmed === "/auth" || trimmed.startsWith("/auth/")) return null;
-    return trimmed;
-  };
 
   const explicitReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
   // With organiser self-serve on, a sign-in with no destination lands on
@@ -58,9 +74,9 @@ const AuthContent = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
-  const [isExitOpen, setIsExitOpen] = useState(false);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const callbackNotice = mode === "signin" ? callbackErrorCopy(searchParams.get("callbackError")) : null;
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   const [stepDirection, setStepDirection] = useState(1);
   const [step2Touched, setStep2Touched] = useState(false);
@@ -71,6 +87,19 @@ const AuthContent = () => {
 
   const validRole = ROLE_OPTIONS.find((r) => r.value === userType)?.value;
   const selectedRoleValue = selectedRole && ROLE_OPTIONS.some((r) => r.value === selectedRole) ? selectedRole : null;
+
+  // The role step shows Dancer pre-selected. The choice is only committed to
+  // the form (and the URL) on Continue, so the pre-selection does not skip
+  // the step the way a stored role would.
+  const [roleDraft, setRoleDraft] = useState<EntryRole>(selectedRoleValue ?? "dancer");
+  const [otherRolesOpen, setOtherRolesOpen] = useState(Boolean(selectedRoleValue && selectedRoleValue !== "dancer"));
+
+  useEffect(() => {
+    if (selectedRoleValue) {
+      setRoleDraft(selectedRoleValue);
+      if (selectedRoleValue !== "dancer") setOtherRolesOpen(true);
+    }
+  }, [selectedRoleValue]);
 
   useEffect(() => {
     if (validRole && validRole !== selectedRole) {
@@ -130,9 +159,10 @@ const AuthContent = () => {
     setSearchParams(nextParams, { replace: true });
   };
 
-  const handleRoleSelect = (role: EntryRole) => {
-    setRole(role);
-    persistRoleSelection(role);
+  const handleRoleContinue = () => {
+    setRole(roleDraft);
+    persistRoleSelection(roleDraft);
+    setFieldErrors((prev) => ({ ...prev, role: undefined }));
     if (mode === "signup") {
       setManualStep(null);
     }
@@ -152,24 +182,28 @@ const AuthContent = () => {
     setAuthNotice(notice);
   };
 
+  const clearEmailFeedback = () => {
+    setFieldErrors((prev) => ({ ...prev, email: undefined, send: undefined }));
+  };
+
   const handleSendMagicLink = async () => {
     const normalizedEmail = normalizeEmail(email);
     if (!isValidEmail(normalizedEmail)) {
-      toast({ title: "Enter a valid email", description: "Use an email like name@example.com.", variant: "destructive" });
-      return;
-    }
-    if (mode === "signup" && !firstName.trim()) {
-      toast({ title: "Enter your first name", variant: "destructive" });
-      return;
-    }
-    if (mode === "signup" && !cityId) {
-      toast({ title: "Select your city", variant: "destructive" });
+      setFieldErrors({ email: "Enter a valid email, like name@example.com." });
       return;
     }
     if (mode === "signup" && !selectedRole) {
-      toast({ title: "Choose a role", description: "Pick a role to continue.", variant: "destructive" });
+      setFieldErrors({ role: "Choose a role to continue." });
+      setManualStep("role");
       return;
     }
+    if (mode === "signup" && (!firstName.trim() || !cityId)) {
+      setStep2Touched(true);
+      setFieldErrors({});
+      setManualStep("details");
+      return;
+    }
+    setFieldErrors({});
     const emailUpdate = updateEmail(normalizedEmail);
     if (emailUpdate.changed) {
       setMagicLinkSent(false);
@@ -207,9 +241,9 @@ const AuthContent = () => {
         options: {
           shouldCreateUser: isCreateAccount,
           emailRedirectTo: callbackUrl.toString(),
-          data: isCreateAccount ? { 
-            user_type: selectedRole, 
-            first_name: firstName.trim(), 
+          data: isCreateAccount ? {
+            user_type: selectedRole,
+            first_name: firstName.trim(),
             city_id: cityId,
             city: cityName // Retain for debugging/analytics, but city_id is primary
           } : undefined,
@@ -230,16 +264,25 @@ const AuthContent = () => {
         switchToSignup(OTP_NO_ACCOUNT_NOTICE);
         return;
       }
-      toast({
-        title: "Unable to send link",
-        description: isSignupDisabled
-          ? "Signups are disabled for OTP. Contact support or use an existing account."
-          : "We could not send the link. Please try again in a moment.",
-        variant: "destructive",
+      setFieldErrors({
+        send: isSignupDisabled
+          ? "We can't create new accounts right now. If you already have an account, sign in instead."
+          : "We couldn't send your email. Please try again in a moment.",
       });
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // A verified code leaves a session behind, exactly as the emailed link does.
+  // Hand over to /auth/callback so both routes share one post-login resolution
+  // (returnTo, pending role, profile stub) instead of a second copy of it here.
+  const handleCodeVerified = () => {
+    const callbackUrl = new URLSearchParams({ mode: mode === "signup" ? "signup" : "signin" });
+    if (explicitReturnTo) {
+      callbackUrl.set("returnTo", explicitReturnTo);
+    }
+    navigate(`/auth/callback?${callbackUrl.toString()}`, { replace: true });
   };
 
   const handleDevQuickLogin = async (destination: string) => {
@@ -275,17 +318,16 @@ const AuthContent = () => {
 
   if (magicLinkSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #0a1a14 0%, #0d1f17 50%, #0a1a14 100%)" }}>
-        <div className="pointer-events-none absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-emerald-500/15 blur-[120px]" />
-        <div className="pointer-events-none absolute bottom-1/4 -right-20 w-72 h-72 rounded-full bg-amber-400/10 blur-[100px]" />
-        <div className="w-full max-w-md relative z-10">
-          <Card className="border-emerald-500/20 bg-[rgba(16,42,32,0.85)] backdrop-blur-2xl shadow-[0_30px_80px_rgba(16,185,129,0.12)]">
+      <div className="min-h-screen flex items-center justify-center px-4 bg-background">
+        <div className="w-full max-w-md">
+          <Card className="shadow-none">
             <CardContent className="pt-6">
               <MagicLinkConfirmation
                 email={email}
                 onResend={handleSendMagicLink}
                 onChangeEmail={() => setMagicLinkSent(false)}
-                extraAction={{ label: 'Continue browsing', onClick: () => navigate(returnTo) }}
+                onVerified={handleCodeVerified}
+                extraAction={{ label: "Continue browsing", onClick: () => navigate(returnTo) }}
               />
             </CardContent>
           </Card>
@@ -295,61 +337,63 @@ const AuthContent = () => {
   }
 
   const stepLabelIndex = activeStepIndex + 1;
+  const draftRoleLabel = ROLE_OPTIONS.find((role) => role.value === roleDraft)?.label ?? "Dancer";
+
+  const primaryButtonClass = "w-full min-h-[44px] rounded-full font-semibold";
+  const emailErrorId = "auth-email-error";
+  const sendError = <FieldError id={SEND_ERROR_ID} message={fieldErrors.send} />;
+
+  const devTools = (children: ReactNode) =>
+    import.meta.env.DEV ? (
+      <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
+        <p className="text-sm font-medium text-muted-foreground">Dev tools</p>
+        {children}
+      </div>
+    ) : null;
 
   return (
     <GlobalLayout showSubheader={false}>
-    <div
-      className="min-h-screen flex flex-col items-center justify-start pt-8 sm:pt-12 pb-24 px-4 relative overflow-hidden"
-      style={{ background: "linear-gradient(135deg, #0a1a14 0%, #0d1f17 50%, #0a1a14 100%)" }}
-    >
-      {/* Ambient glow orbs — emerald & gold */}
-      <div className="pointer-events-none absolute top-[-10%] left-1/2 -translate-x-1/2 h-[600px] w-[600px] rounded-full bg-emerald-500/8 blur-[140px]" />
-      <div className="pointer-events-none absolute bottom-[-5%] right-[-10%] h-[400px] w-[400px] rounded-full bg-amber-400/6 blur-[100px]" />
-      <div className="pointer-events-none absolute top-[60%] left-[-8%] h-[300px] w-[300px] rounded-full bg-emerald-600/5 blur-[120px]" />
-
-      <div className="w-full max-w-md space-y-6 relative z-10">
+    <MotionConfig reducedMotion="user">
+    <div className="min-h-screen flex flex-col items-center justify-start pt-8 sm:pt-12 pb-24 px-4 bg-background">
+      <div className="w-full max-w-md space-y-6">
         {/* Logo + Brand */}
-        <motion.div
-          className="flex flex-col items-center gap-2"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-        >
+        <div className="flex flex-col items-center gap-2">
           <img
             src={authLogo}
             alt="Bachata Calendar"
             loading="eager"
             fetchPriority="high"
-            className="w-24 h-24 object-contain drop-shadow-[0_0_30px_rgba(52,211,153,0.4)]"
+            className="w-24 h-24 object-contain"
           />
-          <h1
-            className="text-xl font-bold tracking-tight bg-clip-text text-transparent"
-            style={{ backgroundImage: "linear-gradient(135deg, #34d399, #fbbf24)" }}
-          >
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
             {mode === "signin" ? "Welcome back" : "Join the community"}
           </h1>
-          <p className="text-sm text-emerald-200/50 text-center">
-            {mode === "signin" ? "Sign in with a magic link." : "Create your account in 3 easy steps."}
+          <p className="text-sm text-muted-foreground text-center">
+            {mode === "signin" ? "Sign in with a link or a code." : "Create your account in 3 easy steps."}
           </p>
-        </motion.div>
+        </div>
 
         {/* Tab toggle */}
-        <div className="grid grid-cols-2 gap-1 rounded-full border border-emerald-500/20 bg-[rgba(16,42,32,0.6)] p-1 backdrop-blur-xl">
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-secondary p-1">
           <button
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+            type="button"
+            aria-current={mode === "signin" ? "page" : undefined}
+            className={`min-h-[44px] rounded-full px-4 py-2 text-sm font-medium transition-colors ${
               mode === "signin"
-                ? "bg-gradient-to-r from-emerald-500 to-emerald-400 text-white shadow-[0_4px_20px_rgba(16,185,129,0.35)]"
-                : "text-emerald-200/50 hover:text-emerald-100/80"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
             }`}
             onClick={() => navigate(signInAuthUrl)}
           >
             Sign in
           </button>
           <button
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+            type="button"
+            aria-current={mode === "signup" ? "page" : undefined}
+            className={`min-h-[44px] rounded-full px-4 py-2 text-sm font-medium transition-colors ${
               mode === "signup"
-                ? "bg-gradient-to-r from-emerald-500 to-emerald-400 text-white shadow-[0_4px_20px_rgba(16,185,129,0.35)]"
-                : "text-emerald-200/50 hover:text-emerald-100/80"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
             }`}
             onClick={() => navigate(signUpAuthUrl)}
           >
@@ -359,25 +403,27 @@ const AuthContent = () => {
 
         {/* Progress bar for signup */}
         {mode === "signup" && (
-          <motion.div
-            className="space-y-1.5"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            <div className="flex items-center justify-between text-xs text-emerald-200/50">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>Step {stepLabelIndex} of {SIGNUP_STEPS.length}</span>
               <span>{progressPercent}%</span>
             </div>
-            <div className="h-1 w-full rounded-full bg-emerald-900/40 overflow-hidden">
+            <div
+              className="h-1 w-full rounded-full bg-secondary overflow-hidden"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progressPercent}
+              aria-label="Sign-up progress"
+            >
               <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400"
+                className="h-full rounded-full bg-primary"
                 initial={false}
                 animate={{ width: `${progressPercent}%` }}
                 transition={{ duration: 0.35, ease: "easeInOut" }}
               />
             </div>
-          </motion.div>
+          </div>
         )}
 
         {callbackNotice && (
@@ -392,79 +438,73 @@ const AuthContent = () => {
         )}
 
         {authNotice && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-start gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100"
-          >
-            <AlertCircle className="mt-0.5 h-4 w-4 text-emerald-300" />
+          <div role="status" className="flex items-start gap-3 rounded-xl border bg-secondary px-3 py-3 text-sm">
+            <AlertCircle className="mt-0.5 h-4 w-4 text-primary" aria-hidden="true" />
             <div>
               <p className="font-medium">No account found</p>
-              <p className="text-xs text-emerald-200/70">{authNotice}</p>
+              <p className="text-sm text-muted-foreground">{authNotice}</p>
             </div>
-          </motion.div>
+          </div>
         )}
 
         {mode === "signin" ? (
-          /* ─── SIGN IN ─── */
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <Card className="border-emerald-500/20 bg-[rgba(16,42,32,0.85)] backdrop-blur-2xl shadow-[0_24px_60px_rgba(16,185,129,0.08)]">
-              <CardHeader className="space-y-1 pb-4">
-                <CardTitle className="text-lg text-white">Sign in</CardTitle>
-                <p className="text-sm text-emerald-200/50">Enter your email and we'll send you a magic link.</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signin-email" className="text-xs font-medium text-emerald-300/60 uppercase tracking-wider">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400/40" />
-                    <Input
-                      id="signin-email"
-                      type="email"
-                      placeholder="you@example.com"
-                      className="pl-10 bg-emerald-950/40 border-emerald-500/20 text-white placeholder:text-emerald-200/30 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500/40 transition-all"
-                      value={email}
-                      onChange={(e) => {
-                        const update = updateEmail(e.target.value);
-                        if (update.changed) {
-                          setMagicLinkSent(false);
-                          setAuthNotice(null);
-                        }
-                      }}
-                    />
-                  </div>
+          /* --- SIGN IN --- */
+          <Card className="shadow-none">
+            <CardHeader className="space-y-1 p-3 pb-3">
+              <CardTitle className="text-lg">Sign in</CardTitle>
+              <p className="text-sm text-muted-foreground">Enter your email and we&rsquo;ll send you a link and a code.</p>
+            </CardHeader>
+            <CardContent className="space-y-3 p-3 pt-0">
+              <div className="space-y-2">
+                <Label htmlFor="signin-email" className="text-sm font-medium">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+                  <Input
+                    id="signin-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    className="min-h-[44px] pl-10"
+                    value={email}
+                    {...invalidProps(emailErrorId, fieldErrors.email)}
+                    onChange={(e) => {
+                      const update = updateEmail(e.target.value);
+                      clearEmailFeedback();
+                      if (update.changed) {
+                        setMagicLinkSent(false);
+                        setAuthNotice(null);
+                      }
+                    }}
+                  />
                 </div>
-                <Button
-                  className="w-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 text-white font-semibold shadow-[0_8px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-                  onClick={handleSendMagicLink}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Sending…" : "Send magic link"}
-                </Button>
-                <button type="button" className="w-full text-xs text-emerald-200/40 hover:text-emerald-100/70 transition-colors" onClick={() => navigate(signUpAuthUrl)}>
-                  New here? Create an account
-                </button>
-                {import.meta.env.DEV && (
-                  <div className="space-y-2 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3">
-                    <p className="text-xs font-semibold text-yellow-300/80">🛠 Dev Tools</p>
-                    <Button variant="outline" className="w-full border-yellow-500/30 text-yellow-200/80 hover:bg-yellow-500/10" onClick={() => void handleCreateRandomDevAccount(returnTo)} disabled={isSubmitting}>
-                      ⚡ Instant Dev Login (random account)
-                    </Button>
-                    <Button variant="ghost" className="w-full text-xs text-yellow-300/50 hover:text-yellow-200/70" onClick={() => void handleDevQuickLogin(returnTo)} disabled={isSubmitting}>
-                      Dev login (env credentials)
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
+                <FieldError id={emailErrorId} message={fieldErrors.email} />
+              </div>
+              <Button
+                className={primaryButtonClass}
+                onClick={handleSendMagicLink}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Sending\u2026" : "Email me a sign-in link"}
+              </Button>
+              {sendError}
+              <Button type="button" variant="ghost" className="w-full min-h-[44px] text-muted-foreground" onClick={() => navigate(signUpAuthUrl)}>
+                New here? Create an account
+              </Button>
+              {devTools(
+                <>
+                  <Button variant="outline" className="w-full min-h-[44px]" onClick={() => void handleCreateRandomDevAccount(returnTo)} disabled={isSubmitting}>
+                    Instant dev login (random account)
+                  </Button>
+                  <Button variant="ghost" className="w-full min-h-[44px] text-muted-foreground" onClick={() => void handleDevQuickLogin(returnTo)} disabled={isSubmitting}>
+                    Dev login (env credentials)
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
         ) : (
-          /* ─── SIGN UP WIZARD ─── */
-          <Card className="border-emerald-500/20 bg-[rgba(16,42,32,0.85)] backdrop-blur-2xl shadow-[0_24px_60px_rgba(16,185,129,0.08)] overflow-hidden">
+          /* --- SIGN UP WIZARD --- */
+          <Card className="shadow-none overflow-hidden">
             <AnimatePresence mode="wait" custom={stepDirection}>
               {activeStep === "role" && (
                 <motion.div
@@ -476,59 +516,83 @@ const AuthContent = () => {
                   exit="exit"
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                 >
-                  <CardHeader className="space-y-1 pb-3">
-                    <CardTitle className="text-lg text-white">What brings you here?</CardTitle>
-                    <p className="text-sm text-emerald-200/50">You can always add more roles later.</p>
+                  <CardHeader className="space-y-1 p-3 pb-3">
+                    <CardTitle className="text-lg">What brings you here?</CardTitle>
+                    <p className="text-sm text-muted-foreground">You can always add more roles later.</p>
                   </CardHeader>
-                  <CardContent className="space-y-3 pb-6">
-                    <div className="space-y-2">
-                      {ROLE_OPTIONS.map((role) => {
-                        const Icon = role.icon;
-                        const isActive = selectedRole === role.value;
-                        return (
-                          <motion.button
-                            whileTap={{ scale: 0.98 }}
-                            key={role.value}
-                            type="button"
-                            className={`w-full text-left rounded-xl border px-4 py-3 transition-all duration-200 ${
-                              isActive
-                                ? "border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.12)]"
-                                : "border-emerald-500/10 bg-emerald-950/30 hover:border-emerald-500/25 hover:bg-emerald-950/50"
-                            }`}
-                            aria-pressed={isActive}
-                            onClick={() => handleRoleSelect(role.value)}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
-                                isActive
-                                  ? "bg-emerald-500/20 text-emerald-400"
-                                  : "bg-emerald-900/30 text-emerald-300/40"
-                              }`}>
-                                <Icon className="w-4 h-4" />
-                              </div>
-                              <div className="flex-1">
-                                <p className="font-medium text-sm text-white">{role.label}</p>
-                                <p className="text-xs text-emerald-200/40">{role.description}</p>
-                              </div>
-                              {isActive && (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/15 px-2 py-1 text-[10px] font-semibold text-emerald-200">
-                                  <Check className="h-3 w-3" />
-                                  Selected
-                                </span>
-                              )}
+                  <CardContent className="space-y-3 p-3 pt-0">
+                    {[DANCER_ROLE].map((role) => {
+                      const Icon = role.icon;
+                      const isActive = roleDraft === role.value;
+                      return (
+                        <button
+                          key={role.value}
+                          type="button"
+                          className={`w-full min-h-[44px] text-left rounded-xl border px-3 py-3 transition-colors ${
+                            isActive ? "border-primary bg-secondary" : "bg-card hover:bg-secondary"
+                          }`}
+                          aria-pressed={isActive}
+                          onClick={() => setRoleDraft(role.value)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center bg-secondary ${isActive ? "text-primary" : "text-muted-foreground"}`}>
+                              <Icon className="w-4 h-4" aria-hidden="true" />
                             </div>
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-                    <Button
-                      className="w-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 text-white font-semibold shadow-[0_8px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-                      disabled={!selectedRoleValue}
-                      onClick={() => setManualStep(null)}
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{role.label}</p>
+                              <p className="text-sm text-muted-foreground">{role.description}</p>
+                            </div>
+                            {isActive && <Check className="h-4 w-4 text-primary" aria-hidden="true" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      type="button"
+                      className="flex w-full min-h-[44px] items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-muted-foreground hover:text-foreground"
+                      aria-expanded={otherRolesOpen}
+                      aria-controls="other-roles"
+                      onClick={() => setOtherRolesOpen((open) => !open)}
                     >
-                      {selectedRoleValue
-                        ? `Continue as ${ROLE_OPTIONS.find((role) => role.value === selectedRoleValue)?.label ?? "Selected role"}`
-                        : "Choose a role to continue"}
+                      <span>I&rsquo;m also an organiser / teacher / DJ / videographer / vendor</span>
+                      <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${otherRolesOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+                    </button>
+
+                    {otherRolesOpen && (
+                      <div id="other-roles" className="space-y-2">
+                        {OTHER_ROLES.map((role) => {
+                          const Icon = role.icon;
+                          const isActive = roleDraft === role.value;
+                          return (
+                            <button
+                              key={role.value}
+                              type="button"
+                              className={`w-full min-h-[44px] text-left rounded-xl border px-3 py-3 transition-colors ${
+                                isActive ? "border-primary bg-secondary" : "bg-card hover:bg-secondary"
+                              }`}
+                              aria-pressed={isActive}
+                              onClick={() => setRoleDraft(isActive ? DANCER_ROLE.value : role.value)}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center bg-secondary ${isActive ? "text-primary" : "text-muted-foreground"}`}>
+                                  <Icon className="w-4 h-4" aria-hidden="true" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">{role.label}</p>
+                                  <p className="text-sm text-muted-foreground">{role.description}</p>
+                                </div>
+                                {isActive && <Check className="h-4 w-4 text-primary" aria-hidden="true" />}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <FieldError id="auth-role-error" message={fieldErrors.role} />
+                    <Button className={primaryButtonClass} onClick={handleRoleContinue}>
+                      Continue as {draftRoleLabel}
                     </Button>
                   </CardContent>
                 </motion.div>
@@ -544,55 +608,55 @@ const AuthContent = () => {
                   exit="exit"
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                 >
-                  <CardHeader className="space-y-1 pb-3">
-                    <CardTitle className="text-lg text-white">A little about you</CardTitle>
-                    <p className="text-sm text-emerald-200/50">Just two things and we're done.</p>
+                  <CardHeader className="space-y-1 p-3 pb-3">
+                    <CardTitle className="text-lg">A little about you</CardTitle>
+                    <p className="text-sm text-muted-foreground">Just two things and we&rsquo;re done.</p>
                   </CardHeader>
-                  <CardContent className="space-y-4 pb-6">
+                  <CardContent className="space-y-3 p-3 pt-0">
                     <div className="space-y-2">
-                      <Label htmlFor="signup-firstname" className="text-xs font-medium text-emerald-300/60 uppercase tracking-wider">First name</Label>
+                      <Label htmlFor="signup-firstname" className="text-sm font-medium">First name</Label>
                       <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400/40" />
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
                         <Input
                           id="signup-firstname"
                           type="text"
+                          autoComplete="given-name"
                           placeholder="Your first name"
-                          className="pl-10 bg-emerald-950/40 border-emerald-500/20 text-white placeholder:text-emerald-200/30 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500/40 transition-all"
+                          className="min-h-[44px] pl-10"
                           value={firstName}
+                          {...invalidProps("signup-firstname-error", step2Touched && !firstName.trim() ? "x" : undefined)}
                           onChange={(e) => {
                             setFirstName(e.target.value);
                             if (step2Touched) setStep2Touched(false);
                           }}
                         />
                       </div>
-                      {step2Touched && !firstName.trim() && (
-                        <p className="text-xs text-red-400">First name is required.</p>
-                      )}
+                      <FieldError id="signup-firstname-error" message={step2Touched && !firstName.trim() ? "First name is required." : undefined} />
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-xs font-medium text-emerald-300/60 uppercase tracking-wider">City</Label>
-                      <CityPicker 
-                        value={cityId} 
-                        onChange={(id, obj) => {
-                          setCityId(id);
-                          setCityName(obj?.name || "");
-                          if (step2Touched) setStep2Touched(false);
-                        }} 
-                        placeholder="Select your city…" className="bg-emerald-950/40 border-emerald-500/20 text-white placeholder:text-emerald-200/30" 
-                      />
-                      {step2Touched && !cityId && (
-                        <p className="text-xs text-red-400">City is required.</p>
-                      )}
+                      <Label className="text-sm font-medium">City</Label>
+                      <div>
+                        <CityPicker
+                          value={cityId}
+                          onChange={(id, obj) => {
+                            setCityId(id);
+                            setCityName(obj?.name || "");
+                            if (step2Touched) setStep2Touched(false);
+                          }}
+                          placeholder="Select your city&hellip;"
+                          className="min-h-[44px]"
+                        />
+                      </div>
+                      <FieldError id="signup-city-error" message={step2Touched && !cityId ? "City is required." : undefined} />
                     </div>
 
                     <div className="flex gap-2 pt-1">
-                      <Button variant="ghost" className="flex-1 rounded-full text-emerald-200/60 hover:text-emerald-100 hover:bg-emerald-500/10" onClick={() => setManualStep(getPreviousStep(activeStep))}>
-                        <ArrowLeft className="w-4 h-4 mr-1" /> Back
+                      <Button variant="ghost" className="flex-1 min-h-[44px] rounded-full text-muted-foreground" onClick={() => setManualStep(getPreviousStep(activeStep))}>
+                        <ArrowLeft className="w-4 h-4 mr-1" aria-hidden="true" /> Back
                       </Button>
                       <Button
-                        className="flex-1 rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 text-white font-semibold shadow-[0_8px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-                        disabled={!firstName.trim() || !cityId}
+                        className="flex-1 min-h-[44px] rounded-full font-semibold"
                         onClick={() => {
                           setStep2Touched(true);
                           if (firstName.trim() && cityId) setManualStep(null);
@@ -615,23 +679,26 @@ const AuthContent = () => {
                   exit="exit"
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                 >
-                  <CardHeader className="space-y-1 pb-3">
-                    <CardTitle className="text-lg text-white">Last step — your email</CardTitle>
-                    <p className="text-sm text-emerald-200/50">We'll send you a magic link to sign in.</p>
+                  <CardHeader className="space-y-1 p-3 pb-3">
+                    <CardTitle className="text-lg">Last step &mdash; your email</CardTitle>
+                    <p className="text-sm text-muted-foreground">We&rsquo;ll email you a link and a code to sign in.</p>
                   </CardHeader>
-                  <CardContent className="space-y-4 pb-6">
+                  <CardContent className="space-y-3 p-3 pt-0">
                     <div className="space-y-2">
-                      <Label htmlFor="signup-email" className="text-xs font-medium text-emerald-300/60 uppercase tracking-wider">Email</Label>
+                      <Label htmlFor="signup-email" className="text-sm font-medium">Email</Label>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400/40" />
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
                         <Input
                           id="signup-email"
                           type="email"
+                          autoComplete="email"
                           placeholder="you@example.com"
-                          className="pl-10 bg-emerald-950/40 border-emerald-500/20 text-white placeholder:text-emerald-200/30 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500/40 transition-all"
+                          className="min-h-[44px] pl-10"
                           value={email}
+                          {...invalidProps(emailErrorId, fieldErrors.email)}
                           onChange={(e) => {
                             const update = updateEmail(e.target.value);
+                            clearEmailFeedback();
                             if (update.changed) {
                               setMagicLinkSent(false);
                               setAuthNotice(null);
@@ -639,28 +706,27 @@ const AuthContent = () => {
                           }}
                         />
                       </div>
+                      <FieldError id={emailErrorId} message={fieldErrors.email} />
                     </div>
 
                     <div className="flex gap-2 pt-1">
-                      <Button variant="ghost" className="flex-1 rounded-full text-emerald-200/60 hover:text-emerald-100 hover:bg-emerald-500/10" onClick={() => setManualStep(getPreviousStep(activeStep))}>
-                        <ArrowLeft className="w-4 h-4 mr-1" /> Back
+                      <Button variant="ghost" className="flex-1 min-h-[44px] rounded-full text-muted-foreground" onClick={() => setManualStep(getPreviousStep(activeStep))}>
+                        <ArrowLeft className="w-4 h-4 mr-1" aria-hidden="true" /> Back
                       </Button>
                       <Button
-                        className="flex-1 rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 text-white font-semibold shadow-[0_8px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                        className="flex-1 min-h-[44px] rounded-full font-semibold"
                         onClick={handleSendMagicLink}
-                        disabled={isSubmitting || !isValidEmail(normalizeEmail(email))}
+                        disabled={isSubmitting}
                       >
-                        {isSubmitting ? "Sending…" : "Send magic link"}
+                        {isSubmitting ? "Sending\u2026" : "Email me a link"}
                       </Button>
                     </div>
+                    {sendError}
 
-                    {import.meta.env.DEV && (
-                      <div className="space-y-2 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3">
-                        <p className="text-xs font-semibold text-yellow-300/80">🛠 Dev Tools</p>
-                        <Button variant="outline" className="w-full border-yellow-500/30 text-yellow-200/80 hover:bg-yellow-500/10" onClick={() => void handleCreateRandomDevAccount("/profile", selectedRoleValue || undefined)} disabled={isSubmitting}>
-                          ⚡ Instant Dev Login
-                        </Button>
-                      </div>
+                    {devTools(
+                      <Button variant="outline" className="w-full min-h-[44px]" onClick={() => void handleCreateRandomDevAccount("/profile", selectedRoleValue || undefined)} disabled={isSubmitting}>
+                        Instant dev login
+                      </Button>
                     )}
                   </CardContent>
                 </motion.div>
@@ -669,25 +735,12 @@ const AuthContent = () => {
           </Card>
         )}
 
-        <Button variant="ghost" className="w-full text-emerald-200/40 hover:text-emerald-100/70 hover:bg-emerald-500/10 rounded-full" onClick={() => navigate(returnTo)}>
+        <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={() => navigate(returnTo)}>
           Continue browsing
         </Button>
-
-        {/* Exit dialog */}
-        <Dialog open={isExitOpen} onOpenChange={setIsExitOpen}>
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Leave this flow?</DialogTitle>
-              <DialogDescription>Leave and return to browsing?</DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="ghost" onClick={() => setIsExitOpen(false)}>Cancel</Button>
-              <Button variant="destructive" onClick={() => { setIsExitOpen(false); navigate(returnTo); }}>Leave</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
+    </MotionConfig>
     </GlobalLayout>
   );
 };
