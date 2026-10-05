@@ -73,6 +73,8 @@ export type EventPageKeyTimes = {
 
 export type EventPageEventLevel = 'beginner' | 'intermediate' | 'advanced' | 'all_levels' | null;
 
+export type EventPageDerivedLevel = 'beginner' | 'improver' | 'intermediate' | 'advanced' | 'open_level';
+
 export type EventPageSnapshot = {
   eventId: string;
   occurrenceId: string | null;
@@ -129,6 +131,9 @@ export type EventPageSnapshot = {
     musicStyles: string[];
     paymentMethods: string | null;
     level: EventPageEventLevel;
+    /** Dancer-rated level (admin PR #616). Optional: absent on older cached payloads. */
+    derivedLevel?: EventPageDerivedLevel | null;
+    levelVoteCount?: number | null;
     keyTimes: EventPageKeyTimes | null;
     metaDataPublic: Record<string, unknown>;
     tickets: EventPageTicket[];
@@ -237,6 +242,8 @@ export type EventPageModel = {
     eventType: string | null;
     eventFormat: string | null;
     level: EventPageEventLevel;
+    derivedLevel: EventPageDerivedLevel | null;
+    levelVoteCount: number | null;
     musicStyles: string[];
   };
   hero: {
