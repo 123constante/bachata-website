@@ -5,13 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 /**
- * D-7 / D-11: prove the mailbox without leaving the page. Sends a 6-digit
+ * D-7 / D-11: prove the mailbox without leaving the page. Sends a one-time
  * code to the signed-in email and verifies it, which replaces the session
  * with one whose `amr` carries `otp` -- the evidence claim_organiser_v1
  * accepts. `onProven` runs once the new session is in place. `returnTo` is
  * where the emailed LINK lands (the code path never leaves the page): /account
  * by default, the public organiser page when the proof was asked for there.
  */
+/** The project's configured code length varies (prod and E2E use 8, the default is 6), so accept 6 to 10 digits (S7). */
+export const EMAIL_CODE_PATTERN = /^\d{6,10}$/;
+export const EMAIL_CODE_MAX_LENGTH = 10;
+
 export function EmailCodeProof({ email, onProven, returnTo = '/account' }: { email: string; onProven: () => void; returnTo?: string }) {
   const [sent, setSent] = useState(false);
   const [code, setCode] = useState('');
@@ -38,8 +42,8 @@ export function EmailCodeProof({ email, onProven, returnTo = '/account' }: { ema
 
   const verify = async () => {
     const token = code.trim();
-    if (!/^\d{6}$/.test(token)) {
-      setError('Enter the 6-digit code from the email.');
+    if (!EMAIL_CODE_PATTERN.test(token)) {
+      setError('Enter the code from your email.');
       return;
     }
     setBusy(true);
@@ -58,7 +62,7 @@ export function EmailCodeProof({ email, onProven, returnTo = '/account' }: { ema
       <p className="text-sm flex items-start gap-2">
         <MailCheck className="w-4 h-4 mt-0.5 shrink-0 text-primary" aria-hidden="true" />
         <span>
-          To prove <strong>{email}</strong> is yours, we&rsquo;ll email you a 6-digit code.
+          To prove <strong>{email}</strong> is yours, we&rsquo;ll email you a code.
         </span>
       </p>
       {sent ? (
@@ -66,12 +70,12 @@ export function EmailCodeProof({ email, onProven, returnTo = '/account' }: { ema
           <Input
             inputMode="numeric"
             autoComplete="one-time-code"
-            maxLength={6}
-            placeholder="123456"
+            maxLength={EMAIL_CODE_MAX_LENGTH}
+            placeholder="Code"
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            className="h-9 w-28 tracking-widest"
-            aria-label="6-digit code"
+            className="h-9 w-36 tracking-widest"
+            aria-label="The code from your email"
             data-testid="email-code-input"
           />
           <Button size="sm" onClick={() => void verify()} disabled={busy} data-testid="email-code-verify">

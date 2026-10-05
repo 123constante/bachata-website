@@ -60,6 +60,8 @@ export interface MyAccessRequest {
   organiserName: string | null;
   status: 'open' | 'granted' | 'declined' | string;
   createdAt: string;
+  /** When an admin or owner answered; null while open. */
+  resolvedAt: string | null;
 }
 
 export type { ClaimCandidate };
@@ -93,6 +95,7 @@ export async function fetchMyAccessRequests(): Promise<MyAccessRequest[]> {
     organiserName: typeof row.organiser_name === 'string' ? row.organiser_name : null,
     status: String(row.status),
     createdAt: String(row.created_at),
+    resolvedAt: typeof row.resolved_at === 'string' ? row.resolved_at : null,
   }));
 }
 

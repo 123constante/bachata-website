@@ -47,13 +47,14 @@ function MemberRow({
   const label = memberLabel(member);
   return (
     <li className="py-2 space-y-1" data-testid="team-member" data-role={member.role} data-self={member.isSelf ? 'true' : 'false'}>
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium truncate">
+      {/* Wraps (S3): a long email takes the first line and the role and Leave/Remove drop below it, never off-screen. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div className="min-w-0 flex-1 basis-40">
+          <p className="text-sm font-medium break-all">
             {label}
             {member.isSelf && <span className="text-muted-foreground font-normal"> &middot; you</span>}
           </p>
-          {member.displayName && member.email && <p className="text-xs text-muted-foreground truncate">{member.email}</p>}
+          {member.displayName && member.email && <p className="text-xs text-muted-foreground break-all">{member.email}</p>}
         </div>
         <Badge variant={member.role === 'owner' ? 'default' : 'secondary'} className="text-[11px] shrink-0">{ROLE_LABEL[member.role]}</Badge>
         {action && !confirming && (
@@ -91,7 +92,7 @@ function RequestRow({ request, canDecide, pending, onDecide }: {
   const asked = instantDateLabel(request.createdAt);
   return (
     <li className="py-2 space-y-1" data-testid="access-request">
-      <p className="text-sm font-medium truncate" data-testid="request-email">{request.requesterEmail ?? 'Someone'}</p>
+      <p className="text-sm font-medium break-all" data-testid="request-email">{request.requesterEmail ?? 'Someone'}</p>
       {request.message && <p className="text-sm text-muted-foreground" data-testid="request-message">&ldquo;{request.message}&rdquo;</p>}
       <p className="text-xs text-muted-foreground">{asked ? `Asked ${asked}` : 'Asked to join'} &middot; wants to be a manager</p>
       {canDecide && (
@@ -163,8 +164,9 @@ export function TeamPanel({ organiser }: { organiser: HomeOrganiser }) {
       )}
       {error && <p className="text-xs text-destructive" role="alert" data-testid="team-error">{error}</p>}
 
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-        <section className="rounded-md border border-border p-3 space-y-2" aria-labelledby="team-heading">
+      {/* minmax(0,1fr): a bare grid track is min-content wide, so a long email stretched the page past the screen (S3). */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[repeat(2,minmax(0,1fr))] lg:items-start">
+        <section className="min-w-0 rounded-md border border-border p-3 space-y-2" aria-labelledby="team-heading">
           <h2 id="team-heading" className="text-base font-semibold">Team</h2>
           <ul className="divide-y divide-border/60" data-testid="team-list">
             {team.map((m) => (
@@ -186,7 +188,7 @@ export function TeamPanel({ organiser }: { organiser: HomeOrganiser }) {
           </p>
         </section>
 
-        <section className="rounded-md border border-border p-3 space-y-2" aria-labelledby="requests-heading">
+        <section className="min-w-0 rounded-md border border-border p-3 space-y-2" aria-labelledby="requests-heading">
           <h2 id="requests-heading" className="text-base font-semibold">Access requests</h2>
           {requests.isLoading ? (
             <Skeleton className="h-12 w-full rounded-md" />

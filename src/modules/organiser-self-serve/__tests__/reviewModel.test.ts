@@ -35,8 +35,8 @@ describe('reviewStrip (05-A)', () => {
     expect(reviewStrip('live', returned).reason).toBeNull();
   });
 
-  it('links the public page only where event_view_p5 serves the series (live, paused, ended)', () => {
-    for (const s of ['live', 'paused', 'ended']) {
+  it('links the public page only where it is up (live, ended); a paused page is a 404 (S1)', () => {
+    for (const s of ['live', 'ended']) {
       expect(reviewStrip(s, null).publicPage).toBe(true);
       expect(reviewStrip(s, null).previewNote).toBeNull();
     }
@@ -44,6 +44,14 @@ describe('reviewStrip (05-A)', () => {
       expect(reviewStrip(s, null).publicPage).toBe(false);
       expect(reviewStrip(s, null).previewNote).toMatch(/once it is live/);
     }
+  });
+
+  it('says a paused page is hidden, never that it stays up (S1)', () => {
+    const paused = reviewStrip('paused', null);
+    expect(paused.publicPage).toBe(false);
+    expect(paused.detail).toMatch(/hidden/);
+    expect(paused.detail).not.toMatch(/stays up/);
+    expect(paused.previewNote).toMatch(/hidden while paused/);
   });
 });
 

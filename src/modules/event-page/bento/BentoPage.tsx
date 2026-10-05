@@ -424,6 +424,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             eventId={eventId}
             occurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
             occurrenceCancelled={!!occurrence?.isCancelled}
+            fallbackTimeLabel={pageModel.schedule.timeLabel}
           />
         );
       case 'promo':

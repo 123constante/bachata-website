@@ -18,6 +18,7 @@ import {
 import { commandErrorMessage } from '../selfServeErrors';
 import {
   LEVEL_OPTIONS,
+  LIFECYCLE_NOTE,
   basicsFormFromSeries,
   dateLabel,
   formToDraft,
@@ -339,12 +340,6 @@ function DatesSection({ workspace, today, onSaved }: { workspace: SeriesWorkspac
   );
 }
 
-const LIFECYCLE_NOTE: Record<string, string> = {
-  live: 'Pausing keeps the page but lists no dates. Archiving hides it; the team can restore it.',
-  paused: 'Paused: the page stays up but lists no dates. Resume to list them again.',
-  draft: 'Not public yet. Archiving removes this draft from your list.',
-};
-
 function StatusSection({ workspace, onSaved }: { workspace: SeriesWorkspace; onSaved: (text: string) => void }) {
   const { series } = workspace;
   const actions = lifecycleActions(series.lifecycle_status);
@@ -357,7 +352,7 @@ function StatusSection({ workspace, onSaved }: { workspace: SeriesWorkspace; onS
     try {
       await command.mutateAsync({ targetId: series.id, version: series.version, command: lifecycleCommand(action.to) });
       setConfirming(null);
-      onSaved(action.to === 'paused' ? 'Paused. Dancers no longer see its dates.' : action.to === 'live' ? 'Live again. Its dates are listed.' : 'Archived.');
+      onSaved(action.to === 'paused' ? 'Paused. The page is hidden until you resume.' : action.to === 'live' ? 'Live again. The page and its dates are back.' : 'Archived.');
     } catch (err) {
       setError(commandErrorMessage(err));
     }
