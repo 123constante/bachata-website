@@ -63,7 +63,7 @@ const buildSnapshot = (extra: Record<string, unknown>): EventPageSnapshot =>
     attendance: { goingCount: 0, interestedCount: 0, currentUserStatus: null, preview: [] },
   } as unknown as EventPageSnapshot);
 
-const build = (extra: Record<string, unknown>) => buildEventPageModel({ snapshot: buildSnapshot(extra) });
+const build = (extra: Record<string, unknown>) => buildEventPageModel({ snapshot: buildSnapshot(extra), canEdit: false, isLoading: false, hasError: false });
 
 describe('buildEventPageModel derived level', () => {
   it('passes derived level and vote count through, keeping stored level', () => {
