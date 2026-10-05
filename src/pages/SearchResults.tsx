@@ -13,6 +13,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Drawer, DrawerContent, DrawerClose, DrawerTitle } from '@/components/ui/drawer';
 import { FAVORITE_STYLE_OPTIONS } from '@/components/profile/dancerConstants';
 import { highlight } from '@/components/search/highlight';
+import { LevelBadge, LevelFilterChips, UnratedLine, parseLevelParam } from '@/components/search/LevelFilter';
+import { flags } from '@/lib/featureFlags';
 import { recordSearchResultClick } from '@/lib/searchClickTelemetry';
 import { hrefFor, type SearchKind } from '@/lib/searchEntities';
 import { normalizeGenreToken } from '@/lib/genreSynonyms';
@@ -68,9 +70,10 @@ type ResultCardProps = {
   kind: SearchKind;
   id: string;
   query: string;
+  badge?: React.ReactNode;
 };
 
-const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query }: ResultCardProps) => (
+const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query, badge }: ResultCardProps) => (
   <Link to={to} onClick={() => recordSearchResultClick({ query, kind, id })} className="group block">
     <Card className="h-full overflow-hidden border-primary/15 transition-colors hover:border-primary/40">
       <div className="relative aspect-[4/3] bg-muted/50">
@@ -85,6 +88,7 @@ const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query 
           {highlight(title, query)}
         </h3>
         {subtitle && <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{subtitle}</p>}
+        {badge}
       </div>
     </Card>
   </Link>
@@ -117,6 +121,8 @@ const SearchResults = () => {
   const from = params.get('from') ?? '';
   const to = params.get('to') ?? '';
   const cityOverride = params.get('city');
+  // Dancer-rated level (search_public_v6). Ignored entirely while the flag is off.
+  const levels = flags.searchV6 ? parseLevelParam(params.get('level')) : [];
 
   const { data, isLoading, error } = useSearchResults(query, citySlug, {
     includePast: time === 'all',
@@ -128,6 +134,7 @@ const SearchResults = () => {
     dateFrom: from || null,
     dateTo: to || null,
     citySlugOverride: cityOverride,
+    ...(flags.searchV6 ? { levels } : {}),
   });
 
   const update = (mut: (p: URLSearchParams) => void) => {
@@ -199,6 +206,16 @@ const SearchResults = () => {
             </div>
           )}
 
+          {flags.searchV6 && query && (facet === 'all' || facet === 'events') && (
+            <div className="mt-3">
+              <LevelFilterChips
+                selected={levels}
+                onChange={(next) => setParam('level', next.length ? next.join(',') : null)}
+              />
+              <UnratedLine levelSelected={levels.length > 0} count={data?.unrated_event_count} />
+            </div>
+          )}
+
           {query && total > 0 && dym && (
             <p className="mt-3 text-sm text-muted-foreground">
               Did you mean{' '}
@@ -252,7 +269,7 @@ const SearchResults = () => {
                 <SectionHeader icon={<Calendar className="h-4 w-4 text-primary" />} title="Events" count={data.events.length} />
                 <SectionGrid>
                   {data.events.map((e) => (
-                    <ResultCard key={e.id} to={hrefFor('event', e.id)} image={resolveEventImage(e.poster_url, null)} title={e.name} subtitle={e.city_slug ?? undefined} fallbackIcon={<Calendar className="h-8 w-8" />} kind="event" id={e.id} query={query} />
+                    <ResultCard key={e.id} to={hrefFor('event', e.id)} image={resolveEventImage(e.poster_url, null)} title={e.name} subtitle={e.city_slug ?? undefined} fallbackIcon={<Calendar className="h-8 w-8" />} kind="event" id={e.id} query={query} badge={flags.searchV6 ? <LevelBadge level={e.derived_level} /> : undefined} />
                   ))}
                 </SectionGrid>
               </section>
