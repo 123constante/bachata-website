@@ -21,6 +21,7 @@ import { DateBlock } from '@/modules/event-page/bento/blocks/DateBlock';
 import { DescriptionBlock } from '@/modules/event-page/bento/blocks/DescriptionBlock';
 import { OrganiserCardBlock } from '@/modules/event-page/bento/blocks/OrganiserCardBlock';
 import { MusicStylesRow } from '@/modules/event-page/bento/blocks/MusicStylesRow';
+import { LevelRatingPrompt } from '@/components/LevelRatingPrompt';
 import { GroupChatBlock } from '@/modules/event-page/bento/blocks/GroupChatBlock';
 import { MoreEventsSection } from '@/modules/event-page/sections/MoreEventsSection';
 import type { MoreEventsBlock } from '@/modules/event-page/sections/MoreEventsSection';
@@ -579,6 +580,8 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         {!over && !occurrence?.isCancelled && (
           <GroupChatBlock url={pageModel.actions.whatsappLink} eventId={eventId} />
         )}
+
+        {!occurrence?.isCancelled && <LevelRatingPrompt seriesId={eventId} />}
 
         <MusicStylesRow musicStyles={pageModel.identity.musicStyles} />
 

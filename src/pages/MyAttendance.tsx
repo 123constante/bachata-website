@@ -13,6 +13,7 @@ import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
+import { LevelRatingPrompt } from '@/components/LevelRatingPrompt';
 
 type AttendanceRow = {
   event_id: string;
@@ -43,6 +44,12 @@ const formatDate = (value?: string | null) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return 'Date TBA';
   return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const isPastDate = (value?: string | null) => {
+  if (!value) return false;
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed.getTime() < Date.now() - 24 * 3600_000;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -215,11 +222,14 @@ const MyAttendance = () => {
                     ? `/festival/${item.event_id}`
                     : `/event/${item.event_id}`;
                 return (
-                  <button
+                  <div
                     key={`${item.event_id}-${item.date ?? 'no-date'}-${index}`}
+                    className="rounded-xl border border-slate-700 bg-slate-900/65 p-3 hover:border-cyan-300/45 hover:bg-slate-900/85 transition-colors"
+                  >
+                  <button
                     type="button"
                     onClick={() => navigate(targetPath)}
-                    className="text-left rounded-xl border border-slate-700 bg-slate-900/65 p-3 hover:border-cyan-300/45 hover:bg-slate-900/85 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60"
+                    className="block w-full text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium text-foreground line-clamp-2 leading-tight">
@@ -240,6 +250,10 @@ const MyAttendance = () => {
                       </span>
                     </div>
                   </button>
+                  {isPastDate(item.date) && (item.type ?? '').toLowerCase() !== 'festival' && (
+                    <LevelRatingPrompt seriesId={item.event_id} compact />
+                  )}
+                  </div>
                 );
               })}
             </div>
