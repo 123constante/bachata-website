@@ -21,9 +21,9 @@ export interface SelfServeErrorCopy {
 const COPY: Record<string, SelfServeErrorCopy> = {
   authentication_required: { message: 'Please sign in first.', next: 'sign_in' },
   // D-7: a claim (or an own contact email) needs a session that proved the
-  // mailbox -- a magic link or a 6-digit code, not a password.
+  // mailbox -- a magic link or an emailed code, not a password.
   mailbox_unproven: {
-    message: 'First confirm this email is yours with a 6-digit code.',
+    message: 'First confirm this email is yours with the code from your email.',
     next: 'reauth',
   },
   auth_user_email_missing: {

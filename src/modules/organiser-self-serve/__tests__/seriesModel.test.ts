@@ -6,6 +6,7 @@ import {
   formToDraft,
   isRuleDate,
   keepsOwnChanges,
+  LIFECYCLE_NOTE,
   lifecycleActions,
   minutesBetween,
   parseDateDetail,
@@ -13,6 +14,7 @@ import {
   removedUpcoming,
   scheduleSummary,
   scopeNote,
+  timeSpanWarning,
   upcomingDates,
   type WorkspaceDate,
 } from '../seriesModel';
@@ -155,5 +157,36 @@ describe('lifecycleActions', () => {
       expect(lifecycleActions(status)).toEqual([]);
     }
     expect(lifecycleActions('live').find((a) => a.to === 'archived')?.confirm).toBe(true);
+  });
+});
+
+describe('LIFECYCLE_NOTE (S1)', () => {
+  it('tells the owner a paused page is hidden and Resume puts it back', () => {
+    expect(LIFECYCLE_NOTE.paused).toMatch(/hidden/);
+    expect(LIFECYCLE_NOTE.paused).toMatch(/Resume/);
+    expect(LIFECYCLE_NOTE.paused).not.toMatch(/stays up/);
+    expect(LIFECYCLE_NOTE.live).not.toMatch(/keeps the page/);
+  });
+});
+
+describe('timeSpanWarning (S6)', () => {
+  it('warns on the walk case: 21:15 to 21:00 is 23 h 45 min', () => {
+    expect(timeSpanWarning('21:15', '21:00')).toMatchObject({ minutes: 23 * 60 + 45, duration: '23 h 45 min', endsNextDay: true });
+  });
+  it('lets a normal overnight party through (22:00 to 02:00 is 4 h)', () => {
+    expect(timeSpanWarning('22:00', '02:00')).toBeNull();
+    expect(timeSpanWarning('23:00', '05:30')).toBeNull();
+  });
+  it('lets a normal same-day slot through, and exactly 12 h', () => {
+    expect(timeSpanWarning('19:00', '22:00')).toBeNull();
+    expect(timeSpanWarning('10:00', '22:00')).toBeNull();
+  });
+  it('warns just past 12 h, on the same day too', () => {
+    expect(timeSpanWarning('09:00', '21:15')).toMatchObject({ duration: '12 h 15 min', endsNextDay: false });
+  });
+  it('has nothing to say without a usable end', () => {
+    expect(timeSpanWarning('21:15', '')).toBeNull();
+    expect(timeSpanWarning('', '21:00')).toBeNull();
+    expect(timeSpanWarning('21:15', '21:15')).toBeNull();
   });
 });

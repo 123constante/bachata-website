@@ -21,6 +21,7 @@ import {
   organiserHomeQueryKey,
   type HomeOrganiser,
 } from '@/modules/organiser-self-serve/selfServeApi';
+import { declinedRequests } from '@/modules/organiser-self-serve/accessRequestModel';
 import { isMailboxProvenToken } from '@/modules/organiser-self-serve/sessionProof';
 
 /**
@@ -81,6 +82,7 @@ function AccountPage() {
   const myIds = useMemo(() => new Set(organisers.map((o) => o.id)), [organisers]);
   const selected = organisers.find((o) => o.id === selectedId) ?? organisers[0] ?? null;
   const openRequests = useMemo(() => (requests.data ?? []).filter((r) => r.status === 'open'), [requests.data]);
+  const declined = useMemo(() => declinedRequests(requests.data ?? []), [requests.data]);
   const requestedIds = useMemo(() => new Set(openRequests.map((r) => r.organiserId)), [openRequests]);
   const mailboxProven = isMailboxProvenToken(session?.access_token);
 
@@ -174,6 +176,25 @@ function AccountPage() {
                     <li key={r.requestId} className="text-sm text-muted-foreground">
                       Access to <span className="text-foreground">{r.organiserName ?? 'an organiser'}</span>{' '}
                       &middot; asked {new Date(r.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {declined.length > 0 && (
+              <section className="space-y-2" data-testid="declined-access-requests">
+                <h2 className="text-base font-semibold">Request declined</h2>
+                <ul className="space-y-2">
+                  {declined.map((r) => (
+                    <li key={r.requestId} className="rounded-md border border-border p-3 text-sm space-y-1" role="status">
+                      <p>
+                        Your request for access to <span className="font-medium">{r.organiserName ?? 'an organiser'}</span> was declined
+                        {' '}&middot; {new Date(r.resolvedAt ?? r.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}.
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        The reason is not shown here yet. If you are the organiser, you can ask again with a note, or claim the page by confirming your email.
+                      </p>
                     </li>
                   ))}
                 </ul>

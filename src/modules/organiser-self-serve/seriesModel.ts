@@ -192,6 +192,33 @@ export function minutesBetween(start: string, end: string): number | null {
   return diff === 0 ? null : diff;
 }
 
+/** A single date longer than this needs an explicit "yes" (S6). A 22:00 to 02:00 party is 4 h and never asks. */
+export const LONG_SPAN_MINUTES = 12 * 60;
+
+export interface TimeSpanWarning {
+  minutes: number;
+  /** "23 h 45 min" */
+  duration: string;
+  /** "the next day" when the end is not after the start on the same day, else "that day". */
+  endsNextDay: boolean;
+}
+
+/**
+ * Warn when "Change the time" would save a slot longer than about 12 hours.
+ * An end at or before the start crosses midnight (the server stores it that
+ * way), so start 21:15 / end 21:00 is 23 h 45 min. No end, an unreadable time,
+ * or a span of 12 h or less returns null. Exactly equal times are "no end" to
+ * the server (minutesBetween is null), so they never warn.
+ */
+export function timeSpanWarning(start: string, end: string): TimeSpanWarning | null {
+  if (!end) return null;
+  const minutes = minutesBetween(start, end);
+  if (minutes == null || minutes <= LONG_SPAN_MINUTES) return null;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return { minutes, duration: m ? `${h} h ${m} min` : `${h} h`, endsNextDay: toMinutes(end) <= toMinutes(start) };
+}
+
 // ---- dates -------------------------------------------------------------------
 
 export const isCancelledDate = (d: WorkspaceDate) => d.lifecycle_status === 'cancelled';
@@ -424,3 +451,10 @@ export const LEVEL_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'intermediate', label: 'Intermediate' },
   { value: 'advanced', label: 'Advanced' },
 ];
+
+/** The one-line note under the Status buttons. A paused page is hidden (launch walk S1). */
+export const LIFECYCLE_NOTE: Record<string, string> = {
+  live: 'Pausing hides the page and its dates until you resume. Archiving hides it; the team can restore it.',
+  paused: 'Paused: the page is hidden. Dancers cannot find it or its dates until you Resume.',
+  draft: 'Not public yet. Archiving removes this draft from your list.',
+};

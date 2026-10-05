@@ -31,6 +31,7 @@ import {
   endTime,
   isRuleDate,
   setTimeDoneCopy,
+  timeSpanWarning,
   type WorkspaceDate,
   type WorkspaceSeries,
 } from '../seriesModel';
@@ -92,6 +93,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
   const [reason, setReason] = useState<string | null>(null);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+  const [longConfirmed, setLongConfirmed] = useState(false);
   const [venueId, setVenueId] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [picture, setPicture] = useState('');
@@ -138,6 +140,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
   const open3C = (next: View) => {
     setError(null);
     if (next === 'time') {
+      setLongConfirmed(false);
       setStart(d?.start ?? usualStart ?? '');
       setEnd(d?.end ?? usualEnd ?? '');
     }
@@ -189,6 +192,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
     run(overrideCommand(patch), { title, body: `Only ${label} changes. Every other date stays as the series.` });
 
   const busy = command.isPending;
+  const spanWarning = timeSpanWarning(start, end);
   const back = (
     <Button type="button" size="sm" variant="ghost" onClick={() => { setError(null); setView('menu'); }} disabled={busy}>
       <ChevronLeft className="w-4 h-4" aria-hidden="true" /> Back
@@ -332,15 +336,32 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="date-start" className="text-xs">Starts</Label>
-                  <Input id="date-start" type="time" value={start} onChange={(e) => setStart(e.target.value)} className="h-9 text-sm" required />
+                  <Input id="date-start" type="time" value={start} onChange={(e) => { setStart(e.target.value); setLongConfirmed(false); }} className="h-9 text-sm" required />
                   {usualStart && <p className="text-[11px] text-muted-foreground">Series: {usualStart}</p>}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="date-end" className="text-xs">Ends</Label>
-                  <Input id="date-end" type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="h-9 text-sm" />
+                  <Input id="date-end" type="time" value={end} onChange={(e) => { setEnd(e.target.value); setLongConfirmed(false); }} className="h-9 text-sm" />
                   {usualEnd && <p className="text-[11px] text-muted-foreground">Series: {usualEnd}</p>}
                 </div>
               </div>
+              {spanWarning && (
+                <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-2 space-y-2 text-xs" role="alert" data-testid="time-span-warning">
+                  <p>
+                    That is {spanWarning.duration} long, ending {spanWarning.endsNextDay ? 'the next day ' : ''}at {end}. Did you mean a different end time?
+                  </p>
+                  <label className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={longConfirmed}
+                      onChange={(e) => setLongConfirmed(e.target.checked)}
+                      className="mt-0.5"
+                      data-testid="time-span-confirm"
+                    />
+                    <span>Yes, it really runs that long.</span>
+                  </label>
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-2 justify-between">
                 {back}
                 <div className="flex gap-2">
@@ -351,7 +372,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                     </Button>
                   )}
                   {saveButton('Save the time', () => void run(setTimeCommand(start, end || null), (response) => setTimeDoneCopy(label, start, response)),
-                    !/^\d{2}:\d{2}$/.test(start))}
+                    !/^\d{2}:\d{2}$/.test(start) || (!!spanWarning && !longConfirmed))}
                 </div>
               </div>
             </div>

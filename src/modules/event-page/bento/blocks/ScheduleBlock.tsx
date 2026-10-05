@@ -13,6 +13,7 @@ import {
   type SessionLevel,
 } from '@/modules/event-page/sections/EventScheduleGrid';
 import { PeopleStack } from '@/modules/event-page/bento/blocks/schedule/PeopleStack';
+import { emptyScheduleView } from '@/modules/event-page/bento/blocks/schedule/emptyScheduleView';
 
 // ─── Level → headline text map ───────────────────────────────────────────────
 const LEVEL_LABEL_SHORT: Record<SessionLevel, string> = {
@@ -85,6 +86,8 @@ type ScheduleBlockProps = {
    *  empty cancelled-occurrence program is intentional (contract #24) and is
    *  surfaced via the cancellation banner, not the schedule tile. */
   occurrenceCancelled?: boolean;
+  /** The date's own start-end text from the page model ("8:00 pm - 11:30 pm"): the series time, or a date's override. Shown ONLY when there is no programme, in place of "Schedule coming soon" (launch walk S2). */
+  fallbackTimeLabel?: string | null;
 };
 
 // ─── Format helpers ──────────────────────────────────────────────────────────
@@ -1041,7 +1044,7 @@ const SingleRoomScheduleRow = ({
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: ScheduleBlockProps) => {
+export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fallbackTimeLabel }: ScheduleBlockProps) => {
   // Phase C — occurrence mode. When occurrenceId is set, pull the merged
   // program from get_occurrence_program_v1. Same shape comes back, so the rest
   // of this component is mode-agnostic.
@@ -1220,16 +1223,30 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled }: Sc
         </div>
 
         {visibleSessions.length === 0 && sections.length === 0 ? (
-          <div
-            className="py-2 text-center text-[11px]"
-            style={{ color: 'hsl(var(--bento-fg-muted))' }}
-          >
-            {isLoading
-              ? 'Loading…'
-              : sessions.length === 0
-              ? 'Schedule coming soon'
-              : 'No sessions on this day'}
-          </div>
+          (() => {
+            const empty = emptyScheduleView({
+              isLoading,
+              sessionCount: sessions.length,
+              fallbackTimeLabel,
+              cancelled: occurrenceCancelled,
+            });
+            return empty.kind === 'time' ? (
+              <div
+                className="py-2 text-center text-sm font-semibold"
+                style={{ color: 'hsl(var(--bento-fg))' }}
+                data-testid="schedule-time-fallback"
+              >
+                {empty.text}
+              </div>
+            ) : (
+              <div
+                className="py-2 text-center text-[11px]"
+                style={{ color: 'hsl(var(--bento-fg-muted))' }}
+              >
+                {empty.kind === 'loading' ? 'Loading…' : empty.text}
+              </div>
+            );
+          })()
         ) : (
           <div className="flex flex-col gap-[6px]" style={{ position: 'relative', zIndex: 1 }}>
           {sections.map((section, sectionIdx) => (

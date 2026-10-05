@@ -32,7 +32,7 @@ export interface ReviewStripModel {
    * (event_publish_readiness_v1, "missing a venue"; Lever 2 B2), so it is not sent without one.
    */
   submitMissing: string | null;
-  /** True when event_view_p5 serves the series to the public (live, paused, ended). */
+  /** True when the public page is up (live, ended). A paused series' page is hidden (S1: /event/<slug> is a 404). */
   publicPage: boolean;
   /** Why "View as a dancer" is missing, when it is. */
   previewNote: string | null;
@@ -47,8 +47,11 @@ const steps = (draft: StepState, review: StepState, live: StepState, reviewLabel
 // event_view_p5's public viewer refuses a series outside these states
 // ("not_found: series not publicly visible", admin 20261108110000), so there is
 // no unlisted preview of a draft or a series in review: the gap is said plainly.
-const PUBLIC_STATES = new Set(['live', 'paused', 'ended']);
+// A PAUSED series is also a 404 on /event/<slug> (launch walk S1, observed), so
+// it is not a public page either; Resume puts it back.
+const PUBLIC_STATES = new Set(['live', 'ended']);
 const NO_PREVIEW = 'Dancers cannot see it yet. "View as a dancer" appears once it is live.';
+const PAUSED_NOTE = 'The page is hidden while paused. "View as a dancer" returns when you resume.';
 
 export const SUBMIT_NEEDS_VENUE = 'To send it for review, add a venue under Venue and save it.';
 
@@ -59,7 +62,7 @@ export function reviewStrip(
 ): ReviewStripModel {
   const publicPage = PUBLIC_STATES.has(status);
   const submitMissing = hasVenue ? null : SUBMIT_NEEDS_VENUE;
-  const base = { reason: null, returnedAt: null, submit: null, submitMissing: null, publicPage, previewNote: publicPage ? null : NO_PREVIEW };
+  const base = { reason: null, returnedAt: null, submit: null, submitMissing: null, publicPage, previewNote: publicPage ? null : status === 'paused' ? PAUSED_NOTE : NO_PREVIEW };
   switch (status) {
     case 'draft':
       return {
@@ -102,7 +105,7 @@ export function reviewStrip(
         ...base,
         steps: steps('done', 'done', 'done'),
         headline: 'Paused',
-        detail: 'The page stays up but lists no dates. Resume it under Status.',
+        detail: 'The page is hidden while paused. Resume it under Status to put it back.',
       };
     case 'ended':
       return {
