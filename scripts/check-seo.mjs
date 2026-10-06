@@ -10,7 +10,9 @@
 //     name/startDate/eventStatus (location and offers are RECOMMENDED, not
 //     required: a missing node, an addressless Place, and a priceless offer
 //     are all WARNs)
-//   - no unexpected noindex
+//   - no unexpected noindex: the robots meta everywhere; the X-Robots-Tag
+//     header only off preview hosts (Vercel sets it on every preview -- see
+//     checkPage), so the production run is the header's real check
 //   - homepage + the 9 event-bearing SEO landing pages: a minimum number of
 //     crawlable /event/ links in the server HTML (see STATIC_PAGES)
 //
@@ -456,7 +458,19 @@ function hasNoindexRobotsHeader(headers) {
 // The fetcher is injectable so the canary can drive this mapping -- the single
 // assignment every floor rests on -- through all three outcomes without a
 // network. Nothing else passes the third argument.
-async function checkPage(path, { isEvent = false, minEventLinks = 0, strict = STRICT } = {}, fetcher = fetchText) {
+//
+// `preview` decides what an X-Robots-Tag noindex HEADER means. Vercel adds
+// `X-Robots-Tag: noindex` to every response of a non-production deployment, so
+// on a *.vercel.app preview the header is the platform's, and asserting it
+// failed every 200 page of every PR preview from ad69753 (2026-09-12) on --
+// while the production run, same code, stayed green. On a preview the header
+// is therefore a WARN, never a failure; every assertion that decides whether
+// PRODUCTION will be indexable still runs there: status 200, the robots META
+// (which the app does control), the canonical on the www origin, title,
+// description, h1, JSON-LD. Production (`preview` false) asserts the header
+// strictly, and the scheduled + post-deploy prod run is what catches an
+// app-emitted noindex header -- a preview cannot tell it from Vercel's.
+async function checkPage(path, { isEvent = false, minEventLinks = 0, strict = STRICT, preview = isPreviewHost(BASE) } = {}, fetcher = fetchText) {
   const url = `${BASE}${path}`;
   const unmeasured = { path, measured: false, eventAsserted: false, linkPageChecked: false };
 
@@ -475,7 +489,10 @@ async function checkPage(path, { isEvent = false, minEventLinks = 0, strict = ST
   }
 
   const { failures, warns } = auditHtml(path, res.text, { isEvent, minEventLinks });
-  if (hasNoindexRobotsHeader(res.headers)) failures.push('unexpected X-Robots-Tag noindex');
+  if (hasNoindexRobotsHeader(res.headers)) {
+    if (preview) warns.push('X-Robots-Tag noindex not asserted on a preview host (Vercel sets it on every preview; the production run asserts it)');
+    else failures.push('unexpected X-Robots-Tag noindex');
+  }
   return { path, measured: true, eventAsserted: isEvent, linkPageChecked: minEventLinks > 0, failures, warns };
 }
 
@@ -625,11 +642,38 @@ async function selfTest() {
   const hard404 = await checkPage('/event/q', { isEvent: true }, serve({ ok: false, status: 404, text: '' }));
   const threw = await checkPage('/faq', { strict: false }, async () => { throw new Error('socket hang up'); });
   const threwStrict = await checkPage('/faq', { strict: true }, async () => { throw new Error('socket hang up'); });
-  const headerNoindex = await checkPage('/faq', {}, serve({
+  // `preview` passed EXPLICITLY on every header case: its default reads BASE,
+  // and the canary must not change verdicts with SEO_CHECK_BASE.
+  const noindexHeaders = () => new Headers({ 'X-Robots-Tag': 'noindex, nofollow' });
+  const headerNoindex = await checkPage('/faq', { preview: false }, serve({
     ok: true,
     status: 200,
     text: page(),
-    headers: new Headers({ 'X-Robots-Tag': 'noindex, nofollow' }),
+    headers: noindexHeaders(),
+  }));
+  // The PR preview shape: Vercel's header on an otherwise healthy page.
+  const previewHeader = await checkPage('/faq', { preview: true }, serve({
+    ok: true, status: 200, text: page(), headers: noindexHeaders(),
+  }));
+  // ...and on a preview whose HTML would de-index production.
+  const previewMeta = await checkPage('/faq', { preview: true }, serve({
+    ok: true, status: 200, text: page() + '<meta name="robots" content="noindex">', headers: noindexHeaders(),
+  }));
+  const previewCanonical = await checkPage('/faq', { preview: true }, serve({
+    ok: true, status: 200, text: page({ canonical: 'https://bachata-website-git-x-123constante.vercel.app/faq' }), headers: noindexHeaders(),
+  }));
+  const previewEvent = await checkPage('/event/x', { isEvent: true, preview: true }, serve({
+    ok: true, status: 200, text: page(), headers: noindexHeaders(),
+  }));
+  // The ONE header case that leaves `preview` to its default, so the default
+  // itself is pinned: it must follow BASE. The CI canary runs with no
+  // SEO_CHECK_BASE (prod), so a default that drifted to `true` -- the prod run
+  // silently no longer asserting the header -- reds here.
+  const defaultHeader = await checkPage('/faq', {}, serve({
+    ok: true, status: 200, text: page(), headers: noindexHeaders(),
+  }));
+  const preview404 = await checkPage('/faq', { preview: true }, serve({
+    ok: false, status: 404, text: '', headers: noindexHeaders(),
   }));
 
   const cases = [
@@ -664,8 +708,28 @@ async function selfTest() {
       fails(page() + '<meta content="noindex" name="robots">', {}, 'unexpected noindex')],
     ['fires: robots content="none" is also noindex',
       fails(page() + '<meta name="robots" content="none">', {}, 'unexpected noindex')],
-    ['fires: a 200 page with X-Robots-Tag noindex',
+    ['fires: a 200 page with X-Robots-Tag noindex (production base)',
       headerNoindex.failures.some((f) => f.includes('X-Robots-Tag noindex'))],
+    // --- preview host: Vercel's own noindex header is not the app's ---
+    ['silent on a preview: Vercel\'s X-Robots-Tag noindex on a healthy page is a warn, not a failure',
+      previewHeader.measured && previewHeader.failures.length === 0
+        && previewHeader.warns.some((w) => w.includes('X-Robots-Tag noindex not asserted on a preview'))],
+    ['fires on a preview: a robots META noindex still fails (the app controls that)',
+      previewMeta.failures.length === 1 && previewMeta.failures[0] === 'unexpected noindex'],
+    ['fires on a preview: a canonical on the preview host still fails',
+      previewCanonical.failures.some((f) => f.includes('canonical not on www host'))],
+    ['fires on a preview: an event page with no Event JSON-LD still fails',
+      previewEvent.failures.includes('no Event JSON-LD node')],
+    ['fires on a preview: a non-200 still fails, header or not',
+      preview404.failures.length === 1 && preview404.failures[0] === 'HTTP 404' && !preview404.measured],
+    // The production base must never take the preview arm: the scheduled and
+    // post-deploy runs are the strict header check, and isPreviewHost is the
+    // only thing that decides which arm a run takes.
+    ['fidelity: with no explicit option the header arm follows BASE (strict unless BASE is a preview host)',
+      defaultHeader.failures.includes('unexpected X-Robots-Tag noindex') === !isPreviewHost(BASE)],
+    ['fidelity: the production base is NOT a preview host, a *.vercel.app base is',
+      !isPreviewHost('https://www.bachatacalendar.co.uk') && !isPreviewHost('https://bachatacalendar.co.uk')
+        && isPreviewHost('https://bachata-website-git-x-123constante.vercel.app')],
     ['silent boundary: an explicit index,follow robots tag',
       clean(page() + '<meta name="robots" content="index, follow">', {})],
     ['fires: event page with no Event JSON-LD node',
