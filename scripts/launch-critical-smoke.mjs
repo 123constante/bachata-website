@@ -7,6 +7,8 @@ const results = [];
 const makeResult = (name) => ({
   name,
   consoleErrors: [],
+  // 'Failed to load resource: ... 404' console text carries no URL; these do.
+  failedResources: [],
   supabaseStatuses: [],
   supabaseFailures: [],
   eventRowsObserved: 0,
@@ -29,8 +31,15 @@ const attachObservers = (page, getCurrent) => {
     const current = getCurrent();
     if (!current) return;
     if (msg.type() === 'error') {
-      current.consoleErrors.push(msg.text());
+      const where = msg.location()?.url;
+      current.consoleErrors.push(where ? `${msg.text()} [${where}]` : msg.text());
     }
+  });
+
+  page.on('requestfailed', (request) => {
+    const current = getCurrent();
+    if (!current) return;
+    current.failedResources.push(`FAILED ${request.url()} (${request.failure()?.errorText || 'unknown'})`);
   });
 
   page.on('pageerror', (err) => {
@@ -44,7 +53,10 @@ const attachObservers = (page, getCurrent) => {
     if (!current) return;
 
     const url = response.url();
-    if (!url.includes('supabase.co')) return;
+    if (!url.includes('supabase.co')) {
+      if (response.status() >= 400) current.failedResources.push(`${response.status()} ${url}`);
+      return;
+    }
 
     const status = response.status();
     current.supabaseStatuses.push(status);
@@ -104,6 +116,8 @@ const run = async () => {
       if (result.consoleErrors.length > 0) {
         result.ok = false;
         result.notes.push(`Console errors: ${result.consoleErrors.length}`);
+        const urls = Array.from(new Set(result.failedResources));
+        if (urls.length > 0) result.notes.push(`Failing resources: ${urls.slice(0, 5).join(' | ')}`);
       }
       if (result.eventRowsObserved === 0) {
         result.notes.push('No event rows observed from events endpoint during this scenario');
@@ -290,6 +304,7 @@ const run = async () => {
       eventLinksObserved: r.eventLinksObserved,
       notes: r.notes,
       sampleConsoleErrors: r.consoleErrors.slice(0, 5),
+      sampleFailedResources: Array.from(new Set(r.failedResources)).slice(0, 10),
       sampleSupabaseFailures: r.supabaseFailures.slice(0, 5),
     })),
   };
@@ -299,6 +314,10 @@ const run = async () => {
   const failed = results.filter((r) => !r.ok);
   if (failed.length > 0) {
     console.error(`SMOKE_FAILED: ${failed.map((r) => r.name).join('; ')}`);
+    for (const r of failed) {
+      const urls = Array.from(new Set(r.failedResources));
+      if (urls.length > 0) console.error(`  ${r.name} -- failing resources: ${urls.slice(0, 5).join(' | ')}`);
+    }
     process.exit(1);
   }
 };
