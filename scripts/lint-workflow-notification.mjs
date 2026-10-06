@@ -432,7 +432,8 @@ const REAL_PROD_PROBES = [
   'og-image-check.yml',
   'synthetic-ssr-monitor.yml',
   'gsc-health-check.yml',
-  'sourcemap-check.yml',
+  // sourcemap-check.yml retired 2026-10-06: Sentry was removed on purpose on
+  // 2026-09-13, so the check could never go green. File deleted, not fixed.
   'weekly-digest.yml',
 ];
 
