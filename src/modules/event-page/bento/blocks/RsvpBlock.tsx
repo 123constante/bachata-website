@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Check, Heart, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { AuthPromptModal } from '@/components/AuthPromptModal';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { wallClockToInstant } from '@/lib/time/wallClock';
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
 import {
@@ -10,6 +10,12 @@ import {
   useOccurrenceRsvp,
   type RsvpStatus,
 } from '@/modules/event-page/hooks/useOccurrenceRsvp';
+
+// Lazy: the dialog stack only matters after a signed-out tap, and a static
+// import added two first-load chunks to /event/:id (perf-budgets chunk ratchet).
+const AuthPromptModal = lazyWithRetry(() =>
+  import('@/components/AuthPromptModal').then((m) => ({ default: m.AuthPromptModal })),
+);
 
 type RsvpBlockProps = {
   /** Route param the snapshot query is keyed by (for cache updates). */
@@ -76,6 +82,8 @@ export const RsvpBlock = ({
 }: RsvpBlockProps) => {
   const location = useLocation();
   const [authOpen, setAuthOpen] = useState(false);
+  // Stays mounted after the first open so the dialog can animate closed.
+  const [authMounted, setAuthMounted] = useState(false);
   // First render reads the snapshot's server-computed isPast so SSR (possibly an
   // hour-old edge copy) and hydration agree; the clock is consulted after mount
   // (same split as BentoPage's `past`) and again on every tap, so a page left
@@ -106,6 +114,7 @@ export const RsvpBlock = ({
       return;
     }
     if (!canRsvp) {
+      setAuthMounted(true);
       setAuthOpen(true);
       return;
     }
@@ -160,13 +169,17 @@ export const RsvpBlock = ({
       <p className="mt-2 text-[12px]" style={{ color: 'hsl(var(--bento-fg-muted))' }} data-testid="rsvp-meta">
         {reason ?? goingCountLabel}
       </p>
-      <AuthPromptModal
-        open={authOpen}
-        onOpenChange={setAuthOpen}
-        title="Sign in to RSVP"
-        description="Sign in to let the organiser know you're going."
-        returnTo={`${location.pathname}${location.search}`}
-      />
+      {authMounted && (
+        <Suspense fallback={null}>
+          <AuthPromptModal
+            open={authOpen}
+            onOpenChange={setAuthOpen}
+            title="Sign in to RSVP"
+            description="Sign in to let the organiser know you're going."
+            returnTo={`${location.pathname}${location.search}`}
+          />
+        </Suspense>
+      )}
     </section>
   );
 };
