@@ -69,24 +69,43 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('LevelRatingPrompt (event page, one-tap)', () => {
-  it('shows the five option cards with their meanings and progress', async () => {
+  it('shows the heading, five emoji tiles and the progress line', async () => {
     mount();
-    expect(await screen.findByText('How hard is this event?')).toBeTruthy();
-    const expected: Record<string, string> = {
-      beginner: 'Never danced it, or first months',
-      improver: 'Know the basics, building up',
-      intermediate: 'Comfortable with turns and flow',
-      advanced: 'Fast, complex, lots of experience',
-      open_level: 'All levels welcome',
-    };
-    expect(screen.getAllByRole('radio')).toHaveLength(5);
-    for (const [value, meaning] of Object.entries(expected)) {
-      expect(screen.getByTestId(`level-rating-${value}`).textContent).toContain(meaning);
-    }
-    expect(screen.getByTestId('level-rating-progress').textContent).toBe('3 of 7 ratings so far');
+    expect(await screen.findByText('Been to this one, or know the level?')).toBeTruthy();
+    expect(screen.queryByText('How hard is this event?')).toBeNull();
+    // Order matters; emoji are decorative (aria-hidden) and the name is the label only.
+    const expected: Array<[string, string, string]> = [
+      ['beginner', 'Beginner', '\u{1F331}'],
+      ['improver', 'Improver', '\u{1F642}'],
+      ['intermediate', 'Intermediate', '\u{1F525}'],
+      ['advanced', 'Advanced', '\u{26A1}'],
+      ['open_level', 'Open', '\u{1F30D}'],
+    ];
+    const radios = screen.getAllByRole('radio');
+    expect(radios).toHaveLength(5);
+    expected.forEach(([value, label, emoji], i) => {
+      const tile = screen.getByTestId(`level-rating-${value}`);
+      expect(radios[i]).toBe(tile);
+      expect(tile.getAttribute('aria-label')).toBe(label);
+      const hidden = Array.from(tile.querySelectorAll('[aria-hidden="true"]')).map((n) => n.textContent);
+      expect(hidden).toContain(emoji);
+      expect(tile.textContent).toContain(label);
+    });
+    // Per-tile meaning sentences are gone.
+    expect(screen.getByTestId('level-rating-card').textContent).not.toContain('All levels welcome');
+    expect(screen.getByTestId('level-rating-progress').textContent).toBe(
+      '3 of 7 ratings. The level shows publicly at 7.',
+    );
     expect(screen.getByLabelText('Rate the level of this event')).toBeTruthy();
     // Votes are stored per dancer_id (admin-readable), so the card must not claim anonymity.
     expect(screen.getByTestId('level-rating-card').textContent).not.toMatch(/anonymous/i);
+  });
+
+  it('lays the tiles out as 5-across on sm+, 2-up on phones with Open full width', async () => {
+    mount();
+    await screen.findByTestId('level-rating-card');
+    expect(screen.getByRole('radiogroup').className).toMatch(/grid-cols-2.*sm:grid-cols-5/);
+    expect(screen.getByTestId('level-rating-open_level').className).toContain('col-span-2');
   });
 
   it('shows the plain count once the threshold is met', async () => {
@@ -122,7 +141,6 @@ describe('LevelRatingPrompt (event page, one-tap)', () => {
       expect(screen.getByTestId('level-rating-advanced').getAttribute('aria-busy')).toBe('true');
       for (const radio of screen.getAllByRole('radio')) expect((radio as HTMLButtonElement).disabled).toBe(true);
     });
-    expect(screen.getByTestId('level-rating-advanced').textContent).toContain('Saving');
     fireEvent.click(screen.getByTestId('level-rating-beginner'));
     (release as unknown as () => void)();
     await waitFor(() => expect(screen.queryByTestId('level-rating-card')).toBeNull());

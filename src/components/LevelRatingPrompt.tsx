@@ -18,6 +18,17 @@ type LevelRatingPromptProps = {
   className?: string;
 };
 
+// Event-page tile presentation (emoji as escapes: raw Unicode corrupts on the
+// cp1252 pipeline). The tile says 'Open'; the API value stays open_level.
+const TILE_EMOJI: Record<SeriesLevel, string> = {
+  beginner: '\u{1F331}',
+  improver: '\u{1F642}',
+  intermediate: '\u{1F525}',
+  advanced: '\u{26A1}',
+  open_level: '\u{1F30D}',
+};
+const TILE_LABEL: Partial<Record<SeriesLevel, string>> = { open_level: 'Open' };
+
 export const RATED_TOAST = 'Thanks! You can change your rating in your dashboard.';
 
 const errorMessage = (error: unknown) => {
@@ -107,6 +118,7 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className }: Leve
   }
 
   const pct = summary.threshold > 0 ? Math.min(100, (summary.vote_count / summary.threshold) * 100) : 100;
+  const met = summary.vote_count >= summary.threshold;
 
   return (
     <section
@@ -118,10 +130,9 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className }: Leve
       data-testid="level-rating-card"
       onClick={(e) => e.stopPropagation()}
     >
-      <h3 className="text-[15px] font-semibold text-white">How hard is this event?</h3>
-      <p className="mt-0.5 text-[12px] text-white/60">Help others choose.</p>
-      <div role="radiogroup" className="mt-3 grid grid-cols-2 gap-2">
-        {LEVEL_OPTIONS.map(({ value, label, meaning }) => {
+      <h3 className="text-[15px] font-semibold text-white">Been to this one, or know the level?</h3>
+      <div role="radiogroup" aria-label="Level" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {LEVEL_OPTIONS.map(({ value, label }) => {
           const isPending = pending === value;
           return (
             <button
@@ -130,21 +141,24 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className }: Leve
               role="radio"
               aria-checked={isPending}
               aria-busy={isPending || undefined}
+              aria-label={TILE_LABEL[value] ?? label}
               data-testid={`level-rating-${value}`}
               disabled={isRating}
               onClick={() => void onPick(value)}
               className={cn(
-                'flex min-h-[76px] min-w-0 flex-col items-start justify-center rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:cursor-not-allowed',
-                value === 'open_level' && 'col-span-2',
+                'flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border p-3 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:cursor-not-allowed',
+                value === 'open_level' && 'col-span-2 sm:col-span-1',
                 isPending
                   ? 'border-cyan-300/80 bg-cyan-500/20'
                   : 'border-white/15 bg-white/[0.03] hover:border-cyan-300/50 active:bg-cyan-500/10',
                 isRating && !isPending && 'opacity-50',
               )}
             >
-              <span className="text-[14px] font-semibold text-white">{label}</span>
-              <span className="mt-0.5 text-[11px] leading-snug text-white/60">
-                {isPending ? <>Saving&hellip;</> : meaning}
+              <span className="text-2xl leading-none" aria-hidden="true">
+                {TILE_EMOJI[value]}
+              </span>
+              <span className="text-[13px] font-semibold text-white" aria-hidden="true">
+                {TILE_LABEL[value] ?? label}
               </span>
             </button>
           );
@@ -153,7 +167,11 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className }: Leve
       <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/10" aria-hidden="true">
         <div className="h-full rounded-full bg-cyan-400" style={{ width: `${pct}%` }} />
       </div>
-      <div className="mt-1.5">{progress}</div>
+      <p className="mt-1.5 text-[11px] text-white/55" data-testid="level-rating-progress">
+        {met
+          ? `${summary.vote_count} ratings`
+          : `${summary.vote_count} of ${summary.threshold} ratings. The level shows publicly at ${summary.threshold}.`}
+      </p>
     </section>
   );
 };
