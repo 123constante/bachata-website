@@ -7,6 +7,7 @@ import { renderToPipeableStream, type RenderToPipeableStreamOptions } from "reac
 import { ServerRouter, type EntryContext } from "react-router";
 import { NonceProvider } from "./nonce";
 import { contentSecurityPolicy } from "./csp";
+import { finalizeDocumentCacheHeaders } from "./documentCacheHeaders";
 import { isSsrLoaderTimeoutError } from "./lib/ssrLoaderTimeout";
 
 // Custom streaming server entry. Faithful to @vercel/react-router/entry.server
@@ -126,9 +127,13 @@ export default function handleRequest(
           if (responseStatusCode >= 400) {
             responseHeaders.set("X-Robots-Tag", "noindex");
           }
-          if (vercelSkewProtectionEnabled && vercelDeploymentId) {
-            responseHeaders.append("Set-Cookie", `__vdpl=${vercelDeploymentId}; HttpOnly`);
-          }
+          // Error documents go no-store, and the skew cookie is withheld from a
+          // document the edge would otherwise store (Set-Cookie makes Vercel's
+          // CDN skip it). See ./documentCacheHeaders.
+          finalizeDocumentCacheHeaders(responseHeaders, responseStatusCode, {
+            enabled: vercelSkewProtectionEnabled,
+            deploymentId: vercelDeploymentId,
+          });
 
           resolve(new Response(stream, { headers: responseHeaders, status: responseStatusCode }));
           // Also bake the SAME policy into the HTML as a <meta http-equiv> so it
