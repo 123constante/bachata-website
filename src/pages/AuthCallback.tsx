@@ -9,7 +9,8 @@ import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo, stashPendingReturnTo } fr
 import { hasDancerProfileBasics, inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { flags } from "@/lib/featureFlags";
-import { shouldHonorReturnTo } from "@/lib/auth-otp-routing";
+import { landingPathAfterAuth, needsOrganiserLookup, normalizeLandingRole, shouldHonorReturnTo } from "@/lib/auth-otp-routing";
+import { fetchOrganiserHome } from "@/modules/organiser-self-serve/selfServeApi";
 
 const VALID_ROLES: Record<string, string> = {
   organiser: "/create-organiser-profile",
@@ -72,7 +73,8 @@ const AuthCallback = () => {
         const pendingRole = localStorage.getItem("pending_profile_role");
         const isSignupFlow = callbackMode === "signup" || (callbackMode !== "signin" && Boolean(pendingRole));
         const meta = user.user_metadata || {};
-        const preferredRole = resolveRolePreference(pendingRole, meta.user_type);
+        // Called for its side effect (it persists a metadata role); routing reads the role itself.
+        resolveRolePreference(pendingRole, meta.user_type);
 
         // OWNERSHIP, not authorship -- the full note is on AuthGuard.
         const { data: dancer, error: dancerError } = await supabase
@@ -89,7 +91,7 @@ const AuthCallback = () => {
 
         // The routing tail, which used to be spelled out twice -- once per
         // branch -- and had to be kept in step by hand.
-        const routeOnwards = () => {
+        const routeOnwards = async () => {
           // A sign-up honours returnTo too once self-serve is on, so "Sign in
           // to claim" -> new account lands back on the claim card (Lever 2 B3).
           if (safeReturnTo && shouldHonorReturnTo({ returnTo: safeReturnTo, isSignupFlow, organiserSelfServe: flags.organiserSelfServe })) {
@@ -104,15 +106,24 @@ const AuthCallback = () => {
             return;
           }
 
-          if (flags.organiserSelfServe) {
-            // The /profile and /create-*-profile routes below were retired
-            // 2026-09-12; with self-serve on, /account is the landing.
-            navigate("/account", { replace: true });
-          } else if (preferredRole && preferredRole !== "dancer" && VALID_ROLES[preferredRole]) {
-            navigate(`/create-${preferredRole}-profile`, { replace: true });
-          } else {
-            navigate("/profile", { replace: true });
+          // With self-serve on, only organiser-type roles land on /account
+          // (its first run asks "Which organiser are you?"); a dancer goes
+          // home. A sign-in with no role at all (older accounts) goes to
+          // /account only if the user already manages an organiser.
+          const landingRole = normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type);
+          let managesOrganiser: boolean | null = null;
+          if (needsOrganiserLookup({ organiserSelfServe: flags.organiserSelfServe, role: landingRole })) {
+            try {
+              managesOrganiser = (await fetchOrganiserHome()).organisers.length > 0;
+            } catch {
+              // A failed lookup is not "no organiser": /account handles its own load error.
+              managesOrganiser = null;
+            }
           }
+          navigate(
+            landingPathAfterAuth({ organiserSelfServe: flags.organiserSelfServe, role: landingRole, managesOrganiser }),
+            { replace: true },
+          );
           localStorage.removeItem("pending_profile_role");
         };
 
@@ -120,7 +131,7 @@ const AuthCallback = () => {
         // means the answer is always yes. Whether the profile is FILLED IN is
         // the question that still discriminates.
         if (inferOnboardingStatusFromDancer(dancer) === "completed") {
-          routeOnwards();
+          await routeOnwards();
           return;
         }
 
@@ -181,7 +192,7 @@ const AuthCallback = () => {
               return;
             }
 
-            routeOnwards();
+            await routeOnwards();
             return;
           } catch (profileErr) {
                         navigateToOnboardingFallback("profile");

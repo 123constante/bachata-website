@@ -47,7 +47,7 @@ function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }
           </Link>
           {meta.length > 0 && <p className="text-xs text-muted-foreground">{meta.join(' \u00B7 ')}</p>}
         </div>
-        <Badge variant={live ? 'default' : 'secondary'} className="text-[11px] shrink-0">
+        <Badge variant={live ? 'default' : 'secondary'} className="text-xs shrink-0">
           {LIFECYCLE_LABEL[series.lifecycle_status] ?? series.lifecycle_status}
         </Badge>
       </div>
@@ -70,8 +70,8 @@ function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }
                   <span className="text-muted-foreground text-xs">{time ?? 'Time to be confirmed'}</span>
                 )}
                 {d.has_own_changes && (
-                  <span className="ml-auto text-[11px] text-muted-foreground border border-border rounded px-1.5 py-0.5">
-                    Own changes
+                  <span className="ml-auto text-xs text-muted-foreground border border-border rounded px-1.5 py-0.5">
+                    Changed for this date
                   </span>
                 )}
               </li>
@@ -120,8 +120,41 @@ export function OrganiserHome({
   const send = useSendForReview(onSentForReview);
   const refusal = send.error ? selfServeErrorCopy(send.error).message : null;
 
+  // Inside the next-step card when it shows, so a rejection reason reads before the button.
+  const statusNote = status.note ? (
+    <p
+      className={cn('text-xs', status.tone === 'destructive' ? 'text-destructive' : 'text-muted-foreground')}
+      data-testid="organiser-status-note"
+    >
+      {status.note}
+    </p>
+  ) : null;
+
   return (
     <section className="space-y-3" data-testid="organiser-home">
+      {status.canSendForReview && (
+        <div className="rounded-lg border border-primary/40 bg-card p-3 space-y-3" data-testid="next-step-card">
+          <p className="text-sm">
+            <span className="font-semibold">Next: send {organiser.name} for review.</span>{' '}
+            The team checks new organisers within a day; you can add events meanwhile.
+          </p>
+          {statusNote}
+          <Button
+            className="rounded-full min-h-[44px] w-full sm:w-auto"
+            disabled={send.isPending}
+            aria-busy={send.isPending}
+            onClick={() => send.mutate(organiser.id)}
+            data-testid="send-for-review"
+          >
+            {send.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Send className="w-4 h-4" aria-hidden="true" />
+            )}
+            Send for review
+          </Button>
+        </div>
+      )}
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold">My events</h2>
@@ -139,11 +172,11 @@ export function OrganiserHome({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {!live && (
-            <Badge variant="secondary" className="text-[11px]" data-testid="organiser-status">
+            <Badge variant="secondary" className="text-xs" data-testid="organiser-status">
               {LIFECYCLE_LABEL[organiser.lifecycle_status] ?? organiser.lifecycle_status}
             </Badge>
           )}
-          <Button asChild size="sm" className="min-h-[44px]">
+          <Button asChild size="sm" variant={status.canSendForReview ? 'outline' : 'default'} className="min-h-[44px]">
             <Link to={`/account/new?organiser=${organiser.id}`} data-testid="new-event">
               <Plus className="w-4 h-4" aria-hidden="true" /> New event
             </Link>
@@ -151,31 +184,8 @@ export function OrganiserHome({
         </div>
       </div>
 
-      {status.note && (
-        <p
-          className={cn('text-xs', status.tone === 'destructive' ? 'text-destructive' : 'text-muted-foreground')}
-          data-testid="organiser-status-note"
-        >
-          {status.note}
-        </p>
-      )}
-      {status.canSendForReview && (
-        <Button
-          size="sm"
-          disabled={send.isPending}
-          aria-busy={send.isPending}
-          onClick={() => send.mutate(organiser.id)}
-          data-testid="send-for-review"
-        >
-          {send.isPending ? (
-            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <Send className="w-4 h-4" aria-hidden="true" />
-          )}
-          Send for review
-        </Button>
-      )}
-      {/* Outside the button's branch: a refusal reloads the home, and when the reloaded
+      {!status.canSendForReview && statusNote}
+      {/* Outside the card's branch: a refusal reloads the home, and when the reloaded
           organiser is no longer sendable the button goes but its explanation stays. */}
       {refusal && (
         <p className="text-xs text-destructive" role="alert" data-testid="send-for-review-error">
@@ -185,12 +195,12 @@ export function OrganiserHome({
 
       {attention.length > 0 && (
         <div
-          className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm space-y-1"
+          className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm space-y-1"
           role="status"
           data-testid="attention-notice"
         >
           <p className="font-semibold flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-500" aria-hidden="true" /> Needs you
+            <AlertTriangle className="w-4 h-4 text-primary" aria-hidden="true" /> Needs you
           </p>
           <ul className="space-y-0.5">
             {attention.map((item, i) => (

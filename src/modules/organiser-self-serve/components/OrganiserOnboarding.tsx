@@ -70,10 +70,10 @@ const HINT_TEXT: Record<ClaimHint, string> = {
 
 const ACTION_HINT: Record<ClaimHint, string | null> = {
   yours: null,
-  managed: 'Request: the team checks your note',
-  email_matches: 'Claim: instant, we check your sign-in email',
-  email_differs: 'Request: the team checks your note',
-  no_email: 'Request: the team checks your note',
+  managed: 'Ask to join: the team replies within a day',
+  email_matches: 'Yours to claim: your sign-in email matches',
+  email_differs: 'Ask to join: the team replies within a day',
+  no_email: 'Ask to join: the team replies within a day',
 };
 
 function useDebounced(value: string, ms: number) {
@@ -180,7 +180,7 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search organisers by name"
-          className="pl-9 h-9 text-sm"
+          className="pl-9 min-h-[44px] text-[16px]"
           aria-label="Search organisers by name"
           data-testid="organiser-search"
         />
@@ -264,7 +264,7 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
 
               {active?.kind === 'request' && (
                 <div className="space-y-2">
-                  <Label htmlFor={`note-${org.id}`} className="text-xs">
+                  <Label htmlFor={`note-${org.id}`} className="text-sm">
                     Tell the team who you are (optional)
                   </Label>
                   <Textarea
@@ -272,7 +272,7 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
                     value={note}
                     maxLength={500}
                     onChange={(e) => setNote(e.target.value)}
-                    className="text-sm min-h-[64px]"
+                    className="text-[16px] min-h-[64px]"
                     placeholder="e.g. I run the Tuesday classes with Ana"
                     data-testid="request-note"
                   />
@@ -340,20 +340,20 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
               data-testid="create-form"
             >
               <div className="space-y-1">
-                <Label htmlFor="create-name" className="text-xs">Organiser name</Label>
-                <Input id="create-name" value={form.name} maxLength={80} required className="h-9 text-sm"
+                <Label htmlFor="create-name" className="text-sm">Organiser name</Label>
+                <Input id="create-name" value={form.name} maxLength={80} required className="min-h-[44px] text-[16px]"
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} data-testid="create-name" />
               </div>
               <div className="space-y-1">
-                <Label id="create-city-label" htmlFor="create-city" className="text-xs">City</Label>
+                <Label id="create-city-label" htmlFor="create-city" className="text-sm">City</Label>
                 {/* CityPicker takes no id prop (owned elsewhere), so the group carries the label. */}
                 <div id="create-city" role="group" aria-labelledby="create-city-label">
                   <CityPicker value={form.cityId} onChange={(cityId) => setForm((f) => ({ ...f, cityId }))} />
                 </div>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="create-instagram" className="text-xs">Instagram (optional)</Label>
-                <Input id="create-instagram" value={form.instagram} placeholder="@yourhandle" className="h-9 text-sm"
+                <Label htmlFor="create-instagram" className="text-sm">Instagram (optional)</Label>
+                <Input id="create-instagram" value={form.instagram} placeholder="@yourhandle" className="min-h-[44px] text-[16px]"
                   aria-invalid={!!instagramError} aria-describedby="create-instagram-help" data-testid="create-instagram"
                   onChange={(e) => setForm((f) => ({ ...f, instagram: e.target.value }))}
                   onBlur={() => setTouched((t) => ({ ...t, instagram: true }))} />
@@ -362,8 +362,8 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
                 </p>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="create-website" className="text-xs">Website (optional)</Label>
-                <Input id="create-website" type="url" value={form.website} placeholder="https://" className="h-9 text-sm"
+                <Label htmlFor="create-website" className="text-sm">Website (optional)</Label>
+                <Input id="create-website" type="url" value={form.website} placeholder="https://" className="min-h-[44px] text-[16px]"
                   aria-invalid={!!websiteError} aria-describedby="create-website-help" data-testid="create-website"
                   onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))}
                   onBlur={() => setTouched((t) => ({ ...t, website: true }))} />
@@ -371,7 +371,7 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
                   {websiteError ?? 'Starts with https://'}
                 </p>
               </div>
-              <label className="sm:col-span-2 flex items-center gap-3 text-xs text-muted-foreground min-h-[44px]">
+              <label className="sm:col-span-2 flex items-center gap-3 text-sm text-muted-foreground min-h-[44px]">
                 <input type="checkbox" className="h-6 w-6 shrink-0" checked={form.useMyEmail}
                   onChange={(e) => setForm((f) => ({ ...f, useMyEmail: e.target.checked }))} />
                 Show {email || 'my email'} as the contact email

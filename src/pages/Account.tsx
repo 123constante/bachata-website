@@ -51,7 +51,7 @@ function OrganiserRow({ org, selected, onSelect }: { org: HomeOrganiser; selecte
           {org.role === 'owner' ? 'Owner' : 'Manager'} &middot; {org.series.length} series &middot; {upcoming} upcoming dates
         </span>
       </button>
-      <Badge variant={org.lifecycle_status === 'live' ? 'default' : 'secondary'} className="text-[11px]">
+      <Badge variant={org.lifecycle_status === 'live' ? 'default' : 'secondary'} className="text-xs">
         {LIFECYCLE_LABEL[org.lifecycle_status] ?? org.lifecycle_status}
       </Badge>
     </li>
@@ -222,6 +222,12 @@ function AccountPage() {
               </Link>
             )}
 
+            {organisers.length === 0 && (
+              <Button asChild variant="outline" className="min-h-[44px] w-full sm:w-auto" data-testid="account-browse-events">
+                <Link to="/">Just here to dance? Browse events</Link>
+              </Button>
+            )}
+
             {organisers.length === 0 || showOnboarding ? (
               <OrganiserOnboarding
                 user={user}
@@ -241,11 +247,6 @@ function AccountPage() {
               </button>
             )}
 
-            {organisers.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                Just here to dance? <Link to="/" className="text-primary tap-link-inline">Skip this and browse events</Link>.
-              </p>
-            )}
           </>
         )}
       </div>

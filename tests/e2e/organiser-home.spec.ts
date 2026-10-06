@@ -135,7 +135,7 @@ for (const width of [390, 768, 1280]) {
       await expect(tuesday.getByTestId('series-date')).toHaveCount(3);
       await expect(tuesday.getByTestId('series-date').first()).toContainText('Tonight');
       await expect(tuesday.getByTestId('date-cancelled')).toHaveCount(1);
-      await expect(tuesday).toContainText('Own changes');
+      await expect(tuesday).toContainText('Changed for this date');
       await expect(tuesday.getByTestId('view-as-dancer')).toHaveAttribute('href', '/event/tuesday-bachata-class');
       // Only a live series gets a public link.
       const sundays = page.getByTestId('series-card').filter({ hasText: 'Bachata Sundays Party' });
