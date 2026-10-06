@@ -1,0 +1,54 @@
+name: Dependabot auto-merge
+
+# RUNG 1 of the hands-off ladder. For a Dependabot PR whose EVERY updated package is
+# a direct DEV dependency AND a minor or patch bump, ask GitHub to merge it by itself
+# once the branch's required status checks are green (`gh pr merge --auto`). GitHub
+# does the merge, not this workflow: it only flips the switch.
+#
+# SAFETY, read before editing:
+#  - OFF unless the repo variable AUTOMERGE_ENABLED is exactly 'true'. Auto-merge merges
+#    IMMEDIATELY when `main` has no required checks, so the owner sets that variable only
+#    AFTER the branch rule requiring the stable checks exists. Never flip the default.
+#  - Majors, production dependencies, indirect dependencies and GitHub Actions bumps are
+#    never auto-merged. Anything touching .github/ is HARD tier for owner-approval.yml
+#    (an unapproved landing there goes red + opens an issue), so CI-config PRs stay manual.
+#  - Only the grouped/ungrouped Dependabot actor qualifies; a human PR never does.
+
+on:
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: dependabot-automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  enable:
+    if: github.actor == 'dependabot[bot]' && vars.AUTOMERGE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Decide whether this PR qualifies
+        id: decide
+        env:
+          DEPS: ${{ steps.meta.outputs.updated-dependencies-json }}
+        run: |
+          ok=$(printf '%s' "$DEPS" | jq -r 'length > 0 and all(.[]; .dependencyType == "direct:development" and (.updateType == "version-update:semver-minor" or .updateType == "version-update:semver-patch"))')
+          echo "qualifies=$ok" | tee -a "$GITHUB_OUTPUT"
+          printf '%s' "$DEPS" | jq -r '.[] | "  \(.dependencyName) \(.prevVersion) -> \(.newVersion) [\(.dependencyType), \(.updateType)]"'
+
+      - name: Enable auto-merge (GitHub merges when required checks pass)
+        if: steps.decide.outputs.qualifies == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"
