@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
 import { WHATSAPP_GROUP_URL } from '@/lib/contactLinks';
 import { useAuth } from '@/hooks/useAuth';
+import { buildSignInHref, sanitizeReturnTo } from '@/lib/authRouting';
 
 // NO framer-motion here (perf, Pillar A): the header mounts on every page, so
 // a `motion.*` import would drag the whole library into the first-load bundle.
@@ -48,11 +49,21 @@ export const GlobalHeader = () => {
   const [searching, setSearching] = useState(false);
   const { citySlug } = useCity();
   const homePath = buildCityPath(citySlug);
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const isEventDetail = EVENT_DETAIL_RE.test(pathname);
-  const { user } = useAuth();
+  const { user, authStatus } = useAuth();
   // Organiser self-serve (Lever 2 W1): the only signed-in entry point.
   const showAccount = flags.organiserSelfServe && !!user && !searching;
+  // Login launch gate step 6: the signed-out entry point. Same flag as the
+  // account icon, so signing in never leads to a header with nothing in it.
+  // Only on a RESOLVED absence of a user (authStatus 'ready', the AuthGuard
+  // rule): not while resolving, and not when resolution failed, where a
+  // signed-in reader would read "Sign in" as a dropped session. Hidden on the
+  // auth pages themselves. The hash is left out, as AuthGuard does: nothing
+  // scrolls to it on return.
+  const here = `${pathname}${search}`;
+  const showSignIn = flags.organiserSelfServe && authStatus === 'ready' && !user && !searching
+    && sanitizeReturnTo(here) !== null;
 
   useEffect(() => {
     // rAF-coalesced (perf): the cost here is `window.scrollY`, a synchronous
@@ -191,6 +202,16 @@ export const GlobalHeader = () => {
             data-testid="header-account-link"
           >
             <UserRound className="w-5 h-5" aria-hidden="true" />
+          </Link>
+        )}
+
+        {showSignIn && (
+          <Link
+            to={buildSignInHref(here)}
+            className="inline-flex items-center justify-center h-[44px] min-w-[44px] px-2 sm:px-3 rounded-md shrink-0 text-sm font-semibold text-primary no-underline transition-colors hover:bg-primary/10"
+            data-testid="header-sign-in-link"
+          >
+            Sign in
           </Link>
         )}
       </nav>

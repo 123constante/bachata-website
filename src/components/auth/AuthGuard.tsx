@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { shouldRedirectToAuth } from "@/lib/authResolution";
+import { buildSignInHref } from "@/lib/authRouting";
 import { supabase } from "@/integrations/supabase/client";
 import { inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 
@@ -38,7 +39,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       const returnTo = `${location.pathname}${location.search}`;
       const needsSignup = location.pathname === "/profile" || location.pathname.startsWith("/create-");
       const targetMode = needsSignup ? "signup" : "signin";
-      navigate(`/auth?mode=${targetMode}&returnTo=${encodeURIComponent(returnTo)}`);
+      navigate(buildSignInHref(returnTo, targetMode));
     }
   }, [user, authStatus, navigate, location]);
 
@@ -126,9 +127,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
               variant="ghost"
               onClick={() =>
                 navigate(
-                  `/auth?mode=signin&returnTo=${encodeURIComponent(
-                    `${location.pathname}${location.search}`,
-                  )}`,
+                  buildSignInHref(`${location.pathname}${location.search}`),
                 )
               }
             >

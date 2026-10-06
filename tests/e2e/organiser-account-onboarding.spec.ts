@@ -127,6 +127,7 @@ for (const width of [390, 768, 1280]) {
       await expect(row(page, ORGS.managed.name).getByTestId('claim-open')).toHaveCount(0);
       await expect(row(page, ORGS.managed.name)).toContainText('Managed by someone else');
       await expect(page.getByTestId('header-account-link')).toBeVisible();
+      await expect(page.getByTestId('header-sign-in-link')).toHaveCount(0);
     });
 
     test('claims on a mailbox-proven session and lists the organiser', async ({ page }) => {
@@ -194,3 +195,23 @@ test('signed out, /account goes to sign-in and comes back', async ({ page }) => 
   await expect(page).toHaveURL(/\/auth\?mode=signin&returnTo=%2Faccount/);
   await expect(page.getByTestId('header-account-link')).toHaveCount(0);
 });
+
+// Login launch gate step 6: signed out, the header offers "Sign in" as a 44px
+// target at every width (390 is where most readers are), and it comes back to
+// the page the reader was on.
+for (const width of [390, 768, 1280]) {
+  test(`signed out @${width}, the header Sign in link returns to the current page`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.route('**/auth/v1/**', (route) => json(route, {}));
+    await mockApis(page);
+    await page.goto('/faq?q=1');
+    const link = page.getByTestId('header-sign-in-link');
+    await expect(link).toBeVisible();
+    const box = (await link.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    await link.click();
+    await expect(page).toHaveURL(/\/auth\?mode=signin&returnTo=%2Ffaq%3Fq%3D1$/);
+    await expect(link).toHaveCount(0);
+  });
+}
