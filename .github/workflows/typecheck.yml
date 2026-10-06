@@ -17,6 +17,12 @@ on:
   pull_request:
     branches: [main, master]
 
+# Supersede the previous run on the same PR branch (a re-push or a bot rebase);
+# main pushes, schedules and deployment events never cancel each other.
+concurrency:
+  group: typecheck-${{ github.event_name == 'pull_request' && github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   wallclock-brand:
     runs-on: ubuntu-latest
