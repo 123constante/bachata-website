@@ -3,11 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 export const LEVEL_OPTIONS = [
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'improver', label: 'Improver' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'open_level', label: 'Open level' },
+  { value: 'beginner', label: 'Beginner', meaning: 'Never danced it, or first months' },
+  { value: 'improver', label: 'Improver', meaning: 'Know the basics, building up' },
+  { value: 'intermediate', label: 'Intermediate', meaning: 'Comfortable with turns and flow' },
+  { value: 'advanced', label: 'Advanced', meaning: 'Fast, complex, lots of experience' },
+  { value: 'open_level', label: 'Open level', meaning: 'All levels welcome' },
 ] as const;
 
 export type SeriesLevel = (typeof LEVEL_OPTIONS)[number]['value'];
@@ -58,7 +58,13 @@ export const useSeriesLevelRating = (seriesId: string | null | undefined) => {
       if (error) throw error;
       return level;
     },
-    onSuccess: () => {
+    onSuccess: (level) => {
+      // Write the caller's vote into the cache first, keyed by series AND user,
+      // so the one-tap event card hides immediately and a refetch failure
+      // cannot bring it back; the invalidate then refreshes the counts.
+      queryClient.setQueryData<SeriesLevelSummary | null>(key, (prev) =>
+        prev ? { ...prev, my_level: level } : prev,
+      );
       void queryClient.invalidateQueries({ queryKey: ['series-level-summary', seriesId] });
     },
   });
