@@ -120,6 +120,16 @@ export function OrganiserHome({
   const send = useSendForReview(onSentForReview);
   const refusal = send.error ? selfServeErrorCopy(send.error).message : null;
 
+  // Inside the next-step card when it shows, so a rejection reason reads before the button.
+  const statusNote = status.note ? (
+    <p
+      className={cn('text-xs', status.tone === 'destructive' ? 'text-destructive' : 'text-muted-foreground')}
+      data-testid="organiser-status-note"
+    >
+      {status.note}
+    </p>
+  ) : null;
+
   return (
     <section className="space-y-3" data-testid="organiser-home">
       {status.canSendForReview && (
@@ -128,6 +138,7 @@ export function OrganiserHome({
             <span className="font-semibold">Next: send {organiser.name} for review.</span>{' '}
             The team checks new organisers within a day; you can add events meanwhile.
           </p>
+          {statusNote}
           <Button
             className="rounded-full min-h-[44px] w-full sm:w-auto"
             disabled={send.isPending}
@@ -173,14 +184,7 @@ export function OrganiserHome({
         </div>
       </div>
 
-      {status.note && (
-        <p
-          className={cn('text-xs', status.tone === 'destructive' ? 'text-destructive' : 'text-muted-foreground')}
-          data-testid="organiser-status-note"
-        >
-          {status.note}
-        </p>
-      )}
+      {!status.canSendForReview && statusNote}
       {/* Outside the card's branch: a refusal reloads the home, and when the reloaded
           organiser is no longer sendable the button goes but its explanation stays. */}
       {refusal && (
