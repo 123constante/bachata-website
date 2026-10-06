@@ -1,4 +1,5 @@
 // Pure, client-free: the unit spec imports it without a Supabase client.
+import { buildSignInHref } from '@/lib/authRouting';
 import { claimHint } from './claimHint';
 
 /**
@@ -49,5 +50,5 @@ export function publicClaimKind(
 
 /** Where sign-in sends the visitor back to: the public page they were on. */
 export function signInHref(returnTo: string): string {
-  return `/auth?mode=signin&returnTo=${encodeURIComponent(returnTo)}`;
+  return buildSignInHref(returnTo);
 }
