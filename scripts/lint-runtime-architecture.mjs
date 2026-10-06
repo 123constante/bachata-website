@@ -63,6 +63,12 @@ const RULES = [
     message: 'Forbidden legacy linkage: event_organisers (use event_entities / canonical entity endpoints)',
     pattern: /\bevent_organisers\b/,
   },
+  {
+    id: 'no-organiser-profiles-direct-write',
+    message:
+      "Forbidden direct write: .from('organiser_profiles').update/insert/upsert/delete - use organiser_profile_update_p5_v1",
+    pattern: /\.from\(\s*['"]organiser_profiles['"]\s*\)\s*\.(update|insert|upsert|delete)\s*\(/,
+  },
 ];
 
 const toPosixRelative = (absolutePath) => path.relative(ROOT, absolutePath).split(path.sep).join('/');
