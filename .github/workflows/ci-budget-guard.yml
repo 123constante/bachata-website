@@ -103,3 +103,25 @@ jobs:
         env:
           CI_BUDGET_GITHUB_TOKEN: ${{ secrets.CI_BUDGET_GITHUB_TOKEN }}
         run: node scripts/check-ci-budget.mjs
+
+      # INFORMATIONAL, never gates: continue-on-error means a failed lookup
+      # cannot red this job, and `if: always()` means the line is still printed
+      # when the measure step above went red. It reports how many workflow runs
+      # this repo started in the last 7 days -- the load signal behind Vercel/CI
+      # churn -- and warns past 1500. Uses the built-in token (read-only
+      # Actions metadata on this repo), not the account-wide PAT.
+      - name: Report workflow runs started in the last 7 days
+        if: always()
+        # soft-signal: an informational load line, not a gate. A failed Actions-API
+        # lookup must not red the budget guard; the measure step above is the gate.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          since=$(date -u -d '7 days ago' +%Y-%m-%d)
+          total=$(gh api -X GET "repos/$GITHUB_REPOSITORY/actions/runs" \
+            -f "created=>=$since" -f per_page=1 --jq .total_count)
+          echo "Workflow runs started since $since (7d): $total" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$total" -gt 1500 ]; then
+            echo "::warning::$total workflow runs in the last 7 days (threshold 1500) -- CI/Vercel load is high"
+          fi
