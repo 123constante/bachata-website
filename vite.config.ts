@@ -23,6 +23,25 @@ export default defineConfig(({ isSsrBuild }) => ({
     // reactRouter() owns the React transform in framework mode. vitest cannot
     // load the RR plugin, so fall back to plugin-react-swc under VITEST.
     process.env.VITEST ? react() : reactRouter(),
+    // SERVER BUILD ONLY. react-router-dom is a pure re-export shim in React Router 7
+    // (every name this app imports from it also exists in react-router). Left external,
+    // its CommonJS entry require()s react-router/dom, whose CJS file
+    // (dist/development/dom-export.js) Vercel's file tracing stopped including on
+    // 2026-10-06 ~12:20 UTC: every SSR route then crashed with "Cannot find module".
+    // Aliasing it away removes that require from the traced graph. Proven on a preview of
+    // the last-good commit (4 of 5 key routes 200, no dom-export errors in the logs).
+    // Safe to delete once Vercel's tracing is confirmed fixed.
+    // It is a plugin rather than a resolve.alias entry so that block stays the plain
+    // "@"-only literal scripts/check-bundle-budget.mjs reads (its module walk covers the
+    // CLIENT graph, which this never touches). Array form on purpose: that guard's
+    // regex reads the first object-literal alias block in this file.
+    {
+      name: "ssr-alias-react-router-dom",
+      config: (_config, env) =>
+        env.isSsrBuild
+          ? { resolve: { alias: [{ find: /^react-router-dom$/, replacement: "react-router" }] } }
+          : undefined,
+    },
   ],
   resolve: {
     alias: {
