@@ -35,6 +35,12 @@ import {
   normalizePhoneDigits,
 } from '@/lib/contactValidation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
+import {
+  hostMatchesDomain,
+  withNormalizedProtocol,
+  saveOrganiserProfile,
+  organiserProfileSaveErrorToast,
+} from '@/lib/organiserProfileUpdate';
 import { londonDayRangeUtc } from '@/lib/londonDate';
 import {
   type WallClock,
@@ -209,42 +215,6 @@ const eventTime = (wc: WallClock | null | undefined): string | null => {
   return s ? s.replace(/\s/g, '').toLowerCase() : null;
 };
 
-// Normalizes a protocol-optional URL fragment for validating, rendering, AND
-// the extract*Handle/extractDomain helpers below, so no two of them can
-// independently drift on what counts as "already has a scheme/domain".
-// Lowercases only the scheme (never the path/query) and prepends https://
-// when neither a scheme nor the given domain is present -- this is what
-// makes a bare "instagram.com/foo" resolve to a real link instead of being
-// glued onto another https://instagram.com/ prefix.
-const lowercaseScheme = (v: string): string => v.replace(/^https?:\/\//i, (m) => m.toLowerCase());
-
-// Hostname-anchored domain check -- NEVER a substring/`.includes()` test.
-// A substring match treats "https://bit.ly/promo?ref=instagram.com" or a
-// typosquat host "instagram.com.evil.tk" as "is an instagram.com URL" (the
-// substring appears in the query string / as a subdomain prefix of a
-// different real domain), which would validate and render an arbitrary or
-// look-alike URL under the "Instagram" label. Parsing the hostname and
-// requiring an exact match or a real subdomain (`.instagram.com` suffix)
-// closes both.
-const hostMatchesDomain = (trimmed: string, domain: string): boolean => {
-  try {
-    const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-    const hostname = new URL(withScheme).hostname.toLowerCase();
-    return hostname === domain || hostname.endsWith(`.${domain}`);
-  } catch {
-    return false;
-  }
-};
-
-const withNormalizedProtocol = (trimmed: string, domain?: string): string => {
-  if (/^https?:\/\//i.test(trimmed)) {
-    return lowercaseScheme(trimmed);
-  }
-  if (domain && hostMatchesDomain(trimmed, domain)) {
-    return `https://${trimmed}`;
-  }
-  return domain ? trimmed : `https://${trimmed}`;
-};
 
 // A resolved hostname must look like a real domain -- containing a dot AND
 // a letter -- before a website URL is accepted. Without this, placeholder
@@ -856,10 +826,6 @@ const OrganiserProfile = () => {
       toast({ title: 'City is required', description: 'Please add city before saving.', variant: 'destructive' });
       return;
     }
-    if (!isValidEmail(editForm.contact_email)) {
-      toast({ title: 'Invalid email', description: 'Please enter a valid email address.', variant: 'destructive' });
-      return;
-    }
     if (!isValidPhone(editForm.contact_phone)) {
       toast({ title: 'Invalid phone', description: 'Please enter a valid phone number.', variant: 'destructive' });
       return;
@@ -883,31 +849,14 @@ const OrganiserProfile = () => {
         toast({ title: 'Select a valid city', description: 'Please choose city from the city picker list.', variant: 'destructive' });
         return;
       }
-      const ig = editForm.instagram.trim() ? lowercaseScheme(editForm.instagram.trim()) : null;
-      const fb = editForm.facebook.trim() ? lowercaseScheme(editForm.facebook.trim()) : null;
-      const web = editForm.website.trim() ? lowercaseScheme(editForm.website.trim()) : null;
-      const existingSocials = ((entity as EntityProfile).socials as Record<string, unknown> | null) ?? {};
-      const nextSocials = { ...existingSocials, instagram: ig, website: web, facebook: fb };
-      const { error } = await supabase.from('organiser_profiles').update({
-        name: editForm.name.trim(),
-        avatar_url: editForm.avatar_url.trim() || null,
-        bio: editForm.bio.trim() || null,
-        city_id: canonicalCity.cityId,
-        instagram: ig,
-        website: web,
-        contact_email: editForm.contact_email.trim() || null,
-        contact_phone: editForm.contact_phone.trim() || null,
-        organisation_category: editForm.organisation_category.trim() || null,
-        founded_year: editForm.founded_year.trim() && Number.isFinite(Number(editForm.founded_year.trim())) ? Number(editForm.founded_year.trim()) : null,
-        socials: nextSocials,
-      }).eq('id', id).eq('claimed_by', user.id);
+      const { error } = await saveOrganiserProfile(supabase, id, editForm, canonicalCity.cityId);
       if (error) throw error;
       toast({ title: 'Profile updated' });
       setIsEditOpen(false);
       queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(id) });
     } catch (err) {
       console.error('Save error:', err);
-      toast({ title: 'Unable to save changes. Please try again.', variant: 'destructive' });
+      toast({ ...organiserProfileSaveErrorToast(err), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -1516,7 +1465,8 @@ const OrganiserProfile = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="contact_email">Contact email</Label>
-              <Input id="contact_email" type="email" value={editForm.contact_email} onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })} placeholder="hello@example.com" />
+              <Input id="contact_email" type="email" value={editForm.contact_email} readOnly disabled placeholder="Set when the profile was claimed" />
+              <p className="text-xs text-muted-foreground">The contact email is set when you claim the profile and can only be changed by an admin.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="contact_phone">Contact phone / WhatsApp</Label>
