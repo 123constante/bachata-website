@@ -24,6 +24,7 @@ import { DerivedLevelBadge } from '@/modules/event-page/bento/blocks/DerivedLeve
 import { MusicStylesRow } from '@/modules/event-page/bento/blocks/MusicStylesRow';
 import { LevelRatingPrompt } from '@/components/LevelRatingPrompt';
 import { GroupChatBlock } from '@/modules/event-page/bento/blocks/GroupChatBlock';
+import { RsvpBlock } from '@/modules/event-page/bento/blocks/RsvpBlock';
 import { MoreEventsSection } from '@/modules/event-page/sections/MoreEventsSection';
 import type { MoreEventsBlock } from '@/modules/event-page/sections/MoreEventsSection';
 import { VenueBlock } from '@/modules/event-page/bento/blocks/VenueBlock';
@@ -580,6 +581,19 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             ticket pill in the sticky bar (a dead date must not advertise a chat). */}
         {!over && !occurrence?.isCancelled && (
           <GroupChatBlock url={pageModel.actions.whatsappLink} eventId={eventId} />
+        )}
+
+        {/* "I'm Going" RSVP for the night on screen -- via the
+            set/get_my_occurrence_attendance_p5_v1 RPCs, never the table. */}
+        {state === 'ready' && snapshot && (
+          <RsvpBlock
+            pageEventId={eventId}
+            publicEventId={snapshot.eventId}
+            occurrenceId={snapshot.occurrenceId}
+            occurrence={occurrence}
+            seriesLifecycle={snapshot.event.lifecycleStatus}
+            goingCountLabel={pageModel.attendance.goingCountLabel}
+          />
         )}
 
         <DerivedLevelBadge
