@@ -112,6 +112,8 @@ jobs:
       # Actions metadata on this repo), not the account-wide PAT.
       - name: Report workflow runs started in the last 7 days
         if: always()
+        # soft-signal: an informational load line, not a gate. A failed Actions-API
+        # lookup must not red the budget guard; the measure step above is the gate.
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
