@@ -80,6 +80,16 @@ updates:
       - dependency-name: "@hookform/resolvers"
         versions: [">=5.3.0"]
 
+      # MAJORS that fail npm ERESOLVE today (PRs #567, #569, 2026-10-06). Each needs a
+      # deliberate migration, not an auto-PR:
+      #   vitest 5: peer conflict against the current vite/vitest toolchain.
+      #   date-fns 4: react-day-picker 8.x needs date-fns 2 or 3; lift this once the
+      #   calendar picker is migrated to react-day-picker 9.
+      - dependency-name: vitest
+        update-types: [version-update:semver-major]
+      - dependency-name: date-fns
+        update-types: [version-update:semver-major]
+
       # The UI layer became cache-tuned on 2026-08-14, when P1 of the
       # vendor-cost arc pinned it into vendor-ui + vendor-ui-modal to cut
       # first-load REQUEST count (Vercel edge requests were at 180% of
