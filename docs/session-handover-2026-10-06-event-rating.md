@@ -30,6 +30,9 @@ Branch: `claude/event-page-rating-rsvp-fix`. PR: #591 (diagnosis only; open, not
     and #590, #589 and #586 fail the same checks. No fix exists yet.
   - `unit (Europe/London, full)`: live-DB statement timeouts (`57014`) plus the
     pre-existing `festivalClientState` flake.
+  - `contract-check` (db-contract-check, re-run 11:10 UTC) failed and is NOT yet
+    diagnosed: read job 112238494462 (run 37447698933) in full. Likely the same
+    live-DB slowness, but that is unproven. Add it to the PR #591 comment once known.
 - **Cloud-container quirk:** `NODE_PATH=/usr/local/lib/node_modules_global` breaks
   `tests/integrityCouldNotRun.test.ts` locally. Push with `env -u NODE_PATH git push ...`.
 
