@@ -1,151 +1,166 @@
-import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Mail, Calendar, GraduationCap, Music, Camera, ShoppingBag, User } from 'lucide-react';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { Mail } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { triggerMicroConfetti } from '@/lib/confetti';
-
-const ROLE_META: Record<string, { label: string; icon: typeof User }> = {
-  dancer: { label: 'Dancer', icon: User },
-  organiser: { label: 'Organiser', icon: Calendar },
-  teacher: { label: 'Teacher', icon: GraduationCap },
-  dj: { label: 'DJ', icon: Music },
-  videographer: { label: 'Videographer', icon: Camera },
-  vendor: { label: 'Vendor', icon: ShoppingBag },
-};
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { trackAnalyticsEvent } from '@/lib/analytics';
+import { OTP_CODE_LENGTH } from '@/lib/auth-otp-routing';
 
 interface MagicLinkConfirmationProps {
   email: string;
+  /** Re-sends the email. Resolves once the request has settled. */
   onResend: () => Promise<void>;
   onChangeEmail: () => void;
-  /** Optional role key to display, e.g. "dancer" */
-  role?: string;
+  /**
+   * Called once the emailed code has been verified and a session exists. The
+   * parent routes onwards (via /auth/callback) so a typed code lands exactly
+   * where the emailed link would have.
+   */
+  onVerified: () => void;
   /** Optional extra action, e.g. "Continue browsing" */
   extraAction?: { label: string; onClick: () => void };
 }
 
 const COOLDOWN = 30;
+const CODE_LENGTH = OTP_CODE_LENGTH;
+const CODE_LABEL = `${CODE_LENGTH}-digit code`;
+// Two groups of four: 8 slots must fit a 390px screen inside the card.
+const GROUP_SIZE = CODE_LENGTH / 2;
+const ERROR_ID = 'email-code-error';
 
-const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, role, extraAction }: MagicLinkConfirmationProps) => {
-  const roleMeta = role ? ROLE_META[role] : undefined;
+const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, extraAction }: MagicLinkConfirmationProps) => {
   const [countdown, setCountdown] = useState(COOLDOWN);
   const [isResending, setIsResending] = useState(false);
-  const iconRef = useRef<HTMLDivElement>(null);
-  const hasFiredConfetti = useRef(false);
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const verifying = useRef(false);
 
-  // Fire confetti once on mount
-  useEffect(() => {
-    if (hasFiredConfetti.current) return;
-    hasFiredConfetti.current = true;
-    const timer = setTimeout(() => {
-      if (iconRef.current) {
-        const rect = iconRef.current.getBoundingClientRect();
-        triggerMicroConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Countdown timer
   useEffect(() => {
     if (countdown <= 0) return;
     const id = setInterval(() => setCountdown((c) => c - 1), 1000);
     return () => clearInterval(id);
   }, [countdown]);
 
+  const verify = async (token: string) => {
+    if (verifying.current) return;
+    verifying.current = true;
+    setIsVerifying(true);
+    setCodeError(null);
+    try {
+      const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+      if (error) throw error;
+      trackAnalyticsEvent('auth_code_verified', { source: 'auth_page', route: 'returning' });
+      onVerified();
+    } catch (error) {
+      const message = String((error as { message?: unknown } | null)?.message || '').toLowerCase();
+      const isInvalid = message.includes('invalid') || message.includes('expired');
+      setCodeError(
+        isInvalid
+          ? 'That code is wrong or has expired. Check it and try again, or resend a new one.'
+          : 'We could not check that code. Please try again.',
+      );
+      setCode('');
+    } finally {
+      verifying.current = false;
+      setIsVerifying(false);
+    }
+  };
+
   const handleResend = async () => {
     setIsResending(true);
     try {
       await onResend();
       setCountdown(COOLDOWN);
-      // Fire confetti again
-      if (iconRef.current) {
-        const rect = iconRef.current.getBoundingClientRect();
-        triggerMicroConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
-      }
+      setCode('');
+      setCodeError(null);
     } finally {
       setIsResending(false);
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="flex flex-col items-center text-center space-y-4 py-4"
-    >
-      {/* Animated mail icon */}
-      <motion.div
-        ref={iconRef}
-        initial={{ scale: 0, rotate: -20 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.1 }}
-        className="relative"
-      >
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-festival-teal/40 to-cyan-400/40 border border-festival-teal/50 flex items-center justify-center shadow-lg shadow-festival-teal/20">
-          <Mail className="w-7 h-7 text-cyan-300" />
-        </div>
-        {/* Glow ring */}
-        <motion.div
-          className="absolute inset-0 rounded-full"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 0.6, 0] }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-          style={{ boxShadow: '0 0 20px 4px hsl(var(--primary) / 0.3)' }}
-        />
-      </motion.div>
+    <div className="flex flex-col items-center text-center space-y-4 py-2">
+      <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center">
+        <Mail className="w-5 h-5 text-primary" aria-hidden="true" />
+      </div>
 
-      {/* Heading */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25 }}
-        className="space-y-1.5"
-      >
-        <h3 className="text-lg font-bold">Magic link sent! ✨</h3>
+      <div className="space-y-1.5">
+        <h1 className="text-xl font-bold">Check your email</h1>
         <p className="text-sm text-muted-foreground">
-          We sent a link to <strong className="text-foreground">{email}</strong>.
-          <br />Check your inbox and click to continue.
+          We sent a sign-in email to <strong className="text-foreground break-all">{email}</strong>.
+          <br />
+          Click the link in the email, or enter the code from it.
         </p>
-        {roleMeta && (
-          <div className="inline-flex items-center gap-1.5 mx-auto mt-1 px-3 py-1 rounded-full border border-festival-teal/30 bg-festival-teal/10 text-xs text-foreground/90">
-            <roleMeta.icon className="w-3.5 h-3.5 text-cyan-300" />
-            <span>Signing up as <strong>{roleMeta.label}</strong></span>
-          </div>
-        )}
-      </motion.div>
+      </div>
 
-      {/* Resend button with countdown */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4 }}
-        className="w-full space-y-2"
-      >
+      <div className="w-full space-y-2">
+        <label htmlFor="email-code" className="block text-sm font-medium">
+          {CODE_LABEL}
+        </label>
+        <div className="flex justify-center">
+          <InputOTP
+            id="email-code"
+            maxLength={CODE_LENGTH}
+            value={code}
+            onChange={(value) => {
+              setCode(value.replace(/\D/g, ''));
+              if (codeError) setCodeError(null);
+            }}
+            onComplete={(value) => void verify(value)}
+            disabled={isVerifying}
+            autoComplete="one-time-code"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            aria-label={CODE_LABEL}
+            aria-invalid={codeError ? true : undefined}
+            aria-describedby={codeError ? ERROR_ID : undefined}
+          >
+            {[0, 1].map((group) => (
+              <Fragment key={group}>
+                {group === 1 && <div role="separator" aria-hidden="true" className="mx-2 h-0.5 w-2 rounded bg-muted-foreground/50" />}
+                <InputOTPGroup className="gap-1.5">
+                  {Array.from({ length: GROUP_SIZE }, (_, i) => (
+                    <InputOTPSlot
+                      key={i}
+                      index={group * GROUP_SIZE + i}
+                      className="h-12 w-9 rounded-md border bg-card text-base"
+                    />
+                  ))}
+                </InputOTPGroup>
+              </Fragment>
+            ))}
+          </InputOTP>
+        </div>
+        {codeError && (
+          <p id={ERROR_ID} role="alert" className="text-sm text-destructive">
+            {codeError}
+          </p>
+        )}
+        {isVerifying && <p className="text-sm text-muted-foreground">Checking code&hellip;</p>}
+      </div>
+
+      <div className="w-full space-y-2">
         <Button
-          variant="outline"
-          className="w-full border-festival-teal/30"
+          variant="secondary"
+          className="w-full min-h-[44px] rounded-full"
           disabled={countdown > 0 || isResending}
           onClick={handleResend}
         >
-          {isResending
-            ? 'Sending…'
-            : countdown > 0
-              ? `Resend in ${countdown}s`
-              : 'Resend magic link'}
+          {isResending ? 'Sending\u2026' : countdown > 0 ? `Resend code in ${countdown}s` : 'Resend code'}
         </Button>
 
-        <Button variant="ghost" className="w-full text-muted-foreground" onClick={onChangeEmail}>
+        <Button variant="ghost" className="w-full min-h-[44px] text-muted-foreground" onClick={onChangeEmail}>
           Use a different email
         </Button>
 
         {extraAction && (
-          <Button variant="ghost" className="w-full text-muted-foreground" onClick={extraAction.onClick}>
+          <Button variant="ghost" className="w-full min-h-[44px] text-muted-foreground" onClick={extraAction.onClick}>
             {extraAction.label}
           </Button>
         )}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 };
 

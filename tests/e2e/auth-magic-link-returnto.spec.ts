@@ -62,7 +62,7 @@ const mockAccountLookupExisting = async (page: Parameters<typeof test>[0]['page'
   });
 };
 
-// Stub the magic-link send. Without this, clicking "Send magic link" issues a
+// Stub the magic-link send. Without this, clicking "Email me a sign-in link" issues a
 // REAL POST to the live project's GoTrue (`VITE_SUPABASE_URL` in e2e-smoke.yml
 // is the actual Supabase project, only the anon KEY is a placeholder). Today the
 // invalid key means GoTrue rejects the call before mailing anything, so nothing
@@ -98,7 +98,7 @@ test('signin magic link omits default returnTo when not provided', async ({ page
 
   await page.goto('/auth?mode=signin');
   await page.getByPlaceholder('you@example.com').fill('existing@example.com');
-  await page.getByRole('button', { name: 'Send magic link' }).click();
+  await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
 
   await expect.poll(() => getRedirectUrl()).not.toBeNull();
   const redirectUrl = getRedirectUrl();
@@ -123,7 +123,7 @@ test('signin magic link includes explicit safe returnTo', async ({ page }) => {
 
   await page.goto('/auth?mode=signin&returnTo=%2Fprofile');
   await page.getByPlaceholder('you@example.com').fill('existing@example.com');
-  await page.getByRole('button', { name: 'Send magic link' }).click();
+  await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
 
   await expect.poll(() => getRedirectUrl()).not.toBeNull();
   const redirectUrl = getRedirectUrl();
