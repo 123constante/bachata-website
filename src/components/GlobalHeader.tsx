@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
 import { WHATSAPP_GROUP_URL } from '@/lib/contactLinks';
 import { useAuth } from '@/hooks/useAuth';
+import { sanitizeReturnTo } from '@/lib/authRouting';
 
 // NO framer-motion here (perf, Pillar A): the header mounts on every page, so
 // a `motion.*` import would drag the whole library into the first-load bundle.
@@ -48,11 +49,18 @@ export const GlobalHeader = () => {
   const [searching, setSearching] = useState(false);
   const { citySlug } = useCity();
   const homePath = buildCityPath(citySlug);
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const isEventDetail = EVENT_DETAIL_RE.test(pathname);
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   // Organiser self-serve (Lever 2 W1): the only signed-in entry point.
   const showAccount = flags.organiserSelfServe && !!user && !searching;
+  // Signed-out entry point. Held back while auth is resolving so a signed-in
+  // visitor never sees "Sign in" flash, and absent on the auth pages themselves.
+  const safeReturnTo = sanitizeReturnTo(pathname + search);
+  const showSignIn = !user && !isLoading && !searching && !pathname.startsWith('/auth');
+  const signInHref = safeReturnTo
+    ? `/auth?mode=signin&returnTo=${encodeURIComponent(safeReturnTo)}`
+    : '/auth?mode=signin';
 
   useEffect(() => {
     // rAF-coalesced (perf): the cost here is `window.scrollY`, a synchronous
@@ -179,6 +187,16 @@ export const GlobalHeader = () => {
         <div className="hidden md:block flex-1" />
 
         {flags.searchV5 ? <SearchTrigger /> : <HeaderSearch expanded={searching} onExpandedChange={setSearching} />}
+
+        {showSignIn && (
+          <Link
+            to={signInHref}
+            className="inline-flex items-center justify-center min-h-[44px] px-3 rounded-md shrink-0 text-sm font-semibold text-primary no-underline transition-colors hover:bg-primary/5"
+            data-testid="header-signin-link"
+          >
+            Sign in
+          </Link>
+        )}
 
         {showAccount && (
           <Link
