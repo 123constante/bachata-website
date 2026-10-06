@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { callbackErrorCopy, isOtpSignupDisabledError, shouldHonorReturnTo } from "@/lib/auth-otp-routing";
+import {
+  callbackErrorCopy,
+  isOtpSignupDisabledError,
+  landingPathAfterAuth,
+  needsOrganiserLookup,
+  normalizeLandingRole,
+  shouldHonorReturnTo,
+} from "@/lib/auth-otp-routing";
 
 describe("isOtpSignupDisabledError", () => {
   it("matches the GoTrue 422 otp_disabled code", () => {
@@ -52,5 +59,50 @@ describe("callbackErrorCopy", () => {
     expect(callbackErrorCopy(null)).toBeNull();
     expect(callbackErrorCopy("")).toBeNull();
     expect(callbackErrorCopy("<script>")).toBeNull();
+  });
+});
+
+describe("landingPathAfterAuth (no returnTo)", () => {
+  const on = { organiserSelfServe: true };
+
+  it("sends a dancer home, not to the organiser form", () => {
+    expect(landingPathAfterAuth({ ...on, role: "dancer", managesOrganiser: null })).toBe("/");
+  });
+
+  it.each(["organiser", "teacher", "dj", "vendor", "videographer"])("sends a %s to /account", (role) => {
+    expect(landingPathAfterAuth({ ...on, role, managesOrganiser: null })).toBe("/account");
+  });
+
+  it("sends a role-less sign-in to /account only when they manage an organiser", () => {
+    expect(landingPathAfterAuth({ ...on, role: null, managesOrganiser: true })).toBe("/account");
+    expect(landingPathAfterAuth({ ...on, role: null, managesOrganiser: false })).toBe("/");
+  });
+
+  it("falls back to /account when the organiser lookup failed", () => {
+    expect(landingPathAfterAuth({ ...on, role: null, managesOrganiser: null })).toBe("/account");
+  });
+
+  it("keeps the legacy routes with the flag off", () => {
+    const off = { organiserSelfServe: false, managesOrganiser: null };
+    expect(landingPathAfterAuth({ ...off, role: "organiser" })).toBe("/create-organiser-profile");
+    expect(landingPathAfterAuth({ ...off, role: "videographer" })).toBe("/create-videographer-profile");
+    expect(landingPathAfterAuth({ ...off, role: "dancer" })).toBe("/profile");
+    expect(landingPathAfterAuth({ ...off, role: "dj" })).toBe("/profile");
+    expect(landingPathAfterAuth({ ...off, role: null })).toBe("/profile");
+  });
+});
+
+describe("needsOrganiserLookup / normalizeLandingRole", () => {
+  it("looks up only for a role-less user with the flag on", () => {
+    expect(needsOrganiserLookup({ organiserSelfServe: true, role: null })).toBe(true);
+    expect(needsOrganiserLookup({ organiserSelfServe: true, role: "dancer" })).toBe(false);
+    expect(needsOrganiserLookup({ organiserSelfServe: false, role: null })).toBe(false);
+  });
+
+  it("normalises role strings and drops non-strings", () => {
+    expect(normalizeLandingRole(" Dancer ")).toBe("dancer");
+    expect(normalizeLandingRole("")).toBeNull();
+    expect(normalizeLandingRole(undefined)).toBeNull();
+    expect(normalizeLandingRole(3)).toBeNull();
   });
 });

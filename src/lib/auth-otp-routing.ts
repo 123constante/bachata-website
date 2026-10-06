@@ -49,3 +49,40 @@ export function callbackErrorCopy(reason: string | null): string | null {
       return null;
   }
 }
+
+// Where the callback lands a user who has no returnTo (honoured or pending).
+// With organiser self-serve on, /account opens on "Which organiser are you?",
+// which is the wrong first screen for a dancer who signed up to rate a class.
+// So: organiser-type roles go to /account, dancers go home, and a sign-in that
+// carries no role at all (older accounts) goes to /account only when the user
+// already manages an organiser. `managesOrganiser` is `null` until looked up;
+// the caller does the lookup only when `needsOrganiserLookup` says so.
+const LEGACY_ROLE_ROUTES: Record<string, string> = {
+  organiser: "/create-organiser-profile",
+  videographer: "/create-videographer-profile",
+};
+
+export function normalizeLandingRole(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const role = raw.trim().toLowerCase();
+  return role || null;
+}
+
+export function needsOrganiserLookup(input: { organiserSelfServe: boolean; role: string | null }): boolean {
+  return input.organiserSelfServe && input.role === null;
+}
+
+export function landingPathAfterAuth(input: {
+  organiserSelfServe: boolean;
+  role: string | null;
+  managesOrganiser: boolean | null;
+}): string {
+  const { organiserSelfServe, role, managesOrganiser } = input;
+  if (!organiserSelfServe) {
+    if (role && role !== "dancer" && LEGACY_ROLE_ROUTES[role]) return LEGACY_ROLE_ROUTES[role];
+    return "/profile";
+  }
+  if (role === "dancer") return "/";
+  if (role) return "/account";
+  return managesOrganiser === false ? "/" : "/account";
+}

@@ -35,7 +35,7 @@ export function ManagedBadge({ size }: { size: 'sm' | 'md' }) {
         display: 'inline-flex',
         alignItems: 'center',
         gap: size === 'sm' ? 4 : 5,
-        fontSize: size === 'sm' ? 10 : 12,
+        fontSize: 12,
         fontWeight: 700,
         color: GOLD,
         padding: size === 'sm' ? '2px 8px' : '3px 10px',
@@ -151,12 +151,12 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
           </p>
         </div>
         {!signedIn ? (
-          <Link to={signIn} className="inline-flex min-h-[36px] items-center rounded-full px-4 text-xs font-bold" style={primary} data-testid="public-claim-signin">
+          <Link to={signIn} className="inline-flex min-h-[44px] items-center rounded-full px-4 text-xs font-bold" style={primary} data-testid="public-claim-signin">
             Sign in to claim
           </Link>
         ) : panel === 'closed' ? (
-          <Button size="sm" className="rounded-full font-bold" style={primary} onClick={() => { setPanel(kind === 'claim' ? 'claim' : 'request'); setFailure(null); }} data-testid="public-claim-open">
-            Is this you?
+          <Button size="sm" className="rounded-full font-bold min-h-[44px]" style={primary} onClick={() => { setPanel(kind === 'claim' ? 'claim' : 'request'); setFailure(null); }} data-testid="public-claim-open">
+            {kind === 'claim' ? 'Claim this page' : 'Ask to join'}
           </Button>
         ) : null}
       </div>
@@ -169,10 +169,10 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
           </p>
           {mailboxProven ? (
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" disabled={busy} onClick={() => void claim()} className="rounded-full font-bold" style={primary} data-testid="public-claim-confirm">
+              <Button size="sm" disabled={busy} onClick={() => void claim()} className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-claim-confirm">
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Yes, claim it'}
               </Button>
-              <Button size="sm" variant="ghost" style={{ color: MUTE }} onClick={() => setPanel('closed')}>
+              <Button size="sm" variant="ghost" className="min-h-[44px]" style={{ color: MUTE }} onClick={() => setPanel('closed')}>
                 Not me
               </Button>
             </div>
@@ -201,16 +201,16 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
             value={note}
             maxLength={500}
             onChange={(e) => setNote(e.target.value)}
-            className="min-h-[64px] text-sm"
+            className="min-h-[64px] text-[16px]"
             style={{ background: '#120e14', color: CREAM, borderColor: 'rgba(246,241,234,0.12)' }}
             placeholder="e.g. I run the Tuesday classes with Ana"
             data-testid="public-request-note"
           />
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" disabled={busy} onClick={() => void request()} className="rounded-full font-bold" style={primary} data-testid="public-request-send">
+            <Button size="sm" disabled={busy} onClick={() => void request()} className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-request-send">
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Request access'}
             </Button>
-            <Button size="sm" variant="ghost" style={{ color: MUTE }} onClick={() => setPanel('closed')}>
+            <Button size="sm" variant="ghost" className="min-h-[44px]" style={{ color: MUTE }} onClick={() => setPanel('closed')}>
               Cancel
             </Button>
           </div>
@@ -218,7 +218,7 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
       )}
 
       {signedIn && panel !== 'closed' && failure && (
-        <p className="text-xs" style={{ color: '#ff9b7a' }} role="alert" data-testid="public-claim-error">
+        <p className="text-xs text-destructive" role="alert" data-testid="public-claim-error">
           {failure.message}
           {failure.next === 'sign_in' && (
             <>

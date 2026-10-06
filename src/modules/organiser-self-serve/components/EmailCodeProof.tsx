@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, MailCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -15,12 +15,21 @@ import { Input } from '@/components/ui/input';
 /** The project's configured code length varies (prod and E2E use 8, the default is 6), so accept 6 to 10 digits (S7). */
 export const EMAIL_CODE_PATTERN = /^\d{6,10}$/;
 export const EMAIL_CODE_MAX_LENGTH = 10;
+/** Seconds before another code can be requested; the mail provider rate-limits sends. */
+export const RESEND_COOLDOWN_SECONDS = 30;
 
 export function EmailCodeProof({ email, onProven, returnTo = '/account' }: { email: string; onProven: () => void; returnTo?: string }) {
   const [sent, setSent] = useState(false);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   const send = async () => {
     setBusy(true);
@@ -38,6 +47,7 @@ export function EmailCodeProof({ email, onProven, returnTo = '/account' }: { ema
       return;
     }
     setSent(true);
+    setCooldown(RESEND_COOLDOWN_SECONDS);
   };
 
   const verify = async () => {
@@ -66,7 +76,7 @@ export function EmailCodeProof({ email, onProven, returnTo = '/account' }: { ema
         </span>
       </p>
       {sent ? (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Input
             inputMode="numeric"
             autoComplete="one-time-code"
@@ -74,15 +84,15 @@ export function EmailCodeProof({ email, onProven, returnTo = '/account' }: { ema
             placeholder="Code"
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            className="h-9 w-36 tracking-widest"
+            className="min-h-[44px] w-36 text-[16px] tracking-widest"
             aria-label="The code from your email"
             data-testid="email-code-input"
           />
           <Button size="sm" className="rounded-full min-h-[44px]" onClick={() => void verify()} disabled={busy} data-testid="email-code-verify">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm'}
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => void send()} disabled={busy}>
-            Resend
+          <Button size="sm" variant="ghost" className="min-h-[44px]" onClick={() => void send()} disabled={busy || cooldown > 0} data-testid="email-code-resend">
+            {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend'}
           </Button>
         </div>
       ) : (

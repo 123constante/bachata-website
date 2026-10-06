@@ -51,7 +51,7 @@ describe('result row hints (item 1)', () => {
     search('al');
     await waitFor(() => expect(screen.getAllByTestId('organiser-result')).toHaveLength(2));
     const hints = screen.getAllByTestId('action-hint').map((n) => n.textContent);
-    expect(hints).toEqual(['Claim: instant, we check your sign-in email', 'Request: the team checks your note']);
+    expect(hints).toEqual(['Yours to claim: your sign-in email matches', 'Ask to join: the team replies within a day']);
     expect(document.body.textContent).not.toMatch(/Claiming checks the email/);
     expect(document.body.textContent).not.toMatch(/social/i);
   });
