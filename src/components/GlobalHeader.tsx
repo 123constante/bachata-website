@@ -164,6 +164,9 @@ export const GlobalHeader = () => {
 
               const linkClass = cn(
                 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors no-underline',
+                // The external Community link is the one nav item with a fallback
+                // (the bottom bar), so it yields first when md widths run out.
+                item.external && 'max-lg:hidden',
                 isActive
                   ? 'text-primary bg-primary/10'
                   : 'text-muted-foreground hover:text-foreground hover:bg-primary/5',
