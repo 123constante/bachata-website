@@ -161,6 +161,10 @@ jobs:
           URL="$(node scripts/resolve-preview-url.mjs)"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
 
+      # The X-Robots-Tag noindex HEADER is a warn here, not a failure: Vercel
+      # sets it on every preview deployment (it failed every PR from 2026-09-12
+      # to the fix). The robots meta, canonical, JSON-LD and status are still
+      # asserted; the seo-check job above asserts the header strictly on prod.
       - name: Run SEO guard (preview)
         env:
           SEO_CHECK_BASE: ${{ steps.preview.outputs.url }}
