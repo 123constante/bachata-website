@@ -22,6 +22,12 @@ on:
   pull_request:
     branches: [main, master]
 
+# Supersede the previous run on the same PR branch (a re-push or a bot rebase);
+# main pushes, schedules and deployment events never cancel each other.
+concurrency:
+  group: seo-check-${{ github.event_name == 'pull_request' && github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   seo-check:
     # Production run. For deployment_status, only a successful production deploy;
