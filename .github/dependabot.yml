@@ -99,6 +99,12 @@ updates:
       - dependency-name: "@eslint/js"
         update-types: [version-update:semver-major]
 
+      # tailwindcss 4 (PR #578, 2026-10-06): the PostCSS plugin moved to
+      # @tailwindcss/postcss and the config model changed, so the build fails. Needs a
+      # deliberate Tailwind 3 -> 4 migration, not an auto-PR.
+      - dependency-name: tailwindcss
+        update-types: [version-update:semver-major]
+
       # The UI layer became cache-tuned on 2026-08-14, when P1 of the
       # vendor-cost arc pinned it into vendor-ui + vendor-ui-modal to cut
       # first-load REQUEST count (Vercel edge requests were at 180% of
