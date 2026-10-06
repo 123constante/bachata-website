@@ -121,7 +121,7 @@ describe('LevelRatingPrompt (event page, one-tap)', () => {
     expect(rateCalls()).toEqual([['rate_series_level_p5_v1', { p_series_id: SERIES, p_level: 'improver' }]]);
     expect(h.toast.success).toHaveBeenCalledTimes(1);
     expect(h.toast.success).toHaveBeenCalledWith(RATED_TOAST);
-    expect(RATED_TOAST).toBe('Thanks! You can change your rating in your dashboard.');
+    expect(RATED_TOAST).toBe('Thanks for rating.');
     expect(h.toast.error).not.toHaveBeenCalled();
   });
 

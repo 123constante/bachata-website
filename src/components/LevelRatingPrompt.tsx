@@ -29,7 +29,7 @@ const TILE_EMOJI: Record<SeriesLevel, string> = {
 };
 const TILE_LABEL: Partial<Record<SeriesLevel, string>> = { open_level: 'Open' };
 
-export const RATED_TOAST = 'Thanks! You can change your rating in your dashboard.';
+export const RATED_TOAST = 'Thanks for rating.';
 
 const errorMessage = (error: unknown) => {
   const text = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? '');
