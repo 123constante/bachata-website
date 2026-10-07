@@ -7,6 +7,13 @@
 // deleted; a removal is only ever removed: true. A value equal to the stored one
 // is a no-op and is not re-validated, so an untouched session is echoed as the
 // reader returned it.
+//
+// The line-up (teachers and DJs per session, admin 20261109700000 / 20261109750000)
+// rides beside the sessions: the reader adds session_people (one entry per session,
+// same order and identity key, each with its live people and their stored role),
+// and the writer takes per-session people_add / people_remove deltas. A session
+// whose line-up is untouched carries neither key, so a save that changes nobody is
+// byte-identical to one made before the line-up existed.
 
 import type { ConfirmCopy } from './editorGuards';
 
@@ -39,7 +46,23 @@ export const LIMITS = {
   spanMaxMinutes: 20 * 60,
   visibleMax: 40,
   dateOnlyMax: 20,
+  /** people_add and people_remove each hold at most this many; a session holds at most this many live people. */
+  peopleMax: 12,
 } as const;
+
+/** The two roles an organiser may add (the writer's c_people_roles). Any other stored role is the team's: read-only here. */
+export const PEOPLE_ROLES = ['teaching', 'djing'] as const;
+export type PeopleRole = (typeof PEOPLE_ROLES)[number];
+
+export const PEOPLE_ROLE_LABEL: Record<string, string> = {
+  teaching: 'Teacher',
+  djing: 'DJ',
+  mc: 'MC',
+  performing: 'Performer',
+};
+
+/** The note under a live date's programme: a saved change shows at once. Shared by the editor and the line-up sheet. */
+export const LIVE_SAVE_NOTE = 'Once you save, dancers see them straight away.';
 
 export type NotEditableReason = 'series_closed' | 'multi_day' | 'date_cancelled' | 'past_date';
 
@@ -66,9 +89,13 @@ export interface Programme {
   editable: boolean;
   notEditableReason: string | null;
   sessions: WireSession[];
+  /** The reader's session_people: one entry per session with its identity key and its people. */
+  sessionPeople: WireSession[];
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
+const objects = (v: unknown): WireSession[] =>
+  (Array.isArray(v) ? v : []).filter((s): s is WireSession => !!s && typeof s === 'object' && !Array.isArray(s));
 
 export function parseProgramme(data: unknown): Programme {
   const row = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
@@ -82,7 +109,8 @@ export function parseProgramme(data: unknown): Programme {
     version: row.version,
     editable: row.editable === true,
     notEditableReason: str(row.not_editable_reason),
-    sessions: (row.sessions as unknown[]).filter((s): s is WireSession => !!s && typeof s === 'object' && !Array.isArray(s)),
+    sessions: objects(row.sessions),
+    sessionPeople: objects(row.session_people),
   };
 }
 
@@ -104,6 +132,22 @@ export function parseSaveResult(data: unknown): SaveResult {
 
 // ---- the draft the screen edits ---------------------------------------------
 
+/** One person on a session's line-up, as the sheet edits it. */
+export interface DraftPerson {
+  /** The profile id people_add / people_remove name. */
+  id: string;
+  name: string;
+  /** The stored role; teaching or djing for anyone added here. */
+  role: string | null;
+  /** 'stored': the reader returned them; 'added': picked on this screen, not saved yet. */
+  origin: 'stored' | 'added';
+  /** A stored person marked for removal (greyed with Undo until the save). Never true for an added one. */
+  removed: boolean;
+}
+
+/** Only teachers and DJs are the organiser's to change; an MC or performer (set by the team) is read-only. */
+export const isEditableRole = (role: string | null): role is PeopleRole => (PEOPLE_ROLES as readonly string[]).includes(role ?? '');
+
 export interface DraftSession {
   /** Stable local key for React and for focus; never sent. */
   key: string;
@@ -116,6 +160,8 @@ export interface DraftSession {
   end: string;
   levels: string[];
   removed: boolean;
+  /** The line-up. Optional so a draft built before the line-up existed still reads as "nobody changed". */
+  people?: DraftPerson[];
 }
 
 const levelsOf = (v: unknown): string[] => (Array.isArray(v) ? v.filter((l): l is string => typeof l === 'string') : []);
@@ -126,7 +172,31 @@ export function sessionIdOf(s: WireSession): string | null {
   return str(s.series_item_id) ?? str(s.added_session_id);
 }
 
-export function toDraft(sessions: WireSession[]): DraftSession[] {
+function peopleOf(entry: WireSession | undefined): DraftPerson[] {
+  const list = entry && Array.isArray(entry.people) ? entry.people : [];
+  return list
+    .filter((p): p is Record<string, unknown> => !!p && typeof p === 'object' && typeof (p as Record<string, unknown>).profile_id === 'string')
+    .map((p) => ({
+      id: p.profile_id as string,
+      name: str(p.display_name)?.trim() || 'Unnamed',
+      role: str(p.role),
+      origin: 'stored' as const,
+      removed: false,
+    }));
+}
+
+/** The reader's session_people entry for a session: by its identity key, else by position. */
+function peopleEntryFor(s: WireSession, i: number, sessionPeople: WireSession[]): WireSession | undefined {
+  const id = sessionIdOf(s);
+  if (id) {
+    const hit = sessionPeople.find((e) => sessionIdOf(e) === id);
+    if (hit) return hit;
+  }
+  const at = sessionPeople[i];
+  return at && sessionIdOf(at) === null ? at : undefined;
+}
+
+export function toDraft(sessions: WireSession[], sessionPeople: WireSession[] = []): DraftSession[] {
   return sessions.map((s, i) => ({
     key: `s:${sessionIdOf(s) ?? i}`,
     original: s,
@@ -136,13 +206,14 @@ export function toDraft(sessions: WireSession[]): DraftSession[] {
     end: hhmm(s.end_time),
     levels: levelsOf(s.level_keys),
     removed: s.removed === true,
+    people: peopleOf(peopleEntryFor(s, i, sessionPeople)),
   }));
 }
 
 let newCounter = 0;
 export function newSession(type: SessionType = 'class'): DraftSession {
   newCounter += 1;
-  return { key: `new:${newCounter}`, original: null, type, title: '', start: '', end: '', levels: [], removed: false };
+  return { key: `new:${newCounter}`, original: null, type, title: '', start: '', end: '', levels: [], removed: false, people: [] };
 }
 
 /** True when the end is at or before the start: the session finishes after midnight. */
@@ -177,8 +248,75 @@ export function changesOf(row: DraftSession) {
   return { title, times, levels, removed, any: title || times || levels || removed };
 }
 
+// ---- the line-up ------------------------------------------------------------
+
+/** The line-up deltas of one session, exactly as the writer takes them. */
+export function peopleChangesOf(row: DraftSession): { add: { profile_id: string; role: PeopleRole }[]; remove: string[] } {
+  const people = row.people ?? [];
+  return {
+    add: people
+      .filter((p) => p.origin === 'added' && !p.removed && isEditableRole(p.role))
+      .map((p) => ({ profile_id: p.id, role: p.role as PeopleRole })),
+    remove: [...new Set(people.filter((p) => p.origin === 'stored' && p.removed).map((p) => p.id))],
+  };
+}
+
+/** True when the session's line-up would be sent (a removed session never carries people). */
+export function peopleChanged(row: DraftSession): boolean {
+  if (row.removed) return false;
+  const c = peopleChangesOf(row);
+  return c.add.length > 0 || c.remove.length > 0;
+}
+
+/** Add someone picked in the search. Someone already on the session (in any state) is left as is. */
+export function addPerson(row: DraftSession, person: { id: string; name: string; role: PeopleRole }): DraftSession {
+  const people = row.people ?? [];
+  if (people.some((p) => p.id === person.id)) return row;
+  return { ...row, people: [...people, { id: person.id, name: person.name, role: person.role, origin: 'added', removed: false }] };
+}
+
+/**
+ * Take someone off. A stored teacher or DJ stays, greyed, until the save (Undo puts
+ * them back); someone added on this screen was never saved, so they just go. An MC
+ * or performer is the team's and is never removed here.
+ */
+export function removePerson(row: DraftSession, index: number): DraftSession {
+  const people = row.people ?? [];
+  const p = people[index];
+  if (!p || !isEditableRole(p.role)) return row;
+  if (p.origin === 'added') return { ...row, people: people.filter((_, i) => i !== index) };
+  return { ...row, people: people.map((q, i) => (i === index ? { ...q, removed: true } : q)) };
+}
+
+export function undoRemovePerson(row: DraftSession, index: number): DraftSession {
+  const people = row.people ?? [];
+  if (!people[index]?.removed) return row;
+  return { ...row, people: people.map((q, i) => (i === index ? { ...q, removed: false } : q)) };
+}
+
+/** "Ana, Ben +2" for the session row; null when nobody is on it. */
+export function lineupSummary(people: DraftPerson[] | undefined, shown = 2): string | null {
+  const live = (people ?? []).filter((p) => !p.removed);
+  if (live.length === 0) return null;
+  const names = live.slice(0, shown).map((p) => p.name);
+  return live.length > shown ? `${names.join(', ')} +${live.length - shown}` : names.join(', ');
+}
+
+/** Why "Add teacher" / "Add DJ" is off for this session, or null when another person may be added. */
+export function addLimitReason(row: DraftSession): string | null {
+  const people = row.people ?? [];
+  if (peopleChangesOf(row).add.length >= LIMITS.peopleMax) return `You can add up to ${LIMITS.peopleMax} people per save.`;
+  if (people.filter((p) => !p.removed).length >= LIMITS.peopleMax) return `A session can have up to ${LIMITS.peopleMax} teachers and DJs.`;
+  return null;
+}
+
+/** Why the remove buttons are off for this session, or null. */
+export function removeLimitReason(row: DraftSession): string | null {
+  return peopleChangesOf(row).remove.length >= LIMITS.peopleMax ? `You can remove up to ${LIMITS.peopleMax} people per save.` : null;
+}
+
 export const isDirty = (rows: DraftSession[], originalCount: number) =>
-  rows.length !== originalCount || rows.some((r) => changesOf(r).any);
+  rows.length !== originalCount || rows.some((r) => changesOf(r).any || peopleChanged(r));
 
 /** Sessions that were on the date and are now marked removed: the save needs a hard confirm. */
 export const newlyRemoved = (rows: DraftSession[]) => rows.filter((r) => r.original && r.removed && r.original.removed !== true);
@@ -189,26 +327,40 @@ export const newlyRemoved = (rows: DraftSession[]) => rows.filter((r) => r.origi
  * untouched session is the reader's object as it came; an edited one sends the
  * stored value for every field it did not change (so a grandfathered title or a
  * null time is never re-validated), and ends_next_day is always derived from the
- * times it sends.
+ * times it sends. A session whose line-up changed adds people_add and/or
+ * people_remove (only the non-empty ones); one whose line-up did not carries
+ * neither key.
  */
 export function buildPayload(rows: DraftSession[]): WireSession[] {
-  const out: WireSession[] = [];
+  return buildSessions(rows).map(({ row, el }) => {
+    if (!peopleChanged(row)) return el;
+    const c = peopleChangesOf(row);
+    return {
+      ...el,
+      ...(c.add.length ? { people_add: c.add } : {}),
+      ...(c.remove.length ? { people_remove: c.remove } : {}),
+    };
+  });
+}
+
+function buildSessions(rows: DraftSession[]): { row: DraftSession; el: WireSession }[] {
+  const out: { row: DraftSession; el: WireSession }[] = [];
   for (const row of rows) {
     const o = row.original;
     if (o) {
       const c = changesOf(row);
       if (!c.any) {
-        out.push(o);
+        out.push({ row, el: o });
         continue;
       }
       if (row.removed) {
-        out.push({ ...o, removed: true });
+        out.push({ row, el: { ...o, removed: true } });
         continue;
       }
       const start = c.times ? row.start || null : (o.start_time as string | null) ?? null;
       const end = c.times ? row.end || null : (o.end_time as string | null) ?? null;
       const idKey = typeof o.series_item_id === 'string' ? 'series_item_id' : 'added_session_id';
-      out.push({
+      out.push({ row, el: {
         [idKey]: o[idKey],
         type: o.type ?? null,
         removed: false,
@@ -218,13 +370,13 @@ export function buildPayload(rows: DraftSession[]): WireSession[] {
         end_time: end,
         ends_next_day: c.times ? endsNextDay(start, end) : o.ends_next_day === true,
         level_keys: c.levels ? [...new Set(row.levels)] : levelsOf(o.level_keys),
-      });
+      } });
       continue;
     }
     if (row.removed) continue; // added here and taken out again: never sent
     const start = row.start || null;
     const end = row.end || null;
-    out.push({
+    out.push({ row, el: {
       new: true,
       type: row.type,
       title: row.title.trim(),
@@ -232,7 +384,7 @@ export function buildPayload(rows: DraftSession[]): WireSession[] {
       end_time: end,
       ends_next_day: endsNextDay(start, end),
       level_keys: [...new Set(row.levels)],
-    });
+    } });
   }
   return out;
 }
@@ -241,7 +393,7 @@ export function buildPayload(rows: DraftSession[]): WireSession[] {
 
 export interface RowProblem {
   key: string;
-  field: 'title' | 'times' | 'levels' | 'type';
+  field: 'title' | 'times' | 'levels' | 'type' | 'people';
   message: string;
 }
 
@@ -268,6 +420,21 @@ export function timesProblem(start: string, end: string): string | null {
   if (start === end) return 'The end time must be different from the start time.';
   const m = sessionMinutes(start, end);
   if (m < LIMITS.sessionMinMinutes || m > LIMITS.sessionMaxMinutes) return 'A session must last between 5 minutes and 12 hours.';
+  return null;
+}
+
+/** The writer's line-up rules for one session, checked only when its line-up changed. */
+export function peopleProblem(row: DraftSession): string | null {
+  const c = peopleChangesOf(row);
+  if (c.add.length > LIMITS.peopleMax) return `You can add up to ${LIMITS.peopleMax} people to a session per save.`;
+  if (c.remove.length > LIMITS.peopleMax) return `You can remove up to ${LIMITS.peopleMax} people from a session per save.`;
+  const added = c.add.map((a) => a.profile_id);
+  if (new Set(added).size !== added.length || added.some((id) => c.remove.includes(id))) {
+    return 'Someone is listed twice in this line-up. Undo the change and try again.';
+  }
+  if ((row.people ?? []).filter((p) => !p.removed).length > LIMITS.peopleMax) {
+    return `A session can have up to ${LIMITS.peopleMax} teachers and DJs.`;
+  }
   return null;
 }
 
@@ -299,6 +466,10 @@ export function validateProgramme(rows: DraftSession[]): Validation {
       anyTime = true;
       const p = timesProblem(row.start, row.end);
       if (p) problems.push({ key: row.key, field: 'times', message: p });
+    }
+    if (peopleChanged(row)) {
+      const p = peopleProblem(row);
+      if (p) problems.push({ key: row.key, field: 'people', message: p });
     }
     if (c.levels) {
       const bad = row.levels.some((l) => !(LEVEL_KEYS as readonly string[]).includes(l)) || new Set(row.levels).size !== row.levels.length;

@@ -246,6 +246,11 @@ export const KNOWN_TEAM_CODES = Object.keys(TEAM_COPY);
  */
 export const PROGRAMME_VERSION_CONFLICT = 'This date was changed somewhere else, so your changes were not saved. The latest programme is now showing. Make your changes again.';
 
+/** A line-up refusal that means the screen is out of date; the editor reloads the programme. */
+export const PEOPLE_CHANGED_COPY = 'The line-up of this date changed since you opened it, so your changes were not saved. The latest programme is now showing. Make your changes again.';
+/** Any other line-up refusal: calm, and never naming anyone. */
+export const PEOPLE_GENERIC_COPY = 'We could not save the line-up changes. Check the line-up and try again.';
+
 export const PROGRAMME_COPY: Array<{ match: RegExp; message: string; reload?: boolean }> = [
   { match: /^version_conflict/, message: PROGRAMME_VERSION_CONFLICT, reload: true },
   { match: /^permission_denied: authentication_required/, message: 'Please sign in again.' },
@@ -271,6 +276,11 @@ export const PROGRAMME_COPY: Array<{ match: RegExp; message: string; reload?: bo
   { match: /a date holds at most \d+ sessions/, message: 'A date can hold up to 40 sessions.' },
   { match: /would span more than 20 hours/, message: 'The programme of this date would run for more than 20 hours. Check the times.' },
   { match: /sessions holds more than|sessions is larger than/, message: 'This programme is too large to save here. Ask the Bachata Calendar team.' },
+  // The line-up (admin 20261109700000). The server is deliberately vague and the copy is too: never name a person.
+  { match: /people_remove names a person who is not on that session|people_remove person .* is not on this session|people_add person .* is already on this session/, message: PEOPLE_CHANGED_COPY, reload: true },
+  { match: /people_add person .* is not an existing/, message: 'Someone you added can no longer be added to a line-up. Check the line-up and try again.' },
+  { match: /would hold more than \d+ people/, message: 'A session can have up to 12 teachers and DJs.' },
+  { match: /people_add|people_remove/, message: PEOPLE_GENERIC_COPY },
   { match: /^permission_denied/, message: 'You cannot make that change here. Ask the Bachata Calendar team.' },
 ];
 

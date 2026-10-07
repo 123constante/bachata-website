@@ -5,7 +5,7 @@ import type { HomeSeriesFull } from './homeModel';
 import type { Json } from '@/integrations/supabase/types';
 import { parseDateDetail, parseWorkspace, type DateDetail, type SeriesWorkspace } from './seriesModel';
 import { upsertCommand, type CommandEnvelope, type OwnerCommand } from './seriesCommands';
-import { parseProgramme, parseSaveResult, type Programme, type SaveResult, type WireSession } from './programmeModel';
+import { parseProgramme, parseSaveResult, type PeopleRole, type Programme, type SaveResult, type WireSession } from './programmeModel';
 import {
   parseIncomingRequests,
   parseRemoval,
@@ -254,7 +254,7 @@ export const occurrenceProgrammeQueryKey = (occurrenceId: string | undefined) =>
  * trusted as a typed shape. Swap for `supabase.rpc` once the types carry them.
  */
 type ProgrammeRpc = (
-  fn: 'organiser_get_occurrence_programme_v1' | 'organiser_set_occurrence_programme_v1',
+  fn: 'organiser_get_occurrence_programme_v1' | 'organiser_set_occurrence_programme_v1' | 'organiser_search_people_v1',
   args: Record<string, unknown>,
 ) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
 const programmeRpc = (...args: Parameters<ProgrammeRpc>) => (supabase.rpc as unknown as ProgrammeRpc)(...args);
@@ -279,6 +279,52 @@ export async function saveOccurrenceProgramme(occurrenceId: string, expectedVers
   });
   if (error) throw error;
   return parseSaveResult(data);
+}
+
+// ---- the line-up picker (admin 20261109700000) ---------------------------------
+
+export const searchPeopleQueryKey = (role: PeopleRole, term: string) => ['organiser-search-people', role, term] as const;
+
+/** One person the picker offers: a teacher or DJ an organiser may put on a session. */
+export interface PersonResult {
+  id: string;
+  /** The name the line-up shows for this role (a DJ's DJ name when they have one). */
+  name: string;
+  photoUrl: string | null;
+  /** "Leeds" or "Leeds, GB"; null when not set. */
+  place: string | null;
+}
+
+export const PEOPLE_SEARCH_MIN = 2;
+export const PEOPLE_SEARCH_LIMIT = 20;
+
+/**
+ * organiser_search_people_v1 (read-only; owners and managers): active, line-up
+ * visible people holding the role, by name or DJ name. It refuses a query under
+ * 2 characters, so a shorter one never calls it. Rows: id, display_name,
+ * dj_name, photo_url, city_name, country_code, roles.
+ */
+export async function searchPeople(query: string, role: PeopleRole): Promise<PersonResult[]> {
+  const term = query.trim().slice(0, 100);
+  if (term.length < PEOPLE_SEARCH_MIN) return [];
+  const { data, error } = await programmeRpc('organiser_search_people_v1', {
+    p_query: term,
+    p_role: role,
+    p_limit: PEOPLE_SEARCH_LIMIT,
+  });
+  if (error) throw error;
+  if (!Array.isArray(data)) return [];
+  const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  return (data as Record<string, unknown>[]).flatMap((row) => {
+    const id = text(row.id);
+    const display = text(row.display_name);
+    const dj = text(row.dj_name);
+    const name = role === 'djing' ? dj ?? display : display ?? dj;
+    if (!id || !name) return [];
+    const city = text(row.city_name);
+    const country = text(row.country_code);
+    return [{ id, name, photoUrl: text(row.photo_url), place: city ? (country ? `${city}, ${country}` : city) : null }];
+  });
 }
 
 // ---- W3: create ----------------------------------------------------------------
