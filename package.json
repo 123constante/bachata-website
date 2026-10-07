@@ -68,6 +68,7 @@
     "synthetic:ssr": "playwright test --config playwright.synthetic.config.ts",
     "test:e2e:vendor:real": "node scripts/run-real-vendor-e2e.mjs",
     "test:e2e:organiser-real-rpc": "playwright test --config playwright.organiser-real-rpc.config.ts",
+    "seed:e2e:organiser-real-rpc": "node scripts/e2e/seed-organiser-real-rpc.mjs",
     "check:integrity": "bin/check-integrity.sh",
     "check:mojibake": "node scripts/check-mojibake.mjs",
     "check:mojibake:self-test": "node scripts/check-mojibake.mjs --self-test",

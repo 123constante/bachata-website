@@ -20,9 +20,9 @@ import { mkdirSync } from 'node:fs';
  * NOT in `npm run test:e2e` and NOT in e2e-smoke.yml: it needs E2E credentials and writes to the
  * E2E database. It refuses to run against prod (stsdtacfauprzrdebmzg) or any non-E2E project.
  *
- * Fixtures: the owner/contributor logins and their organiser come from the admin repo's
- * `node scripts/e2e/seed-organiser-real-rpc.mjs` (idempotent; re-run it before each run, it also
- * deletes the series earlier runs created). Runbook: admin docs/e2e-organiser-real-rpc.md.
+ * Fixtures: the owner/contributor logins and their organiser come from
+ * `npm run seed:e2e:organiser-real-rpc` (scripts/e2e/seed-organiser-real-rpc.mjs; idempotent; re-run
+ * it before each run, it also deletes the series earlier runs created). Runbook: docs/e2e-organiser-real-rpc.md.
  *
  * Run:
  *   E2E_ORGANISER_OWNER_PASSWORD=... E2E_ORGANISER_CONTRIBUTOR_PASSWORD=... \
@@ -62,7 +62,7 @@ const REF = refOf(URL_);
 /** Why this spec must not run here, or null. Prod is refused outright, never skipped quietly past. */
 function refusal(): string | null {
   if (process.env.ORGANISER_REAL_RPC_CONFIG !== '1') return 'run it with its own config: npm run test:e2e:organiser-real-rpc';
-  if (!OWNER_PASSWORD || !CONTRIB_PASSWORD) return 'set E2E_ORGANISER_OWNER_PASSWORD and E2E_ORGANISER_CONTRIBUTOR_PASSWORD (admin seed-organiser-real-rpc.mjs)';
+  if (!OWNER_PASSWORD || !CONTRIB_PASSWORD) return 'set E2E_ORGANISER_OWNER_PASSWORD and E2E_ORGANISER_CONTRIBUTOR_PASSWORD (see docs/e2e-organiser-real-rpc.md)';
   if (!URL_ || !ANON) return 'set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to the E2E project';
   return null;
 }
