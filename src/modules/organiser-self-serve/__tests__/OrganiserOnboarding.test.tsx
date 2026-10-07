@@ -117,3 +117,19 @@ describe('validation, Esc and note (item 5)', () => {
     expect((screen.getByTestId('request-note') as HTMLTextAreaElement).value).toBe('I run Tuesdays');
   });
 });
+
+describe('failed or offline search', () => {
+  it('shows a retry and never "No organiser matches" when the search fails', async () => {
+    api.search.mockRejectedValueOnce(new Error('Failed to fetch'));
+    mount();
+    search('al');
+    const box = await screen.findByTestId('organiser-search-error');
+    expect(box.getAttribute('role')).toBe('alert');
+    expect(screen.queryByTestId('organiser-no-match')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/No organiser matches/);
+    api.search.mockResolvedValueOnce([org('a', 'Alpha', 'me@x.example')]);
+    fireEvent.click(screen.getByTestId('organiser-search-retry'));
+    await waitFor(() => expect(screen.getAllByTestId('organiser-result')).toHaveLength(1));
+    expect(screen.queryByTestId('organiser-search-error')).toBeNull();
+  });
+});

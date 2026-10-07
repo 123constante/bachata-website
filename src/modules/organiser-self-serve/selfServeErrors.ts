@@ -152,7 +152,29 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
   { match: /^permission_denied/, message: 'You cannot make that change here. Ask the Bachata Calendar team.' },
 ];
 
+/**
+ * Shown when a save failed and the server never answered (phone offline, or a
+ * dropped connection such as "Failed to fetch"). The change may or may not have
+ * been saved, so it must not read like a plain "try again".
+ */
+export const OFFLINE_SAVE_MESSAGE =
+  'Your phone seems to be offline, so this may not have saved. Check your connection, then look at the date or event to see if your change is there before you save again. What you typed is still here.';
+
+/** A failed fetch (supabase-js surfaces it as a TypeError or an error with no server code), or an offline phone. */
+export function isNetworkFailure(error: unknown): boolean {
+  if (isServerRefusal(error)) return false;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  if (!error || typeof error !== 'object') return false;
+  const { name, message } = error as { name?: unknown; message?: unknown };
+  const text = typeof message === 'string' ? message : '';
+  return (
+    /failed to fetch|networkerror|network request failed|load failed|network connection was lost/i.test(text) ||
+    (name === 'TypeError' && /fetch|network/i.test(text))
+  );
+}
+
 export function commandErrorMessage(error: unknown): string {
+  if (isNetworkFailure(error)) return OFFLINE_SAVE_MESSAGE;
   const message = error && typeof error === 'object' ? (error as { message?: unknown }).message : null;
   if (typeof message === 'string') {
     const text = message.trim();
