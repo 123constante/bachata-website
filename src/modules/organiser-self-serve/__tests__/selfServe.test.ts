@@ -131,6 +131,20 @@ describe('commandErrorMessage (series and date commands)', () => {
     });
   });
 
+  describe('real full server messages for the caps', () => {
+    const real: Array<[string, RegExp]> = [
+      ['permission_denied: daily_edit_cap: this account made 100 changes in the last 24 hours (cap 100); try again later', /limit of 100 changes[\s\S]*tomorrow[\s\S]*Bachata Calendar team/],
+      ['permission_denied: date_cap: this series already has 30 upcoming dates (cap 30); remove or cancel one before adding another', /up to 30 upcoming dates[\s\S]*Remove[\s\S]*new event/],
+    ];
+
+    it.each(real)('%s', (message, expected) => {
+      const text = commandErrorMessage({ message, code: 'P0001' });
+      expect(text).toMatch(expected);
+      expect(text).not.toMatch(/cannot make that change/);
+      expect(text).not.toContain('_cap');
+    });
+  });
+
   it('never shows raw server text', () => {
     for (const message of ['relation "x" does not exist', 'some new refusal', '']) {
       expect(commandErrorMessage({ message })).toBe('Something went wrong. Please try again.');
