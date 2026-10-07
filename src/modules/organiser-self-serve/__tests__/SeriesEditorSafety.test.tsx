@@ -64,6 +64,7 @@ describe('SeriesEditor', () => {
     expect(screen.getByTestId('basics-unsaved')).toBeTruthy();
     expect(beforeUnload()).toBe(true);
     fireEvent.click(screen.getByTestId('basics-discard'));
+    fireEvent.click(screen.getByTestId('confirm-go'));
     expect(beforeUnload()).toBe(false);
   });
 

@@ -18,7 +18,7 @@ import {
   upsertCommand,
 } from '../seriesCommands';
 import { commandErrorMessage } from '../selfServeErrors';
-import { UNSAVED_MESSAGE, confirmCopy, leaveGuardEnabled, publicEventPath } from '../editorGuards';
+import { UNSAVED_MESSAGE, confirmCopy, type ConfirmCopy, leaveGuardEnabled, publicEventPath } from '../editorGuards';
 import {
   LIFECYCLE_NOTE,
   basicsFormFromSeries,
@@ -89,7 +89,7 @@ function PricesField({ rows, onChange }: { rows: PassRow[] | null; onChange: (ro
             value={row.name}
             maxLength={120}
             onChange={(e) => update(i, { name: e.target.value })}
-            className="h-9 text-sm flex-1 min-w-0"
+            className="h-9 text-[16px] md:text-[16px] flex-1 min-w-0"
           />
           <Input
             aria-label={`Price ${i + 1} amount`}
@@ -97,7 +97,7 @@ function PricesField({ rows, onChange }: { rows: PassRow[] | null; onChange: (ro
             inputMode="decimal"
             value={row.price}
             onChange={(e) => update(i, { price: e.target.value })}
-            className="h-9 text-sm w-24"
+            className="h-9 text-[16px] md:text-[16px] w-24"
           />
           <Button type="button" size="sm" variant="ghost" className="h-9 px-2" aria-label={`Remove price ${i + 1}`} onClick={() => onChange(rows.filter((_, j) => j !== i))}>
             <X className="w-4 h-4" aria-hidden="true" />
@@ -113,6 +113,38 @@ function PricesField({ rows, onChange }: { rows: PassRow[] | null; onChange: (ro
   );
 }
 
+const DISCARD_COPY: ConfirmCopy = {
+  title: 'Throw away your changes?',
+  consequence: UNSAVED_MESSAGE,
+  undo: 'The event goes back to how it was when you last saved.',
+  confirmLabel: 'Yes, undo my changes',
+  keepLabel: 'Keep editing',
+  requireAck: false,
+  ackLabel: '',
+};
+
+// Dormant behind SHOW_PRICE_AND_EVENT_INSTAGRAM; own components so they are testable.
+// 16px inputs (iOS zooms below that) and text-xs errors (11px is too small on a phone).
+export function InstagramField({ value, ok, onChange }: { value: string; ok: boolean; onChange: (value: string) => void }) {
+  return (
+    <div className="space-y-1">
+      <Label htmlFor="series-instagram" className="text-xs">Instagram link</Label>
+      <Input id="series-instagram" type="url" inputMode="url" placeholder="https://www.instagram.com/" value={value} onChange={(e) => onChange(e.target.value)} className="h-9 text-[16px] md:text-[16px]" />
+      {!ok && <p className="text-xs text-destructive" data-testid="instagram-hint">Use an instagram.com link, like https://www.instagram.com/yourname.</p>}
+    </div>
+  );
+}
+
+export function PricesFieldset({ rows, problem, onChange }: { rows: PassRow[] | null; problem: string | null; onChange: (rows: PassRow[]) => void }) {
+  return (
+    <fieldset className="space-y-1">
+      <legend className="text-xs font-medium mb-1">Prices</legend>
+      <PricesField rows={rows} onChange={onChange} />
+      {problem && <p className="text-xs text-destructive" data-testid="prices-hint">{problem}</p>}
+    </fieldset>
+  );
+}
+
 function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: SeriesWorkspace; onSaved: (text: string) => void; onDirtyChange: (dirty: boolean) => void }) {
   const { series } = workspace;
   const initial = useMemo(() => basicsFormFromSeries(series), [series]);
@@ -125,6 +157,20 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
   const [saved, setSaved] = useState(false);
   const command = useOwnerCommand(series.id);
   const bar = useRef<HTMLDivElement>(null);
+  // Discard asks first (the programme editor does too). The button unmounts while the question
+  // shows, so focus moves to "Keep editing", then back to Discard, or to the form once reset.
+  const [discarding, setDiscarding] = useState(false);
+  const discardRef = useRef<HTMLButtonElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const returnFocus = useRef<'discard' | 'name' | null>(null);
+  useEffect(() => {
+    if (discarding) { bar.current?.querySelector<HTMLElement>('[data-testid="confirm-keep"]')?.focus(); return; }
+    if (returnFocus.current === 'discard') discardRef.current?.focus();
+    if (returnFocus.current === 'name') nameRef.current?.focus();
+    returnFocus.current = null;
+  }, [discarding]);
+  const keepEditing = () => { returnFocus.current = 'discard'; setDiscarding(false); };
+  const discard = () => { returnFocus.current = 'name'; setForm(savedForm); setError(null); setDiscarding(false); };
   // A field focused under the sticky save bar is scrolled clear of it: the browser counts
   // it as on screen, so on its own it would stay hidden behind the bar.
   const clearOfBar = (e: FocusEvent<HTMLElement>) => {
@@ -175,7 +221,7 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
       <h2 id="basics-heading" className="text-base font-semibold">Edit your event</h2>
       <div className="space-y-1">
         <Label htmlFor="series-name" className="text-xs">Name</Label>
-        <Input id="series-name" value={form.name} maxLength={120} onChange={(e) => set('name', e.target.value)} className="h-9 text-[16px] md:text-[16px]" required />
+        <Input id="series-name" ref={nameRef} value={form.name} maxLength={120} onChange={(e) => set('name', e.target.value)} className="h-9 text-[16px] md:text-[16px]" required />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
@@ -201,16 +247,8 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
       </div>
       {SHOW_PRICE_AND_EVENT_INSTAGRAM && (
         <>
-          <div className="space-y-1">
-            <Label htmlFor="series-instagram" className="text-xs">Instagram link</Label>
-            <Input id="series-instagram" type="url" inputMode="url" placeholder="https://www.instagram.com/" value={form.instagramUrl ?? ''} onChange={(e) => set('instagramUrl', e.target.value)} className="h-9 text-sm" />
-            {!instagramOk && <p className="text-[11px] text-destructive" data-testid="instagram-hint">Use an instagram.com link, like https://www.instagram.com/yourname.</p>}
-          </div>
-          <fieldset className="space-y-1">
-            <legend className="text-xs font-medium mb-1">Prices</legend>
-            <PricesField rows={form.passes ?? null} onChange={(rows) => set('passes', rows)} />
-            {pricesProblem && <p className="text-[11px] text-destructive" data-testid="prices-hint">{pricesProblem}</p>}
-          </fieldset>
+          <InstagramField value={form.instagramUrl ?? ''} ok={instagramOk} onChange={(v) => set('instagramUrl', v)} />
+          <PricesFieldset rows={form.passes ?? null} problem={pricesProblem} onChange={(rows) => set('passes', rows)} />
         </>
       )}
       <p className="text-[11px] text-muted-foreground">
@@ -226,18 +264,24 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
         className="[fieldset:disabled_&]:hidden sticky bottom-[calc(60px+env(safe-area-inset-bottom))] z-10 -mx-3 -mb-3 flex flex-wrap items-center justify-end gap-2 rounded-b-md border-t border-border bg-background/95 px-3 py-2 backdrop-blur"
         data-testid="basics-bar"
       >
+        {discarding ? (
+          <div className="w-full">
+            <ConfirmPanel testId="discard-confirm" copy={DISCARD_COPY} busy={false} onConfirm={discard} onKeep={keepEditing} />
+          </div>
+        ) : (<>
         {dirty && <span className="mr-auto text-xs text-muted-foreground" data-testid="basics-unsaved">Not saved yet</span>}
         {!dirty && saved && (
           <span className="mr-auto inline-flex items-center gap-1 text-xs text-primary" data-testid="basics-saved">
             <Check className="w-3 h-3" aria-hidden="true" /> Saved
           </span>
         )}
-        <Button type="button" size="sm" variant="ghost" className="min-h-[44px]" disabled={!dirty || command.isPending} onClick={() => { setForm(savedForm); setError(null); }} data-testid="basics-discard">
+        <Button type="button" size="sm" variant="ghost" className="min-h-[44px]" disabled={!dirty || command.isPending} onClick={() => setDiscarding(true)} ref={discardRef} data-testid="basics-discard">
           Undo changes
         </Button>
         <Button type="button" size="sm" className="min-h-[44px]" disabled={!dirty || !valid || command.isPending} onClick={() => void save()} data-testid="basics-save">
           {command.isPending ? <><Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving&hellip;</> : 'Save for every date'}
         </Button>
+        </>)}
       </div>
     </section>
   );
