@@ -33,7 +33,6 @@ export function EventPreview({ model }: { model: PreviewModel }) {
         <div className="p-3 text-sm space-y-1" style={{ color: SITE.mute }}>
           <p className="font-semibold" style={{ color: SITE.cream }} data-testid="preview-when">{model.when}</p>
           <p data-testid="preview-where">{model.where ?? 'Venue to be confirmed'}</p>
-          {model.level && <p data-testid="preview-level">{model.level}</p>}
           <p>
             by <span style={{ color: SITE.gold }}>{model.by}</span>
           </p>

@@ -179,7 +179,6 @@ for (const width of [390, 768, 1280]) {
       await page.locator('#create-start').fill('19:00');
       await page.locator('#create-end').fill('21:30');
       await pickVenue(page, 'Studio');
-      await page.locator('#create-level').selectOption('beginner');
       await page.locator('#create-description').fill('Friendly weekly class.');
       await page.locator('#create-ticket').fill('https://tickets.example/tue');
 
@@ -187,9 +186,8 @@ for (const width of [390, 768, 1280]) {
       await expect(preview.getByTestId('preview-title')).toHaveText('Tuesday Bachata Class');
       await expect(preview.getByTestId('preview-when')).toHaveText('Every Tuesday \u00b7 19:00\u201321:30 \u00b7 first Tue 6 Oct');
       await expect(preview.getByTestId('preview-where')).toHaveText('Studio 3, Battersea Arts Hub');
-      await expect(preview.getByTestId('preview-level')).toHaveText('Beginner');
       await expect(preview).toContainText('Ritmo Bachata London');
-      await expect(page.getByTestId('create-price-note')).toContainText('Set by the Bachata Calendar team');
+      await expect(page.getByTestId('create-price-note')).toContainText('The Bachata Calendar team adds this');
       await expect(page.getByTestId('create-missing')).toHaveCount(0);
       // Mockup 02-A: the preview sits beside the form on a desktop, below it on a phone.
       const formBox = await page.getByTestId('create-fields').boundingBox();
@@ -222,7 +220,7 @@ for (const width of [390, 768, 1280]) {
         payload: {
           name: 'Tuesday Bachata Class', format: 'recurring', category: 'class', default_start_date: '2026-10-06',
           default_local_start_time: '19:00', timezone: 'Europe/London', default_duration_minutes: 150, default_venue_id: 'ven-1',
-          default_city_id: LONDON_ID, default_level: 'beginner', default_ticket_url: 'https://tickets.example/tue', default_description: 'Friendly weekly class.',
+          default_city_id: LONDON_ID, default_ticket_url: 'https://tickets.example/tue', default_description: 'Friendly weekly class.',
           organiser_ids: ['org-1'],
         },
       });

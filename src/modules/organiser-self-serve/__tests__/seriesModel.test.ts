@@ -98,7 +98,7 @@ describe('times stay wall-clock', () => {
   it('the basics form shows start and end from the series, and the draft carries minutes', () => {
     const ws = parseWorkspace(workspaceRaw);
     const form = basicsFormFromSeries(ws.series);
-    expect(form).toMatchObject({ startTime: '19:30', endTime: '21:30', venueId: 'ven-1', description: 'Weekly', level: '' });
+    expect(form).toMatchObject({ startTime: '19:30', endTime: '21:30', venueId: 'ven-1', description: 'Weekly' });
     expect(formToDraft({ ...form, endTime: '22:00' }).durationMinutes).toBe(150);
     expect(formToDraft({ ...form, endTime: '' }).durationMinutes).toBeNull();
   });
