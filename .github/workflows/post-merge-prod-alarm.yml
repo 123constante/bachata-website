@@ -99,7 +99,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
       REASON: >-
         ${{ github.event_name }}:
-        ${{ github.event.workflow_run.conclusion || github.event.deployment_status.state || needs.probe-new-deployment.result || 'manual test' }}
+        ${{ github.event_name == 'workflow_dispatch' && 'manual test' || needs.probe-new-deployment.result == 'failure' && 'new deployment probe failed' || github.event.workflow_run.conclusion || github.event.deployment_status.state }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Disable auto-merge on every open PR
