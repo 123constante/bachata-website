@@ -321,9 +321,15 @@ test.describe('organiser editor on the real RPCs (E2E project)', () => {
     }
 
     if (programmeSaved) {
-      const prog = await owner.client.rpc('organiser_get_occurrence_programme_v1' as never, { p_occurrence_id: occurrenceId } as never);
-      expect((prog as { error: { message: string } | null }).error).toBeNull();
-      const sessions = ((prog as { data: { sessions?: Array<Record<string, unknown>> } }).data?.sessions ?? []);
+      // Not in the generated types until admin #668 reaches prod, so plain PostgREST with the owner's token.
+      const progRes = await fetch(`${URL_}/rest/v1/rpc/organiser_get_occurrence_programme_v1`, {
+        method: 'POST',
+        headers: { apikey: ANON, Authorization: `Bearer ${owner.session.access_token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ p_occurrence_id: occurrenceId }),
+      });
+      const prog = (await progRes.json()) as { sessions?: Array<Record<string, unknown>>; message?: string };
+      expect(progRes.status, prog.message).toBe(200);
+      const sessions = prog.sessions ?? [];
       const mine = sessions.find((x) => x.title === sessionTitle);
       expect(mine, `session "${sessionTitle}" in ${JSON.stringify(sessions)}`).toBeTruthy();
       expect(mine?.type).toBe('class');
