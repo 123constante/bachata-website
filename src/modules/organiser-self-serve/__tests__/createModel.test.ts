@@ -33,7 +33,6 @@ const weeklyForm: CreateForm = {
   date: '2026-10-06',
   startTime: '19:00',
   endTime: '21:30',
-  level: 'beginner',
   ticketUrl: ' https://tickets.example/tue ',
   coverImageUrl: 'https://img.example/a.jpg',
   description: 'Friendly weekly class.',
@@ -156,7 +155,6 @@ describe('createPayload', () => {
       timezone: 'Europe/London',
       default_duration_minutes: 150,
       default_venue_id: 'ven-1',
-      default_level: 'beginner',
       default_ticket_url: 'https://tickets.example/tue',
       default_cover_image_url: 'https://img.example/a.jpg',
       default_description: 'Friendly weekly class.',
@@ -232,7 +230,6 @@ describe('previewModel', () => {
     expect(m.title).toBe('Tuesday Bachata Class');
     expect(m.when).toBe('Every Tuesday \u00b7 19:00\u201321:30 \u00b7 first Tue 6 Oct');
     expect(m.where).toBe('Studio 3, Battersea Arts Hub');
-    expect(m.level).toBe('Beginner');
     expect(m.by).toBe('Ritmo Bachata London');
     expect(m.coverImageUrl).toBe('https://img.example/a.jpg');
   });

@@ -34,7 +34,6 @@ const base: BasicsDraft = {
   venueId: 'venue-1',
   startTime: '21:00',
   durationMinutes: 240,
-  level: '',
   ticketUrl: '',
   coverImageUrl: '',
   instagramUrl: '',

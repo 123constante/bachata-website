@@ -6,7 +6,7 @@
 
 import { addDaysToKey, weekdayOfKey } from '@/lib/londonDate';
 import { dateLabel } from './homeModel';
-import { LEVEL_OPTIONS, formToDraft, minutesBetween } from './seriesModel';
+import { formToDraft, minutesBetween } from './seriesModel';
 import {
   addDateCommand,
   submitForReviewCommand,
@@ -40,7 +40,6 @@ export interface CreateForm {
   date: string;
   startTime: string;
   endTime: string;
-  level: string;
   ticketUrl: string;
   coverImageUrl: string;
   description: string;
@@ -53,7 +52,6 @@ export const emptyCreateForm = (): CreateForm => ({
   date: '',
   startTime: '',
   endTime: '',
-  level: '',
   ticketUrl: '',
   coverImageUrl: '',
   description: '',
@@ -194,13 +192,10 @@ export interface PreviewModel {
   /** "Every Tuesday, 19:00-21:30, first Tue 6 Oct" or "Sat 17 Oct, 20:00-00:00" (middle-dot separated, en-dash range). */
   when: string;
   where: string | null;
-  level: string | null;
   by: string;
   description: string | null;
   coverImageUrl: string | null;
 }
-
-const LEVEL_LABEL: Record<string, string> = Object.fromEntries(LEVEL_OPTIONS.map((o) => [o.value, o.label]));
 
 /** Public-page wording for the form as it stands; blanks read as the page would without them. */
 export function previewModel(form: CreateForm, venueName: string | null, organiserName: string, today: string): PreviewModel {
@@ -221,7 +216,6 @@ export function previewModel(form: CreateForm, venueName: string | null, organis
     title: form.name.trim() || (form.kind === 'party' ? 'Your party' : 'Your weekly class'),
     when: parts.join(' \u00b7 '),
     where: venueName,
-    level: form.level ? LEVEL_LABEL[form.level] ?? form.level : null,
     by: organiserName,
     description: form.description.trim() || null,
     coverImageUrl: isHttpUrl(form.coverImageUrl) ? form.coverImageUrl.trim() : null,

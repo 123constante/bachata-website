@@ -158,7 +158,6 @@ export interface BasicsDraft {
   startTime: string;
   /** Minutes; null when the form has no end time. */
   durationMinutes: number | null;
-  level: string;
   ticketUrl: string;
   coverImageUrl: string;
   /** The Instagram link (admin D8). Absent on a create. Blank clears. */
@@ -177,7 +176,6 @@ const FIELD_KEY: Record<TextField, OwnerUpsertKey> = {
   venueId: 'default_venue_id',
   startTime: 'default_local_start_time',
   durationMinutes: 'default_duration_minutes',
-  level: 'default_level',
   ticketUrl: 'default_ticket_url',
   coverImageUrl: 'default_cover_image_url',
 };
@@ -298,7 +296,7 @@ export interface CreateDraft extends BasicsDraft {
 }
 
 /** The optional text fields a create sends only when set (keys from FIELD_KEY). */
-const CREATE_TEXT_FIELDS = ['level', 'ticketUrl', 'coverImageUrl', 'description'] as const;
+const CREATE_TEXT_FIELDS = ['ticketUrl', 'coverImageUrl', 'description'] as const;
 
 /**
  * series.upsert payload for a create, WITHOUT the organiser key (see
