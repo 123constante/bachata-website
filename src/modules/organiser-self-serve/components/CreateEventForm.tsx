@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { LIFECYCLE_LABEL, createSeriesCommand, type HomeOrganiser } from '../selfServeApi';
 import { resolveCreateCityId } from '../createCity';
 import { createPayload, newIdempotencyKey, newSeriesId, type OwnerCommand } from '../seriesCommands';
 import { commandErrorMessage, isServerRefusal } from '../selfServeErrors';
-import { LEVEL_OPTIONS } from '../seriesModel';
+import { UNSAVED_MESSAGE, leaveGuardEnabled } from '../editorGuards';
 import {
   EVENT_KINDS,
   WEEKDAY_OPTIONS,
@@ -89,6 +90,9 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
   const weekday = weekdayOf(form.date);
   const weekly = form.kind === 'weekly_class';
   const canSend = !!organiser && !block && problems.length === 0 && !running && !landed;
+  // Anything typed counts as unsaved until the draft has landed (then the screen moves on by itself).
+  const dirty = JSON.stringify(form) !== JSON.stringify(emptyCreateForm());
+  useUnsavedChangesGuard({ enabled: leaveGuardEnabled({ dirty, saving: !!running, finished: landed }), message: UNSAVED_MESSAGE });
 
   const set = <K extends keyof CreateForm>(key: K, value: CreateForm[K]) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -123,7 +127,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
       setError(
         refused
           ? commandErrorMessage(err)
-          : 'We could not confirm the save. Check your connection and press the same button again; your details stay as they are until it goes through.',
+          : 'We could not tell if that saved. Check your connection and press the same button again. Your details are still here.',
       );
       setRunning(null);
       return;
@@ -159,7 +163,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
         left.version = typeof res.new_version === 'number' ? res.new_version : left.version;
         left.steps.shift();
       } catch (err) {
-        setError(`${commandErrorMessage(err)} The event itself is saved as a draft: try again, or open it.`);
+        setError(`${commandErrorMessage(err)} Your event is saved as a draft. Try again, or open it.`);
         setRunning(null);
         return;
       }
@@ -258,42 +262,28 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
         <div className="space-y-1">
           <Label htmlFor="create-venue" className="text-xs">Where</Label>
           <VenuePicker id="create-venue" value={form.venueId} onChange={(id) => set('venueId', id)} organiserName={organiser?.name ?? null} />
-          <p className="text-[11px] text-muted-foreground">Needed to submit for review. Not listed? Search for it, then ask the team to add it.</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label htmlFor="create-level" className="text-xs">Level</Label>
-            <select
-              id="create-level"
-              value={form.level}
-              onChange={(e) => set('level', e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Not set</option>
-              {LEVEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <p className="text-xs font-medium leading-none">Price</p>
-            <p className="h-9 flex items-center text-xs text-muted-foreground" data-testid="create-price-note">Set by the Bachata Calendar team for now.</p>
-          </div>
+          <p className="text-[11px] text-muted-foreground">You need a venue before you can send it for review. Can&rsquo;t find yours? Search first, then ask the team to add it.</p>
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="create-cover" className="text-xs">Picture link</Label>
+          <p className="text-xs font-medium leading-none">Price</p>
+          <p className="text-xs text-muted-foreground" data-testid="create-price-note">The Bachata Calendar team adds this for now.</p>
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="create-cover" className="text-xs">Picture (link)</Label>
           <Input id="create-cover" type="url" inputMode="url" placeholder="https://" value={form.coverImageUrl} onChange={(e) => set('coverImageUrl', e.target.value)} className="h-9 text-sm" />
-          <p className="text-[11px] text-muted-foreground">Square or 4:5 works best. Your organiser picture is used until you add one.</p>
+          <p className="text-[11px] text-muted-foreground">A square or portrait picture works best. Until you add one, we use your organiser picture.</p>
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="create-description" className="text-xs">Tell dancers about it <span className="font-normal text-muted-foreground">(optional)</span></Label>
+          <Label htmlFor="create-description" className="text-xs">About this event <span className="font-normal text-muted-foreground">(optional)</span></Label>
           <Textarea id="create-description" value={form.description} rows={4} maxLength={4000} onChange={(e) => set('description', e.target.value)} className="text-sm" />
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="create-ticket" className="text-xs">Ticket or booking link <span className="font-normal text-muted-foreground">(optional)</span></Label>
-          <Input id="create-ticket" type="url" inputMode="url" placeholder="Paste the link where dancers book or pay" value={form.ticketUrl} onChange={(e) => set('ticketUrl', e.target.value)} className="h-9 text-sm" />
+          <Label htmlFor="create-ticket" className="text-xs">Where to book (link) <span className="font-normal text-muted-foreground">(optional)</span></Label>
+          <Input id="create-ticket" type="url" inputMode="url" placeholder="Paste your booking link" value={form.ticketUrl} onChange={(e) => set('ticketUrl', e.target.value)} className="h-9 text-sm" />
         </div>
 
         </fieldset>
@@ -303,7 +293,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
         )}
         {error && <p className="text-xs text-destructive" role="alert" data-testid="create-error">{error}</p>}
 
-        <div className="sticky bottom-0 -mx-4 px-4 py-2 bg-background/90 backdrop-blur border-t border-border space-y-1" data-testid="create-actions">
+        <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-10 -mx-4 px-4 py-2 bg-background/90 backdrop-blur border-t border-border space-y-1" data-testid="create-actions">
           {landed ? (
             <p className="text-sm flex flex-wrap items-center gap-2">
               <span>Saved as a draft.</span>
@@ -317,17 +307,17 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
               <Button asChild size="sm" variant="ghost" className="lg:hidden mr-auto min-h-[44px]">
                 <a href="#create-preview"><Eye className="w-4 h-4" aria-hidden="true" /> Preview</a>
               </Button>
-              <Button type="button" size="sm" variant="outline" disabled={!canSend} onClick={() => void run(false)} data-testid="save-draft">
+              <Button type="button" size="sm" variant="outline" className="min-h-[44px]" disabled={!canSend} onClick={() => void run(false)} data-testid="save-draft">
                 {running === 'draft' && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Save draft
               </Button>
-              <Button type="button" size="sm" disabled={!canSend || submitBlocked} onClick={() => void run(true)} data-testid="submit-review">
+              <Button type="button" size="sm" className="min-h-[44px]" disabled={!canSend || submitBlocked} onClick={() => void run(true)} data-testid="submit-review">
                 {running === 'submit' && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Submit for review
               </Button>
             </div>
           )}
           {!block && !landed && missing && <p className="text-[11px] text-muted-foreground text-right" data-testid="create-missing">{missing}</p>}
           <p className="text-[11px] text-muted-foreground">
-            New events are checked by the Bachata Calendar team before they go live, usually within a day. Later changes to a live event appear straight away.
+            The Bachata Calendar team checks every new event before it goes live, usually within a day. Changes to a live event show straight away.
           </p>
         </div>
       </form>

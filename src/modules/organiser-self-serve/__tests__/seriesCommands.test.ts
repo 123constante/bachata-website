@@ -60,7 +60,6 @@ const base: BasicsDraft = {
   venueId: 'venue-1',
   startTime: '19:00',
   durationMinutes: 150,
-  level: 'beginner',
   ticketUrl: 'https://tickets.example/tue',
   coverImageUrl: '',
 };
@@ -115,12 +114,12 @@ describe('basicsPayload', () => {
   it('never emits a key outside the owner upsert allowlist, whatever changes', () => {
     const everything: BasicsDraft = {
       name: 'New name', description: 'New', venueId: 'venue-2', startTime: '20:00', durationMinutes: 90,
-      level: 'advanced', ticketUrl: 'https://x.example', coverImageUrl: 'https://img.example/a.jpg',
+      ticketUrl: 'https://x.example', coverImageUrl: 'https://img.example/a.jpg',
     };
     const keys = Object.keys(basicsPayload(base, everything));
     expect(keys.filter((k) => !SERVER_UPSERT_KEYS.includes(k))).toEqual([]);
     expect(keys.sort()).toEqual([
-      'default_cover_image_url', 'default_description', 'default_duration_minutes', 'default_level',
+      'default_cover_image_url', 'default_description', 'default_duration_minutes',
       'default_local_start_time', 'default_ticket_url', 'default_venue_id', 'name',
     ]);
     // No organiser, format, slug or timezone: an owner cannot move or reshape a series here.
@@ -129,8 +128,8 @@ describe('basicsPayload', () => {
   });
 
   it('clears a text field with blank (the handler NULLIFs it) and sends duration as a number', () => {
-    expect(basicsPayload(base, { ...base, level: '', durationMinutes: 120 })).toEqual({
-      name: 'Tuesday Bachata Class', default_level: '', default_duration_minutes: 120,
+    expect(basicsPayload(base, { ...base, ticketUrl: '', durationMinutes: 120 })).toEqual({
+      name: 'Tuesday Bachata Class', default_ticket_url: '', default_duration_minutes: 120,
     });
   });
 

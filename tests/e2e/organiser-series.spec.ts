@@ -241,10 +241,12 @@ for (const width of [390, 768, 1280]) {
       const sheet = page.getByTestId('date-sheet');
       await expect(sheet).toContainText('Sun 11 Oct');
       await sheet.getByTestId('action-cancel').click();
-      await expect(sheet.getByTestId('cancel-confirm')).toBeDisabled();
+      await expect(sheet.getByTestId('cancel-next')).toBeDisabled();
       await sheet.getByTestId('cancel-reason').filter({ hasText: 'Venue closed' }).click();
       await page.screenshot({ path: `test-results/organiser-date-sheet-${width}.png` });
-      await sheet.getByTestId('cancel-confirm').click();
+      await sheet.getByTestId('cancel-next').click();
+      await sheet.getByTestId('confirm-ack').check();
+      await sheet.getByTestId('confirm-go').click();
       await expect(sheet.getByTestId('date-done')).toContainText('Sun 11 Oct is cancelled.');
       expectEnvelope(fake.sent[2], 'occ-2', 1, { kind: 'occurrence.cancel', payload: { cancelled: true, reason: 'Venue closed' } });
       await sheet.getByTestId('date-close').click();
@@ -291,7 +293,9 @@ test('a server refusal reads as plain words, never raw text', async ({ page }) =
   await sheet.getByTestId('action-cancel').click();
   await sheet.getByTestId('cancel-reason').filter({ hasText: 'Other' }).click();
   fake.refuseNext = 'permission_denied: occurrence.cancel on a past date is admin-only';
-  await sheet.getByTestId('cancel-confirm').click();
+  await sheet.getByTestId('cancel-next').click();
+  await sheet.getByTestId('confirm-ack').check();
+  await sheet.getByTestId('confirm-go').click();
   await expect(sheet.getByTestId('date-error')).toHaveText('That date has already happened, so it can no longer be changed.');
   await expect(sheet).not.toContainText('admin-only');
 });

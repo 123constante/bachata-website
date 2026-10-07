@@ -322,7 +322,7 @@ export type LifecycleTarget = 'paused' | 'live' | 'archived';
 export interface LifecycleAction {
   to: LifecycleTarget;
   label: string;
-  /** Archive asks again before it is sent. */
+  /** Pause and archive ask again before they are sent; resume does not. */
   confirm: boolean;
 }
 
@@ -341,7 +341,7 @@ const OWNER_TRANSITIONS: Record<string, LifecycleTarget[]> = {
 const ACTION_LABEL: Record<LifecycleTarget, string> = { paused: 'Pause', live: 'Resume', archived: 'Archive' };
 
 export function lifecycleActions(status: string): LifecycleAction[] {
-  return (OWNER_TRANSITIONS[status] ?? []).map((to) => ({ to, label: ACTION_LABEL[to], confirm: to === 'archived' }));
+  return (OWNER_TRANSITIONS[status] ?? []).map((to) => ({ to, label: ACTION_LABEL[to], confirm: to !== 'live' }));
 }
 
 // ---- the basics form -----------------------------------------------------------
@@ -353,7 +353,6 @@ export interface BasicsForm {
   venueId: string | null;
   startTime: string;
   endTime: string;
-  level: string;
   ticketUrl: string;
   coverImageUrl: string;
   /** Absent on the create form (createModel), which sends neither key. */
@@ -399,7 +398,6 @@ export function basicsFormFromSeries(s: WorkspaceSeries): BasicsForm {
     venueId: s.default_venue_id,
     startTime: start,
     endTime: endTime(start || null, durationMinutes(s.default_duration)) ?? '',
-    level: s.default_level ?? '',
     ticketUrl: s.default_ticket_url ?? '',
     coverImageUrl: s.default_cover_image_url ?? '',
     instagramUrl: s.instagram_url ?? '',
@@ -414,7 +412,6 @@ export function formToDraft(f: BasicsForm): BasicsDraft {
     venueId: f.venueId,
     startTime: f.startTime,
     durationMinutes: f.startTime && f.endTime ? minutesBetween(f.startTime, f.endTime) : null,
-    level: f.level,
     ticketUrl: f.ticketUrl,
     coverImageUrl: f.coverImageUrl,
     ...(f.instagramUrl !== undefined ? { instagramUrl: f.instagramUrl } : {}),
@@ -444,17 +441,9 @@ export function setTimeDoneCopy(label: string, start: string, response: unknown)
   return { title: `${label} now starts at ${start}.`, body: 'Only this date moves. Every other date keeps the series time.' };
 }
 
-export const LEVEL_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'open_level', label: 'All levels' },
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'improver', label: 'Improver' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'advanced', label: 'Advanced' },
-];
-
 /** The one-line note under the Status buttons. A paused page is hidden (launch walk S1). */
 export const LIFECYCLE_NOTE: Record<string, string> = {
-  live: 'Pausing hides the page and its dates until you resume. Archiving hides it; the team can restore it.',
-  paused: 'Paused: the page is hidden. Dancers cannot find it or its dates until you Resume.',
-  draft: 'Not public yet. Archiving removes this draft from your list.',
+  live: 'Pause hides your event from dancers until you resume it. Archive takes it off Bachata Calendar, and only the team can bring it back.',
+  paused: 'Paused: your event is hidden from dancers, with all its dates. Press Resume to bring it back.',
+  draft: 'Dancers cannot see this yet. Archive removes this draft from your list.',
 };

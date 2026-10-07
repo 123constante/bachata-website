@@ -25,6 +25,7 @@ import {
   type OwnerCommand,
 } from '../seriesCommands';
 import { commandErrorMessage } from '../selfServeErrors';
+import { confirmCopy, publicEventPath } from '../editorGuards';
 import {
   dateLabel,
   durationMinutes,
@@ -35,6 +36,7 @@ import {
   type WorkspaceDate,
   type WorkspaceSeries,
 } from '../seriesModel';
+import { ConfirmPanel } from './ConfirmPanel';
 import { useOwnerCommand } from './useOwnerCommand';
 import { VenuePicker } from './VenuePicker';
 import { useVenueOptions, venueName } from './publicVenues';
@@ -47,7 +49,7 @@ import { useVenueOptions, venueName } from './publicVenues';
  * series is never edited from here.
  */
 
-type View = 'menu' | 'cancel' | 'time' | 'venue' | 'note' | 'media' | 'done';
+type View = 'menu' | 'cancel' | 'cancel_confirm' | 'remove_confirm' | 'time' | 'venue' | 'note' | 'media' | 'done';
 
 interface Props {
   open: boolean;
@@ -244,7 +246,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                     disabled={busy}
                   />
                 ) : (
-                  <MenuItem icon={<Ban className="w-4 h-4" />} title="Cancel this date" hint='Dancers see "Cancelled" and your reason. You can un-cancel.' testId="action-cancel" onClick={() => open3C('cancel')} tone="danger" />
+                  <MenuItem icon={<Ban className="w-4 h-4" />} title="Cancel this date" hint='Dancers see "Cancelled" and your reason. You can undo it.' testId="action-cancel" onClick={() => open3C('cancel')} tone="danger" />
                 )}
                 {!cancelled && (
                   <MenuItem
@@ -259,12 +261,12 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                   <MenuItem icon={<MapPin className="w-4 h-4" />} title="Change the venue" hint={seriesVenue ? `Usually ${seriesVenue}` : null} testId="action-venue" onClick={() => open3C('venue')} />
                 )}
                 <MenuItem icon={<PenLine className="w-4 h-4" />} title="Add a note for this date" hint={d?.descriptionOverride ? `Now: "${d.descriptionOverride.slice(0, 60)}"` : '"Cover teacher", "bring cash", "Halloween theme"'} testId="action-note" onClick={() => open3C('note')} />
-                <MenuItem icon={<ImageIcon className="w-4 h-4" />} title="Picture or ticket link for this date" hint="A special guest, a festival promo" testId="action-media" onClick={() => open3C('media')} />
+                <MenuItem icon={<ImageIcon className="w-4 h-4" />} title="Picture or booking link for this date" hint="A special guest, a festival promo" testId="action-media" onClick={() => open3C('media')} />
                 {!cancelled && ruleDate ? (
                   <MenuItem
                     icon={<CalendarX2 className="w-4 h-4" />}
                     title="Skip this week"
-                    hint="A break: the date comes off the calendar without a cancellation notice."
+                    hint="Takes this date off the calendar for a break. Dancers do not see a cancellation."
                     testId="action-skip"
                     onClick={() => void run(skipDateCommand(date.id), { title: `${label} is a break.`, body: 'It no longer shows on Bachata Calendar. You can put it back from "Dates taken off".' })}
                     disabled={busy}
@@ -273,9 +275,9 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                   <MenuItem
                     icon={<Trash2 className="w-4 h-4" />}
                     title={cancelled ? 'Remove it from the list' : 'Remove this date'}
-                    hint={cancelled ? 'Dancers stop seeing the cancelled date.' : 'For a date added by mistake.'}
+                    hint={cancelled ? 'Dancers stop seeing the cancelled date.' : 'For a date you added by mistake.'}
                     testId="action-remove"
-                    onClick={() => void removeDate()}
+                    onClick={() => { setError(null); setView('remove_confirm'); }}
                     disabled={busy}
                   />
                 )}
@@ -286,7 +288,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
             <div className="space-y-3" data-testid="cancel-panel">
               <div>
                 <p className="text-sm font-semibold">Cancel {label}</p>
-                <p className="text-xs text-muted-foreground">Only this date. The other dates keep running.</p>
+                <p className="text-xs text-muted-foreground">Only this date. Your other dates carry on.</p>
               </div>
               <fieldset className="space-y-2">
                 <legend className="text-xs font-medium mb-1">Why? Dancers see this.</legend>
@@ -311,23 +313,33 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                 {reasons.isLoading && <p className="text-xs text-muted-foreground">Loading reasons…</p>}
               </fieldset>
               <div className="flex flex-wrap gap-2 justify-end">
-                <Button type="button" size="sm" variant="ghost" onClick={() => setView('menu')} disabled={busy}>Keep it on</Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  disabled={!reason || busy}
-                  data-testid="cancel-confirm"
-                  onClick={() => reason && void run(cancelCommand(reason), {
-                    title: `${label} is cancelled.`,
-                    body: `Dancers see "Cancelled · ${reason}" on the event page.`,
-                    undo: uncancelCommand(),
-                  })}
-                >
-                  {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Cancel this date
+                {back}
+                {/* Nothing is sent from here: Next opens the explicit confirm step. */}
+                <Button type="button" size="sm" disabled={!reason || busy} data-testid="cancel-next" onClick={() => { setError(null); setView('cancel_confirm'); }}>
+                  Next
                 </Button>
               </div>
             </div>
+          ) : view === 'cancel_confirm' && reason ? (
+            <ConfirmPanel
+              testId="cancel-confirm-panel"
+              copy={confirmCopy('cancel_date', { subject: label, reason })}
+              busy={busy}
+              onKeep={() => { setError(null); setView('cancel'); }}
+              onConfirm={() => void run(cancelCommand(reason), {
+                title: `${label} is cancelled.`,
+                body: `Dancers see "Cancelled · ${reason}" on the event page.`,
+                undo: uncancelCommand(),
+              })}
+            />
+          ) : view === 'remove_confirm' ? (
+            <ConfirmPanel
+              testId="remove-confirm-panel"
+              copy={confirmCopy('remove_date', { subject: label, alreadyCancelled: cancelled })}
+              busy={busy}
+              onKeep={() => { setError(null); setView('menu'); }}
+              onConfirm={() => void removeDate()}
+            />
           ) : view === 'time' ? (
             <div className="space-y-3" data-testid="time-panel">
               <p className="text-xs text-muted-foreground">
@@ -398,7 +410,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
               <div className="space-y-1">
                 <Label htmlFor="date-note" className="text-xs">Note for {label}</Label>
                 <Textarea id="date-note" value={note} onChange={(e) => setNote(e.target.value)} rows={4} maxLength={4000} className="text-sm" />
-                <p className="text-[11px] text-muted-foreground">Dancers see it on this date in place of the usual description.</p>
+                <p className="text-[11px] text-muted-foreground">Dancers see this on this date instead of the usual description.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 justify-between">
                 {back}
@@ -420,7 +432,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                 <p className="text-[11px] text-muted-foreground">{d?.coverImageOverride ? 'Leave empty to use the series picture again.' : 'Empty uses the series picture.'}</p>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="date-ticket" className="text-xs">Ticket or booking link for {label}</Label>
+                <Label htmlFor="date-ticket" className="text-xs">Booking link for {label}</Label>
                 <Input id="date-ticket" type="url" inputMode="url" value={ticket} onChange={(e) => setTicket(e.target.value)} placeholder="https://" className="h-9 text-sm" />
                 <p className="text-[11px] text-muted-foreground">{d?.ticketUrlOverride ? 'Leave empty to use the series link again.' : 'Empty uses the series link.'}</p>
               </div>
@@ -442,8 +454,8 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
               <p className="text-xs text-muted-foreground">{doneText?.body}</p>
               <div className="flex flex-wrap items-center gap-3 justify-end">
                 {live && (
-                  <Link to={`/event/${series.slug ?? series.id}`} className="text-xs text-primary tap-link gap-1 mr-auto">
-                    View as a dancer <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                  <Link to={publicEventPath(series)} className="text-xs text-primary tap-link gap-1 mr-auto" data-testid="date-view-on-site">
+                    View on the site <ExternalLink className="w-3 h-3" aria-hidden="true" />
                   </Link>
                 )}
                 {doneText?.undo && (
