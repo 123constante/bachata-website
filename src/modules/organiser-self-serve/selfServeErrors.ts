@@ -148,6 +148,11 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
   { match: /category must be party, class or workshop|category on a live series is admin-only/, message: 'That kind of event cannot be set here. Ask the Bachata Calendar team.' },
   { match: /format must be one_off or recurring/, message: 'Choose a party or a weekly class.' },
   { match: /default_start_date cannot be set to a past date|end\.date must not be before today/, message: 'Choose a date from today on.' },
+  // Admin refusals raised as a bare code: the daily edit limit, the dates limit, and undo.
+  { match: /^(permission_denied: )?daily_edit_cap/, message: "You have reached today's limit of 100 changes. You can carry on tomorrow, or ask the Bachata Calendar team." },
+  { match: /^(permission_denied: )?date_cap/, message: 'An event can have up to 30 upcoming dates. Remove some old dates, or start a new event.' },
+  { match: /^undo_conflict/, message: 'Someone changed this after you. Look at the event as it is now before you change it again.' },
+  { match: /^not_undoable/, message: 'That change cannot be undone here. Change it back by hand.' },
   { match: /^permission_denied: series\.set_recurrence/, message: 'The weekly pattern could not be saved. Pick one weekday and a first date from today on.' },
   { match: /^permission_denied/, message: 'You cannot make that change here. Ask the Bachata Calendar team.' },
 ];
