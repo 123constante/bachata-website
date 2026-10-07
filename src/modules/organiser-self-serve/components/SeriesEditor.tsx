@@ -44,6 +44,7 @@ import {
 } from '../seriesModel';
 import { ConfirmPanel } from './ConfirmPanel';
 import { DateActionSheet } from './DateActionSheet';
+import { FlyerUpload } from './FlyerUpload';
 import { ReviewStrip } from './ReviewStrip';
 import { useOwnerCommand } from './useOwnerCommand';
 import { VenuePicker } from './VenuePicker';
@@ -127,8 +128,10 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
   }, [initial]);
 
   const set = <K extends keyof BasicsForm>(key: K, value: BasicsForm[K]) => setForm((f) => ({ ...f, [key]: value }));
-  const draft = formToDraft(form);
   const before = formToDraft(baseline.current);
+  // The picture is saved by FlyerUpload on its own; this form never sends it,
+  // so a stale value here cannot undo a picture saved meanwhile.
+  const draft = { ...formToDraft(form), coverImageUrl: before.coverImageUrl };
   const dirty = hasBasicsChanges(before, draft);
   const pricesProblem = SHOW_PRICE_AND_EVENT_INSTAGRAM ? passRowsProblem(form.passes) : null;
   const instagramOk = SHOW_PRICE_AND_EVENT_INSTAGRAM ? instagramUrlOk(form.instagramUrl ?? '') : true;
@@ -173,10 +176,6 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
       <div className="space-y-1">
         <Label htmlFor="series-ticket" className="text-xs">Where to book (link)</Label>
         <Input id="series-ticket" type="url" inputMode="url" placeholder="https://" value={form.ticketUrl} onChange={(e) => set('ticketUrl', e.target.value)} className="h-9 text-sm" />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="series-cover" className="text-xs">Picture (link)</Label>
-        <Input id="series-cover" type="url" inputMode="url" placeholder="https://" value={form.coverImageUrl} onChange={(e) => set('coverImageUrl', e.target.value)} className="h-9 text-sm" />
       </div>
       {SHOW_PRICE_AND_EVENT_INSTAGRAM && (
         <>
@@ -406,8 +405,9 @@ export function SeriesEditor({ workspace, today }: { workspace: SeriesWorkspace;
   const { series } = workspace;
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
-  // Leaving with edits not saved (a link, Back, closing the tab) asks first.
-  useUnsavedChangesGuard({ enabled: leaveGuardEnabled({ dirty }), message: UNSAVED_MESSAGE });
+  const [flyerDirty, setFlyerDirty] = useState(false);
+  // Leaving with edits not saved (a link, Back, closing the tab, a picture not saved) asks first.
+  useUnsavedChangesGuard({ enabled: leaveGuardEnabled({ dirty: dirty || flyerDirty }), message: UNSAVED_MESSAGE });
   const upcoming = useMemo(() => upcomingDates(workspace.dates, today), [workspace.dates, today]);
   const scope = scopeNote(upcoming, today);
   const live = series.lifecycle_status === 'live';
@@ -449,6 +449,13 @@ export function SeriesEditor({ workspace, today }: { workspace: SeriesWorkspace;
 
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         <div className="space-y-4">
+          <FlyerUpload
+            series={series}
+            nextDate={upcoming[0]?.occurrence_date ?? null}
+            meta={scheduleSummary(series)}
+            onSaved={setConfirmation}
+            onDirtyChange={setFlyerDirty}
+          />
           <BasicsSection workspace={workspace} onSaved={setConfirmation} onDirtyChange={setDirty} />
         </div>
         <div className="space-y-4">
