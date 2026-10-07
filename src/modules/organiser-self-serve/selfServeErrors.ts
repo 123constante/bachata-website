@@ -214,9 +214,10 @@ export const KNOWN_TEAM_CODES = Object.keys(TEAM_COPY);
  * Prefixed messages like the P5 commands, some naming the 0-based payload index
  * of the session at fault ("invalid_payload: session 2 title is required").
  * Raw server text is never shown. `reload` marks the refusals that mean the
- * screen is out of date with the server: the editor reloads the programme.
+ * screen is out of date with the server: the editor reloads the programme itself,
+ * so the copy says it is loaded rather than asking for a reload.
  */
-export const PROGRAMME_VERSION_CONFLICT = 'This date was changed elsewhere. Reload to see the latest.';
+export const PROGRAMME_VERSION_CONFLICT = 'This date was changed somewhere else, so your changes were not saved. The latest programme is now showing. Make your changes again.';
 
 export const PROGRAMME_COPY: Array<{ match: RegExp; message: string; reload?: boolean }> = [
   { match: /^version_conflict/, message: PROGRAMME_VERSION_CONFLICT, reload: true },
@@ -227,7 +228,7 @@ export const PROGRAMME_COPY: Array<{ match: RegExp; message: string; reload?: bo
   { match: /on a cancelled date is not allowed/, message: 'This date is cancelled, so its programme cannot be changed.', reload: true },
   { match: /on a multi-day event is not supported/, message: 'This event runs over more than one day. Ask the Bachata Calendar team to change its programme.', reload: true },
   { match: /type is admin-only on an existing session/, message: 'Only the Bachata Calendar team can change the kind of an existing session.' },
-  { match: /programme_incomplete|names a session that is not on this date|repeats a session already listed/, message: 'The programme of this date has changed since you opened it. Reload to see the latest.', reload: true },
+  { match: /programme_incomplete|names a session that is not on this date|repeats a session already listed/, message: 'The programme of this date has changed since you opened it, so your changes were not saved. The latest programme is now showing. Make your changes again.', reload: true },
   { match: /title is required/, message: 'Every session needs a name.' },
   { match: /title is longer than/, message: 'Keep each session name to 120 characters or fewer.' },
   { match: /title must be a single line/, message: 'Keep each session name on one line.' },

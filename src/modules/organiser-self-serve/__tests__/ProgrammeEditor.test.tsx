@@ -194,7 +194,7 @@ describe('ProgrammeEditor', () => {
     programme = { ...programme, version: 8, sessions: [{ ...sessions()[0], title: 'Changed elsewhere' }, ...sessions().slice(1)] };
     fireEvent.change(within(rowAt(0)).getByTestId('programme-title'), { target: { value: 'Mine' } });
     fireEvent.click(screen.getByTestId('programme-save'));
-    expect((await screen.findByTestId('programme-error')).textContent).toMatch('This date was changed elsewhere. Reload to see the latest.');
+    expect((await screen.findByTestId('programme-error')).textContent).toMatch('This date was changed somewhere else, so your changes were not saved. The latest programme is now showing.');
     await waitFor(() => expect(getCalls()).toHaveLength(2));
     await waitFor(() => expect((within(rowAt(0)).getByTestId('programme-title') as HTMLInputElement).value).toBe('Changed elsewhere'));
 
@@ -240,6 +240,63 @@ describe('ProgrammeEditor', () => {
     confirm.mockReturnValue(true);
     fireEvent.click(screen.getByTestId('programme-back'));
     expect(await screen.findByTestId('action-programme')).toBeTruthy();
+  });
+
+  it('focus is never dropped: confirm, keep, a failed save and undo each put it somewhere useful', async () => {
+    await openEditor();
+    fireEvent.click(within(rowAt(0)).getByTestId('programme-remove'));
+    fireEvent.click(screen.getByTestId('programme-save'));
+    await screen.findByTestId('programme-remove-confirm');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('confirm-ack')));
+    fireEvent.click(screen.getByTestId('confirm-keep'));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('programme-save')));
+
+    setResult = () => ({ data: null, error: { message: 'invalid_payload: the programme of this date would span more than 20 hours', code: 'P0001' } });
+    fireEvent.click(screen.getByTestId('programme-save'));
+    fireEvent.click(screen.getByTestId('confirm-ack'));
+    fireEvent.click(screen.getByTestId('confirm-go'));
+    const error = await screen.findByTestId('programme-error');
+    // The message sits in the sticky save bar, so it is on screen next to Save, and it takes the focus.
+    expect(screen.getByTestId('programme-save-bar').contains(error)).toBe(true);
+    await waitFor(() => expect(error.parentElement?.contains(document.activeElement)).toBe(true));
+
+    fireEvent.click(screen.getByTestId('programme-discard'));
+    await waitFor(() => expect(document.activeElement?.textContent).toBe('Programme for Thu 8 Oct'));
+  });
+
+  it('a network failure says to press Save again (no reload button exists here)', async () => {
+    await openEditor();
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'organiser_set_occurrence_programme_v1') throw new TypeError('Failed to fetch');
+      return { data: programme, error: null };
+    });
+    fireEvent.change(within(rowAt(0)).getByTestId('programme-title'), { target: { value: 'x' } });
+    fireEvent.click(screen.getByTestId('programme-save'));
+    expect((await screen.findByTestId('programme-error')).textContent).toBe('We could not confirm the save. Check your connection, then press Save the programme again.');
+  });
+
+  it('a row with a problem is marked: red edge, aria-invalid, the message tied to the field', async () => {
+    await openEditor();
+    fireEvent.change(within(rowAt(0)).getByTestId('programme-end'), { target: { value: '19:00' } });
+    // Equal times are an error, not an overnight session.
+    expect(within(rowAt(0)).queryByTestId('programme-overnight')).toBeNull();
+    fireEvent.click(screen.getByTestId('programme-save'));
+    const end = within(rowAt(0)).getByTestId('programme-end');
+    expect(end.getAttribute('aria-invalid')).toBe('true');
+    const msg = within(rowAt(0)).getByTestId('programme-row-error');
+    expect(end.getAttribute('aria-describedby')).toContain(msg.id);
+    expect(rowAt(0).className).toContain('border-destructive');
+    expect(rowAt(1).className).not.toContain('border-destructive');
+  });
+
+  it('a session with no times says so, and a removed new session hands the focus to Add', async () => {
+    programme = { ...programme, sessions: [...sessions(), { added_session_id: '44444444-4444-4444-8444-444444444444', type: 'performance', title: 'Showcase', start_time: null, end_time: null, ends_next_day: false, level_keys: [], removed: false }] };
+    await openEditor();
+    expect(within(rowAt(3)).getByTestId('programme-no-times').textContent).toBe('No times set for this session.');
+    expect(within(rowAt(0)).queryByTestId('programme-no-times')).toBeNull();
+    fireEvent.click(screen.getByTestId('programme-add'));
+    fireEvent.click(within(rowAt(4)).getByTestId('programme-remove'));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('programme-add')));
   });
 
   it('inputs are labelled', async () => {

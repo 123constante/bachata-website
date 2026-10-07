@@ -255,7 +255,7 @@ describe('copy', () => {
 describe('programmeErrorCopy: server refusals to plain words', () => {
   const err = (message: string) => ({ message, code: 'P0001' });
   const cases: Array<[string, RegExp, boolean]> = [
-    ['version_conflict: expected 7, got 8', /changed elsewhere\. Reload to see the latest/, true],
+    ['version_conflict: expected 7, got 8', /changed somewhere else, so your changes were not saved/, true],
     ['permission_denied: authentication_required', /sign in/, false],
     ['permission_denied: occurrence not found or caller is not an owner or manager of its series', /cannot change this date/, false],
     ['permission_denied: programme edit on a past date is admin-only', /already happened/, true],
@@ -291,7 +291,8 @@ describe('programmeErrorCopy: server refusals to plain words', () => {
 
   it('the version conflict copy is the agreed sentence', () => {
     expect(programmeErrorCopy(err('version_conflict: expected 1, got 2')).message).toBe(PROGRAMME_VERSION_CONFLICT);
-    expect(PROGRAMME_VERSION_CONFLICT).toBe('This date was changed elsewhere. Reload to see the latest.');
+    // The editor reloads by itself, so the copy says the latest is showing; it never asks for a reload.
+    expect(PROGRAMME_VERSION_CONFLICT).toBe('This date was changed somewhere else, so your changes were not saved. The latest programme is now showing. Make your changes again.');
   });
 
   it('carries the 0-based session index the server names', () => {

@@ -69,10 +69,15 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
   const timesProblem = problem('times');
   const typeProblem = problem('type');
   const levelsProblem = problem('levels');
-  const overnight = endsNextDay(row.start || null, row.end || null);
+  // The hint only for an end truly before the start: equal times are an error, not an overnight.
+  const overnight = endsNextDay(row.start || null, row.end || null) && row.start !== row.end;
+  // A stored session may have no times; a new one must have them, which Save says when it is tried.
+  const noTimes = !!row.original && !row.start && !row.end && !timesProblem;
+  // Shared by every field: red edge when the field has a problem, 16px text on every width (no iOS/iPad zoom).
+  const field = 'min-h-[44px] text-[16px] md:text-[16px] aria-[invalid=true]:border-destructive';
 
   return (
-    <li className="space-y-2 rounded-md border border-border p-3" data-testid="programme-row">
+    <li className={cn('space-y-2 rounded-md border p-3', problems.length > 0 ? 'border-destructive' : 'border-border')} data-testid="programme-row">
       <div className="flex items-center gap-2">
         {row.original ? (
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium" data-testid="programme-type">{typeLabel}</span>
@@ -83,19 +88,20 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
               id={`${id}-type`}
               value={row.type ?? ''}
               onChange={(e) => onChange({ type: e.target.value })}
-              className="min-h-[44px] rounded-md border border-input bg-background px-2 text-[16px]"
+              className={cn('rounded-md border border-input bg-background px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background', field)}
               aria-invalid={!!typeProblem}
+              aria-describedby={typeProblem ? `${id}-type-error` : undefined}
               data-testid="programme-type-select"
             >
               {SESSION_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
             </select>
           </div>
         )}
-        <Button type="button" size="sm" variant="ghost" className="ml-auto min-h-[44px] text-destructive" onClick={onRemove} data-testid="programme-remove">
+        <Button type="button" size="sm" variant="ghost" className="ms-auto min-h-[44px] text-destructive" onClick={onRemove} data-testid="programme-remove">
           <Trash2 className="w-4 h-4" aria-hidden="true" /> Remove<span className="sr-only"> {name}</span>
         </Button>
       </div>
-      {typeProblem && <p className="text-sm text-destructive">{typeProblem}</p>}
+      {typeProblem && <p id={`${id}-type-error`} className="text-sm text-destructive" data-testid="programme-row-error">{typeProblem}</p>}
 
       <div className="space-y-1">
         <Label htmlFor={`${id}-title`} className="text-sm">Name</Label>
@@ -104,8 +110,8 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
           id={`${id}-title`}
           value={row.title}
           onChange={(e) => onChange({ title: e.target.value })}
-          placeholder={row.type === 'party' ? 'Bachata Party' : 'Beginners Bachata'}
-          className="min-h-[44px] text-[16px]"
+          placeholder={row.type === 'party' ? 'For example, Bachata Party' : 'For example, Beginners Bachata'}
+          className={field}
           aria-invalid={!!titleProblem}
           aria-describedby={titleProblem ? `${id}-title-error` : undefined}
           data-testid="programme-title"
@@ -121,9 +127,9 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
             type="time"
             value={row.start}
             onChange={(e) => onChange({ start: e.target.value.slice(0, 5) })}
-            className="min-h-[44px] text-[16px]"
+            className={field}
             aria-invalid={!!timesProblem}
-            aria-describedby={timesProblem ? `${id}-times-error` : undefined}
+            aria-describedby={timesProblem ? `${id}-times-error` : noTimes ? `${id}-no-times` : undefined}
             data-testid="programme-start"
           />
         </div>
@@ -134,9 +140,9 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
             type="time"
             value={row.end}
             onChange={(e) => onChange({ end: e.target.value.slice(0, 5) })}
-            className="min-h-[44px] text-[16px]"
+            className={field}
             aria-invalid={!!timesProblem}
-            aria-describedby={[timesProblem ? `${id}-times-error` : '', overnight ? `${id}-overnight` : ''].filter(Boolean).join(' ') || undefined}
+            aria-describedby={[timesProblem ? `${id}-times-error` : '', overnight ? `${id}-overnight` : '', noTimes ? `${id}-no-times` : ''].filter(Boolean).join(' ') || undefined}
             data-testid="programme-end"
           />
         </div>
@@ -146,9 +152,12 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
           <Moon className="w-4 h-4" aria-hidden="true" /> Finishes after midnight
         </p>
       )}
+      {noTimes && (
+        <p id={`${id}-no-times`} className="text-sm text-muted-foreground" data-testid="programme-no-times">No times set for this session.</p>
+      )}
       {timesProblem && <p id={`${id}-times-error`} className="text-sm text-destructive" data-testid="programme-row-error">{timesProblem}</p>}
 
-      <fieldset className="space-y-1">
+      <fieldset className="space-y-1" aria-describedby={levelsProblem ? `${id}-levels-error` : undefined}>
         <legend className="text-sm font-medium">Level</legend>
         <div className="flex flex-wrap gap-2">
           {LEVEL_KEYS.map((level) => {
@@ -160,7 +169,7 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
                 aria-pressed={on}
                 onClick={() => onChange({ levels: on ? row.levels.filter((l) => l !== level) : [...row.levels, level] })}
                 className={cn(
-                  'min-h-[44px] rounded-full border px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  'min-h-[44px] rounded-full border px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background',
                   on ? 'border-primary bg-primary/10 text-primary' : 'border-border',
                 )}
                 data-testid={`programme-level-${level}`}
@@ -170,7 +179,7 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
             );
           })}
         </div>
-        {levelsProblem && <p className="text-sm text-destructive">{levelsProblem}</p>}
+        {levelsProblem && <p id={`${id}-levels-error`} className="text-sm text-destructive" data-testid="programme-row-error">{levelsProblem}</p>}
       </fieldset>
     </li>
   );

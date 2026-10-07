@@ -41,6 +41,8 @@ import { ProgrammeSessionRow } from './ProgrammeSessionRow';
  */
 
 type Stage = 'edit' | 'confirm' | 'done';
+/** Where the focus goes after a step swaps out the control that had it (so it is never dropped on the sheet). */
+type FocusTarget = 'heading' | 'save' | 'message' | 'add' | 'confirm';
 
 interface Props {
   occurrenceId: string;
@@ -55,7 +57,7 @@ interface Props {
   onDirtyChange: (dirty: boolean) => void;
 }
 
-const NETWORK_COPY = 'We could not confirm the save. Check your connection, then reload to see whether it went through.';
+const NETWORK_COPY = 'We could not confirm the save. Check your connection, then press Save the programme again.';
 
 export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publicPath, onBack, onClose, onDirtyChange }: Props) {
   const queryClient = useQueryClient();
@@ -75,9 +77,16 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
   const [showProblems, setShowProblems] = useState(false);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const [changed, setChanged] = useState(true);
+  const [focusTo, setFocusTo] = useState<{ target: FocusTarget; n: number } | null>(null);
   const reseed = useRef(true);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const doneRef = useRef<HTMLParagraphElement>(null);
+  const saveRef = useRef<HTMLButtonElement>(null);
+  const messageRef = useRef<HTMLDivElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLDivElement>(null);
+  const focusSeq = useRef(0);
+  const focusNext = (target: FocusTarget) => setFocusTo({ target, n: (focusSeq.current += 1) });
 
   const seed = (p: Programme) => {
     setBase(p);
@@ -96,6 +105,16 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
 
   useEffect(() => { headingRef.current?.focus(); }, []);
   useEffect(() => { if (stage === 'done') doneRef.current?.focus(); }, [stage]);
+  useEffect(() => {
+    if (!focusTo) return;
+    const t = focusTo.target;
+    const el = t === 'heading' ? headingRef.current
+      : t === 'save' ? saveRef.current
+      : t === 'message' ? messageRef.current
+      : t === 'add' ? addRef.current
+      : confirmRef.current?.querySelector<HTMLElement>('input, button:not(:disabled)');
+    el?.focus();
+  }, [focusTo]);
 
   const dirty = !!base && stage !== 'done' && isDirty(rows, base.sessions.length);
   const validation = useMemo(() => validateProgramme(rows), [rows]);
@@ -120,6 +139,8 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
     },
     onError: (err) => {
       setStage('edit');
+      // Save was disabled while it ran, so the focus fell off it: put it on the message.
+      focusNext('message');
       if (!isServerRefusal(err)) {
         setError(NETWORK_COPY);
         setErrorRowKey(null);
@@ -140,6 +161,8 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
     if (fresh.data) {
       reseed.current = false;
       seed(fresh.data);
+      // A refusal that turned the date read-only swaps the whole screen: the focus goes to its heading.
+      if (!fresh.data.editable) focusNext('heading');
     }
   };
 
@@ -152,13 +175,15 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
   };
   const remove = (row: DraftSession) => {
     // A session added on this screen was never saved: it just goes.
-    if (!row.original) setRows((current) => current.filter((r) => r.key !== row.key));
-    else update(row.key, { removed: true });
+    if (!row.original) {
+      setRows((current) => current.filter((r) => r.key !== row.key));
+      focusNext('add');
+    } else update(row.key, { removed: true });
   };
   const add = () => {
     const row = newSession();
     setRows((current) => [...current, row]);
-    setFocusKey(`${row.key}#${Date.now()}`);
+    setFocusKey(`${row.key}#${(focusSeq.current += 1)}`);
   };
 
   const trySave = () => {
@@ -167,11 +192,13 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
     if (!validation.ok) {
       setShowProblems(true);
       const first = validation.rows[0]?.key;
-      if (first) setFocusKey(`${first}#${Date.now()}`);
+      if (first) setFocusKey(`${first}#${(focusSeq.current += 1)}`);
+      else focusNext('message');
       return;
     }
     if (removing.length > 0) {
       setStage('confirm');
+      focusNext('confirm');
       return;
     }
     save.mutate();
@@ -195,7 +222,7 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
     return (
       <div className="space-y-3" data-testid="programme-panel">
         {heading}
-        <p className="text-sm text-muted-foreground flex items-center gap-2">
+        <p className="text-sm text-muted-foreground flex items-center gap-2" role="status">
           <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Loading the programme&hellip;
         </p>
       </div>
@@ -207,7 +234,9 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
         {heading}
         <div className="space-y-2" role="alert">
           <p className="text-sm">We couldn&rsquo;t load the programme for this date.</p>
-          <Button size="sm" variant="outline" className="min-h-[44px]" onClick={() => void reload()}>Try again</Button>
+          <Button size="sm" variant="outline" className="min-h-[44px]" onClick={() => void reload()} disabled={programme.isFetching} data-testid="programme-retry">
+            {programme.isFetching && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Try again
+          </Button>
         </div>
       </div>
     );
@@ -255,11 +284,11 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
         )}
         <div className="flex flex-wrap items-center gap-3 justify-end">
           {live && (
-            <Link to={publicPath} className="text-xs text-primary tap-link gap-1 mr-auto" data-testid="programme-view-on-site">
+            <Link to={publicPath} className="text-xs text-primary tap-link gap-1 me-auto" data-testid="programme-view-on-site">
               View on the site <ExternalLink className="w-3 h-3" aria-hidden="true" />
             </Link>
           )}
-          <Button type="button" size="sm" variant="outline" className="min-h-[44px]" onClick={() => setStage('edit')} data-testid="programme-edit-again">Edit again</Button>
+          <Button type="button" size="sm" variant="outline" className="min-h-[44px]" onClick={() => { setStage('edit'); focusNext('heading'); }} data-testid="programme-edit-again">Edit again</Button>
           <Button type="button" size="sm" className="min-h-[44px]" onClick={onClose} data-testid="programme-close">Done</Button>
         </div>
       </div>
@@ -268,12 +297,12 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
 
   if (stage === 'confirm') {
     return (
-      <div className="space-y-3" data-testid="programme-panel">
+      <div ref={confirmRef} className="space-y-3" data-testid="programme-panel">
         <ConfirmPanel
           testId="programme-remove-confirm"
           copy={removeSessionsConfirmCopy(removing.map((r) => r.title), dateLabel)}
           busy={save.isPending}
-          onKeep={() => setStage('edit')}
+          onKeep={() => { setStage('edit'); focusNext('save'); }}
           onConfirm={() => save.mutate()}
         />
         {error && <p className="text-xs text-destructive" role="alert" data-testid="programme-error">{error}</p>}
@@ -282,9 +311,11 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
   }
 
   const problemsFor = (key: string) => (showProblems ? validation.rows.filter((p) => p.key === key) : []);
+  const errorRow = errorRowKey ? rows.find((r) => r.key === errorRowKey) : undefined;
 
   return (
-    <div className="space-y-3" data-testid="programme-panel">
+    // scroll-margin: a field the keyboard or a Tab moves to stops above the sticky save bar, not under it.
+    <div className="space-y-3 [&_:is(input,select,button)]:scroll-mb-40" data-testid="programme-panel">
       {heading}
       <p className="text-xs text-muted-foreground">
         Changes here are for {dateLabel} only.{live ? ' Once you save, dancers see them straight away.' : ''}
@@ -303,37 +334,50 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
           />
         ))}
       </ul>
-      <Button type="button" size="sm" variant="outline" className="w-full min-h-[44px]" onClick={add} data-testid="programme-add">
+      <Button ref={addRef} type="button" size="sm" variant="outline" className="w-full min-h-[44px]" onClick={add} data-testid="programme-add">
         <Plus className="w-4 h-4" aria-hidden="true" /> Add a session
       </Button>
 
-      {showProblems && !validation.ok && (
-        <div className="text-sm text-destructive space-y-1" role="alert" data-testid="programme-problems">
-          {validation.rows.length > 0 && <p>Fix the highlighted sessions before saving.</p>}
-          {validation.programme.map((m) => <p key={m}>{m}</p>)}
-        </div>
-      )}
-      {error && (
-        <p className="text-sm text-destructive" role="alert" data-testid="programme-error">
-          {error}
-          {errorRowKey && rows.find((r) => r.key === errorRowKey) ? ` (${rows.find((r) => r.key === errorRowKey)?.title.trim() || 'a session without a name'})` : ''}
-        </p>
-      )}
-
-      <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/95 px-1 py-2 backdrop-blur" data-testid="programme-save-bar">
-        {dirty && <span className="mr-auto text-xs text-muted-foreground" data-testid="programme-unsaved">Not saved yet</span>}
+      {/*
+        Stuck to the bottom of the date sheet. The negative bottom and margin cancel the
+        sheet's own bottom padding (DateActionSheet: 1.5rem + the safe area; the margin is
+        important to beat space-y on the panel), so the bar meets the sheet's edge and
+        nothing scrolls into view underneath it. The messages live in the bar, next to the
+        button that raised them, so they are always on screen.
+      */}
+      <div
+        className="sticky bottom-[calc(-1.5rem_-_env(safe-area-inset-bottom))] z-10 -mx-1 !mb-[calc(-1.5rem_-_env(safe-area-inset-bottom))] flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/95 px-1 pt-2 pb-[calc(2rem_+_env(safe-area-inset-bottom))] backdrop-blur"
+        data-testid="programme-save-bar"
+      >
+        {((showProblems && !validation.ok) || error) && (
+          <div ref={messageRef} tabIndex={-1} className="w-full space-y-1 text-sm text-destructive outline-none">
+            {showProblems && !validation.ok && (
+              <div className="space-y-1" role="alert" data-testid="programme-problems">
+                {validation.rows.length > 0 && <p>Fix the highlighted sessions before saving.</p>}
+                {validation.programme.map((m) => <p key={m}>{m}</p>)}
+              </div>
+            )}
+            {error && (
+              <p role="alert" data-testid="programme-error">
+                {error}
+                {errorRow ? ` Check "${errorRow.title.trim() || 'the session without a name'}".` : ''}
+              </p>
+            )}
+          </div>
+        )}
+        {dirty && <span className="me-auto text-xs text-muted-foreground" data-testid="programme-unsaved">Not saved yet</span>}
         <Button
           type="button"
           size="sm"
           variant="ghost"
           className="min-h-[44px]"
           disabled={!dirty || save.isPending}
-          onClick={() => { seed(base); setError(null); setErrorRowKey(null); }}
+          onClick={() => { seed(base); setError(null); setErrorRowKey(null); focusNext('heading'); }}
           data-testid="programme-discard"
         >
           Undo changes
         </Button>
-        <Button type="button" size="sm" className="min-h-[44px]" disabled={!dirty || save.isPending} onClick={trySave} data-testid="programme-save">
+        <Button ref={saveRef} type="button" size="sm" className="min-h-[44px]" disabled={!dirty || save.isPending} onClick={trySave} data-testid="programme-save">
           {save.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Save the programme
         </Button>
       </div>
