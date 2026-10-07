@@ -40,10 +40,14 @@ describe('reviewStrip (05-A)', () => {
       expect(reviewStrip(s, null).publicPage).toBe(true);
       expect(reviewStrip(s, null).previewNote).toBeNull();
     }
-    for (const s of ['draft', 'pending_review', 'rejected', 'archived']) {
+    for (const s of ['draft', 'pending_review', 'rejected']) {
       expect(reviewStrip(s, null).publicPage).toBe(false);
       expect(reviewStrip(s, null).previewNote).toMatch(/once it is live/);
     }
+    // Archived is not on its way to live, so no "once it is live" note; its detail says who brings it back.
+    expect(reviewStrip('archived', null).publicPage).toBe(false);
+    expect(reviewStrip('archived', null).previewNote).toBeNull();
+    expect(reviewStrip('archived', null).detail).toMatch(/Ask the Bachata Calendar team/);
   });
 
   it('says a paused page is hidden, never that it stays up (S1)', () => {
@@ -52,6 +56,10 @@ describe('reviewStrip (05-A)', () => {
     expect(paused.detail).toMatch(/hidden/);
     expect(paused.detail).not.toMatch(/stays up/);
     expect(paused.previewNote).toMatch(/hidden while paused/);
+    // Said once, and pointing at a control that exists (there is no "Status" section).
+    expect(paused.detail).not.toMatch(/hidden while paused/);
+    expect(paused.detail).not.toMatch(/Status/);
+    expect(paused.detail).toMatch(/Resume/);
   });
 });
 

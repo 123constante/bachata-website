@@ -444,6 +444,6 @@ export function setTimeDoneCopy(label: string, start: string, response: unknown)
 /** The one-line note under the Status buttons. A paused page is hidden (launch walk S1). */
 export const LIFECYCLE_NOTE: Record<string, string> = {
   live: 'Pause hides your event from dancers until you resume it. Archive takes it off Bachata Calendar, and only the team can bring it back.',
-  paused: 'Paused: your event is hidden from dancers, with all its dates. Press Resume to bring it back.',
+  paused: 'Paused and hidden from dancers. Resume brings your event back with all its dates. Archive takes it off Bachata Calendar, and only the team can bring it back.',
   draft: 'Dancers cannot see this yet. Archive removes this draft from your list.',
 };
