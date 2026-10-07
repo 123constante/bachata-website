@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Loader2, UserPlus } from 'lucide-react';
@@ -45,8 +45,18 @@ function MemberRow({
 }) {
   const action = memberAction(member, viewerRole, team);
   const label = memberLabel(member);
+  // The pressed button unmounts while the question shows: focus goes to "No", and back after.
+  const row = useRef<HTMLLIElement>(null);
+  const wasConfirming = useRef(false);
+  useEffect(() => {
+    // Back to the row's button only when focus was dropped (No pressed), never stolen from another row.
+    const dropped = document.activeElement === document.body;
+    const target = confirming ? '[data-testid="member-confirm-no"]' : wasConfirming.current && dropped ? `[data-testid="member-${action?.kind}"]` : null;
+    wasConfirming.current = confirming;
+    if (target) row.current?.querySelector<HTMLElement>(target)?.focus();
+  }, [confirming, action?.kind]);
   return (
-    <li className="py-2 space-y-1" data-testid="team-member" data-role={member.role} data-self={member.isSelf ? 'true' : 'false'}>
+    <li ref={row} className="py-2 space-y-1" data-testid="team-member" data-role={member.role} data-self={member.isSelf ? 'true' : 'false'}>
       {/* Wraps (S3): a long email takes the first line and the role and Leave/Remove drop below it, never off-screen. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <div className="min-w-0 flex-1 basis-40">
@@ -70,15 +80,18 @@ function MemberRow({
       </div>
       {action && !action.enabled && <p className="text-xs text-muted-foreground" data-testid="member-note">{action.note}</p>}
       {action && confirming && (
-        <div className="flex flex-wrap items-center gap-2" data-testid="member-confirm">
-          <p className="text-sm w-full">
+        <div className="flex flex-wrap items-center gap-2" role="alertdialog" aria-labelledby={`confirm-${member.userId}`} data-testid="member-confirm">
+          <p id={`confirm-${member.userId}`} className="text-sm w-full">
             {action.kind === 'leave'
               ? 'Leave this team? You will no longer see or edit its events.'
               : `Remove ${label}? They will no longer see or edit these events.`}
           </p>
-          <Button type="button" size="sm" variant="ghost" onClick={onCancel} disabled={pending}>Keep</Button>
-          <Button type="button" size="sm" variant="destructive" onClick={onRemove} disabled={pending} data-testid="member-confirm-yes">
-            {pending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} {action.kind === 'leave' ? 'Leave' : 'Remove'}
+          <Button type="button" size="sm" variant="outline" onClick={onCancel} disabled={pending} data-testid="member-confirm-no">
+            {action.kind === 'leave' ? 'No, stay' : 'No, keep them'}
+          </Button>
+          {/* red-700, not the destructive token: white on that red is 3.8:1, under AA for this text. */}
+          <Button type="button" size="sm" variant="destructive" className="bg-red-700 text-white hover:bg-red-700/90" onClick={onRemove} disabled={pending} data-testid="member-confirm-yes">
+            {pending && <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />} {action.kind === 'leave' ? 'Yes, leave' : 'Yes, remove'}
           </Button>
         </div>
       )}

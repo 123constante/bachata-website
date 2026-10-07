@@ -10,7 +10,8 @@ import { emptyVenueRequest, submitVenueRequest, venueRequestProblems, type Venue
  * Pick a venue the calendar knows (every venue, drafts included: useVenueOptions). A venue
  * it does not know yet is the team's to add; "Ask the team to add it" sends the request to
  * their Listing requests queue (venueRequest.ts) rather than taking free text here.
- * Fields are 16px on a phone (md:text-sm above): iOS zooms into anything smaller.
+ * Fields are a literal 16px at every width: iOS zooms into anything smaller, and the fluid
+ * root makes text-base less than 16px.
  */
 
 interface Props {
@@ -45,7 +46,16 @@ export function VenuePicker({ id, value, onChange, fallbackLabel = 'Venue set by
       <div className="flex items-center gap-2 text-sm">
         <MapPin className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate" data-testid={`${id}-current`}>{current}</span>
-        <button type="button" className="text-xs text-primary shrink-0 tap-link" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        {/* Closed, the field's <label> points here, so it is never a label for nothing; the
+            name keeps "Change venue" first and says which venue is set now. */}
+        <button
+          type="button"
+          id={open ? undefined : id}
+          className="text-xs text-primary shrink-0 tap-link disabled:text-muted-foreground"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label={open ? undefined : value ? `Change venue, now ${current}` : 'Change venue, none chosen yet'}
+        >
           {open ? (value ? 'Keep this venue' : 'Close') : 'Change venue'}
         </button>
       </div>
@@ -58,7 +68,7 @@ export function VenuePicker({ id, value, onChange, fallbackLabel = 'Venue set by
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search venues by name or area"
-              className="h-9 text-base md:text-sm pl-8"
+              className="h-9 text-[16px] md:text-[16px] pl-8"
               autoComplete="off"
               enterKeyHint="search"
               // Opened on purpose to search: go straight to the box.
@@ -145,15 +155,15 @@ function VenueRequest({ initialName, organiserName, onClose }: { initialName: st
       {/* Visible labels: a placeholder-only field loses its name as soon as it is typed in. */}
       <div className="space-y-1">
         <Label htmlFor={`${ids}-name`} className="text-xs">Venue name</Label>
-        <Input id={`${ids}-name`} value={form.venueName} onChange={(e) => set('venueName', e.target.value)} className="h-9 text-base md:text-sm" data-testid="venue-request-name" />
+        <Input id={`${ids}-name`} value={form.venueName} onChange={(e) => set('venueName', e.target.value)} className="h-9 text-[16px] md:text-[16px]" data-testid="venue-request-name" />
       </div>
       <div className="space-y-1">
         <Label htmlFor={`${ids}-link`} className="text-xs">Link to the venue</Label>
-        <Input id={`${ids}-link`} value={form.link} onChange={(e) => set('link', e.target.value)} placeholder="Google Maps or the venue&rsquo;s website" inputMode="url" autoComplete="url" className="h-9 text-base md:text-sm" data-testid="venue-request-link" />
+        <Input id={`${ids}-link`} value={form.link} onChange={(e) => set('link', e.target.value)} placeholder="Google Maps or the venue&rsquo;s website" inputMode="url" autoComplete="url" className="h-9 text-[16px] md:text-[16px]" data-testid="venue-request-link" />
       </div>
       <div className="space-y-1">
         <Label htmlFor={`${ids}-phone`} className="text-xs">Your phone number</Label>
-        <Input id={`${ids}-phone`} value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="The team replies on WhatsApp" type="tel" inputMode="tel" autoComplete="tel" className="h-9 text-base md:text-sm" data-testid="venue-request-phone" />
+        <Input id={`${ids}-phone`} value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="The team replies on WhatsApp" type="tel" inputMode="tel" autoComplete="tel" className="h-9 text-[16px] md:text-[16px]" data-testid="venue-request-phone" />
       </div>
       {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
       <div className="flex justify-end gap-2">
