@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { fetchOrganiserHome, organiserHomeQueryKey } from '../selfServeApi';
 import { submitForReviewCommand } from '../seriesCommands';
 import { commandErrorMessage } from '../selfServeErrors';
+import { publicEventPath } from '../editorGuards';
 import { reviewStrip, type ReviewStep } from '../reviewModel';
 import { instantDateLabel } from '../teamModel';
 import type { HomeSeriesFull } from '../homeModel';
@@ -23,10 +24,19 @@ import { useOwnerCommand } from './useOwnerCommand';
  * home already holds, so no second read is added for a live series.
  */
 
+/** The step's state in words: the marks are pictures, so a screen reader hears this instead. */
+const STATE_TEXT: Record<ReviewStep['state'], string> = { done: 'done', current: 'you are here', returned: 'returned', todo: 'not yet' };
+
 function Step({ step, last }: { step: ReviewStep; last: boolean }) {
   const done = step.state === 'done';
   return (
-    <li className="flex items-center gap-1 min-w-0" data-testid="review-step" data-step={step.key} data-state={step.state}>
+    <li
+      className="flex items-center gap-1 min-w-0"
+      aria-current={step.state === 'current' || step.state === 'returned' ? 'step' : undefined}
+      data-testid="review-step"
+      data-step={step.key}
+      data-state={step.state}
+    >
       <span
         className={cn(
           'inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold',
@@ -37,10 +47,11 @@ function Step({ step, last }: { step: ReviewStep; last: boolean }) {
         )}
         aria-hidden="true"
       >
-        {done ? <Check className="w-3 h-3" /> : step.state === 'returned' ? <Undo2 className="w-3 h-3" /> : ''}
+        {done ? <Check className="w-3 h-3" /> : step.state === 'returned' ? <Undo2 className="w-3 h-3" /> : step.state === 'current' ? <span className="h-2 w-2 rounded-full bg-primary" /> : ''}
       </span>
       <span className={cn('truncate', step.state === 'todo' ? 'text-muted-foreground' : 'font-medium', step.state === 'returned' && 'text-destructive')}>
         {step.label}
+        <span className="sr-only">, {STATE_TEXT[step.state]}</span>
       </span>
       {!last && <span className="mx-1 h-px w-4 shrink-0 bg-border" aria-hidden="true" />}
     </li>
@@ -93,25 +104,33 @@ export function ReviewStrip({ series, onSaved }: { series: WorkspaceSeries; onSa
       )}
       <div className="flex flex-wrap items-center gap-2">
         {model.submit && (
-          <Button type="button" size="sm" disabled={command.isPending || !!model.submitMissing} onClick={() => void submit()} data-testid="review-submit">
-            {command.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} {model.submit.label}
+          <Button
+            type="button"
+            size="sm"
+            disabled={command.isPending || !!model.submitMissing}
+            aria-describedby={model.submitMissing ? 'review-missing' : undefined}
+            onClick={() => void submit()}
+            data-testid="review-submit"
+          >
+            {command.isPending ? <><Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Sending&hellip;</> : model.submit.label}
           </Button>
+        )}
+        {/* Why the button is off sits right under it, not after the preview note. */}
+        {model.submit && model.submitMissing && (
+          <p id="review-missing" className="w-full text-[11px] text-muted-foreground" data-testid="review-missing">{model.submitMissing}</p>
         )}
         {model.publicPage ? (
           <Link
-            to={`/event/${series.slug ?? series.id}`}
+            to={publicEventPath(series)}
             className="text-xs text-primary tap-link gap-1"
             data-testid="series-view-as-dancer"
           >
             View as a dancer <ExternalLink className="w-3 h-3" aria-hidden="true" />
           </Link>
-        ) : (
+        ) : model.previewNote && (
           <p className="text-xs text-muted-foreground" data-testid="review-preview-note">{model.previewNote}</p>
         )}
       </div>
-      {model.submit && model.submitMissing && (
-        <p className="text-[11px] text-muted-foreground" data-testid="review-missing">{model.submitMissing}</p>
-      )}
       {error && <p className="text-xs text-destructive" role="alert" data-testid="review-error">{error}</p>}
     </section>
   );

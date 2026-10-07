@@ -43,7 +43,16 @@ export function VenuePicker({ id, value, onChange, fallbackLabel = 'Venue set by
       <div className="flex items-center gap-2 text-sm">
         <MapPin className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate" data-testid={`${id}-current`}>{current}</span>
-        <button type="button" className="text-xs text-primary shrink-0 tap-link" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        {/* Closed, the field's <label> points here, so it is never a label for nothing; the
+            name keeps "Change venue" first and says which venue is set now. */}
+        <button
+          type="button"
+          id={open ? undefined : id}
+          className="text-xs text-primary shrink-0 tap-link disabled:text-muted-foreground"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label={open ? undefined : value ? `Change venue, now ${current}` : 'Change venue, none chosen yet'}
+        >
           {open ? 'Keep this venue' : 'Change venue'}
         </button>
       </div>
@@ -56,7 +65,7 @@ export function VenuePicker({ id, value, onChange, fallbackLabel = 'Venue set by
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search venues by name or area"
-              className="h-9 text-sm pl-8"
+              className="h-9 text-[16px] md:text-[16px] pl-8"
               autoComplete="off"
             />
           </div>
@@ -136,9 +145,9 @@ function VenueRequest({ initialName, organiserName, onClose }: { initialName: st
   return (
     <div className="rounded-md border border-border p-3 space-y-2" data-testid="venue-request">
       <p className="text-xs font-medium">Ask the team to add a venue</p>
-      <Input value={form.venueName} onChange={(e) => set('venueName', e.target.value)} placeholder="Venue name" aria-label="Venue name" className="h-9 text-sm" data-testid="venue-request-name" />
-      <Input value={form.link} onChange={(e) => set('link', e.target.value)} placeholder="Link: Google Maps or the venue&rsquo;s website" aria-label="Link to the venue" inputMode="url" className="h-9 text-sm" data-testid="venue-request-link" />
-      <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="Your phone (the team replies on WhatsApp)" aria-label="Your phone number" type="tel" inputMode="tel" className="h-9 text-sm" data-testid="venue-request-phone" />
+      <Input value={form.venueName} onChange={(e) => set('venueName', e.target.value)} placeholder="Venue name" aria-label="Venue name" className="h-9 text-[16px] md:text-[16px]" data-testid="venue-request-name" />
+      <Input value={form.link} onChange={(e) => set('link', e.target.value)} placeholder="Link: Google Maps or the venue&rsquo;s website" aria-label="Link to the venue" inputMode="url" className="h-9 text-[16px] md:text-[16px]" data-testid="venue-request-link" />
+      <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="Your phone (the team replies on WhatsApp)" aria-label="Your phone number" type="tel" inputMode="tel" className="h-9 text-[16px] md:text-[16px]" data-testid="venue-request-phone" />
       {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
