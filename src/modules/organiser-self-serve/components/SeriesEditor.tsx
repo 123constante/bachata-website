@@ -223,7 +223,7 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
       {/* Stays in view above the bottom menu while the form is long (mobile first). */}
       <div
         ref={bar}
-        className="[fieldset:disabled_&]:hidden sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-10 -mx-3 -mb-3 flex flex-wrap items-center justify-end gap-2 rounded-b-md border-t border-border bg-background/95 px-3 py-2 backdrop-blur"
+        className="[fieldset:disabled_&]:hidden sticky bottom-[calc(60px+env(safe-area-inset-bottom))] z-10 -mx-3 -mb-3 flex flex-wrap items-center justify-end gap-2 rounded-b-md border-t border-border bg-background/95 px-3 py-2 backdrop-blur"
         data-testid="basics-bar"
       >
         {dirty && <span className="mr-auto text-xs text-muted-foreground" data-testid="basics-unsaved">Not saved yet</span>}
