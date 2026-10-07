@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -93,6 +93,10 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
   const [failure, setFailure] = useState<SelfServeErrorCopy | null>(null);
   const [note, setNote] = useState('');
   const [form, setForm] = useState({ name: '', cityId: '', useMyEmail: true, instagram: '', website: '' });
+  const sectionRef = useRef<HTMLElement>(null);
+  const createFormRef = useRef<HTMLFormElement>(null);
+  /** The row (or 'create') whose panel was open last, so a close can hand focus back to its button. */
+  const lastOpened = useRef<string | null>(null);
 
   const { data: results = [], isFetching } = useQuery({
     queryKey: ['claimable-organisers', term],
@@ -110,6 +114,8 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
   const instagramError = touched.instagram ? instagramProblem(form.instagram) : null;
   const websiteError = touched.website ? websiteProblem(form.website) : null;
   const formInvalid = !!instagramProblem(form.instagram) || !!websiteProblem(form.website);
+  const createMissing = [!form.name.trim() && 'the organiser name', !form.cityId && 'the city'].filter(Boolean);
+  const searched = term.trim().length >= 2;
 
   // The request note is kept when a panel closes or switches; it is cleared
   // only after a successful send.
@@ -118,6 +124,23 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
     setFailure(null);
     if (next?.kind === 'create') setForm((f) => (f.name.trim() ? f : { ...f, name: query.trim() }));
   };
+
+  // A panel replaces the button that opened it, so focus moves into the panel, and
+  // back to that row's button when the panel closes (Cancel, Not me, Esc).
+  const panelKey = panel ? (panel.kind === 'create' ? 'create' : `${panel.kind}:${panel.org.id}`) : null;
+  useEffect(() => {
+    const root = sectionRef.current;
+    if (!root) return;
+    if (panelKey) {
+      lastOpened.current = panelKey === 'create' ? 'create' : panelKey.split(':')[1];
+      root.querySelector<HTMLElement>('[data-panel] :is(input, textarea, button):not([disabled])')?.focus();
+      return;
+    }
+    const back = lastOpened.current;
+    lastOpened.current = null;
+    if (!back || (document.activeElement && document.activeElement !== document.body)) return;
+    root.querySelector<HTMLElement>(back === 'create' ? '[data-testid="create-open"]' : `[data-row="${back}"] [data-row-action]`)?.focus();
+  }, [panelKey]);
 
   useEffect(() => {
     if (!panel) return;
@@ -157,12 +180,12 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
   const email = user.email ?? '';
 
   return (
-    <section className="space-y-3" data-testid="organiser-onboarding">
+    <section ref={sectionRef} className="space-y-3" data-testid="organiser-onboarding">
       {firstRun && (
       <ol className="flex items-center gap-2 text-xs text-muted-foreground" aria-label="Steps">
         <li className="text-primary">&#10003; Signed in</li>
         <li aria-hidden="true">&rsaquo;</li>
-        <li className="font-semibold text-foreground">2 Your organiser</li>
+        <li className="font-semibold text-foreground" aria-current="step">2 Your organiser</li>
         <li aria-hidden="true">&rsaquo;</li>
         <li>3 Your events</li>
       </ol>
@@ -180,28 +203,34 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search organisers by name"
+          autoComplete="off"
+          enterKeyHint="search"
           className="pl-9 min-h-[44px] text-[16px]"
           aria-label="Search organisers by name"
           data-testid="organiser-search"
         />
       </div>
 
+      <p className="sr-only" role="status" data-testid="organiser-search-status">
+        {searched && !isFetching ? (results.length === 1 ? '1 organiser found' : `${results.length} organisers found`) : ''}
+      </p>
+
       <ul className="space-y-2" data-testid="organiser-results">
-        {isFetching && term.trim().length >= 2 && results.length === 0 && (
+        {isFetching && searched && results.length === 0 && (
           <li className="text-sm text-muted-foreground flex items-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin" /> Searching&hellip;
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Searching&hellip;
           </li>
         )}
-        {!isFetching && term.trim().length >= 2 && results.length === 0 && (
-          <li className="text-sm text-muted-foreground">
-            No organiser called &ldquo;{term.trim()}&rdquo;.{' '}
+        {!isFetching && searched && results.length === 0 && (
+          <li className="text-sm text-muted-foreground" data-testid="organiser-no-match">
+            No organiser matches &ldquo;{term.trim()}&rdquo;. Check the spelling, or{' '}
             <button
               type="button"
-              className="text-primary underline underline-offset-2 min-h-[44px] px-1"
+              className="text-primary underline underline-offset-2 tap-link-inline"
               onClick={() => open({ kind: 'create' })}
               data-testid="create-from-search"
             >
-              Create it
+              create it as a new organiser
             </button>
             .
           </li>
@@ -209,32 +238,41 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
         {rows.map(({ org, hint }) => {
           const active = panel && panel.kind !== 'create' && panel.org.id === org.id ? panel : null;
           return (
-            <li key={org.id} className="rounded-lg border border-border bg-card p-3 space-y-2" data-testid="organiser-result">
+            <li key={org.id} className="rounded-lg border border-border bg-card p-3 space-y-2" data-testid="organiser-result" data-row={org.id}>
               <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold truncate">{org.name}</p>
+                  {/* Two lines, not one truncated: similar names must stay tellable apart. */}
+                  <p className="text-sm font-semibold line-clamp-2 break-words">{org.name}</p>
                   <p className="text-xs text-muted-foreground">{HINT_TEXT[hint]}</p>
-                  {!requestedIds.has(org.id) && ACTION_HINT[hint] && (
+                  {!active && !requestedIds.has(org.id) && ACTION_HINT[hint] && (
                     <p className="text-xs text-muted-foreground" data-testid="action-hint">{ACTION_HINT[hint]}</p>
                   )}
                 </div>
-                {hint === 'yours' ? null : requestedIds.has(org.id) ? (
-                  <span className="text-xs text-muted-foreground" data-testid="request-pending">Request sent</span>
+                {/* While this row's panel is open its own buttons act; the opener would only repeat them. */}
+                {hint === 'yours' || active ? null : requestedIds.has(org.id) ? (
+                  <span className="text-xs text-muted-foreground shrink-0" data-testid="request-pending">Request sent</span>
                 ) : hint === 'email_matches' ? (
-                  <Button size="sm" className="rounded-full min-h-[44px]" onClick={() => open({ kind: 'claim', org })} data-testid="claim-open">
+                  <Button size="sm" className="rounded-full min-h-[44px] shrink-0" onClick={() => open({ kind: 'claim', org })} data-row-action data-testid="claim-open">
                     Claim
                   </Button>
                 ) : (
                   // A claim needs the listed email to be yours; anything else
                   // would only be refused, so offer the request straight away.
-                  <Button size="sm" variant="outline" className="rounded-full min-h-[44px]" onClick={() => open({ kind: 'request', org })} data-testid="request-open">
+                  <Button size="sm" variant="outline" className="rounded-full min-h-[44px] shrink-0" onClick={() => open({ kind: 'request', org })} data-row-action data-testid="request-open">
                     Request access
                   </Button>
                 )}
               </div>
 
+              {/* Above the panel: when a refused claim turns into a request, the reason reads first. */}
+              {active && failure && (
+                <p className="text-sm text-destructive" role="alert" data-testid={`onboarding-error-${org.id}`}>
+                  {failure.message}
+                </p>
+              )}
+
               {active?.kind === 'claim' && (
-                <div className="space-y-2">
+                <div className="space-y-2" data-panel>
                   {mailboxProven ? (
                     <>
                       <p className="text-sm">
@@ -249,7 +287,7 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
                           onClick={() => void run(() => claimOrganiser(org.id), `${org.name} is yours. You can now manage it.`)}
                           data-testid="claim-confirm"
                         >
-                          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Yes, claim it'}
+                          {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Yes, claim it
                         </Button>
                         <Button size="sm" variant="ghost" className="min-h-[44px]" onClick={() => open(null)}>
                           Not me
@@ -263,7 +301,7 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
               )}
 
               {active?.kind === 'request' && (
-                <div className="space-y-2">
+                <div className="space-y-2" data-panel>
                   <Label htmlFor={`note-${org.id}`} className="text-sm">
                     Tell the team who you are (optional)
                   </Label>
@@ -289,7 +327,7 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
                       }
                       data-testid="request-send"
                     >
-                      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send request'}
+                      {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Send request
                     </Button>
                     <Button size="sm" variant="ghost" className="min-h-[44px]" onClick={() => open(null)}>
                       Cancel
@@ -298,11 +336,6 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
                 </div>
               )}
 
-              {active && failure && (
-                <p className="text-sm text-destructive" role="alert" data-testid={`onboarding-error-${org.id}`}>
-                  {failure.message}
-                </p>
-              )}
             </li>
           );
         })}
@@ -321,6 +354,8 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
           </div>
           {panel?.kind === 'create' && (
             <form
+              ref={createFormRef}
+              data-panel
               className="grid gap-2 sm:grid-cols-2"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -383,15 +418,21 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
               )}
               <div className="sm:col-span-2 flex gap-2">
                 <Button size="sm" type="submit" className="rounded-full min-h-[44px]" disabled={busy || !form.name.trim() || !form.cityId || formInvalid} data-testid="create-submit">
-                  {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create organiser'}
+                  {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Create organiser
                 </Button>
                 <Button size="sm" type="button" variant="ghost" className="min-h-[44px]" onClick={() => open(null)}>
                   Cancel
                 </Button>
               </div>
+              {!busy && createMissing.length > 0 && (
+                <p className="sm:col-span-2 text-xs text-muted-foreground" data-testid="create-org-missing">
+                  To create it, add {createMissing.join(' and ')}.
+                </p>
+              )}
               {failure?.next === 'reauth' && (
                 <div className="sm:col-span-2">
-                  <EmailCodeProof email={email} onProven={() => setFailure(null)} />
+                  {/* Proven: finish the create the refusal stopped, as a claim does after its proof. */}
+                  <EmailCodeProof email={email} onProven={() => { setFailure(null); createFormRef.current?.requestSubmit(); }} />
                 </div>
               )}
             </form>

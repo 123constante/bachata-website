@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { Loader2, MapPin, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useVenueOptions, venueName } from './publicVenues';
 import { emptyVenueRequest, submitVenueRequest, venueRequestProblems, type VenueRequestForm } from '../venueRequest';
 
@@ -9,6 +10,7 @@ import { emptyVenueRequest, submitVenueRequest, venueRequestProblems, type Venue
  * Pick a venue the calendar knows (every venue, drafts included: useVenueOptions). A venue
  * it does not know yet is the team's to add; "Ask the team to add it" sends the request to
  * their Listing requests queue (venueRequest.ts) rather than taking free text here.
+ * Fields are 16px on a phone (md:text-sm above): iOS zooms into anything smaller.
  */
 
 interface Props {
@@ -44,7 +46,7 @@ export function VenuePicker({ id, value, onChange, fallbackLabel = 'Venue set by
         <MapPin className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate" data-testid={`${id}-current`}>{current}</span>
         <button type="button" className="text-xs text-primary shrink-0 tap-link" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-          {open ? 'Keep this venue' : 'Change venue'}
+          {open ? (value ? 'Keep this venue' : 'Close') : 'Change venue'}
         </button>
       </div>
       {open && (
@@ -56,8 +58,11 @@ export function VenuePicker({ id, value, onChange, fallbackLabel = 'Venue set by
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search venues by name or area"
-              className="h-9 text-sm pl-8"
+              className="h-9 text-base md:text-sm pl-8"
               autoComplete="off"
+              enterKeyHint="search"
+              // Opened on purpose to search: go straight to the box.
+              autoFocus
             />
           </div>
           {venues.isLoading && <p className="text-xs text-muted-foreground">Loading venues&hellip;</p>}
@@ -87,8 +92,8 @@ export function VenuePicker({ id, value, onChange, fallbackLabel = 'Venue set by
             </ul>
           )}
           {query.trim().length >= 2 && !venues.isLoading && matches.length === 0 && !asking && (
-            <p className="text-xs text-muted-foreground" data-testid="venue-no-match">
-              No venue matches.{' '}
+            <p className="text-xs text-muted-foreground" role="status" data-testid="venue-no-match">
+              No venue matches &ldquo;{query.trim()}&rdquo;.{' '}
               <button type="button" className="text-primary font-medium tap-link-inline" onClick={() => setAsking(true)} data-testid="venue-request-open">
                 Ask the team to add it
               </button>
@@ -108,6 +113,7 @@ function VenueRequest({ initialName, organiserName, onClose }: { initialName: st
   const [error, setError] = useState<string | null>(null);
   const problems = venueRequestProblems(form);
   const set = (key: keyof VenueRequestForm, v: string) => setForm((f) => ({ ...f, [key]: v }));
+  const ids = useId();
 
   const send = async () => {
     if (problems.length > 0 || sending) return;
@@ -136,9 +142,19 @@ function VenueRequest({ initialName, organiserName, onClose }: { initialName: st
   return (
     <div className="rounded-md border border-border p-3 space-y-2" data-testid="venue-request">
       <p className="text-xs font-medium">Ask the team to add a venue</p>
-      <Input value={form.venueName} onChange={(e) => set('venueName', e.target.value)} placeholder="Venue name" aria-label="Venue name" className="h-9 text-sm" data-testid="venue-request-name" />
-      <Input value={form.link} onChange={(e) => set('link', e.target.value)} placeholder="Link: Google Maps or the venue&rsquo;s website" aria-label="Link to the venue" inputMode="url" className="h-9 text-sm" data-testid="venue-request-link" />
-      <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="Your phone (the team replies on WhatsApp)" aria-label="Your phone number" type="tel" inputMode="tel" className="h-9 text-sm" data-testid="venue-request-phone" />
+      {/* Visible labels: a placeholder-only field loses its name as soon as it is typed in. */}
+      <div className="space-y-1">
+        <Label htmlFor={`${ids}-name`} className="text-xs">Venue name</Label>
+        <Input id={`${ids}-name`} value={form.venueName} onChange={(e) => set('venueName', e.target.value)} className="h-9 text-base md:text-sm" data-testid="venue-request-name" />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`${ids}-link`} className="text-xs">Link to the venue</Label>
+        <Input id={`${ids}-link`} value={form.link} onChange={(e) => set('link', e.target.value)} placeholder="Google Maps or the venue&rsquo;s website" inputMode="url" autoComplete="url" className="h-9 text-base md:text-sm" data-testid="venue-request-link" />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`${ids}-phone`} className="text-xs">Your phone number</Label>
+        <Input id={`${ids}-phone`} value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="The team replies on WhatsApp" type="tel" inputMode="tel" autoComplete="tel" className="h-9 text-base md:text-sm" data-testid="venue-request-phone" />
+      </div>
       {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
