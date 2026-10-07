@@ -15,7 +15,7 @@ import { SeriesEditor } from '../components/SeriesEditor';
 import { OFFLINE_SAVE_MESSAGE, commandErrorMessage, isNetworkFailure } from '../selfServeErrors';
 import type { SeriesWorkspace, WorkspaceSeries } from '../seriesModel';
 
-const setOnline = (value: boolean) => Object.defineProperty(window.navigator, 'onLine', { value, configurable: true });
+const setOnline = (value: boolean) => { Object.defineProperty(window.navigator, 'onLine', { value, configurable: true }); };
 
 describe('commandErrorMessage offline copy', () => {
   afterEach(() => setOnline(true));
