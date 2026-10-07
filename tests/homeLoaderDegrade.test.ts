@@ -10,7 +10,7 @@
  * they reject the way supabase-js surfaces a PostgrestError -- a plain object
  * carrying `code: '57014'`, not an Error instance.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 
 const STATEMENT_TIMEOUT = {
   code: '57014',
@@ -62,6 +62,12 @@ const run = async () => {
 
 describe('home loader degrades on SSR RPC failure (57014)', () => {
   let errorSpy: ReturnType<typeof vi.spyOn>;
+  // The first run() cold-imports the whole home route. Under the full parallel suite that
+  // alone can exceed the 5 s per-test default (it did locally, deterministically), so pay it
+  // here with a generous budget instead of inside the first test.
+  beforeAll(async () => {
+    await import('../app/routes/home');
+  }, 60_000);
   beforeEach(() => {
     rpc.failMap = false;
     rpc.failCalendar = false;
