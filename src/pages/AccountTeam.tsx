@@ -3,12 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { TeamPanel } from '@/modules/organiser-self-serve/components/TeamPanel';
+import { PageLoadError, PageLoading, PageOffline } from '@/modules/organiser-self-serve/components/PageStates';
 import { fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser-self-serve/selfServeApi';
 
 /**
@@ -32,23 +32,30 @@ function AccountTeamPage() {
       <GlobalLayout breadcrumbs={buildBreadcrumbs('accountTeam')} floatingCount={0}>
       <div className="max-w-2xl lg:max-w-5xl mx-auto px-4 pt-3 pb-24 space-y-4 tap-44" data-testid="account-team-page">
         <Link to="/account" className="text-xs text-primary tap-link gap-1">
-          <ChevronLeft className="w-3 h-3" aria-hidden="true" /> My events
+          <ChevronLeft className="w-3 h-3" aria-hidden="true" /> Your account
         </Link>
-        {home.isLoading ? (
-          <div className="space-y-2">
+        {/* Until the organiser is known there is no team name, so each state below carries the page's h1. */}
+        {home.isPending && home.isPaused ? (
+          <PageOffline titleAs="h1" />
+        ) : home.isPending ? (
+          <PageLoading label="Loading your team">
             <Skeleton className="h-8 w-2/3 rounded-md" />
             <Skeleton className="h-32 w-full rounded-md" />
-          </div>
+          </PageLoading>
         ) : home.isError && !home.data ? (
-          <div className="rounded-md border border-border p-3 space-y-2" role="alert">
-            <p className="text-sm">We couldn&rsquo;t load your team.</p>
-            <Button size="sm" variant="outline" onClick={() => void home.refetch()}>Try again</Button>
+          <PageLoadError titleAs="h1" title="We couldn&rsquo;t load your team." onRetry={() => void home.refetch()} />
+        ) : organisers.length === 0 ? (
+          <div className="rounded-md border border-border p-3 space-y-2" data-testid="team-no-organiser">
+            <h1 className="text-sm font-semibold">You don&rsquo;t run an organiser yet.</h1>
+            <p className="text-xs text-muted-foreground">
+              A team belongs to an organiser. <Link to="/account" className="text-primary tap-link-inline">Claim yours or create one</Link>, then your team shows here.
+            </p>
           </div>
         ) : !organiser ? (
           <div className="rounded-md border border-border p-3 space-y-2" role="alert" data-testid="team-unavailable">
-            <p className="text-sm font-semibold">This team isn&rsquo;t yours to see.</p>
+            <h1 className="text-sm font-semibold">This team isn&rsquo;t yours to see.</h1>
             <p className="text-xs text-muted-foreground">
-              {organisers.length === 0 ? 'You do not run an organiser yet.' : 'It belongs to an organiser you don’t help run.'}{' '}
+              It belongs to an organiser you don&rsquo;t help run.{' '}
               <Link to="/account" className="text-primary tap-link-inline">Back to your account</Link>.
             </p>
           </div>

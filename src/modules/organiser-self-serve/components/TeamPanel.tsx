@@ -130,6 +130,13 @@ export function TeamPanel({ organiser }: { organiser: HomeOrganiser }) {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const confirmationRef = useRef<HTMLParagraphElement>(null);
+
+  // The row that was acted on goes away when the lists re-read, taking focus with
+  // it: move focus to the confirmation so a screen reader hears what happened.
+  useEffect(() => {
+    if (confirmation) confirmationRef.current?.focus({ preventScroll: true });
+  }, [confirmation]);
 
   const requests = useQuery({
     queryKey: incomingAccessRequestsQueryKey(organiser.id),
@@ -171,7 +178,7 @@ export function TeamPanel({ organiser }: { organiser: HomeOrganiser }) {
   return (
     <div className="space-y-4" data-testid="team-panel">
       {confirmation && (
-        <p className="text-sm text-primary flex items-start gap-2" role="status" data-testid="team-confirmation">
+        <p ref={confirmationRef} tabIndex={-1} className="text-sm text-primary flex items-start gap-2 outline-none" role="status" data-testid="team-confirmation">
           <Check className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" /> {confirmation}
         </p>
       )}
@@ -203,11 +210,19 @@ export function TeamPanel({ organiser }: { organiser: HomeOrganiser }) {
 
         <section className="min-w-0 rounded-md border border-border p-3 space-y-2" aria-labelledby="requests-heading">
           <h2 id="requests-heading" className="text-base font-semibold">Access requests</h2>
-          {requests.isLoading ? (
-            <Skeleton className="h-12 w-full rounded-md" />
+          {requests.isPending && requests.isPaused ? (
+            // Offline: no answer yet is not "no one is asking".
+            <p className="text-sm text-muted-foreground" role="status" data-testid="requests-offline">
+              You&rsquo;re offline. Requests will show when your connection is back.
+            </p>
+          ) : requests.isPending ? (
+            <div role="status">
+              <span className="sr-only">Loading access requests</span>
+              <Skeleton className="h-12 w-full rounded-md" />
+            </div>
           ) : requests.isError ? (
             <div className="space-y-2" role="alert">
-              <p className="text-sm">We couldn&rsquo;t load the requests.</p>
+              <p className="text-sm">We couldn&rsquo;t load the requests. Check your connection, then try again.</p>
               <Button size="sm" variant="outline" onClick={() => void requests.refetch()}>Try again</Button>
             </div>
           ) : (requests.data ?? []).length === 0 ? (
