@@ -3,13 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { CreateEventForm } from '@/modules/organiser-self-serve/components/CreateEventForm';
+import { PageLoadError, PageLoading, PageOffline } from '@/modules/organiser-self-serve/components/PageStates';
 import { fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser-self-serve/selfServeApi';
 
 /**
@@ -39,19 +39,19 @@ function AccountNewPage() {
       <GlobalLayout breadcrumbs={buildBreadcrumbs('account.new')} floatingCount={0}>
       <div className="max-w-2xl lg:max-w-5xl mx-auto px-4 pt-3 pb-24 space-y-4 tap-44" data-testid="account-new-page">
         <Link to="/account" className="text-xs text-primary tap-link gap-1">
-          <ChevronLeft className="w-3 h-3" aria-hidden="true" /> My events
+          <ChevronLeft className="w-3 h-3" aria-hidden="true" /> Your account
         </Link>
         <h1 className="text-lg font-semibold leading-tight">New event</h1>
-        {home.isLoading ? (
-          <div className="space-y-2">
+        {home.isPending && home.isPaused ? (
+          // Offline before the first answer: no data is NOT "no organisers".
+          <PageOffline />
+        ) : home.isPending ? (
+          <PageLoading label="Loading your organisers">
             <Skeleton className="h-9 w-full rounded-md" />
             <Skeleton className="h-40 w-full rounded-md" />
-          </div>
+          </PageLoading>
         ) : home.isError && !home.data ? (
-          <div className="rounded-md border border-border p-3 space-y-2" role="alert">
-            <p className="text-sm">We couldn&rsquo;t load your organisers.</p>
-            <Button size="sm" variant="outline" onClick={() => void home.refetch()}>Try again</Button>
-          </div>
+          <PageLoadError title="We couldn&rsquo;t load your organisers." onRetry={() => void home.refetch()} />
         ) : organisers.length === 0 ? (
           <div className="rounded-md border border-border p-3 space-y-2" data-testid="create-no-organiser">
             <p className="text-sm font-semibold">Set up your organiser first.</p>

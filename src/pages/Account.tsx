@@ -12,6 +12,7 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { OrganiserOnboarding } from '@/modules/organiser-self-serve/components/OrganiserOnboarding';
 import { OrganiserHome } from '@/modules/organiser-self-serve/components/OrganiserHome';
+import { PageLoadError, PageLoading, PageOffline } from '@/modules/organiser-self-serve/components/PageStates';
 import { cn } from '@/lib/utils';
 import {
   LIFECYCLE_LABEL,
@@ -141,17 +142,17 @@ function AccountPage() {
           </p>
         )}
 
-        {home.isLoading ? (
-          <div className="space-y-2">
+        {home.isPending && home.isPaused ? (
+          // Offline before the first answer: no data is NOT "no organisers", so never onboarding here.
+          <PageOffline />
+        ) : home.isPending ? (
+          <PageLoading label="Loading your organisers">
             <Skeleton className="h-14 w-full rounded-md" />
             <Skeleton className="h-14 w-full rounded-md" />
-          </div>
+          </PageLoading>
         ) : home.isError && !home.data ? (
           // A home that never loaded. A failed RELOAD (after a write) keeps the organisers on screen.
-          <div className="rounded-md border border-border p-3 space-y-2" role="alert">
-            <p className="text-sm">We couldn&rsquo;t load your organisers.</p>
-            <Button size="sm" variant="outline" onClick={() => void home.refetch()}>Try again</Button>
-          </div>
+          <PageLoadError title="We couldn&rsquo;t load your organisers." onRetry={() => void home.refetch()} />
         ) : (
           <>
             {organisers.length > 1 && (
@@ -212,23 +213,36 @@ function AccountPage() {
               </section>
             )}
 
-            {selected && (
-              <Link
-                to={`/account/team/${selected.id}`}
-                className="text-sm text-primary tap-link gap-1"
-                data-testid="team-link"
-              >
-                <Users className="w-4 h-4" aria-hidden="true" /> Team and access requests
-              </Link>
-            )}
-
             {organisers.length === 0 && (
               <Button asChild variant="outline" className="min-h-[44px] w-full sm:w-auto" data-testid="account-browse-events">
                 <Link to="/">Just here to dance? Browse events</Link>
               </Button>
             )}
 
-            {organisers.length === 0 || showOnboarding ? (
+            {/* One row of secondary links, wrapping on a phone; they used to run together as one line of text. */}
+            {selected && (
+              <div className="flex flex-wrap items-center gap-x-6" data-testid="account-links">
+                <Link
+                  to={`/account/team/${selected.id}`}
+                  className="text-sm text-primary tap-link gap-1"
+                  data-testid="team-link"
+                >
+                  <Users className="w-4 h-4" aria-hidden="true" /> Team and access requests
+                </Link>
+                {!showOnboarding && (
+                  <button
+                    type="button"
+                    className="text-sm text-primary tap-link gap-1"
+                    onClick={() => setShowOnboarding(true)}
+                    data-testid="add-another-organiser"
+                  >
+                    Add another organiser <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {(organisers.length === 0 || showOnboarding) && (
               <OrganiserOnboarding
                 user={user}
                 mailboxProven={mailboxProven}
@@ -237,14 +251,6 @@ function AccountPage() {
                 firstRun={organisers.length === 0}
                 onChanged={refresh}
               />
-            ) : (
-              <button
-                type="button"
-                className="text-sm text-primary tap-link gap-1"
-                onClick={() => setShowOnboarding(true)}
-              >
-                Add another organiser <ChevronDown className="w-4 h-4" aria-hidden="true" />
-              </button>
             )}
 
           </>
