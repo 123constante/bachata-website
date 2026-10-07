@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, Plus, Search } from 'lucide-react';
+import { Loader2, Plus, Search, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -98,7 +98,7 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
   /** The row (or 'create') whose panel was open last, so a close can hand focus back to its button. */
   const lastOpened = useRef<string | null>(null);
 
-  const { data: results = [], isFetching } = useQuery({
+  const { data: results = [], isFetching, isError, isPaused, refetch } = useQuery({
     queryKey: ['claimable-organisers', term],
     queryFn: () => searchClaimableOrganisers(term),
     enabled: term.trim().length >= 2,
@@ -212,7 +212,7 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
       </div>
 
       <p className="sr-only" role="status" data-testid="organiser-search-status">
-        {searched && !isFetching ? (results.length === 1 ? '1 organiser found' : `${results.length} organisers found`) : ''}
+        {searched && !isFetching && !isError && !isPaused ? (results.length === 1 ? '1 organiser found' : `${results.length} organisers found`) : ''}
       </p>
 
       <ul className="space-y-2" data-testid="organiser-results">
@@ -221,7 +221,21 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
             <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Searching&hellip;
           </li>
         )}
-        {!isFetching && searched && results.length === 0 && (
+        {searched && !isFetching && results.length === 0 && (isError || isPaused) && (
+          <li className="rounded-md border border-border p-3 space-y-2" role="alert" data-testid="organiser-search-error">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <WifiOff className="w-4 h-4 shrink-0" aria-hidden="true" />
+              {isPaused ? 'You\u2019re offline' : 'The search did not work'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {isPaused ? 'We cannot tell if this organiser is listed until your connection is back.' : 'We could not check the list just now, so we cannot say if this organiser is listed.'} Check your connection, then try again.
+            </p>
+            <Button type="button" size="sm" variant="outline" className="min-h-[44px]" onClick={() => { void refetch(); }} data-testid="organiser-search-retry">
+              Try again
+            </Button>
+          </li>
+        )}
+        {!isFetching && !isError && !isPaused && searched && results.length === 0 && (
           <li className="text-sm text-muted-foreground" data-testid="organiser-no-match">
             No organiser matches &ldquo;{term.trim()}&rdquo;. Check the spelling, or{' '}
             <button
