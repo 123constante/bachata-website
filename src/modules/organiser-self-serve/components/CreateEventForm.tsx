@@ -190,7 +190,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
               id="create-organiser"
               value={organiserId}
               onChange={(e) => setOrganiserId(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-[16px] md:text-[16px]"
               data-testid="create-organiser"
             >
               {organisers.map((o) => (
@@ -231,7 +231,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
 
         <div className="space-y-1">
           <Label htmlFor="create-name" className="text-xs">Name</Label>
-          <Input id="create-name" value={form.name} maxLength={120} onChange={(e) => set('name', e.target.value)} className="h-9 text-base md:text-sm" placeholder={weekly ? 'Tuesday Bachata Class' : 'Bachata Sundays Party'} required />
+          <Input id="create-name" value={form.name} maxLength={120} onChange={(e) => set('name', e.target.value)} className="h-9 text-[16px] md:text-[16px]" placeholder={weekly ? 'Tuesday Bachata Class' : 'Bachata Sundays Party'} required />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -242,7 +242,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
                 id="create-weekday"
                 value={Number.isNaN(weekday) ? '' : weekday}
                 onChange={(e) => set('date', dateForWeekday(form.date, today, Number(e.target.value)))}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-[16px] md:text-[16px]"
                 data-testid="create-weekday"
               >
                 <option value="" disabled>Choose a day</option>
@@ -252,18 +252,18 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
           )}
           <div className="space-y-1">
             <Label htmlFor="create-date" className="text-xs">{weekly ? 'First date' : 'Date'}</Label>
-            <Input id="create-date" type="date" min={today} value={form.date} onChange={(e) => set('date', e.target.value)} className="h-9 text-base md:text-sm" required />
+            <Input id="create-date" type="date" min={today} value={form.date} onChange={(e) => set('date', e.target.value)} className="h-9 text-[16px] md:text-[16px]" required />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label htmlFor="create-start" className="text-xs">Starts</Label>
-            <Input id="create-start" type="time" value={form.startTime} onChange={(e) => set('startTime', e.target.value)} className="h-9 text-base md:text-sm" required />
+            <Input id="create-start" type="time" value={form.startTime} onChange={(e) => set('startTime', e.target.value)} className="h-9 text-[16px] md:text-[16px]" required />
           </div>
           <div className="space-y-1">
             <Label htmlFor="create-end" className="text-xs">Ends</Label>
-            <Input id="create-end" type="time" value={form.endTime} onChange={(e) => set('endTime', e.target.value)} className="h-9 text-base md:text-sm" />
+            <Input id="create-end" type="time" value={form.endTime} onChange={(e) => set('endTime', e.target.value)} className="h-9 text-[16px] md:text-[16px]" />
           </div>
         </div>
 
@@ -280,18 +280,18 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
 
         <div className="space-y-1">
           <Label htmlFor="create-cover" className="text-xs">Picture (link)</Label>
-          <Input id="create-cover" type="url" inputMode="url" placeholder="https://" value={form.coverImageUrl} onChange={(e) => set('coverImageUrl', e.target.value)} className="h-9 text-base md:text-sm" />
+          <Input id="create-cover" type="url" inputMode="url" placeholder="https://" value={form.coverImageUrl} onChange={(e) => set('coverImageUrl', e.target.value)} className="h-9 text-[16px] md:text-[16px]" />
           <p className="text-[11px] text-muted-foreground">A square or portrait picture works best. Until you add one, we use your organiser picture.</p>
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="create-description" className="text-xs">About this event <span className="font-normal text-muted-foreground">(optional)</span></Label>
-          <Textarea id="create-description" value={form.description} rows={4} maxLength={4000} onChange={(e) => set('description', e.target.value)} className="text-base md:text-sm" />
+          <Textarea id="create-description" value={form.description} rows={4} maxLength={4000} onChange={(e) => set('description', e.target.value)} className="text-[16px] md:text-[16px]" />
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="create-ticket" className="text-xs">Where to book (link) <span className="font-normal text-muted-foreground">(optional)</span></Label>
-          <Input id="create-ticket" type="url" inputMode="url" placeholder="Paste your booking link" value={form.ticketUrl} onChange={(e) => set('ticketUrl', e.target.value)} className="h-9 text-base md:text-sm" />
+          <Input id="create-ticket" type="url" inputMode="url" placeholder="Paste your booking link" value={form.ticketUrl} onChange={(e) => set('ticketUrl', e.target.value)} className="h-9 text-[16px] md:text-[16px]" />
         </div>
 
         </fieldset>
