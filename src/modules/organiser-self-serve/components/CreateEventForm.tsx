@@ -37,6 +37,9 @@ import { VenuePicker } from './VenuePicker';
  * sends the create and the schedule; "Submit for review" adds the owner's
  * draft -> pending_review move. Every write is a P5 command envelope through
  * useOwnerCommand, the same path the series page uses.
+ *
+ * Every field is 16px on a phone (md:text-sm above that): iOS zooms the page into
+ * any smaller field on focus and leaves it zoomed.
  */
 
 interface Props {
@@ -187,7 +190,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
               id="create-organiser"
               value={organiserId}
               onChange={(e) => setOrganiserId(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
               data-testid="create-organiser"
             >
               {organisers.map((o) => (
@@ -197,6 +200,11 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
               ))}
             </select>
           </div>
+        )}
+
+        {/* First, not after the form: an organiser who cannot add events yet should not fill it in to find out. */}
+        {block && (
+          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm" role="status" data-testid="create-blocked">{block}</p>
         )}
 
         <fieldset className="space-y-1">
@@ -223,7 +231,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
 
         <div className="space-y-1">
           <Label htmlFor="create-name" className="text-xs">Name</Label>
-          <Input id="create-name" value={form.name} maxLength={120} onChange={(e) => set('name', e.target.value)} className="h-9 text-sm" placeholder={weekly ? 'Tuesday Bachata Class' : 'Bachata Sundays Party'} required />
+          <Input id="create-name" value={form.name} maxLength={120} onChange={(e) => set('name', e.target.value)} className="h-9 text-base md:text-sm" placeholder={weekly ? 'Tuesday Bachata Class' : 'Bachata Sundays Party'} required />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -234,7 +242,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
                 id="create-weekday"
                 value={Number.isNaN(weekday) ? '' : weekday}
                 onChange={(e) => set('date', dateForWeekday(form.date, today, Number(e.target.value)))}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
                 data-testid="create-weekday"
               >
                 <option value="" disabled>Choose a day</option>
@@ -244,18 +252,18 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
           )}
           <div className="space-y-1">
             <Label htmlFor="create-date" className="text-xs">{weekly ? 'First date' : 'Date'}</Label>
-            <Input id="create-date" type="date" min={today} value={form.date} onChange={(e) => set('date', e.target.value)} className="h-9 text-sm" required />
+            <Input id="create-date" type="date" min={today} value={form.date} onChange={(e) => set('date', e.target.value)} className="h-9 text-base md:text-sm" required />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label htmlFor="create-start" className="text-xs">Starts</Label>
-            <Input id="create-start" type="time" value={form.startTime} onChange={(e) => set('startTime', e.target.value)} className="h-9 text-sm" required />
+            <Input id="create-start" type="time" value={form.startTime} onChange={(e) => set('startTime', e.target.value)} className="h-9 text-base md:text-sm" required />
           </div>
           <div className="space-y-1">
             <Label htmlFor="create-end" className="text-xs">Ends</Label>
-            <Input id="create-end" type="time" value={form.endTime} onChange={(e) => set('endTime', e.target.value)} className="h-9 text-sm" />
+            <Input id="create-end" type="time" value={form.endTime} onChange={(e) => set('endTime', e.target.value)} className="h-9 text-base md:text-sm" />
           </div>
         </div>
 
@@ -272,28 +280,31 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
 
         <div className="space-y-1">
           <Label htmlFor="create-cover" className="text-xs">Picture (link)</Label>
-          <Input id="create-cover" type="url" inputMode="url" placeholder="https://" value={form.coverImageUrl} onChange={(e) => set('coverImageUrl', e.target.value)} className="h-9 text-sm" />
+          <Input id="create-cover" type="url" inputMode="url" placeholder="https://" value={form.coverImageUrl} onChange={(e) => set('coverImageUrl', e.target.value)} className="h-9 text-base md:text-sm" />
           <p className="text-[11px] text-muted-foreground">A square or portrait picture works best. Until you add one, we use your organiser picture.</p>
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="create-description" className="text-xs">About this event <span className="font-normal text-muted-foreground">(optional)</span></Label>
-          <Textarea id="create-description" value={form.description} rows={4} maxLength={4000} onChange={(e) => set('description', e.target.value)} className="text-sm" />
+          <Textarea id="create-description" value={form.description} rows={4} maxLength={4000} onChange={(e) => set('description', e.target.value)} className="text-base md:text-sm" />
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="create-ticket" className="text-xs">Where to book (link) <span className="font-normal text-muted-foreground">(optional)</span></Label>
-          <Input id="create-ticket" type="url" inputMode="url" placeholder="Paste your booking link" value={form.ticketUrl} onChange={(e) => set('ticketUrl', e.target.value)} className="h-9 text-sm" />
+          <Input id="create-ticket" type="url" inputMode="url" placeholder="Paste your booking link" value={form.ticketUrl} onChange={(e) => set('ticketUrl', e.target.value)} className="h-9 text-base md:text-sm" />
         </div>
 
         </fieldset>
 
-        {block && (
-          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm" role="status" data-testid="create-blocked">{block}</p>
-        )}
-        {error && <p className="text-xs text-destructive" role="alert" data-testid="create-error">{error}</p>}
 
+        <p className="text-[11px] text-muted-foreground">
+          The Bachata Calendar team checks every new event before it goes live, usually within a day. Changes to a live event show straight away.
+        </p>
+
+        {/* The bar stays short (a phone keyboard and the bottom nav already take most of the screen),
+            and a refusal shows in it, next to the button that was pressed, not at the foot of the form. */}
         <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-10 -mx-4 px-4 py-2 bg-background/90 backdrop-blur border-t border-border space-y-1" data-testid="create-actions">
+          {error && <p className="text-xs text-destructive" role="alert" data-testid="create-error">{error}</p>}
           {landed ? (
             <p className="text-sm flex flex-wrap items-center gap-2">
               <span>Saved as a draft.</span>
@@ -316,9 +327,6 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
             </div>
           )}
           {!block && !landed && missing && <p className="text-[11px] text-muted-foreground text-right" data-testid="create-missing">{missing}</p>}
-          <p className="text-[11px] text-muted-foreground">
-            The Bachata Calendar team checks every new event before it goes live, usually within a day. Changes to a live event show straight away.
-          </p>
         </div>
       </form>
 

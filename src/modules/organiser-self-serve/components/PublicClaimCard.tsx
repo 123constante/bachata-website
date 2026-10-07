@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -78,6 +78,11 @@ const card: CSSProperties = {
   color: CREAM,
 };
 const primary: CSSProperties = { background: GOLD, color: '#1b1408' };
+/**
+ * The ghost buttons' own hover (bg-accent, a bright yellow) under their inline
+ * cream text read at about 1.3:1; a faint light wash keeps the text readable.
+ */
+const GHOST_HOVER = 'min-h-[44px] hover:bg-white/10';
 
 export function PublicClaimCard({ enabled, organiser, user, mailboxProven, returnTo, onChanged }: Props) {
   const [panel, setPanel] = useState<Panel>('closed');
@@ -85,6 +90,18 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
   const [failure, setFailure] = useState<SelfServeErrorCopy | null>(null);
   const [note, setNote] = useState('');
   const [done, setDone] = useState<PublicClaimOutcome | null>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  const doneRef = useRef<HTMLElement>(null);
+
+  // The button that opened a panel (or sent it) unmounts, so focus would fall to the
+  // page: move it into the open panel, and onto the outcome once one shows.
+  useEffect(() => {
+    if (panel === 'closed') return;
+    sectionRef.current?.querySelector<HTMLElement>('[data-panel] :is(textarea, button):not([disabled])')?.focus();
+  }, [panel]);
+  useEffect(() => {
+    if (done) doneRef.current?.focus();
+  }, [done]);
 
   const kind = publicClaimKind(enabled, organiser, user);
 
@@ -92,11 +109,11 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
   // organiser now reads as managed (the card would otherwise vanish mid-read).
   if (done && organiser) {
     return (
-      <section className="mx-4 my-3 p-3 text-sm md:mx-12" style={{ ...card, borderColor: 'rgba(30,158,106,0.5)', background: 'rgba(30,158,106,0.08)' }} data-testid="public-claim-done" role="status">
+      <section ref={doneRef} tabIndex={-1} className="mx-4 my-3 p-3 text-sm md:mx-12 outline-none" style={{ ...card, borderColor: 'rgba(30,158,106,0.5)', background: 'rgba(30,158,106,0.08)' }} data-testid="public-claim-done" role="status">
         {done === 'claimed' ? (
           <div className="flex flex-wrap items-center gap-2">
             <span><strong>&#10003; This is your page.</strong> <span style={{ color: MUTE }}>You can now add and change your events.</span></span>
-            <Link to="/account" className="ml-auto inline-flex items-center rounded-full px-3 py-1.5 text-xs font-bold" style={primary}>
+            <Link to="/account" className="ml-auto inline-flex min-h-[44px] items-center rounded-full px-4 text-xs font-bold" style={primary} data-testid="public-claim-go">
               Go to my events &rarr;
             </Link>
           </div>
@@ -142,7 +159,7 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
   const request = () => run(() => requestOrganiserAccess(organiser.id, note), 'requested');
 
   return (
-    <section className="mx-4 my-3 p-3 space-y-2 text-sm md:mx-12" style={card} data-testid="public-claim-card">
+    <section ref={sectionRef} className="mx-4 my-3 p-3 space-y-2 text-sm md:mx-12" style={card} data-testid="public-claim-card">
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 flex-1">
           <p className="font-bold">Is this you?</p>
@@ -161,8 +178,23 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
         ) : null}
       </div>
 
+      {/* Above the panel: when a refused claim turns into a request, the reason reads first. */}
+      {signedIn && panel !== 'closed' && failure && (
+        <p className="text-xs text-destructive" role="alert" data-testid="public-claim-error">
+          {failure.message}
+          {failure.next === 'sign_in' && (
+            <>
+              {' '}
+              <Link to={signIn} className="underline tap-link-inline" style={{ color: GOLD }} data-testid="public-claim-signin">
+                Sign in
+              </Link>
+            </>
+          )}
+        </p>
+      )}
+
       {signedIn && panel === 'claim' && (
-        <div className="space-y-2" data-testid="public-claim-panel">
+        <div className="space-y-2" data-testid="public-claim-panel" data-panel>
           <p className="text-xs" style={{ color: MUTE }}>
             You&rsquo;re signed in as <strong style={{ color: CREAM }}>{email}</strong>. That matches the contact email on this
             page, so you can claim it now.
@@ -170,9 +202,9 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
           {mailboxProven ? (
             <div className="flex flex-wrap gap-2">
               <Button size="sm" disabled={busy} onClick={() => void claim()} className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-claim-confirm">
-                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Yes, claim it'}
+                {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Yes, claim it
               </Button>
-              <Button size="sm" variant="ghost" className="min-h-[44px]" style={{ color: MUTE }} onClick={() => setPanel('closed')}>
+              <Button size="sm" variant="ghost" className={GHOST_HOVER} style={{ color: MUTE }} onClick={() => setPanel('closed')}>
                 Not me
               </Button>
             </div>
@@ -185,7 +217,9 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
       )}
 
       {signedIn && panel === 'request' && (
-        <div className="space-y-2" data-testid="public-request-panel">
+        <div className="space-y-2" data-testid="public-request-panel" data-panel>
+          {/* A refusal that opened this panel already says why, just above. */}
+          {failure?.next !== 'request_access' && (
           <p className="text-xs" style={{ color: MUTE }}>
             You&rsquo;re signed in as <strong style={{ color: CREAM }}>{email}</strong>.{' '}
             {organiser.contactEmail?.trim()
@@ -193,6 +227,7 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
               : 'This page lists no contact email to check against.'}{' '}
             Tell us who you are and the Bachata Calendar team will check.
           </p>
+          )}
           <Label htmlFor={`public-request-note-${organiser.id}`} className="text-xs" style={{ color: MUTE }}>
             Who are you? (optional)
           </Label>
@@ -208,28 +243,15 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
           />
           <div className="flex flex-wrap gap-2">
             <Button size="sm" disabled={busy} onClick={() => void request()} className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-request-send">
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Request access'}
+              {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Request access
             </Button>
-            <Button size="sm" variant="ghost" className="min-h-[44px]" style={{ color: MUTE }} onClick={() => setPanel('closed')}>
+            <Button size="sm" variant="ghost" className={GHOST_HOVER} style={{ color: MUTE }} onClick={() => setPanel('closed')}>
               Cancel
             </Button>
           </div>
         </div>
       )}
 
-      {signedIn && panel !== 'closed' && failure && (
-        <p className="text-xs text-destructive" role="alert" data-testid="public-claim-error">
-          {failure.message}
-          {failure.next === 'sign_in' && (
-            <>
-              {' '}
-              <Link to={signIn} className="underline" style={{ color: GOLD }} data-testid="public-claim-signin">
-                Sign in
-              </Link>
-            </>
-          )}
-        </p>
-      )}
       {signedIn && panel === 'claim' && mailboxProven && failure?.next === 'reauth' && (
         <div data-testid="public-claim-proof">
           <EmailCodeProof email={email} returnTo={returnTo} onProven={() => { setFailure(null); void claim(); }} />

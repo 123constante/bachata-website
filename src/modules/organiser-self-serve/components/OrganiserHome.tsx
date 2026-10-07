@@ -35,12 +35,14 @@ function SeriesCard({ series, today }: { series: HomeSeriesFull; today: string }
   const more = Math.max(0, (Number(series.upcoming_count) || 0) - series.next_dates.length);
 
   return (
-    <li className="rounded-md border border-border p-3 space-y-2" data-testid="series-card">
+    // min-w-0: a grid item is never narrower than its content by default, so one long
+    // name widened the whole column past a phone screen and pushed every card off it.
+    <li className="min-w-0 rounded-md border border-border p-3 space-y-2" data-testid="series-card">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <Link
             to={`/account/series/${series.id}`}
-            className="block text-base font-semibold leading-tight truncate hover:text-primary tap-pad"
+            className="block text-base font-semibold leading-tight line-clamp-2 break-words hover:text-primary tap-pad"
             data-testid="series-open"
           >
             {series.name}
@@ -134,9 +136,9 @@ export function OrganiserHome({
     <section className="space-y-3" data-testid="organiser-home">
       {status.canSendForReview && (
         <div className="rounded-lg border border-primary/40 bg-card p-3 space-y-3" data-testid="next-step-card">
-          <p className="text-sm">
-            <span className="font-semibold">Next: send {organiser.name} for review.</span>{' '}
-            The team checks new organisers within a day; you can add events meanwhile.
+          {/* The status note below says what review unlocks; events wait for the approval. */}
+          <p className="text-sm font-semibold break-words" data-testid="next-step-title">
+            Next: send {organiser.name} for review{organiser.lifecycle_status === 'rejected' ? ' again' : ''}.
           </p>
           {statusNote}
           <Button
@@ -213,9 +215,16 @@ export function OrganiserHome({
       {series.length === 0 ? (
         <div className="rounded-md border border-dashed border-border p-3 text-sm flex items-start gap-2" data-testid="home-empty">
           <CalendarPlus className="w-4 h-4 mt-0.5 text-primary shrink-0" aria-hidden="true" />
-          <span>
-            No events yet. Tap <span className="font-medium">New event</span> to add a party or a weekly class; the team checks it before it goes live.
-          </span>
+          {live ? (
+            <span>
+              No events yet. Tap <span className="font-medium">New event</span> to add a party or a weekly class; the team checks it before it goes live.
+            </span>
+          ) : (
+            // A create needs a live organiser (createBlock), so "Tap New event" would lead to a refusal here.
+            <span>
+              No events yet. Once the team approves {organiser.name}, you can add your parties and weekly classes here.
+            </span>
+          )}
         </div>
       ) : (
         <ul className="grid gap-3 md:grid-cols-2" data-testid="series-list">
