@@ -246,8 +246,13 @@ describe('CreateEventForm first run', () => {
   it('every text field is 16px on a phone, and a refusal shows in the sticky action bar', async () => {
     command.mutateAsync.mockRejectedValue(Object.assign(new Error('permission_denied: nope'), { code: 'P0001' }));
     wrap(<CreateEventForm organisers={[org({})]} initialOrganiserId={null} today="2026-10-04" />);
-    for (const el of screen.getByTestId('create-fields').querySelectorAll('input, select, textarea')) {
-      expect(el.className).toContain('text-base');
+    const fields = screen.getByTestId('create-fields').querySelectorAll('input, select, textarea');
+    expect(fields.length).toBeGreaterThan(0);
+    for (const el of fields) {
+      // text-base is ~13.6px on a 390px phone (fluid root); only an explicit 16px stops iOS focus-zoom.
+      expect(el.className).toContain('text-[16px]');
+      expect(el.className).toContain('md:text-[16px]');
+      expect(el.className).not.toMatch(/text-base|md:text-sm/);
     }
     fireEvent.click(screen.getByTestId('kind-party'));
     fireEvent.change(document.getElementById('create-name')!, { target: { value: 'Party' } });
