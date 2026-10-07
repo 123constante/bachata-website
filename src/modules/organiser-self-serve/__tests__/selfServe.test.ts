@@ -113,6 +113,24 @@ describe('commandErrorMessage (series and date commands)', () => {
     expect(commandErrorMessage({ message, code: 'P0001' })).toMatch(expected);
   });
 
+  describe('bare refusal codes from the admin caps and undo', () => {
+    const codes: Array<[string, RegExp]> = [
+      ['daily_edit_cap', /limit of 100 changes[\s\S]*tomorrow[\s\S]*Bachata Calendar team/],
+      ['date_cap', /up to 30 upcoming dates[\s\S]*Remove[\s\S]*new event/],
+      ['undo_conflict', /Someone changed this after you[\s\S]*before you change it again/],
+      ['not_undoable', /cannot be undone here[\s\S]*by hand/],
+    ];
+
+    it.each(codes)('%s maps to its message and never leaks the code', (code, expected) => {
+      for (const message of [code, `${code}: detail the server may add`]) {
+        const text = commandErrorMessage({ message, code: 'P0001' });
+        expect(text).toMatch(expected);
+        expect(text).not.toContain(code);
+        expect(text.length).toBeLessThan(200);
+      }
+    });
+  });
+
   it('never shows raw server text', () => {
     for (const message of ['relation "x" does not exist', 'some new refusal', '']) {
       expect(commandErrorMessage({ message })).toBe('Something went wrong. Please try again.');
