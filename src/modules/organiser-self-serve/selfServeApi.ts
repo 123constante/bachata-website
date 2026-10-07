@@ -5,6 +5,7 @@ import type { HomeSeriesFull } from './homeModel';
 import type { Json } from '@/integrations/supabase/types';
 import { parseDateDetail, parseWorkspace, type DateDetail, type SeriesWorkspace } from './seriesModel';
 import { upsertCommand, type CommandEnvelope, type OwnerCommand } from './seriesCommands';
+import { parseProgramme, parseSaveResult, type Programme, type SaveResult, type WireSession } from './programmeModel';
 import {
   parseIncomingRequests,
   parseRemoval,
@@ -239,6 +240,45 @@ export async function runOccurrenceCommand(env: CommandEnvelope): Promise<Comman
   const { data, error } = await supabase.rpc('occurrence_command_p5', { p_envelope: env as unknown as Json });
   if (error) throw error;
   return (data ?? { ok: true }) as unknown as CommandResponse;
+}
+
+// ---- the programme of one date (admin 20261109560000) -------------------------
+
+export const occurrenceProgrammeQueryKey = (occurrenceId: string | undefined) => ['occurrence-programme', occurrenceId] as const;
+
+/**
+ * organiser_get_occurrence_programme_v1 and organiser_set_occurrence_programme_v1
+ * are not in the generated `Database` types until admin PR #668 is applied to
+ * prod (types-drift regenerates them from the live schema). Until then they go
+ * through this one narrow caller; the results are parsed by programmeModel, never
+ * trusted as a typed shape. Swap for `supabase.rpc` once the types carry them.
+ */
+type ProgrammeRpc = (
+  fn: 'organiser_get_occurrence_programme_v1' | 'organiser_set_occurrence_programme_v1',
+  args: Record<string, unknown>,
+) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
+const programmeRpc = (...args: Parameters<ProgrammeRpc>) => (supabase.rpc as unknown as ProgrammeRpc)(...args);
+
+/** Every session of one date, in exactly the shape the save takes back (removed ones included). */
+export async function fetchOccurrenceProgramme(occurrenceId: string): Promise<Programme> {
+  const { data, error } = await programmeRpc('organiser_get_occurrence_programme_v1', { p_occurrence_id: occurrenceId });
+  if (error) throw error;
+  return parseProgramme(data);
+}
+
+/**
+ * Save the COMPLETE programme of one date (programmeModel.buildPayload): every
+ * session the reader returned plus the new ones. A live date shows the change at
+ * once. version_conflict when someone else saved first.
+ */
+export async function saveOccurrenceProgramme(occurrenceId: string, expectedVersion: number, sessions: WireSession[]): Promise<SaveResult> {
+  const { data, error } = await programmeRpc('organiser_set_occurrence_programme_v1', {
+    p_occurrence_id: occurrenceId,
+    p_expected_version: expectedVersion,
+    p_sessions: sessions,
+  });
+  if (error) throw error;
+  return parseSaveResult(data);
 }
 
 // ---- W3: create ----------------------------------------------------------------

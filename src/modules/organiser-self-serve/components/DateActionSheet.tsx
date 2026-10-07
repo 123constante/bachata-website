@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Ban, CalendarX2, Check, ChevronLeft, Clock, ExternalLink, Image as ImageIcon, Loader2, MapPin, PenLine, RotateCcw, Trash2 } from 'lucide-react';
+import { Ban, CalendarX2, Check, ChevronLeft, Clock, ExternalLink, Image as ImageIcon, ListChecks, Loader2, MapPin, PenLine, RotateCcw, Trash2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +25,7 @@ import {
   type OwnerCommand,
 } from '../seriesCommands';
 import { commandErrorMessage } from '../selfServeErrors';
-import { confirmCopy, publicEventPath } from '../editorGuards';
+import { UNSAVED_MESSAGE, confirmCopy, publicEventPath } from '../editorGuards';
 import {
   dateLabel,
   durationMinutes,
@@ -37,6 +37,7 @@ import {
   type WorkspaceSeries,
 } from '../seriesModel';
 import { ConfirmPanel } from './ConfirmPanel';
+import { ProgrammeEditor } from './ProgrammeEditor';
 import { useOwnerCommand } from './useOwnerCommand';
 import { VenuePicker } from './VenuePicker';
 import { useVenueOptions, venueName } from './publicVenues';
@@ -49,7 +50,7 @@ import { useVenueOptions, venueName } from './publicVenues';
  * series is never edited from here.
  */
 
-type View = 'menu' | 'cancel' | 'cancel_confirm' | 'remove_confirm' | 'time' | 'venue' | 'note' | 'media' | 'done';
+type View = 'menu' | 'cancel' | 'cancel_confirm' | 'remove_confirm' | 'time' | 'venue' | 'note' | 'media' | 'programme' | 'done';
 
 interface Props {
   open: boolean;
@@ -100,6 +101,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
   const [note, setNote] = useState('');
   const [picture, setPicture] = useState('');
   const [ticket, setTicket] = useState('');
+  const [programmeDirty, setProgrammeDirty] = useState(false);
   const command = useOwnerCommand(seriesId);
   const venues = useVenueOptions();
 
@@ -122,8 +124,19 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
       setError(null);
       setDoneText(null);
       setReason(null);
+      setProgrammeDirty(false);
     }
   }, [open, date.id]);
+
+  // Closing the sheet with programme edits not saved asks first, like leaving the page does.
+  const requestOpenChange = (next: boolean) => {
+    if (!next && view === 'programme' && programmeDirty && !window.confirm(UNSAVED_MESSAGE)) return;
+    onOpenChange(next);
+  };
+  const leaveProgramme = () => {
+    setProgrammeDirty(false);
+    setView('menu');
+  };
 
   const d = detail.data;
   const label = dateLabel(date.occurrence_date, today);
@@ -207,7 +220,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
   );
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={requestOpenChange}>
       <SheetContent
         side="bottom"
         // Above the fixed BottomNav (also z-50), which would otherwise cover the sheet's buttons.
@@ -260,6 +273,13 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                 {!cancelled && (
                   <MenuItem icon={<MapPin className="w-4 h-4" />} title="Change the venue" hint={seriesVenue ? `Usually ${seriesVenue}` : null} testId="action-venue" onClick={() => open3C('venue')} />
                 )}
+                <MenuItem
+                  icon={<ListChecks className="w-4 h-4" />}
+                  title="Change the programme"
+                  hint="Sessions, times and levels for this date"
+                  testId="action-programme"
+                  onClick={() => { setError(null); setView('programme'); }}
+                />
                 <MenuItem icon={<PenLine className="w-4 h-4" />} title="Add a note for this date" hint={d?.descriptionOverride ? `Now: "${d.descriptionOverride.slice(0, 60)}"` : '"Cover teacher", "bring cash", "Halloween theme"'} testId="action-note" onClick={() => open3C('note')} />
                 <MenuItem icon={<ImageIcon className="w-4 h-4" />} title="Picture or booking link for this date" hint="A special guest, a festival promo" testId="action-media" onClick={() => open3C('media')} />
                 {!cancelled && ruleDate ? (
@@ -284,6 +304,17 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
               </ul>
               <p className="text-xs text-muted-foreground">A change here affects {label} only. To change every date, edit the series.</p>
             </>
+          ) : view === 'programme' ? (
+            <ProgrammeEditor
+              occurrenceId={date.id}
+              seriesId={seriesId}
+              dateLabel={label}
+              live={live}
+              publicPath={publicEventPath(series)}
+              onBack={leaveProgramme}
+              onClose={() => { setProgrammeDirty(false); onOpenChange(false); }}
+              onDirtyChange={setProgrammeDirty}
+            />
           ) : view === 'cancel' ? (
             <div className="space-y-3" data-testid="cancel-panel">
               <div>
