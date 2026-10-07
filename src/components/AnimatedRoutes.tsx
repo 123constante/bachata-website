@@ -41,6 +41,9 @@ const Account = lazyWithRetry(() => import("../pages/Account"));
 const AccountSeries = lazyWithRetry(() => import("../pages/AccountSeries"));
 const AccountNew = lazyWithRetry(() => import("../pages/AccountNew"));
 const AccountTeam = lazyWithRetry(() => import("../pages/AccountTeam"));
+// The rebuilt organiser area (arc/organiser-rebuild), mounted beside the old
+// /account pages until the final slice. Its AuthGuard lives inside this chunk.
+const OrganiserArea = lazyWithRetry(() => import("@/modules/organiser/shell/OrganiserRoutes"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
@@ -181,6 +184,13 @@ export const AnimatedRoutes = () => {
             <Route path="/account/team/:organiserId?" element={
               flags.organiserSelfServe
                 ? <PageTransition><AccountTeam /></PageTransition>
+                : <Navigate to="/" replace />
+            } />
+            {/* No PageTransition: its transform + filter would turn the shell's
+                position:fixed frame into a clipped, offset box mid-animation. */}
+            <Route path="/account/o/*" element={
+              flags.organiserSelfServe
+                ? <OrganiserArea />
                 : <Navigate to="/" replace />
             } />
 
