@@ -13,6 +13,7 @@ import {
   type DraftSession,
   type RowProblem,
 } from '../programmeModel';
+import { LineupRow } from './LineupRow';
 
 /**
  * One session of a date's programme. The kind (class, Party, ...) is fixed on
@@ -21,11 +22,15 @@ import {
  * 24h HH:MM whatever the phone shows. A removed session folds to one line with
  * "Put back" until the save.
  */
-export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRemove, onRestore }: {
+export function ProgrammeSessionRow({ row, problems, focusToken, live = false, failed = false, onChange, onRemove, onRestore }: {
   row: DraftSession;
   problems: RowProblem[];
   /** Changes each time the screen wants this row's name field focused (added, or first with a problem). */
   focusToken: string | null;
+  /** The date is live: the line-up sheet repeats that a save shows at once. */
+  live?: boolean;
+  /** The last save was refused for this row: it shakes once. */
+  failed?: boolean;
   onChange: (patch: Partial<DraftSession>) => void;
   onRemove: () => void;
   onRestore: () => void;
@@ -77,7 +82,15 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
   const field = 'min-h-[44px] text-[16px] md:text-[16px] aria-[invalid=true]:border-destructive';
 
   return (
-    <li className={cn('space-y-2 rounded-md border p-3', problems.length > 0 ? 'border-destructive' : 'border-border')} data-testid="programme-row">
+    <li
+      className={cn(
+        'space-y-2 rounded-md border p-3',
+        problems.length > 0 || failed ? 'border-destructive' : 'border-border',
+        failed && 'animate-[shake_0.3s_ease-in-out] motion-reduce:animate-none',
+      )}
+      data-testid="programme-row"
+      data-failed={failed ? 'true' : undefined}
+    >
       <div className="flex items-center gap-2">
         {row.original ? (
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium" data-testid="programme-type">{typeLabel}</span>
@@ -181,6 +194,14 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
         </div>
         {levelsProblem && <p id={`${id}-levels-error`} className="text-sm text-destructive" data-testid="programme-row-error">{levelsProblem}</p>}
       </fieldset>
+
+      <LineupRow
+        row={row}
+        sessionName={row.title.trim() || typeLabel}
+        live={live}
+        problem={problem('people')}
+        onChange={(people) => onChange({ people })}
+      />
     </li>
   );
 }

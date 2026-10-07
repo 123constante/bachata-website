@@ -16,12 +16,14 @@ import { isServerRefusal, programmeErrorCopy } from '../selfServeErrors';
 import { UNSAVED_MESSAGE, leaveGuardEnabled } from '../editorGuards';
 import {
   LEVEL_LABEL,
+  LIVE_SAVE_NOTE,
   TYPE_LABEL,
   buildPayload,
   isDirty,
   newSession,
   newlyRemoved,
   notEditableCopy,
+  peopleChanged,
   removeSessionsConfirmCopy,
   toDraft,
   validateProgramme,
@@ -90,7 +92,7 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
 
   const seed = (p: Programme) => {
     setBase(p);
-    setRows(toDraft(p.sessions));
+    setRows(toDraft(p.sessions, p.sessionPeople));
     setShowProblems(false);
     setFocusKey(null);
   };
@@ -120,15 +122,25 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
   const validation = useMemo(() => validateProgramme(rows), [rows]);
   const removing = useMemo(() => newlyRemoved(rows), [rows]);
 
+  const dirtyRef = useRef(false);
+  useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
+
   const save = useMutation({
     mutationFn: () => {
       if (!base) throw new Error('programme_not_loaded');
       return saveOccurrenceProgramme(occurrenceId, base.version, buildPayload(rows));
     },
     onSuccess: (result) => {
+      // The save result carries no line-up: after a line-up change, read the date again for the server's own.
+      const peopleSent = rows.some(peopleChanged);
       const next: Programme = { ...(base as Programme), version: result.version, sessions: result.sessions };
       queryClient.setQueryData(occurrenceProgrammeQueryKey(occurrenceId), next);
       seed(next);
+      if (peopleSent) {
+        void programme.refetch().then((fresh) => {
+          if (fresh.data && !dirtyRef.current) seed(fresh.data);
+        });
+      }
       setChanged(result.changed);
       setError(null);
       setErrorRowKey(null);
@@ -318,7 +330,7 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
     <div className="space-y-3 [&_:is(input,select,button)]:scroll-mb-40" data-testid="programme-panel">
       {heading}
       <p className="text-xs text-muted-foreground">
-        Changes here are for {dateLabel} only.{live ? ' Once you save, dancers see them straight away.' : ''}
+        Changes here are for {dateLabel} only.{live ? ` ${LIVE_SAVE_NOTE}` : ''}
       </p>
       {rows.length === 0 && <p className="text-sm text-muted-foreground">No sessions on this date yet. Add one below.</p>}
       <ul className="space-y-2" aria-label={`Sessions on ${dateLabel}`}>
@@ -328,6 +340,8 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
             row={row}
             problems={problemsFor(row.key)}
             focusToken={focusKey && focusKey.split('#')[0] === row.key ? focusKey : null}
+            live={live}
+            failed={row.key === errorRowKey}
             onChange={(patch) => update(row.key, patch)}
             onRemove={() => remove(row)}
             onRestore={() => update(row.key, { removed: false })}
