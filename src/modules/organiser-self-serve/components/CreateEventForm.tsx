@@ -178,7 +178,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
   return (
     <div className="grid gap-4 lg:grid-cols-[1.1fr_.9fr] lg:items-start" data-testid="create-event">
       <form
-        className="space-y-3"
+        className="space-y-3 [&_:is(input,select,textarea,button)]:scroll-mb-40"
         // Enter (a phone keyboard's Go) must not send anything for review: only the buttons send.
         onSubmit={(e) => e.preventDefault()}
       >
@@ -303,7 +303,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
 
         {/* The bar stays short (a phone keyboard and the bottom nav already take most of the screen),
             and a refusal shows in it, next to the button that was pressed, not at the foot of the form. */}
-        <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-10 -mx-4 px-4 py-2 bg-background/90 backdrop-blur border-t border-border space-y-1" data-testid="create-actions">
+        <div className="sticky bottom-[calc(60px+env(safe-area-inset-bottom))] z-10 -mx-4 px-4 py-2 bg-background/90 backdrop-blur border-t border-border space-y-1" data-testid="create-actions">
           {error && <p className="text-xs text-destructive" role="alert" data-testid="create-error">{error}</p>}
           {landed ? (
             <p className="text-sm flex flex-wrap items-center gap-2">
