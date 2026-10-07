@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Ban, CalendarX2, Check, ChevronLeft, Clock, ExternalLink, Image as ImageIcon, ListChecks, Loader2, MapPin, PenLine, RotateCcw, Trash2 } from 'lucide-react';
@@ -102,6 +102,15 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
   const [picture, setPicture] = useState('');
   const [ticket, setTicket] = useState('');
   const [programmeDirty, setProgrammeDirty] = useState(false);
+  // Focus: the sheet title on opening, the new step's first control on each step, the
+  // menu item you came from on Back, the message on a failed save, and on closing the
+  // control that opened the sheet (it has no Radix trigger, so nothing else returns it).
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const viewRef = useRef<HTMLDivElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const returnTo = useRef<string | null>(null);
+  const focusedView = useRef<View>(view);
   const command = useOwnerCommand(seriesId);
   const venues = useVenueOptions();
 
@@ -125,8 +134,30 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
       setDoneText(null);
       setReason(null);
       setProgrammeDirty(false);
+      returnTo.current = null;
     }
   }, [open, date.id]);
+
+  // Runs before Radix moves the focus into the sheet, so it still sees the opener.
+  useLayoutEffect(() => {
+    if (open && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) openerRef.current = document.activeElement;
+  }, [open]);
+  useEffect(() => {
+    const root = viewRef.current;
+    // Only a step change moves the focus (not reopening the sheet on the step it closed on).
+    if (!open || !root || focusedView.current === view) return;
+    focusedView.current = view;
+    if (view === 'programme') return; // the programme editor moves its own focus
+    if (view === 'menu') {
+      if (returnTo.current) root.querySelector<HTMLElement>(`[data-testid="${returnTo.current}"]`)?.focus();
+      returnTo.current = null;
+      return;
+    }
+    root.querySelector<HTMLElement>('[data-step-focus], [data-testid="confirm-ack"], [data-testid="confirm-keep"]')?.focus();
+  }, [open, view]);
+  useEffect(() => { if (error) errorRef.current?.focus(); }, [error]);
+  // Undo stays on the done step, so a new result has to take the focus itself.
+  useEffect(() => { if (doneText) viewRef.current?.querySelector<HTMLElement>('[data-step-focus]')?.focus(); }, [doneText]);
 
   // Closing the sheet with programme edits not saved asks first, like leaving the page does.
   const requestOpenChange = (next: boolean) => {
@@ -135,14 +166,21 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
   };
   const leaveProgramme = () => {
     setProgrammeDirty(false);
+    returnTo.current = 'action-programme';
     setView('menu');
+  };
+  // Every step opened from the menu hands the focus back to its menu item on Back.
+  const openStep = (next: View, from: string) => {
+    returnTo.current = from;
+    setError(null);
+    setView(next);
   };
 
   const d = detail.data;
   const label = dateLabel(date.occurrence_date, today);
   const usualStart = series.default_local_start_time?.slice(0, 5) ?? null;
   const usualEnd = endTime(usualStart, durationMinutes(series.default_duration));
-  const usualTime = usualStart ? (usualEnd ? `${usualStart}–${usualEnd}` : usualStart) : null;
+  const usualTime = usualStart ? (usualEnd ? `${usualStart}\u2013${usualEnd}` : usualStart) : null;
   const seriesVenue = venueName(venues.data, series.default_venue_id);
   const cancelled = d ? d.cancelled : date.lifecycle_status === 'cancelled';
   // A series with no programme times: the server keeps this date's own time in a
@@ -153,6 +191,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
   const live = series.lifecycle_status === 'live';
 
   const open3C = (next: View) => {
+    returnTo.current = `action-${next}`;
     setError(null);
     if (next === 'time') {
       setLongConfirmed(false);
@@ -209,10 +248,24 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
   const busy = command.isPending;
   const spanWarning = timeSpanWarning(start, end);
   const back = (
-    <Button type="button" size="sm" variant="ghost" onClick={() => { setError(null); setView('menu'); }} disabled={busy}>
+    <Button type="button" size="sm" variant="ghost" onClick={() => { setError(null); setView('menu'); }} disabled={busy} data-testid="date-back">
       <ChevronLeft className="w-4 h-4" aria-hidden="true" /> Back
     </Button>
   );
+  const stepHeading = (text: string) => (
+    <h3 tabIndex={-1} data-step-focus className="text-sm font-semibold outline-none">{text}</h3>
+  );
+  const reasonList = reasons.data ?? [];
+  // One tab stop for the reasons; the arrow keys move between them, as in any radio group.
+  const reasonKeys = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!step || reasonList.length === 0) return;
+    e.preventDefault();
+    const at = reasonList.findIndex((r) => r.label === reason);
+    const next = (at + step + reasonList.length) % reasonList.length;
+    setReason(reasonList[next].label);
+    e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')[next]?.focus();
+  };
   const saveButton = (text: string, onClick: () => void, disabled = false, testId = 'date-save') => (
     <Button type="button" size="sm" onClick={onClick} disabled={busy || disabled} data-testid={testId}>
       {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} {text}
@@ -224,18 +277,21 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
       <SheetContent
         side="bottom"
         // Above the fixed BottomNav (also z-50), which would otherwise cover the sheet's buttons.
-        overlayClassName="z-[90]"
-        className="tap-44 z-[90] max-h-[92vh] overflow-y-auto rounded-t-xl pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:max-w-lg sm:mx-auto sm:left-0 sm:right-0"
+        overlayClassName="z-[90] motion-reduce:!animate-none"
+        // The shared close button (last child) is 16px wide: give it a 44px target here only. No slide with reduced motion.
+        className="tap-44 z-[90] max-h-[92vh] overflow-y-auto rounded-t-xl pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:max-w-lg sm:mx-auto sm:left-0 sm:right-0 motion-reduce:!animate-none [&>button:last-child]:right-2 [&>button:last-child]:top-2 [&>button:last-child]:flex [&>button:last-child]:min-w-[44px] [&>button:last-child]:items-center [&>button:last-child]:justify-center"
+        onOpenAutoFocus={(e) => { e.preventDefault(); titleRef.current?.focus(); }}
+        onCloseAutoFocus={(e) => { if (openerRef.current?.isConnected) { e.preventDefault(); openerRef.current.focus(); } }}
         data-testid="date-sheet"
       >
-        <div className="space-y-1 pr-8">
-          <SheetTitle className="text-base">{label}</SheetTitle>
+        <div className="space-y-1 pr-10">
+          <SheetTitle ref={titleRef} tabIndex={-1} className="text-base outline-none">{label}</SheetTitle>
           <SheetDescription className="text-xs">{series.name} &middot; this date only</SheetDescription>
         </div>
 
-        <div className="mt-4 space-y-3">
+        <div ref={viewRef} className="mt-4 space-y-3">
           {detail.isLoading && view !== 'done' ? (
-            <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Loading this date…</p>
+            <p className="text-sm text-muted-foreground flex items-center gap-2" role="status"><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Loading this date&hellip;</p>
           ) : detail.isError && view !== 'done' ? (
             <div className="space-y-2" role="alert">
               <p className="text-sm">We couldn&rsquo;t load this date.</p>
@@ -245,7 +301,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
             <>
               {cancelled && (
                 <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm" data-testid="date-cancelled-banner">
-                  Cancelled{d?.cancellationReason ? ` · ${d.cancellationReason}` : ''}. Dancers see this.
+                  Cancelled{d?.cancellationReason ? ` \u00b7 ${d.cancellationReason}` : ''}. Dancers see this.
                 </p>
               )}
               <ul className="space-y-2">
@@ -278,7 +334,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                   title="Change the programme"
                   hint="Sessions, times and levels for this date"
                   testId="action-programme"
-                  onClick={() => { setError(null); setView('programme'); }}
+                  onClick={() => openStep('programme', 'action-programme')}
                 />
                 <MenuItem icon={<PenLine className="w-4 h-4" />} title="Add a note for this date" hint={d?.descriptionOverride ? `Now: "${d.descriptionOverride.slice(0, 60)}"` : '"Cover teacher", "bring cash", "Halloween theme"'} testId="action-note" onClick={() => open3C('note')} />
                 <MenuItem icon={<ImageIcon className="w-4 h-4" />} title="Picture or booking link for this date" hint="A special guest, a festival promo" testId="action-media" onClick={() => open3C('media')} />
@@ -297,8 +353,9 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                     title={cancelled ? 'Remove it from the list' : 'Remove this date'}
                     hint={cancelled ? 'Dancers stop seeing the cancelled date.' : 'For a date you added by mistake.'}
                     testId="action-remove"
-                    onClick={() => { setError(null); setView('remove_confirm'); }}
+                    onClick={() => openStep('remove_confirm', 'action-remove')}
                     disabled={busy}
+                    tone="danger"
                   />
                 )}
               </ul>
@@ -318,22 +375,23 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
           ) : view === 'cancel' ? (
             <div className="space-y-3" data-testid="cancel-panel">
               <div>
-                <p className="text-sm font-semibold">Cancel {label}</p>
+                {stepHeading(`Cancel ${label}`)}
                 <p className="text-xs text-muted-foreground">Only this date. Your other dates carry on.</p>
               </div>
-              <fieldset className="space-y-2">
-                <legend className="text-xs font-medium mb-1">Why? Dancers see this.</legend>
-                <div className="flex flex-wrap gap-2">
-                  {(reasons.data ?? []).map((r) => (
+              <div className="space-y-2">
+                <p id="cancel-reason-label" className="text-xs font-medium">Why? Dancers see this.</p>
+                <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="cancel-reason-label" onKeyDown={reasonKeys}>
+                  {reasonList.map((r, i) => (
                     <button
                       key={r.key}
                       type="button"
                       role="radio"
                       aria-checked={reason === r.label}
+                      tabIndex={reason === r.label || (!reason && i === 0) ? 0 : -1}
                       onClick={() => setReason(r.label)}
                       data-testid="cancel-reason"
                       className={cn(
-                        'rounded-full border px-3 py-1 text-sm',
+                        'rounded-full border px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                         reason === r.label ? 'border-primary bg-primary/10 text-primary' : 'border-border',
                       )}
                     >
@@ -341,8 +399,16 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                     </button>
                   ))}
                 </div>
-                {reasons.isLoading && <p className="text-xs text-muted-foreground">Loading reasons…</p>}
-              </fieldset>
+                {reasons.isLoading && <p className="text-xs text-muted-foreground" role="status">Loading reasons&hellip;</p>}
+                {reasons.isError && (
+                  <div className="space-y-2" role="alert" data-testid="cancel-reasons-error">
+                    <p className="text-sm">We couldn&rsquo;t load the reasons, so the date can&rsquo;t be cancelled yet. Check your connection and try again.</p>
+                    <Button type="button" size="sm" variant="outline" onClick={() => void reasons.refetch()} disabled={reasons.isFetching}>
+                      {reasons.isFetching && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Try again
+                    </Button>
+                  </div>
+                )}
+              </div>
               <div className="flex flex-wrap gap-2 justify-end">
                 {back}
                 {/* Nothing is sent from here: Next opens the explicit confirm step. */}
@@ -356,10 +422,10 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
               testId="cancel-confirm-panel"
               copy={confirmCopy('cancel_date', { subject: label, reason })}
               busy={busy}
-              onKeep={() => { setError(null); setView('cancel'); }}
+              onKeep={() => { setError(null); returnTo.current = null; setView('cancel'); }}
               onConfirm={() => void run(cancelCommand(reason), {
                 title: `${label} is cancelled.`,
-                body: `Dancers see "Cancelled · ${reason}" on the event page.`,
+                body: `Dancers see "Cancelled \u00b7 ${reason}" on the event page.`,
                 undo: uncancelCommand(),
               })}
             />
@@ -373,18 +439,19 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
             />
           ) : view === 'time' ? (
             <div className="space-y-3" data-testid="time-panel">
+              {stepHeading('Change the time')}
               <p className="text-xs text-muted-foreground">
                 {hasSessions ? `Every session on ${label} moves with the start time.` : `Only ${label} changes.`} Other dates stay {usualTime ?? 'as the series'}.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="date-start" className="text-xs">Starts</Label>
-                  <Input id="date-start" type="time" value={start} onChange={(e) => { setStart(e.target.value); setLongConfirmed(false); }} className="h-9 text-sm" required />
+                  <Input id="date-start" type="time" value={start} onChange={(e) => { setStart(e.target.value); setLongConfirmed(false); }} className="h-11 text-[16px] md:text-[16px]" required />
                   {usualStart && <p className="text-[11px] text-muted-foreground">Series: {usualStart}</p>}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="date-end" className="text-xs">Ends</Label>
-                  <Input id="date-end" type="time" value={end} onChange={(e) => { setEnd(e.target.value); setLongConfirmed(false); }} className="h-9 text-sm" />
+                  <Input id="date-end" type="time" value={end} onChange={(e) => { setEnd(e.target.value); setLongConfirmed(false); }} className="h-11 text-[16px] md:text-[16px]" />
                   {usualEnd && <p className="text-[11px] text-muted-foreground">Series: {usualEnd}</p>}
                 </div>
               </div>
@@ -398,7 +465,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                       type="checkbox"
                       checked={longConfirmed}
                       onChange={(e) => setLongConfirmed(e.target.checked)}
-                      className="mt-0.5"
+                      className="mt-0.5 h-5 w-5 shrink-0"
                       data-testid="time-span-confirm"
                     />
                     <span>Yes, it really runs that long.</span>
@@ -411,7 +478,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                   {hasOwnTime && (
                     <Button type="button" size="sm" variant="outline" disabled={busy} data-testid="time-reset"
                       onClick={() => void run(resetTimeCommand(), { title: `${label} is back to the usual time.`, body: usualTime ? `Starts ${usualStart} as the series.` : 'It follows the series again.' })}>
-                      Usual time
+                      Use the usual time
                     </Button>
                   )}
                   {saveButton('Save the time', () => void run(setTimeCommand(start, end || null), (response) => setTimeDoneCopy(label, start, response)),
@@ -421,6 +488,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
             </div>
           ) : view === 'venue' ? (
             <div className="space-y-3" data-testid="venue-panel">
+              {stepHeading('Change the venue')}
               <VenuePicker id="date-venue" value={venueId} onChange={setVenueId} />
               {seriesVenue && <p className="text-[11px] text-muted-foreground">Series: {seriesVenue}</p>}
               <div className="flex flex-wrap items-center gap-2 justify-between">
@@ -428,7 +496,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                 <div className="flex gap-2">
                   {d?.venueOverride && (
                     <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void saveOverride({ venue_id: null }, `${label} is back at the series venue.`)}>
-                      Series venue
+                      Use the series venue
                     </Button>
                   )}
                   {saveButton('Save the venue', () => venueId && void saveOverride({ venue_id: venueId }, `${label} moves to ${venueName(venues.data, venueId) ?? 'the new venue'}.`),
@@ -438,9 +506,10 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
             </div>
           ) : view === 'note' ? (
             <div className="space-y-3" data-testid="note-panel">
+              {stepHeading('Add a note for this date')}
               <div className="space-y-1">
                 <Label htmlFor="date-note" className="text-xs">Note for {label}</Label>
-                <Textarea id="date-note" value={note} onChange={(e) => setNote(e.target.value)} rows={4} maxLength={4000} className="text-sm" />
+                <Textarea id="date-note" value={note} onChange={(e) => setNote(e.target.value)} rows={4} maxLength={4000} className="text-[16px] md:text-[16px]" />
                 <p className="text-[11px] text-muted-foreground">Dancers see this on this date instead of the usual description.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 justify-between">
@@ -457,29 +526,35 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
             </div>
           ) : view === 'media' ? (
             <div className="space-y-3" data-testid="media-panel">
+              {stepHeading('Picture or booking link for this date')}
+              {d?.coverImageOverride && (
+                <p className="rounded-md border border-border bg-muted/30 p-2 text-xs" data-testid="date-own-picture">
+                  {label} shows its own picture. A new series picture does not replace it.
+                </p>
+              )}
               <div className="space-y-1">
                 <Label htmlFor="date-picture" className="text-xs">Picture link for {label}</Label>
-                <Input id="date-picture" type="url" inputMode="url" value={picture} onChange={(e) => setPicture(e.target.value)} placeholder="https://" className="h-9 text-sm" />
+                <Input id="date-picture" type="url" inputMode="url" value={picture} onChange={(e) => setPicture(e.target.value)} placeholder="https://" className="h-11 text-[16px] md:text-[16px]" />
                 <p className="text-[11px] text-muted-foreground">{d?.coverImageOverride ? 'Leave empty to use the series picture again.' : 'Empty uses the series picture.'}</p>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="date-ticket" className="text-xs">Booking link for {label}</Label>
-                <Input id="date-ticket" type="url" inputMode="url" value={ticket} onChange={(e) => setTicket(e.target.value)} placeholder="https://" className="h-9 text-sm" />
+                <Input id="date-ticket" type="url" inputMode="url" value={ticket} onChange={(e) => setTicket(e.target.value)} placeholder="https://" className="h-11 text-[16px] md:text-[16px]" />
                 <p className="text-[11px] text-muted-foreground">{d?.ticketUrlOverride ? 'Leave empty to use the series link again.' : 'Empty uses the series link.'}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 justify-between">
                 {back}
-                {saveButton('Save', () => {
+                {saveButton('Save the links', () => {
                   const patch: OverridePatch = {};
                   if (picture.trim() !== (d?.coverImageOverride ?? '')) patch.cover_image_url = picture;
                   if (ticket.trim() !== (d?.ticketUrlOverride ?? '')) patch.ticket_url = ticket;
-                  void saveOverride(patch, `${label} has its own ${patch.cover_image_url !== undefined && patch.ticket_url !== undefined ? 'picture and link' : patch.cover_image_url !== undefined ? 'picture' : 'ticket link'}.`);
+                  void saveOverride(patch, `${label} has its own ${patch.cover_image_url !== undefined && patch.ticket_url !== undefined ? 'picture and booking link' : patch.cover_image_url !== undefined ? 'picture' : 'booking link'}.`);
                 }, picture.trim() === (d?.coverImageOverride ?? '') && ticket.trim() === (d?.ticketUrlOverride ?? ''))}
               </div>
             </div>
           ) : (
             <div className="space-y-3" data-testid="date-done" role="status">
-              <p className="text-sm font-semibold flex items-start gap-2">
+              <p tabIndex={-1} data-step-focus className="text-sm font-semibold flex items-start gap-2 outline-none">
                 <Check className="w-4 h-4 mt-0.5 text-primary shrink-0" aria-hidden="true" /> {doneText?.title}
               </p>
               <p className="text-xs text-muted-foreground">{doneText?.body}</p>
@@ -501,8 +576,10 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
           )}
 
           {error && (
-            <p className="text-xs text-destructive" role="alert" data-testid="date-error">{error}</p>
+            <p ref={errorRef} tabIndex={-1} className="text-sm text-destructive outline-none" role="alert" data-testid="date-error">{error}</p>
           )}
+          {/* The spinner on the button is silent: say it in words for screen readers. */}
+          <p className="sr-only" role="status" data-testid="date-saving">{busy ? 'Saving\u2026' : ''}</p>
         </div>
       </SheetContent>
     </Sheet>

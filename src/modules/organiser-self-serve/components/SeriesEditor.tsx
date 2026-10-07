@@ -44,6 +44,7 @@ import {
 } from '../seriesModel';
 import { ConfirmPanel } from './ConfirmPanel';
 import { DateActionSheet } from './DateActionSheet';
+import { FlyerUpload } from './FlyerUpload';
 import { ReviewStrip } from './ReviewStrip';
 import { useOwnerCommand } from './useOwnerCommand';
 import { VenuePicker } from './VenuePicker';
@@ -147,8 +148,10 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
     setSaved(false);
     setForm((f) => ({ ...f, [key]: value }));
   };
-  const draft = formToDraft(form);
   const before = formToDraft(savedForm);
+  // The picture is saved by FlyerUpload on its own; this form never sends it,
+  // so a stale value here cannot undo a picture saved meanwhile.
+  const draft = { ...formToDraft(form), coverImageUrl: before.coverImageUrl };
   const dirty = hasBasicsChanges(before, draft);
   const pricesProblem = SHOW_PRICE_AND_EVENT_INSTAGRAM ? passRowsProblem(form.passes) : null;
   const instagramOk = SHOW_PRICE_AND_EVENT_INSTAGRAM ? instagramUrlOk(form.instagramUrl ?? '') : true;
@@ -195,10 +198,6 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
       <div className="space-y-1">
         <Label htmlFor="series-ticket" className="text-xs">Where to book (link)</Label>
         <Input id="series-ticket" type="url" inputMode="url" placeholder="https://" value={form.ticketUrl} onChange={(e) => set('ticketUrl', e.target.value)} className="h-9 text-[16px] md:text-[16px]" />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="series-cover" className="text-xs">Picture (link)</Label>
-        <Input id="series-cover" type="url" inputMode="url" placeholder="https://" value={form.coverImageUrl} onChange={(e) => set('coverImageUrl', e.target.value)} className="h-9 text-[16px] md:text-[16px]" />
       </div>
       {SHOW_PRICE_AND_EVENT_INSTAGRAM && (
         <>
@@ -457,6 +456,7 @@ export function SeriesEditor({ workspace, today }: { workspace: SeriesWorkspace;
   const [focusConfirmation, setFocusConfirmation] = useState(0);
   const confirmationRef = useRef<HTMLDivElement>(null);
   const [dirty, setDirty] = useState(false);
+  const [flyerDirty, setFlyerDirty] = useState(false);
   // An archived event is off Bachata Calendar and only the team brings it back, so its
   // details are shown but not editable here.
   const archived = series.lifecycle_status === 'archived';
@@ -468,8 +468,8 @@ export function SeriesEditor({ workspace, today }: { workspace: SeriesWorkspace;
   useEffect(() => {
     if (focusConfirmation) confirmationRef.current?.focus();
   }, [focusConfirmation]);
-  // Leaving with edits not saved (a link, Back, closing the tab) asks first.
-  useUnsavedChangesGuard({ enabled: leaveGuardEnabled({ dirty: dirty && !archived }), message: UNSAVED_MESSAGE });
+  // Leaving with edits not saved (a link, Back, closing the tab, a picture not saved) asks first.
+  useUnsavedChangesGuard({ enabled: leaveGuardEnabled({ dirty: (dirty || flyerDirty) && !archived }), message: UNSAVED_MESSAGE });
   const upcoming = useMemo(() => upcomingDates(workspace.dates, today), [workspace.dates, today]);
   const scope = scopeNote(upcoming, today);
 
@@ -512,6 +512,14 @@ export function SeriesEditor({ workspace, today }: { workspace: SeriesWorkspace;
         {/* disabled: every field and button in the form is switched off at once (native fieldset). */}
         <fieldset disabled={archived} className="min-w-0 space-y-4" data-testid="series-edit-area">
           {/* key: archiving starts the form afresh from the server, so typing not saved is not shown as if it were. */}
+          <FlyerUpload
+            key={archived ? 'archived' : 'editable'}
+            series={series}
+            nextDate={upcoming[0]?.occurrence_date ?? null}
+            meta={scheduleSummary(series)}
+            onSaved={setConfirmation}
+            onDirtyChange={setFlyerDirty}
+          />
           <BasicsSection key={archived ? 'archived' : 'editable'} workspace={workspace} onSaved={setConfirmation} onDirtyChange={setDirty} />
         </fieldset>
         <div className="space-y-4">

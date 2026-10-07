@@ -70,7 +70,7 @@ describe('SeriesEditor polish', () => {
 
   it('text fields are a literal 16px (the fluid root makes text-base 13.5px, and landscape phones pass md)', () => {
     mount();
-    for (const id of ['series-name', 'series-start', 'series-end', 'series-description', 'series-ticket', 'series-cover', 'add-date']) {
+    for (const id of ['series-name', 'series-start', 'series-end', 'series-description', 'series-ticket', 'add-date']) {
       const cls = document.getElementById(id)?.className ?? '';
       expect(cls).toContain('text-[16px]');
       expect(cls).not.toContain('md:text-sm');
