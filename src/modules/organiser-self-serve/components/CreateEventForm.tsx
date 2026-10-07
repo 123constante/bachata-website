@@ -127,7 +127,7 @@ export function CreateEventForm({ organisers, initialOrganiserId, today }: Props
       setError(
         refused
           ? commandErrorMessage(err)
-          : 'We could not tell if that saved. Check your connection and press the same button again. Your details are still here.',
+          : 'We could not confirm the save. Check your connection and press the same button again. Your details are still here.',
       );
       setRunning(null);
       return;
