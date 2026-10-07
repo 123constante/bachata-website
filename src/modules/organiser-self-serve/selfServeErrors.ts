@@ -207,3 +207,62 @@ export function teamErrorMessage(error: unknown): string {
 
 /** Exposed for the spec that pins every code the D7 / D4 team RPCs can raise. */
 export const KNOWN_TEAM_CODES = Object.keys(TEAM_COPY);
+
+/**
+ * The programme of one date (admin 20261109560000,
+ * organiser_set_occurrence_programme_v1 / organiser_get_occurrence_programme_v1).
+ * Prefixed messages like the P5 commands, some naming the 0-based payload index
+ * of the session at fault ("invalid_payload: session 2 title is required").
+ * Raw server text is never shown. `reload` marks the refusals that mean the
+ * screen is out of date with the server: the editor reloads the programme itself,
+ * so the copy says it is loaded rather than asking for a reload.
+ */
+export const PROGRAMME_VERSION_CONFLICT = 'This date was changed somewhere else, so your changes were not saved. The latest programme is now showing. Make your changes again.';
+
+export const PROGRAMME_COPY: Array<{ match: RegExp; message: string; reload?: boolean }> = [
+  { match: /^version_conflict/, message: PROGRAMME_VERSION_CONFLICT, reload: true },
+  { match: /^permission_denied: authentication_required/, message: 'Please sign in again.' },
+  { match: /occurrence not found or caller is not an owner or manager/, message: 'You cannot change this date. It may have been removed, or you are no longer on this event’s team.' },
+  { match: /on a past date is admin-only/, message: 'This date has already happened, so its programme can no longer be changed.', reload: true },
+  { match: /on an ended or archived series is admin-only/, message: 'This event has ended or is archived, so its programme cannot be changed here.', reload: true },
+  { match: /on a cancelled date is not allowed/, message: 'This date is cancelled, so its programme cannot be changed.', reload: true },
+  { match: /on a multi-day event is not supported/, message: 'This event runs over more than one day. Ask the Bachata Calendar team to change its programme.', reload: true },
+  { match: /type is admin-only on an existing session/, message: 'Only the Bachata Calendar team can change the kind of an existing session.' },
+  { match: /programme_incomplete|names a session that is not on this date|repeats a session already listed/, message: 'The programme of this date has changed since you opened it, so your changes were not saved. The latest programme is now showing. Make your changes again.', reload: true },
+  { match: /title is required/, message: 'Every session needs a name.' },
+  { match: /title is longer than/, message: 'Keep each session name to 120 characters or fewer.' },
+  { match: /title must be a single line/, message: 'Keep each session name on one line.' },
+  { match: /title must not contain < or >/, message: 'A session name cannot contain < or >.' },
+  { match: /needs both start_time and end_time/, message: 'Each session needs a start time and an end time.' },
+  { match: /end_time must differ from start_time/, message: 'The end time must be different from the start time.' },
+  { match: /must last between 5 minutes and 12 hours/, message: 'A session must last between 5 minutes and 12 hours.' },
+  { match: /must each be a HH:MM time/, message: 'Enter the times as hours and minutes, like 19:30.' },
+  { match: /ends_next_day/, message: 'Check the times. A session that ends at or before its start time finishes after midnight.' },
+  { match: /level_keys/, message: 'Choose levels from the list.' },
+  { match: /type must be class, masterclass, party or performance/, message: 'Choose what kind of session each new one is.' },
+  { match: /date-only sessions/, message: 'A date can hold up to 20 sessions added just for that date.' },
+  { match: /a date holds at most \d+ sessions/, message: 'A date can hold up to 40 sessions.' },
+  { match: /would span more than 20 hours/, message: 'The programme of this date would run for more than 20 hours. Check the times.' },
+  { match: /sessions holds more than|sessions is larger than/, message: 'This programme is too large to save here. Ask the Bachata Calendar team.' },
+  { match: /^permission_denied/, message: 'You cannot make that change here. Ask the Bachata Calendar team.' },
+];
+
+export interface ProgrammeErrorCopy {
+  message: string;
+  /** 0-based index into the payload the server named, so the screen can point at the row. */
+  sessionIndex: number | null;
+  reload: boolean;
+}
+
+export function programmeErrorCopy(error: unknown): ProgrammeErrorCopy {
+  const message = error && typeof error === 'object' ? (error as { message?: unknown }).message : null;
+  if (typeof message === 'string') {
+    const text = message.trim();
+    const hit = PROGRAMME_COPY.find((c) => c.match.test(text));
+    if (hit) {
+      const index = /^invalid_payload: session (\d+) /.exec(text);
+      return { message: hit.message, sessionIndex: index ? Number(index[1]) : null, reload: !!hit.reload };
+    }
+  }
+  return { message: GENERIC.message, sessionIndex: null, reload: false };
+}
