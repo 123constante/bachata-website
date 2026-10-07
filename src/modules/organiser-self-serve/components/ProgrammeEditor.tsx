@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronLeft, ExternalLink, Loader2, Lock, Plus } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import {
@@ -23,7 +24,6 @@ import {
   newSession,
   newlyRemoved,
   notEditableCopy,
-  peopleChanged,
   removeSessionsConfirmCopy,
   toDraft,
   validateProgramme,
@@ -33,6 +33,7 @@ import {
 } from '../programmeModel';
 import { ConfirmPanel } from './ConfirmPanel';
 import { ProgrammeSessionRow } from './ProgrammeSessionRow';
+import { LineupReadonly } from './LineupRow';
 
 /**
  * The programme of ONE date (classes, times, levels per session), inside the
@@ -80,7 +81,11 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const [changed, setChanged] = useState(true);
   const [focusTo, setFocusTo] = useState<{ target: FocusTarget; n: number } | null>(null);
+  /** The re-read after a save failed: the old draft cannot be trusted, so the screen asks to load again. */
+  const [syncFailed, setSyncFailed] = useState(false);
   const reseed = useRef(true);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const doneRef = useRef<HTMLParagraphElement>(null);
   const saveRef = useRef<HTMLButtonElement>(null);
@@ -122,25 +127,19 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
   const validation = useMemo(() => validateProgramme(rows), [rows]);
   const removing = useMemo(() => newlyRemoved(rows), [rows]);
 
-  const dirtyRef = useRef(false);
-  useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
-
   const save = useMutation({
     mutationFn: () => {
       if (!base) throw new Error('programme_not_loaded');
       return saveOccurrenceProgramme(occurrenceId, base.version, buildPayload(rows));
     },
     onSuccess: (result) => {
-      // The save result carries no line-up: after a line-up change, read the date again for the server's own.
-      const peopleSent = rows.some(peopleChanged);
-      const next: Programme = { ...(base as Programme), version: result.version, sessions: result.sessions };
-      queryClient.setQueryData(occurrenceProgrammeQueryKey(occurrenceId), next);
-      seed(next);
-      if (peopleSent) {
-        void programme.refetch().then((fresh) => {
-          if (fresh.data && !dirtyRef.current) seed(fresh.data);
-        });
-      }
+      // The save result is NOT the draft's new truth: a date-only session that changed comes back
+      // under a NEW added_session_id and the result carries no line-up. So nothing is rebuilt from it;
+      // the draft (and the cached reader) is dropped and the date is read again, every time.
+      setBase(null);
+      setRows([]);
+      reseed.current = false;
+      void resync();
       setChanged(result.changed);
       setError(null);
       setErrorRowKey(null);
@@ -167,8 +166,24 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
     },
   });
 
+  /** After a save: the reader again, straight from the server, replacing the cached copy; the draft starts from it. */
+  const resync = async () => {
+    setSyncFailed(false);
+    try {
+      const fresh = await queryClient.fetchQuery({
+        queryKey: occurrenceProgrammeQueryKey(occurrenceId),
+        queryFn: () => fetchOccurrenceProgramme(occurrenceId),
+        staleTime: 0,
+      });
+      if (mounted.current) seed(fresh);
+    } catch {
+      if (mounted.current) setSyncFailed(true);
+    }
+  };
+
   /** Fetch the date again and start the draft over from it (the error stays on screen). */
   const reload = async () => {
+    setSyncFailed(false);
     const fresh = await programme.refetch();
     if (fresh.data) {
       reseed.current = false;
@@ -230,58 +245,7 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
     </div>
   );
 
-  if (programme.isLoading || (!base && !programme.isError)) {
-    return (
-      <div className="space-y-3" data-testid="programme-panel">
-        {heading}
-        <p className="text-sm text-muted-foreground flex items-center gap-2" role="status">
-          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Loading the programme&hellip;
-        </p>
-      </div>
-    );
-  }
-  if (!base) {
-    return (
-      <div className="space-y-3" data-testid="programme-panel">
-        {heading}
-        <div className="space-y-2" role="alert">
-          <p className="text-sm">We couldn&rsquo;t load the programme for this date.</p>
-          <Button size="sm" variant="outline" className="min-h-[44px]" onClick={() => void reload()} disabled={programme.isFetching} data-testid="programme-retry">
-            {programme.isFetching && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Try again
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!base.editable) {
-    const shown = base.sessions.filter((s) => s.removed !== true);
-    return (
-      <div className="space-y-3" data-testid="programme-panel">
-        {heading}
-        <p className="flex items-start gap-2 rounded-md border border-border bg-muted/40 p-3 text-sm" data-testid="programme-readonly-reason">
-          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-          {notEditableCopy(base.notEditableReason)}
-        </p>
-        <ul className="space-y-2" aria-label="Programme (read only)" data-testid="programme-readonly">
-          {shown.length === 0 && <li className="text-sm text-muted-foreground">No sessions on this date.</li>}
-          {shown.map((s, i) => (
-            <li key={i} className="rounded-md border border-border p-3 text-sm">
-              <span className="block font-medium">{typeof s.title === 'string' && s.title ? s.title : TYPE_LABEL[String(s.type)] ?? 'Session'}</span>
-              <span className="block text-xs text-muted-foreground">
-                {[
-                  TYPE_LABEL[String(s.type)],
-                  s.start_time && s.end_time ? `${s.start_time} to ${s.end_time}${s.ends_next_day ? ' (finishes after midnight)' : ''}` : null,
-                  Array.isArray(s.level_keys) && s.level_keys.length ? s.level_keys.map((l) => LEVEL_LABEL[l as LevelKey] ?? String(l)).join(', ') : null,
-                ].filter(Boolean).join(' \u00b7 ')}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
-
+  // The result first: it needs nothing from the draft, which is being read again under it.
   if (stage === 'done') {
     return (
       <div className="space-y-3" data-testid="programme-done" role="status">
@@ -300,9 +264,73 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
               View on the site <ExternalLink className="w-3 h-3" aria-hidden="true" />
             </Link>
           )}
-          <Button type="button" size="sm" variant="outline" className="min-h-[44px]" onClick={() => { setStage('edit'); focusNext('heading'); }} data-testid="programme-edit-again">Edit again</Button>
+          <Button type="button" size="sm" variant="outline" className="min-h-[44px]" onClick={() => { if (syncFailed) void reload(); setStage('edit'); focusNext('heading'); }} data-testid="programme-edit-again">Edit again</Button>
           <Button type="button" size="sm" className="min-h-[44px]" onClick={onClose} data-testid="programme-close">Done</Button>
         </div>
+      </div>
+    );
+  }
+
+  if (programme.isLoading || (!base && !programme.isError && !syncFailed)) {
+    // The final layout, shimmering: two session cards, each with its Line-up row.
+    return (
+      <div className="space-y-3" data-testid="programme-panel">
+        {heading}
+        <p className="sr-only" role="status">Loading the programme&hellip;</p>
+        <ul className="space-y-2" aria-hidden="true" data-testid="programme-loading">
+          {[0, 1].map((i) => (
+            <li key={i} className="space-y-2 rounded-2xl border border-border p-3">
+              <Skeleton className="h-5 w-16 rounded-full motion-reduce:animate-none" />
+              <Skeleton className="h-11 w-full rounded-lg motion-reduce:animate-none" />
+              <Skeleton className="h-12 w-full rounded-xl motion-reduce:animate-none" />
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+  if (!base) {
+    return (
+      <div className="space-y-3" data-testid="programme-panel">
+        {heading}
+        <div className="space-y-2" role="alert">
+          <p className="text-sm">We couldn&rsquo;t load the programme for this date.</p>
+          <Button size="sm" variant="outline" className="min-h-[44px]" onClick={() => void reload()} disabled={programme.isFetching} data-testid="programme-retry">
+            {programme.isFetching && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Try again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!base.editable) {
+    // The line-up rides along read-only: names with their role chips, in the same Line-up row.
+    const shown = toDraft(base.sessions, base.sessionPeople)
+      .map((d, i) => ({ s: base.sessions[i], people: d.people ?? [] }))
+      .filter(({ s }) => s.removed !== true);
+    return (
+      <div className="space-y-3" data-testid="programme-panel">
+        {heading}
+        <p className="flex items-start gap-2 rounded-md border border-border bg-muted/40 p-3 text-sm" data-testid="programme-readonly-reason">
+          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          {notEditableCopy(base.notEditableReason)}
+        </p>
+        <ul className="space-y-2" aria-label="Programme (read only)" data-testid="programme-readonly">
+          {shown.length === 0 && <li className="text-sm text-muted-foreground">No sessions on this date.</li>}
+          {shown.map(({ s, people }, i) => (
+            <li key={i} className="space-y-2 rounded-2xl border border-border p-3 text-sm" data-testid="programme-readonly-session">
+              <span className="block font-medium">{typeof s.title === 'string' && s.title ? s.title : TYPE_LABEL[String(s.type)] ?? 'Session'}</span>
+              <span className="block text-xs text-muted-foreground">
+                {[
+                  TYPE_LABEL[String(s.type)],
+                  s.start_time && s.end_time ? `${s.start_time} to ${s.end_time}${s.ends_next_day ? ' (finishes after midnight)' : ''}` : null,
+                  Array.isArray(s.level_keys) && s.level_keys.length ? s.level_keys.map((l) => LEVEL_LABEL[l as LevelKey] ?? String(l)).join(', ') : null,
+                ].filter(Boolean).join(' \u00b7 ')}
+              </span>
+              <LineupReadonly people={people} />
+            </li>
+          ))}
+        </ul>
       </div>
     );
   }

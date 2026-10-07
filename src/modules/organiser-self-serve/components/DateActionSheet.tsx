@@ -332,7 +332,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                 <MenuItem
                   icon={<ListChecks className="w-4 h-4" />}
                   title="Change the programme"
-                  hint="Sessions, times and levels for this date"
+                  hint="Sessions, times, levels and line-up for this date"
                   testId="action-programme"
                   onClick={() => openStep('programme', 'action-programme')}
                 />

@@ -207,3 +207,42 @@ describe('line-up refusals: calm copy that never names anyone', () => {
     expect(copy.message).not.toContain(P(1));
   });
 });
+
+describe('re-seed after a save (finding 3: a date-only session comes back under a new id)', () => {
+  const A2 = '44444444-4444-4444-8444-444444444444';
+  const savedSessions = () => sessions().map((s) => (s.added_session_id === A1 ? { ...s, added_session_id: A2, title: 'Bootcamp XL' } : s));
+  const withAna = () => ({ ...reader(), session_people: reader().session_people.map((e) => ('added_session_id' in e ? { ...e, people: [person(1, 'Ana', 'teaching')] } : e)) });
+
+  it('the save result rebuilt over the OLD session_people loses the people of the re-created session (why the editor re-reads)', () => {
+    const before = parseProgramme(withAna());
+    expect(toDraft(before.sessions, before.sessionPeople)[2].people?.map((p) => p.name)).toEqual(['Ana']);
+    // What #653 did: the result's sessions with the old line-up. A2 matches nothing.
+    expect(toDraft(savedSessions(), before.sessionPeople)[2].people).toEqual([]);
+  });
+
+  it('a fresh read keys the people to the new id, and an untouched re-seeded draft saves byte-identically', () => {
+    const fresh = parseProgramme({ ...withAna(), version: 8, sessions: savedSessions(),
+      session_people: [...reader().session_people.slice(0, 2), { added_session_id: A2, people: [person(1, 'Ana', 'teaching')] }] });
+    const rows = toDraft(fresh.sessions, fresh.sessionPeople);
+    expect(rows[2].people?.map((p) => [p.id, p.origin, p.removed])).toEqual([[P(1), 'stored', false]]);
+    expect(isDirty(rows, fresh.sessions.length)).toBe(false);
+    expect(JSON.stringify(buildPayload(rows))).toBe(JSON.stringify(fresh.sessions));
+    // Ana is on it: adding her again is a no-op, never a duplicate people_add.
+    const again = at(rows, 2, (r) => addPerson(r, { id: P(1), name: 'Ana', role: 'teaching' }));
+    expect(buildPayload(again)[2]).not.toHaveProperty('people_add');
+    // Removing her names the NEW id.
+    const removed = at(rows, 2, (r) => removePerson(r, 0));
+    expect(buildPayload(removed)[2]).toEqual({ ...fresh.sessions[2], people_remove: [P(1)] });
+  });
+});
+
+describe('remove + undo of a stored person, and a restore from the search', () => {
+  it('remove then undo on a stored DJ returns the exact reader object; undo of someone never removed is a no-op', () => {
+    const rows = draftOf();
+    const removed = at(rows, 0, (r) => removePerson(r, 2));
+    expect(buildPayload(removed)[0]).toEqual({ ...sessions()[0], people_remove: [P(3)] });
+    const back = at(removed, 0, (r) => undoRemovePerson(r, 2));
+    expect(buildPayload(back)[0]).toBe(rows[0].original);
+    expect(undoRemovePerson(rows[0], 0)).toBe(rows[0]);
+  });
+});

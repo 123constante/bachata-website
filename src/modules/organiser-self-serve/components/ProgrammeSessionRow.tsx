@@ -58,7 +58,7 @@ export function ProgrammeSessionRow({ row, problems, focusToken, live = false, f
   if (row.removed) {
     const wasOff = row.original?.removed === true;
     return (
-      <li className="flex items-center gap-2 rounded-md border border-dashed border-border p-3 text-sm" data-testid="programme-row-removed">
+      <li className="flex items-center gap-2 rounded-2xl border border-dashed border-border p-3 text-sm" data-testid="programme-row-removed">
         <span className="min-w-0 flex-1">
           <span className="block truncate text-muted-foreground line-through">{row.title || typeLabel}</span>
           <span className="block text-xs text-muted-foreground">{wasOff ? 'Not on this date.' : 'Removed. Not saved yet.'}</span>
@@ -84,7 +84,7 @@ export function ProgrammeSessionRow({ row, problems, focusToken, live = false, f
   return (
     <li
       className={cn(
-        'space-y-2 rounded-md border p-3',
+        'space-y-2 rounded-2xl border p-3',
         problems.length > 0 || failed ? 'border-destructive' : 'border-border',
         failed && 'animate-[shake_0.3s_ease-in-out] motion-reduce:animate-none',
       )}
