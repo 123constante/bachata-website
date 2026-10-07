@@ -4,13 +4,13 @@ import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronLeft } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { SeriesEditor } from '@/modules/organiser-self-serve/components/SeriesEditor';
+import { PageLoadError, PageLoading, PageOffline } from '@/modules/organiser-self-serve/components/PageStates';
 import { fetchSeriesWorkspace, seriesWorkspaceQueryKey } from '@/modules/organiser-self-serve/selfServeApi';
 
 /**
@@ -55,7 +55,7 @@ function AccountSeriesPage() {
       <GlobalLayout breadcrumbs={[...buildBreadcrumbs('account'), { label: name ?? 'Event' }]} floatingCount={0}>
       <div className="max-w-2xl lg:max-w-5xl mx-auto px-4 pt-3 pb-24 space-y-4 tap-44" data-testid="account-series-page">
         <Link to="/account" className="text-xs text-primary tap-link gap-1">
-          <ChevronLeft className="w-3 h-3" aria-hidden="true" /> My events
+          <ChevronLeft className="w-3 h-3" aria-hidden="true" /> Your account
         </Link>
         {created && (
           <p className="text-sm text-primary flex items-start gap-2" role="status" data-testid="series-created">
@@ -65,23 +65,24 @@ function AccountSeriesPage() {
               : 'Saved as a draft. Dancers will not see it until it is submitted and approved.'}
           </p>
         )}
-        {workspace.isLoading ? (
-          <div className="space-y-2">
+        {/* Until the editor mounts there is no event name, so each state below carries the page's h1. */}
+        {workspace.isPending && workspace.isPaused ? (
+          <PageOffline titleAs="h1" />
+        ) : workspace.isPending ? (
+          <PageLoading label="Loading this event">
             <Skeleton className="h-8 w-2/3 rounded-md" />
             <Skeleton className="h-40 w-full rounded-md" />
-          </div>
+          </PageLoading>
         ) : refused ? (
           <div className="rounded-md border border-border p-3 space-y-2" role="alert" data-testid="series-unavailable">
-            <p className="text-sm font-semibold">You can&rsquo;t edit this event.</p>
+            <h1 className="text-sm font-semibold">You can&rsquo;t edit this event.</h1>
             <p className="text-xs text-muted-foreground">
-              It belongs to an organiser you don&rsquo;t manage, or it no longer exists.
+              It belongs to an organiser you don&rsquo;t manage, or it no longer exists.{' '}
+              <Link to="/account" className="text-primary tap-link-inline">Back to your account</Link>.
             </p>
           </div>
         ) : workspace.isError || !workspace.data ? (
-          <div className="rounded-md border border-border p-3 space-y-2" role="alert">
-            <p className="text-sm">We couldn&rsquo;t load this event.</p>
-            <Button size="sm" variant="outline" onClick={() => void workspace.refetch()}>Try again</Button>
-          </div>
+          <PageLoadError titleAs="h1" title="We couldn&rsquo;t load this event." onRetry={() => void workspace.refetch()} />
         ) : (
           <SeriesEditor workspace={workspace.data} today={today} />
         )}

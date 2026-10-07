@@ -34,7 +34,7 @@ export interface ReviewStripModel {
   submitMissing: string | null;
   /** True when the public page is up (live, ended). A paused series' page is hidden (S1: /event/<slug> is a 404). */
   publicPage: boolean;
-  /** Why "View as a dancer" is missing, when it is. */
+  /** Why "View as a dancer" is missing, when it is (an archived event's detail already says). */
   previewNote: string | null;
 }
 
@@ -51,7 +51,7 @@ const steps = (draft: StepState, review: StepState, live: StepState, reviewLabel
 // it is not a public page either; Resume puts it back.
 const PUBLIC_STATES = new Set(['live', 'ended']);
 const NO_PREVIEW = 'Dancers cannot see it yet. "View as a dancer" appears once it is live.';
-const PAUSED_NOTE = 'The page is hidden while paused. "View as a dancer" returns when you resume.';
+const PAUSED_NOTE = '"View as a dancer" is hidden while paused and comes back when you resume.';
 
 export const SUBMIT_NEEDS_VENUE = 'To send it for review, add a venue under Venue and save it.';
 
@@ -62,7 +62,7 @@ export function reviewStrip(
 ): ReviewStripModel {
   const publicPage = PUBLIC_STATES.has(status);
   const submitMissing = hasVenue ? null : SUBMIT_NEEDS_VENUE;
-  const base = { reason: null, returnedAt: null, submit: null, submitMissing: null, publicPage, previewNote: publicPage ? null : status === 'paused' ? PAUSED_NOTE : NO_PREVIEW };
+  const base = { reason: null, returnedAt: null, submit: null, submitMissing: null, publicPage, previewNote: publicPage || status === 'archived' ? null : status === 'paused' ? PAUSED_NOTE : NO_PREVIEW };
   switch (status) {
     case 'draft':
       return {
@@ -105,7 +105,7 @@ export function reviewStrip(
         ...base,
         steps: steps('done', 'done', 'done'),
         headline: 'Paused',
-        detail: 'The page is hidden while paused. Resume it under Status to put it back.',
+        detail: 'Your event and all its dates are hidden from dancers. Press Resume below to bring it back.',
       };
     case 'ended':
       return {
@@ -119,7 +119,7 @@ export function reviewStrip(
         ...base,
         steps: steps('done', 'todo', 'todo'),
         headline: status === 'archived' ? 'Archived' : 'Not public',
-        detail: status === 'archived' ? 'Hidden from Bachata Calendar. The team can restore it.' : '',
+        detail: status === 'archived' ? 'Off Bachata Calendar, so dancers cannot find it. Ask the Bachata Calendar team if you want it back.' : '',
       };
   }
 }
