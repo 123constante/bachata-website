@@ -114,6 +114,16 @@ describe('PublicClaimCard', () => {
     expect(onChanged).not.toHaveBeenCalled();
   });
 
+  it('the ghost Cancel and Not me buttons are 44px tall (this card sits outside the tap-44 wrapper)', () => {
+    mount({ organiser: { ...ORG, contactEmail: 'priya@latino.example' } });
+    fireEvent.click(screen.getByTestId('public-claim-open'));
+    expect(screen.getByText('Cancel').className).toContain('min-h-[44px]');
+    cleanup();
+    mount();
+    fireEvent.click(screen.getByTestId('public-claim-open'));
+    expect(screen.getByText('Not me').className).toContain('min-h-[44px]');
+  });
+
   it('email differs: goes straight to request access and sends the note', async () => {
     rpc.mockResolvedValue({ data: { request_id: 'r1', status: 'open' }, error: null });
     const { onChanged } = mount({ organiser: { ...ORG, contactEmail: 'priya@latino.example' } });

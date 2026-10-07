@@ -165,11 +165,30 @@ describe('DateActionSheet focus and announcements', () => {
     expect(screen.queryByTestId('cancel-reasons-error')).toBeNull();
   });
 
-  it('a date with its own picture says a new series picture does not replace it', async () => {
+  it('the menu note says where to change every date, without the word series', async () => {
+    await openSheet();
+    const note = screen.getByText(/A change here affects/).textContent ?? '';
+    expect(note).toContain('To change every date, close this and use \u201cEdit your event\u201d on the page.');
+    expect(note).not.toMatch(/series/i);
+  });
+
+  it('time, venue and picture copy says "usual", not "series"', async () => {
+    event = { cover_image_url_override: 'https://example.com/halloween.jpg' };
+    await openSheet();
+    for (const id of ['action-time', 'action-venue', 'action-media']) {
+      fireEvent.click(screen.getByTestId(id));
+      await screen.findByRole('button', { name: /back/i });
+      const visible = (document.body.textContent ?? '').replace(/Ritmo[^.]*series[^.]*/gi, '');
+      expect(visible).not.toMatch(/\bseries\b/i);
+      fireEvent.click(screen.getByRole('button', { name: /back/i }));
+    }
+  });
+
+  it('a date with its own picture says a new picture for the event does not replace it', async () => {
     event = { cover_image_url_override: 'https://example.com/halloween.jpg' };
     await openSheet();
     fireEvent.click(screen.getByTestId('action-media'));
-    expect((await screen.findByTestId('date-own-picture')).textContent).toBe('Thu 8 Oct shows its own picture. A new series picture does not replace it.');
+    expect((await screen.findByTestId('date-own-picture')).textContent).toBe('Thu 8 Oct shows its own picture. A new picture for the event does not replace it.');
     expect(screen.getByTestId('date-save').textContent).toContain('Save the links');
   });
 

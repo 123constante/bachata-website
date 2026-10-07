@@ -99,18 +99,34 @@ function MemberRow({
   );
 }
 
-function RequestRow({ request, canDecide, pending, onDecide }: {
-  request: IncomingAccessRequest; canDecide: boolean; pending: boolean; onDecide: (decision: AccessDecision) => void;
+function RequestRow({ request, canDecide, pending, onDecide, organiserName }: {
+  request: IncomingAccessRequest; canDecide: boolean; pending: boolean; onDecide: (decision: AccessDecision) => void; organiserName: string;
 }) {
+  // Granting is one-way edit access, so it asks first, like removing a member does.
+  const [confirmingGrant, setConfirmingGrant] = useState(false);
+  const who = request.requesterEmail ?? 'This person';
   const asked = instantDateLabel(request.createdAt);
   return (
     <li className="py-2 space-y-1" data-testid="access-request">
       <p className="text-sm font-medium break-all" data-testid="request-email">{request.requesterEmail ?? 'Someone'}</p>
       {request.message && <p className="text-sm text-muted-foreground" data-testid="request-message">&ldquo;{request.message}&rdquo;</p>}
       <p className="text-xs text-muted-foreground">{asked ? `Asked ${asked}` : 'Asked to join'} &middot; wants to be a manager</p>
-      {canDecide && (
+      {canDecide && confirmingGrant && (
+        <div className="flex flex-wrap items-center gap-2" role="alertdialog" aria-labelledby={`grant-${request.requestId}`} data-testid="request-grant-confirm">
+          <p id={`grant-${request.requestId}`} className="text-sm w-full">
+            Add {who} as a manager? They will be able to edit all of {organiserName}&rsquo;s events and send them for review. They cannot add or remove people.
+          </p>
+          <Button type="button" size="sm" variant="outline" onClick={() => setConfirmingGrant(false)} disabled={pending} autoFocus data-testid="request-grant-no">
+            No, not now
+          </Button>
+          <Button type="button" size="sm" onClick={() => onDecide('grant')} disabled={pending} data-testid="request-grant-yes">
+            {pending && <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />} Yes, add as manager
+          </Button>
+        </div>
+      )}
+      {canDecide && !confirmingGrant && (
         <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" disabled={pending} onClick={() => onDecide('grant')} data-testid="request-grant">
+          <Button type="button" size="sm" disabled={pending} onClick={() => setConfirmingGrant(true)} data-testid="request-grant">
             <UserPlus className="w-4 h-4" aria-hidden="true" /> Add as manager
           </Button>
           <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => onDecide('decline')} data-testid="request-decline">
@@ -235,6 +251,7 @@ export function TeamPanel({ organiser }: { organiser: HomeOrganiser }) {
                   request={r}
                   canDecide={viewerRole === 'owner'}
                   pending={pending}
+                  organiserName={organiser.name}
                   onDecide={(decision) => act(() => decide.mutate({ request: r, decision }))}
                 />
               ))}

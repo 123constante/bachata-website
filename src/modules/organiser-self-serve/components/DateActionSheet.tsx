@@ -243,7 +243,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
   };
 
   const saveOverride = (patch: OverridePatch, title: string) =>
-    run(overrideCommand(patch), { title, body: `Only ${label} changes. Every other date stays as the series.` });
+    run(overrideCommand(patch), { title, body: `Only ${label} changes. Every other date stays as usual.` });
 
   const busy = command.isPending;
   const spanWarning = timeSpanWarning(start, end);
@@ -359,7 +359,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                   />
                 )}
               </ul>
-              <p className="text-xs text-muted-foreground">A change here affects {label} only. To change every date, edit the series.</p>
+              <p className="text-xs text-muted-foreground">A change here affects {label} only. To change every date, close this and use &ldquo;Edit your event&rdquo; on the page.</p>
             </>
           ) : view === 'programme' ? (
             <ProgrammeEditor
@@ -441,18 +441,18 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
             <div className="space-y-3" data-testid="time-panel">
               {stepHeading('Change the time')}
               <p className="text-xs text-muted-foreground">
-                {hasSessions ? `Every session on ${label} moves with the start time.` : `Only ${label} changes.`} Other dates stay {usualTime ?? 'as the series'}.
+                {hasSessions ? `Every session on ${label} moves with the start time.` : `Only ${label} changes.`} Other dates stay {usualTime ?? 'as usual'}.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="date-start" className="text-xs">Starts</Label>
                   <Input id="date-start" type="time" value={start} onChange={(e) => { setStart(e.target.value); setLongConfirmed(false); }} className="h-11 text-[16px] md:text-[16px]" required />
-                  {usualStart && <p className="text-[11px] text-muted-foreground">Series: {usualStart}</p>}
+                  {usualStart && <p className="text-[11px] text-muted-foreground">Usual: {usualStart}</p>}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="date-end" className="text-xs">Ends</Label>
                   <Input id="date-end" type="time" value={end} onChange={(e) => { setEnd(e.target.value); setLongConfirmed(false); }} className="h-11 text-[16px] md:text-[16px]" />
-                  {usualEnd && <p className="text-[11px] text-muted-foreground">Series: {usualEnd}</p>}
+                  {usualEnd && <p className="text-[11px] text-muted-foreground">Usual: {usualEnd}</p>}
                 </div>
               </div>
               {spanWarning && (
@@ -477,7 +477,7 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
                 <div className="flex gap-2">
                   {hasOwnTime && (
                     <Button type="button" size="sm" variant="outline" disabled={busy} data-testid="time-reset"
-                      onClick={() => void run(resetTimeCommand(), { title: `${label} is back to the usual time.`, body: usualTime ? `Starts ${usualStart} as the series.` : 'It follows the series again.' })}>
+                      onClick={() => void run(resetTimeCommand(), { title: `${label} is back to the usual time.`, body: usualTime ? `Starts ${usualStart} as usual.` : 'It follows the usual time again.' })}>
                       Use the usual time
                     </Button>
                   )}
@@ -490,13 +490,13 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
             <div className="space-y-3" data-testid="venue-panel">
               {stepHeading('Change the venue')}
               <VenuePicker id="date-venue" value={venueId} onChange={setVenueId} />
-              {seriesVenue && <p className="text-[11px] text-muted-foreground">Series: {seriesVenue}</p>}
+              {seriesVenue && <p className="text-[11px] text-muted-foreground">Usual: {seriesVenue}</p>}
               <div className="flex flex-wrap items-center gap-2 justify-between">
                 {back}
                 <div className="flex gap-2">
                   {d?.venueOverride && (
-                    <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void saveOverride({ venue_id: null }, `${label} is back at the series venue.`)}>
-                      Use the series venue
+                    <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void saveOverride({ venue_id: null }, `${label} is back at the usual venue.`)}>
+                      Use the usual venue
                     </Button>
                   )}
                   {saveButton('Save the venue', () => venueId && void saveOverride({ venue_id: venueId }, `${label} moves to ${venueName(venues.data, venueId) ?? 'the new venue'}.`),
@@ -529,18 +529,18 @@ export function DateActionSheet({ open, onOpenChange, seriesId, series, date, ha
               {stepHeading('Picture or booking link for this date')}
               {d?.coverImageOverride && (
                 <p className="rounded-md border border-border bg-muted/30 p-2 text-xs" data-testid="date-own-picture">
-                  {label} shows its own picture. A new series picture does not replace it.
+                  {label} shows its own picture. A new picture for the event does not replace it.
                 </p>
               )}
               <div className="space-y-1">
                 <Label htmlFor="date-picture" className="text-xs">Picture link for {label}</Label>
                 <Input id="date-picture" type="url" inputMode="url" value={picture} onChange={(e) => setPicture(e.target.value)} placeholder="https://" className="h-11 text-[16px] md:text-[16px]" />
-                <p className="text-[11px] text-muted-foreground">{d?.coverImageOverride ? 'Leave empty to use the series picture again.' : 'Empty uses the series picture.'}</p>
+                <p className="text-[11px] text-muted-foreground">{d?.coverImageOverride ? 'Leave empty to use the event\'s usual picture again.' : 'Empty uses the event\'s usual picture.'}</p>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="date-ticket" className="text-xs">Booking link for {label}</Label>
                 <Input id="date-ticket" type="url" inputMode="url" value={ticket} onChange={(e) => setTicket(e.target.value)} placeholder="https://" className="h-11 text-[16px] md:text-[16px]" />
-                <p className="text-[11px] text-muted-foreground">{d?.ticketUrlOverride ? 'Leave empty to use the series link again.' : 'Empty uses the series link.'}</p>
+                <p className="text-[11px] text-muted-foreground">{d?.ticketUrlOverride ? 'Leave empty to use the event\'s usual link again.' : 'Empty uses the event\'s usual link.'}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 justify-between">
                 {back}
