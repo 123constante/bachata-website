@@ -182,13 +182,19 @@ async function deleteJourneySeries(orgId) {
   // Flyers first (Storage API: the object rows are not deletable by SQL). Listing per series folder.
   let removed = 0;
   for (const id of ids) {
-    const list = await fetch(`${URL_E2E}/storage/v1/object/list/${FLYER_BUCKET}`, {
-      method: "POST",
-      headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "content-type": "application/json" },
-      body: JSON.stringify({ prefix: `${id}/`, limit: 100 }),
-    });
-    const objs = list.ok ? await list.json() : [];
-    const names = objs.filter((o) => o.name).map((o) => `${id}/${o.name}`);
+    // Page through the folder: a failed or partial listing must stop the run, never orphan objects.
+    const names = [];
+    for (let offset = 0; ; offset += 100) {
+      const list = await fetch(`${URL_E2E}/storage/v1/object/list/${FLYER_BUCKET}`, {
+        method: "POST",
+        headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "content-type": "application/json" },
+        body: JSON.stringify({ prefix: `${id}/`, limit: 100, offset }),
+      });
+      if (!list.ok) throw new Error(`flyer listing for series ${id}: ${list.status}`);
+      const objs = await list.json();
+      names.push(...objs.filter((o) => o.name).map((o) => `${id}/${o.name}`));
+      if (objs.length < 100) break;
+    }
     if (!names.length) continue;
     const del = await fetch(`${URL_E2E}/storage/v1/object/${FLYER_BUCKET}`, {
       method: "DELETE",
