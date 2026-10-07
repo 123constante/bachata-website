@@ -194,7 +194,8 @@ describe('SeriesEditor picture (FlyerUpload)', () => {
     expect(closing()).toBe(false);
     pick(pngFile());
     await screen.findByTestId('flyer-save');
-    expect(closing()).toBe(true);
+    // The guard registers in a passive effect, which can flush after the button renders under load.
+    await waitFor(() => expect(closing()).toBe(true));
   });
 
   it('a basics save after a picture save never sends the old cover back', async () => {
