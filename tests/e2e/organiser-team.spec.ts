@@ -182,6 +182,7 @@ for (const width of [390, 768, 1280]) {
 
       // 2. Grant the request as a manager: the requester joins the team, the request leaves the list.
       await page.getByTestId('request-grant').click();
+      await page.getByTestId('request-grant-yes').click();
       await expect(page.getByTestId('team-confirmation')).toContainText('maria.k@example.com can now edit');
       const resolves = fake.calls.filter((c) => c.rpc === 'resolve_organiser_access_request_v1').map((c) => c.body);
       expect(resolves).toEqual([{ p_request_id: 'req-1', p_decision: 'grant', p_member_role: 'manager' }]);
