@@ -54,6 +54,14 @@ import { VenuePicker } from './VenuePicker';
 
 const sameForm = (a: BasicsForm, b: BasicsForm) => JSON.stringify(a) === JSON.stringify(b);
 
+/**
+ * There is no ticketing system yet, so organisers do not set prices, and
+ * Instagram belongs on the organiser's own profile. Hidden, not deleted: values
+ * already saved are untouched and an untouched field is never sent. Flip to
+ * true to show both again.
+ */
+const SHOW_PRICE_AND_EVENT_INSTAGRAM = false;
+
 /** The price list (admin D8): a name and a price per row, up to 10; [] clears it. */
 function PricesField({ rows, onChange }: { rows: PassRow[] | null; onChange: (rows: PassRow[]) => void }) {
   if (rows === null) {
@@ -119,8 +127,8 @@ function BasicsSection({ workspace, onSaved }: { workspace: SeriesWorkspace; onS
   const draft = formToDraft(form);
   const before = formToDraft(baseline.current);
   const dirty = hasBasicsChanges(before, draft);
-  const pricesProblem = passRowsProblem(form.passes);
-  const instagramOk = instagramUrlOk(form.instagramUrl ?? '');
+  const pricesProblem = SHOW_PRICE_AND_EVENT_INSTAGRAM ? passRowsProblem(form.passes) : null;
+  const instagramOk = SHOW_PRICE_AND_EVENT_INSTAGRAM ? instagramUrlOk(form.instagramUrl ?? '') : true;
   const valid = form.name.trim().length > 0 && /^\d{2}:\d{2}$/.test(form.startTime) && !pricesProblem && instagramOk;
 
   const save = async () => {
@@ -179,18 +187,22 @@ function BasicsSection({ workspace, onSaved }: { workspace: SeriesWorkspace; onS
         <Label htmlFor="series-cover" className="text-xs">Cover picture link</Label>
         <Input id="series-cover" type="url" inputMode="url" placeholder="https://" value={form.coverImageUrl} onChange={(e) => set('coverImageUrl', e.target.value)} className="h-9 text-sm" />
       </div>
-      <div className="space-y-1">
-        <Label htmlFor="series-instagram" className="text-xs">Instagram link</Label>
-        <Input id="series-instagram" type="url" inputMode="url" placeholder="https://www.instagram.com/" value={form.instagramUrl ?? ''} onChange={(e) => set('instagramUrl', e.target.value)} className="h-9 text-sm" />
-        {!instagramOk && <p className="text-[11px] text-destructive" data-testid="instagram-hint">Use an instagram.com link, like https://www.instagram.com/yourname.</p>}
-      </div>
-      <fieldset className="space-y-1">
-        <legend className="text-xs font-medium mb-1">Prices</legend>
-        <PricesField rows={form.passes ?? null} onChange={(rows) => set('passes', rows)} />
-        {pricesProblem && <p className="text-[11px] text-destructive" data-testid="prices-hint">{pricesProblem}</p>}
-      </fieldset>
+      {SHOW_PRICE_AND_EVENT_INSTAGRAM && (
+        <>
+          <div className="space-y-1">
+            <Label htmlFor="series-instagram" className="text-xs">Instagram link</Label>
+            <Input id="series-instagram" type="url" inputMode="url" placeholder="https://www.instagram.com/" value={form.instagramUrl ?? ''} onChange={(e) => set('instagramUrl', e.target.value)} className="h-9 text-sm" />
+            {!instagramOk && <p className="text-[11px] text-destructive" data-testid="instagram-hint">Use an instagram.com link, like https://www.instagram.com/yourname.</p>}
+          </div>
+          <fieldset className="space-y-1">
+            <legend className="text-xs font-medium mb-1">Prices</legend>
+            <PricesField rows={form.passes ?? null} onChange={(rows) => set('passes', rows)} />
+            {pricesProblem && <p className="text-[11px] text-destructive" data-testid="prices-hint">{pricesProblem}</p>}
+          </fieldset>
+        </>
+      )}
       <p className="text-[11px] text-muted-foreground">
-        The class programme is set by the Bachata Calendar team for now.
+        Price, Instagram and the class programme are set by the Bachata Calendar team for now.
       </p>
       {error && <p className="text-xs text-destructive" role="alert" data-testid="basics-error">{error}</p>}
       <div className="flex flex-wrap justify-end gap-2">
