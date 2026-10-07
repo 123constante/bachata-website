@@ -43,12 +43,13 @@ export function ConfirmPanel({ copy, busy, onConfirm, onKeep, testId = 'confirm-
           type="button"
           size="sm"
           variant="destructive"
-          className="min-h-[44px]"
+          // red-700, not the destructive token: white on that red is 3.8:1, under AA for this text.
+          className="min-h-[44px] bg-red-700 text-white hover:bg-red-700/90"
           disabled={!canConfirm(copy, acknowledged, busy)}
           onClick={onConfirm}
           data-testid="confirm-go"
         >
-          {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} {copy.confirmLabel}
+          {busy && <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />} {copy.confirmLabel}
         </Button>
       </div>
     </div>
