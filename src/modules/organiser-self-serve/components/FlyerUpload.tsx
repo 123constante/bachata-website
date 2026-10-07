@@ -58,7 +58,7 @@ function HeroPreview({ url, title }: { url: string | null; title: string }) {
         data-testid="flyer-hero-preview"
       >
         {url ? (
-          <img src={url} alt={`${title} event page picture`} className="h-full w-full" style={{ objectFit: 'contain' }} data-testid="flyer-hero-image" />
+          <img src={url} loading="lazy" alt={`${title} event page picture`} className="h-full w-full" style={{ objectFit: 'contain' }} data-testid="flyer-hero-image" />
         ) : (
           <div className="flex h-full items-center justify-center p-2 text-center text-[11px]" style={{ color: 'rgba(246,241,234,.62)' }}>
             No picture yet
