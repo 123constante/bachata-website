@@ -244,6 +244,7 @@ for (const width of [390, 768, 1280]) {
       await expect(page.getByTestId('team-member')).toHaveCount(1);
       await expect(page.getByTestId('request-email')).toHaveText('maria.k@example.com');
       await page.getByTestId('request-grant').click();
+      await page.getByTestId('request-grant-yes').click();
       await expect(page.getByTestId('team-confirmation')).toContainText('maria.k@example.com can now edit');
       await expect(page.getByTestId('team-member')).toHaveCount(2);
       await expect(page.getByTestId('requests-empty')).toBeVisible();
