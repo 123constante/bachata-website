@@ -218,3 +218,54 @@ describe('SeriesEditor picture (FlyerUpload)', () => {
     expect(second).not.toContain('default_cover_image_url');
   });
 });
+
+describe('FlyerUpload polish: names, progress and focus', () => {
+  it('the way back says what it keeps: the current picture, or none when there is no picture yet', async () => {
+    mount();
+    pick(pngFile());
+    expect((await screen.findByTestId('flyer-cancel')).textContent).toBe('Keep the current picture');
+    expect(screen.getByTestId('flyer-choose').textContent).toContain('Choose a different picture');
+    cleanup();
+    mount(workspace(null));
+    expect(screen.getByTestId('flyer-choose').textContent).toContain('Choose a picture');
+    pick(pngFile());
+    expect((await screen.findByTestId('flyer-cancel')).textContent).toBe('Do not use this picture');
+  });
+
+  it('the file input is labelled by the visible picker, which wraps it', () => {
+    mount();
+    const input = screen.getByLabelText('Choose a new picture');
+    expect(input).toBe(screen.getByTestId('flyer-input'));
+    expect(screen.getByTestId('flyer-choose').contains(input)).toBe(true);
+    expect(input.hasAttribute('capture')).toBe(false); // phones offer camera and gallery
+  });
+
+  it('a picked picture takes the focus to the preview note; the upload is announced in words', async () => {
+    upload.mockImplementationOnce(() => new Promise(() => {}));
+    mount();
+    expect(screen.getByTestId('flyer-status').getAttribute('role')).toBe('status');
+    pick(pngFile());
+    await screen.findByTestId('flyer-save');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('flyer-preview-note')));
+    fireEvent.click(screen.getByTestId('flyer-save'));
+    await waitFor(() => expect(screen.getByTestId('flyer-status').textContent).toBe('Uploading your picture…'));
+  });
+
+  it('a failed upload puts the focus back on Save, so trying again is one press', async () => {
+    upload.mockResolvedValueOnce({ data: null, error: { message: 'Failed to fetch' } });
+    mount();
+    pick(pngFile());
+    fireEvent.click(await screen.findByTestId('flyer-save'));
+    await screen.findByTestId('flyer-error');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('flyer-save')));
+  });
+
+  it('a save says so next to the picture and leaves the focus on the picker', async () => {
+    mount();
+    pick(pngFile());
+    fireEvent.click(await screen.findByTestId('flyer-save'));
+    expect((await screen.findByTestId('flyer-saved')).textContent).toContain('Saved. This is the picture dancers see now.');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('flyer-input')));
+    expect(screen.getByTestId('flyer-status').textContent).toBe('');
+  });
+});

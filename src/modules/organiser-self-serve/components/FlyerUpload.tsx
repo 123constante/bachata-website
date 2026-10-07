@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { ImagePlus, Loader2 } from 'lucide-react';
+import { Check, ImagePlus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import EventRow from '@/components/events/EventRow';
 import { publicEventPath } from '../editorGuards';
@@ -75,7 +75,8 @@ function CardPreview({ url, series, nextDate, meta }: { url: string | null; seri
   const day = nextDate ? String(Number(nextDate.slice(8, 10))) : '';
   const mon = nextDate ? MONTHS[Number(nextDate.slice(5, 7)) - 1] ?? '' : '';
   return (
-    <figure className="min-w-0 flex-1 space-y-1">
+    // At least 220px wide, as on a phone list: below that it drops under the cover tile instead of cutting the title short.
+    <figure className="min-w-[220px] flex-1 space-y-1">
       <div className="pointer-events-none rounded-2xl p-1" style={{ background: '#0E0F13' }} aria-hidden="true" data-testid="flyer-card-preview">
         <EventRow href={publicEventPath(series)} name={series.name} posterUrl={url} dateDay={day} dateMon={mon} meta={meta} />
       </div>
@@ -91,6 +92,11 @@ export function FlyerUpload({ series, nextDate, meta, onSaved, onDirtyChange, re
   const [checking, setChecking] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Picking and saving disable the controls, so the focus would fall off them: put it back here once they are free.
+  const focusTo = useRef<'input' | 'note' | 'save' | null>(null);
+  const setFocusTo = (target: 'input' | 'note' | 'save') => { focusTo.current = target; };
+  const noteRef = useRef<HTMLParagraphElement>(null);
+  const saveRef = useRef<HTMLButtonElement>(null);
   // The URL just saved, shown until the series reloads (while the cover is still the one it replaced).
   const [justSaved, setJustSaved] = useState<{ url: string; over: string | null } | null>(null);
   const command = useOwnerCommand(series.id);
@@ -104,6 +110,12 @@ export function FlyerUpload({ series, nextDate, meta, onSaved, onDirtyChange, re
   useEffect(() => { onDirtyChange(picked !== null); }, [picked, onDirtyChange]);
   // The local preview URL is released when it is replaced or the screen closes.
   useEffect(() => () => { if (picked) URL.revokeObjectURL(picked.url); }, [picked]);
+  useEffect(() => {
+    const target = focusTo.current;
+    if (!target || busy) return;
+    focusTo.current = null;
+    (target === 'note' ? noteRef.current : target === 'save' ? saveRef.current : inputRef.current)?.focus();
+  });
 
   const clearInput = () => { if (inputRef.current) inputRef.current.value = ''; };
 
@@ -122,8 +134,10 @@ export function FlyerUpload({ series, nextDate, meta, onSaved, onDirtyChange, re
       if (sniffed) throw new FlyerError(sniffed);
       const encoded = await reencodeFlyer(file, reencodeDeps);
       setPicked({ ...encoded, url: URL.createObjectURL(encoded.blob) });
+      setFocusTo('note');
     } catch (err) {
       setError(FLYER_PROBLEM_COPY[err instanceof FlyerError ? err.problem : 'not_image']);
+      setFocusTo('input');
     } finally {
       setChecking(false);
       clearInput();
@@ -139,6 +153,7 @@ export function FlyerUpload({ series, nextDate, meta, onSaved, onDirtyChange, re
       publicUrl = await uploadFlyer(series.id, picked);
     } catch (err) {
       setError(FLYER_PROBLEM_COPY[err instanceof FlyerError ? err.problem : 'upload']);
+      setFocusTo('save');
       return;
     } finally {
       setUploading(false);
@@ -147,14 +162,20 @@ export function FlyerUpload({ series, nextDate, meta, onSaved, onDirtyChange, re
       await command.mutateAsync({ targetId: series.id, version: series.version, command: flyerCoverCommand(series.name, publicUrl) });
       setJustSaved({ url: publicUrl, over: current });
       setPicked(null);
+      setFocusTo('input');
       onSaved('Picture saved. Dancers see it on your event page and in lists.');
     } catch (err) {
       setError(commandErrorMessage(err));
+      setFocusTo('save');
     }
   };
 
+  const status = checking ? 'Getting your picture ready\u2026' : uploading ? 'Uploading your picture\u2026' : command.isPending ? 'Saving\u2026' : '';
+  const chooseLabel = picked ? 'Choose a different picture' : shown ? 'Choose a new picture' : 'Choose a picture';
+
   return (
-    <section className="rounded-md border border-border p-3 space-y-3" data-testid="flyer-upload" aria-labelledby="flyer-heading">
+    // contain inline-size: the card preview's one-line title must not widen the editor's grid past a phone screen.
+    <section className="[contain:inline-size] rounded-md border border-border p-3 space-y-3" data-testid="flyer-upload" aria-labelledby="flyer-heading">
       <div>
         <h2 id="flyer-heading" className="text-base font-semibold">Picture</h2>
         <p className="text-xs text-muted-foreground">
@@ -170,48 +191,56 @@ export function FlyerUpload({ series, nextDate, meta, onSaved, onDirtyChange, re
         </div>
       )}
 
-      <div className="flex items-start gap-3" aria-live="polite">
+      <div className="flex flex-wrap items-start gap-3">
         <HeroPreview url={shown} title={series.name} />
         <CardPreview url={shown} series={series} nextDate={nextDate} meta={meta} />
       </div>
       {picked && (
-        <p className="text-xs text-primary" data-testid="flyer-preview-note">
+        <p ref={noteRef} tabIndex={-1} className="text-xs text-primary outline-none" data-testid="flyer-preview-note">
           This is how it will look. It is not saved yet.
         </p>
       )}
 
-      <input
-        ref={inputRef}
-        id={inputId}
-        type="file"
-        accept={FLYER_ACCEPT}
-        className="sr-only"
-        disabled={busy}
-        onChange={(e) => void choose(e.target.files?.[0])}
-        data-testid="flyer-input"
-      />
       <div className="flex flex-wrap items-center gap-2">
-        <label
-          htmlFor={inputId}
-          className={`inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent focus-within:ring-2 focus-within:ring-ring ${busy ? 'pointer-events-none opacity-50' : ''}`}
-          data-testid="flyer-choose"
-        >
-          {checking ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <ImagePlus className="w-4 h-4" aria-hidden="true" />}
-          {shown ? 'Choose a new picture' : 'Choose a picture'}
-        </label>
+        {/* With a picture waiting, its save and its way back come first, side by side. */}
         {picked && (
           <>
-            <Button type="button" size="sm" variant="ghost" className="min-h-[44px]" disabled={busy} onClick={() => { setPicked(null); setError(null); }} data-testid="flyer-cancel">
-              Keep the old one
+            <Button type="button" size="sm" variant="ghost" className="min-h-[44px]" disabled={busy} onClick={() => { setPicked(null); setError(null); setFocusTo('input'); }} data-testid="flyer-cancel">
+              {current || pendingUrl ? 'Keep the current picture' : 'Do not use this picture'}
             </Button>
-            <Button type="button" size="sm" className="min-h-[44px]" disabled={busy} onClick={() => void save()} data-testid="flyer-save">
+            <Button ref={saveRef} type="button" size="sm" className="min-h-[44px]" disabled={busy} onClick={() => void save()} data-testid="flyer-save">
               {(uploading || command.isPending) && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Save picture
             </Button>
           </>
         )}
+        {/* The input sits inside its label so the label shows the keyboard focus. No capture attribute: phones offer camera and gallery. */}
+        <label
+          htmlFor={inputId}
+          className={`inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background ${busy ? 'pointer-events-none opacity-50' : ''}`}
+          data-testid="flyer-choose"
+        >
+          <input
+            ref={inputRef}
+            id={inputId}
+            type="file"
+            accept={FLYER_ACCEPT}
+            className="sr-only"
+            disabled={busy}
+            onChange={(e) => void choose(e.target.files?.[0])}
+            data-testid="flyer-input"
+          />
+          {checking ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <ImagePlus className="w-4 h-4" aria-hidden="true" />}
+          {chooseLabel}
+        </label>
+        {/* Always in the page, so screen readers hear each step as its text changes. */}
+        <p className="text-xs text-muted-foreground" role="status" data-testid="flyer-status">{status}</p>
       </div>
-      {checking && <p className="text-xs text-muted-foreground" role="status">Getting your picture ready&hellip;</p>}
-      {error && <p className="text-xs text-destructive" role="alert" data-testid="flyer-error">{error}</p>}
+      {justSaved && !picked && !busy && (
+        <p className="flex items-start gap-2 text-sm text-primary" data-testid="flyer-saved">
+          <Check className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" /> Saved. This is the picture dancers see now.
+        </p>
+      )}
+      {error && <p className="text-sm text-destructive" role="alert" data-testid="flyer-error">{error}</p>}
       <p className="text-[11px] text-muted-foreground">
         A date you gave its own picture keeps it. Every other date shows this one.
       </p>
