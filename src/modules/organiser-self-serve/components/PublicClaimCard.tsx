@@ -204,7 +204,7 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
               <Button size="sm" disabled={busy} onClick={() => void claim()} className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-claim-confirm">
                 {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Yes, claim it
               </Button>
-              <Button size="sm" variant="ghost" className={GHOST_HOVER} style={{ color: MUTE }} onClick={() => setPanel('closed')}>
+              <Button size="sm" variant="ghost" className={`${GHOST_HOVER} min-h-[44px]`} style={{ color: MUTE }} onClick={() => setPanel('closed')}>
                 Not me
               </Button>
             </div>
@@ -245,7 +245,7 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
             <Button size="sm" disabled={busy} onClick={() => void request()} className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-request-send">
               {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Request access
             </Button>
-            <Button size="sm" variant="ghost" className={GHOST_HOVER} style={{ color: MUTE }} onClick={() => setPanel('closed')}>
+            <Button size="sm" variant="ghost" className={`${GHOST_HOVER} min-h-[44px]`} style={{ color: MUTE }} onClick={() => setPanel('closed')}>
               Cancel
             </Button>
           </div>

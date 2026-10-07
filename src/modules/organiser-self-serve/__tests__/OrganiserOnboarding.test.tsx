@@ -92,6 +92,16 @@ describe('validation, Esc and note (item 5)', () => {
     expect(websiteProblem('http://ana.example')).not.toBeNull();
   });
 
+  it('the Instagram field does not capitalise, autocorrect or spell-check a handle', () => {
+    api.search.mockResolvedValue([]);
+    mount();
+    fireEvent.click(screen.getByTestId('create-open'));
+    const ig = screen.getByTestId('create-instagram');
+    expect(ig.getAttribute('autocapitalize')).toBe('none');
+    expect(ig.getAttribute('autocorrect')).toBe('off');
+    expect(ig.getAttribute('spellcheck')).toBe('false');
+  });
+
   it('shows inline errors and blocks submit on a bad website', () => {
     api.search.mockResolvedValue([]);
     mount();

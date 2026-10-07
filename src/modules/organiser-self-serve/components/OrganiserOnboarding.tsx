@@ -403,6 +403,7 @@ export function OrganiserOnboarding({ user, mailboxProven, myOrganiserIds, reque
               <div className="space-y-1">
                 <Label htmlFor="create-instagram" className="text-sm">Instagram (optional)</Label>
                 <Input id="create-instagram" value={form.instagram} placeholder="@yourhandle" className="min-h-[44px] text-[16px]"
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false}
                   aria-invalid={!!instagramError} aria-describedby="create-instagram-help" data-testid="create-instagram"
                   onChange={(e) => setForm((f) => ({ ...f, instagram: e.target.value }))}
                   onBlur={() => setTouched((t) => ({ ...t, instagram: true }))} />

@@ -5,12 +5,13 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
-const api = vi.hoisted(() => ({ incoming: vi.fn(), remove: vi.fn() }));
+const api = vi.hoisted(() => ({ incoming: vi.fn(), remove: vi.fn(), resolve: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {} } }));
 vi.mock('../selfServeApi', async () => ({
   ...(await vi.importActual<object>('../selfServeApi')),
   fetchIncomingAccessRequests: api.incoming,
   removeOrganiserMember: api.remove,
+  resolveAccessRequest: api.resolve,
 }));
 
 import { TeamPanel } from '../components/TeamPanel';
@@ -36,6 +37,7 @@ function mount() {
 beforeEach(() => {
   api.incoming.mockReset().mockResolvedValue([]);
   api.remove.mockReset();
+  api.resolve.mockReset();
 });
 afterEach(() => {
   cleanup();
@@ -66,6 +68,24 @@ describe('remove confirmation focus', () => {
 });
 
 describe('access requests', () => {
+  it('"Add as manager" asks first, names the person and what a manager can do, and only then grants', async () => {
+    api.incoming.mockResolvedValue([{ requestId: 'r1', userId: 'u9', requesterEmail: 'bo@x.example', message: null, createdAt: '2026-10-01T10:00:00Z' }]);
+    api.resolve.mockResolvedValue({});
+    mount();
+    fireEvent.click(await screen.findByTestId('request-grant'));
+    expect(api.resolve).not.toHaveBeenCalled();
+    const ask = screen.getByTestId('request-grant-confirm').textContent ?? '';
+    expect(ask).toContain('Add bo@x.example as a manager?');
+    expect(ask).toContain('edit all of Ritmo');
+    expect(ask).toContain('cannot add or remove people');
+    // "No" backs out without granting and brings the button back.
+    fireEvent.click(screen.getByTestId('request-grant-no'));
+    expect(api.resolve).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('request-grant'));
+    fireEvent.click(screen.getByTestId('request-grant-yes'));
+    await waitFor(() => expect(api.resolve).toHaveBeenCalledWith('r1', 'grant'));
+  });
+
   it('offline says so instead of "no one is asking"', async () => {
     onlineManager.setOnline(false);
     mount();
