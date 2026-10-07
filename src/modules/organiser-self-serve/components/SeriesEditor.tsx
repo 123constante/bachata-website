@@ -55,7 +55,9 @@ import { VenuePicker } from './VenuePicker';
  * from its row in the date list, through the 03-A action sheet (W5).
  */
 
-const sameForm = (a: BasicsForm, b: BasicsForm) => JSON.stringify(a) === JSON.stringify(b);
+/** Same values, ignoring only the spaces the server trims (a cleared field still counts). */
+const trimmed = (f: BasicsForm) => JSON.stringify(f, (_k, v: unknown) => (typeof v === 'string' ? v.trim() : v));
+const sameForm = (a: BasicsForm, b: BasicsForm) => trimmed(a) === trimmed(b);
 
 /**
  * There is no ticketing system yet, so organisers do not set prices, and
@@ -127,7 +129,8 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
   const clearOfBar = (e: FocusEvent<HTMLElement>) => {
     const field = e.target;
     const top = bar.current?.getBoundingClientRect().top;
-    if (top === undefined || bar.current?.contains(field)) return;
+    // Text fields always; buttons only on keyboard focus (a click scrolled mid-press can be lost).
+    if (top === undefined || !field.matches('input, textarea, :focus-visible') || bar.current?.contains(field)) return;
     if (field.getBoundingClientRect().bottom > top) field.scrollIntoView({ block: 'center' });
   };
 
@@ -156,6 +159,7 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
     setError(null);
     try {
       await command.mutateAsync({ targetId: series.id, version: series.version, command: upsertCommand(basicsPayload(before, draft)) });
+      setSavedForm(form);
       setSaved(true);
       onSaved('Saved for every future date. A date you changed on its own keeps its own changes.');
     } catch (err) {
@@ -168,16 +172,16 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
       <h2 id="basics-heading" className="text-base font-semibold">Edit your event</h2>
       <div className="space-y-1">
         <Label htmlFor="series-name" className="text-xs">Name</Label>
-        <Input id="series-name" value={form.name} maxLength={120} onChange={(e) => set('name', e.target.value)} className="h-9 text-[16px]" required />
+        <Input id="series-name" value={form.name} maxLength={120} onChange={(e) => set('name', e.target.value)} className="h-9 text-[16px] md:text-[16px]" required />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label htmlFor="series-start" className="text-xs">Starts</Label>
-          <Input id="series-start" type="time" value={form.startTime} onChange={(e) => set('startTime', e.target.value)} className="h-9 text-[16px]" required />
+          <Input id="series-start" type="time" value={form.startTime} onChange={(e) => set('startTime', e.target.value)} className="h-9 text-[16px] md:text-[16px]" required />
         </div>
         <div className="space-y-1">
           <Label htmlFor="series-end" className="text-xs">Ends</Label>
-          <Input id="series-end" type="time" value={form.endTime} onChange={(e) => set('endTime', e.target.value)} className="h-9 text-[16px]" />
+          <Input id="series-end" type="time" value={form.endTime} onChange={(e) => set('endTime', e.target.value)} className="h-9 text-[16px] md:text-[16px]" />
         </div>
       </div>
       <div className="space-y-1">
@@ -190,11 +194,11 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
       </div>
       <div className="space-y-1">
         <Label htmlFor="series-ticket" className="text-xs">Where to book (link)</Label>
-        <Input id="series-ticket" type="url" inputMode="url" placeholder="https://" value={form.ticketUrl} onChange={(e) => set('ticketUrl', e.target.value)} className="h-9 text-[16px]" />
+        <Input id="series-ticket" type="url" inputMode="url" placeholder="https://" value={form.ticketUrl} onChange={(e) => set('ticketUrl', e.target.value)} className="h-9 text-[16px] md:text-[16px]" />
       </div>
       <div className="space-y-1">
         <Label htmlFor="series-cover" className="text-xs">Picture (link)</Label>
-        <Input id="series-cover" type="url" inputMode="url" placeholder="https://" value={form.coverImageUrl} onChange={(e) => set('coverImageUrl', e.target.value)} className="h-9 text-sm" />
+        <Input id="series-cover" type="url" inputMode="url" placeholder="https://" value={form.coverImageUrl} onChange={(e) => set('coverImageUrl', e.target.value)} className="h-9 text-[16px] md:text-[16px]" />
       </div>
       {SHOW_PRICE_AND_EVENT_INSTAGRAM && (
         <>
@@ -214,10 +218,13 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
         The team looks after prices, Instagram and the class programme for now.
       </p>
       {error && <p className="text-xs text-destructive" role="alert" data-testid="basics-error">{error}</p>}
+      {/* Fields above are text-[16px], not text-base: the root size is fluid (13.5px on a
+          phone), so text-base is under 16px and iOS zooms in on focus. md:text-[16px] overrides the
+          Input primitive's md:text-sm, which a phone in landscape (768px+) would otherwise get. */}
       {/* Stays in view above the bottom menu while the form is long (mobile first). */}
       <div
         ref={bar}
-        className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-10 -mx-3 -mb-3 flex flex-wrap items-center justify-end gap-2 rounded-b-md border-t border-border bg-background/95 px-3 py-2 backdrop-blur"
+        className="[fieldset:disabled_&]:hidden sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-10 -mx-3 -mb-3 flex flex-wrap items-center justify-end gap-2 rounded-b-md border-t border-border bg-background/95 px-3 py-2 backdrop-blur"
         data-testid="basics-bar"
       >
         {dirty && <span className="mr-auto text-xs text-muted-foreground" data-testid="basics-unsaved">Not saved yet</span>}
@@ -237,7 +244,7 @@ function BasicsSection({ workspace, onSaved, onDirtyChange }: { workspace: Serie
   );
 }
 
-function DateRow({ date, today, onOpen }: { date: WorkspaceDate; today: string; onOpen: () => void }) {
+function DateRow({ date, today, onOpen }: { date: WorkspaceDate; today: string; onOpen: (() => void) | null }) {
   const cancelled = isCancelledDate(date);
   const time = localAsZTime(date.materialised_start_utc);
   return (
@@ -251,9 +258,11 @@ function DateRow({ date, today, onOpen }: { date: WorkspaceDate; today: string; 
       {!cancelled && keepsOwnChanges(date) && (
         <span className="text-[11px] text-muted-foreground border border-border rounded px-1.5 py-0.5">Own changes</span>
       )}
-      <Button type="button" size="sm" variant="outline" className="ml-auto min-h-[44px]" onClick={onOpen} aria-label={`Change ${dateLabel(date.occurrence_date, today)}`} data-testid="date-open">
-        Change
-      </Button>
+      {onOpen && (
+        <Button type="button" size="sm" variant="outline" className="ml-auto min-h-[44px]" onClick={onOpen} aria-label={`Change ${dateLabel(date.occurrence_date, today)}`} data-testid="date-open">
+          Change
+        </Button>
+      )}
     </li>
   );
 }
@@ -266,7 +275,7 @@ const headingFor = (actions: LifecycleAction[]) => {
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
-function DatesSection({ workspace, today, onSaved }: { workspace: SeriesWorkspace; today: string; onSaved: (text: string) => void }) {
+function DatesSection({ workspace, today, onSaved, readOnly }: { workspace: SeriesWorkspace; today: string; onSaved: (text: string) => void; readOnly: boolean }) {
   const { series } = workspace;
   const upcoming = useMemo(() => upcomingDates(workspace.dates, today), [workspace.dates, today]);
   const removed = useMemo(() => removedUpcoming(series, today), [series, today]);
@@ -297,18 +306,18 @@ function DatesSection({ workspace, today, onSaved }: { workspace: SeriesWorkspac
       <div>
         <h2 id="dates-heading" className="text-base font-semibold">Dates</h2>
         <p className="text-xs text-muted-foreground">
-          {upcoming.length} coming up &middot; tap Change to edit just one date
+          {upcoming.length} coming up{!readOnly && <> &middot; tap Change to edit just one date</>}
         </p>
       </div>
 
       {upcoming.length === 0 ? (
         <p className="text-sm text-muted-foreground rounded-md border border-dashed border-border p-3" data-testid="dates-empty">
-          No dates coming up. Add one below.
+          {readOnly ? 'No dates coming up.' : 'No dates coming up. Add one below.'}
         </p>
       ) : (
         <ul className="divide-y divide-border/60 rounded-md border border-border px-3" aria-label="Upcoming dates">
           {shown.map((d) => (
-            <DateRow key={d.id} date={d} today={today} onOpen={() => { setSheetDate(d); setSheetOpen(true); }} />
+            <DateRow key={d.id} date={d} today={today} onOpen={readOnly ? null : () => { setSheetDate(d); setSheetOpen(true); }} />
           ))}
         </ul>
       )}
@@ -318,7 +327,7 @@ function DatesSection({ workspace, today, onSaved }: { workspace: SeriesWorkspac
         </button>
       )}
 
-      <form
+      {!readOnly && <form
         className="flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault();
@@ -328,13 +337,13 @@ function DatesSection({ workspace, today, onSaved }: { workspace: SeriesWorkspac
       >
         <div className="space-y-1">
           <Label htmlFor="add-date" className="text-xs">Add a date</Label>
-          <Input id="add-date" type="date" min={today} value={newDate} onChange={(e) => setNewDate(e.target.value)} className="h-11 text-[16px] w-44 max-w-full" />
+          <Input id="add-date" type="date" min={today} value={newDate} onChange={(e) => setNewDate(e.target.value)} className="h-11 text-[16px] md:text-[16px] w-44 max-w-full" />
         </div>
         <Button type="submit" size="sm" variant="outline" disabled={!newDate || newDate < today || taken.has(newDate) || command.isPending} data-testid="add-date-submit">
           <CalendarPlus className="w-4 h-4" aria-hidden="true" /> Add date
         </Button>
         {newDate && taken.has(newDate) && <p className="text-xs text-muted-foreground w-full">That date is already on the list.</p>}
-      </form>
+      </form>}
 
       {removed.length > 0 && (
         <div className="space-y-1" data-testid="dates-removed">
@@ -343,7 +352,7 @@ function DatesSection({ workspace, today, onSaved }: { workspace: SeriesWorkspac
             {removed.map((date) => (
               <li key={date} className="flex items-center gap-2 text-sm">
                 <span className="w-24 shrink-0 text-muted-foreground">{dateLabel(date, today)}</span>
-                <button
+                {!readOnly && <button
                   type="button"
                   className="text-xs text-primary tap-link"
                   disabled={command.isPending}
@@ -355,7 +364,7 @@ function DatesSection({ workspace, today, onSaved }: { workspace: SeriesWorkspac
                   )}
                 >
                   Put back
-                </button>
+                </button>}
               </li>
             ))}
           </ul>
@@ -364,7 +373,7 @@ function DatesSection({ workspace, today, onSaved }: { workspace: SeriesWorkspac
 
       {error && <p className="text-xs text-destructive" role="alert" data-testid="dates-error">{error}</p>}
 
-      {liveSheetDate && (
+      {liveSheetDate && !readOnly && (
         <DateActionSheet
           open={sheetOpen}
           onOpenChange={setSheetOpen}
@@ -448,6 +457,10 @@ export function SeriesEditor({ workspace, today }: { workspace: SeriesWorkspace;
   const [focusConfirmation, setFocusConfirmation] = useState(0);
   const confirmationRef = useRef<HTMLDivElement>(null);
   const [dirty, setDirty] = useState(false);
+  // An archived event is off Bachata Calendar and only the team brings it back, so its
+  // details are shown but not editable here.
+  const archived = series.lifecycle_status === 'archived';
+  const live = series.lifecycle_status === 'live';
   const announceStatus = useCallback((text: string) => {
     setConfirmation(text);
     setFocusConfirmation((n) => n + 1);
@@ -456,10 +469,9 @@ export function SeriesEditor({ workspace, today }: { workspace: SeriesWorkspace;
     if (focusConfirmation) confirmationRef.current?.focus();
   }, [focusConfirmation]);
   // Leaving with edits not saved (a link, Back, closing the tab) asks first.
-  useUnsavedChangesGuard({ enabled: leaveGuardEnabled({ dirty }), message: UNSAVED_MESSAGE });
+  useUnsavedChangesGuard({ enabled: leaveGuardEnabled({ dirty: dirty && !archived }), message: UNSAVED_MESSAGE });
   const upcoming = useMemo(() => upcomingDates(workspace.dates, today), [workspace.dates, today]);
   const scope = scopeNote(upcoming, today);
-  const live = series.lifecycle_status === 'live';
 
   return (
     <div className="space-y-4" data-testid="series-editor">
@@ -491,17 +503,19 @@ export function SeriesEditor({ workspace, today }: { workspace: SeriesWorkspace;
           returned, "Send for review", and "View as a dancer" once it is public. */}
       <ReviewStrip series={series} onSaved={announceStatus} />
 
-      <p className="rounded-md border border-border bg-muted/30 p-3 text-xs flex items-start gap-2" data-testid="scope-note">
+      <p className="rounded-md border border-border bg-muted/30 p-3 text-xs flex items-start gap-2" data-testid={archived ? 'archived-note' : 'scope-note'}>
         <Info className="w-4 h-4 shrink-0 text-primary" aria-hidden="true" />
-        <span>{scope.text}</span>
+        <span>{archived ? 'An archived event cannot be changed here.' : scope.text}</span>
       </p>
 
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+        {/* disabled: every field and button in the form is switched off at once (native fieldset). */}
+        <fieldset disabled={archived} className="min-w-0 space-y-4" data-testid="series-edit-area">
+          {/* key: archiving starts the form afresh from the server, so typing not saved is not shown as if it were. */}
+          <BasicsSection key={archived ? 'archived' : 'editable'} workspace={workspace} onSaved={setConfirmation} onDirtyChange={setDirty} />
+        </fieldset>
         <div className="space-y-4">
-          <BasicsSection workspace={workspace} onSaved={setConfirmation} onDirtyChange={setDirty} />
-        </div>
-        <div className="space-y-4">
-          <DatesSection workspace={workspace} today={today} onSaved={setConfirmation} />
+          <DatesSection workspace={workspace} today={today} onSaved={setConfirmation} readOnly={archived} />
           <StatusSection workspace={workspace} onSaved={announceStatus} />
         </div>
       </div>

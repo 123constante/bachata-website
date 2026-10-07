@@ -96,3 +96,21 @@ describe('VenuePicker', () => {
     expect(screen.queryByTestId('venue-request-sent')).toBeNull();
   });
 });
+
+describe('VenuePicker label', () => {
+  it('closed, the field id is on the Change venue button, whose name says the venue set now', async () => {
+    rpc.mockResolvedValue({ data: [LISTED], error: null });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <label htmlFor="v">Venue</label>
+        <VenuePicker id="v" value="v-listed" onChange={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(document.getElementById('v')?.getAttribute('aria-label')).toBe('Change venue, now Pura Social'));
+    expect(document.getElementById('v')?.tagName).toBe('BUTTON');
+    fireEvent.click(screen.getByText('Venue'));
+    // Open, the id moves to the search box, which the same label now names.
+    expect(screen.getByLabelText('Venue').getAttribute('placeholder')).toBe('Search venues by name or area');
+  });
+});

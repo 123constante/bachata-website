@@ -68,11 +68,23 @@ describe('SeriesEditor polish', () => {
     expect(screen.getByTestId('basics-unsaved')).toBeTruthy();
   });
 
-  it('text fields are 16px so phones do not zoom in on them', () => {
+  it('text fields are a literal 16px (the fluid root makes text-base 13.5px, and landscape phones pass md)', () => {
     mount();
-    for (const id of ['series-name', 'series-start', 'series-end', 'series-description', 'series-ticket', 'add-date']) {
-      expect(document.getElementById(id)?.className).toContain('text-[16px]');
+    for (const id of ['series-name', 'series-start', 'series-end', 'series-description', 'series-ticket', 'series-cover', 'add-date']) {
+      const cls = document.getElementById(id)?.className ?? '';
+      expect(cls).toContain('text-[16px]');
+      expect(cls).not.toContain('md:text-sm');
+      expect(cls).not.toMatch(/(^|\s)text-sm(\s|$)/);
     }
+  });
+
+  it('a save makes the form clean at once, before the reload lands', async () => {
+    mount();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Thursday Bachata Party' } });
+    fireEvent.click(screen.getByTestId('basics-save'));
+    await screen.findByTestId('basics-saved');
+    expect(screen.queryByTestId('basics-unsaved')).toBeNull();
+    expect((screen.getByTestId('basics-save') as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('each Change button names its date, and the add button says what it adds', () => {
@@ -143,5 +155,42 @@ describe('TeamPanel remove question', () => {
     expect(screen.getByTestId('member-confirm-yes').textContent).toContain('Yes, remove');
     fireEvent.click(screen.getByTestId('member-confirm-no'));
     await waitFor(() => expect(focused()).toBe('member-remove'));
+  });
+});
+
+describe('an archived event', () => {
+  it('is shown but cannot be changed: no Change, Add date or save; dates still listed', () => {
+    mount('archived');
+    expect((screen.getByTestId('series-edit-area') as HTMLFieldSetElement).disabled).toBe(true);
+    expect(screen.getByTestId('archived-note').textContent).toMatch(/cannot be changed/);
+    expect(screen.queryByTestId('scope-note')).toBeNull();
+    expect(screen.getAllByTestId('series-date-row')).toHaveLength(1);
+    expect(screen.queryByTestId('date-open')).toBeNull();
+    expect(screen.queryByTestId('add-date-submit')).toBeNull();
+    expect(screen.getByTestId('series-dates').textContent).not.toMatch(/tap Change/);
+  });
+
+  it('archiving drops typing not saved: the saved name shows, and leaving never asks', () => {
+    const view = mount('live');
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Typed but not saved' } });
+    view.rerender(tree(<SeriesEditor workspace={workspace('archived')} today="2026-10-07" />));
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Thursday Party');
+    const leave = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(leave);
+    expect(leave.defaultPrevented).toBe(false);
+  });
+
+  it('a live event stays editable', () => {
+    mount('live');
+    expect((screen.getByTestId('series-edit-area') as HTMLFieldSetElement).disabled).toBe(false);
+  });
+});
+
+describe('the form and a reload', () => {
+  it('keeps a cleared end time when the workspace reloads unchanged', () => {
+    const view = mount('live');
+    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '' } });
+    view.rerender(tree(<SeriesEditor workspace={{ ...workspace('live'), series: { ...series('live') } }} today="2026-10-07" />));
+    expect((screen.getByLabelText('Ends') as HTMLInputElement).value).toBe('');
   });
 });
