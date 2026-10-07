@@ -58,7 +58,7 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
           <span className="block truncate text-muted-foreground line-through">{row.title || typeLabel}</span>
           <span className="block text-xs text-muted-foreground">{wasOff ? 'Not on this date.' : 'Removed. Not saved yet.'}</span>
         </span>
-        <Button ref={restoreRef} type="button" size="sm" variant="outline" onClick={onRestore} data-testid="programme-restore">
+        <Button ref={restoreRef} type="button" size="sm" variant="outline" className="min-h-[44px]" onClick={onRestore} data-testid="programme-restore">
           <RotateCcw className="w-4 h-4" aria-hidden="true" /> Put back<span className="sr-only"> {name}</span>
         </Button>
       </li>
@@ -78,12 +78,12 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium" data-testid="programme-type">{typeLabel}</span>
         ) : (
           <div className="flex items-center gap-2">
-            <Label htmlFor={`${id}-type`} className="text-xs">Kind</Label>
+            <Label htmlFor={`${id}-type`} className="text-sm">Kind</Label>
             <select
               id={`${id}-type`}
               value={row.type ?? ''}
               onChange={(e) => onChange({ type: e.target.value })}
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              className="min-h-[44px] rounded-md border border-input bg-background px-2 text-[16px]"
               aria-invalid={!!typeProblem}
               data-testid="programme-type-select"
             >
@@ -91,50 +91,50 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
             </select>
           </div>
         )}
-        <Button type="button" size="sm" variant="ghost" className="ml-auto text-destructive" onClick={onRemove} data-testid="programme-remove">
+        <Button type="button" size="sm" variant="ghost" className="ml-auto min-h-[44px] text-destructive" onClick={onRemove} data-testid="programme-remove">
           <Trash2 className="w-4 h-4" aria-hidden="true" /> Remove<span className="sr-only"> {name}</span>
         </Button>
       </div>
-      {typeProblem && <p className="text-xs text-destructive">{typeProblem}</p>}
+      {typeProblem && <p className="text-sm text-destructive">{typeProblem}</p>}
 
       <div className="space-y-1">
-        <Label htmlFor={`${id}-title`} className="text-xs">Name</Label>
+        <Label htmlFor={`${id}-title`} className="text-sm">Name</Label>
         <Input
           ref={titleRef}
           id={`${id}-title`}
           value={row.title}
           onChange={(e) => onChange({ title: e.target.value })}
           placeholder={row.type === 'party' ? 'Bachata Party' : 'Beginners Bachata'}
-          className="h-9 text-sm"
+          className="min-h-[44px] text-[16px]"
           aria-invalid={!!titleProblem}
           aria-describedby={titleProblem ? `${id}-title-error` : undefined}
           data-testid="programme-title"
         />
-        {titleProblem && <p id={`${id}-title-error`} className="text-xs text-destructive" data-testid="programme-row-error">{titleProblem}</p>}
+        {titleProblem && <p id={`${id}-title-error`} className="text-sm text-destructive" data-testid="programme-row-error">{titleProblem}</p>}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label htmlFor={`${id}-start`} className="text-xs">Starts</Label>
+          <Label htmlFor={`${id}-start`} className="text-sm">Starts</Label>
           <Input
             id={`${id}-start`}
             type="time"
             value={row.start}
             onChange={(e) => onChange({ start: e.target.value.slice(0, 5) })}
-            className="h-9 text-sm"
+            className="min-h-[44px] text-[16px]"
             aria-invalid={!!timesProblem}
             aria-describedby={timesProblem ? `${id}-times-error` : undefined}
             data-testid="programme-start"
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor={`${id}-end`} className="text-xs">Ends</Label>
+          <Label htmlFor={`${id}-end`} className="text-sm">Ends</Label>
           <Input
             id={`${id}-end`}
             type="time"
             value={row.end}
             onChange={(e) => onChange({ end: e.target.value.slice(0, 5) })}
-            className="h-9 text-sm"
+            className="min-h-[44px] text-[16px]"
             aria-invalid={!!timesProblem}
             aria-describedby={[timesProblem ? `${id}-times-error` : '', overnight ? `${id}-overnight` : ''].filter(Boolean).join(' ') || undefined}
             data-testid="programme-end"
@@ -142,14 +142,14 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
         </div>
       </div>
       {overnight && (
-        <p id={`${id}-overnight`} className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="programme-overnight">
-          <Moon className="w-3 h-3" aria-hidden="true" /> Finishes after midnight
+        <p id={`${id}-overnight`} className="flex items-center gap-1 text-sm text-muted-foreground" data-testid="programme-overnight">
+          <Moon className="w-4 h-4" aria-hidden="true" /> Finishes after midnight
         </p>
       )}
-      {timesProblem && <p id={`${id}-times-error`} className="text-xs text-destructive" data-testid="programme-row-error">{timesProblem}</p>}
+      {timesProblem && <p id={`${id}-times-error`} className="text-sm text-destructive" data-testid="programme-row-error">{timesProblem}</p>}
 
       <fieldset className="space-y-1">
-        <legend className="text-xs font-medium">Level</legend>
+        <legend className="text-sm font-medium">Level</legend>
         <div className="flex flex-wrap gap-2">
           {LEVEL_KEYS.map((level) => {
             const on = row.levels.includes(level);
@@ -160,7 +160,7 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
                 aria-pressed={on}
                 onClick={() => onChange({ levels: on ? row.levels.filter((l) => l !== level) : [...row.levels, level] })}
                 className={cn(
-                  'rounded-full border px-3 py-1 text-xs',
+                  'min-h-[44px] rounded-full border px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   on ? 'border-primary bg-primary/10 text-primary' : 'border-border',
                 )}
                 data-testid={`programme-level-${level}`}
@@ -170,7 +170,7 @@ export function ProgrammeSessionRow({ row, problems, focusToken, onChange, onRem
             );
           })}
         </div>
-        {levelsProblem && <p className="text-xs text-destructive">{levelsProblem}</p>}
+        {levelsProblem && <p className="text-sm text-destructive">{levelsProblem}</p>}
       </fieldset>
     </li>
   );

@@ -184,10 +184,10 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
 
   const heading = (
     <div className="flex items-center gap-2">
-      <Button type="button" size="sm" variant="ghost" onClick={back} disabled={save.isPending} data-testid="programme-back">
+      <Button type="button" size="sm" variant="ghost" className="min-h-[44px]" onClick={back} disabled={save.isPending} data-testid="programme-back">
         <ChevronLeft className="w-4 h-4" aria-hidden="true" /> Back
       </Button>
-      <h3 ref={headingRef} tabIndex={-1} className="text-sm font-semibold outline-none">Programme for {dateLabel}</h3>
+      <h3 ref={headingRef} tabIndex={-1} className="text-base font-semibold outline-none">Programme for {dateLabel}</h3>
     </div>
   );
 
@@ -207,7 +207,7 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
         {heading}
         <div className="space-y-2" role="alert">
           <p className="text-sm">We couldn&rsquo;t load the programme for this date.</p>
-          <Button size="sm" variant="outline" onClick={() => void reload()}>Try again</Button>
+          <Button size="sm" variant="outline" className="min-h-[44px]" onClick={() => void reload()}>Try again</Button>
         </div>
       </div>
     );
@@ -222,7 +222,7 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
           <Lock className="w-4 h-4 mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
           {notEditableCopy(base.notEditableReason)}
         </p>
-        <ul className="space-y-2 opacity-60" aria-label="Programme (read only)" data-testid="programme-readonly">
+        <ul className="space-y-2" aria-label="Programme (read only)" data-testid="programme-readonly">
           {shown.length === 0 && <li className="text-sm text-muted-foreground">No sessions on this date.</li>}
           {shown.map((s, i) => (
             <li key={i} className="rounded-md border border-border p-3 text-sm">
@@ -259,8 +259,8 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
               View on the site <ExternalLink className="w-3 h-3" aria-hidden="true" />
             </Link>
           )}
-          <Button type="button" size="sm" variant="outline" onClick={() => setStage('edit')} data-testid="programme-edit-again">Edit again</Button>
-          <Button type="button" size="sm" onClick={onClose} data-testid="programme-close">Done</Button>
+          <Button type="button" size="sm" variant="outline" className="min-h-[44px]" onClick={() => setStage('edit')} data-testid="programme-edit-again">Edit again</Button>
+          <Button type="button" size="sm" className="min-h-[44px]" onClick={onClose} data-testid="programme-close">Done</Button>
         </div>
       </div>
     );
@@ -303,18 +303,18 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
           />
         ))}
       </ul>
-      <Button type="button" size="sm" variant="outline" className="w-full" onClick={add} data-testid="programme-add">
+      <Button type="button" size="sm" variant="outline" className="w-full min-h-[44px]" onClick={add} data-testid="programme-add">
         <Plus className="w-4 h-4" aria-hidden="true" /> Add a session
       </Button>
 
       {showProblems && !validation.ok && (
-        <div className="text-xs text-destructive space-y-1" role="alert" data-testid="programme-problems">
+        <div className="text-sm text-destructive space-y-1" role="alert" data-testid="programme-problems">
           {validation.rows.length > 0 && <p>Fix the highlighted sessions before saving.</p>}
           {validation.programme.map((m) => <p key={m}>{m}</p>)}
         </div>
       )}
       {error && (
-        <p className="text-xs text-destructive" role="alert" data-testid="programme-error">
+        <p className="text-sm text-destructive" role="alert" data-testid="programme-error">
           {error}
           {errorRowKey && rows.find((r) => r.key === errorRowKey) ? ` (${rows.find((r) => r.key === errorRowKey)?.title.trim() || 'a session without a name'})` : ''}
         </p>
@@ -326,13 +326,14 @@ export function ProgrammeEditor({ occurrenceId, seriesId, dateLabel, live, publi
           type="button"
           size="sm"
           variant="ghost"
+          className="min-h-[44px]"
           disabled={!dirty || save.isPending}
           onClick={() => { seed(base); setError(null); setErrorRowKey(null); }}
           data-testid="programme-discard"
         >
           Undo changes
         </Button>
-        <Button type="button" size="sm" disabled={!dirty || save.isPending} onClick={trySave} data-testid="programme-save">
+        <Button type="button" size="sm" className="min-h-[44px]" disabled={!dirty || save.isPending} onClick={trySave} data-testid="programme-save">
           {save.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Save the programme
         </Button>
       </div>
