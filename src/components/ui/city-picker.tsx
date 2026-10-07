@@ -239,6 +239,7 @@ export function CityPicker({
           <Command shouldFilter={false}>
             <CommandInput
               placeholder='Search city...'
+              className='text-[16px] md:text-[16px]'
               value={query}
               onValueChange={setQuery}
             />
@@ -270,6 +271,7 @@ export function CityPicker({
                   <CommandItem
                     key={city.id}
                     value={city.id}
+                    className='min-h-[44px] py-3'
                     onSelect={() => {
                       onChange(city.id, {
                         id: city.id,
@@ -320,6 +322,7 @@ export function CityPicker({
               <Label>City Name</Label>
               <Input 
                 placeholder="e.g. Kyoto" 
+                className="text-[16px] md:text-[16px]"
                 value={requestCityName}
                 onChange={(e) => setRequestCityName(e.target.value)}
               />
@@ -328,6 +331,7 @@ export function CityPicker({
               <Label>Country</Label>
               <Input 
                 placeholder="e.g. Japan" 
+                className="text-[16px] md:text-[16px]"
                 value={requestCountryName}
                 onChange={(e) => setRequestCountryName(e.target.value)}
               />
