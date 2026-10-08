@@ -23,7 +23,7 @@ export function StatusTag({ tone, children, testId, className }: StatusTagProps)
     <span
       data-testid={testId}
       data-tone={tone}
-      className={cn('inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[12px] font-semibold', TONE[tone], className)}
+      className={cn('inline-flex shrink-0 items-center rounded-full px-[10px] py-[2px] text-[12px] font-semibold', TONE[tone], className)}
     >
       {children}
     </span>

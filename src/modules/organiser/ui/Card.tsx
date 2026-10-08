@@ -21,7 +21,7 @@ export function Card({ label, testId, variant = 'rows', className, children, ...
       data-testid={testId}
       className={cn(
         'overflow-hidden rounded-[16px] border border-[var(--line)] bg-[var(--card)]',
-        variant === 'padded' ? 'p-4' : 'divide-y divide-[var(--line)]',
+        variant === 'padded' ? 'p-[16px]' : 'divide-y divide-[var(--line)]',
         className,
       )}
       {...rest}

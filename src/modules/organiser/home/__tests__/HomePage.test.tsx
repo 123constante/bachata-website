@@ -85,13 +85,13 @@ describe('Home list', () => {
     resolve({
       today: TODAY,
       organisers: [org([
-        series('s1', 'Friday Social', [date('a2', '2026-10-16'), date('a1', '2026-10-09')]),
+        series('s1', 'Friday Party', [date('a2', '2026-10-16'), date('a1', '2026-10-09')]),
         series('s2', 'Tuesday Class', [date('b1', '2026-10-13', { venue_name: null, lifecycle_status: 'cancelled' })], { lifecycle_status: 'draft' }),
       ])],
     });
     const rows = await screen.findAllByTestId('home-date-row');
     expect(rows.map((r) => r.getAttribute('data-occurrence'))).toEqual(['a1', 'b1', 'a2']);
-    expect(rows[0].textContent).toContain('Friday Social');
+    expect(rows[0].textContent).toContain('Friday Party');
     expect(rows[0].textContent).toContain('Salsa Bar');
     expect(rows[0].textContent).toContain('Live');
     expect(rows[1].textContent).toContain('Cancelled');
@@ -102,7 +102,7 @@ describe('Home list', () => {
   });
 
   it('New event goes to the new-event page', async () => {
-    api.home.mockResolvedValue({ today: TODAY, organisers: [org([series('s1', 'Friday Social', [date('a1', '2026-10-09')])])] });
+    api.home.mockResolvedValue({ today: TODAY, organisers: [org([series('s1', 'Friday Party', [date('a1', '2026-10-09')])])] });
     mount();
     fireEvent.click(await screen.findByTestId('home-new-event'));
     expect(screen.getByTestId('where').textContent).toBe('/account/o/events/new');
@@ -129,7 +129,7 @@ describe('Home list', () => {
     mount();
     const err = await screen.findByTestId('home-error');
     expect(err.textContent).toContain('did not load');
-    api.home.mockResolvedValue({ today: TODAY, organisers: [org([series('s1', 'Friday Social', [date('a1', '2026-10-09')])])] });
+    api.home.mockResolvedValue({ today: TODAY, organisers: [org([series('s1', 'Friday Party', [date('a1', '2026-10-09')])])] });
     fireEvent.click(screen.getByTestId('home-error-retry'));
     expect(await screen.findAllByTestId('home-date-row')).toHaveLength(1);
   });
@@ -137,7 +137,7 @@ describe('Home list', () => {
 
 describe('Home strips', () => {
   it('none when nothing needs the organiser', async () => {
-    api.home.mockResolvedValue({ today: TODAY, organisers: [org([series('s1', 'Friday Social', [date('a1', '2026-10-09')])])] });
+    api.home.mockResolvedValue({ today: TODAY, organisers: [org([series('s1', 'Friday Party', [date('a1', '2026-10-09')])])] });
     mount();
     await screen.findAllByTestId('home-date-row');
     await waitFor(() => expect(api.programme).toHaveBeenCalled());
@@ -145,7 +145,7 @@ describe('Home strips', () => {
   });
 
   it('(a) team requests waiting opens Team', async () => {
-    api.home.mockResolvedValue({ today: TODAY, organisers: [org([series('s1', 'Friday Social', [date('a1', '2026-10-09')])])] });
+    api.home.mockResolvedValue({ today: TODAY, organisers: [org([series('s1', 'Friday Party', [date('a1', '2026-10-09')])])] });
     api.incoming.mockResolvedValue([{ requestId: 'r1' }, { requestId: 'r2' }]);
     mount();
     const strip = await screen.findByTestId('home-strip-team');
@@ -157,11 +157,11 @@ describe('Home strips', () => {
   it('(b) runway from the home read alone when every upcoming date is listed', async () => {
     api.home.mockResolvedValue({
       today: TODAY,
-      organisers: [org([series('s1', 'Friday Social', [date('a1', '2026-10-09'), date('a2', '2026-10-16')], { upcoming_count: 2 })])],
+      organisers: [org([series('s1', 'Friday Party', [date('a1', '2026-10-09'), date('a2', '2026-10-16')], { upcoming_count: 2 })])],
     });
     mount();
     const strip = await screen.findByTestId('home-strip-runway');
-    expect(strip.textContent).toContain('Friday Social: dates listed until Fri 16 Oct.');
+    expect(strip.textContent).toContain('Friday Party: dates listed until Fri 16 Oct.');
     expect(strip.textContent).toContain('Extend');
     expect(api.workspace).not.toHaveBeenCalled();
     fireEvent.click(strip);
@@ -171,7 +171,7 @@ describe('Home strips', () => {
   it('(b) runway reads the series dates when more than 3 but at most 8 are left', async () => {
     api.home.mockResolvedValue({
       today: TODAY,
-      organisers: [org([series('s1', 'Friday Social', [date('a1', '2026-10-09'), date('a2', '2026-10-16'), date('a3', '2026-10-23')], { upcoming_count: 5 })])],
+      organisers: [org([series('s1', 'Friday Party', [date('a1', '2026-10-09'), date('a2', '2026-10-16'), date('a3', '2026-10-23')], { upcoming_count: 5 })])],
     });
     api.workspace.mockResolvedValue({
       dates: ['2026-10-09', '2026-10-16', '2026-10-23', '2026-10-30', '2026-11-06'].map((d, i) => ({ id: `x${i}`, occurrence_date: d })),
@@ -184,7 +184,7 @@ describe('Home strips', () => {
   it('(b) no strip when the series runs 8 weeks or more ahead', async () => {
     api.home.mockResolvedValue({
       today: TODAY,
-      organisers: [org([series('s1', 'Friday Social', [date('a1', '2026-10-09'), date('a2', '2026-10-16'), date('a3', '2026-10-23')], { upcoming_count: 8 })])],
+      organisers: [org([series('s1', 'Friday Party', [date('a1', '2026-10-09'), date('a2', '2026-10-16'), date('a3', '2026-10-23')], { upcoming_count: 8 })])],
     });
     api.workspace.mockResolvedValue({ dates: [{ id: 'z', occurrence_date: '2026-12-04' }] });
     mount();
@@ -196,7 +196,7 @@ describe('Home strips', () => {
   it('(c) counts dates with no teacher or DJ and opens the first', async () => {
     api.home.mockResolvedValue({
       today: TODAY,
-      organisers: [org([series('s1', 'Friday Social', [date('a1', '2026-10-09'), date('a2', '2026-10-16'), date('a3', '2026-10-23')])])],
+      organisers: [org([series('s1', 'Friday Party', [date('a1', '2026-10-09'), date('a2', '2026-10-16'), date('a3', '2026-10-23')])])],
     });
     api.programme.mockImplementation(async (id: string) => (id === 'a1' ? withPeople(id) : empty(id)));
     mount();

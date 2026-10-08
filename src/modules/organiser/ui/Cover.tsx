@@ -23,8 +23,8 @@ export function Cover({ src, alt, onChange, changeLabel = 'Change cover', emptyL
         {src ? (
           <img src={src} alt={alt} className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--mut)]">
-            <ImageIcon aria-hidden="true" className="h-8 w-8" />
+          <div className="flex h-full w-full flex-col items-center justify-center gap-[8px] text-[var(--mut)]">
+            <ImageIcon aria-hidden="true" className="h-[32px] w-[32px]" />
             <span className="text-[14px]">{emptyLabel}</span>
           </div>
         )}
@@ -35,9 +35,9 @@ export function Cover({ src, alt, onChange, changeLabel = 'Change cover', emptyL
           onClick={onChange}
           aria-label={changeLabel}
           data-testid={testId ? `${testId}-change` : undefined}
-          className="absolute -bottom-2 -right-2 flex h-[44px] w-[44px] items-center justify-center rounded-full bg-[var(--btn)] text-[var(--btnfg)] ring-[3px] ring-[var(--bg)]"
+          className="absolute -bottom-[8px] -right-[8px] flex h-[44px] w-[44px] items-center justify-center rounded-full bg-[var(--btn)] text-[var(--btnfg)] ring-[3px] ring-[var(--bg)]"
         >
-          <Camera aria-hidden="true" className="h-5 w-5" />
+          <Camera aria-hidden="true" className="h-[20px] w-[20px]" />
         </button>
       )}
     </div>

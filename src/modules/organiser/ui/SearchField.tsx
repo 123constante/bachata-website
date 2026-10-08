@@ -18,7 +18,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 ) {
   return (
     <div className="relative">
-      <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[var(--mut)]" />
+      <Search aria-hidden="true" className="pointer-events-none absolute left-[12px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[var(--mut)]" />
       <input
         ref={ref}
         type="search"
@@ -30,14 +30,14 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
         data-sheet-autofocus={autoFocusInSheet || undefined}
         enterKeyHint="search"
         autoComplete="off"
-        className="h-12 w-full rounded-[12px] border border-[var(--line-strong)] bg-[var(--card2)] pl-10 pr-11 text-[16px] text-[var(--fg)] outline-none [&::-webkit-search-cancel-button]:hidden"
+        className="h-[48px] w-full rounded-[12px] border border-[var(--line-strong)] bg-[var(--card2)] pl-[40px] pr-[44px] text-[16px] text-[var(--fg)] outline-none [&::-webkit-search-cancel-button]:hidden"
       />
       {value && (
         <button
           type="button"
           aria-label="Clear search"
           onClick={() => onChange('')}
-          className="absolute right-0 top-0 flex h-12 w-11 items-center justify-center text-[var(--mut)]"
+          className="absolute right-0 top-0 flex h-[48px] w-[44px] items-center justify-center text-[var(--mut)]"
         >
           <X aria-hidden="true" className="h-[18px] w-[18px]" />
         </button>

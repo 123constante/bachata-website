@@ -15,7 +15,7 @@ export interface AttentionStripProps {
 /** Amber strip for something that needs the organiser (shown only when needed). */
 export function AttentionStrip({ children, actionLabel, onPress, icon, testId }: AttentionStripProps) {
   const cls = cn(
-    'flex min-h-[52px] w-full items-center gap-3 rounded-[12px] border border-[#5a4118] bg-gradient-to-r from-[#3a2a10] to-[#2a1f10] px-4 py-3 text-left text-[14px] text-[var(--warn-fg)] [&_svg]:shrink-0',
+    'flex min-h-[52px] w-full items-center gap-[12px] rounded-[12px] border border-[#5a4118] bg-gradient-to-r from-[#3a2a10] to-[#2a1f10] px-[16px] py-[12px] text-left text-[14px] text-[var(--warn-fg)] [&_svg]:shrink-0',
   );
   const body = (
     <>

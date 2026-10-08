@@ -42,7 +42,7 @@ export function TitleInput({ value, onChange, placeholder, maxLength, onBlur, te
       }}
       onChange={(e) => onChange(e.target.value.replace(/[\r\n]+/g, ' '))}
       className={cn(
-        'block w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[30px] font-bold leading-[1.15] text-[var(--fg)] outline-none',
+        'block min-h-[44px] w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[30px] font-bold leading-[1.15] text-[var(--fg)] outline-none',
         className,
       )}
     />

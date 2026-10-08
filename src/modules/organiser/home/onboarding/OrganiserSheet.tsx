@@ -9,7 +9,7 @@ import {
   type ClaimCandidate,
 } from '@/modules/organiser/shared/selfServeApi';
 import { selfServeErrorCopy, type SelfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
-import { Card, PrimaryButton, SearchField, SheetView, SkeletonRows, SummaryRow, useShake } from '../../ui';
+import { Card, Field, FIELD_CLASS, PrimaryButton, SearchField, SheetView, SkeletonRows, SummaryRow, useShake } from '../../ui';
 import { EmailCode } from './EmailCode';
 import { searchCities, type CityResult } from './citySearch';
 import { instagramProblem, websiteProblem } from './onboardingModel';
@@ -27,24 +27,7 @@ interface Props {
   onDone: (confirmation: string) => void;
 }
 
-const FIELD =
-  'w-full rounded-[12px] border border-[var(--line-strong)] bg-[var(--card2)] px-4 text-[16px] text-[var(--fg)] outline-none placeholder:text-[var(--ph)]';
 
-function Field({ label, help, error, children, htmlFor }: { label: string; help?: string; error?: string | null; children: ReactNode; htmlFor: string }) {
-  return (
-    <div className="space-y-1">
-      <label htmlFor={htmlFor} className="block text-[13px] font-semibold text-[var(--mut)]">
-        {label}
-      </label>
-      {children}
-      {(error || help) && (
-        <p className={error ? 'text-[13px] text-[var(--danger)]' : 'text-[13px] text-[var(--mut)]'} data-testid={`${htmlFor}-help`}>
-          {error ?? help}
-        </p>
-      )}
-    </div>
-  );
-}
 
 /**
  * The one sheet behind every onboarding action: claim (with the email-code
@@ -141,7 +124,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
   if (task?.kind === 'claim') {
     title = `Claim ${task.org.name}`;
     body = (
-      <div {...shakeProps} className={cn('space-y-3', shakeProps.className)}>
+      <div {...shakeProps} className={cn('space-y-[12px]', shakeProps.className)}>
         {error}
         {mailboxProven ? (
           <p className="text-[15px] text-[var(--fg)]">
@@ -163,7 +146,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
   } else if (task?.kind === 'request') {
     title = `Ask to join ${task.org.name}`;
     body = (
-      <div {...shakeProps} className={cn('space-y-3', shakeProps.className)}>
+      <div {...shakeProps} className={cn('space-y-[12px]', shakeProps.className)}>
         {error}
         <p className="text-[15px] text-[var(--fg)]">The team checks who you are and adds you, usually within a day.</p>
         <Field label="Tell the team who you are (optional)" htmlFor={`${ids}-note`}>
@@ -174,7 +157,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
             rows={3}
             onChange={(e) => setNote(e.target.value)}
             placeholder="For example: I run the Tuesday classes with Ana"
-            className={`${FIELD} min-h-[88px] py-3`}
+            className={`${FIELD_CLASS} min-h-[88px] py-[12px]`}
             data-testid="onboarding-request-note"
           />
         </Field>
@@ -188,7 +171,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
   } else if (task?.kind === 'create' && view === 'city') {
     title = 'City';
     body = (
-      <div className="space-y-3">
+      <div className="space-y-[12px]">
         <SearchField value={cityQuery} onChange={setCityQuery} aria-label="Search cities" placeholder="Search cities" autoFocusInSheet testId="onboarding-city-search" />
         {cities.isFetching && !cities.data ? (
           <SkeletonRows count={3} label="Searching cities" />
@@ -202,7 +185,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
               <button
                 key={c.id}
                 type="button"
-                className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-[15px] text-[var(--fg)]"
+                className="flex min-h-[52px] w-full items-center gap-[12px] px-[16px] text-left text-[15px] text-[var(--fg)]"
                 onClick={() => {
                   setForm((f) => ({ ...f, city: c }));
                   setView('main');
@@ -228,7 +211,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
         }}
         data-testid="onboarding-create-form"
         {...shakeProps}
-        className={cn('space-y-4', shakeProps.className)}
+        className={cn('space-y-[16px]', shakeProps.className)}
       >
         {error}
         {needsCreateProof && (
@@ -246,7 +229,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
             value={form.name}
             maxLength={80}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            className={`${FIELD} h-12`}
+            className={`${FIELD_CLASS} h-[48px]`}
             data-testid="onboarding-create-name"
           />
         </Field>
@@ -275,7 +258,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
             aria-invalid={!!instagramError}
             onChange={(e) => setForm((f) => ({ ...f, instagram: e.target.value }))}
             onBlur={() => setTouched((t) => ({ ...t, instagram: true }))}
-            className={`${FIELD} h-12`}
+            className={`${FIELD_CLASS} h-[48px]`}
             data-testid="onboarding-create-instagram"
           />
         </Field>
@@ -288,14 +271,14 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
             aria-invalid={!!websiteError}
             onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))}
             onBlur={() => setTouched((t) => ({ ...t, website: true }))}
-            className={`${FIELD} h-12`}
+            className={`${FIELD_CLASS} h-[48px]`}
             data-testid="onboarding-create-website"
           />
         </Field>
-        <label className="flex min-h-[44px] items-center gap-3 text-[14px] text-[var(--fg)]">
+        <label className="flex min-h-[44px] items-center gap-[12px] text-[14px] text-[var(--fg)]">
           <input
             type="checkbox"
-            className="h-6 w-6 shrink-0 accent-[var(--gold)]"
+            className="h-[24px] w-[24px] shrink-0 accent-[var(--gold)]"
             checked={form.useMyEmail}
             onChange={(e) => setForm((f) => ({ ...f, useMyEmail: e.target.checked }))}
             data-testid="onboarding-create-use-email"

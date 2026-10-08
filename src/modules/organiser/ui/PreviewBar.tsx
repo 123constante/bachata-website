@@ -27,7 +27,7 @@ export function PreviewBar({ preview, actionLabel, onAction, loading, disabled, 
   // While the keyboard is up only the button stays, so the bar fits above it.
   const typing = useKeyboardInset().inset > 0;
   return (
-    <div data-testid={testId} className={`space-y-2 px-4 py-3 ${shakeProps?.className ?? ''}`} onAnimationEnd={shakeProps?.onAnimationEnd}>
+    <div data-testid={testId} className={`space-y-[8px] px-[16px] py-[12px] ${shakeProps?.className ?? ''}`} onAnimationEnd={shakeProps?.onAnimationEnd}>
       {preview && !typing && (
         <div data-testid={`${testId}-preview`} className="max-h-[22dvh] overflow-hidden rounded-[12px] border border-[var(--line)] bg-[var(--card)]">
           {preview}

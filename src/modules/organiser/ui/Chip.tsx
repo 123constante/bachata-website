@@ -24,12 +24,12 @@ export function Chip({ children, selected, onToggle, disabled, testId }: ChipPro
       disabled={disabled}
       onClick={onToggle}
       className={cn(
-        'inline-flex min-h-[44px] items-center gap-1.5 rounded-[8px] border bg-[var(--card2)] px-3 text-[14px] transition-colors duration-300 ease-in-out',
+        'inline-flex min-h-[44px] items-center gap-[6px] rounded-[8px] border bg-[var(--card2)] px-[12px] text-[14px] transition-colors duration-300 ease-in-out',
         selected ? 'border-[var(--gold)] font-semibold text-[var(--gold)]' : 'border-[var(--line-strong)] text-[var(--fg)]',
         disabled && 'cursor-not-allowed opacity-60',
       )}
     >
-      {selected && <Check aria-hidden="true" className="h-4 w-4" />}
+      {selected && <Check aria-hidden="true" className="h-[16px] w-[16px]" />}
       {children}
     </button>
   );

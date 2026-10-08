@@ -11,7 +11,7 @@ describe('eventModel', () => {
   it('reads styles, gallery and videos the old parser drops', () => {
     expect(ws.musicStyles).toEqual(['Bachata']);
     expect(ws.gallery).toEqual(['https://cdn.example/g1.webp']);
-    expect(base).toMatchObject({ name: 'Friday Social', shape: 'weekly', startDate: '2026-10-09', until: '2026-11-27' });
+    expect(base).toMatchObject({ name: 'Friday Party', shape: 'weekly', startDate: '2026-10-09', until: '2026-11-27' });
     expect(repeatsLabel(base)).toBe('Every Friday');
     expect(listedUntil(base, ws, TODAY)).toBe('2026-11-27');
   });
@@ -20,7 +20,7 @@ describe('eventModel', () => {
     const draft = { ...base, description: 'New words', styles: ['Bachata', 'Salsa'] };
     expect(changedFields(base, draft)).toEqual(['description', 'styles']);
     expect(savePlan(base, draft, ws, TODAY)).toEqual([
-      { kind: 'series.upsert', payload: { name: 'Friday Social', default_description: 'New words', default_music_styles: ['Bachata', 'Salsa'] } },
+      { kind: 'series.upsert', payload: { name: 'Friday Party', default_description: 'New words', default_music_styles: ['Bachata', 'Salsa'] } },
     ]);
   });
 
@@ -29,7 +29,7 @@ describe('eventModel', () => {
   });
 
   it('a new venue carries its city (city is automatic)', () => {
-    expect(savePlan(base, { ...base, venueId: 'v2' }, ws, TODAY, 'c9')[0].payload).toEqual({ name: 'Friday Social', default_venue_id: 'v2', default_city_id: 'c9' });
+    expect(savePlan(base, { ...base, venueId: 'v2' }, ws, TODAY, 'c9')[0].payload).toEqual({ name: 'Friday Party', default_venue_id: 'v2', default_city_id: 'c9' });
   });
 
   it('a new end sends the owner weekly rule with an until date', () => {
@@ -65,6 +65,6 @@ describe('eventModel', () => {
   });
 
   it('previews the public card', () => {
-    expect(cardPreview(base, ws, TODAY, 'Studio One')).toEqual({ title: 'Friday Social', coverUrl: null, when: 'Fri 9 Oct', where: 'Studio One' });
+    expect(cardPreview(base, ws, TODAY, 'Studio One')).toEqual({ title: 'Friday Party', coverUrl: null, when: 'Fri 9 Oct', where: 'Studio One' });
   });
 });

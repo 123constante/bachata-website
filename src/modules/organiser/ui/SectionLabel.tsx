@@ -16,7 +16,7 @@ export function SectionLabel({ children, as: Tag = 'h2', id, testId, className }
     <Tag
       id={id}
       data-testid={testId}
-      className={cn('px-1 pb-2 text-[13px] font-semibold uppercase tracking-[.03em] text-[var(--mut)]', className)}
+      className={cn('px-[4px] pb-[8px] text-[13px] font-semibold uppercase tracking-[.03em] text-[var(--mut)]', className)}
     >
       {children}
     </Tag>

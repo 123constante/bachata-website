@@ -5,6 +5,9 @@ import {
   Card,
   Chip,
   Collapse,
+  ErrorState,
+  Field,
+  FIELD_CLASS,
   GhostButton,
   PersonRow,
   PrimaryButton,
@@ -12,6 +15,7 @@ import {
   SheetView,
   SkeletonRows,
   StatusTag,
+  useDebounced,
 } from '../ui';
 import {
   LEVEL_KEYS,
@@ -44,18 +48,7 @@ export type SheetState =
   | { view: 'break' }
   | null;
 
-const fieldClass =
-  'h-12 w-full rounded-[12px] border border-[var(--line-strong)] bg-[var(--card2)] px-3 text-[16px] text-[var(--fg)] outline-none placeholder:text-[var(--ph)] focus-visible:border-[var(--gold)]';
 
-function Field({ label, htmlFor, children, error, testId }: { label: string; htmlFor?: string; children: ReactNode; error?: string | null; testId?: string }) {
-  return (
-    <div className="space-y-1" data-testid={testId}>
-      <label htmlFor={htmlFor} className="block text-[13px] font-semibold text-[var(--mut)]">{label}</label>
-      {children}
-      {error && <p role="alert" className="text-[13px] text-[var(--danger)]" data-testid={testId ? `${testId}-error` : undefined}>{error}</p>}
-    </div>
-  );
-}
 
 export interface DateSheetProps {
   state: SheetState;
@@ -69,6 +62,9 @@ export interface DateSheetProps {
   /** Venue view. */
   venues: VenueOption[] | undefined;
   venuesLoading: boolean;
+  /** The list failed: the view shows a retry. */
+  venuesError?: boolean;
+  onRetryVenues?: () => void;
   venueId: string | null;
   usualVenueId: string | null;
   onPickVenue: (id: string | null) => void;
@@ -76,6 +72,8 @@ export interface DateSheetProps {
   dateLabel: string;
   reasons: CancellationReason[] | undefined;
   reasonsLoading: boolean;
+  reasonsError?: boolean;
+  onRetryReasons?: () => void;
   onCancelDate: (reason: string) => void;
   onUncancelDate: () => void;
   onBreak: () => void;
@@ -115,18 +113,18 @@ export function DateSheet(props: DateSheetProps) {
     title = `Cancel ${props.dateLabel}`;
     body = <CancelView {...props} />;
   } else if (state?.view === 'uncancel') {
-    title = `Un-cancel ${props.dateLabel}`;
+    title = `Put ${props.dateLabel} back on`;
     body = (
-      <div className="space-y-3 text-[15px] text-[var(--fg)]" data-testid="date-uncancel-view">
+      <div className="space-y-[12px] text-[15px] text-[var(--fg)]" data-testid="date-uncancel-view">
         <p>{props.dateLabel} goes back on as usual. Dancers no longer see a cancellation.</p>
         {props.commandError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="date-command-error">{props.commandError}</p>}
       </div>
     );
-    footer = <PrimaryButton onClick={props.onUncancelDate} loading={props.commandBusy} testId="date-uncancel-confirm">Un-cancel this date</PrimaryButton>;
+    footer = <PrimaryButton onClick={props.onUncancelDate} loading={props.commandBusy} testId="date-uncancel-confirm">Put it back on</PrimaryButton>;
   } else if (state?.view === 'break') {
     title = 'Break this week';
     body = (
-      <div className="space-y-3 text-[15px] text-[var(--fg)]" data-testid="date-break-view">
+      <div className="space-y-[12px] text-[15px] text-[var(--fg)]" data-testid="date-break-view">
         <p>{props.dateLabel} comes off the calendar for a break. Dancers do not see a cancellation, the date just is not listed.</p>
         <p className="text-[13px] text-[var(--mut)]">You can put it back later from the event&rsquo;s dates.</p>
         {props.commandError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="date-command-error">{props.commandError}</p>}
@@ -167,15 +165,15 @@ function SessionView({ row, updateRow, removeSession, onState, problems, editabl
   const set = (fn: (r: DraftSession) => DraftSession) => updateRow(row.key, fn);
 
   return (
-    <div className="space-y-4" data-testid="date-session-view">
+    <div className="space-y-[16px]" data-testid="date-session-view">
       <Field label="Type" testId="session-type" error={problem('type')}>
         {row.original ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-[8px]">
             <StatusTag tone={typeTone(row.type)} testId="session-type-tag">{typeLabel(row.type)}</StatusTag>
             <span className="text-[13px] text-[var(--mut)]">To change the type, remove this session and add a new one.</span>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Session type">
+          <div className="flex flex-wrap gap-[8px]" role="group" aria-label="Session type">
             {SESSION_TYPES.map((t) => (
               <Chip key={t} selected={row.type === t} onToggle={() => set((r) => setSessionType(r, t))} testId={`session-type-${t}`}>
                 {TYPE_LABEL[t]}
@@ -188,7 +186,7 @@ function SessionView({ row, updateRow, removeSession, onState, problems, editabl
       <Field label="Name" htmlFor={nameId} error={problem('title')}>
         <input
           id={nameId}
-          className={fieldClass}
+          className={`${FIELD_CLASS} h-[48px]`}
           value={row.title}
           maxLength={120}
           placeholder={typeLabel(row.type)}
@@ -199,21 +197,21 @@ function SessionView({ row, updateRow, removeSession, onState, problems, editabl
       </Field>
 
       <div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-[12px]">
           <Field label="Starts" htmlFor={startId}>
-            <input id={startId} type="time" className={fieldClass} value={row.start} disabled={!editable}
+            <input id={startId} type="time" className={`${FIELD_CLASS} h-[48px]`} value={row.start} disabled={!editable}
               onChange={(e) => set((r) => ({ ...r, start: e.target.value }))} data-testid="session-start" />
           </Field>
           <Field label="Ends" htmlFor={endId}>
-            <input id={endId} type="time" className={fieldClass} value={row.end} disabled={!editable}
+            <input id={endId} type="time" className={`${FIELD_CLASS} h-[48px]`} value={row.end} disabled={!editable}
               onChange={(e) => set((r) => ({ ...r, end: e.target.value }))} data-testid="session-end" />
           </Field>
         </div>
-        {problem('times') && <p role="alert" className="mt-1 text-[13px] text-[var(--danger)]" data-testid="session-times-error">{problem('times')}</p>}
+        {problem('times') && <p role="alert" className="mt-[4px] text-[13px] text-[var(--danger)]" data-testid="session-times-error">{problem('times')}</p>}
       </div>
 
       <Field label="Levels" testId="session-levels" error={problem('levels')}>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Levels">
+        <div className="flex flex-wrap gap-[8px]" role="group" aria-label="Levels">
           {LEVEL_KEYS.map((l) => {
             const on = row.levels.includes(l);
             return (
@@ -226,7 +224,7 @@ function SessionView({ row, updateRow, removeSession, onState, problems, editabl
         </div>
       </Field>
 
-      <section aria-label="People" className="space-y-2" data-testid="session-people">
+      <section aria-label="People" className="space-y-[8px]" data-testid="session-people">
         <p className="text-[13px] font-semibold text-[var(--mut)]">{role === 'djing' ? 'DJs' : role === 'teaching' ? 'Teachers' : 'People'}</p>
         {people.length > 0 && (
           <Card>
@@ -270,7 +268,7 @@ function SessionView({ row, updateRow, removeSession, onState, problems, editabl
           </p>
         ) : editable ? (
           <GhostButton size="sm" onClick={() => onState({ view: 'search', key: row.key })} testId="session-add-person">
-            <Plus aria-hidden="true" className="h-4 w-4" /> Add a {ROLE_NOUN[role]}
+            <Plus aria-hidden="true" className="h-[16px] w-[16px]" /> Add a {ROLE_NOUN[role]}
           </GhostButton>
         ) : null}
         {problem('people') && <p role="alert" className="text-[13px] text-[var(--danger)]">{problem('people')}</p>}
@@ -292,14 +290,6 @@ function SessionView({ row, updateRow, removeSession, onState, problems, editabl
 
 // ---- people search (a view of the same sheet) ---------------------------------
 
-function useDebounced<T>(value: T, ms = 250): T {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return v;
-}
 
 function SearchView({ row, updateRow, onState, announce }: DateSheetProps & { row: DraftSession }) {
   const role = addRoleFor(row.type);
@@ -318,7 +308,7 @@ function SearchView({ row, updateRow, onState, announce }: DateSheetProps & { ro
   const noun = ROLE_NOUN[role];
 
   return (
-    <div className="space-y-3" data-testid="date-search-view">
+    <div className="space-y-[12px]" data-testid="date-search-view">
       <SearchField value={q} onChange={setQ} aria-label={`Search ${noun}s`} placeholder={`Search ${noun}s by name`} autoFocusInSheet testId="people-search" />
       {!ready ? (
         <p className="text-[13px] text-[var(--mut)]">Type at least {PEOPLE_SEARCH_MIN} letters of a name.</p>
@@ -341,7 +331,7 @@ function SearchView({ row, updateRow, onState, announce }: DateSheetProps & { ro
                 announce(`${p.name} added. Save to keep it.`);
                 onState({ view: 'session', key: row.key });
               }}
-              trailing={<Plus aria-hidden="true" className="h-5 w-5 shrink-0 text-[var(--gold)]" />}
+              trailing={<Plus aria-hidden="true" className="h-[20px] w-[20px] shrink-0 text-[var(--gold)]" />}
             />
           ))}
         </Card>
@@ -352,7 +342,7 @@ function SearchView({ row, updateRow, onState, announce }: DateSheetProps & { ro
 
 // ---- venue ---------------------------------------------------------------------
 
-function VenueView({ venues, venuesLoading, venueId, usualVenueId, onPickVenue, onState }: DateSheetProps) {
+function VenueView({ venues, venuesLoading, venuesError, onRetryVenues, venueId, usualVenueId, onPickVenue, onState }: DateSheetProps) {
   const [q, setQ] = useState('');
   const term = q.trim().toLowerCase();
   const all = venues ?? [];
@@ -368,27 +358,29 @@ function VenueView({ venues, venuesLoading, venueId, usualVenueId, onPickVenue, 
       onClick={() => pick(v.id)}
       aria-pressed={v.id === venueId}
       data-testid="venue-option"
-      className="flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left"
+      className="flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left"
     >
-      <MapPin aria-hidden="true" className="h-4 w-4 shrink-0 text-[var(--mut)]" />
+      <MapPin aria-hidden="true" className="h-[16px] w-[16px] shrink-0 text-[var(--mut)]" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] text-[var(--fg)]">{v.name}</span>
         <span className="block truncate text-[13px] text-[var(--mut)]">{sub ?? [v.neighbourhood, v.city_name].filter(Boolean).join(', ')}</span>
       </span>
-      {v.id === venueId && <Check aria-hidden="true" className="h-5 w-5 shrink-0 text-[var(--gold)]" />}
+      {v.id === venueId && <Check aria-hidden="true" className="h-[20px] w-[20px] shrink-0 text-[var(--gold)]" />}
     </button>
   );
   return (
-    <div className="space-y-3" data-testid="date-venue-view">
+    <div className="space-y-[12px]" data-testid="date-venue-view">
       <SearchField value={q} onChange={setQ} aria-label="Search venues" placeholder="Search venues" autoFocusInSheet testId="venue-search" />
       <p className="text-[13px] text-[var(--mut)]">Only this date moves. The city follows the venue.</p>
       {venuesLoading ? (
         <SkeletonRows count={3} label="Loading venues" />
+      ) : !venues && venuesError ? (
+        <ErrorState title="Venues did not load" onRetry={() => onRetryVenues?.()} testId="date-venue-error" />
       ) : (
         <Card>
           {usual && !term && item(usual, 'The usual venue')}
           {list.filter((v) => !(usual && !term && v.id === usual.id)).map((v) => item(v))}
-          {list.length === 0 && <p className="px-4 py-3 text-[14px] text-[var(--mut)]">No venue matches.</p>}
+          {list.length === 0 && <p className="px-[16px] py-[12px] text-[14px] text-[var(--mut)]">No venue matches.</p>}
         </Card>
       )}
     </div>
@@ -397,18 +389,20 @@ function VenueView({ venues, venuesLoading, venueId, usualVenueId, onPickVenue, 
 
 // ---- cancel --------------------------------------------------------------------
 
-function CancelView({ dateLabel, reasons, reasonsLoading, onCancelDate, commandBusy, commandError }: DateSheetProps) {
+function CancelView({ dateLabel, reasons, reasonsLoading, reasonsError, onRetryReasons, onCancelDate, commandBusy, commandError }: DateSheetProps) {
   const [reason, setReason] = useState<string | null>(null);
   const [ack, setAck] = useState(false);
   const copy = confirmCopy('cancel_date', { subject: dateLabel, reason });
   return (
-    <div className="space-y-4" data-testid="date-cancel-view">
-      <div className="space-y-2">
+    <div className="space-y-[16px]" data-testid="date-cancel-view">
+      <div className="space-y-[8px]">
         <p className="text-[13px] font-semibold text-[var(--mut)]" id="cancel-reason-label">Why? Dancers see this.</p>
         {reasonsLoading ? (
           <SkeletonRows count={2} label="Loading reasons" />
+        ) : !reasons && reasonsError ? (
+          <ErrorState quiet title="Reasons did not load" onRetry={() => onRetryReasons?.()} testId="date-reasons-error" />
         ) : (
-          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="cancel-reason-label">
+          <div className="flex flex-wrap gap-[8px]" role="group" aria-labelledby="cancel-reason-label">
             {(reasons ?? []).map((r) => (
               <Chip key={r.key} selected={reason === r.label} onToggle={() => setReason(r.label)} testId="cancel-reason">{r.label}</Chip>
             ))}
@@ -416,8 +410,8 @@ function CancelView({ dateLabel, reasons, reasonsLoading, onCancelDate, commandB
         )}
       </div>
       <p className="text-[15px] text-[var(--fg)]">{copy.consequence} {copy.undo}</p>
-      <label className="flex min-h-[44px] items-start gap-3 text-[15px] text-[var(--fg)]">
-        <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-1 h-5 w-5 accent-[var(--gold)]" data-testid="cancel-ack" />
+      <label className="flex min-h-[44px] items-start gap-[12px] text-[15px] text-[var(--fg)]">
+        <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-[4px] h-[20px] w-[20px] accent-[var(--gold)]" data-testid="cancel-ack" />
         {copy.ackLabel}
       </label>
       {commandError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="date-command-error">{commandError}</p>}

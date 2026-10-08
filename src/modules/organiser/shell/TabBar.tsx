@@ -20,7 +20,7 @@ export function TabBar() {
               data-testid={`org-tab-${key}`}
               className={({ isActive }) =>
                 cn(
-                  'flex h-full flex-col items-center justify-center gap-1 text-[12px] font-semibold transition-colors duration-300 ease-in-out',
+                  'flex h-full flex-col items-center justify-center gap-[4px] text-[12px] font-semibold transition-colors duration-300 ease-in-out',
                   isActive ? 'text-[var(--gold)]' : 'text-[var(--mut)]',
                 )
               }

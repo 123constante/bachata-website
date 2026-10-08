@@ -56,11 +56,11 @@ export function SummaryRow({
         </span>
       )}
       {trail === 'chevron' && <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />}
-      {trail === 'pencil' && <Pencil aria-hidden="true" className="h-4 w-4 shrink-0 text-[var(--mut)]" />}
+      {trail === 'pencil' && <Pencil aria-hidden="true" className="h-[16px] w-[16px] shrink-0 text-[var(--mut)]" />}
     </>
   );
   const base = cn(
-    'flex min-h-[52px] w-full items-center gap-3 px-4 py-[14px] text-left',
+    'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[14px] text-left',
     disabled && 'cursor-not-allowed opacity-60',
     className,
   );

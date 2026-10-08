@@ -137,20 +137,20 @@ export function SheetView({
             'duration-300 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom',
           )}
         >
-          {!cramped && <div aria-hidden="true" className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[var(--line-strong)]" />}
-          <div className="flex shrink-0 items-center gap-1 px-2 pb-1 pt-1">
+          {!cramped && <div aria-hidden="true" className="mx-auto mt-[8px] h-[4px] w-[40px] shrink-0 rounded-full bg-[var(--line-strong)]" />}
+          <div className="flex shrink-0 items-center gap-[4px] px-[8px] pb-[4px] pt-[4px]">
             {onBack ? (
               <button
                 type="button"
                 onClick={onBack}
                 data-testid={`${testId}-back`}
-                className="flex h-11 min-w-[44px] items-center gap-0.5 rounded-[12px] px-2 text-[15px] font-semibold text-[var(--gold)]"
+                className="flex h-[44px] min-w-[44px] items-center gap-[2px] rounded-[12px] px-[8px] text-[15px] font-semibold text-[var(--gold)]"
               >
-                <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+                <ChevronLeft aria-hidden="true" className="h-[20px] w-[20px]" />
                 {backLabel}
               </button>
             ) : (
-              <span className="w-11" aria-hidden="true" />
+              <span className="w-[44px]" aria-hidden="true" />
             )}
             <Dialog.Title
               ref={titleRef}
@@ -163,21 +163,21 @@ export function SheetView({
             <Dialog.Close
               aria-label={closeLabel}
               data-testid={`${testId}-close`}
-              className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--fg)]"
+              className="flex h-[44px] w-[44px] items-center justify-center rounded-full text-[var(--fg)]"
             >
-              <X aria-hidden="true" className="h-5 w-5" />
+              <X aria-hidden="true" className="h-[20px] w-[20px]" />
             </Dialog.Close>
           </div>
           {description ? (
             <Dialog.Description className="sr-only">{description}</Dialog.Description>
           ) : null}
-          <div ref={bodyRef} data-testid={`${testId}-body`} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-2">
+          <div ref={bodyRef} data-testid={`${testId}-body`} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[16px] pb-[16px] pt-[8px]">
             <InSheet.Provider value={true}>{children}</InSheet.Provider>
           </div>
           {footer && !cramped && (
             <div
               data-testid={`${testId}-footer`}
-              className="shrink-0 border-t border-[var(--line)] px-4 pt-3"
+              className="shrink-0 border-t border-[var(--line)] px-[16px] pt-[12px]"
               style={{ paddingBottom: inset > 0 ? 12 : 'max(12px, env(safe-area-inset-bottom))' }}
             >
               {footer}

@@ -143,4 +143,4 @@ export function instantDateLabel(iso: string | null | undefined): string | null 
  * (resolve_organiser_access_request_v1), so the page explains the ask.
  */
 export const howToAddManager = (organiserName: string) =>
-  `To add a manager, ask them to sign in to Bachata Calendar once, open Your account, find ${organiserName} and tap Request access. Their request appears here and you add them as a manager.`;
+  `To add a manager, ask them to sign in to Bachata Calendar, search for ${organiserName} on their Home tab and tap Ask to join. Their request shows here and you add them as a manager.`;

@@ -244,10 +244,10 @@ export const KNOWN_TEAM_CODES = Object.keys(TEAM_COPY);
  * screen is out of date with the server: the editor reloads the programme itself,
  * so the copy says it is loaded rather than asking for a reload.
  */
-export const PROGRAMME_VERSION_CONFLICT = 'This date was changed somewhere else, so your changes were not saved. The latest programme is now showing. Make your changes again.';
+export const PROGRAMME_VERSION_CONFLICT = 'This date was changed somewhere else, so your changes were not saved. The latest schedule is now showing. Make your changes again.';
 
 /** A line-up refusal that means the screen is out of date; the editor reloads the programme. */
-export const PEOPLE_CHANGED_COPY = 'The line-up of this date changed since you opened it, so your changes were not saved. The latest programme is now showing. Make your changes again.';
+export const PEOPLE_CHANGED_COPY = 'The line-up of this date changed since you opened it, so your changes were not saved. The latest schedule is now showing. Make your changes again.';
 /** Any other line-up refusal: calm, and never naming anyone. */
 export const PEOPLE_GENERIC_COPY = 'We could not save the line-up changes. Check the line-up and try again.';
 
@@ -255,12 +255,12 @@ export const PROGRAMME_COPY: Array<{ match: RegExp; message: string; reload?: bo
   { match: /^version_conflict/, message: PROGRAMME_VERSION_CONFLICT, reload: true },
   { match: /^permission_denied: authentication_required/, message: 'Please sign in again.' },
   { match: /occurrence not found or caller is not an owner or manager/, message: 'You cannot change this date. It may have been removed, or you are no longer on this event’s team.' },
-  { match: /on a past date is admin-only/, message: 'This date has already happened, so its programme can no longer be changed.', reload: true },
-  { match: /on an ended or archived series is admin-only/, message: 'This event has ended or is archived, so its programme cannot be changed here.', reload: true },
-  { match: /on a cancelled date is not allowed/, message: 'This date is cancelled, so its programme cannot be changed.', reload: true },
-  { match: /on a multi-day event is not supported/, message: 'This event runs over more than one day. Ask the Bachata Calendar team to change its programme.', reload: true },
+  { match: /on a past date is admin-only/, message: 'This date has already happened, so its schedule can no longer be changed.', reload: true },
+  { match: /on an ended or archived series is admin-only/, message: 'This event has ended or is archived, so its schedule cannot be changed here.', reload: true },
+  { match: /on a cancelled date is not allowed/, message: 'This date is cancelled, so its schedule cannot be changed.', reload: true },
+  { match: /on a multi-day event is not supported/, message: 'This event runs over more than one day. Ask the Bachata Calendar team to change its schedule.', reload: true },
   { match: /type is admin-only on an existing session/, message: 'Only the Bachata Calendar team can change the kind of an existing session.' },
-  { match: /programme_incomplete|names a session that is not on this date|repeats a session already listed/, message: 'The programme of this date has changed since you opened it, so your changes were not saved. The latest programme is now showing. Make your changes again.', reload: true },
+  { match: /programme_incomplete|names a session that is not on this date|repeats a session already listed/, message: 'The schedule of this date has changed since you opened it, so your changes were not saved. The latest schedule is now showing. Make your changes again.', reload: true },
   { match: /title is required/, message: 'Every session needs a name.' },
   { match: /title is longer than/, message: 'Keep each session name to 120 characters or fewer.' },
   { match: /title must be a single line/, message: 'Keep each session name on one line.' },
@@ -274,8 +274,8 @@ export const PROGRAMME_COPY: Array<{ match: RegExp; message: string; reload?: bo
   { match: /type must be class, masterclass, party or performance/, message: 'Choose what kind of session each new one is.' },
   { match: /date-only sessions/, message: 'A date can hold up to 20 sessions added just for that date.' },
   { match: /a date holds at most \d+ sessions/, message: 'A date can hold up to 40 sessions.' },
-  { match: /would span more than 20 hours/, message: 'The programme of this date would run for more than 20 hours. Check the times.' },
-  { match: /sessions holds more than|sessions is larger than/, message: 'This programme is too large to save here. Ask the Bachata Calendar team.' },
+  { match: /would span more than 20 hours/, message: 'The schedule of this date would run for more than 20 hours. Check the times.' },
+  { match: /sessions holds more than|sessions is larger than/, message: 'This schedule is too large to save here. Ask the Bachata Calendar team.' },
   // The line-up (admin 20261109700000). The server is deliberately vague and the copy is too: never name a person.
   { match: /people_remove names a person who is not on that session|people_remove person .* is not on this session|people_add person .* is already on this session/, message: PEOPLE_CHANGED_COPY, reload: true },
   { match: /people_add person .* is not an existing/, message: 'Someone you added can no longer be added to a line-up. Check the line-up and try again.' },

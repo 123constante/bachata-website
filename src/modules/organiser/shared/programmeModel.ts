@@ -68,15 +68,15 @@ export type NotEditableReason = 'series_closed' | 'multi_day' | 'date_cancelled'
 
 /** Plain words for each reason the reader gives for a read-only programme. */
 export const NOT_EDITABLE_COPY: Record<NotEditableReason, string> = {
-  series_closed: 'This event has ended or is archived, so its programme cannot be changed here. Ask the Bachata Calendar team if something needs fixing.',
-  multi_day: 'This event runs over more than one day, so its programme cannot be changed here. Ask the Bachata Calendar team to change it for you.',
-  date_cancelled: 'This date is cancelled, so its programme cannot be changed. Un-cancel the date first if it is back on.',
-  past_date: 'This date has already happened, so its programme can no longer be changed.',
+  series_closed: 'This event has ended or is archived, so its schedule cannot be changed here. Ask the Bachata Calendar team if something needs fixing.',
+  multi_day: 'This event runs over more than one day, so its schedule cannot be changed here. Ask the Bachata Calendar team to change it for you.',
+  date_cancelled: 'This date is cancelled, so its schedule cannot be changed. Put the date back on first if it is happening.',
+  past_date: 'This date has already happened, so its schedule can no longer be changed.',
 };
 
 export const notEditableCopy = (reason: string | null) =>
   (reason && NOT_EDITABLE_COPY[reason as NotEditableReason]) ||
-  'This programme cannot be changed here. Ask the Bachata Calendar team.';
+  'This schedule cannot be changed here. Ask the Bachata Calendar team.';
 
 /** One session exactly as the reader returns it (and as the writer takes it back). */
 export type WireSession = Record<string, unknown>;
@@ -487,7 +487,7 @@ export function validateProgramme(rows: DraftSession[]): Validation {
     if (timed.length) {
       const first = Math.min(...timed.map((r) => toMinutes(r.start)));
       const last = Math.max(...timed.map((r) => toMinutes(r.start) + sessionMinutes(r.start, r.end)));
-      if (last - first > LIMITS.spanMaxMinutes) programme.push('The programme of this date would run for more than 20 hours. Check the times.');
+      if (last - first > LIMITS.spanMaxMinutes) programme.push('The schedule of this date would run for more than 20 hours. Check the times.');
     }
   }
   return { rows: problems, programme, ok: problems.length === 0 && programme.length === 0 };
@@ -499,7 +499,7 @@ export function removeSessionsConfirmCopy(names: string[], dateLabel: string): C
   const one = names.length === 1;
   return {
     title: one ? `Remove ${list} from ${dateLabel}?` : `Remove ${names.length} sessions from ${dateLabel}?`,
-    consequence: `${one ? 'It' : list} will disappear from the programme dancers see for ${dateLabel} as soon as you save. Other dates are not affected.`,
+    consequence: `${one ? 'It' : list} will disappear from the schedule dancers see for ${dateLabel} as soon as you save. Other dates are not affected.`,
     undo: 'To bring a session back later, open this date and put it back, or add it again.',
     confirmLabel: one ? 'Yes, remove it and save' : 'Yes, remove them and save',
     keepLabel: 'No, go back',

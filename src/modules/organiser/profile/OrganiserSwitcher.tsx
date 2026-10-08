@@ -12,7 +12,7 @@ export function OrganiserSwitcher({ organisers, selectedId, onChoose }: {
 }) {
   if (organisers.length < 2) return null;
   return (
-    <div role="group" aria-label="Choose an organiser" className="flex flex-wrap gap-2" data-testid="org-switcher">
+    <div role="group" aria-label="Choose an organiser" className="flex flex-wrap gap-[8px]" data-testid="org-switcher">
       {organisers.map((o) => (
         <Chip key={o.id} selected={o.id === selectedId} onToggle={() => onChoose(o.id)} testId={`org-switch-${o.id}`}>
           <span className="max-w-[14rem] truncate">{o.name}</span>

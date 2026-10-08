@@ -29,7 +29,7 @@ function DateRow({ d }: { d: NextDate }) {
       to={ORG_PATHS.date(d.seriesId, d.occurrenceId)}
       data-testid="home-date-row"
       data-occurrence={d.occurrenceId}
-      className="flex min-h-[68px] items-center gap-3 px-4 py-2"
+      className="flex min-h-[68px] items-center gap-[12px] px-[16px] py-[8px]"
     >
       <DateChip date={d.date} />
       <span className="min-w-0 flex-1">
@@ -45,7 +45,7 @@ function NewEventButton() {
   const navigate = useNavigate();
   return (
     <PrimaryButton onClick={() => navigate(ORG_PATHS.newEvent)} testId="home-new-event">
-      <Plus aria-hidden="true" className="h-5 w-5" /> New event
+      <Plus aria-hidden="true" className="h-[20px] w-[20px]" /> New event
     </PrimaryButton>
   );
 }
@@ -112,9 +112,9 @@ export default function HomePage() {
           testId="home-error"
         />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-[16px]">
           {(teamRequests > 0 || runway || noLineup.length > 0) && (
-            <div className="space-y-2" data-testid="home-strips">
+            <div className="space-y-[8px]" data-testid="home-strips">
               {teamRequests > 0 && (
                 <AttentionStrip icon={<Users />} onPress={() => navigate(ORG_PATHS.team)} testId="home-strip-team">
                   {teamRequests === 1 ? '1 team request is waiting' : `${teamRequests} team requests are waiting`}

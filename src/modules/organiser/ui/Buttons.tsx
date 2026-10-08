@@ -28,7 +28,7 @@ function makeButton(displayName: string, tone: string) {
         aria-busy={loading || undefined}
         disabled={disabled || loading}
         className={cn(
-          'relative inline-flex items-center justify-center gap-2 rounded-[12px] px-5 font-bold transition-opacity duration-300 ease-in-out',
+          'relative inline-flex items-center justify-center gap-[8px] rounded-[12px] px-[20px] font-bold transition-opacity duration-300 ease-in-out',
           size === 'md' ? 'h-[52px] text-[16px]' : 'h-[44px] text-[15px]',
           block && 'w-full',
           tone,
@@ -37,10 +37,10 @@ function makeButton(displayName: string, tone: string) {
         )}
         {...rest}
       >
-        <span className={cn('inline-flex items-center gap-2', loading && 'invisible')}>{children}</span>
+        <span className={cn('inline-flex items-center gap-[8px]', loading && 'invisible')}>{children}</span>
         {loading && (
           <span className="absolute inset-0 flex items-center justify-center">
-            <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin motion-reduce:animate-none" />
+            <Loader2 aria-hidden="true" className="h-[20px] w-[20px] animate-spin motion-reduce:animate-none" />
             <span className="sr-only">{loadingLabel}</span>
           </span>
         )}

@@ -5,9 +5,9 @@ export function rawWorkspace(over: Record<string, unknown> = {}, occurrences?: u
   return {
     series: {
       series: {
-        id: 's1', name: 'Friday Social', slug: 'friday-social', format: 'recurring', category: 'class',
+        id: 's1', name: 'Friday Party', slug: 'friday-party', format: 'recurring', category: 'class',
         lifecycle_status: 'live', version: 3, default_venue_id: 'v1', default_local_start_time: '20:00:00',
-        default_duration: null, default_level: null, default_ticket_url: null, default_description: 'Social night',
+        default_duration: null, default_level: null, default_ticket_url: null, default_description: 'Party night',
         default_cover_image_url: null, default_start_date: '2026-10-09', instagram_url: null, passes: null, created_at: null,
         recurrence_rule: { mode: 'weekly', weekdays: [5], end: { kind: 'until_date', date: '2026-11-27' } },
         removed_dates: [], default_music_styles: ['Bachata'], gallery: ['https://cdn.example/g1.webp'], video_urls: [],
@@ -24,7 +24,7 @@ export function rawWorkspace(over: Record<string, unknown> = {}, occurrences?: u
 }
 
 export const home = (series: Record<string, unknown>[] = [
-  { id: 's1', name: 'Friday Social', lifecycle_status: 'live', default_venue_name: 'Studio One', upcoming_count: 2,
+  { id: 's1', name: 'Friday Party', lifecycle_status: 'live', default_venue_name: 'Studio One', upcoming_count: 2,
     next_dates: [{ occurrence_id: 'o1', occurrence_date: '2026-10-09', lifecycle_status: 'scheduled', materialised_start_utc: null, has_own_changes: false }] },
   { id: 's2', name: 'Autumn Party', lifecycle_status: 'draft', default_venue_name: null, upcoming_count: 0, next_dates: [] },
 ]) => ({
@@ -35,7 +35,7 @@ export const home = (series: Record<string, unknown>[] = [
 export const programme = {
   occurrence_id: 'o1', series_id: 's1', occurrence_date: '2026-10-09', version: 2, editable: true, not_editable_reason: null,
   sessions: [
-    { series_item_id: 'i2', type: 'party', title: 'Social', start_time: '21:00', end_time: '23:30', level_keys: [] },
+    { series_item_id: 'i2', type: 'party', title: 'Party', start_time: '21:00', end_time: '23:30', level_keys: [] },
     { series_item_id: 'i1', type: 'class', title: 'Beginners', start_time: '20:00', end_time: '21:00', level_keys: ['beginner'] },
   ],
   session_people: [

@@ -34,7 +34,7 @@ export function CityView({ selectedId, onPick }: { selectedId: string | null; on
           <button
             key={c.id}
             type="button"
-            className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-[15px] text-[var(--fg)]"
+            className="flex min-h-[52px] w-full items-center gap-[12px] px-[16px] text-left text-[15px] text-[var(--fg)]"
             onClick={() => onPick(c)}
             data-testid="profile-city-option"
           >
@@ -47,7 +47,7 @@ export function CityView({ selectedId, onPick }: { selectedId: string | null; on
   }
 
   return (
-    <div className="space-y-3 p-4">
+    <div className="space-y-[12px] p-[16px]">
       <SearchField value={query} onChange={setQuery} aria-label="Search cities" placeholder="Search cities" autoFocusInSheet testId="profile-city-search" />
       {results}
     </div>

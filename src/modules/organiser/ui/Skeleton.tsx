@@ -15,9 +15,9 @@ export interface SkeletonRowsProps {
 /** Loading list: N shimmer rows of 48px. Use this in lists instead of a spinner. */
 export function SkeletonRows({ count = 3, label = 'Loading', testId }: SkeletonRowsProps) {
   return (
-    <div role="status" aria-busy="true" aria-label={label} data-testid={testId} className="space-y-2">
+    <div role="status" aria-busy="true" aria-label={label} data-testid={testId} className="space-y-[8px]">
       {Array.from({ length: count }, (_, i) => (
-        <Skeleton key={i} className="h-12 w-full" />
+        <Skeleton key={i} className="h-[48px] w-full" />
       ))}
     </div>
   );

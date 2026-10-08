@@ -51,7 +51,7 @@ export function confirmCopy(kind: ConfirmKind, ctx: ConfirmContext): ConfirmCopy
       return {
         title: `Cancel ${s}?`,
         consequence: `Dancers will see "Cancelled"${ctx.reason ? ` and your reason, "${ctx.reason}",` : ''} on the event page. Anyone planning to come will know it is off. Only this date is cancelled.`,
-        undo: 'You can un-cancel it later.',
+        undo: 'You can put it back on later.',
         confirmLabel: 'Yes, cancel this date',
         keepLabel: 'No, keep it on',
         requireAck: true,

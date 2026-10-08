@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -52,6 +52,14 @@ export function OrganiserShell({
 }: OrganiserShellProps) {
   const { inset } = useKeyboardInset();
   const keyboardUp = inset > 0;
+  const mainRef = useRef<HTMLElement>(null);
+  // The frame shrinks above the keyboard, which can leave the focused field
+  // under it: bring the field back into the visible part of the content.
+  useEffect(() => {
+    if (!keyboardUp) return;
+    const el = document.activeElement;
+    if (el instanceof HTMLElement && mainRef.current?.contains(el)) el.scrollIntoView?.({ block: 'nearest' });
+  }, [keyboardUp, inset]);
   const split = list !== undefined || detail !== undefined;
   return (
     <div
@@ -61,36 +69,36 @@ export function OrganiserShell({
     >
       <header className="shrink-0 border-b border-[var(--line)] bg-[var(--bg)]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         {topBar ?? (
-          <div className="mx-auto flex h-[52px] max-w-[1280px] items-center gap-1 px-2">
+          <div className="mx-auto flex h-[52px] max-w-[1280px] items-center gap-[4px] px-[8px]">
             {back ? (
               <Link
                 to={back.to}
                 data-testid="org-back"
-                className="flex h-11 min-w-[44px] items-center gap-0.5 rounded-[12px] px-2 text-[15px] font-semibold text-[var(--gold)]"
+                className="flex h-[44px] min-w-[44px] items-center gap-[2px] rounded-[12px] px-[8px] text-[15px] font-semibold text-[var(--gold)]"
               >
-                <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+                <ChevronLeft aria-hidden="true" className="h-[20px] w-[20px]" />
                 {back.label ?? 'Back'}
               </Link>
             ) : (
-              <span className="w-2" aria-hidden="true" />
+              <span className="w-[8px]" aria-hidden="true" />
             )}
             <h1 className="min-w-0 flex-1 truncate text-[17px] font-bold">{title}</h1>
             {topBarEnd}
           </div>
         )}
       </header>
-      <main data-testid="org-content" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <main ref={mainRef} data-testid="org-content" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {split ? (
           <div className="org-split" data-has-detail={detail !== undefined}>
             <div className="org-split-list" data-testid="org-list">
-              <div className="px-4 py-4">{list}</div>
+              <div className="px-[16px] py-[16px]">{list}</div>
             </div>
             <div className="org-split-detail" data-testid="org-detail">
-              <div className="mx-auto max-w-[640px] px-4 py-4">{detail ?? detailPlaceholder}</div>
+              <div className="mx-auto max-w-[640px] px-[16px] py-[16px]">{detail ?? detailPlaceholder}</div>
             </div>
           </div>
         ) : (
-          <div className="mx-auto w-full max-w-[640px] px-4 py-4">{children}</div>
+          <div className="mx-auto w-full max-w-[640px] px-[16px] py-[16px]">{children}</div>
         )}
       </main>
       {actionBar && (

@@ -18,8 +18,10 @@ import {
   Cover,
   EmptyState,
   ErrorState,
+  FIELD_CLASS,
   GhostButton,
   PreviewBar,
+  PrimaryButton,
   SheetView,
   SkeletonRows,
   SummaryRow,
@@ -57,16 +59,15 @@ const TITLES: Record<View, string> = {
   signout: 'Sign out',
 };
 
-const FIELD = 'block w-full rounded-[12px] border border-[var(--line-strong)] bg-[var(--card2)] px-3 text-[16px] text-[var(--fg)] placeholder:text-[var(--ph)] outline-none focus:border-[var(--gold)]';
 
 function PublicCardPreview({ form, city }: { form: OrganiserProfileEditForm; city: string | null }) {
   const handle = instagramHandle(form.instagram);
   return (
-    <div className="flex items-center gap-3 p-3" data-testid="profile-preview">
+    <div className="flex items-center gap-[12px] p-[12px]" data-testid="profile-preview">
       {form.avatar_url.trim() ? (
-        <img src={form.avatar_url.trim()} alt="" className="h-11 w-11 shrink-0 rounded-[12px] object-cover" />
+        <img src={form.avatar_url.trim()} alt="" className="h-[44px] w-[44px] shrink-0 rounded-[12px] object-cover" />
       ) : (
-        <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--card2)] text-[14px] font-bold text-[var(--fg)]">
+        <span aria-hidden="true" className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full bg-[var(--card2)] text-[14px] font-bold text-[var(--fg)]">
           {initials(form.name || '?')}
         </span>
       )}
@@ -132,7 +133,7 @@ function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }:
 
   const bar = (
     <div>
-      {error && <p role="alert" className="px-4 pt-3 text-[14px] text-[var(--danger)]" data-testid="profile-save-error">{error}</p>}
+      {error && <p role="alert" className="px-[16px] pt-[12px] text-[14px] text-[var(--danger)]" data-testid="profile-save-error">{error}</p>}
       <PreviewBar
         preview={<PublicCardPreview form={form} city={city.name} />}
         actionLabel={dirty ? 'Save profile' : 'Saved'}
@@ -149,14 +150,14 @@ function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }:
   return (
     <OrganiserShell title="Profile" testId="org-page-profile" actionBar={bar}>
       <AnnounceRegion message={message} />
-      <div className="space-y-5">
+      <div className="space-y-[20px]">
       {top}
       <ReviewCard
         organiser={organiser}
         blockers={sendBlockers({ name: saved.name, cityId: savedCity.id, dirty })}
         onSent={() => announce('Sent for review.')}
       />
-      <div className="space-y-5 pb-2">
+      <div className="space-y-[20px] pb-[8px]">
         <Cover src={form.avatar_url.trim() || null} alt="" onChange={() => openSheet('photo')} changeLabel="Change logo or photo" emptyLabel="No logo yet" testId="profile-cover" className="w-[56%]" />
         <TitleInput value={form.name} onChange={set('name')} aria-label="Organiser name" placeholder="Organiser name" maxLength={80} testId="profile-name" />
         <Card label="About" testId="profile-about-card">
@@ -207,19 +208,19 @@ function FieldSheet({ view, onClose, form, set, city }: {
       title={TITLES[v]}
       viewKey={v}
       fullHeight={v === 'city'}
-      footer={<GhostButton onClick={onClose} testId="profile-sheet-done">Done</GhostButton>}
+      footer={<PrimaryButton onClick={onClose} testId="profile-sheet-done">Done</PrimaryButton>}
       testId="profile-sheet"
     >
       {v === 'city' ? city : (
-      <div className="space-y-2 p-4">
+      <div className="space-y-[8px] p-[16px]">
         <label htmlFor={`profile-field-${fieldView}`} className="block text-[14px] text-[var(--mut)]">{hint[fieldView]}</label>
         {fieldView === 'about' ? (
-          <textarea id={`profile-field-${fieldView}`} data-sheet-autofocus rows={6} maxLength={4000} value={form.bio} onChange={(e) => set('bio')(e.target.value)} className={`${FIELD} py-3`} data-testid="profile-field" />
+          <textarea id={`profile-field-${fieldView}`} data-sheet-autofocus rows={6} maxLength={4000} value={form.bio} onChange={(e) => set('bio')(e.target.value)} className={`${FIELD_CLASS} py-[12px]`} data-testid="profile-field" />
         ) : (
           <input
             id={`profile-field-${fieldView}`} data-sheet-autofocus value={form[key]} onChange={(e) => set(key)(e.target.value)}
             inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-            className={`${FIELD} h-[48px]`} data-testid="profile-field"
+            className={`${FIELD_CLASS} h-[48px]`} data-testid="profile-field"
           />
         )}
       </div>
@@ -248,11 +249,11 @@ function SignOutSheet({ open, onClose }: { open: boolean; onClose: () => void })
   };
   return (
     <SheetView open={open} onOpenChange={(o) => { if (!o) onClose(); }} title="Sign out" testId="signout-sheet">
-      <div className={`space-y-3 p-4 ${shakeProps.className}`} onAnimationEnd={shakeProps.onAnimationEnd}>
+      <div className={`space-y-[12px] p-[16px] ${shakeProps.className}`} onAnimationEnd={shakeProps.onAnimationEnd}>
         <p className="text-[15px] text-[var(--fg)]">Sign out of Bachata Calendar on this device? Changes you have not saved will be lost.</p>
         {note && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="signout-error">{note}</p>}
         <GhostButton onClick={onClose} disabled={busy} testId="signout-no">No, stay signed in</GhostButton>
-        <GhostButton onClick={() => void go()} loading={busy} loadingLabel="Signing out" className="text-[var(--danger)]" testId="signout-yes">Yes, sign out</GhostButton>
+        <PrimaryButton onClick={() => void go()} loading={busy} loadingLabel="Signing out" testId="signout-yes">Yes, sign out</PrimaryButton>
       </div>
     </SheetView>
   );
@@ -288,7 +289,7 @@ export default function ProfilePage() {
   }
   return (
     <OrganiserShell title="Profile" testId="org-page-profile">
-      <div className="space-y-5">
+      <div className="space-y-[20px]">
         {top}
         {body}
         {bottom}

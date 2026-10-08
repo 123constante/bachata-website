@@ -104,7 +104,7 @@ describe('access requests (D4 incoming rows)', () => {
   });
 
   it('says how a person asks for access, since there is no add-by-email RPC', () => {
-    expect(howToAddManager('Ritmo Bachata London')).toMatch(/sign in to Bachata Calendar once.*Ritmo Bachata London.*Request access/);
+    expect(howToAddManager('Ritmo Bachata London')).toMatch(/sign in to Bachata Calendar.*Ritmo Bachata London.*Ask to join/);
   });
 });
 

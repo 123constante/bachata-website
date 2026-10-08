@@ -24,3 +24,5 @@ export { AnnounceRegion } from './AnnounceRegion';
 export { useAnnounce } from './useAnnounce';
 export { useKeyboardInset, type KeyboardInset } from './useKeyboardInset';
 export { usePrefersReducedMotion, MOTION_MS, MOTION_EASE, MOTION_TRANSITION } from '../motion';
+export { Field, FIELD_CLASS, type FieldProps } from './Field';
+export { useDebounced } from './useDebounced';

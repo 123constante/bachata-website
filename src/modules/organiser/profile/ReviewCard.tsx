@@ -36,13 +36,13 @@ export function ReviewCard({ organiser, blockers, onSent }: {
 
   return (
     <Card label="Status" variant="padded" testId="profile-status">
-      <div className={`space-y-3 ${shakeProps.className}`} onAnimationEnd={shakeProps.onAnimationEnd} data-testid="profile-status-body">
-        <div className="flex items-start gap-3">
+      <div className={`space-y-[12px] ${shakeProps.className}`} onAnimationEnd={shakeProps.onAnimationEnd} data-testid="profile-status-body">
+        <div className="flex items-start gap-[12px]">
           <StatusTag tone={status.tone} testId="profile-status-tag">{status.label}</StatusTag>
           {status.sentence && <p className="min-w-0 flex-1 break-words text-[14px] text-[var(--fg)]" data-testid="profile-status-sentence">{status.sentence}</p>}
         </div>
         {status.canSend && (confirming ? (
-          <div className="space-y-2" data-testid="profile-send-confirm">
+          <div className="space-y-[8px]" data-testid="profile-send-confirm">
             <p className="break-words text-[15px] text-[var(--fg)]">
               Send {organiser.name} to the Bachata Calendar team for review{again ? ' again' : ''}? They check new organisers within a day.
             </p>
@@ -50,7 +50,7 @@ export function ReviewCard({ organiser, blockers, onSent }: {
             <GhostButton onClick={go} loading={send.isPending} loadingLabel="Sending" testId="profile-send-yes">Yes, send it</GhostButton>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-[8px]">
             <GhostButton
               onClick={() => { send.reset(); setConfirming(true); }}
               disabled={blocked}

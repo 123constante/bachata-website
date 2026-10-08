@@ -122,8 +122,8 @@ export default function DatePage() {
 
   const content = loadError && !ed.saving ? (
     <ErrorState
-      title="We couldn&rsquo;t load this date"
-      body="Check your connection and try again."
+      title="This date did not load"
+      body="Check your connection, then try again."
       onRetry={() => void (ed.syncFailed ? ed.resync() : ed.programme.refetch())}
       retrying={ed.programme.isFetching}
       testId="date-load-error"
@@ -131,8 +131,8 @@ export default function DatePage() {
   ) : loading ? (
     <SkeletonRows count={4} label="Loading this date" />
   ) : (
-    <div className="space-y-4 pb-2">
-      <header className="flex items-center gap-3" data-testid="date-header">
+    <div className="space-y-[16px] pb-[8px]">
+      <header className="flex items-center gap-[12px]" data-testid="date-header">
         {date && <DateChip date={date} />}
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[20px] font-bold text-[var(--fg)]" data-testid="date-title">{date ? labelOf(date, '') : label}</h1>
@@ -144,13 +144,13 @@ export default function DatePage() {
       </header>
 
       {cancelled && (
-        <p className="rounded-[12px] bg-[var(--warn-bg)] px-4 py-3 text-[14px] text-[var(--warn-fg)]" data-testid="date-cancelled-note">
+        <p className="rounded-[12px] bg-[var(--warn-bg)] px-[16px] py-[12px] text-[14px] text-[var(--warn-fg)]" data-testid="date-cancelled-note">
           Cancelled{ed.detail.data?.cancellationReason ? ` \u00b7 ${ed.detail.data.cancellationReason}` : ''}. Dancers see this.
         </p>
       )}
 
       {error && (
-        <p ref={errorRef} tabIndex={-1} role="alert" className="rounded-[12px] bg-[var(--card)] px-4 py-3 text-[14px] text-[var(--danger)] outline-none" data-testid="date-save-error">
+        <p ref={errorRef} tabIndex={-1} role="alert" className="rounded-[12px] bg-[var(--card)] px-[16px] py-[12px] text-[14px] text-[var(--danger)] outline-none" data-testid="date-save-error">
           {error}
         </p>
       )}
@@ -166,13 +166,13 @@ export default function DatePage() {
         />
       </Card>
 
-      <section aria-labelledby="schedule-label" className="space-y-2">
-        <h2 id="schedule-label" className="px-1 text-[13px] font-semibold uppercase tracking-[.04em] text-[var(--mut)]">Schedule</h2>
+      <section aria-labelledby="schedule-label" className="space-y-[8px]">
+        <h2 id="schedule-label" className="px-[4px] text-[13px] font-semibold uppercase tracking-[.04em] text-[var(--mut)]">Schedule</h2>
         {!editable && ed.base && (
-          <p className="px-1 text-[13px] text-[var(--mut)]" data-testid="date-readonly-note">{notEditableCopy(ed.base.notEditableReason)}</p>
+          <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="date-readonly-note">{notEditableCopy(ed.base.notEditableReason)}</p>
         )}
         <div className="overflow-hidden rounded-[16px] border border-[var(--line)] bg-[var(--card)]" data-testid="date-schedule">
-          {shown.length === 0 && <p className="px-4 py-3 text-[14px] text-[var(--mut)]" data-testid="date-schedule-empty">No sessions on this date yet.</p>}
+          {shown.length === 0 && <p className="px-[16px] py-[12px] text-[14px] text-[var(--mut)]" data-testid="date-schedule-empty">No sessions on this date yet.</p>}
           {shown.map((row) => (
             <Collapse
               key={row.key}
@@ -195,10 +195,10 @@ export default function DatePage() {
             <button
               type="button"
               onClick={addSession}
-              className="flex min-h-[52px] w-full items-center gap-2 px-4 text-[15px] font-semibold text-[var(--gold)]"
+              className="flex min-h-[52px] w-full items-center gap-[8px] px-[16px] text-[15px] font-semibold text-[var(--gold)]"
               data-testid="date-add-session"
             >
-              <Plus aria-hidden="true" className="h-5 w-5" /> Add a session
+              <Plus aria-hidden="true" className="h-[20px] w-[20px]" /> Add a session
             </button>
           )}
         </div>
@@ -206,7 +206,7 @@ export default function DatePage() {
 
       <Card label="This date">
         {cancelled ? (
-          <SummaryRow icon={<RotateCcw />} label="Un-cancel this date" sublabel="It goes back on as usual." onPress={() => { setCommandError(null); setSheet({ view: 'uncancel' }); }} testId="date-uncancel" />
+          <SummaryRow icon={<RotateCcw />} label="Put this date back on" sublabel="It goes ahead as usual." onPress={() => { setCommandError(null); setSheet({ view: 'uncancel' }); }} testId="date-uncancel" />
         ) : (
           <>
             {ruleDate && (
@@ -227,8 +227,10 @@ export default function DatePage() {
       back={{ to: ORG_PATHS.event(seriesId), label: 'Event' }}
       testId="org-page-date"
       actionBar={
-        <PreviewBar
-          preview={ed.base ? <DatePreview label={date ? labelOf(date, '') : label} span={span} venue={venue} rows={ed.rows} cancelled={cancelled} reason={ed.detail.data?.cancellationReason ?? null} /> : undefined}
+        // Nothing to save until the date has loaded: loading shows skeletons only,
+        // and a failed load's Try again is the one primary button.
+        ed.base && !(loadError && !ed.saving) && <PreviewBar
+          preview={<DatePreview label={date ? labelOf(date, '') : label} span={span} venue={venue} rows={ed.rows} cancelled={cancelled} reason={ed.detail.data?.cancellationReason ?? null} />}
           actionLabel="Save changes"
           onAction={() => void onSave()}
           loading={ed.saving}
@@ -252,12 +254,16 @@ export default function DatePage() {
         announce={announce}
         venues={venues.data}
         venuesLoading={venues.isLoading}
+        venuesError={venues.isError}
+        onRetryVenues={() => void venues.refetch()}
         venueId={ed.venueId}
         usualVenueId={series?.default_venue_id ?? null}
         onPickVenue={ed.pickVenue}
         dateLabel={label}
         reasons={reasons.data}
         reasonsLoading={reasons.isLoading}
+        reasonsError={reasons.isError}
+        onRetryReasons={() => void reasons.refetch()}
         onCancelDate={(reason) => void command('occurrence', cancelCommand(reason), `${label} is cancelled.`)}
         onUncancelDate={() => void command('occurrence', uncancelCommand(), `${label} is back on.`)}
         onBreak={() => void command('series', skipDateCommand(occurrenceId), `${label} is a break.`, () => navigate(ORG_PATHS.event(seriesId)))}
@@ -272,8 +278,8 @@ function SessionRow({ row, problem, onOpen, onUndo }: { row: DraftSession; probl
   const people = peopleLabel(row);
   const meta = [timesLabel(row), row.levels.length ? levelsLabel(row.levels) : null].filter(Boolean).join(' \u00b7 ');
   const body = (
-    <span className={`flex min-w-0 flex-1 flex-col gap-1 text-left ${row.removed ? 'opacity-[.72]' : ''}`}>
-      <span className="flex min-w-0 items-center gap-2">
+    <span className={`flex min-w-0 flex-1 flex-col gap-[4px] text-left ${row.removed ? 'opacity-[.72]' : ''}`}>
+      <span className="flex min-w-0 items-center gap-[8px]">
         <StatusTag tone={typeTone(row.type)} className="shrink-0">{typeLabel(row.type)}</StatusTag>
         <span className={`truncate text-[15px] font-semibold text-[var(--fg)] ${row.removed ? 'line-through' : ''}`} data-testid="session-row-name">{sessionName(row)}</span>
       </span>
@@ -289,12 +295,12 @@ function SessionRow({ row, problem, onOpen, onUndo }: { row: DraftSession; probl
     </span>
   );
   return (
-    <div className="flex min-h-[64px] items-center gap-2 border-b border-[var(--line)] px-4 py-3" data-testid="session-row" data-removed={row.removed || undefined}>
+    <div className="flex min-h-[64px] items-center gap-[8px] border-b border-[var(--line)] px-[16px] py-[12px]" data-testid="session-row" data-removed={row.removed || undefined}>
       {onOpen ? (
         <button type="button" onClick={onOpen} className="flex min-h-[44px] min-w-0 flex-1 items-center" data-testid="session-row-open">{body}</button>
       ) : body}
       {onUndo && (
-        <button type="button" onClick={onUndo} className="min-h-[44px] shrink-0 px-2 text-[15px] font-semibold text-[var(--gold)]" data-testid="session-row-undo">Undo</button>
+        <button type="button" onClick={onUndo} className="min-h-[44px] shrink-0 px-[8px] text-[15px] font-semibold text-[var(--gold)]" data-testid="session-row-undo">Undo</button>
       )}
     </div>
   );

@@ -67,9 +67,9 @@ export function EmailCode({ email, onProven, returnTo = '/account/o' }: { email:
   };
 
   return (
-    <div className="space-y-3" data-testid="email-code">
-      <p className="flex items-start gap-2 text-[14px] text-[var(--fg)]" role="status" data-testid="email-code-status">
-        <MailCheck aria-hidden="true" className="mt-0.5 h-[18px] w-[18px] shrink-0 text-[var(--gold)]" />
+    <div className="space-y-[12px]" data-testid="email-code">
+      <p className="flex items-start gap-[8px] text-[14px] text-[var(--fg)]" role="status" data-testid="email-code-status">
+        <MailCheck aria-hidden="true" className="mt-[2px] h-[18px] w-[18px] shrink-0 text-[var(--gold)]" />
         {sent ? (
           <span>
             We&rsquo;ve emailed a code to <strong className="break-all">{email}</strong>. It can take a minute; check your spam folder too.
@@ -99,7 +99,7 @@ export function EmailCode({ email, onProven, returnTo = '/account/o' }: { email:
               e.preventDefault();
               if (!busy) void verify();
             }}
-            className="h-12 w-full rounded-[12px] border border-[var(--line-strong)] bg-[var(--card2)] px-4 text-[16px] tracking-widest text-[var(--fg)] outline-none"
+            className="h-[48px] w-full rounded-[12px] border border-[var(--line-strong)] bg-[var(--card2)] px-[16px] text-[16px] tracking-widest text-[var(--fg)] outline-none"
             data-testid="email-code-input"
           />
           <PrimaryButton onClick={() => void verify()} loading={busy} loadingLabel="Checking the code" testId="email-code-verify">

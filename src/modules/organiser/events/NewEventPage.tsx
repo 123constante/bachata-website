@@ -59,18 +59,18 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
 
   return (
     <form
-      className="space-y-4"
+      className="space-y-[16px]"
       data-testid="org-new-event-form"
       onSubmit={(e) => { e.preventDefault(); void create(); }}
     >
       <TitleInput value={name} onChange={(v) => { setName(v); setError(null); }} aria-label="Event name" placeholder="Event name" maxLength={120} testId="org-new-event-name" />
       <p className="text-[14px] text-[var(--mut)]">
-        Just the name for now. You add the date, place and pictures next. It stays a draft until you send it for review.
+        Just the name for now. You add the date, venue and pictures next. It stays a draft until you send it for review.
       </p>
       {organisers.length > 1 && (
         <section aria-label="Organiser">
           <SectionLabel as="p">Organiser</SectionLabel>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-[8px]">
             {organisers.map((o) => (
               <Chip key={o.id} selected={o.id === organiserId} onToggle={() => setOrganiserId(o.id)} testId="org-new-event-organiser">{o.name}</Chip>
             ))}

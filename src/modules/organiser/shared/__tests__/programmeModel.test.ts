@@ -210,11 +210,11 @@ describe('validateProgramme mirrors the server limits', () => {
     // A start of 02:00 counts on the date itself, as the server's stash_local_as_utc does,
     // so it stretches the day back to 02:00 and the party's end at 02:00 next day is 24 h later.
     const early = { ...newSession(), title: 'Early', start: '02:00', end: '03:30' };
-    expect(validateProgramme([...draftOf(), early]).programme).toEqual(['The programme of this date would run for more than 20 hours. Check the times.']);
+    expect(validateProgramme([...draftOf(), early]).programme).toEqual(['The schedule of this date would run for more than 20 hours. Check the times.']);
     const rows = edit(draftOf(), 2, { start: '06:00', end: '07:00' }); // 06:00 to the party's 02:00 next day = 20 h
     expect(validateProgramme(rows).programme).toEqual([]);
     const tooLong = edit(draftOf(), 2, { start: '05:30', end: '06:30' });
-    expect(validateProgramme(tooLong).programme).toEqual(['The programme of this date would run for more than 20 hours. Check the times.']);
+    expect(validateProgramme(tooLong).programme).toEqual(['The schedule of this date would run for more than 20 hours. Check the times.']);
   });
 
   it('caps: 40 visible sessions and 20 date-only sessions, checked when one is added', () => {
@@ -292,7 +292,7 @@ describe('programmeErrorCopy: server refusals to plain words', () => {
   it('the version conflict copy is the agreed sentence', () => {
     expect(programmeErrorCopy(err('version_conflict: expected 1, got 2')).message).toBe(PROGRAMME_VERSION_CONFLICT);
     // The editor reloads by itself, so the copy says the latest is showing; it never asks for a reload.
-    expect(PROGRAMME_VERSION_CONFLICT).toBe('This date was changed somewhere else, so your changes were not saved. The latest programme is now showing. Make your changes again.');
+    expect(PROGRAMME_VERSION_CONFLICT).toBe('This date was changed somewhere else, so your changes were not saved. The latest schedule is now showing. Make your changes again.');
   });
 
   it('carries the 0-based session index the server names', () => {

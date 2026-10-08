@@ -81,7 +81,7 @@ beforeEach(() => {
     if (fn === 'organiser_set_occurrence_programme_v1') return setResult();
     if (fn === 'event_view_p5') return { data: { occurrence: { id: 'o1', date: DATE, version: 1, lifecycle_status: 'scheduled' }, event: { venue_id: 'v1' }, schedule: {} }, error: null };
     if (fn === 'admin_event_workspace_p5') {
-      return { data: { series: { series: { id: 's1', name: 'Thursday Social', lifecycle_status: 'live', version: 3, default_venue_id: 'v1', default_start_date: '2026-01-01', recurrence_rule: { mode: 'weekly', weekdays: [4] } }, program: [] }, occurrences: [] }, error: null };
+      return { data: { series: { series: { id: 's1', name: 'Thursday Party', lifecycle_status: 'live', version: 3, default_venue_id: 'v1', default_start_date: '2026-01-01', recurrence_rule: { mode: 'weekly', weekdays: [4] } }, program: [] }, occurrences: [] }, error: null };
     }
     if (fn === 'get_organiser_venue_options_v1') return { data: [{ id: 'v1', name: 'Salsa Club', city_name: 'Leeds' }, { id: 'v2', name: 'Studio 2', city_name: 'York' }], error: null };
     if (fn === 'organiser_search_people_v1') return { data: [{ id: P(5), display_name: 'Eva Sol', city_name: 'Leeds' }, { id: P(1), display_name: 'Ana Ruiz' }], error: null };

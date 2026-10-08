@@ -14,7 +14,7 @@ export interface DatePreviewProps {
 export function DatePreview({ label, span, venue, rows, cancelled, reason }: DatePreviewProps) {
   const kept = byTime(rows.filter((r) => !r.removed));
   return (
-    <div className="space-y-1 px-3 py-2" data-testid="date-preview">
+    <div className="space-y-[4px] px-[12px] py-[8px]" data-testid="date-preview">
       <p className="truncate text-[14px] font-semibold text-[var(--fg)]">
         {[label, spanLabel(span)].filter(Boolean).join(' \u00b7 ')}
       </p>

@@ -29,13 +29,13 @@ import { uploadEventPicture } from './media';
 /** The public card as guests will see it (compact, inside the sticky bar). */
 export function PublicCardPreview({ card }: { card: CardPreview }) {
   return (
-    <div className="flex items-center gap-3 p-2" data-testid="org-card-preview">
-      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[8px] bg-[var(--card2)]">
+    <div className="flex items-center gap-[12px] p-[8px]" data-testid="org-card-preview">
+      <div className="h-[48px] w-[48px] shrink-0 overflow-hidden rounded-[8px] bg-[var(--card2)]">
         {card.coverUrl && <img src={card.coverUrl} alt="" className="h-full w-full object-cover" />}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] font-semibold text-[var(--fg)]">{card.title}</p>
-        <p className="truncate text-[13px] text-[var(--mut)]">{[card.when, card.where].filter(Boolean).join(' \u00b7 ') || 'Date and place to come'}</p>
+        <p className="truncate text-[13px] text-[var(--mut)]">{[card.when, card.where].filter(Boolean).join(' \u00b7 ') || 'Date and venue to come'}</p>
       </div>
     </div>
   );
@@ -146,7 +146,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
   const card = cardPreview(draft, ws, today, venueName(venues.data, draft.venueId));
 
   const editor = (
-    <div className="space-y-5 pb-4" data-testid="org-event-editor">
+    <div className="space-y-[20px] pb-[16px]" data-testid="org-event-editor">
       <div className="flex justify-end">
         <StatusTag tone={live ? 'live' : 'draft'} testId="org-event-status">{live ? 'Live' : 'Draft'}</StatusTag>
       </div>
@@ -163,14 +163,14 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
         <SummaryRow icon={<CalendarDays />} label="Starts on" value={draft.startDate ? shortDate(draft.startDate, today) : 'Choose'} onPress={() => setSheet('starts')} testId="org-row-starts" />
         <SummaryRow icon={<Repeat />} label="Repeats" value={repeatsLabel(draft)} onPress={() => setSheet('repeats')} testId="org-row-repeats" />
         {draft.shape === 'weekly' ? (
-          <div className="flex min-h-[52px] items-center gap-3 px-4 py-2" data-testid="org-row-until">
+          <div className="flex min-h-[52px] items-center gap-[12px] px-[16px] py-[8px]" data-testid="org-row-until">
             <button type="button" onClick={() => setSheet('until')} className="min-w-0 flex-1 text-left" data-testid="org-row-until-open">
               <span className="block truncate text-[15px] text-[var(--fg)]">{until ? `Listed until ${shortDate(until, today)}` : 'Choose how long it is listed'}</span>
               <span className="block truncate text-[13px] text-[var(--mut)]">{CAP_NOTE}</span>
             </button>
             <button type="button" disabled={!step} onClick={() => step && patch({ until: step.until })} data-testid="org-extend"
               aria-label={step ? `Extend by ${step.add} dates` : 'Extend (already at 30 upcoming dates)'}
-              className="h-11 shrink-0 rounded-[12px] px-3 text-[15px] font-semibold text-[var(--gold)] disabled:text-[var(--mut)]">
+              className="h-[44px] shrink-0 rounded-[12px] px-[12px] text-[15px] font-semibold text-[var(--gold)] disabled:text-[var(--mut)]">
               Extend
             </button>
           </div>
@@ -180,13 +180,13 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
       </Card>
       <ScheduleCard seriesId={seriesId} next={next} today={today} />
       <Card>
-        <SummaryRow icon={<MapPin />} label="Place" value={venueName(venues.data, draft.venueId) ?? 'Choose'} onPress={() => setSheet('venue')} testId="org-row-venue" />
+        <SummaryRow icon={<MapPin />} label="Venue" value={venueName(venues.data, draft.venueId) ?? 'Choose'} onPress={() => setSheet('venue')} testId="org-row-venue" />
         <SummaryRow icon={<Users />} label="Organisers" value={organisers.length ? joinNames(organisers) : undefined} testId="org-row-organisers" />
         <SummaryRow icon={<Text />} label="Description" value={draft.description.trim() ? draft.description.trim() : 'Add'} onPress={() => setSheet('description')} testId="org-row-description" />
       </Card>
       <section aria-label="Music styles" data-testid="org-styles">
-        <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-[var(--mut)]">Music</p>
-        <div className="flex flex-wrap gap-2">
+        <p className="mb-[8px] text-[13px] font-semibold uppercase tracking-wide text-[var(--mut)]">Music</p>
+        <div className="flex flex-wrap gap-[8px]">
           {styles.map((s) => <Chip key={s} selected={hasStyle(s)} onToggle={() => toggleStyle(s)} testId="org-style-chip">{s}</Chip>)}
         </div>
       </section>
@@ -196,6 +196,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
       <DatesList seriesId={seriesId} dates={ws.dates} today={today} />
       <EditorSheet
         sheet={sheet} onSheet={setSheet} draft={draft} patch={patch} today={today} cap={cap} venues={venues.data}
+        venuesError={venues.isError} onRetryVenues={() => void venues.refetch()} venuesRetrying={venues.isFetching}
         onUploadGallery={(files) => void upload(files, 'gallery')} uploading={uploading === 'gallery'} uploadError={uploadError}
       />
       <AnnounceRegion message={message} />
@@ -211,7 +212,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
       detail={editor}
       actionBar={
         <>
-          {error && <p role="alert" className="px-4 pt-3 text-[14px] text-[var(--danger)]" data-testid="org-save-error">{error}</p>}
+          {error && <p role="alert" className="px-[16px] pt-[12px] text-[14px] text-[var(--danger)]" data-testid="org-save-error">{error}</p>}
           <PreviewBar
             preview={<PublicCardPreview card={card} />}
             actionLabel={dirty ? 'Save changes' : 'Saved'}

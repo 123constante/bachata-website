@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Check, Plus } from 'lucide-react';
 import { claimHint, searchClaimableOrganisers, type ClaimCandidate, type MyAccessRequest } from '@/modules/organiser/shared/selfServeApi';
 import { declinedRequests } from '@/modules/organiser/shared/accessRequestModel';
-import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, StatusTag } from '../../ui';
+import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, StatusTag, useDebounced } from '../../ui';
 import { HINT_TEXT, askedOn, rowAction } from './onboardingModel';
 import { OrganiserSheet, type SheetTask } from './OrganiserSheet';
 
@@ -21,14 +21,6 @@ export interface OnboardingViewProps {
   onChanged: (confirmation: string) => void;
 }
 
-function useDebounced(value: string, ms: number) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return debounced;
-}
 
 /**
  * Signed in, no organiser yet (or adding another): find the organiser we
@@ -79,11 +71,11 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
   const searchFailed = searched && !search.isFetching && !search.data && (search.isError || search.isPaused);
 
   return (
-    <div className="space-y-4" data-testid="org-onboarding">
+    <div className="space-y-[16px]" data-testid="org-onboarding">
       {firstRun && (
-        <ol className="flex flex-wrap items-center gap-2 text-[13px] text-[var(--mut)]" aria-label="Steps">
-          <li className="flex items-center gap-1 text-[var(--gold)]">
-            <Check aria-hidden="true" className="h-4 w-4" /> Signed in
+        <ol className="flex flex-wrap items-center gap-[8px] text-[13px] text-[var(--mut)]" aria-label="Steps">
+          <li className="flex items-center gap-[4px] text-[var(--gold)]">
+            <Check aria-hidden="true" className="h-[16px] w-[16px]" /> Signed in
           </li>
           <li aria-hidden="true">&rsaquo;</li>
           <li className="font-semibold text-[var(--fg)]" aria-current="step">Your organiser</li>
@@ -93,14 +85,14 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
       )}
 
       {done && (
-        <p ref={doneRef} tabIndex={-1} role="status" data-testid="onboarding-done" className="flex items-start gap-2 rounded-[12px] bg-[var(--ok-bg)] px-4 py-3 text-[14px] text-[var(--ok-fg)] outline-none">
-          <Check aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" /> {done}
+        <p ref={doneRef} tabIndex={-1} role="status" data-testid="onboarding-done" className="flex items-start gap-[8px] rounded-[12px] bg-[var(--ok-bg)] px-[16px] py-[12px] text-[14px] text-[var(--ok-fg)] outline-none">
+          <Check aria-hidden="true" className="mt-[2px] h-[16px] w-[16px] shrink-0" /> {done}
         </p>
       )}
 
       <div>
         <h2 className="text-[20px] font-bold text-[var(--fg)]">{firstRun ? 'Which organiser are you?' : 'Add another organiser'}</h2>
-        <p className="mt-1 text-[14px] text-[var(--mut)]">
+        <p className="mt-[4px] text-[14px] text-[var(--mut)]">
           We&rsquo;ve probably listed you already. Find your name, or create a new organiser.
         </p>
       </div>
@@ -115,6 +107,7 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
 
       {searchFailed && (
         <ErrorState
+          quiet
           title={search.isPaused ? <>You&rsquo;re offline</> : 'The search did not work'}
           body="We cannot tell if this organiser is listed until the search works. Check your connection, then try again."
           onRetry={() => void search.refetch()}
@@ -136,7 +129,7 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
       {rows.length > 0 && (
         <Card testId="onboarding-results">
           {rows.map(({ org, hint, action }) => (
-            <div key={org.id} className="flex items-center gap-3 px-4 py-3" data-testid="onboarding-result" data-org={org.id}>
+            <div key={org.id} className="flex items-center gap-[12px] px-[16px] py-[12px]" data-testid="onboarding-result" data-org={org.id}>
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-2 break-words text-[15px] font-semibold text-[var(--fg)]">{org.name}</p>
                 <p className="text-[13px] text-[var(--mut)]" data-testid="onboarding-hint">{HINT_TEXT[hint]}</p>
@@ -158,14 +151,14 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
       )}
 
       <PrimaryButton onClick={startCreate} testId="onboarding-create">
-        <Plus aria-hidden="true" className="h-5 w-5" /> Create a new organiser
+        <Plus aria-hidden="true" className="h-[20px] w-[20px]" /> Create a new organiser
       </PrimaryButton>
-      <p className="-mt-2 text-center text-[13px] text-[var(--mut)]">Name and city. The team checks new organisers within a day.</p>
+      <p className="-mt-[8px] text-center text-[13px] text-[var(--mut)]">Name and city. The team checks new organisers within a day.</p>
 
       {open.length > 0 && (
         <Card label="Waiting for an answer" testId="onboarding-pending">
           {open.map((r) => (
-            <div key={r.requestId} className="flex items-center gap-3 px-4 py-3" data-testid="onboarding-pending-row">
+            <div key={r.requestId} className="flex items-center gap-[12px] px-[16px] py-[12px]" data-testid="onboarding-pending-row">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] text-[var(--fg)]">{r.organiserName ?? 'An organiser'}</p>
                 <p className="text-[13px] text-[var(--mut)]">Asked {askedOn(r.createdAt)}. The team usually replies within a day.</p>
@@ -179,7 +172,7 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
       {declined.length > 0 && (
         <Card label="Request declined" testId="onboarding-declined">
           {declined.map((r) => (
-            <div key={r.requestId} className="px-4 py-3" data-testid="onboarding-declined-row">
+            <div key={r.requestId} className="px-[16px] py-[12px]" data-testid="onboarding-declined-row">
               <p className="text-[15px] text-[var(--fg)]">
                 {r.organiserName ?? 'An organiser'} said no on {askedOn(r.resolvedAt ?? r.createdAt)}.
               </p>

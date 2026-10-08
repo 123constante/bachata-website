@@ -175,7 +175,7 @@ describe('event editor', () => {
   it('the preview bar shows the public card, ONE primary button and the live note', async () => {
     await editor();
     const bar = screen.getByTestId('org-preview-bar');
-    expect(within(bar).getByTestId('org-card-preview').textContent).toContain('Friday Social');
+    expect(within(bar).getByTestId('org-card-preview').textContent).toContain('Friday Party');
     expect(within(bar).getByTestId('org-card-preview').textContent).toContain('Fri 9 Oct');
     expect(bar.textContent).toContain(LIVE_NOTE);
     expect((screen.getByTestId('org-preview-bar-action') as HTMLButtonElement).disabled).toBe(true);
@@ -207,7 +207,7 @@ describe('event editor', () => {
     fireEvent.click(screen.getByTestId('org-sheet-done'));
     save();
     await waitFor(() => expect(commands()).toHaveLength(1));
-    expect(commands()[0].command.payload).toEqual({ name: 'Friday Social', default_description: 'Beginners welcome', default_ticket_url: 'https://tickets.example/x' });
+    expect(commands()[0].command.payload).toEqual({ name: 'Friday Party', default_description: 'Beginners welcome', default_ticket_url: 'https://tickets.example/x' });
   });
 
   it('place: the sheet has a search view; picking sets the venue and its city', async () => {
@@ -224,7 +224,7 @@ describe('event editor', () => {
     fireEvent.click(screen.getByTestId('org-sheet-done'));
     save();
     await waitFor(() => expect(commands()).toHaveLength(1));
-    expect(commands()[0].command.payload).toEqual({ name: 'Friday Social', default_venue_id: 'v2', default_city_id: 'c-edinburgh' });
+    expect(commands()[0].command.payload).toEqual({ name: 'Friday Party', default_venue_id: 'v2', default_city_id: 'c-edinburgh' });
   });
 
   it('music styles: tap chips', async () => {
@@ -235,7 +235,7 @@ describe('event editor', () => {
     expect(salsa.getAttribute('aria-pressed')).toBe('true');
     save();
     await waitFor(() => expect(commands()).toHaveLength(1));
-    expect(commands()[0].command.payload).toEqual({ name: 'Friday Social', default_music_styles: ['Bachata', 'Salsa'] });
+    expect(commands()[0].command.payload).toEqual({ name: 'Friday Party', default_music_styles: ['Bachata', 'Salsa'] });
   });
 
   it('gallery and video: summary rows open the sheet; remove a photo, add a video', async () => {
@@ -250,7 +250,7 @@ describe('event editor', () => {
     fireEvent.click(screen.getByTestId('org-sheet-done'));
     save();
     await waitFor(() => expect(commands()).toHaveLength(1));
-    expect(commands()[0].command.payload).toEqual({ name: 'Friday Social', default_gallery: [], default_video_urls: ['https://youtu.be/abc'] });
+    expect(commands()[0].command.payload).toEqual({ name: 'Friday Party', default_gallery: [], default_video_urls: ['https://youtu.be/abc'] });
   });
 
   it('dates: Listed until shows the cap, offers only choices within 30, and Extend adds the next 8', async () => {
@@ -287,7 +287,7 @@ describe('event editor', () => {
     save();
     await waitFor(() => expect(commands().length).toBeGreaterThanOrEqual(2));
     expect(commands().map((c) => c.command.kind)).toEqual(['series.upsert', 'series.stop_repeating', 'series.add_date']);
-    expect(commands()[0].command.payload).toEqual({ name: 'Friday Social', default_start_date: '2026-10-13' });
+    expect(commands()[0].command.payload).toEqual({ name: 'Friday Party', default_start_date: '2026-10-13' });
     expect(commands()[1].expected_version).toBe(4);
   });
 

@@ -52,17 +52,17 @@ import { useOrganiserChoice } from '../profile/useOrganiserChoice';
 /** Which inline question is open; only one at a time, so one primary button. */
 type Asking = { kind: 'member'; id: string } | { kind: 'grant'; id: string } | null;
 
-const NOTE = 'px-4 pb-3 text-[13px] text-[var(--mut)]';
+const NOTE = 'px-[16px] pb-[12px] text-[13px] text-[var(--mut)]';
 
 function Question({ text, yes, no, onYes, onNo, pending, error, shakeProps, testId }: {
   text: string; yes: string; no: string; onYes: () => void; onNo: () => void; pending: boolean;
   error: string | null; shakeProps: { className?: string; onAnimationEnd?: () => void }; testId: string;
 }) {
   return (
-    <div role="alertdialog" aria-label={text} data-testid={testId} className={`space-y-2 px-4 pb-4 ${shakeProps.className ?? ''}`} onAnimationEnd={shakeProps.onAnimationEnd}>
+    <div role="alertdialog" aria-label={text} data-testid={testId} className={`space-y-[8px] px-[16px] pb-[16px] ${shakeProps.className ?? ''}`} onAnimationEnd={shakeProps.onAnimationEnd}>
       <p className="text-[15px] text-[var(--fg)] [overflow-wrap:anywhere]">{text}</p>
       {error && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid={`${testId}-error`}>{error}</p>}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-[8px]">
         <GhostButton size="sm" onClick={onNo} disabled={pending} autoFocus testId={`${testId}-no`}>{no}</GhostButton>
         <PrimaryButton size="sm" onClick={onYes} loading={pending} loadingLabel="Working" testId={`${testId}-yes`}>{yes}</PrimaryButton>
       </div>
@@ -126,7 +126,7 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
   const pending = remove.isPending || decide.isPending;
 
   return (
-    <div className="space-y-5" data-testid="team-body">
+    <div className="space-y-[20px]" data-testid="team-body">
       <AnnounceRegion message={message} />
       {message && <p className="text-[14px] text-[var(--gold)]" data-testid="team-confirmation">{message}</p>}
 
@@ -175,7 +175,7 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
             </Collapse>
           );
         })}
-        <p className={`${NOTE} pt-3`} data-testid="team-note">
+        <p className={`${NOTE} pt-[12px]`} data-testid="team-note">
           Owners add and remove people. Managers edit every event and send it for review. Only the Bachata Calendar team can change someone&rsquo;s role.
         </p>
       </Card>
@@ -184,11 +184,11 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
         {requests.isPending ? (
           <SkeletonRows count={2} label="Loading requests" testId="requests-loading" />
         ) : requests.isError ? (
-          <div className="p-3">
-            <ErrorState title="Requests did not load" onRetry={() => void requests.refetch()} retrying={requests.isFetching} testId="requests-error" />
+          <div className="p-[12px]">
+            <ErrorState quiet title="Requests did not load" onRetry={() => void requests.refetch()} retrying={requests.isFetching} testId="requests-error" />
           </div>
         ) : (requests.data ?? []).length === 0 ? (
-          <p className="px-4 py-4 text-[15px] text-[var(--mut)]" data-testid="requests-empty">No one is asking to join right now.</p>
+          <p className="px-[16px] py-[16px] text-[15px] text-[var(--mut)]" data-testid="requests-empty">No one is asking to join right now.</p>
         ) : (
           (requests.data ?? []).map((r) => {
             const asked = instantDateLabel(r.createdAt);
@@ -202,7 +202,7 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
                     sublabel={`${asked ? `Asked ${asked}` : 'Asked to join'} \u00b7 wants to be a manager`}
                     testId={`request-${r.requestId}`}
                   />
-                  {r.message && <p className="px-4 pb-2 text-[14px] text-[var(--fg)]" data-testid="request-message">&ldquo;{r.message}&rdquo;</p>}
+                  {r.message && <p className="px-[16px] pb-[8px] text-[14px] text-[var(--fg)]" data-testid="request-message">&ldquo;{r.message}&rdquo;</p>}
                   {isAsking ? (
                     <Question
                       testId="request-grant-confirm"
@@ -216,10 +216,10 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
                       shakeProps={shakeProps}
                     />
                   ) : (
-                    <div className="space-y-2 px-4 pb-4">
-                      <div className="flex gap-2">
+                    <div className="space-y-[8px] px-[16px] pb-[16px]">
+                      <div className="flex gap-[8px]">
                         <GhostButton size="sm" disabled={viewerRole !== 'owner' || pending} onClick={() => ask({ kind: 'grant', id: r.requestId })} testId="request-grant">
-                          <UserPlus aria-hidden="true" className="h-4 w-4" /> Add as manager
+                          <UserPlus aria-hidden="true" className="h-[16px] w-[16px]" /> Add as manager
                         </GhostButton>
                         <GhostButton
                           size="sm" disabled={viewerRole !== 'owner' || pending}
@@ -255,7 +255,7 @@ export default function TeamPage() {
   const { home, organisers, selected, choose } = useOrganiserChoice();
   return (
     <OrganiserShell title="Team" testId="org-page-team">
-      <div className="space-y-4">
+      <div className="space-y-[16px]">
         <OrganiserSwitcher organisers={organisers} selectedId={selected?.id ?? null} onChoose={choose} />
         {home.isPending ? (
           <SkeletonRows count={3} label="Loading your team" testId="team-loading" />
