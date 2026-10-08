@@ -63,7 +63,8 @@ jobs:
           VITE_SUPABASE_URL: https://stsdtacfauprzrdebmzg.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0.e2e-test-placeholder-not-a-real-key
           # Organiser self-serve (Lever 2) is OFF in production; the dev server here
-          # turns it on so tests/e2e/organiser-account-onboarding.spec.ts can reach /account.
+          # turns it on so the tests/e2e/organiser-*.spec.ts smoke specs can reach /account/o
+          # (the old /account URLs redirect there; organiser-legacy-redirects.spec.ts).
           VITE_ENABLE_ORGANISER_SELF_SERVE: 'true'
         run: npm run test:e2e
 

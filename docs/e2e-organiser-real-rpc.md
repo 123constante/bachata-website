@@ -10,7 +10,10 @@ can drive the editor against the real database.
 - Seed: [`scripts/e2e/seed-organiser-real-rpc.mjs`](../scripts/e2e/seed-organiser-real-rpc.mjs) (this repo; `npm run seed:e2e:organiser-real-rpc`)
 - Journey: `tests/e2e/organiser-real-rpc.spec.ts`, run by
   `npm run test:e2e:organiser-real-rpc` (own config `playwright.organiser-real-rpc.config.ts`;
-  NOT in the smoke gate)
+  NOT in the smoke gate). Since W5b-1 (2026-10-08) its steps drive the NEW area `/account/o`
+  (Home, name-only New event, venue + description + cover in the event editor, a session with a
+  level on the date page, the contributor refused on `/account/o/events/<id>`). That rewrite has
+  NOT been run yet: it needs the E2E logins above. First run after a re-seed is the check.
 
 **E2E only.** Both refuse to run when any configured URL, ref or key is prod
 (`stsdtacfauprzrdebmzg`) or is not the E2E ref. Neither ever needs a prod key.

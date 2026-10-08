@@ -664,3 +664,65 @@ icon -> `/account/o`, highlighted on any `/account/o*` path.
   seriesModel / editorGuards); an export-level dead-code pass is W5b's.
 - W1's measured SearchField clear (41px) / SheetView close (37px) under 44px; F1 Status card
   at 320px not measured.
+
+## W5b-1 -- E2E for the new area (2026-10-08) -- DONE
+
+Owned paths only: `tests/e2e/**`, `package.json` `test:e2e`, `e2e-smoke.yml` comment,
+`docs/e2e-organiser-real-rpc.md`, this section. No `src/` change.
+
+### Specs (all at 390x844 unless named; data-testid selectors only)
+
+Shared backend: `tests/e2e/helpers/organiserFake.ts`, ONE stateful fake of every RPC / table
+the area calls (page.route on `**/rest/v1/**` + `**/auth/v1/**`, same style as the old specs;
+nothing leaves the browser). Clock fixed at Thu 8 Oct 2026 noon London. The programme writer
+re-creates date-only sessions under a NEW id on every save, like the real one.
+
+| Spec | Covers |
+|---|---|
+| `organiser-onboarding` (new) | Claim only where the email is yours / Ask to join; proven claim -> Home; password session -> email code -> claim; refused claim -> request with reason; ask to join; create (name + city view) -> Home; declined answer; signed out -> /auth with returnTo; header Sign in 44px (kept from the old spec) |
+| `organiser-home` (rewritten) | next dates soonest first, one New event, no stats; team / runway / line-up strips each open their screen; no strips when nothing is needed; error + Retry |
+| `organiser-events` (new) | name-only create (envelopes) -> editor with 8 dates; blank name refused; draft organiser blocked; row edits (name, description, ticket, style chip) + preview + ONE save (exact payload, re-read); refused save; 30-date cap choices <= 30, Extend +8 saved, Extend off at 30; schedule card opens the date |
+| `organiser-date` (new) | schedule + people + span; people by type (class/masterclass teachers, party DJs, performance no add, search role-scoped); search view inside the visible viewport with a simulated 300px keyboard; remove + Undo / Collapse; add session + teacher, save, re-read under a new id twice: line-up still shown; cancel (reason + tick); break week + unsaved-edit block |
+| `organiser-team` (rewritten) | approve (confirm) + decline (exact bodies), refusal copy, remove a manager, manager sees buttons off |
+| `organiser-profile` (new) | save (whole form via organiser_profile_update_p5_v1), Send for review -> In review, changes needed copy + 'again', live has no send |
+| `organiser-legacy-redirects` (new) | `/account`, `/account/new`, `/account/series/:id`, `/account/team/:id` (+`?o` kept), unknown `/account/o/*`; query + hash kept; replace |
+| `organiser-layout` (new, replaces `organiser-tap-targets`) | >= 44px controls per screen + open sheets; no sideways scroll on any screen/sheet; 1280x800 two columns (list ~300 left, editor right), phone shows editor only |
+| `organiser-loop` (rewritten) | create organiser -> send for review -> approved -> New event -> staff a date -> Home lists it -> Team |
+| `organiser-real-rpc` (updated, NOT run) | same 8 steps, now on `/account/o` testids |
+
+Deleted (behaviour gone with the old UI):
+- `organiser-account-onboarding` -- old /account onboarding UI; intent ported to `organiser-onboarding`.
+- `organiser-series` -- old series page (move one date's time, date action sheet, basics form); no per-date time exists now; cancel/break ported to `organiser-date`, edits to `organiser-events`.
+- `organiser-create` -- old create form (party vs class kind, venue + times at create, review move, idempotent retry); create is name-only now; ported intent to `organiser-events`.
+- `organiser-hardening` -- old /account/team layout clip (S3) and declined card (S4); S3 -> `organiser-layout` sideways-scroll check, S4 -> `organiser-onboarding`.
+- `organiser-tap-targets` -- old /account screens; replaced by `organiser-layout`.
+- Not ported (no screen any more): series review strip + public link on the series page (old team spec); last-owner Leave is unit-tested only.
+
+### Run (sandbox, Chromium 1194 symlinked as headless shell 1243, cold dev server)
+
+`npm run test:e2e`: 71 tests, **64 passed, 7 skipped, 0 failed** (6 skipped = the BUG fixmes
+below, 1 = the pre-existing vendor `test.skip`). Organiser specs `--repeat-each=2`: 104 passed,
+12 skipped, 0 flaky. tsc (strict, e2e files) and eslint on the changed files: clean.
+
+### BUG (marked `test.fixme` with the same text; for W5b-2 / src owners)
+
+- BUG: Team: after "Add as manager" the new manager is not listed under Team until a reload (the grant re-reads only the requests list, never organiser_home_v1). Repro: /account/o/team, Add as manager -> Yes on a request: the request goes, the Team card still lists 3 members.
+- BUG: onboarding SearchField under 44px: input onboarding-search and its Clear search button are 40.7px high.
+- BUG: events list + New event under 44px: org-events-new-link 37.3px, org-back 37.3px, title org-new-event-name 35px.
+- BUG: event editor under 44px: org-back 37.3px, title org-event-name 35px, org-row-until-open 39.2px, org-extend 37.3px, sheet close org-editor-sheet-close 37.3px.
+- BUG: date editor under 44px: org-back 37.3px; sheet close / back 37.3px; session-name, session-start, session-end 40.7px; session-person-remove 27.1px; people-search + Clear search 40.7px.
+- BUG: Profile under 44px: title profile-name 35px.
+
+When a fix lands, delete the `.fixme` (the test body is the check).
+
+### Not verified / left
+
+- `organiser-real-rpc` was not run (needs E2E logins + the E2E DB). Unverified: the cover upload
+  path (`org-cover-file` -> organiser-flyers -> save), the venue search finding "E2E Test Venue",
+  the contributor's error state being `org-editor-error`, and the date page reading a fresh
+  series' first date. `organiser-public-claim.real-supabase.spec.ts` untouched (public page).
+- `src/components/__tests__/GlobalHeaderSignIn.test.tsx:5` still names the deleted
+  `organiser-account-onboarding.spec.ts` (that test now lives in `organiser-onboarding.spec.ts`);
+  `src/` is not mine -- W5b-2 can fix the comment.
+- Profile save sends Instagram as typed (`@ritmo.soho`, not a URL); same shared helper as before,
+  asserted loosely, not called a bug.
