@@ -260,3 +260,120 @@ QueryClientProvider and mock `@/integrations/supabase/client` + `@/hooks/useAuth
 | Page errors | 0 | 0 | 0 |
 
 \* The list's PrimaryButton only exists on the empty state (no events). No new colour pairs.
+## W1 -- Home + onboarding/claim (2026-10-08) -- DONE
+
+Owned paths only: `src/modules/organiser/home/**`.
+
+### Files
+
+- `home/index.tsx` -- `/account/o` Home (keeps default export + `org-page-home` testid). No
+  organiser yet (or `?add=1`, "Add another organiser") -> onboarding. Otherwise: strips (only
+  when needed), the one cream `New event` button, `Next dates` (DateChip, event name, venue,
+  StatusTag; row links to `ORG_PATHS.date`). No stats. Skeleton rows / ErrorState with retry
+  (offline before first answer is an error, never onboarding) / EmptyState with New event.
+- `home/homeView.ts` -- pure model: `nextDates` (all organisers, soonest first, 8 max),
+  `dateTag`, `runwayCandidates` / `runwayStrip` (56 days), `lacksTeacherOrDj`,
+  `datesWithoutLineup`, `lineupCheckDates` (first 5 non-cancelled), `shortDate`.
+- `home/useHomeData.ts` -- `useOrganiserHome` (same query keys as old /account) and
+  `useHomeStrips`. A strip is hidden while its read loads or if it fails.
+- `home/onboarding/OnboardingView.tsx` -- steps, organiser search (SearchField, debounced 250ms,
+  SkeletonRows, ErrorState+retry, no-match -> create with the typed name), result rows
+  (Claim only when the listed email is the user's; Ask to join otherwise; nothing for their own;
+  'Asked' tag when a request is open), Create button (the screen's one primary), 'Waiting for an
+  answer' (open requests) and 'Request declined' (`declinedRequests`, 30 days) cards.
+- `home/onboarding/OrganiserSheet.tsx` -- ONE SheetView for claim / ask to join / create, with a
+  `city` view (create) swapped by `viewKey`. Claim with an unproven session shows the email code
+  first; a refusal with `next === 'request_access'` turns the claim into a request with the reason
+  shown; a create refused with `reauth` shows the email code then retries. useShake + message on
+  failure. Errors via `selfServeErrorCopy`.
+- `home/onboarding/EmailCode.tsx` -- rebuilt email-code proof (same supabase.auth
+  signInWithOtp / verifyOtp calls as the old EmailCodeProof; link returns to `/account/o`).
+- `home/onboarding/citySearch.ts` -- `search_cities` (same RPC the shared CityPicker calls; that
+  picker is a Radix popover, banned here, so the city list is a sheet view).
+- `home/onboarding/onboardingModel.ts` -- `instagramProblem` / `websiteProblem` (same rules as the
+  old component file, which may not be imported), `HINT_TEXT`, `rowAction`, code constants.
+- Tests: `home/__tests__/HomePage.test.tsx` (12), `home/__tests__/Onboarding.test.tsx` (10).
+
+### Old files imported (logic only, unchanged)
+
+`selfServeApi.ts` (fetchOrganiserHome, fetchMyAccessRequests, fetchIncomingAccessRequests,
+fetchSeriesWorkspace, fetchOccurrenceProgramme, searchClaimableOrganisers, claimOrganiser,
+requestOrganiserAccess, createOrganiserProfile, claimHint, query keys), `selfServeErrors.ts`
+(selfServeErrorCopy), `accessRequestModel.ts` (declinedRequests), `sessionProof.ts`
+(isMailboxProvenToken), `seriesModel.ts` (upcomingDates), `programmeModel.ts` (toDraft),
+`claimHint.ts` (type + actual in tests). No old component imported.
+
+### Strip rules (from existing reads only)
+
+- (a) team requests: `fetchIncomingAccessRequests` per organiser the user owns or manages; sum > 0
+  -> strip -> `ORG_PATHS.team`.
+- (b) runway: `organiser_home_v1` gives only `upcoming_count` + the next 3 dates. Candidates are
+  `format === 'recurring'`, running (live/draft/in review/changes needed) series with 1..8
+  upcoming dates. With <= 3 the last date is known from the home read; with 4..8,
+  `fetchSeriesWorkspace` is read for that series only. Strip when last date - today < 56 days,
+  soonest first, '+N more events also running short'. Tap -> `ORG_PATHS.event(id)` (W2's Extend).
+- (c) line-up: `fetchOccurrenceProgramme` for the first 5 non-cancelled dates in the list; a date
+  counts when its editable programme names nobody with role teaching/djing (no sessions also
+  counts). Tap -> the first such date.
+
+### Gaps
+
+- (b) A series with more than 8 upcoming dates is assumed to have >= 8 weeks of runway (true at
+  weekly or slower; a twice-weekly series could be missed). No RPC returns the last listed date
+  cheaply; `organiser_home_v1` could add `last_date` (admin repo).
+- (c) only the first 5 upcoming dates are checked (one programme read each). The home RPC has no
+  per-date line-up count; an admin-side `has_lineup` on `next_dates` would make it free.
+- City on the date row: `organiser_home_v1` gives the venue name only, no city name. The row shows
+  the venue ('Venue not set' when none).
+- Draft / in-review / 'changes needed' organiser notice and 'Send for review' (old OrganiserHome
+  header) are NOT on Home (not one of the three owner strips), and W4 left it off Profile too, so
+  `submitOrganiserProfile` has NO screen in the new area yet: UNOWNED, for W5 to place (Profile is
+  the natural home). Until then a new draft organiser can only be sent from the old /account.
+  The create confirmation says only 'saved as a draft. It is not public until the team approves it.'
+- Several organisers: Home merges all their dates; there is no organiser switcher (Team/Profile
+  pick the organiser -- W4).
+
+### For W0 / W5: `src/modules/organiser/__tests__/shell.test.tsx` now fails 2 tests
+
+The real Home imports the Supabase client and react-query, so the route test (written against
+placeholders) throws `supabaseKey is required`. W2..W4 pages will do the same. I did not edit
+W0's file. Verified fix (11/11 pass with it): add to the mocks
+
+```ts
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc: () => new Promise(() => {}), from: () => ({}) } }));
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, session: null }) }));
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+```
+
+and wrap the `MemoryRouter` in `at()` with `<QueryClientProvider client={new QueryClient()}>`.
+
+### Gates run
+
+- `tsc -p tsconfig.app.json`: 95 errors, all pre-existing (same count as W0), 0 in `home/`.
+- `npx eslint src/modules/organiser/home`: 0 problems.
+- `npx vitest run src/modules/organiser/home`: 22/22.
+- `npm run test:unit:offline`: 2275 pass; failures = the two known ones
+  (useEventGuestList.cache, integrityCouldNotRun), shell.test x2 (above), and
+  `tests/client/festivalClientState.test.tsx` once under full-suite load (passes 8/8 alone;
+  public festival page, untouched).
+
+### Measured in headless Chromium (prod build of a Vite harness, real Tailwind, stubbed RPCs)
+
+Scenarios: home = 3 strips + 5 dates (long names/venues); empty = no events; onboard = search with
+2 results + 1 pending request; create = create sheet open.
+
+| Check | 390x844 | 320x568 | 1280x800 |
+|---|---|---|---|
+| Horizontal overflow (document / any element), all 4 scenarios | 0 / none | 0 / none | 0 / none |
+| Cream primary buttons on the page (all scenarios) | 1 | 1 | 1 |
+| Primary in the open create sheet | 1 (page behind keeps its 1) | 1 | 1 |
+| New event button x-span (home / empty) | 14-376 / 28-362 | 14-307 / 28-292 | 336-944 / 353-927 |
+| Strips / date rows (home) | 3 / 5 | 3 / 5 | 3 / 5 |
+| Create sheet top-bottom | 127-844 | 85-568 | 120-800 |
+| Tab bar top | 783 | 507 | 739 |
+| Smallest tap target in W1 code | 44 | 44 | 44 |
+| Page errors | 0 | 0 | 0 |
+
+Under 44px, both W0 primitives: SearchField clear button (41px tall) and SheetView close
+(37px) -- for W5. Colours: only `.org-theme` tokens; no new colour pair (the done line uses
+--ok-fg on --ok-bg, already measured 7.93).
