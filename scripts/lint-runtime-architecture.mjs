@@ -56,7 +56,7 @@ const RULES = [
     // The Lever 2 self-serve RPCs (claim/request/create/list, admin repo D4)
     // return `organiser_id` = an organiser_profiles id, not the legacy column.
     // Only their boundary file may read the key; it maps it to camelCase.
-    allowFiles: new Set(['src/modules/organiser-self-serve/selfServeApi.ts']),
+    allowFiles: new Set(['src/modules/organiser/shared/selfServeApi.ts']),
   },
   {
     id: 'no-event-organisers-linkage',
