@@ -636,9 +636,9 @@ const FLOORS = {
  * as an adjective before any of it was in the file as a number.
  */
 const MEASURED = {
-  workflowFiles: 22,
-  jobs: 32,
-  steps: 280,
+  workflowFiles: 28,
+  jobs: 41,
+  steps: 285,
   uploadSteps: 5,
   /** db-contract-check.yml, the largest single workflow, in steps. */
   largestWorkflowSteps: 82,
