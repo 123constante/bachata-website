@@ -57,7 +57,8 @@ test('runway strip: a series running short says until when, and opens its event'
 test('line-up strip: counts dates with no teacher or DJ and opens the first', async ({ page }) => {
   await openOrganiser(page, '/account/o');
   const strip = page.getByTestId('home-strip-lineup');
-  await expect(strip).toContainText('2 dates have no teacher or DJ yet');
+  // The strip names the window it counts (Home checks the next few dates, not all of them).
+  await expect(strip).toContainText(/2 of your next \d+ dates have no teacher or DJ yet/);
   await strip.click();
   await expect(page).toHaveURL(new RegExp(`/account/o/events/${SUNDAY}/dates/c0000002-0000-4000-8000-202610110000$`));
   await expect(page.getByTestId('org-page-date')).toBeVisible();

@@ -68,8 +68,7 @@ describe('team list', () => {
     expect(screen.getByTestId('member-confirm').textContent).toContain('Remove Ana? They will no longer see or edit these events.');
     fireEvent.click(screen.getByTestId('member-confirm-yes'));
     await waitFor(() => expect(api.remove).toHaveBeenCalledWith('org-1', 'u2'));
-    expect(await screen.findByTestId('team-confirmation')).toBeTruthy();
-    expect(screen.getByTestId('team-confirmation').textContent).toBe('Ana no longer has access.');
+    await waitFor(() => expect(screen.getByTestId('team-confirmation').textContent).toBe('Ana no longer has access.'));
     await waitFor(() => expect(screen.getAllByTestId('team-member')).toHaveLength(1));
   });
 
@@ -130,7 +129,7 @@ describe('requests to join', () => {
     expect(api.resolve).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('request-grant-confirm-yes'));
     await waitFor(() => expect(api.resolve).toHaveBeenCalledWith('r1', 'grant'));
-    expect((await screen.findByTestId('team-confirmation')).textContent).toBe('cleo@x.example can now edit Ritmo’s events as a manager.');
+    await waitFor(() => expect(screen.getByTestId('team-confirmation').textContent).toBe('cleo@x.example can now edit Ritmo’s events as a manager.'));
   });
 
   it('lists the new manager under Team straight after the grant, without a reload', async () => {
@@ -153,7 +152,7 @@ describe('requests to join', () => {
     mount();
     fireEvent.click(await screen.findByTestId('request-decline'));
     await waitFor(() => expect(api.resolve).toHaveBeenCalledWith('r1', 'decline'));
-    expect((await screen.findByTestId('team-confirmation')).textContent).toBe('Declined. cleo@x.example can ask again later.');
+    await waitFor(() => expect(screen.getByTestId('team-confirmation').textContent).toBe('Declined. cleo@x.example can ask again later.'));
     expect(await screen.findByTestId('requests-empty')).toBeTruthy();
   });
 

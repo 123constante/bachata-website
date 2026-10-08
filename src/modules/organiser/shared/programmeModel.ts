@@ -23,6 +23,20 @@ export type SessionType = (typeof SESSION_TYPES)[number];
 export const LEVEL_KEYS = ['beginner', 'improver', 'intermediate', 'advanced', 'open_level'] as const;
 export type LevelKey = (typeof LEVEL_KEYS)[number];
 
+/**
+ * LEVELS BY TYPE (owner rule 2026-10-08, ARC DOMAIN): only a class or a
+ * masterclass takes levels. A party, a performance or any older type never
+ * shows them, and a session of such a type always saves level_keys [].
+ * The ONE mapping the sheet, the row summary, validation and the payload read.
+ */
+export const LEVEL_TYPES = ['class', 'masterclass'] as const;
+
+export const levelsApplyTo = (type: string | null): boolean => (LEVEL_TYPES as readonly string[]).includes(type ?? '');
+
+/** The levels a session shows and saves: its own for a class or masterclass, none for any other type. */
+export const sessionLevels = (row: { type: string | null; levels: string[] }): string[] =>
+  (levelsApplyTo(row.type) ? [...new Set(row.levels)] : []);
+
 export const TYPE_LABEL: Record<string, string> = {
   class: 'Class',
   masterclass: 'Masterclass',
@@ -201,7 +215,8 @@ export function toDraft(sessions: WireSession[], sessionPeople: WireSession[] = 
     title: str(s.title) ?? '',
     start: hhmm(s.start_time),
     end: hhmm(s.end_time),
-    levels: levelsOf(s.level_keys),
+    // A party or performance carrying stray stored levels shows none (sessionLevels).
+    levels: sessionLevels({ type: str(s.type), levels: levelsOf(s.level_keys) }),
     removed: s.removed === true,
     people: peopleOf(peopleEntryFor(s, i, sessionPeople)),
   }));
@@ -238,7 +253,13 @@ export function changesOf(row: DraftSession) {
   const title = row.title.trim() !== (str(o.title) ?? '').trim();
   const times = (row.start || null) !== (str(o.start_time) ? hhmm(o.start_time) : null)
     || (row.end || null) !== (str(o.end_time) ? hhmm(o.end_time) : null);
-  const levels = !sameLevels(row.levels, levelsOf(o.level_keys));
+  const stored = levelsOf(o.level_keys);
+  // A type without levels that still stores some (stray prod rows) drops them when the
+  // session is saved for another change; on its own that is not an edit, so an
+  // untouched session still echoes as read and the page never opens dirty.
+  const levels = levelsApplyTo(row.type)
+    ? !sameLevels(row.levels, stored)
+    : stored.length > 0 && (title || times || peopleChanged(row));
   const removed = row.removed !== (o.removed === true);
   // A session removed now (and removed before) sends its stored values: edits under a removal do not count.
   if (row.removed) return { title: false, times: false, levels: false, removed, any: removed };
@@ -366,7 +387,7 @@ function buildSessions(rows: DraftSession[]): { row: DraftSession; el: WireSessi
         start_time: start,
         end_time: end,
         ends_next_day: c.times ? endsNextDay(start, end) : o.ends_next_day === true,
-        level_keys: c.levels ? [...new Set(row.levels)] : levelsOf(o.level_keys),
+        level_keys: c.levels ? sessionLevels(row) : levelsOf(o.level_keys),
       } });
       continue;
     }
@@ -380,7 +401,7 @@ function buildSessions(rows: DraftSession[]): { row: DraftSession; el: WireSessi
       start_time: start,
       end_time: end,
       ends_next_day: endsNextDay(start, end),
-      level_keys: [...new Set(row.levels)],
+      level_keys: sessionLevels(row),
     } });
   }
   return out;
@@ -468,7 +489,8 @@ export function validateProgramme(rows: DraftSession[]): Validation {
       const p = peopleProblem(row);
       if (p) problems.push({ key: row.key, field: 'people', message: p });
     }
-    if (c.levels) {
+    // Only what is sent is checked: a type without levels always sends [].
+    if (c.levels && levelsApplyTo(row.type)) {
       const bad = row.levels.some((l) => !(LEVEL_KEYS as readonly string[]).includes(l)) || new Set(row.levels).size !== row.levels.length;
       if (bad || row.levels.length > LEVEL_KEYS.length) problems.push({ key: row.key, field: 'levels', message: 'Choose levels from the list.' });
     }

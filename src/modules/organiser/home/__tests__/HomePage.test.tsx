@@ -218,7 +218,7 @@ describe('Home strips', () => {
     api.programme.mockImplementation(async (id: string) => (id === 'a1' ? withPeople(id) : empty(id)));
     mount();
     const strip = await screen.findByTestId('home-strip-lineup');
-    expect(strip.textContent).toContain('2 dates have no teacher or DJ yet');
+    expect(strip.textContent).toContain('2 of your next 3 dates have no teacher or DJ yet');
     fireEvent.click(strip);
     expect(screen.getByTestId('where').textContent).toBe('/account/o/events/s1/dates/a2');
   });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserPlus } from 'lucide-react';
@@ -25,15 +25,14 @@ import {
 } from '@/modules/organiser/shared/teamModel';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import {
-  AnnounceRegion,
   Card,
   Collapse,
   EmptyState,
   ErrorState,
   GhostButton,
-  PersonRow,
   PrimaryButton,
   SkeletonRows,
+  initials,
   useAnnounce,
   useShake,
 } from '../ui';
@@ -54,6 +53,30 @@ type Asking = { kind: 'member'; id: string } | { kind: 'grant'; id: string } | n
 
 const NOTE = 'px-[16px] pb-[12px] text-[13px] text-[var(--mut)]';
 
+/**
+ * A person on the team or asking to join. Unlike the shared PersonRow it never
+ * truncates: two owners whose emails share a long prefix
+ * (bachatacommunity.leeds@ / bachatacommunity.london@) would both read
+ * 'bachatacommu...' at 390px, so the name and the email wrap onto a second line.
+ */
+function TeamPersonRow({ name, sublabel, role, trailing, testId }: {
+  name: string; sublabel?: string; role?: string; trailing?: ReactNode; testId: string;
+}) {
+  return (
+    <div data-testid={testId} className="flex min-h-[52px] items-center gap-[12px] px-[16px] py-[8px]">
+      <span aria-hidden="true" className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[var(--card2)] text-[13px] font-bold text-[var(--fg)]">
+        {initials(name)}
+      </span>
+      <span className="min-w-0 flex-1 text-left">
+        <span className="block text-[15px] text-[var(--fg)] [overflow-wrap:anywhere]">{name}</span>
+        {sublabel && <span className="block text-[13px] text-[var(--mut)] [overflow-wrap:anywhere]">{sublabel}</span>}
+      </span>
+      {role && <span className="shrink-0 rounded-[8px] bg-[var(--card2)] px-[8px] py-[2px] text-[12px] text-[var(--fg)]">{role}</span>}
+      {trailing}
+    </div>
+  );
+}
+
 function Question({ text, yes, no, onYes, onNo, pending, error, shakeProps, testId }: {
   text: string; yes: string; no: string; onYes: () => void; onNo: () => void; pending: boolean;
   error: string | null; shakeProps: { className?: string; onAnimationEnd?: () => void }; testId: string;
@@ -67,6 +90,15 @@ function Question({ text, yes, no, onYes, onNo, pending, error, shakeProps, test
         <PrimaryButton size="sm" onClick={onYes} loading={pending} loadingLabel="Working" testId={`${testId}-yes`}>{yes}</PrimaryButton>
       </div>
     </div>
+  );
+}
+
+/** The fixed note under the team list (shown in the loading frame too: it needs no data). */
+function TeamNote() {
+  return (
+    <p className={`${NOTE} pt-[12px]`} data-testid="team-note">
+      Owners add and remove people. Managers edit every event and send it for review. Only the Bachata Calendar team can change someone&rsquo;s role.
+    </p>
   );
 }
 
@@ -129,8 +161,9 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
 
   return (
     <div className="space-y-[20px]" data-testid="team-body">
-      <AnnounceRegion message={message} />
-      {message && <p className="text-[14px] text-[var(--gold)]" data-testid="team-confirmation">{message}</p>}
+      {/* One element both shows and announces the confirmation (a separate sr-only
+          region repeated the same words, so screen readers heard it twice). */}
+      <p role="status" aria-live="polite" aria-atomic="true" className={message ? 'text-[14px] text-[var(--gold)]' : 'sr-only'} data-testid="team-confirmation">{message}</p>
 
       <Card label="Team" testId="team-list">
         {team.map((m) => {
@@ -140,7 +173,7 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
           return (
             <Collapse key={m.userId} show={!gone.has(`m:${m.userId}`)} onExited={settleMember}>
               <div data-testid="team-member" data-role={m.role} data-self={m.isSelf ? 'true' : 'false'}>
-                <PersonRow
+                <TeamPersonRow
                   name={label}
                   sublabel={[m.isSelf ? 'You' : null, m.displayName ? m.email : null].filter(Boolean).join(' \u00b7 ') || undefined}
                   role={ROLE_LABEL[m.role]}
@@ -177,9 +210,7 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
             </Collapse>
           );
         })}
-        <p className={`${NOTE} pt-[12px]`} data-testid="team-note">
-          Owners add and remove people. Managers edit every event and send it for review. Only the Bachata Calendar team can change someone&rsquo;s role.
-        </p>
+        <TeamNote />
       </Card>
 
       <Card label="Requests to join" testId="requests-card">
@@ -199,7 +230,7 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
             return (
               <Collapse key={r.requestId} show={!gone.has(`r:${r.requestId}`)} onExited={settleRequest}>
                 <div data-testid="access-request">
-                  <PersonRow
+                  <TeamPersonRow
                     name={r.requesterEmail ?? 'Someone'}
                     sublabel={`${asked ? `Asked ${asked}` : 'Asked to join'} \u00b7 wants to be a manager`}
                     testId={`request-${r.requestId}`}
@@ -260,7 +291,11 @@ export default function TeamPage() {
       <div className="space-y-[16px]">
         <OrganiserSwitcher organisers={organisers} selectedId={selected?.id ?? null} onChoose={choose} />
         {home.isPending ? (
-          <SkeletonRows count={3} label="Loading your team" testId="team-loading" />
+          // The page's own frame while the team loads: the Team card (rows to come, its fixed note).
+          <Card label="Team" testId="team-list">
+            <div className="p-[12px]"><SkeletonRows count={2} label="Loading your team" testId="team-loading" /></div>
+            <TeamNote />
+          </Card>
         ) : home.isError && !home.data ? (
           <ErrorState title="Your team did not load" onRetry={() => void home.refetch()} retrying={home.isFetching} testId="team-load-error" />
         ) : !selected ? (

@@ -26,6 +26,8 @@ import {
   programmeErrorCopy,
 } from '@/modules/organiser/shared/selfServeErrors';
 import { useOwnerCommand } from '@/modules/organiser/shared/useOwnerCommand';
+import { useVenueOptions } from '@/modules/organiser/shared/publicVenues';
+import { venueOverridePatch } from './venueOverride';
 
 /** The save could not be confirmed (no server answer). */
 export const NETWORK_COPY = OFFLINE_SAVE_MESSAGE;
@@ -53,6 +55,7 @@ export interface SaveOutcome {
 export function useDateEditor(seriesId: string, occurrenceId: string) {
   const queryClient = useQueryClient();
   const command = useOwnerCommand(seriesId);
+  const venues = useVenueOptions();
 
   const programme = useQuery({
     queryKey: occurrenceProgrammeQueryKey(occurrenceId),
@@ -141,10 +144,12 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
     try {
       if (venueChanged) {
         try {
+          // The city follows the venue (G7): sent with it, cleared with it.
+          const patch = await venueOverridePatch(venueDraft ?? null, venues.data);
           await command.mutateAsync({
             targetId: occurrenceId,
             version: d?.version ?? null,
-            command: overrideCommand({ venue_id: venueDraft ?? null }),
+            command: overrideCommand(patch),
           });
           setVenueDraft(undefined);
         } catch (err) {

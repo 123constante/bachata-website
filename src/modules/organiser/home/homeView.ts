@@ -4,6 +4,7 @@ import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { upcomingDates, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 import { toDraft, type Programme } from '@/modules/organiser/shared/programmeModel';
 import { dateTag, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
+import { calendarDate } from '@/modules/organiser/shared/homeModel';
 import type { StatusTone } from '../ui';
 
 export { dateTag };
@@ -149,6 +150,19 @@ export function datesWithoutLineup(dates: NextDate[], programmes: Map<string, Pr
   });
 }
 
+/**
+ * The strip's words. Home reads the programme of only the first
+ * LINEUP_CHECK_LIMIT dates that are not cancelled (`checked`), so the count is
+ * out of those and the words say so; it is never presented as a total. Null
+ * when nothing is missing (no strip).
+ */
+export function noLineupText(missing: number, checked: number): string | null {
+  if (missing <= 0) return null;
+  if (checked <= 1) return 'Your next date has no teacher or DJ yet';
+  if (missing >= checked) return `Your next ${checked} dates have no teacher or DJ yet`;
+  return `${missing} of your next ${checked} dates ${missing === 1 ? 'has' : 'have'} no teacher or DJ yet`;
+}
+
 /** Which dates Home checks for a line-up: the first few that are not cancelled. */
 export const lineupCheckDates = (dates: NextDate[]) => dates.filter((d) => !d.cancelled).slice(0, LINEUP_CHECK_LIMIT);
 
@@ -156,11 +170,5 @@ export const lineupCheckDates = (dates: NextDate[]) => dates.filter((d) => !d.ca
 export const requestReaders = (organisers: readonly HomeOrganiser[]) =>
   organisers.filter((o) => o.role === 'owner' || o.role === 'manager');
 
-const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** "Fri 20 Nov" for a London calendar date (built by hand: Intl adds a comma in some engines). */
-export function shortDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  return `${WEEKDAY[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d} ${MONTH[m - 1]}`;
-}
+/** "Fri 20 Nov" for a London calendar date, "Sat 9 Jan 2027" outside today's year (shared calendarDate). */
+export const shortDate = (iso: string, today: string): string => calendarDate(iso, today);

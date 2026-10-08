@@ -6,7 +6,6 @@ import { ORGANISER_HOME_KEY, myAccessRequestsQueryKey } from '@/modules/organise
 import { isMailboxProvenToken } from '@/modules/organiser/shared/sessionProof';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import {
-  AnnounceRegion,
   AttentionStrip,
   Card,
   DateChip,
@@ -19,12 +18,12 @@ import {
   useAnnounce,
 } from '../ui';
 import { isClosed } from '@/modules/organiser/shared/eventState';
-import { hasAnyEvent, shortDate, type NextDate } from './homeView';
+import { hasAnyEvent, noLineupText, shortDate, type NextDate } from './homeView';
 import { useHomeStrips, useOrganiserHome } from './useHomeData';
 import { OnboardingView } from './onboarding/OnboardingView';
 
 /** One upcoming date: chip, event name, venue, status. Opens the date editor. */
-function DateRow({ d }: { d: NextDate }) {
+function DateRow({ d, today }: { d: NextDate; today: string }) {
   return (
     <Link
       to={ORG_PATHS.date(d.seriesId, d.occurrenceId)}
@@ -32,7 +31,7 @@ function DateRow({ d }: { d: NextDate }) {
       data-occurrence={d.occurrenceId}
       className="flex min-h-[68px] items-center gap-[12px] px-[16px] py-[8px]"
     >
-      <DateChip date={d.date} />
+      <DateChip date={d.date} today={today} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-semibold text-[var(--fg)]">{d.seriesName}</span>
         <span className="block truncate text-[13px] text-[var(--mut)]">{d.venueName ?? 'Venue not set'}</span>
@@ -64,7 +63,8 @@ export default function HomePage() {
   const [message, announce] = useAnnounce();
   const { home, requests } = useOrganiserHome(user?.id);
   const strips = useHomeStrips(home.data);
-  const { organisers, dates, teamRequests, runway, noLineup } = strips;
+  const { organisers, dates, teamRequests, runway, noLineup, lineupChecked } = strips;
+  const lineupText = noLineupText(noLineup.length, lineupChecked);
   const adding = params.get('add') === '1';
 
   const onChanged = (confirmation: string) => {
@@ -87,7 +87,8 @@ export default function HomePage() {
         back={adding ? { to: ORG_PATHS.home, label: 'Home' } : undefined}
         testId="org-page-home"
       >
-        <AnnounceRegion message={message} />
+        {/* No announce region here: OnboardingView shows the confirmation itself in a
+            status element, and a second region read the same words twice. */}
         <OnboardingView
           user={{ id: user.id, email: user.email ?? null }}
           mailboxProven={isMailboxProvenToken(session?.access_token)}
@@ -102,7 +103,17 @@ export default function HomePage() {
 
   return (
     <OrganiserShell title="Home" testId="org-page-home">
-      <AnnounceRegion message={message} />
+      {/* Shows and announces a confirmation that arrives here (a claim or create that
+          moved Home out of onboarding); one element, so it is never said twice. */}
+      <p
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-testid="home-confirmation"
+        className={message ? 'mb-[16px] rounded-[12px] bg-[var(--ok-bg)] px-[16px] py-[12px] text-[14px] text-[var(--ok-fg)]' : 'sr-only'}
+      >
+        {message}
+      </p>
       {loading ? (
         <SkeletonRows count={4} label="Loading your dates" testId="home-loading" />
       ) : failed ? (
@@ -114,7 +125,7 @@ export default function HomePage() {
         />
       ) : (
         <div className="space-y-[16px]">
-          {(teamRequests > 0 || runway || noLineup.length > 0) && (
+          {(teamRequests > 0 || runway || lineupText) && (
             <div className="space-y-[8px]" data-testid="home-strips">
               {teamRequests > 0 && (
                 <AttentionStrip icon={<Users />} onPress={() => navigate(ORG_PATHS.team)} testId="home-strip-team">
@@ -128,17 +139,17 @@ export default function HomePage() {
                   onPress={() => navigate(ORG_PATHS.event(runway.seriesId))}
                   testId="home-strip-runway"
                 >
-                  {runway.seriesName}: dates listed until {shortDate(runway.lastDate)}.
+                  {runway.seriesName}: dates listed until {shortDate(runway.lastDate, home.data?.today ?? '')}.
                   {runway.others > 0 && ` ${runway.others === 1 ? '1 more event' : `${runway.others} more events`} also running short.`}
                 </AttentionStrip>
               )}
-              {noLineup.length > 0 && (
+              {lineupText && (
                 <AttentionStrip
                   icon={<UserRound />}
                   onPress={() => navigate(ORG_PATHS.date(noLineup[0].seriesId, noLineup[0].occurrenceId))}
                   testId="home-strip-lineup"
                 >
-                  {noLineup.length === 1 ? '1 date has no teacher or DJ yet' : `${noLineup.length} dates have no teacher or DJ yet`}
+                  {lineupText}
                 </AttentionStrip>
               )}
             </div>
@@ -164,7 +175,7 @@ export default function HomePage() {
                 <SectionLabel id="home-next-dates">Next dates</SectionLabel>
                 <Card testId="home-dates">
                   {dates.map((d) => (
-                    <DateRow key={d.occurrenceId} d={d} />
+                    <DateRow key={d.occurrenceId} d={d} today={home.data?.today ?? ''} />
                   ))}
                 </Card>
               </section>

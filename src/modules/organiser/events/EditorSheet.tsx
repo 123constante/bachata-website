@@ -3,15 +3,19 @@ import { Check, ImagePlus, MapPin, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FLYER_ACCEPT } from '@/modules/organiser/shared/flyerModel';
 import type { VenueOption } from '@/modules/organiser/shared/publicVenues';
+import { canConfirm, confirmCopy } from '@/modules/organiser/shared/editorGuards';
+import { linkProblem } from '@/modules/organiser/shared/linkRules';
 import { Card, Collapse, ErrorState, FIELD_CLASS, GhostButton, PrimaryButton, SearchField, SheetView, SkeletonRows, SummaryRow } from '../ui';
 import { CAP_NOTE, allowedEndChoices, type CapInput } from './dateCap';
 import { MAX_GALLERY, MAX_VIDEOS, SHAPE_LABEL, shortDate, weekdayName, type EventDraft, type Shape } from './eventModel';
 
-export type SheetName = 'gallery' | 'video' | 'starts' | 'repeats' | 'until' | 'venue' | 'venue-search' | 'description' | 'ticket';
+export type SheetName = 'gallery' | 'video' | 'starts' | 'repeats' | 'one-date' | 'until' | 'venue' | 'venue-search' | 'description' | 'ticket';
 
+/** The description's limit (the server's and draftProblem's). */
+export const MAX_DESCRIPTION = 4000;
 
 const TITLES: Record<SheetName, string> = {
-  gallery: 'Gallery', video: 'Videos', starts: 'Starts on', repeats: 'Repeats', until: 'Listed until',
+  gallery: 'Gallery', video: 'Videos', starts: 'Starts on', repeats: 'Repeats', 'one-date': 'One date', until: 'Listed until',
   venue: 'Venue', 'venue-search': 'Find a venue', description: 'Description', ticket: 'Ticket link',
 };
 
@@ -32,6 +36,10 @@ interface Props {
   uploadError: string | null;
   /** Why 'One date' cannot be chosen (a live or paused repeating event); null when it can. */
   stopReason?: string | null;
+  /** The 'Listed until' sheet's sentence (listingView.sheetNote, the row's own mapping). */
+  capNote?: string;
+  /** Weekly -> One date: how many listed dates would go (oneDateLoss); above 0 asks first. */
+  oneDateLoss?: number;
 }
 
 function Choice({ selected, label, sub, onPress, disabled, testId }: { selected: boolean; label: string; sub?: string; onPress: () => void; disabled?: boolean; testId: string }) {
@@ -58,9 +66,14 @@ function withLeaving(list: string[], leaving: Leaving[]) {
 }
 
 /** The editor's ONE sheet. Each row opens a view of it; nothing nests. */
-export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, venuesError, onRetryVenues, venuesRetrying, onUploadGallery, uploading, uploadError, stopReason = null }: Props) {
+export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, venuesError, onRetryVenues, venuesRetrying, onUploadGallery, uploading, uploadError, stopReason = null, capNote = `${CAP_NOTE}. Extend later to list more.`, oneDateLoss = 0 }: Props) {
   const [query, setQuery] = useState('');
   const [videoInput, setVideoInput] = useState('');
+  const [ack, setAck] = useState(false);
+  // The ticket and video sheets check the link as it is typed with the rule Save uses.
+  const ticketProblem = linkProblem('ticket', draft.ticketUrl);
+  const videoProblem = linkProblem('video', videoInput);
+  const oneDate = confirmCopy('one_date', { subject: draft.startDate ? shortDate(draft.startDate, today) : 'one date', count: oneDateLoss });
   // Removal leaves the draft at once (so Done mid-fade still saves it); the
   // row or tile is drawn on until Collapse has faded it and closed the gap.
   const [leavingVideos, setLeavingVideos] = useState<Leaving[]>([]);
@@ -121,7 +134,7 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
     case 'video': {
       const add = () => {
         const url = videoInput.trim();
-        if (!url || draft.videos.includes(url)) return;
+        if (!url || videoProblem || draft.videos.includes(url)) return;
         setLeavingVideos((l) => l.filter((x) => x.url !== url));
         patch({ videos: [...draft.videos, url] });
         setVideoInput('');
@@ -152,9 +165,11 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
               <input type="url" inputMode="url" placeholder="https://youtube.com/..." aria-label="Video link" value={videoInput}
                 onChange={(e) => setVideoInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
                 data-sheet-autofocus data-testid="org-video-input" className={cn(FIELD_CLASS, 'h-[48px] min-w-0 flex-1')} />
-              <GhostButton block={false} size="sm" className="h-[48px]" onClick={add} testId="org-video-add">Add</GhostButton>
+              <GhostButton block={false} size="sm" className="h-[48px]" onClick={add} disabled={!videoInput.trim() || !!videoProblem}
+                aria-describedby={videoProblem ? 'org-video-problem' : undefined} testId="org-video-add">Add</GhostButton>
             </div>
           )}
+          {videoProblem && <p id="org-video-problem" role="alert" className="text-[14px] text-[var(--danger)]" data-testid="org-video-problem">{videoProblem}</p>}
         </div>
       );
       break;
@@ -178,16 +193,36 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
                 label={shape === 'weekly' && draft.startDate ? `Every ${weekdayName(draft.startDate)}` : SHAPE_LABEL[shape]}
                 sub={shape === 'single' ? (stopReason && draft.shape !== 'single' ? stopReason : 'One night only') : 'Same day every week'}
                 disabled={shape === 'single' && !!stopReason && draft.shape !== 'single'}
-                onPress={() => patch(shape === 'weekly' ? { shape, until: draft.until ?? choices.find((c) => c.count >= 8)?.until ?? choices[choices.length - 1]?.until ?? null } : { shape })} />
+                onPress={() => {
+                  if (shape === 'weekly') patch({ shape, until: draft.until ?? choices.find((c) => c.count >= 8)?.until ?? choices[choices.length - 1]?.until ?? null });
+                  // Dates would go: say how many and ask before choosing it.
+                  else if (draft.shape === 'weekly' && oneDateLoss > 0) { setAck(false); onSheet('one-date'); }
+                  else patch({ shape });
+                }} />
             ))}
           </Card>
+        </div>
+      );
+      break;
+    case 'one-date':
+      body = (
+        <div className="space-y-[12px]" data-testid="org-sheet-one-date">
+          <p className="text-[15px] font-semibold text-[var(--fg)]">{oneDate.title}</p>
+          <p className="text-[15px] text-[var(--fg)]" data-testid="org-one-date-consequence">{oneDate.consequence} {oneDate.undo}</p>
+          {oneDate.requireAck && (
+            <label className="flex min-h-[44px] items-start gap-[12px] text-[15px] text-[var(--fg)]">
+              <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="mt-[4px] h-[20px] w-[20px] accent-[var(--gold)]" data-testid="org-one-date-ack" />
+              {oneDate.ackLabel}
+            </label>
+          )}
+          <GhostButton onClick={() => onSheet('repeats')} testId="org-one-date-keep">{oneDate.keepLabel}</GhostButton>
         </div>
       );
       break;
     case 'until':
       body = (
         <div className="space-y-[8px]" data-testid="org-sheet-until">
-          <p className="text-[14px] text-[var(--mut)]" data-testid="org-cap-note">{CAP_NOTE}. Extend later to list more.</p>
+          <p className="text-[14px] text-[var(--mut)]" data-testid="org-cap-note">{capNote}</p>
           <div role="radiogroup" aria-label="Listed until">
             <Card>
               {choices.map((c) => (
@@ -196,7 +231,7 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
               ))}
             </Card>
           </div>
-          {choices.length === 0 && <p className="text-[14px] text-[var(--fg)]">There are already 30 upcoming dates.</p>}
+          {choices.length === 0 && <p className="text-[14px] text-[var(--fg)]">No end fits: 30 or more upcoming dates are already listed.</p>}
         </div>
       );
       break;
@@ -233,17 +268,27 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
       break;
     case 'description':
       body = (
-        <textarea value={draft.description} onChange={(e) => patch({ description: e.target.value })} rows={4} maxLength={4000}
-          aria-label="Description" placeholder="What dancers can expect" data-sheet-autofocus data-testid="org-description-input"
-          className={cn(FIELD_CLASS, 'py-[12px]')} />
+        <div className="space-y-[8px]">
+          <textarea value={draft.description} onChange={(e) => patch({ description: e.target.value })} rows={4} maxLength={MAX_DESCRIPTION}
+            aria-label="Description" aria-describedby="org-description-count" placeholder="What dancers can expect" data-sheet-autofocus data-testid="org-description-input"
+            className={cn(FIELD_CLASS, 'py-[12px]')} />
+          <p id="org-description-count" className="text-right text-[13px] text-[var(--mut)]" data-testid="org-description-count">
+            {draft.description.length >= MAX_DESCRIPTION
+              ? `That is the limit: ${MAX_DESCRIPTION.toLocaleString('en-GB')} characters.`
+              : `${draft.description.length.toLocaleString('en-GB')} of ${MAX_DESCRIPTION.toLocaleString('en-GB')} characters`}
+          </p>
+        </div>
       );
       break;
     case 'ticket':
       body = (
         <div className="space-y-[8px]">
           <input type="url" inputMode="url" placeholder="https://" aria-label="Ticket link" value={draft.ticketUrl} data-sheet-autofocus data-testid="org-ticket-input"
+            aria-invalid={!!ticketProblem} aria-describedby={ticketProblem ? 'org-ticket-problem' : undefined}
             onChange={(e) => patch({ ticketUrl: e.target.value })} className={cn(FIELD_CLASS, 'h-[48px]')} />
-          <p className="text-[13px] text-[var(--mut)]">Where dancers book or buy tickets.</p>
+          {ticketProblem
+            ? <p id="org-ticket-problem" role="alert" className="text-[14px] text-[var(--danger)]" data-testid="org-ticket-problem">{ticketProblem}</p>
+            : <p className="text-[13px] text-[var(--mut)]">Where dancers book or buy tickets.</p>}
         </div>
       );
       break;
@@ -257,9 +302,27 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
       onOpenChange={(open) => { if (!open) onSheet(null); }}
       title={sheet ? TITLES[sheet] : ''}
       viewKey={sheet ?? undefined}
-      onBack={sheet === 'venue-search' ? () => onSheet('venue') : undefined}
+      onBack={sheet === 'venue-search' ? () => onSheet('venue') : sheet === 'one-date' ? () => onSheet('repeats') : undefined}
       fullHeight={sheet === 'venue-search' || sheet === 'gallery'}
-      footer={<PrimaryButton onClick={() => onSheet(null)} testId="org-sheet-done">Done</PrimaryButton>}
+      footer={sheet === 'one-date' ? (
+        <PrimaryButton onClick={() => { patch({ shape: 'single' }); onSheet(null); }} disabled={!canConfirm(oneDate, ack, false)} testId="org-one-date-confirm">
+          {oneDate.confirmLabel}
+        </PrimaryButton>
+      ) : (
+        <PrimaryButton
+          onClick={() => {
+            // A valid link typed but not added yet is added, not lost.
+            if (sheet === 'video' && videoInput.trim() && !draft.videos.includes(videoInput.trim())) patch({ videos: [...draft.videos, videoInput.trim()] });
+            setVideoInput('');
+            onSheet(null);
+          }}
+          disabled={(sheet === 'ticket' && !!ticketProblem) || (sheet === 'video' && !!videoProblem)}
+          aria-describedby={sheet === 'ticket' && ticketProblem ? 'org-ticket-problem' : sheet === 'video' && videoProblem ? 'org-video-problem' : undefined}
+          testId="org-sheet-done"
+        >
+          Done
+        </PrimaryButton>
+      )}
       testId="org-editor-sheet"
     >
       {body ?? <span />}

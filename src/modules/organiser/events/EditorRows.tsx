@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarDays, ChevronDown, ChevronRight } from 'lucide-react';
-import { lineupSummary, toDraft, TYPE_LABEL } from '@/modules/organiser/shared/programmeModel';
+import { lineupSummary, toDraft } from '@/modules/organiser/shared/programmeModel';
+import { sessionHeading, sessionSummary } from '@/modules/organiser/shared/sessionSummary';
 import { upcomingDates, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 import { ORG_PATHS } from '../shell';
 import { Card, Collapse, DateChip, GhostButton, SkeletonRows, SummaryRow } from '../ui';
@@ -42,16 +43,23 @@ export function ScheduleCard({ seriesId, next, today, upcoming = 0, pastCount = 
       {programme.data && sessions.length === 0 && (
         <SummaryRow label="No sessions yet" sublabel="Add classes, a party or a show on this date" onPress={open} testId="org-schedule-empty" />
       )}
-      {sessions.map((s) => (
-        <SummaryRow
-          key={s.key}
-          testId="org-schedule-session"
-          label={[TYPE_LABEL[s.type ?? ''] ?? 'Session', s.title].filter(Boolean).join(': ')}
-          sublabel={lineupSummary(s.people, 6) ?? 'No one added yet'}
-          value={s.start ? (s.end ? `${s.start}\u2013${s.end}` : s.start) : undefined}
-          onPress={open}
-        />
-      ))}
+      {sessions.map((s) => {
+        // The same summary (times, then levels by the Levels rule) the date page shows.
+        const summary = sessionSummary(s);
+        return (
+          <SummaryRow
+            key={s.key}
+            testId="org-schedule-session"
+            label={<span data-testid="org-schedule-session-label">{sessionHeading(s)}</span>}
+            sublabel={<>
+              {summary && <span data-testid="org-schedule-session-summary">{summary}</span>}
+              {summary && ' \u00b7 '}
+              {lineupSummary(s.people, 6) ?? 'No one added yet'}
+            </>}
+            onPress={open}
+          />
+        );
+      })}
     </Card>
   );
 }
@@ -72,7 +80,7 @@ export function DatesList({ seriesId, dates, today, emptyHint, truncated = false
     <button key={d.id} type="button" data-testid="org-date-row" data-date={d.occurrence_date}
       onClick={() => navigate(ORG_PATHS.date(seriesId, d.id))}
       className="flex min-h-[60px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left">
-      <DateChip date={d.occurrence_date} />
+      <DateChip date={d.occurrence_date} today={today} />
       <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{shortDate(d.occurrence_date, today)}</span>
       {d.lifecycle_status === 'cancelled' && <span className="text-[13px] text-[var(--danger)]">Cancelled</span>}
       <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />

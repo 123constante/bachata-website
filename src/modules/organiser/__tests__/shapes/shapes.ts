@@ -35,10 +35,14 @@ export interface SeriesShape {
   videos: string[];
   /** The next upcoming date has sessions (and people on them). */
   sessionsOnNext: boolean;
+  /** event_series_p5.category ('party' unless the shape says otherwise). */
+  category?: string;
+  /** Tombstoned dates (breaks, removed dates). */
+  removedDates?: string[];
 }
 
 /** `count` dates `step` days apart from `first`; ids carry the shape key. */
-function run(key: string, first: string, count: number, step = 7, cancelled: (i: number) => boolean = () => false): ShapeDate[] {
+export function run(key: string, first: string, count: number, step = 7, cancelled: (i: number) => boolean = () => false): ShapeDate[] {
   return Array.from({ length: count }, (_, i) => {
     const date = addDaysToKey(first, i * step);
     return { id: `${key}-${date}`, date, status: cancelled(i) ? 'cancelled' : 'scheduled' };
@@ -48,11 +52,11 @@ function run(key: string, first: string, count: number, step = 7, cancelled: (i:
 const pastRun = (key: string, last: string, count: number, cancelled?: (i: number) => boolean) =>
   run(key, addDaysToKey(last, -7 * (count - 1)), count, 7, cancelled);
 
-const weekly = (weekday: number, end: Record<string, unknown> = { kind: 'none' }, interval: number | null = 1) =>
+export const weekly = (weekday: number, end: Record<string, unknown> = { kind: 'none' }, interval: number | null = 1) =>
   (interval == null ? { mode: 'weekly', weekdays: [weekday], end } : { mode: 'weekly', interval, weekdays: [weekday], end });
 
 let n = 0;
-function shape(s: Partial<SeriesShape> & Pick<SeriesShape, 'key' | 'about' | 'lifecycle' | 'format' | 'dates'>): SeriesShape {
+export function shape(s: Partial<SeriesShape> & Pick<SeriesShape, 'key' | 'about' | 'lifecycle' | 'format' | 'dates'>): SeriesShape {
   n += 1;
   return {
     id: `series-${s.key}`,
@@ -193,6 +197,21 @@ export const SHAPES: SeriesShape[] = [
     key: 'archived-norule-past', about: 'archived / recurring / no rule / 0 upcoming / 9 past',
     lifecycle: 'archived', format: 'recurring', dates: pastRun('archived-norule-past', LAST_SAT, 9),
   }),
+  // Organiser-made shapes (prod 2026-10-08: a draft class, recurring, NO rule, 1 upcoming
+  // date -- what 'One date' leaves; and the create whose weekly rule failed: 0 dates).
+  shape({
+    key: 'draft-norule-one', about: 'draft / recurring / NO rule / 1 upcoming (weekly -> One date, or a party/workshop as created)',
+    lifecycle: 'draft', format: 'recurring', category: 'class', dates: run('draft-norule-one', '2026-10-17', 1),
+  }),
+  shape({
+    key: 'draft-norule-empty', about: 'draft / recurring / NO rule / 0 dates (the create\'s weekly rule failed)',
+    lifecycle: 'draft', format: 'recurring', category: 'class', dates: [], startDate: '2026-10-15', sessionsOnNext: false,
+  }),
+  shape({
+    key: 'draft-weekly-first-off', about: 'draft / recurring / weekly / first date taken off (start date tombstoned) / 7 upcoming',
+    lifecycle: 'draft', format: 'recurring', category: 'class', rule: weekly(6, { kind: 'until_date', date: addDaysToKey(NEXT_SAT, 49) }),
+    startDate: NEXT_SAT, removedDates: [NEXT_SAT], dates: run('draft-weekly-first-off', addDaysToKey(NEXT_SAT, 7), 7),
+  }),
 ];
 
 export const shapeByKey = (key: string) => {
@@ -211,12 +230,12 @@ export function workspaceOf(s: SeriesShape) {
   return {
     series: {
       series: {
-        id: s.id, name: s.name, slug: s.key, format: s.format, category: 'party', type: 'party',
+        id: s.id, name: s.name, slug: s.key, format: s.format, category: s.category ?? 'party', type: s.category ?? 'party',
         lifecycle_status: s.lifecycle, version: 5, default_venue_id: s.venueId, default_city_id: 'c1',
         default_local_start_time: '20:00:00', default_duration: '04:00:00', default_level: null,
         default_ticket_url: null, default_description: s.description, default_cover_image_url: s.cover,
         default_start_date: s.startDate, instagram_url: null, passes: null, created_at: '2026-01-01T00:00:00Z',
-        recurrence_rule: s.rule, removed_dates: [], default_music_styles: s.styles, gallery: s.gallery,
+        recurrence_rule: s.rule, removed_dates: s.removedDates ?? [], default_music_styles: s.styles, gallery: s.gallery,
         video_urls: s.videos, ended_on: s.endedOn, is_template: false,
       },
       program: [],

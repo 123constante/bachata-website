@@ -1,10 +1,18 @@
-// The 30-upcoming-dates cap for a weekly event (ARC.md DOMAIN). The server does
-// NOT cap series.set_recurrence or unskip, so the UI enforces it here: it offers
-// only end choices that keep the series within MAX_UPCOMING upcoming dates, and
-// Extend adds the next batch within the same limit. Pure: London calendar keys
-// (YYYY-MM-DD) only, never the browser's clock.
+// The 30-upcoming-dates cap for a weekly event (ARC.md DOMAIN). THE SERVER'S RULE
+// (prod, read 2026-10-08): an organiser (any non-admin) cannot create a new
+// upcoming date while the series holds 30 or more upcoming SCHEDULED dates
+// (cancelled and past dates do not count). series.add_date refuses
+// ('date_cap'); a weekly rule (series.set_recurrence, the nightly top-up) is
+// accepted but materialises only up to 30 (_materialise_series_occurrences_p5_v1
+// holds the rest back). Nothing is deleted: a series already above 30 keeps
+// every date. A rule end is at most 12 months ahead (_owner_weekly_rule_problem_p5).
+// The UI mirrors that here: end choices stay within MAX_UPCOMING, Extend adds the
+// next batch only while the server would add it, and listingView is the ONE
+// mapping for the 'Listed until' row's date, Extend and sentence. Pure: London
+// calendar keys (YYYY-MM-DD) only, never the browser's clock.
 
 import { addDaysToKey, weekdayOfKey } from '@/lib/londonDate';
+import { calendarDate } from '@/modules/organiser/shared/homeModel';
 
 export const MAX_UPCOMING = 30;
 /** Extend adds up to this many weeks at a time (Home nudges under ~8 weeks of runway). */
@@ -97,19 +105,70 @@ export interface ExtendStep {
   until: string;
 }
 
+/** What the server holds now: the dates it counts toward the cap, and the last upcoming one. */
+export interface Stored {
+  /** Upcoming scheduled (not cancelled) dates: the server's cap count. */
+  listed: number;
+  /** The last upcoming date stored, any status; null when none. */
+  last: string | null;
+}
+
 /**
  * What Extend does now: the next batch (EXTEND_BATCH weeks) after the current
  * end, trimmed so the series stays within the cap and the 12-month bound.
- * Null when nothing more fits (already 30 upcoming, or at the bound).
+ * Null when nothing more fits (already 30 upcoming, or at the bound). With
+ * `stored`, room is the server's own count (cancelled dates free a place) plus
+ * the weeks an unsaved end already adds after the last stored date.
  */
-export function extendStep(input: CapInput, currentUntil: string | null): ExtendStep | null {
+export function extendStep(input: CapInput, currentUntil: string | null, stored?: Stored): ExtendStep | null {
   const weekday = weekdayOfKey(input.startDate);
   const first = firstUpcoming(input);
   // The last weekly date already in the run (or the day before the run starts).
   const inRun = currentUntil && currentUntil >= first ? weeklyDates(first, currentUntil, weekday) : [];
   const last = inRun.length ? inRun[inRun.length - 1] : addDaysToKey(first, -7);
-  let add = Math.min(EXTEND_BATCH, roomFor(input) - inRun.length);
+  const room = stored
+    ? MAX_UPCOMING - stored.listed - inRun.filter((d) => !stored.last || d > stored.last).length
+    : roomFor(input) - inRun.length;
+  let add = Math.min(EXTEND_BATCH, room);
   const limit = maxRuleEnd(input.today);
   while (add > 0 && addDaysToKey(last, 7 * add) > limit) add -= 1;
   return add > 0 ? { add, until: addDaysToKey(last, 7 * add) } : null;
+}
+
+export interface Listing {
+  /** 'Listed until Wed 6 Oct 2027' (year when not this year), or 'No upcoming dates'. */
+  untilText: string;
+  /** What Extend adds; null when it cannot add anything. */
+  step: ExtendStep | null;
+  /** The sentence under the row: the true count and, when Extend is off, why. */
+  note: string;
+  /** The sentence on the 'Listed until' sheet. */
+  sheetNote: string;
+}
+
+/**
+ * THE mapping for the 'Listed until' row (one place, so the date, the Extend
+ * state and the sentence can never disagree). `until` is the run's end as the
+ * screen holds it (an unsaved end included); `stored` is what the server holds.
+ */
+export function listingView(input: CapInput, until: string | null, stored: Stored): Listing {
+  const { today } = input;
+  const untilText = until && until >= today ? `Listed until ${calendarDate(until, today)}` : 'No upcoming dates';
+  const step = extendStep(input, until, stored);
+  const over = stored.listed >= MAX_UPCOMING;
+  let note: string = CAP_NOTE;
+  if (over) {
+    note = stored.listed > MAX_UPCOMING
+      ? `${stored.listed} upcoming dates are listed, more than the ${MAX_UPCOMING} you can list. Extend is off until fewer than ${MAX_UPCOMING} are left.`
+      : `${stored.listed} upcoming dates are listed, the most you can list. Extend is off until fewer than ${MAX_UPCOMING} are left.`;
+  } else if (!step) {
+    // Not over the cap, so either the 12-month bound stops it, or an unsaved end already reaches 30.
+    note = until && addDaysToKey(until, 7) > maxRuleEnd(today)
+      ? 'Listed 12 months ahead, the most. Extend is off.'
+      : `Once saved, ${MAX_UPCOMING} upcoming dates are listed, the most. Extend is off.`;
+  }
+  const sheetNote = over
+    ? `${CAP_NOTE}. ${stored.listed} are listed now, so no new dates can be added until fewer than ${MAX_UPCOMING} are left.`
+    : step ? `${CAP_NOTE}. Extend later to list more.` : `${CAP_NOTE}.`;
+  return { untilText, step, note, sheetNote };
 }

@@ -1,5 +1,6 @@
 // Pure, client-free helpers for the onboarding screens (W1).
 import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
+import { londonYear } from '@/modules/organiser/shared/teamModel';
 
 /**
  * Light client-side checks; the server (invalid_instagram / invalid_website)
@@ -48,6 +49,9 @@ export const EMAIL_CODE_MAX_LENGTH = 10;
 /** Seconds before another code can be sent; the mail provider rate-limits sends. */
 export const RESEND_COOLDOWN_SECONDS = 30;
 
-/** "6 Oct" from an ISO timestamp, London time. */
-export const askedOn = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' });
+/** "6 Oct" from an ISO timestamp, London time; "6 Oct 2025" when not this year. */
+export const askedOn = (iso: string, now: Date = new Date()) => {
+  const d = new Date(iso);
+  const year = londonYear(d) === londonYear(now) ? '' : ` ${londonYear(d)}`;
+  return `${d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' })}${year}`;
+};

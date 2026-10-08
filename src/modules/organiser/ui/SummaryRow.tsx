@@ -35,7 +35,8 @@ export function SummaryRow({
   className,
   ...aria
 }: SummaryRowProps) {
-  const trail = affordance ?? (onPress ? 'chevron' : 'none');
+  // A disabled row opens nothing, so it draws no chevron or pencil promising it does.
+  const trail = disabled ? 'none' : affordance ?? (onPress ? 'chevron' : 'none');
   const body = (
     <>
       {icon && (

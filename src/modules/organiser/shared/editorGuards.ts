@@ -5,6 +5,12 @@
 
 import { eventHref } from '@/lib/seo/eventHref';
 
+/** The event page's section listing future dates taken off, each with Put back. Every pointer to it uses this name. */
+export const TAKEN_OFF_LABEL = 'Dates taken off';
+
+/** Where a date taken off (a break, a removed date) can be put back. */
+export const PUT_BACK_WHERE = `You can put it back later from "${TAKEN_OFF_LABEL}" on the event page.`;
+
 /** Shown by the browser prompt when an organiser leaves with edits not saved. */
 export const UNSAVED_MESSAGE = 'You have changes that are not saved. If you leave now, you will lose them.';
 
@@ -20,7 +26,28 @@ export const leaveGuardEnabled = (state: { dirty: boolean; saving?: boolean; fin
 export const publicEventPath = (series: { slug: string | null; id: string }) =>
   eventHref({ slug: series.slug, event_id: series.id });
 
-export type ConfirmKind = 'cancel_date' | 'remove_date' | 'pause_series' | 'archive_series';
+/**
+ * The sticky save bar, the same on every organiser editor (event, date, profile):
+ * a closed (ended or archived) record shows no bar at all (its lock note says why,
+ * and a disabled 'Saved' button next to 'Read only' only read as a broken control);
+ * otherwise the button says what pressing it does ('Save changes') while there is
+ * something to save, and 'Saved' once there is not.
+ */
+export interface SaveBarState { show: boolean; label: string; summary: string; compact: boolean; disabled: boolean }
+
+export function saveBarState({ dirty, saving = false, locked = false, saveLabel = 'Save changes' }: {
+  dirty: boolean; saving?: boolean; locked?: boolean; saveLabel?: string;
+}): SaveBarState {
+  return {
+    show: !locked,
+    label: dirty || saving ? saveLabel : 'Saved',
+    summary: 'All changes saved',
+    compact: !dirty && !saving,
+    disabled: !dirty,
+  };
+}
+
+export type ConfirmKind = 'cancel_date' | 'remove_date' | 'pause_series' | 'archive_series' | 'one_date';
 
 export interface ConfirmCopy {
   title: string;
@@ -42,6 +69,8 @@ interface ConfirmContext {
   reason?: string | null;
   /** The date is already cancelled (removing it then only tidies the list). */
   alreadyCancelled?: boolean;
+  /** one_date: how many listed dates go when the event becomes one date. */
+  count?: number;
 }
 
 export function confirmCopy(kind: ConfirmKind, ctx: ConfirmContext): ConfirmCopy {
@@ -63,7 +92,7 @@ export function confirmCopy(kind: ConfirmKind, ctx: ConfirmContext): ConfirmCopy
         consequence: ctx.alreadyCancelled
           ? 'The cancelled date goes off the list, so dancers stop seeing it.'
           : 'The date disappears from the list and from Bachata Calendar. Dancers will not see it.',
-        undo: 'You can put it back from "Dates taken off".',
+        undo: PUT_BACK_WHERE,
         confirmLabel: 'Yes, remove this date',
         keepLabel: 'No, keep it',
         requireAck: true,
@@ -89,6 +118,21 @@ export function confirmCopy(kind: ConfirmKind, ctx: ConfirmContext): ConfirmCopy
         requireAck: true,
         ackLabel: 'I understand it will disappear for dancers.',
       };
+    case 'one_date': {
+      const n = ctx.count ?? 0;
+      const dates = n === 1 ? '1 other date' : `${n} other dates`;
+      return {
+        title: `Keep only ${s}?`,
+        consequence: n > 0
+          ? `Your event becomes one date, ${s}. The ${dates} listed now go off Bachata Calendar when you save, with their sessions.`
+          : `Your event becomes one date, ${s}.`,
+        undo: 'You can make it weekly again from Repeats.',
+        confirmLabel: n > 0 ? `Yes, take off ${dates}` : 'Yes, make it one date',
+        keepLabel: 'No, keep it weekly',
+        requireAck: n > 0,
+        ackLabel: n > 0 ? `I understand ${n === 1 ? 'that date' : 'those dates'} will disappear.` : '',
+      };
+    }
   }
 }
 

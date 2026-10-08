@@ -179,7 +179,8 @@ describe('remove, undo and Collapse', () => {
     expect(rowNamed('Bootcamp').getAttribute('data-removed')).toBeNull();
 
     fireEvent.click(screen.getByTestId('date-add-session'));
-    fireEvent.click(await screen.findByTestId('session-remove'));
+    // A session not saved yet is discarded, never "removed from this date" (11b).
+    fireEvent.click(await screen.findByTestId('session-discard'));
     await waitFor(() => expect(rows()).toHaveLength(3), { timeout: 2000 });
     expect((screen.getByTestId('date-preview-bar-action') as HTMLButtonElement).disabled).toBe(true);
   });

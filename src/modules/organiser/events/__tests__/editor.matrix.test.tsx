@@ -78,6 +78,8 @@ const closed = (s: SeriesShape) => s.lifecycle === 'ended' || s.lifecycle === 'a
 /** The one rule the owner's screen can edit: weekly, every week, one weekday, on a recurring series. */
 const editableWeekly = (s: SeriesShape) => {
   const r = s.rule as { mode?: string; interval?: number; weekdays?: number[] } | null;
+  // G5: recurring with no rule and at most one date is the owner's one-date shape, which can go weekly.
+  if (s.format === 'recurring' && !r && s.dates.length <= 1 && !closed(s)) return true;
   return s.format === 'recurring' && r?.mode === 'weekly' && (r.interval ?? 1) === 1 && (r.weekdays ?? []).length === 1;
 };
 const text = (el: Element) => el.textContent ?? '';
@@ -124,8 +126,10 @@ describe.each(SHAPES.map((s) => [s.key, s] as const))('shape %s', (_key, s) => {
     const ws = parseEventWorkspace(workspaceOf(s));
     const d = draftFromWorkspace(ws, TODAY);
     expect(savePlan(d, d, ws, TODAY)).toEqual([]);
-    expect((screen.getByTestId('org-preview-bar-action') as HTMLButtonElement).disabled).toBe(true);
     if (closed(s)) {
+      // A closed event has no save bar at all (saveBarState): nothing reads as a dead 'Saved' button.
+      expect(screen.queryByTestId('org-preview-bar-action')).toBeNull();
+      expect(screen.queryByText('Read only')).toBeNull();
       expect(isOff(screen.getByTestId('org-event-name'))).toBe(true);
       for (const id of ['org-row-starts', 'org-row-repeats', 'org-row-venue', 'org-row-description', 'org-row-ticket', 'org-row-gallery', 'org-row-video']) {
         const el = screen.getByTestId(id);
@@ -133,12 +137,12 @@ describe.each(SHAPES.map((s) => [s.key, s] as const))('shape %s', (_key, s) => {
       }
       screen.queryAllByTestId('org-style-chip').forEach((c) => expect(isOff(c)).toBe(true));
       expect(text(editor)).toMatch(/Bachata Calendar team/);
-      // The exact envelopes an untouched save of a closed event sends: none.
-      fireEvent.click(screen.getByTestId('org-preview-bar-action'));
-      await new Promise((r) => setTimeout(r, 20));
+      // Disabled rows promise nothing: no chevron on a row that cannot open.
+      expect(editor.querySelectorAll('button:disabled svg.lucide-chevron-right').length).toBe(0);
       expect(commands()).toEqual([]);
       return;
     }
+    expect((screen.getByTestId('org-preview-bar-action') as HTMLButtonElement).disabled).toBe(true);
     if (!editableWeekly(s)) {
       // Repeats cannot be switched to a weekly rule here (not recurring, or a rule this screen does not draw).
       const repeats = screen.getByTestId('org-row-repeats');

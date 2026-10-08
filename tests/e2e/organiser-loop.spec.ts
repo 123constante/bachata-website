@@ -39,6 +39,7 @@ test('create an organiser, send it for review, get approved, create an event, st
   await page.getByTestId('org-tab-home').click();
   await page.getByTestId('home-new-event').click();
   await page.getByTestId('org-new-event-name').fill('Nova Thursdays');
+  await page.getByTestId('org-new-event-type-class').click();
   await page.getByTestId('org-new-event-create').click();
   await expect(page.getByTestId('org-event-editor')).toBeVisible();
   await expect(page.getByTestId('org-date-row')).toHaveCount(8);

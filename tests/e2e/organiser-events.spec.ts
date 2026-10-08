@@ -22,6 +22,12 @@ test('New event: name only creates the draft and its first 8 weekly dates, then 
   expect(fake.envelopes()).toHaveLength(0);
 
   await page.getByTestId('org-new-event-name').fill('Thursday Bachata Class');
+  // No type chosen yet (G2): refused on the screen, nothing is sent.
+  await page.getByTestId('org-new-event-create').click();
+  await expect(page.getByTestId('org-new-event-error')).toHaveText('Choose what it is: a class, a party, or a course or workshop.');
+  expect(fake.envelopes()).toHaveLength(0);
+
+  await page.getByTestId('org-new-event-type-class').click();
   await page.getByTestId('org-new-event-create').click();
   await expect(page).toHaveURL(/\/account\/o\/events\/[0-9a-f-]{36}$/);
   const id = page.url().split('/').pop()!;
@@ -30,7 +36,7 @@ test('New event: name only creates the draft and its first 8 weekly dates, then 
   const [create, rule] = fake.envelopes();
   expect(create.target_id).toBe(id);
   expect(create.command.kind).toBe('series.upsert');
-  expect(create.command.payload).toMatchObject({ name: 'Thursday Bachata Class', format: 'recurring', default_start_date: '2026-10-15', timezone: 'Europe/London' });
+  expect(create.command.payload).toMatchObject({ name: 'Thursday Bachata Class', format: 'recurring', category: 'class', default_duration_minutes: 120, default_start_date: '2026-10-15', timezone: 'Europe/London' });
   expect(create.command.payload.organiser_ids).toEqual([ORG]);
   expect(rule.command).toEqual({ kind: 'series.set_recurrence', payload: { mode: 'weekly', weekdays: [4], end: { kind: 'until_date', date: '2026-12-03' } } });
   expect(rule.expected_version).toBe(1);
@@ -39,6 +45,27 @@ test('New event: name only creates the draft and its first 8 weekly dates, then 
   await expect(page.getByTestId('org-event-name')).toHaveValue('Thursday Bachata Class');
   await expect(page.getByTestId('org-date-row')).toHaveCount(8);
   await expect(page.getByTestId('org-row-until')).toContainText('Listed until Thu 3 Dec');
+});
+
+test('New event: a party is created with ONE date (no weekly rule), then the editor opens', async ({ page }) => {
+  const fake = await openOrganiser(page, '/account/o/events/new');
+  await page.getByTestId('org-new-event-name').fill('Saturday Social');
+  await page.getByTestId('org-new-event-type-party').click();
+  await page.getByTestId('org-new-event-create').click();
+  await expect(page).toHaveURL(/\/account\/o\/events\/[0-9a-f-]{36}$/);
+  const id = page.url().split('/').pop()!;
+
+  const sent = fake.envelopes();
+  expect(sent).toHaveLength(2);
+  const [create, date] = sent;
+  expect(create.target_id).toBe(id);
+  expect(create.command.payload).toMatchObject({ name: 'Saturday Social', format: 'recurring', category: 'party', default_duration_minutes: 300, default_start_date: '2026-10-15' });
+  expect(date.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
+  expect(date.expected_version).toBe(1);
+
+  await expect(page.getByTestId('org-event-editor')).toBeVisible();
+  await expect(page.getByTestId('org-event-name')).toHaveValue('Saturday Social');
+  await expect(page.getByTestId('org-date-row')).toHaveCount(1);
 });
 
 test('editor: summary rows edit the draft, the preview follows, ONE save sends only what changed', async ({ page }) => {
@@ -128,6 +155,28 @@ test('30-date cap: Extend is off when 30 upcoming dates are listed', async ({ pa
   });
   await expect(page.getByTestId('org-date-row')).toHaveCount(30);
   await expect(page.getByTestId('org-extend')).toBeDisabled();
+});
+
+// The owner's 2026-10-08 report, its exact shape: weekly Wednesdays from Wed 30 Dec, 41 dates
+// listed (over the cap; the server keeps them all but adds no more). The date names its year,
+// Extend is off and the reason on screen states the true count and the server's rule.
+test('30-date cap: a series over 30 says so plainly, its end date has the year, Extend is off with the reason', async ({ page }) => {
+  await openOrganiser(page, `/account/o/events/${FRIDAY}`, {}, (f) => {
+    const s = f.series.get(FRIDAY)!;
+    s.default_start_date = '2026-12-30';
+    s.recurrence_rule = { mode: 'weekly', weekdays: [3], end: { kind: 'until_date', date: '2027-10-06' } };
+  });
+  await expect(page.getByTestId('org-date-row')).toHaveCount(41);
+  const until = page.getByTestId('org-row-until');
+  await expect(until).toContainText('Listed until Wed 6 Oct 2027');
+  await expect(page.getByTestId('org-extend')).toBeDisabled();
+  await expect(page.getByTestId('org-extend-note')).toHaveText('41 upcoming dates are listed, more than the 30 you can list. Extend is off until fewer than 30 are left.');
+  await expect(until).not.toContainText('the most is');
+  await until.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: test.info().outputPath('over-cap-390.png'), fullPage: false });
+  await page.getByTestId('org-row-until-open').click();
+  await expect(page.getByTestId('org-cap-note')).not.toContainText('Extend later');
+  await expect(page.getByTestId('org-cap-note')).toContainText('41 are listed now');
 });
 
 test('the schedule card shows the next date’s sessions with their people and opens that date', async ({ page }) => {
