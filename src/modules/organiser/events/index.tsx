@@ -1,14 +1,15 @@
 import { OrganiserShell } from '../shell';
 import { EmptyState } from '../ui';
-import { EventListPlaceholder } from './EventListPlaceholder';
+import { EventList, NewEventLink } from './EventList';
 
-/** PLACEHOLDER (W0). Owner: W2. /account/o/events */
+/** /account/o/events -- the organiser's events (W2). */
 export default function EventsPage() {
   return (
     <OrganiserShell
       title="Events"
       testId="org-page-events"
-      list={<EventListPlaceholder />}
+      topBarEnd={<NewEventLink />}
+      list={<EventList primaryNew />}
       detailPlaceholder={<EmptyState title="Pick an event" body="Choose an event on the left to edit it." />}
     />
   );
