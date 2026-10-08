@@ -67,8 +67,14 @@ The approved mockup is v12 (https://claude.ai/artifact/S5F8epkUaiV9AbT5spHskK; s
   intermediate, advanced, open_level), people. People belong to SESSIONS and show on the
   session row ('Ana Ruiz, Cleo Park'). PEOPLE BY TYPE: class and masterclass = TEACHERS
   only; party = DJs only; performance = NO add control (performers/MC are read-only 'added
-  by the team'). The organiser picker only ever offers teachers and DJs. A date's time
-  FOLLOWS its sessions (first start to last end).
+  by the team'). The organiser picker only ever offers teachers and DJs. LEVELS BY TYPE
+  (owner, 2026-10-08): levels are offered ONLY for class and masterclass, labelled 'Levels
+  (optional)'; party and performance (and any older type) never show levels anywhere (sheet,
+  session row) and always save `level_keys: []`. Switching a new session to party/performance
+  CLEARS the levels picked; a stored party/performance that still carries levels shows none and
+  drops them (per date) the next time that session is saved. One mapping: `levelsApplyTo` /
+  `LEVEL_TYPES` in `shared/programmeModel.ts`. A date's time FOLLOWS its sessions (first start
+  to last end).
 - Per-date edits are only: venue, sessions on this date, add a session / remove a session
   from this date, break week (skip), cancel with a public reason.
 - Home: 'Next dates' list, big New event button, no stats, and strips only when needed:

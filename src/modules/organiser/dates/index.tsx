@@ -27,7 +27,7 @@ import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVen
 import { londonTodayKey } from '@/lib/londonDate';
 import { DateSheet, type SheetState } from './DateSheet';
 import { DatePreview } from './DatePreview';
-import { byTime, dateSpan, levelsLabel, peopleLabel, sessionName, spanLabel, timesLabel, typeLabel, typeTone } from './dateModel';
+import { byTime, dateSpan, peopleLabel, sessionLevelsLabel, sessionName, spanLabel, timesLabel, typeLabel, typeTone } from './dateModel';
 import { useDateEditor } from './useDateEditor';
 
 const cancellationReasonsQueryKey = ['cancellation-reasons'] as const;
@@ -292,7 +292,7 @@ export default function DatePage() {
 
 function SessionRow({ row, problem, onOpen, onUndo }: { row: DraftSession; problem: boolean; onOpen?: () => void; onUndo?: () => void }) {
   const people = peopleLabel(row);
-  const meta = [timesLabel(row), row.levels.length ? levelsLabel(row.levels) : null].filter(Boolean).join(' \u00b7 ');
+  const meta = [timesLabel(row), sessionLevelsLabel(row)].filter(Boolean).join(' \u00b7 ');
   const body = (
     <span className={`flex min-w-0 flex-1 flex-col gap-[4px] text-left ${row.removed ? 'opacity-[.72]' : ''}`}>
       <span className="flex min-w-0 items-center gap-[8px]">

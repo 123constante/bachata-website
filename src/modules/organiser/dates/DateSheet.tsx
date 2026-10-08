@@ -24,6 +24,7 @@ import {
   SESSION_TYPES,
   TYPE_LABEL,
   isEditableRole,
+  levelsApplyTo,
   removePerson,
   undoRemovePerson,
   type DraftSession,
@@ -210,19 +211,22 @@ function SessionView({ row, updateRow, removeSession, onState, problems, editabl
         {problem('times') && <p role="alert" className="mt-[4px] text-[13px] text-[var(--danger)]" data-testid="session-times-error">{problem('times')}</p>}
       </div>
 
-      <Field label="Levels" testId="session-levels" error={problem('levels')}>
-        <div className="flex flex-wrap gap-[8px]" role="group" aria-label="Levels">
-          {LEVEL_KEYS.map((l) => {
-            const on = row.levels.includes(l);
-            return (
-              <Chip key={l} selected={on} disabled={!editable} testId={`session-level-${l}`}
-                onToggle={() => set((r) => ({ ...r, levels: on ? r.levels.filter((x) => x !== l) : [...r.levels, l] }))}>
-                {LEVEL_LABEL[l]}
-              </Chip>
-            );
-          })}
-        </div>
-      </Field>
+      {/* Levels are offered only for a class or a masterclass (levelsApplyTo, ARC DOMAIN). */}
+      {levelsApplyTo(row.type) && (
+        <Field label="Levels (optional)" testId="session-levels" error={problem('levels')}>
+          <div className="flex flex-wrap gap-[8px]" role="group" aria-label="Levels">
+            {LEVEL_KEYS.map((l) => {
+              const on = row.levels.includes(l);
+              return (
+                <Chip key={l} selected={on} disabled={!editable} testId={`session-level-${l}`}
+                  onToggle={() => set((r) => ({ ...r, levels: on ? r.levels.filter((x) => x !== l) : [...r.levels, l] }))}>
+                  {LEVEL_LABEL[l]}
+                </Chip>
+              );
+            })}
+          </div>
+        </Field>
+      )}
 
       <section aria-label="People" className="space-y-[8px]" data-testid="session-people">
         <p className="text-[13px] font-semibold text-[var(--mut)]">{role === 'djing' ? 'DJs' : role === 'teaching' ? 'Teachers' : 'People'}</p>

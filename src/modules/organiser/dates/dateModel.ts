@@ -8,7 +8,9 @@ import {
   LEVEL_LABEL,
   TYPE_LABEL,
   addPerson,
+  levelsApplyTo,
   lineupSummary,
+  sessionLevels,
   sessionMinutes,
   undoRemovePerson,
   type DraftSession,
@@ -35,13 +37,15 @@ export const ROLE_NOUN: Record<PeopleRole, string> = { teaching: 'teacher', djin
 /**
  * Change a NEW session's type. People picked on this screen whose role no
  * longer fits the type go (they were never saved); stored people are never
- * touched. A stored session's type is the writer's, so it is left as is.
+ * touched. Levels picked go too when the new type takes none (levelsApplyTo):
+ * cleared, not hidden, so switching back to a class does not bring them back.
+ * A stored session's type is the writer's, so it is left as is.
  */
 export function setSessionType(row: DraftSession, type: string): DraftSession {
   if (row.original) return row;
   const role = addRoleFor(type);
   const people = (row.people ?? []).filter((p) => p.origin !== 'added' || p.role === role);
-  return { ...row, type, people };
+  return { ...row, type, people, levels: levelsApplyTo(type) ? row.levels : [] };
 }
 
 /**
@@ -91,6 +95,12 @@ export const typeLabel = (type: string | null) => (type && TYPE_LABEL[type]) || 
 export const sessionName = (row: DraftSession) => row.title.trim() || typeLabel(row.type);
 
 export const levelsLabel = (levels: string[]) => levels.map((l) => LEVEL_LABEL[l as LevelKey] ?? l).join(', ');
+
+/** The row's levels in words ("Beginner, Improver"), or null: none for a type without levels. */
+export const sessionLevelsLabel = (row: DraftSession) => {
+  const levels = sessionLevels(row);
+  return levels.length ? levelsLabel(levels) : null;
+};
 
 /** "19:00-20:00" or null. */
 export const timesLabel = (row: DraftSession) => (row.start && row.end ? `${row.start}\u2013${row.end}` : row.start || null);

@@ -104,10 +104,11 @@ describe('buildPayload: the round trip', () => {
   });
 
   it('an unchanged field on an edited session sends the STORED value, never re-typed', () => {
-    // The grandfathered session put back with only its levels changed: title and null times stay as stored.
+    // The grandfathered session put back: title and null times stay as stored. It is a
+    // performance, so a level slipped into the draft is never sent (levelsApplyTo).
     const rows = edit(draftOf(), 3, { removed: false, levels: ['open_level'] });
     const p = buildPayload(rows)[3];
-    expect(p).toMatchObject({ series_item_id: S3, removed: false, title: 'x'.repeat(349), start_time: null, end_time: null, ends_next_day: false, level_keys: ['open_level'] });
+    expect(p).toMatchObject({ series_item_id: S3, removed: false, title: 'x'.repeat(349), start_time: null, end_time: null, ends_next_day: false, level_keys: [] });
     expect(validateProgramme(rows).ok).toBe(true);
   });
 });
@@ -148,7 +149,8 @@ describe('remove and add', () => {
     const rows = [...draftOf(), added];
     const payload = buildPayload(rows);
     expect(payload).toHaveLength(5);
-    expect(payload[4]).toEqual({ new: true, type: 'party', title: 'Late Party', start_time: '23:00', end_time: '03:00', ends_next_day: true, level_keys: ['open_level'] });
+    // A party takes no levels (levelsApplyTo): a level slipped into the draft is not sent.
+    expect(payload[4]).toEqual({ new: true, type: 'party', title: 'Late Party', start_time: '23:00', end_time: '03:00', ends_next_day: true, level_keys: [] });
     expect(payload[4]).not.toHaveProperty('removed');
     expect(isDirty(rows, 4)).toBe(true);
   });
