@@ -29,6 +29,9 @@ const rpc = vi.hoisted(() => ({
   advanceMsOnFirstCall: 0,
 }));
 
+// The loader also asks the DB whether the slug is a real city (soft-404 fix).
+vi.mock('@/lib/cityValidity', () => ({ isRealCitySlug: async () => true }));
+
 vi.mock('@/integrations/supabase/eventRpcs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/integrations/supabase/eventRpcs')>();
   const { vi: vitest } = await import('vitest');

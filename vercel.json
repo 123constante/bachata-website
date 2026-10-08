@@ -109,11 +109,6 @@
       "source": "/:slug([a-z-]+-[a-z]{2})/discounts",
       "destination": "/city/:slug/discounts",
       "permanent": true
-    },
-    {
-      "source": "/:slug([a-z-]+-[a-z]{2})",
-      "destination": "/city/:slug",
-      "permanent": true
     }
   ],
   "headers": [
