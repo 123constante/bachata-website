@@ -22,6 +22,7 @@ import { EditorSheet, type SheetName } from './EditorSheet';
 import { DatesList, ScheduleCard } from './EditorRows';
 import { DatesTakenOff } from './DatesTakenOff';
 import { EventReviewCard } from './ReviewCard';
+import { EditorGroup } from './EditorGroup';
 import { sessionDates } from './reviewModel';
 import { categoryLabel } from './eventType';
 import { EventList } from './EventList';
@@ -191,83 +192,103 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
       <div className="flex justify-end">
         <StatusTag tone={tag.tone} testId="org-event-status">{tag.label}</StatusTag>
       </div>
-      <EventReviewCard seriesId={seriesId} name={base.name} status={ws.series.lifecycle_status} version={ws.series.version}
-        upcomingListed={upcoming.filter((d) => d.lifecycle_status !== 'cancelled').length}
-        datesWithSessions={sessionDates(ws.hasSessions, upcoming)} hasCover={base.coverUrl.trim() !== ''}
-        organisers={home.data ? ownOrganisers : null} dirty={dirty} onSent={() => announce('Sent for review.')} />
       {lock && (
         <p className="rounded-[12px] border border-[var(--line)] bg-[var(--card)] px-[16px] py-[12px] text-[14px] text-[var(--fg)]" data-testid="org-event-locked">
           {lock}
         </p>
       )}
-      <Cover src={draft.coverUrl || null} alt="" onChange={lock ? undefined : () => coverInput.current?.click()} changeLabel="Change cover" emptyLabel="Add a square cover" testId="org-cover" />
-      <input ref={coverInput} type="file" accept={FLYER_ACCEPT} className="sr-only" tabIndex={-1} aria-hidden="true" onChange={pickCover} data-testid="org-cover-file" />
-      {uploading === 'cover' && <p className="text-center text-[13px] text-[var(--mut)]" role="status">Uploading the cover&hellip;</p>}
-      {uploadError && sheet === null && <p role="alert" className="text-center text-[14px] text-[var(--danger)]">{uploadError}</p>}
-      <Card>
-        <SummaryRow icon={<Images />} label="Gallery" value={draft.gallery.length ? `${draft.gallery.length} photo${draft.gallery.length === 1 ? '' : 's'}` : 'None'} onPress={() => setSheet('gallery')} disabled={!!lock} testId="org-row-gallery" />
-        <SummaryRow icon={<Film />} label="Video" value={draft.videos.length ? `${draft.videos.length}` : 'None'} onPress={() => setSheet('video')} disabled={!!lock} testId="org-row-video" />
-      </Card>
-      <TitleInput value={draft.name} onChange={(name) => patch({ name })} readOnly={!!lock} aria-label="Event name" placeholder="Event name" maxLength={120} testId="org-event-name" />
-      <Card label="Date" testId="org-date-card">
-        {sched.mode === 'fixed' ? (
-          <SummaryRow icon={<CalendarDays />} label="First date" value={firstDate ? shortDate(firstDate, today) : 'Not set'} testId="org-row-starts" />
-        ) : (
-          <SummaryRow icon={<CalendarDays />} label="Starts on" value={draft.startDate ? shortDate(draft.startDate, today) : 'Choose'} onPress={() => setSheet('starts')} testId="org-row-starts" />
-        )}
-        {sched.mode === 'weekly' || canRepeat ? (
-          <SummaryRow icon={<Repeat />} label="Repeats" value={repeatsLabel(draft)} onPress={() => setSheet('repeats')} testId="org-row-repeats" />
-        ) : sched.mode === 'single' ? (
-          <SummaryRow icon={<Repeat />} label="Repeats" value={sched.pattern} testId="org-row-repeats" />
-        ) : (
-          <SummaryRow icon={<Repeat />} label="Repeats" value={sched.pattern} testId="org-row-repeats" />
-        )}
-        {endedLabel ? (
-          <SummaryRow label={endedLabel} testId="org-row-ended" />
-        ) : sched.mode !== 'weekly' && !weekly ? (
-          <SummaryRow label={untilLabel} sublabel={sched.mode === 'single' && !upcoming.length ? emptyHint : undefined} testId="org-row-until" />
-        ) : weekly ? (
-          <div className="flex min-h-[52px] items-center gap-[12px] px-[16px] py-[8px]" data-testid="org-row-until">
-            <button type="button" onClick={() => setSheet('until')} className="min-h-[44px] min-w-0 flex-1 text-left" data-testid="org-row-until-open">
-              <span className="block truncate text-[15px] text-[var(--fg)]">{until ? untilLabel : 'Choose how long it is listed'}</span>
-              <span id="org-extend-note" className="block text-[13px] text-[var(--mut)]" data-testid="org-extend-note">{listing.note}</span>
-            </button>
-            <button type="button" disabled={!step} onClick={() => step && patch({ until: step.until })} data-testid="org-extend"
-              aria-label={step ? `Extend by ${step.add} dates` : 'Extend'} aria-describedby={step ? undefined : 'org-extend-note'}
-              className="h-[44px] shrink-0 rounded-[12px] px-[12px] text-[15px] font-semibold text-[var(--gold)] disabled:text-[var(--mut)]">
-              Extend
-            </button>
+      <EditorGroup id="what" heading="What it is">
+        <TitleInput value={draft.name} onChange={(name) => patch({ name })} readOnly={!!lock} aria-label="Event name" placeholder="Event name" maxLength={120} testId="org-event-name" />
+        <Cover src={draft.coverUrl || null} alt="" onChange={lock ? undefined : () => coverInput.current?.click()} changeLabel="Change cover" emptyLabel="Add a square cover" testId="org-cover" />
+        <input ref={coverInput} type="file" accept={FLYER_ACCEPT} className="sr-only" tabIndex={-1} aria-hidden="true" onChange={pickCover} data-testid="org-cover-file" />
+        {uploading === 'cover' && <p className="text-center text-[13px] text-[var(--mut)]" role="status">Uploading the cover&hellip;</p>}
+        {uploadError && sheet === null && <p role="alert" className="text-center text-[14px] text-[var(--danger)]">{uploadError}</p>}
+        <Card>
+          <SummaryRow icon={<Shapes />} label="Type" value={categoryLabel(ws.series.category)}
+            sublabel={`Chosen when the event was made. To change it, ask ${TEAM}.`} testId="org-row-type" />
+        </Card>
+      </EditorGroup>
+      <EditorGroup id="when" heading="When">
+        <Card label="Date" testId="org-date-card">
+          {sched.mode === 'fixed' ? (
+            <SummaryRow icon={<CalendarDays />} label="First date" value={firstDate ? shortDate(firstDate, today) : 'Not set'} testId="org-row-starts" />
+          ) : (
+            <SummaryRow icon={<CalendarDays />} label="Starts on" value={draft.startDate ? shortDate(draft.startDate, today) : 'Choose'} onPress={() => setSheet('starts')} testId="org-row-starts" />
+          )}
+          {sched.mode === 'weekly' || canRepeat ? (
+            <SummaryRow icon={<Repeat />} label="Repeats" value={repeatsLabel(draft)} onPress={() => setSheet('repeats')} testId="org-row-repeats" />
+          ) : sched.mode === 'single' ? (
+            <SummaryRow icon={<Repeat />} label="Repeats" value={sched.pattern} testId="org-row-repeats" />
+          ) : (
+            <SummaryRow icon={<Repeat />} label="Repeats" value={sched.pattern} testId="org-row-repeats" />
+          )}
+          {endedLabel ? (
+            <SummaryRow label={endedLabel} testId="org-row-ended" />
+          ) : sched.mode !== 'weekly' && !weekly ? (
+            <SummaryRow label={untilLabel} sublabel={sched.mode === 'single' && !upcoming.length ? emptyHint : undefined} testId="org-row-until" />
+          ) : weekly ? (
+            <div className="flex min-h-[52px] items-center gap-[12px] px-[16px] py-[8px]" data-testid="org-row-until">
+              <button type="button" onClick={() => setSheet('until')} className="min-h-[44px] min-w-0 flex-1 text-left" data-testid="org-row-until-open">
+                <span className="block truncate text-[15px] text-[var(--fg)]">{until ? untilLabel : 'Choose how long it is listed'}</span>
+                <span id="org-extend-note" className="block text-[13px] text-[var(--mut)]" data-testid="org-extend-note">{listing.note}</span>
+              </button>
+              <button type="button" disabled={!step} onClick={() => step && patch({ until: step.until })} data-testid="org-extend"
+                aria-label={step ? `Extend by ${step.add} dates` : 'Extend'} aria-describedby={step ? undefined : 'org-extend-note'}
+                className="h-[44px] shrink-0 rounded-[12px] px-[12px] text-[15px] font-semibold text-[var(--gold)] disabled:text-[var(--mut)]">
+                Extend
+              </button>
+            </div>
+          ) : pendingOneDate ? (
+            <SummaryRow label={draft.startDate ? `Only ${shortDate(draft.startDate, today)}` : 'One date'}
+              sublabel={loss ? `Save to take off the other ${loss === 1 ? 'date' : `${loss} dates`}` : 'Save to keep just this date'} testId="org-row-until" />
+          ) : (
+            <SummaryRow label={until ? untilLabel : 'No date listed yet'} sublabel={CAP_NOTE} testId="org-row-until" />
+          )}
+          {sched.mode !== 'weekly' && !lock && (sched.mode === 'fixed' ? sched.reason : sched.repeatsReason) && (
+            <p className="px-[16px] py-[12px] text-[13px] text-[var(--mut)]" data-testid="org-schedule-reason">{sched.mode === 'fixed' ? sched.reason : sched.repeatsReason}</p>
+          )}
+        </Card>
+        <DatesList seriesId={seriesId} dates={ws.dates} today={today} emptyHint={emptyHint} truncated={ws.hasMore} />
+        <DatesTakenOff series={ws.series} dates={ws.dates} today={today} lock={lock} dirty={dirty} canChooseEnd={weekly} />
+      </EditorGroup>
+      <EditorGroup id="where" heading="Where">
+        <Card>
+          <SummaryRow icon={<MapPin />} label="Venue" value={venueName(venues.data, draft.venueId) ?? (lock ? 'None' : 'Choose')} onPress={() => setSheet('venue')} disabled={!!lock} testId="org-row-venue" />
+        </Card>
+      </EditorGroup>
+      <EditorGroup id="see" heading="What people see">
+        <Card>
+          <SummaryRow icon={<Text />} label="Description" value={draft.description.trim() ? draft.description.trim() : lock ? 'None' : 'Add'} onPress={() => setSheet('description')} disabled={!!lock} testId="org-row-description" />
+        </Card>
+        <section aria-label="Music styles" data-testid="org-styles">
+          <p className="mb-[8px] text-[13px] font-semibold uppercase tracking-wide text-[var(--mut)]">Music</p>
+          <div className="flex flex-wrap gap-[8px]">
+            {styles.map((s) => <Chip key={s.toLowerCase()} selected={hasStyle(s)} onToggle={() => toggleStyle(s)} disabled={!!lock} testId="org-style-chip">{styleLabel(s)}</Chip>)}
           </div>
-        ) : pendingOneDate ? (
-          <SummaryRow label={draft.startDate ? `Only ${shortDate(draft.startDate, today)}` : 'One date'}
-            sublabel={loss ? `Save to take off the other ${loss === 1 ? 'date' : `${loss} dates`}` : 'Save to keep just this date'} testId="org-row-until" />
-        ) : (
-          <SummaryRow label={until ? untilLabel : 'No date listed yet'} sublabel={CAP_NOTE} testId="org-row-until" />
-        )}
-        {sched.mode !== 'weekly' && !lock && (sched.mode === 'fixed' ? sched.reason : sched.repeatsReason) && (
-          <p className="px-[16px] py-[12px] text-[13px] text-[var(--mut)]" data-testid="org-schedule-reason">{sched.mode === 'fixed' ? sched.reason : sched.repeatsReason}</p>
-        )}
-      </Card>
-      <ScheduleCard seriesId={seriesId} next={next} today={today} upcoming={upcoming.length} pastCount={ws.dates.length - upcoming.length} closed={!!lock} />
-      <Card>
-        <SummaryRow icon={<MapPin />} label="Venue" value={venueName(venues.data, draft.venueId) ?? (lock ? 'None' : 'Choose')} onPress={() => setSheet('venue')} disabled={!!lock} testId="org-row-venue" />
-        <SummaryRow icon={<Users />} label="Organisers" value={organisers.length ? joinNames(organisers) : undefined}
-          sublabel={`Set when the event was made. To change them, ask ${TEAM}.`} testId="org-row-organisers" />
-        <SummaryRow icon={<Shapes />} label="Type" value={categoryLabel(ws.series.category)}
-          sublabel={`Chosen when the event was made. To change it, ask ${TEAM}.`} testId="org-row-type" />
-        <SummaryRow icon={<Text />} label="Description" value={draft.description.trim() ? draft.description.trim() : lock ? 'None' : 'Add'} onPress={() => setSheet('description')} disabled={!!lock} testId="org-row-description" />
-      </Card>
-      <section aria-label="Music styles" data-testid="org-styles">
-        <p className="mb-[8px] text-[13px] font-semibold uppercase tracking-wide text-[var(--mut)]">Music</p>
-        <div className="flex flex-wrap gap-[8px]">
-          {styles.map((s) => <Chip key={s.toLowerCase()} selected={hasStyle(s)} onToggle={() => toggleStyle(s)} disabled={!!lock} testId="org-style-chip">{styleLabel(s)}</Chip>)}
-        </div>
-      </section>
-      <Card label="More">
-        <SummaryRow icon={<Ticket />} label="Ticket link" value={draft.ticketUrl.trim() || (lock ? 'None' : 'Add')} onPress={() => setSheet('ticket')} disabled={!!lock} testId="org-row-ticket" />
-      </Card>
-      <DatesList seriesId={seriesId} dates={ws.dates} today={today} emptyHint={emptyHint} truncated={ws.hasMore} />
-      <DatesTakenOff series={ws.series} dates={ws.dates} today={today} lock={lock} dirty={dirty} canChooseEnd={weekly} />
+        </section>
+        <Card>
+          <SummaryRow icon={<Images />} label="Gallery" value={draft.gallery.length ? `${draft.gallery.length} photo${draft.gallery.length === 1 ? '' : 's'}` : 'None'} onPress={() => setSheet('gallery')} disabled={!!lock} testId="org-row-gallery" />
+          <SummaryRow icon={<Film />} label="Video" value={draft.videos.length ? `${draft.videos.length}` : 'None'} onPress={() => setSheet('video')} disabled={!!lock} testId="org-row-video" />
+        </Card>
+      </EditorGroup>
+      <EditorGroup id="programme" heading="Programme">
+        <ScheduleCard seriesId={seriesId} next={next} today={today} upcoming={upcoming.length} pastCount={ws.dates.length - upcoming.length} closed={!!lock} />
+      </EditorGroup>
+      <EditorGroup id="links" heading="Tickets and links">
+        <Card>
+          <SummaryRow icon={<Ticket />} label="Ticket link" value={draft.ticketUrl.trim() || (lock ? 'None' : 'Add')} onPress={() => setSheet('ticket')} disabled={!!lock} testId="org-row-ticket" />
+        </Card>
+      </EditorGroup>
+      <EditorGroup id="who" heading="Who runs it">
+        <Card>
+          <SummaryRow icon={<Users />} label="Organisers" value={organisers.length ? joinNames(organisers) : undefined}
+            sublabel={`Set when the event was made. To change them, ask ${TEAM}.`} testId="org-row-organisers" />
+        </Card>
+      </EditorGroup>
+      <EventReviewCard seriesId={seriesId} name={base.name} status={ws.series.lifecycle_status} version={ws.series.version}
+        upcomingListed={upcoming.filter((d) => d.lifecycle_status !== 'cancelled').length}
+        datesWithSessions={sessionDates(ws.hasSessions, upcoming)} hasCover={base.coverUrl.trim() !== ''}
+        organisers={home.data ? ownOrganisers : null} dirty={dirty} onSent={() => announce('Sent for review.')} />
       <EditorSheet stopReason={sched.stopReason} oneDateLoss={sched.mode === 'weekly' && base.shape === 'weekly' ? loss : 0}
         sheet={sheet} onSheet={setSheet} draft={draft} patch={patch} today={today} cap={cap} capNote={listing.sheetNote} venues={venues.data}
         venuesError={venues.isError} onRetryVenues={() => void venues.refetch()} venuesRetrying={venues.isFetching}
