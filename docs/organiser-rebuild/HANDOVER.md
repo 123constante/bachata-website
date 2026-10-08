@@ -576,3 +576,11 @@ Checkpoints (one per step):
    `scripts/rpc-typing-allowlist.json`). `src/pages/AuthCallback.tsx` (login, may not be edited)
    still imports `@/modules/organiser-self-serve/selfServeApi`: a 3-line re-export shim stays at
    that path. 648/648 tests pass in organiser, organiser-self-serve, pages.
+3. DONE -- `/account`, `/account/new`, `/account/series/:seriesId`, `/account/team/:organiserId?`
+   are `LegacyAccountRedirect` (`shell/LegacyRedirect.tsx`, Navigate replace, same flag) to
+   `/account/o`, `/account/o/events/new`, `/account/o/events/:seriesId`, `/account/o/team`
+   (`?o=<organiserId>` unless the query already has `o`); query + hash kept. Header account
+   link and the public claim card / email-code fallback now point at `ORG_PATHS.home`. Login
+   files left alone (redirect covers them): `src/pages/Auth.tsx:71` (`/account` default return),
+   `src/lib/auth-otp-routing.ts:93-94` (landing path after sign-in; auth logic, left on purpose,
+   its test still expects `/account`). Test: `__tests__/legacyRedirect.test.tsx` (11).

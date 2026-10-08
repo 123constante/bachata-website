@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { LegacyAccountRedirect } from "@/modules/organiser/shell/LegacyRedirect";
 import { AnimatePresence } from "framer-motion";
 import { PageTransition } from "@/components/PageTransition";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -37,12 +38,8 @@ const Vendors = lazyWithRetry(() => import("../pages/Vendors"));
 const VendorDetail = lazyWithRetry(() => import("../pages/VendorDetail"));
 const Raffles = lazyWithRetry(() => import("../pages/Raffles"));
 const Auth = lazyWithRetry(() => import("../pages/Auth"));
-const Account = lazyWithRetry(() => import("../pages/Account"));
-const AccountSeries = lazyWithRetry(() => import("../pages/AccountSeries"));
-const AccountNew = lazyWithRetry(() => import("../pages/AccountNew"));
-const AccountTeam = lazyWithRetry(() => import("../pages/AccountTeam"));
-// The rebuilt organiser area (arc/organiser-rebuild), mounted beside the old
-// /account pages until the final slice. Its AuthGuard lives inside this chunk.
+// The organiser area (/account/o). Its AuthGuard lives inside this chunk; the
+// old /account URLs redirect into it (LegacyAccountRedirect, a tiny eager file).
 const OrganiserArea = lazyWithRetry(() => import("@/modules/organiser/shell/OrganiserRoutes"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
@@ -165,25 +162,26 @@ export const AnimatedRoutes = () => {
                 auth remain; use Admin editor (EventEditorV2) for organiser event creation. */}
 
             {/* Organiser self-serve (Lever 2). Flag-gated like /raffles: off,
-                it redirects home rather than rendering a placeholder. */}
+                it redirects home rather than rendering a placeholder. The old
+                /account URLs redirect into the rebuilt area (query + hash kept). */}
             <Route path="/account" element={
               flags.organiserSelfServe
-                ? <PageTransition><Account /></PageTransition>
+                ? <LegacyAccountRedirect target="home" />
                 : <Navigate to="/" replace />
             } />
             <Route path="/account/new" element={
               flags.organiserSelfServe
-                ? <PageTransition><AccountNew /></PageTransition>
+                ? <LegacyAccountRedirect target="new" />
                 : <Navigate to="/" replace />
             } />
             <Route path="/account/series/:seriesId" element={
               flags.organiserSelfServe
-                ? <PageTransition><AccountSeries /></PageTransition>
+                ? <LegacyAccountRedirect target="series" />
                 : <Navigate to="/" replace />
             } />
             <Route path="/account/team/:organiserId?" element={
               flags.organiserSelfServe
-                ? <PageTransition><AccountTeam /></PageTransition>
+                ? <LegacyAccountRedirect target="team" />
                 : <Navigate to="/" replace />
             } />
             {/* No PageTransition: its transform + filter would turn the shell's

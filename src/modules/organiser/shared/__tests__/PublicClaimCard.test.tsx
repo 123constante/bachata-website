@@ -65,7 +65,7 @@ describe('PublicClaimCard', () => {
     expect(rpc.mock.calls).toEqual([['claim_organiser_v1', { p_organiser_id: ORG.id }]]);
     expect(onChanged.mock.calls).toEqual([['claimed']]);
     expect(screen.getByTestId('public-claim-done').textContent).toContain('This is your page');
-    expect(screen.getByText(/Go to my events/).getAttribute('href')).toBe('/account');
+    expect(screen.getByText(/Go to my events/).getAttribute('href')).toBe('/account/o');
   });
 
   it('email matches, password session: asks for the email code before claiming', () => {

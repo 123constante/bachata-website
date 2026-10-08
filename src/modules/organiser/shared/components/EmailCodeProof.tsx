@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Loader2, MailCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { ORG_PATHS } from '../../shell/paths';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,7 +24,7 @@ export const EMAIL_CODE_MAX_LENGTH = 10;
 /** Seconds before another code can be requested; the mail provider rate-limits sends. */
 export const RESEND_COOLDOWN_SECONDS = 30;
 
-export function EmailCodeProof({ email, onProven, returnTo = '/account' }: { email: string; onProven: () => void; returnTo?: string }) {
+export function EmailCodeProof({ email, onProven, returnTo = ORG_PATHS.home }: { email: string; onProven: () => void; returnTo?: string }) {
   const [sent, setSent] = useState(false);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);

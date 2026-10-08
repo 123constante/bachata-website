@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { EmailCodeProof } from './EmailCodeProof';
+import { ORG_PATHS } from '../../shell/paths';
 import { claimOrganiser, requestOrganiserAccess } from '../selfServeApi';
 import { selfServeErrorCode, selfServeErrorCopy, type SelfServeErrorCopy } from '../selfServeErrors';
 import { publicClaimKind, signInHref, type PublicClaimOrganiser, type PublicClaimUser } from '../publicClaim';
@@ -113,7 +114,7 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
         {done === 'claimed' ? (
           <div className="flex flex-wrap items-center gap-2">
             <span><strong>&#10003; This is your page.</strong> <span style={{ color: MUTE }}>You can now add and change your events.</span></span>
-            <Link to="/account" className="ml-auto inline-flex min-h-[44px] items-center rounded-full px-4 text-xs font-bold" style={primary} data-testid="public-claim-go">
+            <Link to={ORG_PATHS.home} className="ml-auto inline-flex min-h-[44px] items-center rounded-full px-4 text-xs font-bold" style={primary} data-testid="public-claim-go">
               Go to my events &rarr;
             </Link>
           </div>
