@@ -385,7 +385,8 @@ describe('event editor', () => {
     let status = 'draft';
     let missing: string[] = ['venue'];
     let added = 0;
-    handlers.admin_event_workspace_p5 = () => rawWorkspace({ lifecycle_status: status }, [
+    let cover: string | null = null;
+    handlers.admin_event_workspace_p5 = () => rawWorkspace({ lifecycle_status: status, default_cover_image_url: cover }, [
       { id: 'o2', occurrence_date: '2026-10-16', lifecycle_status: 'scheduled', version: 1 },
       { id: 'o1', occurrence_date: '2026-10-09', lifecycle_status: 'scheduled', version: 1, added_sessions_count: added },
     ]);
@@ -400,10 +401,17 @@ describe('event editor', () => {
     // Owner, 2026-10-08: no session on any upcoming date -> still off, with the reason.
     await editor();
     const noSession = await screen.findByTestId('org-event-review-send');
-    await waitFor(() => expect(screen.getByTestId('org-event-review-blocked').textContent).toBe('Add at least one session first.'));
+    await waitFor(() => expect(screen.getByTestId('org-event-review-blocked').textContent).toBe('Add at least one session first. Add a cover image first.'));
     expect((noSession as HTMLButtonElement).disabled).toBe(true);
     cleanup();
     added = 1;
+    // Owner, 2026-10-08: a session but no cover image -> still off, with that reason.
+    await editor();
+    const noCover = await screen.findByTestId('org-event-review-send');
+    await waitFor(() => expect(screen.getByTestId('org-event-review-blocked').textContent).toBe('Add a cover image first.'));
+    expect((noCover as HTMLButtonElement).disabled).toBe(true);
+    cleanup();
+    cover = 'https://cdn.example/poster.webp';
     await editor();
     const ready = await screen.findByTestId('org-event-review-send');
     await waitFor(() => expect((ready as HTMLButtonElement).disabled).toBe(false));

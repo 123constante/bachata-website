@@ -116,7 +116,7 @@ describe('G2 + G4: what the create sends for each type', () => {
 });
 
 describe('G1: send for review', () => {
-  const ready = { missing: [], upcomingListed: 3, datesWithSessions: 3, organisers: [{ name: 'Org', lifecycle_status: 'live' }], dirty: false };
+  const ready = { missing: [], upcomingListed: 3, datesWithSessions: 3, hasCover: true, organisers: [{ name: 'Org', lifecycle_status: 'live' }], dirty: false };
   it('a ready draft can be sent', () => {
     const v = eventReviewView({ status: 'draft', ...ready });
     expect(v).toMatchObject({ show: true, canSend: true, blockers: [] });

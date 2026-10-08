@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { FLYER_ACCEPT } from '@/modules/organiser/shared/flyerModel';
 import type { VenueOption } from '@/modules/organiser/shared/publicVenues';
 import { canConfirm, confirmCopy } from '@/modules/organiser/shared/editorGuards';
-import { linkProblem } from '@/modules/organiser/shared/linkRules';
+import { linkOnClose, linkProblem } from '@/modules/organiser/shared/linkRules';
 import { Card, Collapse, ErrorState, FIELD_CLASS, GhostButton, PrimaryButton, SearchField, SheetView, SkeletonRows, SummaryRow } from '../ui';
 import { CAP_NOTE, allowedEndChoices, type CapInput } from './dateCap';
 import { MAX_GALLERY, MAX_VIDEOS, SHAPE_LABEL, shortDate, weekdayName, type EventDraft, type Shape } from './eventModel';
@@ -70,6 +70,9 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
   const [query, setQuery] = useState('');
   const [videoInput, setVideoInput] = useState('');
   const [ack, setAck] = useState(false);
+  // The ticket link as the sheet opened: the X puts it back over an invalid entry.
+  const [opened, setOpened] = useState({ sheet, ticketUrl: draft.ticketUrl });
+  if (opened.sheet !== sheet) setOpened({ sheet, ticketUrl: draft.ticketUrl });
   // The ticket and video sheets check the link as it is typed with the rule Save uses.
   const ticketProblem = linkProblem('ticket', draft.ticketUrl);
   const videoProblem = linkProblem('video', videoInput);
@@ -299,7 +302,16 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
   return (
     <SheetView
       open={sheet !== null}
-      onOpenChange={(open) => { if (!open) onSheet(null); }}
+      onOpenChange={(open) => {
+        if (open) return;
+        // Closed without Done (X, outside, Escape): an invalid link is discarded (linkOnClose).
+        if (sheet === 'ticket') {
+          const kept = linkOnClose('ticket', draft.ticketUrl, opened.ticketUrl);
+          if (kept !== draft.ticketUrl) patch({ ticketUrl: kept });
+        }
+        if (sheet === 'video') setVideoInput(linkOnClose('video', videoInput, ''));
+        onSheet(null);
+      }}
       title={sheet ? TITLES[sheet] : ''}
       viewKey={sheet ?? undefined}
       onBack={sheet === 'venue-search' ? () => onSheet('venue') : sheet === 'one-date' ? () => onSheet('repeats') : undefined}

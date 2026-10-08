@@ -11,7 +11,7 @@ import {
 } from '@/lib/organiserProfileUpdate';
 import { fetchOrganiserEntity, organiserEntityQueryKey } from '@/modules/profile/organiserPublicProfile';
 import { ORGANISER_HOME_KEY, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
-import { linkProblem } from '@/modules/organiser/shared/linkRules';
+import { linkOnClose, linkProblem } from '@/modules/organiser/shared/linkRules';
 import { saveBarState } from '@/modules/organiser/shared/editorGuards';
 import { OrganiserShell } from '../shell';
 import {
@@ -148,6 +148,16 @@ function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }:
   });
 
   const editing = sheetOpen && sheetOpen !== 'signout' ? sheetOpen : null;
+  // A link as its sheet opened: the X puts it back over an invalid entry (linkOnClose).
+  const [opened, setOpened] = useState({ view: editing, value: editing && isLinkField(editing) ? form[editing] : '' });
+  if (opened.view !== editing) setOpened({ view: editing, value: editing && isLinkField(editing) ? form[editing] : '' });
+  const dismiss = () => {
+    if (editing && isLinkField(editing)) {
+      const kept = linkOnClose(editing, form[editing], opened.value);
+      if (kept !== form[editing]) set(editing)(kept);
+    }
+    openSheet(null);
+  };
   const live = organiser.lifecycle_status === 'live';
   const barState = saveBarState({ dirty, saving: save.isPending, saveLabel: 'Save profile' });
 
@@ -200,15 +210,16 @@ function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }:
       {bottom}
       </div>
       <FieldSheet
-        view={editing} onClose={() => openSheet(null)} form={form} set={set}
+        view={editing} onClose={() => openSheet(null)} onDismiss={dismiss} form={form} set={set}
         city={<CityView selectedId={city.id} onPick={(c) => { setCity({ id: c.id, name: c.label }); openSheet(null); }} />}
       />
     </OrganiserShell>
   );
 }
 
-function FieldSheet({ view, onClose, form, set, city }: {
-  view: Exclude<View, 'signout'> | null; onClose: () => void;
+function FieldSheet({ view, onClose, onDismiss, form, set, city }: {
+  /** onClose: Done. onDismiss: the X, a tap outside or Escape (an invalid link is discarded). */
+  view: Exclude<View, 'signout'> | null; onClose: () => void; onDismiss: () => void;
   form: OrganiserProfileEditForm; set: (key: keyof OrganiserProfileEditForm) => (value: string) => void;
   /** The city search view (CityView), shown when `view` is 'city'. */
   city: ReactNode;
@@ -229,7 +240,7 @@ function FieldSheet({ view, onClose, form, set, city }: {
   return (
     <SheetView
       open={view !== null}
-      onOpenChange={(o) => { if (!o) onClose(); }}
+      onOpenChange={(o) => { if (!o) onDismiss(); }}
       title={TITLES[v]}
       viewKey={v}
       fullHeight={v === 'city'}

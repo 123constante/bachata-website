@@ -12,6 +12,10 @@
 // before it publishes (bachata-admin lib/programTreeContentValidation.ts, #711):
 // a series programme session (it runs on every date) or a session added to one
 // date (admin_event_workspace_p5 occurrences[].added_sessions_count) counts.
+//
+// Cover (owner, 2026-10-08): it also stays off until the event has a cover image
+// (the series poster, default_cover_image_url), the SAVED one (unsaved edits
+// already block). Prod 2026-10-08: every live, ended and paused series has one.
 
 import { LIFECYCLE_WORD, TEAM } from '@/modules/organiser/shared/eventState';
 
@@ -26,11 +30,16 @@ export interface ReviewInput {
   organisers: ReadonlyArray<{ name: string; lifecycle_status: string }> | null;
   /** Upcoming listed dates that carry at least one session (sessionDates). */
   datesWithSessions: number;
+  /** The saved series has a cover image (default_cover_image_url, not blank). */
+  hasCover: boolean;
   dirty: boolean;
 }
 
 /** The reason shown while no upcoming listed date has a session. */
 export const NO_SESSION_REASON = 'Add at least one session first.';
+
+/** The reason shown while the saved event has no cover image. */
+export const NO_COVER_REASON = 'Add a cover image first.';
 
 /**
  * Upcoming listed (not cancelled) dates that have a session: every one of them
@@ -89,6 +98,7 @@ export function eventReviewView(input: ReviewInput): EventReviewView {
     if (input.upcomingListed === 0 && !input.missing.includes('start')) add.push('an upcoming date');
     if (add.length) blockers.push(`To send it, add ${sentenceList(add)}.`);
     if (input.upcomingListed > 0 && input.datesWithSessions === 0) blockers.push(NO_SESSION_REASON);
+    if (!input.hasCover) blockers.push(NO_COVER_REASON);
     if (input.missing.includes('country')) blockers.push(`The venue\u2019s city has no country on file. Ask ${TEAM}.`);
     const notLive = input.organisers.filter((o) => o.lifecycle_status !== 'live');
     if (input.organisers.length && notLive.length === input.organisers.length) {

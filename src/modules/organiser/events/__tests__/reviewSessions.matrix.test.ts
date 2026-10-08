@@ -48,6 +48,7 @@ function review(kind: Kind, sessions: Sessions, dirty = false, opts: { addedOn?:
     missing: [],
     upcomingListed: upcoming.filter((d) => d.lifecycle_status !== 'cancelled').length,
     datesWithSessions: sessionDates(ws.hasSessions, upcoming),
+    hasCover: true,
     organisers: [{ name: 'Org', lifecycle_status: 'live' }],
     dirty,
   });
@@ -92,7 +93,7 @@ describe('Send for review needs a session on an upcoming listed date', () => {
 
   it('no upcoming date: asks for the date, not also for a session', () => {
     const v = eventReviewView({
-      status: 'draft', missing: [], upcomingListed: 0, datesWithSessions: 0,
+      status: 'draft', missing: [], upcomingListed: 0, datesWithSessions: 0, hasCover: true,
       organisers: [{ name: 'Org', lifecycle_status: 'live' }], dirty: false,
     });
     expect(v.canSend).toBe(false);
