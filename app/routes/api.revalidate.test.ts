@@ -152,6 +152,47 @@ describe("/api/revalidate + Cloudflare purge", () => {
     expect(dangerouslyDeleteByTag).not.toHaveBeenCalled();
   });
 
+  // Page-states arc (2026-10-08): a PAUSED series with a past date now resolves
+  // (200, indexable), so it must stay OUT of the hidden branch -- a hard delete
+  // there would be harmless, but the soft path is what a public page gets. A
+  // RESTORED series resolves again too, and the soft invalidate replaces the
+  // (no-store, so never cached) 410 with the 200 page.
+  it.each(["paused with a past date", "restored after a takedown"])(
+    "event %s (resolver answers): soft invalidate, not the hidden branch",
+    async () => {
+      resolvePublicEventRef.mockResolvedValue({ id: EV, slug: "latino-flava-wednesdays" });
+      const res = await call({ entityType: "event", entityId: EV });
+      expect(res.status).toBe(200);
+      expect(invalidateByTag).toHaveBeenCalledWith([`event-${EV}`, "home-feed", "seo-landing"]);
+      expect(dangerouslyDeleteByTag).not.toHaveBeenCalled();
+    },
+  );
+
+  it("takedown: Cloudflare purge covers BOTH /event/<slug> and /event/<uuid>", async () => {
+    vi.stubEnv("CLOUDFLARE_API_TOKEN", "tok");
+    vi.stubEnv("CLOUDFLARE_ZONE_ID", ZONE);
+    vi.stubEnv("VERCEL_ENV", "production");
+    resolvePublicEventRef.mockResolvedValue(null);
+    fetchSpy.mockImplementation(async () => new Response('{"success":true}'));
+    vi.useFakeTimers();
+    try {
+      const res = await call({ entityType: "event", entityId: EV });
+      expect(res.status).toBe(200);
+      expect(dangerouslyDeleteByTag).toHaveBeenCalledTimes(1);
+      const task = waitUntil.mock.calls[0][0] as Promise<unknown>;
+      await vi.runAllTimersAsync();
+      await task;
+    } finally {
+      vi.useRealTimers();
+    }
+    const bodies = fetchSpy.mock.calls
+      .filter(([u]) => String(u).includes("/purge_cache"))
+      .map(([, init]) => String((init as RequestInit).body));
+    const all = bodies.join("\n");
+    expect(all).toContain("/event/bachateame-saturdays");
+    expect(all).toContain(`/event/${EV}`);
+  });
+
   it("non-event entities skip the visibility lookup", async () => {
     await call({ entityType: "venue", entityId: EV });
     expect(resolvePublicEventRef).not.toHaveBeenCalled();
