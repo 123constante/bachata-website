@@ -562,3 +562,10 @@ city ids, and `resolveCreateCityId` is for event creates (venue city -> id).
 - `npx vitest run src/modules/organiser/profile`: 27/27.
 - `npm run test:unit:offline`: 2388 pass, 13 fail = shell.test.tsx x8 (W5) + integrityCouldNotRun x5
   (known); nothing else.
+
+## W5a -- Integration, structural half (2026-10-08) -- IN PROGRESS
+
+Checkpoints (one per step):
+
+1. DONE -- `__tests__/shell.test.tsx` mocks `@/integrations/supabase/client` + `@/hooks/useAuth`
+   and wraps the router in a `QueryClientProvider` (the fix W1 verified); 11/11 pass.

@@ -2,10 +2,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
+// The real pages read data: keep every read pending and give them a signed-in user.
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc: () => new Promise(() => {}), from: () => ({}) } }));
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, session: null }) }));
 
 import OrganiserRoutes from '../shell/OrganiserRoutes';
 import { OrganiserShell, ORG_PATHS, TABS } from '../shell';
@@ -14,11 +18,13 @@ afterEach(cleanup);
 
 function at(path: string) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/account/o/*" element={<OrganiserRoutes />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/account/o/*" element={<OrganiserRoutes />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -31,7 +37,7 @@ describe('organiser routes', () => {
     ['/account/o/events/s1/dates/o1', 'org-page-date', 'org-tab-events'],
     ['/account/o/team', 'org-page-team', 'org-tab-team'],
     ['/account/o/profile', 'org-page-profile', 'org-tab-profile'],
-  ])('%s renders its placeholder with the right tab active', async (path, page, tab) => {
+  ])('%s renders its page with the right tab active', async (path, page, tab) => {
     at(path);
     expect(await screen.findByTestId(page)).toBeTruthy();
     expect(screen.getByTestId(tab).getAttribute('aria-current')).toBe('page');
