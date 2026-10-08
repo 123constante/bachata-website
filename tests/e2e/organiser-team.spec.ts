@@ -34,12 +34,7 @@ test('an owner approves one request and declines the other; the team re-reads', 
   await expect(page.getByTestId('requests-empty')).toBeVisible();
 });
 
-const GRANT_BUG =
-  'BUG: Team: after "Add as manager" the new manager is not listed under Team until a reload ' +
-  '(the grant re-reads only the requests list, never organiser_home_v1). Repro: /account/o/team, ' +
-  'Add as manager -> Yes on a request: the request goes, the Team card still lists 3 members.';
-
-test.fixme('approving a request lists the new manager under Team (' + GRANT_BUG + ')', async ({ page }) => {
+test('approving a request lists the new manager under Team at once, without a reload', async ({ page }) => {
   await openOrganiser(page, '/account/o/team');
   await expect(page.getByTestId('team-member')).toHaveCount(3);
   await page.getByTestId('access-request').filter({ hasText: 'maria.k@example.com' }).getByTestId('request-grant').click();

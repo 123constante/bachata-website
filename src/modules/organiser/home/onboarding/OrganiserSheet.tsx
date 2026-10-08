@@ -152,6 +152,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
         <Field label="Tell the team who you are (optional)" htmlFor={`${ids}-note`}>
           <textarea
             id={`${ids}-note`}
+            data-sheet-autofocus
             value={note}
             maxLength={500}
             rows={3}
@@ -226,6 +227,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
         <Field label="Organiser name" htmlFor={`${ids}-name`}>
           <input
             id={`${ids}-name`}
+            data-sheet-autofocus
             value={form.name}
             maxLength={80}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}

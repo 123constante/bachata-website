@@ -235,11 +235,6 @@ export function flyerObjectPath(seriesId: string, ext: 'webp' | 'jpg' | 'png', t
   return `${id}/${token}.${ext}`;
 }
 
-/** The public URL prefix for one series' flyers. */
-export function flyerUrlPrefix(supabaseUrl: string, seriesId: string): string {
-  return `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/${FLYER_BUCKET}/${seriesId.toLowerCase()}/`;
-}
-
 /** True when the cover is a flyer uploaded here for this series (not a pasted link). */
 export function isOwnFlyerUrl(url: string | null | undefined, seriesId: string): boolean {
   if (!url) return false;

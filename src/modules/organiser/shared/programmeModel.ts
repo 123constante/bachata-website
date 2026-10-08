@@ -61,9 +61,6 @@ export const PEOPLE_ROLE_LABEL: Record<string, string> = {
   performing: 'Performer',
 };
 
-/** The note under a live date's programme: a saved change shows at once. Shared by the editor and the line-up sheet. */
-export const LIVE_SAVE_NOTE = 'Once you save, dancers see them straight away.';
-
 export type NotEditableReason = 'series_closed' | 'multi_day' | 'date_cancelled' | 'past_date';
 
 /** Plain words for each reason the reader gives for a read-only programme. */

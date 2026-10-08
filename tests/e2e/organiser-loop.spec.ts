@@ -31,7 +31,10 @@ test('create an organiser, send it for review, get approved, create an event, st
   // The team approves it.
   fake.organisers[0].lifecycle_status = 'live';
   await page.reload();
-  await expect(page.getByTestId('profile-status-tag')).toHaveText('Live');
+  // A reload re-pays the lazy route chunks; under full-suite load the page can sit on the
+  // bare public chrome for a while, so wait for the Profile screen before reading its tag.
+  await expect(page.getByTestId('org-page-profile')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('profile-status-tag')).toHaveText('Live', { timeout: 15_000 });
 
   await page.getByTestId('org-tab-home').click();
   await page.getByTestId('home-new-event').click();

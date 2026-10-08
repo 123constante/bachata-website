@@ -9,7 +9,7 @@
 // the string and never converted through Date.
 
 import { dateLabel, localAsZTime } from './homeModel';
-import { MAX_OWNER_PASSES, PRICE_RE, newIdempotencyKey, ownerPassesFromStored } from './seriesCommands';
+import { MAX_OWNER_PASSES, PRICE_RE, ownerPassesFromStored } from './seriesCommands';
 import type { BasicsDraft, OwnerCurrency } from './seriesCommands';
 
 export { dateLabel, localAsZTime };
@@ -370,9 +370,6 @@ export interface PassRow {
   description?: string | null;
 }
 
-/** A new, empty price row with its own uuid (the server needs a unique id). */
-export const newPassRow = (): PassRow => ({ id: newIdempotencyKey(), name: '', price: '' });
-
 /** What is wrong with the price rows, in owner copy; null when they can be saved. */
 export function passRowsProblem(rows: PassRow[] | null | undefined): string | null {
   if (!rows) return null;
@@ -419,26 +416,6 @@ export function formToDraft(f: BasicsForm): BasicsDraft {
       ? { passes: f.passes ? f.passes.map((row) => ({ ...row, price: row.price.trim() === '' ? null : Number(row.price.trim()) })) : null }
       : {}),
   };
-}
-
-/**
- * The confirmation after "Save the time" (occurrence.set_time). On a series with
- * no programme times the server keeps the date's own time in a session it
- * creates (admin D8) and says so with `date_session_created`; the organiser
- * sees the start and end it landed. Either way only this date moves.
- */
-export function setTimeDoneCopy(label: string, start: string, response: unknown): { title: string; body: string } {
-  const res = (response ?? {}) as { data?: Record<string, unknown> } & Record<string, unknown>;
-  const data = (res.data ?? res) as { date_session_created?: unknown; applied?: { start?: unknown; end?: unknown } };
-  if (data.date_session_created === true) {
-    const s = typeof data.applied?.start === 'string' ? data.applied.start : start;
-    const e = typeof data.applied?.end === 'string' ? data.applied.end : null;
-    return {
-      title: `${label} now has its own time: ${e ? `${s}\u2013${e}` : s}.`,
-      body: 'Only this date changes. Every other date keeps the series time. "Usual time" puts it back.',
-    };
-  }
-  return { title: `${label} now starts at ${start}.`, body: 'Only this date moves. Every other date keeps the series time.' };
 }
 
 /** The one-line note under the Status buttons. A paused page is hidden (launch walk S1). */

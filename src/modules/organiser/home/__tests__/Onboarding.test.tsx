@@ -162,9 +162,25 @@ describe('ask to join', () => {
     await waitFor(() => expect(api.request).toHaveBeenCalledWith('b', 'I run it'));
     await waitFor(() => expect(onChanged).toHaveBeenCalledWith('Request sent. The team will check and add you to Beta.'));
   });
+
+  it('opens with focus on the note, not on Close, so the keyboard opens on the field', async () => {
+    api.search.mockResolvedValue([org('b', 'Beta', 'other@x.example')]);
+    mount();
+    search('be');
+    fireEvent.click(await screen.findByTestId('onboarding-request'));
+    const note = await screen.findByTestId('onboarding-request-note');
+    await waitFor(() => expect(document.activeElement).toBe(note));
+  });
 });
 
 describe('create', () => {
+  it('opens with focus on the organiser name, not on Close', async () => {
+    mount();
+    fireEvent.click(screen.getByTestId('onboarding-create'));
+    const name = await screen.findByTestId('onboarding-create-name');
+    await waitFor(() => expect(document.activeElement).toBe(name));
+  });
+
   it('needs a name and a city; the city is picked in a view of the same sheet', async () => {
     api.rpc.mockResolvedValue({ data: [{ city_id: 'c1', city_name: 'Leeds', city_slug: 'leeds', country_name: 'UK', display_name: 'Leeds, UK' }], error: null });
     api.create.mockResolvedValue({ organiserId: 'n1', slug: 'n', lifecycleStatus: 'draft' });

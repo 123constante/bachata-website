@@ -45,12 +45,24 @@ function Choice({ selected, label, sub, onPress, testId }: { selected: boolean; 
   );
 }
 
+/** A photo or video on its way out: already gone from the draft, still drawn while it collapses. */
+type Leaving = { url: string; at: number };
+
+/** The draft list with the leaving items put back where they were drawn. */
+function withLeaving(list: string[], leaving: Leaving[]) {
+  const out = list.filter((url) => !leaving.some((l) => l.url === url)).map((url) => ({ url, leaving: false }));
+  for (const l of [...leaving].sort((a, b) => a.at - b.at)) out.splice(Math.min(l.at, out.length), 0, { url: l.url, leaving: true });
+  return out;
+}
+
 /** The editor's ONE sheet. Each row opens a view of it; nothing nests. */
 export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, venuesError, onRetryVenues, venuesRetrying, onUploadGallery, uploading, uploadError }: Props) {
   const [query, setQuery] = useState('');
   const [videoInput, setVideoInput] = useState('');
-  // Videos on their way out: the row fades and collapses, then leaves the draft.
-  const [leavingVideos, setLeavingVideos] = useState<ReadonlySet<string>>(new Set());
+  // Removal leaves the draft at once (so Done mid-fade still saves it); the
+  // row or tile is drawn on until Collapse has faded it and closed the gap.
+  const [leavingVideos, setLeavingVideos] = useState<Leaving[]>([]);
+  const [leavingPhotos, setLeavingPhotos] = useState<Leaving[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const choices = useMemo(() => allowedEndChoices(cap), [cap]);
   const results = useMemo(() => {
@@ -66,24 +78,34 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
     if (files.length) onUploadGallery(files);
   };
 
+  const photos = withLeaving(draft.gallery, leavingPhotos);
+  const videos = withLeaving(draft.videos, leavingVideos);
+
   let body = null;
   switch (sheet) {
     case 'gallery':
       body = (
         <div className="space-y-[12px]" data-testid="org-sheet-gallery">
-          {draft.gallery.length === 0 && <p className="text-[14px] text-[var(--mut)]">No photos yet. Add a few from past nights.</p>}
-          <ul className="grid grid-cols-3 gap-[8px]">
-            {draft.gallery.map((url) => (
-              <li key={url} className="relative aspect-square overflow-hidden rounded-[12px] bg-[var(--card2)]">
-                <img src={url} alt="" className="h-full w-full object-cover" />
-                <button type="button" aria-label="Remove this photo" data-testid="org-gallery-remove"
-                  onClick={() => patch({ gallery: draft.gallery.filter((g) => g !== url) })}
-                  className="absolute right-[4px] top-[4px] flex h-[32px] w-[32px] items-center justify-center rounded-full bg-[var(--bg)] text-[var(--fg)] after:absolute after:-inset-[6px]">
-                  <X aria-hidden="true" className="h-[16px] w-[16px]" />
-                </button>
-              </li>
+          {photos.length === 0 && <p className="text-[14px] text-[var(--mut)]">No photos yet. Add a few from past nights.</p>}
+          <div role="list" className="grid grid-cols-3 gap-[8px]">
+            {photos.map(({ url, leaving }, i) => (
+              <Collapse key={url} show={!leaving} testId="org-gallery-tile" onExited={() => setLeavingPhotos((l) => l.filter((x) => x.url !== url))}>
+                <div role="listitem" className="relative aspect-square overflow-hidden rounded-[12px] bg-[var(--card2)]">
+                  <img src={url} alt="" className="h-full w-full object-cover" />
+                  <button type="button" aria-label="Remove this photo" data-testid="org-gallery-remove" disabled={leaving}
+                    onClick={() => {
+                      setLeavingPhotos((l) => [...l, { url, at: i }]);
+                      patch({ gallery: draft.gallery.filter((g) => g !== url) });
+                    }}
+                    className="absolute right-0 top-0 flex h-[44px] w-[44px] items-center justify-center rounded-full text-[var(--fg)]">
+                    <span aria-hidden="true" className="flex h-[32px] w-[32px] items-center justify-center rounded-full bg-[var(--bg)]">
+                      <X className="h-[16px] w-[16px]" />
+                    </span>
+                  </button>
+                </div>
+              </Collapse>
             ))}
-          </ul>
+          </div>
           <input ref={fileRef} type="file" accept={FLYER_ACCEPT} multiple className="sr-only" tabIndex={-1} aria-hidden="true" onChange={pick} data-testid="org-gallery-file" />
           {draft.gallery.length < MAX_GALLERY && (
             <GhostButton loading={uploading} loadingLabel="Uploading" onClick={() => fileRef.current?.click()} testId="org-gallery-add">
@@ -98,22 +120,23 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
       const add = () => {
         const url = videoInput.trim();
         if (!url || draft.videos.includes(url)) return;
+        setLeavingVideos((l) => l.filter((x) => x.url !== url));
         patch({ videos: [...draft.videos, url] });
         setVideoInput('');
       };
       body = (
         <div className="space-y-[12px]" data-testid="org-sheet-video">
-          {draft.videos.length > 0 && (
+          {videos.length > 0 && (
             <Card>
-              {draft.videos.map((url) => (
-                <Collapse key={url} show={!leavingVideos.has(url)} testId="org-video-row" onExited={() => {
-                  patch({ videos: draft.videos.filter((v) => v !== url) });
-                  setLeavingVideos((s) => { const n = new Set(s); n.delete(url); return n; });
-                }}>
+              {videos.map(({ url, leaving }, i) => (
+                <Collapse key={url} show={!leaving} testId="org-video-row" onExited={() => setLeavingVideos((l) => l.filter((x) => x.url !== url))}>
                 <div className="flex min-h-[52px] items-center gap-[8px] px-[16px] py-[8px]">
                   <span className="min-w-0 flex-1 truncate text-[14px] text-[var(--fg)]">{url}</span>
-                  <button type="button" aria-label="Remove this video" data-testid="org-video-remove"
-                    onClick={() => setLeavingVideos((s) => new Set(s).add(url))}
+                  <button type="button" aria-label="Remove this video" data-testid="org-video-remove" disabled={leaving}
+                    onClick={() => {
+                      setLeavingVideos((l) => [...l, { url, at: i }]);
+                      patch({ videos: draft.videos.filter((v) => v !== url) });
+                    }}
                     className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full text-[var(--mut)]">
                     <X aria-hidden="true" className="h-[16px] w-[16px]" />
                   </button>

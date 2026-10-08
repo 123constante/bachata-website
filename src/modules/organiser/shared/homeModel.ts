@@ -137,14 +137,7 @@ export function organiserStatusView(
   }
 }
 
-// event_series_p5.format / .category values measured on prod 2026-10-04.
-export const FORMAT_LABEL: Record<string, string> = {
-  one_off: 'One-off',
-  recurring: 'Repeating',
-  course: 'Course',
-  festival: 'Festival',
-};
-
+// event_series_p5.category values measured on prod 2026-10-04.
 export const CATEGORY_LABEL: Record<string, string> = {
   party: 'Party',
   class: 'Class',

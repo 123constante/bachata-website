@@ -209,5 +209,3 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
     runCommand,
   };
 }
-
-export type DateEditor = ReturnType<typeof useDateEditor>;

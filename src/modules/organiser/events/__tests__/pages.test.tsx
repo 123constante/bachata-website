@@ -253,6 +253,39 @@ describe('event editor', () => {
     expect(commands()[0].command.payload).toEqual({ name: 'Friday Party', default_gallery: [], default_video_urls: ['https://youtu.be/abc'] });
   });
 
+  it('removing a photo fades and collapses the tile before it unmounts; Done mid-fade still saves it', async () => {
+    await editor();
+    fireEvent.click(screen.getByTestId('org-row-gallery'));
+    const tile = await screen.findByTestId('org-gallery-tile');
+    expect(tile.getAttribute('data-state')).toBe('open');
+    fireEvent.click(screen.getByTestId('org-gallery-remove'));
+    // Still drawn while it leaves (no instant jump), and its button is off.
+    expect(screen.getByTestId('org-gallery-tile').getAttribute('data-state')).toBe('closing');
+    expect((screen.getByTestId('org-gallery-remove') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('org-gallery-tile').style.height).toBe('0px');
+    expect(screen.getByTestId('org-gallery-tile').style.opacity).toBe('0');
+    await waitFor(() => expect(screen.queryByTestId('org-gallery-tile')).toBeNull());
+    expect(screen.getByTestId('org-sheet-gallery').textContent).toContain('No photos yet');
+    fireEvent.click(screen.getByTestId('org-sheet-done'));
+    expect(screen.getByTestId('org-row-gallery-value').textContent).not.toBe('1 photo');
+  });
+
+  it('a video removed and the sheet closed mid-fade is still gone from the save', async () => {
+    await editor();
+    fireEvent.click(screen.getByTestId('org-row-video'));
+    fireEvent.change(await screen.findByTestId('org-video-input'), { target: { value: 'https://youtu.be/abc' } });
+    fireEvent.click(screen.getByTestId('org-video-add'));
+    fireEvent.change(screen.getByTestId('org-video-input'), { target: { value: 'https://youtu.be/def' } });
+    fireEvent.click(screen.getByTestId('org-video-add'));
+    await waitFor(() => expect(screen.getAllByTestId('org-video-row')).toHaveLength(2));
+    fireEvent.click(screen.getAllByTestId('org-video-remove')[0]);
+    expect(screen.getAllByTestId('org-video-row')[0].getAttribute('data-state')).toBe('closing');
+    fireEvent.click(screen.getByTestId('org-sheet-done'));
+    save();
+    await waitFor(() => expect(commands()).toHaveLength(1));
+    expect(commands()[0].command.payload).toEqual({ name: 'Friday Party', default_video_urls: ['https://youtu.be/def'] });
+  });
+
   it('dates: Listed until shows the cap, offers only choices within 30, and Extend adds the next 8', async () => {
     await editor();
     expect(screen.getByTestId('org-row-until').textContent).toContain('Listed until Fri 27 Nov');

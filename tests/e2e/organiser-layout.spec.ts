@@ -42,17 +42,6 @@ async function expectTapTargets(page: Page) {
   await expectNoHorizontalScroll(page);
 }
 
-const ONBOARDING_BUG =
-  'BUG: onboarding SearchField under 44px: input onboarding-search and its Clear search button are 40.7px high. Repro: /account/o with no organiser, 390x844, type in the search.';
-const EVENTS_BUG =
-  'BUG: events list + New event under 44px: top-bar New event link (org-events-new-link) 37.3px, org-back 37.3px, the borderless title org-new-event-name 35px. Repro: /account/o/events and /account/o/events/new at 390x844.';
-const EDITOR_BUG =
-  'BUG: event editor under 44px: org-back 37.3px, title org-event-name 35px, org-row-until-open 39.2px, org-extend 37.3px, sheet close org-editor-sheet-close 37.3px. Repro: /account/o/events/<id> at 390x844, open Listed until.';
-const DATE_BUG =
-  'BUG: date editor under 44px: org-back 37.3px; sheet close / back 37.3px; session-name, session-start, session-end 40.7px; session-person-remove 27.1px; people-search input and Clear search 40.7px. Repro: /account/o/events/<id>/dates/<occ> at 390x844, open a session, Add a teacher.';
-const PROFILE_BUG =
-  'BUG: Profile under 44px: the borderless title profile-name is 35px high. Repro: /account/o/profile at 390x844.';
-
 test.describe('tap targets @390', () => {
   test.use({ viewport: PHONE });
 
@@ -62,23 +51,24 @@ test.describe('tap targets @390', () => {
     await expectTapTargets(page);
   });
 
-  test.fixme('onboarding (' + ONBOARDING_BUG + ')', async ({ page }) => {
+  test('onboarding', async ({ page }) => {
     await openOrganiser(page, '/account/o', { noOrganiser: true });
     await page.getByTestId('onboarding-search').fill('Ritmo');
     await expect(page.getByTestId('onboarding-result')).toHaveCount(2);
     await expectTapTargets(page);
   });
 
-  test.fixme('Events list and New event (' + EVENTS_BUG + ')', async ({ page }) => {
+  test('Events list and New event', async ({ page }) => {
     await openOrganiser(page, '/account/o/events');
     await expect(page.getByTestId('org-event-row').first()).toBeVisible();
+    await expect(page.getByTestId('org-events-new')).toBeVisible();
     await expectTapTargets(page);
     await page.goto('/account/o/events/new');
     await expect(page.getByTestId('org-new-event-name')).toBeVisible();
     await expectTapTargets(page);
   });
 
-  test.fixme('event editor and its sheet (' + EDITOR_BUG + ')', async ({ page }) => {
+  test('event editor and its sheet', async ({ page }) => {
     await openOrganiser(page, `/account/o/events/${FRIDAY}`);
     await expect(page.getByTestId('org-schedule-session').first()).toBeVisible();
     await expectTapTargets(page);
@@ -87,7 +77,7 @@ test.describe('tap targets @390', () => {
     await expectTapTargets(page);
   });
 
-  test.fixme('date editor, session view and people search (' + DATE_BUG + ')', async ({ page }) => {
+  test('date editor, session view and people search', async ({ page }) => {
     await openOrganiser(page, `/account/o/events/${FRIDAY}/dates/${OCC}`);
     await expect(page.getByTestId('session-row')).toHaveCount(2);
     await expectTapTargets(page);
@@ -106,13 +96,13 @@ test.describe('tap targets @390', () => {
     await expectTapTargets(page);
   });
 
-  test.fixme('Profile (' + PROFILE_BUG + ')', async ({ page }) => {
+  test('Profile', async ({ page }) => {
     await openOrganiser(page, '/account/o/profile', { organiserStatus: 'draft' });
     await expect(page.getByTestId('profile-send-review')).toBeVisible();
     await expectTapTargets(page);
   });
 
-  // Runs while the tap-target checks above are fixme: no screen scrolls sideways at 390.
+  // No screen scrolls sideways at 390 (sheets are covered by the tap-target cases above).
   test('no screen or sheet scrolls sideways', async ({ page }) => {
     await openOrganiser(page, '/account/o');
     await expect(page.getByTestId('home-strip-lineup')).toBeVisible();

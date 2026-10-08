@@ -921,3 +921,50 @@ onboarding city list), Team with no question open (see OPEN).
   naming the deleted `organiser-account-onboarding.spec.ts` (W5b-1 note; src/components is public chrome).
 - OPEN: `selfServeErrors.ts` 'Request access instead.' kept: the PUBLIC organiser page's claim card
   shows it beside its own 'Request access' button.
+
+## F2 -- Fix-ups after W5b (2026-10-08) -- DONE
+
+Edited `src/modules/organiser/**`, `tests/e2e/organiser-{layout,team,loop}.spec.ts`, the line-5
+comment of `src/components/__tests__/GlobalHeaderSignIn.test.tsx` (allowed exception), this section.
+
+1. Team: a grant ('Yes, add as manager') now also invalidates `ORGANISER_HOME_KEY`, so the new
+   manager is listed at once (decline changes no membership; remove already re-read home on
+   Collapse exit). Unit: `TeamPage.test.tsx` 'lists the new manager ... without a reload' (fails on
+   the old code). E2E: the organiser-team fixme is a plain test now and passes.
+2. All six `test.fixme` cases are on (five tap-target cases in organiser-layout, the Team one); BUG
+   strings deleted; the events case asserts `org-events-new` (the old `org-events-new-link` only
+   lived in the BUG text). Three targets still measured under 44px, fixed in product code (no
+   threshold change): `org-row-until-open` 39.2px -> `min-h-[44px]`; `PersonRow` remove (32px disc
+   with an ::after hit area, measured 32) -> 44px button holding the 32px disc (`-mr-[6px]` keeps the
+   disc where it was); gallery photo remove -> same 44px-button pattern.
+3. organiser-loop: after `page.reload()` it waits for `org-page-profile` (30s, the reload re-pays
+   the lazy chunks) before reading `profile-status-tag`. `--repeat-each=5`: 5/5, 0 flakes.
+4. Onboarding ask-to-join and create sheets: the note textarea / organiser-name input carry
+   `data-sheet-autofocus`, so SheetView focuses them on open (not Close). Two unit tests (fail on the
+   old code). Note: back from the city view, focus also lands on the name field (SheetView's viewKey
+   rule).
+5. Event editor gallery: a removed photo leaves through `Collapse` (fade + height 0, then unmount),
+   tile wrapped as `org-gallery-tile` in a `role=list` grid. Found while doing it: VIDEOS were only
+   patched out of the draft in Collapse's `onExited`, so Done (or closing the sheet) during the 0.3s
+   fade dropped the removal. Both now leave the draft at once and a local `Leaving` list draws the
+   item on in place until it has collapsed. Tests: photo tile goes `closing` / 0px / opacity 0 then
+   unmounts; a video removed then Done mid-fade is absent from the saved payload (both fail on the
+   old code).
+6. Dead exports removed (nothing imported them, not even tests): `shared/seriesModel.ts`
+   `setTimeDoneCopy` (plus its D8 test block, the only importer) and `newPassRow`;
+   `shared/flyerModel.ts` `flyerUrlPrefix`; `shared/homeModel.ts` `FORMAT_LABEL`;
+   `shared/programmeModel.ts` `LIVE_SAVE_NOTE`; `dates/dateModel.ts` `isTeamPerson`;
+   `dates/useDateEditor.ts` type `DateEditor`. Kept: exports used only inside their own file, and
+   everything a test imports (much of `shared/createModel.ts`, `seriesCommands.ts` time/lifecycle
+   commands, `seriesModel.ts` scheduleSummary etc. are now test-only since W5a -- a bigger
+   shared-logic pruning pass, not a quick one).
+7. Team with no question open keeps 0 primary buttons: owner decision, there is no invite RPC.
+8. `GlobalHeaderSignIn.test.tsx:5` now names `organiser-onboarding.spec.ts`.
+
+Gates (sandbox, Chromium 1194 symlinked as 1243): tsc 109 errors, 0 under organiser (same as
+before); eslint on changed paths 0; vitest `src/modules/organiser` 36 files / 496 tests pass;
+`npm run test:e2e` (e2e-smoke env, self-serve on): 71 tests, 69 passed, 1 skipped (vendor), 1 flaky
+= `header-signin-fit` @390 (public header page, 'Application Error' on the cold dev SSR, passed on
+retry; not touched here). `npm run lint` 15/16 (`check:integrity` exit 126 = non-executable script
+here; `bash bin/check-integrity.sh` ok). `test:unit:offline`: only the known
+`integrityCouldNotRun.test.ts` (5) + `useEventGuestList.cache.test.ts` (no supabase env).

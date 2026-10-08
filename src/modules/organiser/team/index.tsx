@@ -111,6 +111,8 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
     onSuccess: (_r, { request, decision }) => {
       setAsking(null);
       hide(`r:${request.requestId}`);
+      // A grant adds a member: re-read the team now so they are listed at once.
+      if (decision === 'grant') void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       const who = request.requesterEmail ?? 'They';
       announce(decision === 'grant'
         ? `${who} can now edit ${organiser.name}\u2019s events as a manager.`

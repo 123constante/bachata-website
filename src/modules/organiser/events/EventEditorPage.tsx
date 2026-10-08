@@ -164,7 +164,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
         <SummaryRow icon={<Repeat />} label="Repeats" value={repeatsLabel(draft)} onPress={() => setSheet('repeats')} testId="org-row-repeats" />
         {draft.shape === 'weekly' ? (
           <div className="flex min-h-[52px] items-center gap-[12px] px-[16px] py-[8px]" data-testid="org-row-until">
-            <button type="button" onClick={() => setSheet('until')} className="min-w-0 flex-1 text-left" data-testid="org-row-until-open">
+            <button type="button" onClick={() => setSheet('until')} className="min-h-[44px] min-w-0 flex-1 text-left" data-testid="org-row-until-open">
               <span className="block truncate text-[15px] text-[var(--fg)]">{until ? `Listed until ${shortDate(until, today)}` : 'Choose how long it is listed'}</span>
               <span className="block truncate text-[13px] text-[var(--mut)]">{CAP_NOTE}</span>
             </button>

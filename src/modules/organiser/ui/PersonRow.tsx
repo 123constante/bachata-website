@@ -62,9 +62,12 @@ export function PersonRow({ name, role, sublabel, onRemove, removed, onUndo, onP
           onClick={onRemove}
           aria-label={`Remove ${name}`}
           data-testid={testId ? `${testId}-remove` : undefined}
-          className="relative flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[var(--card2)] text-[var(--fg)] after:absolute after:-inset-[6px] after:content-['']"
+          className="-mr-[6px] flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full text-[var(--fg)]"
         >
-          <X aria-hidden="true" className="h-[16px] w-[16px]" />
+          {/* The 44px button is the target; the 32px disc is what shows. */}
+          <span aria-hidden="true" className="flex h-[32px] w-[32px] items-center justify-center rounded-full bg-[var(--card2)]">
+            <X className="h-[16px] w-[16px]" />
+          </span>
         </button>
       )}
     </div>

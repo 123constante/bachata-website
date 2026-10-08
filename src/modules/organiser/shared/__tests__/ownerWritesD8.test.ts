@@ -12,7 +12,6 @@ import {
   formToDraft,
   instagramUrlOk,
   passRowsProblem,
-  setTimeDoneCopy,
   type WorkspaceSeries,
 } from '../seriesModel';
 import { commandErrorMessage } from '../selfServeErrors';
@@ -150,23 +149,6 @@ describe('D8: category is never echoed outside the owner three', () => {
     const cmd = upsertCommand(basicsPayload(before, formToDraft({ ...form, name: 'Renamed', instagramUrl: 'https://www.instagram.com/m' })));
     expect(cmd.payload).not.toHaveProperty('category');
     expect(cmd.payload).toEqual({ name: 'Renamed', instagram_url: 'https://www.instagram.com/m' });
-  });
-});
-
-describe('D8: Change the time on a series with no programme times', () => {
-  it('maps date_session_created to plain owner copy with the landed times', () => {
-    const res = { ok: true, new_version: 2, data: { applied: { start: '22:30', end: '01:30' }, date_session_created: true } };
-    const copy = setTimeDoneCopy('Fri 9 Oct', '22:30', res);
-    expect(copy.title).toBe('Fri 9 Oct now has its own time: 22:30–01:30.');
-    expect(copy.body).toMatch(/Only this date changes/);
-    expect(copy.body).not.toMatch(/session/i);
-  });
-
-  it('reads the flag at the top level too, and keeps the old copy otherwise', () => {
-    expect(setTimeDoneCopy('Fri', '23:00', { date_session_created: true, applied: { start: '23:00', end: '02:00' } }).title)
-      .toBe('Fri now has its own time: 23:00–02:00.');
-    expect(setTimeDoneCopy('Fri', '23:00', { ok: true, data: { shifted_added: 1 } }).title).toBe('Fri now starts at 23:00.');
-    expect(setTimeDoneCopy('Fri', '23:00', undefined).title).toBe('Fri now starts at 23:00.');
   });
 });
 

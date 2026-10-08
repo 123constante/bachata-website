@@ -8,7 +8,6 @@ import {
   LEVEL_LABEL,
   TYPE_LABEL,
   addPerson,
-  isEditableRole,
   lineupSummary,
   sessionMinutes,
   undoRemovePerson,
@@ -104,8 +103,6 @@ export function byTime(rows: DraftSession[]): DraftSession[] {
   const key = (r: DraftSession) => (TIME_RE.test(r.start) ? toMinutes(r.start) + (toMinutes(r.start) < ROLLOVER ? 1440 : 0) : 99999);
   return [...rows].sort((a, b) => key(a) - key(b));
 }
-
-export const isTeamPerson = (role: string | null) => !isEditableRole(role);
 
 /** StatusTag tone for a session type. */
 export const typeTone = (type: string | null): 'party' | 'neutral' => (type === 'party' ? 'party' : 'neutral');

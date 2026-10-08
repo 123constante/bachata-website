@@ -133,6 +133,20 @@ describe('requests to join', () => {
     expect((await screen.findByTestId('team-confirmation')).textContent).toBe('cleo@x.example can now edit Ritmo’s events as a manager.');
   });
 
+  it('lists the new manager under Team straight after the grant, without a reload', async () => {
+    api.resolve.mockResolvedValue({ requestId: 'r1', decision: 'grant', memberRole: 'manager' });
+    const cleo = { user_id: 'u9', member_role: 'manager', is_primary: false, is_self: false, email: 'cleo@x.example', display_name: null };
+    api.home.mockResolvedValueOnce({ today: '2026-10-07', organisers: [org('owner')] })
+      .mockResolvedValue({ today: '2026-10-07', organisers: [org('owner', [...TEAM, cleo])] });
+    mount();
+    await waitFor(() => expect(screen.getAllByTestId('team-member')).toHaveLength(2));
+    fireEvent.click(await screen.findByTestId('request-grant'));
+    fireEvent.click(screen.getByTestId('request-grant-confirm-yes'));
+    await waitFor(() => expect(screen.getAllByTestId('team-member')).toHaveLength(3));
+    expect(screen.getByTestId('member-u9').textContent).toContain('cleo@x.example');
+    expect(api.home).toHaveBeenCalledTimes(2);
+  });
+
   it('declines in one tap', async () => {
     api.resolve.mockResolvedValue({ requestId: 'r1', decision: 'decline', memberRole: null });
     api.incoming.mockResolvedValueOnce([REQ]).mockResolvedValue([]);
