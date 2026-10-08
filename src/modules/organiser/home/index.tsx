@@ -24,7 +24,7 @@ import { useHomeStrips, useOrganiserHome } from './useHomeData';
 import { OnboardingView } from './onboarding/OnboardingView';
 
 /** One upcoming date: chip, event name, venue, status. Opens the date editor. */
-function DateRow({ d }: { d: NextDate }) {
+function DateRow({ d, today }: { d: NextDate; today: string }) {
   return (
     <Link
       to={ORG_PATHS.date(d.seriesId, d.occurrenceId)}
@@ -32,7 +32,7 @@ function DateRow({ d }: { d: NextDate }) {
       data-occurrence={d.occurrenceId}
       className="flex min-h-[68px] items-center gap-[12px] px-[16px] py-[8px]"
     >
-      <DateChip date={d.date} />
+      <DateChip date={d.date} today={today} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-semibold text-[var(--fg)]">{d.seriesName}</span>
         <span className="block truncate text-[13px] text-[var(--mut)]">{d.venueName ?? 'Venue not set'}</span>
@@ -128,7 +128,7 @@ export default function HomePage() {
                   onPress={() => navigate(ORG_PATHS.event(runway.seriesId))}
                   testId="home-strip-runway"
                 >
-                  {runway.seriesName}: dates listed until {shortDate(runway.lastDate)}.
+                  {runway.seriesName}: dates listed until {shortDate(runway.lastDate, home.data?.today ?? '')}.
                   {runway.others > 0 && ` ${runway.others === 1 ? '1 more event' : `${runway.others} more events`} also running short.`}
                 </AttentionStrip>
               )}
@@ -164,7 +164,7 @@ export default function HomePage() {
                 <SectionLabel id="home-next-dates">Next dates</SectionLabel>
                 <Card testId="home-dates">
                   {dates.map((d) => (
-                    <DateRow key={d.occurrenceId} d={d} />
+                    <DateRow key={d.occurrenceId} d={d} today={home.data?.today ?? ''} />
                   ))}
                 </Card>
               </section>

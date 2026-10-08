@@ -4,6 +4,7 @@ import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { upcomingDates, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 import { toDraft, type Programme } from '@/modules/organiser/shared/programmeModel';
 import { dateTag, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
+import { calendarDate } from '@/modules/organiser/shared/homeModel';
 import type { StatusTone } from '../ui';
 
 export { dateTag };
@@ -156,11 +157,5 @@ export const lineupCheckDates = (dates: NextDate[]) => dates.filter((d) => !d.ca
 export const requestReaders = (organisers: readonly HomeOrganiser[]) =>
   organisers.filter((o) => o.role === 'owner' || o.role === 'manager');
 
-const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** "Fri 20 Nov" for a London calendar date (built by hand: Intl adds a comma in some engines). */
-export function shortDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  return `${WEEKDAY[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d} ${MONTH[m - 1]}`;
-}
+/** "Fri 20 Nov" for a London calendar date, "Sat 9 Jan 2027" outside today's year (shared calendarDate). */
+export const shortDate = (iso: string, today: string): string => calendarDate(iso, today);

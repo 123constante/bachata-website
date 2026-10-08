@@ -44,12 +44,21 @@ export function localAsZTime(iso: string | null | undefined): string | null {
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-/** "Tue 6 Oct"; "Tonight" for today's date. Both are London calendar dates. */
-export function dateLabel(date: string, today: string): string {
-  if (date === today) return 'Tonight';
+/**
+ * "Tue 6 Oct" for a London calendar date, with the year when it is not
+ * today's year ("Wed 6 Oct 2027"), so a date a year away never reads as this
+ * one. An unknown `today` ('') always shows the year.
+ */
+export function calendarDate(date: string, today: string): string {
   const [y, m, d] = date.split('-').map(Number);
   const day = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-  return `${WEEKDAY[day]} ${d} ${MONTH[m - 1]}`;
+  const year = String(y) === today.slice(0, 4) ? '' : ` ${y}`;
+  return `${WEEKDAY[day]} ${d} ${MONTH[m - 1]}${year}`;
+}
+
+/** calendarDate, or "Tonight" for today's date. */
+export function dateLabel(date: string, today: string): string {
+  return date === today ? 'Tonight' : calendarDate(date, today);
 }
 
 export const isCancelled = (date: HomeDate) => date.lifecycle_status === 'cancelled';

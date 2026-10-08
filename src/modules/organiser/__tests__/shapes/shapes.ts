@@ -38,7 +38,7 @@ export interface SeriesShape {
 }
 
 /** `count` dates `step` days apart from `first`; ids carry the shape key. */
-function run(key: string, first: string, count: number, step = 7, cancelled: (i: number) => boolean = () => false): ShapeDate[] {
+export function run(key: string, first: string, count: number, step = 7, cancelled: (i: number) => boolean = () => false): ShapeDate[] {
   return Array.from({ length: count }, (_, i) => {
     const date = addDaysToKey(first, i * step);
     return { id: `${key}-${date}`, date, status: cancelled(i) ? 'cancelled' : 'scheduled' };
@@ -48,11 +48,11 @@ function run(key: string, first: string, count: number, step = 7, cancelled: (i:
 const pastRun = (key: string, last: string, count: number, cancelled?: (i: number) => boolean) =>
   run(key, addDaysToKey(last, -7 * (count - 1)), count, 7, cancelled);
 
-const weekly = (weekday: number, end: Record<string, unknown> = { kind: 'none' }, interval: number | null = 1) =>
+export const weekly = (weekday: number, end: Record<string, unknown> = { kind: 'none' }, interval: number | null = 1) =>
   (interval == null ? { mode: 'weekly', weekdays: [weekday], end } : { mode: 'weekly', interval, weekdays: [weekday], end });
 
 let n = 0;
-function shape(s: Partial<SeriesShape> & Pick<SeriesShape, 'key' | 'about' | 'lifecycle' | 'format' | 'dates'>): SeriesShape {
+export function shape(s: Partial<SeriesShape> & Pick<SeriesShape, 'key' | 'about' | 'lifecycle' | 'format' | 'dates'>): SeriesShape {
   n += 1;
   return {
     id: `series-${s.key}`,

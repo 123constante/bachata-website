@@ -1,6 +1,9 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { AuthGuard } from '@/components/auth/AuthGuard';
+import { useAuth } from '@/hooks/useAuth';
+import { fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { SkeletonRows } from '../ui/Skeleton';
@@ -25,6 +28,22 @@ function ShellFallback() {
 }
 
 /**
+ * Starts organiser_home_v1 (the read Home, Team, Profile and Events all open
+ * with) as soon as auth is known, while the page's lazy chunk is still
+ * downloading. Without it a cold load ran chunk -> then the RPC, one after the
+ * other (the Team page's grey bars, 2026-10-08). Same key and fetcher as the
+ * pages, so they pick the result up from the cache; a fresh entry is not re-read.
+ */
+function PrefetchOrganiserHome() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (user?.id) void queryClient.prefetchQuery({ queryKey: organiserHomeQueryKey(user.id), queryFn: fetchOrganiserHome });
+  }, [queryClient, user?.id]);
+  return null;
+}
+
+/**
  * /account/o/* -- the rebuilt organiser area (arc/organiser-rebuild).
  * Mounted beside the old /account pages, which keep working until W5.
  * AuthGuard wraps it here, inside this lazy chunk, exactly as Account.tsx
@@ -34,6 +53,7 @@ export default function OrganiserRoutes() {
   useNoindexMeta(true);
   return (
     <AuthGuard>
+      <PrefetchOrganiserHome />
       <Suspense fallback={<ShellFallback />}>
         <Routes>
           <Route index element={<HomePage />} />

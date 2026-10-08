@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { CalendarPlus, MapPin, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { londonTodayKey } from '@/lib/londonDate';
 import { lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { ORG_PATHS } from '../shell';
 import { Card, DateChip, EmptyState, ErrorState, PrimaryButton, SectionLabel, SkeletonRows, StatusTag } from '../ui';
@@ -21,7 +22,7 @@ function EventRow({ series, active }: { series: ListedSeries; active: boolean })
       aria-current={active ? 'page' : undefined}
       className={cn('flex min-h-[64px] items-center gap-[12px] px-[16px] py-[12px]', active && 'bg-[var(--card2)]')}
     >
-      {next ? <DateChip date={next} /> : (
+      {next ? <DateChip date={next} today={londonTodayKey()} /> : (
         <span aria-hidden="true" className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[12px] bg-[var(--card2)] text-[var(--mut)]">
           <CalendarPlus className="h-[20px] w-[20px]" />
         </span>

@@ -70,6 +70,15 @@ function Question({ text, yes, no, onYes, onNo, pending, error, shakeProps, test
   );
 }
 
+/** The fixed note under the team list (shown in the loading frame too: it needs no data). */
+function TeamNote() {
+  return (
+    <p className={`${NOTE} pt-[12px]`} data-testid="team-note">
+      Owners add and remove people. Managers edit every event and send it for review. Only the Bachata Calendar team can change someone&rsquo;s role.
+    </p>
+  );
+}
+
 function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -177,9 +186,7 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
             </Collapse>
           );
         })}
-        <p className={`${NOTE} pt-[12px]`} data-testid="team-note">
-          Owners add and remove people. Managers edit every event and send it for review. Only the Bachata Calendar team can change someone&rsquo;s role.
-        </p>
+        <TeamNote />
       </Card>
 
       <Card label="Requests to join" testId="requests-card">
@@ -260,7 +267,11 @@ export default function TeamPage() {
       <div className="space-y-[16px]">
         <OrganiserSwitcher organisers={organisers} selectedId={selected?.id ?? null} onChoose={choose} />
         {home.isPending ? (
-          <SkeletonRows count={3} label="Loading your team" testId="team-loading" />
+          // The page's own frame while the team loads: the Team card (rows to come, its fixed note).
+          <Card label="Team" testId="team-list">
+            <div className="p-[12px]"><SkeletonRows count={2} label="Loading your team" testId="team-loading" /></div>
+            <TeamNote />
+          </Card>
         ) : home.isError && !home.data ? (
           <ErrorState title="Your team did not load" onRetry={() => void home.refetch()} retrying={home.isFetching} testId="team-load-error" />
         ) : !selected ? (

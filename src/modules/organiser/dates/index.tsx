@@ -22,6 +22,7 @@ import { fetchCancellationReasons } from '@/modules/organiser/shared/selfServeAp
 import { cancelCommand, skipDateCommand, uncancelCommand } from '@/modules/organiser/shared/seriesCommands';
 import { UNSAVED_MESSAGE } from '@/modules/organiser/shared/editorGuards';
 import { dateLabel as labelOf, isRuleDate } from '@/modules/organiser/shared/seriesModel';
+import { calendarDate } from '@/modules/organiser/shared/homeModel';
 import { dateLock, dateTag } from '@/modules/organiser/shared/eventState';
 import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
 import { londonTodayKey } from '@/lib/londonDate';
@@ -139,9 +140,9 @@ export default function DatePage() {
   ) : (
     <div className="space-y-[16px] pb-[8px]">
       <header className="flex items-center gap-[12px]" data-testid="date-header">
-        {date && <DateChip date={date} />}
+        {date && <DateChip date={date} today={today} />}
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[20px] font-bold text-[var(--fg)]" data-testid="date-title">{date ? labelOf(date, '') : label}</h1>
+          <h1 className="truncate text-[20px] font-bold text-[var(--fg)]" data-testid="date-title">{date ? calendarDate(date, today) : label}</h1>
           <p className="truncate text-[14px] text-[var(--mut)]" data-testid="date-span">
             {[series?.name, spanLabel(span) ?? 'No times yet'].filter(Boolean).join(' \u00b7 ')}
           </p>
@@ -244,7 +245,7 @@ export default function DatePage() {
         // Nothing to save until the date has loaded: loading shows skeletons only,
         // and a failed load's Try again is the one primary button.
         ed.base && !(loadError && !ed.saving) && <PreviewBar
-          preview={<DatePreview label={date ? labelOf(date, '') : label} span={span} venue={venue} rows={ed.rows} cancelled={cancelled} reason={ed.detail.data?.cancellationReason ?? null} />}
+          preview={<DatePreview label={date ? calendarDate(date, today) : label} span={span} venue={venue} rows={ed.rows} cancelled={cancelled} reason={ed.detail.data?.cancellationReason ?? null} />}
           actionLabel="Save changes"
           onAction={() => void onSave()}
           loading={ed.saving}
