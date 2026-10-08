@@ -196,6 +196,8 @@ halt). Ship gate: `npm run pre-ship` + the
 pre-push receipt gate (`scripts/ship-gate.mjs`). Session economy: delegate bulk
 reads, read only what you edit, and SAY when to start a fresh session.
 
+PR volume and Vercel deploy budget (one PR per unit of work, push once, batch merges): [`docs/pr-batching-policy.md`](docs/pr-batching-policy.md).
+
 ## Recent changes
 
 Don&rsquo;t keep a changelog here &mdash; it rotted once. Use `git log --oneline -20`;
