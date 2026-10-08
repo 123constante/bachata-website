@@ -893,6 +893,12 @@ onboarding city list), Team with no question open (see OPEN).
 - `npm run test:unit:offline`: 2234 pass; fails = the known `tests/integrityCouldNotRun.test.ts` (5)
   + `useEventGuestList.cache.test.ts` (no supabase env in this shell; 14/14 with the CI env vars,
   and fails the same with my changes stashed).
+- W5b-1's organiser E2E specs (the 9 in `test:e2e`), run on my head after rebasing onto 6122787, with
+  e2e-smoke.yml's env (incl. `VITE_ENABLE_ORGANISER_SELF_SERVE=true`): 51 passed, 6 skipped (the
+  `test.fixme` tap-target cases, see below), 1 failed once: `organiser-loop` line 34 after
+  `page.reload()` found no `profile-status-tag` (screenshot: public chrome, empty page) under full-suite
+  load; the same spec then passed 2/2 alone (`--repeat-each=2`). Not changed by me; for W5b-1 to harden
+  (wait for `org-page-profile` after the reload).
 
 ### OPEN
 
