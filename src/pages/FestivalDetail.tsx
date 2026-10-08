@@ -1934,10 +1934,11 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
   // isCancelled and isEnded are INDEPENDENT: a festival can finish its run with
   // its final day called off, so the cancelled banner still renders above this.
   const endedSource = propSnapshot?.event ?? null;
-  const isEnded =
+  const festivalLifecycleStatus: string | null =
     endedSource !== null
-      ? endedSource.lifecycleStatus === "ended"
-      : snapshotPayload?.event?.lifecycle_status === "ended";
+      ? endedSource.lifecycleStatus
+      : ((snapshotPayload?.event?.lifecycle_status as string | undefined) ?? null);
+  const isEnded = festivalLifecycleStatus === "ended";
   // ended_on is authoritative; ran_from may legitimately be missing, and a null
   // range is the date-free copy path rather than a defensive one (see endedRun).
   const endedRanFrom = endedSource
@@ -2780,92 +2781,95 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   const organiserEventCount = organiserStats?.eventCount ?? 0;
 
+  // Schema.org Event node, or null when the page must carry none (a paused
+  // series: see src/lib/seo/eventPageSeoPolicy).
+  const eventJsonLd = buildEventJsonLd({
+        name: festivalDetail?.identity.name ?? festival.name,
+        // Surface-aware URL: the same festival serves at /event/<slug>
+        // (its sitemap-canonical URL) AND /festival/<slug>, and JSON-LD
+        // url must agree with each surface's canonical. Only the PREFIX
+        // comes from the router pathname (identical server/client); the
+        // slug stays resolved -- reading the whole pathname emitted the
+        // uuid path on the server and the slug path on the client (#418).
+        url: `${SITE_ORIGIN}${pathname.startsWith("/event/") ? "/event" : "/festival"}/${resolvedSlug ?? festival.id}`,
+        // Real UTC instants (pre-brand this shipped the naive local-as-UTC
+        // stamp: Google read startDate 1h late all BST season).
+        startDate: startIso ?? "",
+        isCancelled,
+        // Series-termination arc W14. buildEventJsonLd returns BEFORE the
+        // offers block for an ended series (and emits no node for a paused
+        // one: eventJsonLdPolicy owns both), so `offers` below is passed and
+        // then dropped -- deliberately, so the decision has one owner
+        // rather than a second copy of the rule at this call site.
+        // The InStock fallback that made this urgent is gone (P5b), but
+        // the flag is not redundant: a finished festival with real ticket
+        // rows on file would otherwise still advertise them from the same
+        // document whose record card says the run has ended.
+        lifecycleStatus: festivalLifecycleStatus,
+        endDate: endIso,
+        // W14: the rich result must not keep the sales pitch on a page
+        // whose record card says the run has finished -- BentoPage makes
+        // exactly this swap, and its comment is the reasoning. Same
+        // sentence, same owner (endedRunSentence), same three fields the
+        // record card derives its noun from, so the page, the
+        // og:description and the structured data cannot disagree.
+        description: isEnded
+          ? endedRunSentence({
+              format: endedFormat,
+              type: endedType,
+              category: endedCategory,
+              ranFrom: endedRanFrom,
+              endedOn,
+            })
+          : (festivalDetail?.identity.description ?? festival.description ?? null),
+        image: posterUrl ? [posterUrl] : null,
+        venue: venue
+          ? {
+              name: venue.name,
+              address: venue.address,
+              city: festivalDetail?.location.city?.name ?? festival.city,
+            }
+          : { city: festivalDetail?.location.city?.name ?? festival.city },
+        // A resolved organiser row with no displayName is not evidence
+        // that WE run the festival: naming ourselves here republished the
+        // same misattribution the builder's fallback was struck for, one
+        // level up. No name, no organizer node.
+        organiser: organiser?.displayName
+          ? {
+              name: organiser.displayName,
+              url: organiser.href,
+            }
+          : null,
+        performers: [
+          ...allTeachers.map((p) => ({
+            name: p.displayName ?? "",
+            type: "Person" as const,
+          })),
+          ...(festivalDetail?.lineup.djs ?? []).map((p) => ({
+            name: p.displayName ?? "",
+            type: "Person" as const,
+          })),
+        ],
+        offers: passes.map((p) => ({
+          url: ticketUrl,
+          name: p.name,
+          price: p.price,
+          currency: p.currency ?? "GBP",
+        })),
+      });
+
   return (
 
     <div className="cinematic-festival min-h-screen pb-24 pt-0">
 
       <style dangerouslySetInnerHTML={{ __html: CINEMATIC_CSS }} />
 
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: serialiseJsonLd(
-            buildEventJsonLd({
-              name: festivalDetail?.identity.name ?? festival.name,
-              // Surface-aware URL: the same festival serves at /event/<slug>
-              // (its sitemap-canonical URL) AND /festival/<slug>, and JSON-LD
-              // url must agree with each surface's canonical. Only the PREFIX
-              // comes from the router pathname (identical server/client); the
-              // slug stays resolved -- reading the whole pathname emitted the
-              // uuid path on the server and the slug path on the client (#418).
-              url: `${SITE_ORIGIN}${pathname.startsWith("/event/") ? "/event" : "/festival"}/${resolvedSlug ?? festival.id}`,
-              // Real UTC instants (pre-brand this shipped the naive local-as-UTC
-              // stamp: Google read startDate 1h late all BST season).
-              startDate: startIso ?? "",
-              isCancelled,
-              // Series-termination arc W14. buildEventJsonLd returns BEFORE the
-              // offers block when this is set, so `offers` below is passed and
-              // then dropped -- deliberately, so the decision has one owner
-              // rather than a second copy of the rule at this call site.
-              // The InStock fallback that made this urgent is gone (P5b), but
-              // the flag is not redundant: a finished festival with real ticket
-              // rows on file would otherwise still advertise them from the same
-              // document whose record card says the run has ended.
-              isEnded,
-              endDate: endIso,
-              // W14: the rich result must not keep the sales pitch on a page
-              // whose record card says the run has finished -- BentoPage makes
-              // exactly this swap, and its comment is the reasoning. Same
-              // sentence, same owner (endedRunSentence), same three fields the
-              // record card derives its noun from, so the page, the
-              // og:description and the structured data cannot disagree.
-              description: isEnded
-                ? endedRunSentence({
-                    format: endedFormat,
-                    type: endedType,
-                    category: endedCategory,
-                    ranFrom: endedRanFrom,
-                    endedOn,
-                  })
-                : (festivalDetail?.identity.description ?? festival.description ?? null),
-              image: posterUrl ? [posterUrl] : null,
-              venue: venue
-                ? {
-                    name: venue.name,
-                    address: venue.address,
-                    city: festivalDetail?.location.city?.name ?? festival.city,
-                  }
-                : { city: festivalDetail?.location.city?.name ?? festival.city },
-              // A resolved organiser row with no displayName is not evidence
-              // that WE run the festival: naming ourselves here republished the
-              // same misattribution the builder's fallback was struck for, one
-              // level up. No name, no organizer node.
-              organiser: organiser?.displayName
-                ? {
-                    name: organiser.displayName,
-                    url: organiser.href,
-                  }
-                : null,
-              performers: [
-                ...allTeachers.map((p) => ({
-                  name: p.displayName ?? "",
-                  type: "Person" as const,
-                })),
-                ...(festivalDetail?.lineup.djs ?? []).map((p) => ({
-                  name: p.displayName ?? "",
-                  type: "Person" as const,
-                })),
-              ],
-              offers: passes.map((p) => ({
-                url: ticketUrl,
-                name: p.name,
-                price: p.price,
-                currency: p.currency ?? "GBP",
-              })),
-            }),
-          ),
-        }}
-      />
+      {eventJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serialiseJsonLd(eventJsonLd) }}
+        />
+      )}
 
       {/* Series-termination arc P4b: the sticky wrapper is REQUIRED here.
           EventCancelledBanner used to carry `sticky top-[60px] z-30 w-full` on its

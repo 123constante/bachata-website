@@ -1,11 +1,10 @@
 import { PauseCircle } from 'lucide-react';
 
-// NOTE (arc P4, measured 2026-09-02): this banner is currently UNREACHABLE.
-// _p5_series_public_page_visibility_v1 returns false for 'paused', and
-// resolve_public_event_ref_v1's pure-P5 arm admits only ('live','ended') -- so a
-// paused series 404s + noindex before any render happens. Kept, not deleted:
-// event_view_p5's snapshot_compat path still admits 'paused', so opening the
-// resolver is a one-line change that would bring this straight back.
+// Reachable since admin #716/#718 (2026-10-08): a paused series WITH a past
+// public date resolves (200, indexable, in the sitemap). This line is the page's
+// visible "On hiatus" statement, which the owner's SEO decision requires and
+// eventPageSeoPolicy pairs with "no Event node" in the JSON-LD. A paused series
+// with no past date still 404s.
 //
 // Stickiness lives on the WRAPPER in BentoPage, not here -- banners can stack,
 // and two sticky siblings at the same top offset overlap on scroll.

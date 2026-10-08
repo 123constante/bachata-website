@@ -17,6 +17,7 @@
 import { getSupabase } from "@/integrations/supabase/getSupabase";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
 import type { CfPurgeResolver } from "../cloudflarePurge";
+import { fetchHiddenSeries } from "./hiddenEventLookup";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -27,17 +28,10 @@ export async function hiddenEventSlug(
   env: Record<string, string | undefined> = process.env,
   fetchImpl: typeof fetch = fetch,
 ): Promise<string | null> {
-  const base = (env.SUPABASE_URL ?? "").replace(/\/$/, "");
-  const key = env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_SERVICE_KEY ?? "";
-  if (!base || !key || !UUID_RE.test(id)) return null;
-  const q = `select=slug&or=(legacy_event_id.eq.${id},and(legacy_event_id.is.null,id.eq.${id}))&limit=2`;
-  const res = await fetchImpl(`${base}/rest/v1/event_series_p5?${q}`, {
-    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/json" },
-  });
-  if (!res.ok) throw new Error(`event_series_p5 slug lookup HTTP ${res.status}`);
-  const rows = (await res.json()) as { slug?: string | null }[];
+  if (!UUID_RE.test(id)) return null;
+  const rows = await fetchHiddenSeries<{ slug?: string | null }>(id, "slug", env, fetchImpl);
   // Two rows would mean the uuid is ambiguous; purge the uuid URL only.
-  return rows.length === 1 ? rows[0].slug ?? null : null;
+  return rows && rows.length === 1 ? rows[0].slug ?? null : null;
 }
 
 export const supabaseCloudflareResolver: CfPurgeResolver = {
