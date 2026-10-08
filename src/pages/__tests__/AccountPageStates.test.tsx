@@ -23,8 +23,8 @@ vi.mock('@/modules/organiser-self-serve/components/OrganiserHome', () => ({ Orga
 vi.mock('@/modules/organiser-self-serve/components/CreateEventForm', () => ({ CreateEventForm: () => <div data-testid="create-form" /> }));
 vi.mock('@/modules/organiser-self-serve/components/SeriesEditor', () => ({ SeriesEditor: () => <div data-testid="series-editor" /> }));
 vi.mock('@/modules/organiser-self-serve/components/TeamPanel', () => ({ TeamPanel: () => <div data-testid="team-panel" /> }));
-vi.mock('@/modules/organiser-self-serve/selfServeApi', async () => ({
-  ...(await vi.importActual<object>('@/modules/organiser-self-serve/selfServeApi')),
+vi.mock('@/modules/organiser/shared/selfServeApi', async () => ({
+  ...(await vi.importActual<object>('@/modules/organiser/shared/selfServeApi')),
   fetchOrganiserHome: api.home,
   fetchMyAccessRequests: api.mine,
   fetchIncomingAccessRequests: api.incoming,

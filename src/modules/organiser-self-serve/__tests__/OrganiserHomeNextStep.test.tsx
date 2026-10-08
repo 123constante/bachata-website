@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn() } }));
 
 import { OrganiserHome } from '../components/OrganiserHome';
-import type { HomeOrganiser } from '../selfServeApi';
+import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 
 const organiser = (lifecycle_status: string) =>
   ({ id: 'o1', name: 'Casa Bachata', slug: 'casa', role: 'owner', lifecycle_status, series: [], latest_decision: null }) as unknown as HomeOrganiser;

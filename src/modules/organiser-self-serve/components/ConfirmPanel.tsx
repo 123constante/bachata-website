@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { canConfirm, type ConfirmCopy } from '../editorGuards';
+import { canConfirm, type ConfirmCopy } from '@/modules/organiser/shared/editorGuards';
 
 /**
  * The second, explicit step before something is hidden or removed: what will

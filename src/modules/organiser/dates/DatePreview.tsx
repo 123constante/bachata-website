@@ -1,4 +1,4 @@
-import type { DraftSession } from '@/modules/organiser-self-serve/programmeModel';
+import type { DraftSession } from '@/modules/organiser/shared/programmeModel';
 import { byTime, peopleLabel, sessionName, spanLabel } from './dateModel';
 
 export interface DatePreviewProps {

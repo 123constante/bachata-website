@@ -1,4 +1,4 @@
-import type { HomeOrganiser } from '@/modules/organiser-self-serve/selfServeApi';
+import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { Chip } from '../ui';
 
 /**

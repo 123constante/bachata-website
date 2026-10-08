@@ -9,11 +9,11 @@ const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn() } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null }) }));
 vi.mock('../components/VenuePicker', () => ({ VenuePicker: () => null }));
-vi.mock('../components/publicVenues', () => ({ useVenueOptions: () => ({ data: [] }), venueName: () => null }));
+vi.mock('@/modules/organiser/shared/publicVenues', () => ({ useVenueOptions: () => ({ data: [] }), venueName: () => null }));
 
 import { SeriesEditor } from '../components/SeriesEditor';
-import { OFFLINE_SAVE_MESSAGE, commandErrorMessage, isNetworkFailure } from '../selfServeErrors';
-import type { SeriesWorkspace, WorkspaceSeries } from '../seriesModel';
+import { OFFLINE_SAVE_MESSAGE, commandErrorMessage, isNetworkFailure } from '@/modules/organiser/shared/selfServeErrors';
+import type { SeriesWorkspace, WorkspaceSeries } from '@/modules/organiser/shared/seriesModel';
 
 const setOnline = (value: boolean) => { Object.defineProperty(window.navigator, 'onLine', { value, configurable: true }); };
 

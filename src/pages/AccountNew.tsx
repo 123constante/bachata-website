@@ -10,7 +10,7 @@ import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { CreateEventForm } from '@/modules/organiser-self-serve/components/CreateEventForm';
 import { PageLoadError, PageLoading, PageOffline } from '@/modules/organiser-self-serve/components/PageStates';
-import { fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser-self-serve/selfServeApi';
+import { fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
 
 /**
  * /account/new -- create a party or a weekly class (Lever 2 W3, mockup 02-A).

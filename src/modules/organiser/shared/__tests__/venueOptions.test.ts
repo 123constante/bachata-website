@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 const rpc = vi.fn();
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...args: unknown[]) => rpc(...args) } }));
 
-import { loadVenueOptions, venueName, type VenueOption } from '../components/publicVenues';
+import { loadVenueOptions, venueName, type VenueOption } from '../publicVenues';
 import { emptyVenueRequest, submitVenueRequest, venueRequestOutcome, venueRequestPayload, venueRequestProblems } from '../venueRequest';
 
 const draftVenue: VenueOption = { id: 'v-draft', name: 'New Studio', neighbourhood: null, city_name: 'London', address: null, postcode: 'E1 6AN' };

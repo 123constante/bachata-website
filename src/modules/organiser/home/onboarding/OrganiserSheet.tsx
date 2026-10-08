@@ -7,8 +7,8 @@ import {
   createOrganiserProfile,
   requestOrganiserAccess,
   type ClaimCandidate,
-} from '@/modules/organiser-self-serve/selfServeApi';
-import { selfServeErrorCopy, type SelfServeErrorCopy } from '@/modules/organiser-self-serve/selfServeErrors';
+} from '@/modules/organiser/shared/selfServeApi';
+import { selfServeErrorCopy, type SelfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
 import { Card, PrimaryButton, SearchField, SheetView, SkeletonRows, SummaryRow, useShake } from '../../ui';
 import { EmailCode } from './EmailCode';
 import { searchCities, type CityResult } from './citySearch';

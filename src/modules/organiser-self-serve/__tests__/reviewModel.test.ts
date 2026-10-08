@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SUBMIT_NEEDS_VENUE, reviewStrip } from '../reviewModel';
-import { lifecycleCommand, submitForReviewCommand } from '../seriesCommands';
+import { SUBMIT_NEEDS_VENUE, reviewStrip } from '@/modules/organiser-self-serve/reviewModel';
+import { lifecycleCommand, submitForReviewCommand } from '@/modules/organiser/shared/seriesCommands';
 
 const returned = { action: 'rejected', to_state: 'rejected', reason: 'Add the price and confirm the venue.', created_at: '2026-10-01T18:00:00+00:00' };
 

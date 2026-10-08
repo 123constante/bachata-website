@@ -5,15 +5,15 @@ import { Check, ExternalLink, Loader2, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchOrganiserHome, organiserHomeQueryKey } from '../selfServeApi';
-import { submitForReviewCommand } from '../seriesCommands';
-import { commandErrorMessage } from '../selfServeErrors';
-import { publicEventPath } from '../editorGuards';
+import { fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
+import { submitForReviewCommand } from '@/modules/organiser/shared/seriesCommands';
+import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { publicEventPath } from '@/modules/organiser/shared/editorGuards';
 import { reviewStrip, type ReviewStep } from '../reviewModel';
-import { instantDateLabel } from '../teamModel';
-import type { HomeSeriesFull } from '../homeModel';
-import type { WorkspaceSeries } from '../seriesModel';
-import { useOwnerCommand } from './useOwnerCommand';
+import { instantDateLabel } from '@/modules/organiser/shared/teamModel';
+import type { HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
+import type { WorkspaceSeries } from '@/modules/organiser/shared/seriesModel';
+import { useOwnerCommand } from '@/modules/organiser/shared/useOwnerCommand';
 
 /**
  * The review status strip (Lever 2 W6, mockup 05-A) at the top of the series

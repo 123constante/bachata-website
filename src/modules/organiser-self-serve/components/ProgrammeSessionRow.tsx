@@ -12,7 +12,7 @@ import {
   endsNextDay,
   type DraftSession,
   type RowProblem,
-} from '../programmeModel';
+} from '@/modules/organiser/shared/programmeModel';
 import { LineupRow } from './LineupRow';
 
 /**

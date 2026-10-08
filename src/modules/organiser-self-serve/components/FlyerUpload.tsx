@@ -2,8 +2,8 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Check, ImagePlus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import EventRow from '@/components/events/EventRow';
-import { publicEventPath } from '../editorGuards';
-import { commandErrorMessage } from '../selfServeErrors';
+import { publicEventPath } from '@/modules/organiser/shared/editorGuards';
+import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import {
   FLYER_ACCEPT,
   FLYER_PROBLEM_COPY,
@@ -15,10 +15,10 @@ import {
   reencodeFlyer,
   type EncodedFlyer,
   type ReencodeDeps,
-} from '../flyerModel';
-import { uploadFlyer } from '../flyerUploadApi';
-import type { WorkspaceSeries } from '../seriesModel';
-import { useOwnerCommand } from './useOwnerCommand';
+} from '@/modules/organiser/shared/flyerModel';
+import { uploadFlyer } from '@/modules/organiser/shared/flyerUploadApi';
+import type { WorkspaceSeries } from '@/modules/organiser/shared/seriesModel';
+import { useOwnerCommand } from '@/modules/organiser/shared/useOwnerCommand';
 
 /**
  * The series flyer: pick a picture from the phone or computer, see it as

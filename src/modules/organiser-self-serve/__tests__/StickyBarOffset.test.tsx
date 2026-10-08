@@ -15,14 +15,14 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn(
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null }) }));
 vi.mock('@/components/ui/city-picker', () => ({ CityPicker: () => null }));
 vi.mock('../components/VenuePicker', () => ({ VenuePicker: () => null }));
-vi.mock('../components/useOwnerCommand', () => ({ useOwnerCommand: () => ({ mutateAsync: vi.fn() }) }));
-vi.mock('../components/publicVenues', () => ({ useVenueOptions: () => ({ data: [] }), venueName: () => null }));
+vi.mock('@/modules/organiser/shared/useOwnerCommand', () => ({ useOwnerCommand: () => ({ mutateAsync: vi.fn() }) }));
+vi.mock('@/modules/organiser/shared/publicVenues', () => ({ useVenueOptions: () => ({ data: [] }), venueName: () => null }));
 vi.mock('@/hooks/useUnsavedChangesGuard', () => ({ useUnsavedChangesGuard: () => {} }));
 
 import { SeriesEditor } from '../components/SeriesEditor';
 import { CreateEventForm } from '../components/CreateEventForm';
-import type { HomeOrganiser } from '../selfServeApi';
-import type { SeriesWorkspace } from '../seriesModel';
+import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
+import type { SeriesWorkspace } from '@/modules/organiser/shared/seriesModel';
 
 const OFFSET = 'bottom-[calc(60px+env(safe-area-inset-bottom))]';
 const wrap = (ui: ReactNode) =>

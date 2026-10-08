@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { CityPicker } from '@/components/ui/city-picker';
-import { EmailCodeProof } from './EmailCodeProof';
+import { EmailCodeProof } from '@/modules/organiser/shared/components/EmailCodeProof';
 import {
   claimHint,
   claimOrganiser,
@@ -15,8 +15,8 @@ import {
   searchClaimableOrganisers,
   type ClaimCandidate,
   type ClaimHint,
-} from '../selfServeApi';
-import { selfServeErrorCopy, type SelfServeErrorCopy } from '../selfServeErrors';
+} from '@/modules/organiser/shared/selfServeApi';
+import { selfServeErrorCopy, type SelfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
 
 /** Light client-side check; the server (invalid_instagram) stays the authority. */
 export function instagramProblem(value: string): string | null {

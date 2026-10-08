@@ -15,7 +15,7 @@ import {
   type DraftSession,
   type LevelKey,
   type PeopleRole,
-} from '@/modules/organiser-self-serve/programmeModel';
+} from '@/modules/organiser/shared/programmeModel';
 
 /**
  * PEOPLE BY TYPE (ARC DOMAIN): class and masterclass take teachers, a party

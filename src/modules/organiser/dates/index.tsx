@@ -17,12 +17,12 @@ import {
   useShake,
 } from '../ui';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { newSession, notEditableCopy, type DraftSession } from '@/modules/organiser-self-serve/programmeModel';
-import { fetchCancellationReasons } from '@/modules/organiser-self-serve/selfServeApi';
-import { cancelCommand, skipDateCommand, uncancelCommand } from '@/modules/organiser-self-serve/seriesCommands';
-import { UNSAVED_MESSAGE } from '@/modules/organiser-self-serve/editorGuards';
-import { dateLabel as labelOf, isRuleDate } from '@/modules/organiser-self-serve/seriesModel';
-import { useVenueOptions, venueName } from '@/modules/organiser-self-serve/components/publicVenues';
+import { newSession, notEditableCopy, type DraftSession } from '@/modules/organiser/shared/programmeModel';
+import { fetchCancellationReasons } from '@/modules/organiser/shared/selfServeApi';
+import { cancelCommand, skipDateCommand, uncancelCommand } from '@/modules/organiser/shared/seriesCommands';
+import { UNSAVED_MESSAGE } from '@/modules/organiser/shared/editorGuards';
+import { dateLabel as labelOf, isRuleDate } from '@/modules/organiser/shared/seriesModel';
+import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
 import { londonTodayKey } from '@/lib/londonDate';
 import { DateSheet, type SheetState } from './DateSheet';
 import { DatePreview } from './DatePreview';

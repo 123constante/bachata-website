@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarDays, ChevronDown } from 'lucide-react';
-import { lineupSummary, toDraft, TYPE_LABEL } from '@/modules/organiser-self-serve/programmeModel';
-import { upcomingDates, type WorkspaceDate } from '@/modules/organiser-self-serve/seriesModel';
+import { lineupSummary, toDraft, TYPE_LABEL } from '@/modules/organiser/shared/programmeModel';
+import { upcomingDates, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 import { ORG_PATHS } from '../shell';
 import { Card, Collapse, DateChip, GhostButton, SkeletonRows, SummaryRow } from '../ui';
 import { shortDate } from './eventModel';

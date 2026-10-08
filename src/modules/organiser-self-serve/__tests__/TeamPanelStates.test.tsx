@@ -7,15 +7,15 @@ import { MemoryRouter } from 'react-router-dom';
 
 const api = vi.hoisted(() => ({ incoming: vi.fn(), remove: vi.fn(), resolve: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {} } }));
-vi.mock('../selfServeApi', async () => ({
-  ...(await vi.importActual<object>('../selfServeApi')),
+vi.mock('@/modules/organiser/shared/selfServeApi', async () => ({
+  ...(await vi.importActual<object>('@/modules/organiser/shared/selfServeApi')),
   fetchIncomingAccessRequests: api.incoming,
   removeOrganiserMember: api.remove,
   resolveAccessRequest: api.resolve,
 }));
 
 import { TeamPanel } from '../components/TeamPanel';
-import type { HomeOrganiser } from '../selfServeApi';
+import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 
 const ORG: HomeOrganiser = {
   id: 'org-1', name: 'Ritmo', slug: 'ritmo', avatar_url: null, city_id: null, lifecycle_status: 'live', role: 'owner', latest_decision: null, series: [],

@@ -11,8 +11,8 @@ import {
   teamOf,
   type AccessDecision,
   type HomeOrganiser,
-} from '@/modules/organiser-self-serve/selfServeApi';
-import { teamErrorMessage } from '@/modules/organiser-self-serve/selfServeErrors';
+} from '@/modules/organiser/shared/selfServeApi';
+import { teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import {
   ROLE_LABEL,
   howToAddManager,
@@ -22,7 +22,7 @@ import {
   type IncomingAccessRequest,
   type TeamMember,
   type TeamRole,
-} from '@/modules/organiser-self-serve/teamModel';
+} from '@/modules/organiser/shared/teamModel';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import {
   AnnounceRegion,

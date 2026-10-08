@@ -16,10 +16,10 @@ import {
   type DraftPerson,
   type DraftSession,
   type PeopleRole,
-} from '../programmeModel';
-import type { PersonResult } from '../selfServeApi';
+} from '@/modules/organiser/shared/programmeModel';
+import type { PersonResult } from '@/modules/organiser/shared/selfServeApi';
 import { PersonAvatar, PersonPicker } from './PersonPicker';
-import { usePrefersReducedMotion } from './usePrefersReducedMotion';
+import { usePrefersReducedMotion } from '@/modules/organiser/shared/usePrefersReducedMotion';
 
 /** Every line-up motion: 0.3s ease-in-out (none at all with reduced motion). */
 export const LINEUP_MOTION_MS = 300;

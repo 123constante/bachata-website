@@ -14,8 +14,8 @@ import {
   teamOf,
   type AccessDecision,
   type HomeOrganiser,
-} from '../selfServeApi';
-import { teamErrorMessage } from '../selfServeErrors';
+} from '@/modules/organiser/shared/selfServeApi';
+import { teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import {
   ROLE_LABEL,
   howToAddManager,
@@ -25,7 +25,7 @@ import {
   type IncomingAccessRequest,
   type TeamMember,
   type TeamRole,
-} from '../teamModel';
+} from '@/modules/organiser/shared/teamModel';
 
 /**
  * The team page body (Lever 2 W6, mockup 05-B's account page; 04-C's team tab

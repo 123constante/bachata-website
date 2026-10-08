@@ -3,8 +3,8 @@ import { Loader2, MapPin, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useVenueOptions, venueName } from './publicVenues';
-import { emptyVenueRequest, submitVenueRequest, venueRequestProblems, type VenueRequestForm } from '../venueRequest';
+import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
+import { emptyVenueRequest, submitVenueRequest, venueRequestProblems, type VenueRequestForm } from '@/modules/organiser/shared/venueRequest';
 
 /**
  * Pick a venue the calendar knows (every venue, drafts included: useVenueOptions). A venue

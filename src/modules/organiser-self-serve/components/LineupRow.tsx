@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { lineupSummary, type DraftPerson, type DraftSession } from '../programmeModel';
+import { lineupSummary, type DraftPerson, type DraftSession } from '@/modules/organiser/shared/programmeModel';
 import { LineupSheet } from './LineupSheet';
 
 /**

@@ -11,7 +11,7 @@ import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { SeriesEditor } from '@/modules/organiser-self-serve/components/SeriesEditor';
 import { PageLoadError, PageLoading, PageOffline } from '@/modules/organiser-self-serve/components/PageStates';
-import { fetchSeriesWorkspace, seriesWorkspaceQueryKey } from '@/modules/organiser-self-serve/selfServeApi';
+import { fetchSeriesWorkspace, seriesWorkspaceQueryKey } from '@/modules/organiser/shared/selfServeApi';
 
 /**
  * /account/series/:seriesId -- one series for its organiser (Lever 2 W4/W5).

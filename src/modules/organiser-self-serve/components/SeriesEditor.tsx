@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { LIFECYCLE_LABEL } from '../selfServeApi';
+import { LIFECYCLE_LABEL } from '@/modules/organiser/shared/selfServeApi';
 import {
   addDateCommand,
   basicsPayload,
@@ -16,9 +16,9 @@ import {
   lifecycleCommand,
   unskipDateCommand,
   upsertCommand,
-} from '../seriesCommands';
-import { commandErrorMessage } from '../selfServeErrors';
-import { UNSAVED_MESSAGE, confirmCopy, type ConfirmCopy, leaveGuardEnabled, publicEventPath } from '../editorGuards';
+} from '@/modules/organiser/shared/seriesCommands';
+import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { UNSAVED_MESSAGE, confirmCopy, type ConfirmCopy, leaveGuardEnabled, publicEventPath } from '@/modules/organiser/shared/editorGuards';
 import {
   LIFECYCLE_NOTE,
   basicsFormFromSeries,
@@ -41,12 +41,12 @@ import {
   type PassRow,
   type SeriesWorkspace,
   type WorkspaceDate,
-} from '../seriesModel';
+} from '@/modules/organiser/shared/seriesModel';
 import { ConfirmPanel } from './ConfirmPanel';
 import { DateActionSheet } from './DateActionSheet';
 import { FlyerUpload } from './FlyerUpload';
 import { ReviewStrip } from './ReviewStrip';
-import { useOwnerCommand } from './useOwnerCommand';
+import { useOwnerCommand } from '@/modules/organiser/shared/useOwnerCommand';
 import { VenuePicker } from './VenuePicker';
 
 /**

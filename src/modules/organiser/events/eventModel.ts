@@ -4,21 +4,21 @@
 // sends, from the old command builders, and only for the fields that changed.
 
 import { weekdayOfKey } from '@/lib/londonDate';
-import { dateLabel } from '@/modules/organiser-self-serve/homeModel';
-import { isHttpUrl } from '@/modules/organiser-self-serve/createModel';
+import { dateLabel } from '@/modules/organiser/shared/homeModel';
+import { isHttpUrl } from '@/modules/organiser/shared/createModel';
 import {
   addDateCommand,
   removeDateCommand,
   upsertCommand,
   type OwnerCommand,
-} from '@/modules/organiser-self-serve/seriesCommands';
+} from '@/modules/organiser/shared/seriesCommands';
 import {
   parseWorkspace,
   upcomingDates,
   weeklyRule,
   type SeriesWorkspace,
   type WorkspaceDate,
-} from '@/modules/organiser-self-serve/seriesModel';
+} from '@/modules/organiser/shared/seriesModel';
 import { MAX_UPCOMING, endWithinCap, type CapInput } from './dateCap';
 
 export interface EventWorkspace extends SeriesWorkspace {

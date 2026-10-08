@@ -20,11 +20,11 @@ const reencode = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn(), storage: { from } } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null }) }));
 vi.mock('../components/VenuePicker', () => ({ VenuePicker: () => null }));
-vi.mock('../components/publicVenues', () => ({ useVenueOptions: () => ({ data: [] }), venueName: () => null }));
-vi.mock('../flyerModel', async (importOriginal) => ({ ...(await importOriginal<typeof import('../flyerModel')>()), reencodeFlyer: reencode }));
+vi.mock('@/modules/organiser/shared/publicVenues', () => ({ useVenueOptions: () => ({ data: [] }), venueName: () => null }));
+vi.mock('@/modules/organiser/shared/flyerModel', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/modules/organiser/shared/flyerModel')>()), reencodeFlyer: reencode }));
 
 import { SeriesEditor } from '../components/SeriesEditor';
-import type { SeriesWorkspace, WorkspaceSeries } from '../seriesModel';
+import type { SeriesWorkspace, WorkspaceSeries } from '@/modules/organiser/shared/seriesModel';
 
 const SID = '0f8fad5b-d9cb-469f-a165-70867728950e';
 const PATH_RE = new RegExp(`^${SID}/[0-9a-f]{32}\\.webp$`);
@@ -125,7 +125,7 @@ describe('SeriesEditor picture (FlyerUpload)', () => {
   });
 
   it('shows a file the browser cannot decode as not a picture', async () => {
-    const { FlyerError } = await import('../flyerModel');
+    const { FlyerError } = await import('@/modules/organiser/shared/flyerModel');
     reencode.mockRejectedValueOnce(new FlyerError('not_image'));
     mount();
     pick(pngFile());

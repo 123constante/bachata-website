@@ -12,7 +12,7 @@ import {
   dateDetailQueryKey,
   fetchCancellationReasons,
   fetchDateDetail,
-} from '../selfServeApi';
+} from '@/modules/organiser/shared/selfServeApi';
 import {
   cancelCommand,
   overrideCommand,
@@ -23,9 +23,9 @@ import {
   uncancelCommand,
   type OverridePatch,
   type OwnerCommand,
-} from '../seriesCommands';
-import { commandErrorMessage } from '../selfServeErrors';
-import { UNSAVED_MESSAGE, confirmCopy, publicEventPath } from '../editorGuards';
+} from '@/modules/organiser/shared/seriesCommands';
+import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { UNSAVED_MESSAGE, confirmCopy, publicEventPath } from '@/modules/organiser/shared/editorGuards';
 import {
   dateLabel,
   durationMinutes,
@@ -35,12 +35,12 @@ import {
   timeSpanWarning,
   type WorkspaceDate,
   type WorkspaceSeries,
-} from '../seriesModel';
+} from '@/modules/organiser/shared/seriesModel';
 import { ConfirmPanel } from './ConfirmPanel';
 import { ProgrammeEditor } from './ProgrammeEditor';
-import { useOwnerCommand } from './useOwnerCommand';
+import { useOwnerCommand } from '@/modules/organiser/shared/useOwnerCommand';
 import { VenuePicker } from './VenuePicker';
-import { useVenueOptions, venueName } from './publicVenues';
+import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
 
 /**
  * Change one date (Lever 2 W5, mockup 03-A): an action sheet of named

@@ -10,9 +10,9 @@ import {
   runSeriesCommand,
   seriesWorkspaceQueryKey,
   type HomeOrganiser,
-} from '@/modules/organiser-self-serve/selfServeApi';
-import { envelope, type OwnerCommand } from '@/modules/organiser-self-serve/seriesCommands';
-import type { HomeSeriesFull } from '@/modules/organiser-self-serve/homeModel';
+} from '@/modules/organiser/shared/selfServeApi';
+import { envelope, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
+import type { HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
 import { parseEventWorkspace, type EventWorkspace } from './eventModel';
 
 /** The editor's own cache entry: the old parser's shape plus styles, gallery and videos. */

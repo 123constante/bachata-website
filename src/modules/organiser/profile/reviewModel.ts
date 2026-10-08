@@ -1,10 +1,10 @@
-import { LIFECYCLE_LABEL } from '@/modules/organiser-self-serve/selfServeApi';
+import { LIFECYCLE_LABEL } from '@/modules/organiser/shared/selfServeApi';
 import type { StatusTone } from '../ui';
 
 /**
  * The organiser's lifecycle on the Profile page (F1), and whether it can be
  * sent for review. Same states and the same send rule as the old /account
- * header (organiserStatusView in organiser-self-serve/homeModel.ts):
+ * header (organiserStatusView in organiser/shared/homeModel.ts):
  * submit_organiser_profile_v1 admits draft and rejected only.
  */
 export interface ReviewStatus {

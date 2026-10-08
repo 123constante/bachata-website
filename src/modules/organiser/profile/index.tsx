@@ -10,7 +10,7 @@ import {
   type OrganiserProfileEditForm,
 } from '@/lib/organiserProfileUpdate';
 import { fetchOrganiserEntity, organiserEntityQueryKey } from '@/modules/profile/organiserPublicProfile';
-import { ORGANISER_HOME_KEY, type HomeOrganiser } from '@/modules/organiser-self-serve/selfServeApi';
+import { ORGANISER_HOME_KEY, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { OrganiserShell } from '../shell';
 import {
   AnnounceRegion,

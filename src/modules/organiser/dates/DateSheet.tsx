@@ -24,15 +24,15 @@ import {
   undoRemovePerson,
   type DraftSession,
   type RowProblem,
-} from '@/modules/organiser-self-serve/programmeModel';
+} from '@/modules/organiser/shared/programmeModel';
 import {
   PEOPLE_SEARCH_MIN,
   searchPeople,
   searchPeopleQueryKey,
   type CancellationReason,
-} from '@/modules/organiser-self-serve/selfServeApi';
-import { confirmCopy } from '@/modules/organiser-self-serve/editorGuards';
-import type { VenueOption } from '@/modules/organiser-self-serve/components/publicVenues';
+} from '@/modules/organiser/shared/selfServeApi';
+import { confirmCopy } from '@/modules/organiser/shared/editorGuards';
+import type { VenueOption } from '@/modules/organiser/shared/publicVenues';
 import { ROLE_NOUN, addRoleFor, onSessionIds, pickPerson, setSessionType, typeLabel, typeTone } from './dateModel';
 
 export type SheetState =

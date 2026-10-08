@@ -569,3 +569,10 @@ Checkpoints (one per step):
 
 1. DONE -- `__tests__/shell.test.tsx` mocks `@/integrations/supabase/client` + `@/hooks/useAuth`
    and wraps the router in a `QueryClientProvider` (the fix W1 verified); 11/11 pass.
+2. DONE -- old logic moved (`git mv`) into `src/modules/organiser/shared/` (flat; the two
+   components the public organiser page still renders go to `shared/components/`), with
+   their tests in `shared/__tests__/`. Every import updated (organiser/**, OrganiserProfile.tsx,
+   the guard allowlists in `scripts/lint-runtime-architecture.mjs` and
+   `scripts/rpc-typing-allowlist.json`). `src/pages/AuthCallback.tsx` (login, may not be edited)
+   still imports `@/modules/organiser-self-serve/selfServeApi`: a 3-line re-export shim stays at
+   that path. 648/648 tests pass in organiser, organiser-self-serve, pages.

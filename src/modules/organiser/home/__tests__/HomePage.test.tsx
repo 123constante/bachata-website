@@ -15,8 +15,8 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc: vi.fn() } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, session: null }) }));
-vi.mock('@/modules/organiser-self-serve/selfServeApi', async () => {
-  const actual = await vi.importActual<typeof import('@/modules/organiser-self-serve/selfServeApi')>('@/modules/organiser-self-serve/selfServeApi');
+vi.mock('@/modules/organiser/shared/selfServeApi', async () => {
+  const actual = await vi.importActual<typeof import('@/modules/organiser/shared/selfServeApi')>('@/modules/organiser/shared/selfServeApi');
   return {
     ...actual,
     fetchOrganiserHome: api.home,

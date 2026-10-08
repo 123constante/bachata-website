@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { EVENT_ROW_POSTER_FALLBACKS } from '@/components/events/EventRow';
-import type { PreviewModel } from '../createModel';
+import type { PreviewModel } from '@/modules/organiser/shared/createModel';
 
 /**
  * The public event page as a dancer will see it, drawn with the public theme's

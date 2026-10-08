@@ -21,8 +21,8 @@ vi.mock('@/components/ui/city-picker', () => ({
     <button type="button" data-testid="city-pick" onClick={() => onChange('c1')}>London</button>
   ),
 }));
-vi.mock('../selfServeApi', async () => {
-  const actual = await vi.importActual<typeof import('../selfServeApi')>('../selfServeApi');
+vi.mock('@/modules/organiser/shared/selfServeApi', async () => {
+  const actual = await vi.importActual<typeof import('@/modules/organiser/shared/selfServeApi')>('@/modules/organiser/shared/selfServeApi');
   return {
     ...actual,
     searchClaimableOrganisers: api.search,
@@ -31,21 +31,21 @@ vi.mock('../selfServeApi', async () => {
     createOrganiserProfile: api.create,
   };
 });
-vi.mock('../components/useOwnerCommand', () => ({ useOwnerCommand: () => command }));
-vi.mock('../components/publicVenues', () => ({
+vi.mock('@/modules/organiser/shared/useOwnerCommand', () => ({ useOwnerCommand: () => command }));
+vi.mock('@/modules/organiser/shared/publicVenues', () => ({
   useVenueOptions: () => ({ data: [], isLoading: false, isError: false }),
   venueName: () => null,
 }));
-vi.mock('../createCity', () => ({ resolveCreateCityId: vi.fn().mockResolvedValue('c1') }));
+vi.mock('@/modules/organiser/shared/createCity', () => ({ resolveCreateCityId: vi.fn().mockResolvedValue('c1') }));
 vi.mock('@/hooks/useUnsavedChangesGuard', () => ({ useUnsavedChangesGuard: () => {} }));
 
-import { EmailCodeProof } from '../components/EmailCodeProof';
+import { EmailCodeProof } from '@/modules/organiser/shared/components/EmailCodeProof';
 import { OrganiserOnboarding } from '../components/OrganiserOnboarding';
-import { PublicClaimCard } from '../components/PublicClaimCard';
+import { PublicClaimCard } from '@/modules/organiser/shared/components/PublicClaimCard';
 import { OrganiserHome } from '../components/OrganiserHome';
 import { CreateEventForm } from '../components/CreateEventForm';
 import { VenuePicker } from '../components/VenuePicker';
-import type { HomeOrganiser } from '../selfServeApi';
+import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 
 const client = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const wrap = (ui: React.ReactNode) =>

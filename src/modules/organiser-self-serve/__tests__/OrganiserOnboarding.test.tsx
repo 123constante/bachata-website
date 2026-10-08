@@ -7,8 +7,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const api = vi.hoisted(() => ({ search: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {} } }));
 vi.mock('@/components/ui/city-picker', () => ({ CityPicker: () => <div data-testid="city-picker" /> }));
-vi.mock('../selfServeApi', async () => {
-  const hint = await vi.importActual<typeof import('../claimHint')>('../claimHint');
+vi.mock('@/modules/organiser/shared/selfServeApi', async () => {
+  const hint = await vi.importActual<typeof import('@/modules/organiser/shared/claimHint')>('@/modules/organiser/shared/claimHint');
   return {
     claimHint: hint.claimHint,
     searchClaimableOrganisers: api.search,

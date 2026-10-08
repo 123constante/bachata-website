@@ -11,8 +11,8 @@ import {
   occurrenceProgrammeQueryKey,
   organiserHomeQueryKey,
   seriesWorkspaceQueryKey,
-} from '@/modules/organiser-self-serve/selfServeApi';
-import type { Programme } from '@/modules/organiser-self-serve/programmeModel';
+} from '@/modules/organiser/shared/selfServeApi';
+import type { Programme } from '@/modules/organiser/shared/programmeModel';
 import {
   datesWithoutLineup,
   lastUpcomingDate,

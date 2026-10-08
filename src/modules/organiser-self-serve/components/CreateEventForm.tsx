@@ -7,11 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { LIFECYCLE_LABEL, createSeriesCommand, type HomeOrganiser } from '../selfServeApi';
-import { resolveCreateCityId } from '../createCity';
-import { createPayload, newIdempotencyKey, newSeriesId, type OwnerCommand } from '../seriesCommands';
-import { commandErrorMessage, isServerRefusal } from '../selfServeErrors';
-import { UNSAVED_MESSAGE, leaveGuardEnabled } from '../editorGuards';
+import { LIFECYCLE_LABEL, createSeriesCommand, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
+import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
+import { createPayload, newIdempotencyKey, newSeriesId, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
+import { commandErrorMessage, isServerRefusal } from '@/modules/organiser/shared/selfServeErrors';
+import { UNSAVED_MESSAGE, leaveGuardEnabled } from '@/modules/organiser/shared/editorGuards';
 import {
   EVENT_KINDS,
   WEEKDAY_OPTIONS,
@@ -25,10 +25,10 @@ import {
   submitHint,
   weekdayOf,
   type CreateForm,
-} from '../createModel';
+} from '@/modules/organiser/shared/createModel';
 import { EventPreview } from './EventPreview';
-import { useVenueOptions, venueName } from './publicVenues';
-import { useOwnerCommand } from './useOwnerCommand';
+import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
+import { useOwnerCommand } from '@/modules/organiser/shared/useOwnerCommand';
 import { VenuePicker } from './VenuePicker';
 
 /**

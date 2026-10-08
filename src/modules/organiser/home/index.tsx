@@ -2,8 +2,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, Plus, UserRound, Users } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { ORGANISER_HOME_KEY, myAccessRequestsQueryKey } from '@/modules/organiser-self-serve/selfServeApi';
-import { isMailboxProvenToken } from '@/modules/organiser-self-serve/sessionProof';
+import { ORGANISER_HOME_KEY, myAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
+import { isMailboxProvenToken } from '@/modules/organiser/shared/sessionProof';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import {
   AnnounceRegion,

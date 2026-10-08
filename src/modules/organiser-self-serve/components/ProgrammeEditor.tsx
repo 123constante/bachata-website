@@ -11,9 +11,9 @@ import {
   occurrenceProgrammeQueryKey,
   saveOccurrenceProgramme,
   seriesWorkspaceQueryKey,
-} from '../selfServeApi';
-import { isServerRefusal, programmeErrorCopy } from '../selfServeErrors';
-import { UNSAVED_MESSAGE, leaveGuardEnabled } from '../editorGuards';
+} from '@/modules/organiser/shared/selfServeApi';
+import { isServerRefusal, programmeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
+import { UNSAVED_MESSAGE, leaveGuardEnabled } from '@/modules/organiser/shared/editorGuards';
 import {
   LEVEL_LABEL,
   LIVE_SAVE_NOTE,
@@ -30,7 +30,7 @@ import {
   type DraftSession,
   type LevelKey,
   type Programme,
-} from '../programmeModel';
+} from '@/modules/organiser/shared/programmeModel';
 import { ConfirmPanel } from './ConfirmPanel';
 import { ProgrammeSessionRow } from './ProgrammeSessionRow';
 

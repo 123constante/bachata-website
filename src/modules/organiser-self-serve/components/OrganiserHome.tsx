@@ -3,9 +3,9 @@ import { AlertTriangle, CalendarPlus, ExternalLink, Loader2, Plus, Send } from '
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LIFECYCLE_LABEL, type HomeOrganiser, type SubmittedOrganiser } from '../selfServeApi';
-import { selfServeErrorCopy } from '../selfServeErrors';
-import { useSendForReview } from './useSendForReview';
+import { LIFECYCLE_LABEL, type HomeOrganiser, type SubmittedOrganiser } from '@/modules/organiser/shared/selfServeApi';
+import { selfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
+import { useSendForReview } from '@/modules/organiser/shared/useSendForReview';
 import {
   CATEGORY_LABEL,
   FORMAT_LABEL,
@@ -15,7 +15,7 @@ import {
   localAsZTime,
   organiserStatusView,
   type HomeSeriesFull,
-} from '../homeModel';
+} from '@/modules/organiser/shared/homeModel';
 
 /**
  * The organiser home (Lever 2 W2): mockup 01-B, series cards with their next

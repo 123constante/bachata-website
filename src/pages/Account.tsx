@@ -21,9 +21,9 @@ import {
   myAccessRequestsQueryKey,
   organiserHomeQueryKey,
   type HomeOrganiser,
-} from '@/modules/organiser-self-serve/selfServeApi';
-import { declinedRequests } from '@/modules/organiser-self-serve/accessRequestModel';
-import { isMailboxProvenToken } from '@/modules/organiser-self-serve/sessionProof';
+} from '@/modules/organiser/shared/selfServeApi';
+import { declinedRequests } from '@/modules/organiser/shared/accessRequestModel';
+import { isMailboxProvenToken } from '@/modules/organiser/shared/sessionProof';
 
 /**
  * /account -- the signed-in landing (Lever 2, W1). Flag-gated

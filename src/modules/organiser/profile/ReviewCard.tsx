@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
-import { selfServeErrorCopy } from '@/modules/organiser-self-serve/selfServeErrors';
-import { useSendForReview } from '@/modules/organiser-self-serve/components/useSendForReview';
-import type { HomeOrganiser } from '@/modules/organiser-self-serve/selfServeApi';
+import { selfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
+import { useSendForReview } from '@/modules/organiser/shared/useSendForReview';
+import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { Card, GhostButton, StatusTag, useShake } from '../ui';
 import { reviewStatus } from './reviewModel';
 

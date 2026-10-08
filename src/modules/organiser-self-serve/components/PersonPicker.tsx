@@ -4,8 +4,8 @@ import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { PEOPLE_SEARCH_MIN, searchPeople, searchPeopleQueryKey, type PersonResult } from '../selfServeApi';
-import { PEOPLE_ROLE_LABEL, type PeopleRole } from '../programmeModel';
+import { PEOPLE_SEARCH_MIN, searchPeople, searchPeopleQueryKey, type PersonResult } from '@/modules/organiser/shared/selfServeApi';
+import { PEOPLE_ROLE_LABEL, type PeopleRole } from '@/modules/organiser/shared/programmeModel';
 
 /** Typing settles for this long before the search runs. */
 export const PEOPLE_SEARCH_DEBOUNCE_MS = 250;

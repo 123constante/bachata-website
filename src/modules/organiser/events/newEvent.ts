@@ -1,7 +1,7 @@
 import { addDaysToKey } from '@/lib/londonDate';
-import { createSeriesCommand } from '@/modules/organiser-self-serve/selfServeApi';
-import { createDraft, emptyCreateForm } from '@/modules/organiser-self-serve/createModel';
-import { createPayload, type OwnerCommand } from '@/modules/organiser-self-serve/seriesCommands';
+import { createSeriesCommand } from '@/modules/organiser/shared/selfServeApi';
+import { createDraft, emptyCreateForm } from '@/modules/organiser/shared/createModel';
+import { createPayload, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
 import { EXTEND_BATCH, untilForCount } from './dateCap';
 import { weeklyUntilCommand } from './eventModel';
 

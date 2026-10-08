@@ -16,7 +16,7 @@ import {
   type WorkspaceSeries,
 } from '../seriesModel';
 import { commandErrorMessage } from '../selfServeErrors';
-import { isDateTimeSession, parseProgramItems, type RpcItem } from '../../event-page/sections/EventScheduleGrid';
+import { isDateTimeSession, parseProgramItems, type RpcItem } from '../../../event-page/sections/EventScheduleGrid';
 
 // EventScheduleGrid's hooks import the client; the parsers under test never call it.
 vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));

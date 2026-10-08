@@ -7,7 +7,7 @@
 // rejected -> pending_review. Nothing moves OUT of review from here: there is
 // no owner withdraw in v1, and approve / return stay with the admin.
 
-import type { HomeDecision } from './homeModel';
+import type { HomeDecision } from '@/modules/organiser/shared/homeModel';
 
 export type StepState = 'done' | 'current' | 'todo' | 'returned';
 

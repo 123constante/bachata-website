@@ -14,12 +14,12 @@ const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn() } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null }) }));
 vi.mock('../components/VenuePicker', () => ({ VenuePicker: () => null }));
-vi.mock('../components/publicVenues', () => ({ useVenueOptions: () => ({ data: [] }), venueName: () => null }));
+vi.mock('@/modules/organiser/shared/publicVenues', () => ({ useVenueOptions: () => ({ data: [] }), venueName: () => null }));
 
 import { SeriesEditor } from '../components/SeriesEditor';
 import { TeamPanel } from '../components/TeamPanel';
-import type { HomeOrganiser } from '../selfServeApi';
-import type { SeriesWorkspace, WorkspaceSeries } from '../seriesModel';
+import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
+import type { SeriesWorkspace, WorkspaceSeries } from '@/modules/organiser/shared/seriesModel';
 
 const series = (status: string, venue: string | null = 'v1') => ({
   id: 's1', name: 'Thursday Party', slug: 'thursday-party', format: 'recurring', category: 'party',

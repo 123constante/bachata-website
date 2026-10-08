@@ -1,5 +1,5 @@
-import { checkFlyerBytes, checkFlyerFile, FLYER_PROBLEM_COPY, FlyerError, reencodeFlyer } from '@/modules/organiser-self-serve/flyerModel';
-import { uploadFlyer } from '@/modules/organiser-self-serve/flyerUploadApi';
+import { checkFlyerBytes, checkFlyerFile, FLYER_PROBLEM_COPY, FlyerError, reencodeFlyer } from '@/modules/organiser/shared/flyerModel';
+import { uploadFlyer } from '@/modules/organiser/shared/flyerUploadApi';
 
 /**
  * One picture (cover or gallery) through the old flyer pipeline: checked,

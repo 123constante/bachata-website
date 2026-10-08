@@ -8,8 +8,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 const api = vi.hoisted(() => ({ home: vi.fn(), entity: vi.fn(), save: vi.fn(), signOut: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {} } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, signOut: api.signOut }) }));
-vi.mock('@/modules/organiser-self-serve/selfServeApi', async () => ({
-  ...(await vi.importActual<object>('@/modules/organiser-self-serve/selfServeApi')),
+vi.mock('@/modules/organiser/shared/selfServeApi', async () => ({
+  ...(await vi.importActual<object>('@/modules/organiser/shared/selfServeApi')),
   fetchOrganiserHome: api.home,
 }));
 vi.mock('@/modules/profile/organiserPublicProfile', async () => ({

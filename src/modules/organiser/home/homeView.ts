@@ -1,8 +1,8 @@
 // Pure, client-free view model for the rebuilt Home (W1). Input is
 // organiser_home_v1's JSON as selfServeApi.fetchOrganiserHome returns it.
-import type { HomeOrganiser } from '@/modules/organiser-self-serve/selfServeApi';
-import { upcomingDates, type WorkspaceDate } from '@/modules/organiser-self-serve/seriesModel';
-import { toDraft, type Programme } from '@/modules/organiser-self-serve/programmeModel';
+import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
+import { upcomingDates, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
+import { toDraft, type Programme } from '@/modules/organiser/shared/programmeModel';
 import type { StatusTone } from '../ui';
 
 /** How many dates the 'Next dates' list shows. */

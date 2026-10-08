@@ -12,10 +12,10 @@ const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn() } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null }) }));
 vi.mock('../components/VenuePicker', () => ({ VenuePicker: () => null }));
-vi.mock('../components/publicVenues', () => ({ useVenueOptions: () => ({ data: [] }), venueName: () => null }));
+vi.mock('@/modules/organiser/shared/publicVenues', () => ({ useVenueOptions: () => ({ data: [] }), venueName: () => null }));
 
 import { SeriesEditor } from '../components/SeriesEditor';
-import type { SeriesWorkspace, WorkspaceSeries } from '../seriesModel';
+import type { SeriesWorkspace, WorkspaceSeries } from '@/modules/organiser/shared/seriesModel';
 
 const series = (status: string) => ({
   id: 's1', name: 'Thursday Class', slug: 'thursday-class', format: 'recurring', category: 'class',

@@ -17,8 +17,8 @@ const api = vi.hoisted(() => ({
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: { auth: { signInWithOtp: api.otp, verifyOtp: api.verify }, rpc: api.rpc },
 }));
-vi.mock('@/modules/organiser-self-serve/selfServeApi', async () => {
-  const hint = await vi.importActual<typeof import('@/modules/organiser-self-serve/claimHint')>('@/modules/organiser-self-serve/claimHint');
+vi.mock('@/modules/organiser/shared/selfServeApi', async () => {
+  const hint = await vi.importActual<typeof import('@/modules/organiser/shared/claimHint')>('@/modules/organiser/shared/claimHint');
   return {
     claimHint: hint.claimHint,
     searchClaimableOrganisers: api.search,

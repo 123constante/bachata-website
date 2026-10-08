@@ -7,4 +7,4 @@ export const MOTION_EASE = 'ease-in-out';
 export const MOTION_TRANSITION = `${MOTION_MS}ms ${MOTION_EASE}`;
 
 // Reused as-is from the old module (not copied): one source of truth.
-export { usePrefersReducedMotion } from '@/modules/organiser-self-serve/components/usePrefersReducedMotion';
+export { usePrefersReducedMotion } from '@/modules/organiser/shared/usePrefersReducedMotion';

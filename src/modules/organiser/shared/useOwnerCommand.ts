@@ -6,10 +6,10 @@ import {
   runSeriesCommand,
   seriesWorkspaceQueryKey,
   type CommandResponse,
-} from '../selfServeApi';
-import { envelope, type OwnerCommand } from '../seriesCommands';
-import { isVersionConflict } from '../selfServeErrors';
-import type { DateDetail, SeriesWorkspace } from '../seriesModel';
+} from './selfServeApi';
+import { envelope, type OwnerCommand } from './seriesCommands';
+import { isVersionConflict } from './selfServeErrors';
+import type { DateDetail, SeriesWorkspace } from './seriesModel';
 
 export interface OwnerCommandVars {
   /** series id for a series.* command, occurrence id for an occurrence.* one. */

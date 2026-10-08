@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { CalendarPlus, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { LIFECYCLE_LABEL } from '@/modules/organiser-self-serve/selfServeApi';
+import { LIFECYCLE_LABEL } from '@/modules/organiser/shared/selfServeApi';
 import { ORG_PATHS } from '../shell';
 import { Card, DateChip, EmptyState, ErrorState, PrimaryButton, SectionLabel, SkeletonRows, StatusTag } from '../ui';
 import { listedSeries, useOrganiserHome, type ListedSeries } from './eventsApi';

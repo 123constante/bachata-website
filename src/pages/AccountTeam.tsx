@@ -9,7 +9,7 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { TeamPanel } from '@/modules/organiser-self-serve/components/TeamPanel';
 import { PageLoadError, PageLoading, PageOffline } from '@/modules/organiser-self-serve/components/PageStates';
-import { fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser-self-serve/selfServeApi';
+import { fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
 
 /**
  * /account/team/:organiserId? -- who runs an organiser and who is asking to

@@ -9,7 +9,7 @@ import {
   occurrenceProgrammeQueryKey,
   saveOccurrenceProgramme,
   seriesWorkspaceQueryKey,
-} from '@/modules/organiser-self-serve/selfServeApi';
+} from '@/modules/organiser/shared/selfServeApi';
 import {
   buildPayload,
   isDirty,
@@ -17,15 +17,15 @@ import {
   validateProgramme,
   type DraftSession,
   type Programme,
-} from '@/modules/organiser-self-serve/programmeModel';
-import { overrideCommand, type OwnerCommand } from '@/modules/organiser-self-serve/seriesCommands';
+} from '@/modules/organiser/shared/programmeModel';
+import { overrideCommand, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
 import {
   OFFLINE_SAVE_MESSAGE,
   commandErrorMessage,
   isServerRefusal,
   programmeErrorCopy,
-} from '@/modules/organiser-self-serve/selfServeErrors';
-import { useOwnerCommand } from '@/modules/organiser-self-serve/components/useOwnerCommand';
+} from '@/modules/organiser/shared/selfServeErrors';
+import { useOwnerCommand } from '@/modules/organiser/shared/useOwnerCommand';
 
 /** The save could not be confirmed (no server answer). */
 export const NETWORK_COPY = OFFLINE_SAVE_MESSAGE;

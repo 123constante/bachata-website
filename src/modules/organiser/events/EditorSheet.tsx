@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Check, ImagePlus, MapPin, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { FLYER_ACCEPT } from '@/modules/organiser-self-serve/flyerModel';
-import type { VenueOption } from '@/modules/organiser-self-serve/components/publicVenues';
+import { FLYER_ACCEPT } from '@/modules/organiser/shared/flyerModel';
+import type { VenueOption } from '@/modules/organiser/shared/publicVenues';
 import { Card, GhostButton, SearchField, SheetView, SummaryRow } from '../ui';
 import { CAP_NOTE, allowedEndChoices, type CapInput } from './dateCap';
 import { MAX_GALLERY, MAX_VIDEOS, SHAPE_LABEL, shortDate, weekdayName, type EventDraft, type Shape } from './eventModel';

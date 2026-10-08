@@ -4,12 +4,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, Film, Images, MapPin, Repeat, Text, Ticket, Users } from 'lucide-react';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { FLYER_ACCEPT } from '@/modules/organiser-self-serve/flyerModel';
-import { useVenueOptions, venueName } from '@/modules/organiser-self-serve/components/publicVenues';
-import { resolveCreateCityId } from '@/modules/organiser-self-serve/createCity';
-import { commandErrorMessage } from '@/modules/organiser-self-serve/selfServeErrors';
-import { UNSAVED_MESSAGE } from '@/modules/organiser-self-serve/editorGuards';
-import { upcomingDates } from '@/modules/organiser-self-serve/seriesModel';
+import { FLYER_ACCEPT } from '@/modules/organiser/shared/flyerModel';
+import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
+import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
+import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { UNSAVED_MESSAGE } from '@/modules/organiser/shared/editorGuards';
+import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import {
   AnnounceRegion, Card, Chip, Cover, EmptyState, ErrorState, PreviewBar, SkeletonRows, StatusTag, SummaryRow, TitleInput,

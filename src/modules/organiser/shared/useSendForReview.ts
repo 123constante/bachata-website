@@ -4,7 +4,7 @@ import {
   submitOrganiserProfile,
   type OrganiserHome,
   type SubmittedOrganiser,
-} from '../selfServeApi';
+} from './selfServeApi';
 
 /**
  * "Send for review" (admin D6, submit_organiser_profile_v1), then the home's

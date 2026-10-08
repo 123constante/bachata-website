@@ -1,5 +1,5 @@
 // Pure, client-free helpers for the onboarding screens (W1).
-import type { ClaimHint } from '@/modules/organiser-self-serve/claimHint';
+import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
 
 /**
  * Light client-side checks; the server (invalid_instagram / invalid_website)

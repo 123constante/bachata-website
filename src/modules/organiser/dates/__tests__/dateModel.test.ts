@@ -6,7 +6,7 @@ import {
   removePerson,
   toDraft,
   type DraftSession,
-} from '@/modules/organiser-self-serve/programmeModel';
+} from '@/modules/organiser/shared/programmeModel';
 import { addRoleFor, dateSpan, onSessionIds, pickPerson, setSessionType } from '../dateModel';
 
 const S1 = '11111111-1111-4111-8111-111111111111';
