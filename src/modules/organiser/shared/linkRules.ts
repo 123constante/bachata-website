@@ -65,3 +65,17 @@ export function linkProblem(kind: LinkKind, value: string): string | null {
   }
   return ok ? null : LINK_PROBLEM[kind];
 }
+
+/**
+ * What a link field holds once its sheet is closed WITHOUT Done (the X, a tap
+ * outside, Escape). Done is off while the link is invalid, so this is the only way
+ * out with a bad entry: the typed text is thrown away and the value the field had
+ * when the sheet opened comes back (the saved value, unless an earlier valid edit
+ * is pending), so no invalid draft sticks, nothing turns dirty and Save stays off.
+ * A link the rule accepts (blank included) stays as typed, as before. ONE mapping
+ * for every link sheet: the event's ticket and video, the profile's Instagram,
+ * website and Facebook.
+ */
+export function linkOnClose(kind: LinkKind, typed: string, atOpen: string): string {
+  return linkProblem(kind, typed) ? atOpen : typed;
+}
