@@ -1,4 +1,5 @@
 import type { DraftSession } from '@/modules/organiser/shared/programmeModel';
+import { cancelledLabel } from '@/modules/organiser/shared/cancelLabel';
 import { byTime, peopleLabel, sessionName, spanLabel } from './dateModel';
 
 export interface DatePreviewProps {
@@ -19,7 +20,7 @@ export function DatePreview({ label, span, venue, rows, cancelled, reason }: Dat
         {[label, spanLabel(span)].filter(Boolean).join(' \u00b7 ')}
       </p>
       <p className="truncate text-[13px] text-[var(--mut)]">
-        {cancelled ? `Cancelled${reason ? ` \u00b7 ${reason}` : ''}` : venue ?? 'Venue to be confirmed'}
+        {cancelled ? cancelledLabel(reason) : venue ?? 'Venue to be confirmed'}
       </p>
       {!cancelled && kept.slice(0, 3).map((r) => (
         <p key={r.key} className="truncate text-[13px] text-[var(--fg)]" data-testid="date-preview-session">

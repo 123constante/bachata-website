@@ -5,18 +5,19 @@
 // time span, and the session-row summary.
 
 import {
-  LEVEL_LABEL,
-  TYPE_LABEL,
   addPerson,
   levelsApplyTo,
   lineupSummary,
-  sessionLevels,
   sessionMinutes,
   undoRemovePerson,
   type DraftSession,
-  type LevelKey,
   type PeopleRole,
 } from '@/modules/organiser/shared/programmeModel';
+import { ownTitle } from '@/modules/organiser/shared/sessionSummary';
+
+// The session's name, type word, times and levels read through ONE shared mapping
+// (shared/sessionSummary.ts), the same one the event page's ScheduleCard uses.
+export { levelsLabel, sessionLevelsLabel, sessionName, sessionSummary, timesLabel, typeLabel } from '@/modules/organiser/shared/sessionSummary';
 
 /**
  * PEOPLE BY TYPE (ARC DOMAIN): class and masterclass take teachers, a party
@@ -89,21 +90,8 @@ export function dateSpan(rows: DraftSession[]): { start: string; end: string } |
 
 export const spanLabel = (span: { start: string; end: string } | null) => (span ? `${span.start}\u2013${span.end}` : null);
 
-export const typeLabel = (type: string | null) => (type && TYPE_LABEL[type]) || 'Session';
-
-/** The row's name: the typed title, else the type. */
-export const sessionName = (row: DraftSession) => row.title.trim() || typeLabel(row.type);
-
-export const levelsLabel = (levels: string[]) => levels.map((l) => LEVEL_LABEL[l as LevelKey] ?? l).join(', ');
-
-/** The row's levels in words ("Beginner, Improver"), or null: none for a type without levels. */
-export const sessionLevelsLabel = (row: DraftSession) => {
-  const levels = sessionLevels(row);
-  return levels.length ? levelsLabel(levels) : null;
-};
-
-/** "19:00-20:00" or null. */
-export const timesLabel = (row: DraftSession) => (row.start && row.end ? `${row.start}\u2013${row.end}` : row.start || null);
+/** The type chip shows only beside a title of its own (else the name already IS the type word). */
+export const showsTypeChip = (row: DraftSession) => ownTitle(row) !== null;
 
 /** Everyone still on the session, by name ("Ana Ruiz, Cleo Park +1"). */
 export const peopleLabel = (row: DraftSession) => lineupSummary(row.people, 3);
@@ -112,6 +100,14 @@ export const peopleLabel = (row: DraftSession) => lineupSummary(row.people, 3);
 export function byTime(rows: DraftSession[]): DraftSession[] {
   const key = (r: DraftSession) => (TIME_RE.test(r.start) ? toMinutes(r.start) + (toMinutes(r.start) < ROLLOVER ? 1440 : 0) : 99999);
   return [...rows].sort((a, b) => key(a) - key(b));
+}
+
+/**
+ * The problems the screen SHOWS: a session's only after the organiser changed it,
+ * or once a save was tried. A new, untouched session does not open on errors.
+ */
+export function shownProblems<P extends { key: string }>(problems: P[], touched: ReadonlySet<string>, saveTried: boolean): P[] {
+  return saveTried ? problems : problems.filter((p) => touched.has(p.key));
 }
 
 /** StatusTag tone for a session type. */

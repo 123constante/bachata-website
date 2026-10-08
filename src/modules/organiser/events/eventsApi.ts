@@ -33,6 +33,25 @@ export function useEventWorkspace(seriesId: string | undefined) {
   });
 }
 
+/**
+ * event_publish_readiness_v1: what the team's approval would refuse the event for
+ * (the `missing` keys), re-read whenever the series' version moves.
+ */
+export async function fetchPublishReadiness(seriesId: string): Promise<string[]> {
+  const { data, error } = await supabase.rpc('event_publish_readiness_v1', { p_series_id: seriesId });
+  if (error) throw error;
+  const missing = (data as { missing?: unknown } | null)?.missing;
+  return Array.isArray(missing) ? missing.filter((m): m is string => typeof m === 'string') : [];
+}
+
+export function usePublishReadiness(seriesId: string, version: number, enabled: boolean) {
+  return useQuery({
+    queryKey: ['org-event-readiness', seriesId, version] as const,
+    queryFn: () => fetchPublishReadiness(seriesId),
+    enabled,
+  });
+}
+
 export function useOrganiserHome() {
   const { user } = useAuth();
   return useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome });

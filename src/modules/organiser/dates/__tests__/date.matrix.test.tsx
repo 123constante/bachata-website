@@ -115,7 +115,10 @@ describe.each(CASES)('%s', (_name, shape, date, sessions) => {
       expect(isOn(cancel)).toBe(true);
       expect(isOn(venue)).toBe(true);
     }
-    expect((screen.getByTestId('date-preview-bar-action') as HTMLButtonElement).disabled).toBe(true);
+    // A locked date shows no save bar (saveBarState); otherwise it is disabled while untouched.
+    const action = screen.queryByTestId('date-preview-bar-action') as HTMLButtonElement | null;
+    if (past || closed) expect(action).toBeNull();
+    else expect(action?.disabled).toBe(true);
     expect(sent()).toEqual([]);
   });
 

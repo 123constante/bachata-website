@@ -20,7 +20,8 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { newSession, notEditableCopy, type DraftSession } from '@/modules/organiser/shared/programmeModel';
 import { fetchCancellationReasons } from '@/modules/organiser/shared/selfServeApi';
 import { cancelCommand, skipDateCommand, uncancelCommand } from '@/modules/organiser/shared/seriesCommands';
-import { UNSAVED_MESSAGE } from '@/modules/organiser/shared/editorGuards';
+import { UNSAVED_MESSAGE, saveBarState } from '@/modules/organiser/shared/editorGuards';
+import { cancelledLabel } from '@/modules/organiser/shared/cancelLabel';
 import { dateLabel as labelOf, isRuleDate } from '@/modules/organiser/shared/seriesModel';
 import { calendarDate } from '@/modules/organiser/shared/homeModel';
 import { dateLock, dateTag } from '@/modules/organiser/shared/eventState';
@@ -28,7 +29,7 @@ import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVen
 import { londonTodayKey } from '@/lib/londonDate';
 import { DateSheet, type SheetState } from './DateSheet';
 import { DatePreview } from './DatePreview';
-import { byTime, dateSpan, peopleLabel, sessionLevelsLabel, sessionName, spanLabel, timesLabel, typeLabel, typeTone } from './dateModel';
+import { byTime, dateSpan, peopleLabel, sessionName, sessionSummary, showsTypeChip, shownProblems, spanLabel, typeLabel, typeTone } from './dateModel';
 import { useDateEditor } from './useDateEditor';
 
 const cancellationReasonsQueryKey = ['cancellation-reasons'] as const;
@@ -45,6 +46,9 @@ export default function DatePage() {
   const venues = useVenueOptions();
   const [sheet, setSheet] = useState<SheetState>(null);
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
+  // Sessions the organiser changed, and whether a save was tried: problems show only then (11a).
+  const [touched, setTouched] = useState<Set<string>>(new Set());
+  const [saveTried, setSaveTried] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
   const [message, announce] = useAnnounce();
@@ -76,15 +80,19 @@ export default function DatePage() {
     : series?.lifecycle_status === 'ended' ? 'This event has ended.' : 'This event is archived.';
   const tag = cancelled ? dateTag('', 'cancelled') : series ? dateTag(series.lifecycle_status, 'scheduled') : null;
 
-  const updateRow = (key: string, fn: (r: DraftSession) => DraftSession) =>
+  const updateRow = (key: string, fn: (r: DraftSession) => DraftSession) => {
     ed.setRows((rows) => rows.map((r) => (r.key === key ? fn(r) : r)));
+    setTouched((s) => (s.has(key) ? s : new Set(s).add(key)));
+  };
+  const problems = shownProblems(ed.validation.rows, touched, saveTried);
+  const bar = saveBarState({ dirty: ed.dirty, saving: ed.saving, locked: !!lock });
   const removeSession = (key: string) => {
     const row = ed.rows.find((r) => r.key === key);
     if (!row) return;
     // A saved session stays, greyed with Undo, until the save; one added here just goes (Collapse, then out of the draft).
     if (row.original) updateRow(key, (r) => ({ ...r, removed: true }));
     else setLeaving((s) => new Set(s).add(key));
-    announce(`${sessionName(row)} taken off ${label}.`);
+    announce(row.original ? `${sessionName(row)} taken off ${label}.` : `${sessionName(row)} discarded.`);
   };
   const addSession = () => {
     const row = newSession('class');
@@ -100,9 +108,12 @@ export default function DatePage() {
 
   const onSave = async () => {
     setError(null);
+    setSaveTried(true);
     const out = await ed.save();
     if (out.ok) {
       setLeaving(new Set());
+      setTouched(new Set());
+      setSaveTried(false);
       announce(out.changed ? `${label} is saved.` : 'Nothing needed saving.');
     } else if (out.message) {
       fail(out.message);
@@ -152,7 +163,7 @@ export default function DatePage() {
 
       {cancelled && (
         <p className="rounded-[12px] bg-[var(--warn-bg)] px-[16px] py-[12px] text-[14px] text-[var(--warn-fg)]" data-testid="date-cancelled-note">
-          Cancelled{ed.detail.data?.cancellationReason ? ` \u00b7 ${ed.detail.data.cancellationReason}` : ''}. Dancers see this.
+          {cancelledLabel(ed.detail.data?.cancellationReason)}. Dancers see this.
         </p>
       )}
 
@@ -199,7 +210,7 @@ export default function DatePage() {
             >
               <SessionRow
                 row={row}
-                problem={ed.validation.rows.some((p) => p.key === row.key)}
+                problem={problems.some((p) => p.key === row.key)}
                 onOpen={editable && !row.removed ? () => setSheet({ view: 'session', key: row.key }) : undefined}
                 onUndo={editable && row.removed ? () => { updateRow(row.key, (r) => ({ ...r, removed: false })); announce(`${sessionName(row)} is back on.`); } : undefined}
               />
@@ -243,16 +254,17 @@ export default function DatePage() {
       testId="org-page-date"
       actionBar={
         // Nothing to save until the date has loaded: loading shows skeletons only,
-        // and a failed load's Try again is the one primary button.
-        ed.base && !(loadError && !ed.saving) && <PreviewBar
+        // and a failed load's Try again is the one primary button. A locked date
+        // shows no bar (its lock note says why); the bar reads like the event page's.
+        ed.base && !(loadError && !ed.saving) && bar.show && <PreviewBar
           preview={<DatePreview label={date ? calendarDate(date, today) : label} span={span} venue={venue} rows={ed.rows} cancelled={cancelled} reason={ed.detail.data?.cancellationReason ?? null} />}
-          actionLabel="Save changes"
+          actionLabel={bar.label}
           onAction={() => void onSave()}
           loading={ed.saving}
-          disabled={!ed.dirty || !ed.base}
+          disabled={bar.disabled}
           live={live}
-          compact={!ed.dirty && !ed.saving}
-          summary={lock ? 'Nothing to change here' : 'All changes saved'}
+          compact={bar.compact}
+          summary={bar.summary}
           shakeProps={shakeProps}
           testId="date-preview-bar"
         />
@@ -266,7 +278,7 @@ export default function DatePage() {
         rows={ed.rows}
         updateRow={updateRow}
         removeSession={removeSession}
-        problems={ed.validation.rows}
+        problems={problems}
         editable={editable}
         announce={announce}
         venues={venues.data}
@@ -293,11 +305,11 @@ export default function DatePage() {
 
 function SessionRow({ row, problem, onOpen, onUndo }: { row: DraftSession; problem: boolean; onOpen?: () => void; onUndo?: () => void }) {
   const people = peopleLabel(row);
-  const meta = [timesLabel(row), sessionLevelsLabel(row)].filter(Boolean).join(' \u00b7 ');
+  const meta = sessionSummary(row);
   const body = (
     <span className={`flex min-w-0 flex-1 flex-col gap-[4px] text-left ${row.removed ? 'opacity-[.72]' : ''}`}>
       <span className="flex min-w-0 items-center gap-[8px]">
-        <StatusTag tone={typeTone(row.type)} className="shrink-0">{typeLabel(row.type)}</StatusTag>
+        {showsTypeChip(row) && <StatusTag tone={typeTone(row.type)} className="shrink-0" testId="session-row-type">{typeLabel(row.type)}</StatusTag>}
         <span className={`truncate text-[15px] font-semibold text-[var(--fg)] ${row.removed ? 'line-through' : ''}`} data-testid="session-row-name">{sessionName(row)}</span>
       </span>
       {/* A faded row's muted text would fall under 4.5:1, so it switches to --fg. */}

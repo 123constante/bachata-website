@@ -5,7 +5,7 @@
 
 import { weekdayOfKey } from '@/lib/londonDate';
 import { dateLabel } from '@/modules/organiser/shared/homeModel';
-import { isHttpUrl } from '@/modules/organiser/shared/createModel';
+import { linkProblem } from '@/modules/organiser/shared/linkRules';
 import {
   addDateCommand,
   removeDateCommand,
@@ -20,7 +20,7 @@ import {
 } from '@/modules/organiser/shared/seriesModel';
 import { eventLock, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
 import { MAX_UPCOMING, endWithinCap, type CapInput } from './dateCap';
-import { scheduleView } from './schedule';
+import { ownerOneDate, scheduleView } from './schedule';
 
 export interface EventWorkspace extends SeriesWorkspace {
   musicStyles: string[];
@@ -73,12 +73,27 @@ export interface EventDraft {
   until: string | null;
 }
 
+/**
+ * 'Starts on' as the organiser should read it: the stored start, unless that date
+ * was taken off (a break or a removed date tombstones it in removed_dates, and the
+ * stored start stays put), then the first date still listed after it.
+ */
+export function listedStart(ws: EventWorkspace, today: string): string {
+  const s = ws.series;
+  const stored = s.default_start_date;
+  const upcoming = upcomingDates(ws.dates, today);
+  if (!stored) return upcoming[0]?.occurrence_date ?? '';
+  if (!s.removed_dates.includes(stored) || ws.dates.some((d) => d.occurrence_date === stored)) return stored;
+  return [...ws.dates.map((d) => d.occurrence_date)].filter((d) => d > stored).sort()[0] ?? stored;
+}
+
 export function draftFromWorkspace(ws: EventWorkspace, today: string): EventDraft {
   const s = ws.series;
-  // Only the owner's own rule (every week, one weekday) is drawn as 'weekly':
+  // Only the owner's own rule (every week, one weekday) is drawn as 'weekly', plus the
+  // weekly setup of a recurring series with no rule and no date yet (scheduleView):
   // monthly / custom / no-rule shapes are shown by scheduleView, never edited.
   const rule = ownerWeeklyRule(s) ?? null;
-  const upcoming = upcomingDates(ws.dates, today);
+  const setup = !rule && ownerOneDate(s, ws.dates) && ws.dates.length === 0 && !eventLock(s.lifecycle_status);
   return {
     name: s.name,
     description: s.default_description ?? '',
@@ -88,8 +103,8 @@ export function draftFromWorkspace(ws: EventWorkspace, today: string): EventDraf
     gallery: ws.gallery,
     videos: ws.videoUrls,
     styles: ws.musicStyles,
-    startDate: s.default_start_date ?? upcoming[0]?.occurrence_date ?? '',
-    shape: rule ? 'weekly' : 'single',
+    startDate: listedStart(ws, today),
+    shape: rule || setup ? 'weekly' : 'single',
     until: rule?.until ?? null,
   };
 }
@@ -142,8 +157,9 @@ export function draftProblem(draft: EventDraft, ws: EventWorkspace, today: strin
   if (!draft.name.trim()) return 'Give your event a name.';
   if (draft.name.trim().length > 120) return 'Keep the name under 120 characters.';
   if (draft.description.length > 4000) return 'Keep the description under 4,000 characters.';
-  if (draft.ticketUrl.trim() && !isHttpUrl(draft.ticketUrl)) return 'Enter the ticket link as a full address starting with https://';
-  if (draft.videos.some((v) => !isHttpUrl(v))) return 'Each video needs a full address starting with https://';
+  // The same rule the ticket and video sheets apply inline (shared/linkRules).
+  const link = linkProblem('ticket', draft.ticketUrl) ?? draft.videos.map((v) => linkProblem('video', v)).find(Boolean) ?? null;
+  if (link) return link;
   if (base && SCHEDULE_FIELDS.every((f) => sameField(base, draft, f))) return null;
   if (!draft.startDate) return 'Choose the date it starts on.';
   if (draft.shape === 'weekly') {
@@ -173,11 +189,14 @@ export const stopRepeatingCommand = (keepIds: string[]): OwnerCommand => ({
 export function savePlan(base: EventDraft, draft: EventDraft, ws: EventWorkspace, today: string, cityId?: string | null): OwnerCommand[] {
   // An ended or archived event takes no owner write (the server refuses them all).
   if (eventLock(ws.series.lifecycle_status)) return [];
-  const mode = scheduleView(ws.series, ws.dates).mode;
+  const view = scheduleView(ws.series, ws.dates);
+  const mode = view.mode;
+  // A one-date event that may be made weekly (recurring, no rule: G5).
+  const canRepeat = mode === 'single' && view.repeatsReason === null;
   const changed = new Set(changedFields(base, draft));
   // Date fields this screen does not draw for this shape are never sent.
   if (mode === 'fixed') SCHEDULE_FIELDS.forEach((f) => changed.delete(f));
-  if (mode === 'single') changed.delete('shape');
+  if (mode === 'single' && !canRepeat) changed.delete('shape');
   const cmds: OwnerCommand[] = [];
   const payload: Record<string, unknown> = { name: draft.name.trim() };
   if (changed.has('description')) payload.default_description = draft.description.trim();
@@ -196,9 +215,14 @@ export function savePlan(base: EventDraft, draft: EventDraft, ws: EventWorkspace
   const upcoming = upcomingDates(ws.dates, today).filter((d) => d.lifecycle_status !== 'cancelled');
   if (mode === 'fixed') return cmds;
   // A one-date event (mode 'single') can only move its date, never start repeating here.
-  if (mode === 'weekly' && draft.shape === 'weekly') {
+  if ((mode === 'weekly' || canRepeat) && draft.shape === 'weekly') {
     if (draft.until && (changed.has('shape') || changed.has('startDate') || changed.has('until'))) {
       cmds.push(weeklyUntilCommand(draft.startDate, draft.until));
+      // One date -> weekly from a new start: the old date is off the rule's path, so it goes.
+      const old = canRepeat ? upcoming.find((d) => d.occurrence_date === base.startDate) : undefined;
+      if (old && (old.occurrence_date < draft.startDate || weekdayOfKey(old.occurrence_date) !== weekdayOfKey(draft.startDate))) {
+        cmds.push(removeDateCommand(old.id));
+      }
     }
   } else if (changed.has('shape')) {
     // Weekly -> one date: keep the date it starts on if it is listed, else add it.
@@ -212,6 +236,15 @@ export function savePlan(base: EventDraft, draft: EventDraft, ws: EventWorkspace
     if (old) cmds.push(removeDateCommand(old.id));
   }
   return cmds;
+}
+
+/**
+ * Weekly -> One date: how many listed upcoming dates go when it is saved (every one
+ * but the date it is kept on). The Repeats sheet's confirm names this number, and the
+ * Date card says it while the choice is unsaved.
+ */
+export function oneDateLoss(ws: EventWorkspace, draft: EventDraft, today: string): number {
+  return upcomingDates(ws.dates, today).filter((d) => d.lifecycle_status !== 'cancelled' && d.occurrence_date !== draft.startDate).length;
 }
 
 // ---- display -------------------------------------------------------------------

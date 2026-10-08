@@ -11,6 +11,8 @@ import {
 } from '@/lib/organiserProfileUpdate';
 import { fetchOrganiserEntity, organiserEntityQueryKey } from '@/modules/profile/organiserPublicProfile';
 import { ORGANISER_HOME_KEY, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
+import { linkProblem } from '@/modules/organiser/shared/linkRules';
+import { saveBarState } from '@/modules/organiser/shared/editorGuards';
 import { OrganiserShell } from '../shell';
 import {
   AnnounceRegion,
@@ -48,6 +50,18 @@ import { sendBlockers } from './reviewModel';
 type View = 'photo' | 'about' | 'city' | 'instagram' | 'website' | 'facebook' | 'signout';
 
 interface City { id: string | null; name: string | null }
+
+/** The profile's link fields, each checked by the one shared rule (shared/linkRules). */
+const LINK_FIELDS = ['instagram', 'website', 'facebook'] as const;
+type LinkField = (typeof LINK_FIELDS)[number];
+const isLinkField = (v: string): v is LinkField => (LINK_FIELDS as readonly string[]).includes(v);
+
+/** The first link the server would refuse, in the same words the sheet shows; null when all can be saved. */
+const firstLinkProblem = (form: OrganiserProfileEditForm): string | null =>
+  LINK_FIELDS.map((k) => linkProblem(k, form[k])).find((p): p is string => !!p) ?? null;
+
+/** A save refused here, before the RPC; its message is already plain words. */
+class LinkRefusal extends Error {}
 
 const TITLES: Record<View, string> = {
   photo: 'Logo or photo',
@@ -110,6 +124,8 @@ function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }:
     mutationFn: async () => {
       if (!form.name.trim()) throw new Error('name_required');
       if (!city.id) throw new Error('city_required');
+      const linkRefusal = firstLinkProblem(form);
+      if (linkRefusal) throw new LinkRefusal(linkRefusal);
       const { error: rpcError } = await saveOrganiserProfile(supabase, organiser.id, form, city.id);
       if (rpcError) throw rpcError;
     },
@@ -122,27 +138,31 @@ function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }:
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
     },
     onError: (err) => {
-      const copy = organiserProfileSaveErrorToast(err);
-      setError(copy.description ?? copy.title);
+      if (err instanceof LinkRefusal) setError(err.message);
+      else {
+        const copy = organiserProfileSaveErrorToast(err);
+        setError(copy.description ?? copy.title);
+      }
       shake();
     },
   });
 
   const editing = sheetOpen && sheetOpen !== 'signout' ? sheetOpen : null;
   const live = organiser.lifecycle_status === 'live';
+  const barState = saveBarState({ dirty, saving: save.isPending, saveLabel: 'Save profile' });
 
   const bar = (
     <div>
       {error && <p role="alert" className="px-[16px] pt-[12px] text-[14px] text-[var(--danger)]" data-testid="profile-save-error">{error}</p>}
       <PreviewBar
         preview={<PublicCardPreview form={form} city={city.name} />}
-        actionLabel={dirty ? 'Save profile' : 'Saved'}
+        actionLabel={barState.label}
         onAction={() => { setError(null); save.mutate(); }}
         loading={save.isPending}
-        disabled={!dirty}
+        disabled={barState.disabled}
         live={live}
-        compact={!dirty && !save.isPending}
-        summary="All changes saved"
+        compact={barState.compact}
+        summary={barState.summary}
         shakeProps={shakeProps}
         testId="profile-bar"
       />
@@ -164,7 +184,7 @@ function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }:
         <TitleInput value={form.name} onChange={set('name')} aria-label="Organiser name" placeholder="Organiser name" maxLength={80} testId="profile-name" />
         <Card label="About" testId="profile-about-card">
           <SummaryRow icon={<FileText />} label="About" sublabel={form.bio.trim() || 'Say who you are and what you run'} affordance="pencil" onPress={() => openSheet('about')} testId="profile-about" />
-          <SummaryRow icon={<ImageIcon />} label="Logo or photo" value={form.avatar_url.trim() ? 'Set' : 'None'} onPress={() => openSheet('photo')} testId="profile-photo" />
+          <SummaryRow icon={<ImageIcon />} label="Logo or photo" value={form.avatar_url.trim() ? 'Added' : 'None yet'} onPress={() => openSheet('photo')} testId="profile-photo" />
           <SummaryRow icon={<MapPin />} label="City" value={city.name || (city.id ? 'Set' : 'Add')} onPress={() => openSheet('city')} testId="profile-city" />
         </Card>
         <Card label="Links" testId="profile-links">
@@ -203,6 +223,9 @@ function FieldSheet({ view, onClose, form, set, city }: {
     website: 'Your own site or ticket page, like ritmo.example.',
     facebook: 'Your Facebook page name or link.',
   };
+  // The same rule the Save checks, so the sheet never accepts a link the Save refuses.
+  const problem = isLinkField(fieldView) ? linkProblem(fieldView, form[fieldView]) : null;
+  const problemId = `profile-field-${fieldView}-problem`;
   return (
     <SheetView
       open={view !== null}
@@ -210,7 +233,7 @@ function FieldSheet({ view, onClose, form, set, city }: {
       title={TITLES[v]}
       viewKey={v}
       fullHeight={v === 'city'}
-      footer={<PrimaryButton onClick={onClose} testId="profile-sheet-done">Done</PrimaryButton>}
+      footer={<PrimaryButton onClick={onClose} disabled={!!problem} testId="profile-sheet-done">Done</PrimaryButton>}
       testId="profile-sheet"
     >
       {v === 'city' ? city : (
@@ -222,9 +245,11 @@ function FieldSheet({ view, onClose, form, set, city }: {
           <input
             id={`profile-field-${fieldView}`} data-sheet-autofocus value={form[key]} onChange={(e) => set(key)(e.target.value)}
             inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+            aria-invalid={problem ? true : undefined} aria-describedby={problem ? problemId : undefined}
             className={`${FIELD_CLASS} h-[48px]`} data-testid="profile-field"
           />
         )}
+        {problem && <p id={problemId} role="alert" className="text-[14px] text-[var(--danger)]" data-testid="profile-field-problem">{problem}</p>}
       </div>
       )}
     </SheetView>

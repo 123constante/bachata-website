@@ -1,16 +1,16 @@
 import { useCallback, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Film, Images, MapPin, Repeat, Text, Ticket, Users } from 'lucide-react';
+import { CalendarDays, Film, Images, MapPin, Repeat, Shapes, Text, Ticket, Users } from 'lucide-react';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { FLYER_ACCEPT } from '@/modules/organiser/shared/flyerModel';
 import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
 import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
 import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
-import { UNSAVED_MESSAGE } from '@/modules/organiser/shared/editorGuards';
+import { UNSAVED_MESSAGE, saveBarState } from '@/modules/organiser/shared/editorGuards';
 import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
-import { endedOnLabel, eventLock, lifecycleTag } from '@/modules/organiser/shared/eventState';
+import { TEAM, endedOnLabel, eventLock, lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import {
   AnnounceRegion, Card, Chip, Cover, EmptyState, ErrorState, PreviewBar, SkeletonRows, StatusTag, SummaryRow, TitleInput,
@@ -21,10 +21,12 @@ import { scheduleView } from './schedule';
 import { EditorSheet, type SheetName } from './EditorSheet';
 import { DatesList, ScheduleCard } from './EditorRows';
 import { DatesTakenOff } from './DatesTakenOff';
+import { EventReviewCard } from './ReviewCard';
+import { categoryLabel } from './eventType';
 import { EventList } from './EventList';
 import {
   FIELD_LABEL, MUSIC_STYLES, capInput, cardPreview, changedFields, conflictingFields, draftFromWorkspace, draftProblem,
-  listedUntil, repeatsLabel, savePlan, shortDate, type CardPreview, type EventDraft, type EventWorkspace,
+  listedUntil, oneDateLoss, repeatsLabel, savePlan, shortDate, type CardPreview, type EventDraft, type EventWorkspace,
 } from './eventModel';
 import { eventWorkspaceQueryKey, fetchEventWorkspace, organisersOf, useEventWorkspace, useOrganiserHome, useRunCommands } from './eventsApi';
 import { uploadEventPicture } from './media';
@@ -150,7 +152,12 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
 
   const until = listedUntil(draft, ws, today);
   const upcoming = upcomingDates(ws.dates, today);
-  const weekly = sched.mode === 'weekly' && draft.shape === 'weekly';
+  // A one-date event that can be made weekly (recurring with no rule, G5).
+  const canRepeat = sched.mode === 'single' && sched.repeatsReason === null && !lock;
+  const weekly = (sched.mode === 'weekly' || canRepeat) && draft.shape === 'weekly';
+  // Weekly -> One date, not saved yet: the dates that go (the sheet confirmed it).
+  const pendingOneDate = sched.mode === 'weekly' && draft.shape === 'single' && base.shape === 'weekly';
+  const loss = oneDateLoss(ws, draft, today);
   // One mapping decides the row's date, whether Extend can add a date (the server's
   // 30-scheduled-upcoming rule) and its sentence. Extend continues the run from its
   // last listed date (an open-ended rule included).
@@ -164,7 +171,9 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
   const firstDate = ws.hasMore ? draft.startDate : [...ws.dates.map((d) => d.occurrence_date)].sort()[0] ?? draft.startDate;
   const next = upcoming.find((d) => d.lifecycle_status !== 'cancelled') ?? null;
   const emptyHint = lock ?? (sched.mode === 'fixed' ? sched.reason : weekly ? 'Use Extend above to list more dates.' : 'Change \u2018Starts on\u2019 above to list a new date.') ?? '';
-  const organisers = organisersOf(home.data?.organisers, seriesId).map((o) => o.name);
+  const ownOrganisers = organisersOf(home.data?.organisers, seriesId);
+  const organisers = ownOrganisers.map((o) => o.name);
+  const bar = saveBarState({ dirty, saving, locked: !!lock });
   // Chips: the fixed list, then every stored style outside it once (matched without case).
   // Extras come from what was loaded AND the draft, so turning one off never loses its chip.
   const extras: string[] = [];
@@ -181,6 +190,9 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
       <div className="flex justify-end">
         <StatusTag tone={tag.tone} testId="org-event-status">{tag.label}</StatusTag>
       </div>
+      <EventReviewCard seriesId={seriesId} name={base.name} status={ws.series.lifecycle_status} version={ws.series.version}
+        upcomingListed={upcoming.filter((d) => d.lifecycle_status !== 'cancelled').length}
+        organisers={home.data ? ownOrganisers : null} dirty={dirty} onSent={() => announce('Sent for review.')} />
       {lock && (
         <p className="rounded-[12px] border border-[var(--line)] bg-[var(--card)] px-[16px] py-[12px] text-[14px] text-[var(--fg)]" data-testid="org-event-locked">
           {lock}
@@ -201,7 +213,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
         ) : (
           <SummaryRow icon={<CalendarDays />} label="Starts on" value={draft.startDate ? shortDate(draft.startDate, today) : 'Choose'} onPress={() => setSheet('starts')} testId="org-row-starts" />
         )}
-        {sched.mode === 'weekly' ? (
+        {sched.mode === 'weekly' || canRepeat ? (
           <SummaryRow icon={<Repeat />} label="Repeats" value={repeatsLabel(draft)} onPress={() => setSheet('repeats')} testId="org-row-repeats" />
         ) : sched.mode === 'single' ? (
           <SummaryRow icon={<Repeat />} label="Repeats" value={sched.pattern} testId="org-row-repeats" />
@@ -210,9 +222,9 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
         )}
         {endedLabel ? (
           <SummaryRow label={endedLabel} testId="org-row-ended" />
-        ) : sched.mode !== 'weekly' ? (
+        ) : sched.mode !== 'weekly' && !weekly ? (
           <SummaryRow label={untilLabel} sublabel={sched.mode === 'single' && !upcoming.length ? emptyHint : undefined} testId="org-row-until" />
-        ) : draft.shape === 'weekly' ? (
+        ) : weekly ? (
           <div className="flex min-h-[52px] items-center gap-[12px] px-[16px] py-[8px]" data-testid="org-row-until">
             <button type="button" onClick={() => setSheet('until')} className="min-h-[44px] min-w-0 flex-1 text-left" data-testid="org-row-until-open">
               <span className="block truncate text-[15px] text-[var(--fg)]">{until ? untilLabel : 'Choose how long it is listed'}</span>
@@ -224,6 +236,9 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
               Extend
             </button>
           </div>
+        ) : pendingOneDate ? (
+          <SummaryRow label={draft.startDate ? `Only ${shortDate(draft.startDate, today)}` : 'One date'}
+            sublabel={loss ? `Save to take off the other ${loss === 1 ? 'date' : `${loss} dates`}` : 'Save to keep just this date'} testId="org-row-until" />
         ) : (
           <SummaryRow label={until ? untilLabel : 'No date listed yet'} sublabel={CAP_NOTE} testId="org-row-until" />
         )}
@@ -234,7 +249,10 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
       <ScheduleCard seriesId={seriesId} next={next} today={today} upcoming={upcoming.length} pastCount={ws.dates.length - upcoming.length} closed={!!lock} />
       <Card>
         <SummaryRow icon={<MapPin />} label="Venue" value={venueName(venues.data, draft.venueId) ?? (lock ? 'None' : 'Choose')} onPress={() => setSheet('venue')} disabled={!!lock} testId="org-row-venue" />
-        <SummaryRow icon={<Users />} label="Organisers" value={organisers.length ? joinNames(organisers) : undefined} testId="org-row-organisers" />
+        <SummaryRow icon={<Users />} label="Organisers" value={organisers.length ? joinNames(organisers) : undefined}
+          sublabel={`Set when the event was made. To change them, ask ${TEAM}.`} testId="org-row-organisers" />
+        <SummaryRow icon={<Shapes />} label="Type" value={categoryLabel(ws.series.category)}
+          sublabel={`Chosen when the event was made. To change it, ask ${TEAM}.`} testId="org-row-type" />
         <SummaryRow icon={<Text />} label="Description" value={draft.description.trim() ? draft.description.trim() : lock ? 'None' : 'Add'} onPress={() => setSheet('description')} disabled={!!lock} testId="org-row-description" />
       </Card>
       <section aria-label="Music styles" data-testid="org-styles">
@@ -248,7 +266,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
       </Card>
       <DatesList seriesId={seriesId} dates={ws.dates} today={today} emptyHint={emptyHint} truncated={ws.hasMore} />
       <DatesTakenOff series={ws.series} dates={ws.dates} today={today} lock={lock} dirty={dirty} canChooseEnd={weekly} />
-      <EditorSheet stopReason={sched.stopReason}
+      <EditorSheet stopReason={sched.stopReason} oneDateLoss={sched.mode === 'weekly' && base.shape === 'weekly' ? loss : 0}
         sheet={sheet} onSheet={setSheet} draft={draft} patch={patch} today={today} cap={cap} capNote={listing.sheetNote} venues={venues.data}
         venuesError={venues.isError} onRetryVenues={() => void venues.refetch()} venuesRetrying={venues.isFetching}
         onUploadGallery={(files) => void upload(files, 'gallery')} uploading={uploading === 'gallery'} uploadError={uploadError}
@@ -267,17 +285,19 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
       actionBar={
         <>
           {error && <p role="alert" className="px-[16px] pt-[12px] text-[14px] text-[var(--danger)]" data-testid="org-save-error">{error}</p>}
-          <PreviewBar
-            preview={<PublicCardPreview card={card} />}
-            actionLabel={dirty ? 'Save changes' : 'Saved'}
-            onAction={() => void save()}
-            loading={saving}
-            disabled={!dirty}
-            live={live}
-            compact={!dirty && !saving}
-            summary={lock ? 'Read only' : 'All changes saved'}
-            shakeProps={shakeProps}
-          />
+          {bar.show && (
+            <PreviewBar
+              preview={<PublicCardPreview card={card} />}
+              actionLabel={bar.label}
+              onAction={() => void save()}
+              loading={saving}
+              disabled={bar.disabled}
+              live={live}
+              compact={bar.compact}
+              summary={bar.summary}
+              shakeProps={shakeProps}
+            />
+          )}
         </>
       }
     />

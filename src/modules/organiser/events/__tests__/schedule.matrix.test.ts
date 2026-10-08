@@ -38,12 +38,21 @@ const PATTERN: Record<string, string> = {
   'live-festival': 'Festival, 3 days',
   'archived-oneoff-empty': 'One date',
   'archived-norule-past': 'Every Saturday',
+  'draft-norule-one': 'One date',
+  'draft-norule-empty': 'One date',
+  'draft-weekly-first-off': 'Every Saturday',
 };
 const MODE: Record<string, string> = {
   'live-weekly-open': 'weekly', 'live-weekly-over100': 'weekly', 'live-weekly-until': 'weekly', 'live-weekly-aftercount': 'weekly',
   'draft-weekly-nointerval': 'weekly', 'pending-weekly': 'weekly', 'paused-weekly': 'weekly',
   'live-oneoff-past': 'single', 'live-oneoff-upcoming': 'single',
+  // G5: recurring with NO rule and at most one date is the owner's own one-date event
+  // (what 'One date' leaves, or a party / workshop as created); with no date at all
+  // (the create's weekly rule failed) it falls back to the weekly setup.
+  'draft-norule-one': 'single', 'draft-norule-empty': 'weekly', 'draft-weekly-first-off': 'weekly',
 };
+/** A one-date event that can still be made weekly (recurring, no rule): no reason to show. */
+const CAN_REPEAT = new Set(['draft-norule-one']);
 
 describe.each(SHAPES.map((s) => [s.key, s] as const))('shape %s', (key, s) => {
   it('the Date card reads the true pattern and the right mode', () => {
@@ -51,7 +60,8 @@ describe.each(SHAPES.map((s) => [s.key, s] as const))('shape %s', (key, s) => {
     const view = scheduleView(ws.series, ws.dates);
     expect(view.pattern).toBe(PATTERN[key]);
     expect(view.mode).toBe(MODE[key] ?? 'fixed');
-    if (view.mode !== 'weekly') expect(view.repeatsReason ?? view.reason).toMatch(/Bachata Calendar team/);
+    if (CAN_REPEAT.has(key)) expect(view.repeatsReason).toBeNull();
+    else if (view.mode !== 'weekly') expect(view.repeatsReason ?? view.reason).toMatch(/Bachata Calendar team/);
   });
 
   it('untouched: nothing is sent', () => {
@@ -73,7 +83,7 @@ describe.each(SHAPES.map((s) => [s.key, s] as const))('shape %s', (key, s) => {
     const kinds = savePlan(draft, moved, ws, TODAY).map((c) => c.kind);
     const mode = scheduleView(ws.series, ws.dates).mode;
     if (s.lifecycle === 'ended' || s.lifecycle === 'archived' || mode === 'fixed') expect(kinds).toEqual([]);
-    if (mode === 'single') expect(kinds).not.toContain('series.set_recurrence');
+    if (mode === 'single' && !CAN_REPEAT.has(key)) expect(kinds).not.toContain('series.set_recurrence');
   });
 });
 

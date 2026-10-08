@@ -86,5 +86,6 @@ export function useHomeStrips(home: Awaited<ReturnType<typeof fetchOrganiserHome
   });
   const noLineup = datesWithoutLineup(checked, byId);
 
-  return { organisers, today, dates, teamRequests, runway, noLineup };
+  // How many dates the line-up count is out of (the strip names this window).
+  return { organisers, today, dates, teamRequests, runway, noLineup, lineupChecked: checked.length };
 }

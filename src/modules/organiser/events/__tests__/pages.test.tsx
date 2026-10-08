@@ -104,14 +104,55 @@ describe('new event (name only)', () => {
     mount('/account/o/events/new');
     const name = await screen.findByTestId('org-new-event-name');
     fireEvent.change(name, { target: { value: 'Tuesday Class' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
     const [create, rule] = commands();
     expect(create.command.kind).toBe('series.upsert');
-    expect(create.command.payload).toMatchObject({ name: 'Tuesday Class', format: 'recurring', default_start_date: '2026-10-15', timezone: 'Europe/London', default_city_id: 'c1' });
+    expect(create.command.payload).toMatchObject({
+      name: 'Tuesday Class', format: 'recurring', category: 'class', default_duration_minutes: 120,
+      default_start_date: '2026-10-15', timezone: 'Europe/London', default_city_id: 'c1',
+    });
     expect(Object.keys(create.command.payload)).not.toContain('default_venue_id');
     expect(rule.command).toEqual({ kind: 'series.set_recurrence', payload: { mode: 'weekly', weekdays: [4], end: { kind: 'until_date', date: '2026-12-03' } } });
     expect(rule.expected_version).toBe(4);
+  });
+
+  it('a party starts as ONE date (no weekly rule), with its own duration', async () => {
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    const [create, date] = commands();
+    expect(create.command.payload).toMatchObject({ category: 'party', format: 'recurring', default_duration_minutes: 300 });
+    expect(date.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
+    expect(commands()).toHaveLength(2);
+  });
+
+  it('asks what it is before creating', async () => {
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'X' } });
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/Choose what it is/);
+    expect(commands()).toHaveLength(0);
+  });
+
+  it('a refused weekly rule is shown, not swallowed, and the event can be opened', async () => {
+    let n = 0;
+    handlers.series_command_p5 = () => {
+      n += 1;
+      if (n === 1) return { ok: true, new_version: 4 };
+      throw { message: 'invalid_payload: rule refused', code: 'P0001' };
+    };
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Tuesday Class' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/saved as a draft, but its weekly dates were not listed/);
+    expect(screen.getByTestId('where').textContent).toBe('/account/o/events/new');
+    fireEvent.click(screen.getByTestId('org-new-event-open'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
   });
 
   it('asks for a name instead of sending a blank one', async () => {
@@ -142,7 +183,7 @@ describe('event editor', () => {
       .filter((id) => !id?.endsWith('-value') && !id?.endsWith('-open'));
     expect(ids).toEqual([
       'org-cover', 'org-row-gallery', 'org-row-video', 'org-event-name', 'org-row-starts', 'org-row-repeats', 'org-row-until',
-      'org-schedule', 'org-row-venue', 'org-row-organisers', 'org-row-description', 'org-styles', 'org-row-ticket', 'org-dates',
+      'org-schedule', 'org-row-venue', 'org-row-organisers', 'org-row-type', 'org-row-description', 'org-styles', 'org-row-ticket', 'org-dates',
     ]);
   });
 
@@ -323,13 +364,62 @@ describe('event editor', () => {
     expect(screen.getByTestId('org-row-repeats-value').textContent).toBe('Every Tuesday');
     fireEvent.click(screen.getByTestId('org-row-repeats'));
     fireEvent.click(await screen.findByTestId('org-shape-single'));
-    fireEvent.click(screen.getByTestId('org-sheet-done'));
+    // Dates would go: the sheet says how many and asks for the tick first (walk bug 7).
+    const confirm = await screen.findByTestId('org-one-date-confirm');
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('org-one-date-consequence').textContent).toMatch(/\d+ other dates? listed now go off/);
+    fireEvent.click(screen.getByTestId('org-one-date-ack'));
+    fireEvent.click(confirm);
     expect(screen.getByTestId('org-row-repeats-value').textContent).toBe('One date');
+    // The card says the pending choice, not the old run.
+    expect(screen.getByTestId('org-row-until').textContent).toMatch(/^Only .*Save to take off the other/);
+    expect(screen.getByTestId('org-date-card').textContent).not.toMatch(/Listed until|Up to 30/);
     save();
     await waitFor(() => expect(commands().length).toBeGreaterThanOrEqual(2));
     expect(commands().map((c) => c.command.kind)).toEqual(['series.upsert', 'series.stop_repeating', 'series.add_date']);
     expect(commands()[0].command.payload).toEqual({ name: 'Friday Party', default_start_date: '2026-10-13' });
     expect(commands()[1].expected_version).toBe(4);
+  });
+
+  it('G1: a draft shows what it still needs, then sends for review and reads In review', async () => {
+    let status = 'draft';
+    let missing: string[] = ['venue'];
+    handlers.admin_event_workspace_p5 = () => rawWorkspace({ lifecycle_status: status });
+    handlers.event_publish_readiness_v1 = () => ({ ok: missing.length === 0, missing });
+    handlers.series_command_p5 = () => { status = 'pending_review'; return { ok: true, new_version: 4 }; };
+    await editor();
+    const send = await screen.findByTestId('org-event-review-send');
+    await waitFor(() => expect(screen.getByTestId('org-event-review-blocked').textContent).toMatch(/To send it, add a venue/));
+    expect((send as HTMLButtonElement).disabled).toBe(true);
+    cleanup();
+    missing = [];
+    await editor();
+    const ready = await screen.findByTestId('org-event-review-send');
+    await waitFor(() => expect((ready as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(ready);
+    fireEvent.click(await screen.findByTestId('org-event-review-yes'));
+    await waitFor(() => expect(commands().map((c) => c.command)).toEqual([{ kind: 'series.set_lifecycle', payload: { to: 'pending_review' } }]));
+    await waitFor(() => expect(screen.getByTestId('org-event-status').textContent).toBe('In review'));
+    expect(screen.getByTestId('org-event-review-sentence').textContent).toMatch(/checking it/);
+    expect(screen.queryByTestId('org-event-review-send')).toBeNull();
+  });
+
+  it('6: a junk ticket link is refused in its sheet (Done disabled, reason shown), not at Save', async () => {
+    await editor();
+    fireEvent.click(screen.getByTestId('org-row-ticket'));
+    fireEvent.change(await screen.findByTestId('org-ticket-input'), { target: { value: 'tickets dot com' } });
+    expect(screen.getByTestId('org-ticket-problem').textContent).toMatch(/full address starting with https/);
+    expect((screen.getByTestId('org-sheet-done') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByTestId('org-ticket-input'), { target: { value: 'https://tix.example/a' } });
+    expect(screen.queryByTestId('org-ticket-problem')).toBeNull();
+    expect((screen.getByTestId('org-sheet-done') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('11: the description sheet counts toward its 4,000 limit', async () => {
+    await editor();
+    fireEvent.click(screen.getByTestId('org-row-description'));
+    fireEvent.change(await screen.findByTestId('org-description-input'), { target: { value: 'abc' } });
+    expect(screen.getByTestId('org-description-count').textContent).toBe('3 of 4,000 characters');
   });
 
   it('a failed save shakes and shows the plain message; the edit stays', async () => {

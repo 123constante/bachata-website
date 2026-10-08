@@ -8,8 +8,10 @@ import { eventLock, ownerWeeklyRule, TEAM } from '@/modules/organiser/shared/eve
 import type { WorkspaceDate, WorkspaceSeries } from '@/modules/organiser/shared/seriesModel';
 
 /**
- * weekly: 'Starts on', 'Repeats' and 'Listed until' all work (the owner's rule).
- * single: a one-date event: 'Starts on' works; it cannot be made to repeat here.
+ * weekly: 'Starts on', 'Repeats' and 'Listed until' all work (the owner's rule,
+ *         or a recurring series with no rule and NO date yet: the weekly setup).
+ * single: a one-date event: 'Starts on' works; 'Repeats' works too when the
+ *         series is recurring with no rule (repeatsReason null), never for a one_off.
  * fixed:  shown as it is, with the reason it cannot be changed here.
  */
 export type ScheduleMode = 'weekly' | 'single' | 'fixed';
@@ -67,6 +69,15 @@ export function datesPattern(dates: WorkspaceDate[]): string | null {
   return keys.every((k) => weekdayOfKey(k) === weekday) ? `Every ${WEEKDAY[weekday]}` : null;
 }
 
+/**
+ * The owner's own one-date shape (G5): recurring, NO rule, at most one date. It is
+ * what 'One date' leaves (series.stop_repeating keeps format 'recurring') and how a
+ * party or workshop is created. The server's set_recurrence needs format
+ * 'recurring', so this shape can be made weekly again; a one_off cannot.
+ */
+export const ownerOneDate = (series: Pick<WorkspaceSeries, 'format' | 'recurrence_rule'>, dates: WorkspaceDate[]) =>
+  series.format === 'recurring' && !series.recurrence_rule && dates.length <= 1;
+
 export function scheduleView(series: Pick<WorkspaceSeries, 'format' | 'lifecycle_status' | 'recurrence_rule'>, dates: WorkspaceDate[]): ScheduleView {
   const lock = eventLock(series.lifecycle_status);
   const fromRule = rulePattern(series.recurrence_rule);
@@ -87,6 +98,8 @@ export function scheduleView(series: Pick<WorkspaceSeries, 'format' | 'lifecycle
     return view('weekly', null, null, stop);
   }
   if (series.format === 'one_off') return view('single', null, `A one-date event can't be made to repeat here. Ask ${TEAM}.`);
+  // No date at all (the create's weekly rule was refused): set it up as weekly here.
+  if (ownerOneDate(series, dates)) return dates.length === 0 ? view('weekly', null, null, null) : view('single', null, null);
   if (series.format === 'course') return view('fixed', `Course dates are set by ${TEAM}. Open a date below to change that date.`);
   if (series.format === 'festival') return view('fixed', `Festival days are set by ${TEAM}. Open a day below to change that day.`);
   if (!series.recurrence_rule) {

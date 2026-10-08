@@ -52,7 +52,7 @@ export function OrganiserShell({
 }: OrganiserShellProps) {
   const { inset } = useKeyboardInset();
   const keyboardUp = inset > 0;
-  const mainRef = useRef<HTMLElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
   // The frame shrinks above the keyboard, which can leave the focused field
   // under it: bring the field back into the visible part of the content.
   useEffect(() => {
@@ -87,7 +87,8 @@ export function OrganiserShell({
           </div>
         )}
       </header>
-      <main ref={mainRef} data-testid="org-content" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      {/* A div, not a second <main>: the site layout already has the page's one main landmark (id=main-content). */}
+      <div ref={mainRef} data-testid="org-content" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {split ? (
           <div className="org-split" data-has-detail={detail !== undefined}>
             <div className="org-split-list" data-testid="org-list">
@@ -100,7 +101,7 @@ export function OrganiserShell({
         ) : (
           <div className="mx-auto w-full max-w-[640px] px-[16px] py-[16px]">{children}</div>
         )}
-      </main>
+      </div>
       {actionBar && (
         <div
           data-testid="org-actionbar"

@@ -30,15 +30,12 @@ import {
   type DraftSession,
   type RowProblem,
 } from '@/modules/organiser/shared/programmeModel';
-import {
-  PEOPLE_SEARCH_MIN,
-  searchPeople,
-  searchPeopleQueryKey,
-  type CancellationReason,
-} from '@/modules/organiser/shared/selfServeApi';
+import { PEOPLE_SEARCH_MIN, type CancellationReason } from '@/modules/organiser/shared/selfServeApi';
+import { shownCancelReason } from '@/modules/organiser/shared/cancelLabel';
+import { pickerQueryKey, searchPickerRows } from './peoplePicker';
 import { PUT_BACK_WHERE, confirmCopy } from '@/modules/organiser/shared/editorGuards';
 import type { VenueOption } from '@/modules/organiser/shared/publicVenues';
-import { ROLE_NOUN, addRoleFor, onSessionIds, pickPerson, setSessionType, typeLabel, typeTone } from './dateModel';
+import { ROLE_NOUN, addRoleFor, onSessionIds, pickPerson, sessionName, setSessionType, typeLabel, typeTone } from './dateModel';
 
 export type SheetState =
   | { view: 'session'; key: string }
@@ -99,7 +96,7 @@ export function DateSheet(props: DateSheetProps) {
   let onBack: (() => void) | undefined;
 
   if (state?.view === 'session' && row) {
-    title = row.original ? sessionTitle(row) : 'New session';
+    title = row.original ? sessionName(row) : 'New session';
     body = <SessionView {...props} row={row} />;
     footer = <PrimaryButton onClick={close} testId="date-sheet-done">Done</PrimaryButton>;
   } else if (state?.view === 'search' && row) {
@@ -150,8 +147,6 @@ export function DateSheet(props: DateSheetProps) {
     </SheetView>
   );
 }
-
-const sessionTitle = (row: DraftSession) => row.title.trim() || typeLabel(row.type);
 
 // ---- session ----------------------------------------------------------------
 
@@ -278,14 +273,15 @@ function SessionView({ row, updateRow, removeSession, onState, problems, editabl
         {problem('people') && <p role="alert" className="text-[13px] text-[var(--danger)]">{problem('people')}</p>}
       </section>
 
+      {/* A session not saved yet is not on the date, so it is discarded, never "removed from this date". */}
       {editable && (
         <button
           type="button"
           onClick={() => { removeSession(row.key); onState(null); }}
           className="min-h-[44px] w-full rounded-[12px] text-[15px] font-semibold text-[var(--danger)]"
-          data-testid="session-remove"
+          data-testid={row.original ? 'session-remove' : 'session-discard'}
         >
-          Remove from this date
+          {row.original ? 'Remove from this date' : 'Discard this new session'}
         </button>
       )}
     </div>
@@ -301,8 +297,8 @@ function SearchView({ row, updateRow, onState, announce }: DateSheetProps & { ro
   const term = useDebounced(q.trim());
   const ready = !!role && term.length >= PEOPLE_SEARCH_MIN;
   const results = useQuery({
-    queryKey: role ? searchPeopleQueryKey(role, term) : ['organiser-search-people', 'none'],
-    queryFn: () => searchPeople(term, role!),
+    queryKey: role ? pickerQueryKey(role, term) : ['organiser-people-picker', 'none'],
+    queryFn: () => searchPickerRows(term, role!),
     enabled: ready,
     staleTime: 60_000,
   });
@@ -329,9 +325,9 @@ function SearchView({ row, updateRow, onState, announce }: DateSheetProps & { ro
               key={p.id}
               testId="people-result"
               name={p.name}
-              sublabel={p.place ?? undefined}
+              sublabel={p.sublabel}
               onPress={() => {
-                updateRow(row.key, (r) => pickPerson(r, p));
+                updateRow(row.key, (r) => pickPerson(r, { id: p.id, name: p.name }));
                 announce(`${p.name} added. Save to keep it.`);
                 onState({ view: 'session', key: row.key });
               }}
@@ -396,7 +392,8 @@ function VenueView({ venues, venuesLoading, venuesError, onRetryVenues, venueId,
 function CancelView({ dateLabel, reasons, reasonsLoading, reasonsError, onRetryReasons, onCancelDate, commandBusy, commandError }: DateSheetProps) {
   const [reason, setReason] = useState<string | null>(null);
   const [ack, setAck] = useState(false);
-  const copy = confirmCopy('cancel_date', { subject: dateLabel, reason });
+  // "Other" is never quoted to dancers (shared/cancelLabel.ts).
+  const copy = confirmCopy('cancel_date', { subject: dateLabel, reason: shownCancelReason(reason) });
   return (
     <div className="space-y-[16px]" data-testid="date-cancel-view">
       <div className="space-y-[8px]">

@@ -150,6 +150,19 @@ export function datesWithoutLineup(dates: NextDate[], programmes: Map<string, Pr
   });
 }
 
+/**
+ * The strip's words. Home reads the programme of only the first
+ * LINEUP_CHECK_LIMIT dates that are not cancelled (`checked`), so the count is
+ * out of those and the words say so; it is never presented as a total. Null
+ * when nothing is missing (no strip).
+ */
+export function noLineupText(missing: number, checked: number): string | null {
+  if (missing <= 0) return null;
+  if (checked <= 1) return 'Your next date has no teacher or DJ yet';
+  if (missing >= checked) return `Your next ${checked} dates have no teacher or DJ yet`;
+  return `${missing} of your next ${checked} dates ${missing === 1 ? 'has' : 'have'} no teacher or DJ yet`;
+}
+
 /** Which dates Home checks for a line-up: the first few that are not cancelled. */
 export const lineupCheckDates = (dates: NextDate[]) => dates.filter((d) => !d.cancelled).slice(0, LINEUP_CHECK_LIMIT);
 
