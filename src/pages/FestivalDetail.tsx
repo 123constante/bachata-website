@@ -571,7 +571,7 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .v-body{padding:12px 14px;display:flex;flex-direction:column;gap:5px;min-width:0;justify-content:center}
 
-.cinematic-festival .v-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.45)}
+.cinematic-festival .v-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.5)}
 
 .cinematic-festival .v-name{font-family:'Bebas Neue',sans-serif;font-size:22px;line-height:1;letter-spacing:-0.01em;color:#fff;margin:0}
 
@@ -583,7 +583,7 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .v-stat .n{font-family:'Bebas Neue',sans-serif;font-size:15px;color:#fb923c;line-height:1}
 
-.cinematic-festival .v-stat .l{font-size:8px;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.45)}
+.cinematic-festival .v-stat .l{font-size:8px;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.5)}
 
 .cinematic-festival .v-stat::after{content:'';width:3px;height:3px;background:rgba(255,255,255,0.2);border-radius:50%;margin-left:8px;align-self:center}
 
@@ -609,7 +609,7 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .o-body{padding:16px 8px;display:flex;flex-direction:column;gap:6px;min-width:0;justify-content:center}
 
-.cinematic-festival .o-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.45)}
+.cinematic-festival .o-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.5)}
 
 .cinematic-festival .o-name{font-family:'Bebas Neue',sans-serif;font-size:22px;line-height:1;letter-spacing:-0.01em;color:#fff;margin:0}
 
@@ -621,7 +621,7 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .o-stat .n{font-family:'Bebas Neue',sans-serif;font-size:14px;color:#fb923c;line-height:1}
 
-.cinematic-festival .o-stat .l{font-size:8px;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.45)}
+.cinematic-festival .o-stat .l{font-size:8px;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.5)}
 
 .cinematic-festival .o-stat::after{content:'';width:3px;height:3px;background:rgba(255,255,255,0.2);border-radius:50%;margin-left:8px;align-self:center}
 

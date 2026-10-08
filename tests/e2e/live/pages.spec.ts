@@ -19,8 +19,8 @@ const PAGES: { path: string; shot?: string; allowConsole?: RegExp[] }[] = [
   { path: '/bachata-london-friday' },
   { path: '/search?q=bachata' },
   { path: '/auth' },
-  // The not-found page logs this on purpose (src/pages/NotFound): expected here.
-  { path: '/this-page-does-not-exist-live-qa', shot: 'not-found', allowConsole: [/User attempted to access non-existent route/] },
+  // A 404 is expected, so the not-found page logs nothing: any console error here is a finding.
+  { path: '/this-page-does-not-exist-live-qa', shot: 'not-found' },
 ];
 
 for (const p of PAGES) {

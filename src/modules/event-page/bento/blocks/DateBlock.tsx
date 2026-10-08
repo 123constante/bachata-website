@@ -24,8 +24,11 @@ export const DateBlock = ({ occurrence, isEnded = false, onClick }: DateBlockPro
   // to fall through to the future-first featured helper and land on the
   // FIRST-ever night. So this tile is the closing date, and the record card
   // above carries the full run.
+  // Dimmed by COLOUR, not opacity: the weekday and month already sit on
+  // --bento-fg-muted, the contrast floor (see src/index.css), so the day number
+  // drops to it too and nothing goes under AA.
   const dim = isCancelled || isEnded;
-  const dateText = `${isCancelled ? 'line-through ' : ''}${dim ? 'opacity-60' : ''}`;
+  const dateText = isCancelled ? 'line-through' : '';
 
   return (
     <BentoTile title={BLOCK_TITLES.date} color={BLOCK_COLORS.date} onClick={onClick}>
@@ -49,6 +52,7 @@ export const DateBlock = ({ occurrence, isEnded = false, onClick }: DateBlockPro
               calendar-icon pattern (weekday top, big day, month bottom). */}
           <div
             className={`mt-[1px] text-[22px] font-black leading-none tracking-[-0.03em] ${dateText}`}
+            style={dim ? { color: 'hsl(var(--bento-fg-muted))' } : undefined}
           >
             {label.startDay}
           </div>

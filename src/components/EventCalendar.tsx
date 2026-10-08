@@ -270,6 +270,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
                     </h3>
                     <button
                       onClick={() => navigateMonth('next')}
+                      aria-label="Next month"
                       className="p-1.5 rounded-full hover:bg-primary/10 transition-colors"
                     >
                       <ChevronRight className="w-4 h-4" />
