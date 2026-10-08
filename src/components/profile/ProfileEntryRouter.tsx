@@ -47,11 +47,12 @@ export const ProfileEntryRouter = ({
     onSelectRole(role);
   };
 
-  // Auto-resolve zero-roles state: redirect to onboarding
+  // Auto-resolve zero-roles state: redirect home (/onboarding, the old target,
+  // was retired on 2026-09-12 and is a 404).
   useEffect(() => {
     if (loading || !user || availableRoles.length > 0 || autoResolveRan.current) return;
     autoResolveRan.current = true;
-    navigate('/onboarding', { replace: true });
+    navigate('/', { replace: true });
   }, [loading, user, availableRoles.length, navigate]);
   useEffect(() => {
     if (loading) return;
