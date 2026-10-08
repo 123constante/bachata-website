@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, ChevronDown } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronRight } from 'lucide-react';
 import { lineupSummary, toDraft, TYPE_LABEL } from '@/modules/organiser/shared/programmeModel';
 import { upcomingDates, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 import { ORG_PATHS } from '../shell';
@@ -9,14 +9,25 @@ import { shortDate } from './eventModel';
 import { useNextDateProgramme } from './eventsApi';
 
 
-/** The sessions of the NEXT date, read-only with their people; opens that date's editor (W3). */
-export function ScheduleCard({ seriesId, next, today }: { seriesId: string; next: WorkspaceDate | null; today: string }) {
+/**
+ * The sessions of the NEXT date, read-only with their people; opens that date's
+ * editor (W3). `upcoming` / `pastCount` say why there is no next date.
+ */
+export function ScheduleCard({ seriesId, next, today, upcoming = 0, pastCount = 0, closed = false }: {
+  seriesId: string; next: WorkspaceDate | null; today: string; upcoming?: number; pastCount?: number;
+  /** Ended or archived: no date will be listed, so never promise one. */
+  closed?: boolean;
+}) {
   const navigate = useNavigate();
   const programme = useNextDateProgramme(next?.id);
   if (!next) {
     return (
       <Card label="Schedule" testId="org-schedule">
-        <SummaryRow label="No upcoming date" sublabel="Sessions show here once a date is listed" />
+        <SummaryRow
+          label={upcoming ? 'Every upcoming date is cancelled' : 'No upcoming date'}
+          sublabel={pastCount ? 'Open a past date below to see its sessions' : closed ? 'This event has no dates' : 'Sessions show here once a date is listed'}
+          testId="org-schedule-none"
+        />
       </Card>
     );
   }
@@ -45,8 +56,14 @@ export function ScheduleCard({ seriesId, next, today }: { seriesId: string; next
   );
 }
 
-/** Upcoming dates (tap opens the date editor) and past dates collapsed below. */
-export function DatesList({ seriesId, dates, today }: { seriesId: string; dates: WorkspaceDate[]; today: string }) {
+/**
+ * Upcoming dates and past dates (collapsed below). Every row opens that date and
+ * shows a chevron saying so. `emptyHint` is what the person can do when nothing
+ * is upcoming; `truncated` says the read holds only the newest 100 dates.
+ */
+export function DatesList({ seriesId, dates, today, emptyHint, truncated = false }: {
+  seriesId: string; dates: WorkspaceDate[]; today: string; emptyHint: string; truncated?: boolean;
+}) {
   const navigate = useNavigate();
   const [showPast, setShowPast] = useState(false);
   const upcoming = upcomingDates(dates, today);
@@ -58,13 +75,27 @@ export function DatesList({ seriesId, dates, today }: { seriesId: string; dates:
       <DateChip date={d.occurrence_date} />
       <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{shortDate(d.occurrence_date, today)}</span>
       {d.lifecycle_status === 'cancelled' && <span className="text-[13px] text-[var(--danger)]">Cancelled</span>}
+      <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
     </button>
   );
   return (
     <section aria-label="Dates" className="space-y-[12px]" data-testid="org-dates">
       <Card label={`Upcoming dates (${upcoming.length})`}>
-        {upcoming.length ? upcoming.map(row) : <SummaryRow icon={<CalendarDays />} label="No upcoming dates" sublabel="Extend to list more" />}
+        {upcoming.length ? upcoming.map(row) : (
+          <div className="flex min-h-[52px] items-start gap-[12px] px-[16px] py-[14px]" data-testid="org-dates-none">
+            <CalendarDays aria-hidden="true" className="mt-[2px] h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] text-[var(--fg)]">No upcoming dates</span>
+              <span className="block text-[13px] text-[var(--mut)]">{emptyHint}</span>
+            </span>
+          </div>
+        )}
       </Card>
+      {truncated && (
+        <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="org-dates-truncated">
+          Showing the newest 100 dates. Older dates are not listed here.
+        </p>
+      )}
       {past.length > 0 && (
         <>
           <GhostButton size="sm" onClick={() => setShowPast((s) => !s)} aria-expanded={showPast} testId="org-dates-past-toggle">

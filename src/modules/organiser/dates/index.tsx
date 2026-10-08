@@ -22,6 +22,7 @@ import { fetchCancellationReasons } from '@/modules/organiser/shared/selfServeAp
 import { cancelCommand, skipDateCommand, uncancelCommand } from '@/modules/organiser/shared/seriesCommands';
 import { UNSAVED_MESSAGE } from '@/modules/organiser/shared/editorGuards';
 import { dateLabel as labelOf, isRuleDate } from '@/modules/organiser/shared/seriesModel';
+import { dateLock, dateTag } from '@/modules/organiser/shared/eventState';
 import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
 import { londonTodayKey } from '@/lib/londonDate';
 import { DateSheet, type SheetState } from './DateSheet';
@@ -68,6 +69,11 @@ export default function DatePage() {
   const venue = venueName(venues.data, ed.venueId);
   const venueCity = venues.data?.find((v) => v.id === ed.venueId)?.city_name ?? null;
   const ruleDate = !!(date && series && isRuleDate(date, series));
+  // Past dates and ended / archived events: the server refuses every owner write here.
+  const lock = date && series ? dateLock(series.lifecycle_status, date, today) : null;
+  const lockShort = !lock ? null : date && date < today ? 'This date has already happened.'
+    : series?.lifecycle_status === 'ended' ? 'This event has ended.' : 'This event is archived.';
+  const tag = cancelled ? dateTag('', 'cancelled') : series ? dateTag(series.lifecycle_status, 'scheduled') : null;
 
   const updateRow = (key: string, fn: (r: DraftSession) => DraftSession) =>
     ed.setRows((rows) => rows.map((r) => (r.key === key ? fn(r) : r)));
@@ -140,12 +146,18 @@ export default function DatePage() {
             {[series?.name, spanLabel(span) ?? 'No times yet'].filter(Boolean).join(' \u00b7 ')}
           </p>
         </div>
-        {cancelled ? <StatusTag tone="draft" testId="date-status">Cancelled</StatusTag> : live ? <StatusTag tone="live" testId="date-status">Live</StatusTag> : null}
+        {tag && <StatusTag tone={tag.tone} testId="date-status">{tag.label}</StatusTag>}
       </header>
 
       {cancelled && (
         <p className="rounded-[12px] bg-[var(--warn-bg)] px-[16px] py-[12px] text-[14px] text-[var(--warn-fg)]" data-testid="date-cancelled-note">
           Cancelled{ed.detail.data?.cancellationReason ? ` \u00b7 ${ed.detail.data.cancellationReason}` : ''}. Dancers see this.
+        </p>
+      )}
+
+      {lock && (
+        <p className="rounded-[12px] border border-[var(--line)] bg-[var(--card)] px-[16px] py-[12px] text-[14px] text-[var(--fg)]" data-testid="date-locked-note">
+          {lock}
         </p>
       )}
 
@@ -162,13 +174,14 @@ export default function DatePage() {
           sublabel={venueCity ?? undefined}
           value={venue ?? 'Choose a venue'}
           onPress={cancelled ? undefined : () => setSheet({ view: 'venue' })}
+          disabled={!!lock}
           testId="date-venue"
         />
       </Card>
 
       <section aria-labelledby="schedule-label" className="space-y-[8px]">
         <h2 id="schedule-label" className="px-[4px] text-[13px] font-semibold uppercase tracking-[.04em] text-[var(--mut)]">Schedule</h2>
-        {!editable && ed.base && (
+        {!editable && ed.base && !lock && (
           <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="date-readonly-note">{notEditableCopy(ed.base.notEditableReason)}</p>
         )}
         <div className="overflow-hidden rounded-[16px] border border-[var(--line)] bg-[var(--card)]" data-testid="date-schedule">
@@ -206,15 +219,16 @@ export default function DatePage() {
 
       <Card label="This date">
         {cancelled ? (
-          <SummaryRow icon={<RotateCcw />} label="Put this date back on" sublabel="It goes ahead as usual." onPress={() => { setCommandError(null); setSheet({ view: 'uncancel' }); }} testId="date-uncancel" />
+          <SummaryRow icon={<RotateCcw />} label="Put this date back on" sublabel={lockShort ?? 'It goes ahead as usual.'} disabled={!!lock}
+            onPress={() => { setCommandError(null); setSheet({ view: 'uncancel' }); }} testId="date-uncancel" />
         ) : (
           <>
             {ruleDate && (
-              <SummaryRow icon={<Coffee />} label="Break this week" sublabel={ed.dirty ? 'Save your changes first.' : 'Skip this date. No cancellation shows.'}
-                disabled={ed.dirty} onPress={() => { setCommandError(null); setSheet({ view: 'break' }); }} testId="date-break" />
+              <SummaryRow icon={<Coffee />} label="Break this week" sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : 'Skip this date. No cancellation shows.')}
+                disabled={ed.dirty || !!lock} onPress={() => { setCommandError(null); setSheet({ view: 'break' }); }} testId="date-break" />
             )}
-            <SummaryRow icon={<Ban />} label="Cancel this date" sublabel={ed.dirty ? 'Save your changes first.' : 'Dancers see Cancelled and your reason.'}
-              disabled={ed.dirty} onPress={() => { setCommandError(null); setSheet({ view: 'cancel' }); }} testId="date-cancel" />
+            <SummaryRow icon={<Ban />} label="Cancel this date" sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : 'Dancers see Cancelled and your reason.')}
+              disabled={ed.dirty || !!lock} onPress={() => { setCommandError(null); setSheet({ view: 'cancel' }); }} testId="date-cancel" />
           </>
         )}
       </Card>
@@ -236,6 +250,8 @@ export default function DatePage() {
           loading={ed.saving}
           disabled={!ed.dirty || !ed.base}
           live={live}
+          compact={!ed.dirty && !ed.saving}
+          summary={lock ? 'Nothing to change here' : 'All changes saved'}
           shakeProps={shakeProps}
           testId="date-preview-bar"
         />

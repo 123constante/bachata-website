@@ -55,13 +55,18 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('profile edit', () => {
-  it('shows the stored profile, its Instagram handle and the public card preview', async () => {
+  it('shows the stored profile and its Instagram handle; a slim bar until something changes, then the public card preview', async () => {
     mount();
     expect(((await screen.findByTestId('profile-name')) as HTMLTextAreaElement).value).toBe('Ritmo');
     expect(screen.getByTestId('profile-instagram-value').textContent).toBe('@ritmoleeds');
+    // F4: nothing unsaved -> one line + the disabled button, no preview card.
+    expect(screen.getByTestId('profile-bar').getAttribute('data-compact')).toBe('true');
+    expect(screen.queryByTestId('profile-preview')).toBeNull();
+    expect((screen.getByTestId('profile-bar-action') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByTestId('profile-name'), { target: { value: 'Ritmo!' } });
     expect(screen.getByTestId('profile-preview').textContent).toContain('Leeds · @ritmoleeds');
     expect(screen.getByText('Guests see changes to live events straight away.')).toBeTruthy();
-    expect((screen.getByTestId('profile-bar-action') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('profile-bar-action') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('saves the whole form through organiser_profile_update_p5_v1, keeping the fields it does not show', async () => {

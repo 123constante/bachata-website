@@ -10,12 +10,14 @@ import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
 import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { UNSAVED_MESSAGE } from '@/modules/organiser/shared/editorGuards';
 import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
+import { endedOnLabel, eventLock, lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import {
   AnnounceRegion, Card, Chip, Cover, EmptyState, ErrorState, PreviewBar, SkeletonRows, StatusTag, SummaryRow, TitleInput,
   useAnnounce, useShake,
 } from '../ui';
-import { CAP_NOTE, allowedEndChoices, endWithinCap, extendStep } from './dateCap';
+import { CAP_NOTE, MAX_UPCOMING, allowedEndChoices, endWithinCap, extendStep } from './dateCap';
+import { scheduleView } from './schedule';
 import { EditorSheet, type SheetName } from './EditorSheet';
 import { DatesList, ScheduleCard } from './EditorRows';
 import { EventList } from './EventList';
@@ -41,6 +43,9 @@ export function PublicCardPreview({ card }: { card: CardPreview }) {
   );
 }
 
+/** A stored style shown as a chip: 'zouk' reads 'Zouk' (the stored spelling is what is saved). */
+const styleLabel = (s: string) => (s && s === s.toLowerCase() ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
 const joinNames = (names: string[]) => (names.length <= 1 ? names[0] ?? '' : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
 
 function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
@@ -62,6 +67,10 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
   const [message, announce] = useAnnounce();
   const dirty = changedFields(base, draft).length > 0;
   const live = ws.series.lifecycle_status === 'live';
+  const tag = lifecycleTag(ws.series.lifecycle_status);
+  // Ended / archived: shown, never edited (the server refuses every owner write).
+  const lock = eventLock(ws.series.lifecycle_status);
+  const sched = useMemo(() => scheduleView(ws.series, ws.dates), [ws]);
   const cap = useMemo(() => capInput(ws, draft, today), [ws, draft, today]);
 
   // Fresh server values replace the screen only when the organiser has not typed.
@@ -78,8 +87,10 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
     setError(null);
     setDraft((d) => {
       const next = { ...d, ...p };
-      // A weekly event always has an end inside the cap: re-pick one when the start moves.
-      if (next.shape === 'weekly' && (!next.until || !endWithinCap(capInput(ws, next, today), next.until))) {
+      // When the organiser moves the start or makes it weekly, re-pick an end inside the cap.
+      // Any other edit leaves the stored rule alone (an open-ended rule stays open-ended).
+      const scheduleMoved = 'startDate' in p || 'shape' in p;
+      if (scheduleMoved && next.shape === 'weekly' && (!next.until || !endWithinCap(capInput(ws, next, today), next.until))) {
         const choices = allowedEndChoices(capInput(ws, next, today));
         next.until = (choices.find((c) => c.count >= 8) ?? choices[choices.length - 1])?.until ?? null;
       }
@@ -108,7 +119,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
   };
 
   const save = async () => {
-    const problem = draftProblem(draft, ws, today);
+    const problem = draftProblem(draft, ws, today, base);
     if (problem) { setError(problem); shake(); return; }
     setSaving(true);
     setError(null);
@@ -137,10 +148,27 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
   };
 
   const until = listedUntil(draft, ws, today);
-  const step = draft.shape === 'weekly' ? extendStep(cap, draft.until) : null;
-  const next = upcomingDates(ws.dates, today).find((d) => d.lifecycle_status !== 'cancelled') ?? null;
+  const upcoming = upcomingDates(ws.dates, today);
+  const weekly = sched.mode === 'weekly' && draft.shape === 'weekly';
+  // Extend continues the run from its last listed date (an open-ended rule included).
+  const step = weekly ? extendStep(cap, draft.until ?? until) : null;
+  const listedCount = upcoming.filter((d) => d.lifecycle_status !== 'cancelled').length;
+  const extendReason = step ? null : listedCount >= MAX_UPCOMING
+    ? `${listedCount} listed; the most is ${MAX_UPCOMING}`
+    : 'Listed 12 months ahead, the most';
+  const untilLabel = until && until >= today ? `Listed until ${shortDate(until, today)}` : 'No upcoming dates';
+  const endedLabel = endedOnLabel(ws.series.lifecycle_status, ws.endedOn);
+  const firstDate = ws.hasMore ? draft.startDate : [...ws.dates.map((d) => d.occurrence_date)].sort()[0] ?? draft.startDate;
+  const next = upcoming.find((d) => d.lifecycle_status !== 'cancelled') ?? null;
+  const emptyHint = lock ?? (sched.mode === 'fixed' ? sched.reason : weekly ? 'Use Extend above to list more dates.' : 'Change \u2018Starts on\u2019 above to list a new date.') ?? '';
   const organisers = organisersOf(home.data?.organisers, seriesId).map((o) => o.name);
-  const styles = [...MUSIC_STYLES, ...draft.styles.filter((s) => !MUSIC_STYLES.some((m) => m.toLowerCase() === s.toLowerCase()))];
+  // Chips: the fixed list, then every stored style outside it once (matched without case).
+  // Extras come from what was loaded AND the draft, so turning one off never loses its chip.
+  const extras: string[] = [];
+  for (const s of [...base.styles, ...draft.styles]) {
+    if (!MUSIC_STYLES.some((m) => m.toLowerCase() === s.toLowerCase()) && !extras.some((x) => x.toLowerCase() === s.toLowerCase())) extras.push(s);
+  }
+  const styles = [...MUSIC_STYLES, ...extras];
   const hasStyle = (s: string) => draft.styles.some((x) => x.toLowerCase() === s.toLowerCase());
   const toggleStyle = (s: string) => patch({ styles: hasStyle(s) ? draft.styles.filter((x) => x.toLowerCase() !== s.toLowerCase()) : [...draft.styles, s] });
   const card = cardPreview(draft, ws, today, venueName(venues.data, draft.venueId));
@@ -148,53 +176,75 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
   const editor = (
     <div className="space-y-[20px] pb-[16px]" data-testid="org-event-editor">
       <div className="flex justify-end">
-        <StatusTag tone={live ? 'live' : 'draft'} testId="org-event-status">{live ? 'Live' : 'Draft'}</StatusTag>
+        <StatusTag tone={tag.tone} testId="org-event-status">{tag.label}</StatusTag>
       </div>
-      <Cover src={draft.coverUrl || null} alt="" onChange={() => coverInput.current?.click()} changeLabel="Change cover" emptyLabel="Add a square cover" testId="org-cover" />
+      {lock && (
+        <p className="rounded-[12px] border border-[var(--line)] bg-[var(--card)] px-[16px] py-[12px] text-[14px] text-[var(--fg)]" data-testid="org-event-locked">
+          {lock}
+        </p>
+      )}
+      <Cover src={draft.coverUrl || null} alt="" onChange={lock ? undefined : () => coverInput.current?.click()} changeLabel="Change cover" emptyLabel="Add a square cover" testId="org-cover" />
       <input ref={coverInput} type="file" accept={FLYER_ACCEPT} className="sr-only" tabIndex={-1} aria-hidden="true" onChange={pickCover} data-testid="org-cover-file" />
       {uploading === 'cover' && <p className="text-center text-[13px] text-[var(--mut)]" role="status">Uploading the cover&hellip;</p>}
       {uploadError && sheet === null && <p role="alert" className="text-center text-[14px] text-[var(--danger)]">{uploadError}</p>}
       <Card>
-        <SummaryRow icon={<Images />} label="Gallery" value={draft.gallery.length ? `${draft.gallery.length} photo${draft.gallery.length === 1 ? '' : 's'}` : 'None'} onPress={() => setSheet('gallery')} testId="org-row-gallery" />
-        <SummaryRow icon={<Film />} label="Video" value={draft.videos.length ? `${draft.videos.length}` : 'None'} onPress={() => setSheet('video')} testId="org-row-video" />
+        <SummaryRow icon={<Images />} label="Gallery" value={draft.gallery.length ? `${draft.gallery.length} photo${draft.gallery.length === 1 ? '' : 's'}` : 'None'} onPress={() => setSheet('gallery')} disabled={!!lock} testId="org-row-gallery" />
+        <SummaryRow icon={<Film />} label="Video" value={draft.videos.length ? `${draft.videos.length}` : 'None'} onPress={() => setSheet('video')} disabled={!!lock} testId="org-row-video" />
       </Card>
-      <TitleInput value={draft.name} onChange={(name) => patch({ name })} aria-label="Event name" placeholder="Event name" maxLength={120} testId="org-event-name" />
+      <TitleInput value={draft.name} onChange={(name) => patch({ name })} readOnly={!!lock} aria-label="Event name" placeholder="Event name" maxLength={120} testId="org-event-name" />
       <Card label="Date" testId="org-date-card">
-        <SummaryRow icon={<CalendarDays />} label="Starts on" value={draft.startDate ? shortDate(draft.startDate, today) : 'Choose'} onPress={() => setSheet('starts')} testId="org-row-starts" />
-        <SummaryRow icon={<Repeat />} label="Repeats" value={repeatsLabel(draft)} onPress={() => setSheet('repeats')} testId="org-row-repeats" />
-        {draft.shape === 'weekly' ? (
+        {sched.mode === 'fixed' ? (
+          <SummaryRow icon={<CalendarDays />} label="First date" value={firstDate ? shortDate(firstDate, today) : 'Not set'} testId="org-row-starts" />
+        ) : (
+          <SummaryRow icon={<CalendarDays />} label="Starts on" value={draft.startDate ? shortDate(draft.startDate, today) : 'Choose'} onPress={() => setSheet('starts')} testId="org-row-starts" />
+        )}
+        {sched.mode === 'weekly' ? (
+          <SummaryRow icon={<Repeat />} label="Repeats" value={repeatsLabel(draft)} onPress={() => setSheet('repeats')} testId="org-row-repeats" />
+        ) : sched.mode === 'single' ? (
+          <SummaryRow icon={<Repeat />} label="Repeats" value={sched.pattern} testId="org-row-repeats" />
+        ) : (
+          <SummaryRow icon={<Repeat />} label="Repeats" value={sched.pattern} testId="org-row-repeats" />
+        )}
+        {endedLabel ? (
+          <SummaryRow label={endedLabel} testId="org-row-ended" />
+        ) : sched.mode !== 'weekly' ? (
+          <SummaryRow label={untilLabel} sublabel={sched.mode === 'single' && !upcoming.length ? emptyHint : undefined} testId="org-row-until" />
+        ) : draft.shape === 'weekly' ? (
           <div className="flex min-h-[52px] items-center gap-[12px] px-[16px] py-[8px]" data-testid="org-row-until">
             <button type="button" onClick={() => setSheet('until')} className="min-h-[44px] min-w-0 flex-1 text-left" data-testid="org-row-until-open">
-              <span className="block truncate text-[15px] text-[var(--fg)]">{until ? `Listed until ${shortDate(until, today)}` : 'Choose how long it is listed'}</span>
-              <span className="block truncate text-[13px] text-[var(--mut)]">{CAP_NOTE}</span>
+              <span className="block truncate text-[15px] text-[var(--fg)]">{until ? untilLabel : 'Choose how long it is listed'}</span>
+              <span className="block text-[13px] text-[var(--mut)]" data-testid="org-extend-note">{extendReason ?? CAP_NOTE}</span>
             </button>
             <button type="button" disabled={!step} onClick={() => step && patch({ until: step.until })} data-testid="org-extend"
-              aria-label={step ? `Extend by ${step.add} dates` : 'Extend (already at 30 upcoming dates)'}
+              aria-label={step ? `Extend by ${step.add} dates` : `Extend (${extendReason})`}
               className="h-[44px] shrink-0 rounded-[12px] px-[12px] text-[15px] font-semibold text-[var(--gold)] disabled:text-[var(--mut)]">
               Extend
             </button>
           </div>
         ) : (
-          <SummaryRow label={until ? `Listed until ${shortDate(until, today)}` : 'No date listed yet'} sublabel={CAP_NOTE} testId="org-row-until" />
+          <SummaryRow label={until ? untilLabel : 'No date listed yet'} sublabel={CAP_NOTE} testId="org-row-until" />
+        )}
+        {sched.mode !== 'weekly' && !lock && (sched.mode === 'fixed' ? sched.reason : sched.repeatsReason) && (
+          <p className="px-[16px] py-[12px] text-[13px] text-[var(--mut)]" data-testid="org-schedule-reason">{sched.mode === 'fixed' ? sched.reason : sched.repeatsReason}</p>
         )}
       </Card>
-      <ScheduleCard seriesId={seriesId} next={next} today={today} />
+      <ScheduleCard seriesId={seriesId} next={next} today={today} upcoming={upcoming.length} pastCount={ws.dates.length - upcoming.length} closed={!!lock} />
       <Card>
-        <SummaryRow icon={<MapPin />} label="Venue" value={venueName(venues.data, draft.venueId) ?? 'Choose'} onPress={() => setSheet('venue')} testId="org-row-venue" />
+        <SummaryRow icon={<MapPin />} label="Venue" value={venueName(venues.data, draft.venueId) ?? (lock ? 'None' : 'Choose')} onPress={() => setSheet('venue')} disabled={!!lock} testId="org-row-venue" />
         <SummaryRow icon={<Users />} label="Organisers" value={organisers.length ? joinNames(organisers) : undefined} testId="org-row-organisers" />
-        <SummaryRow icon={<Text />} label="Description" value={draft.description.trim() ? draft.description.trim() : 'Add'} onPress={() => setSheet('description')} testId="org-row-description" />
+        <SummaryRow icon={<Text />} label="Description" value={draft.description.trim() ? draft.description.trim() : lock ? 'None' : 'Add'} onPress={() => setSheet('description')} disabled={!!lock} testId="org-row-description" />
       </Card>
       <section aria-label="Music styles" data-testid="org-styles">
         <p className="mb-[8px] text-[13px] font-semibold uppercase tracking-wide text-[var(--mut)]">Music</p>
         <div className="flex flex-wrap gap-[8px]">
-          {styles.map((s) => <Chip key={s} selected={hasStyle(s)} onToggle={() => toggleStyle(s)} testId="org-style-chip">{s}</Chip>)}
+          {styles.map((s) => <Chip key={s.toLowerCase()} selected={hasStyle(s)} onToggle={() => toggleStyle(s)} disabled={!!lock} testId="org-style-chip">{styleLabel(s)}</Chip>)}
         </div>
       </section>
       <Card label="More">
-        <SummaryRow icon={<Ticket />} label="Ticket link" value={draft.ticketUrl.trim() || 'Add'} onPress={() => setSheet('ticket')} testId="org-row-ticket" />
+        <SummaryRow icon={<Ticket />} label="Ticket link" value={draft.ticketUrl.trim() || (lock ? 'None' : 'Add')} onPress={() => setSheet('ticket')} disabled={!!lock} testId="org-row-ticket" />
       </Card>
-      <DatesList seriesId={seriesId} dates={ws.dates} today={today} />
-      <EditorSheet
+      <DatesList seriesId={seriesId} dates={ws.dates} today={today} emptyHint={emptyHint} truncated={ws.hasMore} />
+      <EditorSheet stopReason={sched.stopReason}
         sheet={sheet} onSheet={setSheet} draft={draft} patch={patch} today={today} cap={cap} venues={venues.data}
         venuesError={venues.isError} onRetryVenues={() => void venues.refetch()} venuesRetrying={venues.isFetching}
         onUploadGallery={(files) => void upload(files, 'gallery')} uploading={uploading === 'gallery'} uploadError={uploadError}
@@ -220,6 +270,8 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
             loading={saving}
             disabled={!dirty}
             live={live}
+            compact={!dirty && !saving}
+            summary={lock ? 'Read only' : 'All changes saved'}
             shakeProps={shakeProps}
           />
         </>

@@ -10,6 +10,8 @@ export interface TitleInputProps {
   placeholder?: string;
   maxLength?: number;
   onBlur?: () => void;
+  /** Shown, not editable (an ended or archived event). */
+  readOnly?: boolean;
   testId?: string;
   className?: string;
 }
@@ -18,7 +20,7 @@ export interface TitleInputProps {
  * Borderless big title (30px/700) that grows with its text. One line of
  * meaning: Enter does not insert a newline and pasted newlines become spaces.
  */
-export function TitleInput({ value, onChange, placeholder, maxLength, onBlur, testId, className, ...aria }: TitleInputProps) {
+export function TitleInput({ value, onChange, placeholder, maxLength, onBlur, readOnly, testId, className, ...aria }: TitleInputProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useIsoLayoutEffect(() => {
     const el = ref.current;
@@ -34,6 +36,7 @@ export function TitleInput({ value, onChange, placeholder, maxLength, onBlur, te
       aria-label={aria['aria-label']}
       placeholder={placeholder}
       maxLength={maxLength}
+      readOnly={readOnly}
       data-testid={testId}
       enterKeyHint="done"
       onBlur={onBlur}

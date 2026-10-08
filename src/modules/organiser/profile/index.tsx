@@ -141,6 +141,8 @@ function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }:
         loading={save.isPending}
         disabled={!dirty}
         live={live}
+        compact={!dirty && !save.isPending}
+        summary="All changes saved"
         shakeProps={shakeProps}
         testId="profile-bar"
       />

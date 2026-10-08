@@ -3,7 +3,10 @@
 import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { upcomingDates, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 import { toDraft, type Programme } from '@/modules/organiser/shared/programmeModel';
+import { dateTag, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
 import type { StatusTone } from '../ui';
+
+export { dateTag };
 
 /** How many dates the 'Next dates' list shows. */
 export const NEXT_DATES_LIMIT = 8;
@@ -24,25 +27,6 @@ export interface NextDate {
 }
 
 const text = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
-
-/** The tag a date row shows: a cancelled date says so; otherwise the event's state. */
-export function dateTag(seriesStatus: string, dateStatus: string): { tone: StatusTone; label: string } {
-  if (dateStatus === 'cancelled') return { tone: 'neutral', label: 'Cancelled' };
-  switch (seriesStatus) {
-    case 'live':
-      return { tone: 'live', label: 'Live' };
-    case 'draft':
-      return { tone: 'draft', label: 'Draft' };
-    case 'pending_review':
-      return { tone: 'draft', label: 'In review' };
-    case 'rejected':
-      return { tone: 'draft', label: 'Changes needed' };
-    case 'paused':
-      return { tone: 'neutral', label: 'Paused' };
-    default:
-      return { tone: 'neutral', label: 'Ended' };
-  }
-}
 
 /** Every upcoming date of every event the user runs, soonest first. */
 export function nextDates(organisers: readonly HomeOrganiser[], today: string, limit = NEXT_DATES_LIMIT): NextDate[] {
@@ -105,6 +89,13 @@ export function runwayCandidates(organisers: readonly HomeOrganiser[]): RunwayCa
   }
   return out;
 }
+
+/**
+ * True when the event's editor offers Extend: the owner's own weekly rule (every
+ * week, one weekday). A monthly / custom / no-rule series has no Extend there,
+ * so Home never nudges 'Extend' for it (F4: no copy pointing at a missing control).
+ */
+export const offersExtend = (series: { format: string | null; recurrence_rule: unknown }) => !!ownerWeeklyRule(series);
 
 /** The last upcoming date of a series from its workspace read (null when none). */
 export function lastUpcomingDate(dates: WorkspaceDate[], today: string): string | null {

@@ -15,6 +15,14 @@ export interface PreviewBarProps {
   live?: boolean;
   /** Spread useShake().shakeProps here to shake the bar on a failed save. */
   shakeProps?: { className?: string; onAnimationEnd?: () => void };
+  /**
+   * Nothing unsaved: draw only a slim bar (one line of `summary` + the button,
+   * under 64px) so the screen keeps its room; the preview card and the live
+   * note come back as soon as there is something to save (F4, owner's phone).
+   */
+  compact?: boolean;
+  /** The slim bar's one line, e.g. 'All changes saved'. */
+  summary?: ReactNode;
   testId?: string;
 }
 
@@ -23,9 +31,19 @@ export interface PreviewBarProps {
  * ONE primary button + the plain live note. Pass it to OrganiserShell's
  * `actionBar` slot (which keeps it above the tab bar and the keyboard).
  */
-export function PreviewBar({ preview, actionLabel, onAction, loading, disabled, live = true, shakeProps, testId = 'org-preview-bar' }: PreviewBarProps) {
+export function PreviewBar({ preview, actionLabel, onAction, loading, disabled, live = true, shakeProps, compact = false, summary, testId = 'org-preview-bar' }: PreviewBarProps) {
   // While the keyboard is up only the button stays, so the bar fits above it.
   const typing = useKeyboardInset().inset > 0;
+  if (compact) {
+    return (
+      <div data-testid={testId} data-compact="true" className={`flex items-center gap-[12px] px-[16px] py-[8px] ${shakeProps?.className ?? ''}`} onAnimationEnd={shakeProps?.onAnimationEnd}>
+        <p className="min-w-0 flex-1 truncate text-[13px] text-[var(--mut)]" data-testid={`${testId}-summary`}>{summary}</p>
+        <PrimaryButton size="sm" block={false} onClick={onAction} loading={loading} disabled={disabled} testId={`${testId}-action`}>
+          {actionLabel}
+        </PrimaryButton>
+      </div>
+    );
+  }
   return (
     <div data-testid={testId} className={`space-y-[8px] px-[16px] py-[12px] ${shakeProps?.className ?? ''}`} onAnimationEnd={shakeProps?.onAnimationEnd}>
       {preview && !typing && (

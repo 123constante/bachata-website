@@ -15,27 +15,35 @@ import {
 import {
   parseWorkspace,
   upcomingDates,
-  weeklyRule,
   type SeriesWorkspace,
   type WorkspaceDate,
 } from '@/modules/organiser/shared/seriesModel';
+import { eventLock, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
 import { MAX_UPCOMING, endWithinCap, type CapInput } from './dateCap';
+import { scheduleView } from './schedule';
 
 export interface EventWorkspace extends SeriesWorkspace {
   musicStyles: string[];
   gallery: string[];
   videoUrls: string[];
+  /** event_series_p5.ended_on (an ended event's last day), YYYY-MM-DD. */
+  endedOn: string | null;
+  /** The read holds only the newest 100 dates (admin_event_workspace_p5 meta.has_more). */
+  hasMore: boolean;
 }
 
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
 
 export function parseEventWorkspace(raw: unknown): EventWorkspace {
-  const row = ((raw as { series?: { series?: Record<string, unknown> } } | null)?.series?.series ?? {}) as Record<string, unknown>;
+  const root = raw as { series?: { series?: Record<string, unknown> }; meta?: { has_more?: unknown } } | null;
+  const row = (root?.series?.series ?? {}) as Record<string, unknown>;
   return {
     ...parseWorkspace(raw),
     musicStyles: strings(row.default_music_styles),
     gallery: strings(row.gallery),
     videoUrls: strings(row.video_urls),
+    endedOn: typeof row.ended_on === 'string' ? row.ended_on : null,
+    hasMore: root?.meta?.has_more === true,
   };
 }
 
@@ -67,7 +75,9 @@ export interface EventDraft {
 
 export function draftFromWorkspace(ws: EventWorkspace, today: string): EventDraft {
   const s = ws.series;
-  const rule = weeklyRule(s.recurrence_rule);
+  // Only the owner's own rule (every week, one weekday) is drawn as 'weekly':
+  // monthly / custom / no-rule shapes are shown by scheduleView, never edited.
+  const rule = ownerWeeklyRule(s) ?? null;
   const upcoming = upcomingDates(ws.dates, today);
   return {
     name: s.name,
@@ -79,7 +89,7 @@ export function draftFromWorkspace(ws: EventWorkspace, today: string): EventDraf
     videos: ws.videoUrls,
     styles: ws.musicStyles,
     startDate: s.default_start_date ?? upcoming[0]?.occurrence_date ?? '',
-    shape: rule && rule.weekdays.length > 0 ? 'weekly' : 'single',
+    shape: rule ? 'weekly' : 'single',
     until: rule?.until ?? null,
   };
 }
@@ -120,13 +130,21 @@ export const capInput = (ws: EventWorkspace, draft: EventDraft, today: string): 
   otherUpcoming: otherUpcoming(ws.dates, today, draft.startDate),
 });
 
-/** What is wrong with the draft in plain words; null when it can be saved. */
-export function draftProblem(draft: EventDraft, ws: EventWorkspace, today: string): string | null {
+const SCHEDULE_FIELDS: DraftField[] = ['startDate', 'shape', 'until'];
+
+/**
+ * What is wrong with the draft in plain words; null when it can be saved. With
+ * `base`, the date rules are checked only when the organiser changed the date
+ * fields: a series stored with more than 30 upcoming dates, or with no end,
+ * still saves a new name.
+ */
+export function draftProblem(draft: EventDraft, ws: EventWorkspace, today: string, base?: EventDraft): string | null {
   if (!draft.name.trim()) return 'Give your event a name.';
   if (draft.name.trim().length > 120) return 'Keep the name under 120 characters.';
   if (draft.description.length > 4000) return 'Keep the description under 4,000 characters.';
   if (draft.ticketUrl.trim() && !isHttpUrl(draft.ticketUrl)) return 'Enter the ticket link as a full address starting with https://';
   if (draft.videos.some((v) => !isHttpUrl(v))) return 'Each video needs a full address starting with https://';
+  if (base && SCHEDULE_FIELDS.every((f) => sameField(base, draft, f))) return null;
   if (!draft.startDate) return 'Choose the date it starts on.';
   if (draft.shape === 'weekly') {
     if (!draft.until) return `Choose how long it is listed (up to ${MAX_UPCOMING} upcoming dates).`;
@@ -153,7 +171,13 @@ export const stopRepeatingCommand = (keepIds: string[]): OwnerCommand => ({
  * the changed fields. `cityId` is the new venue's city (city is automatic).
  */
 export function savePlan(base: EventDraft, draft: EventDraft, ws: EventWorkspace, today: string, cityId?: string | null): OwnerCommand[] {
+  // An ended or archived event takes no owner write (the server refuses them all).
+  if (eventLock(ws.series.lifecycle_status)) return [];
+  const mode = scheduleView(ws.series, ws.dates).mode;
   const changed = new Set(changedFields(base, draft));
+  // Date fields this screen does not draw for this shape are never sent.
+  if (mode === 'fixed') SCHEDULE_FIELDS.forEach((f) => changed.delete(f));
+  if (mode === 'single') changed.delete('shape');
   const cmds: OwnerCommand[] = [];
   const payload: Record<string, unknown> = { name: draft.name.trim() };
   if (changed.has('description')) payload.default_description = draft.description.trim();
@@ -170,7 +194,9 @@ export function savePlan(base: EventDraft, draft: EventDraft, ws: EventWorkspace
   if (Object.keys(payload).length > 1 || changed.has('name')) cmds.push(upsertCommand(payload));
 
   const upcoming = upcomingDates(ws.dates, today).filter((d) => d.lifecycle_status !== 'cancelled');
-  if (draft.shape === 'weekly') {
+  if (mode === 'fixed') return cmds;
+  // A one-date event (mode 'single') can only move its date, never start repeating here.
+  if (mode === 'weekly' && draft.shape === 'weekly') {
     if (draft.until && (changed.has('shape') || changed.has('startDate') || changed.has('until'))) {
       cmds.push(weeklyUntilCommand(draft.startDate, draft.until));
     }
@@ -216,7 +242,7 @@ export function cardPreview(draft: EventDraft, ws: EventWorkspace, today: string
   return {
     title: draft.name.trim() || 'Your event',
     coverUrl: draft.coverUrl.trim() || null,
-    when: next ? dateLabel(next.occurrence_date, today) : draft.startDate ? dateLabel(draft.startDate, today) : null,
+    when: next ? dateLabel(next.occurrence_date, today) : draft.startDate >= today ? dateLabel(draft.startDate, today) : null,
     where: venueName,
   };
 }

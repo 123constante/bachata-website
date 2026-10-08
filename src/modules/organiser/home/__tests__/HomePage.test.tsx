@@ -154,16 +154,20 @@ describe('Home strips', () => {
     expect(screen.getByTestId('where').textContent).toBe('/account/o/team');
   });
 
-  it('(b) runway from the home read alone when every upcoming date is listed', async () => {
+  // F4: the strip says Extend, so it shows only for an event whose editor HAS Extend
+  // (the owner's weekly rule). The home read carries no rule: the series is read.
+  const weeklyRule = { mode: 'weekly', interval: 1, weekdays: [5], end: { kind: 'none' } };
+
+  it('(b) runway: the last date from the home read when every upcoming date is listed', async () => {
     api.home.mockResolvedValue({
       today: TODAY,
       organisers: [org([series('s1', 'Friday Party', [date('a1', '2026-10-09'), date('a2', '2026-10-16')], { upcoming_count: 2 })])],
     });
+    api.workspace.mockResolvedValue({ series: { format: 'recurring', recurrence_rule: weeklyRule }, dates: [] });
     mount();
     const strip = await screen.findByTestId('home-strip-runway');
     expect(strip.textContent).toContain('Friday Party: dates listed until Fri 16 Oct.');
     expect(strip.textContent).toContain('Extend');
-    expect(api.workspace).not.toHaveBeenCalled();
     fireEvent.click(strip);
     expect(screen.getByTestId('where').textContent).toBe('/account/o/events/s1');
   });
@@ -174,6 +178,7 @@ describe('Home strips', () => {
       organisers: [org([series('s1', 'Friday Party', [date('a1', '2026-10-09'), date('a2', '2026-10-16'), date('a3', '2026-10-23')], { upcoming_count: 5 })])],
     });
     api.workspace.mockResolvedValue({
+      series: { format: 'recurring', recurrence_rule: weeklyRule },
       dates: ['2026-10-09', '2026-10-16', '2026-10-23', '2026-10-30', '2026-11-06'].map((d, i) => ({ id: `x${i}`, occurrence_date: d })),
     });
     mount();
@@ -181,12 +186,24 @@ describe('Home strips', () => {
     expect(api.workspace).toHaveBeenCalledWith('s1');
   });
 
+  it('(b) no Extend strip for a repeating event with no weekly rule (its editor has no Extend)', async () => {
+    api.home.mockResolvedValue({
+      today: TODAY,
+      organisers: [org([series('s1', 'Friday Party', [date('a1', '2026-10-09'), date('a2', '2026-10-16')], { upcoming_count: 2 })])],
+    });
+    api.workspace.mockResolvedValue({ series: { format: 'recurring', recurrence_rule: null }, dates: [] });
+    mount();
+    await waitFor(() => expect(api.workspace).toHaveBeenCalledWith('s1'));
+    await screen.findAllByTestId('home-date-row');
+    expect(screen.queryByTestId('home-strip-runway')).toBeNull();
+  });
+
   it('(b) no strip when the series runs 8 weeks or more ahead', async () => {
     api.home.mockResolvedValue({
       today: TODAY,
       organisers: [org([series('s1', 'Friday Party', [date('a1', '2026-10-09'), date('a2', '2026-10-16'), date('a3', '2026-10-23')], { upcoming_count: 8 })])],
     });
-    api.workspace.mockResolvedValue({ dates: [{ id: 'z', occurrence_date: '2026-12-04' }] });
+    api.workspace.mockResolvedValue({ series: { format: 'recurring', recurrence_rule: weeklyRule }, dates: [{ id: 'z', occurrence_date: '2026-12-04' }] });
     mount();
     await waitFor(() => expect(api.workspace).toHaveBeenCalled());
     await screen.findAllByTestId('home-date-row');

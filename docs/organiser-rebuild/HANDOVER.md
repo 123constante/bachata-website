@@ -998,3 +998,182 @@ Landing: the signed-out guard sends the visitor to `/auth?mode=signin&returnTo=/
 84-char and null email x firstRun true/false x with/without open requests; confirm step, Escape,
 No, failed sign-out; Home loading and error never reach onboarding) and one e2e in
 `organiser-onboarding.spec.ts`. Not verified: a real phone, a real GoTrue sign-out.
+
+## F4 -- Real data shapes: survey, matrix, fixes (2026-10-08)
+
+Why: the owner opened the screens on a phone against REAL production data and found bugs every
+earlier check missed (tests used mocked or freshly-created data). F4 surveyed the real SHAPES,
+built a fixture per shape, rendered every screen that reads a series through the real parsers,
+ran the matrix on the UNFIXED code first (failures below are the proof it catches the owner's
+bugs), then fixed.
+
+### Part A -- survey (prod, SELECT only, counts only, no personal data)
+
+Read: `event_series_p5`, `event_occurrence_p5`, `event_series_program_item_p5` /
+`_people_p5`, and the source (`pg_get_functiondef`) of `admin_event_workspace_p5`,
+`organiser_home_v1`, `apply_aggregate_write_p5`, `_owner_lifecycle_transition_allowed_p5`,
+`organiser_set_occurrence_programme_v1`, `_snapshot_series_p5`.
+
+Only 2 series are owned TODAY by a signed-in owner/manager (`entity_members`): the owner's
+ended Bachata Picnic shape, and one in-review weekly series (end none, 40+ upcoming, 0 past, no
+sessions, no cover, null description). So the matrix covers every series that has an organiser
+(`organiser_ids` set, not a template: **164**), i.e. what any organiser sees once they claim.
+
+| lifecycle | format | rule (mode) | ended_on | upcoming | past | n | any cancelled | upcoming all cancelled | programme | people | cover | gallery | video | style off the chip list | style in non-chip case | null venue | null desc |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| archived | course | weekly | - | 1-7 | 1-20 | 1 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
+| archived | festival | none | - | 0 | 1-20 | 3 | 0 | 0 | 3 | 2 | 3 | 3 | 0 | 1 | 1 | 0 | 1 |
+| archived | one_off | none | - | 0 | 0 | 46 | 0 | 0 | 2 | 0 | 2 | 0 | 0 | 0 | 0 | 44 | 45 |
+| archived | one_off | none | - | 0 | 1-20 | 24 | 0 | 0 | 23 | 12 | 23 | 6 | 0 | 1 | 6 | 0 | 0 |
+| archived | recurring | none | - | 0 | 1-20 | 2 | 0 | 0 | 2 | 2 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| archived | recurring | none | - | 8-30 | 21-100 | 1 | 0 | 0 | 1 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| archived | recurring | weekly | - | >30 | 1-20 | 2 | 0 | 0 | 2 | 1 | 2 | 0 | 0 | 1 | 2 | 0 | 0 |
+| archived | recurring | monthly | - | 0 | 0 | 1 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| archived | recurring | monthly | - | 0 | 1-20 | 1 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 1 | 1 | 0 | 0 |
+| draft | recurring | weekly | - | >30 | 1-20 | 1 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| ended | course | none | set | 0 | 1-20 | 8 | 0 | 0 | 7 | 3 | 8 | 1 | 0 | 0 | 4 | 0 | 0 |
+| ended | recurring | none | set | >30 | 21-100 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| ended | recurring | none | set | 0 | 1-20 | 9 | 4 | 0 | 9 | 6 | 9 | 1 | 0 | 3 | 6 | 0 | 1 |
+| ended | recurring | none | set | 0 | 21-100 | 1 | 1 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 1 |
+| ended | recurring | none | set | 1-7 | 21-100 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 |
+| live | course | weekly | - | 0 | 1-20 | 1 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
+| live | course | weekly | - | 1-7 | 1-20 | 3 | 0 | 0 | 3 | 3 | 3 | 1 | 0 | 0 | 3 | 0 | 0 |
+| live | course | weekly | - | 8-30 | 1-20 | 1 | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
+| live | festival | none | - | 0 | 1-20 | 1 | 0 | 0 | 1 | 1 | 1 | 1 | 0 | 0 | 1 | 0 | 0 |
+| live | festival | none | - | 1-7 | 0 | 5 | 0 | 0 | 5 | 4 | 5 | 2 | 4 | 2 | 5 | 0 | 0 |
+| live | one_off | none | - | 0 | 1-20 | 6 | 0 | 0 | 6 | 5 | 6 | 2 | 3 | 0 | 4 | 0 | 0 |
+| live | recurring | none | - | 0 | 1-20 | 2 | 1 | 0 | 2 | 2 | 2 | 0 | 0 | 0 | 1 | 0 | 0 |
+| live | recurring | none | - | 1-7 | 1-20 | 5 | 1 | 1 | 5 | 3 | 5 | 1 | 0 | 2 | 3 | 0 | 0 |
+| live | recurring | weekly | - | >30 | 0 | 1 | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
+| live | recurring | weekly | - | >30 | 1-20 | 15 | 4 | 0 | 15 | 12 | 15 | 4 | 6 | 0 | 12 | 0 | 0 |
+| live | recurring | weekly | - | >30 | 21-100 | 11 | 10 | 0 | 11 | 8 | 11 | 5 | 1 | 0 | 1 | 0 | 0 |
+| live | recurring | weekly | - | 8-30 | 1-20 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 0 | 0 | 1 | 0 | 0 |
+| live | recurring | weekly | - | 8-30 | 21-100 | 1 | 1 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| live | recurring | monthly | - | >30 | 1-20 | 1 | 1 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
+| live | recurring | monthly | - | 8-30 | 1-20 | 5 | 0 | 0 | 5 | 5 | 5 | 0 | 1 | 0 | 1 | 0 | 0 |
+| live | recurring | custom | - | 1-7 | 1-20 | 1 | 1 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| paused | recurring | weekly | - | >30 | 21-100 | 1 | 1 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| pending_review | recurring | weekly | - | >30 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+
+More than 100 dates in total (so `admin_event_workspace_p5` returns only the newest 100, `meta.has_more`): **1** series
+(128 dates). Most upcoming in one series: 60. Rule shapes: weekly `end none` 31, weekly `after_count` 6,
+weekly `until_date` 2, weekly with no `interval` key 1, monthly `nth_weekday`/`day_of_month` 8, custom
+dates 1; every weekly rule has interval 1 and one weekday. Dates: 1855 upcoming + 775 past scheduled,
+52 upcoming + 87 past cancelled. "style in non-chip case" = stored as e.g. `bachata` (lowercase); "off the
+chip list" = e.g. `zouk`. "people" = the series programme names someone (the per-date programme follows it).
+
+Server facts that decide the UI (read from source):
+- An ended series is closed history: an owner's `series.upsert`, add/remove/skip/unskip date,
+  `occurrence.set_time`, `occurrence.cancel`, `occurrence.set_override` and `series.set_recurrence` are
+  admin-only (`apply_aggregate_write_p5`, ADR-019).
+- **No owner command resumes or reopens an ended (or archived) event**:
+  `_owner_lifecycle_transition_allowed_p5` allows only draft->pending_review|archived,
+  rejected->draft|pending_review, live->paused|archived, paused->live|archived; 'ended is never an owner
+  source or target'. So Part C(3) is copy, not a control.
+- Programme edits are refused on an ended or archived series, a cancelled date and a past date; cancel /
+  override / set_time / add / remove stop at London today; `set_recurrence` needs `format = 'recurring'`.
+
+### Part B -- fixtures + matrix
+
+- `src/modules/organiser/__tests__/shapes/shapes.ts`: 22 shapes (fake names) covering every survey row
+  that renders differently, and builders that return exactly what the RPCs return (workspace: newest 100,
+  date DESC, `meta.has_more`; home: `upcoming_count` + next 3; programme with the server's
+  `not_editable_reason`; `event_view_p5`).
+- Matrix tests, one table-driven file per screen:
+  - `events/__tests__/editor.matrix.test.tsx` -- Events list + event editor, 8 cases x 22 shapes + styles case
+  - `events/__tests__/schedule.matrix.test.ts` -- pure: pattern + mode per shape, exact save plans
+  - `home/__tests__/home.matrix.test.tsx` -- Home rows, Extend strip, empty state, x 22 shapes
+  - `dates/__tests__/date.matrix.test.tsx` -- date editor: past / cancelled (running and ended event) /
+    with sessions / with none / archived event
+  - `shared/__tests__/eventState.test.ts` -- the shared mapping and locks
+
+### Failures the matrix found on the UNFIXED code (head 4de7730): 116
+
+Editor + list (92 of 177):
+- (1) editor tag 'Draft' while the list says Ended / Archived / In review / Paused: 8 shapes (owner's #1).
+- (2) Date card contradicts the data: 11 shapes -- 'Repeats: One date' for recurring ended / no-rule /
+  monthly / custom / festival series, 'No date listed yet' on the Picnic shape, no 'Ended on' (owner's #2).
+- (3) dead-end copy ('Extend to list more' / 'once a date is listed' with no way to do it): 6 closed shapes (owner's #3).
+- (4) 21 shapes: every control live on ended/archived events (all refused by the server); Repeats
+  switchable on one_off / course / festival / monthly / custom / no-rule shapes; and **a name-only edit on
+  every open-ended or after_count weekly series ALSO sent `series.set_recurrence`** (the survey's 38
+  weekly rules without an until_date: 31 end none, 6 after_count, 1 with no interval key): `patch()` filled a missing `until` on ANY edit, silently putting an end date on the rule.
+- (4b) 'One date' offered on live/paused repeating events (the server's format/recurrence check refuses it): 5.
+- (5) 18 shapes: past (and upcoming) date rows had no chevron; the 128-date series never said only the
+  newest 100 are listed (owner's #5).
+- (bar) 22 shapes: full preview card in the sticky bar while nothing is unsaved (owner's #4).
+- (6) a stored off-list style ('zouk') vanished from the chips once toggled off (could not be put back).
+
+Home (8 of 45): the Extend strip for 3 shapes whose editor has no Extend (custom rule, no-rule recurring);
+'Open one in Events to list more' when every event is ended/archived (5).
+
+Date editor (16 of 32): past dates and ended/archived events offered Venue / Cancel / Break / Put back on
+(all refused by the server) (5); no tag at all on a non-live event's date (3); full preview card while clean (8).
+
+The fixed pure suites (`schedule.matrix`, `eventState`) cannot run on the old code (new exports). While
+fixing, `schedule.matrix` caught one gap in the fix itself (a one-date event with a stale weekly draft still
+planned `set_recurrence`); fixed before push.
+
+### Part C -- fixes
+
+1. **One lifecycle mapping**: `shared/eventState.ts` (`LIFECYCLE_WORD`, `lifecycleTag`, `dateTag`) used by the
+   Events list, the editor, Home rows and the date page. A test pins `LIFECYCLE_WORD` equal to the old
+   `selfServeApi.LIFECYCLE_LABEL`.
+2. **True pattern + 'Ended on'**: `events/schedule.ts` `scheduleView`: the rule in words (weekly incl. every N
+   weeks / several days, monthly nth weekday / day of month, custom), or the dates' own weekday for a
+   recurring series with no rule ('Every Saturday' for the Picnic), 'Festival, N days', else 'Dates set
+   one by one'. Ended events show 'Ended on Sat 5 Sep' (`ended_on`, now parsed). Modes: `weekly` (the
+   owner's rule: Starts / Repeats / Listed until / Extend work), `single` (one_off: Starts on works, Repeats
+   disabled with the reason), `fixed` (shown with the reason: course, festival, monthly, custom, no rule).
+3. **No dead ends**: no owner resume exists (above), so an ended event shows 'This event has ended, so it
+   can't be changed here. To run it again, ask the Bachata Calendar team.' (archived: '... To bring it back,
+   ask ...'). Every empty state names what the person can do (Extend above / change Starts on / the
+   shape's reason / open a past date). Home's Extend strip only for events whose editor has Extend (the
+   series is read; the home read has no rule), and an all-ended empty state says 'Add a new event'.
+4. **Slim bar**: `PreviewBar` `compact` + `summary`: one line + the disabled button (measured under 64px at
+   390x844 in E2E) while nothing is unsaved; the card and the live note come back with the first edit.
+   Applied on the event editor, the date editor and Profile.
+5. **Past rows**: every date row has a chevron and opens its date; the date page for a past date / ended
+   event shows why nothing can change and disables Venue / Cancel / Break / Put back on WITH that reason.
+- Also: saving can never change the rule by accident (until is re-picked only when Starts on / Repeats
+  change; the 30-cap check runs only when the date fields changed, so a 52-date series still saves a new
+  name); `savePlan` sends nothing for ended/archived events and never sends date fields a shape does not
+  draw; 'One date' is disabled with the reason on live/paused repeating events; Extend continues an
+  open-ended rule from its last listed date and, when it cannot, says why ('52 listed; the most is 30'); 'Showing the newest 100 dates.' when `has_more`; off-list styles keep their chip
+  (shown capitalised, saved as stored, never duplicated).
+- Files: `shared/eventState.ts` (new), `events/schedule.ts` (new), `events/{eventModel,EventEditorPage,EditorRows,EditorSheet,EventList}.tsx?`,
+  `home/{homeView,useHomeData,index}`, `dates/index.tsx`, `profile/index.tsx`, `ui/PreviewBar.tsx`
+  (`compact`, `summary`), `ui/TitleInput.tsx` (`readOnly`), the tests above, and
+  `tests/e2e/{organiser-layout,organiser-events}.spec.ts` + `helpers/organiserFake.ts` (`ended_on`; the
+  programme read now says not-editable for past / cancelled / closed, as the server does).
+- Old tests updated for the new rules (not weakened): editor / profile 'preview bar' cases now assert the
+  slim bar when clean and the card after an edit; the 'one date stops repeating' case runs on a draft
+  (a live one is refused, asserted by the matrix); Home runway cases give the workspace its weekly rule.
+
+### Gates (sandbox)
+
+- typecheck (`tsc -p tsconfig.app.json`): 109 errors, 0 under `src/modules/organiser` (same as F2).
+- `npx eslint src/modules/organiser`: 0.
+- `npx vitest run src/modules/organiser`: 41 files / 877 tests pass (was 36 / 496).
+- `npm run test:unit:offline` (CI placeholder env): 2632 pass, 5 fail = the known `tests/integrityCouldNotRun.test.ts`.
+- `npm run test:e2e` (e2e-smoke.yml env, self-serve on, Chromium 1194 symlinked as 1243): 72 passed, 1 skipped
+  (vendor), 0 flaky. New: slim bar < 64px on event / date / profile editors; the Picnic shape end to end
+  (Ended tag, 'Every Saturday', 'Ended on Sat 5 Sep', no Extend, Venue disabled, one 'Zouk' chip, 13 past
+  rows with chevrons, tap opens the date, the date's lock note, Cancel disabled, tap targets >= 44px).
+- `npm run lint`: 16/16 (with `bin/*.sh` made executable as the CI job does; mode restored). It caught two
+  fixture slips of mine, fixed: a legacy organiser field name and a 'Social' label.
+- Every `integrity` job step as the workflow runs it: integrity guard, legacy-tables, legacy-program-rpcs,
+  lint:architecture, check:images (AUDIT_STRICT=1), image-width contract + self-test, plan-hygiene canary,
+  workflow-artifact policy + self-test, mojibake canary + grep, entry-point proof + self-test: all exit 0.
+
+### Gaps (could not cover, and why)
+
+- Owned-by-a-person shapes are only 2 today; the matrix uses all 164 organiser-linked series' shapes instead.
+- Shapes the survey did not see (no data): 'rejected' (Changes needed), weekly every-2-weeks / several
+  weekdays, a weekly until_date already in the past. The pure tests cover their patterns and modes.
+- An ended event's dates beyond the newest 100 are not listed (the RPC pages at 100, no offset parameter);
+  the screen says so.
+- A recurring series with no rule (7 live ones today) cannot get new dates from this screen (no add-date control);
+  the copy says to ask the team. `series.add_date` exists for owners: an 'Add a date' control is a possible
+  next step (owner decision).
+- Not checked on a real phone (Playwright Chromium at 390x844 only).

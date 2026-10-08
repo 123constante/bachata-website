@@ -18,6 +18,7 @@ import {
   StatusTag,
   useAnnounce,
 } from '../ui';
+import { isClosed } from '@/modules/organiser/shared/eventState';
 import { hasAnyEvent, shortDate, type NextDate } from './homeView';
 import { useHomeStrips, useOrganiserHome } from './useHomeData';
 import { OnboardingView } from './onboarding/OnboardingView';
@@ -147,9 +148,11 @@ export default function HomePage() {
             <EmptyState
               title={hasAnyEvent(organisers) ? 'No dates coming up' : 'No events yet'}
               body={
-                hasAnyEvent(organisers)
-                  ? 'Your events have no upcoming dates listed. Open one in Events to list more, or add a new event.'
-                  : 'Add your first event. You can keep it as a draft until it is ready.'
+                !hasAnyEvent(organisers)
+                  ? 'Add your first event. You can keep it as a draft until it is ready.'
+                  : organisers.every((o) => (o.series ?? []).every((s) => isClosed(s.lifecycle_status)))
+                    ? 'Your events have ended. Add a new event to list new dates.'
+                    : 'Your events have no upcoming dates. Open one in Events to see its dates, or add a new event.'
               }
               action={<NewEventButton />}
               testId="home-empty"

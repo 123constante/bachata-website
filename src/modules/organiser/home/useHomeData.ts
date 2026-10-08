@@ -20,6 +20,7 @@ import {
   nextDates,
   requestReaders,
   runwayCandidates,
+  offersExtend,
   runwayStrip,
   type NextDate,
 } from './homeView';
@@ -52,21 +53,21 @@ export function useHomeStrips(home: Awaited<ReturnType<typeof fetchOrganiserHome
   });
   const teamRequests = incoming.reduce((n, q) => n + (q.data?.length ?? 0), 0);
 
-  // (b) runway: only series that may be short need their dates read
+  // (b) runway: only series that may be short are read (1..8 upcoming dates). The
+  // read also says whether the event's editor has Extend (the owner's weekly rule);
+  // the home read carries no rule, so a candidate stays hidden until its read lands.
   const candidates = useMemo(() => runwayCandidates(organisers), [organisers]);
-  const needRead = candidates.filter((c) => c.lastDate === null);
   const workspaces = useQueries({
-    queries: needRead.map((c) => ({
+    queries: candidates.map((c) => ({
       queryKey: seriesWorkspaceQueryKey(c.seriesId),
       queryFn: () => fetchSeriesWorkspace(c.seriesId),
       staleTime: 60_000,
     })),
   });
-  const resolved = candidates.map((c) => {
-    if (c.lastDate) return c;
-    const i = needRead.indexOf(c);
+  const resolved = candidates.map((c, i) => {
     const ws = workspaces[i]?.data;
-    return { ...c, lastDate: ws ? lastUpcomingDate(ws.dates, today) : null };
+    if (!ws || !offersExtend(ws.series)) return { ...c, lastDate: null };
+    return { ...c, lastDate: c.lastDate ?? lastUpcomingDate(ws.dates, today) };
   });
   const runway = today ? runwayStrip(resolved, today) : null;
 

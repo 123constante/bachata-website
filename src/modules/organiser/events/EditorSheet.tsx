@@ -30,12 +30,14 @@ interface Props {
   onUploadGallery: (files: File[]) => void;
   uploading: boolean;
   uploadError: string | null;
+  /** Why 'One date' cannot be chosen (a live or paused repeating event); null when it can. */
+  stopReason?: string | null;
 }
 
-function Choice({ selected, label, sub, onPress, testId }: { selected: boolean; label: string; sub?: string; onPress: () => void; testId: string }) {
+function Choice({ selected, label, sub, onPress, disabled, testId }: { selected: boolean; label: string; sub?: string; onPress: () => void; disabled?: boolean; testId: string }) {
   return (
-    <button type="button" role="radio" aria-checked={selected} onClick={onPress} data-testid={testId}
-      className="flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[12px] text-left">
+    <button type="button" role="radio" aria-checked={selected} onClick={onPress} disabled={disabled} data-testid={testId}
+      className={cn('flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[12px] text-left', disabled && 'cursor-not-allowed opacity-60')}>
       <span className="min-w-0 flex-1">
         <span className="block text-[15px] text-[var(--fg)]">{label}</span>
         {sub && <span className="block text-[13px] text-[var(--mut)]">{sub}</span>}
@@ -56,7 +58,7 @@ function withLeaving(list: string[], leaving: Leaving[]) {
 }
 
 /** The editor's ONE sheet. Each row opens a view of it; nothing nests. */
-export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, venuesError, onRetryVenues, venuesRetrying, onUploadGallery, uploading, uploadError }: Props) {
+export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, venuesError, onRetryVenues, venuesRetrying, onUploadGallery, uploading, uploadError, stopReason = null }: Props) {
   const [query, setQuery] = useState('');
   const [videoInput, setVideoInput] = useState('');
   // Removal leaves the draft at once (so Done mid-fade still saves it); the
@@ -174,7 +176,8 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
             {(['single', 'weekly'] as Shape[]).map((shape) => (
               <Choice key={shape} selected={draft.shape === shape} testId={`org-shape-${shape}`}
                 label={shape === 'weekly' && draft.startDate ? `Every ${weekdayName(draft.startDate)}` : SHAPE_LABEL[shape]}
-                sub={shape === 'single' ? 'One night only' : 'Same day every week'}
+                sub={shape === 'single' ? (stopReason && draft.shape !== 'single' ? stopReason : 'One night only') : 'Same day every week'}
+                disabled={shape === 'single' && !!stopReason && draft.shape !== 'single'}
                 onPress={() => patch(shape === 'weekly' ? { shape, until: draft.until ?? choices.find((c) => c.count >= 8)?.until ?? choices[choices.length - 1]?.until ?? null } : { shape })} />
             ))}
           </Card>

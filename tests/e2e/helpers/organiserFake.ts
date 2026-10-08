@@ -78,6 +78,8 @@ export interface FakeSeries {
   gallery: string[];
   video_urls: string[];
   recurrence_rule: Rule | null;
+  /** An ended event's last day (event_series_p5.ended_on). */
+  ended_on?: string | null;
   removed_dates: string[];
   extra_dates: string[];
   cancelled: Record<string, string>;
@@ -322,9 +324,14 @@ export class OrganiserFake {
   programmeRead(occurrenceId: string) {
     const found = this.findOccurrence(occurrenceId);
     const p = this.programme(occurrenceId);
+    // The reader's own refusals (organiser_set_occurrence_programme_v1): closed event, cancelled date, past date.
+    const reason = !found ? null
+      : ['ended', 'archived'].includes(found.s.lifecycle_status) ? 'series_closed'
+        : found.s.cancelled[found.date] ? 'date_cancelled'
+          : found.date < TODAY ? 'past_date' : null;
     return {
       occurrence_id: occurrenceId, series_id: found?.s.id ?? null, occurrence_date: found?.date ?? null, version: p.version,
-      editable: true, not_editable_reason: null, sessions: p.sessions,
+      editable: reason === null, not_editable_reason: reason, sessions: p.sessions,
       session_people: [...p.people.entries()].map(([key, people]) => {
         const s = p.sessions.find((x) => x.series_item_id === key || x.added_session_id === key);
         return { ...(s?.series_item_id ? { series_item_id: key } : { added_session_id: key }), people };

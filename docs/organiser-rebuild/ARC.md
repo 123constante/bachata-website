@@ -98,6 +98,9 @@ The approved mockup is v12 (https://claude.ai/artifact/S5F8epkUaiV9AbT5spHskK; s
   (skeleton only), pick-a-row views (search results), Team with no question open.
 - Sizes in px only (`h-[44px]`, `px-[16px]`), never Tailwind's rem scale (`h-11`, `px-4`): the public
   site's root font is 13.5px on phones, so rem classes draw 44px targets at 37px (W5b-2 measured).
+- Real data shapes (F4): an event's lifecycle word, its locks and its pattern come from `shared/eventState.ts`
+  and `events/schedule.ts`, never re-derived on a screen; a new screen that reads a series adds itself to the
+  shape matrix (`src/modules/organiser/__tests__/shapes/shapes.ts`).
 - Lists: skeleton rows while loading (`SkeletonRows`), never a spinner. Removal uses
   `Collapse`. Failed save: `useShake` + a visible message.
 - Colours only from `.org-theme` tokens (`var(--fg)` etc). New colour pairs must be
@@ -178,14 +181,14 @@ Every primitive takes `testId` (rendered as `data-testid`).
 | `AttentionStrip` | `actionLabel?`, `onPress?`, `icon?` |
 | `DateChip` | `date` ('YYYY-MM-DD' London date or ISO); `londonDateParts()` |
 | `Cover` | `src?`, `alt`, `onChange?`, `changeLabel`, `emptyLabel` |
-| `TitleInput` | `value`, `onChange`, `aria-label`, `placeholder`, `maxLength` |
+| `TitleInput` | `value`, `onChange`, `aria-label`, `placeholder`, `maxLength`, `readOnly` |
 | `SheetView` | `open`, `onOpenChange`, `title`, `viewKey`, `onBack?`, `fullHeight`, `footer`, `returnFocusRef?`, `description?` |
 | `SearchField` | `value`, `onChange`, `aria-label`, `autoFocusInSheet` |
 | `PersonRow` | `name`, `role?`, `sublabel?`, `onRemove?`, `removed?`, `onUndo?`, `onPress?`, `trailing?` |
 | `Collapse` | `show`, `onExited?` |
 | `Skeleton` / `SkeletonRows` | `count`, `label` |
 | `useShake()` | `{ shake, shaking, shakeProps }` |
-| `PreviewBar` | `preview`, `actionLabel`, `onAction`, `loading`, `disabled`, `live`, `shakeProps` |
+| `PreviewBar` | `preview`, `actionLabel`, `onAction`, `loading`, `disabled`, `live`, `shakeProps`, `compact` + `summary` (F4: nothing unsaved -> one line + the button, under 64px; pass `compact={!dirty}`) |
 | `EmptyState` / `ErrorState` | `title`, `body`, `action` / `onRetry`, `retrying`, `quiet` (ErrorState: retry is the screen's ONE primary; `quiet` = ghost, when the screen or sheet already has a primary) |
 | `Field` + `FIELD_CLASS` | `label`, `htmlFor`, `help?`, `error?` (role=alert), `testId`; FIELD_CLASS = the input/textarea look (W5b-2, was copied in 4 folders) |
 | `useDebounced(value, ms = 250)` | settled value for search fields (W5b-2, was copied in 2 folders) |

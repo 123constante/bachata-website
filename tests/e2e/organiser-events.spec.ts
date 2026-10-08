@@ -46,10 +46,12 @@ test('editor: summary rows edit the draft, the preview follows, ONE save sends o
   await expect(page.getByTestId('org-event-editor')).toBeVisible();
   const action = page.getByTestId('org-preview-bar-action');
   await expect(action).toBeDisabled();
-  await expect(page.getByTestId('org-preview-bar')).toContainText('Guests see changes to live events straight away.');
+  // Nothing unsaved: the slim bar only (F4); the card and the live note come with the first edit.
+  await expect(page.getByTestId('org-card-preview')).toHaveCount(0);
 
   await page.getByTestId('org-event-name').fill('Friday Fiesta');
   await expect(page.getByTestId('org-card-preview')).toContainText('Friday Fiesta');
+  await expect(page.getByTestId('org-preview-bar')).toContainText('Guests see changes to live events straight away.');
 
   await page.getByTestId('org-row-description').click();
   await page.getByTestId('org-description-input').fill('Beginners welcome');

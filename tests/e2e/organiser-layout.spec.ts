@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { FRIDAY, PHONE, WIDE, openOrganiser, expectNoHorizontalScroll } from './helpers/organiserFake';
+import { FRIDAY, PHONE, WIDE, openOrganiser, expectNoHorizontalScroll, type OrganiserFake } from './helpers/organiserFake';
 
 // Layout checks for the new organiser area (/account/o): every visible control on every
 // screen, and in each open sheet, is at least 44px high (PRODUCT.md touch-target rule) at
@@ -9,6 +9,19 @@ import { FRIDAY, PHONE, WIDE, openOrganiser, expectNoHorizontalScroll } from './
 
 const MIN = 44;
 const OCC = 'c0000001-0000-4000-8000-202610090000';
+
+// The owner's real 'Bachata Picnic' shape (fake name): ended, recurring, NO rule, ended_on
+// set, 13 past Saturdays (the last on 5 Sep), 0 upcoming, lowercase styles incl. 'zouk'.
+const PICNIC = 'b0000000-0000-4000-8000-0000000000e1';
+const PICNIC_SATURDAYS = Array.from({ length: 13 }, (_, i) => new Date(Date.UTC(2026, 5, 13 + 7 * i)).toISOString().slice(0, 10));
+const addPicnic = (fake: OrganiserFake) => {
+  fake.addSeries(fake.organisers[0], {
+    id: PICNIC, name: 'Park Social', lifecycle_status: 'ended', ended_on: '2026-09-05', default_start_date: PICNIC_SATURDAYS[0],
+    extra_dates: PICNIC_SATURDAYS, recurrence_rule: null, default_music_styles: ['bachata', 'sensual bachata', 'salsa', 'zouk'],
+  });
+};
+/** The sticky action bar's height (the slim bar while nothing is unsaved). */
+const barHeight = async (page: Page) => (await page.getByTestId('org-actionbar').boundingBox())!.height;
 
 /** Every visible control inside the organiser screen and any open sheet, with its height. */
 async function controls(page: Page) {
@@ -99,6 +112,55 @@ test.describe('tap targets @390', () => {
   test('Profile', async ({ page }) => {
     await openOrganiser(page, '/account/o/profile', { organiserStatus: 'draft' });
     await expect(page.getByTestId('profile-send-review')).toBeVisible();
+    await expectTapTargets(page);
+  });
+
+  // F4 (owner on a phone): nothing unsaved -> one line + the disabled button, under 64px,
+  // no preview card; the card comes back with the first edit.
+  test('nothing unsaved: the action bar is a slim bar under 64px on the event, date and profile editors', async ({ page }) => {
+    await openOrganiser(page, `/account/o/events/${FRIDAY}`);
+    await expect(page.getByTestId('org-schedule-session').first()).toBeVisible();
+    expect(await barHeight(page)).toBeLessThan(64);
+    await expect(page.getByTestId('org-preview-bar-preview')).toHaveCount(0);
+    await page.getByTestId('org-event-name').fill('Friday Fiesta');
+    await expect(page.getByTestId('org-preview-bar-preview')).toBeVisible();
+    expect(await barHeight(page)).toBeGreaterThan(64);
+
+    await page.goto(`/account/o/events/${FRIDAY}/dates/${OCC}`);
+    await expect(page.getByTestId('session-row')).toHaveCount(2);
+    expect(await barHeight(page)).toBeLessThan(64);
+    await expect(page.getByTestId('date-preview-bar-preview')).toHaveCount(0);
+
+    await page.goto('/account/o/profile');
+    await expect(page.getByTestId('profile-name')).toBeVisible();
+    expect(await barHeight(page)).toBeLessThan(64);
+    await expect(page.getByTestId('profile-bar-preview')).toHaveCount(0);
+  });
+
+  test('an ended repeating event (the Bachata Picnic shape) reads true, offers nothing that cannot work, and its past dates open', async ({ page }) => {
+    await openOrganiser(page, `/account/o/events/${PICNIC}`, {}, addPicnic);
+    const editor = page.getByTestId('org-event-editor');
+    await expect(editor).toBeVisible();
+    await expect(page.getByTestId('org-event-status')).toHaveText('Ended');
+    await expect(page.getByTestId('org-row-repeats')).toContainText('Every Saturday');
+    await expect(page.getByTestId('org-date-card')).toContainText('Ended on Sat 5 Sep');
+    await expect(page.getByTestId('org-date-card')).not.toContainText('No date listed yet');
+    await expect(page.getByTestId('org-event-locked')).toContainText('To run it again, ask the Bachata Calendar team.');
+    await expect(editor).not.toContainText('Extend');
+    await expect(page.getByTestId('org-extend')).toHaveCount(0);
+    await expect(page.getByTestId('org-row-venue')).toBeDisabled();
+    await expect(page.getByTestId('org-style-chip').filter({ hasText: /^Zouk$/ })).toHaveCount(1);
+    expect(await barHeight(page)).toBeLessThan(64);
+    await expectTapTargets(page);
+    await page.getByTestId('org-dates-past-toggle').click();
+    const rows = page.getByTestId('org-dates-past').getByTestId('org-date-row');
+    await expect(rows).toHaveCount(13);
+    await expect(rows.first().locator('svg.lucide-chevron-right')).toBeVisible();
+    await rows.first().click();
+    await expect(page.getByTestId('date-locked-note')).toContainText('already happened and the event has ended');
+    await expect(page.getByTestId('date-status')).toHaveText('Ended');
+    await expect(page.getByTestId('date-cancel')).toBeDisabled();
+    await expect(page.getByTestId('date-add-session')).toHaveCount(0);
     await expectTapTargets(page);
   });
 

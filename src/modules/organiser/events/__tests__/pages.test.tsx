@@ -172,19 +172,25 @@ describe('event editor', () => {
     expect(screen.getByTestId('where').textContent).toBe('/account/o/events/s1/dates/o1');
   });
 
-  it('the preview bar shows the public card, ONE primary button and the live note', async () => {
+  it('nothing unsaved: a slim bar (one line + the disabled button); an edit brings the public card, ONE primary and the live note', async () => {
     await editor();
+    expect(screen.getByTestId('org-preview-bar').getAttribute('data-compact')).toBe('true');
+    expect(screen.getByTestId('org-preview-bar-summary').textContent).toBe('All changes saved');
+    expect(screen.queryByTestId('org-card-preview')).toBeNull();
+    expect((screen.getByTestId('org-preview-bar-action') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByTestId('org-event-name'), { target: { value: 'Friday Party!' } });
     const bar = screen.getByTestId('org-preview-bar');
     expect(within(bar).getByTestId('org-card-preview').textContent).toContain('Friday Party');
     expect(within(bar).getByTestId('org-card-preview').textContent).toContain('Fri 9 Oct');
     expect(bar.textContent).toContain(LIVE_NOTE);
-    expect((screen.getByTestId('org-preview-bar-action') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('org-preview-bar-action') as HTMLButtonElement).disabled).toBe(false);
     expect(document.querySelectorAll('.bg-\\[var\\(--btn\\)\\]:not([aria-label])').length).toBe(1);
   });
 
   it('a draft event shows no live note', async () => {
     handlers.admin_event_workspace_p5 = () => rawWorkspace({ lifecycle_status: 'draft' });
     await editor();
+    fireEvent.change(screen.getByTestId('org-event-name'), { target: { value: 'Friday Party!' } });
     expect(screen.getByTestId('org-preview-bar').textContent).not.toContain(LIVE_NOTE);
   });
 
@@ -307,7 +313,9 @@ describe('event editor', () => {
     expect((screen.getByTestId('org-extend') as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('starts on + repeats: moving the start re-picks an end inside the cap; one date stops repeating', async () => {
+  it('starts on + repeats: moving the start re-picks an end inside the cap; one date stops repeating (a draft)', async () => {
+    // A live repeating event cannot become one date (the server's format/recurrence check): see the F4 matrix (4b).
+    handlers.admin_event_workspace_p5 = () => rawWorkspace({ lifecycle_status: 'draft' });
     await editor();
     fireEvent.click(screen.getByTestId('org-row-starts'));
     fireEvent.change(await screen.findByTestId('org-starts-input'), { target: { value: '2026-10-13' } });

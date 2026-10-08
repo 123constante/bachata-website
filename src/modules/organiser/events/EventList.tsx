@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { CalendarPlus, MapPin, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { LIFECYCLE_LABEL } from '@/modules/organiser/shared/selfServeApi';
+import { lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { ORG_PATHS } from '../shell';
 import { Card, DateChip, EmptyState, ErrorState, PrimaryButton, SectionLabel, SkeletonRows, StatusTag } from '../ui';
 import { listedSeries, useOrganiserHome, type ListedSeries } from './eventsApi';
@@ -12,7 +12,7 @@ function nextDate(s: ListedSeries): string | null {
 
 function EventRow({ series, active }: { series: ListedSeries; active: boolean }) {
   const next = nextDate(series);
-  const live = series.lifecycle_status === 'live';
+  const tag = lifecycleTag(series.lifecycle_status);
   return (
     <Link
       to={ORG_PATHS.event(series.id)}
@@ -32,9 +32,7 @@ function EventRow({ series, active }: { series: ListedSeries; active: boolean })
           {series.default_venue_name ? (<><MapPin aria-hidden="true" className="h-[12px] w-[12px] shrink-0" />{series.default_venue_name}</>) : next ? 'No venue yet' : 'No upcoming dates'}
         </span>
       </span>
-      <StatusTag tone={live ? 'live' : 'draft'} testId="org-event-row-status">
-        {live ? 'Live' : LIFECYCLE_LABEL[series.lifecycle_status] ?? 'Draft'}
-      </StatusTag>
+      <StatusTag tone={tag.tone} testId="org-event-row-status">{tag.label}</StatusTag>
     </Link>
   );
 }
