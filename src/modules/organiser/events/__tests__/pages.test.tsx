@@ -183,8 +183,8 @@ describe('event editor', () => {
       .filter((id) => !id?.endsWith('-value') && !id?.endsWith('-open'));
     expect(ids).toEqual([
       // Owner-approved order (2026-10-08): what it is, when, where, what people see, programme, links, who runs it.
-      'org-event-name', 'org-cover', 'org-row-type', 'org-row-starts', 'org-row-repeats', 'org-row-until', 'org-dates',
-      'org-row-venue', 'org-row-description', 'org-styles', 'org-row-gallery', 'org-row-video', 'org-schedule', 'org-row-ticket',
+      'org-event-name', 'org-cover', 'org-row-gallery', 'org-row-type', 'org-row-starts', 'org-row-repeats', 'org-row-until', 'org-dates',
+      'org-row-venue', 'org-row-description', 'org-styles', 'org-row-video', 'org-schedule', 'org-row-ticket',
       'org-row-organisers',
     ]);
   });

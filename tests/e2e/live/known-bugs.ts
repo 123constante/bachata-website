@@ -5,9 +5,10 @@
 // fix being live.
 //
 // KB-1 is a console error, so it is excused by text inside visit() and
-// recorded as a run annotation. KB-2 is a whole assertion, so its test is
-// marked test.fail(): the day the bug is fixed that test turns RED with
-// "expected to fail", which is the prompt to delete the entry here.
+// recorded as a run annotation. A bug that fails a whole assertion is excused
+// by marking its test test.fail() with knownBug(id): the day the bug is fixed
+// that test turns RED with "expected to fail", which is the prompt to delete
+// the entry here (KB-2, organisers with no events, went that way).
 
 export type KnownBug = { id: string; summary: string; console?: RegExp };
 
@@ -18,12 +19,6 @@ export const KNOWN_BUGS: KnownBug[] = [
       'get_public_festival_detail_v2 answers 400 "invalid input syntax for type numeric" for some events '
       + '(found 2026-10-08 on /event/bachazouk-bootcamp-leader-workshop); the page logs "Query error".',
     console: /invalid input syntax for type numeric/,
-  },
-  {
-    id: 'KB-2',
-    summary:
-      'An organiser with no events shows "0 upcoming dates / 0 past nights" and no empty state: nothing '
-      + 'says what the visitor can do (found 2026-10-08 on /organisers/bachata-connect, /organisers/crouch-end).',
   },
 ];
 

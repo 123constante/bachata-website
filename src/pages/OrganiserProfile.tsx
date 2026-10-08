@@ -50,6 +50,7 @@ import {
   wallClockExactDateKey,
 } from '@/lib/time/wallClock';
 import { useLondonToday } from '@/hooks/useLondonToday';
+import { organiserEmptyState } from '@/modules/profile/organiserEmptyState';
 import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
 import EventRowCard, { type EventRowProps } from '@/components/events/EventRow';
 import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
@@ -414,6 +415,13 @@ const VerifiedBadge = ({ size }: { size: 'sm' | 'md' }) => {
     </span>
   );
 };
+
+/** The empty states' one way out: what is on elsewhere. */
+const BrowseNightsLink = () => (
+  <Link to="/parties" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 18px', borderRadius: 100, background: 'rgba(246,241,234,0.1)', border: '1px solid rgba(246,241,234,0.2)', color: D.cream, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+    Browse upcoming nights
+  </Link>
+);
 
 const TeamCircle = ({ member }: { member: TeamMember }) => {
   const inner = (
@@ -995,6 +1003,15 @@ const OrganiserProfile = () => {
   const hasContact = !!(instagramUrl || facebookUrl || websiteUrl || whatsappUrl || mailtoHref);
 
   const isClaimedByUser = entity.claimed_by === user?.id;
+  const emptyKind = organiserEmptyState({
+    loading: allEventsLoading || futureOccsLoading || pastOccsLoading || teamMembersLoading,
+    upcoming: upcomingListItems.length,
+    past: pastEvents.length,
+    hasBio: !!entity.bio?.trim(),
+    hasContact,
+    team: orderedTeam.length,
+    isOwner: isClaimedByUser,
+  });
   // W7: "Managed by the organiser" once claimed (D4 keeps claimed_by paired
   // with an owner member), and the "Is this you?" card while unclaimed. Both
   // behind the self-serve flag, off in production until launch.
@@ -1257,44 +1274,47 @@ const OrganiserProfile = () => {
           }}
         />
 
-        {/* EMPTY PROFILE -- no bio, no contact links, no events, no team. The
-            realistic case: a freshly claimed profile with nothing added yet.
-            The claimant CTA can only point at the Edit-profile dialog -- the
-            self-service create-event/edit-event flows were retired 2026-09-12
-            (see AnimatedRoutes.tsx); organiser event creation now happens only
-            in the admin app's EventEditorV2, so there is no public route to
-            send a claimant to for "add your first event".
+        {/* EMPTY STATES -- one decision (organiserEmptyState): nothing upcoming
+            always says so and offers somewhere to go, whatever else the profile
+            has. The owner of a wholly blank profile is pointed at Edit profile
+            instead: organiser event creation happens in the organiser area, not
+            on this public page.
 
             Gated on all four content queries having settled (not just the
             `entity` query, which resolves first as a single-row fetch) --
             otherwise a well-populated organiser flashes this on every cold
             load, before allEvents/futureOccs/pastOccs/teamMembers (four
             independent, slower queries) have had a chance to come back. */}
-        {!allEventsLoading && !futureOccsLoading && !pastOccsLoading && !teamMembersLoading &&
-          !entity.bio && !hasContact && upcomingListItems.length === 0 && orderedTeam.length === 0 && pastEvents.length === 0 && (
-          <section className="px-5 md:px-12 py-8 md:py-10 text-center">
-            {isClaimedByUser ? (
-              <>
-                <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold, margin: '0 0 12px' }}>Your profile</p>
-                <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>Just getting started</h2>
-                <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
-                  Add a bio, photo and your social links so dancers know who you are before your first night goes up.
-                </p>
-                <button onClick={openEditModal} style={{ minHeight: 44, padding: '0 18px', borderRadius: 100, background: D.gold, color: D.black, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
-                  Complete your profile
-                </button>
-              </>
-            ) : (
-              <>
-                <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>Nothing here yet</h2>
-                <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
-                  {entity.name} hasn&rsquo;t listed any nights yet. Check back soon, or see what&rsquo;s on elsewhere in London.
-                </p>
-                <Link to="/parties" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 18px', borderRadius: 100, background: 'rgba(246,241,234,0.1)', border: '1px solid rgba(246,241,234,0.2)', color: D.cream, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
-                  Browse upcoming nights
-                </Link>
-              </>
-            )}
+        {emptyKind === 'owner-blank' && (
+          <section className="px-5 md:px-12 py-8 md:py-10 text-center" data-testid="org-public-empty" data-kind={emptyKind}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold, margin: '0 0 12px' }}>Your profile</p>
+            <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>Just getting started</h2>
+            <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
+              Add a bio, photo and your social links so dancers know who you are before your first night goes up.
+            </p>
+            <button onClick={openEditModal} style={{ minHeight: 44, padding: '0 18px', borderRadius: 100, background: D.gold, color: D.black, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+              Complete your profile
+            </button>
+          </section>
+        )}
+        {emptyKind === 'none' && (
+          <section className="px-5 md:px-12 py-8 md:py-10 text-center" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="org-public-empty" data-kind={emptyKind}>
+            <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>No nights listed yet</h2>
+            <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.75)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
+              {entity.name} hasn&rsquo;t listed any nights here yet.{' '}
+              {hasContact ? 'Follow them with the links above for news, or see' : 'Check back soon, or see'} what&rsquo;s on elsewhere in London.
+            </p>
+            <BrowseNightsLink />
+          </section>
+        )}
+        {emptyKind === 'past-only' && (
+          <section className="px-5 md:px-12 py-5 md:py-6 text-center" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="org-public-empty" data-kind={emptyKind}>
+            <h2 style={{ ...sectionH2, marginBottom: 6 }}>No upcoming nights</h2>
+            <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.75)', maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.5 }}>
+              {entity.name} has nothing on the calendar right now.{' '}
+              {hasContact ? 'Follow them with the links above for new dates, or see' : 'See'} what&rsquo;s on elsewhere in London.
+            </p>
+            <BrowseNightsLink />
           </section>
         )}
 

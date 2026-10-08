@@ -25,11 +25,6 @@
     ]
   },
   "/classes": {
-    "axe": [
-      "button-name",
-      "list",
-      "listitem"
-    ],
     "tap-target": [
       "a.flex.gap-1.hover:text-foreground.hover:text-primary.items-center.text-muted-foreground.transition-colors.transition-colors",
       "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
@@ -46,11 +41,6 @@
     ]
   },
   "/event/:slug": {
-    "axe": [
-      "color-contrast",
-      "list",
-      "listitem"
-    ],
     "tap-target": [
       "a.-ml-1.flex.gap-1.hover:bg-primary/5.items-center.no-underline.pl-1.pr-2",
       "a.active:scale-95.bg-primary.font-semibold.hover:opacity-90.mt-2.px-8.py-3.rounded-full",
@@ -78,9 +68,6 @@
     ]
   },
   "/festivals": {
-    "axe": [
-      "aria-progressbar-name"
-    ],
     "tap-target": [
       "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
       "button.[&_svg]:pointer-events-none.[&_svg]:shrink-0.[&_svg]:size-4.bg-background.border.border-input.disabled:opacity-50.disabled:pointer-events-none",
@@ -103,11 +90,6 @@
     ]
   },
   "/parties": {
-    "axe": [
-      "button-name",
-      "list",
-      "listitem"
-    ],
     "tap-target": [
       "a.flex.gap-1.hover:text-foreground.hover:text-primary.items-center.text-muted-foreground.transition-colors.transition-colors",
       "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
@@ -133,10 +115,6 @@
     ]
   },
   "/this-page-does-not-exist-live-qa": {
-    "axe": [
-      "list",
-      "listitem"
-    ],
     "tap-target": [
       "a.",
       "a.bg-primary.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2.focus-visible:ring-offset-background.focus-visible:ring-primary.font-bold.gap-0.5",

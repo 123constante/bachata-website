@@ -3,7 +3,6 @@ import { expect, test, type Page } from '@playwright/test';
 import { SURVEY_FILE } from './global-setup';
 import type { Shape, Survey } from './lib/shapes';
 import { visit } from './lib/visit';
-import { knownBug } from './known-bugs';
 
 // LAYER 1 -- the shape matrix. Every real event shape production has today
 // (from the read-only survey in global-setup) x every public screen that shows
@@ -168,7 +167,6 @@ test.describe('organiser page x shape', () => {
   test('an organiser with no events says what the visitor can do instead', async ({ page }, testInfo) => {
     const empty = (SURVEY?.empty_organisers ?? []).slice(0, 2);
     test.skip(empty.length === 0, 'no organiser without events today');
-    test.fail(true, `${knownBug('KB-2').id}: ${knownBug('KB-2').summary}`);
     for (const o of empty) {
       await test.step(`/organisers/${o.slug}`, async () => {
         await visit(page, testInfo, `/organisers/${o.slug}`);

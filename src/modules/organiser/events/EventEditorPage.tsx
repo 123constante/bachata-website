@@ -13,7 +13,7 @@ import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { TEAM, endedOnLabel, eventLock, lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import {
-  AnnounceRegion, Card, Chip, Cover, EmptyState, ErrorState, PreviewBar, SkeletonRows, StatusTag, SummaryRow, TitleInput,
+  AnnounceRegion, Card, Chip, Cover, EmptyState, ErrorState, PreviewBar, SectionLabel, SkeletonRows, StatusTag, SummaryRow, TitleInput,
   useAnnounce, useShake,
 } from '../ui';
 import { CAP_NOTE, allowedEndChoices, endWithinCap, listingView } from './dateCap';
@@ -199,10 +199,17 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
       )}
       <EditorGroup id="what" heading="What it is">
         <TitleInput value={draft.name} onChange={(name) => patch({ name })} readOnly={!!lock} aria-label="Event name" placeholder="Event name" maxLength={120} testId="org-event-name" />
-        <Cover src={draft.coverUrl || null} alt="" onChange={lock ? undefined : () => coverInput.current?.click()} changeLabel="Change cover" emptyLabel="Add a square cover" testId="org-cover" />
-        <input ref={coverInput} type="file" accept={FLYER_ACCEPT} className="sr-only" tabIndex={-1} aria-hidden="true" onChange={pickCover} data-testid="org-cover-file" />
-        {uploading === 'cover' && <p className="text-center text-[13px] text-[var(--mut)]" role="status">Uploading the cover&hellip;</p>}
-        {uploadError && sheet === null && <p role="alert" className="text-center text-[14px] text-[var(--danger)]">{uploadError}</p>}
+        <section aria-labelledby="org-cover-gallery-label" className="space-y-[12px]" data-testid="org-cover-gallery">
+          <SectionLabel as="h3" id="org-cover-gallery-label" className="pb-0">Cover &amp; gallery</SectionLabel>
+          <Cover src={draft.coverUrl || null} alt="" onChange={lock ? undefined : () => coverInput.current?.click()} changeLabel="Change cover" emptyLabel="Add a square cover" testId="org-cover" />
+          <input ref={coverInput} type="file" accept={FLYER_ACCEPT} className="sr-only" tabIndex={-1} aria-hidden="true" onChange={pickCover} data-testid="org-cover-file" />
+          {uploading === 'cover' && <p className="text-center text-[13px] text-[var(--mut)]" role="status">Uploading the cover&hellip;</p>}
+          {uploadError && sheet === null && <p role="alert" className="text-center text-[14px] text-[var(--danger)]">{uploadError}</p>}
+          <Card>
+            <SummaryRow icon={<Images />} label="Gallery" value={draft.gallery.length ? `${draft.gallery.length} photo${draft.gallery.length === 1 ? '' : 's'}` : 'None'} onPress={() => setSheet('gallery')} disabled={!!lock} testId="org-row-gallery" />
+          </Card>
+          {!lock && <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="org-cover-gallery-hint">The cover shows on the calendar card; gallery photos appear on the event page. Optional &mdash; add later.</p>}
+        </section>
         <Card>
           <SummaryRow icon={<Shapes />} label="Type" value={categoryLabel(ws.series.category)}
             sublabel={`Chosen when the event was made. To change it, ask ${TEAM}.`} testId="org-row-type" />
@@ -267,7 +274,6 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
           </div>
         </section>
         <Card>
-          <SummaryRow icon={<Images />} label="Gallery" value={draft.gallery.length ? `${draft.gallery.length} photo${draft.gallery.length === 1 ? '' : 's'}` : 'None'} onPress={() => setSheet('gallery')} disabled={!!lock} testId="org-row-gallery" />
           <SummaryRow icon={<Film />} label="Video" value={draft.videos.length ? `${draft.videos.length}` : 'None'} onPress={() => setSheet('video')} disabled={!!lock} testId="org-row-video" />
         </Card>
       </EditorGroup>

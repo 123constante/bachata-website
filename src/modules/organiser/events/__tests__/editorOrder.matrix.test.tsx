@@ -35,10 +35,12 @@ const CASES: SeriesShape[] = [
 
 /** The groups top to bottom, with the testids that belong to each (in order). */
 const GROUPS: [group: string, heading: string, ids: string[]][] = [
-  ['what', 'What it is', ['org-event-name', 'org-cover', 'org-row-type']],
+  // Cover and gallery sit together (owner decision 2026-10-08, matching admin editor-v2's
+  // 'Cover & gallery' in section 1); the gallery is no longer under What people see.
+  ['what', 'What it is', ['org-event-name', 'org-cover', 'org-row-gallery', 'org-row-type']],
   ['when', 'When', ['org-date-card', 'org-dates', 'org-taken-off']],
   ['where', 'Where', ['org-row-venue']],
-  ['see', 'What people see', ['org-row-description', 'org-styles', 'org-row-gallery', 'org-row-video']],
+  ['see', 'What people see', ['org-row-description', 'org-styles', 'org-row-video']],
   ['programme', 'Programme', ['org-schedule']],
   ['links', 'Tickets and links', ['org-row-ticket']],
   ['who', 'Who runs it', ['org-row-organisers']],
@@ -142,6 +144,21 @@ describe.each(CASES.map((s) => [s.key, s] as const))('shape %s', (_key, s) => {
       action.click();
     }
     expect(rpc.mock.calls.filter(([fn]) => fn === 'series_command_p5')).toEqual([]);
+  });
+
+  it('(6) cover and gallery sit together under one "Cover & gallery" label; the add-later hint only when editable', async () => {
+    const editor = await openEditor(s);
+    const region = editor.querySelector('[data-testid="org-cover-gallery"]') as HTMLElement;
+    expect(region).not.toBeNull();
+    expect(editor.querySelector('[data-testid="org-group-what"]')?.contains(region)).toBe(true);
+    expect(region.getAttribute('aria-labelledby') && document.getElementById(region.getAttribute('aria-labelledby')!)?.textContent).toBe('Cover & gallery');
+    expect(region.querySelector('[data-testid="org-cover"]')).not.toBeNull();
+    expect(region.querySelector('[data-testid="org-row-gallery"]')).not.toBeNull();
+    expect(editor.querySelector('[data-testid="org-group-see"] [data-testid="org-row-gallery"]')).toBeNull();
+    const locked = !!editor.querySelector('[data-testid="org-event-locked"]');
+    const hint = region.querySelector('[data-testid="org-cover-gallery-hint"]');
+    // "add later" would point at a control a locked event cannot use.
+    expect(!!hint).toBe(!locked);
   });
 
   it('(5) "above" / "below" copy points the right way', async () => {

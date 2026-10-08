@@ -59,10 +59,14 @@ const BreadcrumbPage = React.forwardRef<HTMLSpanElement, React.ComponentPropsWit
 );
 BreadcrumbPage.displayName = "BreadcrumbPage";
 
-const BreadcrumbSeparator = ({ children, className, ...props }: React.ComponentProps<"li">) => (
-  <li role="presentation" aria-hidden="true" className={cn("[&>svg]:size-3.5", className)} {...props}>
-    {children ?? <ChevronRight />}
-  </li>
+// forwardRef so PageBreadcrumb can animate it as a motion component while it
+// stays a direct <li> child of the <ol> (axe list/listitem).
+const BreadcrumbSeparator = React.forwardRef<HTMLLIElement, React.ComponentPropsWithoutRef<"li">>(
+  ({ children, className, ...props }, ref) => (
+    <li ref={ref} role="presentation" aria-hidden="true" className={cn("[&>svg]:size-3.5", className)} {...props}>
+      {children ?? <ChevronRight />}
+    </li>
+  ),
 );
 BreadcrumbSeparator.displayName = "BreadcrumbSeparator";
 
