@@ -2,6 +2,7 @@ import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import { buildDateLabel } from '@/modules/event-page/bento/utils/multiDay';
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
+import { publicCancelReason } from '@/lib/cancelLabel';
 
 type DateBlockProps = {
   occurrence: EventPageSnapshotOccurrence | null;
@@ -14,6 +15,7 @@ type DateBlockProps = {
 export const DateBlock = ({ occurrence, isEnded = false, onClick }: DateBlockProps) => {
   const label = buildDateLabel(occurrence);
   const isCancelled = !!occurrence?.isCancelled;
+  const cancelReason = isCancelled ? publicCancelReason(occurrence?.cancellationReasonLabel) : null;
   // Both states dim the date; only a cancellation strikes it through. An ended
   // series' final night DID happen -- striking it out would say it did not.
   //
@@ -86,13 +88,13 @@ export const DateBlock = ({ occurrence, isEnded = false, onClick }: DateBlockPro
                   Cancelled
                 </div>
               )}
-              {isCancelled && occurrence?.cancellationReasonLabel && (
+              {cancelReason && (
                 <div
                   className="text-[8px] font-semibold uppercase tracking-[0.1em]"
                   style={{ color: 'hsl(var(--bento-fg-muted))' }}
                   data-testid="date-cancelled-reason"
                 >
-                  {occurrence.cancellationReasonLabel}
+                  {cancelReason}
                 </div>
               )}
             </div>

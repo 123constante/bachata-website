@@ -1,3 +1,5 @@
+import { publicCancelReason } from '@/lib/cancelLabel';
+
 type CancelledRedStripProps = {
   reasonLabel?: string | null;
   size?: 'sm' | 'md';
@@ -28,7 +30,7 @@ export const CancelledRedStrip = ({ reasonLabel, size = 'md' }: CancelledRedStri
           Cancelled
         </div>
         <div className={`mt-1 ${subSize} font-semibold uppercase tracking-[0.06em] opacity-90`}>
-          {reasonLabel || 'Event cancelled by organiser'}
+          {publicCancelReason(reasonLabel) ?? 'Event cancelled by organiser'}
         </div>
       </div>
     </div>
