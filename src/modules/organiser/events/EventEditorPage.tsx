@@ -16,7 +16,7 @@ import {
   AnnounceRegion, Card, Chip, Cover, EmptyState, ErrorState, PreviewBar, SkeletonRows, StatusTag, SummaryRow, TitleInput,
   useAnnounce, useShake,
 } from '../ui';
-import { CAP_NOTE, MAX_UPCOMING, allowedEndChoices, endWithinCap, extendStep } from './dateCap';
+import { CAP_NOTE, allowedEndChoices, endWithinCap, listingView } from './dateCap';
 import { scheduleView } from './schedule';
 import { EditorSheet, type SheetName } from './EditorSheet';
 import { DatesList, ScheduleCard } from './EditorRows';
@@ -150,14 +150,16 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
   const until = listedUntil(draft, ws, today);
   const upcoming = upcomingDates(ws.dates, today);
   const weekly = sched.mode === 'weekly' && draft.shape === 'weekly';
-  // Extend continues the run from its last listed date (an open-ended rule included).
-  const step = weekly ? extendStep(cap, draft.until ?? until) : null;
-  const listedCount = upcoming.filter((d) => d.lifecycle_status !== 'cancelled').length;
-  const extendReason = step ? null : listedCount >= MAX_UPCOMING
-    ? `${listedCount} listed; the most is ${MAX_UPCOMING}`
-    : 'Listed 12 months ahead, the most';
-  const untilLabel = until && until >= today ? `Listed until ${shortDate(until, today)}` : 'No upcoming dates';
-  const endedLabel = endedOnLabel(ws.series.lifecycle_status, ws.endedOn);
+  // One mapping decides the row's date, whether Extend can add a date (the server's
+  // 30-scheduled-upcoming rule) and its sentence. Extend continues the run from its
+  // last listed date (an open-ended rule included).
+  const listing = listingView(cap, draft.until ?? until, {
+    listed: upcoming.filter((d) => d.lifecycle_status !== 'cancelled').length,
+    last: upcoming[upcoming.length - 1]?.occurrence_date ?? null,
+  });
+  const step = weekly ? listing.step : null;
+  const untilLabel = listing.untilText;
+  const endedLabel = endedOnLabel(ws.series.lifecycle_status, ws.endedOn, today);
   const firstDate = ws.hasMore ? draft.startDate : [...ws.dates.map((d) => d.occurrence_date)].sort()[0] ?? draft.startDate;
   const next = upcoming.find((d) => d.lifecycle_status !== 'cancelled') ?? null;
   const emptyHint = lock ?? (sched.mode === 'fixed' ? sched.reason : weekly ? 'Use Extend above to list more dates.' : 'Change \u2018Starts on\u2019 above to list a new date.') ?? '';
@@ -213,10 +215,10 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
           <div className="flex min-h-[52px] items-center gap-[12px] px-[16px] py-[8px]" data-testid="org-row-until">
             <button type="button" onClick={() => setSheet('until')} className="min-h-[44px] min-w-0 flex-1 text-left" data-testid="org-row-until-open">
               <span className="block truncate text-[15px] text-[var(--fg)]">{until ? untilLabel : 'Choose how long it is listed'}</span>
-              <span className="block text-[13px] text-[var(--mut)]" data-testid="org-extend-note">{extendReason ?? CAP_NOTE}</span>
+              <span id="org-extend-note" className="block text-[13px] text-[var(--mut)]" data-testid="org-extend-note">{listing.note}</span>
             </button>
             <button type="button" disabled={!step} onClick={() => step && patch({ until: step.until })} data-testid="org-extend"
-              aria-label={step ? `Extend by ${step.add} dates` : `Extend (${extendReason})`}
+              aria-label={step ? `Extend by ${step.add} dates` : 'Extend'} aria-describedby={step ? undefined : 'org-extend-note'}
               className="h-[44px] shrink-0 rounded-[12px] px-[12px] text-[15px] font-semibold text-[var(--gold)] disabled:text-[var(--mut)]">
               Extend
             </button>
@@ -245,7 +247,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
       </Card>
       <DatesList seriesId={seriesId} dates={ws.dates} today={today} emptyHint={emptyHint} truncated={ws.hasMore} />
       <EditorSheet stopReason={sched.stopReason}
-        sheet={sheet} onSheet={setSheet} draft={draft} patch={patch} today={today} cap={cap} venues={venues.data}
+        sheet={sheet} onSheet={setSheet} draft={draft} patch={patch} today={today} cap={cap} capNote={listing.sheetNote} venues={venues.data}
         venuesError={venues.isError} onRetryVenues={() => void venues.refetch()} venuesRetrying={venues.isFetching}
         onUploadGallery={(files) => void upload(files, 'gallery')} uploading={uploading === 'gallery'} uploadError={uploadError}
       />

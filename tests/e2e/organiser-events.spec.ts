@@ -130,6 +130,28 @@ test('30-date cap: Extend is off when 30 upcoming dates are listed', async ({ pa
   await expect(page.getByTestId('org-extend')).toBeDisabled();
 });
 
+// The owner's 2026-10-08 report, its exact shape: weekly Wednesdays from Wed 30 Dec, 41 dates
+// listed (over the cap; the server keeps them all but adds no more). The date names its year,
+// Extend is off and the reason on screen states the true count and the server's rule.
+test('30-date cap: a series over 30 says so plainly, its end date has the year, Extend is off with the reason', async ({ page }) => {
+  await openOrganiser(page, `/account/o/events/${FRIDAY}`, {}, (f) => {
+    const s = f.series.get(FRIDAY)!;
+    s.default_start_date = '2026-12-30';
+    s.recurrence_rule = { mode: 'weekly', weekdays: [3], end: { kind: 'until_date', date: '2027-10-06' } };
+  });
+  await expect(page.getByTestId('org-date-row')).toHaveCount(41);
+  const until = page.getByTestId('org-row-until');
+  await expect(until).toContainText('Listed until Wed 6 Oct 2027');
+  await expect(page.getByTestId('org-extend')).toBeDisabled();
+  await expect(page.getByTestId('org-extend-note')).toHaveText('41 upcoming dates are listed, more than the 30 you can list. Extend is off until fewer than 30 are left.');
+  await expect(until).not.toContainText('the most is');
+  await until.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: test.info().outputPath('over-cap-390.png'), fullPage: false });
+  await page.getByTestId('org-row-until-open').click();
+  await expect(page.getByTestId('org-cap-note')).not.toContainText('Extend later');
+  await expect(page.getByTestId('org-cap-note')).toContainText('41 are listed now');
+});
+
 test('the schedule card shows the next date’s sessions with their people and opens that date', async ({ page }) => {
   await openOrganiser(page, `/account/o/events/${FRIDAY}`);
   const rows = page.getByTestId('org-schedule-session');

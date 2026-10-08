@@ -116,7 +116,7 @@ describe('commandErrorMessage (series and date commands)', () => {
   describe('bare refusal codes from the admin caps and undo', () => {
     const codes: Array<[string, RegExp]> = [
       ['daily_edit_cap', /limit of 100 changes[\s\S]*tomorrow[\s\S]*Bachata Calendar team/],
-      ['date_cap', /up to 30 upcoming dates[\s\S]*Remove[\s\S]*new event/],
+      ['date_cap', /30 or more upcoming dates[\s\S]*past and cancelled dates do not count[\s\S]*upcoming date first[\s\S]*new event/],
       ['undo_conflict', /Someone changed this after you[\s\S]*before you change it again/],
       ['not_undoable', /cannot be undone here[\s\S]*by hand/],
     ];
@@ -134,7 +134,7 @@ describe('commandErrorMessage (series and date commands)', () => {
   describe('real full server messages for the caps', () => {
     const real: Array<[string, RegExp]> = [
       ['permission_denied: daily_edit_cap: this account made 100 changes in the last 24 hours (cap 100); try again later', /limit of 100 changes[\s\S]*tomorrow[\s\S]*Bachata Calendar team/],
-      ['permission_denied: date_cap: this series already has 30 upcoming dates (cap 30); remove or cancel one before adding another', /up to 30 upcoming dates[\s\S]*Remove[\s\S]*new event/],
+      ['permission_denied: date_cap: this series already has 30 upcoming dates (cap 30); remove or cancel one before adding another', /30 or more upcoming dates[\s\S]*past and cancelled dates do not count[\s\S]*upcoming date first[\s\S]*new event/],
     ];
 
     it.each(real)('%s', (message, expected) => {

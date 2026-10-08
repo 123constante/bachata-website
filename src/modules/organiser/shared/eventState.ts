@@ -17,7 +17,7 @@
 //    London today for an owner ('... on a past date is admin-only').
 //  - series.set_recurrence needs format = 'recurring'.
 
-import { dateLabel } from './homeModel';
+import { calendarDate } from './homeModel';
 import { weeklyRule, type WeeklyRule } from './seriesModel';
 
 export type LifecycleTone = 'live' | 'draft' | 'party' | 'neutral';
@@ -58,9 +58,9 @@ export function eventLock(status: string): string | null {
   return null;
 }
 
-/** 'Ended on Sat 5 Sep' (null when the event has not ended or has no end date). */
-export const endedOnLabel = (status: string, endedOn: string | null | undefined) =>
-  status === 'ended' && endedOn ? `Ended on ${dateLabel(endedOn, '')}` : null;
+/** 'Ended on Sat 5 Sep' ('... 2025' in another year; null when the event has not ended or has no end date). */
+export const endedOnLabel = (status: string, endedOn: string | null | undefined, today: string) =>
+  status === 'ended' && endedOn ? `Ended on ${calendarDate(endedOn, today)}` : null;
 
 /**
  * Why nothing on ONE date can be changed by its organiser (venue, cancel,

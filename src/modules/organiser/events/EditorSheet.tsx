@@ -32,6 +32,8 @@ interface Props {
   uploadError: string | null;
   /** Why 'One date' cannot be chosen (a live or paused repeating event); null when it can. */
   stopReason?: string | null;
+  /** The 'Listed until' sheet's sentence (listingView.sheetNote, the row's own mapping). */
+  capNote?: string;
 }
 
 function Choice({ selected, label, sub, onPress, disabled, testId }: { selected: boolean; label: string; sub?: string; onPress: () => void; disabled?: boolean; testId: string }) {
@@ -58,7 +60,7 @@ function withLeaving(list: string[], leaving: Leaving[]) {
 }
 
 /** The editor's ONE sheet. Each row opens a view of it; nothing nests. */
-export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, venuesError, onRetryVenues, venuesRetrying, onUploadGallery, uploading, uploadError, stopReason = null }: Props) {
+export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, venuesError, onRetryVenues, venuesRetrying, onUploadGallery, uploading, uploadError, stopReason = null, capNote = `${CAP_NOTE}. Extend later to list more.` }: Props) {
   const [query, setQuery] = useState('');
   const [videoInput, setVideoInput] = useState('');
   // Removal leaves the draft at once (so Done mid-fade still saves it); the
@@ -187,7 +189,7 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
     case 'until':
       body = (
         <div className="space-y-[8px]" data-testid="org-sheet-until">
-          <p className="text-[14px] text-[var(--mut)]" data-testid="org-cap-note">{CAP_NOTE}. Extend later to list more.</p>
+          <p className="text-[14px] text-[var(--mut)]" data-testid="org-cap-note">{capNote}</p>
           <div role="radiogroup" aria-label="Listed until">
             <Card>
               {choices.map((c) => (
@@ -196,7 +198,7 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
               ))}
             </Card>
           </div>
-          {choices.length === 0 && <p className="text-[14px] text-[var(--fg)]">There are already 30 upcoming dates.</p>}
+          {choices.length === 0 && <p className="text-[14px] text-[var(--fg)]">No end fits: 30 or more upcoming dates are already listed.</p>}
         </div>
       );
       break;

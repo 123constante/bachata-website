@@ -125,16 +125,20 @@ export function parseRemoval(raw: unknown, fallbackUserId: string): MemberRemova
   };
 }
 
+/** The London calendar year of an instant. */
+export const londonYear = (d: Date) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric' }).format(d);
+
 /**
  * "Sat 3 Oct" for a real instant (created_at, joined_at), on the London
- * calendar. These are timestamptz, not local-as-Z, so the zone conversion is
- * the right one here.
+ * calendar, with the year when it is not this year ("Mon 3 Nov 2025"). These
+ * are timestamptz, not local-as-Z, so the zone conversion is the right one here.
  */
-export function instantDateLabel(iso: string | null | undefined): string | null {
+export function instantDateLabel(iso: string | null | undefined, now: Date = new Date()): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' });
+  const year = londonYear(d) === londonYear(now) ? '' : ` ${londonYear(d)}`;
+  return `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })}${year}`;
 }
 
 /**

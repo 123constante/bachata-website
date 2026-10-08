@@ -72,7 +72,7 @@ export function DatesList({ seriesId, dates, today, emptyHint, truncated = false
     <button key={d.id} type="button" data-testid="org-date-row" data-date={d.occurrence_date}
       onClick={() => navigate(ORG_PATHS.date(seriesId, d.id))}
       className="flex min-h-[60px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left">
-      <DateChip date={d.occurrence_date} />
+      <DateChip date={d.occurrence_date} today={today} />
       <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{shortDate(d.occurrence_date, today)}</span>
       {d.lifecycle_status === 'cancelled' && <span className="text-[13px] text-[var(--danger)]">Cancelled</span>}
       <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
