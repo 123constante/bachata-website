@@ -44,7 +44,7 @@ import { EventEndedRecord } from '@/modules/event-page/bento/EventEndedRecord';
 import { selectLifecycleBanners } from '@/modules/event-page/bento/lifecycleBanner';
 import { formatRunRange } from '@/modules/event-page/bento/utils/endedRun';
 import { buildEventShareDescription } from '@/modules/event-page/endedShareDescription';
-import { wallClockToInstant } from '@/lib/time/wallClock';
+import { wallClockDateKey, wallClockToInstant } from '@/lib/time/wallClock';
 import { TapHintSticker } from '@/modules/event-page/bento/TapHintSticker';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
@@ -427,6 +427,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             occurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
             occurrenceCancelled={!!occurrence?.isCancelled}
             fallbackTimeLabel={pageModel.schedule.timeLabel}
+            occurrenceDate={wallClockDateKey(occurrence?.localDate ?? occurrence?.startsAt)}
           />
         );
       case 'promo':

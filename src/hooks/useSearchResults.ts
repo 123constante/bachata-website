@@ -9,6 +9,8 @@ export interface SearchResultEvent {
   city_slug: string | null;
   event_type: string | null;
   start_time: string | null;
+  /** v6: the series has ended (start_time is then null). */
+  is_ended?: boolean | null;
   // search_public_v6 only (flags.searchV6). derived_level is null until the
   // series has enough dancer ratings; absent on v4/v5 envelopes.
   derived_level?: string | null;

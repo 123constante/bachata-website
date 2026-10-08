@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { eventWorkspaceQueryKey } from '@/modules/organiser/events/eventsApi';
 import {
   ORGANISER_HOME_KEY,
   dateDetailQueryKey,
@@ -132,6 +133,8 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
   const invalidateAround = () => {
     void queryClient.invalidateQueries({ queryKey: dateDetailQueryKey(occurrenceId) });
     void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
+    // The event page's Send for review counts this date's sessions (reviewModel).
+    void queryClient.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
   };
 

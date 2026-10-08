@@ -14,6 +14,7 @@ import {
 } from '@/modules/event-page/sections/EventScheduleGrid';
 import { PeopleStack } from '@/modules/event-page/bento/blocks/schedule/PeopleStack';
 import { emptyScheduleView } from '@/modules/event-page/bento/blocks/schedule/emptyScheduleView';
+import { isRealDateKey, londonDaysBetweenKeys, londonTodayKey } from '@/lib/londonDate';
 
 // --- Level -> text map ---------------------------------------------------
 const LEVEL_LABEL_FULL: Record<SessionLevel, string> = {
@@ -102,7 +103,22 @@ const OrganiserLevelLine = ({ session, align }: { session: ScheduleSession; alig
 // date only. When only SOME sessions are one-offs, the chip names them, so a
 // dancer can still tell which session is the special one without a badge
 // repeating on every row.
+//
+// "Tonight" only when the block's date IS today in London (owner walk
+// 2026-10-08: a date a week away read "Special tonight"). Tomorrow reads
+// "tomorrow", any other date names it ("Special on Thu 15 Oct"), and a block
+// whose date is unknown says "on this date".
 export const SPECIAL_TONIGHT_TEXT = '\u2605 Special tonight';
+export const specialDateLabel = (dateKey: string | null | undefined, todayKey: string): string => {
+  if (!dateKey || !isRealDateKey(dateKey)) return '\u2605 Special on this date';
+  const days = londonDaysBetweenKeys(todayKey, dateKey);
+  if (days === 0) return SPECIAL_TONIGHT_TEXT;
+  if (days === 1) return '\u2605 Special tomorrow';
+  const when = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+    .format(new Date(`${dateKey}T12:00:00Z`))
+    .replace(',', '');
+  return `\u2605 Special on ${when}`;
+};
 export const specialTonightFor = (
   sessions: ScheduleSession[],
 ): { show: boolean; names: string[] } => {
@@ -118,7 +134,7 @@ export const specialTonightFor = (
   });
   return { show: true, names: Array.from(new Set(names)) };
 };
-const SpecialTonightChip = ({ names }: { names: string[] }) => (
+const SpecialTonightChip = ({ label, names }: { label: string; names: string[] }) => (
   <div
     data-testid="schedule-special-tonight"
     className="mb-[6px] inline-block rounded-[10px] px-2 py-0.5"
@@ -130,7 +146,7 @@ const SpecialTonightChip = ({ names }: { names: string[] }) => (
     }}
     title="Added for this date only"
   >
-    <span style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>{SPECIAL_TONIGHT_TEXT}</span>
+    <span style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>{label}</span>
     {names.length > 0 && <span style={{ fontWeight: 600 }}>: {names.join(', ')}</span>}
   </div>
 );
@@ -150,6 +166,9 @@ type ScheduleBlockProps = {
   occurrenceCancelled?: boolean;
   /** The date's own start-end text from the page model ("8:00 pm - 11:30 pm"): the series time, or a date's override. Shown ONLY when there is no programme, in place of "Schedule coming soon" (launch walk S2). */
   fallbackTimeLabel?: string | null;
+  /** The viewed date's London YYYY-MM-DD (the page's occurrence). Decides
+   *  whether the one-off chip says "tonight"; falls back to the sessions' day. */
+  occurrenceDate?: string | null;
 };
 
 // ─── Format helpers ──────────────────────────────────────────────────────────
@@ -1063,7 +1082,11 @@ const SingleRoomScheduleRow = ({
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fallbackTimeLabel }: ScheduleBlockProps) => {
+export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fallbackTimeLabel, occurrenceDate }: ScheduleBlockProps) => {
+  // londonDate is already in this route's first load; useLondonToday would add
+  // two chunks to every /event view (perf ratchet). The chip renders after the
+  // programme query, so a render-time read is fresh enough.
+  const todayKey = londonTodayKey();
   // Phase C — occurrence mode. When occurrenceId is set, pull the merged
   // program from get_occurrence_program_v1. Same shape comes back, so the rest
   // of this component is mode-agnostic.
@@ -1163,6 +1186,8 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
 
   const slots = useMemo(() => groupIntoSlots(visibleSessions), [visibleSessions]);
   const specialTonight = useMemo(() => specialTonightFor(visibleSessions), [visibleSessions]);
+  // A multi-day block's tab is its date; a single date is the page's occurrence.
+  const specialLabel = specialDateLabel(isMultiDay ? currentDay : occurrenceDate ?? currentDay, todayKey);
 
   // Phase 2B step 2e — when the server returned a non-empty section list,
   // bucket slots by their session's sectionId so empty sections (item_count=0)
@@ -1204,7 +1229,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
         <DayTabs days={uniqueDays} active={currentDay} onPick={setActiveDay} />
       )}
 
-      {specialTonight.show && <SpecialTonightChip names={specialTonight.names} />}
+      {specialTonight.show && <SpecialTonightChip label={specialLabel} names={specialTonight.names} />}
 
       <div style={{ position: 'relative' }}>
         {/* Unified stripe overlay — sits behind the room column headers AND
