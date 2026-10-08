@@ -183,6 +183,7 @@ const TARGETS = [
   { rel: 'scripts/check-origin-consumers.mjs' },
   { rel: 'scripts/check-plan-hygiene.mjs' },
   { rel: 'scripts/check-pr-mergeable.mjs' },
+  { rel: 'scripts/check-pr-real-data-verified.mjs' },
   { rel: 'scripts/check-program-day-offsets.mjs' },
   { rel: 'scripts/check-rpc-typing.mjs' },
   { rel: 'scripts/check-script-conventions.mjs' },

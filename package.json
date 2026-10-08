@@ -19,6 +19,8 @@
     "prove:entry-point:self-test": "node scripts/prove-entry-point-dispatch.mjs --self-test",
     "check:ci-budget": "node scripts/check-ci-budget.mjs",
     "check:ci-budget:self-test": "node scripts/check-ci-budget.mjs --self-test",
+    "check:pr-real-data-verified": "node scripts/check-pr-real-data-verified.mjs",
+    "check:pr-real-data-verified:self-test": "node scripts/check-pr-real-data-verified.mjs --self-test",
     "check:firewall-drift": "node scripts/check-firewall-drift.mjs",
     "check:firewall-drift:self-test": "node scripts/check-firewall-drift.mjs --self-test",
     "check:origin-consumers": "node scripts/check-origin-consumers.mjs",

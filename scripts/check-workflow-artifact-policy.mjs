@@ -636,15 +636,14 @@ const FLOORS = {
  * as an adjective before any of it was in the file as a number.
  */
 const MEASURED = {
-  // RE-DERIVED 2026-10-08 (cloudflare-purge-on-deploy.yml added): analyse()
-  // over .github/workflows gave 28 files, 41 jobs, 282 steps, 5 uploads, and
-  // 63 steps for the largest workflow.
-  workflowFiles: 28,
-  jobs: 41,
-  steps: 282,
+  // RE-DERIVED 2026-10-08 after cloudflare-purge-on-deploy.yml joined main:
+  // analyse() gave 30 files, 43 jobs, 292 steps.
+  workflowFiles: 30,
+  jobs: 43,
+  steps: 292,
   uploadSteps: 5,
-  /** The largest single workflow, in steps. */
-  largestWorkflowSteps: 63,
+  /** db-contract-check.yml, the largest single workflow, in steps. */
+  largestWorkflowSteps: 82,
 };
 
 /**
