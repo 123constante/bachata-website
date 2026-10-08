@@ -20,6 +20,7 @@ import { CAP_NOTE, MAX_UPCOMING, allowedEndChoices, endWithinCap, extendStep } f
 import { scheduleView } from './schedule';
 import { EditorSheet, type SheetName } from './EditorSheet';
 import { DatesList, ScheduleCard } from './EditorRows';
+import { DatesTakenOff } from './DatesTakenOff';
 import { EventList } from './EventList';
 import {
   FIELD_LABEL, MUSIC_STYLES, capInput, cardPreview, changedFields, conflictingFields, draftFromWorkspace, draftProblem,
@@ -244,6 +245,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
         <SummaryRow icon={<Ticket />} label="Ticket link" value={draft.ticketUrl.trim() || (lock ? 'None' : 'Add')} onPress={() => setSheet('ticket')} disabled={!!lock} testId="org-row-ticket" />
       </Card>
       <DatesList seriesId={seriesId} dates={ws.dates} today={today} emptyHint={emptyHint} truncated={ws.hasMore} />
+      <DatesTakenOff series={ws.series} dates={ws.dates} today={today} lock={lock} dirty={dirty} canChooseEnd={weekly} />
       <EditorSheet stopReason={sched.stopReason}
         sheet={sheet} onSheet={setSheet} draft={draft} patch={patch} today={today} cap={cap} venues={venues.data}
         venuesError={venues.isError} onRetryVenues={() => void venues.refetch()} venuesRetrying={venues.isFetching}
