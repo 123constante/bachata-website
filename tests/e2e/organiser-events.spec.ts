@@ -22,6 +22,12 @@ test('New event: name only creates the draft and its first 8 weekly dates, then 
   expect(fake.envelopes()).toHaveLength(0);
 
   await page.getByTestId('org-new-event-name').fill('Thursday Bachata Class');
+  // No type chosen yet (G2): refused on the screen, nothing is sent.
+  await page.getByTestId('org-new-event-create').click();
+  await expect(page.getByTestId('org-new-event-error')).toHaveText('Choose what it is: a class, a party, or a course or workshop.');
+  expect(fake.envelopes()).toHaveLength(0);
+
+  await page.getByTestId('org-new-event-type-class').click();
   await page.getByTestId('org-new-event-create').click();
   await expect(page).toHaveURL(/\/account\/o\/events\/[0-9a-f-]{36}$/);
   const id = page.url().split('/').pop()!;
@@ -30,7 +36,7 @@ test('New event: name only creates the draft and its first 8 weekly dates, then 
   const [create, rule] = fake.envelopes();
   expect(create.target_id).toBe(id);
   expect(create.command.kind).toBe('series.upsert');
-  expect(create.command.payload).toMatchObject({ name: 'Thursday Bachata Class', format: 'recurring', default_start_date: '2026-10-15', timezone: 'Europe/London' });
+  expect(create.command.payload).toMatchObject({ name: 'Thursday Bachata Class', format: 'recurring', category: 'class', default_duration_minutes: 120, default_start_date: '2026-10-15', timezone: 'Europe/London' });
   expect(create.command.payload.organiser_ids).toEqual([ORG]);
   expect(rule.command).toEqual({ kind: 'series.set_recurrence', payload: { mode: 'weekly', weekdays: [4], end: { kind: 'until_date', date: '2026-12-03' } } });
   expect(rule.expected_version).toBe(1);
@@ -39,6 +45,27 @@ test('New event: name only creates the draft and its first 8 weekly dates, then 
   await expect(page.getByTestId('org-event-name')).toHaveValue('Thursday Bachata Class');
   await expect(page.getByTestId('org-date-row')).toHaveCount(8);
   await expect(page.getByTestId('org-row-until')).toContainText('Listed until Thu 3 Dec');
+});
+
+test('New event: a party is created with ONE date (no weekly rule), then the editor opens', async ({ page }) => {
+  const fake = await openOrganiser(page, '/account/o/events/new');
+  await page.getByTestId('org-new-event-name').fill('Saturday Social');
+  await page.getByTestId('org-new-event-type-party').click();
+  await page.getByTestId('org-new-event-create').click();
+  await expect(page).toHaveURL(/\/account\/o\/events\/[0-9a-f-]{36}$/);
+  const id = page.url().split('/').pop()!;
+
+  const sent = fake.envelopes();
+  expect(sent).toHaveLength(2);
+  const [create, date] = sent;
+  expect(create.target_id).toBe(id);
+  expect(create.command.payload).toMatchObject({ name: 'Saturday Social', format: 'recurring', category: 'party', default_duration_minutes: 300, default_start_date: '2026-10-15' });
+  expect(date.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
+  expect(date.expected_version).toBe(1);
+
+  await expect(page.getByTestId('org-event-editor')).toBeVisible();
+  await expect(page.getByTestId('org-event-name')).toHaveValue('Saturday Social');
+  await expect(page.getByTestId('org-date-row')).toHaveCount(1);
 });
 
 test('editor: summary rows edit the draft, the preview follows, ONE save sends only what changed', async ({ page }) => {
