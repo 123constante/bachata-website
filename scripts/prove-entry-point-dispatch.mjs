@@ -166,6 +166,7 @@ const TRACE_LINE_RE = /\[entry-point-trace\] (true|false) (.+)/;
 const TARGETS = [
   { rel: 'scripts/_serve-build.mjs' },
   { rel: 'scripts/apply-firewall.mjs' },
+  { rel: 'scripts/automerge-classify.mjs' },
   { rel: 'scripts/check-bundle-budget.mjs' },
   { rel: 'scripts/ci-live-db-gate.mjs' },
   { rel: 'scripts/check-ci-budget.mjs' },

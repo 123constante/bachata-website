@@ -1,0 +1,92 @@
+name: Bot PR auto-merge
+
+# RUNG 2 of the hands-off ladder (rung 1 is dependabot-automerge.yml). For a PR
+# opened by kiki-claude-bot whose EVERY changed path is non-shipping (docs,
+# markdown, test files), ask GitHub to merge it by itself once main's REQUIRED
+# status checks are green (`gh pr merge --auto --squash`). GitHub does the merge;
+# this workflow only flips the switch -- or flips it back off.
+#
+# SAFETY, read before editing (full write-up: docs/automerge.md):
+#  - OFF unless BOTH repo variables AUTOMERGE_ENABLED and BOT_AUTOMERGE_ENABLED are
+#    exactly 'true'. Auto-merge merges IMMEDIATELY when main has no required checks;
+#    the "main checks" ruleset must keep requiring them.
+#  - pull_request_target, so this file and the classifier run from MAIN, never from
+#    the PR: a PR cannot edit the rules that judge it. The PR head is NEVER checked
+#    out or executed; files come from the GitHub API. Do not add a head checkout.
+#  - The decision is scripts/automerge-classify.mjs (fail closed; tested in
+#    tests/automergeClassify.test.ts). The real-data-verified parser, when it exists
+#    on main, is imported from main and applied unchanged.
+#  - Re-judged on every push, label, edit and draft flip. A PR that stops qualifying
+#    (src/ file pushed, 'needs-owner' added, switch turned off) has auto-merge
+#    DISABLED, so the switch is not sticky. The merge is pinned to the judged head sha.
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, edited, ready_for_review, converted_to_draft, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: bot-automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  decide:
+    # Runs for bot PRs only, and only when switched on OR when auto-merge is already
+    # on (so turning the switch off still disarms PRs it armed).
+    if: >-
+      github.event.pull_request.user.login == 'kiki-claude-bot' &&
+      ((vars.AUTOMERGE_ENABLED == 'true' && vars.BOT_AUTOMERGE_ENABLED == 'true') ||
+       github.event.pull_request.auto_merge != null)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out MAIN (never the PR head)
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Fetch the PR and its files through the API (fresh, not the event payload)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/pulls/$PR" > pr.json
+          gh api --paginate --slurp "repos/$REPO/pulls/$PR/files?per_page=100" > files.json
+
+      - name: Classify, then arm or disarm auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          ENABLED: ${{ vars.AUTOMERGE_ENABLED == 'true' && vars.BOT_AUTOMERGE_ENABLED == 'true' }}
+        run: |
+          set -uo pipefail
+          [ -n "${GH_TOKEN:-}" ] || { echo "::error::secret BOT_PR_TOKEN is not set"; exit 1; }
+          node scripts/automerge-classify.mjs --pr pr.json --files files.json \
+            --real-data-parser scripts/check-pr-real-data-verified.mjs | tee verdict.txt
+          code=${PIPESTATUS[0]}
+          url=$(jq -r .html_url pr.json)
+          head=$(jq -r .head.sha pr.json)
+          armed=$(jq -r '.auto_merge != null' pr.json)
+          cat verdict.txt >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" = "0" ] && [ "$ENABLED" = "true" ]; then
+            gh pr merge --auto --squash --match-head-commit "$head" "$url" || exit 1
+            echo "Auto-merge armed at $head; GitHub merges when the required checks pass." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          [ "$ENABLED" = "true" ] || echo "Switch is off (AUTOMERGE_ENABLED / BOT_AUTOMERGE_ENABLED)." | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$armed" = "true" ]; then
+            gh pr merge --disable-auto "$url" || exit 1
+            echo "Auto-merge DISARMED: the PR no longer qualifies." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          # 1 = does not qualify (a normal outcome); 2 = classifier could not run.
+          [ "$code" != "2" ] || { echo "::error::automerge-classify could not run"; exit 1; }
