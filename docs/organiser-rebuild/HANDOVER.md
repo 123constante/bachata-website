@@ -377,3 +377,125 @@ Scenarios: home = 3 strips + 5 dates (long names/venues); empty = no events; onb
 Under 44px, both W0 primitives: SearchField clear button (41px tall) and SheetView close
 (37px) -- for W5. Colours: only `.org-theme` tokens; no new colour pair (the done line uses
 --ok-fg on --ok-bg, already measured 7.93).
+
+
+## W3 -- Date editor (2026-10-08) -- DONE
+
+Page `/account/o/events/:seriesId/dates/:occurrenceId` (`src/modules/organiser/dates/`).
+
+### Files
+
+- `dates/index.tsx` -- the page: header (DateChip, date, series name, time span, Live/Cancelled
+  tag), Where card (Venue row, city from the venue), SCHEDULE (one row per session: type
+  StatusTag, name, start-end, levels, its people; Add a session; removal), This date card
+  (Break this week on rule dates, Cancel / Un-cancel), PreviewBar (public preview, the ONE
+  primary button "Save changes", live note, shake + message on failure), unsaved guard.
+- `dates/DateSheet.tsx` -- the ONE SheetView. Views (viewKey): `session:<key>`,
+  `search:<key>` (people search, Back returns to the session), `venue`, `cancel`,
+  `uncancel`, `break`. No popovers, no nested dialogs.
+- `dates/useDateEditor.ts` -- queries (programme, date detail, workspace), the draft, save,
+  re-read after every save, commands (break / cancel) through `useOwnerCommand`.
+- `dates/dateModel.ts` -- pure: people by type (`ADD_ROLE`, `pickPerson`, `setSessionType`),
+  the date span (first start to last end, 08:00 rollover like `programDayRollover`), labels.
+- `dates/DatePreview.tsx` -- how the date reads publicly, from the draft.
+- Tests: `dates/__tests__/dateModel.test.ts` (8), `dates/__tests__/DatePage.test.tsx` (12).
+
+### How the #653 failures are handled
+
+- (a) Search off-screen: the search is a VIEW of the same `SheetView fullHeight`. Measured
+  below with the keyboard simulated: input and first result inside the visible viewport.
+- (b) 48px gap: an added person or a session added on this screen leaves through
+  `Collapse` (0px at transitionend, then unmounts, then leaves the draft). A STORED person or
+  session stays greyed with Undo until the save (README rule for undoable removals).
+- (c) Empty line-up after save: after EVERY save (and after a refusal with `reload`) the
+  programme is fetched again (`fetchQuery`, staleTime 0) and the draft re-seeded from it. The
+  save result is never used to rebuild the draft. Test: a date-only session re-created under a
+  NEW id keeps its teacher, and the next removal names the new id.
+- (d) Contrast: only `.org-theme` tokens; no new colour pairs. Removed rows switch muted
+  text to `--fg` (as PersonRow does). Measured: every text colour on the page is a token.
+
+### PR #654 logic
+
+#654 did NOT change `programmeModel.ts`, `selfServeApi.ts` or `selfServeErrors.ts` relative
+to this branch (main already carries #653's model + `searchPeople`). Its real fix was the
+ProgrammeEditor re-read after save; that LOGIC is ported into `useDateEditor.resync()`.
+Nothing was copied out of the old model.
+
+### Old files imported (read-only, unchanged)
+
+- `organiser-self-serve/programmeModel.ts` (toDraft, buildPayload, validateProgramme,
+  newSession, add/remove/undo person, labels, notEditableCopy)
+- `organiser-self-serve/selfServeApi.ts` (fetch/save programme, fetchDateDetail,
+  fetchSeriesWorkspace, fetchCancellationReasons, searchPeople, query keys)
+- `organiser-self-serve/selfServeErrors.ts` (programmeErrorCopy, commandErrorMessage,
+  isServerRefusal, OFFLINE_SAVE_MESSAGE)
+- `organiser-self-serve/seriesCommands.ts` (overrideCommand, cancelCommand,
+  uncancelCommand, skipDateCommand)
+- `organiser-self-serve/seriesModel.ts` (dateLabel, isRuleDate)
+- `organiser-self-serve/editorGuards.ts` (UNSAVED_MESSAGE, confirmCopy)
+- `organiser-self-serve/components/useOwnerCommand.ts` (hook)
+- `organiser-self-serve/components/publicVenues.ts` (useVenueOptions, venueName; hooks, no component)
+- `src/hooks/useUnsavedChangesGuard.ts`, `src/lib/londonDate.ts` (londonTodayKey)
+
+When W5 deletes the old module, `useOwnerCommand.ts` and `publicVenues.ts` live under
+`components/` and must move, not be deleted.
+
+### Save model
+
+One button saves everything: the venue override first (`occurrence.set_override`), then the
+programme (`organiser_set_occurrence_programme_v1`, payload = old `buildPayload`, so untouched
+sessions are the reader's objects byte for byte -- parity tests in both test files), then the
+re-read. Break and cancel are commands confirmed inside the sheet and are disabled while
+there are unsaved changes ("Save your changes first."). Break goes back to the event page.
+
+### Gates run
+
+- `npm run typecheck`: 95 errors, all pre-existing (same count before; 0 in `dates/`).
+- `npx eslint src/modules/organiser/dates`: 0 problems.
+- `npx vitest run src/modules/organiser/dates`: 20/20 pass.
+- `npm run test:unit:offline` (with the CI offline env vars): 2289 pass, 6 fail = the 5
+  known `tests/integrityCouldNotRun.test.ts` failures + **`src/modules/organiser/__tests__/shell.test.tsx`
+  "/account/o/events/s1/dates/o1 renders its placeholder"**. That W0 test renders the real
+  pages without a `QueryClientProvider` (and without supabase env), so it fails as soon as a
+  placeholder is replaced by a page that reads data -- W1/W2/W4 will hit the same. Fix for
+  W0/W5 (not mine to edit): wrap `at()` in `<QueryClientProvider client={new QueryClient()}>`
+  and mock `@/integrations/supabase/client`, or assert only the shell for real pages.
+
+### Measured in headless Chromium (Vite harness, real Tailwind config, mocked supabase)
+
+Keyboard simulated by a fake `visualViewport` 300px shorter than the window. Search view =
+a class session's "Add a teacher" with 8 results.
+
+| Check | 390x844 | 320x568 | 390x500 | 1280x800 |
+|---|---|---|---|---|
+| Horizontal scroll (page / sheet / search) | 0/0/0 | 0/0/0 | 0/0/0 | 0/0/0 |
+| Primary buttons visible (page / sheet) | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
+| Visible viewport with keyboard | 544 | 268 | 200 | 500 |
+| Sheet top-bottom (kb) | 12-544 | 12-268 | 12-200 | 12-500 |
+| Search input top-bottom (kb) | 73-114 | 63-103 | 63-104 | 84-132 |
+| First result top-bottom (kb) | 125-182 | 114-172 | 115-172 | 145-205 |
+| Input + first result fully visible | yes | yes | yes | yes |
+| Search focused on view swap / dialogs in DOM | yes / 1 | yes / 1 | yes / 1 | yes / 1 |
+| Collapse height at transitionend | 0px | 0px | 0px | 0px |
+| List shrank by / row height | 54/54 | 54/54 | 54/54 | 56/56 |
+| Residual gap / unmounted after | 0 / 311ms | 0 / 312ms | 0 / 316ms | 0 / 319ms |
+| Text colours off the token list | 0 | 0 | 0 | 0 |
+| Page errors | 0 (one favicon 404) | 0 | 0 | 0 |
+
+### Gaps (existing RPCs only)
+
+- A STORED session's type cannot change (the writer echoes `type` for existing sessions);
+  the sheet says "remove this session and add a new one". New sessions pick any type.
+- No per-date time field: the programme RPC has no date-time override, so the date's time is
+  only ever its sessions' span (the old `occurrence.set_time` was not reused on purpose).
+- Removing a stored session no longer asks the old hard confirm; it greys with Undo and the
+  preview shows the result before Save. W5/owner may want the confirm back.
+- Remove-a-date (ad-hoc dates) and note/picture/ticket overrides from the old DateActionSheet
+  are not on this page (not in the DOMAIN per-date list).
+- Cover upload (listed under W3 in ARC file ownership) is not built: the DOMAIN per-date list
+  has no cover. Left for the event editor / W5.
+- The venue list cannot request a new venue (old VenuePicker's request flow not rebuilt).
+
+### Local primitives
+
+None added. `Field` (label + input + error) and `SessionRow` are local to `dates/`.
