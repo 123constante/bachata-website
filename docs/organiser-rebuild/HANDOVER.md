@@ -584,3 +584,9 @@ Checkpoints (one per step):
    files left alone (redirect covers them): `src/pages/Auth.tsx:71` (`/account` default return),
    `src/lib/auth-otp-routing.ts:93-94` (landing path after sign-in; auth logic, left on purpose,
    its test still expects `/account`). Test: `__tests__/legacyRedirect.test.tsx` (11).
+4. DONE -- `git rm` of 41 files: the 4 old pages + `AccountPageStates.test.tsx`, every old
+   component and component test under `organiser-self-serve/` (incl. #653's LineupRow /
+   LineupSheet / PersonPicker / ProgrammeSessionRow), `reviewModel.ts` (+test; only ReviewStrip
+   used it; Profile has its own) and `venueRequest.ts` (only VenuePicker used it; its 4 tests
+   were dropped from `venueOptions.test.ts`; restore from git if the venue request flow comes
+   back). Typecheck: 95 errors, identical list to the start of this session; `npm run build` OK.
