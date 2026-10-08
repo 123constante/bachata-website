@@ -95,7 +95,18 @@ Hobby CPU budget.
 Ids and slugs: the webhook sends a uuid. The slug comes from the same public
 resolvers the routes use: `resolve_public_event_ref_v1` for events, and
 `dancer_profiles` / `venues`.`slug` for the others. The body may also carry
-`slug`, which is used before the lookup.
+`slug`, which is used before the lookup. When the public resolver returns null
+for an event (archived, draft, pending_review: a takedown), the slug is read
+from `event_series_p5` with the server-only `SUPABASE_SERVICE_ROLE_KEY`
+(`hiddenEventSlug` in `app/lib/cloudflarePurgeResolver.ts`); without that key
+only the uuid URL is purged.
+
+**Hidden events on Vercel.** For an `event`/`festival` webhook the receiver
+first asks `resolve_public_event_ref_v1` whether the page is still public. If it
+is not (or the lookup fails), it calls `dangerouslyDeleteByTag` instead of
+`invalidateByTag`: a soft invalidate would serve the stale page once more while
+the background re-render 404s (2026-10-08: a taken-down series still showed its
+title after `cf-cache-status: EXPIRED`).
 
 ## Owner setup (one time)
 
@@ -158,7 +169,7 @@ Vercel env vars are not set on this deployment.
 | Workflow red, HTTP 429 | Over 5 purge-everything requests per minute (many deploys in one minute) | That purge is lost. The next deploy or a manual run clears the cache |
 | Workflow red, 5xx twice | Cloudflare API outage | Same. Re-run the workflow |
 | Log `[cf-purge] ... HTTP 429` on `prefix purge` | Webhook bursts (bulk admin edits) beyond the prefix limit | URL purges still worked. Query-string variants stay cached up to 300s |
-| Log `slug lookup failed` / only the uuid URL purged | Supabase blip, or the event is now hidden/archived (the public resolver hides it) | `/event/<slug>` can serve the old page for up to 300s. Fix: have the DB emit include `slug` (admin repo) |
+| Log `slug lookup failed` / only the uuid URL purged | Supabase blip, or the event is hidden and `SUPABASE_SERVICE_ROLE_KEY` is not set on the deployment | `/event/<slug>` can serve the old page for up to 300s. Set the key, or have the DB emit include `slug` (admin repo) |
 | No `[cf-purge]` lines at all | Webhook not reaching `/api/revalidate`, or the Vercel purge failed (the purge then deliberately skips Cloudflare) | See `[revalidate]` errors |
 
 ## Known gaps (not closed by this change)
