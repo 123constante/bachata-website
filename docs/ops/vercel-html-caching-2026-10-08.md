@@ -162,7 +162,7 @@ cause of the low hit rate, and **no CSP change is needed** to cache HTML.
   Cloudflare): `/faq`, `/city/london-gb`, `/festivals` went `MISS` then `HIT`
   on the next request. `/venues` was already `HIT`.
 - **Cloudflare caches HTML for ~300s regardless of `max-age=0`.** A sampler
-  ran every ~21s for 9 minutes on 6 URLs (102 samples). `cf-cache-status: HIT`
+  ran every ~21s for ~10 minutes on 6 URLs (150 samples: 138 HIT, 11 EXPIRED, 1 MISS). `cf-cache-status: HIT`
   with `age` rising to 306–309, then `EXPIRED` and one origin fetch, then `HIT`
   again. On those refetches Vercel answered `x-vercel-cache: HIT` (`/venues`,
   `/festivals`, `/city/london-gb`, `/event/bachateame-saturdays`,
