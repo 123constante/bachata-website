@@ -170,3 +170,93 @@ Owned paths only: `src/modules/organiser/team/**`, `src/modules/organiser/profil
 
 (The probe also counts the W0 `Cover` round change button as cream; it is the cover's icon button, not a PrimaryButton.)
 Fixes made because of these runs: "(you)" removed from the name (it gave "D(" initials and truncated) and moved to the sublabel; the confirm buttons stack instead of wrapping "Yes, add as manager" onto two lines.
+
+## W2 -- Events: list, name-only create, event editor (2026-10-08) -- DONE
+
+Owned paths only: `src/modules/organiser/events/**`. `EventListPlaceholder.tsx` (W0
+placeholder in my folder) is deleted; `EventList.tsx` replaces it.
+
+### Files
+
+| File | What |
+|---|---|
+| `events/index.tsx` | `/account/o/events`: list (left column on wide), 'New event' gold link in the top bar, empty state carries the screen's one PrimaryButton |
+| `events/EventList.tsx` | `EventList` (rows: DateChip of next date, name, venue, StatusTag Live/Draft; Skeleton/Empty/Error) + `NewEventLink` |
+| `events/NewEventPage.tsx` + `newEvent.ts` | name only; creates the draft at once and replaces the route with its editor |
+| `events/EventEditorPage.tsx` | the editor (renders its own OrganiserShell so the PreviewBar can live in `actionBar`; list + detail on wide) |
+| `events/EditorSheet.tsx` | the ONE SheetView; views: gallery, video, starts, repeats, until, venue, venue-search, description, ticket |
+| `events/EditorRows.tsx` | Schedule card (next date's sessions, read-only, people 'Ana Ruiz, Cleo Park', opens ORG_PATHS.date) + dates list (upcoming DateChip rows, past collapsed) |
+| `events/dateCap.ts` | PURE 30-upcoming-date cap: `allowedEndChoices`, `endWithinCap`, `extendStep` (batch 8), `maxRuleEnd` (server's 12-month bound) |
+| `events/eventModel.ts` | PURE: parse (adds styles/gallery/videos the old parser drops), draft, `changedFields`, `conflictingFields`, `draftProblem`, `savePlan`, preview |
+| `events/eventsApi.ts` | queries (own key `org-event-workspace`), `useRunCommands` (sequential series_command_p5, version chained, reloads old+new keys + home) |
+| `events/media.ts` | cover/gallery upload through the old flyer pipeline |
+| `events/__tests__/` | `dateCap.test.ts` (9), `eventModel.test.ts` (10), `pages.test.tsx` (24), `fixtures.ts` |
+
+### Behaviour worth knowing
+
+- Create = the old create's `series.upsert` (via `createSeriesCommand` + `createPayload` +
+  `createDraft`, kind weekly_class -> format recurring, category class), first date today+7,
+  start time 20:00 (never shown; times follow sessions), organiser city as `default_city_id`,
+  then `series.set_recurrence` weekly with `until_date` = 8th date. One idempotency key per
+  write, kept across retries. A refused rule still opens the editor ('Repeats' fixes it).
+- The UI never sends `end: {kind: 'none'}`: a weekly event always has an `until_date` inside
+  the cap. Moving 'Starts on' re-picks an end inside the cap. Hand-added upcoming dates
+  count toward the 30.
+- Save: ONE PrimaryButton in PreviewBar (public card preview + LIVE_NOTE for live events).
+  Before writing, it re-reads the workspace; a field this screen changed that changed on the
+  server meanwhile refuses the save ('Someone else changed the description...'), shakes,
+  and nothing is sent. Otherwise only changed fields go (`name` always, as the handler needs).
+  Failure: `useShake` + `commandErrorMessage` text above the bar. Unsaved guard on.
+- Shape: 'One date' / 'Every <weekday>'. weekly -> one date = `series.stop_repeating`
+  keeping the start date; one date moved = `add_date` + `remove_date`.
+- Sheet footer is a GhostButton 'Done' (keeps one primary on screen).
+
+### Old files imported (read-only, by import)
+
+`selfServeApi.ts`, `selfServeErrors.ts`, `seriesCommands.ts`, `seriesModel.ts`,
+`homeModel.ts`, `createModel.ts`, `createCity.ts`, `editorGuards.ts`, `programmeModel.ts`,
+`flyerModel.ts`, `flyerUploadApi.ts`, `components/publicVenues.ts` (hook + helper, not a
+component), plus `@/hooks/useUnsavedChangesGuard`, `@/hooks/useLondonToday`, `@/lib/londonDate`.
+No old React component is imported.
+
+### Gaps (no RPC offers it; shipped the simpler version)
+
+- Organisers row is READ-ONLY (names from organiser_home_v1). No owner command changes an
+  event's organisers.
+- Shape change on a LIVE series to 'One date' will be refused by the server
+  (`event_series_p5_format_recurrence_chk` keeps a rule on live/paused recurring series);
+  the plain server message shows. 'Every week' on an old one_off series goes through
+  `set_recurrence`; not verified against prod (no prod writes).
+- Music styles: no server list; chips are a fixed list (Bachata, Sensual Bachata, Dominican
+  Bachata, Salsa, Kizomba, Brazilian Zouk, Merengue, Reggaeton) plus any stored style.
+- Video: links only (https), no upload.
+
+### For W0/W5 -- W0's shell test now fails on real pages
+
+`src/modules/organiser/__tests__/shell.test.tsx` renders the real pages with no
+QueryClientProvider and no supabase mock, so `/account/o/events`, `/events/new` and
+`/events/s1` fail there ('supabaseKey is required' / 'No QueryClient set'). Every worker
+with a real page hits this. Fix belongs to W0/W5 (not my folder): wrap `at()` in a
+QueryClientProvider and mock `@/integrations/supabase/client` + `@/hooks/useAuth`.
+
+### Gates run (sandbox)
+
+- `npx tsc -p tsconfig.app.json`: 95 errors total, 0 in `src/modules/organiser/` (W0 noted 95 pre-existing).
+- `npx eslint src/modules/organiser/events`: 0 problems.
+- `npx vitest run src/modules/organiser/events`: 43/43 pass.
+- `npm run test:unit:offline`: 2296 pass, 8 fail in 3 files: the two known sandbox failures (useEventGuestList.cache, integrityCouldNotRun) + W0 shell.test.tsx (3, explained above).
+
+### Measured in headless Chromium (Vite harness in scratchpad, real Tailwind, mocked RPCs, 8 series, 9 dates)
+
+| Check | 390x844 | 320x568 | 1280x800 |
+|---|---|---|---|
+| Horizontal scroll (doc / content), list, new, editor | 0/0 | 0/0 | 0/0 |
+| Visible PrimaryButtons: list / new / editor | 0* / 1 / 1 | 0* / 1 / 1 | 0* / 1 / 1 |
+| Editor action bar bottom / tab bar top | 783 / 783 | 507 / 507 | 739 / 739 |
+| List column visible on editor route | no | no | yes |
+| 'Listed until' sheet: dialogs / top-bottom / h-scroll | 1 / 301-844 / 0 | 1 / 85-568 / 0 | 1 / 218-800 / 0 |
+| Venue search view: dialogs / top-bottom / h-scroll | 1 / 127-844 / 0 | 1 / 85-568 / 0 | 1 / 120-800 / 0 |
+| Text colours outside the token set (fg, mut, gold, btnfg, ok-fg, warn-fg, danger, ph) | none | none | none |
+| Page errors | 0 | 0 | 0 |
+
+\* The list's PrimaryButton only exists on the empty state (no events). No new colour pairs.
