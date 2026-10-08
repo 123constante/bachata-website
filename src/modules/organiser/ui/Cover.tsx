@@ -21,7 +21,7 @@ export function Cover({ src, alt, onChange, changeLabel = 'Change cover', emptyL
     <div data-testid={testId} className={cn('relative mx-auto aspect-square w-[78%]', className)}>
       <div className="h-full w-full overflow-hidden rounded-[20px] border border-[var(--line)] bg-[var(--card2)]">
         {src ? (
-          <img src={src} alt={alt} className="h-full w-full object-cover" />
+          <img src={src} alt={alt} loading="eager" decoding="async" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-[8px] text-[var(--mut)]">
             <ImageIcon aria-hidden="true" className="h-[32px] w-[32px]" />

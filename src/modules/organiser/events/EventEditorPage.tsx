@@ -31,7 +31,7 @@ export function PublicCardPreview({ card }: { card: CardPreview }) {
   return (
     <div className="flex items-center gap-[12px] p-[8px]" data-testid="org-card-preview">
       <div className="h-[48px] w-[48px] shrink-0 overflow-hidden rounded-[8px] bg-[var(--card2)]">
-        {card.coverUrl && <img src={card.coverUrl} alt="" className="h-full w-full object-cover" />}
+        {card.coverUrl && <img src={card.coverUrl} alt="" loading="lazy" className="h-full w-full object-cover" />}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] font-semibold text-[var(--fg)]">{card.title}</p>

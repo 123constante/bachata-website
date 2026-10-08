@@ -968,3 +968,18 @@ before); eslint on changed paths 0; vitest `src/modules/organiser` 36 files / 49
 retry; not touched here). `npm run lint` 15/16 (`check:integrity` exit 126 = non-executable script
 here; `bash bin/check-integrity.sh` ok). `test:unit:offline`: only the known
 `integrityCouldNotRun.test.ts` (5) + `useEventGuestList.cache.test.ts` (no supabase env).
+
+## F3 -- CI fix-up (integrity job, 2026-10-08)
+
+The PR's `integrity` job (architecture-guard.yml) failed at `check:images` (AUDIT_STRICT=1): four
+organiser `<img>` tags had no `loading`. Fixed: `loading="lazy"` on the gallery tile
+(`events/EditorSheet.tsx`), the public card preview thumb (`events/EventEditorPage.tsx`) and the
+profile preview avatar (`profile/index.tsx`); `loading="eager" decoding="async"` on `ui/Cover.tsx`
+(the editor/profile cover, first thing above the fold). No layout or behaviour change.
+
+Every integrity-job step re-run locally as the workflow runs it: all pass (integrity guard,
+legacy-tables, legacy-program-rpcs, lint:architecture, check:images, image-width contract,
+plan-hygiene canary, workflow-artifact policy, mojibake canary + grep, entry-point proof).
+Also: `npm run typecheck` 95 errors, 0 under `src/modules/organiser`; `npm run lint` 16/16 links
+green (whole-tree eslint informational, as on main); vitest `src/modules/organiser` 36 files /
+496 tests pass.

@@ -65,7 +65,7 @@ function PublicCardPreview({ form, city }: { form: OrganiserProfileEditForm; cit
   return (
     <div className="flex items-center gap-[12px] p-[12px]" data-testid="profile-preview">
       {form.avatar_url.trim() ? (
-        <img src={form.avatar_url.trim()} alt="" className="h-[44px] w-[44px] shrink-0 rounded-[12px] object-cover" />
+        <img src={form.avatar_url.trim()} alt="" loading="lazy" className="h-[44px] w-[44px] shrink-0 rounded-[12px] object-cover" />
       ) : (
         <span aria-hidden="true" className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full bg-[var(--card2)] text-[14px] font-bold text-[var(--fg)]">
           {initials(form.name || '?')}

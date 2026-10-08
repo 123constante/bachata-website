@@ -91,7 +91,7 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
             {photos.map(({ url, leaving }, i) => (
               <Collapse key={url} show={!leaving} testId="org-gallery-tile" onExited={() => setLeavingPhotos((l) => l.filter((x) => x.url !== url))}>
                 <div role="listitem" className="relative aspect-square overflow-hidden rounded-[12px] bg-[var(--card2)]">
-                  <img src={url} alt="" className="h-full w-full object-cover" />
+                  <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
                   <button type="button" aria-label="Remove this photo" data-testid="org-gallery-remove" disabled={leaving}
                     onClick={() => {
                       setLeavingPhotos((l) => [...l, { url, at: i }]);
