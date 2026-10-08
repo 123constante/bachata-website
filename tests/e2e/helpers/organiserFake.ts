@@ -369,6 +369,9 @@ export class OrganiserFake {
       s.recurrence_rule = null;
     } else if (kind === 'series.add_date') {
       s.extra_dates.push(String(payload.date));
+      s.removed_dates = s.removed_dates.filter((d) => d !== String(payload.date));
+    } else if (kind === 'series.unskip_date') {
+      s.removed_dates = s.removed_dates.filter((d) => d !== String(payload.date));
     } else if (kind === 'series.remove_date') {
       s.removed_dates.push(String(payload.date));
     } else if (kind === 'series.skip_date') {

@@ -212,3 +212,27 @@ test('break this week sends series.skip_date and goes back to the event; unsaved
   await expect(page.locator('[data-testid="org-date-row"][data-date="2026-10-09"]')).toHaveCount(0);
   await expect(page.locator('[data-testid="org-date-row"][data-date="2026-10-16"]')).toHaveCount(1);
 });
+
+test('a week off shows under "Dates taken off" on the event page, and Put back brings it back', async ({ page }) => {
+  const fake = await openDate(page);
+  await page.getByTestId('date-break').click();
+  // The sheet names the control that really exists.
+  await expect(page.getByTestId('date-break-undo')).toHaveText('You can put it back later from "Dates taken off" on the event page.');
+  await page.getByTestId('date-break-confirm').click();
+  await expect(page).toHaveURL(new RegExp(`/account/o/events/${FRIDAY}$`));
+
+  const section = page.getByTestId('org-taken-off');
+  await expect(section).toContainText('Dates taken off (1)');
+  const row = section.locator('[data-testid="org-taken-off-row"][data-date="2026-10-09"]');
+  await expect(row).toHaveCount(1);
+  const putBack = row.getByTestId('org-taken-off-put-back');
+  await putBack.scrollIntoViewIfNeeded();
+  const box = await putBack.boundingBox();
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+  await putBack.click();
+  await expect.poll(() => fake.envelopes().length).toBe(2);
+  expect(fake.envelopes()[1]).toMatchObject({ target_id: FRIDAY, expected_version: 4, command: { kind: 'series.unskip_date', payload: { date: '2026-10-09' } } });
+  // Back in the dates list; the section hides once nothing is taken off.
+  await expect(page.locator('[data-testid="org-date-row"][data-date="2026-10-09"]')).toHaveCount(1);
+  await expect(page.getByTestId('org-taken-off')).toHaveCount(0);
+});

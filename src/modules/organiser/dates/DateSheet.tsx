@@ -36,7 +36,7 @@ import {
   searchPeopleQueryKey,
   type CancellationReason,
 } from '@/modules/organiser/shared/selfServeApi';
-import { confirmCopy } from '@/modules/organiser/shared/editorGuards';
+import { PUT_BACK_WHERE, confirmCopy } from '@/modules/organiser/shared/editorGuards';
 import type { VenueOption } from '@/modules/organiser/shared/publicVenues';
 import { ROLE_NOUN, addRoleFor, onSessionIds, pickPerson, setSessionType, typeLabel, typeTone } from './dateModel';
 
@@ -127,7 +127,7 @@ export function DateSheet(props: DateSheetProps) {
     body = (
       <div className="space-y-[12px] text-[15px] text-[var(--fg)]" data-testid="date-break-view">
         <p>{props.dateLabel} comes off the calendar for a break. Dancers do not see a cancellation, the date just is not listed.</p>
-        <p className="text-[13px] text-[var(--mut)]">You can put it back later from the event&rsquo;s dates.</p>
+        <p className="text-[13px] text-[var(--mut)]" data-testid="date-break-undo">{PUT_BACK_WHERE}</p>
         {props.commandError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="date-command-error">{props.commandError}</p>}
       </div>
     );

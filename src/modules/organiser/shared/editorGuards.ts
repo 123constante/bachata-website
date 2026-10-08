@@ -5,6 +5,12 @@
 
 import { eventHref } from '@/lib/seo/eventHref';
 
+/** The event page's section listing future dates taken off, each with Put back. Every pointer to it uses this name. */
+export const TAKEN_OFF_LABEL = 'Dates taken off';
+
+/** Where a date taken off (a break, a removed date) can be put back. */
+export const PUT_BACK_WHERE = `You can put it back later from "${TAKEN_OFF_LABEL}" on the event page.`;
+
 /** Shown by the browser prompt when an organiser leaves with edits not saved. */
 export const UNSAVED_MESSAGE = 'You have changes that are not saved. If you leave now, you will lose them.';
 
@@ -63,7 +69,7 @@ export function confirmCopy(kind: ConfirmKind, ctx: ConfirmContext): ConfirmCopy
         consequence: ctx.alreadyCancelled
           ? 'The cancelled date goes off the list, so dancers stop seeing it.'
           : 'The date disappears from the list and from Bachata Calendar. Dancers will not see it.',
-        undo: 'You can put it back from "Dates taken off".',
+        undo: PUT_BACK_WHERE,
         confirmLabel: 'Yes, remove this date',
         keepLabel: 'No, keep it',
         requireAck: true,
