@@ -93,7 +93,11 @@ The approved mockup is v12 (https://claude.ai/artifact/S5F8epkUaiV9AbT5spHskK; s
 - No prod writes. No migrations (this repo owns none). No admin repo changes.
 - Commit and push as the bot; never `--no-verify`; never merge or approve.
 - No nested dialogs, no floating popovers: one `SheetView` per editor, swap views inside it.
-- One `PrimaryButton` per screen.
+- One `PrimaryButton` per screen STATE, sheets included: an open sheet's confirm / Done is its one primary
+  (the page behind is inert); a failed load's Try again is the primary. By design with none: loading
+  (skeleton only), pick-a-row views (search results), Team with no question open.
+- Sizes in px only (`h-[44px]`, `px-[16px]`), never Tailwind's rem scale (`h-11`, `px-4`): the public
+  site's root font is 13.5px on phones, so rem classes draw 44px targets at 37px (W5b-2 measured).
 - Lists: skeleton rows while loading (`SkeletonRows`), never a spinner. Removal uses
   `Collapse`. Failed save: `useShake` + a visible message.
 - Colours only from `.org-theme` tokens (`var(--fg)` etc). New colour pairs must be
@@ -182,7 +186,9 @@ Every primitive takes `testId` (rendered as `data-testid`).
 | `Skeleton` / `SkeletonRows` | `count`, `label` |
 | `useShake()` | `{ shake, shaking, shakeProps }` |
 | `PreviewBar` | `preview`, `actionLabel`, `onAction`, `loading`, `disabled`, `live`, `shakeProps` |
-| `EmptyState` / `ErrorState` | `title`, `body`, `action` / `onRetry`, `retrying` |
+| `EmptyState` / `ErrorState` | `title`, `body`, `action` / `onRetry`, `retrying`, `quiet` (ErrorState: retry is the screen's ONE primary; `quiet` = ghost, when the screen or sheet already has a primary) |
+| `Field` + `FIELD_CLASS` | `label`, `htmlFor`, `help?`, `error?` (role=alert), `testId`; FIELD_CLASS = the input/textarea look (W5b-2, was copied in 4 folders) |
+| `useDebounced(value, ms = 250)` | settled value for search fields (W5b-2, was copied in 2 folders) |
 | `AnnounceRegion` + `useAnnounce()` | aria-live polite |
 | `useKeyboardInset()` | `{ inset, height }` from visualViewport |
 | `usePrefersReducedMotion`, `MOTION_MS` | re-exported from `shared/usePrefersReducedMotion.ts` (not copied) |

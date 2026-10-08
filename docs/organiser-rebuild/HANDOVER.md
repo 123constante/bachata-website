@@ -726,3 +726,192 @@ When a fix lands, delete the `.fixme` (the test body is the check).
   `src/` is not mine -- W5b-2 can fix the comment.
 - Profile save sends Instagram as typed (`@ritmo.soho`, not a URL); same shared helper as before,
   asserted loosely, not called a bug.
+
+## W5b-2 -- Measured quality sweep (2026-10-08) -- DONE
+
+Edited `src/modules/organiser/**` (all folders) + docs only. No e2e/, no login, no public pages.
+
+### How it was measured
+
+Vite harness in the scratchpad (outside the repo): the REAL `OrganiserRoutes` (AuthGuard stubbed),
+`src/index.css`, the real Tailwind config, a PROD build (`vite build` + `vite preview`), headless
+Chromium 1194. `@/integrations/supabase/client` is aliased to a stub that answers every RPC / table
+read the area makes with raw payloads (parsed by the real parsers) full of LONG names, venues and
+emails (e.g. a 74-char organiser name, 80-char emails, 85-char event name, a 190-char "changes
+needed" reason). Failure / loading = the RPC rejects / never answers. Keyboard = a fake
+`window.visualViewport` 300px shorter than the window. 57 screen states x 4 viewports (390x844,
+320x568, 390x500, 1280x800) + 21 keyboard-up passes = 270 measurements per run; a second probe drove
+sheets (focus trap, Escape, focus return), every list that removes rows (Collapse), and reduced
+motion (Chromium `reducedMotion: 'reduce'`). Contrast is computed from the DOM: text colour (with
+every ancestor's opacity) over the composited background stack (gradients: worst stop), 4.5:1 text /
+3:1 large text, icon-only controls and control borders.
+
+States: Home (strips, empty, loading, error), onboarding (search, search error, claim, ask to join,
+create, city view), Events (list, empty, loading, error), New event, Event editor (loaded, loading,
+error, dirty, dirty + keyboard, sheets: venue, venue search, description, gallery, video, starts,
+repeats, listed-until, ticket), Date editor (loaded, loading, error, cancelled, session sheet, people
+search, removed + Undo, venue, cancel, break), Team (one org, two orgs, loading, error, requests
+error, no requests, add-as-manager question, remove question), Profile (live, loading, error,
+"changes needed" Status card with the long reason, Send for review confirm, city view, field sheet,
+dirty, sign-out sheet).
+
+### The big one: rem sizes rendered 16% small
+
+The public site sets `html { font-size: clamp(13.5px, ...) }`, so on phones 1rem = 13.5px and every
+Tailwind rem class in the area shrank: `h-11` (meant 44px) measured 37px, `h-12` inputs 41px, sheet
+close / Back buttons 37px, the round remove buttons 32 -> 27px. W0..W4 measured "44" from the
+class names. FIX: every numeric size / spacing / position class under `src/modules/organiser`
+(not `shared/`) is now an explicit px value (367 classes in 37 files, e.g. `h-11` -> `h-[44px]`,
+`px-4` -> `px-[16px]`). Text sizes were already px. Rule added to ARC.md and ui/README.md.
+
+### Before -> after (counts summed over the screen's states at that viewport)
+
+| Screen | Viewport | States | H-scroll px | Targets <44px | Smallest target | Contrast fails | Unnamed controls/inputs | Keyboard-up: field/result hidden |
+|---|---|---|---|---|---|---|---|---|
+| Home | 390x844 | 4 | 0 -> 0 | 0 -> 0 | >=44 -> >=44 | 0 -> 0 | 0 -> 0 | 0/0 -> 0/0 |
+| Home | 320x568 | 4 | 0 -> 0 | 0 -> 0 | >=44 -> >=44 | 0 -> 0 | 0 -> 0 | 0/0 -> 0/0 |
+| Home | 390x500 | 4 | 0 -> 0 | 0 -> 0 | >=44 -> >=44 | 0 -> 0 | 0 -> 0 | 0/0 -> 0/0 |
+| Home | 1280x800 | 4 | 0 -> 0 | 0 -> 0 | >=44 -> >=44 | 0 -> 0 | 0 -> 0 | n/a |
+| Onboarding | 390x844 | 7 | 0 -> 0 | 28 -> 0 | 20 -> >=44 | 0 -> 0 | 0 -> 0 | 0/4 -> 0/4 |
+| Onboarding | 320x568 | 7 | 0 -> 0 | 25 -> 0 | 37 -> >=44 | 0 -> 0 | 0 -> 0 | 0/4 -> 0/4 |
+| Onboarding | 390x500 | 7 | 0 -> 0 | 24 -> 0 | 37 -> >=44 | 0 -> 0 | 0 -> 0 | 1/4 -> 0/4 |
+| Onboarding | 1280x800 | 7 | 0 -> 0 | 1 -> 0 | 24 -> >=44 | 0 -> 0 | 0 -> 0 | n/a |
+| Events list | 390x844 | 4 | 0 -> 0 | 4 -> 0 | 37 -> >=44 | 0 -> 0 | 0 -> 0 | 0/0 -> 0/0 |
+| Events list | 320x568 | 4 | 0 -> 0 | 4 -> 0 | 37 -> >=44 | 0 -> 0 | 0 -> 0 | 0/0 -> 0/0 |
+| Events list | 390x500 | 4 | 0 -> 0 | 4 -> 0 | 37 -> >=44 | 0 -> 0 | 0 -> 0 | 0/0 -> 0/0 |
+| Events list | 1280x800 | 4 | 0 -> 0 | 0 -> 0 | >=44 -> >=44 | 0 -> 0 | 0 -> 0 | n/a |
+| New event | 390x844 | 1 | 0 -> 0 | 4 -> 0 | 35 -> >=44 | 0 -> 0 | 0 -> 0 | 0/1 -> 0/1 |
+| New event | 320x568 | 1 | 0 -> 0 | 4 -> 0 | 35 -> >=44 | 0 -> 0 | 0 -> 0 | 0/1 -> 0/1 |
+| New event | 390x500 | 1 | 0 -> 0 | 4 -> 0 | 35 -> >=44 | 0 -> 0 | 0 -> 0 | 0/1 -> 0/1 |
+| New event | 1280x800 | 1 | 0 -> 0 | 1 -> 0 | 35 -> >=44 | 0 -> 0 | 0 -> 0 | n/a |
+| Event editor | 390x844 | 14 | 0 -> 0 | 32 -> 0 | 35 -> >=44 | 0 -> 0 | 0 -> 0 | 1/5 -> 0/5 |
+| Event editor | 320x568 | 14 | 0 -> 0 | 32 -> 0 | 35 -> >=44 | 0 -> 0 | 0 -> 0 | 1/5 -> 0/5 |
+| Event editor | 390x500 | 14 | 0 -> 0 | 32 -> 0 | 35 -> >=44 | 0 -> 0 | 0 -> 0 | 2/5 -> 0/5 |
+| Event editor | 1280x800 | 14 | 0 -> 0 | 2 -> 0 | 35 -> >=44 | 0 -> 0 | 0 -> 0 | n/a |
+| Date editor | 390x844 | 10 | 0 -> 0 | 30 -> 0 | 17 -> >=44 | 0 -> 0 | 0 -> 0 | 1/2 -> 0/2 |
+| Date editor | 320x568 | 10 | 0 -> 0 | 24 -> 0 | 17 -> >=44 | 0 -> 0 | 0 -> 0 | 1/2 -> 0/2 |
+| Date editor | 390x500 | 10 | 0 -> 0 | 26 -> 0 | 17 -> >=44 | 0 -> 0 | 0 -> 0 | 1/2 -> 0/2 |
+| Date editor | 1280x800 | 10 | 0 -> 0 | 1 -> 0 | 20 -> >=44 | 0 -> 0 | 0 -> 0 | n/a |
+| Team | 390x844 | 8 | 0 -> 0 | 0 -> 0 | >=44 -> >=44 | 0 -> 0 | 0 -> 0 | 0/0 -> 0/0 |
+| Team | 320x568 | 8 | 0 -> 0 | 0 -> 0 | >=44 -> >=44 | 0 -> 0 | 0 -> 0 | 0/0 -> 0/0 |
+| Team | 390x500 | 8 | 0 -> 0 | 0 -> 0 | >=44 -> >=44 | 0 -> 0 | 0 -> 0 | 0/0 -> 0/0 |
+| Team | 1280x800 | 8 | 0 -> 0 | 0 -> 0 | >=44 -> >=44 | 0 -> 0 | 0 -> 0 | n/a |
+| Profile | 390x844 | 9 | 0 -> 0 | 10 -> 0 | 35 -> >=44 | 0 -> 0 | 0 -> 0 | 0/2 -> 0/2 |
+| Profile | 320x568 | 9 | 0 -> 0 | 10 -> 0 | 35 -> >=44 | 0 -> 0 | 0 -> 0 | 0/2 -> 0/2 |
+| Profile | 390x500 | 9 | 0 -> 0 | 10 -> 0 | 35 -> >=44 | 0 -> 0 | 0 -> 0 | 0/2 -> 0/2 |
+| Profile | 1280x800 | 9 | 0 -> 0 | 1 -> 0 | 35 -> >=44 | 0 -> 0 | 0 -> 0 | n/a |
+
+Before = probe v1 on 274d0c6 (it measured a checkbox by its own box; v2 measures the label that
+wraps it, which is the real target -- 44px+ now). Other metrics, all 270 measurements, before and
+after: page errors 0 -> 0; elements past the right edge 0 -> 0; spinners in lists 0 -> 0 (the only
+spinner is inside a busy button).
+
+| Check (after) | 390x844 | 320x568 | 390x500 | 1280x800 |
+|---|---|---|---|---|
+| Action bar bottom / tab bar top (editor, date, profile) | 783 / 783 | 507 / 507 | 439 / 439 | 739 / 739 |
+| Overlap tab bar vs action bar | 0 | 0 | 0 | 0 |
+| Keyboard: visible height | 544 | 268 | 200 | -- |
+| Keyboard: people search input / first result | 84-132 / 145-205 | 72-120 / 133-193 | 72-120 / 133-193 | -- |
+| Keyboard: venue search input / first result | 84-132 / 145-212 | 72-120 / 133-200 | 72-120 / 133-200 | -- |
+| Keyboard: profile city input / first result | 100-148 / 161-213 | 88-136 / 149-201 | 88-136 / 149-201 | -- |
+| Keyboard: editor title field (was under the keyboard) | 423-467 (was 527-562) | 147-191 (was 282-317) | 79-123 (was 235-270) | -- |
+| Keyboard: onboarding search (was 183-223 at 390x500) | 191-239 | 191-239 | 152-200 | -- |
+| Keyboard: description textarea (was 63-264 at 390x500) | 335-451 | 136-252 | 72-188 | -- |
+| Keyboard: sheet footer | 467-544 (above kb) | steps aside* | steps aside* | -- |
+| Sheets (8 kinds): focus inside on open / trapped over 14 Tab + 6 Shift+Tab | yes / yes | yes / yes | yes / yes | yes / yes |
+| Sheets: Escape in a sub-view goes back (venue search, people search, city) / then closes | yes / yes | yes / yes | yes / yes | yes / yes |
+| Sheets: focus returns to the opener | 8/8 | 8/8 | 8/8 | 8/8 |
+| Collapse: team member / request / added person / added session -- height at transitionend | 0px x4 | 0px x4 | 0px x4 | 0px x4 |
+| Collapse: list shrank = row height (residual gap) | 61/116/56/90 (0) | 61/116/56/90 (0) | 61/116/56/90 (0) | 61/116/56/90 (0) |
+| Status card, long reason, 320px: h-scroll / overflow / small targets / contrast | -- | 0 / 0 / 0 / 0 | -- | -- |
+
+\* Under 360px visible with the keyboard up, the sheet footer steps aside (W0 design) so the field
+and first result fit; it returns when the keyboard closes.
+
+Reduced motion: 0 running animations while opening/closing the editor, date and profile sheets
+and on the Home skeleton; Collapse unmounts at once (added person 21ms, added session 24ms after the
+tap; team rows 112-319ms = the stubbed RPC round trip, no animation). Announcements heard
+(AnnounceRegion): 'Maximiliano ... no longer has access.', 'Declined. sam@x.example can ask again
+later.', 'Anastasia ... taken off.', 'Class taken off Tonight.'
+
+Contrast: 0 failures before and after on every state (DOM-measured; no new colour pairs added).
+The only flags were the 1px `--line` dividers between venue options (decorative, the selection is
+the gold check + aria-pressed). Screen-reader names: 0 unnamed icon-only controls, 0 unlabelled
+inputs, before and after.
+
+### One cream primary per state (390x844, all four viewports agree)
+
+Before -> after: events list 0 -> 1 (New event, above the list), every event-editor sheet 0 -> 1
+(Done is now the sheet's primary), profile field / city sheet 0 -> 1, sign-out sheet 0 -> 1 ("Yes,
+sign out"), failed loads (home, events, editor, date, team, profile) 0 -> 1 (Try again), team
+requests failure 0 -> 1, date page while loading 1 -> 0 (the Save bar waited with nothing loaded),
+date page load failure kept 1 (Try again replaces the bar). Unchanged at 1: every other state.
+By design with 0: loading states (skeleton only), pick-a-row views (people search, date venue list,
+onboarding city list), Team with no question open (see OPEN).
+
+### Fixes (all in code)
+
+1. px sizes everywhere (above).
+2. `ErrorState`: Try again is a `PrimaryButton`; new `quiet` prop (ghost) where the screen already has
+   a primary (onboarding search failure, editor venue list, cancel reasons).
+3. Event editor + profile sheets: Done is a `PrimaryButton`; sign-out confirm is a `PrimaryButton`.
+4. Events list: "New event" is the list route's one primary (top-bar link removed; `NewEventLink` deleted).
+5. Date page: the Save bar shows only once the date has loaded and not while a load error shows.
+6. Venue lists (editor venue search, date venue view) and cancel reasons: skeleton while loading
+   (editor said 'Loading places' in text) and ErrorState + retry on failure (they had none).
+7. Video rows leave through `Collapse` (they vanished at once).
+8. `OrganiserShell`: when the keyboard opens, the focused field inside the content scrolls back into
+   the visible part (title field and onboarding search were under the keyboard).
+9. `TitleInput` min height 44px (it was 35px); description textarea 4 rows (fits above the keyboard).
+10. Copy: 'place' -> 'venue' everywhere in the editor (the date page said venue); 'programme' ->
+    'schedule' in every message the date page can show (shared programmeModel / selfServeErrors, tests
+    updated); 'Un-cancel' -> 'Put this date back on' / 'Put it back on' / 'You can put it back on
+    later.'; 'We couldn't load this date' -> 'This date did not load' (same pattern as every other
+    screen); Team how-to pointed at the deleted /account ('open Your account ... Request access') ->
+    'search for <name> on their Home tab and tap Ask to join'. Owner wording kept as is: 'Guests see
+    changes to live events straight away.', 'Listed until <date> - Extend', 'Up to 30 upcoming
+    dates', 'N dates have no teacher or DJ yet'.
+11. 'Social' fixture (`events/__tests__/fixtures.ts:38`) -> 'Party'; 'Friday Social' / 'Thursday
+    Social' test names -> 'Friday Party' / 'Thursday Party'. `check:no-social-word` passes.
+
+### Promoted into ui/
+
+- `Field` + `FIELD_CLASS` (`ui/Field.tsx`): the label/input/error wrapper was written twice
+  (home/onboarding/OrganiserSheet, dates/DateSheet) and the input class four times (events, profile,
+  onboarding, dates). All four now import it.
+- `useDebounced` (`ui/useDebounced.ts`): copied in home/onboarding/OnboardingView and dates/DateSheet.
+- Test: `__tests__/promoted.test.tsx` (3). Not promoted (one user each): team `Question`, events
+  `Choice`, dates `SessionRow`, profile/events `PublicCardPreview` (different cards).
+
+### Gates (sandbox)
+
+- typecheck (`tsc -p tsconfig.app.json`): 109 errors, 0 under `src/modules/organiser` (count as F1).
+- `npx eslint src/modules/organiser`: 0. Full `eslint .`: 0 hits under organiser.
+- `npx vitest run src/modules/organiser`: 36 files, 493 tests, all pass.
+- `npm run lint`: 15/16; `check:integrity` exit 126 = non-executable script in this checkout,
+  `bash bin/check-integrity.sh`: ok (1181 files, 0 issues). `check:no-social-word` now PASSES.
+- `npm run test:unit:offline`: 2234 pass; fails = the known `tests/integrityCouldNotRun.test.ts` (5)
+  + `useEventGuestList.cache.test.ts` (no supabase env in this shell; 14/14 with the CI env vars,
+  and fails the same with my changes stashed).
+
+### OPEN
+
+- OPEN: Team (no question open) has 0 primary buttons -- there is no primary action to give it (no
+  invite / add-by-email RPC; adding = granting a request). Needs an owner decision, not code.
+- OPEN: Event editor gallery -- removing a photo is instant (3-column grid, no Collapse). No gap
+  is left (the tile unmounts) but it does not fade.
+- OPEN: Onboarding ask-to-join / create sheets open with focus on Close (Radix's first focusable),
+  not on the first field; the field then sits under the keyboard until tapped.
+- OPEN: keyboard on short screens (320x568, 390x500): sheet footers (Done) step aside while typing,
+  by W0's design; the person closes the keyboard to reach Done.
+- OPEN: keyboard behaviour is SIMULATED (fake visualViewport); not checked on a real iPhone/Android.
+- OPEN: `shared/seriesModel.ts` `setTimeDoneCopy` still says 'series time' -- no screen shows it (dead
+  export since W5a); left for the export-level dead-code pass.
+- For W5b-1 / next: the five `test.fixme` tap-target cases in `tests/e2e/organiser-layout.spec.ts`
+  (ONBOARDING / EVENTS / EDITOR / DATE / PROFILE_BUG) describe exactly the rem-size bug fixed here
+  (37.3 / 40.7 / 35 / 27.1px); they can be switched back on. The events BUG names
+  `org-events-new-link`, which no longer exists (New event is now the list's primary, `org-events-new`).
+- Not edited (outside my paths): `src/components/__tests__/GlobalHeaderSignIn.test.tsx:5` comment
+  naming the deleted `organiser-account-onboarding.spec.ts` (W5b-1 note; src/components is public chrome).
+- OPEN: `selfServeErrors.ts` 'Request access instead.' kept: the PUBLIC organiser page's claim card
+  shows it beside its own 'Request access' button.

@@ -185,7 +185,7 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
           <SkeletonRows count={2} label="Loading requests" testId="requests-loading" />
         ) : requests.isError ? (
           <div className="p-[12px]">
-            <ErrorState quiet title="Requests did not load" onRetry={() => void requests.refetch()} retrying={requests.isFetching} testId="requests-error" />
+            <ErrorState title="Requests did not load" onRetry={() => void requests.refetch()} retrying={requests.isFetching} testId="requests-error" />
           </div>
         ) : (requests.data ?? []).length === 0 ? (
           <p className="px-[16px] py-[16px] text-[15px] text-[var(--mut)]" data-testid="requests-empty">No one is asking to join right now.</p>

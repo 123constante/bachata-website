@@ -51,9 +51,17 @@ collapse on commit.
 ## Loading, failure, announce
 
 - Lists: `<SkeletonRows count={3} label="Loading dates" />`.
-- Load failure: `<ErrorState onRetry={refetch} retrying={isFetching} />`.
+- Load failure: `<ErrorState onRetry={refetch} retrying={isFetching} />` (its Try again is the screen's
+  one primary; add `quiet` when the screen or sheet already shows one).
+- Forms: `<Field label="Name" htmlFor={id} error={err}><input id={id} className={`${FIELD_CLASS} h-[48px]`} /></Field>`;
+  search terms: `const term = useDebounced(q.trim())`.
 - Failed save: `const { shake, shakeProps } = useShake();` spread `shakeProps`, call `shake()`, AND show the message.
 - Saved / removed: `const [msg, announce] = useAnnounce();` + `<AnnounceRegion message={msg} />` once per screen.
+
+## Sizes
+
+px only (`h-[44px]`, `gap-[8px]`), never the rem scale (`h-11`, `gap-2`): the site's root font is
+13.5px on phones, so rem classes shrink every target by ~16%.
 
 ## Motion
 
