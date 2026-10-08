@@ -22,6 +22,7 @@ import { EditorSheet, type SheetName } from './EditorSheet';
 import { DatesList, ScheduleCard } from './EditorRows';
 import { DatesTakenOff } from './DatesTakenOff';
 import { EventReviewCard } from './ReviewCard';
+import { sessionDates } from './reviewModel';
 import { categoryLabel } from './eventType';
 import { EventList } from './EventList';
 import {
@@ -192,6 +193,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
       </div>
       <EventReviewCard seriesId={seriesId} name={base.name} status={ws.series.lifecycle_status} version={ws.series.version}
         upcomingListed={upcoming.filter((d) => d.lifecycle_status !== 'cancelled').length}
+        datesWithSessions={sessionDates(ws.hasSessions, upcoming)}
         organisers={home.data ? ownOrganisers : null} dirty={dirty} onSent={() => announce('Sent for review.')} />
       {lock && (
         <p className="rounded-[12px] border border-[var(--line)] bg-[var(--card)] px-[16px] py-[12px] text-[14px] text-[var(--fg)]" data-testid="org-event-locked">

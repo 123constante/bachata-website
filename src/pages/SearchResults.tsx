@@ -19,6 +19,7 @@ import { recordSearchResultClick } from '@/lib/searchClickTelemetry';
 import { hrefFor, type SearchKind } from '@/lib/searchEntities';
 import { normalizeGenreToken } from '@/lib/genreSynonyms';
 import { resolveEventImage } from '@/lib/utils';
+import { eventResultSubtitle } from '@/lib/searchEventSubtitle';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { cn } from '@/lib/utils';
 
@@ -269,7 +270,7 @@ const SearchResults = () => {
                 <SectionHeader icon={<Calendar className="h-4 w-4 text-primary" />} title="Events" count={data.events.length} />
                 <SectionGrid>
                   {data.events.map((e) => (
-                    <ResultCard key={e.id} to={hrefFor('event', e.id)} image={resolveEventImage(e.poster_url, null)} title={e.name} subtitle={e.city_slug ?? undefined} fallbackIcon={<Calendar className="h-8 w-8" />} kind="event" id={e.id} query={query} badge={flags.searchV6 ? <LevelBadge level={e.derived_level} /> : undefined} />
+                    <ResultCard key={e.id} to={hrefFor('event', e.id)} image={resolveEventImage(e.poster_url, null)} title={e.name} subtitle={eventResultSubtitle(e) ?? undefined} fallbackIcon={<Calendar className="h-8 w-8" />} kind="event" id={e.id} query={query} badge={flags.searchV6 ? <LevelBadge level={e.derived_level} /> : undefined} />
                   ))}
                 </SectionGrid>
               </section>

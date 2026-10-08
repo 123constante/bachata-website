@@ -10,7 +10,7 @@
  * The dancer-rated level ("Dancers rate:") is series-wide and lives in
  * DerivedLevelBadge -- see DerivedLevelBadge.test.tsx.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import type { ScheduleSession } from '../../../sections/EventScheduleGrid';
@@ -118,6 +118,9 @@ describe('ScheduleBlock level labels', () => {
 });
 
 describe('ScheduleBlock "Special tonight"', () => {
+  // The rows below are on 2026-10-10; "tonight" needs that to be today in London.
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-10-10T18:00:00Z')); });
+  afterEach(() => { vi.useRealTimers(); });
   it('appears once per date block even when every row is added-only', () => {
     const html = render(
       [

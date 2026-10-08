@@ -384,7 +384,11 @@ describe('event editor', () => {
   it('G1: a draft shows what it still needs, then sends for review and reads In review', async () => {
     let status = 'draft';
     let missing: string[] = ['venue'];
-    handlers.admin_event_workspace_p5 = () => rawWorkspace({ lifecycle_status: status });
+    let added = 0;
+    handlers.admin_event_workspace_p5 = () => rawWorkspace({ lifecycle_status: status }, [
+      { id: 'o2', occurrence_date: '2026-10-16', lifecycle_status: 'scheduled', version: 1 },
+      { id: 'o1', occurrence_date: '2026-10-09', lifecycle_status: 'scheduled', version: 1, added_sessions_count: added },
+    ]);
     handlers.event_publish_readiness_v1 = () => ({ ok: missing.length === 0, missing });
     handlers.series_command_p5 = () => { status = 'pending_review'; return { ok: true, new_version: 4 }; };
     await editor();
@@ -393,6 +397,13 @@ describe('event editor', () => {
     expect((send as HTMLButtonElement).disabled).toBe(true);
     cleanup();
     missing = [];
+    // Owner, 2026-10-08: no session on any upcoming date -> still off, with the reason.
+    await editor();
+    const noSession = await screen.findByTestId('org-event-review-send');
+    await waitFor(() => expect(screen.getByTestId('org-event-review-blocked').textContent).toBe('Add at least one session first.'));
+    expect((noSession as HTMLButtonElement).disabled).toBe(true);
+    cleanup();
+    added = 1;
     await editor();
     const ready = await screen.findByTestId('org-event-review-send');
     await waitFor(() => expect((ready as HTMLButtonElement).disabled).toBe(false));

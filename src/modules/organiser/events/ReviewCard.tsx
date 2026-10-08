@@ -12,12 +12,14 @@ import { eventReviewView } from './reviewModel';
  * shown first; 'In review' afterwards. The Save bar is this screen's one primary,
  * so every button here is a GhostButton.
  */
-export function EventReviewCard({ seriesId, name, status, version, upcomingListed, organisers, dirty, onSent }: {
+export function EventReviewCard({ seriesId, name, status, version, upcomingListed, datesWithSessions, organisers, dirty, onSent }: {
   seriesId: string;
   name: string;
   status: string;
   version: number;
   upcomingListed: number;
+  /** Upcoming listed dates with at least one session (reviewModel sessionDates). */
+  datesWithSessions: number;
   /** The organisers this event belongs to; null while the home loads. */
   organisers: HomeOrganiser[] | null;
   dirty: boolean;
@@ -30,6 +32,7 @@ export function EventReviewCard({ seriesId, name, status, version, upcomingListe
     missing: readiness.data ?? null,
     readinessError: readiness.isError,
     upcomingListed,
+    datesWithSessions,
     organisers,
     dirty,
   });
