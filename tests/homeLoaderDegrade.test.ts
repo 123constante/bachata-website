@@ -24,6 +24,15 @@ const rpc = vi.hoisted(() => ({
   failCalendar: false,
   mapError: null as unknown,
   hangMap: false,
+  cityLookupError: null as unknown,
+}));
+
+// The loader also asks the DB whether the slug is a real city (soft-404 fix).
+vi.mock('@/lib/cityValidity', () => ({
+  isRealCitySlug: async () => {
+    if (rpc.cityLookupError) throw rpc.cityLookupError;
+    return true;
+  },
 }));
 
 vi.mock('@/integrations/supabase/eventRpcs', async (importOriginal) => {
@@ -73,9 +82,19 @@ describe('home loader degrades on SSR RPC failure (57014)', () => {
     rpc.failCalendar = false;
     rpc.mapError = null;
     rpc.hangMap = false;
+    rpc.cityLookupError = null;
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
   afterEach(() => errorSpy.mockRestore());
+
+  it('city lookup rejecting with 57014 -> the same degraded 200, never a 404 guess', async () => {
+    rpc.cityLookupError = STATEMENT_TIMEOUT;
+    const { result, headers } = await run();
+    expect(result.init?.status ?? 200).toBe(200);
+    expect(result.data.cityDisplay).toBe('London');
+    expect(headers['Cache-Control']).toBe('no-store');
+    expect(headers['Vercel-CDN-Cache-Control']).toBe('public, s-maxage=30');
+  });
 
   for (const which of ['map', 'calendar', 'both'] as const) {
     it(`${which} RPC rejecting with 57014 -> 200 shell, empty feed, no-store, no throw`, async () => {

@@ -13,7 +13,8 @@ import {
 import { buildSeoForRoute } from "@/lib/seo";
 import Index from "@/pages/Index";
 import { stampHome } from "../cacheTags";
-import { cacheHeaders, taggedData } from "../detailLoader";
+import { cacheHeaders, taggedData, throwDetailNotFound } from "../detailLoader";
+import { isRealCitySlug } from "@/lib/cityValidity";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import { data } from "react-router";
 import { isSsrLoaderTimeoutError, withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
@@ -137,7 +138,17 @@ const loaderWithDeadline = withSsrLoaderTimeout("home-loader", async function lo
   // below the await ships a key the cache entries are not filed under.
   let todayKey = londonDateKey(new Date(nowMs));
 
-  let keys = await fetchHomeDay(qc, citySlug, todayKey);
+  // A made-up slug used to render "Bachata in <Made Up>" at 200 with canonical
+  // "/" (soft 404). The DB's is_valid_city_slug is the one answer (see
+  // @/lib/cityValidity); it runs alongside the feed fetch so a real city pays no
+  // extra round trip. A FAILED lookup throws into the same handling as a failed
+  // feed (`loader` below): degrade or 500, never a 404 guess about a real city.
+  const [isCity, firstKeys] = await Promise.all([
+    isRealCitySlug(citySlug),
+    fetchHomeDay(qc, citySlug, todayKey),
+  ]);
+  if (!isCity) throwDetailNotFound("City");
+  let keys = firstKeys;
 
   // THE MIDNIGHT STRADDLE. A fetch spanning London midnight leaves the pin stale
   // before the document is even emitted, and the bound alone cannot save it --
