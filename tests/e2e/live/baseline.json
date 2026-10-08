@@ -138,10 +138,16 @@
       "listitem"
     ],
     "tap-target": [
+      "a.",
+      "a.bg-primary.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2.focus-visible:ring-offset-background.focus-visible:ring-primary.font-bold.gap-0.5",
       "a.border.border-border.hover:bg-muted.px-3.py-2.rounded-md.text-primary",
       "a.flex.gap-1.hover:text-foreground.hover:text-primary.items-center.text-muted-foreground.transition-colors.transition-colors",
       "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
+      "button.bg-primary.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2.focus-visible:ring-offset-background.focus-visible:ring-primary.font-bold",
+      "button.bg-primary/10.border.border-primary/40.flex.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2.focus-visible:ring-offset-background",
       "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary",
+      "button.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2.focus-visible:ring-offset-background.focus-visible:ring-primary.font-bold.hover:text-foreground",
+      "button.hm-credit-btn",
       "span.font-medium.max-w-[150px].md:max-w-none.text-foreground.truncate"
     ]
   }
