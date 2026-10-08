@@ -7,6 +7,7 @@ import { declinedRequests } from '@/modules/organiser/shared/accessRequestModel'
 import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, StatusTag, useDebounced } from '../../ui';
 import { HINT_TEXT, askedOn, rowAction } from './onboardingModel';
 import { OrganiserSheet, type SheetTask } from './OrganiserSheet';
+import { SignOutLine } from './SignOutLine';
 
 export interface OnboardingViewProps {
   user: { id: string; email: string | null };
@@ -83,6 +84,8 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
           <li>Your events</li>
         </ol>
       )}
+
+      <SignOutLine email={user.email} />
 
       {done && (
         <p ref={doneRef} tabIndex={-1} role="status" data-testid="onboarding-done" className="flex items-start gap-[8px] rounded-[12px] bg-[var(--ok-bg)] px-[16px] py-[12px] text-[14px] text-[var(--ok-fg)] outline-none">

@@ -983,3 +983,18 @@ plan-hygiene canary, workflow-artifact policy, mojibake canary + grep, entry-poi
 Also: `npm run typecheck` 95 errors, 0 under `src/modules/organiser`; `npm run lint` 16/16 links
 green (whole-tree eslint informational, as on main); vitest `src/modules/organiser` 36 files /
 496 tests pass.
+
+## F5 -- a way out of the first-time screen (2026-10-08)
+
+The owner signed in with the wrong email, hit "Which organiser are you?" and could not find Sign
+out (it only lived on the Profile tab). `OnboardingView` now shows, right under the step line (and
+at the top in add-another mode): "Signed in as <email>. Not you? Sign out". Null email reads just
+"Signed in." The Sign out text button is a 44px gold link (aria-label "Sign out of <email>"), never
+primary. It opens a confirm sheet ("Yes, sign out" is the one primary; "No, stay signed in"; Escape
+closes). `home/onboarding/SignOutLine.tsx` is a minimal copy of Profile's `SignOutSheet` (that one is
+local to `profile/`, which F5 may not edit): same `useAuth().signOut()`, same failure text.
+Landing: the signed-out guard sends the visitor to `/auth?mode=signin&returnTo=/account/o` before
+`navigate('/')` runs (same as Profile). Tests: `home/__tests__/OnboardingSignOut.test.tsx` (plain,
+84-char and null email x firstRun true/false x with/without open requests; confirm step, Escape,
+No, failed sign-out; Home loading and error never reach onboarding) and one e2e in
+`organiser-onboarding.spec.ts`. Not verified: a real phone, a real GoTrue sign-out.

@@ -110,6 +110,31 @@ test('a declined request is shown with the answer', async ({ page }) => {
   await expect(page.getByTestId('onboarding-declined-row')).toContainText('Ritmo Manchester');
 });
 
+test('the first-time screen has a way out: Signed in as <email>, Not you? Sign out, asked first', async ({ page }) => {
+  await openOrganiser(page, '/account/o', { noOrganiser: true });
+  const line = page.getByTestId('onboarding-signedin-line');
+  await expect(line).toContainText(`Signed in as ${EMAIL}`);
+  await expect(line).toContainText('Not you?');
+  const btn = page.getByTestId('onboarding-signout');
+  await expect(btn).toHaveAccessibleName(`Sign out of ${EMAIL}`);
+  expect((await btn.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  // One tap only asks; "No" and Escape close it and the user is still signed in.
+  await btn.click();
+  await expect(page.getByTestId('onboarding-signout-yes')).toBeVisible();
+  await page.getByTestId('onboarding-signout-no').click();
+  await expect(page.getByTestId('onboarding-signout-yes')).toHaveCount(0);
+  await btn.click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('onboarding-signout-yes')).toHaveCount(0);
+  await expect(page.getByTestId('org-onboarding')).toBeVisible();
+  // Confirming signs out; the guard then sends the now signed-out visitor to the sign-in page.
+  await btn.click();
+  await page.getByTestId('onboarding-signout-yes').click();
+  await expect(page).toHaveURL(/\/auth\?mode=signin/);
+  await expect(page.getByTestId('org-onboarding')).toHaveCount(0);
+});
+
 test('signed out, /account/o goes to sign-in with the return path', async ({ page }) => {
   await openOrganiser(page, '/account/o/team?o=x', { signedOut: true });
   await expect(page).toHaveURL(/\/auth\?.*returnTo=%2Faccount%2Fo%2Fteam%3Fo%3Dx/);
