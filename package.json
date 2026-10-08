@@ -67,6 +67,7 @@
     "test:e2e": "playwright test tests/e2e/auth-stepper-email-routing.spec.ts tests/e2e/auth-stepper-smoke.spec.ts tests/e2e/auth-magic-link-returnto.spec.ts tests/e2e/vendor-city-normalization-smoke.spec.ts tests/e2e/organiser-onboarding.spec.ts tests/e2e/organiser-home.spec.ts tests/e2e/organiser-events.spec.ts tests/e2e/organiser-date.spec.ts tests/e2e/organiser-team.spec.ts tests/e2e/organiser-profile.spec.ts tests/e2e/organiser-legacy-redirects.spec.ts tests/e2e/organiser-layout.spec.ts tests/e2e/organiser-loop.spec.ts tests/e2e/header-signin-fit.spec.ts --project=chromium",
     "test:e2e:nojs": "playwright test --project=nojs",
     "test:e2e:all": "playwright test --project=chromium",
+    "test:e2e:live": "playwright test --config playwright.live.config.ts",
     "synthetic:ssr": "playwright test --config playwright.synthetic.config.ts",
     "test:e2e:vendor:real": "node scripts/run-real-vendor-e2e.mjs",
     "test:e2e:organiser-real-rpc": "playwright test --config playwright.organiser-real-rpc.config.ts",
@@ -156,6 +157,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.63.0",
     "@react-router/dev": "^7.18.4",
