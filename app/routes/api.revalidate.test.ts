@@ -5,8 +5,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // awaited, and can neither fail nor delay the webhook.
 
 const invalidateByTag = vi.fn();
+const dangerouslyDeleteByTag = vi.fn();
 const waitUntil = vi.fn();
-vi.mock("@vercel/functions", () => ({ invalidateByTag, waitUntil }));
+const resolvePublicEventRef = vi.fn();
+vi.mock("@vercel/functions", () => ({ invalidateByTag, dangerouslyDeleteByTag, waitUntil }));
+vi.mock("@/lib/seo/resolvePublicEventRef", () => ({ resolvePublicEventRef }));
 vi.mock("../lib/cloudflarePurgeResolver", () => ({
   supabaseCloudflareResolver: {
     slugFor: async () => "bachateame-saturdays",
@@ -36,6 +39,8 @@ describe("/api/revalidate + Cloudflare purge", () => {
   const fetchSpy = vi.fn();
   beforeEach(() => {
     invalidateByTag.mockReset().mockResolvedValue(undefined);
+    dangerouslyDeleteByTag.mockReset().mockResolvedValue(undefined);
+    resolvePublicEventRef.mockReset().mockResolvedValue({ id: EV, slug: "bachateame-saturdays" });
     waitUntil.mockReset();
     fetchSpy.mockReset();
     vi.stubGlobal("fetch", fetchSpy);
@@ -113,5 +118,54 @@ describe("/api/revalidate + Cloudflare purge", () => {
     });
     const res = await call({ entityType: "event", entityId: EV });
     expect(res.status).toBe(200);
+  });
+
+  // 2026-10-08 takedown re-walk: an archived series kept serving its page. The
+  // soft invalidate let Vercel hand out the stale copy (title and all) while the
+  // background re-render 404'd. A write that leaves the event HIDDEN (archived,
+  // draft, pending_review: the public resolver returns null) must hard-delete,
+  // so the next request renders the 404 instead of the old page.
+  it.each([
+    ["hidden (resolver null)", async () => null],
+    ["visibility unknown (resolver error)", async () => { throw new Error("db blip"); }],
+  ])("event %s: hard-deletes the tags instead of serving stale", async (_n, impl) => {
+    resolvePublicEventRef.mockImplementation(impl);
+    const res = await call({ entityType: "event", entityId: EV });
+    expect(res.status).toBe(200);
+    expect(resolvePublicEventRef).toHaveBeenCalledWith(EV, "throw");
+    expect(dangerouslyDeleteByTag).toHaveBeenCalledWith([`event-${EV}`, "home-feed", "seo-landing"]);
+    expect(invalidateByTag).not.toHaveBeenCalled();
+  });
+
+  it("festival hidden: hard-deletes too", async () => {
+    resolvePublicEventRef.mockResolvedValue(null);
+    const res = await call({ entityType: "festival", entityId: EV });
+    expect(res.status).toBe(200);
+    expect(dangerouslyDeleteByTag).toHaveBeenCalledTimes(1);
+    expect(invalidateByTag).not.toHaveBeenCalled();
+  });
+
+  it("event still public (live/ended): keeps the soft invalidate", async () => {
+    const res = await call({ entityType: "event", entityId: EV });
+    expect(res.status).toBe(200);
+    expect(invalidateByTag).toHaveBeenCalledTimes(1);
+    expect(dangerouslyDeleteByTag).not.toHaveBeenCalled();
+  });
+
+  it("non-event entities skip the visibility lookup", async () => {
+    await call({ entityType: "venue", entityId: EV });
+    expect(resolvePublicEventRef).not.toHaveBeenCalled();
+    expect(invalidateByTag).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 502 when the hard delete fails, and skips Cloudflare", async () => {
+    vi.stubEnv("CLOUDFLARE_API_TOKEN", "tok");
+    vi.stubEnv("CLOUDFLARE_ZONE_ID", ZONE);
+    vi.stubEnv("VERCEL_ENV", "production");
+    resolvePublicEventRef.mockResolvedValue(null);
+    dangerouslyDeleteByTag.mockRejectedValue(new Error("vercel down"));
+    const res = await call({ entityType: "event", entityId: EV });
+    expect(res.status).toBe(502);
+    expect(waitUntil).not.toHaveBeenCalled();
   });
 });
