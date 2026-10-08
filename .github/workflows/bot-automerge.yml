@@ -1,0 +1,105 @@
+name: Bot auto-merge (docs/tests only)
+
+# Asks GitHub to merge a LOW-RISK bot PR by itself once the `main` ruleset's
+# REQUIRED checks pass (`gh pr merge --auto`). GitHub does the merge; this
+# workflow only flips the switch, and flips it back off when the PR stops
+# qualifying. Read docs/automerge.md before editing anything here.
+#
+# SAFETY, read before editing:
+#  - OFF unless BOTH repo variables AUTOMERGE_ENABLED and BOT_AUTOMERGE_ENABLED are
+#    exactly 'true'. AUTOMERGE_ENABLED is the shared switch dependabot-automerge.yml
+#    also reads; BOT_AUTOMERGE_ENABLED is this workflow's own. Auto-merge merges
+#    IMMEDIATELY when `main` has no required checks.
+#  - pull_request_target, so the workflow DEFINITION and the classifier always come
+#    from main: a PR cannot edit its way past them. It NEVER checks out, builds or
+#    runs PR code; files, labels and the body are read through the REST API, and no
+#    PR-controlled text is interpolated into a shell command.
+#  - The verdict is scripts/automerge-classify.mjs (docs/** and tests only, nothing
+#    under src/ app/ api/ public/ scripts/ .github/ ..., under 400 lines, the
+#    `automerge-ok` label from a bot worker, no `needs-owner`). Exit 2 = NO + red run.
+#  - Enabling is pinned to the head sha that was classified (--match-head-commit),
+#    so a push that lands between the verdict and the merge cannot ride along.
+#  - Nothing here is HARD tier for owner-approval.yml: a qualifying PR touches no
+#    scripts/, .github/ or .claude/ path, so the audit stays green without approval.
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled, ready_for_review, converted_to_draft]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: bot-automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  decide:
+    if: >-
+      vars.AUTOMERGE_ENABLED == 'true' && vars.BOT_AUTOMERGE_ENABLED == 'true' &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The BASE branch, never the PR head: only main's classifier may judge a PR.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Classify the PR (REST only, no PR code)
+        id: c
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set +e
+          # RUN in scripts/automerge-classify.mjs; tests/automergeClassify.test.ts pins the two equal.
+          node -e 'import("./scripts/automerge-classify.mjs").then((m) => m.main()).then((c) => { process.exitCode = c; }, (e) => { console.log("INFRA: " + e.message); process.exitCode = 2; })'
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+
+      # The bot's token, not GITHUB_TOKEN: a merge made with GITHUB_TOKEN starts no
+      # `push` workflow, so owner-approval.yml and every post-merge check on main
+      # would silently not run for an auto-merged commit.
+      - name: Enable auto-merge (GitHub merges when required checks pass)
+        if: steps.c.outputs.code == '0' && steps.c.outputs.qualifies == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_SHA: ${{ steps.c.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          [ -n "${GH_TOKEN:-}" ] || { echo "::error::secret BOT_PR_TOKEN is not set; auto-merge NOT enabled"; exit 1; }
+          gh pr merge --auto --squash --match-head-commit "$HEAD_SHA" "$PR_URL"
+
+      # Any other outcome, including a classifier that could not run, switches an
+      # already-enabled auto-merge back OFF: a PR that stopped qualifying (new push,
+      # needs-owner label, back to draft) must not merge on an old verdict.
+      - name: Disable auto-merge when the PR does not qualify
+        if: always() && !(steps.c.outputs.code == '0' && steps.c.outputs.qualifies == 'true')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          on="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.auto_merge != null')"
+          if [ "$on" = "true" ]; then
+            gh pr merge --disable-auto "$PR_URL"
+            echo "Auto-merge was on and is now OFF: the PR no longer qualifies."
+          else
+            echo "Auto-merge is off; nothing to undo."
+          fi
+
+      - name: Fail the run when the classifier could not run
+        if: steps.c.outputs.code != '0'
+        run: |
+          echo "::error::automerge-classify exited ${{ steps.c.outputs.code }} (infra); treated as NOT qualifying"
+          exit 1
