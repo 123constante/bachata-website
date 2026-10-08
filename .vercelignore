@@ -51,8 +51,13 @@ yarn.lock
 pnpm-lock.yaml
 .pnpm-store/
 
-# Scripts and tooling (not needed at runtime)
-scripts/
+# Scripts and tooling (not needed at runtime). Glob-excluded like bin/ below so
+# the Ignored Build Step script survives: vercel.json's ignoreCommand runs
+# `sh scripts/vercel-ignore-build.sh` in the deployed checkout. If it were
+# stripped, sh would exit 127, which Vercel reads as BUILD -- safe, but every
+# docs-only commit would build again.
+scripts/*
+!scripts/vercel-ignore-build.sh
 # bin/ is glob-excluded rather than dir-excluded so this one entry can be
 # un-ignored -- postinstall (package.json) requires it during `npm install`,
 # before build even starts, so it can't just be built/copied in later.
