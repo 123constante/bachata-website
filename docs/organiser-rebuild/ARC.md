@@ -6,7 +6,8 @@ something here conflicts with older docs, plans or code comments, this file wins
 
 ## Why
 
-The owner says everything after login is bad. Today the organiser area is:
+The owner says everything after login was bad. The OLD organiser area was (all of it
+deleted by W5a; the URLs now redirect, see the route map):
 
 | URL | Page | Components (src/modules/organiser-self-serve/components) |
 |---|---|---|
@@ -74,16 +75,19 @@ The approved mockup is v12 (https://claude.ai/artifact/S5F8epkUaiV9AbT5spHskK; s
   team requests, 'dates listed until <date> - Extend' (when under ~8 weeks of runway
   remain), 'N dates have no teacher or DJ yet' (opens the first). A lapsed series just has
   no upcoming dates. Reminders are IN-APP only.
-- Backend: EXISTING RPCs ONLY. `src/modules/organiser-self-serve/selfServeApi.ts` wrappers
+- Backend: EXISTING RPCs ONLY. `src/modules/organiser/shared/selfServeApi.ts` wrappers
   and `selfServeErrors.ts` are reused as-is and are NOT anyone's to change. The 'Starts on'
   + 'Repeats' + 'Runs until' + 'Listed until' wording, and the SCHEDULE card (session rows)
   are what the Date card in the event editor holds.
 
 ## Hard rules for every worker
 
-- Old code under `src/modules/organiser-self-serve/**` and `src/pages/Account*.tsx` stays
-  mounted and working until W5. Reuse its api/models BY IMPORT; do not copy them and do not
-  modify them.
+- The old UI is gone (W5a). Its reused LOGIC lives in `src/modules/organiser/shared/` (api,
+  errors, commands, models, a few hooks, plus the public claim card + email-code proof that
+  the public organiser page renders). Import it; do not copy it. It is shared, so a change
+  there is a change for every page (and the public organiser page): keep it rare, tested.
+  `src/modules/organiser-self-serve/selfServeApi.ts` is only a re-export shim for
+  `src/pages/AuthCallback.tsx` (a login file this arc may not edit); new code never imports it.
 - Never touch login (`src/pages/Auth.tsx`, `AuthCallback.tsx`, `src/components/auth/*`,
   `useAuth`, AuthGuard internals) or any public-site page.
 - No prod writes. No migrations (this repo owns none). No admin repo changes.
@@ -110,6 +114,13 @@ The approved mockup is v12 (https://claude.ai/artifact/S5F8epkUaiV9AbT5spHskK; s
 | `/account/o/team` | `src/modules/organiser/team/index.tsx` | W4 |
 | `/account/o/profile` | `src/modules/organiser/profile/index.tsx` | W4 |
 | anything else under `/account/o/` | redirects to `/account/o` | W0 |
+| `/account` (old) | redirects (replace) to `/account/o` | W5a |
+| `/account/new` (old) | redirects to `/account/o/events/new` | W5a |
+| `/account/series/:seriesId` (old) | redirects to `/account/o/events/:seriesId` | W5a |
+| `/account/team/:organiserId?` (old) | redirects to `/account/o/team?o=:organiserId` | W5a |
+
+The old-URL redirects keep the query string and hash, sit behind the same flag, and live in
+`src/modules/organiser/shell/LegacyRedirect.tsx` (eager, tiny; imported by AnimatedRoutes).
 
 Wiring: one route `/account/o/*` in `src/components/AnimatedRoutes.tsx` lazy-loads
 `src/modules/organiser/shell/OrganiserRoutes.tsx`, which wraps `AuthGuard` (signed-out
@@ -130,6 +141,7 @@ no public chrome changes. Sheets render at z 70/71.
 | `src/modules/organiser/dates/**` (sessions, programme, Line-up, cover upload) | W3 |
 | `src/modules/organiser/team/**`, `src/modules/organiser/profile/**` | W4 |
 | `src/modules/organiser/shell/**`, `ui/**`, `theme.css`, `motion.ts`, router wiring, deletions of old code | W0 / W5 |
+| `src/modules/organiser/shared/**` (old logic, moved by W5a) | W5 (shared: change only with its tests) |
 | `docs/organiser-rebuild/HANDOVER.md` | everyone (append your checkpoint) |
 
 Need a new primitive or a change to one? Write it in your own folder first and say so in
@@ -173,7 +185,7 @@ Every primitive takes `testId` (rendered as `data-testid`).
 | `EmptyState` / `ErrorState` | `title`, `body`, `action` / `onRetry`, `retrying` |
 | `AnnounceRegion` + `useAnnounce()` | aria-live polite |
 | `useKeyboardInset()` | `{ inset, height }` from visualViewport |
-| `usePrefersReducedMotion`, `MOTION_MS` | re-exported from the old module (not copied) |
+| `usePrefersReducedMotion`, `MOTION_MS` | re-exported from `shared/usePrefersReducedMotion.ts` (not copied) |
 
 ## Theme tokens and contrast (measured, WCAG 2.x relative luminance)
 

@@ -1,6 +1,7 @@
 # E2E organiser logins for the real-RPC journey
 
-The Website's organiser editor (`src/modules/organiser-self-serve`) had only MOCKED browser
+The Website's organiser editor (then `src/modules/organiser-self-serve`; since the 2026-10
+rebuild the UI is `src/modules/organiser/` and the reused logic `src/modules/organiser/shared/`) had only MOCKED browser
 tests: every `/rest/v1` and `/auth/v1` call was faked, so they proved the screens, never the
 RPCs. This seed gives the E2E project (`srrpvuxldthwumzrngla`, see
 admin `docs/e2e-test-project.md`) real organiser logins so one Playwright journey

@@ -2,7 +2,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, RouterProvider, Routes, createMemoryRouter, useLocation } from 'react-router-dom';
-import { LegacyAccountRedirect, legacyAccountPath } from '../shell/LegacyRedirect';
+import { LegacyAccountRedirect } from '../shell/LegacyRedirect';
+import { legacyAccountPath } from '../shell/legacyPaths';
 
 afterEach(cleanup);
 

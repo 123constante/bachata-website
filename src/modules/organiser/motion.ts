@@ -6,5 +6,5 @@ export const MOTION_MS = 300;
 export const MOTION_EASE = 'ease-in-out';
 export const MOTION_TRANSITION = `${MOTION_MS}ms ${MOTION_EASE}`;
 
-// Reused as-is from the old module (not copied): one source of truth.
+// Reused as-is from shared/ (moved from the old module, not copied): one source of truth.
 export { usePrefersReducedMotion } from '@/modules/organiser/shared/usePrefersReducedMotion';

@@ -563,7 +563,7 @@ city ids, and `resolveCreateCityId` is for event creates (venue city -> id).
 - `npm run test:unit:offline`: 2388 pass, 13 fail = shell.test.tsx x8 (W5) + integrityCouldNotRun x5
   (known); nothing else.
 
-## W5a -- Integration, structural half (2026-10-08) -- IN PROGRESS
+## W5a -- Integration, structural half (2026-10-08) -- DONE
 
 Checkpoints (one per step):
 
@@ -590,3 +590,77 @@ Checkpoints (one per step):
    used it; Profile has its own) and `venueRequest.ts` (only VenuePicker used it; its 4 tests
    were dropped from `venueOptions.test.ts`; restore from git if the venue request flow comes
    back). Typecheck: 95 errors, identical list to the start of this session; `npm run build` OK.
+5. DONE -- ARC.md (old-area table marked deleted, `shared/` rule replaces the "old code stays
+   mounted" rule, redirects in the route map, `shared/` in file ownership, motion re-export),
+   `motion.ts` comment, `docs/e2e-organiser-real-rpc.md` path note.
+
+### What moved (git mv, history kept) -> `src/modules/organiser/shared/`
+
+Logic (16 files + 4 hooks): accessRequestModel, claimHint, createCity, createModel, editorGuards, flyerModel,
+flyerUploadApi, homeModel, programmeModel, publicClaim, selfServeApi, selfServeErrors,
+seriesCommands, seriesModel, sessionProof, teamModel; hooks from the old `components/`:
+publicVenues, useOwnerCommand, usePrefersReducedMotion, useSendForReview.
+Components (2, `shared/components/`): PublicClaimCard, EmailCodeProof -- still rendered by the
+PUBLIC organiser page (`src/pages/OrganiserProfile.tsx`, import lines only changed). Their
+"Go to my events" link / email-code fallback return path now use `ORG_PATHS.home`.
+Tests (20, `shared/__tests__/`): every logic test + those two components' tests; imports only
+changed, except `venueOptions.test.ts` lost its 4 `venueRequest` cases (helper deleted).
+`teamModel.ts` was not on the brief's list but W4 imports it, so it moved too.
+
+### Deleted (41 files, `git rm`)
+
+`src/pages/Account.tsx`, `AccountNew.tsx`, `AccountSeries.tsx`, `AccountTeam.tsx`,
+`src/pages/__tests__/AccountPageStates.test.tsx`; under `organiser-self-serve/`: 17 components
+(ConfirmPanel, CreateEventForm, DateActionSheet, EventPreview, FlyerUpload, LineupRow,
+LineupSheet, OrganiserHome, OrganiserOnboarding, PageStates, PersonPicker, ProgrammeEditor,
+ProgrammeSessionRow, ReviewStrip, SeriesEditor, TeamPanel, VenuePicker), their 16 tests,
+`reviewModel.ts` + test, `venueRequest.ts`. PR #654 untouched.
+
+### Route behaviour
+
+Flag off: every `/account*` URL -> `/` (unchanged). Flag on: old URLs Navigate (replace) to the
+new area, query + hash kept; `/account/team/<id>` -> `/account/o/team?o=<id>`. Header account
+icon -> `/account/o`, highlighted on any `/account/o*` path.
+
+### Gates (sandbox)
+
+- typecheck: 95 errors total, error list IDENTICAL to the session start; 0 in `src/modules/organiser`.
+- eslint on changed paths: 0 new. Remaining hits are pre-existing on untouched lines
+  (`GlobalHeader.tsx` x2 + `OrganiserProfile.tsx` x1, react-hooks/set-state-in-effect; same counts on the base).
+- vitest `src/modules/organiser`: all pass (shell 11/11, legacyRedirect 11/11, shared 20 files).
+- `npm run build`: OK.
+- `npm run test:unit:offline`: before 177 files / 2396 pass / 5 fail; after 160 files / 2245 pass /
+  5 fail (only `tests/integrityCouldNotRun.test.ts`, known). Drop = deleted old component tests.
+- `npm run lint`: 14/16. `check:integrity` exit 126 = non-executable script in this checkout
+  (`bash bin/check-integrity.sh`: ok, 1177 files). `check:no-social-word` fails on W2's
+  `events/__tests__/fixtures.ts:38` (`title: 'Social'`) -- PRE-EXISTING on 14c4802, not W5a's folder.
+
+### Left alone (grep hits) and why
+
+- `src/pages/AuthCallback.tsx:13` imports `@/modules/organiser-self-serve/selfServeApi` -> a
+  re-export shim stays at that path (login file). Delete the shim when the owner allows a
+  one-line import change there.
+- `src/pages/Auth.tsx:71` (`/account` default return) and `src/lib/auth-otp-routing.ts:93-94`
+  (+ its test) still say `/account`: sign-in logic; the redirect covers them.
+- `src/lib/breadcrumbs/siteIa.ts` `account` / `account.new` / `accountTeam`: no page uses them
+  now; removing them breaks `buildBreadcrumbs` typing (`parent` only exists on them), so their
+  paths were pointed at `/account/o` and `/account/o/team` instead.
+
+### For W5b (quality sweep) -- read first
+
+- **E2E gate goes RED.** `npm run test:e2e` (e2e-smoke.yml) still lists 7 specs written for the
+  deleted UI: organiser-account-onboarding, organiser-home, organiser-series, organiser-team,
+  organiser-create, organiser-hardening, organiser-loop (93 failures in a local run). Also not
+  gated but stale: organiser-tap-targets, organiser-real-rpc (+ playwright.organiser-real-rpc
+  config). They were NOT deleted or dropped from the list (that would hide coverage); they need
+  rewriting against `/account/o` (new testids) -- or an owner decision to retire them.
+  e2e-smoke.yml's comment about `/account` (line ~66) should follow.
+  Sandbox note: Playwright wants chromium_headless_shell-1243; symlinking the 1194 build's
+  `chrome-linux/headless_shell` as `chrome-headless-shell-linux64/chrome-headless-shell` works.
+- `check:no-social-word` on `events/__tests__/fixtures.ts:38` (W2 fixture) blocks `npm run lint`.
+- `/account/new?organiser=<id>` now lands on `/account/o/events/new?organiser=<id>`; the new
+  page ignores `organiser` (the old form preselected it).
+- `shared/` still exports things only the deleted UI used (e.g. parts of homeModel /
+  seriesModel / editorGuards); an export-level dead-code pass is W5b's.
+- W1's measured SearchField clear (41px) / SheetView close (37px) under 44px; F1 Status card
+  at 320px not measured.
