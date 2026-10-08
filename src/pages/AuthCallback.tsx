@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
 import { resolveCanonicalCity } from "@/lib/city-canonical";
-import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo, stashPendingReturnTo } from "@/lib/authRouting";
+import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo } from "@/lib/authRouting";
 import { hasDancerProfileBasics, inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { flags } from "@/lib/featureFlags";
@@ -26,11 +26,15 @@ const AuthCallback = () => {
   const safeReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
   const callbackMode = searchParams.get("mode");
 
-  const navigateToOnboardingFallback = (reason: "timeout" | "profile" | "metadata" | "lookup" | "incomplete") => {
-    if (safeReturnTo) {
-      stashPendingReturnTo(safeReturnTo);
-    }
-    navigate(`/onboarding?authFallback=${reason}`, { replace: true });
+  // Signed in, but the profile could not be filled in. This used to go to
+  // /onboarding?authFallback=<reason>, and /onboarding was retired on
+  // 2026-09-12 -- so a successful sign-in ended on "Page not found". The reason
+  // was only ever read by that page. Carry on to where they were heading
+  // (returnTo, then a stashed one), else home.
+  const navigateToSignedInFallback = () => {
+    const pendingReturnTo = sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY));
+    localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
+    navigate(safeReturnTo ?? pendingReturnTo ?? "/", { replace: true });
   };
 
   const navigateToSignInFallback = (reason: "expired" | "invalid" | "manual" | "timeout") => {
@@ -171,7 +175,7 @@ const AuthCallback = () => {
             const basedCityId =
               (await resolveCanonicalCity(cityId))?.cityId ?? (await resolveCanonicalCity(city))?.cityId;
             if (!basedCityId) {
-              navigateToOnboardingFallback("metadata");
+              navigateToSignedInFallback();
               return;
             }
 
@@ -188,24 +192,25 @@ const AuthCallback = () => {
             // next gate re-reads the row -- so an unverified hop here becomes a
             // bounce a moment later.
             if (!hasDancerProfileBasics(saved as { first_name?: string | null; based_city_id?: string | null })) {
-              navigateToOnboardingFallback("incomplete");
+              navigateToSignedInFallback();
               return;
             }
 
             await routeOnwards();
             return;
           } catch (profileErr) {
-                        navigateToOnboardingFallback("profile");
+            navigateToSignedInFallback();
             return;
           }
         }
 
         // Either the signup metadata is too thin to fill the stub with, or there
         // is no stub at all -- which is now a genuine failure, since nothing else
-        // creates one. Both land on onboarding, which asks for these two fields.
-        navigateToOnboardingFallback(dancer?.id ? "metadata" : "profile");
+        // creates one. Both used to land on the retired /onboarding; see
+        // navigateToSignedInFallback.
+        navigateToSignedInFallback();
       } catch (err) {
-                navigateToOnboardingFallback("lookup");
+        navigateToSignedInFallback();
       }
     };
 
