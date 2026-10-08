@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AtSign, Building2, FileText, Globe, Image as ImageIcon, LogOut, Mail, ThumbsUp } from 'lucide-react';
+import { AtSign, Building2, FileText, Globe, Image as ImageIcon, LogOut, Mail, MapPin, ThumbsUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -31,19 +31,26 @@ import {
 import { OrganiserSwitcher } from './OrganiserSwitcher';
 import { useOrganiserChoice } from './useOrganiserChoice';
 import { formFromEntity, instagramHandle, type ProfileEntity } from './profileForm';
+import { ReviewCard } from './ReviewCard';
+import { CityView } from './CityView';
+import { sendBlockers } from './reviewModel';
 
 /**
  * /account/o/profile (W4). The organiser's PUBLIC profile (name, about, logo,
- * Instagram and links) saved through organiser_profile_update_p5_v1, the one
- * write path for organiser_profiles (src/lib/organiserProfileUpdate.ts), plus
- * the account basics and Sign out. Instagram lives here, never on an event.
+ * city, Instagram and links) saved through organiser_profile_update_p5_v1, the
+ * one write path for organiser_profiles (src/lib/organiserProfileUpdate.ts),
+ * plus the account basics and Sign out. Instagram lives here, never on an event.
+ * F1: the lifecycle and "Send for review" sit at the top (ReviewCard).
  */
 
-type View = 'photo' | 'about' | 'instagram' | 'website' | 'facebook' | 'signout';
+type View = 'photo' | 'about' | 'city' | 'instagram' | 'website' | 'facebook' | 'signout';
+
+interface City { id: string | null; name: string | null }
 
 const TITLES: Record<View, string> = {
   photo: 'Logo or photo',
   about: 'About',
+  city: 'City',
   instagram: 'Instagram',
   website: 'Website',
   facebook: 'Facebook',
@@ -90,21 +97,24 @@ function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }:
   const queryClient = useQueryClient();
   const [saved, setSaved] = useState<OrganiserProfileEditForm>(() => formFromEntity(entity));
   const [form, setForm] = useState<OrganiserProfileEditForm>(saved);
+  const [savedCity, setSavedCity] = useState<City>(() => ({ id: entity.city_id ?? null, name: entity.cities?.name ?? null }));
+  const [city, setCity] = useState<City>(savedCity);
   const [error, setError] = useState<string | null>(null);
   const [message, announce] = useAnnounce();
   const { shake, shakeProps } = useShake();
   const set = (key: keyof OrganiserProfileEditForm) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
-  const dirty = JSON.stringify(form) !== JSON.stringify(saved);
+  const dirty = JSON.stringify(form) !== JSON.stringify(saved) || city.id !== savedCity.id;
 
   const save = useMutation({
     mutationFn: async () => {
       if (!form.name.trim()) throw new Error('name_required');
-      if (!entity.city_id) throw new Error('city_required');
-      const { error: rpcError } = await saveOrganiserProfile(supabase, organiser.id, form, entity.city_id);
+      if (!city.id) throw new Error('city_required');
+      const { error: rpcError } = await saveOrganiserProfile(supabase, organiser.id, form, city.id);
       if (rpcError) throw rpcError;
     },
     onSuccess: () => {
       setSaved(form);
+      setSavedCity(city);
       setError(null);
       announce('Profile saved.');
       void queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(organiser.id) });
@@ -124,7 +134,7 @@ function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }:
     <div>
       {error && <p role="alert" className="px-4 pt-3 text-[14px] text-[var(--danger)]" data-testid="profile-save-error">{error}</p>}
       <PreviewBar
-        preview={<PublicCardPreview form={form} city={entity.cities?.name ?? null} />}
+        preview={<PublicCardPreview form={form} city={city.name} />}
         actionLabel={dirty ? 'Save profile' : 'Saved'}
         onAction={() => { setError(null); save.mutate(); }}
         loading={save.isPending}
@@ -141,12 +151,18 @@ function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }:
       <AnnounceRegion message={message} />
       <div className="space-y-5">
       {top}
+      <ReviewCard
+        organiser={organiser}
+        blockers={sendBlockers({ name: saved.name, cityId: savedCity.id, dirty })}
+        onSent={() => announce('Sent for review.')}
+      />
       <div className="space-y-5 pb-2">
         <Cover src={form.avatar_url.trim() || null} alt="" onChange={() => openSheet('photo')} changeLabel="Change logo or photo" emptyLabel="No logo yet" testId="profile-cover" className="w-[56%]" />
         <TitleInput value={form.name} onChange={set('name')} aria-label="Organiser name" placeholder="Organiser name" maxLength={80} testId="profile-name" />
         <Card label="About" testId="profile-about-card">
           <SummaryRow icon={<FileText />} label="About" sublabel={form.bio.trim() || 'Say who you are and what you run'} affordance="pencil" onPress={() => openSheet('about')} testId="profile-about" />
           <SummaryRow icon={<ImageIcon />} label="Logo or photo" value={form.avatar_url.trim() ? 'Set' : 'None'} onPress={() => openSheet('photo')} testId="profile-photo" />
+          <SummaryRow icon={<MapPin />} label="City" value={city.name || (city.id ? 'Set' : 'Add')} onPress={() => openSheet('city')} testId="profile-city" />
         </Card>
         <Card label="Links" testId="profile-links">
           <SummaryRow icon={<AtSign />} label="Instagram" value={instagramHandle(form.instagram) ? `@${instagramHandle(form.instagram)}` : 'Add'} onPress={() => openSheet('instagram')} testId="profile-instagram" />
@@ -160,18 +176,24 @@ function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }:
 
       {bottom}
       </div>
-      <FieldSheet view={editing} onClose={() => openSheet(null)} form={form} set={set} />
+      <FieldSheet
+        view={editing} onClose={() => openSheet(null)} form={form} set={set}
+        city={<CityView selectedId={city.id} onPick={(c) => { setCity({ id: c.id, name: c.label }); openSheet(null); }} />}
+      />
     </OrganiserShell>
   );
 }
 
-function FieldSheet({ view, onClose, form, set }: {
+function FieldSheet({ view, onClose, form, set, city }: {
   view: Exclude<View, 'signout'> | null; onClose: () => void;
   form: OrganiserProfileEditForm; set: (key: keyof OrganiserProfileEditForm) => (value: string) => void;
+  /** The city search view (CityView), shown when `view` is 'city'. */
+  city: ReactNode;
 }) {
   const v = view ?? 'about';
-  const key: keyof OrganiserProfileEditForm = v === 'photo' ? 'avatar_url' : v === 'about' ? 'bio' : v;
-  const hint: Record<typeof v, string> = {
+  const fieldView = v === 'city' ? 'about' : v;
+  const key: keyof OrganiserProfileEditForm = fieldView === 'photo' ? 'avatar_url' : fieldView === 'about' ? 'bio' : fieldView;
+  const hint: Record<typeof fieldView, string> = {
     photo: 'Paste a link to your logo or a square photo (https://...).',
     about: 'A few lines guests read on your organiser page.',
     instagram: 'Your handle, like @ritmoleeds, or the link to your Instagram page.',
@@ -184,21 +206,24 @@ function FieldSheet({ view, onClose, form, set }: {
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={TITLES[v]}
       viewKey={v}
+      fullHeight={v === 'city'}
       footer={<GhostButton onClick={onClose} testId="profile-sheet-done">Done</GhostButton>}
       testId="profile-sheet"
     >
+      {v === 'city' ? city : (
       <div className="space-y-2 p-4">
-        <label htmlFor={`profile-field-${v}`} className="block text-[14px] text-[var(--mut)]">{hint[v]}</label>
-        {v === 'about' ? (
-          <textarea id={`profile-field-${v}`} data-sheet-autofocus rows={6} maxLength={4000} value={form.bio} onChange={(e) => set('bio')(e.target.value)} className={`${FIELD} py-3`} data-testid="profile-field" />
+        <label htmlFor={`profile-field-${fieldView}`} className="block text-[14px] text-[var(--mut)]">{hint[fieldView]}</label>
+        {fieldView === 'about' ? (
+          <textarea id={`profile-field-${fieldView}`} data-sheet-autofocus rows={6} maxLength={4000} value={form.bio} onChange={(e) => set('bio')(e.target.value)} className={`${FIELD} py-3`} data-testid="profile-field" />
         ) : (
           <input
-            id={`profile-field-${v}`} data-sheet-autofocus value={form[key]} onChange={(e) => set(key)(e.target.value)}
+            id={`profile-field-${fieldView}`} data-sheet-autofocus value={form[key]} onChange={(e) => set(key)(e.target.value)}
             inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
             className={`${FIELD} h-[48px]`} data-testid="profile-field"
           />
         )}
       </div>
+      )}
     </SheetView>
   );
 }

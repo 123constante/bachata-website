@@ -499,3 +499,66 @@ a class session's "Add a teacher" with 8 results.
 ### Local primitives
 
 None added. `Field` (label + input + error) and `SessionRow` are local to `dates/`.
+
+
+## F1 -- Profile: lifecycle + Send for review + city (2026-10-08) -- DONE
+
+Fix-up for the W1/W4 gap: `submitOrganiserProfile` had no screen in the new area. Owned paths
+only: `src/modules/organiser/profile/**` (+ this section).
+
+### Files
+
+- `profile/reviewModel.ts` -- pure: `reviewStatus(lifecycle, reason)` (label from
+  `LIFECYCLE_LABEL`, tone, one sentence, `canSend` = draft or rejected, the same rule as the old
+  `organiserStatusView` and the RPC) and `sendBlockers({ name, cityId, dirty })`.
+- `profile/ReviewCard.tsx` -- "Status" card at the top of Profile (under the organiser switcher):
+  StatusTag + sentence (draft: 'Only you can see this organiser until the team approves it.';
+  In review: 'The team is looking at it.'; Changes needed: 'The team asked for changes: <reason>'
+  from `latest_decision.reason`, or '...changes.' with none; Live: 'Live on the site.'; paused /
+  ended: tag only). 'Send for review' ('... again' for changes needed) for draft / changes needed
+  only, as a GhostButton (the Save bar keeps the screen's one primary). Tap -> inline confirm
+  ('No, not yet' / 'Yes, send it') -> the OLD `useSendForReview` hook (logic import: same home
+  cache patch + reload as old /account) -> announce 'Sent for review.' (old Account's wording).
+  Refusal: shake + `selfServeErrorCopy(...).message` (role=alert), kept visible after the reload
+  removes the button (as the old header did).
+- `profile/CityView.tsx` -- the city search as a view (`viewKey="city"`, fullHeight) of the
+  page's one field sheet: SearchField (250ms wait), SkeletonRows, plain no-match / failure lines.
+- `profile/index.tsx` -- City row in the About card (shows the city or 'Add'); the chosen city
+  is part of the unsaved state and is saved with the profile (`saveOrganiserProfile(..., city.id)`).
+- Test: `profile/__tests__/ProfileReview.test.tsx` (17): each state's copy and button, GhostButton,
+  'again', confirm + submit + announce + In review, No, known and unknown refusal copy + shake,
+  disabled reasons (unsaved, missing city, model), city search -> pick -> save -> send enabled,
+  no match.
+
+### Completeness checks (read this)
+
+The old header applied NO check before enabling the button, and `submit_organiser_profile_v1`
+checks only membership and state (definition read, SELECT only). So "the same checks as the old
+UI" is none; F1 adds the profile's own required fields instead, never hidden, always as plain
+text under the disabled button (aria-describedby): 'Missing: Organiser name, City.' from the
+STORED profile (the team reviews what is saved), and 'Save your changes first.' while edits are
+unsaved. If W5 wants exact old behaviour, pass `blockers={[]}`.
+
+### Old / shared files imported (none modified)
+
+`selfServeApi.ts` (LIFECYCLE_LABEL, HomeOrganiser type; submitOrganiserProfile via the hook),
+`selfServeErrors.ts` (selfServeErrorCopy), `components/useSendForReview.ts` (a hook, not a
+component), and W1's `home/onboarding/citySearch.ts` (search_cities, the shared CityPicker's read).
+`resolveCanonicalCity` / `createCity.ts` were NOT needed: search_cities already returns canonical
+city ids, and `resolveCreateCityId` is for event creates (venue city -> id).
+
+### Gaps
+
+- The confirm is an inline question in the card (Team's pattern), not a sheet view.
+- The city label is search_cities' display name ('Bristol, United Kingdom') until the entity is
+  re-read; after a save the invalidated entity query brings the stored city name.
+- Not measured in a browser this round (no harness run); W5's sweep should include the Status card
+  at 320px (long reasons wrap with break-words).
+
+### Gates run (sandbox)
+
+- `tsc -p tsconfig.app.json`: 0 errors under `src/modules/organiser/` (109 elsewhere, pre-existing).
+- `npx eslint src/modules/organiser/profile`: 0 problems.
+- `npx vitest run src/modules/organiser/profile`: 27/27.
+- `npm run test:unit:offline`: 2388 pass, 13 fail = shell.test.tsx x8 (W5) + integrityCouldNotRun x5
+  (known); nothing else.
