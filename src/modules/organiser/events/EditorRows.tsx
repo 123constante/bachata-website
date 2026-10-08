@@ -12,7 +12,8 @@ import { useNextDateProgramme } from './eventsApi';
 
 /**
  * The sessions of the NEXT date, read-only with their people; opens that date's
- * editor (W3). `upcoming` / `pastCount` say why there is no next date.
+ * editor (W3). `upcoming` / `pastCount` say why there is no next date. It sits
+ * under the When group, so the past dates it points at are ABOVE it.
  */
 export function ScheduleCard({ seriesId, next, today, upcoming = 0, pastCount = 0, closed = false }: {
   seriesId: string; next: WorkspaceDate | null; today: string; upcoming?: number; pastCount?: number;
@@ -26,7 +27,7 @@ export function ScheduleCard({ seriesId, next, today, upcoming = 0, pastCount = 
       <Card label="Schedule" testId="org-schedule">
         <SummaryRow
           label={upcoming ? 'Every upcoming date is cancelled' : 'No upcoming date'}
-          sublabel={pastCount ? 'Open a past date below to see its sessions' : closed ? 'This event has no dates' : 'Sessions show here once a date is listed'}
+          sublabel={pastCount ? 'Open a past date above to see its sessions' : closed ? 'This event has no dates' : 'Sessions show here once a date is listed'}
           testId="org-schedule-none"
         />
       </Card>
