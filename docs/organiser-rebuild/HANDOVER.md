@@ -103,3 +103,70 @@ const ratio=(a,b)=>{const x=L(a),y=L(b);return (Math.max(x,y)+.05)/(Math.min(x,y
 - Linking the new area from the old `/account` and retiring old pages: W5.
 - The harness lives outside the repo (scratchpad). A Playwright spec for the new routes
   should join `test:e2e` (explicit spec list) once the pages carry real content.
+
+## W4 -- Team + Profile (2026-10-08) -- DONE
+
+Owned paths only: `src/modules/organiser/team/**`, `src/modules/organiser/profile/**`.
+
+### Files
+
+- `team/index.tsx` -- `/account/o/team` (replaces the W0 placeholder; same default export and `org-page-team` testid).
+- `profile/index.tsx` -- `/account/o/profile` (same; `org-page-profile`).
+- `profile/useOrganiserChoice.ts` -- `organiser_home_v1` read (same cache key as the old /account) + which organiser is shown, kept in `?o=<id>`.
+- `profile/OrganiserSwitcher.tsx` -- chip row, only when the person runs 2+ organisers (the old /account had a picker, so this mirrors it). Used by both pages.
+- `profile/profileForm.ts` -- row -> edit form, Instagram handle reader.
+- `team/__tests__/TeamPage.test.tsx` (14 tests), `profile/__tests__/ProfilePage.test.tsx` (10 tests).
+
+### Team
+
+- Members (`PersonRow` + role chip, "You" on your own row). Remove a manager / Leave: inline question in plain words ("Remove Ana? They will no longer see or edit these events." / "No, keep them" / "Yes, remove"), then the row fades and collapses (`Collapse`), then the home read refreshes. Leaving lands on `ORG_PATHS.home`.
+- Requests to join: skeleton / error + retry / empty. "Add as manager" opens the confirm-as-manager question (old wording) before `resolve_organiser_access_request_v1('grant')`; "Decline" is one tap. Answered rows collapse, then the list re-reads.
+- Refusals: `teamErrorMessage` copy under the question (or under the row for decline), with a shake.
+- Owner vs manager: a manager sees Add/Decline DISABLED with "Only an owner can add or decline people."; the only owner sees Leave disabled with the `memberAction` note. Nothing is hidden silently except Remove on other people for a manager (same as the old panel: managers have no remove action at all).
+- One question open at a time, so at most one cream `PrimaryButton` on screen.
+
+### Profile
+
+- Cover (logo), borderless name (`TitleInput`), About / Logo rows, Links card (Instagram, Website, Facebook) -> ONE `SheetView` whose `viewKey` is the field. Preview of the public card + ONE primary "Save profile" in `PreviewBar` (live note only when the organiser is live), disabled until something changed. Failure: bar shakes + plain message from `organiserProfileSaveErrorToast` above the button.
+- Save = `saveOrganiserProfile` (`src/lib/organiserProfileUpdate.ts`, RPC `organiser_profile_update_p5_v1`) with the WHOLE form filled from the stored row, so phone / category / founded year (not shown) are re-sent unchanged; the RPC treats an unchanged value as a no-op (checked its definition, SELECT only). City is the stored `city_id`.
+- Account card: signed-in email (read-only), "Organisers you help run" count, Sign out -> confirm sheet -> `useAuth().signOut()`; on 'failed' it stays and says so; otherwise `navigate('/', { replace: true })`, exactly what the old /account does today.
+
+### Old / shared files imported (none modified)
+
+- `src/modules/organiser-self-serve/selfServeApi.ts` (fetchOrganiserHome, organiserHomeQueryKey, ORGANISER_HOME_KEY, fetchIncomingAccessRequests, incomingAccessRequestsQueryKey, removeOrganiserMember, resolveAccessRequest, teamOf, types)
+- `src/modules/organiser-self-serve/selfServeErrors.ts` (teamErrorMessage)
+- `src/modules/organiser-self-serve/teamModel.ts` (ROLE_LABEL, howToAddManager, instantDateLabel, memberAction, memberLabel, types)
+- `src/lib/organiserProfileUpdate.ts` (saveOrganiserProfile, organiserProfileSaveErrorToast, OrganiserProfileEditForm)
+- `src/modules/profile/organiserPublicProfile.ts` (fetchOrganiserEntity, organiserEntityQueryKey -- the public page's own cache key, so a save refreshes it)
+- `src/lib/organiserPublicCols.ts` (type only), `src/hooks/useAuth` (signOut only), `src/integrations/supabase/client`.
+
+### Gaps (no RPC offers it; shipped the simpler version)
+
+- **Change role**: no RPC. Roles are shown read-only with "Only the Bachata Calendar team can change someone's role."
+- **Invite / add by email**: no RPC. Adding = granting a request (as the old flow); the "Add someone" card explains how a person asks.
+- **Logo upload**: no organiser-avatar upload wrapper; the Logo sheet takes an image link (as the old public-page editor does).
+- **City** is not editable here (needs the city picker + `resolveCanonicalCity` from the old page); an organiser with no city gets the server's "City is required" message.
+- **Profile lifecycle** (send for review) is not on this screen; Home/W1 owns onboarding.
+
+### Gates run (sandbox)
+
+- `tsc -p tsconfig.app.json`: 95 errors, all pre-existing, 0 in my paths.
+- `npx eslint src/modules/organiser/team src/modules/organiser/profile`: 0 problems.
+- `npx vitest run src/modules/organiser/team src/modules/organiser/profile`: 24/24 pass (needs `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` placeholders, as unit-tests.yml sets).
+- **Heads-up for W0/W5:** `src/modules/organiser/__tests__/shell.test.tsx` (W0's, not mine to edit) renders the REAL pages with no `QueryClientProvider`, so once a page uses react-query its "renders its placeholder" case fails ("No QueryClient set"). Team and Profile fail it now, and W1-W3's pages will too. Fix (one place): wrap `at()` in `<QueryClientProvider client={new QueryClient()}>` and mock `@/hooks/useAuth`, or assert only on `org-tab-*`.
+
+### Measured in headless Chromium (Vite harness with stubbed RPCs, real Tailwind; long names + long emails)
+
+| Check | 390x844 | 320x568 | 1280x800 |
+|---|---|---|---|
+| Horizontal scroll (document + content) | 0 / 0 | 0 / 0 | 0 / 0 |
+| Elements past the right edge | 0 / 0 | 0 / 0 | 0 / 0 |
+| Cream PrimaryButtons visible (team with grant question open / profile) | 1 / 1 | 1 / 1 | 1 / 1 |
+| Profile action bar bottom = tab bar top | 783 = 783 | 507 = 507 | 739 = 739 |
+| Field sheet: dialogs in DOM / focus in field / h-scroll | 1 / yes / 0 | 1 / yes / 0 | -- |
+| Sign-out sheet: "Yes" bottom vs viewport | 817 < 844 | 541 < 568 | -- |
+| Buttons under 44px tall | none | none | none |
+| Page errors | 0 | 0 | 0 |
+
+(The probe also counts the W0 `Cover` round change button as cream; it is the cover's icon button, not a PrimaryButton.)
+Fixes made because of these runs: "(you)" removed from the name (it gave "D(" initials and truncated) and moved to the sublabel; the confirm buttons stack instead of wrapping "Yes, add as manager" onto two lines.

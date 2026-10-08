@@ -1,11 +1,273 @@
+import { useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AtSign, Building2, FileText, Globe, Image as ImageIcon, LogOut, Mail, ThumbsUp } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  organiserProfileSaveErrorToast,
+  saveOrganiserProfile,
+  type OrganiserProfileEditForm,
+} from '@/lib/organiserProfileUpdate';
+import { fetchOrganiserEntity, organiserEntityQueryKey } from '@/modules/profile/organiserPublicProfile';
+import { ORGANISER_HOME_KEY, type HomeOrganiser } from '@/modules/organiser-self-serve/selfServeApi';
 import { OrganiserShell } from '../shell';
-import { EmptyState } from '../ui';
+import {
+  AnnounceRegion,
+  Card,
+  Cover,
+  EmptyState,
+  ErrorState,
+  GhostButton,
+  PreviewBar,
+  SheetView,
+  SkeletonRows,
+  SummaryRow,
+  TitleInput,
+  initials,
+  useAnnounce,
+  useShake,
+} from '../ui';
+import { OrganiserSwitcher } from './OrganiserSwitcher';
+import { useOrganiserChoice } from './useOrganiserChoice';
+import { formFromEntity, instagramHandle, type ProfileEntity } from './profileForm';
 
-/** PLACEHOLDER (W0). Owner: W4. /account/o/profile (organiser profile, incl. Instagram). */
+/**
+ * /account/o/profile (W4). The organiser's PUBLIC profile (name, about, logo,
+ * Instagram and links) saved through organiser_profile_update_p5_v1, the one
+ * write path for organiser_profiles (src/lib/organiserProfileUpdate.ts), plus
+ * the account basics and Sign out. Instagram lives here, never on an event.
+ */
+
+type View = 'photo' | 'about' | 'instagram' | 'website' | 'facebook' | 'signout';
+
+const TITLES: Record<View, string> = {
+  photo: 'Logo or photo',
+  about: 'About',
+  instagram: 'Instagram',
+  website: 'Website',
+  facebook: 'Facebook',
+  signout: 'Sign out',
+};
+
+const FIELD = 'block w-full rounded-[12px] border border-[var(--line-strong)] bg-[var(--card2)] px-3 text-[16px] text-[var(--fg)] placeholder:text-[var(--ph)] outline-none focus:border-[var(--gold)]';
+
+function PublicCardPreview({ form, city }: { form: OrganiserProfileEditForm; city: string | null }) {
+  const handle = instagramHandle(form.instagram);
+  return (
+    <div className="flex items-center gap-3 p-3" data-testid="profile-preview">
+      {form.avatar_url.trim() ? (
+        <img src={form.avatar_url.trim()} alt="" className="h-11 w-11 shrink-0 rounded-[12px] object-cover" />
+      ) : (
+        <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--card2)] text-[14px] font-bold text-[var(--fg)]">
+          {initials(form.name || '?')}
+        </span>
+      )}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[15px] font-semibold text-[var(--fg)]" data-testid="profile-preview-name">{form.name.trim() || 'Your organiser name'}</span>
+        <span className="block truncate text-[13px] text-[var(--mut)]">
+          {[city, handle ? `@${handle}` : null].filter(Boolean).join(' \u00b7 ') || 'Organiser'}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+function AccountCard({ email, count, onSignOut }: { email: string | null; count: number | null; onSignOut: () => void }) {
+  return (
+    <Card label="Account" testId="profile-account">
+      <SummaryRow icon={<Mail />} label="Signed in as" value={email ?? ''} testId="profile-email" />
+      <SummaryRow icon={<Building2 />} label="Organisers you help run" value={count === null ? undefined : String(count)} testId="profile-org-count" />
+      <SummaryRow icon={<LogOut />} label="Sign out" onPress={onSignOut} testId="profile-signout" />
+    </Card>
+  );
+}
+
+function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }: {
+  organiser: HomeOrganiser; entity: ProfileEntity; sheetOpen: View | null; openSheet: (v: View | null) => void;
+  top: ReactNode; bottom: ReactNode;
+}) {
+  const queryClient = useQueryClient();
+  const [saved, setSaved] = useState<OrganiserProfileEditForm>(() => formFromEntity(entity));
+  const [form, setForm] = useState<OrganiserProfileEditForm>(saved);
+  const [error, setError] = useState<string | null>(null);
+  const [message, announce] = useAnnounce();
+  const { shake, shakeProps } = useShake();
+  const set = (key: keyof OrganiserProfileEditForm) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
+  const dirty = JSON.stringify(form) !== JSON.stringify(saved);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!form.name.trim()) throw new Error('name_required');
+      if (!entity.city_id) throw new Error('city_required');
+      const { error: rpcError } = await saveOrganiserProfile(supabase, organiser.id, form, entity.city_id);
+      if (rpcError) throw rpcError;
+    },
+    onSuccess: () => {
+      setSaved(form);
+      setError(null);
+      announce('Profile saved.');
+      void queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(organiser.id) });
+      void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+    },
+    onError: (err) => {
+      const copy = organiserProfileSaveErrorToast(err);
+      setError(copy.description ?? copy.title);
+      shake();
+    },
+  });
+
+  const editing = sheetOpen && sheetOpen !== 'signout' ? sheetOpen : null;
+  const live = organiser.lifecycle_status === 'live';
+
+  const bar = (
+    <div>
+      {error && <p role="alert" className="px-4 pt-3 text-[14px] text-[var(--danger)]" data-testid="profile-save-error">{error}</p>}
+      <PreviewBar
+        preview={<PublicCardPreview form={form} city={entity.cities?.name ?? null} />}
+        actionLabel={dirty ? 'Save profile' : 'Saved'}
+        onAction={() => { setError(null); save.mutate(); }}
+        loading={save.isPending}
+        disabled={!dirty}
+        live={live}
+        shakeProps={shakeProps}
+        testId="profile-bar"
+      />
+    </div>
+  );
+
+  return (
+    <OrganiserShell title="Profile" testId="org-page-profile" actionBar={bar}>
+      <AnnounceRegion message={message} />
+      <div className="space-y-5">
+      {top}
+      <div className="space-y-5 pb-2">
+        <Cover src={form.avatar_url.trim() || null} alt="" onChange={() => openSheet('photo')} changeLabel="Change logo or photo" emptyLabel="No logo yet" testId="profile-cover" className="w-[56%]" />
+        <TitleInput value={form.name} onChange={set('name')} aria-label="Organiser name" placeholder="Organiser name" maxLength={80} testId="profile-name" />
+        <Card label="About" testId="profile-about-card">
+          <SummaryRow icon={<FileText />} label="About" sublabel={form.bio.trim() || 'Say who you are and what you run'} affordance="pencil" onPress={() => openSheet('about')} testId="profile-about" />
+          <SummaryRow icon={<ImageIcon />} label="Logo or photo" value={form.avatar_url.trim() ? 'Set' : 'None'} onPress={() => openSheet('photo')} testId="profile-photo" />
+        </Card>
+        <Card label="Links" testId="profile-links">
+          <SummaryRow icon={<AtSign />} label="Instagram" value={instagramHandle(form.instagram) ? `@${instagramHandle(form.instagram)}` : 'Add'} onPress={() => openSheet('instagram')} testId="profile-instagram" />
+          <SummaryRow icon={<Globe />} label="Website" value={form.website.trim() || 'Add'} onPress={() => openSheet('website')} testId="profile-website" />
+          <SummaryRow icon={<ThumbsUp />} label="Facebook" value={form.facebook.trim() || 'Add'} onPress={() => openSheet('facebook')} testId="profile-facebook" />
+        </Card>
+        <p className="text-[13px] text-[var(--mut)]">
+          {live ? 'This is your public organiser page.' : 'Your organiser is not public yet. You can still get it ready here.'} Owners and managers can edit it.
+        </p>
+      </div>
+
+      {bottom}
+      </div>
+      <FieldSheet view={editing} onClose={() => openSheet(null)} form={form} set={set} />
+    </OrganiserShell>
+  );
+}
+
+function FieldSheet({ view, onClose, form, set }: {
+  view: Exclude<View, 'signout'> | null; onClose: () => void;
+  form: OrganiserProfileEditForm; set: (key: keyof OrganiserProfileEditForm) => (value: string) => void;
+}) {
+  const v = view ?? 'about';
+  const key: keyof OrganiserProfileEditForm = v === 'photo' ? 'avatar_url' : v === 'about' ? 'bio' : v;
+  const hint: Record<typeof v, string> = {
+    photo: 'Paste a link to your logo or a square photo (https://...).',
+    about: 'A few lines guests read on your organiser page.',
+    instagram: 'Your handle, like @ritmoleeds, or the link to your Instagram page.',
+    website: 'Your own site or ticket page, like ritmo.example.',
+    facebook: 'Your Facebook page name or link.',
+  };
+  return (
+    <SheetView
+      open={view !== null}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={TITLES[v]}
+      viewKey={v}
+      footer={<GhostButton onClick={onClose} testId="profile-sheet-done">Done</GhostButton>}
+      testId="profile-sheet"
+    >
+      <div className="space-y-2 p-4">
+        <label htmlFor={`profile-field-${v}`} className="block text-[14px] text-[var(--mut)]">{hint[v]}</label>
+        {v === 'about' ? (
+          <textarea id={`profile-field-${v}`} data-sheet-autofocus rows={6} maxLength={4000} value={form.bio} onChange={(e) => set('bio')(e.target.value)} className={`${FIELD} py-3`} data-testid="profile-field" />
+        ) : (
+          <input
+            id={`profile-field-${v}`} data-sheet-autofocus value={form[key]} onChange={(e) => set(key)(e.target.value)}
+            inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+            className={`${FIELD} h-[48px]`} data-testid="profile-field"
+          />
+        )}
+      </div>
+    </SheetView>
+  );
+}
+
+function SignOutSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const { shake, shakeProps } = useShake();
+  const go = async () => {
+    setBusy(true);
+    setNote(null);
+    const outcome = await signOut();
+    setBusy(false);
+    if (outcome === 'failed') {
+      setNote('Sign-out did not complete. Check your connection and try again.');
+      shake();
+      return;
+    }
+    navigate('/', { replace: true });
+  };
+  return (
+    <SheetView open={open} onOpenChange={(o) => { if (!o) onClose(); }} title="Sign out" testId="signout-sheet">
+      <div className={`space-y-3 p-4 ${shakeProps.className}`} onAnimationEnd={shakeProps.onAnimationEnd}>
+        <p className="text-[15px] text-[var(--fg)]">Sign out of Bachata Calendar on this device? Changes you have not saved will be lost.</p>
+        {note && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="signout-error">{note}</p>}
+        <GhostButton onClick={onClose} disabled={busy} testId="signout-no">No, stay signed in</GhostButton>
+        <GhostButton onClick={() => void go()} loading={busy} loadingLabel="Signing out" className="text-[var(--danger)]" testId="signout-yes">Yes, sign out</GhostButton>
+      </div>
+    </SheetView>
+  );
+}
+
 export default function ProfilePage() {
+  const { user, home, organisers, selected, choose } = useOrganiserChoice();
+  const [sheet, setSheet] = useState<View | null>(null);
+
+  const entity = useQuery({
+    queryKey: organiserEntityQueryKey(selected?.id),
+    queryFn: () => fetchOrganiserEntity(selected!.id),
+    enabled: !!selected,
+  });
+
+  let body: ReactNode = null;
+  if (home.isPending) body = <SkeletonRows count={3} label="Loading your profile" testId="profile-loading" />;
+  else if (home.isError && !home.data) body = <ErrorState title="Your profile did not load" onRetry={() => void home.refetch()} retrying={home.isFetching} testId="profile-load-error" />;
+  else if (!selected) body = <EmptyState title="You don&rsquo;t run an organiser yet" body="Claim yours or create one from Home, then you can edit its public profile here." testId="profile-no-organiser" />;
+  else if (entity.isPending) body = <SkeletonRows count={3} label="Loading your profile" testId="profile-loading" />;
+  else if (entity.isError) body = <ErrorState title="Your profile did not load" onRetry={() => void entity.refetch()} retrying={entity.isFetching} testId="profile-load-error" />;
+  else if (!entity.data) body = <EmptyState title="This profile is not available" body="It may have been switched off. Ask the Bachata Calendar team." testId="profile-missing" />;
+
+  const top = <OrganiserSwitcher organisers={organisers} selectedId={selected?.id ?? null} onChoose={choose} />;
+  const bottom = (
+    <>
+      <AccountCard email={user?.email ?? null} count={home.data ? organisers.length : null} onSignOut={() => setSheet('signout')} />
+      <SignOutSheet open={sheet === 'signout'} onClose={() => setSheet(null)} />
+    </>
+  );
+  if (selected && entity.data) {
+    return <ProfileEditor key={selected.id} organiser={selected} entity={entity.data as ProfileEntity} sheetOpen={sheet} openSheet={setSheet} top={top} bottom={bottom} />;
+  }
   return (
     <OrganiserShell title="Profile" testId="org-page-profile">
-      <EmptyState title="Profile" body="Your organiser profile will show here." testId="org-placeholder-profile" />
+      <div className="space-y-5">
+        {top}
+        {body}
+        {bottom}
+      </div>
     </OrganiserShell>
   );
 }
