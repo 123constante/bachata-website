@@ -22,8 +22,17 @@
 //     event/festival purge to that city's tag instead of the site-wide
 //     HOME_FEED/SEO_LANDING tags — see purgeTagsFor in ../cacheTags.
 //   - tags: string[] — explicit tags, overrides the derived list (bulk/manual).
-import { invalidateByTag } from "@vercel/functions";
+//   - slug (optional): the entity's canonical slug, when the sender knows it.
+//     Used only by the Cloudflare purge below (a hidden/archived event no
+//     longer resolves to its slug through the public resolver).
+//
+// Cloudflare: after the Vercel purge succeeds, the same tags are purged from
+// Cloudflare's HTML cache by URL (../cloudflarePurge), in waitUntil so the
+// response never waits on it. Best-effort; a logged no-op without
+// CLOUDFLARE_API_TOKEN / CLOUDFLARE_ZONE_ID. See docs/ops/cloudflare-purge.md.
+import { invalidateByTag, waitUntil } from "@vercel/functions";
 import { isEntityType, purgeTagsFor } from "../cacheTags";
+import { cloudflareEnvFromProcess, cloudflareSkipReason, runCloudflarePurge } from "../cloudflarePurge";
 import type { Route } from "./+types/api.revalidate";
 
 const REVALIDATE_SECRET = process.env.REVALIDATE_SECRET ?? "";
@@ -38,6 +47,29 @@ function json(obj: unknown, status: number): Response {
     status,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });
+}
+
+// Fire-and-forget: hands the Cloudflare purge to waitUntil and returns at once.
+// Nothing here may throw into the action -- the Vercel result is the response.
+function scheduleCloudflarePurge(tags: string[], slugHints: Record<string, string>): void {
+  try {
+    const env = cloudflareEnvFromProcess();
+    const skip = cloudflareSkipReason(env);
+    if (skip) {
+      console.warn(`[cf-purge] skipped: ${skip}`);
+      return;
+    }
+    const task = runCloudflarePurge(tags, {
+      env,
+      fetch: (input, init) => fetch(input, init),
+      getResolver: async () =>
+        (await import("../lib/cloudflarePurgeResolver")).supabaseCloudflareResolver,
+      slugHints,
+    }).catch((err) => console.error("[cf-purge] failed", err instanceof Error ? err.message : String(err)));
+    waitUntil(task);
+  } catch (err) {
+    console.error("[cf-purge] could not schedule", err instanceof Error ? err.message : String(err));
+  }
 }
 
 export async function action({ request }: Route.ActionArgs): Promise<Response> {
@@ -56,6 +88,7 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
   const entityType = (body.entityType ?? body.entity_type) as string | undefined;
   const entityId = (body.entityId ?? body.entity_id) as string | undefined;
   const citySlug = (body.citySlug ?? body.city_slug) as string | undefined;
+  const slugHint = typeof body.slug === "string" ? body.slug : undefined;
   const explicitTags = Array.isArray(body.tags)
     ? (body.tags as unknown[]).filter((t): t is string => typeof t === "string" && t.length > 0)
     : null;
@@ -80,6 +113,10 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     // Soft invalidate: serve stale instantly, revalidate in the background. No
     // token — runs with the deployment's ambient identity, current environment.
     await invalidateByTag(tags);
+    scheduleCloudflarePurge(
+      tags,
+      slugHint && entityId && UUID_RE.test(entityId) ? { [entityId]: slugHint } : {},
+    );
     return json({ ok: true, tags }, 200);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

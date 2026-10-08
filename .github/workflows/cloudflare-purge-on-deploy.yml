@@ -1,0 +1,105 @@
+name: Cloudflare purge on deploy
+
+# THE GAP THIS CLOSES (2026-10-08). Cloudflare caches HTML for ~300s (cache rule
+# "HTML for humans (5 min, bots bypass)"). After a production deploy the cached
+# HTML still names the PREVIOUS build's hashed JS (/assets/root-<hash>.js ...),
+# which the new deploy no longer serves; those URLs answer 200 text/html, the
+# browser rejects them as module scripts, and the page renders BLANK until the
+# Cloudflare copy expires (measured: /account/o, ~5 minutes after #659).
+# This workflow clears Cloudflare's cache as soon as Vercel reports the new
+# production deployment live. Runbook: docs/ops/cloudflare-purge.md.
+#
+# WHY deployment_status success. Vercel creates the GitHub deployment and posts
+# `success` (creator vercel[bot], environment "Production") when the deployment
+# is READY, which for production is after the production domains point at it
+# (2026-10-08: #659's deployment was created and marked success in the same
+# second, 08:23:15Z). A push/merge trigger would fire when the BUILD starts, and
+# purging then would just let Cloudflare re-cache the old deployment's HTML.
+# Belt and braces: a second purge runs 60s later, so a request that raced the
+# alias switch cannot leave an old copy behind.
+#
+# WHAT IS PURGED: everything in the zone. The Free plan does allow purge by
+# prefix/host/tag (Cloudflare docs, "Purge cache: availability and limits",
+# read 2026-10-08), but none of them can say "all HTML except /assets/* and
+# /_vercel/image": HTML lives at every path (the catch-all serves any URL), so
+# a prefix list would have to enumerate every route and would silently miss the
+# next one added -- reintroducing exactly this blank-page bug. The cost of
+# purging everything is a one-off refetch of hashed assets and optimised images
+# from Vercel's CDN (static, no function runs).
+#
+# SAFETY. No checkout, no repository code runs, no actions are used (nothing to
+# pin). permissions: {} -- the job needs no GitHub token scope. The Cloudflare
+# token is only ever passed as an HTTP header and never echoed. Without the
+# secrets the job is a green no-op with a log line saying so.
+#
+# Owner setup (one-time): secret CLOUDFLARE_API_TOKEN (Zone > Cache Purge >
+# Purge, zone bachatacalendar.co.uk only) and variable CLOUDFLARE_ZONE_ID.
+
+on:
+  deployment_status:
+  workflow_dispatch:
+
+permissions: {}
+
+# Serialise purges; never cancel one in flight (two quick merges = two deploys,
+# and the later purge must still run after the later deploy).
+concurrency:
+  group: cloudflare-purge-on-deploy
+  cancel-in-progress: false
+
+jobs:
+  purge:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment_status.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Purge Cloudflare cache (twice, 60s apart)
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ZONE: ${{ vars.CLOUDFLARE_ZONE_ID || secrets.CLOUDFLARE_ZONE_ID }}
+          CREATOR: ${{ github.event.deployment_status.creator.login || github.actor }}
+          DEPLOY_URL: ${{ github.event.deployment_status.environment_url || 'manual run' }}
+          SHA: ${{ github.event.deployment.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          echo "Trigger: ${GITHUB_EVENT_NAME} by ${CREATOR}; deployment ${DEPLOY_URL} (${SHA})"
+          if [ -z "${CF_TOKEN}" ] || [ -z "${CF_ZONE}" ]; then
+            echo "::notice::Cloudflare purge SKIPPED: CLOUDFLARE_API_TOKEN secret and/or CLOUDFLARE_ZONE_ID variable not set (see docs/ops/cloudflare-purge.md)."
+            exit 0
+          fi
+          if ! printf '%s' "${CF_ZONE}" | grep -Eq '^[0-9a-f]{32}$'; then
+            echo "::error::CLOUDFLARE_ZONE_ID is not a 32-character hex zone id."
+            exit 1
+          fi
+
+          purge() {
+            local pass="$1" attempt code
+            for attempt in 1 2; do
+              : > /tmp/cf-purge.json
+              code=$(curl -sS -o /tmp/cf-purge.json -w '%{http_code}' --max-time 30 \
+                -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/purge_cache" \
+                -H "Authorization: Bearer ${CF_TOKEN}" \
+                -H 'Content-Type: application/json' \
+                --data '{"purge_everything":true}') || code=000
+              if [ "${code}" = "200" ] && grep -q '"success":[[:space:]]*true' /tmp/cf-purge.json; then
+                echo "Pass ${pass}: purge_everything accepted (HTTP 200)."
+                return 0
+              fi
+              # Retry once on 5xx / network failure; a 4xx (bad token scope,
+              # wrong zone, rate limit) will not fix itself in a second.
+              if [ "${attempt}" = "1" ] && { [ "${code}" = "000" ] || [ "${code}" -ge 500 ]; }; then
+                echo "Pass ${pass}: HTTP ${code}, retrying once in 5s."
+                sleep 5
+                continue
+              fi
+              echo "::error::Pass ${pass}: Cloudflare purge failed, HTTP ${code}: $(head -c 500 /tmp/cf-purge.json 2>/dev/null || true)"
+              return 1
+            done
+          }
+
+          purge 1
+          sleep 60
+          purge 2
