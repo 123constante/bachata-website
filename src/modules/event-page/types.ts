@@ -31,6 +31,8 @@ export type EventPageSnapshotOccurrence = {
   timezone: string | null;
   isCancelled: boolean;
   cancellationReasonLabel: string | null;
+  // Admin 20261109920000 has_timed_session; null/absent = unknown (render the time as before).
+  hasTimedSession?: boolean | null;
   isLive: boolean;
   isPast: boolean;
   isUpcoming: boolean;
@@ -267,6 +269,8 @@ export type EventPageModel = {
     dateLabel: string | null;
     shortDateLabel: string | null;
     timeLabel: string | null;
+    // The date has no timed session: timeLabel is null and surfaces show TIME_TBC_LABEL.
+    timeToBeConfirmed?: boolean;
     timezoneLabel: string | null;
     keyTimes: EventPageKeyTimes | null;
     isCancelled: boolean;

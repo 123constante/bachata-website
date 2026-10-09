@@ -1,6 +1,6 @@
 import { resolveEventImage } from '@/lib/utils';
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
-import { wallClockTimeKey } from '@/lib/time/wallClock';
+import { isTimeToBeConfirmed, wallClockTimeKey } from '@/lib/time/wallClock';
 import { eventHref } from '@/lib/seo/eventHref';
 import { isFestivalByFormat } from '@/lib/eventFormat';
 
@@ -45,6 +45,8 @@ export interface CalendarEventItem {
   // with the CANCELLED red strip + dimmed image (matches Tonight).
   isCancelled: boolean;
   cancellationReasonLabel: string | null;
+  // The date has no timed session: show the date with TIME_TBC_LABEL, never startTime.
+  timeTbc: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +231,7 @@ export const transformCalendarEvents = (
       venueLng: venueCoords?.get(event.event_id)?.lng ?? null,
       isCancelled: event.is_cancelled === true,
       cancellationReasonLabel: event.cancellation_reason_label ?? null,
+      timeTbc: isTimeToBeConfirmed(event.has_timed_session),
     };
   });
 

@@ -216,6 +216,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
       title: pageModel.identity.title,
       startIso: occurrence?.startsAt ?? null,
       endIso: occurrence?.endsAt ?? null,
+      allDay: pageModel.schedule.timeToBeConfirmed === true,
       timezone: occurrence?.timezone ?? pageModel.schedule.timezoneLabel ?? null,
       description: pageModel.description.body ?? null,
       locationName: pageModel.location.venueName ?? null,
@@ -428,6 +429,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             occurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
             occurrenceCancelled={!!occurrence?.isCancelled}
             fallbackTimeLabel={pageModel.schedule.timeLabel}
+            timeToBeConfirmed={pageModel.schedule.timeToBeConfirmed}
             occurrenceDate={wallClockDateKey(occurrence?.localDate ?? occurrence?.startsAt)}
           />
         );
@@ -481,13 +483,17 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         // JSON-LD startDate/endDate feed Google as REAL instants, so
         // convert the stored wall clock through the event tz. Emitting
         // the naive stamp made every BST event read 1h late.
-        startDate:
-          wallClockToInstant(
+        // A date with no timed session publishes its DATE only (schema.org Date), never the
+        // series default time (admin 20261109920000, src/lib/time/wallClock.ts, TBC section).
+        startDate: pageModel.schedule.timeToBeConfirmed
+          ? wallClockDateKey(occurrence?.startsAt ?? occurrence?.localDate) ?? ''
+          : wallClockToInstant(
             occurrence?.startsAt ?? snapshot.event.date ?? null,
             occurrence?.timezone ?? snapshot.event.timezone ?? 'Europe/London',
           )?.toISOString() ?? '',
-        endDate:
-          wallClockToInstant(
+        endDate: pageModel.schedule.timeToBeConfirmed
+          ? null
+          : wallClockToInstant(
             occurrence?.endsAt ?? null,
             occurrence?.timezone ?? snapshot.event.timezone ?? 'Europe/London',
           )?.toISOString() ?? null,
