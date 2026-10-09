@@ -147,7 +147,7 @@ The RPC is already declared in generated types (`admin_save_event: { Args: { p_p
 | Edit event — read           | `supabase.from('events').select('*').eq('id',x)` | `supabase.rpc('admin_get_event_snapshot', {p_event_id: x})` |
 | Edit event — save           | `supabase.from('events').update(...)` directly   | `supabase.rpc('admin_save_event', {...})` |
 | Public event page — read    | `event_view_p5` with `shape:'snapshot_compat'`   | No change (the legacy `get_event_page_snapshot_v2` is retired; anon EXECUTE revoked by admin `20260709080000`) |
-| RSVP toggle                 | *(removed 2026-09-07)*                           | n/a -- the surface was unreachable dead code (no rendered control) and its direct `event_attendance` writer was deleted, not migrated |
+| RSVP toggle                 | *(removed 2026-09-07)*                           | Rebuilt 2026-10-06: `bento/blocks/RsvpBlock.tsx` + `hooks/useOccurrenceRsvp.ts` call `set_/get_my_occurrence_attendance_p5_v1` (admin `20261109360000`). The 2026-09-07 removal deleted a direct `event_attendance` writer; nothing in `src/` writes that table |
 | Interest toggle             | *(no such writer)*                               | n/a -- `event_participants` appears nowhere in `src/` outside generated types (verified 2026-09-07) |
 
 ---

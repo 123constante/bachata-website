@@ -463,6 +463,21 @@ export type Database = {
         }
         Relationships: []
       }
+      cancellation_reason_baseline_v1: {
+        Row: {
+          occurrence_id: string
+          recorded_at: string
+        }
+        Insert: {
+          occurrence_id: string
+          recorded_at?: string
+        }
+        Update: {
+          occurrence_id?: string
+          recorded_at?: string
+        }
+        Relationships: []
+      }
       cancellation_reasons: {
         Row: {
           archived_at: string | null
@@ -4662,6 +4677,27 @@ export type Database = {
           },
         ]
       }
+      organiser_edit_digest_sent_v1: {
+        Row: {
+          edit_count: number
+          id: number
+          sent_at: string
+          sent_until: string
+        }
+        Insert: {
+          edit_count: number
+          id?: never
+          sent_at?: string
+          sent_until: string
+        }
+        Update: {
+          edit_count?: number
+          id?: never
+          sent_at?: string
+          sent_until?: string
+        }
+        Relationships: []
+      }
       organiser_profiles: {
         Row: {
           address: string | null
@@ -6387,6 +6423,33 @@ export type Database = {
         }
         Relationships: []
       }
+      signup_allowlist: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          email: string
+          id: string
+          note: string | null
+          source: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          email: string
+          id?: string
+          note?: string | null
+          source?: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          email?: string
+          id?: string
+          note?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
       songs: {
         Row: {
           artist: string
@@ -7430,14 +7493,14 @@ export type Database = {
           },
           {
             foreignKeyName: "fk_venues_entity_id"
-            columns: ["entity_id"]
+            columns: ["venue_entity_id"]
             isOneToOne: true
             referencedRelation: "entities"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fk_venues_entity_id"
-            columns: ["venue_entity_id"]
+            columns: ["entity_id"]
             isOneToOne: true
             referencedRelation: "entities"
             referencedColumns: ["id"]
@@ -7609,6 +7672,18 @@ export type Database = {
       }
       _assert_can_edit_series_p5: {
         Args: { p_actor: string; p_series_id: string }
+        Returns: undefined
+      }
+      _assert_organiser_daily_edit_cap_p5: {
+        Args: { p_actor: string }
+        Returns: undefined
+      }
+      _assert_organiser_series_quota_p5: {
+        Args: { p_kind: string; p_organiser_id: string }
+        Returns: undefined
+      }
+      _assert_ticket_url_change_p5_v1: {
+        Args: { p_new: string; p_old: string }
         Returns: undefined
       }
       _assert_vendor_has_active_leader_v1: {
@@ -7966,6 +8041,10 @@ export type Database = {
         Args: { p_member_profile_id: string }
         Returns: string
       }
+      _member_profiles_directory_email_v1: {
+        Args: { p_member_profile_id: string }
+        Returns: string
+      }
       _mirror_p5_session_override_to_legacy_v1: {
         Args: { p_p5_occurrence_id: string; p_p5_program_item_id: string }
         Returns: undefined
@@ -8115,9 +8194,31 @@ export type Database = {
           user_id: string
         }[]
       }
+      _organiser_created_by_admin_v1: {
+        Args: { p_organiser_id: string }
+        Returns: string
+      }
       _organiser_linked_series_count_v1: {
         Args: { p_organiser_id: string }
         Returns: number
+      }
+      _organiser_programme_rows_p5_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: {
+          s_end: string
+          s_levels: string[]
+          s_removed: boolean
+          s_sort: number
+          s_start: string
+          s_title: string
+          s_type: string
+          session_id: string
+          src: string
+        }[]
+      }
+      _organiser_programme_sessions_p5_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: Json
       }
       _owner_cancellation_reason_ok_p5: {
         Args: { p_label: string }
@@ -8207,7 +8308,15 @@ export type Database = {
         Args: { p_occurrence_id: string }
         Returns: string
       }
+      _p5_paused_hides_occurrence_v1: {
+        Args: { p_occurrence_date: string; p_series_lifecycle: string }
+        Returns: boolean
+      }
       _p5_series_guest_list_public_v1: {
+        Args: { p_series_id: string }
+        Returns: boolean
+      }
+      _p5_series_has_past_public_date_v1: {
         Args: { p_series_id: string }
         Returns: boolean
       }
@@ -8458,6 +8567,8 @@ export type Database = {
         Args: { p_occurrence_id: string; p_room_id: string }
         Returns: boolean
       }
+      _safe_int_v1: { Args: { p_value: string }; Returns: number }
+      _safe_numeric_v1: { Args: { p_value: string }; Returns: number }
       _safe_text_to_time_p5: { Args: { p: string }; Returns: string }
       _scope_added_session_rooms_for_occurrence_v1: {
         Args: { p_occurrence_id: string }
@@ -8470,6 +8581,10 @@ export type Database = {
         Args: { p_max: number; p_multiline: boolean; p_text: string }
         Returns: string
       }
+      _series_date_cap_applies_p5: {
+        Args: { p_series_id: string }
+        Returns: boolean
+      }
       _series_level_derived_p5_v1: {
         Args: { p_series_ids: string[] }
         Returns: {
@@ -8479,6 +8594,10 @@ export type Database = {
           threshold: number
           vote_count: number
         }[]
+      }
+      _series_rule_set_by_non_admin_p5: {
+        Args: { p_series_id: string }
+        Returns: boolean
       }
       _snapshot_occurrence_p5: {
         Args: { p_occurrence_id: string }
@@ -9389,14 +9508,22 @@ export type Database = {
         Returns: {
           city_id: string
           city_name: string
+          future_occurrence_count: number
+          has_flyer: boolean
           lifecycle_status: string
           name: string
+          next_occurrence_dates: string[]
           organiser_ids: string[]
+          organiser_names: string[]
+          price_currency: string
+          price_max: number
+          price_min: number
           public_slug: string
           submitted_at: string
           submitter_email: string
           target_id: string
           target_type: string
+          venue_name: string
         }[]
       }
       admin_list_promo_codes_v1: {
@@ -10309,6 +10436,25 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_signup_allowlist_add_v1: {
+        Args: { p_email: string; p_note?: string }
+        Returns: Json
+      }
+      admin_signup_allowlist_list_v1: {
+        Args: never
+        Returns: {
+          added_at: string
+          added_by: string
+          email: string
+          id: string
+          note: string
+          source: string
+        }[]
+      }
+      admin_signup_allowlist_remove_v1: {
+        Args: { p_email: string }
+        Returns: Json
+      }
       admin_soft_delete_guest_list_entry_v1: {
         Args: { p_entry_id: string; p_reason?: string }
         Returns: Json
@@ -10449,7 +10595,9 @@ export type Database = {
       check_admin_secdef_contract_v1: { Args: never; Returns: Json }
       check_anon_grants_contract_v1: { Args: never; Returns: Json }
       check_arc_gates_v1: { Args: never; Returns: Json }
+      check_cancellation_reason_coverage_v1: { Args: never; Returns: Json }
       check_cancelled_occurrence_visibility_v1: { Args: never; Returns: Json }
+      check_client_acl_hardening_p0_v1: { Args: never; Returns: Json }
       check_command_audit_health_v1: { Args: never; Returns: Json }
       check_dancer_profiles_legacy_col_drift_v3: { Args: never; Returns: Json }
       check_entry_liveness_contract_v1: { Args: never; Returns: Json }
@@ -10491,9 +10639,15 @@ export type Database = {
         Returns: Json
       }
       check_og_render_health_v1: { Args: never; Returns: Json }
+      check_organiser_profile_edit_contract_v1: { Args: never; Returns: Json }
+      check_organiser_profiles_client_write_acl_v1: {
+        Args: never
+        Returns: Json
+      }
       check_organiser_read_scope_v1: { Args: never; Returns: Json }
       check_owner_command_allowlist_v1: { Args: never; Returns: Json }
       check_p5_public_read_contract_v2: { Args: never; Returns: Json }
+      check_p5_write_internals_client_acl_v1: { Args: never; Returns: Json }
       check_parallel_group_contract_v1: { Args: never; Returns: Json }
       check_people_public_read_contract_v1: { Args: never; Returns: Json }
       check_person_identity_drift_v1: { Args: never; Returns: Json }
@@ -10501,10 +10655,12 @@ export type Database = {
       check_person_substrate_consistency_v1: { Args: never; Returns: Json }
       check_phase5_1_schema_conformance_v1: { Args: never; Returns: Json }
       check_phone_drift_v1: { Args: never; Returns: Json }
+      check_profiles_is_admin_write_acl_v1: { Args: never; Returns: Json }
       check_program_day_offset_canonical_v1: { Args: never; Returns: Json }
       check_program_people_role_contract_v1: { Args: never; Returns: Json }
       check_program_room_contract_v2: { Args: never; Returns: Json }
       check_program_save_v2_idempotency_v1: { Args: never; Returns: Json }
+      check_public_client_write_acl_v1: { Args: never; Returns: Json }
       check_public_time_pairing_contract_v1: { Args: never; Returns: Json }
       check_published_event_has_organiser_v2: { Args: never; Returns: Json }
       check_raffle_capacity_contract_v1: { Args: never; Returns: Json }
@@ -10518,6 +10674,7 @@ export type Database = {
       check_series_level_derivation_v1: { Args: never; Returns: Json }
       check_series_materialisation_contract_v1: { Args: never; Returns: Json }
       check_series_organiser_junction_parity_v1: { Args: never; Returns: Json }
+      check_signup_allowlist_contract_v1: { Args: never; Returns: Json }
       check_slug_resolver_p5_parity_v1: { Args: never; Returns: Json }
       check_teacher_dj_assignment_integrity_v1: { Args: never; Returns: Json }
       check_unmigrated_schema_changes_contract_v1: {
@@ -10864,6 +11021,10 @@ export type Database = {
           type: string
           updated_at: string
         }[]
+      }
+      get_my_occurrence_attendance_p5_v1: {
+        Args: { p_occurrence_id: string; p_public_event_id: string }
+        Returns: string
       }
       get_occurrence_override_program_v1: {
         Args: { p_occurrence_id: string }
@@ -11310,6 +11471,10 @@ export type Database = {
           start_local_date: string
         }[]
       }
+      hook_before_user_created_allowlist_v1: {
+        Args: { event: Json }
+        Returns: Json
+      }
       idempotency_claim: {
         Args: { p_key: string; p_request_hash: string }
         Returns: boolean
@@ -11461,13 +11626,54 @@ export type Database = {
           occurrence_id: string
         }[]
       }
+      organiser_edit_digest_last_sent_v1: { Args: never; Returns: string }
+      organiser_edit_digest_record_sent_v1: {
+        Args: { p_count: number; p_until: string }
+        Returns: Json
+      }
+      organiser_edit_digest_v1: {
+        Args: { p_since: string; p_until: string }
+        Returns: Json
+      }
       organiser_get_event_snapshot_v1: {
         Args: { p_event_id: string }
         Returns: Json
       }
+      organiser_get_occurrence_programme_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: Json
+      }
       organiser_home_v1: { Args: never; Returns: Json }
+      organiser_profile_update_p5_v1: {
+        Args: { p_organiser_id: string; p_patch: Json }
+        Returns: Json
+      }
       organiser_save_event_v1: {
         Args: { p_event_id: string; p_payload: Json }
+        Returns: Json
+      }
+      organiser_search_people_v1: {
+        Args: { p_limit?: number; p_query: string; p_role?: string }
+        Returns: {
+          city_name: string
+          country_code: string
+          display_name: string
+          dj_name: string
+          id: string
+          photo_url: string
+          roles: string[]
+        }[]
+      }
+      organiser_set_occurrence_programme_v1: {
+        Args: {
+          p_expected_version: number
+          p_occurrence_id: string
+          p_sessions: Json
+        }
+        Returns: Json
+      }
+      organiser_undo_last_change_v1: {
+        Args: { p_series_id: string }
         Returns: Json
       }
       override_payload_allowed_keys: { Args: never; Returns: string[] }
@@ -12038,6 +12244,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_my_occurrence_attendance_p5_v1: {
+        Args: {
+          p_occurrence_id: string
+          p_public_event_id: string
+          p_status?: string
+        }
+        Returns: Json
       }
       set_og_image_v1: {
         Args: {
