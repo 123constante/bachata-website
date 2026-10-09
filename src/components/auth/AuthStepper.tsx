@@ -8,6 +8,8 @@ import { trackAnalyticsEvent } from "@/lib/analytics";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
 import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-intent";
 import { getAuthStepperStage } from "@/lib/auth-signup-resolver";
+import { SIGNUP_INVITE_ONLY_DESCRIPTION, SIGNUP_INVITE_ONLY_TITLE, isSignupAllowlistRefusal } from "@/lib/auth-otp-routing";
+import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
 import { useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -254,6 +256,22 @@ export const AuthStepper = ({
         description: "Check your email for the short verification code.",
       });
     } catch (error: any) {
+      if (isSignupAllowlistRefusal(error, intent === "new")) {
+        toast({
+          title: SIGNUP_INVITE_ONLY_TITLE,
+          description: (
+            <>
+              {SIGNUP_INVITE_ONLY_DESCRIPTION}{" "}
+              <a href={WHATSAPP_GET_LISTED_URL} target="_blank" rel="noopener noreferrer" className="underline">
+                Message us on WhatsApp
+              </a>
+              .
+            </>
+          ),
+          variant: "destructive",
+        });
+        return;
+      }
       const message = String(error?.message || "");
       const isSignupDisabled = message.toLowerCase().includes("signups not allowed") || message.toLowerCase().includes("signup not allowed");
       toast({

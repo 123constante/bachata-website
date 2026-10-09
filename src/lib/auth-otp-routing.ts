@@ -25,6 +25,21 @@ export function isOtpSignupDisabledError(error: unknown): boolean {
   return text.includes("signups not allowed") || text.includes("signup not allowed");
 }
 
+// The Before User Created hook refuses an unlisted email on the create-account
+// path with HTTP 403 "Sign-up is limited to approved organisers.". Only a
+// create attempt can be an allowlist refusal -- a 403 on the login path
+// (shouldCreateUser false) is something else and keeps the generic copy.
+export const SIGNUP_INVITE_ONLY_TITLE = "Sign-up is invite-only for now";
+export const SIGNUP_INVITE_ONLY_DESCRIPTION =
+  "This beta is limited to approved organisers. If you run bachata events and want in, ask us to add your email, then try again.";
+
+export function isSignupAllowlistRefusal(error: unknown, shouldCreateUser: boolean): boolean {
+  if (!shouldCreateUser || !error || typeof error !== "object") return false;
+  const { status, message } = error as { status?: unknown; message?: unknown };
+  const text = typeof message === "string" ? message.toLowerCase() : "";
+  return text.includes("limited to approved organisers") || status === 403;
+}
+
 // Should the callback send the user back to the page that sent them to /auth?
 // A sign-in always does. A sign-up historically did not (it went on to the
 // create-<role>-profile pages), but with organiser self-serve on those pages
