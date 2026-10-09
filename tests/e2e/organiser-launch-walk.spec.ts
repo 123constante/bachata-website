@@ -26,8 +26,9 @@ import {
  *   7  negative paths: a contributor (not owner/manager) is refused in the page and by the RPCs;
  *      a series whose only date is cancelled says so and Send for review carries the reason.
  *
- * Two KNOWN DEFECTS found by the first walk (2026-10-09) are pinned with test.fail(): when one is
- * fixed its test turns red here, which is the cue to drop the test.fail().
+ * KNOWN DEFECTS found by the first walk (2026-10-09) are pinned with test.fail(): when one is
+ * fixed its test turns red here, which is the cue to drop the test.fail(). (7b's refusal copy and
+ * 7c's stale editor after a cancel are fixed and now assert the right behaviour.)
  *
  * NOT in `npm run test:e2e` / e2e-smoke.yml: it needs E2E logins and writes to the E2E database.
  * Runs only under playwright.organiser-real-rpc.config.ts, which refuses prod or any non-E2E project.
@@ -459,16 +460,15 @@ test.describe('organiser launch walk on the real RPCs (E2E project)', () => {
     }
   });
 
-  test('7b KNOWN DEFECT: the refusal says the person has no access, not "check your connection"', async ({ browser }) => {
+  test('7b the refusal says the person has no access, not "check your connection"', async ({ browser }) => {
     test.skip(!seriesId, 'no series from step 1');
-    // 2026-10-09 walk: the server answers permission_denied, the page says "This did not load.
-    // Check your connection, then try again." -- the person cannot tell they lack access.
-    test.fail();
+    // Fixed after the 2026-10-09 walk: permission_denied used to read "Check your connection".
     const contributor = await signIn(CONTRIB_EMAIL, CONTRIB_PASSWORD);
     const cPage = await pageAs(browser, contributor.session, [], PHONE);
     try {
       await cPage.goto(`/account/o/events/${seriesId}`);
       await expect(cPage.getByTestId('org-editor-error')).toBeVisible();
+      await expect(cPage.getByTestId('org-editor-error')).toContainText(/do not have access to this event/i);
       await expect(cPage.getByTestId('org-editor-error')).not.toContainText(/connection/i);
     } finally {
       await cPage.context().close();
@@ -494,17 +494,11 @@ test.describe('organiser launch walk on the real RPCs (E2E project)', () => {
     await page.getByTestId('date-cancel-confirm').click();
     expect((await cancelled).status()).toBe(200);
 
-    // KNOWN DEFECT (2026-10-09 walk): back on the editor through the in-app "Event" link, the
-    // cancelled date still shows as an upcoming date with "No sessions yet" until a reload.
+    // Back on the editor through the in-app "Event" link, with NO reload, the date reads cancelled
+    // (fixed after the 2026-10-09 walk, where it stayed "upcoming" until a reload).
     await page.getByRole('link', { name: 'Event' }).first().click();
     await expect(page.getByTestId('org-event-editor')).toBeVisible();
-    await page.waitForTimeout(3000);
-    if (!(await page.getByTestId('org-schedule-none').count())) {
-      test.info().annotations.push({ type: 'known-defect', description: 'editor stale after cancelling a date: needs a reload to show it' });
-      await page.screenshot({ path: `${SHOTS}/16a-stale-after-cancel-390.png` });
-      await page.reload();
-    }
-    await expect(page.getByTestId('org-schedule-none')).toContainText(/cancelled/i);
+    await expect(page.getByTestId('org-schedule-none')).toContainText(/every upcoming date is cancelled/i);
     await expect(page.getByTestId('org-date-row').first()).toContainText(/cancelled/i);
     await expect(page.getByTestId('org-event-review-blocked')).toContainText(/upcoming date/i);
     await expectDisabledWithReason(page, page.getByTestId('org-event-review-send'), /upcoming date/i);
