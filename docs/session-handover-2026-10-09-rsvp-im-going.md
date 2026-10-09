@@ -17,13 +17,9 @@ plus a live signed-in check -- public UI on a write route).
   went green on `bbeb683`.
 
 ## Open (red on the PR)
-1. **bundle-budget** -- `/event/:id` first-load is 376.4 KB gz against a 375 KB budget
-   (chunk count fine: 47/47). main alone measures 374.7 KB on the same local build, so
-   main ate the headroom and the RSVP code adds ~1.7 KB. Raising `perf-budgets.json`
-   (`routes["event (/event/:id)"].maxFirstLoadGzipKB` 375 -> 377, with a dated note in
-   `//event`) was BLOCKED for the agent by the auto-mode classifier as a CI bypass, so
-   it is the owner's call. The alternatives are worse: lazy-loading the whole block
-   trips the chunk ratchet (48 > 47), and the feature cannot shed 1.4 KB of its ~1.7 KB.
+1. **bundle-budget** -- RESOLVED BY THE OWNER: #695 raised the `/event/:id` budget
+   375 -> 380 KB on main, and the owner merged main into this branch (`78974f2`, 11:10Z).
+   Confirm it is green on the new head; nothing else to do.
 2. **real-data-verified** -- a new check from main that needs a `## Verified on real
    data` section in the PR body (Shapes surveyed / Checks run / NOT verified). The PR
    body has not been updated with it yet; the facts are in the body's "Notable
@@ -32,8 +28,7 @@ plus a live signed-in check -- public UI on a write route).
 
 ## Next
 - Add the real-data section to the PR #609 body (no code change).
-- After the owner decides on the budget: re-run `npm run build && npm run
-  check:bundle-budget` and confirm CI green on the new head.
+- Confirm CI on `78974f2` (or later): bundle-budget should now pass (380 KB budget).
 - Owner decisions still open (in the PR body): allow clearing an RSVP on closed
   nights; going-count staleness after reload.
 
