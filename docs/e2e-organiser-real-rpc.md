@@ -12,8 +12,20 @@ can drive the editor against the real database.
   `npm run test:e2e:organiser-real-rpc` (own config `playwright.organiser-real-rpc.config.ts`;
   NOT in the smoke gate). Since W5b-1 (2026-10-08) its steps drive the NEW area `/account/o`
   (Home, name-only New event, venue + description + cover in the event editor, a session with a
-  level on the date page, the contributor refused on `/account/o/events/<id>`). That rewrite has
-  NOT been run yet: it needs the E2E logins above. First run after a re-seed is the check.
+  level on the date page, the contributor refused on `/account/o/events/<id>`). First run 2026-10-09: 8/8 green after
+  adding the type choice the New event form now requires.
+
+- Launch walk (2026-10-09): `tests/e2e/organiser-launch-walk.spec.ts`, run by
+  `npm run test:e2e:organiser-launch-walk` (same config). Organiser creates a weekly party with
+  venue, session and cover; Send for review; date edits (time, venue in another city, cancel and
+  put back); the E2E admin approves it with `admin_approve_entity_v1`; then the public event page,
+  city calendar and search must show the same start time at 390 and 1280; contributor refusal and a
+  cancelled-only series. It also needs the admin repo's E2E admin login (`E2E_ADMIN_EMAIL`,
+  `E2E_ADMIN_PASSWORD`, or the `PLAYWRIGHT_ADMIN_*` names); without it the venue-in-another-city,
+  approval and public steps skip. With it, the spec makes the second-city fixture ("E2E Manchester"
+  city + "E2E Manchester Venue", draft) through `admin_save_city_v1` / `admin_save_venue_v2` when
+  missing. Known defects are pinned with `test.fail()`: drop the `test.fail()` when one turns red.
+  Screenshots (390 and 1280) land in `test-results/organiser-launch-walk/`.
 
 **E2E only.** Both refuse to run when any configured URL, ref or key is prod
 (`stsdtacfauprzrdebmzg`) or is not the E2E ref. Neither ever needs a prod key.
