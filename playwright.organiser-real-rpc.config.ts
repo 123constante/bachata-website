@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // The organiser editor against the REAL E2E Supabase project (no mocks): see the header of
-// tests/e2e/organiser-real-rpc.spec.ts. NOT part of `npm run test:e2e` / e2e-smoke.yml: it needs
+// tests/e2e/organiser-real-rpc.spec.ts (and organiser-launch-walk.spec.ts). NOT part of `npm run test:e2e` / e2e-smoke.yml: it needs
 // E2E credentials and writes to the E2E database. Run: npm run test:e2e:organiser-real-rpc.
 //
 // The spec reads this marker and skips itself under any other config (test:e2e:all collects
@@ -33,7 +33,7 @@ if (SUPABASE_URL !== `https://${E2E_REF}.supabase.co` || keyRef(SUPABASE_KEY) !=
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: /organiser-real-rpc\.spec\.ts$/,
+  testMatch: /organiser-(real-rpc|launch-walk)\.spec\.ts$/,
   outputDir: 'test-results/organiser-real-rpc-artifacts',
   timeout: 180_000,
   expect: { timeout: 30_000 },

@@ -30,7 +30,7 @@ import { mkdirSync } from 'node:fs';
  *   npm run test:e2e:organiser-real-rpc
  *
  * Rewritten for the new organiser area (/account/o, organiser rebuild W5b-1); the old /account
- * screens it drove are deleted. NOT run since the rewrite (needs the E2E credentials above).
+ * screens it drove are deleted. First run 2026-10-09 (8/8 green once step 2 picks a type).
  */
 
 const PROD_REF = 'stsdtacfauprzrdebmzg';
@@ -195,6 +195,7 @@ test.describe('organiser editor on the real RPCs (E2E project)', () => {
     await page.goto('/account/o/events/new');
     await expect(page.getByTestId('org-page-new-event')).toBeVisible();
     await page.getByTestId('org-new-event-name').fill(seriesName);
+    await page.getByTestId('org-new-event-type-class').click();
     const created = rpcDone(page, '/rest/v1/rpc/series_command_p5');
     await page.getByTestId('org-new-event-create').click();
     expect((await created).status()).toBe(200);
