@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -26,6 +26,9 @@ type LevelRatingPromptProps = {
   /** Compact = plain 3-chip row for list cards (My Attendance). */
   compact?: boolean;
   className?: string;
+  /** Shown instead of nothing while the summary is absent (server render, RPC
+   *  failure), so the page never loses information the card would have shown. */
+  fallback?: ReactNode;
 };
 
 const ratingErrorMessage = (error: unknown) => {
@@ -53,7 +56,7 @@ const TILE_BASE =
   'relative flex min-h-[104px] flex-col items-center gap-2 rounded-[18px] border border-white/20 px-1 pb-3 pt-3.5 text-[13px] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,.55)] shadow-[inset_0_1.5px_0_rgba(255,255,255,.38),inset_0_-10px_18px_rgba(0,0,0,.18),0_5px_0_var(--edge),0_12px_18px_-6px_rgba(0,0,0,.65)] transition-transform active:translate-y-1 active:shadow-[inset_0_2px_8px_rgba(0,0,0,.35),0_1px_0_var(--edge)] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white';
 const TILE_ON = 'translate-y-1 outline outline-2 outline-offset-2 outline-white brightness-110';
 
-export const LevelRatingPrompt = ({ seriesId, compact = false, className }: LevelRatingPromptProps) => {
+export const LevelRatingPrompt = ({ seriesId, compact = false, className, fallback = null }: LevelRatingPromptProps) => {
   const { summary, canRate, rate, isRating } = useSeriesLevelRating(seriesId);
   const location = useLocation();
   const [tapped, setTapped] = useState<SeriesLevel | null>(null);
@@ -100,7 +103,7 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className }: Leve
   }, [canRate]);
 
   // Nothing renders until the series is known to be public (summary is NULL otherwise).
-  if (!seriesId || !summary) return null;
+  if (!seriesId || !summary) return <>{fallback}</>;
 
   const mine = summary.my_level;
   const result = buildLevelResult(summary);

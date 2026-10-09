@@ -677,12 +677,18 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           <GroupChatBlock url={pageModel.actions.whatsappLink} eventId={eventId} />
         )}
 
-        <DerivedLevelBadge
-          derivedLevel={pageModel.identity.derivedLevel}
-          levelVoteCount={pageModel.identity.levelVoteCount}
-        />
-
-        {!occurrence?.isCancelled && <LevelRatingPrompt seriesId={eventId} />}
+        {/* The rating card already shows the dancer-rated level, so the badge
+            only stands in where the card is absent: a cancelled occurrence, or
+            the card has no summary yet (server render, RPC failure). */}
+        {(() => {
+          const badge = (
+            <DerivedLevelBadge
+              derivedLevel={pageModel.identity.derivedLevel}
+              levelVoteCount={pageModel.identity.levelVoteCount}
+            />
+          );
+          return occurrence?.isCancelled ? badge : <LevelRatingPrompt seriesId={eventId} fallback={badge} />;
+        })()}
 
         <MusicStylesRow musicStyles={pageModel.identity.musicStyles} />
 
