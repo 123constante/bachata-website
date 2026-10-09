@@ -7,7 +7,7 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { FLYER_ACCEPT } from '@/modules/organiser/shared/flyerModel';
 import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
 import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
-import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { commandErrorMessage, isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { UNSAVED_MESSAGE, saveBarState } from '@/modules/organiser/shared/editorGuards';
 import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { TEAM, endedOnLabel, eventLock, lifecycleTag } from '@/modules/organiser/shared/eventState';
@@ -347,7 +347,14 @@ export default function EventEditorPage() {
       testId="org-page-event-editor"
       list={<EventList activeId={seriesId} />}
       detail={
-        workspace.isError ? (
+        workspace.isError && isAccessRefusal(workspace.error) ? (
+          // Someone else's event (or a contributor's): a retry cannot help, and "check your connection" misleads.
+          <ErrorState
+            title="You do not have access to this event"
+            body="Only its organiser's owners and managers can edit it. Ask an owner to add you as a manager."
+            testId="org-editor-error"
+          />
+        ) : workspace.isError ? (
           <ErrorState onRetry={() => void workspace.refetch()} retrying={workspace.isFetching} testId="org-editor-error" />
         ) : !seriesId ? (
           <EmptyState title="Event not found" />

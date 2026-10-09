@@ -197,6 +197,14 @@ export function commandErrorMessage(error: unknown): string {
 export const isServerRefusal = (error: unknown) =>
   !!error && typeof error === 'object' && typeof (error as { code?: unknown }).code === 'string' && (error as { code: string }).code.trim() !== '';
 
+/**
+ * admin_event_workspace_p5 refusing a caller who is not an owner/manager of the
+ * series. A signed-out caller (authentication_required) is not this: signing in may fix it.
+ */
+export const isAccessRefusal = (error: unknown) =>
+  !!error && typeof error === 'object' &&
+  /^permission_denied(?!: authentication_required)/.test(String((error as { message?: unknown }).message ?? ''));
+
 export const isVersionConflict = (error: unknown) =>
   !!error && typeof error === 'object' && /^version_conflict/.test(String((error as { message?: unknown }).message ?? ''));
 

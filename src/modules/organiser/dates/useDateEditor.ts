@@ -188,6 +188,10 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
         version: kind === 'series' ? series?.version ?? null : d?.version ?? null,
         command: cmd,
       });
+      // A cancel or a break changes what the event editor lists (its own cache
+      // entry, which useOwnerCommand does not reload): without this, going back
+      // through the in-app link shows the date as still upcoming until a reload.
+      void queryClient.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
       if (kind === 'occurrence') {
         await Promise.all([resync(), detail.refetch()]);
       }

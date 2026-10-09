@@ -41,8 +41,7 @@ let commandResult: () => { data: unknown; error: unknown };
 const calls = (fn: string) => rpc.mock.calls.filter(([f]) => f === fn);
 const setCalls = () => calls('organiser_set_occurrence_programme_v1');
 
-function mount() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function mount(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/account/o/events/s1/dates/o1']}>
@@ -241,6 +240,21 @@ describe('cancel and break', () => {
     await waitFor(() => expect(calls('occurrence_command_p5')).toHaveLength(1));
     const env = calls('occurrence_command_p5')[0][1].p_envelope;
     expect(env).toMatchObject({ target_id: 'o1', command: { kind: 'occurrence.cancel', payload: { cancelled: true, reason: 'Illness' } } });
+  });
+
+  it('a cancel marks the event editor\'s cached workspace stale, so going back shows it cancelled (walk 7c)', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 60_000 } } });
+    // The event editor's own cache entry (eventsApi eventWorkspaceQueryKey), as left by opening the event first.
+    client.setQueryData(['org-event-workspace', 's1'], { cached: true });
+    mount(client);
+    await screen.findAllByTestId('session-row');
+    expect(client.getQueryState(['org-event-workspace', 's1'])?.isInvalidated).toBe(false);
+    fireEvent.click(screen.getByTestId('date-cancel'));
+    fireEvent.click((await screen.findAllByTestId('cancel-reason'))[0]);
+    fireEvent.click(screen.getByTestId('cancel-ack'));
+    fireEvent.click(screen.getByTestId('date-cancel-confirm'));
+    await waitFor(() => expect(calls('occurrence_command_p5')).toHaveLength(1));
+    await waitFor(() => expect(client.getQueryState(['org-event-workspace', 's1'])?.isInvalidated).toBe(true));
   });
 
   it('a daily-cap refusal shows the plain copy', async () => {
