@@ -72,6 +72,9 @@ interface Props {
 
 type Panel = 'closed' | 'claim' | 'request';
 
+/** Appended to the sign-in return path so the card knows the visitor came to claim. */
+const CLAIM_INTENT_HASH = '#claim';
+
 const card: CSSProperties = {
   background: 'rgba(231,190,110,0.08)',
   border: '1px solid rgba(231,190,110,0.35)',
@@ -86,7 +89,26 @@ const primary: CSSProperties = { background: GOLD, color: '#1b1408' };
 const GHOST_HOVER = 'min-h-[44px] hover:bg-white/10';
 
 export function PublicClaimCard({ enabled, organiser, user, mailboxProven, returnTo, onChanged }: Props) {
-  const [panel, setPanel] = useState<Panel>('closed');
+  const kind = publicClaimKind(enabled, organiser, user);
+  // Coming back from "Sign in to claim": the visitor already said what they
+  // want, so the panel starts open instead of asking for a second tap. Any
+  // later choice of the visitor's own (open, cancel) ends that automatic open.
+  const [cameToClaim, setCameToClaim] = useState(
+    () => typeof window !== 'undefined' && window.location.hash === CLAIM_INTENT_HASH,
+  );
+  const [chosenPanel, setChosenPanel] = useState<Panel>('closed');
+  const panel: Panel =
+    chosenPanel === 'closed' && cameToClaim && user && (kind === 'claim' || kind === 'request') ? kind : chosenPanel;
+  const setPanel = (next: Panel) => {
+    setCameToClaim(false);
+    setChosenPanel(next);
+  };
+  // A refresh must not reopen it: the marker leaves the address once read.
+  useEffect(() => {
+    if (cameToClaim && window.location.hash === CLAIM_INTENT_HASH) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, [cameToClaim]);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<SelfServeErrorCopy | null>(null);
   const [note, setNote] = useState('');
@@ -104,7 +126,6 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
     if (done) doneRef.current?.focus();
   }, [done]);
 
-  const kind = publicClaimKind(enabled, organiser, user);
 
   // A finished claim or request stays on screen even though the refetched
   // organiser now reads as managed (the card would otherwise vanish mid-read).
@@ -135,7 +156,7 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
   // panels are signed-in UI, so they follow the user, not the panel state alone.
   const signedIn = !!user;
   const email = user?.email ?? '';
-  const signIn = signInHref(returnTo);
+  const signIn = signInHref(`${returnTo}${CLAIM_INTENT_HASH}`);
 
   const run = async (action: () => Promise<unknown>, outcome: PublicClaimOutcome) => {
     setBusy(true);

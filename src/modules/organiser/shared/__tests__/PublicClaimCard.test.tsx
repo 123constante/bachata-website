@@ -52,8 +52,40 @@ describe('PublicClaimCard', () => {
   it('signed out: offers sign-in that returns to this page', () => {
     mount({ user: null });
     const link = screen.getByTestId('public-claim-signin');
-    expect(link.getAttribute('href')).toBe('/auth?mode=signin&returnTo=%2Forganisers%2Fritmo');
+    expect(link.getAttribute('href')).toBe('/auth?mode=signin&returnTo=%2Forganisers%2Fritmo%23claim');
     expect(screen.queryByTestId('public-claim-open')).toBeNull();
+  });
+
+  describe('returning from sign-in with the #claim marker', () => {
+    afterEach(() => window.history.replaceState(null, '', '/'));
+    const arrive = () => window.history.replaceState(null, '', '/organisers/ritmo#claim');
+
+    it('email matches: the claim panel is already open, and the marker is consumed', () => {
+      arrive();
+      mount();
+      expect(screen.getByTestId('public-claim-panel')).toBeTruthy();
+      expect(window.location.hash).toBe('');
+    });
+
+    it('email differs: the request panel is already open', () => {
+      arrive();
+      mount({ user: { id: 'me', email: 'someone@else.example' } });
+      expect(screen.getByTestId('public-request-panel')).toBeTruthy();
+      expect(screen.queryByTestId('public-claim-open')).toBeNull();
+    });
+
+    it('without the marker the panel stays closed behind its button', () => {
+      mount();
+      expect(screen.queryByTestId('public-claim-panel')).toBeNull();
+      expect(screen.getByTestId('public-claim-open')).toBeTruthy();
+    });
+
+    it('signed out with the marker: still just the sign-in link', () => {
+      arrive();
+      mount({ user: null });
+      expect(screen.getByTestId('public-claim-signin')).toBeTruthy();
+      expect(screen.queryByTestId('public-claim-panel')).toBeNull();
+    });
   });
 
   it('email matches, mailbox proven: claims through claim_organiser_v1 and confirms', async () => {
@@ -155,7 +187,7 @@ describe('PublicClaimCard', () => {
     fireEvent.click(screen.getByTestId('public-claim-open'));
     fireEvent.click(screen.getByTestId('public-claim-confirm'));
     await waitFor(() => expect(screen.getByTestId('public-claim-error')).toBeTruthy());
-    expect(screen.getByTestId('public-claim-signin').getAttribute('href')).toBe('/auth?mode=signin&returnTo=%2Forganisers%2Fritmo');
+    expect(screen.getByTestId('public-claim-signin').getAttribute('href')).toBe('/auth?mode=signin&returnTo=%2Forganisers%2Fritmo%23claim');
   });
 
   it('no contact email: says so and offers request access', () => {
