@@ -6,6 +6,7 @@
 
 import { addDaysToKey, weekdayOfKey } from '@/lib/londonDate';
 import { dateLabel } from './homeModel';
+import { organiserStatus } from './organiserStatus';
 import { formToDraft, minutesBetween } from './seriesModel';
 import {
   addDateCommand,
@@ -147,21 +148,11 @@ export function submitHint(form: CreateForm, today: string): string | null {
 
 /**
  * Why this organiser cannot take a new event yet (the server's
- * 'series.upsert (create) needs a live organiser'), or null when it can.
+ * 'series.upsert (create) needs a live organiser') and what to do, or null
+ * when it can. The words live in THE shared mapping (shared/organiserStatus.ts).
  */
 export function createBlock(organiser: { name: string; lifecycle_status: string }): string | null {
-  switch (organiser.lifecycle_status) {
-    case 'live':
-      return null;
-    case 'draft':
-      return `${organiser.name} is not public yet. Once the Bachata Calendar team approves it you can add events.`;
-    case 'pending_review':
-      return `The Bachata Calendar team is still checking ${organiser.name}, usually within a day. You can add events once it is approved.`;
-    case 'rejected':
-      return `${organiser.name} needs changes before it can be listed. Sort those out on your account page first.`;
-    default:
-      return `${organiser.name} cannot take new events right now. Ask the Bachata Calendar team.`;
-  }
+  return organiserStatus(organiser.name, organiser.lifecycle_status).newEventBlock;
 }
 
 // ---- what is sent ---------------------------------------------------------------

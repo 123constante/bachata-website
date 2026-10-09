@@ -15,7 +15,7 @@ vi.mock('@/modules/organiser/shared/selfServeApi', async () => ({
 }));
 vi.mock('@/modules/profile/organiserPublicProfile', async () => ({
   ...(await vi.importActual<object>('@/modules/profile/organiserPublicProfile')),
-  fetchOrganiserEntity: api.entity,
+  fetchOwnOrganiserEntity: api.entity,
 }));
 vi.mock('@/lib/organiserProfileUpdate', async () => ({
   ...(await vi.importActual<object>('@/lib/organiserProfileUpdate')),
@@ -59,8 +59,8 @@ afterEach(cleanup);
 
 describe('status copy per state', () => {
   it.each([
-    ['draft', null, 'Draft', 'Only you can see this organiser until the team approves it.', true],
-    ['pending_review', null, 'In review', 'The team is looking at it.', false],
+    ['draft', null, 'Draft', 'Draft: not visible to the public yet.', true],
+    ['pending_review', null, 'In review', 'Waiting for review: not visible to the public yet.', false],
     ['rejected', decision('Add your Instagram'), 'Changes needed', 'The team asked for changes: Add your Instagram', true],
     ['rejected', decision(null), 'Changes needed', 'The team asked for changes.', true],
     ['live', null, 'Live', 'Live on the site.', false],
