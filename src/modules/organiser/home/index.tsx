@@ -1,6 +1,7 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, Plus, UserRound, Users } from 'lucide-react';
+import { useId } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { ORGANISER_HOME_KEY, myAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { isMailboxProvenToken } from '@/modules/organiser/shared/sessionProof';
@@ -18,9 +19,10 @@ import {
   useAnnounce,
 } from '../ui';
 import { isClosed } from '@/modules/organiser/shared/eventState';
-import { hasAnyEvent, noLineupText, shortDate, type NextDate } from './homeView';
+import { hasAnyEvent, newEventBlock, noLineupText, shortDate, type NextDate } from './homeView';
 import { useHomeStrips, useOrganiserHome } from './useHomeData';
 import { OnboardingView } from './onboarding/OnboardingView';
+import { OrganiserStatusCard } from './OrganiserStatusCard';
 
 /** One upcoming date: chip, event name, venue, status. Opens the date editor. */
 function DateRow({ d, today }: { d: NextDate; today: string }) {
@@ -41,12 +43,21 @@ function DateRow({ d, today }: { d: NextDate; today: string }) {
   );
 }
 
-function NewEventButton() {
+function NewEventButton({ block }: { block: string | null }) {
   const navigate = useNavigate();
+  const reasonId = useId();
   return (
-    <PrimaryButton onClick={() => navigate(ORG_PATHS.newEvent)} testId="home-new-event">
-      <Plus aria-hidden="true" className="h-[20px] w-[20px]" /> New event
-    </PrimaryButton>
+    <div className="space-y-[8px]">
+      <PrimaryButton
+        onClick={() => navigate(ORG_PATHS.newEvent)}
+        disabled={!!block}
+        aria-describedby={block ? reasonId : undefined}
+        testId="home-new-event"
+      >
+        <Plus aria-hidden="true" className="h-[20px] w-[20px]" /> New event
+      </PrimaryButton>
+      {block && <p id={reasonId} className="text-[13px] text-[var(--mut)]" data-testid="home-new-event-reason">{block}</p>}
+    </div>
   );
 }
 
@@ -66,6 +77,8 @@ export default function HomePage() {
   const { organisers, dates, teamRequests, runway, noLineup, lineupChecked } = strips;
   const lineupText = noLineupText(noLineup.length, lineupChecked);
   const adding = params.get('add') === '1';
+  const eventBlock = newEventBlock(organisers);
+  const notLive = organisers.filter((o) => o.lifecycle_status !== 'live');
 
   const onChanged = (confirmation: string) => {
     announce(confirmation);
@@ -125,6 +138,9 @@ export default function HomePage() {
         />
       ) : (
         <div className="space-y-[16px]">
+          {notLive.map((o) => (
+            <OrganiserStatusCard key={o.id} organiser={o} primary={!!eventBlock} onSent={announce} />
+          ))}
           {(teamRequests > 0 || runway || lineupText) && (
             <div className="space-y-[8px]" data-testid="home-strips">
               {teamRequests > 0 && (
@@ -159,18 +175,20 @@ export default function HomePage() {
             <EmptyState
               title={hasAnyEvent(organisers) ? 'No dates coming up' : 'No events yet'}
               body={
-                !hasAnyEvent(organisers)
+                eventBlock
+                  ? 'Your events go here once your organiser is approved.'
+                  : !hasAnyEvent(organisers)
                   ? 'Add your first event. You can keep it as a draft until it is ready.'
                   : organisers.every((o) => (o.series ?? []).every((s) => isClosed(s.lifecycle_status)))
                     ? 'Your events have ended. Add a new event to list new dates.'
                     : 'Your events have no upcoming dates. Open one in Events to see its dates, or add a new event.'
               }
-              action={<NewEventButton />}
+              action={<NewEventButton block={eventBlock} />}
               testId="home-empty"
             />
           ) : (
             <>
-              <NewEventButton />
+              <NewEventButton block={eventBlock} />
               <section aria-labelledby="home-next-dates">
                 <SectionLabel id="home-next-dates">Next dates</SectionLabel>
                 <Card testId="home-dates">

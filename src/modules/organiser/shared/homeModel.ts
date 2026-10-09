@@ -110,42 +110,6 @@ export function attentionItems(series: HomeSeriesFull[], today: string): Attenti
   return items;
 }
 
-export interface OrganiserStatusView {
-  /** The line under the organiser's name, or null for a live organiser. */
-  note: string | null;
-  tone: 'muted' | 'destructive';
-  /** Offer "Send for review" (submit_organiser_profile_v1 admits draft and rejected). */
-  canSendForReview: boolean;
-}
-
-/**
- * The organiser's own status on its home header (mockup 05-A): a draft or a
- * rejected organiser (after its reason) is offered "Send for review"; one in
- * review says how long the team takes.
- */
-export function organiserStatusView(
-  name: string,
-  lifecycle: string,
-  reason: string | null | undefined,
-): OrganiserStatusView {
-  switch (lifecycle) {
-    case 'draft':
-      return {
-        note: `${name} is not public yet. Send it for review; once the team approves it you can add your events.`,
-        tone: 'muted',
-        canSendForReview: true,
-      };
-    case 'rejected': {
-      const why = reason?.trim();
-      return { note: `${name} needs changes${why ? `: ${why}` : '.'}`, tone: 'destructive', canSendForReview: true };
-    }
-    case 'pending_review':
-      return { note: 'The team checks new organisers within a day.', tone: 'muted', canSendForReview: false };
-    default:
-      return { note: null, tone: 'muted', canSendForReview: false };
-  }
-}
-
 // event_series_p5.category values measured on prod 2026-10-04.
 export const CATEGORY_LABEL: Record<string, string> = {
   party: 'Party',

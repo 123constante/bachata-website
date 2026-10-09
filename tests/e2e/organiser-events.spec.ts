@@ -191,7 +191,8 @@ test('the schedule card shows the next date’s sessions with their people and o
 
 test('New event: an organiser not approved yet cannot create, and is told why', async ({ page }) => {
   const fake = await openOrganiser(page, '/account/o/events/new', { organiserStatus: 'draft' });
-  await expect(page.getByTestId('org-new-event-block')).toContainText('is not public yet');
+  await expect(page.getByTestId('org-new-event-block')).toContainText('is a draft, so it cannot take events yet. Send it for review first');
+  await expect(page.getByTestId('org-new-event-go-home')).toBeVisible();
   await page.getByTestId('org-new-event-name').fill('Too Soon');
   await expect(page.getByTestId('org-new-event-create')).toBeDisabled();
   expect(fake.envelopes()).toHaveLength(0);
