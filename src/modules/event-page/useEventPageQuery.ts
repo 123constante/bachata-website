@@ -110,6 +110,7 @@ const parseOccurrence = (value: unknown, label: string): EventPageSnapshotOccurr
     timezone: asEventTimeZone(raw.timezone),
     isCancelled: asBoolean(raw.is_cancelled),
     cancellationReasonLabel: asString(raw.cancellation_reason_label),
+    hasTimedSession: typeof raw.has_timed_session === 'boolean' ? raw.has_timed_session : null,
     isLive: asBoolean(raw.is_live),
     isPast: asBoolean(raw.is_past),
     isUpcoming: asBoolean(raw.is_upcoming),

@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { MONTHS, matchesCategory } from '@/components/calendar/calendarUtils';
 import { useLondonToday } from '@/hooks/useLondonToday';
+import { TIME_TBC_LABEL } from '@/lib/time/timeToBeConfirmed';
 import { CancelledRedStrip } from '@/modules/event-page/bento/blocks/CancelledRedStrip';
 
 type UserLocation = { lat: number; lng: number };
@@ -182,7 +183,7 @@ const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRo
           )}
           {!event.hasClass && !event.hasParty && (
             <div style={{ fontSize: 13, color: INK_MUTED, fontVariantNumeric: 'tabular-nums' }}>
-              {event.startTime}{event.endTime ? ` – ${event.endTime}` : ''}
+              {event.timeTbc ? TIME_TBC_LABEL : <>{event.startTime}{event.endTime ? ` – ${event.endTime}` : ''}</>}
             </div>
           )}
         </div>

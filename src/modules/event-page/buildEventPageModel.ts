@@ -1,6 +1,7 @@
 import { resolveHeroImage } from '@/lib/utils';
 import type { EventPageModel, EventPageSnapshot } from '@/modules/event-page/types';
 import { formatWallClockLocal, formatWallClockLocalIntl, type WallClock } from '@/lib/time/wallClock';
+import { isTimeToBeConfirmed } from '@/lib/time/timeToBeConfirmed';
 
 type BuildEventPageModelArgs = {
   snapshot: EventPageSnapshot | null;
@@ -111,7 +112,9 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
   const scheduleDate = formatDateLabel(scheduleRawDate);
   const startLabel = formatTimeLabel(occurrence?.startsAt ?? null);
   const endLabel = formatTimeLabel(occurrence?.endsAt ?? null);
-  const scheduleTime = startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel;
+  // A date with no timed session stores the series default: never print it (owner decision 2026-10-09).
+  const timeToBeConfirmed = isTimeToBeConfirmed(occurrence?.hasTimedSession);
+  const scheduleTime = timeToBeConfirmed ? null : startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel;
   const scheduleTimezone = occurrence?.timezone ?? snapshot.event.timezone ?? snapshot.locationDefault.timezone ?? null;
   const scheduleShortDate = formatShortDateLabel(scheduleRawDate);
   const lineup = occurrence?.lineup ?? { teachers: [], djs: [], dancers: [], vendors: [], videographers: [] };
@@ -191,6 +194,7 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
       dateLabel: scheduleDate,
       shortDateLabel: scheduleShortDate,
       timeLabel: scheduleTime,
+      timeToBeConfirmed,
       timezoneLabel: scheduleTimezone,
       keyTimes: snapshot.event.keyTimes,
       isCancelled: occurrence?.isCancelled ?? false,

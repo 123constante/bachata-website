@@ -65,6 +65,8 @@ export type PublicEventsListRow = Omit<
   starts_at: WallClock;
   ends_at: WallClock | null;
   city_timezone: string | null; // via asEventTimeZone ('UTC' -> null -> London default)
+  // Admin 20261109920000; optional (see src/lib/time/timeToBeConfirmed.ts).
+  has_timed_session?: boolean | null;
 } & {
   [K in Exclude<NullableWireCol, 'ends_at' | 'city_timezone'>]:
     | RawPublicEventsListRow[K]

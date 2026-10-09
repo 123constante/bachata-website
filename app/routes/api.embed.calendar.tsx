@@ -26,6 +26,7 @@ import {
   type PublicEventsListRow,
 } from "../lib/publicEventsList";
 import { wallClockTimeKey, type WallClock } from "@/lib/time/wallClock";
+import { timeLabelOrTbc } from "@/lib/time/timeToBeConfirmed";
 import type { Route } from "./+types/api.embed.calendar";
 
 // The row shape is DERIVED from the regenerated schema (see eventRpcs.ts), not
@@ -100,7 +101,7 @@ function defaultTitle(city: string | null, organiser: string | null): string {
 
 function renderEventRow(ev: WidgetEvent, publicOrigin: string): string {
   const { day, month, weekday } = formatOccurrenceDate(ev.occurrence_date);
-  const time = formatStartTime(ev.starts_at);
+  const time = timeLabelOrTbc(ev.has_timed_session, formatStartTime(ev.starts_at));
   const url = eventDetailUrl(publicOrigin, ev.event_id);
   const venueLine = [ev.venue_name, ev.city_name].filter(Boolean).map(escapeHtml).join(", ");
   const type = ev.type ? ev.type.toLowerCase() : "";
@@ -109,7 +110,7 @@ function renderEventRow(ev: WidgetEvent, publicOrigin: string): string {
 
 function renderEventCard(ev: WidgetEvent, publicOrigin: string): string {
   const { day, month, weekday } = formatOccurrenceDate(ev.occurrence_date);
-  const time = formatStartTime(ev.starts_at);
+  const time = timeLabelOrTbc(ev.has_timed_session, formatStartTime(ev.starts_at));
   const url = eventDetailUrl(publicOrigin, ev.event_id);
   const venueLine = [ev.venue_name, ev.city_name].filter(Boolean).map(escapeHtml).join(", ");
   const type = ev.type ? ev.type.toLowerCase() : "";

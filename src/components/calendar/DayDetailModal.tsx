@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { DAYS, MONTHS, isEventVisibleOnDay, matchesCategory, mondayIndex } from '@/components/calendar/calendarUtils';
 import { eventCardColour } from '@/lib/eventCardColour';
+import { TIME_TBC_LABEL } from '@/lib/time/timeToBeConfirmed';
 
 interface DayDetailModalProps {
   selectedDay: number | null;
@@ -324,7 +325,8 @@ export const DayDetailModal = ({
                           <span>{partyTime}</span>
                         </span>
                       )}
-                      {showFallback && (
+                      {showFallback && event.timeTbc && <span>{TIME_TBC_LABEL}</span>}
+                      {showFallback && !event.timeTbc && (
                         <span className="inline-flex items-center gap-1.5">
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
                           <span className="font-bold text-primary">Event</span>

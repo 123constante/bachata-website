@@ -10,12 +10,15 @@
 // a rabbit hole we don't need for a single-event invite.
 
 import { wallClockToInstant, type WallClock } from '@/lib/time/wallClock';
+import { allDayDateRange, icsDateLines } from '@/lib/time/timeToBeConfirmed';
 
 export type CalendarEventInput = {
   eventId: string;
   title: string;
   startIso: WallClock | null;
   endIso: WallClock | null;
+  // The date has no timed session: an all-day entry on its date, never the series default time.
+  allDay?: boolean;
   timezone: string | null;
   description: string | null;
   locationName: string | null;
@@ -66,8 +69,9 @@ const buildLocation = (input: CalendarEventInput): string | null => {
 };
 
 export const buildIcs = (input: CalendarEventInput): string => {
-  const dtStart = compactFromWallClock(input.startIso, input.timezone);
-  const dtEnd = compactFromWallClock(input.endIso ?? input.startIso, input.timezone);
+  const dateLines = icsDateLines(Boolean(input.allDay), input.startIso, input.endIso, (wc) =>
+    compactFromWallClock(wc, input.timezone),
+  );
   const dtStamp = instantToCompactUtc(new Date().toISOString()) ?? '';
   const uid = `${input.eventId}@bachatacalendar.co.uk`;
   const location = buildLocation(input);
@@ -87,8 +91,7 @@ export const buildIcs = (input: CalendarEventInput): string => {
     'BEGIN:VEVENT',
     `UID:${uid}`,
     `DTSTAMP:${dtStamp}`,
-    dtStart ? `DTSTART:${dtStart}` : null,
-    dtEnd ? `DTEND:${dtEnd}` : null,
+    ...dateLines,
     `SUMMARY:${escapeIcsText(input.title)}`,
     `DESCRIPTION:${escapeIcsText(description)}`,
     location ? `LOCATION:${escapeIcsText(location)}` : null,
@@ -130,7 +133,10 @@ export const buildGoogleCalendarUrl = (input: CalendarEventInput): string => {
     details,
     location,
   });
-  if (dtStart && dtEnd) {
+  const allDay = input.allDay ? allDayDateRange(input.startIso) : null;
+  if (allDay) {
+    params.set('dates', `${allDay.start}/${allDay.end}`);
+  } else if (!input.allDay && dtStart && dtEnd) {
     params.set('dates', `${dtStart}/${dtEnd}`);
   }
   return `https://calendar.google.com/calendar/render?${params.toString()}`;

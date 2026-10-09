@@ -21,6 +21,7 @@ import {
   type PublicEventsListRow,
 } from "../lib/publicEventsList";
 import { wallClockToInstant, type WallClock } from "@/lib/time/wallClock";
+import { TIME_TBC_LABEL, icsDateLines, isTimeToBeConfirmed } from "@/lib/time/timeToBeConfirmed";
 import type { Route } from "./+types/api.ics.calendar";
 
 // The row shape is DERIVED from the regenerated schema (see eventRpcs.ts), not
@@ -63,8 +64,11 @@ const foldLine = (line: string): string => {
 };
 
 function buildVEvent(ev: FeedEvent, nowStamp: string, publicOrigin: string): string {
-  const dtStart = naiveLocalToCompactUtc(ev.starts_at, ev.city_timezone);
-  const dtEnd = naiveLocalToCompactUtc(ev.ends_at ?? ev.starts_at, ev.city_timezone);
+  // A date with no timed session is an all-day entry on its date (admin 20261109920000).
+  const timeTbc = isTimeToBeConfirmed(ev.has_timed_session);
+  const dateLines = icsDateLines(timeTbc, ev.starts_at, ev.ends_at, (wc) =>
+    naiveLocalToCompactUtc(wc, ev.city_timezone),
+  );
   const uid = `${ev.occurrence_id}@bachatacalendar.co.uk`;
   const url = `${publicOrigin}/event/${encodeURIComponent(ev.event_id)}`;
   const locationParts = [ev.venue_name, ev.venue_address].filter(Boolean) as string[];
@@ -73,14 +77,14 @@ function buildVEvent(ev: FeedEvent, nowStamp: string, publicOrigin: string): str
   const descParts: string[] = [];
   if (ev.type) descParts.push(ev.type.charAt(0).toUpperCase() + ev.type.slice(1));
   if (ev.organiser_name) descParts.push(`By ${ev.organiser_name}`);
+  if (timeTbc) descParts.push(TIME_TBC_LABEL);
   descParts.push(url);
 
   const lines = [
     "BEGIN:VEVENT",
     foldLine(`UID:${uid}`),
     `DTSTAMP:${nowStamp}`,
-    dtStart ? foldLine(`DTSTART:${dtStart}`) : null,
-    dtEnd ? foldLine(`DTEND:${dtEnd}`) : null,
+    ...dateLines.map(foldLine),
     foldLine(`SUMMARY:${escapeIcsText(ev.name)}`),
     location ? foldLine(`LOCATION:${escapeIcsText(location)}`) : null,
     foldLine(`DESCRIPTION:${escapeIcsText(descParts.join("\n"))}`),
