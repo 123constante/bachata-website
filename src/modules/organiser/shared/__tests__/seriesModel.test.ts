@@ -29,7 +29,7 @@ const workspaceRaw = {
     series: {
       id: 'ser-1', name: 'Sunday Class', slug: 'sunday-class', format: 'recurring', category: 'class',
       lifecycle_status: 'live', version: 3, default_venue_id: 'ven-1', default_city_id: 'city-1',
-      default_local_start_time: '19:30:00', default_duration: '02:00:00', default_level: null,
+      default_local_start_time: '19:30:00', default_duration: '02:00:00',
       default_ticket_url: null, default_description: 'Weekly', default_cover_image_url: null,
       default_start_date: null, created_at: '2026-10-04T17:08:02+00:00',
       recurrence_rule: { end: { kind: 'none' }, mode: 'weekly', weekdays: [0] },

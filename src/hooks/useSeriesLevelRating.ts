@@ -3,11 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 export const LEVEL_OPTIONS = [
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'improver', label: 'Improver' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'open_level', label: 'Open level' },
+  { value: 'mostly_beginners', label: 'Mostly beginners', emoji: '\u{1F331}' },
+  { value: 'mixed', label: 'Mixed', emoji: '\u{1F91D}' },
+  { value: 'strong', label: 'Strong', emoji: '\u{1F525}' },
 ] as const;
 
 export type SeriesLevel = (typeof LEVEL_OPTIONS)[number]['value'];
@@ -47,6 +45,11 @@ export const useSeriesLevelRating = (seriesId: string | null | undefined) => {
     queryFn: () => fetchSummary(seriesId as string),
     enabled: Boolean(seriesId),
     staleTime: 60_000,
+    // The key carries the user id: keep the card on screen while auth resolves
+    // (signed-out -> signed-in, same series only). Never carry a signed-in
+    // summary over to a signed-out or different-series key.
+    placeholderData: (prev, prevQuery) =>
+      prevQuery && prevQuery.queryKey[1] === seriesId && prevQuery.queryKey[2] === null ? prev : undefined,
   });
 
   const mutation = useMutation({
@@ -58,9 +61,9 @@ export const useSeriesLevelRating = (seriesId: string | null | undefined) => {
       if (error) throw error;
       return level;
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['series-level-summary', seriesId] });
-    },
+    onSuccess: () =>
+      // Returned so mutateAsync settles after the fresh summary is in, not before.
+      queryClient.invalidateQueries({ queryKey: ['series-level-summary', seriesId] }),
   });
 
   return {

@@ -41,7 +41,7 @@ const asEventLevel = (value: unknown): EventPageEventLevel => {
   return s === 'beginner' || s === 'intermediate' || s === 'advanced' || s === 'all_levels' ? s : null;
 };
 
-const DERIVED_LEVELS: readonly string[] = ['beginner', 'improver', 'intermediate', 'advanced', 'open_level'];
+const DERIVED_LEVELS: readonly string[] = ['mostly_beginners', 'mixed', 'strong'];
 const asDerivedLevel = (value: unknown): EventPageDerivedLevel | null => {
   const s = asString(value);
   return s !== null && DERIVED_LEVELS.includes(s) ? (s as EventPageDerivedLevel) : null;

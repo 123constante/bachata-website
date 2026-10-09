@@ -7,7 +7,7 @@ export function rawWorkspace(over: Record<string, unknown> = {}, occurrences?: u
       series: {
         id: 's1', name: 'Friday Party', slug: 'friday-party', format: 'recurring', category: 'class',
         lifecycle_status: 'live', version: 3, default_venue_id: 'v1', default_local_start_time: '20:00:00',
-        default_duration: null, default_level: null, default_ticket_url: null, default_description: 'Party night',
+        default_duration: null, default_ticket_url: null, default_description: 'Party night',
         default_cover_image_url: null, default_start_date: '2026-10-09', instagram_url: null, passes: null, created_at: null,
         recurrence_rule: { mode: 'weekly', weekdays: [5], end: { kind: 'until_date', date: '2026-11-27' } },
         removed_dates: [], default_music_styles: ['Bachata'], gallery: ['https://cdn.example/g1.webp'], video_urls: [],

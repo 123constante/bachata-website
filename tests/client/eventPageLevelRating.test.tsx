@@ -152,13 +152,13 @@ describe('/event/:slug level rating prompt (signed-in dancer)', () => {
   // Was `it.fails` (known bug 2026-10-06); flipped now the admin RPC accepts the public id.
   it('shows the rating chips on a live event page', async () => {
     mount();
-    expect(await screen.findByTestId('level-rating-beginner', {}, { timeout: 2000 })).toBeTruthy();
+    expect(await screen.findByTestId('level-rating-mostly_beginners', {}, { timeout: 2000 })).toBeTruthy();
   });
 
   it('shows the chips once the level RPC accepts the public (legacy) event id', async () => {
     h.state.levelRpcAcceptsLegacyId = true;
     mount();
-    expect(await screen.findByTestId('level-rating-beginner')).toBeTruthy();
-    expect(screen.getByLabelText('Rate the level of this event')).toBeTruthy();
+    expect(await screen.findByTestId('level-rating-mostly_beginners')).toBeTruthy();
+    expect(screen.getByLabelText('Rate the dancing level of this event')).toBeTruthy();
   });
 });
