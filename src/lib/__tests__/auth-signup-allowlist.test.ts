@@ -10,6 +10,8 @@ describe("isSignupAllowlistRefusal", () => {
     ["403 with another message while creating", { status: 403, message: "Forbidden" }, true, true],
     ["uppercase variant", { message: ALLOWLIST_MSG.toUpperCase() }, true, true],
     ["lowercase variant", { message: ALLOWLIST_MSG.toLowerCase() }, true, true],
+    ["production create-path 403 AuthApiError", { name: "AuthApiError", status: 403, code: "unknown", message: ALLOWLIST_MSG }, true, true],
+    ["production sign-in otp_disabled 422", { name: "AuthApiError", status: 422, code: "otp_disabled", message: "Signups not allowed for otp" }, false, false],
     ["signups not allowed", { status: 422, code: "otp_disabled", message: "Signups not allowed for otp" }, true, false],
     ["network error", new Error("Failed to fetch"), true, false],
     ["empty error object", {}, true, false],

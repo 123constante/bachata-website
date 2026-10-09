@@ -21,7 +21,11 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast }) }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <>{children}</> }));
-vi.mock('@/components/ui/city-picker', () => ({ CityPicker: () => null }));
+vi.mock('@/components/ui/city-picker', () => ({
+  CityPicker: ({ onChange }: { onChange: (id: string, city: { name: string }) => void }) => (
+    <button type="button" onClick={() => onChange('city-1', { name: 'Madrid' })}>Pick city</button>
+  ),
+}));
 
 import Auth from '../Auth';
 import { installJsdomPolyfills } from '../../../tests/client/jsdomPolyfills';
@@ -100,6 +104,25 @@ describe('Auth sign-in with an email that has no account', () => {
     await waitFor(() => expect(screen.getByText(/couldn.t send your email/i)).toBeTruthy());
     expect(toast).not.toHaveBeenCalled();
     expect(new URLSearchParams(lastSearch).get('mode')).toBe('signin');
+  });
+
+  it('create account with an unlisted email shows the invite-only message, not "try again"', async () => {
+    signInWithOtp.mockResolvedValue({
+      data: null,
+      error: { name: 'AuthApiError', status: 403, code: 'unknown', message: 'Sign-up is limited to approved organisers.' },
+    });
+    mount('/auth?mode=signup&userType=dancer');
+    // Walk the three sign-up steps: role, first name + city, email.
+    fireEvent.click(screen.getByRole('button', { name: /continue as dancer/i }));
+    fireEvent.change(await screen.findByLabelText(/first name/i), { target: { value: 'Sam' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Pick city' }));
+    fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
+    await screen.findByLabelText(/email/i);
+    await sendMagicLink('stranger@example.com');
+
+    await waitFor(() => expect(screen.getByText(/Sign-up is invite-only for now/)).toBeTruthy());
+    expect(screen.queryByText(/couldn.t send your email/i)).toBeNull();
+    expect(signInWithOtp.mock.calls[0][0]).toMatchObject({ options: { shouldCreateUser: true } });
   });
 
   it('an existing account (send succeeds) stays in sign-in and shows the sent state', async () => {
