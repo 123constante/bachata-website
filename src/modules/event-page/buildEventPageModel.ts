@@ -1,7 +1,6 @@
 import { resolveHeroImage } from '@/lib/utils';
 import type { EventPageModel, EventPageSnapshot } from '@/modules/event-page/types';
-import { formatWallClockLocal, formatWallClockLocalIntl, type WallClock } from '@/lib/time/wallClock';
-import { isTimeToBeConfirmed } from '@/lib/time/timeToBeConfirmed';
+import { formatWallClockLocal, formatWallClockLocalIntl, isTimeToBeConfirmed, type WallClock } from '@/lib/time/wallClock';
 
 type BuildEventPageModelArgs = {
   snapshot: EventPageSnapshot | null;

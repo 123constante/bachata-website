@@ -9,8 +9,7 @@
 // BST. Event timezone is also carried in the description; VTIMEZONE blocks are
 // a rabbit hole we don't need for a single-event invite.
 
-import { wallClockToInstant, type WallClock } from '@/lib/time/wallClock';
-import { allDayDateRange, icsDateLines } from '@/lib/time/timeToBeConfirmed';
+import { allDayDateRange, icsDateLines, wallClockToInstant, type WallClock } from '@/lib/time/wallClock';
 
 export type CalendarEventInput = {
   eventId: string;

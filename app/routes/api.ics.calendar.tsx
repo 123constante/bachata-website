@@ -20,8 +20,7 @@ import {
   parsePublicEventsListRow,
   type PublicEventsListRow,
 } from "../lib/publicEventsList";
-import { wallClockToInstant, type WallClock } from "@/lib/time/wallClock";
-import { TIME_TBC_LABEL, icsDateLines, isTimeToBeConfirmed } from "@/lib/time/timeToBeConfirmed";
+import { TIME_TBC_LABEL, icsDateLines, isTimeToBeConfirmed, wallClockToInstant, type WallClock } from "@/lib/time/wallClock";
 import type { Route } from "./+types/api.ics.calendar";
 
 // The row shape is DERIVED from the regenerated schema (see eventRpcs.ts), not

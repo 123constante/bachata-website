@@ -15,7 +15,7 @@ import { parseCalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { transformCalendarEvents } from '@/components/calendar/calendarUtils';
 import { DayDetailModal } from '@/components/calendar/DayDetailModal';
 import { CalendarListView } from '@/components/calendar/CalendarListView';
-import { TIME_TBC_LABEL } from '@/lib/time/timeToBeConfirmed';
+import { TIME_TBC_LABEL } from '@/lib/time/wallClock';
 
 type Flag = boolean | null | undefined;
 const SHAPES: Array<[string, Flag, boolean]> = [

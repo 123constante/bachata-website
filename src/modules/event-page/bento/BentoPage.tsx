@@ -484,7 +484,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         // convert the stored wall clock through the event tz. Emitting
         // the naive stamp made every BST event read 1h late.
         // A date with no timed session publishes its DATE only (schema.org Date), never the
-        // series default time (admin 20261109920000, src/lib/time/timeToBeConfirmed.ts).
+        // series default time (admin 20261109920000, src/lib/time/wallClock.ts, TBC section).
         startDate: pageModel.schedule.timeToBeConfirmed
           ? wallClockDateKey(occurrence?.startsAt ?? occurrence?.localDate) ?? ''
           : wallClockToInstant(

@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { MONTHS, matchesCategory } from '@/components/calendar/calendarUtils';
 import { useLondonToday } from '@/hooks/useLondonToday';
-import { TIME_TBC_LABEL } from '@/lib/time/timeToBeConfirmed';
+import { TIME_TBC_LABEL } from '@/lib/time/wallClock';
 import { CancelledRedStrip } from '@/modules/event-page/bento/blocks/CancelledRedStrip';
 
 type UserLocation = { lat: number; lng: number };

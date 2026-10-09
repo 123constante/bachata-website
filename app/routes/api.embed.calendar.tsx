@@ -25,8 +25,7 @@ import {
   parsePublicEventsListRow,
   type PublicEventsListRow,
 } from "../lib/publicEventsList";
-import { wallClockTimeKey, type WallClock } from "@/lib/time/wallClock";
-import { timeLabelOrTbc } from "@/lib/time/timeToBeConfirmed";
+import { timeLabelOrTbc, wallClockTimeKey, type WallClock } from "@/lib/time/wallClock";
 import type { Route } from "./+types/api.embed.calendar";
 
 // The row shape is DERIVED from the regenerated schema (see eventRpcs.ts), not

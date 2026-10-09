@@ -27,14 +27,14 @@ import { buildEventPageModel } from '@/modules/event-page/buildEventPageModel';
 import { parseEventPageSnapshot } from '@/modules/event-page/useEventPageQuery';
 import { emptyScheduleView } from '@/modules/event-page/bento/blocks/schedule/emptyScheduleView';
 import { buildGoogleCalendarUrl, buildIcs } from '@/modules/event-page/bento/utils/ics';
-import { asWallClock } from '@/lib/time/wallClock';
 import {
+  asWallClock,
   TIME_TBC_HINT,
   TIME_TBC_LABEL,
   allDayDateRange,
   isTimeToBeConfirmed,
   timeLabelOrTbc,
-} from '@/lib/time/timeToBeConfirmed';
+} from '@/lib/time/wallClock';
 
 type Flag = boolean | null | undefined;
 // [shape, has_timed_session on the wire, does the surface say "to be confirmed"]
@@ -96,7 +96,7 @@ const snapshotPayload = (flag: Flag) => {
   };
 };
 
-describe('the one mapping (src/lib/time/timeToBeConfirmed.ts)', () => {
+describe('the one mapping (src/lib/time/wallClock.ts)', () => {
   it.each(SHAPES)('%s -> to be confirmed: %s', (_shape, flag, tbc) => {
     expect(isTimeToBeConfirmed(flag)).toBe(tbc);
     expect(timeLabelOrTbc(flag, '8:00 PM')).toBe(tbc ? TIME_TBC_LABEL : '8:00 PM');
@@ -117,7 +117,7 @@ describe('the one mapping (src/lib/time/timeToBeConfirmed.ts)', () => {
     };
     walk(path.join(process.cwd(), 'src'));
     walk(path.join(process.cwd(), 'app'));
-    expect(hits).toEqual([path.join(process.cwd(), 'src', 'lib', 'time', 'timeToBeConfirmed.ts')]);
+    expect(hits).toEqual([path.join(process.cwd(), 'src', 'lib', 'time', 'wallClock.ts')]);
   });
 });
 

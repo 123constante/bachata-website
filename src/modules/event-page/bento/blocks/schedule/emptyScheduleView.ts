@@ -1,4 +1,4 @@
-import { TIME_TBC_HINT, TIME_TBC_LABEL } from '@/lib/time/timeToBeConfirmed';
+import { TIME_TBC_HINT, TIME_TBC_LABEL } from '@/lib/time/wallClock';
 
 export type EmptyScheduleView =
   | { kind: 'loading' }

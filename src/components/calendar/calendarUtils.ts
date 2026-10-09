@@ -1,9 +1,8 @@
 import { resolveEventImage } from '@/lib/utils';
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
-import { wallClockTimeKey } from '@/lib/time/wallClock';
+import { isTimeToBeConfirmed, wallClockTimeKey } from '@/lib/time/wallClock';
 import { eventHref } from '@/lib/seo/eventHref';
 import { isFestivalByFormat } from '@/lib/eventFormat';
-import { isTimeToBeConfirmed } from '@/lib/time/timeToBeConfirmed';
 
 // ---------------------------------------------------------------------------
 // Types

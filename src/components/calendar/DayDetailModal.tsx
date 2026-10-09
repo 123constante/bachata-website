@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { DAYS, MONTHS, isEventVisibleOnDay, matchesCategory, mondayIndex } from '@/components/calendar/calendarUtils';
 import { eventCardColour } from '@/lib/eventCardColour';
-import { TIME_TBC_LABEL } from '@/lib/time/timeToBeConfirmed';
+import { TIME_TBC_LABEL } from '@/lib/time/wallClock';
 
 interface DayDetailModalProps {
   selectedDay: number | null;

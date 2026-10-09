@@ -81,7 +81,7 @@ export type CalendarEventRow = Omit<
   original_party_end: WallClock | null;
   city_timezone: string | null; // via asEventTimeZone ('UTC' -> null -> London default)
   // Admin 20261109920000. Optional: absent on a payload served before the migration, and
-  // only an explicit false means "time to be confirmed" (src/lib/time/timeToBeConfirmed.ts).
+  // only an explicit false means "time to be confirmed" (src/lib/time/wallClock.ts, TBC section).
   has_timed_session?: boolean | null;
 } & { [K in NullableWireCol]: RawCalendarEventRow[K] | null };
 
