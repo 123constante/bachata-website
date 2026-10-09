@@ -11,7 +11,14 @@ import { Label } from "@/components/ui/label";
 import { CityPicker } from "@/components/ui/city-picker";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-intent";
-import { OTP_NO_ACCOUNT_NOTICE, callbackErrorCopy, isOtpSignupDisabledError } from "@/lib/auth-otp-routing";
+import {
+  OTP_NO_ACCOUNT_NOTICE,
+  SIGNUP_INVITE_ONLY_DESCRIPTION,
+  SIGNUP_INVITE_ONLY_TITLE,
+  callbackErrorCopy,
+  isOtpSignupDisabledError,
+  isSignupAllowlistRefusal,
+} from "@/lib/auth-otp-routing";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
 import MagicLinkConfirmation from "@/components/MagicLinkConfirmation";
@@ -262,6 +269,12 @@ const AuthContent = () => {
       if (isSignupDisabled && !isCreateAccount) {
         trackAnalyticsEvent("auth_auto_switched_to_signup", { source: "auth_page", reason: "email_not_found" });
         switchToSignup(OTP_NO_ACCOUNT_NOTICE);
+        return;
+      }
+      // Production answers an unlisted sign-up with 403 "Sign-up is limited to
+      // approved organisers." -- say so instead of "try again".
+      if (isSignupAllowlistRefusal(error, isCreateAccount)) {
+        setFieldErrors({ send: `${SIGNUP_INVITE_ONLY_TITLE}. ${SIGNUP_INVITE_ONLY_DESCRIPTION}` });
         return;
       }
       setFieldErrors({
