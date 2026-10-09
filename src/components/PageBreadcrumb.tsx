@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -11,6 +12,17 @@ import {
 } from '@/components/ui/breadcrumb';
 import { renderBreadcrumbListJsonLd } from '@/lib/breadcrumbs';
 import { SITE_ORIGIN } from '@/lib/seo';
+
+// The fade-in sits on the <li> elements themselves: a wrapper <div> between
+// the <ol> and its <li>s (even display:contents) is broken list markup that
+// axe reports as list/listitem on every page with a breadcrumb.
+const MotionItem = motion.create(BreadcrumbItem);
+const MotionSeparator = motion.create(BreadcrumbSeparator);
+const enter = (delay: number) => ({
+  initial: { opacity: 0, x: -10 },
+  animate: { opacity: 1, x: 0 },
+  transition: { duration: 0.3, delay },
+});
 
 export interface BreadcrumbItemType {
   label: string;
@@ -55,42 +67,29 @@ const PageBreadcrumb = ({ items, tone = 'default' }: PageBreadcrumbProps) => {
       <Breadcrumb>
         <BreadcrumbList>
           {/* Home — icon + label, both visible on every screen size. */}
-          <motion.div
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0 }}
-            className="contents"
-          >
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link
-                  to="/"
-                  className={`flex items-center gap-1 ${linkCls}`}
-                >
-                  <Home className="w-3.5 h-3.5" />
-                  <span>Home</span>
-                </Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-          </motion.div>
+          <MotionItem {...enter(0)}>
+            <BreadcrumbLink asChild>
+              <Link
+                to="/"
+                className={`flex items-center gap-1 ${linkCls}`}
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span>Home</span>
+              </Link>
+            </BreadcrumbLink>
+          </MotionItem>
 
           {items.map((item, index) => {
             const isLast = index === items.length - 1;
             const staggerDelay = (index + 1) * 0.08;
 
             return (
-              <motion.div
-                key={item.label}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: staggerDelay }}
-                className="contents"
-              >
-                <BreadcrumbSeparator>
+              <Fragment key={item.label}>
+                <MotionSeparator {...enter(staggerDelay)}>
                   <ChevronRight className={`w-3.5 h-3.5 ${sepCls}`} />
-                </BreadcrumbSeparator>
+                </MotionSeparator>
 
-                <BreadcrumbItem>
+                <MotionItem {...enter(staggerDelay)}>
                   {isLast || !item.path ? (
                     <BreadcrumbPage className={`${curCls} font-medium truncate max-w-[150px] md:max-w-none`}>
                       {item.label}
@@ -105,8 +104,8 @@ const PageBreadcrumb = ({ items, tone = 'default' }: PageBreadcrumbProps) => {
                       </Link>
                     </BreadcrumbLink>
                   )}
-                </BreadcrumbItem>
-              </motion.div>
+                </MotionItem>
+              </Fragment>
             );
           })}
         </BreadcrumbList>

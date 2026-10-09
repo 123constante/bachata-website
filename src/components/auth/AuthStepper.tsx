@@ -420,7 +420,7 @@ export const AuthStepper = ({
             <span>Step {currentStepIndex} of {totalSteps}</span>
             <span>{intent === "new" ? "Fresh start" : "Welcome back"}</span>
           </div>
-          <Progress value={progressValue} />
+          <Progress value={progressValue} label={`Step ${currentStepIndex} of ${totalSteps}`} />
         </div>
       )}
 

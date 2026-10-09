@@ -6,10 +6,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { flags } from '@/lib/featureFlags';
-import { ManagedBadge, PublicClaimCard } from '@/modules/organiser-self-serve/components/PublicClaimCard';
-import { publicClaimKind } from '@/modules/organiser-self-serve/publicClaim';
-import { myAccessRequestsQueryKey, organiserHomeQueryKey } from '@/modules/organiser-self-serve/selfServeApi';
-import { isMailboxProvenToken } from '@/modules/organiser-self-serve/sessionProof';
+import { ManagedBadge, PublicClaimCard } from '@/modules/organiser/shared/components/PublicClaimCard';
+import { publicClaimKind } from '@/modules/organiser/shared/publicClaim';
+import { myAccessRequestsQueryKey, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
+import { isMailboxProvenToken } from '@/modules/organiser/shared/sessionProof';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Pencil, Loader2, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,12 @@ import {
   normalizePhoneDigits,
 } from '@/lib/contactValidation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
+import {
+  hostMatchesDomain,
+  withNormalizedProtocol,
+  saveOrganiserProfile,
+  organiserProfileSaveErrorToast,
+} from '@/lib/organiserProfileUpdate';
 import { londonDayRangeUtc } from '@/lib/londonDate';
 import {
   type WallClock,
@@ -44,6 +50,7 @@ import {
   wallClockExactDateKey,
 } from '@/lib/time/wallClock';
 import { useLondonToday } from '@/hooks/useLondonToday';
+import { organiserEmptyState } from '@/modules/profile/organiserEmptyState';
 import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
 import EventRowCard, { type EventRowProps } from '@/components/events/EventRow';
 import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
@@ -209,42 +216,6 @@ const eventTime = (wc: WallClock | null | undefined): string | null => {
   return s ? s.replace(/\s/g, '').toLowerCase() : null;
 };
 
-// Normalizes a protocol-optional URL fragment for validating, rendering, AND
-// the extract*Handle/extractDomain helpers below, so no two of them can
-// independently drift on what counts as "already has a scheme/domain".
-// Lowercases only the scheme (never the path/query) and prepends https://
-// when neither a scheme nor the given domain is present -- this is what
-// makes a bare "instagram.com/foo" resolve to a real link instead of being
-// glued onto another https://instagram.com/ prefix.
-const lowercaseScheme = (v: string): string => v.replace(/^https?:\/\//i, (m) => m.toLowerCase());
-
-// Hostname-anchored domain check -- NEVER a substring/`.includes()` test.
-// A substring match treats "https://bit.ly/promo?ref=instagram.com" or a
-// typosquat host "instagram.com.evil.tk" as "is an instagram.com URL" (the
-// substring appears in the query string / as a subdomain prefix of a
-// different real domain), which would validate and render an arbitrary or
-// look-alike URL under the "Instagram" label. Parsing the hostname and
-// requiring an exact match or a real subdomain (`.instagram.com` suffix)
-// closes both.
-const hostMatchesDomain = (trimmed: string, domain: string): boolean => {
-  try {
-    const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-    const hostname = new URL(withScheme).hostname.toLowerCase();
-    return hostname === domain || hostname.endsWith(`.${domain}`);
-  } catch {
-    return false;
-  }
-};
-
-const withNormalizedProtocol = (trimmed: string, domain?: string): string => {
-  if (/^https?:\/\//i.test(trimmed)) {
-    return lowercaseScheme(trimmed);
-  }
-  if (domain && hostMatchesDomain(trimmed, domain)) {
-    return `https://${trimmed}`;
-  }
-  return domain ? trimmed : `https://${trimmed}`;
-};
 
 // A resolved hostname must look like a real domain -- containing a dot AND
 // a letter -- before a website URL is accepted. Without this, placeholder
@@ -444,6 +415,13 @@ const VerifiedBadge = ({ size }: { size: 'sm' | 'md' }) => {
     </span>
   );
 };
+
+/** The empty states' one way out: what is on elsewhere. */
+const BrowseNightsLink = () => (
+  <Link to="/parties" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 18px', borderRadius: 100, background: 'rgba(246,241,234,0.1)', border: '1px solid rgba(246,241,234,0.2)', color: D.cream, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+    Browse upcoming nights
+  </Link>
+);
 
 const TeamCircle = ({ member }: { member: TeamMember }) => {
   const inner = (
@@ -856,10 +834,6 @@ const OrganiserProfile = () => {
       toast({ title: 'City is required', description: 'Please add city before saving.', variant: 'destructive' });
       return;
     }
-    if (!isValidEmail(editForm.contact_email)) {
-      toast({ title: 'Invalid email', description: 'Please enter a valid email address.', variant: 'destructive' });
-      return;
-    }
     if (!isValidPhone(editForm.contact_phone)) {
       toast({ title: 'Invalid phone', description: 'Please enter a valid phone number.', variant: 'destructive' });
       return;
@@ -883,31 +857,14 @@ const OrganiserProfile = () => {
         toast({ title: 'Select a valid city', description: 'Please choose city from the city picker list.', variant: 'destructive' });
         return;
       }
-      const ig = editForm.instagram.trim() ? lowercaseScheme(editForm.instagram.trim()) : null;
-      const fb = editForm.facebook.trim() ? lowercaseScheme(editForm.facebook.trim()) : null;
-      const web = editForm.website.trim() ? lowercaseScheme(editForm.website.trim()) : null;
-      const existingSocials = ((entity as EntityProfile).socials as Record<string, unknown> | null) ?? {};
-      const nextSocials = { ...existingSocials, instagram: ig, website: web, facebook: fb };
-      const { error } = await supabase.from('organiser_profiles').update({
-        name: editForm.name.trim(),
-        avatar_url: editForm.avatar_url.trim() || null,
-        bio: editForm.bio.trim() || null,
-        city_id: canonicalCity.cityId,
-        instagram: ig,
-        website: web,
-        contact_email: editForm.contact_email.trim() || null,
-        contact_phone: editForm.contact_phone.trim() || null,
-        organisation_category: editForm.organisation_category.trim() || null,
-        founded_year: editForm.founded_year.trim() && Number.isFinite(Number(editForm.founded_year.trim())) ? Number(editForm.founded_year.trim()) : null,
-        socials: nextSocials,
-      }).eq('id', id).eq('claimed_by', user.id);
+      const { error } = await saveOrganiserProfile(supabase, id, editForm, canonicalCity.cityId);
       if (error) throw error;
       toast({ title: 'Profile updated' });
       setIsEditOpen(false);
       queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(id) });
     } catch (err) {
       console.error('Save error:', err);
-      toast({ title: 'Unable to save changes. Please try again.', variant: 'destructive' });
+      toast({ ...organiserProfileSaveErrorToast(err), variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -1046,6 +1003,15 @@ const OrganiserProfile = () => {
   const hasContact = !!(instagramUrl || facebookUrl || websiteUrl || whatsappUrl || mailtoHref);
 
   const isClaimedByUser = entity.claimed_by === user?.id;
+  const emptyKind = organiserEmptyState({
+    loading: allEventsLoading || futureOccsLoading || pastOccsLoading || teamMembersLoading,
+    upcoming: upcomingListItems.length,
+    past: pastEvents.length,
+    hasBio: !!entity.bio?.trim(),
+    hasContact,
+    team: orderedTeam.length,
+    isOwner: isClaimedByUser,
+  });
   // W7: "Managed by the organiser" once claimed (D4 keeps claimed_by paired
   // with an owner member), and the "Is this you?" card while unclaimed. Both
   // behind the self-serve flag, off in production until launch.
@@ -1308,44 +1274,47 @@ const OrganiserProfile = () => {
           }}
         />
 
-        {/* EMPTY PROFILE -- no bio, no contact links, no events, no team. The
-            realistic case: a freshly claimed profile with nothing added yet.
-            The claimant CTA can only point at the Edit-profile dialog -- the
-            self-service create-event/edit-event flows were retired 2026-09-12
-            (see AnimatedRoutes.tsx); organiser event creation now happens only
-            in the admin app's EventEditorV2, so there is no public route to
-            send a claimant to for "add your first event".
+        {/* EMPTY STATES -- one decision (organiserEmptyState): nothing upcoming
+            always says so and offers somewhere to go, whatever else the profile
+            has. The owner of a wholly blank profile is pointed at Edit profile
+            instead: organiser event creation happens in the organiser area, not
+            on this public page.
 
             Gated on all four content queries having settled (not just the
             `entity` query, which resolves first as a single-row fetch) --
             otherwise a well-populated organiser flashes this on every cold
             load, before allEvents/futureOccs/pastOccs/teamMembers (four
             independent, slower queries) have had a chance to come back. */}
-        {!allEventsLoading && !futureOccsLoading && !pastOccsLoading && !teamMembersLoading &&
-          !entity.bio && !hasContact && upcomingListItems.length === 0 && orderedTeam.length === 0 && pastEvents.length === 0 && (
-          <section className="px-5 md:px-12 py-8 md:py-10 text-center">
-            {isClaimedByUser ? (
-              <>
-                <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold, margin: '0 0 12px' }}>Your profile</p>
-                <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>Just getting started</h2>
-                <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
-                  Add a bio, photo and your social links so dancers know who you are before your first night goes up.
-                </p>
-                <button onClick={openEditModal} style={{ minHeight: 44, padding: '0 18px', borderRadius: 100, background: D.gold, color: D.black, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
-                  Complete your profile
-                </button>
-              </>
-            ) : (
-              <>
-                <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>Nothing here yet</h2>
-                <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
-                  {entity.name} hasn&rsquo;t listed any nights yet. Check back soon, or see what&rsquo;s on elsewhere in London.
-                </p>
-                <Link to="/parties" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 18px', borderRadius: 100, background: 'rgba(246,241,234,0.1)', border: '1px solid rgba(246,241,234,0.2)', color: D.cream, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
-                  Browse upcoming nights
-                </Link>
-              </>
-            )}
+        {emptyKind === 'owner-blank' && (
+          <section className="px-5 md:px-12 py-8 md:py-10 text-center" data-testid="org-public-empty" data-kind={emptyKind}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold, margin: '0 0 12px' }}>Your profile</p>
+            <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>Just getting started</h2>
+            <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
+              Add a bio, photo and your social links so dancers know who you are before your first night goes up.
+            </p>
+            <button onClick={openEditModal} style={{ minHeight: 44, padding: '0 18px', borderRadius: 100, background: D.gold, color: D.black, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+              Complete your profile
+            </button>
+          </section>
+        )}
+        {emptyKind === 'none' && (
+          <section className="px-5 md:px-12 py-8 md:py-10 text-center" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="org-public-empty" data-kind={emptyKind}>
+            <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>No nights listed yet</h2>
+            <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.75)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
+              {entity.name} hasn&rsquo;t listed any nights here yet.{' '}
+              {hasContact ? 'Follow them with the links above for news, or see' : 'Check back soon, or see'} what&rsquo;s on elsewhere in London.
+            </p>
+            <BrowseNightsLink />
+          </section>
+        )}
+        {emptyKind === 'past-only' && (
+          <section className="px-5 md:px-12 py-5 md:py-6 text-center" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="org-public-empty" data-kind={emptyKind}>
+            <h2 style={{ ...sectionH2, marginBottom: 6 }}>No upcoming nights</h2>
+            <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.75)', maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.5 }}>
+              {entity.name} has nothing on the calendar right now.{' '}
+              {hasContact ? 'Follow them with the links above for new dates, or see' : 'See'} what&rsquo;s on elsewhere in London.
+            </p>
+            <BrowseNightsLink />
           </section>
         )}
 
@@ -1516,7 +1485,8 @@ const OrganiserProfile = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="contact_email">Contact email</Label>
-              <Input id="contact_email" type="email" value={editForm.contact_email} onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })} placeholder="hello@example.com" />
+              <Input id="contact_email" type="email" value={editForm.contact_email} readOnly disabled placeholder="Set when the profile was claimed" />
+              <p className="text-xs text-muted-foreground">The contact email is set when you claim the profile and can only be changed by an admin.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="contact_phone">Contact phone / WhatsApp</Label>

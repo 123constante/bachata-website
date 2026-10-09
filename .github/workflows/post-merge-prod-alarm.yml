@@ -1,0 +1,127 @@
+name: Post-merge prod alarm
+
+# THE GAP THIS CLOSES (2026-10-06 outage). Auto-merge shipped a dependency bump and
+# production's function then crashed on every SSR route. Prod Smoke already reports
+# red, but (a) it smokes the LIVE alias, so when production is pinned/rolled back to an
+# old good deployment it stays GREEN while every NEW deployment is broken, and (b)
+# nothing stopped further merges. This workflow adds both missing pieces:
+#
+#   1. probe-new-deployment: when Vercel reports a successful PRODUCTION deployment,
+#      request that deployment's OWN url (with the protection-bypass header) for two SSR
+#      routes. A non-200 is a red, even if the live alias is fine.
+#   2. brake: on ANY of {Prod Smoke red, a Production deploy failed/errored, the probe
+#      red}, disable GitHub auto-merge on every open PR and open (or update) ONE issue
+#      labelled post-merge-prod-red. It cannot flip the AUTOMERGE_ENABLED variable
+#      (GITHUB_TOKEN has no variables:write), so the brake is per-PR; the owner still
+#      decides when to re-arm.
+#
+# HONEST LIMITS: it does not roll anything back (a rollback is a production deploy
+# and is the owner's click). It reacts to a red; it cannot prevent the first one. The
+# probe covers two routes, not the whole site -- Prod Smoke remains the wide check.
+# A missing bypass secret is a RED here, never a skip.
+
+on:
+  workflow_run:
+    workflows: ['Prod Smoke']
+    types: [completed]
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      test_notification:
+        description: 'Run the brake + issue path deliberately, to prove it still works'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+# One group PER RUN, on purpose: a shared group keeps only one pending run, so a later
+# (even irrelevant) deployment_status event would cancel a queued Production-failure run
+# and the brake would never fire.
+concurrency:
+  group: post-merge-prod-alarm-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  probe-new-deployment:
+    # Production deploys that SUCCEEDED only; previews and pending/error noise excluded
+    # (same environment == 'Production' filter prod-smoke.yml and og-image-check.yml use).
+    if: >-
+      github.event_name == 'deployment_status' &&
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment_status.environment == 'Production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Request the new deployment's own URL
+        env:
+          DEPLOY_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          set -u
+          if [ -z "$BYPASS" ] || [ -z "$DEPLOY_URL" ]; then
+            echo "::error::missing bypass secret or deployment url -- cannot probe (red, not skipped)"
+            exit 1
+          fi
+          fail=0
+          for path in /tonight /city/london-gb; do
+            code=000
+            for attempt in 1 2 3; do
+              code=$(curl -s -o /dev/null -m 30 -w '%{http_code}' -H "x-vercel-protection-bypass: $BYPASS" "${DEPLOY_URL%/}$path" || echo 000)
+              [ "$code" = "200" ] && break
+              sleep 15
+            done
+            echo "$path -> $code (after $attempt attempt(s))"
+            [ "$code" = "200" ] || fail=1
+          done
+          exit $fail
+
+  brake:
+    needs: [probe-new-deployment]
+    # always(): the probe job is SKIPPED on every non-success-deployment trigger, and a
+    # skipped needs would otherwise skip this job too.
+    if: >-
+      always() && (
+        (github.event_name == 'workflow_run' &&
+          contains(fromJSON('["failure","timed_out","startup_failure"]'), github.event.workflow_run.conclusion)) ||
+        (github.event_name == 'deployment_status' &&
+          github.event.deployment_status.environment == 'Production' &&
+          contains(fromJSON('["failure","error"]'), github.event.deployment_status.state)) ||
+        needs.probe-new-deployment.result == 'failure' ||
+        (github.event_name == 'workflow_dispatch' && inputs.test_notification)
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      REASON: >-
+        ${{ github.event_name }}:
+        ${{ github.event_name == 'workflow_dispatch' && 'manual test' || needs.probe-new-deployment.result == 'failure' && 'new deployment probe failed' || github.event.workflow_run.conclusion || github.event.deployment_status.state }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Disable auto-merge on every open PR
+        run: |
+          set -eu
+          prs=$(gh pr list --state open --limit 100 --json number,autoMergeRequest --jq '.[] | select(.autoMergeRequest != null) | .number')
+          if [ -z "$prs" ]; then
+            echo "No open PR has auto-merge armed."
+          fi
+          for n in $prs; do
+            gh pr merge --disable-auto "$n"
+            echo "auto-merge disabled on #$n"
+          done
+
+      - name: Open or update the alarm issue
+        run: |
+          set -eu
+          gh label create post-merge-prod-red --color B60205 --description "Production looked unhealthy after a merge/deploy" --force
+          body=$(printf 'Production health alarm.\n\nTrigger: %s\nRun: %s\n\nAuto-merge was disabled on every open PR. To re-arm: gh variable set AUTOMERGE_ENABLED --body true (owner decision, only once production is green).\nA broken NEW deployment can sit behind a healthy pinned/rolled-back production alias, so check the Vercel deployments list, not just the live site.' "$REASON" "$RUN_URL")
+          existing=$(gh issue list --label post-merge-prod-red --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --label post-merge-prod-red --title "Post-merge production alarm" --body "$body"
+          fi

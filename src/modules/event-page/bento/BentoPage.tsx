@@ -45,13 +45,14 @@ import { EventEndedRecord } from '@/modules/event-page/bento/EventEndedRecord';
 import { selectLifecycleBanners } from '@/modules/event-page/bento/lifecycleBanner';
 import { formatRunRange } from '@/modules/event-page/bento/utils/endedRun';
 import { buildEventShareDescription } from '@/modules/event-page/endedShareDescription';
-import { wallClockToInstant } from '@/lib/time/wallClock';
+import { wallClockDateKey, wallClockToInstant } from '@/lib/time/wallClock';
 import { TapHintSticker } from '@/modules/event-page/bento/TapHintSticker';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
 import { getRaffleSessionId } from '@/lib/raffleSession';
 import { buildEventJsonLd } from '@/lib/buildEventJsonLd';
+import { ENDED_DOOR_LABEL } from '@/lib/seo/eventPageSeoPolicy';
 import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 
 type BentoPageProps = {
@@ -428,6 +429,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             occurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
             occurrenceCancelled={!!occurrence?.isCancelled}
             fallbackTimeLabel={pageModel.schedule.timeLabel}
+            occurrenceDate={wallClockDateKey(occurrence?.localDate ?? occurrence?.startsAt)}
           />
         );
       case 'promo':
@@ -465,6 +467,89 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   // snapshot is ready. See selectLifecycleBanners for the precedence rules.
   const lifecycleBanners =
     state === 'ready' ? selectLifecycleBanners(pageModel.page) : [];
+
+  // Schema.org Event node, or null when the page must carry none (a paused
+  // series: see src/lib/seo/eventPageSeoPolicy).
+  const eventJsonLd =
+    state === 'ready' && snapshot
+      ? buildEventJsonLd({
+        name: pageModel.identity.title,
+        // Stable canonical slug URL, identical on server and client (the
+        // slug rides in via props from the dehydrated snapshot). Reading
+        // window.location.pathname on the client but the UUID on the
+        // server made this serialized JSON-LD differ across hydration.
+        url: `${SITE_ORIGIN}/event/${resolvedEventSlug ?? eventId}`,
+        // JSON-LD startDate/endDate feed Google as REAL instants, so
+        // convert the stored wall clock through the event tz. Emitting
+        // the naive stamp made every BST event read 1h late.
+        startDate:
+          wallClockToInstant(
+            occurrence?.startsAt ?? snapshot.event.date ?? null,
+            occurrence?.timezone ?? snapshot.event.timezone ?? 'Europe/London',
+          )?.toISOString() ?? '',
+        endDate:
+          wallClockToInstant(
+            occurrence?.endsAt ?? null,
+            occurrence?.timezone ?? snapshot.event.timezone ?? 'Europe/London',
+          )?.toISOString() ?? null,
+        // Series-termination arc P4b. The SAME sentence og:description
+        // carries, from the SAME owner -- runNoun's docblock warns that
+        // two copies of this copy would drift, and that the drift would
+        // only ever be visible in a share preview. Without it the rich
+        // result kept the stored sales pitch ("Join me every Sunday this
+        // June") on a page whose banner says the run has finished.
+        // The second `isFestival` argument is gone (arc W14): the helper
+        // no longer branches on it, now that FestivalDetail renders the
+        // ended treatment too.
+        description: isEnded
+          ? buildEventShareDescription(snapshot)
+          : pageModel.description.body,
+        image: snapshot.event.imageUrl ? [snapshot.event.imageUrl] : null,
+        isCancelled: occurrence?.isCancelled ?? false,
+        // The lifecycle FACT. What it means for the node (none for paused, no
+        // offers for ended) is eventJsonLdPolicy's call, not this call site's.
+        lifecycleStatus: snapshot.event.lifecycleStatus,
+        venue: snapshot.locationDefault?.venue
+          ? {
+              name: snapshot.locationDefault.venue.name,
+              address: snapshot.locationDefault.venue.address,
+              postcode: snapshot.locationDefault.venue.postcode,
+              city: snapshot.locationDefault.city?.name,
+            }
+          : { city: snapshot.locationDefault?.city?.name ?? null },
+        // A resolved organiser row with no displayName is not evidence
+        // that WE run the night: naming ourselves here republished the
+        // same misattribution the builder's fallback was struck for, one
+        // level up. No name, no organizer node. Row zero deliberately --
+        // buildEventPageModel.ts:119 defines the primary organiser as
+        // organisers[0], so searching the list for any named organiser
+        // would credit a non-primary and disagree with the page body.
+        organiser: snapshot.organisers[0]?.displayName
+          ? {
+              name: snapshot.organisers[0].displayName,
+              url: snapshot.organisers[0].website,
+            }
+          : null,
+        performers: [
+          ...(occurrence?.lineup?.teachers ?? []).map((p) => ({
+            name: p.displayName ?? '',
+            type: 'Person' as const,
+          })),
+          ...(occurrence?.lineup?.djs ?? []).map((p) => ({
+            name: p.displayName ?? '',
+            type: 'Person' as const,
+          })),
+        ],
+        offers: (snapshot.event.tickets ?? []).map((t) => ({
+          url: pageModel.actions.ticketUrl,
+          name: t.name,
+          price: t.price,
+          // Never a currency without a price (Google flags the pair);
+          // default GBP when a price exists but the row has none.
+          currency: t.price ? (t.currency ?? 'GBP') : null,
+        })),
+      })
+      : null;
 
   return (
     <GlobalLayout
@@ -538,7 +623,11 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             eventCategory={snapshot?.event.category ?? null}
           />
         ) : (
-          past && (
+          // Not on a paused series: its headline date is always a past one
+          // (_p5_series_has_past_public_date_v1), and "This event has ended"
+          // under the "On hiatus" banner contradicts it -- the series is
+          // resting, not over.
+          past && !pageModel.page.isPaused && (
             <div
               className="mb-3 rounded-md px-3 py-2 text-center text-[11px]"
               style={{
@@ -563,7 +652,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         {isEnded && (
           <MoreEventsSection
             blocks={DOOR_BLOCKS}
-            sectionLabel="Still running from this organiser"
+            sectionLabel={ENDED_DOOR_LABEL}
             fallbackSectionLabel="Other organisers in this city"
             currentEventId={eventId}
             organiserId={snapshot?.organisers[0]?.id ?? null}
@@ -657,88 +746,10 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         onAddToCalendar={() => setCalendarOpen(true)}
       />
 
-      {state === 'ready' && snapshot && (
+      {eventJsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: serialiseJsonLd(
-              buildEventJsonLd({
-                name: pageModel.identity.title,
-                // Stable canonical slug URL, identical on server and client (the
-                // slug rides in via props from the dehydrated snapshot). Reading
-                // window.location.pathname on the client but the UUID on the
-                // server made this serialized JSON-LD differ across hydration.
-                url: `${SITE_ORIGIN}/event/${resolvedEventSlug ?? eventId}`,
-                // JSON-LD startDate/endDate feed Google as REAL instants, so
-                // convert the stored wall clock through the event tz. Emitting
-                // the naive stamp made every BST event read 1h late.
-                startDate:
-                  wallClockToInstant(
-                    occurrence?.startsAt ?? snapshot.event.date ?? null,
-                    occurrence?.timezone ?? snapshot.event.timezone ?? 'Europe/London',
-                  )?.toISOString() ?? '',
-                endDate:
-                  wallClockToInstant(
-                    occurrence?.endsAt ?? null,
-                    occurrence?.timezone ?? snapshot.event.timezone ?? 'Europe/London',
-                  )?.toISOString() ?? null,
-                // Series-termination arc P4b. The SAME sentence og:description
-                // carries, from the SAME owner -- runNoun's docblock warns that
-                // two copies of this copy would drift, and that the drift would
-                // only ever be visible in a share preview. Without it the rich
-                // result kept the stored sales pitch ("Join me every Sunday this
-                // June") on a page whose banner says the run has finished.
-                // The second `isFestival` argument is gone (arc W14): the helper
-                // no longer branches on it, now that FestivalDetail renders the
-                // ended treatment too.
-                description: isEnded
-                  ? buildEventShareDescription(snapshot)
-                  : pageModel.description.body,
-                image: snapshot.event.imageUrl ? [snapshot.event.imageUrl] : null,
-                isCancelled: occurrence?.isCancelled ?? false,
-                isEnded,
-                venue: snapshot.locationDefault?.venue
-                  ? {
-                      name: snapshot.locationDefault.venue.name,
-                      address: snapshot.locationDefault.venue.address,
-                      postcode: snapshot.locationDefault.venue.postcode,
-                      city: snapshot.locationDefault.city?.name,
-                    }
-                  : { city: snapshot.locationDefault?.city?.name ?? null },
-                // A resolved organiser row with no displayName is not evidence
-                // that WE run the night: naming ourselves here republished the
-                // same misattribution the builder's fallback was struck for, one
-                // level up. No name, no organizer node. Row zero deliberately --
-                // buildEventPageModel.ts:119 defines the primary organiser as
-                // organisers[0], so searching the list for any named organiser
-                // would credit a non-primary and disagree with the page body.
-                organiser: snapshot.organisers[0]?.displayName
-                  ? {
-                      name: snapshot.organisers[0].displayName,
-                      url: snapshot.organisers[0].website,
-                    }
-                  : null,
-                performers: [
-                  ...(occurrence?.lineup?.teachers ?? []).map((p) => ({
-                    name: p.displayName ?? '',
-                    type: 'Person' as const,
-                  })),
-                  ...(occurrence?.lineup?.djs ?? []).map((p) => ({
-                    name: p.displayName ?? '',
-                    type: 'Person' as const,
-                  })),
-                ],
-                offers: (snapshot.event.tickets ?? []).map((t) => ({
-                  url: pageModel.actions.ticketUrl,
-                  name: t.name,
-                  price: t.price,
-                  // Never a currency without a price (Google flags the pair);
-                  // default GBP when a price exists but the row has none.
-                  currency: t.price ? (t.currency ?? 'GBP') : null,
-                })),
-              }),
-            ),
-          }}
+          dangerouslySetInnerHTML={{ __html: serialiseJsonLd(eventJsonLd) }}
         />
       )}
     </GlobalLayout>

@@ -75,6 +75,7 @@ setWorkerUrl(maplibreWorkerUrl);
 import './homeMap.css';
 import { cn } from '@/lib/utils';
 import { optimizedImageUrl } from '@/lib/imageCdn';
+import { cancelledLabel } from '@/lib/cancelLabel';
 import { MapDisposer } from '@/lib/leaflet-safety';
 import type { MapEvent } from './mapTypes';
 import {
@@ -333,9 +334,7 @@ function popupHtml(e: MapEvent): string {
     ? `<div class="rpop-venue">${PIN_SVG} ${esc(e.venue_name)}${e.area ? `, ${esc(e.area)}` : ''}</div>`
     : '';
   const cancelled = e.is_cancelled
-    ? `<div class="rpop-cancel">Cancelled${
-        e.cancellation_reason_label ? ` &middot; ${esc(e.cancellation_reason_label)}` : ''
-      }</div>`
+    ? `<div class="rpop-cancel">${esc(cancelledLabel(e.cancellation_reason_label))}</div>`
     : '';
   const href = `/event/${esc(e.event_id)}?occurrenceId=${esc(e.occurrence_id)}`;
   return (

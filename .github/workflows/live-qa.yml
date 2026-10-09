@@ -1,0 +1,181 @@
+name: Live QA (daily)
+
+# The Playwright suite that finds bugs before the owner does, run against the
+# LIVE site once a day at phone width (390px). READ-ONLY: tests/e2e/live
+# answers every view/click recorder in the browser and aborts any other
+# write-shaped request, and the shape survey runs in a read-only transaction
+# (`read_only: true` + `set transaction read only`) through the Management API.
+#
+#   Layer 1  real event shapes from today's prod survey x every public screen:
+#            the same fact reads the same everywhere, empty states say what
+#            the person can do, no copy points at a missing control, no
+#            disabled control without a reason.
+#   Layer 3  every visited page: console + React hydration errors
+#            (#418/#421/#423/#425), axe serious/critical, horizontal overflow,
+#            44px tap targets, screenshots as artifacts.
+#   Canary   tests/e2e/live/detectors.spec.ts proves each detector can fail.
+#
+# Layer 2 (signed-in journeys) is deliberately NOT scheduled here: it writes.
+#
+# Known findings are recorded, not hidden: tests/e2e/live/baseline.json (page
+# checks, ratchet) and tests/e2e/live/known-bugs.ts (product bugs). A NEW
+# finding turns this red and opens/comments the `live-qa` issue below -- the
+# same Announce / Close-when-green pattern as synthetic-ssr-monitor.yml.
+#
+# Not on pull_request: it needs SUPABASE_ACCESS_TOKEN, which Dependabot PRs do
+# not get, and it measures production, not the PR.
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Target base URL (defaults to production)'
+        required: false
+        default: 'https://www.bachatacalendar.co.uk'
+      test_notification:
+        description: 'Fail deliberately, to prove the failure notification still works'
+        type: boolean
+        default: false
+
+# Never cancel an in-flight run: a cancelled run reads as failed to nobody,
+# but a half-run suite proves nothing either. Runs queue instead.
+concurrency:
+  group: live-qa
+  cancel-in-progress: false
+
+jobs:
+  live-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # Needed by the "Announce failure" / "Close failure issue" steps.
+      issues: write
+    steps:
+      - name: Deliberate failure (notification self-test)
+        if: inputs.test_notification
+        run: |
+          echo "test_notification=true - failing on purpose to exercise the notifier."
+          exit 1
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        run: npm install -g npm@11
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run live QA suite (read-only, 390px)
+        env:
+          CI: 'true'
+          LIVE_QA_BASE_URL: ${{ github.event.inputs.base_url || 'https://www.bachatacalendar.co.uk' }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: npm run test:e2e:live
+
+      - name: Summarise findings
+        if: always()
+        run: |
+          f=test-results/live-qa/findings.ndjson
+          if [ ! -f "$f" ]; then echo "No findings file (the suite did not reach a page)." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          node -e '
+            const rows = require("fs").readFileSync(process.argv[1], "utf8").split("\n").filter(Boolean).map(JSON.parse);
+            const fresh = rows.filter((r) => !r.baselined);
+            const lines = ["## Live QA findings", "", `${rows.length} page-check findings, ${fresh.length} NEW (not in tests/e2e/live/baseline.json).`, ""];
+            for (const r of fresh.slice(0, 40)) lines.push(`- ${r.rule} on \`${r.path}\`: ${r.detail}`);
+            console.log(lines.join("\n"));
+          ' "$f" >> "$GITHUB_STEP_SUMMARY"
+
+      # Screenshots, traces and findings.ndjson, on every run (green runs carry
+      # the daily screenshots). Public repo: no Actions storage meter; bounded
+      # anyway by retention.
+      - name: Upload screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: live-qa-report
+          path: |
+            test-results/
+            playwright-report-live/
+          retention-days: 7
+
+      - name: Announce failure
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'live-qa';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'Live QA (daily) failed: the suite found something NEW on the live site.',
+              '',
+              `Run: ${run}`,
+              `Commit: \`${context.sha.slice(0, 7)}\``,
+              '',
+              'Open the run summary for the new findings, and the live-qa-report',
+              'artifact for screenshots and traces. A real bug: fix it. A known',
+              'defect you accept for now: record it in tests/e2e/live/baseline.json',
+              '(page checks) or tests/e2e/live/known-bugs.ts (product bugs).',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL,
+            });
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: open.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner, repo, title: 'Live QA red', body, labels: [LABEL],
+              });
+            }
+
+      # Same reason as synthetic-ssr-monitor.yml: an issue alone is not a page.
+      - name: Notify Slack
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        # soft-signal: a notification channel, not a gate. It only runs after the
+        # suite has already failed (the job is red either way), and a Slack
+        # outage must not hide the real failure or stop the issue record above.
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "SLACK_WEBHOOK_URL not set -- skipping Slack notification."
+            exit 0
+          fi
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          # Built only from runner-provided vars; no quote or backslash can occur.
+          PAYLOAD="{\"text\":\":rotating_light: Live QA (daily) found something new on production -- ${RUN_URL}\"}"
+          curl -sf -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL"
+
+      - name: Close failure issue when green again
+        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const LABEL = 'live-qa';
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL,
+            });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `Green again as of \`${context.sha.slice(0, 7)}\`. Closing.`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: issue.number, state: 'closed',
+              });
+            }

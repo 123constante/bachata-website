@@ -56,12 +56,18 @@ const RULES = [
     // The Lever 2 self-serve RPCs (claim/request/create/list, admin repo D4)
     // return `organiser_id` = an organiser_profiles id, not the legacy column.
     // Only their boundary file may read the key; it maps it to camelCase.
-    allowFiles: new Set(['src/modules/organiser-self-serve/selfServeApi.ts']),
+    allowFiles: new Set(['src/modules/organiser/shared/selfServeApi.ts']),
   },
   {
     id: 'no-event-organisers-linkage',
     message: 'Forbidden legacy linkage: event_organisers (use event_entities / canonical entity endpoints)',
     pattern: /\bevent_organisers\b/,
+  },
+  {
+    id: 'no-organiser-profiles-direct-write',
+    message:
+      "Forbidden direct write: .from('organiser_profiles').update/insert/upsert/delete - use organiser_profile_update_p5_v1",
+    pattern: /\.from\(\s*['"]organiser_profiles['"]\s*\)\s*\.(update|insert|upsert|delete)\s*\(/,
   },
 ];
 

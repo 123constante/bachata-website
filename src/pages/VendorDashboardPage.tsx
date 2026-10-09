@@ -1019,7 +1019,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
           <Card className={embeddedCardClass}>
             <CardContent className="pt-6 space-y-2 border border-festival-teal/30 bg-festival-teal/5 rounded-md">
               <p className="text-sm text-muted-foreground">Uploading media...</p>
-              <Progress value={uploadProgress} />
+              <Progress value={uploadProgress} label="Uploading media" />
               <p className="text-xs text-muted-foreground">{uploadProgress}% complete</p>
             </CardContent>
           </Card>
