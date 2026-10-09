@@ -232,7 +232,7 @@ export function workspaceOf(s: SeriesShape) {
       series: {
         id: s.id, name: s.name, slug: s.key, format: s.format, category: s.category ?? 'party', type: s.category ?? 'party',
         lifecycle_status: s.lifecycle, version: 5, default_venue_id: s.venueId, default_city_id: 'c1',
-        default_local_start_time: '20:00:00', default_duration: '04:00:00', default_level: null,
+        default_local_start_time: '20:00:00', default_duration: '04:00:00',
         default_ticket_url: null, default_description: s.description, default_cover_image_url: s.cover,
         default_start_date: s.startDate, instagram_url: null, passes: null, created_at: '2026-01-01T00:00:00Z',
         recurrence_rule: s.rule, removed_dates: s.removedDates ?? [], default_music_styles: s.styles, gallery: s.gallery,

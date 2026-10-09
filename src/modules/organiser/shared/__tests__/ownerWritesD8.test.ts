@@ -42,7 +42,7 @@ const base: BasicsDraft = {
 const series = (over: Partial<WorkspaceSeries> = {}): WorkspaceSeries => ({
   id: 'ser-1', name: 'Friday Party', slug: null, format: 'recurring', category: 'party',
   lifecycle_status: 'live', version: 3, default_venue_id: 'venue-1', default_local_start_time: '21:00:00',
-  default_duration: '04:00:00', default_level: null, default_ticket_url: null, default_description: null,
+  default_duration: '04:00:00', default_ticket_url: null, default_description: null,
   default_cover_image_url: null, default_start_date: '2026-10-09', instagram_url: null, passes: null,
   created_at: null, recurrence_rule: null, removed_dates: [], ...over,
 });

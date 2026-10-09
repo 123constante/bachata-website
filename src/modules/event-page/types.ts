@@ -75,7 +75,7 @@ export type EventPageKeyTimes = {
 
 export type EventPageEventLevel = 'beginner' | 'intermediate' | 'advanced' | 'all_levels' | null;
 
-export type EventPageDerivedLevel = 'beginner' | 'improver' | 'intermediate' | 'advanced' | 'open_level';
+export type EventPageDerivedLevel = 'mostly_beginners' | 'mixed' | 'strong';
 
 export type EventPageSnapshot = {
   eventId: string;

@@ -49,7 +49,7 @@ afterEach(cleanup);
 
 describe('flag OFF: unchanged v5 behaviour', () => {
   it('useSearchResults calls search_public_v5 with exactly the v5 args and returns the v5 envelope', async () => {
-    const { result } = renderHook(() => useSearchResults('bachata', 'london', { levels: ['beginner'] }), { wrapper });
+    const { result } = renderHook(() => useSearchResults('bachata', 'london', { levels: ['mostly_beginners'] }), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(rpc).toHaveBeenCalledTimes(1);
     const [fn, args] = rpc.mock.calls[0];
@@ -63,7 +63,7 @@ describe('flag OFF: unchanged v5 behaviour', () => {
   });
 
   it('searchPublicV3 calls v5 with the four original args and adds no level fields', async () => {
-    const rows = await searchPublicV3('bachata', 'london', 12, false, ['beginner']);
+    const rows = await searchPublicV3('bachata', 'london', 12, false, ['mostly_beginners']);
     expect(rpc).toHaveBeenCalledWith('search_public_v5', {
       p_query: 'bachata', p_city_slug: 'london', p_section_limit: 12, p_include_past: false,
     });
@@ -78,17 +78,17 @@ describe('flag ON: v6 mapping', () => {
   it('useSearchResults calls search_public_v6, passes p_level and maps the level keys', async () => {
     rpc.mockResolvedValue({
       data: envelope({
-        events: [{ ...EVENT, derived_level: 'improver', level_vote_count: 9 }, { ...EVENT, id: 'e2' }],
+        events: [{ ...EVENT, derived_level: 'mixed', level_vote_count: 9 }, { ...EVENT, id: 'e2' }],
         unrated_event_count: 4,
       }),
       error: null,
     });
-    const { result } = renderHook(() => useSearchResults('bachata', 'london', { levels: ['improver', 'advanced'] }), { wrapper });
+    const { result } = renderHook(() => useSearchResults('bachata', 'london', { levels: ['mixed', 'strong'] }), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     const [fn, args] = rpc.mock.calls[0];
     expect(fn).toBe('search_public_v6');
-    expect(args.p_level).toEqual(['improver', 'advanced']);
-    expect(result.current.data?.events[0]).toMatchObject({ derived_level: 'improver', level_vote_count: 9 });
+    expect(args.p_level).toEqual(['mixed', 'strong']);
+    expect(result.current.data?.events[0]).toMatchObject({ derived_level: 'mixed', level_vote_count: 9 });
     expect(result.current.data?.events[1]).toMatchObject({ derived_level: null, level_vote_count: 0 });
     expect(result.current.data?.unrated_event_count).toBe(4);
   });
@@ -101,12 +101,12 @@ describe('flag ON: v6 mapping', () => {
   });
 
   it('searchPublicV3 calls v6 with p_level and maps derivedLevel / levelVoteCount', async () => {
-    rpc.mockResolvedValue({ data: envelope({ events: [{ ...EVENT, derived_level: 'open_level', level_vote_count: 12 }] }), error: null });
-    const rows = await searchPublicV3('bachata', 'london', 12, false, ['open_level']);
+    rpc.mockResolvedValue({ data: envelope({ events: [{ ...EVENT, derived_level: 'strong', level_vote_count: 12 }] }), error: null });
+    const rows = await searchPublicV3('bachata', 'london', 12, false, ['strong']);
     expect(rpc).toHaveBeenCalledWith('search_public_v6', {
-      p_query: 'bachata', p_city_slug: 'london', p_section_limit: 12, p_include_past: false, p_level: ['open_level'],
+      p_query: 'bachata', p_city_slug: 'london', p_section_limit: 12, p_include_past: false, p_level: ['strong'],
     });
-    expect(rows[0]).toMatchObject({ derivedLevel: 'open_level', levelVoteCount: 12 });
+    expect(rows[0]).toMatchObject({ derivedLevel: 'strong', levelVoteCount: 12 });
   });
 });
 
@@ -115,14 +115,14 @@ describe('level chips', () => {
     const onChange = vi.fn();
     const { rerender } = render(<LevelFilterChips selected={[]} onChange={onChange} />);
     expect(screen.getByRole('button', { name: 'All levels' }).getAttribute('aria-pressed')).toBe('true');
-    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
-    expect(onChange).toHaveBeenLastCalledWith(['advanced']);
+    fireEvent.click(screen.getByRole('button', { name: 'Strong' }));
+    expect(onChange).toHaveBeenLastCalledWith(['strong']);
 
-    rerender(<LevelFilterChips selected={['advanced']} onChange={onChange} />);
-    expect(screen.getByRole('button', { name: 'Advanced' }).getAttribute('aria-pressed')).toBe('true');
-    fireEvent.click(screen.getByRole('button', { name: 'Beginner' }));
-    expect(onChange).toHaveBeenLastCalledWith(['beginner', 'advanced']);
-    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
+    rerender(<LevelFilterChips selected={['strong']} onChange={onChange} />);
+    expect(screen.getByRole('button', { name: 'Strong' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Mostly beginners' }));
+    expect(onChange).toHaveBeenLastCalledWith(['mostly_beginners', 'strong']);
+    fireEvent.click(screen.getByRole('button', { name: 'Strong' }));
     expect(onChange).toHaveBeenLastCalledWith([]);
     fireEvent.click(screen.getByRole('button', { name: 'All levels' }));
     expect(onChange).toHaveBeenLastCalledWith([]);
@@ -131,7 +131,7 @@ describe('level chips', () => {
   it('uses the rating hook labels, real buttons (keyboard reachable) and 44px targets', () => {
     render(<LevelFilterChips selected={[]} onChange={() => {}} />);
     const labels = screen.getAllByRole('button').map((b) => b.textContent);
-    expect(labels).toEqual(['All levels', 'Beginner', 'Improver', 'Intermediate', 'Advanced', 'Open level']);
+    expect(labels).toEqual(['All levels', 'Mostly beginners', 'Mixed', 'Strong']);
     for (const b of screen.getAllByRole('button')) {
       expect(b.className).toContain('min-h-[44px]');
       expect(b.className).toContain('focus-visible:ring-2');
@@ -140,7 +140,7 @@ describe('level chips', () => {
 
   it('parseLevelParam -> p_level: keeps known levels only, deduped, canonical order', () => {
     expect(parseLevelParam(null)).toEqual([]);
-    expect(parseLevelParam('advanced,bogus,beginner,advanced')).toEqual(['beginner', 'advanced']);
+    expect(parseLevelParam('strong,bogus,mostly_beginners,strong,beginner')).toEqual(['mostly_beginners', 'strong']);
   });
 });
 
@@ -167,7 +167,7 @@ describe('level badge', () => {
   it('shows the label only when derived_level is non-null', () => {
     const { container, rerender } = render(<LevelBadge level={null} />);
     expect(container.textContent).toBe('');
-    rerender(<LevelBadge level="intermediate" />);
-    expect(container.textContent).toBe('Intermediate');
+    rerender(<LevelBadge level="mixed" />);
+    expect(container.textContent).toBe('Mixed');
   });
 });
