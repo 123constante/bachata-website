@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,9 @@ import {
 
 // Dialog + auth routing load on the first signed-out tap, not with the page.
 const SignInSheet = lazyWithRetry(() => import('@/components/LevelRatingSignInSheet'));
+
+// Sign-in returns to the page AT this card, not the top of the page.
+export const LEVEL_RATING_ANCHOR = 'level-rating';
 
 type LevelRatingPromptProps = {
   seriesId: string | null | undefined;
@@ -56,6 +59,9 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className }: Leve
   const [tapped, setTapped] = useState<SeriesLevel | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [changing, setChanging] = useState(false);
+  const cardRef = useRef<HTMLElement | null>(null);
+  const scrolled = useRef(false);
+  const hasCard = Boolean(seriesId && summary);
 
   const submit = async (level: SeriesLevel) => {
     try {
@@ -77,6 +83,13 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className }: Leve
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seriesId, canRate]);
 
+  // Back from sign-in with #level-rating: bring the card into view once it exists.
+  useEffect(() => {
+    if (!hasCard || scrolled.current || location.hash !== `#${LEVEL_RATING_ANCHOR}`) return;
+    scrolled.current = true;
+    cardRef.current?.scrollIntoView({ block: 'center' });
+  }, [hasCard, location.hash]);
+
   // Signed in while the sheet is open (auth finished resolving, or another tab
   // signed in): the vote is sent by the effect above, so the sheet has no job left.
   useEffect(() => {
@@ -91,7 +104,7 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className }: Leve
 
   const mine = summary.my_level;
   const result = buildLevelResult(summary);
-  const returnTo = `${location.pathname}${location.search}`;
+  const returnTo = `${location.pathname}${location.search}#${LEVEL_RATING_ANCHOR}`;
 
   const onPick = (level: SeriesLevel) => {
     if (isRating) return;
@@ -157,6 +170,8 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className }: Leve
 
   return (
     <section
+      id={LEVEL_RATING_ANCHOR}
+      ref={cardRef}
       aria-label="Rate the dancing level of this event"
       onClick={(e) => e.stopPropagation()}
       className={cn(

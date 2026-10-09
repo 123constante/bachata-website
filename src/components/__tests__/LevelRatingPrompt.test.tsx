@@ -37,12 +37,13 @@ const WIN = S({ mostly_beginners: 1, mixed: 3, strong: 5 }, 'strong', 9);
 const TIE = S({ mostly_beginners: 3, mixed: 1, strong: 3 }, 'mixed', 7);
 const ZERO = S({ mostly_beginners: 0, mixed: 0, strong: 7 }, 'strong', 7);
 
-const mount = (props: { compact?: boolean } = {}) => {
+const mount = (props: { compact?: boolean; at?: string } = {}) => {
+  const { at = '/event/ev1?occ=2', ...rest } = props;
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/event/ev1?occ=2']}>
-        <LevelRatingPrompt seriesId="ev1" {...props} />
+      <MemoryRouter initialEntries={[at]}>
+        <LevelRatingPrompt seriesId="ev1" {...rest} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -83,10 +84,10 @@ describe('signed out', () => {
     expect(JSON.parse(localStorage.getItem(PENDING_LEVEL_RATING_KEY) ?? '{}')).toMatchObject({ seriesId: 'ev1', level: 'strong' });
     // The return-to is stashed on the link click, never on open.
     expect(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY)).toBeNull();
-    expect(screen.getByTestId('level-rating-login').getAttribute('href')).toBe('/auth?mode=signin&returnTo=%2Fevent%2Fev1%3Focc%3D2');
-    expect(screen.getByTestId('level-rating-signup').getAttribute('href')).toBe('/auth?mode=signup&returnTo=%2Fevent%2Fev1%3Focc%3D2');
+    expect(screen.getByTestId('level-rating-login').getAttribute('href')).toBe('/auth?mode=signin&returnTo=%2Fevent%2Fev1%3Focc%3D2%23level-rating');
+    expect(screen.getByTestId('level-rating-signup').getAttribute('href')).toBe('/auth?mode=signup&returnTo=%2Fevent%2Fev1%3Focc%3D2%23level-rating');
     fireEvent.click(screen.getByTestId('level-rating-login'));
-    expect(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY)).toBe('/event/ev1?occ=2');
+    expect(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY)).toBe('/event/ev1?occ=2#level-rating');
   });
 
   it('dismissing the sheet drops the stashed vote', async () => {
@@ -112,6 +113,20 @@ describe('signed out', () => {
     const { container } = mount({ compact: true });
     await new Promise((r) => setTimeout(r, 30));
     expect(container.textContent).toBe('');
+  });
+});
+
+describe('landing back on the card', () => {
+  it.each([
+    ['with #level-rating (back from sign-in)', '/event/ev1?occ=2#level-rating', 1],
+    ['without the anchor (a normal visit)', '/event/ev1?occ=2', 0],
+  ])('%s: scrolls the card into view %d time(s)', async (_n, at, times) => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    mount({ at });
+    await tile('mixed');
+    expect(scroll).toHaveBeenCalledTimes(times);
+    if (times) expect(scroll.mock.instances[0]).toBe(document.getElementById('level-rating'));
   });
 });
 
