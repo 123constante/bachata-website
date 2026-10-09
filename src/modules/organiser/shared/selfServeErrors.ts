@@ -143,7 +143,7 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
   { match: /^invalid_payload: name required/, message: 'Enter the event name.' },
   { match: /^(not_found|series_not_found)/, message: 'This date or event no longer exists. Reload the page.' },
   // W3, the create (admin D3/D7 refusals on series.upsert (create) and series.set_recurrence).
-  { match: /\(create\) needs a live organiser/, message: 'Your organiser is not public yet. Once the Bachata Calendar team approves it you can add events.' },
+  { match: /\(create\) needs a live organiser/, message: 'Your organiser is not public yet. Send it for review from Home if you have not; once the Bachata Calendar team approves it you can add events.' },
   { match: /naming one organiser the caller owns or manages/, message: 'Choose one of your organisers.' },
   { match: /category must be party, class or workshop|category on a live series is admin-only/, message: 'That kind of event cannot be set here. Ask the Bachata Calendar team.' },
   { match: /format must be one_off or recurring/, message: 'Choose a party or a weekly class.' },

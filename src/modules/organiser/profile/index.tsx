@@ -9,7 +9,7 @@ import {
   saveOrganiserProfile,
   type OrganiserProfileEditForm,
 } from '@/lib/organiserProfileUpdate';
-import { fetchOrganiserEntity, organiserEntityQueryKey } from '@/modules/profile/organiserPublicProfile';
+import { fetchOwnOrganiserEntity, organiserEntityQueryKey, ownOrganiserEntityQueryKey } from '@/modules/profile/organiserPublicProfile';
 import { ORGANISER_HOME_KEY, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { linkOnClose, linkProblem } from '@/modules/organiser/shared/linkRules';
 import { saveBarState } from '@/modules/organiser/shared/editorGuards';
@@ -134,6 +134,7 @@ function ProfileEditor({ organiser, entity, sheetOpen, openSheet, top, bottom }:
       setSavedCity(city);
       setError(null);
       announce('Profile saved.');
+      void queryClient.invalidateQueries({ queryKey: ownOrganiserEntityQueryKey(organiser.id) });
       void queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(organiser.id) });
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
     },
@@ -302,8 +303,9 @@ export default function ProfilePage() {
   const [sheet, setSheet] = useState<View | null>(null);
 
   const entity = useQuery({
-    queryKey: organiserEntityQueryKey(selected?.id),
-    queryFn: () => fetchOrganiserEntity(selected!.id),
+    // The caller's own organiser, draft or not (RLS decides); never the public read.
+    queryKey: ownOrganiserEntityQueryKey(selected?.id),
+    queryFn: () => fetchOwnOrganiserEntity(selected!.id),
     enabled: !!selected,
   });
 
@@ -313,7 +315,7 @@ export default function ProfilePage() {
   else if (!selected) body = <EmptyState title="You don&rsquo;t run an organiser yet" body="Claim yours or create one from Home, then you can edit its public profile here." testId="profile-no-organiser" />;
   else if (entity.isPending) body = <SkeletonRows count={3} label="Loading your profile" testId="profile-loading" />;
   else if (entity.isError) body = <ErrorState title="Your profile did not load" onRetry={() => void entity.refetch()} retrying={entity.isFetching} testId="profile-load-error" />;
-  else if (!entity.data) body = <EmptyState title="This profile is not available" body="It may have been switched off. Ask the Bachata Calendar team." testId="profile-missing" />;
+  else if (!entity.data) body = <EmptyState title="This profile is not available" body="It may have been removed, or you may no longer help run it. Pick another organiser above, or ask the Bachata Calendar team." testId="profile-missing" />;
 
   const top = <OrganiserSwitcher organisers={organisers} selectedId={selected?.id ?? null} onChoose={choose} />;
   const bottom = (

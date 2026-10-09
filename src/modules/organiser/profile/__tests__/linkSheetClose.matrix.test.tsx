@@ -22,7 +22,7 @@ vi.mock('@/modules/organiser/shared/selfServeApi', async () => ({
 }));
 vi.mock('@/modules/profile/organiserPublicProfile', async () => ({
   ...(await vi.importActual<object>('@/modules/profile/organiserPublicProfile')),
-  fetchOrganiserEntity: api.entity,
+  fetchOwnOrganiserEntity: api.entity,
 }));
 vi.mock('@/lib/organiserProfileUpdate', async () => ({
   ...(await vi.importActual<object>('@/lib/organiserProfileUpdate')),

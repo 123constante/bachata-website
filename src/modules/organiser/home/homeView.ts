@@ -5,6 +5,7 @@ import { upcomingDates, type WorkspaceDate } from '@/modules/organiser/shared/se
 import { toDraft, type Programme } from '@/modules/organiser/shared/programmeModel';
 import { dateTag, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
 import { calendarDate } from '@/modules/organiser/shared/homeModel';
+import { createBlock } from '@/modules/organiser/shared/createModel';
 import type { StatusTone } from '../ui';
 
 export { dateTag };
@@ -172,3 +173,13 @@ export const requestReaders = (organisers: readonly HomeOrganiser[]) =>
 
 /** "Fri 20 Nov" for a London calendar date, "Sat 9 Jan 2027" outside today's year (shared calendarDate). */
 export const shortDate = (iso: string, today: string): string => calendarDate(iso, today);
+
+/**
+ * Why New event cannot work yet, or null: only a live organiser takes events
+ * (series.upsert create), so it is blocked while none of the caller's is live,
+ * with the first one's reason and next step from the shared status mapping.
+ */
+export function newEventBlock(organisers: HomeOrganiser[]): string | null {
+  if (organisers.length === 0 || organisers.some((o) => o.lifecycle_status === 'live')) return null;
+  return createBlock(organisers[0]);
+}

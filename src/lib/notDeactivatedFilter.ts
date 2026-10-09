@@ -25,6 +25,10 @@
  *     - src/pages/Organisers.tsx                       organiser directory
  *
  *   NOT using it, deliberately:
+ *     - src/modules/profile/organiserPublicProfile.ts  fetchOwnOrganiserEntity:
+ *       the organiser area's read of the caller's OWN organiser, which must
+ *       see their is_active=false draft; RLS alone gates it, on its own
+ *       cache key (never the public ['entity', id] entry).
  *     - src/pages/Dancers.tsx spells the SAME predicate a THIRD way, as
  *       `.or('is_active.is.null,is_active.eq.true')`. Semantically identical
  *       (NULL or true), but a different PostgREST expression -- so a grep for
