@@ -162,6 +162,43 @@ ship-scoped ratchet is what actually gates eslint. If `check:legacy-tables` or
 
 ---
 
+## Definition of done: real-data verification (mandatory)
+
+Nobody calls a change "ready", asks for approval or merge, or asks Ricky to
+test it until it is verified against the real SHAPES of production data
+&mdash; not only fixtures or freshly created records. (2026-10-08: an
+organiser rebuild was declared ready on mocked data; Ricky found four bugs on a
+phone within minutes &mdash; an ended recurring event shown as Draft, "One
+date" on a series with 13 weekly dates, copy pointing at a button that did not
+exist, a sticky bar eating half the screen. All were real data shapes.)
+
+1. **Shape survey.** Read-only SELECT (Supabase MCP, prod project
+   `stsdtacfauprzrdebmzg`) of the distinct shapes the screens will meet:
+   lifecycle/status x format x counts x null/empty x past/cancelled x lists
+   over the 100-row API cap. Counts only, no personal data, never any write.
+2. **Consistency matrix.** Table-driven vitest for every screen x every shape.
+   One shared mapping for any fact shown on more than one screen (never two
+   copies, e.g. status tags). No copy that points at a control that is not on
+   screen. Every empty state says what the person can do. A control that
+   cannot work is disabled with a reason. Saving an untouched record sends no
+   command. For bug fixes, run the new tests against the unfixed code first.
+3. **Every step of every CI job that applies to the PR** is run locally (read
+   `.github/workflows`; e.g. the `integrity` job includes `check:images` with
+   `AUDIT_STRICT=1`), and PR checks are green before "ready".
+4. **Browser walk** at 390x844 with prod-shaped data.
+5. **"Verified on real data" block** in the PR body (template has it) and in the
+   hand-off message, including an honest "Not verified".
+
+Ricky's phone test is final confirmation, never the first real-data test. A bug
+Ricky finds that this list would have caught is a process failure: fix the
+class, add the check, add the lesson here.
+
+Trap: the public site sets `html` font-size to about 13.5px on phones, so
+rem-based Tailwind sizes render about 16% small. Use explicit px sizes for tap
+targets (see `docs/organiser-rebuild/ARC.md` if present).
+
+---
+
 ## Key patterns
 
 ### HTML entities over raw Unicode
@@ -195,6 +232,8 @@ phase starts write `.claude/arc-state.json` and state the phase's required
 halt). Ship gate: `npm run pre-ship` + the
 pre-push receipt gate (`scripts/ship-gate.mjs`). Session economy: delegate bulk
 reads, read only what you edit, and SAY when to start a fresh session.
+
+PR volume and Vercel deploy budget (one PR per unit of work, push once, batch merges): [`docs/pr-batching-policy.md`](docs/pr-batching-policy.md).
 
 ## Recent changes
 

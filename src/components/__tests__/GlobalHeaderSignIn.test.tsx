@@ -2,7 +2,7 @@
 /**
  * Login launch gate step 6: the header's signed-out "Sign in" entry point.
  * Asserts WHEN it shows and WHERE it links; jsdom does no layout, so the 44px
- * target is checked by the Sign in test in organiser-account-onboarding.spec.ts.
+ * target is checked by the Sign in test in organiser-onboarding.spec.ts.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';

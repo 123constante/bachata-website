@@ -13,6 +13,7 @@ import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { HEAD_DESCRIPTION_MAX, truncate } from "../truncate";
 import { SITE_ORIGIN } from "@/lib/seo";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
+import { hiddenEventResponse } from "../lib/hiddenEventResponse";
 import { buildEventShareDescription } from "@/modules/event-page/endedShareDescription";
 import EventPage from "@/pages/EventPage";
 import type { Route } from "./+types/event";
@@ -73,8 +74,8 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
   const slug = resolved?.slug ?? (isUuid ? null : routeParam);
 
   if (!eventId) {
-    // Genuinely unresolvable → 404 + noindex (mirrors middleware's NOINDEX_404).
-    throw new Response("Event not found", { status: 404, headers: { "X-Robots-Tag": "noindex" } });
+    // Not a public page: 410 Gone if taken down (archived), else 404; noindex.
+    throw await hiddenEventResponse(routeParam);
   }
 
   const url = new URL(request.url);

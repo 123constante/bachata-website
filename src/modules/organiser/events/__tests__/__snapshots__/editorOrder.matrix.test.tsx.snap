@@ -1,0 +1,789 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`shape archived-monthly-dom > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-dates-none": "No upcoming datesThis event is archived, so it can't be changed here. To bring it back, ask the Bachata Calendar team.",
+    "org-event-locked": "This event is archived, so it can't be changed here. To bring it back, ask the Bachata Calendar team.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "No upcoming dates",
+    "org-schedule-none": "No upcoming dateOpen a past date above to see its sessions",
+  },
+}
+`;
+
+exports[`shape archived-norule-past > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-dates-none": "No upcoming datesThis event is archived, so it can't be changed here. To bring it back, ask the Bachata Calendar team.",
+    "org-event-locked": "This event is archived, so it can't be changed here. To bring it back, ask the Bachata Calendar team.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "No upcoming dates",
+    "org-schedule-none": "No upcoming dateOpen a past date above to see its sessions",
+  },
+}
+`;
+
+exports[`shape archived-oneoff-empty > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-dates-none": "No upcoming datesThis event is archived, so it can't be changed here. To bring it back, ask the Bachata Calendar team.",
+    "org-event-locked": "This event is archived, so it can't be changed here. To bring it back, ask the Bachata Calendar team.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "No upcoming dates",
+    "org-schedule-none": "No upcoming dateThis event has no dates",
+  },
+}
+`;
+
+exports[`shape draft-norule-empty > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+    "org-event-review",
+  ],
+  "reasons": {
+    "org-dates-none": "No upcoming datesUse Extend above to list more dates.",
+    "org-event-review-blocked": "To send it, add an upcoming date.",
+    "org-event-review-sentence": "Only you can see this event. Send it for review and dancers see it once it is approved.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Class",
+    "org-row-until": "Choose how long it is listedUp to 30 upcoming datesExtend",
+    "org-schedule-none": "No upcoming dateSessions show here once a date is listed",
+  },
+}
+`;
+
+exports[`shape draft-norule-empty-rejected > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+    "org-event-review",
+  ],
+  "reasons": {
+    "org-dates-none": "No upcoming datesUse Extend above to list more dates.",
+    "org-event-review-blocked": "To send it, add an upcoming date.",
+    "org-event-review-sentence": "The Bachata Calendar team asked for changes. Make them, then send it again.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Class",
+    "org-row-until": "Choose how long it is listedUp to 30 upcoming datesExtend",
+    "org-schedule-none": "No upcoming dateSessions show here once a date is listed",
+  },
+}
+`;
+
+exports[`shape draft-norule-one > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+    "org-event-review",
+  ],
+  "reasons": {
+    "org-event-review-blocked": "Add at least one session first.",
+    "org-event-review-sentence": "Only you can see this event. Send it for review and dancers see it once it is approved.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Class",
+    "org-row-until": "Listed until Sat 17 Oct",
+  },
+}
+`;
+
+exports[`shape draft-norule-one-rejected > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+    "org-event-review",
+  ],
+  "reasons": {
+    "org-event-review-blocked": "Add at least one session first.",
+    "org-event-review-sentence": "The Bachata Calendar team asked for changes. Make them, then send it again.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Class",
+    "org-row-until": "Listed until Sat 17 Oct",
+  },
+}
+`;
+
+exports[`shape draft-weekly-first-off > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-taken-off",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+    "org-event-review",
+  ],
+  "reasons": {
+    "org-event-review-blocked": "Add at least one session first.",
+    "org-event-review-sentence": "Only you can see this event. Send it for review and dancers see it once it is approved.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Class",
+    "org-row-until": "Listed until Sat 28 NovUp to 30 upcoming datesExtend",
+  },
+}
+`;
+
+exports[`shape draft-weekly-first-off-rejected > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-taken-off",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+    "org-event-review",
+  ],
+  "reasons": {
+    "org-event-review-blocked": "Add at least one session first.",
+    "org-event-review-sentence": "The Bachata Calendar team asked for changes. Make them, then send it again.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Class",
+    "org-row-until": "Listed until Sat 28 NovUp to 30 upcoming datesExtend",
+  },
+}
+`;
+
+exports[`shape draft-weekly-nointerval > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+    "org-event-review",
+  ],
+  "reasons": {
+    "org-event-review-blocked": "Add at least one session first.",
+    "org-event-review-sentence": "Only you can see this event. Send it for review and dancers see it once it is approved.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Sat 5 Jun 202735 upcoming dates are listed, more than the 30 you can list. Extend is off until fewer than 30 are left.Extend",
+  },
+}
+`;
+
+exports[`shape draft-weekly-nointerval-rejected > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+    "org-event-review",
+  ],
+  "reasons": {
+    "org-event-review-blocked": "Add at least one session first.",
+    "org-event-review-sentence": "The Bachata Calendar team asked for changes. Make them, then send it again.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Sat 5 Jun 202735 upcoming dates are listed, more than the 30 you can list. Extend is off until fewer than 30 are left.Extend",
+  },
+}
+`;
+
+exports[`shape ended-course > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-dates-none": "No upcoming datesThis event has ended, so it can't be changed here. To run it again, ask the Bachata Calendar team.",
+    "org-event-locked": "This event has ended, so it can't be changed here. To run it again, ask the Bachata Calendar team.",
+    "org-row-ended": "Ended on Tue 4 Aug",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-schedule-none": "No upcoming dateOpen a past date above to see its sessions",
+  },
+}
+`;
+
+exports[`shape ended-picnic > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-dates-none": "No upcoming datesThis event has ended, so it can't be changed here. To run it again, ask the Bachata Calendar team.",
+    "org-event-locked": "This event has ended, so it can't be changed here. To run it again, ask the Bachata Calendar team.",
+    "org-row-ended": "Ended on Sat 5 Sep",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-schedule-none": "No upcoming dateOpen a past date above to see its sessions",
+  },
+}
+`;
+
+exports[`shape ended-upcoming-cancelled > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-event-locked": "This event has ended, so it can't be changed here. To run it again, ask the Bachata Calendar team.",
+    "org-row-ended": "Ended on Thu 1 Oct",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-schedule-none": "Every upcoming date is cancelledOpen a past date above to see its sessions",
+  },
+}
+`;
+
+exports[`shape live-course > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Tue 3 Nov",
+    "org-schedule-reason": "Course dates are set by the Bachata Calendar team. Open a date below to change that date.",
+  },
+}
+`;
+
+exports[`shape live-custom > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Sat 31 Oct",
+    "org-schedule-reason": "This pattern was set by the Bachata Calendar team, so it can't be changed here. Open a date below to change that date.",
+  },
+}
+`;
+
+exports[`shape live-festival > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Sun 22 Nov",
+    "org-schedule-reason": "Festival days are set by the Bachata Calendar team. Open a day below to change that day.",
+  },
+}
+`;
+
+exports[`shape live-monthly-nth > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Fri 1 Oct 2027",
+    "org-schedule-reason": "This pattern was set by the Bachata Calendar team, so it can't be changed here. Open a date below to change that date.",
+  },
+}
+`;
+
+exports[`shape live-norule-cancelled-only > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Sat 17 Oct",
+    "org-schedule-none": "Every upcoming date is cancelledOpen a past date above to see its sessions",
+    "org-schedule-reason": "This event's dates are listed one by one. Open a date below to change it; to add dates, ask the Bachata Calendar team.",
+  },
+}
+`;
+
+exports[`shape live-norule-few > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Sat 24 Oct",
+    "org-schedule-reason": "This event's dates are listed one by one. Open a date below to change it; to add dates, ask the Bachata Calendar team.",
+  },
+}
+`;
+
+exports[`shape live-norule-lapsed > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-dates-none": "No upcoming datesThis event's dates are listed one by one. Open a date below to change it; to add dates, ask the Bachata Calendar team.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "No upcoming dates",
+    "org-schedule-none": "No upcoming dateOpen a past date above to see its sessions",
+    "org-schedule-reason": "This event's dates are listed one by one. Open a date below to change it; to add dates, ask the Bachata Calendar team.",
+  },
+}
+`;
+
+exports[`shape live-oneoff-past > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-dates-none": "No upcoming datesChange ‘Starts on’ above to list a new date.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "No upcoming datesChange ‘Starts on’ above to list a new date.",
+    "org-schedule-none": "No upcoming dateOpen a past date above to see its sessions",
+    "org-schedule-reason": "A one-date event can't be made to repeat here. Ask the Bachata Calendar team.",
+  },
+}
+`;
+
+exports[`shape live-oneoff-upcoming > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Sat 14 Nov",
+    "org-schedule-reason": "A one-date event can't be made to repeat here. Ask the Bachata Calendar team.",
+  },
+}
+`;
+
+exports[`shape live-weekly-aftercount > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Sat 12 DecUp to 30 upcoming datesExtend",
+  },
+}
+`;
+
+exports[`shape live-weekly-open > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Sat 2 Oct 202751 upcoming dates are listed, more than the 30 you can list. Extend is off until fewer than 30 are left.Extend",
+  },
+}
+`;
+
+exports[`shape live-weekly-over100 > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Sat 27 Nov 202760 upcoming dates are listed, more than the 30 you can list. Extend is off until fewer than 30 are left.Extend",
+  },
+}
+`;
+
+exports[`shape live-weekly-until > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Sat 14 NovUp to 30 upcoming datesExtend",
+  },
+}
+`;
+
+exports[`shape paused-weekly > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+  ],
+  "reasons": {
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Sat 10 Jul 202740 upcoming dates are listed, more than the 30 you can list. Extend is off until fewer than 30 are left.Extend",
+  },
+}
+`;
+
+exports[`shape pending-weekly > (3) same sections shown and hidden, same reasons and lock text as before the reorder 1`] = `
+{
+  "present": [
+    "org-event-name",
+    "org-cover",
+    "org-row-gallery",
+    "org-row-type",
+    "org-date-card",
+    "org-dates",
+    "org-row-venue",
+    "org-row-description",
+    "org-styles",
+    "org-row-video",
+    "org-schedule",
+    "org-row-ticket",
+    "org-row-organisers",
+    "org-event-review",
+  ],
+  "reasons": {
+    "org-event-review-sentence": "Sent. The Bachata Calendar team is checking it, usually within a day. Dancers see it once it is approved.",
+    "org-row-organisers": "OrganisersSet when the event was made. To change them, ask the Bachata Calendar team.Test Organiser",
+    "org-row-type": "TypeChosen when the event was made. To change it, ask the Bachata Calendar team.Party",
+    "org-row-until": "Listed until Sat 10 Jul 202740 upcoming dates are listed, more than the 30 you can list. Extend is off until fewer than 30 are left.Extend",
+  },
+}
+`;

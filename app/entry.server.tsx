@@ -7,7 +7,11 @@ import { renderToPipeableStream, type RenderToPipeableStreamOptions } from "reac
 import { ServerRouter, type EntryContext } from "react-router";
 import { NonceProvider } from "./nonce";
 import { contentSecurityPolicy } from "./csp";
+import { finalizeDocumentCacheHeaders } from "./documentCacheHeaders";
 import { isSsrLoaderTimeoutError } from "./lib/ssrLoaderTimeout";
+import { resolveCatchallOutcome } from "./catchallGate";
+import { staticShellCacheHeaders } from "./detailLoader";
+import { isRealCitySlug } from "@/lib/cityValidity";
 
 // Custom streaming server entry. Faithful to @vercel/react-router/entry.server
 // (isbot onAllReady, skew-protection cookie, streamTimeout abort) with the CSP
@@ -76,7 +80,22 @@ export function handleError(
   );
 }
 
-export default function handleRequest(
+/**
+ * The HTTP status of a document the client-rendered catchall serves (see
+ * ./catchallGate for the table). Returns the status to render with, or a
+ * finished redirect Response for a legacy /<city> URL whose city is real (308,
+ * the status the retired vercel.json redirect answered with).
+ */
+export async function gateCatchallDocument(request: Request): Promise<number | Response> {
+  const outcome = await resolveCatchallOutcome(new URL(request.url), isRealCitySlug);
+  if (outcome.status !== 308) return outcome.status;
+  return new Response(null, {
+    status: 308,
+    headers: { Location: outcome.location, ...staticShellCacheHeaders() },
+  });
+}
+
+export default async function handleRequest(
   request: Request,
   responseStatusCode: number,
   responseHeaders: Headers,
@@ -84,6 +103,16 @@ export default function handleRequest(
   _loadContext: unknown,
   options?: RenderToPipeableStreamOptions,
 ): Promise<Response> {
+  // Soft-404 gate: routes/catchall.tsx renders null on the server, so without
+  // this every URL it receives -- the client NotFound included -- answers 200.
+  const { matches } = routerContext.staticHandlerContext;
+  const leaf = matches[matches.length - 1];
+  if (responseStatusCode === 200 && leaf?.route.id === "routes/catchall") {
+    const gated = await gateCatchallDocument(request);
+    if (gated instanceof Response) return gated;
+    responseStatusCode = gated;
+    if (gated === 503) responseHeaders.set("Retry-After", "30");
+  }
   return new Promise((resolve, reject) => {
     let shellRendered = false;
     const nonce = randomBytes(16).toString("base64");
@@ -126,9 +155,13 @@ export default function handleRequest(
           if (responseStatusCode >= 400) {
             responseHeaders.set("X-Robots-Tag", "noindex");
           }
-          if (vercelSkewProtectionEnabled && vercelDeploymentId) {
-            responseHeaders.append("Set-Cookie", `__vdpl=${vercelDeploymentId}; HttpOnly`);
-          }
+          // Error documents go no-store, and the skew cookie is withheld from a
+          // document the edge would otherwise store (Set-Cookie makes Vercel's
+          // CDN skip it). See ./documentCacheHeaders.
+          finalizeDocumentCacheHeaders(responseHeaders, responseStatusCode, {
+            enabled: vercelSkewProtectionEnabled,
+            deploymentId: vercelDeploymentId,
+          });
 
           resolve(new Response(stream, { headers: responseHeaders, status: responseStatusCode }));
           // Also bake the SAME policy into the HTML as a <meta http-equiv> so it

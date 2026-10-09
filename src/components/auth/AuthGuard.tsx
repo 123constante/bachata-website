@@ -9,7 +9,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 
 const requiresCompletedOnboarding = (pathname: string) => {
-  if (pathname === "/onboarding") return false;
   if (pathname === "/profile") return true;
   if (pathname.startsWith("/dashboard") || pathname.startsWith("/vendor-dashboard")) return true;
   if (pathname === "/create-event") return true;
@@ -79,7 +78,9 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
       const onboardingStatus = inferOnboardingStatusFromDancer(dancer);
       if (onboardingStatus !== "completed") {
-        navigate("/onboarding", { replace: true });
+        // Home, not /onboarding: that route was retired on 2026-09-12 and is a
+        // 404. Not back to this page either -- it is the one that just refused.
+        navigate("/", { replace: true });
         return;
       }
 

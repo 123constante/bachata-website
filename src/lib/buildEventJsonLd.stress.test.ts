@@ -328,7 +328,7 @@ describe('buildEventJsonLd — stress test', () => {
   // array was not enough and the suppression had to live here.
   //
   // honest-claims P5b deleted both the fallback and the availability claim, so
-  // the ORIGINAL reason is gone. isEnded is still load-bearing for a different
+  // the ORIGINAL reason is gone. the ended lifecycle is still load-bearing for a different
   // one, which the tests below now pin: an ended series with REAL ticket rows
   // must not advertise them.
   describe('an ended series', () => {
@@ -336,7 +336,7 @@ describe('buildEventJsonLd — stress test', () => {
       name: 'June Styling Course',
       url: 'https://bachatacalendar.co.uk/event/june-styling',
       startDate: '2026-06-28T13:00:00+01:00',
-      isEnded: true,
+      lifecycleStatus: 'ended',
     };
 
     it('emits NO offers node at all, with or without tickets', () => {
@@ -351,7 +351,7 @@ describe('buildEventJsonLd — stress test', () => {
 
     // The other direction. There is no longer a fallback Offer to compare
     // against -- honest-claims P5b deleted it -- so with no tickets, ended and
-    // live now agree on emitting nothing. That makes the isEnded return look
+    // live now agree on emitting nothing. That makes the ended return look
     // redundant, and this is the case proving it is NOT: give the ended series
     // real ticket rows and it must STILL stay silent, while the same rows on a
     // live event are published.
@@ -359,7 +359,7 @@ describe('buildEventJsonLd — stress test', () => {
       const tickets = [{ url: 'https://t.example.com', name: 'Standard', price: '10', currency: 'GBP' }];
       expect(buildEventJsonLd({ ...ENDED, offers: tickets }).offers).toBeUndefined();
 
-      const live = buildEventJsonLd({ ...ENDED, isEnded: false, offers: tickets });
+      const live = buildEventJsonLd({ ...ENDED, lifecycleStatus: 'live', offers: tickets });
       expect(live.offers).toEqual([
         {
           '@type': 'Offer',
@@ -372,7 +372,7 @@ describe('buildEventJsonLd — stress test', () => {
     });
 
     it('emits nothing for a live event with no tickets either', () => {
-      expect(buildEventJsonLd({ ...ENDED, isEnded: false }).offers).toBeUndefined();
+      expect(buildEventJsonLd({ ...ENDED, lifecycleStatus: 'live' }).offers).toBeUndefined();
     });
 
     // eventStatus is deliberately NOT touched. schema.org has no "finished"

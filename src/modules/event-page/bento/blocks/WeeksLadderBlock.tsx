@@ -82,7 +82,6 @@ export const WeeksLadderBlock = ({
                 key={occ.occurrenceId}
                 to={`?occurrenceId=${occ.occurrenceId}`}
                 className="relative flex items-center gap-3 py-[9px]"
-                style={{ opacity: dimmed ? 0.4 : undefined }}
               >
                 {/* Node -- numbered when the session is going ahead, a dot when not. */}
                 <span className="relative z-[2] flex h-7 w-7 flex-none items-center justify-center">
@@ -111,7 +110,9 @@ export const WeeksLadderBlock = ({
                           ? { background: 'hsl(var(--bento-accent))', color: 'hsl(var(--bento-surface))' }
                           : {
                               background: 'hsl(var(--bento-surface))',
-                              border: '2px solid hsl(var(--bento-accent) / 0.18)',
+                              // A past session fades its ring (non-text); its
+                              // text stays on --bento-fg-muted, the contrast floor.
+                              border: `2px ${dimmed ? 'dashed' : 'solid'} hsl(var(--bento-accent) / ${dimmed ? 0.1 : 0.18})`,
                               color: 'hsl(var(--bento-fg-muted))',
                             }
                       }

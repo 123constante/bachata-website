@@ -13,8 +13,14 @@ describe('DerivedLevelBadge', () => {
 
   it('shows the level label with an accessible rating count', () => {
     const html = renderToStaticMarkup(<DerivedLevelBadge derivedLevel="open_level" levelVoteCount={12} />);
-    expect(html).toContain('>Open level<');
+    expect(html).toContain('</span> Open level<span');
     expect(html).toContain('title="Rated by dancers (12 ratings)"');
-    expect(html).toContain('aria-label="Open level. Rated by dancers (12 ratings)"');
+    expect(html).toContain('<span class="sr-only">. Rated by dancers (12 ratings)</span>');
+  });
+
+  it('names its source with a "Dancers rate:" label', () => {
+    const html = renderToStaticMarkup(<DerivedLevelBadge derivedLevel="intermediate" levelVoteCount={1} />);
+    expect(html).toContain('>Dancers rate:</span> Intermediate');
+    expect(html).toContain('title="Rated by dancers (1 rating)"');
   });
 });
