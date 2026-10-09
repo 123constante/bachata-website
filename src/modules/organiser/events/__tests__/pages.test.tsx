@@ -479,6 +479,23 @@ describe('event editor', () => {
     expect(screen.getByTestId('org-editor-loading')).toBeTruthy();
     expect(await screen.findByTestId('org-editor-error')).toBeTruthy();
   });
+
+  it('someone else\'s event: the refusal says there is no access, not "check your connection" (walk 7b)', async () => {
+    handlers.admin_event_workspace_p5 = () => { throw { message: 'permission_denied', code: 'P0001' }; };
+    mount('/account/o/events/s1');
+    const err = await screen.findByTestId('org-editor-error');
+    expect(err.textContent).toMatch(/do not have access to this event/i);
+    expect(err.textContent).not.toMatch(/connection/i);
+    expect(screen.queryByTestId('org-editor-error-retry')).toBeNull();
+  });
+
+  it('a network failure still offers the retry with the connection copy', async () => {
+    handlers.admin_event_workspace_p5 = () => { throw new TypeError('Failed to fetch'); };
+    mount('/account/o/events/s1');
+    const err = await screen.findByTestId('org-editor-error');
+    expect(err.textContent).toMatch(/connection/i);
+    expect(screen.getByTestId('org-editor-error-retry')).toBeTruthy();
+  });
 });
 
 void TODAY;

@@ -1,11 +1,10 @@
-import { LIFECYCLE_LABEL } from '@/modules/organiser/shared/selfServeApi';
+import { organiserStatus } from '@/modules/organiser/shared/organiserStatus';
 import type { StatusTone } from '../ui';
 
 /**
  * The organiser's lifecycle on the Profile page (F1), and whether it can be
- * sent for review. Same states and the same send rule as the old /account
- * header (organiserStatusView in organiser/shared/homeModel.ts):
- * submit_organiser_profile_v1 admits draft and rejected only.
+ * sent for review: a view of THE shared mapping (shared/organiserStatus.ts),
+ * the same words Home's status card and the New event refusal use.
  */
 export interface ReviewStatus {
   label: string;
@@ -16,21 +15,8 @@ export interface ReviewStatus {
 }
 
 export function reviewStatus(lifecycle: string, reason: string | null | undefined): ReviewStatus {
-  const label = LIFECYCLE_LABEL[lifecycle] ?? lifecycle;
-  switch (lifecycle) {
-    case 'draft':
-      return { label, tone: 'draft', sentence: 'Only you can see this organiser until the team approves it.', canSend: true };
-    case 'pending_review':
-      return { label, tone: 'neutral', sentence: 'The team is looking at it.', canSend: false };
-    case 'rejected': {
-      const why = reason?.trim();
-      return { label, tone: 'draft', sentence: why ? `The team asked for changes: ${why}` : 'The team asked for changes.', canSend: true };
-    }
-    case 'live':
-      return { label, tone: 'live', sentence: 'Live on the site.', canSend: false };
-    default:
-      return { label, tone: 'neutral', sentence: null, canSend: false };
-  }
+  const s = organiserStatus('', lifecycle, reason);
+  return { label: s.label, tone: s.tone, sentence: s.line, canSend: s.canSendForReview };
 }
 
 /**

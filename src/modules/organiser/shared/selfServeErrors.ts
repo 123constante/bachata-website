@@ -143,7 +143,7 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
   { match: /^invalid_payload: name required/, message: 'Enter the event name.' },
   { match: /^(not_found|series_not_found)/, message: 'This date or event no longer exists. Reload the page.' },
   // W3, the create (admin D3/D7 refusals on series.upsert (create) and series.set_recurrence).
-  { match: /\(create\) needs a live organiser/, message: 'Your organiser is not public yet. Once the Bachata Calendar team approves it you can add events.' },
+  { match: /\(create\) needs a live organiser/, message: 'Your organiser is not public yet. Send it for review from Home if you have not; once the Bachata Calendar team approves it you can add events.' },
   { match: /naming one organiser the caller owns or manages/, message: 'Choose one of your organisers.' },
   { match: /category must be party, class or workshop|category on a live series is admin-only/, message: 'That kind of event cannot be set here. Ask the Bachata Calendar team.' },
   { match: /format must be one_off or recurring/, message: 'Choose a party or a weekly class.' },
@@ -196,6 +196,14 @@ export function commandErrorMessage(error: unknown): string {
  */
 export const isServerRefusal = (error: unknown) =>
   !!error && typeof error === 'object' && typeof (error as { code?: unknown }).code === 'string' && (error as { code: string }).code.trim() !== '';
+
+/**
+ * admin_event_workspace_p5 refusing a caller who is not an owner/manager of the
+ * series. A signed-out caller (authentication_required) is not this: signing in may fix it.
+ */
+export const isAccessRefusal = (error: unknown) =>
+  !!error && typeof error === 'object' &&
+  /^permission_denied(?!: authentication_required)/.test(String((error as { message?: unknown }).message ?? ''));
 
 export const isVersionConflict = (error: unknown) =>
   !!error && typeof error === 'object' && /^version_conflict/.test(String((error as { message?: unknown }).message ?? ''));

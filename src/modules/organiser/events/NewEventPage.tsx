@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ORGANISER_HOME_KEY, runSeriesCommand, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { createBlock } from '@/modules/organiser/shared/createModel';
+import { organiserStatus } from '@/modules/organiser/shared/organiserStatus';
 import { envelope, newIdempotencyKey, newSeriesId } from '@/modules/organiser/shared/seriesCommands';
 import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
 import { commandErrorMessage, isServerRefusal } from '@/modules/organiser/shared/selfServeErrors';
@@ -35,6 +36,9 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
   const { shake, shakeProps } = useShake();
   const organiser = organisers.find((o) => o.id === organiserId) ?? null;
   const block = organiser ? createBlock(organiser) : 'Set up your organiser first.';
+  // Draft or changes-needed: the send lives on Home, so offer the way there.
+  const canSend = !!organiser && organiserStatus(organiser.name, organiser.lifecycle_status).canSendForReview;
+  const blockId = useId();
   useUnsavedChangesGuard({ enabled: name.trim() !== '' && !busy && !created, message: UNSAVED_MESSAGE });
 
   const create = async () => {
@@ -105,7 +109,10 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
           </div>
         </section>
       )}
-      {block && <p className="text-[14px] text-[var(--fg)]" data-testid="org-new-event-block">{block}</p>}
+      {block && <p id={blockId} className="text-[14px] text-[var(--fg)]" data-testid="org-new-event-block">{block}</p>}
+      {block && canSend && (
+        <GhostButton onClick={() => navigate(ORG_PATHS.home)} testId="org-new-event-go-home">Go to Home to send it for review</GhostButton>
+      )}
       {error && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="org-new-event-error">{error}</p>}
       {scheduleFailed && (
         <GhostButton onClick={() => { setCreated(true); navigate(ORG_PATHS.event(seriesId), { replace: true }); }} testId="org-new-event-open">
@@ -113,7 +120,7 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
         </GhostButton>
       )}
       <div {...shakeProps}>
-        <PrimaryButton type="submit" loading={busy} loadingLabel="Creating" disabled={!!block} testId="org-new-event-create">
+        <PrimaryButton type="submit" loading={busy} loadingLabel="Creating" disabled={!!block} aria-describedby={block ? blockId : undefined} testId="org-new-event-create">
           Create event
         </PrimaryButton>
       </div>

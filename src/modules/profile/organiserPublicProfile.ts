@@ -48,13 +48,33 @@ export const organiserOccEventsPastQueryKey = (id: string | undefined) =>
   ['organiser-occ-events-past', id] as const;
 
 export async function fetchOrganiserEntity(id: string) {
+  return readOrganiserEntity(id, true);
+}
+
+/**
+ * The organiser area's read of the caller's OWN organiser (/account/o/profile):
+ * the same columns with NO is_active filter, because create_organiser_profile_v1
+ * inserts a draft with is_active = false and the public filter hid it from its
+ * own creator (2026-10-09 walk). Visibility is RLS alone
+ * (organiser_profiles_ss_select: live, admin, the organiser's owner/manager, or
+ * its city ambassador), so a stranger still gets null for a non-live row. Its
+ * own cache key: a non-live row must never land in the public page's
+ * ['entity', id] entry.
+ */
+export const ownOrganiserEntityQueryKey = (id: string | undefined) => ['own-organiser-entity', id] as const;
+
+export async function fetchOwnOrganiserEntity(id: string) {
+  return readOrganiserEntity(id, false);
+}
+
+async function readOrganiserEntity(id: string, publicOnly: boolean) {
   if (!id) throw new Error('Entity ID is required');
-  const { data, error } = await supabase
+  let query = supabase
     .from('organiser_profiles')
     .select(ORGANISER_PUBLIC_COLS)
-    .eq('id', id)
-    .not(...NOT_DEACTIVATED)
-    .maybeSingle();
+    .eq('id', id);
+  if (publicOnly) query = query.not(...NOT_DEACTIVATED);
+  const { data, error } = await query.maybeSingle();
   // A TRANSIENT supabase error must propagate as a retryable failure --
   // swallowing it here would 404 a valid organiser on a DB blip. null = a
   // real miss.

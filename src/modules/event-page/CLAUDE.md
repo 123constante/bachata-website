@@ -37,3 +37,20 @@ touches this module. The root keeps a one-line pointer here.*
   you are about to touch has an importer:
   `grep -rnE "^\s*(import|export)\b.*\bEventInfoSection\b" --include=*.ts --include=*.tsx src`
 
+## `eventId` is the PUBLIC event id, not the series id
+
+`BentoPage`'s `eventId` comes from `resolve_public_event_ref_v1`, which returns
+`COALESCE(legacy_event_id, series id)` (= `event_series_p5.public_event_id`),
+and `event_view_p5` echoes it back as `event_id`. For any series with a
+`legacy_event_id` -- every live one when this was written -- that is NOT
+`event_series_p5.id`, so an RPC keyed on the series uuid (e.g.
+`series_level_summary_p5_v1`) answers NULL. That is why the level rating prompt
+never rendered, here and on My Attendance, which passes the same public id
+(`tests/client/eventPageLevelRating.test.tsx`). The page cannot look the series
+uuid up itself (`event_series_p5` select is admin-only): fix such RPCs on the
+DB side so they accept the public id, as `event_view_p5` does.
+
+There is no "I'm Going" RSVP control on this page, deliberately:
+`attendance.isVisible` is hard-coded `false` in `buildEventPageModel.ts` and the
+RSVP toggle was removed 2026-09-07 (see
+`docs/event-aggregate-frontend-migration-plan.md`, "RSVP toggle").
