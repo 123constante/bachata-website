@@ -50,6 +50,9 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      // tests/e2e/live drives the LIVE site with its own config
+      // (playwright.live.config.ts); `test:e2e:all` must never reach prod.
+      testIgnore: ['**/live/**'],
     },
     // The no-JS project. Every other check this repo runs observes the HYDRATED
     // page, which is why 91 of the sitemap's URLs could be soft 404s to Google

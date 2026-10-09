@@ -1,0 +1,132 @@
+{
+  "/auth": {
+    "tap-target": [
+      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary"
+    ]
+  },
+  "/bachata-london-friday": {
+    "tap-target": [
+      "a.block",
+      "a.block.border.border-border/60.font-semibold.hover:bg-primary/10.px-3.py-2.rounded",
+      "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
+      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary"
+    ]
+  },
+  "/city/:slug": {
+    "tap-target": [
+      "a.",
+      "a.bg-primary.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2.focus-visible:ring-offset-background.focus-visible:ring-primary.font-bold.gap-0.5",
+      "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
+      "button.bg-primary.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2.focus-visible:ring-offset-background.focus-visible:ring-primary.font-bold",
+      "button.bg-primary/10.border.border-primary/40.flex.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2.focus-visible:ring-offset-background",
+      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary",
+      "button.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2.focus-visible:ring-offset-background.focus-visible:ring-primary.font-bold.hover:text-foreground",
+      "button.hm-credit-btn"
+    ]
+  },
+  "/classes": {
+    "tap-target": [
+      "a.flex.gap-1.hover:text-foreground.hover:text-primary.items-center.text-muted-foreground.transition-colors.transition-colors",
+      "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
+      "button.aspect-square.bg-primary.flex.flex-col.font-semibold.items-center.justify-center.relative",
+      "button.aspect-square.flex.flex-col.hover:bg-surface.items-center.justify-center.relative.rounded-xl",
+      "button.bg-primary/10.flex.font-medium.gap-1.5.hover:bg-primary/18.items-center.px-3.py-1.5",
+      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary",
+      "button.bg-transparent.data-[state=on]:bg-primary/15.data-[state=on]:text-primary.disabled:opacity-50.disabled:pointer-events-none.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2",
+      "button.cursor-not-allowed.opacity-40.p-1.5.rounded-full.transition-colors",
+      "button.font-medium.hover:text-foreground.px-2.py-2.relative.text-muted-foreground.text-sm.transition-colors",
+      "button.font-medium.px-2.py-2.relative.text-festival-blue.text-sm.transition-colors",
+      "button.hover:bg-primary/10.p-1.5.rounded-full.transition-colors",
+      "span.font-medium.max-w-[150px].md:max-w-none.text-foreground.truncate"
+    ]
+  },
+  "/event/:slug": {
+    "tap-target": [
+      "a.-ml-1.flex.gap-1.hover:bg-primary/5.items-center.no-underline.pl-1.pr-2",
+      "a.active:scale-95.bg-primary.font-semibold.hover:opacity-90.mt-2.px-8.py-3.rounded-full",
+      "a.bg-white/[0.04].border.border-white/15.font-medium.hover:bg-white/[0.08].px-3.py-[6px].rounded-full",
+      "a.border.font-extrabold.gap-1.5.inline-flex.items-center.no-underline.px-3.5.py-2",
+      "a.flex.flex-1.font-bold.gap-2.h-12.items-center.justify-center.rounded-full",
+      "a.flex.font-semibold.gap-1.5.h-12.items-center.justify-center.px-4.rounded-full",
+      "a.flex.gap-1.hover:text-foreground.hover:text-primary.items-center.text-muted-foreground.transition-colors.transition-colors",
+      "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
+      "button.-mr-0.5.hover:bg-black/10.p-0.5.rounded-full.shrink-0",
+      "button.backdrop-blur-sm.bg-black/55.flex.focus-visible:ring-2.focus-visible:ring-white/50.focus:outline-none.gap-1.h-7",
+      "button.backdrop-blur-sm.bg-black/55.flex.focus-visible:ring-2.focus-visible:ring-white/50.focus:outline-none.h-9.hover:bg-black/70",
+      "button.backdrop-blur-sm.bg-black/60.hover:bg-black/80.inline-flex.items-center.justify-center.p-1.5.rounded-full",
+      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary",
+      "button.cal-mobile-trigger.cal-pill",
+      "button.flex.h-12.items-center.justify-center.rounded-full.shrink-0.w-12",
+      "button.rsb-lever",
+      "span.font-medium.max-w-[150px].md:max-w-none.text-foreground.truncate"
+    ]
+  },
+  "/faq": {
+    "tap-target": [
+      "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
+      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary"
+    ]
+  },
+  "/festivals": {
+    "tap-target": [
+      "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
+      "button.[&_svg]:pointer-events-none.[&_svg]:shrink-0.[&_svg]:size-4.bg-background.border.border-input.disabled:opacity-50.disabled:pointer-events-none",
+      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary"
+    ]
+  },
+  "/london-bachata-guide": {
+    "tap-target": [
+      "a.block",
+      "a.block.border.border-border/60.font-semibold.hover:bg-primary/10.px-3.py-2.rounded",
+      "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
+      "a.hover:underline.text-primary",
+      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary"
+    ]
+  },
+  "/organisers/:slug": {
+    "tap-target": [
+      "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
+      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary"
+    ]
+  },
+  "/parties": {
+    "tap-target": [
+      "a.flex.gap-1.hover:text-foreground.hover:text-primary.items-center.text-muted-foreground.transition-colors.transition-colors",
+      "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
+      "button.aspect-square.bg-primary.flex.flex-col.font-semibold.items-center.justify-center.relative",
+      "button.aspect-square.flex.flex-col.hover:bg-surface.items-center.justify-center.relative.rounded-xl",
+      "button.bg-primary/10.flex.font-medium.gap-1.5.hover:bg-primary/18.items-center.px-3.py-1.5",
+      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary",
+      "button.bg-transparent.data-[state=on]:bg-primary/15.data-[state=on]:text-primary.disabled:opacity-50.disabled:pointer-events-none.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2",
+      "button.cursor-not-allowed.opacity-40.p-1.5.rounded-full.transition-colors",
+      "button.font-medium.hover:text-foreground.px-2.py-2.relative.text-muted-foreground.text-sm.transition-colors",
+      "button.font-medium.px-2.py-2.relative.text-festival-pink.text-sm.transition-colors",
+      "button.hover:bg-primary/10.p-1.5.rounded-full.transition-colors",
+      "span.font-medium.max-w-[150px].md:max-w-none.text-foreground.truncate"
+    ]
+  },
+  "/search": {
+    "tap-target": [
+      "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
+      "button.bg-primary.border.border-primary.px-3.py-1.5.rounded-full.text-primary-foreground.text-sm",
+      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary",
+      "button.bg-transparent.border.border-primary/20.hover:border-primary/40.px-3.py-1.5.rounded-full.text-foreground",
+      "button.border.border-primary/40.font-medium.gap-1.5.hover:bg-primary/5.inline-flex.items-center.px-3"
+    ]
+  },
+  "/this-page-does-not-exist-live-qa": {
+    "tap-target": [
+      "a.",
+      "a.bg-primary.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2.focus-visible:ring-offset-background.focus-visible:ring-primary.font-bold.gap-0.5",
+      "a.border.border-border.hover:bg-muted.px-3.py-2.rounded-md.text-primary",
+      "a.flex.gap-1.hover:text-foreground.hover:text-primary.items-center.text-muted-foreground.transition-colors.transition-colors",
+      "a.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-primary-foreground.hover:text-primary-foreground.hover:underline.rounded-sm.text-primary-foreground/85",
+      "button.bg-primary.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2.focus-visible:ring-offset-background.focus-visible:ring-primary.font-bold",
+      "button.bg-primary/10.border.border-primary/40.flex.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2.focus-visible:ring-offset-background",
+      "button.bg-primary/[0.04].border.border-primary/30.flex.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-primary",
+      "button.flex-1.focus-visible:outline-none.focus-visible:ring-2.focus-visible:ring-offset-2.focus-visible:ring-offset-background.focus-visible:ring-primary.font-bold.hover:text-foreground",
+      "button.hm-credit-btn",
+      "span.font-medium.max-w-[150px].md:max-w-none.text-foreground.truncate"
+    ]
+  }
+}

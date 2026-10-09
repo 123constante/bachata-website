@@ -1,0 +1,93 @@
+/*
+ * Organiser area theme (arc/organiser-rebuild, W0).
+ *
+ * Every token is scoped under .org-theme. Nothing here touches the global
+ * :root tokens or the public site. Dark only. Contrast ratios for every pair
+ * are measured in docs/organiser-rebuild/ARC.md (contrast table); three tokens
+ * were adjusted from mockup v12 to reach WCAG AA: --ph, --line-strong and the
+ * greyed-row rule (muted text becomes --fg inside a faded row).
+ */
+.org-theme {
+  --bg: #0f0d0b;
+  --card: #1a1713;
+  --card2: #231f19;
+  --sheet: #1d1a15;
+  --tab: #0c0a08;
+  --line: #2e2922;        /* decorative dividers and card edges only */
+  --line-strong: #776e60; /* control borders that carry meaning (>= 3:1) */
+  --fg: #f6f1e7;
+  --mut: #a39a8b;
+  --ph: #8f8678;          /* placeholder; mockup #6f665a failed AA */
+  --gold: #ffa600;
+  --btn: #f6f1e7;
+  --btnfg: #15120e;
+  --danger: #ff8a7a;
+  --ok-bg: #1f3a2a;
+  --ok-fg: #8fe0b0;
+  --warn-bg: #3a2d10;
+  --warn-fg: #ffd58a;
+  --skel-a: #1d1a15;
+  --skel-b: #2a251d;
+  --r-card: 16px;
+  --r-ctl: 12px;
+  --r-chip: 8px;
+  --ease: ease-in-out;
+  --dur: 0.3s;
+
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+  color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.org-theme :focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.org-theme input::placeholder,
+.org-theme textarea::placeholder {
+  color: var(--ph);
+  opacity: 1;
+}
+
+/* Skeleton shimmer (lists use this, never a spinner). */
+.org-skeleton {
+  border-radius: var(--r-ctl);
+  background: linear-gradient(90deg, var(--skel-a) 0%, var(--skel-b) 50%, var(--skel-a) 100%);
+  background-size: 200% 100%;
+  animation: org-shimmer 1.2s var(--ease) infinite;
+}
+@keyframes org-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* Wide layout: list (300px) + detail. On phone only one of them shows. */
+.org-split { display: block; }
+.org-split > .org-split-list { display: block; }
+.org-split > .org-split-detail { display: none; }
+.org-split[data-has-detail="true"] > .org-split-list { display: none; }
+.org-split[data-has-detail="true"] > .org-split-detail { display: block; }
+@media (min-width: 900px) {
+  .org-split { display: grid; grid-template-columns: 300px minmax(0, 1fr); min-height: 100%; }
+  .org-split > .org-split-list { display: block; border-right: 1px solid var(--line); }
+  .org-split > .org-split-detail { display: block; }
+  .org-split[data-has-detail="true"] > .org-split-list { display: block; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .org-theme *,
+  .org-theme *::before,
+  .org-theme *::after,
+  .org-sheet,
+  .org-sheet-overlay {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .org-skeleton { animation: none; }
+}

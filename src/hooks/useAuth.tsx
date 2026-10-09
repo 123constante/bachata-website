@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, startTransition, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { getSupabase } from "@/integrations/supabase/getSupabase";
 import {
@@ -61,13 +61,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // All of the ordering, deadline and status logic lives in
     // startAuthResolution, where it is reachable by a test. This effect is
     // wiring: it maps callbacks onto React state and cancels on unmount.
+    // Every update below is a TRANSITION, and that is load-bearing (React
+    // #421). This provider sits above the route's <Suspense> (root.tsx ->
+    // AppChrome), and auth resolves asynchronously right after hydrateRoot --
+    // while React 18 still holds that boundary dehydrated (its content
+    // hydrates in a later low-priority pass, longer if a chunk is pending). A
+    // context change from above marks a dehydrated boundary as updated, and an
+    // urgent one makes React discard the server HTML and client-render the
+    // route subtree (#421, seen on signed-in loads of /event/:id and the
+    // organiser area). A transition instead waits for hydration to finish.
+    // Proven by src/hooks/__tests__/useAuthHydration.test.tsx.
     const handle = startAuthResolution<Session>({
       getClient: getSupabase,
       onSession: (next) => {
-        setSession(next);
-        setUser(next?.user ?? null);
+        startTransition(() => {
+          setSession(next);
+          setUser(next?.user ?? null);
+        });
       },
-      onStatus: setAuthStatus,
+      onStatus: (status) => {
+        startTransition(() => setAuthStatus(status));
+      },
       // The context is passed through rather than fixed, because these failures
       // are no longer one thing: a chunk that would not load and an auth
       // endpoint that would not answer group separately, and the

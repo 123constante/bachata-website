@@ -14,21 +14,15 @@ import {
 } from '@/modules/event-page/sections/EventScheduleGrid';
 import { PeopleStack } from '@/modules/event-page/bento/blocks/schedule/PeopleStack';
 import { emptyScheduleView } from '@/modules/event-page/bento/blocks/schedule/emptyScheduleView';
+import { isRealDateKey, londonDaysBetweenKeys, londonTodayKey } from '@/lib/londonDate';
 
-// ─── Level → headline text map ───────────────────────────────────────────────
-const LEVEL_LABEL_SHORT: Record<SessionLevel, string> = {
-  beginner:     'Beg',
-  improver:     'Imp',
-  intermediate: 'Int',
-  advanced:     'Adv',
-  open_level:   'Open',
-};
+// --- Level -> text map ---------------------------------------------------
 const LEVEL_LABEL_FULL: Record<SessionLevel, string> = {
   beginner:     'Beginner',
   improver:     'Improver',
   intermediate: 'Intermediate',
   advanced:     'Advanced',
-  open_level:   'Open Level',
+  open_level:   'Open level',
 };
 const LEVEL_ORDER: SessionLevel[] = ['beginner', 'improver', 'intermediate', 'advanced', 'open_level'];
 
@@ -50,28 +44,112 @@ const isDefaultClassTitle = (title: string): boolean =>
 const isDefaultPartyTitle = (title: string): boolean =>
   /^(party|parties|social|socials)(\s+\d+)?$/i.test(title.trim());
 
-// Rank-card headline text. This is the at-a-glance differentiator for a
-// dancer scanning a parallel group of classes — "where do I go?".
-//   • masterclass       → "Master"
-//   • open_level        → "Open Level" (5th value, mutually exclusive with named 4)
-//   • 4 levels          → "All"
-//   • 1 level           → full word "Beginner" / "Improver" / "Intermediate" / "Advanced"
-//   • 2–3 levels        → joined "/" abbreviations e.g. "Beg/Adv"
-//   • no levels (class) → "Class" (muted; signals an absence of level info)
-const rankFor = (session: ScheduleSession): { text: string; muted: boolean } => {
-  if (session.type === 'masterclass') return { text: 'Master', muted: false };
-  if (session.levels.length === 0) return { text: 'Class', muted: true };
-  // Open Level wins over everything else if present (UI keeps it exclusive).
-  if (session.levels.includes('open_level')) return { text: 'Open Level', muted: false };
-  if (session.levels.length === 4) return { text: 'All', muted: false };
-  const sorted = [...session.levels].sort(
+// Organiser-declared level, in plain words. Abbreviated ranges ("IMP/INT",
+// "Beg/Adv") read as jargon to a new dancer, so ranges are spelled out:
+//   - no levels          -> null (nothing declared; caller renders no level line)
+//   - open_level         -> "Open level" (5th value, exclusive with the named 4)
+//   - 1 level            -> "Beginner" / "Improver" / "Intermediate" / "Advanced"
+//   - contiguous run     -> "Improver to Intermediate", "Beginner to Advanced"
+//   - non-contiguous     -> "Beginner and Advanced", "Beginner, Intermediate and Advanced"
+// Never "all levels" -- open_level is the platform term for "anyone".
+export const levelPhraseFor = (levels: SessionLevel[]): string | null => {
+  if (levels.length === 0) return null;
+  if (levels.includes('open_level')) return 'Open level';
+  const sorted = Array.from(new Set(levels)).sort(
     (a, b) => LEVEL_ORDER.indexOf(a) - LEVEL_ORDER.indexOf(b),
   );
-  // Single level → full word ("Beginner"). Multi-level keeps abbreviations
-  // joined with "/" since two full words rarely fit a parallel-class card.
-  if (sorted.length === 1) return { text: LEVEL_LABEL_FULL[sorted[0]], muted: false };
-  return { text: sorted.map((l) => LEVEL_LABEL_SHORT[l]).join('/'), muted: false };
+  const words = sorted.map((l) => LEVEL_LABEL_FULL[l]);
+  if (words.length === 1) return words[0];
+  const contiguous = sorted.every(
+    (l, i) => i === 0 || LEVEL_ORDER.indexOf(l) === LEVEL_ORDER.indexOf(sorted[i - 1]) + 1,
+  );
+  if (contiguous) return `${words[0]} to ${words[words.length - 1]}`;
+  return `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
 };
+
+// Source label for the level the ORGANISER declared on the session. The
+// dancer-rated level is series-wide and rendered by DerivedLevelBadge with its
+// own "Dancers rate:" label, so each source is always named.
+export const ORGANISER_LEVEL_LABEL = 'Organiser says:';
+
+// Schedule text colours. The shared brass (--bento-accent, 4.66:1 on the tile)
+// and muted (--bento-fg-muted, 4.93:1) tokens drop below 4.5:1 on the
+// multi-room stripe (raised + 8% white): 3.65:1 and 3.86:1. These are the same
+// hues lifted in lightness so programme text holds >= 4.5:1 on every schedule
+// background -- proved in __tests__/scheduleLevelLabels.test.tsx.
+export const SCHEDULE_TEXT_ACCENT = 'hsl(38 50% 66%)';
+export const SCHEDULE_TEXT_MUTED = 'hsl(41 22% 70%)';
+
+// "Organiser says: Improver to Intermediate" -- 12px, sentence case so the
+// spelled-out range stays readable inside a ~95px multi-room card.
+const OrganiserLevelLine = ({ session, align }: { session: ScheduleSession; align: 'left' | 'center' }) => {
+  const phrase = levelPhraseFor(session.levels);
+  if (!phrase) return null;
+  return (
+    <div
+      data-testid={`schedule-organiser-level-${session.id}`}
+      className="mt-[2px] leading-[1.25]"
+      style={{ fontSize: '12px', textAlign: align, wordBreak: 'break-word' }}
+      title={`Level set by the organiser: ${phrase}`}
+    >
+      <span style={{ color: SCHEDULE_TEXT_MUTED }}>{ORGANISER_LEVEL_LABEL}</span>{' '}
+      <span style={{ color: SCHEDULE_TEXT_ACCENT, fontWeight: 700 }}>{phrase}</span>
+    </div>
+  );
+};
+
+// One "Special tonight" chip per date block (not per row): shown when any
+// live (non-cancelled) session visible for the active date was added for that
+// date only. When only SOME sessions are one-offs, the chip names them, so a
+// dancer can still tell which session is the special one without a badge
+// repeating on every row.
+//
+// "Tonight" only when the block's date IS today in London (owner walk
+// 2026-10-08: a date a week away read "Special tonight"). Tomorrow reads
+// "tomorrow", any other date names it ("Special on Thu 15 Oct"), and a block
+// whose date is unknown says "on this date".
+export const SPECIAL_TONIGHT_TEXT = '\u2605 Special tonight';
+export const specialDateLabel = (dateKey: string | null | undefined, todayKey: string): string => {
+  if (!dateKey || !isRealDateKey(dateKey)) return '\u2605 Special on this date';
+  const days = londonDaysBetweenKeys(todayKey, dateKey);
+  if (days === 0) return SPECIAL_TONIGHT_TEXT;
+  if (days === 1) return '\u2605 Special tomorrow';
+  const when = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+    .format(new Date(`${dateKey}T12:00:00Z`))
+    .replace(',', '');
+  return `\u2605 Special on ${when}`;
+};
+export const specialTonightFor = (
+  sessions: ScheduleSession[],
+): { show: boolean; names: string[] } => {
+  const live = sessions.filter((s) => !s.cancelled);
+  const special = live.filter((s) => s.addedOnly === true);
+  if (special.length === 0) return { show: false, names: [] };
+  if (special.length === live.length) return { show: true, names: [] };
+  const names = special.map((s) => {
+    const title = (s.title ?? '').trim();
+    const generic = title.length === 0 || isDefaultClassTitle(title) || isDefaultPartyTitle(title);
+    const label = generic ? s.type.charAt(0).toUpperCase() + s.type.slice(1) : title;
+    return s.startMins !== null ? `${label} (${fmtMins12(s.startMins)})` : label;
+  });
+  return { show: true, names: Array.from(new Set(names)) };
+};
+const SpecialTonightChip = ({ label, names }: { label: string; names: string[] }) => (
+  <div
+    data-testid="schedule-special-tonight"
+    className="mb-[6px] inline-block rounded-[10px] px-2 py-0.5"
+    style={{
+      fontSize: '12px',
+      fontWeight: 700,
+      color: SCHEDULE_TEXT_ACCENT,
+      border: `1px solid ${SCHEDULE_TEXT_ACCENT}`,
+    }}
+    title="Added for this date only"
+  >
+    <span style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>{label}</span>
+    {names.length > 0 && <span style={{ fontWeight: 600 }}>: {names.join(', ')}</span>}
+  </div>
+);
 
 type ScheduleBlockProps = {
   eventId: string | null;
@@ -88,6 +166,9 @@ type ScheduleBlockProps = {
   occurrenceCancelled?: boolean;
   /** The date's own start-end text from the page model ("8:00 pm - 11:30 pm"): the series time, or a date's override. Shown ONLY when there is no programme, in place of "Schedule coming soon" (launch walk S2). */
   fallbackTimeLabel?: string | null;
+  /** The viewed date's London YYYY-MM-DD (the page's occurrence). Decides
+   *  whether the one-off chip says "tonight"; falls back to the sessions' day. */
+  occurrenceDate?: string | null;
 };
 
 // ─── Format helpers ──────────────────────────────────────────────────────────
@@ -146,20 +227,8 @@ const roleLabelFor = (session: ScheduleSession): string | null => {
 // time-on-the-right refactor. Kept its name in the row-component comments
 // below as a historical reference; the component itself is deleted.
 
-// Tooltip helper: spell out the rank for screen-reader / hover context, since
-// abbreviations like "Beg/Adv" are ambiguous in isolation.
-//
-// F.2.e — moved above its first call site (RankCard's title prop, ~line 220)
-// so the binding initialises before reads. The previous location below
-// RankCard relied on JSX render-time evaluation rather than module-load
-// hoisting; visually a no-op, semantically tighter.
-const LEVEL_LABEL_FULL_TOOLTIP = (session: ScheduleSession): string => {
-  if (session.type === 'masterclass') return 'Masterclass — premium session with a master instructor';
-  if (session.levels.length === 0) return 'Level not specified';
-  if (session.levels.includes('open_level')) return 'Open Level — suitable for all dancers';
-  if (session.levels.length === 4) return 'Open Level — suitable for all dancers';
-  return session.levels.map((l) => LEVEL_LABEL_FULL[l]).join(', ');
-};
+// Hover text for the masterclass tag (card + single-room headline).
+const MASTERCLASS_TOOLTIP = 'Masterclass - premium session with a master instructor';
 
 // ─── Section header — "centered with rules" pattern (D style) ────────────────
 //
@@ -221,7 +290,8 @@ const RankCard = ({
    *  attribution. */
   eventId: string | null;
 }) => {
-  const rank = rankFor(session);
+  const isMaster = session.type === 'masterclass';
+  const hasLevels = session.levels.length > 0;
   const showTitle = !isDefaultClassTitle(session.title) && session.title.trim().length > 0;
   const titleText = showTitle ? session.title : null;
   // F.2.e — `useRoomAsHeading` (always false post-Phase-C) and
@@ -238,36 +308,35 @@ const RankCard = ({
       }
       style={session.cancelled ? { opacity: 0.5 } : undefined}
     >
-{/* Small uppercase level/rank label sits at the top of the card.
-           Drops the previous big serif headline so teacher names (below)
-           lead the visual hierarchy. Wraps freely if the label is long
-           ('Beg/Imp/Int'). */}
-      {!rank.muted && (
+{/* Masterclass tag on top; the organiser's level line renders BELOW the
+           title so titles in adjacent room columns stay aligned. Everything
+           wraps inside a ~81px multi-room card. */}
+      {isMaster && (
+        <div
+          className="leading-tight tracking-[0.02em]"
+          style={{
+            fontSize: '12px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            color: roomAccent ?? SCHEDULE_TEXT_ACCENT,
+            overflowWrap: 'anywhere',
+          }}
+          title={MASTERCLASS_TOOLTIP}
+        >
+          Masterclass
+        </div>
+      )}
+      {!isMaster && !hasLevels && !titleText && (
         <div
           className="leading-tight tracking-[0.08em]"
           style={{
-            fontSize: '10px',
+            fontSize: '12px',
             fontWeight: 700,
             textTransform: 'uppercase',
-            color: roomAccent ?? 'hsl(var(--bento-accent))',
-            wordBreak: 'break-word',
-          }}
-          title={LEVEL_LABEL_FULL_TOOLTIP(session)}
-        >
-          {rank.text}
-        </div>
-      )}
-      {rank.muted && !titleText && (
-        <div
-          className="leading-tight tracking-[0.08em] opacity-60"
-          style={{
-            fontSize: '10px',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            color: 'hsl(var(--bento-fg-muted))',
+            color: SCHEDULE_TEXT_MUTED,
           }}
         >
-          {rank.text}
+          Class
         </div>
       )}
 
@@ -280,11 +349,13 @@ const RankCard = ({
           data-testid={`schedule-cancelled-chip-${session.id}`}
           className="mt-[4px] inline-flex items-center justify-center px-1.5 py-0.5 rounded-full"
           style={{
-            fontSize: '9px',
+            fontSize: '12px',
             fontWeight: 700,
-            letterSpacing: '0.08em',
+            letterSpacing: '0.02em',
+            maxWidth: '100%',
+            overflowWrap: 'anywhere',
             textTransform: 'uppercase',
-            color: 'hsl(var(--bento-fg-muted))',
+            color: SCHEDULE_TEXT_MUTED,
             background: 'hsl(var(--bento-fg-muted) / 0.10)',
             border: '1px solid hsl(var(--bento-fg-muted) / 0.30)',
             textDecoration: 'line-through',
@@ -310,27 +381,10 @@ const RankCard = ({
         </div>
       )}
 
-      {/* Arc 6 / Premium D (2026-05-30) — "Special tonight" chip on added-only
-           sessions. Rendered AFTER the title so the title row aligns with the
-           adjacent room column's title (chip above title caused height mismatch). */}
-      {session.addedOnly && (
-        <div
-          data-testid={`schedule-special-chip-${session.id}`}
-          className="mt-[4px] inline-flex items-center justify-center px-1.5 py-0.5 rounded-full"
-          style={{
-            fontSize: '9px',
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'hsl(var(--bento-accent))',
-            background: 'hsl(var(--bento-accent) / 0.12)',
-            border: '1px solid hsl(var(--bento-accent) / 0.4)',
-          }}
-          title="Added for this date only — won't appear on other dates"
-        >
-          ★ Special tonight
-        </div>
-      )}
+      <OrganiserLevelLine session={session} align="center" />
+
+      {/* "Special tonight" is shown once per date block by ScheduleBlock
+           (SpecialTonightChip), not on each session card. */}
 
       {(() => {
         // Per-level teacher rows when the session has 2+ declared levels and
@@ -399,11 +453,11 @@ const PartyCard = ({
     <div className="min-w-0 px-1">
 {isPerformance && (
         <div
-          className="mb-[4px] inline-flex items-center gap-1 rounded-full px-2 py-[2px] text-[9px] font-bold uppercase tracking-[0.1em]"
+          className="mb-[4px] inline-flex items-center gap-1 rounded-full px-2 py-[2px] text-[12px] font-bold uppercase tracking-[0.1em]"
           style={{
-            background: `${roomAccent ?? 'hsl(var(--bento-accent))'}33`,
-            color: roomAccent ?? 'hsl(var(--bento-accent))',
-            border: `1px solid ${roomAccent ?? 'hsl(var(--bento-accent))'}66`,
+            background: roomAccent ? `${roomAccent}33` : 'transparent',
+            color: roomAccent ?? SCHEDULE_TEXT_ACCENT,
+            border: `1px solid ${roomAccent ? `${roomAccent}66` : SCHEDULE_TEXT_ACCENT}`,
           }}
         >
           &#10022; Show
@@ -432,11 +486,11 @@ const PartyCard = ({
               <div
                 className="mt-[3px] leading-tight"
                 style={{
-                  fontSize: '10px',
+                  fontSize: '12px',
                   fontWeight: 600,
                   textTransform: 'uppercase',
                   letterSpacing: '0.06em',
-                  color: roomAccent ?? 'hsl(var(--bento-accent))',
+                  color: roomAccent ?? SCHEDULE_TEXT_ACCENT,
                 }}
               >
                 {note}
@@ -478,7 +532,7 @@ const DayTabs = ({
           key={day}
           type="button"
           onClick={() => onPick(day)}
-          className="flex-shrink-0 rounded-full px-[10px] py-[4px] text-[10px] font-bold uppercase tracking-[0.06em] transition-transform duration-150 active:scale-[0.97]"
+          className="flex-shrink-0 rounded-full px-[10px] py-[4px] text-[12px] font-bold uppercase tracking-[0.06em] transition-transform duration-150 active:scale-[0.97]"
           style={
             selected
               ? {
@@ -821,11 +875,11 @@ const RoomColumnHeaders = ({ rooms }: { rooms: string[] }) => {
       {rooms.map((room) => (
         <div
           key={room}
-          className="text-center text-[11px] font-bold uppercase leading-tight"
+          className="text-center text-[12px] font-bold uppercase leading-tight"
           style={{
             fontFamily: '"Fraunces", Georgia, serif',
             letterSpacing: '0.06em',
-            color: 'hsl(var(--bento-accent))',
+            color: SCHEDULE_TEXT_ACCENT,
           }}
         >
           {room}
@@ -869,17 +923,18 @@ const SingleRoomScheduleRow = ({
     : !isDefaultPartyTitle(session.title) && trimmed.length > 0;
   const titleText = showTitle ? trimmed : null;
 
-  // Rank chip text (Beg/Imp etc) for class/masterclass with levels.
-  const rank = !isPartyish ? rankFor(session) : null;
-  const rankInline = rank && !rank.muted ? rank.text : null;
+  // Masterclass tag rides on the headline; the organiser's level renders on
+  // its own labelled line below (OrganiserLevelLine).
+  const isMaster = session.type === 'masterclass';
+  const masterInline = isMaster && !/masterclass/i.test(titleText ?? '') ? 'Masterclass' : null;
 
-  // Headline for the pill row — title + optional rank (e.g. "Bachata · Imp",
+  // Headline for the pill row -- title + optional masterclass tag (e.g.
   // "Footwork/Styling", "Social"). The leading CLASS / DJ / SHOW pill was
   // dropped: the surrounding section already carries a vertical CLASSES /
   // PARTY label (book-spine), so repeating the type on every card duplicates
   // the grouping affordance. Empty when no title and no rank — that case
   // skips rendering the headline div below so the row collapses cleanly.
-  const fullHeadline = [titleText, rankInline].filter(Boolean).join(' · ');
+  const fullHeadline = [titleText, masterInline].filter(Boolean).join(' \u00b7 ');
 
   // Mega Serif Time — split "7:30 PM" into hour:min and ampm parts for the
   // editorial display where the digits are large Fraunces serif and the
@@ -909,9 +964,9 @@ const SingleRoomScheduleRow = ({
                 <span
                   style={{
                     fontFamily: 'var(--font-mono, ui-monospace)',
-                    fontSize: '10px',
+                    fontSize: '12px',
                     fontWeight: 500,
-                    color: 'hsl(var(--bento-fg-muted))',
+                    color: SCHEDULE_TEXT_MUTED,
                     marginLeft: '3px',
                     letterSpacing: '0.1em',
                   }}
@@ -923,11 +978,11 @@ const SingleRoomScheduleRow = ({
             <div
               className="font-mono"
               style={{
-                fontSize: '9px',
+                fontSize: '12px',
                 fontWeight: 600,
                 textTransform: 'uppercase',
-                letterSpacing: '0.12em',
-                color: 'hsl(var(--bento-fg-muted))',
+                letterSpacing: '0.08em',
+                color: SCHEDULE_TEXT_MUTED,
                 marginTop: '6px',
               }}
             >
@@ -940,7 +995,7 @@ const SingleRoomScheduleRow = ({
               fontFamily: '"Fraunces", Georgia, serif',
               fontSize: '15px',
               fontWeight: 600,
-              color: 'hsl(var(--bento-fg-muted))',
+              color: SCHEDULE_TEXT_MUTED,
               lineHeight: 1.15,
             }}
           >
@@ -949,10 +1004,10 @@ const SingleRoomScheduleRow = ({
               <div
                 className="font-mono"
                 style={{
-                  fontSize: '9px',
+                  fontSize: '12px',
                   fontWeight: 600,
                   textTransform: 'uppercase',
-                  letterSpacing: '0.12em',
+                  letterSpacing: '0.08em',
                   marginTop: '6px',
                 }}
               >
@@ -970,37 +1025,18 @@ const SingleRoomScheduleRow = ({
            the row runs out of width and collapsing to "+N teachers" past the
            threshold. See plan_person_discoverability.md (Bachata Calendar PM). */}
       <div className="min-w-0">
-        {/* Arc 6 / Premium D (2026-05-30) — Special tonight chip on
-             added-only sessions. Sits above the headline so it reads
-             "this is a one-off" before the title. */}
-        {session.addedOnly && (
-          <div
-            data-testid={`schedule-special-chip-${session.id}`}
-            className="inline-flex items-center px-1.5 py-0.5 rounded-full mb-[4px]"
-            style={{
-              fontSize: '9px',
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'hsl(var(--bento-accent))',
-              background: 'hsl(var(--bento-accent) / 0.12)',
-              border: '1px solid hsl(var(--bento-accent) / 0.4)',
-            }}
-            title="Added for this date only — won't appear on other dates"
-          >
-            ★ Special tonight
-          </div>
-        )}
+        {/* "Special tonight" is shown once per date block by ScheduleBlock
+             (SpecialTonightChip), not on each row. */}
         {session.cancelled && (
           <div
             data-testid={`schedule-cancelled-chip-${session.id}`}
             className="inline-flex items-center px-1.5 py-0.5 rounded-full mb-[4px]"
             style={{
-              fontSize: '9px',
+              fontSize: '12px',
               fontWeight: 700,
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              color: 'hsl(var(--bento-fg-muted))',
+              color: SCHEDULE_TEXT_MUTED,
               background: 'hsl(var(--bento-fg-muted) / 0.10)',
               border: '1px solid hsl(var(--bento-fg-muted) / 0.30)',
               textDecoration: 'line-through',
@@ -1012,20 +1048,22 @@ const SingleRoomScheduleRow = ({
         )}
         {fullHeadline && (
           <div
+            data-testid={`schedule-title-${session.id}`}
+            title={isMaster ? MASTERCLASS_TOOLTIP : undefined}
             style={{
               fontFamily: 'var(--font-mono, ui-monospace)',
-              fontSize: '9px',
+              fontSize: '12px',
               fontWeight: 700,
               textTransform: 'uppercase',
-              letterSpacing: '0.10em',
-              color: 'hsl(var(--bento-accent))',
-              lineHeight: 1.2,
+              letterSpacing: '0.08em',
+              color: SCHEDULE_TEXT_ACCENT,
+              lineHeight: 1.25,
             }}
-            title={LEVEL_LABEL_FULL_TOOLTIP(session)}
           >
             {fullHeadline}
           </div>
         )}
+        {!isPartyish && <OrganiserLevelLine session={session} align="left" />}
         {session.people.length > 0 && (
           <div style={{ marginTop: '8px' }}>
             <PeopleStack
@@ -1044,7 +1082,11 @@ const SingleRoomScheduleRow = ({
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fallbackTimeLabel }: ScheduleBlockProps) => {
+export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fallbackTimeLabel, occurrenceDate }: ScheduleBlockProps) => {
+  // londonDate is already in this route's first load; useLondonToday would add
+  // two chunks to every /event view (perf ratchet). The chip renders after the
+  // programme query, so a render-time read is fresh enough.
+  const todayKey = londonTodayKey();
   // Phase C — occurrence mode. When occurrenceId is set, pull the merged
   // program from get_occurrence_program_v1. Same shape comes back, so the rest
   // of this component is mode-agnostic.
@@ -1143,6 +1185,9 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
   }, [sessions, isMultiDay, currentDay, uniqueDays]);
 
   const slots = useMemo(() => groupIntoSlots(visibleSessions), [visibleSessions]);
+  const specialTonight = useMemo(() => specialTonightFor(visibleSessions), [visibleSessions]);
+  // A multi-day block's tab is its date; a single date is the page's occurrence.
+  const specialLabel = specialDateLabel(isMultiDay ? currentDay : occurrenceDate ?? currentDay, todayKey);
 
   // Phase 2B step 2e — when the server returned a non-empty section list,
   // bucket slots by their session's sectionId so empty sections (item_count=0)
@@ -1183,6 +1228,8 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
       {isMultiDay && currentDay && (
         <DayTabs days={uniqueDays} active={currentDay} onPick={setActiveDay} />
       )}
+
+      {specialTonight.show && <SpecialTonightChip label={specialLabel} names={specialTonight.names} />}
 
       <div style={{ position: 'relative' }}>
         {/* Unified stripe overlay — sits behind the room column headers AND
@@ -1240,8 +1287,8 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
               </div>
             ) : (
               <div
-                className="py-2 text-center text-[11px]"
-                style={{ color: 'hsl(var(--bento-fg-muted))' }}
+                className="py-2 text-center text-[12px]"
+                style={{ color: SCHEDULE_TEXT_MUTED }}
               >
                 {empty.kind === 'loading' ? 'Loading…' : empty.text}
               </div>
@@ -1279,7 +1326,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
                 style={{
                   writingMode: 'vertical-rl',
                   transform: 'rotate(180deg)',
-                  fontSize: '11px',
+                  fontSize: '12px',
                   fontWeight: 700,
                   textTransform: 'uppercase',
                   letterSpacing: '0.20em',
@@ -1350,7 +1397,7 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
                           style={{
                             fontSize: '12px',
                             fontWeight: 700,
-                            color: 'hsl(var(--bento-accent))',
+                            color: SCHEDULE_TEXT_ACCENT,
                             lineHeight: 1.1,
                           }}
                         >
@@ -1359,11 +1406,11 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
                         <div
                           className="font-mono"
                           style={{
-                            fontSize: '9px',
+                            fontSize: '12px',
                             fontWeight: 600,
                             textTransform: 'uppercase',
-                            letterSpacing: '0.10em',
-                            color: 'hsl(var(--bento-fg-muted))',
+                            letterSpacing: '0.06em',
+                            color: SCHEDULE_TEXT_MUTED,
                             marginTop: '3px',
                           }}
                         >

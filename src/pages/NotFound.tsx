@@ -1,5 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { Link } from "react-router-dom";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 import { useSeo } from "@/lib/seo";
@@ -12,8 +11,6 @@ const RECOVERY_LINKS = [
 ];
 
 const NotFound = () => {
-  const location = useLocation();
-
   // Soft-404 hardening: tell crawlers not to index unresolved routes (the SPA
   // renders this for any unknown path). Middleware already noindexes bot HTML
   // for unresolved entity routes; this covers the user/prerender path.
@@ -23,10 +20,6 @@ const NotFound = () => {
       "That page doesn't exist. Find bachata events, classes and parties in London on Bachata Calendar.",
     noindex: true,
   });
-
-  useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
-  }, [location.pathname]);
 
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs("notFound")}>

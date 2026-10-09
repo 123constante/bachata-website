@@ -11,6 +11,7 @@ import { flags } from '@/lib/featureFlags';
 import { WHATSAPP_GROUP_URL } from '@/lib/contactLinks';
 import { useAuth } from '@/hooks/useAuth';
 import { buildSignInHref, sanitizeReturnTo } from '@/lib/authRouting';
+import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 
 // NO framer-motion here (perf, Pillar A): the header mounts on every page, so
 // a `motion.*` import would drag the whole library into the first-load bundle.
@@ -196,10 +197,10 @@ export const GlobalHeader = () => {
 
         {showAccount && (
           <Link
-            to="/account"
+            to={ORG_PATHS.home}
             className={cn(
               'inline-flex items-center justify-center w-[44px] h-[44px] rounded-md shrink-0 transition-colors',
-              pathname === '/account' ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-primary/5',
+              pathname.startsWith(ORG_PATHS.home) ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-primary/5',
             )}
             aria-label="Your account"
             data-testid="header-account-link"

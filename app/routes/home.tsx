@@ -13,9 +13,11 @@ import {
 import { buildSeoForRoute } from "@/lib/seo";
 import Index from "@/pages/Index";
 import { stampHome } from "../cacheTags";
-import { cacheHeaders, taggedData } from "../detailLoader";
+import { cacheHeaders, taggedData, throwDetailNotFound } from "../detailLoader";
+import { isRealCitySlug } from "@/lib/cityValidity";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
-import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
+import { data } from "react-router";
+import { isSsrLoaderTimeoutError, withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/home";
 
@@ -62,9 +64,9 @@ async function fetchHomeDay(
   await Promise.all([
     // This week's events -> the JSON-LD ItemList (useCalendarEvents key). Use
     // fetchQuery (NOT prefetchQuery) for this SEO-critical query so a transient
-    // RPC error THROWS out of the loader -> a 500 with no Vercel-Cache-Tag ->
-    // cacheHeaders leaves it uncached, instead of edge-caching an empty ItemList
-    // for an hour. Mirrors the detail routes' gating fetch (event.tsx).
+    // RPC error THROWS out of loaderImpl instead of edge-caching an empty
+    // ItemList for an hour. The exported `loader` below turns a transient DB
+    // failure into a short-lived, untagged degraded shell; anything else 500s.
     qc.fetchQuery({
       queryKey: keys.calendar,
       queryFn: () =>
@@ -77,8 +79,9 @@ async function fetchHomeDay(
     }),
     // 90-day map window (useMapEvents key). This is now the ABOVE-THE-FOLD feed's
     // data, not just the map's: HomeMapShell renders the event list from it on the
-    // server. fetchQuery, so a failure 500s (and stays uncached) rather than
-    // edge-caching an empty homepage for an hour -- it used to be prefetchQuery,
+    // server. fetchQuery, so a failure throws (see `loader` below for what the
+    // response becomes) rather than edge-caching an empty homepage for an hour
+    // under the home-feed tag -- it used to be prefetchQuery,
     // which was right when the only consumer was the client-only map.
     qc.fetchQuery({
       queryKey: keys.map,
@@ -104,8 +107,9 @@ async function fetchHomeDay(
 // See app/lib/ssrLoaderTimeout.ts -- #425: a stalled Supabase call anywhere in
 // this loader (including the midnight-straddle retry's second fetchHomeDay
 // call) previously hung the whole /city/:slug response indefinitely instead of
-// failing into the route ErrorBoundary. ONE deadline covers both.
-export const loader = withSsrLoaderTimeout("home-loader", async function loaderImpl({
+// failing. ONE deadline covers both; the exported `loader` below decides what a
+// deadline or DB failure renders as.
+const loaderWithDeadline = withSsrLoaderTimeout("home-loader", async function loaderImpl({
   params,
 }: Route.LoaderArgs) {
   const citySlug = (params.slug ?? "").toLowerCase();
@@ -134,7 +138,17 @@ export const loader = withSsrLoaderTimeout("home-loader", async function loaderI
   // below the await ships a key the cache entries are not filed under.
   let todayKey = londonDateKey(new Date(nowMs));
 
-  let keys = await fetchHomeDay(qc, citySlug, todayKey);
+  // A made-up slug used to render "Bachata in <Made Up>" at 200 with canonical
+  // "/" (soft 404). The DB's is_valid_city_slug is the one answer (see
+  // @/lib/cityValidity); it runs alongside the feed fetch so a real city pays no
+  // extra round trip. A FAILED lookup throws into the same handling as a failed
+  // feed (`loader` below): degrade or 500, never a 404 guess about a real city.
+  const [isCity, firstKeys] = await Promise.all([
+    isRealCitySlug(citySlug),
+    fetchHomeDay(qc, citySlug, todayKey),
+  ]);
+  if (!isCity) throwDetailNotFound("City");
+  let keys = firstKeys;
 
   // THE MIDNIGHT STRADDLE. A fetch spanning London midnight leaves the pin stale
   // before the document is even emitted, and the bound alone cannot save it --
@@ -293,12 +307,83 @@ export const loader = withSsrLoaderTimeout("home-loader", async function loaderI
   );
 });
 
+// Loader -> headers() marker for the degraded document below. Consumed by
+// headers() and never re-emitted, so it does not reach the client.
+const DEGRADED_HEADER = "X-Home-Degraded";
+
+// DEGRADE, DON'T 500 (2026-10-06 DB incident). get_map_events_v1 /
+// get_calendar_events_v2 hit Postgres statement timeout 57014 while the DB was
+// starved, the fetchQuery gate above threw, and the homepage plus every
+// /city/:slug answered 500. The gate's PURPOSE -- never edge-cache an empty
+// feed under the home-feed tag -- is kept, by a cheaper route than a 500: on a
+// TRANSIENT DB failure ship the page shell with an EMPTY dehydrated cache,
+// untagged, browser `no-store` and a 30s edge window (headers() below). The
+// client's useMapEvents/useCalendarEvents miss the cache and fetch on mount,
+// and HomeMapShell's RetryNotice covers a client-side failure too. The 30s
+// window is deliberate: each degraded render costs the starved DB two more RPCs
+// (Postgres keeps running them past our deadline), so collapsing concurrent
+// misses at the edge matters more than a few extra seconds of empty shell.
+//
+// DELIBERATELY NARROW. Only a starvation-shaped failure degrades; a code bug, a
+// renamed RPC (PGRST202), a thrown Response/data() still 500s, so the
+// post-merge prod alarm and synthetic monitor keep seeing deterministic
+// breakage instead of a green 200 over an empty feed.
+//   - the SSR deadline (SsrLoaderTimeoutError)
+//   - SQLSTATE 57xxx (57014 statement timeout), 53xxx (insufficient
+//     resources), 08xxx (connection exception)
+//   - PostgREST PGRST000-003 (cannot connect / pool acquisition timed out)
+const TRANSIENT_DB_CODE = /^(57|53|08)[0-9A-Z]{3}$|^PGRST00[0-3]$/;
+function isTransientDbFailure(error: unknown): boolean {
+  if (isSsrLoaderTimeoutError(error)) return true;
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === "string" && TRANSIENT_DB_CODE.test(code);
+}
+
+export async function loader(args: Route.LoaderArgs) {
+  try {
+    return await loaderWithDeadline(args);
+  } catch (error) {
+    if (args.request?.signal?.aborted || !isTransientDbFailure(error)) throw error;
+    const err = error as { name?: unknown; message?: unknown; code?: unknown; stack?: unknown };
+    console.error(
+      JSON.stringify({
+        tag: "ssr-degraded",
+        route: "home",
+        kind: isSsrLoaderTimeoutError(error) ? "ssr_loader_timeout" : "db_transient",
+        url: args.request?.url,
+        name: typeof err?.name === "string" ? err.name : undefined,
+        code: typeof err?.code === "string" ? err.code : undefined,
+        message: typeof err?.message === "string" ? err.message : String(error),
+        stack: typeof err?.stack === "string" ? err.stack : undefined,
+      }),
+    );
+    const citySlug = (args.params.slug ?? "").toLowerCase();
+    // Same single-clock-read invariant as the healthy path: both pins name one day.
+    const nowMs = Date.now();
+    return data(
+      {
+        dehydratedState: dehydrate(createServerQueryClient()),
+        cityDisplay: cityDisplayFromSlug(citySlug),
+        seoEventLinks: [] as Array<{ href: string; name: string }>,
+        todayKey: londonDateKey(new Date(nowMs)),
+        nowMs,
+      },
+      { headers: { [DEGRADED_HEADER]: "1" } },
+    );
+  }
+}
+
 export const meta: Route.MetaFunction = ({ data }) =>
   seoInputToMeta(buildSeoForRoute("home", { cityDisplay: data?.cityDisplay }));
 
 // Edge-cache the SSR response (s-maxage/SWR) + forward the loader's Vercel-Cache-Tag
 // so a content edit can purge it on demand. Mirrors the detail routes (event.tsx).
+// A degraded document (see loader): browser never stores it, edge holds it 30s
+// with no stale window and no tag, so it can never outlive the incident.
 export function headers({ loaderHeaders }: Route.HeadersArgs) {
+  if (loaderHeaders.get(DEGRADED_HEADER)) {
+    return { "Cache-Control": "no-store", "Vercel-CDN-Cache-Control": "public, s-maxage=30" };
+  }
   return cacheHeaders(loaderHeaders);
 }
 

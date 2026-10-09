@@ -5,6 +5,33 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Cancelled-date wording -- the ONE mapping from a cancelled date's stored reason
+// to what a dancer reads, shared by every public surface (event page, festival
+// page, Tonight, calendar list, home map). Import it from '@/lib/cancelLabel';
+// the body lives here only for CHUNK placement: as its own module it became a
+// 181-byte chunk, one more first-load request on /event, /parties and /classes,
+// which the chunk ratchet in perf-budgets.json rejects. This module already
+// rides the first load of every one of those routes.
+//
+// Owner decision 2026-10-08: 'Other' is the bucket the server coerces free text
+// into, so it tells a dancer nothing -- it, blank and whitespace read as plain
+// "Cancelled". Any other reason from the cancellation_reasons list is shown.
+
+export const CANCELLED_TEXT = 'Cancelled';
+
+/** The reason worth showing a dancer, trimmed, or null when there is none. */
+export function publicCancelReason(reasonLabel: string | null | undefined): string | null {
+  const reason = (reasonLabel ?? '').trim();
+  if (reason === '' || reason.toLowerCase() === 'other') return null;
+  return reason;
+}
+
+/** "Cancelled" or "Cancelled \u00B7 <reason>" -- plain text, escape before HTML use. */
+export function cancelledLabel(reasonLabel: string | null | undefined): string {
+  const reason = publicCancelReason(reasonLabel);
+  return reason ? `${CANCELLED_TEXT} \u00B7 ${reason}` : CANCELLED_TEXT;
+}
+
 export function getPhotoUrl(photoUrl: unknown): string | null {
   if (!photoUrl) return null;
 

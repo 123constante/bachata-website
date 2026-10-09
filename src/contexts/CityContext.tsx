@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 import { useLocation } from "react-router-dom";
-import { rpcLoose } from "@/integrations/supabase/rpcLoose";
+import { isRealCitySlug } from "@/lib/cityValidity";
 
 type CityContextValue = {
   citySlug: string | null;
@@ -52,16 +52,8 @@ export const CityProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     try {
-      const { data, error } = await rpcLoose("is_valid_city_slug", {
-        p_slug: normalized,
-      });
-
-      if (error) {
-                cityValidityCache.set(normalized, true);
-        return true;
-      }
-
-      const isValid = Boolean(data);
+      // Fail-open on a lookup error (the catch below), as before.
+      const isValid = await isRealCitySlug(normalized);
       cityValidityCache.set(normalized, isValid);
       return isValid;
     } catch (error) {

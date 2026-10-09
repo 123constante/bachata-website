@@ -1,226 +1,84 @@
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { FRIDAY, PHONE, SUNDAY, openOrganiser } from './helpers/organiserFake';
 
-// Lever 2 W2: the organiser home on /account (mockup 01-B under 01-C's
-// "needs you" notice). organiser_home_v1 is mocked with a real-shaped payload;
-// e2e-smoke.yml turns VITE_ENABLE_ORGANISER_SELF_SERVE on.
+// The organiser Home at /account/o (W1): 'Next dates' soonest first, ONE New event button, no
+// stats, and each strip only when needed (team requests, runway 'dates listed until', dates
+// with no teacher or DJ). Replaces the old /account home spec (deleted UI). Backend: the
+// stateful fake in helpers/organiserFake.ts (every call answered in the browser).
 
-const projectRef = 'stsdtacfauprzrdebmzg';
-const userId = '11111111-1111-1111-1111-111111111111';
-const TODAY = '2026-10-04';
+test.use({ viewport: PHONE });
 
-const b64url = (value: unknown) =>
-  Buffer.from(JSON.stringify(value)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+test('next dates soonest first, one New event button, no stats', async ({ page }) => {
+  await openOrganiser(page, '/account/o');
+  await expect(page.getByTestId('org-page-home')).toBeVisible();
+  const rows = page.getByTestId('home-date-row');
+  await expect(rows.first()).toBeVisible();
+  const dates = await rows.evaluateAll((els) => els.map((e) => e.getAttribute('data-occurrence') ?? ''));
+  // Fri 9, Sun 11, Fri 16, Sun 18, Fri 23 ... (occurrence ids end in the yyyymmdd date).
+  const keys = dates.map((id) => id.split('-').pop()!.slice(0, 8));
+  expect(keys).toEqual([...keys].sort());
+  expect(keys.slice(0, 4)).toEqual(['20261009', '20261011', '20261016', '20261018']);
+  await expect(rows.first()).toContainText('Friday Bachata');
+  await expect(rows.first()).toContainText('Studio One');
+  await expect(rows.first()).toContainText('Live');
+  await expect(page.getByTestId('home-new-event')).toHaveCount(1);
+  await expect(page.getByTestId('org-page-home')).not.toContainText(/views|tickets sold|revenue/i);
 
-const json = (route: Route, body: unknown, status = 200) =>
-  route.fulfill({ status, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-
-/** A PostgREST refusal: the RPC's RAISE EXCEPTION '<code>' as the client reads it. */
-const refuse = (route: Route, code: string) => json(route, { code: 'P0001', message: code, details: null, hint: null }, 400);
-
-const date = (d: string, over: Record<string, unknown> = {}) => ({
-  occurrence_id: `occ-${d}`,
-  occurrence_date: d,
-  lifecycle_status: 'scheduled',
-  materialised_start_utc: `${d}T19:30:00+00:00`,
-  version: 1,
-  has_own_changes: false,
-  ...over,
+  await rows.first().click();
+  await expect(page).toHaveURL(new RegExp(`/account/o/events/${FRIDAY}/dates/`));
 });
 
-const series = (over: Record<string, unknown>) => ({
-  id: 'ser-1',
-  name: 'Tuesday Bachata Class',
-  slug: 'tuesday-bachata-class',
-  format: 'recurring',
-  category: 'class',
-  lifecycle_status: 'live',
-  version: 3,
-  default_city_id: null,
-  default_venue_id: null,
-  default_local_start_time: '19:00:00',
-  default_cover_image_url: null,
-  updated_at: '2026-10-01T10:00:00Z',
-  upcoming_count: 12,
-  next_dates: [],
-  latest_decision: null,
-  ...over,
+test('New event opens the name-only create', async ({ page }) => {
+  await openOrganiser(page, '/account/o');
+  await page.getByTestId('home-new-event').click();
+  await expect(page).toHaveURL(/\/account\/o\/events\/new$/);
+  await expect(page.getByTestId('org-new-event-name')).toBeVisible();
 });
 
-const organiser = (over: Record<string, unknown>) => ({
-  id: 'org-1',
-  name: 'Ritmo Bachata London',
-  slug: 'ritmo-bachata-london',
-  avatar_url: null,
-  city_id: null,
-  lifecycle_status: 'live',
-  role: 'owner',
-  is_primary: true,
-  joined_at: '2026-10-01T10:00:00Z',
-  latest_decision: null,
-  series: [],
-  ...over,
+test('team strip: requests waiting opens Team', async ({ page }) => {
+  await openOrganiser(page, '/account/o');
+  const strip = page.getByTestId('home-strip-team');
+  await expect(strip).toContainText('2 team requests are waiting');
+  await strip.click();
+  await expect(page).toHaveURL(/\/account\/o\/team/);
+  await expect(page.getByTestId('org-page-team')).toBeVisible();
 });
 
-type SubmitMock = { status: 'ok' } | { status: 'refuse'; code: string };
+test('runway strip: a series running short says until when, and opens its event', async ({ page }) => {
+  await openOrganiser(page, '/account/o');
+  const strip = page.getByTestId('home-strip-runway');
+  await expect(strip).toContainText('Sunday Party: dates listed until Sun 18 Oct.');
+  await expect(strip).toContainText('Extend');
+  await strip.click();
+  await expect(page).toHaveURL(new RegExp(`/account/o/events/${SUNDAY}$`));
+  await expect(page.getByTestId('org-event-editor')).toBeVisible();
+});
 
-/**
- * submit_organiser_profile_v1 answers like the server (admin D6): on success
- * the organiser is pending_review from then on, so the refetched home agrees.
- * A refusal plays the case the server refuses for: the team moved the
- * organiser to pending_review meanwhile, which the refetched home then shows.
- * Returns the submit bodies seen and a live count of organiser_home_v1 reads.
- */
-async function openHome(page: Page, organisers: Record<string, unknown>[], submit: SubmitMock = { status: 'ok' }) {
-  const submits: unknown[] = [];
-  const reads = { home: 0 };
-  const user = { id: userId, aud: 'authenticated', role: 'authenticated', email: 'diego@ritmo.example', user_metadata: {} };
-  const token = `${b64url({ alg: 'HS256' })}.${b64url({ sub: userId, amr: [{ method: 'otp', timestamp: 1 }] })}.sig`;
-  await page.addInitScript(
-    ({ value, ref }) => localStorage.setItem(`sb-${ref}-auth-token`, JSON.stringify(value)),
-    {
-      value: { access_token: token, token_type: 'bearer', expires_in: 3600, expires_at: 4102444800, refresh_token: 'r', user },
-      ref: projectRef,
-    },
-  );
-  await page.route('**/auth/v1/**', (route) => json(route, route.request().url().includes('/user') ? user : {}));
-  await page.route('**/rest/v1/**', (route) => {
-    const path = new URL(route.request().url()).pathname;
-    if (path.endsWith('/rpc/organiser_home_v1')) {
-      reads.home += 1;
-      return json(route, { today: TODAY, organisers });
-    }
-    if (path.endsWith('/rpc/submit_organiser_profile_v1')) {
-      const body = route.request().postDataJSON() as { p_organiser_id?: string };
-      submits.push(body);
-      const org = organisers.find((o) => o.id === body.p_organiser_id);
-      const from = org?.lifecycle_status;
-      if (org) org.lifecycle_status = 'pending_review';
-      if (submit.status === 'refuse') return refuse(route, submit.code);
-      return json(route, { organiser_id: body.p_organiser_id, from_state: from, lifecycle_status: 'pending_review', audit_id: 'audit-1' });
-    }
-    return json(route, []);
+test('line-up strip: counts dates with no teacher or DJ and opens the first', async ({ page }) => {
+  await openOrganiser(page, '/account/o');
+  const strip = page.getByTestId('home-strip-lineup');
+  // The strip names the window it counts (Home checks the next few dates, not all of them).
+  await expect(strip).toContainText(/2 of your next \d+ dates have no teacher or DJ yet/);
+  await strip.click();
+  await expect(page).toHaveURL(new RegExp(`/account/o/events/${SUNDAY}/dates/c0000002-0000-4000-8000-202610110000$`));
+  await expect(page.getByTestId('org-page-date')).toBeVisible();
+});
+
+test('no strips when nothing needs the organiser', async ({ page }) => {
+  await openOrganiser(page, '/account/o', {}, (fake) => {
+    fake.organisers[0].requests = [];
+    fake.emptyLineup.clear();
+    fake.organisers[0].series = [FRIDAY];
   });
-  await page.goto('/account');
-  await expect(page.getByTestId('account-page')).toBeVisible();
-  return { submits, reads };
-}
-
-for (const width of [390, 768, 1280]) {
-  test.describe(`organiser home @${width}`, () => {
-    test.use({ viewport: { width, height: 900 } });
-
-    test('lists series with their next dates under the "needs you" notice', async ({ page }) => {
-      await openHome(page, [
-        organiser({
-          series: [
-            series({
-              next_dates: [
-                date(TODAY),
-                date('2026-10-13', { lifecycle_status: 'cancelled' }),
-                date('2026-10-20', { has_own_changes: true }),
-              ],
-            }),
-            series({ id: 'ser-2', name: 'Bachata Sundays Party', slug: 'sundays', format: 'one_off', category: 'party',
-              lifecycle_status: 'pending_review', upcoming_count: 1, next_dates: [date('2026-10-11')] }),
-          ],
-        }),
-      ]);
-
-      const notice = page.getByTestId('attention-notice');
-      await expect(notice.getByTestId('attention-in_review')).toContainText('Bachata Sundays Party');
-      await expect(notice.getByTestId('attention-cancelled')).toContainText('Tue 13 Oct');
-      await expect(notice.getByTestId('attention-tonight')).toContainText('at 19:30');
-
-      const tuesday = page.getByTestId('series-card').filter({ hasText: 'Tuesday Bachata Class' });
-      await expect(tuesday.getByTestId('series-date')).toHaveCount(3);
-      await expect(tuesday.getByTestId('series-date').first()).toContainText('Tonight');
-      await expect(tuesday.getByTestId('date-cancelled')).toHaveCount(1);
-      await expect(tuesday).toContainText('Changed for this date');
-      await expect(tuesday.getByTestId('view-as-dancer')).toHaveAttribute('href', '/event/tuesday-bachata-class');
-      // Only a live series gets a public link.
-      const sundays = page.getByTestId('series-card').filter({ hasText: 'Bachata Sundays Party' });
-      await expect(sundays.getByTestId('view-as-dancer')).toHaveCount(0);
-
-      await page.screenshot({ path: `test-results/organiser-home-${width}.png`, fullPage: true });
-    });
-  });
-}
-
-for (const width of [390, 768, 1280]) {
-  test.describe(`send for review @${width}`, () => {
-    test.use({ viewport: { width, height: 900 } });
-
-    test('a draft organiser is sent for review and then reads In review', async ({ page }) => {
-      const { submits } = await openHome(page, [organiser({ lifecycle_status: 'draft' })]);
-      await expect(page.getByTestId('organiser-status')).toHaveText('Draft');
-      await page.getByTestId('send-for-review').click();
-      await expect(page.getByTestId('organiser-status')).toHaveText('In review');
-      await expect(page.getByTestId('organiser-status-note')).toHaveText('The team checks new organisers within a day.');
-      await expect(page.getByTestId('send-for-review')).toHaveCount(0);
-      await expect(page.getByTestId('account-confirmation')).toContainText('Sent for review');
-      expect(submits).toEqual([{ p_organiser_id: 'org-1' }]);
-      await page.screenshot({ path: `test-results/organiser-send-for-review-${width}.png`, fullPage: true });
-    });
-
-    test('a rejected organiser sees the reason, then the button', async ({ page }) => {
-      const { submits } = await openHome(page, [
-        organiser({
-          lifecycle_status: 'rejected',
-          latest_decision: { action: 'reject', from_state: 'pending_review', to_state: 'rejected',
-            reason: 'Add your Instagram so we can check it is you', created_at: '2026-10-03T10:00:00Z' },
-        }),
-      ]);
-      const note = page.getByTestId('organiser-status-note');
-      await expect(note).toHaveText('Ritmo Bachata London needs changes: Add your Instagram so we can check it is you');
-      const button = page.getByTestId('send-for-review');
-      await expect(button).toBeVisible();
-      // The reason sits above the button.
-      const [noteBox, buttonBox] = [await note.boundingBox(), await button.boundingBox()];
-      expect(noteBox!.y).toBeLessThan(buttonBox!.y);
-      await button.click();
-      await expect(page.getByTestId('organiser-status')).toHaveText('In review');
-      expect(submits).toEqual([{ p_organiser_id: 'org-1' }]);
-    });
-
-    test('an invalid_state refusal re-reads the home and keeps its explanation', async ({ page }) => {
-      const { reads } = await openHome(page, [organiser({ lifecycle_status: 'draft' })], { status: 'refuse', code: 'invalid_state' });
-      await expect(page.getByTestId('send-for-review')).toBeVisible();
-      const before = reads.home;
-      await page.getByTestId('send-for-review').click();
-      // The team had moved the organiser meanwhile: the re-read home shows where
-      // it is, the button goes, the refusal stays, and nothing is confirmed.
-      await expect.poll(() => reads.home).toBeGreaterThan(before);
-      await expect(page.getByTestId('organiser-status')).toHaveText('In review');
-      await expect(page.getByTestId('send-for-review')).toHaveCount(0);
-      await expect(page.getByTestId('send-for-review-error')).toHaveText(
-        'Nothing to send: this organiser is already in review, live, or no longer active.',
-      );
-      await expect(page.getByTestId('account-confirmation')).toHaveCount(0);
-    });
-  });
-}
-
-test('live and in-review organisers are not offered "Send for review"', async ({ page }) => {
-  await openHome(page, [organiser({}), organiser({ id: 'org-2', name: 'Latino Nights', lifecycle_status: 'pending_review' })]);
-  await expect(page.getByTestId('organiser-home')).toBeVisible();
-  await expect(page.getByTestId('send-for-review')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Latino Nights' }).click();
-  await expect(page.getByTestId('organiser-status')).toHaveText('In review');
-  await expect(page.getByTestId('send-for-review')).toHaveCount(0);
+  await expect(page.getByTestId('home-date-row').first()).toBeVisible();
+  // The strips' reads run after the list; give them the time they take, then expect none.
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByTestId('home-strips')).toHaveCount(0);
 });
 
-test('an organiser with no series sees the empty state and no notice', async ({ page }) => {
-  await openHome(page, [organiser({ lifecycle_status: 'draft', series: [] })]);
-  await expect(page.getByTestId('home-empty')).toBeVisible();
-  await expect(page.getByTestId('attention-notice')).toHaveCount(0);
-});
-
-test('several organisers: choosing one shows its home', async ({ page }) => {
-  await openHome(page, [
-    organiser({ series: [series({})] }),
-    organiser({ id: 'org-2', name: 'Latino Nights', series: [series({ id: 'ser-9', name: 'Friday Salsa Party' })] }),
-  ]);
-  await expect(page.getByTestId('series-card')).toContainText('Tuesday Bachata Class');
-  await page.getByRole('button', { name: 'Latino Nights' }).click();
-  await expect(page.getByTestId('series-card')).toContainText('Friday Salsa Party');
+test('a load failure shows the error state and Retry recovers', async ({ page }) => {
+  await openOrganiser(page, '/account/o', {}, (fake) => fake.refuse('organiser_home_v1', 'boom', 2));
+  await expect(page.getByTestId('home-error')).toBeVisible();
+  await page.getByTestId('home-error-retry').click();
+  await expect(page.getByTestId('home-date-row').first()).toBeVisible();
 });

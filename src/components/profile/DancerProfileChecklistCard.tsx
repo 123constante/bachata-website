@@ -43,7 +43,7 @@ export const DancerProfileChecklistCard = ({
           </div>
           <span className="text-xs font-semibold text-primary">{progress}%</span>
         </div>
-        <Progress value={progress} className="h-2" />
+        <Progress value={progress} label="Profile checklist" className="h-2" />
         <div className="space-y-2">
           {items.map((item) => (
             <div key={item.key} className="flex items-center gap-2 text-xs">

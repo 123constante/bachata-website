@@ -1,0 +1,73 @@
+name: real-data-verified
+
+# Definition of done, enforced: nothing is declared ready before it is verified
+# against the real SHAPES of production data. The PR template section is an
+# honour system; this check makes it visible. A PR that changes app code
+# (src/, app/, api/) must carry a "## Verified on real data" section with
+# filled-in "Shapes surveyed", "Checks run" and "NOT verified" lines.
+#
+# Parsing lives in scripts/check-pr-real-data-verified.mjs (unit-tested in
+# tests/realDataVerified.test.ts). The PR body reaches it through an env var,
+# never interpolated into a shell command.
+#
+# NOT a required status check -- that is a branch-protection decision for the
+# owner. Draft PRs and PRs touching no app code pass with a "skipped" message.
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: real-data-verified-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  real-data-verified:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Decide whether the check applies
+        id: scope
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (pr.draft) {
+              core.notice('skipped: draft');
+              core.setOutput('skip', 'true');
+              return;
+            }
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const touchesApp = files.some((f) =>
+              [f.filename, f.previous_filename].some(
+                (n) => n && /^(src|app|api)\//.test(n),
+              ),
+            );
+            if (!touchesApp) {
+              core.notice(`skipped: no app code changed (${files.length} files, none under src/, app/ or api/)`);
+              core.setOutput('skip', 'true');
+              return;
+            }
+            core.setOutput('skip', 'false');
+
+      - uses: actions/setup-node@v7
+        if: steps.scope.outputs.skip != 'true'
+        with:
+          node-version: 22
+
+      - name: Require the Verified on real data section
+        if: steps.scope.outputs.skip != 'true'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/check-pr-real-data-verified.mjs

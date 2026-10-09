@@ -1,0 +1,44 @@
+/**
+ * Every path pattern the client-rendered catchall (AnimatedRoutes) answers,
+ * minus its "*" NotFound. The server never renders these pages, so this list is
+ * how app/catchallGate.ts knows a catchall URL is a real page (200) rather than
+ * the client 404 (real HTTP 404). tests/catchallClientPaths.test.ts fails if
+ * this list and the <Route path=...> literals in AnimatedRoutes.tsx drift.
+ */
+export const CATCHALL_CLIENT_PATHS: readonly string[] = [
+  '/',
+  '/city/:slug/calendar',
+  '/city/:slug/map',
+  '/city/:slug/parties',
+  '/city/:slug/classes',
+  '/discounts',
+  '/city/:slug/discounts',
+  '/tonight',
+  '/city/:slug/tonight',
+  '/practice-partners',
+  '/city/:slug/practice-partners',
+  '/vendors',
+  '/vendors/:id',
+  '/raffles',
+  '/videographers',
+  '/choreography',
+  '/dancers',
+  '/teachers',
+  '/all-profiles',
+  '/djs',
+  '/venues',
+  '/city/:slug/venues',
+  '/organisers',
+  '/cities',
+  '/account',
+  '/account/new',
+  '/account/series/:seriesId',
+  '/account/team/:organiserId?',
+  '/account/o/*',
+  '/auth',
+  '/auth/callback',
+  '/erase/:token',
+  '/export/:token',
+  '/search',
+  '/city/:slug/search',
+];

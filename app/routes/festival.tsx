@@ -23,11 +23,13 @@ import { stampFestival } from "../cacheTags";
 import { seoInputToMeta } from "../seoMeta";
 import { HEAD_DESCRIPTION_MAX, truncate } from "../truncate";
 import type { Route } from "./+types/festival";
+import { hiddenEventResponse } from "../lib/hiddenEventResponse";
 
 // /festival/:id — resolves events slug→uuid then prefetches the three queries
 // FestivalDetail mounts (festival-event basic row, festival-snapshot event_view_p5,
 // and the parsed festival-detail via the shared exported key + parser), so the
-// cinematic page SSRs with content. 404+noindex when the id isn't a live festival.
+// cinematic page SSRs with content. 404+noindex when the id isn't a live festival
+// (410 when it is a taken-down one).
 // See app/lib/ssrLoaderTimeout.ts -- #425.
 export const loader = withSsrLoaderTimeout("festival-loader", async function loaderImpl({
   params,
@@ -35,7 +37,8 @@ export const loader = withSsrLoaderTimeout("festival-loader", async function loa
 }: Route.LoaderArgs) {
   const qc = createServerQueryClient();
   const ref = await resolveEntityInLoader(qc, "events", params.id);
-  if (!ref.id) throwDetailNotFound("Festival");
+  // Hidden series: 410 Gone if taken down, else 404 (shared with /event/:id).
+  if (!ref.id) throw await hiddenEventResponse(params.id, "Festival");
   redirectUuidToSlug(ref, request, "/festival");
   const eventId = ref.id as string;
 

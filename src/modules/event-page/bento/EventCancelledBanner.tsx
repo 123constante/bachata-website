@@ -1,4 +1,5 @@
 import { AlertOctagon } from 'lucide-react';
+import { publicCancelReason } from '@/lib/cancelLabel';
 
 type EventCancelledBannerProps = {
   reasonLabel?: string | null;
@@ -20,6 +21,7 @@ type EventCancelledBannerProps = {
 // surface carrying the cancellation reason, which is why 'ended' stacks above
 // it rather than replacing it.
 export const EventCancelledBanner = ({ reasonLabel }: EventCancelledBannerProps) => {
+  const reason = publicCancelReason(reasonLabel);
   return (
     <div
       className="w-full border-b-2 border-red-900 px-4 py-2.5 text-white shadow-lg"
@@ -36,9 +38,9 @@ export const EventCancelledBanner = ({ reasonLabel }: EventCancelledBannerProps)
           <div className="text-[13px] font-bold leading-tight tracking-[-0.01em]">
             This event has been cancelled
           </div>
-          {reasonLabel && (
+          {reason && (
             <div className="mt-0.5 text-[11px] leading-tight opacity-90">
-              {reasonLabel}
+              {reason}
             </div>
           )}
         </div>

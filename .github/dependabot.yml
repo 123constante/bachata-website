@@ -111,6 +111,16 @@ updates:
       - dependency-name: tailwindcss
         update-types: [version-update:semver-major]
 
+      # vite 8 (PR #596, 2026-10-06) and tailwind-merge 3 (PR #597): both are majors of
+      # tuned parts. vite owns the manualChunks buckets and the SSR/prerender build (a
+      # major re-tunes both, and the build is under an unresolved Vercel tracing
+      # incident); tailwind-merge 3 targets Tailwind 4 class semantics and sits behind the
+      # tailwindcss 4 hold above, so it moves with that migration.
+      - dependency-name: vite
+        update-types: [version-update:semver-major]
+      - dependency-name: tailwind-merge
+        update-types: [version-update:semver-major]
+
       # The UI layer became cache-tuned on 2026-08-14, when P1 of the
       # vendor-cost arc pinned it into vendor-ui + vendor-ui-modal to cut
       # first-load REQUEST count (Vercel edge requests were at 180% of

@@ -8,6 +8,7 @@
  */
 
 import { EVENT_ATTENDANCE_MODE_OFFLINE } from './claims';
+import { eventJsonLdPolicy } from './seo/eventPageSeoPolicy';
 
 export type EventJsonLdInput = {
   name: string;
@@ -17,15 +18,18 @@ export type EventJsonLdInput = {
   description?: string | null;
   image?: string[] | null;
   isCancelled?: boolean | null;
-  /** Series-termination arc P4b: the SERIES has stopped for good. Suppresses the
-   *  offers node entirely, INCLUDING real ticket rows still on file -- a run
-   *  that has finished must not advertise passes. (It used to also suppress an
-   *  unconditional fallback Offer; honest-claims P5b deleted that branch, so
-   *  this flag now earns its keep on the real-offers path alone.) NOT wired to
-   *  eventStatus: schema.org has no "finished" value, and an event that RAN is
-   *  not EventCancelled. Google reads past-ness off startDate/endDate, so the
-   *  honest node is one with no claim about availability at all. */
-  isEnded?: boolean | null;
+  /** event_series_p5.lifecycle_status. What it means for the node (no node at
+   *  all for 'paused'; no offers for 'ended') is decided by eventJsonLdPolicy
+   *  (src/lib/seo/eventPageSeoPolicy), the one mapping the loader and the
+   *  sitemap gate share -- never re-derived at a call site.
+   *
+   *  'ended' (series-termination arc P4b): suppresses the offers node entirely,
+   *  INCLUDING real ticket rows still on file -- a run that has finished must
+   *  not advertise passes. NOT wired to eventStatus: schema.org has no
+   *  "finished" value, and an event that RAN is not EventCancelled. Google reads
+   *  past-ness off startDate/endDate, so the honest node is one with no claim
+   *  about availability at all. */
+  lifecycleStatus?: string | null;
   venue?: {
     name?: string | null;
     address?: string | null;
@@ -48,16 +52,19 @@ export type EventJsonLdInput = {
 const capitalise = (s: string): string =>
   s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, ' ') : s;
 
-export const buildEventJsonLd = (e: EventJsonLdInput): Record<string, unknown> => {
+/** Returns null when the page must carry NO Event node (a paused series --
+ *  see eventPageSeoPolicy for why not EventPostponed). Callers render no
+ *  script tag for null. */
+export const buildEventJsonLd = (e: EventJsonLdInput): Record<string, unknown> | null => {
+  const policy = eventJsonLdPolicy({ lifecycleStatus: e.lifecycleStatus, isCancelled: e.isCancelled });
+  if (!policy.emitEvent) return null;
   const node: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Event',
     name: e.name,
     url: e.url,
     startDate: e.startDate,
-    eventStatus: e.isCancelled
-      ? 'https://schema.org/EventCancelled'
-      : 'https://schema.org/EventScheduled',
+    eventStatus: policy.eventStatus,
     eventAttendanceMode: EVENT_ATTENDANCE_MODE_OFFLINE,
   };
 
@@ -183,12 +190,12 @@ export const buildEventJsonLd = (e: EventJsonLdInput): Record<string, unknown> =
   // say nothing -- SoldOut is false, and InStock was a guess that happened to
   // be phrased as a fact.
   //
-  // The isEnded early return (series-termination arc P4b) now costs nothing
+  // The ended early return (series-termination arc P4b) now costs nothing
   // extra -- with no fallback there is nothing to suppress for an ended run
   // that has no tickets -- but it stays, because an ended series WITH ticket
   // rows on file must still not advertise them. `offers` is recommended for
   // rich results, never required, so an event with no ticket data omits it.
-  if (e.isEnded) return node;
+  if (!policy.offers) return node;
 
   // Left as truthiness DELIBERATELY: an offer with neither a link nor a price
   // states nothing, and dropping it keeps the node honest.

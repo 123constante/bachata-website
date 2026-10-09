@@ -152,11 +152,18 @@ export function ErrorBoundary() {
     const err = error instanceof Error ? error : new Error(String(error));
       }, [error]);
 
-  const isNotFound = isRouteErrorResponse(error) && error.status === 404;
-  const heading = isNotFound ? "Page not found" : "Something went wrong";
-  const body = isNotFound
-    ? "We couldn't find that page. It may have moved or been removed."
-    : "This page ran into an unexpected error. Try again, or head back to the calendar.";
+  // 410 is a taken-down event: app/lib/hiddenEventResponse, status decided by
+  // eventPageSeoPolicy.hiddenEventStatus. The copy is inlined, not imported
+  // from that module: importing it here put the policy in a shared chunk and
+  // cost every landing page one extra first-load request (perf-budgets pin).
+  const isGone = isRouteErrorResponse(error) && error.status === 410;
+  const isNotFound = isGone || (isRouteErrorResponse(error) && error.status === 404);
+  const heading = isGone ? "This event has been taken down" : isNotFound ? "Page not found" : "Something went wrong";
+  const body = isGone
+    ? "The organiser has removed this event from Bachata Calendar. Have a look at what else is on."
+    : isNotFound
+      ? "We couldn't find that page. It may have moved or been removed."
+      : "This page ran into an unexpected error. Try again, or head back to the calendar.";
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 pt-[84px] text-center">
