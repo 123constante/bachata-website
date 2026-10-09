@@ -19,10 +19,16 @@
  *
  * The page has no anon-readable way to learn the series uuid (event_series_p5's
  * select policy is admin-only and no public payload carries it), so the fix
- * belongs to the admin repo: series_level_summary_p5_v1 and rate_series_level_p5_v1
- * must accept the public event id. When that migration lands, flip
- * LEVEL_RPC_ACCEPTS_LEGACY_ID below to true -- the `it.fails` case then goes red,
- * which is the signal to turn it into a plain `it`.
+ * belonged to the admin repo. FIXED: admin migration 20261109350000 (applied on prod,
+ * verified 2026-10-09: the summary RPC returns non-null for BOTH the series id and the
+ * public/legacy id of pura-nights-ealing). LEVEL_RPC_ACCEPTS_LEGACY_ID is therefore true
+ * and the case below is a plain `it`. SCOPE: the RPC here is a hand-written fake of the
+ * live contract, so this guards the PAGE (it must render the chips when the summary RPC
+ * answers for the public id). It does NOT detect a regression of the live RPC itself; that
+ * would need a scripts/check-*.mjs contract check.
+ *
+ * The contract lines above describe 2026-10-06 (before the fix): the summary RPC now ALSO
+ * accepts the public/legacy id.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
@@ -30,8 +36,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import './jsdomPolyfills';
 
-/** Mirror of the live series_level_summary_p5_v1 contract. False on 2026-10-06. */
-const LEVEL_RPC_ACCEPTS_LEGACY_ID = false;
+/** Mirror of the live series_level_summary_p5_v1 contract. False on 2026-10-06, true since 20261109350000. */
+const LEVEL_RPC_ACCEPTS_LEGACY_ID = true;
 
 const h = vi.hoisted(() => {
   const SERIES_ID = '00730598-fd66-4a1a-90c6-e3f1b027336e';
@@ -134,17 +140,17 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('/event/:slug level rating prompt (signed-in dancer)', () => {
-  // Precondition for the `it.fails` below: the page renders and the prompt asks
-  // the summary RPC. Green here + red there pins the failure to the RPC answer,
-  // not to a crash or a fake-client gap.
+  // Precondition: the page renders and the prompt asks
+  // the summary RPC, so a red chips test below points at the RPC answer or the page's
+  // handling of it, not at a crash or a fake-client gap.
   it('renders the event page and asks for the level summary', async () => {
     mount();
     expect((await screen.findAllByText('Pura Nights Ealing')).length).toBeGreaterThan(0);
     await waitFor(() => expect(summaryCalls().length).toBeGreaterThan(0));
   });
 
-  // KNOWN BUG (2026-10-06). See the header for why this is `it.fails`.
-  it.fails('shows the rating chips on a live event page', async () => {
+  // Was `it.fails` (known bug 2026-10-06); flipped now the admin RPC accepts the public id.
+  it('shows the rating chips on a live event page', async () => {
     mount();
     expect(await screen.findByTestId('level-rating-beginner', {}, { timeout: 2000 })).toBeTruthy();
   });
