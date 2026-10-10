@@ -92,9 +92,19 @@ export const ratingGate = (c: ProfileCompletion, returnTo?: string): RatingGate 
 };
 
 /** What ProfileCompletionChrome publishes to the rating card (ProfileGateContext in hooks/useAuth). */
-export const profileGateValue = (c: ProfileCompletion): { status: ProfileCompletionStatus; gateFor: (returnTo: string) => RatingGate } => ({
+export const profileGateValue = (
+  c: ProfileCompletion,
+): {
+  status: ProfileCompletionStatus;
+  gateFor: (returnTo: string) => RatingGate;
+  refusedGateFor: (returnTo: string) => RatingGate;
+} => ({
   status: c.status,
   gateFor: (returnTo: string) => ratingGate(c, returnTo),
+  // The server refused the vote for an incomplete profile (it can know before this
+  // cached answer does): the SAME gate as "incomplete", whatever this copy says.
+  refusedGateFor: (returnTo: string) =>
+    ratingGate({ status: "incomplete", missing: c.missing, profileId: c.profileId }, returnTo),
 });
 
 export type BannerModel = {

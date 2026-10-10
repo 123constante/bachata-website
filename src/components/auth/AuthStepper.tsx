@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle, Mail, MapPin, User } from "lucide-react";
 import { motion, useAnimationControls } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +18,7 @@ import {
   isSignupAllowlistRefusal,
 } from "@/lib/auth-otp-routing";
 import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
+import { claimAtSignIn, shouldArmFinishHop } from "@/lib/claimMyDancerProfile";
 import { useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +59,7 @@ export const AuthStepper = ({
   requireSignupDetails = true,
 }: AuthStepperProps) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const { formState, setFirstName, setSurname, setCityId, setCityName, setOtpCode, setRole, setDanceRole, updateEmail } = useAuthForm();
   const [intent, setIntent] = useState<AuthIntent | null>(initialIntent || (showIntentSelect ? null : "returning"));
@@ -138,11 +141,15 @@ export const AuthStepper = ({
     const { data } = await supabase.auth.getSession();
     const session = data.session;
     if (!session?.user) return;
+    // Self-claim as /auth/callback does, before anything reads the persona
+    // (every sign-in; never throws, never holds the sign-in past its timeout).
+    const claim = await claimAtSignIn(queryClient);
     // Signed in without passing through /auth/callback: arm the one-time
-    // Finish-your-profile prompt here as the callback does (first sign-in only)
-    // -- unless the host continues in-page (onAuthenticated), which the hop would
-    // unmount mid-flow.
-    if (!onAuthenticated && isFirstSignIn(session.user)) armPostLoginPrompt();
+    // Finish-your-profile prompt here as the callback does (first sign-in only,
+    // and not on the sign-in that just linked an admin-made profile) -- unless
+    // the host continues in-page (onAuthenticated), which the hop would unmount
+    // mid-flow.
+    if (!onAuthenticated && shouldArmFinishHop({ firstSignIn: isFirstSignIn(session.user), claim })) armPostLoginPrompt();
 
     const currentType = session.user.user_metadata?.user_type;
     if (userType && currentType !== userType) {

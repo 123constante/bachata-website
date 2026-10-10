@@ -7,8 +7,14 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
+
+// The sign-in paths take the QueryClient (the self-claim invalidates the persona caches).
+const WithQueryClient = ({ children }: { children: ReactNode }) => (
+  <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{children}</QueryClientProvider>
+);
 
 const rpc = vi.hoisted(() => vi.fn());
 const signInWithOtp = vi.hoisted(() => vi.fn());
@@ -54,6 +60,7 @@ describe('/auth create account', () => {
           <Route path="/auth" element={<Auth />} />
         </Routes>
       </MemoryRouter>,
+      { wrapper: WithQueryClient },
     );
 
   const toDetails = async () => {
@@ -109,6 +116,7 @@ describe('AuthStepper create account', () => {
           <AuthStepper initialIntent="new" />
         </AuthFormProvider>
       </MemoryRouter>,
+      { wrapper: WithQueryClient },
     );
 
   const toName = async () => {

@@ -64,6 +64,8 @@ export const useAuth = () => useContext(AuthContext);
 export type ProfileGateValue = {
   status: ProfileCompletionStatus;
   gateFor: (returnTo: string) => RatingGate;
+  /** The gate to show when rate_series_level_p5_v1 refuses with `profile_incomplete` (the server is the authority). */
+  refusedGateFor: (returnTo: string) => RatingGate;
 };
 export const ProfileGateContext = createContext<ProfileGateValue | "loading" | null>(null);
 

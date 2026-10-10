@@ -18,6 +18,8 @@ import {
 import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useMyPersonaId } from "@/hooks/useMyPersonaId";
+import { isMyProfile } from "@/lib/myPersona";
 
 type AttendanceRow = {
   event_id: string;
@@ -87,10 +89,13 @@ const DancerProfile = () => {
   // OWNERSHIP, not authorship. This was keyed on `created_by`, which records who
   // AUTHORED the row -- so for the one admin account that authored ten other
   // people's profiles, isSelfView was true on ten strangers' public pages and
-  // rendered the admin's own attendance under their names. The owning key is
-  // `id`, matching `resolve_my_person_id_v1` on the write side.
+  // rendered the admin's own attendance under their names. Mine = the viewed id
+  // is my RESOLVED persona (a linked admin-made profile; the write side's
+  // `resolve_my_person_id_v1` resolves the same), or my account's own row (the
+  // stub, archived once linked, whose URL is still mine). lib/myPersona.
   const dancerOwnerId = dancer?.id ?? null;
-  const isSelfView = Boolean(user?.id && dancerOwnerId && user.id === dancerOwnerId);
+  const myPersonaId = useMyPersonaId();
+  const isSelfView = Boolean(user?.id) && isMyProfile({ viewedId: dancerOwnerId, personaId: myPersonaId, accountId: user?.id });
 
   // Attendance is private: get_my_event_attendance_v2 only returns the caller's own
   // rows. Only fetch when the viewer is the profile owner, otherwise we'd render

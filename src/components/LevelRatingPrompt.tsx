@@ -35,6 +35,10 @@ type LevelRatingPromptProps = {
   fallback?: ReactNode;
 };
 
+// Only when the server refused for an incomplete profile and no gate has been
+// published yet (the signed-in chrome is still loading): the gate's own words.
+const PROFILE_INCOMPLETE_FALLBACK = 'Finish your profile to rate.';
+
 const ratingErrorMessage = (error: unknown) => {
   const text = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? '');
   if (/organisers cannot rate/i.test(text)) return 'Organisers cannot rate their own event.';
@@ -92,9 +96,10 @@ const GateNotice = ({ gate, tone, id }: { gate: RatingGate; tone: 'card' | 'comp
 };
 
 export const LevelRatingPrompt = ({ seriesId, compact = false, className, fallback = null }: LevelRatingPromptProps) => {
-  const { summary, canRate, rate, isRating } = useSeriesLevelRating(seriesId);
-  // Rating needs a finished profile (owner decision 2026-10-09). UI gate ONLY:
-  // rate_series_level_p5_v1 does not check completeness yet (admin follow-up).
+  const { summary, canRate, rate, isRating, profileIncomplete } = useSeriesLevelRating(seriesId);
+  // Rating needs a finished profile (owner decision 2026-10-09). This UI gate is
+  // the fast path; rate_series_level_p5_v1 enforces it too (RAISE
+  // 'profile_incomplete'), and a refusal shows this same gate (profileIncomplete).
   // A check that is loading or failed does not block (fail-open), but a stashed
   // vote waits for the answer before it is sent.
   const profileGate = useContext(ProfileGateContext);
@@ -109,8 +114,11 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className, fallba
 
   const submit = async (level: SeriesLevel) => {
     try {
-      await rate(level);
-      setChanging(false);
+      // `held`: the server refused it for an incomplete profile and the vote is
+      // stashed; keep the tiles up so the gate below them is on screen.
+      const held = (await rate(level)) === 'held';
+      setChanging(held);
+      if (held && !(profileGate && profileGate !== 'loading')) toast.error(PROFILE_INCOMPLETE_FALLBACK);
     } catch (e) {
       // Show the tiles again so "try again" has something to tap.
       setChanging(true);
@@ -157,7 +165,10 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className, fallba
   const returnTo = `${location.pathname}${location.search}#${LEVEL_RATING_ANCHOR}`;
   const gate = gateFor(returnTo);
   // Signed out keeps the sign-in sheet; only a signed-in rater meets this gate.
-  const blocked = canRate && gate && !gate.allowed ? gate : null;
+  // The server's refusal maps to the SAME gate the UI shows for "incomplete".
+  const refusedGate =
+    profileIncomplete && profileGate && profileGate !== 'loading' ? profileGate.refusedGateFor(returnTo) : null;
+  const blocked = !canRate ? null : gate && !gate.allowed ? gate : refusedGate;
   const tileGateProps = blocked ? { 'aria-describedby': gateId } : {};
 
   const onPick = (level: SeriesLevel) => {

@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { getSupabase } from "@/integrations/supabase/getSupabase";
 // Both RPCs ship from the admin repo (20261109950000 / 20261109960000) and are
 // not in the generated types until the types regen lands -- hence rpcLoose.
 import { rpcLoose } from "@/integrations/supabase/rpcLoose";
+import { MY_PERSONA_STALE_MS, fetchMyPersonaId, myPersonaQueryKey } from "@/lib/myPersona";
 import {
   PROFILE_FIELDS,
   missingProfileFields,
@@ -24,10 +25,12 @@ export const profileCompletionQueryKey = (userId: string | null | undefined) =>
  * 2. `profile_complete_v1(<that id>)` -> the one definition of "complete".
  * 3. Only when incomplete: read that row's four fields to know which to ask for.
  */
-export const fetchProfileCompletion = async (): Promise<ProfileCompletion> => {
-  const resolved = await rpcLoose("_my_dancer_profile_id_v1");
-  if (resolved.error) throw resolved.error;
-  const profileId = typeof resolved.data === "string" && resolved.data ? resolved.data : null;
+export const fetchProfileCompletion = async (
+  // The shared resolver (lib/myPersona); the hook passes its cached form. A FAILED
+  // resolve throws here (status "error", fail-open), unlike a screen's read.
+  resolvePersona: () => Promise<string | null> = fetchMyPersonaId,
+): Promise<ProfileCompletion> => {
+  const profileId = await resolvePersona();
   if (!profileId) return { status: "no_profile", missing: [...PROFILE_FIELDS], profileId: null };
 
   const complete = await rpcLoose("profile_complete_v1", { p_person: profileId });
@@ -58,11 +61,19 @@ export type UseProfileCompletion = ProfileCompletion & {
  */
 export const useProfileCompletion = (opts: { paused?: boolean } = {}): UseProfileCompletion => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const signedIn = Boolean(user?.id) && !user?.is_anonymous;
 
   const query = useQuery({
     queryKey: profileCompletionQueryKey(user?.id),
-    queryFn: fetchProfileCompletion,
+    queryFn: () =>
+      fetchProfileCompletion(() =>
+        queryClient.fetchQuery({
+          queryKey: myPersonaQueryKey(user?.id),
+          queryFn: fetchMyPersonaId,
+          staleTime: MY_PERSONA_STALE_MS,
+        }),
+      ),
     enabled: signedIn && !opts.paused,
     // The app default (60 s, refetch on focus): other screens can complete a
     // profile without invalidating this, so it must not linger.
