@@ -67,8 +67,8 @@ const build = (extra: Record<string, unknown>) => buildEventPageModel({ snapshot
 
 describe('buildEventPageModel derived level', () => {
   it('passes derived level and vote count through, keeping stored level', () => {
-    const { identity } = build({ derivedLevel: 'advanced', levelVoteCount: 9 });
-    expect(identity.derivedLevel).toBe('advanced');
+    const { identity } = build({ derivedLevel: 'strong', levelVoteCount: 9 });
+    expect(identity.derivedLevel).toBe('strong');
     expect(identity.levelVoteCount).toBe(9);
     expect(identity.level).toBe('beginner');
   });

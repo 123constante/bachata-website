@@ -42,6 +42,7 @@ const Auth = lazyWithRetry(() => import("../pages/Auth"));
 // old /account URLs redirect into it (LegacyAccountRedirect, a tiny eager file).
 const OrganiserArea = lazyWithRetry(() => import("@/modules/organiser/shell/OrganiserRoutes"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
+const FinishProfile = lazyWithRetry(() => import("../pages/FinishProfile"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
 const ExportGuestEntry = lazyWithRetry(() => import("../pages/ExportGuestEntry"));
@@ -194,6 +195,12 @@ export const AnimatedRoutes = () => {
 
             <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
             <Route path="/auth/callback" element={<PageTransition><AuthCallback /></PageTransition>} />
+            {/* Finish your profile: shown once right after sign-in while
+                profile_complete_v1 is false, and linked from the reminder banner
+                and the party-rating gate (ProfileCompletionChrome). Its AuthGuard
+                lives INSIDE the lazy page chunk, like the organiser area: used
+                here, AuthGuard and its imports join the catchall first load. */}
+            <Route path="/finish-profile" element={<PageTransition><FinishProfile /></PageTransition>} />
 
             <Route path="/erase/:token" element={<PageTransition><EraseGuestEntry /></PageTransition>} />
             <Route path="/export/:token" element={<PageTransition><ExportGuestEntry /></PageTransition>} />

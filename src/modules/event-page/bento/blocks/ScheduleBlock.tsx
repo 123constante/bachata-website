@@ -166,6 +166,8 @@ type ScheduleBlockProps = {
   occurrenceCancelled?: boolean;
   /** The date's own start-end text from the page model ("8:00 pm - 11:30 pm"): the series time, or a date's override. Shown ONLY when there is no programme, in place of "Schedule coming soon" (launch walk S2). */
   fallbackTimeLabel?: string | null;
+  /** The date has no timed session (admin 20261109920000): say so instead of a time. */
+  timeToBeConfirmed?: boolean;
   /** The viewed date's London YYYY-MM-DD (the page's occurrence). Decides
    *  whether the one-off chip says "tonight"; falls back to the sessions' day. */
   occurrenceDate?: string | null;
@@ -1082,7 +1084,7 @@ const SingleRoomScheduleRow = ({
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fallbackTimeLabel, occurrenceDate }: ScheduleBlockProps) => {
+export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fallbackTimeLabel, timeToBeConfirmed, occurrenceDate }: ScheduleBlockProps) => {
   // londonDate is already in this route's first load; useLondonToday would add
   // two chunks to every /event view (perf ratchet). The chip renders after the
   // programme query, so a render-time read is fresh enough.
@@ -1276,7 +1278,16 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
               sessionCount: sessions.length,
               fallbackTimeLabel,
               cancelled: occurrenceCancelled,
+              timeToBeConfirmed,
             });
+            if (empty.kind === 'tbc') {
+              return (
+                <div className="py-2 text-center" data-testid="schedule-time-tbc">
+                  <div className="text-sm font-semibold" style={{ color: 'hsl(var(--bento-fg))' }}>{empty.text}</div>
+                  <div className="text-[12px]" style={{ color: SCHEDULE_TEXT_MUTED }}>{empty.hint}</div>
+                </div>
+              );
+            }
             return empty.kind === 'time' ? (
               <div
                 className="py-2 text-center text-sm font-semibold"

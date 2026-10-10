@@ -65,7 +65,7 @@ const homeOrg = (lifecycle: string, role: Role) => ({
   role: role === 'creator' ? 'owner' : 'manager', latest_decision: lifecycle === 'rejected' ? decision : null, series: [],
 });
 const entityRow = (lifecycle: string) => ({
-  id: 'org-1', name: 'Firstrun Org', avatar_url: null, bio: null, claimed_by: null, socials: null, city_id: 'c1',
+  id: 'org-1', name: 'Firstrun Org', avatar_url: null, bio: null, socials: null, city_id: 'c1',
   instagram: null, website: null, lifecycle_status: lifecycle,
   // As create_organiser_profile_v1 writes it; approval does not have to flip it for the test to hold.
   is_active: lifecycle === 'live' ? null : false,

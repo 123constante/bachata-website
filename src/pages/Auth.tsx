@@ -11,7 +11,15 @@ import { Label } from "@/components/ui/label";
 import { CityPicker } from "@/components/ui/city-picker";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-intent";
-import { OTP_NO_ACCOUNT_NOTICE, callbackErrorCopy, isOtpSignupDisabledError } from "@/lib/auth-otp-routing";
+import {
+  DANCE_ROLE_REQUIRED_ERROR,
+  OTP_NO_ACCOUNT_NOTICE,
+  SIGNUP_INVITE_ONLY_DESCRIPTION,
+  SIGNUP_INVITE_ONLY_TITLE,
+  callbackErrorCopy,
+  isOtpSignupDisabledError,
+  isSignupAllowlistRefusal,
+} from "@/lib/auth-otp-routing";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
 import MagicLinkConfirmation from "@/components/MagicLinkConfirmation";
@@ -20,6 +28,8 @@ import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFo
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { flags } from "@/lib/featureFlags";
 import { SIGNUP_STEPS, getNextStep, getPreviousStep, getStepIndex, type SignupStep } from "@/lib/auth-signup-resolver";
+import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
+import { DanceRolePicker } from "@/components/profile/DanceRolePicker";
 
 const ROLE_OPTIONS: { label: string; icon: typeof Sparkles; value: EntryRole; description: string }[] = [
   { label: "Dancer", icon: Sparkles, value: "dancer", description: "Find classes, partners, and events" },
@@ -45,6 +55,8 @@ type FieldErrors = {
   city?: string;
   role?: string;
   send?: string;
+  /** The send error is the allowlist refusal: show the WhatsApp contact beside it. */
+  sendInviteOnly?: boolean;
 };
 
 const SEND_ERROR_ID = "auth-send-error";
@@ -63,7 +75,7 @@ const AuthContent = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { formState, setFirstName, setCityId, setCityName, setRole, updateEmail } = useAuthForm();
+  const { formState, setFirstName, setCityId, setCityName, setRole, setDanceRole, updateEmail } = useAuthForm();
 
   const explicitReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
   // With organiser self-serve on, a sign-in with no destination lands on
@@ -83,7 +95,7 @@ const AuthContent = () => {
   const [manualStep, setManualStep] = useState<SignupStep | null>(null);
   const [lastStep, setLastStep] = useState<SignupStep>(() => getNextStep(formState));
 
-  const { email, firstName, cityId, cityName, role: selectedRole } = formState;
+  const { email, firstName, cityId, cityName, role: selectedRole, danceRole } = formState;
 
   const validRole = ROLE_OPTIONS.find((r) => r.value === userType)?.value;
   const selectedRoleValue = selectedRole && ROLE_OPTIONS.some((r) => r.value === selectedRole) ? selectedRole : null;
@@ -197,7 +209,7 @@ const AuthContent = () => {
       setManualStep("role");
       return;
     }
-    if (mode === "signup" && (!firstName.trim() || !cityId)) {
+    if (mode === "signup" && (!firstName.trim() || !cityId || !danceRole)) {
       setStep2Touched(true);
       setFieldErrors({});
       setManualStep("details");
@@ -245,7 +257,10 @@ const AuthContent = () => {
             user_type: selectedRole,
             first_name: firstName.trim(),
             city_id: cityId,
-            city: cityName // Retain for debugging/analytics, but city_id is primary
+            city: cityName, // Retain for debugging/analytics, but city_id is primary
+            // The stored value (Leader / Follower / Lead and Follow); /auth/callback
+            // writes it to the profile stub with the name and city.
+            dance_role: danceRole,
           } : undefined,
         },
       });
@@ -262,6 +277,12 @@ const AuthContent = () => {
       if (isSignupDisabled && !isCreateAccount) {
         trackAnalyticsEvent("auth_auto_switched_to_signup", { source: "auth_page", reason: "email_not_found" });
         switchToSignup(OTP_NO_ACCOUNT_NOTICE);
+        return;
+      }
+      // Production answers an unlisted sign-up with 403 "Sign-up is limited to
+      // approved organisers." -- say so instead of "try again".
+      if (isSignupAllowlistRefusal(error, isCreateAccount)) {
+        setFieldErrors({ send: `${SIGNUP_INVITE_ONLY_TITLE}. ${SIGNUP_INVITE_ONLY_DESCRIPTION}`, sendInviteOnly: true });
         return;
       }
       setFieldErrors({
@@ -341,7 +362,23 @@ const AuthContent = () => {
 
   const primaryButtonClass = "w-full min-h-[44px] rounded-full font-semibold";
   const emailErrorId = "auth-email-error";
-  const sendError = <FieldError id={SEND_ERROR_ID} message={fieldErrors.send} />;
+  // The invite-only refusal carries the same contact the AuthStepper toast uses.
+  const sendError = (
+    <>
+      <FieldError id={SEND_ERROR_ID} message={fieldErrors.send} />
+      {fieldErrors.send && fieldErrors.sendInviteOnly && (
+        <a
+          href={WHATSAPP_GET_LISTED_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-[44px] items-center text-sm font-medium text-primary underline underline-offset-2"
+        >
+          Message us on WhatsApp
+        </a>
+      )}
+    </>
+  );
+  const danceRoleMissing = step2Touched && !danceRole;
 
   const devTools = (children: ReactNode) =>
     import.meta.env.DEV ? (
@@ -610,7 +647,7 @@ const AuthContent = () => {
                 >
                   <CardHeader className="space-y-1 p-3 pb-3">
                     <CardTitle className="text-lg">A little about you</CardTitle>
-                    <p className="text-sm text-muted-foreground">Just two things and we&rsquo;re done.</p>
+                    <p className="text-sm text-muted-foreground">Three quick things and we&rsquo;re done.</p>
                   </CardHeader>
                   <CardContent className="space-y-3 p-3 pt-0">
                     <div className="space-y-2">
@@ -651,6 +688,18 @@ const AuthContent = () => {
                       <FieldError id="signup-city-error" message={step2Touched && !cityId ? "City is required." : undefined} />
                     </div>
 
+                    <div className="space-y-2">
+                      <p id="signup-dance-role-label" className="text-sm font-medium">Dance role</p>
+                      <DanceRolePicker
+                        labelId="signup-dance-role-label"
+                        errorId="signup-dance-role-error"
+                        invalid={danceRoleMissing}
+                        value={danceRole}
+                        onChange={(value) => setDanceRole(value)}
+                      />
+                      <FieldError id="signup-dance-role-error" message={danceRoleMissing ? DANCE_ROLE_REQUIRED_ERROR : undefined} />
+                    </div>
+
                     <div className="flex gap-2 pt-1">
                       <Button variant="ghost" className="flex-1 min-h-[44px] rounded-full text-muted-foreground" onClick={() => setManualStep(getPreviousStep(activeStep))}>
                         <ArrowLeft className="w-4 h-4 mr-1" aria-hidden="true" /> Back
@@ -659,7 +708,7 @@ const AuthContent = () => {
                         className="flex-1 min-h-[44px] rounded-full font-semibold"
                         onClick={() => {
                           setStep2Touched(true);
-                          if (firstName.trim() && cityId) setManualStep(null);
+                          if (firstName.trim() && cityId && danceRole) setManualStep(null);
                         }}
                       >
                         Continue

@@ -37,6 +37,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/account/o/*',
   '/auth',
   '/auth/callback',
+  '/finish-profile',
   '/erase/:token',
   '/export/:token',
   '/search',

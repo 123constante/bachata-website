@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchCurrentUserOrganiserIds } from '@/modules/organiser/shared/ownershipApi';
 import { cssUrl } from '@/lib/imageCdn';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,12 +26,16 @@ export const OrganiserDashboard = () => {
       if (!user) return;
 
       try {
-        // Fetch the organiser profile claimed by this user
-        const { data: entity } = await supabase
-          .from('organiser_profiles')
-          .select('id, name, city_id')
-          .eq('claimed_by', user.id)
-          .maybeSingle();
+        // The organiser this user is a member of (entity_members, via the RPC;
+        // the legacy claimed_by pointer is not read).
+        const organiserIds = await fetchCurrentUserOrganiserIds();
+        const { data: entity } = organiserIds[0]
+          ? await supabase
+              .from('organiser_profiles')
+              .select('id, name, city_id')
+              .eq('id', organiserIds[0])
+              .maybeSingle()
+          : { data: null };
 
         if (entity) {
           setOrganiser(entity);

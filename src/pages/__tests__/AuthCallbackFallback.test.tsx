@@ -9,8 +9,14 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
+
+// The sign-in paths take the QueryClient (the self-claim invalidates the persona caches).
+const WithQueryClient = ({ children }: { children: ReactNode }) => (
+  <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{children}</QueryClientProvider>
+);
 import { isRoutable } from '@/lib/__tests__/routeTable';
 
 const maybeSingle = vi.hoisted(() => vi.fn());
@@ -109,6 +115,7 @@ function mount(returnTo: string | null) {
         <Route path="*" element={<Landed />} />
       </Routes>
     </MemoryRouter>,
+    { wrapper: WithQueryClient },
   );
 }
 

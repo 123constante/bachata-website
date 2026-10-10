@@ -10,6 +10,11 @@ export default {
   appDirectory: "app",
   ssr: true,
   presets: [vercelPreset()],
+  // Vercel Hobby is over its CDN request cap and the default lazy discovery sends
+  // /__manifest?paths=... on client navigation -- every distinct path list is a
+  // distinct URL, so it cannot be cached. "initial" ships the whole route manifest
+  // as one immutable /assets file instead. See docs/ops/vercel-html-caching-2026-10-08.md.
+  routeDiscovery: { mode: "initial" },
   // Prerender only the listing routes that carry NO server-fetched content
   // (/parties, /classes — their EventCalendar is client-only/mount-gated), so a
   // static shell + meta() is the whole SEO payload and nothing server-rendered

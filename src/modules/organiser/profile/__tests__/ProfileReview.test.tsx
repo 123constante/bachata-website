@@ -31,8 +31,8 @@ const org = (lifecycle_status: string, extra: object = {}) => ({
   id: 'org-1', name: 'Ritmo', slug: 'ritmo', avatar_url: null, city_id: 'c1', lifecycle_status, role: 'owner', latest_decision: null, series: [], ...extra,
 });
 const ENTITY = {
-  id: 'org-1', name: 'Ritmo', avatar_url: null, bio: '', claimed_by: 'u1', socials: null, city_id: 'c1', instagram: null, website: null,
-  contact_email: 'me@x.example', contact_phone: null, organisation_category: null, founded_year: null, cities: { name: 'Leeds', slug: 'leeds' },
+  id: 'org-1', name: 'Ritmo', avatar_url: null, bio: '', socials: null, city_id: 'c1', instagram: null, website: null,
+  organisation_category: null, founded_year: null, cities: { name: 'Leeds', slug: 'leeds' },
 };
 
 function mount() {

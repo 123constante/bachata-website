@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchCurrentUserOrganiserIds } from '@/modules/organiser/shared/ownershipApi';
 import { hasDancerProfileBasics } from '@/lib/onboardingStatus';
+import { myPersonaIdForReads } from '@/lib/myPersona';
 import type { Json } from '@/integrations/supabase/types';
 
 export type UserRole = 'dancer' | 'organiser' | 'dj' | 'teacher' | 'videographer' | 'vendor';
@@ -23,6 +26,7 @@ export interface UserIds {
 
 export const useUserIds = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [ids, setIds] = useState<UserIds>({
     dancerId: null,
     dancerProfileComplete: false,
@@ -47,14 +51,20 @@ export const useUserIds = () => {
       }
 
       try {
-        // OWNERSHIP, not authorship -- the full note is on AuthGuard. `id` is
-        // also the only link `resolve_my_person_id_v1` accepts, so a row this
-        // hook reports is a row the write path can actually save.
-        const dancerRes = await supabase
-          .from('dancer_profiles')
-          .select('id, first_name, based_city_id')
-          .eq('id', user.id)
-          .maybeSingle();
+        // OWNERSHIP, not authorship -- the full note is on AuthGuard. The row is
+        // the RESOLVED persona (lib/myPersona, the shared react-query cache):
+        // the admin-made profile the account is linked to, else its own stub.
+        // `resolve_my_person_id_v1` resolves the same way on the write side, so
+        // a row this hook reports is a row the save path actually writes.
+        // No persona = no row (dancerId null), as before for a missing row.
+        const personaId = await myPersonaIdForReads(queryClient, user.id);
+        const dancerRes = personaId
+          ? await supabase
+              .from('dancer_profiles')
+              .select('id, first_name, based_city_id')
+              .eq('id', personaId)
+              .maybeSingle()
+          : { data: null };
 
         const dancer = dancerRes.data;
 
@@ -85,11 +95,11 @@ export const useUserIds = () => {
 
         // Parallel fetching for performance (dependent dancer fetch already resolved)
         const [organiserRes, teacherRes, videographerRes, vendorRes] = await Promise.all([
-          supabase
-            .from('organiser_profiles')
-            .select('id')
-            .eq('claimed_by', user.id)
-            .maybeSingle(),
+          // Membership comes from entity_members through the RPC (arc PR 3);
+          // organiser_profiles.claimed_by is a legacy duplicate and is not read.
+          fetchCurrentUserOrganiserIds()
+            .then((ids) => ({ data: ids[0] ? { id: ids[0] } : null }))
+            .catch(() => ({ data: null })),
 
           teacherRolePromise,
 
@@ -178,7 +188,7 @@ export const useUserIds = () => {
     };
 
     fetchIds();
-  }, [user, reloadIndex]);
+  }, [user, reloadIndex, queryClient]);
 
   return { ...ids, refetch };
 };

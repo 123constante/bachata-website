@@ -10,6 +10,7 @@ const baseState: AuthFormState = {
   cityName: "",
   otpCode: "",
   role: null,
+  danceRole: "",
 };
 
 describe("getNextStep", () => {
@@ -19,6 +20,7 @@ describe("getNextStep", () => {
       role: "dancer" as EntryRole,
       firstName: "Ana",
       cityId: "city-1",
+      danceRole: "Leader",
     };
 
     expect(getNextStep(state)).toBe("email");
@@ -30,6 +32,7 @@ describe("getNextStep", () => {
       role: "dancer" as EntryRole,
       firstName: "Ana",
       cityId: "city-1",
+      danceRole: "Leader",
       email: "not-an-email",
     };
 
@@ -41,6 +44,7 @@ describe("getNextStep", () => {
       ...baseState,
       role: "dancer" as EntryRole,
       cityId: "city-1",
+      danceRole: "Leader",
       email: "ana@example.com",
     };
 
@@ -58,12 +62,25 @@ describe("getNextStep", () => {
     expect(getNextStep(state)).toBe("details");
   });
 
+  it("returns details when the dance role is missing", () => {
+    const state: AuthFormState = {
+      ...baseState,
+      role: "dancer" as EntryRole,
+      firstName: "Ana",
+      cityId: "city-1",
+      email: "ana@example.com",
+    };
+
+    expect(getNextStep(state)).toBe("details");
+  });
+
   it("returns email when state is complete", () => {
     const state: AuthFormState = {
       ...baseState,
       role: "dancer" as EntryRole,
       firstName: "Ana",
       cityId: "city-1",
+      danceRole: "Leader",
       email: "ana@example.com",
     };
 
@@ -108,6 +125,7 @@ describe("getAuthStepperStage", () => {
       role: "dancer" as EntryRole,
       firstName: "Ana",
       cityId: "city-1",
+      danceRole: "Leader",
       email: "ana@example.com",
     };
 

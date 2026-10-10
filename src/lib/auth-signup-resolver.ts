@@ -10,7 +10,8 @@ export const SIGNUP_STEPS: SignupStep[] = ["role", "details", "email"];
 
 export const getNextStep = (formState: AuthFormState): SignupStep => {
   const needsRole = !formState.role;
-  const needsDetails = !formState.firstName.trim() || !formState.cityId.trim();
+  // The dance role is a sign-up detail too (profile_complete_v1 needs it to rate).
+  const needsDetails = !formState.firstName.trim() || !formState.cityId.trim() || !formState.danceRole;
   const needsEmail = !emailPattern.test(formState.email.trim());
 
   if (needsRole) return "role";
@@ -29,7 +30,8 @@ export const getAuthStepperStage = (input: {
 }): AuthStepperStage => {
   const { formState, intent, emailConfirmed, otpSent, skipEmailStep, requireSignupDetails } = input;
   const hasValidEmail = emailPattern.test(formState.email.trim());
-  const hasDetails = formState.firstName.trim().length > 0 && formState.cityId.trim().length > 0;
+  const hasDetails =
+    formState.firstName.trim().length > 0 && formState.cityId.trim().length > 0 && Boolean(formState.danceRole);
 
   if (otpSent) return "code";
 

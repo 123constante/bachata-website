@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   BadgeCheck,
@@ -28,6 +29,7 @@ import { getPhotoUrl, parsePartnerDetails, type PartnerDetailsValue } from '@/li
 import { buildFullName, normalizeDancerRecord, normalizeUserMetadata } from '@/lib/name-utils';
 import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
+import { myPersonaIdForReads } from '@/lib/myPersona';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
@@ -205,6 +207,7 @@ export const DancerDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { citySlug } = useCity();
 
   const [profile, setProfile] = useState<DancerProfile | null>(null);
@@ -375,12 +378,16 @@ export const DancerDashboard = () => {
 
       setIsLoading(true);
       try {
-        const { data: dancer } = await supabase
-          .from('dancer_profiles')
-          .select('id, first_name, surname, based_city_id, dance_role, website_url, avatar_url, nationality, instagram, facebook, whatsapp, cities!based_city_id(name), dancing_role_details(*)')
-          // OWNERSHIP, not authorship -- the full note is on AuthGuard.
-          .eq('id', user.id)
-          .maybeSingle();
+        // OWNERSHIP, not authorship -- the full note is on AuthGuard. The row is
+        // the RESOLVED persona (lib/myPersona); no persona = no row, as before.
+        const personaId = await myPersonaIdForReads(queryClient, user.id);
+        const { data: dancer } = personaId
+          ? await supabase
+              .from('dancer_profiles')
+              .select('id, first_name, surname, based_city_id, dance_role, website_url, avatar_url, nationality, instagram, facebook, whatsapp, cities!based_city_id(name), dancing_role_details(*)')
+              .eq('id', personaId)
+              .maybeSingle()
+          : { data: null };
 
         if (!dancer) {
           setProfile(null);
@@ -442,7 +449,7 @@ export const DancerDashboard = () => {
     };
 
     fetchData();
-  }, [citySlug, user]);
+  }, [citySlug, user, queryClient]);
 
   const hasIdentity = Boolean(profile?.first_name?.trim()) && Boolean(profile?.based_city_id);
   const hasMedia = Boolean(profile?.photo_url?.trim());

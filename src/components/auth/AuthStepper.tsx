@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle, Mail, MapPin, User } from "lucide-react";
 import { motion, useAnimationControls } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,12 +9,23 @@ import { trackAnalyticsEvent } from "@/lib/analytics";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
 import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-intent";
 import { getAuthStepperStage } from "@/lib/auth-signup-resolver";
+import {
+  DANCE_ROLE_REQUIRED_ERROR,
+  SIGNUP_INVITE_ONLY_DESCRIPTION,
+  SIGNUP_INVITE_ONLY_TITLE,
+  armPostLoginPrompt,
+  isFirstSignIn,
+  isSignupAllowlistRefusal,
+} from "@/lib/auth-otp-routing";
+import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
+import { claimAtSignIn, shouldArmFinishHop } from "@/lib/claimMyDancerProfile";
 import { useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { CityPicker } from "@/components/ui/city-picker";
+import { DanceRolePicker } from "@/components/profile/DanceRolePicker";
 
 type AuthIntent = "returning" | "new";
 
@@ -47,8 +59,9 @@ export const AuthStepper = ({
   requireSignupDetails = true,
 }: AuthStepperProps) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { formState, setFirstName, setSurname, setCityId, setCityName, setOtpCode, setRole, updateEmail } = useAuthForm();
+  const { formState, setFirstName, setSurname, setCityId, setCityName, setOtpCode, setRole, setDanceRole, updateEmail } = useAuthForm();
   const [intent, setIntent] = useState<AuthIntent | null>(initialIntent || (showIntentSelect ? null : "returning"));
   const rememberedEmail = (() => {
     try {
@@ -70,9 +83,10 @@ export const AuthStepper = ({
     code?: string;
     firstName?: string;
     city?: string;
+    danceRole?: string;
   }>({});
   const shakeControls = useAnimationControls();
-  const { email, firstName, surname, cityId, cityName, otpCode } = formState;
+  const { email, firstName, surname, cityId, cityName, otpCode, danceRole } = formState;
 
   const totalSteps = intent === "new" ? 3 : 2;
   const derivedStage = intent
@@ -127,6 +141,15 @@ export const AuthStepper = ({
     const { data } = await supabase.auth.getSession();
     const session = data.session;
     if (!session?.user) return;
+    // Self-claim as /auth/callback does, before anything reads the persona
+    // (every sign-in; never throws, never holds the sign-in past its timeout).
+    const claim = await claimAtSignIn(queryClient);
+    // Signed in without passing through /auth/callback: arm the one-time
+    // Finish-your-profile prompt here as the callback does (first sign-in only,
+    // and not on the sign-in that just linked an admin-made profile) -- unless
+    // the host continues in-page (onAuthenticated), which the hop would unmount
+    // mid-flow.
+    if (!onAuthenticated && shouldArmFinishHop({ firstSignIn: isFirstSignIn(session.user), claim })) armPostLoginPrompt();
 
     const currentType = session.user.user_metadata?.user_type;
     if (userType && currentType !== userType) {
@@ -224,6 +247,12 @@ export const AuthStepper = ({
       return;
     }
 
+    if (intent === "new" && requireSignupDetails && !danceRole) {
+      setFieldErrors((prev) => ({ ...prev, danceRole: DANCE_ROLE_REQUIRED_ERROR }));
+      triggerValidationFeedback();
+      return;
+    }
+
     setIsLoading(true);
     try {
       const redirectUrl = `${window.location.origin}/auth/callback?returnTo=${encodeURIComponent(resolvedReturnTo)}`;
@@ -240,6 +269,10 @@ export const AuthStepper = ({
             ...(intent === "new" && requireSignupDetails ? { first_name: trimmedFirstName } : {}),
             ...(intent === "new" && requireSignupDetails ? { surname: trimmedSurname || null } : {}),
             ...(intent === "new" && requireSignupDetails ? { city: cityName.trim() } : {}),
+            // The stored value. The emailed LINK goes through /auth/callback, which
+            // writes it to the stub; the typed-code path (handleVerifyCode) never
+            // did for name or city either, so /finish-profile asks for what is missing.
+            ...(intent === "new" && requireSignupDetails ? { dance_role: danceRole } : {}),
             ...(userType ? { user_type: userType } : {}),
           },
         },
@@ -254,6 +287,22 @@ export const AuthStepper = ({
         description: "Check your email for the short verification code.",
       });
     } catch (error: any) {
+      if (isSignupAllowlistRefusal(error, intent === "new")) {
+        toast({
+          title: SIGNUP_INVITE_ONLY_TITLE,
+          description: (
+            <>
+              {SIGNUP_INVITE_ONLY_DESCRIPTION}{" "}
+              <a href={WHATSAPP_GET_LISTED_URL} target="_blank" rel="noopener noreferrer" className="underline">
+                Message us on WhatsApp
+              </a>
+              .
+            </>
+          ),
+          variant: "destructive",
+        });
+        return;
+      }
       const message = String(error?.message || "");
       const isSignupDisabled = message.toLowerCase().includes("signups not allowed") || message.toLowerCase().includes("signup not allowed");
       toast({
@@ -540,6 +589,26 @@ export const AuthStepper = ({
               <p className="text-xs text-destructive">{fieldErrors.city}</p>
             )}
           </div>
+          <div className="space-y-2">
+            <p id="stepper-dance-role-label" className={fieldErrors.danceRole ? "text-sm font-medium text-destructive" : "text-sm font-medium"}>
+              Dance role
+            </p>
+            <DanceRolePicker
+              labelId="stepper-dance-role-label"
+              errorId="stepper-dance-role-error"
+              invalid={Boolean(fieldErrors.danceRole)}
+              value={danceRole}
+              onChange={(value) => {
+                setDanceRole(value);
+                if (fieldErrors.danceRole) {
+                  setFieldErrors((prev) => ({ ...prev, danceRole: undefined }));
+                }
+              }}
+            />
+            {fieldErrors.danceRole && (
+              <p id="stepper-dance-role-error" className="text-xs text-destructive">{fieldErrors.danceRole}</p>
+            )}
+          </div>
           <Button
             type="button"
             className="w-full h-9 text-xs"
@@ -560,7 +629,12 @@ export const AuthStepper = ({
                 triggerValidationFeedback();
                 return;
               }
-              setFieldErrors((prev) => ({ ...prev, firstName: undefined, city: undefined }));
+              if (!danceRole) {
+                setFieldErrors((prev) => ({ ...prev, danceRole: DANCE_ROLE_REQUIRED_ERROR }));
+                triggerValidationFeedback();
+                return;
+              }
+              setFieldErrors((prev) => ({ ...prev, firstName: undefined, city: undefined, danceRole: undefined }));
               setEmailConfirmed(true);
             }}
           >

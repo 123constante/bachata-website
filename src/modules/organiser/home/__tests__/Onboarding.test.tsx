@@ -18,9 +18,7 @@ vi.mock('@/integrations/supabase/client', () => ({
   supabase: { auth: { signInWithOtp: api.otp, verifyOtp: api.verify }, rpc: api.rpc },
 }));
 vi.mock('@/modules/organiser/shared/selfServeApi', async () => {
-  const hint = await vi.importActual<typeof import('@/modules/organiser/shared/claimHint')>('@/modules/organiser/shared/claimHint');
   return {
-    claimHint: hint.claimHint,
     searchClaimableOrganisers: api.search,
     claimOrganiser: api.claim,
     requestOrganiserAccess: api.request,
@@ -28,11 +26,13 @@ vi.mock('@/modules/organiser/shared/selfServeApi', async () => {
   };
 });
 
+import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
 import { OnboardingView } from '../onboarding/OnboardingView';
 import { instagramProblem, rowAction, websiteProblem } from '../onboarding/onboardingModel';
 
-const org = (id: string, name: string, contact_email: string | null, claimed_by: string | null = null) => ({
-  id, name, slug: id, avatar_url: null, city_id: null, claimed_by, contact_email,
+// A search row as searchClaimableOrganisers returns it: the database's hint, no address, no pointer.
+const org = (id: string, name: string, hint: ClaimHint | null) => ({
+  id, name, slug: id, avatar_url: null, city_id: null, hint,
 });
 
 function mount(props: Partial<Parameters<typeof OnboardingView>[0]> = {}) {
@@ -63,10 +63,10 @@ afterEach(cleanup);
 describe('search results', () => {
   it('offers Claim only when the listed email is yours, Ask to join otherwise, nothing for your own', async () => {
     api.search.mockResolvedValue([
-      org('a', 'Alpha', 'me@x.example'),
-      org('b', 'Beta', 'other@x.example'),
-      org('c', 'Gamma', null, 'someone'),
-      org('d', 'Delta', null, 'u1'),
+      org('a', 'Alpha', 'email_matches'),
+      org('b', 'Beta', 'email_differs'),
+      org('c', 'Gamma', 'managed'),
+      org('d', 'Delta', 'yours'),
     ]);
     mount();
     search('al');
@@ -79,8 +79,18 @@ describe('search results', () => {
     expect(rows[3].textContent).toContain('You already manage this');
   });
 
+  it('a row without a hint (the hint call failed) offers only Ask to join, and says nothing false', async () => {
+    api.search.mockResolvedValue([org('a', 'Alpha', null)]);
+    mount();
+    search('al');
+    const row = (await screen.findAllByTestId('onboarding-result'))[0];
+    expect(row.querySelector('[data-testid="onboarding-claim"]')).toBeNull();
+    expect(row.querySelector('[data-testid="onboarding-request"]')).toBeTruthy();
+    expect(row.textContent).not.toMatch(/contact email|already manage/i);
+  });
+
   it('shows Asked for an organiser with an open request', async () => {
-    api.search.mockResolvedValue([org('b', 'Beta', 'other@x.example')]);
+    api.search.mockResolvedValue([org('b', 'Beta', 'email_differs')]);
     mount({ requests: [{ requestId: 'r', organiserId: 'b', organiserName: 'Beta', status: 'open', createdAt: '2026-10-06T00:00:00Z', resolvedAt: null }] });
     search('be');
     expect(await screen.findByTestId('onboarding-requested')).toBeTruthy();
@@ -100,7 +110,7 @@ describe('search results', () => {
     mount();
     search('al');
     expect(await screen.findByTestId('onboarding-search-error')).toBeTruthy();
-    api.search.mockResolvedValue([org('a', 'Alpha', 'me@x.example')]);
+    api.search.mockResolvedValue([org('a', 'Alpha', 'email_matches')]);
     fireEvent.click(screen.getByTestId('onboarding-search-error-retry'));
     expect(await screen.findAllByTestId('onboarding-result')).toHaveLength(1);
   });
@@ -108,7 +118,7 @@ describe('search results', () => {
 
 describe('claim', () => {
   it('a proven session claims in one tap and confirms', async () => {
-    api.search.mockResolvedValue([org('a', 'Alpha', 'me@x.example')]);
+    api.search.mockResolvedValue([org('a', 'Alpha', 'email_matches')]);
     api.claim.mockResolvedValue({ already_claimed: false });
     const { onChanged } = mount();
     search('al');
@@ -120,7 +130,7 @@ describe('claim', () => {
   });
 
   it('an unproven session proves the mailbox with an emailed code, then claims', async () => {
-    api.search.mockResolvedValue([org('a', 'Alpha', 'me@x.example')]);
+    api.search.mockResolvedValue([org('a', 'Alpha', 'email_matches')]);
     api.otp.mockResolvedValue({ error: null });
     api.verify.mockResolvedValue({ error: null });
     api.claim.mockResolvedValue({ already_claimed: false });
@@ -139,7 +149,7 @@ describe('claim', () => {
   });
 
   it('a refused claim (email mismatch) turns into a request with the reason shown', async () => {
-    api.search.mockResolvedValue([org('a', 'Alpha', 'me@x.example')]);
+    api.search.mockResolvedValue([org('a', 'Alpha', 'email_matches')]);
     api.claim.mockRejectedValue({ message: 'email_mismatch' });
     mount();
     search('al');
@@ -152,7 +162,7 @@ describe('claim', () => {
 
 describe('ask to join', () => {
   it('sends the note and confirms', async () => {
-    api.search.mockResolvedValue([org('b', 'Beta', 'other@x.example')]);
+    api.search.mockResolvedValue([org('b', 'Beta', 'email_differs')]);
     api.request.mockResolvedValue({ request_id: 'r', status: 'open' });
     const { onChanged } = mount();
     search('be');
@@ -164,7 +174,7 @@ describe('ask to join', () => {
   });
 
   it('opens with focus on the note, not on Close, so the keyboard opens on the field', async () => {
-    api.search.mockResolvedValue([org('b', 'Beta', 'other@x.example')]);
+    api.search.mockResolvedValue([org('b', 'Beta', 'email_differs')]);
     mount();
     search('be');
     fireEvent.click(await screen.findByTestId('onboarding-request'));

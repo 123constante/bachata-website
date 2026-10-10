@@ -7,11 +7,9 @@ import { cn } from '@/lib/utils';
 // /event/:id, which splits it into its own chunk and adds a first-load request
 // to every event view. `satisfies` keeps the values locked to SeriesLevel.
 const LEVEL_OPTIONS = [
-  { value: 'beginner', label: 'Beginner' },
-  { value: 'improver', label: 'Improver' },
-  { value: 'intermediate', label: 'Intermediate' },
-  { value: 'advanced', label: 'Advanced' },
-  { value: 'open_level', label: 'Open level' },
+  { value: 'mostly_beginners', label: 'Mostly beginners' },
+  { value: 'mixed', label: 'Mixed' },
+  { value: 'strong', label: 'Strong' },
 ] as const satisfies ReadonlyArray<{ value: SeriesLevel; label: string }>;
 
 const LEVEL_VALUES = new Set<string>(LEVEL_OPTIONS.map((o) => o.value));

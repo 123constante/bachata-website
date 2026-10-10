@@ -41,7 +41,7 @@ const asEventLevel = (value: unknown): EventPageEventLevel => {
   return s === 'beginner' || s === 'intermediate' || s === 'advanced' || s === 'all_levels' ? s : null;
 };
 
-const DERIVED_LEVELS: readonly string[] = ['beginner', 'improver', 'intermediate', 'advanced', 'open_level'];
+const DERIVED_LEVELS: readonly string[] = ['mostly_beginners', 'mixed', 'strong'];
 const asDerivedLevel = (value: unknown): EventPageDerivedLevel | null => {
   const s = asString(value);
   return s !== null && DERIVED_LEVELS.includes(s) ? (s as EventPageDerivedLevel) : null;
@@ -110,6 +110,7 @@ const parseOccurrence = (value: unknown, label: string): EventPageSnapshotOccurr
     timezone: asEventTimeZone(raw.timezone),
     isCancelled: asBoolean(raw.is_cancelled),
     cancellationReasonLabel: asString(raw.cancellation_reason_label),
+    hasTimedSession: typeof raw.has_timed_session === 'boolean' ? raw.has_timed_session : null,
     isLive: asBoolean(raw.is_live),
     isPast: asBoolean(raw.is_past),
     isUpcoming: asBoolean(raw.is_upcoming),

@@ -20,6 +20,17 @@ describe('sanitizeReturnTo', () => {
     }
   });
 
+  // A screen's own "go back" target must not be the screen itself: Skip and
+  // Continue on /finish-profile?returnTo=/finish-profile went nowhere.
+  it('refuses the page the caller excludes, however it is spelled', () => {
+    for (const p of ['/finish-profile', '/finish-profile?returnTo=%2F', '/Finish-Profile#x', '/%66inish-profile', '/finish-profile/']) {
+      expect(sanitizeReturnTo(p, { exclude: '/finish-profile' }), p).toBeNull();
+    }
+    expect(sanitizeReturnTo('/finish-profile')).toBe('/finish-profile');
+    expect(sanitizeReturnTo('/finish-profile-help', { exclude: '/finish-profile' })).toBe('/finish-profile-help');
+    expect(sanitizeReturnTo('/auth', { exclude: '/finish-profile' })).toBeNull();
+  });
+
   it('refuses empty and malformed values', () => {
     expect(sanitizeReturnTo('')).toBeNull();
     expect(sanitizeReturnTo(null)).toBeNull();

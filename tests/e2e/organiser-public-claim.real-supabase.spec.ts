@@ -27,9 +27,11 @@ const REAL_KEY = !!SUPABASE_URL && !!SUPABASE_KEY && !SUPABASE_KEY.includes('e2e
 
 /**
  * The organiser under test is picked at RUN time from the public catalog: a
- * live, unclaimed organiser with no contact email (so a signed-in visitor can
- * only request access, the path exercised here). Pinning a slug would break
- * the moment that organiser is claimed, which is the very flow this ships.
+ * live organiser that organiser_ownership_v1 (anon-callable, reads
+ * entity_members only) reports as not managed, so a signed-in visitor is offered
+ * "Is this you?". Pinning a slug would break the moment that organiser is
+ * claimed, which is the very flow this ships. The claim hint is mocked in the
+ * tests (it needs a signed-in session), so no private column is read here.
  * E2E_PUBLIC_ORGANISER_SLUG overrides the pick.
  */
 async function pickOrganiserSlug(): Promise<string | null> {
@@ -37,16 +39,23 @@ async function pickOrganiserSlug(): Promise<string | null> {
   const client = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
   const { data } = await client
     .from('organiser_profiles')
-    .select('slug')
+    .select('id, slug')
     .eq('lifecycle_status', 'live')
-    .is('claimed_by', null)
-    .is('contact_email', null)
     .not('slug', 'is', null)
     .not('is_active', 'is', false)
     .order('name')
-    .limit(1)
-    .maybeSingle();
-  return data?.slug ?? null;
+    .limit(50);
+  for (const row of data ?? []) {
+    // A plain REST call: the RPC is not in the generated types yet, and a cast on the name is banned by check:rpc-typing.
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/organiser_ownership_v1`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'content-type': 'application/json' },
+      body: JSON.stringify({ p_organiser_id: row.id }),
+    });
+    const ownership = (await res.json().catch(() => null)) as { is_managed?: boolean } | null;
+    if (ownership?.is_managed === false) return row.slug;
+  }
+  return null;
 }
 
 const projectRef = (() => {
@@ -63,6 +72,24 @@ const b64url = (value: unknown) =>
   Buffer.from(JSON.stringify(value)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const json = (route: Route, body: unknown, status = 200) =>
   route.fulfill({ status, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+/**
+ * The ownership read and the claim hint, mocked: the page's ownership RPCs answer
+ * "unmanaged" and, for the signed-in visitor, the hint under test. Everything
+ * else is an empty list. Returns true when it answered.
+ */
+function answerOwnership(route: Route, path: string, hint: string | null): boolean {
+  if (path.endsWith('/rpc/organiser_ownership_v1')) {
+    void json(route, { is_managed: false, i_own_it: false, my_role: null });
+    return true;
+  }
+  if (path.endsWith('/rpc/organiser_claim_hints_v1')) {
+    const ids: string[] = route.request().postDataJSON?.()?.p_organiser_ids ?? [];
+    void json(route, hint ? ids.map((id) => ({ organiser_id: id, hint })) : []);
+    return true;
+  }
+  return false;
+}
 
 async function signIn(page: Page) {
   const user = { id: userId, aud: 'authenticated', role: 'authenticated', email, user_metadata: {} };
@@ -81,7 +108,7 @@ test.describe('public organiser page: ownership (W7)', () => {
     SLUG = (await pickOrganiserSlug()) ?? '';
   });
   test.beforeEach(() => {
-    test.skip(!SLUG, 'no live, unclaimed, email-less organiser in the public catalog to test against');
+    test.skip(!SLUG, 'no live, unmanaged organiser in the public catalog to test against');
   });
 
   for (const width of [390, 768, 1280]) {
@@ -89,7 +116,9 @@ test.describe('public organiser page: ownership (W7)', () => {
       await page.setViewportSize({ width, height: 900 });
       const rpcCalls: string[] = [];
       await page.route('**/rest/v1/rpc/**', (route) => {
-        rpcCalls.push(new URL(route.request().url()).pathname);
+        const path = new URL(route.request().url()).pathname;
+        rpcCalls.push(path);
+        if (answerOwnership(route, path, null)) return;
         return json(route, []);
       });
       await page.goto(`/organisers/${SLUG}`);
@@ -103,12 +132,13 @@ test.describe('public organiser page: ownership (W7)', () => {
     });
   }
 
-  test('signed in, no contact email on the listing: "Is this you?" requests access through the RPC', async ({ page }) => {
+  test('signed in, the database hint says no claim email on file: "Is this you?" requests access through the RPC', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 900 });
     await signIn(page);
     const requests: { id?: string; message?: string }[] = [];
     await page.route('**/rest/v1/rpc/**', (route) => {
       const path = new URL(route.request().url()).pathname;
+      if (answerOwnership(route, path, 'no_email')) return;
       if (path.endsWith('/rpc/request_organiser_access_v1')) {
         const body = route.request().postDataJSON?.() ?? {};
         requests.push({ id: body.p_organiser_id, message: body.p_message });

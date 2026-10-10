@@ -29,3 +29,9 @@ When in doubt, make it MORE compact. If a design feels too dense, Ricky will
 ask to loosen it — assume compact until told otherwise.
 
 Do NOT produce "Apple-style" generous-whitespace mobile layouts.
+
+## Approved exceptions
+
+- **Party rating card** (`src/components/LevelRatingPrompt.tsx`, event page):
+  follows the owner's mockup `party-rating-mockup.html` and is exempt from the
+  compact rules above. Approved 2026-10-09. Do not compact it without asking.

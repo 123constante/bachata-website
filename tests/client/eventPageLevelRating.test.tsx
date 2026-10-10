@@ -112,7 +112,11 @@ const h = vi.hoisted(() => {
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: h.fakeClient }));
 vi.mock('@/integrations/supabase/getSupabase', () => ({ getSupabase: async () => h.fakeClient }));
-vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: h.state.user, session: null, loading: false }) }));
+// The real module too: it also exports ProfileGateContext, which LevelRatingPrompt reads.
+vi.mock('@/hooks/useAuth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
+  useAuth: () => ({ user: h.state.user, session: null, loading: false }),
+}));
 
 import EventPage from '@/pages/EventPage';
 import { CityProvider } from '@/contexts/CityContext';
@@ -152,13 +156,13 @@ describe('/event/:slug level rating prompt (signed-in dancer)', () => {
   // Was `it.fails` (known bug 2026-10-06); flipped now the admin RPC accepts the public id.
   it('shows the rating chips on a live event page', async () => {
     mount();
-    expect(await screen.findByTestId('level-rating-beginner', {}, { timeout: 2000 })).toBeTruthy();
+    expect(await screen.findByTestId('level-rating-mostly_beginners', {}, { timeout: 2000 })).toBeTruthy();
   });
 
   it('shows the chips once the level RPC accepts the public (legacy) event id', async () => {
     h.state.levelRpcAcceptsLegacyId = true;
     mount();
-    expect(await screen.findByTestId('level-rating-beginner')).toBeTruthy();
-    expect(screen.getByLabelText('Rate the level of this event')).toBeTruthy();
+    expect(await screen.findByTestId('level-rating-mostly_beginners')).toBeTruthy();
+    expect(screen.getByLabelText('Rate the dancing level of this event')).toBeTruthy();
   });
 });

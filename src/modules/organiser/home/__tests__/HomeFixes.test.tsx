@@ -115,7 +115,7 @@ describe('Home line-up strip on the page', () => {
 describe('Ask to join confirmation', () => {
   it('is shown and announced once, not twice', async () => {
     api.home.mockResolvedValue({ today: TODAY, organisers: [] });
-    api.search.mockResolvedValue([{ id: 'b', name: 'Beta', slug: 'b', avatar_url: null, city_id: null, claimed_by: 'someone', contact_email: null }]);
+    api.search.mockResolvedValue([{ id: 'b', name: 'Beta', slug: 'b', avatar_url: null, city_id: null, hint: 'managed' }]);
     api.request.mockResolvedValue({ request_id: 'r', status: 'open' });
     mount();
     fireEvent.change(await screen.findByTestId('onboarding-search'), { target: { value: 'be' } });

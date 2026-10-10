@@ -50,7 +50,10 @@ export interface OrganiserProfileEditForm {
   instagram: string;
   facebook: string;
   website: string;
-  contact_phone: string;
+  /** Omitted (undefined) when the private contact read failed: a save must never blank a stored phone. */
+  contact_phone?: string;
+  /** organiser_profile_update_p5_v1's show_contact_publicly; omitted when undefined. */
+  show_contact_publicly?: boolean;
   organisation_category: string;
   founded_year: string;
 }
@@ -64,6 +67,9 @@ export const buildOrganiserProfilePatch = (
   const fb = form.facebook.trim() ? withNormalizedProtocol(form.facebook.trim(), 'facebook.com') : null;
   const web = form.website.trim() ? withNormalizedProtocol(form.website.trim()) : null;
   const year = form.founded_year.trim();
+  const contact: Record<string, unknown> = {};
+  if (form.contact_phone !== undefined) contact.contact_phone = form.contact_phone.trim() || null;
+  if (form.show_contact_publicly !== undefined) contact.show_contact_publicly = form.show_contact_publicly;
   return {
     name: form.name.trim(),
     avatar_url: form.avatar_url.trim() || null,
@@ -71,7 +77,7 @@ export const buildOrganiserProfilePatch = (
     city_id: cityId,
     instagram: ig,
     website: web,
-    contact_phone: form.contact_phone.trim() || null,
+    ...contact,
     organisation_category: form.organisation_category.trim() || null,
     founded_year: year && Number.isFinite(Number(year)) ? Number(year) : null,
     socials: { instagram: ig, website: web, facebook: fb },

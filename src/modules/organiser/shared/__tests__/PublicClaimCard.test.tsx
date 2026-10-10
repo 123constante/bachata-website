@@ -16,15 +16,30 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 
 import { ManagedBadge, PublicClaimCard } from '../components/PublicClaimCard';
+import { ownershipFacts, type OrganiserOwnership } from '../ownership';
+import type { ClaimHint } from '../claimHint';
 
-const ORG = { id: 'aaaaaaaa-0000-0000-0000-000000000001', name: 'Ritmo Bachata London', claimedBy: null, contactEmail: 'Diego@Ritmo.example' };
+const ORG = { id: 'aaaaaaaa-0000-0000-0000-000000000001', name: 'Ritmo Bachata London' };
+const UNMANAGED: OrganiserOwnership = { is_managed: false, i_own_it: false, my_role: null };
+const MANAGED: OrganiserOwnership = { is_managed: true, i_own_it: false, my_role: null };
 const ME = { id: 'me', email: 'diego@ritmo.example' };
 const refusal = (code: string) => ({ data: null, error: { message: code, code: 'P0001' } });
 
-type Over = Partial<Parameters<typeof PublicClaimCard>[0]>;
-const props = (over: Over = {}, onChanged = vi.fn()) => ({
-  enabled: true, organiser: ORG, user: ME, mailboxProven: true, returnTo: '/organisers/ritmo', onChanged, ...over,
-});
+// The card receives the page's ONE ownership decision (ownershipFacts) plus the hint.
+type Over = Partial<Parameters<typeof PublicClaimCard>[0]> & {
+  flagOn?: boolean;
+  ownership?: OrganiserOwnership | null;
+  hintIs?: ClaimHint | null;
+};
+const props = (over: Over = {}, onChanged = vi.fn()) => {
+  const { flagOn = true, ownership = UNMANAGED, hintIs = 'email_matches', ...rest } = over;
+  const user = 'user' in rest ? rest.user : ME;
+  return {
+    facts: ownershipFacts({ flagOn, signedIn: !!user, ownership, hint: user ? hintIs : null }),
+    hint: user ? hintIs : null,
+    organiser: ORG, user, mailboxProven: true, returnTo: '/organisers/ritmo', onChanged, ...rest,
+  };
+};
 function mount(over: Over = {}) {
   const onChanged = vi.fn();
   const view = render(<MemoryRouter><PublicClaimCard {...props(over, onChanged)} /></MemoryRouter>);
@@ -39,12 +54,12 @@ afterEach(cleanup);
 
 describe('PublicClaimCard', () => {
   it('renders nothing when the flag is off, even for a matching signed-in user', () => {
-    const { container } = mount({ enabled: false });
+    const { container } = mount({ flagOn: false });
     expect(container.innerHTML).toBe('');
   });
 
   it('renders nothing for a claimed organiser (the badge is the only ownership signal)', () => {
-    const { container } = mount({ organiser: { ...ORG, claimedBy: 'owner-1' } });
+    const { container } = mount({ ownership: MANAGED, hintIs: 'managed' });
     expect(container.innerHTML).toBe('');
     expect(screen.queryByTestId('public-claim-open')).toBeNull();
   });
@@ -98,7 +113,7 @@ describe('PublicClaimCard', () => {
     expect(screen.getByTestId('public-claim-error').textContent).toContain('already manages this organiser');
     expect(onChanged.mock.calls).toEqual([['stale']]);
     // The page refetches: the row now reads as managed. The open request panel survives...
-    rerender(<MemoryRouter><PublicClaimCard {...props({ organiser: { ...ORG, claimedBy: 'owner-1' } }, onChanged)} /></MemoryRouter>);
+    rerender(<MemoryRouter><PublicClaimCard {...props({ ownership: MANAGED, hintIs: 'managed' }, onChanged)} /></MemoryRouter>);
     expect(screen.getByTestId('public-request-panel')).toBeTruthy();
     // ...and closing it leaves only the badge (the card is gone).
     fireEvent.click(screen.getByText('Cancel'));
@@ -115,7 +130,7 @@ describe('PublicClaimCard', () => {
   });
 
   it('the ghost Cancel and Not me buttons are 44px tall (this card sits outside the tap-44 wrapper)', () => {
-    mount({ organiser: { ...ORG, contactEmail: 'priya@latino.example' } });
+    mount({ hintIs: 'email_differs' });
     fireEvent.click(screen.getByTestId('public-claim-open'));
     expect(screen.getByText('Cancel').className).toContain('min-h-[44px]');
     cleanup();
@@ -126,7 +141,7 @@ describe('PublicClaimCard', () => {
 
   it('email differs: goes straight to request access and sends the note', async () => {
     rpc.mockResolvedValue({ data: { request_id: 'r1', status: 'open' }, error: null });
-    const { onChanged } = mount({ organiser: { ...ORG, contactEmail: 'priya@latino.example' } });
+    const { onChanged } = mount({ hintIs: 'email_differs' });
     fireEvent.click(screen.getByTestId('public-claim-open'));
     expect(screen.queryByTestId('public-claim-panel')).toBeNull();
     expect(screen.getByTestId('public-request-panel').textContent).toContain('different contact email');
@@ -159,14 +174,14 @@ describe('PublicClaimCard', () => {
   });
 
   it('no contact email: says so and offers request access', () => {
-    mount({ organiser: { ...ORG, contactEmail: null } });
+    mount({ hintIs: 'no_email' });
     fireEvent.click(screen.getByTestId('public-claim-open'));
     expect(screen.getByTestId('public-request-panel').textContent).toContain('no contact email');
   });
 
   it('a duplicate request reads as "already asked", never as raw server text', async () => {
     rpc.mockResolvedValue(refusal('request_already_open'));
-    mount({ organiser: { ...ORG, contactEmail: null } });
+    mount({ hintIs: 'no_email' });
     fireEvent.click(screen.getByTestId('public-claim-open'));
     fireEvent.click(screen.getByTestId('public-request-send'));
     await waitFor(() => expect(screen.getByTestId('public-claim-error')).toBeTruthy());

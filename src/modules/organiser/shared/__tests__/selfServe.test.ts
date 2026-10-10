@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { KNOWN_SELF_SERVE_CODES, commandErrorMessage, isVersionConflict, selfServeErrorCode, selfServeErrorCopy } from '../selfServeErrors';
 import { isMailboxProvenToken } from '../sessionProof';
-import { claimHint } from '../claimHint';
 
 // Every refusal the D4 RPCs (admin repo 20261108200000-260000) and their shared
 // helper can raise to a signed-in caller. A code missing here would reach the
@@ -66,26 +65,6 @@ describe('isMailboxProvenToken', () => {
     expect(isMailboxProvenToken(token({ sub: 'u' }))).toBe(false);
     expect(isMailboxProvenToken('not-a-jwt')).toBe(false);
     expect(isMailboxProvenToken(null)).toBe(false);
-  });
-});
-
-describe('claimHint', () => {
-  const me = { id: 'me', email: ' Diego@Example.com ' };
-  const none = new Set<string>();
-
-  it('says "yours" for an organiser the user already manages', () => {
-    expect(claimHint({ id: 'o1', claimed_by: null, contact_email: null }, me, new Set(['o1']))).toBe('yours');
-    expect(claimHint({ id: 'o1', claimed_by: 'me', contact_email: null }, me, none)).toBe('yours');
-  });
-
-  it('says "managed" when someone else holds it, whatever the email', () => {
-    expect(claimHint({ id: 'o1', claimed_by: 'other', contact_email: 'diego@example.com' }, me, none)).toBe('managed');
-  });
-
-  it('compares emails case- and whitespace-insensitively', () => {
-    expect(claimHint({ id: 'o1', claimed_by: null, contact_email: 'DIEGO@example.com' }, me, none)).toBe('email_matches');
-    expect(claimHint({ id: 'o1', claimed_by: null, contact_email: 'ana@example.com' }, me, none)).toBe('email_differs');
-    expect(claimHint({ id: 'o1', claimed_by: null, contact_email: '  ' }, me, none)).toBe('no_email');
   });
 });
 

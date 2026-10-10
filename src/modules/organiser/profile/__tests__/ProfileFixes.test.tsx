@@ -30,9 +30,9 @@ import ProfilePage from '../index';
 
 const ORG = { id: 'org-1', name: 'Ritmo', slug: 'ritmo', avatar_url: null, city_id: 'c1', lifecycle_status: 'live', role: 'owner', latest_decision: null, series: [] };
 const ENTITY = {
-  id: 'org-1', name: 'Ritmo', avatar_url: null, bio: 'Salsa and bachata in Leeds', claimed_by: 'u1',
+  id: 'org-1', name: 'Ritmo', avatar_url: null, bio: 'Salsa and bachata in Leeds',
   socials: { facebook: 'ritmofb' }, city_id: 'c1', instagram: 'https://instagram.com/ritmoleeds', website: null,
-  contact_email: 'me@x.example', contact_phone: '0113 000', organisation_category: 'school', founded_year: 2015,
+  organisation_category: 'school', founded_year: 2015,
   cities: { name: 'Leeds', slug: 'leeds' },
 };
 
