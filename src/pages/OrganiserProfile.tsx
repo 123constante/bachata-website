@@ -1,14 +1,23 @@
 ﻿import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { flags } from '@/lib/featureFlags';
 import { ManagedBadge, PublicClaimCard } from '@/modules/organiser/shared/components/PublicClaimCard';
-import { publicClaimKind } from '@/modules/organiser/shared/publicClaim';
-import { myAccessRequestsQueryKey, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
+import { ownershipFacts } from '@/modules/organiser/shared/ownership';
+import {
+  NO_PUBLIC_CONTACT,
+  fetchContactSettings,
+  fetchOrganiserOwnership,
+  fetchPublicContact,
+  organiserContactSettingsQueryKey,
+  organiserOwnershipQueryKey,
+  organiserPublicContactQueryKey,
+} from '@/modules/organiser/shared/ownershipApi';
+import { fetchClaimHint, myAccessRequestsQueryKey, organiserClaimHintQueryKey, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { isMailboxProvenToken } from '@/modules/organiser/shared/sessionProof';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Pencil, Loader2, ChevronLeft } from 'lucide-react';
@@ -99,15 +108,12 @@ type EntityProfile = {
   name: string;
   avatar_url: string | null;
   bio: string | null;
-  claimed_by: string | null;
   socials: Record<string, string | undefined> | null;
   is_verified: boolean | null;
   city_id: string | null;
   instagram: string | null;
   facebook: string | null;
   website: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
   organisation_category: string | null;
   founded_year: number | null;
   cities: { name: string; slug: string } | null;
@@ -633,9 +639,19 @@ const OrganiserProfile = () => {
     website: '',
     contact_email: '',
     contact_phone: '',
+    show_contact_publicly: false,
     organisation_category: '',
     founded_year: '',
   });
+  // The contact fields come from get_organiser_contact_settings_v1 when the edit
+  // form opens; 'failed' disables them (with a reason) and keeps them out of the save.
+  const [contactState, setContactState] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
+  const openedFormRef = useRef<string | null>(null);
+  // Per-open token: a contact-settings read applies only if no newer open (or a close) happened since.
+  const editOpenTokenRef = useRef(0);
+  useEffect(() => {
+    if (!isEditOpen) editOpenTokenRef.current += 1;
+  }, [isEditOpen]);
 
   const { data: entity, isLoading, error } = useQuery({
     queryKey: organiserEntityQueryKey(id),
@@ -643,6 +659,37 @@ const OrganiserProfile = () => {
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Ownership comes from entity_members through organiser_ownership_v1 (never the
+  // legacy claimed_by pointer). Skipped for a signed-out visitor with the
+  // self-serve flag off: nothing on the page would use it. An RPC error is
+  // "unknown" (null), which shows nothing rather than guessing.
+  const userId = user?.id;
+  const { data: ownership = null } = useQuery({
+    queryKey: organiserOwnershipQueryKey(id, userId),
+    queryFn: () => fetchOrganiserOwnership(id as string),
+    enabled: !!id && !!entity && (!!userId || flags.organiserSelfServe),
+    staleTime: 60 * 1000,
+  });
+  // The claim hint is signed-in only (anon is refused by the RPC).
+  const { data: claimHint = null, isLoading: claimHintLoading } = useQuery({
+    queryKey: organiserClaimHintQueryKey(id, userId),
+    queryFn: () => fetchClaimHint(id as string),
+    enabled: !!id && !!entity && !!userId && flags.organiserSelfServe,
+    staleTime: 60 * 1000,
+  });
+  // The WhatsApp / email buttons: both null unless the organiser is live AND
+  // show_contact_publicly. An error degrades to "no contact shown".
+  const { data: publicContact = NO_PUBLIC_CONTACT, isLoading: publicContactLoading } = useQuery({
+    queryKey: organiserPublicContactQueryKey(id),
+    queryFn: () => fetchPublicContact(id as string),
+    enabled: !!id && !!entity,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // The ONE place that turns those answers into badge / card / claim button /
+  // edit access (ownership.ts); nothing below re-derives any of them.
+  const facts = ownershipFacts({ flagOn: flags.organiserSelfServe, signedIn: !!user, ownership, hint: claimHint, hintLoading: claimHintLoading });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { rgb: [cr, cg, cb], ready: heroColourReady } = useAverageColor((entity as any)?.avatar_url ?? null);
@@ -807,11 +854,11 @@ const OrganiserProfile = () => {
   // below). The direct `claimed_by` UPDATE that stood here is retired: D4's
   // contract pairs every claimed_by with an entity_members owner row, which
   // only the RPC writes.
-  const openEditModal = () => {
-    if (!entity) return;
+  const openEditModal = async () => {
+    if (!entity || !id || !facts.canEdit) return;
     const ep = entity as EntityProfile;
     const socials = ep.socials as { instagram?: string; website?: string; facebook?: string } | null;
-    setEditForm({
+    const base = {
       name: entity.name || '',
       avatar_url: entity.avatar_url || '',
       bio: entity.bio || '',
@@ -819,19 +866,51 @@ const OrganiserProfile = () => {
       instagram: ep.instagram || socials?.instagram || '',
       facebook: ep.facebook || socials?.facebook || '',
       website: ep.website || socials?.website || '',
-      contact_email: ep.contact_email || '',
-      contact_phone: ep.contact_phone || '',
       organisation_category: ep.organisation_category || '',
       founded_year: ep.founded_year ? String(ep.founded_year) : '',
-    });
+    };
+    // Contact details are private columns: owner / manager / admin read them through
+    // get_organiser_contact_settings_v1, fetched fresh each time the form opens.
+    const openToken = ++editOpenTokenRef.current;
+    setContactState('loading');
+    setEditForm({ ...base, contact_email: '', contact_phone: '', show_contact_publicly: false });
+    openedFormRef.current = null;
     setIsEditOpen(true);
+    try {
+      const settings = await queryClient.fetchQuery({
+        queryKey: organiserContactSettingsQueryKey(id, userId),
+        queryFn: () => fetchContactSettings(id),
+        staleTime: 0,
+      });
+      if (openToken !== editOpenTokenRef.current) return;
+      const loaded = {
+        ...base,
+        contact_email: settings.contact_email ?? '',
+        contact_phone: settings.contact_phone ?? '',
+        show_contact_publicly: settings.show_contact_publicly,
+      };
+      setEditForm(loaded);
+      openedFormRef.current = JSON.stringify(loaded);
+      setContactState('ready');
+    } catch {
+      if (openToken !== editOpenTokenRef.current) return;
+      openedFormRef.current = JSON.stringify({ ...base, contact_email: '', contact_phone: '', show_contact_publicly: false });
+      setContactState('failed');
+    }
   };
 
   const handleSave = async () => {
-    if (!id || !user?.id) return;
+    if (!id || !user?.id || !facts.canEdit) return;
     const city = normalizeRequiredCity(editForm.city);
     if (!hasRequiredCity(city)) {
       toast({ title: 'City is required', description: 'Please add city before saving.', variant: 'destructive' });
+      return;
+    }
+    if (contactState === 'loading') return;
+    // Saving an untouched form sends nothing.
+    if (openedFormRef.current !== null && JSON.stringify(editForm) === openedFormRef.current) {
+      toast({ title: 'Nothing to save', description: 'You haven\u2019t changed anything.' });
+      setIsEditOpen(false);
       return;
     }
     if (!isValidPhone(editForm.contact_phone)) {
@@ -857,11 +936,25 @@ const OrganiserProfile = () => {
         toast({ title: 'Select a valid city', description: 'Please choose city from the city picker list.', variant: 'destructive' });
         return;
       }
-      const { error } = await saveOrganiserProfile(supabase, id, editForm, canonicalCity.cityId);
+      // Contact fields that could not be loaded are left out of the patch, so a
+      // failed read can never blank a stored phone or flip the flag.
+      const contactReady = contactState === 'ready';
+      const { error } = await saveOrganiserProfile(
+        supabase,
+        id,
+        {
+          ...editForm,
+          contact_phone: contactReady ? editForm.contact_phone : undefined,
+          show_contact_publicly: contactReady ? editForm.show_contact_publicly : undefined,
+        },
+        canonicalCity.cityId,
+      );
       if (error) throw error;
       toast({ title: 'Profile updated' });
       setIsEditOpen(false);
       queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(id) });
+      queryClient.invalidateQueries({ queryKey: organiserPublicContactQueryKey(id) });
+      queryClient.invalidateQueries({ queryKey: organiserContactSettingsQueryKey(id, userId) });
     } catch (err) {
       console.error('Save error:', err);
       toast({ ...organiserProfileSaveErrorToast(err), variant: 'destructive' });
@@ -972,8 +1065,8 @@ const OrganiserProfile = () => {
   const instagramRaw     = ep.instagram  || socials?.instagram  || null;
   const websiteRaw       = ep.website    || socials?.website    || null;
   const facebookRaw      = ep.facebook   || socials?.facebook   || null;
-  const contactPhone     = ep.contact_phone || null;
-  const contactEmail     = ep.contact_email || null;
+  const contactPhone     = publicContact.contact_phone;
+  const contactEmail     = publicContact.contact_email;
   const organisationCategory = ep.organisation_category || null;
 
   // Reuses withNormalizedProtocol (defined above with the validators) so the
@@ -1002,23 +1095,18 @@ const OrganiserProfile = () => {
 
   const hasContact = !!(instagramUrl || facebookUrl || websiteUrl || whatsappUrl || mailtoHref);
 
-  const isClaimedByUser = entity.claimed_by === user?.id;
   const emptyKind = organiserEmptyState({
-    loading: allEventsLoading || futureOccsLoading || pastOccsLoading || teamMembersLoading,
+    loading: allEventsLoading || futureOccsLoading || pastOccsLoading || teamMembersLoading || publicContactLoading,
     upcoming: upcomingListItems.length,
     past: pastEvents.length,
     hasBio: !!entity.bio?.trim(),
     hasContact,
     team: orderedTeam.length,
-    isOwner: isClaimedByUser,
+    isOwner: facts.isOwner,
   });
-  // W7: "Managed by the organiser" once claimed (D4 keeps claimed_by paired
-  // with an owner member), and the "Is this you?" card while unclaimed. Both
-  // behind the self-serve flag, off in production until launch.
-  const claimOrganiserInput = { id: entity.id, name: entity.name, claimedBy: entity.claimed_by, contactEmail: ep.contact_email };
+  // W7: the badge and the "Is this you?" card come from `facts` (computed above,
+  // behind the self-serve flag, off in production until launch).
   const claimUser = user ? { id: user.id, email: user.email } : null;
-  const claimKind = publicClaimKind(flags.organiserSelfServe, claimOrganiserInput, claimUser);
-  const showManagedBadge = claimKind === 'managed';
   const publicPath = `/organisers/${resolved.slug ?? routeParam ?? ''}`;
 
   const cityName = entity.cities?.name ?? ep.city ?? null;
@@ -1159,8 +1247,8 @@ const OrganiserProfile = () => {
           </div>
 
           <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, display: 'flex', gap: 8 }}>
-            {isClaimedByUser && (
-              <button onClick={openEditModal} aria-label="Edit profile" style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(12,10,13,0.5)', backdropFilter: 'blur(6px)', border: '1px solid rgba(246,241,234,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.cream, cursor: 'pointer' }}>
+            {facts.canEdit && (
+              <button onClick={() => void openEditModal()} aria-label="Edit profile" style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(12,10,13,0.5)', backdropFilter: 'blur(6px)', border: '1px solid rgba(246,241,234,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.cream, cursor: 'pointer' }}>
                 <Pencil className="w-4 h-4" />
               </button>
             )}
@@ -1172,7 +1260,7 @@ const OrganiserProfile = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
               {metaLine && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
               {ep.is_verified && <VerifiedBadge size="sm" />}
-              {showManagedBadge && <ManagedBadge size="sm" />}
+              {facts.showBadge && <ManagedBadge size="sm" />}
             </div>
             {/* Static gold gradient, no shimmer sweep -- that mechanical
                 highlight-scroll is the generic premium-SaaS hero tell; the
@@ -1199,7 +1287,7 @@ const OrganiserProfile = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
                   {metaLine && <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
                   {ep.is_verified && <VerifiedBadge size="md" />}
-                  {showManagedBadge && <ManagedBadge size="md" />}
+                  {facts.showBadge && <ManagedBadge size="md" />}
                 </div>
                 <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(48px,5vw,78px)', lineHeight: 0.95, margin: '0 0 12px', letterSpacing: '-0.01em', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
                   {entity.name}
@@ -1260,15 +1348,20 @@ const OrganiserProfile = () => {
             signed out it offers sign-in back to this page. The RPCs decide. */}
         <PublicClaimCard
           key={entity.id}
-          enabled={flags.organiserSelfServe}
-          organiser={claimOrganiserInput}
+          facts={facts}
+          hint={claimHint}
+          organiser={{ id: entity.id, name: entity.name }}
           user={claimUser}
           mailboxProven={mailboxProven}
           returnTo={publicPath}
           onChanged={(outcome) => {
             // The badge reads the refetched row; /account's home and request
             // lists are cached under the user and must not show the old state.
-            if (outcome !== 'requested') void queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(id) });
+            if (outcome !== 'requested') {
+              void queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(id) });
+              void queryClient.invalidateQueries({ queryKey: organiserOwnershipQueryKey(id, userId) });
+              void queryClient.invalidateQueries({ queryKey: organiserClaimHintQueryKey(id, userId) });
+            }
             if (outcome === 'claimed') void queryClient.invalidateQueries({ queryKey: organiserHomeQueryKey(user?.id) });
             if (outcome !== 'stale') void queryClient.invalidateQueries({ queryKey: myAccessRequestsQueryKey(user?.id) });
           }}
@@ -1485,16 +1578,43 @@ const OrganiserProfile = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="contact_email">Contact email</Label>
-              <Input id="contact_email" type="email" value={editForm.contact_email} readOnly disabled placeholder="Set when the profile was claimed" />
+              <Input id="contact_email" type="email" value={editForm.contact_email} readOnly disabled placeholder={contactState === 'loading' ? 'Loading\u2026' : 'Set when the profile was claimed'} />
               <p className="text-xs text-muted-foreground">The contact email is set when you claim the profile and can only be changed by an admin.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="contact_phone">Contact phone / WhatsApp</Label>
-              <Input id="contact_phone" type="tel" value={editForm.contact_phone} onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })} placeholder="+44 7700 900000" />
+              <Input id="contact_phone" type="tel" value={editForm.contact_phone} disabled={contactState !== 'ready'} onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })} placeholder="+44 7700 900000" />
+              {contactState === 'failed' && (
+                <p className="text-xs text-destructive" role="alert" data-testid="contact-load-failed">
+                  Your contact details didn&rsquo;t load, so they&rsquo;re locked and won&rsquo;t be changed. Close this form and open it again to retry.
+                </p>
+              )}
+            </div>
+            <div className="flex items-start gap-3 rounded-md border p-3" data-testid="show-contact-publicly">
+              <input
+                id="show_contact_publicly"
+                type="checkbox"
+                className="mt-0.5 h-5 w-5 shrink-0"
+                checked={editForm.show_contact_publicly}
+                disabled={contactState !== 'ready'}
+                onChange={(e) => setEditForm({ ...editForm, show_contact_publicly: e.target.checked })}
+              />
+              <div className="space-y-1">
+                <Label htmlFor="show_contact_publicly">Show my contact details on my public page</Label>
+                <p className="text-xs text-muted-foreground">
+                  {editForm.show_contact_publicly
+                    ? 'On: anyone can see your contact email and phone as email and WhatsApp buttons on this page.'
+                    : 'Currently off: your email and phone are hidden, so visitors see no email or WhatsApp button. Turn it on to show both on this page.'}
+                </p>
+                {contactState === 'ready' && !editForm.contact_email && !editForm.contact_phone && (
+                  <p className="text-xs text-muted-foreground">You haven&rsquo;t added a phone or email yet, so there is nothing to show. Add a phone above first.</p>
+                )}
+                {contactState === 'failed' && <p className="text-xs text-muted-foreground">Locked because your contact details didn&rsquo;t load.</p>}
+              </div>
             </div>
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={isSaving}>Cancel</Button>
-              <Button onClick={handleSave} disabled={isSaving || !editForm.name.trim()}>
+              <Button onClick={handleSave} disabled={isSaving || contactState === 'loading' || !editForm.name.trim()}>
                 {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Save
               </Button>

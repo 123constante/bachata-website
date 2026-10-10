@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { NOT_DEACTIVATED } from '@/lib/notDeactivatedFilter';
-import type { ClaimCandidate } from './claimHint';
+import type { ClaimCandidate, ClaimHint, ClaimableOrganiser } from './claimHint';
 import type { HomeSeriesFull } from './homeModel';
 import type { Json } from '@/integrations/supabase/types';
 import { parseDateDetail, parseWorkspace, type DateDetail, type SeriesWorkspace } from './seriesModel';
@@ -15,7 +15,7 @@ import {
   type TeamMember,
 } from './teamModel';
 
-export { claimHint, type ClaimHint } from './claimHint';
+export type { ClaimHint } from './claimHint';
 
 /**
  * The Website's organiser self-serve reads and writes (Lever 2, W1). Every
@@ -65,7 +65,7 @@ export interface MyAccessRequest {
   resolvedAt: string | null;
 }
 
-export type { ClaimCandidate };
+export type { ClaimCandidate, ClaimableOrganiser };
 
 /** Prefix of every organiser-home query: what a write to an organiser or its series invalidates. */
 export const ORGANISER_HOME_KEY = ['organiser-home'] as const;
@@ -100,22 +100,70 @@ export async function fetchMyAccessRequests(): Promise<MyAccessRequest[]> {
   }));
 }
 
+export const organiserClaimHintQueryKey = (organiserId: string | undefined, userId: string | undefined) =>
+  ['organiser-claim-hint', organiserId, userId ?? null] as const;
+
+const CLAIM_HINTS: readonly ClaimHint[] = ['yours', 'managed', 'no_email', 'email_matches', 'email_differs'];
+
+/**
+ * organiser_claim_hints_v1's jsonb array -> Map keyed by organiser id. Lives here
+ * because this file is the one place allowed to read the `organiser_id` key
+ * (scripts/lint-runtime-architecture.mjs); unknown hints and malformed rows drop.
+ */
+export function parseClaimHints(raw: unknown): Map<string, ClaimHint> {
+  const out = new Map<string, ClaimHint>();
+  if (!Array.isArray(raw)) return out;
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const { organiser_id: id, hint } = row as Record<string, unknown>;
+    if (typeof id === 'string' && CLAIM_HINTS.includes(hint as ClaimHint)) out.set(id, hint as ClaimHint);
+  }
+  return out;
+}
+
+// Not in the generated Database type yet (a bot regenerates it; never hand-edited), so this
+// one call goes through a string-named boundary rather than an `as never` on the name,
+// which check:rpc-typing forbids. Delete the cast when the types land.
+type UntypedRpc = { rpc(fn: string, args?: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }> };
+
+/** Signed-in only (anon is refused). Ids the caller may not see are omitted. At most 50 per call. */
+export async function fetchClaimHints(organiserIds: readonly string[]): Promise<Map<string, ClaimHint>> {
+  const ids = [...new Set(organiserIds)].slice(0, 50);
+  if (ids.length === 0) return new Map();
+  const { data, error } = await (supabase as unknown as UntypedRpc).rpc('organiser_claim_hints_v1', { p_organiser_ids: ids });
+  if (error) throw error;
+  return parseClaimHints(data);
+}
+
+/** One organiser's hint; null when signed out, not visible, or the call failed (then only "ask to join" is offered). */
+export async function fetchClaimHint(organiserId: string): Promise<ClaimHint | null> {
+  try {
+    return (await fetchClaimHints([organiserId])).get(organiserId) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** `%` and `_` are wildcards to ILIKE; a typed name means them literally. */
 const escapeLike = (value: string) => value.replace(/[\\%_]/g, (c) => `\\${c}`);
 
-export async function searchClaimableOrganisers(query: string): Promise<ClaimCandidate[]> {
+export async function searchClaimableOrganisers(query: string): Promise<ClaimableOrganiser[]> {
   const term = query.trim();
   if (term.length < 2) return [];
   const { data, error } = await supabase
     .from('organiser_profiles')
-    .select('id, name, slug, avatar_url, city_id, claimed_by, contact_email')
+    .select('id, name, slug, avatar_url, city_id')
     .eq('lifecycle_status', 'live')
     .not(...NOT_DEACTIVATED)
     .ilike('name', `%${escapeLike(term)}%`)
     .order('name')
     .limit(8);
   if (error) throw error;
-  return (data ?? []) as ClaimCandidate[];
+  const rows = (data ?? []) as ClaimCandidate[];
+  // The hint is computed in the database from the private claim email; a failed
+  // hint call degrades to "no hint" (ask to join), never a failed search.
+  const hints = await fetchClaimHints(rows.map((r) => r.id)).catch(() => new Map<string, ClaimHint>());
+  return rows.map((r) => ({ ...r, hint: hints.get(r.id) ?? null }));
 }
 
 export async function claimOrganiser(organiserId: string) {

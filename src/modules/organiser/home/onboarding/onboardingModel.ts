@@ -34,10 +34,13 @@ export const HINT_TEXT: Record<ClaimHint, string> = {
   no_email: 'No contact email listed. Ask to join and the team replies within a day.',
 };
 
+/** When the hint call failed: the one action that can always be tried is asking to join. */
+export const NO_HINT_TEXT = 'Ask to join and the team replies within a day.';
+
 /** The one action a row offers: claim only when it can succeed; otherwise ask to join. */
 export type RowAction = 'none' | 'claim' | 'request' | 'requested';
 
-export function rowAction(hint: ClaimHint, requested: boolean): RowAction {
+export function rowAction(hint: ClaimHint | null, requested: boolean): RowAction {
   if (hint === 'yours') return 'none';
   if (requested) return 'requested';
   return hint === 'email_matches' ? 'claim' : 'request';

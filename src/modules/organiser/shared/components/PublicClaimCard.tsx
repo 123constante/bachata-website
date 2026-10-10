@@ -8,7 +8,9 @@ import { EmailCodeProof } from './EmailCodeProof';
 import { ORG_PATHS } from '../../shell/paths';
 import { claimOrganiser, requestOrganiserAccess } from '../selfServeApi';
 import { selfServeErrorCode, selfServeErrorCopy, type SelfServeErrorCopy } from '../selfServeErrors';
-import { publicClaimKind, signInHref, type PublicClaimOrganiser, type PublicClaimUser } from '../publicClaim';
+import { signInHref } from '../publicClaim';
+import { MANAGED_BADGE_TEXT, type OwnershipFacts } from '../ownership';
+import type { ClaimHint } from '../claimHint';
 
 /**
  * Lever 2 W7, mockup 06-A: ownership on the PUBLIC organiser page.
@@ -17,8 +19,9 @@ import { publicClaimKind, signInHref, type PublicClaimOrganiser, type PublicClai
  * is the "Is this you?" card for an unclaimed organiser: sign in when signed
  * out; otherwise the W1 claim (email match, mailbox proven) or request-access
  * flow through the D4 RPCs, with W1's refusal copy. The card decides nothing
- * itself: publicClaimKind reads the page's own columns and the RPC is the
- * authority. Dark site theme (OrganiserProfile.tsx tokens), not .dashboard-bright.
+ * itself: ownershipFacts (ownership.ts) decides what shows, from
+ * organiser_ownership_v1 and organiser_claim_hints_v1, and claim_organiser_v1 is
+ * the authority. Dark site theme (OrganiserProfile.tsx tokens), not .dashboard-bright.
  *
  * Mount it with `key={organiser.id}`: the panel, note and outcome belong to
  * ONE organiser and must not survive a navigation to another one.
@@ -45,7 +48,7 @@ export function ManagedBadge({ size }: { size: 'sm' | 'md' }) {
         whiteSpace: 'nowrap',
       }}
     >
-      <span aria-hidden="true">&#10003;</span> Managed by the organiser
+      <span aria-hidden="true">&#10003;</span> {MANAGED_BADGE_TEXT}
     </span>
   );
 }
@@ -60,9 +63,12 @@ export type PublicClaimOutcome = 'claimed' | 'requested' | 'stale';
 const STALE_CODES = new Set(['organiser_already_claimed', 'organiser_not_found', 'not_live']);
 
 interface Props {
-  enabled: boolean;
-  organiser: PublicClaimOrganiser | null | undefined;
-  user: PublicClaimUser | null | undefined;
+  /** The page's single ownership decision (ownershipFacts); the card never re-derives it. */
+  facts: OwnershipFacts;
+  /** The database's claim hint, only to word the request panel. */
+  hint: ClaimHint | null;
+  organiser: { id: string; name: string } | null | undefined;
+  user: { id: string; email?: string | null } | null | undefined;
   mailboxProven: boolean;
   /** The public page's own path, so sign-in comes back here. */
   returnTo: string;
@@ -85,7 +91,7 @@ const primary: CSSProperties = { background: GOLD, color: '#1b1408' };
  */
 const GHOST_HOVER = 'min-h-[44px] hover:bg-white/10';
 
-export function PublicClaimCard({ enabled, organiser, user, mailboxProven, returnTo, onChanged }: Props) {
+export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, returnTo, onChanged }: Props) {
   const [panel, setPanel] = useState<Panel>('closed');
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<SelfServeErrorCopy | null>(null);
@@ -104,7 +110,7 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
     if (done) doneRef.current?.focus();
   }, [done]);
 
-  const kind = publicClaimKind(enabled, organiser, user);
+  const { kind } = facts;
 
   // A finished claim or request stays on screen even though the refetched
   // organiser now reads as managed (the card would otherwise vanish mid-read).
@@ -125,11 +131,11 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
     );
   }
 
-  if (kind === 'hidden' || !organiser) return null;
-  // A managed organiser shows only the badge -- unless the visitor is mid-flow
-  // (a refusal just turned the claim panel into the request panel and the
-  // refetched row now reads as managed): the open panel stays until closed.
-  if (kind === 'managed' && panel === 'closed') return null;
+  if (!organiser) return null;
+  // Mid-flow, a refusal can make the refetched facts read 'managed'/'hidden' while a
+  // panel is open: the open panel stays until closed (below). Otherwise only the
+  // "Is this you?" shapes render a card.
+  if (!facts.showIsThisYou && panel === 'closed') return null;
 
   // The session can end while a panel is open (sign-out in another tab): the
   // panels are signed-in UI, so they follow the user, not the panel state alone.
@@ -223,9 +229,11 @@ export function PublicClaimCard({ enabled, organiser, user, mailboxProven, retur
           {failure?.next !== 'request_access' && (
           <p className="text-xs" style={{ color: MUTE }}>
             You&rsquo;re signed in as <strong style={{ color: CREAM }}>{email}</strong>.{' '}
-            {organiser.contactEmail?.trim()
+            {hint === 'email_differs'
               ? 'This page lists a different contact email.'
-              : 'This page lists no contact email to check against.'}{' '}
+              : hint === 'no_email'
+                ? 'This page lists no contact email to check against.'
+                : 'We can\u2019t match your email to this page.'}{' '}
             Tell us who you are and the Bachata Calendar team will check.
           </p>
           )}
