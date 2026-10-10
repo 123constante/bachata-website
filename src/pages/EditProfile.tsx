@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Save, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +28,7 @@ import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation
 // FAVORITE_STYLE_OPTIONS is the list the dashboard's identical picker uses.
 import { FAVORITE_STYLE_OPTIONS } from '@/components/profile/dancerConstants';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
+import { myPersonaIdForReads } from '@/lib/myPersona';
 import {
   saveMyDancerProfile,
   danceStartedYearFromDateString,
@@ -59,6 +61,7 @@ const EditProfile = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [dancerId, setDancerId] = useState<string | null>(null);
@@ -101,11 +104,18 @@ const EditProfile = () => {
       
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('dancer_profiles')
-          .select('*, dancing_role_details(achievements, dance_started_year, favorite_songs, favorite_styles, looking_for_partner, partner_details, partner_practice_goals, partner_search_level, partner_search_role)')
-          .eq('id', user.id)
-          .maybeSingle();
+        // The RESOLVED persona (lib/myPersona): a linked admin-made profile, else
+        // the own stub. The save below (save_my_dancer_profile_v1) resolves the
+        // same row server side, so the form edits what it saves. No persona = no
+        // row: the form stays empty and Save stays off (dancerId unset), as before.
+        const personaId = await myPersonaIdForReads(queryClient, user.id);
+        const { data, error } = personaId
+          ? await supabase
+              .from('dancer_profiles')
+              .select('*, dancing_role_details(achievements, dance_started_year, favorite_songs, favorite_styles, looking_for_partner, partner_details, partner_practice_goals, partner_search_level, partner_search_role)')
+              .eq('id', personaId)
+              .maybeSingle()
+          : { data: null, error: null };
 
         if (error) throw error;
 
@@ -179,7 +189,7 @@ const EditProfile = () => {
     };
 
     fetchDancerData();
-  }, [user, toast]);
+  }, [user, toast, queryClient]);
 
   const handleSave = async () => {
     if (!dancerId) return;

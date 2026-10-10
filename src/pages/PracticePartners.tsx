@@ -10,10 +10,12 @@ import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { buildFullName } from "@/lib/name-utils";
 import { useToast } from "@/hooks/use-toast";
 import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
 import { hasDancerProfileBasics } from "@/lib/onboardingStatus";
+import { myPersonaIdForReads } from "@/lib/myPersona";
 import { optimizedImageUrl } from "@/lib/imageCdn";
 
 type Dancer = {
@@ -32,6 +34,7 @@ const PracticePartners = () => {
   useSeo(buildSeoForRoute('practicePartners'));
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [partners, setPartners] = useState<Dancer[]>([]);
@@ -68,11 +71,17 @@ const PracticePartners = () => {
     const fetchUserProfile = async () => {
       if (!user) return;
       
-      const { data } = await supabase
-        .from('dancer_profiles')
-        .select('id, first_name, surname, based_city_id, dance_role, avatar_url, cities!based_city_id(name), dancing_role_details(favorite_styles, looking_for_partner)')
-        .eq('id', user.id)
-        .maybeSingle();
+      // The RESOLVED persona (lib/myPersona), the row save_my_dancer_profile_v1
+      // writes below. No persona = no row: "Add yourself" sends them to create
+      // one, as before.
+      const personaId = await myPersonaIdForReads(queryClient, user.id);
+      const { data } = personaId
+        ? await supabase
+            .from('dancer_profiles')
+            .select('id, first_name, surname, based_city_id, dance_role, avatar_url, cities!based_city_id(name), dancing_role_details(favorite_styles, looking_for_partner)')
+            .eq('id', personaId)
+            .maybeSingle()
+        : { data: null };
       
       if (data) {
         setCurrentUserProfile({
@@ -84,7 +93,7 @@ const PracticePartners = () => {
     };
 
     fetchUserProfile();
-  }, [user]);
+  }, [user, queryClient]);
 
   const handlePartnerClick = (partnerId: string) => {
     if (!isLoggedIn) {

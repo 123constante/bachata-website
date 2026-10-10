@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { shouldRedirectToAuth } from "@/lib/authResolution";
 import { buildSignInHref } from "@/lib/authRouting";
 import { supabase } from "@/integrations/supabase/client";
 import { inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
+import { myPersonaIdForReads } from "@/lib/myPersona";
 
 const requiresCompletedOnboarding = (pathname: string) => {
   if (pathname === "/profile") return true;
@@ -19,6 +21,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading, authStatus, retryAuth } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
   // One redirect per mount. While the /auth navigation is still pending (a
   // slow route-manifest fetch), re-renders re-ran this effect and each
@@ -62,17 +65,23 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       }
 
       setIsCheckingOnboarding(true);
-      const { data: dancer } = await supabase
-        .from("dancer_profiles")
-        .select("first_name, based_city_id, meta_data")
-        // OWNERSHIP, not authorship. `created_by` records who AUTHORED the row:
-        // one admin account authored ten other people's profiles and none of its
-        // own, so this gate resolved to a stranger set for them and to nothing
-        // for all 18 other accounts -- bouncing every user to /onboarding.
-        // The owning key is `id` (= auth.users.id), which is also the only link
-        // `resolve_my_person_id_v1` accepts on the write side.
-        .eq("id", user.id)
-        .maybeSingle();
+      // OWNERSHIP, not authorship. `created_by` records who AUTHORED the row:
+      // one admin account authored ten other people's profiles and none of its
+      // own, so this gate resolved to a stranger set for them and to nothing
+      // for all 18 other accounts -- bouncing every user to /onboarding.
+      // The owned row is the RESOLVED persona (lib/myPersona): the admin-made
+      // profile an account is linked to, else its own stub. Keyed on user.id a
+      // linked person was judged on their empty stub and bounced home.
+      // No persona = no row, the same answer this gate gave before for no row.
+      const personaId = await myPersonaIdForReads(queryClient, user.id);
+      if (cancelled) return;
+      const { data: dancer } = personaId
+        ? await supabase
+            .from("dancer_profiles")
+            .select("first_name, based_city_id, meta_data")
+            .eq("id", personaId)
+            .maybeSingle()
+        : { data: null };
 
       if (cancelled) return;
 
@@ -92,7 +101,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, [authStatus, location.pathname, navigate, user]);
+  }, [authStatus, location.pathname, navigate, user, queryClient]);
 
   if (isLoading || isCheckingOnboarding) {
     return (

@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-// _my_dancer_profile_id_v1 is not in the generated types yet (admin 20261109960000).
-import { rpcLoose } from "@/integrations/supabase/rpcLoose";
+import { fetchMyPersonaId } from "@/lib/myPersona";
+import { claimAtSignIn, shouldArmFinishHop } from "@/lib/claimMyDancerProfile";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
@@ -30,6 +31,7 @@ const VALID_ROLES: Record<string, string> = {
 const AuthCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const [error] = useState<string | null>(null);
   const resolved = useRef(false);
 
@@ -82,10 +84,14 @@ const AuthCallback = () => {
       clearTimeout(timeout);
 
       const user = session.user;
+      // Self-claim FIRST (every sign-in; never throws, never holds the sign-in
+      // past its timeout), so the persona read below is the linked profile.
+      const claim = await claimAtSignIn(queryClient);
       // The account's FIRST sign-in only: wherever this lands, ProfileCompletionChrome
       // then hops once to /finish-profile if profile_complete_v1 is false (and Skip
-      // was not pressed). Every later sign-in gets the banner alone.
-      if (isFirstSignIn(user)) armPostLoginPrompt();
+      // was not pressed). Every later sign-in gets the banner alone. Not on the
+      // sign-in that just linked an admin-made profile: it may be complete already.
+      if (shouldArmFinishHop({ firstSignIn: isFirstSignIn(user), claim })) armPostLoginPrompt();
 
       try {
         const pendingRole = localStorage.getItem("pending_profile_role");
@@ -99,13 +105,12 @@ const AuthCallback = () => {
         // is a linked admin-made profile when the account has one (claimed_by).
         // Judging the account's own stub instead wrote the sign-up name, city and
         // role over that admin profile on every sign-in while the stub was empty.
-        const resolved = await rpcLoose("_my_dancer_profile_id_v1");
-        // A read that FAILED is not a row that is missing. Without this, a 5xx
-        // or a dropped connection told the user we could not create their
-        // profile -- a claim about the write path, made on the evidence of a
-        // broken read.
-        if (resolved.error) throw resolved.error;
-        const personaId = typeof resolved.data === "string" && resolved.data ? resolved.data : null;
+        // A read that FAILED is not a row that is missing: fetchMyPersonaId
+        // throws on a failed call. Without that, a 5xx or a dropped connection
+        // told the user we could not create their profile -- a claim about the
+        // write path, made on the evidence of a broken read. Fresh, not cached:
+        // the claim above may have just changed the answer.
+        const personaId = await fetchMyPersonaId();
 
         let dancer: {
           id: string;
@@ -274,7 +279,7 @@ const AuthCallback = () => {
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, [callbackMode, navigate, safeReturnTo]);
+  }, [callbackMode, navigate, safeReturnTo, queryClient]);
 
   useEffect(() => {
     if (resolved.current) return;
