@@ -18,7 +18,11 @@ const h = vi.hoisted(() => ({
   rpc: vi.fn(),
 }));
 
-vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: h.user }) }));
+// The real module too: it also exports ProfileGateContext, which LevelRatingPrompt reads.
+vi.mock('@/hooks/useAuth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
+  useAuth: () => ({ user: h.user }),
+}));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: h.rpc } }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 

@@ -112,7 +112,11 @@ const h = vi.hoisted(() => {
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: h.fakeClient }));
 vi.mock('@/integrations/supabase/getSupabase', () => ({ getSupabase: async () => h.fakeClient }));
-vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: h.state.user, session: null, loading: false }) }));
+// The real module too: it also exports ProfileGateContext, which LevelRatingPrompt reads.
+vi.mock('@/hooks/useAuth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
+  useAuth: () => ({ user: h.state.user, session: null, loading: false }),
+}));
 
 import EventPage from '@/pages/EventPage';
 import { CityProvider } from '@/contexts/CityContext';

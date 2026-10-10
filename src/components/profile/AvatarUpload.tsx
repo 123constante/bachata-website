@@ -65,7 +65,7 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
   return (
     <div className="flex items-center gap-6">
       <div className="relative group">
-        <Avatar className="w-24 h-24 border-4 border-background shadow-lg">
+        <Avatar className="w-24 h-24 border-4 border-background">
           <AvatarImage src={value || ''} className="object-cover" />
           <AvatarFallback className="text-2xl bg-muted/50">{initials}</AvatarFallback>
         </Avatar>
@@ -74,7 +74,8 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
           <button
             type="button"
             onClick={handleRemove}
-            className="absolute -top-2 -right-2 p-1.5 bg-destructive text-destructive-foreground rounded-full shadow-sm hover:bg-destructive/90 transition-colors opacity-0 group-hover:opacity-100"
+            aria-label="Remove photo"
+            className="absolute -top-2 -right-2 p-1.5 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors"
           >
             <X className="w-3 h-3" />
           </button>
@@ -87,7 +88,7 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
             type="button" 
             variant="outline" 
             disabled={isUploading}
-            className="relative overflow-hidden"
+            className="relative min-h-[44px] overflow-hidden"
           >
             {isUploading ? (
               <>

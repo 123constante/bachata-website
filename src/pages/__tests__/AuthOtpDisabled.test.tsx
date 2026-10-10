@@ -112,11 +112,13 @@ describe('Auth sign-in with an email that has no account', () => {
       error: { name: 'AuthApiError', status: 403, code: 'unknown', message: 'Sign-up is limited to approved organisers.' },
     });
     mount('/auth?mode=signup&userType=dancer');
-    // Walk the three sign-up steps: role, first name + city, email.
+    // Walk the three sign-up steps: role, first name + city + dance role, email.
     fireEvent.click(screen.getByRole('button', { name: /continue as dancer/i }));
     fireEvent.change(await screen.findByLabelText(/first name/i), { target: { value: 'Sam' } });
     fireEvent.click(screen.getByRole('button', { name: 'Pick city' }));
-    fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Follower' }));
+    const cont = screen.queryByRole('button', { name: /^continue$/i });
+    if (cont) fireEvent.click(cont);
     await screen.findByLabelText(/email/i);
     await sendMagicLink('stranger@example.com');
 

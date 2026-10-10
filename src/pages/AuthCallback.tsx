@@ -9,7 +9,14 @@ import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo } from "@/lib/authRouting"
 import { hasDancerProfileBasics, inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { flags } from "@/lib/featureFlags";
-import { landingPathAfterAuth, needsOrganiserLookup, normalizeLandingRole, shouldHonorReturnTo } from "@/lib/auth-otp-routing";
+import {
+  armPostLoginPrompt,
+  isDanceRoleValue,
+  landingPathAfterAuth,
+  needsOrganiserLookup,
+  normalizeLandingRole,
+  shouldHonorReturnTo,
+} from "@/lib/auth-otp-routing";
 import { fetchOrganiserHome } from "@/modules/organiser-self-serve/selfServeApi";
 
 const VALID_ROLES: Record<string, string> = {
@@ -72,6 +79,9 @@ const AuthCallback = () => {
       clearTimeout(timeout);
 
       const user = session.user;
+      // Signed in: wherever this lands, ProfileCompletionChrome then hops once to
+      // /finish-profile if profile_complete_v1 is false (and Skip was not pressed).
+      armPostLoginPrompt();
 
       try {
         const pendingRole = localStorage.getItem("pending_profile_role");
@@ -146,6 +156,10 @@ const AuthCallback = () => {
         const firstName = (meta.first_name as string | undefined)?.trim() || undefined;
         const city = meta.city as string | undefined;
         const cityId = meta.city_id as string | undefined;
+        // Asked on both sign-up screens since 2026-10-10. Metadata is
+        // attacker-shaped, so only a value dancer_profiles_dance_role_check
+        // admits is passed on; anything else is left for /finish-profile.
+        const danceRole = isDanceRoleValue(meta.dance_role) ? meta.dance_role : null;
 
         // The persona exists but is not filled in. `ensureDancerProfile` used to
         // run here and is now deleted: its RPC had 404'd for every user since it
@@ -185,6 +199,7 @@ const AuthCallback = () => {
             const saved = await saveMyDancerProfile({
               first_name: firstName,
               based_city_id: basedCityId,
+              ...(danceRole ? { dance_role: danceRole } : {}),
             });
 
             // Do not route as if setup worked without checking that it did. The

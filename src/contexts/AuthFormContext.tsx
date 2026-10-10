@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { isDanceRoleValue, type DanceRoleValue } from "@/lib/auth-otp-routing";
 
 type EntryRole = "dancer" | "vendor" | "organiser" | "teacher" | "dj" | "videographer";
 
@@ -10,6 +11,8 @@ type AuthFormState = {
   cityName: string;
   otpCode: string;
   role: EntryRole | null;
+  /** The stored dancer_profiles.dance_role value, or "" until chosen. */
+  danceRole: DanceRoleValue | "";
 };
 
 type AuthFormContextValue = {
@@ -20,6 +23,7 @@ type AuthFormContextValue = {
   setCityName: (value: string) => void;
   setOtpCode: (value: string) => void;
   setRole: (value: EntryRole | null) => void;
+  setDanceRole: (value: DanceRoleValue | "") => void;
   updateEmail: (value: string) => { changed: boolean; normalized: string };
 };
 
@@ -33,6 +37,7 @@ const defaultState: AuthFormState = {
   cityName: "",
   otpCode: "",
   role: null,
+  danceRole: "",
 };
 
 const normalizeEmail = (value: string) =>
@@ -57,6 +62,8 @@ export const AuthFormProvider = ({ children }: { children: ReactNode }) => {
         if (parsed && typeof parsed === "object") {
           nextState = { ...nextState, ...parsed };
         }
+        // Stored state is user-editable: keep a dance role only if the column admits it.
+        if (!isDanceRoleValue(nextState.danceRole)) nextState = { ...nextState, danceRole: "" };
       }
       const legacyRole = localStorage.getItem("profile_entry_role") as EntryRole | null;
       if (!nextState.role && legacyRole) {
@@ -82,6 +89,7 @@ export const AuthFormProvider = ({ children }: { children: ReactNode }) => {
   const setCityName = (value: string) => setFormState((prev) => ({ ...prev, cityName: value }));
   const setOtpCode = (value: string) => setFormState((prev) => ({ ...prev, otpCode: value }));
   const setRole = (value: EntryRole | null) => setFormState((prev) => ({ ...prev, role: value }));
+  const setDanceRole = (value: DanceRoleValue | "") => setFormState((prev) => ({ ...prev, danceRole: value }));
 
   const updateEmail = (value: string) => {
     const normalized = normalizeEmail(value);
@@ -100,6 +108,7 @@ export const AuthFormProvider = ({ children }: { children: ReactNode }) => {
       setCityName,
       setOtpCode,
       setRole,
+      setDanceRole,
       updateEmail,
     }),
     [formState]

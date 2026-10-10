@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { GlobalBackground } from '@/components/GlobalBackground';
 import { GlobalHeader } from '@/components/GlobalHeader';
@@ -8,6 +8,19 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Skeleton } from '@/components/ui/skeleton';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { cn } from '@/lib/utils';
+import { ProfileGateContext, useAuth, type ProfileGateValue } from '@/hooks/useAuth';
+
+// Signed-in only: the "Finish your profile" reminder banner + the one hop to
+// /finish-profile after sign-in. Lazy so a signed-out first load (nearly every
+// visitor) never fetches it, and so its query/RPC code stays off the shell graph.
+const ProfileCompletionChrome = lazyWithRetry(() => import('@/components/profile/ProfileCompletionChrome'));
+
+// The chrome failed (chunk load or render): report "no gate" so the rating card
+// fails OPEN instead of holding a stashed vote on "loading" for the whole session.
+const GateUnavailable = ({ onGate }: { onGate: (value: ProfileGateValue | null) => void }) => {
+  useEffect(() => onGate(null), [onGate]);
+  return null;
+};
 
 // Lazy-load AnimatedRoutes to defer framer-motion out of the initial bundle.
 const AnimatedRoutes = lazyWithRetry(() =>
@@ -41,13 +54,32 @@ const HOME_RE = /^\/city\/[^/]+(\/calendar)?\/?$/i;
 export function AppChrome({ children }: { children?: React.ReactNode }) {
   const { pathname } = useLocation();
   const isHome = HOME_RE.test(pathname);
+  // `user` is null on the server and on the first client render alike (auth
+  // resolves after hydration), so this cannot cause a hydration mismatch.
+  const { user } = useAuth();
+  const signedIn = Boolean(user && !user.is_anonymous);
+  const userId = user?.id ?? null;
+  // Published by the lazy chrome once it has an answer, tagged with whose answer
+  // it is; until then a signed-in visitor reads "loading" (nothing blocked, a
+  // stashed rating waits), and a signed-out one never meets this gate.
+  const [gate, setGate] = useState<{ userId: string | null; value: ProfileGateValue | null } | null>(null);
+  const onGate = useCallback((value: ProfileGateValue | null) => setGate({ userId, value }), [userId]);
+  const gateValue = !signedIn ? null : gate && gate.userId === userId ? gate.value : 'loading';
 
   return (
-    <>
+    <ProfileGateContext.Provider value={gateValue}>
       <GlobalBackground />
       <GlobalHeader />
       {/* Spacer that matches the sticky header height so NO page is blocked behind it. */}
       <div className="h-[60px] shrink-0" aria-hidden="true" />
+      {signedIn && (
+        // A reminder must never take the page down with it: on any failure it renders nothing.
+        <ErrorBoundary fallback={<GateUnavailable onGate={onGate} />}>
+          <Suspense fallback={null}>
+            <ProfileCompletionChrome onGate={onGate} />
+          </Suspense>
+        </ErrorBoundary>
+      )}
       <main id="main-content">
         <ErrorBoundary>
           <Suspense fallback={<AnimatedRoutesFallback />}>
@@ -67,6 +99,6 @@ export function AppChrome({ children }: { children?: React.ReactNode }) {
         aria-hidden="true"
       />
       <BottomNav className={isHome ? 'md:hidden' : undefined} />
-    </>
+    </ProfileGateContext.Provider>
   );
 }

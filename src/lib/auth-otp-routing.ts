@@ -108,3 +108,61 @@ export function landingPathAfterAuth(input: {
   if (role) return "/account";
   return managesOrganiser === false ? "/" : "/account";
 }
+
+// ---- Sign-up profile data + the post-login Finish-your-profile prompt --------
+// Shared by both sign-up screens, /auth/callback and /finish-profile. It lives
+// in THIS module (import-free, already its own chunk on /auth/callback) because
+// a module of its own was one more first-load request there
+// (perf-budgets.json chunk ratchet).
+
+/**
+ * Dance role -- the values `dancer_profiles_dance_role_check` admits, read off
+ * prod (2026-10-10): NULL, 'Leader', 'Follower', 'Lead and Follow'. The labels
+ * are the site's existing badge words (PARTNER_ROLE_OPTIONS in
+ * components/profile/dancerConstants: Leader / Follower / Both); what is SENT
+ * is always the stored spelling, so nothing depends on the server's
+ * normalize_dance_role mapping "Both".
+ */
+export type DanceRoleValue = "Leader" | "Follower" | "Lead and Follow";
+
+export const DANCE_ROLE_OPTIONS: readonly { value: DanceRoleValue; label: string }[] = [
+  { value: "Leader", label: "Leader" },
+  { value: "Follower", label: "Follower" },
+  { value: "Lead and Follow", label: "Both" },
+];
+
+export const isDanceRoleValue = (value: unknown): value is DanceRoleValue =>
+  typeof value === "string" && DANCE_ROLE_OPTIONS.some((o) => o.value === value);
+
+export const DANCE_ROLE_REQUIRED_ERROR = "Choose your dance role.";
+
+// ---- Session flags ---------------------------------------------------------
+// sessionStorage, not localStorage: "Skip for now" lasts the browser session,
+// and the post-login prompt belongs to one sign-in.
+
+/** Set by a successful sign-in; consumed by the one hop to the Finish screen. */
+export const POST_LOGIN_PROMPT_KEY = "finish_profile_prompt_pending";
+/** Set by "Skip for now". Stops the hop for the session; the banner stays. */
+export const SKIP_FINISH_PROFILE_KEY = "finish_profile_skipped";
+
+const readFlag = (key: string): boolean => {
+  try {
+    return sessionStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+};
+const writeFlag = (key: string, on: boolean) => {
+  try {
+    if (on) sessionStorage.setItem(key, "1");
+    else sessionStorage.removeItem(key);
+  } catch {
+    /* storage blocked: the banner still offers the screen */
+  }
+};
+
+export const armPostLoginPrompt = () => writeFlag(POST_LOGIN_PROMPT_KEY, true);
+export const clearPostLoginPrompt = () => writeFlag(POST_LOGIN_PROMPT_KEY, false);
+export const isPostLoginPromptArmed = () => readFlag(POST_LOGIN_PROMPT_KEY);
+export const skipFinishProfileForSession = () => writeFlag(SKIP_FINISH_PROFILE_KEY, true);
+export const isFinishProfileSkipped = () => readFlag(SKIP_FINISH_PROFILE_KEY);
