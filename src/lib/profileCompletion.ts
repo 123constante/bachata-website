@@ -65,7 +65,7 @@ export const listFieldLabels = (fields: readonly ProfileField[]): string => {
 export const FINISH_PROFILE_PATH = "/finish-profile";
 
 export const finishProfileHref = (returnTo?: string | null): string => {
-  const safe = sanitizeReturnTo(returnTo ?? null);
+  const safe = sanitizeReturnTo(returnTo ?? null, { exclude: FINISH_PROFILE_PATH });
   return safe ? `${FINISH_PROFILE_PATH}?returnTo=${encodeURIComponent(safe)}` : FINISH_PROFILE_PATH;
 };
 

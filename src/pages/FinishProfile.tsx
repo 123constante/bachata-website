@@ -15,6 +15,7 @@ import type { DanceRoleValue } from "@/lib/auth-otp-routing";
 import {
   NO_PROFILE_CONTACT_LABEL,
   NO_PROFILE_CONTACT_URL,
+  FINISH_PROFILE_PATH,
   finishScreenMode,
   listFieldLabels,
   skipFinishProfileForSession,
@@ -47,7 +48,8 @@ export const FinishProfileScreen = () => {
   const completion = useProfileCompletion();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const returnTo = sanitizeReturnTo(searchParams.get("returnTo")) ?? "/";
+  // Never back to this screen itself: Skip and Continue would go nowhere.
+  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), { exclude: FINISH_PROFILE_PATH }) ?? "/";
 
   const [draft, setDraft] = useState<Draft>({ first_name: "", based_city_id: "", dance_role: "", avatar_url: "" });
   const [saving, setSaving] = useState(false);

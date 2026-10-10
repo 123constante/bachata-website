@@ -7,7 +7,7 @@
  * admin-repo follow-up).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import type { ProfileCompletion } from '@/lib/profileCompletion';
@@ -134,4 +134,34 @@ it('a vote stashed before sign-in is held while the check is loading', async () 
   mount();
   await screen.findByTestId('level-rating-mixed');
   expect(h.rate).not.toHaveBeenCalled();
+});
+
+it('a stashed vote is sent EXACTLY ONCE when the profile becomes complete, and a re-render sends no second', async () => {
+  h.completion = { status: 'incomplete', missing: ['avatar_url'], profileId: 'p1' };
+  localStorage.setItem(PENDING_LEVEL_RATING_KEY, JSON.stringify({ seriesId: 'ev1', level: 'strong', at: Date.now() }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const tree = (c: ProfileCompletion) => (
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/event/ev1']}>
+        <ProfileGateContext.Provider value={profileGateValue(c)}>
+          <LevelRatingPrompt seriesId="ev1" />
+        </ProfileGateContext.Provider>
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+  const { rerender } = render(tree(h.completion));
+  await screen.findByTestId('level-rating-mixed');
+  expect(h.rate).not.toHaveBeenCalled();
+
+  // The profile is finished (the chrome publishes a fresh gate value).
+  rerender(tree({ status: 'complete', missing: [], profileId: 'p1' }));
+  await waitFor(() => expect(h.rate).toHaveBeenCalledTimes(1));
+  expect(h.rate.mock.calls[0][0]).toMatchObject({ p_level: 'strong' });
+  expect(localStorage.getItem(PENDING_LEVEL_RATING_KEY)).toBeNull();
+
+  // Re-renders, including a fresh gate object with the same answer, send nothing more.
+  rerender(tree({ status: 'complete', missing: [], profileId: 'p1' }));
+  rerender(tree({ status: 'complete', missing: [], profileId: 'p1' }));
+  await new Promise((r) => setTimeout(r, 20));
+  expect(h.rate).toHaveBeenCalledTimes(1);
 });

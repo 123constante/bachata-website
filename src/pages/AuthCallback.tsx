@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+// _my_dancer_profile_id_v1 is not in the generated types yet (admin 20261109960000).
+import { rpcLoose } from "@/integrations/supabase/rpcLoose";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
@@ -12,6 +14,7 @@ import { flags } from "@/lib/featureFlags";
 import {
   armPostLoginPrompt,
   isDanceRoleValue,
+  isFirstSignIn,
   landingPathAfterAuth,
   needsOrganiserLookup,
   normalizeLandingRole,
@@ -79,9 +82,10 @@ const AuthCallback = () => {
       clearTimeout(timeout);
 
       const user = session.user;
-      // Signed in: wherever this lands, ProfileCompletionChrome then hops once to
-      // /finish-profile if profile_complete_v1 is false (and Skip was not pressed).
-      armPostLoginPrompt();
+      // The account's FIRST sign-in only: wherever this lands, ProfileCompletionChrome
+      // then hops once to /finish-profile if profile_complete_v1 is false (and Skip
+      // was not pressed). Every later sign-in gets the banner alone.
+      if (isFirstSignIn(user)) armPostLoginPrompt();
 
       try {
         const pendingRole = localStorage.getItem("pending_profile_role");
@@ -90,18 +94,35 @@ const AuthCallback = () => {
         // Called for its side effect (it persists a metadata role); routing reads the role itself.
         resolveRolePreference(pendingRole, meta.user_type);
 
-        // OWNERSHIP, not authorship -- the full note is on AuthGuard.
-        const { data: dancer, error: dancerError } = await supabase
-          .from("dancer_profiles")
-          .select("id, first_name, based_city_id, meta_data")
-          .eq("id", user.id)
-          .maybeSingle();
-
+        // The RESOLVED persona, not the row keyed on auth.uid(): the save below
+        // goes through resolve_my_person_id_v1 -> _my_dancer_profile_id_v1, which
+        // is a linked admin-made profile when the account has one (claimed_by).
+        // Judging the account's own stub instead wrote the sign-up name, city and
+        // role over that admin profile on every sign-in while the stub was empty.
+        const resolved = await rpcLoose("_my_dancer_profile_id_v1");
         // A read that FAILED is not a row that is missing. Without this, a 5xx
         // or a dropped connection told the user we could not create their
         // profile -- a claim about the write path, made on the evidence of a
         // broken read.
-        if (dancerError) throw dancerError;
+        if (resolved.error) throw resolved.error;
+        const personaId = typeof resolved.data === "string" && resolved.data ? resolved.data : null;
+
+        let dancer: {
+          id: string;
+          first_name: string | null;
+          based_city_id: string | null;
+          dance_role: string | null;
+          meta_data: unknown;
+        } | null = null;
+        if (personaId) {
+          const { data, error: dancerError } = await supabase
+            .from("dancer_profiles")
+            .select("id, first_name, based_city_id, dance_role, meta_data")
+            .eq("id", personaId)
+            .maybeSingle();
+          if (dancerError) throw dancerError;
+          dancer = data;
+        }
 
         // The routing tail, which used to be spelled out twice -- once per
         // branch -- and had to be kept in step by hand.
@@ -161,6 +182,13 @@ const AuthCallback = () => {
         // admits is passed on; anything else is left for /finish-profile.
         const danceRole = isDanceRoleValue(meta.dance_role) ? meta.dance_role : null;
 
+        // Send ONLY what is empty on the persona: the RPC overwrites name and city
+        // with any non-empty value sent, and dance_role whenever the key is present.
+        const isBlank = (value: string | null | undefined) => !value?.trim();
+        const needsName = isBlank(dancer?.first_name);
+        const needsCity = isBlank(dancer?.based_city_id);
+        const sendRole = isBlank(dancer?.dance_role) ? danceRole : null;
+
         // The persona exists but is not filled in. `ensureDancerProfile` used to
         // run here and is now deleted: its RPC had 404'd for every user since it
         // was written -- it targeted `public.dancers`, which is not a table in
@@ -173,7 +201,7 @@ const AuthCallback = () => {
         // `.maybeSingle()` and then UPDATEd `[0]` of the result. Keyed on
         // created_by, that was an unordered pick among ten strangers' rows for
         // the one account that had authored any.
-        if (dancer?.id && firstName && (city || cityId)) {
+        if (dancer?.id && (!needsName || firstName) && (!needsCity || city || cityId)) {
           try {
             // Both go through the resolver. user_metadata is attacker-shaped
             // input from the sign-up payload, and it is never validated
@@ -186,9 +214,10 @@ const AuthCallback = () => {
             // short-circuits: a stale metadata city_id (a merged or deleted city)
             // resolves to nothing and the name we also hold is never tried, so
             // the user is re-asked for a city they already gave us.
-            const basedCityId =
-              (await resolveCanonicalCity(cityId))?.cityId ?? (await resolveCanonicalCity(city))?.cityId;
-            if (!basedCityId) {
+            const basedCityId = needsCity
+              ? (await resolveCanonicalCity(cityId))?.cityId ?? (await resolveCanonicalCity(city))?.cityId
+              : null;
+            if (needsCity && !basedCityId) {
               navigateToSignedInFallback();
               return;
             }
@@ -197,9 +226,9 @@ const AuthCallback = () => {
             // completion from exactly the two fields written here, and the RPC
             // has no meta_data arm to stamp with in any case.
             const saved = await saveMyDancerProfile({
-              first_name: firstName,
-              based_city_id: basedCityId,
-              ...(danceRole ? { dance_role: danceRole } : {}),
+              ...(needsName ? { first_name: firstName } : {}),
+              ...(basedCityId ? { based_city_id: basedCityId } : {}),
+              ...(sendRole ? { dance_role: sendRole } : {}),
             });
 
             // Do not route as if setup worked without checking that it did. The

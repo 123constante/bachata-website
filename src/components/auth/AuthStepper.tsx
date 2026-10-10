@@ -13,6 +13,7 @@ import {
   SIGNUP_INVITE_ONLY_DESCRIPTION,
   SIGNUP_INVITE_ONLY_TITLE,
   armPostLoginPrompt,
+  isFirstSignIn,
   isSignupAllowlistRefusal,
 } from "@/lib/auth-otp-routing";
 import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
@@ -138,9 +139,10 @@ export const AuthStepper = ({
     const session = data.session;
     if (!session?.user) return;
     // Signed in without passing through /auth/callback: arm the one-time
-    // Finish-your-profile prompt here as the callback does -- unless the host
-    // continues in-page (onAuthenticated), which the hop would unmount mid-flow.
-    if (!onAuthenticated) armPostLoginPrompt();
+    // Finish-your-profile prompt here as the callback does (first sign-in only)
+    // -- unless the host continues in-page (onAuthenticated), which the hop would
+    // unmount mid-flow.
+    if (!onAuthenticated && isFirstSignIn(session.user)) armPostLoginPrompt();
 
     const currentType = session.user.user_metadata?.user_type;
     if (userType && currentType !== userType) {

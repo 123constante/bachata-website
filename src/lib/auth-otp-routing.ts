@@ -161,6 +161,34 @@ const writeFlag = (key: string, on: boolean) => {
   }
 };
 
+/**
+ * Is this the account's FIRST sign-in? The hop to /finish-profile is armed only
+ * then (owner decision 2026-10-10: "shown ONCE right after first login, then only
+ * the banner"); every later sign-in gets the banner alone.
+ *
+ * Read off the session's own user object, no table: the first sign-in is the one
+ * that confirms the email, so email_confirmed_at and last_sign_in_at are the same
+ * moment (seconds apart). A later sign-in moves last_sign_in_at on. A user object
+ * that has not recorded any sign-in yet is the first one. When it cannot be told
+ * (no confirmation stamp, unparseable values) the answer is no: the banner still
+ * offers the screen, and re-hopping a returning user is the failure being fixed.
+ * Known miss: an account pre-confirmed when it was created gets the banner, not
+ * the hop, on its first sign-in.
+ */
+export const FIRST_SIGN_IN_WINDOW_MS = 60_000;
+
+export const isFirstSignIn = (
+  user: { email_confirmed_at?: string | null; last_sign_in_at?: string | null } | null | undefined,
+): boolean => {
+  if (!user?.email_confirmed_at) return false;
+  const confirmed = Date.parse(user.email_confirmed_at);
+  if (Number.isNaN(confirmed)) return false;
+  if (!user.last_sign_in_at) return true;
+  const lastSignIn = Date.parse(user.last_sign_in_at);
+  if (Number.isNaN(lastSignIn)) return false;
+  return Math.abs(lastSignIn - confirmed) <= FIRST_SIGN_IN_WINDOW_MS;
+};
+
 export const armPostLoginPrompt = () => writeFlag(POST_LOGIN_PROMPT_KEY, true);
 export const clearPostLoginPrompt = () => writeFlag(POST_LOGIN_PROMPT_KEY, false);
 export const isPostLoginPromptArmed = () => readFlag(POST_LOGIN_PROMPT_KEY);

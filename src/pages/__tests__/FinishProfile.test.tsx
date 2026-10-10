@@ -143,6 +143,16 @@ it('Skip for now: remembered for the session, back to where they were', async ()
   expect(h.save).not.toHaveBeenCalled();
 });
 
+it.each([
+  ['Skip for now', inc(ALL), /skip for now/i],
+  ['Continue', { status: 'complete', missing: [], profileId: 'persona-B' } as ProfileCompletion, /continue/i],
+] as const)('returnTo pointing back at this screen: %s goes home, not round in a loop', async (_name, c, button) => {
+  h.completion = c;
+  mount(`/finish-profile?returnTo=${encodeURIComponent('/finish-profile')}`);
+  fireEvent.click(screen.getByRole('button', { name: button }));
+  await waitFor(() => expect(path).toBe('/'));
+});
+
 it('complete: says so and offers Continue, no form', () => {
   h.completion = { status: 'complete', missing: [], profileId: 'persona-B' };
   mount();
