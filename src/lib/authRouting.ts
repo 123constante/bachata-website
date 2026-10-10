@@ -1,6 +1,11 @@
 export const AUTH_PENDING_RETURN_TO_KEY = "auth_pending_return_to";
 
-export const sanitizeReturnTo = (value: string | null): string | null => {
+/**
+ * `exclude`: a page that must not be the target either -- a screen's own "go
+ * back" link pointing at itself (Skip on /finish-profile?returnTo=/finish-profile
+ * went nowhere). Judged by the same decoded, case-folded path as /auth.
+ */
+export const sanitizeReturnTo = (value: string | null, opts: { exclude?: string } = {}): string | null => {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
@@ -20,6 +25,8 @@ export const sanitizeReturnTo = (value: string | null): string | null => {
     return null;
   }
   if (path === "/auth" || path.startsWith("/auth/")) return null;
+  const excluded = opts.exclude?.toLowerCase();
+  if (excluded && (path === excluded || path === `${excluded}/`)) return null;
   return trimmed;
 };
 

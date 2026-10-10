@@ -1,5 +1,5 @@
-import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Suspense, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -14,6 +14,10 @@ import {
   stashPendingLevelRating,
   takePendingLevelRating,
 } from '@/lib/pendingLevelRating';
+// The gate arrives through context (published by the signed-in chrome), not by
+// importing the completion hook: that would add first-load chunks to /event/:id.
+import { ProfileGateContext } from '@/hooks/useAuth';
+import type { RatingGate } from '@/lib/profileCompletion';
 
 // Dialog + auth routing load on the first signed-out tap, not with the page.
 const SignInSheet = lazyWithRetry(() => import('@/components/LevelRatingSignInSheet'));
@@ -56,8 +60,45 @@ const TILE_BASE =
   'relative flex min-h-[104px] flex-col items-center gap-2 rounded-[18px] border border-white/20 px-1 pb-3 pt-3.5 text-[13px] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,.55)] shadow-[inset_0_1.5px_0_rgba(255,255,255,.38),inset_0_-10px_18px_rgba(0,0,0,.18),0_5px_0_var(--edge),0_12px_18px_-6px_rgba(0,0,0,.65)] transition-transform active:translate-y-1 active:shadow-[inset_0_2px_8px_rgba(0,0,0,.35),0_1px_0_var(--edge)] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white';
 const TILE_ON = 'translate-y-1 outline outline-2 outline-offset-2 outline-white brightness-110';
 
+
+// Why the tiles are disabled, and the way forward. Rendered whenever they are.
+// `id` is per card (useId): My Attendance renders one card per row.
+const GateNotice = ({ gate, tone, id }: { gate: RatingGate; tone: 'card' | 'compact'; id: string }) => {
+  const linkClass = cn(
+    'inline-flex min-h-[44px] items-center font-semibold underline underline-offset-2',
+    tone === 'card' ? 'text-[13px] text-[#e9c46a]' : 'text-[12px] text-primary',
+  );
+  return (
+    <p
+      id={id}
+      data-testid="level-rating-gate"
+      className={cn(
+        'relative flex flex-wrap items-center gap-x-2',
+        tone === 'card' ? 'mt-1 justify-center text-center text-[13px] text-[#f6ead0]' : 'mt-1 text-[12px] text-muted-foreground',
+      )}
+    >
+      <span>{gate.reason}.</span>
+      {gate.external ? (
+        <a href={gate.href} target="_blank" rel="noopener noreferrer" className={linkClass}>
+          {gate.linkLabel}
+        </a>
+      ) : (
+        <Link to={gate.href} className={linkClass}>
+          {gate.linkLabel}
+        </Link>
+      )}
+    </p>
+  );
+};
+
 export const LevelRatingPrompt = ({ seriesId, compact = false, className, fallback = null }: LevelRatingPromptProps) => {
   const { summary, canRate, rate, isRating } = useSeriesLevelRating(seriesId);
+  // Rating needs a finished profile (owner decision 2026-10-09). UI gate ONLY:
+  // rate_series_level_p5_v1 does not check completeness yet (admin follow-up).
+  // A check that is loading or failed does not block (fail-open), but a stashed
+  // vote waits for the answer before it is sent.
+  const profileGate = useContext(ProfileGateContext);
+  const gateId = useId();
   const location = useLocation();
   const [tapped, setTapped] = useState<SeriesLevel | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -79,12 +120,18 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className, fallba
 
   // Back from sign-in: send the level they tapped, once. The stash is removed
   // inside take(), before the call, so a re-render cannot send it twice.
+  // Held (left stashed) while the profile is unfinished or the check is still
+  // loading, so finishing the profile and coming back still sends it.
+  const gateFor = (to: string): RatingGate | null =>
+    profileGate && profileGate !== 'loading' ? profileGate.gateFor(to) : null;
+  const gateOpen = gateFor('')?.allowed ?? true;
+  const gateKnown = profileGate !== 'loading' && !(profileGate && profileGate.status === 'loading');
   useEffect(() => {
-    if (!seriesId || !canRate) return;
+    if (!seriesId || !canRate || !gateKnown || !gateOpen) return;
     const pending = takePendingLevelRating(seriesId);
     if (pending) void submit(pending);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seriesId, canRate]);
+  }, [seriesId, canRate, gateKnown, gateOpen]);
 
   // Back from sign-in with #level-rating: bring the card into view once it exists.
   useEffect(() => {
@@ -108,9 +155,13 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className, fallba
   const mine = summary.my_level;
   const result = buildLevelResult(summary);
   const returnTo = `${location.pathname}${location.search}#${LEVEL_RATING_ANCHOR}`;
+  const gate = gateFor(returnTo);
+  // Signed out keeps the sign-in sheet; only a signed-in rater meets this gate.
+  const blocked = canRate && gate && !gate.allowed ? gate : null;
+  const tileGateProps = blocked ? { 'aria-describedby': gateId } : {};
 
   const onPick = (level: SeriesLevel) => {
-    if (isRating) return;
+    if (isRating || blocked) return;
     if (!canRate) {
       setTapped(level);
       stashPendingLevelRating({ seriesId, level });
@@ -151,7 +202,8 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className, fallba
               role="radio"
               aria-checked={mine === value}
               data-testid={`level-rating-${value}`}
-              disabled={isRating}
+              disabled={isRating || Boolean(blocked)}
+              {...tileGateProps}
               onClick={() => onPick(value)}
               className={cn(
                 'min-h-[44px] rounded-full border px-2 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:opacity-60',
@@ -164,6 +216,7 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className, fallba
             </button>
           ))}
         </div>
+        {blocked && <GateNotice gate={blocked} tone="compact" id={gateId} />}
       </section>
     );
   }
@@ -294,7 +347,8 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className, fallba
                 role="radio"
                 aria-checked={on}
                 data-testid={`level-rating-${value}`}
-                disabled={isRating}
+                disabled={isRating || Boolean(blocked)}
+                {...tileGateProps}
                 onClick={() => onPick(value)}
                 className={cn(TILE_BASE, TILE_TONE[value], on && TILE_ON)}
               >
@@ -307,6 +361,7 @@ export const LevelRatingPrompt = ({ seriesId, compact = false, className, fallba
           })}
         </div>
       )}
+      {showTiles && blocked && <GateNotice gate={blocked} tone="card" id={gateId} />}
 
       {(result || mine) && (
         <button

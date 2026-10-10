@@ -1,6 +1,7 @@
 import { createContext, startTransition, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { getSupabase } from "@/integrations/supabase/getSupabase";
+import type { ProfileCompletionStatus, RatingGate } from "@/lib/profileCompletion";
 import {
   startAuthResolution,
   AUTH_RESOLVE_TIMEOUT_MS,
@@ -47,6 +48,24 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const useAuth = () => useContext(AuthContext);
+
+/**
+ * The party-rating gate (profile completeness) for the signed-in user. The lazy,
+ * signed-in-only ProfileCompletionChrome computes it (lib/profileCompletion) and
+ * AppChrome provides it; LevelRatingPrompt reads it -- so the rating card never
+ * imports the completion hook. It lives in THIS module only because useAuth
+ * already has its own first-load chunk on every route: a module of its own was
+ * one more request on every page (perf-budgets.json chunk ratchet).
+ *
+ * null = signed out or no provider (never blocks: the card has its own sign-in
+ * sheet). "loading" = signed in, no answer yet (nothing blocked; a vote stashed
+ * before sign-in waits).
+ */
+export type ProfileGateValue = {
+  status: ProfileCompletionStatus;
+  gateFor: (returnTo: string) => RatingGate;
+};
+export const ProfileGateContext = createContext<ProfileGateValue | "loading" | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
