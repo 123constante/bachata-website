@@ -6,7 +6,7 @@ name: Cloudflare purge on deploy
 # which the new deploy no longer serves; those URLs answer 200 text/html, the
 # browser rejects them as module scripts, and the page renders BLANK until the
 # Cloudflare copy expires (measured: /account/o, ~5 minutes after #659).
-# This workflow clears Cloudflare's cache as soon as Vercel reports the new
+# This workflow clears Cloudflare's cached HTML as soon as Vercel reports the new
 # production deployment live. Runbook: docs/ops/cloudflare-purge.md.
 #
 # WHY deployment_status success. Vercel creates the GitHub deployment and posts
@@ -18,19 +18,39 @@ name: Cloudflare purge on deploy
 # Belt and braces: a second purge runs 60s later, so a request that raced the
 # alias switch cannot leave an old copy behind.
 #
-# WHAT IS PURGED: everything in the zone. The Free plan does allow purge by
-# prefix/host/tag (Cloudflare docs, "Purge cache: availability and limits",
-# read 2026-10-08), but none of them can say "all HTML except /assets/* and
-# /_vercel/image": HTML lives at every path (the catch-all serves any URL), so
-# a prefix list would have to enumerate every route and would silently miss the
-# next one added -- reintroducing exactly this blank-page bug. The cost of
-# purging everything is a one-off refetch of hashed assets and optimised images
-# from Vercel's CDN (static, no function runs).
+# WHAT IS PURGED (2026-10-09): Cloudflare cache tag `html`, not the whole zone.
+# vercel.json stamps `Cache-Tag: html` on every response except /assets/*,
+# /_vercel/* and static image/font/manifest files, so the tag covers every HTML
+# document and every `.data` twin at every path (the catch-all included) while
+# hashed JS, fonts and optimised images stay cached. Purging everything emptied
+# those too, and each deploy made Cloudflare re-fetch them from Vercel (~3.8K JS
+# + ~3.6K image requests/day, against the Hobby 1M CDN-request cap).
+#
+# FALLS BACK TO purge_everything, logged with the reason (a ::warning:: line and
+# "Path taken: everything (...)"), whenever the tag purge might not be enough:
+#   - the tag purge API call fails (any non-success, after one 5xx retry);
+#   - vercel.json changed between the previous successful Production deployment
+#     and this one (the tag's coverage may have changed, and copies cached
+#     before it may carry no tag -- this is also how the deploy that first adds
+#     the header clears the untagged HTML), or that range cannot be read, or
+#     this deployment is not ahead of the previous one (a rollback);
+#   - the probe below sees a probe page survive a tag purge, or cannot tell;
+#   - a manual run with scope=everything.
+# The probe: GET /faq (prerendered, static) and /festivals (SSR) through ONE
+# pinned Cloudflare IP (same edge location every time) until cf-cache-status is
+# HIT, tag-purge, wait 5s, GET again. Anything but MISS means the object
+# survived (for example Vercel dropped the header). It checks pass 1 when a
+# page was already cached at that edge (one quick GET each, so pass 1 is not
+# held back), and always checks pass 2 (warmed during the 60s wait). About a
+# dozen anonymous GETs per deploy. It proves the tag on two pages at one edge
+# location, not on every route.
 #
 # SAFETY. No checkout, no repository code runs, no actions are used (nothing to
-# pin). permissions: {} -- the job needs no GitHub token scope. The Cloudflare
-# token is only ever passed as an HTTP header and never echoed. Without the
-# secrets the job is a green no-op with a log line saying so.
+# pin). permissions: contents + deployments read -- only to find the previous
+# successful Production deployment and list the files changed since it.
+# The Cloudflare token and the GitHub token are only ever passed as HTTP headers
+# and never echoed. Without the secrets the job is a green no-op with a log line
+# saying so.
 #
 # Owner setup (one-time): secret CLOUDFLARE_API_TOKEN (Zone > Cache Purge >
 # Purge, zone bachatacalendar.co.uk only) and variable CLOUDFLARE_ZONE_ID.
@@ -38,8 +58,16 @@ name: Cloudflare purge on deploy
 on:
   deployment_status:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: "html = purge cache tag html (default); everything = purge the whole zone"
+        type: choice
+        options: [html, everything]
+        default: html
 
-permissions: {}
+permissions:
+  contents: read
+  deployments: read
 
 # Serialise purges; never cancel one in flight (two quick merges = two deploys,
 # and the later purge must still run after the later deploy).
@@ -54,15 +82,19 @@ jobs:
       (github.event.deployment_status.state == 'success' &&
        github.event.deployment_status.environment == 'Production')
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Purge Cloudflare cache (twice, 60s apart)
+      - name: Purge Cloudflare HTML cache (twice, 60s apart)
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CF_ZONE: ${{ vars.CLOUDFLARE_ZONE_ID || secrets.CLOUDFLARE_ZONE_ID }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SCOPE: ${{ inputs.scope || 'html' }}
           CREATOR: ${{ github.event.deployment_status.creator.login || github.actor }}
           DEPLOY_URL: ${{ github.event.deployment_status.environment_url || 'manual run' }}
           SHA: ${{ github.event.deployment.sha || github.sha }}
+          DEPLOY_ID: ${{ github.event.deployment.id }}
         run: |
           set -euo pipefail
           echo "Trigger: ${GITHUB_EVENT_NAME} by ${CREATOR}; deployment ${DEPLOY_URL} (${SHA})"
@@ -75,31 +107,170 @@ jobs:
             exit 1
           fi
 
-          purge() {
-            local pass="$1" attempt code
+          SITE_HOST=www.bachatacalendar.co.uk
+          PROBES="/faq /festivals"
+          UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36'
+
+          # One purge_cache call. Sets CODE; the body is in /tmp/cf-purge.json.
+          api() {
+            local data="$1" attempt
             for attempt in 1 2; do
               : > /tmp/cf-purge.json
-              code=$(curl -sS -o /tmp/cf-purge.json -w '%{http_code}' --max-time 30 \
+              CODE=$(curl -sS -o /tmp/cf-purge.json -w '%{http_code}' --max-time 30 \
                 -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/purge_cache" \
                 -H "Authorization: Bearer ${CF_TOKEN}" \
                 -H 'Content-Type: application/json' \
-                --data '{"purge_everything":true}') || code=000
-              if [ "${code}" = "200" ] && grep -q '"success":[[:space:]]*true' /tmp/cf-purge.json; then
-                echo "Pass ${pass}: purge_everything accepted (HTTP 200)."
+                --data "${data}") || CODE=000
+              if [ "${CODE}" = "200" ] && grep -q '"success":[[:space:]]*true' /tmp/cf-purge.json; then
                 return 0
               fi
               # Retry once on 5xx / network failure; a 4xx (bad token scope,
               # wrong zone, rate limit) will not fix itself in a second.
-              if [ "${attempt}" = "1" ] && { [ "${code}" = "000" ] || [ "${code}" -ge 500 ]; }; then
-                echo "Pass ${pass}: HTTP ${code}, retrying once in 5s."
+              if [ "${attempt}" = "1" ] && { [ "${CODE}" = "000" ] || [ "${CODE}" -ge 500 ]; }; then
+                echo "  HTTP ${CODE}, retrying once in 5s."
                 sleep 5
                 continue
               fi
-              echo "::error::Pass ${pass}: Cloudflare purge failed, HTTP ${code}: $(head -c 500 /tmp/cf-purge.json 2>/dev/null || true)"
               return 1
             done
           }
 
+          everything() {
+            if api '{"purge_everything":true}'; then
+              echo "Pass $1: purge_everything accepted (HTTP 200). Path: everything (${WHY})."
+              return 0
+            fi
+            echo "::error::Pass $1: Cloudflare purge_everything failed, HTTP ${CODE}: $(head -c 500 /tmp/cf-purge.json 2>/dev/null || true)"
+            return 1
+          }
+
+          # MODE only ever moves from html to everything.
+          fallback() {
+            echo "::warning::Pass $1: FALLING BACK to purge_everything: $2"
+            MODE=everything
+            WHY="fallback: $2"
+            everything "$1"
+          }
+
+          purge() {
+            if [ "${MODE}" = "everything" ]; then
+              everything "$1"
+              return
+            fi
+            if api '{"tags":["html"]}'; then
+              echo "Pass $1: tag purge [html] accepted (HTTP 200). Path: tags."
+              return 0
+            fi
+            fallback "$1" "tag purge [html] failed, HTTP ${CODE}"
+          }
+
+          gh_api() {
+            curl -sSf --max-time 20 -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/${REPO}/$1"
+          }
+
+          # Prints "<base sha> <current sha>": the newest successful Production
+          # deployment older than this one, and this one (a manual run: the newest
+          # successful one, i.e. what production serves). Fails if either is missing.
+          deploy_range() {
+            local id sha state cur="" base="" seen=0
+            gh_api "deployments?environment=Production&per_page=15" > /tmp/deploys.json || return 1
+            while read -r id sha; do
+              if [ -n "${DEPLOY_ID}" ] && [ "${seen}" = "0" ]; then
+                [ "${id}" = "${DEPLOY_ID}" ] && { seen=1; cur="${sha}"; }
+                continue
+              fi
+              state=$(gh_api "deployments/${id}/statuses?per_page=1" | jq -r '.[0].state // ""') || return 1
+              [ "${state}" = "success" ] || continue
+              if [ -z "${cur}" ]; then cur="${sha}"; else base="${sha}"; break; fi
+            done < <(jq -r '.[] | "\(.id) \(.sha)"' /tmp/deploys.json)
+            [ -n "${cur}" ] && [ -n "${base}" ] || return 1
+            echo "${base} ${cur}"
+          }
+
+          # Sets MODE/WHY from the files changed between the two deployments.
+          decide() {
+            local range base cur status count
+            if [ "${SCOPE}" = "everything" ]; then
+              MODE=everything; WHY="manual run with scope=everything"; return
+            fi
+            if ! range=$(deploy_range); then
+              MODE=everything; WHY="could not find the previous successful Production deployment"; return
+            fi
+            read -r base cur <<< "${range}"
+            echo "Deployed range: ${base}...${cur}"
+            if ! gh_api "compare/${base}...${cur}" > /tmp/compare.json; then
+              MODE=everything; WHY="could not compare ${base}...${cur}"; return
+            fi
+            status=$(jq -r '.status' /tmp/compare.json)
+            count=$(jq -r '.files | length' /tmp/compare.json)
+            if [ "${status}" != "ahead" ] && [ "${status}" != "identical" ]; then
+              MODE=everything; WHY="compare ${base}...${cur} is ${status}, not ahead (rollback?)"
+            elif [ "${count}" -ge 300 ]; then
+              MODE=everything; WHY="${count} files changed, the list may be truncated"
+            elif jq -e '.files[] | select(.filename == "vercel.json")' /tmp/compare.json > /dev/null; then
+              MODE=everything; WHY="vercel.json changed in ${base}...${cur}, so cached copies may carry no Cache-Tag"
+            fi
+          }
+
+          # Probes go to ONE Cloudflare IP so every GET hits the same edge location.
+          IP=$(getent ahostsv4 "${SITE_HOST}" | awk 'NR==1{print $1}' || true)
+          cf_status() {
+            [ -n "${IP}" ] || return 0
+            curl -sS -o /dev/null -D - --max-time "$2" -A "${UA}" \
+              --resolve "${SITE_HOST}:443:${IP}" "https://${SITE_HOST}$1" 2>/dev/null \
+              | tr -d '\r' | awk -F': *' 'tolower($1)=="cf-cache-status"{print toupper($2)}' || true
+          }
+
+          # Sets WARM to the probe pages that are a HIT at that edge.
+          warm() {
+            local p try s
+            WARM=""
+            for p in ${PROBES}; do
+              for try in $(seq 1 "$1"); do
+                s=$(cf_status "${p}" "$2")
+                echo "Probe warm ${p} #${try}: cf-cache-status ${s:-none}"
+                if [ "${s}" = "HIT" ]; then WARM="${WARM} ${p}"; break; fi
+                [ "${try}" = "$1" ] || sleep 2
+              done
+            done
+          }
+
+          # After a tag purge: only MISS proves the cached object was removed.
+          verify() {
+            local p s
+            [ "${MODE}" = "html" ] && [ -n "${WARM}" ] || return 0
+            sleep 5
+            for p in ${WARM}; do
+              s=$(cf_status "${p}" 20)
+              echo "Probe after pass $1 ${p}: cf-cache-status ${s:-none}"
+              if [ "${s}" != "MISS" ] && [ "${MODE}" = "html" ]; then
+                fallback "$1" "${p} answered ${s:-nothing} (not MISS) 5s after the tag purge: Cache-Tag html missing on it?"
+              fi
+            done
+            PROVEN=1
+          }
+
+          MODE=html
+          WHY=""
+          PROVEN=0
+          decide
+          echo "Mode: ${MODE}${WHY:+ (${WHY})}; probe edge IP: ${IP:-none}"
+
+          # Pass 1 is not held back: one quick GET per probe page, check only those
+          # already cached at that edge.
+          WARM=""
+          [ "${MODE}" = "html" ] && warm 1 5
           purge 1
+          verify 1
+
+          # Pass 2 is always checked: warm the probes now (they refill with this
+          # deployment's response), then purge again.
+          [ "${MODE}" = "html" ] && warm 3 20
           sleep 60
           purge 2
+          verify 2
+          if [ "${MODE}" = "html" ] && [ "${PROVEN}" = "0" ]; then
+            fallback 2 "probe inconclusive: no probe page reached cf-cache-status HIT, so the tag purge cannot be shown to work"
+          fi
+          echo "Done. Path taken: ${MODE}${WHY:+ (${WHY})}."

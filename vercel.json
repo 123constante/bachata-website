@@ -143,6 +143,15 @@
       ]
     },
     {
+      "source": "/((?!assets/|_vercel/|api/og/)(?!.*\\.(?:png|jpe?g|ico|svg|webp|avif|gif|woff2?|webmanifest)$).*)",
+      "headers": [
+        {
+          "key": "Cache-Tag",
+          "value": "html"
+        }
+      ]
+    },
+    {
       "source": "/api/embed/calendar",
       "headers": [
         {

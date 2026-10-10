@@ -11,32 +11,76 @@ below. Background: `docs/ops/vercel-html-caching-2026-10-08.md` (PR #661).
 
 | When | Mechanism | What Cloudflare purges |
 |---|---|---|
-| A production deploy goes live (`deployment_status` = success, environment `Production`, posted by `vercel[bot]`) | `.github/workflows/cloudflare-purge-on-deploy.yml` | **Everything in the zone**, twice: as soon as the deploy is live, and again 60s later |
-| Manual run (Actions > "Cloudflare purge on deploy" > Run workflow) | same workflow | Everything, twice |
+| A production deploy goes live (`deployment_status` = success, environment `Production`, posted by `vercel[bot]`) | `.github/workflows/cloudflare-purge-on-deploy.yml` | **Cache tag `html`** (every HTML document and `.data` twin, not `/assets/*` or `/_vercel/*`), twice: as soon as the deploy is live, and again 60s later. Falls back to **everything** in the cases listed below |
+| Manual run (Actions > "Cloudflare purge on deploy" > Run workflow) | same workflow | `scope` = `html` (default): as a deploy. `scope` = `everything`: the whole zone, twice |
 | A content write fires the DB webhook (`/api/revalidate`) | `app/routes/api.revalidate.tsx` > `app/cloudflarePurge.ts` | The affected public URLs, after Vercel's tag purge succeeds (table below) |
 
-### Why the deploy purge clears everything
+### Why the deploy purge clears the `html` tag, not everything
+
+Until 2026-10-09 the deploy purge sent `purge_everything`, twice per deploy.
+That also emptied the hashed `/assets/*` files, fonts and optimised
+`/_vercel/image` responses, which never change for a given URL, so every
+deploy made Cloudflare fetch them all again from Vercel. Measured 2026-10-09:
+about 3.8K uncached JS and 3.6K uncached image requests per day, with 4+ deploys
+per day, while the Vercel Hobby team was over its 1,000,000 CDN requests per
+month cap.
 
 The Free plan allows purge by URL, hostname, tag, prefix and everything
 (Cloudflare docs, "Purge cache: availability and limits", read 2026-10-08).
 Hostname, tag, prefix and purge-everything requests share a limit of 5 per
-minute (bucket 25). URL purges allow 800 URLs per second and 100 URLs per
-request. None of these can express "all HTML except `/assets/*` and
-`/_vercel/image`":
+minute (bucket 25). HTML is served at every path (the catch-all serves any URL,
+for example `/account/o`, where the blank page was measured), so a prefix list
+would have to name every route and would silently miss the next one. A tag
+does not have that problem:
 
-- HTML is served at every path. The catch-all route serves any URL, for
-  example `/account/o`, where the blank page was measured. A prefix list would
-  have to name every route, and a missing route would bring back the blank
-  page with no error.
-- A tag purge would need every HTML response to carry a Cloudflare `Cache-Tag`
-  header. That is an origin header change, and nobody has checked that Vercel
-  passes the header through unchanged.
+- `vercel.json` sends `Cache-Tag: html` on every path except `/assets/*`,
+  `/_vercel/*` and files ending in `.png .jpg .jpeg .ico .svg .webp .avif .gif
+  .woff .woff2 .webmanifest` (the `public/` icons, `og-image.jpg`, map
+  placeholders), and except `/api/og/*` (OG card images). The source
+  pattern is a negative lookahead, so a new route is tagged without anyone
+  remembering to add it. It is a `vercel.json` `headers` entry, not code in
+  `app/documentCacheHeaders.ts`, because `vercel.json` headers apply to every
+  matched response (prerendered HTML, SSR documents, `.data` and errors),
+  while `entry.server.tsx` sees only live SSR documents. The site already
+  relies on that for `X-Frame-Options` on SSR documents (`app/csp.ts`).
+- The workflow purges `{"tags":["html"]}`. Static files keep their Cloudflare
+  copies across deploys.
 
-The cost of purging everything: Cloudflare fetches the hashed `/assets/*` files
-and the optimised `/_vercel/image` responses again from Vercel's CDN. The first
-visitor per Cloudflare location pays that, once per deploy. Assets are static
-files on Vercel, so no function runs. Images come from Vercel's image cache;
-whether a refetch can count as a new image transformation was not checked.
+**When it falls back to `purge_everything`.** The workflow logs the path it
+took (`Mode: ...`, `Path: tags` / `Path: everything (<reason>)`, and a
+`::warning::` for a fallback). It purges everything when:
+
+1. the tag purge API call fails (any non-success, after one retry on 5xx);
+2. `vercel.json` changed between the previous successful Production
+   deployment and this one (GitHub deployments + compare API; the tag's
+   coverage may have changed, and copies cached before the change may carry no
+   tag. This is also how the deploy that first added the header cleared the
+   untagged HTML). Also when that range cannot be read, lists 300+ files
+   (possibly truncated), or is not `ahead` (a rollback);
+3. the probe sees a page survive a tag purge, or cannot tell. All probe GETs
+   go to one pinned Cloudflare IP, so they hit the same edge location. Before
+   pass 1 it sends one quick GET to `/faq` (prerendered) and `/festivals`
+   (SSR), so pass 1 is not held back; a page that was already a `HIT` is
+   checked 5s after pass 1. During the 60s wait it re-warms both pages until
+   `HIT` and checks them 5s after pass 2. Anything other than `MISS` after a
+   tag purge (`HIT`, `STALE`, `REVALIDATED`, `EXPIRED`...) means the object
+   survived, for example because Vercel dropped the header. If no page ever
+   reached `HIT` the probe cannot tell, and pass 2 falls back;
+4. a manual run with `scope` = `everything`.
+
+What this does and does not prove. A failed tag purge, a `vercel.json`
+change and a header that is missing everywhere all end in `purge_everything`.
+The probe checks two pages at one edge location: a route whose responses lose
+the tag while `/faq` and `/festivals` keep it would not be caught (the
+`vercel.json` pattern is a negative lookahead precisely so that a route cannot
+be left out by accident). When the header is missing and the edge was cold
+before pass 1, the fallback lands at pass 2, about 65s after the deploy went
+live, where `purge_everything` used to land at once. Only a red run
+(`purge_everything` itself failed) leaves stale HTML until the 300s TTL.
+
+Whether Vercel passes `Cache-Tag` through unchanged was not measured before
+merge (no route to production from the authoring container); the probe checks
+it on every deploy.
 
 ### Why `deployment_status` success is the right moment
 
@@ -137,9 +181,26 @@ title after `cf-cache-status: EXPIRED`).
 ## How to test
 
 **Deploy purge (one click).** Actions > "Cloudflare purge on deploy" > Run
-workflow > `main`. A green run with `Pass 1: purge_everything accepted` and
-`Pass 2: ...` means the token works. A notice `Cloudflare purge SKIPPED` means
-the secret or variable is missing.
+workflow > `main` (`scope` = `html`). A green run with `Mode: html`,
+`Pass 1: tag purge [html] accepted`, `Probe after pass 2 ...: cf-cache-status
+MISS` and `Done. Path taken: html.` means the token works and the tag
+reaches Cloudflare. `Path taken: everything (fallback: ...)` names why it fell
+back. A notice `Cloudflare purge SKIPPED` means the secret or variable is
+missing.
+
+**After a deploy: assets kept, HTML purged.** Once the deploy's workflow run
+logs `Pass 2`, read both through one Cloudflare edge IP (`IP=$(dig +short
+www.bachatacalendar.co.uk | head -1)`; `/assets/vendor-react-*.js` keeps its
+hash across deploys that do not change React; take the current name from the
+page source):
+
+```bash
+curl -s -o /dev/null -D - --resolve www.bachatacalendar.co.uk:443:$IP https://www.bachatacalendar.co.uk/assets/vendor-react-<hash>.js | grep -iE '^(cf-cache-status|age):'   # HIT, age older than the deploy
+curl -s -o /dev/null -D - --resolve www.bachatacalendar.co.uk:443:$IP https://www.bachatacalendar.co.uk/festivals | grep -iE '^(cf-cache-status|age):'                     # MISS/EXPIRED, or HIT with age younger than Pass 2
+```
+
+An asset `MISS` on the first request only means that edge had not cached it
+yet: request it twice before the next deploy and re-check after it.
 
 To see it work from a terminal:
 
@@ -166,7 +227,11 @@ Vercel env vars are not set on this deployment.
 |---|---|---|
 | Workflow: `SKIPPED` notice, green | Secret/variable missing | No purge. Add them (setup step 2) |
 | Workflow red, HTTP 403 / code 10000 | Token lacks Cache Purge on this zone, or was revoked | No purge. Pages may be blank for up to 5 min after a deploy. Recreate the token |
-| Workflow red, HTTP 429 | Over 5 purge-everything requests per minute (many deploys in one minute) | That purge is lost. The next deploy or a manual run clears the cache |
+| Workflow green, `Mode: everything (vercel.json changed in ...)` | Expected on a deploy that changes `vercel.json` | None |
+| Workflow green, `::warning::` `FALLING BACK to purge_everything: tag purge [html] failed` | Tag purge refused (token scope, plan change, rate limit) | Behaves as before 2026-10-09: the whole zone is purged. Fix the token if the HTTP code says so |
+| Workflow green, `FALLING BACK ...: /faq answered HIT (not MISS) 5s after the tag purge` | `Cache-Tag: html` is not reaching Cloudflare on that page (Vercel dropped it, or the `vercel.json` pattern no longer covers it) | Every deploy purges everything (assets refetched again). Check `vercel.json` and the header at the origin |
+| Workflow green, `FALLING BACK ...: probe inconclusive` | Neither probe page reached `cf-cache-status: HIT` from the runner (cache rule changed, it treats the runner as a bot, or DNS gave no IP) | Same: purges everything. Check the cache rule; change `PROBES` in the workflow if needed |
+| Workflow red, HTTP 429 | Over 5 tag/purge-everything requests per minute (many deploys in one minute) | That purge is lost. The next deploy or a manual run clears the cache |
 | Workflow red, 5xx twice | Cloudflare API outage | Same. Re-run the workflow |
 | Log `[cf-purge] ... HTTP 429` on `prefix purge` | Webhook bursts (bulk admin edits) beyond the prefix limit | URL purges still worked. Query-string variants stay cached up to 300s |
 | Log `slug lookup failed` / only the uuid URL purged | Supabase blip, or the event is hidden and `SUPABASE_SERVICE_ROLE_KEY` is not set on the deployment | `/event/<slug>` can serve the old page for up to 300s. Set the key, or have the DB emit include `slug` (admin repo) |
@@ -193,7 +258,8 @@ Vercel env vars are not set on this deployment.
 ## How to remove it
 
 1. Delete `.github/workflows/cloudflare-purge-on-deploy.yml`, and its row in
-   `docs/ci-guard-notes.md`. Re-derive `MEASURED` in
+   `docs/ci-guard-notes.md`. Remove the `Cache-Tag: html` entry from
+   `vercel.json` (harmless if left). Re-derive `MEASURED` in
    `scripts/check-workflow-artifact-policy.mjs`; it will say so.
 2. In `app/routes/api.revalidate.tsx`, remove `scheduleCloudflarePurge` and its
    call. Delete `app/cloudflarePurge.ts`, `app/cloudflarePurge.test.ts` and
