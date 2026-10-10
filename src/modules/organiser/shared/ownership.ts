@@ -38,6 +38,8 @@ export interface OwnershipInput {
   ownership: OrganiserOwnership | null | undefined;
   /** null: signed out, not loaded, or the RPC failed or omitted the organiser. */
   hint: ClaimHint | null | undefined;
+  /** The hint query is still in flight: hold the "Is this you?" card back rather than guess 'request'. */
+  hintLoading?: boolean;
 }
 
 export interface OwnershipFacts {
@@ -68,7 +70,7 @@ const FLAGGED_OFF: OwnershipFacts = {
 };
 
 export function ownershipFacts(input: OwnershipInput): OwnershipFacts {
-  const { flagOn, signedIn, ownership, hint } = input;
+  const { flagOn, signedIn, ownership, hint, hintLoading } = input;
   const canEdit = signedIn && !!ownership && (ownership.my_role === 'owner' || ownership.my_role === 'manager');
   const isOwner = signedIn && !!ownership?.i_own_it;
   const base = { ...FLAGGED_OFF, canEdit, isOwner };
@@ -80,6 +82,7 @@ export function ownershipFacts(input: OwnershipInput): OwnershipFacts {
   }
   if (!signedIn) return { ...base, kind: 'sign_in', showIsThisYou: true, claimButton: 'sign_in' };
   if (hint === 'yours' || ownership.my_role) return { ...base, kind: 'member' };
+  if (hintLoading) return base;
   if (hint === 'email_matches') return { ...base, kind: 'claim', showIsThisYou: true, claimButton: 'claim' };
   // email_differs, no_email, or no hint yet: only "request access" can be promised.
   return { ...base, kind: 'request', showIsThisYou: true, claimButton: 'request' };

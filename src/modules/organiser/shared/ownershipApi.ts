@@ -52,11 +52,16 @@ export interface ContactSettings extends PublicContact {
   claim_email: string | null;
 }
 
+const CONTACT_KEYS = ['contact_phone', 'contact_email', 'show_contact_publicly', 'claim_email'];
+
 /** Owner, manager or admin only; anyone else gets permission_denied (thrown). */
 export async function fetchContactSettings(organiserId: string): Promise<ContactSettings> {
   const { data, error } = await callRpc('get_organiser_contact_settings_v1', { p_organiser_id: organiserId });
   if (error) throw error;
-  const row = (data ?? {}) as Record<string, unknown>;
+  // No error but no usable answer: a "ready" all-empty result would make the next save
+  // blank the stored phone and flip the flag, so this is a failed read.
+  const row = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : null;
+  if (!row || !CONTACT_KEYS.some((k) => k in row)) throw new Error('get_organiser_contact_settings_v1 returned no settings');
   return {
     contact_email: str(row.contact_email),
     contact_phone: str(row.contact_phone),

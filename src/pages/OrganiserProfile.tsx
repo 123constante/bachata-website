@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -647,6 +647,11 @@ const OrganiserProfile = () => {
   // form opens; 'failed' disables them (with a reason) and keeps them out of the save.
   const [contactState, setContactState] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
   const openedFormRef = useRef<string | null>(null);
+  // Per-open token: a contact-settings read applies only if no newer open (or a close) happened since.
+  const editOpenTokenRef = useRef(0);
+  useEffect(() => {
+    if (!isEditOpen) editOpenTokenRef.current += 1;
+  }, [isEditOpen]);
 
   const { data: entity, isLoading, error } = useQuery({
     queryKey: organiserEntityQueryKey(id),
@@ -667,7 +672,7 @@ const OrganiserProfile = () => {
     staleTime: 60 * 1000,
   });
   // The claim hint is signed-in only (anon is refused by the RPC).
-  const { data: claimHint = null } = useQuery({
+  const { data: claimHint = null, isLoading: claimHintLoading } = useQuery({
     queryKey: organiserClaimHintQueryKey(id, userId),
     queryFn: () => fetchClaimHint(id as string),
     enabled: !!id && !!entity && !!userId && flags.organiserSelfServe,
@@ -684,7 +689,7 @@ const OrganiserProfile = () => {
 
   // The ONE place that turns those answers into badge / card / claim button /
   // edit access (ownership.ts); nothing below re-derives any of them.
-  const facts = ownershipFacts({ flagOn: flags.organiserSelfServe, signedIn: !!user, ownership, hint: claimHint });
+  const facts = ownershipFacts({ flagOn: flags.organiserSelfServe, signedIn: !!user, ownership, hint: claimHint, hintLoading: claimHintLoading });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { rgb: [cr, cg, cb], ready: heroColourReady } = useAverageColor((entity as any)?.avatar_url ?? null);
@@ -866,6 +871,7 @@ const OrganiserProfile = () => {
     };
     // Contact details are private columns: owner / manager / admin read them through
     // get_organiser_contact_settings_v1, fetched fresh each time the form opens.
+    const openToken = ++editOpenTokenRef.current;
     setContactState('loading');
     setEditForm({ ...base, contact_email: '', contact_phone: '', show_contact_publicly: false });
     openedFormRef.current = null;
@@ -876,6 +882,7 @@ const OrganiserProfile = () => {
         queryFn: () => fetchContactSettings(id),
         staleTime: 0,
       });
+      if (openToken !== editOpenTokenRef.current) return;
       const loaded = {
         ...base,
         contact_email: settings.contact_email ?? '',
@@ -886,6 +893,7 @@ const OrganiserProfile = () => {
       openedFormRef.current = JSON.stringify(loaded);
       setContactState('ready');
     } catch {
+      if (openToken !== editOpenTokenRef.current) return;
       openedFormRef.current = JSON.stringify({ ...base, contact_email: '', contact_phone: '', show_contact_publicly: false });
       setContactState('failed');
     }

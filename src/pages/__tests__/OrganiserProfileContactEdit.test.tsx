@@ -6,13 +6,15 @@
  * settings read refused, untouched save, toggled save.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const h = vi.hoisted(() => ({
   settings: { contact_email: 'a@x.example', contact_phone: '0113 000', show_contact_publicly: false, claim_email: null } as Record<string, unknown>,
   settingsError: null as { message: string } | null,
+  gates: [] as Array<() => void>,
+  gated: false,
   calls: [] as Array<[string, Record<string, unknown>]>,
 }));
 
@@ -40,6 +42,11 @@ vi.mock('@/integrations/supabase/client', () => {
         h.calls.push([fn, args]);
         if (fn === 'organiser_ownership_v1') return { data: { is_managed: true, i_own_it: true, my_role: 'owner' }, error: null };
         if (fn === 'get_organiser_public_contact_v1') return { data: { contact_email: null, contact_phone: null }, error: null };
+        if (fn === 'get_organiser_contact_settings_v1' && h.gated) {
+          const snapshot = { ...h.settings };
+          await new Promise<void>((release) => h.gates.push(release));
+          return { data: snapshot, error: null };
+        }
         if (fn === 'get_organiser_contact_settings_v1') return h.settingsError ? { data: null, error: h.settingsError } : { data: h.settings, error: null };
         if (fn === 'organiser_profile_update_p5_v1') return { data: {}, error: null };
         return { data: null, error: null };
@@ -78,6 +85,8 @@ async function openForm() {
 beforeEach(() => {
   h.calls.length = 0;
   h.settingsError = null;
+  h.gates.length = 0;
+  h.gated = false;
   h.settings = { contact_email: 'a@x.example', contact_phone: '0113 000', show_contact_publicly: false, claim_email: null };
 });
 afterEach(cleanup);
@@ -136,5 +145,34 @@ describe('owner edit form: contact fields and the show-contact toggle', () => {
     expect(patch).not.toHaveProperty('contact_phone');
     expect(patch).not.toHaveProperty('show_contact_publicly');
     expect(patch.bio).toBe('New bio');
+  });
+
+  it('a read that lands after the form was closed does not touch the next open', async () => {
+    h.gated = true;
+    h.settings = { contact_email: 'a@x.example', contact_phone: 'OLD-PHONE', show_contact_publicly: false, claim_email: null };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/organisers/org']}>
+          <Routes><Route path="/organisers/:id" element={<OrganiserProfile />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByLabelText('Edit profile'));
+    await screen.findByLabelText('Show my contact details on my public page');
+    await waitFor(() => expect(h.gates).toHaveLength(1));
+    // Close while the first read is pending, change what the server holds, reopen.
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByLabelText('Show my contact details on my public page')).toBeNull());
+    h.settings = { contact_email: 'a@x.example', contact_phone: 'NEW-PHONE', show_contact_publicly: false, claim_email: null };
+    fireEvent.click(screen.getByLabelText('Edit profile'));
+    await screen.findByLabelText('Show my contact details on my public page');
+    // Release every pending read: the form must end on the newest open's data and be savable only once ready.
+    await act(async () => { h.gates.splice(0).forEach((release) => release()); });
+    await waitFor(() => expect((screen.getByLabelText('Contact phone / WhatsApp') as HTMLInputElement).disabled).toBe(false));
+    expect((screen.getByLabelText('Contact phone / WhatsApp') as HTMLInputElement).value).not.toBe('');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByLabelText('Show my contact details on my public page')).toBeNull());
+    expect(saves()).toHaveLength(0);
   });
 });

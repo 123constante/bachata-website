@@ -116,6 +116,42 @@ describe('ownershipFacts over every shape', () => {
   });
 });
 
+/**
+ * Arc PR 3 review: while the claim-hint query is still LOADING the "Is this you?" card is
+ * held back (a null hint would otherwise read as 'request' and flash for an owner or an
+ * email match). Badge and card never disagree in that state. Signed out has no hint query.
+ */
+interface LoadingShape { name: string; signedIn: boolean; ownership: OrganiserOwnership | null; card: boolean; badge: boolean }
+const LOADING: LoadingShape[] = [
+  { name: 'hint loading: signed out', signedIn: false, ownership: O(false, false, null), card: true, badge: false },
+  { name: 'hint loading: signed in, no relation', signedIn: true, ownership: O(false, false, null), card: false, badge: false },
+  { name: 'hint loading: owner (hint will be yours)', signedIn: true, ownership: O(true, true, 'owner'), card: false, badge: true },
+  { name: 'hint loading: email matches (hint will be email_matches)', signedIn: true, ownership: O(false, false, null), card: false, badge: false },
+];
+
+describe('ownershipFacts while the claim hint is loading', () => {
+  it.each(LOADING)('$name', (l) => {
+    const f = ownershipFacts({ flagOn: true, signedIn: l.signedIn, ownership: l.ownership, hint: null, hintLoading: true });
+    expect([f.showIsThisYou, f.showBadge]).toEqual([l.card, l.badge]);
+    expect(f.showIsThisYou).toBe(f.claimButton !== 'none');
+    if (f.showBadge) expect(f.showIsThisYou).toBe(false);
+    cleanup();
+    render(
+      <MemoryRouter>
+        <PublicClaimCard facts={f} hint={null} organiser={{ id: 'o1', name: 'Ritmo' }} user={l.signedIn ? ME : null} mailboxProven returnTo="/x" onChanged={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(!!screen.queryByTestId('public-claim-card')).toBe(l.card);
+  });
+
+  it('once the hint settles (success or error) the card follows the normal mapping', () => {
+    const ok = ownershipFacts({ flagOn: true, signedIn: true, ownership: O(false, false, null), hint: 'email_matches', hintLoading: false });
+    expect([ok.showIsThisYou, ok.claimButton]).toEqual([true, 'claim']);
+    const failed = ownershipFacts({ flagOn: true, signedIn: true, ownership: O(false, false, null), hint: null, hintLoading: false });
+    expect([failed.showIsThisYou, failed.claimButton]).toEqual([true, 'request']);
+  });
+});
+
 describe('the same fact reads the same on every screen', () => {
   it.each(SHAPES)('$name: card, badge and onboarding row agree', (shape) => {
     const f = facts(shape);
