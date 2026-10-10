@@ -10,9 +10,10 @@ const text = (v: unknown) => (typeof v === 'string' ? v : '');
 
 /**
  * The edit form for one organiser, filled from its stored row. Every field the
- * RPC takes is filled, including the ones this screen does not show (phone,
- * category, founded year): the server treats an unchanged value as a no-op, so
- * re-sending them never wipes or re-validates them.
+ * RPC takes that the public row carries is filled, including the ones this
+ * screen does not show (category, founded year): the server treats an unchanged
+ * value as a no-op. The phone and the show-contact flag are private columns this
+ * screen does not show, so they stay undefined and are left out of the patch.
  */
 export function formFromEntity(entity: ProfileEntity): OrganiserProfileEditForm {
   const socials = (entity.socials ?? null) as { instagram?: unknown; website?: unknown; facebook?: unknown } | null;
@@ -23,7 +24,6 @@ export function formFromEntity(entity: ProfileEntity): OrganiserProfileEditForm 
     instagram: text(entity.instagram) || text(socials?.instagram),
     facebook: text(socials?.facebook),
     website: text(entity.website) || text(socials?.website),
-    contact_phone: text(entity.contact_phone),
     organisation_category: text(entity.organisation_category),
     founded_year: entity.founded_year ? String(entity.founded_year) : '',
   };

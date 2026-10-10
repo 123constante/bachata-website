@@ -26,9 +26,9 @@ import { formFromEntity, instagramHandle } from '../profileForm';
 
 const ORG = { id: 'org-1', name: 'Ritmo', slug: 'ritmo', avatar_url: null, city_id: 'c1', lifecycle_status: 'live', role: 'owner', latest_decision: null, series: [] };
 const ENTITY = {
-  id: 'org-1', name: 'Ritmo', avatar_url: null, bio: 'Salsa and bachata in Leeds', claimed_by: 'u1',
+  id: 'org-1', name: 'Ritmo', avatar_url: null, bio: 'Salsa and bachata in Leeds',
   socials: { facebook: 'ritmofb' }, city_id: 'c1', instagram: 'https://instagram.com/ritmoleeds', website: null,
-  contact_email: 'me@x.example', contact_phone: '0113 000', organisation_category: 'school', founded_year: 2015,
+  organisation_category: 'school', founded_year: 2015,
   cities: { name: 'Leeds', slug: 'leeds' },
 };
 
@@ -81,7 +81,10 @@ describe('profile edit', () => {
     const [, id, form, cityId] = api.save.mock.calls[0];
     expect(id).toBe('org-1');
     expect(cityId).toBe('c1');
-    expect(form).toMatchObject({ name: 'Ritmo Leeds', instagram: '@ritmo.leeds', facebook: 'ritmofb', contact_phone: '0113 000', organisation_category: 'school', founded_year: '2015' });
+    expect(form).toMatchObject({ name: 'Ritmo Leeds', instagram: '@ritmo.leeds', facebook: 'ritmofb', organisation_category: 'school', founded_year: '2015' });
+    // The private contact fields are not on the public row and not on this screen: they stay out of the patch.
+    expect(form.contact_phone).toBeUndefined();
+    expect(form.show_contact_publicly).toBeUndefined();
     await waitFor(() => expect(screen.getByTestId('profile-bar-action').textContent).toContain('Saved'));
   });
 

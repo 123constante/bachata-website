@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchCurrentUserOrganiserIds } from '@/modules/organiser/shared/ownershipApi';
 import { hasDancerProfileBasics } from '@/lib/onboardingStatus';
 import type { Json } from '@/integrations/supabase/types';
 
@@ -85,11 +86,11 @@ export const useUserIds = () => {
 
         // Parallel fetching for performance (dependent dancer fetch already resolved)
         const [organiserRes, teacherRes, videographerRes, vendorRes] = await Promise.all([
-          supabase
-            .from('organiser_profiles')
-            .select('id')
-            .eq('claimed_by', user.id)
-            .maybeSingle(),
+          // Membership comes from entity_members through the RPC (arc PR 3);
+          // organiser_profiles.claimed_by is a legacy duplicate and is not read.
+          fetchCurrentUserOrganiserIds()
+            .then((ids) => ({ data: ids[0] ? { id: ids[0] } : null }))
+            .catch(() => ({ data: null })),
 
           teacherRolePromise,
 

@@ -6,26 +6,14 @@ export interface ClaimCandidate {
   slug: string | null;
   avatar_url: string | null;
   city_id: string | null;
-  claimed_by: string | null;
-  contact_email: string | null;
 }
 
 /**
- * What the onboarding list offers for one organiser. A HINT computed from
- * public columns; claim_organiser_v1 decides.
+ * What the onboarding list offers for one organiser. Computed by the database
+ * (organiser_claim_hints_v1) from the PRIVATE claim email and the memberships,
+ * so the client never reads an address; claim_organiser_v1 still decides.
  */
 export type ClaimHint = 'yours' | 'managed' | 'email_matches' | 'email_differs' | 'no_email';
 
-const normEmail = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
-
-export function claimHint(
-  candidate: Pick<ClaimCandidate, 'id' | 'claimed_by' | 'contact_email'>,
-  user: { id: string; email?: string | null },
-  myOrganiserIds: ReadonlySet<string>,
-): ClaimHint {
-  if (myOrganiserIds.has(candidate.id) || candidate.claimed_by === user.id) return 'yours';
-  if (candidate.claimed_by) return 'managed';
-  const listed = normEmail(candidate.contact_email);
-  if (!listed) return 'no_email';
-  return listed === normEmail(user.email) ? 'email_matches' : 'email_differs';
-}
+/** A search result with the database's hint; null when the hint call failed (then only "ask to join" is offered). */
+export type ClaimableOrganiser = ClaimCandidate & { hint: ClaimHint | null };

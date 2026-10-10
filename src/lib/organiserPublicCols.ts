@@ -13,13 +13,10 @@ export type OrganiserPublicRecord = Pick<
   | "name"
   | "avatar_url"
   | "bio"
-  | "claimed_by"
   | "socials"
   | "city_id"
   | "instagram"
   | "website"
-  | "contact_email"
-  | "contact_phone"
   | "organisation_category"
   | "founded_year"
 >;
@@ -36,10 +33,11 @@ export type OrganiserPublicRecord = Pick<
  * review of whether it was safe to expose -- would ship into crawlable HTML
  * automatically.
  *
- * `claimed_by` is kept: OrganiserProfile.tsx's claim-button gating
- * (`entity.claimed_by === user?.id`) needs it once hydrated client-side, and
- * the loader and the page share the SAME ['entity', id] cache entry, so both
- * queries must select the identical shape or cache parity breaks.
+ * `claimed_by`, `contact_email` and `contact_phone` are NOT in this list and must
+ * never come back (arc PR 3; the admin REVOKE of their client column grants
+ * follows). Ownership comes from organiser_ownership_v1, the public contact
+ * from get_organiser_public_contact_v1 -- both are separate client queries, so
+ * neither lands in the SSR hydration payload.
  *
  * ONE LINE, and `as const`, both load-bearing -- same reasoning as
  * DANCER_PUBLIC_COLS (src/modules/profile/dancerPublicProfile.ts): a
@@ -48,4 +46,4 @@ export type OrganiserPublicRecord = Pick<
  * mistakes.
  */
 export const ORGANISER_PUBLIC_COLS =
-  "id, name, avatar_url, bio, claimed_by, socials, city_id, instagram, website, contact_email, contact_phone, organisation_category, founded_year" as const;
+  "id, name, avatar_url, bio, socials, city_id, instagram, website, organisation_category, founded_year" as const;

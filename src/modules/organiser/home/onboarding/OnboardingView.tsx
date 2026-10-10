@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Plus } from 'lucide-react';
-import { claimHint, searchClaimableOrganisers, type ClaimCandidate, type MyAccessRequest } from '@/modules/organiser/shared/selfServeApi';
+import { searchClaimableOrganisers, type ClaimCandidate, type MyAccessRequest } from '@/modules/organiser/shared/selfServeApi';
 import { declinedRequests } from '@/modules/organiser/shared/accessRequestModel';
 import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, StatusTag, useDebounced } from '../../ui';
-import { HINT_TEXT, askedOn, rowAction } from './onboardingModel';
+import { HINT_TEXT, NO_HINT_TEXT, askedOn, rowAction } from './onboardingModel';
 import { OrganiserSheet, type SheetTask } from './OrganiserSheet';
 import { SignOutLine } from './SignOutLine';
 
@@ -50,10 +50,11 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
   const rows = useMemo(
     () =>
       results.map((org) => {
-        const hint = claimHint(org, { id: user.id, email: user.email }, myOrganiserIds);
+        // The database's hint decides; the home list only covers a failed hint call.
+        const hint = org.hint ?? (myOrganiserIds.has(org.id) ? 'yours' : null);
         return { org, hint, action: rowAction(hint, requestedIds.has(org.id)) };
       }),
-    [results, user, myOrganiserIds, requestedIds],
+    [results, myOrganiserIds, requestedIds],
   );
 
   useEffect(() => {
@@ -135,7 +136,7 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
             <div key={org.id} className="flex items-center gap-[12px] px-[16px] py-[12px]" data-testid="onboarding-result" data-org={org.id}>
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-2 break-words text-[15px] font-semibold text-[var(--fg)]">{org.name}</p>
-                <p className="text-[13px] text-[var(--mut)]" data-testid="onboarding-hint">{HINT_TEXT[hint]}</p>
+                <p className="text-[13px] text-[var(--mut)]" data-testid="onboarding-hint">{hint ? HINT_TEXT[hint] : NO_HINT_TEXT}</p>
               </div>
               {action === 'claim' && (
                 <GhostButton size="sm" block={false} onClick={() => startClaim(org)} testId="onboarding-claim">

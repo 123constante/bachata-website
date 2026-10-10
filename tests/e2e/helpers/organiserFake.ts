@@ -424,13 +424,14 @@ export class OrganiserFake {
         if (id) {
           const o = this.organisers.find((x) => x.id === id);
           return rows(o ? [{
-            id: o.id, name: o.name, avatar_url: null, bio: o.bio, claimed_by: ME, socials: null, city_id: o.city_id, instagram: o.instagram,
-            website: o.website, contact_email: o.contact_email, contact_phone: null, organisation_category: null, founded_year: null,
+            id: o.id, name: o.name, avatar_url: null, bio: o.bio, socials: null, city_id: o.city_id, instagram: o.instagram,
+            website: o.website, organisation_category: null, founded_year: null,
             lifecycle_status: o.lifecycle_status, slug: null, is_active: true,
           }] : []);
         }
         const term = (url.searchParams.get('name') ?? '').replace(/^ilike\.|%/g, '').toLowerCase();
-        return rows(this.claimable.filter((c) => c.name.toLowerCase().includes(term)).map((c) => ({ ...c, slug: null, avatar_url: null, city_id: null })));
+        // The claim email and the legacy pointer stay in the fake's own state; the Website never reads them (arc PR 3).
+        return rows(this.claimable.filter((c) => c.name.toLowerCase().includes(term)).map((c) => ({ id: c.id, name: c.name, slug: null, avatar_url: null, city_id: null })));
       }
       return rows([]);
     }
@@ -446,6 +447,33 @@ export class OrganiserFake {
     switch (rpc) {
       case 'organiser_home_v1':
         return json(route, this.homeRead());
+      case 'get_current_user_organiser_ids':
+        return json(route, this.organisers.map((o) => o.id));
+      case 'organiser_ownership_v1': {
+        const mine = org(body.p_organiser_id);
+        if (mine) return json(route, { is_managed: true, i_own_it: true, my_role: 'owner' });
+        const c = this.claimable.find((x) => x.id === body.p_organiser_id);
+        return json(route, { is_managed: !!c?.claimed_by, i_own_it: false, my_role: null });
+      }
+      case 'organiser_claim_hints_v1': {
+        const ids = (body.p_organiser_ids ?? []) as string[];
+        const hintFor = (c: Claimable) => {
+          if (c.claimed_by) return 'managed';
+          if (!c.contact_email?.trim()) return 'no_email';
+          return c.contact_email.trim().toLowerCase() === EMAIL.toLowerCase() ? 'email_matches' : 'email_differs';
+        };
+        return json(route, [
+          ...this.organisers.filter((o) => ids.includes(o.id)).map((o) => ({ organiser_id: o.id, hint: 'yours' })),
+          ...this.claimable.filter((c) => ids.includes(c.id)).map((c) => ({ organiser_id: c.id, hint: hintFor(c) })),
+        ]);
+      }
+      case 'get_organiser_public_contact_v1':
+        return json(route, { contact_email: null, contact_phone: null });
+      case 'get_organiser_contact_settings_v1': {
+        const o = org(body.p_organiser_id);
+        if (!o) return refuse(route, 'permission_denied');
+        return json(route, { contact_email: o.contact_email, contact_phone: null, show_contact_publicly: false, claim_email: null });
+      }
       case 'list_organiser_access_requests_v1':
         if (body.p_scope === 'mine') return json(route, this.myRequests);
         return json(route, (org(body.p_organiser_id)?.requests ?? []).map((r) => ({ ...r, organiser_id: body.p_organiser_id, organiser_name: org(body.p_organiser_id)?.name })));

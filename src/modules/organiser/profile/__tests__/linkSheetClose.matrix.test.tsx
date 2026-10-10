@@ -36,10 +36,10 @@ type Kind = 'instagram' | 'website' | 'facebook';
 
 function entityWith(saved: Record<Kind, string>) {
   return {
-    id: 'org-1', name: 'Ritmo', avatar_url: null, bio: 'Salsa and bachata in Leeds', claimed_by: 'u1',
+    id: 'org-1', name: 'Ritmo', avatar_url: null, bio: 'Salsa and bachata in Leeds',
     socials: saved.facebook ? { facebook: saved.facebook } : {}, city_id: 'c1',
     instagram: saved.instagram || null, website: saved.website || null,
-    contact_email: 'me@x.example', contact_phone: null, organisation_category: 'school', founded_year: 2015,
+    organisation_category: 'school', founded_year: 2015,
     cities: { name: 'Leeds', slug: 'leeds' },
   };
 }
