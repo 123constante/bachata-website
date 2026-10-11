@@ -115,9 +115,14 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const teamRead = useQuery({ queryKey: organiserTeamQueryKey(organiser.id), queryFn: () => fetchOrganiserTeam(organiser.id) });
-  const team = teamRead.data?.members ?? teamOf(organiser);
+  // organiser_team_v1 carries no sign-up names; keep the ones the Home read has, so rows stay recognisable.
+  const homeTeam = teamOf(organiser);
+  const readUsable = teamRead.data && teamRead.data.myRole !== null;
+  const team = readUsable
+    ? teamRead.data!.members.map((m) => ({ ...m, displayName: m.displayName ?? homeTeam.find((h) => h.userId === m.userId)?.displayName ?? null }))
+    : homeTeam;
   // An admin who is not a member reads the team but cannot write it from this screen.
-  const readRole = teamRead.data?.myRole;
+  const readRole = readUsable ? teamRead.data!.myRole : null;
   const viewerRole: TeamRole = readRole === 'owner' || readRole === 'contributor' ? readRole : readRole === 'manager' || readRole === 'admin' ? 'manager' : organiser.role === 'owner' ? 'owner' : 'manager';
   const [addEmail, setAddEmail] = useState('');
   const [addRole, setAddRole] = useState<'manager' | 'contributor'>('manager');

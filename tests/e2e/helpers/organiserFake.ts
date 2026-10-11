@@ -487,6 +487,15 @@ export class OrganiserFake {
         }
         return refuse(route, 'request_not_open');
       }
+      case 'organiser_team_v1': {
+        const o = org(body.p_organiser_id);
+        if (!o) return refuse(route, 'not_authorised');
+        return json(route, {
+          organiser_id: o.id,
+          my_role: o.role,
+          members: o.team.map((m) => ({ user_id: m.user_id, member_role: m.member_role, is_primary: m.is_primary, joined_at: '2026-09-01T10:00:00+00:00', is_me: m.user_id === ME, email: o.role === 'owner' ? m.email : null })),
+        });
+      }
       case 'remove_organiser_member_v1': {
         const o = org(body.p_organiser_id);
         const m = o?.team.find((x) => x.user_id === body.p_user_id);
