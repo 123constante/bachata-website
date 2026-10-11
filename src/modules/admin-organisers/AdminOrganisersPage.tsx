@@ -22,13 +22,14 @@ import {
 } from './adminApi';
 import {
   ACCESS_LABEL,
+  lifecycleLabel,
+  notLiveNote,
   ACCESS_ORDER,
   MEMBER_ROLES,
   MEMBER_ROLE_LABEL,
   accessStatus,
   adminErrorMessage,
   inviteUrl,
-  isPlausibleEmail,
   rowActions,
   statusDetail,
   whatsappHref,
@@ -36,6 +37,8 @@ import {
   type InviteRow,
   type MemberRole,
 } from './inviteModel';
+
+import { isPlausibleEmail } from '@/modules/organiser/shared/emailShape';
 
 const PAGE_SIZE = 20;
 const BTN = 'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50';
@@ -105,7 +108,7 @@ function AddPerson({ organiser }: { organiser: AdminOrganiser }) {
       </select>
       <button type="submit" className={BTN} disabled={!valid || add.isPending} aria-describedby="add-note" data-testid="add-submit"><UserPlus className="h-4 w-4" aria-hidden="true" /> {add.isPending ? 'Adding' : 'Add'}</button>
       {!valid && <p id="add-note" className="text-xs text-muted-foreground" data-testid="add-note">Enter their email address to add them. They must already have an account.</p>}
-      {add.isError && <p role="alert" className="text-sm text-red-600" data-testid="add-error">{adminErrorMessage(add.error)}</p>}
+      {add.isError && <p role="alert" className="text-sm text-red-700 dark:text-red-300" data-testid="add-error">{adminErrorMessage(add.error)}</p>}
       {done && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300" data-testid="add-done">{done}</p>}
     </form>
   );
@@ -129,14 +132,15 @@ function RowDetail({ organiser, status, invites, fresh, issued, warn, loadError,
   });
   const revoke = useMutation({ mutationFn: () => revokeOrganiserInvite(organiser.id), onSuccess: refresh });
   const detail = statusDetail(status, invites, (iso) => instantDateLabel(iso) ?? iso, fresh);
+  const notLive = notLiveNote(organiser.lifecycle);
   const busy = generate.isPending || revoke.isPending;
   const err = generate.isError ? generate.error : revoke.isError ? revoke.error : null;
   return (
     <div data-testid="row-detail" className="space-y-2 border-t border-border bg-muted/30 p-3">
-      {detail && <p className="text-sm text-muted-foreground" data-testid="status-detail">{detail}</p>}
+      {(detail || notLive) && <p className="text-sm text-muted-foreground" data-testid="status-detail">{[detail, notLive].filter(Boolean).join(' ')}</p>}
       {loadError && (
         <div role="alert" id={`row-error-${organiser.id}`} className="space-y-2" data-testid="row-load-error">
-          <p className="text-sm text-red-600">Could not load this organiser&rsquo;s invite status. Generate and Revoke stay off until it loads.</p>
+          <p className="text-sm text-red-700 dark:text-red-300">Could not load this organiser&rsquo;s invite status. Generate and Revoke stay off until it loads.</p>
           <button type="button" className={BTN} onClick={onRetry} data-testid="row-retry">Retry</button>
         </div>
       )}
@@ -158,8 +162,8 @@ function RowDetail({ organiser, status, invites, fresh, issued, warn, loadError,
       )}
       {!issued && !confirming && !loadError && actions.generateNote && <p id={`gen-note-${organiser.id}`} className="text-xs text-muted-foreground" data-testid="generate-note">{actions.generateNote}</p>}
       {!issued && !confirming && !loadError && actions.revokeNote && <p id={`rev-note-${organiser.id}`} className="text-xs text-muted-foreground" data-testid="revoke-note">{actions.revokeNote}</p>}
-      {issued && warn && <p role="alert" className="text-sm text-red-600" data-testid="link-close-warning">Copy the link first: it is shown once.</p>}
-      {err != null && <p role="alert" className="text-sm text-red-600" data-testid="invite-error">{adminErrorMessage(err)}</p>}
+      {issued && warn && <p role="alert" className="text-sm text-red-700 dark:text-red-300" data-testid="link-close-warning">Copy the link first: it is shown once.</p>}
+      {err != null && <p role="alert" className="text-sm text-red-700 dark:text-red-300" data-testid="invite-error">{adminErrorMessage(err)}</p>}
       {actions.canAddPerson && <AddPerson organiser={organiser} />}
     </div>
   );
@@ -240,6 +244,7 @@ function AdminOrganisersBody() {
             <li key={organiser.id} data-testid="organiser-row" data-status={status ?? 'loading'}>
               <button type="button" className="flex min-h-[48px] w-full items-center justify-between gap-2 px-3 py-2 text-left" aria-expanded={open === organiser.id} onClick={() => toggleRow(organiser.id)}>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{organiser.name}</span>
+                {lifecycleLabel(organiser.lifecycle) && <span data-testid="lifecycle-tag" className="rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground">{lifecycleLabel(organiser.lifecycle)}</span>}
                 <StatusTag status={status} />
               </button>
               {open === organiser.id && (

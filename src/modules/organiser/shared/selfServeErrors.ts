@@ -10,6 +10,8 @@
  * than leaking raw text.
  */
 
+import { LAST_OWNER_NOTE } from './teamModel';
+
 export type SelfServeNextStep = 'request_access' | 'reauth' | 'sign_in' | null;
 
 export interface SelfServeErrorCopy {
@@ -224,7 +226,7 @@ export const TEAM_COPY: Record<string, string> = {
   organiser_not_found: 'That organiser no longer exists.',
   not_a_member: 'That person is no longer on the team. Reload the page.',
   cannot_remove_owner: 'Another owner cannot be removed here. They can leave themselves, or ask the Bachata Calendar team.',
-  last_owner: 'You are the only owner, so you cannot leave. Ask the Bachata Calendar team to add another owner first.',
+  last_owner: LAST_OWNER_NOTE,
   request_id_required: 'Choose a request first.',
   invalid_decision: 'Something went wrong. Please try again.',
   invalid_member_role: 'Something went wrong. Please try again.',

@@ -26,7 +26,7 @@ import {
   type TeamMember,
   type TeamRole,
 } from '@/modules/organiser/shared/teamModel';
-import { isPlausibleEmail } from '@/modules/admin-organisers/inviteModel';
+import { isPlausibleEmail } from '@/modules/organiser/shared/emailShape';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import {
   Card,

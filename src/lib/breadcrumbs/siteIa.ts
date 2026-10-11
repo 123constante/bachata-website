@@ -65,6 +65,7 @@ export const SITE_IA = {
   notFound:         { label: 'Page not found' },
   // Admin-only, noindex; the page passes these crumbs only to a confirmed admin.
   'admin.organisers': { label: 'Organiser access' },
+  'invite.redeem':    { label: 'Join organiser team' },
   londonBachataGuide:{ label: 'London Guide',     path: '/london-bachata-guide' },
   learnBachataLondon:{ label: 'Learn Bachata',    path: '/learn-bachata-london' },
   bachataWeekday:   { label: 'Weekday',           path: '/bachata-london', entity: true,

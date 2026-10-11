@@ -74,6 +74,18 @@ export function accessStatus(managed: boolean, invites: readonly InviteRow[] | n
   return 'unclaimed';
 }
 
+/** Lifecycle values an admin sees; anything but `live` is not on the public site. */
+export const LIVE_LIFECYCLE = 'live';
+
+/** Small tag text for a non-live organiser, or null when live. The one mapping for the tag and the detail line. */
+export const lifecycleLabel = (lifecycle: string): string | null => (lifecycle === LIVE_LIFECYCLE ? null : lifecycle.replace(/_/g, ' '));
+
+/** Detail-line sentence for a non-live organiser (empty when live), so Unclaimed is not read as "invite them". */
+export const notLiveNote = (lifecycle: string): string => {
+  const label = lifecycleLabel(lifecycle);
+  return label ? `This organiser is not live (${label}), so it is not on the public site yet.` : '';
+};
+
 export interface RowActions {
   /** Issue a link. Always possible for an admin; a live link is replaced, so it asks first. */
   canGenerate: boolean;
@@ -188,7 +200,7 @@ export const ADMIN_COPY: Record<string, string> = {
   organiser_not_found: 'That organiser no longer exists. Reload the page.',
   invalid_member_role: 'Choose Owner, Manager or Contributor.',
   ambassador_only_on_city: 'Ambassador is only for cities, not organisers.',
-  use_transfer: 'Only an admin can add an owner here. Sign in with your admin account.',
+  use_transfer: 'Add person only adds Managers and Contributors. To add an owner, tap Generate invite, or use Make owner on the organiser’s team screen.',
   user_not_found: 'No account has that email address. Ask them to sign up to Bachata Calendar first, then add them.',
   unconfirmed_email: 'That account has not confirmed its email address yet. Ask them to confirm it, then add them.',
 };
@@ -205,5 +217,3 @@ export const MEMBER_ROLES = ['owner', 'manager', 'contributor'] as const;
 export type MemberRole = (typeof MEMBER_ROLES)[number];
 export const MEMBER_ROLE_LABEL: Record<MemberRole, string> = { owner: 'Owner', manager: 'Manager', contributor: 'Contributor' };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export const isPlausibleEmail = (v: string) => EMAIL_RE.test(v.trim());
