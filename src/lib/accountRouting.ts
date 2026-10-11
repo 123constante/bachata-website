@@ -5,11 +5,13 @@
  * - The header's account icon opens ACCOUNT_HOME_PATH. That page
  *   (src/pages/Account.tsx) asks `accountHome()` and either shows the dancer
  *   home or replaces itself with the organiser home, exactly as before.
- * - On the organiser home, `accountView()` says whether the one small
- *   "Finish your dancer profile" row shows, and whether the account menu (the
- *   account icon in the organiser top bar) has a dancer-profile entry.
+ * - On the organiser home, `accountView()` says whether the account menu
+ *   (the account icon in the organiser top bar) has a dancer-profile entry.
+ * - Before any of that, the dancer-first gate (`dancerGate()`, applied by
+ *   components/account/DancerProfileGate on every /account* page): only a
+ *   COMPLETE dancer profile gets in; anyone else finishes it first.
  *
- * Nothing else decides any of it, so the icon, the page, the row and the menu
+ * Nothing else decides any of it, so the icon, the page, the gate and the menu
  * cannot disagree. Import-free on purpose: GlobalHeader is on every page's
  * first load.
  */
@@ -66,50 +68,63 @@ export const accountHome = (facts: AccountFacts): AccountHome => {
 export type DancerFactKind = 'complete' | 'incomplete' | 'no_profile' | 'unknown';
 
 export type AccountView = {
-  /** Where the account icon lands. */
+  /** Where the account icon lands (once the dancer gate lets the person through). */
   landing: AccountHome;
-  /** The organiser home's one small, skippable "Finish your dancer profile" row. */
-  unfinishedRow: boolean;
   /** The account menu (organiser top bar) lists the dancer profile next to the organiser home. */
   menuDancerEntry: boolean;
 };
 
 /**
- * Layout D for one person:
- * (a) organisers + an UNFINISHED dancer profile -> the one row on the organiser home, nothing else;
- * (b) organisers + a FINISHED dancer profile -> no row; the dancer profile is an account-menu entry;
- * (c) no organiser and no open request -> the dancer home;
- * no dancer profile at all (none, or archived) -> nothing about dancing on the organiser side.
+ * Layout D for one person who is past the dancer gate (a complete profile):
+ * an organiser or open request lands on the organiser home, whose account menu
+ * lists the dancer profile; everyone else lands on the dancer home.
  */
 export const accountView = (facts: AccountFacts & { dancer: DancerFactKind }): AccountView => {
   const landing = accountHome(facts);
-  const hasOrganisers = (facts.organiserCount ?? 0) > 0;
-  return {
-    landing,
-    unfinishedRow: hasOrganisers && facts.dancer === 'incomplete',
-    menuDancerEntry: landing === 'organiser' && facts.dancer === 'complete',
-  };
+  return { landing, menuDancerEntry: landing === 'organiser' && facts.dancer === 'complete' };
 };
 
 /** True on every page the account icon stands for (dancer home, attendance, organiser area). */
 export const isAccountPath = (pathname: string): boolean =>
   pathname === ACCOUNT_HOME_PATH || pathname.startsWith(`${ACCOUNT_HOME_PATH}/`);
 
-/** The organiser-home row's "skip": hidden for the rest of this browser session. */
-const ROW_DISMISSED_KEY = 'bc:dancer-row-dismissed';
+// ---- The dancer-first gate (owner decision 2026-10-11, supersedes #718's skippable row) ----
 
-export const isDancerRowDismissed = (): boolean => {
-  try {
-    return window.sessionStorage.getItem(ROW_DISMISSED_KEY) === '1';
-  } catch {
-    return false;
-  }
+/**
+ * The pages behind the gate: EVERY /account* page -- the dancer home
+ * (/account, /account/dancer), My attendance, the organiser home, its
+ * onboarding (claim / request / create) and every /account/o* page. Public
+ * pages (events, RSVPs, parties, profiles, /finish-profile itself) never are.
+ */
+export const isDancerGatedPath = isAccountPath;
+
+/** useProfileCompletion().status, as lib/profileCompletion names it. */
+export type DancerGateStatus = 'signed_out' | 'loading' | 'complete' | 'incomplete' | 'no_profile' | 'error';
+
+/**
+ * Signed in on a gated page: only a COMPLETE dancer profile passes.
+ * - incomplete (a stub or partly filled row) -> finish it first;
+ * - no_profile (no row, or an ARCHIVED one: an archived row never resolves,
+ *   _dancer_profile_id_for_account_v1, so there is no live profile) -> the
+ *   Finish screen, which offers the contact (nothing to fill in);
+ * - loading -> wait (a skeleton), then decide;
+ * - error (the check itself failed) -> pass. A failed read proves nothing about
+ *   the profile, and every completeness surface fails OPEN (lib/profileCompletion):
+ *   an organiser is never locked out of tonight's event by a timeout. The writes
+ *   that make someone an organiser (claim / request / create) are refused by the
+ *   server for an unfinished profile anyway (PROFILE_INCOMPLETE_CODE);
+ * - signed_out -> pass: AuthGuard, outside, is the authority on being signed in
+ *   (an anonymous session reads as signed_out here; v2 behaviour, the server decides).
+ */
+export const dancerGate = (status: DancerGateStatus): 'pass' | 'wait' | 'finish' => {
+  if (status === 'loading') return 'wait';
+  if (status === 'incomplete' || status === 'no_profile') return 'finish';
+  return 'pass';
 };
 
-export const dismissDancerRow = (): void => {
-  try {
-    window.sessionStorage.setItem(ROW_DISMISSED_KEY, '1');
-  } catch {
-    // Private mode / blocked storage: the row still hides for this page view (component state).
-  }
-};
+/** The query value /finish-profile reads to know it was reached through the gate (no Skip there). */
+export const FINISH_GATE_PARAM = 'gate';
+export const FINISH_GATE_ORGANISER = 'organiser';
+
+/** The gated Finish screen's one line of why. */
+export const DANCER_GATE_REASON = 'Finish your dancer profile first, then you can set up your organiser page.';

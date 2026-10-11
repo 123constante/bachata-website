@@ -112,6 +112,8 @@ export interface FakeOrganiser {
 
 export interface Claimable { id: string; name: string; contact_email: string | null; claimed_by: string | null }
 
+const DANCER_PERSONA = 'dddddddd-0000-0000-0000-000000000001';
+
 export interface FakeOptions {
   /** No organiser yet: Home shows onboarding. */
   noOrganiser?: boolean;
@@ -120,6 +122,12 @@ export interface FakeOptions {
   organiserStatus?: string;
   /** Signed out: no session in storage, /auth/v1/user answers 401. */
   signedOut?: boolean;
+  /**
+   * The account's dancer profile (the dancer-first gate, 2026-10-11: /account* needs a
+   * COMPLETE one). Default 'complete', so the organiser specs reach the organiser area.
+   * 'stub' = a row with every field empty; 'none' = no live dancer profile.
+   */
+  dancer?: 'complete' | 'stub' | 'none';
 }
 
 export class OrganiserFake {
@@ -417,6 +425,7 @@ export class OrganiserFake {
 
     if (table) {
       this.calls.push({ rpc: `table:${table}`, body: Object.fromEntries(url.searchParams) });
+      if (table === 'dancer_profiles') return rows(this.dancerRow() ? [this.dancerRow()] : []);
       if (table === 'cancellation_reasons') return rows(REASONS);
       if (table === 'cities') return rows([{ id: CITY.id, name: CITY.name, slug: CITY.slug }]);
       if (table === 'organiser_profiles') {
@@ -445,6 +454,11 @@ export class OrganiserFake {
     const org = (id: unknown) => this.organisers.find((o) => o.id === id);
 
     switch (rpc) {
+      // The dancer-first gate's reads (lib/myPersona, hooks/useProfileCompletion).
+      case '_my_dancer_profile_id_v1':
+        return json(route, (this.opts.dancer ?? 'complete') === 'none' ? null : DANCER_PERSONA);
+      case 'profile_complete_v1':
+        return json(route, (this.opts.dancer ?? 'complete') === 'complete');
       case 'organiser_home_v1':
         return json(route, this.homeRead());
       case 'get_current_user_organiser_ids':
@@ -585,6 +599,15 @@ export class OrganiserFake {
       default:
         return json(route, []);
     }
+  }
+
+  /** The persona row the dancer-profile reads see, or null for 'none'. */
+  private dancerRow() {
+    const kind = this.opts.dancer ?? 'complete';
+    if (kind === 'none') return null;
+    const empty = { first_name: null, based_city_id: null, dance_role: null, avatar_url: null };
+    const full = { first_name: 'Diego', based_city_id: CITY.id, dance_role: 'Leader', avatar_url: 'https://img.example/diego.jpg' };
+    return { id: DANCER_PERSONA, ...(kind === 'complete' ? full : empty), archived_at: null, city: kind === 'complete' ? { name: CITY.name } : null };
   }
 
   /** The next `times` calls to `rpc` are refused with `message` (the app retries a failed read once). */

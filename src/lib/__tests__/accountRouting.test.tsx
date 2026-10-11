@@ -25,9 +25,10 @@ import {
   ORGANISER_HOME_PATH,
   accountHome,
   accountView,
-  dismissDancerRow,
-  isDancerRowDismissed,
+  dancerGate,
+  isDancerGatedPath,
   type DancerFactKind,
+  type DancerGateStatus,
   isAccountPath,
   isLegacyAccountLink,
   type AccountFacts,
@@ -35,6 +36,7 @@ import {
 } from '@/lib/accountRouting';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { landingPathAfterAuth } from '@/lib/auth-otp-routing';
+import { finishProfileHref, isGatedFinish } from '@/lib/profileCompletion';
 
 beforeEach(() => {
   auth.value = { user: { id: 'me' }, isLoading: false, authStatus: 'ready' };
@@ -58,34 +60,78 @@ describe.each([
   it(`-> ${want}`, () => expect(accountHome(facts)).toBe(want));
 });
 
-// Layout D (owner decision 2026-10-11): the person has roles, not either/or.
+// Layout D (owner decision 2026-10-11), for a person past the dancer gate.
 describe.each([
-  // organisers, open requests, dancer fact -> landing, row, menu entry
-  [0, 0, 'no_profile', 'dancer', false, false],
-  [0, 0, 'incomplete', 'dancer', false, false],
-  [0, 0, 'complete', 'dancer', false, false],
-  [1, 0, 'no_profile', 'organiser', false, false],
-  [1, 0, 'incomplete', 'organiser', true, false],
-  [1, 0, 'complete', 'organiser', false, true],
-  [2, 0, 'unknown', 'organiser', false, false],
-  [0, 1, 'incomplete', 'organiser', false, false],
-  [0, 1, 'complete', 'organiser', false, true],
-] as [number, number, DancerFactKind, AccountHome, boolean, boolean][])(
+  // organisers, open requests, dancer fact -> landing, menu entry
+  [0, 0, 'complete', 'dancer', false],
+  [1, 0, 'complete', 'organiser', true],
+  [2, 0, 'unknown', 'organiser', false],
+  [0, 1, 'complete', 'organiser', true],
+  [0, 1, 'incomplete', 'organiser', false],
+] as [number, number, DancerFactKind, AccountHome, boolean][])(
   'accountView(organisers %i, open requests %i, dancer %s)',
-  (organiserCount, openRequestCount, dancer, landing, unfinishedRow, menuDancerEntry) => {
-    it(`-> ${landing}, row ${unfinishedRow}, menu entry ${menuDancerEntry}`, () => {
-      expect(accountView({ organiserCount, openRequestCount, dancer })).toEqual({ landing, unfinishedRow, menuDancerEntry });
+  (organiserCount, openRequestCount, dancer, landing, menuDancerEntry) => {
+    it(`-> ${landing}, menu entry ${menuDancerEntry}`, () => {
+      expect(accountView({ organiserCount, openRequestCount, dancer })).toEqual({ landing, menuDancerEntry });
     });
   },
 );
 
-describe('the organiser-home row skip', () => {
-  it('lasts for the browser session', () => {
-    sessionStorage.clear();
-    expect(isDancerRowDismissed()).toBe(false);
-    dismissDancerRow();
-    expect(isDancerRowDismissed()).toBe(true);
-    sessionStorage.clear();
+// The dancer-first hard gate (owner decision 2026-10-11, supersedes #718's skippable row).
+describe.each([
+  ['complete', 'pass'],
+  ['incomplete', 'finish'],
+  // No row, or an archived one (never resolves): no live dancer profile -> gated.
+  ['no_profile', 'finish'],
+  // A failed check proves nothing: fail open, the server refuses the organiser writes.
+  ['error', 'pass'],
+  ['loading', 'wait'],
+  // AuthGuard decides signed in or not (an anonymous session reads signed_out here).
+  ['signed_out', 'pass'],
+] as [DancerGateStatus, string][])('dancerGate(%s)', (status, want) => {
+  it(`-> ${want}`, () => expect(dancerGate(status)).toBe(want));
+});
+
+describe('the gated Finish link', () => {
+  it.each([
+    ['/account', true],
+    ['/account/dancer', true],
+    ['/account/attendance', true],
+    ['/account/o', true],
+    ['/account/o/events/s1?x=1', true],
+    ['/event/ev1#level-rating', false],
+    ['/parties', false],
+    ['/organisers/o1', false],
+  ])('finishProfileHref(%s) gated = %s, returnTo kept', (returnTo, gated) => {
+    const href = new URL(finishProfileHref(returnTo), 'https://x.test');
+    expect(isGatedFinish(href.searchParams)).toBe(gated);
+    expect(href.searchParams.get('returnTo')).toBe(returnTo);
+  });
+
+  it('an organiser claim refused on a public page is gated on request', () => {
+    const href = new URL(finishProfileHref('/organisers/o1', { gate: true }), 'https://x.test');
+    expect(isGatedFinish(href.searchParams)).toBe(true);
+  });
+
+  it('a link from the rating card keeps its old form exactly', () => {
+    expect(finishProfileHref('/event/ev1#level-rating')).toBe(`/finish-profile?returnTo=${encodeURIComponent('/event/ev1#level-rating')}`);
+  });
+
+  it('only account pages are gated; public pages and the Finish screen never are', () => {
+    for (const p of ['/', '/parties', '/event/x', '/finish-profile', '/auth', '/organisers/o1', '/accounts']) expect(isDancerGatedPath(p), p).toBe(false);
+  });
+
+  it('every sign-in landing that reaches the organiser area is a gated page (organiser intent included)', () => {
+    for (const role of ['organiser', 'teacher', 'dj', null]) {
+      for (const managesOrganiser of [true, false, null]) {
+        const landing = landingPathAfterAuth({ organiserSelfServe: true, role, managesOrganiser });
+        if (landing.startsWith(ORGANISER_HOME_PATH) || landing === ACCOUNT_HOME_PATH) {
+          expect(isDancerGatedPath(landing), `${role}/${managesOrganiser}`).toBe(true);
+          expect(isGatedFinish(new URL(finishProfileHref(landing), 'https://x.test').searchParams)).toBe(true);
+        }
+      }
+    }
+    expect(landingPathAfterAuth({ organiserSelfServe: true, role: 'organiser', managesOrganiser: null })).toBe(ORGANISER_HOME_PATH);
   });
 });
 

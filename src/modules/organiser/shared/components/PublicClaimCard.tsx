@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useContext, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,9 @@ import { EmailCodeProof } from './EmailCodeProof';
 import { ORG_PATHS } from '../../shell/paths';
 import { claimOrganiser, requestOrganiserAccess } from '../selfServeApi';
 import { selfServeErrorCode, selfServeErrorCopy, type SelfServeErrorCopy } from '../selfServeErrors';
+import { useProfileIncompleteRedirect } from '../useProfileIncompleteRedirect';
+import { ProfileGateContext } from '@/hooks/useAuth';
+import { needsFinishing } from '@/lib/profileCompletion';
 import { claimIntentStep, hasClaimIntent, signInHref, signInToClaimHref, withClaimIntent, withoutClaimIntent } from '../publicClaim';
 import { MANAGED_BADGE_TEXT, type OwnershipFacts } from '../ownership';
 import type { ClaimHint } from '../claimHint';
@@ -126,7 +129,25 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
     if (done) doneRef.current?.focus();
   }, [done]);
 
+  const finishProfileFirst = useProfileIncompleteRedirect();
+  // The completeness AppChrome already publishes (the rating card reads the same):
+  // no read of its own. Known unfinished -> finish first; a failed check or no
+  // chrome (null) -> the server decides (it refuses too). While it is still
+  // loading -- the chrome not mounted yet ('loading'), or mounted with its read in
+  // flight ({ status: 'loading' }) -- the claim intent below waits for it.
+  const profileGate = useContext(ProfileGateContext);
+  const gateLoading = profileGate === 'loading' || profileGate?.status === 'loading';
+  const unfinishedProfile = !!profileGate && !gateLoading && needsFinishing(profileGate);
+
   const run = async (action: () => Promise<unknown>, outcome: PublicClaimOutcome) => {
+    // The dancer-first gate (2026-10-11): claim / request only with a COMPLETE dancer
+    // profile. Finish it first, then back to this card (a claim keeps its intent
+    // marker, so it carries on by itself on return).
+    const backHere = outcome === 'claimed' ? withClaimIntent(returnTo) : returnTo;
+    if (unfinishedProfile) {
+      finishProfileFirst(backHere);
+      return;
+    }
     setBusy(true);
     setFailure(null);
     try {
@@ -135,6 +156,11 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
       onChanged(outcome);
     } catch (error) {
       const copy = selfServeErrorCopy(error);
+      // The same gate, enforced by the server.
+      if (copy.next === 'finish_profile') {
+        finishProfileFirst(backHere);
+        return;
+      }
       setFailure(copy);
       // A refusal that means "you can't claim this" turns the claim panel
       // into the request panel for the same organiser (W1's behaviour).
@@ -161,6 +187,8 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
   });
   useEffect(() => {
     if (intentStep === 'none' || intentStep === 'wait' || intentSpent.current || !organiserId) return;
+    // Do not auto-claim before the dancer-first gate knows the profile (it publishes after sign-in).
+    if (gateLoading && intentStep === 'claim') return;
     intentSpent.current = true;
     if (typeof window !== 'undefined') {
       const here = `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -176,7 +204,7 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
     void claim(organiserId).finally(() => setAutoRunning(false));
     // claim is a fresh closure each render; the step is the trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [intentStep, organiserId]);
+  }, [intentStep, organiserId, gateLoading]);
   // From the first render, so "Claim this page" never flashes before the effect
   // runs: the busy state when the claim will run, the email-code step when it waits for proof.
   const autoBusy = autoRunning || intentStep === 'claim';

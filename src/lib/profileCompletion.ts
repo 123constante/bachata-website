@@ -1,6 +1,6 @@
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
-import { isAccountPath } from "@/lib/accountRouting";
+import { FINISH_GATE_ORGANISER, FINISH_GATE_PARAM, isAccountPath, isDancerGatedPath } from "@/lib/accountRouting";
 
 /**
  * "Is this person's dancer profile finished?" -- the ONE client mapping of that
@@ -65,9 +65,8 @@ export const listFieldLabels = (fields: readonly ProfileField[]): string => {
 
 /**
  * What the person's completeness IS, in words -- the ONE function every surface
- * that states it uses: the dancer home (/account), the organiser home's
- * "Finish your dancer profile" row, the Finish screen, the reminder banner and
- * the rating card's gate reason (ratingGate). So they cannot disagree about a
+ * that states it uses: the dancer home (/account), the Finish screen, the
+ * reminder banner and the rating card's gate reason (ratingGate). So they cannot disagree about a
  * profile. `reason` has no full stop (the rating card adds one); `text` is the
  * sentence. `unknown` (loading, failed, signed out) says nothing: no screen
  * claims a fact it does not have.
@@ -99,10 +98,26 @@ export const completenessFact = (c: Pick<ProfileCompletion, "status" | "missing"
 
 export const FINISH_PROFILE_PATH = "/finish-profile";
 
-export const finishProfileHref = (returnTo?: string | null): string => {
+/**
+ * The ONE way to link to the Finish screen. A returnTo behind the dancer-first
+ * gate (an /account* page, lib/accountRouting) marks the link as GATED, so the
+ * screen says why and offers no Skip -- whoever builds the link (the gate, the
+ * post-sign-in hop, the banner). `gate: true` marks it for a public page too:
+ * an organiser claim the server refused for an unfinished profile.
+ */
+export const finishProfileHref = (returnTo?: string | null, opts: { gate?: boolean } = {}): string => {
   const safe = sanitizeReturnTo(returnTo ?? null, { exclude: FINISH_PROFILE_PATH });
-  return safe ? `${FINISH_PROFILE_PATH}?returnTo=${encodeURIComponent(safe)}` : FINISH_PROFILE_PATH;
+  const gated = opts.gate ?? (safe !== null && isDancerGatedPath(safe.split(/[?#]/, 1)[0].toLowerCase()));
+  const query = [
+    gated ? `${FINISH_GATE_PARAM}=${FINISH_GATE_ORGANISER}` : null,
+    safe ? `returnTo=${encodeURIComponent(safe)}` : null,
+  ].filter(Boolean);
+  return query.length > 0 ? `${FINISH_PROFILE_PATH}?${query.join("&")}` : FINISH_PROFILE_PATH;
 };
+
+/** /finish-profile reached through the dancer-first gate (finishProfileHref marked it). */
+export const isGatedFinish = (params: URLSearchParams): boolean =>
+  params.get(FINISH_GATE_PARAM) === FINISH_GATE_ORGANISER;
 
 export const NO_PROFILE_CONTACT_LABEL = "Message us on WhatsApp";
 export const NO_PROFILE_CONTACT_URL = WHATSAPP_GET_LISTED_URL;
@@ -146,8 +161,8 @@ export type BannerModel = {
   cta: { kind: "link"; label: string; href: string } | { kind: "external"; label: string; href: string };
 };
 
-// The account pages state the fact themselves (the dancer home's line, the organiser
-// home's row) and the organiser frame covers the banner anyway: one copy per screen.
+// The account pages are behind the dancer-first gate (only a complete profile gets
+// there) and the organiser frame covers the banner anyway: one copy per screen.
 const BANNER_HIDDEN_ON = (pathname: string) =>
   pathname === FINISH_PROFILE_PATH || pathname === "/auth" || pathname.startsWith("/auth/") || isAccountPath(pathname);
 

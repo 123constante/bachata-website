@@ -5,6 +5,7 @@ import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { DancerHome } from "@/components/account/DancerHome";
+import { DancerProfileGate } from "@/components/account/DancerProfileGate";
 import { useAuth } from "@/hooks/useAuth";
 import { useNoindexMeta } from "@/hooks/useNoindexMeta";
 import { buildBreadcrumbs } from "@/lib/breadcrumbs";
@@ -86,11 +87,15 @@ export const AccountScreen = ({ view = "resolve" }: { view?: "resolve" | "dancer
 };
 
 // Signed out -> /auth (sign-in) with returnTo, the same guard the organiser area uses.
+// An unfinished dancer profile -> /finish-profile first (the dancer-first gate), so
+// an organiser is never forwarded to /account/o before finishing it.
 const Account = ({ view }: { view?: "resolve" | "dancer" }) => {
   useNoindexMeta(true);
   return (
     <AuthGuard>
-      <AccountScreen view={view} />
+      <DancerProfileGate fallback={<div className="px-4 pt-3" aria-busy="true" data-testid="account-gate-loading"><Skeleton className="mx-auto h-24 w-full max-w-md rounded-xl" /></div>}>
+        <AccountScreen view={view} />
+      </DancerProfileGate>
     </AuthGuard>
   );
 };

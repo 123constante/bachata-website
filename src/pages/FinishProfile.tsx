@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { MY_DANCER_SUMMARY_ROOT } from "@/lib/myPersona";
+import { DANCER_GATE_REASON } from "@/lib/accountRouting";
 import type { DanceRoleValue } from "@/lib/auth-otp-routing";
 import {
   NO_PROFILE_CONTACT_LABEL,
@@ -20,6 +21,7 @@ import {
   FINISH_PROFILE_PATH,
   completenessFact,
   finishScreenMode,
+  isGatedFinish,
   skipFinishProfileForSession,
   type ProfileField,
 } from "@/lib/profileCompletion";
@@ -53,6 +55,18 @@ export const FinishProfileScreen = () => {
   const [searchParams] = useSearchParams();
   // Never back to this screen itself: Skip and Continue would go nowhere.
   const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), { exclude: FINISH_PROFILE_PATH }) ?? "/";
+  // Reached through the dancer-first gate (an /account* page, or an organiser
+  // claim the server refused): say why, and offer no Skip -- skipping would only
+  // send the person back into the gate.
+  const gated = isGatedFinish(searchParams);
+  // Gated with a cached "complete": the server refused an organiser claim / create /
+  // request for an unfinished profile, so re-ask it once on arrival. (The gate's own
+  // redirects arrive with a fresh "incomplete": nothing to re-ask.)
+  useEffect(() => {
+    if (gated && completion.status === "complete") void completion.refetch();
+    // Once per arrival; completion is a fresh object each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gated]);
 
   const [draft, setDraft] = useState<Draft>({ first_name: "", based_city_id: "", dance_role: "", avatar_url: "" });
   const [saving, setSaving] = useState(false);
@@ -112,9 +126,11 @@ export const FinishProfileScreen = () => {
           We couldn&rsquo;t check your profile just now. Check your connection and try again.
         </p>
         <Button className={PILL} onClick={() => void completion.refetch()}>Try again</Button>
-        <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={skip}>
-          Skip for now
-        </Button>
+        {!gated && (
+          <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={skip}>
+            Skip for now
+          </Button>
+        )}
       </div>
     );
   } else if (mode.kind === "done") {
@@ -136,9 +152,13 @@ export const FinishProfileScreen = () => {
         >
           {NO_PROFILE_CONTACT_LABEL}
         </a>
-        <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={goBack}>
-          Continue
-        </Button>
+        {/* Gated, "Continue" would only lead straight back into the gate: nothing to
+            fill in here (no live dancer profile), so the contact is the way on. */}
+        {!gated && (
+          <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={goBack}>
+            Continue
+          </Button>
+        )}
       </div>
     );
   } else {
@@ -151,7 +171,8 @@ export const FinishProfileScreen = () => {
         }}
       >
         <p className="text-sm text-muted-foreground">
-          {completenessFact(completion).text} Everything else on the site works without it.
+          {completenessFact(completion).text}
+          {!gated && " Everything else on the site works without it."}
         </p>
 
         {fields.includes("first_name") && (
@@ -220,9 +241,11 @@ export const FinishProfileScreen = () => {
             Fill in at least one field above to save.
           </p>
         )}
-        <Button type="button" variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={skip}>
-          Skip for now
-        </Button>
+        {!gated && (
+          <Button type="button" variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={skip}>
+            Skip for now
+          </Button>
+        )}
       </form>
     );
   }
@@ -237,7 +260,11 @@ export const FinishProfileScreen = () => {
           below it as a purple band. */}
       <div className="px-4 pb-24 pt-6">
         <div className="mx-auto w-full max-w-md space-y-3">
-          <h1 className="text-lg font-bold text-foreground">Finish your profile</h1>
+          <h1 className="text-lg font-bold text-foreground">{gated && mode.kind !== "done" ? "Finish your dancer profile" : "Finish your profile"}</h1>
+          {/* Not once the profile reads complete: "finish first" above "complete" would contradict itself. */}
+          {gated && mode.kind !== "done" && (
+            <p className="text-sm text-foreground" data-testid="finish-gate-reason">{DANCER_GATE_REASON}</p>
+          )}
           <div className="rounded-xl border border-border bg-card p-3">{body}</div>
         </div>
       </div>

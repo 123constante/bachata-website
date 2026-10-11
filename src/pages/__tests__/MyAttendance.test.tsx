@@ -18,6 +18,8 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' }, isLoading: false, authStatus: 'ready' }) }));
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
+// The dancer-first gate is proved in AccountLayoutD.matrix.test.tsx; these pages are tested past it.
+vi.mock('@/components/account/DancerProfileGate', () => ({ DancerProfileGate: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('@/components/layout/GlobalLayout', () => ({
   default: ({ children, backHref }: { children: ReactNode; backHref?: string }) => (
     <div data-back={backHref}>{children}</div>

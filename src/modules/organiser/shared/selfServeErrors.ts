@@ -10,7 +10,26 @@
  * than leaking raw text.
  */
 
-export type SelfServeNextStep = 'request_access' | 'reauth' | 'sign_in' | null;
+import { DANCER_GATE_REASON } from '@/lib/accountRouting';
+
+export type SelfServeNextStep = 'request_access' | 'reauth' | 'sign_in' | 'finish_profile' | null;
+
+/**
+ * The dancer-first gate, enforced on the server: claim_organiser_v1,
+ * request_organiser_access_v1 and create_organiser_profile_v1 refuse a caller
+ * whose dancer profile is unfinished (profile_complete_v1 false, or no live
+ * profile) with this code. The admin PR that adds the refusal MUST raise this
+ * exact string, bare (`RAISE EXCEPTION 'profile_incomplete'`, like every code
+ * in COPY -- selfServeErrorCode reads only a bare code). It is the same word
+ * the live party-rating gate already raises (useSeriesLevelRating's
+ * PROFILE_INCOMPLETE_ERROR); this is the one place the organiser side names
+ * it. The server must decide "unfinished" exactly as this site's gate does --
+ * profile_complete_v1 of the caller's RESOLVED persona
+ * (_dancer_profile_id_for_account_v1), no live persona = unfinished -- or the
+ * two can disagree and send a person round the Finish screen. The screens answer it by sending the person to the gated Finish screen
+ * (useProfileIncompleteRedirect), never with raw text.
+ */
+export const PROFILE_INCOMPLETE_CODE = 'profile_incomplete';
 
 export interface SelfServeErrorCopy {
   message: string;
@@ -19,6 +38,7 @@ export interface SelfServeErrorCopy {
 }
 
 const COPY: Record<string, SelfServeErrorCopy> = {
+  [PROFILE_INCOMPLETE_CODE]: { message: DANCER_GATE_REASON, next: 'finish_profile' },
   authentication_required: { message: 'Please sign in first.', next: 'sign_in' },
   // D-7: a claim (or an own contact email) needs a session that proved the
   // mailbox -- a magic link or an emailed code, not a password.

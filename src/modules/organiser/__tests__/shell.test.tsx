@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
+// The dancer-first gate is proved in AccountLayoutD.matrix.test.tsx; these pages are tested past it.
+vi.mock('@/components/account/DancerProfileGate', () => ({ DancerProfileGate: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
 // The real pages read data: keep every read pending and give them a signed-in user.
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc: () => new Promise(() => {}), from: () => ({}) } }));

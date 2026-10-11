@@ -9,6 +9,7 @@ import {
   type ClaimCandidate,
 } from '@/modules/organiser/shared/selfServeApi';
 import { selfServeErrorCopy, type SelfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
+import { useProfileIncompleteRedirect } from '@/modules/organiser/shared/useProfileIncompleteRedirect';
 import { Card, Field, FIELD_CLASS, PrimaryButton, SearchField, SheetView, SkeletonRows, SummaryRow, useShake } from '../../ui';
 import { EmailCode } from './EmailCode';
 import { searchCities, type CityResult } from './citySearch';
@@ -44,6 +45,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
   const [cityQuery, setCityQuery] = useState('');
   const { shake, shakeProps } = useShake();
   const ids = useId();
+  const finishProfileFirst = useProfileIncompleteRedirect();
 
   const kind = task?.kind ?? null;
   const orgId = task && task.kind !== 'create' ? task.org.id : null;
@@ -80,6 +82,11 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
       onDone(success);
     } catch (error) {
       const copy = selfServeErrorCopy(error);
+      // The server's dancer-first gate: finish the profile, then come back here.
+      if (copy.next === 'finish_profile') {
+        finishProfileFirst();
+        return;
+      }
       setFailure(copy);
       shake();
       // A refusal meaning "you cannot claim this" turns the claim into a request for the same organiser.

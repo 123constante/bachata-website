@@ -17,6 +17,7 @@ import { useSeo } from '@/lib/seo';
 // the /event/:id route chunk, one more first-load request on every event page.
 // A past night links to the event's own rating card instead.
 import { AuthGuard } from '@/components/auth/AuthGuard';
+import { DancerProfileGate } from '@/components/account/DancerProfileGate';
 // /account/dancer, not /account: /account sends an organiser on to the organiser home.
 import { DANCER_HOME_PATH } from '@/lib/accountRouting';
 
@@ -278,10 +279,13 @@ const MyAttendance = () => {
   );
 };
 
-// /account/attendance. Signed out -> /auth with returnTo, like /account itself.
+// /account/attendance. Signed out -> /auth with returnTo, like /account itself;
+// an unfinished dancer profile -> /finish-profile first (the dancer-first gate).
 const GuardedMyAttendance = () => (
   <AuthGuard>
-    <MyAttendance />
+    <DancerProfileGate fallback={<div className="px-4 pt-4" aria-busy="true"><Skeleton className="mx-auto h-28 w-full max-w-5xl rounded-xl" /></div>}>
+      <MyAttendance />
+    </DancerProfileGate>
   </AuthGuard>
 );
 
