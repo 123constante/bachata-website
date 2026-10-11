@@ -30,6 +30,9 @@ const phone = (width: number, height: number) => ({
 
 export default defineConfig({
   testDir: './tests/e2e-phone',
+  // Loads every route until the dev server's dependency optimiser has settled;
+  // see the file for the cold-cache failure it prevents.
+  globalSetup: './tests/e2e-phone/warmup.ts',
   outputDir: 'test-results/phone-qa',
   timeout: 90_000,
   expect: { timeout: 15_000 },
