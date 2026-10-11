@@ -1511,7 +1511,7 @@ const OrganiserProfile = () => {
 
         {facts.canEdit && id && (
           <Suspense fallback={null}>
-            <EditInPlaceLayer organiserId={id} entity={entity} onBridge={setEip} />
+            <EditInPlaceLayer key={id} organiserId={id} entity={entity} onBridge={setEip} />
           </Suspense>
         )}
       </article>

@@ -7,7 +7,7 @@
  * request). Red on main: the page had no layer, so the owner/manager rows fail.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -36,7 +36,8 @@ vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => true }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock('@/lib/seo', () => ({
-  useEntitySlugOrId: () => ({ id: ORG_ID, slug: 'ritmo', arrivedViaUuid: false }),
+  useEntitySlugOrId: (param?: string) =>
+    param === 'other' ? { id: OTHER_ID, slug: 'other', arrivedViaUuid: false } : { id: ORG_ID, slug: 'ritmo', arrivedViaUuid: false },
   useCanonicalReplaceState: () => {},
 }));
 vi.mock('@/modules/organiser/shared/ownershipApi', async (orig) => ({
@@ -51,8 +52,8 @@ vi.mock('@/modules/organiser/shared/selfServeApi', async (orig) => ({
 }));
 vi.mock('@/modules/profile/organiserPublicProfile', async (orig) => ({
   ...(await orig<object>()),
-  fetchOrganiserEntity: async () => ({
-    id: ORG_ID, name: 'Ritmo Latino', avatar_url: null, bio: null, socials: { facebook: 'https://www.facebook.com/share/1AbC/' }, city_id: '11111111-1111-4111-8111-111111111111',
+  fetchOrganiserEntity: async (id: string) => ({
+    id, name: id === OTHER_ID ? 'Other Crew' : 'Ritmo Latino', avatar_url: null, bio: null, socials: { facebook: 'https://www.facebook.com/share/1AbC/' }, city_id: '11111111-1111-4111-8111-111111111111',
     instagram: 'https://www.instagram.com/ritmo/', website: 'ritmo.co.uk', organisation_category: 'Dance School', founded_year: null, cities: { name: 'London', slug: 'london-gb' },
   }),
   fetchOrganiserEvents: async () => [],
@@ -61,6 +62,7 @@ vi.mock('@/modules/profile/organiserPublicProfile', async (orig) => ({
 }));
 
 const ORG_ID = '22222222-2222-4222-8222-222222222222';
+const OTHER_ID = '33333333-3333-4333-8333-333333333333';
 
 import OrganiserProfile from '@/pages/OrganiserProfile';
 
@@ -77,10 +79,11 @@ const ROLES = [
   { name: 'owner', user: ME, ownership: { is_managed: true, i_own_it: true, my_role: 'owner' }, layer: true },
 ];
 
-function renderPage() {
+function renderPage(start = '/organisers/ritmo') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const router = createMemoryRouter([{ path: '/organisers/:id', element: <OrganiserProfile /> }], { initialEntries: ['/organisers/ritmo'] });
+  const router = createMemoryRouter([{ path: '/organisers/:id', element: <OrganiserProfile /> }], { initialEntries: [start] });
   render(<QueryClientProvider client={qc}><RouterProvider router={router} /></QueryClientProvider>);
+  return router;
 }
 
 beforeEach(() => {
@@ -128,4 +131,28 @@ describe('the owner layer on the live public page', () => {
     expect(document.body.textContent).not.toMatch(/sent for review|pending review/i);
   });
 
+  it('switching organiser remounts the layer: one organiser\'s draft never lands on another', async () => {
+    // A manager of two organisers (prod has one such user) with a draft on the other one.
+    window.localStorage.setItem(`bc:organiser-edit-draft:v1:${OTHER_ID}`, JSON.stringify({ v: 1, fields: { bio: 'Other crew draft' } }));
+    h.user = ME;
+    h.ownership = { is_managed: true, i_own_it: false, my_role: 'manager' };
+    // Ritmo first, so its page data is cached when the manager comes back to it.
+    const router = renderPage('/organisers/ritmo');
+    await screen.findByTestId('eip-complete-card');
+    void router.navigate('/organisers/other');
+    await screen.findByRole('heading', { level: 1, name: 'Other Crew' });
+    await screen.findByTestId('eip-bar');
+    // The leave blocker registers one render after the bar shows (as useBlocker does).
+    await new Promise((res) => setTimeout(res, 50));
+    void router.navigate('/organisers/ritmo');
+    const leave = await screen.findByTestId('eip-leave');
+    fireEvent.click(within(leave).getByRole('button', { name: 'Leave, keep draft' }));
+    await screen.findByRole('heading', { level: 1, name: 'Ritmo Latino' });
+    await screen.findByTestId('eip-complete-card');
+    await new Promise((res) => setTimeout(res, 50));
+    expect(screen.queryByTestId('eip-bar')).toBeNull();
+    expect(document.body.textContent).not.toContain('Other crew draft');
+    expect(window.localStorage.getItem(`bc:organiser-edit-draft:v1:${ORG_ID}`)).toBeNull();
+    expect(window.localStorage.getItem(`bc:organiser-edit-draft:v1:${OTHER_ID}`)).toContain('Other crew draft');
+  });
 });
