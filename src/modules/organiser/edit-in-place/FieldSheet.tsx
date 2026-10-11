@@ -20,6 +20,7 @@ import {
 } from './fieldRules';
 import { PHOTO_ACCEPT } from './organiserPhotoModel';
 import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
+import { inBody } from './layers';
 import { CREAM, GOLD, INK } from './parts';
 
 export interface FieldSheetProps {
@@ -237,7 +238,8 @@ export default function FieldSheet({ field, initial, storedCategory, onDone, onC
     padding: '12px 16px calc(12px + env(safe-area-inset-bottom))', maxWidth: 560, margin: '0 auto',
   };
 
-  return (
+  // In document.body (see layers.tsx), so no page ancestor can re-anchor it.
+  return inBody(
     <>
       <div aria-hidden="true" data-testid="eip-sheet-overlay" onClick={() => { if (!uploading) onClose(); }} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.55)' }} />
       <div ref={sheetRef} role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={onKeyDown} style={sheetStyle} data-testid="eip-sheet">
@@ -270,6 +272,6 @@ export default function FieldSheet({ field, initial, storedCategory, onDone, onC
           </button>
         </div>
       </div>
-    </>
+    </>,
   );
 }
