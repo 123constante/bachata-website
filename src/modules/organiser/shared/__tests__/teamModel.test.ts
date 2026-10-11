@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
-  howToAddManager,
+  ADD_ROLES,
+  READ_ONLY_REASON,
   instantDateLabel,
   memberAction,
   memberLabel,
   ownerCount,
+  ownerMoves,
   parseIncomingRequests,
   parseRemoval,
   parseTeam,
+  parseTeamRead,
   type TeamMember,
 } from '../teamModel';
 import { KNOWN_TEAM_CODES, TEAM_COPY, teamErrorMessage } from '../selfServeErrors';
@@ -26,9 +29,9 @@ const member = (over: Partial<TeamMember>): TeamMember => ({
 });
 
 describe('parseTeam', () => {
-  it('keeps owner and manager rows only, in the server order', () => {
+  it('keeps owner, manager and contributor rows, in the server order', () => {
     const team = parseTeam(rawTeam);
-    expect(team.map((m) => `${m.userId}:${m.role}:${m.isSelf}`)).toEqual(['a1:owner:true', 'a2:owner:false', 'b1:manager:false']);
+    expect(team.map((m) => `${m.userId}:${m.role}:${m.isSelf}`)).toEqual(['a1:owner:true', 'a2:owner:false', 'b1:manager:false', 'c1:contributor:false']);
     expect(team[1].displayName).toBeNull();
     expect(ownerCount(team)).toBe(2);
   });
@@ -103,8 +106,38 @@ describe('access requests (D4 incoming rows)', () => {
     expect(instantDateLabel('garbage')).toBeNull();
   });
 
-  it('says how a person asks for access, since there is no add-by-email RPC', () => {
-    expect(howToAddManager('Ritmo Bachata London')).toMatch(/sign in to Bachata Calendar.*Ritmo Bachata London.*Ask to join/);
+  it('reads organiser_team_v1: the viewer role and the members (is_me marks the viewer)', () => {
+    const read = parseTeamRead({ my_role: 'owner', members: [{ user_id: 'a', member_role: 'owner', is_me: true, email: 'a@x' }, { user_id: 'b', member_role: 'contributor', is_me: false, email: null }] });
+    expect(read.myRole).toBe('owner');
+    expect(read.members.map((m) => `${m.userId}:${m.role}:${m.isSelf}`)).toEqual(['a:owner:true', 'b:contributor:false']);
+    expect(parseTeamRead(null)).toEqual({ myRole: null, members: [] });
+    expect(parseTeamRead({ my_role: 'stranger', members: 'x' }).myRole).toBeNull();
+  });
+});
+
+describe('ownerMoves mirrors the owner-only team RPCs', () => {
+  const m = (role: TeamMember['role'], over: Partial<TeamMember> = {}) => member({ role, userId: role, ...over });
+  it.each([
+    ['owner viewing a manager', 'owner', m('manager'), { changeTo: 'contributor', canTransfer: true, note: null }],
+    ['owner viewing a contributor', 'owner', m('contributor'), { changeTo: 'manager', canTransfer: true, note: null }],
+  ] as const)('%s', (_n, viewer, target, expected) => {
+    expect(ownerMoves(target, viewer)).toEqual(expected);
+  });
+  it('an owner never changes or transfers to another owner (target_is_owner, already_owner)', () => {
+    const moves = ownerMoves(m('owner'), 'owner');
+    expect(moves?.changeTo).toBeNull();
+    expect(moves?.canTransfer).toBe(false);
+    expect(moves?.note).toMatch(/cannot be changed here/);
+  });
+  it.each(['manager', 'contributor'] as const)('a %s gets no moves at all (owner_only)', (viewer) => {
+    expect(ownerMoves(m('manager'), viewer)).toBeNull();
+  });
+  it('the owner\u2019s own row has no moves', () => {
+    expect(ownerMoves(m('owner', { isSelf: true }), 'owner')).toBeNull();
+  });
+  it('a new person can be a manager or contributor, never an owner (use_transfer), and the read-only reason names the controls', () => {
+    expect([...ADD_ROLES]).toEqual(['manager', 'contributor']);
+    expect(READ_ONLY_REASON).toMatch(/Only an owner can add people, change roles or transfer ownership/);
   });
 });
 
@@ -115,6 +148,10 @@ const SERVER_TEAM_CODES = [
   'not_a_member', 'cannot_remove_owner', 'last_owner',
   'request_id_required', 'invalid_decision', 'invalid_member_role', 'request_not_found', 'request_not_open',
   'note_too_long', 'note_invalid', 'invalid_scope',
+  // organiser_team_v1 / organiser_team_set_member_v1 / organiser_team_remove_member_v1 / organiser_transfer_ownership_v1
+  // and the shared write gate + member helpers, read from the live bodies 2026-10-11.
+  'owner_only', 'use_transfer', 'target_is_owner', 'already_owner', 'user_not_found', 'unconfirmed_email',
+  'reason_required', 'reason_too_long', 'reason_invalid', 'primary_requires_owner', 'invalid_target_rule',
 ];
 
 describe('teamErrorMessage', () => {

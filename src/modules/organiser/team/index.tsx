@@ -13,16 +13,20 @@ import {
   type HomeOrganiser,
 } from '@/modules/organiser/shared/selfServeApi';
 import { teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { fetchOrganiserTeam, organiserTeamQueryKey, setTeamMember, transferOwnership } from '@/modules/organiser/shared/teamRpcApi';
 import {
   ROLE_LABEL,
-  howToAddManager,
+  ADD_ROLES,
+  READ_ONLY_REASON,
   instantDateLabel,
   memberAction,
   memberLabel,
+  ownerMoves,
   type IncomingAccessRequest,
   type TeamMember,
   type TeamRole,
 } from '@/modules/organiser/shared/teamModel';
+import { isPlausibleEmail } from '@/modules/admin-organisers/inviteModel';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import {
   Card,
@@ -41,15 +45,20 @@ import { useOrganiserChoice } from '../profile/useOrganiserChoice';
 
 /**
  * /account/o/team (W4). Who runs the organiser and who is asking to. The
- * server offers an owner three writes: remove a manager, leave, and grant or
- * decline a request; a manager may only leave. Adding a person IS granting
- * their request (there is no add-by-email RPC) and there is no change-role
- * RPC, so roles are shown, never edited. Buttons a viewer cannot use stay
- * visible, disabled, with the reason underneath.
+ * server offers an owner: add by email, change role, make owner (transfer),
+ * remove, and grant or decline a request; anyone else may only leave. The list
+ * comes from organiser_team_v1 (contributors included), falling back to the
+ * Home read while it loads. Controls a viewer cannot use stay visible,
+ * disabled, with the reason underneath.
  */
 
 /** Which inline question is open; only one at a time, so one primary button. */
-type Asking = { kind: 'member'; id: string } | { kind: 'grant'; id: string } | null;
+type Asking =
+  | { kind: 'member'; id: string }
+  | { kind: 'grant'; id: string }
+  | { kind: 'role'; id: string }
+  | { kind: 'transfer'; id: string }
+  | null;
 
 const NOTE = 'px-[16px] pb-[12px] text-[13px] text-[var(--mut)]';
 
@@ -97,7 +106,7 @@ function Question({ text, yes, no, onYes, onNo, pending, error, shakeProps, test
 function TeamNote() {
   return (
     <p className={`${NOTE} pt-[12px]`} data-testid="team-note">
-      Owners add and remove people. Managers edit every event and send it for review. Only the Bachata Calendar team can change someone&rsquo;s role.
+      Owners add and remove people and change roles. Managers edit every event and send it for review. Contributors help edit events.
     </p>
   );
 }
@@ -105,8 +114,13 @@ function TeamNote() {
 function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const team = teamOf(organiser);
-  const viewerRole: TeamRole = organiser.role === 'owner' ? 'owner' : 'manager';
+  const teamRead = useQuery({ queryKey: organiserTeamQueryKey(organiser.id), queryFn: () => fetchOrganiserTeam(organiser.id) });
+  const team = teamRead.data?.members ?? teamOf(organiser);
+  // An admin who is not a member reads the team but cannot write it from this screen.
+  const readRole = teamRead.data?.myRole;
+  const viewerRole: TeamRole = readRole === 'owner' || readRole === 'contributor' ? readRole : readRole === 'manager' || readRole === 'admin' ? 'manager' : organiser.role === 'owner' ? 'owner' : 'manager';
+  const [addEmail, setAddEmail] = useState('');
+  const [addRole, setAddRole] = useState<'manager' | 'contributor'>('manager');
   const [asking, setAsking] = useState<Asking>(null);
   const [gone, setGone] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
@@ -144,7 +158,10 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
       setAsking(null);
       hide(`r:${request.requestId}`);
       // A grant adds a member: re-read the team now so they are listed at once.
-      if (decision === 'grant') void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+      if (decision === 'grant') {
+        void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+        void queryClient.invalidateQueries({ queryKey: organiserTeamQueryKey(organiser.id) });
+      }
       const who = request.requesterEmail ?? 'They';
       announce(decision === 'grant'
         ? `${who} can now edit ${organiser.name}\u2019s events as a manager.`
@@ -153,11 +170,33 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
     onError: fail,
   });
 
+  const reread = () => {
+    void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+    void queryClient.invalidateQueries({ queryKey: organiserTeamQueryKey(organiser.id) });
+  };
+
+  const changeRole = useMutation({
+    mutationFn: ({ member, to }: { member: TeamMember; to: 'manager' | 'contributor' }) => setTeamMember(organiser.id, member.email ?? '', to),
+    onSuccess: (_r, { member, to }) => { setAsking(null); reread(); announce(`${memberLabel(member)} is now a ${ROLE_LABEL[to].toLowerCase()}.`); },
+    onError: fail,
+  });
+  const transfer = useMutation({
+    mutationFn: (member: TeamMember) => transferOwnership(organiser.id, member.userId),
+    onSuccess: (_r, member) => { setAsking(null); reread(); announce(`${memberLabel(member)} is now the owner. You are a manager.`); },
+    onError: fail,
+  });
+  const add = useMutation({
+    mutationFn: () => setTeamMember(organiser.id, addEmail, addRole),
+    onSuccess: () => { const who = addEmail.trim(); setAddEmail(''); setError(null); reread(); announce(`${who} was added as a ${ROLE_LABEL[addRole].toLowerCase()}.`); },
+    onError: fail,
+  });
+  const addValid = isPlausibleEmail(addEmail);
+
   // Re-read once the row has collapsed, so the gap closes before the list changes.
-  const settleMember = () => void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+  const settleMember = reread;
   const settleRequest = () => void queryClient.invalidateQueries({ queryKey: incomingAccessRequestsQueryKey(organiser.id) });
 
-  const pending = remove.isPending || decide.isPending;
+  const pending = remove.isPending || decide.isPending || changeRole.isPending || transfer.isPending || add.isPending;
 
   return (
     <div className="space-y-[20px]" data-testid="team-body">
@@ -191,6 +230,45 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
                   ) : undefined}
                 />
                 {action?.note && <p id={`note-${m.userId}`} className={NOTE} data-testid="member-note">{action.note}</p>}
+                {(() => {
+                  const moves = ownerMoves(m, viewerRole);
+                  if (!moves) return null;
+                  const noEmail = m.email === null;
+                  const roleOpen = asking?.kind === 'role' && asking.id === m.userId;
+                  const transferOpen = asking?.kind === 'transfer' && asking.id === m.userId;
+                  return (
+                    <div data-testid="member-moves">
+                      {moves.note && <p className={NOTE} data-testid="move-note">{moves.note}</p>}
+                      {moves.changeTo && !roleOpen && !transferOpen && (
+                        <div className="flex flex-wrap gap-[8px] px-[16px] pb-[12px]">
+                          <GhostButton size="sm" block={false} disabled={noEmail || pending} onClick={() => ask({ kind: 'role', id: m.userId })} testId="move-role">Make {ROLE_LABEL[moves.changeTo].toLowerCase()}</GhostButton>
+                          <GhostButton size="sm" block={false} disabled={!moves.canTransfer || pending} onClick={() => ask({ kind: 'transfer', id: m.userId })} testId="move-transfer">Make owner</GhostButton>
+                        </div>
+                      )}
+                      {moves.changeTo && noEmail && <p className={NOTE} data-testid="move-note-noemail">We cannot show this person&rsquo;s email, so their role cannot be changed here. Remove them and add them again.</p>}
+                      {roleOpen && moves.changeTo && (
+                        <Question
+                          testId="role-confirm"
+                          text={`Make ${label} a ${ROLE_LABEL[moves.changeTo].toLowerCase()}?`}
+                          no="No, keep it" yes={`Yes, make ${ROLE_LABEL[moves.changeTo].toLowerCase()}`}
+                          onNo={() => ask(null)}
+                          onYes={() => { setError(null); changeRole.mutate({ member: m, to: moves.changeTo! }); }}
+                          pending={changeRole.isPending} error={error} shakeProps={shakeProps}
+                        />
+                      )}
+                      {transferOpen && (
+                        <Question
+                          testId="transfer-confirm"
+                          text={`Make ${label} the owner? You will become a manager and will no longer be able to add or remove people.`}
+                          no="No, stay owner" yes="Yes, hand over"
+                          onNo={() => ask(null)}
+                          onYes={() => { setError(null); transfer.mutate(m); }}
+                          pending={transfer.isPending} error={error} shakeProps={shakeProps}
+                        />
+                      )}
+                    </div>
+                  );
+                })()}
                 {action && isAsking && (
                   <Question
                     testId="member-confirm"
@@ -277,8 +355,24 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
         )}
       </Card>
 
-      <Card label="Add someone" variant="padded" testId="team-howto">
-        <p className="text-[14px] text-[var(--mut)]" data-testid="access-howto">{howToAddManager(organiser.name)}</p>
+      <Card label="Add someone" variant="padded" testId="team-add">
+        {viewerRole === 'owner' ? (
+          <form
+            className="space-y-[8px]"
+            onSubmit={(e) => { e.preventDefault(); if (addValid && !pending) { setError(null); add.mutate(); } }}
+          >
+            <p className="text-[14px] text-[var(--mut)]">They need a Bachata Calendar account already. Use the email they signed up with.</p>
+            <input type="email" inputMode="email" autoComplete="off" value={addEmail} onChange={(e) => setAddEmail(e.target.value)} placeholder="Their email" aria-label="Their email" data-testid="add-email" className="h-[44px] w-full rounded-[10px] border border-[var(--line)] bg-[var(--card2)] px-[12px] text-[15px] text-[var(--fg)]" />
+            <select value={addRole} onChange={(e) => setAddRole(e.target.value as 'manager' | 'contributor')} aria-label="Role" data-testid="add-role" className="h-[44px] w-full rounded-[10px] border border-[var(--line)] bg-[var(--card2)] px-[12px] text-[15px] text-[var(--fg)]">
+              {ADD_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+            </select>
+            <PrimaryButton size="sm" type="submit" disabled={!addValid || pending} loading={add.isPending} loadingLabel="Adding" testId="add-submit" aria-describedby={addValid ? undefined : 'add-reason'}>Add to team</PrimaryButton>
+            {!addValid && <p id="add-reason" className="text-[13px] text-[var(--mut)]" data-testid="add-reason">Enter their email address to add them.</p>}
+            {add.isError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="add-error">{error}</p>}
+          </form>
+        ) : (
+          <p className="text-[14px] text-[var(--mut)]" data-testid="add-read-only">{READ_ONLY_REASON}</p>
+        )}
       </Card>
     </div>
   );

@@ -63,6 +63,8 @@ export const SITE_IA = {
   search:           { label: 'Search',            path: '/search' },
   faq:              { label: 'FAQ',               path: '/faq' },
   notFound:         { label: 'Page not found' },
+  // Admin-only, noindex; the page passes these crumbs only to a confirmed admin.
+  'admin.organisers': { label: 'Organiser access' },
   londonBachataGuide:{ label: 'London Guide',     path: '/london-bachata-guide' },
   learnBachataLondon:{ label: 'Learn Bachata',    path: '/learn-bachata-london' },
   bachataWeekday:   { label: 'Weekday',           path: '/bachata-london', entity: true,
