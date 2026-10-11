@@ -1,0 +1,209 @@
+// Pure, client-free model for the admin organiser-invite screens and the redeem
+// landing. ONE mapping per fact: the access status (list, row detail and
+// counts all call accessStatus), the redeem reason copy, the add-person copy.
+// The server owns the rules (admin arc PR 4b); this only decides words and
+// which control is enabled, and mirrors the refusals so the screen does not
+// offer what the RPC would refuse.
+
+export type InviteStatus = 'sent' | 'used' | 'revoked' | 'expired';
+
+export interface InviteRow {
+  inviteId: string;
+  status: InviteStatus;
+  issuedAt: string | null;
+  expiresAt: string | null;
+  usedAt: string | null;
+  revokedAt: string | null;
+}
+
+const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
+const STATUSES: readonly string[] = ['sent', 'used', 'revoked', 'expired'];
+
+/** admin_list_organiser_invites_v1 rows. Shapeless rows and unknown statuses are dropped. */
+export function parseInvites(raw: unknown): InviteRow[] {
+  if (!Array.isArray(raw)) return [];
+  const out: InviteRow[] = [];
+  for (const r of raw as Record<string, unknown>[]) {
+    if (!r || typeof r !== 'object' || typeof r.invite_id !== 'string') continue;
+    if (typeof r.status !== 'string' || !STATUSES.includes(r.status)) continue;
+    out.push({
+      inviteId: r.invite_id,
+      status: r.status as InviteStatus,
+      issuedAt: str(r.issued_at),
+      expiresAt: str(r.expires_at),
+      usedAt: str(r.used_at),
+      revokedAt: str(r.revoked_at),
+    });
+  }
+  return out;
+}
+
+/** The newest invite (by issued_at); the list endpoint's order is not relied on. */
+export function latestInvite(invites: readonly InviteRow[]): InviteRow | null {
+  let best: InviteRow | null = null;
+  for (const i of invites) {
+    if (!best || (i.issuedAt ?? '') > (best.issuedAt ?? '')) best = i;
+  }
+  return best;
+}
+
+export type AccessStatus = 'unclaimed' | 'invited' | 'invite_expired' | 'managed';
+
+export const ACCESS_LABEL: Record<AccessStatus, string> = {
+  unclaimed: 'Unclaimed',
+  invited: 'Invited',
+  invite_expired: 'Invite expired',
+  managed: 'Managed',
+};
+
+export const ACCESS_ORDER: readonly AccessStatus[] = ['unclaimed', 'invited', 'invite_expired', 'managed'];
+
+/**
+ * THE status mapping. `managed` comes from organiser_ownership_v1.is_managed (an
+ * owner exists); otherwise the newest invite decides. A used or revoked newest
+ * invite on an organiser with no owner is Unclaimed (the person left, or the
+ * link was withdrawn), never Managed. `invites` null = not loaded yet: the
+ * caller shows no status rather than guessing Unclaimed.
+ */
+export function accessStatus(managed: boolean, invites: readonly InviteRow[] | null): AccessStatus | null {
+  if (managed) return 'managed';
+  if (invites === null) return null;
+  const latest = latestInvite(invites);
+  if (latest?.status === 'sent') return 'invited';
+  if (latest?.status === 'expired') return 'invite_expired';
+  return 'unclaimed';
+}
+
+export interface RowActions {
+  /** Issue a link. Always possible for an admin; a live link is replaced, so it asks first. */
+  canGenerate: boolean;
+  generateConfirms: boolean;
+  generateNote: string | null;
+  canRevoke: boolean;
+  revokeNote: string | null;
+  canAddPerson: boolean;
+}
+
+/** True when the newest invite is still usable (an owner-granting link that works). */
+export const hasLiveInvite = (invites: readonly InviteRow[]): boolean => latestInvite(invites)?.status === 'sent';
+
+/** Which controls a row offers, and the reason for each one that is disabled. */
+export function rowActions(status: AccessStatus | null, invites: readonly InviteRow[] = []): RowActions {
+  // A live link is read from the invites, not the badge: a managed organiser can hold one too.
+  const hasLive = status !== null && hasLiveInvite(invites);
+  return {
+    canGenerate: status !== null,
+    generateConfirms: hasLive,
+    generateNote: status === null ? 'Loading this organiser’s links.' : status === 'managed' ? 'This organiser already has an owner. A new link would add another owner.' : null,
+    canRevoke: hasLive,
+    revokeNote: hasLive ? null : status === null ? 'Loading this organiser’s links.' : 'There is no live link to revoke.',
+    canAddPerson: true,
+  };
+}
+
+/** The sentence under the status: expiry for a live link, the date otherwise. */
+export function statusDetail(status: AccessStatus | null, invites: readonly InviteRow[], fmt: (iso: string) => string, ownershipFresh = true): string {
+  const latest = latestInvite(invites);
+  if (status === 'invited' && latest?.expiresAt) return `Link works until ${fmt(latest.expiresAt)}.`;
+  if (status === 'invite_expired' && latest?.expiresAt) return `The last link ran out on ${fmt(latest.expiresAt)}.`;
+  if (status === 'managed') return latest?.status === 'sent' && latest.expiresAt ? `Has an owner. Link works until ${fmt(latest.expiresAt)}.` : 'Has an owner.';
+  if (status === 'unclaimed') return latest?.status === 'revoked' ? 'The last link was revoked.' : latest?.status === 'used' ? (ownershipFresh ? 'The last link was used, but the owner has since left.' : 'The last link was used.') : 'No link sent yet.';
+  return '';
+}
+
+export const INVITE_PATH = '/invite';
+
+/** The shareable link. The token is never stored; this is built from the one-time RPC answer. */
+export const inviteUrl = (origin: string, token: string) => `${origin}${INVITE_PATH}/${token}`;
+
+/** A ready message for WhatsApp. No phone number is added; the admin picks the chat. */
+export function whatsappHref(organiserName: string, link: string): string {
+  const text = `Hi! Here is your link to manage ${organiserName} on Bachata Calendar. It works once and runs out in 7 days: ${link}`;
+  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+}
+
+export const TOKEN_RE = /^[0-9a-f]{64}$/;
+
+// ---- redeem ---------------------------------------------------------------------
+
+export type RedeemAction = 'sign_in' | 'retry' | 'home' | null;
+
+export interface RedeemCopy {
+  title: string;
+  body: string;
+  /** The only control the screen shows besides the home link. Copy never names a control. */
+  action: RedeemAction;
+  /** True when the link is finished with and the token can leave the address bar. */
+  terminal: boolean;
+}
+
+const ASK_NEW = 'Ask the admin who sent it for a new link.';
+
+/** Every reason redeem_organiser_invite_v1 can return (4b), plus the raised authentication_required. */
+export const REDEEM_COPY: Record<string, RedeemCopy> = {
+  sign_in_required: { title: 'Sign in to continue', body: 'This link is for a signed-in account. Sign in with your own email, then you will come straight back here.', action: 'sign_in', terminal: false },
+  authentication_required: { title: 'Sign in to continue', body: 'Sign in with your own email, then you will come straight back here.', action: 'sign_in', terminal: false },
+  unconfirmed_account: { title: 'Confirm your account first', body: 'Your account has not been confirmed yet. Confirm your email address from the message we sent you, then open this link again.', action: 'home', terminal: false },
+  rate_limited: { title: 'Too many tries', body: 'Too many links were tried from this account in the last hour. Wait an hour, then open this link again.', action: 'home', terminal: false },
+  invalid: { title: 'This link does not work', body: `It may have been copied incompletely. ${ASK_NEW}`, action: 'home', terminal: true },
+  used: { title: 'This link was already used', body: `A link works once. If that was not you, ${ASK_NEW}`, action: 'home', terminal: true },
+  revoked: { title: 'This link was withdrawn', body: ASK_NEW, action: 'home', terminal: true },
+  expired: { title: 'This link has run out', body: `Links last 7 days. ${ASK_NEW}`, action: 'home', terminal: true },
+};
+
+export const REDEEM_FALLBACK: RedeemCopy = { title: 'Something went wrong', body: 'We could not use this link. Check your connection and try again.', action: 'retry', terminal: false };
+
+export type RedeemOutcome =
+  | { kind: 'redeemed'; organiserId: string; alreadyMember: boolean }
+  | { kind: 'refused'; reason: string; copy: RedeemCopy }
+  | { kind: 'failed'; copy: RedeemCopy };
+
+/** redeem_organiser_invite_v1's answer (or the raised error) -> what the landing does next. */
+export function interpretRedeem(data: unknown, error: { message?: string } | null): RedeemOutcome {
+  if (error) {
+    const code = /authentication_required/.test(error.message ?? '') ? 'authentication_required' : null;
+    return code ? { kind: 'refused', reason: code, copy: REDEEM_COPY[code] } : { kind: 'failed', copy: REDEEM_FALLBACK };
+  }
+  const row = (data ?? {}) as Record<string, unknown>;
+  if (row.ok === true && (row.status === 'redeemed' || row.status === 'already_member') && typeof row.organiser_id === 'string') {
+    return { kind: 'redeemed', organiserId: row.organiser_id, alreadyMember: row.status === 'already_member' };
+  }
+  const reason = typeof row.reason === 'string' ? row.reason : '';
+  const copy = REDEEM_COPY[reason];
+  return copy ? { kind: 'refused', reason, copy } : { kind: 'failed', copy: REDEEM_FALLBACK };
+}
+
+// ---- admin writes: plain-English refusals ----------------------------------------
+
+const GENERIC = 'Something went wrong. Please try again.';
+
+/**
+ * Every code admin_add_entity_member_v1 and the invite RPCs can raise (read from
+ * the live bodies, 2026-10-11). Raw server text is never shown.
+ */
+export const ADMIN_COPY: Record<string, string> = {
+  authentication_required: 'Your sign-in has ended. Sign in again, then retry.',
+  not_authorised: 'Only an admin can do that. Check you are signed in with your admin account.',
+  actor_required: 'Your sign-in has ended. Sign in again, then retry.',
+  organiser_not_found: 'That organiser no longer exists. Reload the page.',
+  invalid_member_role: 'Choose Owner, Manager or Contributor.',
+  ambassador_only_on_city: 'Ambassador is only for cities, not organisers.',
+  use_transfer: 'Only an admin can add an owner here. Sign in with your admin account.',
+  user_not_found: 'No account has that email address. Ask them to sign up to Bachata Calendar first, then add them.',
+  unconfirmed_email: 'That account has not confirmed its email address yet. Ask them to confirm it, then add them.',
+};
+
+export const ADD_PERSON_CODES = Object.keys(ADMIN_COPY);
+
+export function adminErrorMessage(error: unknown): string {
+  const text = String((error as { message?: unknown } | null)?.message ?? '');
+  const hit = Object.keys(ADMIN_COPY).find((code) => new RegExp(`(^|[^a-z_])${code}($|[^a-z_])`).test(text));
+  return hit ? ADMIN_COPY[hit] : GENERIC;
+}
+
+export const MEMBER_ROLES = ['owner', 'manager', 'contributor'] as const;
+export type MemberRole = (typeof MEMBER_ROLES)[number];
+export const MEMBER_ROLE_LABEL: Record<MemberRole, string> = { owner: 'Owner', manager: 'Manager', contributor: 'Contributor' };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const isPlausibleEmail = (v: string) => EMAIL_RE.test(v.trim());

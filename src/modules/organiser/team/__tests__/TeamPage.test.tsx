@@ -113,9 +113,9 @@ describe('team list', () => {
     expect(api.remove).toHaveBeenCalledWith('org-1', 'u2');
   });
 
-  it('says there is no change-role control and why', async () => {
+  it('says who can change roles', async () => {
     mount();
-    expect((await screen.findByTestId('team-note')).textContent).toContain('Only the Bachata Calendar team can change');
+    expect((await screen.findByTestId('team-note')).textContent).toContain('Owners add and remove people and change roles');
   });
 });
 

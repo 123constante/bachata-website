@@ -7,7 +7,7 @@
 // button each row shows and mirrors the server's refusal rules so the screen
 // does not offer what remove_organiser_member_v1 would refuse.
 
-export type TeamRole = 'owner' | 'manager';
+export type TeamRole = 'owner' | 'manager' | 'contributor';
 
 export interface TeamMember {
   userId: string;
@@ -22,20 +22,20 @@ export interface TeamMember {
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
 
-/** organisers[].team → members. Unknown roles and shapeless rows are dropped (D-8: owner and manager only). */
+/** Team rows -> members. Unknown roles and shapeless rows are dropped. */
 export function parseTeam(raw: unknown): TeamMember[] {
   if (!Array.isArray(raw)) return [];
   const members: TeamMember[] = [];
   for (const row of raw as Record<string, unknown>[]) {
     if (!row || typeof row !== 'object') continue;
     const role = row.member_role;
-    if ((role !== 'owner' && role !== 'manager') || typeof row.user_id !== 'string') continue;
+    if ((role !== 'owner' && role !== 'manager' && role !== 'contributor') || typeof row.user_id !== 'string') continue;
     members.push({
       userId: row.user_id,
       role,
       isPrimary: row.is_primary === true,
       joinedAt: str(row.joined_at),
-      isSelf: row.is_self === true,
+      isSelf: row.is_self === true || row.is_me === true,
       email: str(row.email),
       displayName: str(row.display_name),
     });
@@ -46,7 +46,7 @@ export function parseTeam(raw: unknown): TeamMember[] {
 /** The name a teammate recognises: the sign-up name, else the email, else a placeholder. */
 export const memberLabel = (m: TeamMember): string => m.displayName ?? m.email ?? 'A team member';
 
-export const ROLE_LABEL: Record<TeamRole, string> = { owner: 'Owner', manager: 'Manager' };
+export const ROLE_LABEL: Record<TeamRole, string> = { owner: 'Owner', manager: 'Manager', contributor: 'Contributor' };
 
 export const ownerCount = (team: TeamMember[]) => team.filter((m) => m.role === 'owner').length;
 
@@ -141,10 +141,39 @@ export function instantDateLabel(iso: string | null | undefined, now: Date = new
   return `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })}${year}`;
 }
 
+/** What an owner can do to one other member, from the owner-only team RPCs. */
+export interface OwnerMoves {
+  /** The role "Change role" would set (manager <-> contributor); null when the role cannot change. */
+  changeTo: 'manager' | 'contributor' | null;
+  canTransfer: boolean;
+  /** Why the moves are missing or disabled, in the organiser's words; null when all are on. */
+  note: string | null;
+}
+
 /**
- * How a person gets added (plan 5.1 step 7: "by email; they must have signed in
- * once"). The server has no add-by-email RPC: adding is granting a request
- * (resolve_organiser_access_request_v1), so the page explains the ask.
+ * The extra moves a row may offer: change role and transfer ownership, both owner-only
+ * (organiser_team_set_member_v1, organiser_transfer_ownership_v1). Owners cannot be
+ * changed by another owner (target_is_owner); you cannot transfer to yourself.
+ * Null: no extra control at all (a non-owner viewer, or the viewer's own row).
  */
-export const howToAddManager = (organiserName: string) =>
-  `To add a manager, ask them to sign in to Bachata Calendar, search for ${organiserName} on their Home tab and tap Ask to join. Their request shows here and you add them as a manager.`;
+export function ownerMoves(member: TeamMember, viewerRole: TeamRole): OwnerMoves | null {
+  if (viewerRole !== 'owner' || member.isSelf) return null;
+  if (member.role === 'owner') {
+    return { changeTo: null, canTransfer: false, note: 'Another owner’s role cannot be changed here. They can transfer ownership, or ask the Bachata Calendar team.' };
+  }
+  return { changeTo: member.role === 'manager' ? 'contributor' : 'manager', canTransfer: true, note: null };
+}
+
+/** Shown to a viewer who is not an owner, so the missing controls have a stated reason. */
+export const READ_ONLY_REASON = 'Only an owner can add people, change roles or transfer ownership. You can see who is on the team' + ' and leave it.';
+
+/** The roles an owner can give a new person (a second owner comes by transfer). */
+export const ADD_ROLES: readonly ('manager' | 'contributor')[] = ['manager', 'contributor'];
+
+/** organiser_team_v1 -> the viewer's role and the members. */
+export function parseTeamRead(raw: unknown): { myRole: TeamRole | 'admin' | null; members: TeamMember[] } {
+  const row = (raw ?? {}) as Record<string, unknown>;
+  const r = row.my_role;
+  const myRole = r === 'owner' || r === 'manager' || r === 'contributor' || r === 'admin' ? r : null;
+  return { myRole, members: parseTeam(row.members) };
+}

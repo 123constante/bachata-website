@@ -233,6 +233,17 @@ export const TEAM_COPY: Record<string, string> = {
   note_too_long: 'Keep the note under 500 characters.',
   note_invalid: 'The note contains characters we cannot accept.',
   invalid_scope: 'Something went wrong. Please try again.',
+  owner_only: 'Only an owner can do that. As a manager or contributor you can see the team and leave it.',
+  use_transfer: 'To make someone an owner, use Make owner on their row. That hands ownership over.',
+  target_is_owner: 'An owner’s role cannot be changed here. They can transfer ownership, or ask the Bachata Calendar team.',
+  already_owner: 'That person is already an owner.',
+  user_not_found: 'No account has that email address. Ask them to sign up to Bachata Calendar first, then add them.',
+  unconfirmed_email: 'That account has not confirmed its email address yet. Ask them to confirm it, then add them.',
+  reason_required: 'Add a short reason first.',
+  reason_too_long: 'Keep the reason under 500 characters.',
+  reason_invalid: 'The reason contains characters we cannot accept.',
+  primary_requires_owner: 'Something went wrong. Please try again.',
+  invalid_target_rule: 'Something went wrong. Please try again.',
 };
 
 export function teamErrorMessage(error: unknown): string {
