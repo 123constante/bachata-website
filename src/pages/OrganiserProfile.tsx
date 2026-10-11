@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -563,7 +564,7 @@ function useAverageColor(url: string | null): { rgb: [number, number, number]; r
 
 // The owner's edit-in-place layer: its own chunk, loaded ONLY when
 // ownershipFacts says canEdit, so a visitor downloads and requests nothing new.
-const EditInPlaceLayer = lazy(() => import('@/modules/organiser/edit-in-place/EditInPlaceLayer'));
+const EditInPlaceLayer = lazyWithRetry(() => import('@/modules/organiser/edit-in-place/EditInPlaceLayer'));
 
 // --- Main component ---
 

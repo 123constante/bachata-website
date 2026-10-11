@@ -7,7 +7,7 @@ type StorageClient = Pick<typeof supabase, 'storage'>;
 
 /**
  * Check, re-encode and upload one organiser photo under
- * <organiser_id>/<random>.<ext>; return its public URL. Never overwrites
+ * <organiserId>/<random>.<ext>; return its public URL. Never overwrites
  * (upsert false): a replace is a new object. Throws an Error whose message is
  * the plain copy to show (a missing bucket or a policy refusal reads as the
  * 'upload' / 'permission' copy; nothing else on the page is affected).

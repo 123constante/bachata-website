@@ -178,7 +178,7 @@ export default function FieldSheet({ field, initial, storedCategory, onDone, onC
       <>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', background: 'rgba(246,241,234,0.08)', flexShrink: 0 }}>
-            {shown && <img src={shown} alt="" width={72} height={72} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+            {shown && <img src={shown} alt="" loading="eager" width={72} height={72} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label className="eip-file" style={{ ...btn, position: 'relative', display: 'inline-flex', alignItems: 'center', background: GOLD, color: INK, border: 'none' }}>

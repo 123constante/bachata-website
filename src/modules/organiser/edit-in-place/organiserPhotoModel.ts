@@ -6,7 +6,7 @@
 // CONTRACT with the admin migration that creates the bucket (separate admin PR,
 // applied before this deploys):
 //   bucket      organiser-photos (public read)
-//   path        <organiser_id>/<32 lowercase hex>.<jpg|png|webp>
+//   path        <organiserId>/<32 lowercase hex>.<jpg|png|webp>
 //   public URL  <VITE_SUPABASE_URL>/storage/v1/object/public/organiser-photos/<path>
 //   limits      2 MB per object; image/jpeg, image/png, image/webp only
 //   who         INSERT for the organiser's owner or manager only; no update, no delete
@@ -75,7 +75,7 @@ export function reencodePhoto(file: Blob, deps: ReencodeDeps = browserReencodeDe
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const TOKEN_RE = /^[0-9a-f]{32}$/;
 
-/** <organiser_id>/<token>.<ext>: the only shape the storage policy admits. */
+/** <organiserId>/<token>.<ext>: the only shape the storage policy admits. */
 export function photoObjectPath(organiserId: string, ext: 'webp' | 'jpg' | 'png', token: string = randomFlyerToken()): string {
   const id = organiserId.toLowerCase();
   if (!UUID_RE.test(id)) throw new Error('photoObjectPath: organiser id is not a uuid');

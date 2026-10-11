@@ -28,7 +28,7 @@ const POLICY_PATH_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 
 const text = (s: string) => new TextEncoder().encode(s);
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46]);
-const file = (bytes: Uint8Array, type: string, name = 'x') => new File([bytes], name, { type });
+const file = (bytes: Uint8Array, type: string, name = 'x') => new File([bytes as BlobPart], name, { type });
 
 function fakeDeps(sizeOf: (type: string, q: number, w: number) => number = () => 300_000, dims = { width: 4000, height: 3000 }) {
   const sizes: Array<[number, number]> = [];
@@ -84,7 +84,7 @@ describe('reencodePhoto (the photo\u2019s own limits; flyer unchanged)', () => {
 });
 
 describe('photoObjectPath', () => {
-  it('is <organiser_id>/<32 hex>.<ext>, never a user filename', () => {
+  it('is <organiserId>/<32 hex>.<ext>, never a user filename', () => {
     const p = photoObjectPath(OID.toUpperCase(), 'webp');
     expect(p).toMatch(POLICY_PATH_RE);
     expect(p.startsWith(`${OID}/`)).toBe(true);

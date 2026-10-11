@@ -9,7 +9,7 @@
 // change is live. The draft is kept in localStorage per organiser and survives
 // leaving; leaving in-app with a draft asks first.
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { UNSAFE_DataRouterContext, useBlocker } from 'react-router-dom';
+import { UNSAFE_DataRouterContext, UNSAFE_DataRouterStateContext, type Blocker, type BlockerFunction } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { formFromEntity, type ProfileEntity } from '@/modules/organiser/profile/profileForm';
@@ -275,12 +275,43 @@ function buildShown(entity: ProfileEntity, drafts: Drafts): Partial<Record<'inst
   return out;
 }
 
+const IDLE_BLOCKER = { state: 'unblocked', proceed: undefined, reset: undefined, location: undefined } as Blocker;
+let blockerSeq = 0;
+
+/**
+ * react-router's useBlocker, rebuilt on the router's own getBlocker/deleteBlocker.
+ * Importing useBlocker itself puts its code in the SHARED react-router chunk,
+ * which is on every route's first load (+0.3 KB gz, measured: /classes went
+ * over its perf-budgets.json budget). Here it stays in this lazy owner chunk.
+ * The predicate compares pathnames only, so react-router's basename strip is
+ * not needed (the site has no basename either).
+ */
+function useLeaveBlocker(shouldBlock: BlockerFunction): Blocker {
+  const router = useContext(UNSAFE_DataRouterContext)?.router;
+  const blockers = useContext(UNSAFE_DataRouterStateContext)?.blockers;
+  const [key, setKey] = useState('');
+  useEffect(() => {
+    if (!router) return;
+    const k = `eip-${++blockerSeq}`;
+    setKey(k);
+    return () => router.deleteBlocker(k);
+  }, [router]);
+  useEffect(() => {
+    if (router && key) router.getBlocker(key, shouldBlock);
+  }, [router, key, shouldBlock]);
+  return (key && blockers?.get(key)) || IDLE_BLOCKER;
+}
+
 /**
  * Leaving in-app (the back link, any route change) with a draft. Only mounted
- * under a data router (useBlocker needs one); the public page always is one.
+ * under a data router (the blocker needs one); the public page always is one.
  */
 function LeaveGuard({ active, onSave, onDiscard }: { active: boolean; onSave: () => Promise<boolean>; onDiscard: () => void }) {
-  const blocker = useBlocker(({ currentLocation, nextLocation }) => active && currentLocation.pathname !== nextLocation.pathname);
+  const shouldBlock = useCallback<BlockerFunction>(
+    ({ currentLocation, nextLocation }) => active && currentLocation.pathname !== nextLocation.pathname,
+    [active],
+  );
+  const blocker = useLeaveBlocker(shouldBlock);
   const firstRef = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false);
   const blocked = blocker.state === 'blocked';

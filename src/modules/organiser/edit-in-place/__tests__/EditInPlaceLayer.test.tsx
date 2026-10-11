@@ -37,7 +37,7 @@ let server: ProfileEntity;
 const okRpc = (): Rpc => vi.fn(async (_name: string, args: { p_patch: Record<string, unknown> }) => {
   const p = args.p_patch;
   server = { ...server, avatar_url: p.avatar_url as string | null, bio: p.bio as string | null, instagram: p.instagram as string | null, website: p.website as string | null, organisation_category: p.organisation_category as string | null, founded_year: p.founded_year as number | null, socials: p.socials as ProfileEntity['socials'] };
-  return { data: { organiser_id: ID, changed_keys: [], profile: { ...server } }, error: null };
+  return { data: { changed_keys: [], profile: { ...server } }, error: null };
 });
 
 function Harness({ rpc, uploadPhoto }: { rpc: Rpc; uploadPhoto?: (id: string, f: File) => Promise<string> }) {

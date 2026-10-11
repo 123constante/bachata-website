@@ -235,7 +235,7 @@ describe('the stored draft (keyed by organiser id)', () => {
 
 // ---- the save --------------------------------------------------------------------------------
 
-const rpcOk = (profile: Record<string, unknown>) => vi.fn(async () => ({ data: { organiser_id: 'x', changed_keys: [], profile }, error: null }));
+const rpcOk = (profile: Record<string, unknown>) => vi.fn(async () => ({ data: { changed_keys: [], profile }, error: null }));
 const profileFrom = (e: ProfileEntity, drafts: Drafts) => {
   const p = buildSavePatch(e, drafts);
   return { avatar_url: p.avatar_url, bio: p.bio, instagram: p.instagram, website: p.website, organisation_category: p.organisation_category, founded_year: p.founded_year, socials: p.socials };

@@ -30,6 +30,7 @@ import {
 } from '../fieldRules';
 
 // The server's rules, verbatim from the prod function bodies.
+// eslint-disable-next-line no-control-regex -- verbatim from the server function
 const SERVER_PUBLIC_URL = /^https?:\/\/[^\s\x00-\x1f\x7f]+$/i;
 const SERVER_IG = (v: string) => /^@?[A-Za-z0-9._]{1,30}$/.test(v) || (SERVER_PUBLIC_URL.test(v) && /^https?:\/\/(www[.])?instagram[.]com\/\S*$/i.test(v));
 const SERVER_FB = (v: string) => /^@?[A-Za-z0-9._-]{1,50}$/.test(v) || SERVER_PUBLIC_URL.test(v);
