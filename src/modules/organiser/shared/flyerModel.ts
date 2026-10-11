@@ -165,7 +165,30 @@ const toBlob = (canvas: FlyerCanvas, type: string, quality: number) =>
  * white background. Steps the quality down, then the size, until the file is
  * about 1 MB; refuses if it cannot get under the bucket's 2 MB.
  */
-export async function reencodeFlyer(file: Blob, deps: ReencodeDeps = browserReencodeDeps): Promise<EncodedFlyer> {
+/**
+ * The size knobs of the re-encode. The flyer's own are the defaults, so a caller
+ * that passes nothing gets exactly the flyer pipeline; the organiser photo
+ * (organiserPhotoModel.ts) passes its smaller ones.
+ */
+export interface ReencodeLimits {
+  maxEdge: number;
+  minEdge: number;
+  targetBytes: number;
+  limitBytes: number;
+}
+
+export const FLYER_REENCODE_LIMITS: ReencodeLimits = {
+  maxEdge: FLYER_MAX_EDGE,
+  minEdge: FLYER_MIN_EDGE,
+  targetBytes: FLYER_TARGET_BYTES,
+  limitBytes: FLYER_BUCKET_LIMIT_BYTES,
+};
+
+export async function reencodeFlyer(
+  file: Blob,
+  deps: ReencodeDeps = browserReencodeDeps,
+  limits: ReencodeLimits = FLYER_REENCODE_LIMITS,
+): Promise<EncodedFlyer> {
   let decoded: DecodedImage;
   try {
     decoded = await deps.decode(file);
@@ -176,8 +199,8 @@ export async function reencodeFlyer(file: Blob, deps: ReencodeDeps = browserReen
     if (!(decoded.width > 0 && decoded.height > 0)) throw new FlyerError('not_image');
     let mime: EncodedFlyer['mime'] = 'image/webp';
     let best: EncodedFlyer | null = null;
-    for (let edge = FLYER_MAX_EDGE; ; edge = Math.round(edge * 0.8)) {
-      const size = fitWithin(decoded.width, decoded.height, Math.max(edge, FLYER_MIN_EDGE));
+    for (let edge = limits.maxEdge; ; edge = Math.round(edge * 0.8)) {
+      const size = fitWithin(decoded.width, decoded.height, Math.max(edge, limits.minEdge));
       const canvas = deps.createCanvas(size.width, size.height);
       canvas.width = size.width;
       canvas.height = size.height;
@@ -203,10 +226,10 @@ export async function reencodeFlyer(file: Blob, deps: ReencodeDeps = browserReen
         }
         if (!blob || blob.type !== mime) throw new FlyerError('not_image');
         const encoded: EncodedFlyer = { blob, mime, ext: mime === 'image/webp' ? 'webp' : 'jpg', ...size };
-        if (blob.size <= FLYER_BUCKET_LIMIT_BYTES && (!best || blob.size < best.blob.size)) best = encoded;
-        if (blob.size <= FLYER_TARGET_BYTES) return encoded;
+        if (blob.size <= limits.limitBytes && (!best || blob.size < best.blob.size)) best = encoded;
+        if (blob.size <= limits.targetBytes) return encoded;
       }
-      if (edge <= FLYER_MIN_EDGE) break;
+      if (edge <= limits.minEdge) break;
     }
     if (best) return best;
     throw new FlyerError('too_detailed');

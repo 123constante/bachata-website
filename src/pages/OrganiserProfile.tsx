@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +9,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { flags } from '@/lib/featureFlags';
 import { ManagedBadge, PublicClaimCard } from '@/modules/organiser/shared/components/PublicClaimCard';
 import { ownershipFacts } from '@/modules/organiser/shared/ownership';
+import type { EipBridge } from '@/modules/organiser/edit-in-place/bridge';
+import { PUBLIC_LINK_REL, extractDomain, extractFbHandle, extractIgHandle } from '@/lib/organiserLinkLabels';
 import {
   NO_PUBLIC_CONTACT,
   fetchContactSettings,
@@ -233,52 +236,8 @@ const eventTime = (wc: WallClock | null | undefined): string | null => {
 const hostnameLooksLikeDomain = (hostname: string): boolean =>
   hostname.includes('.') && /[a-z]/i.test(hostname);
 
-const FB_NON_HANDLE_PATHS = new Set([
-  'profile.php', 'people', 'pages', 'groups', 'pg', 'sharer', 'login',
-  'home.php', 'events',
-]);
-
-const extractIgHandle = (raw: string | null): string => {
-  if (!raw) return 'Instagram';
-  const trimmed = raw.trim().replace(/\/+$/, '');
-  if (!trimmed) return 'Instagram';
-  if (trimmed.startsWith('@')) return trimmed;
-  const m = trimmed.match(/instagram\.com\/([^/?#]+)/i);
-  if (m && m[1]) {
-    const seg = m[1].toLowerCase();
-    if (['p', 'reel', 'reels', 'tv', 'explore', 'stories'].includes(seg)) return 'Instagram';
-    return '@' + m[1];
-  }
-  if (/^[A-Za-z0-9._]+$/.test(trimmed)) return '@' + trimmed;
-  return 'Instagram';
-};
-
-const extractFbHandle = (raw: string | null): string => {
-  if (!raw) return 'Facebook';
-  const trimmed = raw.trim().replace(/\/+$/, '');
-  if (!trimmed) return 'Facebook';
-  if (trimmed.startsWith('@')) return trimmed;
-  const m = trimmed.match(/facebook\.com\/([^/?#]+)/i);
-  if (m && m[1]) {
-    const seg = m[1];
-    if (FB_NON_HANDLE_PATHS.has(seg.toLowerCase())) return 'Facebook';
-    return '@' + seg;
-  }
-  if (/^[A-Za-z0-9.\-_]+$/.test(trimmed)) return '@' + trimmed;
-  return 'Facebook';
-};
-
-const extractDomain = (raw: string | null): string => {
-  if (!raw) return 'Website';
-  const trimmed = raw.trim();
-  if (!trimmed) return 'Website';
-  try {
-    const url = new URL(withNormalizedProtocol(trimmed));
-    return url.hostname.replace(/^www\./i, '') || 'Website';
-  } catch {
-    return 'Website';
-  }
-};
+// extractIgHandle / extractFbHandle / extractDomain live in
+// src/lib/organiserLinkLabels.ts, shared with the owner's edit-in-place rows.
 
 // --- Validation helpers ---
 
@@ -603,6 +562,10 @@ function useAverageColor(url: string | null): { rgb: [number, number, number]; r
   return { rgb, ready };
 }
 
+// The owner's edit-in-place layer: its own chunk, loaded ONLY when
+// ownershipFacts says canEdit, so a visitor downloads and requests nothing new.
+const EditInPlaceLayer = lazyWithRetry(() => import('@/modules/organiser/edit-in-place/EditInPlaceLayer'));
+
 // --- Main component ---
 
 const OrganiserProfile = () => {
@@ -623,6 +586,8 @@ const OrganiserProfile = () => {
 
   const isMobile = useIsMobile();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  // Set by the lazy owner layer (null for everyone else): pencils + drafted values.
+  const [eip, setEip] = useState<EipBridge | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [openSeriesEventId, setOpenSeriesEventId] = useState<string | null>(null);
@@ -1060,7 +1025,8 @@ const OrganiserProfile = () => {
   }
 
   // --- Data prep ---
-  const ep = entity as EntityProfile;
+  // An owner's unsaved drafts are shown in place (eip.overlay is {} otherwise).
+  const ep = { ...(entity as EntityProfile), ...(eip?.overlay ?? {}) } as EntityProfile;
   const socials          = ep.socials as { instagram?: string; website?: string; facebook?: string } | null;
   const instagramRaw     = ep.instagram  || socials?.instagram  || null;
   const websiteRaw       = ep.website    || socials?.website    || null;
@@ -1128,10 +1094,10 @@ const OrganiserProfile = () => {
 
 
   // First sentence of the bio for the hero tagline (original behaviour).
-  const bioParts = entity.bio ? entity.bio.split(/\.\s+/) : [];
+  const bioParts = ep.bio ? ep.bio.split(/\.\s+/) : [];
   const heroTagline = bioParts.length > 0 ? `${bioParts[0]}${bioParts.length > 1 ? '.' : ''}` : null;
   // A long bio is clamped to 3 lines in About with a More toggle.
-  const aboutIsLong = (entity.bio?.length ?? 0) > 180;
+  const aboutIsLong = (ep.bio?.length ?? 0) > 180;
 
   // Email is always offered -- it used to vanish on desktop whenever a
   // WhatsApp number existed.
@@ -1179,19 +1145,19 @@ const OrganiserProfile = () => {
           <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 16, margin: '8px 0 0', color: D.cream }}>Online</h2>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {instagramUrl && (
-              <a href={instagramUrl} target="_blank" rel="noopener noreferrer" aria-label={labelWithHandle('Instagram', igHandle)} className="bg-white/[0.06] transition-colors hover:bg-white/10 active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={socialPill}>
+              <a href={instagramUrl} target="_blank" rel={PUBLIC_LINK_REL} aria-label={labelWithHandle('Instagram', igHandle)} className="bg-white/[0.06] transition-colors hover:bg-white/10 active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={socialPill}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>
                 Instagram
               </a>
             )}
             {facebookUrl && (
-              <a href={facebookUrl} target="_blank" rel="noopener noreferrer" aria-label={labelWithHandle('Facebook', fbHandle)} className="bg-white/[0.06] transition-colors hover:bg-white/10 active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={socialPill}>
+              <a href={facebookUrl} target="_blank" rel={PUBLIC_LINK_REL} aria-label={labelWithHandle('Facebook', fbHandle)} className="bg-white/[0.06] transition-colors hover:bg-white/10 active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={socialPill}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 9h3V6h-3c-1.7 0-3 1.3-3 3v2H8.5v3H11v7h3v-7h2.4l.6-3H14V9z"/></svg>
                 Facebook
               </a>
             )}
             {websiteUrl && (
-              <a href={websiteUrl} target="_blank" rel="noopener noreferrer" aria-label={labelWithHandle('Website', siteDomain)} className="bg-white/[0.06] transition-colors hover:bg-white/10 active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={socialPill}>
+              <a href={websiteUrl} target="_blank" rel={PUBLIC_LINK_REL} aria-label={labelWithHandle('Website', siteDomain)} className="bg-white/[0.06] transition-colors hover:bg-white/10 active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={socialPill}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg>
                 {siteDomain && siteDomain !== 'Website' ? siteDomain : 'Website'}
               </a>
@@ -1210,6 +1176,7 @@ const OrganiserProfile = () => {
   return (
     <GlobalLayout showSubheader={false} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
       <article style={{ fontFamily: BODY, background: D.black, color: D.cream, minHeight: '100vh' }}>
+        {eip?.slot('card')}
 
         {/* HERO */}
         <header className="relative overflow-hidden" style={{ background: heroBg(...DEFAULT_HERO_RGB) }}>
@@ -1256,9 +1223,13 @@ const OrganiserProfile = () => {
 
           {/* Mobile */}
           {(isMobile !== false) && <div style={{ position: 'relative', height: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 26, paddingLeft: 24, paddingRight: 24, textAlign: 'center' }}>
-            <AvatarCircle avatarUrl={entity.avatar_url ?? null} name={entity.name} sizePx={104} fontSize={40} />
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <AvatarCircle avatarUrl={ep.avatar_url ?? null} name={entity.name} sizePx={104} fontSize={40} />
+              {eip?.slot('photo')}
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
               {metaLine && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
+              {eip?.slot('meta')}
               {ep.is_verified && <VerifiedBadge size="sm" />}
               {facts.showBadge && <ManagedBadge size="sm" />}
             </div>
@@ -1282,10 +1253,14 @@ const OrganiserProfile = () => {
           {/* Desktop */}
           {(isMobile === false) && <div style={{ height: 438, position: 'relative' }}>
             <div style={{ position: 'absolute', left: 48, right: 48, bottom: 40, display: 'flex', alignItems: 'flex-end', gap: 28 }}>
-              <AvatarCircle avatarUrl={entity.avatar_url ?? null} name={entity.name} sizePx={148} fontSize={52} />
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <AvatarCircle avatarUrl={ep.avatar_url ?? null} name={entity.name} sizePx={148} fontSize={52} />
+                {eip?.slot('photo')}
+              </div>
               <div style={{ flex: 1, paddingBottom: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
                   {metaLine && <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
+                  {eip?.slot('meta')}
                   {ep.is_verified && <VerifiedBadge size="md" />}
                   {facts.showBadge && <ManagedBadge size="md" />}
                 </div>
@@ -1342,6 +1317,7 @@ const OrganiserProfile = () => {
             {contactRow}
           </div>
         )}
+        {eip?.slot('links')}
 
         {/* W7 (mockup 06-A): "Is this you?" while the organiser is unclaimed.
             Renders nothing when the flag is off or the organiser is managed;
@@ -1445,15 +1421,15 @@ const OrganiserProfile = () => {
         )}
 
         {/* ABOUT -- below the events: a regular came for dates, not the bio */}
-        {entity.bio && (
+        {(ep.bio || eip) && (
           <section className="px-5 md:px-12 py-4 md:py-6" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-            <h2 style={{ ...sectionH2, marginBottom: 8 }}>About</h2>
-            <p
-              className={cn('text-sm', !aboutExpanded && aboutIsLong && 'line-clamp-3')}
+            <h2 style={{ ...sectionH2, marginBottom: 8 }}>About{eip?.slot('about')}</h2>
+            {ep.bio ? <p
+              className={cn('text-sm', !aboutExpanded && aboutIsLong && 'line-clamp-3', eip?.mark('bio'))}
               style={{ lineHeight: 1.55, color: 'rgba(246,241,234,0.85)', margin: 0, maxWidth: 680, whiteSpace: 'pre-line' }}
             >
-              {entity.bio}
-            </p>
+              {ep.bio}
+            </p> : eip?.slot('about-empty')}
             {aboutIsLong && (
               <button onClick={() => setAboutExpanded((v) => !v)} aria-expanded={aboutExpanded} style={{ ...moreBtn, display: 'inline-block', width: 'auto', padding: '10px 0', textAlign: 'left' }}>
                 {aboutExpanded ? 'Show less' : 'More'}
@@ -1533,6 +1509,11 @@ const OrganiserProfile = () => {
           </section>
         )}
 
+        {facts.canEdit && id && (
+          <Suspense fallback={null}>
+            <EditInPlaceLayer key={id} organiserId={id} entity={entity} onBridge={setEip} />
+          </Suspense>
+        )}
       </article>
 
       {/* EDIT DIALOG */}
