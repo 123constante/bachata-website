@@ -175,30 +175,43 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
     onError: fail,
   });
 
-  const reread = () => {
+  // A person hidden by a removal comes back when the server says they are on the team: after
+  // the re-read, anyone the fresh read lists is un-hidden (a removal that did not stick, an
+  // add, a role change), so the local hide never outlives the truth.
+  const unhide = (shouldShow: (key: string) => boolean) => setGone((s) => {
+    const next = new Set(Array.from(s).filter((k) => !(k.startsWith('m:') && shouldShow(k))));
+    return next.size === s.size ? s : next;
+  });
+  const reread = async () => {
     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-    void queryClient.invalidateQueries({ queryKey: organiserTeamQueryKey(organiser.id) });
+    await queryClient.invalidateQueries({ queryKey: organiserTeamQueryKey(organiser.id) });
+    const fresh = queryClient.getQueryData<{ myRole: TeamRole | 'admin' | null; members: TeamMember[] }>(organiserTeamQueryKey(organiser.id));
+    if (!fresh || fresh.myRole === null) return;
+    const listed = new Set(fresh.members.map((m) => `m:${m.userId}`));
+    unhide((k) => listed.has(k));
   };
 
   const changeRole = useMutation({
     mutationFn: ({ member, to }: { member: TeamMember; to: 'manager' | 'contributor' }) => setTeamMember(organiser.id, member.email ?? '', to),
-    onSuccess: (_r, { member, to }) => { setAsking(null); reread(); announce(`${memberLabel(member)} is now a ${ROLE_LABEL[to].toLowerCase()}.`); },
+    onSuccess: (_r, { member, to }) => { setAsking(null); unhide((k) => k === `m:${member.userId}`); void reread(); announce(`${memberLabel(member)} is now a ${ROLE_LABEL[to].toLowerCase()}.`); },
     onError: fail,
   });
   const transfer = useMutation({
     mutationFn: (member: TeamMember) => transferOwnership(organiser.id, member.userId),
-    onSuccess: (_r, member) => { setAsking(null); reread(); announce(`${memberLabel(member)} is now the owner. You are a manager.`); },
+    onSuccess: (_r, member) => { setAsking(null); void reread(); announce(`${memberLabel(member)} is now the owner. You are a manager.`); },
     onError: fail,
   });
   const add = useMutation({
     mutationFn: () => setTeamMember(organiser.id, addEmail, addRole),
-    onSuccess: () => { const who = addEmail.trim(); setAddEmail(''); setError(null); reread(); announce(`${who} was added as a ${ROLE_LABEL[addRole].toLowerCase()}.`); },
-    onError: fail,
+    // Someone removed earlier may be the person being added back, and their row is no longer
+    // listed to match on: lift every local hide, the re-read below restores the real list.
+    onSuccess: () => { const who = addEmail.trim(); setAddEmail(''); unhide(() => true); void reread(); announce(`${who} was added as a ${ROLE_LABEL[addRole].toLowerCase()}.`); },
+    onError: () => shake(),
   });
   const addValid = isPlausibleEmail(addEmail);
 
   // Re-read once the row has collapsed, so the gap closes before the list changes.
-  const settleMember = reread;
+  const settleMember = () => void reread();
   const settleRequest = () => void queryClient.invalidateQueries({ queryKey: incomingAccessRequestsQueryKey(organiser.id) });
 
   const pending = remove.isPending || decide.isPending || changeRole.isPending || transfer.isPending || add.isPending;
@@ -364,7 +377,7 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
         {viewerRole === 'owner' ? (
           <form
             className="space-y-[8px]"
-            onSubmit={(e) => { e.preventDefault(); if (addValid && !pending) { setError(null); add.mutate(); } }}
+            onSubmit={(e) => { e.preventDefault(); if (addValid && !pending) add.mutate(); }}
           >
             <p className="text-[14px] text-[var(--mut)]">They need a Bachata Calendar account already. Use the email they signed up with.</p>
             <input type="email" inputMode="email" autoComplete="off" value={addEmail} onChange={(e) => setAddEmail(e.target.value)} placeholder="Their email" aria-label="Their email" data-testid="add-email" className="h-[44px] w-full rounded-[10px] border border-[var(--line)] bg-[var(--card2)] px-[12px] text-[15px] text-[var(--fg)]" />
@@ -373,7 +386,7 @@ function TeamBody({ organiser }: { organiser: HomeOrganiser }) {
             </select>
             <PrimaryButton size="sm" type="submit" disabled={!addValid || pending} loading={add.isPending} loadingLabel="Adding" testId="add-submit" aria-describedby={addValid ? undefined : 'add-reason'}>Add to team</PrimaryButton>
             {!addValid && <p id="add-reason" className="text-[13px] text-[var(--mut)]" data-testid="add-reason">Enter their email address to add them.</p>}
-            {add.isError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="add-error">{error}</p>}
+            {add.isError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="add-error">{teamErrorMessage(add.error)}</p>}
           </form>
         ) : (
           <p className="text-[14px] text-[var(--mut)]" data-testid="add-read-only">{READ_ONLY_REASON}</p>

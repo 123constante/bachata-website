@@ -111,10 +111,13 @@ function AddPerson({ organiser }: { organiser: AdminOrganiser }) {
   );
 }
 
-function RowDetail({ organiser, status, invites }: { organiser: AdminOrganiser; status: AccessStatus | null; invites: readonly InviteRow[] }) {
+function RowDetail({ organiser, status, invites, issued, warn, loadError, onIssued, onDone, onRetry }: {
+  organiser: AdminOrganiser; status: AccessStatus | null; invites: readonly InviteRow[];
+  issued: string | undefined; warn: boolean; loadError: boolean;
+  onIssued: (link: string) => void; onDone: () => void; onRetry: () => void;
+}) {
   const queryClient = useQueryClient();
   const actions = rowActions(status);
-  const [issued, setIssued] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: adminInvitesQueryKey(organiser.id) });
@@ -122,7 +125,7 @@ function RowDetail({ organiser, status, invites }: { organiser: AdminOrganiser; 
   };
   const generate = useMutation({
     mutationFn: () => issueOrganiserInvite(organiser.id),
-    onSuccess: (r) => { setIssued(inviteUrl(window.location.origin, r.token)); setConfirming(false); refresh(); },
+    onSuccess: (r) => { onIssued(inviteUrl(window.location.origin, r.token)); setConfirming(false); refresh(); },
   });
   const revoke = useMutation({ mutationFn: () => revokeOrganiserInvite(organiser.id), onSuccess: refresh });
   const detail = statusDetail(status, invites, (iso) => instantDateLabel(iso) ?? iso);
@@ -131,8 +134,14 @@ function RowDetail({ organiser, status, invites }: { organiser: AdminOrganiser; 
   return (
     <div data-testid="row-detail" className="space-y-2 border-t border-border bg-muted/30 p-3">
       {detail && <p className="text-sm text-muted-foreground" data-testid="status-detail">{detail}</p>}
+      {loadError && (
+        <div role="alert" id={`row-error-${organiser.id}`} className="space-y-2" data-testid="row-load-error">
+          <p className="text-sm text-red-600">Could not load this organiser&rsquo;s invite status. Generate and Revoke stay off until it loads.</p>
+          <button type="button" className={BTN} onClick={onRetry} data-testid="row-retry">Retry</button>
+        </div>
+      )}
       {issued ? (
-        <OneTimeLink organiser={organiser.name} link={issued} onDone={() => setIssued(null)} />
+        <OneTimeLink organiser={organiser.name} link={issued} onDone={onDone} />
       ) : confirming ? (
         <div role="alertdialog" aria-label="Replace the live link?" data-testid="replace-confirm" className="space-y-2">
           <p className="text-sm">{organiser.name} already has a live link. A new one replaces it, so the old one stops working.</p>
@@ -143,12 +152,13 @@ function RowDetail({ organiser, status, invites }: { organiser: AdminOrganiser; 
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <button type="button" className={BTN_PRIMARY} disabled={!actions.canGenerate || busy} onClick={() => (actions.generateConfirms ? setConfirming(true) : generate.mutate())} aria-describedby={actions.generateNote ? `gen-note-${organiser.id}` : undefined} data-testid="generate-invite">{generate.isPending ? 'Generating' : 'Generate invite'}</button>
-          <button type="button" className={BTN} disabled={!actions.canRevoke || busy} onClick={() => revoke.mutate()} aria-describedby={actions.revokeNote ? `rev-note-${organiser.id}` : undefined} data-testid="revoke-invite">{revoke.isPending ? 'Revoking' : 'Revoke'}</button>
+          <button type="button" className={BTN_PRIMARY} disabled={!actions.canGenerate || busy} onClick={() => (actions.generateConfirms ? setConfirming(true) : generate.mutate())} aria-describedby={loadError ? `row-error-${organiser.id}` : actions.generateNote ? `gen-note-${organiser.id}` : undefined} data-testid="generate-invite">{generate.isPending ? 'Generating' : 'Generate invite'}</button>
+          <button type="button" className={BTN} disabled={!actions.canRevoke || busy} onClick={() => revoke.mutate()} aria-describedby={loadError ? `row-error-${organiser.id}` : actions.revokeNote ? `rev-note-${organiser.id}` : undefined} data-testid="revoke-invite">{revoke.isPending ? 'Revoking' : 'Revoke'}</button>
         </div>
       )}
-      {!issued && !confirming && actions.generateNote && <p id={`gen-note-${organiser.id}`} className="text-xs text-muted-foreground" data-testid="generate-note">{actions.generateNote}</p>}
-      {!issued && !confirming && actions.revokeNote && <p id={`rev-note-${organiser.id}`} className="text-xs text-muted-foreground" data-testid="revoke-note">{actions.revokeNote}</p>}
+      {!issued && !confirming && !loadError && actions.generateNote && <p id={`gen-note-${organiser.id}`} className="text-xs text-muted-foreground" data-testid="generate-note">{actions.generateNote}</p>}
+      {!issued && !confirming && !loadError && actions.revokeNote && <p id={`rev-note-${organiser.id}`} className="text-xs text-muted-foreground" data-testid="revoke-note">{actions.revokeNote}</p>}
+      {issued && warn && <p role="alert" className="text-sm text-red-600" data-testid="link-close-warning">Copy the link first: it is shown once.</p>}
       {err != null && <p role="alert" className="text-sm text-red-600" data-testid="invite-error">{adminErrorMessage(err)}</p>}
       {actions.canAddPerson && <AddPerson organiser={organiser} />}
     </div>
@@ -159,6 +169,16 @@ function AdminOrganisersBody() {
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [open, setOpen] = useState<string | null>(null);
+  // One-time links by organiser id. Page state only: never the query cache, storage, a log or Sentry.
+  const [issued, setIssued] = useState<Record<string, string>>({});
+  const [warned, setWarned] = useState(false);
+  const toggleRow = (id: string) => {
+    // A row holding an unseen link cannot be closed or left until the admin taps Done.
+    if (open !== null && issued[open]) { setWarned(true); return; }
+    setWarned(false);
+    setOpen(open === id ? null : id);
+  };
+  const forget = (id: string) => { setWarned(false); setIssued((m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== id))); };
   const list = useQuery({ queryKey: ADMIN_ORGANISERS_KEY, queryFn: fetchAdminOrganisers, staleTime: 60_000 });
   const filtered = useMemo(() => {
     const all = list.data ?? [];
@@ -185,7 +205,8 @@ function AdminOrganisersBody() {
     const isManaged = managedById.get(o.id);
     const invites = invitesQ[i]?.data ?? null;
     const status = isManaged === undefined ? null : accessStatus(isManaged, isManaged ? [] : invites);
-    return { organiser: o, status, invites: invites ?? [] };
+    const failed = managed[i]?.isError ? managed[i] : invitesQ[i]?.isError ? invitesQ[i] : null;
+    return { organiser: o, status, invites: invites ?? [], retry: failed ? () => void failed.refetch() : null };
   });
   const counts = new Map<AccessStatus, number>();
   for (const r of rows) if (r.status) counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
@@ -212,13 +233,21 @@ function AdminOrganisersBody() {
         <p className="rounded-lg border border-border p-3 text-sm text-muted-foreground" data-testid="admin-empty">{query.trim() ? `No organiser matches “${query.trim()}”. Clear the search to see them all.` : 'There are no organisers yet.'}</p>
       ) : (
         <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-          {rows.map(({ organiser, status, invites }) => (
+          {rows.map(({ organiser, status, invites, retry }) => (
             <li key={organiser.id} data-testid="organiser-row" data-status={status ?? 'loading'}>
-              <button type="button" className="flex min-h-[48px] w-full items-center justify-between gap-2 px-3 py-2 text-left" aria-expanded={open === organiser.id} onClick={() => setOpen(open === organiser.id ? null : organiser.id)}>
+              <button type="button" className="flex min-h-[48px] w-full items-center justify-between gap-2 px-3 py-2 text-left" aria-expanded={open === organiser.id} onClick={() => toggleRow(organiser.id)}>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{organiser.name}</span>
                 <StatusTag status={status} />
               </button>
-              {open === organiser.id && <RowDetail organiser={organiser} status={status} invites={invites} />}
+              {open === organiser.id && (
+                <RowDetail
+                  organiser={organiser} status={status} invites={invites}
+                  issued={issued[organiser.id]} warn={warned}
+                  loadError={retry !== null} onRetry={() => retry?.()}
+                  onIssued={(link) => setIssued((m) => ({ ...m, [organiser.id]: link }))}
+                  onDone={() => forget(organiser.id)}
+                />
+              )}
             </li>
           ))}
         </ul>

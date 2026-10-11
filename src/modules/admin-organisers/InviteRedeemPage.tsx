@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { buildSignInHref } from '@/lib/authRouting';
+import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { redeemOrganiserInvite } from './adminApi';
 import { INVITE_PATH, REDEEM_COPY, TOKEN_RE, interpretRedeem, type RedeemCopy } from './inviteModel';
@@ -43,6 +45,7 @@ export default function InviteRedeemPage() {
   useNoindexMeta(true);
   const { token = '' } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, authStatus } = useAuth();
   const [copy, setCopy] = useState<RedeemCopy | null>(null);
   const [busy, setBusy] = useState(false);
@@ -78,12 +81,14 @@ export default function InviteRedeemPage() {
     setBusy(false);
     if (outcome.kind === 'redeemed') {
       stripToken();
+      // The person may have opened Home in the last minute and cached "no organisers": refetch it before they land.
+      void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       navigate(ORG_PATHS.home, { replace: true });
       return;
     }
     if (outcome.copy.terminal) stripToken();
     setCopy(outcome.copy);
-  }, [navigate]);
+  }, [navigate, queryClient]);
 
   const started = useRef(false);
   useEffect(() => {

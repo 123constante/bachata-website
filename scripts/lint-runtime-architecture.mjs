@@ -63,6 +63,7 @@ const RULES = [
       'src/modules/admin-organisers/inviteModel.ts',
       'src/modules/admin-organisers/__tests__/inviteModel.test.ts',
       'src/modules/admin-organisers/__tests__/routes.matrix.test.tsx',
+      'src/modules/admin-organisers/__tests__/fixup1.test.tsx',
     ]),
   },
   {
