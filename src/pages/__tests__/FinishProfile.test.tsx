@@ -111,7 +111,7 @@ it('saves only the fields filled in, with the exact stored dance-role value', as
   fireEvent.click(screen.getByRole('button', { name: /^save/i }));
   await waitFor(() => expect(h.save).toHaveBeenCalledWith({ dance_role: 'Lead and Follow' }));
   // Still missing the photo: stays, and says what is left.
-  await waitFor(() => expect(screen.getByText(/still missing: photo/i)).toBeTruthy());
+  await waitFor(() => expect(screen.getByText('Saved. Add your photo to rate parties.')).toBeTruthy());
   expect(path.startsWith('/finish-profile')).toBe(true);
 });
 

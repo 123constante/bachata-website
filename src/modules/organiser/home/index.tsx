@@ -23,6 +23,8 @@ import { hasAnyEvent, newEventBlock, noLineupText, shortDate, type NextDate } fr
 import { useHomeStrips, useOrganiserHome } from './useHomeData';
 import { OnboardingView } from './onboarding/OnboardingView';
 import { OrganiserStatusCard } from './OrganiserStatusCard';
+// Layout D (2026-10-11): the dancer side of a person who organises -- one row, one menu entry.
+import { AccountMenu, DancerProfileRow } from '@/components/account/OrganiserHomeDancer';
 
 /** One upcoming date: chip, event name, venue, status. Opens the date editor. */
 function DateRow({ d, today }: { d: NextDate; today: string }) {
@@ -79,6 +81,10 @@ export default function HomePage() {
   const adding = params.get('add') === '1';
   const eventBlock = newEventBlock(organisers);
   const notLive = organisers.filter((o) => o.lifecycle_status !== 'live');
+  const counts = {
+    organiserCount: organisers.length,
+    openRequestCount: (requests.data ?? []).filter((r) => r.status === 'open').length,
+  };
 
   const onChanged = (confirmation: string) => {
     announce(confirmation);
@@ -98,6 +104,7 @@ export default function HomePage() {
       <OrganiserShell
         title={adding ? 'Add an organiser' : 'Welcome'}
         back={adding ? { to: ORG_PATHS.home, label: 'Home' } : undefined}
+        topBarEnd={adding ? undefined : <AccountMenu {...counts} />}
         testId="org-page-home"
       >
         {/* No announce region here: OnboardingView shows the confirmation itself in a
@@ -115,7 +122,7 @@ export default function HomePage() {
   }
 
   return (
-    <OrganiserShell title="Home" testId="org-page-home">
+    <OrganiserShell title="Home" topBarEnd={<AccountMenu {...counts} />} testId="org-page-home">
       {/* Shows and announces a confirmation that arrives here (a claim or create that
           moved Home out of onboarding); one element, so it is never said twice. */}
       <p
@@ -138,6 +145,7 @@ export default function HomePage() {
         />
       ) : (
         <div className="space-y-[16px]">
+          <DancerProfileRow {...counts} />
           {notLive.map((o) => (
             <OrganiserStatusCard key={o.id} organiser={o} primary={!!eventBlock} onSent={announce} />
           ))}

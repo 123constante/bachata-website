@@ -38,9 +38,10 @@ vi.mock('@/integrations/supabase/client', () => ({
 
 import { LevelRatingPrompt } from '../LevelRatingPrompt';
 import { ProfileGateContext } from '@/hooks/useAuth';
-import { profileGateValue } from '@/lib/profileCompletion';
+import { completenessFact, profileGateValue } from '@/lib/profileCompletion';
 import { PENDING_LEVEL_RATING_KEY } from '@/lib/pendingLevelRating';
 import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
+import { PROFILE_FIELD_LABEL as LABELS } from '@/lib/profileCompletion';
 
 const ALL = ['first_name', 'based_city_id', 'dance_role', 'avatar_url'] as const;
 const SHAPES: { name: string; c: ProfileCompletion; blocked: boolean }[] = [
@@ -94,7 +95,9 @@ describe.each([false, true])('compact=%s', (compact) => {
       if (!blocked) return;
       expect(tile.getAttribute('aria-describedby')).toBe(reason!.id);
       if (c.status === 'incomplete') {
-        expect(reason!.textContent).toContain('Finish your profile to rate');
+        // The same words as every other surface: completenessFact names the missing fields.
+        expect(reason!.textContent).toContain(`${completenessFact(c).reason}.`);
+        for (const f of c.missing) expect(reason!.textContent).toContain(LABELS[f]);
         const link = screen.getByRole('link', { name: /finish (your )?profile/i });
         expect(link.getAttribute('href')).toBe(
           `/finish-profile?returnTo=${encodeURIComponent('/event/ev1?occ=2#level-rating')}`,

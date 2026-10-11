@@ -84,11 +84,14 @@ export const isMyProfile = (input: {
   return viewedId === personaId || viewedId === accountId;
 };
 
+/** The dancer home's summary read (hooks/useMyDancerSummary); the Finish screen invalidates it after a save. */
+export const MY_DANCER_SUMMARY_ROOT = "my-dancer-summary";
+
 /**
  * The caches that hold an answer derived from the persona. Invalidated when a
  * sign-in links the account to a profile, so every screen re-reads the linked one.
  */
-export const PERSONA_DERIVED_QUERY_ROOTS = ["my-persona-id", "profile-completion"] as const;
+export const PERSONA_DERIVED_QUERY_ROOTS = ["my-persona-id", "profile-completion", MY_DANCER_SUMMARY_ROOT] as const;
 
 export const invalidateMyPersonaCaches = (queryClient: QueryClient): Promise<void> =>
   Promise.all(

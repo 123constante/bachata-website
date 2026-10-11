@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,13 +12,14 @@ import GlobalLayout from "@/components/layout/GlobalLayout";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { sanitizeReturnTo } from "@/lib/authRouting";
+import { MY_DANCER_SUMMARY_ROOT } from "@/lib/myPersona";
 import type { DanceRoleValue } from "@/lib/auth-otp-routing";
 import {
   NO_PROFILE_CONTACT_LABEL,
   NO_PROFILE_CONTACT_URL,
   FINISH_PROFILE_PATH,
+  completenessFact,
   finishScreenMode,
-  listFieldLabels,
   skipFinishProfileForSession,
   type ProfileField,
 } from "@/lib/profileCompletion";
@@ -47,6 +49,7 @@ const PILL = "w-full min-h-[44px] rounded-full font-semibold";
 export const FinishProfileScreen = () => {
   const completion = useProfileCompletion();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   // Never back to this screen itself: Skip and Continue would go nowhere.
   const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), { exclude: FINISH_PROFILE_PATH }) ?? "/";
@@ -73,12 +76,16 @@ export const FinishProfileScreen = () => {
     setNotice(null);
     try {
       await saveMyDancerProfile(pending);
+      // The dancer home's summary (name, city, role, photo) read the row before this save.
+      void queryClient.invalidateQueries({ queryKey: [MY_DANCER_SUMMARY_ROOT] });
+      // The SAME cache the rating card's gate is published from (ProfileCompletionChrome):
+      // refetching it here is what lets the card open on return, with no reload.
       const fresh = await completion.refetch();
       if (fresh.status === "complete") {
         goBack();
         return;
       }
-      if (fresh.status === "incomplete") setNotice(`Saved. Still missing: ${listFieldLabels(fresh.missing)}.`);
+      if (fresh.status === "incomplete") setNotice(`Saved. ${completenessFact(fresh).text}`);
       else setNotice("Saved. We couldn\u2019t re-check your profile just now \u2014 reload this page to see what is left.");
     } catch {
       setSaveError(true);
@@ -113,17 +120,14 @@ export const FinishProfileScreen = () => {
   } else if (mode.kind === "done") {
     body = (
       <div className="space-y-3">
-        <p className="text-sm text-foreground">Your profile is complete. You can rate parties now.</p>
+        <p className="text-sm text-foreground">{completenessFact(completion).text}</p>
         <Button className={PILL} onClick={goBack}>Continue</Button>
       </div>
     );
   } else if (mode.kind === "no_profile") {
     body = (
       <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          Your account has no dancer profile yet, so there is nothing here to fill in. This is on our side &mdash;
-          message us and we&rsquo;ll set it up.
-        </p>
+        <p className="text-sm text-muted-foreground">{completenessFact(completion).text}</p>
         <a
           href={NO_PROFILE_CONTACT_URL}
           target="_blank"
@@ -147,7 +151,7 @@ export const FinishProfileScreen = () => {
         }}
       >
         <p className="text-sm text-muted-foreground">
-          Add your {listFieldLabels(fields)} to rate parties. Everything else on the site works without it.
+          {completenessFact(completion).text} Everything else on the site works without it.
         </p>
 
         {fields.includes("first_name") && (
@@ -227,7 +231,11 @@ export const FinishProfileScreen = () => {
   // (.claude/rules/breadcrumbs.md), so showSubheader={false}.
   return (
     <GlobalLayout showSubheader={false}>
-      <div className="min-h-[70vh] px-4 pb-24 pt-6 bg-background">
+      {/* No background and no min-height here: GlobalLayout paints the page wash
+          (fixed, full screen). An opaque bg-background block 70vh tall used to sit
+          on top of it, so the page read as a black block with the wash showing
+          below it as a purple band. */}
+      <div className="px-4 pb-24 pt-6">
         <div className="mx-auto w-full max-w-md space-y-3">
           <h1 className="text-lg font-bold text-foreground">Finish your profile</h1>
           <div className="rounded-xl border border-border bg-card p-3">{body}</div>

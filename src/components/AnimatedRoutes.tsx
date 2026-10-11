@@ -46,6 +46,10 @@ const AdminOrganisers = lazyWithRetry(() => import("@/modules/admin-organisers/A
 const InviteRedeem = lazyWithRetry(() => import("@/modules/admin-organisers/InviteRedeemPage"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const FinishProfile = lazyWithRetry(() => import("../pages/FinishProfile"));
+// /account: the dancer home, or on to the organiser home (lib/accountRouting).
+// Its AuthGuard lives inside the chunk, like FinishProfile's.
+const Account = lazyWithRetry(() => import("../pages/Account"));
+const MyAttendance = lazyWithRetry(() => import("../pages/MyAttendance"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
 const ExportGuestEntry = lazyWithRetry(() => import("../pages/ExportGuestEntry"));
@@ -167,10 +171,22 @@ export const AnimatedRoutes = () => {
 
             {/* Organiser self-serve (Lever 2). Flag-gated like /raffles: off,
                 it redirects home rather than rendering a placeholder. The old
-                /account URLs redirect into the rebuilt area (query + hash kept). */}
+                /account URLs redirect into the rebuilt area (query + hash kept).
+                Bare /account is the account icon's page: the dancer home, or on
+                to /account/o for an organiser (lib/accountRouting). */}
             <Route path="/account" element={
               flags.organiserSelfServe
-                ? <LegacyAccountRedirect target="home" />
+                ? <PageTransition><Account /></PageTransition>
+                : <Navigate to="/" replace />
+            } />
+            <Route path="/account/dancer" element={
+              flags.organiserSelfServe
+                ? <PageTransition><Account view="dancer" /></PageTransition>
+                : <Navigate to="/" replace />
+            } />
+            <Route path="/account/attendance" element={
+              flags.organiserSelfServe
+                ? <PageTransition><MyAttendance /></PageTransition>
                 : <Navigate to="/" replace />
             } />
             <Route path="/account/new" element={

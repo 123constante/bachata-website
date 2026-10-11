@@ -1,5 +1,6 @@
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
+import { isAccountPath } from "@/lib/accountRouting";
 
 /**
  * "Is this person's dancer profile finished?" -- the ONE client mapping of that
@@ -62,6 +63,40 @@ export const listFieldLabels = (fields: readonly ProfileField[]): string => {
   return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
 };
 
+/**
+ * What the person's completeness IS, in words -- the ONE function every surface
+ * that states it uses: the dancer home (/account), the organiser home's
+ * "Finish your dancer profile" row, the Finish screen, the reminder banner and
+ * the rating card's gate reason (ratingGate). So they cannot disagree about a
+ * profile. `reason` has no full stop (the rating card adds one); `text` is the
+ * sentence. `unknown` (loading, failed, signed out) says nothing: no screen
+ * claims a fact it does not have.
+ */
+export type CompletenessFact = {
+  kind: "complete" | "incomplete" | "no_profile" | "unknown";
+  missing: ProfileField[];
+  reason: string;
+  text: string;
+};
+
+export const RATE_BLOCKED_REASON = "Finish your profile to rate";
+export const PROFILE_COMPLETE_TEXT = "Your profile is complete. You can rate parties now.";
+export const NO_PROFILE_REASON = "Your account has no dancer profile yet, so it can\u2019t rate";
+export const NO_PROFILE_TEXT =
+  "Your account has no dancer profile yet, so you can\u2019t rate parties. Message us and we\u2019ll set it up.";
+
+export const completenessFact = (c: Pick<ProfileCompletion, "status" | "missing">): CompletenessFact => {
+  if (c.status === "incomplete") {
+    // An empty list only happens when the server refused a vote that this cached
+    // answer thought complete (profileGateValue.refusedGateFor): no fields to name.
+    const reason = c.missing.length > 0 ? `Add your ${listFieldLabels(c.missing)} to rate parties` : RATE_BLOCKED_REASON;
+    return { kind: "incomplete", missing: [...c.missing], reason, text: `${reason}.` };
+  }
+  if (c.status === "no_profile") return { kind: "no_profile", missing: [...PROFILE_FIELDS], reason: NO_PROFILE_REASON, text: NO_PROFILE_TEXT };
+  if (c.status === "complete") return { kind: "complete", missing: [], reason: "", text: PROFILE_COMPLETE_TEXT };
+  return { kind: "unknown", missing: [], reason: "", text: "" };
+};
+
 export const FINISH_PROFILE_PATH = "/finish-profile";
 
 export const finishProfileHref = (returnTo?: string | null): string => {
@@ -69,8 +104,6 @@ export const finishProfileHref = (returnTo?: string | null): string => {
   return safe ? `${FINISH_PROFILE_PATH}?returnTo=${encodeURIComponent(safe)}` : FINISH_PROFILE_PATH;
 };
 
-export const RATE_BLOCKED_REASON = "Finish your profile to rate";
-export const NO_PROFILE_REASON = "Your account has no dancer profile yet, so it can\u2019t rate";
 export const NO_PROFILE_CONTACT_LABEL = "Message us on WhatsApp";
 export const NO_PROFILE_CONTACT_URL = WHATSAPP_GET_LISTED_URL;
 
@@ -83,10 +116,10 @@ const RATING_ALLOWED: RatingGate = { allowed: true, reason: "", linkLabel: "", h
 /** Rating tiles: disabled WITH a reason and a way forward whenever needsFinishing. */
 export const ratingGate = (c: ProfileCompletion, returnTo?: string): RatingGate => {
   if (c.status === "incomplete") {
-    return { allowed: false, reason: RATE_BLOCKED_REASON, linkLabel: "Finish your profile", href: finishProfileHref(returnTo), external: false };
+    return { allowed: false, reason: completenessFact(c).reason, linkLabel: "Finish your profile", href: finishProfileHref(returnTo), external: false };
   }
   if (c.status === "no_profile") {
-    return { allowed: false, reason: NO_PROFILE_REASON, linkLabel: NO_PROFILE_CONTACT_LABEL, href: NO_PROFILE_CONTACT_URL, external: true };
+    return { allowed: false, reason: completenessFact(c).reason, linkLabel: NO_PROFILE_CONTACT_LABEL, href: NO_PROFILE_CONTACT_URL, external: true };
   }
   return RATING_ALLOWED;
 };
@@ -113,8 +146,10 @@ export type BannerModel = {
   cta: { kind: "link"; label: string; href: string } | { kind: "external"; label: string; href: string };
 };
 
+// The account pages state the fact themselves (the dancer home's line, the organiser
+// home's row) and the organiser frame covers the banner anyway: one copy per screen.
 const BANNER_HIDDEN_ON = (pathname: string) =>
-  pathname === FINISH_PROFILE_PATH || pathname === "/auth" || pathname.startsWith("/auth/");
+  pathname === FINISH_PROFILE_PATH || pathname === "/auth" || pathname.startsWith("/auth/") || isAccountPath(pathname);
 
 /** The reminder banner. `dismissed` is per page view; it never outlives a navigation. */
 export const bannerModel = (
@@ -125,13 +160,13 @@ export const bannerModel = (
   if (c.status === "no_profile") {
     return {
       title: "Your dancer profile is missing",
-      body: "Your account has no dancer profile yet, so you can\u2019t rate parties. Message us and we\u2019ll set it up.",
+      body: completenessFact(c).text,
       cta: { kind: "external", label: NO_PROFILE_CONTACT_LABEL, href: NO_PROFILE_CONTACT_URL },
     };
   }
   return {
     title: "Finish your profile",
-    body: `Add your ${listFieldLabels(c.missing)} to rate parties.`,
+    body: completenessFact(c).text,
     cta: { kind: "link", label: "Finish profile", href: finishProfileHref(opts.returnTo ?? opts.pathname) },
   };
 };
