@@ -64,10 +64,10 @@ describe('PublicClaimCard', () => {
     expect(screen.queryByTestId('public-claim-open')).toBeNull();
   });
 
-  it('signed out: offers sign-in that returns to this page', () => {
+  it('signed out: offers sign-in that returns to this page with the claim intent', () => {
     mount({ user: null });
     const link = screen.getByTestId('public-claim-signin');
-    expect(link.getAttribute('href')).toBe('/auth?mode=signin&returnTo=%2Forganisers%2Fritmo');
+    expect(link.getAttribute('href')).toBe('/auth?mode=signin&returnTo=%2Forganisers%2Fritmo%3Fclaim%3D1');
     expect(screen.queryByTestId('public-claim-open')).toBeNull();
   });
 

@@ -8,7 +8,7 @@ import { EmailCodeProof } from './EmailCodeProof';
 import { ORG_PATHS } from '../../shell/paths';
 import { claimOrganiser, requestOrganiserAccess } from '../selfServeApi';
 import { selfServeErrorCode, selfServeErrorCopy, type SelfServeErrorCopy } from '../selfServeErrors';
-import { signInHref } from '../publicClaim';
+import { claimIntentStep, hasClaimIntent, signInHref, signInToClaimHref, withClaimIntent, withoutClaimIntent } from '../publicClaim';
 import { MANAGED_BADGE_TEXT, type OwnershipFacts } from '../ownership';
 import type { ClaimHint } from '../claimHint';
 
@@ -25,6 +25,12 @@ import type { ClaimHint } from '../claimHint';
  *
  * Mount it with `key={organiser.id}`: the panel, note and outcome belong to
  * ONE organiser and must not survive a navigation to another one.
+ *
+ * One intent (owner decision 2026-10-11): "Sign in to claim" returns here with
+ * ?claim=1 (publicClaim.ts). Back signed in, the card consumes the marker ONCE
+ * per mount and, only when ownershipFacts says 'claim', runs the same claim()
+ * the "Yes, claim it" button runs -- or opens the claim panel at the email-code
+ * step when the mailbox is not proven. Any other kind just drops the marker.
  */
 
 const GOLD = '#E7BE6E';
@@ -99,18 +105,82 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
   const [done, setDone] = useState<PublicClaimOutcome | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
   const doneRef = useRef<HTMLElement>(null);
+  // Read once, from the ADDRESS BAR (not the router's location, which keeps the
+  // marker after the history.replaceState below, so a remount would re-arm it).
+  // The ref (not state) is the once-guard: StrictMode's second effect run, a
+  // re-render and the refetch after the claim all find it spent.
+  const [intent] = useState(() => typeof window !== 'undefined' && hasClaimIntent(window.location.search));
+  const intentSpent = useRef(false);
+  const [autoRunning, setAutoRunning] = useState(false);
+  // A panel the intent opened (or its refusal turned into the request panel) was
+  // not asked for by a tap here: focus stays put, so no keyboard pops up on arrival.
+  const quietFocus = useRef(false);
 
   // The button that opened a panel (or sent it) unmounts, so focus would fall to the
   // page: move it into the open panel, and onto the outcome once one shows.
   useEffect(() => {
-    if (panel === 'closed') return;
+    if (panel === 'closed' || quietFocus.current) return;
     sectionRef.current?.querySelector<HTMLElement>('[data-panel] :is(textarea, button):not([disabled])')?.focus();
   }, [panel]);
   useEffect(() => {
     if (done) doneRef.current?.focus();
   }, [done]);
 
+  const run = async (action: () => Promise<unknown>, outcome: PublicClaimOutcome) => {
+    setBusy(true);
+    setFailure(null);
+    try {
+      await action();
+      setDone(outcome);
+      onChanged(outcome);
+    } catch (error) {
+      const copy = selfServeErrorCopy(error);
+      setFailure(copy);
+      // A refusal that means "you can't claim this" turns the claim panel
+      // into the request panel for the same organiser (W1's behaviour).
+      if (copy.next === 'request_access') setPanel('request');
+      if (STALE_CODES.has(selfServeErrorCode(error) ?? '')) onChanged('stale');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const claim = (id: string) => run(() => claimOrganiser(id), 'claimed');
   const { kind } = facts;
+  // The session can end while a panel is open (sign-out in another tab): the
+  // panels are signed-in UI, so they follow the user, not the panel state alone.
+  const signedIn = !!user;
+  const organiserId = organiser?.id;
+
+  const intentStep = claimIntentStep({
+    armed: intent && !intentSpent.current && !!organiserId,
+    signedIn,
+    kind,
+    hintKnown: hint != null,
+    mailboxProven,
+  });
+  useEffect(() => {
+    if (intentStep === 'none' || intentStep === 'wait' || intentSpent.current || !organiserId) return;
+    intentSpent.current = true;
+    if (typeof window !== 'undefined') {
+      const here = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      const clean = withoutClaimIntent(here);
+      // history, not navigate(): a router navigation would re-run the route loader.
+      if (clean !== here) window.history.replaceState(window.history.state, '', clean);
+    }
+    if (intentStep === 'drop') return;
+    quietFocus.current = true;
+    setPanel('claim');
+    if (intentStep === 'prove') return;
+    setAutoRunning(true);
+    void claim(organiserId).finally(() => setAutoRunning(false));
+    // claim is a fresh closure each render; the step is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intentStep, organiserId]);
+  // From the first render, so "Claim this page" never flashes before the effect
+  // runs: the busy state when the claim will run, the email-code step when it waits for proof.
+  const autoBusy = autoRunning || intentStep === 'claim';
+  const claimPanelOpen = panel === 'claim' || intentStep === 'prove';
 
   // A finished claim or request stays on screen even though the refetched
   // organiser now reads as managed (the card would otherwise vanish mid-read).
@@ -137,32 +207,14 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
   // "Is this you?" shapes render a card.
   if (!facts.showIsThisYou && panel === 'closed') return null;
 
-  // The session can end while a panel is open (sign-out in another tab): the
-  // panels are signed-in UI, so they follow the user, not the panel state alone.
-  const signedIn = !!user;
   const email = user?.email ?? '';
   const signIn = signInHref(returnTo);
+  const signInToClaim = signInToClaimHref(returnTo);
+  // Arrived with the intent: the email-code step's emailed link keeps it too.
+  const proofReturnTo = intent ? withClaimIntent(returnTo) : returnTo;
+  // ...and so does the "Sign in" a refused claim offers (authentication_required).
+  const signInAgain = intent ? signInToClaim : signIn;
 
-  const run = async (action: () => Promise<unknown>, outcome: PublicClaimOutcome) => {
-    setBusy(true);
-    setFailure(null);
-    try {
-      await action();
-      setDone(outcome);
-      onChanged(outcome);
-    } catch (error) {
-      const copy = selfServeErrorCopy(error);
-      setFailure(copy);
-      // A refusal that means "you can't claim this" turns the claim panel
-      // into the request panel for the same organiser (W1's behaviour).
-      if (copy.next === 'request_access') setPanel('request');
-      if (STALE_CODES.has(selfServeErrorCode(error) ?? '')) onChanged('stale');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const claim = () => run(() => claimOrganiser(organiser.id), 'claimed');
   const request = () => run(() => requestOrganiserAccess(organiser.id, note), 'requested');
 
   return (
@@ -175,11 +227,15 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
           </p>
         </div>
         {!signedIn ? (
-          <Link to={signIn} className="inline-flex min-h-[44px] items-center rounded-full px-4 text-xs font-bold" style={primary} data-testid="public-claim-signin">
+          <Link to={signInToClaim} className="inline-flex min-h-[44px] items-center rounded-full px-4 text-xs font-bold" style={primary} data-testid="public-claim-signin">
             Sign in to claim
           </Link>
-        ) : panel === 'closed' ? (
-          <Button size="sm" className="rounded-full font-bold min-h-[44px]" style={primary} onClick={() => { setPanel(kind === 'claim' ? 'claim' : 'request'); setFailure(null); }} data-testid="public-claim-open">
+        ) : autoBusy ? (
+          <Button size="sm" disabled className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-claim-auto-busy">
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Claiming&hellip;
+          </Button>
+        ) : panel === 'closed' && !claimPanelOpen ? (
+          <Button size="sm" className="rounded-full font-bold min-h-[44px]" style={primary} onClick={() => { quietFocus.current = false; setPanel(kind === 'claim' ? 'claim' : 'request'); setFailure(null); }} data-testid="public-claim-open">
             {kind === 'claim' ? 'Claim this page' : 'Ask to join'}
           </Button>
         ) : null}
@@ -192,7 +248,7 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
           {failure.next === 'sign_in' && (
             <>
               {' '}
-              <Link to={signIn} className="underline tap-link-inline" style={{ color: GOLD }} data-testid="public-claim-signin">
+              <Link to={signInAgain} className="underline tap-link-inline" style={{ color: GOLD }} data-testid="public-claim-signin">
                 Sign in
               </Link>
             </>
@@ -200,7 +256,7 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
         </p>
       )}
 
-      {signedIn && panel === 'claim' && (
+      {signedIn && claimPanelOpen && !autoBusy && (
         <div className="space-y-2" data-testid="public-claim-panel" data-panel>
           <p className="text-xs" style={{ color: MUTE }}>
             You&rsquo;re signed in as <strong style={{ color: CREAM }}>{email}</strong>. That matches the contact email on this
@@ -208,7 +264,7 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
           </p>
           {mailboxProven ? (
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" disabled={busy} onClick={() => void claim()} className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-claim-confirm">
+              <Button size="sm" disabled={busy} onClick={() => void claim(organiser.id)} className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-claim-confirm">
                 {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Yes, claim it
               </Button>
               <Button size="sm" variant="ghost" className={`${GHOST_HOVER} min-h-[44px]`} style={{ color: MUTE }} onClick={() => setPanel('closed')}>
@@ -217,7 +273,7 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
             </div>
           ) : (
             <div data-testid="public-claim-proof">
-              <EmailCodeProof email={email} returnTo={returnTo} onProven={() => void claim()} />
+              <EmailCodeProof email={email} returnTo={proofReturnTo} onProven={() => void claim(organiser.id)} />
             </div>
           )}
         </div>
@@ -263,7 +319,7 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
 
       {signedIn && panel === 'claim' && mailboxProven && failure?.next === 'reauth' && (
         <div data-testid="public-claim-proof">
-          <EmailCodeProof email={email} returnTo={returnTo} onProven={() => { setFailure(null); void claim(); }} />
+          <EmailCodeProof email={email} returnTo={proofReturnTo} onProven={() => { setFailure(null); void claim(organiser.id); }} />
         </div>
       )}
     </section>
