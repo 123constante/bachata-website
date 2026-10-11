@@ -102,7 +102,8 @@ export function landingPathAfterAuth(input: {
   const { organiserSelfServe, role, managesOrganiser } = input;
   if (!organiserSelfServe) {
     if (role && role !== "dancer" && LEGACY_ROLE_ROUTES[role]) return LEGACY_ROLE_ROUTES[role];
-    return "/profile";
+    // /profile was retired 2026-09-12 (a 404); home, as for a dancer.
+    return "/";
   }
   if (role === "dancer") return "/";
   if (role) return "/account";
@@ -130,6 +131,9 @@ export const DANCE_ROLE_OPTIONS: readonly { value: DanceRoleValue; label: string
   { value: "Follower", label: "Follower" },
   { value: "Lead and Follow", label: "Both" },
 ];
+
+/** What a stored dance_role reads as on screen: the picker's own label. An unknown value shows as stored. */
+export const danceRoleLabel = (value: string): string => DANCE_ROLE_OPTIONS.find((o) => o.value === value)?.label ?? value;
 
 export const isDanceRoleValue = (value: unknown): value is DanceRoleValue =>
   typeof value === "string" && DANCE_ROLE_OPTIONS.some((o) => o.value === value);

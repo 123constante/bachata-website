@@ -86,9 +86,10 @@ describe("landingPathAfterAuth (no returnTo)", () => {
     const off = { organiserSelfServe: false, managesOrganiser: null };
     expect(landingPathAfterAuth({ ...off, role: "organiser" })).toBe("/create-organiser-profile");
     expect(landingPathAfterAuth({ ...off, role: "videographer" })).toBe("/create-videographer-profile");
-    expect(landingPathAfterAuth({ ...off, role: "dancer" })).toBe("/profile");
-    expect(landingPathAfterAuth({ ...off, role: "dj" })).toBe("/profile");
-    expect(landingPathAfterAuth({ ...off, role: null })).toBe("/profile");
+    // /profile was retired 2026-09-12 (a 404): the rest land home.
+    expect(landingPathAfterAuth({ ...off, role: "dancer" })).toBe("/");
+    expect(landingPathAfterAuth({ ...off, role: "dj" })).toBe("/");
+    expect(landingPathAfterAuth({ ...off, role: null })).toBe("/");
   });
 });
 

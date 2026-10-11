@@ -773,7 +773,7 @@ const AuthContent = () => {
                     {sendError}
 
                     {devTools(
-                      <Button variant="outline" className="w-full min-h-[44px]" onClick={() => void handleCreateRandomDevAccount("/profile", selectedRoleValue || undefined)} disabled={isSubmitting}>
+                      <Button variant="outline" className="w-full min-h-[44px]" onClick={() => void handleCreateRandomDevAccount("/account", selectedRoleValue || undefined)} disabled={isSubmitting}>
                         Instant dev login
                       </Button>
                     )}

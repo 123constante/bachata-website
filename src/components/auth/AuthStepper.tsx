@@ -166,7 +166,7 @@ export const AuthStepper = ({
     }
 
     if (intent === "new" && userType) {
-      navigate("/profile");
+      navigate("/account");
       return;
     }
 

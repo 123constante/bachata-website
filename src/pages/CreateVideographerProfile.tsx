@@ -74,7 +74,7 @@ const CreateVideographerProfile = () => {
         title: 'Profile already found',
         description: 'Opening your profile manager.',
       });
-      navigate('/profile');
+      navigate('/account');
     })();
 
     return () => {
@@ -194,7 +194,7 @@ const CreateVideographerProfile = () => {
         description: didUpdate ? 'Your latest details are saved.' : 'Welcome to your videographer tools.',
       });
 
-      navigate("/profile");
+      navigate("/account");
     } catch (error: any) {
       toast({
         title: "Unable to create profile",
@@ -271,7 +271,7 @@ const CreateVideographerProfile = () => {
   };
 
   return (
-    <GlobalLayout breadcrumbs={buildBreadcrumbs('profile.createVideographer')} backHref='/profile?role=videographer'>
+    <GlobalLayout breadcrumbs={buildBreadcrumbs('profile.createVideographer')} backHref='/account'>
     <div className="px-4 pb-24">
       <div className="max-w-2xl mx-auto">
         {import.meta.env.DEV && (
@@ -417,7 +417,7 @@ const CreateVideographerProfile = () => {
               </Card>
 
               <div className="flex flex-col sm:flex-row gap-3">
-                <Button type="button" variant="outline" onClick={() => navigate("/profile")}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={() => navigate("/account")}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting} className="flex-1">
                   {isSubmitting ? "Creating..." : "Create Profile"}
                 </Button>

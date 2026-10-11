@@ -271,7 +271,7 @@ const EditProfile = () => {
         description: 'Your changes have been saved.',
       });
       setInitialFormSnapshot(JSON.stringify(form));
-      navigate('/profile');
+      navigate('/account');
     } catch (error: any) {
       // saveMyDancerProfile self-reports only the missing-stub case; an
       // UnresolvedPersonError or a residual permission failure would otherwise
@@ -340,7 +340,7 @@ const EditProfile = () => {
 
   if (isLoading) {
     return (
-      <GlobalLayout breadcrumbs={EDIT_PROFILE_BREADCRUMBS} backHref='/profile'>
+      <GlobalLayout breadcrumbs={EDIT_PROFILE_BREADCRUMBS} backHref='/account'>
         <div className='pb-24 px-3'>
           <div className='max-w-lg mx-auto space-y-4'>
             <Skeleton className='h-40 w-full' />
@@ -354,7 +354,7 @@ const EditProfile = () => {
 
   if (!dancerId) {
     return (
-      <GlobalLayout breadcrumbs={EDIT_PROFILE_BREADCRUMBS} backHref='/profile'>
+      <GlobalLayout breadcrumbs={EDIT_PROFILE_BREADCRUMBS} backHref='/account'>
         <div className='pb-24 px-3 flex items-center justify-center min-h-[40vh]'>
           <div className='text-center'>
             <p className='text-muted-foreground mb-4'>No dancer profile found</p>
@@ -368,7 +368,7 @@ const EditProfile = () => {
   }
 
   return (
-    <GlobalLayout breadcrumbs={EDIT_PROFILE_BREADCRUMBS} backHref='/profile'>
+    <GlobalLayout breadcrumbs={EDIT_PROFILE_BREADCRUMBS} backHref='/account'>
     <div className='pb-24 px-3'>
       <div className='max-w-lg mx-auto'>
         {/* Save action — back affordance is provided by GlobalLayout's backHref chevron. */}

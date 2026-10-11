@@ -55,7 +55,10 @@ export const SITE_IA = {
   discounts:        { label: 'Active Organisers', path: '/discounts' },
   raffles:          { label: 'Raffles',           path: '/raffles' },
   allProfiles:      { label: 'All Profiles',      path: '/all-profiles' },
-  profile:          { label: 'Profile',           path: '/profile' },
+  // The signed-in person's own page: the dancer home, src/pages/Account.tsx
+  // (signed-in, noindex). It was /profile until that route was retired on
+  // 2026-09-12; the profile.* flow crumbs below still hang off it.
+  profile:          { label: 'Your account',      path: '/account' },
   // Signed-in, noindex (Lever 2 W1); never reaches a crawler's BreadcrumbList.
   account:          { label: 'Your account',      path: '/account/o' },
   'account.new':    { label: 'New event',         parent: 'account' },

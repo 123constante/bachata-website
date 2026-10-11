@@ -40,7 +40,7 @@ describe('buildBreadcrumbs — top-level listings', () => {
     expect(buildBreadcrumbs('cities')).toEqual([{ label: 'Cities' }]);
   });
   it('profile → [Profile]', () => {
-    expect(buildBreadcrumbs('profile')).toEqual([{ label: 'Profile' }]);
+    expect(buildBreadcrumbs('profile')).toEqual([{ label: 'Your account' }]);
   });
 });
 
@@ -223,21 +223,21 @@ describe('buildBreadcrumbs — event.edit (entity intermediate crumb)', () => {
 });
 
 describe('buildBreadcrumbs — flow routes', () => {
-  it('profile.edit → [Profile (link), Edit]', () => {
+  it('profile.edit → [Your account (link), Edit]', () => {
     expect(buildBreadcrumbs('profile.edit')).toEqual([
-      { label: 'Profile', path: '/profile' },
+      { label: 'Your account', path: '/account' },
       { label: 'Edit' },
     ]);
   });
-  it('profile.createEvent → [Profile (link), Create event]', () => {
+  it('profile.createEvent → [Your account (link), Create event]', () => {
     expect(buildBreadcrumbs('profile.createEvent')).toEqual([
-      { label: 'Profile', path: '/profile' },
+      { label: 'Your account', path: '/account' },
       { label: 'Create event' },
     ]);
   });
-  it('profile.createDancer → [Profile (link), Create dancer profile]', () => {
+  it('profile.createDancer → [Your account (link), Create dancer profile]', () => {
     expect(buildBreadcrumbs('profile.createDancer')).toEqual([
-      { label: 'Profile', path: '/profile' },
+      { label: 'Your account', path: '/account' },
       { label: 'Create dancer profile' },
     ]);
   });

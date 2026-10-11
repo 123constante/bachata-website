@@ -62,6 +62,33 @@ export const listFieldLabels = (fields: readonly ProfileField[]): string => {
   return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
 };
 
+/**
+ * What the person's completeness IS, in words -- the one sentence every screen
+ * that states it uses (the dancer home on /account, the Finish screen, the
+ * reminder banner). The rating card states the same fact as its gate
+ * (ratingGate), so the four cannot disagree about a profile.
+ * `unknown` (loading, failed, signed out) says nothing: no screen claims a
+ * fact it does not have.
+ */
+export type CompletenessFact = {
+  kind: "complete" | "incomplete" | "no_profile" | "unknown";
+  missing: ProfileField[];
+  text: string;
+};
+
+export const PROFILE_COMPLETE_TEXT = "Your profile is complete. You can rate parties now.";
+export const NO_PROFILE_TEXT =
+  "Your account has no dancer profile yet, so you can\u2019t rate parties. This is on our side \u2014 message us and we\u2019ll set it up.";
+
+export const completenessFact = (c: Pick<ProfileCompletion, "status" | "missing">): CompletenessFact => {
+  if (c.status === "incomplete") {
+    return { kind: "incomplete", missing: [...c.missing], text: `Add your ${listFieldLabels(c.missing)} to rate parties.` };
+  }
+  if (c.status === "no_profile") return { kind: "no_profile", missing: [...PROFILE_FIELDS], text: NO_PROFILE_TEXT };
+  if (c.status === "complete") return { kind: "complete", missing: [], text: PROFILE_COMPLETE_TEXT };
+  return { kind: "unknown", missing: [], text: "" };
+};
+
 export const FINISH_PROFILE_PATH = "/finish-profile";
 
 export const finishProfileHref = (returnTo?: string | null): string => {
@@ -125,13 +152,13 @@ export const bannerModel = (
   if (c.status === "no_profile") {
     return {
       title: "Your dancer profile is missing",
-      body: "Your account has no dancer profile yet, so you can\u2019t rate parties. Message us and we\u2019ll set it up.",
+      body: completenessFact(c).text,
       cta: { kind: "external", label: NO_PROFILE_CONTACT_LABEL, href: NO_PROFILE_CONTACT_URL },
     };
   }
   return {
     title: "Finish your profile",
-    body: `Add your ${listFieldLabels(c.missing)} to rate parties.`,
+    body: completenessFact(c).text,
     cta: { kind: "link", label: "Finish profile", href: finishProfileHref(opts.returnTo ?? opts.pathname) },
   };
 };

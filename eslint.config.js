@@ -25,6 +25,8 @@ const ALLOWED_BARE_AVATAR_FILES = [
   "src/components/profile/DancerDashboard.tsx",
   "src/components/profile/VendorDashboard.tsx",
   "src/components/profile/ProfileSection.tsx",
+  // The dancer home (/account): the signed-in user's own photo.
+  "src/components/account/DancerHome.tsx",
   // Auth + onboarding flows — the avatar shown is the signed-in user's own.
   "src/components/auth/ProfileEntryFlow.tsx",
   "src/components/MagicLinkConfirmation.tsx",

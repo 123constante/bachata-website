@@ -69,7 +69,7 @@ export const ProfileEntryRouter = ({
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate('/auth?mode=signin&returnTo=/profile', { replace: true });
+      navigate('/auth?mode=signin&returnTo=/account', { replace: true });
     }
   }, [loading, user, navigate]);
 

@@ -935,7 +935,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
       </div>
     );
     return embedded ? loadingContent : (
-      <GlobalLayout breadcrumbs={VENDOR_DASHBOARD_BREADCRUMBS} backHref="/profile?role=vendor">
+      <GlobalLayout breadcrumbs={VENDOR_DASHBOARD_BREADCRUMBS} backHref="/account">
         {loadingContent}
       </GlobalLayout>
     );
@@ -955,7 +955,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
       </div>
     );
     return embedded ? notAuthorizedContent : (
-      <GlobalLayout breadcrumbs={VENDOR_DASHBOARD_BREADCRUMBS} backHref="/profile?role=vendor">
+      <GlobalLayout breadcrumbs={VENDOR_DASHBOARD_BREADCRUMBS} backHref="/account">
         {notAuthorizedContent}
       </GlobalLayout>
     );
@@ -1545,7 +1545,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
   );
 
   return embedded ? mainContent : (
-    <GlobalLayout breadcrumbs={VENDOR_DASHBOARD_BREADCRUMBS} backHref="/profile?role=vendor">
+    <GlobalLayout breadcrumbs={VENDOR_DASHBOARD_BREADCRUMBS} backHref="/account">
       {mainContent}
     </GlobalLayout>
   );

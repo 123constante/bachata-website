@@ -43,7 +43,7 @@ const PROFILE_ROLE_META: Record<SecondaryRole, { label: string; createRoute: str
   dancer: { label: "Dancer", createRoute: "/create-dancers-profile", canClaim: false },
   organiser: { label: "Organiser", createRoute: "/create-organiser-profile", canClaim: true },
   // Teacher signup parked 2026-04-30 — createRoute falls back to /profile.
-  teacher: { label: "Teacher", createRoute: "/profile", canClaim: false },
+  teacher: { label: "Teacher", createRoute: "/account", canClaim: false },
   videographer: { label: "Videographer", createRoute: "/create-videographer-profile", canClaim: false },
 };
 
@@ -489,7 +489,7 @@ export const VendorDashboard = () => {
       return;
     }
 
-    navigate(`/profile?role=${role}`);
+    navigate(`/account`);
   };
 
   const navigateToCreateRole = async (role: SecondaryRole) => {

@@ -31,6 +31,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/organisers',
   '/cities',
   '/account',
+  '/account/attendance',
   '/account/new',
   '/account/series/:seriesId',
   '/account/team/:organiserId?',

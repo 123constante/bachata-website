@@ -114,7 +114,7 @@ const Profile = () => {
     const handleSelectRole = (role: UserRole) => {
         setActiveRole(role);
         localStorage.setItem(LAST_ACTIVE_ROLE_KEY, role);
-        navigate(`/profile?role=${role}`, { replace: true });
+        navigate(`/account`, { replace: true });
     };
 
     return (

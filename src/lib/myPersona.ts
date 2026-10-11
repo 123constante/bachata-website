@@ -88,7 +88,10 @@ export const isMyProfile = (input: {
  * The caches that hold an answer derived from the persona. Invalidated when a
  * sign-in links the account to a profile, so every screen re-reads the linked one.
  */
-export const PERSONA_DERIVED_QUERY_ROOTS = ["my-persona-id", "profile-completion"] as const;
+/** The dancer home's summary read (hooks/useMyDancerSummary). */
+export const MY_DANCER_SUMMARY_ROOT = "my-dancer-summary";
+
+export const PERSONA_DERIVED_QUERY_ROOTS = ["my-persona-id", "profile-completion", MY_DANCER_SUMMARY_ROOT] as const;
 
 export const invalidateMyPersonaCaches = (queryClient: QueryClient): Promise<void> =>
   Promise.all(

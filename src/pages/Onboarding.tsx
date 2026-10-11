@@ -96,7 +96,7 @@ const Onboarding = () => {
       } else if (pendingRole && pendingRole !== "dancer" && VALID_ROLES[pendingRole]) {
         navigate(`/create-${pendingRole}-profile`, { replace: true });
       } else {
-        navigate("/profile", { replace: true });
+        navigate("/account", { replace: true });
       }
 
       // 4. Clear AFTER navigate
