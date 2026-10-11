@@ -2,6 +2,7 @@ import { Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { AuthGuard } from '@/components/auth/AuthGuard';
+import { DancerProfileGate } from '@/components/account/DancerProfileGate';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
@@ -47,25 +48,29 @@ function PrefetchOrganiserHome() {
  * /account/o/* -- the rebuilt organiser area (arc/organiser-rebuild).
  * Mounted beside the old /account pages, which keep working until W5.
  * AuthGuard wraps it here, inside this lazy chunk, exactly as Account.tsx
- * does (signed-out visitors go to the same /auth sign-in, with returnTo).
+ * does (signed-out visitors go to the same /auth sign-in, with returnTo), and
+ * so does the dancer-first gate: an unfinished dancer profile goes to
+ * /finish-profile first, whatever organiser page was asked for.
  */
 export default function OrganiserRoutes() {
   useNoindexMeta(true);
   return (
     <AuthGuard>
       <PrefetchOrganiserHome />
-      <Suspense fallback={<ShellFallback />}>
-        <Routes>
-          <Route index element={<HomePage />} />
-          <Route path="events" element={<EventsPage />} />
-          <Route path="events/new" element={<NewEventPage />} />
-          <Route path="events/:seriesId" element={<EventEditorPage />} />
-          <Route path="events/:seriesId/dates/:occurrenceId" element={<DatePage />} />
-          <Route path="team" element={<TeamPage />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="*" element={<Navigate to={ORG_PATHS.home} replace />} />
-        </Routes>
-      </Suspense>
+      <DancerProfileGate fallback={<ShellFallback />}>
+        <Suspense fallback={<ShellFallback />}>
+          <Routes>
+            <Route index element={<HomePage />} />
+            <Route path="events" element={<EventsPage />} />
+            <Route path="events/new" element={<NewEventPage />} />
+            <Route path="events/:seriesId" element={<EventEditorPage />} />
+            <Route path="events/:seriesId/dates/:occurrenceId" element={<DatePage />} />
+            <Route path="team" element={<TeamPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="*" element={<Navigate to={ORG_PATHS.home} replace />} />
+          </Routes>
+        </Suspense>
+      </DancerProfileGate>
     </AuthGuard>
   );
 }

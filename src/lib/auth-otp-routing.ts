@@ -106,8 +106,11 @@ export function landingPathAfterAuth(input: {
     return "/";
   }
   if (role === "dancer") return "/";
-  // A non-dancer sign-up meant to set up an organiser: straight to the organiser
+  // A non-dancer sign-up meant to set up an organiser: to the organiser
   // onboarding, as before /account became the dancer home (layout D, 2026-10-11).
+  // Dancer first: /account/o's DancerProfileGate sends a new account on to
+  // /finish-profile?returnTo=/account/o, so they finish the dancer profile and
+  // then land in the organiser onboarding (DancerFirstGate.matrix.test.tsx).
   if (role) return "/account/o";
   // Known organiser: straight to the organiser home. Unknown (lookup failed): /account decides.
   if (managesOrganiser === true) return "/account/o";

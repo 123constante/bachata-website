@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import GlobalLayout from '@/components/layout/GlobalLayout';
+import { DancerProfileGate } from '@/components/account/DancerProfileGate';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
@@ -41,8 +42,22 @@ function Card({ copy, children }: { copy: RedeemCopy; children?: React.ReactNode
   );
 }
 
+/**
+ * Joining an organiser team is organiser onboarding, so a signed-in person with
+ * an unfinished dancer profile finishes it first (DancerProfileGate; the token
+ * rides in returnTo and the link is used on the way back). Signed out passes
+ * through to the page's own sign-in card.
+ */
 export default function InviteRedeemPage() {
   useNoindexMeta(true);
+  return (
+    <DancerProfileGate fallback={<GlobalLayout><div className="mx-auto max-w-md space-y-2 px-4 pt-10" data-testid="invite-checking"><Skeleton className="h-6 w-48" /><Skeleton className="h-16 w-full" /></div></GlobalLayout>}>
+      <InviteRedeem />
+    </DancerProfileGate>
+  );
+}
+
+function InviteRedeem() {
   const { token = '' } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

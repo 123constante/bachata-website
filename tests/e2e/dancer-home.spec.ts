@@ -4,8 +4,9 @@ import { CITY, PHONE, OrganiserFake, expectNoHorizontalScroll, json } from './he
 // The dancer home (/account) and Finish your profile (/finish-profile) in a real browser at
 // 390x844 and a short 390x600, against the organiser fake plus the dancer-profile reads
 // (persona -> profile_complete_v1 -> dancer_profiles row). Shapes are the prod ones the
-// unit matrix covers (AccountDancerHome.matrix.test.tsx); here: the commonest gap (no dance
-// role, 153 of 166 rows), a no-organiser account, and an organiser.
+// unit matrix covers (DancerFirstGate.matrix.test.tsx); here: the commonest gap (no dance
+// role, 153 of 166 rows), a brand-new stub, a no-organiser account, and an organiser. Every
+// account page sits behind the dancer-first gate (owner decision 2026-10-11).
 
 const MIN = 44;
 const SHORT = { width: 390, height: 600 };
@@ -72,18 +73,41 @@ async function backgroundSources(page: Page) {
   });
 }
 
+const COMPLETE: Row = { first_name: 'Ana', based_city_id: CITY.id, dance_role: 'Follower', avatar_url: 'https://img.example/ana.jpg', archived_at: null };
+const STUB: Row = { first_name: null, based_city_id: null, dance_role: null, avatar_url: null, archived_at: null };
+const GATE_REASON = 'Finish your dancer profile first, then you can set up your organiser page.';
+
+/** The gated Finish screen on the way to `target`: says why, offers no Skip. */
+async function expectGated(page: Page, target: string) {
+  await expect(page).toHaveURL(new RegExp(`/finish-profile\\?returnTo=${encodeURIComponent(target).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+  await expect(page.getByTestId('finish-profile-gate-reason')).toHaveText(GATE_REASON);
+  await expect(page.getByRole('button', { name: /Skip for now/ })).toHaveCount(0);
+  await expect(page.getByTestId('org-page-home')).toHaveCount(0);
+  await expect(page.getByTestId('dancer-home')).toHaveCount(0);
+}
+
 for (const viewport of [PHONE, SHORT]) {
   test.describe(`${viewport.width}x${viewport.height}`, () => {
     test.use({ viewport });
 
-    test('a dancer gets the dancer home, saying exactly what is missing', async ({ page }) => {
+    test('an unfinished dancer profile: /account is the gated Finish screen', async ({ page }) => {
       await openDancer(page, '/account');
+      await expectGated(page, '/account');
+      await expect(page.getByText('Add your dance role to rate parties.')).toBeVisible();
+      await expect(page.getByRole('radiogroup')).toBeVisible();
+      await page.waitForTimeout(400);
+      expect(await shortControls(page, 'main form')).toEqual([]);
+      await expectNoHorizontalScroll(page);
+      expect(await backgroundSources(page)).toHaveLength(1);
+      await page.screenshot({ path: `test-results/dancer-gate-${viewport.height}.png`, fullPage: false });
+    });
+
+    test('a finished dancer gets the dancer home', async ({ page }) => {
+      await openDancer(page, '/account', { row: { ...COMPLETE } });
       await expect(page).toHaveURL(/\/account$/);
-      await expect(page.getByTestId('dancer-home-completeness')).toHaveText('Add your dance role to rate parties.');
+      await expect(page.getByTestId('dancer-home-completeness')).toHaveText('Your profile is complete. You can rate parties now.');
       await expect(page.getByTestId('dancer-home-name')).toHaveText('Ana');
       await expect(page.getByTestId('dancer-home-details')).toContainText('London');
-      await expect(page.getByTestId('dancer-home-details')).toContainText('Dance role not set');
-      await expect(page.getByRole('link', { name: 'Finish your profile' })).toHaveAttribute('href', '/finish-profile?returnTo=%2Faccount');
       await expect(page.getByRole('link', { name: /My attendance/ })).toHaveAttribute('href', '/account/attendance');
       await expect(page.getByTestId('dancer-home-organise-toggle')).toHaveAttribute('aria-expanded', 'false');
       await page.waitForTimeout(400);
@@ -94,9 +118,11 @@ for (const viewport of [PHONE, SHORT]) {
     });
 
     test('/finish-profile has one background all the way down', async ({ page }) => {
-      await openDancer(page, '/finish-profile?returnTo=%2Faccount');
+      await openDancer(page, '/finish-profile?returnTo=%2Fevent%2Fe1');
       await expect(page.getByRole('heading', { name: 'Finish your profile' })).toBeVisible();
       await expect(page.getByRole('radiogroup')).toBeVisible();
+      // Not gated (the rating card's way in): Skip stays.
+      await expect(page.getByRole('button', { name: 'Skip for now' })).toBeVisible();
       await page.waitForTimeout(400);
       expect(await backgroundSources(page)).toHaveLength(1);
       await expectNoHorizontalScroll(page);
@@ -108,10 +134,9 @@ for (const viewport of [PHONE, SHORT]) {
 test.describe('flows @390', () => {
   test.use({ viewport: PHONE });
 
-  test('finish from the dancer home: untouched sends nothing, a save comes back complete', async ({ page }) => {
+  test('gated dancer: untouched sends nothing; a save lands on the dancer home, complete', async ({ page }) => {
     const { saves } = await openDancer(page, '/account');
-    await page.getByRole('link', { name: 'Finish your profile' }).click();
-    await expect(page).toHaveURL(/\/finish-profile\?returnTo=%2Faccount$/);
+    await expectGated(page, '/account');
     await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
     await expect(page.getByText('Fill in at least one field above to save.')).toBeVisible();
     expect(saves).toEqual([]);
@@ -119,12 +144,11 @@ test.describe('flows @390', () => {
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page).toHaveURL(/\/account$/);
     await expect(page.getByTestId('dancer-home-completeness')).toHaveText('Your profile is complete. You can rate parties now.');
-    await expect(page.getByTestId('dancer-home-details')).not.toContainText('Dance role not set');
     expect(saves).toHaveLength(1);
   });
 
   test('"I organise events" opens the unchanged onboarding', async ({ page }) => {
-    await openDancer(page, '/account');
+    await openDancer(page, '/account', { row: { ...COMPLETE } });
     await page.getByTestId('dancer-home-organise-toggle').click();
     await expect(page.getByTestId('org-onboarding')).toBeVisible();
     await page.getByTestId('onboarding-search').fill('Ritmo');
@@ -134,37 +158,37 @@ test.describe('flows @390', () => {
   });
 
   test('an organiser tapping the account icon lands on the organiser home', async ({ page }) => {
-    await openDancer(page, '/vendors/header-account-probe', { organiser: true });
+    await openDancer(page, '/vendors/header-account-probe', { organiser: true, row: { ...COMPLETE } });
     await page.getByTestId('header-account-link').click();
     await expect(page).toHaveURL(/\/account\/o$/);
     await expect(page.getByTestId('org-page-home')).toBeVisible();
   });
 
-  // Layout D (2026-10-11): an organiser keeps the organiser home; the dancer side is one row
-  // (unfinished profile) or one account-menu entry (finished profile).
-  test('organiser with an unfinished dancer profile: one skippable row on the organiser home', async ({ page }) => {
-    await openDancer(page, '/account/o', { organiser: true });
-    const row = page.getByTestId('org-dancer-row');
-    await expect(row).toBeVisible();
-    await expect(page.getByTestId('org-dancer-row-fact')).toHaveText('Add your dance role to rate parties.');
-    await expect(page.getByTestId('org-dancer-row-finish')).toHaveAttribute('href', '/finish-profile?returnTo=%2Faccount%2Fo');
-    await expect(page.getByTestId('org-account-menu-button')).toHaveCount(0);
-    expect(await shortControls(page, '[data-testid="org-dancer-row"]')).toEqual([]);
+  // Dancer first, then organiser (owner decision 2026-10-11): no skippable row any more.
+  test('unfinished organiser hitting /account/o: the gate, then back on the organiser home', async ({ page }) => {
+    const { saves } = await openDancer(page, '/account/o', { organiser: true });
+    await expectGated(page, '/account/o');
+    await page.waitForTimeout(400); // the page transition's slide-in
     await expectNoHorizontalScroll(page);
-    await page.screenshot({ path: 'test-results/organiser-home-dancer-row.png', fullPage: false });
-    await page.getByTestId('org-dancer-row-skip').click();
-    await expect(row).toHaveCount(0);
-    await page.reload();
+    await page.screenshot({ path: 'test-results/organiser-dancer-gate.png', fullPage: false });
+    await page.getByRole('radio', { name: /Follower/ }).first().click();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page).toHaveURL(/\/account\/o$/);
     await expect(page.getByTestId('org-page-home')).toBeVisible();
     await expect(page.getByTestId('org-dancer-row')).toHaveCount(0);
+    await expect(page.getByTestId('org-account-menu-button')).toBeVisible();
+    expect(saves).toHaveLength(1);
   });
 
-  test('organiser with a finished dancer profile: no row; the account menu opens the dancer profile', async ({ page }) => {
-    await openDancer(page, '/account/o', {
-      organiser: true,
-      row: { first_name: 'Ana', based_city_id: CITY.id, dance_role: 'Follower', avatar_url: 'https://img.example/ana.jpg', archived_at: null },
-    });
+  test('a deep organiser link keeps its whole address through the gate', async ({ page }) => {
+    await openDancer(page, '/account/o/team', { organiser: true });
+    await expectGated(page, '/account/o/team');
+  });
+
+  test('organiser with a finished dancer profile: never gated; the account menu opens the dancer profile', async ({ page }) => {
+    await openDancer(page, '/account/o', { organiser: true, row: { ...COMPLETE } });
     await expect(page.getByTestId('org-account-menu-button')).toBeVisible();
+    await expect(page).toHaveURL(/\/account\/o$/);
     await expect(page.getByTestId('org-dancer-row')).toHaveCount(0);
     await page.getByTestId('org-account-menu-button').click();
     await expect(page.getByTestId('org-account-menu')).toBeVisible();
@@ -178,10 +202,28 @@ test.describe('flows @390', () => {
     await page.screenshot({ path: 'test-results/dancer-profile-for-organiser.png', fullPage: false });
   });
 
-  test('a dancer tapping the account icon lands on the dancer home', async ({ page }) => {
-    await openDancer(page, '/vendors/header-account-probe');
+  test('a brand-new account: the account icon goes to the gate, asking all four fields', async ({ page }) => {
+    await openDancer(page, '/vendors/header-account-probe', { row: { ...STUB } });
     await page.getByTestId('header-account-link').click();
-    await expect(page).toHaveURL(/\/account$/);
-    await expect(page.getByTestId('dancer-home')).toBeVisible();
+    await expectGated(page, '/account');
+    await expect(page.getByText('Add your first name, city, dance role and photo to rate parties.')).toBeVisible();
+    await expect(page.getByLabel('First name')).toBeVisible();
+    await expect(page.getByRole('radiogroup')).toBeVisible();
+    await expect(page.getByText('Your city', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Photo', { exact: true })).toBeVisible();
+    // A part-save keeps them on the gate, naming what is left.
+    await page.getByLabel('First name').fill('Sam');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByText('Saved. Add your city, dance role and photo to rate parties.')).toBeVisible();
+    await expect(page).toHaveURL(/\/finish-profile\?returnTo=%2Faccount$/);
+    await page.waitForTimeout(400);
+    await expectNoHorizontalScroll(page);
+    await page.screenshot({ path: 'test-results/new-account-gate.png', fullPage: false });
+  });
+
+  test('public pages stay open with an unfinished profile', async ({ page }) => {
+    await openDancer(page, '/vendors/header-account-probe', { row: { ...STUB } });
+    await expect(page).toHaveURL(/\/vendors\/header-account-probe$/);
+    await expect(page.getByTestId('finish-profile-gate-reason')).toHaveCount(0);
   });
 });

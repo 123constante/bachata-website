@@ -5,6 +5,7 @@ import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { DancerHome } from "@/components/account/DancerHome";
+import { DancerProfileGate } from "@/components/account/DancerProfileGate";
 import { useAuth } from "@/hooks/useAuth";
 import { useNoindexMeta } from "@/hooks/useNoindexMeta";
 import { buildBreadcrumbs } from "@/lib/breadcrumbs";
@@ -85,12 +86,24 @@ export const AccountScreen = ({ view = "resolve" }: { view?: "resolve" | "dancer
   );
 };
 
+const Checking = ({ view }: { view?: "resolve" | "dancer" }) => (
+  <GlobalLayout breadcrumbs={buildBreadcrumbs(view === "dancer" ? "dancerProfile" : "dancerHome")}>
+    <div className="mx-auto w-full max-w-md space-y-3 px-4 pt-3" aria-busy="true" data-testid="account-loading">
+      <Skeleton className="h-24 w-full rounded-xl" />
+      <Skeleton className="h-20 w-full rounded-xl" />
+    </div>
+  </GlobalLayout>
+);
+
 // Signed out -> /auth (sign-in) with returnTo, the same guard the organiser area uses.
+// Signed in with an unfinished dancer profile -> /finish-profile first (DancerProfileGate).
 const Account = ({ view }: { view?: "resolve" | "dancer" }) => {
   useNoindexMeta(true);
   return (
     <AuthGuard>
-      <AccountScreen view={view} />
+      <DancerProfileGate fallback={<Checking view={view} />}>
+        <AccountScreen view={view} />
+      </DancerProfileGate>
     </AuthGuard>
   );
 };

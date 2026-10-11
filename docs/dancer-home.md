@@ -17,27 +17,83 @@ header (first load on every page) imports it.
     as `LegacyAccountRedirect` did;
   - a failed organiser read cannot prove anyone is an organiser &rarr; the
     dancer home, with a line naming the organiser area and linking to it.
-- `accountView(facts + dancer fact)` &mdash; per person:
-  - `unfinishedRow`: has organisers **and** the dancer profile is unfinished
-    &rarr; ONE small row on the organiser home ("Finish your dancer profile",
-    names the missing fields, links to `/finish-profile?returnTo=<this page>`,
-    "Skip for now" hides it for the browser session). Nothing else about
-    dancing on the organiser side.
-  - `menuDancerEntry`: lands on the organiser home **and** the dancer profile
-    is finished &rarr; the account menu (account icon in the organiser top
-    bar; the public header is under the organiser frame there) lists
-    "Organiser home" and "Your dancer profile" (`/account/dancer`). No banner.
-  - no dancer profile at all (no row, or an archived one &mdash; an archived
-    row never resolves, see `_dancer_profile_id_for_account_v1`) &rarr;
-    neither.
+- `accountView(facts + dancer fact)` &mdash; for a FINISHED dancer profile
+  (an unfinished one never gets this far, see the gate below):
+  - `menuDancerEntry`: lands on the organiser home &rarr; the account menu
+    (account icon in the organiser top bar) lists "Organiser home" and "Your
+    dancer profile" (`/account/dancer`). No banner, no row.
 
-| Person | Icon lands on | Organiser-home row | Menu dancer entry |
-|---|---|---|---|
-| no organiser, no open request | dancer home `/account` | &ndash; | &ndash; |
-| organiser, profile unfinished | organiser home | yes | no |
-| organiser, profile finished | organiser home | no | yes |
-| organiser, no dancer profile / archived | organiser home | no | no |
-| open access request only | organiser home | no | yes if finished |
+| Person (dancer profile finished) | Icon lands on | Menu dancer entry |
+|---|---|---|
+| no organiser, no open request | dancer home `/account` | &ndash; |
+| organiser | organiser home | yes |
+| open access request only | organiser home | yes |
+
+## Dancer first, then organiser (owner decision 2026-10-11)
+
+Supersedes #718's skippable "Finish your dancer profile" row. Every signed-in
+account, organisers included, finishes its dancer profile (all four fields of
+`profile_complete_v1`: first name, city, dance role, photo) BEFORE any account
+or organiser page. Order: dancer profile first, then organiser.
+
+**The one guard**: `components/account/DancerProfileGate.tsx`, a route wrapper
+mounted inside AuthGuard in each gated lazy chunk (`pages/Account.tsx`,
+`modules/organiser/shell/OrganiserRoutes.tsx`,
+`modules/admin-organisers/InviteRedeemPage.tsx`). It asks `dancerGate()`
+(`lib/accountRouting.ts`) and replaces the page with
+`/finish-profile?returnTo=<the page they wanted, query and hash kept>`.
+
+**Gated routes** (`isDancerGatedPath`):
+
+- `/account` (dancer home / account icon), `/account/dancer`;
+- `/account/o` and everything under it (organiser home, onboarding = claim /
+  request / create, events, dates, team, profile);
+- the old `/account/new`, `/account/series/:id`, `/account/team/:id` (they
+  redirect into `/account/o`, which is gated);
+- `/invite` and `/invite/:token` (joining an organiser team);
+- the public organiser page's claim card: a claim or request with an
+  unfinished profile goes to `/finish-profile?returnTo=<page>?claim=1` instead
+  of calling the server, and the claim runs on the way back.
+
+**Not gated**: everything public &mdash; the calendar, event pages, RSVPs, the
+rating card (it keeps its own "finish to rate" gate), profiles, search &mdash;
+`/account/attendance` (the person's own RSVPs), `/finish-profile` itself,
+`/auth*`, `/admin/*`. Signed out, nothing changes (AuthGuard still sends account
+pages to sign-in).
+
+**Which shapes are gated** (`dancerGate(status)`):
+
+| Shape | Status | Gate |
+|---|---|---|
+| no dancer row | `no_profile` | gated; the Finish screen says "message us" (nothing to fill in) |
+| archived row, no live profile | `no_profile` (`_dancer_profile_id_for_account_v1` never resolves an archived row) | gated, as no row |
+| empty stub | `incomplete`, all four missing | gated, asks all four |
+| partly filled | `incomplete` | gated, asks exactly the missing ones |
+| complete | `complete` | never gated |
+| check failed | `error` | gated (fails CLOSED onto the Finish screen's "Try again"; the banner and rating card still fail open) |
+| still loading | `loading` | waits (skeleton) |
+
+**The gated Finish screen**: `/finish-profile` is in gated mode when its
+`returnTo` is a gated destination (`isDancerGatedTarget`: a gated path, or a
+`?claim=1` public organiser page). It says "Finish your dancer profile first,
+then you can set up your organiser page." and offers NO "Skip for now" (in the
+form or the error state); with no profile to fill in it offers "Message us"
+and "Back to the calendar", never a Continue that would loop. Saving the last
+field sends them to `returnTo`. A plain visit (the rating card, the banner, the
+post-sign-in hop to a public page) keeps Skip, exactly as before.
+
+**Sign-in landing**: `landingPathAfterAuth` is unchanged; its organiser
+destinations (`/account/o` for an organiser-intent sign-up or a known organiser,
+`/account` when unknown) are gated routes, so a new organiser-intent account
+goes sign-up &rarr; Finish screen (returnTo `/account/o`) &rarr; organiser
+onboarding.
+
+**Server refusal**: the separate admin PR makes the organiser create / claim /
+request RPCs refuse an unfinished profile with `PROFILE_INCOMPLETE_CODE`
+(`'profile_incomplete'`, one constant in `lib/accountRouting.ts`; the rating
+RPC already raises the same string). `selfServeErrorCopy` maps it to
+`next: 'finish_profile'`; the onboarding sheet and the public claim card then go
+to the gated Finish screen with returnTo = where they were, never a raw error.
 
 ## Routes
 
@@ -54,15 +110,13 @@ header (first load on every page) imports it.
   `LevelRatingPrompt` stays in the `/event/:id` chunk. Its back link and breadcrumb go to
   `/account/dancer`, which works for organisers too.
 - Sign-in landing (`landingPathAfterAuth`): a non-dancer (organiser-intent)
-  sign-up goes straight to `/account/o`, the organiser onboarding, as before;
-  a role-less sign-in that manages an organiser goes to `/account`, which
-  forwards it.
+  sign-up goes to `/account/o`, the organiser onboarding, through the gate
+  above.
 
 ## The dancer home (`src/components/account/DancerHome.tsx`)
 
-Photo, first name, city, dance role; one completeness line naming exactly the
-missing fields of the four (first name, city, dance role, photo) with a
-**Finish your profile** button (`/finish-profile?returnTo=<this page>`); **My
+Photo, first name, city, dance role; one completeness line (in practice "complete": an unfinished profile is
+gated before it gets here); **My
 attendance**; **Browse parties**; a collapsed **I organise events** that
 lazy-loads the unchanged `OnboardingView` (claim / request / create); sign out.
 The site-wide reminder banner is hidden on `/account` and `/account/dancer`
@@ -71,7 +125,7 @@ The site-wide reminder banner is hidden on `/account` and `/account/dancer`
 ## One completeness fact
 
 `completenessFact()` in `src/lib/profileCompletion.ts` writes the sentence on
-the dancer home, the organiser-home row, the Finish screen, the reminder banner
+the dancer home, the Finish screen, the reminder banner
 and the rating card's gate reason (`ratingGate`). The definition stays the
 server's (`profile_complete_v1`).
 
@@ -86,14 +140,23 @@ unchanged. The page has no opaque 70vh block over the page wash any more.
 
 ## Tests
 
-- `src/lib/__tests__/accountRouting.test.tsx` &mdash; the mapping tables, the
-  header icon.
-- `src/pages/__tests__/AccountLayoutD.matrix.test.tsx` &mdash; {no row, stub,
-  partial, complete, archived} x {no organiser, organiser, open request}:
-  landing, row, menu entry, the same fact on four surfaces, no copy naming a
-  missing control.
+- `src/lib/__tests__/accountRouting.test.tsx` &mdash; the mapping tables
+  (`accountHome`, `accountView`, `dancerGate`, `isDancerGatedPath`,
+  `isDancerGatedTarget`), the header icon.
+- `src/pages/__tests__/DancerFirstGate.matrix.test.tsx` &mdash; {no row, stub,
+  partial, complete, archived} x {no organiser, organiser, open request},
+  through the real route entries: where `/account`, `/account/o` and
+  `/account/dancer` land, the gated page explains itself, no Skip in gated
+  mode, complete profiles never visit the Finish screen, returnTo round-trips,
+  the same fact on the dancer home / Finish screen / rating card, the event page
+  stays open; plus the sign-in landings and deep links.
+- `src/modules/organiser/shared/__tests__/dancerFirst.refusal.test.tsx` &mdash;
+  the `profile_incomplete` refusal on claim / request (sheet and public card),
+  and the claim card's client gate.
 - `src/pages/__tests__/FinishProfileToRating.test.tsx` &mdash; gated &rarr;
   finish &rarr; back on the event with tiles live.
-- `src/lib/__tests__/navigateTargetsRoutable.test.ts` &mdash; links (`to`,
-  `href`, `backHref`) as well as `navigate()` must hit a real route; the
-  account path constants are table-checked against the router.
+- `src/lib/__tests__/navigateTargetsRoutable.test.ts` &mdash; links must hit a
+  real route.
+- `tests/e2e/dancer-home.spec.ts` &mdash; the browser walk at 390x844 / 390x600.
+  `tests/e2e/helpers/organiserFake.ts` answers the gate's reads with a FINISHED
+  profile by default, so organiser specs not about the gate pass through it.

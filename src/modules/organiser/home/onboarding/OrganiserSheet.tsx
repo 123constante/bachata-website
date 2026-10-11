@@ -1,7 +1,9 @@
 import { useId, useState, type ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Check, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { finishProfileHref } from '@/lib/profileCompletion';
 import {
   claimOrganiser,
   createOrganiserProfile,
@@ -44,6 +46,8 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
   const [cityQuery, setCityQuery] = useState('');
   const { shake, shakeProps } = useShake();
   const ids = useId();
+  const navigate = useNavigate();
+  const { pathname, search } = useLocation();
 
   const kind = task?.kind ?? null;
   const orgId = task && task.kind !== 'create' ? task.org.id : null;
@@ -80,6 +84,12 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onDon
       onDone(success);
     } catch (error) {
       const copy = selfServeErrorCopy(error);
+      // The server refused an unfinished dancer profile: dancer first, then organiser.
+      // The gated Finish screen says why and brings them back here.
+      if (copy.next === 'finish_profile') {
+        navigate(finishProfileHref(`${pathname}${search}`));
+        return;
+      }
       setFailure(copy);
       shake();
       // A refusal meaning "you cannot claim this" turns the claim into a request for the same organiser.

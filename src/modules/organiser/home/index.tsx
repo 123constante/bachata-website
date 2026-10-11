@@ -23,8 +23,9 @@ import { hasAnyEvent, newEventBlock, noLineupText, shortDate, type NextDate } fr
 import { useHomeStrips, useOrganiserHome } from './useHomeData';
 import { OnboardingView } from './onboarding/OnboardingView';
 import { OrganiserStatusCard } from './OrganiserStatusCard';
-// Layout D (2026-10-11): the dancer side of a person who organises -- one row, one menu entry.
-import { AccountMenu, DancerProfileRow } from '@/components/account/OrganiserHomeDancer';
+// Layout D (2026-10-11): the dancer side of a person who organises -- one account-menu entry.
+// No "finish your dancer profile" row: the dancer-first gate keeps an unfinished profile off this page.
+import { AccountMenu } from '@/components/account/OrganiserHomeDancer';
 
 /** One upcoming date: chip, event name, venue, status. Opens the date editor. */
 function DateRow({ d, today }: { d: NextDate; today: string }) {
@@ -145,7 +146,6 @@ export default function HomePage() {
         />
       ) : (
         <div className="space-y-[16px]">
-          <DancerProfileRow {...counts} />
           {notLive.map((o) => (
             <OrganiserStatusCard key={o.id} organiser={o} primary={!!eventBlock} onSent={announce} />
           ))}

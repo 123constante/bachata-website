@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Link } from 'react-router-dom';
+import { useContext, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,9 @@ import { selfServeErrorCode, selfServeErrorCopy, type SelfServeErrorCopy } from 
 import { claimIntentStep, hasClaimIntent, signInHref, signInToClaimHref, withClaimIntent, withoutClaimIntent } from '../publicClaim';
 import { MANAGED_BADGE_TEXT, type OwnershipFacts } from '../ownership';
 import type { ClaimHint } from '../claimHint';
+import { ProfileGateContext } from '@/hooks/useAuth';
+import { dancerGate } from '@/lib/accountRouting';
+import { finishProfileHref } from '@/lib/profileCompletion';
 
 /**
  * Lever 2 W7, mockup 06-A: ownership on the PUBLIC organiser page.
@@ -115,6 +118,14 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
   // A panel the intent opened (or its refusal turned into the request panel) was
   // not asked for by a tap here: focus stays put, so no keyboard pops up on arrival.
   const quietFocus = useRef(false);
+  // Dancer first, then organiser (owner decision 2026-10-11): a claim or a request
+  // is organiser onboarding. The completion AppChrome already publishes (no second
+  // read); 'loading' / signed out go ahead and the server refuses if it must.
+  const profileGate = useContext(ProfileGateContext);
+  const navigate = useNavigate();
+  // Back here after finishing, with the claim intent: the card picks the claim up
+  // again (and the Finish screen knows from it that it was gated, so no Skip).
+  const finishFirst = () => navigate(finishProfileHref(withClaimIntent(returnTo)));
 
   // The button that opened a panel (or sent it) unmounts, so focus would fall to the
   // page: move it into the open panel, and onto the outcome once one shows.
@@ -127,6 +138,10 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
   }, [done]);
 
   const run = async (action: () => Promise<unknown>, outcome: PublicClaimOutcome) => {
+    if (profileGate && profileGate !== 'loading' && dancerGate(profileGate.status) === 'gate') {
+      finishFirst();
+      return;
+    }
     setBusy(true);
     setFailure(null);
     try {
@@ -135,6 +150,10 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
       onChanged(outcome);
     } catch (error) {
       const copy = selfServeErrorCopy(error);
+      if (copy.next === 'finish_profile') {
+        finishFirst();
+        return;
+      }
       setFailure(copy);
       // A refusal that means "you can't claim this" turns the claim panel
       // into the request panel for the same organiser (W1's behaviour).

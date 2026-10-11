@@ -25,9 +25,11 @@ import {
   ORGANISER_HOME_PATH,
   accountHome,
   accountView,
-  dismissDancerRow,
-  isDancerRowDismissed,
+  dancerGate,
+  isDancerGatedPath,
+  isDancerGatedTarget,
   type DancerFactKind,
+  type DancerGateStatus,
   isAccountPath,
   isLegacyAccountLink,
   type AccountFacts,
@@ -59,34 +61,70 @@ describe.each([
 });
 
 // Layout D (owner decision 2026-10-11): the person has roles, not either/or.
+// No unfinished-profile row any more: the dancer-first gate keeps an unfinished profile out.
 describe.each([
-  // organisers, open requests, dancer fact -> landing, row, menu entry
-  [0, 0, 'no_profile', 'dancer', false, false],
-  [0, 0, 'incomplete', 'dancer', false, false],
-  [0, 0, 'complete', 'dancer', false, false],
-  [1, 0, 'no_profile', 'organiser', false, false],
-  [1, 0, 'incomplete', 'organiser', true, false],
-  [1, 0, 'complete', 'organiser', false, true],
-  [2, 0, 'unknown', 'organiser', false, false],
-  [0, 1, 'incomplete', 'organiser', false, false],
-  [0, 1, 'complete', 'organiser', false, true],
-] as [number, number, DancerFactKind, AccountHome, boolean, boolean][])(
+  // organisers, open requests, dancer fact -> landing, menu entry
+  [0, 0, 'complete', 'dancer', false],
+  [1, 0, 'complete', 'organiser', true],
+  [2, 0, 'unknown', 'organiser', false],
+  [0, 1, 'complete', 'organiser', true],
+] as [number, number, DancerFactKind, AccountHome, boolean][])(
   'accountView(organisers %i, open requests %i, dancer %s)',
-  (organiserCount, openRequestCount, dancer, landing, unfinishedRow, menuDancerEntry) => {
-    it(`-> ${landing}, row ${unfinishedRow}, menu entry ${menuDancerEntry}`, () => {
-      expect(accountView({ organiserCount, openRequestCount, dancer })).toEqual({ landing, unfinishedRow, menuDancerEntry });
+  (organiserCount, openRequestCount, dancer, landing, menuDancerEntry) => {
+    it(`-> ${landing}, menu entry ${menuDancerEntry}`, () => {
+      expect(accountView({ organiserCount, openRequestCount, dancer })).toEqual({ landing, menuDancerEntry });
     });
   },
 );
 
-describe('the organiser-home row skip', () => {
-  it('lasts for the browser session', () => {
-    sessionStorage.clear();
-    expect(isDancerRowDismissed()).toBe(false);
-    dismissDancerRow();
-    expect(isDancerRowDismissed()).toBe(true);
-    sessionStorage.clear();
-  });
+// Dancer first, then organiser (owner decision 2026-10-11).
+describe.each([
+  ['complete', 'pass'],
+  ['signed_out', 'pass'],
+  ['loading', 'wait'],
+  ['incomplete', 'gate'],
+  ['no_profile', 'gate'],
+  ['error', 'gate'],
+] as [DancerGateStatus, string][])('dancerGate(%s)', (status, want) => {
+  it(`-> ${want}`, () => expect(dancerGate(status)).toBe(want));
+});
+
+describe.each([
+  ['/account', true],
+  ['/account/', true],
+  ['/account/dancer', true],
+  ['/account/o', true],
+  ['/account/o/events/new', true],
+  ['/account/o/team', true],
+  ['/account/new', true],
+  ['/account/series/s1', true],
+  ['/account/team/o1', true],
+  ['/Account/O', true],
+  ['/invite', true],
+  ['/invite/abc', true],
+  ['/account/attendance', false],
+  ['/', false],
+  ['/event/e1', false],
+  ['/organiser/salsa-nights', false],
+  ['/finish-profile', false],
+  ['/parties', false],
+  ['/accounting', false],
+  ['/invites', false],
+])('isDancerGatedPath(%j)', (path, want) => {
+  it(`-> ${want}`, () => expect(isDancerGatedPath(path)).toBe(want));
+});
+
+describe.each([
+  ['/account/o?add=1#x', true],
+  ['/%61ccount/o', true],
+  ['/organiser/salsa-nights?claim=1', true],
+  ['/organiser/salsa-nights?x=1&claim=1#top', true],
+  ['/organiser/salsa-nights', false],
+  ['/organiser/salsa-nights?claim=0', false],
+  ['/event/e1#level-rating', false],
+  ['/event/e1?occ=2#level-rating', false],
+])('isDancerGatedTarget(%j)', (target, want) => {
+  it(`-> ${want}`, () => expect(isDancerGatedTarget(target)).toBe(want));
 });
 
 describe.each([

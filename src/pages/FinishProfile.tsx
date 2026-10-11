@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { MY_DANCER_SUMMARY_ROOT } from "@/lib/myPersona";
+import { DANCER_GATE_REASON, isDancerGatedTarget } from "@/lib/accountRouting";
 import type { DanceRoleValue } from "@/lib/auth-otp-routing";
 import {
   NO_PROFILE_CONTACT_LABEL,
@@ -53,6 +54,10 @@ export const FinishProfileScreen = () => {
   const [searchParams] = useSearchParams();
   // Never back to this screen itself: Skip and Continue would go nowhere.
   const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), { exclude: FINISH_PROFILE_PATH }) ?? "/";
+  // Reached through the dancer-first gate (DancerProfileGate): the page they
+  // wanted is an account / organiser page. Then the screen says why, and has no
+  // Skip -- skipping would only bounce them straight back here.
+  const gated = isDancerGatedTarget(returnTo);
 
   const [draft, setDraft] = useState<Draft>({ first_name: "", based_city_id: "", dance_role: "", avatar_url: "" });
   const [saving, setSaving] = useState(false);
@@ -112,9 +117,11 @@ export const FinishProfileScreen = () => {
           We couldn&rsquo;t check your profile just now. Check your connection and try again.
         </p>
         <Button className={PILL} onClick={() => void completion.refetch()}>Try again</Button>
-        <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={skip}>
-          Skip for now
-        </Button>
+        {!gated && (
+          <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={skip}>
+            Skip for now
+          </Button>
+        )}
       </div>
     );
   } else if (mode.kind === "done") {
@@ -136,9 +143,16 @@ export const FinishProfileScreen = () => {
         >
           {NO_PROFILE_CONTACT_LABEL}
         </a>
-        <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={goBack}>
-          Continue
-        </Button>
+        {gated ? (
+          // Continue would go back to the gated page and straight back here.
+          <Link to="/" className="inline-flex w-full min-h-[44px] items-center justify-center rounded-full text-[14px] text-muted-foreground">
+            Back to the calendar
+          </Link>
+        ) : (
+          <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={goBack}>
+            Continue
+          </Button>
+        )}
       </div>
     );
   } else {
@@ -220,9 +234,11 @@ export const FinishProfileScreen = () => {
             Fill in at least one field above to save.
           </p>
         )}
-        <Button type="button" variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={skip}>
-          Skip for now
-        </Button>
+        {!gated && (
+          <Button type="button" variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={skip}>
+            Skip for now
+          </Button>
+        )}
       </form>
     );
   }
@@ -238,6 +254,9 @@ export const FinishProfileScreen = () => {
       <div className="px-4 pb-24 pt-6">
         <div className="mx-auto w-full max-w-md space-y-3">
           <h1 className="text-lg font-bold text-foreground">Finish your profile</h1>
+          {gated && (
+            <p className="text-sm text-foreground" data-testid="finish-profile-gate-reason">{DANCER_GATE_REASON}</p>
+          )}
           <div className="rounded-xl border border-border bg-card p-3">{body}</div>
         </div>
       </div>
