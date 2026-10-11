@@ -84,7 +84,7 @@ export function CompleteCard({ model, onOpen }: { model: CardModel; onOpen: Open
   return (
     <section aria-labelledby="eip-card-title" data-testid="eip-complete-card" style={{ margin: '12px', padding: 12, borderRadius: 14, background: `linear-gradient(135deg,#FBEFC4,${GOLD})`, color: INK }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-        <h2 id="eip-card-title" style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>Complete your page</h2>
+        <h2 id="eip-card-title" style={{ margin: 0, fontSize: 16, fontWeight: 800, color: INK }}>Complete your page</h2>
         <span style={{ fontSize: 12.5, fontWeight: 700 }} data-testid="eip-card-progress">{model.done} of {model.total} done</span>
       </div>
       <div role="progressbar" aria-label="Page completion" aria-valuemin={0} aria-valuemax={model.total} aria-valuenow={model.done} style={{ height: 6, borderRadius: 999, background: 'rgba(12,10,13,0.15)', margin: '8px 0 6px', overflow: 'hidden' }}>

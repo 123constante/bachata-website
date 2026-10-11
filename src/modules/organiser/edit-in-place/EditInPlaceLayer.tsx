@@ -8,7 +8,7 @@
 // drafted field (draftModel.saveDrafts). Nothing is moderated: on success the
 // change is live. The draft is kept in localStorage per organiser and survives
 // leaving; leaving in-app with a draft asks first.
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { UNSAFE_DataRouterContext, UNSAFE_DataRouterStateContext, type Blocker, type BlockerFunction } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -35,6 +35,7 @@ import {
 } from './draftModel';
 import { FIELD_LABEL, type FieldKey } from './fieldRules';
 import FieldSheet from './FieldSheet';
+import { BAR_Z, BOTTOM_NAV_OFFSET, inBody } from './layers';
 import { uploadOrganiserPhoto } from './organiserPhotoUploadApi';
 import { AboutEmpty, AboutSlot, CompleteCard, CREAM, GOLD, INK, LAYER_CSS, LinkRows, MetaSlot, PhotoSlot, type OpenSheet } from './parts';
 
@@ -70,6 +71,21 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
   entityRef.current = entity;
 
   const count = draftCount(drafts);
+
+  // The dock's real height (a long error notice wraps), for the room kept below the page.
+  const dockRef = useRef<HTMLDivElement>(null);
+  const [dockHeight, setDockHeight] = useState(0);
+  useEffect(() => {
+    const el = dockRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setDockHeight(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // The estimate covers the first frame (and browsers without ResizeObserver);
+  // the measurement takes over once it lands, longer than the estimate or not.
+  const estimate = (notice ? 72 : 0) + (count > 0 ? 64 : 0);
+  const room = dockHeight > 0 ? Math.max(dockHeight, estimate) : estimate;
 
   useEffect(() => {
     writeStoredDraft(organiserId, drafts);
@@ -240,9 +256,15 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
         />
       )}
       {dataRouter && <LeaveGuard active={count > 0} onSave={save} onDiscard={discard} />}
-      {/* Room for the bar, so it never covers the page's last row. */}
-      {(count > 0 || notice) && <div aria-hidden="true" style={{ height: count > 0 ? 112 : 64 }} />}
-      <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 50, pointerEvents: 'none', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {/* Room at the very END of the page (after the footer and AppChrome's
+          64px + safe-area nav spacer), so at full scroll the bar and notice
+          cover nothing: their height plus what the bar's offset adds over 64px. */}
+      {room > 0 && inBody(<div aria-hidden="true" data-testid="eip-spacer" style={{ height: `calc(${room}px + var(--bottom-nav-h, 68px) - 64px)` }} />)}
+      {/* In document.body (see layers.tsx), sitting ON TOP of the BottomNav's
+          row, never under it: the nav is on every organiser page at every width
+          (AppChrome hides it only on the home map), so the offset is constant. */}
+      {inBody(
+      <div ref={dockRef} data-testid="eip-dock" style={{ position: 'fixed', left: 0, right: 0, bottom: `calc(${BOTTOM_NAV_OFFSET})`, zIndex: BAR_Z, pointerEvents: 'none' }}>
         <div aria-live="polite" role="status" style={{ pointerEvents: 'auto' }}>
           {notice && (
             <div data-testid="eip-notice" data-tone={notice.tone} style={{ margin: '0 8px 6px', padding: '8px 12px', borderRadius: 12, fontSize: 13.5, lineHeight: 1.35, display: 'flex', gap: 8, alignItems: 'center', background: notice.tone === 'error' ? '#3A1712' : '#1E1A12', color: notice.tone === 'error' ? '#FFB4A2' : GOLD, border: `1px solid ${notice.tone === 'error' ? 'rgba(255,138,112,0.5)' : 'rgba(231,190,110,0.5)'}` }}>
@@ -260,7 +282,8 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
             </button>
           </div>
         )}
-      </div>
+      </div>,
+      )}
     </>
   );
 }
@@ -306,7 +329,7 @@ function useLeaveBlocker(shouldBlock: BlockerFunction): Blocker {
  * Leaving in-app (the back link, any route change) with a draft. Only mounted
  * under a data router (the blocker needs one); the public page always is one.
  */
-function LeaveGuard({ active, onSave, onDiscard }: { active: boolean; onSave: () => Promise<boolean>; onDiscard: () => void }) {
+function LeaveGuard({ active, onSave, onDiscard }: { active: boolean; onSave: () => Promise<boolean>; onDiscard: () => void }): ReactNode {
   const shouldBlock = useCallback<BlockerFunction>(
     ({ currentLocation, nextLocation }) => active && currentLocation.pathname !== nextLocation.pathname,
     [active],
@@ -320,7 +343,7 @@ function LeaveGuard({ active, onSave, onDiscard }: { active: boolean; onSave: ()
   }, [blocked]);
   if (!blocked) return null;
   const stay = () => blocker.reset?.();
-  return (
+  return inBody(
     <>
       <div aria-hidden="true" onClick={stay} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(0,0,0,0.6)' }} />
       <div
@@ -347,6 +370,6 @@ function LeaveGuard({ active, onSave, onDiscard }: { active: boolean; onSave: ()
           <button type="button" disabled={busy} onClick={stay} style={{ ...btn, background: 'none', color: CREAM, border: 'none' }}>Stay here</button>
         </div>
       </div>
-    </>
+    </>,
   );
 }
