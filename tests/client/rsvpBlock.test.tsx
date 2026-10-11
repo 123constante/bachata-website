@@ -5,7 +5,13 @@
  * error-code copy, signed-out and anonymous taps opening sign-in without any
  * RPC, closed nights (cancelled / ended / non-live series) disabled, and the
  * exact RPC names and argument shapes. No network: supabase.rpc is mocked.
+ *
+ * Every case mounts the block the way BentoPage does -- lazyWithRetry inside
+ * Suspense with RsvpBlockPlaceholder as the fallback -- so the behaviours are
+ * proven through the lazy boundary, and the placeholder is pinned to the same
+ * box as the block (no layout shift when the chunk lands).
  */
+import { Suspense } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -21,7 +27,9 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: h.user, isLoading: f
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: h.rpc } }));
 vi.mock('sonner', () => ({ toast: { error: h.toastError } }));
 
-import { RsvpBlock } from '@/modules/event-page/bento/blocks/RsvpBlock';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import type { RsvpBlock } from '@/modules/event-page/bento/blocks/RsvpBlock';
+import { RsvpBlockPlaceholder } from '@/modules/event-page/bento/blocks/RsvpBlockPlaceholder';
 import { rsvpErrorMessage } from '@/modules/event-page/hooks/useOccurrenceRsvp';
 import { eventPageQueryKey } from '@/modules/event-page/useEventPageQuery';
 import type { EventPageSnapshot, EventPageSnapshotOccurrence } from '@/modules/event-page/types';
@@ -52,6 +60,14 @@ const occ = (over: Partial<EventPageSnapshotOccurrence> = {}) =>
     ...over,
   }) as EventPageSnapshotOccurrence;
 
+// Same boundary as BentoPage. React caches a resolved lazy(), so the placeholder
+// case builds a fresh one to see the fallback.
+const makeLazyRsvpBlock = () =>
+  lazyWithRetry(() =>
+    import('@/modules/event-page/bento/blocks/RsvpBlock').then((m) => ({ default: m.RsvpBlock })),
+  );
+const LazyRsvpBlock = makeLazyRsvpBlock();
+
 let qc: QueryClient;
 
 const seedSnapshot = (goingCount: number) =>
@@ -64,22 +80,34 @@ const seedSnapshot = (goingCount: number) =>
 const snapshotGoing = () =>
   qc.getQueryData<EventPageSnapshot>(eventPageQueryKey(PAGE_ID, null))?.attendance.goingCount;
 
-const mount = (props: Partial<Parameters<typeof RsvpBlock>[0]> = {}) =>
-  render(
+const tree = (props: Partial<Parameters<typeof RsvpBlock>[0]> = {}, Block = LazyRsvpBlock) => {
+  const goingCountLabel = `${snapshotGoing() ?? 4} going`;
+  return (
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={['/event/some-night?occurrenceId=' + OCC]}>
-        <RsvpBlock
-          pageEventId={PAGE_ID}
-          publicEventId={PUBLIC_ID}
-          occurrenceId={OCC}
-          occurrence={occ()}
-          seriesLifecycle="live"
-          goingCountLabel={`${snapshotGoing() ?? 4} going`}
-          {...props}
-        />
+        <Suspense fallback={<RsvpBlockPlaceholder goingCountLabel={goingCountLabel} />}>
+          <Block
+            snapshotQueryKey={eventPageQueryKey(PAGE_ID).slice(0, 2)}
+            publicEventId={PUBLIC_ID}
+            occurrenceId={OCC}
+            occurrence={occ()}
+            seriesLifecycle="live"
+            goingCountLabel={goingCountLabel}
+            {...props}
+          />
+        </Suspense>
       </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+};
+
+// Resolves once the lazy chunk has replaced the placeholder.
+const mount = async (props: Partial<Parameters<typeof RsvpBlock>[0]> = {}) => {
+  const view = render(tree(props));
+  await screen.findByTestId('rsvp-block');
+  expect(screen.queryByTestId('rsvp-placeholder')).toBeNull();
+  return view;
+};
 
 const statusSettled = () =>
   waitFor(() => {
@@ -113,7 +141,7 @@ afterEach(cleanup);
 describe('RsvpBlock', () => {
   it('reads the caller status with the exact RPC name and arguments', async () => {
     myStatus = 'going';
-    mount();
+    await mount();
     expect((await screen.findByText("You're Going")).closest('button')?.getAttribute('aria-pressed')).toBe('true');
     expect(h.rpc).toHaveBeenCalledWith('get_my_occurrence_attendance_p5_v1', {
       p_public_event_id: PUBLIC_ID,
@@ -122,7 +150,7 @@ describe('RsvpBlock', () => {
   });
 
   it('tap sets going, tap again clears, with the exact payload', async () => {
-    mount();
+    await mount();
     await statusSettled();
 
     fireEvent.click(screen.getByTestId('rsvp-going'));
@@ -141,7 +169,7 @@ describe('RsvpBlock', () => {
   });
 
   it('interested sets and clears through the same RPC', async () => {
-    mount();
+    await mount();
     await statusSettled();
     fireEvent.click(screen.getByTestId('rsvp-interested'));
     await waitFor(() => expect(screen.getByTestId('rsvp-interested').getAttribute('aria-pressed')).toBe('true'));
@@ -155,7 +183,7 @@ describe('RsvpBlock', () => {
       if (name === 'set_my_occurrence_attendance_p5_v1') return new Promise((r) => { reject = r; });
       return { data: null, error: null };
     });
-    mount();
+    await mount();
     await statusSettled();
 
     fireEvent.click(screen.getByTestId('rsvp-going'));
@@ -187,7 +215,7 @@ describe('RsvpBlock', () => {
     ['anonymous', { id: 'anon', is_anonymous: true }],
   ])('%s: tap opens sign-in and never calls an RPC', async (_label, user) => {
     h.user = user;
-    mount();
+    await mount();
     fireEvent.click(screen.getByTestId('rsvp-going'));
     expect(await screen.findByText('Sign in to RSVP')).toBeTruthy();
     expect(screen.getByText('Log In')).toBeTruthy();
@@ -201,7 +229,7 @@ describe('RsvpBlock', () => {
     ['ended series', { seriesLifecycle: 'ended' }, 'RSVPs are closed for this event'],
   ])('%s: disabled with a reason and never writes', async (_label, props, reason) => {
     myStatus = 'going';
-    mount(props);
+    await mount(props);
     expect((await screen.findByTestId('rsvp-meta')).textContent).toBe(reason);
     // The caller's earlier RSVP still shows on a closed night.
     await screen.findByText("You're Going");
@@ -213,7 +241,7 @@ describe('RsvpBlock', () => {
 
   it('a tap after the night ends on an open page greys out instead of writing', async () => {
     const endsSoon = occ({ startsAt: londonWall(-3_600_000), endsAt: londonWall(60_000) });
-    mount({ occurrence: endsSoon });
+    await mount({ occurrence: endsSoon });
     await statusSettled();
     expect(screen.getByTestId('rsvp-meta').textContent).toBe('4 going');
     const realNow = Date.now;
@@ -234,7 +262,7 @@ describe('RsvpBlock', () => {
         ? new Promise((r) => { resolveGet = r; })
         : Promise.resolve({ data: null, error: null }),
     );
-    mount();
+    await mount();
     await waitFor(() => expect(h.rpc).toHaveBeenCalledWith('get_my_occurrence_attendance_p5_v1', expect.anything()));
     fireEvent.click(screen.getByTestId('rsvp-going'));
     await act(async () => {});
@@ -249,7 +277,7 @@ describe('RsvpBlock', () => {
         ? { data: null, error: { code: '57014', message: 'canceling statement' } }
         : { data: null, error: null },
     );
-    mount();
+    await mount();
     await waitFor(() => expect(screen.getByTestId('rsvp-block').getAttribute('aria-busy')).toBe('false'));
     const reads = () => h.rpc.mock.calls.filter(([n]) => n === 'get_my_occurrence_attendance_p5_v1').length;
     const before = reads();
@@ -261,7 +289,41 @@ describe('RsvpBlock', () => {
   });
 
   it('shows the page going count on an open night', async () => {
-    mount();
+    await mount();
     expect((await screen.findByTestId('rsvp-meta')).textContent).toBe('4 going');
+  });
+
+  it('shows a disabled placeholder with the going count until the lazy chunk lands', async () => {
+    render(tree({}, makeLazyRsvpBlock()));
+    const placeholder = screen.getByTestId('rsvp-placeholder');
+    expect(placeholder.getAttribute('aria-busy')).toBe('true');
+    const buttons = placeholder.querySelectorAll('button');
+    expect(buttons).toHaveLength(2);
+    buttons.forEach((b) => expect(b.disabled).toBe(true));
+    expect(placeholder.textContent).toContain("I'm Going");
+    expect(placeholder.textContent).toContain('Interested');
+    expect(placeholder.textContent).toContain('4 going');
+    // No RPC before the real block mounts.
+    expect(h.rpc).not.toHaveBeenCalled();
+    await screen.findByTestId('rsvp-block');
+    expect(screen.queryByTestId('rsvp-placeholder')).toBeNull();
+  });
+
+  it('the placeholder is the same box as the block (no layout shift)', async () => {
+    // A paused series renders both real buttons in the ghost style, like the placeholder.
+    const { container: real } = await mount({ seriesLifecycle: 'paused' });
+    const { container: ph } = render(<RsvpBlockPlaceholder goingCountLabel="4 going" />);
+    const shape = (root: HTMLElement) => {
+      const section = root.querySelector('section') as HTMLElement;
+      const [going, interested] = Array.from(section.querySelectorAll('button'));
+      const meta = section.querySelector('p') as HTMLElement;
+      return [section, section.firstElementChild as HTMLElement, going, interested, meta].map((el) => [
+        el.className,
+        el.getAttribute('style'),
+      ]);
+    };
+    const realShape = shape(real);
+    expect(realShape[0][1]).toContain('border-color');
+    expect(shape(ph)).toEqual(realShape);
   });
 });

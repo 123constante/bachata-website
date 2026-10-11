@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useState } from 'react';
+import type { QueryKey } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { Check, Heart, Users } from 'lucide-react';
 import { toast } from 'sonner';
@@ -18,8 +19,8 @@ const AuthPromptModal = lazyWithRetry(() =>
 );
 
 type RsvpBlockProps = {
-  /** Route param the snapshot query is keyed by (for cache updates). */
-  pageEventId: string | null;
+  /** eventPageQueryKey(routeParam).slice(0, 2), for the optimistic count. */
+  snapshotQueryKey: QueryKey;
   /** snapshot.eventId -- event_series_p5.public_event_id. */
   publicEventId: string | null;
   /** snapshot.occurrenceId -- the P5 night this page is showing. */
@@ -55,6 +56,8 @@ const closedReason = (
   return null;
 };
 
+// The box, ghost button and meta line are mirrored in RsvpBlockPlaceholder (the
+// Suspense fallback); rsvpBlock.test.tsx fails if the two drift apart.
 const GOING_STYLE: React.CSSProperties = {
   background: 'linear-gradient(180deg, #FFD64B, #FFB200)',
   color: '#3A2603',
@@ -73,7 +76,7 @@ const BTN =
  * opens the site's sign-in prompt and never reaches the RPC.
  */
 export const RsvpBlock = ({
-  pageEventId,
+  snapshotQueryKey,
   publicEventId,
   occurrenceId,
   occurrence,
@@ -98,7 +101,7 @@ export const RsvpBlock = ({
     useOccurrenceRsvp({
       publicEventId,
       occurrenceId,
-      pageEventId,
+      snapshotQueryKey,
       enabled: now !== null,
     });
 

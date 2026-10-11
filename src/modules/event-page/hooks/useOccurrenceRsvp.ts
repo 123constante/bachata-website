@@ -1,8 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { EventPageSnapshot } from '@/modules/event-page/types';
-import { eventPageQueryKey } from '@/modules/event-page/useEventPageQuery';
 
 /**
  * The caller's RSVP for ONE night, via the admin-owned RPCs (admin PR #634,
@@ -51,8 +50,13 @@ type Args = {
   publicEventId: string | null;
   /** The P5 occurrence the page is showing -- the snapshot's occurrence_id. */
   occurrenceId: string | null;
-  /** The id the page's snapshot query is keyed by (the route param). */
-  pageEventId: string | null;
+  /**
+   * eventPageQueryKey(routeParam).slice(0, 2): every occurrence variant of this
+   * page's snapshot. A prop, not an import, because RsvpBlock is a lazy chunk
+   * and importing back into the event route chunk splits that chunk in two
+   * (React Router builds routes with preserveEntrySignatures: 'exports-only').
+   */
+  snapshotQueryKey: QueryKey;
   /** Hold the status read (RsvpBlock waits for its post-mount clock check). */
   enabled: boolean;
 };
@@ -62,13 +66,11 @@ type Args = {
 const bumpGoing = (n: number, prev: RsvpStatus | null, next: RsvpStatus | null) =>
   Math.max(0, n - (prev === 'going' ? 1 : 0) + (next === 'going' ? 1 : 0));
 
-export const useOccurrenceRsvp = ({ publicEventId, occurrenceId, pageEventId, enabled }: Args) => {
+export const useOccurrenceRsvp = ({ publicEventId, occurrenceId, snapshotQueryKey: snapshotPrefix, enabled }: Args) => {
   const { user, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const canRsvp = Boolean(user?.id) && !user?.is_anonymous;
   const statusKey = myOccurrenceRsvpQueryKey(publicEventId, occurrenceId, user?.id);
-  // Every occurrence variant of this page's snapshot (pinned or not).
-  const snapshotPrefix = eventPageQueryKey(pageEventId).slice(0, 2);
 
   const statusQuery = useQuery({
     queryKey: statusKey,
