@@ -1,8 +1,10 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { Suspense, useEffect, useMemo, useState } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { SITE_ORIGIN } from '@/lib/seo';
 import { useEventPage } from '@/modules/event-page/useEventPage';
+import { eventPageQueryKey } from '@/modules/event-page/useEventPageQuery';
 import { useRecordEventView } from '@/modules/event-page/useRecordEventView';
 import { useEventGuestList } from '@/modules/event-page/hooks/useEventGuestList';
 import { useGuestListRealtime } from '@/modules/event-page/hooks/useGuestListRealtime';
@@ -24,6 +26,7 @@ import { DerivedLevelBadge } from '@/modules/event-page/bento/blocks/DerivedLeve
 import { MusicStylesRow } from '@/modules/event-page/bento/blocks/MusicStylesRow';
 import { LevelRatingPrompt } from '@/components/LevelRatingPrompt';
 import { GroupChatBlock } from '@/modules/event-page/bento/blocks/GroupChatBlock';
+import { RsvpBlockPlaceholder } from '@/modules/event-page/bento/blocks/RsvpBlockPlaceholder';
 import { MoreEventsSection } from '@/modules/event-page/sections/MoreEventsSection';
 import type { MoreEventsBlock } from '@/modules/event-page/sections/MoreEventsSection';
 import { VenueBlock } from '@/modules/event-page/bento/blocks/VenueBlock';
@@ -80,6 +83,13 @@ const ERROR_COPY: Record<
     message: 'This event is not publicly available to view.',
   },
 };
+
+// Lazy, behind a same-size placeholder, to keep the RSVP's hook and copy out of
+// /event/:id's first-load JS budget. RsvpBlock must not import anything that
+// lives only in this route's chunk (see useOccurrenceRsvp's snapshotQueryKey).
+const RsvpBlock = lazyWithRetry(() =>
+  import('@/modules/event-page/bento/blocks/RsvpBlock').then((m) => ({ default: m.RsvpBlock })),
+);
 
 // Loading shimmer placeholder sized to fill a tile's content region.
 // Series-termination arc P4b. MoreEventsSection renders twice on an ended page
@@ -675,6 +685,21 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             ticket pill in the sticky bar (a dead date must not advertise a chat). */}
         {!over && !occurrence?.isCancelled && (
           <GroupChatBlock url={pageModel.actions.whatsappLink} eventId={eventId} />
+        )}
+
+        {/* "I'm Going" RSVP for the night on screen -- via the
+            set/get_my_occurrence_attendance_p5_v1 RPCs, never the table. */}
+        {state === 'ready' && snapshot?.eventId && snapshot.occurrenceId && (
+          <Suspense fallback={<RsvpBlockPlaceholder goingCountLabel={pageModel.attendance.goingCountLabel} />}>
+            <RsvpBlock
+              snapshotQueryKey={eventPageQueryKey(eventId).slice(0, 2)}
+              publicEventId={snapshot.eventId}
+              occurrenceId={snapshot.occurrenceId}
+              occurrence={occurrence}
+              seriesLifecycle={snapshot.event.lifecycleStatus}
+              goingCountLabel={pageModel.attendance.goingCountLabel}
+            />
+          </Suspense>
         )}
 
         {/* The rating card already shows the dancer-rated level, so the badge

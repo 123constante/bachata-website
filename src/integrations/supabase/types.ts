@@ -10865,6 +10865,10 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_my_occurrence_attendance_p5_v1: {
+        Args: { p_occurrence_id: string; p_public_event_id: string }
+        Returns: string
+      }
       get_occurrence_override_program_v1: {
         Args: { p_occurrence_id: string }
         Returns: Json
@@ -12038,6 +12042,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_my_occurrence_attendance_p5_v1: {
+        Args: {
+          p_occurrence_id: string
+          p_public_event_id: string
+          p_status?: string
+        }
+        Returns: Json
       }
       set_og_image_v1: {
         Args: {
