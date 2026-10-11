@@ -84,9 +84,13 @@ export interface RowActions {
   canAddPerson: boolean;
 }
 
+/** True when the newest invite is still usable (an owner-granting link that works). */
+export const hasLiveInvite = (invites: readonly InviteRow[]): boolean => latestInvite(invites)?.status === 'sent';
+
 /** Which controls a row offers, and the reason for each one that is disabled. */
-export function rowActions(status: AccessStatus | null): RowActions {
-  const hasLive = status === 'invited';
+export function rowActions(status: AccessStatus | null, invites: readonly InviteRow[] = []): RowActions {
+  // A live link is read from the invites, not the badge: a managed organiser can hold one too.
+  const hasLive = status !== null && hasLiveInvite(invites);
   return {
     canGenerate: status !== null,
     generateConfirms: hasLive,
@@ -98,12 +102,12 @@ export function rowActions(status: AccessStatus | null): RowActions {
 }
 
 /** The sentence under the status: expiry for a live link, the date otherwise. */
-export function statusDetail(status: AccessStatus | null, invites: readonly InviteRow[], fmt: (iso: string) => string): string {
+export function statusDetail(status: AccessStatus | null, invites: readonly InviteRow[], fmt: (iso: string) => string, ownershipFresh = true): string {
   const latest = latestInvite(invites);
   if (status === 'invited' && latest?.expiresAt) return `Link works until ${fmt(latest.expiresAt)}.`;
   if (status === 'invite_expired' && latest?.expiresAt) return `The last link ran out on ${fmt(latest.expiresAt)}.`;
-  if (status === 'managed') return 'Has an owner.';
-  if (status === 'unclaimed') return latest?.status === 'revoked' ? 'The last link was revoked.' : latest?.status === 'used' ? 'The last link was used, but the owner has since left.' : 'No link sent yet.';
+  if (status === 'managed') return latest?.status === 'sent' && latest.expiresAt ? `Has an owner. Link works until ${fmt(latest.expiresAt)}.` : 'Has an owner.';
+  if (status === 'unclaimed') return latest?.status === 'revoked' ? 'The last link was revoked.' : latest?.status === 'used' ? (ownershipFresh ? 'The last link was used, but the owner has since left.' : 'The last link was used.') : 'No link sent yet.';
   return '';
 }
 

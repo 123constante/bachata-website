@@ -109,7 +109,7 @@ describe('/admin/organisers x viewer', () => {
     expect(h.rpc.mock.calls.map((c) => c[0])).toEqual(['admin_is_admin']);
   });
 
-  it('admin: the list, breadcrumbs, and no invite read for a managed organiser', async () => {
+  it('admin: the list, breadcrumbs, and an invite read for every visible row, managed included', async () => {
     h.auth.user = { id: 'a1' };
     rpcImpl(true);
     mount('/admin/organisers');
@@ -117,7 +117,7 @@ describe('/admin/organisers x viewer', () => {
     expect(screen.getByTestId('layout').getAttribute('data-crumbs')).toBe('Organiser access');
     await waitFor(() => expect(screen.getAllByTestId('organiser-row').map((r) => r.getAttribute('data-status'))).toEqual(['unclaimed', 'invited', 'invite_expired', 'managed']));
     const listed = h.rpc.mock.calls.filter((c) => c[0] === 'admin_list_organiser_invites_v1').map((c) => (c[1] as { p_organiser_id: string }).p_organiser_id).sort();
-    expect(listed).toEqual(['o-ex', 'o-in', 'o-un']);
+    expect(listed).toEqual(['o-ex', 'o-in', 'o-mg', 'o-un']);
   });
 
   it('the counts use the same mapping as the rows', async () => {

@@ -111,13 +111,13 @@ function AddPerson({ organiser }: { organiser: AdminOrganiser }) {
   );
 }
 
-function RowDetail({ organiser, status, invites, issued, warn, loadError, onIssued, onDone, onRetry }: {
-  organiser: AdminOrganiser; status: AccessStatus | null; invites: readonly InviteRow[];
+function RowDetail({ organiser, status, invites, fresh, issued, warn, loadError, onIssued, onDone, onRetry }: {
+  organiser: AdminOrganiser; status: AccessStatus | null; invites: readonly InviteRow[]; fresh: boolean;
   issued: string | undefined; warn: boolean; loadError: boolean;
   onIssued: (link: string) => void; onDone: () => void; onRetry: () => void;
 }) {
   const queryClient = useQueryClient();
-  const actions = rowActions(status);
+  const actions = rowActions(status, invites);
   const [confirming, setConfirming] = useState(false);
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: adminInvitesQueryKey(organiser.id) });
@@ -128,7 +128,7 @@ function RowDetail({ organiser, status, invites, issued, warn, loadError, onIssu
     onSuccess: (r) => { onIssued(inviteUrl(window.location.origin, r.token)); setConfirming(false); refresh(); },
   });
   const revoke = useMutation({ mutationFn: () => revokeOrganiserInvite(organiser.id), onSuccess: refresh });
-  const detail = statusDetail(status, invites, (iso) => instantDateLabel(iso) ?? iso);
+  const detail = statusDetail(status, invites, (iso) => instantDateLabel(iso) ?? iso, fresh);
   const busy = generate.isPending || revoke.isPending;
   const err = generate.isError ? generate.error : revoke.isError ? revoke.error : null;
   return (
@@ -172,13 +172,17 @@ function AdminOrganisersBody() {
   // One-time links by organiser id. Page state only: never the query cache, storage, a log or Sentry.
   const [issued, setIssued] = useState<Record<string, string>>({});
   const [warned, setWarned] = useState(false);
+  const queryClient = useQueryClient();
+  // Ownership changes behind the page's back (a link is redeemed elsewhere), so the open row re-reads it.
+  const refreshOwnership = (id: string) => void queryClient.invalidateQueries({ queryKey: adminOwnershipQueryKey(id) });
   const toggleRow = (id: string) => {
     // A row holding an unseen link cannot be closed or left until the admin taps Done.
     if (open !== null && issued[open]) { setWarned(true); return; }
     setWarned(false);
+    if (open !== id) refreshOwnership(id);
     setOpen(open === id ? null : id);
   };
-  const forget = (id: string) => { setWarned(false); setIssued((m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== id))); };
+  const forget = (id: string) => { refreshOwnership(id); setWarned(false); setIssued((m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== id))); };
   const list = useQuery({ queryKey: ADMIN_ORGANISERS_KEY, queryFn: fetchAdminOrganisers, staleTime: 60_000 });
   const filtered = useMemo(() => {
     const all = list.data ?? [];
@@ -187,8 +191,8 @@ function AdminOrganisersBody() {
   }, [list.data, query]);
   const visible = filtered.slice(0, limit);
 
-  // Ownership is one tiny read per organiser. Invites are per organiser too, so they load
-  // only for the visible, unmanaged rows -- never for all of them up front.
+  // Ownership is one tiny read per organiser. Invites are per organiser too and load for the
+  // visible rows only (managed or not: an owned organiser can still hold a live link).
   const managed = useQueries({
     queries: visible.map((o) => ({ queryKey: adminOwnershipQueryKey(o.id), queryFn: () => fetchIsManaged(o.id), staleTime: 60_000 })),
   });
@@ -197,16 +201,15 @@ function AdminOrganisersBody() {
     queries: visible.map((o) => ({
       queryKey: adminInvitesQueryKey(o.id),
       queryFn: () => fetchOrganiserInvites(o.id),
-      enabled: managedById.get(o.id) === false,
       staleTime: 30_000,
     })),
   });
   const rows = visible.map((o, i) => {
     const isManaged = managedById.get(o.id);
     const invites = invitesQ[i]?.data ?? null;
-    const status = isManaged === undefined ? null : accessStatus(isManaged, isManaged ? [] : invites);
+    const status = isManaged === undefined ? null : accessStatus(isManaged, invites);
     const failed = managed[i]?.isError ? managed[i] : invitesQ[i]?.isError ? invitesQ[i] : null;
-    return { organiser: o, status, invites: invites ?? [], retry: failed ? () => void failed.refetch() : null };
+    return { organiser: o, status, invites: invites ?? [], fresh: !managed[i]?.isFetching, retry: failed ? () => void failed.refetch() : null };
   });
   const counts = new Map<AccessStatus, number>();
   for (const r of rows) if (r.status) counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
@@ -233,7 +236,7 @@ function AdminOrganisersBody() {
         <p className="rounded-lg border border-border p-3 text-sm text-muted-foreground" data-testid="admin-empty">{query.trim() ? `No organiser matches “${query.trim()}”. Clear the search to see them all.` : 'There are no organisers yet.'}</p>
       ) : (
         <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-          {rows.map(({ organiser, status, invites, retry }) => (
+          {rows.map(({ organiser, status, invites, fresh, retry }) => (
             <li key={organiser.id} data-testid="organiser-row" data-status={status ?? 'loading'}>
               <button type="button" className="flex min-h-[48px] w-full items-center justify-between gap-2 px-3 py-2 text-left" aria-expanded={open === organiser.id} onClick={() => toggleRow(organiser.id)}>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{organiser.name}</span>
@@ -241,7 +244,7 @@ function AdminOrganisersBody() {
               </button>
               {open === organiser.id && (
                 <RowDetail
-                  organiser={organiser} status={status} invites={invites}
+                  organiser={organiser} status={status} invites={invites} fresh={fresh}
                   issued={issued[organiser.id]} warn={warned}
                   loadError={retry !== null} onRetry={() => retry?.()}
                   onIssued={(link) => setIssued((m) => ({ ...m, [organiser.id]: link }))}

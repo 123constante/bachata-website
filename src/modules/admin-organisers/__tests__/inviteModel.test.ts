@@ -59,7 +59,7 @@ describe('rowActions x status', () => {
     ['invite_expired', { gen: true, confirms: false, revoke: false }],
     ['managed', { gen: true, confirms: false, revoke: false }],
   ] as const)('%s', (status, want) => {
-    const a = rowActions(status);
+    const a = rowActions(status, status === 'invited' ? [inv('sent')] : []);
     expect([a.canGenerate, a.generateConfirms, a.canRevoke]).toEqual([want.gen, want.confirms, want.revoke]);
     // a control that cannot work says why
     if (!a.canRevoke) expect(a.revokeNote).toMatch(/no live link/);
