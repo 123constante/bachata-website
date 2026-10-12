@@ -64,7 +64,9 @@ beforeEach(() => {
   setHidden(false);
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('flagClock', () => {
   it('100 flags share ONE loop, and only the visible ones are drawn', async () => {

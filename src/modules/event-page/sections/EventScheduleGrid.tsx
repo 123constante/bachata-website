@@ -6,7 +6,7 @@ import { optimizedImageUrl } from '@/lib/imageCdn';
 import { cn } from '@/lib/utils';
 import { formatWallClockTime, wallClockDateKey, wallClockExactDateKey } from '@/lib/time/wallClock';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
-import { normaliseNationalityCode } from '@/components/people/nationality';
+
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 // Exported so the new bento ScheduleBlock can reuse this hook without
@@ -419,17 +419,19 @@ export function parseProgramItems(data: unknown): ScheduleSession[] {
     });
 }
 
-/** profile_id -> nationality_code from a get_event_program_v1 / get_occurrence_program_v1 payload. */
-export function parseProgrammeNationalities(data: unknown): Map<string, string> {
+/**
+ * profile id -> stored nationality from dancer_profiles rows ({ id, nationality }); blank
+ * rows are left out. The value is passed through as stored: NationalityFlag applies the
+ * one rule (components/people/nationality) when it renders, so this route's first load
+ * does not carry that module (perf-budgets.json).
+ */
+export function parseProgrammeNationalities(rows: unknown): Map<string, string> {
   const out = new Map<string, string>();
-  for (const item of Array.isArray(data) ? data : []) {
-    const people = item && typeof item === 'object' ? (item as { people?: unknown }).people : null;
-    for (const p of Array.isArray(people) ? people : []) {
-      if (!p || typeof p !== 'object') continue;
-      const id = (p as { profile_id?: unknown }).profile_id;
-      const code = normaliseNationalityCode((p as { nationality_code?: unknown }).nationality_code);
-      if (typeof id === 'string' && code) out.set(id, code);
-    }
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!r || typeof r !== 'object') continue;
+    const id = (r as { id?: unknown }).id;
+    const raw = (r as { nationality?: unknown }).nationality;
+    if (typeof id === 'string' && typeof raw === 'string' && raw.trim()) out.set(id, raw.trim());
   }
   return out;
 }
@@ -445,27 +447,29 @@ export function withNationalities(sessions: ScheduleSession[], codes: ReadonlyMa
 }
 
 /**
- * The programme's nationality codes. event_view_p5 (the programme read) does not
- * emit nationality_code; the two programme reads that do are asked once, only when
- * the programme has people, and never block the schedule: flags appear when this
- * answers, and an error just means no flags.
+ * The programme people's nationality codes. event_view_p5 (the programme read) does
+ * not emit nationality_code, and the programme reads that do are retired on this site
+ * (check:legacy-program-rpcs), so the stored alpha-2 is read straight from
+ * dancer_profiles -- the same public, anon-granted column the dancer pages read -- for
+ * the people on the programme, active and not archived only. Asked once per set of
+ * people and never blocks the schedule: flags appear when it answers; an error means
+ * no flags.
  */
-export function useProgrammeNationalities(
-  target: { eventId?: string | null; occurrenceId?: string | null },
-  enabled: boolean,
-) {
-  const occ = target.occurrenceId ?? null;
-  const ev = occ ? null : target.eventId ?? null;
+export function useProgrammeNationalities(profileIds: readonly string[]) {
+  const ids = Array.from(new Set(profileIds)).sort();
   return useQuery<Map<string, string>>({
-    queryKey: ['programme-nationalities', occ ? 'occ' : 'event', occ ?? ev],
+    queryKey: ['programme-nationalities', ids.join(',')],
     queryFn: async () => {
-      const { data, error } = occ
-        ? await supabase.rpc('get_occurrence_program_v1', { p_occurrence_id: occ })
-        : await supabase.rpc('get_event_program_v1', { p_event_id: ev as string });
+      const { data, error } = await supabase
+        .from('dancer_profiles')
+        .select('id, nationality')
+        .in('id', ids)
+        .or('is_active.is.null,is_active.eq.true')
+        .is('archived_at', null);
       if (error || !data) return new Map();
       return parseProgrammeNationalities(data);
     },
-    enabled: enabled && Boolean(occ ?? ev),
+    enabled: ids.length > 0,
     staleTime: 1000 * 60 * 10,
   });
 }

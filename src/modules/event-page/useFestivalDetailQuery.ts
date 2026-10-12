@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { safeExternalHref } from '@/lib/url';
-import { normaliseNationalityCode } from '@/components/people/nationality';
+
 import { asEventTimeZone, asInstant, asWallClock, type Instant, type WallClock } from '@/lib/time/wallClock';
 import type {
   FestivalArtist,
@@ -67,7 +67,8 @@ const parseArtist = (raw: unknown): FestivalArtist | null => {
     displayName: asString(obj.display_name),
     avatarUrl: asString(obj.avatar_url),
     href: null,
-    nationalityCode: normaliseNationalityCode(obj.nationality_code),
+    // As emitted; NationalityFlag applies the one rule when it renders.
+    nationalityCode: asString(obj.nationality_code),
   };
 };
 

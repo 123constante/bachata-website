@@ -1119,12 +1119,9 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
   const { data: programSections = [] } = useProgramSections(eventId);
 
   // Nationality flags: the programme read does not carry nationality_code, so the
-  // matching programme read that does is asked once, only when someone is on it.
-  const programmeHasPeople = rawSessions.some((s) => s.people.length > 0);
-  const { data: nationalityCodes } = useProgrammeNationalities(
-    useSeries ? { eventId } : { occurrenceId },
-    programmeHasPeople,
-  );
+  // people on it are looked up once (only when someone is on it).
+  const programmeIds = useMemo(() => rawSessions.flatMap((s) => s.people.map((p) => p.id)), [rawSessions]);
+  const { data: nationalityCodes } = useProgrammeNationalities(programmeIds);
   const sessions = useMemo(
     () => normalize(withNationalities(rawSessions, nationalityCodes)),
     [rawSessions, nationalityCodes],

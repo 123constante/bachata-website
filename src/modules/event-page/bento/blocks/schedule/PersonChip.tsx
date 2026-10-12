@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Person } from '@/modules/event-page/sections/EventScheduleGrid';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
-import { NationalityFlag } from '@/components/people/NationalityFlag';
+// Lazy: /event/:id has a first-load budget (perf-budgets.json); the flag's code and
+// artwork load only when a person on the programme has a nationality.
+const NationalityFlag = lazy(() => import('@/components/people/NationalityFlag'));
 
 // --- PersonChip - atomic per-person render primitive ---
 //
@@ -185,7 +187,11 @@ const AvatarCircle = ({
         <span>{initialFor(person.name)}</span>
       )}
     </div>
-    <NationalityFlag code={person.nationalityCode} size={t.avatarPx} />
+    {person.nationalityCode ? (
+      <Suspense fallback={null}>
+        <NationalityFlag code={person.nationalityCode} size={t.avatarPx} />
+      </Suspense>
+    ) : null}
     </div>
   );
 };
