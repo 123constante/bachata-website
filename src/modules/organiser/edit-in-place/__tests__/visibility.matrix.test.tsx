@@ -172,6 +172,31 @@ describe('the owner layer on the live public page', () => {
     expect(document.body.textContent).not.toMatch(/sent for review|pending review/i);
   });
 
+  // The Team card (team picker) reads organiser_team_v1 under ['organiser-team', id]. The
+  // page's public line-up query once used that SAME key, so the layer got the line-up
+  // array, saw no role, and an owner never got the card. Owner: card; manager: none.
+  it.each([
+    ['owner', 'owner', true],
+    ['manager', 'manager', false],
+  ] as const)('the Team card through the real page: %s -> shown %s', async (_n, role, shown) => {
+    h.user = ME;
+    h.ownership = { is_managed: true, i_own_it: role === 'owner', my_role: role };
+    h.rpc.mockImplementation(async (fn: string) => (fn === 'organiser_team_v1'
+      ? { data: { my_role: role, members: [{ user_id: 'me', member_role: role, is_me: true }] }, error: null }
+      : { data: null, error: null }));
+    renderPage();
+    await screen.findByTestId('eip-contact');
+    await waitFor(() => expect(h.rpc.mock.calls.some(([fn]) => fn === 'organiser_team_v1')).toBe(true));
+    if (shown) {
+      expect((await screen.findByTestId('eip-team')).textContent).toContain('Add a person');
+    } else {
+      await new Promise((res) => setTimeout(res, 50));
+      expect(screen.queryByTestId('eip-team')).toBeNull();
+    }
+    expect(screen.queryByRole('button', { name: 'Edit profile' })).toBeNull();
+    h.rpc.mockReset();
+  });
+
   it('switching organiser remounts the layer: one organiser\'s draft never lands on another', async () => {
     // A manager of two organisers (prod has one such user) with a draft on the other one.
     window.localStorage.setItem(`bc:organiser-edit-draft:v1:${OTHER_ID}`, JSON.stringify({ v: 1, fields: { bio: 'Other crew draft' } }));

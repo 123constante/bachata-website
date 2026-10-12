@@ -52,6 +52,27 @@ const searchCityRows = (q, limit) => SEARCH_CITY_NAMES
   .filter((r) => r.display_name.toLowerCase().includes(String(q ?? '').toLowerCase()))
   .slice(0, Number(limit) || 20);
 
+// The team picker's search (organiser_team_search_people_v1, admin #773): matched
+// on the name with accents folded, capped at p_limit (at most 8), nothing under two
+// letters. Shapes from the prod survey: most have no photo; plus an accented name,
+// a long name and a missing city, so the rows are checked against all of them.
+// "an" matches more than three, so the list must scroll inside the sheet.
+const PHOTO = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23c8348f'/%3E%3C/svg%3E";
+export const TEAM_PEOPLE = [
+  { profile_id: 'd0000000-0000-4000-8000-0000000000d1', display_name: 'Ana Ruiz', photo_url: PHOTO, city_name: 'London' },
+  { profile_id: 'd0000000-0000-4000-8000-0000000000d2', display_name: 'José Ñúñez', photo_url: null, city_name: 'Málaga' },
+  { profile_id: 'd0000000-0000-4000-8000-0000000000d3', display_name: 'Marta Lopez', photo_url: null, city_name: null },
+  { profile_id: 'd0000000-0000-4000-8000-0000000000d4', display_name: 'Maria Fernanda de los Ángeles Rodríguez-Villanueva', photo_url: null, city_name: 'Manchester' },
+  { profile_id: 'd0000000-0000-4000-8000-0000000000d5', display_name: 'Daniel Santos', photo_url: null, city_name: 'Leeds' },
+  { profile_id: 'd0000000-0000-4000-8000-0000000000d6', display_name: 'Joanna Kent', photo_url: null, city_name: 'Bristol' },
+];
+const fold = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const searchPeopleRows = (q, limit) => {
+  const term = fold(q).trim();
+  if (term.length < 2) return [];
+  return TEAM_PEOPLE.filter((p) => fold(p.display_name).includes(term)).slice(0, Math.min(Number(limit) || 8, 8));
+};
+
 const LONG = 'Weekly bachata socials and classes in central London. '.repeat(6).trim();
 
 /** Table rows, filtered by eq./is./in. query params. Shapes follow the public column lists. */
@@ -147,6 +168,13 @@ export const RPCS = {
     ? { contact_phone: '+44 7700 900123', contact_email: 'hello@example.com', show_phone_publicly: true, show_email_publicly: false, show_contact_publicly: true, claim_email: null }
     : { contact_phone: null, contact_email: 'hello@example.com', show_phone_publicly: true, show_email_publicly: false, show_contact_publicly: true, claim_email: null }),
   search_cities: (args) => searchCityRows(args.p_query, args.p_limit),
+  // The signed-in owner's team read (organiser_team_v1): they are the sole owner, as on 3 of 4 managed organisers on prod.
+  organiser_team_v1: (args) => ({
+    organiser_id: args.p_organiser_id,
+    my_role: 'owner',
+    members: [{ user_id: '11111111-1111-4111-8111-111111111111', member_role: 'owner', is_primary: true, joined_at: '2026-01-01T00:00:00Z', is_me: true, email: 'owner@ritmo.example' }],
+  }),
+  organiser_team_search_people_v1: (args) => searchPeopleRows(args.p_query, args.p_limit),
   // ORG2's nights: no dated occurrence rows, so the page lists them as upcoming
   // (the base-date fallback); every other organiser has none.
   get_organiser_public_events_v1: (args) => (args.p_organiser_id === ORG2_ID ? [
@@ -157,6 +185,9 @@ export const RPCS = {
 
 /** RPCs that change state are refused, so an accidental Save can never "succeed" here. */
 const WRITE_RPC_RE = /^(?:record|save|create|update|delete|remove|upsert|insert|submit|set|claim|redeem|upload|add|cancel|publish|invite|accept|reject|transfer|rate|vote)_/;
+
+/** The organiser team writes (their names do not start with a write verb). */
+const TEAM_WRITE_RPC_RE = /^organiser_(?:team_(?:add|set|remove)_|transfer_)/;
 
 const json = (status, body) => ({ status, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
@@ -196,7 +227,7 @@ export function answer(req) {
   if (path.startsWith('/auth/v1/')) return json(200, {});
   if (path.startsWith('/rest/v1/rpc/')) {
     const name = path.slice('/rest/v1/rpc/'.length);
-    if (WRITE_RPC_RE.test(name)) return json(403, { message: `fake supabase: write RPC ${name} is refused` });
+    if (WRITE_RPC_RE.test(name) || TEAM_WRITE_RPC_RE.test(name)) return json(403, { message: `fake supabase: write RPC ${name} is refused` });
     if (!Object.prototype.hasOwnProperty.call(RPCS, name)) return json(200, []);
     const a = RPCS[name];
     // A function answer reads the call's arguments (POST body, or GET query params).

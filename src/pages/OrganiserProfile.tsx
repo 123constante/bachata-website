@@ -21,7 +21,7 @@ import {
 import { fetchClaimHint, myAccessRequestsQueryKey, organiserClaimHintQueryKey, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { isMailboxProvenToken } from '@/modules/organiser/shared/sessionProof';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Pencil, Loader2, ChevronLeft } from 'lucide-react';
+import { Loader2, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -705,7 +705,10 @@ const OrganiserProfile = () => {
   });
 
   const { data: teamMembers = [], isLoading: teamMembersLoading } = useQuery({
-    queryKey: ['organiser-team', id],
+    // The public line-up (organiser_team_members), NOT organiser_team_v1's access team,
+    // whose key is ['organiser-team', id] (teamRpcApi): sharing it fed this array to the
+    // owner layer's team read, so the Team card never showed.
+    queryKey: ['organiser-lineup', id],
     queryFn: async (): Promise<TeamMember[]> => {
       if (!id) return [];
       const { data: teamRows, error } = await supabase
@@ -1187,13 +1190,9 @@ const OrganiserProfile = () => {
             ))}
           </div>
 
-          <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, display: 'flex', gap: 8 }}>
-            {facts.canEdit && (
-              <button onClick={() => void openEditModal()} aria-label="Edit profile" style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(12,10,13,0.5)', backdropFilter: 'blur(6px)', border: '1px solid rgba(246,241,234,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.cream, cursor: 'pointer' }}>
-                <Pencil className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+          {/* No top-right "Edit profile" button (owner decision, 2026-10-12): the
+              owner layer's pencils edit each item in place, and a wholly blank
+              profile still offers "Complete your profile" below. */}
 
           {/* Mobile */}
           {(isMobile !== false) && <div style={{ position: 'relative', minHeight: 320, height: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 26, paddingLeft: 24, paddingRight: 24, textAlign: 'center' }}>
@@ -1300,6 +1299,7 @@ const OrganiserProfile = () => {
         )}
         {eip?.slot('contact')}
         {eip?.slot('links')}
+        {eip?.slot('team')}
 
         {/* W7 (mockup 06-A): "Is this you?" while the organiser is unclaimed.
             Renders nothing when the flag is off or the organiser is managed;
@@ -1327,8 +1327,8 @@ const OrganiserProfile = () => {
 
         {/* EMPTY STATES -- one decision (organiserEmptyState): nothing upcoming
             always says so and offers somewhere to go, whatever else the profile
-            has. The owner of a wholly blank profile is pointed at Edit profile
-            too.
+            has. The owner of a wholly blank profile is offered "Complete your
+            profile" too (the form dialog; the hero has no Edit profile button).
 
             The owner layer adds its Create event link beside "Browse upcoming
             nights" (and beside "Complete your profile"); it is only loaded for an

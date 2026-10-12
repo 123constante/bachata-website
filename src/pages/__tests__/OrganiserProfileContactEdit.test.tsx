@@ -7,6 +7,10 @@
  * new flags on the server, so the dialog must never send it, nor the phone (the
  * sheet owns it), nor contact_email (admin-only). Shapes: flag off / on, no
  * phone, settings read refused, untouched save, an edited bio.
+ *
+ * The hero's top-right "Edit profile" button is gone (owner decision,
+ * 2026-10-12); the dialog now opens only from a wholly blank profile's
+ * "Complete your profile", so the organiser here has no bio yet.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -28,7 +32,7 @@ vi.mock('@/lib/seo', async (orig) => ({
 }));
 vi.mock('@/modules/profile/organiserPublicProfile', async (orig) => ({
   ...(await orig<typeof import('@/modules/profile/organiserPublicProfile')>()),
-  fetchOrganiserEntity: async () => ({ id: 'org-1', name: 'Ritmo', avatar_url: null, bio: 'Hi', socials: null, city_id: 'c1', instagram: null, website: null, cities: { name: 'Leeds', slug: 'leeds' } }),
+  fetchOrganiserEntity: async () => ({ id: 'org-1', name: 'Ritmo', avatar_url: null, bio: null, socials: null, city_id: 'c1', instagram: null, website: null, cities: { name: 'Leeds', slug: 'leeds' } }),
   fetchOrganiserEvents: async () => [],
   fetchOrganiserFutureOccEvents: async () => [],
   fetchOrganiserPastOccEvents: async () => [],
@@ -85,8 +89,12 @@ async function openForm() {
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  const edit = await screen.findByLabelText('Edit profile');
-  // The owner layer reads the contact settings for its own Contact card; let it settle first.
+  const edit = await screen.findByRole('button', { name: 'Complete your profile' });
+  expect(screen.queryByRole('button', { name: 'Edit profile' })).toBeNull();
+  // The owner layer reads the contact settings for its own Contact card; let it settle first
+  // (its lazy chunk can land after the button shows, so wait for its card and its one read).
+  await screen.findByTestId('eip-contact');
+  await waitFor(() => expect(settingsReads()).toBeGreaterThan(0));
   await new Promise((r) => setTimeout(r, 50));
   readsBeforeOpen = settingsReads();
   fireEvent.click(edit);
