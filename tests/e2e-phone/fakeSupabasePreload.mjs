@@ -11,7 +11,10 @@ globalThis.fetch = async function fakeSupabaseFetch(input, init) {
   if (!url.startsWith(FAKE_ORIGIN)) return realFetch(input, init);
   const headers = Object.fromEntries(new Headers(init?.headers ?? req?.headers ?? {}).entries());
   const method = init?.method ?? req?.method ?? 'GET';
-  const res = answer({ method, url, headers });
+  // The RPC args (an arg-aware answer reads them); supabase-js sends a JSON string body.
+  const rawBody = init?.body ?? (req ? await req.clone().text() : null);
+  const body = typeof rawBody === 'string' ? rawBody : null;
+  const res = answer({ method, url, headers, body });
   if (process.env.FAKE_SUPABASE_LOG) console.log(`[fake-supabase] ssr ${method} ${url.slice(FAKE_ORIGIN.length)} -> ${res.status}`);
   return new Response(method === 'HEAD' ? null : res.body, { status: res.status, headers: res.headers });
 };

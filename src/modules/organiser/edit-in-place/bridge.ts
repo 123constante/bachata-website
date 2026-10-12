@@ -9,7 +9,11 @@ import type { ProfileEntity } from '@/modules/organiser/profile/profileForm';
 import type { DraftOverlay } from './draftModel';
 import type { FieldKey } from './fieldRules';
 
-export type EipSlot = 'card' | 'photo' | 'meta' | 'about' | 'about-empty' | 'links';
+export type EipSlot =
+  | 'card' | 'photo' | 'name' | 'meta' | 'about' | 'about-empty' | 'links'
+  // The Create event links: beside the "Upcoming events" count, and in the empty
+  // states (never a night yet / past nights only, so the copy can say "first" honestly).
+  | 'create-event' | 'create-first-event' | 'create-another-event';
 
 export interface EipBridge {
   /** Drafted values in the row's own shape; {} with no draft. */

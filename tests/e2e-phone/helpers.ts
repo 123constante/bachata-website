@@ -1,7 +1,7 @@
 import type { Page, Route } from '@playwright/test';
-import { answer, FAKE_ORIGIN, FAKE_REF, ORG_SLUG } from './fakeSupabase.mjs';
+import { answer, FAKE_ORIGIN, FAKE_REF, ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG } from './fakeSupabase.mjs';
 
-export { ORG_SLUG };
+export { ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG };
 
 export const FIXED_NOW = new Date('2026-10-15T11:00:00Z');
 const USER_ID = '11111111-1111-4111-8111-111111111111';
@@ -34,7 +34,7 @@ export async function fakeSupabase(page: Page, opts: { signedInAsOwner?: boolean
     if (opts.signedInAsOwner && new URL(req.url()).pathname === '/auth/v1/user') {
       return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(USER) });
     }
-    const res = answer({ method: req.method(), url: req.url(), headers: req.headers() });
+    const res = answer({ method: req.method(), url: req.url(), headers: req.headers(), body: req.postData() });
     return route.fulfill(res);
   });
 }

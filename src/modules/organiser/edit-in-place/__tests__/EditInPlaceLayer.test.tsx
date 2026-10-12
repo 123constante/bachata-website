@@ -20,6 +20,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn() } })
 import EditInPlaceLayer from '../EditInPlaceLayer';
 import type { EipBridge } from '../bridge';
 import { ADDED_MESSAGE, SAVE_COPY, buildSavePatch, draftStorageKey, restoredMessage, type Drafts } from '../draftModel';
+import { CITY_COPY, NAME_COPY } from '../fieldRules';
 import { organiserEntityQueryKey } from '@/modules/profile/organiserPublicProfile';
 
 const ID = '22222222-2222-4222-8222-222222222222';
@@ -36,8 +37,18 @@ let server: ProfileEntity;
 
 const okRpc = (): Rpc => vi.fn(async (_name: string, args: { p_patch: Record<string, unknown> }) => {
   const p = args.p_patch;
-  server = { ...server, avatar_url: p.avatar_url as string | null, bio: p.bio as string | null, instagram: p.instagram as string | null, website: p.website as string | null, organisation_category: p.organisation_category as string | null, founded_year: p.founded_year as number | null, socials: p.socials as ProfileEntity['socials'] };
+  server = { ...server, name: p.name as string, city_id: p.city_id as string, avatar_url: p.avatar_url as string | null, bio: p.bio as string | null, instagram: p.instagram as string | null, website: p.website as string | null, organisation_category: p.organisation_category as string | null, founded_year: p.founded_year as number | null, socials: p.socials as ProfileEntity['socials'] };
   return { data: { changed_keys: [], profile: { ...server } }, error: null };
+});
+
+const LONDON = { id: '11111111-1111-4111-8111-111111111111', name: 'London', slug: 'london-gb', country_name: 'United Kingdom', display_name: 'London, United Kingdom' };
+const MANCHESTER = { id: 'c2000000-0000-4000-8000-000000000002', name: 'Manchester', slug: 'manchester-gb', country_name: 'United Kingdom', display_name: 'Manchester, United Kingdom' };
+// The organiser area's search shape ({ id, label }); it needs two letters, as the real one.
+const searchCities = vi.fn(async (q: string) => [LONDON, MANCHESTER].filter((c) => c.display_name.toLowerCase().includes(q.toLowerCase())).map((c) => ({ id: c.id, label: c.display_name })));
+type Resolved = { cityId: string; cityName: string; citySlug: string } | null;
+let resolveCity = vi.fn(async (id: string): Promise<Resolved> => {
+  const c = [LONDON, MANCHESTER].find((x) => x.id === id);
+  return c ? { cityId: c.id, cityName: c.name, citySlug: c.slug } : null;
 });
 
 function Harness({ rpc, uploadPhoto }: { rpc: Rpc; uploadPhoto?: (id: string, f: File) => Promise<string> }) {
@@ -47,13 +58,15 @@ function Harness({ rpc, uploadPhoto }: { rpc: Rpc; uploadPhoto?: (id: string, f:
   return (
     <div>
       {eip?.slot('card')}
+      <h1 data-testid="name" className={eip?.mark('name')}>{ep.name}</h1>{eip?.slot('name')}
+      <p data-testid="city">{ep.cities?.name ?? ''}</p>
       <div data-testid="avatar" data-src={ep.avatar_url ?? ''} style={{ position: 'relative' }}>{eip?.slot('photo')}</div>
       <p data-testid="meta">{ep.organisation_category}{eip?.slot('meta')}</p>
       <h2>About{eip?.slot('about')}</h2>
       {ep.bio ? <p data-testid="bio" className={eip?.mark('bio')}>{ep.bio}</p> : eip?.slot('about-empty')}
       {eip?.slot('links')}
       <Link to="/organisers">Back to organisers</Link>
-      <EditInPlaceLayer organiserId={ID} entity={entity!} onBridge={setEip} client={{ rpc } as never} uploadPhoto={uploadPhoto} />
+      <EditInPlaceLayer organiserId={ID} entity={entity!} onBridge={setEip} client={{ rpc } as never} uploadPhoto={uploadPhoto} searchCities={searchCities} resolveCity={(id) => resolveCity(id)} />
     </div>
   );
 }
@@ -473,3 +486,177 @@ describe('the card disappears for good only once all three are SAVED', () => {
 });
 
 export type { Drafts };
+
+describe('the Name sheet', () => {
+  it('drafts a trimmed name, shows it in place and what will be saved, and saves it in the one call', async () => {
+    const { rpc } = setup();
+    fireEvent.click(await waitFor(() => pencil('name')));
+    const dialog = await screen.findByRole('dialog', { name: 'Name' });
+    const input = within(dialog).getByRole('textbox') as HTMLInputElement;
+    expect(input.value).toBe('Ritmo Latino');
+    expect(document.activeElement).toBe(input);
+    expect(input.style.fontSize).toBe('16px');
+    fireEvent.change(input, { target: { value: '  Ritmo Nuevo ' } });
+    expect(within(dialog).getByTestId('eip-will-save').textContent).toBe('We will save:Ritmo Nuevo');
+    expect(within(dialog).getByTestId('eip-name-counter').textContent).toBe('11 / 80');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(screen.getByTestId('name').textContent).toBe('Ritmo Nuevo'));
+    expect(screen.getByTestId('name').className).toContain('eip-drafted');
+    expect(tags()).toContain('name');
+    expect(rpc).not.toHaveBeenCalled();
+    fireEvent.click(within(bar()!).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+    expect(rpc.mock.calls[0][1].p_patch.name).toBe('Ritmo Nuevo');
+    expect(rpc.mock.calls[0][1].p_patch.city_id).toBe(LONDON.id);
+  });
+
+  it('refuses an empty name and one over 80 characters before Done', async () => {
+    setup();
+    fireEvent.click(await waitFor(() => pencil('name')));
+    const dialog = await screen.findByRole('dialog', { name: 'Name' });
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: '   ' } });
+    expect(within(dialog).getByRole('alert').textContent).toBe(NAME_COPY.required);
+    expect(within(dialog).getByRole('button', { name: 'Done' })).toHaveProperty('disabled', true);
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'R'.repeat(81) } });
+    expect(within(dialog).getByRole('alert').textContent).toBe(NAME_COPY.tooLong(81));
+    expect(within(dialog).getByRole('button', { name: 'Done' })).toHaveProperty('disabled', true);
+  });
+
+  it('a taken name: the server refusal is shown ON the Name field, and the draft is kept', async () => {
+    const rpc: Rpc = vi.fn(async () => ({ data: null, error: { message: 'organiser_name_taken' } }));
+    setup({ rpc });
+    await draft('name', 'Salsa Club');
+    fireEvent.click(within(bar()!).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(notice()).toContain(SAVE_COPY.nameTaken));
+    expect(bar()).not.toBeNull();
+    fireEvent.click(pencil('name'));
+    const dialog = await screen.findByRole('dialog', { name: 'Name' });
+    expect(within(dialog).getByRole('alert').textContent).toBe(NAME_COPY.taken);
+    // A different name is a new try: the refusal no longer applies to it.
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Salsa Club London' } });
+    expect(within(dialog).queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('the City sheet', () => {
+  beforeEach(() => {
+    searchCities.mockClear();
+    resolveCity = vi.fn(async (id: string): Promise<Resolved> => {
+      const c = [LONDON, MANCHESTER].find((x) => x.id === id);
+      return c ? { cityId: c.id, cityName: c.name, citySlug: c.slug } : null;
+    });
+  });
+
+  it('search box at the TOP, the list scrolls INSIDE the sheet, rows are 44px; a pick shows the resolved city', async () => {
+    const { rpc } = setup();
+    fireEvent.click(await waitFor(() => pencil('city')));
+    const dialog = await screen.findByRole('dialog', { name: 'City' });
+    const search = within(dialog).getByRole('searchbox') as HTMLInputElement;
+    expect(document.activeElement).toBe(search);
+    expect(search.style.fontSize).toBe('16px');
+    const list = within(dialog).getByTestId('eip-city-list');
+    // The search box comes before the list in the sheet, and the list is the part that scrolls.
+    expect(search.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(list.style.overflowY).toBe('auto');
+    expect(dialog.style.display).toBe('flex');
+    // Before a search: the stored city, ticked, and how to search.
+    const stored = within(dialog).getAllByRole('radio');
+    expect(stored.map((r) => r.closest('label')!.textContent)).toEqual(['London']);
+    expect((stored[0] as HTMLInputElement).checked).toBe(true);
+    expect(within(dialog).getByText('Type at least two letters of your city.')).toBeTruthy();
+    fireEvent.change(search, { target: { value: 'united' } });
+    await waitFor(() => expect(within(dialog).getAllByRole('radio')).toHaveLength(2));
+    const radios = within(dialog).getAllByRole('radio');
+    expect(radios.map((r) => r.closest('label')!.textContent)).toEqual(['London, United Kingdom', 'Manchester, United Kingdom']);
+    for (const r of radios) expect(r.closest('label')!.style.minHeight).toBe('44px');
+    expect((radios[0] as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(within(dialog).getByLabelText('Manchester, United Kingdom'));
+    await waitFor(() => expect(within(dialog).getByTestId('eip-will-save').textContent).toBe('We will save:Manchester'));
+    expect(resolveCity).toHaveBeenCalledWith(MANCHESTER.id);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(screen.getByTestId('city').textContent).toBe('Manchester'));
+    expect(tags()).toContain('city');
+    fireEvent.click(within(bar()!).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+    expect(rpc.mock.calls[0][1].p_patch.city_id).toBe(MANCHESTER.id);
+    expect(rpc.mock.calls[0][1].p_patch).not.toHaveProperty('city');
+  });
+
+  it('typing searches; free text is never a city (no pick, no new draft)', async () => {
+    setup();
+    fireEvent.click(await waitFor(() => pencil('city')));
+    const dialog = await screen.findByRole('dialog', { name: 'City' });
+    fireEvent.change(within(dialog).getByRole('searchbox'), { target: { value: 'Atlantis' } });
+    await waitFor(() => expect(searchCities).toHaveBeenCalledWith('Atlantis'));
+    await within(dialog).findByText(/No city matches/);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(bar()).toBeNull();
+  });
+
+  it('a picked city the database cannot confirm is refused in the sheet', async () => {
+    resolveCity = vi.fn(async (_id: string): Promise<Resolved> => null);
+    setup();
+    fireEvent.click(await waitFor(() => pencil('city')));
+    const dialog = await screen.findByRole('dialog', { name: 'City' });
+    fireEvent.change(within(dialog).getByRole('searchbox'), { target: { value: 'Man' } });
+    fireEvent.click(await within(dialog).findByLabelText('Manchester, United Kingdom'));
+    await waitFor(() => expect(within(dialog).getByRole('alert').textContent).toBe(CITY_COPY.notFound));
+    expect(within(dialog).getByRole('button', { name: 'Done' })).toHaveProperty('disabled', true);
+  });
+
+  it('a restored City draft shows its city name once resolved', async () => {
+    window.localStorage.setItem(draftStorageKey(ID), JSON.stringify({ v: 1, fields: { city: MANCHESTER.id } }));
+    setup();
+    await waitFor(() => expect(screen.getByTestId('city').textContent).toBe('Manchester'));
+    expect(tags()).toContain('city');
+  });
+});
+
+
+describe('review round 1 fixes', () => {
+  it('a taken STORED name (no Name draft) still shows the refusal in the Name sheet', async () => {
+    const rpc: Rpc = vi.fn(async () => ({ data: null, error: { message: 'organiser_name_taken' } }));
+    setup({ rpc });
+    await draft('website', 'https://ritmo.example');
+    fireEvent.click(within(bar()!).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(notice()).toContain(SAVE_COPY.nameTaken));
+    fireEvent.click(pencil('name'));
+    const dialog = await screen.findByRole('dialog', { name: 'Name' });
+    expect(within(dialog).getByRole('alert').textContent).toBe(NAME_COPY.taken);
+  });
+
+  it('a city the server refused is shown in the City sheet', async () => {
+    const rpc: Rpc = vi.fn(async () => ({ data: null, error: { message: 'city_not_found' } }));
+    setup({ rpc });
+    fireEvent.click(await waitFor(() => pencil('city')));
+    let dialog = await screen.findByRole('dialog', { name: 'City' });
+    fireEvent.change(within(dialog).getByRole('searchbox'), { target: { value: 'Man' } });
+    fireEvent.click(await within(dialog).findByLabelText('Manchester, United Kingdom'));
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Done' })).toHaveProperty('disabled', false));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    fireEvent.click(within(bar()!).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(notice()).toContain('City was not accepted'));
+    fireEvent.click(pencil('city'));
+    dialog = await screen.findByRole('dialog', { name: 'City' });
+    expect(within(dialog).getByRole('alert').textContent).toBe(CITY_COPY.notFound);
+  });
+
+  it('a city check that fails on the network offers Check again, which retries', async () => {
+    let calls = 0;
+    resolveCity = vi.fn(async (id: string): Promise<Resolved> => {
+      calls += 1;
+      if (calls === 1) throw new Error('Failed to fetch');
+      return id === MANCHESTER.id ? { cityId: MANCHESTER.id, cityName: 'Manchester', citySlug: MANCHESTER.slug } : null;
+    });
+    setup();
+    fireEvent.click(await waitFor(() => pencil('city')));
+    const dialog = await screen.findByRole('dialog', { name: 'City' });
+    fireEvent.change(within(dialog).getByRole('searchbox'), { target: { value: 'Man' } });
+    fireEvent.click(await within(dialog).findByLabelText('Manchester, United Kingdom'));
+    await waitFor(() => expect(within(dialog).getByRole('alert').textContent).toBe(CITY_COPY.checkFailed));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Check again' }));
+    await waitFor(() => expect(within(dialog).getByTestId('eip-will-save').textContent).toBe('We will save:Manchester'));
+  });
+});

@@ -21,6 +21,28 @@ export const FAKE_ORIGIN = `https://${FAKE_REF}.supabase.co`;
 export const ORG_ID = 'a0000000-0000-4000-8000-0000000000a1';
 export const ORG_SLUG = 'ritmo-phone-qa';
 export const CITY_ID = 'c1000000-0000-4000-8000-000000000001';
+// A second organiser WITH upcoming nights (the first has none): the "Upcoming
+// events" heading row and its owner-only Create event link need one.
+export const ORG2_ID = 'a0000000-0000-4000-8000-0000000000a2';
+export const ORG2_SLUG = 'salsa-nights-phone-qa';
+// The City sheet's pick (resolveCanonicalCity confirms it against `cities`).
+export const CITY2_ID = 'c1000000-0000-4000-8000-000000000002';
+
+// search_cities, matched on the display name and cut to p_limit (the organiser
+// search asks for 12): "united" matches every row, so the City sheet's list
+// overflows and must scroll inside the sheet at 360x640.
+const SEARCH_CITY_NAMES = ['London', 'Manchester', 'Birmingham', 'Leeds', 'Glasgow', 'Liverpool', 'Bristol', 'Sheffield', 'Edinburgh', 'Leicester',
+  'Coventry', 'Bradford', 'Cardiff', 'Belfast', 'Nottingham', 'Southampton', 'Brighton', 'Newcastle upon Tyne', 'Plymouth', 'Reading'];
+const searchCityRows = (q, limit) => SEARCH_CITY_NAMES
+  .map((name, i) => ({
+    city_id: i === 0 ? CITY_ID : i === 1 ? CITY2_ID : `c1000000-0000-4000-8000-0000000000${String(i + 10).padStart(2, '0')}`,
+    city_name: name,
+    city_slug: `${name.toLowerCase().replace(/\W+/g, '-')}-gb`,
+    country_name: 'United Kingdom',
+    display_name: `${name}, United Kingdom`,
+  }))
+  .filter((r) => r.display_name.toLowerCase().includes(String(q ?? '').toLowerCase()))
+  .slice(0, Number(limit) || 20);
 
 const LONG = 'Weekly bachata socials and classes in central London. '.repeat(6).trim();
 
@@ -52,8 +74,36 @@ export const TABLES = {
       team_member_ids: [],
       created_at: '2024-01-01T00:00:00Z',
     },
+    {
+      id: ORG2_ID,
+      slug: ORG2_SLUG,
+      name: 'Salsa Nights Phone QA',
+      organisation_name: 'Salsa Nights Phone QA',
+      first_name: null,
+      surname: null,
+      bio: 'Monthly socials.',
+      short_bio: 'Monthly socials.',
+      website: null,
+      instagram: 'salsanights',
+      facebook: null,
+      whatsapp: null,
+      email: null,
+      phone: null,
+      photo_url: null,
+      avatar_url: null,
+      cover_url: null,
+      gallery_urls: [],
+      city_id: CITY_ID,
+      is_active: true,
+      lifecycle_status: 'live',
+      team_member_ids: [],
+      created_at: '2024-01-01T00:00:00Z',
+    },
   ],
-  cities: [{ id: CITY_ID, name: 'London', slug: 'london-gb', country_code: 'GB', is_active: true, timezone: 'Europe/London' }],
+  cities: [
+    { id: CITY_ID, name: 'London', slug: 'london-gb', country_code: 'GB', is_active: true, timezone: 'Europe/London' },
+    { id: CITY2_ID, name: 'Manchester', slug: 'manchester-gb', country_code: 'GB', is_active: true, timezone: 'Europe/London' },
+  ],
 };
 
 /** RPC answers by name. Anything unlisted answers [], unless it looks like a write. */
@@ -61,6 +111,13 @@ export const RPCS = {
   organiser_ownership_v1: { is_managed: true, i_own_it: true, my_role: 'owner' },
   // /city/:slug 404s unless the DB vouches for the slug (app/routes/home.tsx).
   is_valid_city_slug: true,
+  search_cities: (args) => searchCityRows(args.p_query, args.p_limit),
+  // ORG2's nights: no dated occurrence rows, so the page lists them as upcoming
+  // (the base-date fallback); every other organiser has none.
+  get_organiser_public_events_v1: (args) => (args.p_organiser_id === ORG2_ID ? [
+    { id: 'e0000000-0000-4000-8000-0000000000e1', name: 'Friday Salsa Social', date: '2099-01-02', start_time: '2099-01-02T20:00:00', is_active: true, poster_url: null, location: 'Studio One', city: 'London' },
+    { id: 'e0000000-0000-4000-8000-0000000000e2', name: 'Saturday Bachata Party', date: '2099-01-03', start_time: '2099-01-03T21:00:00', is_active: true, poster_url: null, location: 'Studio One', city: 'London' },
+  ] : []),
 };
 
 /** RPCs that change state are refused, so an accidental Save can never "succeed" here. */
@@ -82,8 +139,18 @@ function matches(row, key, raw) {
   return not ? !hit : hit;
 }
 
+/** The JSON body of an RPC call ({} when there is none or it is not JSON). */
+function rpcArgs(body) {
+  try {
+    const v = JSON.parse(body || '{}');
+    return v && typeof v === 'object' ? v : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
- * @param {{method: string, url: string, headers?: Record<string, string>}} req
+ * @param {{method: string, url: string, headers?: Record<string, string>, body?: string | null}} req
  * @returns {{status: number, headers: Record<string,string>, body: string}}
  */
 export function answer(req) {
@@ -95,7 +162,11 @@ export function answer(req) {
   if (path.startsWith('/rest/v1/rpc/')) {
     const name = path.slice('/rest/v1/rpc/'.length);
     if (WRITE_RPC_RE.test(name)) return json(403, { message: `fake supabase: write RPC ${name} is refused` });
-    return json(200, Object.prototype.hasOwnProperty.call(RPCS, name) ? RPCS[name] : []);
+    if (!Object.prototype.hasOwnProperty.call(RPCS, name)) return json(200, []);
+    const a = RPCS[name];
+    // A function answer reads the call's arguments (POST body, or GET query params).
+    if (typeof a === 'function') return json(200, a(method === 'GET' ? Object.fromEntries(url.searchParams) : rpcArgs(req.body)));
+    return json(200, a);
   }
   if (path.startsWith('/rest/v1/')) {
     if (method !== 'GET' && method !== 'HEAD') return json(403, { message: 'fake supabase: writes are refused' });

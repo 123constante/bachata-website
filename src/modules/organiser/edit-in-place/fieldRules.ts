@@ -14,6 +14,8 @@ import {
 import { extractDomain, extractIgHandle, facebookDisplayLabel } from '@/lib/organiserLinkLabels';
 
 export type FieldKey =
+  | 'name'
+  | 'city'
   | 'avatar_url'
   | 'founded_year'
   | 'instagram'
@@ -23,6 +25,8 @@ export type FieldKey =
   | 'organisation_category';
 
 export const FIELD_KEYS: readonly FieldKey[] = [
+  'name',
+  'city',
   'avatar_url',
   'founded_year',
   'instagram',
@@ -33,6 +37,8 @@ export const FIELD_KEYS: readonly FieldKey[] = [
 ];
 
 export const FIELD_LABEL: Record<FieldKey, string> = {
+  name: 'Name',
+  city: 'City',
   avatar_url: 'Photo',
   founded_year: 'Year started',
   instagram: 'Instagram',
@@ -93,11 +99,57 @@ const EMPTY_FORM: OrganiserProfileEditForm = {
   name: 'x', avatar_url: '', bio: '', instagram: '', facebook: '', website: '', organisation_category: '', founded_year: '',
 };
 
-/** The patch value buildOrganiserProfilePatch produces for one field's draft. */
-export function patchValue(field: FieldKey, draft: string): string | number | null {
+/** The patch value buildOrganiserProfilePatch produces for one field's draft (not City: it is the patch's city_id). */
+export function patchValue(field: Exclude<FieldKey, 'city'>, draft: string): string | number | null {
   const patch = buildOrganiserProfilePatch({ ...EMPTY_FORM, [field]: draft }, 'x');
   if (field === 'facebook') return (patch.socials as { facebook: string | null }).facebook;
   return patch[field] as string | number | null;
+}
+
+// ---- name -------------------------------------------------------------------------------
+
+// The server's rule (organiser_profile_update_p5_v1 + _self_serve_text_problem_p5,
+// read from prod 2026-10-12): required, at most 80 characters (char_length, so
+// code points), single line (no control character). A name another LIVE
+// organiser already uses (trimmed, any case) is refused as organiser_name_taken:
+// only the server can know that, so it comes back on Save (draftModel.ts).
+export const NAME_MAX = 80;
+export const NAME_COPY = {
+  required: 'Your page needs a name.',
+  tooLong: (n: number) => `A name can be at most ${NAME_MAX} characters. Yours has ${n}.`,
+  oneLine: 'Keep the name on one line, with no special characters.',
+  taken: 'Another organiser already uses this name. Pick a different one.',
+};
+
+/** Characters as the server counts them (code points, after trimming). */
+export const nameLength = (raw: string): number => Array.from(raw.trim()).length;
+
+export function checkName(raw: string): FieldCheck {
+  const t = raw.trim();
+  if (!t) return bad(t, NAME_COPY.required);
+  // eslint-disable-next-line no-control-regex -- the server's single-line rule
+  if (/[\x00-\x1f\x7f]/.test(t)) return bad(t, NAME_COPY.oneLine);
+  const n = nameLength(t);
+  if (n > NAME_MAX) return bad(t, NAME_COPY.tooLong(n));
+  return ok(t, patchValue('name', t) as string);
+}
+
+// ---- city --------------------------------------------------------------------------------
+
+// A pick from the city list, never free text: the draft is the picked city's id.
+// The sheet confirms it against the cities table (resolveCanonicalCity) and shows
+// the city's name; the server refuses an unknown id as city_not_found.
+export const CITY_COPY = {
+  required: 'Pick your city from the list.',
+  notFound: 'That city is not on our list. Pick one from the list.',
+  checkFailed: 'We could not check that city. Check your connection, then tap Check again.',
+};
+const CITY_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function checkCity(raw: string): FieldCheck {
+  const t = raw.trim().toLowerCase();
+  if (!CITY_ID.test(t)) return bad(t, CITY_COPY.required);
+  return ok(t, t);
 }
 
 // ---- year started ------------------------------------------------------------------------
@@ -285,6 +337,8 @@ export function checkPhotoUrl(raw: string): FieldCheck {
 
 export function checkField(field: FieldKey, raw: string, opts: { nowYear?: number; storedCategory?: string | null } = {}): FieldCheck {
   switch (field) {
+    case 'name': return checkName(raw);
+    case 'city': return checkCity(raw);
     case 'founded_year': return checkYear(raw, opts.nowYear);
     case 'instagram': return checkInstagram(raw);
     case 'website': return checkWebsite(raw);

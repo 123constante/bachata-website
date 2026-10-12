@@ -8,10 +8,16 @@
 // drafted field (draftModel.saveDrafts). Nothing is moderated: on success the
 // change is live. The draft is kept in localStorage per organiser and survives
 // leaving; leaving in-app with a draft asks first.
+//
+// It also carries the owner-only Create event links (into the organiser area's
+// existing create flow, which makes a draft only), so a visitor downloads none
+// of that either.
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { UNSAFE_DataRouterContext, UNSAFE_DataRouterStateContext, type Blocker, type BlockerFunction } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { resolveCanonicalCity } from '@/lib/city-canonical';
+import { searchCities as searchCityList } from '@/modules/organiser/home/onboarding/citySearch';
 import { formFromEntity, type ProfileEntity } from '@/modules/organiser/profile/profileForm';
 import { organiserEntityQueryKey } from '@/modules/profile/organiserPublicProfile';
 import type { EditInPlaceLayerProps, EipBridge, EipSlot } from './bridge';
@@ -35,9 +41,10 @@ import {
 } from './draftModel';
 import { FIELD_LABEL, type FieldKey } from './fieldRules';
 import FieldSheet from './FieldSheet';
+import type { CityLookups } from './cityCheck';
 import { BAR_Z, BOTTOM_NAV_OFFSET, inBody } from './layers';
 import { uploadOrganiserPhoto } from './organiserPhotoUploadApi';
-import { AboutEmpty, AboutSlot, CompleteCard, CREAM, GOLD, INK, LAYER_CSS, LinkRows, MetaSlot, PhotoSlot, type OpenSheet } from './parts';
+import { AboutEmpty, AboutSlot, CompleteCard, CreateEventLink, CREAM, GOLD, INK, LAYER_CSS, LinkRows, MetaSlot, NameSlot, PhotoSlot, type OpenSheet } from './parts';
 
 type Notice = { tone: 'gold' | 'ok' | 'error'; text: string };
 type SaveClient = Parameters<typeof saveDrafts>[0];
@@ -46,14 +53,20 @@ export interface EditInPlaceLayerInternals {
   /** Injected by tests; the real client otherwise. */
   client?: SaveClient;
   uploadPhoto?: (organiserId: string, file: File) => Promise<string>;
+  searchCities?: CityLookups['searchCities'];
+  resolveCity?: CityLookups['resolveCity'];
 }
 
 const btn = { minHeight: 44, padding: '0 16px', borderRadius: 999, fontSize: 14, fontWeight: 700, cursor: 'pointer' } as const;
 
-export default function EditInPlaceLayer({ organiserId, entity, onBridge, client, uploadPhoto }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
+export default function EditInPlaceLayer({ organiserId, entity, onBridge, client, uploadPhoto, searchCities, resolveCity }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
   const queryClient = useQueryClient();
   const saveClient: SaveClient = client ?? supabase;
   const upload = uploadPhoto ?? uploadOrganiserPhoto;
+  const cityLookups = useMemo<CityLookups>(
+    () => ({ searchCities: searchCities ?? searchCityList, resolveCity: resolveCity ?? resolveCanonicalCity }),
+    [searchCities, resolveCity],
+  );
 
   // A stored draft from an earlier visit, minus anything that is already on the page.
   const [restored] = useState<Drafts>(() => prunedDrafts(entity, readStoredDraft(organiserId)));
@@ -64,6 +77,12 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [sheet, setSheet] = useState<FieldKey | null>(null);
+  // City id -> name, for the drafted city shown in place (the stored one to start).
+  const [cityNames, setCityNames] = useState<Record<string, string>>(() =>
+    entity.city_id && entity.cities?.name ? { [entity.city_id]: entity.cities.name } : {},
+  );
+  // The server's refusal of a value (a taken name), shown in that field's sheet.
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, { value: string; message: string }>>>({});
   const openerRef = useRef<HTMLElement | null>(null);
   const draftsRef = useRef(drafts);
   draftsRef.current = drafts;
@@ -99,6 +118,19 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
     });
   }, [entity]);
 
+  // A restored City draft: look its name up once, so the page shows it in place.
+  const draftedCity = drafts.city;
+  const knownCity = draftedCity ? !!cityNames[draftedCity] : true;
+  useEffect(() => {
+    if (!draftedCity || knownCity) return;
+    let live = true;
+    cityLookups.resolveCity(draftedCity).then(
+      (c) => { if (live && c) setCityNames((m) => ({ ...m, [c.cityId]: c.cityName })); },
+      () => undefined, // the page shows no city name until it is known; Save still works
+    );
+    return () => { live = false; };
+  }, [draftedCity, knownCity, cityLookups]);
+
   // Closing the tab or reloading with a draft. Some phone browsers ignore this;
   // the stored draft is the backstop.
   useEffect(() => {
@@ -125,7 +157,8 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
     }, 0);
   }, []);
 
-  const onDone = useCallback((field: FieldKey, value: string) => {
+  const onDone = useCallback((field: FieldKey, value: string, label?: string) => {
+    if (field === 'city' && value && label) setCityNames((m) => ({ ...m, [value]: label }));
     const same = draftMatchesStored(entityRef.current, field, value);
     setDrafts((d) => {
       const next = { ...d };
@@ -153,15 +186,26 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
       if (outcome.kind !== 'saved') {
         // Never clear a draft on error.
         setNotice({ tone: 'error', text: outcome.message });
+        if (outcome.kind === 'refused' && outcome.field && outcome.fieldError) {
+          const f = outcome.field;
+          // Not drafted (the save re-sends the stored name, which can collide too): the stored value.
+          const refused = sentDrafts[f] ?? (f === 'city' ? sentEntity.city_id ?? '' : (formFromEntity(sentEntity)[f] as string) ?? '');
+          setFieldErrors((m) => ({ ...m, [f]: { value: refused, message: outcome.fieldError! } }));
+        }
         return false;
       }
+      setFieldErrors({});
       // The server's stored row goes into the page's cache at once (no flash of
       // the old values), then the organiser is refetched.
       const key = organiserEntityQueryKey(organiserId);
       if (outcome.row) {
         const r = outcome.row;
+        const cityId = (r.city_id ?? null) as string | null;
         queryClient.setQueryData(key, (old: ProfileEntity | null | undefined) => (old ? {
           ...old,
+          name: (r.name ?? old.name) as string,
+          city_id: cityId,
+          cities: cityId === old.city_id ? old.cities : cityId && cityNames[cityId] ? { name: cityNames[cityId], slug: null } : null,
           avatar_url: (r.avatar_url ?? null) as string | null,
           bio: (r.bio ?? null) as string | null,
           instagram: (r.instagram ?? null) as string | null,
@@ -193,7 +237,7 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
       savingRef.current = false;
       setSaving(false);
     }
-  }, [saveClient, organiserId, queryClient]);
+  }, [saveClient, organiserId, queryClient, cityNames]);
 
   const discard = useCallback(() => {
     setDrafts({});
@@ -201,7 +245,7 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
     setNotice({ tone: 'ok', text: 'Changes discarded. Your page is unchanged.' });
   }, [organiserId]);
 
-  const overlay = useMemo(() => overlayFor(entity, drafts), [entity, drafts]);
+  const overlay = useMemo(() => overlayFor(entity, drafts, cityNames), [entity, drafts, cityNames]);
   const card = useMemo(() => cardModel(entity, drafts), [entity, drafts]);
 
   const bridge = useMemo<EipBridge>(() => {
@@ -211,11 +255,13 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
       switch (where) {
         case 'card': return <CompleteCard model={card} onOpen={openSheet} />;
         case 'photo': return <PhotoSlot drafted={has('avatar_url')} onOpen={openSheet} />;
+        case 'name': return <NameSlot drafted={has('name')} onOpen={openSheet} />;
         case 'meta': return (
           <MetaSlot
             year={overlay.founded_year !== undefined ? overlay.founded_year : entity.founded_year}
             category={overlay.organisation_category !== undefined ? overlay.organisation_category : entity.organisation_category}
-            drafted={{ year: has('founded_year'), category: has('organisation_category') }}
+            city={overlay.cities !== undefined ? overlay.cities?.name : entity.cities?.name}
+            drafted={{ year: has('founded_year'), category: has('organisation_category'), city: has('city') }}
             onOpen={openSheet}
           />
         );
@@ -228,10 +274,13 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
             onOpen={openSheet}
           />
         );
+        case 'create-event': return <CreateEventLink organiserId={organiserId} label="Create event" />;
+        case 'create-first-event': return <CreateEventLink organiserId={organiserId} label="Create your first event" />;
+        case 'create-another-event': return <CreateEventLink organiserId={organiserId} label="Create an event" />;
       }
     };
     return { overlay, slot, mark: (f) => (has(f) ? 'eip-drafted' : undefined) };
-  }, [entity, drafts, overlay, card, openSheet]);
+  }, [entity, drafts, overlay, card, openSheet, organiserId]);
 
   useEffect(() => {
     onBridge(bridge);
@@ -239,7 +288,8 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
   useEffect(() => () => onBridge(null), [onBridge]);
 
   const dataRouter = useContext(UNSAFE_DataRouterContext);
-  const sheetInitial = sheet ? (drafts[sheet] ?? (formFromEntity(entity)[sheet] as string) ?? '') : '';
+  const stored = (f: FieldKey): string => (f === 'city' ? entity.city_id ?? '' : (formFromEntity(entity)[f] as string) ?? '');
+  const sheetInitial = sheet ? (drafts[sheet] ?? stored(sheet)) : '';
 
   return (
     <>
@@ -250,9 +300,12 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
           field={sheet}
           initial={sheetInitial}
           storedCategory={entity.organisation_category ?? null}
-          onDone={(v) => onDone(sheet, v)}
+          initialCityName={sheet === 'city' && sheetInitial ? cityNames[sheetInitial] ?? null : null}
+          serverError={fieldErrors[sheet] ?? null}
+          onDone={(v, label) => onDone(sheet, v, label)}
           onClose={closeSheet}
           uploadPhoto={(file) => upload(organiserId, file)}
+          cityLookups={cityLookups}
         />
       )}
       {dataRouter && <LeaveGuard active={count > 0} onSave={save} onDiscard={discard} />}

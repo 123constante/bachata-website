@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 /**
  * The REAL public organiser page (src/pages/OrganiserProfile.tsx) over
- * {signed out, visitor, contributor, manager, owner} x owner layer shown/hidden.
- * Only an owner or a manager (ownershipFacts().canEdit) gets the layer, and for
- * everyone else the lazy chunk is never even imported (no new code, no new
- * request). Red on main: the page had no layer, so the owner/manager rows fail.
+ * {signed out, visitor, contributor, admin without a role, manager, owner} x
+ * owner layer shown/hidden. Only an owner or a manager (ownershipFacts().canEdit)
+ * gets the layer -- the pencils (Name and City included) and the Create event
+ * buttons -- and for everyone else the lazy chunk is never even imported (no
+ * new code, no new request). The Create event rows run over both events shapes:
+ * nights upcoming (the "Upcoming events" row) and none (the empty state).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -17,6 +19,7 @@ const h = vi.hoisted(() => ({
   ownership: null as null | { is_managed: boolean; i_own_it: boolean; my_role: string | null },
   layerImports: 0,
   rpc: vi.fn(),
+  events: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock('@/modules/organiser/edit-in-place/EditInPlaceLayer', async (importOriginal) => {
@@ -61,7 +64,7 @@ vi.mock('@/modules/profile/organiserPublicProfile', async (orig) => ({
     id, name: id === OTHER_ID ? 'Other Crew' : 'Ritmo Latino', avatar_url: null, bio: null, socials: { facebook: 'https://www.facebook.com/share/1AbC/' }, city_id: '11111111-1111-4111-8111-111111111111',
     instagram: 'https://www.instagram.com/ritmo/', website: 'ritmo.co.uk', organisation_category: 'Dance School', founded_year: null, cities: { name: 'London', slug: 'london-gb' },
   }),
-  fetchOrganiserEvents: async () => [],
+  fetchOrganiserEvents: async () => h.events,
   fetchOrganiserFutureOccEvents: async () => [],
   fetchOrganiserPastOccEvents: async () => [],
 }));
@@ -80,6 +83,8 @@ const ROLES = [
   { name: 'visitor (signed in, no role)', user: ME, ownership: { is_managed: true, i_own_it: false, my_role: null }, layer: false },
   { name: 'contributor', user: ME, ownership: { is_managed: true, i_own_it: false, my_role: 'contributor' }, layer: false },
   { name: 'ownership unknown (RPC failed), signed in', user: ME, ownership: null, layer: false },
+  // A site admin is not a member: organiser_ownership_v1 gives no role, so canEdit is false.
+  { name: 'admin without a role on this organiser', user: { id: 'admin', email: 'admin@x.example' }, ownership: { is_managed: true, i_own_it: false, my_role: null }, layer: false },
   { name: 'manager', user: ME, ownership: { is_managed: true, i_own_it: false, my_role: 'manager' }, layer: true },
   { name: 'owner', user: ME, ownership: { is_managed: true, i_own_it: true, my_role: 'owner' }, layer: true },
 ];
@@ -93,6 +98,7 @@ function renderPage(start = '/organisers/ritmo') {
 
 beforeEach(() => {
   window.localStorage.clear();
+  h.events = [];
 });
 afterEach(cleanup);
 
@@ -115,7 +121,9 @@ describe('the owner layer on the live public page', () => {
     await screen.findByRole('heading', { level: 1, name: 'Ritmo Latino' });
     if (r.layer) {
       await screen.findByTestId('eip-complete-card');
-      expect(document.querySelectorAll('[data-eip-pencil]').length).toBeGreaterThanOrEqual(7);
+      expect(document.querySelectorAll('[data-eip-pencil]').length).toBeGreaterThanOrEqual(9);
+      expect(document.querySelector('[data-eip-pencil="name"]')).toBeTruthy();
+      expect(document.querySelector('[data-eip-pencil="city"]')).toBeTruthy();
       expect(screen.getByTestId('eip-links')).toBeTruthy();
       expect(h.layerImports).toBe(1);
     } else {
@@ -125,6 +133,7 @@ describe('the owner layer on the live public page', () => {
       expect(document.querySelectorAll('[data-eip-pencil]').length).toBe(0);
       expect(screen.queryByTestId('eip-links')).toBeNull();
       expect(screen.queryByTestId('eip-bar')).toBeNull();
+      expect(screen.queryByRole('link', { name: /create/i })).toBeNull();
       expect(h.layerImports).toBe(0);
     }
     // Public links: noopener nofollow ugc, for everyone.
@@ -159,5 +168,47 @@ describe('the owner layer on the live public page', () => {
     expect(document.body.textContent).not.toContain('Other crew draft');
     expect(window.localStorage.getItem(`bc:organiser-edit-draft:v1:${ORG_ID}`)).toBeNull();
     expect(window.localStorage.getItem(`bc:organiser-edit-draft:v1:${OTHER_ID}`)).toContain('Other crew draft');
+  });
+});
+
+// An upcoming night with no dated occurrence: the page lists it as upcoming.
+const UPCOMING = [{ id: 'e1', name: 'Friday Social', date: null, start_time: null, is_active: true, poster_url: null, location: 'Studio', city: 'London' }];
+const PAST = [{ id: 'e0', name: 'Old Social', date: '2020-01-10', start_time: '2020-01-10T20:00:00', is_active: true, poster_url: null, location: 'Studio', city: 'London' }];
+const NEW_EVENT_HREF = `/account/o/events/new?o=${ORG_ID}`;
+
+describe('Create event: only the owner or a manager, on both events shapes', () => {
+  it.each(ROLES.flatMap((r) => [
+    { ...r, shape: 'upcoming nights' as const },
+    { ...r, shape: 'no nights' as const },
+    { ...r, shape: 'past nights only' as const },
+  ]))('$name, $shape -> Create event shown: $layer', async (r) => {
+    h.user = r.user;
+    h.ownership = r.ownership;
+    h.events = r.shape === 'upcoming nights' ? UPCOMING : r.shape === 'past nights only' ? PAST : [];
+    renderPage();
+    await screen.findByRole('heading', { level: 1, name: 'Ritmo Latino' });
+    if (r.shape === 'upcoming nights') await screen.findByRole('heading', { name: 'Upcoming events' });
+    else await screen.findByTestId('org-public-empty');
+    if (r.layer) {
+      const link = await screen.findByTestId('eip-create-event');
+      // The existing create flow, with THIS organiser preselected (?o=<id>, as useOrganiserChoice).
+      expect(link.getAttribute('href')).toBe(NEW_EVENT_HREF);
+      // "your first" only when there has never been a night: an organiser with past nights is told "Create an event".
+      expect(link.textContent).toBe({ 'upcoming nights': 'Create event', 'no nights': 'Create your first event', 'past nights only': 'Create an event' }[r.shape]);
+      expect(screen.getAllByTestId('eip-create-event')).toHaveLength(1);
+      if (r.shape === 'upcoming nights') {
+        // Beside the date count, in the heading row.
+        const row = screen.getByRole('heading', { name: 'Upcoming events' }).parentElement!;
+        expect(row.contains(link)).toBe(true);
+        expect(row.textContent).toContain('1 date');
+      } else {
+        // Beside "Browse upcoming nights".
+        expect(link.parentElement!.textContent).toContain('Browse upcoming nights');
+      }
+    } else {
+      await new Promise((res) => setTimeout(res, 50));
+      expect(screen.queryByTestId('eip-create-event')).toBeNull();
+      expect(document.querySelector(`a[href^="/account/o/events/new"]`)).toBeNull();
+    }
   });
 });

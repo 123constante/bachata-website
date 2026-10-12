@@ -1,6 +1,9 @@
 // Edit in place: the small owner-only pieces the page renders through the
-// bridge (pencils, tags, the "Complete your page" card, the link rows).
+// bridge (pencils, tags, the "Complete your page" card, the link rows, the
+// Create event links).
 import { useState, type CSSProperties, type MouseEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { Pencil, Check } from 'lucide-react';
 import { FIELD_LABEL, displayValue, type FieldKey } from './fieldRules';
 import type { CardModel, CardRow } from './draftModel';
@@ -119,12 +122,28 @@ const chip: CSSProperties = {
   background: 'rgba(12,10,13,0.45)', border: '1px solid rgba(231,190,110,0.35)', color: CREAM, fontSize: 12.5, fontWeight: 600,
 };
 
-export function MetaSlot({ year, category, drafted, onOpen }: {
-  year: number | null | undefined; category: string | null | undefined;
-  drafted: { year: boolean; category: boolean }; onOpen: OpenSheet;
+/** Beside the organiser's name in the hero. */
+export function NameSlot({ drafted, onOpen }: { drafted: boolean; onOpen: OpenSheet }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }} data-testid="eip-name">
+      {drafted && <UnsavedTag field="name" />}
+      <PencilButton field="name" onOpen={onOpen} />
+    </span>
+  );
+}
+
+export function MetaSlot({ year, category, city, drafted, onOpen }: {
+  year: number | null | undefined; category: string | null | undefined; city: string | null | undefined;
+  drafted: { year: boolean; category: boolean; city: boolean }; onOpen: OpenSheet;
 }) {
   return (
     <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }} data-testid="eip-meta">
+      <span style={chip} className={drafted.city ? 'eip-drafted' : undefined} data-testid="eip-city">
+        {/* A drafted city whose name is still being looked up is a pick, not a missing city. */}
+        {city ? city : drafted.city ? 'City picked' : 'Add city'}
+        {drafted.city && <UnsavedTag field="city" />}
+        <PencilButton field="city" onOpen={onOpen} />
+      </span>
       <span style={chip} className={drafted.category ? 'eip-drafted' : undefined}>
         {category ? category : 'Add category'}
         {drafted.category && <UnsavedTag field="organisation_category" />}
@@ -183,5 +202,27 @@ export function LinkRows({ values, drafted, onOpen }: {
         })}
       </ul>
     </section>
+  );
+}
+
+// ---- create event ------------------------------------------------------------------------
+
+/**
+ * The organiser area's existing create flow (NewEventPage: it creates a DRAFT
+ * only, then opens its editor), with this organiser preselected through `?o=`,
+ * the id useOrganiserChoice and NewEventPage read. Nothing is published from here.
+ */
+const newEventHref = (organiserId: string) => `${ORG_PATHS.newEvent}?o=${encodeURIComponent(organiserId)}`;
+
+export function CreateEventLink({ organiserId, label }: { organiserId: string; label: string }) {
+  return (
+    <Link
+      to={newEventHref(organiserId)}
+      className="eip-btn"
+      data-testid="eip-create-event"
+      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '0 16px', borderRadius: 100, background: GOLD, color: INK, fontSize: 13, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
+    >
+      {label}
+    </Link>
   );
 }

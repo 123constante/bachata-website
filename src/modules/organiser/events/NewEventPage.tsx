@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
@@ -16,17 +16,20 @@ import { useOrganiserHome } from './eventsApi';
 import { newEventCommands } from './newEvent';
 import { EVENT_TYPES, type NewEventType } from './eventType';
 
-const pickInitial = (organisers: HomeOrganiser[]) =>
-  (organisers.find((o) => o.lifecycle_status === 'live') ?? organisers[0])?.id ?? '';
+// `?o=<organiser id>` (useOrganiserChoice's shape; the public organiser page's
+// Create event passes it) preselects that organiser when it is one of mine.
+const pickInitial = (organisers: HomeOrganiser[], wanted: string | null) =>
+  (organisers.find((o) => o.id === wanted) ?? organisers.find((o) => o.lifecycle_status === 'live') ?? organisers[0])?.id ?? '';
 
 function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; today: string }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [params] = useSearchParams();
   const [name, setName] = useState('');
   const [type, setType] = useState<NewEventType | null>(null);
   // The event exists but its dates did not list: say so and offer to open it.
   const [scheduleFailed, setScheduleFailed] = useState(false);
-  const [organiserId, setOrganiserId] = useState(() => pickInitial(organisers));
+  const [organiserId, setOrganiserId] = useState(() => pickInitial(organisers, params.get('o')));
   const [seriesId] = useState(newSeriesId);
   // One key per write, kept across retries: a lost reply replays instead of creating twice.
   const [keys] = useState(() => ({ create: newIdempotencyKey(), rule: newIdempotencyKey() }));

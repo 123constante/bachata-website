@@ -28,11 +28,12 @@ import {
   writeStoredDraft,
   type Drafts,
 } from '../draftModel';
-import { FIELD_LABEL, PROMPTED_FIELDS, type FieldKey } from '../fieldRules';
+import { CITY_COPY, FIELD_KEYS, FIELD_LABEL, NAME_COPY, PROMPTED_FIELDS, type FieldKey } from '../fieldRules';
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
 
 const CITY = '11111111-1111-4111-8111-111111111111';
+const OTHER_CITY = 'c2000000-0000-4000-8000-000000000002';
 const row = (over: Partial<ProfileEntity> = {}): ProfileEntity => ({
   id: '22222222-2222-4222-8222-222222222222',
   name: 'Ritmo Latino',
@@ -99,6 +100,29 @@ describe('no partial socials: the save is the stored form plus the drafts', () =
     }
   });
 
+  it.each(SHAPES)('%s: saving ONLY Name changes the name and nothing else', (_n, e) => {
+    const base = buildSavePatch(e, {});
+    const p = buildSavePatch(e, { name: '  Ritmo Nuevo ' });
+    expect(p.name).toBe('Ritmo Nuevo');
+    expect({ ...p, name: null }).toEqual({ ...base, name: null });
+  });
+
+  it.each(SHAPES)('%s: saving ONLY City changes city_id and nothing else (socials kept whole)', (_n, e) => {
+    const base = buildSavePatch(e, {});
+    const p = buildSavePatch(e, { city: OTHER_CITY });
+    expect(p.city_id).toBe(OTHER_CITY);
+    expect({ ...p, city_id: null }).toEqual({ ...base, city_id: null });
+    expect(p).not.toHaveProperty('city');
+  });
+
+  it.each(SHAPES)('%s: Name + City + a link in one draft: one patch, every field where it belongs', (_n, e) => {
+    const p = buildSavePatch(e, { name: 'Ritmo Nuevo', city: OTHER_CITY, facebook: 'https://facebook.com/newpage' });
+    expect(p.name).toBe('Ritmo Nuevo');
+    expect(p.city_id).toBe(OTHER_CITY);
+    expect((p.socials as Record<string, unknown>).facebook).toBe('https://facebook.com/newpage');
+    for (const k of ['contact_email', 'contact_phone', 'show_contact_publicly', 'city']) expect(p).not.toHaveProperty(k);
+  });
+
   it('a stored value with a leading space goes out trimmed (the server btrims it too)', () => {
     const p = buildSavePatch(row({ website: ' https://ritmo.co.uk' }), { founded_year: '2019' });
     expect(p.website).toBe('https://ritmo.co.uk');
@@ -119,12 +143,24 @@ describe('drafts that change nothing are not drafts', () => {
     ['organisation_category', 'Dance School'],
     ['founded_year', ''],
     ['bio', '   '],
+    ['name', 'Ritmo Latino'],
+    ['name', '  Ritmo Latino '],
+    ['city', CITY],
   ] as Array<[FieldKey, string]>)('%s %j matches what is stored', (field, value) => {
     expect(draftMatchesStored(row(), field, value)).toBe(true);
     expect(prunedDrafts(row(), { [field]: value })).toEqual({});
   });
   it('a real change survives the prune', () => {
     expect(prunedDrafts(row(), { founded_year: '2019', bio: 'Hi' })).toEqual({ founded_year: '2019', bio: 'Hi' });
+    expect(prunedDrafts(row(), { name: 'Ritmo Nuevo', city: OTHER_CITY })).toEqual({ name: 'Ritmo Nuevo', city: OTHER_CITY });
+  });
+  it('every editable field is covered by the prune (none silently dropped)', () => {
+    const changed: Record<FieldKey, string> = {
+      name: 'Ritmo Nuevo', city: OTHER_CITY, avatar_url: 'https://cdn.example/new.jpg', founded_year: '2019',
+      instagram: '@new', bio: 'Hi', website: 'https://new.example', facebook: 'https://facebook.com/new', organisation_category: 'Promoter',
+    };
+    expect(Object.keys(changed).sort()).toEqual([...FIELD_KEYS].sort());
+    expect(prunedDrafts(row(), changed)).toEqual(changed);
   });
 });
 
@@ -137,6 +173,21 @@ describe('overlayFor (drafted values shown in place)', () => {
     expect(o.founded_year).toBe(2019);
     expect(o.avatar_url).toBeNull();
     expect(o).not.toHaveProperty('website');
+  });
+  it('shows a drafted Name trimmed, and a drafted City by its picked name', () => {
+    const o = overlayFor(row(), { name: ' Ritmo Nuevo ', city: OTHER_CITY }, { [OTHER_CITY]: 'Manchester' });
+    expect(o.name).toBe('Ritmo Nuevo');
+    expect(o.city_id).toBe(OTHER_CITY);
+    expect(o.cities).toEqual({ name: 'Manchester', slug: null });
+  });
+  it('a drafted City whose name is not known yet shows no stale city name', () => {
+    const o = overlayFor(row(), { city: OTHER_CITY });
+    expect(o.city_id).toBe(OTHER_CITY);
+    expect(o.cities).toBeNull();
+  });
+  it('a Name or City draft leaves the other fields out of the overlay', () => {
+    expect(Object.keys(overlayFor(row(), { name: 'X' }))).toEqual(['name']);
+    expect(Object.keys(overlayFor(row(), { city: OTHER_CITY }, { [OTHER_CITY]: 'Leeds' })).sort()).toEqual(['cities', 'city_id']);
   });
 });
 
@@ -209,7 +260,9 @@ describe('the stored draft (keyed by organiser id)', () => {
     writeStoredDraft('a', { founded_year: '2019', bio: 'Hi' }, s);
     expect(readStoredDraft('a', s)).toEqual({ founded_year: '2019', bio: 'Hi' });
     expect(readStoredDraft('b', s)).toEqual({});
-    expect([...s.m.keys()]).toEqual([draftStorageKey('a')]);
+    writeStoredDraft('c', { name: 'Ritmo Nuevo', city: OTHER_CITY }, s);
+    expect(readStoredDraft('c', s)).toEqual({ name: 'Ritmo Nuevo', city: OTHER_CITY });
+    expect([...s.m.keys()]).toEqual([draftStorageKey('a'), draftStorageKey('c')]);
   });
   it('an empty draft removes the key', () => {
     const s = memory();
@@ -276,6 +329,10 @@ describe('saveDrafts', () => {
     ['bio_too_long', 'bio'],
     ['bio_invalid', 'bio'],
     ['organisation_category_too_long', 'organisation_category'],
+    ['name_too_long', 'name'],
+    ['name_invalid', 'name'],
+    ['name_required', 'name'],
+    ['city_required', 'city'],
   ] as Array<[string, FieldKey]>)('server refuses %j -> names %s in plain words', async (message, field) => {
     const rpc = vi.fn(async () => ({ data: null, error: { message } }));
     const out = await saveDrafts({ rpc } as never, 'x', row(), { bio: 'Hi' });
@@ -287,11 +344,42 @@ describe('saveDrafts', () => {
   it.each([
     ['permission_denied: editing an organiser profile needs its owner', SAVE_COPY.permission],
     ['authentication_required', SAVE_COPY.signedOut],
-    ['city_required', SAVE_COPY.city],
-    ['organiser_name_taken', SAVE_COPY.generic],
+    ['unknown_patch_key: city', SAVE_COPY.generic],
   ])('server refuses %j (no field)', async (message, copy) => {
     const rpc = vi.fn(async () => ({ data: null, error: { message } }));
     expect(await saveDrafts({ rpc } as never, 'x', row(), { bio: 'Hi' })).toEqual({ kind: 'refused', field: null, message: copy });
+  });
+
+  it('a taken name is refused ON the Name field, with copy that says what to do', async () => {
+    const rpc = vi.fn(async () => ({ data: null, error: { message: 'organiser_name_taken' } }));
+    const out = await saveDrafts({ rpc } as never, 'x', row(), { name: 'Salsa Club' });
+    expect(out).toEqual({ kind: 'refused', field: 'name', message: SAVE_COPY.nameTaken, fieldError: NAME_COPY.taken });
+    expect(SAVE_COPY.nameTaken).toContain('Your changes are kept');
+  });
+
+  it('a city the server cannot find is refused ON the City field', async () => {
+    const rpc = vi.fn(async () => ({ data: null, error: { message: 'city_not_found' } }));
+    const out = await saveDrafts({ rpc } as never, 'x', row(), { city: OTHER_CITY });
+    expect(out).toEqual({ kind: 'refused', field: 'city', message: SAVE_COPY.field('city'), fieldError: CITY_COPY.notFound });
+  });
+
+  it('Name and City go out in the ONE call (name, city_id)', async () => {
+    const e = row();
+    const drafts = { name: 'Ritmo Nuevo', city: OTHER_CITY };
+    const rpc = rpcOk({ ...profileFrom(e, drafts), name: 'Ritmo Nuevo', city_id: OTHER_CITY });
+    expect(await saveDrafts({ rpc } as never, e.id, e, drafts)).toMatchObject({ kind: 'saved', unmatched: [], stored: { name: 'Ritmo Nuevo', city: OTHER_CITY } });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    const args = (rpc.mock.calls[0] as unknown as [string, { p_patch: Record<string, unknown> }])[1];
+    expect(args.p_patch.name).toBe('Ritmo Nuevo');
+    expect(args.p_patch.city_id).toBe(OTHER_CITY);
+  });
+
+  it('a Name or City our own check refuses never reaches the server', async () => {
+    const rpc = vi.fn();
+    expect(await saveDrafts({ rpc } as never, 'x', row(), { name: '   ' })).toMatchObject({ kind: 'refused', field: 'name' });
+    expect(await saveDrafts({ rpc } as never, 'x', row(), { name: 'R'.repeat(81) })).toMatchObject({ kind: 'refused', field: 'name' });
+    expect(await saveDrafts({ rpc } as never, 'x', row(), { city: 'London' })).toMatchObject({ kind: 'refused', field: 'city' });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('a network error (returned or thrown) says so and keeps the draft', async () => {
