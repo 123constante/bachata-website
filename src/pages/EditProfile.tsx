@@ -108,11 +108,17 @@ const EditProfile = () => {
         // the own stub. The save below (save_my_dancer_profile_v1) resolves the
         // same row server side, so the form edits what it saves. No persona = no
         // row: the form stays empty and Save stays off (dancerId unset), as before.
+        //
+        // An explicit column list, never `*`: contact lockdown step 3 (admin
+        // #770) revokes authenticated's SELECT on email / phone / whatsapp /
+        // created_by / claimed_by / meta_data, and `*` would then 42501 the
+        // whole read. This form edits none of them, and the save below sends
+        // none of them.
         const personaId = await myPersonaIdForReads(queryClient, user.id);
         const { data, error } = personaId
           ? await supabase
               .from('dancer_profiles')
-              .select('*, dancing_role_details(achievements, dance_started_year, favorite_songs, favorite_styles, looking_for_partner, partner_details, partner_practice_goals, partner_search_level, partner_search_role)')
+              .select('id, first_name, surname, based_city_id, nationality, dance_role, instagram, facebook, avatar_url, website_url, dancing_role_details(achievements, dance_started_year, favorite_songs, favorite_styles, looking_for_partner, partner_details, partner_practice_goals, partner_search_level, partner_search_role)')
               .eq('id', personaId)
               .maybeSingle()
           : { data: null, error: null };
@@ -193,6 +199,16 @@ const EditProfile = () => {
 
   const handleSave = async () => {
     if (!dancerId) return;
+
+    // Saving an untouched record sends no command: the save rewrites the
+    // sidecar arrays and the identity fields from the form, so a no-op save is
+    // only ever a chance to write something the person did not choose.
+    if (initialFormSnapshot !== null && JSON.stringify(form) === initialFormSnapshot) {
+      toast({ title: 'No changes to save' });
+      navigate('/profile');
+      return;
+    }
+
 
     const city = normalizeRequiredCity(form.city);
     if (!hasRequiredCity(city)) {
