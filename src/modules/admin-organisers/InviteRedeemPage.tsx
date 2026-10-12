@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { buildSignInHref } from '@/lib/authRouting';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { finishProfileHref } from '@/lib/profileCompletion';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { redeemOrganiserInvite } from './adminApi';
@@ -51,10 +52,24 @@ function Card({ copy, children }: { copy: RedeemCopy; children?: React.ReactNode
  */
 export default function InviteRedeemPage() {
   useNoindexMeta(true);
+  const { token = '' } = useParams<{ token: string }>();
+  // A malformed token can never work: say so for everyone, before the gate sends anyone to finish a profile for it.
+  if (!TOKEN_RE.test(token)) return <InvalidLink />;
   return (
     <DancerProfileGate fallback={<GlobalLayout><div className="mx-auto max-w-md space-y-2 px-4 pt-10" data-testid="invite-checking"><Skeleton className="h-6 w-48" /><Skeleton className="h-16 w-full" /></div></GlobalLayout>}>
       <InviteRedeem />
     </DancerProfileGate>
+  );
+}
+
+function InvalidLink() {
+  useEffect(() => { stripToken(); }, []);
+  return (
+    <GlobalLayout breadcrumbs={buildBreadcrumbs('invite.redeem')}>
+      <Card copy={REDEEM_COPY.invalid}>
+        <Link to="/" className={LINK} data-testid="invite-home">Go to Bachata Calendar</Link>
+      </Card>
+    </GlobalLayout>
   );
 }
 
@@ -128,7 +143,8 @@ function InviteRedeem() {
       <Card copy={copy ?? REDEEM_COPY.invalid}>
         {copy?.action === 'sign_in' && <Link to={buildSignInHref(TOKEN_RE.test(token) ? `${INVITE_PATH}/${token}` : null)} className={BTN} data-testid="invite-sign-in">Sign in</Link>}
         {copy?.action === 'retry' && <button type="button" className={BTN} disabled={busy} onClick={() => void run()} data-testid="invite-retry">Try again</button>}
-        {copy?.action !== 'retry' && <Link to="/" className={LINK} data-testid="invite-home">Go to Bachata Calendar</Link>}
+        {copy?.action === 'finish_profile' && <Link to={finishProfileHref(`${INVITE_PATH}/${token}`)} className={BTN} data-testid="invite-finish-profile">Finish profile</Link>}
+        {copy?.action !== 'retry' && copy?.action !== 'finish_profile' && <Link to="/" className={LINK} data-testid="invite-home">Go to Bachata Calendar</Link>}
       </Card>
     );
   } else {

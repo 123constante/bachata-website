@@ -46,7 +46,7 @@ const BTN_PRIMARY = 'inline-flex min-h-[44px] items-center justify-center gap-1.
 const TONE: Record<AccessStatus, string> = {
   unclaimed: 'bg-muted text-muted-foreground',
   invited: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
-  invite_expired: 'bg-red-500/15 text-red-700 dark:text-red-300',
+  invite_expired: 'bg-red-500/15 text-destructive',
   managed: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
 };
 
@@ -108,7 +108,7 @@ function AddPerson({ organiser }: { organiser: AdminOrganiser }) {
       </select>
       <button type="submit" className={BTN} disabled={!valid || add.isPending} aria-describedby="add-note" data-testid="add-submit"><UserPlus className="h-4 w-4" aria-hidden="true" /> {add.isPending ? 'Adding' : 'Add'}</button>
       {!valid && <p id="add-note" className="text-xs text-muted-foreground" data-testid="add-note">Enter their email address to add them. They must already have an account.</p>}
-      {add.isError && <p role="alert" className="text-sm text-red-700 dark:text-red-300" data-testid="add-error">{adminErrorMessage(add.error)}</p>}
+      {add.isError && <p role="alert" className="text-sm text-destructive" data-testid="add-error">{adminErrorMessage(add.error)}</p>}
       {done && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300" data-testid="add-done">{done}</p>}
     </form>
   );
@@ -140,7 +140,7 @@ function RowDetail({ organiser, status, invites, fresh, issued, warn, loadError,
       {(detail || notLive) && <p className="text-sm text-muted-foreground" data-testid="status-detail">{[detail, notLive].filter(Boolean).join(' ')}</p>}
       {loadError && (
         <div role="alert" id={`row-error-${organiser.id}`} className="space-y-2" data-testid="row-load-error">
-          <p className="text-sm text-red-700 dark:text-red-300">Could not load this organiser&rsquo;s invite status. Generate and Revoke stay off until it loads.</p>
+          <p className="text-sm text-destructive">Could not load this organiser&rsquo;s invite status. Generate and Revoke stay off until it loads.</p>
           <button type="button" className={BTN} onClick={onRetry} data-testid="row-retry">Retry</button>
         </div>
       )}
@@ -162,8 +162,8 @@ function RowDetail({ organiser, status, invites, fresh, issued, warn, loadError,
       )}
       {!issued && !confirming && !loadError && actions.generateNote && <p id={`gen-note-${organiser.id}`} className="text-xs text-muted-foreground" data-testid="generate-note">{actions.generateNote}</p>}
       {!issued && !confirming && !loadError && actions.revokeNote && <p id={`rev-note-${organiser.id}`} className="text-xs text-muted-foreground" data-testid="revoke-note">{actions.revokeNote}</p>}
-      {issued && warn && <p role="alert" className="text-sm text-red-700 dark:text-red-300" data-testid="link-close-warning">Copy the link first: it is shown once.</p>}
-      {err != null && <p role="alert" className="text-sm text-red-700 dark:text-red-300" data-testid="invite-error">{adminErrorMessage(err)}</p>}
+      {issued && warn && <p role="alert" className="text-sm text-destructive" data-testid="link-close-warning">Copy the link first: it is shown once.</p>}
+      {err != null && <p role="alert" className="text-sm text-destructive" data-testid="invite-error">{adminErrorMessage(err)}</p>}
       {actions.canAddPerson && <AddPerson organiser={organiser} />}
     </div>
   );

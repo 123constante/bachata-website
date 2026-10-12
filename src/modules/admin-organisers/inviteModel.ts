@@ -5,6 +5,8 @@
 // which control is enabled, and mirrors the refusals so the screen does not
 // offer what the RPC would refuse.
 
+import { PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
+
 export type InviteStatus = 'sent' | 'used' | 'revoked' | 'expired';
 
 export interface InviteRow {
@@ -78,13 +80,20 @@ export function accessStatus(managed: boolean, invites: readonly InviteRow[] | n
 export const LIVE_LIFECYCLE = 'live';
 
 /** Small tag text for a non-live organiser, or null when live. The one mapping for the tag and the detail line. */
-export const lifecycleLabel = (lifecycle: string): string | null => (lifecycle === LIVE_LIFECYCLE ? null : lifecycle.replace(/_/g, ' '));
+export const KNOWN_NOT_LIVE_LIFECYCLES = ['draft', 'hidden', 'unpublished'] as const;
+export const UNKNOWN_LIFECYCLE_LABEL = 'status unknown';
 
-/** Detail-line sentence for a non-live organiser (empty when live), so Unclaimed is not read as "invite them". */
-export const notLiveNote = (lifecycle: string): string => {
-  const label = lifecycleLabel(lifecycle);
-  return label ? `This organiser is not live (${label}), so it is not on the public site yet.` : '';
+export const lifecycleLabel = (lifecycle: string | null | undefined): string | null => {
+  if (lifecycle === LIVE_LIFECYCLE) return null;
+  if ((KNOWN_NOT_LIVE_LIFECYCLES as readonly string[]).includes(lifecycle ?? '')) return (lifecycle as string).replace(/_/g, ' ');
+  return UNKNOWN_LIFECYCLE_LABEL; // missing or unrecognised: a neutral tag, never a claim
 };
+
+/** Detail-line sentence for a KNOWN non-live organiser (empty when live or unknown), so Unclaimed is not read as "invite them". */
+export const notLiveNote = (lifecycle: string | null | undefined): string =>
+  (KNOWN_NOT_LIVE_LIFECYCLES as readonly string[]).includes(lifecycle ?? '')
+    ? `This organiser is not live (${lifecycle}), so it is not on the public site yet.`
+    : '';
 
 export interface RowActions {
   /** Issue a link. Always possible for an admin; a live link is replaced, so it asks first. */
@@ -130,7 +139,7 @@ export const inviteUrl = (origin: string, token: string) => `${origin}${INVITE_P
 
 /** A ready message for WhatsApp. No phone number is added; the admin picks the chat. */
 export function whatsappHref(organiserName: string, link: string): string {
-  const text = `Hi! Here is your link to manage ${organiserName} on Bachata Calendar. It works once and runs out in 7 days: ${link}`;
+  const text = `Hi! Here is your link to manage ${organiserName} on Bachata Calendar. Tap it, sign in, add a few profile details (first name, city, dance role, photo), and you are in. It works once and runs out in 7 days: ${link}`;
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
@@ -138,7 +147,7 @@ export const TOKEN_RE = /^[0-9a-f]{64}$/;
 
 // ---- redeem ---------------------------------------------------------------------
 
-export type RedeemAction = 'sign_in' | 'retry' | 'home' | null;
+export type RedeemAction = 'sign_in' | 'retry' | 'home' | 'finish_profile' | null;
 
 export interface RedeemCopy {
   title: string;
@@ -157,6 +166,8 @@ export const REDEEM_COPY: Record<string, RedeemCopy> = {
   authentication_required: { title: 'Sign in to continue', body: 'Sign in with your own email, then you will come straight back here.', action: 'sign_in', terminal: false },
   unconfirmed_account: { title: 'Confirm your account first', body: 'Your account has not been confirmed yet. Confirm your email address from the message we sent you, then open this link again.', action: 'home', terminal: false },
   rate_limited: { title: 'Too many tries', body: 'Too many links were tried from this account in the last hour. Wait an hour, then open this link again.', action: 'home', terminal: false },
+  // The server refuses BEFORE consuming the link, so the token must stay in the URL for the way back.
+  [PROFILE_INCOMPLETE_CODE]: { title: 'Finish your dancer profile first', body: 'Add your first name, city, dance role and photo, then you will come straight back here and the link is used.', action: 'finish_profile', terminal: false },
   invalid: { title: 'This link does not work', body: `It may have been copied incompletely. ${ASK_NEW}`, action: 'home', terminal: true },
   used: { title: 'This link was already used', body: `A link works once. If that was not you, ${ASK_NEW}`, action: 'home', terminal: true },
   revoked: { title: 'This link was withdrawn', body: ASK_NEW, action: 'home', terminal: true },
@@ -173,7 +184,8 @@ export type RedeemOutcome =
 /** redeem_organiser_invite_v1's answer (or the raised error) -> what the landing does next. */
 export function interpretRedeem(data: unknown, error: { message?: string } | null): RedeemOutcome {
   if (error) {
-    const code = /authentication_required/.test(error.message ?? '') ? 'authentication_required' : null;
+    const msg = error.message ?? '';
+    const code = /authentication_required/.test(msg) ? 'authentication_required' : msg.includes(PROFILE_INCOMPLETE_CODE) ? PROFILE_INCOMPLETE_CODE : null;
     return code ? { kind: 'refused', reason: code, copy: REDEEM_COPY[code] } : { kind: 'failed', copy: REDEEM_FALLBACK };
   }
   const row = (data ?? {}) as Record<string, unknown>;

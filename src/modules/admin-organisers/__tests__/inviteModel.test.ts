@@ -98,6 +98,11 @@ describe('the link', () => {
     expect(href.startsWith('https://wa.me/?text=')).toBe(true);
     expect(decodeURIComponent(href.slice('https://wa.me/?text='.length))).toContain(link);
     expect(href).not.toMatch(/wa\.me\/\d/);
+    const text = decodeURIComponent(href.slice('https://wa.me/?text='.length));
+    expect(text).toMatch(/sign in/i);
+    expect(text).toMatch(/first name, city, dance role, photo/);
+    expect(text).toMatch(/works once/);
+    expect(text).toMatch(/7 days/);
   });
 });
 

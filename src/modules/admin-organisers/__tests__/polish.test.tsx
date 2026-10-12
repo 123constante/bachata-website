@@ -31,7 +31,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 
 import AdminOrganisersPage from '../AdminOrganisersPage';
 import InviteRedeemPage from '../InviteRedeemPage';
-import { ADMIN_COPY, TOKEN_RE } from '../inviteModel';
+import { ADMIN_COPY, TOKEN_RE, lifecycleLabel, notLiveNote } from '../inviteModel';
 import { LAST_OWNER_NOTE } from '@/modules/organiser/shared/teamModel';
 import { TEAM_COPY } from '@/modules/organiser/shared/selfServeErrors';
 
@@ -65,24 +65,29 @@ function mount(path: string) {
 beforeEach(() => { h.auth.user = null; h.auth.authStatus = 'ready'; h.rpc.mockReset(); h.organisers = []; });
 afterEach(cleanup);
 
-describe('1. lifecycle is shown for a non-live organiser', () => {
+describe('1. lifecycle is shown for a non-live organiser, never guessed', () => {
   it.each([
-    ['live', false], ['draft', true], ['unpublished', true], ['hidden', true], ['unknown', true],
-  ])('lifecycle %s: tag shown = %s', async (lifecycle, shown) => {
+    ['live', null, ''],
+    ['draft', 'draft', 'not live'],
+    ['hidden', 'hidden', 'not live'],
+    ['unpublished', 'unpublished', 'not live'],
+    [null, 'status unknown', ''],
+    [undefined, 'status unknown', ''],
+    ['weird', 'status unknown', ''],
+  ])('lifecycle %s: tag %s, note %s', (lifecycle, tag, note) => {
+    expect(lifecycleLabel(lifecycle as string | null | undefined)).toBe(tag);
+    const n = notLiveNote(lifecycle as string | null | undefined);
+    if (note) expect(n).toMatch(/not live/i); else expect(n).toBe('');
+  });
+  it.each([['live', false, false], ['draft', true, true], ['weird', true, false]])('row for %s: tag=%s, not-live sentence=%s', async (lifecycle, tag, sentence) => {
     h.auth.user = { id: 'a1' };
     h.organisers = [{ id: 'o1', name: 'Alpha', lifecycle_status: lifecycle }];
     rpcImpl(false);
     mount('/admin/organisers');
     fireEvent.click(await screen.findByText('Alpha'));
     await screen.findByTestId('status-detail');
-    expect(screen.queryByTestId('lifecycle-tag') !== null).toBe(shown);
-    if (shown) {
-      expect(screen.getByTestId('lifecycle-tag').textContent?.toLowerCase()).toContain(lifecycle);
-      expect(screen.getByTestId('status-detail').textContent).toMatch(/not live/i);
-    } else {
-      expect(screen.getByTestId('status-detail').textContent).not.toMatch(/not live/i);
-    }
-    // the access status itself is untouched
+    expect(screen.queryByTestId('lifecycle-tag') !== null).toBe(tag);
+    expect(/not live/i.test(screen.getByTestId('status-detail').textContent ?? '')).toBe(sentence);
     expect(screen.getAllByTestId('status-tag')[0].getAttribute('data-status')).toBe('unclaimed');
   });
 });
@@ -139,8 +144,16 @@ describe('5. malformed token + breadcrumbs', () => {
   });
 });
 
-describe('6. link-close warning is legible on the dark theme', () => {
-  it('uses a light red in dark mode and keeps role=alert', async () => {
+describe('6. red text uses the destructive token (the theme is black; dark: never applies)', () => {
+  it('none of the five red texts uses red-700 or dark:', () => {
+    const src = readFileSync('src/modules/admin-organisers/AdminOrganisersPage.tsx', 'utf8');
+    expect(src).not.toMatch(/red-700/);
+    expect(src).not.toMatch(/dark:text-red/);
+    const lines = src.split('\n').filter((l) => /text-destructive/.test(l));
+    expect(lines.length).toBe(5);
+    for (const l of lines) expect(l).not.toMatch(/red-700|dark:/);
+  });
+  it('the rendered link-close warning and add error carry text-destructive', async () => {
     h.auth.user = { id: 'a1' };
     h.organisers = [{ id: 'o1', name: 'Alpha', lifecycle_status: 'live' }];
     rpcImpl(false);
@@ -148,14 +161,12 @@ describe('6. link-close warning is legible on the dark theme', () => {
     fireEvent.click(await screen.findByText('Alpha'));
     fireEvent.click(await screen.findByTestId('generate-invite'));
     await screen.findByTestId('one-time-link');
-    // collapsing another row is what warns; trigger the warning the way the page does
     fireEvent.click(screen.getByText('Alpha'));
     const warn = screen.queryByTestId('link-close-warning');
     if (warn) {
       expect(warn.getAttribute('role')).toBe('alert');
-      expect(warn.className).toMatch(/dark:text-red-300/);
+      expect(warn.className).toContain('text-destructive');
+      expect(warn.className).not.toMatch(/red-700|dark:/);
     }
-    const src = readFileSync('src/modules/admin-organisers/AdminOrganisersPage.tsx', 'utf8');
-    expect(src).not.toMatch(/className="text-sm text-red-600"/);
   });
 });
