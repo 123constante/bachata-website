@@ -26,6 +26,14 @@ export const CITY_ID = 'c1000000-0000-4000-8000-000000000001';
 export const ORG2_ID = 'a0000000-0000-4000-8000-0000000000a2';
 export const ORG2_SLUG = 'salsa-nights-phone-qa';
 // The City sheet's pick (resolveCanonicalCity confirms it against `cities`).
+// Hero-polish organisers: a long name, a long category and a founded year, for
+// organiser-hero-owner.phone.spec.ts. Looked up by slug only.
+export const HERO_ORGS = [
+  { id: 'a0000000-0000-4000-8000-0000000000a3', slug: 'bachata-playground-phone-qa', name: 'Bachata Playground' },
+  { id: 'a0000000-0000-4000-8000-0000000000a4', slug: 'long-name-phone-qa', name: 'Bachata Playground Dance Company L' },
+];
+export const HERO_CATEGORY = 'Dance school and social events';
+
 export const CITY2_ID = 'c1000000-0000-4000-8000-000000000002';
 
 // search_cities, matched on the display name and cut to p_limit (the organiser
@@ -47,6 +55,13 @@ const searchCityRows = (q, limit) => SEARCH_CITY_NAMES
 const LONG = 'Weekly bachata socials and classes in central London. '.repeat(6).trim();
 
 /** Table rows, filtered by eq./is./in. query params. Shapes follow the public column lists. */
+const HERO_BASE = {
+  first_name: null, surname: null, bio: 'Weekly socials.', short_bio: 'Weekly socials.', website: null, instagram: 'bachataplayground',
+  facebook: null, whatsapp: null, email: null, phone: null, photo_url: null, avatar_url: null, cover_url: null, gallery_urls: [],
+  city_id: CITY_ID, is_active: true, lifecycle_status: 'live', team_member_ids: [], created_at: '2024-01-01T00:00:00Z',
+  organisation_category: HERO_CATEGORY, founded_year: 2012,
+};
+
 export const TABLES = {
   organiser_profiles: [
     {
@@ -98,6 +113,20 @@ export const TABLES = {
       lifecycle_status: 'live',
       team_member_ids: [],
       created_at: '2024-01-01T00:00:00Z',
+    },
+    {
+      ...HERO_BASE,
+      id: HERO_ORGS[0].id,
+      slug: HERO_ORGS[0].slug,
+      name: HERO_ORGS[0].name,
+      organisation_name: HERO_ORGS[0].name,
+    },
+    {
+      ...HERO_BASE,
+      id: HERO_ORGS[1].id,
+      slug: HERO_ORGS[1].slug,
+      name: HERO_ORGS[1].name,
+      organisation_name: HERO_ORGS[1].name,
     },
   ],
   cities: [

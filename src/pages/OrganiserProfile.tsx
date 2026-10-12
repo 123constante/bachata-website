@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -564,6 +564,35 @@ function useAverageColor(url: string | null): { rgb: [number, number, number]; r
 
 // The owner's edit-in-place layer: its own chunk, loaded ONLY when
 // ownershipFacts says canEdit, so a visitor downloads and requests nothing new.
+/**
+ * Owner layer only: sizes the heading to its widest line of text. A wrapped
+ * heading is otherwise as wide as the row, so the Name pencil beside it lands far
+ * from the text. Inactive (no inline width, nothing measured) for everyone else.
+ */
+function useHugText(active: boolean) {
+  const ref = useRef<HTMLHeadingElement | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!active || !el) return undefined;
+    const fit = () => {
+      el.style.width = '';
+      const range = document.createRange();
+      if (typeof range.getClientRects !== 'function') return; // jsdom
+      range.selectNodeContents(el);
+      const widest = Math.max(0, ...Array.from(range.getClientRects()).map((r) => r.width));
+      if (widest > 0 && widest < el.getBoundingClientRect().width) el.style.width = `${Math.ceil(widest) + 2}px`;
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    void document.fonts?.ready.then(fit);
+    return () => {
+      window.removeEventListener('resize', fit);
+      el.style.width = '';
+    };
+  });
+  return ref;
+}
+
 const EditInPlaceLayer = lazyWithRetry(() => import('@/modules/organiser/edit-in-place/EditInPlaceLayer'));
 
 // --- Main component ---
@@ -588,6 +617,8 @@ const OrganiserProfile = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   // Set by the lazy owner layer (null for everyone else): pencils + drafted values.
   const [eip, setEip] = useState<EipBridge | null>(null);
+  // Owner layer only: the name's box hugs its widest line so the Name pencil sits right beside the text.
+  const nameRef = useHugText(!!eip);
   const [isSaving, setIsSaving] = useState(false);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [openSeriesEventId, setOpenSeriesEventId] = useState<string | null>(null);
@@ -1229,7 +1260,7 @@ const OrganiserProfile = () => {
               {eip?.slot('photo')}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {metaLine && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
+              {metaLine && !eip && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
               {eip?.slot('meta')}
               {ep.is_verified && <VerifiedBadge size="sm" />}
               {facts.showBadge && <ManagedBadge size="sm" />}
@@ -1239,8 +1270,8 @@ const OrganiserProfile = () => {
                 sound-floor motif and wave mark below carry this hero's
                 personality instead. */}
             {/* The owner's Name pencil sits BESIDE the heading, never inside it (it would join the heading's name). */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, maxWidth: '100%' }}>
-              <h1 className={eip?.mark('name')} style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(36px,12vw,54px)', lineHeight: 0.95, margin: '0 0 8px', minWidth: 0, background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, maxWidth: '100%', ...(eip ? { width: 'fit-content', marginBottom: 8 } : null) }}>
+              <h1 ref={nameRef} className={eip?.mark('name')} style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(36px,12vw,54px)', lineHeight: 0.95, margin: eip ? 0 : '0 0 8px', ...(eip ? { textWrap: 'balance' as const } : null), minWidth: 0, background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
                 {ep.name}
               </h1>
               {eip?.slot('name')}
@@ -1264,13 +1295,13 @@ const OrganiserProfile = () => {
               </div>
               <div style={{ flex: 1, paddingBottom: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-                  {metaLine && <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
+                  {metaLine && !eip && <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
                   {eip?.slot('meta')}
                   {ep.is_verified && <VerifiedBadge size="md" />}
                   {facts.showBadge && <ManagedBadge size="md" />}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <h1 className={eip?.mark('name')} style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(48px,5vw,78px)', lineHeight: 0.95, margin: '0 0 12px', minWidth: 0, letterSpacing: '-0.01em', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...(eip ? { width: 'fit-content', maxWidth: '100%', marginBottom: 12 } : null) }}>
+                  <h1 ref={nameRef} className={eip?.mark('name')} style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(48px,5vw,78px)', lineHeight: 0.95, margin: eip ? 0 : '0 0 12px', ...(eip ? { textWrap: 'balance' as const } : null), minWidth: 0, letterSpacing: '-0.01em', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
                     {ep.name}
                   </h1>
                   {eip?.slot('name')}
