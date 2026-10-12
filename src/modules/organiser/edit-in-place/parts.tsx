@@ -30,8 +30,13 @@ const pencilDot: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
 };
 
-/** A 44px tap target holding a small gold pencil. */
-export function PencilButton({ field, onOpen, style }: { field: FieldKey; onOpen: OpenSheet; style?: CSSProperties }) {
+// Compact: the hero's name and chips. A 24px dot (14px glyph) in a 32x44 tap area, so
+// the hero is not dominated by pencils but a thumb still has 44px of height to hit.
+const pencilCompact: CSSProperties = { width: 32, minWidth: 32, height: 44 };
+const pencilDotCompact: CSSProperties = { width: 24, height: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.35)' };
+
+/** A 44px tap target holding a small gold pencil (`compact`: 32 wide, still 44 high). */
+export function PencilButton({ field, onOpen, style, compact }: { field: FieldKey; onOpen: OpenSheet; style?: CSSProperties; compact?: boolean }) {
   return (
     <button
       type="button"
@@ -39,9 +44,9 @@ export function PencilButton({ field, onOpen, style }: { field: FieldKey; onOpen
       aria-label={`Edit ${FIELD_LABEL[field].toLowerCase()}`}
       data-eip-pencil={field}
       onClick={(e: MouseEvent<HTMLButtonElement>) => onOpen(field, e.currentTarget)}
-      style={{ ...pencilStyle, ...style }}
+      style={{ ...pencilStyle, ...(compact ? pencilCompact : null), ...style }}
     >
-      <span style={pencilDot} aria-hidden="true"><Pencil width={14} height={14} strokeWidth={2.4} /></span>
+      <span style={compact ? { ...pencilDot, ...pencilDotCompact } : pencilDot} aria-hidden="true"><Pencil width={14} height={14} strokeWidth={2.4} /></span>
     </button>
   );
 }
@@ -118,16 +123,19 @@ export function PhotoSlot({ drafted, onOpen }: { drafted: boolean; onOpen: OpenS
 }
 
 const chip: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 2, minHeight: 44, padding: '0 0 0 10px', borderRadius: 999,
+  display: 'inline-flex', alignItems: 'center', gap: 2, minHeight: 32, padding: '0 0 0 10px', borderRadius: 999,
   background: 'rgba(12,10,13,0.45)', border: '1px solid rgba(231,190,110,0.35)', color: CREAM, fontSize: 12.5, fontWeight: 600,
 };
+
+// The chip is 32px high; its pencil keeps a 44px hit area by overhanging 6px above and below.
+const chipPencil: CSSProperties = { margin: '-6px 0' };
 
 /** Beside the organiser's name in the hero. */
 export function NameSlot({ drafted, onOpen }: { drafted: boolean; onOpen: OpenSheet }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }} data-testid="eip-name">
       {drafted && <UnsavedTag field="name" />}
-      <PencilButton field="name" onOpen={onOpen} />
+      <PencilButton field="name" onOpen={onOpen} compact style={{ width: 44, minWidth: 44 }} />
     </span>
   );
 }
@@ -137,22 +145,22 @@ export function MetaSlot({ year, category, city, drafted, onOpen }: {
   drafted: { year: boolean; category: boolean; city: boolean }; onOpen: OpenSheet;
 }) {
   return (
-    <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }} data-testid="eip-meta">
+    <span style={{ display: 'inline-flex', gap: '12px 6px', flexWrap: 'wrap', justifyContent: 'center' }} data-testid="eip-meta">
       <span style={chip} className={drafted.city ? 'eip-drafted' : undefined} data-testid="eip-city">
         {/* A drafted city whose name is still being looked up is a pick, not a missing city. */}
         {city ? city : drafted.city ? 'City picked' : 'Add city'}
         {drafted.city && <UnsavedTag field="city" />}
-        <PencilButton field="city" onOpen={onOpen} />
-      </span>
-      <span style={chip} className={drafted.category ? 'eip-drafted' : undefined}>
-        {category ? category : 'Add category'}
-        {drafted.category && <UnsavedTag field="organisation_category" />}
-        <PencilButton field="organisation_category" onOpen={onOpen} />
+        <PencilButton field="city" onOpen={onOpen} compact style={chipPencil} />
       </span>
       <span style={chip} className={drafted.year ? 'eip-drafted' : undefined}>
         {year ? `Since ${year}` : 'Add year started'}
         {drafted.year && <UnsavedTag field="founded_year" />}
-        <PencilButton field="founded_year" onOpen={onOpen} />
+        <PencilButton field="founded_year" onOpen={onOpen} compact style={chipPencil} />
+      </span>
+      <span style={chip} className={drafted.category ? 'eip-drafted' : undefined}>
+        {category ? category : 'Add category'}
+        {drafted.category && <UnsavedTag field="organisation_category" />}
+        <PencilButton field="organisation_category" onOpen={onOpen} compact style={chipPencil} />
       </span>
     </span>
   );
