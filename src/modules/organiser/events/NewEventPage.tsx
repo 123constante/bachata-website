@@ -3,18 +3,20 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { ORGANISER_HOME_KEY, runSeriesCommand, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
+import {
+  ORGANISER_HOME_KEY, fetchOccurrenceProgramme, fetchSeriesWorkspace, runSeriesCommand, saveOccurrenceProgramme, type HomeOrganiser,
+} from '@/modules/organiser/shared/selfServeApi';
 import { createBlock } from '@/modules/organiser/shared/createModel';
 import { organiserStatus } from '@/modules/organiser/shared/organiserStatus';
 import { envelope, newIdempotencyKey, newSeriesId } from '@/modules/organiser/shared/seriesCommands';
 import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
-import { commandErrorMessage, isServerRefusal } from '@/modules/organiser/shared/selfServeErrors';
+import { commandErrorMessage, isServerRefusal, programmeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
 import { UNSAVED_MESSAGE } from '@/modules/organiser/shared/editorGuards';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Chip, EmptyState, ErrorState, GhostButton, PrimaryButton, SectionLabel, SkeletonRows, TitleInput, useShake } from '../ui';
 import { useOrganiserHome } from './eventsApi';
-import { newEventCommands } from './newEvent';
-import { EVENT_TYPES, type NewEventType } from './eventType';
+import { firstListedDate, newEventCommands, seedSessions } from './newEvent';
+import { EVENT_TYPES, FIRST_SESSION_HINT, type NewEventType } from './eventType';
 
 // `?o=<organiser id>` (useOrganiserChoice's shape; the public organiser page's
 // Create event passes it) preselects that organiser when it is one of mine.
@@ -27,7 +29,8 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
   const [params] = useSearchParams();
   const [name, setName] = useState('');
   const [type, setType] = useState<NewEventType | null>(null);
-  // The event exists but its dates did not list: say so and offer to open it.
+  // The event exists but its dates did not list, or its first session was not
+  // added: say so and offer to open it.
   const [scheduleFailed, setScheduleFailed] = useState(false);
   const [organiserId, setOrganiserId] = useState(() => pickInitial(organisers, params.get('o')));
   const [seriesId] = useState(newSeriesId);
@@ -47,7 +50,7 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
   const create = async () => {
     if (!organiser || block || busy) return;
     if (!name.trim()) { setError('Give your event a name.'); shake(); return; }
-    if (!type) { setError('Choose what it is: a class, a party, or a course or workshop.'); shake(); return; }
+    if (!type) { setError('Choose the first session: a class, a party or a workshop.'); shake(); return; }
     setBusy(true);
     setError(null);
     setScheduleFailed(false);
@@ -76,6 +79,24 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
       setBusy(false);
       return;
     }
+    try {
+      // The first session goes on the first listed date. seedSessions sends
+      // nothing when the date already holds one, so pressing Create again after
+      // a lost reply never adds a second session.
+      const first = firstListedDate((await fetchSeriesWorkspace(seriesId)).dates, today);
+      if (!first) throw new Error('no_listed_date');
+      const programme = await fetchOccurrenceProgramme(first.id);
+      const sessions = seedSessions(programme, type);
+      if (sessions) await saveOccurrenceProgramme(first.id, programme.version, sessions);
+    } catch (err) {
+      void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+      const why = isServerRefusal(err) ? ` ${programmeErrorCopy(err).message}` : '';
+      setError(`Your event and its ${type === 'class' ? 'weekly dates are' : 'date is'} saved as a draft, but the first session was not added.${why} Press Create to try again, or open the event and add it on its first date.`);
+      setScheduleFailed(true);
+      shake();
+      setBusy(false);
+      return;
+    }
     setCreated(true);
     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
     navigate(ORG_PATHS.event(seriesId), { replace: true });
@@ -88,15 +109,15 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
       onSubmit={(e) => { e.preventDefault(); void create(); }}
     >
       <TitleInput value={name} onChange={(v) => { setName(v); setError(null); }} aria-label="Event name" placeholder="Event name" maxLength={120} testId="org-new-event-name" />
-      <section aria-label="What is it?" data-testid="org-new-event-type">
-        <SectionLabel as="p">What is it?</SectionLabel>
+      <section aria-label="First session" data-testid="org-new-event-type">
+        <SectionLabel as="p">First session</SectionLabel>
         <div className="flex flex-wrap gap-[8px]">
           {EVENT_TYPES.map((t) => (
             <Chip key={t.type} selected={type === t.type} onToggle={() => { setType(t.type); setError(null); }} disabled={scheduleFailed} testId={`org-new-event-type-${t.type}`}>{t.label}</Chip>
           ))}
         </div>
         <p className="mt-[8px] text-[13px] text-[var(--mut)]" data-testid="org-new-event-type-hint">
-          {type ? EVENT_TYPES.find((t) => t.type === type)?.hint : 'Choose one. It sets how your event is listed.'}
+          {type ? EVENT_TYPES.find((t) => t.type === type)?.hint : FIRST_SESSION_HINT}
         </p>
       </section>
       <p className="text-[14px] text-[var(--mut)]">
