@@ -47,3 +47,10 @@
 - Shapes surveyed (read-only, counts):
 - Checks run (matrix tests, every CI job step, browser walk at 390x844):
 - NOT verified (be honest):
+
+## Phone QA
+<!-- Required when the PR changes a UI path (scripts/check-pr-phone-qa.mjs UI_PATH_RE; phone-qa-section.yml). Otherwise write "N/A: no UI change".
+     Sizes checked needs a WxH such as 390x844 and 360x640; Walked = pages and flows, phone suite and/or browser walk; Not verified = be honest. -->
+- Sizes checked:
+- Walked:
+- Not verified:

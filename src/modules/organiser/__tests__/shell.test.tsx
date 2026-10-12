@@ -10,6 +10,11 @@ vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
 // The real pages read data: keep every read pending and give them a signed-in user.
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc: () => new Promise(() => {}), from: () => ({}) } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, session: null }) }));
+// Every account / organiser route sits behind the dancer-first gate (DancerProfileGate);
+// this spec is not about it, so the person's dancer profile is finished.
+vi.mock('@/hooks/useProfileCompletion', () => ({
+  useProfileCompletion: () => ({ status: 'complete', missing: [], profileId: 'p1', refetch: async () => ({ status: 'complete', missing: [], profileId: 'p1' }) }),
+}));
 
 import OrganiserRoutes from '../shell/OrganiserRoutes';
 import { OrganiserShell, ORG_PATHS, TABS } from '../shell';

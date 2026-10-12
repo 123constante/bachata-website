@@ -4,7 +4,7 @@ import { uploadToR2 } from '@/lib/uploadToR2';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { validateImageFile } from '@/lib/upload-validation';
+import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
 
 interface AvatarUploadProps {
   value?: string | null;
@@ -47,10 +47,10 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
         description: "Looking good.",
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Upload failed",
-        description: error.message,
+        description: uploadErrorMessage(error),
         variant: "destructive",
       });
     } finally {

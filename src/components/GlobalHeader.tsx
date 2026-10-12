@@ -11,7 +11,7 @@ import { flags } from '@/lib/featureFlags';
 import { WHATSAPP_GROUP_URL } from '@/lib/contactLinks';
 import { useAuth } from '@/hooks/useAuth';
 import { buildSignInHref, sanitizeReturnTo } from '@/lib/authRouting';
-import { ORG_PATHS } from '@/modules/organiser/shell/paths';
+import { ACCOUNT_HOME_PATH, isAccountPath } from '@/lib/accountRouting';
 
 // NO framer-motion here (perf, Pillar A): the header mounts on every page, so
 // a `motion.*` import would drag the whole library into the first-load bundle.
@@ -53,7 +53,8 @@ export const GlobalHeader = () => {
   const { pathname, search } = useLocation();
   const isEventDetail = EVENT_DETAIL_RE.test(pathname);
   const { user, authStatus } = useAuth();
-  // Organiser self-serve (Lever 2 W1): the only signed-in entry point.
+  // Organiser self-serve (Lever 2 W1): the only signed-in entry point. It opens
+  // /account, which sends each person where they belong (lib/accountRouting).
   const showAccount = flags.organiserSelfServe && !!user && !searching;
   // Login launch gate step 6: the signed-out entry point. Same flag as the
   // account icon, so signing in never leads to a header with nothing in it.
@@ -197,10 +198,10 @@ export const GlobalHeader = () => {
 
         {showAccount && (
           <Link
-            to={ORG_PATHS.home}
+            to={ACCOUNT_HOME_PATH}
             className={cn(
               'inline-flex items-center justify-center w-[44px] h-[44px] rounded-md shrink-0 transition-colors',
-              pathname.startsWith(ORG_PATHS.home) ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-primary/5',
+              isAccountPath(pathname) ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-primary/5',
             )}
             aria-label="Your account"
             data-testid="header-account-link"

@@ -31,3 +31,19 @@ export function validateImageFile(file: File): UploadValidationResult {
 
   return { ok: true };
 }
+
+export const UPLOAD_NETWORK_MESSAGE =
+  'Photo upload failed. Check your connection and try again. If it keeps failing, you can add your photo later.';
+
+const NETWORK_FAILURE = /failed to fetch|networkerror|network request failed|^load failed|failed to send a request/i;
+
+/** Network-level failures (offline, TypeError from fetch) get a friendly line; real server messages pass through. */
+export function uploadErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  const name = (error as { name?: string } | null)?.name ?? '';
+  if (offline || error instanceof TypeError || name === 'FunctionsFetchError' || NETWORK_FAILURE.test(message)) {
+    return UPLOAD_NETWORK_MESSAGE;
+  }
+  return message || 'Upload failed. Please try again.';
+}

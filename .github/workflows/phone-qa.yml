@@ -1,0 +1,86 @@
+name: Phone QA
+
+# Phone-size browser checks on every PR that can move pixels on a phone. Until
+# this existed NO phone-size check ran on any PR: the owner found the organiser
+# Save bar hidden behind the BottomNav and a low-contrast heading on a phone
+# (fixed in #719), and the spec written for it (tests/e2e/organiser-edit-save-bar
+# .real-supabase.spec.ts) needs a real Supabase key, so it skips itself in CI.
+#
+# playwright.phone.config.ts, tests/e2e-phone/: at 390x844 and 360x640 (touch,
+# isMobile) --
+#   - the organiser Save bar: inside the screen, above the BottomNav, Save
+#     hit-testable, pinned at scroll top and bottom, on a direct load AND after
+#     an in-app router navigation;
+#   - axe-core colour contrast on the public routes and the organiser page, as a
+#     shrink-only ratchet (tests/e2e-phone/axe-contrast-baseline.json);
+#   - overlap: no horizontal page scroll, no fixed bottom layer covering
+#     another's controls.
+#
+# NO SECRETS, so Dependabot and fork PRs run it too. The SSR routes render from
+# a fake Supabase: tests/e2e-phone/fakeSupabasePreload.mjs answers the dev
+# server's Node-side fetches and page.route() the browser's, both from
+# tests/e2e-phone/fakeSupabase.mjs. Nothing reaches any Supabase project.
+#
+# The paths below are the UI paths scripts/check-pr-phone-qa.mjs (UI_PATH_RE)
+# requires a "## Phone QA" PR section for, plus the dependency manifests (a
+# Dependabot bump of framer-motion, tailwind or react-router moves pixels too,
+# and those PRs touch nothing else) and this suite's own files, so a change to
+# the check runs the check. NOT a required status check (path-filtered
+# workflows never report on PRs outside their paths); that is the owner's call.
+
+on:
+  pull_request:
+    paths:
+      - 'src/**/*.tsx'
+      - 'src/**/*.css'
+      - 'app/**/*.tsx'
+      - 'app/**/*.css'
+      - 'tailwind.config.*'
+      - 'index.html'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'playwright.phone.config.ts'
+      - 'tests/e2e-phone/**'
+      - '.github/workflows/phone-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phone-qa-${{ github.event_name == 'pull_request' && github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  phone-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        run: npm install -g npm@11
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # No artifact upload, deliberately: check-workflow-artifact-policy.mjs
+      # records the repo's upload-step count as a measurement, and adding one is
+      # a guard-maintenance change of its own. A failure prints each assertion
+      # with its measured px; reproduce locally for screenshots and traces
+      # (test-results/phone-qa/).
+      - name: Run the phone suite (390x844 and 360x640)
+        run: npx playwright test --config playwright.phone.config.ts
+

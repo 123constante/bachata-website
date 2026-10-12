@@ -1,0 +1,73 @@
+name: phone-qa-section
+
+# The human half of Phone QA (the machine half is phone-qa.yml). The owner's
+# rule: nothing UI-facing reaches the owner as "please test" before CI plus a
+# measured walk at phone size. A PR that changes a UI path must carry a
+# "## Phone QA" section with filled-in "Sizes checked" (with a WxH),
+# "Walked" and "Not verified" lines.
+#
+# Modelled on real-data-verified.yml. Parsing AND scope live in
+# scripts/check-pr-phone-qa.mjs (unit-tested in tests/phoneQaSection.test.ts);
+# the PR body and the changed paths reach it through env vars, never
+# interpolated into a shell command. Docs-only and non-UI PRs pass with a
+# "not required" message from the script.
+#
+# NOT a required status check -- that is a branch-protection decision for the
+# owner. Draft PRs pass with a "skipped" message.
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: phone-qa-section-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  phone-qa-section:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: List the changed paths
+        id: scope
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (pr.draft) {
+              core.notice('skipped: draft');
+              core.setOutput('skip', 'true');
+              return;
+            }
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            // Old AND new name of a rename: moving a UI file is a UI change.
+            const names = files.flatMap((f) => [f.filename, f.previous_filename]).filter(Boolean);
+            core.setOutput('files', names.join('\n'));
+            core.setOutput('skip', 'false');
+
+      - uses: actions/setup-node@v7
+        if: steps.scope.outputs.skip != 'true'
+        with:
+          node-version: 22
+
+      - name: Canary (self-test)
+        if: steps.scope.outputs.skip != 'true'
+        run: node scripts/check-pr-phone-qa.mjs --self-test
+
+      - name: Require the Phone QA section on UI changes
+        if: steps.scope.outputs.skip != 'true'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_FILES: ${{ steps.scope.outputs.files }}
+        run: node scripts/check-pr-phone-qa.mjs

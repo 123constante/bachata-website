@@ -9,10 +9,12 @@
  * else, so a new server refusal degrades to "something went wrong" rather
  * than leaking raw text.
  */
+import { DANCER_GATE_REASON, PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
 
 import { LAST_OWNER_NOTE } from './teamModel';
 
-export type SelfServeNextStep = 'request_access' | 'reauth' | 'sign_in' | null;
+/** `finish_profile`: the screen sends the person to the gated Finish screen (finishProfileHref of where they are). */
+export type SelfServeNextStep = 'request_access' | 'reauth' | 'sign_in' | 'finish_profile' | null;
 
 export interface SelfServeErrorCopy {
   message: string;
@@ -22,6 +24,10 @@ export interface SelfServeErrorCopy {
 
 const COPY: Record<string, SelfServeErrorCopy> = {
   authentication_required: { message: 'Please sign in first.', next: 'sign_in' },
+  // Dancer first, then organiser (owner decision 2026-10-11): create / claim /
+  // request refuse an unfinished dancer profile (the separate admin PR). The
+  // client gate usually gets there first; this is the server catching a stale one.
+  [PROFILE_INCOMPLETE_CODE]: { message: DANCER_GATE_REASON, next: 'finish_profile' },
   // D-7: a claim (or an own contact email) needs a session that proved the
   // mailbox -- a magic link or an emailed code, not a password.
   mailbox_unproven: {

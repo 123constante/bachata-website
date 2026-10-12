@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, MapPin, Loader2, Inbox } from 'lucide-react';
+import { CalendarDays, MapPin, Loader2 } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,12 @@ import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
-import { LevelRatingPrompt } from '@/components/LevelRatingPrompt';
+// NOT LevelRatingPrompt: importing it here (a lazy chunk) would split it out of
+// the /event/:id route chunk, one more first-load request on every event page.
+// A past night links to the event's own rating card instead.
+import { AuthGuard } from '@/components/auth/AuthGuard';
+// /account/dancer, not /account: /account sends an organiser on to the organiser home.
+import { DANCER_HOME_PATH } from '@/lib/accountRouting';
 
 type AttendanceRow = {
   event_id: string;
@@ -38,6 +43,9 @@ type AttendanceCard = {
   status: string;
   updated_at: string | null;
 };
+
+/** = LEVEL_RATING_ANCHOR (LevelRatingPrompt; equality asserted in MyAttendance.test.tsx). */
+export const RATE_ANCHOR = 'level-rating';
 
 const formatDate = (value?: string | null) => {
   if (!value) return 'Date TBA';
@@ -147,7 +155,7 @@ const MyAttendance = () => {
   const calendarPath = citySlug ? buildCityPath(citySlug, 'calendar') : '/parties';
 
   return (
-    <GlobalLayout breadcrumbs={buildBreadcrumbs('profile.attendance')} backHref="/profile">
+    <GlobalLayout breadcrumbs={buildBreadcrumbs('dancerProfile.attendance')} backHref={DANCER_HOME_PATH}>
       <div className="px-4 pt-4 pb-24">
         <div className="max-w-5xl mx-auto space-y-3">
           <div className="flex items-end justify-between gap-3">
@@ -197,11 +205,11 @@ const MyAttendance = () => {
             <Card className="border border-dashed border-slate-700 bg-slate-900/40">
               <CardContent className="p-4 flex flex-col items-center text-center gap-2">
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80">
-                  <Inbox className="h-4 w-4 text-slate-400" />
+                  <CalendarDays className="h-4 w-4 text-slate-400" />
                 </span>
                 <p className="text-sm text-foreground">No event attendance yet.</p>
                 <p className="text-xs text-muted-foreground max-w-xs">
-                  Tap "Going" or "Interested" on any event page and it will show up here.
+                  Tap &ldquo;I&rsquo;m Going&rdquo; or &ldquo;Interested&rdquo; on any event page and it will show up here.
                 </p>
                 <Button
                   size="sm"
@@ -251,7 +259,13 @@ const MyAttendance = () => {
                     </div>
                   </button>
                   {isPastDate(item.date) && (item.type ?? '').toLowerCase() !== 'festival' && (
-                    <LevelRatingPrompt seriesId={item.event_id} compact />
+                    <Link
+                      to={`${targetPath}#${RATE_ANCHOR}`}
+                      className="mt-1 inline-flex min-h-[44px] items-center text-[13px] font-semibold text-primary underline underline-offset-2"
+                      data-testid="attendance-rate"
+                    >
+                      Rate the dancing level
+                    </Link>
                   )}
                   </div>
                 );
@@ -264,4 +278,11 @@ const MyAttendance = () => {
   );
 };
 
-export default MyAttendance;
+// /account/attendance. Signed out -> /auth with returnTo, like /account itself.
+const GuardedMyAttendance = () => (
+  <AuthGuard>
+    <MyAttendance />
+  </AuthGuard>
+);
+
+export default GuardedMyAttendance;

@@ -69,12 +69,14 @@ describe("landingPathAfterAuth (no returnTo)", () => {
     expect(landingPathAfterAuth({ ...on, role: "dancer", managesOrganiser: null })).toBe("/");
   });
 
-  it.each(["organiser", "teacher", "dj", "vendor", "videographer"])("sends a %s to /account", (role) => {
-    expect(landingPathAfterAuth({ ...on, role, managesOrganiser: null })).toBe("/account");
+  // /account is the dancer home for someone with no organiser (layout D), so an
+  // organiser-intent sign-up goes straight to the organiser onboarding.
+  it.each(["organiser", "teacher", "dj", "vendor", "videographer"])("sends a %s to the organiser onboarding", (role) => {
+    expect(landingPathAfterAuth({ ...on, role, managesOrganiser: null })).toBe("/account/o");
   });
 
-  it("sends a role-less sign-in to /account only when they manage an organiser", () => {
-    expect(landingPathAfterAuth({ ...on, role: null, managesOrganiser: true })).toBe("/account");
+  it("sends a role-less sign-in to the organiser home only when they manage an organiser", () => {
+    expect(landingPathAfterAuth({ ...on, role: null, managesOrganiser: true })).toBe("/account/o");
     expect(landingPathAfterAuth({ ...on, role: null, managesOrganiser: false })).toBe("/");
   });
 
@@ -86,9 +88,10 @@ describe("landingPathAfterAuth (no returnTo)", () => {
     const off = { organiserSelfServe: false, managesOrganiser: null };
     expect(landingPathAfterAuth({ ...off, role: "organiser" })).toBe("/create-organiser-profile");
     expect(landingPathAfterAuth({ ...off, role: "videographer" })).toBe("/create-videographer-profile");
-    expect(landingPathAfterAuth({ ...off, role: "dancer" })).toBe("/profile");
-    expect(landingPathAfterAuth({ ...off, role: "dj" })).toBe("/profile");
-    expect(landingPathAfterAuth({ ...off, role: null })).toBe("/profile");
+    // /profile was unrouted 2026-09-12 (a 404): the rest land home.
+    expect(landingPathAfterAuth({ ...off, role: "dancer" })).toBe("/");
+    expect(landingPathAfterAuth({ ...off, role: "dj" })).toBe("/");
+    expect(landingPathAfterAuth({ ...off, role: null })).toBe("/");
   });
 });
 

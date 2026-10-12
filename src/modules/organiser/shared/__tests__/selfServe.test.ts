@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { KNOWN_SELF_SERVE_CODES, commandErrorMessage, isVersionConflict, selfServeErrorCode, selfServeErrorCopy } from '../selfServeErrors';
 import { isMailboxProvenToken } from '../sessionProof';
+import { DANCER_GATE_REASON, PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
+import { PROFILE_INCOMPLETE_ERROR } from '@/hooks/useSeriesLevelRating';
 
 // Every refusal the D4 RPCs (admin repo 20261108200000-260000) and their shared
 // helper can raise to a signed-in caller. A code missing here would reach the
@@ -14,6 +16,8 @@ const SERVER_CODES = [
   'organiser_name_taken', 'draft_limit_reached',
   // D6 submit_organiser_profile_v1 (admin 20261109110000).
   'not_authorised', 'invalid_state',
+  // Dancer first, then organiser: create / claim / request refuse an unfinished dancer profile (separate admin PR).
+  'profile_incomplete',
 ];
 
 const token = (payload: unknown) =>
@@ -22,6 +26,15 @@ const token = (payload: unknown) =>
 describe('selfServeErrors', () => {
   it('has copy for every code the server raises', () => {
     expect(SERVER_CODES.filter((c) => !KNOWN_SELF_SERVE_CODES.includes(c))).toEqual([]);
+  });
+
+  it('an unfinished dancer profile refusal sends the person to finish it, with the gate\'s own words', () => {
+    const copy = selfServeErrorCopy({ message: PROFILE_INCOMPLETE_CODE, code: 'P0001' });
+    expect(copy.next).toBe('finish_profile');
+    expect(copy.message).toBe(DANCER_GATE_REASON);
+    // The rating RPC's refusal and this one are the same string.
+    expect(PROFILE_INCOMPLETE_CODE).toBe('profile_incomplete');
+    expect(PROFILE_INCOMPLETE_ERROR).toBe(PROFILE_INCOMPLETE_CODE);
   });
 
   it('reads the code from a PostgREST error message', () => {

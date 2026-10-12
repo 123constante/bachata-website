@@ -102,10 +102,18 @@ export function landingPathAfterAuth(input: {
   const { organiserSelfServe, role, managesOrganiser } = input;
   if (!organiserSelfServe) {
     if (role && role !== "dancer" && LEGACY_ROLE_ROUTES[role]) return LEGACY_ROLE_ROUTES[role];
-    return "/profile";
+    // /profile was unrouted 2026-09-12 (a 404 straight after sign-in); home, as for a dancer.
+    return "/";
   }
   if (role === "dancer") return "/";
-  if (role) return "/account";
+  // A non-dancer sign-up meant to set up an organiser: to the organiser
+  // onboarding, as before /account became the dancer home (layout D, 2026-10-11).
+  // Dancer first: /account/o's DancerProfileGate sends a new account on to
+  // /finish-profile?returnTo=/account/o, so they finish the dancer profile and
+  // then land in the organiser onboarding (DancerFirstGate.matrix.test.tsx).
+  if (role) return "/account/o";
+  // Known organiser: straight to the organiser home. Unknown (lookup failed): /account decides.
+  if (managesOrganiser === true) return "/account/o";
   return managesOrganiser === false ? "/" : "/account";
 }
 
@@ -130,6 +138,9 @@ export const DANCE_ROLE_OPTIONS: readonly { value: DanceRoleValue; label: string
   { value: "Follower", label: "Follower" },
   { value: "Lead and Follow", label: "Both" },
 ];
+
+/** What a stored dance_role reads as on screen: the picker's own label. An unknown value shows as stored. */
+export const danceRoleLabel = (value: string): string => DANCE_ROLE_OPTIONS.find((o) => o.value === value)?.label ?? value;
 
 export const isDanceRoleValue = (value: unknown): value is DanceRoleValue =>
   typeof value === "string" && DANCE_ROLE_OPTIONS.some((o) => o.value === value);

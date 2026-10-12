@@ -51,7 +51,11 @@ vi.mock('@/integrations/supabase/client', () => {
     return { data: null, error: null };
   } } };
 });
-vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: feeds.user, session: null }) }));
+vi.mock('@/hooks/useAuth', async () => ({
+  useAuth: () => ({ user: feeds.user, session: null }),
+  // PublicClaimCard reads the published completion (signed-in dancer-first gate); none here.
+  ProfileGateContext: (await import('react')).createContext(null),
+}));
 vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-10-08' }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 
