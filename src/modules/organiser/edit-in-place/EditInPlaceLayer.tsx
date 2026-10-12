@@ -12,7 +12,10 @@
 // It also carries the owner-only Create event links (into the organiser area's
 // existing create flow, which makes a draft only), so a visitor downloads none
 // of that either; and the Contact card + Contact details sheet, whose private
-// read (get_organiser_contact_settings_v1) only this layer makes.
+// read (get_organiser_contact_settings_v1) only this layer makes; and, for an
+// owner or admin only (teamPickerAccess, from organiser_team_v1's my_role), the
+// Team card and its "Add a person" picker (TeamSheet). Team adds are live once
+// Done answers: team access is not page content, so it is not in the draft.
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { UNSAFE_DataRouterContext, UNSAFE_DataRouterStateContext, type Blocker, type BlockerFunction } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -50,6 +53,12 @@ import { CONTACT_COPY, contactItems, isContactField, storedContactFromSettings }
 import type { CityLookups } from './cityCheck';
 import { BAR_Z, BOTTOM_NAV_OFFSET, inBody } from './layers';
 import { uploadOrganiserPhoto } from './organiserPhotoUploadApi';
+import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
+import { addTeamMemberByProfile, fetchOrganiserTeam, organiserTeamQueryKey, searchTeamPeople } from '@/modules/organiser/shared/teamRpcApi';
+import { teamPickerAccess, type TeamMember, type TeamRole } from '@/modules/organiser/shared/teamModel';
+import TeamSheet from './TeamSheet';
+import { TeamCard } from './TeamCard';
+import { SEARCH_LIMIT, addedMessage, teamCountLine, type AddOutcome, type AddRole } from './teamPickerModel';
 import { AboutEmpty, AboutSlot, CompleteCard, CreateEventLink, CREAM, GOLD, INK, LAYER_CSS, LinkRows, MetaSlot, NameSlot, PhotoSlot, type OpenSheet } from './parts';
 
 type Notice = { tone: 'gold' | 'ok' | 'error'; text: string };
@@ -62,12 +71,38 @@ export interface EditInPlaceLayerInternals {
   searchCities?: CityLookups['searchCities'];
   resolveCity?: CityLookups['resolveCity'];
   fetchContact?: (organiserId: string) => Promise<ContactSettings>;
+  fetchTeam?: (organiserId: string) => Promise<{ myRole: TeamRole | 'admin' | null; members: TeamMember[] }>;
+  searchPeople?: (organiserId: string, term: string) => Promise<unknown>;
+  addPerson?: (organiserId: string, profileId: string, role: AddRole, reason: string | null) => Promise<unknown>;
 }
 
 const btn = { minHeight: 44, padding: '0 16px', borderRadius: 999, fontSize: 14, fontWeight: 700, cursor: 'pointer' } as const;
 
-export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId, client, uploadPhoto, searchCities, resolveCity, fetchContact }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
+export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId, client, uploadPhoto, searchCities, resolveCity, fetchContact, fetchTeam, searchPeople, addPerson }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
   const queryClient = useQueryClient();
+  // Who may add people (owner or admin), from the server's own answer; a manager or
+  // contributor gets no Team card and no picker. A failed read shows nothing.
+  const teamQuery = useQuery({
+    queryKey: organiserTeamQueryKey(organiserId),
+    queryFn: () => (fetchTeam ?? fetchOrganiserTeam)(organiserId),
+    staleTime: 60 * 1000,
+    retry: false,
+  });
+  const teamAccess = teamPickerAccess(teamQuery.data?.myRole);
+  const teamLine = useMemo(() => {
+    const members = teamQuery.data?.members ?? [];
+    const n = (r: TeamRole) => members.filter((m) => m.role === r).length;
+    return teamCountLine({ owner: n('owner'), manager: n('manager'), contributor: n('contributor') });
+  }, [teamQuery.data]);
+  const searchTeam = useCallback(
+    (term: string) => (searchPeople ? searchPeople(organiserId, term) : searchTeamPeople(organiserId, term, SEARCH_LIMIT)),
+    [searchPeople, organiserId],
+  );
+  const addToTeam = useCallback(
+    (profileId: string, role: AddRole, reason: string | null) =>
+      (addPerson ?? addTeamMemberByProfile)(organiserId, profileId, role, reason),
+    [addPerson, organiserId],
+  );
   // The owner's private contact details: read here only (this chunk is owner / manager only).
   const contactKey = useMemo(() => organiserContactSettingsQueryKey(organiserId, userId), [organiserId, userId]);
   const contactQuery = useQuery({
@@ -96,7 +131,7 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
   );
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
-  const [sheet, setSheet] = useState<FieldKey | 'contact' | null>(null);
+  const [sheet, setSheet] = useState<FieldKey | 'contact' | 'team' | null>(null);
   // City id -> name, for the drafted city shown in place (the stored one to start).
   const [cityNames, setCityNames] = useState<Record<string, string>>(() =>
     entity.city_id && entity.cities?.name ? { [entity.city_id]: entity.cities.name } : {},
@@ -171,6 +206,21 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
     openerRef.current = opener;
     setSheet('contact');
   }, []);
+
+  const openTeam = useCallback((opener: HTMLElement) => {
+    openerRef.current = opener;
+    setSheet('team');
+  }, []);
+
+  // Done in the team picker has asked the server: say who was added, then re-read the team.
+  const onTeamAdded = useCallback((outcomes: AddOutcome[], role: AddRole) => {
+    const text = addedMessage(outcomes, role);
+    if (text) setNotice({ tone: 'ok', text });
+    if (outcomes.some((o) => o.ok)) {
+      void queryClient.invalidateQueries({ queryKey: organiserTeamQueryKey(organiserId) });
+      void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+    }
+  }, [queryClient, organiserId]);
 
   const closeSheet = useCallback(() => {
     setSheet(null);
@@ -323,13 +373,14 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
           />
         );
         case 'contact': return <ContactCard load={contactLoad} items={contact} onEdit={openContact} onRetry={() => void refetchContact()} />;
+        case 'team': return teamAccess ? <TeamCard countLine={teamLine} onAdd={openTeam} /> : null;
         case 'create-event': return <CreateEventLink organiserId={organiserId} label="Create event" />;
         case 'create-first-event': return <CreateEventLink organiserId={organiserId} label="Create your first event" />;
         case 'create-another-event': return <CreateEventLink organiserId={organiserId} label="Create an event" />;
       }
     };
     return { overlay, slot, mark: (f) => (has(f) ? 'eip-drafted' : undefined) };
-  }, [entity, drafts, overlay, card, openSheet, organiserId, contact, contactLoad, openContact, refetchContact]);
+  }, [entity, drafts, overlay, card, openSheet, organiserId, contact, contactLoad, openContact, refetchContact, teamAccess, teamLine, openTeam]);
 
   useEffect(() => {
     onBridge(bridge);
@@ -338,7 +389,7 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
 
   const dataRouter = useContext(UNSAFE_DataRouterContext);
   const stored = (f: FieldKey): string => (f === 'city' ? entity.city_id ?? '' : (formFromEntity(entity)[f] as string) ?? '');
-  const fieldSheet = sheet === 'contact' ? null : sheet;
+  const fieldSheet = sheet === 'contact' || sheet === 'team' ? null : sheet;
   const sheetInitial = fieldSheet ? (drafts[fieldSheet] ?? stored(fieldSheet)) : '';
 
   return (
@@ -346,6 +397,9 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
       <style>{LAYER_CSS}</style>
       {sheet === 'contact' && storedContact && (
         <ContactSheet stored={storedContact} drafts={drafts} onDone={onContactDone} onClose={closeSheet} />
+      )}
+      {sheet === 'team' && teamAccess && (
+        <TeamSheet access={teamAccess} organiserName={entity.name ?? ''} search={searchTeam} add={addToTeam} onAdded={onTeamAdded} onClose={closeSheet} />
       )}
       {fieldSheet && (
         <FieldSheet

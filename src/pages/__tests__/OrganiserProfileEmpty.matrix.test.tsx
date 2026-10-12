@@ -165,6 +165,10 @@ describe('public organiser page: contact buttons follow get_organiser_public_con
     await renderPage({ name: 'x', expect: 'none', owner: true });
     // The self-serve flag is off in test builds: the badge is hidden, edit access is not behind it.
     expect(screen.queryByTestId('managed-badge')).toBeNull();
-    expect(screen.getByLabelText('Edit profile')).toBeTruthy();
+    // Edit access shows as the owner layer (its Contact card), never a hero
+    // "Edit profile" button: that button is gone (owner decision, 2026-10-12).
+    expect(await screen.findByTestId('eip-contact')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Edit profile' })).toBeNull();
+    expect(screen.queryByLabelText('Edit profile')).toBeNull();
   });
 });

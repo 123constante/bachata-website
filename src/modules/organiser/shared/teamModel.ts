@@ -173,6 +173,18 @@ export const READ_ONLY_REASON = 'Only an owner can add people, change roles or t
 /** The roles an owner can give a new person (a second owner comes by transfer). */
 export const ADD_ROLES: readonly ('manager' | 'contributor')[] = ['manager', 'contributor'];
 
+/**
+ * Who gets the organiser page's team picker (search a person, add them): an
+ * owner, or a Bachata Calendar admin, who must also give a reason. The ONE copy
+ * of this rule, mirroring organiser_team_search_people_v1 (owner or admin, else
+ * not_authorised) and _organiser_team_write_gate_p5 (manager or contributor:
+ * owner_only; admin without a reason: reason_required). Null: no picker at all.
+ * `myRole` is organiser_team_v1's my_role, where an owner row wins over admin.
+ */
+export function teamPickerAccess(myRole: TeamRole | 'admin' | null | undefined): 'owner' | 'admin' | null {
+  return myRole === 'owner' || myRole === 'admin' ? myRole : null;
+}
+
 /** organiser_team_v1 -> the viewer's role and the members. */
 export function parseTeamRead(raw: unknown): { myRole: TeamRole | 'admin' | null; members: TeamMember[] } {
   const row = (raw ?? {}) as Record<string, unknown>;
