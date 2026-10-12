@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
+import { reportClientErrorLazy } from "@/lib/reportClientErrorLazy";
 
 /**
  * The ONE self-serve write path for a signed-in user's own dancer profile.
@@ -244,7 +245,8 @@ export const saveMyDancerProfile = async (
     const missing = new MissingDancerProfileError();
     // Reported here rather than at each call site, so a trigger that stops
     // firing surfaces under one searchable context no matter which screen hit it.
-        throw missing;
+    reportClientErrorLazy(missing, "save_failed");
+    throw missing;
   }
 
   return data as Record<string, unknown>;

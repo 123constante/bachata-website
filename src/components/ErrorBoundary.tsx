@@ -1,11 +1,13 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { isStaleChunkError, chunkReloadAttempted } from "@/lib/staleChunk";
+import { reportClientErrorLazy } from "@/lib/reportClientErrorLazy";
 
 // Stale-chunk failures are healed by the once-per-session reload (main.tsx /
 // lazyWithRetry); reporting them on the first pass is pure noise. Only report
 // if the reload already happened and the chunk STILL won't load.
-function shouldSkipCapture(error: Error): boolean {
-  return isStaleChunkError(error) && !chunkReloadAttempted();
+function captureRender(error: Error): void {
+  if (isStaleChunkError(error) && !chunkReloadAttempted()) return;
+  reportClientErrorLazy(error);
 }
 
 interface Props {
@@ -32,8 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught:", error, errorInfo);
-    if (shouldSkipCapture(error)) return;
-    // Error logging and state reset.
+    captureRender(error);
     this.setState({ eventId: null });
   }
 
@@ -83,8 +84,7 @@ export class PageErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("PageErrorBoundary caught:", error, errorInfo);
-    if (shouldSkipCapture(error)) return;
-    // Error logging only (no Sentry reporting).
+    captureRender(error);
     this.setState({ eventId: null });
   }
 
