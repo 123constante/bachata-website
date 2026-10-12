@@ -6,6 +6,7 @@ import { optimizedImageUrl } from '@/lib/imageCdn';
 import { cn } from '@/lib/utils';
 import { formatWallClockTime, wallClockDateKey, wallClockExactDateKey } from '@/lib/time/wallClock';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
+import { normaliseNationalityCode } from '@/components/people/nationality';
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 // Exported so the new bento ScheduleBlock can reuse this hook without
@@ -24,6 +25,10 @@ export type Person = {
    *  (default behaviour preserved). When non-null, RankCard groups people by
    *  level so each level row shows its own teacher/DJ. */
   level: SessionLevel | null;
+  /** ISO alpha-2 for the flag on the photo, or null. event_view_p5 does not carry
+   *  it; ScheduleBlock merges it in from get_event_program_v1 /
+   *  get_occurrence_program_v1 (useProgrammeNationalities + withNationalities). */
+  nationalityCode?: string | null;
 };
 
 export type SessionLevel = 'beginner' | 'improver' | 'intermediate' | 'advanced' | 'open_level';
@@ -412,6 +417,57 @@ export function parseProgramItems(data: unknown): ScheduleSession[] {
         cancelled: item.cancelled === true,
       };
     });
+}
+
+/** profile_id -> nationality_code from a get_event_program_v1 / get_occurrence_program_v1 payload. */
+export function parseProgrammeNationalities(data: unknown): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const item of Array.isArray(data) ? data : []) {
+    const people = item && typeof item === 'object' ? (item as { people?: unknown }).people : null;
+    for (const p of Array.isArray(people) ? people : []) {
+      if (!p || typeof p !== 'object') continue;
+      const id = (p as { profile_id?: unknown }).profile_id;
+      const code = normaliseNationalityCode((p as { nationality_code?: unknown }).nationality_code);
+      if (typeof id === 'string' && code) out.set(id, code);
+    }
+  }
+  return out;
+}
+
+/** The sessions with each person's nationalityCode filled from `codes` (same objects when nothing changes). */
+export function withNationalities(sessions: ScheduleSession[], codes: ReadonlyMap<string, string> | undefined): ScheduleSession[] {
+  if (!codes || codes.size === 0) return sessions;
+  return sessions.map((s) =>
+    s.people.some((p) => codes.has(p.id))
+      ? { ...s, people: s.people.map((p) => (codes.has(p.id) ? { ...p, nationalityCode: codes.get(p.id) ?? null } : p)) }
+      : s,
+  );
+}
+
+/**
+ * The programme's nationality codes. event_view_p5 (the programme read) does not
+ * emit nationality_code; the two programme reads that do are asked once, only when
+ * the programme has people, and never block the schedule: flags appear when this
+ * answers, and an error just means no flags.
+ */
+export function useProgrammeNationalities(
+  target: { eventId?: string | null; occurrenceId?: string | null },
+  enabled: boolean,
+) {
+  const occ = target.occurrenceId ?? null;
+  const ev = occ ? null : target.eventId ?? null;
+  return useQuery<Map<string, string>>({
+    queryKey: ['programme-nationalities', occ ? 'occ' : 'event', occ ?? ev],
+    queryFn: async () => {
+      const { data, error } = occ
+        ? await supabase.rpc('get_occurrence_program_v1', { p_occurrence_id: occ })
+        : await supabase.rpc('get_event_program_v1', { p_event_id: ev as string });
+      if (error || !data) return new Map();
+      return parseProgrammeNationalities(data);
+    },
+    enabled: enabled && Boolean(occ ?? ev),
+    staleTime: 1000 * 60 * 10,
+  });
 }
 
 export function useProgramItems(eventId: string | null | undefined) {

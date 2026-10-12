@@ -1,5 +1,5 @@
 import type { Page, Route } from '@playwright/test';
-import { answer, FAKE_ORIGIN, FAKE_REF, ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG } from './fakeSupabase.mjs';
+import { answer, FAKE_ORIGIN, FAKE_REF, FLAG_DJ_ID, ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG, ORG3_SLUG, VENDOR_ID } from './fakeSupabase.mjs';
 
 export { ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG };
 
@@ -158,6 +158,13 @@ export const PUBLIC_ROUTES = [
   '/bachata-parties-london',
   '/auth',
 ] as const;
+
+/**
+ * The routes people-nationality-flag.phone.spec.ts visits. Not in PUBLIC_ROUTES (the
+ * contrast ratchet walks those); the warm-up loads them too, so a cold dependency
+ * optimiser cannot reload a page mid-test.
+ */
+export const FLAG_ROUTES = ['/djs', `/djs/${FLAG_DJ_ID}`, `/vendors/${VENDOR_ID}`, '/search?q=a', `/organisers/${ORG3_SLUG}`] as const;
 
 /** Signed in as the owner, with one drafted field so the Save bar is showing. */
 export async function openOrganiserAsOwnerWithDraft(page: Page) {

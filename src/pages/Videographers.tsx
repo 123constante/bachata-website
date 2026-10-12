@@ -10,6 +10,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VIDEOGRAPHER_PUBLIC_COLS } from '@/lib/videographerPublicCols';
+import { NationalityFlag, TILE_FLAG_SIZE } from '@/components/people/NationalityFlag';
+import { pickNationalityCode } from '@/components/people/nationality';
 
 const VIDEO_CATEGORIES = [
   { id: 'socials', label: 'Social Demos', icon: Camera },
@@ -29,6 +31,7 @@ interface Videographer {
   website: string | null;
   verified: boolean | null;
   videography_styles: string[] | null;
+  nationality: string | null;
 }
 
 const Videographers = () => {
@@ -124,6 +127,7 @@ const Videographers = () => {
                   alt={video.business_name || 'Videographer'}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy"/>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                <NationalityFlag code={pickNationalityCode(video)} size={TILE_FLAG_SIZE} placement="inset" inset={14} />
                 
                 <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end">
                    <div>

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { safeExternalHref } from '@/lib/url';
+import { normaliseNationalityCode } from '@/components/people/nationality';
 import { asEventTimeZone, asInstant, asWallClock, type Instant, type WallClock } from '@/lib/time/wallClock';
 import type {
   FestivalArtist,
@@ -61,7 +62,13 @@ const parseArtist = (raw: unknown): FestivalArtist | null => {
   if (!obj) return null;
   const id = asString(obj.id);
   if (!id) return null;
-  return { id, displayName: asString(obj.display_name), avatarUrl: asString(obj.avatar_url), href: null };
+  return {
+    id,
+    displayName: asString(obj.display_name),
+    avatarUrl: asString(obj.avatar_url),
+    href: null,
+    nationalityCode: normaliseNationalityCode(obj.nationality_code),
+  };
 };
 
 const parseArtists = (raw: unknown, hrefBase: string | null = null): FestivalArtist[] =>

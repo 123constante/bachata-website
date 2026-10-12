@@ -75,6 +75,46 @@ const searchPeopleRows = (q, limit) => {
 
 const LONG = 'Weekly bachata socials and classes in central London. '.repeat(6).trim();
 
+// ---------------------------------------------------------------------------
+// People with a nationality flag (people-nationality-flag.phone.spec.ts).
+// Prod survey 2026-10-12 (read-only, counts only): of 166 dancer profiles 17 carry a
+// code (about 1 in 10), 11 codes in use (ES CO x4, AR x2, EC BO ZA IT VE GB DE CY x1);
+// the rest emit nationality_code null while some still store typed text. 120 DJs make
+// the 100+ list the performance check needs; every 8th has a code, cycling the codes
+// in use, and some have no photo or a long name.
+// ---------------------------------------------------------------------------
+const PROD_CODES = ['ES', 'CO', 'AR', 'EC', 'BO', 'ZA', 'IT', 'VE', 'GB', 'DE', 'CY', 'ES', 'CO', 'AR', 'CO', 'ES'];
+const FIRST = ['Lucia', 'Camila', 'Marco', 'Sofia', 'Tom', 'Jan', 'Eva', 'Luca', 'Ana', 'Diego', 'Nadia', 'Kofi', 'Mei', 'Omar', 'Ines', 'Raul'];
+const LAST = ['Moreno', 'Ruiz', 'Diaz', 'Vargas', 'Hughes', 'Kowalski', 'Condori', 'Bianchi', 'Silva', 'Torres', 'Haddad', 'Mensah', 'Chen', 'Farouk', 'Costa', 'Ortega'];
+export const FLAG_PEOPLE = Array.from({ length: 120 }, (_, i) => {
+  const coded = i % 8 === 0;
+  const longName = i % 37 === 5;
+  return {
+    id: `f0000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
+    first_name: longName ? 'Maria Fernanda de los Angeles' : FIRST[i % 16],
+    surname: longName ? 'Rodriguez-Villanueva del Valle' : LAST[(i * 7) % 16],
+    photo_url: i % 5 === 3 ? null : PHOTO,
+    nationality_code: coded ? PROD_CODES[(i / 8) % PROD_CODES.length] : null,
+    // Typed text kept on an unmapped row: the read says null, so no flag.
+    nationality: coded ? PROD_CODES[(i / 8) % PROD_CODES.length] : i % 9 === 4 ? 'Kosovar' : null,
+  };
+});
+export const FLAG_DJ_ID = FLAG_PEOPLE[0].id; // ES
+export const FLAG_PEOPLE_CODED = FLAG_PEOPLE.filter((p) => p.nationality_code).length;
+const fullName = (p) => `${p.first_name} ${p.surname}`;
+const djListRow = (p) => ({
+  id: p.id, display_name: null, dj_name: null, first_name: p.first_name, surname: p.surname, photo_url: p.photo_url,
+  bio: null, genres: ['Bachata'], nationality: p.nationality, nationality_code: p.nationality_code,
+  city_id: CITY_ID, city_name: 'London', city_slug: 'london-gb', person_entity_id: null,
+});
+// The organiser whose public "Teachers & DJs" circles carry flags (a table read:
+// organiser_team_members + dancer_profiles.nationality, stored as alpha-2).
+export const ORG3_ID = 'a0000000-0000-4000-8000-0000000000a5';
+export const ORG3_SLUG = 'team-flags-phone-qa';
+const ORG3_TEAM = [0, 1, 8, 16, 24, 2];
+export const ORG3_TEAM_CODES = ORG3_TEAM.map((k) => FLAG_PEOPLE[k].nationality_code).filter(Boolean);
+export const VENDOR_ID = 'b0000000-0000-4000-8000-0000000000b1';
+
 /** Table rows, filtered by eq./is./in. query params. Shapes follow the public column lists. */
 const HERO_BASE = {
   first_name: null, surname: null, bio: 'Weekly socials.', short_bio: 'Weekly socials.', website: null, instagram: 'bachataplayground',
@@ -149,7 +189,21 @@ export const TABLES = {
       name: HERO_ORGS[1].name,
       organisation_name: HERO_ORGS[1].name,
     },
+    {
+      ...HERO_BASE,
+      id: ORG3_ID,
+      slug: ORG3_SLUG,
+      name: 'Team Flags Phone QA',
+      organisation_name: 'Team Flags Phone QA',
+    },
   ],
+  organiser_team_members: ORG3_TEAM.map((k, i) => ({
+    id: `e1000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`, organiser_profile_id: ORG3_ID, member_profile_id: FLAG_PEOPLE[k].id,
+    role: i % 2 ? 'DJ' : 'Teacher', is_head: i === 0, is_leader: false, sort_order: i, is_active: true,
+  })),
+  dancer_profiles: FLAG_PEOPLE.slice(0, 30).map((p) => ({
+    id: p.id, first_name: p.first_name, surname: p.surname, display_name: fullName(p), avatar_url: p.photo_url, nationality: p.nationality,
+  })),
   cities: [
     { id: CITY_ID, name: 'London', slug: 'london-gb', country_code: 'GB', is_active: true, timezone: 'Europe/London' },
     { id: CITY2_ID, name: 'Manchester', slug: 'manchester-gb', country_code: 'GB', is_active: true, timezone: 'Europe/London' },
@@ -175,6 +229,24 @@ export const RPCS = {
     members: [{ user_id: '11111111-1111-4111-8111-111111111111', member_role: 'owner', is_primary: true, joined_at: '2026-01-01T00:00:00Z', is_me: true, email: 'owner@ritmo.example' }],
   }),
   organiser_team_search_people_v1: (args) => searchPeopleRows(args.p_query, args.p_limit),
+  // Nationality flags: the reads' prod shapes (admin #774), nationality_code additive.
+  list_public_djs_v1: () => FLAG_PEOPLE.map(djListRow),
+  get_public_dj_v1: (args) => {
+    const p = FLAG_PEOPLE.find((x) => x.id === args.p_dj_id) ?? null;
+    return p ? { ...djListRow(p), faq: null, pricing: null, website: null, facebook: null, mixcloud: null, cover_url: null, instagram: null, languages: [], soundcloud: null, achievements: [], gallery_urls: [], upcoming_events: [] } : null;
+  },
+  get_public_vendor_detail_v1: () => [{
+    id: VENDOR_ID, business_name: 'Flag Shoes Phone QA', city: 'London', team: FLAG_PEOPLE.slice(0, 9).map((p, i) => ({
+      dancer_id: p.id, name: fullName(p), avatar_url: p.photo_url, nationality_code: p.nationality_code, city: 'London', role: i === 0 ? 'Owner' : 'Staff', is_leader: i === 0,
+    })),
+    product_categories: [], products: [], faq: [],
+  }],
+  search_public_v4: (args) => {
+    const q = String(args.p_query ?? '').toLowerCase();
+    const rows = FLAG_PEOPLE.filter((p) => fullName(p).toLowerCase().includes(q)).slice(0, Number(args.p_section_limit) || 12)
+      .map((p) => ({ id: p.id, first_name: p.first_name, surname: p.surname, display_name: null, photo_url: p.photo_url, avatar_url: null, slug: null, nationality_code: p.nationality_code }));
+    return { query: q, events: [], organisers: [], teachers: rows.slice(0, 4), djs: rows.slice(4, 8), dancers: rows.slice(8), venues: [], vendors: [], cities: [], total_count: rows.length };
+  },
   // ORG2's nights: no dated occurrence rows, so the page lists them as upcoming
   // (the base-date fallback); every other organiser has none.
   get_organiser_public_events_v1: (args) => (args.p_organiser_id === ORG2_ID ? [

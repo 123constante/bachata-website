@@ -31,6 +31,8 @@ export interface SearchResultPerson {
   photo_url: string | null;
   avatar_url: string | null;
   slug: string | null;
+  /** ISO alpha-2 from search_public_v4/v5/v6, or null (no flag). */
+  nationality_code?: string | null;
 }
 
 export interface SearchResultVenue {

@@ -22,6 +22,7 @@ import { resolveEventImage } from '@/lib/utils';
 import { eventResultSubtitle } from '@/lib/searchEventSubtitle';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { cn } from '@/lib/utils';
+import { NationalityFlag, TILE_FLAG_SIZE } from '@/components/people/NationalityFlag';
 
 type PersonLike = { first_name: string | null; surname: string | null; display_name: string | null };
 const personName = (p: PersonLike) =>
@@ -72,9 +73,11 @@ type ResultCardProps = {
   id: string;
   query: string;
   badge?: React.ReactNode;
+  /** People only: nationality_code from the search read. */
+  nationalityCode?: string | null;
 };
 
-const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query, badge }: ResultCardProps) => (
+const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query, badge, nationalityCode }: ResultCardProps) => (
   <Link to={to} onClick={() => recordSearchResultClick({ query, kind, id })} className="group block">
     <Card className="h-full overflow-hidden border-primary/15 transition-colors hover:border-primary/40">
       <div className="relative aspect-[4/3] bg-muted/50">
@@ -83,6 +86,7 @@ const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query,
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">{fallbackIcon}</div>
         )}
+        <NationalityFlag code={nationalityCode} size={TILE_FLAG_SIZE} placement="inset" />
       </div>
       <div className="p-3">
         <h3 className="line-clamp-2 text-sm font-bold text-foreground transition-colors group-hover:text-primary">
@@ -300,7 +304,7 @@ const SearchResults = () => {
                 <SectionHeader icon={<GraduationCap className="h-4 w-4 text-primary" />} title="Teachers" count={data.teachers.length} />
                 <SectionGrid>
                   {data.teachers.map((t) => (
-                    <ResultCard key={t.id} to={hrefFor('teacher', t.id)} image={resolveEventImage(t.photo_url ?? t.avatar_url, null)} title={personName(t)} fallbackIcon={<GraduationCap className="h-8 w-8" />} kind="teacher" id={t.id} query={query} />
+                    <ResultCard key={t.id} to={hrefFor('teacher', t.id)} image={resolveEventImage(t.photo_url ?? t.avatar_url, null)} title={personName(t)} fallbackIcon={<GraduationCap className="h-8 w-8" />} kind="teacher" id={t.id} query={query} nationalityCode={t.nationality_code} />
                   ))}
                 </SectionGrid>
               </section>
@@ -310,7 +314,7 @@ const SearchResults = () => {
                 <SectionHeader icon={<Music className="h-4 w-4 text-primary" />} title="DJs" count={data.djs.length} />
                 <SectionGrid>
                   {data.djs.map((d) => (
-                    <ResultCard key={d.id} to={hrefFor('dj', d.id)} image={resolveEventImage(d.photo_url ?? d.avatar_url, null)} title={personName(d)} fallbackIcon={<Music className="h-8 w-8" />} kind="dj" id={d.id} query={query} />
+                    <ResultCard key={d.id} to={hrefFor('dj', d.id)} image={resolveEventImage(d.photo_url ?? d.avatar_url, null)} title={personName(d)} fallbackIcon={<Music className="h-8 w-8" />} kind="dj" id={d.id} query={query} nationalityCode={d.nationality_code} />
                   ))}
                 </SectionGrid>
               </section>
@@ -320,7 +324,7 @@ const SearchResults = () => {
                 <SectionHeader icon={<User className="h-4 w-4 text-primary" />} title="Dancers" count={data.dancers.length} />
                 <SectionGrid>
                   {data.dancers.map((d) => (
-                    <ResultCard key={d.id} to={hrefFor('dancer', d.id)} image={resolveEventImage(d.avatar_url ?? d.photo_url, null)} title={personName(d)} fallbackIcon={<User className="h-8 w-8" />} kind="dancer" id={d.id} query={query} />
+                    <ResultCard key={d.id} to={hrefFor('dancer', d.id)} image={resolveEventImage(d.avatar_url ?? d.photo_url, null)} title={personName(d)} fallbackIcon={<User className="h-8 w-8" />} kind="dancer" id={d.id} query={query} nationalityCode={d.nationality_code} />
                   ))}
                 </SectionGrid>
               </section>

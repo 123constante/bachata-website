@@ -88,6 +88,7 @@ import { buildEventJsonLd } from "@/lib/buildEventJsonLd";
 import { optimizedImageUrl, cssUrl } from '@/lib/imageCdn';
 import { serialiseJsonLd } from "@/lib/serialiseJsonLd";
 import { formatPassAmount } from "@/modules/event-page/formatPassAmount";
+import { NationalityFlag, TILE_FLAG_SIZE } from "@/components/people/NationalityFlag";
 
 type FestivalEvent = {
 
@@ -3071,6 +3072,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
                   <div className="nl-img no-photo"><span className="initial">{initial}</span></div>
                 )}
                 <div className="nl-scrim" />
+                <NationalityFlag code={teacher.nationalityCode} size={TILE_FLAG_SIZE} placement="inset" />
                 <div className="nl-meta">
                   <div className="nl-name">{teacher.displayName ?? "Artist"}</div>
                   <div className="nl-style">{styleLabel}</div>

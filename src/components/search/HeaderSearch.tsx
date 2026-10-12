@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NationalityFlag } from '@/components/people/NationalityFlag';
 import { usePublicSearch } from '@/hooks/usePublicSearch';
 import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { useCity } from '@/contexts/CityContext';
@@ -331,10 +332,13 @@ export const HeaderSearch = ({ expanded, onExpandedChange }: HeaderSearchProps) 
                         onClick={() => goTo(r.href, q.trim())}
                         className={cn('flex w-full items-center gap-3 px-3 py-2 text-left', activeIndex === idx && 'bg-primary/10')}
                       >
-                        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden bg-surface-hover', round)}>
-                          {r.imageUrl
-                            ? <img src={optimizedImageUrl(r.imageUrl, 96)} alt="" loading="lazy" className="h-full w-full object-cover" />
-                            : <Icon className="h-4 w-4 text-muted-foreground" />}
+                        <span className="relative shrink-0">
+                          <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden bg-surface-hover', round)}>
+                            {r.imageUrl
+                              ? <img src={optimizedImageUrl(r.imageUrl, 96)} alt="" loading="lazy" className="h-full w-full object-cover" />
+                              : <Icon className="h-4 w-4 text-muted-foreground" />}
+                          </span>
+                          <NationalityFlag code={r.nationalityCode} size={36} />
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-semibold text-foreground">{highlight(r.title, term)}</span>

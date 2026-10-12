@@ -1,5 +1,5 @@
 import { chromium, type FullConfig } from '@playwright/test';
-import { fakeSupabase, PUBLIC_ROUTES } from './helpers';
+import { fakeSupabase, FLAG_ROUTES, PUBLIC_ROUTES } from './helpers';
 
 /**
  * Global setup: warm the dev server's dependency optimiser BEFORE any test runs.
@@ -18,7 +18,7 @@ export default async function warmup(config: FullConfig) {
   const baseURL = config.projects[0].use.baseURL as string;
   const browser = await chromium.launch();
   try {
-    const paths = [...PUBLIC_ROUTES];
+    const paths = [...PUBLIC_ROUTES, ...FLAG_ROUTES];
     let broken: string[] = [];
     for (let pass = 1; pass <= 4; pass++) {
       broken = [];

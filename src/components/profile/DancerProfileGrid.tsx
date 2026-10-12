@@ -10,6 +10,7 @@ import ProfileEventTimeline from "@/components/profile/ProfileEventTimeline";
 import { motion } from "framer-motion";
 import { calculateDuration } from "@/components/profile/ExperiencePicker";
 import { optimizedImageUrl } from '@/lib/imageCdn';
+import { NationalityFlag, TILE_FLAG_SIZE } from '@/components/people/NationalityFlag';
 
 interface DancerProfileGridProps {
   dancer: DancerPublicViewModel;
@@ -133,6 +134,7 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+            <NationalityFlag code={dancer.nationalityCode} size={TILE_FLAG_SIZE} placement="inset" inset={8} />
           </div>
           
           <div className="relative h-full flex flex-col justify-end p-6 z-10">

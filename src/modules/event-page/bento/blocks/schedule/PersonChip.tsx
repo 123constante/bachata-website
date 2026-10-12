@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { Person } from '@/modules/event-page/sections/EventScheduleGrid';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
+import { NationalityFlag } from '@/components/people/NationalityFlag';
 
 // --- PersonChip - atomic per-person render primitive ---
 //
@@ -154,7 +155,10 @@ const AvatarCircle = ({
   const t = SIZE_TABLE[size];
   const [errored, setErrored] = useState(false);
   const showAvatar = Boolean(person.avatarUrl) && !errored;
+  // The circle clips; the flag is its sibling in a non-clipping box so it can stand
+  // out past the top-right (components/people/NationalityFlag).
   return (
+    <div className="relative shrink-0" style={{ width: t.avatarPx, height: t.avatarPx }}>
     <div
       className="flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold"
       style={{
@@ -180,6 +184,8 @@ const AvatarCircle = ({
       ) : (
         <span>{initialFor(person.name)}</span>
       )}
+    </div>
+    <NationalityFlag code={person.nationalityCode} size={t.avatarPx} />
     </div>
   );
 };
