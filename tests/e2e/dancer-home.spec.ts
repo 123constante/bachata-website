@@ -93,7 +93,7 @@ for (const viewport of [PHONE, SHORT]) {
     test('an unfinished dancer profile: /account is the gated Finish screen', async ({ page }) => {
       await openDancer(page, '/account');
       await expectGated(page, '/account');
-      await expect(page.getByText('Add your dance role to rate parties.')).toBeVisible();
+      await expect(page.getByText('Still to add: dance role.')).toBeVisible();
       await expect(page.getByRole('radiogroup')).toBeVisible();
       await page.waitForTimeout(400);
       expect(await shortControls(page, 'main form')).toEqual([]);
@@ -206,7 +206,7 @@ test.describe('flows @390', () => {
     await openDancer(page, '/vendors/header-account-probe', { row: { ...STUB } });
     await page.getByTestId('header-account-link').click();
     await expectGated(page, '/account');
-    await expect(page.getByText('Add your first name, city, dance role and photo to rate parties.')).toBeVisible();
+    await expect(page.getByText('Still to add: first name, city, dance role, photo.')).toBeVisible();
     await expect(page.getByLabel('First name')).toBeVisible();
     await expect(page.getByRole('radiogroup')).toBeVisible();
     await expect(page.getByText('Your city', { exact: true }).first()).toBeVisible();
@@ -214,7 +214,7 @@ test.describe('flows @390', () => {
     // A part-save keeps them on the gate, naming what is left.
     await page.getByLabel('First name').fill('Sam');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByText('Saved. Add your city, dance role and photo to rate parties.')).toBeVisible();
+    await expect(page.getByText('Saved. Still to add: city, dance role, photo.')).toBeVisible();
     await expect(page).toHaveURL(/\/finish-profile\?returnTo=%2Faccount$/);
     await page.waitForTimeout(400);
     await expectNoHorizontalScroll(page);
