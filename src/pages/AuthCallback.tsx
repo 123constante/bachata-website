@@ -117,12 +117,15 @@ const AuthCallback = () => {
           first_name: string | null;
           based_city_id: string | null;
           dance_role: string | null;
-          meta_data: unknown;
         } | null = null;
         if (personaId) {
+          // No meta_data: authenticated loses SELECT on it (contact lockdown step
+          // 3, admin #770), and the routing below never needs it -- a stamp can
+          // not make inferOnboardingStatusFromDancer answer "completed".
           const { data, error: dancerError } = await supabase
             .from("dancer_profiles")
-            .select("id, first_name, based_city_id, dance_role, meta_data")
+            .select("id, first_name, based_city_id, dance_role")
+
             .eq("id", personaId)
             .maybeSingle();
           if (dancerError) throw dancerError;

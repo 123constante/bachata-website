@@ -73,12 +73,19 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       // profile an account is linked to, else its own stub. Keyed on user.id a
       // linked person was judged on their empty stub and bounced home.
       // No persona = no row, the same answer this gate gave before for no row.
+      //
+      // No meta_data: authenticated loses SELECT on it (contact lockdown step 3,
+      // admin #770) and naming it would 42501 the whole read -- every guarded
+      // page would then bounce home. It cannot decide this gate anyway: a stamp
+      // never claims "completed" (inferOnboardingStatusFromDancer), so the
+      // answer here is the basics alone, with or without it.
       const personaId = await myPersonaIdForReads(queryClient, user.id);
       if (cancelled) return;
       const { data: dancer } = personaId
         ? await supabase
             .from("dancer_profiles")
-            .select("first_name, based_city_id, meta_data")
+            .select("first_name, based_city_id")
+
             .eq("id", personaId)
             .maybeSingle()
         : { data: null };

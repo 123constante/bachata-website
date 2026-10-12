@@ -177,7 +177,16 @@ export type DashboardEditorSection = "identity" | "career" | "partner" | "social
 export const buildDashboardSectionPayload = (
   section: DashboardEditorSection,
   form: DancerEditorForm,
-  ctx: { cityId?: string } = {},
+  ctx: {
+    cityId?: string;
+    /**
+     * The stored WhatsApp as read through my_dancer_contact_v1; null/undefined
+     * = it never loaded. A private column (contact lockdown, admin #770): it is
+     * sent only as a real edit of a value we actually read, never as the blank
+     * a failed read left in the form, and never re-sent unchanged.
+     */
+    loadedWhatsapp?: string | null;
+  } = {},
 ): SaveMyDancerProfileInput => {
   if (section === "identity") {
     return {
@@ -224,8 +233,11 @@ export const buildDashboardSectionPayload = (
     return {
       instagram: normalizeSocialUrl("instagram", form.instagram),
       facebook: normalizeSocialUrl("facebook", form.facebook),
-      whatsapp: form.whatsapp,
+      ...(typeof ctx.loadedWhatsapp === "string" && form.whatsapp !== ctx.loadedWhatsapp
+        ? { whatsapp: form.whatsapp }
+        : {}),
       website_url: normalizeSocialUrl("website", form.website),
+
     };
   }
 

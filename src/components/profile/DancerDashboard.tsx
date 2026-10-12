@@ -42,6 +42,7 @@ import { Switch } from '@/components/ui/switch';
 import { CityPicker } from '@/components/ui/city-picker';
 import { ExperiencePicker } from '@/components/profile/ExperiencePicker';
 import { dateStringFromDanceStartedYear, saveMyDancerProfile } from '@/lib/saveMyDancerProfile';
+import { fetchMyDancerContact } from '@/lib/myDancerContact';
 import {
   buildDashboardSectionPayload,
   dancerRoleFromStored,
@@ -211,6 +212,9 @@ export const DancerDashboard = () => {
   const { citySlug } = useCity();
 
   const [profile, setProfile] = useState<DancerProfile | null>(null);
+  // The stored WhatsApp as read through my_dancer_contact_v1. null = it did not
+  // load, which is NOT "no number": the field is then locked and never sent.
+  const [loadedWhatsapp, setLoadedWhatsapp] = useState<string | null>(null);
   const [selectedEvents, setSelectedEvents] = useState<AttendanceCard[]>([]);
   const [selectedFestivals, setSelectedFestivals] = useState<AttendanceCard[]>([]);
   const [eventSearchTerm, setEventSearchTerm] = useState('');
@@ -344,10 +348,15 @@ export const DancerDashboard = () => {
    */
   const applySavedProfile = (saved: Record<string, unknown>, cities?: { name: string } | null) => {
     const normalized = normalizeDancerRecord(saved) as unknown as DancerProfile;
+    // The save's returned row is the server's word on whatsapp only when it
+    // carries the key; otherwise keep what my_dancer_contact_v1 told us.
+    const savedHasWhatsapp = Object.prototype.hasOwnProperty.call(saved, 'whatsapp');
+    if (savedHasWhatsapp) setLoadedWhatsapp(typeof saved.whatsapp === 'string' ? saved.whatsapp : '');
     setProfile((prev) =>
       prev
         ? {
             ...normalized,
+            whatsapp: savedHasWhatsapp ? normalized.whatsapp : prev.whatsapp,
             // `undefined` means "the caller did not resolve a city", which is not
             // the same as "the city was removed".
             cities: cities === undefined ? prev.cities : cities,
@@ -380,19 +389,30 @@ export const DancerDashboard = () => {
       try {
         // OWNERSHIP, not authorship -- the full note is on AuthGuard. The row is
         // the RESOLVED persona (lib/myPersona); no persona = no row, as before.
+        //
+        // whatsapp is NOT in this select: contact lockdown step 3 (admin #770)
+        // revokes authenticated's SELECT on it, and naming it would 42501 the
+        // whole read. It comes from my_dancer_contact_v1, which never throws: a
+        // failed contact read leaves the dashboard working with WhatsApp locked.
         const personaId = await myPersonaIdForReads(queryClient, user.id);
-        const { data: dancer } = personaId
-          ? await supabase
-              .from('dancer_profiles')
-              .select('id, first_name, surname, based_city_id, dance_role, website_url, avatar_url, nationality, instagram, facebook, whatsapp, cities!based_city_id(name), dancing_role_details(*)')
-              .eq('id', personaId)
-              .maybeSingle()
-          : { data: null };
+        const [{ data: dancer }, contact] = personaId
+          ? await Promise.all([
+              supabase
+                .from('dancer_profiles')
+                .select('id, first_name, surname, based_city_id, dance_role, website_url, avatar_url, nationality, instagram, facebook, cities!based_city_id(name), dancing_role_details(*)')
+                .eq('id', personaId)
+                .maybeSingle(),
+              fetchMyDancerContact(personaId),
+            ])
+          : [{ data: null }, { status: 'unavailable' as const }];
 
         if (!dancer) {
           setProfile(null);
           return;
         }
+
+        const whatsapp = contact.status === 'loaded' ? contact.contact.whatsapp ?? '' : null;
+        setLoadedWhatsapp(whatsapp);
 
         const roleDetails = Array.isArray(dancer.dancing_role_details)
           ? dancer.dancing_role_details[0] ?? null
@@ -400,6 +420,7 @@ export const DancerDashboard = () => {
         const normalized = normalizeDancerRecord({
           ...dancer,
           ...roleDetails,
+          whatsapp,
           photo_url: dancer.avatar_url,
           website: dancer.website_url,
         });
@@ -905,7 +926,7 @@ export const DancerDashboard = () => {
       // to sit here was unreachable, and a second unreachable write path is
       // exactly where the next silent divergence would have grown.
       const saved = await saveMyDancerProfile(
-        buildDashboardSectionPayload(activeEditor, editForm, { cityId })
+        buildDashboardSectionPayload(activeEditor, editForm, { cityId, loadedWhatsapp })
       );
 
       if (activeEditor === 'identity') {
@@ -1634,8 +1655,16 @@ export const DancerDashboard = () => {
                 placeholder="+44 7XXX XXX XXX"
                 value={editForm.whatsapp}
                 onChange={(event) => applyEditForm((prev) => ({ ...prev, whatsapp: event.target.value }))}
+                disabled={loadedWhatsapp === null}
+                aria-describedby={loadedWhatsapp === null ? 'whatsapp-unavailable' : undefined}
                 className="bg-slate-900/80 border-slate-700"
               />
+              {loadedWhatsapp === null && (
+                <p id="whatsapp-unavailable" className="text-xs text-slate-400">
+                  We couldn&rsquo;t load your WhatsApp number, so it can&rsquo;t be changed right now. Reload the page to try again.
+                </p>
+              )}
+
               <Input
                 placeholder="https://your-site.com"
                 value={editForm.website}
