@@ -1254,7 +1254,7 @@ const OrganiserProfile = () => {
           </div>
 
           {/* Mobile */}
-          {(isMobile !== false) && <div style={{ position: 'relative', height: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 26, paddingLeft: 24, paddingRight: 24, textAlign: 'center' }}>
+          {(isMobile !== false) && <div style={{ position: 'relative', minHeight: 320, height: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 26, paddingLeft: 24, paddingRight: 24, textAlign: 'center' }}>
             <div style={{ position: 'relative', flexShrink: 0 }}>
               <AvatarCircle avatarUrl={ep.avatar_url ?? null} name={ep.name} sizePx={104} fontSize={40} />
               {eip?.slot('photo')}
@@ -1287,8 +1287,8 @@ const OrganiserProfile = () => {
           </div>}
 
           {/* Desktop */}
-          {(isMobile === false) && <div style={{ height: 438, position: 'relative' }}>
-            <div style={{ position: 'absolute', left: 48, right: 48, bottom: 40, display: 'flex', alignItems: 'flex-end', gap: 28 }}>
+          {(isMobile === false) && <div style={{ minHeight: 438, position: 'relative', display: 'flex', alignItems: 'flex-end', padding: '24px 48px 40px' }}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-end', gap: 28 }}>
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 <AvatarCircle avatarUrl={ep.avatar_url ?? null} name={ep.name} sizePx={148} fontSize={52} />
                 {eip?.slot('photo')}

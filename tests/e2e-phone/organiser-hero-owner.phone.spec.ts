@@ -72,6 +72,31 @@ for (const size of SIZES) for (const { name, slug } of HERO_ORGS) {
       els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, w: r.width }; }).filter((r) => r.w > 0));
     for (const p of hero) for (const o of others) expect(intersects(p, o), `${p.f} overlaps another control`).toBe(false);
 
+    // Nothing in the hero is cut off at the top, and the avatar clears the fixed site header.
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await page.waitForTimeout(150);
+    const clip = await page.evaluate(() => {
+      const header = document.querySelector('header:has(h1)') as HTMLElement;
+      const top = header.getBoundingClientRect().top;
+      const content = document.querySelector('h1')!.closest('header > div') as HTMLElement;
+      const cut = Array.from(content.querySelectorAll('*')).map((e) => ({ e, r: e.getBoundingClientRect() }))
+        .filter(({ r }) => r.width > 0 && r.height > 0)
+        .map(({ e, r }) => ({ el: `${e.tagName.toLowerCase()}${e.getAttribute('data-eip-pencil') ? `[${e.getAttribute('data-eip-pencil')}]` : ''}`, offset: Math.round((r.top - top) * 10) / 10 }))
+        .filter((x) => x.offset < -0.5);
+      const fixedBottom = Math.max(0, ...Array.from(document.querySelectorAll('body *')).filter((e) => {
+        const cs = getComputedStyle(e); const r = e.getBoundingClientRect();
+        return cs.position === 'fixed' && r.top <= 0 && r.height >= 40 && r.height <= 100 && r.width >= window.innerWidth * 0.9;
+      }).map((e) => e.getBoundingClientRect().bottom));
+      const avatar = content.firstElementChild!.getBoundingClientRect();
+      // Scroll until the hero's top edge meets the fixed header: the avatar must still be below it.
+      window.scrollTo({ top: window.scrollY + top - fixedBottom, behavior: 'instant' });
+      const pinnedAvatarTop = content.firstElementChild!.getBoundingClientRect().top;
+      return { cut, fixedBottom, avatarTop: Math.round(avatar.top * 10) / 10, pinnedAvatarTop: Math.round(pinnedAvatarTop * 10) / 10, headerTop: Math.round(top), heroHeight: Math.round(header.getBoundingClientRect().height) };
+    });
+    expect(clip.cut, `elements above the hero top ${JSON.stringify(clip)}`).toEqual([]);
+    expect(clip.pinnedAvatarTop, `avatar under the site header ${JSON.stringify(clip)}`).toBeGreaterThanOrEqual(clip.fixedBottom);
+    info.annotations.push({ type: 'clip', description: JSON.stringify(clip) });
+
     // The meta line above the chips is gone for the owner.
     await expect(page.getByText(/·/).filter({ hasText: CATEGORY.toUpperCase().slice(0, 4) })).toHaveCount(0);
     expect(await checkOverflow(page), 'no sideways scroll').toEqual([]);
@@ -79,3 +104,27 @@ for (const size of SIZES) for (const { name, slug } of HERO_ORGS) {
   });
   });
 }
+
+// The visitor hero (no owner layer) is shorter than its minimum, so min-height 320 must render
+// exactly as the old fixed 320 did. SHOTS=<dir> writes the screenshot used for the pixel diff.
+test.describe('390x844 visitor', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+  for (const { name, slug } of HERO_ORGS) test(`visitor hero, "${name}": 320px when it fits, grows when it does not, nothing above its top`, async ({ page }, info) => {
+    test.skip(info.project.name !== 'phone-390x844', 'sizes are set per case; run once');
+    await fakeSupabase(page, { realClock: true });
+    await page.goto(`/organisers/${slug}`);
+    await page.getByRole('heading', { level: 1 }).waitFor();
+    await settled(page);
+    const m = await page.evaluate(() => {
+      const header = document.querySelector('header:has(h1)') as HTMLElement;
+      const top = header.getBoundingClientRect().top;
+      const content = document.querySelector('h1')!.closest('header > div') as HTMLElement;
+      const least = Math.min(...Array.from(content.querySelectorAll('*')).map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => r.top - top));
+      return { height: header.getBoundingClientRect().height, least };
+    });
+    if (process.env.SHOTS) await page.locator('header:has(h1)').first().screenshot({ path: `${process.env.SHOTS}/visitor-hero-${process.env.SHOT_TAG ?? 'shot'}-${name.length}.png` });
+    // The short name fits in the minimum; the 34-character one grows past it instead of being cut off.
+    if (name.length <= 20) expect(m.height, JSON.stringify(m)).toBe(320); else expect(m.height, JSON.stringify(m)).toBeGreaterThan(320);
+    expect(m.least, JSON.stringify(m)).toBeGreaterThanOrEqual(-0.5);
+  });
+});
