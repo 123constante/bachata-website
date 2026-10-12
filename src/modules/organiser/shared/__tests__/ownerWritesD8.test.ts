@@ -136,11 +136,12 @@ describe('D8: form checks match the server rules', () => {
   });
 });
 
-describe('D8: category is never echoed outside the owner three', () => {
-  it('upsertCommand drops a masterclass (or any non-owner) category', () => {
+describe('event-truth P2: category is never sent (the server derives it from the sessions)', () => {
+  it('upsertCommand drops every category, an owner one included', () => {
     expect(upsertCommand({ name: 'M', category: 'masterclass' })).toEqual({ kind: 'series.upsert', payload: { name: 'M' } });
     expect(upsertCommand({ name: 'M', category: null })).toEqual({ kind: 'series.upsert', payload: { name: 'M' } });
-    expect(upsertCommand({ name: 'P', category: 'party' })).toEqual({ kind: 'series.upsert', payload: { name: 'P', category: 'party' } });
+    expect(upsertCommand({ name: 'P', category: 'party' })).toEqual({ kind: 'series.upsert', payload: { name: 'P' } });
+    expect(upsertCommand({ name: 'C' })).toEqual({ kind: 'series.upsert', payload: { name: 'C' } });
   });
 
   it('the basics form on a masterclass series sends no category', () => {

@@ -110,10 +110,12 @@ describe('new event (name only)', () => {
     const [create, rule] = commands();
     expect(create.command.kind).toBe('series.upsert');
     expect(create.command.payload).toMatchObject({
-      name: 'Tuesday Class', format: 'recurring', category: 'class', default_duration_minutes: 120,
+      name: 'Tuesday Class', format: 'recurring', default_duration_minutes: 120,
       default_start_date: '2026-10-15', timezone: 'Europe/London', default_city_id: 'c1',
     });
     expect(Object.keys(create.command.payload)).not.toContain('default_venue_id');
+    // Category is derived from the sessions on the server (event-truth P2): never sent.
+    expect(Object.keys(create.command.payload)).not.toContain('category');
     expect(rule.command).toEqual({ kind: 'series.set_recurrence', payload: { mode: 'weekly', weekdays: [4], end: { kind: 'until_date', date: '2026-12-03' } } });
     expect(rule.expected_version).toBe(4);
   });
@@ -125,16 +127,17 @@ describe('new event (name only)', () => {
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
     const [create, date] = commands();
-    expect(create.command.payload).toMatchObject({ category: 'party', format: 'recurring', default_duration_minutes: 300 });
+    expect(create.command.payload).toMatchObject({ format: 'recurring', default_duration_minutes: 300 });
+    expect(create.command.payload).not.toHaveProperty('category');
     expect(date.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
     expect(commands()).toHaveLength(2);
   });
 
-  it('asks what it is before creating', async () => {
+  it('asks for the first session before creating', async () => {
     mount('/account/o/events/new');
     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'X' } });
     fireEvent.click(screen.getByTestId('org-new-event-create'));
-    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/Choose what it is/);
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/Choose the first session/);
     expect(commands()).toHaveLength(0);
   });
 
@@ -150,6 +153,55 @@ describe('new event (name only)', () => {
     fireEvent.click(screen.getByTestId('org-new-event-type-class'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/saved as a draft, but its weekly dates were not listed/);
+    expect(screen.getByTestId('where').textContent).toBe('/account/o/events/new');
+    fireEvent.click(screen.getByTestId('org-new-event-open'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+  });
+
+  // The chip seeds ONE session on the first upcoming date (organiser_set_occurrence_programme_v1
+  // writes date-only sessions; the server derives the category from them). Table-driven over
+  // the three chips; the fixture's o0 is in the past, so o1 (9 Oct) is the first upcoming date.
+  const setCalls = () => rpc.mock.calls.filter(([fn]) => fn === 'organiser_set_occurrence_programme_v1').map(([, a]) => a as { p_occurrence_id: string; p_expected_version: number; p_sessions: Record<string, unknown>[] });
+  it.each([
+    ['class', { type: 'class', title: 'Class', start_time: '20:00', end_time: '22:00', ends_next_day: false }],
+    ['party', { type: 'party', title: 'Party', start_time: '20:00', end_time: '01:00', ends_next_day: true }],
+    ['workshop', { type: 'class', title: 'Workshop', start_time: '20:00', end_time: '22:00', ends_next_day: false }],
+  ] as const)('the %s chip seeds one session on the first upcoming date', async (chip, session) => {
+    handlers.organiser_get_occurrence_programme_v1 = () => ({ ...programme, sessions: [], session_people: [] });
+    handlers.organiser_set_occurrence_programme_v1 = () => ({ ok: true, changed: true, version: 3, sessions: [] });
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
+    fireEvent.click(screen.getByTestId(`org-new-event-type-${chip}`));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    expect(setCalls()).toHaveLength(1);
+    const [call] = setCalls();
+    expect(call.p_occurrence_id).toBe('o1');
+    expect(call.p_expected_version).toBe(2);
+    expect(call.p_sessions).toEqual([{ new: true, level_keys: [], ...session }]);
+  });
+
+  it('a first date that already holds a session gets no second one (Create pressed again)', async () => {
+    handlers.organiser_set_occurrence_programme_v1 = () => ({ ok: true, changed: true, version: 3, sessions: [] });
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    expect(setCalls()).toHaveLength(0);
+  });
+
+  it('a refused first session is shown, not swallowed, and the event can be opened', async () => {
+    handlers.organiser_get_occurrence_programme_v1 = () => ({ ...programme, sessions: [], session_people: [] });
+    handlers.organiser_set_occurrence_programme_v1 = () => { throw { message: 'permission_denied: programme edit on a cancelled date is not allowed', code: 'P0001' }; };
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    const error = (await screen.findByTestId('org-new-event-error')).textContent ?? '';
+    expect(error).toMatch(/saved as a draft, but the first session was not added/);
+    expect(error).toMatch(/This date is cancelled/);
+    expect(error).not.toMatch(/permission_denied/);
     expect(screen.getByTestId('where').textContent).toBe('/account/o/events/new');
     fireEvent.click(screen.getByTestId('org-new-event-open'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));

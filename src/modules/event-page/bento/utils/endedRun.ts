@@ -12,6 +12,8 @@
 // repo's Cowork mount corrupts raw Unicode punctuation), and a util returning
 // "&ndash;" inside plain text would render the entity literally.
 
+import { wordForStored } from '@/lib/eventCategory';
+
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -75,20 +77,12 @@ export const runNoun = (
   type: string | null,
   category: string | null = null,
 ): string => {
-  const shape = format ?? type;
-  if (shape === 'course') return 'course';
-  if (shape === 'festival') return 'festival';
-  // CATEGORY, not shape, decides between a class and a night. `format` is the
-  // STRUCTURAL shape (one_off | recurring | course | festival) and `category` is
-  // the discovery GENRE (party | class | workshop | masterclass) -- so a weekly
-  // bachata class is format='recurring', and reading shape alone called it a
-  // "night": "This night has finished and is no longer running." for a class,
-  // in the WhatsApp preview and on the record card both. Most of what this arc
-  // will end is recurring, so this is the common path, not an edge case.
-  if (category === 'class' || category === 'workshop' || category === 'masterclass') {
-    return category;
-  }
-  return 'night';
+  // The shared word (src/lib/eventCategory.ts wordForStored): the shape first
+  // (course, festival), else the category the server derives from the sessions
+  // -- so a weekly class (format 'recurring') reads "class", never "night". A
+  // stored workshop reads "class": no session derives a workshop, and the word
+  // must match every other screen. No word (no session yet) is a night.
+  return wordForStored(format ?? type, category) ?? 'night';
 };
 
 export type RunRange =
