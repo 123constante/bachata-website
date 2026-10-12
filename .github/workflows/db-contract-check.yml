@@ -1165,6 +1165,45 @@ jobs:
           node scripts/check-og-render-health.mjs --self-test
           node scripts/check-og-render-health.mjs
 
+      # 70. EVENT TRUTH (event-truth arc P0, 2026-10-12). An event's "what is it"
+      #     lives in two places nobody made agree: the declared
+      #     event_series_p5.category and the programme sessions the public
+      #     Parties/Classes tabs actually read. Measured 2026-10-12: 7 live series
+      #     contradict every one of their sessions (courses of classes stored as
+      #     party), 2 live courses have no length. Owner decision: sessions are
+      #     the truth; category becomes derived (plan
+      #     in-the-admin-dashboard-peaceful-tide.md). This step is the floor:
+      #       - category_drift and course_without_length are RATCHETED by series
+      #         id in event-truth-baseline.json (a new id fails; a fixed id still
+      #         measured fails as stale; an id that left scope -- ended, archived
+      #         -- is reported, so a series finishing never reds main);
+      #       - reader_flags is REPORTED, never gating: get_latest_events_v2's
+      #         series-wide flags against get_calendar_events_v2's per-day flags,
+      #         OR-ed per occurrence (0 of 29 differ on 2026-10-12). The two
+      #         differ legitimately by grain until P1, so a gate would cry wolf.
+      #         get_map_events_v1 is not called: it passes calendar_v2's flags
+      #         through, so it can never disagree;
+      #       - kind_vs_type is reported only.
+      #     Deliberately NOT here: live series with no future date -- #28 owns
+      #     that and gates only open-ended rules on purpose.
+      #     Reads check_event_truth_v1() (admin migration 20261115050000;
+      #     SECURITY DEFINER, anon EXECUTE -- the series and programme tables
+      #     are admin-only under RLS; LIVE series only, so anon cannot
+      #     enumerate unpublished ones, and a non-live row is exit 2) plus
+      #     get_calendar_events_v2 and
+      #     get_latest_events_v2, all with the anon key, each read retried on a
+      #     transient error. Canary first, then the live run.
+      #     docs/event-truth-table.md.
+      - name: Run event-truth contract check
+        if: always()
+        timeout-minutes: 2
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-event-truth-v1.mjs --self-test
+          node scripts/check-event-truth-v1.mjs
+
       - name: Run live image-reference check
         if: always()
         timeout-minutes: 3
