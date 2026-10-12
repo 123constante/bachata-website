@@ -13,7 +13,6 @@ import {
   submitForReviewCommand,
   weeklyRuleCommand,
   type CreateDraft,
-  type OwnerCategory,
   type OwnerCommand,
   type OwnerFormat,
 } from './seriesCommands';
@@ -25,12 +24,7 @@ export const EVENT_KINDS: Array<{ kind: EventKind; label: string; hint: string }
   { kind: 'party', label: 'Party', hint: 'One night. You can add more dates later.' },
 ];
 
-/**
- * The owner categories (admin D7) the two kinds map to. `workshop` is an owner
- * value too, but neither the plan (section 4) nor mockup 02 offers it, so this
- * screen does not: a workshop stays with the team until a slice asks for it.
- */
-export const KIND_CATEGORY: Record<EventKind, OwnerCategory> = { party: 'party', weekly_class: 'class' };
+/** A kind sets the format only; category is derived from the sessions (event-truth P2). */
 export const KIND_FORMAT: Record<EventKind, OwnerFormat> = { party: 'one_off', weekly_class: 'recurring' };
 
 export interface CreateForm {
@@ -160,7 +154,6 @@ export function createBlock(organiser: { name: string; lifecycle_status: string 
 export function createDraft(form: CreateForm): CreateDraft {
   return {
     ...formToDraft(form),
-    category: KIND_CATEGORY[form.kind],
     format: KIND_FORMAT[form.kind],
     startDate: form.date,
   };

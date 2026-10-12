@@ -24,7 +24,7 @@ import { DatesTakenOff } from './DatesTakenOff';
 import { EventReviewCard } from './ReviewCard';
 import { EditorGroup } from './EditorGroup';
 import { sessionDates } from './reviewModel';
-import { categoryLabel } from './eventType';
+import { categoryLabel, typeSublabel } from './eventType';
 import { EventList } from './EventList';
 import {
   FIELD_LABEL, MUSIC_STYLES, capInput, cardPreview, changedFields, conflictingFields, draftFromWorkspace, draftProblem,
@@ -211,8 +211,8 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
           {!lock && <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="org-cover-gallery-hint">The cover shows on the calendar card; gallery photos appear on the event page. Optional &mdash; add later.</p>}
         </section>
         <Card>
-          <SummaryRow icon={<Shapes />} label="Type" value={categoryLabel(ws.series.category)}
-            sublabel={`Chosen when the event was made. To change it, ask ${TEAM}.`} testId="org-row-type" />
+          <SummaryRow icon={<Shapes />} label="Type" value={categoryLabel(ws.series.format, ws.series.category)}
+            sublabel={typeSublabel(ws.series.format, ws.series.category)} testId="org-row-type" />
         </Card>
       </EditorGroup>
       <EditorGroup id="when" heading="When">
