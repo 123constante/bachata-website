@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { VIDEOGRAPHER_PUBLIC_COLS } from '@/lib/videographerPublicCols';
 
 const VIDEO_CATEGORIES = [
   { id: 'socials', label: 'Social Demos', icon: Camera },
@@ -40,7 +41,7 @@ const Videographers = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('videographers')
-        .select('*')
+        .select(VIDEOGRAPHER_PUBLIC_COLS)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
       if (error) throw error;
