@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 /**
- * Arc PR 3 (P6.b): the owner's edit form reads the private contact fields through
- * get_organiser_contact_settings_v1 and saves the "Show my contact details"
- * toggle through organiser_profile_update_p5_v1. Shapes: flag off / on, no phone,
- * settings read refused, untouched save, toggled save.
+ * Contact split (admin PR #771): the "Edit profile" dialog's ONE contact toggle
+ * ("Show my contact details on my public page") and its phone box are REPLACED by
+ * the Contact card's "Contact details" sheet in the owner layer
+ * (edit-in-place/ContactSheet.tsx). The legacy show_contact_publicly key SETS BOTH
+ * new flags on the server, so the dialog must never send it, nor the phone (the
+ * sheet owns it), nor contact_email (admin-only). Shapes: flag off / on, no
+ * phone, settings read refused, untouched save, an edited bio.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -82,9 +85,16 @@ async function openForm() {
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  fireEvent.click(await screen.findByLabelText('Edit profile'));
-  await screen.findByLabelText('Show my contact details on my public page');
+  const edit = await screen.findByLabelText('Edit profile');
+  // The owner layer reads the contact settings for its own Contact card; let it settle first.
+  await new Promise((r) => setTimeout(r, 50));
+  readsBeforeOpen = settingsReads();
+  fireEvent.click(edit);
+  await screen.findByRole('dialog', { name: 'Edit profile' });
 }
+
+let readsBeforeOpen = 0;
+const settingsReads = () => h.calls.filter(([fn]) => fn === 'get_organiser_contact_settings_v1').length;
 
 beforeEach(() => {
   h.calls.length = 0;
@@ -95,88 +105,45 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe('owner edit form: contact fields and the show-contact toggle', () => {
-  it('fills phone and email from get_organiser_contact_settings_v1; email stays read-only; the toggle says it is OFF', async () => {
+const SETTINGS_SHAPES: Array<[string, Record<string, unknown> | null]> = [
+  ['legacy flag off', { contact_email: 'a@x.example', contact_phone: '0113 000', show_contact_publicly: false, claim_email: null }],
+  ['legacy flag on', { contact_email: 'a@x.example', contact_phone: '0113 000', show_contact_publicly: true, claim_email: null }],
+  ['split: phone on, email off', { contact_email: 'a@x.example', contact_phone: '0113 000', show_phone_publicly: true, show_email_publicly: false, show_contact_publicly: true, claim_email: null }],
+  ['no phone, no email', { contact_email: null, contact_phone: null, show_contact_publicly: false, claim_email: null }],
+  ['settings read refused', null],
+];
+
+describe('the Edit profile dialog no longer edits contact details', () => {
+  it.each(SETTINGS_SHAPES)('%s: no contact toggle, no phone box, and no private read when it opens', async (_n, settings) => {
+    if (settings) h.settings = settings;
+    else h.settingsError = { message: 'permission_denied: reading an organiser contact settings needs its owner' };
     await openForm();
-    await waitFor(() => expect((screen.getByLabelText('Contact phone / WhatsApp') as HTMLInputElement).value).toBe('0113 000'));
-    const email = screen.getByLabelText('Contact email') as HTMLInputElement;
-    expect(email.value).toBe('a@x.example');
-    expect(email.disabled).toBe(true);
-    expect((screen.getByLabelText('Show my contact details on my public page') as HTMLInputElement).checked).toBe(false);
-    expect(screen.getByTestId('show-contact-publicly').textContent).toMatch(/Currently off/);
-    expect(h.calls.some(([fn]) => fn === 'get_organiser_contact_settings_v1')).toBe(true);
+    const dialog = screen.getByRole('dialog', { name: 'Edit profile' });
+    expect(within(dialog).queryByLabelText('Show my contact details on my public page')).toBeNull();
+    expect(within(dialog).queryByLabelText('Contact phone / WhatsApp')).toBeNull();
+    expect(within(dialog).queryByLabelText('Contact email')).toBeNull();
+    expect(within(dialog).queryByRole('checkbox')).toBeNull();
+    // Opening the dialog reads nothing private (only the owner layer's card does, once).
+    await new Promise((r) => setTimeout(r, 50));
+    expect(settingsReads()).toBe(readsBeforeOpen);
   });
 
-  it('saving an untouched form sends nothing', async () => {
+  it.each(SETTINGS_SHAPES)('%s: saving an edited bio sends NO contact key (never show_contact_publicly)', async (_n, settings) => {
+    if (settings) h.settings = settings;
+    else h.settingsError = { message: 'permission_denied' };
     await openForm();
-    await waitFor(() => expect((screen.getByLabelText('Contact phone / WhatsApp') as HTMLInputElement).value).toBe('0113 000'));
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(screen.queryByLabelText('Show my contact details on my public page')).toBeNull());
-    expect(saves()).toHaveLength(0);
-  });
-
-  it('turning the toggle on saves show_contact_publicly through the profile RPC', async () => {
-    await openForm();
-    await waitFor(() => expect((screen.getByLabelText('Contact phone / WhatsApp') as HTMLInputElement).value).toBe('0113 000'));
-    fireEvent.click(screen.getByLabelText('Show my contact details on my public page'));
-    expect(screen.getByTestId('show-contact-publicly').textContent).toMatch(/anyone can see/);
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(saves()).toHaveLength(1));
-    const [, args] = saves()[0];
-    expect(args.p_organiser_id).toBe('org-1');
-    expect(args.p_patch).toMatchObject({ show_contact_publicly: true, contact_phone: '0113 000' });
-    expect(args.p_patch).not.toHaveProperty('contact_email');
-  });
-
-  it('no phone and no email: says there is nothing to show yet and what to do', async () => {
-    h.settings = { contact_email: null, contact_phone: null, show_contact_publicly: false, claim_email: null };
-    await openForm();
-    await waitFor(() => expect(screen.getByTestId('show-contact-publicly').textContent).toMatch(/Add a phone above first/));
-  });
-
-  it('settings read refused: phone and toggle are disabled with a reason, and a save never sends them', async () => {
-    h.settingsError = { message: 'permission_denied: reading an organiser contact settings needs its owner' };
-    await openForm();
-    await screen.findByTestId('contact-load-failed');
-    expect((screen.getByLabelText('Contact phone / WhatsApp') as HTMLInputElement).disabled).toBe(true);
-    expect((screen.getByLabelText('Show my contact details on my public page') as HTMLInputElement).disabled).toBe(true);
-    expect(screen.getByTestId('show-contact-publicly').textContent).toMatch(/Locked because/);
-    // Change something else: the patch must leave the private fields out.
     fireEvent.change(screen.getByLabelText('Bio'), { target: { value: 'New bio' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(saves()).toHaveLength(1));
     const patch = saves()[0][1].p_patch as Record<string, unknown>;
-    expect(patch).not.toHaveProperty('contact_phone');
-    expect(patch).not.toHaveProperty('show_contact_publicly');
     expect(patch.bio).toBe('New bio');
+    for (const k of ['show_contact_publicly', 'show_phone_publicly', 'show_email_publicly', 'contact_phone', 'contact_email']) expect(patch).not.toHaveProperty(k);
   });
 
-  it('a read that lands after the form was closed does not touch the next open', async () => {
-    h.gated = true;
-    h.settings = { contact_email: 'a@x.example', contact_phone: 'OLD-PHONE', show_contact_publicly: false, claim_email: null };
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={['/organisers/org']}>
-          <Routes><Route path="/organisers/:id" element={<OrganiserProfile />} /></Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-    fireEvent.click(await screen.findByLabelText('Edit profile'));
-    await screen.findByLabelText('Show my contact details on my public page');
-    await waitFor(() => expect(h.gates).toHaveLength(1));
-    // Close while the first read is pending, change what the server holds, reopen.
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    await waitFor(() => expect(screen.queryByLabelText('Show my contact details on my public page')).toBeNull());
-    h.settings = { contact_email: 'a@x.example', contact_phone: 'NEW-PHONE', show_contact_publicly: false, claim_email: null };
-    fireEvent.click(screen.getByLabelText('Edit profile'));
-    await screen.findByLabelText('Show my contact details on my public page');
-    // Release every pending read: the form must end on the newest open's data and be savable only once ready.
-    await act(async () => { h.gates.splice(0).forEach((release) => release()); });
-    await waitFor(() => expect((screen.getByLabelText('Contact phone / WhatsApp') as HTMLInputElement).disabled).toBe(false));
-    expect((screen.getByLabelText('Contact phone / WhatsApp') as HTMLInputElement).value).not.toBe('');
+  it('saving an untouched form sends nothing', async () => {
+    await openForm();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(screen.queryByLabelText('Show my contact details on my public page')).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit profile' })).toBeNull());
     expect(saves()).toHaveLength(0);
   });
 });

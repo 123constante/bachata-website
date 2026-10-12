@@ -47,23 +47,31 @@ describe('saveOrganiserProfile', () => {
 });
 
 describe('private contact fields in the patch', () => {
-  it('sends the phone and show_contact_publicly when the form carries them', () => {
-    const p = buildOrganiserProfilePatch({ ...form, contact_phone: ' 0113 000 ', show_contact_publicly: true }, 'c');
+  it('sends the phone and the two split flags when the form carries them', () => {
+    const p = buildOrganiserProfilePatch({ ...form, contact_phone: ' 0113 000 ', show_phone_publicly: true, show_email_publicly: false }, 'c');
     expect(p.contact_phone).toBe('0113 000');
-    expect(p.show_contact_publicly).toBe(true);
+    expect(p.show_phone_publicly).toBe(true);
+    expect(p.show_email_publicly).toBe(false);
   });
 
-  it('leaves both out when undefined, so a failed contact read can never blank a phone or flip the flag', () => {
+  it('NEVER sends the legacy show_contact_publicly (it sets both flags on the server, admin #771)', () => {
+    const legacy = { ...form, contact_phone: '0113 000', show_contact_publicly: true } as unknown as Parameters<typeof buildOrganiserProfilePatch>[0];
+    expect(buildOrganiserProfilePatch(legacy, 'c')).not.toHaveProperty('show_contact_publicly');
+  });
+
+  it('leaves each out when undefined, so a failed contact read can never blank a phone or move a flag', () => {
     const { contact_phone: _phone, ...withoutPhone } = form;
     const p = buildOrganiserProfilePatch(withoutPhone, 'c');
-    expect(p).not.toHaveProperty('contact_phone');
-    expect(p).not.toHaveProperty('show_contact_publicly');
+    for (const k of ['contact_phone', 'show_phone_publicly', 'show_email_publicly', 'show_contact_publicly']) expect(p).not.toHaveProperty(k);
+    const onlyEmailFlag = buildOrganiserProfilePatch({ ...withoutPhone, show_email_publicly: true }, 'c');
+    expect(onlyEmailFlag.show_email_publicly).toBe(true);
+    expect(onlyEmailFlag).not.toHaveProperty('show_phone_publicly');
   });
 
   it('an empty phone clears it (null); a false flag is sent, not dropped', () => {
-    const p = buildOrganiserProfilePatch({ ...form, contact_phone: '  ', show_contact_publicly: false }, 'c');
+    const p = buildOrganiserProfilePatch({ ...form, contact_phone: '  ', show_phone_publicly: false }, 'c');
     expect(p.contact_phone).toBeNull();
-    expect(p.show_contact_publicly).toBe(false);
+    expect(p.show_phone_publicly).toBe(false);
   });
 });
 

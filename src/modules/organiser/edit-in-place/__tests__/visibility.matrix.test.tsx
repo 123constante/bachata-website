@@ -7,6 +7,12 @@
  * buttons -- and for everyone else the lazy chunk is never even imported (no
  * new code, no new request). The Create event rows run over both events shapes:
  * nights upcoming (the "Upcoming events" row) and none (the empty state).
+ *
+ * Contact (admin #771 split): only the owner or a manager gets the Contact card
+ * (each item tagged Public / Hidden, masked) and its "Edit contact details"
+ * row; nobody else reads get_organiser_contact_settings_v1 or sees either. The
+ * settings here are the LEGACY payload (only show_contact_publicly, the RPC
+ * before #771): the card must still render, both items reading that one value.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -20,6 +26,7 @@ const h = vi.hoisted(() => ({
   layerImports: 0,
   rpc: vi.fn(),
   events: [] as Array<Record<string, unknown>>,
+  contactReads: 0,
 }));
 
 vi.mock('@/modules/organiser/edit-in-place/EditInPlaceLayer', async (importOriginal) => {
@@ -52,7 +59,10 @@ vi.mock('@/modules/organiser/shared/ownershipApi', async (orig) => ({
   ...(await orig<object>()),
   fetchOrganiserOwnership: async () => h.ownership,
   fetchPublicContact: async () => ({ contact_phone: null, contact_email: null }),
-  fetchContactSettings: async () => ({ contact_email: null, contact_phone: null, show_contact_publicly: false }),
+  fetchContactSettings: async () => {
+    h.contactReads += 1;
+    return { contact_email: 'hello@ritmo.example', contact_phone: '07700 900123', show_contact_publicly: true, claim_email: null };
+  },
 }));
 vi.mock('@/modules/organiser/shared/selfServeApi', async (orig) => ({
   ...(await orig<object>()),
@@ -99,6 +109,7 @@ function renderPage(start = '/organisers/ritmo') {
 beforeEach(() => {
   window.localStorage.clear();
   h.events = [];
+  h.contactReads = 0;
 });
 afterEach(cleanup);
 
@@ -126,6 +137,17 @@ describe('the owner layer on the live public page', () => {
       expect(document.querySelector('[data-eip-pencil="city"]')).toBeTruthy();
       expect(screen.getByTestId('eip-links')).toBeTruthy();
       expect(h.layerImports).toBe(1);
+      // The Contact card: masked values, each tagged, and ONE edit row with a pencil.
+      const contact = await screen.findByTestId('eip-contact');
+      await waitFor(() => expect(within(contact).getByTestId('eip-contact-phone').textContent).toContain('07\u2022\u2022 \u2022\u2022\u2022 123'));
+      expect(within(contact).getByTestId('eip-contact-phone').textContent).toContain('Public');
+      expect(within(contact).getByTestId('eip-contact-email').textContent).toContain('hello@\u2022\u2022\u2022\u2022\u2022\u2022.example');
+      expect(within(contact).getByTestId('eip-contact-email').textContent).toContain('Public');
+      expect(contact.textContent).not.toContain('07700 900123');
+      expect(within(contact).getByRole('button', { name: 'Edit contact details' })).toBeTruthy();
+      expect(h.contactReads).toBeGreaterThanOrEqual(1);
+      // The old single toggle is gone from the page.
+      expect(screen.queryByText(/Show my contact details on my public page/)).toBeNull();
     } else {
       // Give any lazy load a chance to happen, then prove nothing new is there.
       await new Promise((res) => setTimeout(res, 50));
@@ -135,6 +157,11 @@ describe('the owner layer on the live public page', () => {
       expect(screen.queryByTestId('eip-bar')).toBeNull();
       expect(screen.queryByRole('link', { name: /create/i })).toBeNull();
       expect(h.layerImports).toBe(0);
+      // No contact card, no edit row, and the private settings are never read.
+      expect(screen.queryByTestId('eip-contact')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Edit contact details' })).toBeNull();
+      expect(screen.queryByText(/Hidden: only you and admins/)).toBeNull();
+      expect(h.contactReads).toBe(0);
     }
     // Public links: noopener nofollow ugc, for everyone.
     const pills = ['Instagram', 'Facebook', 'Website'].map((n) => screen.getByRole('link', { name: new RegExp(`^${n}`) }));

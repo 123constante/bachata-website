@@ -306,3 +306,41 @@ describe('checkCity (a pick from the list, never free text)', () => {
     if (ok) expect(c.value).toBe(value);
   });
 });
+
+describe('the contact keys (admin #771 split): phone, and one switch each for phone and email', () => {
+  it('FIELD_KEYS and FIELD_LABEL name them; the legacy flag and contact_email are not editable keys', () => {
+    for (const k of ['contact_phone', 'show_phone_publicly', 'show_email_publicly']) {
+      expect(FIELD_KEYS).toContain(k);
+      expect(FIELD_LABEL[k as keyof typeof FIELD_LABEL]).toBeTruthy();
+    }
+    expect(FIELD_KEYS).not.toContain('show_contact_publicly');
+    expect(FIELD_KEYS).not.toContain('contact_email');
+  });
+  it('none is a "Complete your page" prompt', () => {
+    for (const k of ['contact_phone', 'show_phone_publicly', 'show_email_publicly']) expect(PROMPTED_FIELDS.map((p) => p.key)).not.toContain(k);
+  });
+  // The repo's existing phone rule (contactValidation.normalizePhoneDigits: 7-15 digits,
+  // punctuation allowed) and the server's (contact_phone: <= 40 characters, one line).
+  it.each([
+    ['', true, ''],
+    ['   ', true, ''],
+    ['+44 7700 900123', true, '+44 7700 900123'],
+    ['  07700 900123 ', true, '07700 900123'],
+    ['0113.496.0000', true, '0113.496.0000'],
+    ['123456', false, '123456'],
+    ['1234567890123456', false, '1234567890123456'],
+    ['07700\n900123', false, '07700\n900123'],
+    [`+44 ${'1'.repeat(10)} ${' '.repeat(30)}x1`, false, null],
+  ] as Array<[string, boolean, string | null]>)('phone %j -> ok %s', (raw, ok, value) => {
+    const c = checkField('contact_phone', raw);
+    expect(c.ok).toBe(ok);
+    if (value !== null) expect(c.value).toBe(value);
+    if (!ok) expect(c.error).toBeTruthy();
+  });
+  it.each([
+    ['true', true], ['false', true], ['', false], ['yes', false],
+  ])('a switch draft %j -> ok %s', (raw, ok) => {
+    expect(checkField('show_phone_publicly', raw).ok).toBe(ok);
+    expect(checkField('show_email_publicly', raw).ok).toBe(ok);
+  });
+});

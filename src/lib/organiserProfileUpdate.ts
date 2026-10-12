@@ -52,8 +52,13 @@ export interface OrganiserProfileEditForm {
   website: string;
   /** Omitted (undefined) when the private contact read failed: a save must never blank a stored phone. */
   contact_phone?: string;
-  /** organiser_profile_update_p5_v1's show_contact_publicly; omitted when undefined. */
-  show_contact_publicly?: boolean;
+  /**
+   * organiser_profile_update_p5_v1's split flags (admin #771); each omitted when
+   * undefined. The legacy show_contact_publicly is NEVER sent: the server makes
+   * it set BOTH flags.
+   */
+  show_phone_publicly?: boolean;
+  show_email_publicly?: boolean;
   organisation_category: string;
   founded_year: string;
 }
@@ -69,7 +74,8 @@ export const buildOrganiserProfilePatch = (
   const year = form.founded_year.trim();
   const contact: Record<string, unknown> = {};
   if (form.contact_phone !== undefined) contact.contact_phone = form.contact_phone.trim() || null;
-  if (form.show_contact_publicly !== undefined) contact.show_contact_publicly = form.show_contact_publicly;
+  if (form.show_phone_publicly !== undefined) contact.show_phone_publicly = form.show_phone_publicly;
+  if (form.show_email_publicly !== undefined) contact.show_email_publicly = form.show_email_publicly;
   return {
     name: form.name.trim(),
     avatar_url: form.avatar_url.trim() || null,

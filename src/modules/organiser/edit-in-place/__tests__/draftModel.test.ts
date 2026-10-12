@@ -49,6 +49,11 @@ const row = (over: Partial<ProfileEntity> = {}): ProfileEntity => ({
   ...over,
 } as ProfileEntity);
 
+/** The owner's private contact (get_organiser_contact_settings_v1), laid on the row for the save. */
+const withContact = (over: Partial<ProfileEntity> = {}) => ({
+  ...row(over), contact: { phone: '0113 496 0000', email: 'hello@ritmo.example', showPhone: true, showEmail: false },
+});
+
 /** Prod shapes (counts in the PR body) plus the brief's named ones. */
 const SHAPES: Array<[string, ProfileEntity]> = [
   ['typical: ig link in column, socials {facebook}, website', row()],
@@ -158,9 +163,30 @@ describe('drafts that change nothing are not drafts', () => {
     const changed: Record<FieldKey, string> = {
       name: 'Ritmo Nuevo', city: OTHER_CITY, avatar_url: 'https://cdn.example/new.jpg', founded_year: '2019',
       instagram: '@new', bio: 'Hi', website: 'https://new.example', facebook: 'https://facebook.com/new', organisation_category: 'Promoter',
+      contact_phone: '07700 900456', show_phone_publicly: 'false', show_email_publicly: 'true',
     };
     expect(Object.keys(changed).sort()).toEqual([...FIELD_KEYS].sort());
-    expect(prunedDrafts(row(), changed)).toEqual(changed);
+    expect(prunedDrafts(withContact(), changed)).toEqual(changed);
+  });
+  it('every editable field equal to the stored value is pruned (contact keys included)', () => {
+    const same: Record<FieldKey, string> = {
+      name: 'Ritmo Latino', city: CITY, avatar_url: 'https://cdn.example/ritmo.jpg', founded_year: '',
+      instagram: 'https://www.instagram.com/ritmolatino/', bio: '', website: 'https://ritmo.co.uk', facebook: 'https://www.facebook.com/ritmolatino', organisation_category: 'Dance School',
+      contact_phone: ' 0113 496 0000 ', show_phone_publicly: 'true', show_email_publicly: 'false',
+    };
+    expect(Object.keys(same).sort()).toEqual([...FIELD_KEYS].sort());
+    expect(prunedDrafts(withContact(), same)).toEqual({});
+  });
+  it.each([...FIELD_KEYS])('%s: a change goes out in the ONE patch, in its own key', (field) => {
+    const value: Record<FieldKey, string> = {
+      name: 'Ritmo Nuevo', city: OTHER_CITY, avatar_url: 'https://cdn.example/new.jpg', founded_year: '2019',
+      instagram: '@new', bio: 'Hi', website: 'https://new.example', facebook: 'https://facebook.com/new', organisation_category: 'Promoter',
+      contact_phone: '07700 900456', show_phone_publicly: 'false', show_email_publicly: 'true',
+    };
+    const p = buildSavePatch(withContact(), { [field]: value[field] });
+    expect(fieldInPatch(p, field)).not.toEqual(fieldInPatch(buildSavePatch(withContact(), {}), field));
+    expect(p).not.toHaveProperty('show_contact_publicly');
+    expect(p).not.toHaveProperty('contact_email');
   });
 });
 
@@ -333,6 +359,10 @@ describe('saveDrafts', () => {
     ['name_invalid', 'name'],
     ['name_required', 'name'],
     ['city_required', 'city'],
+    ['contact_phone_too_long', 'contact_phone'],
+    ['contact_phone_invalid', 'contact_phone'],
+    ['invalid_value_type: show_phone_publicly must be true or false', 'show_phone_publicly'],
+    ['invalid_value_type: show_email_publicly must be true or false', 'show_email_publicly'],
   ] as Array<[string, FieldKey]>)('server refuses %j -> names %s in plain words', async (message, field) => {
     const rpc = vi.fn(async () => ({ data: null, error: { message } }));
     const out = await saveDrafts({ rpc } as never, 'x', row(), { bio: 'Hi' });
@@ -372,6 +402,33 @@ describe('saveDrafts', () => {
     const args = (rpc.mock.calls[0] as unknown as [string, { p_patch: Record<string, unknown> }])[1];
     expect(args.p_patch.name).toBe('Ritmo Nuevo');
     expect(args.p_patch.city_id).toBe(OTHER_CITY);
+  });
+
+  it('a contact change goes out in the ONE call with ONLY the changed keys (never the legacy flag)', async () => {
+    const e = withContact();
+    const drafts = { show_email_publicly: 'true', contact_phone: '07700 900456', bio: 'Hi' };
+    // The RPC's profile carries contact_phone but not the flags: a flag is never "came back different".
+    const rpc = rpcOk({ ...profileFrom(e, drafts), contact_phone: '07700 900456' });
+    expect(await saveDrafts({ rpc } as never, e.id, e, drafts)).toMatchObject({ kind: 'saved', unmatched: [] });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    const args = (rpc.mock.calls[0] as unknown as [string, { p_patch: Record<string, unknown> }])[1];
+    expect(args.p_patch).toMatchObject({ show_email_publicly: true, contact_phone: '07700 900456', bio: 'Hi' });
+    expect(args.p_patch).not.toHaveProperty('show_phone_publicly');
+    expect(args.p_patch).not.toHaveProperty('show_contact_publicly');
+    expect(args.p_patch).not.toHaveProperty('contact_email');
+  });
+
+  it('a phone our own check refuses never reaches the server', async () => {
+    const rpc = vi.fn();
+    expect(await saveDrafts({ rpc } as never, 'x', withContact(), { contact_phone: '12' })).toEqual({ kind: 'refused', field: 'contact_phone', message: SAVE_COPY.field('contact_phone') });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('a contact draft while the contact details are not loaded is never sent and says so', async () => {
+    const rpc = vi.fn();
+    const out = await saveDrafts({ rpc } as never, 'x', { ...row(), contact: null }, { show_phone_publicly: 'false' });
+    expect(out).toEqual({ kind: 'refused', field: 'show_phone_publicly', message: SAVE_COPY.contactNotLoaded });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('a Name or City our own check refuses never reaches the server', async () => {

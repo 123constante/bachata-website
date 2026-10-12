@@ -11,6 +11,8 @@ import type { FieldKey } from './fieldRules';
 
 export type EipSlot =
   | 'card' | 'photo' | 'name' | 'meta' | 'about' | 'about-empty' | 'links'
+  // The owner's Contact card (Public / Hidden per item) and its "Edit contact details" row.
+  | 'contact'
   // The Create event links: beside the "Upcoming events" count, and in the empty
   // states (never a night yet / past nights only, so the copy can say "first" honestly).
   | 'create-event' | 'create-first-event' | 'create-another-event';
@@ -28,4 +30,6 @@ export interface EditInPlaceLayerProps {
   organiserId: string;
   entity: ProfileEntity;
   onBridge: (bridge: EipBridge | null) => void;
+  /** Keys the private contact read's cache per signed-in user (organiserContactSettingsQueryKey). */
+  userId?: string;
 }
