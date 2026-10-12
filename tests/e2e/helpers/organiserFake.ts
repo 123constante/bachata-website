@@ -120,6 +120,13 @@ export interface FakeOptions {
   organiserStatus?: string;
   /** Signed out: no session in storage, /auth/v1/user answers 401. */
   signedOut?: boolean;
+  /**
+   * The signed-in person's dancer profile. Default 'complete': every account and
+   * organiser page sits behind the dancer-first gate (DancerProfileGate), so an
+   * organiser spec that is not about the gate needs a finished profile.
+   * 'none' = _my_dancer_profile_id_v1 resolves nothing (no row, or archived).
+   */
+  dancerProfile?: 'complete' | 'none';
 }
 
 export class OrganiserFake {
@@ -445,6 +452,11 @@ export class OrganiserFake {
     const org = (id: unknown) => this.organisers.find((o) => o.id === id);
 
     switch (rpc) {
+      // The dancer-first gate's read (hooks/useProfileCompletion).
+      case '_my_dancer_profile_id_v1':
+        return json(route, this.opts.dancerProfile === 'none' ? null : 'persona-1');
+      case 'profile_complete_v1':
+        return json(route, this.opts.dancerProfile !== 'none');
       case 'organiser_home_v1':
         return json(route, this.homeRead());
       case 'get_current_user_organiser_ids':

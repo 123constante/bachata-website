@@ -56,6 +56,12 @@ export const SITE_IA = {
   raffles:          { label: 'Raffles',           path: '/raffles' },
   allProfiles:      { label: 'All Profiles',      path: '/all-profiles' },
   profile:          { label: 'Profile',           path: '/profile' },
+  // The signed-in person's dancer home (src/pages/Account.tsx; signed-in, noindex).
+  // /profile above is unrouted since 2026-09-12; only dead pages still use it.
+  dancerHome:       { label: 'Your account',      path: '/account' },
+  // The same home for anyone, organisers included (/account would redirect them).
+  dancerProfile:    { label: 'Your dancer profile', path: '/account/dancer' },
+  'dancerProfile.attendance': { label: 'My attendance', parent: 'dancerProfile' },
   // Signed-in, noindex (Lever 2 W1); never reaches a crawler's BreadcrumbList.
   account:          { label: 'Your account',      path: '/account/o' },
   'account.new':    { label: 'New event',         parent: 'account' },

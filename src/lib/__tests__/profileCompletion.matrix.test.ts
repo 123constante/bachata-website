@@ -16,6 +16,7 @@ import { dancerRoleFromStored } from '@/lib/dancerEditorPayloads';
 import {
   PROFILE_FIELDS,
   RATE_BLOCKED_REASON,
+  completenessFact,
   bannerModel,
   finishProfileHref,
   finishScreenMode,
@@ -99,9 +100,14 @@ describe.each(SHAPES)('$name: every surface reads the same fact', ({ c }) => {
       for (const f of c.missing) expect(model.body).toMatch(LABEL[f]);
       expect(model.cta).toEqual({ kind: 'link', label: 'Finish profile', href: finishProfileHref('/parties') });
     });
-    it(`rating reason is "${RATE_BLOCKED_REASON}" with a link to the screen`, () => {
+    it('rating reason is the shared fact, naming every missing field, with a link to the screen', () => {
       const gate = ratingGate(c, '/event/e1#level-rating');
-      expect(gate).toMatchObject({ allowed: false, reason: RATE_BLOCKED_REASON, href: finishProfileHref('/event/e1#level-rating') });
+      expect(gate).toMatchObject({ allowed: false, reason: completenessFact(c).reason, href: finishProfileHref('/event/e1#level-rating') });
+      for (const f of c.missing) expect(gate.reason).toMatch(LABEL[f]);
+      expect(`${gate.reason}.`).toBe(bannerModel(c, { dismissed: false, pathname: '/parties' })!.body);
+    });
+    it(`a server refusal with no field list falls back to "${RATE_BLOCKED_REASON}"`, () => {
+      expect(completenessFact({ status: 'incomplete', missing: [] }).reason).toBe(RATE_BLOCKED_REASON);
     });
   }
 

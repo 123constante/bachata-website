@@ -31,7 +31,12 @@ vi.mock('@/integrations/supabase/client', () => {
   chain.maybeSingle = async () => ({ data: null, error: null });
   return { supabase: { from: () => chain, rpc: h.rpc, auth: { getSession: async () => ({ data: { session: null } }) } } };
 });
-vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: h.user, session: h.user ? { access_token: 'x.y.z' } : null }) }));
+// Every account / organiser route sits behind the dancer-first gate (DancerProfileGate);
+// this spec is not about it, so the gate context is supplied empty.
+vi.mock('@/hooks/useAuth', async () => ({
+  useAuth: () => ({ user: h.user, session: h.user ? { access_token: 'x.y.z' } : null }),
+  ProfileGateContext: (await import('react')).createContext(null),
+}));
 vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => true }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));

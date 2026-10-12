@@ -13,6 +13,11 @@ const h = vi.hoisted(() => ({
   organisers: [] as { id: string; name: string; lifecycle_status: string }[],
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => h.auth }));
+// Every account / organiser route sits behind the dancer-first gate (DancerProfileGate);
+// this spec is not about it, so the person's dancer profile is finished.
+vi.mock('@/hooks/useProfileCompletion', () => ({
+  useProfileCompletion: () => ({ status: 'complete', missing: [], profileId: 'p1', refetch: async () => ({ status: 'complete', missing: [], profileId: 'p1' }) }),
+}));
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
