@@ -1075,7 +1075,8 @@ const OrganiserProfile = () => {
   const claimUser = user ? { id: user.id, email: user.email } : null;
   const publicPath = `/organisers/${resolved.slug ?? routeParam ?? ''}`;
 
-  const cityName = entity.cities?.name ?? ep.city ?? null;
+  // ep, not entity: an owner's drafted City shows in place.
+  const cityName = ep.cities?.name ?? ep.city ?? null;
   const metaLine = [organisationCategory, cityName].filter(Boolean).join(' \u00b7 ');
 
   const foundedYear = (ep.founded_year as number | null | undefined) ?? null;
@@ -1224,7 +1225,7 @@ const OrganiserProfile = () => {
           {/* Mobile */}
           {(isMobile !== false) && <div style={{ position: 'relative', height: 320, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 26, paddingLeft: 24, paddingRight: 24, textAlign: 'center' }}>
             <div style={{ position: 'relative', flexShrink: 0 }}>
-              <AvatarCircle avatarUrl={ep.avatar_url ?? null} name={entity.name} sizePx={104} fontSize={40} />
+              <AvatarCircle avatarUrl={ep.avatar_url ?? null} name={ep.name} sizePx={104} fontSize={40} />
               {eip?.slot('photo')}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -1237,9 +1238,13 @@ const OrganiserProfile = () => {
                 highlight-scroll is the generic premium-SaaS hero tell; the
                 sound-floor motif and wave mark below carry this hero's
                 personality instead. */}
-            <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(36px,12vw,54px)', lineHeight: 0.95, margin: '0 0 8px', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
-              {entity.name}
-            </h1>
+            {/* The owner's Name pencil sits BESIDE the heading, never inside it (it would join the heading's name). */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, maxWidth: '100%' }}>
+              <h1 className={eip?.mark('name')} style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(36px,12vw,54px)', lineHeight: 0.95, margin: '0 0 8px', minWidth: 0, background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
+                {ep.name}
+              </h1>
+              {eip?.slot('name')}
+            </div>
             <svg aria-hidden width="88" height="12" viewBox="0 0 88 12" fill="none" style={{ margin: '0 0 10px' }}>
               <path d="M2 6c6-5 12-5 18 0s12 5 18 0 12-5 18 0 12 5 18 0" stroke={D.gold} strokeWidth="2" strokeLinecap="round" opacity="0.55" />
             </svg>
@@ -1254,7 +1259,7 @@ const OrganiserProfile = () => {
           {(isMobile === false) && <div style={{ height: 438, position: 'relative' }}>
             <div style={{ position: 'absolute', left: 48, right: 48, bottom: 40, display: 'flex', alignItems: 'flex-end', gap: 28 }}>
               <div style={{ position: 'relative', flexShrink: 0 }}>
-                <AvatarCircle avatarUrl={ep.avatar_url ?? null} name={entity.name} sizePx={148} fontSize={52} />
+                <AvatarCircle avatarUrl={ep.avatar_url ?? null} name={ep.name} sizePx={148} fontSize={52} />
                 {eip?.slot('photo')}
               </div>
               <div style={{ flex: 1, paddingBottom: 6 }}>
@@ -1264,9 +1269,12 @@ const OrganiserProfile = () => {
                   {ep.is_verified && <VerifiedBadge size="md" />}
                   {facts.showBadge && <ManagedBadge size="md" />}
                 </div>
-                <h1 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(48px,5vw,78px)', lineHeight: 0.95, margin: '0 0 12px', letterSpacing: '-0.01em', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
-                  {entity.name}
-                </h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <h1 className={eip?.mark('name')} style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(48px,5vw,78px)', lineHeight: 0.95, margin: '0 0 12px', minWidth: 0, letterSpacing: '-0.01em', background: 'linear-gradient(110deg,#F4D89A,#E7BE6E 30%,#FBEFC4 50%,#D2A350 70%,#F4D89A)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
+                    {ep.name}
+                  </h1>
+                  {eip?.slot('name')}
+                </div>
                 <svg aria-hidden width="104" height="14" viewBox="0 0 104 14" fill="none" style={{ margin: '0 0 12px' }}>
                   <path d="M2 7c7-6 14-6 21 0s14 6 21 0 14-6 21 0 14 6 21 0" stroke={D.gold} strokeWidth="2.3" strokeLinecap="round" opacity="0.55" />
                 </svg>
@@ -1346,8 +1354,11 @@ const OrganiserProfile = () => {
         {/* EMPTY STATES -- one decision (organiserEmptyState): nothing upcoming
             always says so and offers somewhere to go, whatever else the profile
             has. The owner of a wholly blank profile is pointed at Edit profile
-            instead: organiser event creation happens in the organiser area, not
-            on this public page.
+            too.
+
+            The owner layer adds its Create event link beside "Browse upcoming
+            nights" (and beside "Complete your profile"); it is only loaded for an
+            owner or manager.
 
             Gated on all four content queries having settled (not just the
             `entity` query, which resolves first as a single-row fetch) --
@@ -1361,38 +1372,51 @@ const OrganiserProfile = () => {
             <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
               Add a bio, photo and your social links so dancers know who you are before your first night goes up.
             </p>
-            <button onClick={openEditModal} style={{ minHeight: 44, padding: '0 18px', borderRadius: 100, background: D.gold, color: D.black, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
-              Complete your profile
-            </button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
+              <button onClick={openEditModal} style={{ minHeight: 44, padding: '0 18px', borderRadius: 100, background: D.gold, color: D.black, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+                Complete your profile
+              </button>
+              {eip?.slot('create-first-event')}
+            </div>
           </section>
         )}
         {emptyKind === 'none' && (
           <section className="px-5 md:px-12 py-8 md:py-10 text-center" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="org-public-empty" data-kind={emptyKind}>
             <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>No nights listed yet</h2>
             <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.75)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
-              {entity.name} hasn&rsquo;t listed any nights here yet.{' '}
+              {ep.name} hasn&rsquo;t listed any nights here yet.{' '}
               {hasContact ? 'Follow them with the links above for news, or see' : 'Check back soon, or see'} what&rsquo;s on elsewhere in London.
             </p>
-            <BrowseNightsLink />
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
+              <BrowseNightsLink />
+              {eip?.slot('create-first-event')}
+            </div>
           </section>
         )}
         {emptyKind === 'past-only' && (
           <section className="px-5 md:px-12 py-5 md:py-6 text-center" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="org-public-empty" data-kind={emptyKind}>
             <h2 style={{ ...sectionH2, marginBottom: 6 }}>No upcoming nights</h2>
             <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.75)', maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.5 }}>
-              {entity.name} has nothing on the calendar right now.{' '}
+              {ep.name} has nothing on the calendar right now.{' '}
               {hasContact ? 'Follow them with the links above for new dates, or see' : 'See'} what&rsquo;s on elsewhere in London.
             </p>
-            <BrowseNightsLink />
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
+              <BrowseNightsLink />
+              {eip?.slot('create-another-event')}
+            </div>
           </section>
         )}
 
         {/* UPCOMING EVENTS */}
         {upcomingListItems.length > 0 && (
           <section id="upcoming" className="px-5 md:px-12 py-4 md:py-6 scroll-mt-16" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
+            {/* Wraps at 360px: the owner's Create event link goes under the count rather than off the screen. */}
+            <div style={{ display: 'flex', alignItems: eip ? 'center' : 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               <h2 style={sectionH2}>Upcoming events</h2>
-              <span style={sectionCount}>{totalUpcomingDateCount} {totalUpcomingDateCount === 1 ? 'date' : 'dates'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8, marginLeft: 'auto' }}>
+                <span style={sectionCount}>{totalUpcomingDateCount} {totalUpcomingDateCount === 1 ? 'date' : 'dates'}</span>
+                {eip?.slot('create-event')}
+              </div>
             </div>
             <div className="flex flex-col gap-2">
               {visibleItems.map((item, i) =>

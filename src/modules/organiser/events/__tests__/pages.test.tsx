@@ -162,6 +162,28 @@ describe('new event (name only)', () => {
     expect(commands()).toHaveLength(0);
   });
 
+  // Two prod users run several organisers. The public page's Create event passes
+  // ?o=<organiser id> (useOrganiserChoice's shape): that organiser is preselected,
+  // so the draft lands on the page the person came from.
+  it.each([
+    ['?o=org2 picks the second organiser', '?o=org2', 'org2'],
+    ['no ?o keeps the default (the live one)', '', 'org1'],
+    ['an ?o that is not one of mine is ignored', '?o=someone-else', 'org1'],
+  ])('%s', async (_n, query, expected) => {
+    const base = home();
+    handlers.organiser_home_v1 = () => ({ ...base, organisers: [base.organisers[0], { ...base.organisers[0], id: 'org2', name: 'Salsa Crew', city_id: 'c2' }] });
+    mount(`/account/o/events/new${query}`);
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Tuesday Class' } });
+    const chosen = screen.getAllByTestId('org-new-event-organiser').find((b) => b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-checked') === 'true');
+    expect(chosen?.textContent).toBe(expected === 'org2' ? 'Salsa Crew' : 'Latin Nights');
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(commands().length).toBeGreaterThan(0));
+    // Nothing else: the create flow still only creates a DRAFT (series.upsert, no publish).
+    expect(commands()[0].command.kind).toBe('series.upsert');
+    expect(JSON.stringify(commands()[0])).toContain(expected === 'org2' ? '"c2"' : '"c1"');
+  });
+
   it('shows the plain server message when the create is refused', async () => {
     handlers.series_command_p5 = () => { throw { message: 'permission_denied: series.upsert (create) needs a live organiser', code: 'P0001' }; };
     mount('/account/o/events/new');

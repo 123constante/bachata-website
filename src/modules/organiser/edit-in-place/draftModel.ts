@@ -11,11 +11,15 @@
 // contact_phone / show_contact_publicly stay undefined (left out of the patch,
 // so a stored phone is never blanked and the flag never moves); contact_email
 // is never sent (admin-only).
+//
+// Name lives in the form like the rest. City is NOT a form field: its draft is
+// the picked city's id and goes out as the patch's city_id (the second argument
+// of buildOrganiserProfilePatch), in the same one call.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildOrganiserProfilePatch, saveOrganiserProfile, type OrganiserProfileEditForm } from '@/lib/organiserProfileUpdate';
 import { formFromEntity, type ProfileEntity } from '@/modules/organiser/profile/profileForm';
-import { CARD_VISIBLE_ROWS, FIELD_KEYS, FIELD_LABEL, PROMPTED_FIELDS, checkField, isFieldKey, type FieldKey, type PromptedField } from './fieldRules';
+import { CARD_VISIBLE_ROWS, CITY_COPY, FIELD_KEYS, FIELD_LABEL, NAME_COPY, PROMPTED_FIELDS, checkField, isFieldKey, type FieldKey, type PromptedField } from './fieldRules';
 
 export type Drafts = Partial<Record<FieldKey, string>>;
 
@@ -28,7 +32,7 @@ export function buildSaveForm(entity: ProfileEntity, drafts: Drafts): OrganiserP
   const form: OrganiserProfileEditForm = { ...formFromEntity(entity) };
   for (const key of FIELD_KEYS) {
     const v = drafts[key];
-    if (v !== undefined) form[key] = v;
+    if (v !== undefined && key !== 'city') form[key] = v;
   }
   // Never present: a save must not blank a stored phone or move the contact flag.
   delete form.contact_phone;
@@ -37,11 +41,15 @@ export function buildSaveForm(entity: ProfileEntity, drafts: Drafts): OrganiserP
 }
 
 export function buildSavePatch(entity: ProfileEntity, drafts: Drafts): Record<string, unknown> {
-  return buildOrganiserProfilePatch(buildSaveForm(entity, drafts), entity.city_id ?? '');
+  return buildOrganiserProfilePatch(buildSaveForm(entity, drafts), saveCityId(entity, drafts));
 }
 
-/** One field's value inside a patch (facebook lives only in socials). */
+/** The city the save sends: the picked one, else the stored one. */
+const saveCityId = (entity: ProfileEntity, drafts: Drafts): string => drafts.city ?? entity.city_id ?? '';
+
+/** One field's value inside a patch (facebook lives only in socials, city is city_id). */
 export function fieldInPatch(patch: Record<string, unknown>, field: FieldKey): unknown {
+  if (field === 'city') return patch.city_id ?? null;
   if (field === 'facebook') return ((patch.socials ?? null) as { facebook?: unknown } | null)?.facebook ?? null;
   return patch[field] ?? null;
 }
@@ -68,6 +76,10 @@ export function prunedDrafts(entity: ProfileEntity, drafts: Drafts): Drafts {
 
 /** The page overlay: drafted values shown in place, in the shape the page reads. */
 export interface DraftOverlay {
+  name?: string;
+  city_id?: string | null;
+  /** The drafted city's name; null while it is not known yet (never the old city's name). */
+  cities?: { name: string; slug: string | null } | null;
   avatar_url?: string | null;
   bio?: string | null;
   instagram?: string | null;
@@ -77,7 +89,8 @@ export interface DraftOverlay {
   socials?: Record<string, string | null | undefined> | null;
 }
 
-export function overlayFor(entity: ProfileEntity, drafts: Drafts): DraftOverlay {
+/** `cityNames`: picked city id -> its name (the sheet resolved it; a restored draft is resolved on load). */
+export function overlayFor(entity: ProfileEntity, drafts: Drafts, cityNames: Readonly<Record<string, string>> = {}): DraftOverlay {
   if (draftCount(drafts) === 0) return {};
   const patch = buildSavePatch(entity, drafts);
   const out: DraftOverlay = {};
@@ -86,7 +99,14 @@ export function overlayFor(entity: ProfileEntity, drafts: Drafts): DraftOverlay 
   for (const key of FIELD_KEYS) {
     if (drafts[key] === undefined) continue;
     const v = fieldInPatch(patch, key);
-    if (key === 'facebook') {
+    if (key === 'city') {
+      const id = (v as string | null) ?? null;
+      const name = id ? cityNames[id] : undefined;
+      out.city_id = id;
+      out.cities = name ? { name, slug: null } : null;
+    } else if (key === 'name') {
+      out.name = String(v ?? '');
+    } else if (key === 'facebook') {
       socials.facebook = (v as string | null) ?? null;
       socialsTouched = true;
     } else if (key === 'instagram' || key === 'website') {
@@ -181,7 +201,8 @@ export function writeStoredDraft(organiserId: string, drafts: Drafts, storage: S
 export type SaveOutcome =
   | { kind: 'saved'; stored: Partial<Record<FieldKey, unknown>> | null; row: Record<string, unknown> | null; unmatched: FieldKey[] }
   | { kind: 'nothing' }
-  | { kind: 'refused'; field: FieldKey | null; message: string }
+  /** `fieldError`: copy for the field's own sheet, when the server's reason is about that value (a taken name). */
+  | { kind: 'refused'; field: FieldKey | null; message: string; fieldError?: string }
   | { kind: 'network'; message: string };
 
 export const SAVE_COPY = {
@@ -189,7 +210,7 @@ export const SAVE_COPY = {
   generic: 'Your changes were not saved. Tap Save to try again. Your changes are kept.',
   permission: 'Only the owner or a manager of this page can change it. Nothing was saved.',
   signedOut: 'You are signed out. Sign in again, then tap Save. Your changes are kept.',
-  city: 'Your page needs a city before it can be saved. Use Edit profile to pick one. Your changes are kept.',
+  nameTaken: 'That name is already used by another organiser, so nothing was saved. Tap Name to pick a different one. Your changes are kept.',
   field: (field: FieldKey) => `${FIELD_LABEL[field]} was not accepted, so nothing was saved. Tap ${FIELD_LABEL[field]} to change it. Your changes are kept.`,
 };
 
@@ -205,6 +226,8 @@ export function refusedField(code: string, detail: string): FieldKey | null {
   if (code === 'founded_year_out_of_range') return 'founded_year';
   if (code.startsWith('bio_')) return 'bio';
   if (code.startsWith('organisation_category_')) return 'organisation_category';
+  if (code === 'organiser_name_taken' || code.startsWith('name_')) return 'name';
+  if (code === 'city_required' || code === 'city_not_found') return 'city';
   return null;
 }
 
@@ -219,10 +242,11 @@ export function describeSaveError(err: unknown): Extract<SaveOutcome, { kind: 'r
   const [codePart, ...rest] = message.split(':');
   const code = codePart.trim();
   const field = refusedField(code, rest.join(':'));
+  if (code === 'organiser_name_taken') return { kind: 'refused', field: 'name', message: SAVE_COPY.nameTaken, fieldError: NAME_COPY.taken };
+  if (code === 'city_not_found') return { kind: 'refused', field: 'city', message: SAVE_COPY.field('city'), fieldError: CITY_COPY.notFound };
   if (field) return { kind: 'refused', field, message: SAVE_COPY.field(field) };
   if (code === 'permission_denied') return { kind: 'refused', field: null, message: SAVE_COPY.permission };
   if (code === 'authentication_required') return { kind: 'refused', field: null, message: SAVE_COPY.signedOut };
-  if (code === 'city_required' || code === 'city_not_found') return { kind: 'refused', field: null, message: SAVE_COPY.city };
   return { kind: 'refused', field: null, message: SAVE_COPY.generic };
 }
 
@@ -232,6 +256,8 @@ export function storedFromRpcProfile(profile: unknown): Partial<Record<FieldKey,
   const p = profile as Record<string, unknown>;
   const socials = (p.socials ?? null) as { facebook?: unknown } | null;
   return {
+    name: p.name ?? null,
+    city: p.city_id ?? null,
     avatar_url: p.avatar_url ?? null,
     bio: p.bio ?? null,
     instagram: p.instagram ?? null,
@@ -264,7 +290,7 @@ export async function saveDrafts(
   }
   let res: { data: unknown; error: unknown };
   try {
-    res = (await saveOrganiserProfile(client, organiserId, buildSaveForm(entity, changed), entity.city_id ?? '')) as { data: unknown; error: unknown };
+    res = (await saveOrganiserProfile(client, organiserId, buildSaveForm(entity, changed), saveCityId(entity, changed))) as { data: unknown; error: unknown };
   } catch (e) {
     return describeSaveError(e);
   }

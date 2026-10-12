@@ -8,16 +8,24 @@
 // 16px (no iOS zoom), safe-area padding at the bottom. It is a modal dialog:
 // focus moves into the field on open, Tab is trapped inside, Escape and the
 // overlay close it, and the caller returns focus to the pencil.
+//
+// City is a pick from the list (CitySheetBody.tsx): for it the sheet is a column
+// whose list is the part that scrolls, so the search box stays at the top above
+// the keyboard.
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { useKeyboardInset } from '@/modules/organiser/ui/useKeyboardInset';
 import {
   ABOUT_MAX,
   CATEGORY_OPTIONS,
   FIELD_LABEL,
+  NAME_MAX,
   aboutLength,
   checkField,
+  nameLength,
   type FieldKey,
 } from './fieldRules';
+import CitySheetBody from './CitySheetBody';
+import { useCityCheck, type CityLookups } from './cityCheck';
 import { PHOTO_ACCEPT } from './organiserPhotoModel';
 import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 import { inBody } from './layers';
@@ -28,19 +36,29 @@ export interface FieldSheetProps {
   /** What the sheet opens with: the draft if there is one, else the stored value. */
   initial: string;
   storedCategory: string | null;
-  onDone: (value: string) => void;
+  /** City only: the name of the city the sheet opens with. */
+  initialCityName?: string | null;
+  /** The server refused this field's value on the last Save (a taken name): shown while the box still holds that value. */
+  serverError?: { value: string; message: string } | null;
+  /** `label`: City only, the picked city's confirmed name. */
+  onDone: (value: string, label?: string) => void;
   onClose: () => void;
   /** Photo only: uploads the picked file and resolves its public URL (throws plain copy). */
   uploadPhoto: (file: File) => Promise<string>;
+  /** City only: the list search and the confirm-by-id lookup. */
+  cityLookups: CityLookups;
 }
 
 const PLACEHOLDER: Partial<Record<FieldKey, string>> = {
+  name: 'e.g. Ritmo Latino',
   founded_year: 'e.g. 2019',
   instagram: '@yourname',
   website: 'yourschool.com',
   facebook: 'Your page name or facebook.com link',
 };
 const HELP: Partial<Record<FieldKey, string>> = {
+  name: 'The name dancers see at the top of your page. Your page link stays the same.',
+  city: 'Where you run your nights. Search, then pick your city from the list.',
   founded_year: 'The year you started running nights or classes.',
   instagram: 'Your Instagram name, like @yourname, or a link to your profile.',
   website: 'Your own website, if you have one.',
@@ -48,6 +66,8 @@ const HELP: Partial<Record<FieldKey, string>> = {
   organisation_category: 'What best describes you.',
   bio: 'Shown as plain text on your page.',
 };
+// Fields whose sheet shows "We will save" (City shows its own, from the confirmed city).
+const PREVIEW_FIELDS = new Set<FieldKey>(['name', 'instagram', 'website', 'facebook']);
 const LINK_FIELDS = new Set<FieldKey>(['instagram', 'website', 'facebook']);
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -58,7 +78,7 @@ const inputStyle: CSSProperties = {
 };
 const btn: CSSProperties = { minHeight: 44, padding: '0 16px', borderRadius: 999, fontSize: 14, fontWeight: 700, cursor: 'pointer' };
 
-export default function FieldSheet({ field, initial, storedCategory, onDone, onClose, uploadPhoto }: FieldSheetProps) {
+export default function FieldSheet({ field, initial, storedCategory, initialCityName = null, serverError = null, onDone, onClose, uploadPhoto, cityLookups }: FieldSheetProps) {
   const titleId = useId();
   const helpId = useId();
   const errorId = useId();
@@ -76,6 +96,9 @@ export default function FieldSheet({ field, initial, storedCategory, onDone, onC
 
   const check = useMemo(() => checkField(field, value, { storedCategory }), [field, value, storedCategory]);
   const label = FIELD_LABEL[field];
+  // City: the pick confirmed against the cities table ('none' for every other field).
+  const city = useCityCheck(field === 'city' && value !== initial ? value : '', cityLookups.resolveCity);
+  const cityChanged = field === 'city' && value !== initial;
 
   useEffect(() => {
     firstRef.current?.focus();
@@ -121,13 +144,23 @@ export default function FieldSheet({ field, initial, storedCategory, onDone, onC
       else onClose();
       return;
     }
+    if (field === 'city') {
+      if (!cityChanged) onDone(initial, initialCityName ?? undefined);
+      else if (city.state === 'ok') onDone(city.city.cityId, city.city.cityName);
+      return;
+    }
     setTouched(true);
     if (!check.ok) return;
     onDone(check.value);
   };
 
-  const showError = (touched || value !== initial) && !check.ok && check.error;
-  const doneDisabled = uploading || (field !== 'avatar_url' && !check.ok);
+  const serverSays = serverError && value.trim() === serverError.value.trim() ? serverError.message : null;
+  const cityError = city.state === 'refused' ? city.message : null;
+  const showError = field === 'city'
+    ? cityError ?? serverSays
+    : ((touched || value !== initial) && !check.ok && check.error) || serverSays;
+  const doneDisabled = uploading
+    || (field === 'city' ? cityChanged && city.state !== 'ok' : field !== 'avatar_url' && !check.ok);
 
   const describedBy = [HELP[field] ? helpId : null, showError ? errorId : null].filter(Boolean).join(' ') || undefined;
 
@@ -172,6 +205,19 @@ export default function FieldSheet({ field, initial, storedCategory, onDone, onC
           </label>
         ))}
       </fieldset>
+    );
+  } else if (field === 'city') {
+    body = (
+      <CitySheetBody
+        value={value}
+        currentName={initialCityName}
+        onPick={setValue}
+        searchCities={cityLookups.searchCities}
+        inputStyle={inputStyle}
+        inputRef={(el) => { firstRef.current = el; }}
+        describedBy={describedBy}
+        labelledBy={titleId}
+      />
     );
   } else if (field === 'avatar_url') {
     const shown = preview ?? (removed ? null : initial || null);
@@ -221,7 +267,8 @@ export default function FieldSheet({ field, initial, storedCategory, onDone, onC
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void done(); } }}
         placeholder={PLACEHOLDER[field]}
         inputMode={field === 'founded_year' ? 'numeric' : field === 'website' ? 'url' : undefined}
-        autoCapitalize="none"
+        enterKeyHint="done"
+        autoCapitalize={field === 'name' ? 'words' : 'none'}
         autoCorrect="off"
         spellCheck={false}
         aria-describedby={describedBy}
@@ -229,11 +276,24 @@ export default function FieldSheet({ field, initial, storedCategory, onDone, onC
         style={inputStyle}
       />
     );
+    if (field === 'name') {
+      const n = nameLength(value);
+      body = (
+        <>
+          {body}
+          <p aria-live="polite" style={{ margin: '4px 0 0', fontSize: 12, textAlign: 'right', color: n > NAME_MAX ? '#FF8A70' : 'rgba(246,241,234,0.6)' }} data-testid="eip-name-counter">
+            {n} / {NAME_MAX}
+          </p>
+        </>
+      );
+    }
   }
 
   const sheetStyle: CSSProperties = {
     position: 'fixed', left: 0, right: 0, bottom: inset, zIndex: 61,
     maxHeight: height ? Math.max(160, height - 12) : '85vh', overflowY: 'auto', boxSizing: 'border-box',
+    // City: a column whose list (flex 1, min-height 0) is the part that scrolls.
+    ...(field === 'city' ? { display: 'flex', flexDirection: 'column' as const } : null),
     background: '#17131A', color: CREAM, borderRadius: '16px 16px 0 0', borderTop: `1px solid rgba(231,190,110,0.35)`,
     padding: '12px 16px calc(12px + env(safe-area-inset-bottom))', maxWidth: 560, margin: '0 auto',
   };
@@ -244,26 +304,40 @@ export default function FieldSheet({ field, initial, storedCategory, onDone, onC
       <div aria-hidden="true" data-testid="eip-sheet-overlay" onClick={() => { if (!uploading) onClose(); }} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.55)' }} />
       <div ref={sheetRef} role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={onKeyDown} style={sheetStyle} data-testid="eip-sheet">
         <h2 id={titleId} style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>
-          <label htmlFor={field === 'organisation_category' || field === 'avatar_url' ? undefined : `${titleId}-input`}>{label}</label>
+          <label htmlFor={field === 'organisation_category' || field === 'avatar_url' || field === 'city' ? undefined : `${titleId}-input`}>{label}</label>
         </h2>
         {HELP[field] && <p id={helpId} style={{ margin: '0 0 8px', fontSize: 13, color: 'rgba(246,241,234,0.7)' }}>{HELP[field]}</p>}
         {body}
-        {showError && <p id={errorId} role="alert" style={{ margin: '6px 0 0', fontSize: 13, color: '#FF8A70' }}>{check.error}</p>}
-        {LINK_FIELDS.has(field) && check.ok && check.willSave && (
+        {showError && <p id={errorId} role="alert" style={{ margin: '6px 0 0', fontSize: 13, color: '#FF8A70', flexShrink: 0 }}>{showError}</p>}
+        {field === 'city' && city.state === 'refused' && city.retry && (
+          <button type="button" onClick={city.retry} style={{ ...btn, alignSelf: 'flex-start', marginTop: 6, background: 'none', border: '1px solid rgba(246,241,234,0.25)', color: CREAM, flexShrink: 0 }}>
+            Check again
+          </button>
+        )}
+        {field === 'city' && cityChanged && city.state === 'checking' && (
+          <p role="status" style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(246,241,234,0.7)', flexShrink: 0 }}>Checking the city&hellip;</p>
+        )}
+        {field === 'city' && city.state === 'ok' && (
+          <p style={{ margin: '8px 0 0', fontSize: 13, display: 'flex', gap: 4, minWidth: 0, flexShrink: 0 }} data-testid="eip-will-save">
+            <span style={{ flexShrink: 0, color: 'rgba(246,241,234,0.7)' }}>We will save:</span>
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{city.city.cityName}</span>
+          </p>
+        )}
+        {PREVIEW_FIELDS.has(field) && check.ok && check.willSave && (
           <div style={{ marginTop: 8, fontSize: 13 }}>
             <p style={{ margin: 0, display: 'flex', gap: 4, minWidth: 0 }} data-testid="eip-will-save">
               <span style={{ flexShrink: 0, color: 'rgba(246,241,234,0.7)' }}>We will save:</span>
               <span title={check.willSave} style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{check.willSave}</span>
             </p>
             {check.hints.map((h) => <p key={h} style={{ margin: '4px 0 0', color: GOLD }} data-testid="eip-hint">{h}</p>)}
-            {check.href && (
+            {LINK_FIELDS.has(field) && check.href && (
               <a href={check.href} target="_blank" rel={PUBLIC_LINK_REL} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, color: GOLD, fontWeight: 700 }}>
                 Open the link to check it
               </a>
             )}
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12, flexShrink: 0 }}>
           <button type="button" onClick={onClose} disabled={uploading} style={{ ...btn, background: 'none', border: '1px solid rgba(246,241,234,0.25)', color: CREAM }}>
             Cancel
           </button>

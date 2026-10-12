@@ -12,6 +12,14 @@ import {
   ABOUT_COPY,
   ABOUT_MAX,
   CATEGORY_OPTIONS,
+  CITY_COPY,
+  FIELD_KEYS,
+  FIELD_LABEL,
+  NAME_COPY,
+  NAME_MAX,
+  checkCity,
+  checkField,
+  checkName,
   FACEBOOK_COPY,
   INSTAGRAM_COPY,
   PROMPTED_FIELDS,
@@ -229,5 +237,72 @@ describe('display labels', () => {
   });
   it('public links carry noopener nofollow ugc', () => {
     expect(PUBLIC_LINK_REL).toBe('noopener nofollow ugc');
+  });
+});
+
+describe('the editable fields include Name and City', () => {
+  it('FIELD_KEYS and FIELD_LABEL name them', () => {
+    expect(FIELD_KEYS).toContain('name');
+    expect(FIELD_KEYS).toContain('city');
+    expect(FIELD_LABEL.name).toBe('Name');
+    expect(FIELD_LABEL.city).toBe('City');
+  });
+  it('neither is a "Complete your page" prompt (every live organiser has both)', () => {
+    expect(PROMPTED_FIELDS.map((p) => p.key)).not.toContain('name');
+    expect(PROMPTED_FIELDS.map((p) => p.key)).not.toContain('city');
+  });
+});
+
+describe('checkName (organiser_profile_update_p5_v1: required, <= 80 characters, one line)', () => {
+  const at80 = 'R'.repeat(NAME_MAX);
+  it.each([
+    ['Ritmo Latino', true, null, 'Ritmo Latino'],
+    ['  Ritmo Latino  ', true, null, 'Ritmo Latino'],
+    [at80, true, null, at80],
+    // Characters, not bytes or UTF-16 units: the server counts char_length.
+    ['É'.repeat(NAME_MAX), true, null, 'É'.repeat(NAME_MAX)],
+    ['\u{1F483}'.repeat(NAME_MAX), true, null, '\u{1F483}'.repeat(NAME_MAX)],
+    ['', false, NAME_COPY.required, null],
+    ['    ', false, NAME_COPY.required, null],
+    [`${at80}R`, false, NAME_COPY.tooLong(81), null],
+    ['Ritmo\nLatino', false, NAME_COPY.oneLine, null],
+    ['Ritmo\tLatino', false, NAME_COPY.oneLine, null],
+    ['Ritmo\u0007', false, NAME_COPY.oneLine, null],
+  ])('%j -> ok %s', (typed, ok, error, willSave) => {
+    const c = checkName(typed);
+    expect(c.ok).toBe(ok);
+    expect(c.error).toBe(error);
+    expect(c.willSave).toBe(willSave);
+    if (ok) {
+      // "We will save" is exactly what the patch sends.
+      expect(buildOrganiserProfilePatch({ ...FORM, name: c.value }, 'x').name).toBe(willSave);
+      // eslint-disable-next-line no-control-regex -- the server's single-line rule
+      expect(/[\x00-\x1f\x7f]/.test(c.value)).toBe(false);
+    }
+  });
+  it('checkField dispatches name and city', () => {
+    expect(checkField('name', 'Ritmo').ok).toBe(true);
+    expect(checkField('city', '').ok).toBe(false);
+  });
+  it('the taken-name copy says what to do', () => {
+    expect(NAME_COPY.taken).toMatch(/already uses this name/);
+    expect(NAME_COPY.taken).toMatch(/different/);
+  });
+});
+
+describe('checkCity (a pick from the list, never free text)', () => {
+  const ID = 'c1000000-0000-4000-8000-000000000001';
+  it.each([
+    [ID, true, null, ID],
+    [ID.toUpperCase(), true, null, ID],
+    [` ${ID} `, true, null, ID],
+    ['', false, CITY_COPY.required, null],
+    ['London', false, CITY_COPY.required, null],
+    ['c1000000-0000-4000-8000', false, CITY_COPY.required, null],
+  ])('%j -> ok %s', (typed, ok, error, value) => {
+    const c = checkCity(typed);
+    expect(c.ok).toBe(ok);
+    expect(c.error).toBe(error);
+    if (ok) expect(c.value).toBe(value);
   });
 });
