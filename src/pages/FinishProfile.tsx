@@ -20,6 +20,8 @@ import {
   NO_PROFILE_CONTACT_URL,
   FINISH_PROFILE_PATH,
   completenessFact,
+  finishScreenNotice,
+  stillToAddText,
   finishScreenMode,
   skipFinishProfileForSession,
   type ProfileField,
@@ -90,8 +92,7 @@ export const FinishProfileScreen = () => {
         goBack();
         return;
       }
-      if (fresh.status === "incomplete") setNotice(`Saved. ${completenessFact(fresh).text}`);
-      else setNotice("Saved. We couldn\u2019t re-check your profile just now \u2014 reload this page to see what is left.");
+      setNotice(finishScreenNotice(fresh, true));
     } catch {
       setSaveError(true);
     } finally {
@@ -164,9 +165,13 @@ export const FinishProfileScreen = () => {
           void save();
         }}
       >
-        <p className="text-sm text-muted-foreground">
-          {completenessFact(completion).text} Everything else on the site works without it.
-        </p>
+        {/* One line: after a partial save the notice REPLACES the intro (never both). */}
+        {!notice && (
+          <p className="text-sm text-muted-foreground">
+            {stillToAddText(fields)}
+            {!gated && " Everything else on the site works without it."}
+          </p>
+        )}
 
         {fields.includes("first_name") && (
           <div className="space-y-2">

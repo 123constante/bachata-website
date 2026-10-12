@@ -150,7 +150,7 @@ describe('unfinished profile -> finish -> rate', () => {
     fireEvent.click(await screen.findByRole('link', { name: 'Finish your profile' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Upload photo' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByText('Saved. Add your dance role to rate parties.')).toBeTruthy();
+    expect(await screen.findByText('Saved. Still to add: dance role.')).toBeTruthy();
     expect(where.startsWith('/finish-profile')).toBe(true);
   });
 });

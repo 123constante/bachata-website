@@ -73,6 +73,7 @@ import {
   PROFILE_FIELD_LABEL,
   completenessFact,
   finishProfileHref,
+  stillToAddText,
   missingProfileFields,
   type ProfileCompletion,
   type ProfileField,
@@ -277,7 +278,7 @@ describe.each(CELLS)('$shape.name x $role.name', ({ shape, role }) => {
     mount(makeBackend(state()), finishProfileHref('/account'));
     if (fact.kind === 'incomplete') {
       await screen.findByRole('button', { name: 'Save' });
-      expect(document.body.textContent).toContain(fact.text);
+      expect(document.body.textContent).toContain(stillToAddText(fact.missing));
       const asked: Record<ProfileField, boolean> = {
         first_name: !!screen.queryByLabelText(/first name/i),
         based_city_id: !!screen.queryByRole('button', { name: 'Pick city' }),

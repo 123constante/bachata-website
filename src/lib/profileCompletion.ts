@@ -97,6 +97,25 @@ export const completenessFact = (c: Pick<ProfileCompletion, "status" | "missing"
   return { kind: "unknown", missing: [], reason: "", text: "" };
 };
 
+/** "Still to add: city, dance role, photo." -- every field named, in profile order. "" when nothing is missing. */
+export const stillToAddText = (missing: readonly ProfileField[]): string =>
+  missing.length > 0 ? `Still to add: ${missing.map((f) => PROFILE_FIELD_LABEL[f]).join(", ")}.` : "";
+
+/**
+ * The Finish screen's own line, from the ONE completeness fact. Never says
+ * "Saved" for a profile that is not complete: a partial save says what is left.
+ */
+export const finishScreenNotice = (
+  c: Pick<ProfileCompletion, "status" | "missing">,
+  justSaved: boolean,
+): string => {
+  const prefix = justSaved ? "Saved. " : "";
+  if (c.status === "incomplete") return `${prefix}${stillToAddText(c.missing) || "Your profile is not complete yet."}`;
+  if (c.status === "complete") return justSaved ? "Saved." : PROFILE_COMPLETE_TEXT;
+  if (c.status === "no_profile") return NO_PROFILE_TEXT;
+  return justSaved ? "Saved. We couldn\u2019t re-check your profile just now \u2014 reload this page to see what is left." : "";
+};
+
 export const FINISH_PROFILE_PATH = "/finish-profile";
 
 export const finishProfileHref = (returnTo?: string | null): string => {

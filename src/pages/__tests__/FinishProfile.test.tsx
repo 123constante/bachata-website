@@ -111,7 +111,7 @@ it('saves only the fields filled in, with the exact stored dance-role value', as
   fireEvent.click(screen.getByRole('button', { name: /^save/i }));
   await waitFor(() => expect(h.save).toHaveBeenCalledWith({ dance_role: 'Lead and Follow' }));
   // Still missing the photo: stays, and says what is left.
-  await waitFor(() => expect(screen.getByText('Saved. Add your photo to rate parties.')).toBeTruthy());
+  await waitFor(() => expect(screen.getByText('Saved. Still to add: photo.')).toBeTruthy());
   expect(path.startsWith('/finish-profile')).toBe(true);
 });
 
@@ -176,4 +176,32 @@ it('a failed save says so and keeps what they typed', async () => {
   fireEvent.click(screen.getByRole('button', { name: /^save/i }));
   await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/couldn.t save/i));
   expect((screen.getByLabelText(/first name/i) as HTMLInputElement).value).toBe('Ana');
+});
+
+describe('gated vs plain visits (Skip, intro copy)', () => {
+  const gatedAt = `/finish-profile?returnTo=${encodeURIComponent('/account/o')}`;
+  it('gated: explanation shown, NO Skip for now and no Not now, intro names exactly the missing four-field list', () => {
+    h.completion = inc(['based_city_id', 'dance_role', 'avatar_url']);
+    mount(gatedAt);
+    expect(screen.getByText(/Finish your dancer profile first/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /skip for now/i })).toBeNull();
+    expect(screen.queryByText(/not now/i)).toBeNull();
+    expect(screen.getByText('Still to add: city, dance role, photo.')).toBeTruthy();
+    expect(screen.queryByText(/everything else on the site works/i)).toBeNull();
+  });
+  it('plain visit: keeps Skip for now and the still-to-add line', () => {
+    h.completion = inc(ALL);
+    mount();
+    expect(screen.getByRole('button', { name: /skip for now/i })).toBeTruthy();
+    expect(screen.getByText(/Still to add: first name, city, dance role, photo\./)).toBeTruthy();
+  });
+  it('partial save: one line only, "Saved. Still to add: ...", never the old intro beside it', async () => {
+    h.completion = inc(['dance_role', 'avatar_url']);
+    mount(gatedAt);
+    fireEvent.click(screen.getByRole('radio', { name: 'Both' }));
+    fireEvent.click(screen.getByRole('button', { name: /^save/i }));
+    expect(await screen.findByText('Saved. Still to add: photo.')).toBeTruthy();
+    expect(screen.queryByText(/^Still to add: dance role, photo/)).toBeNull();
+    expect(screen.queryByText(/rate parties/)).toBeNull();
+  });
 });
