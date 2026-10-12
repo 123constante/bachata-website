@@ -11,15 +11,17 @@
 //
 // It also carries the owner-only Create event links (into the organiser area's
 // existing create flow, which makes a draft only), so a visitor downloads none
-// of that either.
+// of that either; and the Contact card + Contact details sheet, whose private
+// read (get_organiser_contact_settings_v1) only this layer makes.
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { UNSAFE_DataRouterContext, UNSAFE_DataRouterStateContext, type Blocker, type BlockerFunction } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
 import { searchCities as searchCityList } from '@/modules/organiser/home/onboarding/citySearch';
 import { formFromEntity, type ProfileEntity } from '@/modules/organiser/profile/profileForm';
 import { organiserEntityQueryKey } from '@/modules/profile/organiserPublicProfile';
+import { fetchContactSettings, organiserContactSettingsQueryKey, organiserPublicContactQueryKey, type ContactSettings } from '@/modules/organiser/shared/ownershipApi';
 import type { EditInPlaceLayerProps, EipBridge, EipSlot } from './bridge';
 import {
   ADDED_MESSAGE,
@@ -38,9 +40,13 @@ import {
   unsavedBarText,
   writeStoredDraft,
   type Drafts,
+  type EditBase,
 } from './draftModel';
-import { FIELD_LABEL, type FieldKey } from './fieldRules';
+import { FIELD_KEYS, FIELD_LABEL, type FieldKey } from './fieldRules';
 import FieldSheet from './FieldSheet';
+import ContactSheet from './ContactSheet';
+import { ContactCard } from './ContactCard';
+import { CONTACT_COPY, contactItems, isContactField, storedContactFromSettings } from './contactModel';
 import type { CityLookups } from './cityCheck';
 import { BAR_Z, BOTTOM_NAV_OFFSET, inBody } from './layers';
 import { uploadOrganiserPhoto } from './organiserPhotoUploadApi';
@@ -55,12 +61,26 @@ export interface EditInPlaceLayerInternals {
   uploadPhoto?: (organiserId: string, file: File) => Promise<string>;
   searchCities?: CityLookups['searchCities'];
   resolveCity?: CityLookups['resolveCity'];
+  fetchContact?: (organiserId: string) => Promise<ContactSettings>;
 }
 
 const btn = { minHeight: 44, padding: '0 16px', borderRadius: 999, fontSize: 14, fontWeight: 700, cursor: 'pointer' } as const;
 
-export default function EditInPlaceLayer({ organiserId, entity, onBridge, client, uploadPhoto, searchCities, resolveCity }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
+export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId, client, uploadPhoto, searchCities, resolveCity, fetchContact }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
   const queryClient = useQueryClient();
+  // The owner's private contact details: read here only (this chunk is owner / manager only).
+  const contactKey = useMemo(() => organiserContactSettingsQueryKey(organiserId, userId), [organiserId, userId]);
+  const contactQuery = useQuery({
+    queryKey: contactKey,
+    queryFn: () => (fetchContact ?? fetchContactSettings)(organiserId),
+    staleTime: 60 * 1000,
+    // A failed read shows at once; the card's Try again reads again.
+    retry: false,
+  });
+  const storedContact = useMemo(() => (contactQuery.data ? storedContactFromSettings(contactQuery.data) : null), [contactQuery.data]);
+  const contactLoad = contactQuery.data ? 'ready' : contactQuery.isError ? 'failed' : 'loading';
+  // What every draft is compared with and laid over: the row, plus the contact once loaded.
+  const base = useMemo<EditBase>(() => ({ ...entity, contact: storedContact }), [entity, storedContact]);
   const saveClient: SaveClient = client ?? supabase;
   const upload = uploadPhoto ?? uploadOrganiserPhoto;
   const cityLookups = useMemo<CityLookups>(
@@ -76,7 +96,7 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
   );
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
-  const [sheet, setSheet] = useState<FieldKey | null>(null);
+  const [sheet, setSheet] = useState<FieldKey | 'contact' | null>(null);
   // City id -> name, for the drafted city shown in place (the stored one to start).
   const [cityNames, setCityNames] = useState<Record<string, string>>(() =>
     entity.city_id && entity.cities?.name ? { [entity.city_id]: entity.cities.name } : {},
@@ -86,8 +106,8 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
   const openerRef = useRef<HTMLElement | null>(null);
   const draftsRef = useRef(drafts);
   draftsRef.current = drafts;
-  const entityRef = useRef(entity);
-  entityRef.current = entity;
+  const entityRef = useRef(base);
+  entityRef.current = base;
 
   const count = draftCount(drafts);
 
@@ -110,13 +130,13 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
     writeStoredDraft(organiserId, drafts);
   }, [organiserId, drafts]);
 
-  // A refetched row that now carries a drafted value: that draft is done.
+  // A refetched row (or contact) that now carries a drafted value: that draft is done.
   useEffect(() => {
     setDrafts((d) => {
-      const p = prunedDrafts(entity, d);
+      const p = prunedDrafts(base, d);
       return draftCount(p) === draftCount(d) ? d : p;
     });
-  }, [entity]);
+  }, [base]);
 
   // A restored City draft: look its name up once, so the page shows it in place.
   const draftedCity = drafts.city;
@@ -147,6 +167,10 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
     openerRef.current = opener ?? (document.activeElement as HTMLElement | null);
     setSheet(field);
   }, []);
+  const openContact = useCallback((opener: HTMLElement) => {
+    openerRef.current = opener;
+    setSheet('contact');
+  }, []);
 
   const closeSheet = useCallback(() => {
     setSheet(null);
@@ -167,6 +191,17 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
       return next;
     });
     setNotice(same ? { tone: 'gold', text: `No change: that ${FIELD_LABEL[field].toLowerCase()} is already on your page.` } : { tone: 'gold', text: ADDED_MESSAGE });
+    closeSheet();
+  }, [closeSheet]);
+
+  // The Contact details sheet's Done: its keys are replaced as one (contactDraftsFor gives only the changed ones).
+  const onContactDone = useCallback((next: Drafts) => {
+    setDrafts((d) => {
+      const out: Drafts = {};
+      for (const k of FIELD_KEYS) if (!isContactField(k) && d[k] !== undefined) out[k] = d[k];
+      return { ...out, ...next };
+    });
+    setNotice({ tone: 'gold', text: draftCount(next) === 0 ? CONTACT_COPY.noChange : ADDED_MESSAGE });
     closeSheet();
   }, [closeSheet]);
 
@@ -217,6 +252,17 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
       }
       void queryClient.invalidateQueries({ queryKey: key });
       const sent = buildSavePatch(sentEntity, sentDrafts);
+      // Contact: the saved values into the private read's cache at once, then both reads refetched.
+      if (['contact_phone', 'show_phone_publicly', 'show_email_publicly'].some((k) => k in sent)) {
+        queryClient.setQueryData(contactKey, (old: ContactSettings | undefined) => (old ? {
+          ...old,
+          ...('contact_phone' in sent ? { contact_phone: (sent.contact_phone ?? null) as string | null } : null),
+          ...('show_phone_publicly' in sent ? { show_phone_publicly: sent.show_phone_publicly as boolean } : null),
+          ...('show_email_publicly' in sent ? { show_email_publicly: sent.show_email_publicly as boolean } : null),
+        } : old));
+        void queryClient.invalidateQueries({ queryKey: contactKey });
+        void queryClient.invalidateQueries({ queryKey: organiserPublicContactQueryKey(organiserId) });
+      }
       // Clear ONLY the drafts that went out unchanged and came back as sent.
       setDrafts((cur) => {
         const next = { ...cur };
@@ -237,7 +283,7 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
       savingRef.current = false;
       setSaving(false);
     }
-  }, [saveClient, organiserId, queryClient, cityNames]);
+  }, [saveClient, organiserId, queryClient, cityNames, contactKey]);
 
   const discard = useCallback(() => {
     setDrafts({});
@@ -245,7 +291,9 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
     setNotice({ tone: 'ok', text: 'Changes discarded. Your page is unchanged.' });
   }, [organiserId]);
 
-  const overlay = useMemo(() => overlayFor(entity, drafts, cityNames), [entity, drafts, cityNames]);
+  const overlay = useMemo(() => overlayFor(base, drafts, cityNames), [base, drafts, cityNames]);
+  const contact = useMemo(() => (storedContact ? contactItems(storedContact, drafts) : null), [storedContact, drafts]);
+  const refetchContact = contactQuery.refetch;
   const card = useMemo(() => cardModel(entity, drafts), [entity, drafts]);
 
   const bridge = useMemo<EipBridge>(() => {
@@ -274,13 +322,14 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
             onOpen={openSheet}
           />
         );
+        case 'contact': return <ContactCard load={contactLoad} items={contact} onEdit={openContact} onRetry={() => void refetchContact()} />;
         case 'create-event': return <CreateEventLink organiserId={organiserId} label="Create event" />;
         case 'create-first-event': return <CreateEventLink organiserId={organiserId} label="Create your first event" />;
         case 'create-another-event': return <CreateEventLink organiserId={organiserId} label="Create an event" />;
       }
     };
     return { overlay, slot, mark: (f) => (has(f) ? 'eip-drafted' : undefined) };
-  }, [entity, drafts, overlay, card, openSheet, organiserId]);
+  }, [entity, drafts, overlay, card, openSheet, organiserId, contact, contactLoad, openContact, refetchContact]);
 
   useEffect(() => {
     onBridge(bridge);
@@ -289,20 +338,24 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, client
 
   const dataRouter = useContext(UNSAFE_DataRouterContext);
   const stored = (f: FieldKey): string => (f === 'city' ? entity.city_id ?? '' : (formFromEntity(entity)[f] as string) ?? '');
-  const sheetInitial = sheet ? (drafts[sheet] ?? stored(sheet)) : '';
+  const fieldSheet = sheet === 'contact' ? null : sheet;
+  const sheetInitial = fieldSheet ? (drafts[fieldSheet] ?? stored(fieldSheet)) : '';
 
   return (
     <>
       <style>{LAYER_CSS}</style>
-      {sheet && (
+      {sheet === 'contact' && storedContact && (
+        <ContactSheet stored={storedContact} drafts={drafts} onDone={onContactDone} onClose={closeSheet} />
+      )}
+      {fieldSheet && (
         <FieldSheet
-          key={sheet}
-          field={sheet}
+          key={fieldSheet}
+          field={fieldSheet}
           initial={sheetInitial}
           storedCategory={entity.organisation_category ?? null}
-          initialCityName={sheet === 'city' && sheetInitial ? cityNames[sheetInitial] ?? null : null}
-          serverError={fieldErrors[sheet] ?? null}
-          onDone={(v, label) => onDone(sheet, v, label)}
+          initialCityName={fieldSheet === 'city' && sheetInitial ? cityNames[sheetInitial] ?? null : null}
+          serverError={fieldErrors[fieldSheet] ?? null}
+          onDone={(v, label) => onDone(fieldSheet, v, label)}
           onClose={closeSheet}
           uploadPhoto={(file) => upload(organiserId, file)}
           cityLookups={cityLookups}

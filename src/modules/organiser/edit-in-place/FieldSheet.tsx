@@ -30,6 +30,7 @@ import { PHOTO_ACCEPT } from './organiserPhotoModel';
 import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 import { inBody } from './layers';
 import { CREAM, GOLD, INK } from './parts';
+import { FOCUSABLE, btn, inputStyle } from './sheetStyles';
 
 export interface FieldSheetProps {
   field: FieldKey;
@@ -70,13 +71,6 @@ const HELP: Partial<Record<FieldKey, string>> = {
 const PREVIEW_FIELDS = new Set<FieldKey>(['name', 'instagram', 'website', 'facebook']);
 const LINK_FIELDS = new Set<FieldKey>(['instagram', 'website', 'facebook']);
 
-const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
-
-const inputStyle: CSSProperties = {
-  width: '100%', boxSizing: 'border-box', fontSize: 16, lineHeight: 1.4, padding: '10px 12px', borderRadius: 10,
-  border: '1px solid rgba(246,241,234,0.25)', background: 'rgba(246,241,234,0.06)', color: CREAM,
-};
-const btn: CSSProperties = { minHeight: 44, padding: '0 16px', borderRadius: 999, fontSize: 14, fontWeight: 700, cursor: 'pointer' };
 
 export default function FieldSheet({ field, initial, storedCategory, initialCityName = null, serverError = null, onDone, onClose, uploadPhoto, cityLookups }: FieldSheetProps) {
   const titleId = useId();

@@ -140,6 +140,12 @@ export const RPCS = {
   organiser_ownership_v1: { is_managed: true, i_own_it: true, my_role: 'owner' },
   // /city/:slug 404s unless the DB vouches for the slug (app/routes/home.tsx).
   is_valid_city_slug: true,
+  // The owner's private contact (admin #771 shape: both split flags, plus the
+  // deprecated derived show_contact_publicly). ORG has a phone and an email; every
+  // other organiser has an email only, so its phone switch is disabled with a reason.
+  get_organiser_contact_settings_v1: (args) => (args.p_organiser_id === ORG_ID
+    ? { contact_phone: '+44 7700 900123', contact_email: 'hello@example.com', show_phone_publicly: true, show_email_publicly: false, show_contact_publicly: true, claim_email: null }
+    : { contact_phone: null, contact_email: 'hello@example.com', show_phone_publicly: true, show_email_publicly: false, show_contact_publicly: true, claim_email: null }),
   search_cities: (args) => searchCityRows(args.p_query, args.p_limit),
   // ORG2's nights: no dated occurrence rows, so the page lists them as upcoming
   // (the base-date fallback); every other organiser has none.

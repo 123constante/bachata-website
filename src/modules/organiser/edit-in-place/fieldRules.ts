@@ -12,6 +12,7 @@ import {
   type OrganiserProfileEditForm,
 } from '@/lib/organiserProfileUpdate';
 import { extractDomain, extractIgHandle, facebookDisplayLabel } from '@/lib/organiserLinkLabels';
+import { normalizePhoneDigits } from '@/lib/contactValidation';
 
 export type FieldKey =
   | 'name'
@@ -22,7 +23,12 @@ export type FieldKey =
   | 'bio'
   | 'website'
   | 'facebook'
-  | 'organisation_category';
+  | 'organisation_category'
+  // The Contact details sheet (admin #771 split). contact_email is NOT a key: the
+  // server refuses a non-admin change (contact_email_admin_only).
+  | 'contact_phone'
+  | 'show_phone_publicly'
+  | 'show_email_publicly';
 
 export const FIELD_KEYS: readonly FieldKey[] = [
   'name',
@@ -34,6 +40,9 @@ export const FIELD_KEYS: readonly FieldKey[] = [
   'website',
   'facebook',
   'organisation_category',
+  'contact_phone',
+  'show_phone_publicly',
+  'show_email_publicly',
 ];
 
 export const FIELD_LABEL: Record<FieldKey, string> = {
@@ -46,6 +55,9 @@ export const FIELD_LABEL: Record<FieldKey, string> = {
   website: 'Website',
   facebook: 'Facebook',
   organisation_category: 'Category',
+  contact_phone: 'Phone',
+  show_phone_publicly: 'Phone on your page',
+  show_email_publicly: 'Email on your page',
 };
 
 export function isFieldKey(v: unknown): v is FieldKey {
@@ -99,8 +111,8 @@ const EMPTY_FORM: OrganiserProfileEditForm = {
   name: 'x', avatar_url: '', bio: '', instagram: '', facebook: '', website: '', organisation_category: '', founded_year: '',
 };
 
-/** The patch value buildOrganiserProfilePatch produces for one field's draft (not City: it is the patch's city_id). */
-export function patchValue(field: Exclude<FieldKey, 'city'>, draft: string): string | number | null {
+/** The patch value buildOrganiserProfilePatch produces for one field's draft (not City: it is the patch's city_id; not the contact keys: contactModel.ts). */
+export function patchValue(field: Exclude<FieldKey, 'city' | 'contact_phone' | 'show_phone_publicly' | 'show_email_publicly'>, draft: string): string | number | null {
   const patch = buildOrganiserProfilePatch({ ...EMPTY_FORM, [field]: draft }, 'x');
   if (field === 'facebook') return (patch.socials as { facebook: string | null }).facebook;
   return patch[field] as string | number | null;
@@ -333,6 +345,34 @@ export function checkPhotoUrl(raw: string): FieldCheck {
   return /^https:\/\/[^\s]+$/i.test(t) ? ok(t, t, t) : bad(t, 'That photo did not upload. Choose it again.');
 }
 
+// ---- contact (the Contact details sheet) -------------------------------------------------
+
+// The repo's phone rule (contactValidation.normalizePhoneDigits: 7 to 15 digits,
+// any punctuation, the rule the WhatsApp link uses) plus the server's
+// (organiser_profile_update_p5_v1: contact_phone at most 40 characters, one line).
+// The value is stored as typed, trimmed (buildOrganiserProfilePatch: trim() || null).
+export const PHONE_MAX = 40;
+export const PHONE_COPY = {
+  digits: 'Use a phone number with 7 to 15 digits, like +44 7700 900123.',
+  tooLong: `A phone number can be at most ${PHONE_MAX} characters.`,
+  oneLine: 'Keep the phone number on one line.',
+};
+
+export function checkPhone(raw: string): FieldCheck {
+  const t = raw.trim();
+  if (!t) return ok('', null);
+  // eslint-disable-next-line no-control-regex -- the server's single-line rule
+  if (/[\x00-\x1f\x7f]/.test(t)) return bad(t, PHONE_COPY.oneLine);
+  if (Array.from(t).length > PHONE_MAX) return bad(t, PHONE_COPY.tooLong);
+  if (normalizePhoneDigits(t) === null) return bad(t, PHONE_COPY.digits);
+  return ok(t, t);
+}
+
+/** A switch's draft is 'true' or 'false' (the server takes booleans only). */
+export function checkSwitch(raw: string): FieldCheck {
+  return raw === 'true' || raw === 'false' ? ok(raw, raw) : bad(raw, 'Turn the switch on or off.');
+}
+
 // ---- dispatch ----------------------------------------------------------------------------
 
 export function checkField(field: FieldKey, raw: string, opts: { nowYear?: number; storedCategory?: string | null } = {}): FieldCheck {
@@ -346,6 +386,9 @@ export function checkField(field: FieldKey, raw: string, opts: { nowYear?: numbe
     case 'bio': return checkAbout(raw);
     case 'organisation_category': return checkCategory(raw, opts.storedCategory);
     case 'avatar_url': return checkPhotoUrl(raw);
+    case 'contact_phone': return checkPhone(raw);
+    case 'show_phone_publicly':
+    case 'show_email_publicly': return checkSwitch(raw);
   }
 }
 

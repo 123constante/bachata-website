@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,10 +13,8 @@ import type { EipBridge } from '@/modules/organiser/edit-in-place/bridge';
 import { PUBLIC_LINK_REL, extractDomain, extractFbHandle, extractIgHandle } from '@/lib/organiserLinkLabels';
 import {
   NO_PUBLIC_CONTACT,
-  fetchContactSettings,
   fetchOrganiserOwnership,
   fetchPublicContact,
-  organiserContactSettingsQueryKey,
   organiserOwnershipQueryKey,
   organiserPublicContactQueryKey,
 } from '@/modules/organiser/shared/ownershipApi';
@@ -44,7 +42,6 @@ import {
   buildMailtoHref,
   buildWhatsAppHref,
   isValidEmail as sharedIsValidEmail,
-  normalizePhoneDigits,
 } from '@/lib/contactValidation';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
 import {
@@ -241,7 +238,7 @@ const hostnameLooksLikeDomain = (hostname: string): boolean =>
 
 // --- Validation helpers ---
 
-// Delegates to contactValidation.ts's own isValidEmail/normalizePhoneDigits
+// Delegates to contactValidation.ts's own isValidEmail
 // (already imported below for buildMailtoHref/buildWhatsAppHref) so save-time
 // validation can't diverge from what render-time link-building accepts --
 // an earlier version of this file had two separate regexes for the same
@@ -249,11 +246,6 @@ const hostnameLooksLikeDomain = (hostname: string): boolean =>
 const isValidEmail = (email: string | null | undefined): boolean => {
   if (!email || !email.trim()) return true;
   return sharedIsValidEmail(email);
-};
-
-const isValidPhone = (phone: string | null | undefined): boolean => {
-  if (!phone || !phone.trim()) return true;
-  return normalizePhoneDigits(phone) !== null;
 };
 
 const isValidWebsiteUrl = (url: string | null | undefined): boolean => {
@@ -633,21 +625,14 @@ const OrganiserProfile = () => {
     instagram: '',
     facebook: '',
     website: '',
-    contact_email: '',
-    contact_phone: '',
-    show_contact_publicly: false,
     organisation_category: '',
     founded_year: '',
   });
-  // The contact fields come from get_organiser_contact_settings_v1 when the edit
-  // form opens; 'failed' disables them (with a reason) and keeps them out of the save.
-  const [contactState, setContactState] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
+  // Contact details (phone, and the two public switches, admin #771) are NOT in
+  // this dialog: the owner layer's Contact card opens the ONE Contact details
+  // sheet (edit-in-place/ContactSheet.tsx). This dialog never sends a contact key
+  // (above all never the legacy show_contact_publicly, which sets BOTH flags).
   const openedFormRef = useRef<string | null>(null);
-  // Per-open token: a contact-settings read applies only if no newer open (or a close) happened since.
-  const editOpenTokenRef = useRef(0);
-  useEffect(() => {
-    if (!isEditOpen) editOpenTokenRef.current += 1;
-  }, [isEditOpen]);
 
   const { data: entity, isLoading, error } = useQuery({
     queryKey: organiserEntityQueryKey(id),
@@ -850,7 +835,7 @@ const OrganiserProfile = () => {
   // below). The direct `claimed_by` UPDATE that stood here is retired: D4's
   // contract pairs every claimed_by with an entity_members owner row, which
   // only the RPC writes.
-  const openEditModal = async () => {
+  const openEditModal = () => {
     if (!entity || !id || !facts.canEdit) return;
     const ep = entity as EntityProfile;
     const socials = ep.socials as { instagram?: string; website?: string; facebook?: string } | null;
@@ -865,34 +850,9 @@ const OrganiserProfile = () => {
       organisation_category: ep.organisation_category || '',
       founded_year: ep.founded_year ? String(ep.founded_year) : '',
     };
-    // Contact details are private columns: owner / manager / admin read them through
-    // get_organiser_contact_settings_v1, fetched fresh each time the form opens.
-    const openToken = ++editOpenTokenRef.current;
-    setContactState('loading');
-    setEditForm({ ...base, contact_email: '', contact_phone: '', show_contact_publicly: false });
-    openedFormRef.current = null;
+    setEditForm(base);
+    openedFormRef.current = JSON.stringify(base);
     setIsEditOpen(true);
-    try {
-      const settings = await queryClient.fetchQuery({
-        queryKey: organiserContactSettingsQueryKey(id, userId),
-        queryFn: () => fetchContactSettings(id),
-        staleTime: 0,
-      });
-      if (openToken !== editOpenTokenRef.current) return;
-      const loaded = {
-        ...base,
-        contact_email: settings.contact_email ?? '',
-        contact_phone: settings.contact_phone ?? '',
-        show_contact_publicly: settings.show_contact_publicly,
-      };
-      setEditForm(loaded);
-      openedFormRef.current = JSON.stringify(loaded);
-      setContactState('ready');
-    } catch {
-      if (openToken !== editOpenTokenRef.current) return;
-      openedFormRef.current = JSON.stringify({ ...base, contact_email: '', contact_phone: '', show_contact_publicly: false });
-      setContactState('failed');
-    }
   };
 
   const handleSave = async () => {
@@ -902,15 +862,10 @@ const OrganiserProfile = () => {
       toast({ title: 'City is required', description: 'Please add city before saving.', variant: 'destructive' });
       return;
     }
-    if (contactState === 'loading') return;
     // Saving an untouched form sends nothing.
     if (openedFormRef.current !== null && JSON.stringify(editForm) === openedFormRef.current) {
       toast({ title: 'Nothing to save', description: 'You haven\u2019t changed anything.' });
       setIsEditOpen(false);
-      return;
-    }
-    if (!isValidPhone(editForm.contact_phone)) {
-      toast({ title: 'Invalid phone', description: 'Please enter a valid phone number.', variant: 'destructive' });
       return;
     }
     if (!isValidInstagramUrl(editForm.instagram)) {
@@ -932,25 +887,12 @@ const OrganiserProfile = () => {
         toast({ title: 'Select a valid city', description: 'Please choose city from the city picker list.', variant: 'destructive' });
         return;
       }
-      // Contact fields that could not be loaded are left out of the patch, so a
-      // failed read can never blank a stored phone or flip the flag.
-      const contactReady = contactState === 'ready';
-      const { error } = await saveOrganiserProfile(
-        supabase,
-        id,
-        {
-          ...editForm,
-          contact_phone: contactReady ? editForm.contact_phone : undefined,
-          show_contact_publicly: contactReady ? editForm.show_contact_publicly : undefined,
-        },
-        canonicalCity.cityId,
-      );
+      // No contact key: the form carries none, so the patch leaves the phone and both flags alone.
+      const { error } = await saveOrganiserProfile(supabase, id, editForm, canonicalCity.cityId);
       if (error) throw error;
       toast({ title: 'Profile updated' });
       setIsEditOpen(false);
       queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(id) });
-      queryClient.invalidateQueries({ queryKey: organiserPublicContactQueryKey(id) });
-      queryClient.invalidateQueries({ queryKey: organiserContactSettingsQueryKey(id, userId) });
     } catch (err) {
       console.error('Save error:', err);
       toast({ ...organiserProfileSaveErrorToast(err), variant: 'destructive' });
@@ -1356,6 +1298,7 @@ const OrganiserProfile = () => {
             {contactRow}
           </div>
         )}
+        {eip?.slot('contact')}
         {eip?.slot('links')}
 
         {/* W7 (mockup 06-A): "Is this you?" while the organiser is unclaimed.
@@ -1566,7 +1509,7 @@ const OrganiserProfile = () => {
 
         {facts.canEdit && id && (
           <Suspense fallback={null}>
-            <EditInPlaceLayer key={id} organiserId={id} entity={entity} onBridge={setEip} />
+            <EditInPlaceLayer key={id} organiserId={id} entity={entity} onBridge={setEip} userId={userId} />
           </Suspense>
         )}
       </article>
@@ -1612,45 +1555,9 @@ const OrganiserProfile = () => {
               <Label htmlFor="website">Website</Label>
               <Input id="website" value={editForm.website} onChange={(e) => setEditForm({ ...editForm, website: e.target.value })} placeholder="https://..." />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="contact_email">Contact email</Label>
-              <Input id="contact_email" type="email" value={editForm.contact_email} readOnly disabled placeholder={contactState === 'loading' ? 'Loading\u2026' : 'Set when the profile was claimed'} />
-              <p className="text-xs text-muted-foreground">The contact email is set when you claim the profile and can only be changed by an admin.</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="contact_phone">Contact phone / WhatsApp</Label>
-              <Input id="contact_phone" type="tel" value={editForm.contact_phone} disabled={contactState !== 'ready'} onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })} placeholder="+44 7700 900000" />
-              {contactState === 'failed' && (
-                <p className="text-xs text-destructive" role="alert" data-testid="contact-load-failed">
-                  Your contact details didn&rsquo;t load, so they&rsquo;re locked and won&rsquo;t be changed. Close this form and open it again to retry.
-                </p>
-              )}
-            </div>
-            <div className="flex items-start gap-3 rounded-md border p-3" data-testid="show-contact-publicly">
-              <input
-                id="show_contact_publicly"
-                type="checkbox"
-                className="mt-0.5 h-5 w-5 shrink-0"
-                checked={editForm.show_contact_publicly}
-                disabled={contactState !== 'ready'}
-                onChange={(e) => setEditForm({ ...editForm, show_contact_publicly: e.target.checked })}
-              />
-              <div className="space-y-1">
-                <Label htmlFor="show_contact_publicly">Show my contact details on my public page</Label>
-                <p className="text-xs text-muted-foreground">
-                  {editForm.show_contact_publicly
-                    ? 'On: anyone can see your contact email and phone as email and WhatsApp buttons on this page.'
-                    : 'Currently off: your email and phone are hidden, so visitors see no email or WhatsApp button. Turn it on to show both on this page.'}
-                </p>
-                {contactState === 'ready' && !editForm.contact_email && !editForm.contact_phone && (
-                  <p className="text-xs text-muted-foreground">You haven&rsquo;t added a phone or email yet, so there is nothing to show. Add a phone above first.</p>
-                )}
-                {contactState === 'failed' && <p className="text-xs text-muted-foreground">Locked because your contact details didn&rsquo;t load.</p>}
-              </div>
-            </div>
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={isSaving}>Cancel</Button>
-              <Button onClick={handleSave} disabled={isSaving || contactState === 'loading' || !editForm.name.trim()}>
+              <Button onClick={handleSave} disabled={isSaving || !editForm.name.trim()}>
                 {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Save
               </Button>

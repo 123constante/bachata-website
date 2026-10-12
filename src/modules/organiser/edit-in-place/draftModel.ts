@@ -8,9 +8,13 @@
 // is buildOrganiserProfilePatch() of that form. Saving only Facebook therefore
 // re-sends the stored Instagram and Website in their own columns AND in
 // socials, and the server treats every unchanged value as a no-op.
-// contact_phone / show_contact_publicly stay undefined (left out of the patch,
-// so a stored phone is never blanked and the flag never moves); contact_email
-// is never sent (admin-only).
+// Contact (admin #771 split) is NOT in the stored row: the layer lays the
+// owner's private settings on it as `contact` (EditBase), and contactModel.ts
+// adds ONLY the changed keys (contact_phone, show_phone_publicly,
+// show_email_publicly). Without `contact` (not loaded, or failed) no contact key
+// is ever sent, so a stored phone is never blanked and no flag moves. The legacy
+// show_contact_publicly (it sets BOTH flags) and contact_email (admin-only) are
+// never sent.
 //
 // Name lives in the form like the rest. City is NOT a form field: its draft is
 // the picked city's id and goes out as the patch's city_id (the second argument
@@ -20,27 +24,41 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildOrganiserProfilePatch, saveOrganiserProfile, type OrganiserProfileEditForm } from '@/lib/organiserProfileUpdate';
 import { formFromEntity, type ProfileEntity } from '@/modules/organiser/profile/profileForm';
 import { CARD_VISIBLE_ROWS, CITY_COPY, FIELD_KEYS, FIELD_LABEL, NAME_COPY, PROMPTED_FIELDS, checkField, isFieldKey, type FieldKey, type PromptedField } from './fieldRules';
+import { contactPatch, isContactField, type StoredContact } from './contactModel';
 
 export type Drafts = Partial<Record<FieldKey, string>>;
+
+/**
+ * The stored organiser, plus the owner's private contact settings when they have
+ * loaded (null or absent: not loaded, so no contact key is ever sent).
+ */
+export type EditBase = ProfileEntity & { contact?: StoredContact | null };
 
 export const draftCount = (d: Drafts): number => Object.keys(d).length;
 
 // ---- the form and the patch -----------------------------------------------------------------
 
 /** The stored organiser's form with every drafted field laid over it. */
-export function buildSaveForm(entity: ProfileEntity, drafts: Drafts): OrganiserProfileEditForm {
+export function buildSaveForm(entity: EditBase, drafts: Drafts): OrganiserProfileEditForm {
   const form: OrganiserProfileEditForm = { ...formFromEntity(entity) };
   for (const key of FIELD_KEYS) {
     const v = drafts[key];
-    if (v !== undefined && key !== 'city') form[key] = v;
+    if (v !== undefined && key !== 'city' && !isContactField(key)) form[key] = v;
   }
-  // Never present: a save must not blank a stored phone or move the contact flag.
+  // Absent unless changed: a save must not blank a stored phone or move a flag.
   delete form.contact_phone;
-  delete form.show_contact_publicly;
+  delete form.show_phone_publicly;
+  delete form.show_email_publicly;
+  if (entity.contact) {
+    const c = contactPatch(entity.contact, drafts);
+    if ('contact_phone' in c) form.contact_phone = (c.contact_phone as string | null) ?? '';
+    if ('show_phone_publicly' in c) form.show_phone_publicly = c.show_phone_publicly as boolean;
+    if ('show_email_publicly' in c) form.show_email_publicly = c.show_email_publicly as boolean;
+  }
   return form;
 }
 
-export function buildSavePatch(entity: ProfileEntity, drafts: Drafts): Record<string, unknown> {
+export function buildSavePatch(entity: EditBase, drafts: Drafts): Record<string, unknown> {
   return buildOrganiserProfilePatch(buildSaveForm(entity, drafts), saveCityId(entity, drafts));
 }
 
@@ -55,21 +73,39 @@ export function fieldInPatch(patch: Record<string, unknown>, field: FieldKey): u
 }
 
 /** The stored value of one field, in patch terms. */
-export function storedInPatchTerms(entity: ProfileEntity, field: FieldKey): unknown {
+export function storedInPatchTerms(entity: EditBase, field: FieldKey): unknown {
+  if (isContactField(field)) {
+    const c = entity.contact;
+    if (!c) return undefined;
+    return field === 'contact_phone' ? c.phone : field === 'show_phone_publicly' ? c.showPhone : c.showEmail;
+  }
   return fieldInPatch(buildSavePatch(entity, {}), field);
 }
 
-/** True when the draft would store exactly what is already stored. */
-export function draftMatchesStored(entity: ProfileEntity, field: FieldKey, draft: string): boolean {
+/**
+ * True when the draft would store exactly what is already stored. A contact
+ * draft while the contact details are not loaded is never "the same" (it is
+ * kept, and the save refuses it until they load).
+ */
+export function draftMatchesStored(entity: EditBase, field: FieldKey, draft: string): boolean {
+  if (isContactField(field)) return !!entity.contact && !(field in contactPatch(entity.contact, { [field]: draft }));
   return fieldInPatch(buildSavePatch(entity, { [field]: draft }), field) === storedInPatchTerms(entity, field);
 }
 
-/** Drafted fields that would change something. A draft equal to the stored value is dropped. */
-export function prunedDrafts(entity: ProfileEntity, drafts: Drafts): Drafts {
+/**
+ * Drafted fields that would change something. A draft equal to the stored value
+ * is dropped, and so is a contact switch the contact patch would not send (an
+ * empty phone's switch, after the phone is cleared).
+ */
+export function prunedDrafts(entity: EditBase, drafts: Drafts): Drafts {
   const out: Drafts = {};
   for (const key of FIELD_KEYS) {
     const v = drafts[key];
     if (v !== undefined && !draftMatchesStored(entity, key, v)) out[key] = v;
+  }
+  if (entity.contact) {
+    const c = contactPatch(entity.contact, out);
+    for (const key of FIELD_KEYS) if (isContactField(key) && out[key] !== undefined && !(key in c)) delete out[key];
   }
   return out;
 }
@@ -90,14 +126,15 @@ export interface DraftOverlay {
 }
 
 /** `cityNames`: picked city id -> its name (the sheet resolved it; a restored draft is resolved on load). */
-export function overlayFor(entity: ProfileEntity, drafts: Drafts, cityNames: Readonly<Record<string, string>> = {}): DraftOverlay {
+export function overlayFor(entity: EditBase, drafts: Drafts, cityNames: Readonly<Record<string, string>> = {}): DraftOverlay {
   if (draftCount(drafts) === 0) return {};
   const patch = buildSavePatch(entity, drafts);
   const out: DraftOverlay = {};
   const socials: Record<string, string | null | undefined> = { ...((entity.socials ?? {}) as Record<string, string | null | undefined>) };
   let socialsTouched = false;
   for (const key of FIELD_KEYS) {
-    if (drafts[key] === undefined) continue;
+    // Contact is not part of the public row: the owner's Contact card reads contactModel.
+    if (drafts[key] === undefined || isContactField(key)) continue;
     const v = fieldInPatch(patch, key);
     if (key === 'city') {
       const id = (v as string | null) ?? null;
@@ -211,7 +248,8 @@ export const SAVE_COPY = {
   permission: 'Only the owner or a manager of this page can change it. Nothing was saved.',
   signedOut: 'You are signed out. Sign in again, then tap Save. Your changes are kept.',
   nameTaken: 'That name is already used by another organiser, so nothing was saved. Tap Name to pick a different one. Your changes are kept.',
-  field: (field: FieldKey) => `${FIELD_LABEL[field]} was not accepted, so nothing was saved. Tap ${FIELD_LABEL[field]} to change it. Your changes are kept.`,
+  field: (field: FieldKey) => `${FIELD_LABEL[field]} was not accepted, so nothing was saved. Tap ${isContactField(field) ? 'Edit contact details' : FIELD_LABEL[field]} to change it. Your changes are kept.`,
+  contactNotLoaded: 'Your contact details have not loaded, so nothing was saved. Wait for them to load, or tap Try again on the Contact card. Your changes are kept.',
 };
 
 /** Which field a server refusal names, from the RPC's error code. */
@@ -228,6 +266,11 @@ export function refusedField(code: string, detail: string): FieldKey | null {
   if (code.startsWith('organisation_category_')) return 'organisation_category';
   if (code === 'organiser_name_taken' || code.startsWith('name_')) return 'name';
   if (code === 'city_required' || code === 'city_not_found') return 'city';
+  if (code.startsWith('contact_phone_')) return 'contact_phone';
+  if (code === 'invalid_value_type') {
+    const key = detail.trim().split(/\s/)[0];
+    if (key === 'show_phone_publicly' || key === 'show_email_publicly') return key;
+  }
   return null;
 }
 
@@ -265,6 +308,9 @@ export function storedFromRpcProfile(profile: unknown): Partial<Record<FieldKey,
     facebook: socials?.facebook ?? null,
     organisation_category: p.organisation_category ?? null,
     founded_year: p.founded_year ?? null,
+    // The profile carries the phone; the two flags are not in it (admin #771), so
+    // they are absent here and never reported as "came back different".
+    ...('contact_phone' in p ? { contact_phone: p.contact_phone ?? null } : null),
   };
 }
 
@@ -276,11 +322,14 @@ export function storedFromRpcProfile(profile: unknown): Partial<Record<FieldKey,
 export async function saveDrafts(
   client: Pick<SupabaseClient, 'rpc'>,
   organiserId: string,
-  entity: ProfileEntity,
+  entity: EditBase,
   drafts: Drafts,
 ): Promise<SaveOutcome> {
   const changed = prunedDrafts(entity, drafts);
   if (draftCount(changed) === 0) return { kind: 'nothing' };
+  // A contact draft cannot be compared or sent until the contact details load.
+  const contactKey = (Object.keys(changed) as FieldKey[]).find(isContactField);
+  if (contactKey && !entity.contact) return { kind: 'refused', field: contactKey, message: SAVE_COPY.contactNotLoaded };
   // Our own checks first: a draft that fails them never reaches the server.
   for (const key of FIELD_KEYS) {
     const v = changed[key];
@@ -301,6 +350,7 @@ export async function saveDrafts(
   const sent = buildSavePatch(entity, changed);
   const unmatched = stored
     ? (Object.keys(changed) as FieldKey[]).filter((k) => {
+        if (!(k in stored)) return false; // the RPC does not return it (the contact flags)
         const a = fieldInPatch(sent, k);
         const b = stored[k] ?? null;
         return String(a ?? '') !== String(b ?? '');

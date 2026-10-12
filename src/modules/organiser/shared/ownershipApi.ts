@@ -39,7 +39,7 @@ export const NO_PUBLIC_CONTACT: PublicContact = { contact_email: null, contact_p
 
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null);
 
-/** Both null unless the organiser is live AND show_contact_publicly. An error degrades to "no contact shown". */
+/** Each null unless the organiser is live AND that item's own flag is on (admin #771). An error degrades to "no contact shown". */
 export async function fetchPublicContact(organiserId: string): Promise<PublicContact> {
   const { data, error } = await callRpc('get_organiser_public_contact_v1', { p_organiser_id: organiserId });
   if (error || !data || typeof data !== 'object') return NO_PUBLIC_CONTACT;
@@ -48,24 +48,36 @@ export async function fetchPublicContact(organiserId: string): Promise<PublicCon
 }
 
 export interface ContactSettings extends PublicContact {
-  show_contact_publicly: boolean;
+  /** Visitors see contact_phone (admin #771 split; new organisers default true). */
+  show_phone_publicly: boolean;
+  /** Visitors see contact_email (admin #771 split; new organisers default false). */
+  show_email_publicly: boolean;
   claim_email: string | null;
 }
 
-const CONTACT_KEYS = ['contact_phone', 'contact_email', 'show_contact_publicly', 'claim_email'];
+const CONTACT_KEYS = ['contact_phone', 'contact_email', 'show_phone_publicly', 'show_email_publicly', 'show_contact_publicly', 'claim_email'];
+
+/**
+ * One flag. The RPC before admin #771 carries only the legacy
+ * show_contact_publicly (one switch for both): then both flags take its value.
+ * Anything that is not literally true is hidden, never a guess of public.
+ */
+const flag = (row: Record<string, unknown>, key: 'show_phone_publicly' | 'show_email_publicly'): boolean =>
+  key in row ? row[key] === true : row.show_contact_publicly === true;
 
 /** Owner, manager or admin only; anyone else gets permission_denied (thrown). */
 export async function fetchContactSettings(organiserId: string): Promise<ContactSettings> {
   const { data, error } = await callRpc('get_organiser_contact_settings_v1', { p_organiser_id: organiserId });
   if (error) throw error;
   // No error but no usable answer: a "ready" all-empty result would make the next save
-  // blank the stored phone and flip the flag, so this is a failed read.
+  // blank the stored phone and flip a flag, so this is a failed read.
   const row = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : null;
   if (!row || !CONTACT_KEYS.some((k) => k in row)) throw new Error('get_organiser_contact_settings_v1 returned no settings');
   return {
     contact_email: str(row.contact_email),
     contact_phone: str(row.contact_phone),
-    show_contact_publicly: row.show_contact_publicly === true,
+    show_phone_publicly: flag(row, 'show_phone_publicly'),
+    show_email_publicly: flag(row, 'show_email_publicly'),
     claim_email: str(row.claim_email),
   };
 }
