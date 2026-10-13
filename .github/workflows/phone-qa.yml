@@ -42,6 +42,10 @@ on:
       - 'package-lock.json'
       - 'playwright.phone.config.ts'
       - 'tests/e2e-phone/**'
+      - 'vite.config.ts'
+      - 'vite.chunks.ts'
+      - 'playwright.build.config.ts'
+      - 'tests/e2e-build/**'
       - '.github/workflows/phone-qa.yml'
   workflow_dispatch:
 
@@ -84,3 +88,46 @@ jobs:
       - name: Run the phone suite (390x844 and 360x640)
         run: npx playwright test --config playwright.phone.config.ts
 
+  # The PRODUCTION build, which the job above never sees: it drives the dev
+  # server, which serves every module unbundled, so a bug that exists only in the
+  # built chunk graph passes it. PR #747's Vercel preview left /parties on
+  # skeletons and the event schedule on "Loading..." (`TypeError: le is not a
+  # function`: a vendor-ui <-> vendor-ui-modal import cycle) with every job here
+  # green. playwright.build.config.ts serves `npm run build` the way Vercel does,
+  # with the same fake Supabase baked in at build time; tests/e2e-build/ fails on
+  # an uncaught page error, a page still loading after 8 s, or any static import
+  # cycle through a vendor chunk.
+  build-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        run: npm install -g npm@11
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Production build against the fake Supabase
+        env:
+          VITE_SUPABASE_URL: https://phoneqafakenotaproject.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0.e2e-test-placeholder-not-a-real-key
+          VITE_ENABLE_ORGANISER_DETAIL: 'true'
+          VITE_ENABLE_ORGANISERS_DIRECTORY: 'true'
+          NODE_OPTIONS: --import ./tests/e2e-phone/fakeSupabasePreload.mjs
+        run: npm run build
+
+      - name: Run the production-build smoke
+        run: npx playwright test --config playwright.build.config.ts

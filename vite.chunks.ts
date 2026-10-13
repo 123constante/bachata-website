@@ -387,3 +387,47 @@ export function classifyChunk(id: string): string | undefined {
   }
   return undefined;
 }
+
+/** The slice of rollup's `getModuleInfo` this file reads. */
+export type ImportersOf = (id: string) => { importers: readonly string[] } | null;
+
+/**
+ * The `manualChunks` rollup calls (vite.config.ts): classifyChunk, plus ONE rule
+ * that keeps vendor-ui from ever importing vendor-ui-modal.
+ *
+ * WHY (PR #747, 2026-10-13). vendor-ui-modal imports vendor-ui. If vendor-ui
+ * also imports vendor-ui-modal -- because a vendor-ui module reaches a module the
+ * lists file as modal, or an unlisted one rollup then files there -- the two
+ * chunks form a cycle, and the browser can run vendor-ui-modal's top level
+ * before vendor-ui's has finished. Radix's `var __name` helpers are then still
+ * undefined: `TypeError: le is not a function` inside vendor-ui, every lazy
+ * chunk behind it rejects, and the page sits on its Suspense fallback forever
+ * (/parties skeletons, the event schedule's "Loading..."). The #747 Vercel
+ * preview did exactly that while the same commit built cycle-free in CI and
+ * locally (its vendor-ui hash differed from every CI build), so the lists alone
+ * cannot be trusted to hold against the install a deploy actually gets.
+ *
+ * THE RULE. A node_modules module that a vendor-ui module statically imports --
+ * directly or through other node_modules modules -- is filed in vendor-ui. On a
+ * graph where the lists already hold (every CI build to date) it changes
+ * nothing: the chunks come out byte-identical. tests/e2e-build and
+ * scripts/check-chunk-cycles.mjs are what catch a cycle this does not prevent.
+ */
+export function classifyChunkInGraph(id: string, getModuleInfo: ImportersOf): string | undefined {
+  const base = classifyChunk(id);
+  if (base !== "vendor-ui-modal" && (base !== undefined || !id.includes("node_modules"))) return base;
+  const seen = new Set<string>([id]);
+  const queue = [id];
+  while (queue.length > 0) {
+    for (const importer of getModuleInfo(queue.shift() as string)?.importers ?? []) {
+      if (seen.has(importer) || !importer.includes("node_modules")) continue;
+      seen.add(importer);
+      const group = classifyChunk(importer);
+      if (group === "vendor-ui") return "vendor-ui";
+      // Only modules that would sit beside this one can pull it along; a
+      // module pinned to any other group is that group's business.
+      if (group === undefined || group === "vendor-ui-modal") queue.push(importer);
+    }
+  }
+  return base;
+}
