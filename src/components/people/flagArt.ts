@@ -1,7 +1,7 @@
 /**
  * Flag artwork for the nationality badge, bundled inline: no network call, no CDN.
  *
- * Simplified artwork on a 30x20 grid, drawn at 20-44px wide as a sticker, so coats of
+ * Simplified artwork on a 30x20 grid, drawn at 14-61px wide as a sticker, so coats of
  * arms are reduced to a plain emblem. Covers every code in use on
  * production (survey 2026-10-12: ES CO AR EC BO ZA IT VE GB DE CY) plus the nationalities
  * most likely next; any other valid code gets the generic flag with its two letters.

@@ -20,7 +20,9 @@ import {
  *   - it covers no VISIBLE text (the person's name, a role; text hidden under an
  *     opaque panel is not covered) and no neighbouring sticker;
  *   - a tap at its centre goes through to the photo's link (pointer-events: none);
- *   - nothing animates; no sideways page scroll.
+ *   - nothing animates; no sideways page scroll;
+ *   - its width is the one stickerSize gives that surface's photo (14px on the 36px
+ *     header-search rows, which it covers at most 25% of; 20px+ on 48px+ photos).
  * A photo under 28px (/vendors/:id team) gets no sticker: the country is on the photo
  * (role img, aria-label, title) instead.
  * Measured numbers are logged ([sticker ...]) for the PR. SHOTS=<dir> writes screenshots.
@@ -46,25 +48,36 @@ type Surface = {
   open?: (page: Page) => Promise<void>;
   /** The photo is under 28px: NO sticker (owner decision 2026-10-13); the country is the photo's label and title. */
   tooSmall?: boolean;
+  /**
+   * The sticker width (CSS px) stickerSize gives this surface's `size`: 28-47px photos get
+   * the small sticker (40%, at least 14px), 48px and up 46%, at least 20px (owner decision
+   * 2026-10-13, round 3). Pinned per surface so a surface that drifts to the other band is red.
+   */
+  stickerPx?: number;
+  /** Most of the photo's area the sticker box (with its edge) may cover. Default 0.4. */
+  maxCover?: number;
 };
 
 const SURFACES: Surface[] = [
-  { key: 'djs', name: '/djs list (64px)', url: '/djs', codes: codesOf(FLAG_PEOPLE) },
-  { key: 'teachers', name: '/teachers list (56px)', url: '/teachers', codes: codesOf(FLAG_PEOPLE.slice(0, 40)) },
-  { key: 'dancers', name: '/dancers list (32px)', url: '/dancers', codes: storedCodes(FLAG_PEOPLE.slice(0, 30)) },
-  { key: 'all-profiles', name: '/all-profiles cards (inset)', url: '/all-profiles', codes: null },
-  { key: 'videographers', name: '/videographers cards (inset)', url: '/videographers', codes: null },
+  { key: 'djs', name: '/djs list (64px)', url: '/djs', codes: codesOf(FLAG_PEOPLE), stickerPx: 29 },
+  { key: 'teachers', name: '/teachers list (56px)', url: '/teachers', codes: codesOf(FLAG_PEOPLE.slice(0, 40)), stickerPx: 26 },
+  { key: 'dancers', name: '/dancers list (32px)', url: '/dancers', codes: storedCodes(FLAG_PEOPLE.slice(0, 30)), stickerPx: 14 },
+  { key: 'all-profiles', name: '/all-profiles cards (inset)', url: '/all-profiles', codes: null, stickerPx: 22 },
+  { key: 'videographers', name: '/videographers cards (inset)', url: '/videographers', codes: null, stickerPx: 22 },
   { key: 'vendor-team', name: '/vendors/:id team (20px, no sticker)', url: `/vendors/${VENDOR_ID}`, codes: codesOf(FLAG_PEOPLE.slice(0, 9)), tooSmall: true },
-  { key: 'practice-partners', name: '/practice-partners (56px, signed in)', url: '/practice-partners', opts: { signedInAsOwner: true }, codes: storedCodes(FLAG_PEOPLE.slice(0, 30)) },
-  { key: 'dj-hero', name: '/djs/:id hero (132px)', url: `/djs/${FLAG_DJ_ID}`, codes: ['ES'] },
-  { key: 'dancer-hero', name: '/dancers/:id hero (inset)', url: `/dancers/${FLAG_DANCER_ID}`, codes: ['ES'] },
-  { key: 'event-programme', name: '/event/:id programme (PersonChip)', url: `/event/${FLAG_EVENT_SLUG}`, codes: FLAG_PROGRAMME_CODES },
-  { key: 'festival-headliners', name: '/festival/:id headliners (inset)', url: `/festival/${FLAG_FESTIVAL_SLUG}`, codes: codesOf(FLAG_FESTIVAL_HEADLINERS) },
+  { key: 'practice-partners', name: '/practice-partners (56px, signed in)', url: '/practice-partners', opts: { signedInAsOwner: true }, codes: storedCodes(FLAG_PEOPLE.slice(0, 30)), stickerPx: 26 },
+  { key: 'dj-hero', name: '/djs/:id hero (132px)', url: `/djs/${FLAG_DJ_ID}`, codes: ['ES'], stickerPx: 61 },
+  { key: 'dancer-hero', name: '/dancers/:id hero (inset)', url: `/dancers/${FLAG_DANCER_ID}`, codes: ['ES'], stickerPx: 22 },
+  { key: 'event-programme', name: '/event/:id programme (PersonChip)', url: `/event/${FLAG_EVENT_SLUG}`, codes: FLAG_PROGRAMME_CODES, stickerPx: 16 },
+  { key: 'festival-headliners', name: '/festival/:id headliners (inset)', url: `/festival/${FLAG_FESTIVAL_SLUG}`, codes: codesOf(FLAG_FESTIVAL_HEADLINERS), stickerPx: 22 },
   {
     key: 'header-search',
     name: 'header search rows (36px)',
     url: '/djs',
     codes: null,
+    stickerPx: 14,
+    // Owner feedback 2026-10-13: the 20px sticker covered over half this photo.
+    maxCover: 0.25,
     open: async (page) => {
       // Only the header's search: /djs's own stickers are out of the way under the open panel.
       await page.locator('button[aria-label="Search events, venues, people"]').first().click();
@@ -72,9 +85,9 @@ const SURFACES: Surface[] = [
       await page.locator('#omnibox-listbox [data-nationality-flag]').first().waitFor();
     },
   },
-  { key: 'search', name: '/search result cards (inset)', url: '/search?q=a', codes: null },
-  { key: 'organiser-team', name: '/organisers/:id Teachers & DJs (80px)', url: `/organisers/${ORG3_SLUG}`, codes: ORG3_TEAM_CODES },
-  { key: 'account', name: '/account dancer home (56px, own photo)', url: '/account', opts: { signedInAsOwner: true, asDancer: FLAG_DANCER_ID }, codes: ['ES'] },
+  { key: 'search', name: '/search result cards (inset)', url: '/search?q=a', codes: null, stickerPx: 22 },
+  { key: 'organiser-team', name: '/organisers/:id Teachers & DJs (80px)', url: `/organisers/${ORG3_SLUG}`, codes: ORG3_TEAM_CODES, stickerPx: 37 },
+  { key: 'account', name: '/account dancer home (56px, own photo)', url: '/account', opts: { signedInAsOwner: true, asDancer: FLAG_DANCER_ID }, codes: ['ES'], stickerPx: 26 },
 ];
 
 type StickerAudit = {
@@ -93,6 +106,8 @@ type StickerAudit = {
   clippedPx: number;
   clippedBy: string;
   textOverlap: { text: string; px: number }[];
+  /** Horizontal gap (px) from the sticker box (with its edge) to the nearest visible text level with it, on its right. */
+  textClearance: number;
   stickerOverlap: number;
   throughTo: string;
 };
@@ -140,6 +155,7 @@ function auditStickers(scope: string): StickerAudit[] {
       }
     }
     const textOverlap: { text: string; px: number }[] = [];
+    let textClearance = Infinity;
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
       const t = (n.textContent ?? '').trim();
@@ -147,6 +163,11 @@ function auditStickers(scope: string): StickerAudit[] {
       const range = document.createRange();
       range.selectNodeContents(n);
       for (const rr of Array.from(range.getClientRects())) {
+        if (rr.bottom > s.t && rr.top < s.b && rr.left >= s.l && rr.left - s.r < textClearance) {
+          // Visible text only (same test as below), at the text's own centre.
+          const seen = document.elementFromPoint((rr.left + rr.right) / 2, (rr.top + rr.bottom) / 2);
+          if (!seen || seen.contains(n) || n.parentElement.contains(seen)) textClearance = rr.left - s.r;
+        }
         const px = inter(s, { l: rr.left, t: rr.top, r: rr.right, b: rr.bottom });
         if (px <= 0.5) continue;
         // Only text a person can SEE there: text under an opaque panel (the /djs hero
@@ -180,6 +201,7 @@ function auditStickers(scope: string): StickerAudit[] {
       clippedPx: Math.round(clippedPx * 10) / 10,
       clippedBy,
       textOverlap,
+      textClearance: Math.round(textClearance * 10) / 10,
       stickerOverlap: Math.round(stickerOverlap),
       throughTo: at && el.contains(at) ? 'STICKER' : link ? `${link.tagName.toLowerCase()}:${link.getAttribute('href') ?? ''}` : at ? at.tagName.toLowerCase() : 'nothing',
     });
@@ -240,9 +262,10 @@ for (const vp of SIZES) {
         else expect(all.length).toBeGreaterThan(0);
 
         const max = (k: 'offScreen' | 'clippedPx' | 'photoCover' | 'stickerOverlap') => Math.max(...all.map((f) => f[k]));
+        const clearance = Math.min(...all.map((f) => f.textClearance));
         const line = `[sticker ${s.key} ${vp.width}x${vp.height}] n=${all.length} sticker=${all[0].stickerW}px box=${all[0].w}x${all[0].h} photo=${all[0].photo}px ` +
           `cover=${max('photoCover')} offScreen=${max('offScreen')} clipped=${max('clippedPx')}${all.find((f) => f.clippedPx)?.clippedBy ? ` by ${all.find((f) => f.clippedPx)!.clippedBy}` : ''} ` +
-          `textOverlap=${all.reduce((n, f) => n + f.textOverlap.length, 0)} neighbour=${max('stickerOverlap')}`;
+          `textOverlap=${all.reduce((n, f) => n + f.textOverlap.length, 0)} textClearance=${Number.isFinite(clearance) ? clearance : '-'} neighbour=${max('stickerOverlap')}`;
         console.log(line);
         test.info().annotations.push({ type: 'sticker', description: line });
 
@@ -252,13 +275,14 @@ for (const vp of SIZES) {
           expect(f.title, `title ${at}`).toBe(country.of(f.code));
           expect(f.pe, `never takes a tap (${at})`).toBe('none');
           expect(f.animations, `static (${at})`).toBe(0);
-          expect(f.stickerW, `at least 20px wide, so the stripes read (${at})`).toBeGreaterThanOrEqual(20);
+          expect(f.stickerW, `the stickerSize width for this surface's photo (${at})`).toBe(s.stickerPx);
+          expect(f.stickerW, `at least 14px wide, so the stripes read (${at})`).toBeGreaterThanOrEqual(14);
           expect(f.offScreen, `fully on screen (${at})`).toBe(0);
           expect(f.clippedPx, `not clipped by ${f.clippedBy} (${at})`).toBe(0);
           expect(f.textOverlap, `covers no text (${at})`).toEqual([]);
           expect(f.stickerOverlap, `clear of the neighbouring sticker (${at})`).toBe(0);
           expect(f.throughTo, `a tap goes through (${at})`).not.toBe('STICKER');
-          expect(f.photoCover, `covers only the corner (${at})`).toBeLessThanOrEqual(0.4);
+          expect(f.photoCover, `covers only the corner (${at})`).toBeLessThanOrEqual(s.maxCover ?? 0.4);
         }
         // A tap on a linked photo's sticker lands on that photo's link.
         if (s.key === 'djs') expect(all[0].throughTo).toBe(`a:/djs/${FLAG_PEOPLE[0].id}`);

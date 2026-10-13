@@ -5,6 +5,8 @@
  *
  * - No flag at all when the code is null, empty, malformed or not a country (see
  *   nationality.ts): renders nothing, so there is no placeholder and no gap.
+ * - Size: stickerSize, the one rule (28-47px photos get the small sticker, 40% and at
+ *   least 14px; 48px and up 46% and at least 20px).
  * - No sticker on a photo under MIN_FLAG_PHOTO_PX (28px): the caller puts
  *   smallPhotoNationalityProps on the photo, so the country is still its label and title.
  * - pointer-events: none, so it never takes a tap meant for the photo or a control.
@@ -28,9 +30,18 @@ export type FlagPlacement = 'corner' | 'inset';
 /** The `size` to pass for an `inset` flag on a large card photo (gives a 22px sticker). */
 export const TILE_FLAG_SIZE = 48;
 
-/** Smallest sticker width in CSS px: below this the stripes stop reading. */
+/** Smallest sticker width in CSS px on a photo of 48px and up. */
 export const MIN_STICKER_PX = 20;
 
+/**
+ * Largest photo (CSS px) that gets the SMALL sticker: 28-47px photos (header search and
+ * Cmd+K rows 36px, list rows 40px) get the same sticker scaled down (owner decision
+ * 2026-10-13, round 3), so it no longer covers half the photo.
+ */
+export const SMALL_PHOTO_MAX_PX = 47;
+
+/** Smallest small-sticker width in CSS px: the 11 prod codes still read at 14px. */
+export const MIN_SMALL_STICKER_PX = 14;
 
 export interface NationalityFlagProps {
   /** nationality_code from a public read (or a stored nationality); anything is accepted. */
@@ -43,9 +54,16 @@ export interface NationalityFlagProps {
   className?: string;
 }
 
-/** Sticker width and height (CSS px) for a photo of `size` px: 46% of the photo, at least 20px, 3:2. */
+/**
+ * Sticker width and height (CSS px) for a photo of `size` px, 3:2. THE size rule for every
+ * surface: 28-47px photos 40% of the photo, at least 14px; 48px and up 46%, at least 20px.
+ * (Under MIN_FLAG_PHOTO_PX NationalityFlag renders nothing.)
+ */
 export function stickerSize(size: number): { w: number; h: number } {
-  const w = Math.max(MIN_STICKER_PX, Math.round(Math.max(0, size) * 0.46));
+  const photo = Math.max(0, size);
+  const w = photo <= SMALL_PHOTO_MAX_PX
+    ? Math.max(MIN_SMALL_STICKER_PX, Math.round(photo * 0.4))
+    : Math.max(MIN_STICKER_PX, Math.round(photo * 0.46));
   return { w, h: Math.round(((w * 2) / 3) * 100) / 100 };
 }
 

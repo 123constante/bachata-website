@@ -369,10 +369,29 @@ describe('placement (Sticker spec)', () => {
     expect(f.style.width).toBe('44px');
     expect(stickerSize(96)).toEqual({ w: 44, h: 29.33 });
   });
-  it('never narrower than 20px (28px and 40px photos)', () => {
-    expect(stickerSize(28)).toEqual({ w: 20, h: 13.33 });
-    expect(stickerSize(40)).toEqual({ w: 20, h: 13.33 });
-    expect(stickerSize(56).w).toBe(26);
+  // Owner decision 2026-10-13 (round 3): photos 28-47px get the SAME sticker scaled down
+  // (40% of the photo, at least 14px); 48px and up are unchanged (46%, at least 20px).
+  it.each([
+    // [photo px, sticker w, sticker h, where it is used]
+    [28, 14, 9.33, 'PersonChip sm'],
+    [32, 14, 9.33, '/dancers list'],
+    [36, 14, 9.33, 'header search, Cmd+K overlay'],
+    [40, 16, 10.67, 'PersonChip md (event programme)'],
+    [44, 18, 12, '-'],
+    [47, 19, 12.67, 'last small size'],
+    [48, 22, 14.67, 'TILE_FLAG_SIZE (inset cards)'],
+    [56, 26, 17.33, '/teachers, /practice-partners, /account'],
+    [64, 29, 19.33, '/djs list'],
+  ])('a %ipx photo gets a %ipx x %spx sticker (%s), same tilt, edge, shadow and position', (photo, w, h) => {
+    expect(stickerSize(photo)).toEqual({ w, h });
+    const { container } = flagFor('ES', photo);
+    const f = container.querySelector<HTMLElement>('[data-nationality-flag]')!;
+    expect(f.style.width).toBe(`${w}px`);
+    expect(f.style.height).toBe(`${h}px`);
+    expect(f.style.top).toBe('-6%');
+    expect(f.style.right).toBe('-14%');
+    expect(f.style.transform).toBe('rotate(9deg)');
+    expect(f.style.boxShadow).toMatch(/^0(px)? 0(px)? 0(px)? 2px (#fff|rgb\(255, 255, 255\))/);
   });
   it('no sticker under 28px; the photo props carry the country instead (owner decision 2026-10-13)', () => {
     expect(MIN_FLAG_PHOTO_PX).toBe(28);

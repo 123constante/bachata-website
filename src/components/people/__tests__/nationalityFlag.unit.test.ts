@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { nationalityLabel, normaliseNationalityCode, pickNationalityCode } from '../nationality';
 import { FLAG_ART, flagArtMarkup, genericFlagArt, hasFlagArt } from '../flagArt';
+import { MIN_SMALL_STICKER_PX, MIN_STICKER_PX, SMALL_PHOTO_MAX_PX, stickerSize } from '../NationalityFlag';
 
 const PROD_CODES = ['ES', 'CO', 'AR', 'EC', 'BO', 'ZA', 'IT', 'VE', 'GB', 'DE', 'CY'];
 
@@ -79,3 +80,28 @@ describe('flag artwork', () => {
   });
 });
 
+
+describe('stickerSize (the one size rule, every surface)', () => {
+  // Owner decision 2026-10-13: under 28px no sticker (NationalityFlag renders nothing);
+  // 28-47px: max(14, round(photo * 0.4)); 48px and up: max(20, round(photo * 0.46)); 3:2.
+  it.each([
+    [27, 14, 9.33], // never rendered (under 28px), but the rule stays total
+    [28, 14, 9.33],
+    [36, 14, 9.33],
+    [40, 16, 10.67],
+    [47, 19, 12.67],
+    [48, 22, 14.67],
+    [56, 26, 17.33],
+    [96, 44, 29.33],
+  ])('%ipx photo -> %ipx x %spx', (photo, w, h) => {
+    expect(stickerSize(photo)).toEqual({ w, h });
+  });
+  it('the band edges are the pinned constants', () => {
+    expect(SMALL_PHOTO_MAX_PX).toBe(47);
+    expect(MIN_SMALL_STICKER_PX).toBe(14);
+    expect(MIN_STICKER_PX).toBe(20);
+  });
+  it('a small photo never gets a bigger sticker than the first big one', () => {
+    for (let p = 28; p <= SMALL_PHOTO_MAX_PX; p++) expect(stickerSize(p).w).toBeLessThan(stickerSize(48).w);
+  });
+});

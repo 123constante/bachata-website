@@ -56,12 +56,45 @@ Branch: `feat/people-nationality-flags`, PR #740.
   same markup on every surface), phone spec
   `people-nationality-flag.phone.spec.ts` (15 surfaces + the owner pencil, at 390x844 and 360x640: count and codes,
   label/title, on screen, not clipped by any overflow ancestor, no text or neighbouring sticker covered, tap goes
-  through, no animation, >= 20px; /vendors/:id: no sticker, label and title on each photo). The phone fake (`tests/e2e-phone/fakeSupabase.mjs`) now serves every one of the
+  through, no animation, the stickerSize width per surface; /vendors/:id: no sticker, label and title on each photo). The phone fake (`tests/e2e-phone/fakeSupabase.mjs`) now serves every one of the
   15 surfaces; the phone config turns on `VITE_ENABLE_TEACHERS_DIRECTORY` (it only gates /teachers).
   Screenshots: `docs/screenshots/nationality-flags/<surface>-<size>.png`. header-search and vendor-team were retaken 2026-10-13 under CI's fonts (DejaVu fallback).
 - **Bundle**: the merge of main took main's parties/classes budget of 325 KB (#739). This branch's earlier 321 KB
   bump is gone with it. Measured after the swap: /parties 320.1 KB, /classes 320.2 KB (main 320.0 / 320.1), /event
   379.7 KB of 380 (main 379.1). The flag stays out of first load (lazy in HeaderSearch and PersonChip).
+
+- **Smaller sticker on small photos (owner decision 2026-10-13, round 3)**, after the owner saw the 20px sticker cover
+  over half a 36px header-search photo on desktop. `stickerSize` (still the one rule, `NationalityFlag.tsx`):
+  photos 28-47px get `max(14, round(photo * 0.4))` (`SMALL_PHOTO_MAX_PX = 47`, `MIN_SMALL_STICKER_PX = 14`);
+  48px and up unchanged (46%, at least 20px). Same tilt, edge, shadow and position. Measured (phone spec, CI fonts,
+  390x844 / 360x640):
+
+  | Surface | `size` | rendered photo | sticker | photo cover | text clearance |
+  |---|---|---|---|---|---|
+  | header search rows (Cmd+K same markup) | 36 | 31 / 30px | 14px (was 20) | 0.14 (was 0.30) | 8.3 / 8.2px |
+  | /dancers list | 32 | 27px | 14px (was 20) | 0.19 (was 0.39-0.40) | - |
+  | /event programme (PersonChip md) | 40 | 40px | 16px (was 20) | 0.09 (was 0.16) | - |
+  | /teachers, /practice-partners, /account | 56 | 47-56px | 26px | 0.12-0.19 | unchanged |
+  | /djs list | 64 | 54px | 29px | 0.17 | unchanged |
+  | inset cards (all-profiles, videographers, dancer hero, festival, /search) | 48 | - | 22px | <= 0.04 | unchanged |
+  | /organisers/:id team | 80 | 95-105px | 37px | 0.05-0.07 | unchanged |
+  | /djs/:id hero | 132 | 132px | 61px | 0.11 | unchanged |
+
+  "Photo cover" is the sticker's tilted box plus its 2px edge over the photo's square box (conservative).
+  - **`mr-[5px]` kept, measured**: the sticker is anchored at right -14%, so a smaller one shrinks leftwards and its
+    right edge does not move. Without the margin the header-search sticker is 3.2 / 3.3px from the name (the same
+    tight gap the margin was added for); with it 8.2 / 8.3px. The spec now logs `textClearance`.
+  - **Readability at 14px** (`docs/screenshots/nationality-flags/flags-14px-dpr1.png` and `-dpr3.png`): ES, AR, BO,
+    IT, DE, ZA and GB read on a 3x phone screen (GB is mush at 1x). **CO, EC and VE are hard to tell apart** (same
+    yellow / blue / red bands; the EC emblem is a dot and the VE stars vanish at 14px; CO vs EC is hard even at
+    26px). **CY is faint**: a mostly white flag on a white edge, the copper island a smudge. The title / aria-label
+    still name the country.
+  - **Tests**: `stickerSize` table (27 28 36 40 47 48 56 96) in `nationalityFlag.unit.test.ts`; the matrix test
+    renders every band row through `NationalityFlag`. Proved red on the old rule (12 failed: every 27-47px row and
+    the constants) and green on the new. Phone spec: per-surface `stickerPx` (the width stickerSize gives that
+    surface), a 14px floor, header-search cover <= 0.25; red on the old rule (6 failed: header search, /dancers,
+    programme, at both sizes), 32/32 green on the new. Screenshots retaken (CI fonts) for header-search, dancers,
+    event-programme.
 
 ## Open
 - Backend option: have `event_view_p5` legacy_compat emit `nationality_code` (admin) so the programme needs no
