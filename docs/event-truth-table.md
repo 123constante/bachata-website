@@ -1,10 +1,12 @@
 # Event truth table &mdash; one source per fact
 
 *Written 2026-10-12 for the event-truth arc (plan
-`in-the-admin-dashboard-peaceful-tide.md`). Every row names the SINGLE source
-of a fact about an event and every reader of it. A reader not on the list is a
-finding. Enforced by `scripts/check-event-truth-v1.mjs` (CI #70) where a row
-says so; the other rows record decisions so nobody re-litigates them.*
+`in-the-admin-dashboard-peaceful-tide.md`); P3 2026-10-13: date-only sessions
+join the derivation and `category_drift` gates at 0 since admin #780. Every row
+names the SINGLE source of a fact about an event and every reader of it. A
+reader not on the list is a finding. Enforced by
+`scripts/check-event-truth-v1.mjs` (CI #70) where a row says so; the other rows
+record decisions so nobody re-litigates them.*
 
 ## The defect this table exists for
 
@@ -35,7 +37,7 @@ single-word readers use the precedence festival &gt; course &gt; party ("night")
 
 | fact | single source | readers today | status |
 |---|---|---|---|
-| **genre** (party / class / masterclass) | programme: section `kind` first, item `type` second, with the readers' synonyms (masterclass counts as a class too; item type `social` is a party) (`deriveGenres` in the check; P1 ships the shared `deriveCategories`) | `calendarUtils.ts` hasParty/hasClass; `endedRun.ts` runNoun; organiser `EventEditorPage` Type row; admin `EventList` Category filter; `genreSynonyms.ts`; `get_calendar_events_v2` (per occurrence day, via `key_times` and session overrides), `get_latest_events_v2` (series-wide, `prog.p5_*` over item types); `get_map_events_v1` passes the calendar's flags through | **gated** &mdash; `category_drift` ratchet (7 known ids). Reader agreement is **reported only** (`reader_flags`, 0 of 29 on 2026-10-12): calendar and latest differ by grain until P1, so a gate would fire on a festival whose party is on day 2 |
+| **genre** (party / class / masterclass) | programme, the UNION of three sources through ONE mapping: series section `kind`, series item `type`, and date-only session `section_kind` + `type` (`event_occurrence_added_session_p5`, where `organiser_set_occurrence_programme_v1` writes and the only sessions a new organiser-created series has), with the readers' synonyms (masterclass counts as a class too; `social` is a party; unknown values and nulls say nothing). `src/lib/eventCategory.ts` `deriveCategories` is the canonical rule (byte-pinned to admin); the check's `deriveGenres` is its JS twin, held to it by `scripts/fixtures/event-truth-parity.json` (run by the check's `--self-test` AND `eventCategory.parity.test.ts`) | `calendarUtils.ts` hasParty/hasClass; `endedRun.ts` runNoun; organiser `EventEditorPage` Type row; admin `EventList` Category filter; `genreSynonyms.ts`; `get_calendar_events_v2` (per occurrence day, via `key_times` and session overrides), `get_latest_events_v2` (series-wide, `prog.p5_*` over item types); `get_map_events_v1` passes the calendar's flags through | **gated at 0** since admin #780 (P3, 2026-10-13): `category_drift` has an EMPTY baseline, so ANY live series whose stored mirror disagrees with its sessions fails, a NULL mirror under mapped sessions included (the mirror is derived; unset means it was not written). Reader agreement is **reported only** (`reader_flags`, 0 of 29 on 2026-10-12): calendar and latest differ by grain until P1, so a gate would fire on a festival whose party is on day 2 |
 | **shape / cadence** (one_off, recurring, course, festival) | `event_series_p5.format` | admin cadence filter, `eventFormat.ts` isFestival, festival pages | not gated here; `recurring` with a NULL rule is an **accepted shape** (ad-hoc monthly, next date added by hand &mdash; CI #28's own doc) |
 | **course length** | `course_total_sessions` (must be set on a live course) | admin editor, course pages, `check_finite_course_phantom_tail_v1` | **gated** &mdash; `course_without_length` ratchet (2 known ids) |
 | **upcoming** (is this listing alive?) | a `scheduled` `event_occurrence_p5` row &ge; today | calendar, map, latest, organiser home | **CI #28 owns it** &mdash; reports NULL-rule series with no future date, gates only open-ended rules, on purpose ("gating would red every finite series at its end"). Remedy is the admin "Needs attention" list, not a second red. |
@@ -54,6 +56,22 @@ programme no longer maps to any genre, or it was paused) is reported as departed
 nothing was repaired, and a series finishing must not red the daily run on main.
 Prune departed entries when convenient. Repairs are owner decisions taken in
 the admin "Needs attention" list (admin repo, after P0), never automatic.
+
+**`category_drift` gates at 0 since admin #780 (P3, 2026-10-13).** The stored
+`category` is a derived mirror and #780 repaired every live series from the
+sessions, so the block is empty and stays empty: a red here is a mirror that
+drifted (a write path that bypassed the derivation), never a reason to add an
+id. `course_without_length` is not repaired by #780 and keeps its two ids. The
+departed / stale split still applies to both blocks.
+
+**The payload since #780.** `check_event_truth_v1()` carries, per live series,
+`added_sessions: [{kind, type}]` (date-only sessions; `kind` = `section_kind`;
+`[]` when none) and a top-level `added_session_count` the RPC computes from its
+own base-table join. Both are REQUIRED: the P0 payload without them is exit 2
+(fail closed, as every other key), never a pass that cannot see date-only
+sessions. The measurement floor is series sections + date-only sessions, so a
+future where every live series is organiser-created (date-only only) still
+measures.
 
 ## Already-decided soft spots (do not re-open without a fresh decision)
 
