@@ -76,6 +76,9 @@ the modes restored afterwards (not committed).
 | unit-tests.yml (London, full) | `test:unit:offline` | **0** | 270 files, 6402 passed, 25 skipped |
 | | `test:unit:timing` | 0 | 65 passed |
 | unit-tests.yml (New_York / Sydney, 9-file list) | `vitest run --no-file-parallelism <9 files>` | 0 / 0 | 213 / 213 |
+| perf-budget.yml `bundle-budget` | both self-tests / `build` / `check:bundle-budget` / `check:first-load-requests` | 0 / 0 / 0 / 0 | `event` 47 first-load chunks (allowance 47), 2 pullers (allowance 2); all 6 prerendered routes equal their request pin. Lighthouse and doc-weight need a Vercel deploy: not run. |
+| db-contract-check.yml (no-secret) | `ci-live-db-gate.mjs --self-test` + gate, `check-migration-stamps`, `check-script-conventions.mjs --self-test` + guard, and every `--self-test` in the workflow (15 commands; `check-event-truth-v1 --self-test` 157/157) | all 0 | |
+| | `check-event-truth-v1.mjs` LIVE against prod `stsdtacfauprzrdebmzg` (public anon key) | **2** (expected red) | "could not measure -- check_event_truth_v1 series entry ... is missing id, section_kinds, items or added_sessions. **admin #780 (derived category) must be applied first** (added_sessions is REQUIRED since P3 ...)". Read-only `pg_proc`: prod holds the P0 `check_event_truth_v1()` with no `added_session` in its body, so #780 is not applied. NOT this diff's red. (The container's own `VITE_SUPABASE_URL` is a different project with no such RPC: that run is not evidence.) |
 <!-- ROWS -->
 
 ## 6. Verified / Not verified
