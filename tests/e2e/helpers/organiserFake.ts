@@ -640,8 +640,15 @@ export async function setKeyboard(page: Page, px: number) {
   }, px);
 }
 
-/** No page-level horizontal scroll. */
+/**
+ * No page-level horizontal scroll, measured once the route change has settled. Every route slides
+ * in (PageTransition: x 30px -> 0 over 0.25s) and while it does the document is up to 30px wider
+ * than the screen; measuring in that window read 14 and 8 on a slow CI runner. A page that is
+ * really too wide never settles at 0 and still fails.
+ */
 export async function expectNoHorizontalScroll(page: Page) {
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  expect(overflow).toBeLessThanOrEqual(0);
+  const measure = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  await expect.poll(measure, { message: 'document is wider than the screen after the page transition settled' }).toBeLessThanOrEqual(0);
+  await page.waitForTimeout(300);
+  expect(await measure()).toBeLessThanOrEqual(0);
 }
