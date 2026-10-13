@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { optimizedImageUrl } from '@/lib/imageCdn';
+import { NationalityFlag } from '@/components/people/NationalityFlag';
 
 // ============================================================
 // DJ profile bento tiles
@@ -74,6 +75,8 @@ export type DjHeroProps = {
   photoUrl: string | null;
   cityName: string | null;
   nationality: string | null;
+  /** nationality_code from get_public_dj_v1: the flag on the portrait. */
+  nationalityCode?: string | null;
   bio: string | null;
   isLive: boolean;
   stats: { gigs: number | null; upcoming: number | null; genres: number | null };
@@ -96,7 +99,10 @@ function Stat({ value, label, gold }: { value: string; label: string; gold?: boo
   );
 }
 
-export function DjHero({ name, photoUrl, cityName, nationality, bio, isLive, stats }: DjHeroProps) {
+// The portrait's box inside the 188px turntable (inset 15%), which the flag pins to.
+const HERO_PORTRAIT = Math.round(188 * 0.7);
+
+export function DjHero({ name, photoUrl, cityName, nationality, nationalityCode, bio, isLive, stats }: DjHeroProps) {
   const locLine = [cityName, nationality].filter(Boolean).join(' \u00B7 ');
   return (
     <div
@@ -168,6 +174,9 @@ export function DjHero({ name, photoUrl, cityName, nationality, bio, isLive, sta
             <img src={optimizedImageUrl(photoUrl, 480)} alt={name} className="h-full w-full object-cover" loading="eager" />
           </div>
         ) : null}
+        <div style={{ position: 'absolute', inset: '15%', pointerEvents: 'none' }}>
+          <NationalityFlag code={nationalityCode} size={HERO_PORTRAIT} />
+        </div>
       </div>
 
       {/* identity */}

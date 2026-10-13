@@ -21,6 +21,7 @@ import {
   type ProfileField,
 } from "@/lib/profileCompletion";
 import { ORGANISER_HOME_KEY, myAccessRequestsQueryKey, type MyAccessRequest } from "@/modules/organiser/shared/selfServeApi";
+import { NationalityFlag } from "@/components/people/NationalityFlag";
 
 // The organiser onboarding (claim / request access / create) loads only when
 // "I organise events" is opened: most dancers never open it.
@@ -222,7 +223,11 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <Avatar url={photo} name={name} />
+                {/* mr-2: room for the nationality sticker, which stands out past the photo's right. */}
+                <span className="relative mr-2 shrink-0">
+                  <Avatar url={photo} name={name} />
+                  <NationalityFlag code={s?.nationalityCode} size={AVATAR_PX} />
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[16px] font-semibold text-foreground" data-testid="dancer-home-name">
                     {name ?? <span className="text-muted-foreground">Name not set</span>}

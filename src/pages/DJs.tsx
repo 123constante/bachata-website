@@ -11,6 +11,7 @@ import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { renderPublicName } from '@/lib/publicName';
+import { NationalityFlag } from '@/components/people/NationalityFlag';
 
 type DJCard = {
   id: string;
@@ -22,6 +23,7 @@ type DJCard = {
   bio: string | null;
   genres: string[] | null;
   nationality: string | null;
+  nationality_code?: string | null;
   city_id: string | null;
   city_name: string | null;
   city_slug: string | null;
@@ -104,6 +106,7 @@ const DJs = () => {
                             {displayName.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
+                        <NationalityFlag code={dj.nationality_code} size={64} />
                       </div>
 
                       <p className="font-bold text-sm text-foreground leading-tight mb-0.5 line-clamp-1">{displayName}</p>

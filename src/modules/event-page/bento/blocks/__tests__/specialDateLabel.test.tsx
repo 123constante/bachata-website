@@ -21,6 +21,8 @@ vi.mock('@/modules/event-page/sections/EventScheduleGrid', async (importOriginal
     useProgramItems: () => ({ data: program.items, isLoading: false, isSuccess: true }),
     useOccurrenceProgram: () => ({ data: program.items, isLoading: false, isSuccess: true }),
     useProgramSections: () => ({ data: [] }),
+    // The nationality companion read (a query): no flags here.
+    useProgrammeNationalities: () => ({ data: undefined }),
   };
 });
 

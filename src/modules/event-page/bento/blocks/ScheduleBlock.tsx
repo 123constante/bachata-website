@@ -7,6 +7,8 @@ import {
   useProgramItems,
   useProgramSections,
   useOccurrenceProgram,
+  useProgrammeNationalities,
+  withNationalities,
   type Person,
   type ProgramSection,
   type ScheduleSession,
@@ -1116,7 +1118,14 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
   // occurrence's day in occurrence mode.
   const { data: programSections = [] } = useProgramSections(eventId);
 
-  const sessions = useMemo(() => normalize(rawSessions), [rawSessions]);
+  // Nationality flags: the programme read does not carry nationality_code, so the
+  // people on it are looked up once (only when someone is on it).
+  const programmeIds = useMemo(() => rawSessions.flatMap((s) => s.people.map((p) => p.id)), [rawSessions]);
+  const { data: nationalityCodes } = useProgrammeNationalities(programmeIds);
+  const sessions = useMemo(
+    () => normalize(withNationalities(rawSessions, nationalityCodes)),
+    [rawSessions, nationalityCodes],
+  );
 
   // Multi-room mode = ≥ 2 distinct non-null rooms anywhere in the event's
   // sessions. When false, room names are hidden across the schedule.

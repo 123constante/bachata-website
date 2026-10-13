@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { formatWallClockTime, wallClockDateKey, wallClockExactDateKey } from '@/lib/time/wallClock';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
 
+
 // ─── Shared types ─────────────────────────────────────────────────────────────
 // Exported so the new bento ScheduleBlock can reuse this hook without
 // duplicating it. EventScheduleGrid is slated for deletion post-bento rollout;
@@ -24,6 +25,10 @@ export type Person = {
    *  (default behaviour preserved). When non-null, RankCard groups people by
    *  level so each level row shows its own teacher/DJ. */
   level: SessionLevel | null;
+  /** ISO alpha-2 for the flag on the photo, or null. event_view_p5 does not carry
+   *  it; ScheduleBlock merges it in from get_event_program_v1 /
+   *  get_occurrence_program_v1 (useProgrammeNationalities + withNationalities). */
+  nationalityCode?: string | null;
 };
 
 export type SessionLevel = 'beginner' | 'improver' | 'intermediate' | 'advanced' | 'open_level';
@@ -412,6 +417,61 @@ export function parseProgramItems(data: unknown): ScheduleSession[] {
         cancelled: item.cancelled === true,
       };
     });
+}
+
+/**
+ * profile id -> stored nationality from dancer_profiles rows ({ id, nationality }); blank
+ * rows are left out. The value is passed through as stored: NationalityFlag applies the
+ * one rule (components/people/nationality) when it renders, so this route's first load
+ * does not carry that module (perf-budgets.json).
+ */
+export function parseProgrammeNationalities(rows: unknown): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!r || typeof r !== 'object') continue;
+    const id = (r as { id?: unknown }).id;
+    const raw = (r as { nationality?: unknown }).nationality;
+    if (typeof id === 'string' && typeof raw === 'string' && raw.trim()) out.set(id, raw.trim());
+  }
+  return out;
+}
+
+/** The sessions with each person's nationalityCode filled from `codes` (same objects when nothing changes). */
+export function withNationalities(sessions: ScheduleSession[], codes: ReadonlyMap<string, string> | undefined): ScheduleSession[] {
+  if (!codes || codes.size === 0) return sessions;
+  return sessions.map((s) =>
+    s.people.some((p) => codes.has(p.id))
+      ? { ...s, people: s.people.map((p) => (codes.has(p.id) ? { ...p, nationalityCode: codes.get(p.id) ?? null } : p)) }
+      : s,
+  );
+}
+
+/**
+ * The programme people's nationality codes. event_view_p5 (the programme read) does
+ * not emit nationality_code, and the programme reads that do are retired on this site
+ * (check:legacy-program-rpcs), so the stored alpha-2 is read straight from
+ * dancer_profiles -- the same public, anon-granted column the dancer pages read -- for
+ * the people on the programme, active and not archived only. Asked once per set of
+ * people and never blocks the schedule: flags appear when it answers; an error means
+ * no flags.
+ */
+export function useProgrammeNationalities(profileIds: readonly string[]) {
+  const ids = Array.from(new Set(profileIds)).sort();
+  return useQuery<Map<string, string>>({
+    queryKey: ['programme-nationalities', ids.join(',')],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('dancer_profiles')
+        .select('id, nationality')
+        .in('id', ids)
+        .or('is_active.is.null,is_active.eq.true')
+        .is('archived_at', null);
+      if (error || !data) return new Map();
+      return parseProgrammeNationalities(data);
+    },
+    enabled: ids.length > 0,
+    staleTime: 1000 * 60 * 10,
+  });
 }
 
 export function useProgramItems(eventId: string | null | undefined) {

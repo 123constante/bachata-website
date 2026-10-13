@@ -1,6 +1,7 @@
 import type { Database } from "@/integrations/supabase/types";
 import { resolvePublicName } from "@/lib/publicName";
 import { getPhotoUrl, parsePartnerDetails } from "@/lib/utils";
+import { normaliseNationalityCode } from "@/components/people/nationality";
 
 type DancerRow = Database["public"]["Tables"]["dancer_profiles"]["Row"];
 type DancingRoleDetails = Database["public"]["Tables"]["dancing_role_details"]["Row"];
@@ -78,6 +79,8 @@ export type DancerPublicViewModel = {
   avatarUrl: string | null;
   city: string | null;
   nationality: string | null;
+  /** ISO alpha-2 for the flag on the photo, or null (no flag); see components/people/nationality. */
+  nationalityCode: string | null;
   yearsDancing: string | null;
   dancingStartDate: string | null;
   favoriteStyles: string[];
@@ -175,6 +178,7 @@ export const mapDancerPublicProfile = (record: DancerPublicRecord | DancerPublic
     avatarUrl: getPhotoUrl(canonicalRecord.avatar_url),
     city: canonicalRecord.cities?.name || null,
     nationality: canonicalRecord.nationality,
+    nationalityCode: normaliseNationalityCode(canonicalRecord.nationality),
     yearsDancing,
     dancingStartDate: null,
     favoriteStyles: normalizeStringArray(canonicalRecord.favorite_styles),

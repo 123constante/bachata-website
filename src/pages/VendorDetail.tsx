@@ -17,6 +17,7 @@ import GlobalLayout from "@/components/layout/GlobalLayout";
 
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { buildMailtoHref, buildWhatsAppHref } from '@/lib/contactValidation';
+import { normaliseNationalityCode, smallPhotoNationalityProps } from '@/components/people/nationality';
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=1200&auto=format&fit=crop&q=80";
 
 type EventLinkItem = {
@@ -31,6 +32,7 @@ type TeamLinkItem = {
   isLeader: boolean;
   role: string | null;
   avatarUrl: string | null;
+  nationalityCode: string | null;
 };
 
 type ViewTab = "overview" | "products" | "faq";
@@ -147,7 +149,9 @@ const VendorDetail = () => {
         const role = typeof record.role === "string" && record.role.trim().length > 0 ? record.role.trim() : null;
         const avatarUrl = typeof record.avatar_url === "string" && record.avatar_url.trim().length > 0 ? record.avatar_url.trim() : null;
 
-        return { dancerId, name, city, isLeader, role, avatarUrl } satisfies TeamLinkItem;
+        const nationalityCode = normaliseNationalityCode(record.nationality_code);
+
+        return { dancerId, name, city, isLeader, role, avatarUrl, nationalityCode } satisfies TeamLinkItem;
       })
       .filter((item): item is TeamLinkItem => Boolean(item));
   }, [vendor?.team]);
@@ -398,15 +402,21 @@ const VendorDetail = () => {
                     <Card className="bg-white/[0.04] border-white/10 h-full hover:border-white/20 hover:bg-white/[0.06] transition-colors">
                       <CardContent className="p-3 space-y-2">
                         <div className="flex items-center gap-2">
-                          {member.avatarUrl ? (
-                            <img
-                              src={optimizedImageUrl(member.avatarUrl, 96)}
-                              alt=""
-                              aria-hidden
-                              className="h-5 w-5 rounded-full object-cover flex-shrink-0" loading="lazy"/>
-                          ) : (
-                            <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          )}
+                          {/* Under 28px: no sticker, the country is the photo's label and title. */}
+                          <span
+                            className="flex h-5 w-5 flex-shrink-0 items-center justify-center"
+                            {...smallPhotoNationalityProps(member.nationalityCode, 20)}
+                          >
+                            {member.avatarUrl ? (
+                              <img
+                                src={optimizedImageUrl(member.avatarUrl, 96)}
+                                alt=""
+                                aria-hidden
+                                className="h-5 w-5 rounded-full object-cover flex-shrink-0" loading="lazy"/>
+                            ) : (
+                              <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            )}
+                          </span>
                           <span className="text-sm font-medium truncate">{member.name}</span>
                         </div>
                         {roleLabel && (

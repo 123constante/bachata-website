@@ -35,6 +35,8 @@ export interface SearchResult {
   // until the series has enough ratings. Absent on every v4/v5 result.
   derivedLevel?: string | null;
   levelVoteCount?: number;
+  // People only (teacher / dj / dancer): ISO alpha-2 or null -- the flag on the photo.
+  nationalityCode?: string | null;
 }
 
 // search_public_v2 -- events / venues / organisers text-match by name.
@@ -94,6 +96,7 @@ interface V3PersonRow {
   photo_url: string | null;
   avatar_url: string | null;
   slug: string | null;
+  nationality_code?: string | null;
 }
 
 interface V3VendorRow {
@@ -183,6 +186,7 @@ export async function searchPublicV3(
     eventType: null,
     startTime: null,
     href: hrefFor(kind, r.id),
+    nationalityCode: r.nationality_code ?? null,
   });
 
   const localEventIds = new Set((payload.events ?? []).map((e) => e.id));

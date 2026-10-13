@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Person } from '@/modules/event-page/sections/EventScheduleGrid';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
+// Lazy: /event/:id has a first-load budget (perf-budgets.json); the flag's code and
+// artwork load only when a person on the programme has a nationality.
+const NationalityFlag = lazy(() => import('@/components/people/NationalityFlag'));
 
 // --- PersonChip - atomic per-person render primitive ---
 //
@@ -154,7 +157,10 @@ const AvatarCircle = ({
   const t = SIZE_TABLE[size];
   const [errored, setErrored] = useState(false);
   const showAvatar = Boolean(person.avatarUrl) && !errored;
+  // The circle clips; the flag is its sibling in a non-clipping box so it can stand
+  // out past the top-right (components/people/NationalityFlag).
   return (
+    <div className="relative shrink-0" style={{ width: t.avatarPx, height: t.avatarPx }}>
     <div
       className="flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold"
       style={{
@@ -180,6 +186,12 @@ const AvatarCircle = ({
       ) : (
         <span>{initialFor(person.name)}</span>
       )}
+    </div>
+    {person.nationalityCode ? (
+      <Suspense fallback={null}>
+        <NationalityFlag code={person.nationalityCode} size={t.avatarPx} />
+      </Suspense>
+    ) : null}
     </div>
   );
 };

@@ -36,6 +36,7 @@ type DJRow = {
   bio: string | null;
   genres: string[] | null;
   nationality: string | null;
+  nationality_code?: string | null;
   city_id: string | null;
   city_name: string | null;
   city_slug: string | null;
@@ -202,6 +203,7 @@ const DJProfile = () => {
               photoUrl={photoUrl}
               cityName={dj.city_name}
               nationality={dj.nationality}
+              nationalityCode={dj.nationality_code}
               bio={dj.bio}
               isLive={isLive}
               stats={{ gigs: totalGigs || null, upcoming: upcoming.length || null, genres: genres.length || null }}

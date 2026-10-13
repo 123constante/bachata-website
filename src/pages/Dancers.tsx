@@ -17,6 +17,8 @@ import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
+import { NationalityFlag } from '@/components/people/NationalityFlag';
+import { pickNationalityCode } from '@/components/people/nationality';
 
 type Dancer = {
   id: string;
@@ -332,7 +334,7 @@ const Dancers = () => {
                     {/* Avatar */}
                     <div className="flex justify-center mb-1 md:mb-2">
                       <motion.div
-                        className="text-2xl md:text-4xl"
+                        className="relative text-2xl md:text-4xl"
                         whileHover={{ scale: 1.2, rotate: 10 }}
                         transition={{ type: 'spring', stiffness: 300 }}
                       >
@@ -346,6 +348,7 @@ const Dancers = () => {
                             {getAvatarFallback(dancer)}
                           </span>
                         )}
+                        <NationalityFlag code={pickNationalityCode(dancer)} size={32} />
                       </motion.div>
                     </div>
 

@@ -1,5 +1,5 @@
 import {
-  useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
+  Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
   type KeyboardEvent, type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -10,6 +10,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+// The header is in every page's first load (perf-budgets.json chunk ratchet): the flag
+// loads only when a result with a nationality shows.
+const NationalityFlag = lazy(() => import('@/components/people/NationalityFlag'));
 import { usePublicSearch } from '@/hooks/usePublicSearch';
 import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { useCity } from '@/contexts/CityContext';
@@ -331,10 +334,18 @@ export const HeaderSearch = ({ expanded, onExpandedChange }: HeaderSearchProps) 
                         onClick={() => goTo(r.href, q.trim())}
                         className={cn('flex w-full items-center gap-3 px-3 py-2 text-left', activeIndex === idx && 'bg-primary/10')}
                       >
-                        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden bg-surface-hover', round)}>
-                          {r.imageUrl
-                            ? <img src={optimizedImageUrl(r.imageUrl, 96)} alt="" loading="lazy" className="h-full w-full object-cover" />
-                            : <Icon className="h-4 w-4 text-muted-foreground" />}
+                        {/* mr: room for the sticker that stands out past the photo's top-right. */}
+                        <span className="relative mr-[5px] shrink-0">
+                          <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden bg-surface-hover', round)}>
+                            {r.imageUrl
+                              ? <img src={optimizedImageUrl(r.imageUrl, 96)} alt="" loading="lazy" className="h-full w-full object-cover" />
+                              : <Icon className="h-4 w-4 text-muted-foreground" />}
+                          </span>
+                          {r.nationalityCode ? (
+                            <Suspense fallback={null}>
+                              <NationalityFlag code={r.nationalityCode} size={36} />
+                            </Suspense>
+                          ) : null}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-semibold text-foreground">{highlight(r.title, term)}</span>

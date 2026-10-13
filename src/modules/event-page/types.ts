@@ -363,6 +363,8 @@ export type FestivalArtist = {
   displayName: string | null;
   avatarUrl: string | null;
   href: string | null;
+  /** ISO alpha-2 from get_public_festival_detail_v2, or null (no flag). */
+  nationalityCode?: string | null;
 };
 
 export type FestivalSessionLevel = 'beginner' | 'improver' | 'intermediate' | 'advanced' | 'open_level';

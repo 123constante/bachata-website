@@ -64,6 +64,8 @@ import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
 import EventRowCard, { type EventRowProps } from '@/components/events/EventRow';
 import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
 import { groupByEventId, stableRowKey } from '@/lib/eventListGrouping';
+import { NationalityFlag } from '@/components/people/NationalityFlag';
+import { pickNationalityCode } from '@/components/people/nationality';
 import {
   type EventRow,
   type OrgOccRow,
@@ -98,6 +100,7 @@ type TeamMember = {
   dancerId: string | null;
   name: string;
   avatarUrl: string | null;
+  nationalityCode: string | null;
   role: string | null;
   isHead: boolean | null;
   isLeader: boolean | null;
@@ -383,7 +386,7 @@ const BrowseNightsLink = () => (
 const TeamCircle = ({ member }: { member: TeamMember }) => {
   const inner = (
     <div className="text-center">
-      <div style={{ aspectRatio: '1', borderRadius: '50%', padding: 2.5, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C)', marginBottom: 6 }}>
+      <div style={{ position: 'relative', aspectRatio: '1', borderRadius: '50%', padding: 2.5, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C)', marginBottom: 6 }}>
         <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%,#33202c,#120c14)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           {member.avatarUrl ? (
             <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(112))} alt={member.name} width={112} height={112} className="w-full h-full object-cover" loading="lazy" />
@@ -391,6 +394,8 @@ const TeamCircle = ({ member }: { member: TeamMember }) => {
             <span style={{ fontFamily: SERIF, fontSize: 'clamp(16px,2.5vw,26px)', color: 'rgba(251,239,196,0.8)' }}>{initials(member.name)}</span>
           )}
         </div>
+        {/* The circle is fluid (about 100px on a phone); 80 keeps the flag inside the page gutter. */}
+        <NationalityFlag code={member.nationalityCode} size={80} />
       </div>
       <div style={{ fontFamily: SERIF, fontSize: 'clamp(13px,1.5vw,18px)', fontWeight: 600, color: D.cream, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflowWrap: 'break-word' }}>{member.name}</div>
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 3 }}>{member.role || 'Team'}</div>
@@ -722,14 +727,14 @@ const OrganiserProfile = () => {
       const memberIds = teamRows.map((r) => r.member_profile_id);
       const { data: dancerRows } = await supabase
         .from('dancer_profiles')
-        .select('id, first_name, surname, display_name, avatar_url')
+        .select('id, first_name, surname, display_name, avatar_url, nationality')
         .in('id', memberIds);
-      type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; avatar_url: string | null };
+      type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; avatar_url: string | null; nationality: string | null };
       const dancerMap = new Map<string, DancerRow>((dancerRows as DancerRow[] | null ?? []).map((d) => [d.id, d]));
       return teamRows.map((t) => {
         const d = dancerMap.get(t.member_profile_id);
         const name = d?.display_name?.trim() || [d?.first_name, d?.surname].filter(Boolean).join(' ').trim() || 'Team member';
-        return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? null, role: t.role, isHead: t.is_head, isLeader: t.is_leader };
+        return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? null, nationalityCode: pickNationalityCode(d), role: t.role, isHead: t.is_head, isLeader: t.is_leader };
       });
     },
     enabled: !!id,
@@ -1443,7 +1448,9 @@ const OrganiserProfile = () => {
               <h2 style={sectionH2}>Teachers &amp; DJs</h2>
               <span style={sectionCount}>{orderedTeam.length} {orderedTeam.length === 1 ? 'member' : 'members'}</span>
             </div>
-            <div className={orderedTeam.length <= 3 ? 'flex justify-center gap-3' : 'grid grid-cols-3 gap-3 lg:grid-cols-8'}>
+            {/* px-3: the nationality sticker stands out past each circle's top-right, so the
+                last column needs room before the page's overflow-x-clip edge. */}
+            <div className={orderedTeam.length <= 3 ? 'flex justify-center gap-3 px-3' : 'grid grid-cols-3 gap-3 px-3 lg:grid-cols-8'}>
               {orderedTeam.map((m) => <div key={m.id} className={cn('min-w-0 max-w-[112px]', orderedTeam.length <= 3 ? 'basis-1/3' : 'mx-auto w-full')}><TeamCircle member={m} /></div>)}
             </div>
           </section>
