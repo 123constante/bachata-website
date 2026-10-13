@@ -47,11 +47,13 @@ export function seedSessions(programme: Programme, type: NewEventType): WireSess
 
 /**
  * Whether a failed create may open the New event form again (FIX-4 F1). Only when nothing can
- * have been saved: the server refused (a coded error) the FIRST send, and no earlier send went
- * unconfirmed. A coded error on a resend (JWT expiry, a timeout, a serialisation failure) says
- * nothing about the earlier send, which may have saved the event; the server replays a stored
- * create under its key without comparing the payload, so an edited resend would rename it.
+ * have been saved: the server refused (a coded error) the FIRST send. A coded error on a resend
+ * (JWT expiry, a timeout, a serialisation failure) says nothing about the earlier send, which may
+ * have saved the event; the server replays a stored create under its key without comparing the
+ * payload, so an edited resend would rename it. A retry can never reopen: the page clears the
+ * sent create only on this rule's true branch, so after any unconfirmed send it stays set and
+ * every later press has `firstSend === false`.
  */
-export function reopensAfterFailedCreate(f: { refused: boolean; firstSend: boolean; earlierUnconfirmed: boolean }): boolean {
-  return f.refused && f.firstSend && !f.earlierUnconfirmed;
+export function reopensAfterFailedCreate(f: { refused: boolean; firstSend: boolean }): boolean {
+  return f.refused && f.firstSend;
 }

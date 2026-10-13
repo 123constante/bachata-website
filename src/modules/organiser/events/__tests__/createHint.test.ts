@@ -71,15 +71,13 @@ describe('the hint box fits every hint', () => {
 });
 
 // FIX-4 F1: the form reopens after a failed create ONLY when nothing can have been saved: the
-// press that failed was the FIRST send, the server refused it, and no earlier send went unconfirmed.
+// press that failed was the FIRST send and the server refused it.
 describe('reopensAfterFailedCreate', () => {
-  const table: Array<[string, { refused: boolean; firstSend: boolean; earlierUnconfirmed: boolean }, boolean]> = [
-    ['first send refused, nothing earlier', { refused: true, firstSend: true, earlierUnconfirmed: false }, true],
-    ['first send lost (not a refusal)', { refused: false, firstSend: true, earlierUnconfirmed: false }, false],
-    ['a resend refused (an earlier send may have saved it)', { refused: true, firstSend: false, earlierUnconfirmed: false }, false],
-    ['a resend refused after an unconfirmed send', { refused: true, firstSend: false, earlierUnconfirmed: true }, false],
-    ['first send refused but an earlier send went unconfirmed', { refused: true, firstSend: true, earlierUnconfirmed: true }, false],
-    ['a resend lost', { refused: false, firstSend: false, earlierUnconfirmed: true }, false],
+  const table: Array<[string, { refused: boolean; firstSend: boolean }, boolean]> = [
+    ['first send refused', { refused: true, firstSend: true }, true],
+    ['first send lost (not a refusal)', { refused: false, firstSend: true }, false],
+    ['a resend refused (an earlier send may have saved it)', { refused: true, firstSend: false }, false],
+    ['a resend lost', { refused: false, firstSend: false }, false],
   ];
   it.each(table)('%s', (_n, input, expected) => {
     expect(reopensAfterFailedCreate(input)).toBe(expected);

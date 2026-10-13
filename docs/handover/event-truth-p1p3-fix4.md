@@ -16,8 +16,8 @@ note is text, not a control); every file over 2 KB written through `safe-edit.py
 
 | fix | file | change |
 |---|---|---|
-| F1 | `events/newEvent.ts` | **NEW LOGIC** `reopensAfterFailedCreate({ refused, firstSend, earlierUnconfirmed })` = `refused && firstSend && !earlierUnconfirmed` (pure). |
-| F1 | `events/NewEventPage.tsx` | **NEW LOGIC** `unconfirmedRef = useRef(false)`. Create catch: if `reopensAfterFailedCreate({ refused: isServerRefusal(err), firstSend: kept === null, earlierUnconfirmed: unconfirmedRef.current })` then `sentRef.current = null; setSent(false)`; **else if `sentRef.current`** (a create really went out this press or earlier) then `unconfirmedRef.current = true`. The old `&& !made` is gone: `firstSend` already implies not made. A city-lookup failure before anything is sent leaves `sentRef` null and marks nothing (same as before). |
+| F1 | `events/newEvent.ts` | **NEW LOGIC** `reopensAfterFailedCreate({ refused, firstSend })` = `refused && firstSend` (pure). FIX-4c: the `earlierUnconfirmed` input was dropped by owner decision (2026-10-13); it could not change behaviour (section 3). |
+| F1 | `events/NewEventPage.tsx` | **NEW LOGIC** Create catch: if `reopensAfterFailedCreate({ refused: isServerRefusal(err), firstSend: kept === null })` then `sentRef.current = null; setSent(false)`. The old `&& !made` is gone: `firstSend` already implies not made. A city-lookup failure before anything is sent leaves `sentRef` null (same as before). FIX-4c: `unconfirmedRef` and its `else if (sentRef.current)` branch were dropped by owner decision; a retry still never reopens, because `sentRef` stays set after any unconfirmed send. |
 | F2 | `events/NewEventPage.tsx` | **NEW LOGIC** page branch `home.isError ?` became `!home.data ?` (after `isPending`, this equals the brief's `isError && !data`). A failed refetch with data keeps `NewEventForm` mounted. |
 | F3 | `events/NewEventPage.tsx` | **NEW LOGIC** Open the event mounts on `made && !busy` (was `made`). |
 | F4 | `events/eventType.ts`, `NewEventPage.tsx` | **NEW LOGIC (small)** `HINT_BOX_LINES = 3`, `HINT_LINE_PX = 18`, `HINT_CHARS_PER_LINE = 40`. The hint `<p>` takes `style={{ minHeight: 3*18, lineHeight: 18px }}` instead of `min-h-[36px] leading-[18px]`, so the box and the test read one constant. |
@@ -36,7 +36,7 @@ note is text, not a control); every file over 2 KB written through `safe-edit.py
    while running (numbers below). At **360 and 320 px** the Class hint wraps to **3 lines**, and Create jumped 18 px
    when the hint changed to "Creating...". The box now fits 3 lines. Cost: one empty 18 px line under the shorter hints
    at 375 px and up.
-3. **F1 ref is redundant (equivalent mutants M1d/M1e).** See section 3. The brief asked for the ref, so it stays.
+3. **F1 ref was redundant (equivalent mutants M1d/M1e).** See section 3. FIX-4c: dropped by owner decision 2026-10-13.
 
 ## 2. Red-first (tests committed in `1fe4cb7` and run against ceb5df79's source)
 
@@ -57,12 +57,9 @@ Suites: `pages.test.tsx` + `createHint.test.ts` (88 tests), plus the e2e for M4.
 
 | mutant | fix | what | result |
 |---|---|---|---|
-| M1a | F1 | rule drops `firstSend` | **killed** (1 failed) |
-| M1b | F1 | rule drops `earlierUnconfirmed` | **killed** (1 failed, unit table) |
-| M1c | F1 | page passes `firstSend: true` | **SURVIVED at first.** The made-row resend was recomputed but identical. Test fixed (`fe215d7`): London midnight rolls over before the final resend, so a recomputed create starts a day later. Now **killed** (1 failed). |
-| M1d | F1 | page never sets `unconfirmedRef` | **survives: an equivalent mutant** (proof below) |
-| M1e | F1 | page passes `earlierUnconfirmed: false` | **survives: an equivalent mutant** |
-| M1f | F1 | page passes `refused: true` | **killed** (7 failed) |
+| M1a | F1 | rule drops `firstSend` | **killed** (FIX-4c re-run: 6 failed) |
+| M1c | F1 | page passes `firstSend: true` | **SURVIVED at first.** The made-row resend was recomputed but identical. Test fixed (`fe215d7`): London midnight rolls over before the final resend, so a recomputed create starts a day later. Now **killed** (FIX-4c re-run: 5 failed). |
+| M1f | F1 | page passes `refused: true` | **killed** (FIX-4c re-run: 7 failed) |
 | M2 | F2 | `!home.data` back to `home.isError` | **killed** (1 failed) |
 | M3 | F3 | Open on `made` (not `made && !busy`) | **killed** (1 failed) |
 | M4 | F4 | `HINT_BOX_LINES = 2` | **killed**: unit 4 failed; e2e at 360: Create y **364.375 -> 346.375** while creating |
@@ -72,12 +69,7 @@ Suites: `pages.test.tsx` + `createHint.test.ts` (88 tests), plus the e2e for M4.
 | M5d | F5 | note never shown | **killed** |
 | M9 | F9 | made-busy reads the locked hint | **killed** (3 failed) |
 
-**Why M1d/M1e cannot be killed (a finding on the brief's design, not a gap in the tests).** `sentRef` is cleared only in
-the reopen branch. Every send that ends unconfirmed leaves `sentRef` set, so every later press has `kept !== null`, that
-is `firstSend === false`, and the rule is already false. `earlierUnconfirmed` can be true only when `firstSend` is
-false, so no input separates the code with the ref from the code without it. The pure rule's own table pins the
-`earlierUnconfirmed` term (M1b is killed). In the page it is defence in depth against a future change that clears
-`sentRef` elsewhere. The orchestrator may drop the ref; behaviour is the same either way.
+**FIX-4c: M1b, M1d and M1e no longer exist.** The owner dropped `unconfirmedRef` and the `earlierUnconfirmed` input (2026-10-13), so the mutants that removed or zeroed them have nothing to mutate. Why they were equivalent: `sentRef` is cleared only in the reopen branch. Every send that ends unconfirmed leaves `sentRef` set, so every later press has `kept !== null`, that is `firstSend === false`, and the rule is already false. No input separated the code with the ref from the code without it. M1a, M1c and M1f were re-run on the FIX-4c code (suites `pages.test.tsx` + `createHint.test.ts`, 86 tests after the two rows of the pure table that only varied `earlierUnconfirmed` were removed) and all are killed.
 
 ## 4. F4 measurements (headless Chromium, html font 13.57 px at 390 / 13.5 px at 360)
 

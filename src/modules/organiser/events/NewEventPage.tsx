@@ -41,11 +41,8 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
   // and its schedule verbatim and never re-reads the form (review F1, F2).
   const sentRef = useRef<SentCreate | null>(null);
   // The create went out: name, chips and organiser freeze. Only a server refusal of the
-  // FIRST send, with no send before it unconfirmed (nothing was saved), opens them again.
+  // FIRST send (nothing was saved) opens them again.
   const [sent, setSent] = useState(false);
-  // A send ended without proof either way (a lost reply, or a refusal of a resend): the
-  // event may exist, so the form never reopens for the life of the page (FIX-4 F1).
-  const unconfirmedRef = useRef(false);
   // The create was confirmed: the event exists with the chosen chip. Never reset.
   const [made, setMade] = useState(false);
   const [organiserId, setOrganiserId] = useState(() => pickInitial(organisers, params.get('o')));
@@ -97,11 +94,9 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
       // The first send refused: nothing was saved, so the form opens again (same keys).
       // Anything else may have saved it: the form stays frozen on the create already sent,
       // and a later coded error on a resend proves nothing about it (FIX-4 F1).
-      if (reopensAfterFailedCreate({ refused: isServerRefusal(err), firstSend: kept === null, earlierUnconfirmed: unconfirmedRef.current })) {
+      if (reopensAfterFailedCreate({ refused: isServerRefusal(err), firstSend: kept === null })) {
         sentRef.current = null;
         setSent(false);
-      } else if (sentRef.current) {
-        unconfirmedRef.current = true;
       }
       setError(isServerRefusal(err) ? commandErrorMessage(err) : 'We could not confirm the save. Check your connection and press Create again.');
       shake();
