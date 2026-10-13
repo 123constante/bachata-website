@@ -1,0 +1,932 @@
+From a8efae3c47603b6ae59fac8dd7fdb4592eee90ed Mon Sep 17 00:00:00 2001
+From: 123constante <bachatacommunityuk@gmail.com>
+Date: Tue, 13 Oct 2026 00:22:59 +0100
+Subject: [PATCH] wip(event-truth): P1 Website half -- shared eventCategory
+ rule, organiser create seeds the first session, no category sent
+
+UNREVIEWED, NOT PUSHED. Waits on admin #780 (trigger mirror + date-only union) being merged and applied.
+- src/lib/eventCategory.ts: canonical twin (same bytes as admin lib, published on admin branch
+  arc/briefs-event-truth:briefs/eventCategory.ts)
+- organiser New event: chips are the FIRST SESSION (Class / Party / Workshop), seeded on the first
+  upcoming date via organiser_set_occurrence_programme_v1; never seeds twice
+- no client sends category any more (create payload, upsertCommand)
+- Type row + runNoun read wordForStored (one word on every screen)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01L8WnXnCrMCxzUayFxQsDpN
+---
+ src/lib/__tests__/eventCategory.test.ts       |  94 ++++++++++++
+ src/lib/eventCategory.ts                      | 134 ++++++++++++++++++
+ .../bento/utils/__tests__/endedRun.test.ts    |   3 +-
+ .../event-page/bento/utils/endedRun.ts        |  22 ++-
+ .../organiser/events/EventEditorPage.tsx      |   6 +-
+ src/modules/organiser/events/NewEventPage.tsx |  39 +++--
+ .../__tests__/fixesBatch.matrix.test.ts       |  23 +--
+ .../organiser/events/__tests__/pages.test.tsx |  60 +++++++-
+ src/modules/organiser/events/eventType.ts     |  53 ++++---
+ src/modules/organiser/events/newEvent.ts      |  33 ++++-
+ .../shared/__tests__/createModel.test.ts      |  13 +-
+ .../shared/__tests__/ownerWritesD8.test.ts    |   7 +-
+ .../shared/__tests__/seriesCommands.test.ts   |   4 -
+ src/modules/organiser/shared/createModel.ts   |   9 +-
+ .../organiser/shared/seriesCommands.ts        |  28 ++--
+ 15 files changed, 426 insertions(+), 102 deletions(-)
+ create mode 100644 src/lib/__tests__/eventCategory.test.ts
+ create mode 100644 src/lib/eventCategory.ts
+
+diff --git a/src/lib/__tests__/eventCategory.test.ts b/src/lib/__tests__/eventCategory.test.ts
+new file mode 100644
+index 00000000..24405a89
+--- /dev/null
++++ b/src/lib/__tests__/eventCategory.test.ts
+@@ -0,0 +1,94 @@
++import { existsSync, readFileSync } from 'node:fs';
++import { resolve } from 'node:path';
++import { describe, expect, it } from 'vitest';
++import {
++  CATEGORY_WORD_LABEL,
++  categoryAgrees,
++  categoryLabelFor,
++  deriveCategories,
++  setForStored,
++  storedCategory,
++  wordForStored,
++  type DerivedGenre,
++} from '../eventCategory';
++
++const FORMATS = ['one_off', 'recurring', 'course', 'festival', null] as const;
++const STORED = ['party', 'class', 'workshop', 'masterclass', null] as const;
++// Every vocabulary value prod holds (section kinds, item types, date-only types), plus junk.
++const TOKENS = ['party', 'social', 'classes', 'class', 'workshop', 'masterclass', 'showcase', 'competition', 'performance', 'show', 'concert', 'ceremony', null, ''];
++
++describe('deriveCategories: the set and the word for every (format x session set)', () => {
++  it.each([
++    // [format, section kinds, item types, set, word]
++    ['recurring', ['party'], [], ['party'], 'night'],
++    ['recurring', ['classes', 'party'], ['class', 'party'], ['party', 'class'], 'night'],
++    ['recurring', ['classes'], ['class'], ['class'], 'class'],
++    ['one_off', [], ['workshop'], ['class'], 'class'],
++    ['recurring', ['masterclass'], [], ['class', 'masterclass'], 'masterclass'],
++    ['recurring', [], ['social'], ['party'], 'night'],
++    ['recurring', ['showcase', 'competition'], ['performance'], [], null],
++    ['recurring', [], [], [], null],
++    ['course', ['classes'], ['class'], ['class'], 'course'],
++    ['course', [], [], [], 'course'],
++    ['festival', ['party', 'classes'], [], ['party', 'class'], 'festival'],
++    [null, ['party'], [], ['party'], 'night'],
++  ] as const)('%s / %j / %j -> %j %s', (format, kinds, types, set, word) => {
++    expect(deriveCategories(format, [...kinds], [...types])).toEqual({ set: [...set], word });
++  });
++});
++
++describe('storedCategory: keep the value while it agrees, else party > masterclass > class, else null', () => {
++  it.each([
++    [null, ['class'], 'class'],
++    ['party', ['class'], 'class'],
++    ['party', ['party', 'class'], 'party'],
++    ['class', ['party', 'class'], 'class'],
++    ['workshop', ['class'], 'workshop'],
++    ['workshop', ['party'], 'party'],
++    ['masterclass', ['class'], 'class'],
++    ['class', ['class', 'masterclass'], 'class'],
++    [null, ['class', 'masterclass'], 'masterclass'],
++    ['party', [], null],
++    [null, [], null],
++  ] as const)('%s over %j -> %s', (current, set, expected) => {
++    expect(storedCategory(current, set as unknown as DerivedGenre[])).toBe(expected);
++  });
++
++  it('is a fixed point: the stored value re-derived from its own set never moves', () => {
++    for (const s of STORED) {
++      const set = setForStored(s);
++      expect(storedCategory(s, set)).toBe(s === null ? null : s);
++    }
++  });
++});
++
++describe('the word every single-word screen shows (wordForStored / categoryLabelFor)', () => {
++  it.each(FORMATS.flatMap((f) => STORED.map((s) => [f, s] as const)))('%s + %s', (format, stored) => {
++    const word = wordForStored(format, stored);
++    // The word is the format's when it has one, else the stored value's genre.
++    if (format === 'festival' || format === 'course') expect(word).toBe(format);
++    else if (stored === 'party') expect(word).toBe('night');
++    else if (stored === 'masterclass') expect(word).toBe('masterclass');
++    else if (stored === 'class' || stored === 'workshop') expect(word).toBe('class');
++    else expect(word).toBeNull();
++    expect(categoryLabelFor(format, stored)).toBe(word ? CATEGORY_WORD_LABEL[word] : 'Not set');
++  });
++});
++
++// TODO(next session): parity with the P0 guard's own JS copy (scripts/check-event-truth-v1.mjs
++// deriveGenres / categoryAgrees) over every TOKENS pair. Importing the .mjs here fails on its
++// CRLF shebang line; put the parity in the guard's --self-test instead (it can import this lib's
++// logic via a fixture table) or import with the shebang stripped.
++void TOKENS;
++void categoryAgrees;
++
++// The admin repo holds the byte-identical twin (lib/eventCategory.ts). CI cannot read a
++// private sibling repo, so this runs only where the admin checkout sits next to this one
++// (the owner's machine); in CI it reports itself skipped rather than passing blind.
++const ADMIN_TWIN = resolve(__dirname, '../../../../bachata-admin-11april/lib/eventCategory.ts');
++describe.skipIf(!existsSync(ADMIN_TWIN))('the admin twin (local only: needs ../bachata-admin-11april)', () => {
++  it('holds the same bytes as this file (line endings aside)', () => {
++    const lf = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
++    expect(lf(ADMIN_TWIN)).toBe(lf(resolve(__dirname, '../eventCategory.ts')));
++  });
++});
+diff --git a/src/lib/eventCategory.ts b/src/lib/eventCategory.ts
+new file mode 100644
+index 00000000..23554556
+--- /dev/null
++++ b/src/lib/eventCategory.ts
+@@ -0,0 +1,134 @@
++/**
++ * eventCategory.ts -- byte-identical twin: admin lib/eventCategory.ts and Website src/lib/eventCategory.ts.
++ *
++ * Event-truth arc P1 (owner decision 2026-10-12, "there is no logic in asking"):
++ * event_series_p5.category is DERIVED from the programme sessions. Nobody is asked.
++ * This file is THE derivation on the client side; _derive_series_category_v1 is its SQL
++ * twin. Keep it dependency-free, LF, ASCII only, so both repos hold the same bytes.
++ *
++ * Inputs are raw programme vocabulary from three sources: series section kinds
++ * (event_series_program_section_p5.kind), series item types (event_series_program_item_p5.type),
++ * and date-only sessions (event_occurrence_added_session_p5 section_kind and type), which is
++ * where an organiser's sessions live. Anything outside the mapped values is ignored, never an
++ * error.
++ *
++ * Two readings, never mixed:
++ * - the SET (deriveCategories) answers "is it listed under Parties / Classes?" and needs the
++ *   programme;
++ * - the WORD (wordForStored) is what a single-word surface shows, and reads the stored mirror,
++ *   so every screen shows the same word whether or not it loaded the programme.
++ */
++
++/** A genre a programme implies. The public calendar's Parties / Classes tabs read these. */
++export type DerivedGenre = 'party' | 'class' | 'masterclass';
++
++/** The one word a UI shows for a series. */
++export type CategoryWord = 'festival' | 'course' | 'night' | 'masterclass' | 'class';
++
++/** The CHECK vocabulary of event_series_p5.category. */
++export type StoredCategory = 'party' | 'class' | 'workshop' | 'masterclass';
++
++export interface DerivedCategories {
++    /** Stable order: party, class, masterclass; only the members the programme implies. */
++    set: DerivedGenre[];
++    /** null when the format gives no word and the programme has no session. */
++    word: CategoryWord | null;
++}
++
++const GENRE_ORDER: DerivedGenre[] = ['party', 'class', 'masterclass'];
++
++function genresOf(value: unknown): DerivedGenre[] {
++    switch (value) {
++        case 'party':
++        case 'social':
++            return ['party'];
++        case 'classes':
++        case 'class':
++        case 'workshop':
++            return ['class'];
++        case 'masterclass':
++            return ['class', 'masterclass'];
++        default:
++            return [];
++    }
++}
++
++/**
++ * The genre set from section kinds and item types together (a party section with no item
++ * still counts), and the single word the programme implies.
++ */
++export function deriveCategories(
++    format: string | null | undefined,
++    sectionKinds: ReadonlyArray<string | null | undefined> | null | undefined,
++    itemTypes: ReadonlyArray<string | null | undefined> | null | undefined,
++): DerivedCategories {
++    const found = new Set<DerivedGenre>();
++    for (const kind of sectionKinds ?? []) for (const g of genresOf(kind)) found.add(g);
++    for (const type of itemTypes ?? []) for (const g of genresOf(type)) found.add(g);
++    const set = GENRE_ORDER.filter((g) => found.has(g));
++    return { set, word: categoryWord(format, set) };
++}
++
++/** The single word: the format first (festival, course), else the strongest genre. */
++export function categoryWord(format: string | null | undefined, set: ReadonlyArray<DerivedGenre>): CategoryWord | null {
++    if (format === 'festival') return 'festival';
++    if (format === 'course') return 'course';
++    if (set.includes('party')) return 'night';
++    if (set.includes('masterclass')) return 'masterclass';
++    if (set.includes('class')) return 'class';
++    return null;
++}
++
++/** Whether a stored category agrees with a derived set. A null category agrees with nothing. */
++export function categoryAgrees(stored: string | null | undefined, set: ReadonlyArray<DerivedGenre>): boolean {
++    if (stored === 'party') return set.includes('party');
++    if (stored === 'class' || stored === 'workshop') return set.includes('class');
++    if (stored === 'masterclass') return set.includes('masterclass');
++    return false;
++}
++
++/**
++ * The value the event_series_p5.category mirror holds for a set: the current value when it
++ * still agrees (so a stored workshop survives and nothing churns), else the first of
++ * party > masterclass > class, and null for an empty set (an honest "not set": the series
++ * has no session). A client-sent value therefore survives only when the sessions already
++ * agree with it.
++ */
++export function storedCategory(current: string | null | undefined, set: ReadonlyArray<DerivedGenre>): StoredCategory | null {
++    if (categoryAgrees(current, set)) return current as StoredCategory;
++    if (set.includes('party')) return 'party';
++    if (set.includes('masterclass')) return 'masterclass';
++    if (set.includes('class')) return 'class';
++    return null;
++}
++
++/** The genres a stored mirror value stands for (the inverse of storedCategory's pick). */
++export function setForStored(stored: string | null | undefined): DerivedGenre[] {
++    if (stored === 'party') return ['party'];
++    if (stored === 'class' || stored === 'workshop') return ['class'];
++    if (stored === 'masterclass') return ['class', 'masterclass'];
++    return [];
++}
++
++/** The single word every single-word surface shows: the format, else the stored mirror. */
++export function wordForStored(format: string | null | undefined, stored: string | null | undefined): CategoryWord | null {
++    return categoryWord(format, setForStored(stored));
++}
++
++/** How a word reads as a label (a field value, a chip). */
++export const CATEGORY_WORD_LABEL: Record<CategoryWord, string> = {
++    festival: 'Festival',
++    course: 'Course',
++    night: 'Night',
++    masterclass: 'Masterclass',
++    class: 'Class',
++};
++
++/** The label for a series with no word: no session yet, so nothing to derive from. */
++export const NOT_SET_LABEL = 'Not set';
++
++/** The label a series shows: its word, or NOT_SET_LABEL. */
++export function categoryLabelFor(format: string | null | undefined, stored: string | null | undefined): string {
++    const word = wordForStored(format, stored);
++    return word ? CATEGORY_WORD_LABEL[word] : NOT_SET_LABEL;
++}
+diff --git a/src/modules/event-page/bento/utils/__tests__/endedRun.test.ts b/src/modules/event-page/bento/utils/__tests__/endedRun.test.ts
+index 37fb7b2f..fc274560 100644
+--- a/src/modules/event-page/bento/utils/__tests__/endedRun.test.ts
++++ b/src/modules/event-page/bento/utils/__tests__/endedRun.test.ts
+@@ -37,7 +37,8 @@ describe('runNoun', () => {
+   // preview and on the record card both. Most of what this arc ends is recurring.
+   it('names a class, workshop and masterclass from CATEGORY, not shape', () => {
+     expect(runNoun('recurring', null, 'class')).toBe('class');
+-    expect(runNoun('recurring', null, 'workshop')).toBe('workshop');
++    // A stored workshop reads 'class': the shared word (eventCategory.wordForStored), no session derives a workshop.
++    expect(runNoun('recurring', null, 'workshop')).toBe('class');
+     expect(runNoun('recurring', null, 'masterclass')).toBe('masterclass');
+     expect(runNoun('one_off', null, 'class')).toBe('class');
+   });
+diff --git a/src/modules/event-page/bento/utils/endedRun.ts b/src/modules/event-page/bento/utils/endedRun.ts
+index 2bf05145..0e0ec002 100644
+--- a/src/modules/event-page/bento/utils/endedRun.ts
++++ b/src/modules/event-page/bento/utils/endedRun.ts
+@@ -12,6 +12,8 @@
+ // repo's Cowork mount corrupts raw Unicode punctuation), and a util returning
+ // "&ndash;" inside plain text would render the entity literally.
+ 
++import { wordForStored } from '@/lib/eventCategory';
++
+ const MONTHS = [
+   'January', 'February', 'March', 'April', 'May', 'June',
+   'July', 'August', 'September', 'October', 'November', 'December',
+@@ -75,20 +77,12 @@ export const runNoun = (
+   type: string | null,
+   category: string | null = null,
+ ): string => {
+-  const shape = format ?? type;
+-  if (shape === 'course') return 'course';
+-  if (shape === 'festival') return 'festival';
+-  // CATEGORY, not shape, decides between a class and a night. `format` is the
+-  // STRUCTURAL shape (one_off | recurring | course | festival) and `category` is
+-  // the discovery GENRE (party | class | workshop | masterclass) -- so a weekly
+-  // bachata class is format='recurring', and reading shape alone called it a
+-  // "night": "This night has finished and is no longer running." for a class,
+-  // in the WhatsApp preview and on the record card both. Most of what this arc
+-  // will end is recurring, so this is the common path, not an edge case.
+-  if (category === 'class' || category === 'workshop' || category === 'masterclass') {
+-    return category;
+-  }
+-  return 'night';
++  // The shared word (src/lib/eventCategory.ts wordForStored): the shape first
++  // (course, festival), else the category the server derives from the sessions
++  // -- so a weekly class (format 'recurring') reads "class", never "night". A
++  // stored workshop reads "class": no session derives a workshop, and the word
++  // must match every other screen. No word (no session yet) is a night.
++  return wordForStored(format ?? type, category) ?? 'night';
+ };
+ 
+ export type RunRange =
+diff --git a/src/modules/organiser/events/EventEditorPage.tsx b/src/modules/organiser/events/EventEditorPage.tsx
+index d1bc5f8f..ad2ad9c0 100644
+--- a/src/modules/organiser/events/EventEditorPage.tsx
++++ b/src/modules/organiser/events/EventEditorPage.tsx
+@@ -24,7 +24,7 @@ import { DatesTakenOff } from './DatesTakenOff';
+ import { EventReviewCard } from './ReviewCard';
+ import { EditorGroup } from './EditorGroup';
+ import { sessionDates } from './reviewModel';
+-import { categoryLabel } from './eventType';
++import { categoryLabel, typeSublabel } from './eventType';
+ import { EventList } from './EventList';
+ import {
+   FIELD_LABEL, MUSIC_STYLES, capInput, cardPreview, changedFields, conflictingFields, draftFromWorkspace, draftProblem,
+@@ -211,8 +211,8 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
+           {!lock && <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="org-cover-gallery-hint">The cover shows on the calendar card; gallery photos appear on the event page. Optional &mdash; add later.</p>}
+         </section>
+         <Card>
+-          <SummaryRow icon={<Shapes />} label="Type" value={categoryLabel(ws.series.category)}
+-            sublabel={`Chosen when the event was made. To change it, ask ${TEAM}.`} testId="org-row-type" />
++          <SummaryRow icon={<Shapes />} label="Type" value={categoryLabel(ws.series.format, ws.series.category)}
++            sublabel={typeSublabel(ws.series.format, ws.series.category)} testId="org-row-type" />
+         </Card>
+       </EditorGroup>
+       <EditorGroup id="when" heading="When">
+diff --git a/src/modules/organiser/events/NewEventPage.tsx b/src/modules/organiser/events/NewEventPage.tsx
+index 175d5768..feb2f009 100644
+--- a/src/modules/organiser/events/NewEventPage.tsx
++++ b/src/modules/organiser/events/NewEventPage.tsx
+@@ -3,18 +3,20 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
+ import { useQueryClient } from '@tanstack/react-query';
+ import { useLondonToday } from '@/hooks/useLondonToday';
+ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+-import { ORGANISER_HOME_KEY, runSeriesCommand, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
++import {
++  ORGANISER_HOME_KEY, fetchOccurrenceProgramme, fetchSeriesWorkspace, runSeriesCommand, saveOccurrenceProgramme, type HomeOrganiser,
++} from '@/modules/organiser/shared/selfServeApi';
+ import { createBlock } from '@/modules/organiser/shared/createModel';
+ import { organiserStatus } from '@/modules/organiser/shared/organiserStatus';
+ import { envelope, newIdempotencyKey, newSeriesId } from '@/modules/organiser/shared/seriesCommands';
+ import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
+-import { commandErrorMessage, isServerRefusal } from '@/modules/organiser/shared/selfServeErrors';
++import { commandErrorMessage, isServerRefusal, programmeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
+ import { UNSAVED_MESSAGE } from '@/modules/organiser/shared/editorGuards';
+ import { OrganiserShell, ORG_PATHS } from '../shell';
+ import { Chip, EmptyState, ErrorState, GhostButton, PrimaryButton, SectionLabel, SkeletonRows, TitleInput, useShake } from '../ui';
+ import { useOrganiserHome } from './eventsApi';
+-import { newEventCommands } from './newEvent';
+-import { EVENT_TYPES, type NewEventType } from './eventType';
++import { firstListedDate, newEventCommands, seedSessions } from './newEvent';
++import { EVENT_TYPES, FIRST_SESSION_HINT, type NewEventType } from './eventType';
+ 
+ // `?o=<organiser id>` (useOrganiserChoice's shape; the public organiser page's
+ // Create event passes it) preselects that organiser when it is one of mine.
+@@ -27,7 +29,8 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
+   const [params] = useSearchParams();
+   const [name, setName] = useState('');
+   const [type, setType] = useState<NewEventType | null>(null);
+-  // The event exists but its dates did not list: say so and offer to open it.
++  // The event exists but its dates did not list, or its first session was not
++  // added: say so and offer to open it.
+   const [scheduleFailed, setScheduleFailed] = useState(false);
+   const [organiserId, setOrganiserId] = useState(() => pickInitial(organisers, params.get('o')));
+   const [seriesId] = useState(newSeriesId);
+@@ -47,7 +50,7 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
+   const create = async () => {
+     if (!organiser || block || busy) return;
+     if (!name.trim()) { setError('Give your event a name.'); shake(); return; }
+-    if (!type) { setError('Choose what it is: a class, a party, or a course or workshop.'); shake(); return; }
++    if (!type) { setError('Choose the first session: a class, a party or a workshop.'); shake(); return; }
+     setBusy(true);
+     setError(null);
+     setScheduleFailed(false);
+@@ -76,6 +79,24 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
+       setBusy(false);
+       return;
+     }
++    try {
++      // The first session goes on the first listed date. seedSessions sends
++      // nothing when the date already holds one, so pressing Create again after
++      // a lost reply never adds a second session.
++      const first = firstListedDate((await fetchSeriesWorkspace(seriesId)).dates, today);
++      if (!first) throw new Error('no_listed_date');
++      const programme = await fetchOccurrenceProgramme(first.id);
++      const sessions = seedSessions(programme, type);
++      if (sessions) await saveOccurrenceProgramme(first.id, programme.version, sessions);
++    } catch (err) {
++      void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
++      const why = isServerRefusal(err) ? ` ${programmeErrorCopy(err).message}` : '';
++      setError(`Your event and its ${type === 'class' ? 'weekly dates are' : 'date is'} saved as a draft, but the first session was not added.${why} Press Create to try again, or open the event and add it on its first date.`);
++      setScheduleFailed(true);
++      shake();
++      setBusy(false);
++      return;
++    }
+     setCreated(true);
+     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+     navigate(ORG_PATHS.event(seriesId), { replace: true });
+@@ -88,15 +109,15 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
+       onSubmit={(e) => { e.preventDefault(); void create(); }}
+     >
+       <TitleInput value={name} onChange={(v) => { setName(v); setError(null); }} aria-label="Event name" placeholder="Event name" maxLength={120} testId="org-new-event-name" />
+-      <section aria-label="What is it?" data-testid="org-new-event-type">
+-        <SectionLabel as="p">What is it?</SectionLabel>
++      <section aria-label="First session" data-testid="org-new-event-type">
++        <SectionLabel as="p">First session</SectionLabel>
+         <div className="flex flex-wrap gap-[8px]">
+           {EVENT_TYPES.map((t) => (
+             <Chip key={t.type} selected={type === t.type} onToggle={() => { setType(t.type); setError(null); }} disabled={scheduleFailed} testId={`org-new-event-type-${t.type}`}>{t.label}</Chip>
+           ))}
+         </div>
+         <p className="mt-[8px] text-[13px] text-[var(--mut)]" data-testid="org-new-event-type-hint">
+-          {type ? EVENT_TYPES.find((t) => t.type === type)?.hint : 'Choose one. It sets how your event is listed.'}
++          {type ? EVENT_TYPES.find((t) => t.type === type)?.hint : FIRST_SESSION_HINT}
+         </p>
+       </section>
+       <p className="text-[14px] text-[var(--mut)]">
+diff --git a/src/modules/organiser/events/__tests__/fixesBatch.matrix.test.ts b/src/modules/organiser/events/__tests__/fixesBatch.matrix.test.ts
+index 122f3ca0..c7752046 100644
+--- a/src/modules/organiser/events/__tests__/fixesBatch.matrix.test.ts
++++ b/src/modules/organiser/events/__tests__/fixesBatch.matrix.test.ts
+@@ -91,14 +91,15 @@ describe('7: weekly -> One date says how many dates go, before Save', () => {
+ 
+ describe('G2 + G4: what the create sends for each type', () => {
+   const cases = [
+-    { type: 'class', category: 'class', minutes: 120, schedule: 'series.set_recurrence' },
+-    { type: 'party', category: 'party', minutes: 300, schedule: 'series.add_date' },
+-    { type: 'workshop', category: 'workshop', minutes: 120, schedule: 'series.add_date' },
++    { type: 'class', minutes: 120, schedule: 'series.set_recurrence' },
++    { type: 'party', minutes: 300, schedule: 'series.add_date' },
++    { type: 'workshop', minutes: 120, schedule: 'series.add_date' },
+   ] as const;
+-  it.each(cases)('$type', ({ type, category, minutes, schedule }) => {
++  it.each(cases)('$type', ({ type, minutes, schedule }) => {
+     const cmds = newEventCommands('Night', TODAY, 'org1', 'c1', type);
+     const p = cmds.create.payload;
+-    expect(p.category).toBe(category);
++    // Category is derived from the sessions on the server (event-truth P2): a create never sends it.
++    expect(p).not.toHaveProperty('category');
+     // Owners may not create a course; recurring with no rule is the owner's one-date shape.
+     expect(p.format).toBe('recurring');
+     expect(p.default_duration_minutes).toBe(minutes);
+@@ -107,11 +108,15 @@ describe('G2 + G4: what the create sends for each type', () => {
+     expect(cmds.schedule.kind).toBe(schedule);
+     if (schedule === 'series.add_date') expect(cmds.schedule.payload).toEqual({ date: p.default_start_date });
+   });
+-  it('offers exactly Class, Party, Course or workshop (no festival)', () => {
+-    expect(EVENT_TYPES.map((t) => t.label)).toEqual(['Class', 'Party', 'Course or workshop']);
++  it('offers exactly Class, Party, Workshop as the first session (no festival)', () => {
++    expect(EVENT_TYPES.map((t) => t.label)).toEqual(['Class', 'Party', 'Workshop']);
+   });
+-  it.each([['class', 'Class'], ['party', 'Party'], ['workshop', 'Course or workshop'], [null, 'Not set']] as const)('category %s reads %s', (c, label) => {
+-    expect(categoryLabel(c)).toBe(label);
++  it.each([
++    ['recurring', 'class', 'Class'], ['recurring', 'party', 'Night'], ['one_off', 'workshop', 'Class'],
++    ['recurring', 'masterclass', 'Masterclass'], ['recurring', null, 'Not set'],
++    ['course', 'party', 'Course'], ['festival', null, 'Festival'],
++  ] as const)('%s + category %s reads %s', (f, c, label) => {
++    expect(categoryLabel(f, c)).toBe(label);
+   });
+ });
+ 
+diff --git a/src/modules/organiser/events/__tests__/pages.test.tsx b/src/modules/organiser/events/__tests__/pages.test.tsx
+index 61b0e65a..f05311fd 100644
+--- a/src/modules/organiser/events/__tests__/pages.test.tsx
++++ b/src/modules/organiser/events/__tests__/pages.test.tsx
+@@ -110,10 +110,12 @@ describe('new event (name only)', () => {
+     const [create, rule] = commands();
+     expect(create.command.kind).toBe('series.upsert');
+     expect(create.command.payload).toMatchObject({
+-      name: 'Tuesday Class', format: 'recurring', category: 'class', default_duration_minutes: 120,
++      name: 'Tuesday Class', format: 'recurring', default_duration_minutes: 120,
+       default_start_date: '2026-10-15', timezone: 'Europe/London', default_city_id: 'c1',
+     });
+     expect(Object.keys(create.command.payload)).not.toContain('default_venue_id');
++    // Category is derived from the sessions on the server (event-truth P2): never sent.
++    expect(Object.keys(create.command.payload)).not.toContain('category');
+     expect(rule.command).toEqual({ kind: 'series.set_recurrence', payload: { mode: 'weekly', weekdays: [4], end: { kind: 'until_date', date: '2026-12-03' } } });
+     expect(rule.expected_version).toBe(4);
+   });
+@@ -125,16 +127,17 @@ describe('new event (name only)', () => {
+     fireEvent.click(screen.getByTestId('org-new-event-create'));
+     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+     const [create, date] = commands();
+-    expect(create.command.payload).toMatchObject({ category: 'party', format: 'recurring', default_duration_minutes: 300 });
++    expect(create.command.payload).toMatchObject({ format: 'recurring', default_duration_minutes: 300 });
++    expect(create.command.payload).not.toHaveProperty('category');
+     expect(date.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
+     expect(commands()).toHaveLength(2);
+   });
+ 
+-  it('asks what it is before creating', async () => {
++  it('asks for the first session before creating', async () => {
+     mount('/account/o/events/new');
+     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'X' } });
+     fireEvent.click(screen.getByTestId('org-new-event-create'));
+-    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/Choose what it is/);
++    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/Choose the first session/);
+     expect(commands()).toHaveLength(0);
+   });
+ 
+@@ -155,6 +158,55 @@ describe('new event (name only)', () => {
+     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+   });
+ 
++  // The chip seeds ONE session on the first upcoming date (organiser_set_occurrence_programme_v1
++  // writes date-only sessions; the server derives the category from them). Table-driven over
++  // the three chips; the fixture's o0 is in the past, so o1 (9 Oct) is the first upcoming date.
++  const setCalls = () => rpc.mock.calls.filter(([fn]) => fn === 'organiser_set_occurrence_programme_v1').map(([, a]) => a as { p_occurrence_id: string; p_expected_version: number; p_sessions: Record<string, unknown>[] });
++  it.each([
++    ['class', { type: 'class', title: 'Class', start_time: '20:00', end_time: '22:00', ends_next_day: false }],
++    ['party', { type: 'party', title: 'Party', start_time: '20:00', end_time: '01:00', ends_next_day: true }],
++    ['workshop', { type: 'class', title: 'Workshop', start_time: '20:00', end_time: '22:00', ends_next_day: false }],
++  ] as const)('the %s chip seeds one session on the first upcoming date', async (chip, session) => {
++    handlers.organiser_get_occurrence_programme_v1 = () => ({ ...programme, sessions: [], session_people: [] });
++    handlers.organiser_set_occurrence_programme_v1 = () => ({ ok: true, changed: true, version: 3, sessions: [] });
++    mount('/account/o/events/new');
++    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
++    fireEvent.click(screen.getByTestId(`org-new-event-type-${chip}`));
++    fireEvent.click(screen.getByTestId('org-new-event-create'));
++    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
++    expect(setCalls()).toHaveLength(1);
++    const [call] = setCalls();
++    expect(call.p_occurrence_id).toBe('o1');
++    expect(call.p_expected_version).toBe(2);
++    expect(call.p_sessions).toEqual([{ new: true, level_keys: [], ...session }]);
++  });
++
++  it('a first date that already holds a session gets no second one (Create pressed again)', async () => {
++    handlers.organiser_set_occurrence_programme_v1 = () => ({ ok: true, changed: true, version: 3, sessions: [] });
++    mount('/account/o/events/new');
++    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
++    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
++    fireEvent.click(screen.getByTestId('org-new-event-create'));
++    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
++    expect(setCalls()).toHaveLength(0);
++  });
++
++  it('a refused first session is shown, not swallowed, and the event can be opened', async () => {
++    handlers.organiser_get_occurrence_programme_v1 = () => ({ ...programme, sessions: [], session_people: [] });
++    handlers.organiser_set_occurrence_programme_v1 = () => { throw { message: 'permission_denied: programme edit on a cancelled date is not allowed', code: 'P0001' }; };
++    mount('/account/o/events/new');
++    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
++    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
++    fireEvent.click(screen.getByTestId('org-new-event-create'));
++    const error = (await screen.findByTestId('org-new-event-error')).textContent ?? '';
++    expect(error).toMatch(/saved as a draft, but the first session was not added/);
++    expect(error).toMatch(/This date is cancelled/);
++    expect(error).not.toMatch(/permission_denied/);
++    expect(screen.getByTestId('where').textContent).toBe('/account/o/events/new');
++    fireEvent.click(screen.getByTestId('org-new-event-open'));
++    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
++  });
++
+   it('asks for a name instead of sending a blank one', async () => {
+     mount('/account/o/events/new');
+     fireEvent.click(await screen.findByTestId('org-new-event-create'));
+diff --git a/src/modules/organiser/events/eventType.ts b/src/modules/organiser/events/eventType.ts
+index 79f61609..afb6797f 100644
+--- a/src/modules/organiser/events/eventType.ts
++++ b/src/modules/organiser/events/eventType.ts
+@@ -1,27 +1,46 @@
+-// What an event IS (G2): the three types an organiser picks when creating one, and
+-// how a stored category reads on the event page. Owners may write the categories
+-// party, class and workshop (apply_aggregate_write_p5); a course FORMAT is
+-// admin-only (a non-admin create is forced to one_off or recurring), so 'Course or
+-// workshop' is category workshop. Pure.
++// The first session an organiser picks when creating an event (G2), and how a
++// series' type reads. Nobody is asked what an event IS any more (event-truth
++// P1): category is derived from the sessions (src/lib/eventCategory.ts and its
++// SQL twin), so a chip here only seeds the first session on the first date and
++// sets the schedule a create starts with. The Type row reads the stored mirror
++// through the shared label, the same word every other screen shows (one mapping,
++// never a copy). A course FORMAT stays admin-only (a
++// non-admin create is forced to one_off or recurring). Pure.
++import { categoryLabelFor, wordForStored } from '@/lib/eventCategory';
+ 
+ export type NewEventType = 'class' | 'party' | 'workshop';
+ 
+ export const EVENT_TYPES: Array<{ type: NewEventType; label: string; hint: string }> = [
+-  { type: 'class', label: 'Class', hint: 'Same day every week. The first 8 weeks are listed for you.' },
+-  { type: 'party', label: 'Party', hint: 'Starts as one date. Make it weekly later from Repeats.' },
+-  { type: 'workshop', label: 'Course or workshop', hint: 'Starts as one date. Make it weekly later from Repeats.' },
++  { type: 'class', label: 'Class', hint: 'Same day every week. The first 8 weeks are listed, with a class on the first date. Add more sessions after.' },
++  { type: 'party', label: 'Party', hint: 'One date with a party session. Make it weekly later from Repeats. Add more sessions after.' },
++  { type: 'workshop', label: 'Workshop', hint: 'One date with a workshop session (listed under Classes). Add more sessions after.' },
+ ];
+ 
+-/** event_series_p5.category each type writes. */
+-export const TYPE_CATEGORY: Record<NewEventType, string> = { class: 'class', party: 'party', workshop: 'workshop' };
++/** The hint before a chip is picked. */
++export const FIRST_SESSION_HINT = 'Choose one. It becomes the first session; you can add more after.';
+ 
+-/** default_duration_minutes a create sends (G4; the server takes 1-1200). */
++/**
++ * The one session a create seeds on the first date (organiser_set_occurrence_programme_v1
++ * takes type class | masterclass | party | performance, so a workshop is a class session
++ * titled Workshop). Times are the create's start time plus its default length.
++ */
++export const SEED_SESSION: Record<NewEventType, { type: 'class' | 'party'; title: string }> = {
++  class: { type: 'class', title: 'Class' },
++  party: { type: 'party', title: 'Party' },
++  workshop: { type: 'class', title: 'Workshop' },
++};
++
++/** default_duration_minutes a create sends (G4; the server takes 1-1200), and the seeded session's length. */
+ export const DEFAULT_DURATION_MINUTES: Record<NewEventType, number> = { class: 120, party: 300, workshop: 120 };
+ 
+-const CATEGORY_LABEL: Record<string, string> = {
+-  class: 'Class', party: 'Party', workshop: 'Course or workshop', masterclass: 'Masterclass', festival: 'Festival',
+-};
++/** The type as every organiser screen shows it ('Not set' when the series has no session yet). */
++export const categoryLabel = (format: string | null | undefined, category: string | null | undefined): string =>
++  categoryLabelFor(format, category);
+ 
+-/** The type as the event page shows it ('Not set' when the series has none). */
+-export const categoryLabel = (category: string | null | undefined): string =>
+-  !category ? 'Not set' : CATEGORY_LABEL[category] ?? category.charAt(0).toUpperCase() + category.slice(1);
++/** What sets the type, under the Type row. Never names a control that is not on the page. */
++export function typeSublabel(format: string | null | undefined, category: string | null | undefined): string {
++  if (format === 'festival' || format === 'course') return 'Set by its format.';
++  return wordForStored(format, category)
++    ? 'Set by its sessions. Change the sessions on a date and it follows.'
++    : 'Add a session to one of its dates and it is set for you.';
++}
+diff --git a/src/modules/organiser/events/newEvent.ts b/src/modules/organiser/events/newEvent.ts
+index 8f6ed34e..aa863280 100644
+--- a/src/modules/organiser/events/newEvent.ts
++++ b/src/modules/organiser/events/newEvent.ts
+@@ -1,10 +1,12 @@
+ import { addDaysToKey } from '@/lib/londonDate';
+ import { createSeriesCommand } from '@/modules/organiser/shared/selfServeApi';
+ import { createDraft, emptyCreateForm } from '@/modules/organiser/shared/createModel';
+-import { addDateCommand, createPayload, type OwnerCategory, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
++import { buildPayload, newSession, type Programme, type WireSession } from '@/modules/organiser/shared/programmeModel';
++import { endTime, isCancelledDate, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
++import { addDateCommand, createPayload, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
+ import { EXTEND_BATCH, untilForCount } from './dateCap';
+ import { weeklyUntilCommand } from './eventModel';
+-import { DEFAULT_DURATION_MINUTES, TYPE_CATEGORY, type NewEventType } from './eventType';
++import { DEFAULT_DURATION_MINUTES, SEED_SESSION, type NewEventType } from './eventType';
+ 
+ /** Every new event starts the same way; the editor changes any of it. */
+ export const NEW_EVENT_START_TIME = '20:00';
+@@ -16,14 +18,37 @@ export const NEW_EVENT_FIRST_DATE_IN_DAYS = 7;
+  * and a one_off can never be made weekly): a class then gets the weekly rule that
+  * lists the first EXTEND_BATCH dates; a party or a workshop gets ONE date, which
+  * the editor's Repeats row can make weekly later (G2, G5). The create carries the
+- * type's default duration so each date has an end time (G4).
++ * type's default duration so each date has an end time (G4). No category: the
++ * server derives it from the sessions, and seedSessions adds the first one.
+  */
+ export function newEventCommands(name: string, today: string, organiserId: string, cityId: string | null, type: NewEventType = 'class'): { create: OwnerCommand; schedule: OwnerCommand } {
+   const startDate = addDaysToKey(today, NEW_EVENT_FIRST_DATE_IN_DAYS);
+   const form = { ...emptyCreateForm(), kind: 'weekly_class' as const, name, date: startDate, startTime: NEW_EVENT_START_TIME };
+-  const draft = { ...createDraft(form), category: TYPE_CATEGORY[type] as OwnerCategory, durationMinutes: DEFAULT_DURATION_MINUTES[type] };
++  const draft = { ...createDraft(form), durationMinutes: DEFAULT_DURATION_MINUTES[type] };
+   return {
+     create: createSeriesCommand(createPayload(draft, cityId), organiserId),
+     schedule: type === 'class' ? weeklyUntilCommand(startDate, untilForCount({ today, startDate }, EXTEND_BATCH)) : addDateCommand(startDate),
+   };
+ }
++
++/**
++ * The date the first session goes on: the earliest listed date from today on that is
++ * not cancelled (the programme writer refuses a past or cancelled date).
++ */
++export function firstListedDate(dates: WorkspaceDate[], today: string): WorkspaceDate | null {
++  return [...dates]
++    .filter((d) => !isCancelledDate(d) && d.occurrence_date >= today)
++    .sort((a, b) => a.occurrence_date.localeCompare(b.occurrence_date))[0] ?? null;
++}
++
++/**
++ * The first date's complete programme with the chip's session added, for
++ * organiser_set_occurrence_programme_v1. Null when the date already holds a
++ * session: a Create pressed again after a lost reply must never add a second one.
++ */
++export function seedSessions(programme: Programme, type: NewEventType): WireSession[] | null {
++  if (programme.sessions.length > 0) return null;
++  const seed = SEED_SESSION[type];
++  const end = endTime(NEW_EVENT_START_TIME, DEFAULT_DURATION_MINUTES[type]) ?? '';
++  return buildPayload([{ ...newSession(seed.type), title: seed.title, start: NEW_EVENT_START_TIME, end }]);
++}
+diff --git a/src/modules/organiser/shared/__tests__/createModel.test.ts b/src/modules/organiser/shared/__tests__/createModel.test.ts
+index 6901c2aa..51c70f1e 100644
+--- a/src/modules/organiser/shared/__tests__/createModel.test.ts
++++ b/src/modules/organiser/shared/__tests__/createModel.test.ts
+@@ -1,7 +1,6 @@
+ import { describe, expect, it, vi } from 'vitest';
+ import {
+   EVENT_KINDS,
+-  KIND_CATEGORY,
+   KIND_FORMAT,
+   WEEKDAY_OPTIONS,
+   createBlock,
+@@ -17,7 +16,7 @@ import {
+   weekdayOf,
+   type CreateForm,
+ } from '../createModel';
+-import { OWNER_CATEGORIES, OWNER_CREATE_KEYS, SERIES_TIMEZONE, createPayload, submitForReviewCommand, weeklyRuleCommand } from '../seriesCommands';
++import { OWNER_CREATE_KEYS, SERIES_TIMEZONE, createPayload, submitForReviewCommand, weeklyRuleCommand } from '../seriesCommands';
+ import { commandErrorMessage, isServerRefusal } from '../selfServeErrors';
+ 
+ // selfServeApi imports the Supabase client; only its pure createSeriesCommand is under test.
+@@ -41,12 +40,10 @@ const weeklyForm: CreateForm = {
+ const partyForm: CreateForm = { ...emptyCreateForm(), kind: 'party', name: 'Bachata Sundays Party', date: '2026-10-17', startTime: '20:00' };
+ 
+ describe('the two kinds', () => {
+-  it('offer only owner categories and never a masterclass (admin D7)', () => {
++  it('set the format only; a create never sends a category (derived from the sessions, event-truth P2)', () => {
+     for (const k of EVENT_KINDS) {
+-      expect(OWNER_CATEGORIES).toContain(KIND_CATEGORY[k.kind]);
+-      expect(KIND_CATEGORY[k.kind]).not.toBe('masterclass');
++      expect(createDraft({ ...partyForm, kind: k.kind })).not.toHaveProperty('category');
+     }
+-    expect(KIND_CATEGORY).toEqual({ party: 'party', weekly_class: 'class' });
+     expect(KIND_FORMAT).toEqual({ party: 'one_off', weekly_class: 'recurring' });
+     expect(EVENT_KINDS.map((k) => k.kind).sort()).toEqual(['party', 'weekly_class']);
+   });
+@@ -149,7 +146,6 @@ describe('createPayload', () => {
+     expect(payload).toEqual({
+       name: 'Tuesday Bachata Class',
+       format: 'recurring',
+-      category: 'class',
+       default_start_date: '2026-10-06',
+       default_local_start_time: '19:00',
+       timezone: 'Europe/London',
+@@ -162,11 +158,10 @@ describe('createPayload', () => {
+     expect(SERIES_TIMEZONE).toBe('Europe/London');
+   });
+ 
+-  it('sends only the six always-keys for a bare party (an absent key lands NULL; a blank would be noise)', () => {
++  it('sends only the five always-keys for a bare party (an absent key lands NULL; a blank would be noise)', () => {
+     expect(createPayload(createDraft(partyForm))).toEqual({
+       name: 'Bachata Sundays Party',
+       format: 'one_off',
+-      category: 'party',
+       default_start_date: '2026-10-17',
+       default_local_start_time: '20:00',
+       timezone: 'Europe/London',
+diff --git a/src/modules/organiser/shared/__tests__/ownerWritesD8.test.ts b/src/modules/organiser/shared/__tests__/ownerWritesD8.test.ts
+index 23e8141e..65130163 100644
+--- a/src/modules/organiser/shared/__tests__/ownerWritesD8.test.ts
++++ b/src/modules/organiser/shared/__tests__/ownerWritesD8.test.ts
+@@ -136,11 +136,12 @@ describe('D8: form checks match the server rules', () => {
+   });
+ });
+ 
+-describe('D8: category is never echoed outside the owner three', () => {
+-  it('upsertCommand drops a masterclass (or any non-owner) category', () => {
++describe('event-truth P2: category is never sent (the server derives it from the sessions)', () => {
++  it('upsertCommand drops every category, an owner one included', () => {
+     expect(upsertCommand({ name: 'M', category: 'masterclass' })).toEqual({ kind: 'series.upsert', payload: { name: 'M' } });
+     expect(upsertCommand({ name: 'M', category: null })).toEqual({ kind: 'series.upsert', payload: { name: 'M' } });
+-    expect(upsertCommand({ name: 'P', category: 'party' })).toEqual({ kind: 'series.upsert', payload: { name: 'P', category: 'party' } });
++    expect(upsertCommand({ name: 'P', category: 'party' })).toEqual({ kind: 'series.upsert', payload: { name: 'P' } });
++    expect(upsertCommand({ name: 'C' })).toEqual({ kind: 'series.upsert', payload: { name: 'C' } });
+   });
+ 
+   it('the basics form on a masterclass series sends no category', () => {
+diff --git a/src/modules/organiser/shared/__tests__/seriesCommands.test.ts b/src/modules/organiser/shared/__tests__/seriesCommands.test.ts
+index 11105d03..ecd1d466 100644
+--- a/src/modules/organiser/shared/__tests__/seriesCommands.test.ts
++++ b/src/modules/organiser/shared/__tests__/seriesCommands.test.ts
+@@ -1,7 +1,6 @@
+ import { describe, expect, it } from 'vitest';
+ import {
+   OWNER_CANCEL_KEYS,
+-  OWNER_CATEGORIES,
+   OWNER_COMMAND_KINDS,
+   OWNER_CREATE_KEYS,
+   OWNER_OVERRIDE_KEYS,
+@@ -50,7 +49,6 @@ const SERVER_UPSERT_KEYS = [
+ // Website attaches it in selfServeApi.ts (createSeriesCommand, pinned in
+ // createModel.test.ts) and the mirror below stops at 'format'.
+ const SERVER_CREATE_KEYS_WITHOUT_ORGANISER = [...SERVER_UPSERT_KEYS, 'format'];
+-const SERVER_OWNER_CATEGORIES = ['party', 'class', 'workshop'];
+ const SERVER_OVERRIDE_KEYS = ['venue_id', 'city_id', 'cancellation_reason_label', 'cover_image_url', 'ticket_url', 'description'];
+ const SERVER_CANCEL_KEYS = ['cancelled', 'reason'];
+ 
+@@ -71,8 +69,6 @@ describe('the owner allowlist mirror', () => {
+     expect([...OWNER_OVERRIDE_KEYS].sort()).toEqual([...SERVER_OVERRIDE_KEYS].sort());
+     expect([...OWNER_CANCEL_KEYS].sort()).toEqual([...SERVER_CANCEL_KEYS].sort());
+     expect([...OWNER_CREATE_KEYS].sort()).toEqual([...SERVER_CREATE_KEYS_WITHOUT_ORGANISER].sort());
+-    expect([...OWNER_CATEGORIES]).toEqual(SERVER_OWNER_CATEGORIES);
+-    expect(OWNER_CATEGORIES as readonly string[]).not.toContain('masterclass');
+   });
+ 
+   it('never sends an admin-only override key (the handler accepts them, the owner gate refuses)', () => {
+diff --git a/src/modules/organiser/shared/createModel.ts b/src/modules/organiser/shared/createModel.ts
+index 3f2e59bb..4d5c8036 100644
+--- a/src/modules/organiser/shared/createModel.ts
++++ b/src/modules/organiser/shared/createModel.ts
+@@ -13,7 +13,6 @@ import {
+   submitForReviewCommand,
+   weeklyRuleCommand,
+   type CreateDraft,
+-  type OwnerCategory,
+   type OwnerCommand,
+   type OwnerFormat,
+ } from './seriesCommands';
+@@ -25,12 +24,7 @@ export const EVENT_KINDS: Array<{ kind: EventKind; label: string; hint: string }
+   { kind: 'party', label: 'Party', hint: 'One night. You can add more dates later.' },
+ ];
+ 
+-/**
+- * The owner categories (admin D7) the two kinds map to. `workshop` is an owner
+- * value too, but neither the plan (section 4) nor mockup 02 offers it, so this
+- * screen does not: a workshop stays with the team until a slice asks for it.
+- */
+-export const KIND_CATEGORY: Record<EventKind, OwnerCategory> = { party: 'party', weekly_class: 'class' };
++/** A kind sets the format only; category is derived from the sessions (event-truth P2). */
+ export const KIND_FORMAT: Record<EventKind, OwnerFormat> = { party: 'one_off', weekly_class: 'recurring' };
+ 
+ export interface CreateForm {
+@@ -160,7 +154,6 @@ export function createBlock(organiser: { name: string; lifecycle_status: string
+ export function createDraft(form: CreateForm): CreateDraft {
+   return {
+     ...formToDraft(form),
+-    category: KIND_CATEGORY[form.kind],
+     format: KIND_FORMAT[form.kind],
+     startDate: form.date,
+   };
+diff --git a/src/modules/organiser/shared/seriesCommands.ts b/src/modules/organiser/shared/seriesCommands.ts
+index da65b0d3..5b0b6ec6 100644
+--- a/src/modules/organiser/shared/seriesCommands.ts
++++ b/src/modules/organiser/shared/seriesCommands.ts
+@@ -18,9 +18,10 @@ export const OWNER_COMMAND_KINDS = [
+ ] as const;
+ 
+ /**
+- * series.upsert keys an owner may send on an EXISTING series. `category` joined
+- * the list with admin D7 (20261109130000_p5_owner_category_v1.sql); the server
+- * refuses a category change on a live series, so the basics form never sends it.
++ * series.upsert keys an owner may send on an EXISTING series (a mirror of the
++ * server allowlist). `category` is still on it so an older client is never
++ * refused, but the server now DERIVES category from the sessions and ignores a
++ * sent value (event-truth P2), so nothing here sends it.
+  * `default_passes` (the price list) and `instagram_url` joined with admin D8
+  * (20261109180000_p5_owner_writes_time_price_instagram_v1.sql).
+  */
+@@ -41,11 +42,6 @@ export const OWNER_UPSERT_KEYS = [
+  */
+ export const OWNER_CREATE_KEYS = [...OWNER_UPSERT_KEYS, 'format'] as const;
+ 
+-/** The categories an owner may create (admin D7): party, class, workshop. masterclass is admin-only. */
+-export const OWNER_CATEGORIES = ['party', 'class', 'workshop'] as const;
+-export type OwnerCategory = (typeof OWNER_CATEGORIES)[number];
+-export const isOwnerCategory = (value: unknown): value is OwnerCategory =>
+-  typeof value === 'string' && (OWNER_CATEGORIES as readonly string[]).includes(value);
+ 
+ // ---- the price list (admin D8 _owner_passes_problem_p5) ------------------------
+ 
+@@ -221,13 +217,12 @@ export const hasBasicsChanges = (initial: BasicsDraft, draft: BasicsDraft) =>
+   Object.keys(basicsPayload(initial, draft)).length > 1 || draft.name.trim() !== initial.name.trim();
+ 
+ /**
+- * series.upsert. `category` goes only when it is one of the three owner
+- * categories: the server refuses anything else from an owner (admin D7, a
+- * masterclass included, even echoed back unchanged), so a category the team
+- * set (masterclass) is left out and the series keeps it.
++ * series.upsert. `category` never goes: the server derives it from the
++ * sessions (src/lib/eventCategory.ts and its SQL twin) and ignores a sent one,
++ * so sending it would only look like it set something.
+  */
+ export function upsertCommand(payload: Record<string, unknown>): OwnerCommand {
+-  if (!('category' in payload) || isOwnerCategory(payload.category)) return { kind: 'series.upsert', payload };
++  if (!('category' in payload)) return { kind: 'series.upsert', payload };
+   const rest = { ...payload };
+   delete rest.category;
+   return { kind: 'series.upsert', payload: rest };
+@@ -289,7 +284,6 @@ export const SERIES_TIMEZONE = 'Europe/London';
+ 
+ /** The create screen's draft: the basics plus what only a create may set. */
+ export interface CreateDraft extends BasicsDraft {
+-  category: OwnerCategory;
+   format: OwnerFormat;
+   /** The party's date, or the weekly class's first date (YYYY-MM-DD, London). */
+   startDate: string;
+@@ -300,8 +294,9 @@ const CREATE_TEXT_FIELDS = ['ticketUrl', 'coverImageUrl', 'description'] as cons
+ 
+ /**
+  * series.upsert payload for a create, WITHOUT the organiser key (see
+- * OWNER_CREATE_KEYS). Always: name, format, category, the start date, the start
+- * time and the time zone. Optional fields go only when set: a create with an
++ * OWNER_CREATE_KEYS). Always: name, format, the start date, the start time and
++ * the time zone; never category (derived from the sessions, see
++ * upsertCommand). Optional fields go only when set: a create with an
+  * absent key lands NULL anyway, and a blank would echo through the handler's
+  * NULLIF for nothing.
+  *
+@@ -313,7 +308,6 @@ export function createPayload(draft: CreateDraft, cityId?: string | null): Recor
+   const payload: Record<string, unknown> = {
+     name: draft.name.trim(),
+     format: draft.format,
+-    category: draft.category,
+     default_start_date: draft.startDate,
+     default_local_start_time: draft.startTime,
+     timezone: SERIES_TIMEZONE,
+-- 
+2.53.0.windows.1
+
