@@ -88,7 +88,7 @@ Party -> Night is the owner's label list; the sublabel is F4's. Nothing else in 
 | | Australia/Sydney list | green (exit 0) |
 | typecheck.yml | `check:rpc-typing` | green |
 | | `check:wallclock-brand` | green |
-| e2e-smoke.yml | `npm run test:e2e` (full list) | full list run after the push: 2 failed   1 skipped   88 passed (3.5m) exit=1 |
+| e2e-smoke.yml | `npm run test:e2e` (full list) | full list run after the push: 2 failed   1 skipped   88 passed (3.5m) exit=1. The 2 failed are both tests/e2e/dancer-home.spec.ts (a finished dancer gets the dancer home; unfinished organiser hitting /account/o), a flow this slice does not touch, each at ~20 s under full-list load (the brief names dancer-first-gate round-trips as known load flakes). NOT re-run alone before the context gate: the next session must run `npx playwright test tests/e2e/dancer-home.spec.ts --project=chromium` alone and record it; if it reds alone, bisect against bc47fff. |
 | | `organiser-events.spec.ts` alone | 9 passed |
 | | `organiser-loop.spec.ts` alone (updated: the seeded "Class" session is the one staffed) | 1 passed |
 | architecture-guard.yml (`integrity`) | `bin/check-integrity.sh` | green |

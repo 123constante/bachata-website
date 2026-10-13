@@ -17,7 +17,7 @@ mutants, matrix, CI results and the walk script: `docs/handover/event-truth-p1-u
    Suspect the new `@/lib/eventCategory` import edges (`endedRun.ts`, `eventType.ts`). Reproduce:
    `npm run build:ship && npm run check:first-load-requests`, then diff `<link rel=modulepreload>` in
    `build/client/faq/index.html` against a main build. Do NOT raise the pins without a reason.
-2. Full `npm run test:e2e` as one run (after the push): 2 failed   1 skipped   88 passed (3.5m) exit=1
+2. Full `npm run test:e2e` as one run (after the push): 2 failed   1 skipped   88 passed (3.5m) exit=1. The 2 failed are both tests/e2e/dancer-home.spec.ts (a finished dancer gets the dancer home; unfinished organiser hitting /account/o), a flow this slice does not touch, each at ~20 s under full-list load (the brief names dancer-first-gate round-trips as known load flakes). NOT re-run alone before the context gate: the next session must run `npx playwright test tests/e2e/dancer-home.spec.ts --project=chromium` alone and record it; if it reds alone, bisect against bc47fff.
 3. Calendar masterclass / social tab parity with the lib: needs Ricky (`calendarUtils.ts` is ask-first);
    `it.todo` in `eventTruth.matrix.test.tsx`.
 4. 390x844 walk on prod-shaped data (script in the slice handover, section 6).
