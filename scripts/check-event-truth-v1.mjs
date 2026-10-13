@@ -75,7 +75,9 @@
  *                            on occurrence_id alone, because latest dates its row
  *                            in UTC and the calendar in city time.
  *   4. kind_vs_type       -- REPORTED, never gating (8 today): a programme item
- *                            whose type contradicts its section's kind.
+ *                            whose type contradicts its section's kind, and
+ *                            (FIX-2) a date-only session whose type contradicts
+ *                            its section_kind: both grains are in the scan.
  *   Live series WITHOUT a programme, or whose sections are all of kinds and
  *   types that map to no genre (showcase, competition, show, ...), are reported:
  *   that is P1's "Not set" state, not drift.
@@ -240,7 +242,9 @@ export function latestVsCalendar(calendarRows, latestRows) {
 
 /** A programme item whose type contradicts the kind of the section holding it,
  *  with the readers' synonyms. Each item arrives as the RPC's {kind, type}
- *  pair. A NULL on either side contradicts nothing. Reported only. */
+ *  pair -- a series item (kind = its section's kind) and a date-only session
+ *  (kind = its section_kind) alike. A NULL on either side contradicts nothing.
+ *  Reported only. */
 export function kindTypeMismatches(items) {
   const mismatches = [];
   for (const item of items ?? []) {
@@ -424,10 +428,14 @@ export async function runCheck({ source, baseline, now, log = console.log }) {
   const payload = await source.truth();
   const series = assertTruthPayload(payload);
   assertMeasured(series.length, 1, 'live series from ' + TRUTH_RPC + ' -- an empty list means the RPC measured nothing (lost SECURITY DEFINER, or its scope changed), not an empty calendar');
-  // Series sections PLUS date-only sessions: a series the organiser create wrote
-  // has only the latter, so neither grain alone is the floor (assertTruthPayload
-  // has already proved both counts are integers that match their arrays).
-  assertMeasured(payload.section_count + payload.added_session_count, 1, 'programme rows (series sections + date-only sessions) under live series -- the programme tables read as empty');
+  // The floor is the SERIES programme, section_count >= 1 on its own (review A,
+  // FIX-2). Date-only rows cannot stand in for it: 64 of 64 live series carry a
+  // series programme today, so a broken day -> section join must read as
+  // "measured nothing" (exit 2), never pass on date-only rows alone. A future
+  // where every live series is organiser-created (date-only only) is a decision
+  // to take then, not a floor to relax now. (assertTruthPayload has already
+  // proved both counts are integers that match their arrays.)
+  assertMeasured(payload.section_count, 1, 'series programme sections under live series -- the day -> section join read as empty (date-only sessions never stand in for it)');
 
   const withoutProgramme = [];
   const unmapped = [];
@@ -485,9 +493,9 @@ export async function runCheck({ source, baseline, now, log = console.log }) {
     say('  ' + d.occurrence_id + ' calendar class=' + d.calendar.has_class + ' party=' + d.calendar.has_party + ' vs latest class=' + d.latest.has_class + ' party=' + d.latest.has_party);
   }
 
-  // --- Reported only ---
-  const mismatches = kindTypeMismatches(series.flatMap((s) => s.items));
-  say('kind_vs_type (reported, not gating): ' + mismatches.length + ' programme item(s) whose type contradicts their section kind');
+  // --- Reported only: series items AND date-only sessions, both {kind, type} ---
+  const mismatches = kindTypeMismatches(series.flatMap((s) => [...s.items, ...s.added_sessions]));
+  say('kind_vs_type (reported, not gating): ' + mismatches.length + ' programme item(s) or date-only session(s) whose type contradicts their section kind');
 
   return {
     code: failures.length > 0 ? 1 : 0,
@@ -757,7 +765,9 @@ async function selfTest() {
   add('check: date-only performance / showcase only is genre not set, not drift', () => outcome(dateOnly('showcase', 'performance', 'class')), 'ok');
   add('check: ...and printed as genre not set', () => says(dateOnly('showcase', 'performance', 'class'), 'map to no genre'), true);
   add('check: a NULL mirror under a date-only class session is NEW drift (unset is not "not set")', () => outcome(dateOnly('class', null, null)), 'violated:category_drift');
-  add('measured: a payload whose only programme rows are date-only sessions still measures', () => outcome({ ...dateOnly('class', null, 'class'), sections: [], items: [] }), 'ok');
+  add('measured: section_count 0 with date-only sessions only is exit 2 (the series-programme floor stands on its own; date-only rows never stand in for it)', () => outcome({ ...dateOnly('class', null, 'class'), sections: [], items: [] }), 'measured-shortfall');
+  add('kind/type: a date-only session whose type contradicts its section_kind is in the report (series items alone would say 0)', () => says(dateOnly('party', 'class', 'party'), 'kind_vs_type (reported, not gating): 1 '), true);
+  add('kind/type: ...and a date-only mismatch still never gates', () => outcome(dateOnly('party', 'class', 'party')), 'ok');
   add('payload: added_session_count off by one is exit 2', () => truthWith((p) => { p.added_session_count += 1; }), 'bad-payload');
   add('payload: added_session_count arriving as a string is exit 2', () => truthWith((p) => { p.added_session_count = String(p.added_session_count); }), 'bad-payload');
   add('payload: a NULL added_session_count is exit 2, not 0 sessions', () => truthWith((p) => { p.added_session_count = null; }), 'bad-payload');

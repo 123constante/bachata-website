@@ -32,6 +32,11 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
   // The event exists but its dates did not list, or its first session was not
   // added: say so and offer to open it.
   const [scheduleFailed, setScheduleFailed] = useState(false);
+  // The event exists with the chosen type (its create went through, so every later
+  // step runs against it): the chips lock for the life of the page. Never reset by
+  // a retry, a failed create REPLAY included -- a different chip would seed a
+  // different session under the same idempotency keys on an event that is already there.
+  const [typeLocked, setTypeLocked] = useState(false);
   const [organiserId, setOrganiserId] = useState(() => pickInitial(organisers, params.get('o')));
   const [seriesId] = useState(newSeriesId);
   // One key per write, kept across retries: a lost reply replays instead of creating twice.
@@ -61,6 +66,7 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
       cmds = newEventCommands(name, today, organiser.id, cityId, type);
       const res = await runSeriesCommand(envelope(seriesId, null, cmds.create, keys.create));
       version = typeof res?.new_version === 'number' ? res.new_version : null;
+      setTypeLocked(true);
     } catch (err) {
       setError(isServerRefusal(err) ? commandErrorMessage(err) : 'We could not confirm the save. Check your connection and press Create again.');
       shake();
@@ -102,6 +108,10 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
     navigate(ORG_PATHS.event(seriesId), { replace: true });
   };
 
+  // Locked for good once the event exists; also while a create is in flight (a chip
+  // changed mid-flight would describe a session the create no longer seeds).
+  const chipsLocked = typeLocked || busy;
+
   return (
     <form
       className="space-y-[16px]"
@@ -113,11 +123,11 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
         <SectionLabel as="p">First session</SectionLabel>
         <div className="flex flex-wrap gap-[8px]">
           {EVENT_TYPES.map((t) => (
-            <Chip key={t.type} selected={type === t.type} onToggle={() => { setType(t.type); setError(null); }} disabled={scheduleFailed} testId={`org-new-event-type-${t.type}`}>{t.label}</Chip>
+            <Chip key={t.type} selected={type === t.type} onToggle={() => { setType(t.type); setError(null); }} disabled={chipsLocked} testId={`org-new-event-type-${t.type}`}>{t.label}</Chip>
           ))}
         </div>
         <p className="mt-[8px] text-[13px] text-[var(--mut)]" data-testid="org-new-event-type-hint">
-          {scheduleFailed ? CHIPS_LOCKED_HINT : type ? EVENT_TYPES.find((t) => t.type === type)?.hint : FIRST_SESSION_HINT}
+          {chipsLocked ? CHIPS_LOCKED_HINT : type ? EVENT_TYPES.find((t) => t.type === type)?.hint : FIRST_SESSION_HINT}
         </p>
       </section>
       <p className="text-[14px] text-[var(--mut)]">
@@ -138,8 +148,10 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
         <GhostButton onClick={() => navigate(ORG_PATHS.home)} testId="org-new-event-go-home">Go to Home to send it for review</GhostButton>
       )}
       {error && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="org-new-event-error">{error}</p>}
-      {scheduleFailed && (
-        <GhostButton onClick={() => { setCreated(true); navigate(ORG_PATHS.event(seriesId), { replace: true }); }} testId="org-new-event-open">
+      {/* The lock hint says "open the event", so the control is on screen whenever the hint is
+          (disabled while a create is in flight: the event may not exist yet). */}
+      {(scheduleFailed || chipsLocked) && (
+        <GhostButton onClick={() => { setCreated(true); navigate(ORG_PATHS.event(seriesId), { replace: true }); }} disabled={busy} testId="org-new-event-open">
           Open the event
         </GhostButton>
       )}

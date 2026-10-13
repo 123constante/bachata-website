@@ -4,7 +4,7 @@
  * mapping (src/lib/eventCategory.ts), for every shape the screens meet:
  *   format (one_off | recurring | course | festival | null)
  *   x stored category (party | class | workshop | masterclass | null)
- *   x has an upcoming date or not (x locked or not, for the editor).
+ *   x has an upcoming date that is not cancelled or not (x locked or not, for the editor).
  * Surfaces: the organiser Type row (value + sublabel), the event page's ended
  * noun (runNoun), the calendar's Parties / Classes tab membership. Mutation proof
  * is in docs/handover/event-truth-p1-ui.md: a surface swapped back to the raw
@@ -14,12 +14,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { CATEGORY_WORD_LABEL, NOT_SET_LABEL, deriveCategories, wordForStored } from '@/lib/eventCategory';
+import { CATEGORY_WORD_LABEL, NOT_SET_LABEL, categoryLabelFor, deriveCategories, wordForStored } from '@/lib/eventCategory';
 import { runNoun } from '@/modules/event-page/bento/utils/endedRun';
 import { parseCalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { matchesCategory, transformCalendarEvents } from '@/components/calendar/calendarUtils';
 import { SHAPES, VENUES, homeOf, programmeOf, shapeByKey, upcomingOf, workspaceOf, type SeriesShape } from '../../__tests__/shapes/shapes';
-import { SEED_SESSION, categoryLabel, typeSublabel } from '../eventType';
+import { SEED_SESSION, typeSublabel } from '../eventType';
 
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn(), storage: { from: vi.fn() } } }));
@@ -45,19 +45,22 @@ describe('the Type row and the ended noun show the one word, for every format x 
     const word = expectedWord(format, stored);
     expect(wordForStored(format, stored)).toBe(word);
     // Organiser Type row value: the word's label, or Not set.
-    expect(categoryLabel(format, stored)).toBe(word ? CATEGORY_WORD_LABEL[word as keyof typeof CATEGORY_WORD_LABEL] : NOT_SET_LABEL);
+    expect(categoryLabelFor(format, stored)).toBe(word ? CATEGORY_WORD_LABEL[word as keyof typeof CATEGORY_WORD_LABEL] : NOT_SET_LABEL);
     // Event page ended line: the same word; no word (no session yet) reads as a night.
     expect(runNoun(format, null, stored)).toBe(word ?? 'night');
     // A stored workshop never surfaces as 'workshop' anywhere.
-    expect(categoryLabel(format, stored)).not.toMatch(/workshop/i);
+    expect(categoryLabelFor(format, stored)).not.toMatch(/workshop/i);
     expect(runNoun(format, null, stored)).not.toBe('workshop');
   });
 });
 
 describe('the Type row sublabel points only at controls that are on the page', () => {
+  // hasUpcoming is "an upcoming date that is NOT cancelled": the programme writer refuses a
+  // cancelled date (date_cancelled), so a series whose every upcoming date is cancelled has
+  // no date to put a session on, exactly like one with no upcoming date at all.
   const states = [
-    { locked: false, hasUpcoming: true, name: 'editable with an upcoming date' },
-    { locked: false, hasUpcoming: false, name: 'editable, no upcoming date' },
+    { locked: false, hasUpcoming: true, name: 'editable with an upcoming date that can take a session' },
+    { locked: false, hasUpcoming: false, name: 'editable, no upcoming date (none listed, or every one cancelled)' },
     { locked: true, hasUpcoming: false, name: 'locked (ended / archived)' },
     { locked: true, hasUpcoming: true, name: 'locked, upcoming dates listed' },
   ];
@@ -65,12 +68,15 @@ describe('the Type row sublabel points only at controls that are on the page', (
     const text = typeSublabel(format, stored, state);
     const word = expectedWord(format, stored);
     if (format === 'festival' || format === 'course') expect(text).toBe('Set by its format.');
-    else if (word) expect(text).toBe(state.locked || !state.hasUpcoming ? 'Set by its sessions.' : 'Set by its sessions. Change the sessions on a date and it follows.');
+    // The editable sentence promises nothing: the derivation is the union over the series programme
+    // and every date (keep-if-agrees), so changing one date's sessions need not move the word.
+    else if (word) expect(text).toBe(state.locked || !state.hasUpcoming ? 'Set by its sessions.' : 'Set by its sessions across all its dates.');
     else if (state.locked) expect(text).toBe('No session, so not set.');
     else expect(text).toBe(state.hasUpcoming ? 'Add a session to one of its dates and it is set for you.' : 'Add a session once a date is listed under When, and it is set for you.');
-    // Never 'change the sessions' when no session can be edited; never 'one of its dates' with no upcoming date.
-    if (state.locked || !state.hasUpcoming) expect(text).not.toMatch(/Change the sessions/);
-    if (!state.hasUpcoming) expect(text).not.toMatch(/one of its dates/);
+    // Never a session action when no session can be edited; never 'one of its dates' with no date to take one.
+    if (state.locked || !state.hasUpcoming) expect(text).not.toMatch(/Change the sessions|across all its dates/);
+    if (!state.hasUpcoming) expect(text).not.toMatch(/one of its dates|across all its dates/);
+    expect(text).not.toMatch(/Change the sessions/);
   });
 });
 
@@ -98,12 +104,11 @@ describe('calendar tab membership is the SET reading (deriveCategories), for eve
     expect(matchesCategory(item, 'parties')).toBe(set.includes('party'));
     expect(matchesCategory(item, 'classes')).toBe(set.includes('class'));
   });
-  it.each(Object.entries(SEED_SESSION))('the %s chip\'s seed lands the event under the tab its word names', (chip, seed) => {
+  it.each(Object.entries(SEED_SESSION))('the %s chip\'s seed lands the event under the tab its word names', (_chip, seed) => {
     const { set, word } = deriveCategories('recurring', [], [seed.type]);
     const [item] = transformCalendarEvents([calendarRow([{ type: seed.type }])]);
     expect(matchesCategory(item, word === 'night' ? 'parties' : 'classes')).toBe(true);
     expect(set).toEqual(word === 'night' ? ['party'] : ['class']);
-    void chip;
   });
   // calendarUtils.ts is on CLAUDE.md's ask-Ricky list, so its own derivation is not changed here:
   // a 'masterclass' or 'social' item counts for a tab there only through the RPC's key_times
@@ -146,23 +151,31 @@ async function openEditor(s: SeriesShape, stored: string | null) {
 describe('the rendered Type row, over the real shapes (prod survey) x every stored value', () => {
   const editable = shapeByKey('live-weekly-until'); // live, 6 upcoming
   const lapsed = shapeByKey('live-norule-lapsed'); // live, 0 upcoming
+  const cancelledOnly = shapeByKey('live-norule-cancelled-only'); // live, 2 upcoming, BOTH cancelled (1 live prod series today)
   const ended = shapeByKey('ended-picnic'); // ended: locked, 0 upcoming
   const course = shapeByKey('live-course');
   const festival = shapeByKey('live-festival');
 
   it.each(STORED)('editable with upcoming dates, stored %s', async (stored) => {
     const text = await openEditor(editable, stored);
-    expect(text).toBe(`Type${typeSublabel('recurring', stored, { locked: false, hasUpcoming: true })}${categoryLabel('recurring', stored)}`);
+    expect(text).toBe(`Type${typeSublabel('recurring', stored, { locked: false, hasUpcoming: true })}${categoryLabelFor('recurring', stored)}`);
     expect(text).not.toMatch(/workshop/i);
   });
   it.each(STORED)('live with no upcoming date, stored %s', async (stored) => {
     const text = await openEditor(lapsed, stored);
-    expect(text).toBe(`Type${typeSublabel('recurring', stored, { locked: false, hasUpcoming: false })}${categoryLabel('recurring', stored)}`);
-    expect(text).not.toMatch(/one of its dates|Change the sessions/);
+    expect(text).toBe(`Type${typeSublabel('recurring', stored, { locked: false, hasUpcoming: false })}${categoryLabelFor('recurring', stored)}`);
+    expect(text).not.toMatch(/one of its dates|Change the sessions|across all its dates/);
+  });
+  // Every upcoming date cancelled: the dates are listed, but the writer refuses each one
+  // (date_cancelled), so the row must not send the organiser to change or add a session on them.
+  it.each(STORED)('live, every upcoming date cancelled, stored %s', async (stored) => {
+    const text = await openEditor(cancelledOnly, stored);
+    expect(text).toBe(`Type${typeSublabel('recurring', stored, { locked: false, hasUpcoming: false })}${categoryLabelFor('recurring', stored)}`);
+    expect(text).not.toMatch(/one of its dates|Change the sessions|across all its dates/);
   });
   it.each(STORED)('ended (locked), stored %s', async (stored) => {
     const text = await openEditor(ended, stored);
-    expect(text).toBe(`Type${typeSublabel('recurring', stored, { locked: true, hasUpcoming: false })}${categoryLabel('recurring', stored)}`);
+    expect(text).toBe(`Type${typeSublabel('recurring', stored, { locked: true, hasUpcoming: false })}${categoryLabelFor('recurring', stored)}`);
     expect(text).not.toMatch(/Add a session|Change the sessions/);
   });
   it('a course and a festival are set by their format whatever is stored', async () => {

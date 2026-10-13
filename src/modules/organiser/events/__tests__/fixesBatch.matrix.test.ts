@@ -8,7 +8,8 @@ import { TODAY, shapeByKey, workspaceOf } from '../../__tests__/shapes/shapes';
 import { draftFromWorkspace, draftProblem, oneDateLoss, parseEventWorkspace, savePlan } from '../eventModel';
 import { scheduleView } from '../schedule';
 import { newEventCommands } from '../newEvent';
-import { EVENT_TYPES, categoryLabel } from '../eventType';
+import { categoryLabelFor } from '@/lib/eventCategory';
+import { EVENT_TYPES } from '../eventType';
 import { eventReviewView } from '../reviewModel';
 import { confirmCopy, saveBarState } from '@/modules/organiser/shared/editorGuards';
 import { LINK_PROBLEM, linkProblem } from '@/modules/organiser/shared/linkRules';
@@ -116,7 +117,7 @@ describe('G2 + G4: what the create sends for each type', () => {
     ['recurring', 'masterclass', 'Masterclass'], ['recurring', null, 'Not set'],
     ['course', 'party', 'Course'], ['festival', null, 'Festival'],
   ] as const)('%s + category %s reads %s', (f, c, label) => {
-    expect(categoryLabel(f, c)).toBe(label);
+    expect(categoryLabelFor(f, c)).toBe(label);
   });
 });
 

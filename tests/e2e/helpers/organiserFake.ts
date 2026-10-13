@@ -85,6 +85,13 @@ export interface FakeSeries {
   removed_dates: string[];
   extra_dates: string[];
   cancelled: Record<string, string>;
+  /**
+   * The series programme (event_series_program_item_p5), the series_item_id rows every date
+   * shows. Fixed at creation (addSeries, from the category the fixture names): the organiser
+   * writer never edits it, a per-date removal is an override row. A series made in this run
+   * (the create: category null) has none, so its dates read empty until a session is saved.
+   */
+  series_items: Session[];
   /** Stable index, part of every occurrence id of this series. */
   n: number;
 }
@@ -179,11 +186,20 @@ export class OrganiserFake {
 
   addSeries(org: FakeOrganiser, over: Partial<FakeSeries> & { id: string; name: string }): FakeSeries {
     this.seriesCount += 1;
+    const category = 'category' in over ? over.category ?? null : 'class';
+    // The series programme the fixture's category stands for: a party series holds one party
+    // item, a class series a class and a party, a series with no category (made in this run) none.
+    const series_items: Session[] = category === null ? [] : category === 'party'
+      ? [{ series_item_id: ITEM_PARTY, type: 'party', title: 'Party', start_time: '21:00', end_time: '01:00', ends_next_day: true, level_keys: [], removed: false }]
+      : [
+          { series_item_id: ITEM_CLASS, type: 'class', title: 'Beginners', start_time: '20:00', end_time: '21:00', ends_next_day: false, level_keys: ['beginner'], removed: false },
+          { series_item_id: ITEM_PARTY, type: 'party', title: 'Party', start_time: '21:00', end_time: '23:30', ends_next_day: false, level_keys: [], removed: false },
+        ];
     const s: FakeSeries = {
       slug: over.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), format: 'recurring', category: 'class', lifecycle_status: 'live',
       version: 3, default_venue_id: VENUES[0].id, default_city_id: CITY.id, default_start_date: TODAY, default_description: 'Friendly night.',
       default_ticket_url: null, default_music_styles: ['Bachata'], gallery: [], video_urls: [], recurrence_rule: null,
-      removed_dates: [], extra_dates: [], cancelled: {}, n: this.seriesCount, ...over,
+      removed_dates: [], extra_dates: [], cancelled: {}, series_items, n: this.seriesCount, ...over,
     };
     this.series.set(s.id, s);
     org.series.push(s.id);
@@ -223,24 +239,34 @@ export class OrganiserFake {
     let p = this.programmes.get(occurrenceId);
     if (p) return p;
     const found = this.findOccurrence(occurrenceId);
-    const party = found?.s.category === 'party';
-    // A series made in this run (category null: no session yet) holds no programme at all.
-    const fresh = found?.s.category === null;
     const empty = found ? this.emptyLineup.has(found.date) : false;
-    const sessions: Session[] = fresh ? [] : party
-      ? [{ series_item_id: ITEM_PARTY, type: 'party', title: 'Party', start_time: '21:00', end_time: '01:00', ends_next_day: true, level_keys: [], removed: false }]
-      : [
-          { series_item_id: ITEM_CLASS, type: 'class', title: 'Beginners', start_time: '20:00', end_time: '21:00', ends_next_day: false, level_keys: ['beginner'], removed: false },
-          { series_item_id: ITEM_PARTY, type: 'party', title: 'Party', start_time: '21:00', end_time: '23:30', ends_next_day: false, level_keys: [], removed: false },
-        ];
+    // Every date shows the series programme (its own copies of the series_item_id rows).
+    const sessions: Session[] = (found?.s.series_items ?? []).map((x) => ({ ...x, level_keys: [...(x.level_keys as string[])] }));
     const people = new Map<string, { profile_id: string; display_name: string; role: string }[]>();
-    if (!empty && !party && !fresh) {
+    if (!empty && sessions.some((x) => x.series_item_id === ITEM_CLASS)) {
       people.set(ITEM_CLASS, [{ profile_id: PEOPLE[0].id, display_name: 'Ana Ruiz', role: 'teaching' }]);
       people.set(ITEM_PARTY, [{ profile_id: PEOPLE[3].id, display_name: 'DJ Sol', role: 'djing' }]);
     }
     p = { version: 1, sessions, people };
     this.programmes.set(occurrenceId, p);
     return p;
+  }
+
+  /**
+   * The server's trigger (event-truth P1 / P3, admin #780): event_series_p5.category follows
+   * the UNION of the series programme and EVERY date's date-only sessions (a removed row is a
+   * per-date override, not in the union), keep-if-agrees, through the lib's one mapping. The
+   * server's union carries date-only kind AND type; the fake's rows carry the type, which the
+   * writer maps to the kind (class -> classes, party -> party), so the genres are the same.
+   */
+  deriveCategory(s: FakeSeries): string | null {
+    const types = s.series_items.map((x) => String(x.type));
+    const prefix = this.occId(s, '0000-00-00').slice(0, 24); // every occurrence id of this series
+    for (const [occurrenceId, p] of this.programmes) {
+      if (!occurrenceId.startsWith(prefix)) continue;
+      for (const x of p.sessions) if (x.added_session_id && x.removed !== true) types.push(String(x.type));
+    }
+    return storedCategory(s.category, deriveCategories(s.format, [], types).set);
   }
 
   homeRead() {
@@ -270,7 +296,7 @@ export class OrganiserFake {
   }
 
   workspace(s: FakeSeries) {
-    const { n: _n, extra_dates: _e, cancelled: _c, gallery, video_urls, default_music_styles, ...series } = s;
+    const { n: _n, extra_dates: _e, cancelled: _c, series_items: _items, gallery, video_urls, default_music_styles, ...series } = s;
     return {
       meta: { version: s.version, has_more: false },
       series: {
@@ -329,9 +355,9 @@ export class OrganiserFake {
     p.sessions = sessions;
     p.people = people;
     p.version += 1;
-    // The server's trigger (event-truth P1): event_series_p5.category follows the sessions.
+    // The server's trigger: the mirror follows the union over the series programme and every date.
     const owner = this.findOccurrence(occurrenceId)?.s;
-    if (owner) owner.category = storedCategory(owner.category, deriveCategories(owner.format, [], sessions.map((x) => String(x.type))).set);
+    if (owner) owner.category = this.deriveCategory(owner);
     return { ok: true, changed: true, version: p.version, sessions };
   }
 

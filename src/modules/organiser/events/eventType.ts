@@ -6,7 +6,7 @@
 // through the shared label, the same word every other screen shows (one mapping,
 // never a copy). A course FORMAT stays admin-only (a
 // non-admin create is forced to one_off or recurring). Pure.
-import { categoryLabelFor, wordForStored } from '@/lib/eventCategory';
+import { wordForStored } from '@/lib/eventCategory';
 
 export type NewEventType = 'class' | 'party' | 'workshop';
 
@@ -39,28 +39,35 @@ export const SEED_SESSION: Record<NewEventType, { type: 'class' | 'party'; title
 /** default_duration_minutes a create sends (G4; the server takes 1-1200), and the seeded session's length. */
 export const DEFAULT_DURATION_MINUTES: Record<NewEventType, number> = { class: 120, party: 300, workshop: 120 };
 
-/** The type as every organiser screen shows it ('Not set' when the series has no session yet). */
-export const categoryLabel = (format: string | null | undefined, category: string | null | undefined): string =>
-  categoryLabelFor(format, category);
-
-/** What the editor knows that decides which controls the Type row may point at. */
+/**
+ * What the editor knows that decides which controls the Type row may point at.
+ * The Type row's VALUE is categoryLabelFor from the lib, called directly (one
+ * mapping, no alias).
+ */
 export interface TypeRowState {
   /** Ended / archived: shown, never edited, so no session can be changed. */
   locked: boolean;
-  /** At least one upcoming date (a past date's sessions cannot be edited). */
+  /**
+   * At least one upcoming date that is NOT cancelled: the programme writer refuses a
+   * past date and a cancelled date (date_cancelled), so a series whose every upcoming
+   * date is cancelled has no date to put a session on.
+   */
   hasUpcoming: boolean;
 }
 
 /**
  * What sets the type, under the Type row. Never names a control that is not on
  * the page: a locked series has no session to change, a series with no upcoming
- * date has no date to put a session on (the When group below says how to list one).
+ * date that can take a session has no date to put one on (the When group below
+ * says how to list one). The editable sentence promises nothing: the derivation
+ * is the union over the series programme and every date, keep-if-agrees, so
+ * changing one date's sessions need not move the word (review B F3, decision d22).
  */
 export function typeSublabel(format: string | null | undefined, category: string | null | undefined, state: TypeRowState): string {
   if (format === 'festival' || format === 'course') return 'Set by its format.';
   const canEdit = !state.locked && state.hasUpcoming;
   if (wordForStored(format, category)) {
-    return canEdit ? 'Set by its sessions. Change the sessions on a date and it follows.' : 'Set by its sessions.';
+    return canEdit ? 'Set by its sessions across all its dates.' : 'Set by its sessions.';
   }
   if (state.locked) return 'No session, so not set.';
   return state.hasUpcoming

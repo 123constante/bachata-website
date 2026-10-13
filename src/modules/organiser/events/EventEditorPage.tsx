@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, Film, Images, MapPin, Repeat, Shapes, Text, Ticket, Users } from 'lucide-react';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { categoryLabelFor } from '@/lib/eventCategory';
 import { FLYER_ACCEPT } from '@/modules/organiser/shared/flyerModel';
 import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
 import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
@@ -24,7 +25,7 @@ import { DatesTakenOff } from './DatesTakenOff';
 import { EventReviewCard } from './ReviewCard';
 import { EditorGroup } from './EditorGroup';
 import { sessionDates } from './reviewModel';
-import { categoryLabel, typeSublabel } from './eventType';
+import { typeSublabel } from './eventType';
 import { EventList } from './EventList';
 import {
   FIELD_LABEL, MUSIC_STYLES, capInput, cardPreview, changedFields, conflictingFields, draftFromWorkspace, draftProblem,
@@ -211,8 +212,10 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
           {!lock && <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="org-cover-gallery-hint">The cover shows on the calendar card; gallery photos appear on the event page. Optional &mdash; add later.</p>}
         </section>
         <Card>
-          <SummaryRow icon={<Shapes />} label="Type" value={categoryLabel(ws.series.format, ws.series.category)}
-            sublabel={typeSublabel(ws.series.format, ws.series.category, { locked: !!lock, hasUpcoming: upcoming.length > 0 })} testId="org-row-type" />
+          {/* hasUpcoming is `next` (the first upcoming date that is NOT cancelled): the writer refuses a
+              cancelled date, so with every upcoming date cancelled the row must name no session action. */}
+          <SummaryRow icon={<Shapes />} label="Type" value={categoryLabelFor(ws.series.format, ws.series.category)}
+            sublabel={typeSublabel(ws.series.format, ws.series.category, { locked: !!lock, hasUpcoming: next !== null })} testId="org-row-type" />
         </Card>
       </EditorGroup>
       <EditorGroup id="when" heading="When">

@@ -211,6 +211,51 @@ describe('new event (name only)', () => {
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
   });
 
+  // Review A (FIX-2): once the event exists, the chosen type is the one its first session carries.
+  // A retry whose create REPLAY fails must not unlock the chips: a different chip would seed a
+  // different session under the same idempotency keys on an event that already exists.
+  it('a failed create replay keeps the chips locked and retries the ORIGINAL type', async () => {
+    let n = 0;
+    handlers.series_command_p5 = () => {
+      n += 1;
+      if (n === 1) return { ok: true, new_version: 4 }; // the create
+      if (n === 2) throw { message: 'invalid_payload: rule refused', code: 'P0001' }; // its date: the chips lock
+      throw new TypeError('fetch failed'); // every later create replay: the network is gone
+    };
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/date was not listed/);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('org-new-event-error').textContent).toMatch(/could not confirm the save/));
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
+    // The hint says "open the event", so that control stays on screen.
+    expect(screen.getByTestId('org-new-event-open')).toBeTruthy();
+    // Picking another chip does nothing; the next Create replays the PARTY create (300 min), never a class one.
+    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(commands()).toHaveLength(4));
+    const creates = commands().filter((c) => c.command.kind === 'series.upsert');
+    expect(creates).toHaveLength(3);
+    for (const c of creates) expect(c.command.payload).toMatchObject({ default_duration_minutes: 300 });
+  });
+
+  it('the chips are disabled while a create is in flight, with the lock hint as the reason', async () => {
+    let release: () => void = () => undefined;
+    handlers.series_command_p5 = () => new Promise((resolve) => { release = () => resolve({ ok: true, new_version: 4 }); });
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(commands()).toHaveLength(1));
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
+    release();
+  });
+
   it('asks for a name instead of sending a blank one', async () => {
     mount('/account/o/events/new');
     fireEvent.click(await screen.findByTestId('org-new-event-create'));

@@ -2,7 +2,7 @@ import { addDaysToKey } from '@/lib/londonDate';
 import { createSeriesCommand } from '@/modules/organiser/shared/selfServeApi';
 import { createDraft, emptyCreateForm } from '@/modules/organiser/shared/createModel';
 import { buildPayload, newSession, type Programme, type WireSession } from '@/modules/organiser/shared/programmeModel';
-import { endTime, isCancelledDate, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
+import { endTime, isCancelledDate, upcomingDates, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 import { addDateCommand, createPayload, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
 import { EXTEND_BATCH, untilForCount } from './dateCap';
 import { weeklyUntilCommand } from './eventModel';
@@ -33,12 +33,11 @@ export function newEventCommands(name: string, today: string, organiserId: strin
 
 /**
  * The date the first session goes on: the earliest listed date from today on that is
- * not cancelled (the programme writer refuses a past or cancelled date).
+ * not cancelled (the programme writer refuses a past or cancelled date). The editor's
+ * `next` is the same reading (upcomingDates over the same London date): one helper.
  */
 export function firstListedDate(dates: WorkspaceDate[], today: string): WorkspaceDate | null {
-  return [...dates]
-    .filter((d) => !isCancelledDate(d) && d.occurrence_date >= today)
-    .sort((a, b) => a.occurrence_date.localeCompare(b.occurrence_date))[0] ?? null;
+  return upcomingDates(dates, today).find((d) => !isCancelledDate(d)) ?? null;
 }
 
 /**

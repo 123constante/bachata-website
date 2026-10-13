@@ -52,9 +52,10 @@ test('New event: name only creates the draft and its first 8 weekly dates, then 
   await expect(page.getByTestId('org-event-name')).toHaveValue('Thursday Bachata Class');
   await expect(page.getByTestId('org-date-row')).toHaveCount(8);
   await expect(page.getByTestId('org-row-until')).toContainText('Listed until Thu 3 Dec');
-  // The Type row reads the word the sessions derive (the fake mirrors the server's trigger).
+  // The Type row reads the word the sessions derive (the fake mirrors the server's trigger: the
+  // union over every date, keep-if-agrees), and the sublabel promises no change (FIX-2, d22).
   await expect(page.getByTestId('org-row-type')).toContainText('Class');
-  await expect(page.getByTestId('org-row-type')).toContainText('Set by its sessions.');
+  await expect(page.getByTestId('org-row-type')).toContainText('Set by its sessions across all its dates.');
 });
 
 test('New event: a party is created with ONE date (no weekly rule), then the editor opens', async ({ page }) => {
