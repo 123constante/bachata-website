@@ -691,7 +691,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
                   Upload primary
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];

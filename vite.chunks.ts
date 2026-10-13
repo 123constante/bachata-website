@@ -106,6 +106,21 @@ export const VENDOR_UI_SHELL_PACKAGES = [
   "@radix-ui/react-compose-refs",
   "@radix-ui/react-context",
   "@radix-ui/react-dismissable-layer",
+  // NOT measured into the shell -- placed here to keep the two chunks
+  // ONE-DIRECTIONAL, which is a correctness rule and outranks the measurement.
+  // Radix Tooltip >= 1.4 imports `useFocusScopeBranch` from this package, so
+  // with it in the modal list `vendor-ui` imported `vendor-ui-modal` while
+  // `vendor-ui-modal` already imported `vendor-ui`: a static cycle, and on the
+  // PR #746 Vercel preview "TypeError: le is not a function" (the minified
+  // letter varies per build; one chunk ran top-level code against the other's
+  // unassigned keepNames `var`). With the
+  // lockfile's Tooltip 1.2 the shell routes pay its weight for nothing (the
+  // measured cost is in the PR #746 handover, not here, per the rule above;
+  // routes that already load the modal layer pay nothing and no route's chunk
+  // count moves). That is the price of the cycle being impossible on either
+  // Tooltip line. The rule: nothing in this list may import anything in the
+  // modal list. `npm run check:chunk-cycles` is what holds it.
+  "@radix-ui/react-focus-scope",
   "@radix-ui/react-id",
   "@radix-ui/react-popper",
   "@radix-ui/react-portal",
@@ -145,7 +160,8 @@ export const VENDOR_UI_MODAL_PACKAGES = [
   "@radix-ui/react-dialog",
   "@radix-ui/react-direction",
   "@radix-ui/react-focus-guards",
-  "@radix-ui/react-focus-scope",
+  // @radix-ui/react-focus-scope moved to the SHELL list -- see the note there.
+  // This chunk may import vendor-ui; vendor-ui must never import this chunk.
   "@radix-ui/react-roving-focus",
   "@radix-ui/react-toggle",
   "@radix-ui/react-toggle-group",
