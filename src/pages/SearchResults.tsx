@@ -1,4 +1,3 @@
-import { renderPublicName } from '@/lib/publicName';
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
@@ -26,7 +25,8 @@ import { cn } from '@/lib/utils';
 import { NationalityFlag, TILE_FLAG_SIZE } from '@/components/people/NationalityFlag';
 
 type PersonLike = { first_name: string | null; surname: string | null; display_name: string | null };
-const personName = (p: PersonLike) => renderPublicName(p, 'Profile');
+const personName = (p: PersonLike) =>
+  p.display_name || [p.first_name, p.surname].filter(Boolean).join(' ') || 'Profile';
 const firstVenuePhoto = (urls: string[] | null) => (urls && urls.length > 0 ? urls[0] : null);
 
 // Reused TimeToggle chip styles (the live facet/filter chip language).

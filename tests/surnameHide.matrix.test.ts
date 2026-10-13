@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { DANCER_PUBLIC_COLS, mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
 import { mergePublicNames, indexPublicNames, chunkIds, PUBLIC_NAMES_BATCH } from "@/lib/publicDancerNames";
 import { renderPublicName } from "@/lib/publicName";
-import { personName } from "@/lib/searchRpc";
 import { buildFullName } from "@/lib/name-utils";
 import { buildSeoForRoute } from "@/lib/seo/buildSeoForRoute";
 import { buildDancerProfilePayload } from "@/lib/saveMyDancerProfile";
@@ -41,7 +40,13 @@ const masked = (raw: Raw, hide: boolean) => {
 const SURFACES: Record<string, (raw: Raw, hide: boolean) => string> = {
   "person page heading": (raw, hide) => mapDancerPublicProfile(masked(raw, hide) as never).displayName ?? "",
   "line-up credit": (raw, hide) => renderPublicName(masked(raw, hide), "Dancer"),
-  "search result": (raw, hide) => personName(masked(raw, hide) as never),
+  // searchRpc.personName / SearchResults.personName render the RPC's already-masked row as
+  // display_name || first + surname; they stay local copies (importing publicName into the
+  // app shell cost one first-load chunk on every route, bundle-budget).
+  "search result": (raw, hide) => {
+    const r = maskedRpc([raw], hide)[0];
+    return r.display_name || [r.first_name, r.surname].filter(Boolean).join(" ");
+  },
   "teacher/DJ card": (raw, hide) => {
     const r = maskedRpc([raw], hide)[0];
     return buildFullName(r.first_name, r.surname); // Teachers.tsx: hide_surname stays false on purpose

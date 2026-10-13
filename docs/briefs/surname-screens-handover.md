@@ -26,7 +26,7 @@ Never merged by the worker.
 | `src/pages/OrganiserProfile.tsx` | team member names | select drops the columns; `withPublicNames`; `resolvePublicName` |
 | `src/modules/organiser/dates/peoplePicker.ts` | picker rows (organiser side) | `withPublicNames` |
 | `app/routes/sitemap.tsx` | name used only as an index filter (no title emitted) | select drops columns; `withPublicNames` |
-| `src/lib/searchRpc.ts`, `src/pages/SearchResults.tsx` | two private `personName` copies | one shared `renderPublicName` (RPC rows are already masked) |
+| `src/lib/searchRpc.ts`, `src/pages/SearchResults.tsx` | two private `personName` copies | unchanged: RPC rows are already masked and null-safe. Sharing `renderPublicName` pulled `publicName` into the app shell and cost +1 first-load chunk on every route (bundle-budget), so the copies stay; dedupe later with the budget allowance raised on purpose |
 | `src/pages/Teachers.tsx`, `TeacherProfile.tsx`, `DJs.tsx`, `DJProfile.tsx`, `app/routes/teachers.tsx`, `djs.tsx` | RPC names | unchanged: RPCs mask server side; `hide_surname:false` from `get_public_teachers_list_v1` is NOT used to abbreviate |
 | `middleware.ts` (teacher og fallback) | `get_public_teacher_preview_v1` name | unchanged: masked by RPC, already null-safe |
 | Event line-ups, JSON-LD performers (`buildEventJsonLd`) | `resolve_person_v1` names | unchanged: masked by RPC |
