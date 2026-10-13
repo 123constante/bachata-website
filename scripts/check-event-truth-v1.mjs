@@ -863,7 +863,9 @@ async function selfTest() {
   const P0_TRUTH = () => { const p = truthPayload(cleanSpec()); delete p.added_session_count; for (const s of p.series) delete s.added_sessions; return p; };
   add('exit: the P0 payload (admin #780 not applied) names #780 as the step to take first', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource({ ...cleanSpec(), truth: P0_TRUTH() }) }).then(pin('admin #780 (derived category) must be applied first')), '2:admin #780 (derived category) must be applied first');
   add('exit: a P0 payload with no series names #780 too (the totals branch)', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource({ ...cleanSpec(), truth: { ...P0_TRUTH(), series: [], series_count: 0, section_count: 0, item_count: 0 } }) }).then(pin('admin #780 (derived category) must be applied first')), '2:admin #780 (derived category) must be applied first');
-  add('exit: category drift names #780 as the step to take first', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource(withSpec((s) => { s.series[1].category = 'party'; })) }).then(pin('admin #780 (derived category) must be applied first')), '1:admin #780 (derived category) must be applied first');
+  // FIX-7 #6: drift on a payload that HAS the P3 shape is a real mirror fault; the #780 hint is only
+  // for the P0 payload (no added_sessions / added_session_count), which stops in CANNOT-MEASURE above.
+  add('exit: category drift on a P3 payload does NOT blame #780', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource(withSpec((s) => { s.series[1].category = 'party'; })) }).then(pin('admin #780')), '1:other');
   add('exit: a series with no id but WITH added_sessions does NOT blame #780', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource({ ...cleanSpec(), truth: (() => { const p = truthPayload(cleanSpec()); delete p.series[0].id; return p; })() }) }).then(pin('admin #780')), '2:other');
   add('exit: a course with no length does NOT blame #780 (it is not a mirror fault)', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource(withSpec((s) => { s.series[1].course_total_sessions = null; })) }).then(pin('admin #780')), '1:other');
 
@@ -931,11 +933,9 @@ export async function main(argv = [], deps = {}) {
   try {
     const result = await runCheck({ source: makeSource({ url, key }), baseline, now: clock(), log: out });
     if (result.code !== 0) {
-      // Drift is the mirror disagreeing with the sessions: on prod before #780 that is the
-      // un-derived mirror, not a new fault, so the red names the step (FIX-6 F-a).
-      const drift = result.failures.some((f) => f.startsWith('category_drift:'));
+      // Only a P0 payload (no added_sessions / added_session_count) means #780 is not applied,
+      // and that stops in CANNOT-MEASURE with the hint; drift here is a real fault (FIX-7 #6).
       err('\nEVENT TRUTH VIOLATED:\n  - ' + result.failures.join('\n  - ') +
-        (drift ? '\nIf prod does not hold the derived mirror yet: ' + ADMIN_780_FIRST + ' (it re-derives every stored category from the sessions).' : '') +
         '\nSee the breakdown above and docs/event-truth-table.md.');
       return 1;
     }
