@@ -71,7 +71,10 @@ export const BottomNav = ({ className }: { className?: string }) => {
       {/* Decorative orange line -- top edge on BottomNav (faces content) */}
       <div className="h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent" />
 
-      <div className="flex items-center justify-around h-[58px] px-2">
+      {/* 61px row + 2px line + 1px border = 64px: exactly AppChrome's nav spacer
+          (and the 124px = 60 + 64 the home shell and .route-shell subtract), so
+          at full scroll the last content meets the nav with no strip between. */}
+      <div className="flex items-center justify-around h-[61px] px-2">
         {navLinks.map((link) => (
           <Link
             key={link.path}

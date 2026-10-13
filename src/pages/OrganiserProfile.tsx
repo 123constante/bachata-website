@@ -1269,14 +1269,16 @@ const OrganiserProfile = () => {
         {/* Brand colour fade &mdash; bleeds the hero tint into the body. Two
             stacked layers (default + sampled) so this crossfades the same way
             the hero overlay above does, instead of popping the moment a
-            colour sample lands. */}
-        <div style={{ pointerEvents: 'none', position: 'relative', height: '10vh', maxHeight: 80, marginTop: '-1px', zIndex: 0 }}>
-          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(${DEFAULT_HERO_RGB[0]},${DEFAULT_HERO_RGB[1]},${DEFAULT_HERO_RGB[2]},0.18) 0%,transparent 100%)` }} />
-          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(${cr},${cg},${cb},0.18) 0%,transparent 100%)`, opacity: heroColourReady ? 1 : 0, transition: 'opacity 600ms ease-out' }} />
+            colour sample lands. It takes NO height (2026-10-13): it was a 10vh /
+            80px empty band between the hero's EQ bars and the stats; the fade
+            now lies UNDER the stats strip (zIndex 1 there) instead. */}
+        <div aria-hidden style={{ pointerEvents: 'none', position: 'relative', height: 0, marginTop: '-1px', zIndex: 0 }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 'min(10vh, 80px)', background: `linear-gradient(180deg,rgba(${DEFAULT_HERO_RGB[0]},${DEFAULT_HERO_RGB[1]},${DEFAULT_HERO_RGB[2]},0.18) 0%,transparent 100%)` }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 'min(10vh, 80px)', background: `linear-gradient(180deg,rgba(${cr},${cg},${cb},0.18) 0%,transparent 100%)`, opacity: heroColourReady ? 1 : 0, transition: 'opacity 600ms ease-out' }} />
         </div>
 
         {/* Stats strip */}
-        <div className="flex justify-around py-3 px-5" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
+        <div className="flex justify-around py-3 px-5" style={{ position: 'relative', zIndex: 1, borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
           {[
             { value: totalUpcomingDateCount,   label: 'Upcoming dates',  title: undefined, href: upcomingListItems.length > 0 ? 'upcoming' : undefined },
             { value: pastEvents.length,        label: 'Past nights',     title: undefined, href: pastEvents.length > 0 ? 'past' : undefined },

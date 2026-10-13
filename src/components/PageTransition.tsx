@@ -37,7 +37,9 @@ export const PageTransition = ({ children }: PageTransitionProps) => {
       exit="out"
       variants={pageVariants}
       transition={pageTransition}
-      style={{ width: '100%', minHeight: '100vh' }}
+      // .route-shell (index.css), the same box as the plain wrapper in
+      // app/InitialVisiblePageTransition.tsx: the screen between header and nav.
+      className="route-shell"
     >
       {children}
     </motion.div>
