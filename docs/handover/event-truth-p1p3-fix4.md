@@ -5,7 +5,7 @@ Branch `arc/event-truth-p1p3-fix4`, from `origin/arc/event-truth-p1p3-fix3` (ceb
 merges this branch). Written 2026-10-13 by the cloud worker (scheduled routine, ticket dt_a19d1cdc50a0).
 
 Commits: `1fe4cb7` red-first tests, `064125b` source fixes and e2e, `fe215d7` F1 test strengthened (a mutant
-survived the first version; see section 3), then this handover.
+survived the first version; see section 3), then the handover (draft checkpoint, then this final version).
 
 Rules held: `src/lib/eventCategory.ts` byte-identical; nothing under `src/components/calendar/**`,
 `EventCalendar.tsx`, `useCalendarEvents.tsx`, `scripts/**`, `organiserFake.ts`; no budget, pin or `vendor-ui*` change; no
@@ -95,7 +95,27 @@ width. **Not in this brief, but seen:** Create moves down (+61.5 or +107 px) onc
 
 ## 5. Checks (Node 22, `NODE_PATH` unset as on CI; unit legs under the offline stub)
 
-CHECKS_TABLE
+| workflow / job | step | exit | note |
+|---|---|---|---|
+| architecture-guard `integrity` | `bin/check-integrity.sh` | 0 | 1445 files, 0 issues. Run as `bash bin/...`: the script is mode 100644 here and exits 126 when called directly; CI runs `chmod +x` first. |
+| | `check:legacy-tables` / `check:legacy-program-rpcs` / `lint:architecture` | 0 / 0 / 0 | |
+| | `AUDIT_STRICT=1 check:images` | 0 | |
+| | `check:image-widths:self-test` + guard | 0 | |
+| | `check:plan-hygiene:self-test` | 0 | |
+| | `check:workflow-artifact-policy:self-test` + guard | 0 | |
+| | `check:mojibake:self-test` / mojibake `git grep` | 0 / 0 | |
+| | `prove:entry-point:self-test` + sweep | 0 | |
+| typecheck.yml | `check:rpc-typing` / `check:wallclock-brand` | 0 / 0 | |
+| unit-tests.yml (London, full) | `test:unit:offline` | **0** | 270 files, 6190 passed, 25 skipped, 1 todo |
+| | `test:unit:timing` | 0 | 65 passed |
+| unit-tests.yml (New_York / Sydney, 9-file list) | `vitest --no-file-parallelism` | 0 / 0 | 213 / 213 |
+| perf-budget.yml `bundle-budget` | both self-tests / `build` / `check:bundle-budget` / `check:first-load-requests` | 0 / 0 / 0 / 0 | every chunk ratchet and every request pin equal (no budget touched). Lighthouse and doc-weight need a Vercel deploy: not run. |
+| db-contract-check.yml (no-secret) | `ci-live-db-gate --self-test`, `check-migration-stamps`, `check-script-conventions` + every `--self-test` in the workflow (12 scripts, including `check-event-truth-v1`, `check-guest-list-contract`) | all 0 | |
+| e2e-smoke.yml (workflow env) | full `npm run test:e2e` (15 specs) | **1** | **91 passed, 1 skipped, 1 failed**: `dancer-home.spec.ts:105` "a finished dancer gets the dancer home". This is the same test, failing the same way, that the fix-3 handover records as the baseline. Re-run alone: **14/14 passed**. It is a screen this diff does not touch. The new FIX-4 e2e at 390 and 360 passed in the full list. |
+| | `organiser-events` + `organiser-loop` | 0 | 12 passed |
+| `npm run lint` (chain) | | 1, then **0** | First run: 1 red link, `check:integrity` exit 126 (file mode only, as above). Re-run with CI's `chmod +x bin/*.sh`: 16/16 green; whole-tree eslint is informational, as documented. Modes restored afterwards and not committed. |
+| eslint on every changed file | | 0 | |
+| `npm run pre-ship` | all | **1** | Every repo check PASS; `test:unit:timing`, `build:ship`, `check:bundle-budget` and `check:first-load-requests` PASS; typecheck ratchet PASS at **96**, which equals ceb5df79's 96 in this container (FIX-4 adds 0). **The ONE FAIL is `test:unit`: 10 red, all live-DB `*.contract.test.ts` against the offline stub** (`eventViewCompat` 5, `publicEventPageLineup` 3, `occurrenceProgram` 2). That is exactly the fix-3 baseline set: **no new red**. pre-ship SKIPPED its eslint leg (no lintable files in the ship diff) and its e2e leg (because of the contract reds); both were run by hand (rows above). `check:plan-hygiene` SKIPPED (no plans dir). |
 
 Hooks: in this container `.githooks/*` is NOT executable (git warns "hook ignored"), so pre-commit and pre-push did NOT
 run. Their checks were run by hand (integrity, the unit gate and pre-ship above). No `--no-verify` was used; the hooks
