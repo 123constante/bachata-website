@@ -334,7 +334,8 @@ export const HeaderSearch = ({ expanded, onExpandedChange }: HeaderSearchProps) 
                         onClick={() => goTo(r.href, q.trim())}
                         className={cn('flex w-full items-center gap-3 px-3 py-2 text-left', activeIndex === idx && 'bg-primary/10')}
                       >
-                        <span className="relative shrink-0">
+                        {/* mr: room for the sticker that stands out past the photo's top-right. */}
+                        <span className="relative mr-[5px] shrink-0">
                           <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden bg-surface-hover', round)}>
                             {r.imageUrl
                               ? <img src={optimizedImageUrl(r.imageUrl, 96)} alt="" loading="lazy" className="h-full w-full object-cover" />

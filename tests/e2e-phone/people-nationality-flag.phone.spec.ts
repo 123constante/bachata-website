@@ -17,9 +17,12 @@ import {
  *   - exactly the coded people carry one, with "Nationality: <country>" and the title;
  *   - the sticker (with its white edge) is fully on screen and NOT cut by any ancestor
  *     with overflow hidden/auto/scroll/clip (ancestors walked, rects compared);
- *   - it covers no text (the person's name, a role) and no neighbouring sticker;
+ *   - it covers no VISIBLE text (the person's name, a role; text hidden under an
+ *     opaque panel is not covered) and no neighbouring sticker;
  *   - a tap at its centre goes through to the photo's link (pointer-events: none);
  *   - nothing animates; no sideways page scroll.
+ * A photo under 28px (/vendors/:id team) gets no sticker: the country is on the photo
+ * (role img, aria-label, title) instead.
  * Measured numbers are logged ([sticker ...]) for the PR. SHOTS=<dir> writes screenshots.
  * The organiser owner case also proves the photo pencil stays reachable and clear.
  */
@@ -41,7 +44,7 @@ type Surface = {
   codes: string[] | null;
   /** Opens the surface after the page loads (the header search). */
   open?: (page: Page) => Promise<void>;
-  /** The photo is too small for a 20px sticker to stay in its corner: reported, not hidden. */
+  /** The photo is under 28px: NO sticker (owner decision 2026-10-13); the country is the photo's label and title. */
   tooSmall?: boolean;
 };
 
@@ -51,7 +54,7 @@ const SURFACES: Surface[] = [
   { key: 'dancers', name: '/dancers list (32px)', url: '/dancers', codes: storedCodes(FLAG_PEOPLE.slice(0, 30)) },
   { key: 'all-profiles', name: '/all-profiles cards (inset)', url: '/all-profiles', codes: null },
   { key: 'videographers', name: '/videographers cards (inset)', url: '/videographers', codes: null },
-  { key: 'vendor-team', name: '/vendors/:id team (20px)', url: `/vendors/${VENDOR_ID}`, codes: codesOf(FLAG_PEOPLE.slice(0, 9)), tooSmall: true },
+  { key: 'vendor-team', name: '/vendors/:id team (20px, no sticker)', url: `/vendors/${VENDOR_ID}`, codes: codesOf(FLAG_PEOPLE.slice(0, 9)), tooSmall: true },
   { key: 'practice-partners', name: '/practice-partners (56px, signed in)', url: '/practice-partners', opts: { signedInAsOwner: true }, codes: storedCodes(FLAG_PEOPLE.slice(0, 30)) },
   { key: 'dj-hero', name: '/djs/:id hero (132px)', url: `/djs/${FLAG_DJ_ID}`, codes: ['ES'] },
   { key: 'dancer-hero', name: '/dancers/:id hero (inset)', url: `/dancers/${FLAG_DANCER_ID}`, codes: ['ES'] },
@@ -145,7 +148,16 @@ function auditStickers(scope: string): StickerAudit[] {
       range.selectNodeContents(n);
       for (const rr of Array.from(range.getClientRects())) {
         const px = inter(s, { l: rr.left, t: rr.top, r: rr.right, b: rr.bottom });
-        if (px > 0.5) textOverlap.push({ text: t.slice(0, 40), px: Math.round(px) });
+        if (px <= 0.5) continue;
+        // Only text a person can SEE there: text under an opaque panel (the /djs hero
+        // title under the open header search) is not covered by the sticker. The sticker
+        // is pointer-events: none, so elementFromPoint at the overlap's centre returns
+        // what is on top beneath it; the text counts if that is in its own element chain.
+        const cx = (Math.max(s.l, rr.left) + Math.min(s.r, rr.right)) / 2;
+        const cy = (Math.max(s.t, rr.top) + Math.min(s.b, rr.bottom)) / 2;
+        const top = document.elementFromPoint(cx, cy);
+        if (top && !top.contains(n) && !n.parentElement.contains(top)) continue;
+        textOverlap.push({ text: t.slice(0, 40), px: Math.round(px) });
       }
     }
     let stickerOverlap = 0;
@@ -193,6 +205,30 @@ for (const vp of SIZES) {
       test(`${s.name}: sticker on screen, not clipped, clear of names and neighbours, taps go through`, async ({ page }) => {
         await fakeSupabase(page, { realClock: true, ...s.opts });
         await page.goto(s.url);
+        if (s.tooSmall) {
+          // Under 28px: no sticker at all; every coded person's photo carries the country.
+          await page.locator('[data-nationality-photo]').first().waitFor();
+          await settled(page);
+          expect(await page.locator('[data-nationality-flag]').count(), 'no sticker on a photo under 28px').toBe(0);
+          const photos = await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>('[data-nationality-photo]')).map((el) => ({
+            code: el.dataset.nationalityPhoto ?? '', role: el.getAttribute('role'), label: el.getAttribute('aria-label'), title: el.getAttribute('title'), w: Math.round(el.getBoundingClientRect().width),
+          })));
+          expect(photos.map((p) => p.code).sort(), 'every coded person, none for null / typed text').toEqual([...(s.codes ?? [])].sort());
+          for (const p of photos) {
+            expect(p.w, `the photo is under 28px (${p.code})`).toBeLessThan(28);
+            expect(p.role, `photo is an img (${p.code})`).toBe('img');
+            expect(p.label, `aria-label on the photo (${p.code})`).toBe(`Nationality: ${country.of(p.code)}`);
+            expect(p.title, `title on the photo (${p.code})`).toBe(country.of(p.code));
+          }
+          console.log(`[sticker ${s.key} ${vp.width}x${vp.height}] n=0 photos=${photos.length} photo=${photos[0].w}px (no sticker under 28px)`);
+          expect(await checkOverflow(page), 'no sideways scroll').toEqual([]);
+          if (process.env.SHOTS) {
+            await page.locator('[data-nationality-photo]').first().evaluate((el) => el.scrollIntoView({ block: 'center' }));
+            await frames(page);
+            await page.screenshot({ path: `${process.env.SHOTS}/${s.key}-${vp.width}x${vp.height}.png`, scale: 'css' });
+          }
+          return;
+        }
         await page.locator('[data-nationality-flag]').first().waitFor();
         await settled(page);
         const scope = s.open ? '#omnibox-listbox' : 'body';
@@ -222,7 +258,7 @@ for (const vp of SIZES) {
           expect(f.textOverlap, `covers no text (${at})`).toEqual([]);
           expect(f.stickerOverlap, `clear of the neighbouring sticker (${at})`).toBe(0);
           expect(f.throughTo, `a tap goes through (${at})`).not.toBe('STICKER');
-          if (!s.tooSmall) expect(f.photoCover, `covers only the corner (${at})`).toBeLessThanOrEqual(0.4);
+          expect(f.photoCover, `covers only the corner (${at})`).toBeLessThanOrEqual(0.4);
         }
         // A tap on a linked photo's sticker lands on that photo's link.
         if (s.key === 'djs') expect(all[0].throughTo).toBe(`a:/djs/${FLAG_PEOPLE[0].id}`);

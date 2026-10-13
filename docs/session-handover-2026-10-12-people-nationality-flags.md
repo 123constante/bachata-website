@@ -26,21 +26,39 @@ Branch: `feat/people-nationality-flags`, PR #740.
   - /organisers/:id team grid: the right column's sticker was cut 2.4px (390) / 1.1px (360) by GlobalLayout's
     `overflow-x-clip`. Fix: `px-3` on the team grid.
   - /account: the sticker touched the name. Fix: `mr-2` on the photo wrapper.
-- **Too small, reported not hidden**: /vendors/:id team circles render at 17px (`h-5` at the phone's 13.5px root);
-  the 20px minimum sticker covers 93% of the photo. Making the circle bigger is a design call for the owner.
-  /dancers list photos are 27px (sticker covers 39%, still the corner).
+  - Header search rows (+ Cmd+K overlay, same markup): `mr-[5px]` on the photo wrapper, so the sticker's white edge
+    is 8px clear of the name at 360 and 390 (was about 3px).
+- **The red phone-qa on a38e596 (header search, 360x640, AR covering "Bachata" 184px2)**: NOT a visible overlap.
+  The text was the /djs hero title "Bachata DJs", hidden under the opaque open search panel. CI (ubuntu-latest)
+  has no system Inter, so the title falls back to DejaVu Sans and is wider (x 50-228 instead of 60-220): its left
+  edge slid under the AR sticker's box. Locally the box had a system Inter, so it passed. Reproduced exactly
+  (AR, 184, "Bachata") by hiding Inter from fontconfig (`FONTCONFIG_FILE` with a `rejectfont` for
+  /usr/share/fonts/opentype/inter). Fix in the spec's audit: a text overlap counts only when
+  `document.elementFromPoint` at the overlap's centre is in that text's own element chain (the sticker is
+  pointer-events: none). Proved both ways under CI fonts: the original spec red with the CI error, the new spec
+  green; and a mutant (row `gap-0`, no `mr`) is still caught ("Lucia", 52px2).
+- **`overlap.phone.spec.ts` /auth 360x640 (scrollWidth 390)**: not this PR. Passes on `origin/main` (5e0ec4c) and
+  on this branch with the same command under CI fonts; seen flaky on #733.
+- **No sticker under 28px (owner decision 2026-10-13)**: `MIN_FLAG_PHOTO_PX = 28` and `smallPhotoNationalityProps` in `nationality.ts`;
+  `NationalityFlag` renders nothing for a smaller `size`, and the caller spreads `smallPhotoNationalityProps(code, size)`
+  on the photo (role img, aria-label "Nationality: <country>", title, `data-nationality-photo`). Applied on the
+  /vendors/:id team circles (size 20, 17px rendered); their row gap is back to main's `gap-2`. /dancers list
+  (size 32, 27px rendered, sticker covers 39%) keeps its sticker: the rule reads the `size` prop. PersonChip `xs`
+  (24px) would also get no sticker, but no caller uses `xs` and PersonChip does not spread the label props (it
+  lazy-loads the flag module): wire them if `xs` ever ships.
 - **Not wired, on purpose**: CommunitySpotlight (decorative overlapping stack), AvatarUpload (an upload control), the
   organiser team picker's search rows (`organiser_team_search_people_v1` emits no code -- an admin change),
   /teachers/:id (no portrait exists), dead `sections/` files.
 - **Owner controls on a photo**: the only one is the organiser entity's own pencil (`PhotoSlot`, bottom-right). The
   phone spec proves it stays reachable (elementFromPoint) and clear of every sticker.
 - **Tests**: `nationalityFlag.unit.test.ts` (the rule + artwork), `nationalityFlag.surfaces.matrix.test.tsx`
-  (15 surfaces x 9 shapes + 3 placement checks; asserts the same markup on every surface), phone spec
+  (15 surfaces x 9 shapes + 4 placement checks, incl. no sticker under 28px and the photo's label/title; asserts the
+  same markup on every surface), phone spec
   `people-nationality-flag.phone.spec.ts` (15 surfaces + the owner pencil, at 390x844 and 360x640: count and codes,
   label/title, on screen, not clipped by any overflow ancestor, no text or neighbouring sticker covered, tap goes
-  through, no animation, >= 20px). The phone fake (`tests/e2e-phone/fakeSupabase.mjs`) now serves every one of the
+  through, no animation, >= 20px; /vendors/:id: no sticker, label and title on each photo). The phone fake (`tests/e2e-phone/fakeSupabase.mjs`) now serves every one of the
   15 surfaces; the phone config turns on `VITE_ENABLE_TEACHERS_DIRECTORY` (it only gates /teachers).
-  Screenshots: `docs/screenshots/nationality-flags/<surface>-<size>.png`.
+  Screenshots: `docs/screenshots/nationality-flags/<surface>-<size>.png`. header-search and vendor-team were retaken 2026-10-13 under CI's fonts (DejaVu fallback).
 - **Bundle**: the merge of main took main's parties/classes budget of 325 KB (#739). This branch's earlier 321 KB
   bump is gone with it. Measured after the swap: /parties 320.1 KB, /classes 320.2 KB (main 320.0 / 320.1), /event
   379.7 KB of 380 (main 379.1). The flag stays out of first load (lazy in HeaderSearch and PersonChip).
@@ -48,7 +66,6 @@ Branch: `feat/people-nationality-flags`, PR #740.
 ## Open
 - Backend option: have `event_view_p5` legacy_compat emit `nationality_code` (admin) so the programme needs no
   second read.
-- Vendor team circles (17px) are too small for the sticker: owner to decide (bigger circle, or no flag there).
 - /event is 0.3 KB under its 380 KB budget on this branch.
 - `/code-review` has not run on this diff (no review stamp).
 - Not verified on a real phone. Lighthouse and doc-weight need a Vercel preview and were not run locally.
@@ -56,4 +73,4 @@ Branch: `feat/people-nationality-flags`, PR #740.
 
 ## Next
 - The owner runs `/code-review`, then a phone test on /djs, an event with a coded teacher, an organiser team, and a
-  vendor team (to decide the 17px circle).
+  vendor team (no sticker; a screen reader reads the country on the photo).

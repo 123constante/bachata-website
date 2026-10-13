@@ -66,6 +66,23 @@ export function nationalityLabel(raw: unknown): { code: string; name: string; ar
 }
 
 /**
+ * Photos smaller than this (CSS px) get NO sticker (owner decision 2026-10-13): a 20px
+ * sticker on a 17-20px circle covers almost all of it. The country stays on the photo
+ * as its aria-label and title instead (smallPhotoNationalityProps).
+ */
+export const MIN_FLAG_PHOTO_PX = 28;
+
+/**
+ * For a photo under MIN_FLAG_PHOTO_PX: the props that put the country on the photo
+ * itself (role img, "Nationality: <country>", title). Empty for a bigger photo (the
+ * sticker carries them) or no code.
+ */
+export function smallPhotoNationalityProps(raw: unknown, size: number): { role?: 'img'; 'aria-label'?: string; title?: string; 'data-nationality-photo'?: string } {
+  const label = size < MIN_FLAG_PHOTO_PX ? nationalityLabel(raw) : null;
+  return label ? { role: 'img', 'aria-label': label.ariaLabel, title: label.name, 'data-nationality-photo': label.code } : {};
+}
+
+/**
  * Reads `nationality_code` off any payload object. Only a row WITHOUT that key (a direct
  * table read) falls back to the stored `nationality`: when a read emits the key, its null
  * is a decision (hidden person, unmapped value) and must not be overridden.

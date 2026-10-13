@@ -5,6 +5,8 @@
  *
  * - No flag at all when the code is null, empty, malformed or not a country (see
  *   nationality.ts): renders nothing, so there is no placeholder and no gap.
+ * - No sticker on a photo under MIN_FLAG_PHOTO_PX (28px): the caller puts
+ *   smallPhotoNationalityProps on the photo, so the country is still its label and title.
  * - pointer-events: none, so it never takes a tap meant for the photo or a control.
  * - role="img" + aria-label "Nationality: <country>" and a title with the country name.
  * - Static: a 3:2 flag tilted 9deg with a 2px white edge and a soft drop shadow. No
@@ -18,7 +20,7 @@
  */
 import type { CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
-import { nationalityLabel } from './nationality';
+import { MIN_FLAG_PHOTO_PX, nationalityLabel } from './nationality';
 import { flagArtMarkup } from './flagArt';
 
 export type FlagPlacement = 'corner' | 'inset';
@@ -28,6 +30,7 @@ export const TILE_FLAG_SIZE = 48;
 
 /** Smallest sticker width in CSS px: below this the stripes stop reading. */
 export const MIN_STICKER_PX = 20;
+
 
 export interface NationalityFlagProps {
   /** nationality_code from a public read (or a stored nationality); anything is accepted. */
@@ -62,7 +65,7 @@ export function stickerBoxStyle(size: number, placement: FlagPlacement = 'corner
 
 export function NationalityFlag({ code, size, placement = 'corner', inset, className }: NationalityFlagProps) {
   const label = nationalityLabel(code);
-  if (!label) return null;
+  if (!label || size < MIN_FLAG_PHOTO_PX) return null;
   return (
     <span
       role="img"

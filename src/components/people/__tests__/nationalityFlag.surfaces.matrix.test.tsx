@@ -60,7 +60,7 @@ vi.mock('@/components/profile/ProfileEventTimeline', () => ({ default: () => nul
 
 import { NationalityFlag, TILE_FLAG_SIZE, stickerSize } from '../NationalityFlag';
 import { flagArtMarkup } from '../flagArt';
-import { pickNationalityCode } from '../nationality';
+import { MIN_FLAG_PHOTO_PX, pickNationalityCode, smallPhotoNationalityProps } from '../nationality';
 import DJs from '@/pages/DJs';
 import Teachers from '@/pages/Teachers';
 import Dancers from '@/pages/Dancers';
@@ -143,6 +143,8 @@ type Surface = {
   read: string;
   /** False when the surface has no photo box at all without a photo (then no flag). */
   flagWithoutPhoto: boolean;
+  /** Photo under MIN_FLAG_PHOTO_PX: no sticker; the country is the photo's role img, aria-label and title. */
+  smallPhoto?: boolean;
   mount: (s: Shape) => Promise<void>;
 };
 
@@ -201,6 +203,7 @@ const SURFACES: Surface[] = [
     name: '/vendors/:id team (VendorDetail.tsx)',
     read: 'get_public_vendor_detail_v1 team[]',
     flagWithoutPhoto: true,
+    smallPhoto: true,
     mount: async (s) => {
       fixtures.rpc.get_public_vendor_detail_v1 = [{ id: 'v1', business_name: 'Shoe Shop', team: [{ dancer_id: ID, name: s.name, avatar_url: s.photo, nationality_code: s.code, city: null, role: null, is_leader: false }], product_categories: [], products: [], faq: [] }];
       withProviders(<VendorDetail />, '/vendors/v1', '/vendors/:id');
@@ -316,10 +319,23 @@ describe.each(SURFACES)('$name ($read)', (surface) => {
     await surface.mount(shape);
     const want = !shape.photo && !surface.flagWithoutPhoto ? null : shape.want;
     const flags = Array.from(document.querySelectorAll<HTMLElement>('[data-nationality-flag]'));
+    const photos = Array.from(document.querySelectorAll<HTMLElement>('[data-nationality-photo]'));
     if (!want) {
       expect(flags).toHaveLength(0);
+      expect(photos).toHaveLength(0);
       return;
     }
+    if (surface.smallPhoto) {
+      // Under 28px (owner decision 2026-10-13): no sticker; the photo carries the country.
+      expect(flags).toHaveLength(0);
+      expect(photos).toHaveLength(1);
+      expect(photos[0].dataset.nationalityPhoto).toBe(want.code);
+      expect(photos[0].getAttribute('role')).toBe('img');
+      expect(photos[0].getAttribute('aria-label')).toBe(`Nationality: ${want.country}`);
+      expect(photos[0].getAttribute('title')).toBe(want.country);
+      return;
+    }
+    expect(photos).toHaveLength(0);
     expect(flags).toHaveLength(1);
     const f = flags[0];
     expect(f.dataset.nationalityFlag).toBe(want.code);
@@ -353,10 +369,24 @@ describe('placement (Sticker spec)', () => {
     expect(f.style.width).toBe('44px');
     expect(stickerSize(96)).toEqual({ w: 44, h: 29.33 });
   });
-  it('never narrower than 20px (20px vendor-team circles, 40px list rows)', () => {
-    expect(stickerSize(20)).toEqual({ w: 20, h: 13.33 });
+  it('never narrower than 20px (28px and 40px photos)', () => {
+    expect(stickerSize(28)).toEqual({ w: 20, h: 13.33 });
     expect(stickerSize(40)).toEqual({ w: 20, h: 13.33 });
     expect(stickerSize(56).w).toBe(26);
+  });
+  it('no sticker under 28px; the photo props carry the country instead (owner decision 2026-10-13)', () => {
+    expect(MIN_FLAG_PHOTO_PX).toBe(28);
+    for (const size of [17, 20, 24, 27]) {
+      const { container, unmount } = flagFor('ES', size);
+      expect(container.querySelector('[data-nationality-flag]'), `${size}px`).toBeNull();
+      unmount();
+      expect(smallPhotoNationalityProps('ES', size)).toEqual({ role: 'img', 'aria-label': 'Nationality: Spain', title: 'Spain', 'data-nationality-photo': 'ES' });
+    }
+    const { container } = flagFor('ES', 28);
+    expect(container.querySelector('[data-nationality-flag]')).not.toBeNull();
+    expect(smallPhotoNationalityProps('ES', 28)).toEqual({});
+    expect(smallPhotoNationalityProps(null, 20)).toEqual({});
+    expect(smallPhotoNationalityProps('Kosovar', 20)).toEqual({});
   });
   it('inset: inside the card photo corner', () => {
     const { container } = render(<div style={{ position: 'relative' }}><NationalityFlag code="ES" size={TILE_FLAG_SIZE} placement="inset" inset={8} /></div>);

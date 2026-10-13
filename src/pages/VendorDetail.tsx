@@ -17,8 +17,7 @@ import GlobalLayout from "@/components/layout/GlobalLayout";
 
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { buildMailtoHref, buildWhatsAppHref } from '@/lib/contactValidation';
-import { NationalityFlag } from '@/components/people/NationalityFlag';
-import { normaliseNationalityCode } from '@/components/people/nationality';
+import { normaliseNationalityCode, smallPhotoNationalityProps } from '@/components/people/nationality';
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=1200&auto=format&fit=crop&q=80";
 
 type EventLinkItem = {
@@ -402,8 +401,12 @@ const VendorDetail = () => {
                   const memberContent = (
                     <Card className="bg-white/[0.04] border-white/10 h-full hover:border-white/20 hover:bg-white/[0.06] transition-colors">
                       <CardContent className="p-3 space-y-2">
-                        <div className="flex items-center gap-3">
-                          <span className="relative flex h-5 w-5 flex-shrink-0 items-center justify-center">
+                        <div className="flex items-center gap-2">
+                          {/* Under 28px: no sticker, the country is the photo's label and title. */}
+                          <span
+                            className="flex h-5 w-5 flex-shrink-0 items-center justify-center"
+                            {...smallPhotoNationalityProps(member.nationalityCode, 20)}
+                          >
                             {member.avatarUrl ? (
                               <img
                                 src={optimizedImageUrl(member.avatarUrl, 96)}
@@ -413,7 +416,6 @@ const VendorDetail = () => {
                             ) : (
                               <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                             )}
-                            <NationalityFlag code={member.nationalityCode} size={20} />
                           </span>
                           <span className="text-sm font-medium truncate">{member.name}</span>
                         </div>
