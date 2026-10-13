@@ -1,23 +1,32 @@
 import { defineConfig, devices } from '@playwright/test';
-import { FAKE_ORIGIN } from './tests/e2e-phone/fakeSupabase.mjs';
 
 // The PRODUCTION-BUILD smoke (2026-10-13, PR #747): the phone suite drives the
 // DEV server, which serves every module unbundled -- so a bug that exists only in
-// the built chunk graph (Rollup's manualChunks, vite.config.ts) passes it. #747's
+// the built chunk graph (Rollup's manualChunks, vite.chunks.ts) passes it. #747's
 // Vercel preview left /parties on skeletons forever (`TypeError: le is not a
 // function` in vendor-ui) and the event schedule on "Loading..." with every CI job
 // green. This config serves `npm run build` output the way Vercel does
 // (scripts/_serve-build.mjs) with the same no-secret fake Supabase as the phone
-// suite, and tests/e2e-build/ fails on any uncaught page error or a page that
-// never leaves its loading state.
+// suite, and tests/e2e-build/ fails on any uncaught page error, a page that never
+// leaves its loading state, or a route whose content never appears.
 //
-// The build MUST be made with the fake origin baked in (the client reads
-// VITE_SUPABASE_URL at build time):
+// The client reads the Supabase origin and the feature flags at BUILD time, so
+// build exactly as CI's build-smoke job does (.github/workflows/phone-qa.yml):
 //   VITE_SUPABASE_URL=https://phoneqafakenotaproject.supabase.co \
-//   VITE_SUPABASE_PUBLISHABLE_KEY=<placeholder> npm run build
+//   VITE_SUPABASE_PUBLISHABLE_KEY=<the placeholder in phone-qa.yml> \
+//   VITE_ENABLE_ORGANISER_DETAIL=true VITE_ENABLE_ORGANISERS_DIRECTORY=true \
+//   NODE_OPTIONS='--import ./tests/e2e-phone/fakeSupabasePreload.mjs' npm run build
 //   npx playwright test --config playwright.build.config.ts
-// CI: the build-smoke job in .github/workflows/phone-qa.yml.
+// (FAKE_ORIGIN in tests/e2e-phone/fakeSupabase.mjs is that origin; without the
+// organiser flag /organisers/<slug> is a "coming soon" gate and its case fails.)
 const PORT = Number(process.env.BUILD_QA_PORT || 4186);
+
+// Playwright starts the server with process.env MERGED UNDER this object, so a
+// credential is removed only by overriding it: a developer's shell may hold real
+// Supabase keys (even a service-role key, which SSR routes read at runtime).
+const BLANKED = Object.fromEntries(
+  Object.keys(process.env).filter((k) => /SUPABASE|SERVICE_ROLE/i.test(k)).map((k) => [k, '']),
+);
 
 export default defineConfig({
   testDir: './tests/e2e-build',
@@ -35,15 +44,12 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
+    // The preload answers the SSR server's own fetches to the fake origin.
     command: `node --conditions=production --import ./tests/e2e-phone/fakeSupabasePreload.mjs scripts/_serve-build.mjs --port ${PORT}`,
     url: `http://127.0.0.1:${PORT}/auth`,
     reuseExistingServer: false,
     timeout: 120_000,
-    env: {
-      ...(Object.fromEntries(Object.entries(process.env).filter(([k]) => !/SUPABASE|SERVICE_ROLE/i.test(k))) as Record<string, string>),
-      NODE_ENV: 'production',
-      VITE_SUPABASE_URL: FAKE_ORIGIN,
-    },
+    env: { ...BLANKED, NODE_ENV: 'production' },
   },
   projects: [{ name: 'build-390x844' }],
 });

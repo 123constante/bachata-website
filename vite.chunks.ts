@@ -389,11 +389,16 @@ export function classifyChunk(id: string): string | undefined {
 }
 
 /** The slice of rollup's `getModuleInfo` this file reads. */
-export type ImportersOf = (id: string) => { importers: readonly string[] } | null;
+export type ImportersOf = (id: string) => { importers: readonly string[]; isIncluded?: boolean | null } | null;
+
+// One answer per module per build: an ancestor's walk would otherwise be redone
+// for every module under it. Keyed by the build's getModuleInfo, so a second
+// build (or a unit test's graph) never reads another graph's answers.
+const reachedFromShell = new WeakMap<ImportersOf, Map<string, boolean>>();
 
 /**
  * The `manualChunks` rollup calls (vite.config.ts): classifyChunk, plus ONE rule
- * that keeps vendor-ui from ever importing vendor-ui-modal.
+ * that keeps vendor-ui from importing vendor-ui-modal.
  *
  * WHY (PR #747, 2026-10-13). vendor-ui-modal imports vendor-ui. If vendor-ui
  * also imports vendor-ui-modal -- because a vendor-ui module reaches a module the
@@ -408,26 +413,108 @@ export type ImportersOf = (id: string) => { importers: readonly string[] } | nul
  * cannot be trusted to hold against the install a deploy actually gets.
  *
  * THE RULE. A node_modules module that a vendor-ui module statically imports --
- * directly or through other node_modules modules -- is filed in vendor-ui. On a
- * graph where the lists already hold (every CI build to date) it changes
- * nothing: the chunks come out byte-identical. tests/e2e-build and
- * scripts/check-chunk-cycles.mjs are what catch a cycle this does not prevent.
+ * directly or through other unlisted or modal modules -- is filed in vendor-ui.
+ * On a graph where the lists already hold (every CI build to date) it changes
+ * nothing: the chunks come out byte-identical. A modal-LISTED package it moves
+ * is logged, because the lists are a measured fact (re-measure, then move it).
+ * It does not look through other pinned groups (vendor-ui -> vendor-X ->
+ * vendor-ui-modal); vendorChunkCycleGuard below fails the build on any cycle
+ * through a vendor chunk, this one included, on Vercel as in CI.
  */
 export function classifyChunkInGraph(id: string, getModuleInfo: ImportersOf): string | undefined {
   const base = classifyChunk(id);
   if (base !== "vendor-ui-modal" && (base !== undefined || !id.includes("node_modules"))) return base;
-  const seen = new Set<string>([id]);
-  const queue = [id];
-  while (queue.length > 0) {
-    for (const importer of getModuleInfo(queue.shift() as string)?.importers ?? []) {
-      if (seen.has(importer) || !importer.includes("node_modules")) continue;
-      seen.add(importer);
+  let memo = reachedFromShell.get(getModuleInfo);
+  if (!memo) reachedFromShell.set(getModuleInfo, (memo = new Map()));
+  // `open`: modules whose walk is still running. Reaching one (an import cycle
+  // among node_modules) answers "not via here" for now, so a "no" reached that
+  // way is not cached -- only a "yes" or a cycle-free "no" is.
+  const open = new Set<string>();
+  const walk = (start: string): { found: boolean; exact: boolean } => {
+    const known = memo.get(start);
+    if (known !== undefined) return { found: known, exact: true };
+    if (open.has(start)) return { found: false, exact: false };
+    open.add(start);
+    let found = false;
+    let exact = true;
+    for (const importer of getModuleInfo(start)?.importers ?? []) {
+      if (!importer.includes("node_modules")) continue;
+      // An importer tree-shaking dropped draws no chunk edge.
+      if (getModuleInfo(importer)?.isIncluded === false) continue;
       const group = classifyChunk(importer);
-      if (group === "vendor-ui") return "vendor-ui";
+      if (group === "vendor-ui") found = true;
       // Only modules that would sit beside this one can pull it along; a
-      // module pinned to any other group is that group's business.
-      if (group === undefined || group === "vendor-ui-modal") queue.push(importer);
+      // module pinned to any other group is the cycle guard's business.
+      else if (group === undefined || group === "vendor-ui-modal") {
+        const up = walk(importer);
+        found = up.found;
+        exact &&= up.exact;
+      }
+      if (found) break;
     }
+    open.delete(start);
+    if (found || exact) memo.set(start, found);
+    return { found, exact: found || exact };
+  };
+  if (!walk(id).found) return base;
+  if (base === "vendor-ui-modal") {
+    console.warn(`[chunks] ${id} is listed in VENDOR_UI_MODAL_PACKAGES but a vendor-ui module imports it; filed in vendor-ui (re-measure the lists, vite.chunks.ts).`);
   }
-  return base;
+  return "vendor-ui";
+}
+
+/**
+ * Every static import cycle that passes through a vendor-* chunk, as
+ * "a.js -> b.js -> a.js", given each chunk's static imports.
+ */
+export function findVendorChunkCycles(imports: Record<string, readonly string[]>): string[] {
+  const cycles: string[] = [];
+  const isVendor = (f: string) => /(^|\/)vendor-[^/]*$/.test(f);
+  for (const start of Object.keys(imports).filter(isVendor).sort()) {
+    const seen = new Set<string>();
+    const path = (from: string): string[] | null => {
+      for (const next of imports[from] ?? []) {
+        if (next === start) return [from, next];
+        if (seen.has(next)) continue;
+        seen.add(next);
+        const rest = path(next);
+        if (rest) return [from, ...rest];
+      }
+      return null;
+    };
+    const loop = path(start);
+    if (loop) cycles.push(loop.join(" -> "));
+  }
+  return cycles;
+}
+
+/**
+ * Vite plugin: fail the CLIENT build when any static import cycle passes through
+ * a vendor chunk. In the build itself, not in a CI job, because #747's cycle
+ * existed only in Vercel's build of the commit: a check that runs on CI's build
+ * would have been green. Now that deploy fails loudly instead of shipping pages
+ * stuck on their loading state.
+ */
+export function vendorChunkCycleGuard() {
+  return {
+    name: "vendor-chunk-cycle-guard",
+    apply: "build" as const,
+    generateBundle(
+      this: { error: (message: string) => never },
+      _options: unknown,
+      bundle: Record<string, { type: string; imports?: string[] }>,
+    ) {
+      const imports: Record<string, string[]> = {};
+      for (const [file, out] of Object.entries(bundle)) {
+        if (out.type === "chunk") imports[file] = out.imports ?? [];
+      }
+      const cycles = findVendorChunkCycles(imports);
+      if (cycles.length > 0) {
+        this.error(
+          `[chunks] static import cycle through a vendor chunk -- a chunk on it can run before the one it imports has finished ` +
+            `(PR #747: "TypeError: le is not a function", pages stuck loading). Fix the grouping in vite.chunks.ts:\n  ${cycles.join("\n  ")}`,
+        );
+      }
+    },
+  };
 }

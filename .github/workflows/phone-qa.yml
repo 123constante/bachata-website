@@ -44,6 +44,8 @@ on:
       - 'tests/e2e-phone/**'
       - 'vite.config.ts'
       - 'vite.chunks.ts'
+      - 'react-router.config.ts'
+      - 'scripts/_serve-build.mjs'
       - 'playwright.build.config.ts'
       - 'tests/e2e-build/**'
       - '.github/workflows/phone-qa.yml'
@@ -95,8 +97,11 @@ jobs:
   # function`: a vendor-ui <-> vendor-ui-modal import cycle) with every job here
   # green. playwright.build.config.ts serves `npm run build` the way Vercel does,
   # with the same fake Supabase baked in at build time; tests/e2e-build/ fails on
-  # an uncaught page error, a page still loading after 8 s, or any static import
-  # cycle through a vendor chunk.
+  # an uncaught page error, a page still loading after 8 s, or route content
+  # that never appears.
+  # Path-filtered with the phone suite. The cycle class is not left to this
+  # job: vendorChunkCycleGuard (vite.chunks.ts) fails EVERY client build on it,
+  # perf-budget.yml's on every PR and Vercel's deploy included.
   build-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 20

@@ -298,7 +298,11 @@ export const RPCS = {
     profile_id: p.id, role: ['teacher', 'dj', 'dancer'][i % 3], display_name: fullName(p), photo_url: p.photo_url ?? PHOTO, city_name: 'London', country_code: 'GB',
     bio: null, specialties: [], is_verified: false, nationality_code: p.nationality_code ?? (i % 3 === 1 ? 'CO' : null),
   })),
-  resolve_public_event_ref_v1: (args) => (EVENT_REFS[args.p_param] ? { id: EVENT_REFS[args.p_param], slug: args.p_param } : null),
+  // By slug or by id (/event/<uuid>, the link shape the build smoke opens).
+  resolve_public_event_ref_v1: (args) => {
+    const slug = EVENT_REFS[args.p_param] ? args.p_param : Object.keys(EVENT_REFS).find((s) => EVENT_REFS[s] === args.p_param);
+    return slug ? { id: EVENT_REFS[slug], slug } : null;
+  },
   event_view_p5: (args) => {
     const t = args.p_target ?? {};
     const id = Object.values(EVENT_REFS).find((x) => x === t.series_id || (t.occurrence_id && t.occurrence_id === `${x.slice(0, -1)}9`));
