@@ -54,9 +54,36 @@ The Party create chip seeds a party session; the derived word is the lib's `nigh
 
 One organiser-side function cannot give all four the same word without choosing **Party** or **Night**: making the Type row say Party means a second mapping beside the lib (the one-mapping rule), and making the chip say Night changes create copy. Owner question: *"Is the word for a party series **Party** or **Night** on the organiser screens (chip, Type row, ended page)?"* The next arc replaces the chips and the Type row, so it is the natural place to land the answer.
 
-## 5. Checks
+## 5. Checks (FIX-7 worker, 2026-10-13, on `c27e2ae` + this doc; Node 22; CI's `chmod +x bin/*.sh` applied, then reset, never committed)
 
-(filled below)
+GitHub Actions is unavailable (billing), so every no-secret step of every `pull_request` workflow was run here.
+
+| workflow / job | step | exit | note |
+|---|---|---|---|
+| architecture-guard `integrity` | `bin/check-integrity.sh`, `check:legacy-tables`, `check:legacy-program-rpcs`, `lint:architecture` | 0 each | |
+| | `AUDIT_STRICT=1 check:images`; `check:image-widths:self-test` + guard; `check:plan-hygiene:self-test`; `check:workflow-artifact-policy:self-test` + guard | 0 each | |
+| | `check:mojibake:self-test` / mojibake `git grep` | 0 / no match | |
+| | `prove:entry-point:self-test` + sweep | 0 | |
+| typecheck.yml | `check:rpc-typing` / `check:wallclock-brand` | 0 / 0 | `tsc` count **96** (was 98; target met) |
+| unit-tests.yml London (full) | `test:unit:offline` | **0** with `NODE_PATH` unset: 270 files, 6435 passed, 16 skipped | With the container's `NODE_PATH=/usr/local/lib/node_modules_global` set, `tests/integrityCouldNotRun.test.ts` reds 5 ("typescript resolved in the temp repo -- precondition gone"): environment-only (the fix-6 run also unset it; CI has no such NODE_PATH); that file passes 67/67 without it. |
+| | `test:unit:timing` | 0 | 65 passed |
+| unit-tests.yml New_York / Sydney (9-file list) | `vitest run --no-file-parallelism <9 files>` | 0 / 0 | 213 / 213 |
+| perf-budget.yml `bundle-budget` | both self-tests / `build` / `check:bundle-budget` / `check:first-load-requests` | 0 each | all 6 prerendered routes equal their pin. Lighthouse and doc-weight need a Vercel deploy: not run. |
+| db-contract-check.yml (no-secret) | `ci-live-db-gate.mjs --self-test` + gate, `check-migration-stamps`, `check-script-conventions.mjs` (+ its self-test), all 12 distinct `--self-test` commands in the workflow (`check-event-truth-v1` 157/157) | 0 each | |
+| | `check-event-truth-v1.mjs` LIVE | **not run** | Read-only `pg_proc` on prod: `check_event_truth_v1()` still has no `added_session` (P0; admin #780 not applied), so the live run takes the unchanged CANNOT-MEASURE path that names #780 (self-tests 864/865 hold it), the same expected red as fix-6. Not run to avoid handling a key. |
+| e2e-smoke.yml (workflow env, `CI=true`) | full `npm run test:e2e` | **0** | **88 passed, 1 skipped, 4 flaky** (failed once, passed on retry): `dancer-home.spec.ts:105`, `auth-magic-link-returnto.spec.ts:88` + `:113` (baseline) and **`dancer-home.spec.ts:150`** ("I organise events" opens the unchanged onboarding) -- not in the baseline list, but the same spec file as the baseline flake, and nothing in this diff touches dancer home, onboarding or `tests/e2e`. No hard failure. |
+| `npm run lint` (chain) | | 0 | 16 of 16 links green |
+| `npm run pre-ship` | all | **1** | Every repo check PASS; typecheck ratchet PASS at 96 (baseline 106); scoped eslint 40 files, 0 errors; build/bundle/first-load PASS. **The one FAIL is `test:unit`: 10 red, all live-DB `*.contract.test.ts` against the offline stub** (`eventViewCompat` 5, `publicEventPageLineup` 3, `occurrenceProgram` 2), inside the baseline 12. pre-ship SKIPPED its e2e leg (because of those) and `check:plan-hygiene` (no plans dir); both covered above. |
+
+**Hooks:** `.githooks/*` is mode 100644, so pre-commit/pre-push did not run ("hook ignored"); their checks ran by hand above. No `--no-verify`.
+
+**Result: no NEW hard red. One new e2e flake (`dancer-home.spec.ts:150`, passed on retry) outside the diff.**
+
+## 6. Verified / Not verified
+
+**Verified:** every fix's new test red on `9d528bf5` code and green after; every mutant in section 3 reds; R1's RPC semantics (`= ANY (p_category)`) and stored category counts (party 709, class 28, workshop 6) read from prod; R3's mapping checked against prod lifecycle x format x category counts (every series has a category; 658 ended/archived); typecheck 96; every CI step above.
+
+**Not verified:** no browser walk at 390x844 (the changes are copy and one search filter array; the e2e organiser specs passed in the full list); the live `check-event-truth-v1` run (prod is still P0); Lighthouse / doc-weight (need a deploy); `/code-review` was not run (no live user to type it); R2's new blocked copy and R3's new sentence `No session on its dates.` are worker wordings the owner has not seen.
 
 ## 6. Queued (not in scope, untouched)
 
