@@ -86,7 +86,7 @@ owner's label set, so the snapshot, not the code, was updated.
 | architecture-guard integrity job: `bin/check-integrity.sh`, legacy-tables, legacy-program-rpcs, lint:architecture, `AUDIT_STRICT=1 check:images`, image-widths self-test + guard, plan-hygiene self-test, workflow-artifact-policy self-test + guard, mojibake self-test + git grep, prove:entry-point self-test + sweep | all exit 0 |
 | perf-budget canaries (bundle-budget, first-load-requests self-tests) | pass |
 | perf-budget: `npm run build`, `check:bundle-budget`, `check:first-load-requests` | RED at first: the event route's chunk ratchet went 47 -> 48 because `src/lib/eventCategory.ts` (290 B gz) is now a standalone shared chunk pulled by both the event page's ended line and the organiser chunks. Raised the allowance to 48 in `perf-budgets.json` with the cause named in its `//chunkRatchet` note (its own convention: "raise it in this PR and say what bought them"). Re-run: all eight chunk ratchets ok, KB budgets ok (event 379.5 of 380 KB), six request pins ok. See section 7. |
-| e2e-smoke `npm run test:e2e` (placeholder env) | at this commit: 52 specs green, 0 red, run still finishing; the final commit carries the verdict |
+| e2e-smoke `npm run test:e2e` (placeholder env) | GREEN: 90 passed, 1 skipped, 0 failed (3.5 min, Playwright's own dev server on 4173, the CI placeholder env). Includes the updated organiser-events spec (F2). |
 | `npm run pre-ship` | FAILED on three rows, none a defect of this branch after the fix above: `check:integrity` exit 126 (`bin/check-integrity.sh` is mode 644 in git; CI chmods it; passes when run with `bash`), `test:unit` (the 15 environment-only reds above), `check:bundle-budget` (fixed, see the perf row; green on re-run). Green rows: every guard, build:ship, first-load-requests, typecheck ratchet (91 below baseline 106), eslint scoped (18 files, 0 errors), scope-drift. It skipped its e2e leg because repo-only rows were red, so e2e was run on its own (row above). No review stamp (the orchestrator's /code-review mints it); ship-gate is advisory for src/ and tests/. |
 | eslint on every touched file | clean |
 | db-contract-check, phone-qa, real-data-verified, owner-approval | need secrets / a PR; not runnable here |
@@ -138,7 +138,8 @@ Known copy limits to eyeball: the hint strings fit two lines at 390px (13px mute
 
 Verified: every unit test named above on this tree (5869 -> 6028 passing); the mutants in
 section 2; lint chain; every architecture-guard integrity step; typecheck.yml's two guards;
-eslint on touched files; the snapshot diff is Type-row-only.
+eslint on touched files; the snapshot diff is Type-row-only; the e2e smoke gate (90 green);
+both perf guards on a clean build after the allowance raise.
 
 Not verified: a real browser walk (no login or prod data here: the script is section 6);
 the live contract suites (no secrets); the DB trigger actually deriving `category` from the
