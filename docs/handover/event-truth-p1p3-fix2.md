@@ -68,7 +68,7 @@ Unit legs under the offline stub (`https://ci-offline-no-db.invalid`, placeholde
 | unit-tests.yml (Australia/Sydney, same list) | same | 0 | 213 passed |
 | typecheck.yml | `check:rpc-typing` / `check:wallclock-brand` | 0 / 0 | |
 | e2e-smoke.yml (workflow env: placeholder key, `VITE_ENABLE_ORGANISER_SELF_SERVE=true`, chromium) | `organiser-events.spec.ts` + `organiser-loop.spec.ts` | 0 | 10 passed (35.5 s). The FIRST run (cold server) had 2 reds: the fix-2 string in `organiser-events.spec.ts:57` (real; fixed, section 1) and the party spec (cold-start class: 5.3 s green warm, green in the full list). |
-| | full `npm run test:e2e` (15 specs) | pending | the full list is running at this commit (re-run after the spec fix); the result lands in the next commit of this file. The first full run before the spec fix: 89 passed, 1 skipped, 1 failed = the old sublabel substring only. |
+| | full `npm run test:e2e` (15 specs) | 0 | **90 passed, 1 skipped, 0 failed** (3.5 m) after the spec fix. The first full run, before it: 89 passed, 1 skipped, 1 failed = the old sublabel substring in `organiser-events.spec.ts` only. |
 | architecture-guard.yml `integrity` | `chmod +x bin/*.sh`, `bin/check-integrity.sh` (mode bits put back after; git clean) | 0 | 1441 files, 0 issues |
 | | `check:legacy-tables` / `check:legacy-program-rpcs` / `lint:architecture` | 0 / 0 / 0 | |
 | | `AUDIT_STRICT=1 npm run check:images` | 0 | |
@@ -88,9 +88,12 @@ Unit legs under the offline stub (`https://ci-offline-no-db.invalid`, placeholde
 | | `check-event-truth-v1.mjs` LIVE | **2** | designed fail-closed: against this container's `VITE_SUPABASE_URL` the RPC does not exist (PGRST202); on PROD a read-only SELECT shows only the P0 `check_event_truth_v1` (no `_series_programme_genres_v1` / `_derive_series_category_v1`), so admin #780 is still unapplied and the guard exits 2 until it lands (B F2 holds). Not weakened. |
 | `npm run pre-ship` | all | pending | runs after the full e2e list; result in the next commit of this file |
 
-Hooks: `.githooks/pre-commit` / `pre-push` are mode 100644 in git, so git ignored them here; nothing was bypassed by
-flag. What pre-commit runs (`check-source-integrity.cjs`, via `bin/check-integrity.sh`) and what pre-push runs
-(`test:unit:offline`) are the rows above.
+Hooks: `.githooks/pre-commit` / `pre-push` are mode 100644 in git, so git ignores them in this checkout (`core.hooksPath`
+is `.githooks`; "hook was ignored because it's not set as executable", as the FIX handover records). The first commit here
+(14ff798) was made with `-c core.hooksPath=/dev/null`, which changed nothing (the hooks could not run anyway) but reads
+like a bypass, so it is said here; the second commit uses no override. Nothing was bypassed by `--no-verify`. What
+pre-commit runs (`check-source-integrity.cjs`, via `bin/check-integrity.sh`: 1441 files, 0 issues, run by hand before
+each commit) and what pre-push runs (`test:unit:offline`) are the rows above.
 
 ## 5. Verified / Not verified
 
