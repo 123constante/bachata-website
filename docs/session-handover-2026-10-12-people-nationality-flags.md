@@ -29,6 +29,9 @@ Branch: `feat/people-nationality-flags`, PR #740.
   parsers pass the raw code, parties/classes budget 320 -> 321 KB with a note (main 319.9, branch 320.0).
 
 ## Open
+- **Sticker swap brief** (`docs/briefs/sticker-flag-swap.md`, pushed 2026-10-13 by kiki-claude-bot): it says the owner
+  rejected the waving flag for a static Sticker. NOT started in this session (context limit); the next session does it.
+- 2026-10-13: merged main (#739) into the branch; main's /parties and /classes budget 325 KB supersedes this PR's 321 bump.
 - Backend option: have `event_view_p5` legacy_compat emit `nationality_code` (admin) so the programme needs no
   second read.
 - No `/code-review` has run on this diff; no review stamp (the pre-push gate may refuse the push -- see the PR).
