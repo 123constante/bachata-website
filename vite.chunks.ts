@@ -271,6 +271,16 @@ const COMMONJS_HELPERS_ID = "\0commonjsHelpers.js";
 // prerendered ones match main, and /event is back on its pin; the numbers are
 // in docs/handover/event-truth-p1p3-fix.md.
 //
+// The UNBUDGETED routes too (FIX-6 F-l, 2026-10-13): londonDate is in the root
+// route's static graph, so lib-event-rules is in the first load of EVERY client
+// entry -- all 83 route modules and lazy pages in the manifest -- and on each of
+// them the first-load chunk + stylesheet count equals the pre-pairing build
+// (merge-base 5e0ec4c), 83 of 83. Method and table:
+// docs/handover/event-truth-p1p3-fix6.md. Its limit: a count of the manifest's
+// static-import closure from entry.client + root + the entry, not a browser
+// request trace; a lazy page's parent route chunk is not added (constant
+// between the two builds).
+//
 // Bounded like the vendor needles, from the other side: the id must END with
 // the module path (so a nested `node_modules/<pkg>/src/lib/londonDate.ts` does
 // not match -- that copy belongs to its package), and it must not be under
