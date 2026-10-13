@@ -10,9 +10,14 @@ The previous worker swapped the waving flag for the static Sticker (style F: 46%
 2. NOT yours, do not touch: `tests/e2e-phone/overlap.phone.spec.ts:22` `/auth` at 360x640, `scrollWidth 390 > viewport 360; widest: div.absolute.rounded-full`. /auth shows no person photos; this was seen flaky on PR #733 (green on rerun). Report whether it also fails on `origin/main` with the same command; do not fix it in this PR.
 
 ## Task
+A second likely cause, if you can reproduce it: the audit text walker in auditStickers (spec ~lines 139-150) scans ALL document text including page text hidden UNDER the open search panel, so 'Bachata' may be hidden page text, not a visible overlap. If so, count text only where document.elementFromPoint at the overlap centre belongs to that text's own element chain (the sticker is pointer-events:none). Prove which cause is real with a screenshot before changing code.
+
 Make the header-search rows (and the Cmd+K overlay rows, which use the same markup) keep the sticker clear of text at 360x640 and 390x844 WITHOUT changing the Sticker spec for other surfaces: add space on that row (padding or placement) or use the existing inset placement for that surface, the same way the previous worker fixed `/organisers/:id` and `/account`. Prove the fix with the failing test red before (run the spec in the CI-like env first) and green after; run the whole `people-nationality-flag.phone.spec.ts` at both sizes plus the matrix tests, the lint chain steps the CI runs, and push ONCE.
 
-## Also decide and report (do not implement)
+## Owner decision on small photos (2026-10-13, IMPLEMENT)
+Photos under 28px (the /vendors/:id team circles at 17-20px) get NO sticker; the country stays in the aria-label and title on the photo (keep one test that proves the label and title are still present and that no sticker element renders under 28px, in the matrix and the phone spec). Mark that surface 'tooSmall' as the spec already does, update the PR notes, and drop the options screenshots below.
+
+## (superseded) Also decide and report
 For photos under about 28px (the `/vendors/:id` team circles at 17-20px) list 3 options with a screenshot each at 390x844: (a) 20px sticker as now, (b) a smaller sticker clamped to the corner, (c) no sticker under 28px and country in the aria-label/title only. Put the screenshots under `docs/screenshots/nationality-flags/small-photo-options/` and describe them in your report. The owner picks.
 
 ## Report
