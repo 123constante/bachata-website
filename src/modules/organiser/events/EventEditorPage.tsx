@@ -212,7 +212,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
         </section>
         <Card>
           <SummaryRow icon={<Shapes />} label="Type" value={categoryLabel(ws.series.format, ws.series.category)}
-            sublabel={typeSublabel(ws.series.format, ws.series.category)} testId="org-row-type" />
+            sublabel={typeSublabel(ws.series.format, ws.series.category, { locked: !!lock, hasUpcoming: upcoming.length > 0 })} testId="org-row-type" />
         </Card>
       </EditorGroup>
       <EditorGroup id="when" heading="When">

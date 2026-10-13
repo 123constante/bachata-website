@@ -22,9 +22,9 @@ test('New event: name only creates the draft and its first 8 weekly dates, then 
   expect(fake.envelopes()).toHaveLength(0);
 
   await page.getByTestId('org-new-event-name').fill('Thursday Bachata Class');
-  // No type chosen yet (G2): refused on the screen, nothing is sent.
+  // No first session chosen yet (G2, event-truth P1): refused on the screen, nothing is sent.
   await page.getByTestId('org-new-event-create').click();
-  await expect(page.getByTestId('org-new-event-error')).toHaveText('Choose what it is: a class, a party, or a course or workshop.');
+  await expect(page.getByTestId('org-new-event-error')).toHaveText('Choose the first session: a class, a party or a workshop.');
   expect(fake.envelopes()).toHaveLength(0);
 
   await page.getByTestId('org-new-event-type-class').click();
@@ -36,15 +36,25 @@ test('New event: name only creates the draft and its first 8 weekly dates, then 
   const [create, rule] = fake.envelopes();
   expect(create.target_id).toBe(id);
   expect(create.command.kind).toBe('series.upsert');
-  expect(create.command.payload).toMatchObject({ name: 'Thursday Bachata Class', format: 'recurring', category: 'class', default_duration_minutes: 120, default_start_date: '2026-10-15', timezone: 'Europe/London' });
+  expect(create.command.payload).toMatchObject({ name: 'Thursday Bachata Class', format: 'recurring', default_duration_minutes: 120, default_start_date: '2026-10-15', timezone: 'Europe/London' });
+  // Category is derived from the sessions on the server (event-truth P1): a create never sends it.
+  expect(create.command.payload).not.toHaveProperty('category');
   expect(create.command.payload.organiser_ids).toEqual([ORG]);
   expect(rule.command).toEqual({ kind: 'series.set_recurrence', payload: { mode: 'weekly', weekdays: [4], end: { kind: 'until_date', date: '2026-12-03' } } });
   expect(rule.expected_version).toBe(1);
+  // The Class chip seeded ONE class session on the first date, nothing else.
+  const seeds = fake.sent('organiser_set_occurrence_programme_v1');
+  expect(seeds).toHaveLength(1);
+  expect(seeds[0].p_occurrence_id).toBe(fake.occId(fake.series.get(id)!, '2026-10-15'));
+  expect(seeds[0].p_sessions).toEqual([{ new: true, type: 'class', title: 'Class', start_time: '20:00', end_time: '22:00', ends_next_day: false, level_keys: [] }]);
 
   await expect(page.getByTestId('org-event-editor')).toBeVisible();
   await expect(page.getByTestId('org-event-name')).toHaveValue('Thursday Bachata Class');
   await expect(page.getByTestId('org-date-row')).toHaveCount(8);
   await expect(page.getByTestId('org-row-until')).toContainText('Listed until Thu 3 Dec');
+  // The Type row reads the word the sessions derive (the fake mirrors the server's trigger).
+  await expect(page.getByTestId('org-row-type')).toContainText('Class');
+  await expect(page.getByTestId('org-row-type')).toContainText('Set by its sessions.');
 });
 
 test('New event: a party is created with ONE date (no weekly rule), then the editor opens', async ({ page }) => {
@@ -59,13 +69,19 @@ test('New event: a party is created with ONE date (no weekly rule), then the edi
   expect(sent).toHaveLength(2);
   const [create, date] = sent;
   expect(create.target_id).toBe(id);
-  expect(create.command.payload).toMatchObject({ name: 'Saturday Social', format: 'recurring', category: 'party', default_duration_minutes: 300, default_start_date: '2026-10-15' });
+  expect(create.command.payload).toMatchObject({ name: 'Saturday Social', format: 'recurring', default_duration_minutes: 300, default_start_date: '2026-10-15' });
+  expect(create.command.payload).not.toHaveProperty('category');
   expect(date.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
   expect(date.expected_version).toBe(1);
+  // The Party chip seeded ONE party session (20:00 plus 300 minutes: 01:00 next day) on its one date.
+  const seeds = fake.sent('organiser_set_occurrence_programme_v1');
+  expect(seeds).toHaveLength(1);
+  expect(seeds[0].p_sessions).toEqual([{ new: true, type: 'party', title: 'Party', start_time: '20:00', end_time: '01:00', ends_next_day: true, level_keys: [] }]);
 
   await expect(page.getByTestId('org-event-editor')).toBeVisible();
   await expect(page.getByTestId('org-event-name')).toHaveValue('Saturday Social');
   await expect(page.getByTestId('org-date-row')).toHaveCount(1);
+  await expect(page.getByTestId('org-row-type')).toContainText('Night');
 });
 
 test('editor: summary rows edit the draft, the preview follows, ONE save sends only what changed', async ({ page }) => {

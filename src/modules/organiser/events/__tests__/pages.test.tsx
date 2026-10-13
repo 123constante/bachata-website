@@ -19,6 +19,7 @@ import EventsPage from '../index';
 import NewEventPage from '../NewEventPage';
 import EventEditorPage from '../EventEditorPage';
 import { LIVE_NOTE } from '../../ui';
+import { CHIPS_LOCKED_HINT } from '../eventType';
 
 type Handler = (args: Record<string, unknown>) => unknown;
 let handlers: Record<string, Handler>;
@@ -203,6 +204,9 @@ describe('new event (name only)', () => {
     expect(error).toMatch(/This date is cancelled/);
     expect(error).not.toMatch(/permission_denied/);
     expect(screen.getByTestId('where').textContent).toBe('/account/o/events/new');
+    // The event exists with this chip: the chips lock, and the hint says why and what to do.
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
     fireEvent.click(screen.getByTestId('org-new-event-open'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
   });

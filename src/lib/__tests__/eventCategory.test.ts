@@ -75,12 +75,17 @@ describe('the word every single-word screen shows (wordForStored / categoryLabel
   });
 });
 
-// TODO(next session): parity with the P0 guard's own JS copy (scripts/check-event-truth-v1.mjs
-// deriveGenres / categoryAgrees) over every TOKENS pair. Importing the .mjs here fails on its
-// CRLF shebang line; put the parity in the guard's --self-test instead (it can import this lib's
-// logic via a fixture table) or import with the shebang stripped.
-void TOKENS;
-void categoryAgrees;
+describe('categoryAgrees over every vocabulary token prod holds (plus junk)', () => {
+  it.each(TOKENS)('token %s: the stored value agrees exactly with the set it stands for', (token) => {
+    const set = setForStored(token);
+    // A token the CHECK vocabulary holds agrees with its own set; anything else agrees with nothing.
+    expect(categoryAgrees(token, set)).toBe(set.length > 0);
+    expect(categoryAgrees(token, [])).toBe(false);
+    expect(categoryAgrees(token, ['party', 'class', 'masterclass'])).toBe(set.length > 0);
+  });
+});
+// Parity with the P0 guard's own JS copy (scripts/check-event-truth-v1.mjs) lives in
+// src/lib/__tests__/eventCategory.parity.test.ts, owned by the guard slice.
 
 // The admin repo holds the byte-identical twin (lib/eventCategory.ts). CI cannot read a
 // private sibling repo, so this runs only where the admin checkout sits next to this one

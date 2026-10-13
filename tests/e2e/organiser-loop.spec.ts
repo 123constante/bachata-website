@@ -44,17 +44,20 @@ test('create an organiser, send it for review, get approved, create an event, st
   await expect(page.getByTestId('org-event-editor')).toBeVisible();
   await expect(page.getByTestId('org-date-row')).toHaveCount(8);
 
+  // The Class chip seeded ONE session, "Class", on the first date (event-truth P1); a new
+  // event has no teacher yet, so the loop adds one to that session.
   await page.getByTestId('org-date-row').first().click();
   await expect(page.getByTestId('org-page-date')).toBeVisible();
-  const beginners = page.getByTestId('session-row').filter({ hasText: 'Beginners' });
-  await beginners.getByTestId('session-row-open').click();
+  await expect(page.getByTestId('session-row')).toHaveCount(1);
+  const seeded = page.getByTestId('session-row').filter({ hasText: 'Class' });
+  await seeded.getByTestId('session-row-open').click();
   await page.getByTestId('session-add-person').click();
   await page.getByTestId('people-search').fill('eva');
   await page.getByTestId('people-result').first().click();
   await page.getByTestId('date-sheet-done').click();
   await page.getByTestId('date-preview-bar-action').click();
   await expect(page.getByTestId('date-preview-bar-action')).toBeDisabled();
-  await expect(beginners.getByTestId('session-row-people')).toHaveText('Ana Ruiz, Eva Sol');
+  await expect(seeded.getByTestId('session-row-people')).toHaveText('Eva Sol');
 
   await page.getByTestId('org-tab-home').click();
   const first = page.getByTestId('home-date-row').first();

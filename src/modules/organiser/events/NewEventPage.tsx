@@ -16,7 +16,7 @@ import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Chip, EmptyState, ErrorState, GhostButton, PrimaryButton, SectionLabel, SkeletonRows, TitleInput, useShake } from '../ui';
 import { useOrganiserHome } from './eventsApi';
 import { firstListedDate, newEventCommands, seedSessions } from './newEvent';
-import { EVENT_TYPES, FIRST_SESSION_HINT, type NewEventType } from './eventType';
+import { CHIPS_LOCKED_HINT, EVENT_TYPES, FIRST_SESSION_HINT, type NewEventType } from './eventType';
 
 // `?o=<organiser id>` (useOrganiserChoice's shape; the public organiser page's
 // Create event passes it) preselects that organiser when it is one of mine.
@@ -117,7 +117,7 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
           ))}
         </div>
         <p className="mt-[8px] text-[13px] text-[var(--mut)]" data-testid="org-new-event-type-hint">
-          {type ? EVENT_TYPES.find((t) => t.type === type)?.hint : FIRST_SESSION_HINT}
+          {scheduleFailed ? CHIPS_LOCKED_HINT : type ? EVENT_TYPES.find((t) => t.type === type)?.hint : FIRST_SESSION_HINT}
         </p>
       </section>
       <p className="text-[14px] text-[var(--mut)]">

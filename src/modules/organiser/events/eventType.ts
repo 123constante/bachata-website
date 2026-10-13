@@ -20,6 +20,12 @@ export const EVENT_TYPES: Array<{ type: NewEventType; label: string; hint: strin
 export const FIRST_SESSION_HINT = 'Choose one. It becomes the first session; you can add more after.';
 
 /**
+ * The hint once the event exists but a later step (its dates, its first session)
+ * failed: the chips are locked, so this says why and what to do next.
+ */
+export const CHIPS_LOCKED_HINT = 'Already chosen: your event is made with it. Press Create to finish, or open the event.';
+
+/**
  * The one session a create seeds on the first date (organiser_set_occurrence_programme_v1
  * takes type class | masterclass | party | performance, so a workshop is a class session
  * titled Workshop). Times are the create's start time plus its default length.
@@ -37,10 +43,27 @@ export const DEFAULT_DURATION_MINUTES: Record<NewEventType, number> = { class: 1
 export const categoryLabel = (format: string | null | undefined, category: string | null | undefined): string =>
   categoryLabelFor(format, category);
 
-/** What sets the type, under the Type row. Never names a control that is not on the page. */
-export function typeSublabel(format: string | null | undefined, category: string | null | undefined): string {
+/** What the editor knows that decides which controls the Type row may point at. */
+export interface TypeRowState {
+  /** Ended / archived: shown, never edited, so no session can be changed. */
+  locked: boolean;
+  /** At least one upcoming date (a past date's sessions cannot be edited). */
+  hasUpcoming: boolean;
+}
+
+/**
+ * What sets the type, under the Type row. Never names a control that is not on
+ * the page: a locked series has no session to change, a series with no upcoming
+ * date has no date to put a session on (the When group below says how to list one).
+ */
+export function typeSublabel(format: string | null | undefined, category: string | null | undefined, state: TypeRowState): string {
   if (format === 'festival' || format === 'course') return 'Set by its format.';
-  return wordForStored(format, category)
-    ? 'Set by its sessions. Change the sessions on a date and it follows.'
-    : 'Add a session to one of its dates and it is set for you.';
+  const canEdit = !state.locked && state.hasUpcoming;
+  if (wordForStored(format, category)) {
+    return canEdit ? 'Set by its sessions. Change the sessions on a date and it follows.' : 'Set by its sessions.';
+  }
+  if (state.locked) return 'No session, so not set.';
+  return state.hasUpcoming
+    ? 'Add a session to one of its dates and it is set for you.'
+    : 'Add a session once a date is listed under When, and it is set for you.';
 }

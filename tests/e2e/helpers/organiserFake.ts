@@ -1,4 +1,5 @@
 import { expect, type Page, type Route } from '@playwright/test';
+import { deriveCategories, storedCategory } from '../../../src/lib/eventCategory';
 
 // One STATEFUL fake of every RPC / table the new organiser area (/account/o, W0-W5) reads or
 // writes, for the organiser-*.spec.ts smoke specs. Like the old organiser specs it answers
@@ -66,7 +67,8 @@ export interface FakeSeries {
   name: string;
   slug: string;
   format: string;
-  category: string;
+  /** Derived from the sessions, as the server's trigger does (event-truth P1): null until a date holds one. */
+  category: string | null;
   lifecycle_status: string;
   version: number;
   default_venue_id: string | null;
@@ -222,15 +224,17 @@ export class OrganiserFake {
     if (p) return p;
     const found = this.findOccurrence(occurrenceId);
     const party = found?.s.category === 'party';
+    // A series made in this run (category null: no session yet) holds no programme at all.
+    const fresh = found?.s.category === null;
     const empty = found ? this.emptyLineup.has(found.date) : false;
-    const sessions: Session[] = party
+    const sessions: Session[] = fresh ? [] : party
       ? [{ series_item_id: ITEM_PARTY, type: 'party', title: 'Party', start_time: '21:00', end_time: '01:00', ends_next_day: true, level_keys: [], removed: false }]
       : [
           { series_item_id: ITEM_CLASS, type: 'class', title: 'Beginners', start_time: '20:00', end_time: '21:00', ends_next_day: false, level_keys: ['beginner'], removed: false },
           { series_item_id: ITEM_PARTY, type: 'party', title: 'Party', start_time: '21:00', end_time: '23:30', ends_next_day: false, level_keys: [], removed: false },
         ];
     const people = new Map<string, { profile_id: string; display_name: string; role: string }[]>();
-    if (!empty && !party) {
+    if (!empty && !party && !fresh) {
       people.set(ITEM_CLASS, [{ profile_id: PEOPLE[0].id, display_name: 'Ana Ruiz', role: 'teaching' }]);
       people.set(ITEM_PARTY, [{ profile_id: PEOPLE[3].id, display_name: 'DJ Sol', role: 'djing' }]);
     }
@@ -325,6 +329,9 @@ export class OrganiserFake {
     p.sessions = sessions;
     p.people = people;
     p.version += 1;
+    // The server's trigger (event-truth P1): event_series_p5.category follows the sessions.
+    const owner = this.findOccurrence(occurrenceId)?.s;
+    if (owner) owner.category = storedCategory(owner.category, deriveCategories(owner.format, [], sessions.map((x) => String(x.type))).set);
     return { ok: true, changed: true, version: p.version, sessions };
   }
 
@@ -354,7 +361,8 @@ export class OrganiserFake {
       const org = this.organisers.find((o) => ids.includes(o.id));
       if (!org) return { refusal: 'permission_denied: series.upsert (create)' };
       s = this.addSeries(org, {
-        id: env.target_id, name: String(payload.name), category: String(payload.category ?? 'class'),
+        // Category is derived from the sessions (event-truth P1): a sent value is ignored, as the server does.
+        id: env.target_id, name: String(payload.name), category: null,
         format: String(payload.format ?? 'recurring'), lifecycle_status: 'draft', version: 0,
         default_start_date: String(payload.default_start_date ?? TODAY), default_venue_id: null,
         default_city_id: (payload.default_city_id as string | undefined) ?? null, default_description: null, default_music_styles: [],
