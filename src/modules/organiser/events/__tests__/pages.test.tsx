@@ -27,7 +27,7 @@ import EventsPage from '../index';
 import NewEventPage from '../NewEventPage';
 import EventEditorPage from '../EventEditorPage';
 import { LIVE_NOTE } from '../../ui';
-import { CHIPS_LOCKED_HINT, EVENT_TYPES } from '../eventType';
+import { CHIPS_LOCKED_HINT, EVENT_TYPES, unconfirmedExitNote } from '../eventType';
 
 type Handler = (args: Record<string, unknown>) => unknown;
 let handlers: Record<string, Handler>;
@@ -253,15 +253,18 @@ describe('new event (name only)', () => {
   });
 
   // FIX-3 (review F3, F4, F6, F7, F10): while the FIRST create is in flight the hint says so (the
-  // event is not made yet), Open is ABSENT (the event may not exist), Create spins. Once the create
-  // is CONFIRMED, Open mounts BELOW Create (nothing above the tapped control moves), enabled. The
-  // held calls are released and the follow-up awaited, so nothing runs into the next test's mockReset.
-  it('while the first create is in flight: chips disabled with the creating hint, no Open; after its reply Open sits below Create, enabled', async () => {
+  // event is not made yet), Open is ABSENT (the event may not exist), Create spins. FIX-4 F3 + F9:
+  // once the create is CONFIRMED but its date and first session still run, Open stays ABSENT (a tap
+  // would race the schedule) and the hint says "finishing", never "press Create" (Create is busy).
+  // When the run ends (here: its date is refused) Open mounts BELOW Create, enabled. The held calls
+  // are released and the follow-up awaited, so nothing runs into the next test's mockReset.
+  it('while the first create is in flight: chips disabled with the creating hint, no Open; confirmed but still running: no Open, the finishing hint; idle: Open below Create, enabled', async () => {
     const gates: Array<() => void> = [];
     let n = 0;
     handlers.series_command_p5 = () => {
       n += 1;
-      if (n <= 2) return new Promise((resolve) => gates.push(() => resolve({ ok: true, new_version: 4 }))); // the create, then its date
+      if (n === 1) return new Promise((resolve) => gates.push(() => resolve({ ok: true, new_version: 4 }))); // the create
+      if (n === 2) return new Promise((_resolve, reject) => gates.push(() => reject({ message: 'invalid_payload: rule refused', code: 'P0001' }))); // its date
       return { ok: true, new_version: 4 };
     };
     mount('/account/o/events/new');
@@ -274,16 +277,20 @@ describe('new event (name only)', () => {
     await waitFor(() => expect(gates).toHaveLength(1));
     expect(create.getAttribute('aria-busy')).toBe('true');
     for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Creating your event…');
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Creating your event\u2026');
     expect(screen.queryByTestId('org-new-event-open')).toBeNull();
     gates[0]();
+    await waitFor(() => expect(gates).toHaveLength(2));
+    await waitFor(() => expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Finishing your event\u2026'));
+    expect(create.getAttribute('aria-busy')).toBe('true');
+    expect(screen.queryByTestId('org-new-event-open')).toBeNull();
+    gates[1]();
     const open = await screen.findByTestId('org-new-event-open') as HTMLButtonElement;
+    expect(create.getAttribute('aria-busy')).toBeNull();
     expect(open.disabled).toBe(false);
     expect(create.compareDocumentPosition(open) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(create.getAttribute('aria-busy')).toBe('true');
     expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
-    await waitFor(() => expect(gates).toHaveLength(2));
-    gates[1]();
+    fireEvent.click(open);
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
   });
 
@@ -371,6 +378,135 @@ describe('new event (name only)', () => {
     // Key handling is unchanged: one key per write for the life of the page.
     expect(retried.idempotency_key).toBe(refused.idempotency_key);
     expect(retried.target_id).toBe(refused.target_id);
+  });
+
+  // FIX-4 F1 (data integrity): the form reopens only when nothing can have been saved -- the press
+  // that failed was the FIRST send and the server refused it, with no earlier send unconfirmed. A
+  // coded error on a RESEND (JWT expiry PGRST301, timeout 57014, 40001) proves nothing about the
+  // earlier send, which may have saved the event: the form stays frozen and the next press sends
+  // the byte-equal create (the server replays a stored create under its key without comparing it).
+  // Each step is one series_command_p5 call: 'lost' = no reply, 'ok', or a coded refusal.
+  type Step = 'lost' | 'ok' | { message: string; code: string };
+  const coded = (code: string): Step => ({ message: `${code}: refused`, code });
+  it.each([
+    ['(a) lost reply, then the retry gets PGRST301', ['lost', coded('PGRST301')], 2, true],
+    ['(a) lost reply, then the retry gets 57014', ['lost', coded('57014')], 2, true],
+    ['(a) lost reply, then the retry gets 40001', ['lost', coded('40001')], 2, true],
+    ['(b) the first press refused with a code: nothing saved', [coded('P0001')], 1, false],
+    ['(b) the first press refused with PGRST301: nothing saved', [coded('PGRST301')], 1, false],
+    ['(c) first refused, second lost, third coded', [coded('P0001'), 'lost', coded('PGRST301')], 3, true],
+    ['(d) confirmed, its date refused, the replay refused with a code', ['ok', coded('P0001'), coded('57014')], 2, true],
+  ] as Array<[string, Step[], number, boolean]>)('%s', async (_n, script, presses, frozen) => {
+    twoOrganisers();
+    let i = 0;
+    handlers.series_command_p5 = () => {
+      const step = script[i++] ?? 'ok';
+      if (step === 'ok') return { ok: true, new_version: 4 };
+      if (step === 'lost') throw new TypeError('fetch failed');
+      throw step;
+    };
+    mount('/account/o/events/new');
+    const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
+    const create = screen.getByTestId('org-new-event-create') as HTMLButtonElement;
+    const creates = () => commands().filter((c) => c.command.kind === 'series.upsert');
+    for (let p = 1; p <= presses; p += 1) {
+      // Whatever is still open, the person changes before each press.
+      if (!name.disabled) fireEvent.change(name, { target: { value: `Night ${p}` } });
+      fireEvent.click(screen.getByTestId(`org-new-event-type-${p % 2 ? 'party' : 'class'}`));
+      const before = creates().length;
+      fireEvent.click(create);
+      await waitFor(() => expect(creates().length).toBe(before + 1));
+      await waitFor(() => expect(create.getAttribute('aria-busy')).toBeNull());
+    }
+    await screen.findByTestId('org-new-event-error');
+    expect(name.disabled).toBe(frozen);
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(frozen);
+    expect(organiserChips().map((o) => o.disabled)).toEqual([frozen, frozen]);
+    if (!frozen) return;
+    // Frozen: another chip and organiser do nothing, and the next press resends the last create byte for byte.
+    const last = creates()[creates().length - 1];
+    fireEvent.click(screen.getByTestId('org-new-event-type-workshop'));
+    fireEvent.click(organiserChips()[1]);
+    fireEvent.click(create);
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    const resent = creates()[creates().length - 1];
+    expect(creates()).toHaveLength(presses + 1);
+    expect(JSON.stringify(resent)).toBe(JSON.stringify(last));
+  });
+
+  // FIX-4 F2: Home refetches on focus; a failed refetch must not swap the form for the error state
+  // once Home has loaded: the unmount would lose the sent create, its key and series id, and the
+  // next Create would make a second event. The error state shows only when there is nothing to show.
+  it('a failed Home refetch after a lost-reply send keeps the form mounted; the next press sends the SAME key and series id', async () => {
+    let n = 0;
+    handlers.series_command_p5 = () => {
+      n += 1;
+      if (n === 1) throw new TypeError('fetch failed');
+      return { ok: true, new_version: 4 };
+    };
+    const client = mount('/account/o/events/new');
+    const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
+    fireEvent.change(name, { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/could not confirm the save/);
+    handlers.organiser_home_v1 = () => { throw { message: 'JWT expired', code: 'PGRST301' }; };
+    await act(async () => { await client.invalidateQueries(); });
+    // React Query notifies subscribers on a later macrotask: let the page re-render with the error.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(client.getQueryCache().findAll().some((q) => q.state.status === 'error' && q.state.data !== undefined)).toBe(true);
+    expect(screen.getByTestId('org-new-event-form')).toBeTruthy();
+    expect((screen.getByTestId('org-new-event-name') as HTMLTextAreaElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    const [first, second] = commands();
+    expect(second.idempotency_key).toBe(first.idempotency_key);
+    expect(second.target_id).toBe(first.target_id);
+    expect(second).toEqual(first);
+  });
+
+  it('Home that never loaded still shows the error state with retry', async () => {
+    handlers.organiser_home_v1 = () => { throw { message: 'JWT expired', code: 'PGRST301' }; };
+    mount('/account/o/events/new');
+    await waitFor(() => expect(screen.queryByTestId('org-new-event-form')).toBeNull());
+    expect(await screen.findByRole('button', { name: /try again|retry/i })).toBeTruthy();
+  });
+
+  // FIX-4 F5: the organiser becomes blocked (a Home refetch) while a create is sent but not
+  // confirmed: Create is disabled, the chips frozen. The one exit is the shell's back link, so a
+  // note under the block names it as it reads. Before a send there is nothing to find; once the
+  // create is confirmed Open the event is the way on. One row per phase.
+  it.each([
+    ['open: nothing sent', [] as Step[], 0, false],
+    ['sent: a lost reply', ['lost'] as Step[], 1, true],
+    ['made: its date refused', ['ok', coded('P0001')] as Step[], 1, false],
+  ])('blocked after a Home refetch, %s', async (_n, script, presses, note) => {
+    let i = 0;
+    handlers.series_command_p5 = () => {
+      const step = script[i++] ?? 'ok';
+      if (step === 'ok') return { ok: true, new_version: 4 };
+      if (step === 'lost') throw new TypeError('fetch failed');
+      throw step;
+    };
+    const client = mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    const create = screen.getByTestId('org-new-event-create') as HTMLButtonElement;
+    for (let p = 0; p < presses; p += 1) {
+      fireEvent.click(create);
+      await screen.findByTestId('org-new-event-error');
+      await waitFor(() => expect(create.getAttribute('aria-busy')).toBeNull());
+    }
+    const base = home();
+    handlers.organiser_home_v1 = () => ({ ...base, organisers: [{ ...base.organisers[0], lifecycle_status: 'pending_review' }] });
+    await act(async () => { await client.invalidateQueries(); });
+    await screen.findByTestId('org-new-event-block');
+    expect(create.disabled).toBe(true);
+    const shown = screen.queryByTestId('org-new-event-unconfirmed-exit');
+    if (!note) { expect(shown).toBeNull(); return; }
+    const back = screen.getByTestId('org-back');
+    expect(shown?.textContent).toBe(unconfirmedExitNote(back.textContent ?? ''));
+    expect(shown?.textContent).toContain(`use ${back.textContent} at the top`);
   });
 
   // FIX-3 (review F11): the unsaved-changes guard contradicts "saved as a draft" once the event
