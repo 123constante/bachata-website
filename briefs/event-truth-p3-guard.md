@@ -2,8 +2,14 @@
 
 Repo 123constante/bachata-website (PUBLIC repo: never put a secret in a commit or a doc). Zero-context
 cloud worker. Never merge, never approve, never --no-verify. Class: GUARD-CI.
-BRANCH: `arc/event-truth-p1p3-guard`, created FROM `wip/event-truth-p1p3` (head a8efae3c), never from
-main. Push only this branch. Do NOT open a PR (the orchestrator merges into `feat/event-truth-p1p3`
+BRANCH: `arc/event-truth-p1p3-guard`, created FROM `main`. Push only this branch.
+STEP 0 (before anything else): the canonical lib is not on main yet; it lives in the P1 Website commit a8efae3c,
+published as a patch. Apply ONLY its two lib files as your FIRST commit:
+`gh api "repos/123constante/bachata-website/contents/briefs/a8efae3c.patch?ref=arc/briefs-event-truth" -q .content | base64 -d > /tmp/a8efae3c.patch && git apply --include='src/lib/eventCategory.ts' --include='src/lib/__tests__/eventCategory.test.ts' /tmp/a8efae3c.patch && git add src/lib && git commit -m "chore(event-truth): canonical eventCategory lib + test (from a8efae3c, guard slice)"`
+Check `sha256sum src/lib/eventCategory.ts` (after `dos2unix` or on the LF bytes) starts a8d972e7. The REST of
+that patch (organiser screens, snapshot) belongs to the UI worker: never apply it, never touch those files.
+Known flaky under full-suite load, pass alone: DancerFirstGate.matrix "returnTo round-trips" and organiser shell
+"/account/o renders" -- two tries, then report. Never --no-verify. Do NOT open a PR (the orchestrator merges into `feat/event-truth-p1p3`
 and opens ONE PR). A parallel UI worker is on `arc/event-truth-p1p3-ui` and owns `src/**` (except the
 two files below); you never touch its files and it never touches yours.
 
