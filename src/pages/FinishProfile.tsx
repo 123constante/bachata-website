@@ -13,7 +13,7 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { MY_DANCER_SUMMARY_ROOT } from "@/lib/myPersona";
-import { DANCER_GATE_REASON, isDancerGatedTarget } from "@/lib/accountRouting";
+import { ACCOUNT_SETTINGS_PATH, DANCER_GATE_REASON, isDancerGatedTarget } from "@/lib/accountRouting";
 import type { DanceRoleValue } from "@/lib/auth-otp-routing";
 import {
   NO_PROFILE_CONTACT_LABEL,
@@ -263,6 +263,14 @@ export const FinishProfileScreen = () => {
             <p className="text-sm text-foreground" data-testid="finish-profile-gate-reason">{DANCER_GATE_REASON}</p>
           )}
           <div className="rounded-xl border border-border bg-card p-3">{body}</div>
+          {/* Never a trap: sign out, hide or delete the account without finishing. */}
+          <Link
+            to={ACCOUNT_SETTINGS_PATH}
+            className="flex min-h-[44px] items-center justify-center text-[14px] font-semibold text-primary underline underline-offset-2"
+            data-testid="finish-profile-settings"
+          >
+            Account settings (sign out or delete account)
+          </Link>
         </div>
       </div>
     </GlobalLayout>

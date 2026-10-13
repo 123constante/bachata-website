@@ -22,6 +22,10 @@ export const DANCER_HOME_PATH = '/account/dancer';
 export const ORGANISER_HOME_PATH = '/account/o';
 /** My attendance (src/pages/MyAttendance.tsx): nights marked going or interested; past ones link to their rating card. */
 export const MY_ATTENDANCE_PATH = '/account/attendance';
+/** Account settings (src/pages/AccountSettings.tsx): sign out, email, export, hide, erase. Never gated: see isDancerGatedPath. */
+export const ACCOUNT_SETTINGS_PATH = '/account/settings';
+/** The page shown after the account was erased (public: the person is signed out by then). */
+export const ACCOUNT_DELETED_PATH = '/account/deleted';
 
 export type AccountHome = 'organiser' | 'dancer' | 'loading';
 
@@ -105,12 +109,14 @@ const INVITE_PATH = '/invite';
 /**
  * The pages behind the gate: /account, /account/dancer, /account/o and
  * everything under it, the old /account/new|series|team links (they redirect
- * into /account/o) and /invite. NOT /account/attendance: a person's own nights
+ * into /account/o) and /invite. NOT /account/settings or /account/deleted, and NOT /account/attendance: a person's own nights
  * stay open, like the RSVPs they list. Judged case-folded, as the router matches.
  */
 export const isDancerGatedPath = (pathname: string): boolean => {
   const path = pathname.toLowerCase();
   if (path === MY_ATTENDANCE_PATH || path === `${MY_ATTENDANCE_PATH}/`) return false;
+  // Settings must never trap anyone: a person with an unfinished profile can still sign out, hide it or erase the account.
+  if (path === ACCOUNT_SETTINGS_PATH || path.startsWith(`${ACCOUNT_SETTINGS_PATH}/`) || path === ACCOUNT_DELETED_PATH) return false;
   return isAccountPath(path) || path === INVITE_PATH || path.startsWith(`${INVITE_PATH}/`);
 };
 

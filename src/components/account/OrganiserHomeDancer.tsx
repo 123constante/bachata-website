@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { UserRound } from "lucide-react";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
-import { DANCER_HOME_PATH, ORGANISER_HOME_PATH, accountView } from "@/lib/accountRouting";
+import { ACCOUNT_SETTINGS_PATH, DANCER_HOME_PATH, ORGANISER_HOME_PATH, accountView } from "@/lib/accountRouting";
 import { completenessFact } from "@/lib/profileCompletion";
 
 /**
@@ -72,6 +72,9 @@ export function AccountMenu({ organiserCount, openRequestCount }: Counts) {
           </Link>
           <Link to={DANCER_HOME_PATH} className={`${item} text-[var(--fg)]`} data-testid="org-account-menu-dancer" onClick={() => setOpen(false)}>
             Your dancer profile
+          </Link>
+          <Link to={ACCOUNT_SETTINGS_PATH} className={`${item} text-[var(--fg)]`} data-testid="org-account-menu-settings" onClick={() => setOpen(false)}>
+            Settings
           </Link>
         </nav>
       )}
