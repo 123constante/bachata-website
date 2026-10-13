@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -35,6 +35,9 @@ describe("classifyChunk -- the pinned vendor groups", () => {
     ["@radix-ui/react-tooltip", "vendor-ui"],
     ["@radix-ui/react-use-callback-ref", "vendor-ui"],
     ["@radix-ui/react-dialog", "vendor-ui-modal"],
+    // Shell, not modal: Radix Tooltip >= 1.4 imports it, and in the modal list
+    // that made vendor-ui and vendor-ui-modal import each other (PR #746).
+    ["@radix-ui/react-focus-scope", "vendor-ui"],
     ["maplibre-gl", "vendor-maplibre"],
     ["@maplibre/maplibre-gl-leaflet", "vendor-maplibre"],
     ["leaflet", "vendor-leaflet"],
@@ -162,5 +165,31 @@ describe("the two lists", () => {
       (pkg) => !existsSync(path.join(modules, pkg)),
     );
     expect(missing).toEqual([]);
+  });
+
+  // The direction rule. vendor-ui-modal imports vendor-ui by design (a dialog
+  // is built on the primitive layer), so the shell list must never depend on
+  // the modal list -- the two edges together are a static chunk cycle, and on
+  // the PR #746 preview that cycle threw "<minified helper> is not a function"
+  // (`le` there, `pe` in the reproduction; seen on every route walked).
+  // NARROW BY DESIGN, and the gaps are named: it reads the INSTALLED tree (the
+  // lockfile's versions only), DIRECT dependencies of the listed packages only
+  // (not a path through an unlisted package, not a nested copy, not the
+  // react-use-* prefix members). It is the cheap, buildless early warning;
+  // scripts/check-chunk-cycles.mjs over the emitted build is the real gate.
+  it("never let a shell package depend on a modal package", () => {
+    const modules = path.join(process.cwd(), "node_modules");
+    const offending: string[] = [];
+    for (const pkg of VENDOR_UI_SHELL_PACKAGES) {
+      const manifest = path.join(modules, pkg, "package.json");
+      expect(existsSync(manifest), `${pkg} is not installed`).toBe(true);
+      const deps = Object.keys(
+        JSON.parse(readFileSync(manifest, "utf8")).dependencies ?? {},
+      );
+      for (const dep of deps) {
+        if (VENDOR_UI_MODAL_PACKAGES.includes(dep)) offending.push(`${pkg} -> ${dep}`);
+      }
+    }
+    expect(offending).toEqual([]);
   });
 });

@@ -335,6 +335,11 @@ export const CHECKS = [
   // already had its review round.
   ["check:bundle-budget", "first-load JS budgets + puller/chunk ratchets (SSR routes included)"],
   ["check:first-load-requests", "first-load REQUEST-count ratchet (prerendered routes)"],
+  // The check reads the same fresh build. Its canary is buildless (CI runs it
+  // before the build); it sits here beside its check only so the pair reads as
+  // one decision, and it costs well under a second.
+  ["check:chunk-cycles:self-test", "the chunk-cycle rules are still proven in both directions"],
+  ["check:chunk-cycles", "no static import cycle between chunks (PR #746 TypeError class)"],
 ];
 
 /** Where CI declares the env the perf build is designed to run under. */
