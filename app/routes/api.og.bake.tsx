@@ -42,6 +42,7 @@ import {
   type OgCardData,
 } from "../lib/ogCardRender";
 import { decideBakePersist } from "../lib/ogBakePolicy";
+import { uploadJpeg } from "../lib/ogUpload";
 import type { Route } from "./+types/api.og.bake";
 
 const SUPABASE_URL = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
@@ -56,21 +57,6 @@ function json(obj: unknown, status: number): Response {
     status,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });
-}
-
-// Presign a PUT (storage-sign-upload edge fn) then upload the bytes — the
-// path the Website uses for cover uploads (src/lib/uploadToR2.ts).
-async function uploadJpeg(path: string, bytes: Buffer): Promise<string | null> {
-  const sign = await fetch(`${SUPABASE_URL}/functions/v1/storage-sign-upload`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
-    body: JSON.stringify({ bucket: "events", path, contentType: "image/jpeg" }),
-  });
-  if (!sign.ok) return null;
-  const signed = (await sign.json()) as { ok?: boolean; uploadUrl?: string; publicUrl?: string };
-  if (!signed?.ok || !signed.uploadUrl || !signed.publicUrl) return null;
-  const put = await fetch(signed.uploadUrl, { method: "PUT", headers: { "Content-Type": "image/jpeg" }, body: bytes });
-  return put.ok ? signed.publicUrl : null;
 }
 
 async function recordResult(
@@ -229,7 +215,7 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     const factsTag = ogFactsTag(cardData);
     const path = `og/${entityType}/${id}-${occTag}-${coverTag}${factsTag ? `-${factsTag}` : ""}.jpg`;
 
-    const publicUrl = await uploadJpeg(path, jpeg);
+    const publicUrl = await uploadJpeg(path, jpeg, { supabaseUrl: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY });
     if (!publicUrl) throw new Error("R2 upload failed");
 
     await recordResult(entityType, entityId, occurrenceId, coverUrl, publicUrl, "ready", null);
