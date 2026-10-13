@@ -109,10 +109,3 @@ export function attentionItems(series: HomeSeriesFull[], today: string): Attenti
   }
   return items;
 }
-
-// event_series_p5.category values measured on prod 2026-10-04.
-export const CATEGORY_LABEL: Record<string, string> = {
-  party: 'Party',
-  class: 'Class',
-  workshop: 'Workshop',
-};

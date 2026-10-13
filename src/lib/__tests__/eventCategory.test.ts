@@ -80,7 +80,21 @@ describe('the word every single-word screen shows (wordForStored / categoryLabel
 // CRLF shebang line; put the parity in the guard's --self-test instead (it can import this lib's
 // logic via a fixture table) or import with the shebang stripped.
 void TOKENS;
-void categoryAgrees;
+
+describe('categoryAgrees: a stored value agrees with a set only through its genre; null agrees with nothing', () => {
+  it.each([
+    ['party', ['party'], true], ['party', ['class'], false],
+    ['class', ['class'], true], ['workshop', ['class'], true], ['workshop', ['party'], false],
+    ['masterclass', ['class', 'masterclass'], true], ['masterclass', ['class'], false],
+    ['class', ['class', 'masterclass'], true],
+    [null, ['party', 'class', 'masterclass'], false], ['', ['party'], false], ['festival', ['party'], false],
+  ] as const)('%s over %j -> %s', (stored, set, agrees) => {
+    expect(categoryAgrees(stored, set as unknown as DerivedGenre[])).toBe(agrees);
+  });
+  it('is the inverse of setForStored: every stored value agrees with its own set', () => {
+    for (const s of STORED) expect(categoryAgrees(s, setForStored(s))).toBe(s !== null);
+  });
+});
 
 // The admin repo holds the byte-identical twin (lib/eventCategory.ts). CI cannot read a
 // private sibling repo, so this runs only where the admin checkout sits next to this one
