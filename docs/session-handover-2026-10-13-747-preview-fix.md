@@ -97,3 +97,16 @@ build. The preview's actual graph was never seen: no network route to Vercel fro
 sandbox. Owner action: redeploy the #747 preview (this push does that) and re-check
 `/parties`, the event schedule and an organiser page. If Vercel's graph still has the
 cycle, the deploy now FAILS with the cycle named in the build log.
+
+## Final state (this session)
+- A second session (the original #747 worker, following PR events) pushed 10438c9,
+  3b8d7a7, 8583ede and 27fe0b2 while this one worked. They were merged in, not
+  rewritten. Its notes: `docs/session-handover-2026-10-13-website-small-queue.md`.
+- `phone-qa` /auth on 35e5774: #744 on main fixes it ("clip the route entrance slide at
+  `<main>`"). On the merged tree: 3 repeats x 2 sizes, no retries, all green, and the
+  full phone suite gives 174 passed.
+- `contract-check`: live prod DB drift (unmigrated DDL at 22:11 UTC on the surname
+  functions, plus anon-grant posture). Red on main pushes too. Needs the admin or DB owner.
+- Full local CI table on the final head: PR #747 body.
+- Owner: re-check the preview (`/parties`, the event schedule, an organiser page).
+  Never merge or approve.
