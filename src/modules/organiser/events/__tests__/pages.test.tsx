@@ -12,14 +12,22 @@ import { TODAY, home, programme, rawWorkspace, venues } from './fixtures';
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn(), storage: { from: vi.fn() } } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
-vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-10-08' }));
+// Mutable: the FIX-3 freeze test rolls London midnight over between two presses of Create.
+const londonToday = vi.hoisted(() => ({ value: '2026-10-08' }));
+vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => londonToday.value }));
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: 'c-edinburgh' }) }));
+// The ONE first-date helper (FIX-3 fix 6), spied: the editor's `next` and the create's seed date must both read it.
+vi.mock('@/modules/organiser/shared/seriesModel', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/modules/organiser/shared/seriesModel')>();
+  return { ...real, firstListedDate: vi.fn(real.firstListedDate) };
+});
 
+import { firstListedDate } from '@/modules/organiser/shared/seriesModel';
 import EventsPage from '../index';
 import NewEventPage from '../NewEventPage';
 import EventEditorPage from '../EventEditorPage';
 import { LIVE_NOTE } from '../../ui';
-import { CHIPS_LOCKED_HINT } from '../eventType';
+import { CHIPS_LOCKED_HINT, EVENT_TYPES } from '../eventType';
 
 type Handler = (args: Record<string, unknown>) => unknown;
 let handlers: Record<string, Handler>;
@@ -35,6 +43,7 @@ beforeEach(() => {
     series_command_p5: () => ({ ok: true, new_version: 4 }),
   };
   (globalThis as { setWorkspace?: (w: ReturnType<typeof rawWorkspace>) => void }).setWorkspace = (w) => { workspace = w; };
+  londonToday.value = '2026-10-08';
   rpc.mockReset();
   rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => {
     const h = handlers[fn];
@@ -231,8 +240,8 @@ describe('new event (name only)', () => {
     await waitFor(() => expect(screen.getByTestId('org-new-event-error').textContent).toMatch(/could not confirm the save/));
     for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
-    // The hint says "open the event", so that control stays on screen.
-    expect(screen.getByTestId('org-new-event-open')).toBeTruthy();
+    // The hint says "open the event", so that control stays on screen, and it works: the event exists.
+    expect((screen.getByTestId('org-new-event-open') as HTMLButtonElement).disabled).toBe(false);
     // Picking another chip does nothing; the next Create replays the PARTY create (300 min), never a class one.
     fireEvent.click(screen.getByTestId('org-new-event-type-class'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
@@ -242,18 +251,173 @@ describe('new event (name only)', () => {
     for (const c of creates) expect(c.command.payload).toMatchObject({ default_duration_minutes: 300 });
   });
 
-  it('the chips are disabled while a create is in flight, with the lock hint as the reason', async () => {
-    let release: () => void = () => undefined;
-    handlers.series_command_p5 = () => new Promise((resolve) => { release = () => resolve({ ok: true, new_version: 4 }); });
+  // FIX-3 (review F3, F4, F6, F7, F10): while the FIRST create is in flight the hint says so (the
+  // event is not made yet), Open is ABSENT (the event may not exist), Create spins. Once the create
+  // is CONFIRMED, Open mounts BELOW Create (nothing above the tapped control moves), enabled. The
+  // held calls are released and the follow-up awaited, so nothing runs into the next test's mockReset.
+  it('while the first create is in flight: chips disabled with the creating hint, no Open; after its reply Open sits below Create, enabled', async () => {
+    const gates: Array<() => void> = [];
+    let n = 0;
+    handlers.series_command_p5 = () => {
+      n += 1;
+      if (n <= 2) return new Promise((resolve) => gates.push(() => resolve({ ok: true, new_version: 4 }))); // the create, then its date
+      return { ok: true, new_version: 4 };
+    };
     mount('/account/o/events/new');
     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
     fireEvent.click(screen.getByTestId('org-new-event-type-party'));
     for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(false);
-    fireEvent.click(screen.getByTestId('org-new-event-create'));
-    await waitFor(() => expect(commands()).toHaveLength(1));
+    expect(screen.queryByTestId('org-new-event-open')).toBeNull();
+    const create = screen.getByTestId('org-new-event-create') as HTMLButtonElement;
+    fireEvent.click(create);
+    await waitFor(() => expect(gates).toHaveLength(1));
+    expect(create.getAttribute('aria-busy')).toBe('true');
     for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Creating your event…');
+    expect(screen.queryByTestId('org-new-event-open')).toBeNull();
+    gates[0]();
+    const open = await screen.findByTestId('org-new-event-open') as HTMLButtonElement;
+    expect(open.disabled).toBe(false);
+    expect(create.compareDocumentPosition(open) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(create.getAttribute('aria-busy')).toBe('true');
     expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
-    release();
+    await waitFor(() => expect(gates).toHaveLength(2));
+    gates[1]();
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+  });
+
+  // FIX-3 (review F1 + F2): the create is frozen the moment it is SENT. A lost reply may have saved
+  // the event server-side, so the name, the three chips and the organiser chips stay disabled for
+  // the life of the page, and every later press sends the IDENTICAL create (same name, organiser,
+  // city, start date, duration, key) and the schedule computed at the first press: nothing is re-read.
+  const twoOrganisers = () => {
+    const base = home();
+    handlers.organiser_home_v1 = () => ({ ...base, organisers: [base.organisers[0], { ...base.organisers[0], id: 'org2', name: 'Salsa Crew', city_id: 'c2' }] });
+  };
+  const organiserChips = () => screen.getAllByTestId('org-new-event-organiser') as HTMLButtonElement[];
+  it('a lost create reply freezes name, chips and organiser; the retry sends the identical create even after London midnight and another chip', async () => {
+    twoOrganisers();
+    let n = 0;
+    handlers.series_command_p5 = () => {
+      n += 1;
+      if (n <= 2) throw new TypeError('fetch failed'); // the create's reply is lost, twice
+      return { ok: true, new_version: 4 };
+    };
+    mount('/account/o/events/new');
+    const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
+    fireEvent.change(name, { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    expect(organiserChips().map((o) => o.disabled)).toEqual([false, false]);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/could not confirm the save/);
+    // Frozen, with the reason on screen; the event may not exist, so nothing offers to open it.
+    expect(name.disabled).toBe(true);
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
+    expect(organiserChips().map((o) => o.disabled)).toEqual([true, true]);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Not confirmed yet. Press Create to finish: nothing is made twice.');
+    expect(screen.queryByTestId('org-new-event-open')).toBeNull();
+    // London midnight passes, and the person tries another chip and another organiser (both disabled).
+    londonToday.value = '2026-10-09';
+    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    fireEvent.click(organiserChips()[1]);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(commands()).toHaveLength(2));
+    const [first, second] = commands();
+    expect(first.command.payload).toMatchObject({ name: 'Saturday Party', default_duration_minutes: 300, default_start_date: '2026-10-15', default_city_id: 'c1' });
+    expect(second).toEqual(first);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Not confirmed yet. Press Create to finish: nothing is made twice.');
+    // The third press is confirmed: the same create again, then the schedule computed at the FIRST press.
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    const [, , third, schedule] = commands();
+    expect(third).toEqual(first);
+    expect(schedule.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
+    expect(commands()).toHaveLength(4);
+  });
+
+  it('a REFUSED first create (nothing saved) leaves name, chips and organiser open; the retry may change them, under the same key', async () => {
+    twoOrganisers();
+    let n = 0;
+    handlers.series_command_p5 = () => {
+      n += 1;
+      if (n === 1) throw { message: 'permission_denied: series.upsert (create) needs a live organiser', code: 'P0001' };
+      return { ok: true, new_version: 4 };
+    };
+    mount('/account/o/events/new');
+    const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
+    fireEvent.change(name, { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await screen.findByTestId('org-new-event-error');
+    expect(name.disabled).toBe(false);
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(false);
+    expect(organiserChips().map((o) => o.disabled)).toEqual([false, false]);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(EVENT_TYPES.find((t) => t.type === 'party')?.hint);
+    expect(screen.queryByTestId('org-new-event-open')).toBeNull();
+    fireEvent.change(name, { target: { value: 'Thursday Class' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    fireEvent.click(organiserChips()[1]);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    const [refused, retried] = commands().filter((c) => c.command.kind === 'series.upsert');
+    expect(refused.command.payload).toMatchObject({ name: 'Saturday Party', default_duration_minutes: 300, default_city_id: 'c1' });
+    expect(retried.command.payload).toMatchObject({ name: 'Thursday Class', default_duration_minutes: 120, default_city_id: 'c2' });
+    // Key handling is unchanged: one key per write for the life of the page.
+    expect(retried.idempotency_key).toBe(refused.idempotency_key);
+    expect(retried.target_id).toBe(refused.target_id);
+  });
+
+  // FIX-3 (review F11): the unsaved-changes guard contradicts "saved as a draft" once the event
+  // exists. It stays ON while the create is not confirmed (the draft may not exist) and goes OFF
+  // the moment the create is confirmed, whatever later step fails.
+  it('the leave guard stays on while the create is not confirmed, and goes off once the event is made', async () => {
+    let n = 0;
+    handlers.series_command_p5 = () => {
+      n += 1;
+      if (n === 1) throw new TypeError('fetch failed'); // lost reply
+      if (n === 3) throw { message: 'invalid_payload: rule refused', code: 'P0001' }; // the date, after the confirmed create
+      return { ok: true, new_version: 4 };
+    };
+    const asks = () => { const ev = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(ev); return ev.defaultPrevented; };
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    expect(asks()).toBe(true);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/could not confirm the save/);
+    expect(asks()).toBe(true);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('org-new-event-error').textContent).toMatch(/date was not listed/));
+    expect(asks()).toBe(false);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
+  });
+
+  // FIX-3 fix 6 (review F9): the editor's `next` and the create's seed date are ONE helper
+  // (seriesModel.firstListedDate); a cancelled first date is skipped identically in both.
+  it('the editor\'s next date and the create\'s seed date skip a cancelled date through the one shared helper', async () => {
+    const dates = [
+      { id: 'o2', occurrence_date: '2026-10-16', lifecycle_status: 'scheduled', version: 1 },
+      { id: 'o1', occurrence_date: '2026-10-09', lifecycle_status: 'cancelled', version: 1 },
+      { id: 'o0', occurrence_date: '2026-10-02', lifecycle_status: 'scheduled', version: 1 },
+    ];
+    (globalThis as { setWorkspace?: (w: ReturnType<typeof rawWorkspace>) => void }).setWorkspace!(rawWorkspace({}, dates));
+    vi.mocked(firstListedDate).mockClear();
+    await editor();
+    await waitFor(() => expect(screen.getByTestId('org-schedule').textContent).toContain('16 Oct'));
+    expect(firstListedDate).toHaveBeenCalled();
+    expect((vi.mocked(firstListedDate).mock.results.at(-1)?.value as { id?: string } | null)?.id).toBe('o2');
+    cleanup();
+    vi.mocked(firstListedDate).mockClear();
+    handlers.organiser_get_occurrence_programme_v1 = () => ({ ...programme, occurrence_id: 'o2', occurrence_date: '2026-10-16', sessions: [], session_people: [] });
+    handlers.organiser_set_occurrence_programme_v1 = () => ({ ok: true, changed: true, version: 3, sessions: [] });
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    expect(setCalls().map((c) => c.p_occurrence_id)).toEqual(['o2']);
+    expect(firstListedDate).toHaveBeenCalledTimes(1);
+    expect((vi.mocked(firstListedDate).mock.results[0]?.value as { id?: string } | null)?.id).toBe('o2');
   });
 
   it('asks for a name instead of sending a blank one', async () => {

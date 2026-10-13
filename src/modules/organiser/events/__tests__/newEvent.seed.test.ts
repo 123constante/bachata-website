@@ -4,18 +4,14 @@
  * null / an empty list reds every case in 'seedSessions'; firstListedDate picking a past
  * or cancelled date reds 'firstListedDate'.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { Programme } from '@/modules/organiser/shared/programmeModel';
-import { upcomingDates, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
-import { NEW_EVENT_START_TIME, firstListedDate, seedSessions } from '../newEvent';
+import { firstListedDate, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
+import { NEW_EVENT_START_TIME, seedSessions } from '../newEvent';
 import { EVENT_TYPES, SEED_SESSION } from '../eventType';
 
-// The shared helper, spied: "the first listed date" is ONE reading (seriesModel's upcomingDates,
-// the editor's), never a second sort of its own (review A, FIX-2).
-vi.mock('@/modules/organiser/shared/seriesModel', async (importOriginal) => {
-  const real = await importOriginal<typeof import('@/modules/organiser/shared/seriesModel')>();
-  return { ...real, upcomingDates: vi.fn(real.upcomingDates) };
-});
+// firstListedDate is seriesModel's (FIX-3 fix 6, review F9): the editor's `next` and the create's
+// seed date call the one helper; pages.test.tsx spies it from both screens over a cancelled first date.
 
 const emptyProgramme = (over: Partial<Programme> = {}): Programme => ({
   occurrenceId: 'o1', seriesId: 's1', occurrenceDate: '2026-10-15', version: 2, editable: true, notEditableReason: null,
@@ -57,12 +53,10 @@ describe('firstListedDate: the earliest upcoming date that is not cancelled', ()
   it('today counts as upcoming (the writer refuses only a past date)', () => {
     expect(firstListedDate([date('t', today), date('n', '2026-10-15')], today)?.id).toBe('t');
   });
-  it('reads the dates through the shared upcomingDates (the same London date the editor uses), not a copy', () => {
-    vi.mocked(upcomingDates).mockClear();
-    const dates = [date('o3', '2026-10-23'), date('o2', '2026-10-16'), date('oc', '2026-10-09', 'cancelled')];
-    expect(firstListedDate(dates, today)?.id).toBe('o2');
-    expect(upcomingDates).toHaveBeenCalledTimes(1);
-    expect(upcomingDates).toHaveBeenCalledWith(dates, today);
+  it('is seriesModel\'s helper (next to upcomingDates / isCancelledDate), not a copy in newEvent.ts', async () => {
+    const newEvent = await import('../newEvent') as Record<string, unknown>;
+    expect(newEvent.firstListedDate).toBeUndefined();
+    expect(typeof firstListedDate).toBe('function');
   });
   it.each([
     ['no dates', []],
