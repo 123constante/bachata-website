@@ -89,3 +89,36 @@ the expected #780 red.
   discarded after measuring.
 - The exact CI gzip figure (380.1) was not reproduced byte for byte. The local result was 380.0.
 - No browser walk: there is no UI change in this slice.
+
+---
+
+## FIX-7c: event budget 380 -> 381 KB (owner decision 2026-10-13)
+
+**What changed:** `perf-budgets.json` only. `routes["event (/event/:id)"].maxFirstLoadGzipKB`
+380 -> 381, plus a dated justification key `//event-2026-10-13`, following the
+`//parties+classes-2026-10-13` convention from #739. No other route, chunk ratchet,
+puller ratchet or request pin changed. No guard asked for anything beyond the bump.
+
+**Measured on a local merge of `origin/main` (not pushed, merge aborted afterwards):**
+
+| Step | Exit | Notes |
+|---|---|---|
+| `npm ci` | 0 | main's lockfile |
+| `npm run build` | 0 | |
+| `npm run check:bundle-budget` | 0 | `[ok] event (/event/:id): 380.0 KB first-load JS across 47 files (budget 381 KB)` |
+| `npm run check:first-load-requests` | 0 | all 6 prerendered routes match their pins |
+| `npm run check:bundle-budget:self-test` | 0 | |
+| `npm run check:first-load-requests:self-test` | 0 | |
+| `node scripts/check-ci-budget.mjs --self-test` | 0 | ci-budget-guard covers `ci-budgets.json`, not this file; run for completeness |
+
+No `npm run lint` link reads `perf-budgets.json` (the readers are `check-bundle-budget.mjs`,
+`check-first-load-requests.mjs`, `pre-ship.mjs`, and the `perf-budget.yml` workflow).
+
+### Verified
+- The merged tree passes the event budget at 381 with 1.0 KB margin locally (380.0 KB).
+- Request pins and both canaries still pass.
+
+### Not verified
+- CI `bundle-budget` on #750 after this push. Earlier CI read 380.1 KB, which passes 381.
+- `ci-budget-guard`'s measure step (needs the Actions billing API; not run locally).
+- The lazy `RaffleEntryDialog` follow-up PR has not been opened.
