@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { matchPath } from 'react-router-dom';
+import { isPathPublic } from '@/lib/videographersPublic';
 
 const ROOT = path.resolve(__dirname, '../../..');
 
@@ -14,7 +15,9 @@ export function routePatterns(): string[] {
   const declarative = [...read('src/components/AnimatedRoutes.tsx').matchAll(/<Route\s+path="([^"]+)"/g)].map((m) => m[1]);
   const framework = [...read('app/routes.ts').matchAll(/\broute\(\s*"([^"]+)"/g)].map((m) => `/${m[1]}`);
   // `index(...)` is the bare "/" framework route.
-  const patterns = [...declarative, ...framework, '/'];
+  // A route behind VIDEOGRAPHERS_PUBLIC_ENABLED is in the source as a literal
+  // but is not mounted while the flag is off.
+  const patterns = [...declarative, ...framework, '/'].filter((p) => isPathPublic(p));
   // The splat is the 404 page, not a route anyone means to land on.
   return [...new Set(patterns)].filter((p) => p !== '*' && p !== '/*');
 }

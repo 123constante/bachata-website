@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { CATCHALL_CLIENT_PATHS } from '@/components/catchallClientPaths';
 import { classifyCatchallPath } from '../app/catchallGate';
+import { isPathPublic } from '@/lib/videographersPublic';
 
 // app/catchallGate.ts answers 200 only for the paths in CATCHALL_CLIENT_PATHS.
 // A <Route> added to AnimatedRoutes without updating that list would serve its
@@ -10,7 +11,7 @@ import { classifyCatchallPath } from '../app/catchallGate';
 describe('CATCHALL_CLIENT_PATHS mirrors AnimatedRoutes', () => {
   it('has exactly the <Route path> literals, minus "*"', () => {
     const src = readFileSync(path.resolve(__dirname, '../src/components/AnimatedRoutes.tsx'), 'utf8');
-    const routed = [...src.matchAll(/<Route\s+path="([^"]+)"/g)].map((m) => m[1]).filter((p) => p !== '*');
+    const routed = [...src.matchAll(/<Route\s+path="([^"]+)"/g)].map((m) => m[1]).filter((p) => p !== '*' && isPathPublic(p));
     expect(routed.length).toBeGreaterThan(20);
     expect([...CATCHALL_CLIENT_PATHS].sort()).toEqual([...new Set(routed)].sort());
   });

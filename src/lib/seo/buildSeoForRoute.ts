@@ -9,6 +9,7 @@
  */
 
 import { SITE_ORIGIN, type SeoInput } from './useSeo';
+import { VIDEOGRAPHERS_PUBLIC_ENABLED } from '../videographersPublic';
 
 const CITY_DEFAULT = 'London';
 
@@ -107,11 +108,16 @@ const SPECS: Record<string, Spec> = {
     description: () => `Enter our raffles for a chance to win free bachata tickets and event passes. See who's entered, what's at stake, and when draws happen.`,
     path: () => '/raffles',
   },
-  videographers: {
-    title: () => `Bachata Videographers`,
-    description: () => `Bachata videographers and content creators - book a shoot, see their work.`,
-    path: () => '/videographers',
-  },
+  // Out of the map while the page is hidden (see lib/videographersPublic.ts).
+  ...(VIDEOGRAPHERS_PUBLIC_ENABLED
+    ? {
+        videographers: {
+          title: () => `Bachata Videographers`,
+          description: () => `Bachata videographers and content creators - book a shoot, see their work.`,
+          path: () => '/videographers',
+        },
+      }
+    : {}),
   vendors: {
     title: () => `Bachata Vendors`,
     description: () => `Vendors serving the bachata community - shoes, clothing, accessories, services.`,
@@ -129,7 +135,7 @@ const SPECS: Record<string, Spec> = {
   },
   allProfiles: {
     title: () => `All Bachata Profiles`,
-    description: () => `Browse bachata dancers, teachers, DJs, organisers, vendors and videographers.`,
+    description: () => `Browse bachata dancers, teachers, DJs, organisers and vendors.`,
     path: () => '/all-profiles',
     noindex: true,
   },

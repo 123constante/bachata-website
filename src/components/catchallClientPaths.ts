@@ -5,6 +5,8 @@
  * the client 404 (real HTTP 404). tests/catchallClientPaths.test.ts fails if
  * this list and the <Route path=...> literals in AnimatedRoutes.tsx drift.
  */
+import { isPathPublic } from '@/lib/videographersPublic';
+
 export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/',
   '/city/:slug/calendar',
@@ -47,4 +49,4 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/export/:token',
   '/search',
   '/city/:slug/search',
-];
+].filter((p) => isPathPublic(p));
