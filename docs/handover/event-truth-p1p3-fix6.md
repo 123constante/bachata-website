@@ -79,12 +79,28 @@ the modes restored afterwards (not committed).
 | perf-budget.yml `bundle-budget` | both self-tests / `build` / `check:bundle-budget` / `check:first-load-requests` | 0 / 0 / 0 / 0 | `event` 47 first-load chunks (allowance 47), 2 pullers (allowance 2); all 6 prerendered routes equal their request pin. Lighthouse and doc-weight need a Vercel deploy: not run. |
 | db-contract-check.yml (no-secret) | `ci-live-db-gate.mjs --self-test` + gate, `check-migration-stamps`, `check-script-conventions.mjs --self-test` + guard, and every `--self-test` in the workflow (15 commands; `check-event-truth-v1 --self-test` 157/157) | all 0 | |
 | | `check-event-truth-v1.mjs` LIVE against prod `stsdtacfauprzrdebmzg` (public anon key) | **2** (expected red) | "could not measure -- check_event_truth_v1 series entry ... is missing id, section_kinds, items or added_sessions. **admin #780 (derived category) must be applied first** (added_sessions is REQUIRED since P3 ...)". Read-only `pg_proc`: prod holds the P0 `check_event_truth_v1()` with no `added_session` in its body, so #780 is not applied. NOT this diff's red. (The container's own `VITE_SUPABASE_URL` is a different project with no such RPC: that run is not evidence.) |
-<!-- ROWS -->
+| e2e-smoke.yml (workflow env, `CI=true` so Playwright retries as on Actions) | full `npm run test:e2e` | **0** | **89 passed, 1 skipped, 3 flaky** (failed once, passed on retry): `dancer-home.spec.ts:105` (the fix-4 baseline red; same test) and `auth-magic-link-returnto.spec.ts:88` + `:113`. Neither spec is in the fix-6 diff; no hard failure. The diff's e2e (`organiser-events`, `organiser-loop`, `organiser-real-rpc`) passed in the full list. |
+| `npm run lint` (chain) | | 0 | 16 of 16 links green (CI's `chmod +x` applied); whole-tree eslint informational, as documented |
+| eslint on every changed file | 18 changed `.ts/.tsx/.mjs` vs fix-4 | 0 | |
+| `npm run pre-ship` | all | **1** | Every repo check PASS; `test:unit:timing`, `build:ship`, `check:bundle-budget`, `check:first-load-requests` PASS; typecheck ratchet PASS at **98** (baseline 106). **The ONE FAIL is `test:unit`: 12 red, all live-DB `*.contract.test.ts` against the offline stub** -- the fix-4 baseline 10 (`eventViewCompat` 5, `publicEventPageLineup` 3, `occurrenceProgram` 2) **plus `latestEvents.contract.test.ts` 2** ("TypeError: fetch failed" against the stub URL). That file imports only `@supabase/supabase-js` and node built-ins, nothing in this diff, and is untouched since #660: env-only, not caused by fix-6. pre-ship SKIPPED its e2e leg (because of the contract reds) and `check:plan-hygiene` (no plans dir); both covered by hand above. |
+
+**Finding, not a red (left unchanged, per the brief):** typecheck is 98 here vs fix-4's recorded 96. The +2 are BOTH in this diff:
+`src/modules/organiser/events/__tests__/eventTruth.matrix.test.tsx:158` (TS2345 `'"party"'` / `'"class"'` not assignable to `never`
+-- `libSet.includes(...)` where one `it.each` row's `libSet` is `[]`, so the `as const` tuple union narrows it to `never[]`). The ratchet
+passes (98 < 106) and the test runs green, so no step is red; the next fix worker should type the `libSet` column (e.g. `as readonly string[]`)
+to bring it back to 96.
+
+**Hooks:** `.githooks/*` is mode 100644 here, so pre-commit/pre-push did not run (git: "hook ignored"); their checks were run by hand
+above. No `--no-verify`. An accidental commit of CI's `chmod +x bin/*.sh` was reverted in the next commit (modes back to 100644).
+
+**Result: no NEW red caused by `git diff origin/arc/event-truth-p1p3-fix4..HEAD`. No source or test changed by FIX-6b.**
 
 ## 6. Verified / Not verified
 
 **Verified:** F-a to F-k against tests that were red on e647a587 (except the refactors); 19/19 mutants killed; the prod shapes
 in section 4; F-l on all 83 entries; the organiser e2e above.
-**Not verified:** section 5 checks and pre-ship; tsc/typecheck ratchet; lint; the live #70 run (no creds here; prod lacks
-#780, so it is expected red with the new sentence); the real-RPC spec (live only); a phone walk (self-serve OFF in prod).
+**Verified (FIX-6b):** every section 5 step above, run here; the live #70 run against prod is red exactly as expected, with the
+"admin #780 ... applied first" sentence; no new red from the fix-6 delta.
+**Not verified:** Lighthouse and doc-weight (need a Vercel deploy); the real-RPC spec live (live only); the live contract
+suites with real creds; a phone walk (self-serve OFF in prod); the 2 new tsc errors in section 5 are recorded, not fixed.
 **Owner call:** F-e changes the Class chip from 8 weekly dates to one date (reversible; the next arc replaces the chips anyway).
