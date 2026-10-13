@@ -20,3 +20,7 @@ Website first, then `supabase functions deploy storage-sign-upload storage-delet
 
 ## Not verified
 Real R2, deployed functions, real phone at 390x844, browser walk, prod data shape survey, whether the Website's service key matches the edge function's, CI on GitHub for this push.
+
+## OG test fix (follow-up push)
+`tests/ogFactsTagFlagOn.test.ts` "a real bake POST with the flag on" returned 500 in CI because the baker now needs `SUPABASE_SERVICE_ROLE_KEY` (read at import) and CI has none; it passed locally only because this sandbox exports one. The test was wrong, the code is not: the test now sets and restores the key, and asserts the sign bearer is the service key, the signed contentType is `image/jpeg`, and the R2 PUT carries `image/jpeg`. No assertion weakened. Reproduced red with `env -u SUPABASE_SERVICE_ROLE_KEY`, green with and without it.
+Unit job (TZ=Europe/London, key unset, `test:unit:offline` + `test:unit:timing`): only `integrityCouldNotRun.test.ts` (5) fails, in the brief's known on-main set (not compared against main directly). Live contract suites not run (no DB). Not verified: CI on GitHub for this push.
