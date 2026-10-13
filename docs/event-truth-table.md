@@ -35,7 +35,7 @@ single-word readers use the precedence festival &gt; course &gt; party ("night")
 
 | fact | single source | readers today | status |
 |---|---|---|---|
-| **genre** (party / class / masterclass) | programme: section `kind` first, item `type` second, with the readers' synonyms (masterclass counts as a class too; item type `social` is a party) (`deriveGenres` in the check; P1 ships the shared `deriveCategories`) | `calendarUtils.ts` hasParty/hasClass; `endedRun.ts` runNoun; organiser `EventEditorPage` Type row; admin `EventList` Category filter; `genreSynonyms.ts`; `get_calendar_events_v2` (per occurrence day, via `key_times` and session overrides), `get_latest_events_v2` (series-wide, `prog.p5_*` over item types); `get_map_events_v1` passes the calendar's flags through | **gated** &mdash; `category_drift` ratchet (7 known ids). Reader agreement is **reported only** (`reader_flags`, 0 of 29 on 2026-10-12): calendar and latest differ by grain until P1, so a gate would fire on a festival whose party is on day 2 |
+| **genre** (party / class / masterclass) | programme: series section `kind` first, item `type` second, then the **date-only sessions** (`event_occurrence_added_session_p5` `section_kind` and `type`; organisers edit the programme per date via `organiser_set_occurrence_programme_v1`, and the organiser create seeds a series with only such sessions), all with the readers' synonyms (masterclass counts as a class too; item type `social` is a party; unknown values say nothing) (`deriveGenres` in the check; `deriveCategories` in the byte-pinned `src/lib/eventCategory.ts`, held equal through `scripts/fixtures/event-truth-parity.json`) | `calendarUtils.ts` hasParty/hasClass; `endedRun.ts` runNoun; organiser `EventEditorPage` Type row; admin `EventList` Category filter; `genreSynonyms.ts`; `get_calendar_events_v2` (per occurrence day, via `key_times` and session overrides), `get_latest_events_v2` (series-wide, `prog.p5_*` over item types); `get_map_events_v1` passes the calendar's flags through | **gated at 0** since admin #780 (2026-10-13) &mdash; `category_drift` has an empty baseline; any drifting live series fails. Reader agreement is **reported only** (`reader_flags`, 0 of 29 on 2026-10-12): calendar and latest differ by grain, so a gate would fire on a festival whose party is on day 2 |
 | **shape / cadence** (one_off, recurring, course, festival) | `event_series_p5.format` | admin cadence filter, `eventFormat.ts` isFestival, festival pages | not gated here; `recurring` with a NULL rule is an **accepted shape** (ad-hoc monthly, next date added by hand &mdash; CI #28's own doc) |
 | **course length** | `course_total_sessions` (must be set on a live course) | admin editor, course pages, `check_finite_course_phantom_tail_v1` | **gated** &mdash; `course_without_length` ratchet (2 known ids) |
 | **upcoming** (is this listing alive?) | a `scheduled` `event_occurrence_p5` row &ge; today | calendar, map, latest, organiser home | **CI #28 owns it** &mdash; reports NULL-rule series with no future date, gates only open-ended rules, on purpose ("gating would red every finite series at its end"). Remedy is the admin "Needs attention" list, not a second red. |
@@ -48,7 +48,14 @@ single-word readers use the precedence festival &gt; course &gt; party ("night")
 `event-truth-baseline.json` lists, per rule, the series ids that were drifting on
 `recorded_on`, each with a human name. The check fails on a **new** id and on a
 listed id that is still measured but **no longer drifts** (a stale entry), so the
-file can only shrink, and it shrinks in the same PR as the repair. A listed id
+file can only shrink, and it shrinks in the same PR as the repair.
+**`category_drift` is empty since admin #780 (2026-10-13)**: `category` is
+derived from the sessions and #780 repairs the stored mirror (merge precondition:
+#780 applied before this lands on main; against the pre-#780 RPC the guard is
+exit 2 on purpose), so that rule gates
+at 0 &mdash; never add an id there to make a run green; repair the series or fix
+the derivation. `course_without_length` keeps its ratchet (#780 does not repair
+it). A listed id
 that **left the measured scope** (the series ended or was archived, or its
 programme no longer maps to any genre, or it was paused) is reported as departed, not failed:
 nothing was repaired, and a series finishing must not red the daily run on main.
@@ -57,6 +64,12 @@ the admin "Needs attention" list (admin repo, after P0), never automatic.
 
 ## Already-decided soft spots (do not re-open without a fresh decision)
 
+- **The payload shape is pinned (admin #780).** Per series `added_sessions`
+  (`{kind, type}` pairs, exactly those two keys, each text or null; `kind` is
+  `section_kind`) and a top-level `added_session_count` from the RPC's own
+  base-table join. A payload without them is the pre-#780 RPC: the guard exits
+  2 rather than silently reading an organiser-made series (date-only sessions
+  only) as "no programme". Every earlier key is unchanged.
 - **Live series only.** `check_event_truth_v1()` is anon-callable, and a paused
   or `pending_review` series is not public: returning it would let anyone
   enumerate unpublished submissions. A series is measured from the moment it

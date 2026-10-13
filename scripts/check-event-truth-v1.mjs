@@ -19,8 +19,10 @@
  * WHERE THE DATA COMES FROM. The series and programme tables are admin-only
  * under RLS, so the anon key reads 0 rows from them. They are read through
  * check_event_truth_v1() (admin migration 20261115050000), SECURITY DEFINER with
- * anon EXECUTE like every sibling check_*_v1: a projection of every LIVE series
- * with its section kinds and {kind, type} item pairs, plus independent totals.
+ * anon EXECUTE like every sibling check_*_v1 (re-created by admin #780 with the
+ * date-only sessions): a projection of every LIVE series with its section
+ * kinds, {kind, type} item pairs and {kind, type} date-only session pairs
+ * (kind = section_kind), plus independent totals.
  * The RULES stay here, in one place, where the canary drives them. Live only on
  * purpose: anon can call the RPC, and a paused or pending_review series is not
  * public, so returning it would let anyone enumerate unpublished submissions. A
@@ -32,10 +34,12 @@
  * the two could never disagree and only spent a second calendar run.
  *
  * WHAT IT CHECKS (with the anon key):
- *   1. category_drift     -- GATED. A live series whose programme maps to at
- *                            least one genre, and whose declared category is absent
- *                            from that set. RATCHETED by series id
- *                            (event-truth-baseline.json): a NEW id fails, and a
+ *   1. category_drift     -- GATED AT 0 since admin #780. A live series whose
+ *                            programme (series sections + items + date-only
+ *                            sessions) maps to at least one genre, and whose
+ *                            declared category is absent from that set.
+ *                            RATCHETED by series id
+ *                            (event-truth-baseline.json, empty): a NEW id fails, and a
  *                            listed id that is still measured but no longer
  *                            drifts ALSO fails (stale -- shrink the file). A
  *                            listed id that LEFT the measured scope (ended,
@@ -63,10 +67,26 @@
  *   that is P1's "Not set" state, not drift.
  *
  * GENRE MAPPING. Section kind first (87 party sections on prod carry no item),
- * item type second, and the same synonyms the public readers use: masterclass
- * (kind or type) counts as a class AND a masterclass, item type social counts
- * as a party. A guard that mapped more narrowly than the readers would call a
- * series drift while the Classes tab lists it.
+ * item type second, then the DATE-ONLY sessions (P3, 2026-10-13: organisers
+ * edit the programme per date -- organiser_set_occurrence_programme_v1 writes
+ * event_occurrence_added_session_p5, never the series programme, and the
+ * Website's organiser create seeds a series with ONLY such sessions), their
+ * section_kind and type through the same mapping. The same synonyms the public
+ * readers use: masterclass (kind or type) counts as a class AND a masterclass,
+ * item type social counts as a party. A guard that mapped more narrowly than the
+ * readers would call a series drift while the Classes tab lists it. The mapping
+ * is held to src/lib/eventCategory.ts (deriveCategories, byte-pinned to admin)
+ * through scripts/fixtures/event-truth-parity.json: the canary and
+ * src/lib/__tests__/eventCategory.parity.test.ts run the same cases.
+ *
+ * DRIFT GATES AT 0 (since admin #780, 2026-10-13). category becomes DERIVED
+ * from the sessions: #780 re-creates check_event_truth_v1 with the date-only
+ * sessions and repairs the stored mirror, so event-truth-baseline.json lists no
+ * category_drift id and ANY drifting live series fails. course_without_length
+ * keeps its ratchet (#780 does not repair it). Departed entries stay reported.
+ * MERGE PRECONDITION: admin #780 applied (supabase db push from the admin repo)
+ * BEFORE this lands on main. Against the pre-#780 RPC this step is exit 2 on
+ * every run (the payload lacks the keys) -- deliberate, never a green.
  *
  * WHAT IT DELIBERATELY DOES NOT CHECK. Live series with no future date: CI #28
  * (check_live_series_occurrence_horizon_v1) already reports those and gates
@@ -101,6 +121,8 @@ import { rpcWithRetry } from './lib/rpc-retry.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const BASELINE_PATH = path.join(ROOT, 'event-truth-baseline.json');
+/** Shared with src/lib/__tests__/eventCategory.parity.test.ts: one file, two derivations, same answers. */
+const PARITY_PATH = path.join(ROOT, 'scripts', 'fixtures', 'event-truth-parity.json');
 const TRUTH_RPC = 'check_event_truth_v1';
 const CITY_SLUG = 'london-gb';
 const HORIZON_DAYS = 14;
@@ -125,7 +147,7 @@ const cannot = (msg) => {
  * "says nothing", never an error, so a new section kind cannot red this guard by
  * existing -- a programme that maps to nothing at all is reported as not set.
  */
-export function deriveGenres(sectionKinds, itemTypes) {
+export function deriveGenres(sectionKinds, itemTypes, addedSessions) {
   const genres = new Set();
   const add = (token) => {
     if (token === 'party' || token === 'social') genres.add('party');
@@ -137,6 +159,12 @@ export function deriveGenres(sectionKinds, itemTypes) {
   };
   for (const kind of sectionKinds ?? []) add(kind);
   for (const type of itemTypes ?? []) add(type);
+  // Date-only sessions (event_occurrence_added_session_p5): section_kind AND
+  // type, the same mapping; a null on either side says nothing.
+  for (const session of addedSessions ?? []) {
+    add(session && session.kind);
+    add(session && session.type);
+  }
   return genres;
 }
 
@@ -235,7 +263,13 @@ const isNullOr = (v, test) => v === null || test(v);
  * guard has not understood: exit 2, never a pass over whatever did arrive. A
  * series listed twice (a join fan-out in a later rewrite would keep the totals
  * consistent) and a field of the wrong type (a course length of '' read as
- * "has a length") are refused the same way. Returns the live series.
+ * "has a length") are refused the same way. Since admin #780 every series also
+ * carries `added_sessions` (date-only sessions as {kind, type} pairs, exactly
+ * those two keys, each text or null) and the payload `added_session_count`
+ * from the RPC's own base-table join: a payload without them is the pre-#780
+ * RPC, and reading it would silently drop the only sessions an organiser-made
+ * series has, so it is exit 2 like every other missing key. Returns the live
+ * series.
  */
 export function assertTruthPayload(payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -245,10 +279,17 @@ export function assertTruthPayload(payload) {
   if (!Array.isArray(series)) cannot(TRUTH_RPC + ' returned no series array.');
   let sections = 0;
   let items = 0;
+  let addedSessions = 0;
   const seen = new Set();
   for (const s of series) {
-    if (!s || typeof s.id !== 'string' || !Array.isArray(s.section_kinds) || !Array.isArray(s.items)) {
-      cannot(TRUTH_RPC + ' series entry ' + JSON.stringify(s && s.id) + ' is missing id, section_kinds or items.');
+    if (!s || typeof s.id !== 'string' || !Array.isArray(s.section_kinds) || !Array.isArray(s.items) || !Array.isArray(s.added_sessions)) {
+      cannot(TRUTH_RPC + ' series entry ' + JSON.stringify(s && s.id) + ' is missing id, section_kinds, items or added_sessions (the pre-#780 shape has no date-only sessions: not a pass, a payload this guard does not understand).');
+    }
+    for (const a of s.added_sessions) {
+      if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).sort().join() !== 'kind,type'
+          || !isNullOr(a.kind, (v) => typeof v === 'string') || !isNullOr(a.type, (v) => typeof v === 'string')) {
+        cannot(TRUTH_RPC + ' series ' + s.id + ' has a date-only session that is not a {kind: text|null, type: text|null} pair: ' + JSON.stringify(a) + '.');
+      }
     }
     if (seen.has(s.id)) cannot(TRUTH_RPC + ' listed series ' + s.id + ' twice.');
     seen.add(s.id);
@@ -262,11 +303,14 @@ export function assertTruthPayload(payload) {
     }
     sections += s.section_kinds.length;
     items += s.items.length;
+    addedSessions += s.added_sessions.length;
   }
-  if (series.length !== payload.series_count || sections !== payload.section_count || items !== payload.item_count) {
+  if (series.length !== payload.series_count || sections !== payload.section_count || items !== payload.item_count
+      || addedSessions !== payload.added_session_count) {
     cannot(
       TRUTH_RPC + ' payload is incomplete: ' + series.length + '/' + JSON.stringify(payload.series_count) + ' series, ' +
-        sections + '/' + JSON.stringify(payload.section_count) + ' sections, ' + items + '/' + JSON.stringify(payload.item_count) + ' items.',
+        sections + '/' + JSON.stringify(payload.section_count) + ' sections, ' + items + '/' + JSON.stringify(payload.item_count) + ' items, ' +
+        addedSessions + '/' + JSON.stringify(payload.added_session_count) + ' date-only sessions.',
     );
   }
   return series;
@@ -381,18 +425,21 @@ export async function runCheck({ source, baseline, now, log = console.log }) {
   const payload = await source.truth();
   const series = assertTruthPayload(payload);
   assertMeasured(series.length, 1, 'live series from ' + TRUTH_RPC + ' -- an empty list means the RPC measured nothing (lost SECURITY DEFINER, or its scope changed), not an empty calendar');
-  assertMeasured(payload.section_count, 1, 'programme sections under live series -- the programme tables read as empty');
+  // Sections OR date-only sessions: an organiser-made series carries only the
+  // latter, so a floor on sections alone would exit 2 on a fully measured prod
+  // once those dominate. Both totals are proven integers by assertTruthPayload.
+  assertMeasured(payload.section_count + payload.added_session_count, 1, 'programme sections or date-only sessions under live series -- the programme tables read as empty');
 
   const withoutProgramme = [];
   const unmapped = [];
   const mapped = new Set();
   const drifting = [];
   for (const s of series) {
-    if (s.section_kinds.length === 0) {
+    if (s.section_kinds.length === 0 && s.added_sessions.length === 0) {
       withoutProgramme.push(s);
       continue;
     }
-    const genres = deriveGenres(s.section_kinds, s.items.map((i) => i && i.type));
+    const genres = deriveGenres(s.section_kinds, s.items.map((i) => i && i.type), s.added_sessions);
     if (genres.size === 0) {
       unmapped.push(s);
       continue;
@@ -440,8 +487,9 @@ export async function runCheck({ source, baseline, now, log = console.log }) {
   }
 
   // --- Reported only ---
-  const mismatches = kindTypeMismatches(series.flatMap((s) => s.items));
-  say('kind_vs_type (reported, not gating): ' + mismatches.length + ' programme item(s) whose type contradicts their section kind');
+  // Series items AND date-only sessions: both arrive as {kind, type} pairs.
+  const mismatches = kindTypeMismatches(series.flatMap((s) => [...s.items, ...s.added_sessions]));
+  say('kind_vs_type (reported, not gating): ' + mismatches.length + ' programme item(s) or date-only session(s) whose type contradicts their section kind');
 
   return {
     code: failures.length > 0 ? 1 : 0,
@@ -479,14 +527,20 @@ export function truthPayload(spec = {}) {
   const days = spec.days ?? [];
   const sections = spec.sections ?? [];
   const items = spec.items ?? [];
+  const occurrences = spec.occurrences ?? [];
+  const added = spec.added ?? [];
   const live = (spec.series ?? []).filter((s) => s.lifecycle_status === 'live').map((s) => {
     const dayIds = new Set(days.filter((d) => d.series_id === s.id).map((d) => d.id));
     const own = sections.filter((x) => dayIds.has(x.day_id));
     const kindOf = new Map(own.map((x) => [x.id, x.kind]));
+    // Date-only sessions reach a series through its occurrence
+    // (event_occurrence_added_session_p5.occurrence_id -> event_occurrence_p5.series_id).
+    const occIds = new Set(occurrences.filter((o) => o.series_id === s.id).map((o) => o.id));
     return {
       ...s,
       section_kinds: own.map((x) => x.kind),
       items: items.filter((i) => kindOf.has(i.section_id)).map((i) => ({ kind: kindOf.get(i.section_id), type: i.type })),
+      added_sessions: added.filter((a) => occIds.has(a.occurrence_id)).map((a) => ({ kind: a.section_kind, type: a.type })),
     };
   });
   return {
@@ -495,6 +549,7 @@ export function truthPayload(spec = {}) {
     series_count: live.length,
     section_count: live.reduce((n, s) => n + s.section_kinds.length, 0),
     item_count: live.reduce((n, s) => n + s.items.length, 0),
+    added_session_count: live.reduce((n, s) => n + s.added_sessions.length, 0),
     measured_as: 'fixture',
   };
 }
@@ -527,6 +582,10 @@ const cleanSpec = () => ({
   days: [{ id: 'd1', series_id: S1 }, { id: 'd2', series_id: S2 }],
   sections: [{ id: 'sec1', day_id: 'd1', kind: 'party' }, { id: 'sec2', day_id: 'd2', kind: 'classes' }],
   items: [{ section_id: 'sec1', type: 'party' }, { section_id: 'sec2', type: 'class' }],
+  // Date-only sessions: none in the clean spec (the cases that strip a series
+  // programme must still read "genre not set"); dateOnlyOnly() adds them.
+  occurrences: [],
+  added: [],
   calendar: [OCC(1), OCC(2)],
   latest: [OCC(1)],
 });
@@ -562,6 +621,8 @@ async function selfTest() {
   const says = async (spec, needle, baseline) => (await check(spec, baseline)).lines.some((l) => l.includes(needle));
   const setOf = (s) => [...s].sort().join(',');
   const withSpec = (edit) => { const spec = cleanSpec(); edit(spec); return spec; };
+  /** The clean payload with one edit, run through the whole check (payload cases below). */
+  const truthWith = (edit) => { const p = truthPayload(cleanSpec()); edit(p); return outcome({ ...cleanSpec(), truth: p }); };
 
   // --- deriveGenres, both directions, with the readers' synonyms ---
   add('derive: a party section with no items is a party', () => setOf(deriveGenres(['party'], [])), 'party');
@@ -634,6 +695,64 @@ async function selfTest() {
   add('check: ...and the course departure is printed', () => says(withSpec((s) => { s.series[1].course_total_sessions = null; s.series[1].lifecycle_status = 'paused'; }), 'no longer measured', { ...emptyBaseline, course_without_length: { [S2]: 'A course' } }), true);
   add('check: kind/type mismatches alone never gate', () => outcome(withSpec((s) => { s.items.push({ section_id: 'sec1', type: 'class' }); })), 'ok');
 
+  // --- date-only sessions (P3, admin #780): organisers edit the programme PER
+  // DATE, and the Website's organiser create seeds a series with ONLY date-only
+  // sessions. Their section_kind AND type join the genre set, same mapping.
+  const dateOnlyOnly = (kind, type, category) => withSpec((s) => {
+    s.series.push({ id: S3, name: 'Date-only', format: 'one_off', category, lifecycle_status: 'live', course_total_sessions: null });
+    s.occurrences.push({ id: 'occ3', series_id: S3 });
+    s.added.push({ occurrence_id: 'occ3', section_kind: kind, type });
+  });
+  add('derive: a date-only class session is a class', () => setOf(deriveGenres([], [], [{ kind: 'classes', type: 'class' }])), 'class');
+  add('derive: a date-only party section_kind with a NULL type is a party', () => setOf(deriveGenres([], [], [{ kind: 'party', type: null }])), 'party');
+  add('derive: a date-only social TYPE under an unknown section_kind is a party', () => setOf(deriveGenres([], [], [{ kind: 'ceremony', type: 'social' }])), 'party');
+  add('derive: a date-only masterclass is a class AND a masterclass', () => setOf(deriveGenres([], [], [{ kind: 'masterclass', type: null }])), 'class,masterclass');
+  add('derive: date-only showcase/performance map to nothing', () => setOf(deriveGenres([], [], [{ kind: 'showcase', type: 'performance' }, { kind: null, type: null }])), '');
+  add('derive: date-only sessions UNION the series programme', () => setOf(deriveGenres(['classes'], ['class'], [{ kind: 'party', type: 'social' }])), 'class,party');
+  add('check: no series programme + one date-only class session, stored party, is drift', () => outcome(dateOnlyOnly('classes', 'class', 'party')), 'violated:category_drift');
+  add('check: ...stored class is not drift', () => outcome(dateOnlyOnly('classes', 'class', 'class')), 'ok');
+  add('check: ...and it is NOT counted as having no programme', () => says(dateOnlyOnly('classes', 'class', 'class'), 'no programme at all'), false);
+  add('check: a date-only class session under a NULL section_kind still reads as class', () => outcome(dateOnlyOnly(null, 'class', 'party')), 'violated:category_drift');
+  add('check: a date-only showcase/performance only is reported as genre not set, not drift', () => outcome(dateOnlyOnly('showcase', 'performance', 'party')), 'ok');
+  add('check: ...and printed as map to no genre', () => says(dateOnlyOnly('showcase', 'performance', 'party'), 'map to no genre'), true);
+  add('check: a series programme of classes + a date-only party, stored party, agrees', () => outcome(withSpec((s) => {
+    s.occurrences.push({ id: 'occ2', series_id: S2 });
+    s.added.push({ occurrence_id: 'occ2', section_kind: 'party', type: 'party' });
+    s.series[1].category = 'party';
+  })), 'ok');
+  add('check: a date-only session on a PAUSED series is outside the payload', () => truthPayload(withSpec((s) => {
+    s.series[1].lifecycle_status = 'paused';
+    s.occurrences.push({ id: 'occ2', series_id: S2 });
+    s.added.push({ occurrence_id: 'occ2', section_kind: 'party', type: 'party' });
+  })).added_session_count, 0);
+  add('payload: added_session_count off by one is exit 2', () => truthWith((p) => { p.added_session_count += 1; }), 'bad-payload');
+  add('payload: added_session_count arriving as a string is exit 2', () => truthWith((p) => { p.added_session_count = String(p.added_session_count); }), 'bad-payload');
+  add('payload: a series with no added_sessions key is exit 2', () => truthWith((p) => { delete p.series[0].added_sessions; }), 'bad-payload');
+  add('payload: the pre-#780 shape (no added_sessions, no added_session_count) is exit 2, never a pass', () => truthWith((p) => {
+    for (const s of p.series) delete s.added_sessions;
+    delete p.added_session_count;
+  }), 'bad-payload');
+  add('payload: an added session with a third key is exit 2 (the RPC changed shape)', () => truthWith((p) => { p.series[0].added_sessions.push({ kind: 'party', type: 'party', level: 'x' }); p.added_session_count += 1; }), 'bad-payload');
+  add('payload: an added session with a non-text kind is exit 2', () => truthWith((p) => { p.series[0].added_sessions.push({ kind: 5, type: null }); p.added_session_count += 1; }), 'bad-payload');
+  add('payload: an added session that is not an object is exit 2', () => truthWith((p) => { p.series[0].added_sessions.push('party'); p.added_session_count += 1; }), 'bad-payload');
+  add('payload: a well-formed added session (text/null pair) passes', () => truthWith((p) => { p.series[0].added_sessions.push({ kind: 'party', type: null }); p.added_session_count += 1; }), 'ok');
+  add('baseline: the SHIPPED category_drift is EMPTY (drift gates at 0 since admin #780)', () => Object.keys(JSON.parse(readFileSync(BASELINE_PATH, 'utf8')).category_drift).length, 0);
+
+  // --- parity with src/lib/eventCategory.ts over the shared fixture (vitest
+  // runs the same file through deriveCategories/categoryAgrees) ---
+  const parity = JSON.parse(readFileSync(PARITY_PATH, 'utf8'));
+  add('parity: the fixture has at least 15 cases', () => Array.isArray(parity.cases) && parity.cases.length >= 15, true);
+  // Expected is computed INSIDE the body: a malformed case then fails by name
+  // instead of throwing out of selfTest() before any case runs.
+  for (const c of parity.cases ?? []) {
+    add('parity: ' + c.name, () => {
+      const set = deriveGenres(c.sectionKinds, c.itemTypes, c.addedSessions);
+      const got = setOf(set) + '|' + categoryAgrees(c.stored, set);
+      const want = [...c.expect.set].sort().join(',') + '|' + c.expect.agrees;
+      return got === want ? 'parity' : got + ' != ' + want;
+    }, 'parity');
+  }
+
   // --- the whole check: the reader report never gates ---
   add('check: calendar and latest disagreeing is REPORTED, never gating', () => outcome({ ...cleanSpec(), latest: [{ ...OCC(1), has_party: false }] }), 'ok');
   add('check: ...and the disagreement is printed', () => says({ ...cleanSpec(), latest: [{ ...OCC(1), has_party: false }] }, 'occ-1 calendar class=true party=true vs latest class=true party=false'), true);
@@ -644,6 +763,11 @@ async function selfTest() {
   // --- THE LOAD-BEARING ASSERTIONS, both directions ---
   add('measured: an EMPTY open-series list is exit 2, never a green 0', () => outcome({ ...cleanSpec(), series: [] }), 'measured-shortfall');
   add('measured: series with no programme rows at all is exit 2', () => outcome({ ...cleanSpec(), sections: [] }), 'measured-shortfall');
+  add('measured: no series sections but one date-only session is MEASURED, not exit 2', () => outcome({ ...cleanSpec(), sections: [], items: [], occurrences: [{ id: 'occ1', series_id: S1 }], added: [{ occurrence_id: 'occ1', section_kind: 'party', type: 'party' }] }), 'ok');
+  add('kind/type: a date-only class under a party section_kind is reported', () => says(withSpec((s) => {
+    s.occurrences.push({ id: 'occ1', series_id: S1 });
+    s.added.push({ occurrence_id: 'occ1', section_kind: 'party', type: 'class' });
+  }), 'kind_vs_type (reported, not gating): 1 '), true);
   add('measured: an empty calendar is exit 2', () => outcome({ ...cleanSpec(), calendar: [] }), 'measured-shortfall');
   add('measured: a failing reader is exit 2, not a pass over the rest', () => outcome({ ...cleanSpec(), throws: 'latest' }), 'source-failed');
   add('baseline: a missing block is exit 2', () => outcome(cleanSpec(), { recorded_on: '2026-10-12', category_drift: {} }), 'bad-baseline');
@@ -652,7 +776,6 @@ async function selfTest() {
   add('baseline: the SHIPPED file parses and is well-formed', () => assertBaseline(JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))).recordedOn.length, 10);
 
   // --- the RPC payload is judged before any rule reads it ---
-  const truthWith = (edit) => { const p = truthPayload(cleanSpec()); edit(p); return outcome({ ...cleanSpec(), truth: p }); };
   add('payload: the fixture projection is complete', () => assertTruthPayload(truthPayload(cleanSpec())).length, 2);
   add('payload: the fixture projection leaves a paused series out, as the RPC does', () => truthPayload(withSpec((s) => { s.series[0].lifecycle_status = 'paused'; })).series.map((s) => s.id).join(), S2);
   add('payload: null is exit 2', () => outcome({ ...cleanSpec(), truth: null }), 'bad-payload');

@@ -1173,8 +1173,19 @@ jobs:
       #     party), 2 live courses have no length. Owner decision: sessions are
       #     the truth; category becomes derived (plan
       #     in-the-admin-dashboard-peaceful-tide.md). This step is the floor:
-      #       - category_drift and course_without_length are RATCHETED by series
-      #         id in event-truth-baseline.json (a new id fails; a fixed id still
+      #       - category_drift GATES AT 0 since admin #780 (P3, 2026-10-13):
+      #         category is derived from the sessions and #780 repairs the stored
+      #         mirror, so event-truth-baseline.json lists no drift id and ANY
+      #         drifting live series fails. MERGE PRECONDITION: #780 applied
+      #         first; against the pre-#780 RPC this step is exit 2 on purpose
+      #         (payload lacks added_sessions). The genre set is the series sections
+      #         + items + the DATE-ONLY sessions (event_occurrence_added_session_p5
+      #         section_kind and type, same mapping; organisers edit the programme
+      #         per date and the organiser create seeds only such sessions). The
+      #         mapping is held to src/lib/eventCategory.ts through the shared
+      #         scripts/fixtures/event-truth-parity.json (canary + vitest);
+      #       - course_without_length is still RATCHETED by series id in
+      #         event-truth-baseline.json (a new id fails; a fixed id still
       #         measured fails as stale; an id that left scope -- ended, archived
       #         -- is reported, so a series finishing never reds main);
       #       - reader_flags is REPORTED, never gating: get_latest_events_v2's
@@ -1186,7 +1197,9 @@ jobs:
       #       - kind_vs_type is reported only.
       #     Deliberately NOT here: live series with no future date -- #28 owns
       #     that and gates only open-ended rules on purpose.
-      #     Reads check_event_truth_v1() (admin migration 20261115050000;
+      #     Reads check_event_truth_v1() (admin migration 20261115050000,
+      #     re-created by admin #780 with added_sessions + added_session_count;
+      #     a payload without them is exit 2, never a pass;
       #     SECURITY DEFINER, anon EXECUTE -- the series and programme tables
       #     are admin-only under RLS; LIVE series only, so anon cannot
       #     enumerate unpublished ones, and a non-live row is exit 2) plus
