@@ -50,3 +50,18 @@ Never merged by the worker.
 ## Verified / Not verified
 See the PR body table. The fake RPC in the tests mirrors #794's SQL; **real DB responses before #794 is applied are NOT verified.**
 No browser walk of the toggle at 390x844 / 360x640 was done (needs a signed-in session on prod-shaped data).
+
+## Fail closed (follow-up, same branch)
+Cause confirmed (local SSR build against a stub PostgREST returning 404 PGRST202 for `get_public_dancer_names_v1`, as prod
+does until #794 is applied): unfixed head -> `/sitemap.xml` 500 and `/dancers/<slug>` 500; fixed -> both 200, first name only,
+no surname. `fetchPublicDancerNames` (src/lib/publicDancerNames.ts) now never throws: any error (missing function, network,
+malformed answer) yields no entries, ids absent from the result render first name only (never a select of surname /
+display_name), and one `console.warn("[PUBLIC_DANCER_NAMES_UNAVAILABLE] ...")` per process carries the PostgREST code.
+Tests: `tests/surnameHide.failClosed.test.ts` (6 RPC modes x 6 surfaces + logging + partial; 39 red on unfixed, green after).
+Deploy order unchanged: #794 applied, then this PR; the PR is now safe before that.
+
+CI jobs run locally (Actions may refuse to start on claude/* branches): tsc 0, check:rpc-typing 0, build 0, check:bundle-budget 0,
+check:first-load-requests 0, lint:architecture 0, check:legacy-tables 0, check:legacy-program-rpcs 0, check:images (AUDIT_STRICT=1) 0,
+check:mojibake 0, test:unit: 15 failures, all in 4 files (integrityCouldNotRun, eventViewCompat/occurrenceProgram/publicEventPageLineup
+contract = live DB), identical before my change. NOT run: check:lighthouse / check:seo / check:og against a deployed preview
+(need a live URL; replaced by the stub SSR check above), e2e, live-db gates.

@@ -10,8 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
  * dancer_profiles bypasses the mask, so no public reader does that any more:
  * they select the other columns, then merge the names in with `withPublicNames`.
  *
- * Fail closed: a row the RPC did not return (not visible, or hidden) gets a
- * null surname and display_name, never the raw column.
+ * Fail closed: a row the RPC did not return (not visible, hidden, or the RPC
+ * failed) gets a null surname and display_name, never the raw column; its first
+ * name is still shown.
  */
 
 export type PublicDancerName = {
@@ -46,18 +47,51 @@ export const indexPublicNames = (rows: unknown): Map<string, PublicDancerName> =
   return map;
 };
 
+/** Stable code for the one warn line a failed names read logs. */
+export const PUBLIC_NAMES_FAILED_CODE = "PUBLIC_DANCER_NAMES_UNAVAILABLE";
+
+let warned = false;
+/** Test hook: the warning is logged once per process. */
+export const resetPublicNamesWarning = () => {
+  warned = false;
+};
+const warnOnce = (reason: unknown) => {
+  if (warned) return;
+  warned = true;
+  const r = reason as { code?: unknown; message?: unknown } | null;
+  console.warn(`[${PUBLIC_NAMES_FAILED_CODE}] get_public_dancer_names_v1 failed; showing first names only`, {
+    code: typeof r?.code === "string" ? r.code : undefined,
+    message: typeof r?.message === "string" ? r.message : undefined,
+  });
+};
+
+/**
+ * FAIL CLOSED, NEVER THROWS. Any failure of get_public_dancer_names_v1 (function
+ * not deployed yet -- PGRST202 / 404 --, network, malformed answer) yields no
+ * entry for the affected ids; callers then render the first name only. There is
+ * deliberately no fallback to selecting `surname` / `display_name`.
+ */
 export const fetchPublicDancerNames = async (
   ids: ReadonlyArray<string | null | undefined>,
 ): Promise<Map<string, PublicDancerName>> => {
   const out = new Map<string, PublicDancerName>();
-  const results = await Promise.all(
-    chunkIds(ids).map(async (chunk) => {
-      const { data, error } = await (supabase as any).rpc("get_public_dancer_names_v1", { p_ids: chunk });
-      if (error) throw error;
-      return data;
-    }),
-  );
-  for (const data of results) for (const [k, v] of indexPublicNames(data)) out.set(k, v);
+  try {
+    const results = await Promise.all(
+      chunkIds(ids).map(async (chunk) => {
+        try {
+          const { data, error } = await (supabase as any).rpc("get_public_dancer_names_v1", { p_ids: chunk });
+          if (error) throw error;
+          return data;
+        } catch (e) {
+          warnOnce(e);
+          return null;
+        }
+      }),
+    );
+    for (const data of results) for (const [k, v] of indexPublicNames(data)) out.set(k, v);
+  } catch (e) {
+    warnOnce(e);
+  }
   return out;
 };
 

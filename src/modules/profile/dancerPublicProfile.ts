@@ -76,7 +76,7 @@ export const DANCER_PUBLIC_COLS =
  * bypasses "Hide my surname from the public". The masked names come from
  * get_public_dancer_names_v1 and are merged here, so the row handed to
  * mapDancerPublicProfile carries the same fields as before, already masked.
- * Throws on an RPC error (a transient failure must not cache a nameless page).
+ * Never throws: on an RPC failure the page shows the first name only.
  */
 export const attachPublicDancerName = async <T extends { id: string }>(row: T) =>
   (await withPublicNames([row]))[0];
