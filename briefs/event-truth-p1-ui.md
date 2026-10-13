@@ -2,10 +2,14 @@
 
 Repo 123constante/bachata-website (PUBLIC repo: never put a secret in a commit or a doc). Zero-context
 cloud worker. Never merge, never approve, never --no-verify. Class: BUILD-visual (organiser screens).
-BRANCH: `arc/event-truth-p1p3-ui`, created FROM `main`. Push only this branch.
+BRANCH: `arc/event-truth-p1p3-ui-b`, created FROM `main`. Push only this branch.
+NEVER run `gh api` in this repo: its committed settings put `gh api` behind a human approval you will never get
+(a previous worker sat on that prompt for good). Read files from other branches with `git fetch origin <branch>`
++ `git show FETCH_HEAD:<path>`; `gh pr view` / `gh run view` are fine. The parallel guard worker is on
+`arc/event-truth-p1p3-guard-b`.
 STEP 0 (before anything else): the P1 Website commit a8efae3c exists only as a patch. Fetch it and apply it
 as your FIRST commit, unchanged:
-`gh api "repos/123constante/bachata-website/contents/briefs/a8efae3c.patch?ref=arc/briefs-event-truth" -q .content | base64 -d > /tmp/a8efae3c.patch && git am /tmp/a8efae3c.patch`
+`git fetch origin arc/briefs-event-truth && git show FETCH_HEAD:briefs/a8efae3c.patch > /tmp/a8efae3c.patch && git am /tmp/a8efae3c.patch`
 (keeps the original message and author). KNOWN FROM THE ORCHESTRATOR'S FULL RUN (Node 22, 5787 tests): that commit
 reds 29 snapshot cases in `src/modules/organiser/events/__tests__/editorOrder.matrix.test.tsx` ("(3) same sections
 shown and hidden, same reasons and lock text as before the reorder", every shape) -- the Type row text changed.
