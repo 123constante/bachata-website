@@ -46,7 +46,6 @@ import { uploadJpeg } from "../lib/ogUpload";
 import type { Route } from "./+types/api.og.bake";
 
 const SUPABASE_URL = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? "";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY ?? "";
 const BAKE_SECRET = process.env.OG_BAKE_SECRET ?? "";
 
@@ -215,7 +214,7 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     const factsTag = ogFactsTag(cardData);
     const path = `og/${entityType}/${id}-${occTag}-${coverTag}${factsTag ? `-${factsTag}` : ""}.jpg`;
 
-    const publicUrl = await uploadJpeg(path, jpeg, { supabaseUrl: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY });
+    const publicUrl = await uploadJpeg(path, jpeg, { supabaseUrl: SUPABASE_URL, serviceKey: SUPABASE_SERVICE_KEY });
     if (!publicUrl) throw new Error("R2 upload failed");
 
     await recordResult(entityType, entityId, occurrenceId, coverUrl, publicUrl, "ready", null);
