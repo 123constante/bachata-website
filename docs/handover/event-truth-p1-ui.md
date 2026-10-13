@@ -88,7 +88,7 @@ Party -> Night is the owner's label list; the sublabel is F4's. Nothing else in 
 | | Australia/Sydney list | green (exit 0) |
 | typecheck.yml | `check:rpc-typing` | green |
 | | `check:wallclock-brand` | green |
-| e2e-smoke.yml | `npm run test:e2e` (full list) | still running at the context gate (started with the workflow's env); the two changed specs (organiser-events 9 passed, organiser-loop 1 passed) are green individually. Next session: re-run `npm run test:e2e` and record it. |
+| e2e-smoke.yml | `npm run test:e2e` (full list) | full list run after the push: 2 failed   1 skipped   88 passed (3.5m) exit=1 |
 | | `organiser-events.spec.ts` alone | 9 passed |
 | | `organiser-loop.spec.ts` alone (updated: the seeded "Class" session is the one staffed) | 1 passed |
 | architecture-guard.yml (`integrity`) | `bin/check-integrity.sh` | green |
