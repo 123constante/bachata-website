@@ -18,6 +18,7 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { CityProvider } from "@/contexts/CityContext";
 import { SearchProvider } from "@/components/search/SearchProvider";
 import { AppChrome } from "@/components/AppChrome";
+import { reportClientErrorLazy } from "@/lib/reportClientErrorLazy";
 import { NavigationSplash } from "./NavigationSplash";
 import { useNonce } from "./nonce";
 import "@/index.css";
@@ -149,8 +150,9 @@ export function ErrorBoundary() {
     if (typeof window === "undefined") return;
     // 404-style route responses are expected, not errors worth reporting.
     if (isRouteErrorResponse(error) && error.status < 500) return;
-    const err = error instanceof Error ? error : new Error(String(error));
-      }, [error]);
+    // Raw, not wrapped: the reporter describes a 5xx route response itself.
+    reportClientErrorLazy(error);
+  }, [error]);
 
   // 410 is a taken-down event: app/lib/hiddenEventResponse, status decided by
   // eventPageSeoPolicy.hiddenEventStatus. The copy is inlined, not imported
@@ -187,6 +189,18 @@ export default function Root() {
   const [queryClient] = useState(() =>
     typeof window === "undefined" ? createQueryClient() : getBrowserQueryClient(),
   );
+
+  // Error reporter: dynamic import on idle after the first commit, never on the
+  // first-load path (tests/clientErrorReporterLazy.test.ts). Scheduled HERE, not
+  // in entry.client: root already holds the loader and Vite's preload helper,
+  // while giving entry.client an edge into that graph moved shared modules into
+  // a new first-load chunk when tried (+1 request on every route, chunk ratchet).
+  // Kept terse because every byte here is first-load on every route; the timer
+  // covers iOS Safari < 16.4, which has no rIC. With no args the loader installs.
+  useEffect(() => {
+    if ("requestIdleCallback" in window) requestIdleCallback(() => reportClientErrorLazy());
+    else setTimeout(reportClientErrorLazy, 3000); // no args: installs
+  }, []);
 
   // AppShell minus BrowserRouter — the framework router provides the routing
   // context. AppChrome renders <Outlet/> in its <main> in place of the legacy

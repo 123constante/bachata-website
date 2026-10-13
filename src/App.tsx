@@ -10,6 +10,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { CityProvider } from "@/contexts/CityContext";
 import { AppChrome } from "@/components/AppChrome";
 import { SearchProvider } from "@/components/search/SearchProvider";
+import { reportClientErrorLazy } from "@/lib/reportClientErrorLazy";
 
 // Global query defaults: 60s staleTime, single retry, refetch on window focus.
 // Per-query staleTimes (2--5 min) still override where set.
@@ -41,6 +42,7 @@ export function createQueryClient(): QueryClient {
       onError: (err, _vars, _ctx, mutation) => {
         // eslint-disable-next-line no-console
         console.error('Mutation error:', err, { mutationKey: mutation.options.mutationKey });
+        reportClientErrorLazy(err, 'save_failed');
       },
     }),
     defaultOptions: {
