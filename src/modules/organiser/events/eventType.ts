@@ -35,10 +35,30 @@ export type CreatePhase = 'open' | 'sent' | 'made';
 
 /** The one hint under the New event chips, per phase and whether a step is running. */
 export function chipHint(phase: CreatePhase, busy: boolean, type: NewEventType | null): string {
-  if (phase === 'made') return CHIPS_LOCKED_HINT;
+  // Made but its date or first session still running (FIX-4 F9): Create is busy, so never "press Create".
+  if (phase === 'made') return busy ? 'Finishing your event\u2026' : CHIPS_LOCKED_HINT;
   if (busy) return 'Creating your event\u2026';
   if (phase === 'sent') return 'Not confirmed yet. Press Create to finish: nothing is made twice.';
   return (type && EVENT_TYPES.find((t) => t.type === type)?.hint) || FIRST_SESSION_HINT;
+}
+
+/**
+ * The hint box's fixed height, in lines of HINT_LINE_PX, so Create never moves as the hint
+ * changes (FIX-4 F4). Measured in headless Chromium (13px text, html 13.57px): at 320 and 360px
+ * wide the Class hint takes 3 lines, at 375 and 390px 2. HINT_CHARS_PER_LINE is a floor under
+ * the measured line (at least 44 characters at 320px); a unit test holds every hint to the box.
+ */
+export const HINT_BOX_LINES = 3;
+export const HINT_LINE_PX = 18;
+export const HINT_CHARS_PER_LINE = 40;
+
+/**
+ * Under the block message when a create was sent, never confirmed, and the organiser is now
+ * blocked (FIX-4 F5): Create is disabled and the form frozen, so the way out is the shell's back
+ * link, named here as it reads on screen.
+ */
+export function unconfirmedExitNote(backLabel: string): string {
+  return `If your event was saved it is in your Events list; use ${backLabel} at the top to leave.`;
 }
 
 /**

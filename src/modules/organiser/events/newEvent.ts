@@ -44,3 +44,14 @@ export function seedSessions(programme: Programme, type: NewEventType): WireSess
   const end = endTime(NEW_EVENT_START_TIME, DEFAULT_DURATION_MINUTES[type]) ?? '';
   return buildPayload([{ ...newSession(seed.type), title: seed.title, start: NEW_EVENT_START_TIME, end }]);
 }
+
+/**
+ * Whether a failed create may open the New event form again (FIX-4 F1). Only when nothing can
+ * have been saved: the server refused (a coded error) the FIRST send, and no earlier send went
+ * unconfirmed. A coded error on a resend (JWT expiry, a timeout, a serialisation failure) says
+ * nothing about the earlier send, which may have saved the event; the server replays a stored
+ * create under its key without comparing the payload, so an edited resend would rename it.
+ */
+export function reopensAfterFailedCreate(f: { refused: boolean; firstSend: boolean; earlierUnconfirmed: boolean }): boolean {
+  return f.refused && f.firstSend && !f.earlierUnconfirmed;
+}
