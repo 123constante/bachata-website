@@ -57,17 +57,26 @@ F-l method: `node measure.mjs <base build> <head build>`. It takes each manifest
 takes the static `imports` closure from `entry.client` + `root` + the entry, and counts js files plus css. The base was
 built in a worktree at 5e0ec4c (node_modules symlinked; hashed keys matched by prefix).
 
-## 5. Checks -- NOT RUN THIS SESSION (context gate)
+## 5. Checks (FIX-6b worker, 2026-10-13, on `4198ffd`; Node 22, `NODE_PATH` unset; unit legs under the offline stub)
 
-Run so far: the organiser vitest dir (all green after the fix), `tests/ogBrandedCardLayout`, the guard self-test 157/157,
-and the e2e `organiser-events` + `organiser-loop` + `organiser-date` + `organiser-home` under the workflow env. Of those e2e
-specs, 27 tests: the first run had 5 red. 4 of those passed alone (cold dev server), and 1 was a real `organiser-loop` pin,
-which was fixed and then passed. `npm run build:ship` exit 0.
-**Still to run (copy fix-4's section 5 table):** architecture-guard steps (`chmod +x bin/*.sh` first, restore modes),
-typecheck.yml, `test:unit:offline` + `test:unit:timing` + the NY/Sydney 9-file legs, perf-budget (self-tests, build,
-`check:bundle-budget`, `check:first-load-requests`), every no-secret db-contract step including `check-script-conventions`
-(the guard file changed), the full `npm run test:e2e`, `npm run lint`, eslint on changed files, `npm run pre-ship`.
-Fix-4 baseline env-only reds: 10 live-DB `*.contract.test.ts` under the offline stub; e2e `dancer-home.spec.ts:105`.
+GitHub Actions is unavailable (billing), so every no-secret step was run here. CI's `chmod +x bin/*.sh` was applied first and
+the modes restored afterwards (not committed).
+
+| workflow / job | step | exit | note |
+|---|---|---|---|
+| architecture-guard `integrity` | `bin/check-integrity.sh` | 0 | 1448 files, 0 issues |
+| | `check:legacy-tables` / `check:legacy-program-rpcs` / `lint:architecture` | 0 / 0 / 0 | |
+| | `AUDIT_STRICT=1 check:images` | 0 | |
+| | `check:image-widths:self-test` + guard | 0 / 0 | |
+| | `check:plan-hygiene:self-test` | 0 | |
+| | `check:workflow-artifact-policy:self-test` + guard | 0 / 0 | |
+| | `check:mojibake:self-test` / mojibake `git grep` | 0 / no match (pass) | |
+| | `prove:entry-point:self-test` + sweep | 0 / 0 | 41 entry points proven |
+| typecheck.yml | `check:rpc-typing` / `check:wallclock-brand` | 0 / 0 | |
+| unit-tests.yml (London, full) | `test:unit:offline` | **0** | 270 files, 6402 passed, 25 skipped |
+| | `test:unit:timing` | 0 | 65 passed |
+| unit-tests.yml (New_York / Sydney, 9-file list) | `vitest run --no-file-parallelism <9 files>` | 0 / 0 | 213 / 213 |
+<!-- ROWS -->
 
 ## 6. Verified / Not verified
 
