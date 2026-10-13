@@ -1,0 +1,15 @@
+# Brief: land the vendor-chunk cycle fix as its OWN small PR (Website)
+
+Repo 123constante/bachata-website. Push ONLY on a NEW branch `claude/vendor-chunk-cycle-fix` created from current `origin/main`; you are the only worker on it. Never touch `claude/surname-screens` (another worker is pushing there). Never merge, never --no-verify, push once. GitHub minutes are capped: no empty trigger commits; run every CI job step in your sandbox (read .github/workflows) and put a per-job table (command, exit code) in the PR body and in the handover. Hosts *.vercel.app and api.vercel.com are blocked from the sandbox: do not try them.
+
+## Owner decision (2026-10-13, click answer)
+The fix for "TypeError: le is not a function" (a vendor-ui <-> vendor-ui-modal import cycle) lands as its own small PR, merged FIRST in the Website merge train, before #744/#743/#746. It is currently commit `59a1a6fa` on `claude/surname-screens` (PR #746); `git merge-base origin/main origin/claude/surname-screens` equals main's tip, so it cherry-picks cleanly onto main.
+
+## Task
+1. `git fetch origin main claude/surname-screens`, create `claude/vendor-chunk-cycle-fix` from `origin/main`, then `git cherry-pick 59a1a6fa`. Keep these files only: `.github/workflows/perf-budget.yml`, `package.json`, `scripts/check-chunk-cycles.mjs`, `scripts/pre-ship.mjs`, `scripts/prove-entry-point-dispatch.mjs`, `tests/chunkClassifier.test.ts`, `vite.chunks.ts`, and the handover `docs/briefs/surname-screens-typeerror-cycle-handover.md` (rename it to `docs/briefs/vendor-chunk-cycle-fix-handover.md`, edit the first lines so it says it is the standalone PR and #746 will drop the same files when it rebases). No surname feature code may come along; if the cherry-pick pulls anything else, remove it.
+2. Re-prove on this branch: `scripts/check-chunk-cycles.mjs` is RED on main's config with Radix Tooltip 1.4.x installed (`npm i --no-save @radix-ui/react-tooltip@1.4.1` or the version that reproduces; revert it afterwards) and GREEN with the fix; show both exit codes. Say whether the lockfile pins 1.2.16 and whether an `npm ci` build is clean on main (the handover claims Vercel does not install from the lockfile: if you can show how, say how; if you cannot, say so).
+3. Run ALL CI job steps in the sandbox, including `npm run build` first, the perf budgets (home <= 215 KB etc.) and the cycle check. Push once, open the PR as the bot (`gh pr create` with the bot token, never the GitHub MCP create tool), title `fix(perf): break the vendor-ui <-> vendor-ui-modal import cycle ("le is not a function")`. PR body: `## Verified on real data` with the exact lines `- Shapes surveyed:`, `- Checks run:`, `- NOT verified:` (NOT verified must say the Vercel preview was not walked; another session walks it).
+4. Do not touch #746. In the report say that #746 will need a rebase after this PR merges and that identical content drops out.
+
+## Output
+PR number and head SHA, red-first/green exit codes, per-job table, Verified / Not verified. Stop after the push.
