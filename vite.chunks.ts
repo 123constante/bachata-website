@@ -404,81 +404,6 @@ export function classifyChunk(id: string): string | undefined {
   return undefined;
 }
 
-/** The slice of rollup's `getModuleInfo` this file reads. */
-export type ImportersOf = (id: string) => { importers: readonly string[]; isIncluded?: boolean | null } | null;
-
-// One answer per module per build: an ancestor's walk would otherwise be redone
-// for every module under it. Keyed by the build's getModuleInfo, so a second
-// build (or a unit test's graph) never reads another graph's answers.
-const reachedFromShell = new WeakMap<ImportersOf, Map<string, boolean>>();
-
-/**
- * The `manualChunks` rollup calls (vite.config.ts): classifyChunk, plus ONE rule
- * that keeps vendor-ui from importing vendor-ui-modal.
- *
- * WHY (PR #747, 2026-10-13). vendor-ui-modal imports vendor-ui. If vendor-ui
- * also imports vendor-ui-modal -- because a vendor-ui module reaches a module the
- * lists file as modal, or an unlisted one rollup then files there -- the two
- * chunks form a cycle, and the browser can run vendor-ui-modal's top level
- * before vendor-ui's has finished. Radix's `var __name` helpers are then still
- * undefined: `TypeError: le is not a function` inside vendor-ui, every lazy
- * chunk behind it rejects, and the page sits on its Suspense fallback forever
- * (/parties skeletons, the event schedule's "Loading..."). The #747 Vercel
- * preview did exactly that while the same commit built cycle-free in CI and
- * locally (its vendor-ui hash differed from every CI build), so the lists alone
- * cannot be trusted to hold against the install a deploy actually gets.
- *
- * THE RULE. A node_modules module that a vendor-ui module statically imports --
- * directly or through other unlisted or modal modules -- is filed in vendor-ui.
- * On a graph where the lists already hold (every CI build to date) it changes
- * nothing: the chunks come out byte-identical. A modal-LISTED package it moves
- * is logged, because the lists are a measured fact (re-measure, then move it).
- * It does not look through other pinned groups (vendor-ui -> vendor-X ->
- * vendor-ui-modal); vendorChunkCycleGuard below fails the build on any cycle
- * through a vendor chunk, this one included, on Vercel as in CI.
- */
-export function classifyChunkInGraph(id: string, getModuleInfo: ImportersOf): string | undefined {
-  const base = classifyChunk(id);
-  if (base !== "vendor-ui-modal" && (base !== undefined || !id.includes("node_modules"))) return base;
-  let memo = reachedFromShell.get(getModuleInfo);
-  if (!memo) reachedFromShell.set(getModuleInfo, (memo = new Map()));
-  // `open`: modules whose walk is still running. Reaching one (an import cycle
-  // among node_modules) answers "not via here" for now, so a "no" reached that
-  // way is not cached -- only a "yes" or a cycle-free "no" is.
-  const open = new Set<string>();
-  const walk = (start: string): { found: boolean; exact: boolean } => {
-    const known = memo.get(start);
-    if (known !== undefined) return { found: known, exact: true };
-    if (open.has(start)) return { found: false, exact: false };
-    open.add(start);
-    let found = false;
-    let exact = true;
-    for (const importer of getModuleInfo(start)?.importers ?? []) {
-      if (!importer.includes("node_modules")) continue;
-      // An importer tree-shaking dropped draws no chunk edge.
-      if (getModuleInfo(importer)?.isIncluded === false) continue;
-      const group = classifyChunk(importer);
-      if (group === "vendor-ui") found = true;
-      // Only modules that would sit beside this one can pull it along; a
-      // module pinned to any other group is the cycle guard's business.
-      else if (group === undefined || group === "vendor-ui-modal") {
-        const up = walk(importer);
-        found = up.found;
-        exact &&= up.exact;
-      }
-      if (found) break;
-    }
-    open.delete(start);
-    if (found || exact) memo.set(start, found);
-    return { found, exact: found || exact };
-  };
-  if (!walk(id).found) return base;
-  if (base === "vendor-ui-modal") {
-    console.warn(`[chunks] ${id} is listed in VENDOR_UI_MODAL_PACKAGES but a vendor-ui module imports it; filed in vendor-ui (re-measure the lists, vite.chunks.ts).`);
-  }
-  return "vendor-ui";
-}
-
 /**
  * Every static import cycle that passes through a vendor-* chunk, as
  * "a.js -> b.js -> a.js", given each chunk's static imports.
@@ -506,10 +431,15 @@ export function findVendorChunkCycles(imports: Record<string, readonly string[]>
 
 /**
  * Vite plugin: fail the CLIENT build when any static import cycle passes through
- * a vendor chunk. In the build itself, not in a CI job, because #747's cycle
- * existed only in Vercel's build of the commit: a check that runs on CI's build
- * would have been green. Now that deploy fails loudly instead of shipping pages
- * stuck on their loading state.
+ * a vendor chunk -- the "TypeError: le is not a function" class (#746/#747: one
+ * chunk of the cycle runs its top level against the other's unassigned keepNames
+ * `var`, and every lazy chunk behind it rejects, so pages sit on their loading
+ * state). scripts/check-chunk-cycles.mjs (#748) checks CI's build after the fact;
+ * this runs INSIDE every build, Vercel's included. That is the point: #747's
+ * preview built a different graph from the same commit (a newer Radix Tooltip
+ * than the lockfile's) while CI's build of it was clean, so only a check in the
+ * deploy's own build sees that graph. Such a deploy now fails, naming the cycle,
+ * instead of shipping.
  */
 export function vendorChunkCycleGuard() {
   return {

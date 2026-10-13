@@ -36,34 +36,49 @@ programme read is fine on prod data (event 34156f15: 2 people, both carry
 `nationality_code`, 1 coded), so the schedule hang is not data.
 
 ## Step 3: fix (all four small-queue fixes kept)
-Two layers, both in `vite.chunks.ts` and wired in `vite.config.ts`:
-1. `classifyChunkInGraph` (the `manualChunks` rollup calls): a node_modules module that
-   a vendor-ui module statically reaches (through unlisted or modal modules; dropped
-   importers ignored) is filed in vendor-ui, so vendor-ui can never import
-   vendor-ui-modal. Logs a modal-LISTED package it moves. Memoised per build. On today's
-   graph it changes nothing (chunks byte-identical, `vendor-ui-DhDEy8r5` /
-   `vendor-ui-modal-Afd33XxC`).
-2. `vendorChunkCycleGuard` (a Vite plugin): fails ANY client build on a static import
-   cycle through a vendor chunk, including a three-chunk one the classifier does not
-   look through. This runs inside Vercel's build too. So if Vercel builds a different
-   graph again, the deploy fails loudly instead of shipping pages stuck on loading.
-Unit tests: `tests/chunkClassifierGraph.test.ts` (13).
+**The root-cause fix is #748 (already on main, merged into this branch):** Radix Tooltip
+>= 1.4, which Vercel's install resolved where the lockfile pins 1.2, imports
+`useFocusScopeBranch` from `@radix-ui/react-focus-scope`. That package was in the modal
+list, so vendor-ui imported vendor-ui-modal. #748 moved it to the shell list and added
+`scripts/check-chunk-cycles.mjs` to perf-budget (CI's build). That explains why CI was
+clean and the preview was not.
+
+This branch first added a self-healing classifier rule (`classifyChunkInGraph`). It was
+**dropped** after #748 landed: with the list fixed it was redundant, and its silent moves
+went against "the lists are a measured fact". What stays from this branch:
+- `vendorChunkCycleGuard` (Vite plugin in `vite.chunks.ts`, wired in `vite.config.ts`):
+  fails EVERY client build, **Vercel's included**, on a static import cycle through a
+  vendor chunk, naming it. #748's script checks CI's build; this is the only check that
+  sees the graph Vercel actually builds. Verified on Vercel: the 35e5774 preview built
+  green, so the guard did not trip there.
+  Unit tests: `tests/vendorChunkCycleGuard.test.ts`.
 
 ## Step 4: gate
-- Build time: `vendorChunkCycleGuard` (above). Red-first: old classifier plus the mutant
-  makes `npm run build` exit 1 and name the cycle.
+- Build time: `vendorChunkCycleGuard`. Red-first, on the merged tree: filing
+  `@radix-ui/react-context` in vendor-ui-modal makes `npm run build` exit 1 and name
+  `vendor-ui <-> vendor-ui-modal`.
 - Route smoke: `playwright.build.config.ts` + `tests/e2e-build/no-stuck-routes.build.spec.ts`,
   run as the new `build-smoke` job in `.github/workflows/phone-qa.yml`. It does a
   production build with the fake Supabase baked in, served the way Vercel serves it.
   It fails on an uncaught page error, a VISIBLE skeleton or "Loading..." after 8 s, or
   missing route content on `/parties` (calendar day cells), `/event/<uuid>` (the
   schedule's first session) and `/organisers/<slug>` (the name heading).
-  Red-first: old classifier plus the mutant with the build guard off gives 3/3 red
-  (`TypeError: Z is not a function`). Green 3/3 on the branch.
-- The positive-content assertion (added after review) found that `/event/<uuid>` was a
-  404 in the fake, so the first version of the check had been passing without testing
-  anything. `tests/e2e-phone/fakeSupabase.mjs` `resolve_public_event_ref_v1` now resolves
-  an event id as well as a slug.
+  Red-first (same mutant, guard off): 3/3 red, `TypeError: Z is not a function`.
+  Green 3/3. On GitHub: `build-smoke` green on 35e5774.
+- The positive-content assertion found that `/event/<uuid>` was a 404 in the fake, so
+  the first version had been passing without testing anything.
+  `tests/e2e-phone/fakeSupabase.mjs` `resolve_public_event_ref_v1` now resolves an
+  event id as well as a slug.
+
+## CI on 35e5774 (before merging main)
+Green: build-smoke, e2e-smoke, bundle-budget, lighthouse, doc-weight, integrity,
+synthetic-preview, seo/og preview, unit NY and Sydney. Red:
+- `unit (London, full)`: 2 cases in my classifier test. CI tests the merge with main,
+  where #748 had moved focus-scope into the shell list. Gone with the classifier rule.
+- `phone-qa`: `overlap /auth: horizontal page scroll @top` at both sizes, also on retry.
+  It was flaky in the sandbox on f50eff1+fix too. Checked again after merging main
+  (see the PR body).
+- `contract-check`: see the PR body.
 
 ## Review (one round, CI-guard change)
 `/code-review xhigh` returned 15 findings. Fixed: credential env filter (blank the keys,

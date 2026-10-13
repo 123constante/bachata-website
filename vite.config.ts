@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { reactRouter } from "@react-router/dev/vite";
 import path from "path";
-import { classifyChunkInGraph, vendorChunkCycleGuard } from "./vite.chunks";
+import { classifyChunk, vendorChunkCycleGuard } from "./vite.chunks";
 // lovable-tagger (componentTagger) is intentionally NOT restored under framework
 // mode: it's a dev-only Lovable annotation, non-essential, and untested against
 // the reactRouter() dev plugin. Re-add later behind a dev guard if wanted.
@@ -88,8 +88,7 @@ export default defineConfig(({ isSsrBuild }) => ({
       ? {
           rollupOptions: {
             output: {
-              // classifyChunk + the no-cycle rule (vite.chunks.ts).
-              manualChunks: (id, { getModuleInfo }) => classifyChunkInGraph(id, getModuleInfo),
+              manualChunks: classifyChunk,
             },
           },
         }

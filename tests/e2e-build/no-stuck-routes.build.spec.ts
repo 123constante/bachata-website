@@ -8,10 +8,11 @@ import { FLAG_EVENT_ID, ORG_SLUG } from '../e2e-phone/fakeSupabase.mjs';
 // and an organiser page. Against the PRODUCTION build (playwright.build.config.ts):
 // no uncaught page error, nothing visibly loading 8 s after the page opened, and
 // the route's own content on screen (so an error boundary or a gate cannot pass).
-// Red-first: a build with a vendor-ui <-> vendor-ui-modal cycle (old classifier,
-// @radix-ui/react-context filed in vendor-ui-modal, cycle guard off) fails all
-// three with `TypeError: Z is not a function`. The cycle itself now fails the
-// build: vendorChunkCycleGuard in vite.chunks.ts.
+// Red-first: a build with a vendor-ui <-> vendor-ui-modal cycle
+// (@radix-ui/react-context filed in vendor-ui-modal, cycle guard off) fails all
+// three with `TypeError: Z is not a function`. The cycle itself fails the build
+// (vendorChunkCycleGuard, vite.chunks.ts); this catches what a cycle check
+// cannot: any other way a production build leaves these pages stuck.
 const ROUTES: { name: string; path: string; content: (page: Page) => Locator }[] = [
   // The data-driven part: the calendar's day cells (the skeleton rows stood in for them).
   { name: 'party list', path: '/parties', content: (page) => page.getByRole('button', { name: /^\d+ \w+ \d{4}, / }) },
