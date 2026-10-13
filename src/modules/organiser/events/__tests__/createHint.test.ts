@@ -29,7 +29,8 @@ describe('chipHint: every (phase x busy) pair reads its one hint', () => {
   it('never says the event is made, or to open it, before the create is confirmed', () => {
     for (const busy of [false, true]) {
       for (const phase of ['open', 'sent'] as CreatePhase[]) {
-        expect(chipHint(phase, busy, 'party')).not.toMatch(/is made|open the event/);
+        // "nothing is made twice" (the brief's own not-confirmed sentence) is not a claim the event exists.
+        expect(chipHint(phase, busy, 'party')).not.toMatch(/is made with it|open the event/);
       }
     }
     expect(CHIPS_LOCKED_HINT).toMatch(/is made with it/);

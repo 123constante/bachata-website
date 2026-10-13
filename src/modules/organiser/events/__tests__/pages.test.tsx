@@ -4,7 +4,7 @@
  * (every row's edit path, the 30-date cap UI, the preview bar, save failure).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TODAY, home, programme, rawWorkspace, venues } from './fixtures';
@@ -72,6 +72,7 @@ function mount(path: string) {
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return client;
 }
 
 const editor = async () => {
@@ -303,7 +304,7 @@ describe('new event (name only)', () => {
       if (n <= 2) throw new TypeError('fetch failed'); // the create's reply is lost, twice
       return { ok: true, new_version: 4 };
     };
-    mount('/account/o/events/new');
+    const client = mount('/account/o/events/new');
     const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
     fireEvent.change(name, { target: { value: 'Saturday Party' } });
     fireEvent.click(screen.getByTestId('org-new-event-type-party'));
@@ -317,7 +318,12 @@ describe('new event (name only)', () => {
     expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Not confirmed yet. Press Create to finish: nothing is made twice.');
     expect(screen.queryByTestId('org-new-event-open')).toBeNull();
     // London midnight passes, and the person tries another chip and another organiser (both disabled).
+    // The page re-reads the London date only when it renders: Home is refetched with the new
+    // date, so the form really holds 9 Oct before the next press.
     londonToday.value = '2026-10-09';
+    const homeBefore = handlers.organiser_home_v1;
+    handlers.organiser_home_v1 = (a) => ({ ...(homeBefore(a) as object), today: '2026-10-09' });
+    await act(async () => { await client.invalidateQueries(); });
     fireEvent.click(screen.getByTestId('org-new-event-type-class'));
     fireEvent.click(organiserChips()[1]);
     fireEvent.click(screen.getByTestId('org-new-event-create'));
@@ -403,7 +409,8 @@ describe('new event (name only)', () => {
     (globalThis as { setWorkspace?: (w: ReturnType<typeof rawWorkspace>) => void }).setWorkspace!(rawWorkspace({}, dates));
     vi.mocked(firstListedDate).mockClear();
     await editor();
-    await waitFor(() => expect(screen.getByTestId('org-schedule').textContent).toContain('16 Oct'));
+    // The card's date is its section label, outside the org-schedule box.
+    await waitFor(() => expect(screen.getByTestId('org-schedule').closest('section')?.textContent).toContain('16 Oct'));
     expect(firstListedDate).toHaveBeenCalled();
     expect((vi.mocked(firstListedDate).mock.results.at(-1)?.value as { id?: string } | null)?.id).toBe('o2');
     cleanup();

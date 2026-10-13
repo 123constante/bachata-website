@@ -233,6 +233,15 @@ export function upcomingDates(dates: WorkspaceDate[], today: string): WorkspaceD
   return dates.filter((d) => d.occurrence_date >= today).sort((a, b) => a.occurrence_date.localeCompare(b.occurrence_date));
 }
 
+/**
+ * The earliest listed date from today on that is not cancelled (the programme writer
+ * refuses a past or cancelled date). One helper: the editor's `next` and the date a
+ * create seeds its first session on both read it.
+ */
+export function firstListedDate(dates: WorkspaceDate[], today: string): WorkspaceDate | null {
+  return upcomingDates(dates, today).find((d) => !isCancelledDate(d)) ?? null;
+}
+
 /** "2 dates keep their own changes: Tue 6 Oct (own changes) and Tue 13 Oct (cancelled)." */
 export function scopeNote(upcoming: WorkspaceDate[], today: string): { count: number; text: string } {
   const own = upcoming.filter(keepsOwnChanges);

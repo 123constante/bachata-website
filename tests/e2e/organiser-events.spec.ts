@@ -85,6 +85,45 @@ test('New event: a party is created with ONE date (no weekly rule), then the edi
   await expect(page.getByTestId('org-row-type')).toContainText('Night');
 });
 
+// FIX-3 (review F4, F10): nothing above the tapped Create moves while it runs. Open the event
+// mounts only once the create is CONFIRMED, BELOW Create; the hint keeps a fixed two-line box.
+test('New event: the Create button stays put before, during and after the create; Open appears below it once made', async ({ page }) => {
+  const fake = await openOrganiser(page, '/account/o/events/new');
+  const gates: Array<() => void> = [];
+  let held = 0;
+  // Registered after the fake, so it runs first: hold the create, then its date, then hand on.
+  await page.route('**/rest/v1/rpc/series_command_p5', async (route) => {
+    held += 1;
+    if (held <= 2) await new Promise<void>((resolve) => gates.push(resolve));
+    await route.fallback();
+  });
+  await page.getByTestId('org-new-event-name').fill('Saturday Social');
+  await page.getByTestId('org-new-event-type-party').click();
+  const create = page.getByTestId('org-new-event-create');
+  const y = async () => (await create.boundingBox())!.y;
+  const before = await y();
+  await expect(page.getByTestId('org-new-event-open')).toHaveCount(0);
+
+  await create.click();
+  await expect.poll(() => gates.length).toBe(1);
+  await expect(create).toHaveAttribute('aria-busy', 'true');
+  await expect(page.getByTestId('org-new-event-type-hint')).toHaveText(/^Creating your event/);
+  await expect(page.getByTestId('org-new-event-open')).toHaveCount(0);
+  expect(await y()).toBe(before);
+
+  gates[0]();
+  const open = page.getByTestId('org-new-event-open');
+  await expect(open).toBeVisible();
+  await expect(open).toBeEnabled();
+  expect(await y()).toBe(before);
+  expect((await open.boundingBox())!.y).toBeGreaterThan(before);
+
+  await expect.poll(() => gates.length).toBe(2);
+  gates[1]();
+  await expect(page).toHaveURL(/\/account\/o\/events\/[0-9a-f-]{36}$/);
+  expect(fake.envelopes()).toHaveLength(2);
+});
+
 test('editor: summary rows edit the draft, the preview follows, ONE save sends only what changed', async ({ page }) => {
   const fake = await openOrganiser(page, `/account/o/events/${FRIDAY}`);
   await expect(page.getByTestId('org-event-editor')).toBeVisible();

@@ -10,7 +10,7 @@ import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVen
 import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
 import { commandErrorMessage, isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { UNSAVED_MESSAGE, saveBarState } from '@/modules/organiser/shared/editorGuards';
-import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
+import { firstListedDate, upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { TEAM, endedOnLabel, eventLock, lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import {
@@ -172,7 +172,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
   const untilLabel = listing.untilText;
   const endedLabel = endedOnLabel(ws.series.lifecycle_status, ws.endedOn, today);
   const firstDate = ws.hasMore ? draft.startDate : [...ws.dates.map((d) => d.occurrence_date)].sort()[0] ?? draft.startDate;
-  const next = upcoming.find((d) => d.lifecycle_status !== 'cancelled') ?? null;
+  const next = firstListedDate(ws.dates, today);
   const emptyHint = lock ?? (sched.mode === 'fixed' ? sched.reason : weekly ? 'Use Extend above to list more dates.' : 'Change \u2018Starts on\u2019 above to list a new date.') ?? '';
   const ownOrganisers = organisersOf(home.data?.organisers, seriesId);
   const organisers = ownOrganisers.map((o) => o.name);
@@ -213,9 +213,10 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
         </section>
         <Card>
           {/* hasUpcoming is `next` (the first upcoming date that is NOT cancelled): the writer refuses a
-              cancelled date, so with every upcoming date cancelled the row must name no session action. */}
+              cancelled date, so with every upcoming date cancelled the row must name no session action;
+              cancelledOnly lets it name the step When offers instead (put a cancelled date back on). */}
           <SummaryRow icon={<Shapes />} label="Type" value={categoryLabelFor(ws.series.format, ws.series.category)}
-            sublabel={typeSublabel(ws.series.format, ws.series.category, { locked: !!lock, hasUpcoming: next !== null })} testId="org-row-type" />
+            sublabel={typeSublabel(ws.series.format, ws.series.category, { locked: !!lock, hasUpcoming: next !== null, cancelledOnly: next === null && upcoming.length > 0 })} testId="org-row-type" />
         </Card>
       </EditorGroup>
       <EditorGroup id="when" heading="When">
