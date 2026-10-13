@@ -80,3 +80,9 @@ Brief: `docs/briefs/website-small-queue.md` on `arc/briefs-website-small-queue`.
    and the London flake (maintainer re-run).
 2. Item 2b stays open for the organiser edit-in-place owner.
 3. Never merge or approve.
+- NEW, not yet diagnosed: `phone-qa` on `35e5774` failed `overlap.phone.spec.ts` "overlap /auth: no sideways
+  scroll, fixed bottom controls tappable": failed at 390x844 (also on retry), flaky at 360x640; 168 passed.
+  It passed on `f50eff1` (my own run and CI). Suspects: the other session's commits, or the 64px nav on /auth.
+  The /auth orbs belong to #744 (off limits). Next session: read phone-qa on the current head; if still red, run
+  `npx playwright test --config playwright.phone.config.ts -g "overlap /auth"` and read which assertion fails
+  (sideways scroll vs covered control) before touching anything.
