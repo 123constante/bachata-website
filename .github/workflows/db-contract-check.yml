@@ -1173,8 +1173,18 @@ jobs:
       #     party), 2 live courses have no length. Owner decision: sessions are
       #     the truth; category becomes derived (plan
       #     in-the-admin-dashboard-peaceful-tide.md). This step is the floor:
-      #       - category_drift and course_without_length are RATCHETED by series
-      #         id in event-truth-baseline.json (a new id fails; a fixed id still
+      #       - category_drift GATES AT 0 since admin #780 (P3, 2026-10-13): the
+      #         mirror is derived from the sessions -- series sections + items +
+      #         date-only sessions (event_occurrence_added_session_p5, where the
+      #         organiser edits per date; the RPC carries them as added_sessions
+      #         + added_session_count, both REQUIRED, the P0 shape is exit 2) --
+      #         and #780 repaired it, so the baseline block is EMPTY and any
+      #         drifting live series (a NULL mirror under mapped sessions too)
+      #         is a fresh failure. The guard's mapping is pinned to the
+      #         canonical src/lib/eventCategory.ts by
+      #         scripts/fixtures/event-truth-parity.json (canary + vitest);
+      #       - course_without_length stays RATCHETED by series id in
+      #         event-truth-baseline.json (a new id fails; a fixed id still
       #         measured fails as stale; an id that left scope -- ended, archived
       #         -- is reported, so a series finishing never reds main);
       #       - reader_flags is REPORTED, never gating: get_latest_events_v2's
