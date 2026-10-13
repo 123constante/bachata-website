@@ -52,21 +52,56 @@ describe('chipHint: every (phase x busy) pair reads its one hint', () => {
 });
 
 // FIX-4 F4: the hint box is a fixed number of lines so Create never moves while the hint changes.
-// Measured in headless Chromium (html 13.57px, 13px text): at 320px wide (box 288px) the 107-char
-// Class hint takes 3 lines and the 88-char Party hint 2, so a line holds at least 44 characters;
-// HINT_CHARS_PER_LINE (40) is below that. Every hint the table can show must fit the box.
+// Measured in headless Chromium at FIX-4 (html 13.57px, 13px text, 320px wide, box 288px): a line
+// holds at least 44 characters, and HINT_CHARS_PER_LINE (40) is below that. Today the Class and
+// Party hints are the longest, 90 characters each (FIX-7 R10). Every hint the table can show must
+// fit the box.
+// FIX-7 R2: when the organiser is blocked Create is disabled, so no hint may name it: the
+// confirmed hint keeps only its exit (open the event), the unconfirmed one only its fact (the
+// way out, the shell's back link, is the note under the block message).
+const LOCKED_BLOCKED = 'Already chosen: your event is made with it. Open the event.';
+const NOT_CONFIRMED_BLOCKED = 'Not confirmed yet.';
+describe('chipHint: every (phase x busy x block) triple', () => {
+  const table: Array<[CreatePhase, boolean, boolean, string]> = [
+    ['open', false, false, hintOf('class')],
+    ['open', false, true, hintOf('class')],
+    ['open', true, false, CREATING],
+    ['open', true, true, CREATING],
+    ['sent', false, false, NOT_CONFIRMED],
+    ['sent', false, true, NOT_CONFIRMED_BLOCKED],
+    ['sent', true, false, CREATING],
+    ['sent', true, true, CREATING],
+    ['made', false, false, CHIPS_LOCKED_HINT],
+    ['made', false, true, LOCKED_BLOCKED],
+    ['made', true, false, FINISHING],
+    ['made', true, true, FINISHING],
+  ];
+  it.each(table)('%s, busy %s, blocked %s', (phase, busy, blocked, expected) => {
+    expect(chipHint(phase, busy, 'class', blocked)).toBe(expected);
+  });
+  it('never names Create while blocked', () => {
+    for (const phase of ['open', 'sent', 'made'] as CreatePhase[]) {
+      for (const busy of [false, true]) expect(chipHint(phase, busy, 'class', true)).not.toMatch(/Create/);
+    }
+  });
+});
+
 describe('the hint box fits every hint', () => {
   const every = new Set<string>();
   for (const phase of ['open', 'sent', 'made'] as CreatePhase[]) {
     for (const busy of [false, true]) {
-      for (const type of [null, 'class', 'party', 'workshop'] as Array<NewEventType | null>) every.add(chipHint(phase, busy, type));
+      for (const type of [null, 'class', 'party', 'workshop'] as Array<NewEventType | null>) {
+        for (const blocked of [false, true]) every.add(chipHint(phase, busy, type, blocked));
+      }
     }
   }
   it.each([...every])('%s', (hint) => {
     expect(Math.ceil(hint.length / HINT_CHARS_PER_LINE)).toBeLessThanOrEqual(HINT_BOX_LINES);
   });
-  it('the table holds the longest hint (the Class chip)', () => {
-    expect([...every].sort((a, b) => b.length - a.length)[0]).toBe(hintOf('class'));
+  it('the longest hints are the Class and Party chips (90 characters), whatever the Set order', () => {
+    const longest = Math.max(...[...every].map((h) => h.length));
+    expect(longest).toBe(90);
+    expect([...every].filter((h) => h.length === longest).sort()).toEqual([hintOf('class'), hintOf('party')].sort());
   });
 });
 

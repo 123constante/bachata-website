@@ -33,12 +33,20 @@ export const CHIPS_LOCKED_HINT = 'Already chosen: your event is made with it. Pr
  */
 export type CreatePhase = 'open' | 'sent' | 'made';
 
-/** The one hint under the New event chips, per phase and whether a step is running. */
-export function chipHint(phase: CreatePhase, busy: boolean, type: NewEventType | null): string {
+/**
+ * The one hint under the New event chips, per phase, whether a step is running, and whether
+ * the organiser is blocked. Blocked disables Create, so no hint names it then (FIX-7 R2): the
+ * confirmed hint keeps only its exit, the unconfirmed one only its fact (the note under the
+ * block message names the way out).
+ */
+export function chipHint(phase: CreatePhase, busy: boolean, type: NewEventType | null, blocked = false): string {
   // Made but its date or first session still running (FIX-4 F9): Create is busy, so never "press Create".
-  if (phase === 'made') return busy ? 'Finishing your event\u2026' : CHIPS_LOCKED_HINT;
+  if (phase === 'made') {
+    if (busy) return 'Finishing your event\u2026';
+    return blocked ? 'Already chosen: your event is made with it. Open the event.' : CHIPS_LOCKED_HINT;
+  }
   if (busy) return 'Creating your event\u2026';
-  if (phase === 'sent') return 'Not confirmed yet. Press Create to finish: nothing is made twice.';
+  if (phase === 'sent') return blocked ? 'Not confirmed yet.' : 'Not confirmed yet. Press Create to finish: nothing is made twice.';
   return (type && EVENT_TYPES.find((t) => t.type === type)?.hint) || FIRST_SESSION_HINT;
 }
 

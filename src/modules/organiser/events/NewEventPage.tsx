@@ -54,7 +54,6 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
   const [keys] = useState(() => ({ create: newIdempotencyKey(), rule: newIdempotencyKey() }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState(false);
   const { shake, shakeProps } = useShake();
   const organiser = organisers.find((o) => o.id === organiserId) ?? null;
   const block = organiser ? createBlock(organiser) : 'Set up your organiser first.';
@@ -62,7 +61,7 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
   const canSend = !!organiser && organiserStatus(organiser.name, organiser.lifecycle_status).canSendForReview;
   const blockId = useId();
   // Off once the event exists: it is saved as a draft. On while the create is not confirmed.
-  useUnsavedChangesGuard({ enabled: name.trim() !== '' && !busy && !created && !made, message: UNSAVED_MESSAGE });
+  useUnsavedChangesGuard({ enabled: name.trim() !== '' && !busy && !made, message: UNSAVED_MESSAGE });
 
   const create = async () => {
     if (busy) return;
@@ -142,7 +141,6 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
       setBusy(false);
       return;
     }
-    setCreated(true);
     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
     navigate(ORG_PATHS.event(seriesId), { replace: true });
   };
@@ -167,7 +165,7 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
         </div>
         {/* A fixed box of HINT_BOX_LINES lines (the longest hint at 320px): the hint changes as the create runs, and nothing above Create may move. */}
         <p className="mt-[8px] text-[13px] text-[var(--mut)]" style={{ minHeight: HINT_BOX_LINES * HINT_LINE_PX, lineHeight: `${HINT_LINE_PX}px` }} data-testid="org-new-event-type-hint">
-          {chipHint(made ? 'made' : sent ? 'sent' : 'open', busy, type)}
+          {chipHint(made ? 'made' : sent ? 'sent' : 'open', busy, type, !!block)}
         </p>
       </section>
       <p className="text-[14px] text-[var(--mut)]">
@@ -201,7 +199,7 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
           button just pressed never moves. Never before the create is confirmed: it may not exist.
           Never while its date or first session still runs: a tap would race the schedule (FIX-4 F3). */}
       {made && !busy && (
-        <GhostButton onClick={() => { setCreated(true); navigate(ORG_PATHS.event(seriesId), { replace: true }); }} testId="org-new-event-open">
+        <GhostButton onClick={() => navigate(ORG_PATHS.event(seriesId), { replace: true })} testId="org-new-event-open">
           Open the event
         </GhostButton>
       )}
