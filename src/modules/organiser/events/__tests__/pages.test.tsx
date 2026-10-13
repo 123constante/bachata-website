@@ -31,7 +31,7 @@ import { CHIPS_LOCKED_HINT, EVENT_TYPES } from '../eventType';
 
 type Handler = (args: Record<string, unknown>) => unknown;
 let handlers: Record<string, Handler>;
-const commands = () => rpc.mock.calls.filter(([fn]) => fn === 'series_command_p5').map(([, a]) => (a as { p_envelope: { command: { kind: string; payload: Record<string, unknown> }; expected_version?: number } }).p_envelope);
+const commands = () => rpc.mock.calls.filter(([fn]) => fn === 'series_command_p5').map(([, a]) => (a as { p_envelope: { command: { kind: string; payload: Record<string, unknown> }; expected_version?: number; idempotency_key?: string; target_id?: string } }).p_envelope);
 
 beforeEach(() => {
   let workspace = rawWorkspace();
@@ -412,7 +412,8 @@ describe('new event (name only)', () => {
     // The card's date is its section label, outside the org-schedule box.
     await waitFor(() => expect(screen.getByTestId('org-schedule').closest('section')?.textContent).toContain('16 Oct'));
     expect(firstListedDate).toHaveBeenCalled();
-    expect((vi.mocked(firstListedDate).mock.results.at(-1)?.value as { id?: string } | null)?.id).toBe('o2');
+    const nextResults = vi.mocked(firstListedDate).mock.results;
+    expect((nextResults[nextResults.length - 1]?.value as { id?: string } | null)?.id).toBe('o2');
     cleanup();
     vi.mocked(firstListedDate).mockClear();
     handlers.organiser_get_occurrence_programme_v1 = () => ({ ...programme, occurrence_id: 'o2', occurrence_date: '2026-10-16', sessions: [], session_people: [] });
