@@ -89,3 +89,14 @@ floor to relax now.
 - `recurring` with NULL `recurrence_rule` &mdash; accepted; see CI #28's comment.
 - `check_event_program_section_consistency_v2` checks orphans only (reports 90
   item-less sections, healthy). It does **not** check kind vs type; this table does.
+
+## Reader vs lib (queued, needs Ricky's call on `calendarUtils.ts`)
+
+FIX-6 F-f, 2026-10-13. From a date's programme alone (key_times quiet), the calendar
+reader (`src/components/calendar/calendarUtils.ts` `matchesCategory`) lists a
+`masterclass` item under **no** tab and a `social` item under **no** tab. The lib
+(`src/lib/eventCategory.ts`) and the CI #70 guard (held to the lib by
+`scripts/fixtures/event-truth-parity.json`) put a masterclass under Classes and a
+social under Parties. `calendarUtils.ts` is density-excluded (ask Ricky first), so the
+divergence is PINNED, not fixed: `eventTruth.matrix.test.tsx` "known divergence" rows
+red when either side moves. Closing it is a reader change in `calendarUtils.ts`.

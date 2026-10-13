@@ -19,9 +19,10 @@ export const OWNER_COMMAND_KINDS = [
 
 /**
  * series.upsert keys an owner may send on an EXISTING series (a mirror of the
- * server allowlist). `category` is still on it so an older client is never
- * refused, but the server now DERIVES category from the sessions and ignores a
- * sent value (event-truth P2), so nothing here sends it.
+ * server allowlist, pinned key for key by the mirror test). `category` is a
+ * SERVER-ONLY entry here: the server keeps it so an older client is never
+ * refused, but it DERIVES category from the sessions and ignores a sent value
+ * (event-truth P2), so this client never sends it (upsertCommand strips it).
  * `default_passes` (the price list) and `instagram_url` joined with admin D8
  * (20261109180000_p5_owner_writes_time_price_instagram_v1.sql).
  */
@@ -222,9 +223,7 @@ export const hasBasicsChanges = (initial: BasicsDraft, draft: BasicsDraft) =>
  * so sending it would only look like it set something.
  */
 export function upsertCommand(payload: Record<string, unknown>): OwnerCommand {
-  if (!('category' in payload)) return { kind: 'series.upsert', payload };
-  const rest = { ...payload };
-  delete rest.category;
+  const { category: _serverDerived, ...rest } = payload;
   return { kind: 'series.upsert', payload: rest };
 }
 

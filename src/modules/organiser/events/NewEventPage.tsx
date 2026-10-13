@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import {
-  ORGANISER_HOME_KEY, fetchOccurrenceProgramme, fetchSeriesWorkspace, runSeriesCommand, saveOccurrenceProgramme, type HomeOrganiser,
+  ORGANISER_HOME_KEY, fetchOccurrenceProgramme, runSeriesCommand, saveOccurrenceProgramme, type HomeOrganiser,
 } from '@/modules/organiser/shared/selfServeApi';
 import { createBlock } from '@/modules/organiser/shared/createModel';
 import { organiserStatus } from '@/modules/organiser/shared/organiserStatus';
@@ -15,8 +15,7 @@ import { UNSAVED_MESSAGE } from '@/modules/organiser/shared/editorGuards';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Chip, EmptyState, ErrorState, GhostButton, PrimaryButton, SectionLabel, SkeletonRows, TitleInput, useShake } from '../ui';
 import { useOrganiserHome } from './eventsApi';
-import { firstListedDate } from '@/modules/organiser/shared/seriesModel';
-import { newEventCommands, reopensAfterFailedCreate, seedSessions } from './newEvent';
+import { listedOccurrenceId, newEventCommands, reopensAfterFailedCreate, seedSessions } from './newEvent';
 import { EVENT_TYPES, HINT_BOX_LINES, HINT_LINE_PX, chipHint, unconfirmedExitNote, type NewEventType } from './eventType';
 
 // `?o=<organiser id>` (useOrganiserChoice's shape; the public organiser page's
@@ -27,8 +26,12 @@ const pickInitial = (organisers: HomeOrganiser[], wanted: string | null) =>
 // The shell's back link, and the one exit the unconfirmed-and-blocked note names (FIX-4 F5).
 const BACK = { to: ORG_PATHS.events, label: 'Events' };
 
+/** The city lookup failed before anything was sent (FIX-6 F-h): nothing can have been saved. */
+class CityLookupFailed extends Error {}
+const CITY_LOOKUP_FAILED = 'We could not look up your city; nothing was saved. Press Create to try again.';
+
 /** The create as computed at the first press: every later press sends exactly this. */
-interface SentCreate { cmds: ReturnType<typeof newEventCommands>; type: NewEventType; today: string }
+interface SentCreate { cmds: ReturnType<typeof newEventCommands>; type: NewEventType }
 
 function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; today: string }) {
   const navigate = useNavigate();
@@ -74,8 +77,8 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
       const org = organiser;
       const chip = type;
       start = async () => {
-        const cityId = await resolveCreateCityId({ venueCityName: null, organiserCityId: org.city_id });
-        const first = { cmds: newEventCommands(name, today, org.id, cityId, chip), type: chip, today };
+        const cityId = await resolveCreateCityId({ venueCityName: null, organiserCityId: org.city_id }).catch(() => { throw new CityLookupFailed(); });
+        const first = { cmds: newEventCommands(name, today, org.id, cityId, chip), type: chip };
         sentRef.current = first;
         setSent(true);
         return first;
@@ -91,6 +94,13 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
       version = typeof res?.new_version === 'number' ? res.new_version : null;
       setMade(true);
     } catch (err) {
+      // Nothing was sent (the lookup runs before the create): the form was never frozen.
+      if (err instanceof CityLookupFailed) {
+        setError(CITY_LOOKUP_FAILED);
+        shake();
+        setBusy(false);
+        return;
+      }
       // The first send refused: nothing was saved, so the form opens again (same keys).
       // Anything else may have saved it: the form stays frozen on the create already sent,
       // and a later coded error on a resend proves nothing about it (FIX-4 F1).
@@ -103,30 +113,31 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
       setBusy(false);
       return;
     }
+    let listed: string | null;
     try {
       // The event exists now. A refused schedule is shown, never swallowed: Create
       // again retries it (the create replays under its key), or the editor sets it.
-      await runSeriesCommand(envelope(seriesId, version, go.cmds.schedule, keys.rule));
+      listed = listedOccurrenceId(await runSeriesCommand(envelope(seriesId, version, go.cmds.schedule, keys.rule)));
     } catch (err) {
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-      setError(`Your event is saved as a draft, but its ${go.type === 'class' ? 'weekly dates were' : 'date was'} not listed: ${commandErrorMessage(err)} Press Create to try again, or open the event and set the date there.`);
+      setError(`Your event is saved as a draft, but its date was not listed: ${commandErrorMessage(err)} Press Create to try again, or open the event and set the date there.`);
       shake();
       setBusy(false);
       return;
     }
     try {
-      // The first session goes on the first listed date. seedSessions sends
-      // nothing when the date already holds one, so pressing Create again after
-      // a lost reply never adds a second session.
-      const first = firstListedDate((await fetchSeriesWorkspace(seriesId)).dates, go.today);
-      if (!first) throw new Error('no_listed_date');
-      const programme = await fetchOccurrenceProgramme(first.id);
+      // The first session goes on the date just listed (the add_date reply names it:
+      // no read of the date list, FIX-6 F-g). seedSessions sends nothing when the
+      // date already holds one, so pressing Create again after a lost reply never
+      // adds a second session.
+      if (!listed) throw new Error('no_listed_date');
+      const programme = await fetchOccurrenceProgramme(listed);
       const sessions = seedSessions(programme, go.type);
-      if (sessions) await saveOccurrenceProgramme(first.id, programme.version, sessions);
+      if (sessions) await saveOccurrenceProgramme(listed, programme.version, sessions);
     } catch (err) {
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       const why = isServerRefusal(err) ? ` ${programmeErrorCopy(err).message}` : '';
-      setError(`Your event and its ${go.type === 'class' ? 'weekly dates are' : 'date is'} saved as a draft, but the first session was not added.${why} Press Create to try again, or open the event and add it on its first date.`);
+      setError(`Your event and its date are saved as a draft, but the first session was not added.${why} Press Create to try again, or open the event and add it on its first date.`);
       shake();
       setBusy(false);
       return;

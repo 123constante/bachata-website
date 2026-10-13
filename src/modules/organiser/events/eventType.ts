@@ -11,7 +11,7 @@ import { wordForStored } from '@/lib/eventCategory';
 export type NewEventType = 'class' | 'party' | 'workshop';
 
 export const EVENT_TYPES: Array<{ type: NewEventType; label: string; hint: string }> = [
-  { type: 'class', label: 'Class', hint: 'Same day every week. The first 8 weeks are listed, with a class on the first date. Add more sessions after.' },
+  { type: 'class', label: 'Class', hint: 'One date with a class session. Make it weekly later from Repeats. Add more sessions after.' },
   { type: 'party', label: 'Party', hint: 'One date with a party session. Make it weekly later from Repeats. Add more sessions after.' },
   { type: 'workshop', label: 'Workshop', hint: 'One date with a workshop session (listed under Classes). Add more sessions after.' },
 ];
@@ -94,6 +94,11 @@ export interface TypeRowState {
    * lists them, and each opens the date, whose "Put this date back on" un-cancels it.
    */
   cancelledOnly: boolean;
+  /**
+   * At least one upcoming listed date carries a session: the review card's fact (reviewModel
+   * sessionDates > 0, one mapping), so the row and the card never disagree (FIX-6 F-b, F-c).
+   */
+  hasSession: boolean;
 }
 
 /** The fact the Schedule card and the Type row both state for a cancelled-only series (one constant). */
@@ -112,10 +117,13 @@ export function typeSublabel(format: string | null | undefined, category: string
   if (format === 'festival' || format === 'course') return 'Set by its format.';
   const canEdit = !state.locked && state.hasUpcoming;
   if (wordForStored(format, category)) {
-    return canEdit ? 'Set by its sessions across all its dates.' : 'Set by its sessions.';
+    if (!canEdit) return 'Set by its sessions.';
+    // A legacy draft keeps a stored category with no session (the review card says add one).
+    return state.hasSession ? 'Set by its sessions across all its dates.' : 'No session yet. Add one to one of its dates and it is set from it.';
   }
   if (state.locked) return 'No session, so not set.';
-  if (state.hasUpcoming) return 'Add a session to one of its dates and it is set for you.';
+  // A session that sets no type (a performance) is still a session: never ask for "a session".
+  if (state.hasUpcoming) return state.hasSession ? 'Its sessions set no type yet. Add a class or a party to one of its dates and it is set for you.' : 'Add a session to one of its dates and it is set for you.';
   return state.cancelledOnly
     ? `${EVERY_UPCOMING_CANCELLED}. Open one under When and put it back on, then add a session and it is set for you.`
     : 'Add a session once a date is listed under When, and it is set for you.';

@@ -263,6 +263,14 @@ export function kindTypeMismatches(items) {
 const isNullOr = (v, test) => v === null || test(v);
 
 /**
+ * The plain step a red names while prod is still on the P0 shape (FIX-6 F-a). CI #70
+ * reds this repo's PRs and main until admin #780 (the derived category: date-only
+ * sessions in the payload and the mirror re-derived from them) is applied, and no
+ * code here can reorder those merges, so the red says what has to happen first.
+ */
+export const ADMIN_780_FIRST = 'admin #780 (derived category) must be applied first';
+
+/**
  * The check_event_truth_v1 payload, asserted complete before any rule reads it.
  * The totals are computed by the RPC independently of the arrays, so an array
  * that came back short -- or a total that came back as null, a string, or not at
@@ -285,7 +293,8 @@ export function assertTruthPayload(payload) {
   const isText = (v) => typeof v === 'string';
   for (const s of series) {
     if (!s || typeof s.id !== 'string' || !Array.isArray(s.section_kinds) || !Array.isArray(s.items) || !Array.isArray(s.added_sessions)) {
-      cannot(TRUTH_RPC + ' series entry ' + JSON.stringify(s && s.id) + ' is missing id, section_kinds, items or added_sessions (added_sessions is REQUIRED since P3 / admin #780: a payload without it is the P0 RPC, which cannot see date-only sessions -- fail closed, never a pass).');
+      cannot(TRUTH_RPC + ' series entry ' + JSON.stringify(s && s.id) + ' is missing id, section_kinds, items or added_sessions.' +
+        (s && !Array.isArray(s.added_sessions) ? ' ' + ADMIN_780_FIRST + ' (added_sessions is REQUIRED since P3: a payload without it is the P0 RPC, which cannot see date-only sessions -- fail closed, never a pass).' : ''));
     }
     // Each date-only session is exactly {kind, type}, each text or null: a
     // renamed column would arrive as undefined and read as "says nothing".
@@ -313,7 +322,8 @@ export function assertTruthPayload(payload) {
     cannot(
       TRUTH_RPC + ' payload is incomplete: ' + series.length + '/' + JSON.stringify(payload.series_count) + ' series, ' +
         sections + '/' + JSON.stringify(payload.section_count) + ' sections, ' + items + '/' + JSON.stringify(payload.item_count) + ' items, ' +
-        added + '/' + JSON.stringify(payload.added_session_count) + ' date-only sessions (added_session_count is REQUIRED since P3 / admin #780).',
+        added + '/' + JSON.stringify(payload.added_session_count) + ' date-only sessions' +
+        (payload.added_session_count === undefined ? '. ' + ADMIN_780_FIRST + ' (added_session_count is REQUIRED since P3).' : '.'),
     );
   }
   return series;
@@ -848,6 +858,14 @@ async function selfTest() {
   add('exit: a violated contract is 1 from the VERDICT branch', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource(withSpec((s) => { s.series[1].category = 'party'; })) }).then(pin('EVENT TRUTH VIOLATED')), '1:EVENT TRUTH VIOLATED');
   add('exit: a measurement failure is 2 from the CANNOT-MEASURE branch', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource({ ...cleanSpec(), series: [] }) }).then(pin('could not measure')), '2:could not measure');
   add('exit: a malformed RPC payload is 2 from the CANNOT-MEASURE branch', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource({ ...cleanSpec(), truth: { series: [] } }) }).then(pin('could not measure')), '2:could not measure');
+  // FIX-6 F-a: until admin #780 is applied, prod answers with the P0 payload (no added_sessions)
+  // and a mirror nobody re-derived. Both reds must say, in plain words, what has to happen first.
+  const P0_TRUTH = () => { const p = truthPayload(cleanSpec()); delete p.added_session_count; for (const s of p.series) delete s.added_sessions; return p; };
+  add('exit: the P0 payload (admin #780 not applied) names #780 as the step to take first', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource({ ...cleanSpec(), truth: P0_TRUTH() }) }).then(pin('admin #780 (derived category) must be applied first')), '2:admin #780 (derived category) must be applied first');
+  add('exit: a P0 payload with no series names #780 too (the totals branch)', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource({ ...cleanSpec(), truth: { ...P0_TRUTH(), series: [], series_count: 0, section_count: 0, item_count: 0 } }) }).then(pin('admin #780 (derived category) must be applied first')), '2:admin #780 (derived category) must be applied first');
+  add('exit: category drift names #780 as the step to take first', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource(withSpec((s) => { s.series[1].category = 'party'; })) }).then(pin('admin #780 (derived category) must be applied first')), '1:admin #780 (derived category) must be applied first');
+  add('exit: a series with no id but WITH added_sessions does NOT blame #780', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource({ ...cleanSpec(), truth: (() => { const p = truthPayload(cleanSpec()); delete p.series[0].id; return p; })() }) }).then(pin('admin #780')), '2:other');
+  add('exit: a course with no length does NOT blame #780 (it is not a mirror fault)', () => runMain([], { env: CREDS, makeSource: () => makeFixtureSource(withSpec((s) => { s.series[1].course_total_sessions = null; })) }).then(pin('admin #780')), '1:other');
 
   let failed = 0;
   for (const c of cases) {
@@ -913,7 +931,12 @@ export async function main(argv = [], deps = {}) {
   try {
     const result = await runCheck({ source: makeSource({ url, key }), baseline, now: clock(), log: out });
     if (result.code !== 0) {
-      err('\nEVENT TRUTH VIOLATED:\n  - ' + result.failures.join('\n  - ') + '\nSee the breakdown above and docs/event-truth-table.md.');
+      // Drift is the mirror disagreeing with the sessions: on prod before #780 that is the
+      // un-derived mirror, not a new fault, so the red names the step (FIX-6 F-a).
+      const drift = result.failures.some((f) => f.startsWith('category_drift:'));
+      err('\nEVENT TRUTH VIOLATED:\n  - ' + result.failures.join('\n  - ') +
+        (drift ? '\nIf prod does not hold the derived mirror yet: ' + ADMIN_780_FIRST + ' (it re-derives every stored category from the sessions).' : '') +
+        '\nSee the breakdown above and docs/event-truth-table.md.');
       return 1;
     }
     out('\nevent truth: ok (' + result.counts.liveSeries + ' live series, ' + result.counts.drifting + ' known drift; reported: ' + result.counts.readerDisagreements + ' reader disagreements over ' + result.counts.latestOverlap + ' shared occurrences, ' + result.counts.kindTypeMismatches + ' kind/type mismatches).');
