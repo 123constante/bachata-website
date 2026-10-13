@@ -61,3 +61,22 @@ Brief: `docs/briefs/website-small-queue.md` on `arc/briefs-website-small-queue`.
   #744 edits `src/components/AppChrome.tsx`, which this branch does not touch.
 - `npm run typecheck` reports 96 errors in this sandbox on untouched `main` as well (same count), so
   it is a sandbox/dependency matter, not this diff; none are in lines this branch changed.
+
+## Update 2026-10-13 22:30 UTC (context gate, PR #747)
+
+- Another session pushed `6079a65` and `35e5774` to this branch: a vendor-ui <-> vendor-ui-modal cycle fix,
+  a build-time cycle guard and a production-build smoke (`docs/session-handover-2026-10-13-747-preview-fix.md`).
+- `main` merged #748, a separate fix for the same cycle (focus-scope moved to the shell list). On the merge
+  ref two `tests/chunkClassifierGraph.test.ts` cases failed. Fixed: merged `main` (`10438c9`) and switched
+  them to `@radix-ui/react-focus-guards` (`3b8d7a7`). Local checks on the merged tree: build, budgets,
+  `check:chunk-cycles` and lint all exit 0; build smoke 3/3; unit offline shows only the 5 sandbox-only failures.
+- `contract-check` red on `35e5774`: 45 unmigrated prod DDL changes plus the anon-grant posture. It reads live
+  prod; this PR has no DB change, and `main` was green at 21:52. Not this PR's; commented on the PR.
+- `festivalClientState.test.tsx` London flake: pre-existing on `main`; commented. Re-runs return 403.
+
+## Next
+
+1. Read CI on the head after this doc push: expect green except possibly `contract-check` (DB owner)
+   and the London flake (maintainer re-run).
+2. Item 2b stays open for the organiser edit-in-place owner.
+3. Never merge or approve.
