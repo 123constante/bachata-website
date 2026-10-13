@@ -1,0 +1,127 @@
+# Handover: event-truth P1+P3 -- FIX-4 slice (after the fix-3 review)
+
+Branch `arc/event-truth-p1p3-fix4`, from `origin/arc/event-truth-p1p3-fix3` (ceb5df79). Brief:
+`arc/briefs-event-truth:briefs/event-truth-p1p3-fix4.md` (blob 23a60e78). No PR opened, as the brief says (the orchestrator
+merges this branch). Written 2026-10-13 by the cloud worker (scheduled routine, ticket dt_a19d1cdc50a0).
+
+Commits: `1fe4cb7` red-first tests, `064125b` source fixes and e2e, `fe215d7` F1 test strengthened (a mutant
+survived the first version; see section 3), then this handover.
+
+Rules held: `src/lib/eventCategory.ts` byte-identical; nothing under `src/components/calendar/**`,
+`EventCalendar.tsx`, `useCalendarEvents.tsx`, `scripts/**`, `organiserFake.ts`; no budget, pin or `vendor-ui*` change; no
+raw Unicode punctuation in JSX or source (ellipses are `…` escapes in `.ts` strings); tap targets unchanged (the
+note is text, not a control); every file over 2 KB written through `safe-edit.py` / `safe-write.py`.
+
+## 1. Fixes, and which lines are NEW LOGIC (review these; everything else is wiring, comments, copy or tests)
+
+| fix | file | change |
+|---|---|---|
+| F1 | `events/newEvent.ts` | **NEW LOGIC** `reopensAfterFailedCreate({ refused, firstSend, earlierUnconfirmed })` = `refused && firstSend && !earlierUnconfirmed` (pure). |
+| F1 | `events/NewEventPage.tsx` | **NEW LOGIC** `unconfirmedRef = useRef(false)`. Create catch: if `reopensAfterFailedCreate({ refused: isServerRefusal(err), firstSend: kept === null, earlierUnconfirmed: unconfirmedRef.current })` then `sentRef.current = null; setSent(false)`; **else if `sentRef.current`** (a create really went out this press or earlier) then `unconfirmedRef.current = true`. The old `&& !made` is gone: `firstSend` already implies not made. A city-lookup failure before anything is sent leaves `sentRef` null and marks nothing (same as before). |
+| F2 | `events/NewEventPage.tsx` | **NEW LOGIC** page branch `home.isError ?` became `!home.data ?` (after `isPending`, this equals the brief's `isError && !data`). A failed refetch with data keeps `NewEventForm` mounted. |
+| F3 | `events/NewEventPage.tsx` | **NEW LOGIC** Open the event mounts on `made && !busy` (was `made`). |
+| F4 | `events/eventType.ts`, `NewEventPage.tsx` | **NEW LOGIC (small)** `HINT_BOX_LINES = 3`, `HINT_LINE_PX = 18`, `HINT_CHARS_PER_LINE = 40`. The hint `<p>` takes `style={{ minHeight: 3*18, lineHeight: 18px }}` instead of `min-h-[36px] leading-[18px]`, so the box and the test read one constant. |
+| F5 | `events/eventType.ts`, `NewEventPage.tsx` | **NEW LOGIC** `unconfirmedExitNote(backLabel)`; rendered as `org-new-event-unconfirmed-exit` when `block && sent && !made`. Module const `BACK = { to: events, label: 'Events' }` feeds both the shell's back link and the note (one source). |
+| F9 | `events/eventType.ts` | **NEW LOGIC** `chipHint`: `made` returns `busy ? 'Finishing your event…' : CHIPS_LOCKED_HINT`. |
+| F10 | `__tests__/pages.test.tsx`, `createHint.test.ts`, `reviewCover.matrix.test.tsx` | Raw U+2026 replaced by `…`. The brief said "two test files", but its own grep finds three; all three fixed. The `.snap` file (generated, U+2018/2019) is left alone. |
+| F3/F4 | `tests/e2e/organiser-events.spec.ts` | The FIX-3 y-test now runs at **390 and 360** with the **Class** chip (the longest hint). It holds the create, then the date (refused), and asserts Create's y is equal before, while creating and while finishing. It asserts Open is absent while finishing, then visible, enabled, below Create once idle, and that it opens the editor. |
+
+### Deviations from the brief (each with its reason)
+
+1. **F5 sentence.** The brief's text is "...; use Back to leave." The shell's back link on this page reads **Events**
+   (`OrganiserShell back.label`), not "Back", so that sentence would name a control that is not on screen (the brief's
+   own rule). The note is built from the link's label: "If your event was saved it is in your Events list; use Events
+   at the top to leave." The test asserts the note against the `org-back` element's actual text.
+2. **F4: a fix, although 390 did not move.** At 390x844 the old 2-line box held every hint, so Create did not move
+   while running (numbers below). At **360 and 320 px** the Class hint wraps to **3 lines**, and Create jumped 18 px
+   when the hint changed to "Creating...". The box now fits 3 lines. Cost: one empty 18 px line under the shorter hints
+   at 375 px and up.
+3. **F1 ref is redundant (equivalent mutants M1d/M1e).** See section 3. The brief asked for the ref, so it stays.
+
+## 2. Red-first (tests committed in `1fe4cb7` and run against ceb5df79's source)
+
+`createHint.test.ts` + `pages.test.tsx` + `reviewCover.matrix` on ceb5df79's source: **23 failed / 86 passed**.
+- F1 (a) PGRST301, 57014, 40001 and (c): **4 red** (the name re-enabled after the coded error). (b) and the made-row
+  (d) were green on the old code; they are regression rows, not fixes.
+- F2: **red**, "Unable to find org-new-event-form". The first version of this test passed on the old code because React
+  Query notifies on a later macrotask. That was a test defect, and a 20 ms flush was added before it was committed.
+- F3+F9 in-flight page test: **red** (the hint read the locked sentence, then Open showed while busy).
+- F5 page row "sent": **red** (`unconfirmedExitNote` missing). F9 rows, the hint-box table, the `reopensAfterFailedCreate`
+  table and the note: **red** (missing exports or the old hint).
+
+After the fix: the same 3 files are green, and `src/modules/organiser` is **81 files, 2926 passed, 1 todo**.
+
+## 3. Mutation table (each mutant applied, run, restored; `git diff --quiet` checked after each)
+
+Suites: `pages.test.tsx` + `createHint.test.ts` (88 tests), plus the e2e for M4.
+
+| mutant | fix | what | result |
+|---|---|---|---|
+| M1a | F1 | rule drops `firstSend` | **killed** (1 failed) |
+| M1b | F1 | rule drops `earlierUnconfirmed` | **killed** (1 failed, unit table) |
+| M1c | F1 | page passes `firstSend: true` | **SURVIVED at first.** The made-row resend was recomputed but identical. Test fixed (`fe215d7`): London midnight rolls over before the final resend, so a recomputed create starts a day later. Now **killed** (1 failed). |
+| M1d | F1 | page never sets `unconfirmedRef` | **survives: an equivalent mutant** (proof below) |
+| M1e | F1 | page passes `earlierUnconfirmed: false` | **survives: an equivalent mutant** |
+| M1f | F1 | page passes `refused: true` | **killed** (7 failed) |
+| M2 | F2 | `!home.data` back to `home.isError` | **killed** (1 failed) |
+| M3 | F3 | Open on `made` (not `made && !busy`) | **killed** (1 failed) |
+| M4 | F4 | `HINT_BOX_LINES = 2` | **killed**: unit 4 failed; e2e at 360: Create y **364.375 -> 346.375** while creating |
+| M5a | F5 | note on `block && !made` (drops `sent`) | **killed** |
+| M5b | F5 | note on `block && sent` (drops `!made`) | **killed** |
+| M5c | F5 | note built with 'Back' | **killed** |
+| M5d | F5 | note never shown | **killed** |
+| M9 | F9 | made-busy reads the locked hint | **killed** (3 failed) |
+
+**Why M1d/M1e cannot be killed (a finding on the brief's design, not a gap in the tests).** `sentRef` is cleared only in
+the reopen branch. Every send that ends unconfirmed leaves `sentRef` set, so every later press has `kept !== null`, that
+is `firstSend === false`, and the rule is already false. `earlierUnconfirmed` can be true only when `firstSend` is
+false, so no input separates the code with the ref from the code without it. The pure rule's own table pins the
+`earlierUnconfirmed` term (M1b is killed). In the page it is defence in depth against a future change that clears
+`sentRef` elsewhere. The orchestrator may drop the ref; behaviour is the same either way.
+
+## 4. F4 measurements (headless Chromium, html font 13.57 px at 390 / 13.5 px at 360)
+
+Create's `y` (px). The "after" columns are after the press ENDS, when the error line appears above Create.
+
+| | before | creating | finishing (made, busy) | sent idle (lost reply) | made idle (date refused) | hint box |
+|---|---|---|---|---|---|---|
+| ceb5df79, 390, every chip | 346.375 | 346.375 | 346.375 | 407.875 | 453.375 | 36 |
+| ceb5df79, 360 / 320, Class | Class hint = 3 lines (box grows to 54), others 2 | moves up 18 (shown by M4: 364.375 -> 346.375) | | | | |
+| FIX-4, 390 and 360, every chip | 364.375 | 364.375 | 364.375 | 425.875 | 471.375 | 54 |
+
+Line counts (Range rects) on ceb5df79: Class 3 lines at 320 and 360, 2 at 375 and 390; Party and Workshop 2 at every
+width. **Not in this brief, but seen:** Create moves down (+61.5 or +107 px) once the press ends, because the error
+`<p>` sits ABOVE Create. It never moves while it spins. Reporting it, not changing it.
+
+## 5. Checks (Node 22, `NODE_PATH` unset as on CI; unit legs under the offline stub)
+
+CHECKS_TABLE
+
+Hooks: in this container `.githooks/*` is NOT executable (git warns "hook ignored"), so pre-commit and pre-push did NOT
+run. Their checks were run by hand (integrity, the unit gate and pre-ship above). No `--no-verify` was used; the hooks
+simply were not armed. Mode bits were left as found.
+
+## 6. Real data (read-only SELECT, prod `stsdtacfauprzrdebmzg`, counts only)
+
+- `organiser_profiles.lifecycle_status`: **45 live, 0 other**. The F5 state (organiser blocked mid-create) does not
+  occur on prod today. The page test builds it (pending_review after a Home refetch), and the e2e "not approved yet"
+  spec covers the block itself.
+- `organiser_team_members`: 49 active rows over 45 organisers; **5 people are active in more than one organiser**, so
+  the organiser-chip freeze (F1 tests use two organisers) meets real people.
+- The fix-3 handover's series counts stand (unchanged by this slice, which touches only the create page).
+
+## 7. Verified / Not verified
+
+**Verified (here):** F1, F2, F3, F5 and F9 against tests red on ceb5df79's source; F1 rows (a) PGRST301 / 57014 /
+40001, (b), (c) and the made row (d), with a byte-equal resend after London midnight; every mutant in section 3 killed
+except the two proved equivalent; F4 measured at 390 and 360 (and 320 / 375 line counts), fixed, and pinned by unit and
+e2e; the e2e at 390 and 360; the checks in section 5; the prod shape counts in section 6; the lib, calendar files and
+scripts untouched.
+
+**Not verified:** a walk on a real phone or with a real organiser login (self-serve is OFF in prod; no login here);
+real-network behaviour of PGRST301 / 57014 / 40001 on `series_command_p5` (the fix does not depend on which code
+arrives: any coded error on a resend keeps the form frozen); whether the server compares a replayed create's payload
+(the brief says it does not, and the fix assumes it does not); live contract suites and the live #70 guard (DB window);
+Lighthouse and document weight (need a Vercel preview); the `.githooks` mode question (environment).
+
+**Head SHA:** see `git log -1 origin/arc/event-truth-p1p3-fix4`. PR: none (by brief).
