@@ -405,7 +405,7 @@ describe('new event (name only)', () => {
       if (step === 'lost') throw new TypeError('fetch failed');
       throw step;
     };
-    mount('/account/o/events/new');
+    const client = mount('/account/o/events/new');
     const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
     const create = screen.getByTestId('org-new-event-create') as HTMLButtonElement;
     const creates = () => commands().filter((c) => c.command.kind === 'series.upsert');
@@ -425,6 +425,13 @@ describe('new event (name only)', () => {
     if (!frozen) return;
     // Frozen: another chip and organiser do nothing, and the next press resends the last create byte for byte.
     const last = creates()[creates().length - 1];
+    // London midnight passes (Home refetched with the new date): a create recomputed from the
+    // form would start a day later, so only the kept create can be byte-equal.
+    londonToday.value = '2026-10-09';
+    const homeBefore = handlers.organiser_home_v1;
+    handlers.organiser_home_v1 = (a) => ({ ...(homeBefore(a) as object), today: '2026-10-09' });
+    await act(async () => { await client.invalidateQueries(); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
     fireEvent.click(screen.getByTestId('org-new-event-type-workshop'));
     fireEvent.click(organiserChips()[1]);
     fireEvent.click(create);
