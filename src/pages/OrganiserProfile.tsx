@@ -1448,7 +1448,9 @@ const OrganiserProfile = () => {
               <h2 style={sectionH2}>Teachers &amp; DJs</h2>
               <span style={sectionCount}>{orderedTeam.length} {orderedTeam.length === 1 ? 'member' : 'members'}</span>
             </div>
-            <div className={orderedTeam.length <= 3 ? 'flex justify-center gap-3' : 'grid grid-cols-3 gap-3 lg:grid-cols-8'}>
+            {/* px-3: the nationality sticker stands out past each circle's top-right, so the
+                last column needs room before the page's overflow-x-clip edge. */}
+            <div className={orderedTeam.length <= 3 ? 'flex justify-center gap-3 px-3' : 'grid grid-cols-3 gap-3 px-3 lg:grid-cols-8'}>
               {orderedTeam.map((m) => <div key={m.id} className={cn('min-w-0 max-w-[112px]', orderedTeam.length <= 3 ? 'basis-1/3' : 'mx-auto w-full')}><TeamCircle member={m} /></div>)}
             </div>
           </section>

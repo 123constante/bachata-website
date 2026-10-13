@@ -1,30 +1,33 @@
 /**
- * The nationality badge: a small flag on a pole, waving, at the top-right of a person's
- * photo. THE one implementation every person-photo surface uses (directly, or through
- * <PersonAvatar>), so the same code always reads the same.
+ * The nationality badge: a small flag sticker at the top-right of a person's photo
+ * (owner pick, 2026-10-13: style "Sticker"). THE one implementation every person-photo
+ * surface uses (directly, or through <PersonAvatar>), so the same code always reads the same.
  *
  * - No flag at all when the code is null, empty, malformed or not a country (see
  *   nationality.ts): renders nothing, so there is no placeholder and no gap.
  * - pointer-events: none, so it never takes a tap meant for the photo or a control.
  * - role="img" + aria-label "Nationality: <country>" and a title with the country name.
- * - Motion: the Silk preset (flagWave.ts) on the shared clock (flagClock.ts); still under
- *   prefers-reduced-motion, paused while the tab is hidden or the flag is off screen.
+ * - Static: a 3:2 flag tilted 9deg with a 2px white edge and a soft drop shadow. No
+ *   animation of any kind, so reduced motion needs no special case.
+ * - The artwork is inline SVG (flagArt.ts): no network call, works offline.
  *
- * The parent must be position: relative. `corner` (round photos) lets the flag stand
- * out past the photo's top-right like the reference, so that parent must not clip;
- * `inset` keeps it inside the corner, for photos in a clipped card.
+ * The parent must be position: relative. `corner` (round photos) sets the sticker
+ * half outside the photo's top-right (top -6%, right -14% of the photo box), so that
+ * parent and its ancestors must not clip; `inset` keeps it inside the corner, for
+ * photos that sit flush to the edge of a clipped card.
  */
-import { useEffect, useRef, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 import { nationalityLabel } from './nationality';
-import { flagDataUrl } from './flagArt';
-import { drawFlag, flagGeometry, randomSeed, type FlagGeometry } from './flagWave';
-import { drawNow, registerFlag } from './flagClock';
+import { flagArtMarkup } from './flagArt';
 
 export type FlagPlacement = 'corner' | 'inset';
 
-/** The `size` to pass for an `inset` flag on a large card photo (gives the reference's 22px cloth). */
+/** The `size` to pass for an `inset` flag on a large card photo (gives a 22px sticker). */
 export const TILE_FLAG_SIZE = 48;
+
+/** Smallest sticker width in CSS px: below this the stripes stop reading. */
+export const MIN_STICKER_PX = 20;
 
 export interface NationalityFlagProps {
   /** nationality_code from a public read (or a stored nationality); anything is accepted. */
@@ -32,77 +35,33 @@ export interface NationalityFlagProps {
   /** The round photo's diameter in CSS px; TILE_FLAG_SIZE for an `inset` flag on a card photo. */
   size: number;
   placement?: FlagPlacement;
-  /** `inset` only: distance of the cloth from the photo's top and right edges (clear a rounded corner). */
+  /** `inset` only: distance of the sticker from the photo's top and right edges, CSS px. */
   inset?: number;
   className?: string;
 }
 
-type Art = { cv: HTMLCanvasElement | null; ready: Promise<HTMLCanvasElement | null> };
-const artCache = new Map<string, Art>();
-
-/** The flag rasterised once at the cloth's device size; shared by every flag of that code and size. */
-function flagArt(code: string, W: number, H: number): Art {
-  const key = `${code}|${W}x${H}`;
-  const hit = artCache.get(key);
-  if (hit) return hit;
-  const art: Art = { cv: null, ready: Promise.resolve(null) };
-  art.ready = new Promise((resolve) => {
-    const im = new Image();
-    im.onload = () => {
-      const cv = document.createElement('canvas');
-      cv.width = W;
-      cv.height = H;
-      const c = cv.getContext('2d');
-      if (!c) return resolve(null);
-      c.imageSmoothingQuality = 'high';
-      c.drawImage(im, 0, 0, W, H);
-      art.cv = cv;
-      resolve(cv);
-    };
-    im.onerror = () => resolve(null);
-    im.src = flagDataUrl(code);
-  });
-  artCache.set(key, art);
-  return art;
+/** Sticker width and height (CSS px) for a photo of `size` px: 46% of the photo, at least 20px, 3:2. */
+export function stickerSize(size: number): { w: number; h: number } {
+  const w = Math.max(MIN_STICKER_PX, Math.round(Math.max(0, size) * 0.46));
+  return { w, h: Math.round(((w * 2) / 3) * 100) / 100 };
 }
 
-export function flagBoxStyle(g: FlagGeometry, placement: FlagPlacement, inset = 4): CSSProperties {
-  // The cloth starts pad+2 px below the canvas top and ends 4px short of its right edge.
-  if (placement === 'inset') return { right: inset - 4, top: inset - g.pad - 2, width: g.cw, height: g.ch };
-  // Corner: the reference's left = .62 size, top = -.14 size - pad, as percentages of the
-  // (square) photo box, so a fluid photo keeps the same placement at any width.
-  return { left: '62%', top: `calc(-14% - ${g.pad}px)`, width: g.cw, height: g.ch };
+export function stickerBoxStyle(size: number, placement: FlagPlacement = 'corner', inset = 6): CSSProperties {
+  const { w, h } = stickerSize(size);
+  // Percentages of the (square) photo box, so a fluid photo keeps the same placement.
+  const pos: CSSProperties = placement === 'inset' ? { top: inset, right: inset } : { top: '-6%', right: '-14%' };
+  return {
+    ...pos,
+    width: w,
+    height: h,
+    transform: 'rotate(9deg)',
+    borderRadius: 3,
+    boxShadow: '0 0 0 2px #fff, 0 3px 8px rgba(0,0,0,.6)',
+  };
 }
 
 export function NationalityFlag({ code, size, placement = 'corner', inset, className }: NationalityFlagProps) {
   const label = nationalityLabel(code);
-  const ref = useRef<HTMLCanvasElement>(null);
-  const g = flagGeometry(size);
-  const iso = label?.code ?? null;
-
-  useEffect(() => {
-    const cv = ref.current;
-    if (!cv || !iso) return;
-    const ctx = cv.getContext('2d');
-    if (!ctx) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    cv.width = Math.round(g.cw * dpr);
-    cv.height = Math.round(g.ch * dpr);
-    const seed = randomSeed();
-    const art = flagArt(iso, Math.round(g.fw * dpr), Math.round(g.fh * dpr));
-    const unregister = registerFlag(cv, (t) => {
-      if (art.cv) drawFlag(ctx, art.cv, g, seed, t, dpr);
-    });
-    let live = true;
-    void art.ready.then(() => live && drawNow(cv));
-    return () => {
-      live = false;
-      unregister();
-    };
-    // g is derived from size alone.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [iso, size]);
-
   if (!label) return null;
   return (
     <span
@@ -110,10 +69,19 @@ export function NationalityFlag({ code, size, placement = 'corner', inset, class
       aria-label={label.ariaLabel}
       title={label.name}
       data-nationality-flag={label.code}
-      className={cn('pointer-events-none absolute z-[2] block select-none', className)}
-      style={flagBoxStyle(g, placement, inset)}
+      className={cn('pointer-events-none absolute z-[2] block select-none overflow-hidden', className)}
+      style={stickerBoxStyle(size, placement, inset)}
     >
-      <canvas ref={ref} aria-hidden="true" className="block h-full w-full" />
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        viewBox="0 0 30 20"
+        preserveAspectRatio="xMidYMid slice"
+        className="block h-full w-full"
+        // Static artwork from flagArt.ts; the only variable part (a generic flag's
+        // letters) is reduced to A-Z there.
+        dangerouslySetInnerHTML={{ __html: flagArtMarkup(label.code) }}
+      />
     </span>
   );
 }

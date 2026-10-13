@@ -64,6 +64,8 @@ export default defineConfig({
       VITE_ENABLE_ORGANISER_DETAIL: 'true',
       VITE_ENABLE_ORGANISERS_DIRECTORY: 'true',
       VITE_ENABLE_ORGANISER_SELF_SERVE: 'true',
+      // /teachers (live on prod; this flag gates only that route): the nationality-flag spec walks it.
+      VITE_ENABLE_TEACHERS_DIRECTORY: 'true',
     },
   },
   projects: [

@@ -1,10 +1,10 @@
 /**
  * Flag artwork for the nationality badge, bundled inline: no network call, no CDN.
  *
- * Simplified artwork on a 30x20 grid (the waving-flag reference's grid), drawn at about
- * 22px wide, so coats of arms are reduced to a plain emblem. Covers every code in use on
+ * Simplified artwork on a 30x20 grid, drawn at 20-44px wide as a sticker, so coats of
+ * arms are reduced to a plain emblem. Covers every code in use on
  * production (survey 2026-10-12: ES CO AR EC BO ZA IT VE GB DE CY) plus the nationalities
- * most likely next; any other valid code gets the generic cloth with its two letters.
+ * most likely next; any other valid code gets the generic flag with its two letters.
  */
 
 const rect = (fill: string, x = 0, y = 0, w = 30, h = 20) =>
@@ -116,19 +116,13 @@ export const FLAG_ART: Readonly<Record<string, string>> = {
   UY: stripes(9, '#fff', '#0038A8') + rect('#fff', 0, 0, 11.1, 11.1) + circle(5.55, 5.55, 2.6, '#FCD116'),
 };
 
-/** The generic cloth for a valid code with no artwork above: neutral, with its letters. */
+/** The generic flag for a valid code with no artwork above: neutral, with its letters. */
 export const genericFlagArt = (code: string) =>
   rect('#4B5565') + rect('#5E6A7D', 0, 0, 30, 10) +
   `<text x="15" y="13.6" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="10" font-weight="700" fill="#fff">${code.replace(/[^A-Z]/g, '')}</text>`;
 
-/** True when the code has its own artwork (not the generic cloth). */
+/** True when the code has its own artwork (not the generic flag). */
 export const hasFlagArt = (code: string) => Object.prototype.hasOwnProperty.call(FLAG_ART, code);
 
-/** A complete standalone SVG document for the code (artwork or the generic cloth). */
-export function flagSvg(code: string): string {
-  const inner = hasFlagArt(code) ? FLAG_ART[code] : genericFlagArt(code);
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20" width="300" height="200">${inner}</svg>`;
-}
-
-/** A data: URL for the code's SVG (CSP img-src already allows data:). */
-export const flagDataUrl = (code: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(flagSvg(code))}`;
+/** The inner SVG markup for the code (its artwork, or the generic flag), on the 30x20 viewBox. */
+export const flagArtMarkup = (code: string): string => (hasFlagArt(code) ? FLAG_ART[code] : genericFlagArt(code));

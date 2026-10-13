@@ -114,6 +114,45 @@ export const ORG3_SLUG = 'team-flags-phone-qa';
 const ORG3_TEAM = [0, 1, 8, 16, 24, 2];
 export const ORG3_TEAM_CODES = ORG3_TEAM.map((k) => FLAG_PEOPLE[k].nationality_code).filter(Boolean);
 export const VENDOR_ID = 'b0000000-0000-4000-8000-0000000000b1';
+// The rest of the person-photo surfaces (one fixture each, the same people and codes).
+const coded = (n) => FLAG_PEOPLE.filter((p) => p.nationality_code).slice(0, n);
+const mixed = (n) => FLAG_PEOPLE.slice(0, n);
+export const FLAG_DANCER_ID = FLAG_PEOPLE[0].id; // ES, stored alpha-2
+export const FLAG_EVENT_SLUG = 'flag-social-phone-qa';
+export const FLAG_EVENT_ID = 'e2000000-0000-4000-8000-000000000001';
+export const FLAG_FESTIVAL_SLUG = 'flag-festival-phone-qa';
+export const FLAG_FESTIVAL_ID = 'e2000000-0000-4000-8000-000000000002';
+const EVENT_REFS = { [FLAG_EVENT_SLUG]: FLAG_EVENT_ID, [FLAG_FESTIVAL_SLUG]: FLAG_FESTIVAL_ID };
+const lineupOf = (people) => people.map((p) => ({ id: p.id, display_name: fullName(p), avatar_url: p.photo_url, nationality_code: p.nationality_code }));
+// A night with a class (two teachers) and a party (two DJs), people from the first 30 (they are in dancer_profiles).
+const PROGRAMME_PEOPLE = [0, 8, 16, 1];
+const flagSnapshot = (id, format) => {
+  const occ = {
+    occurrence_id: `${id.slice(0, -1)}9`, starts_at: '2099-11-20T20:00:00.000Z', ends_at: '2099-11-21T02:00:00.000Z', local_date: '2099-11-20',
+    timezone: 'Europe/London', is_cancelled: false, is_live: false, is_past: false, is_upcoming: true,
+    lineup: { teachers: [], djs: [], dancers: [], vendors: [], videographers: [] },
+  };
+  return {
+    event_id: id, occurrence_id: occ.occurrence_id,
+    event: {
+      name: format === 'festival' ? 'Flag Festival Phone QA' : 'Flag Social Phone QA', description: null, date: null, type: format === 'festival' ? 'festival' : 'party', format,
+      timezone: 'Europe/London', city_slug: 'london-gb', location: null, status: 'published', is_published: true, created_by: null,
+      cover_image_url: null, hero_image_url: null, poster_url: null, photo_urls: [], music_styles: ['Bachata'], payment_methods: null, key_times: null,
+      meta_data_public: {}, actions: { ticket_url: null, website_url: null, facebook_url: null, instagram_url: null, pricing: null },
+    },
+    organisers: [], occurrences: [occ], occurrence_effective: occ,
+    location_default: { city: { name: 'London', slug: 'london-gb' }, venue: null, timezone: 'Europe/London' },
+    attendance: { going_count: 0, interested_count: 0, current_user_status: null, preview: [] },
+  };
+};
+const FLAG_PROGRAMME = [
+  { id: 'p1', title: 'Bachata Sensual Improvers', type: 'class', start_time: '2099-11-20T20:00:00', end_time: '2099-11-20T21:00:00', day_event_date: '2099-11-20', sort_order: 1, levels: ['improver'], room: null,
+    people: PROGRAMME_PEOPLE.slice(0, 2).map((k, i) => ({ profile_id: FLAG_PEOPLE[k].id, display_name: fullName(FLAG_PEOPLE[k]), avatar_url: FLAG_PEOPLE[k].photo_url, profile_type: 'teacher', level: null, sort_order: i })) },
+  { id: 'p2', title: 'Social', type: 'party', start_time: '2099-11-20T21:00:00', end_time: '2099-11-21T02:00:00', day_event_date: '2099-11-20', sort_order: 2, levels: [], room: null,
+    people: PROGRAMME_PEOPLE.slice(2).map((k, i) => ({ profile_id: FLAG_PEOPLE[k].id, display_name: fullName(FLAG_PEOPLE[k]), avatar_url: FLAG_PEOPLE[k].photo_url, profile_type: 'dj', level: null, sort_order: i })) },
+];
+export const FLAG_PROGRAMME_CODES = PROGRAMME_PEOPLE.map((k) => FLAG_PEOPLE[k].nationality_code).filter(Boolean);
+export const FLAG_FESTIVAL_HEADLINERS = [...coded(5), FLAG_PEOPLE[1]];
 
 /** Table rows, filtered by eq./is./in. query params. Shapes follow the public column lists. */
 const HERO_BASE = {
@@ -203,6 +242,15 @@ export const TABLES = {
   })),
   dancer_profiles: FLAG_PEOPLE.slice(0, 30).map((p) => ({
     id: p.id, first_name: p.first_name, surname: p.surname, display_name: fullName(p), avatar_url: p.photo_url, nationality: p.nationality,
+    is_active: true, dance_role: 'both', based_city_id: CITY_ID, cities: { name: 'London' }, city: { name: 'London' },
+    // /practice-partners filters on the embedded table (dancing_role_details!inner); the fake matches the dotted key.
+    dancing_role_details: { favorite_styles: ['Bachata'], looking_for_partner: true, dance_started_year: 2020 },
+    'dancing_role_details.looking_for_partner': true,
+  })),
+  videographers: mixed(8).map((p, i) => ({
+    id: p.id, first_name: p.first_name, surname: p.surname, business_name: i === 1 ? null : `${p.first_name} Films`, photo_url: p.photo_url ?? PHOTO, bio: null,
+    instagram: null, website: null, verified: i === 0, videography_styles: ['Socials'], nationality: i % 3 === 0 ? (p.nationality_code ?? 'CO') : p.nationality, is_active: true,
+    created_at: '2025-01-01T00:00:00Z',
   })),
   cities: [
     { id: CITY_ID, name: 'London', slug: 'london-gb', country_code: 'GB', is_active: true, timezone: 'Europe/London' },
@@ -241,6 +289,30 @@ export const RPCS = {
     })),
     product_categories: [], products: [], faq: [],
   }],
+  get_public_teachers_list_v1: () => mixed(40).map((p) => ({
+    entity_id: p.id, first_name: p.first_name, surname: p.surname, hide_surname: false, photo_url: p.photo_url, city: 'London', nationality: p.nationality,
+    nationality_code: p.nationality_code, years_teaching: 5, teaching_styles: ['Bachata'], offers_group: true, offers_private: false, languages: [], instagram: null, website: null,
+  })),
+  get_all_profiles_v1: () => mixed(24).map((p, i) => ({
+    profile_id: p.id, role: ['teacher', 'dj', 'dancer'][i % 3], display_name: fullName(p), photo_url: p.photo_url ?? PHOTO, city_name: 'London', country_code: 'GB',
+    bio: null, specialties: [], is_verified: false, nationality_code: p.nationality_code ?? (i % 3 === 1 ? 'CO' : null),
+  })),
+  resolve_public_event_ref_v1: (args) => (EVENT_REFS[args.p_param] ? { id: EVENT_REFS[args.p_param], slug: args.p_param } : null),
+  event_view_p5: (args) => {
+    const t = args.p_target ?? {};
+    const id = Object.values(EVENT_REFS).find((x) => x === t.series_id || (t.occurrence_id && t.occurrence_id === `${x.slice(0, -1)}9`));
+    if (!id) return null;
+    if (args.p_viewer?.shape === 'snapshot_compat') return flagSnapshot(id, id === FLAG_FESTIVAL_ID ? 'festival' : 'party');
+    return id === FLAG_EVENT_ID ? FLAG_PROGRAMME : [];
+  },
+  get_public_festival_detail_v2: (args) => (args.p_event_id === FLAG_FESTIVAL_ID ? {
+    event_id: FLAG_FESTIVAL_ID,
+    identity: { name: 'Flag Festival Phone QA', music_styles: ['Bachata'] },
+    dates: { starts_at: '2099-11-20T18:00:00Z', ends_at: '2099-11-22T23:00:00Z', local_start: '2099-11-20T18:00:00', local_end: '2099-11-22T23:00:00', timezone: 'Europe/London' },
+    links: {}, location: { city: { id: CITY_ID, name: 'London', slug: 'london-gb' } }, organiser: null,
+    lineup: { teachers: lineupOf(FLAG_FESTIVAL_HEADLINERS), djs: lineupOf(coded(3)), performers: [], mcs: [], photographers: [], videographers: [] },
+    schedule: [], passes: [], venues: [], hotels: [], competitions: [], promo_codes: [], publish: {},
+  } : null),
   search_public_v4: (args) => {
     const q = String(args.p_query ?? '').toLowerCase();
     const rows = FLAG_PEOPLE.filter((p) => fullName(p).toLowerCase().includes(q)).slice(0, Number(args.p_section_limit) || 12)

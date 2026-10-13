@@ -1,5 +1,7 @@
 import type { Page, Route } from '@playwright/test';
-import { answer, FAKE_ORIGIN, FAKE_REF, FLAG_DJ_ID, ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG, ORG3_SLUG, VENDOR_ID } from './fakeSupabase.mjs';
+import {
+  answer, FAKE_ORIGIN, FAKE_REF, FLAG_DANCER_ID, FLAG_DJ_ID, FLAG_EVENT_SLUG, FLAG_FESTIVAL_SLUG, ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG, ORG3_SLUG, VENDOR_ID,
+} from './fakeSupabase.mjs';
 
 export { ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG };
 
@@ -13,7 +15,7 @@ const b64url = (value: unknown) =>
  * The browser half of the fake (the server half is fakeSupabasePreload.mjs): every
  * call to the Supabase origin is answered by the same answer(). Writes are refused there.
  */
-export async function fakeSupabase(page: Page, opts: { signedInAsOwner?: boolean; realClock?: boolean } = {}) {
+export async function fakeSupabase(page: Page, opts: { signedInAsOwner?: boolean; realClock?: boolean; asDancer?: string } = {}) {
   // One fixed "now" in the browser, so date-driven UI (calendar day cells,
   // "today") renders the same every run. Mid-month ON PURPOSE: the calendar's
   // past days include two-digit numbers, and axe reports single-character text
@@ -33,6 +35,15 @@ export async function fakeSupabase(page: Page, opts: { signedInAsOwner?: boolean
     const req = route.request();
     if (opts.signedInAsOwner && new URL(req.url()).pathname === '/auth/v1/user') {
       return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(USER) });
+    }
+    // `asDancer`: the signed-in user is this dancer, with a complete profile (/account
+    // dancer home). Browser side only: those pages are client-rendered.
+    const path = new URL(req.url()).pathname;
+    if (opts.asDancer && path === '/rest/v1/rpc/_my_dancer_profile_id_v1') {
+      return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(opts.asDancer) });
+    }
+    if (opts.asDancer && path === '/rest/v1/rpc/profile_complete_v1') {
+      return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: 'true' });
     }
     const res = answer({ method: req.method(), url: req.url(), headers: req.headers(), body: req.postData() });
     return route.fulfill(res);
@@ -164,7 +175,10 @@ export const PUBLIC_ROUTES = [
  * contrast ratchet walks those); the warm-up loads them too, so a cold dependency
  * optimiser cannot reload a page mid-test.
  */
-export const FLAG_ROUTES = ['/djs', `/djs/${FLAG_DJ_ID}`, `/vendors/${VENDOR_ID}`, '/search?q=a', `/organisers/${ORG3_SLUG}`] as const;
+export const FLAG_ROUTES = [
+  '/djs', `/djs/${FLAG_DJ_ID}`, `/vendors/${VENDOR_ID}`, '/search?q=a', `/organisers/${ORG3_SLUG}`, '/teachers', '/dancers', `/dancers/${FLAG_DANCER_ID}`,
+  '/all-profiles', '/videographers', '/practice-partners', `/event/${FLAG_EVENT_SLUG}`, `/festival/${FLAG_FESTIVAL_SLUG}`, '/account',
+] as const;
 
 /** Signed in as the owner, with one drafted field so the Save bar is showing. */
 export async function openOrganiserAsOwnerWithDraft(page: Page) {

@@ -223,7 +223,8 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <span className="relative shrink-0">
+                {/* mr-2: room for the nationality sticker, which stands out past the photo's right. */}
+                <span className="relative mr-2 shrink-0">
                   <Avatar url={photo} name={name} />
                   <NationalityFlag code={s?.nationalityCode} size={AVATAR_PX} />
                 </span>

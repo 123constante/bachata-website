@@ -58,8 +58,8 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'viewer-1' }, 
 vi.mock('@/lib/profileViewEmit', () => ({ emitProfileView: () => {} }));
 vi.mock('@/components/profile/ProfileEventTimeline', () => ({ default: () => null }));
 
-import { flagGeometry } from '../flagWave';
-import { NationalityFlag, TILE_FLAG_SIZE } from '../NationalityFlag';
+import { NationalityFlag, TILE_FLAG_SIZE, stickerSize } from '../NationalityFlag';
+import { flagArtMarkup } from '../flagArt';
 import { pickNationalityCode } from '../nationality';
 import DJs from '@/pages/DJs';
 import Teachers from '@/pages/Teachers';
@@ -78,9 +78,7 @@ import { searchPublicV3 } from '@/lib/searchRpc';
 import { fetchMyDancerSummary } from '@/hooks/useMyDancerSummary';
 
 beforeAll(() => {
-  // jsdom has no canvas 2D context or IntersectionObserver; the flag draws nothing
-  // here (the phone suite measures the drawing), but its badge and label render.
-  HTMLCanvasElement.prototype.getContext = (() => null) as never;
+  // jsdom has no IntersectionObserver (the pages' entrance motion asks for one).
   class IO { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } }
   vi.stubGlobal('IntersectionObserver', IO);
   window.matchMedia = ((q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} })) as never;
@@ -330,17 +328,41 @@ describe.each(SURFACES)('$name ($read)', (surface) => {
     expect(f.getAttribute('title')).toBe(want.country);
     // Never takes a tap meant for the photo.
     expect(f.className).toContain('pointer-events-none');
-    expect(f.querySelector('canvas')?.getAttribute('aria-hidden')).toBe('true');
+    // The same sticker on every surface: static inline artwork, 3:2, tilted, white edge.
+    const svg = f.querySelector('svg')!;
+    expect(svg.getAttribute('aria-hidden')).toBe('true');
+    expect(svg.getAttribute('viewBox')).toBe('0 0 30 20');
+    expect(svg.getAttribute('preserveAspectRatio')).toBe('xMidYMid slice');
+    const art = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    art.innerHTML = flagArtMarkup(want.code);
+    expect(svg.innerHTML).toBe(art.innerHTML);
+    expect(f.style.transform).toBe('rotate(9deg)');
+    expect(f.style.boxShadow).toMatch(/^0(px)? 0(px)? 0(px)? 2px (#fff|rgb\(255, 255, 255\))/);
+    expect(f.style.borderRadius).toBe('3px');
+    expect(f.querySelector('canvas')).toBeNull();
+    expect(f.getAnimations?.() ?? []).toHaveLength(0);
   });
 });
 
-describe('placement', () => {
-  it('corner flags stand at the reference position, as percentages of the photo', () => {
+describe('placement (Sticker spec)', () => {
+  it('corner: top -6%, right -14% of the photo, width 46% of the photo, 3:2', () => {
     const { container } = flagFor('ES', 96);
     const f = container.querySelector<HTMLElement>('[data-nationality-flag]')!;
-    const g = flagGeometry(96);
-    expect(f.style.left).toBe('62%');
-    expect(f.style.top).toBe(`calc(-14% - ${g.pad}px)`);
-    expect(f.style.width).toBe(`${g.cw}px`);
+    expect(f.style.top).toBe('-6%');
+    expect(f.style.right).toBe('-14%');
+    expect(f.style.width).toBe('44px');
+    expect(stickerSize(96)).toEqual({ w: 44, h: 29.33 });
+  });
+  it('never narrower than 20px (20px vendor-team circles, 40px list rows)', () => {
+    expect(stickerSize(20)).toEqual({ w: 20, h: 13.33 });
+    expect(stickerSize(40)).toEqual({ w: 20, h: 13.33 });
+    expect(stickerSize(56).w).toBe(26);
+  });
+  it('inset: inside the card photo corner', () => {
+    const { container } = render(<div style={{ position: 'relative' }}><NationalityFlag code="ES" size={TILE_FLAG_SIZE} placement="inset" inset={8} /></div>);
+    const f = container.querySelector<HTMLElement>('[data-nationality-flag]')!;
+    expect(f.style.top).toBe('8px');
+    expect(f.style.right).toBe('8px');
+    expect(f.style.width).toBe('22px');
   });
 });
