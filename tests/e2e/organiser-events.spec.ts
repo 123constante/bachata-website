@@ -12,7 +12,7 @@ test.use({ viewport: PHONE });
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-test('New event: name only creates the draft and its first 8 weekly dates, then the editor opens', async ({ page }) => {
+test('New event: name only creates the draft and ONE date with its class session, then the editor opens', async ({ page }) => {
   const fake = await openOrganiser(page, '/account/o/events/new');
   await expect(page.getByTestId('org-page-new-event')).toBeVisible();
 
@@ -40,9 +40,11 @@ test('New event: name only creates the draft and its first 8 weekly dates, then 
   // Category is derived from the sessions on the server (event-truth P1): a create never sends it.
   expect(create.command.payload).not.toHaveProperty('category');
   expect(create.command.payload.organiser_ids).toEqual([ORG]);
-  expect(rule.command).toEqual({ kind: 'series.set_recurrence', payload: { mode: 'weekly', weekdays: [4], end: { kind: 'until_date', date: '2026-12-03' } } });
+  // FIX-6 F-e: ONE date, the one its session goes on (8 weekly dates left 2-8 without a session).
+  expect(rule.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
   expect(rule.expected_version).toBe(1);
-  // The Class chip seeded ONE class session on the first date, nothing else.
+  expect(fake.envelopes()).toHaveLength(2);
+  // The Class chip seeded ONE class session on the date the add_date reply named, nothing else.
   const seeds = fake.sent('organiser_set_occurrence_programme_v1');
   expect(seeds).toHaveLength(1);
   expect(seeds[0].p_occurrence_id).toBe(fake.occId(fake.series.get(id)!, '2026-10-15'));
@@ -50,8 +52,9 @@ test('New event: name only creates the draft and its first 8 weekly dates, then 
 
   await expect(page.getByTestId('org-event-editor')).toBeVisible();
   await expect(page.getByTestId('org-event-name')).toHaveValue('Thursday Bachata Class');
-  await expect(page.getByTestId('org-date-row')).toHaveCount(8);
-  await expect(page.getByTestId('org-row-until')).toContainText('Listed until Thu 3 Dec');
+  await expect(page.getByTestId('org-date-row')).toHaveCount(1);
+  // Every listed date carries a session: the review card does not ask for one.
+  await expect(page.getByTestId('org-event-review-blocked')).not.toContainText('Add at least one session first.');
   // The Type row reads the word the sessions derive (the fake mirrors the server's trigger: the
   // union over every date, keep-if-agrees), and the sublabel promises no change (FIX-2, d22).
   await expect(page.getByTestId('org-row-type')).toContainText('Class');
@@ -132,7 +135,7 @@ for (const width of [390, 360]) {
     const open = page.getByTestId('org-new-event-open');
     await expect(open).toBeVisible();
     await expect(open).toBeEnabled();
-    await expect(page.getByTestId('org-new-event-error')).toContainText('weekly dates were not listed');
+    await expect(page.getByTestId('org-new-event-error')).toContainText('its date was not listed');
     expect((await open.boundingBox())!.y).toBeGreaterThan(await y());
     await open.click();
     await expect(page).toHaveURL(/\/account\/o\/events\/[0-9a-f-]{36}$/);

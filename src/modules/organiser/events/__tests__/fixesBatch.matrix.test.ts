@@ -92,7 +92,8 @@ describe('7: weekly -> One date says how many dates go, before Save', () => {
 
 describe('G2 + G4: what the create sends for each type', () => {
   const cases = [
-    { type: 'class', minutes: 120, schedule: 'series.set_recurrence' },
+    // FIX-6 F-e: every chip lists ONE date, the one its seeded session goes on.
+    { type: 'class', minutes: 120, schedule: 'series.add_date' },
     { type: 'party', minutes: 300, schedule: 'series.add_date' },
     { type: 'workshop', minutes: 120, schedule: 'series.add_date' },
   ] as const;

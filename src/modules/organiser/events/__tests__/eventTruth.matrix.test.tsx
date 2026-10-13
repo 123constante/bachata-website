@@ -10,8 +10,10 @@
  * is in docs/handover/event-truth-p1-ui.md: a surface swapped back to the raw
  * stored value reds the 'workshop' rows here (a stored workshop reads Class).
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CATEGORY_WORD_LABEL, NOT_SET_LABEL, categoryLabelFor, deriveCategories, wordForStored } from '@/lib/eventCategory';
@@ -20,6 +22,7 @@ import { parseCalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { matchesCategory, transformCalendarEvents } from '@/components/calendar/calendarUtils';
 import { SHAPES, VENUES, homeOf, programmeOf, shapeByKey, upcomingOf, workspaceOf, type SeriesShape } from '../../__tests__/shapes/shapes';
 import { EVERY_UPCOMING_CANCELLED, SEED_SESSION, typeSublabel, type TypeRowState } from '../eventType';
+import { NO_SESSION_REASON } from '../reviewModel';
 
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn(), storage: { from: vi.fn() } } }));
@@ -61,9 +64,15 @@ function expectedSublabel(format: string | null, stored: string | null, state: T
   const word = expectedWord(format, stored);
   // The editable sentence promises nothing: the derivation is the union over the series programme
   // and every date (keep-if-agrees), so changing one date's sessions need not move the word.
-  if (word) return state.locked || !state.hasUpcoming ? 'Set by its sessions.' : 'Set by its sessions across all its dates.';
+  if (word) {
+    if (state.locked || !state.hasUpcoming) return 'Set by its sessions.';
+    // FIX-6 F-b: a legacy draft keeps a stored category with NO session; the review card says
+    // "Add at least one session first.", so the row must not claim its sessions set it.
+    return state.hasSession ? 'Set by its sessions across all its dates.' : 'No session yet. Add one to one of its dates and it is set from it.';
+  }
   if (state.locked) return 'No session, so not set.';
-  if (state.hasUpcoming) return 'Add a session to one of its dates and it is set for you.';
+  // FIX-6 F-c: a session exists but sets no type (a performance): never "add a session".
+  if (state.hasUpcoming) return state.hasSession ? 'Its sessions set no type yet. Add a class or a party to one of its dates and it is set for you.' : 'Add a session to one of its dates and it is set for you.';
   // FIX-3 fix 5 (review F8): cancelled upcoming dates exist but none can take a session. When lists them
   // (each opens the date, whose "Put this date back on" is the un-cancel), so that is the step named.
   return state.cancelledOnly ? CANCELLED_ONLY_SENTENCE : 'Add a session once a date is listed under When, and it is set for you.';
@@ -76,7 +85,7 @@ describe('the Type row sublabel points only at controls that are on the page', (
   // When lists the cancelled dates, so the row can name the real next step. Every
   // locked x hasUpcoming x cancelledOnly row, including the pair that cannot occur (a listable
   // date AND cancelled-only), which reads as the listable date.
-  const states: TypeRowState[] = [false, true].flatMap((locked) => [false, true].flatMap((hasUpcoming) => [false, true].map((cancelledOnly) => ({ locked, hasUpcoming, cancelledOnly }))));
+  const states: TypeRowState[] = [false, true].flatMap((locked) => [false, true].flatMap((hasUpcoming) => [false, true].flatMap((cancelledOnly) => [false, true].map((hasSession) => ({ locked, hasUpcoming, cancelledOnly, hasSession })))));
   it.each(GRID.flatMap(([f, s]) => states.map((st) => [f, s, st] as const)))('%s + %s, %o', (format, stored, state) => {
     const text = typeSublabel(format, stored, state);
     expect(text).toBe(expectedSublabel(format, stored, state));
@@ -86,6 +95,9 @@ describe('the Type row sublabel points only at controls that are on the page', (
     // Cancelled-only never says "once a date is listed": the dates ARE listed under When.
     if (!state.hasUpcoming && state.cancelledOnly) expect(text).not.toMatch(/once a date is listed/);
     expect(text).not.toMatch(/Change the sessions/);
+    // One fact (FIX-6 F-b, F-c): no session never reads "set by its sessions"; a session never reads "add a session".
+    if (!state.locked && state.hasUpcoming && !state.hasSession) expect(text).not.toMatch(/Set by its sessions/);
+    if (!state.locked && state.hasUpcoming && state.hasSession) expect(text).not.toMatch(/^Add a session/);
   });
   it('the cancelled-only sentence opens with the fact the Schedule card states, from the one shared constant', () => {
     expect(CANCELLED_ONLY_SENTENCE.startsWith(`${EVERY_UPCOMING_CANCELLED}.`)).toBe(true);
@@ -123,10 +135,28 @@ describe('calendar tab membership is the SET reading (deriveCategories), for eve
     expect(matchesCategory(item, word === 'night' ? 'parties' : 'classes')).toBe(true);
     expect(set).toEqual(word === 'night' ? ['party'] : ['class']);
   });
-  // calendarUtils.ts is on CLAUDE.md's ask-Ricky list, so its own derivation is not changed here:
-  // a 'masterclass' or 'social' item counts for a tab there only through the RPC's key_times
-  // (the lib puts a masterclass under Classes and a social under Parties). Queued in the handover.
-  it.todo('masterclass and social items: the calendar reads key_times for them; parity with the lib needs Ricky\'s call on calendarUtils.ts');
+  // FIX-6 F-f. calendarUtils.ts is on CLAUDE.md's ask-Ricky list, so the READER is pinned here, not
+  // changed: from a date's programme alone (key_times quiet) it lists a 'masterclass' item under NO
+  // tab and a 'social' item under NO tab, while the lib (and the CI #70 guard, held to the lib by
+  // scripts/fixtures/event-truth-parity.json, whose cases are checked below) puts a masterclass under
+  // Classes and a social under Parties. Each row reds when EITHER side moves: the reader gaining the
+  // synonym, or the lib / guard dropping it. Queued: docs/event-truth-table.md, "Reader vs lib".
+  const corpus = (JSON.parse(readFileSync(resolve(__dirname, '../../../../../scripts/fixtures/event-truth-parity.json'), 'utf8')) as {
+    cases: Array<{ sectionKinds: unknown[]; itemTypes: unknown[]; addedSessions: unknown[]; expect: { set: string[] } }>;
+  }).cases;
+  it.each([
+    ['masterclass', { parties: false, classes: false }, ['class', 'masterclass']],
+    ['social', { parties: false, classes: false }, ['party']],
+  ] as const)('a %s item: the reader lists it under %o; the lib and guard derive %o (known divergence)', (type, reader, libSet) => {
+    const [item] = transformCalendarEvents([calendarRow([{ type }])]);
+    expect({ parties: matchesCategory(item, 'parties'), classes: matchesCategory(item, 'classes') }).toEqual(reader);
+    expect(deriveCategories('recurring', [], [type]).set).toEqual(libSet);
+    // The guard's side: the shared corpus holds this exact item-only case with the lib's set.
+    const guardCase = corpus.find((c) => c.sectionKinds.length === 0 && c.addedSessions.length === 0 && JSON.stringify(c.itemTypes) === JSON.stringify([type]));
+    expect(guardCase?.expect.set).toEqual(libSet);
+    // The divergence itself: the reader's tabs are not the lib's set.
+    expect(reader.parties === libSet.includes('party') && reader.classes === libSet.includes('class')).toBe(false);
+  });
 });
 
 // ---- the rendered Type row, over real series shapes ----------------------------------------------
@@ -171,12 +201,12 @@ describe('the rendered Type row, over the real shapes (prod survey) x every stor
 
   it.each(STORED)('editable with upcoming dates, stored %s', async (stored) => {
     const text = await openEditor(editable, stored);
-    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: false, hasUpcoming: true, cancelledOnly: false })}${categoryLabelFor('recurring', stored)}`);
+    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: false, hasUpcoming: true, cancelledOnly: false, hasSession: true })}${categoryLabelFor('recurring', stored)}`);
     expect(text).not.toMatch(/workshop/i);
   });
   it.each(STORED)('live with no upcoming date, stored %s', async (stored) => {
     const text = await openEditor(lapsed, stored);
-    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: false, hasUpcoming: false, cancelledOnly: false })}${categoryLabelFor('recurring', stored)}`);
+    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: false, hasUpcoming: false, cancelledOnly: false, hasSession: false })}${categoryLabelFor('recurring', stored)}`);
     expect(text).not.toMatch(/one of its dates|Change the sessions|across all its dates|Every upcoming date is cancelled/);
   });
   // Every upcoming date cancelled: the dates are listed, but the writer refuses each one
@@ -186,7 +216,7 @@ describe('the rendered Type row, over the real shapes (prod survey) x every stor
   // and the Schedule card states the same fact in the same words (one constant, never two copies).
   it.each(STORED)('live, every upcoming date cancelled, stored %s', async (stored) => {
     const text = await openEditor(cancelledOnly, stored);
-    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: false, hasUpcoming: false, cancelledOnly: true })}${categoryLabelFor('recurring', stored)}`);
+    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: false, hasUpcoming: false, cancelledOnly: true, hasSession: false })}${categoryLabelFor('recurring', stored)}`);
     expect(text).not.toMatch(/one of its dates|Change the sessions|across all its dates|once a date is listed/);
     const rows = within(screen.getByTestId('org-group-when')).getAllByTestId('org-date-row');
     expect(rows.length).toBeGreaterThan(0);
@@ -196,13 +226,51 @@ describe('the rendered Type row, over the real shapes (prod survey) x every stor
   });
   it.each(STORED)('ended (locked), stored %s', async (stored) => {
     const text = await openEditor(ended, stored);
-    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: true, hasUpcoming: false, cancelledOnly: false })}${categoryLabelFor('recurring', stored)}`);
+    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: true, hasUpcoming: false, cancelledOnly: false, hasSession: false })}${categoryLabelFor('recurring', stored)}`);
     expect(text).not.toMatch(/Add a session|Change the sessions/);
   });
   it('a course and a festival are set by their format whatever is stored', async () => {
     expect(await openEditor(course, 'party')).toBe('TypeSet by its format.Course');
     cleanup();
     expect(await openEditor(festival, null)).toBe('TypeSet by its format.Festival');
+  });
+  // FIX-6 F-b: the snapshot drafts (a stored category, no session on any date; 4 such drafts on prod
+  // 2026-10-13) read the review card's fact on the Type row too, from the one sessionDates mapping.
+  it.each(['draft-norule-one', 'draft-weekly-first-off'])('%s: the Type row and the review card state the same "no session" fact', async (key) => {
+    const s = shapeByKey(key);
+    const text = await openEditor(s, 'class');
+    await waitFor(() => expect(screen.getByTestId('org-event-review-blocked').textContent).toContain(NO_SESSION_REASON));
+    expect(text).toBe('TypeNo session yet. Add one to one of its dates and it is set from it.Class');
+    expect(text).not.toMatch(/Set by its sessions/);
+  });
+  // FIX-6 F-c: the only session on a date is a performance (no genre): the mirror stays null, the
+  // review card counts a session, and the row must not say "add a session".
+  it('a series whose only session sets no type says so, never "add a session"', async () => {
+    const s = { ...shapeByKey('draft-norule-one') };
+    const raw = workspaceOf(s) as { series: { series: { category: string | null } }; occurrences: Array<{ added_sessions_count: number }> };
+    raw.occurrences[0].added_sessions_count = 1;
+    raw.series.series.category = null;
+    rpc.mockImplementation(async (fn: string) => {
+      const answers: Record<string, unknown> = {
+        organiser_home_v1: homeOf([s]), admin_event_workspace_p5: raw, organiser_get_occurrence_programme_v1: programmeOf(s, upcomingOf(s)[0]),
+        get_organiser_venue_options_v1: VENUES, event_publish_readiness_v1: { missing: [] },
+      };
+      return fn in answers ? { data: answers[fn], error: null } : { data: null, error: { message: `unexpected ${fn}` } };
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[`/account/o/events/${s.id}`]}>
+          <Routes><Route path="/account/o/events/:seriesId" element={<EventEditorPage />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await screen.findByTestId('org-event-editor');
+    const text = screen.getByTestId('org-row-type').textContent ?? '';
+    expect(text).toBe(`TypeIts sessions set no type yet. Add a class or a party to one of its dates and it is set for you.${NOT_SET_LABEL}`);
+    // The card has finished checking (readiness answered) and counts the session.
+    await waitFor(() => expect(screen.queryByTestId('org-event-review-blocked')?.textContent ?? '').not.toMatch(/Checking/));
+    expect(screen.queryByTestId('org-event-review-blocked')?.textContent ?? '').not.toContain(NO_SESSION_REASON);
   });
   it('every shape renders a Type row with one of the five labels or Not set, never the raw stored value', async () => {
     const labels = new Set([...Object.values(CATEGORY_WORD_LABEL), NOT_SET_LABEL]);

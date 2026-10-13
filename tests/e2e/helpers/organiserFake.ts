@@ -302,11 +302,13 @@ export class OrganiserFake {
       series: {
         series: { ...series, default_local_start_time: '20:00:00', default_duration: null, default_level: null, default_cover_image_url: null,
           instagram_url: null, passes: null, created_at: '2026-09-01T10:00:00+00:00', gallery, video_urls, default_music_styles },
-        program: [],
+        // As admin_event_workspace_p5 answers: the series programme, and per date the date-only sessions it holds.
+        program: s.series_items.length ? [{ sections: [{ items: s.series_items.map((x) => ({ item: { type: x.type, start_time: x.start_time } })) }] }] : [],
       },
       occurrences: [...this.dates(s)].reverse().map((d) => ({
         id: this.occId(s, d), occurrence_date: d, lifecycle_status: s.cancelled[d] ? 'cancelled' : 'scheduled', version: 1,
-        has_override: false, session_overrides_count: 0, added_sessions_count: 0, materialised_start_utc: `${d}T19:00:00+00:00`,
+        has_override: false, session_overrides_count: 0, materialised_start_utc: `${d}T19:00:00+00:00`,
+        added_sessions_count: (this.programmes.get(this.occId(s, d))?.sessions ?? []).filter((x) => x.added_session_id && x.removed !== true).length,
       })),
     };
   }
@@ -420,7 +422,9 @@ export class OrganiserFake {
       if (hit) s.removed_dates.push(hit.date);
     }
     s.version += 1;
-    return { ok: true, data: {}, audit_id: 'a', new_version: s.version };
+    // _cmd_series_add_date_p5 answers the date it listed (the New event page seeds that date).
+    const data = kind === 'series.add_date' ? { occurrence_id: this.occId(s, String(payload.date)) } : {};
+    return { ok: true, data, audit_id: 'a', new_version: s.version };
   }
 
   async install(page: Page) {

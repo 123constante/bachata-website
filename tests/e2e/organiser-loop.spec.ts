@@ -42,9 +42,10 @@ test('create an organiser, send it for review, get approved, create an event, st
   await page.getByTestId('org-new-event-type-class').click();
   await page.getByTestId('org-new-event-create').click();
   await expect(page.getByTestId('org-event-editor')).toBeVisible();
-  await expect(page.getByTestId('org-date-row')).toHaveCount(8);
+  // ONE date, the one the chip's session goes on (FIX-6 F-e; Repeats makes it weekly later).
+  await expect(page.getByTestId('org-date-row')).toHaveCount(1);
 
-  // The Class chip seeded ONE session, "Class", on the first date (event-truth P1); a new
+  // The Class chip seeded ONE session, "Class", on that date (event-truth P1); a new
   // event has no teacher yet, so the loop adds one to that session.
   await page.getByTestId('org-date-row').first().click();
   await expect(page.getByTestId('org-page-date')).toBeVisible();
