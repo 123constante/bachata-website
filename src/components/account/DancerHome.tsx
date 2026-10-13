@@ -7,12 +7,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCity } from "@/contexts/CityContext";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { useMyDancerSummary } from "@/hooks/useMyDancerSummary";
+import { useMyProfileVisibility } from "@/hooks/useMyProfileVisibility";
 import { buildCityPath } from "@/lib/cityPath";
 import { buildSignInHref } from "@/lib/authRouting";
 import { danceRoleLabel } from "@/lib/auth-otp-routing";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { optimizedImageUrl, srcWidthFor } from "@/lib/imageCdn";
-import { MY_ATTENDANCE_PATH, ORGANISER_HOME_PATH } from "@/lib/accountRouting";
+import { ACCOUNT_SETTINGS_PATH, MY_ATTENDANCE_PATH, ORGANISER_HOME_PATH } from "@/lib/accountRouting";
 import {
   NO_PROFILE_CONTACT_LABEL,
   NO_PROFILE_CONTACT_URL,
@@ -143,6 +144,7 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
   const queryClient = useQueryClient();
   const completion = useProfileCompletion();
   const summary = useMyDancerSummary();
+  const visibility = useMyProfileVisibility();
   const fact = completenessFact(completion);
   const [organising, setOrganising] = useState(false);
   const panelId = useId();
@@ -177,6 +179,16 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
 
   return (
     <div className="space-y-3" data-testid="dancer-home">
+      {visibility.status === "hidden" && (
+        <div className={`${CARD} space-y-2 border-primary/60`} role="status" data-testid="dancer-home-hidden-banner">
+          <p className="text-[14px] font-semibold text-foreground">Your dancer profile is hidden.</p>
+          <p className="text-[13px] text-muted-foreground">Nobody else can see it. You can show it again in your settings.</p>
+          <Link to={ACCOUNT_SETTINGS_PATH} className={PILL} data-testid="dancer-home-hidden-settings">
+            Show my profile again
+          </Link>
+        </div>
+      )}
+
       <section className={CARD} aria-labelledby="dancer-home-profile" data-testid="dancer-home-profile">
         <h2 id="dancer-home-profile" className="sr-only">Your profile</h2>
         {loading ? (
@@ -338,6 +350,14 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
         </div>
       </section>
       )}
+
+      <Link
+        to={ACCOUNT_SETTINGS_PATH}
+        className="flex min-h-[44px] items-center justify-center text-[14px] font-semibold text-primary underline underline-offset-2"
+        data-testid="dancer-home-settings"
+      >
+        Settings: email, your data, hide or delete account
+      </Link>
 
       {/* The open onboarding has its own "Signed in as ... Sign out" line: one per screen. */}
       {!(organising && organiserSection === "onboarding") && <SignOut email={user?.email ?? null} />}

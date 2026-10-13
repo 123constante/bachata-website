@@ -50,6 +50,8 @@ const FinishProfile = lazyWithRetry(() => import("../pages/FinishProfile"));
 // Its AuthGuard lives inside the chunk, like FinishProfile's.
 const Account = lazyWithRetry(() => import("../pages/Account"));
 const MyAttendance = lazyWithRetry(() => import("../pages/MyAttendance"));
+const AccountSettings = lazyWithRetry(() => import("../pages/AccountSettings"));
+const AccountDeleted = lazyWithRetry(() => import("../pages/AccountDeleted"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
 const ExportGuestEntry = lazyWithRetry(() => import("../pages/ExportGuestEntry"));
@@ -189,6 +191,10 @@ export const AnimatedRoutes = () => {
                 ? <PageTransition><MyAttendance /></PageTransition>
                 : <Navigate to="/" replace />
             } />
+            <Route path="/account/settings" element={<PageTransition><AccountSettings view="home" /></PageTransition>} />
+            <Route path="/account/settings/ownership" element={<PageTransition><AccountSettings view="ownership" /></PageTransition>} />
+            <Route path="/account/settings/delete" element={<PageTransition><AccountSettings view="delete" /></PageTransition>} />
+            <Route path="/account/deleted" element={<PageTransition><AccountDeleted /></PageTransition>} />
             <Route path="/account/new" element={
               flags.organiserSelfServe
                 ? <LegacyAccountRedirect target="new" />
