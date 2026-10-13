@@ -65,7 +65,13 @@ function expectedSublabel(format: string | null, stored: string | null, state: T
   // The editable sentence promises nothing: the derivation is the union over the series programme
   // and every date (keep-if-agrees), so changing one date's sessions need not move the word.
   if (word) {
-    if (state.locked || !state.hasUpcoming) return 'Set by its sessions.';
+    // FIX-7 R3: not editable, so hasSession is over every listed date (the editor's mapping), and a
+    // stored word with no session never claims its sessions set it.
+    if (state.locked) return state.hasSession ? 'Set by its sessions.' : 'No session on its dates.';
+    if (!state.hasUpcoming) {
+      if (state.hasSession) return 'Set by its sessions.';
+      return state.cancelledOnly ? CANCELLED_ONLY_SENTENCE : 'Add a session once a date is listed under When, and it is set for you.';
+    }
     // FIX-6 F-b: a legacy draft keeps a stored category with NO session; the review card says
     // "Add at least one session first.", so the row must not claim its sessions set it.
     return state.hasSession ? 'Set by its sessions across all its dates.' : 'No session yet. Add one to one of its dates and it is set from it.';
@@ -155,7 +161,8 @@ describe('calendar tab membership is the SET reading (deriveCategories), for eve
     const guardCase = corpus.find((c) => c.sectionKinds.length === 0 && c.addedSessions.length === 0 && JSON.stringify(c.itemTypes) === JSON.stringify([type]));
     expect(guardCase?.expect.set).toEqual(libSet);
     // The divergence itself: the reader's tabs are not the lib's set.
-    expect(reader.parties === libSet.includes('party') && reader.classes === libSet.includes('class')).toBe(false);
+    const lib: readonly string[] = libSet;
+    expect(reader.parties === lib.includes('party') && reader.classes === lib.includes('class')).toBe(false);
   });
 });
 
@@ -206,7 +213,8 @@ describe('the rendered Type row, over the real shapes (prod survey) x every stor
   });
   it.each(STORED)('live with no upcoming date, stored %s', async (stored) => {
     const text = await openEditor(lapsed, stored);
-    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: false, hasUpcoming: false, cancelledOnly: false, hasSession: false })}${categoryLabelFor('recurring', stored)}`);
+    // Not editable: hasSession is over every listed date, and this shape runs a series programme (FIX-7 R3).
+    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: false, hasUpcoming: false, cancelledOnly: false, hasSession: lapsed.seriesProgramme })}${categoryLabelFor('recurring', stored)}`);
     expect(text).not.toMatch(/one of its dates|Change the sessions|across all its dates|Every upcoming date is cancelled/);
   });
   // Every upcoming date cancelled: the dates are listed, but the writer refuses each one
@@ -216,7 +224,7 @@ describe('the rendered Type row, over the real shapes (prod survey) x every stor
   // and the Schedule card states the same fact in the same words (one constant, never two copies).
   it.each(STORED)('live, every upcoming date cancelled, stored %s', async (stored) => {
     const text = await openEditor(cancelledOnly, stored);
-    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: false, hasUpcoming: false, cancelledOnly: true, hasSession: false })}${categoryLabelFor('recurring', stored)}`);
+    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: false, hasUpcoming: false, cancelledOnly: true, hasSession: cancelledOnly.seriesProgramme })}${categoryLabelFor('recurring', stored)}`);
     expect(text).not.toMatch(/one of its dates|Change the sessions|across all its dates|once a date is listed/);
     const rows = within(screen.getByTestId('org-group-when')).getAllByTestId('org-date-row');
     expect(rows.length).toBeGreaterThan(0);
@@ -226,8 +234,14 @@ describe('the rendered Type row, over the real shapes (prod survey) x every stor
   });
   it.each(STORED)('ended (locked), stored %s', async (stored) => {
     const text = await openEditor(ended, stored);
-    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: true, hasUpcoming: false, cancelledOnly: false, hasSession: false })}${categoryLabelFor('recurring', stored)}`);
+    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: true, hasUpcoming: false, cancelledOnly: false, hasSession: ended.seriesProgramme })}${categoryLabelFor('recurring', stored)}`);
     expect(text).not.toMatch(/Add a session|Change the sessions/);
+  });
+  // FIX-7 R3: ended with a stored word and NO session on any date never claims "Set by its sessions".
+  it.each(STORED)('ended (locked) with no session on any date, stored %s', async (stored) => {
+    const text = await openEditor({ ...ended, seriesProgramme: false }, stored);
+    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: true, hasUpcoming: false, cancelledOnly: false, hasSession: false })}${categoryLabelFor('recurring', stored)}`);
+    expect(text).not.toMatch(/Set by its sessions|Add a session/);
   });
   it('a course and a festival are set by their format whatever is stored', async () => {
     expect(await openEditor(course, 'party')).toBe('TypeSet by its format.Course');

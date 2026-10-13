@@ -154,7 +154,10 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
   };
 
   const until = listedUntil(draft, ws, today);
-  const upcoming = upcomingDates(ws.dates, today);
+  const upcoming = useMemo(() => upcomingDates(ws.dates, today), [ws.dates, today]);
+  // Upcoming dates that are listed (not cancelled), derived once per render (FIX-7 #9): the
+  // listing count and the session count both read it.
+  const listedUpcoming = useMemo(() => upcoming.filter((d) => !isCancelledDate(d)), [upcoming]);
   // A one-date event that can be made weekly (recurring with no rule, G5).
   const canRepeat = sched.mode === 'single' && sched.repeatsReason === null && !lock;
   const weekly = (sched.mode === 'weekly' || canRepeat) && draft.shape === 'weekly';
@@ -164,8 +167,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
   // One mapping decides the row's date, whether Extend can add a date (the server's
   // 30-scheduled-upcoming rule) and its sentence. Extend continues the run from its
   // last listed date (an open-ended rule included).
-  // Upcoming dates that are listed (not cancelled), through the shared helper (FIX-6 F-i).
-  const listedCount = upcoming.filter((d) => !isCancelledDate(d)).length;
+  const listedCount = listedUpcoming.length;
   const listing = listingView(cap, draft.until ?? until, {
     listed: listedCount,
     last: upcoming[upcoming.length - 1]?.occurrence_date ?? null,
@@ -176,7 +178,10 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
   const firstDate = ws.hasMore ? draft.startDate : [...ws.dates.map((d) => d.occurrence_date)].sort()[0] ?? draft.startDate;
   const next = firstListedDate(ws.dates, today);
   // Upcoming listed dates with a session: the review card and the Type row read this one count.
-  const withSessions = sessionDates(ws.hasSessions, upcoming);
+  const withSessions = sessionDates(ws.hasSessions, listedUpcoming);
+  // The Type row's fact when no session can be edited (locked, or no upcoming date): the same
+  // mapping over EVERY listed date, so an ended series that ran sessions still reads them (FIX-7 R3).
+  const typeHasSession = !lock && next !== null ? withSessions > 0 : sessionDates(ws.hasSessions, ws.dates) > 0;
   const emptyHint = lock ?? (sched.mode === 'fixed' ? sched.reason : weekly ? 'Use Extend above to list more dates.' : 'Change \u2018Starts on\u2019 above to list a new date.') ?? '';
   const ownOrganisers = organisersOf(home.data?.organisers, seriesId);
   const organisers = ownOrganisers.map((o) => o.name);
@@ -220,7 +225,7 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
               cancelled date, so with every upcoming date cancelled the row must name no session action;
               cancelledOnly lets it name the step When offers instead (put a cancelled date back on). */}
           <SummaryRow icon={<Shapes />} label="Type" value={categoryLabelFor(ws.series.format, ws.series.category)}
-            sublabel={typeSublabel(ws.series.format, ws.series.category, { locked: !!lock, hasUpcoming: next !== null, cancelledOnly: next === null && upcoming.length > 0, hasSession: withSessions > 0 })} testId="org-row-type" />
+            sublabel={typeSublabel(ws.series.format, ws.series.category, { locked: !!lock, hasUpcoming: next !== null, cancelledOnly: next === null && upcoming.length > 0, hasSession: typeHasSession })} testId="org-row-type" />
         </Card>
       </EditorGroup>
       <EditorGroup id="when" heading="When">

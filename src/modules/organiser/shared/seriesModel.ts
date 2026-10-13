@@ -219,7 +219,7 @@ export function timeSpanWarning(start: string, end: string): TimeSpanWarning | n
 
 // ---- dates -------------------------------------------------------------------
 
-export const isCancelledDate = (d: WorkspaceDate) => d.lifecycle_status === 'cancelled';
+export const isCancelledDate = (d: Pick<WorkspaceDate, 'lifecycle_status'>) => d.lifecycle_status === 'cancelled';
 
 /**
  * A date that keeps its own changes when the series is edited: an override row

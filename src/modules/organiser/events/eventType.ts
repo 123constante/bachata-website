@@ -105,6 +105,8 @@ export interface TypeRowState {
   /**
    * At least one upcoming listed date carries a session: the review card's fact (reviewModel
    * sessionDates > 0, one mapping), so the row and the card never disagree (FIX-6 F-b, F-c).
+   * When nothing can be edited (locked, or no upcoming date) the same mapping over EVERY
+   * listed date (FIX-7 R3).
    */
   hasSession: boolean;
 }
@@ -125,13 +127,22 @@ export function typeSublabel(format: string | null | undefined, category: string
   if (format === 'festival' || format === 'course') return 'Set by its format.';
   const canEdit = !state.locked && state.hasUpcoming;
   if (wordForStored(format, category)) {
-    if (!canEdit) return 'Set by its sessions.';
+    // Not editable (FIX-7 R3): hasSession is then over every listed date. With none, never claim the
+    // sessions set it; unlocked with no upcoming date, the no-date sentences below name the step.
+    if (!canEdit && state.hasSession) return 'Set by its sessions.';
+    if (state.locked) return 'No session on its dates.';
+    if (!canEdit) return noDateSentence(state);
     // A legacy draft keeps a stored category with no session (the review card says add one).
     return state.hasSession ? 'Set by its sessions across all its dates.' : 'No session yet. Add one to one of its dates and it is set from it.';
   }
   if (state.locked) return 'No session, so not set.';
   // A session that sets no type (a performance) is still a session: never ask for "a session".
   if (state.hasUpcoming) return state.hasSession ? 'Its sessions set no type yet. Add a class or a party to one of its dates and it is set for you.' : 'Add a session to one of its dates and it is set for you.';
+  return noDateSentence(state);
+}
+
+/** No upcoming date can take a session: name the step When offers (list one, or put one back on). */
+function noDateSentence(state: TypeRowState): string {
   return state.cancelledOnly
     ? `${EVERY_UPCOMING_CANCELLED}. Open one under When and put it back on, then add a session and it is set for you.`
     : 'Add a session once a date is listed under When, and it is set for you.';
