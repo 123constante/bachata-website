@@ -15,9 +15,11 @@ const graph = (importers: Record<string, string[]>, dropped: string[] = []): Imp
 });
 
 describe("classifyChunkInGraph -- vendor-ui never imports vendor-ui-modal", () => {
+  // focus-guards, not focus-scope: #748 moved focus-scope to the SHELL list, so it
+  // can no longer stand in for "a package only the modal layer imports".
   it("leaves a modal package imported only by modal packages and app code in vendor-ui-modal", () => {
-    const g = graph({ [nm("@radix-ui/react-focus-scope")]: [nm("@radix-ui/react-dialog"), APP] });
-    expect(classifyChunkInGraph(nm("@radix-ui/react-focus-scope"), g)).toBe("vendor-ui-modal");
+    const g = graph({ [nm("@radix-ui/react-focus-guards")]: [nm("@radix-ui/react-dialog"), APP] });
+    expect(classifyChunkInGraph(nm("@radix-ui/react-focus-guards"), g)).toBe("vendor-ui-modal");
   });
 
   it("moves a modal-listed package a shell package imports into vendor-ui", () => {
@@ -50,8 +52,8 @@ describe("classifyChunkInGraph -- vendor-ui never imports vendor-ui-modal", () =
   });
 
   it("ignores an importer tree-shaking dropped (no chunk edge, nothing to move)", () => {
-    const g = graph({ [nm("@radix-ui/react-focus-scope")]: [nm("unlisted-helper")], [nm("unlisted-helper")]: [nm("@radix-ui/react-tooltip")] }, [nm("unlisted-helper")]);
-    expect(classifyChunkInGraph(nm("@radix-ui/react-focus-scope"), g)).toBe("vendor-ui-modal");
+    const g = graph({ [nm("@radix-ui/react-focus-guards")]: [nm("unlisted-helper")], [nm("unlisted-helper")]: [nm("@radix-ui/react-tooltip")] }, [nm("unlisted-helper")]);
+    expect(classifyChunkInGraph(nm("@radix-ui/react-focus-guards"), g)).toBe("vendor-ui-modal");
   });
 
   it("finds the shell through an import cycle among node_modules, whichever module is asked first", () => {
