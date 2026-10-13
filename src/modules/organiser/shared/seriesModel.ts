@@ -235,8 +235,8 @@ export function upcomingDates(dates: WorkspaceDate[], today: string): WorkspaceD
 
 /**
  * The earliest listed date from today on that is not cancelled (the programme writer
- * refuses a past or cancelled date). One helper: the editor's `next` and the date a
- * create seeds its first session on both read it.
+ * refuses a past or cancelled date): the editor's `next`. A create no longer reads it:
+ * it seeds its first session on the date its add_date reply names (FIX-6 F-g).
  */
 export function firstListedDate(dates: WorkspaceDate[], today: string): WorkspaceDate | null {
   return upcomingDates(dates, today).find((d) => !isCancelledDate(d)) ?? null;

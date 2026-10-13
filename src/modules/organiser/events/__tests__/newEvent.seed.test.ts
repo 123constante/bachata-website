@@ -2,7 +2,8 @@
  * Event-truth P1: the New event chips SEED the first session; nothing sends a category.
  * Mutation proof (handover docs/handover/event-truth-p1-ui.md): seedSessions returning
  * null / an empty list reds every case in 'seedSessions'; firstListedDate picking a past
- * or cancelled date reds 'firstListedDate'.
+ * or cancelled date reds 'firstListedDate' (the editor's `next`; the create seeds the date its
+ * add_date reply names, FIX-6 F-g).
  */
 import { describe, expect, it } from 'vitest';
 import type { Programme } from '@/modules/organiser/shared/programmeModel';
@@ -10,8 +11,8 @@ import { firstListedDate, type WorkspaceDate } from '@/modules/organiser/shared/
 import { NEW_EVENT_START_TIME, seedSessions } from '../newEvent';
 import { EVENT_TYPES, SEED_SESSION } from '../eventType';
 
-// firstListedDate is seriesModel's (FIX-3 fix 6, review F9): the editor's `next` and the create's
-// seed date call the one helper; pages.test.tsx spies it from both screens over a cancelled first date.
+// firstListedDate is seriesModel's (FIX-3 fix 6, review F9): the editor's `next` reads it;
+// pages.test.tsx spies it over a cancelled first date and proves the create never calls it.
 
 const emptyProgramme = (over: Partial<Programme> = {}): Programme => ({
   occurrenceId: 'o1', seriesId: 's1', occurrenceDate: '2026-10-15', version: 2, editable: true, notEditableReason: null,
@@ -53,16 +54,11 @@ describe('firstListedDate: the earliest upcoming date that is not cancelled', ()
   it('today counts as upcoming (the writer refuses only a past date)', () => {
     expect(firstListedDate([date('t', today), date('n', '2026-10-15')], today)?.id).toBe('t');
   });
-  it('is seriesModel\'s helper (next to upcomingDates / isCancelledDate), not a copy in newEvent.ts', async () => {
-    const newEvent = await import('../newEvent') as Record<string, unknown>;
-    expect(newEvent.firstListedDate).toBeUndefined();
-    expect(typeof firstListedDate).toBe('function');
-  });
   it.each([
     ['no dates', []],
     ['only past dates', [date('p', '2026-10-01')]],
     ['only cancelled dates', [date('c', '2026-10-15', 'cancelled')]],
-  ])('%s -> null, so the create says the session was not added instead of seeding nowhere', (_label, dates) => {
+  ])('%s -> null, so the editor has no next date to put a session on', (_label, dates) => {
     expect(firstListedDate(dates, today)).toBeNull();
   });
 });
