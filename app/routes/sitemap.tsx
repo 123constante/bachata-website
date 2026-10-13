@@ -1,3 +1,4 @@
+import { withPublicNames } from "@/lib/publicDancerNames";
 import { supabase } from "@/integrations/supabase/client";
 import { flags } from "@/lib/featureFlags";
 import { edgeCacheControl } from "../detailLoader";
@@ -158,14 +159,16 @@ async function fetchVenues(): Promise<UrlRow[]> {
 async function fetchDancerProfiles(): Promise<Array<ProfileRow & PublicNameSource>> {
   const { data, error } = await db
     .from("dancer_profiles")
-    .select("id, slug, updated_at, display_name, first_name, surname")
+    .select("id, slug, updated_at, first_name")
     .not(...NOT_DEACTIVATED)
     .order("updated_at", { ascending: false })
     .limit(500);
   if (error) throw error;
-  return ((data ?? []) as Array<ProfileRow & PublicNameSource>).filter(
-    (d) => resolvePublicName(d) !== null,
-  );
+  // Names come from the masked RPC, never the table columns (surname switch).
+  const named = (await withPublicNames((data ?? []) as Array<ProfileRow & { first_name: string | null }>)) as Array<
+    ProfileRow & PublicNameSource
+  >;
+  return named.filter((d) => resolvePublicName(d) !== null);
 }
 
 // teacher_profiles: which dancer_profiles ids also have a teacher role.

@@ -139,6 +139,11 @@ export type SaveMyDancerProfileInput = {
   facebook?: string;
   whatsapp?: string;
   website_url?: string;
+  /**
+   * "Hide my surname from the public". A JSON boolean, sent ONLY when the person
+   * changed it: absent or null leaves the column, any other type raises 22023.
+   */
+  hide_surname_publicly?: boolean;
   dancer_details?: DancerDetailsInput;
 };
 
@@ -177,6 +182,10 @@ export const buildDancerProfilePayload = (
   input: SaveMyDancerProfileInput,
 ): Record<string, unknown> => {
   const payload: Record<string, unknown> = {};
+
+  if (typeof input.hide_surname_publicly === "boolean") {
+    payload.hide_surname_publicly = input.hide_surname_publicly;
+  }
 
   for (const key of IDENTITY_KEYS) {
     const value = input[key];

@@ -1,3 +1,4 @@
+import { renderPublicName } from '@/lib/publicName';
 import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { resolveEventImage } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
@@ -128,8 +129,9 @@ interface V3Payload {
   did_you_mean?: string | null;
 }
 
-const personName = (r: V3PersonRow): string =>
-  r.display_name || [r.first_name, r.surname].filter(Boolean).join(' ') || 'Unknown';
+// The search RPC returns names already masked (surname switch); the shared
+// resolver renders them, so every screen reads one person the same way.
+export const personName = (r: V3PersonRow): string => renderPublicName(r, 'Unknown');
 
 export async function searchPublicV3(
   query: string,

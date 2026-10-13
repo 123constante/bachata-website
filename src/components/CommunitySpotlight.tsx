@@ -1,4 +1,5 @@
 
+import { withPublicNames } from '@/lib/publicDancerNames';
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getPhotoUrl } from "@/lib/utils";
@@ -40,7 +41,7 @@ export const CommunitySpotlight = () => {
       // face that /dancers itself does not list.
       const { data, error } = await supabase
         .from('dancer_profiles')
-        .select('id, first_name, surname, avatar_url')
+        .select('id, first_name, avatar_url')
         .or('is_active.is.null,is_active.eq.true')
         .order('created_at', { ascending: false })
         .limit(5);
@@ -54,7 +55,12 @@ export const CommunitySpotlight = () => {
                 return;
       }
 
-      setDancers(data ?? []);
+      // Masked names only (surname switch); a failed names read leaves first names.
+      try {
+        setDancers((await withPublicNames(data ?? [])) as unknown as Dancer[]);
+      } catch {
+        setDancers((data ?? []).map((d) => ({ ...d, surname: null })) as unknown as Dancer[]);
+      }
     };
 
     void fetchDancers();

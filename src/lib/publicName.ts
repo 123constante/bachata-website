@@ -31,6 +31,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export type PublicNameSource = {
   id?: string | null;
+  /** From get_public_dancer_names_v1: already masked, so it wins over every other candidate. */
+  public_name?: string | null;
   display_name?: string | null;
   dj_name?: string | null;
   name?: string | null;
@@ -63,6 +65,7 @@ export function resolvePublicName(source: PublicNameSource): string | null {
   return fromRow(
     source,
     [
+      (s) => s.public_name,
       (s) => s.display_name,
       (s) => s.dj_name,
       (s) => s.name,
