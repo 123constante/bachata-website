@@ -1142,7 +1142,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
                   Upload logo
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
@@ -1255,7 +1255,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
                     Upload image
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
