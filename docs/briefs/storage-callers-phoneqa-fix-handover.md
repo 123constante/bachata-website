@@ -31,3 +31,50 @@ Treat the CI failure as a flake: re-run `phone-qa` once. If it recurs, capture
 `getBoundingClientRect()` of every `div.absolute.rounded-full` and its ancestors in
 the failing frame (checkOverflow in tests/e2e/live/lib/pageChecks.ts only names the
 widest element) before changing layout.
+
+---
+
+# Update 2026-10-13: ROOT CAUSE FOUND AND FIXED
+
+The orb (`div.absolute.rounded-full`) was a red herring: `checkOverflow` names the
+last element whose `getBoundingClientRect().right` exceeds the viewport, and the
+orbs always do (they are clipped by their own wrapper, which rects ignore).
+
+## Reproduction
+`CI=1`, 4 workers, `Emulation.setCPUThrottlingRate` 4x, `/auth`, `--repeat-each 40`:
+9 of 80 failed (main-like conditions, no code of #744 involved).
+
+## Measurement in the failing frame (390x844)
+Non-fixed elements past the viewport edge, leaf to root:
+- `DIV` (PageTransition `motion.div`): rect `[30,60,420,904]`, computed
+  `transform: matrix(1,0,0,1,29.79,0)`, `filter: blur(4px)`, `position: static`,
+  `overflow: visible`, `contain: none`. This is `PageTransition`'s `initial`/`in`
+  tween, `x: 30 -> 0` over 0.25s.
+- `MAIN` (`#main-content`): rect `[0,60,390,904]`, `overflow: visible`, scrollWidth 420.
+- `BODY`: `overflow: hidden/auto` (propagated to the viewport, so it does not clip),
+  scrollWidth 420. `HTML`: scrollWidth 421.
+Inside it, `DIV.min-h-screen ... overflow-x-clip relative` (page root) clips ITS
+children but sits below the transformed wrapper, so cannot clip the wrapper itself.
+The fixed layers (header, gradient-bg, toast viewport) then measure 421 wide because
+mobile emulation grows the layout viewport to fit the overflow.
+The orb layer is NOT the containing block of anything involved: its wrapper is
+`fixed ... overflow-hidden` and clips correctly.
+
+## Fix
+`src/components/AppChrome.tsx`: `<main id="main-content" className="overflow-x-clip">`.
+`clip` (not `hidden`) creates no scroll container, so `position: sticky` and fixed
+descendants are unaffected; no visual change. No global `html` overflow rule.
+
+## Regression test
+`tests/e2e-phone/route-transition-clip.phone.spec.ts` holds the route wrapper at
+`translateX(30px)` (the enter pose) and asserts `checkOverflow` is clean, on `/auth`
+and `/faq` at 390x844 and 360x640. Deterministic: red on unfixed code (scrollWidth
+421 > 390), green with the fix; 120/120 green with `--repeat-each 30 --workers 4`.
+
+## CI jobs run in the sandbox
+| Job step | Command | Exit |
+|---|---|---|
+| phone-qa full | `CI=1 npx playwright test --config playwright.phone.config.ts` | 0 (124 passed, 32 skipped real-Supabase specs) |
+| regression repeat | `... route-transition-clip --repeat-each 30 --workers 4 --retries 0` | 0 (120 passed) |
+| flake repro, fixed | `... overlap -g "/auth" --repeat-each 60 --workers 4 --retries 0` | 0 (120 passed; 9/80 failed unfixed under 4x CPU throttle) |
+| unit offline | `TZ=Europe/London npm run test:unit:offline` | 1: 5 x tests/integrityCouldNotRun.test.ts (also fail on main, sandbox) plus 1 load-flake in tests/client/festivalClientState.test.tsx that passes alone, with and without this change |

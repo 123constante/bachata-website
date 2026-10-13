@@ -80,7 +80,7 @@ export function AppChrome({ children }: { children?: React.ReactNode }) {
           </Suspense>
         </ErrorBoundary>
       )}
-      <main id="main-content">
+      <main id="main-content" className="overflow-x-clip">
         <ErrorBoundary>
           <Suspense fallback={<AnimatedRoutesFallback />}>
             {children ?? <AnimatedRoutes />}
