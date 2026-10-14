@@ -22,6 +22,8 @@ export type DancerRow = {
   archived_at: string | null;
   /** The surname switch (absent = the column cannot be read). Written only by a boolean in the save payload, like the live function. */
   hide_surname_publicly?: boolean;
+  /** Absent/null = no surname (prod: set on 56 of 166 rows). */
+  surname?: string | null;
 };
 
 export const CITY = { id: 'city-london', name: 'London' };
@@ -78,6 +80,8 @@ export function makeBackend(initial: BackendState) {
           const v = p?.[key];
           if (typeof v === 'string' && v !== '') state.row[key] = v;
         }
+        // Like the live COALESCE(NULLIF(x,''), old): a null or empty surname leaves the column alone.
+        if (typeof p?.surname === 'string' && p.surname !== '') state.row.surname = p.surname;
         if (typeof p?.hide_surname_publicly === 'boolean') state.row.hide_surname_publicly = p.hide_surname_publicly;
         return ok({ id: 'persona-1' });
       }

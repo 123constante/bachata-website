@@ -129,7 +129,8 @@ export const dateStringFromDanceStartedYear = (year?: number | null): string =>
 
 export type SaveMyDancerProfileInput = {
   first_name?: string;
-  surname?: string;
+  /** null is an explicit "clear" request; the live function currently keeps the old value for it (see note 2). */
+  surname?: string | null;
   avatar_url?: string;
   based_city_id?: string;
   nationality?: string;

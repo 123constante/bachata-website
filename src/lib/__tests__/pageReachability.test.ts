@@ -168,6 +168,14 @@ describe('the real app', () => {
     expect(seen.has('src/components/account/HideSurnameCard.tsx')).toBe(true);
   });
 
+  it('the dancer edit screen is routed, linked from the dancer home, and carries the switch', () => {
+    const seen = reachableFiles(files, rootsOf(Object.keys(files)));
+    expect(seen.has('src/pages/EditDancerProfile.tsx')).toBe(true);
+    expect(files['src/components/AnimatedRoutes.tsx']).toContain('path="/account/dancer/edit"');
+    expect(files['src/components/account/DancerHome.tsx']).toContain('DANCER_EDIT_PATH');
+    expect(importsOf(files['src/pages/EditDancerProfile.tsx'])).toContain('@/components/profile/HideSurnameSwitch');
+  });
+
   it('non-vacuity: it checks many subjects, and the detector finds the pages it is known to', () => {
     expect(subjects.length).toBeGreaterThan(30);
     expect(subjects).toContain('src/pages/EditProfile.tsx');

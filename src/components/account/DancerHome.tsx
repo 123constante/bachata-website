@@ -13,7 +13,7 @@ import { buildSignInHref } from "@/lib/authRouting";
 import { danceRoleLabel } from "@/lib/auth-otp-routing";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { optimizedImageUrl, srcWidthFor } from "@/lib/imageCdn";
-import { ACCOUNT_SETTINGS_PATH, MY_ATTENDANCE_PATH, ORGANISER_HOME_PATH } from "@/lib/accountRouting";
+import { ACCOUNT_SETTINGS_PATH, DANCER_EDIT_PATH, MY_ATTENDANCE_PATH, ORGANISER_HOME_PATH } from "@/lib/accountRouting";
 import {
   NO_PROFILE_CONTACT_LABEL,
   NO_PROFILE_CONTACT_URL,
@@ -251,6 +251,9 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
                 </div>
               </div>
             )}
+            <Link to={DANCER_EDIT_PATH} className={`${PILL} w-full`} data-testid="dancer-home-edit">
+              Edit my profile
+            </Link>
             {fact.kind === "incomplete" && (
               <div className="space-y-2" data-testid="dancer-home-incomplete">
                 <p className="text-[14px] text-foreground" data-testid="dancer-home-completeness">

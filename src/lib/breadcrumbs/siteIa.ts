@@ -61,6 +61,7 @@ export const SITE_IA = {
   dancerHome:       { label: 'Your account',      path: '/account' },
   // The same home for anyone, organisers included (/account would redirect them).
   dancerProfile:    { label: 'Your dancer profile', path: '/account/dancer' },
+  'dancerProfile.edit': { label: 'Edit my profile', path: '/account/dancer/edit', parent: 'dancerProfile' },
   'dancerProfile.attendance': { label: 'My attendance', parent: 'dancerProfile' },
   // Signed-in, noindex. Not behind the dancer-first gate (an unfinished profile can still leave).
   accountSettings:  { label: 'Settings', path: '/account/settings', parent: 'dancerHome' },

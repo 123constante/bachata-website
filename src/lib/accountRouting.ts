@@ -19,6 +19,8 @@ export const ACCOUNT_HOME_PATH = '/account';
 /** The dancer home for anyone, organisers included (the account menu's dancer entry). */
 export const DANCER_HOME_PATH = '/account/dancer';
 /** The organiser area's Home. Equal to ORG_PATHS.home (asserted in accountRouting.test.tsx). */
+/** Edit my profile (src/pages/EditDancerProfile.tsx): name, surname, city, role. */
+export const DANCER_EDIT_PATH = '/account/dancer/edit';
 export const ORGANISER_HOME_PATH = '/account/o';
 /** My attendance (src/pages/MyAttendance.tsx): nights marked going or interested; past ones link to their rating card. */
 export const MY_ATTENDANCE_PATH = '/account/attendance';
