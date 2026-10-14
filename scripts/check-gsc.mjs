@@ -98,7 +98,7 @@ const INSPECT_ROUTES = [
   '/bachata-london-sunday',
   '/parties', '/classes', '/tonight', '/festivals', '/venues', '/teachers',
   '/djs', '/organisers', '/dancers', '/discounts', '/cities',
-  '/practice-partners', '/videographers', '/vendors', '/choreography',
+  '/practice-partners', '/vendors', '/choreography',
 ];
 
 // One or two entity URLs per detail-page type, sampled from the live sitemap.

@@ -1,6 +1,7 @@
 import { withPublicNames } from "@/lib/publicDancerNames";
 import { supabase } from "@/integrations/supabase/client";
 import { flags } from "@/lib/featureFlags";
+import { isPathPublic } from "@/lib/videographersPublic";
 import { edgeCacheControl } from "../detailLoader";
 import { resolvePublicName, type PublicNameSource } from "@/lib/publicName";
 import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
@@ -206,7 +207,7 @@ export const loader = withSsrLoaderTimeout("sitemap-loader", async function load
   try {
     const today = new Date().toISOString().split("T")[0];
 
-    const staticRoutes = [...STATIC_ROUTES];
+    const staticRoutes = STATIC_ROUTES.filter((r) => isPathPublic(r.path));
     // Feature-gated directory listings render noindex while off - keep them out
     // of the sitemap until the flag flips, else GSC logs "submitted URL marked
     // noindex". Same source of truth as the app (src/lib/featureFlags.ts).

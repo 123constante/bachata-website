@@ -7,6 +7,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
 import ComingSoonGate from "@/components/ComingSoonGate";
 import { flags } from "@/lib/featureFlags";
+import { VIDEOGRAPHERS_PUBLIC_ENABLED } from "@/lib/videographersPublic";
 import { buildCityPath } from "@/lib/cityPath";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
@@ -123,7 +124,12 @@ export const AnimatedRoutes = () => {
                 ? <PageTransition><Raffles /></PageTransition>
                 : <Navigate to="/" replace />
             } />
-            <Route path="/videographers" element={<PageTransition><Videographers /></PageTransition>} />
+            {/* Hidden while VIDEOGRAPHERS_PUBLIC_ENABLED is false: no route, so the
+                splat below renders NotFound. Keep the literal path so the
+                CATCHALL_CLIENT_PATHS mirror test still reads it. */}
+            {VIDEOGRAPHERS_PUBLIC_ENABLED && (
+              <Route path="/videographers" element={<PageTransition><Videographers /></PageTransition>} />
+            )}
             <Route path="/choreography" element={<PageTransition><Choreography /></PageTransition>} />
             <Route path="/dancers" element={<PageTransition><Dancers /></PageTransition>} />
             {/* /dancers/:id is a framework route (app/routes/dancers.tsx). */}
