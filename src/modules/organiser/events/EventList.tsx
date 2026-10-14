@@ -13,7 +13,7 @@ function nextDate(s: ListedSeries): string | null {
 }
 
 /** The row's one mapping (lifeLabel): the tag, the section and the note all read it. */
-export const lifeOf = (s: ListedSeries): Life => seriesLife(s, s.upcoming_count);
+const lifeOf = (s: ListedSeries): Life => seriesLife(s, s.upcoming_count);
 
 function EventRow({ series, active }: { series: ListedSeries; active: boolean }) {
   const next = nextDate(series);
@@ -33,7 +33,8 @@ function EventRow({ series, active }: { series: ListedSeries; active: boolean })
       )}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-semibold text-[var(--fg)]">{series.name}</span>
-        <span className="flex items-center gap-[4px] truncate text-[13px] text-[var(--mut)]" data-testid="org-event-row-venue">
+        {/* The note wraps (never truncated): it is what the person can do, beside a wide tag at 390px. */}
+        <span className={cn('flex items-center gap-[4px] text-[13px] text-[var(--mut)]', life.note ? 'leading-[18px]' : 'truncate')} data-testid="org-event-row-venue">
           {life.note ?? (series.default_venue_name ? (<><MapPin aria-hidden="true" className="h-[12px] w-[12px] shrink-0" />{series.default_venue_name}</>) : next ? 'No venue yet' : 'No upcoming dates')}
         </span>
       </span>

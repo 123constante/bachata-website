@@ -148,15 +148,12 @@ async function openEditor(s: SeriesShape, stored: string | null) {
 // W3 (owner decision d39): the organiser editor drops the Type row; admin keeps its read-only one.
 // No organiser screen names a type word, so the public "Night" can never show there (d45).
 describe('the editor shows no Type row, over the real shapes (prod survey) x every stored value', () => {
-  it.each(STORED)('every shape, stored %s: no Type row and no type word', async (stored) => {
-    for (const s of SHAPES) {
-      const text = await openEditor(s, stored);
-      expect(screen.queryByTestId('org-row-type'), s.key).toBeNull();
-      // The public label 'Night' (a word, capitalised), never the stored 'workshop'.
-      expect(text, s.key).not.toMatch(/workshop/i);
-      expect(text, s.key).not.toMatch(/\bNight\b/);
-      cleanup();
-    }
+  it.each(SHAPES.flatMap((s) => STORED.map((stored) => [s.key, stored, s] as const)))('%s, stored %s: no Type row and no type word', async (_key, stored, s) => {
+    const text = await openEditor(s, stored);
+    expect(screen.queryByTestId('org-row-type')).toBeNull();
+    // The public label 'Night' (a word, capitalised), never the stored 'workshop'.
+    expect(text).not.toMatch(/workshop/i);
+    expect(text).not.toMatch(/\bNight\b/);
   });
   it('live, every upcoming date cancelled: the Schedule card states the fact', async () => {
     await openEditor(shapeByKey('live-norule-cancelled-only'), null);
