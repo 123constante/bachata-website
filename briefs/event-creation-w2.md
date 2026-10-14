@@ -21,3 +21,5 @@ Red-first tests + a mutant per rule; matrix: 4 kinds x {role picker offers exact
 
 ## PR rule (owner-approved hard-tier changes need a BOT-authored PR)
 This branch name starts with `claude/` ON PURPOSE: `.github/workflows/bot-pr.yml` opens the PR AS THE BOT when you push, so the owner can approve hard-tier changes. NEVER open the PR yourself (a PR under the owner's login cannot be approved by the owner and reds `Owner approval audit`; that is what happened to #750). After the bot opens it, fill the body with `gh api -X PATCH` using the template headings `## Verified on real data` (lines `Shapes surveyed:`, `Checks run:`, `NOT verified:`) and `## Phone QA` (lines `Sizes checked:` with a WxH, `Walked:`, `Not verified:`). Workers push only.
+
+**Hard-tier files (owner rule 2026-10-14):** any PR that touches a workflow (`.github/workflows/*`), a `scripts/check-*` file or a migration needs an OWNER Approve at its head. That is why the PR must be bot-authored: workers push the branch only; the PR is opened as the bot, never with the owner's login. Say in your handover which hard-tier files you touched (or 'none').
