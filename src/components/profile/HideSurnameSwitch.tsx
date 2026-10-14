@@ -36,6 +36,8 @@ export const HideSurnameSwitch = ({
       <Switch
         id="hide-surname-publicly"
         checked={checked}
+        // 44px tall: a phone tap target (the dancer-home e2e fails any control under 43.5px).
+        className="h-[44px] w-[72px] [&>span]:h-[38px] [&>span]:w-[38px] data-[state=checked]:[&>span]:translate-x-[30px]"
         disabled={disabledReason !== null}
         onCheckedChange={onChange}
         aria-describedby="hide-surname-help"
