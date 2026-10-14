@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   OWNER_CANCEL_KEYS,
-  OWNER_CATEGORIES,
   OWNER_COMMAND_KINDS,
   OWNER_CREATE_KEYS,
   OWNER_OVERRIDE_KEYS,
@@ -50,7 +49,6 @@ const SERVER_UPSERT_KEYS = [
 // Website attaches it in selfServeApi.ts (createSeriesCommand, pinned in
 // createModel.test.ts) and the mirror below stops at 'format'.
 const SERVER_CREATE_KEYS_WITHOUT_ORGANISER = [...SERVER_UPSERT_KEYS, 'format'];
-const SERVER_OWNER_CATEGORIES = ['party', 'class', 'workshop'];
 const SERVER_OVERRIDE_KEYS = ['venue_id', 'city_id', 'cancellation_reason_label', 'cover_image_url', 'ticket_url', 'description'];
 const SERVER_CANCEL_KEYS = ['cancelled', 'reason'];
 
@@ -71,8 +69,6 @@ describe('the owner allowlist mirror', () => {
     expect([...OWNER_OVERRIDE_KEYS].sort()).toEqual([...SERVER_OVERRIDE_KEYS].sort());
     expect([...OWNER_CANCEL_KEYS].sort()).toEqual([...SERVER_CANCEL_KEYS].sort());
     expect([...OWNER_CREATE_KEYS].sort()).toEqual([...SERVER_CREATE_KEYS_WITHOUT_ORGANISER].sort());
-    expect([...OWNER_CATEGORIES]).toEqual(SERVER_OWNER_CATEGORIES);
-    expect(OWNER_CATEGORIES as readonly string[]).not.toContain('masterclass');
   });
 
   it('never sends an admin-only override key (the handler accepts them, the owner gate refuses)', () => {

@@ -4,12 +4,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, Film, Images, MapPin, Repeat, Shapes, Text, Ticket, Users } from 'lucide-react';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { categoryLabelFor } from '@/lib/eventCategory';
 import { FLYER_ACCEPT } from '@/modules/organiser/shared/flyerModel';
 import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
 import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
 import { commandErrorMessage, isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { UNSAVED_MESSAGE, saveBarState } from '@/modules/organiser/shared/editorGuards';
-import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
+import { firstListedDate, isCancelledDate, upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { TEAM, endedOnLabel, eventLock, lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import {
@@ -24,7 +25,7 @@ import { DatesTakenOff } from './DatesTakenOff';
 import { EventReviewCard } from './ReviewCard';
 import { EditorGroup } from './EditorGroup';
 import { sessionDates } from './reviewModel';
-import { categoryLabel } from './eventType';
+import { typeSublabel } from './eventType';
 import { EventList } from './EventList';
 import {
   FIELD_LABEL, MUSIC_STYLES, capInput, cardPreview, changedFields, conflictingFields, draftFromWorkspace, draftProblem,
@@ -153,7 +154,10 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
   };
 
   const until = listedUntil(draft, ws, today);
-  const upcoming = upcomingDates(ws.dates, today);
+  const upcoming = useMemo(() => upcomingDates(ws.dates, today), [ws.dates, today]);
+  // Upcoming dates that are listed (not cancelled), derived once per render (FIX-7 #9): the
+  // listing count and the session count both read it.
+  const listedUpcoming = useMemo(() => upcoming.filter((d) => !isCancelledDate(d)), [upcoming]);
   // A one-date event that can be made weekly (recurring with no rule, G5).
   const canRepeat = sched.mode === 'single' && sched.repeatsReason === null && !lock;
   const weekly = (sched.mode === 'weekly' || canRepeat) && draft.shape === 'weekly';
@@ -163,15 +167,21 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
   // One mapping decides the row's date, whether Extend can add a date (the server's
   // 30-scheduled-upcoming rule) and its sentence. Extend continues the run from its
   // last listed date (an open-ended rule included).
+  const listedCount = listedUpcoming.length;
   const listing = listingView(cap, draft.until ?? until, {
-    listed: upcoming.filter((d) => d.lifecycle_status !== 'cancelled').length,
+    listed: listedCount,
     last: upcoming[upcoming.length - 1]?.occurrence_date ?? null,
   });
   const step = weekly ? listing.step : null;
   const untilLabel = listing.untilText;
   const endedLabel = endedOnLabel(ws.series.lifecycle_status, ws.endedOn, today);
   const firstDate = ws.hasMore ? draft.startDate : [...ws.dates.map((d) => d.occurrence_date)].sort()[0] ?? draft.startDate;
-  const next = upcoming.find((d) => d.lifecycle_status !== 'cancelled') ?? null;
+  const next = firstListedDate(ws.dates, today);
+  // Upcoming listed dates with a session: the review card and the Type row read this one count.
+  const withSessions = sessionDates(ws.hasSessions, listedUpcoming);
+  // The Type row's fact when no session can be edited (locked, or no upcoming date): the same
+  // mapping over EVERY listed date, so an ended series that ran sessions still reads them (FIX-7 R3).
+  const typeHasSession = !lock && next !== null ? withSessions > 0 : sessionDates(ws.hasSessions, ws.dates) > 0;
   const emptyHint = lock ?? (sched.mode === 'fixed' ? sched.reason : weekly ? 'Use Extend above to list more dates.' : 'Change \u2018Starts on\u2019 above to list a new date.') ?? '';
   const ownOrganisers = organisersOf(home.data?.organisers, seriesId);
   const organisers = ownOrganisers.map((o) => o.name);
@@ -211,8 +221,11 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
           {!lock && <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="org-cover-gallery-hint">The cover shows on the calendar card; gallery photos appear on the event page. Optional &mdash; add later.</p>}
         </section>
         <Card>
-          <SummaryRow icon={<Shapes />} label="Type" value={categoryLabel(ws.series.category)}
-            sublabel={`Chosen when the event was made. To change it, ask ${TEAM}.`} testId="org-row-type" />
+          {/* hasUpcoming is `next` (the first upcoming date that is NOT cancelled): the writer refuses a
+              cancelled date, so with every upcoming date cancelled the row must name no session action;
+              cancelledOnly lets it name the step When offers instead (put a cancelled date back on). */}
+          <SummaryRow icon={<Shapes />} label="Type" value={categoryLabelFor(ws.series.format, ws.series.category)}
+            sublabel={typeSublabel(ws.series.format, ws.series.category, { locked: !!lock, hasUpcoming: next !== null, cancelledOnly: next === null && upcoming.length > 0, hasSession: typeHasSession })} testId="org-row-type" />
         </Card>
       </EditorGroup>
       <EditorGroup id="when" heading="When">
@@ -292,8 +305,8 @@ function EventEditor({ ws, today }: { ws: EventWorkspace; today: string }) {
         </Card>
       </EditorGroup>
       <EventReviewCard seriesId={seriesId} name={base.name} status={ws.series.lifecycle_status} version={ws.series.version}
-        upcomingListed={upcoming.filter((d) => d.lifecycle_status !== 'cancelled').length}
-        datesWithSessions={sessionDates(ws.hasSessions, upcoming)} hasCover={base.coverUrl.trim() !== ''}
+        upcomingListed={listedCount}
+        datesWithSessions={withSessions} hasCover={base.coverUrl.trim() !== ''}
         organisers={home.data ? ownOrganisers : null} dirty={dirty} onSent={() => announce('Sent for review.')} />
       <EditorSheet stopReason={sched.stopReason} oneDateLoss={sched.mode === 'weekly' && base.shape === 'weekly' ? loss : 0}
         sheet={sheet} onSheet={setSheet} draft={draft} patch={patch} today={today} cap={cap} capNote={listing.sheetNote} venues={venues.data}

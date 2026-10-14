@@ -260,6 +260,57 @@ const RADIX_HOOK_NEEDLE = "node_modules/@radix-ui/react-use-";
 // ~50 KB), not this file.
 const COMMONJS_HELPERS_ID = "\0commonjsHelpers.js";
 
+// The ONE first-party group, and it exists for the chunk COUNT, not for bytes.
+//
+// src/lib/eventCategory.ts is the canonical event-category rule (byte-pinned
+// against its admin twin; see that file). It is a leaf -- it imports nothing --
+// and it is read from two sides of the app that share no other module of their
+// own: the public event page (endedRun.ts, inside the chunk the /event and
+// /festival routes share) and the organiser editor (eventType.ts, inside the
+// chunk the New event and Event editor pages share). Rollup files a module by
+// the SET of entry points that reach it, and the union of those two sets is a
+// set no other module has, so the lib got a chunk of its own: a few hundred
+// bytes, ONE MORE REQUEST on every /event view, and the chunk ratchet in
+// perf-budgets.json went red by exactly one -- the request-count regression
+// that ratchet exists to catch and the KB budget cannot see.
+//
+// A manual chunk holding the lib ALONE does not fix that: it is still a chunk
+// the route did not load before. The lib has to ride inside a chunk the route
+// already loads. src/lib/londonDate.ts is that chunk: a single-module leaf like
+// the lib itself, the site's calendar-time authority, and already in the
+// first load of EVERY entry that reaches eventCategory (and of others besides,
+// which pay the lib's few hundred bytes for nothing -- the cost of this
+// pairing, accepted because the alternative is a request). Both are pure rule
+// modules with no React and no imports, so neither drags anything into the
+// other's routes. Measured, not reasoned: with this group in place the chunk
+// counts of all eight budgeted routes and the request pins of the six
+// prerendered ones match main, and /event is back on its pin; the numbers are
+// in docs/handover/event-truth-p1p3-fix.md.
+//
+// The UNBUDGETED routes too (FIX-6 F-l, 2026-10-13): londonDate is in the root
+// route's static graph, so lib-event-rules is in the first load of EVERY client
+// entry -- all 83 route modules and lazy pages in the manifest -- and on each of
+// them the first-load chunk + stylesheet count equals the pre-pairing build
+// (merge-base 5e0ec4c), 83 of 83. Method and table:
+// docs/handover/event-truth-p1p3-fix6.md. Its limit: a count of the manifest's
+// static-import closure from entry.client + root + the entry, not a browser
+// request trace; a lazy page's parent route chunk is not added (constant
+// between the two builds).
+//
+// Bounded like the vendor needles, from the other side: the id must END with
+// the module path (so a nested `node_modules/<pkg>/src/lib/londonDate.ts` does
+// not match -- that copy belongs to its package), and it must not be under
+// node_modules at all. Adding a module here moves its bytes onto every route
+// that loads londonDate; re-measure with the command in the header first.
+export const LIB_EVENT_RULES_MODULES = [
+  "/src/lib/eventCategory.ts",
+  "/src/lib/londonDate.ts",
+];
+
+const isLibEventRulesModule = (id: string): boolean =>
+  !id.includes("node_modules") &&
+  LIB_EVENT_RULES_MODULES.some((needle) => id.endsWith(needle));
+
 /**
  * Rollup `manualChunks`: the group name a module id belongs to, or
  * undefined to leave it to rollup. Pure and total -- every branch is a
@@ -285,6 +336,9 @@ export function classifyChunk(id: string): string | undefined {
   // it to vendor-react is safe because vendor-react is already in every route's
   // first load, so the edge it creates costs nothing new.
   if (id.includes(COMMONJS_HELPERS_ID)) return "vendor-react";
+  // The SECOND branch ahead of the node_modules gate, and the only first-party
+  // one. LIB_EVENT_RULES_MODULES above says what it buys and how it is bounded.
+  if (isLibEventRulesModule(id)) return "lib-event-rules";
   if (!id.includes("node_modules")) return undefined;
   // tslib rides with react, and it is FIRST, for a reason that is
   // not about react at all. DO NOT DELETE THIS BRANCH after

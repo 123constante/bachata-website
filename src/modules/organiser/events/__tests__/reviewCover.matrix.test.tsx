@@ -113,7 +113,7 @@ describe('the editor shows it: Send for review is off with the reason', () => {
     raw = rawWorkspace(cover, 'per-date');
     mount();
     const send = (await screen.findByTestId('org-event-review-send')) as HTMLButtonElement;
-    await vi.waitFor(() => expect(screen.queryByText('Checking what it still needs…')).toBeNull());
+    await vi.waitFor(() => expect(screen.queryByText('Checking what it still needs\u2026')).toBeNull());
     expect(send.disabled).toBe(!can);
     if (can) expect(screen.queryByTestId('org-event-review-blocked')).toBeNull();
     else expect(screen.getByTestId('org-event-review-blocked').textContent).toBe(COVER_REASON);

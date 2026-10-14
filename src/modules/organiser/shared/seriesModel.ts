@@ -219,7 +219,7 @@ export function timeSpanWarning(start: string, end: string): TimeSpanWarning | n
 
 // ---- dates -------------------------------------------------------------------
 
-export const isCancelledDate = (d: WorkspaceDate) => d.lifecycle_status === 'cancelled';
+export const isCancelledDate = (d: Pick<WorkspaceDate, 'lifecycle_status'>) => d.lifecycle_status === 'cancelled';
 
 /**
  * A date that keeps its own changes when the series is edited: an override row
@@ -231,6 +231,15 @@ export const keepsOwnChanges = (d: WorkspaceDate) =>
 
 export function upcomingDates(dates: WorkspaceDate[], today: string): WorkspaceDate[] {
   return dates.filter((d) => d.occurrence_date >= today).sort((a, b) => a.occurrence_date.localeCompare(b.occurrence_date));
+}
+
+/**
+ * The earliest listed date from today on that is not cancelled (the programme writer
+ * refuses a past or cancelled date): the editor's `next`. A create no longer reads it:
+ * it seeds its first session on the date its add_date reply names (FIX-6 F-g).
+ */
+export function firstListedDate(dates: WorkspaceDate[], today: string): WorkspaceDate | null {
+  return upcomingDates(dates, today).find((d) => !isCancelledDate(d)) ?? null;
 }
 
 /** "2 dates keep their own changes: Tue 6 Oct (own changes) and Tue 13 Oct (cancelled)." */
