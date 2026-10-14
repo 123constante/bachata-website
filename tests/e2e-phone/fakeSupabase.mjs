@@ -124,7 +124,8 @@ export const FLAG_FESTIVAL_SLUG = 'flag-festival-phone-qa';
 export const FLAG_FESTIVAL_ID = 'e2000000-0000-4000-8000-000000000002';
 const EVENT_REFS = { [FLAG_EVENT_SLUG]: FLAG_EVENT_ID, [FLAG_FESTIVAL_SLUG]: FLAG_FESTIVAL_ID };
 const lineupOf = (people) => people.map((p) => ({ id: p.id, display_name: fullName(p), avatar_url: p.photo_url, nationality_code: p.nationality_code }));
-// A night with a class (two teachers) and a party (two DJs), people from the first 30 (they are in dancer_profiles).
+// A night with a class (two teachers) and a party (two DJs). event_view_p5 legacy_compat carries
+// nationality_code on every person (admin #774/#799), so the programme needs no second read.
 const PROGRAMME_PEOPLE = [0, 8, 16, 1];
 const flagSnapshot = (id, format) => {
   const occ = {
@@ -147,9 +148,9 @@ const flagSnapshot = (id, format) => {
 };
 const FLAG_PROGRAMME = [
   { id: 'p1', title: 'Bachata Sensual Improvers', type: 'class', start_time: '2099-11-20T20:00:00', end_time: '2099-11-20T21:00:00', day_event_date: '2099-11-20', sort_order: 1, levels: ['improver'], room: null,
-    people: PROGRAMME_PEOPLE.slice(0, 2).map((k, i) => ({ profile_id: FLAG_PEOPLE[k].id, display_name: fullName(FLAG_PEOPLE[k]), avatar_url: FLAG_PEOPLE[k].photo_url, profile_type: 'teacher', level: null, sort_order: i })) },
+    people: PROGRAMME_PEOPLE.slice(0, 2).map((k, i) => ({ profile_id: FLAG_PEOPLE[k].id, display_name: fullName(FLAG_PEOPLE[k]), avatar_url: FLAG_PEOPLE[k].photo_url, profile_type: 'teacher', level: null, sort_order: i, nationality_code: FLAG_PEOPLE[k].nationality_code })) },
   { id: 'p2', title: 'Social', type: 'party', start_time: '2099-11-20T21:00:00', end_time: '2099-11-21T02:00:00', day_event_date: '2099-11-20', sort_order: 2, levels: [], room: null,
-    people: PROGRAMME_PEOPLE.slice(2).map((k, i) => ({ profile_id: FLAG_PEOPLE[k].id, display_name: fullName(FLAG_PEOPLE[k]), avatar_url: FLAG_PEOPLE[k].photo_url, profile_type: 'dj', level: null, sort_order: i })) },
+    people: PROGRAMME_PEOPLE.slice(2).map((k, i) => ({ profile_id: FLAG_PEOPLE[k].id, display_name: fullName(FLAG_PEOPLE[k]), avatar_url: FLAG_PEOPLE[k].photo_url, profile_type: 'dj', level: null, sort_order: i, nationality_code: FLAG_PEOPLE[k].nationality_code })) },
 ];
 export const FLAG_PROGRAMME_CODES = PROGRAMME_PEOPLE.map((k) => FLAG_PEOPLE[k].nationality_code).filter(Boolean);
 export const FLAG_FESTIVAL_HEADLINERS = [...coded(5), FLAG_PEOPLE[1]];
@@ -297,7 +298,11 @@ export const RPCS = {
     profile_id: p.id, role: ['teacher', 'dj', 'dancer'][i % 3], display_name: fullName(p), photo_url: p.photo_url ?? PHOTO, city_name: 'London', country_code: 'GB',
     bio: null, specialties: [], is_verified: false, nationality_code: p.nationality_code ?? (i % 3 === 1 ? 'CO' : null),
   })),
-  resolve_public_event_ref_v1: (args) => (EVENT_REFS[args.p_param] ? { id: EVENT_REFS[args.p_param], slug: args.p_param } : null),
+  // By slug or by id (/event/<uuid>, the link shape the build smoke opens).
+  resolve_public_event_ref_v1: (args) => {
+    const slug = EVENT_REFS[args.p_param] ? args.p_param : Object.keys(EVENT_REFS).find((s) => EVENT_REFS[s] === args.p_param);
+    return slug ? { id: EVENT_REFS[slug], slug } : null;
+  },
   event_view_p5: (args) => {
     const t = args.p_target ?? {};
     const id = Object.values(EVENT_REFS).find((x) => x === t.series_id || (t.occurrence_id && t.occurrence_id === `${x.slice(0, -1)}9`));

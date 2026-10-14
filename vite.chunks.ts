@@ -403,3 +403,64 @@ export function classifyChunk(id: string): string | undefined {
   }
   return undefined;
 }
+
+/**
+ * Every static import cycle that passes through a vendor-* chunk, as
+ * "a.js -> b.js -> a.js", given each chunk's static imports.
+ */
+export function findVendorChunkCycles(imports: Record<string, readonly string[]>): string[] {
+  const cycles: string[] = [];
+  const isVendor = (f: string) => /(^|\/)vendor-[^/]*$/.test(f);
+  for (const start of Object.keys(imports).filter(isVendor).sort()) {
+    const seen = new Set<string>();
+    const path = (from: string): string[] | null => {
+      for (const next of imports[from] ?? []) {
+        if (next === start) return [from, next];
+        if (seen.has(next)) continue;
+        seen.add(next);
+        const rest = path(next);
+        if (rest) return [from, ...rest];
+      }
+      return null;
+    };
+    const loop = path(start);
+    if (loop) cycles.push(loop.join(" -> "));
+  }
+  return cycles;
+}
+
+/**
+ * Vite plugin: fail the CLIENT build when any static import cycle passes through
+ * a vendor chunk -- the "TypeError: le is not a function" class (#746/#747: one
+ * chunk of the cycle runs its top level against the other's unassigned keepNames
+ * `var`, and every lazy chunk behind it rejects, so pages sit on their loading
+ * state). scripts/check-chunk-cycles.mjs (#748) checks CI's build after the fact;
+ * this runs INSIDE every build, Vercel's included. That is the point: #747's
+ * preview built a different graph from the same commit (a newer Radix Tooltip
+ * than the lockfile's) while CI's build of it was clean, so only a check in the
+ * deploy's own build sees that graph. Such a deploy now fails, naming the cycle,
+ * instead of shipping.
+ */
+export function vendorChunkCycleGuard() {
+  return {
+    name: "vendor-chunk-cycle-guard",
+    apply: "build" as const,
+    generateBundle(
+      this: { error: (message: string) => never },
+      _options: unknown,
+      bundle: Record<string, { type: string; imports?: string[] }>,
+    ) {
+      const imports: Record<string, string[]> = {};
+      for (const [file, out] of Object.entries(bundle)) {
+        if (out.type === "chunk") imports[file] = out.imports ?? [];
+      }
+      const cycles = findVendorChunkCycles(imports);
+      if (cycles.length > 0) {
+        this.error(
+          `[chunks] static import cycle through a vendor chunk -- a chunk on it can run before the one it imports has finished ` +
+            `(PR #747: "TypeError: le is not a function", pages stuck loading). Fix the grouping in vite.chunks.ts:\n  ${cycles.join("\n  ")}`,
+        );
+      }
+    },
+  };
+}

@@ -1,24 +1,11 @@
 {
   "_rule": "RATCHET: may only SHRINK. Pre-existing axe color-contrast violations at phone sizes when the phone suite landed (2026-10-11), keyed '<project> <page>' -> axe target (positional :nth-child stripped). contrast.phone.spec.ts fails on any violation not listed here AND on any entry that no longer reproduces. Fix the colour, then delete the entry. Never add one.",
   "_found": {
-    ".aspect-square.rounded-xl.justify-center > .text-muted-foreground\\/60.text-sm": "calendar past-day numbers (src/components/calendar/CalendarGrid.tsx text-muted-foreground/60): #6e6e6e on #121212 = 3.67:1, needs 4.5:1",
     "span[title=\"\"]": "edit-in-place empty link-row placeholder (src/modules/organiser/edit-in-place/parts.tsx rgba(246,241,234,0.45) on INK): #757270 on #0c0a0d = 4.12:1, needs 4.5:1"
   },
   "violations": {
-    "phone-360x640 /classes": [
-      ".aspect-square.rounded-xl.justify-center > .text-muted-foreground\\/60.text-sm"
-    ],
-    "phone-360x640 /parties": [
-      ".aspect-square.rounded-xl.justify-center > .text-muted-foreground\\/60.text-sm"
-    ],
     "phone-360x640 organiser-owner": [
       "span[title=\"\"]"
-    ],
-    "phone-390x844 /classes": [
-      ".aspect-square.rounded-xl.justify-center > .text-muted-foreground\\/60.text-sm"
-    ],
-    "phone-390x844 /parties": [
-      ".aspect-square.rounded-xl.justify-center > .text-muted-foreground\\/60.text-sm"
     ],
     "phone-390x844 organiser-owner": [
       "span[title=\"\"]"

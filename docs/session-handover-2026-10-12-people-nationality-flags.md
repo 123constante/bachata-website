@@ -97,8 +97,9 @@ Branch: `feat/people-nationality-flags`, PR #740.
     event-programme.
 
 ## Open
-- Backend option: have `event_view_p5` legacy_compat emit `nationality_code` (admin) so the programme needs no
-  second read.
+- ~~Backend option: have `event_view_p5` legacy_compat emit `nationality_code` (admin) so the programme needs no
+  second read.~~ DONE: admin #774/#799 emit it; the Website reads it in `parseProgramItems` and the
+  `dancer_profiles` companion read is gone (2026-10-13, `docs/session-handover-2026-10-13-website-small-queue.md`).
 - /event is 0.3 KB under its 380 KB budget on this branch.
 - `/code-review` has not run on this diff (no review stamp).
 - Not verified on a real phone. Lighthouse and doc-weight need a Vercel preview and were not run locally.
