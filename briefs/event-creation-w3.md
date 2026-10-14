@@ -1,6 +1,6 @@
 # Brief W3 (Website): lists, Past section, one vocabulary, Type row removed
 
-Branch `arc/event-creation-w3` FROM `main` AFTER Website #750 and admin #780 are merged (W1 and W2 may still be open: your files are disjoint). Push ONLY this branch. Open NO PR.
+Branch `claude/event-creation-w3` FROM `main` AFTER Website #750 and admin #780 are merged (W1 and W2 may still be open: your files are disjoint). Push ONLY this branch. Open NO PR.
 **Keep your session context under 35% (owner rule): read only what you edit, tail logs to 40 lines, commit and push early, leave the handover before ~30%.** Write shell commands WITHOUT variables, loops or `$(...)`. Check a PRODUCTION build. Read repo files with git, not `gh api`.
 Hard rules: `src/lib/eventCategory.ts` byte-identical; never touch the calendar density-excluded files; `&hellip;` in JSX; explicit px tap targets; compact density.
 
@@ -19,3 +19,6 @@ Prod audit (read-only, 2026-10-13): 64 live series, 14 of them live with ONLY pa
 
 ## Verify (all required)
 Table-driven consistency test over EVERY shape x EVERY organiser screen: the fixtures S01-S15 (`events/__tests__/shapes/shapes.ts`) PLUS the 14 prod "live but only past dates" shapes plus a >100-date series: the same fact reads the same word on the list row, the status tag and the ended page. Red-first on the base; a mutant per rule. Run EVERY CI step (GitHub Actions + yourself). Walk 390x844 production build on prod-shaped branch data (Past section collapsed/expanded, Finished and Nothing coming up rows). Write `docs/handover/event-creation-w3.md`: checks table, Verified / Not verified, new-logic lines.
+
+## PR rule (owner-approved hard-tier changes need a BOT-authored PR)
+This branch name starts with `claude/` ON PURPOSE: `.github/workflows/bot-pr.yml` opens the PR AS THE BOT when you push, so the owner can approve hard-tier changes. NEVER open the PR yourself (a PR under the owner's login cannot be approved by the owner and reds `Owner approval audit`; that is what happened to #750). After the bot opens it, fill the body with `gh api -X PATCH` using the template headings `## Verified on real data` (lines `Shapes surveyed:`, `Checks run:`, `NOT verified:`) and `## Phone QA` (lines `Sizes checked:` with a WxH, `Walked:`, `Not verified:`). Workers push only.
