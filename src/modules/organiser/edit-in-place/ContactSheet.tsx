@@ -128,7 +128,7 @@ export default function ContactSheet({ stored, drafts, onDone, onClose }: Contac
           placeholder="e.g. +44 7700 900123"
           aria-invalid={!!showError}
           aria-describedby={showError ? errorId : undefined}
-          style={inputStyle}
+          className="org-eip-input" style={inputStyle}
         />
         {showError && <p id={errorId} role="alert" style={{ margin: '6px 0 0', fontSize: 13, color: '#FF8A70' }}>{showError}</p>}
         <SwitchRow item={items.phone} onToggle={() => setShowPhone(!items.phone.isPublic)} />
@@ -141,7 +141,7 @@ export default function ContactSheet({ stored, drafts, onDone, onClose }: Contac
           readOnly
           placeholder={CONTACT_COPY.notAdded}
           aria-describedby={emailNoteId}
-          style={{ ...inputStyle, color: 'rgba(246,241,234,0.85)', background: 'rgba(246,241,234,0.03)' }}
+          className="org-eip-input" style={{ ...inputStyle, color: 'rgba(246,241,234,0.85)', background: 'rgba(246,241,234,0.03)' }}
         />
         <p id={emailNoteId} style={{ margin: '4px 0 0', fontSize: 12.5, color: LINE }}>{CONTACT_COPY.emailAdminOnly}</p>
         <SwitchRow item={items.email} onToggle={() => setShowEmail(!items.email.isPublic)} />

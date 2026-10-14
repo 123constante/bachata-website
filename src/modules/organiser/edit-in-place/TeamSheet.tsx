@@ -187,7 +187,7 @@ export default function TeamSheet({ access, organiserName, search, add, onAdded,
           autoCapitalize="words"
           autoCorrect="off"
           spellCheck={false}
-          style={{ ...inputStyle, marginTop: 4 }}
+          className="org-eip-input" style={{ ...inputStyle, marginTop: 4 }}
         />
         <div id={listId} role="list" aria-label="People found" data-testid="eip-team-results" style={{ marginTop: 6, maxHeight: LIST_MAX_H, overflowY: 'auto', overscrollBehavior: 'contain' }}>
           {people.map((p) => {

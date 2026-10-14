@@ -17,7 +17,7 @@
   --line-strong: #776e60; /* control borders that carry meaning (>= 3:1) */
   --fg: #f6f1e7;
   --mut: #a39a8b;
-  --ph: #8f8678;          /* placeholder; mockup #6f665a failed AA */
+  --ph: #9d9487;          /* placeholder; >= 4.5:1 on every surface incl. the edit-in-place input (#8f8678 was 4.47) */
   --gold: #ffa600;
   --btn: #f6f1e7;
   --btnfg: #15120e;
@@ -51,6 +51,14 @@
 .org-theme input::placeholder,
 .org-theme textarea::placeholder {
   color: var(--ph);
+  opacity: 1;
+}
+
+/* Edit-in-place sheets portal into document.body, OUTSIDE .org-theme, so --ph
+   is undefined there: the literal fallback is what they get. Test keeps it
+   equal to --ph. */
+.org-eip-input::placeholder {
+  color: var(--ph, #9d9487);
   opacity: 1;
 }
 

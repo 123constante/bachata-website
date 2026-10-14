@@ -58,7 +58,7 @@ export default function CitySheetBody({ value, currentName, onPick, searchCities
         autoCapitalize="words"
         autoCorrect="off"
         spellCheck={false}
-        style={{ ...inputStyle, flexShrink: 0 }}
+        className="org-eip-input" style={{ ...inputStyle, flexShrink: 0 }}
       />
       {/* A div, not a fieldset: Chromium will not shrink a fieldset as a flex
           item, so the whole sheet scrolled instead of the list (phone suite). */}

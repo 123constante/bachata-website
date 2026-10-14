@@ -6,6 +6,7 @@
 // the bar at the bottom of the PAGE (above the footer) instead of the screen.
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import '../theme.css';
 
 /**
  * The layer only mounts for a signed-in owner (never on the server), but the

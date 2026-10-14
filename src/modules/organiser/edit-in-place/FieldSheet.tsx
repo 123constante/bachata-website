@@ -171,7 +171,7 @@ export default function FieldSheet({ field, initial, storedCategory, initialCity
           rows={6}
           aria-describedby={describedBy}
           aria-invalid={!!showError}
-          style={{ ...inputStyle, resize: 'vertical', minHeight: 140 }}
+          className="org-eip-input" style={{ ...inputStyle, resize: 'vertical', minHeight: 140 }}
         />
         <p aria-live="polite" style={{ margin: '4px 0 0', fontSize: 12, textAlign: 'right', color: n > ABOUT_MAX ? '#FF8A70' : 'rgba(246,241,234,0.6)' }} data-testid="eip-about-counter">
           {n} / {ABOUT_MAX}
@@ -267,7 +267,7 @@ export default function FieldSheet({ field, initial, storedCategory, initialCity
         spellCheck={false}
         aria-describedby={describedBy}
         aria-invalid={!!showError}
-        style={inputStyle}
+        className="org-eip-input" style={inputStyle}
       />
     );
     if (field === 'name') {
