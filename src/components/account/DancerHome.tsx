@@ -23,6 +23,7 @@ import {
 } from "@/lib/profileCompletion";
 import { ORGANISER_HOME_KEY, myAccessRequestsQueryKey, type MyAccessRequest } from "@/modules/organiser/shared/selfServeApi";
 import { NationalityFlag } from "@/components/people/NationalityFlag";
+import { HideSurnameCard } from "./HideSurnameCard";
 
 // The organiser onboarding (claim / request access / create) loads only when
 // "I organise events" is opened: most dancers never open it.
@@ -314,6 +315,8 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
           </Link>
         </div>
       )}
+
+      {!loading && completion.status !== "signed_out" && fact.kind !== "no_profile" && <HideSurnameCard />}
 
       {organiserSection === "link" && (
         <Link
