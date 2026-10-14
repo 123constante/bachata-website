@@ -1,6 +1,6 @@
 # Brief W2 (Website): sessions by kind on the draft + compact go-live card
 
-Branch `arc/event-creation-w2` FROM `main` AFTER Website #750 and admin #780 AND admin A2 (roles migration) are merged (the dispatcher confirms). Push ONLY this branch. Open NO PR.
+Branch `claude/event-creation-w2` FROM `main` AFTER Website #750 and admin #780 AND admin A2 (roles migration) are merged (the dispatcher confirms). Push ONLY this branch. Open NO PR.
 **Keep your session context under 35% (owner rule): read only what you edit, tail logs to 40 lines, commit and push early, leave the handover before ~30%.** Write shell commands WITHOUT variables, loops or `$(...)`. Check a PRODUCTION build. Read repo files with git, not `gh api`.
 Hard rules: `src/lib/eventCategory.ts` byte-identical; never touch the calendar density-excluded files; `&hellip;` in JSX; explicit px tap targets; compact density.
 
@@ -18,3 +18,6 @@ After New event creates a bare draft (W1), the organiser builds its programme on
 
 ## Verify (all required)
 Red-first tests + a mutant per rule; matrix: 4 kinds x {role picker offers exactly one role, level shown/hidden, empty state says what to do, save untouched = no command, save changed = one command} x checklist states (0..5 of 5, venue missing, cover missing, no session). Prod shapes: series with 163 teaching + 1 djing on classes, 78 djing + 1 teaching + 1 mc on parties (the mismatches are GRANDFATHERED: they must display and save untouched without error). Run EVERY CI step (GitHub Actions + yourself), 390x844 production-build walk on the branch DB with A2 applied there, else NOT verified. Write `docs/handover/event-creation-w2.md`: checks table, Verified / Not verified, new-logic lines.
+
+## PR rule (owner-approved hard-tier changes need a BOT-authored PR)
+This branch name starts with `claude/` ON PURPOSE: `.github/workflows/bot-pr.yml` opens the PR AS THE BOT when you push, so the owner can approve hard-tier changes. NEVER open the PR yourself (a PR under the owner's login cannot be approved by the owner and reds `Owner approval audit`; that is what happened to #750). After the bot opens it, fill the body with `gh api -X PATCH` using the template headings `## Verified on real data` (lines `Shapes surveyed:`, `Checks run:`, `NOT verified:`) and `## Phone QA` (lines `Sizes checked:` with a WxH, `Walked:`, `Not verified:`). Workers push only.
