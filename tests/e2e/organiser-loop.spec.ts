@@ -39,19 +39,22 @@ test('create an organiser, send it for review, get approved, create an event, st
   await page.getByTestId('org-tab-home').click();
   await page.getByTestId('home-new-event').click();
   await page.getByTestId('org-new-event-name').fill('Nova Thursdays');
-  await page.getByTestId('org-new-event-type-class').click();
+  await page.getByTestId('org-new-event-format-one_off').click();
   await page.getByTestId('org-new-event-create').click();
   await expect(page.getByTestId('org-event-editor')).toBeVisible();
-  // ONE date, the one the chip's session goes on (FIX-6 F-e; Repeats makes it weekly later).
+  // One-off: ONE date (W1).
   await expect(page.getByTestId('org-date-row')).toHaveCount(1);
 
-  // The Class chip seeded ONE session, "Class", on that date (event-truth P1); a new
-  // event has no teacher yet, so the loop adds one to that session.
+  // The create seeds no session (W1): the loop adds a class on that date, with its teacher.
   await page.getByTestId('org-date-row').first().click();
   await expect(page.getByTestId('org-page-date')).toBeVisible();
-  await expect(page.getByTestId('session-row')).toHaveCount(1);
+  await expect(page.getByTestId('session-row')).toHaveCount(0);
+  await page.getByTestId('date-add-session').click();
+  await page.getByTestId('session-type-class').click();
+  await page.getByTestId('session-name').fill('Class');
+  await page.getByTestId('session-start').fill('20:00');
+  await page.getByTestId('session-end').fill('22:00');
   const seeded = page.getByTestId('session-row').filter({ hasText: 'Class' });
-  await seeded.getByTestId('session-row-open').click();
   await page.getByTestId('session-add-person').click();
   await page.getByTestId('people-search').fill('eva');
   await page.getByTestId('people-result').first().click();

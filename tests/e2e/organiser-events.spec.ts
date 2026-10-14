@@ -12,7 +12,7 @@ test.use({ viewport: PHONE });
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-test('New event: name only creates the draft and ONE date with its class session, then the editor opens', async ({ page }) => {
+test('New event: name and One-off create the draft and its ONE date, no session, then the editor opens', async ({ page }) => {
   const fake = await openOrganiser(page, '/account/o/events/new');
   await expect(page.getByTestId('org-page-new-event')).toBeVisible();
 
@@ -22,12 +22,12 @@ test('New event: name only creates the draft and ONE date with its class session
   expect(fake.envelopes()).toHaveLength(0);
 
   await page.getByTestId('org-new-event-name').fill('Thursday Bachata Class');
-  // No first session chosen yet (G2, event-truth P1): refused on the screen, nothing is sent.
+  // No format chosen yet (W1): refused on the screen, nothing is sent.
   await page.getByTestId('org-new-event-create').click();
-  await expect(page.getByTestId('org-new-event-error')).toHaveText('Choose the first session: a class, a party or a workshop.');
+  await expect(page.getByTestId('org-new-event-error')).toHaveText('Choose One-off or Recurring.');
   expect(fake.envelopes()).toHaveLength(0);
 
-  await page.getByTestId('org-new-event-type-class').click();
+  await page.getByTestId('org-new-event-format-one_off').click();
   await page.getByTestId('org-new-event-create').click();
   await expect(page).toHaveURL(/\/account\/o\/events\/[0-9a-f-]{36}$/);
   const id = page.url().split('/').pop()!;
@@ -36,61 +36,54 @@ test('New event: name only creates the draft and ONE date with its class session
   const [create, rule] = fake.envelopes();
   expect(create.target_id).toBe(id);
   expect(create.command.kind).toBe('series.upsert');
-  expect(create.command.payload).toMatchObject({ name: 'Thursday Bachata Class', format: 'recurring', default_duration_minutes: 120, default_start_date: '2026-10-15', timezone: 'Europe/London' });
+  expect(create.command.payload).toMatchObject({ name: 'Thursday Bachata Class', format: 'one_off', default_duration_minutes: 120, default_start_date: '2026-10-15', timezone: 'Europe/London' });
   // Category is derived from the sessions on the server (event-truth P1): a create never sends it.
   expect(create.command.payload).not.toHaveProperty('category');
   expect(create.command.payload.organiser_ids).toEqual([ORG]);
-  // FIX-6 F-e: ONE date, the one its session goes on (8 weekly dates left 2-8 without a session).
+  // One-off: ONE date.
   expect(rule.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
   expect(rule.expected_version).toBe(1);
   expect(fake.envelopes()).toHaveLength(2);
-  // The Class chip seeded ONE class session on the date the add_date reply named, nothing else.
-  const seeds = fake.sent('organiser_set_occurrence_programme_v1');
-  expect(seeds).toHaveLength(1);
-  expect(seeds[0].p_occurrence_id).toBe(fake.occId(fake.series.get(id)!, '2026-10-15'));
-  expect(seeds[0].p_sessions).toEqual([{ new: true, type: 'class', title: 'Class', start_time: '20:00', end_time: '22:00', ends_next_day: false, level_keys: [] }]);
+  // W1: no session is seeded; the organiser adds sessions on the draft.
+  expect(fake.sent('organiser_set_occurrence_programme_v1')).toHaveLength(0);
 
   await expect(page.getByTestId('org-event-editor')).toBeVisible();
   await expect(page.getByTestId('org-event-name')).toHaveValue('Thursday Bachata Class');
   await expect(page.getByTestId('org-date-row')).toHaveCount(1);
-  // Every listed date carries a session: the review card does not ask for one.
-  await expect(page.getByTestId('org-event-review-blocked')).not.toContainText('Add at least one session first.');
-  // The Type row reads the word the sessions derive (the fake mirrors the server's trigger: the
-  // union over every date, keep-if-agrees), and the sublabel promises no change (FIX-2, d22).
-  await expect(page.getByTestId('org-row-type')).toContainText('Class');
-  await expect(page.getByTestId('org-row-type')).toContainText('Set by its sessions across all its dates.');
+  // No session yet: the review card asks for one, and the Type row says how it gets set.
+  await expect(page.getByTestId('org-event-review-blocked')).toContainText('Add at least one session first.');
+  await expect(page.getByTestId('org-row-type')).toContainText('Not set');
+  await expect(page.getByTestId('org-row-type')).toContainText('Add a session to one of its dates and it is set for you.');
 });
 
-test('New event: a party is created with ONE date (no weekly rule), then the editor opens', async ({ page }) => {
+test('New event: Recurring is created recurring with the weekly rule on its first date\u2019s weekday, then the editor opens', async ({ page }) => {
   const fake = await openOrganiser(page, '/account/o/events/new');
   await page.getByTestId('org-new-event-name').fill('Saturday Social');
-  await page.getByTestId('org-new-event-type-party').click();
+  await page.getByTestId('org-new-event-format-recurring').click();
   await page.getByTestId('org-new-event-create').click();
   await expect(page).toHaveURL(/\/account\/o\/events\/[0-9a-f-]{36}$/);
   const id = page.url().split('/').pop()!;
 
   const sent = fake.envelopes();
   expect(sent).toHaveLength(2);
-  const [create, date] = sent;
+  const [create, rule] = sent;
   expect(create.target_id).toBe(id);
-  expect(create.command.payload).toMatchObject({ name: 'Saturday Social', format: 'recurring', default_duration_minutes: 300, default_start_date: '2026-10-15' });
+  expect(create.command.payload).toMatchObject({ name: 'Saturday Social', format: 'recurring', default_duration_minutes: 120, default_start_date: '2026-10-15' });
   expect(create.command.payload).not.toHaveProperty('category');
-  expect(date.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
-  expect(date.expected_version).toBe(1);
-  // The Party chip seeded ONE party session (20:00 plus 300 minutes: 01:00 next day) on its one date.
-  const seeds = fake.sent('organiser_set_occurrence_programme_v1');
-  expect(seeds).toHaveLength(1);
-  expect(seeds[0].p_sessions).toEqual([{ new: true, type: 'party', title: 'Party', start_time: '20:00', end_time: '01:00', ends_next_day: true, level_keys: [] }]);
+  // 15 Oct 2026 is a Thursday (weekday 4).
+  expect(rule.command).toEqual({ kind: 'series.set_recurrence', payload: { mode: 'weekly', weekdays: [4], end: { kind: 'none' } } });
+  expect(rule.expected_version).toBe(1);
+  expect(fake.sent('organiser_set_occurrence_programme_v1')).toHaveLength(0);
 
   await expect(page.getByTestId('org-event-editor')).toBeVisible();
   await expect(page.getByTestId('org-event-name')).toHaveValue('Saturday Social');
-  await expect(page.getByTestId('org-date-row')).toHaveCount(1);
-  await expect(page.getByTestId('org-row-type')).toContainText('Night');
+  await expect(page.getByTestId('org-date-row').nth(1)).toBeVisible();
+  await expect(page.getByTestId('org-row-type')).toContainText('Not set');
 });
 
 // FIX-3 (review F4, F10): nothing above the tapped Create moves while it runs. Open the event
 // mounts only once the create is CONFIRMED and the run has ended (FIX-4 F3: not while its date
-// still runs), BELOW Create. FIX-4 F4: the hint box holds the longest hint (the Class chip takes 3
+// still runs), BELOW Create. FIX-4 F4: the hint box holds the longest hint (the Recurring card's takes 3
 // lines at 360px), so Create's y is equal before, while creating, and while finishing, at 390 and 360.
 for (const width of [390, 360]) {
   test(`New event at ${width}px: the Create button stays put before, during and after the create; Open appears below it once the run ends`, async ({ page }) => {
@@ -110,9 +103,9 @@ for (const width of [390, 360]) {
       await route.fallback();
     });
     await page.getByTestId('org-new-event-name').fill('Thursday Class');
-    await page.getByTestId('org-new-event-type-class').click();
+    await page.getByTestId('org-new-event-format-recurring').click();
     const create = page.getByTestId('org-new-event-create');
-    const hint = page.getByTestId('org-new-event-type-hint');
+    const hint = page.getByTestId('org-new-event-format-hint');
     const y = async () => (await create.boundingBox())!.y;
     const before = await y();
     await expect(page.getByTestId('org-new-event-open')).toHaveCount(0);
@@ -135,7 +128,7 @@ for (const width of [390, 360]) {
     const open = page.getByTestId('org-new-event-open');
     await expect(open).toBeVisible();
     await expect(open).toBeEnabled();
-    await expect(page.getByTestId('org-new-event-error')).toContainText('its date was not listed');
+    await expect(page.getByTestId('org-new-event-error')).toContainText('its weekly dates were not listed');
     expect((await open.boundingBox())!.y).toBeGreaterThan(await y());
     await open.click();
     await expect(page).toHaveURL(/\/account\/o\/events\/[0-9a-f-]{36}$/);
