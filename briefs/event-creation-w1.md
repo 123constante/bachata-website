@@ -1,6 +1,6 @@
 # Brief W1 (Website): New event page = name + four format cards
 
-Branch `arc/event-creation-w1` FROM `main` AFTER Website #750 and admin #780 are merged (the dispatcher confirms). Push ONLY this branch. Open NO PR.
+Branch `claude/event-creation-w1` FROM `main` AFTER Website #750 and admin #780 are merged (the dispatcher confirms). Push ONLY this branch. Open NO PR.
 **Keep your session context under 35% (owner rule): read only what you edit, tail logs to 40 lines, commit and push early, leave the handover before ~30%.** Write shell commands WITHOUT variables, loops or `$(...)`. Check a PRODUCTION build (`npm run build`), not only the dev server. Read repo files with git, not `gh api`.
 Hard rules: `src/lib/eventCategory.ts` byte-identical; never touch `src/components/calendar/**`, `EventCalendar.tsx`, `useCalendarEvents.tsx`; `&hellip;` entities in JSX; explicit px tap targets (html font is ~13.5px on phones); no budget/pin/`vendor-ui*` raised; compact density (`.claude/rules/design-density.md`).
 
@@ -22,3 +22,6 @@ Red-first tests for each new rule (run against the base, say so) and a mutant fo
 ## Found in the #750 walk (390x844), carry into your work
 - The old Class chip kept an AMBER OUTLINE after switching to Party (probably a focus or selected state, unconfirmed on a real phone). Your four cards must show exactly ONE selected state at a time; add a test that selecting another card clears the previous card's selected and focus styling.
 - (The editor Type sub-line was clipped by 	runcate on a draft with no sessions: W3 removes that row, so no fix needed here.)
+
+## PR rule (owner-approved hard-tier changes need a BOT-authored PR)
+This branch name starts with `claude/` ON PURPOSE: `.github/workflows/bot-pr.yml` opens the PR AS THE BOT when you push, so the owner can approve hard-tier changes. NEVER open the PR yourself (a PR under the owner's login cannot be approved by the owner and reds `Owner approval audit`; that is what happened to #750). After the bot opens it, fill the body with `gh api -X PATCH` using the template headings `## Verified on real data` (lines `Shapes surveyed:`, `Checks run:`, `NOT verified:`) and `## Phone QA` (lines `Sizes checked:` with a WxH, `Walked:`, `Not verified:`). Workers push only.
