@@ -1,4 +1,5 @@
-﻿import { useState, useEffect } from "react";
+﻿import { withPublicNames } from '@/lib/publicDancerNames';
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Users, Lock, MessageCircle, Sparkles, Heart, Music, Star, Zap, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,12 +52,13 @@ const PracticePartners = () => {
       try {
         const { data, error } = await supabase
           .from('dancer_profiles')
-          .select('id, first_name, surname, based_city_id, dance_role, avatar_url, nationality, cities!based_city_id(name), dancing_role_details!inner(favorite_styles, looking_for_partner)')
+          .select('id, first_name, based_city_id, dance_role, avatar_url, nationality, cities!based_city_id(name), dancing_role_details!inner(favorite_styles, looking_for_partner)')
           .eq('dancing_role_details.looking_for_partner', true)
           .order('created_at', { ascending: false });
         
         if (error) throw error;
-        setPartners((data || []).map((row) => ({
+        const masked = await withPublicNames(data || []);
+        setPartners(masked.map((row) => ({
           ...row,
           favorite_styles: row.dancing_role_details?.favorite_styles ?? null,
           looking_for_partner: row.dancing_role_details?.looking_for_partner ?? null,

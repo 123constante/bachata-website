@@ -11,6 +11,7 @@ import { useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import { DancerProfileGrid } from "@/components/profile/DancerProfileGrid";
 import {
   DANCER_PUBLIC_COLS,
+  attachPublicDancerName,
   mapDancerPublicProfile,
   type DancerPublicQueryRecord,
   type DancerPublicRecord,
@@ -71,7 +72,7 @@ const DancerProfile = () => {
         .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("Dancer not found.");
-      return data as DancerPublicQueryRecord;
+      return (await attachPublicDancerName(data)) as unknown as DancerPublicQueryRecord;
     },
     enabled: !!id,
     staleTime: 1000 * 60 * 5,

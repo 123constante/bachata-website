@@ -1,3 +1,4 @@
+import { withPublicNames } from '@/lib/publicDancerNames';
 import { supabase } from '@/integrations/supabase/client';
 import { PEOPLE_ROLE_LABEL, type PeopleRole } from '@/modules/organiser/shared/programmeModel';
 import { searchPeople, type PersonResult } from '@/modules/organiser/shared/selfServeApi';
@@ -45,9 +46,9 @@ export async function searchPickerRows(term: string, role: PeopleRole): Promise<
   try {
     const { data, error } = await supabase
       .from('dancer_profiles')
-      .select('id, display_name, first_name, surname')
+      .select('id, first_name')
       .in('id', results.map((r) => r.id));
-    if (!error && Array.isArray(data)) byId = new Map((data as ProfileNames[]).map((p) => [p.id, p]));
+    if (!error && Array.isArray(data)) byId = new Map((await withPublicNames(data)).map((p) => [p.id, p as ProfileNames]));
   } catch {
     // keep the search names
   }
