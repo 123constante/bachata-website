@@ -1,59 +1,49 @@
 import { addDaysToKey } from '@/lib/londonDate';
 import { createSeriesCommand } from '@/modules/organiser/shared/selfServeApi';
-import { createDraft, emptyCreateForm } from '@/modules/organiser/shared/createModel';
-import { buildPayload, newSession, type Programme, type WireSession } from '@/modules/organiser/shared/programmeModel';
-import { endTime } from '@/modules/organiser/shared/seriesModel';
-import { addDateCommand, createPayload, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
+import type { HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
+import { createDraft, emptyCreateForm, weekdayOf } from '@/modules/organiser/shared/createModel';
+import { addDateCommand, createPayload, weeklyRuleCommand, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
 
-import { DEFAULT_DURATION_MINUTES, SEED_SESSION, type NewEventType } from './eventType';
+import type { NewEventFormat } from './eventType';
 
 /** Every new event starts the same way; the editor changes any of it. */
 export const NEW_EVENT_START_TIME = '20:00';
 export const NEW_EVENT_FIRST_DATE_IN_DAYS = 7;
+/** default_duration_minutes a create sends (G4; the server takes 1-1200), so each date has an end time. */
+export const NEW_EVENT_DURATION_MINUTES = 120;
 
 /**
- * The create (a series.upsert on a fresh id) and the schedule that follows it.
- * Every type is created 'recurring' with no rule (owners cannot create a course,
- * and a one_off can never be made weekly) and gets ONE date, which the editor's
- * Repeats row can make weekly later (G2, G5). One date for every chip (FIX-6 F-e):
- * the chip seeds one session, so it lists only the date that session goes on; a
- * class that listed 8 weekly dates left dates 2-8 with no session. The add_date
- * reply names that date, so the seed needs no read of the date list (F-g). The
- * create carries the type's default duration so each date has an end time (G4).
- * No category: the server derives it from the sessions, and seedSessions adds the
- * first one.
+ * The create (a series.upsert on a fresh id) in the chosen FORMAT, and the schedule that
+ * follows it (W1). One-off: one date, as before. Recurring: the one weekly rule an owner may
+ * set, on the first date's weekday (createModel's followUpCommands sends the same). No
+ * category and no session: the server derives the category from the sessions, which the
+ * organiser adds on the draft (W2).
  */
-export function newEventCommands(name: string, today: string, organiserId: string, cityId: string | null, type: NewEventType = 'class'): { create: OwnerCommand; schedule: OwnerCommand } {
+export function newEventCommands(name: string, today: string, organiserId: string, cityId: string | null, format: NewEventFormat): { create: OwnerCommand; schedule: OwnerCommand } {
   const startDate = addDaysToKey(today, NEW_EVENT_FIRST_DATE_IN_DAYS);
   const form = { ...emptyCreateForm(), kind: 'weekly_class' as const, name, date: startDate, startTime: NEW_EVENT_START_TIME };
-  const draft = { ...createDraft(form), durationMinutes: DEFAULT_DURATION_MINUTES[type] };
+  const draft = { ...createDraft(form), format, durationMinutes: NEW_EVENT_DURATION_MINUTES };
   return {
     create: createSeriesCommand(createPayload(draft, cityId), organiserId),
-    schedule: addDateCommand(startDate),
+    schedule: format === 'recurring' ? weeklyRuleCommand(weekdayOf(startDate)) : addDateCommand(startDate),
   };
 }
 
-/**
- * The date series.add_date listed (_cmd_series_add_date_p5 answers {occurrence_id}; a replay
- * under the same key answers the stored reply, so a retry names the same date). Null when the
- * reply does not carry it.
- */
-export function listedOccurrenceId(reply: { data?: Record<string, unknown> } | null | undefined): string | null {
-  const id = reply?.data?.occurrence_id;
-  return typeof id === 'string' && id !== '' ? id : null;
-}
-
+/** The series a duplicate name is checked against (d32): live or paused only. */
+const DUPLICATE_STATUSES = new Set(['live', 'paused']);
 
 /**
- * The date the create listed (listedOccurrenceId) gets its complete programme with the chip's session added, for
- * organiser_set_occurrence_programme_v1. Null when the date already holds a
- * session: a Create pressed again after a lost reply must never add a second one.
+ * The organiser's live or paused event already called this name, case- and space-insensitive
+ * (d32), read from the home list already loaded (no RPC). A QUIET note only: it never blocks
+ * Create. Null for an empty name or no match; the first by name when several match.
  */
-export function seedSessions(programme: Programme, type: NewEventType): WireSession[] | null {
-  if (programme.sessions.length > 0) return null;
-  const seed = SEED_SESSION[type];
-  const end = endTime(NEW_EVENT_START_TIME, DEFAULT_DURATION_MINUTES[type]) ?? '';
-  return buildPayload([{ ...newSession(seed.type), title: seed.title, start: NEW_EVENT_START_TIME, end }]);
+export function duplicateNamed(name: string, series: readonly Pick<HomeSeriesFull, 'id' | 'name' | 'lifecycle_status'>[]): { id: string; name: string } | null {
+  const wanted = name.trim().toLowerCase();
+  if (!wanted) return null;
+  const hit = series
+    .filter((s) => DUPLICATE_STATUSES.has(s.lifecycle_status) && s.name.trim().toLowerCase() === wanted)
+    .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))[0];
+  return hit ? { id: hit.id, name: hit.name } : null;
 }
 
 /**
