@@ -86,14 +86,22 @@ const text = (el: Element) => el.textContent ?? '';
 const isOff = (el: Element) => (el as HTMLButtonElement).disabled || el.getAttribute('aria-disabled') === 'true' || (el as HTMLTextAreaElement).readOnly === true;
 
 describe.each(SHAPES.map((s) => [s.key, s] as const))('shape %s', (_key, s) => {
-  it(`(1) the list tag and the editor tag both say "${LIFECYCLE_WORD[s.lifecycle]}"`, async () => {
+  // W3 (d31): a LIVE series with no date from today on reads Finished, or Nothing coming up when
+  // it repeats, on the list row (under Past) and the editor tag alike. Spelled out, not imported.
+  const word = s.lifecycle === 'live' && upcomingOf(s).length === 0
+    ? (s.format === 'recurring' ? 'Nothing coming up' : 'Finished')
+    : LIFECYCLE_WORD[s.lifecycle];
+  it(`(1) the list tag and the editor tag both say "${word}"`, async () => {
     current = s;
     mount('/account/o/events');
-    const row = await screen.findByTestId('org-event-row');
-    expect(text(within(row).getByTestId('org-event-row-status'))).toBe(LIFECYCLE_WORD[s.lifecycle]);
+    await screen.findByTestId('org-event-list');
+    const toggle = screen.queryByTestId('org-events-past-toggle');
+    if (toggle) fireEvent.click(toggle);
+    const row = screen.getByTestId('org-event-row');
+    expect(text(within(row).getByTestId('org-event-row-status'))).toBe(word);
     cleanup();
     await openEditor(s);
-    expect(text(screen.getByTestId('org-event-status'))).toBe(LIFECYCLE_WORD[s.lifecycle]);
+    expect(text(screen.getByTestId('org-event-status'))).toBe(word);
   });
 
   it('(2) the Date card never contradicts the data', async () => {

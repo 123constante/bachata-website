@@ -55,10 +55,8 @@ test('New event: name only creates the draft and ONE date with its class session
   await expect(page.getByTestId('org-date-row')).toHaveCount(1);
   // Every listed date carries a session: the review card does not ask for one.
   await expect(page.getByTestId('org-event-review-blocked')).not.toContainText('Add at least one session first.');
-  // The Type row reads the word the sessions derive (the fake mirrors the server's trigger: the
-  // union over every date, keep-if-agrees), and the sublabel promises no change (FIX-2, d22).
-  await expect(page.getByTestId('org-row-type')).toContainText('Class');
-  await expect(page.getByTestId('org-row-type')).toContainText('Set by its sessions across all its dates.');
+  // The editor shows no Type row (W3, owner decision d39): the sessions say what it is.
+  await expect(page.getByTestId('org-row-type')).toHaveCount(0);
 });
 
 test('New event: a party is created with ONE date (no weekly rule), then the editor opens', async ({ page }) => {
@@ -85,7 +83,7 @@ test('New event: a party is created with ONE date (no weekly rule), then the edi
   await expect(page.getByTestId('org-event-editor')).toBeVisible();
   await expect(page.getByTestId('org-event-name')).toHaveValue('Saturday Social');
   await expect(page.getByTestId('org-date-row')).toHaveCount(1);
-  await expect(page.getByTestId('org-row-type')).toContainText('Night');
+  await expect(page.getByTestId('org-row-type')).toHaveCount(0);
 });
 
 // FIX-3 (review F4, F10): nothing above the tapped Create moves while it runs. Open the event
