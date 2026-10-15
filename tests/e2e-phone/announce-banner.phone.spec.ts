@@ -1,13 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
 import { build } from 'esbuild';
-import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 /**
  * The banner ships OFF, so the real home page cannot show it. This spec bundles
  * the component with esbuild, flips it ON through its `enabled` prop (never by
- * editing the constant), and styles it with the PRODUCTION css from `npm run build`.
- * Needs `build/client/assets/root-*.css`.
+ * editing the constant), and styles it with the app's own compiled stylesheet,
+ * fetched from the dev server this suite already runs (CI runs no build step).
  */
 const ROOT = process.cwd();
 
@@ -31,8 +30,8 @@ async function bundle(enabled: boolean): Promise<string> {
 }
 
 async function open(page: Page, enabled: boolean) {
-  const assets = path.join(ROOT, 'build/client/assets');
-  const css = readFileSync(path.join(assets, readdirSync(assets).find((f) => /^root-.*\.css$/.test(f))!), 'utf8');
+  const css = await (await page.request.get('http://127.0.0.1:4185/src/index.css?direct')).text();
+  expect(css).toContain('.bg-primary');
   await page.route('**/banner-harness', (r) =>
     r.fulfill({ contentType: 'text/html', body: '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div></body></html>' }),
   );

@@ -21,21 +21,27 @@ On `main` the component and constant do not exist: the unit file fails at import
 ## Shapes surveyed
 No data is read by this banner; no Supabase query was made.
 
-## CI per job
-| step | command | exit | result |
-|---|---|---|---|
-| unit (new) | `npx vitest run src/components/HomeAnnounceBanner.test.tsx` | 0 | 6 passed |
-| typecheck | `npx tsc --noEmit` | 0 | clean |
-| eslint (my files) | `npx eslint <4 files>` | 0 | clean |
-| prod build | `npm run build` | 0 | built; banner chunk in Index |
-| phone spec | `playwright test -c playwright.phone.config.ts announce-banner` | 0 | 4 passed (390x844 + 360x640, ON + OFF) |
-| lint chain | `npm run lint` | 1 | 15/16 links PASS; `check:integrity` exit 126 (script not executable in sandbox), eslint link skipped by chain |
-| unit (all) | `npm run test:unit` | 1 | 15 failed / 8069 passed: all in `eventViewCompat`, `occurrenceProgram`, `publicEventPageLineup` (live-DB contract tests, no network) and `integrityCouldNotRun` (sandbox); none touch this change |
+## Catch-up (merge of main + CI fixes)
+- Merged origin/main (10693f7) cleanly. It carried a new `check-dancer-area-isolation.mjs`; re-run: OK ("not a dancer-area PR: rule c only"), so the 5 old violations are gone with no code or allowlist change.
+- phone-qa root cause: the spec read its CSS from `build/client/assets/root-*.css`, but the phone-qa job runs no `npm run build`, so it threw there (it passed locally only because a build existed). Fixed the SPEC (not the component): it now fetches `/src/index.css?direct` from the dev server the suite runs. Verified with `build/` deleted.
+- phone-qa-section / real-data-verified: `PR-BODY.md` next to this file; the orchestrator copies it into the PR.
 
-Not run: other workflows (live/prod/Vercel/DB-contract need network or secrets).
+## CI per job
+| job / step | command | exit | result |
+|---|---|---|---|
+| dancer-area-isolation | `node scripts/check-dancer-area-isolation.mjs` | 0 | OK |
+| phone-qa (banner spec, no build dir) | `playwright test -c playwright.phone.config.ts announce-banner` | 0 | 4 passed (390x844 + 360x640, ON + OFF) |
+| phone-qa-section | `check-pr-phone-qa.mjs` on PR-BODY.md | 0 | OK |
+| real-data-verified | `check-pr-real-data-verified.mjs` on PR-BODY.md | 0 | OK |
+| unit (banner) | `npx vitest run src/components/HomeAnnounceBanner.test.tsx` | 0 | 6 passed |
+| typecheck | `npm run typecheck` | nonzero | 96 errors, below the 106 baseline in pre-ship.mjs; none in banner files |
+| eslint (banner files) | `npx eslint` | 0 | clean |
+| prod build | `npm run build` | 0 | built |
+
+Not run: full unit suite in 3 timezones, full lint chain, integrity, build-smoke (not re-run after merge; earlier run on the old head had sandbox/network-only failures in live-DB contract tests). Billing annotations are not code failures.
 
 ## Not verified
-Real phone; screenshots at 390x844 / 360x780 (spec measures CTA and Dismiss height >= 44, no horizontal overflow, instead; viewport is 360x640 not 360x780); contrast not measured by tool (black on orange primary); sandbox-failing tests listed above; the full home page ON (page-level layout) was not rendered, only the banner in a harness.
+Real phone; full-page home with banner ON; contrast by tool; the jobs listed under "Not run"; full phone suite beyond the announce-banner spec.
 
 ## Left
 Flip `HOME_ANNOUNCE_BANNER_ON` to true for the last wave.
