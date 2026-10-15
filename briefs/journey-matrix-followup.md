@@ -15,7 +15,15 @@ BEFORE #764 is offered for merge.
 - 2+ organisers at sign-in: the "Continue as" list (current code).
 - M57 team invite opened by a different signed-in person: the bearer joins; the card says who is joining
   ("You are joining as <name>") with "Not you? Sign out".
-- M50/M51: NO grace period. Erase is immediate; re-sign-up is a brand-new person.
+- M50/M51 (REVISED by the owner 18:1x, supersedes "no grace"): delete = the account is HIDDEN from everyone at once;
+  signing in within 30 days RESTORES it; after 30 days it stays hidden, never erased. That is built in the later
+  account-system PR, NOT here: do not build or change deletion in #764. Mark M50/M51 in MATRIX.md as
+  "DEFERRED to the account-system plan (owner decision 2026-10-15)", and make sure nothing in #764 says "erased
+  immediately" or "permanently deleted" on screen.
+- D1: every sign-out path clears ALL person-scoped storage keys (same as M76 below, now an owner decision).
+- D7 (only if small, about 1-2 files; else write "deferred to plan PR" in the handover): the e-mail code box survives a
+  page reload for 10 minutes (same e-mail, same step), and after 5 wrong codes it stops accepting and shows
+  "Send a new code". Red-first test for each.
 - M44: an account with no dancer row and no organiser signs in -> the dancer setup (onboarding), not `/`.
 - M70 dancer invite e-mail: the dancer link + claim. Pin the Website side; note in the handover that the admin
   repo's URL must match (do not edit admin).
@@ -26,6 +34,11 @@ BEFORE #764 is offered for merge.
 - M71: a finished dancer on `/app/welcome` sees the end card, never re-asked. M80: unchanged. M17: as the code says.
 
 ## Task
+0. FIRST (orchestrator decision): CI `build-smoke` is red on 8e6405b because the build specs need
+   `VITE_SUPABASE_URL=https://phoneqafakenotaproject.supabase.co` (the fake session key ref) and
+   `VITE_ENABLE_ORGANISER_SELF_SERVE=true`; with both set the previous worker got 31/31. Default BOTH inside
+   `playwright.build.config.ts` (the build/webServer env of the test config, so local and CI match). Do NOT edit any
+   workflow file. Prove: without the change the build specs fail, with it 31/31 pass; paste both.
 1. If CI on the branch head still shows `build-smoke` red (tests/e2e-build/dancer-app-routing.build.spec.ts: signed-in
    people bounced from `/account/continue` to `/auth?mode=signin...`), fix that FIRST: it is a real red.
 2. Every MATRIX "Proposed follow-up" row and spec, plus the src changes the decisions above require (M76, M57 card,
