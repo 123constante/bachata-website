@@ -28,6 +28,7 @@
     "apply:firewall:self-test": "node scripts/apply-firewall.mjs --self-test",
     "check:pr-mergeable": "node scripts/check-pr-mergeable.mjs",
     "check:pr-mergeable:self-test": "node scripts/check-pr-mergeable.mjs --self-test",
+    "check:dancer-area-isolation": "node scripts/check-dancer-area-isolation.mjs",
     "gen:types": "npx --yes supabase@2.109.1 gen types typescript --project-id stsdtacfauprzrdebmzg --schema public > src/integrations/supabase/types.ts",
     "build:dev": "vite build --mode development",
     "lint": "node scripts/run-lint-chain.mjs",
