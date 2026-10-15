@@ -1,8 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
-import { ORG, OrganiserFake, expectNoHorizontalScroll, json } from '../e2e/helpers/organiserFake';
+import { ORG, ORG_NAME, OrganiserFake, expectNoHorizontalScroll, json } from '../e2e/helpers/organiserFake';
 import { DANCER_LINK, type Journey, type Person } from '../journeys/publicEntryJourneys';
 import { CITY_LONDON, makeProfile } from '../../src/modules/dancer-app/api/fixtures';
-import { Backend, EMAIL, codeStep, isWelcome, nextStage, onboarding, signupForm, wire, type Shot } from './helpers/journeyHarness';
+import { Backend, EMAIL, codeStep, isWelcome, nextStage, onboarding, signinForm, signupForm, wire, type Shot } from './helpers/journeyHarness';
 
 // Account edges the journey rows do not reach (MATRIX.md "Proposed follow-up", build-walk
 // specs): sign-out on a shared phone and in a second tab, two organisers in the switch
@@ -146,4 +146,44 @@ test('a different signed-in person opens an invite: the card names who is joinin
   await expect(card).toContainText(new RegExp(`You are joining as (Ana|${EMAIL.replace(/\./g, '\\.')})`));
   await expect(card).toContainText('Not you?');
   await expect(card.getByRole('button', { name: 'Sign out' }).or(card.getByRole('link', { name: 'Sign out' }))).toBeVisible();
+});
+
+test('sign out, then an organiser (B) signs in on the same phone: B sees B\'s sides and nothing of A (M77)', async ({ page }) => {
+  test.setTimeout(180_000);
+  // A: a finished dancer with no organiser side (so A's organiser read is cached as "none"). B: a different
+  // account, a finished dancer who also runs an organiser page. The page is never reloaded between them,
+  // so only the uid-keyed query caches keep A's answers out of B's chooser.
+  const backend = new Backend(rowFor({ signedIn: true, dancer: 'complete', organisers: 0, userType: 'dancer' }));
+  const fake = await wire(page, backend);
+  await page.goto('/app/home');
+  await expect(page.getByTestId('dancer-screen-home')).toBeVisible();
+  await signOutFromSheet(page);
+  // B arrives: the server now has an organiser page for B's user id.
+  const bOrg = new OrganiserFake();
+  fake.organisers.push(...bOrg.organisers);
+  for (const [id, series] of bOrg.series) fake.series.set(id, series);
+  for (const d of bOrg.emptyLineup) fake.emptyLineup.add(d);
+  const bEmail = 'bea.org@example.com';
+  backend.becomeReturning(bEmail, '77777777-7777-4777-8777-777777777777');
+  // Stay in the same page session: the app has sent the signed-out person to the sign-in form, no page.goto.
+  await signinForm(page, noShot, bEmail);
+  await codeStep(page, noShot, backend, false);
+  // The sign-out sent them back to the page they left (returnTo=/app/home), so B's sides are read from the switch sheet.
+  await expect(page.getByTestId('dancer-screen-home')).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId('profile-switcher-button').click();
+  await expect(page.locator('[data-testid^="profile-switcher-side-organiser:"]')).toHaveCount(1);
+  await expect(page.getByTestId(`profile-switcher-side-organiser:${ORG}`)).toContainText(ORG_NAME);
+  await expect(page.getByText(EMAIL)).toHaveCount(0);
+  await expectNoHorizontalScroll(page);
+});
+
+test('no side, not an admin: /account/continue lands on /app/welcome, never the site home (M44)', async ({ page }) => {
+  // An account with no dancer row and no organiser page (0 in prod today; the fake can express it with dancer: 'none').
+  // The landing is reached by opening /account/continue signed in. A fresh sign-in does NOT reach it for this person:
+  // AuthCallback finds no persona row and uses its own fallback (a city page). Recorded in FOLLOWUP-HANDOVER.md.
+  await wire(page, new Backend(rowFor({ signedIn: true, dancer: 'none', organisers: 0, userType: 'dancer' })));
+  await page.route('**/rest/v1/rpc/admin_is_admin', (r) => json(r, false));
+  await page.goto('/account/continue');
+  await page.waitForURL(isWelcome, { timeout: 30_000 });
+  await expectNoHorizontalScroll(page);
 });

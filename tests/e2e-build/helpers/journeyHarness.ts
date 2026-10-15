@@ -45,6 +45,8 @@ export class Backend {
   calls: string[] = [];
   /** The account's e-mail; becomeNew() swaps the person on the same phone. */
   email = EMAIL;
+  /** The account's user id; defaults to the one the other fakes use. becomeReturning() gives a second person their own. */
+  uid = ME;
 
   constructor(readonly row: Journey) {
     const p = row.person;
@@ -79,17 +81,29 @@ export class Backend {
     this.otpRedirect = null;
   }
 
+  /** A different, already-registered person (own user id, finished dancer profile) takes the phone, signed out. */
+  becomeReturning(email: string, uid: string) {
+    this.email = email;
+    this.uid = uid;
+    this.signedIn = false;
+    this.accountExists = true;
+    this.returning = true;
+    this.meta = { user_type: 'organiser', first_name: 'Bea', city_id: CITY_LONDON.id, dance_role: 'Follower' };
+    this.profile = makeProfile(COMPLETE);
+    this.otpRedirect = null;
+  }
+
   user() {
     const since = this.returning ? '2025-03-01T10:00:00Z' : '2026-10-08T10:59:00Z';
     return {
-      id: ME, aud: 'authenticated', role: 'authenticated', email: this.email,
+      id: this.uid, aud: 'authenticated', role: 'authenticated', email: this.email,
       email_confirmed_at: since, created_at: since, last_sign_in_at: '2026-10-08T11:00:00Z',
       app_metadata: { provider: 'email', providers: ['email'] }, user_metadata: this.meta,
     };
   }
 
   token() {
-    return `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url({ sub: ME, aud: 'authenticated', role: 'authenticated', email: this.email, exp: TOKEN_EXP, amr: [{ method: 'otp', timestamp: 1 }] })}.sig`;
+    return `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url({ sub: this.uid, aud: 'authenticated', role: 'authenticated', email: this.email, exp: TOKEN_EXP, amr: [{ method: 'otp', timestamp: 1 }] })}.sig`;
   }
 
   session() {
@@ -217,7 +231,7 @@ export class Backend {
 export type Shot = (step: string, what: string) => Promise<void>;
 
 /** The fakes on one page (each new tab of the context gets them too). */
-export async function wire(page: Page, backend: Backend) {
+export async function wire(page: Page, backend: Backend): Promise<OrganiserFake> {
   const fake = new OrganiserFake({ noOrganiser: backend.row.person.organisers === 0, signedOut: true });
   for (let i = 0; i < (backend.row.person.openRequests ?? 0); i += 1) {
     const c = fake.claimable[i % fake.claimable.length];
@@ -237,6 +251,7 @@ export async function wire(page: Page, backend: Backend) {
     });
   }
   await backend.install(page);
+  return fake;
 }
 
 export function trailOf(page: Page, trail: string[]) {

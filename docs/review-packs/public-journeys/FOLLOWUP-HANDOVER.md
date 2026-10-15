@@ -4,6 +4,11 @@ Brief: `briefs/journey-matrix-followup.md` (sha 23c8e4f4) on `arc/briefs-dancer-
 Branch `claude/dancer-app-routing`. Work list: "Proposed follow-up" in `MATRIX.md` (now copied into this folder, with
 COVERED BY filled in for every kept row).
 
+## Continuation (dt_097922a5dcca)
+- M77 build spec added (`account-edges.build.spec.ts`, no reload between A and B; `Backend.uid`/`becomeReturning`, `wire` returns the fake). **Non-vacuity NOT shown:** the auto-mode classifier refused a temporary break of the uid-keyed query key in `useProfileSides.ts`, so the spec has not been seen failing against a broken key.
+- M44 build walk added via `/account/continue` signed in. **New finding:** a fresh sign-in for an account with no dancer row never reaches `/account/continue`: `AuthCallback` sends it to its fallback (a city page). So M44 is fixed only for the landing, not for the real sign-in path. Owner call needed.
+- `PR-BODY.md` written.
+
 ## Done
 
 0. **build-smoke red fixed in `playwright.build.config.ts` only (no workflow edit).** The config now owns its
