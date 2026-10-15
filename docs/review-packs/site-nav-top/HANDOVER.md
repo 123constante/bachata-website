@@ -36,3 +36,18 @@ Merge commit of `origin/main` (2260d46, #759 + 9a8351cf + 865bd82b) into this br
 | phone-qa (full) | `playwright test --config playwright.phone.config.ts` | 0 | first full run: 172 passed, 74 skipped, 12 failed (gaps spec + 2 organiser-create cases, the two specs fixed above); re-run of site-nav-top (10), organiser-name-city-create, organiser-save-bar, small-queue-gaps: all pass |
 
 Not run: GitHub Actions, Lighthouse, e2e-smoke, seo/og, DB contract checks (no Docker / DB). The full phone suite was not re-run end to end after the two spec fixes.
+
+## Catch-up pass 2 (2026-10-15, worker dt_1587060141fb)
+
+Merged origin/main (10693f7, includes isolation-check scope change) into claude/site-nav-top: no conflicts. `check-dancer-area-isolation.mjs` now exits 0 ("not a dancer-area PR: rule c only"), so the old 32 violations are gone because main's check scope changed. No allowlist edits. PR-BODY.md added for `real-data-verified` and `phone-qa-section`.
+
+| Job / step | Command | Exit | Result |
+|---|---|---|---|
+| isolation | `node scripts/check-dancer-area-isolation.mjs` | 0 | OK |
+| typecheck | `npm run typecheck` | 2 | pre-existing errors; only touched file is BentoPage.tsx (comment-only change), its 3 TS2367 errors are at lines 335-337, not in the diff |
+| unit | `npx vitest run` | 1 | 15 failed / 8118 passed: live-DB contracts, integrityCouldNotRun, plan hygiene; none touch this change |
+| build | `npm run build` | 0 | pass |
+| phone-qa (3 specs) | `playwright test --config playwright.phone.config.ts` site-nav-top, small-queue-gaps, organiser-save-bar | 0 | 32 passed, 10 skipped |
+| PR-body checks | check-pr-phone-qa / check-pr-real-data-verified | 0 | both OK against PR-BODY.md |
+
+Not verified: GitHub Actions, Lighthouse, e2e-smoke, seo/og, DB contracts, unit tests in 3 timezones, full phone suite, signed-in /app.
