@@ -56,4 +56,6 @@ N/A: no UI change.
   pre-push receipt gate (`.githooks` not executable in this sandbox checkout).
 
 ## What is left
-Nothing for this slice. Owner/orchestrator: merge this before #762 (or merge main into #762 after).
+PR NOT OPENED: `gh pr create` returns HTTP 403 (GraphQL is not available from Claude Code sessions), `gh api`
+is forbidden by the dispatch, and COMMON forbids the MCP create tool. Needs orchestrator: open the PR from
+`claude/isolation-check-scope` to `main` with the body in `docs/handover/isolation-check-scope-pr-body.md`. Owner/orchestrator: merge this before #762 (or merge main into #762 after).
