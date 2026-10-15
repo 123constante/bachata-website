@@ -7,6 +7,7 @@
   "//parties+classes-2026-10-13": "320 -> 325 on 2026-10-13, a deliberate LOOSENING by 5 KB for /parties and /classes, in the PR that adds the home-made browser error reporter (go-live item 5). Main measured 319.9 KB (/parties) and 320.0 KB (/classes) against 320, i.e. 0.1-0.15 KB of headroom, so any change tripped the budget; the reporter itself adds about 0.1-0.15 KB on these routes (a one-line idle import in app/root.tsx; the reporter is a lazy chunk, not in first load). Chunk-count and puller ratchets are UNCHANGED and still catch request-count regressions. Same posture as the event 375 -> 380 raise of 2026-10-09. 325 leaves about 4.8 KB, roughly one dependency batch.",
   "//event-2026-10-13": "380 -> 381 on 2026-10-13, a deliberate LOOSENING by 1 KB for /event/:id (owner decision), in the event-truth FIX-7 PR (#750). Main measured about 379.8 KB, i.e. 0.2 KB of headroom; the PR adds 187 B gz via src/lib/eventCategory.ts riding in the lib-event-rules chunk. Chunk-count and puller ratchets are UNCHANGED. The structural fix (lazy RaffleEntryDialog out of first load) is queued as its own PR and should earn this KB back.",
   "//dancer-app-2026-10-15": "Added 2026-10-15 by the dancer rebuild W1 foundation (PR B1a). /app/* is the new signed-in dancer area: ONE lazy chunk (assets/dancer-app-*.js, entry src/modules/dancer-app/dancer-app.tsx) loaded through the catchall, so this row is the catchall's first load PLUS that chunk -- what a phone downloads to open /app/home cold. Measured locally on the W1 tip with placeholder screens: 296.8 KB gz / 41 chunks, the dancer-app chunk itself 1.6 KB gz JS + 0.9 KB gz CSS. Puller allowance 3: the auth route's two plus the dancer-app chunk itself (rollup lists vendor-supabase among its side-effect imports, as it does for every chunk downstream of AuthGuard); chunk allowance 41 = measured. Budget 310 = the auth row's number, leaving ~13 KB for the five wave-2 screens; a wave-2 slice that needs more raises it here with the measurement, as this file's rules say. SAME PR, auth puller allowance 3 -> 2: AnimatedRoutes now shares AuthGuard and the gate hook with the dancer-app chunk, rollup re-cut the chunks, and the auth route's first load went 33 -> 33 files with one fewer chunk holding a direct edge to vendor-supabase (vendor-supabase is still in it, as requiredFirstLoad demands). Auth KB moved 290.5 -> 291.3 (+0.8, the eager RedirectIfAllowed + useDancerArea + api/gateRpc in AnimatedRoutes, kept small on purpose: the error copy and profile parsers stay in the lazy chunk). Measured with a bare `npm run build`, so CI's figures read 0.2-0.4 KB lower (see the baseline note).",
+  "//dancer-app-2026-10-15-r1a": "310 -> 360 KB and chunk allowance 41 -> 57 on 2026-10-15 by R1a (all five wave-2 screens merged; owner decision: raise only if /event/:id first-load bytes grow <= 0.5 KB gz vs main). Same bare `npm run build` + `npm run check:bundle-budget` on both: main 4a63921 event 379.7 KB / 47 files; R1a 376.3 KB / 47 files (-3.4 KB) after lazy-loading DerivedLevelBadge + LevelRatingPrompt in BentoPage (static, the level-rating modules the dancer app shares were cut into their own chunk: 380.4 KB / 48 files, +0.7 KB). dancer-app measured 355.4 KB / 57 chunks; 360 leaves 4.6 KB.",
   "routes": {
     "home (/city/:slug)": {
       "entries": [
@@ -39,7 +40,7 @@
         "app/routes/catchall.tsx",
         "src/modules/dancer-app/dancer-app.tsx"
       ],
-      "maxFirstLoadGzipKB": 310
+      "maxFirstLoadGzipKB": 360
     },
     "parties (/parties)": {
       "entries": [
@@ -107,7 +108,7 @@
     "home (/city/:slug)": 43,
     "event (/event/:id)": 47,
     "auth (/auth/callback, via catchall)": 33,
-    "dancer-app (/app/*, lazy chunk via catchall)": 41,
+    "dancer-app (/app/*, lazy chunk via catchall)": 57,
     "parties (/parties)": 49,
     "classes (/classes)": 49,
     "faq (/faq)": 30,
