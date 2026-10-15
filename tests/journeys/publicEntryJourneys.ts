@@ -31,7 +31,19 @@ export type Journey = {
   /** For an /auth entry: sign up or sign in (what the form does after the code). */
   auth?: 'signup' | 'signin';
   /** Something that happens half way through onboarding. */
-  midway?: 'reload' | 'closed-tab-then-sign-in' | 'closed-tab-after-required' | 'magic-link-same-browser' | 'wrong-code-first' | 'expired-link';
+  midway?:
+    | 'reload'
+    | 'closed-tab-then-sign-in'
+    | 'closed-tab-after-required'
+    | 'magic-link-same-browser'
+    | 'wrong-code-first'
+    | 'expired-link'
+    /** Browser Back on every onboarding card, and once more on the END screen. */
+    | 'back-each-step'
+    /** The e-mailed link opened on a SECOND device (another browser context); the first device then types the code. */
+    | 'magic-link-other-context';
+  /** What the person taps on the screen the walk would otherwise stop on. */
+  then?: 'continue-as-organiser' | 'join-team';
   /** The END: the path (no query unless it matters), the screen, and the state left behind. */
   end: { path: string; screen: string; state: string };
 };
@@ -40,6 +52,9 @@ export const ORGANISER_LINK = '/auth?mode=signup&userType=organiser&returnTo=%2F
 export const DANCER_LINK = '/auth?mode=signup&userType=dancer';
 
 const NEW: Person = { signedIn: false, dancer: 'incomplete', organisers: 0 };
+const INVITE = '/invite/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0';
+const INVITE_SIGNIN = `/auth?mode=signin&returnTo=${encodeURIComponent(INVITE)}`;
+const CLAIM_END = { path: '/account/o', screen: 'organiser claim-your-page (OnboardingView)', state: 'dancer profile complete, no organiser yet' };
 
 export const JOURNEYS: Journey[] = [
   {
@@ -199,5 +214,110 @@ export const JOURNEYS: Journey[] = [
     person: { ...NEW, userType: 'dancer' },
     auth: 'signup',
     end: { path: '/organisers/bachata-playground-phone-qa?claim=1', screen: 'public organiser page, claim card', state: 'dancer profile complete; claim offered' },
+  },
+  // ---- MATRIX.md "Proposed follow-up" (docs/review-packs/public-journeys/MATRIX.md on claude/journey-matrix) ----
+  {
+    id: 'dancer-link-back-each-card',
+    title: 'Dancer link, new e-mail, presses browser Back on each onboarding card and on the END (M24)',
+    entry: DANCER_LINK,
+    person: { ...NEW, userType: 'dancer' },
+    auth: 'signup',
+    midway: 'back-each-step',
+    end: { path: '/app/home', screen: 'dancer app Home', state: 'Back never shows /auth with a session, never a blank page, never re-opens "You\'re in" (M10/M24: the end replaces)' },
+  },
+  {
+    id: 'organiser-link-back-each-card',
+    title: 'Organiser link, new e-mail, presses browser Back on each onboarding card and on the END (M10)',
+    entry: ORGANISER_LINK,
+    person: { ...NEW, userType: 'organiser' },
+    auth: 'signup',
+    midway: 'back-each-step',
+    end: { ...CLAIM_END, state: 'Back never shows /auth with a session, never a blank page, never re-opens "You\'re in" (M10/M24: the end replaces)' },
+  },
+  {
+    id: 'organiser-link-magic-link-other-device',
+    title: 'Organiser link, new e-mail, opens the e-mailed link on a second device (M06)',
+    entry: ORGANISER_LINK,
+    person: { ...NEW, userType: 'organiser' },
+    auth: 'signup',
+    midway: 'magic-link-other-context',
+    end: { ...CLAIM_END, state: 'device 2 ends on the claim screen; the code on device 1 then says wrong or expired' },
+  },
+  {
+    id: 'organiser-link-unfinished-dancer-signed-in',
+    title: 'Organiser link opened by someone signed in with an unfinished dancer profile (M13)',
+    entry: ORGANISER_LINK,
+    person: { signedIn: true, dancer: 'incomplete', organisers: 0, userType: 'dancer' },
+    end: { ...CLAIM_END, state: 'the gate ran onboarding with returnTo=/account/o first' },
+  },
+  {
+    id: 'organiser-link-organiser-signed-in',
+    title: 'Organiser link opened by someone signed in who already runs an organiser (M14)',
+    entry: ORGANISER_LINK,
+    person: { signedIn: true, dancer: 'complete', organisers: 1, userType: 'organiser' },
+    end: { path: '/account/o', screen: 'organiser Home (not the claim screen)', state: 'no sign-up form, no onboarding' },
+  },
+  {
+    id: 'organiser-link-open-request-signed-in',
+    title: 'Organiser link opened by someone signed in with an open organiser access request (M16)',
+    entry: ORGANISER_LINK,
+    person: { signedIn: true, dancer: 'complete', organisers: 0, userType: 'organiser', openRequests: 1 },
+    end: { path: '/account/o', screen: 'organiser onboarding showing the open request', state: 'the request is listed as waiting' },
+  },
+  {
+    id: 'dancer-link-existing-dancer',
+    title: 'Dancer link, e-mail that already has a finished dancer profile (form switches to sign in) (M26)',
+    entry: DANCER_LINK,
+    person: { signedIn: false, dancer: 'complete', organisers: 0, userType: 'dancer' },
+    auth: 'signin',
+    end: { path: '/app/home', screen: 'dancer app Home', state: 'unchanged dancer profile' },
+  },
+  {
+    id: 'signin-unfinished-dancer-with-organiser',
+    title: 'Sign in, organiser whose dancer profile is unfinished, picks the organiser (M35)',
+    entry: '/auth?mode=signin',
+    person: { signedIn: false, dancer: 'incomplete', organisers: 1, userType: 'organiser' },
+    auth: 'signin',
+    then: 'continue-as-organiser',
+    end: { path: '/account/o', screen: 'organiser Home (after "Continue as...", the gate and onboarding)', state: 'dancer profile complete' },
+  },
+  {
+    id: 'signin-open-request',
+    title: 'Sign in, finished dancer with organiser intent and an open access request (M36)',
+    entry: '/auth?mode=signin',
+    person: { signedIn: false, dancer: 'complete', organisers: 0, userType: 'organiser', openRequests: 1 },
+    auth: 'signin',
+    end: { path: '/app/home', screen: 'dancer app Home', state: 'no F2 jump to the claim screen' },
+  },
+  {
+    id: 'team-invite-existing-dancer',
+    title: 'Team invite, signed out finished dancer signs in from the card and joins (M53)',
+    entry: INVITE_SIGNIN,
+    person: { signedIn: false, dancer: 'complete', organisers: 0, userType: 'dancer' },
+    auth: 'signin',
+    then: 'join-team',
+    end: { path: '/account/o', screen: 'organiser Home of the joined organiser', state: 'member of the organiser' },
+  },
+  {
+    id: 'team-invite-unfinished-dancer',
+    title: 'Team invite, unfinished dancer signs in from the card (M54)',
+    entry: INVITE_SIGNIN,
+    person: { signedIn: false, dancer: 'incomplete', organisers: 0, userType: 'dancer' },
+    auth: 'signin',
+    end: { path: INVITE, screen: 'invite card', state: 'onboarding ran first and its end button said "Next: join the team"' },
+  },
+  {
+    id: 'bookmark-app-welcome-finished',
+    title: 'Finished dancer opens an old /app/welcome bookmark (M71)',
+    entry: '/app/welcome',
+    person: { signedIn: true, dancer: 'complete', organisers: 0, userType: 'dancer' },
+    end: { path: '/app/welcome', screen: 'onboarding end card (owner decision M71)', state: 'no card is asked again' },
+  },
+  {
+    id: 'bookmark-finish-profile-finished',
+    title: 'Finished dancer opens an old /finish-profile bookmark (M69)',
+    entry: '/finish-profile',
+    person: { signedIn: true, dancer: 'complete', organisers: 0, userType: 'dancer' },
+    end: { path: '/app/home', screen: 'dancer app Home', state: 'the old Finish screen is not shown' },
   },
 ];

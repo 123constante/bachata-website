@@ -16,6 +16,7 @@ import { landingPathAfterAuth, normalizeLandingRole, shouldHonorReturnTo, SIGNED
 import { finishProfileHref } from '@/lib/profileCompletion';
 import { photoHandoff } from '@/modules/dancer-app/screens/onboarding/steps';
 import { returnPathFor } from '@/modules/dancer-app/screens/photo/photoScreenDeps';
+import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { JOURNEYS, type Journey, type Person } from './publicEntryJourneys';
 
 /**
@@ -37,6 +38,8 @@ const pathOf = (path: string) => u(path).pathname;
 /** What AuthCallback.routeOnwards picks after the code (or the e-mailed link) for this entry. */
 const afterAuth = (entry: string, person: Person, mode: 'signup' | 'signin' | undefined): string => {
   const q = u(entry).searchParams;
+  // A bookmark (not an /auth link) opened with a session is simply that page.
+  if (person.signedIn && pathOf(entry) !== '/auth') return entry;
   const returnTo = sanitizeReturnTo(q.get('returnTo'));
   // A signed-in visitor on /auth goes straight on (Auth.tsx): the link's returnTo, else the landing.
   if (person.signedIn) return returnTo ?? SIGNED_IN_LANDING_PATH;
@@ -73,8 +76,17 @@ const walk = (row: Journey): Walk => {
     if (p === SIGNED_IN_LANDING_PATH) {
       const landing = signInLanding(sidesFacts(st), null);
       if (landing.kind === 'wait') throw new Error('sides never load');
-      if (landing.kind === 'choose') return { end: path, trail };
-      next = landing.to;
+      if (landing.kind === 'choose' && row.then === 'continue-as-organiser') {
+        next = landing.sides.find((s) => s.kind === 'organiser')!.to;
+      } else if (landing.kind === 'choose') {
+        return { end: path, trail };
+      } else {
+        next = landing.to;
+      }
+    } else if (row.then === 'join-team' && p.startsWith('/invite/') && st.dancer === 'complete') {
+      // The invite page redeems and replaces itself with the organiser Home (InviteRedeemPage).
+      st.organisers += 1;
+      next = ORG_PATHS.home;
     } else if (st.dancer !== 'complete' && isDancerGatedTarget(`${p}${at.search}`)) {
       next = finishProfileHref(`${p}${at.search}`);
     } else if (p === '/finish-profile') {
@@ -90,7 +102,15 @@ const walk = (row: Journey): Walk => {
       if (next === null) return { end: path, trail };
     } else if (p === APP_WELCOME_PATH) {
       const returnTo = at.searchParams.get('returnTo');
+      if (st.dancer === 'complete' && trail.length === 1) {
+        // Owner decision M71: a finished dancer who OPENS /app/welcome (a bookmark) sees the end card, never re-asked.
+        return { end: path, trail };
+      }
       if (st.dancer !== 'complete') {
+        if (midway === 'back-each-step') {
+          // Back from a card onto the /auth entry: a signed-in visitor on /auth is sent on, never shown the form.
+          expect(pathOf(afterAuth(row.entry, { ...st, signedIn: true }, row.auth)), 'Back onto /auth with a session').not.toBe('/auth');
+        }
         if (midway === 'reload') {
           // A reload re-reads the same URL: nothing but the URL carries the destination.
           midway = undefined;
