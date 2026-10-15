@@ -50,7 +50,7 @@ export const Avatar = ({ profile, size }: { profile: Pick<MyDancerEdit, 'avatar_
   // survey) or that 404s shows the initial, never a broken-image icon.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   return profile.avatar_url && failedUrl !== profile.avatar_url ? (
-    <img src={profile.avatar_url} alt="" style={{ ...box, objectFit: 'cover' }} data-testid="me-photo" onError={() => setFailedUrl(profile.avatar_url)} />
+    <img src={profile.avatar_url} alt="" style={{ ...box, objectFit: 'cover' }} data-testid="me-photo" loading="eager" onError={() => setFailedUrl(profile.avatar_url)} />
   ) : (
     <span
       aria-hidden="true"
