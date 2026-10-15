@@ -129,7 +129,7 @@ Rows and specs: `RED-tests.md`, run on 2abac36.
 | perf-budget | 3 self-tests, `npm run build` (perf env), bundle-budget, first-load-requests, chunk-cycles | all 0 | bundle-budget was 1 at 360.1 vs 360, so the budget went to 361 with the measurement. lighthouse / doc-weight need a preview, not run |
 | phone-qa phone-qa | `playwright.phone.config.ts` (no Supabase env, as CI) | 0 | 174 passed, 64 skipped |
 | phone-qa build-smoke | `npm run build` + `playwright.build.config.ts` | 0 | 50/50 |
-| e2e-smoke | `npm run test:e2e` (e2e-smoke env) | E2E_EXIT | E2E_NOTE |
+| e2e-smoke | `npm run test:e2e` (e2e-smoke env) | 0 | 148 passed, 1 skipped |
 | workflow-lint | BOM (workflows unchanged vs main), masking, notification (+self-test) | all 0 | |
 | real-data-verified / phone-qa-section | `--self-test` | 0 / 0 | The real step reads the PR body; the sections are below |
 | db-contract-check | migration-stamps, script-conventions | 0 / 0 | The live checks need secrets, not run |
