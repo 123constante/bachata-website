@@ -24,7 +24,7 @@ import {
 } from "@/lib/auth-otp-routing";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
-import MagicLinkConfirmation from "@/components/MagicLinkConfirmation";
+import MagicLinkConfirmation, { forgetCodeStep, readCodeStep, rememberCodeStep } from "@/components/MagicLinkConfirmation";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
 import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import GlobalLayout from "@/components/layout/GlobalLayout";
@@ -87,7 +87,11 @@ const AuthContent = () => {
   const mode = searchParams.get("mode") || "signup";
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  // D7: a reload within 10 minutes of the send reopens the code box for the same
+  // e-mail and the same step (this /auth mode), instead of the e-mail form.
+  const [restoredStep] = useState(() => readCodeStep(mode));
+  const [magicLinkSent, setMagicLinkSent] = useState(() => Boolean(restoredStep));
+  const [codeEmail, setCodeEmail] = useState(restoredStep?.email ?? "");
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const callbackNotice = mode === "signin" ? callbackErrorCopy(searchParams.get("callbackError")) : null;
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -278,6 +282,8 @@ const AuthContent = () => {
         },
       });
       if (error) throw error;
+      rememberCodeStep(normalizedEmail, mode);
+      setCodeEmail(normalizedEmail);
       setMagicLinkSent(true);
       localStorage.setItem("auth_last_email", normalizedEmail);
       trackAnalyticsEvent("auth_viewed", { mode: isCreateAccount ? "signup" : "signin", source: "magic_link_sent" });
@@ -312,6 +318,7 @@ const AuthContent = () => {
   // Hand over to /auth/callback so both routes share one post-login resolution
   // (returnTo, pending role, profile stub) instead of a second copy of it here.
   const handleCodeVerified = () => {
+    forgetCodeStep();
     const callbackUrl = new URLSearchParams({ mode: mode === "signup" ? "signup" : "signin" });
     if (explicitReturnTo) {
       callbackUrl.set("returnTo", explicitReturnTo);
@@ -357,9 +364,12 @@ const AuthContent = () => {
           <Card className="shadow-none">
             <CardContent className="pt-6">
               <MagicLinkConfirmation
-                email={email}
+                email={codeEmail || email}
                 onResend={handleSendMagicLink}
-                onChangeEmail={() => setMagicLinkSent(false)}
+                onChangeEmail={() => {
+                  forgetCodeStep();
+                  setMagicLinkSent(false);
+                }}
                 onVerified={handleCodeVerified}
                 extraAction={{ label: "Continue browsing", onClick: () => navigate(returnTo) }}
               />

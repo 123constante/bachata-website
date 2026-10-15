@@ -253,6 +253,12 @@ export type SidesFacts = {
    * failed. Only signInLanding reads it (a request is not a side).
    */
   openRequestCount?: number | null;
+  /**
+   * The person is an admin (admin_is_admin, hooks/useIsAdmin): undefined while
+   * loading, null when the read failed. Only signInLanding reads it, and only
+   * for a person with no side at all (M44).
+   */
+  isAdmin?: boolean | null;
 };
 
 export type ProfileSide =
@@ -308,9 +314,11 @@ export type SignInLanding = { kind: 'wait' } | { kind: 'go'; to: string } | { ki
 /**
  * After sign-in: an explicit returnTo (a link the person followed) always wins;
  * one side -> straight there; two or more -> "Continue as..." (every sign-in, no
- * "remember"); no side at all (admin-only, or no dancer profile) -> the site
- * home, as before. A failed read cannot prove the sides: /account decides, with
- * its own error card.
+ * "remember"). No side at all (no live dancer row, no organiser): an admin stays
+ * on the site home, as before; anyone else goes to the dancer setup (M44, owner
+ * decision 2026-10-15) when the dancer area lets them in, else the site home. A
+ * failed admin read keeps the site home. A failed sides read cannot prove the
+ * sides: /account decides, with its own error card.
  *
  * One exception (review F2, option (b)): a single FINISHED dancer side whose
  * account came by the organiser link, with no organiser and no open request,
@@ -324,7 +332,11 @@ export const signInLanding = (f: SidesFacts, returnTo: string | null): SignInLan
   const state = profileSides(f);
   if (state.status === 'loading') return { kind: 'wait' };
   if (state.status === 'failed') return { kind: 'go', to: ACCOUNT_HOME_PATH };
-  if (state.sides.length === 0) return { kind: 'go', to: '/' };
+  if (state.sides.length === 0) {
+    if (!f.areaAllowed) return { kind: 'go', to: '/' };
+    if (f.isAdmin === undefined) return { kind: 'wait' };
+    return { kind: 'go', to: f.isAdmin === false ? APP_WELCOME_PATH : '/' };
+  }
   if (state.sides.length === 1) {
     const unclaimedOrganiser = state.sides[0].kind === 'dancer' && f.dancer === 'complete' && f.organiserIntent;
     if (unclaimedOrganiser && f.openRequestCount === undefined) return { kind: 'wait' };

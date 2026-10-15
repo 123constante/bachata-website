@@ -70,11 +70,12 @@ const SHAPES: Shape[] = [
     oldDancerHome: APP_WELCOME_PATH,
   },
   {
-    name: 'signed in, no dancer profile',
-    facts: dancerFacts('no_profile'),
+    // M44 (owner decision): not an admin, no live dancer row, no organiser -> the dancer setup, not the site home.
+    name: 'signed in, no dancer profile, not admin',
+    facts: dancerFacts('no_profile', { isAdmin: false }),
     openRequestCount: 0,
-    signIn: '/',
-    signUpDancer: '/',
+    signIn: APP_WELCOME_PATH,
+    signUpDancer: APP_WELCOME_PATH,
     tickInApp: null,
     tickInOrganiser: null,
     oldDancerHome: null,
@@ -123,8 +124,29 @@ const SHAPES: Shape[] = [
   },
   {
     name: 'admin only (no dancer profile, no organiser)',
-    facts: dancerFacts('no_profile', { areaAllowed: false }),
+    facts: dancerFacts('no_profile', { areaAllowed: false, isAdmin: true }),
     openRequestCount: 0,
+    signIn: '/',
+    signUpDancer: '/',
+    tickInApp: null,
+    tickInOrganiser: null,
+    oldDancerHome: null,
+  },
+  {
+    name: 'admin only, dancer area open to them',
+    facts: dancerFacts('no_profile', { isAdmin: true }),
+    openRequestCount: 0,
+    signIn: '/',
+    signUpDancer: '/',
+    tickInApp: null,
+    tickInOrganiser: null,
+    oldDancerHome: null,
+  },
+  {
+    name: 'not admin, no dancer profile, dancer area closed to them',
+    facts: dancerFacts('no_profile', { isAdmin: false, areaAllowed: false }),
+    openRequestCount: 0,
+    // /app/welcome would bounce off the closed gate: the site home, as before.
     signIn: '/',
     signUpDancer: '/',
     tickInApp: null,
@@ -240,6 +262,14 @@ describe('loading and failed reads', () => {
     expect(signInLanding(dancerFacts('complete', { organisers: undefined }), null)).toEqual({ kind: 'wait' });
     expect(signInLanding(dancerFacts('loading'), null)).toEqual({ kind: 'wait' });
     expect(signInLanding(dancerFacts('complete', { areaAllowed: undefined }), null)).toEqual({ kind: 'wait' });
+  });
+  it('no side at all: waits for the admin read; a failed admin read keeps the site home (M44)', () => {
+    expect(signInLanding(dancerFacts('no_profile'), null)).toEqual({ kind: 'wait' });
+    expect(signInLanding(dancerFacts('no_profile', { isAdmin: undefined }), null)).toEqual({ kind: 'wait' });
+    expect(signInLanding(dancerFacts('no_profile', { isAdmin: null }), null)).toEqual({ kind: 'go', to: '/' });
+    expect(signInLanding(dancerFacts('no_profile', { isAdmin: false }), null)).toEqual({ kind: 'go', to: APP_WELCOME_PATH });
+    // Anyone with a side never waits on the admin read.
+    expect(signInLanding(dancerFacts('complete'), null)).toEqual({ kind: 'go', to: APP_HOME_PATH });
   });
   it('a failed read cannot prove the sides: today\'s /account decides (it has the error card)', () => {
     expect(signInLanding(dancerFacts('complete', { organisers: null }), null)).toEqual({ kind: 'go', to: '/account' });
