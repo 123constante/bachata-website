@@ -99,12 +99,12 @@ Error codes (raised with `RAISE EXCEPTION USING ERRCODE = '<code>', MESSAGE = '<
   "nationality": text|null, "languages": text[] (never null; [] when none),
   "bio": text|null,
   "instagram": text|null, "facebook": text|null, "website_url": text|null,
-  "whatsapp": text|null,              // ONLY when other_roles is non-empty, else null and never sent
+  "whatsapp": text|null,              // ONLY when other_roles is non-empty (same rule as eligibility), else null and never sent
   "show_whatsapp_publicly": bool,
   "avatar_url": text|null,
   "dance_started_year": int|null,
   "favorite_styles": text[], "favorite_songs": text[], "achievements": text[],   // [] when none
-  "other_roles": text[],              // active person_roles other than 'dancing', e.g. ["teaching","djing"]
+  "other_roles": text[],              // active person_roles other than 'dancing' and 'guest_dancer' (= WhatsApp-eligible), e.g. ["teaching","djing"]
   "is_active": bool,                  // false = paused via my_profile_disable_v1
   "erase_requested_at": timestamptz|null,   // always null in release 1a (A2 fills it)
   "linked_from_admin": bool,          // dancer_profiles.source = 'admin_create' AND claimed_by = me
