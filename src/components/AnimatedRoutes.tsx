@@ -10,6 +10,10 @@ import { flags } from "@/lib/featureFlags";
 import { buildCityPath } from "@/lib/cityPath";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
+// The dancer area (/app/*): ONE lazy chunk, dancer-app. RedirectIfAllowed is the
+// small eager wrapper around three of today's account pages: it makes its gate
+// request only for a signed-in visitor and loads its organiser check lazily.
+import { RedirectIfAllowed } from "@/modules/dancer-app/gate/RedirectIfAllowed";
 
 // --- Landing page: lazy-loaded here (along with all other pages) ---
 const Index = lazyWithRetry(() => import("../pages/Index"));
@@ -53,6 +57,7 @@ const MyAttendance = lazyWithRetry(() => import("../pages/MyAttendance"));
 const AccountSettings = lazyWithRetry(() => import("../pages/AccountSettings"));
 const AccountDeleted = lazyWithRetry(() => import("../pages/AccountDeleted"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
+const DancerApp = lazyWithRetry(() => import("@/modules/dancer-app/dancer-app"));
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
 const ExportGuestEntry = lazyWithRetry(() => import("../pages/ExportGuestEntry"));
 
@@ -73,6 +78,12 @@ const CityRedirect = () => {
   return <Navigate to={buildCityPath(slug)} replace />;
 };
 
+/** Every /app URL shares one key, so the dancer app's shell stays mounted across its tabs. */
+const routesKey = (pathname: string) => {
+  const p = pathname.toLowerCase();
+  return p === "/app" || p.startsWith("/app/") ? "/app" : pathname;
+};
+
 export const AnimatedRoutes = () => {
   const location = useLocation();
 
@@ -80,7 +91,7 @@ export const AnimatedRoutes = () => {
     <AnimatePresence mode="wait">
       <ErrorBoundary>
         <Suspense fallback={<RouteFallback />}>
-          <Routes location={location} key={location.pathname}>
+          <Routes location={location} key={routesKey(location.pathname)}>
             <Route path="/" element={<CityRedirect />} />
             {/* /city/:slug, /parties, /classes are now framework routes
                 (app/routes.ts) — prerendered, so their catchall duplicates were
@@ -178,12 +189,12 @@ export const AnimatedRoutes = () => {
                 to /account/o for an organiser (lib/accountRouting). */}
             <Route path="/account" element={
               flags.organiserSelfServe
-                ? <PageTransition><Account /></PageTransition>
+                ? <RedirectIfAllowed><PageTransition><Account /></PageTransition></RedirectIfAllowed>
                 : <Navigate to="/" replace />
             } />
             <Route path="/account/dancer" element={
               flags.organiserSelfServe
-                ? <PageTransition><Account view="dancer" /></PageTransition>
+                ? <RedirectIfAllowed><PageTransition><Account view="dancer" /></PageTransition></RedirectIfAllowed>
                 : <Navigate to="/" replace />
             } />
             <Route path="/account/attendance" element={
@@ -229,7 +240,12 @@ export const AnimatedRoutes = () => {
                 and the party-rating gate (ProfileCompletionChrome). Its AuthGuard
                 lives INSIDE the lazy page chunk, like the organiser area: used
                 here, AuthGuard and its imports join the catchall first load. */}
-            <Route path="/finish-profile" element={<PageTransition><FinishProfile /></PageTransition>} />
+            <Route path="/finish-profile" element={<RedirectIfAllowed><PageTransition><FinishProfile /></PageTransition></RedirectIfAllowed>} />
+
+            {/* The new dancer area (briefs/dancer-rebuild-INTERFACE.md section 5).
+                Its AuthGuard and gate live inside the lazy chunk; no
+                PageTransition, so the shell's fixed tab bar is never animated. */}
+            <Route path="/app/*" element={<DancerApp />} />
 
             <Route path="/erase/:token" element={<PageTransition><EraseGuestEntry /></PageTransition>} />
             <Route path="/export/:token" element={<PageTransition><ExportGuestEntry /></PageTransition>} />

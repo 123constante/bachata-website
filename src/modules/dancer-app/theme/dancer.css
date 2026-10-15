@@ -1,0 +1,135 @@
+/*
+ * Dancer theme: ONE custom-property set, scoped to [data-profile="dancer"].
+ * Imported by shell/DancerAppShell.tsx only (it rides in the lazy dancer-app
+ * chunk). Every selector below starts with [data-profile="dancer"] so nothing
+ * here can restyle the main site even after the chunk has loaded; the scope is
+ * pinned by tests/client/dancerAppTheme.test.ts, as are the values (they must
+ * equal theme/tokens.ts).
+ *
+ * Sizes are px, not rem: the site sets html font-size to about 13.5px on
+ * phones, so rem-based sizes render about 16% small (CLAUDE.md trap).
+ */
+[data-profile="dancer"] {
+  --da-bg: #1C0D22;
+  --da-surface: #2A1433;
+  --da-surface-2: #3A1E47;
+  --da-text: #FFF4F1;
+  --da-text-muted: #D7C0D4;
+  --da-accent: #FF7A66;
+  --da-on-accent: #1C0D22;
+  --da-plum: #D58BE6;
+  --da-border: #5A3468;
+  --da-danger: #FF9A8F;
+  --da-gradient-from: #6E2380;
+  --da-gradient-to: #C23B55;
+  --da-on-gradient: #FFFFFF;
+  --da-focus: #FFC2B8;
+  --da-radius: 14px;
+  --da-tap: 44px;
+  --da-header-h: 52px;
+  --da-tabs-h: 60px;
+
+  background: var(--da-bg);
+  color: var(--da-text);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+[data-profile="dancer"] .da-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: var(--da-header-h);
+  padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
+  background: var(--da-bg);
+  border-bottom: 1px solid var(--da-border);
+}
+
+[data-profile="dancer"] .da-tap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--da-tap);
+  min-width: var(--da-tap);
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+[data-profile="dancer"] .da-tap:focus-visible {
+  outline: 2px solid var(--da-focus);
+  outline-offset: 2px;
+}
+
+[data-profile="dancer"] .da-logo {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  padding: 0 4px;
+}
+
+[data-profile="dancer"] .da-type-label {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--da-surface-2);
+  color: var(--da-plum);
+}
+
+[data-profile="dancer"] .da-events {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 0 10px;
+  color: var(--da-accent);
+}
+
+[data-profile="dancer"] .da-content {
+  padding: 12px max(12px, env(safe-area-inset-right)) calc(var(--da-tabs-h) + env(safe-area-inset-bottom) + 16px)
+    max(12px, env(safe-area-inset-left));
+}
+
+[data-profile="dancer"] .da-tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  min-height: var(--da-tabs-h);
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: var(--da-surface);
+  border-top: 1px solid var(--da-border);
+}
+
+[data-profile="dancer"] .da-tab {
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--da-text-muted);
+}
+
+[data-profile="dancer"] .da-tab[aria-current="page"] {
+  color: var(--da-accent);
+}
+
+[data-profile="dancer"] .da-card {
+  background: var(--da-surface);
+  border: 1px solid var(--da-border);
+  border-radius: var(--da-radius);
+  padding: 12px;
+}
+
+[data-profile="dancer"] .da-muted {
+  color: var(--da-text-muted);
+}
+
+[data-profile="dancer"].dancer-app-loading {
+  display: block;
+}
