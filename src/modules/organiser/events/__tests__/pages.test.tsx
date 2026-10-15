@@ -4,7 +4,7 @@
  * (every row's edit path, the 30-date cap UI, the preview bar, save failure).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TODAY, home, programme, rawWorkspace, venues } from './fixtures';
@@ -12,17 +12,44 @@ import { TODAY, home, programme, rawWorkspace, venues } from './fixtures';
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn(), storage: { from: vi.fn() } } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
-vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-10-08' }));
+// Mutable: the FIX-3 freeze test rolls London midnight over between two presses of Create.
+const londonToday = vi.hoisted(() => ({ value: '2026-10-08' }));
+vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => londonToday.value }));
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: 'c-edinburgh' }) }));
+// The ONE first-date helper (FIX-3 fix 6), spied: the editor's `next` and the create's seed date must both read it.
+vi.mock('@/modules/organiser/shared/seriesModel', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/modules/organiser/shared/seriesModel')>();
+  return { ...real, firstListedDate: vi.fn(real.firstListedDate) };
+});
 
+// FIX-6 F-h: the create's city lookup, spied so one test can make it fail before anything is sent.
+vi.mock('@/modules/organiser/shared/createCity', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/modules/organiser/shared/createCity')>();
+  return { ...real, resolveCreateCityId: vi.fn(real.resolveCreateCityId) };
+});
+
+import { firstListedDate } from '@/modules/organiser/shared/seriesModel';
+import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
 import EventsPage from '../index';
 import NewEventPage from '../NewEventPage';
 import EventEditorPage from '../EventEditorPage';
+import { useOrganiserHome } from '../eventsApi';
 import { LIVE_NOTE } from '../../ui';
+import { CHIPS_LOCKED_HINT, EVENT_TYPES, unconfirmedExitNote } from '../eventType';
 
 type Handler = (args: Record<string, unknown>) => unknown;
 let handlers: Record<string, Handler>;
-const commands = () => rpc.mock.calls.filter(([fn]) => fn === 'series_command_p5').map(([, a]) => (a as { p_envelope: { command: { kind: string; payload: Record<string, unknown> }; expected_version?: number } }).p_envelope);
+const commands = () => rpc.mock.calls.filter(([fn]) => fn === 'series_command_p5').map(([, a]) => (a as { p_envelope: { command: { kind: string; payload: Record<string, unknown> }; expected_version?: number; idempotency_key?: string; target_id?: string } }).p_envelope);
+
+/**
+ * series_command_p5's success reply as the server builds it (_command_result_ok_p5): series.add_date
+ * answers the date it listed (_cmd_series_add_date_p5 returns {occurrence_id}); a replay under the
+ * same key answers the stored reply, so the id is the same on every retry.
+ */
+const ok: Handler = (a) => {
+  const kind = (a as { p_envelope?: { command?: { kind?: string } } }).p_envelope?.command?.kind;
+  return kind === 'series.add_date' ? { ok: true, new_version: 4, data: { occurrence_id: 'o1' } } : { ok: true, new_version: 4 };
+};
 
 beforeEach(() => {
   let workspace = rawWorkspace();
@@ -31,9 +58,10 @@ beforeEach(() => {
     admin_event_workspace_p5: () => workspace,
     organiser_get_occurrence_programme_v1: () => programme,
     get_organiser_venue_options_v1: () => venues,
-    series_command_p5: () => ({ ok: true, new_version: 4 }),
+    series_command_p5: ok,
   };
   (globalThis as { setWorkspace?: (w: ReturnType<typeof rawWorkspace>) => void }).setWorkspace = (w) => { workspace = w; };
+  londonToday.value = '2026-10-08';
   rpc.mockReset();
   rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => {
     const h = handlers[fn];
@@ -45,6 +73,16 @@ afterEach(cleanup);
 
 function Where() {
   return <span data-testid="where">{useLocation().pathname}</span>;
+}
+
+/**
+ * Home's query as the page sees it (FIX-6 F-k): a second observer of the same query, notified in
+ * the same batch as the page's, so once it shows a state the page has rendered that state too.
+ * Tests wait on this instead of sleeping.
+ */
+function HomeProbe() {
+  const home = useOrganiserHome();
+  return <span data-testid="home-probe">{`${home.status}:${home.data?.today ?? ''}`}</span>;
 }
 
 function mount(path: string) {
@@ -59,9 +97,11 @@ function mount(path: string) {
           <Route path="*" element={<span />} />
         </Routes>
         <Where />
+        <HomeProbe />
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return client;
 }
 
 const editor = async () => {
@@ -100,7 +140,9 @@ describe('events list', () => {
 });
 
 describe('new event (name only)', () => {
-  it('creates the draft with defaults at once, lists the first 8 dates, then opens the editor', async () => {
+  // FIX-6 F-e: the chip seeds ONE session on ONE date, so it lists only that date (a weekly rule
+  // listed 8, and dates 2-8 had no session: the calendar reads hasClass from each date's programme).
+  it('creates the draft with defaults at once, lists ONE date (the one its session goes on), then opens the editor', async () => {
     mount('/account/o/events/new');
     const name = await screen.findByTestId('org-new-event-name');
     fireEvent.change(name, { target: { value: 'Tuesday Class' } });
@@ -110,12 +152,15 @@ describe('new event (name only)', () => {
     const [create, rule] = commands();
     expect(create.command.kind).toBe('series.upsert');
     expect(create.command.payload).toMatchObject({
-      name: 'Tuesday Class', format: 'recurring', category: 'class', default_duration_minutes: 120,
+      name: 'Tuesday Class', format: 'recurring', default_duration_minutes: 120,
       default_start_date: '2026-10-15', timezone: 'Europe/London', default_city_id: 'c1',
     });
     expect(Object.keys(create.command.payload)).not.toContain('default_venue_id');
-    expect(rule.command).toEqual({ kind: 'series.set_recurrence', payload: { mode: 'weekly', weekdays: [4], end: { kind: 'until_date', date: '2026-12-03' } } });
+    // Category is derived from the sessions on the server (event-truth P2): never sent.
+    expect(Object.keys(create.command.payload)).not.toContain('category');
+    expect(rule.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
     expect(rule.expected_version).toBe(4);
+    expect(commands()).toHaveLength(2);
   });
 
   it('a party starts as ONE date (no weekly rule), with its own duration', async () => {
@@ -125,34 +170,470 @@ describe('new event (name only)', () => {
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
     const [create, date] = commands();
-    expect(create.command.payload).toMatchObject({ category: 'party', format: 'recurring', default_duration_minutes: 300 });
+    expect(create.command.payload).toMatchObject({ format: 'recurring', default_duration_minutes: 300 });
+    expect(create.command.payload).not.toHaveProperty('category');
     expect(date.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
     expect(commands()).toHaveLength(2);
   });
 
-  it('asks what it is before creating', async () => {
+  it('asks for the first session before creating', async () => {
     mount('/account/o/events/new');
     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'X' } });
     fireEvent.click(screen.getByTestId('org-new-event-create'));
-    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/Choose what it is/);
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/Choose the first session/);
     expect(commands()).toHaveLength(0);
   });
 
-  it('a refused weekly rule is shown, not swallowed, and the event can be opened', async () => {
+  it('a refused date is shown, not swallowed, and the event can be opened (class chip)', async () => {
     let n = 0;
-    handlers.series_command_p5 = () => {
+    handlers.series_command_p5 = (a) => {
       n += 1;
-      if (n === 1) return { ok: true, new_version: 4 };
+      if (n === 1) return ok(a);
       throw { message: 'invalid_payload: rule refused', code: 'P0001' };
     };
     mount('/account/o/events/new');
     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Tuesday Class' } });
     fireEvent.click(screen.getByTestId('org-new-event-type-class'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
-    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/saved as a draft, but its weekly dates were not listed/);
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/saved as a draft, but its date was not listed/);
     expect(screen.getByTestId('where').textContent).toBe('/account/o/events/new');
     fireEvent.click(screen.getByTestId('org-new-event-open'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+  });
+
+  // The chip seeds ONE session on the first upcoming date (organiser_set_occurrence_programme_v1
+  // writes date-only sessions; the server derives the category from them). Table-driven over
+  // the three chips; the fixture's o0 is in the past, so o1 (9 Oct) is the first upcoming date.
+  const setCalls = () => rpc.mock.calls.filter(([fn]) => fn === 'organiser_set_occurrence_programme_v1').map(([, a]) => a as { p_occurrence_id: string; p_expected_version: number; p_sessions: Record<string, unknown>[] });
+  it.each([
+    ['class', { type: 'class', title: 'Class', start_time: '20:00', end_time: '22:00', ends_next_day: false }],
+    ['party', { type: 'party', title: 'Party', start_time: '20:00', end_time: '01:00', ends_next_day: true }],
+    ['workshop', { type: 'class', title: 'Workshop', start_time: '20:00', end_time: '22:00', ends_next_day: false }],
+  ] as const)('the %s chip seeds one session on the date its add_date listed, in four calls (F-g)', async (chip, session) => {
+    // The listed date is the one the add_date reply names: 'o-new', which the workspace does not hold.
+    handlers.series_command_p5 = (a) => {
+      const reply = ok(a) as { data?: { occurrence_id: string } };
+      return reply.data ? { ...reply, data: { occurrence_id: 'o-new' } } : reply;
+    };
+    handlers.organiser_get_occurrence_programme_v1 = (a) => ({ ...programme, occurrence_id: a.p_occurrence_id, sessions: [], session_people: [] });
+    handlers.organiser_set_occurrence_programme_v1 = () => ({ ok: true, changed: true, version: 3, sessions: [] });
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
+    const before = rpc.mock.calls.length;
+    fireEvent.click(screen.getByTestId(`org-new-event-type-${chip}`));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    expect(setCalls()).toHaveLength(1);
+    const [call] = setCalls();
+    expect(call.p_occurrence_id).toBe('o-new');
+    expect(call.p_expected_version).toBe(2);
+    expect(call.p_sessions).toEqual([{ new: true, level_keys: [], ...session }]);
+    // F-g: create, its date, that date's programme, its save. No workspace read for the dates.
+    // Up to the save: after it the page navigates, and the editor reads the workspace for itself.
+    const during = rpc.mock.calls.slice(before).map(([fn]) => fn).filter((fn) => fn !== 'organiser_home_v1');
+    expect(during.slice(0, during.indexOf('organiser_set_occurrence_programme_v1') + 1)).toEqual(['series_command_p5', 'series_command_p5', 'organiser_get_occurrence_programme_v1', 'organiser_set_occurrence_programme_v1']);
+  });
+
+  // FIX-6 F-h: the city lookup runs before anything is sent. Its failure is its own message, sends
+  // nothing and never freezes the form (nothing was sent, so nothing can have been saved).
+  it('a city lookup failure says so, sends nothing and leaves the form open; the next press creates', async () => {
+    vi.mocked(resolveCreateCityId).mockRejectedValueOnce(new TypeError('fetch failed'));
+    mount('/account/o/events/new');
+    const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
+    fireEvent.change(name, { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toBe('We could not look up your city; nothing was saved. Press Create to try again.');
+    await waitFor(() => expect(screen.getByTestId('org-new-event-create').getAttribute('aria-busy')).toBeNull());
+    expect(commands()).toHaveLength(0);
+    expect(name.disabled).toBe(false);
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByTestId('org-new-event-open')).toBeNull();
+    // Still open: an edit is taken, and the next press sends the create with it.
+    fireEvent.change(name, { target: { value: 'Sunday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    expect(commands()[0].command.payload).toMatchObject({ name: 'Sunday Party' });
+  });
+
+  it('a first date that already holds a session gets no second one (Create pressed again)', async () => {
+    handlers.organiser_set_occurrence_programme_v1 = () => ({ ok: true, changed: true, version: 3, sessions: [] });
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    expect(setCalls()).toHaveLength(0);
+  });
+
+  it('a refused first session is shown, not swallowed, and the event can be opened', async () => {
+    handlers.organiser_get_occurrence_programme_v1 = () => ({ ...programme, sessions: [], session_people: [] });
+    handlers.organiser_set_occurrence_programme_v1 = () => { throw { message: 'permission_denied: programme edit on a cancelled date is not allowed', code: 'P0001' }; };
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    const error = (await screen.findByTestId('org-new-event-error')).textContent ?? '';
+    expect(error).toMatch(/saved as a draft, but the first session was not added/);
+    expect(error).toMatch(/This date is cancelled/);
+    expect(error).not.toMatch(/permission_denied/);
+    expect(screen.getByTestId('where').textContent).toBe('/account/o/events/new');
+    // The event exists with this chip: the chips lock, and the hint says why and what to do.
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
+    fireEvent.click(screen.getByTestId('org-new-event-open'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+  });
+
+  // Review A (FIX-2): once the event exists, the chosen type is the one its first session carries.
+  // A retry whose create REPLAY fails must not unlock the chips: a different chip would seed a
+  // different session under the same idempotency keys on an event that already exists.
+  it('a failed create replay keeps the chips locked and retries the ORIGINAL type', async () => {
+    let n = 0;
+    handlers.series_command_p5 = (a) => {
+      n += 1;
+      if (n === 1) return ok(a); // the create
+      if (n === 2) throw { message: 'invalid_payload: rule refused', code: 'P0001' }; // its date: the chips lock
+      throw new TypeError('fetch failed'); // every later create replay: the network is gone
+    };
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/date was not listed/);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('org-new-event-error').textContent).toMatch(/could not confirm the save/));
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
+    // The hint says "open the event", so that control stays on screen, and it works: the event exists.
+    expect((screen.getByTestId('org-new-event-open') as HTMLButtonElement).disabled).toBe(false);
+    // Picking another chip does nothing; the next Create replays the PARTY create (300 min), never a class one.
+    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(commands()).toHaveLength(4));
+    const creates = commands().filter((c) => c.command.kind === 'series.upsert');
+    expect(creates).toHaveLength(3);
+    for (const c of creates) expect(c.command.payload).toMatchObject({ default_duration_minutes: 300 });
+  });
+
+  // FIX-3 (review F3, F4, F6, F7, F10): while the FIRST create is in flight the hint says so (the
+  // event is not made yet), Open is ABSENT (the event may not exist), Create spins. FIX-4 F3 + F9:
+  // once the create is CONFIRMED but its date and first session still run, Open stays ABSENT (a tap
+  // would race the schedule) and the hint says "finishing", never "press Create" (Create is busy).
+  // When the run ends (here: its date is refused) Open mounts BELOW Create, enabled. The held calls
+  // are released and the follow-up awaited, so nothing runs into the next test's mockReset.
+  it('while the first create is in flight: chips disabled with the creating hint, no Open; confirmed but still running: no Open, the finishing hint; idle: Open below Create, enabled', async () => {
+    const gates: Array<() => void> = [];
+    let n = 0;
+    handlers.series_command_p5 = (a) => {
+      n += 1;
+      if (n === 1) return new Promise((resolve) => gates.push(() => resolve({ ok: true, new_version: 4 }))); // the create
+      if (n === 2) return new Promise((_resolve, reject) => gates.push(() => reject({ message: 'invalid_payload: rule refused', code: 'P0001' }))); // its date
+      return ok(a);
+    };
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByTestId('org-new-event-open')).toBeNull();
+    const create = screen.getByTestId('org-new-event-create') as HTMLButtonElement;
+    fireEvent.click(create);
+    await waitFor(() => expect(gates).toHaveLength(1));
+    expect(create.getAttribute('aria-busy')).toBe('true');
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Creating your event\u2026');
+    expect(screen.queryByTestId('org-new-event-open')).toBeNull();
+    gates[0]();
+    await waitFor(() => expect(gates).toHaveLength(2));
+    await waitFor(() => expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Finishing your event\u2026'));
+    expect(create.getAttribute('aria-busy')).toBe('true');
+    expect(screen.queryByTestId('org-new-event-open')).toBeNull();
+    gates[1]();
+    const open = await screen.findByTestId('org-new-event-open') as HTMLButtonElement;
+    expect(create.getAttribute('aria-busy')).toBeNull();
+    expect(open.disabled).toBe(false);
+    expect(create.compareDocumentPosition(open) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
+    fireEvent.click(open);
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+  });
+
+  // FIX-3 (review F1 + F2): the create is frozen the moment it is SENT. A lost reply may have saved
+  // the event server-side, so the name, the three chips and the organiser chips stay disabled for
+  // the life of the page, and every later press sends the IDENTICAL create (same name, organiser,
+  // city, start date, duration, key) and the schedule computed at the first press: nothing is re-read.
+  const twoOrganisers = () => {
+    const base = home();
+    handlers.organiser_home_v1 = () => ({ ...base, organisers: [base.organisers[0], { ...base.organisers[0], id: 'org2', name: 'Salsa Crew', city_id: 'c2' }] });
+  };
+  const organiserChips = () => screen.getAllByTestId('org-new-event-organiser') as HTMLButtonElement[];
+  it('a lost create reply freezes name, chips and organiser; the retry sends the identical create even after London midnight and another chip', async () => {
+    twoOrganisers();
+    let n = 0;
+    handlers.series_command_p5 = (a) => {
+      n += 1;
+      if (n <= 2) throw new TypeError('fetch failed'); // the create's reply is lost, twice
+      return ok(a);
+    };
+    const client = mount('/account/o/events/new');
+    const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
+    fireEvent.change(name, { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    expect(organiserChips().map((o) => o.disabled)).toEqual([false, false]);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/could not confirm the save/);
+    // Frozen, with the reason on screen; the event may not exist, so nothing offers to open it.
+    expect(name.disabled).toBe(true);
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
+    expect(organiserChips().map((o) => o.disabled)).toEqual([true, true]);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Not confirmed yet. Press Create to finish: nothing is made twice.');
+    expect(screen.queryByTestId('org-new-event-open')).toBeNull();
+    // London midnight passes, and the person tries another chip and another organiser (both disabled).
+    // The page re-reads the London date only when it renders: Home is refetched with the new
+    // date, so the form really holds 9 Oct before the next press.
+    londonToday.value = '2026-10-09';
+    const homeBefore = handlers.organiser_home_v1;
+    handlers.organiser_home_v1 = (a) => ({ ...(homeBefore(a) as object), today: '2026-10-09' });
+    await act(async () => { await client.invalidateQueries(); });
+    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    fireEvent.click(organiserChips()[1]);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(commands()).toHaveLength(2));
+    const [first, second] = commands();
+    expect(first.command.payload).toMatchObject({ name: 'Saturday Party', default_duration_minutes: 300, default_start_date: '2026-10-15', default_city_id: 'c1' });
+    expect(second).toEqual(first);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Not confirmed yet. Press Create to finish: nothing is made twice.');
+    // The third press is confirmed: the same create again, then the schedule computed at the FIRST press.
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    const [, , third, schedule] = commands();
+    expect(third).toEqual(first);
+    expect(schedule.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
+    expect(commands()).toHaveLength(4);
+  });
+
+  it('a REFUSED first create (nothing saved) leaves name, chips and organiser open; the retry may change them, under the same key', async () => {
+    twoOrganisers();
+    let n = 0;
+    handlers.series_command_p5 = (a) => {
+      n += 1;
+      if (n === 1) throw { message: 'permission_denied: series.upsert (create) needs a live organiser', code: 'P0001' };
+      return ok(a);
+    };
+    mount('/account/o/events/new');
+    const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
+    fireEvent.change(name, { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await screen.findByTestId('org-new-event-error');
+    expect(name.disabled).toBe(false);
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(false);
+    expect(organiserChips().map((o) => o.disabled)).toEqual([false, false]);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(EVENT_TYPES.find((t) => t.type === 'party')?.hint);
+    expect(screen.queryByTestId('org-new-event-open')).toBeNull();
+    fireEvent.change(name, { target: { value: 'Thursday Class' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    fireEvent.click(organiserChips()[1]);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    const [refused, retried] = commands().filter((c) => c.command.kind === 'series.upsert');
+    expect(refused.command.payload).toMatchObject({ name: 'Saturday Party', default_duration_minutes: 300, default_city_id: 'c1' });
+    expect(retried.command.payload).toMatchObject({ name: 'Thursday Class', default_duration_minutes: 120, default_city_id: 'c2' });
+    // Key handling is unchanged: one key per write for the life of the page.
+    expect(retried.idempotency_key).toBe(refused.idempotency_key);
+    expect(retried.target_id).toBe(refused.target_id);
+  });
+
+  // FIX-4 F1 (data integrity): the form reopens only when nothing can have been saved -- the press
+  // that failed was the FIRST send and the server refused it, with no earlier send unconfirmed. A
+  // coded error on a RESEND (JWT expiry PGRST301, timeout 57014, 40001) proves nothing about the
+  // earlier send, which may have saved the event: the form stays frozen and the next press sends
+  // the byte-equal create (the server replays a stored create under its key without comparing it).
+  // Each step is one series_command_p5 call: 'lost' = no reply, 'ok', or a coded refusal.
+  type Step = 'lost' | 'ok' | { message: string; code: string };
+  const coded = (code: string): Step => ({ message: `${code}: refused`, code });
+  it.each([
+    ['(a) lost reply, then the retry gets PGRST301', ['lost', coded('PGRST301')], 2, true],
+    ['(a) lost reply, then the retry gets 57014', ['lost', coded('57014')], 2, true],
+    ['(a) lost reply, then the retry gets 40001', ['lost', coded('40001')], 2, true],
+    ['(b) the first press refused with a code: nothing saved', [coded('P0001')], 1, false],
+    ['(b) the first press refused with PGRST301: nothing saved', [coded('PGRST301')], 1, false],
+    ['(c) first refused, second lost, third coded', [coded('P0001'), 'lost', coded('PGRST301')], 3, true],
+    ['(d) confirmed, its date refused, the replay refused with a code', ['ok', coded('P0001'), coded('57014')], 2, true],
+  ] as Array<[string, Step[], number, boolean]>)('%s', async (_n, script, presses, frozen) => {
+    twoOrganisers();
+    let i = 0;
+    handlers.series_command_p5 = (a) => {
+      const step = script[i++] ?? 'ok';
+      if (step === 'ok') return ok(a);
+      if (step === 'lost') throw new TypeError('fetch failed');
+      throw step;
+    };
+    const client = mount('/account/o/events/new');
+    const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
+    const create = screen.getByTestId('org-new-event-create') as HTMLButtonElement;
+    const creates = () => commands().filter((c) => c.command.kind === 'series.upsert');
+    for (let p = 1; p <= presses; p += 1) {
+      // Whatever is still open, the person changes before each press.
+      if (!name.disabled) fireEvent.change(name, { target: { value: `Night ${p}` } });
+      fireEvent.click(screen.getByTestId(`org-new-event-type-${p % 2 ? 'party' : 'class'}`));
+      const before = creates().length;
+      fireEvent.click(create);
+      await waitFor(() => expect(creates().length).toBe(before + 1));
+      await waitFor(() => expect(create.getAttribute('aria-busy')).toBeNull());
+    }
+    await screen.findByTestId('org-new-event-error');
+    expect(name.disabled).toBe(frozen);
+    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(frozen);
+    expect(organiserChips().map((o) => o.disabled)).toEqual([frozen, frozen]);
+    if (!frozen) return;
+    // Frozen: another chip and organiser do nothing, and the next press resends the last create byte for byte.
+    const last = creates()[creates().length - 1];
+    // London midnight passes (Home refetched with the new date): a create recomputed from the
+    // form would start a day later, so only the kept create can be byte-equal.
+    londonToday.value = '2026-10-09';
+    const homeBefore = handlers.organiser_home_v1;
+    handlers.organiser_home_v1 = (a) => ({ ...(homeBefore(a) as object), today: '2026-10-09' });
+    await act(async () => { await client.invalidateQueries(); });
+    // The page has rendered the new London date (no fixed sleep).
+    await waitFor(() => expect(screen.getByTestId('home-probe').textContent).toBe('success:2026-10-09'));
+    fireEvent.click(screen.getByTestId('org-new-event-type-workshop'));
+    fireEvent.click(organiserChips()[1]);
+    fireEvent.click(create);
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    const resent = creates()[creates().length - 1];
+    expect(creates()).toHaveLength(presses + 1);
+    expect(JSON.stringify(resent)).toBe(JSON.stringify(last));
+  });
+
+  // FIX-4 F2: Home refetches on focus; a failed refetch must not swap the form for the error state
+  // once Home has loaded: the unmount would lose the sent create, its key and series id, and the
+  // next Create would make a second event. The error state shows only when there is nothing to show.
+  it('a failed Home refetch after a lost-reply send keeps the form mounted; the next press sends the SAME key and series id', async () => {
+    let n = 0;
+    handlers.series_command_p5 = (a) => {
+      n += 1;
+      if (n === 1) throw new TypeError('fetch failed');
+      return ok(a);
+    };
+    const client = mount('/account/o/events/new');
+    const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
+    fireEvent.change(name, { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/could not confirm the save/);
+    handlers.organiser_home_v1 = () => { throw { message: 'JWT expired', code: 'PGRST301' }; };
+    await act(async () => { await client.invalidateQueries(); });
+    // React Query notifies subscribers on a later macrotask: wait until the page has rendered the error.
+    await waitFor(() => expect(screen.getByTestId('home-probe').textContent).toMatch(/^error:/));
+    expect(client.getQueryCache().findAll().some((q) => q.state.status === 'error' && q.state.data !== undefined)).toBe(true);
+    expect(screen.getByTestId('org-new-event-form')).toBeTruthy();
+    expect((screen.getByTestId('org-new-event-name') as HTMLTextAreaElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    const [first, second] = commands();
+    expect(second.idempotency_key).toBe(first.idempotency_key);
+    expect(second.target_id).toBe(first.target_id);
+    expect(second).toEqual(first);
+  });
+
+  it('Home that never loaded still shows the error state with retry', async () => {
+    handlers.organiser_home_v1 = () => { throw { message: 'JWT expired', code: 'PGRST301' }; };
+    mount('/account/o/events/new');
+    await waitFor(() => expect(screen.queryByTestId('org-new-event-form')).toBeNull());
+    expect(await screen.findByRole('button', { name: /try again|retry/i })).toBeTruthy();
+  });
+
+  // FIX-4 F5: the organiser becomes blocked (a Home refetch) while a create is sent but not
+  // confirmed: Create is disabled, the chips frozen. The one exit is the shell's back link, so a
+  // note under the block names it as it reads. Before a send there is nothing to find; once the
+  // create is confirmed Open the event is the way on. One row per phase.
+  it.each([
+    ['open: nothing sent', [] as Step[], 0, false],
+    ['sent: a lost reply', ['lost'] as Step[], 1, true],
+    ['made: its date refused', ['ok', coded('P0001')] as Step[], 1, false],
+  ])('blocked after a Home refetch, %s', async (_n, script, presses, note) => {
+    let i = 0;
+    handlers.series_command_p5 = (a) => {
+      const step = script[i++] ?? 'ok';
+      if (step === 'ok') return ok(a);
+      if (step === 'lost') throw new TypeError('fetch failed');
+      throw step;
+    };
+    const client = mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    const create = screen.getByTestId('org-new-event-create') as HTMLButtonElement;
+    for (let p = 0; p < presses; p += 1) {
+      fireEvent.click(create);
+      await screen.findByTestId('org-new-event-error');
+      await waitFor(() => expect(create.getAttribute('aria-busy')).toBeNull());
+    }
+    const base = home();
+    handlers.organiser_home_v1 = () => ({ ...base, organisers: [{ ...base.organisers[0], lifecycle_status: 'pending_review' }] });
+    await act(async () => { await client.invalidateQueries(); });
+    await screen.findByTestId('org-new-event-block');
+    expect(create.disabled).toBe(true);
+    const shown = screen.queryByTestId('org-new-event-unconfirmed-exit');
+    if (!note) { expect(shown).toBeNull(); return; }
+    const back = screen.getByTestId('org-back');
+    expect(shown?.textContent).toBe(unconfirmedExitNote(back.textContent ?? ''));
+    expect(shown?.textContent).toContain(`use ${back.textContent} at the top`);
+  });
+
+  // FIX-3 (review F11): the unsaved-changes guard contradicts "saved as a draft" once the event
+  // exists. It stays ON while the create is not confirmed (the draft may not exist) and goes OFF
+  // the moment the create is confirmed, whatever later step fails.
+  it('the leave guard stays on while the create is not confirmed, and goes off once the event is made', async () => {
+    let n = 0;
+    handlers.series_command_p5 = (a) => {
+      n += 1;
+      if (n === 1) throw new TypeError('fetch failed'); // lost reply
+      if (n === 3) throw { message: 'invalid_payload: rule refused', code: 'P0001' }; // the date, after the confirmed create
+      return ok(a);
+    };
+    const asks = () => { const ev = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(ev); return ev.defaultPrevented; };
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    expect(asks()).toBe(true);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/could not confirm the save/);
+    expect(asks()).toBe(true);
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('org-new-event-error').textContent).toMatch(/date was not listed/));
+    expect(asks()).toBe(false);
+    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
+  });
+
+  // FIX-3 fix 6 (review F9): the editor's `next` reads ONE helper (seriesModel.firstListedDate); a
+  // cancelled first date is skipped. FIX-6 F-g: the create no longer picks a date from the workspace:
+  // it seeds the one date its add_date listed (the reply names it), so it never calls the helper.
+  it('the editor\'s next date skips a cancelled date through the one shared helper; the create seeds the date it listed', async () => {
+    const dates = [
+      { id: 'o2', occurrence_date: '2026-10-16', lifecycle_status: 'scheduled', version: 1 },
+      { id: 'o1', occurrence_date: '2026-10-09', lifecycle_status: 'cancelled', version: 1 },
+      { id: 'o0', occurrence_date: '2026-10-02', lifecycle_status: 'scheduled', version: 1 },
+    ];
+    (globalThis as { setWorkspace?: (w: ReturnType<typeof rawWorkspace>) => void }).setWorkspace!(rawWorkspace({}, dates));
+    vi.mocked(firstListedDate).mockClear();
+    await editor();
+    // The card's date is its section label, outside the org-schedule box.
+    await waitFor(() => expect(screen.getByTestId('org-schedule').closest('section')?.textContent).toContain('16 Oct'));
+    expect(firstListedDate).toHaveBeenCalled();
+    const nextResults = vi.mocked(firstListedDate).mock.results;
+    expect((nextResults[nextResults.length - 1]?.value as { id?: string } | null)?.id).toBe('o2');
+    cleanup();
+    vi.mocked(firstListedDate).mockClear();
+    handlers.organiser_get_occurrence_programme_v1 = () => ({ ...programme, sessions: [], session_people: [] });
+    handlers.organiser_set_occurrence_programme_v1 = () => ({ ok: true, changed: true, version: 3, sessions: [] });
+    mount('/account/o/events/new');
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
+    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(screen.getByTestId('org-new-event-create'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
+    expect(setCalls().map((c) => c.p_occurrence_id)).toEqual(['o1']);
+    expect(firstListedDate).not.toHaveBeenCalled();
   });
 
   it('asks for a name instead of sending a blank one', async () => {

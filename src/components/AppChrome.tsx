@@ -40,6 +40,16 @@ const AnimatedRoutesFallback = () => (
 // these the footer is suppressed (full-bleed map).
 const HOME_RE = /^\/city\/[^/]+(\/calendar)?\/?$/i;
 
+// The dancer area (/app, /app/*) draws its own header and tab bar
+// (modules/dancer-app/shell), so the site's header, bottom nav, footer and their
+// spacers are not drawn there. Case-folded, as the router matches. Kept inline
+// (not imported from the dancer app) so no dancer-app module joins this
+// every-page chunk.
+const isDancerAppPath = (pathname: string) => {
+  const p = pathname.toLowerCase();
+  return p === '/app' || p.startsWith('/app/');
+};
+
 /**
  * Route-aware global chrome. Lives inside BrowserRouter + CityProvider so it can
  * read the location and adapt the footer / bottom-nav for the Festival Map home.
@@ -52,6 +62,7 @@ const HOME_RE = /^\/city\/[^/]+(\/calendar)?\/?$/i;
 export function AppChrome({ children }: { children?: React.ReactNode }) {
   const { pathname } = useLocation();
   const isHome = HOME_RE.test(pathname);
+  const ownChrome = isDancerAppPath(pathname);
   // `user` is null on the server and on the first client render alike (auth
   // resolves after hydration), so this cannot cause a hydration mismatch.
   const { user } = useAuth();
@@ -67,11 +78,12 @@ export function AppChrome({ children }: { children?: React.ReactNode }) {
   return (
     <ProfileGateContext.Provider value={gateValue}>
       <GlobalBackground />
-      <GlobalHeader />
+      {!ownChrome && <GlobalHeader />}
       {/* Spacer that matches the sticky header height so NO page is blocked behind it. */}
-      <div className="h-[60px] shrink-0" aria-hidden="true" />
-      {/* Mobile section row: sticky just under the header (md:hidden inside). */}
-      <BottomNav />
+      {!ownChrome && <div className="h-[60px] shrink-0" aria-hidden="true" />}
+      {/* Mobile section row: sticky just under the header (md:hidden inside). Not on /app (own chrome). */}
+      {!ownChrome && <BottomNav />}
+      {/* Stays mounted on /app too: it publishes ProfileGateContext (its banner is hidden there by BANNER_HIDDEN_ON). */}
       {signedIn && (
         // A reminder must never take the page down with it: on any failure it renders nothing.
         <ErrorBoundary fallback={<GateUnavailable onGate={onGate} />}>
@@ -80,7 +92,7 @@ export function AppChrome({ children }: { children?: React.ReactNode }) {
           </Suspense>
         </ErrorBoundary>
       )}
-      <main id="main-content">
+      <main id="main-content" className="overflow-x-clip">
         <ErrorBoundary>
           <Suspense fallback={<AnimatedRoutesFallback />}>
             {children ?? <AnimatedRoutes />}
@@ -88,8 +100,8 @@ export function AppChrome({ children }: { children?: React.ReactNode }) {
         </ErrorBoundary>
       </main>
       {/* Footer is suppressed on the full-bleed map home (both breakpoints). */}
-      {!isHome && <GlobalFooter />}
-      <div className="h-[env(safe-area-inset-bottom)] shrink-0" aria-hidden="true" />
+      {!isHome && !ownChrome && <GlobalFooter />}
+      {!ownChrome && <div className="h-[env(safe-area-inset-bottom)] shrink-0" aria-hidden="true" />}
     </ProfileGateContext.Provider>
   );
 }

@@ -106,6 +106,21 @@ export const VENDOR_UI_SHELL_PACKAGES = [
   "@radix-ui/react-compose-refs",
   "@radix-ui/react-context",
   "@radix-ui/react-dismissable-layer",
+  // NOT measured into the shell -- placed here to keep the two chunks
+  // ONE-DIRECTIONAL, which is a correctness rule and outranks the measurement.
+  // Radix Tooltip >= 1.4 imports `useFocusScopeBranch` from this package, so
+  // with it in the modal list `vendor-ui` imported `vendor-ui-modal` while
+  // `vendor-ui-modal` already imported `vendor-ui`: a static cycle, and on the
+  // PR #746 Vercel preview "TypeError: le is not a function" (the minified
+  // letter varies per build; one chunk ran top-level code against the other's
+  // unassigned keepNames `var`). With the
+  // lockfile's Tooltip 1.2 the shell routes pay its weight for nothing (the
+  // measured cost is in the PR #746 handover, not here, per the rule above;
+  // routes that already load the modal layer pay nothing and no route's chunk
+  // count moves). That is the price of the cycle being impossible on either
+  // Tooltip line. The rule: nothing in this list may import anything in the
+  // modal list. `npm run check:chunk-cycles` is what holds it.
+  "@radix-ui/react-focus-scope",
   "@radix-ui/react-id",
   "@radix-ui/react-popper",
   "@radix-ui/react-portal",
@@ -145,7 +160,8 @@ export const VENDOR_UI_MODAL_PACKAGES = [
   "@radix-ui/react-dialog",
   "@radix-ui/react-direction",
   "@radix-ui/react-focus-guards",
-  "@radix-ui/react-focus-scope",
+  // @radix-ui/react-focus-scope moved to the SHELL list -- see the note there.
+  // This chunk may import vendor-ui; vendor-ui must never import this chunk.
   "@radix-ui/react-roving-focus",
   "@radix-ui/react-toggle",
   "@radix-ui/react-toggle-group",
@@ -244,6 +260,57 @@ const RADIX_HOOK_NEEDLE = "node_modules/@radix-ui/react-use-";
 // ~50 KB), not this file.
 const COMMONJS_HELPERS_ID = "\0commonjsHelpers.js";
 
+// The ONE first-party group, and it exists for the chunk COUNT, not for bytes.
+//
+// src/lib/eventCategory.ts is the canonical event-category rule (byte-pinned
+// against its admin twin; see that file). It is a leaf -- it imports nothing --
+// and it is read from two sides of the app that share no other module of their
+// own: the public event page (endedRun.ts, inside the chunk the /event and
+// /festival routes share) and the organiser editor (eventType.ts, inside the
+// chunk the New event and Event editor pages share). Rollup files a module by
+// the SET of entry points that reach it, and the union of those two sets is a
+// set no other module has, so the lib got a chunk of its own: a few hundred
+// bytes, ONE MORE REQUEST on every /event view, and the chunk ratchet in
+// perf-budgets.json went red by exactly one -- the request-count regression
+// that ratchet exists to catch and the KB budget cannot see.
+//
+// A manual chunk holding the lib ALONE does not fix that: it is still a chunk
+// the route did not load before. The lib has to ride inside a chunk the route
+// already loads. src/lib/londonDate.ts is that chunk: a single-module leaf like
+// the lib itself, the site's calendar-time authority, and already in the
+// first load of EVERY entry that reaches eventCategory (and of others besides,
+// which pay the lib's few hundred bytes for nothing -- the cost of this
+// pairing, accepted because the alternative is a request). Both are pure rule
+// modules with no React and no imports, so neither drags anything into the
+// other's routes. Measured, not reasoned: with this group in place the chunk
+// counts of all eight budgeted routes and the request pins of the six
+// prerendered ones match main, and /event is back on its pin; the numbers are
+// in docs/handover/event-truth-p1p3-fix.md.
+//
+// The UNBUDGETED routes too (FIX-6 F-l, 2026-10-13): londonDate is in the root
+// route's static graph, so lib-event-rules is in the first load of EVERY client
+// entry -- all 83 route modules and lazy pages in the manifest -- and on each of
+// them the first-load chunk + stylesheet count equals the pre-pairing build
+// (merge-base 5e0ec4c), 83 of 83. Method and table:
+// docs/handover/event-truth-p1p3-fix6.md. Its limit: a count of the manifest's
+// static-import closure from entry.client + root + the entry, not a browser
+// request trace; a lazy page's parent route chunk is not added (constant
+// between the two builds).
+//
+// Bounded like the vendor needles, from the other side: the id must END with
+// the module path (so a nested `node_modules/<pkg>/src/lib/londonDate.ts` does
+// not match -- that copy belongs to its package), and it must not be under
+// node_modules at all. Adding a module here moves its bytes onto every route
+// that loads londonDate; re-measure with the command in the header first.
+export const LIB_EVENT_RULES_MODULES = [
+  "/src/lib/eventCategory.ts",
+  "/src/lib/londonDate.ts",
+];
+
+const isLibEventRulesModule = (id: string): boolean =>
+  !id.includes("node_modules") &&
+  LIB_EVENT_RULES_MODULES.some((needle) => id.endsWith(needle));
+
 /**
  * Rollup `manualChunks`: the group name a module id belongs to, or
  * undefined to leave it to rollup. Pure and total -- every branch is a
@@ -269,6 +336,9 @@ export function classifyChunk(id: string): string | undefined {
   // it to vendor-react is safe because vendor-react is already in every route's
   // first load, so the edge it creates costs nothing new.
   if (id.includes(COMMONJS_HELPERS_ID)) return "vendor-react";
+  // The SECOND branch ahead of the node_modules gate, and the only first-party
+  // one. LIB_EVENT_RULES_MODULES above says what it buys and how it is bounded.
+  if (isLibEventRulesModule(id)) return "lib-event-rules";
   if (!id.includes("node_modules")) return undefined;
   // tslib rides with react, and it is FIRST, for a reason that is
   // not about react at all. DO NOT DELETE THIS BRANCH after
@@ -386,4 +456,65 @@ export function classifyChunk(id: string): string | undefined {
     return "vendor-ui-modal";
   }
   return undefined;
+}
+
+/**
+ * Every static import cycle that passes through a vendor-* chunk, as
+ * "a.js -> b.js -> a.js", given each chunk's static imports.
+ */
+export function findVendorChunkCycles(imports: Record<string, readonly string[]>): string[] {
+  const cycles: string[] = [];
+  const isVendor = (f: string) => /(^|\/)vendor-[^/]*$/.test(f);
+  for (const start of Object.keys(imports).filter(isVendor).sort()) {
+    const seen = new Set<string>();
+    const path = (from: string): string[] | null => {
+      for (const next of imports[from] ?? []) {
+        if (next === start) return [from, next];
+        if (seen.has(next)) continue;
+        seen.add(next);
+        const rest = path(next);
+        if (rest) return [from, ...rest];
+      }
+      return null;
+    };
+    const loop = path(start);
+    if (loop) cycles.push(loop.join(" -> "));
+  }
+  return cycles;
+}
+
+/**
+ * Vite plugin: fail the CLIENT build when any static import cycle passes through
+ * a vendor chunk -- the "TypeError: le is not a function" class (#746/#747: one
+ * chunk of the cycle runs its top level against the other's unassigned keepNames
+ * `var`, and every lazy chunk behind it rejects, so pages sit on their loading
+ * state). scripts/check-chunk-cycles.mjs (#748) checks CI's build after the fact;
+ * this runs INSIDE every build, Vercel's included. That is the point: #747's
+ * preview built a different graph from the same commit (a newer Radix Tooltip
+ * than the lockfile's) while CI's build of it was clean, so only a check in the
+ * deploy's own build sees that graph. Such a deploy now fails, naming the cycle,
+ * instead of shipping.
+ */
+export function vendorChunkCycleGuard() {
+  return {
+    name: "vendor-chunk-cycle-guard",
+    apply: "build" as const,
+    generateBundle(
+      this: { error: (message: string) => never },
+      _options: unknown,
+      bundle: Record<string, { type: string; imports?: string[] }>,
+    ) {
+      const imports: Record<string, string[]> = {};
+      for (const [file, out] of Object.entries(bundle)) {
+        if (out.type === "chunk") imports[file] = out.imports ?? [];
+      }
+      const cycles = findVendorChunkCycles(imports);
+      if (cycles.length > 0) {
+        this.error(
+          `[chunks] static import cycle through a vendor chunk -- a chunk on it can run before the one it imports has finished ` +
+            `(PR #747: "TypeError: le is not a function", pages stuck loading). Fix the grouping in vite.chunks.ts:\n  ${cycles.join("\n  ")}`,
+        );
+      }
+    },
+  };
 }

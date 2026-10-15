@@ -104,7 +104,7 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
             <input 
               type="file" 
               className="absolute inset-0 opacity-0 cursor-pointer" 
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
               onChange={handleUpload}
               disabled={isUploading}
             />

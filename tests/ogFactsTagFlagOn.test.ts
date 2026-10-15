@@ -143,12 +143,19 @@ describe("api.og.bake.tsx action, for real, with the flag on", () => {
   const COVER = "https://cdn.example.com/flyer.jpg";
   const EVENT_ID = "0000e780-3fa7-40b2-bbb8-59b66feb8324";
 
+  const calls: { url: string; init?: RequestInit }[] = [];
+
   beforeEach(() => {
     vi.resetModules();
+    calls.length = 0;
     process.env[ENV_KEY] = "true";
     process.env.OG_BAKE_SECRET = "test-secret";
-    vi.stubGlobal("fetch", async (input: unknown) => {
+    // The baker signs uploads with the service-role key and returns null without
+    // it (read once at import), so the test must provide one; CI has none.
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
+    vi.stubGlobal("fetch", async (input: unknown, init?: RequestInit) => {
       const url = String(input);
+      calls.push({ url, init });
       if (url.indexOf("storage-sign-upload") !== -1) {
         return new Response(
           JSON.stringify({ ok: true, uploadUrl: "https://upload.example/x", publicUrl: "https://pub.example/x.jpg" }),
@@ -163,6 +170,7 @@ describe("api.og.bake.tsx action, for real, with the flag on", () => {
 
   afterEach(() => {
     delete process.env.OG_BAKE_SECRET;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   });
 
   it("the real ogFactsTag output satisfies the guards real HEALTHY_BAKED_KEY_RE facts-suffix shape", async () => {
@@ -202,5 +210,12 @@ describe("api.og.bake.tsx action, for real, with the flag on", () => {
     });
     const res = await action({ request } as unknown as Parameters<typeof action>[0]);
     expect(res.status).toBe(200);
+
+    const sign = calls.find((c) => c.url.indexOf("storage-sign-upload") !== -1);
+    const signHeaders = sign?.init?.headers as Record<string, string>;
+    expect(signHeaders.Authorization).toBe("Bearer test-service-key");
+    expect(JSON.parse(String(sign?.init?.body)).contentType).toBe("image/jpeg");
+    const put = calls.find((c) => c.url === "https://upload.example/x");
+    expect((put?.init?.headers as Record<string, string>)["Content-Type"]).toBe("image/jpeg");
   });
 });

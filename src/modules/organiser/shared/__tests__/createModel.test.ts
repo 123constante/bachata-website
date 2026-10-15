@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   EVENT_KINDS,
-  KIND_CATEGORY,
   KIND_FORMAT,
   WEEKDAY_OPTIONS,
   createBlock,
@@ -17,7 +16,7 @@ import {
   weekdayOf,
   type CreateForm,
 } from '../createModel';
-import { OWNER_CATEGORIES, OWNER_CREATE_KEYS, SERIES_TIMEZONE, createPayload, submitForReviewCommand, weeklyRuleCommand } from '../seriesCommands';
+import { OWNER_CREATE_KEYS, SERIES_TIMEZONE, createPayload, submitForReviewCommand, weeklyRuleCommand } from '../seriesCommands';
 import { commandErrorMessage, isServerRefusal } from '../selfServeErrors';
 
 // selfServeApi imports the Supabase client; only its pure createSeriesCommand is under test.
@@ -41,12 +40,10 @@ const weeklyForm: CreateForm = {
 const partyForm: CreateForm = { ...emptyCreateForm(), kind: 'party', name: 'Bachata Sundays Party', date: '2026-10-17', startTime: '20:00' };
 
 describe('the two kinds', () => {
-  it('offer only owner categories and never a masterclass (admin D7)', () => {
+  it('set the format only; a create never sends a category (derived from the sessions, event-truth P2)', () => {
     for (const k of EVENT_KINDS) {
-      expect(OWNER_CATEGORIES).toContain(KIND_CATEGORY[k.kind]);
-      expect(KIND_CATEGORY[k.kind]).not.toBe('masterclass');
+      expect(createDraft({ ...partyForm, kind: k.kind })).not.toHaveProperty('category');
     }
-    expect(KIND_CATEGORY).toEqual({ party: 'party', weekly_class: 'class' });
     expect(KIND_FORMAT).toEqual({ party: 'one_off', weekly_class: 'recurring' });
     expect(EVENT_KINDS.map((k) => k.kind).sort()).toEqual(['party', 'weekly_class']);
   });
@@ -149,7 +146,6 @@ describe('createPayload', () => {
     expect(payload).toEqual({
       name: 'Tuesday Bachata Class',
       format: 'recurring',
-      category: 'class',
       default_start_date: '2026-10-06',
       default_local_start_time: '19:00',
       timezone: 'Europe/London',
@@ -162,11 +158,10 @@ describe('createPayload', () => {
     expect(SERIES_TIMEZONE).toBe('Europe/London');
   });
 
-  it('sends only the six always-keys for a bare party (an absent key lands NULL; a blank would be noise)', () => {
+  it('sends only the five always-keys for a bare party (an absent key lands NULL; a blank would be noise)', () => {
     expect(createPayload(createDraft(partyForm))).toEqual({
       name: 'Bachata Sundays Party',
       format: 'one_off',
-      category: 'party',
       default_start_date: '2026-10-17',
       default_local_start_time: '20:00',
       timezone: 'Europe/London',

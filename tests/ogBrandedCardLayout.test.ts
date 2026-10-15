@@ -214,6 +214,29 @@ describe('ogPillLabel', () => {
     expect(ogPillLabel('  FESTIVAL  ')).toBe('FESTIVAL');
   });
 
+  // FIX-6 F-d: the pill and the event page's ended noun read ONE mapping (src/lib/eventCategory.ts
+  // wordForStored): a stored workshop reads CLASS on the share card, as it reads "class" on the page.
+  // The snapshot's `type` is the format (festival, course) or the stored category.
+  it.each([
+    ['party', 'PARTY', 'night'],
+    ['class', 'CLASS', 'class'],
+    ['workshop', 'CLASS', 'class'],
+    ['masterclass', 'MASTERCLASS', 'masterclass'],
+    ['course', 'COURSE', 'course'],
+    ['festival', 'FESTIVAL', 'festival'],
+    ['standard', null, null],
+    ['social', null, null],
+  ] as const)('snapshot type %s: pill %s, the same word as runNoun', async (type, pill, word) => {
+    const { ogPillLabel } = await import('../app/lib/ogCardRender');
+    const { runNoun } = await import('../src/modules/event-page/bento/utils/endedRun');
+    const { wordForStored } = await import('../src/lib/eventCategory');
+    expect(ogPillLabel(type)).toBe(pill);
+    expect(wordForStored(type, type)).toBe(word);
+    // The page's noun for the same row (format from the type, category from the type) is that word.
+    if (word) expect(runNoun(null, type, type)).toBe(word);
+    expect(ogPillLabel(type) ?? '').not.toMatch(/workshop|social/i);
+  });
+
   it('shows no pill rather than a raw token for standard, unknown or null', async () => {
     const { ogPillLabel } = await import('../app/lib/ogCardRender');
     expect(ogPillLabel('standard')).toBeNull();

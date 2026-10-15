@@ -1352,6 +1352,25 @@
   background-color: #11121a;
 }
 
+/* Every route's wrapper (app/InitialVisiblePageTransition.tsx, PageTransition):
+   at least the screen BELOW the fixed chrome, never a bare 100vh on top of the
+   header spacer (that left a dead band and a pointless scroll). Chrome is the
+   60px header spacer + the 46px section row (BottomNav, sticky under the header,
+   md:hidden) = 106px on phones, 60px from md up. Nothing is fixed at the bottom,
+   so only the safe-area inset is subtracted. Same vh-then-svh fallback as
+   .home-map-fill above. */
+.route-shell {
+  width: 100%;
+  min-height: calc(100vh - 106px - env(safe-area-inset-bottom));
+  min-height: calc(100svh - 106px - env(safe-area-inset-bottom));
+}
+@media (min-width: 768px) {
+  .route-shell {
+    min-height: calc(100vh - 60px - env(safe-area-inset-bottom));
+    min-height: calc(100svh - 60px - env(safe-area-inset-bottom));
+  }
+}
+
 /* Inset map "bento" card: a responsive clamp so it never dominates a short
    viewport nor shrinks to a sliver. The inset chrome (margin/radius/border) lives
    HERE rather than in Tailwind utilities so the fullscreen and desktop rules

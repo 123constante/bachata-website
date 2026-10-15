@@ -8,6 +8,7 @@ import { ORG_PATHS } from '../shell';
 import { Card, Collapse, DateChip, GhostButton, SkeletonRows, SummaryRow } from '../ui';
 import { shortDate } from './eventModel';
 import { useNextDateProgramme } from './eventsApi';
+import { EVERY_UPCOMING_CANCELLED } from './eventType';
 
 
 /**
@@ -26,7 +27,7 @@ export function ScheduleCard({ seriesId, next, today, upcoming = 0, pastCount = 
     return (
       <Card label="Schedule" testId="org-schedule">
         <SummaryRow
-          label={upcoming ? 'Every upcoming date is cancelled' : 'No upcoming date'}
+          label={upcoming ? EVERY_UPCOMING_CANCELLED : 'No upcoming date'}
           sublabel={pastCount ? 'Open a past date above to see its sessions' : closed ? 'This event has no dates' : 'Sessions show here once a date is listed'}
           testId="org-schedule-none"
         />

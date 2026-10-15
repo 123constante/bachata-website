@@ -72,7 +72,7 @@ import { DjHero } from '@/components/dj/DjTiles';
 import { DancerProfileGrid } from '@/components/profile/DancerProfileGrid';
 import { mapDancerPublicProfile } from '@/modules/profile/dancerPublicProfile';
 import { PersonChip } from '@/modules/event-page/bento/blocks/schedule/PersonChip';
-import { parseProgramItems, parseProgrammeNationalities, withNationalities } from '@/modules/event-page/sections/EventScheduleGrid';
+import { parseProgramItems } from '@/modules/event-page/sections/EventScheduleGrid';
 import { parseFestivalDetail } from '@/modules/event-page/useFestivalDetailQuery';
 import { searchPublicV3 } from '@/lib/searchRpc';
 import { fetchMyDancerSummary } from '@/hooks/useMyDancerSummary';
@@ -240,15 +240,13 @@ const SURFACES: Surface[] = [
   },
   {
     name: '/event/:id programme (PersonChip)',
-    read: 'event_view_p5 + dancer_profiles (stored alpha-2)',
+    read: 'event_view_p5 legacy_compat (nationality_code per person)',
     flagWithoutPhoto: true,
     mount: async (s) => {
-      const person = { profile_id: ID, profile_type: 'teacher', display_name: s.name, avatar_url: s.photo, sort_order: 1, level: null };
+      // The programme read carries the code on the person itself (admin #774/#799); no second read.
+      const person = { profile_id: ID, profile_type: 'teacher', display_name: s.name, avatar_url: s.photo, sort_order: 1, level: null, nationality_code: s.code };
       const item = { id: 'i1', title: 'Class', type: 'class', start_time: '2026-10-20T19:00:00', end_time: '2026-10-20T20:00:00', sort_order: 1, levels: null, room: null, section_id: null, section_kind: null };
-      const sessions = parseProgramItems([{ ...item, people: [person] }]);
-      // event_view_p5 carries no code; ScheduleBlock reads dancer_profiles.nationality for the people on it.
-      const codes = parseProgrammeNationalities([{ id: ID, nationality: s.code }]);
-      const p = withNationalities(sessions, codes)[0].people[0];
+      const p = parseProgramItems([{ ...item, people: [person] }])[0].people[0];
       render(<MemoryRouter><PersonChip person={p} size="lg" /></MemoryRouter>);
       // The chip loads the flag lazily (the /event first-load budget): let it resolve.
       await new Promise((r) => setTimeout(r, 0));

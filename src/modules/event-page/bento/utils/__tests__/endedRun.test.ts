@@ -37,7 +37,8 @@ describe('runNoun', () => {
   // preview and on the record card both. Most of what this arc ends is recurring.
   it('names a class, workshop and masterclass from CATEGORY, not shape', () => {
     expect(runNoun('recurring', null, 'class')).toBe('class');
-    expect(runNoun('recurring', null, 'workshop')).toBe('workshop');
+    // A stored workshop reads 'class': the shared word (eventCategory.wordForStored), no session derives a workshop.
+    expect(runNoun('recurring', null, 'workshop')).toBe('class');
     expect(runNoun('recurring', null, 'masterclass')).toBe('masterclass');
     expect(runNoun('one_off', null, 'class')).toBe('class');
   });

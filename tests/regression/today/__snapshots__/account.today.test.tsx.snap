@@ -1,0 +1,663 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`/account entry at '390x844' > /account > 'complete dancer' 1`] = `
+{
+  "landing": "/account",
+  "tree": "heading "Your account" level=1
+heading "Your profile" level=2
+img "Ana's photo"
+text "Ana"
+text "London · Follower"
+text "Your profile is complete. You can rate parties now."
+navigation "Your nights"
+  link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
+  link "Browse partiesFind your next night out" href=/city/london-gb/parties
+text "Hide my surname from the public"
+switch "Hide my surname from the public" [checked=false]
+text "Anyone viewing your profile or a line-up sees your first name and surname."
+button "Save" [disabled]
+text "Change the switch, then save."
+button "I organise eventsClaim your organiser, ask to join one, or create one" [expanded=false]
+link "Settings: email, your data, hide or delete account" href=/account/settings
+text "Signed in as ana@example.com ."
+button "Sign out"",
+}
+`;
+
+exports[`/account entry at '390x844' > /account > 'incomplete (name + city, no role/phot…' 1`] = `
+{
+  "landing": "/finish-profile?returnTo=<encoded>",
+  "tree": "heading "Finish your profile" level=1
+text "Finish your dancer profile first, then you can set up your organiser page."
+text "Still to add: dance role, photo."
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+link "Account settings (sign out or delete account)" href=/account/settings",
+}
+`;
+
+exports[`/account entry at '390x844' > /account > 'no profile' 1`] = `
+{
+  "landing": "/finish-profile?returnTo=<encoded>",
+  "tree": "heading "Finish your profile" level=1
+text "Finish your dancer profile first, then you can set up your organiser page."
+text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+link "Back to the calendar" href=/
+link "Account settings (sign out or delete account)" href=/account/settings",
+}
+`;
+
+exports[`/account entry at '390x844' > /account > 'open access request (complete)' 1`] = `
+{
+  "landing": "/account/o",
+  "tree": "heading "Welcome" level=1
+button "Your account" [expanded=false]
+text "Signed in"
+text "Your organiser"
+text "Your events"
+text "Signed in as ana@example.com ."
+text "Not you?"
+button "Sign out of ana@example.com"
+heading "Which organiser are you?" level=2
+text "We’ve probably listed you already. Find your name, or create a new organiser."
+searchbox "Search organisers by name"
+status
+button "Create a new organiser"
+text "Name and city. The team checks new organisers within a day."
+heading "Waiting for an answer" level=2
+text "Org 0"
+text "Asked 1 Oct . The team usually replies within a day."
+text "Waiting"
+link "Just here to dance? Browse events" href=/
+navigation "Organiser"
+  link "Home" href=/account/o
+  link "Events" href=/account/o/events
+  link "Team" href=/account/o/team
+  link "Profile" href=/account/o/profile",
+}
+`;
+
+exports[`/account entry at '390x844' > /account > 'organiser-type (complete)' 1`] = `
+{
+  "landing": "/account/o",
+  "tree": "heading "Home" level=1
+button "Your account" [expanded=false]
+status
+text "No events yet"
+text "Add your first event. You can keep it as a draft until it is ready."
+button "New event"
+link "Add another organiser" href=/account/o?add=1
+navigation "Organiser"
+  link "Home" href=/account/o
+  link "Events" href=/account/o/events
+  link "Team" href=/account/o/team
+  link "Profile" href=/account/o/profile",
+}
+`;
+
+exports[`/account entry at '390x844' > /account > 'signed out' 1`] = `
+{
+  "landing": "/auth?mode=signin&returnTo=<encoded>",
+  "tree": "text "auth page"",
+}
+`;
+
+exports[`/account entry at '390x844' > /account/dancer > 'complete dancer' 1`] = `
+{
+  "landing": "/account/dancer",
+  "tree": "heading "Your dancer profile" level=1
+heading "Your profile" level=2
+img "Ana's photo"
+text "Ana"
+text "London · Follower"
+text "Your profile is complete. You can rate parties now."
+navigation "Your nights"
+  link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
+  link "Browse partiesFind your next night out" href=/city/london-gb/parties
+text "Hide my surname from the public"
+switch "Hide my surname from the public" [checked=false]
+text "Anyone viewing your profile or a line-up sees your first name and surname."
+button "Save" [disabled]
+text "Change the switch, then save."
+button "I organise eventsClaim your organiser, ask to join one, or create one" [expanded=false]
+link "Settings: email, your data, hide or delete account" href=/account/settings
+text "Signed in as ana@example.com ."
+button "Sign out"",
+}
+`;
+
+exports[`/account entry at '390x844' > /account/dancer > 'incomplete (name + city, no role/phot…' 1`] = `
+{
+  "landing": "/finish-profile?returnTo=<encoded>",
+  "tree": "heading "Finish your profile" level=1
+text "Finish your dancer profile first, then you can set up your organiser page."
+text "Still to add: dance role, photo."
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+link "Account settings (sign out or delete account)" href=/account/settings",
+}
+`;
+
+exports[`/account entry at '390x844' > /account/dancer > 'no profile' 1`] = `
+{
+  "landing": "/finish-profile?returnTo=<encoded>",
+  "tree": "heading "Finish your profile" level=1
+text "Finish your dancer profile first, then you can set up your organiser page."
+text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+link "Back to the calendar" href=/
+link "Account settings (sign out or delete account)" href=/account/settings",
+}
+`;
+
+exports[`/account entry at '390x844' > /account/dancer > 'open access request (complete)' 1`] = `
+{
+  "landing": "/account/dancer",
+  "tree": "heading "Your dancer profile" level=1
+heading "Your profile" level=2
+img "Ana's photo"
+text "Ana"
+text "London · Follower"
+text "Your profile is complete. You can rate parties now."
+navigation "Your nights"
+  link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
+  link "Browse partiesFind your next night out" href=/city/london-gb/parties
+text "Hide my surname from the public"
+switch "Hide my surname from the public" [checked=false]
+text "Anyone viewing your profile or a line-up sees your first name and surname."
+button "Save" [disabled]
+text "Change the switch, then save."
+link "Back to your organiser home" href=/account/o
+link "Settings: email, your data, hide or delete account" href=/account/settings
+text "Signed in as ana@example.com ."
+button "Sign out"",
+}
+`;
+
+exports[`/account entry at '390x844' > /account/dancer > 'organiser-type (complete)' 1`] = `
+{
+  "landing": "/account/dancer",
+  "tree": "heading "Your dancer profile" level=1
+heading "Your profile" level=2
+img "Ana's photo"
+text "Ana"
+text "London · Follower"
+text "Your profile is complete. You can rate parties now."
+navigation "Your nights"
+  link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
+  link "Browse partiesFind your next night out" href=/city/london-gb/parties
+text "Hide my surname from the public"
+switch "Hide my surname from the public" [checked=false]
+text "Anyone viewing your profile or a line-up sees your first name and surname."
+button "Save" [disabled]
+text "Change the switch, then save."
+link "Back to your organiser home" href=/account/o
+link "Settings: email, your data, hide or delete account" href=/account/settings
+text "Signed in as ana@example.com ."
+button "Sign out"",
+}
+`;
+
+exports[`/account entry at '390x844' > /account/dancer > 'signed out' 1`] = `
+{
+  "landing": "/auth?mode=signin&returnTo=<encoded>",
+  "tree": "text "auth page"",
+}
+`;
+
+exports[`/account entry at '390x844' > /account/o > 'complete dancer' 1`] = `
+{
+  "landing": "/account/o",
+  "tree": "heading "Welcome" level=1
+text "Signed in"
+text "Your organiser"
+text "Your events"
+text "Signed in as ana@example.com ."
+text "Not you?"
+button "Sign out of ana@example.com"
+heading "Which organiser are you?" level=2
+text "We’ve probably listed you already. Find your name, or create a new organiser."
+searchbox "Search organisers by name"
+status
+button "Create a new organiser"
+text "Name and city. The team checks new organisers within a day."
+link "Just here to dance? Browse events" href=/
+navigation "Organiser"
+  link "Home" href=/account/o
+  link "Events" href=/account/o/events
+  link "Team" href=/account/o/team
+  link "Profile" href=/account/o/profile",
+}
+`;
+
+exports[`/account entry at '390x844' > /account/o > 'incomplete (name + city, no role/phot…' 1`] = `
+{
+  "landing": "/finish-profile?returnTo=<encoded>",
+  "tree": "heading "Finish your profile" level=1
+text "Finish your dancer profile first, then you can set up your organiser page."
+text "Still to add: dance role, photo."
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+link "Account settings (sign out or delete account)" href=/account/settings",
+}
+`;
+
+exports[`/account entry at '390x844' > /account/o > 'no profile' 1`] = `
+{
+  "landing": "/finish-profile?returnTo=<encoded>",
+  "tree": "heading "Finish your profile" level=1
+text "Finish your dancer profile first, then you can set up your organiser page."
+text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+link "Back to the calendar" href=/
+link "Account settings (sign out or delete account)" href=/account/settings",
+}
+`;
+
+exports[`/account entry at '390x844' > /account/o > 'open access request (complete)' 1`] = `
+{
+  "landing": "/account/o",
+  "tree": "heading "Welcome" level=1
+button "Your account" [expanded=false]
+text "Signed in"
+text "Your organiser"
+text "Your events"
+text "Signed in as ana@example.com ."
+text "Not you?"
+button "Sign out of ana@example.com"
+heading "Which organiser are you?" level=2
+text "We’ve probably listed you already. Find your name, or create a new organiser."
+searchbox "Search organisers by name"
+status
+button "Create a new organiser"
+text "Name and city. The team checks new organisers within a day."
+heading "Waiting for an answer" level=2
+text "Org 0"
+text "Asked 1 Oct . The team usually replies within a day."
+text "Waiting"
+link "Just here to dance? Browse events" href=/
+navigation "Organiser"
+  link "Home" href=/account/o
+  link "Events" href=/account/o/events
+  link "Team" href=/account/o/team
+  link "Profile" href=/account/o/profile",
+}
+`;
+
+exports[`/account entry at '390x844' > /account/o > 'organiser-type (complete)' 1`] = `
+{
+  "landing": "/account/o",
+  "tree": "heading "Home" level=1
+button "Your account" [expanded=false]
+status
+text "No events yet"
+text "Add your first event. You can keep it as a draft until it is ready."
+button "New event"
+link "Add another organiser" href=/account/o?add=1
+navigation "Organiser"
+  link "Home" href=/account/o
+  link "Events" href=/account/o/events
+  link "Team" href=/account/o/team
+  link "Profile" href=/account/o/profile",
+}
+`;
+
+exports[`/account entry at '390x844' > /account/o > 'signed out' 1`] = `
+{
+  "landing": "/auth?mode=signin&returnTo=<encoded>",
+  "tree": "text "auth page"",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account > 'complete dancer' 1`] = `
+{
+  "landing": "/account",
+  "tree": "heading "Your account" level=1
+heading "Your profile" level=2
+img "Ana's photo"
+text "Ana"
+text "London · Follower"
+text "Your profile is complete. You can rate parties now."
+navigation "Your nights"
+  link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
+  link "Browse partiesFind your next night out" href=/city/london-gb/parties
+text "Hide my surname from the public"
+switch "Hide my surname from the public" [checked=false]
+text "Anyone viewing your profile or a line-up sees your first name and surname."
+button "Save" [disabled]
+text "Change the switch, then save."
+button "I organise eventsClaim your organiser, ask to join one, or create one" [expanded=false]
+link "Settings: email, your data, hide or delete account" href=/account/settings
+text "Signed in as ana@example.com ."
+button "Sign out"",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account > 'incomplete (name + city, no role/phot…' 1`] = `
+{
+  "landing": "/finish-profile?returnTo=<encoded>",
+  "tree": "heading "Finish your profile" level=1
+text "Finish your dancer profile first, then you can set up your organiser page."
+text "Still to add: dance role, photo."
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+link "Account settings (sign out or delete account)" href=/account/settings",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account > 'no profile' 1`] = `
+{
+  "landing": "/finish-profile?returnTo=<encoded>",
+  "tree": "heading "Finish your profile" level=1
+text "Finish your dancer profile first, then you can set up your organiser page."
+text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+link "Back to the calendar" href=/
+link "Account settings (sign out or delete account)" href=/account/settings",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account > 'open access request (complete)' 1`] = `
+{
+  "landing": "/account/o",
+  "tree": "heading "Welcome" level=1
+button "Your account" [expanded=false]
+text "Signed in"
+text "Your organiser"
+text "Your events"
+text "Signed in as ana@example.com ."
+text "Not you?"
+button "Sign out of ana@example.com"
+heading "Which organiser are you?" level=2
+text "We’ve probably listed you already. Find your name, or create a new organiser."
+searchbox "Search organisers by name"
+status
+button "Create a new organiser"
+text "Name and city. The team checks new organisers within a day."
+heading "Waiting for an answer" level=2
+text "Org 0"
+text "Asked 1 Oct . The team usually replies within a day."
+text "Waiting"
+link "Just here to dance? Browse events" href=/
+navigation "Organiser"
+  link "Home" href=/account/o
+  link "Events" href=/account/o/events
+  link "Team" href=/account/o/team
+  link "Profile" href=/account/o/profile",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account > 'organiser-type (complete)' 1`] = `
+{
+  "landing": "/account/o",
+  "tree": "heading "Home" level=1
+button "Your account" [expanded=false]
+status
+text "No events yet"
+text "Add your first event. You can keep it as a draft until it is ready."
+button "New event"
+link "Add another organiser" href=/account/o?add=1
+navigation "Organiser"
+  link "Home" href=/account/o
+  link "Events" href=/account/o/events
+  link "Team" href=/account/o/team
+  link "Profile" href=/account/o/profile",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account > 'signed out' 1`] = `
+{
+  "landing": "/auth?mode=signin&returnTo=<encoded>",
+  "tree": "text "auth page"",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account/dancer > 'complete dancer' 1`] = `
+{
+  "landing": "/account/dancer",
+  "tree": "heading "Your dancer profile" level=1
+heading "Your profile" level=2
+img "Ana's photo"
+text "Ana"
+text "London · Follower"
+text "Your profile is complete. You can rate parties now."
+navigation "Your nights"
+  link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
+  link "Browse partiesFind your next night out" href=/city/london-gb/parties
+text "Hide my surname from the public"
+switch "Hide my surname from the public" [checked=false]
+text "Anyone viewing your profile or a line-up sees your first name and surname."
+button "Save" [disabled]
+text "Change the switch, then save."
+button "I organise eventsClaim your organiser, ask to join one, or create one" [expanded=false]
+link "Settings: email, your data, hide or delete account" href=/account/settings
+text "Signed in as ana@example.com ."
+button "Sign out"",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account/dancer > 'incomplete (name + city, no role/phot…' 1`] = `
+{
+  "landing": "/finish-profile?returnTo=<encoded>",
+  "tree": "heading "Finish your profile" level=1
+text "Finish your dancer profile first, then you can set up your organiser page."
+text "Still to add: dance role, photo."
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+link "Account settings (sign out or delete account)" href=/account/settings",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account/dancer > 'no profile' 1`] = `
+{
+  "landing": "/finish-profile?returnTo=<encoded>",
+  "tree": "heading "Finish your profile" level=1
+text "Finish your dancer profile first, then you can set up your organiser page."
+text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+link "Back to the calendar" href=/
+link "Account settings (sign out or delete account)" href=/account/settings",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account/dancer > 'open access request (complete)' 1`] = `
+{
+  "landing": "/account/dancer",
+  "tree": "heading "Your dancer profile" level=1
+heading "Your profile" level=2
+img "Ana's photo"
+text "Ana"
+text "London · Follower"
+text "Your profile is complete. You can rate parties now."
+navigation "Your nights"
+  link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
+  link "Browse partiesFind your next night out" href=/city/london-gb/parties
+text "Hide my surname from the public"
+switch "Hide my surname from the public" [checked=false]
+text "Anyone viewing your profile or a line-up sees your first name and surname."
+button "Save" [disabled]
+text "Change the switch, then save."
+link "Back to your organiser home" href=/account/o
+link "Settings: email, your data, hide or delete account" href=/account/settings
+text "Signed in as ana@example.com ."
+button "Sign out"",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account/dancer > 'organiser-type (complete)' 1`] = `
+{
+  "landing": "/account/dancer",
+  "tree": "heading "Your dancer profile" level=1
+heading "Your profile" level=2
+img "Ana's photo"
+text "Ana"
+text "London · Follower"
+text "Your profile is complete. You can rate parties now."
+navigation "Your nights"
+  link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
+  link "Browse partiesFind your next night out" href=/city/london-gb/parties
+text "Hide my surname from the public"
+switch "Hide my surname from the public" [checked=false]
+text "Anyone viewing your profile or a line-up sees your first name and surname."
+button "Save" [disabled]
+text "Change the switch, then save."
+link "Back to your organiser home" href=/account/o
+link "Settings: email, your data, hide or delete account" href=/account/settings
+text "Signed in as ana@example.com ."
+button "Sign out"",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account/dancer > 'signed out' 1`] = `
+{
+  "landing": "/auth?mode=signin&returnTo=<encoded>",
+  "tree": "text "auth page"",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account/o > 'complete dancer' 1`] = `
+{
+  "landing": "/account/o",
+  "tree": "heading "Welcome" level=1
+text "Signed in"
+text "Your organiser"
+text "Your events"
+text "Signed in as ana@example.com ."
+text "Not you?"
+button "Sign out of ana@example.com"
+heading "Which organiser are you?" level=2
+text "We’ve probably listed you already. Find your name, or create a new organiser."
+searchbox "Search organisers by name"
+status
+button "Create a new organiser"
+text "Name and city. The team checks new organisers within a day."
+link "Just here to dance? Browse events" href=/
+navigation "Organiser"
+  link "Home" href=/account/o
+  link "Events" href=/account/o/events
+  link "Team" href=/account/o/team
+  link "Profile" href=/account/o/profile",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account/o > 'incomplete (name + city, no role/phot…' 1`] = `
+{
+  "landing": "/finish-profile?returnTo=<encoded>",
+  "tree": "heading "Finish your profile" level=1
+text "Finish your dancer profile first, then you can set up your organiser page."
+text "Still to add: dance role, photo."
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+link "Account settings (sign out or delete account)" href=/account/settings",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account/o > 'no profile' 1`] = `
+{
+  "landing": "/finish-profile?returnTo=<encoded>",
+  "tree": "heading "Finish your profile" level=1
+text "Finish your dancer profile first, then you can set up your organiser page."
+text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+link "Back to the calendar" href=/
+link "Account settings (sign out or delete account)" href=/account/settings",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account/o > 'open access request (complete)' 1`] = `
+{
+  "landing": "/account/o",
+  "tree": "heading "Welcome" level=1
+button "Your account" [expanded=false]
+text "Signed in"
+text "Your organiser"
+text "Your events"
+text "Signed in as ana@example.com ."
+text "Not you?"
+button "Sign out of ana@example.com"
+heading "Which organiser are you?" level=2
+text "We’ve probably listed you already. Find your name, or create a new organiser."
+searchbox "Search organisers by name"
+status
+button "Create a new organiser"
+text "Name and city. The team checks new organisers within a day."
+heading "Waiting for an answer" level=2
+text "Org 0"
+text "Asked 1 Oct . The team usually replies within a day."
+text "Waiting"
+link "Just here to dance? Browse events" href=/
+navigation "Organiser"
+  link "Home" href=/account/o
+  link "Events" href=/account/o/events
+  link "Team" href=/account/o/team
+  link "Profile" href=/account/o/profile",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account/o > 'organiser-type (complete)' 1`] = `
+{
+  "landing": "/account/o",
+  "tree": "heading "Home" level=1
+button "Your account" [expanded=false]
+status
+text "No events yet"
+text "Add your first event. You can keep it as a draft until it is ready."
+button "New event"
+link "Add another organiser" href=/account/o?add=1
+navigation "Organiser"
+  link "Home" href=/account/o
+  link "Events" href=/account/o/events
+  link "Team" href=/account/o/team
+  link "Profile" href=/account/o/profile",
+}
+`;
+
+exports[`/account entry at 'desktop' > /account/o > 'signed out' 1`] = `
+{
+  "landing": "/auth?mode=signin&returnTo=<encoded>",
+  "tree": "text "auth page"",
+}
+`;

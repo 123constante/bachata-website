@@ -20,6 +20,8 @@ export type DancerRow = {
   dance_role: string | null;
   avatar_url: string | null;
   archived_at: string | null;
+  /** The surname switch (absent = the column cannot be read). Written only by a boolean in the save payload, like the live function. */
+  hide_surname_publicly?: boolean;
 };
 
 export const CITY = { id: 'city-london', name: 'London' };
@@ -76,6 +78,7 @@ export function makeBackend(initial: BackendState) {
           const v = p?.[key];
           if (typeof v === 'string' && v !== '') state.row[key] = v;
         }
+        if (typeof p?.hide_surname_publicly === 'boolean') state.row.hide_surname_publicly = p.hide_surname_publicly;
         return ok({ id: 'persona-1' });
       }
       case 'series_level_summary_p5_v1':
@@ -127,7 +130,7 @@ export function makeBackend(initial: BackendState) {
 export type Backend = ReturnType<typeof makeBackend>;
 
 const EMPTY: DancerRow = { first_name: null, based_city_id: null, dance_role: null, avatar_url: null, archived_at: null };
-export const FULL: DancerRow = { first_name: 'Ana', based_city_id: CITY.id, dance_role: 'Follower', avatar_url: 'https://img.example/ana.jpg', archived_at: null };
+export const FULL: DancerRow = { first_name: 'Ana', based_city_id: CITY.id, dance_role: 'Follower', avatar_url: 'https://img.example/ana.jpg', archived_at: null, hide_surname_publicly: false };
 
 /**
  * The dancer-row shapes (prod counts 2026-10-11, re-surveyed for the PR): 166

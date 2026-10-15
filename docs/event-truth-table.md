@@ -1,10 +1,12 @@
 # Event truth table &mdash; one source per fact
 
 *Written 2026-10-12 for the event-truth arc (plan
-`in-the-admin-dashboard-peaceful-tide.md`). Every row names the SINGLE source
-of a fact about an event and every reader of it. A reader not on the list is a
-finding. Enforced by `scripts/check-event-truth-v1.mjs` (CI #70) where a row
-says so; the other rows record decisions so nobody re-litigates them.*
+`in-the-admin-dashboard-peaceful-tide.md`); P3 2026-10-13: date-only sessions
+join the derivation and `category_drift` gates at 0 since admin #780. Every row
+names the SINGLE source of a fact about an event and every reader of it. A
+reader not on the list is a finding. Enforced by
+`scripts/check-event-truth-v1.mjs` (CI #70) where a row says so; the other rows
+record decisions so nobody re-litigates them.*
 
 ## The defect this table exists for
 
@@ -35,12 +37,12 @@ single-word readers use the precedence festival &gt; course &gt; party ("night")
 
 | fact | single source | readers today | status |
 |---|---|---|---|
-| **genre** (party / class / masterclass) | programme: section `kind` first, item `type` second, with the readers' synonyms (masterclass counts as a class too; item type `social` is a party) (`deriveGenres` in the check; P1 ships the shared `deriveCategories`) | `calendarUtils.ts` hasParty/hasClass; `endedRun.ts` runNoun; organiser `EventEditorPage` Type row; admin `EventList` Category filter; `genreSynonyms.ts`; `get_calendar_events_v2` (per occurrence day, via `key_times` and session overrides), `get_latest_events_v2` (series-wide, `prog.p5_*` over item types); `get_map_events_v1` passes the calendar's flags through | **gated** &mdash; `category_drift` ratchet (7 known ids). Reader agreement is **reported only** (`reader_flags`, 0 of 29 on 2026-10-12): calendar and latest differ by grain until P1, so a gate would fire on a festival whose party is on day 2 |
+| **genre** (party / class / masterclass) | programme, the UNION of three sources through ONE mapping: series section `kind`, series item `type`, and date-only session `section_kind` + `type` (`event_occurrence_added_session_p5`, where `organiser_set_occurrence_programme_v1` writes and the only sessions a new organiser-created series has), with the readers' synonyms (masterclass counts as a class too; `social` is a party; unknown values and nulls say nothing). `src/lib/eventCategory.ts` `deriveCategories` is the canonical rule (its LF sha256 is pinned in `eventCategory.test.ts`, so Website CI reds an edit to it; the admin copy is meant to hold the same bytes, held only by the local twin test on the owner's machine, never by CI); the check's `deriveGenres` is its JS twin, held to it by `scripts/fixtures/event-truth-parity.json` (run by the check's `--self-test` AND `eventCategory.parity.test.ts`) | `calendarUtils.ts` hasParty/hasClass; `endedRun.ts` runNoun; organiser `EventEditorPage` Type row; admin `EventList` Category filter; `genreSynonyms.ts`; `get_calendar_events_v2` (per occurrence day, via `key_times` and session overrides), `get_latest_events_v2` (series-wide, `prog.p5_*` over item types); `get_map_events_v1` passes the calendar's flags through | **gated at 0** since admin #780 (P3, 2026-10-13): `category_drift` has an EMPTY baseline, so ANY live series whose stored mirror disagrees with its sessions fails, a NULL mirror under mapped sessions included (the mirror is derived; unset means it was not written). Reader agreement is **reported only** (`reader_flags`, 0 of 29 on 2026-10-12): calendar and latest differ by grain until P1, so a gate would fire on a festival whose party is on day 2 |
 | **shape / cadence** (one_off, recurring, course, festival) | `event_series_p5.format` | admin cadence filter, `eventFormat.ts` isFestival, festival pages | not gated here; `recurring` with a NULL rule is an **accepted shape** (ad-hoc monthly, next date added by hand &mdash; CI #28's own doc) |
 | **course length** | `course_total_sessions` (must be set on a live course) | admin editor, course pages, `check_finite_course_phantom_tail_v1` | **gated** &mdash; `course_without_length` ratchet (2 known ids) |
 | **upcoming** (is this listing alive?) | a `scheduled` `event_occurrence_p5` row &ge; today | calendar, map, latest, organiser home | **CI #28 owns it** &mdash; reports NULL-rule series with no future date, gates only open-ended rules, on purpose ("gating would red every finite series at its end"). Remedy is the admin "Needs attention" list, not a second red. |
 | **start time** | earliest programme session when one exists, else `default_local_start_time` (admin hint already says so) | `materialised_start_utc`, calendar times | not gated; 4 of 66 disagree on 2026-10-12, folds into P1 |
-| **section kind vs item type** | the section `kind` wins (enum); item `type` is free text | derivation input | **reported only** (`kind_vs_type`, 8 on 2026-10-12) |
+| **section kind vs item type** | the section `kind` wins (enum); item `type` is free text; a date-only session's `section_kind` vs its `type` is the same question at the other grain | derivation input | **reported only** (`kind_vs_type`, 8 series items on 2026-10-12; date-only sessions are in the scan since FIX-2) |
 | **level** | session `level_keys`; `default_level` mirrors | event page, filters | already guarded (0 drift); party-level writes refused by `trg_refuse_party_level_series_v1` |
 
 ## How the ratchet works
@@ -55,6 +57,25 @@ nothing was repaired, and a series finishing must not red the daily run on main.
 Prune departed entries when convenient. Repairs are owner decisions taken in
 the admin "Needs attention" list (admin repo, after P0), never automatic.
 
+**`category_drift` gates at 0 since admin #780 (P3, 2026-10-13).** The stored
+`category` is a derived mirror and #780 repaired every live series from the
+sessions, so the block is empty and stays empty: a red here is a mirror that
+drifted (a write path that bypassed the derivation), never a reason to add an
+id. `course_without_length` is not repaired by #780 and keeps its two ids. The
+departed / stale split still applies to both blocks.
+
+**The payload since #780.** `check_event_truth_v1()` carries, per live series,
+`added_sessions: [{kind, type}]` (date-only sessions; `kind` = `section_kind`;
+`[]` when none) and a top-level `added_session_count` the RPC computes from its
+own base-table join. Both are REQUIRED: the P0 payload without them is exit 2
+(fail closed, as every other key), never a pass that cannot see date-only
+sessions. The measurement floor is the SERIES programme on its own
+(`section_count >= 1`): 64 of 64 live series carry one, so date-only rows never
+stand in for it, and a broken day -> section join reads as "measured nothing"
+(exit 2) rather than passing on date-only rows alone. A future where every live
+series is organiser-created (date-only only) is a decision to take then, never a
+floor to relax now.
+
 ## Already-decided soft spots (do not re-open without a fresh decision)
 
 - **Live series only.** `check_event_truth_v1()` is anon-callable, and a paused
@@ -68,3 +89,14 @@ the admin "Needs attention" list (admin repo, after P0), never automatic.
 - `recurring` with NULL `recurrence_rule` &mdash; accepted; see CI #28's comment.
 - `check_event_program_section_consistency_v2` checks orphans only (reports 90
   item-less sections, healthy). It does **not** check kind vs type; this table does.
+
+## Reader vs lib (queued, needs Ricky's call on `calendarUtils.ts`)
+
+FIX-6 F-f, 2026-10-13. From a date's programme alone (key_times quiet), the calendar
+reader (`src/components/calendar/calendarUtils.ts` `matchesCategory`) lists a
+`masterclass` item under **no** tab and a `social` item under **no** tab. The lib
+(`src/lib/eventCategory.ts`) and the CI #70 guard (held to the lib by
+`scripts/fixtures/event-truth-parity.json`) put a masterclass under Classes and a
+social under Parties. `calendarUtils.ts` is density-excluded (ask Ricky first), so the
+divergence is PINNED, not fixed: `eventTruth.matrix.test.tsx` "known divergence" rows
+red when either side moves. Closing it is a reader change in `calendarUtils.ts`.

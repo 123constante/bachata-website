@@ -18,9 +18,11 @@ export const OWNER_COMMAND_KINDS = [
 ] as const;
 
 /**
- * series.upsert keys an owner may send on an EXISTING series. `category` joined
- * the list with admin D7 (20261109130000_p5_owner_category_v1.sql); the server
- * refuses a category change on a live series, so the basics form never sends it.
+ * series.upsert keys an owner may send on an EXISTING series (a mirror of the
+ * server allowlist, pinned key for key by the mirror test). `category` is a
+ * SERVER-ONLY entry here: the server keeps it so an older client is never
+ * refused, but it DERIVES category from the sessions and ignores a sent value
+ * (event-truth P2), so this client never sends it (upsertCommand strips it).
  * `default_passes` (the price list) and `instagram_url` joined with admin D8
  * (20261109180000_p5_owner_writes_time_price_instagram_v1.sql).
  */
@@ -41,11 +43,6 @@ export const OWNER_UPSERT_KEYS = [
  */
 export const OWNER_CREATE_KEYS = [...OWNER_UPSERT_KEYS, 'format'] as const;
 
-/** The categories an owner may create (admin D7): party, class, workshop. masterclass is admin-only. */
-export const OWNER_CATEGORIES = ['party', 'class', 'workshop'] as const;
-export type OwnerCategory = (typeof OWNER_CATEGORIES)[number];
-export const isOwnerCategory = (value: unknown): value is OwnerCategory =>
-  typeof value === 'string' && (OWNER_CATEGORIES as readonly string[]).includes(value);
 
 // ---- the price list (admin D8 _owner_passes_problem_p5) ------------------------
 
@@ -221,15 +218,12 @@ export const hasBasicsChanges = (initial: BasicsDraft, draft: BasicsDraft) =>
   Object.keys(basicsPayload(initial, draft)).length > 1 || draft.name.trim() !== initial.name.trim();
 
 /**
- * series.upsert. `category` goes only when it is one of the three owner
- * categories: the server refuses anything else from an owner (admin D7, a
- * masterclass included, even echoed back unchanged), so a category the team
- * set (masterclass) is left out and the series keeps it.
+ * series.upsert. `category` never goes: the server derives it from the
+ * sessions (src/lib/eventCategory.ts and its SQL twin) and ignores a sent one,
+ * so sending it would only look like it set something.
  */
 export function upsertCommand(payload: Record<string, unknown>): OwnerCommand {
-  if (!('category' in payload) || isOwnerCategory(payload.category)) return { kind: 'series.upsert', payload };
-  const rest = { ...payload };
-  delete rest.category;
+  const { category: _serverDerived, ...rest } = payload;
   return { kind: 'series.upsert', payload: rest };
 }
 
@@ -289,7 +283,6 @@ export const SERIES_TIMEZONE = 'Europe/London';
 
 /** The create screen's draft: the basics plus what only a create may set. */
 export interface CreateDraft extends BasicsDraft {
-  category: OwnerCategory;
   format: OwnerFormat;
   /** The party's date, or the weekly class's first date (YYYY-MM-DD, London). */
   startDate: string;
@@ -300,8 +293,9 @@ const CREATE_TEXT_FIELDS = ['ticketUrl', 'coverImageUrl', 'description'] as cons
 
 /**
  * series.upsert payload for a create, WITHOUT the organiser key (see
- * OWNER_CREATE_KEYS). Always: name, format, category, the start date, the start
- * time and the time zone. Optional fields go only when set: a create with an
+ * OWNER_CREATE_KEYS). Always: name, format, the start date, the start time and
+ * the time zone; never category (derived from the sessions, see
+ * upsertCommand). Optional fields go only when set: a create with an
  * absent key lands NULL anyway, and a blank would echo through the handler's
  * NULLIF for nothing.
  *
@@ -313,7 +307,6 @@ export function createPayload(draft: CreateDraft, cityId?: string | null): Recor
   const payload: Record<string, unknown> = {
     name: draft.name.trim(),
     format: draft.format,
-    category: draft.category,
     default_start_date: draft.startDate,
     default_local_start_time: draft.startTime,
     timezone: SERIES_TIMEZONE,

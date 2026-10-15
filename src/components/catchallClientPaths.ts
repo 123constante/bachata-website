@@ -33,6 +33,10 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/account',
   '/account/dancer',
   '/account/attendance',
+  '/account/settings',
+  '/account/settings/ownership',
+  '/account/settings/delete',
+  '/account/deleted',
   '/account/new',
   '/account/series/:seriesId',
   '/account/team/:organiserId?',
@@ -47,4 +51,16 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/export/:token',
   '/search',
   '/city/:slug/search',
+  // The dancer area: AnimatedRoutes mounts it as ONE <Route path="/app/*">, and
+  // these are the concrete paths its own table answers
+  // (modules/dancer-app/shell/routes.ts DANCER_APP_PATHS; the test pins them
+  // equal). Listed one by one, not as /app/*, so an unknown /app/x is a real 404.
+  '/app',
+  '/app/welcome',
+  '/app/home',
+  '/app/nights',
+  '/app/me',
+  '/app/me/edit',
+  '/app/me/photo',
+  '/app/options',
 ];

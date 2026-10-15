@@ -1,7 +1,10 @@
-// Loaded into the PHONE suite's dev server only (playwright.phone.config.ts,
-// NODE_OPTIONS=--import). Routes every Node-side fetch to the fake Supabase origin
-// through answer(), so SSR loaders render from fixtures. Anything else passes
-// through untouched. Never loaded by the app build or by any other config.
+// Loaded (NODE_OPTIONS / node --import) into: the PHONE suite's dev server
+// (playwright.phone.config.ts), and the production-build smoke -- its
+// `npm run build` (phone-qa.yml build-smoke, so prerender reads fixtures) and its
+// server (playwright.build.config.ts). Routes every Node-side fetch to the fake
+// Supabase origin through answer(), so SSR loaders render from fixtures. Anything
+// else passes through untouched, which is what keeps it safe inside a build.
+// Never loaded by a deploy build (Vercel) or by any other config.
 import { answer, FAKE_ORIGIN } from './fakeSupabase.mjs';
 
 const realFetch = globalThis.fetch;

@@ -1,7 +1,8 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  LIB_EVENT_RULES_MODULES,
   VENDOR_UI_MODAL_PACKAGES,
   VENDOR_UI_SHELL_PACKAGES,
   assertDisjoint,
@@ -35,6 +36,9 @@ describe("classifyChunk -- the pinned vendor groups", () => {
     ["@radix-ui/react-tooltip", "vendor-ui"],
     ["@radix-ui/react-use-callback-ref", "vendor-ui"],
     ["@radix-ui/react-dialog", "vendor-ui-modal"],
+    // Shell, not modal: Radix Tooltip >= 1.4 imports it, and in the modal list
+    // that made vendor-ui and vendor-ui-modal import each other (PR #746).
+    ["@radix-ui/react-focus-scope", "vendor-ui"],
     ["maplibre-gl", "vendor-maplibre"],
     ["@maplibre/maplibre-gl-leaflet", "vendor-maplibre"],
     ["leaflet", "vendor-leaflet"],
@@ -86,8 +90,9 @@ describe("classifyChunk -- the needles are bounded on both sides", () => {
   // MUTATION FOUND THIS CASE, and the first version of it proved nothing. It
   // asserted the leading `node_modules/` bound with first-party paths --
   // /repo/src/lib/sonner/toast.ts -- which never reach a needle at all: the
-  // classifier's first line returns undefined for any id without
-  // "node_modules" in it. So deleting the bound from every needle left the
+  // classifier's node_modules gate returns undefined for any id without
+  // "node_modules" in it (the two lib-event-rules modules aside, which have
+  // their own cases below). So deleting the bound from every needle left the
   // whole file green. What the bound actually protects is a path that IS in
   // node_modules and merely CONTAINS a package name as a nested directory, and
   // nothing had ever asked about one.
@@ -128,6 +133,42 @@ describe("classifyChunk -- the needles are bounded on both sides", () => {
   });
 });
 
+describe("classifyChunk -- the one first-party group (lib-event-rules)", () => {
+  // The event-category rule lib is read by the public event page AND the
+  // organiser editor and by nothing they otherwise share, so rollup gave it a
+  // chunk of its own -- one more request on every /event view, which is what
+  // the chunk ratchet in perf-budgets.json reds on. It rides with londonDate
+  // instead, a chunk every one of those routes already loads. The group is
+  // the shape; the build check (`npm run check:bundle-budget`) is what proves
+  // the count, and these cases hold the shape to its bounds.
+  it.each(LIB_EVENT_RULES_MODULES)("%s rides in lib-event-rules", (mod) => {
+    expect(classifyChunk("/repo" + mod)).toBe("lib-event-rules");
+  });
+
+  it("holds exactly the two named modules -- a sibling in src/lib keeps rollup's chunking", () => {
+    expect(LIB_EVENT_RULES_MODULES).toEqual(["/src/lib/eventCategory.ts", "/src/lib/londonDate.ts"]);
+    expect(classifyChunk("/repo/src/lib/eventCategoryLabels.ts")).toBeUndefined();
+    expect(classifyChunk("/repo/src/lib/londonDateRange.ts")).toBeUndefined();
+    expect(classifyChunk("/repo/src/lib/__tests__/eventCategory.test.ts")).toBeUndefined();
+    expect(classifyChunk("/repo/src/modules/x/eventCategory.ts")).toBeUndefined();
+  });
+
+  it("is bounded on the end of the id, so a nested copy under node_modules stays with its package", () => {
+    expect(classifyChunk("/repo/node_modules/some-lib/src/lib/londonDate.ts")).toBeUndefined();
+    expect(classifyChunk("/repo/node_modules/some-lib/src/lib/eventCategory.ts")).toBeUndefined();
+    expect(classifyChunk("/repo/src/lib/eventCategory.ts.bak")).toBeUndefined();
+  });
+
+  // Same failure class as the vendor lists: a misspelt or moved path is DEAD
+  // TEXT, the lib silently gets its own chunk back, and the only symptom is one
+  // more request on /event that the ratchet reports with no obvious cause.
+  it("names modules that actually exist", () => {
+    for (const mod of LIB_EVENT_RULES_MODULES) {
+      expect(existsSync(path.join(process.cwd(), mod)), mod + " is not on disk").toBe(true);
+    }
+  });
+});
+
 describe("the two lists", () => {
   it("are disjoint -- and this is what the module asserts at load", () => {
     expect(() =>
@@ -162,5 +203,31 @@ describe("the two lists", () => {
       (pkg) => !existsSync(path.join(modules, pkg)),
     );
     expect(missing).toEqual([]);
+  });
+
+  // The direction rule. vendor-ui-modal imports vendor-ui by design (a dialog
+  // is built on the primitive layer), so the shell list must never depend on
+  // the modal list -- the two edges together are a static chunk cycle, and on
+  // the PR #746 preview that cycle threw "<minified helper> is not a function"
+  // (`le` there, `pe` in the reproduction; seen on every route walked).
+  // NARROW BY DESIGN, and the gaps are named: it reads the INSTALLED tree (the
+  // lockfile's versions only), DIRECT dependencies of the listed packages only
+  // (not a path through an unlisted package, not a nested copy, not the
+  // react-use-* prefix members). It is the cheap, buildless early warning;
+  // scripts/check-chunk-cycles.mjs over the emitted build is the real gate.
+  it("never let a shell package depend on a modal package", () => {
+    const modules = path.join(process.cwd(), "node_modules");
+    const offending: string[] = [];
+    for (const pkg of VENDOR_UI_SHELL_PACKAGES) {
+      const manifest = path.join(modules, pkg, "package.json");
+      expect(existsSync(manifest), `${pkg} is not installed`).toBe(true);
+      const deps = Object.keys(
+        JSON.parse(readFileSync(manifest, "utf8")).dependencies ?? {},
+      );
+      for (const dep of deps) {
+        if (VENDOR_UI_MODAL_PACKAGES.includes(dep)) offending.push(`${pkg} -> ${dep}`);
+      }
+    }
+    expect(offending).toEqual([]);
   });
 });

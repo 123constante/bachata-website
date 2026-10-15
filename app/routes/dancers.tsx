@@ -2,7 +2,7 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createServerQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
-import { DANCER_PUBLIC_COLS, mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
+import { DANCER_PUBLIC_COLS, attachPublicDancerName, mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
 import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 import DancerProfile from "@/pages/DancerProfile";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
@@ -46,7 +46,7 @@ export const loader = withSsrLoaderTimeout("dancer-loader", async function loade
         .not(...NOT_DEACTIVATED)
         .maybeSingle();
       if (error) throw error;
-      return (data as Record<string, unknown> | null) ?? null;
+      return data ? ((await attachPublicDancerName(data)) as Record<string, unknown>) : null;
     },
     staleTime: 1000 * 60 * 5,
   });

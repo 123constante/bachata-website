@@ -24,6 +24,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { supabase } from "@/integrations/supabase/client";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
+import { wordForStored, type CategoryWord } from "@/lib/eventCategory";
 import { asWallClock, formatWallClockLocalIntl, wallClockDateKey, type WallClock } from "@/lib/time/wallClock";
 import { fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import interSemiBoldUrl from "./ogCardFonts/Inter-SemiBold.ttf";
@@ -203,18 +204,25 @@ function rgbHex(c: { r: number; g: number; b: number }): string {
  *  a different register again: it writes a sentence about a finished run.)
  *
  *  'standard' is deliberately absent, as is every unknown value: no pill at
- *  all, rather than a raw DB token shouted at a reader. */
-const PILL_LABELS: Record<string, string> = {
-  party: "PARTY",
+ *  all, rather than a raw DB token shouted at a reader.
+ *
+ *  Keyed on the ONE word (src/lib/eventCategory.ts wordForStored, the mapping
+ *  the event page's runNoun reads), never on the raw value (FIX-6 F-d): a
+ *  stored workshop reads CLASS here as it reads "class" on the page. The type
+ *  is either a format or a category, so it is passed as both. */
+const PILL_LABELS: Record<CategoryWord, string> = {
+  night: "PARTY",
   class: "CLASS",
-  workshop: "WORKSHOP",
+  masterclass: "MASTERCLASS",
   course: "COURSE",
   festival: "FESTIVAL",
 };
 
 export function ogPillLabel(eventType: string | null): string | null {
   if (!eventType) return null;
-  return PILL_LABELS[eventType.trim().toLowerCase()] ?? null;
+  const type = eventType.trim().toLowerCase();
+  const word = wordForStored(type, type);
+  return word ? PILL_LABELS[word] : null;
 }
 
 /** "<date> - <venue>", with the venue's "at " prefix stripped. venueLine is
