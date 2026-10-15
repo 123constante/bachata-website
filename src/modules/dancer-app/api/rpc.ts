@@ -24,7 +24,11 @@ export const DANCER_RPC = {
 
 const call = async (fn: string, args?: Record<string, unknown>): Promise<unknown> => {
   const { data, error } = await rpcLoose(fn, args);
-  if (error) throw new DancerApiError(codeFromMessage(error.message), error.message);
+  if (error) {
+    // PostgREST passes the DB's DETAIL (the field, for some codes) as `details`.
+    const details = (error as { details?: unknown }).details;
+    throw new DancerApiError(codeFromMessage(error.message), error.message, typeof details === 'string' ? details : null);
+  }
   return data;
 };
 
@@ -104,14 +108,31 @@ export const fetchGate = (): Promise<DancerGate> => wrap(() => backend().fetchGa
 /** my_dancer_edit_v1: the signed-in person's own profile, everything the Edit / Home screens show. */
 export const fetchMyDancerEdit = (): Promise<MyDancerEdit> => wrap(() => backend().fetchMyDancerEdit());
 
+/** The keys save_my_dancer_profile_v2 refuses (by mere presence) from a person with no other profile type. */
+const WHATSAPP_KEYS = ['whatsapp', 'show_whatsapp_publicly'] as const;
+
+/** R6: a person whose other_roles is empty never sends a WhatsApp key (the DB says `whatsapp_not_allowed`). */
+export const dropWhatsappIfNotAllowed = (delta: DancerDelta, person: Pick<MyDancerEdit, 'other_roles'>): DancerDelta => {
+  if (person.other_roles.length > 0) return delta;
+  const out = { ...delta };
+  for (const k of WHATSAPP_KEYS) delete out[k];
+  return out;
+};
+
 /**
  * save_my_dancer_profile_v2: send ONLY the changed keys (absent = leave as is).
  * An empty delta is not sent at all: "saving an untouched record sends nothing".
+ * WhatsApp keys are dropped for a person with no other profile type; when the
+ * caller did not pass `current` and the delta carries one, the person is read
+ * first (my_dancer_edit_v1) to know.
  */
 export const saveMyDancerProfile = (delta: DancerDelta, current?: MyDancerEdit): Promise<MyDancerEdit> =>
   wrap(async () => {
-    if (Object.keys(delta).length === 0 && current) return current;
-    return backend().saveMyDancerProfile(delta);
+    let person = current;
+    if (!person && WHATSAPP_KEYS.some((k) => k in delta)) person = await backend().fetchMyDancerEdit();
+    const send = person ? dropWhatsappIfNotAllowed(delta, person) : delta;
+    if (Object.keys(send).length === 0 && person) return person;
+    return backend().saveMyDancerProfile(send);
   });
 
 /** get_public_dancer_extras_v1: bio, languages and (only when allowed) WhatsApp for a public page. */

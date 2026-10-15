@@ -12,7 +12,9 @@ import { sameValue } from './delta';
  *
  * - gate: closed + unlisted -> allowed false; listed or open -> allowed true;
  *   member reads/writes refuse `area_closed` first when not allowed.
- * - save_my_dancer_profile_v2 is DIFF-FIRST: unknown key -> `unknown_key`; an
+ * - save_my_dancer_profile_v2 is DIFF-FIRST: unknown key -> `unknown_key`; a
+ *   WhatsApp key from a person with no other profile type -> `whatsapp_not_allowed`
+ *   (mere presence, before the diff, as the DB does); an
  *   empty delta returns the current shape with NO write (writes stays 0, the
  *   profile object is not replaced); only a non-empty delta is rate-checked,
  *   validated (same codes, same order) and written.
@@ -54,8 +56,8 @@ const CONTROL_RE = /[\u0000-\u001f\u007f]/;
 
 const isEmpty = (v: unknown) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
 
-/** The validation codes, in the server's order. Returns null when the delta is valid. */
-const validate = (delta: DancerDelta, current: MyDancerEdit): DancerErrorCode | null => {
+/** The validation codes (with the DB's DETAIL where it sends one), in the server's order. null = valid. */
+const validate = (delta: DancerDelta): DancerErrorCode | [DancerErrorCode, string] | null => {
   if ('display_name' in delta && !isEmpty(delta.display_name)) {
     const v = String(delta.display_name).trim();
     if (v.length < 1 || v.length > 40 || /http|:\/\/|@/i.test(v) || CONTROL_RE.test(v)) return 'invalid_display_name';
@@ -69,14 +71,13 @@ const validate = (delta: DancerDelta, current: MyDancerEdit): DancerErrorCode | 
     if (BIO_LINK_RE.test(v)) return 'bio_has_link';
   }
   for (const k of ['instagram', 'facebook'] as const) {
-    if (k in delta && !isEmpty(delta[k]) && !HANDLE_RE.test(String(delta[k]).replace(/^@/, ''))) return 'invalid_handle';
+    if (k in delta && !isEmpty(delta[k]) && !HANDLE_RE.test(String(delta[k]).replace(/^@/, ''))) return ['invalid_handle', k];
   }
-  if ('website_url' in delta && !isEmpty(delta.website_url) && !/^https?:\/\/\S+$/i.test(String(delta.website_url))) return 'invalid_url';
+  if ('website_url' in delta && !isEmpty(delta.website_url) && !/^https?:\/\/\S+$/i.test(String(delta.website_url))) return ['invalid_url', 'website_url'];
   if ('dance_started_year' in delta && delta.dance_started_year !== null && delta.dance_started_year !== undefined) {
     const y = delta.dance_started_year;
     if (!Number.isInteger(y) || y < 1950 || y > new Date().getFullYear()) return 'invalid_year';
   }
-  if (('whatsapp' in delta || 'show_whatsapp_publicly' in delta) && current.other_roles.length === 0) return 'whatsapp_not_allowed';
   if ('dance_role' in delta && !isEmpty(delta.dance_role) && !(DANCE_ROLES as readonly string[]).includes(String(delta.dance_role))) return 'invalid_role';
   return null;
 };
@@ -148,7 +149,12 @@ export const createFakeBackend = (opts: FakeBackendOptions = {}): FakeDancerBack
       consumeFailure();
       const current = requireMember();
       for (const k of Object.keys(delta)) {
-        if (!(SAVE_KEYS as readonly string[]).includes(k)) throw new DancerApiError('unknown_key', 'unknown_key');
+        if (!(SAVE_KEYS as readonly string[]).includes(k)) throw new DancerApiError('unknown_key', 'unknown_key', k);
+      }
+      // Like the DB: the mere PRESENCE of a WhatsApp key from a person with no
+      // other profile type is refused, even an unchanged one (before the diff).
+      if (('whatsapp' in delta || 'show_whatsapp_publicly' in delta) && current.other_roles.length === 0) {
+        throw new DancerApiError('whatsapp_not_allowed', 'whatsapp_not_allowed');
       }
       const changed = Object.fromEntries(
         Object.entries(delta).filter(([k, v]) => !sameValue(current[k as keyof DancerDelta], v as DancerDelta[keyof DancerDelta])),
@@ -157,8 +163,11 @@ export const createFakeBackend = (opts: FakeBackendOptions = {}): FakeDancerBack
       if (Object.keys(changed).length === 0) return current;
       if (saves >= rateLimit) throw new DancerApiError('rate_limited', 'rate_limited');
       saves += 1;
-      const invalid = validate(changed, current);
-      if (invalid) throw new DancerApiError(invalid, invalid);
+      const invalid = validate(changed);
+      if (invalid) {
+        const [code, detail] = Array.isArray(invalid) ? invalid : [invalid, null];
+        throw new DancerApiError(code, code, detail);
+      }
       profile = applyDelta(current, changed);
       writes += 1;
       return profile;
