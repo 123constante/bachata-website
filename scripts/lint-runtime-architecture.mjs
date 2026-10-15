@@ -56,7 +56,7 @@ const RULES = [
     // The Lever 2 self-serve RPCs (claim/request/create/list, admin repo D4)
     // return `organiser_id` = an organiser_profiles id, not the legacy column.
     // Only their boundary file may read the key; it maps it to camelCase.
-    // redeem_organiser_invite_v1 (arc PR 4b) answers with the same key; its parser and the two specs
+    // redeem_organiser_invite_v1 (arc PR 4b) answers with the same key; its parser and the specs
     // that feed it a server answer are the only other readers.
     allowFiles: new Set([
       'src/modules/organiser/shared/selfServeApi.ts',
@@ -65,6 +65,7 @@ const RULES = [
       'src/modules/admin-organisers/__tests__/routes.matrix.test.tsx',
       'src/modules/admin-organisers/__tests__/fixup1.test.tsx',
       'src/modules/admin-organisers/__tests__/inviteWalkthrough.test.tsx',
+      'src/modules/admin-organisers/__tests__/inviteJoiningAs.test.tsx',
     ]),
   },
   {
