@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useMyDancerEdit } from '../home/useMyDancerEdit';
+import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { LevelVote } from './LevelVote';
 import { statusLabel, placeAndTime, type Night } from './nightsModel';
 import { linkStyle } from './nightsStyles';

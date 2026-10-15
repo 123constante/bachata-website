@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 const h = vi.hoisted(() => ({
   row: null as null | Record<string, unknown>,
@@ -121,7 +121,10 @@ const ROWS: Row[] = [
 let here = '';
 function Probe() {
   const l = useLocation();
-  here = `${l.pathname}${l.search}`;
+  // In an effect, not during render: the react-hooks globals rule refuses a render-time write to a module variable.
+  useEffect(() => {
+    here = `${l.pathname}${l.search}`;
+  });
   return null;
 }
 

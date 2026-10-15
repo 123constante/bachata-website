@@ -19,7 +19,7 @@ import {
 import { DecodeError, type DecodedPhoto } from './decodeImage';
 import { photoScreenDeps, returnPathFor } from './photoScreenDeps';
 import { PhotoFlowError, replacePhoto } from './photoFlow';
-import { myDancerEditKey, useMyDancerEdit } from './useMyDancerEdit';
+import { myDancerEditKey, useMyDancerEdit } from '../../api/useMyDancerEdit';
 
 const BOX = 300; // CSS px of the square crop box
 const NUDGE = 12; // box px per arrow key press

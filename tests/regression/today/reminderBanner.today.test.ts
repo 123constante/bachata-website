@@ -1,8 +1,9 @@
 /**
  * TODAY's reminder banner (src/lib/profileCompletion.ts bannerModel): shown or
  * hidden on every path BANNER_HIDDEN_ON names, plus the paths around them.
- * The `/app/home` row documents TODAY's value (SHOWN); the rebuild's seam adds
- * `/app` to BANNER_HIDDEN_ON and flips that one row in ITS own test, not here.
+ * R0 recorded `/app` and `/app/home` as SHOWN; W1's seam (the dancer area has its
+ * own onboarding) added `/app` + `/app/*` to BANNER_HIDDEN_ON, so R1a flipped
+ * those two rows here: the old value described code that no longer exists.
  */
 import { describe, expect, it } from 'vitest';
 import { bannerModel, type ProfileCompletion } from '@/lib/profileCompletion';
@@ -19,8 +20,9 @@ const PATHS: [string, boolean][] = [
   ['/dancers', true],
   ['/dancers/abc', true],
   ['/festival/f1', true],
-  ['/app/home', true], // TODAY: shown. W1's seam hides it; flipped in W1's test.
-  ['/app', true],
+  ['/app/home', false], // W1 seam: hidden on the dancer area (was shown before the rebuild)
+  ['/app', false],
+  ['/apps', true], // prefix guard: only /app and /app/*
   ['/account', false],
   ['/account/', false],
   ['/account/dancer', false],

@@ -1,8 +1,7 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchMyDancerEdit } from '../../api/rpc';
+import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import {
   ACCOUNT_SETTINGS_PATH,
   BROWSE_EVENTS_PATH,
@@ -62,9 +61,9 @@ const Sheet = ({ title, testId, onClose, children }: { title: string; testId: st
 );
 
 const OptionsScreen = () => {
-  const { user, signOut } = useAuth();
+  const { signOut } = useAuth();
   const navigate = useNavigate();
-  const profile = useQuery({ queryKey: ['my-dancer-edit', user?.id ?? 'anon'], queryFn: fetchMyDancerEdit, enabled: !!user });
+  const profile = useMyDancerEdit();
   const [sheet, setSheet] = useState<'install' | 'sign-out' | null>(null);
   const [copied, setCopied] = useState<'idle' | 'copied' | 'manual'>('idle');
   const [signingOut, setSigningOut] = useState(false);

@@ -6,6 +6,7 @@
  * hook and the real pendingLevelRating are exercised.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ReactNode } from 'react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient } from '@tanstack/react-query';
 
@@ -43,7 +44,10 @@ h.rpc = async (fn, args) => {
 
 vi.mock('@/integrations/supabase/getSupabase', () => ({ getSupabase: async () => ({ rpc: (f: string, a?: Record<string, unknown>) => h.rpc(f, a) }) }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (f: string, a?: Record<string, unknown>) => h.rpc(f, a) } }));
-vi.mock('@/contexts/CityContext', () => ({ useCity: () => ({ citySlug: h.city, setCitySlug: () => {} }) }));
+vi.mock('@/contexts/CityContext', () => ({
+  CityProvider: ({ children }: { children: ReactNode }) => children,
+  useCity: () => ({ citySlug: h.city, setCitySlug: () => {} }),
+}));
 vi.mock('@/hooks/useCalendarEventsRpc', () => ({
   useCalendarEvents: ({ enabled }: { enabled?: boolean }) => ({ data: enabled === false ? undefined : h.calendar, isLoading: false, isError: false }),
 }));

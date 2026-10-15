@@ -7,6 +7,8 @@
  * Strength is NEVER computed here: it is `profile.strength` from the server.
  */
 import { diffDelta } from '../../api/delta';
+// Client-side refusals read the SAME copy the DB's refusal maps to (one mapping, api/errors.ts).
+import { copyFor } from '../../api/errors';
 import type { DancerDelta, DanceRole, MyDancerEdit, SaveKey, StrengthStep } from '../../api/types';
 
 export const BIO_MAX = 280;
@@ -202,17 +204,17 @@ export const validateDraft = (d: EditDraft, p: Pick<MyDancerEdit, 'other_roles' 
   }
   // Replace-only: once saved, the input refuses empty (with the reason) instead of sending a clear.
   // A field that was never filled is not an error: an untouched form is simply untouched.
-  if (d.first_name.trim() === '' && (p.first_name ?? '').trim() !== '') e.first_name = 'Your first name cannot be empty. You can change it, but not remove it.';
-  if (d.based_city_id.trim() === '' && (p.based_city_id ?? '').trim() !== '') e.based_city_id = 'Pick your city from the list. You can change it, but not remove it.';
+  if (d.first_name.trim() === '' && (p.first_name ?? '').trim() !== '') e.first_name = copyFor('first_name_required');
+  if (d.based_city_id.trim() === '' && (p.based_city_id ?? '').trim() !== '') e.based_city_id = copyFor('city_required');
   const bioLen = d.bio.length;
   if (bioLen > BIO_MAX) e.bio = `Your bio can be up to ${BIO_MAX} characters. Remove ${bioLen - BIO_MAX} to save.`;
-  else if (BIO_LINK_RE.test(d.bio)) e.bio = 'Links are not allowed in your bio. Add your Instagram, Facebook or website in their own fields.';
+  else if (BIO_LINK_RE.test(d.bio)) e.bio = copyFor('bio_has_link');
   for (const k of ['instagram', 'facebook'] as const) {
     const v = d[k].trim();
-    if (v !== '' && !HANDLE_RE.test(v)) e[k] = 'That does not look like a valid handle. Use letters, numbers, dots or underscores.';
+    if (v !== '' && !HANDLE_RE.test(v)) e[k] = copyFor('invalid_handle', k);
   }
   const url = d.website_url.trim();
-  if (url !== '' && !/^https?:\/\/\S+$/i.test(url)) e.website_url = 'Your website must start with http:// or https://.';
+  if (url !== '' && !/^https?:\/\/\S+$/i.test(url)) e.website_url = copyFor('invalid_url', 'website_url');
   if (p.other_roles.length > 0) {
     const wa = d.whatsapp.trim();
     const digits = wa.replace(/\D/g, '');

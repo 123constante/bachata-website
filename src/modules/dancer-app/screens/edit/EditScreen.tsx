@@ -26,7 +26,7 @@ import {
   type FormFieldId,
   type YearBand,
 } from '../me/model';
-import { useMyDancerEdit, usePutMyDancerEdit } from '../me/useMyDancerEdit';
+import { useMyDancerEdit, usePutMyDancerEdit } from '../../api/useMyDancerEdit';
 import { Avatar, QueryGate, ghostButton, mainButton } from '../me/ui';
 import { ChipChoice, ChipListInput, Field, TextInput, inputStyle } from './fields';
 

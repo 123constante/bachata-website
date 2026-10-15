@@ -10,7 +10,7 @@ import FirstCardNotes from './notes';
 import { StylesCard, YearsCard } from './optional';
 import { CityCard, NameCard, PhotoCard, RoleCard } from './steps';
 import { GhostButton, Meter, PrimaryButton, Question, Tag, wrap } from './ui';
-import { useMyDancerEdit } from './useMyDancerEdit';
+import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 
 const gradientCard: CSSProperties = {
   background: 'linear-gradient(145deg, var(--da-gradient-from) 0%, var(--da-gradient-to) 100%)',
@@ -24,7 +24,7 @@ const nameOf = (p: MyDancerEdit) => p.first_name?.trim() || 'there';
 /** /app/welcome: one question per card, driven by the server's strength.missing (decision 5). */
 const OnboardingCards = () => {
   const navigate = useNavigate();
-  const { data: profile, isPending, isError, error: loadError, save } = useMyDancerEdit();
+  const { data: profile, isPending, isError, error: loadError, save } = useMyDancerEdit({ refetchOnMount: 'always', retry: false });
   const [stage, setStage] = useState<Stage | null>(null);
   const [firstStage, setFirstStage] = useState<Stage | null>(null);
   const [requiredStart, setRequiredStart] = useState<Stage[]>([]);

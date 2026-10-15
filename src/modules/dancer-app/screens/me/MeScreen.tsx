@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { mainAction, nextStepCopy, profileName, roleCityLine } from './model';
-import { useMyDancerEdit } from './useMyDancerEdit';
+import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { Avatar, QueryGate, StrengthBar, ghostButton, mainButton } from './ui';
 
 /**

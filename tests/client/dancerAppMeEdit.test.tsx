@@ -204,7 +204,7 @@ describe('Edit: bio 279 / 280 / 281 and links', () => {
     type('instagram', 'no way!');
     type('website_url', 'ana.com');
     expect(screen.getByTestId('error-instagram')).toBeTruthy();
-    expect(screen.getByTestId('error-website_url').textContent).toBe(copyFor('invalid_url'));
+    expect(screen.getByTestId('error-website_url').textContent).toBe(copyFor('invalid_url', 'website_url'));
     expect(saveBtn().disabled).toBe(true);
   });
 });

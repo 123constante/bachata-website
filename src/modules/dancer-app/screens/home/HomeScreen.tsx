@@ -12,7 +12,7 @@ import { useBrowseHref } from '../nights/useBrowseHref';
 import { useMyNights } from '../nights/useMyNights';
 import { greeting, NEXT_STEP_COPY } from './homeCopy';
 import { RateNudge } from './RateNudge';
-import { useMyDancerEdit } from './useMyDancerEdit';
+import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { WhatsOn } from './WhatsOn';
 
 const path = (id: 'nights' | 'me' | 'options') => DANCER_TABS.find((t) => t.id === id)?.path ?? '/app';
@@ -165,7 +165,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
 };
 
 const HomeScreen = () => {
-  const profile = useMyDancerEdit();
+  const profile = useMyDancerEdit({ staleTime: 60_000 });
 
   // Once per session, signed-in only (trackDancerEvent is a no-op signed out).
   useEffect(() => {

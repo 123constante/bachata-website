@@ -10,7 +10,7 @@
  *   const { backend } = renderInShell({ path: '/app/me/edit', backend: { shape: 'nameCityOnly' } });
  *   afterEach(resetShell);
  *
- * Routes mounted: /app/* (the real DancerAppRoutes: AuthGuard + gate + shell),
+ * CityProvider is mounted as in production. Routes mounted: /app/* (the real DancerAppRoutes: AuthGuard + gate + shell),
  * today's /account, /account/dancer, /finish-profile wrapped in the real
  * RedirectIfAllowed around stub pages, /account/o and /auth stubs, and a
  * catch-all stub. `location()` reads the current URL.
@@ -19,6 +19,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { render, type RenderResult } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { CityProvider } from '@/contexts/CityContext';
 import { ProfileGateContext, type ProfileGateValue } from '@/hooks/useAuth';
 import { profileGateValue, type ProfileCompletionStatus } from '@/lib/profileCompletion';
 import { myAccessRequestsQueryKey, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
@@ -95,7 +96,11 @@ const gateFromStatus = (status: ProfileCompletionStatus | 'loading' | null): Pro
   return profileGateValue({ status, missing: [], profileId: null });
 };
 
+// Radix (the Switch inside HideSurnameSwitch on Edit) measures with ResizeObserver, which jsdom lacks.
+class ResizeObserverStub { observe() {} unobserve() {} disconnect() {} }
+
 export const renderInShell = (opts: RenderInShellOptions = {}): RenderInShellResult => {
+  (globalThis as { ResizeObserver?: unknown }).ResizeObserver ??= ResizeObserverStub;
   const backend = isBackend(opts.backend) ? opts.backend : createFakeBackend(opts.backend);
   setFakeBackend(backend);
 
@@ -116,6 +121,8 @@ export const renderInShell = (opts: RenderInShellOptions = {}): RenderInShellRes
       <ProfileGateContext.Provider value={gate}>
         <MemoryRouter initialEntries={[opts.path ?? '/app/home']}>
           <LocationProbe />
+          {/* Production mounts CityProvider above every route (W2b: Home's calendar reads the active city). */}
+          <CityProvider>
           <Routes>
             <Route path="/app/*" element={<DancerAppRoutes />} />
             <Route path="/account" element={<RedirectIfAllowed><Stub id="account" /></RedirectIfAllowed>} />
@@ -126,6 +133,7 @@ export const renderInShell = (opts: RenderInShellOptions = {}): RenderInShellRes
             {opts.extraRoutes}
             <Route path="*" element={<Stub id="elsewhere" />} />
           </Routes>
+          </CityProvider>
         </MemoryRouter>
       </ProfileGateContext.Provider>
     </QueryClientProvider>

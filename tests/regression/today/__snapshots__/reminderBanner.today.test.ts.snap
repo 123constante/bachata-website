@@ -24,23 +24,11 @@ exports[`reminder banner: incomplete profile, by path > /accountant -> shown=tru
 }
 `;
 
-exports[`reminder banner: incomplete profile, by path > /app -> shown=true 1`] = `
+exports[`reminder banner: incomplete profile, by path > /apps -> shown=true 1`] = `
 {
   "body": "Add your photo to rate parties.",
   "cta": {
-    "href": "/finish-profile?returnTo=%2Fapp",
-    "kind": "link",
-    "label": "Finish profile",
-  },
-  "title": "Finish your profile",
-}
-`;
-
-exports[`reminder banner: incomplete profile, by path > /app/home -> shown=true 1`] = `
-{
-  "body": "Add your photo to rate parties.",
-  "cta": {
-    "href": "/finish-profile?returnTo=%2Fapp%2Fhome",
+    "href": "/finish-profile?returnTo=%2Fapps",
     "kind": "link",
     "label": "Finish profile",
   },
