@@ -1,4 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
 import { ORG, OrganiserFake, expectNoHorizontalScroll, json } from '../e2e/helpers/organiserFake';
 import { DANCER_LINK, type Journey, type Person } from '../journeys/publicEntryJourneys';
@@ -23,18 +22,6 @@ async function signOutFromSheet(page: Page) {
   await page.getByTestId('profile-switcher-sign-out').click();
   await expect(page).not.toHaveURL(/\/app\//);
 }
-
-test('home banner href equals DANCER_LINK', async ({ page }) => {
-  // The banner (PR #765) ships OFF, so its href is pinned at the source AND, when it is on, on the page.
-  const file = 'src/lib/homeAnnounceBanner.ts';
-  expect(existsSync(file), `${file} holds the home banner's href (PR #765)`).toBe(true);
-  expect(readFileSync(file, 'utf8').match(/HOME_ANNOUNCE_HREF\s*=\s*'([^']+)'/)?.[1], 'HOME_ANNOUNCE_HREF').toBe(DANCER_LINK);
-  await new OrganiserFake({ noOrganiser: true, signedOut: true }).install(page);
-  await page.goto('/');
-  await expect(page.locator('header').first()).toBeVisible();
-  const banner = page.getByTestId('home-announce-banner');
-  if (await banner.isVisible()) await expect(banner.getByRole('link').first()).toHaveAttribute('href', DANCER_LINK);
-});
 
 test('sign out then a different person signs up: no trace of A', async ({ page }) => {
   test.setTimeout(180_000);

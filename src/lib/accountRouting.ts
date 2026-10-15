@@ -391,7 +391,10 @@ export type OldDancerHomeFacts = {
  */
 export const oldDancerHomeRedirect = (f: OldDancerHomeFacts): string | null => {
   if (!f.allowed) return null;
-  if (f.view !== 'dancer') {
+  // An explicit returnTo wins before the home check: an organiser whose dancer
+  // profile is unfinished is sent here by the /account/o gate (M35).
+  const explicit = f.view === 'finish' && onwardReturnTo(f.returnTo) !== null;
+  if (f.view !== 'dancer' && !explicit) {
     const where = accountHome({ legacyParams: f.legacyParams, organiserCount: f.organiserCount, openRequestCount: f.openRequestCount });
     if (where !== 'dancer') return null;
     if (f.organiserCount === null || f.openRequestCount === null) return null;

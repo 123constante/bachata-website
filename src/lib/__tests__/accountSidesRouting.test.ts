@@ -248,6 +248,19 @@ describe.each(SHAPES)('$name', (shape) => {
   });
 });
 
+describe('/finish-profile?returnTo= from the /account/o gate (M35: an organiser whose dancer profile is unfinished)', () => {
+  const finish = (returnTo: string | null, profile: 'complete' | 'incomplete') =>
+    oldDancerHomeRedirect({ view: 'finish', allowed: true, legacyParams: false, organiserCount: 1, openRequestCount: 0, profile, returnTo });
+  it('an explicit onward target wins over the organiser home', () => {
+    expect(finish('/account/o', 'incomplete')).toBe(`${APP_WELCOME_PATH}?returnTo=%2Faccount%2Fo`);
+    expect(finish('/account/o', 'complete')).toBe('/account/o');
+  });
+  it('no onward target, or one onboarding would not carry: the organiser stays on today\'s page', () => {
+    expect(finish(null, 'incomplete')).toBeNull();
+    expect(finish('https://evil.example/x', 'incomplete')).toBeNull();
+  });
+});
+
 describe('the chooser never appears for a single-side person', () => {
   it.each(SHAPES)('$name', (shape) => {
     const state = profileSides(shape.facts);
