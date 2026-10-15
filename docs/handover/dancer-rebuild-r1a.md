@@ -179,8 +179,8 @@ After the fixes: 97/97 and 20/20.
 | **S10** allow-list in code, self-amendable | NEW `scripts/dancer-area-isolation-allowlist.json` (docPrefixes, seams, seamNotes, protected); the script's RULES read it (unreadable/malformed = exit 2, "could not measure"); a test fails if RULES differs from the JSON or names any allowed path in code | `S10 ...` -> `ENOENT: no such file or directory, open '.../scripts/dancer-area-isolation-allowlist.json'` |
 | **S11** stored styles outside the presets | `screens/edit/editModel.ts` `styleChipOptions` / `chipFor`: each stored value shows ONCE, compared trimmed + case-insensitive, so "zouk" selects the "Zouk" preset; the 100% fixture now holds prod-shaped values ("Bachata Sensual", "Bachata Influence") | `S11 ...` -> `Zouk: expected 2 to be 1`. New: every prod `favorite_styles` value from the survey yields exactly one chip |
 | **S12** nationality free text | Edit uses the shared `NationalityPicker` (shows the name); `editModel.ts nationalityCodeForPick` turns the pick back into the ISO code | `S12 ... a stored "ES" reads "Spain"` -> `expected '' to match /Spain/`. e2e (`me-edit.spec.ts`): ES shows Spain, picking France saves `{ nationality: 'FR' }` |
-| **S13** ~10px help text | `theme/dancer.css`: inside the dancer app the shared switch's label reads 15px and its help text / disabled reason 14px (the protected component is untouched) | e2e `me-edit.spec.ts` "hide-surname help text and its disabled reason are at least 13px": NOT RUN (context gate hit before the e2e run): the test is written, not yet executed red or green |
-| **Perf** | `perf-budgets.json` `attribution.baseline.routes` gains the dancer-app row (measured below) | n/a |
+| **S13** ~10px help text | `theme/dancer.css`: inside the dancer app the shared switch's label reads 15px and its help text / disabled reason 14px (the protected component is untouched) | e2e `me-edit.spec.ts` "hide-surname help text and its disabled reason are at least 13px": run by the continuation worker with the `theme/dancer.css` S13 block removed -> `expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 13 Received: 10.179`; block restored -> 1 passed |
+| **Perf** | `perf-budgets.json`: `attribution.baseline.routes` gains the dancer-app row (357.2 KB / 58 chunks / 3 pullers, perf-budget.yml env); `chunkRatchet` dancer-app 57 -> 58 (the new chunk is `assets/publicName-*.js`, bought by S6) | `check:bundle-budget` red before the edit: `[OVER] chunk ratchet: dancer-app ... 58 first-load chunk(s), allowance 57`; green after |
 
 (*) The S5 red quote came from the first version of the test, which did not yet publish the analytics identity
 (the probe route sits outside the shell). The unfixed `usePutMyDancerEdit` contained no tracking call at all
@@ -202,9 +202,17 @@ CI per-job (sandbox, this worker, before the stop):
 | typecheck | `check:rpc-typing`; `check:wallclock-brand` | 0, 0 |
 | unit-tests / dancer-area-isolation | `--self-test` | 0 (55 cases) |
 | unit-tests / dancer-area-isolation | `npm run check:dancer-area-isolation` | 0 after `git fetch origin main` (the sandbox's stale origin/main made it exit 2 "could not measure" first; a `chmod +x bin/*.sh` mode change was reverted so it is not committed) |
-| unit-tests | `TZ=Europe/London npm run test:unit:offline` | NOT FINISHED (stopped at the gate). WARNING: that full run rewrote 10 `tests/regression/today/__snapshots__` + 1 organiser snapshot in the working tree (the N21 trap); they were restored with `git checkout`, NOT committed. Re-run with care and never commit a snapshot change. |
-| unit-tests | `test:unit:timing`, workflow-lint, db-contract (migration stamps), perf-budget (canaries, build, bundle-budget, first-load-requests, chunk-cycles), `npm run lint` | NOT RUN |
-| e2e-smoke / phone-qa / dancer-app e2e specs / review pack regeneration | | NOT RUN |
+| unit-tests | `NODE_PATH= TZ=Europe/London npm run test:unit:offline` (offline stub URL/key, as the live=false CI leg) | 0: 312 files, 8024 passed, 26 skipped (continuation worker). It again rewrote 10 `tests/regression/today` + 1 organiser `.snap` in the working tree; restored with `git checkout -- '*.snap'`, NOT committed |
+| unit-tests | `NODE_PATH= TZ=Europe/London npm run test:unit:timing` | 0: 6 files, 65 passed |
+| workflow-lint | BOM scan of `.github/workflows/*.yml`; `lint-workflow-masking.mjs`; `lint-workflow-notification.mjs --self-test` + guard | 0, 0, 0, 0 |
+| db-contract (no-secret step) | `node scripts/check-migration-stamps.mjs` | 0 |
+| perf-budget | 3 canaries (`check:bundle-budget:self-test`, `check:first-load-requests:self-test`, `check:chunk-cycles:self-test`); `npm run build` with the workflow env; `check:bundle-budget`; `check:first-load-requests`; `check:chunk-cycles` | 0,0,0; 0; 1 -> 0 after the perf row (see Perf above); 0; 0 |
+| lint chain | `npm run lint` | 16/16 links green, eslint informational (exit 1, red on main too). NOTE: in this sandbox `bin/check-integrity.sh` is checked out 100644 (same on main), so the integrity link exits 126 unless the file is made executable; it was run with `chmod +x` and the mode REVERTED before commit (`bash bin/check-integrity.sh` alone: 0) |
+| dancer-area-isolation | `--self-test`; `npm run check:dancer-area-isolation` (after `git fetch origin main`) | 0; 0 (221 changed files, 26 protected checked) |
+| dancer-app e2e | `npx playwright test tests/e2e/dancer-app --project=chromium` | 1: 45 passed, 43 skipped (the review pack, which needs `REVIEW_PACK_DIR`), 2 failed in `reachability.spec.ts` (`/account` stayed on `/account`, expected `/auth?` and `/app/home`). Re-run of that spec alone: 14/14 passed. Order/load dependent, NOT root-caused; flagged for the orchestrator |
+| e2e-smoke | `npm run test:e2e` (the CI list, chromium, e2e-smoke.yml placeholder env) | 1: 147 passed, 1 skipped, 1 failed: `dancer-home.spec.ts` "I organise events" opens the unchanged onboarding (`locator.fill: Timeout 15000ms`, `onboarding-search`). Re-run of that spec alone: 14/14 passed. Same class as above (timing under a 4-core sandbox), NOT root-caused |
+| phone-qa | `npx playwright test --config playwright.phone.config.ts`; build with the fake-Supabase env + `playwright.build.config.ts` | 0: 174 passed, 64 skipped; build 0; smoke 0: 3 passed |
+| review pack | `REVIEW_PACK_DIR=docs/review-pack/r1a npx playwright test tests/e2e/dancer-app/review-pack.spec.ts --project=chromium --workers=1` | 0: 43 passed. Shots regenerated; `measurements.json` changed only on welcome x no-photo (now lands on the photo step); `measurements.md` updated |
 
 ### What is left (exact next steps for the next worker, on `claude/dancer-app-r1a`)
 
@@ -220,6 +228,25 @@ CI per-job (sandbox, this worker, before the stop):
    (B1: the seven `*--no-photo.png` shots change; complete-extras edit shot changes for the prod-shaped styles).
 6. 390x844 browser walk on prod-shaped data; `/code-review` per CLAUDE.md; then a final commit whose subject ends
    `[worker-done dt_368c8ffe2ee6]`.
+
+### Continuation (worker dt_1afc14232667, 2026-10-15)
+
+Brief `briefs/dancer-rebuild-r1a-fix-2.md`. Did items 1-5 of "What is left" above; item 6's browser walk and
+`/code-review` are the orchestrator's per that brief. Changes committed: `perf-budgets.json` (baseline row + chunk
+allowance 58 with a note), the regenerated `docs/review-pack/r1a` shots + measurements, this section. No source change.
+
+Event route first-load (owner rule <= +0.5 KB gz vs main), perf-budget.yml env, same command on both: main 4a63921
+379.8 KB / 47 files; this branch 376.4 KB / 47 files = **-3.4 KB**.
+
+Verified (sandbox, this worker): every no-secret CI step in the table above; S13 red (10.179px) then green; S12
+picker e2e green; review pack regenerated and the no-photo shots show "Add your photo to reach 70%."
+
+Not verified: browser walk on prod-shaped (real) data and `/code-review` (orchestrator); the live-DB contract
+suites (`test:unit` with secrets) and Lighthouse (need secrets/network); real PR CI (no PR opened by this worker);
+the two e2e flakes above are not root-caused (each spec passes alone); Vercel preview not checked.
+
+Untracked, deliberately not committed: `docs/handover/dancer-rebuild-w2b/` and `-w2e/` (screenshots other e2e
+specs write as a side effect); tracked w2a/w2d shots the same runs rewrote were restored.
 
 ### NOTEs
 

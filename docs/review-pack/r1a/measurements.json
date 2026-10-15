@@ -313,9 +313,9 @@
   "clientWidth": 390,
   "short": [],
   "hit": {
-   "primary": "onboarding-boost",
+   "primary": "onboarding-take-photo",
    "hitIsPrimary": true,
-   "hitTag": "button[onboarding-boost]"
+   "hitTag": "a[onboarding-take-photo]"
   }
  },
  "home--no-photo": {
