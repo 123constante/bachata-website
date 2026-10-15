@@ -73,16 +73,20 @@ export function callbackErrorCopy(reason: string | null): string | null {
 }
 
 // Where the callback lands a user who has no returnTo (honoured or pending).
-// With organiser self-serve on, /account opens on "Which organiser are you?",
-// which is the wrong first screen for a dancer who signed up to rate a class.
-// So: organiser-type roles go to /account, dancers go home, and a sign-in that
-// carries no role at all (older accounts) goes to /account only when the user
-// already manages an organiser. `managesOrganiser` is `null` until looked up;
-// the caller does the lookup only when `needsOrganiserLookup` says so.
+// Owner workflow 2026-10-15: every sign-in, and a dancer sign-up, goes to
+// /account/continue (CONTINUE_AS_PATH in lib/accountRouting, asserted equal in
+// accountSidesRouting.test.ts; restated because this module is import-free).
+// That page reads the person's sides -- their organisers, then their dancer
+// profile -- and goes straight to the only one, or shows "Continue as...".
+// A sign-UP for an organiser-type role still goes to the organiser onboarding,
+// exactly as before. Judged on the sign-up, not the role alone: an existing
+// account whose metadata says "organiser" signs in to the chooser too.
 const LEGACY_ROLE_ROUTES: Record<string, string> = {
   organiser: "/create-organiser-profile",
   videographer: "/create-videographer-profile",
 };
+
+export const SIGNED_IN_LANDING_PATH = "/account/continue";
 
 export function normalizeLandingRole(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -90,31 +94,22 @@ export function normalizeLandingRole(raw: unknown): string | null {
   return role || null;
 }
 
-export function needsOrganiserLookup(input: { organiserSelfServe: boolean; role: string | null }): boolean {
-  return input.organiserSelfServe && input.role === null;
-}
-
 export function landingPathAfterAuth(input: {
   organiserSelfServe: boolean;
   role: string | null;
-  managesOrganiser: boolean | null;
+  isSignup?: boolean;
 }): string {
-  const { organiserSelfServe, role, managesOrganiser } = input;
+  const { organiserSelfServe, role, isSignup = false } = input;
   if (!organiserSelfServe) {
     if (role && role !== "dancer" && LEGACY_ROLE_ROUTES[role]) return LEGACY_ROLE_ROUTES[role];
     // /profile was unrouted 2026-09-12 (a 404 straight after sign-in); home, as for a dancer.
     return "/";
   }
-  if (role === "dancer") return "/";
   // A non-dancer sign-up meant to set up an organiser: to the organiser
-  // onboarding, as before /account became the dancer home (layout D, 2026-10-11).
-  // Dancer first: /account/o's DancerProfileGate sends a new account on to
-  // /finish-profile?returnTo=/account/o, so they finish the dancer profile and
-  // then land in the organiser onboarding (DancerFirstGate.matrix.test.tsx).
-  if (role) return "/account/o";
-  // Known organiser: straight to the organiser home. Unknown (lookup failed): /account decides.
-  if (managesOrganiser === true) return "/account/o";
-  return managesOrganiser === false ? "/" : "/account";
+  // onboarding. Dancer first: /account/o's DancerProfileGate sends a new account
+  // on to /finish-profile?returnTo=/account/o (DancerFirstGate.matrix.test.tsx).
+  if (isSignup && role && role !== "dancer") return "/account/o";
+  return SIGNED_IN_LANDING_PATH;
 }
 
 // ---- Sign-up profile data + the post-login Finish-your-profile prompt --------

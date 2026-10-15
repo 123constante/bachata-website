@@ -28,7 +28,7 @@ import { hrefFor } from '@/lib/searchEntities';
 import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
 import OptionsScreen_ from '../OptionsScreen';
 import {
-  NO_ORGANISER_REASON,
+  BECOME_ORGANISER_LABEL,
   PAUSED_REASON,
   TERMS_REASON,
   detectPlatform,
@@ -92,8 +92,10 @@ describe('options model x every production shape', () => {
       expect(organiser.href).toBe('/account/o');
       expect(organiser.disabledReason).toBeUndefined();
     } else {
-      expect(organiser.href).toBeUndefined();
-      expect(organiser.disabledReason).toBe(NO_ORGANISER_REASON);
+      // The organiser onboarding (find and claim, request access, or create) lives at /account/o.
+      expect(organiser.label).toBe(BECOME_ORGANISER_LABEL);
+      expect(organiser.href).toBe('/account/o');
+      expect(organiser.disabledReason).toBeUndefined();
       expect(rows.some((r) => r.label === 'I run events')).toBe(false);
     }
   });
@@ -128,11 +130,12 @@ describe('options model x every production shape', () => {
 });
 
 describe('options screen', () => {
-  it('pure dancer: no "I run events" row; the organiser row is disabled and says why', async () => {
-    await shown({ backend: { profile: makeProfile({ other_roles: [] }) } });
+  it('pure dancer: no "I run events" row; "Become an organiser" opens the organiser onboarding', async () => {
+    const { location } = await shown({ backend: { profile: makeProfile({ other_roles: [] }) } });
     expect(screen.queryByText('I run events')).toBeNull();
-    expect(screen.getByTestId('opt-switch-organiser').hasAttribute('disabled')).toBe(true);
-    expect(screen.getByTestId('opt-why-switch-organiser').textContent).toBe(NO_ORGANISER_REASON);
+    expect(screen.getByTestId('opt-switch-organiser').textContent).toContain(BECOME_ORGANISER_LABEL);
+    fireEvent.click(screen.getByTestId('opt-switch-organiser'));
+    await waitFor(() => expect(location()).toBe('/account/o'));
   });
 
   it('dancer + organising: "I run events" links to /account/o', async () => {

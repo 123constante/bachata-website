@@ -1,5 +1,7 @@
-import { useEffect, useRef, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Suspense, useEffect, useRef, type ReactNode } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useKeyboardInset } from '../ui/useKeyboardInset';
@@ -37,6 +39,24 @@ export interface OrganiserShellProps {
  * When the on-screen keyboard is up the frame shrinks above it and the tab
  * bar hides, so the action bar stays reachable.
  */
+// Switch profile: the ONE shared sheet (components/account/profiles), in its own
+// lazy chunk; declared here rather than through a shared wrapper module, which
+// would be one more first-load chunk in both areas (perf-budgets.json).
+const ProfileSwitcher = lazyWithRetry(() => import('@/components/account/profiles/ProfileSwitcher'));
+
+/** The tick follows ?o= (the organiser the person tapped on "Continue as..."). */
+function OrganiserSwitcher() {
+  const [params] = useSearchParams();
+  return (
+    // A fragment fallback: ErrorBoundary treats a falsy one as "show the default error card".
+    <ErrorBoundary fallback={<></>}>
+      <Suspense fallback={<span aria-hidden="true" className="inline-block h-[44px] w-[44px]" />}>
+        <ProfileSwitcher where={{ area: 'organiser', organiserId: params.get('o') }} />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
 export function OrganiserShell({
   title,
   back,
@@ -83,7 +103,7 @@ export function OrganiserShell({
               <span className="w-[8px]" aria-hidden="true" />
             )}
             <h1 className="min-w-0 flex-1 truncate text-[17px] font-bold">{title}</h1>
-            {topBarEnd}
+            {topBarEnd ?? <OrganiserSwitcher />}
           </div>
         )}
       </header>
