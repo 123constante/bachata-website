@@ -157,7 +157,7 @@ const OptionsScreen = () => {
         )}
         <p style={REASON} data-testid="opt-account-settings-line">
           Hide your profile, download your data or delete your account:{' '}
-          <Link to={ACCOUNT_SETTINGS_PATH} style={{ color: 'var(--da-accent)' }}>Account settings</Link>
+          <Link to={ACCOUNT_SETTINGS_PATH} style={{ color: 'var(--da-accent)', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>Account settings</Link>
         </p>
       </div>
 

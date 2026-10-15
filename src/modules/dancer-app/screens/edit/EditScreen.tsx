@@ -191,7 +191,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
 
         <Field id="based_city_id" label="City" error={shown('based_city_id')}>
           <div id="based_city_id">
-            <CityPicker value={draft.based_city_id || undefined} onChange={(id) => set('based_city_id', id)} placeholder="Pick your city" />
+            <CityPicker value={draft.based_city_id || undefined} onChange={(id) => set('based_city_id', id)} placeholder="Pick your city" className="min-h-[48px] w-full" />
           </div>
         </Field>
 

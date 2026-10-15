@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { PHONE, OrganiserFake, expectNoHorizontalScroll, json, refuse } from '../helpers/organiserFake';
+import { DANCER_SHAPES } from '../../../src/modules/dancer-app/api/fixtures';
 
 // The dancer app (/app/*, W1 foundation: shell + placeholder screens) in a real browser at
 // 390x844, against the organiser fake (session + every REST call) with the dancer-area gate
@@ -33,6 +34,8 @@ async function open(page: Page, path: string, opts: { gate?: Gate; signedOut?: b
     const g = opts.gate ?? { open: false, allowed: true };
     return g === 'error' ? refuse(route, 'boom') : json(route, g);
   });
+  // Wave 2 replaced the placeholders: Me and Edit read the own profile (a complete one here).
+  await page.route('**/rest/v1/rpc/my_dancer_edit_v1', (route) => json(route, DANCER_SHAPES.fourFieldComplete.profile));
   await page.goto(path);
   return { fake, gateHits };
 }

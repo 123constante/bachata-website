@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { PHONE, OrganiserFake, expectNoHorizontalScroll, json } from '../helpers/organiserFake';
+import { NOW, PHONE, OrganiserFake, expectNoHorizontalScroll, json } from '../helpers/organiserFake';
 
 // W2b: Home and Nights at 390x844 against the organiser fake (session + REST) with the dancer RPCs
 // answered at the network layer. Screenshots of four shapes go to docs/handover/dancer-rebuild-w2b/.
@@ -8,7 +8,8 @@ const SHOTS = 'docs/handover/dancer-rebuild-w2b';
 const rpc = (name: string) => `**/rest/v1/rpc/${name}`;
 const pad = (n: number) => String(n).padStart(2, '0');
 const dayKey = (offset: number) => {
-  const d = new Date();
+  // Relative to the fake's frozen browser clock (NOW), not the machine's: past/upcoming must agree with the page.
+  const d = new Date(NOW);
   d.setUTCDate(d.getUTCDate() + offset);
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 };

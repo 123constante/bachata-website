@@ -6,11 +6,16 @@ import { PHONE, OrganiserFake, expectNoHorizontalScroll, json, refuse } from '..
 // Asserts the ORDER of the network calls and takes a screenshot of every state.
 
 const SHOTS = 'docs/handover/dancer-rebuild-w2d';
-const OLD = 'https://img.example/old.jpg';
+// The person's OWN upload (under avatars/u/<uid>/): the only kind the flow deletes (W2d fix d515401).
+const UID = '11111111-1111-4111-8111-111111111111';
+const OLD_KEY = `avatars/u/${UID}/old.jpg`;
+const OLD = `https://img.example/${OLD_KEY}`;
+// A legacy / admin-uploaded photo outside the own prefix: replaced, never deleted.
+const LEGACY = 'https://img.example/old.jpg';
 const NEW = 'https://img.example/new.jpg';
 
 const profile = (avatar: string | null) => ({
-  profile_id: 'b1000000-0000-4000-8000-000000000001', user_id: '11111111-1111-4111-8111-111111111111',
+  profile_id: 'b1000000-0000-4000-8000-000000000001', user_id: UID,
   display_name: null, first_name: 'Ana', surname: null, hide_surname_publicly: false,
   based_city_id: 'c1000000-0000-4000-8000-000000000001', city_name: 'London', dance_role: 'Follower',
   nationality: null, languages: [], bio: null, instagram: null, facebook: null, website_url: null, whatsapp: null,
@@ -38,7 +43,7 @@ async function setup(page: Page, opts: { avatar?: string | null; uploadFails?: n
     return json(r, { ok: true, publicUrl: NEW, key: 'avatars/u/x.jpg' });
   });
   await page.route('**/functions/v1/storage-delete-object', (r) => {
-    order.push('delete');
+    order.push(`delete:${JSON.stringify(r.request().postDataJSON())}`);
     return json(r, { ok: true });
   });
   return { order };
@@ -81,7 +86,17 @@ test.describe('photo screen 390x844', () => {
     await page.screenshot({ path: `${SHOTS}/3-preview.png` });
     await page.getByTestId('photo-use').click();
     await expect(page).toHaveURL(/\/app\/me$/);
-    expect(order).toEqual(['upload', `save:${JSON.stringify({ p_payload: { avatar_url: NEW } })}`, 'delete']);
+    expect(order).toEqual(['upload', `save:${JSON.stringify({ p_payload: { avatar_url: NEW } })}`, `delete:${JSON.stringify({ keys: [OLD_KEY] })}`]);
+  });
+
+  test('replace a legacy foreign photo: upload -> save, and NO delete', async ({ page }) => {
+    const { order } = await setup(page, { avatar: LEGACY });
+    await page.goto('/app/me/photo');
+    await page.getByTestId('photo-input-library').setInputFiles({ name: 'me.jpg', mimeType: 'image/jpeg', buffer: await makeJpeg(page) });
+    await page.getByTestId('photo-crop-done').click();
+    await page.getByTestId('photo-use').click();
+    await expect(page).toHaveURL(/\/app\/me$/);
+    expect(order).toEqual(['upload', `save:${JSON.stringify({ p_payload: { avatar_url: NEW } })}`]);
   });
 
   test('refused file: reason shown, pick again', async ({ page }) => {

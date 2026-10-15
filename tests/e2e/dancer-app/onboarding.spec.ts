@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { PHONE, OrganiserFake, expectNoHorizontalScroll, json, refuse } from '../helpers/organiserFake';
+import { NOW, PHONE, OrganiserFake, expectNoHorizontalScroll, json, refuse } from '../helpers/organiserFake';
 import { CITY_LONDON, DANCER_SHAPES, withDerived, type DancerShapeName } from '../../../src/modules/dancer-app/api/fixtures';
 import type { MyDancerEdit } from '../../../src/modules/dancer-app/api/types';
 
@@ -97,7 +97,7 @@ test.describe('onboarding 390x844', () => {
     await page.getByTestId('onboarding-continue').click();
     await expect(page.getByTestId('onboarding-nice-card')).toContainText('Nice work, Ana');
     await shot(page, 'complete-8-nice');
-    expect(saves).toEqual([{ dance_started_year: new Date().getFullYear() - 4 }, { favorite_styles: ['Kizomba'] }]);
+    expect(saves).toEqual([{ dance_started_year: NOW.getUTCFullYear() - 4 }, { favorite_styles: ['Kizomba'] }]);
     await page.getByTestId('onboarding-home').click();
     await expect(page).toHaveURL(/\/app\/home$/);
   });
