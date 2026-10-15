@@ -122,6 +122,23 @@ export const DANCER_SHAPES = {
       achievements: ['Workshop helper'],
     }),
   },
+  /**
+   * Real-data fix F1-F3 (read-only prod survey 2026-10-15, counts only: 68 of 167 have a link but no bio,
+   * 4 store a website without a scheme, 166 have no WhatsApp number). 90%, next step bio_social.
+   */
+  linkNoBio: {
+    label: 'links but no bio, website without https:// (90%)',
+    signedIn: true,
+    profile: makeProfile({
+      ...FOUR,
+      dance_started_year: 2018,
+      favorite_styles: ['Bachata Sensual'],
+      website_url: 'www.dance-example.co.uk',
+      facebook: 'b',
+      instagram: 'bachata.dance.example.london.socials',
+      other_roles: ['organising'],
+    }),
+  },
   adminUnclaimedPhotoless: {
     label: 'admin-made, unclaimed, no photo',
     signedIn: true,

@@ -1,13 +1,14 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { nextStepLine } from '../../api/nextStep';
-import type { DancerStrength } from '../../api/types';
+import { nextStepLine, type NextStepProfile } from '../../api/nextStep';
 
 /** Small presentational pieces for the onboarding cards. Sizes in px (the phone html font-size trap). */
 
 export const wrap: CSSProperties = { overflowWrap: 'anywhere', wordBreak: 'break-word' };
 
 /** The strength meter, with the SAME next-step sentence Home and Me show (api/nextStep.ts, review S2). */
-export const Meter = ({ strength }: { strength: DancerStrength }) => (
+export const Meter = ({ profile }: { profile: NextStepProfile }) => {
+  const { strength } = profile;
+  return (
   <div data-testid="onboarding-meter" style={{ marginBottom: 12 }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700 }}>
       <span>Profile strength</span>
@@ -25,11 +26,12 @@ export const Meter = ({ strength }: { strength: DancerStrength }) => (
     </div>
     {strength.next_step ? (
       <p data-testid="onboarding-next-step" style={{ ...wrap, fontSize: 14, margin: '6px 0 0' }}>
-        {nextStepLine(strength)}
+        {nextStepLine(profile)}
       </p>
     ) : null}
   </div>
-);
+  );
+};
 
 export const Tag = ({ children, onGradient }: { children: ReactNode; onGradient?: boolean }) => (
   <span

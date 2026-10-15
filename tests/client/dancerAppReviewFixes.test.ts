@@ -15,7 +15,7 @@ import { diffDelta } from '@/modules/dancer-app/api/delta';
 import { countCommitted, mapNights, nextNight, nudgeCandidates, statusLabel, type AttendanceRow } from '@/modules/dancer-app/screens/nights/nightsModel';
 import { renderPublicName } from '@/lib/publicName';
 import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
-import { STRENGTH_STEPS } from '@/modules/dancer-app/api/types';
+import { STRENGTH_STEPS, type DancerStrength } from '@/modules/dancer-app/api/types';
 // Dynamic: on the unfixed head this module did not exist, and a static import would hide every other red.
 const loadNextStep = () => import('@/modules/dancer-app/api/nextStep');
 
@@ -100,6 +100,9 @@ describe('S7: next_step and dance_role validated at the API boundary', () => {
   });
 });
 
+/** A profile with no bio and no link (F1: bio_social then keeps its full label). */
+const noLinks = (strength: DancerStrength) => ({ strength, bio: null, instagram: null, facebook: null, website_url: null });
+
 describe('S2: one next-step table', () => {
   it('every StrengthStep has words and a target, and the line starts with the label', async () => {
     const nextStepModule = await loadNextStep();
@@ -107,11 +110,12 @@ describe('S2: one next-step table', () => {
       const e = nextStepModule.NEXT_STEP[step];
       expect(e.label.length).toBeGreaterThan(0);
       const missing = STRENGTH_STEPS.slice(STRENGTH_STEPS.indexOf(step));
-      expect(nextStepModule.nextStepShort({ next_step: step, missing: [...missing], pct: 0 }).startsWith(e.label)).toBe(true);
+      expect(nextStepModule.nextStepShort(noLinks({ next_step: step, missing: [...missing], pct: 0 })).startsWith(e.label)).toBe(true);
     }
   });
   it('N8: "reach 70%" only when this step is the last one before 70', async () => {
-    const s = (await loadNextStep()).nextStepShort;
+    const short = (await loadNextStep()).nextStepShort;
+    const s = (strength: DancerStrength) => short(noLinks(strength));
     expect(s({ pct: 10, next_step: 'first_name', missing: ['first_name', 'city', 'role', 'photo'] })).toBe('Add your first name towards 70%');
     expect(s({ pct: 55, next_step: 'photo', missing: ['photo', 'started_year'] })).toBe('Add your photo to reach 70%');
     expect(s({ pct: 70, next_step: 'started_year', missing: ['started_year'] })).toBe('Add when you started dancing towards 100%');

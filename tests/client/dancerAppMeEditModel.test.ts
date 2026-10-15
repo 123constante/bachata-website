@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { DANCER_SHAPES, DANCER_SHAPE_NAMES, makeProfile } from '@/modules/dancer-app/api/fixtures';
 import { STRENGTH_STEPS } from '@/modules/dancer-app/api/types';
+import { nextStepFor } from '@/modules/dancer-app/api/nextStep';
 import {
   BIO_MAX, NEXT_STEP, addChip, bandForYear, buildDelta, draftFromProfile, mainAction, nextStepCopy, parseLanguages,
   profileName, roleCityLine, saveDisabledReason, validateDraft, yearForBand, YEAR_BANDS,
@@ -25,7 +26,8 @@ describe('main action and copy follow strength.next_step (one mapping)', () => {
     const a = mainAction(p!);
     const step = p!.strength.next_step;
     if (step === null) expect(a).toMatchObject({ label: 'Edit my profile', href: '/app/me/edit', isEdit: true });
-    else expect(a.label).toBe(NEXT_STEP[step].label);
+    else expect(a.label).toBe(nextStepFor(p!)!.label);
+    if (step !== null && step !== 'bio_social') expect(a.label).toBe(NEXT_STEP[step].label);
     expect(nextStepCopy(p!)).not.toBe('');
   });
   it('photo -> /app/me/photo; city -> edit with the city focused', () => {

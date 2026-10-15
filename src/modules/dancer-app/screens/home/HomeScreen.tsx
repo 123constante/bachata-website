@@ -137,7 +137,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
             <Ring pct={profile.strength.pct} />
           </div>
           <span style={{ fontSize: 13 }} data-testid="tile-strength-next">
-            {nextStepLine(profile.strength)}
+            {nextStepLine(profile)}
           </span>
         </Link>
         <div style={soon} data-testid="tile-views">

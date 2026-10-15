@@ -7,12 +7,12 @@
  *
  * Strength is NEVER computed here: it is `profile.strength` from the server.
  */
-import type { DanceRole, DancerStrength, StrengthStep } from './types';
+import type { DanceRole, MyDancerEdit, StrengthStep } from './types';
 
 export const PHOTO_PATH = '/app/me/photo';
 export const EDIT_PATH = '/app/me/edit';
 
-export type EditFocus = 'first_name' | 'city' | 'role' | 'year' | 'styles' | 'bio';
+export type EditFocus = 'first_name' | 'city' | 'role' | 'year' | 'styles' | 'bio' | 'instagram';
 
 /** The four steps that make a profile complete (the server's 70%). */
 export const REQUIRED_STEPS: ReadonlySet<StrengthStep> = new Set(['first_name', 'city', 'role', 'photo']);
@@ -30,22 +30,45 @@ export const NEXT_STEP: Record<StrengthStep, { label: string; path: string; focu
 
 export const NEXT_STEP_DONE = 'Your profile is complete.';
 
+/** What a next-step reading needs from the profile: the server's strength, plus the bio and links for bio_social. */
+export type NextStepProfile = Pick<MyDancerEdit, 'strength' | 'bio' | 'instagram' | 'facebook' | 'website_url'>;
+
+export type NextStepTarget = { label: string; path: string; focus: EditFocus | null };
+
+const filled = (v: string | null) => (v ?? '').trim() !== '';
+
+/**
+ * Real-data fix F1: the ONE reading of the next step FROM THE PROFILE. The server
+ * counts bio_social only for a bio AND a link, so the words name the half that is
+ * missing (prod 2026-10-15: 68 of 167 have a link but no bio) and Edit focuses it.
+ */
+export const nextStepFor = (p: NextStepProfile): NextStepTarget | null => {
+  const step = p.strength.next_step;
+  if (!step) return null;
+  if (step !== 'bio_social') return NEXT_STEP[step];
+  const hasBio = filled(p.bio);
+  const hasLink = filled(p.instagram) || filled(p.facebook) || filled(p.website_url);
+  if (hasLink && !hasBio) return { label: 'Add a short bio', path: EDIT_PATH, focus: 'bio' };
+  if (hasBio && !hasLink) return { label: 'Add your Instagram, Facebook or website', path: EDIT_PATH, focus: 'instagram' };
+  return NEXT_STEP.bio_social;
+};
+
 /**
  * "Add your photo to reach 70%": the step plus the goal it moves towards. Only the
  * LAST required step "reaches" 70% (review N8: at 10% the first name only moves
  * towards it).
  */
-export const nextStepShort = (s: DancerStrength): string => {
-  const step = s.next_step;
-  if (!step) return NEXT_STEP_DONE;
-  const label = NEXT_STEP[step].label;
-  if (!REQUIRED_STEPS.has(step)) return `${label} towards 100%`;
-  const requiredLeft = s.missing.filter((m) => REQUIRED_STEPS.has(m)).length;
-  return requiredLeft <= 1 ? `${label} to reach 70%` : `${label} towards 70%`;
+export const nextStepShort = (p: NextStepProfile): string => {
+  const target = nextStepFor(p);
+  const step = p.strength.next_step;
+  if (!target || !step) return NEXT_STEP_DONE;
+  if (!REQUIRED_STEPS.has(step)) return `${target.label} towards 100%`;
+  const requiredLeft = p.strength.missing.filter((m) => REQUIRED_STEPS.has(m)).length;
+  return requiredLeft <= 1 ? `${target.label} to reach 70%` : `${target.label} towards 70%`;
 };
 
 /** The sentence every screen shows under the strength meter: identical words on Home, Me and Onboarding. */
-export const nextStepLine = (s: DancerStrength): string => (s.next_step ? `${nextStepShort(s)}.` : NEXT_STEP_DONE);
+export const nextStepLine = (p: NextStepProfile): string => (p.strength.next_step ? `${nextStepShort(p)}.` : NEXT_STEP_DONE);
 
 /* ---------- role chips ---------- */
 

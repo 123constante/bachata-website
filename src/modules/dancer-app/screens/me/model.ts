@@ -10,7 +10,7 @@ import { diffDelta } from '../../api/delta';
 // Client-side refusals read the SAME copy the DB's refusal maps to (one mapping, api/errors.ts).
 import { copyFor } from '../../api/errors';
 import type { DancerDelta, DanceRole, MyDancerEdit, SaveKey } from '../../api/types';
-import { EDIT_PATH, NEXT_STEP, nextStepLine, roleLabel, type EditFocus } from '../../api/nextStep';
+import { EDIT_PATH, nextStepFor, nextStepLine, roleLabel, type EditFocus, type NextStepProfile } from '../../api/nextStep';
 import { ownPublicName } from '../../api/publicName';
 
 // The shared vocabulary (api/nextStep.ts, review S2), re-exported for the Me / Edit screens.
@@ -53,15 +53,14 @@ export const editHref = (focus: EditFocus | null): string => (focus ? `${EDIT_PA
 export type MeAction = { label: string; href: string; isEdit: boolean };
 
 /** The ONE main button: the next missing step, or "Edit my profile" at 100. */
-export const mainAction = (p: Pick<MyDancerEdit, 'strength'>): MeAction => {
-  const step = p.strength.next_step;
-  if (!step) return { label: 'Edit my profile', href: EDIT_PATH, isEdit: true };
-  const s = NEXT_STEP[step];
+export const mainAction = (p: NextStepProfile): MeAction => {
+  const s = nextStepFor(p);
+  if (!s) return { label: 'Edit my profile', href: EDIT_PATH, isEdit: true };
   return { label: s.label, href: s.path === EDIT_PATH ? editHref(s.focus) : s.path, isEdit: false };
 };
 
 /** The line under the strength bar: the SAME words Home and Onboarding show (api/nextStep.ts). */
-export const nextStepCopy = (p: Pick<MyDancerEdit, 'strength'>): string => nextStepLine(p.strength);
+export const nextStepCopy = (p: NextStepProfile): string => nextStepLine(p);
 
 /* ---------- parsing ---------- */
 
@@ -156,8 +155,10 @@ export const draftFromProfile = (p: MyDancerEdit): EditDraft => ({
   show_whatsapp_publicly: p.show_whatsapp_publicly,
 });
 
-/** The same reasons the server gives, found before the request. Empty object = the draft is sendable. */
-export const validateDraft = (d: EditDraft, p: Pick<MyDancerEdit, 'other_roles' | 'first_name' | 'based_city_id'>): Partial<Record<FormFieldId, string>> => {
+export type FieldMessages = Partial<Record<FormFieldId, string>>;
+
+/** Every field rule the server applies, on every field, changed or not. */
+const ruleFindings = (d: EditDraft, p: Pick<MyDancerEdit, 'other_roles' | 'first_name' | 'based_city_id'>): FieldMessages => {
   const e: Partial<Record<FormFieldId, string>> = {};
   const dn = d.display_name.trim();
   if (dn !== '' && (dn.length > DISPLAY_NAME_MAX || /http|:\/\/|@/i.test(dn) || CONTROL_RE.test(dn))) {
@@ -184,6 +185,36 @@ export const validateDraft = (d: EditDraft, p: Pick<MyDancerEdit, 'other_roles' 
     }
   }
   return e;
+};
+
+/**
+ * Real-data fix F2: the server validates only the delta, so the client gates only
+ * the fields in the delta. A stored value that fails a rule but was not touched is
+ * not an error (prod 2026-10-15: 4 websites with no scheme, 3 handles): it gets a
+ * calm hint (storedValueHints) and never blocks a save of the other fields.
+ */
+export const validateDraft = (d: EditDraft, p: MyDancerEdit): FieldMessages => {
+  const changed = buildDelta(p, d);
+  return Object.fromEntries(Object.entries(ruleFindings(d, p)).filter(([k]) => k in changed)) as FieldMessages;
+};
+
+/** What to change in an untouched stored value the rules would refuse. Not an error: no alert, no aria-invalid. */
+export const STORED_VALUE_HINT: FieldMessages = {
+  display_name: 'Change this to a name without links or @ next time you save it.',
+  bio: 'Take the link out of your bio and keep it under 280 characters so it can be saved again.',
+  instagram: 'Use just your handle here, for example your.handle, so this works as a link.',
+  facebook: 'Use just your handle here, for example your.handle, so this works as a link.',
+  website_url: 'Add https:// at the start so this works as a link.',
+  whatsapp: 'Add your country code, for example +44 7700 900123, so people can reach you.',
+};
+
+export const storedValueHints = (d: EditDraft, p: MyDancerEdit): FieldMessages => {
+  const changed = buildDelta(p, d);
+  const out: FieldMessages = {};
+  for (const k of Object.keys(ruleFindings(d, p)) as FormFieldId[]) {
+    if (!(k in changed)) out[k] = STORED_VALUE_HINT[k] ?? 'This saved value needs a change before it can be saved again.';
+  }
+  return out;
 };
 
 const text = (v: string): string | null => (v.trim() === '' ? null : v.trim());

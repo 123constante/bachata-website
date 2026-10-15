@@ -41,6 +41,8 @@ const SHAPES = [
     rows: ROWS,
   },
   { name: 'no-photo', profile: withDerived({ ...base, avatar_url: null }), rows: [] },
+  // Real-data fixes F1-F3: a link but no bio, a website stored without https://, no WhatsApp number.
+  { name: 'link-no-bio', profile: DANCER_SHAPES.linkNoBio.profile, rows: ROWS },
   { name: 'legacy-photo', profile: withDerived({ ...base, avatar_url: 'https://legacy-cdn.example.net/uploads/2019/old-photo.jpg' }), rows: ROWS },
 ];
 /** Where each screen shows the next step (the shared api/nextStep.ts sentence). */
@@ -130,6 +132,17 @@ test.describe('R1a review pack 390x844 (MOCKED RPCs)', () => {
         // B1: the 55% person is told to add a photo, in the same words, on Home, Me and Onboarding.
         if (shape.name === 'no-photo' && NEXT_STEP_TESTID[screen]) {
           await expect(page.getByTestId(NEXT_STEP_TESTID[screen])).toHaveText('Add your photo to reach 70%.');
+        }
+        // F1: the person with links and no bio is asked for the bio only (Home and Me; Welcome is past the line).
+        if (shape.name === 'link-no-bio' && (screen === 'home' || screen === 'me')) {
+          await expect(page.getByTestId(NEXT_STEP_TESTID[screen])).toHaveText('Add a short bio towards 100%.');
+        }
+        // F2 + F3: the stored website gets a calm hint, nothing blocks a save but "nothing changed", the switch says why it is off.
+        if (shape.name === 'link-no-bio' && screen === 'edit') {
+          await expect(page.getByTestId('note-website_url')).toBeVisible();
+          await expect(page.getByTestId('error-website_url')).toHaveCount(0);
+          await expect(page.getByTestId('edit-save-reason')).toHaveText('Nothing has changed yet. Edit a field above to save.');
+          await expect(page.getByTestId('whatsapp-switch-reason')).toBeVisible();
         }
       });
     }

@@ -21,6 +21,7 @@ import {
   fieldForKey,
   profileName,
   saveDisabledReason,
+  storedValueHints,
   validateDraft,
   yearForBand,
   type EditDraft,
@@ -77,6 +78,7 @@ const FOCUS_IDS: Record<string, string> = {
   year: 'dance_started_year',
   styles: 'favorite_styles',
   bio: 'bio',
+  instagram: 'instagram',
 };
 
 const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
@@ -97,6 +99,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   };
 
   const errors = useMemo(() => validateDraft(draft, profile), [draft, profile]);
+  const hints = useMemo(() => storedValueHints(draft, profile), [draft, profile]);
   const delta = useMemo(() => buildDelta(profile, draft), [profile, draft]);
 
   const mutation = useMutation({
@@ -139,7 +142,10 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   }, [focusParam]);
 
   const shown = (f: FormFieldId): string | null => serverErrors[f] ?? errors[f] ?? null;
+  const note = (f: FormFieldId): string | null => hints[f] ?? null;
   const eligibleWhatsapp = profile.other_roles.length > 0;
+  // Real-data fix F3: the switch controls nothing without a number, so it is disabled with the reason.
+  const hasNumber = draft.whatsapp.trim() !== '';
   const bandNow = bandForYear(draft.dance_started_year);
   const savedBand = bandForYear(profile.dance_started_year);
   const styleChips = useMemo(
@@ -183,7 +189,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
         </div>
         {shown('avatar_url') && <p role="alert" style={{ fontSize: 13, margin: 0, color: 'var(--da-danger)' }}>{shown('avatar_url')}</p>}
 
-        <Field id="display_name" label="Display name" hint="(shown on your page)" error={shown('display_name')}>
+        <Field id="display_name" label="Display name" hint="(shown on your page)" error={shown('display_name')} note={note('display_name')}>
           <TextInput id="display_name" value={draft.display_name} maxLength={DISPLAY_NAME_MAX + 20} onChange={(v) => set('display_name', v)} error={shown('display_name')} />
         </Field>
 
@@ -256,7 +262,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
           <ChipListInput id="achievements" value={draft.achievements} onChange={(v) => set('achievements', v)} placeholder="Add an achievement" />
         </Field>
 
-        <Field id="bio" label="About me" error={shown('bio')}>
+        <Field id="bio" label="About me" error={shown('bio')} note={note('bio')}>
           <textarea
             id="bio"
             value={draft.bio}
@@ -271,19 +277,19 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
           </p>
         </Field>
 
-        <Field id="instagram" label="Instagram" error={shown('instagram')}>
+        <Field id="instagram" label="Instagram" error={shown('instagram')} note={note('instagram')}>
           <TextInput id="instagram" value={draft.instagram} placeholder="your.handle" onChange={(v) => set('instagram', v)} error={shown('instagram')} />
         </Field>
-        <Field id="facebook" label="Facebook" error={shown('facebook')}>
+        <Field id="facebook" label="Facebook" error={shown('facebook')} note={note('facebook')}>
           <TextInput id="facebook" value={draft.facebook} placeholder="your.handle" onChange={(v) => set('facebook', v)} error={shown('facebook')} />
         </Field>
-        <Field id="website_url" label="Website" error={shown('website_url')}>
+        <Field id="website_url" label="Website" error={shown('website_url')} note={note('website_url')}>
           <TextInput id="website_url" type="url" inputMode="url" value={draft.website_url} placeholder="https://" onChange={(v) => set('website_url', v)} error={shown('website_url')} />
         </Field>
 
         {eligibleWhatsapp && (
           <div data-testid="edit-whatsapp" style={{ display: 'grid', gap: 10 }}>
-            <Field id="whatsapp" label="WhatsApp" hint="(number with country code)" error={shown('whatsapp')}>
+            <Field id="whatsapp" label="WhatsApp" hint="(number with country code)" error={shown('whatsapp')} note={note('whatsapp')}>
               <TextInput id="whatsapp" type="tel" inputMode="tel" value={draft.whatsapp} placeholder="+44 7700 900123" onChange={(v) => set('whatsapp', v)} error={shown('whatsapp')} />
             </Field>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 44 }}>
@@ -293,9 +299,11 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
                 type="button"
                 role="switch"
                 aria-checked={draft.show_whatsapp_publicly}
+                disabled={!hasNumber}
+                aria-describedby={hasNumber ? undefined : 'whatsapp-switch-reason'}
                 onClick={() => set('show_whatsapp_publicly', !draft.show_whatsapp_publicly)}
                 style={{
-                  width: 56, height: 44, borderRadius: 999, flex: '0 0 auto', cursor: 'pointer',
+                  width: 56, height: 44, borderRadius: 999, flex: '0 0 auto', cursor: hasNumber ? 'pointer' : 'not-allowed', opacity: hasNumber ? 1 : 0.5,
                   border: '1px solid var(--da-border)',
                   background: draft.show_whatsapp_publicly ? 'var(--da-accent)' : 'var(--da-surface-2)',
                   color: draft.show_whatsapp_publicly ? 'var(--da-on-accent)' : 'var(--da-text)', fontWeight: 700,
@@ -304,6 +312,11 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
                 {draft.show_whatsapp_publicly ? 'On' : 'Off'}
               </button>
             </div>
+            {!hasNumber && (
+              <p id="whatsapp-switch-reason" data-testid="whatsapp-switch-reason" style={{ fontSize: 14, margin: 0, color: 'var(--da-warn, #F2B84B)' }}>
+                Add your number above to show it on your page.
+              </p>
+            )}
             <p className="da-muted" style={{ fontSize: 13, margin: 0 }}>
               WhatsApp is only for people who also teach, DJ or organise, so students and partners can reach you. It shows on your page only while this is on.
             </p>

@@ -20,12 +20,15 @@ export const Field = ({
   label,
   hint,
   error,
+  note,
   children,
 }: {
   id: string;
   label: string;
   hint?: string;
   error?: string | null;
+  /** A calm hint about a stored value (real-data fix F2): not an alert, never shown with an error. */
+  note?: string | null;
   children: ReactNode;
 }) => (
   <div data-testid={`field-${id}`} style={{ display: 'grid', gap: 4 }}>
@@ -37,6 +40,11 @@ export const Field = ({
     {error && (
       <p id={`${id}-error`} role="alert" data-testid={`error-${id}`} style={{ fontSize: 13, margin: 0, color: 'var(--da-danger)' }}>
         {error}
+      </p>
+    )}
+    {!error && note && (
+      <p id={`${id}-note`} data-testid={`note-${id}`} className="da-muted" style={{ fontSize: 14, margin: 0 }}>
+        {note}
       </p>
     )}
   </div>

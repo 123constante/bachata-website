@@ -96,7 +96,7 @@ const OnboardingCards = () => {
 
   return (
     <section data-testid={`onboarding-${stage}`} style={{ ...wrap, maxWidth: 520, margin: '0 auto' }}>
-      <Meter strength={profile.strength} />
+      <Meter profile={profile} />
       {stage === 'in' ? (
         <div style={gradientCard} data-testid="onboarding-in-card">
           <Tag onGradient>{profile.strength.pct}% &middot; you&rsquo;re past the line</Tag>

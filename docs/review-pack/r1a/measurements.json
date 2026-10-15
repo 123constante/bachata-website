@@ -384,6 +384,83 @@
    "hitTag": "button[opt-switch-organiser]"
   }
  },
+ "welcome--link-no-bio": {
+  "url": "/app/home",
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "short": [],
+  "hit": {
+   "primary": "See event",
+   "hitIsPrimary": true,
+   "hitTag": "a"
+  }
+ },
+ "home--link-no-bio": {
+  "url": "/app/home",
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "short": [],
+  "hit": {
+   "primary": "See event",
+   "hitIsPrimary": true,
+   "hitTag": "a"
+  }
+ },
+ "nights--link-no-bio": {
+  "url": "/app/nights",
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "short": [],
+  "hit": {
+   "primary": "Soho Sensual Thursdays",
+   "hitIsPrimary": true,
+   "hitTag": "a"
+  }
+ },
+ "me--link-no-bio": {
+  "url": "/app/me",
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "short": [],
+  "hit": {
+   "primary": "me-main-action",
+   "hitIsPrimary": true,
+   "hitTag": "a[me-main-action]"
+  }
+ },
+ "edit--link-no-bio": {
+  "url": "/app/me/edit",
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "short": [],
+  "hit": {
+   "primary": "edit-save",
+   "hitIsPrimary": true,
+   "hitTag": "button[edit-save]"
+  }
+ },
+ "photo--link-no-bio": {
+  "url": "/app/me/photo",
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "short": [],
+  "hit": {
+   "primary": "Take photo",
+   "hitIsPrimary": true,
+   "hitTag": "label"
+  }
+ },
+ "options--link-no-bio": {
+  "url": "/app/options",
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "short": [],
+  "hit": {
+   "primary": "opt-switch-organiser",
+   "hitIsPrimary": true,
+   "hitTag": "a[opt-switch-organiser]"
+  }
+ },
  "welcome--legacy-photo": {
   "url": "/app/welcome",
   "scrollWidth": 390,
