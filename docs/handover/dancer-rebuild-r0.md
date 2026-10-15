@@ -1,8 +1,6 @@
 # Dancer Rebuild R0 handover (regression baseline + isolation check)
 
-Branch `arc/dancer-app-r0` (from `origin/main` @ `4a63921`). No PR (the orchestrator merges). Status: **PARTIAL**,
-stopped at the context gate. Suite and isolation check are built and green; the red-first mutants and most
-CI gates are NOT run. See "What is left".
+Branch `arc/dancer-app-r0` (from `origin/main` @ `4a63921`). No PR (the orchestrator merges). Status: **COMPLETE** (finished by the R0-finish worker; see "Not verified" for what a sandbox cannot do).
 
 ## What changed (files)
 - `tests/regression/today/**` (new; 12 test files, 368 tests, snapshots in `__snapshots__/`):
@@ -54,36 +52,37 @@ NO live prod survey was run by me. Shapes come from plan section 3 (survey of 20
 `dancerBackend.ts` shapes. Not re-measured today.
 
 ## Red-first proof
-**NOT DONE** (context gate). Run these three, each applied locally and reverted (never commit), and quote the failing test names:
-- (a) one word of copy in `src/pages/FinishProfile.tsx` -> expect `finishProfile.today` snapshots (and the existing `FinishProfile.test`) red.
-- (b) change the organiser redirect in `src/pages/Account.tsx` (`legacyAccountPath("home", ...)` target) -> expect `account.today` organiser/open-request rows red.
-- (c) drop `isAccountPath(pathname)` from `BANNER_HIDDEN_ON` in `src/lib/profileCompletion.ts` -> expect `reminderBanner.today` `/account*` rows red.
-The isolation check WAS proven able to fail: a real edit to `src/pages/Account.tsx` made it exit 1 naming the file, and `--self-test` breaks every rule on purpose (55 cases).
+Each mutant applied locally, suite run (`CI=1 npx vitest run ...`), then reverted with `git checkout`; `git status --short` clean after each.
+- (a) `src/pages/FinishProfile.tsx`: "Skip for now" -> "Skip it now". RED: `tests/regression/today/finishProfile.today.test.tsx > /finish-profile at '390x844' > 'missing first_name'` (and every other missing-field subset, both viewports); also the existing `FinishProfile.test.tsx` (3 tests) and `DancerFirstGate.matrix.test.tsx`. Quote: `- button "Skip for now"` / `+ button "Skip it now"`.
+- (b) `src/pages/Account.tsx:55`: `legacyAccountPath("home", ...)` -> `legacyAccountPath("team", ...)`. RED (4 tests): `account.today > /account entry at '390x844' > /account > 'organiser-type (complete)'`, `... 'open access request (complete)'`, and the same two at `'desktop'`. Quote: `Tests  4 failed | 32 passed (36)` (the landing path in the snapshot changes). FINDING on the first attempt: mutating the target to `"settings"` stayed GREEN, because `legacyAccountPath` falls through to `ORG_PATHS.home` for any unknown target, so that mutant is behaviourally identical (not a test gap).
+- (c) `src/lib/profileCompletion.ts:171`: dropped `|| isAccountPath(pathname)` from `BANNER_HIDDEN_ON`. RED (9 tests): `reminderBanner.today.test.ts > reminder banner: incomplete profile, by path > /account -> shown=false`, `/account/`, `/account/dancer`, `/account/o`, `/account/o/events/e1`, `/account/settings`, `/account/settings/delete`, `/account/attendance`. Quote: `AssertionError: expected true to be false // Object.is equality`.
+All three mutants make the suite red; no assertion needed adding. The isolation check was also proven able to fail earlier (real edit to `src/pages/Account.tsx` -> exit 1; `--self-test` 55 cases).
 
-## CI per-job table (what I ran in the sandbox)
-| Job / command | Result |
-|---|---|
-| `npx vitest run tests/regression` (x4 incl. after a flake fix) | 368/368 pass, stable |
-| `node scripts/check-dancer-area-isolation.mjs` | exit 0 |
-| `node scripts/check-dancer-area-isolation.mjs --self-test` | exit 0 (55 cases) |
-| `node scripts/check-dancer-area-isolation.mjs --bogus` | exit 2 |
-| `node scripts/check-script-conventions.mjs` | exit 0 |
-| `npm run check:dancer-area-isolation` | exit 0 |
-| full `npx vitest run` on main BEFORE my files | 4 env-failing files, see above |
-| full `npm run test:unit` WITH my files | NOT RUN |
-| `npm run typecheck`, `npm run lint` (chain), `npm run build` | NOT RUN |
-| other `.github/workflows/*.yml` jobs (integrity/check:images, architecture-guard, perf-budget, ...) | NOT RUN |
+## CI per-job table (sandbox, Node 22.22.0)
+| Job (workflow) | Command | Exit | Result |
+|---|---|---|---|
+| unit-tests | `npm run test:unit` | 1 | 7266 pass, 15 fail in 4 files = the known env reds (3 live-DB `*.contract.test.ts`: "Invalid API key"; `integrityCouldNotRun.test.ts`). All 368 regression tests pass. |
+| unit-tests / dancer-area-isolation | `node scripts/check-dancer-area-isolation.mjs --self-test` ; `npm run check:dancer-area-isolation` | 0 ; 0 | pass |
+| typecheck | `npm run typecheck` | 2 | 96 TS errors, ALL in files this branch does not touch (app/routes/*, venue/*, calendar*, etc., Supabase Json typing); none in `tests/regression` or `scripts/check-dancer-*`. Not compared against a fresh main run: treated as pre-existing/environment, unverified. |
+| typecheck | `npm run check:rpc-typing`, `check:wallclock-brand` | 0 ; 0 | pass |
+| lint chain | `npm run lint` | 0 | 16/16 links green (incl. check:integrity once `bin/*.sh` are chmod +x as the workflow does; first run exit 126 was the missing exec bit, mode change reverted) |
+| architecture-guard | `bin/check-integrity.sh`, `check:legacy-tables`, `check:legacy-program-rpcs`, `lint:architecture`, `check:mojibake:self-test` | 0 | pass (via lint chain); `AUDIT_STRICT=1 npm run check:images` exit 0. Remaining inline `run:` blocks (plan-hygiene etc.) NOT individually run. |
+| build | `npm run build` | 0 | built |
+| perf-budget | `check:bundle-budget`(+self-test), `check:first-load-requests`(+self-test), `check:chunk-cycles`(+self-test) | 0 | pass |
+| perf-budget | `npm run check:doc-weight` | 1 | needs `GITHUB_REPOSITORY` + a live preview deploy: not runnable here |
+| perf-budget | `check:lighthouse` | - | NOT RUN (needs Chrome/preview) |
+| ci-budget-guard | `check-ci-budget.mjs --self-test` / live | 0 / 1 | self-test pass; live run needs `CI_BUDGET_GITHUB_TOKEN`: needs owner |
+| workflow-lint | `lint-workflow-masking.mjs`, `lint-workflow-notification.mjs` (+ self-test) | 0 | pass |
+| Vercel | - | - | not attempted (no token; needs owner: Vercel token / network allowlist) |
+
+Running the full unit suite non-CI rewrites snapshot files with LF endings (CRLF autocrlf churn only, no content change); reverted, tree clean.
 
 ## 390x844 walk
 Not a browser walk: jsdom with innerWidth/matchMedia set to 390x844 and 1280x800. NOT RUN in a real browser; this is a regression suite, not a UI change.
 
 ## Verified / Not verified
-Verified: the 368 regression tests pass repeatedly on `4a63921` with no source file changed; the isolation check passes on this branch,
-fails on a protected edit, and its self-test passes; `check-script-conventions` accepts the new script.
-Not verified: red-first mutants; typecheck, lint chain, build, full unit run with the new files, every other workflow job; live prod shapes;
-the new workflow job on real GitHub (needs `origin/main` fetched via fetch-depth 0); a real phone/browser.
+Verified: 368 regression tests green; all three red-first mutants turn the suite red (quoted above) and were reverted; isolation check passes, self-test passes; lint chain 16/16; build; bundle/first-load/chunk-cycle budgets; workflow lints; check:images strict; full unit run = only the 4 known env-red files.
+Not verified: typecheck (96 pre-existing-looking errors, not compared to a fresh main run); check:doc-weight, lighthouse, live ci-budget (need preview/token); remaining inline architecture-guard blocks; the new workflow job on real GitHub; live prod shapes (no survey run); a real browser/phone; snapshot suite on the finished B1a branch (must pass unchanged, except W1's own `/app/home` banner row).
 
 ## What is left
-1. Run the 3 mutants and add the quotes above.
-2. `npm run test:unit`, `npm run lint`, `npm run typecheck`, `npm run build`; read `.github/workflows/*.yml` and run the applicable steps.
-3. Confirm the snapshot suite also passes on the finished B1a branch (it must pass UNCHANGED; the only intended flip is W1's own `/app/home` banner row).
+Nothing for R0 itself. For the orchestrator: confirm the snapshot suite passes unchanged on the merged B1a branch; owner to supply `CI_BUDGET_GITHUB_TOKEN` / preview for the budget checks if wanted.
