@@ -1330,7 +1330,7 @@
    move all four, or the layout and the map chrome disagree at the boundary.
 
    MOBILE (default): a flex column -- [page head][map card][dock][feed].
-   124px = 60px header + 64px bottom nav. Resilient to iOS Safari: a vh fallback
+   106px = 60px header + 46px section row (BottomNav, now sticky under the header on mobile). Resilient to iOS Safari: a vh fallback
    precedes the svh value so a WebKit without small-viewport units keeps a valid
    height; a min-height floor (portrait only) stops a transient collapse from
    blanking the map; the dark background means any collapse shows #11121a, never
@@ -1346,8 +1346,8 @@
 .home-map-fill {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 124px - env(safe-area-inset-bottom));
-  height: calc(100svh - 124px - env(safe-area-inset-bottom));
+  height: calc(100vh - 106px - env(safe-area-inset-bottom));
+  height: calc(100svh - 106px - env(safe-area-inset-bottom));
   min-height: 60vh;
   background-color: #11121a;
 }

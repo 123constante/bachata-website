@@ -744,7 +744,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
 
       {/* Sticky bottom action bar -- primary "Get directions" plus Tickets,
           Add-to-calendar and Share. Folds in the old standalone ticket pill so
-          dancers get one consolidated bar. Fixed above the BottomNav; rendered
+          dancers get one consolidated bar. Fixed to the bottom edge; rendered
           via a body portal so it escapes the centred content column and any
           framer-motion transform ancestors. */}
       <EventStickyActionBar

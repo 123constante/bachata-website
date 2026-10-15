@@ -7,7 +7,6 @@ import { GlobalFooter } from '@/components/layout/GlobalFooter';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Skeleton } from '@/components/ui/skeleton';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { cn } from '@/lib/utils';
 import { ProfileGateContext, useAuth, type ProfileGateValue } from '@/hooks/useAuth';
 
 // Signed-in only: the "Finish your profile" reminder banner + the one hop to
@@ -28,7 +27,7 @@ const AnimatedRoutes = lazyWithRetry(() =>
 );
 
 const AnimatedRoutesFallback = () => (
-  <div className="min-h-screen pt-24 px-4 pb-24 bg-background">
+  <div className="min-h-screen pt-24 px-4 pb-8 bg-background">
     <div className="max-w-4xl mx-auto space-y-4">
       <Skeleton className="h-8 w-48" />
       <Skeleton className="h-48 w-full rounded-xl" />
@@ -38,8 +37,7 @@ const AnimatedRoutesFallback = () => (
 );
 
 // The two Festival Map home routes (/city/:slug and /city/:slug/calendar). On
-// these the footer is suppressed (full-bleed map) and the BottomNav is hidden on
-// desktop; mobile home keeps the BottomNav + its spacer.
+// these the footer is suppressed (full-bleed map).
 const HOME_RE = /^\/city\/[^/]+(\/calendar)?\/?$/i;
 
 /**
@@ -72,6 +70,8 @@ export function AppChrome({ children }: { children?: React.ReactNode }) {
       <GlobalHeader />
       {/* Spacer that matches the sticky header height so NO page is blocked behind it. */}
       <div className="h-[60px] shrink-0" aria-hidden="true" />
+      {/* Mobile section row: sticky just under the header (md:hidden inside). */}
+      <BottomNav />
       {signedIn && (
         // A reminder must never take the page down with it: on any failure it renders nothing.
         <ErrorBoundary fallback={<GateUnavailable onGate={onGate} />}>
@@ -89,16 +89,7 @@ export function AppChrome({ children }: { children?: React.ReactNode }) {
       </main>
       {/* Footer is suppressed on the full-bleed map home (both breakpoints). */}
       {!isHome && <GlobalFooter />}
-      {/* Bottom-nav spacer: always on non-home; on home shown only < md (mobile),
-          matching the md:hidden BottomNav so desktop home drops both together. CSS-
-          driven (not useIsMobile) so AppChrome renders identically on server and
-          client -- a viewport-driven re-render here bailed the route Suspense out of
-          hydration (React #421) on mobile, downgrading every page to client render. */}
-      <div
-        className={cn('h-[calc(64px+env(safe-area-inset-bottom))] shrink-0', isHome && 'md:hidden')}
-        aria-hidden="true"
-      />
-      <BottomNav className={isHome ? 'md:hidden' : undefined} />
+      <div className="h-[env(safe-area-inset-bottom)] shrink-0" aria-hidden="true" />
     </ProfileGateContext.Provider>
   );
 }

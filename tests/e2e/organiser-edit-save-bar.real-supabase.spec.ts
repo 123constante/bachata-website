@@ -150,8 +150,8 @@ test.describe('public organiser page: the edit-in-place Save bar on a phone', ()
           expect(b.x).toBeGreaterThanOrEqual(0);
           expect(b.y + b.height, `bar bottom @${where}`).toBeLessThanOrEqual(vp.height);
           expect(b.x + b.width).toBeLessThanOrEqual(vp.width + 0.5);
-          // Its bottom edge at or above the BottomNav's top edge.
-          expect(b.y + b.height, `bar bottom vs nav top @${where}`).toBeLessThanOrEqual(nav.y + 0.5);
+          // The section row is under the header now: the bar sits clear below it.
+          expect(b.y, `bar top vs nav bottom @${where}`).toBeGreaterThanOrEqual(nav.y + nav.height - 0.5);
           // Save is the element a tap at its centre reaches.
           const hit = await bar.getByRole('button', { name: 'Save', exact: true }).evaluate((btn) => {
             const r = btn.getBoundingClientRect();
