@@ -45,7 +45,8 @@ const Terms = () => {
       <Section title="Removing content and accounts">
         <p>
           We can remove content, hide a profile or close an account that breaks these rules. You can delete your own
-          account any time in Account settings.
+          account any time in Account settings. It is hidden at once, and signing in again within 30 days restores it.
+          To have your data permanently erased, ask us; see the Privacy page.
         </p>
       </Section>
 

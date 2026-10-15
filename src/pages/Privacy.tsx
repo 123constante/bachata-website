@@ -14,7 +14,7 @@ const Privacy = () => {
     <LegalShell routeId="privacy" title="Privacy" updated={PRIVACY_VERSION}>
       <p>
         Short version: we keep what you give us to run your account, we show only the parts you choose to show, and you
-        can download or delete everything yourself.
+        can download your data or delete your account yourself.
       </p>
 
       <Section title="What an account stores">
@@ -84,15 +84,29 @@ const Privacy = () => {
           dancer area). There you can download everything we hold about you, hide your profile, or delete your account.
         </p>
         <p>
-          When you ask to delete your account, you have a 30-day grace period. During it you can cancel with the link we
-          send you. After 30 days your profile, photo, nights and ratings are erased for good.
+          When you delete your account, it is hidden from everyone at once: your profile, name and photo are no longer
+          shown anywhere public. If you sign in again within 30 days, your account is restored.
+        </p>
+        <p>
+          After 30 days your account stays hidden and we keep your data. We do not erase it automatically.
+        </p>
+        <p>
+          If you want your data permanently erased, you can ask us to erase your data permanently at the contact address
+          below (your right to erasure under UK GDPR and GDPR Art. 17). We erase it by hand and confirm to you when it is done.
         </p>
       </Section>
 
       <Section title="Your rights">
         <p>
-          You can ask us to see, correct or delete your data, or object to how we use it. Use the settings above or contact us below. You can
+          You can ask us to see, correct or erase your data, or object to how we use it. Use the settings above or contact us below. You can
           also complain to the Information Commissioner&rsquo;s Office (ico.org.uk).
+        </p>
+      </Section>
+
+      <Section title="How long we keep things">
+        <p>
+          Account data (your profile, photo, nights and ratings) is kept until you ask us to erase it, including after
+          you delete your account. Rate-limit records are kept for 30 days, as listed above.
         </p>
       </Section>
 

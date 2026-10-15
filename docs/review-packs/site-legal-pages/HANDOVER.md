@@ -24,3 +24,20 @@ On head f3ec01f the new tests failed 3/8: `expected 'Privacy...' not to contain 
 ## Verified / Not verified
 Verified: placeholders gone, name and mailto render on both pages in a production build; tests; tsc; build; 390x844 shots.
 Not verified: GitHub Actions on this push, full `npm run lint` chain and `pre-ship`, the 4 failing unit files against clean main, a real phone, the legal wording, the Vercel preview. Earlier flagged items (text ahead of the product, immediate-erase vs 30-day grace) are still open for the owner.
+
+## Pass 2: deletion wording (brief pr762-privacy-deletion, owner decision 2026-10-15)
+- `/privacy` "Download or delete your data": hidden from everyone at once; sign in within 30 days restores; after 30 days stays hidden, data kept, not erased automatically; permanent erasure on request (UK GDPR / GDPR Art. 17) at the contact address, done by hand with confirmation. New "How long we keep things" section. "Your rights" now says erase. Removed "30-day grace period", "cancel with the link we send you", "erased for good".
+- `/terms` "Removing content and accounts": same facts in two sentences, points to Privacy.
+- `src/lib/legalVersions.ts`: both versions bumped to `2026-10-16`.
+- Tests: two new cases in `LegalPages.test.tsx`. Red on the unfixed text: Privacy `expected '...' to contain 'hidden from everyone at once'`; Terms `expected '...' to contain '30 days'` (2 failed, 8 passed). After: 10/10, also in 3 timezones.
+- Shot: `privacy-deletion-390x844.png` (changed section); `privacy-390x844.png` refreshed (full page, production build, scrollWidth 390).
+
+| Step | Command | Exit |
+|---|---|---|
+| Legal tests | `npx vitest run src/pages/__tests__/LegalPages.test.tsx` (default TZ, Europe/London, America/Los_Angeles, Pacific/Auckland) | 0 x4 |
+| Types | `npx tsc --noEmit` | 0 (0 errors) |
+| ESLint touched | `npx eslint` Privacy, Terms, test, legalVersions | 0 |
+| Build | `npm run build` | 0 |
+| Isolation | `npm run check:dancer-area-isolation` | 0, but output "COULD NOT MEASURE" (sandbox lacks the protected files on origin/main) |
+
+Not verified: GitHub Actions, full unit run, `integrity`/`check:images`, full lint chain, `pre-ship`, phone-qa suite, a real phone, whether the product actually restores on sign-in within 30 days (copy states the owner decision; the backend is not checked here), legal sign-off. PR-body checks: `check-pr-phone-qa.mjs` and `check-pr-real-data-verified.mjs` both exit 0 on PR-BODY.md.

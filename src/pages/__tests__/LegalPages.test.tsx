@@ -64,4 +64,22 @@ describe('legal pages', () => {
     const mail = container.querySelector('a[href="mailto:support@bachatacalendar.co.uk"]');
     expect(mail).toBeTruthy();
   });
+  it('Privacy states the owner deletion decision: hidden at once, 30 days to restore, kept, erasure on request', () => {
+    const { container } = wrap(<Privacy />);
+    const text = (container.textContent ?? '').replace(/\s+/g, ' ');
+    expect(text).toContain('30 days');
+    expect(text).toContain('hidden from everyone at once');
+    expect(text).toContain('Art. 17');
+    expect(text).toContain('ask us to erase your data permanently at the contact address below');
+    expect(text).not.toMatch(/(delet|eras)\w*[^.]{0,40}immediately/i);
+    expect(text).not.toMatch(/immediately[^.]{0,40}(delet|eras)/i);
+    expect(text).not.toMatch(/erased for good/i);
+    expect(text).not.toMatch(/grace period/i);
+  });
+  it('Terms does not promise erasure on delete', () => {
+    const { container } = wrap(<Terms />);
+    const text = (container.textContent ?? '').replace(/\s+/g, ' ');
+    expect(text).toContain('30 days');
+    expect(text).not.toMatch(/immediately/i);
+  });
 });
