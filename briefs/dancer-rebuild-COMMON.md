@@ -71,6 +71,6 @@ Then commit, push once, and report: branch head SHA, PR number if any, checks pe
 
 ## Context limit (owner rule 2026-10-15, binding)
 Never go past 30% of your context window. Check your context use after every major step. At 25% stop
-starting new work; by 30% commit, push, write the handover (done / left / exact next steps) and report PARTIAL
-with the done-signal commit. A fresh worker continues from your handover. Keep tool output small (head, tail,
+starting new work; by 30% commit, push, write the handover (done / left / exact next steps) with a last commit subject
+ending "PARTIAL [worker-done <ticket>]". A fresh worker continues from your handover. Keep tool output small (head, tail,
 grep; never whole files, whole logs or whole test runs printed).
