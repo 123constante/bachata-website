@@ -23,15 +23,16 @@ test('missing grid exits 1 with a clear message, not 0', () => {
   assert.match(r.stderr, /journey-grid\.json not found/);
 });
 
-test('--skip-if-absent prints a SKIP and exits 0; JOURNEY_GRID_REQUIRED=1 makes it fail', () => {
-  const skip = spawnSync(process.execPath, [SCRIPT, '--root', EMPTY, '--skip-if-absent'], { encoding: 'utf8' });
-  assert.equal(skip.status, 0);
-  assert.match(skip.stdout, /SKIP:/);
-  const hard = spawnSync(process.execPath, [SCRIPT, '--root', EMPTY, '--skip-if-absent'], {
-    encoding: 'utf8',
-    env: { ...process.env, JOURNEY_GRID_REQUIRED: '1' },
-  });
-  assert.equal(hard.status, 1);
+test('the retired --skip-if-absent flag no longer skips: a missing grid still exits 1', () => {
+  const r = spawnSync(process.execPath, [SCRIPT, '--root', EMPTY, '--skip-if-absent'], { encoding: 'utf8' });
+  assert.equal(r.status, 1);
+  assert.doesNotMatch(r.stdout, /SKIP:/);
+});
+
+test('package.json runs the check with no skip flag', async () => {
+  const { readFileSync } = await import('node:fs');
+  const pkg = JSON.parse(readFileSync(path.join(HERE, '..', '..', 'package.json'), 'utf8'));
+  assert.equal(pkg.scripts['check:journey-grid'], 'node scripts/check-journey-grid.mjs');
 });
 
 test('the built-in self-test (every failing case) is green', () => {

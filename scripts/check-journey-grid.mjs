@@ -19,22 +19,23 @@
  *      W = a walk: a path (optionally #anchor or :line) to a file or folder.
  *   3. Coverage: `required` = one test of any kind AND one walk (J, R, E, OTP, W);
  *      `optional` = one test. A row whose `built` is not BUILT is exempt.
- *   4. Ratchet: scripts/journey-grid-baseline.json lists known gaps by id. A NEW
- *      uncovered row fails; a baseline id that is now covered (or unknown, or
- *      listed twice) fails. The baseline only shrinks.
+ *   4. Ratchet: scripts/journey-grid-baseline.json lists today's known gaps as
+ *      { id, reason } entries (a reason is required: which PR covers it, and
+ *      why not now). A NEW uncovered row fails; a baseline id that is now
+ *      covered (or unknown, listed twice, or without a reason) fails. The
+ *      baseline only shrinks. Rows whose `built` is not BUILT are exempt and
+ *      are not written to it.
  *   5. Reverse: every J id in publicEntryJourneys.ts is referenced by a grid row.
  *
  * The check cannot see whether a walk asserts the stated END; that is review.
  *
- * ESCALATION. When the grid file is absent the check FAILS (exit 1) -- unless
- * run with --skip-if-absent, which prints a loud SKIP and exits 0. The lint-chain
- * script uses --skip-if-absent only until the grid lands (slice 1b). Integration
- * turns the skip into a hard requirement by deleting that flag from the
- * `check:journey-grid` script in package.json; JOURNEY_GRID_REQUIRED=1 does the
- * same without an edit (CI can set it).
+ * HARD LINK. When the grid file is absent the check FAILS (exit 1). There is no
+ * skip: the slice-1a `--skip-if-absent` escape existed only until the grid
+ * landed, and was removed at integration. Passing it now changes nothing (the
+ * self-test proves a missing grid still exits 1 with it).
  *
  * Exit codes: 0 pass / 1 contract violated / 2 infrastructure (unreadable file).
- * Flags: --self-test, --write-baseline, --skip-if-absent, --root <dir>.
+ * Flags: --self-test, --write-baseline, --root <dir>.
  */
 import { existsSync, readFileSync, readdirSync, mkdtempSync, cpSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -204,12 +205,9 @@ function stateOk(state, defined) {
 }
 
 /** The whole check, pure over a root directory. Returns {exit, lines, gaps}. */
-export function checkGrid({ root = REPO_ROOT, skipIfAbsent = false, required = false } = {}) {
+export function checkGrid({ root = REPO_ROOT } = {}) {
   const at = (rel) => path.join(root, rel);
   if (!existsSync(at(GRID_REL))) {
-    if (skipIfAbsent && !required) {
-      return { exit: 0, gaps: [], lines: ['SKIP: ' + GRID_REL + ' is absent (it lands with slice 1b); nothing was checked. Remove --skip-if-absent from check:journey-grid once it lands.'] };
-    }
     return { exit: 1, gaps: [], lines: ['FAIL: ' + GRID_REL + ' not found. The journey grid is required; this check will not pass without it.'] };
   }
   const grid = readJson(at(GRID_REL));
@@ -260,7 +258,8 @@ export function checkGrid({ root = REPO_ROOT, skipIfAbsent = false, required = f
       if (WALK_KINDS.has(c.kind)) walks++;
     }
     const covered = row.coverage === 'required' ? tests >= 1 && walks >= 1 : tests >= 1;
-    verdicts.set(id, { covered, exempt: row.built !== 'BUILT' });
+    const why = tests === 0 ? 'no test and no walk' : 'a test but no walk';
+    verdicts.set(id, { covered, exempt: row.built !== 'BUILT', why });
   }
   for (const id of jIds) {
     if (!referencedJ.has(id)) errors.push('journey ' + id + ' in ' + JOURNEYS_REL + ' is referenced by no grid row (rule 5)');
@@ -270,11 +269,19 @@ export function checkGrid({ root = REPO_ROOT, skipIfAbsent = false, required = f
   if (existsSync(at(BASELINE_REL))) baseline = readJson(at(BASELINE_REL));
   else errors.push(BASELINE_REL + ' not found');
   if (!Array.isArray(baseline)) {
-    errors.push(BASELINE_REL + ' must be a JSON array of row ids');
+    errors.push(BASELINE_REL + ' must be a JSON array of { id, reason } entries');
     baseline = [];
   }
   const inBase = new Set();
-  for (const id of baseline) {
+  for (const entry of baseline) {
+    const id = entry && typeof entry === 'object' ? entry.id : entry;
+    if (typeof id !== 'string' || !id) {
+      errors.push('baseline entry ' + JSON.stringify(entry) + ' has no id');
+      continue;
+    }
+    if (typeof entry !== 'object' || typeof entry.reason !== 'string' || !entry.reason.trim()) {
+      errors.push('baseline id ' + id + ' carries no reason; write it as { "id": "' + id + '", "reason": "<which PR covers it, and why not now>" }');
+    }
     if (inBase.has(id)) errors.push('baseline lists ' + id + ' twice');
     inBase.add(id);
     const v = verdicts.get(id);
@@ -284,7 +291,7 @@ export function checkGrid({ root = REPO_ROOT, skipIfAbsent = false, required = f
   const gaps = [];
   for (const [id, v] of verdicts) {
     if (v.covered) continue;
-    gaps.push(id);
+    gaps.push({ id, exempt: v.exempt, why: v.why });
     if (!v.exempt && !inBase.has(id)) errors.push('NEW uncovered row ' + id + ': needs a test and a walk (or, if it cannot be covered yet, an entry in ' + BASELINE_REL + ')');
   }
   const lines = errors.map((e) => 'FAIL: ' + e);
@@ -307,6 +314,8 @@ function runMutant(mutate, opts = {}) {
     rmSync(tmp, { recursive: true, force: true });
   }
 }
+
+const base = (...ids) => JSON.stringify(ids.map((id) => ({ id, reason: 'self-test' })));
 
 const editGrid = (fn) => ({ edit }) => edit(GRID_REL, (s) => {
   const g = JSON.parse(s);
@@ -333,9 +342,11 @@ export function selfTest() {
   expect('E spec not in test:e2e fails', runMutant(editGrid((g) => { g.rows[2].covered_by.push({ kind: 'E', ref: 'unlisted' }); })), 1, 'not listed');
   expect('uncovered row not in baseline fails', runMutant(editGrid((g) => { g.rows[1].covered_by = []; })), 1, 'NEW uncovered row');
   expect('required row with a test but no walk fails', runMutant(editGrid((g) => { g.rows[2].covered_by = [{ kind: 'U', ref: 'src/covered.test.ts' }]; g.rows[2].coverage = 'required'; })), 1, 'NEW uncovered row');
-  expect('baseline id now covered fails', runMutant(({ edit }) => edit(BASELINE_REL, () => '["row.one"]')), 1, 'is now covered');
-  expect('baseline id unknown fails', runMutant(({ edit }) => edit(BASELINE_REL, () => '["row.ghost"]')), 1, 'not a grid row');
-  expect('uncovered row listed in baseline passes', runMutant((c) => { editGrid((g) => { g.rows[1].covered_by = []; })(c); c.edit(BASELINE_REL, () => '["row.two"]'); }), 0);
+  expect('baseline id now covered fails', runMutant(({ edit }) => edit(BASELINE_REL, () => base('row.one'))), 1, 'is now covered');
+  expect('baseline id unknown fails', runMutant(({ edit }) => edit(BASELINE_REL, () => base('row.ghost'))), 1, 'not a grid row');
+  expect('uncovered row listed in baseline passes', runMutant((c) => { editGrid((g) => { g.rows[1].covered_by = []; })(c); c.edit(BASELINE_REL, () => base('row.two')); }), 0);
+  expect('baseline entry as a bare id (no reason) fails', runMutant((c) => { editGrid((g) => { g.rows[1].covered_by = []; })(c); c.edit(BASELINE_REL, () => '["row.two"]'); }), 1, 'carries no reason');
+  expect('baseline entry with an empty reason fails', runMutant((c) => { editGrid((g) => { g.rows[1].covered_by = []; })(c); c.edit(BASELINE_REL, () => '[{"id":"row.two","reason":" "}]'); }), 1, 'carries no reason');
   expect('unbuilt uncovered row is exempt', runMutant(editGrid((g) => { g.rows[1].covered_by = []; g.rows[1].built = 'PLANNED'; })), 0);
   expect('duplicate id fails', runMutant(editGrid((g) => { g.rows[1].id = g.rows[0].id; })), 1, 'duplicate id');
   expect('unknown entry fails', runMutant(editGrid((g) => { g.rows[0].entry = 'ZZ'; })), 1, 'unknown entry');
@@ -343,8 +354,8 @@ export function selfTest() {
   expect('undefined state fails', runMutant(editGrid((g) => { g.rows[0].state = 'S-MADE-UP'; })), 1, 'does not start with');
   expect('journey with no grid row fails (rule 5)', runMutant(({ edit }) => edit(JOURNEYS_REL, (s) => s + "\n  { id: 'orphan-journey' },\n")), 1, 'rule 5');
   expect('missing grid file fails, not 0', runMutant(({ rm }) => rm(GRID_REL)), 1, 'not found');
-  expect('missing grid with --skip-if-absent skips loudly', runMutant(({ rm }) => rm(GRID_REL), { skipIfAbsent: true }), 0, 'SKIP:');
-  expect('missing grid with --skip-if-absent and REQUIRED fails', runMutant(({ rm }) => rm(GRID_REL), { skipIfAbsent: true, required: true }), 1, 'not found');
+  // HARD LINK (integration): the old slice-1a skip is gone. A missing grid fails even when the retired flag is passed.
+  expect('missing grid fails even with the retired --skip-if-absent flag', { exit: main(['--root', path.join(os.tmpdir(), 'journey-grid-no-such-root'), '--skip-if-absent'], true), lines: [] }, 1);
   expect('missing baseline fails', runMutant(({ rm }) => rm(BASELINE_REL)), 1, 'not found');
   const broken = (() => {
     try {
@@ -367,13 +378,18 @@ function main(argv = process.argv.slice(2), log = null) {
     if (flag('--self-test')) {
       result = selfTest();
     } else if (flag('--write-baseline')) {
-      const r = checkGrid({ root });
       if (!existsSync(path.join(root, GRID_REL))) throw new InfraError(GRID_REL + ' is absent; nothing to baseline');
-      const gaps = r.gaps.slice().sort();
+      const r = checkGrid({ root });
+      // Keep a reason already written for an id; a new id gets the gap the check saw (edit it to name the PR).
+      const old = new Map();
+      const prev = existsSync(path.join(root, BASELINE_REL)) ? readJson(path.join(root, BASELINE_REL)) : [];
+      for (const e of Array.isArray(prev) ? prev : []) if (e && typeof e === 'object' && e.reason) old.set(e.id, e.reason);
+      const gaps = r.gaps.filter((g) => !g.exempt).sort((a, b) => (a.id < b.id ? -1 : 1))
+        .map((g) => ({ id: g.id, reason: old.get(g.id) || 'BUILT, ' + g.why + ' (TODO: name the PR that covers it)' }));
       writeFileSync(path.join(root, BASELINE_REL), JSON.stringify(gaps, null, 2) + '\n');
       result = { exit: 0, lines: ['wrote ' + BASELINE_REL + ' with ' + gaps.length + ' id(s). Review the diff: the baseline may only shrink afterwards.'] };
     } else {
-      result = checkGrid({ root, skipIfAbsent: flag('--skip-if-absent'), required: process.env.JOURNEY_GRID_REQUIRED === '1' });
+      result = checkGrid({ root });
     }
   } catch (err) {
     if (!(err instanceof InfraError)) throw err;

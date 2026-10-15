@@ -160,7 +160,7 @@ The check cannot verify that a walk asserts the stated END. That stays a review 
 |---|---|---|---|---|---|---|
 | `di.new` | S-NEW (admin-made profile, e-mail matches) | opens `/join/<token>` | peek shows the profile; sign up with the e-mail fixed; redeem attaches the profile; onboarding for missing cards; `/app/home` (O6) | **MISSING** | required | 0 issued |
 | `di.dancer-part.signed-in` | S-DANCER-PART, same e-mail | opens the link signed in | redeem, then `/app/welcome` first missing card | **MISSING** | required | 0 issued |
-| `di.other-email` | signed in as a different e-mail | opens the link | `email_mismatch` card: names the signed-in e-mail, "Sign out and use <masked invited e-mail>" | **MISSING** | required | 0 issued |
+| `di.other-email` | any signed in, as a different e-mail | opens the link | `email_mismatch` card: names the signed-in e-mail, "Sign out and use <masked invited e-mail>" | **MISSING** | required | 0 issued |
 | `di.dead-token` | any | expired / redeemed / revoked / invalid | terminal card, Home link, token stripped; expired offers "Ask for a new link" | **MISSING** | required | 0 issued |
 
 ### Deep links and bookmarks

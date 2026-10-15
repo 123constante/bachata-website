@@ -1159,7 +1159,7 @@
    "id": "di.other-email",
    "matrix": "-",
    "entry": "DI",
-   "state": "signed in as a different e-mail",
+   "state": "any signed in, as a different e-mail",
    "action": "opens the link",
    "end": "`email_mismatch` card: names the signed-in e-mail, \"Sign out and use <masked invited e-mail>\"",
    "transition": "-",
