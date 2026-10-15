@@ -145,7 +145,7 @@ describe('public entry journeys: every row ends on its END screen (routing model
 describe('onwardReturnTo: same-site relative paths only (no open redirect)', () => {
   it.each([
     ['/account/o', '/account/o'],
-    ['/invite/tok123', '/invite/tok123'],
+    ['/invite/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0', '/invite/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0'],
     ['/organisers/x?claim=1', '/organisers/x?claim=1'],
     ['https://evil.example/', null],
     ['//evil.example', null],
@@ -175,7 +175,7 @@ describe('the end button names where it goes', () => {
     ['/app/home', 'Go to Home'],
     ['/account/o', 'Next: set up your organiser page'],
     ['/account/o?o=1', 'Next: set up your organiser page'],
-    ['/invite/tok123', 'Next: join the team'],
+    ['/invite/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0', 'Next: join the team'],
     ['/organisers/x?claim=1', 'Continue'],
   ])('%s -> %s', (end, label) => {
     expect(onboardingEndLabel(end)).toBe(label);

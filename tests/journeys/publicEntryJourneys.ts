@@ -176,17 +176,17 @@ export const JOURNEYS: Journey[] = [
   {
     id: 'team-invite-new',
     title: 'Organiser team invite link, new e-mail',
-    entry: '/auth?mode=signup&returnTo=%2Finvite%2Ftok123',
+    entry: '/auth?mode=signup&returnTo=%2Finvite%2F0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0',
     person: { ...NEW, userType: 'dancer' },
     auth: 'signup',
-    end: { path: '/invite/tok123', screen: 'invite redeem card', state: 'dancer profile complete; joins the team from the card' },
+    end: { path: '/invite/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0', screen: 'invite redeem card', state: 'dancer profile complete; joins the team from the card' },
   },
   {
     id: 'claim-link-new',
     title: 'Public organiser page "Sign in to claim", new e-mail',
-    entry: '/auth?mode=signup&returnTo=%2Forganisers%2Fsalsa-nights%3Fclaim%3D1',
+    entry: '/auth?mode=signup&returnTo=%2Forganisers%2Fbachata-playground-phone-qa%3Fclaim%3D1',
     person: { ...NEW, userType: 'dancer' },
     auth: 'signup',
-    end: { path: '/organisers/salsa-nights?claim=1', screen: 'public organiser page, claim card', state: 'dancer profile complete; claim offered' },
+    end: { path: '/organisers/bachata-playground-phone-qa?claim=1', screen: 'public organiser page, claim card', state: 'dancer profile complete; claim offered' },
   },
 ];

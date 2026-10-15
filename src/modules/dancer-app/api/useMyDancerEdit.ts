@@ -25,6 +25,11 @@ const crossed70 = new Set<string>();
 export const writeMyDancerEdit = (qc: QueryClient, userId: string | null | undefined, next: MyDancerEdit): void => {
   const before = qc.getQueryData<MyDancerEdit>(myDancerEditKey(userId));
   qc.setQueryData(myDancerEditKey(userId), next);
+  // The dancer gate (hooks/useProfileCompletion, key ['profile-completion', uid]) caches its
+  // answer for a minute. A save that changes completeness resets it -- no stale data -- so
+  // onboarding's end on a gated page (/account/o) waits for the fresh answer instead of
+  // bouncing back to /finish-profile on the old "incomplete".
+  if (before?.complete !== next.complete) void qc.resetQueries({ queryKey: ['profile-completion'] });
   if (before && before.strength.pct < 70 && next.strength.pct >= 70 && !crossed70.has(next.profile_id)) {
     if (trackDancerEvent('profile_strength_70', { pct: next.strength.pct })) crossed70.add(next.profile_id);
   }
