@@ -416,13 +416,10 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
         />
       )}
       {dataRouter && <LeaveGuard active={count > 0} onSave={save} onDiscard={discard} />}
-      {/* Room at the very END of the page (after the footer and AppChrome's
-          64px + safe-area nav spacer), so at full scroll the bar and notice
-          cover nothing: their height plus what the bar's offset adds over 64px. */}
-      {room > 0 && inBody(<div aria-hidden="true" data-testid="eip-spacer" style={{ height: `calc(${room}px + var(--bottom-nav-h, 68px) - 64px)` }} />)}
-      {/* In document.body (see layers.tsx), sitting ON TOP of the BottomNav's
-          row, never under it: the nav is on every organiser page at every width
-          (AppChrome hides it only on the home map), so the offset is constant. */}
+      {/* Room at the very END of the page (after the footer), so at full scroll the
+          bar and notice cover nothing: their height. */}
+      {room > 0 && inBody(<div aria-hidden="true" data-testid="eip-spacer" style={{ height: `${room}px` }} />)}
+      {/* In document.body (see layers.tsx), at the real bottom edge (the section row is under the header now). */}
       {inBody(
       <div ref={dockRef} data-testid="eip-dock" style={{ position: 'fixed', left: 0, right: 0, bottom: `calc(${BOTTOM_NAV_OFFSET})`, zIndex: BAR_Z, pointerEvents: 'none' }}>
         <div aria-live="polite" role="status" style={{ pointerEvents: 'auto' }}>

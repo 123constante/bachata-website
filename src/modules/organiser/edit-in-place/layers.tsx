@@ -15,8 +15,8 @@ export function inBody(node: ReactNode): ReactNode {
   return typeof document === 'undefined' ? null : createPortal(node, document.body);
 }
 
-/** Room the site's BottomNav takes at the bottom of the screen (VenueStickyBar's offset). */
-export const BOTTOM_NAV_OFFSET = 'var(--bottom-nav-h, 68px) + env(safe-area-inset-bottom, 0px)';
+/** Nothing is fixed to the bottom any more (the section row moved under the header), so fixed bars sit at the real bottom edge. */
+export const BOTTOM_NAV_OFFSET = '0px + env(safe-area-inset-bottom, 0px)';
 
 /**
  * The BottomNav's own layer (z-50). The bar never overlaps the nav (it sits

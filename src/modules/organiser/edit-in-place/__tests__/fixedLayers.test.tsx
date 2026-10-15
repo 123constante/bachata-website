@@ -31,10 +31,8 @@ const ENTITY = {
   organisation_category: null, founded_year: null, cities: { name: 'London', slug: 'london-gb' },
 } as ProfileEntity;
 
-const NAV_OFFSET = 'calc(var(--bottom-nav-h, 68px) + env(safe-area-inset-bottom, 0px))';
+const NAV_OFFSET = 'calc(0px + env(safe-area-inset-bottom, 0px))';
 const src = (p: string) => readFileSync(resolve(__dirname, p), 'utf8');
-// The BottomNav's real z-index, read from its className so this tracks the nav.
-const NAV_Z = Number(/<nav[\s\S]*?\bz-(\d+)\b/.exec(src('../../../../components/BottomNav.tsx'))?.[1]);
 
 function Page() {
   const [eip, setEip] = useState<EipBridge | null>(null);
@@ -78,12 +76,18 @@ const fixedOf = (el: HTMLElement) => {
 beforeEach(() => window.localStorage.clear());
 afterEach(() => cleanup());
 
-describe('fixed pieces: in document.body, above the BottomNav', () => {
-  it('reads a real z-index off the BottomNav', () => {
-    expect(NAV_Z).toBe(50);
+describe('fixed pieces: in document.body, at the bottom edge', () => {
+  it('the BottomNav is no longer fixed to the bottom: a sticky row under the header', () => {
+    const nav = src('../../../../components/BottomNav.tsx');
+    const cls = /<nav[\s\S]*?className=\{cn\(([\s\S]*?)\)\}/.exec(nav)?.[1].replace(/\/\/.*$/gm, '') ?? '';
+    expect(cls).toContain('sticky top-[60px]');
+    expect(cls).not.toMatch(/\bfixed\b|\bbottom-0\b/);
+    const chrome = src('../../../../components/AppChrome.tsx');
+    expect(chrome.indexOf('<GlobalHeader />')).toBeLessThan(chrome.indexOf('<BottomNav'));
+    expect(chrome.indexOf('<BottomNav')).toBeLessThan(chrome.indexOf('<main'));
   });
 
-  it('the bar + notice wrapper is a child of document.body, offset above the nav, layered over it', async () => {
+  it('the bar + notice wrapper is a child of document.body, at the real bottom edge', async () => {
     const { container } = setup();
     await draftBio();
     const dock = fixedOf(screen.getByTestId('eip-bar'));
@@ -91,23 +95,20 @@ describe('fixed pieces: in document.body, above the BottomNav', () => {
     expect(screen.getByTestId('route').contains(dock)).toBe(false);
     expect(dock.contains(screen.getByTestId('eip-notice'))).toBe(true);
     expect(dock.style.bottom).toBe(NAV_OFFSET);
-    // On the nav's layer and AFTER the app root in the DOM (the render container
-    // stands in for #root, where AppChrome renders the BottomNav), so a tie with
-    // the nav goes to the bar; a page dialog portalled later still covers it.
-    expect(Number(dock.style.zIndex)).toBeGreaterThanOrEqual(NAV_Z);
+    // AFTER the app root in the DOM, so a page dialog portalled later still covers it.
     expect(container.compareDocumentPosition(dock) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // Below the layer's own sheet (60) and leave dialog (70).
     expect(Number(dock.style.zIndex)).toBeLessThan(60);
   });
 
-  it('the spacer sits at the very end of the page and leaves room for the notice + bar above the nav', async () => {
+  it('the spacer sits at the very end of the page and leaves room for the notice + bar', async () => {
     setup();
     await draftBio();
     // Old code: an in-article spacer of 112px, ignoring the nav.
     const spacer = screen.getByTestId('eip-spacer');
     expect(spacer.parentElement).toBe(document.body);
     // jsdom has no ResizeObserver: the estimate (notice 72 + bar 64) applies.
-    expect(spacer.style.height).toBe('calc(136px + var(--bottom-nav-h, 68px) - 64px)');
+    expect(spacer.style.height).toBe('136px');
   });
 
   it('on a phone (ResizeObserver) the spacer follows the dock\'s MEASURED height, e.g. a wrapped error notice', async () => {
@@ -123,7 +124,7 @@ describe('fixed pieces: in document.body, above the BottomNav', () => {
       const dock = fixedOf(screen.getByTestId('eip-bar'));
       Object.defineProperty(dock, 'offsetHeight', { configurable: true, value: 210 });
       act(() => fire?.());
-      await waitFor(() => expect(screen.getByTestId('eip-spacer').style.height).toBe('calc(210px + var(--bottom-nav-h, 68px) - 64px)'));
+      await waitFor(() => expect(screen.getByTestId('eip-spacer').style.height).toBe('210px'));
     } finally {
       vi.unstubAllGlobals();
     }
@@ -135,7 +136,7 @@ describe('fixed pieces: in document.body, above the BottomNav', () => {
     const sheet = await screen.findByTestId('eip-sheet');
     expect(sheet.parentElement).toBe(document.body);
     expect(screen.getByTestId('eip-sheet-overlay').parentElement).toBe(document.body);
-    expect(Number(sheet.style.zIndex)).toBeGreaterThan(NAV_Z);
+    expect(Number(sheet.style.zIndex)).toBeGreaterThan(55); // above the sticky section row (z-55)
     expect(sheet.style.bottom).toBe('0px');
     // Escape still reaches the sheet's handler through the portal.
     fireEvent.keyDown(sheet, { key: 'Escape' });

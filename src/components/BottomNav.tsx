@@ -59,7 +59,9 @@ export const BottomNav = ({ className }: { className?: string }) => {
       id="app-nav"
       aria-label="Main sections"
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 border-t border-primary/10 pb-[env(safe-area-inset-bottom)]",
+        // Sticky row directly under the fixed 60px header (not fixed to the bottom: it
+        // used to eat finger space). md:hidden -- the header carries these links on desktop.
+        "sticky top-[60px] z-[55] h-[46px] border-b border-primary/10 md:hidden",
         className,
       )}
       style={{
@@ -68,20 +70,14 @@ export const BottomNav = ({ className }: { className?: string }) => {
         WebkitBackdropFilter: 'blur(8px) saturate(100%)',
       }}
     >
-      {/* Decorative orange line -- top edge on BottomNav (faces content) */}
-      <div className="h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent" />
-
-      {/* 61px row + 2px line + 1px border = 64px: exactly AppChrome's nav spacer
-          (and the 124px = 60 + 64 the home shell and .route-shell subtract), so
-          at full scroll the last content meets the nav with no strip between. */}
-      <div className="flex items-center justify-around h-[61px] px-2">
+      <div className="flex items-center justify-around h-[44px] px-1">
         {navLinks.map((link) => (
           <Link
             key={link.path}
             to={link.path}
-            className={`relative flex flex-col items-center px-2 py-2 text-xs font-medium transition-all no-underline group rounded-md min-h-[44px] justify-center ${isActive(link.path) ? 'bg-primary/15' : ''}`}
+            className={`relative flex flex-row items-center gap-1 px-2 text-xs font-medium transition-all no-underline group rounded-md min-h-[44px] justify-center ${isActive(link.path) ? 'bg-primary/15' : ''}`}
           >
-            <span className="inline-block mb-0.5 cursor-pointer transition-transform duration-150 group-hover:scale-125">
+            <span className="inline-block cursor-pointer transition-transform duration-150 group-hover:scale-125">
               <span
                 className="chrome-bob text-base"
                 style={{ '--bob-dur': EMOJI_BOB_DURATION[link.emoji] ?? '1.6s' } as CSSProperties}
@@ -102,7 +98,7 @@ export const BottomNav = ({ className }: { className?: string }) => {
             </span>
 
             {isActive(link.path) && (
-              <div className="absolute top-0 left-1.5 right-1.5 h-0.5 bg-primary rounded-full" />
+              <div className="absolute bottom-0 left-1.5 right-1.5 h-0.5 bg-primary rounded-full" />
             )}
           </Link>
         ))}
@@ -113,9 +109,9 @@ export const BottomNav = ({ className }: { className?: string }) => {
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Join our WhatsApp community"
-          className="relative flex flex-col items-center px-2 py-2 text-xs font-medium transition-all no-underline group rounded-md min-h-[44px] justify-center"
+          className="relative flex flex-row items-center gap-1 px-2 text-xs font-medium transition-all no-underline group rounded-md min-h-[44px] justify-center"
         >
-          <span className="inline-block mb-0.5 cursor-pointer transition-transform duration-150 group-hover:scale-125">
+          <span className="inline-block cursor-pointer transition-transform duration-150 group-hover:scale-125">
             <span
               className="chrome-bob relative flex items-center justify-center"
               style={{ '--bob-dur': '2s' } as CSSProperties}
@@ -131,6 +127,8 @@ export const BottomNav = ({ className }: { className?: string }) => {
           <span className="text-white font-bold group-hover:text-white">Community</span>
         </a>
       </div>
+      {/* Decorative orange line -- bottom edge of the header block */}
+      <div className="h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent" />
     </nav>
   );
 };

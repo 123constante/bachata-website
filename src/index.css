@@ -1330,7 +1330,7 @@
    move all four, or the layout and the map chrome disagree at the boundary.
 
    MOBILE (default): a flex column -- [page head][map card][dock][feed].
-   124px = 60px header + 64px bottom nav. Resilient to iOS Safari: a vh fallback
+   106px = 60px header + 46px section row (BottomNav, now sticky under the header on mobile). Resilient to iOS Safari: a vh fallback
    precedes the svh value so a WebKit without small-viewport units keeps a valid
    height; a min-height floor (portrait only) stops a transient collapse from
    blanking the map; the dark background means any collapse shows #11121a, never
@@ -1346,23 +1346,29 @@
 .home-map-fill {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 124px - env(safe-area-inset-bottom));
-  height: calc(100svh - 124px - env(safe-area-inset-bottom));
+  height: calc(100vh - 106px - env(safe-area-inset-bottom));
+  height: calc(100svh - 106px - env(safe-area-inset-bottom));
   min-height: 60vh;
   background-color: #11121a;
 }
 
 /* Every route's wrapper (app/InitialVisiblePageTransition.tsx, PageTransition):
-   at least the screen BETWEEN AppChrome's 60px header spacer and its 64px nav
-   spacer. It was a bare 100vh, which on top of those spacers made every page
-   shorter than the screen 124px taller than it -- a dead band above the
-   BottomNav and a pointless scroll (the home shell, sized to fit exactly, showed
-   it on every phone). Same vh-then-svh fallback as .home-map-fill above. On
-   desktop home (no nav) the shell is taller than this, so it never binds. */
+   at least the screen BELOW the fixed chrome, never a bare 100vh on top of the
+   header spacer (that left a dead band and a pointless scroll). Chrome is the
+   60px header spacer + the 46px section row (BottomNav, sticky under the header,
+   md:hidden) = 106px on phones, 60px from md up. Nothing is fixed at the bottom,
+   so only the safe-area inset is subtracted. Same vh-then-svh fallback as
+   .home-map-fill above. */
 .route-shell {
   width: 100%;
-  min-height: calc(100vh - 124px - env(safe-area-inset-bottom));
-  min-height: calc(100svh - 124px - env(safe-area-inset-bottom));
+  min-height: calc(100vh - 106px - env(safe-area-inset-bottom));
+  min-height: calc(100svh - 106px - env(safe-area-inset-bottom));
+}
+@media (min-width: 768px) {
+  .route-shell {
+    min-height: calc(100vh - 60px - env(safe-area-inset-bottom));
+    min-height: calc(100svh - 60px - env(safe-area-inset-bottom));
+  }
 }
 
 /* Inset map "bento" card: a responsive clamp so it never dominates a short
