@@ -232,6 +232,7 @@ describe('/invite/:token x viewer', () => {
     h.auth.user = { id: 'u1' };
     rpcImpl(false);
     mount(`/invite/${TOKEN}`);
+    fireEvent.click(await screen.findByTestId('invite-join'));
     expect(await screen.findByTestId('landed')).toBeTruthy();
     expect(h.rpc.mock.calls.filter((c) => c[0] === 'redeem_organiser_invite_v1')).toHaveLength(1);
     expect(h.rpc).toHaveBeenCalledWith('redeem_organiser_invite_v1', { p_token: TOKEN });
@@ -242,6 +243,7 @@ describe('/invite/:token x viewer', () => {
     h.auth.user = { id: 'a1' };
     rpcImpl(true);
     mount(`/invite/${TOKEN}`);
+    fireEvent.click(await screen.findByTestId('invite-join'));
     expect(await screen.findByTestId('landed')).toBeTruthy();
   });
 
@@ -256,6 +258,7 @@ describe('/invite/:token x viewer', () => {
         <Route path="/account/o" element={<p data-testid="landed">dashboard</p>} />
       </Routes></MemoryRouter></QueryClientProvider></StrictMode>,
     );
+    fireEvent.click(await screen.findByTestId('invite-join'));
     await screen.findByTestId('landed');
     expect(h.rpc.mock.calls.filter((c) => c[0] === 'redeem_organiser_invite_v1')).toHaveLength(1);
   });
@@ -266,6 +269,7 @@ describe('/invite/:token x viewer', () => {
     const base = h.rpc.getMockImplementation()!;
     h.rpc.mockImplementation((fn: string, a: Record<string, unknown>) => (fn === 'redeem_organiser_invite_v1' ? ok({ ok: false, reason }) : base(fn, a)));
     mount(`/invite/${TOKEN}`);
+    fireEvent.click(await screen.findByTestId('invite-join'));
     const { REDEEM_COPY } = await import('../inviteModel');
     expect((await screen.findByTestId('invite-title')).textContent).toBe(REDEEM_COPY[reason].title);
     expect(screen.getByTestId('invite-body').textContent).toBe(REDEEM_COPY[reason].body);
@@ -291,6 +295,7 @@ describe('/invite/:token x viewer', () => {
     let first = true;
     h.rpc.mockImplementation((fn: string, a: Record<string, unknown>) => (fn === 'redeem_organiser_invite_v1' && first ? ((first = false), Promise.reject(new Error('Failed to fetch'))) : base(fn, a)));
     mount(`/invite/${TOKEN}`);
+    fireEvent.click(await screen.findByTestId('invite-join'));
     fireEvent.click(await screen.findByTestId('invite-retry'));
     expect(await screen.findByTestId('landed')).toBeTruthy();
   });

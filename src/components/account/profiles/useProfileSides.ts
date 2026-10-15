@@ -6,6 +6,7 @@ import { completenessFact } from '@/lib/profileCompletion';
 import { useDancerArea } from '@/modules/dancer-app/gate/useDancerArea';
 import { fetchMyDancerEdit } from '@/modules/dancer-app/api/rpc';
 import { myDancerEditKey } from '@/modules/dancer-app/api/useMyDancerEdit';
+import { adminCheckQueryKey, fetchIsAdmin } from '@/modules/admin-organisers/adminApi';
 import {
   fetchMyAccessRequests,
   fetchOrganiserHome,
@@ -47,14 +48,24 @@ export function useProfileSides(): ProfileSidesResult {
     staleTime: 60_000,
     retry: false,
   });
+  const organisers = fact(home, (d) => d.organisers.map((o) => ({ id: o.id, name: o.name, avatar_url: o.avatar_url })));
+  // M44: only a person with no side at all needs it (an admin keeps the site home, anyone else
+  // goes to the dancer setup). Same key and fetcher as hooks/useIsAdmin, so one cache entry.
+  const admin = useQuery({
+    queryKey: adminCheckQueryKey(user?.id),
+    queryFn: fetchIsAdmin,
+    enabled: enabled && kind === 'no_profile' && Array.isArray(organisers) && organisers.length === 0,
+    staleTime: 5 * 60 * 1000,
+  });
   const facts: SidesFacts = {
-    organisers: fact(home, (d) => d.organisers.map((o) => ({ id: o.id, name: o.name, avatar_url: o.avatar_url }))),
+    organisers,
     dancer: kind,
     areaAllowed: area.status === 'loading' ? undefined : area.allowed,
     dancerFace: face.data ? { firstName: face.data.first_name, avatarUrl: face.data.avatar_url } : null,
     // The sign-up's role (Auth.tsx writes user_type): an organiser-type sign-up keeps its intent past a closed tab.
     organiserIntent: hasOrganiserIntent(user?.user_metadata?.user_type),
     openRequestCount: fact(requests, (d) => d.filter((r) => r.status === 'open').length),
+    isAdmin: fact(admin, (d) => d === true),
   };
   return { facts, state: profileSides(facts), openRequestCount: facts.openRequestCount };
 }

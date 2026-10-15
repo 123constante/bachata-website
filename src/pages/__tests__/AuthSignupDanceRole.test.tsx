@@ -40,6 +40,8 @@ beforeEach(() => {
   installJsdomPolyfills();
   document.elementFromPoint = () => null;
   localStorage.clear();
+  // The code step is kept over a reload in sessionStorage (D7): each test starts on the form.
+  sessionStorage.clear();
   rpc.mockReset().mockResolvedValue({ data: null, error: { message: 'permission denied', code: '42501' } });
   signInWithOtp.mockReset().mockResolvedValue({ data: {}, error: null });
   toast.mockReset();

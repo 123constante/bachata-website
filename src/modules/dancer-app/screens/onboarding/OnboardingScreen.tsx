@@ -28,10 +28,13 @@ const nameOf = (p: MyDancerEdit) => p.first_name?.trim() || 'there';
  * drops the dancer gate's cached answer (review F1): a stale "incomplete" -- the profile
  * finished in another tab, or by a save this tab never saw -- would send the gate back to
  * /finish-profile -> /app/welcome -> here again until the cache went stale.
+ *
+ * EVERY end replaces /app/welcome (owner decision, matrix M10/M24): browser Back from
+ * the end never re-opens the "You're in" card.
  */
-const leaveFor = (qc: QueryClient, navigate: NavigateFunction, end: string, replace: boolean) => {
+const leaveFor = (qc: QueryClient, navigate: NavigateFunction, end: string) => {
   if (end !== APP_HOME_PATH) resetDancerGate(qc);
-  navigate(end, { replace });
+  navigate(end, { replace: true });
 };
 
 /**
@@ -74,7 +77,7 @@ const OnboardingCards = () => {
 
   // Already finished on arrival: straight on to the end.
   useEffect(() => {
-    if (redirectHome) leaveFor(qc, navigate, end, true);
+    if (redirectHome) leaveFor(qc, navigate, end);
   }, [redirectHome, qc, navigate, end]);
 
   if (redirectHome) return null;
@@ -134,14 +137,14 @@ const OnboardingCards = () => {
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
             {left > 0 ? <PrimaryButton testId="onboarding-boost" onClick={() => go(stageForBoost(profile))}>Boost to 100%</PrimaryButton> : null}
-            <GhostButton testId="onboarding-home" onClick={() => leaveFor(qc, navigate, end, false)}>{endLabel}</GhostButton>
+            <GhostButton testId="onboarding-home" onClick={() => leaveFor(qc, navigate, end)}>{endLabel}</GhostButton>
           </div>
         </div>
       ) : stage === 'nice' ? (
         <div className="da-card" data-testid="onboarding-nice-card">
           <Question>Nice work, {nameOf(profile)}</Question>
           <p style={{ fontSize: 15, margin: '0 0 14px' }}>Your profile is at {profile.strength.pct}%. Add a bio and links any time from Me.</p>
-          <PrimaryButton testId="onboarding-home" onClick={() => leaveFor(qc, navigate, end, false)}>{endLabel}</PrimaryButton>
+          <PrimaryButton testId="onboarding-home" onClick={() => leaveFor(qc, navigate, end)}>{endLabel}</PrimaryButton>
         </div>
       ) : (
         <div className="da-card">

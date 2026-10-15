@@ -2,6 +2,7 @@ import { createContext, startTransition, useCallback, useContext, useEffect, use
 import type { User, Session } from "@supabase/supabase-js";
 import { getSupabase } from "@/integrations/supabase/getSupabase";
 import type { ProfileCompletionStatus, RatingGate } from "@/lib/profileCompletion";
+import { clearPersonScopedStorage } from "@/lib/personScopedStorage";
 import {
   startAuthResolution,
   AUTH_RESOLVE_TIMEOUT_MS,
@@ -156,7 +157,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       error = err;
     }
-    if (!error) return "signed-out";
+    /* The person is gone from this browser: so is everything they left in its
+     * storage (owner decision D1, lib/personScopedStorage). Here, the one
+     * sign-out every control goes through, so no path can skip it. */
+    if (!error) {
+      clearPersonScopedStorage();
+      return "signed-out";
+    }
     
     /* The global revoke did not land. Clearing the LOCAL session is a different
      * operation -- storage, not network -- so it can still succeed, and on a
@@ -172,6 +179,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
             return "failed";
     }
+    clearPersonScopedStorage();
     return "signed-out-locally";
   };
 
