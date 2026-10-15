@@ -146,6 +146,9 @@ Started from df43188 (main + R0 + W1 + W2a + W2c + W2d). No PR opened, nothing m
 2. Add R1a's three seams and the `docs/review-pack/` doc prefix to INTERFACE section 5.
 3. The `/event/:id` budget (381) now has 4.7 KB of headroom. Tighten it?
 
+## Parallel worker on this branch
+A second session (ticket dt_04e055e9629b) pushed 3a6aa23 to this branch while this worker ran. It made the same three CI fixes as 3e5fc13 and wrote its own R1a handover, which I kept unchanged as `dancer-rebuild-r1a-parallel-dt_04e055e9629b.md`. I merged its commit without a force-push and took its version of the shared lines. The duplicate TARGETS line the auto-merge produced was removed. One finding of its own: the `integrityCouldNotRun` red comes from the sandbox `NODE_PATH` (a global typescript). With `NODE_PATH=` the offline unit suite is 7903/7903.
+
 ## What is left
 Nothing from the brief, apart from the Not-verified items above. Next: a PR from this branch, with a real-data browser walk
 and a phone check.

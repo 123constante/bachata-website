@@ -49,7 +49,6 @@ export const RULES = {
   /** Test code is free to change and free to import the module. */
   TEST_PREFIXES: ['tests/'],
   /** Handover docs the arc's workers must leave (docs/handover/<slice>.md). Not in INTERFACE section 5; see the R0 handover. */
-  // R1a: docs/review-pack/ is where the R1a brief puts the 390x844 screenshots + measurements.
   DOC_PREFIXES: ['docs/handover/', 'docs/review-pack/'],
   /** INTERFACE section 5 "Seams" 1-4 and 8: the ONLY existing files the arc may change outside the folder. */
   SEAMS: [
@@ -65,10 +64,12 @@ export const RULES = {
     'src/lib/analytics.ts', // 4
     '.github/workflows/unit-tests.yml', // 8
     'scripts/check-dancer-area-isolation.mjs', // 8
-    // R1a additions (not yet in INTERFACE section 5; flagged to the owner in the R1a handover):
-    'scripts/prove-entry-point-dispatch.mjs', // 8: R0's guard was never added to its TARGETS (prove:entry-point red)
-    'src/modules/event-page/bento/BentoPage.tsx', // owner perf rule: level-rating children lazy so /event/:id does not pay for the dancer app
-    'playwright.config.ts', // e2e webServer defaults the flag e2e-smoke.yml sets, so sandbox runs match CI
+    // R1a integration brief (owner-ordered, NOT yet in INTERFACE section 5 -- owner question in
+    // docs/handover/dancer-rebuild-r1a.md): step 4 lazy level-rating split, step 5 sandbox
+    // sign-in env, and the TARGETS line prove:entry-point requires for the script above.
+    'src/modules/event-page/bento/BentoPage.tsx', // R1a step 4
+    'playwright.config.ts', // R1a step 5
+    'scripts/prove-entry-point-dispatch.mjs', // 8 (TARGETS registration only)
   ],
   /** INTERFACE section 5 "Protected": byte-identical to the base, always. */
   PROTECTED: [
