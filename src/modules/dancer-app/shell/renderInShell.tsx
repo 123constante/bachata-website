@@ -60,11 +60,10 @@ export type RenderInShellResult = RenderResult & {
   location: () => string;
 };
 
-let currentLocation = '';
+/** Renders the router's pathname + search; RenderInShellResult.location() reads it back from the DOM. */
 const LocationProbe = () => {
   const loc = useLocation();
-  currentLocation = `${loc.pathname}${loc.search}`;
-  return <span data-testid="test-location" hidden>{currentLocation}</span>;
+  return <span data-testid="test-location" hidden>{`${loc.pathname}${loc.search}`}</span>;
 };
 
 const Stub = ({ id }: { id: string }) => <div data-testid={`today-${id}`}>today {id}</div>;
@@ -133,7 +132,8 @@ export const renderInShell = (opts: RenderInShellOptions = {}): RenderInShellRes
   );
 
   const result = render(ui);
-  return { ...result, backend, queryClient, location: () => currentLocation };
+  const location = () => result.container.querySelector('[data-testid="test-location"]')?.textContent ?? '';
+  return { ...result, backend, queryClient, location };
 };
 
 /** afterEach: real backend back, nobody signed in, no analytics identity. */
@@ -141,5 +141,4 @@ export const resetShell = (): void => {
   setFakeBackend(null);
   setTestUser(null);
   setDancerAnalyticsUser(null);
-  currentLocation = '';
 };

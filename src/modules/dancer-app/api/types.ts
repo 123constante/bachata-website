@@ -88,29 +88,39 @@ export type DancerDelta = Partial<Pick<MyDancerEdit, SaveKey>>;
 export type PublicDancerExtras = { bio: string | null; languages: string[]; whatsapp: string | null } | null;
 
 /**
- * Every error the dancer-area RPCs raise (INTERFACE section 3 table, plus
- * `unknown_key` from the save contract), and `unknown` for anything else
- * (network, a message we do not know). api/errors.ts must give each one copy;
- * TypeScript refuses a code here without an entry there, and
- * tests/client/dancerAppApi.test.tsx refuses it at runtime too.
+ * Every error the dancer-area RPCs raise (INTERFACE section 3 table and its
+ * "Round-2 additions", from the SQL of PR A1), and `unknown` for anything else
+ * (network, a message we do not know). PostgreSQL's own "permission denied for
+ * function" (42501, a signed-out caller reaching a member RPC) maps to
+ * `not_signed_in`. The admin-only codes (`admin_only`, `invalid_email`,
+ * `invalid_note`, `invalid_argument`) are not here: no Website wrapper calls an
+ * admin RPC. api/errors.ts must give each one copy; TypeScript refuses a code
+ * here without an entry there, and tests/client/dancerAppApi.test.tsx refuses
+ * it at runtime too.
  */
 export const DANCER_ERROR_CODES = [
   'area_closed',
   'not_signed_in',
   'no_profile',
+  'profile_mismatch',
   'rate_limited',
-  'invalid_display_name',
+  'whatsapp_not_allowed',
+  'invalid_payload',
+  'unknown_key',
+  'invalid_type',
   'first_name_required',
   'city_required',
   'photo_required',
+  'invalid_display_name',
+  'invalid_text',
+  'invalid_role',
+  'invalid_year',
   'bio_too_long',
   'bio_has_link',
   'invalid_handle',
   'invalid_url',
-  'invalid_year',
-  'whatsapp_not_allowed',
-  'invalid_role',
-  'unknown_key',
+  'invalid_whatsapp',
+  'invalid_list',
   'unknown',
 ] as const;
 export type DancerErrorCode = (typeof DANCER_ERROR_CODES)[number];

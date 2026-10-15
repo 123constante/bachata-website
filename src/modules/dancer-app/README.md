@@ -55,8 +55,12 @@ the attendance reads (`get_my_event_attendance_v2`).
 - **Saves are diff-first.** Keep a draft, send `diffDelta(current, draft)`. An untouched
   form sends nothing (`saveMyDancerProfile({}, current)` returns `current` without a
   request) and its Save control is disabled with a visible reason.
+  Always pass `current`: the wrapper drops `whatsapp` / `show_whatsapp_publicly` for a
+  person with no other profile type (the DB refuses them with `whatsapp_not_allowed`);
+  without `current` it has to read `my_dancer_edit_v1` first to know.
 - **One mapping per fact.** Error copy comes from `copyFor(code)` / `DancerApiError.message`
-  only; put it under the field `DancerApiError.field` names (null = screen level).
+  only; put it under the field `DancerApiError.field` names (null = screen level). When
+  the DB's DETAIL names a field, the copy names it (`copyFor(code, detail)`).
   Strength comes from `profile.strength` (the server computes it); never recompute.
 - **No copy points at a control that is not on screen.** Every empty state says what the
   person can do.

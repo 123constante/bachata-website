@@ -28,24 +28,49 @@ afterEach(() => {
   h.rpc.mockReset();
 });
 
-/** The INTERFACE section 3 table, verbatim, plus the save contract's unknown_key. */
+/** INTERFACE "Round-2 additions": every gate + member code the SQL raises (admin-only codes excluded: no Website caller). */
 const INTERFACE_CODES = [
   'area_closed',
   'not_signed_in',
   'no_profile',
+  'profile_mismatch',
   'rate_limited',
-  'invalid_display_name',
+  'whatsapp_not_allowed',
+  'invalid_payload',
+  'unknown_key',
+  'invalid_type',
   'first_name_required',
   'city_required',
   'photo_required',
+  'invalid_display_name',
+  'invalid_text',
+  'invalid_role',
+  'invalid_year',
   'bio_too_long',
   'bio_has_link',
   'invalid_handle',
   'invalid_url',
-  'invalid_year',
-  'whatsapp_not_allowed',
-  'invalid_role',
-  'unknown_key',
+  'invalid_whatsapp',
+  'invalid_list',
+];
+
+/** Codes the DB raises with a DETAIL naming the field, and the DETAIL values it can send. */
+const DETAIL_CASES: Array<[DancerErrorCode, string, string]> = [
+  ['unknown_key', 'bio', 'bio'],
+  ['invalid_type', 'dance_started_year', 'year you started dancing'],
+  ['invalid_type', 'languages', 'languages'],
+  ['invalid_text', 'first_name', 'first name'],
+  ['invalid_text', 'surname', 'surname'],
+  ['invalid_text', 'nationality', 'nationality'],
+  ['invalid_text', 'bio', 'bio'],
+  ['invalid_handle', 'instagram', 'Instagram'],
+  ['invalid_handle', 'facebook', 'Facebook'],
+  ['invalid_url', 'website_url', 'website'],
+  ['invalid_url', 'avatar_url', 'photo'],
+  ['invalid_list', 'favorite_styles', 'favourite styles'],
+  ['invalid_list', 'favorite_songs', 'favourite songs'],
+  ['invalid_list', 'achievements', 'achievements'],
+  ['invalid_list', 'languages', 'languages'],
 ];
 
 describe('errors.ts: one map, every code', () => {
@@ -71,6 +96,39 @@ describe('errors.ts: one map, every code', () => {
       const f = fieldFor(code);
       if (f !== null) expect(SAVE_KEYS as readonly string[], code).toContain(f);
     }
+  });
+
+  // The DB's MESSAGE is the code; through the real wrapper (rpcLoose mocked) every
+  // code reaches its OWN copy, never the generic `unknown` sentence.
+  it.each(INTERFACE_CODES)('server says %s -> its own copy, not the generic sentence', async (code) => {
+    h.rpc.mockResolvedValue({ data: null, error: { message: code, details: null, code: '22023' } });
+    const err = await fetchMyDancerEdit().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(DancerApiError);
+    expect((err as DancerApiError).code).toBe(code);
+    expect((err as DancerApiError).message).toBe(copyFor(code as DancerErrorCode));
+    expect((err as DancerApiError).message).not.toBe(copyFor('unknown'));
+  });
+
+  it.each(DETAIL_CASES)('%s with DETAIL %s names the field (%s) and sits under it', async (code, detail, label) => {
+    h.rpc.mockResolvedValue({ data: null, error: { message: code, details: detail, code: '22023' } });
+    const err = (await saveMyDancerProfile({ bio: 'x' }).catch((e: unknown) => e)) as DancerApiError;
+    expect(err.code).toBe(code);
+    expect(err.field).toBe(detail);
+    expect(err.message.toLowerCase()).toContain(label.toLowerCase());
+    expect(err.message).not.toBe(copyFor(code));
+    expect(err.message).not.toBe(copyFor('unknown'));
+    expect(err.message).not.toMatch(/\b(tap|click|press)\b/i);
+  });
+
+  it('a DETAIL that is not a field leaves the plain copy and field', () => {
+    expect(copyFor('invalid_text', 'nonsense')).toBe(copyFor('invalid_text'));
+    expect(fieldFor('invalid_url', 'nonsense')).toBe('website_url');
+    expect(fieldFor('bio_too_long', 'surname')).toBe('bio');
+  });
+
+  it('PostgreSQL "permission denied for function" (42501, signed out) -> the signed-out copy', async () => {
+    h.rpc.mockResolvedValue({ data: null, error: { message: 'permission denied for function my_dancer_edit_v1', code: '42501' } });
+    await expect(fetchMyDancerEdit()).rejects.toMatchObject({ code: 'not_signed_in', message: copyFor('not_signed_in') });
   });
 
   it.each([
@@ -99,7 +157,8 @@ describe('rpc.ts wrappers over the real backend (rpcLoose mocked)', () => {
   it('fetchGate calls dancer_area_gate_v1 and parses {open, allowed}', async () => {
     h.rpc.mockResolvedValue({ data: { open: false, allowed: true }, error: null });
     await expect(fetchGate()).resolves.toEqual({ open: false, allowed: true });
-    expect(h.rpc).toHaveBeenCalledWith(DANCER_RPC.gate, undefined);
+    expect(h.rpc).toHaveBeenCalledTimes(1);
+    expect(h.rpc.mock.calls[0][0]).toBe(DANCER_RPC.gate);
   });
 
   it.each([null, {}, { open: 'yes', allowed: true }, [true, true]])('fetchGate refuses an odd shape %j (fails closed)', async (data) => {
@@ -273,15 +332,30 @@ describe('fakeBackend: the server mirror', () => {
     ['website not http', { website_url: 'ftp://x' }, 'invalid_url'],
     ['year 1949', { dance_started_year: 1949 }, 'invalid_year'],
     ['year next year', { dance_started_year: new Date().getFullYear() + 1 }, 'invalid_year'],
-    ['whatsapp from a pure dancer', { whatsapp: '+447700900000' }, 'whatsapp_not_allowed'],
-    ['whatsapp switch from a pure dancer', { show_whatsapp_publicly: false }, 'whatsapp_not_allowed'],
     ['role outside the CHECK set', { dance_role: 'Both' }, 'invalid_role'],
   ];
   it.each(cases)('%s -> %s, and nothing is written', async (_l, delta, code, opts) => {
     const fake = createFakeBackend(opts ?? { shape: 'fourFieldComplete' });
     setFakeBackend(fake);
     const before = fake.current();
-    await expect(saveMyDancerProfile(delta as never)).rejects.toMatchObject({ code, message: copyFor(code) });
+    const err = (await saveMyDancerProfile(delta as never).catch((e: unknown) => e)) as DancerApiError;
+    expect(err).toMatchObject({ code, message: copyFor(code, err.detail) });
+    expect(fake.writes).toBe(0);
+    expect(fake.current()).toBe(before);
+  });
+
+  // The DB refuses the mere PRESENCE of a WhatsApp key from a pure dancer, even
+  // an unchanged one; the fake must refuse the same way (straight at the fake:
+  // the rpc.ts wrapper drops those keys before they get here, see R6 below).
+  it.each([
+    ['a number', { whatsapp: '+447700900000' }],
+    ['the switch', { show_whatsapp_publicly: false }],
+    ['an unchanged null number', { whatsapp: null }],
+    ['an unchanged switch', { show_whatsapp_publicly: true }],
+  ] as const)('fake: a pure dancer sending %s is refused whatsapp_not_allowed, nothing written', async (_l, delta) => {
+    const fake = createFakeBackend({ shape: 'fourFieldComplete' });
+    const before = fake.current();
+    await expect(fake.saveMyDancerProfile(delta as never)).rejects.toMatchObject({ code: 'whatsapp_not_allowed' });
     expect(fake.writes).toBe(0);
     expect(fake.current()).toBe(before);
   });
@@ -309,5 +383,52 @@ describe('fakeBackend: the server mirror', () => {
     await expect(fetchPublicExtras(id)).resolves.toBeNull();
     setFakeBackend(createFakeBackend({ shape: 'fourFieldComplete' }));
     await expect(fetchPublicExtras('unknown-id')).resolves.toBeNull();
+  });
+});
+
+describe('R6: the save wrapper drops WhatsApp keys for a person with no other profile type', () => {
+  const pure = DANCER_SHAPES.fourFieldComplete.profile;
+  const teacher = DANCER_SHAPES.teacherWithWhatsapp.profile;
+
+  it('pure dancer + current: sends the rest WITHOUT whatsapp / show_whatsapp_publicly', async () => {
+    h.rpc.mockResolvedValue({ data: { ...pure, bio: 'Hi' }, error: null });
+    await saveMyDancerProfile({ bio: 'Hi', whatsapp: '+447700900000', show_whatsapp_publicly: false }, pure);
+    expect(h.rpc).toHaveBeenCalledTimes(1);
+    expect(h.rpc).toHaveBeenCalledWith(DANCER_RPC.save, { p_payload: { bio: 'Hi' } });
+  });
+
+  it('pure dancer + current: a delta of ONLY WhatsApp keys sends nothing and returns current', async () => {
+    await expect(saveMyDancerProfile({ whatsapp: null, show_whatsapp_publicly: true }, pure)).resolves.toBe(pure);
+    expect(h.rpc).not.toHaveBeenCalled();
+  });
+
+  it('pure dancer, no current given: reads my_dancer_edit first, then saves without the keys', async () => {
+    h.rpc.mockImplementation(async (fn: string) =>
+      fn === DANCER_RPC.myEdit ? { data: pure, error: null } : { data: { ...pure, bio: 'Hi' }, error: null },
+    );
+    await saveMyDancerProfile({ bio: 'Hi', show_whatsapp_publicly: false });
+    expect(h.rpc.mock.calls.map((c) => c[0])).toEqual([DANCER_RPC.myEdit, DANCER_RPC.save]);
+    expect(h.rpc).toHaveBeenLastCalledWith(DANCER_RPC.save, { p_payload: { bio: 'Hi' } });
+  });
+
+  it('no WhatsApp key and no current: one request, no extra read', async () => {
+    h.rpc.mockResolvedValue({ data: { ...pure, bio: 'Hi' }, error: null });
+    await saveMyDancerProfile({ bio: 'Hi' });
+    expect(h.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('a person with another profile type keeps both keys', async () => {
+    h.rpc.mockResolvedValue({ data: teacher, error: null });
+    await saveMyDancerProfile({ whatsapp: '+447700900999', show_whatsapp_publicly: false }, teacher);
+    expect(h.rpc).toHaveBeenCalledWith(DANCER_RPC.save, { p_payload: { whatsapp: '+447700900999', show_whatsapp_publicly: false } });
+  });
+
+  it('through the fake (refuses like the DB): a pure dancer save with a WhatsApp key still succeeds', async () => {
+    const fake = createFakeBackend({ shape: 'fourFieldComplete' });
+    setFakeBackend(fake);
+    const out = await saveMyDancerProfile({ bio: 'Hi', show_whatsapp_publicly: false }, fake.current()!);
+    expect(out.bio).toBe('Hi');
+    expect(fake.writes).toBe(1);
+    expect(fake.calls.filter((c) => c.fn === 'saveMyDancerProfile').map((c) => c.args)).toEqual([{ bio: 'Hi' }]);
   });
 });
