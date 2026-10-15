@@ -30,6 +30,14 @@ const COMPLETE = { first_name: 'Ana', based_city_id: CITY_LONDON.id, dance_role:
 export class Backend {
   signedIn: boolean;
   accountExists: boolean;
+  /**
+   * The account was there before this walk (every row but a fresh sign-up): its e-mail was
+   * confirmed long ago, so this sign-in is NOT its first (lib/auth-otp-routing isFirstSignIn)
+   * and arms no one-time hop to /finish-profile. Stamping every account "confirmed a minute
+   * ago" made each returning sign-in a first one, and the hop pulled M35's "Continue as..."
+   * away to /finish-profile?returnTo=/account/continue before the person could choose.
+   */
+  returning: boolean;
   meta: Record<string, unknown>;
   profile: MyDancerEdit | null;
   verifyFailures = 0;
@@ -43,6 +51,7 @@ export class Backend {
     this.signedIn = p.signedIn;
     const isNew = p.dancer === 'incomplete' && row.auth === 'signup';
     this.accountExists = !isNew;
+    this.returning = !isNew;
     if (isNew) {
       this.meta = {};
       this.profile = null;
@@ -64,15 +73,17 @@ export class Backend {
     this.email = email;
     this.signedIn = false;
     this.accountExists = false;
+    this.returning = false;
     this.meta = {};
     this.profile = null;
     this.otpRedirect = null;
   }
 
   user() {
+    const since = this.returning ? '2025-03-01T10:00:00Z' : '2026-10-08T10:59:00Z';
     return {
       id: ME, aud: 'authenticated', role: 'authenticated', email: this.email,
-      email_confirmed_at: '2026-10-08T10:59:00Z', created_at: '2026-10-08T10:59:00Z', last_sign_in_at: '2026-10-08T11:00:00Z',
+      email_confirmed_at: since, created_at: since, last_sign_in_at: '2026-10-08T11:00:00Z',
       app_metadata: { provider: 'email', providers: ['email'] }, user_metadata: this.meta,
     };
   }
