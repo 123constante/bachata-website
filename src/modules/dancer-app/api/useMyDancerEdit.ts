@@ -18,6 +18,16 @@ type Options = { refetchOnMount?: boolean | 'always'; staleTime?: number; retry?
 const crossed70 = new Set<string>();
 
 /**
+ * The ONE copy of the dancer gate's key outside its hook (hooks/useProfileCompletion,
+ * ['profile-completion', uid]): that hook caches its answer for a minute. Drop it before
+ * anything sends the person to a gated page (/account/o), so the gate reads the fresh
+ * answer instead of bouncing back to /finish-profile on an old "incomplete".
+ */
+export const resetDancerGate = (qc: QueryClient): void => {
+  void qc.resetQueries({ queryKey: ['profile-completion'] });
+};
+
+/**
  * The ONE place a server-returned profile enters the shared cache (review S5).
  * Onboarding, Photo, Edit and the hide-surname switch all write through here, so
  * `profile_strength_70` fires on whichever path takes the person across 70.
@@ -25,6 +35,8 @@ const crossed70 = new Set<string>();
 export const writeMyDancerEdit = (qc: QueryClient, userId: string | null | undefined, next: MyDancerEdit): void => {
   const before = qc.getQueryData<MyDancerEdit>(myDancerEditKey(userId));
   qc.setQueryData(myDancerEditKey(userId), next);
+  // A save that changes completeness drops the gate's cached answer -- no stale data.
+  if (before?.complete !== next.complete) resetDancerGate(qc);
   if (before && before.strength.pct < 70 && next.strength.pct >= 70 && !crossed70.has(next.profile_id)) {
     if (trackDancerEvent('profile_strength_70', { pct: next.strength.pct })) crossed70.add(next.profile_id);
   }
