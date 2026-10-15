@@ -1,42 +1,32 @@
-import { accountHome } from '@/lib/accountRouting';
-import { DANCER_HOME, DANCER_WELCOME } from '../shell/routes';
+import { DANCER_HOME_PATH, oldDancerHomeRedirect, type OldDancerHomeFacts } from '@/lib/accountRouting';
 
 /**
  * Where RedirectIfAllowed sends an ALLOWED, signed-in person, or null = stay on
- * today's page. The organiser decision is accountHome() from lib/accountRouting
- * -- the exact function src/pages/Account.tsx uses -- fed the same two reads
- * (organiser_home_v1, my access requests) under the same query keys. It is
- * imported, never restated.
+ * today's page. The decision is lib/accountRouting's oldDancerHomeRedirect --
+ * the ONE mapping the sign-in chooser and the profile switcher also read --
+ * fed the same two organiser reads src/pages/Account.tsx makes (organiser_home_v1,
+ * my access requests) under the same query keys. Imported, never restated.
  *
- * Fails CLOSED: anything not proven stays on today's page.
- * - organiser-type (organiser, open access request, or an old organiser link)
- *   -> null: /account keeps sending them to /account/o exactly as today;
- * - either organiser read still loading or FAILED -> null (accountHome would
- *   call a failed read "dancer"; for a redirect AWAY from today's page an
- *   unproven answer is not enough);
- * - profile completeness (ProfileGateContext) loading / unknown -> null;
- *   complete -> Home; incomplete -> Welcome (onboarding);
- *   no_profile / error -> null: today's Finish screen has the message-us and
- *   Try-again paths for those, the new area does not yet.
+ * - /account/dancer is the dancer side itself: anyone allowed goes to the app,
+ *   organisers included (owner report 2026-10-15);
+ * - /account and /finish-profile fail CLOSED as before: organiser-type, a
+ *   loading or failed organiser read, or an unknown profile stays put.
  */
-export type ProfileFact = 'complete' | 'incomplete' | 'no_profile' | 'error' | 'loading' | 'signed_out' | null;
+export type ProfileFact = OldDancerHomeFacts['profile'];
 
-export type RedirectFacts = {
-  legacyParams: boolean;
-  /** undefined = loading, null = the read failed. */
-  organiserCount: number | null | undefined;
-  openRequestCount: number | null | undefined;
-  profile: ProfileFact;
+export type RedirectFacts = Omit<OldDancerHomeFacts, 'view' | 'allowed'>;
+
+/** Which old page is showing: /account/dancer, /finish-profile, else /account. Case-folded, as the router matches. */
+export const oldDancerView = (pathname: string): OldDancerHomeFacts['view'] => {
+  const p = pathname.toLowerCase().replace(/\/+$/, '');
+  if (p === DANCER_HOME_PATH) return 'dancer';
+  if (p === '/finish-profile') return 'finish';
+  return 'resolve';
 };
 
-export const allowedRedirectTarget = (f: RedirectFacts): string | null => {
-  const where = accountHome({ legacyParams: f.legacyParams, organiserCount: f.organiserCount, openRequestCount: f.openRequestCount });
-  if (where !== 'dancer') return null;
-  if (f.organiserCount === null || f.openRequestCount === null) return null;
-  if (f.profile === 'complete') return DANCER_HOME;
-  if (f.profile === 'incomplete') return DANCER_WELCOME;
-  return null;
-};
+/** RedirectIfAllowed only mounts this for an allowed person; `view` defaults to /account's. */
+export const allowedRedirectTarget = (f: RedirectFacts, view: OldDancerHomeFacts['view'] = 'resolve'): string | null =>
+  oldDancerHomeRedirect({ ...f, view, allowed: true });
 
 /** A react-query result -> a fact: undefined while loading, null when failed (or paused offline with nothing cached). */
 export const queryFact = <T, R>(

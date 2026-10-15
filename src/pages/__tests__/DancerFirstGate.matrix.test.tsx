@@ -312,7 +312,7 @@ describe('the gate: entries and edges', () => {
 
   it('an organiser-intent sign-up lands on the gate, then continues to organiser onboarding', async () => {
     // AuthCallback navigates to landingPathAfterAuth(); a non-dancer role means "set up an organiser".
-    const landing = landingPathAfterAuth({ organiserSelfServe: true, role: 'organiser', managesOrganiser: null });
+    const landing = landingPathAfterAuth({ organiserSelfServe: true, role: 'organiser', isSignup: true });
     expect(landing).toBe('/account/o');
     mount(makeBackend({ row: { ...stub }, organisers: 0, requests: [] }), landing);
     await expectGated('/account/o');
@@ -323,10 +323,12 @@ describe('the gate: entries and edges', () => {
     expect(screen.queryByTestId('org-dancer-row')).toBeNull();
   });
 
-  it('a role-less sign-in of an unfinished organiser lands on the gate', async () => {
-    const landing = landingPathAfterAuth({ organiserSelfServe: true, role: null, managesOrganiser: true });
-    mount(makeBackend({ row: { ...stub }, organisers: 1, requests: [] }), landing);
-    await expectGated(landing);
+  it('a sign-in of an unfinished organiser: the chooser\'s organiser button lands on the gate', async () => {
+    // Sign-in goes to /account/continue; an organiser with an unfinished dancer profile has two
+    // sides there (accountSidesRouting.test.ts), and the organiser one opens /account/o.
+    expect(landingPathAfterAuth({ organiserSelfServe: true, role: null, isSignup: false })).toBe('/account/continue');
+    mount(makeBackend({ row: { ...stub }, organisers: 1, requests: [] }), '/account/o');
+    await expectGated('/account/o');
   });
 
   it('a deep organiser link keeps its whole address through the gate', async () => {

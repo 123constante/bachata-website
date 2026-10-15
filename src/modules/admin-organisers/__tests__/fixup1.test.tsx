@@ -84,6 +84,8 @@ describe('F1 redeem refreshes the organiser home before navigating', () => {
         </MemoryRouter>
       </QueryClientProvider>,
     );
+    // M57: the link is used once the person presses Join on the joining-as card.
+    fireEvent.click(await screen.findByTestId('invite-join'));
     await screen.findByTestId('landed');
     await waitFor(() => expect(fetchHome).toHaveBeenCalledTimes(1));
   });

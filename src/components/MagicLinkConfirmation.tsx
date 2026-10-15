@@ -28,12 +28,75 @@ const CODE_LABEL = `${CODE_LENGTH}-digit code`;
 const GROUP_SIZE = CODE_LENGTH / 2;
 const ERROR_ID = 'email-code-error';
 
+// ---- D7: the code step over a reload, and the wrong-code limit --------------------------
+// sessionStorage (this tab only), cleared with every other person-scoped key at sign-out
+// (lib/personScopedStorage) and on verify / "Use a different email".
+
+export const CODE_STEP_KEY = 'auth_code_step_v1';
+/** A reload this long after the send still reopens the code box. */
+export const CODE_STEP_TTL_MS = 10 * 60 * 1000;
+/** Wrong codes accepted before the box stops and asks for a new code. */
+export const MAX_WRONG_CODES = 5;
+
+type CodeStep = { email: string; mode: string; at: number; wrong: number };
+
+const readRaw = (): CodeStep | null => {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(CODE_STEP_KEY) ?? 'null') as Partial<CodeStep> | null;
+    if (!parsed || typeof parsed.email !== 'string' || !parsed.email || typeof parsed.mode !== 'string' || typeof parsed.at !== 'number') return null;
+    return { email: parsed.email, mode: parsed.mode, at: parsed.at, wrong: typeof parsed.wrong === 'number' ? parsed.wrong : 0 };
+  } catch {
+    return null;
+  }
+};
+
+const write = (step: CodeStep) => {
+  try {
+    sessionStorage.setItem(CODE_STEP_KEY, JSON.stringify(step));
+  } catch {
+    /* storage blocked: a reload goes back to the e-mail form, as before */
+  }
+};
+
+/** The code step sent within the last 10 minutes for this /auth mode, else null. */
+export const readCodeStep = (mode: string): CodeStep | null => {
+  const step = readRaw();
+  if (!step || step.mode !== mode) return null;
+  const age = Date.now() - step.at;
+  return age >= 0 && age <= CODE_STEP_TTL_MS ? step : null;
+};
+
+/** A code was just sent (first send or resend): a fresh 10 minutes and no wrong codes. */
+export const rememberCodeStep = (email: string, mode: string) => write({ email, mode, at: Date.now(), wrong: 0 });
+
+export const forgetCodeStep = () => {
+  try {
+    sessionStorage.removeItem(CODE_STEP_KEY);
+  } catch {
+    /* nothing stored */
+  }
+};
+
+const storedWrongCodes = (email: string): number => {
+  const step = readRaw();
+  return step && step.email === email ? step.wrong : 0;
+};
+
+const storeWrongCodes = (email: string, wrong: number) => {
+  const step = readRaw();
+  if (step && step.email === email) write({ ...step, wrong });
+};
+
+const LOCKED_MESSAGE = 'Too many wrong codes. Send a new code to try again.';
+
 const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, extraAction }: MagicLinkConfirmationProps) => {
   const [countdown, setCountdown] = useState(COOLDOWN);
   const [isResending, setIsResending] = useState(false);
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [wrongCodes, setWrongCodes] = useState(() => storedWrongCodes(email));
+  const locked = wrongCodes >= MAX_WRONG_CODES;
   const verifying = useRef(false);
 
   useEffect(() => {
@@ -43,7 +106,7 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, ext
   }, [countdown]);
 
   const verify = async (token: string) => {
-    if (verifying.current) return;
+    if (verifying.current || locked) return;
     verifying.current = true;
     setIsVerifying(true);
     setCodeError(null);
@@ -55,6 +118,11 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, ext
     } catch (error) {
       const message = String((error as { message?: unknown } | null)?.message || '').toLowerCase();
       const isInvalid = message.includes('invalid') || message.includes('expired');
+      if (isInvalid) {
+        const wrong = wrongCodes + 1;
+        setWrongCodes(wrong);
+        storeWrongCodes(email, wrong);
+      }
       setCodeError(
         isInvalid
           ? 'That code is wrong or has expired. Check it and try again, or resend a new one.'
@@ -74,6 +142,8 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, ext
       setCountdown(COOLDOWN);
       setCode('');
       setCodeError(null);
+      // A send that landed started a fresh step (rememberCodeStep); a failed one keeps the count.
+      setWrongCodes(storedWrongCodes(email));
     } finally {
       setIsResending(false);
     }
@@ -108,13 +178,13 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, ext
               if (codeError) setCodeError(null);
             }}
             onComplete={(value) => void verify(value)}
-            disabled={isVerifying}
+            disabled={isVerifying || locked}
             autoComplete="one-time-code"
             inputMode="numeric"
             pattern="[0-9]*"
             aria-label={CODE_LABEL}
-            aria-invalid={codeError ? true : undefined}
-            aria-describedby={codeError ? ERROR_ID : undefined}
+            aria-invalid={codeError || locked ? true : undefined}
+            aria-describedby={codeError || locked ? ERROR_ID : undefined}
           >
             {[0, 1].map((group) => (
               <Fragment key={group}>
@@ -132,9 +202,9 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, ext
             ))}
           </InputOTP>
         </div>
-        {codeError && (
+        {(codeError || locked) && (
           <p id={ERROR_ID} role="alert" className="text-sm text-destructive">
-            {codeError}
+            {locked ? LOCKED_MESSAGE : codeError}
           </p>
         )}
         {isVerifying && <p className="text-sm text-muted-foreground">Checking code&hellip;</p>}
@@ -144,10 +214,10 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, ext
         <Button
           variant="secondary"
           className="w-full min-h-[44px] rounded-full"
-          disabled={countdown > 0 || isResending}
+          disabled={(countdown > 0 && !locked) || isResending}
           onClick={handleResend}
         >
-          {isResending ? 'Sending\u2026' : countdown > 0 ? `Resend code in ${countdown}s` : 'Resend code'}
+          {isResending ? 'Sending\u2026' : locked ? 'Send a new code' : countdown > 0 ? `Resend code in ${countdown}s` : 'Resend code'}
         </Button>
 
         <Button variant="ghost" className="w-full min-h-[44px] text-muted-foreground" onClick={onChangeEmail}>

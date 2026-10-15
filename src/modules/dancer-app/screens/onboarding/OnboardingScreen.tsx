@@ -1,16 +1,18 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, type NavigateFunction } from 'react-router-dom';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { APP_HOME_PATH, RETURN_TO_PARAM, onboardingEnd, onboardingEndLabel } from '@/lib/accountRouting';
 import { diffDelta } from '../../api/delta';
 import { toDancerError } from '../../api/errors';
 import type { DancerDelta, MyDancerEdit } from '../../api/types';
 import { trackDancerEvent } from '../../analytics/events';
-import { DANCER_HOME } from '../../shell/routes';
+
 import { REQUIRED_STAGES, requiredMissing, stageAfterSave, stageAfterSkip, stageFor, stageForBoost, optionalStagesLeft, type Stage } from './model';
 import FirstCardNotes from './notes';
 import { StylesCard, YearsCard } from './optional';
 import { CityCard, NameCard, PhotoCard, RoleCard } from './steps';
 import { GhostButton, Meter, PrimaryButton, Question, Tag, wrap } from './ui';
-import { useMyDancerEdit } from '../../api/useMyDancerEdit';
+import { resetDancerGate, useMyDancerEdit } from '../../api/useMyDancerEdit';
 
 const gradientCard: CSSProperties = {
   background: 'linear-gradient(145deg, var(--da-gradient-from) 0%, var(--da-gradient-to) 100%)',
@@ -21,9 +23,32 @@ const gradientCard: CSSProperties = {
 
 const nameOf = (p: MyDancerEdit) => p.first_name?.trim() || 'there';
 
-/** /app/welcome: one question per card, driven by the server's strength.missing (decision 5). */
+/**
+ * Leave onboarding for its end. A gated end (anything but Home, e.g. /account/o) first
+ * drops the dancer gate's cached answer (review F1): a stale "incomplete" -- the profile
+ * finished in another tab, or by a save this tab never saw -- would send the gate back to
+ * /finish-profile -> /app/welcome -> here again until the cache went stale.
+ *
+ * EVERY end replaces /app/welcome (owner decision, matrix M10/M24): browser Back from
+ * the end never re-opens the "You're in" card.
+ */
+const leaveFor = (qc: QueryClient, navigate: NavigateFunction, end: string) => {
+  if (end !== APP_HOME_PATH) resetDancerGate(qc);
+  navigate(end, { replace: true });
+};
+
+/**
+ * /app/welcome: one question per card, driven by the server's strength.missing (decision 5).
+ * ?returnTo= (the organiser link's /account/o) is where it ends, after the full setup; with
+ * none it ends on Home. lib/accountRouting onboardingEnd() decides; it rides the photo step too.
+ */
 const OnboardingCards = () => {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [params] = useSearchParams();
+  const returnTo = params.get(RETURN_TO_PARAM);
+  const end = onboardingEnd(returnTo);
+  const endLabel = onboardingEndLabel(end);
   const { data: profile, isPending, isError, error: loadError, save } = useMyDancerEdit({ refetchOnMount: 'always', retry: false });
   const [stage, setStage] = useState<Stage | null>(null);
   const [firstStage, setFirstStage] = useState<Stage | null>(null);
@@ -50,7 +75,12 @@ const OnboardingCards = () => {
     if (stage) trackDancerEvent('onboarding_step', { step: stage });
   }, [stage]);
 
-  if (redirectHome) return <Navigate to={DANCER_HOME} replace />;
+  // Already finished on arrival: straight on to the end.
+  useEffect(() => {
+    if (redirectHome) leaveFor(qc, navigate, end);
+  }, [redirectHome, qc, navigate, end]);
+
+  if (redirectHome) return null;
 
   if (isError) {
     return (
@@ -107,21 +137,21 @@ const OnboardingCards = () => {
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
             {left > 0 ? <PrimaryButton testId="onboarding-boost" onClick={() => go(stageForBoost(profile))}>Boost to 100%</PrimaryButton> : null}
-            <GhostButton testId="onboarding-home" onClick={() => navigate(DANCER_HOME)}>Go to Home</GhostButton>
+            <GhostButton testId="onboarding-home" onClick={() => leaveFor(qc, navigate, end)}>{endLabel}</GhostButton>
           </div>
         </div>
       ) : stage === 'nice' ? (
         <div className="da-card" data-testid="onboarding-nice-card">
           <Question>Nice work, {nameOf(profile)}</Question>
           <p style={{ fontSize: 15, margin: '0 0 14px' }}>Your profile is at {profile.strength.pct}%. Add a bio and links any time from Me.</p>
-          <PrimaryButton testId="onboarding-home" onClick={() => navigate(DANCER_HOME)}>Go to Home</PrimaryButton>
+          <PrimaryButton testId="onboarding-home" onClick={() => leaveFor(qc, navigate, end)}>{endLabel}</PrimaryButton>
         </div>
       ) : (
         <div className="da-card">
           {stage === 'name' ? <NameCard {...card} /> : null}
           {stage === 'city' ? <CityCard {...card} /> : null}
           {stage === 'role' ? <RoleCard {...card} /> : null}
-          {stage === 'photo' ? <PhotoCard tag={tag} /> : null}
+          {stage === 'photo' ? <PhotoCard tag={tag} returnTo={returnTo} /> : null}
           {stage === 'years' ? <YearsCard {...card} onSkip={() => go(stageAfterSkip(profile, 'years'))} /> : null}
           {stage === 'styles' ? <StylesCard {...card} onSkip={() => go(stageAfterSkip(profile, 'styles'))} /> : null}
           {first ? <FirstCardNotes linked={profile.linked_from_admin} /> : null}

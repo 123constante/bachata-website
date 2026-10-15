@@ -8,7 +8,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { FULL, makeBackend, type BackendState, type DancerRow } from '@/pages/__tests__/helpers/dancerBackend';
@@ -99,6 +99,10 @@ describe.each(STATES)('$name', ({ user, row }) => {
       expect(screen.getByTestId('location').textContent).toBe(`/finish-profile?returnTo=${encodeURIComponent(`/invite/${VALID}`)}`);
       expect(h.redeem).not.toHaveBeenCalled();
     } else {
+      // M57: the joining-as card first; the link is used on Join.
+      expect((await screen.findByTestId('invite-joining-as')).textContent).toBe('You are joining as Ana');
+      expect(h.redeem).not.toHaveBeenCalled();
+      fireEvent.click(await screen.findByTestId('invite-join'));
       await waitFor(() => expect(h.redeem).toHaveBeenCalledTimes(1));
       await waitFor(() => expect(screen.queryByTestId('elsewhere')).not.toBeNull());
       expect(h.redeem).toHaveBeenCalledTimes(1);
@@ -119,6 +123,7 @@ describe('the server refuses with profile_incomplete (a stale client gate)', () 
     h.user = SIGNED_IN;
     h.redeem.mockResolvedValue({ data: null, error: { message: 'profile_incomplete' } });
     mount({ ...FULL }, `/invite/${VALID}`);
+    fireEvent.click(await screen.findByTestId('invite-join'));
     expect((await screen.findByTestId('invite-title')).textContent).toBe('Finish your dancer profile first');
     const link = screen.getByTestId('invite-finish-profile');
     expect(link.getAttribute('href')).toBe(finishProfileHref(`/invite/${VALID}`));

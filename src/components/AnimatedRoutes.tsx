@@ -53,6 +53,8 @@ const FinishProfile = lazyWithRetry(() => import("../pages/FinishProfile"));
 // /account: the dancer home, or on to the organiser home (lib/accountRouting).
 // Its AuthGuard lives inside the chunk, like FinishProfile's.
 const Account = lazyWithRetry(() => import("../pages/Account"));
+// Where a sign-in with no returnTo lands: straight on to the one side, or "Continue as..." (lib/accountRouting).
+const ContinueAs = lazyWithRetry(() => import("./account/profiles/ContinueAsPage"));
 const MyAttendance = lazyWithRetry(() => import("../pages/MyAttendance"));
 const AccountSettings = lazyWithRetry(() => import("../pages/AccountSettings"));
 const AccountDeleted = lazyWithRetry(() => import("../pages/AccountDeleted"));
@@ -197,6 +199,7 @@ export const AnimatedRoutes = () => {
                 ? <RedirectIfAllowed><PageTransition><Account view="dancer" /></PageTransition></RedirectIfAllowed>
                 : <Navigate to="/" replace />
             } />
+            <Route path="/account/continue" element={<PageTransition><ContinueAs /></PageTransition>} />
             <Route path="/account/attendance" element={
               flags.organiserSelfServe
                 ? <PageTransition><MyAttendance /></PageTransition>

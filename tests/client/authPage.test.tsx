@@ -65,6 +65,8 @@ beforeEach(() => {
   // jsdom gap: input-otp's password-manager badge probe calls this on a timer.
   document.elementFromPoint = () => null;
   localStorage.clear();
+  // The code step is kept over a reload in sessionStorage (D7): each test starts on the form.
+  sessionStorage.clear();
   mocks.signInWithOtp.mockResolvedValue({ error: null });
   mocks.verifyOtp.mockReset();
 });

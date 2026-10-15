@@ -207,10 +207,15 @@ describe('RedirectIfAllowed on today\'s account pages', () => {
       ['organiser read failed', { organisers: 'fail' as const }],
       ['requests read failed', { openRequests: 'fail' as const }],
       ['organiser read still loading', { organisers: 'pending' as const }],
-    ])('allowed but %s: stays on today\'s page', async (_l, extra) => {
+    ])('allowed but %s: /account/dancer opens the app (it IS the dancer side); the others stay', async (_l, extra) => {
       const backend = createFakeBackend({ gate: { open: true, allowed: true } });
       const { location } = renderInShell({ path, backend, ...extra });
       await waitFor(() => expect(gateCalls(backend)).toBe(1));
+      if (path === '/account/dancer') {
+        // Owner report 2026-10-15: an organiser's "Your dancer profile" kept them on the old home.
+        await waitFor(() => expect(location()).toBe('/app/home'));
+        return;
+      }
       await new Promise((r) => setTimeout(r, 30));
       expect(location()).toBe(path);
       expect(screen.getByTestId(`today-${stub}`)).toBeTruthy();

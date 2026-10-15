@@ -176,7 +176,7 @@ test.describe('flows @390', () => {
     await expect(page).toHaveURL(/\/account\/o$/);
     await expect(page.getByTestId('org-page-home')).toBeVisible();
     await expect(page.getByTestId('org-dancer-row')).toHaveCount(0);
-    await expect(page.getByTestId('org-account-menu-button')).toBeVisible();
+    await expect(page.getByTestId('profile-switcher-button')).toBeVisible();
     expect(saves).toHaveLength(1);
   });
 
@@ -185,15 +185,15 @@ test.describe('flows @390', () => {
     await expectGated(page, '/account/o/team');
   });
 
-  test('organiser with a finished dancer profile: never gated; the account menu opens the dancer profile', async ({ page }) => {
+  test('organiser with a finished dancer profile: never gated; the Switch-profile sheet opens the dancer profile', async ({ page }) => {
     await openDancer(page, '/account/o', { organiser: true, row: { ...COMPLETE } });
-    await expect(page.getByTestId('org-account-menu-button')).toBeVisible();
+    await expect(page.getByTestId('profile-switcher-button')).toBeVisible();
     await expect(page).toHaveURL(/\/account\/o$/);
     await expect(page.getByTestId('org-dancer-row')).toHaveCount(0);
-    await page.getByTestId('org-account-menu-button').click();
-    await expect(page.getByTestId('org-account-menu')).toBeVisible();
+    await page.getByTestId('profile-switcher-button').click();
+    await expect(page.getByTestId('profile-switcher-sheet')).toBeVisible();
     await page.screenshot({ path: 'test-results/organiser-home-account-menu.png', fullPage: false });
-    await page.getByTestId('org-account-menu-dancer').click();
+    await page.getByTestId('profile-switcher-side-dancer').click();
     await expect(page).toHaveURL(/\/account\/dancer$/);
     await expect(page.getByTestId('dancer-home-completeness')).toHaveText('Your profile is complete. You can rate parties now.');
     await expect(page.getByTestId('dancer-home-organiser-link')).toBeVisible();
