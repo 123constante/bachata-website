@@ -22,6 +22,13 @@ type AnalyticsEventMap = {
    *  Festivals one) must widen this contract by construction rather than break
    *  TabBar at a call site unrelated to the change. */
   home_tab_selected: { tab: MapTab };
+  /** Dancer-app funnel (modules/dancer-app/analytics/events.ts); signed-in people only. */
+  dancer_app_entered: { source?: string };
+  onboarding_step: { step: string };
+  profile_strength_70: { pct: number };
+  first_going_tap: { surface?: string };
+  first_level_vote: { level?: string };
+  feedback_sent: { channel?: string };
 };
 
 declare global {

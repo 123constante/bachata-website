@@ -1,0 +1,785 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`/dancers/:id page at '390x844' > admin-made, photoless > as 'owner' 1`] = `
+"text "D"
+heading "Dani" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at '390x844' > admin-made, photoless > as 'signed-in stranger' 1`] = `
+"text "D"
+heading "Dani" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at '390x844' > admin-made, photoless > as 'visitor' 1`] = `
+"text "D"
+heading "Dani" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at '390x844' > complete + all extras > as 'owner' 1`] = `
+"img "Carla Ruiz"
+heading "Carla Ruiz" level=1
+text "Manchester"
+text "•"
+text "Spain"
+text "Lead and Follow"
+text "11 years dancing"
+text "Connect"
+link href=https://instagram.com/carla
+link href=https://facebook.com/carla.ruiz
+link href=https://carla.example
+text "Practice Buddy"
+text "⚡ Down to Practice!"
+text "Looking for: Leader"
+text "Vibes with:"
+text "Intermediate"
+text "Goals:Footwork"
+text "Weekday evenings"
+text "Experience"
+text "Veteran"
+text "11Years"
+text "Instagram"
+link "@carla" href=https://instagram.com/carla
+text "Facebook"
+link "facebook.com/carla.ruiz" href=https://facebook.com/carla.ruiz
+text "My Sound"
+text "Obsesion"
+text "Styles"
+text "Sensual"
+text "Dominican"
+text "Highlights"
+text "Best newcomer 2022"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Gallery" level=2
+link "Carla Ruiz photo 1" href=https://cdn.example.test/p.jpg
+link "Carla Ruiz photo 2" href=https://cdn.example.test/p.jpg
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at '390x844' > complete + all extras > as 'signed-in stranger' 1`] = `
+"img "Carla Ruiz"
+heading "Carla Ruiz" level=1
+text "Manchester"
+text "•"
+text "Spain"
+text "Lead and Follow"
+text "11 years dancing"
+text "Connect"
+link href=https://instagram.com/carla
+link href=https://facebook.com/carla.ruiz
+link href=https://carla.example
+text "Practice Buddy"
+text "⚡ Down to Practice!"
+text "Looking for: Leader"
+text "Vibes with:"
+text "Intermediate"
+text "Goals:Footwork"
+text "Weekday evenings"
+text "Experience"
+text "Veteran"
+text "11Years"
+text "Instagram"
+link "@carla" href=https://instagram.com/carla
+text "Facebook"
+link "facebook.com/carla.ruiz" href=https://facebook.com/carla.ruiz
+text "My Sound"
+text "Obsesion"
+text "Styles"
+text "Sensual"
+text "Dominican"
+text "Highlights"
+text "Best newcomer 2022"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Gallery" level=2
+link "Carla Ruiz photo 1" href=https://cdn.example.test/p.jpg
+link "Carla Ruiz photo 2" href=https://cdn.example.test/p.jpg"
+`;
+
+exports[`/dancers/:id page at '390x844' > complete + all extras > as 'visitor' 1`] = `
+"img "Carla Ruiz"
+heading "Carla Ruiz" level=1
+text "Manchester"
+text "•"
+text "Spain"
+text "Lead and Follow"
+text "11 years dancing"
+text "Connect"
+link href=https://instagram.com/carla
+link href=https://facebook.com/carla.ruiz
+link href=https://carla.example
+text "Practice Buddy"
+text "⚡ Down to Practice!"
+text "Looking for: Leader"
+text "Vibes with:"
+text "Intermediate"
+text "Goals:Footwork"
+text "Weekday evenings"
+text "Experience"
+text "Veteran"
+text "11Years"
+text "Instagram"
+link "@carla" href=https://instagram.com/carla
+text "Facebook"
+link "facebook.com/carla.ruiz" href=https://facebook.com/carla.ruiz
+text "My Sound"
+text "Obsesion"
+text "Styles"
+text "Sensual"
+text "Dominican"
+text "Highlights"
+text "Best newcomer 2022"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Gallery" level=2
+link "Carla Ruiz photo 1" href=https://cdn.example.test/p.jpg
+link "Carla Ruiz photo 2" href=https://cdn.example.test/p.jpg"
+`;
+
+exports[`/dancers/:id page at '390x844' > empty stub (nameless) > as 'owner' 1`] = `
+"text "D"
+heading "Dancer" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at '390x844' > empty stub (nameless) > as 'signed-in stranger' 1`] = `
+"text "D"
+heading "Dancer" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at '390x844' > empty stub (nameless) > as 'visitor' 1`] = `
+"text "D"
+heading "Dancer" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at '390x844' > four-field complete > as 'owner' 1`] = `
+"img "Ana Lopez"
+heading "Ana Lopez" level=1
+text "London"
+text "Follower"
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at '390x844' > four-field complete > as 'signed-in stranger' 1`] = `
+"img "Ana Lopez"
+heading "Ana Lopez" level=1
+text "London"
+text "Follower"
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at '390x844' > four-field complete > as 'visitor' 1`] = `
+"img "Ana Lopez"
+heading "Ana Lopez" level=1
+text "London"
+text "Follower"
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at '390x844' > hidden surname (masked by the names RPC) > as 'owner' 1`] = `
+"img "Fay"
+heading "Fay" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at '390x844' > hidden surname (masked by the names RPC) > as 'signed-in stranger' 1`] = `
+"img "Fay"
+heading "Fay" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at '390x844' > hidden surname (masked by the names RPC) > as 'visitor' 1`] = `
+"img "Fay"
+heading "Fay" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at '390x844' > name + city only > as 'owner' 1`] = `
+"text "B"
+heading "Bea" level=1
+text "London"
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at '390x844' > name + city only > as 'signed-in stranger' 1`] = `
+"text "B"
+heading "Bea" level=1
+text "London"
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at '390x844' > name + city only > as 'visitor' 1`] = `
+"text "B"
+heading "Bea" level=1
+text "London"
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at '390x844' > surname inside display_name > as 'owner' 1`] = `
+"img "Eli Gomez"
+heading "Eli Gomez" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at '390x844' > surname inside display_name > as 'signed-in stranger' 1`] = `
+"img "Eli Gomez"
+heading "Eli Gomez" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at '390x844' > surname inside display_name > as 'visitor' 1`] = `
+"img "Eli Gomez"
+heading "Eli Gomez" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at '390x844' > unknown / paused (no row) > as 'owner' 1`] = `
+"text "👾"
+heading "__vite_ssr_import_5__.supabase.from(...).select is not a function" level=1
+text "ID: id-none"
+text "The profile you're looking for doesn't exist or has been removed."
+button "Back to Dancers""
+`;
+
+exports[`/dancers/:id page at '390x844' > unknown / paused (no row) > as 'signed-in stranger' 1`] = `
+"text "👾"
+heading "__vite_ssr_import_5__.supabase.from(...).select is not a function" level=1
+text "ID: id-none"
+text "The profile you're looking for doesn't exist or has been removed."
+button "Back to Dancers""
+`;
+
+exports[`/dancers/:id page at '390x844' > unknown / paused (no row) > as 'visitor' 1`] = `
+"text "👾"
+heading "__vite_ssr_import_5__.supabase.from(...).select is not a function" level=1
+text "ID: id-none"
+text "The profile you're looking for doesn't exist or has been removed."
+button "Back to Dancers""
+`;
+
+exports[`/dancers/:id page at 'desktop' > admin-made, photoless > as 'owner' 1`] = `
+"text "D"
+heading "Dani" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at 'desktop' > admin-made, photoless > as 'signed-in stranger' 1`] = `
+"text "D"
+heading "Dani" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at 'desktop' > admin-made, photoless > as 'visitor' 1`] = `
+"text "D"
+heading "Dani" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at 'desktop' > complete + all extras > as 'owner' 1`] = `
+"img "Carla Ruiz"
+heading "Carla Ruiz" level=1
+text "Manchester"
+text "•"
+text "Spain"
+text "Lead and Follow"
+text "11 years dancing"
+text "Connect"
+link href=https://instagram.com/carla
+link href=https://facebook.com/carla.ruiz
+link href=https://carla.example
+text "Practice Buddy"
+text "⚡ Down to Practice!"
+text "Looking for: Leader"
+text "Vibes with:"
+text "Intermediate"
+text "Goals:Footwork"
+text "Weekday evenings"
+text "Experience"
+text "Veteran"
+text "11Years"
+text "Instagram"
+link "@carla" href=https://instagram.com/carla
+text "Facebook"
+link "facebook.com/carla.ruiz" href=https://facebook.com/carla.ruiz
+text "My Sound"
+text "Obsesion"
+text "Styles"
+text "Sensual"
+text "Dominican"
+text "Highlights"
+text "Best newcomer 2022"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Gallery" level=2
+link "Carla Ruiz photo 1" href=https://cdn.example.test/p.jpg
+link "Carla Ruiz photo 2" href=https://cdn.example.test/p.jpg
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at 'desktop' > complete + all extras > as 'signed-in stranger' 1`] = `
+"img "Carla Ruiz"
+heading "Carla Ruiz" level=1
+text "Manchester"
+text "•"
+text "Spain"
+text "Lead and Follow"
+text "11 years dancing"
+text "Connect"
+link href=https://instagram.com/carla
+link href=https://facebook.com/carla.ruiz
+link href=https://carla.example
+text "Practice Buddy"
+text "⚡ Down to Practice!"
+text "Looking for: Leader"
+text "Vibes with:"
+text "Intermediate"
+text "Goals:Footwork"
+text "Weekday evenings"
+text "Experience"
+text "Veteran"
+text "11Years"
+text "Instagram"
+link "@carla" href=https://instagram.com/carla
+text "Facebook"
+link "facebook.com/carla.ruiz" href=https://facebook.com/carla.ruiz
+text "My Sound"
+text "Obsesion"
+text "Styles"
+text "Sensual"
+text "Dominican"
+text "Highlights"
+text "Best newcomer 2022"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Gallery" level=2
+link "Carla Ruiz photo 1" href=https://cdn.example.test/p.jpg
+link "Carla Ruiz photo 2" href=https://cdn.example.test/p.jpg"
+`;
+
+exports[`/dancers/:id page at 'desktop' > complete + all extras > as 'visitor' 1`] = `
+"img "Carla Ruiz"
+heading "Carla Ruiz" level=1
+text "Manchester"
+text "•"
+text "Spain"
+text "Lead and Follow"
+text "11 years dancing"
+text "Connect"
+link href=https://instagram.com/carla
+link href=https://facebook.com/carla.ruiz
+link href=https://carla.example
+text "Practice Buddy"
+text "⚡ Down to Practice!"
+text "Looking for: Leader"
+text "Vibes with:"
+text "Intermediate"
+text "Goals:Footwork"
+text "Weekday evenings"
+text "Experience"
+text "Veteran"
+text "11Years"
+text "Instagram"
+link "@carla" href=https://instagram.com/carla
+text "Facebook"
+link "facebook.com/carla.ruiz" href=https://facebook.com/carla.ruiz
+text "My Sound"
+text "Obsesion"
+text "Styles"
+text "Sensual"
+text "Dominican"
+text "Highlights"
+text "Best newcomer 2022"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Gallery" level=2
+link "Carla Ruiz photo 1" href=https://cdn.example.test/p.jpg
+link "Carla Ruiz photo 2" href=https://cdn.example.test/p.jpg"
+`;
+
+exports[`/dancers/:id page at 'desktop' > empty stub (nameless) > as 'owner' 1`] = `
+"text "D"
+heading "Dancer" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at 'desktop' > empty stub (nameless) > as 'signed-in stranger' 1`] = `
+"text "D"
+heading "Dancer" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at 'desktop' > empty stub (nameless) > as 'visitor' 1`] = `
+"text "D"
+heading "Dancer" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at 'desktop' > four-field complete > as 'owner' 1`] = `
+"img "Ana Lopez"
+heading "Ana Lopez" level=1
+text "London"
+text "Follower"
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at 'desktop' > four-field complete > as 'signed-in stranger' 1`] = `
+"img "Ana Lopez"
+heading "Ana Lopez" level=1
+text "London"
+text "Follower"
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at 'desktop' > four-field complete > as 'visitor' 1`] = `
+"img "Ana Lopez"
+heading "Ana Lopez" level=1
+text "London"
+text "Follower"
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at 'desktop' > hidden surname (masked by the names RPC) > as 'owner' 1`] = `
+"img "Fay"
+heading "Fay" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at 'desktop' > hidden surname (masked by the names RPC) > as 'signed-in stranger' 1`] = `
+"img "Fay"
+heading "Fay" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at 'desktop' > hidden surname (masked by the names RPC) > as 'visitor' 1`] = `
+"img "Fay"
+heading "Fay" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at 'desktop' > name + city only > as 'owner' 1`] = `
+"text "B"
+heading "Bea" level=1
+text "London"
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at 'desktop' > name + city only > as 'signed-in stranger' 1`] = `
+"text "B"
+heading "Bea" level=1
+text "London"
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at 'desktop' > name + city only > as 'visitor' 1`] = `
+"text "B"
+heading "Bea" level=1
+text "London"
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at 'desktop' > surname inside display_name > as 'owner' 1`] = `
+"img "Eli Gomez"
+heading "Eli Gomez" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet."
+heading "Your plans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 05 Mar"
+text "Going: 1 · Interested: 0"
+button "Friday Social UK 4 months 18 days"
+heading "Festivals" level=3
+text "1 saved"
+text "Next: Costa Congress • 10 Jun"
+text "Going: 0 · Interested: 1"
+button "Costa Congress ES 7 months 26 days""
+`;
+
+exports[`/dancers/:id page at 'desktop' > surname inside display_name > as 'signed-in stranger' 1`] = `
+"img "Eli Gomez"
+heading "Eli Gomez" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at 'desktop' > surname inside display_name > as 'visitor' 1`] = `
+"img "Eli Gomez"
+heading "Eli Gomez" level=1
+text "Connect"
+text "No public contacts"
+heading "Event appearances" level=2
+text "No event appearances yet.""
+`;
+
+exports[`/dancers/:id page at 'desktop' > unknown / paused (no row) > as 'owner' 1`] = `
+"text "👾"
+heading "__vite_ssr_import_5__.supabase.from(...).select is not a function" level=1
+text "ID: id-none"
+text "The profile you're looking for doesn't exist or has been removed."
+button "Back to Dancers""
+`;
+
+exports[`/dancers/:id page at 'desktop' > unknown / paused (no row) > as 'signed-in stranger' 1`] = `
+"text "👾"
+heading "__vite_ssr_import_5__.supabase.from(...).select is not a function" level=1
+text "ID: id-none"
+text "The profile you're looking for doesn't exist or has been removed."
+button "Back to Dancers""
+`;
+
+exports[`/dancers/:id page at 'desktop' > unknown / paused (no row) > as 'visitor' 1`] = `
+"text "👾"
+heading "__vite_ssr_import_5__.supabase.from(...).select is not a function" level=1
+text "ID: id-none"
+text "The profile you're looking for doesn't exist or has been removed."
+button "Back to Dancers""
+`;
