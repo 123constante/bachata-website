@@ -55,7 +55,9 @@ for (const vp of VIEWPORTS) {
       expect(m.bottom, 'header + row <= 120px').toBeLessThanOrEqual(120);
       expect(m.scrollW).toBe(m.vw);
       expect(await checkOverflow(page)).toEqual([]);
-      expect(m.links!.length).toBe(4);
+      // Raffles is flag-gated (off in prod): Organisers, Venues, Community = 3; 4 with the flag on.
+      expect([3, 4]).toContain(m.links!.length);
+      expect(m.links!.map((l) => l.label)).toContain('Community');
       for (const l of m.links!) {
         expect(l.h, `${l.label} >= 44px`).toBeGreaterThanOrEqual(44);
         expect(l.ok, `${l.label} reachable at its centre`).toBe(true);
