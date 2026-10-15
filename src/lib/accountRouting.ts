@@ -5,8 +5,9 @@
  * - The header's account icon opens ACCOUNT_HOME_PATH. That page
  *   (src/pages/Account.tsx) asks `accountHome()` and either shows the dancer
  *   home or replaces itself with the organiser home, exactly as before.
- * - On the organiser home, `accountView()` says whether the account menu
- *   (the account icon in the organiser top bar) has a dancer-profile entry.
+ * - profileSides() / signInLanding() / switcherItems(): the person's sides (each
+ *   organiser, then the dancer profile), read by the sign-in landing, the
+ *   "Continue as..." screen and the Switch-profile sheet in both areas.
  * - `dancerGate()` / `isDancerGatedPath()`: dancer first, then organiser -- an
  *   unfinished dancer profile reaches none of these pages (see below).
  *
@@ -70,26 +71,6 @@ export const accountHome = (facts: AccountFacts): AccountHome => {
 /** completenessFact(...).kind (lib/profileCompletion). An archived profile resolves to no persona: 'no_profile'. */
 export type DancerFactKind = 'complete' | 'incomplete' | 'no_profile' | 'unknown';
 
-export type AccountView = {
-  /** Where the account icon lands. */
-  landing: AccountHome;
-  /** The account menu (organiser top bar) lists the dancer profile next to the organiser home. */
-  menuDancerEntry: boolean;
-};
-
-/**
- * Layout D for one person whose dancer profile is FINISHED (an unfinished one
- * never gets this far: the dancer-first gate below stands in front of every
- * account page):
- * (a) organisers or an open request -> the organiser home, with the dancer
- *     profile as an account-menu entry;
- * (b) no organiser and no open request -> the dancer home.
- */
-export const accountView = (facts: AccountFacts & { dancer: DancerFactKind }): AccountView => {
-  const landing = accountHome(facts);
-  return { landing, menuDancerEntry: landing === 'organiser' && facts.dancer === 'complete' };
-};
-
 /** True on every page the account icon stands for (dancer home, attendance, organiser area). */
 export const isAccountPath = (pathname: string): boolean =>
   pathname === ACCOUNT_HOME_PATH || pathname.startsWith(`${ACCOUNT_HOME_PATH}/`);
@@ -117,6 +98,8 @@ export const isDancerGatedPath = (pathname: string): boolean => {
   if (path === MY_ATTENDANCE_PATH || path === `${MY_ATTENDANCE_PATH}/`) return false;
   // Settings must never trap anyone: a person with an unfinished profile can still sign out, hide it or erase the account.
   if (path === ACCOUNT_SETTINGS_PATH || path.startsWith(`${ACCOUNT_SETTINGS_PATH}/`) || path === ACCOUNT_DELETED_PATH) return false;
+  // The sign-in landing only reads; each side it opens is gated where it lives.
+  if (path === CONTINUE_AS_PATH || path === `${CONTINUE_AS_PATH}/`) return false;
   return isAccountPath(path) || path === INVITE_PATH || path.startsWith(`${INVITE_PATH}/`);
 };
 
@@ -171,3 +154,144 @@ export const DANCER_GATE_REASON = 'Finish your dancer profile first, then you ca
  * (perf-budgets.json ratchet); selfServe.test.ts pins the two equal.
  */
 export const PROFILE_INCOMPLETE_CODE = 'profile_incomplete';
+
+// ---- Your profiles: the sides a person can be (owner workflow 2026-10-15) ----
+//
+// ONE list, read by the "Continue as..." screen after sign-in, the "Switch
+// profile" sheet (dancer app and organiser area) and every redirect below.
+// Sides today: each organiser the person runs (owner or manager), one entry per
+// organiser, ALWAYS listed first; then their dancer profile. An open organiser
+// access request is not a side (they run nothing yet): the dancer app's
+// Options row links to it.
+
+/** Sign-in with no returnTo lands here: straight on to the one side, or "Continue as...". */
+export const CONTINUE_AS_PATH = '/account/continue';
+/** The dancer app's Home and onboarding (modules/dancer-app/shell/routes, asserted equal in the test). */
+export const APP_HOME_PATH = '/app/home';
+export const APP_WELCOME_PATH = '/app/welcome';
+
+export type SideOrganiser = { id: string; name: string; avatar_url: string | null };
+
+export type SidesFacts = {
+  /** organiser_home_v1's organisers. undefined while loading, null when the read failed. */
+  organisers: readonly SideOrganiser[] | null | undefined;
+  /** completenessFact(...).kind, or 'loading'. */
+  dancer: DancerFactKind | 'loading';
+  /** The dancer-area gate (useDancerArea): undefined while loading; a failed read is false (closed). */
+  areaAllowed: boolean | undefined;
+  /** The dancer's own name and photo when read (the dancer app's my-dancer-edit cache); null when unknown. */
+  dancerFace?: { firstName: string | null; avatarUrl: string | null } | null;
+};
+
+export type ProfileSide =
+  | { kind: 'organiser'; key: string; organiserId: string; name: string; avatarUrl: string | null; to: string }
+  | { kind: 'dancer'; key: 'dancer'; firstName: string | null; avatarUrl: string | null; to: string };
+
+export type SidesState = { status: 'loading' } | { status: 'failed' } | { status: 'ready'; sides: ProfileSide[] };
+
+/**
+ * Where the dancer side opens: the dancer app when the gate lets the person in
+ * (onboarding while the profile is unfinished), else today's dancer home -- a
+ * closed gate never strands anyone.
+ */
+export const dancerSidePath = (dancer: 'complete' | 'incomplete', areaAllowed: boolean): string =>
+  !areaAllowed ? DANCER_HOME_PATH : dancer === 'incomplete' ? APP_WELCOME_PATH : APP_HOME_PATH;
+
+/**
+ * The person's sides. A dancer side exists for a finished or unfinished dancer
+ * profile; none for no profile (no row, or an archived one). The organiser home
+ * shows every organiser at once; with more than one, each button carries ?o=
+ * (the key the organiser pages read) so the switcher can tick the one tapped.
+ */
+export const profileSides = (f: SidesFacts): SidesState => {
+  if (f.organisers === undefined || f.dancer === 'loading' || f.areaAllowed === undefined) return { status: 'loading' };
+  if (f.organisers === null || f.dancer === 'unknown') return { status: 'failed' };
+  const many = f.organisers.length > 1;
+  const sides: ProfileSide[] = f.organisers.map((o) => ({
+    kind: 'organiser',
+    key: `organiser:${o.id}`,
+    organiserId: o.id,
+    name: o.name,
+    avatarUrl: o.avatar_url,
+    to: many ? `${ORGANISER_HOME_PATH}?o=${encodeURIComponent(o.id)}` : ORGANISER_HOME_PATH,
+  }));
+  if (f.dancer === 'complete' || f.dancer === 'incomplete') {
+    sides.push({
+      kind: 'dancer',
+      key: 'dancer',
+      firstName: f.dancerFace?.firstName ?? null,
+      avatarUrl: f.dancerFace?.avatarUrl ?? null,
+      to: dancerSidePath(f.dancer, f.areaAllowed),
+    });
+  }
+  return { status: 'ready', sides };
+};
+
+export type SignInLanding = { kind: 'wait' } | { kind: 'go'; to: string } | { kind: 'choose'; sides: ProfileSide[] };
+
+/**
+ * After sign-in: an explicit returnTo (a link the person followed) always wins;
+ * one side -> straight there; two or more -> "Continue as..." (every sign-in, no
+ * "remember"); no side at all (admin-only, or no dancer profile) -> the site
+ * home, as before. A failed read cannot prove the sides: /account decides, with
+ * its own error card.
+ */
+export const signInLanding = (f: SidesFacts, returnTo: string | null): SignInLanding => {
+  if (returnTo) return { kind: 'go', to: returnTo };
+  const state = profileSides(f);
+  if (state.status === 'loading') return { kind: 'wait' };
+  if (state.status === 'failed') return { kind: 'go', to: ACCOUNT_HOME_PATH };
+  if (state.sides.length === 0) return { kind: 'go', to: '/' };
+  if (state.sides.length === 1) return { kind: 'go', to: state.sides[0].to };
+  return { kind: 'choose', sides: state.sides };
+};
+
+/** Which area the switcher is drawn in; the organiser area passes its ?o= (null when absent). */
+export type SwitcherWhere = { area: 'dancer' } | { area: 'organiser'; organiserId: string | null };
+
+/**
+ * The "Switch profile" sheet: every side, with a tick on the current one. In the
+ * organiser area that is the organiser named by ?o=, or the only organiser.
+ */
+export const switcherItems = (sides: readonly ProfileSide[], where: SwitcherWhere): Array<ProfileSide & { current: boolean }> => {
+  const organisers = sides.filter((s) => s.kind === 'organiser');
+  const tickedOrganiser =
+    where.area !== 'organiser'
+      ? null
+      : (organisers.find((s) => s.kind === 'organiser' && s.organiserId === where.organiserId) ?? (organisers.length === 1 ? organisers[0] : null));
+  return sides.map((s) => ({ ...s, current: where.area === 'dancer' ? s.kind === 'dancer' : s === tickedOrganiser }));
+};
+
+/** The old dancer pages RedirectIfAllowed wraps: /account (resolve), /account/dancer, /finish-profile. */
+export type OldDancerHomeFacts = {
+  view: 'resolve' | 'dancer' | 'finish';
+  /** The dancer-area gate let this person in. */
+  allowed: boolean;
+  legacyParams: boolean;
+  /** undefined = loading, null = the read failed. */
+  organiserCount: number | null | undefined;
+  openRequestCount: number | null | undefined;
+  profile: 'complete' | 'incomplete' | 'no_profile' | 'error' | 'loading' | 'signed_out' | null;
+};
+
+/**
+ * Where an old dancer page sends a person the gate lets in, or null = stay.
+ * - /account/dancer IS the dancer side: anyone allowed goes to the dancer app,
+ *   organisers included (it is what their account menu's dancer entry opened);
+ * - /account and /finish-profile: only when /account would show the dancer home
+ *   (accountHome), proven -- an organiser, an open request, an old organiser
+ *   link, a loading or FAILED organiser read all stay on today's page;
+ * - complete -> Home; incomplete -> onboarding; anything else stays (today's
+ *   Finish screen has the message-us and Try-again paths).
+ */
+export const oldDancerHomeRedirect = (f: OldDancerHomeFacts): string | null => {
+  if (!f.allowed) return null;
+  if (f.view !== 'dancer') {
+    const where = accountHome({ legacyParams: f.legacyParams, organiserCount: f.organiserCount, openRequestCount: f.openRequestCount });
+    if (where !== 'dancer') return null;
+    if (f.organiserCount === null || f.openRequestCount === null) return null;
+  }
+  if (f.profile === 'complete') return APP_HOME_PATH;
+  if (f.profile === 'incomplete') return APP_WELCOME_PATH;
+  return null;
+};

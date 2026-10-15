@@ -224,6 +224,7 @@ exports[`/account entry at '390x844' > /account/o > 'complete dancer' 1`] = `
 {
   "landing": "/account/o",
   "tree": "heading "Welcome" level=1
+button "Your account" [expanded=false]
 text "Signed in"
 text "Your organiser"
 text "Your events"
@@ -555,6 +556,7 @@ exports[`/account entry at 'desktop' > /account/o > 'complete dancer' 1`] = `
 {
   "landing": "/account/o",
   "tree": "heading "Welcome" level=1
+button "Your account" [expanded=false]
 text "Signed in"
 text "Your organiser"
 text "Your events"

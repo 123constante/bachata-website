@@ -9,7 +9,7 @@ import {
   myAccessRequestsQueryKey,
   organiserHomeQueryKey,
 } from '@/modules/organiser/shared/selfServeApi';
-import { allowedRedirectTarget, queryFact } from './redirectModel';
+import { allowedRedirectTarget, oldDancerView, queryFact } from './redirectModel';
 
 /**
  * The organiser half of RedirectIfAllowed, in its own lazy chunk: only an
@@ -33,7 +33,7 @@ const AllowedRedirect = () => {
     organiserCount: queryFact(home, (d) => d.organisers.length),
     openRequestCount: queryFact(requests, (d) => d.filter((r) => r.status === 'open').length),
     profile: gate === null ? null : gate === 'loading' ? 'loading' : gate.status,
-  });
+  }, oldDancerView(pathname));
   return target ? <Navigate to={target} replace /> : null;
 };
 

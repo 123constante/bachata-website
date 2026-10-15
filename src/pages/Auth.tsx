@@ -19,6 +19,7 @@ import {
   callbackErrorCopy,
   isOtpSignupDisabledError,
   isSignupAllowlistRefusal,
+  SIGNED_IN_LANDING_PATH,
 } from "@/lib/auth-otp-routing";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
@@ -79,8 +80,8 @@ const AuthContent = () => {
 
   const explicitReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
   // With organiser self-serve on, a sign-in with no destination lands on
-  // /account (Lever 2 W1) instead of the homepage.
-  const returnTo = explicitReturnTo || (flags.organiserSelfServe ? "/account" : "/");
+  // /account/continue (the person's sides: straight on, or "Continue as...").
+  const returnTo = explicitReturnTo || (flags.organiserSelfServe ? SIGNED_IN_LANDING_PATH : "/");
   const userType = searchParams.get("userType");
   const mode = searchParams.get("mode") || "signup";
 

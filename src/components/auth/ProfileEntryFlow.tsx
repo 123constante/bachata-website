@@ -5,6 +5,7 @@ import { Sparkles, Sun, Calendar, GraduationCap, Camera, ShoppingBag } from "luc
 import { useAuth } from "@/hooks/useAuth";
 
 import { AuthStepper } from "@/components/auth/AuthStepper";
+import { SIGNED_IN_LANDING_PATH } from "@/lib/auth-otp-routing";
 import { AuthFormProvider } from "@/contexts/AuthFormContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -141,7 +142,7 @@ export const ProfileEntryFlow = ({
               <p className="text-sm text-muted-foreground">Let’s keep going.</p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button className="w-full h-11 font-semibold bg-gradient-to-r from-festival-teal to-cyan-400 text-black hover:opacity-95" onClick={() => navigate("/profile")}>
+              <Button className="w-full h-11 font-semibold bg-gradient-to-r from-festival-teal to-cyan-400 text-black hover:opacity-95" onClick={() => navigate(SIGNED_IN_LANDING_PATH)}>
                 Go to my profile
               </Button>
               <Button variant="outline" className="w-full h-11 font-semibold border-festival-teal/35 bg-background/60 hover:bg-festival-teal/12" onClick={() => navigate(returnTo)}>

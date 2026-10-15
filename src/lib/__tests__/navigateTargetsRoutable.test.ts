@@ -27,8 +27,6 @@ const SRC = path.resolve(__dirname, '../..');
 // The three sign-in files (AuthCallback, AuthGuard, ProfileEntryRouter) are
 // deliberately absent, so they can never be added back by accident.
 const KNOWN_UNROUTABLE = new Set([
-  'src/components/auth/AuthStepper.tsx -> /profile',
-  'src/components/auth/ProfileEntryFlow.tsx -> /profile',
   'src/components/profile/DJDashboard.tsx -> /create-event',
   'src/components/profile/DJDashboard.tsx -> /profile',
   'src/components/profile/DancerDashboard.tsx -> /create-dancers-profile',
