@@ -36,6 +36,8 @@ export type Night = {
   /** Where "See event" goes (leaves the app). */
   href: string;
   past: boolean;
+  /** false = the event is no longer listed (series not live): never the hero, never counted or nudged. */
+  listed: boolean;
 };
 
 const NIGHTS_PATH = DANCER_TABS.find((t) => t.id === 'nights')?.path ?? '/app/nights';
@@ -46,12 +48,26 @@ const statusOf = (raw: string): NightStatus => {
   return s === 'going' || s === 'interested' ? s : 'other';
 };
 
-export const statusLabel = (n: Pick<Night, 'status' | 'rawStatus'>): string => {
-  if (n.status === 'going') return 'Going';
-  if (n.status === 'interested') return 'Interested';
-  const r = n.rawStatus;
-  return r ? r[0].toUpperCase() + r.slice(1) : 'Saved';
+/**
+ * Every RSVP status, in words (review S3). The live CHECK on event_attendance.status is
+ * going / interested / not_going (read-only, 2026-10-15); registered / attended /
+ * cancelled are the older vocabulary MyAttendance.tsx still labels. Anything else
+ * says so plainly; no status ever reads "Saved".
+ */
+export const STATUS_LABELS: Readonly<Record<string, string>> = {
+  going: 'Going',
+  interested: 'Interested',
+  not_going: 'Not going',
+  registered: 'Registered',
+  attended: 'Attended',
+  cancelled: 'Cancelled',
 };
+export const STATUS_UNKNOWN = 'Status unknown';
+
+export const statusLabel = (n: Pick<Night, 'status' | 'rawStatus'>): string => STATUS_LABELS[n.rawStatus] ?? STATUS_UNKNOWN;
+
+/** The night counts as a plan: Going or Interested, and the event is still listed. */
+const isPlan = (n: Night): boolean => n.listed && (n.status === 'going' || n.status === 'interested');
 
 export const mapNight = (row: AttendanceRow, todayKey: string): Night => {
   const date = row.occurrence_date && DATE_KEY.test(row.occurrence_date.slice(0, 10)) ? row.occurrence_date.slice(0, 10) : null;
@@ -68,6 +84,7 @@ export const mapNight = (row: AttendanceRow, todayKey: string): Night => {
     href: isFestival ? `/festival/${row.event_id}` : `/event/${row.event_id}`,
     // A night with no date is never "past": it cannot be rated or nudged.
     past: date !== null && date < todayKey,
+    listed: row.is_active !== false,
   };
 };
 
@@ -85,11 +102,11 @@ export const mapNights = (rows: readonly AttendanceRow[], todayKey: string): Map
 
 /** The hero: the next upcoming night the person is Going to or Interested in. */
 export const nextNight = (upcoming: readonly Night[]): Night | null =>
-  upcoming.find((n) => n.date !== null && (n.status === 'going' || n.status === 'interested')) ?? null;
+  upcoming.find((n) => n.date !== null && isPlan(n)) ?? null;
 
 /** Going + Interested upcoming count (the Home tile). */
 export const countCommitted = (upcoming: readonly Night[]): number =>
-  upcoming.filter((n) => n.status === 'going' || n.status === 'interested').length;
+  upcoming.filter(isPlan).length;
 
 export const NUDGE_WINDOW_DAYS = 7;
 
@@ -102,7 +119,7 @@ export const nudgeCandidates = (past: readonly Night[], todayKey: string): Night
   const seen = new Set<string>();
   const out: Night[] = [];
   for (const n of past) {
-    if (n.status !== 'going' || n.isFestival || n.date === null || seen.has(n.seriesId)) continue;
+    if (n.status !== 'going' || !n.listed || n.isFestival || n.date === null || seen.has(n.seriesId)) continue;
     const ago = londonDaysBetweenKeys(n.date, todayKey);
     if (ago < 1 || ago > NUDGE_WINDOW_DAYS) continue;
     seen.add(n.seriesId);
@@ -136,9 +153,9 @@ export const inDaysLabel = (key: string, todayKey: string): string => {
   return `in ${n} days`;
 };
 
-/** "Camden · 21:00" with whatever is known. */
+/** "Camden \u00B7 21:00" with whatever is known. */
 export const placeAndTime = (n: Pick<Night, 'city' | 'time'>): string =>
-  [n.city, n.time].filter(Boolean).join(' · ');
+  [n.city, n.time].filter(Boolean).join(' \u00B7 ');
 
 /** /app/nights with one series focused (the Home nudge's target). */
 export const nightsPath = (focusSeriesId?: string): string =>

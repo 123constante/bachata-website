@@ -10,7 +10,8 @@ import { useMyNights } from './useMyNights';
 
 const rowStyle = { display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 0', borderTop: '1px solid var(--da-border)' } as const;
 
-const NightRow = ({ night, profileComplete, focused, past }: { night: Night; profileComplete: boolean; focused: boolean; past: boolean }) => {
+/** `rate`: this row carries its series' level vote (one per series, review N10: the vote is series-wide). */
+const NightRow = ({ night, profileComplete, focused, rate }: { night: Night; profileComplete: boolean; focused: boolean; rate: boolean }) => {
   const ref = useRef<HTMLLIElement | null>(null);
   useEffect(() => {
     if (focused) ref.current?.scrollIntoView?.({ block: 'center' });
@@ -26,7 +27,12 @@ const NightRow = ({ night, profileComplete, focused, past }: { night: Night; pro
           <StatusPill label={statusLabel(night)} />
         </div>
         <div className="da-muted" style={{ fontSize: 13 }}>{placeAndTime(night) || 'Place to be confirmed'}</div>
-        {past && !night.isFestival && night.status !== 'other' && (
+        {!night.listed && (
+          <div className="da-muted" style={{ fontSize: 13 }} data-testid="night-unlisted">
+            This event is no longer listed.
+          </div>
+        )}
+        {rate && night.listed && !night.isFestival && night.status !== 'other' && (
           <div style={{ marginTop: 6 }}>
             <LevelVote seriesId={night.seriesId} profileComplete={profileComplete} />
           </div>
@@ -68,7 +74,7 @@ const NightsScreen = () => {
             ) : (
               <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                 {nights.upcoming.map((n, i) => (
-                  <NightRow key={`${n.seriesId}-${n.date}-${i}`} night={n} profileComplete={complete} focused={false} past={false} />
+                  <NightRow key={`${n.seriesId}-${n.date}-${i}`} night={n} profileComplete={complete} focused={false} rate={false} />
                 ))}
               </ul>
             )}
@@ -82,7 +88,13 @@ const NightsScreen = () => {
             ) : (
               <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                 {nights.past.map((n, i) => (
-                  <NightRow key={`${n.seriesId}-${n.date}-${i}`} night={n} profileComplete={complete} focused={n === focusedKey} past />
+                  <NightRow
+                    key={`${n.seriesId}-${n.date}-${i}`}
+                    night={n}
+                    profileComplete={complete}
+                    focused={n === focusedKey}
+                    rate={nights.past.findIndex((x) => x.seriesId === n.seriesId) === i}
+                  />
                 ))}
               </ul>
             )}

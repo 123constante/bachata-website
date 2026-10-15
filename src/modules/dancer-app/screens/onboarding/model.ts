@@ -1,4 +1,9 @@
-import type { DanceRole, MyDancerEdit, StrengthStep } from '../../api/types';
+import type { MyDancerEdit, StrengthStep } from '../../api/types';
+import { YEAR_BANDS, yearForBand, type YearBand } from '../../api/nextStep';
+
+// The role chips and the dancing-since bands are the shared ones (api/nextStep.ts, review S2):
+// Onboarding and Edit read the same words and store the same year for the same choice.
+export { ROLE_CHOICES } from '../../api/nextStep';
 
 /** The cards, in the order the mockup shows them. */
 export type Stage = 'name' | 'city' | 'role' | 'photo' | 'in' | 'years' | 'styles' | 'nice';
@@ -56,30 +61,13 @@ export const stageAfterSkip = (profile: Pick<MyDancerEdit, 'strength'>, from: 'y
 export const stageForBoost = (profile: Pick<MyDancerEdit, 'strength'>): Stage =>
   optionalStagesLeft(profile.strength.missing)[0] ?? 'nice';
 
-/** Big role chips; "Both" is the database's 'Lead and Follow'. */
-export const ROLE_CHOICES: ReadonlyArray<{ label: string; value: DanceRole }> = [
-  { label: 'Leader', value: 'Leader' },
-  { label: 'Follower', value: 'Follower' },
-  { label: 'Both', value: 'Lead and Follow' },
-];
-
-/**
- * "How long have you been dancing?" -> dance_started_year. The ONE mapping:
- * the middle of each band, counted back from the current year, so the stored
- * year lands inside the band the person picked.
- */
-export const EXPERIENCE_BANDS = [
-  { id: 'just_started', label: 'Just started', yearsAgo: 0 },
-  { id: 'one_to_three', label: '1 to 3 years', yearsAgo: 2 },
-  { id: 'three_to_six', label: '3 to 6 years', yearsAgo: 4 },
-  { id: 'over_six', label: 'More than 6 years', yearsAgo: 8 },
-] as const;
-export type ExperienceBandId = (typeof EXPERIENCE_BANDS)[number]['id'];
+/** "How long have you been dancing?" -> dance_started_year, through the shared band table. */
+export const EXPERIENCE_BANDS = YEAR_BANDS;
+export type ExperienceBandId = YearBand;
 
 export const startedYearForBand = (id: ExperienceBandId, now: Date = new Date()): number => {
-  const band = EXPERIENCE_BANDS.find((b) => b.id === id);
-  if (!band) throw new Error(`unknown experience band: ${id}`);
-  return now.getFullYear() - band.yearsAgo;
+  if (!YEAR_BANDS.some((b) => b.id === id)) throw new Error(`unknown experience band: ${id}`);
+  return yearForBand(id, now.getFullYear());
 };
 
 /** Display name rule the server enforces (1 to 40 after trim); the server still has the last word. */

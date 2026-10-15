@@ -130,15 +130,15 @@ describe('the whole walk: exact keys per step, meter from the server', () => {
     renderInShell({ path: '/app/welcome', backend });
     await stage('in');
     expect(pct()).toBe('70%');
-    expect(screen.getByTestId('onboarding-in-card').textContent).toContain('You’re in, Ana');
+    expect(screen.getByTestId('onboarding-in-card').textContent).toContain('You\u2019re in, Ana');
     expect(screen.getByTestId('onboarding-in-card').textContent).toContain('Your page is live and Going and Interested are unlocked.');
     await click('Boost to 100%');
     await stage('years');
-    await click('1 to 3 years');
+    await click('1 to 2 years');
     await click('Continue');
     await stage('styles');
     expect(pct()).toBe('80%');
-    expect(last(saves(backend))).toEqual({ dance_started_year: new Date().getFullYear() - 2 });
+    expect(last(saves(backend))).toEqual({ dance_started_year: new Date().getFullYear() - 1 });
     await click('Bachata Sensual');
     await click('Continue');
     await stage('nice');

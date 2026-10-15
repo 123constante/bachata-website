@@ -102,6 +102,8 @@ export const DANCER_SHAPES = {
   emptyStub: { label: 'empty stub (sign-up with nothing filled)', signedIn: true, profile: makeProfile() },
   nameCityOnly: { label: 'name + city only', signedIn: true, profile: makeProfile({ first_name: 'Ana', based_city_id: CITY_LONDON.id }) },
   fourFieldComplete: { label: 'four-field complete (70%)', signedIn: true, profile: makeProfile({ ...FOUR }) },
+  /** Review B1: name, city and role but no photo = 55%, next step `photo` (the step the rebuild hinges on). */
+  noPhoto: { label: 'name + city + role, no photo (55%)', signedIn: true, profile: makeProfile({ ...FOUR, avatar_url: null }) },
   completeAllExtras: {
     label: 'complete + all extras (100%)',
     signedIn: true,
@@ -114,7 +116,8 @@ export const DANCER_SHAPES = {
       bio: 'Social dancer, Thursdays in Soho.',
       instagram: 'ana.dances',
       dance_started_year: 2019,
-      favorite_styles: ['Sensual', 'Dominican'],
+      // Prod-shaped (read-only survey 2026-10-15): one preset spelling, one value off the preset list.
+      favorite_styles: ['Bachata Sensual', 'Bachata Influence'],
       favorite_songs: ['Obsesion'],
       achievements: ['Workshop helper'],
     }),

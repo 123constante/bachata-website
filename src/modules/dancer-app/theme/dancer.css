@@ -133,3 +133,16 @@
 [data-profile="dancer"].dancer-app-loading {
   display: block;
 }
+
+/*
+ * Review S13: the shared hide-surname switch (protected file) sizes its label and help
+ * text in rem (text-sm / text-xs), which the site's ~13.5px phone html font-size turns
+ * into ~12px / ~10px. Inside the dancer app they read at the body size of these screens.
+ */
+[data-profile="dancer"] [data-testid="hide-surname-switch"] label {
+  font-size: 15px;
+}
+[data-profile="dancer"] [data-testid="hide-surname-switch"] p {
+  font-size: 14px;
+  line-height: 1.4;
+}

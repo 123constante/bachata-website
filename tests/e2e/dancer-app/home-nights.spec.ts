@@ -30,7 +30,8 @@ const night = (id: string, name: string, offset: number, status = 'going') => ({
 type Shape = { name: string; profile: Record<string, unknown>; rows: unknown[] };
 const SHAPES: Shape[] = [
   { name: 'empty', profile: PROFILE, rows: [] },
-  { name: 'upcoming-going', profile: { ...PROFILE, avatar_url: null, complete: true, strength: { pct: 70, next_step: 'started_year', missing: ['started_year'] } }, rows: [night('s1', 'Soho Sensual Thursdays', 4), night('s2', 'Camden Social', 9, 'interested')] },
+  // A real 70% shape has a photo (review B1: the old row was 70% with avatar_url null, which the server never returns).
+  { name: 'upcoming-going', profile: { ...PROFILE, avatar_url: 'https://img.example/a.jpg', complete: true, strength: { pct: 70, next_step: 'started_year', missing: ['started_year', 'styles', 'bio_social'] } }, rows: [night('s1', 'Soho Sensual Thursdays', 4), night('s2', 'Camden Social', 9, 'interested')] },
   { name: 'past-unrated-nudge', profile: PROFILE, rows: [night('s3', 'Last Night Party', -1), night('s1', 'Soho Sensual Thursdays', 6)] },
   { name: 'paused-linked', profile: { ...PROFILE, is_active: false, linked_from_admin: true }, rows: [night('s1', 'Soho Sensual Thursdays', 4)] },
 ];

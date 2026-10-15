@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { CityPicker } from '@/components/ui/city-picker';
+import { NationalityPicker } from '@/components/ui/nationality-picker';
 import { HideSurnameSwitch, hideSurnameDisabledReason } from '@/components/profile/HideSurnameSwitch';
 import { FAVORITE_STYLE_OPTIONS } from '@/components/profile/dancerConstants';
 import { toast } from '@/hooks/use-toast';
@@ -29,6 +30,7 @@ import {
 import { useMyDancerEdit, usePutMyDancerEdit } from '../../api/useMyDancerEdit';
 import { Avatar, QueryGate, ghostButton, mainButton } from '../me/ui';
 import { ChipChoice, ChipListInput, Field, TextInput, inputStyle } from './fields';
+import { SAVE_DONE, chipFor, nationalityCodeForPick, styleChipOptions } from './editModel';
 
 type ServerErrors = Partial<Record<FormFieldId, string>>;
 
@@ -84,7 +86,10 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   const [serverErrors, setServerErrors] = useState<ServerErrors>({});
   const [topError, setTopError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const lastDelta = useRef<DancerDelta>({});
+  // The draft a save was sent from: a draft edited while the save was in flight is kept (review S1).
+  const sentDraft = useRef<EditDraft | null>(null);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
   const set = <K extends keyof EditDraft>(key: K, value: EditDraft[K]) => {
     setSaved(false);
     setServerErrors((e) => ({ ...e, [key]: undefined }));
@@ -98,11 +103,13 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
     mutationFn: (d: DancerDelta) => saveMyDancerProfile(d, profile),
     onSuccess: (next) => {
       put(next);
-      setDraft(draftFromProfile(next));
+      // Untouched since it was sent: take the server shape. Edited meanwhile: keep the newer input;
+      // the next delta is computed against the server's new shape, so nothing is sent twice.
+      if (draftRef.current === sentDraft.current) setDraft(draftFromProfile(next));
       setServerErrors({});
       setTopError(null);
       setSaved(true);
-      toast({ title: 'Saved' });
+      toast({ title: SAVE_DONE });
     },
     onError: (err, d) => {
       const placed = placeServerError(err, d);
@@ -115,7 +122,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   // A programmatic submit with an empty delta sends NO request (the button is also disabled).
   const submit = () => {
     if (reason !== null) return;
-    lastDelta.current = delta;
+    sentDraft.current = draft;
     setTopError(null);
     mutation.mutate(delta);
   };
@@ -135,12 +142,12 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   const eligibleWhatsapp = profile.other_roles.length > 0;
   const bandNow = bandForYear(draft.dance_started_year);
   const savedBand = bandForYear(profile.dance_started_year);
-  const styleOptions = useMemo(() => {
-    const base: string[] = [...FAVORITE_STYLE_OPTIONS];
-    for (const s of draft.favorite_styles) if (!base.includes(s)) base.push(s);
-    for (const s of profile.favorite_styles) if (!base.includes(s)) base.push(s);
-    return base.map((s) => ({ value: s, label: s }));
-  }, [draft.favorite_styles, profile.favorite_styles]);
+  const styleChips = useMemo(
+    () => styleChipOptions(FAVORITE_STYLE_OPTIONS, profile.favorite_styles, draft.favorite_styles),
+    [draft.favorite_styles, profile.favorite_styles],
+  );
+  const styleOptions = useMemo(() => styleChips.map((s) => ({ value: s, label: s })), [styleChips]);
+  const selectedStyles = draft.favorite_styles.map((s) => chipFor(styleChips, s));
   const bioLen = draft.bio.length;
 
   return (
@@ -158,7 +165,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
       {topError && (
         <div className="da-card" role="alert" data-testid="edit-top-error" style={{ borderColor: 'var(--da-danger)' }}>
           <p style={{ fontSize: 14, margin: '0 0 8px' }}>{topError}</p>
-          <button type="button" className="da-tap" style={{ ...ghostButton, minHeight: 44 }} onClick={() => mutation.mutate(lastDelta.current)} data-testid="edit-retry">
+          <button type="button" className="da-tap" style={{ ...ghostButton, minHeight: 44 }} onClick={submit} data-testid="edit-retry">
             Try again
           </button>
         </div>
@@ -205,7 +212,9 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
         </Field>
 
         <Field id="nationality" label="Nationality" error={shown('nationality')}>
-          <TextInput id="nationality" value={draft.nationality} maxLength={60} onChange={(v) => set('nationality', v)} error={shown('nationality')} />
+          <div id="nationality">
+            <NationalityPicker value={draft.nationality || undefined} onChange={(pick) => set('nationality', nationalityCodeForPick(pick))} className="min-h-[48px] w-full" />
+          </div>
         </Field>
 
         <Field id="languages" label="Languages" hint="(separate with commas)" error={shown('languages')}>
@@ -229,8 +238,13 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
           <ChipChoice
             id="favorite_styles"
             options={styleOptions}
-            selected={draft.favorite_styles}
-            onToggle={(s) => set('favorite_styles', draft.favorite_styles.includes(s) ? draft.favorite_styles.filter((x) => x !== s) : [...draft.favorite_styles, s])}
+            selected={selectedStyles}
+            onToggle={(s) =>
+              set(
+                'favorite_styles',
+                selectedStyles.includes(s) ? draft.favorite_styles.filter((x) => chipFor(styleChips, x) !== s) : [...draft.favorite_styles, s],
+              )
+            }
           />
         </Field>
 
@@ -307,7 +321,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
           </p>
         )}
         {saved && reason !== null && !mutation.isPending && (
-          <p role="status" data-testid="edit-saved" style={{ fontSize: 14, margin: 0 }}>Saved</p>
+          <p role="status" data-testid="edit-saved" style={{ fontSize: 14, margin: 0 }}>{SAVE_DONE}</p>
         )}
         <Link to="/app/me" className="da-tap" style={ghostButton}>Back to Me</Link>
       </div>

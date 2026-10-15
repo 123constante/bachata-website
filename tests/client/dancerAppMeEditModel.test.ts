@@ -25,7 +25,7 @@ describe('main action and copy follow strength.next_step (one mapping)', () => {
     const a = mainAction(p!);
     const step = p!.strength.next_step;
     if (step === null) expect(a).toMatchObject({ label: 'Edit my profile', href: '/app/me/edit', isEdit: true });
-    else expect(a.label).toBe(NEXT_STEP[step].button);
+    else expect(a.label).toBe(NEXT_STEP[step].label);
     expect(nextStepCopy(p!)).not.toBe('');
   });
   it('photo -> /app/me/photo; city -> edit with the city focused', () => {
@@ -33,15 +33,19 @@ describe('main action and copy follow strength.next_step (one mapping)', () => {
     expect(mainAction(makeProfile({ first_name: 'A' })).href).toBe('/app/me/edit?focus=city');
   });
   it('every strength step has a button', () => {
-    for (const s of STRENGTH_STEPS) expect(NEXT_STEP[s].button.length).toBeGreaterThan(0);
+    for (const s of STRENGTH_STEPS) expect(NEXT_STEP[s].label.length).toBeGreaterThan(0);
   });
 });
 
 describe('name and role/city line', () => {
-  it('display name wins, then first name', () => {
-    expect(profileName({ display_name: 'Ana L', first_name: 'Ana' })).toBe('Ana L');
-    expect(profileName({ display_name: null, first_name: 'Ana' })).toBe('Ana');
-    expect(profileName({ display_name: null, first_name: null })).toBe('No name yet');
+  it('the public rule (review S6): first name + surname, else the display name', () => {
+    const n = (o: Partial<Parameters<typeof profileName>[0]>) =>
+      profileName({ display_name: null, first_name: null, surname: null, hide_surname_publicly: false, ...o });
+    expect(n({ display_name: 'Ana L', first_name: 'Ana' })).toBe('Ana');
+    expect(n({ display_name: 'Ana L' })).toBe('Ana L');
+    expect(n({ first_name: 'Ana', surname: 'Lopez' })).toBe('Ana Lopez');
+    expect(n({ first_name: 'Ana', surname: 'Lopez', hide_surname_publicly: true })).toBe('Ana');
+    expect(n({})).toBe('No name yet');
   });
   it('Leader · London; Both for Lead and Follow', () => {
     expect(roleCityLine({ dance_role: 'Leader', city_name: 'London' })).toBe('Leader · London');

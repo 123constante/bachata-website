@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { diffDelta } from '../../api/delta';
 import { toDancerError } from '../../api/errors';
@@ -31,7 +31,7 @@ const OnboardingCards = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [redirectHome, setRedirectHome] = useState(false);
-  const sent70 = useRef(false);
+
 
   // Decide the starting card ONCE, from the first server shape (adjusting state during render,
   // React's documented pattern); later cards come from save results.
@@ -76,12 +76,8 @@ const OnboardingCards = () => {
     setBusy(true);
     setError(null);
     try {
-      const before = profile.strength.pct;
+      // profile_strength_70 fires inside save() (api/useMyDancerEdit writeMyDancerEdit), on every path.
       const next = await save(diffDelta(profile, delta), profile);
-      if (!sent70.current && before < 70 && next.strength.pct >= 70) {
-        sent70.current = true;
-        trackDancerEvent('profile_strength_70', { pct: next.strength.pct });
-      }
       setStage(stageAfterSave(next, from));
     } catch (err) {
       setError(toDancerError(err).message);
@@ -100,7 +96,7 @@ const OnboardingCards = () => {
 
   return (
     <section data-testid={`onboarding-${stage}`} style={{ ...wrap, maxWidth: 520, margin: '0 auto' }}>
-      <Meter pct={profile.strength.pct} />
+      <Meter strength={profile.strength} />
       {stage === 'in' ? (
         <div style={gradientCard} data-testid="onboarding-in-card">
           <Tag onGradient>{profile.strength.pct}% &middot; you&rsquo;re past the line</Tag>

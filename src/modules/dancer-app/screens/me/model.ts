@@ -1,6 +1,6 @@
 /**
  * W2c: the ONE mapping for every fact the Me and Edit screens both show
- * (name, "Leader · London", the next-step button, the dancing-since bands) and
+ * (name, "Leader \u00B7 London", the next-step button, the dancing-since bands) and
  * every rule the Edit form enforces before it asks the server. Pure functions,
  * no React, so the tests can table-drive them.
  *
@@ -9,7 +9,23 @@
 import { diffDelta } from '../../api/delta';
 // Client-side refusals read the SAME copy the DB's refusal maps to (one mapping, api/errors.ts).
 import { copyFor } from '../../api/errors';
-import type { DancerDelta, DanceRole, MyDancerEdit, SaveKey, StrengthStep } from '../../api/types';
+import type { DancerDelta, DanceRole, MyDancerEdit, SaveKey } from '../../api/types';
+import { EDIT_PATH, NEXT_STEP, nextStepLine, roleLabel, type EditFocus } from '../../api/nextStep';
+import { ownPublicName } from '../../api/publicName';
+
+// The shared vocabulary (api/nextStep.ts, review S2), re-exported for the Me / Edit screens.
+export {
+  EDIT_PATH,
+  NEXT_STEP,
+  PHOTO_PATH,
+  ROLE_CHOICES,
+  YEAR_BANDS,
+  bandForYear,
+  roleLabel,
+  yearForBand,
+  type EditFocus,
+  type YearBand,
+} from '../../api/nextStep';
 
 export const BIO_MAX = 280;
 export const DISPLAY_NAME_MAX = 40;
@@ -18,44 +34,19 @@ export const LIST_ITEM_MAX = 60;
 
 /* ---------- names, role, city: one reading of the profile ---------- */
 
-export const profileName = (p: Pick<MyDancerEdit, 'display_name' | 'first_name'>): string =>
-  p.display_name?.trim() || p.first_name?.trim() || 'No name yet';
+/** The name as the public page shows it (surname-hide rule included): api/publicName.ts, review S6. */
+export const profileName = (p: Pick<MyDancerEdit, 'display_name' | 'first_name' | 'surname' | 'hide_surname_publicly'>): string =>
+  ownPublicName(p);
 
-/** The three role chips. `Both` is what the person reads; the column holds `Lead and Follow`. */
-export const ROLE_CHOICES: ReadonlyArray<{ value: DanceRole; label: string }> = [
-  { value: 'Leader', label: 'Leader' },
-  { value: 'Follower', label: 'Follower' },
-  { value: 'Lead and Follow', label: 'Both' },
-];
-
-export const roleLabel = (role: DanceRole | null): string | null => ROLE_CHOICES.find((r) => r.value === role)?.label ?? null;
-
-/** "Leader · London". Either part may be missing; both missing says so in words. */
+/** "Leader \u00B7 London". Either part may be missing; both missing says so in words. */
 export const roleCityLine = (p: Pick<MyDancerEdit, 'dance_role' | 'city_name'>): string => {
   const parts = [roleLabel(p.dance_role), p.city_name?.trim() || null].filter((x): x is string => Boolean(x));
-  return parts.length > 0 ? parts.join(' · ') : 'Your role and city are not set yet';
+  return parts.length > 0 ? parts.join(' \u00B7 ') : 'Your role and city are not set yet';
 };
 
-/* ---------- the next step: copy + where the button goes ---------- */
+/* ---------- the next step: copy + where the button goes (words: api/nextStep.ts) ---------- */
 
 export type NextStepTarget = { path: string; focus: EditFocus | null };
-export type EditFocus = 'first_name' | 'city' | 'role' | 'year' | 'styles' | 'bio';
-
-export const PHOTO_PATH = '/app/me/photo';
-export const EDIT_PATH = '/app/me/edit';
-
-/** What the main button says and where it goes, per `strength.next_step`. */
-export const NEXT_STEP: Record<StrengthStep, { button: string; sentence: string; path: string; focus: EditFocus | null }> = {
-  first_name: { button: 'Add your first name', sentence: 'Add your first name', path: EDIT_PATH, focus: 'first_name' },
-  city: { button: 'Add your city', sentence: 'Add your city', path: EDIT_PATH, focus: 'city' },
-  role: { button: 'Choose how you dance', sentence: 'Choose whether you lead or follow', path: EDIT_PATH, focus: 'role' },
-  photo: { button: 'Add your photo', sentence: 'Add your photo', path: PHOTO_PATH, focus: null },
-  started_year: { button: 'Add when you started', sentence: 'Add when you started dancing', path: EDIT_PATH, focus: 'year' },
-  styles: { button: 'Pick your styles', sentence: 'Pick your favourite styles', path: EDIT_PATH, focus: 'styles' },
-  bio_social: { button: 'Add a bio and a link', sentence: 'Add a bio and one link', path: EDIT_PATH, focus: 'bio' },
-};
-
-const REQUIRED_STEPS: ReadonlySet<StrengthStep> = new Set(['first_name', 'city', 'role', 'photo']);
 
 export const editHref = (focus: EditFocus | null): string => (focus ? `${EDIT_PATH}?focus=${focus}` : EDIT_PATH);
 
@@ -66,41 +57,11 @@ export const mainAction = (p: Pick<MyDancerEdit, 'strength'>): MeAction => {
   const step = p.strength.next_step;
   if (!step) return { label: 'Edit my profile', href: EDIT_PATH, isEdit: true };
   const s = NEXT_STEP[step];
-  return { label: s.button, href: s.path === EDIT_PATH ? editHref(s.focus) : s.path, isEdit: false };
+  return { label: s.label, href: s.path === EDIT_PATH ? editHref(s.focus) : s.path, isEdit: false };
 };
 
-/** The line under the strength bar. Says what the person CAN do. */
-export const nextStepCopy = (p: Pick<MyDancerEdit, 'strength'>): string => {
-  const step = p.strength.next_step;
-  if (!step) return 'Your profile is complete. You can edit it any time.';
-  const s = NEXT_STEP[step].sentence;
-  return REQUIRED_STEPS.has(step) ? `${s} to reach 70% and unlock Going and Interested.` : `${s} to move towards 100%.`;
-};
-
-/* ---------- dancing since: the four bands, both ways ---------- */
-
-export type YearBand = 'new' | 'one-two' | 'three-five' | 'six-plus';
-
-/** Years of dancing -> band. Age 0 = this year. */
-export const YEAR_BANDS: ReadonlyArray<{ id: YearBand; label: string; years: number }> = [
-  { id: 'new', label: 'This year', years: 0 },
-  { id: 'one-two', label: '1–2 years', years: 1 },
-  { id: 'three-five', label: '3–5 years', years: 4 },
-  { id: 'six-plus', label: '6+ years', years: 8 },
-];
-
-export const bandForYear = (year: number | null, now: number = new Date().getFullYear()): YearBand | null => {
-  if (year === null) return null;
-  const age = Math.max(0, now - year);
-  if (age < 1) return 'new';
-  if (age <= 2) return 'one-two';
-  if (age <= 5) return 'three-five';
-  return 'six-plus';
-};
-
-/** Band -> the year it stands for (representative: 0, 1, 4, 8 years back). */
-export const yearForBand = (band: YearBand, now: number = new Date().getFullYear()): number =>
-  now - (YEAR_BANDS.find((b) => b.id === band)?.years ?? 0);
+/** The line under the strength bar: the SAME words Home and Onboarding show (api/nextStep.ts). */
+export const nextStepCopy = (p: Pick<MyDancerEdit, 'strength'>): string => nextStepLine(p.strength);
 
 /* ---------- parsing ---------- */
 
@@ -263,7 +224,7 @@ export const SAVE_REASON_UNTOUCHED = 'Nothing has changed yet. Edit a field abov
 export const SAVE_REASON_INVALID = 'Fix the fields marked above, then save.';
 
 export const saveDisabledReason = (delta: DancerDelta, errors: Partial<Record<FormFieldId, string>>, saving: boolean): string | null => {
-  if (saving) return 'Saving your changes…';
+  if (saving) return 'Saving your changes\u2026';
   if (Object.keys(errors).length > 0) return SAVE_REASON_INVALID;
   if (Object.keys(delta).length === 0) return SAVE_REASON_UNTOUCHED;
   return null;

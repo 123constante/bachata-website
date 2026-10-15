@@ -111,12 +111,12 @@ describe('Edit: untouched = nothing sent', () => {
 describe('Edit: exact delta keys', () => {
   it('one text change sends exactly that key', async () => {
     const { backend } = await openEdit('completeAllExtras');
-    type('nationality', 'French');
+    type('languages', 'French');
     expect(saveBtn().disabled).toBe(false);
     fireEvent.click(saveBtn());
     await waitFor(() => expect(backend.writes).toBe(1));
-    expect(saves(backend)[0].args).toEqual({ nationality: 'French' });
-    // After save: shape refreshed, "Saved", Save disabled again.
+    expect(saves(backend)[0].args).toEqual({ languages: ['French'] });
+    // After save: shape refreshed, the done line, Save disabled again.
     await waitFor(() => expect(saveBtn().disabled).toBe(true));
     expect(screen.getByTestId('edit-saved')).toBeTruthy();
     expect(screen.getByTestId('edit-save-reason').textContent).toMatch(/Nothing has changed/);
@@ -223,7 +223,7 @@ describe('Edit: WhatsApp (D2)', () => {
     const { backend } = await openEdit(shape);
     expect(screen.queryByTestId('edit-whatsapp')).toBeNull();
     expect(document.getElementById('whatsapp')).toBeNull();
-    type('nationality', 'Chilean');
+    type('languages', 'Spanish');
     fireEvent.click(saveBtn());
     await waitFor(() => expect(backend.writes).toBe(1));
     const sent = saves(backend)[0].args as Record<string, unknown>;
@@ -252,22 +252,22 @@ describe('Edit: errors', () => {
   it('every dancer error code has copy, and a field code appears next to its field', async () => {
     for (const code of DANCER_ERROR_CODES) expect(copyFor(code).length).toBeGreaterThan(10);
     const { backend } = await openEdit('fourFieldComplete');
-    type('nationality', 'French');
+    type('languages', 'French');
     backend.failNextWith('invalid_display_name');
     fireEvent.click(saveBtn());
     expect((await screen.findByTestId('error-display_name')).textContent).toBe(copyFor('invalid_display_name'));
     expect(screen.queryByTestId('edit-top-error')).toBeNull();
   });
-  it('a code the client did not predict shows at the top with Retry, and Retry resends the same delta', async () => {
+  it('a code the client did not predict shows at the top with Retry, and Retry resends the current delta (unchanged form = the same keys)', async () => {
     const { backend } = await openEdit('fourFieldComplete');
-    type('nationality', 'French');
+    type('languages', 'French');
     backend.failNextWith('rate_limited');
     fireEvent.click(saveBtn());
     expect((await screen.findByTestId('edit-top-error')).textContent).toMatch(copyFor('rate_limited'));
     fireEvent.click(screen.getByTestId('edit-retry'));
     await waitFor(() => expect(backend.writes).toBe(1));
     expect(saves(backend)).toHaveLength(2);
-    expect(saves(backend)[1].args).toEqual({ nationality: 'French' });
+    expect(saves(backend)[1].args).toEqual({ languages: ['French'] });
   });
   it('invalid_handle lands under the handle that was sent', async () => {
     const { backend } = await openEdit('fourFieldComplete');

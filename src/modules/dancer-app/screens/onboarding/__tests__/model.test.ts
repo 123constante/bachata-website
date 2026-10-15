@@ -6,10 +6,10 @@ const strength = (missing: string[]) => ({ strength: { pct: 0, next_step: null, 
 describe('experience bands: ONE mapping to dance_started_year', () => {
   const now = new Date('2026-10-15T12:00:00Z');
   it.each([
-    ['just_started', 2026],
-    ['one_to_three', 2024],
-    ['three_to_six', 2022],
-    ['over_six', 2018],
+    ['new', 2026],
+    ['one-two', 2025],
+    ['three-five', 2022],
+    ['six-plus', 2018],
   ] as const)('%s -> %i', (id, year) => expect(startedYearForBand(id, now)).toBe(year));
 
   it('every band lands inside the server range (1950..this year)', () => {

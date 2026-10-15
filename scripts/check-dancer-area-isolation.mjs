@@ -13,10 +13,10 @@
  *   (c) nothing outside the seam files imports from the dancer-app module
  *       (tests are exempt: they exist to import it).
  *
- * The seam and protected lists live in ONE exported constant, RULES, below.
- * THE SOURCE OF TRUTH IS briefs/dancer-rebuild-INTERFACE.md section 5 on branch
- * arc/briefs-dancer-rebuild (Website routes and folders -> "Seams" and
- * "Protected"). If that section changes, change RULES here in the same commit.
+ * The seam and protected lists live in ONE file, scripts/dancer-area-isolation-allowlist.json,
+ * exposed here as RULES. THE SOURCE OF TRUTH IS briefs/dancer-rebuild-INTERFACE.md
+ * section 5 (+ Round-3) on branch arc/briefs-dancer-rebuild; the orchestrator mirrors
+ * the JSON there. Adding a seam is an orchestrator decision, never a code edit here.
  *
  * "Base" is the merge-base of the base ref (default origin/main, override with
  * DANCER_ISOLATION_BASE) and HEAD, so a branch that has fallen behind main is
@@ -39,6 +39,22 @@ import { isEntryPoint } from './lib/entry-point.mjs';
 
 const REPO_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
+/** The ONE copy of the allow-list. Unreadable or malformed = the check cannot measure (exit 2). */
+const ALLOWLIST_FILE = 'dancer-area-isolation-allowlist.json';
+const loadAllowlist = () => {
+  try {
+    const raw = JSON.parse(readFileSync(path.join(REPO_ROOT, 'scripts', ALLOWLIST_FILE), 'utf8'));
+    for (const k of ['docPrefixes', 'seams', 'protected']) {
+      if (!Array.isArray(raw[k]) || !raw[k].every((x) => typeof x === 'string' && x !== '')) throw new Error(`${k} is not a list of paths`);
+    }
+    return raw;
+  } catch (err) {
+    console.error(`dancer-area isolation: could not read scripts/${ALLOWLIST_FILE}: ${err.message}`);
+    process.exit(2);
+  }
+};
+const ALLOWLIST = loadAllowlist();
+
 /**
  * The lists. Mirrors briefs/dancer-rebuild-INTERFACE.md section 5.
  * A trailing `*` in a segment (e.g. RsvpBlock*.tsx) matches any characters in that segment.
@@ -48,57 +64,14 @@ export const RULES = {
   DANCER_APP_DIR: 'src/modules/dancer-app',
   /** Test code is free to change and free to import the module. */
   TEST_PREFIXES: ['tests/'],
-  /** Handover docs the arc's workers must leave (docs/handover/<slice>.md). Not in INTERFACE section 5; see the R0 handover. */
-  DOC_PREFIXES: ['docs/handover/', 'docs/review-pack/'],
-  /** INTERFACE section 5 "Seams" 1-4 and 8: the ONLY existing files the arc may change outside the folder. */
-  SEAMS: [
-    'src/components/AnimatedRoutes.tsx', // 1
-    'src/components/AppChrome.tsx', // 2
-    'src/lib/profileCompletion.ts', // 3
-    'src/components/profile/ProfileCompletionChrome.tsx', // 3 (only if strictly needed)
-    'src/components/catchallClientPaths.ts', // 4
-    'tests/catchallClientPaths.test.ts', // 4
-    'public/robots.txt', // 4
-    'package.json', // 4 (test:e2e spec list; R0: one check script line)
-    'perf-budgets.json', // 4
-    'src/lib/analytics.ts', // 4
-    '.github/workflows/unit-tests.yml', // 8
-    'scripts/check-dancer-area-isolation.mjs', // 8
-    // R1a integration brief (owner-ordered, NOT yet in INTERFACE section 5 -- owner question in
-    // docs/handover/dancer-rebuild-r1a.md): step 4 lazy level-rating split, step 5 sandbox
-    // sign-in env, and the TARGETS line prove:entry-point requires for the script above.
-    'src/modules/event-page/bento/BentoPage.tsx', // R1a step 4
-    'playwright.config.ts', // R1a step 5
-    'scripts/prove-entry-point-dispatch.mjs', // 8 (TARGETS registration only)
-  ],
-  /** INTERFACE section 5 "Protected": byte-identical to the base, always. */
-  PROTECTED: [
-    'src/pages/Account.tsx',
-    'src/pages/AuthCallback.tsx',
-    'src/components/account/DancerProfileGate.tsx',
-    'src/components/auth/AuthGuard.tsx',
-    'src/components/account/DancerHome.tsx',
-    'src/pages/FinishProfile.tsx',
-    'src/components/profile/DancerDashboard.tsx',
-    'src/pages/EditProfile.tsx',
-    'src/components/EventAttendanceButtons.tsx',
-    'src/hooks/useAttendance.ts',
-    'src/modules/event-page/hooks/useOccurrenceRsvp.ts',
-    'src/pages/AccountSettings.tsx',
-    'src/lib/accountSettings.ts',
-    'src/hooks/useMyProfileVisibility.ts',
-    'src/components/profile/HideSurnameSwitch.tsx',
-    'src/components/account/HideSurnameCard.tsx',
-    'src/lib/publicDancerNames.ts',
-    'src/pages/PracticePartners.tsx',
-    'app/routes/sitemap.tsx',
-    'src/pages/Auth.tsx',
-    'src/components/auth/AuthStepper.tsx',
-    'src/pages/DancerProfile.tsx',
-    'app/routes/dancers.tsx',
-    'src/modules/event-page/bento/blocks/RsvpBlock*.tsx',
-    'src/pages/FestivalHub.tsx',
-  ],
+  /**
+   * The allow-list (doc prefixes, SEAMS, PROTECTED) lives in ONE place, the JSON file
+   * below (review S10): this script names no allowed path in code, and
+   * tests/client/dancerAppReviewFixes.test.ts fails if it starts to.
+   */
+  DOC_PREFIXES: ALLOWLIST.docPrefixes,
+  SEAMS: ALLOWLIST.seams,
+  PROTECTED: ALLOWLIST.protected,
   /** Rule (b): import specifiers (last path segment) the dancer-app folder must never use. */
   FORBIDDEN_IMPORTS: [
     'DancerDashboard',

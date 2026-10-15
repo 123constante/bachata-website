@@ -27,6 +27,7 @@ import { setFakeBackend } from '../api/rpc';
 import { createFakeBackend, type FakeBackendOptions, type FakeDancerBackend } from '../api/fakeBackend';
 import { FAKE_USER_ID } from '../api/fixtures';
 import { setDancerAnalyticsUser } from '../analytics/events';
+import { resetStrength70ForTests } from '../api/useMyDancerEdit';
 import { RedirectIfAllowed } from '../gate/RedirectIfAllowed';
 import { DancerAppRoutes } from './DancerAppRoutes';
 import { setTestUser, type TestUser } from './testAuth';
@@ -149,4 +150,5 @@ export const resetShell = (): void => {
   setFakeBackend(null);
   setTestUser(null);
   setDancerAnalyticsUser(null);
+  resetStrength70ForTests();
 };

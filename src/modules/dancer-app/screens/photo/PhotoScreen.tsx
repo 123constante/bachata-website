@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, KeyboardEvent, PointerEvent, WheelEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/hooks/useAuth';
+
 import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
 import { DancerApiError } from '../../api/errors';
 import {
@@ -19,7 +18,7 @@ import {
 import { DecodeError, type DecodedPhoto } from './decodeImage';
 import { photoScreenDeps, returnPathFor } from './photoScreenDeps';
 import { PhotoFlowError, replacePhoto } from './photoFlow';
-import { myDancerEditKey, useMyDancerEdit } from '../../api/useMyDancerEdit';
+import { useMyDancerEdit, usePutMyDancerEdit } from '../../api/useMyDancerEdit';
 
 const BOX = 300; // CSS px of the square crop box
 const NUDGE = 12; // box px per arrow key press
@@ -55,10 +54,10 @@ const GuideOverlay = () => (
 );
 
 const PhotoScreen = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const queryClient = useQueryClient();
+  // The shared cache write: it also fires profile_strength_70 when this photo takes the person across 70 (review S5).
+  const putProfile = usePutMyDancerEdit();
   const profileQuery = useMyDancerEdit();
   const returnTo = returnPathFor(params.get('return'));
 
@@ -205,7 +204,7 @@ const PhotoScreen = () => {
     setPhase('saving');
     try {
       const { profile } = await replacePhoto({ blob, current, uploadedUrl: uploadedUrl.current }, photoScreenDeps.flow);
-      queryClient.setQueryData(myDancerEditKey(user?.id), profile);
+      putProfile(profile);
       navigate(returnTo, { replace: true });
     } catch (err) {
       const stage = err instanceof PhotoFlowError ? err.stage : 'upload';
@@ -348,7 +347,7 @@ const PhotoScreen = () => {
           )}
           <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
             <button type="button" className="da-tap" style={{ ...btn(true), opacity: canUse ? 1 : 0.55 }} disabled={!canUse} onClick={() => void save()} data-testid="photo-use">
-              {phase === 'saving' ? 'Saving…' : failure ? 'Try again' : 'Use this photo'}
+              {phase === 'saving' ? 'Saving\u2026' : failure ? 'Try again' : 'Use this photo'}
             </button>
             <button type="button" className="da-tap" style={btn(false)} disabled={phase === 'saving'} onClick={startOver} data-testid="photo-another">
               Take another

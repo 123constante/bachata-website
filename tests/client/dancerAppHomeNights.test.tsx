@@ -137,7 +137,7 @@ describe('Home x profile shapes', () => {
     home({ backend: { profile: makeProfile({ first_name: 'Ana', based_city_id: CITY_LONDON.id }) } });
     const tile = await screen.findByTestId('tile-strength');
     expect(tile.textContent).toMatch(/40%/);
-    expect(tile.textContent).toMatch(/Pick how you dance/);
+    expect(tile.textContent).toMatch(/Choose how you dance towards 70%/);
   });
 
   it('no profile: message-us copy pointing at Options', async () => {
@@ -251,15 +251,17 @@ describe('Nights', () => {
   });
 
   it('vote: answer, then "You said", then a second vote REPLACES the first (per series)', async () => {
-    h.rows = [row('s1', 'Wk 1', -2), row('s1', 'Wk 1', -9)];
+    h.rows = [row('s1', 'Wk 1', -2), row('s1', 'Wk 1', -9), row('s1', 'Wk 1', -16)];
     nights();
+    await waitFor(() => expect(screen.getAllByTestId('night-row')).toHaveLength(3));
+    // Review N10: the vote is series-wide, so ONE prompt per series (on its most recent past night).
     const votes = await screen.findAllByTestId('level-vote');
-    expect(votes).toHaveLength(2); // two past dates of ONE series
+    expect(votes).toHaveLength(1);
     fireEvent.click(within(votes[0]).getByRole('radio', { name: 'Mixed' }));
-    await waitFor(() => expect(screen.getAllByText('You said: Mixed')).toHaveLength(2)); // both rows: keyed by series
+    await waitFor(() => expect(screen.getAllByText('You said: Mixed')).toHaveLength(1));
     fireEvent.click(screen.getAllByRole('button', { name: 'Change' })[0]);
     fireEvent.click(screen.getAllByRole('radio', { name: 'Strong' })[0]);
-    await waitFor(() => expect(screen.getAllByText('You said: Strong')).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByText('You said: Strong')).toHaveLength(1));
     expect(h.rateCalls).toEqual([['s1', 'mixed'], ['s1', 'strong']]);
     expect(Object.keys(h.votes)).toEqual(['s1']);
   });

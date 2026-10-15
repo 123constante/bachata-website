@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { toDancerError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
+import { ownInitial } from '../../api/publicName';
 
 /** Shared bits of the Me and Edit screens (sizes in px, never rem: the phone html font-size is ~13.5px). */
 
@@ -43,8 +44,14 @@ export const StrengthBar = ({ pct }: { pct: number }) => (
   </div>
 );
 
-export const Avatar = ({ profile, size }: { profile: Pick<MyDancerEdit, 'avatar_url' | 'first_name' | 'display_name'>; size: number }) => {
-  const initial = (profile.display_name || profile.first_name || '?').trim().charAt(0).toUpperCase();
+export const Avatar = ({
+  profile,
+  size,
+}: {
+  profile: Pick<MyDancerEdit, 'avatar_url' | 'first_name' | 'display_name' | 'surname' | 'hide_surname_publicly'>;
+  size: number;
+}) => {
+  const initial = ownInitial(profile);
   const box: CSSProperties = { width: size, height: size, borderRadius: '50%', flex: '0 0 auto', background: 'var(--da-surface-2)' };
   // A URL the browser refuses (a legacy host outside app/csp.ts img-src: 2 prod rows, R1a
   // survey) or that 404s shows the initial, never a broken-image icon.

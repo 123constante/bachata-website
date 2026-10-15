@@ -136,3 +136,133 @@ not gating; a baseline row is an owner/orchestrator call at merge.
 
 PR from `claude/dancer-app-r1a` to main (orchestrator/owner; workers do not open it), then the CI the sandbox
 could not run (live-DB, preview-deploy jobs) and `/code-review` before merge.
+
+## Review fixes (worker dt_368c8ffe2ee6, 2026-10-15)
+
+Brief: `briefs/dancer-rebuild-r1a-fix.md` (arc/briefs-dancer-rebuild @ 0f9dc56). Work list: the independent review
+`docs/handover/dancer-rebuild-r1a-review.md` (arc/dancer-app-r1a-review @ 7176604). Base 3a6aa23. All fixes are in
+ONE commit, `fix(dancer-app): R1a review fixes ... PARTIAL`; this handover rides in the same push.
+
+Red-first: the two new test files were written FIRST and run on the unfixed head 3a6aa23 (only the test files
+added): `tests/client/dancerAppReviewFixes.test.ts` **22 failed / 64 passed**, then
+`tests/client/dancerAppReviewFixesScreens.test.tsx` **19 failed / 1 passed**. Quotes below are from those runs.
+After the fixes: 97/97 and 20/20.
+
+| Finding | Fix (files) | Test that went red on 3a6aa23 -> failure quote |
+|---|---|---|
+| **B1** no-photo shape impossible | `api/fixtures.ts` new `noPhoto` shape (55%, next step photo) joins every table test; `tests/e2e/dancer-app/review-pack.spec.ts` builds every pack shape through `withDerived`, asserts `pct >= 70 <=> complete` and that Home / Me / Onboarding say "Add your photo to reach 70%." on the no-photo shape; `home-nights.spec.ts` 70% row now has a photo | screens: `S2 + B1 ... > noPhoto` -> `Unable to find an element by: [data-testid="tile-strength-next"]` (the shared next-step line did not exist on Home) |
+| **S1** Retry resent a stale delta | `screens/edit/EditScreen.tsx`: Retry calls `submit()` (delta recomputed from the CURRENT draft + server shape); after a save the draft resets to the server shape ONLY if it was not edited while the save was in flight | `S1 ... fail, edit while the error shows, retry` -> `expected { languages: [ 'French' ] } to deeply equal { languages: [ 'French' ], ...(1) }` (the bio typed after the error was dropped) |
+| **S2** three next-step tables, two band tables | NEW `api/nextStep.ts`: `NEXT_STEP` (label + target), `nextStepShort` / `nextStepLine`, `ROLE_CHOICES`, ONE `YEAR_BANDS` table. Home tile (`tile-strength-next`), Me (`me-next-step`) and Onboarding (new `onboarding-next-step` under the meter) render `nextStepLine`; `home/homeCopy.ts` table deleted; `me/model.ts` and `onboarding/model.ts` re-export the shared vocabulary. Bands are now "Just started / 1 to 2 years / 3 to 5 years / 6 years or more" in BOTH screens | screens: 16 shapes `S2 + B1 > <shape>` -> `Unable to find an element by: [data-testid="tile-strength-next"]`; pure: `S2: one next-step table` -> `Cannot find module '@/modules/dancer-app/api/nextStep'`. New: band round-trip test (Onboarding pick reads back as the same Edit band) |
+| **S3** `is_active` ignored, "Saved" fallback | `screens/nights/nightsModel.ts`: `Night.listed` (= `is_active !== false`); unlisted nights are never the hero, never counted, never nudged; `STATUS_LABELS` covers the live CHECK vocabulary (`going`, `interested`, `not_going`) and the older `registered` / `attended` / `cancelled`; anything else reads "Status unknown". `NightsScreen` shows "This event is no longer listed." and no vote on such a row. Edit's done line is "Your changes are live." (was "Saved") | `S3 ... unlisted night` -> `expected { seriesId: 'e1', name: 'Night', ...(8) } to be null`; `status "" reads "Status unknown"` -> `expected 'Saved' to be 'Status unknown'`; `status "not_going"` -> `expected 'Not_going' to be 'Not going'`. New: a source scan that no dancer-app string is "Saved" |
+| **S4** chip toggle twice wrote | `api/delta.ts`: `favorite_styles` compared as a SET (order-insensitive); everything else unchanged | `S4 ... toggling a style off and on again is no change` -> `expected { favorite_styles: [ ...(2) ] } to deeply equal {}` |
+| **S5** `profile_strength_70` missed the photo path | `api/useMyDancerEdit.ts` `writeMyDancerEdit`: the ONE cache write (save, `usePutMyDancerEdit`) fires the event when the cached pct goes from < 70 to >= 70, once per profile per page session; Photo now writes through `usePutMyDancerEdit`; Onboarding's own copy removed | `S5 ... a photo-path cache write (55 -> 70) fires exactly once` -> `expected [] to deeply equal [ [ 'profile_strength_70', ...(1) ] ]` (*) |
+| **S6** Me/Edit name ignored surname + hide flag | NEW `api/publicName.ts` `ownPublicName` / `ownInitial`: mirrors `get_public_dancer_names_v1` (`_public_surname_v1`, `_public_display_name_v1`, `_public_person_name_v1`, read from prod) and resolves through `src/lib/publicName.ts renderPublicName`; `me/model.ts profileName` and the Avatar initial use it | `S6 ... shape 0` -> `expected 'Ana' to be 'Ana Lopez'`; `shape 4` (hidden surname, display name only) -> `expected 'Ana Lopez' to be 'Ana'` |
+| **S7** casts at the API boundary | `api/rpc.ts`: `dance_role`, `strength.next_step`, `strength.missing` filtered through `DANCE_ROLES` / `STRENGTH_STEPS`; unknown -> null / dropped + one `console.warn` per value; no casts left | `S7 ... unknown next_step` -> `expected 'bogus' to be null` |
+| **S8** raw Unicode punctuation | every hit in `src/modules/dancer-app` replaced by its JS escape (all were inside string literals or comments) | `S8 ...` 7 files red, e.g. `src/modules/dancer-app/screens/me/model.ts` -> `expected [ ...(6) ] to deeply equal []`. The scan stays as a unit test (not a lint-chain link: `scripts/run-lint-chain.mjs` is outside the seam list) |
+| **S9** event route server HTML unpinned | NEW `tests/ssr/eventLevelBadgeSsr.test.tsx` (node, real `app/routes/event.tsx` + dehydrated state, anonymous): settled HTML carries the event name and exactly one "Dancers rate:" badge; the first pass vs settled pass are byte-identical once the lazy badge slot (and the separately lazy RSVP section) is removed; below threshold no badge | proved able to fail: with `derivedLevel: null` -> `expected '<div role="region" aria-label="Notifi...' to contain 'Dancers rate:'`. Not a bug test: the branch was already right, so there is no "red on 3a6aa23" |
+| **S10** allow-list in code, self-amendable | NEW `scripts/dancer-area-isolation-allowlist.json` (docPrefixes, seams, seamNotes, protected); the script's RULES read it (unreadable/malformed = exit 2, "could not measure"); a test fails if RULES differs from the JSON or names any allowed path in code | `S10 ...` -> `ENOENT: no such file or directory, open '.../scripts/dancer-area-isolation-allowlist.json'` |
+| **S11** stored styles outside the presets | `screens/edit/editModel.ts` `styleChipOptions` / `chipFor`: each stored value shows ONCE, compared trimmed + case-insensitive, so "zouk" selects the "Zouk" preset; the 100% fixture now holds prod-shaped values ("Bachata Sensual", "Bachata Influence") | `S11 ...` -> `Zouk: expected 2 to be 1`. New: every prod `favorite_styles` value from the survey yields exactly one chip |
+| **S12** nationality free text | Edit uses the shared `NationalityPicker` (shows the name); `editModel.ts nationalityCodeForPick` turns the pick back into the ISO code | `S12 ... a stored "ES" reads "Spain"` -> `expected '' to match /Spain/`. e2e (`me-edit.spec.ts`): ES shows Spain, picking France saves `{ nationality: 'FR' }` |
+| **S13** ~10px help text | `theme/dancer.css`: inside the dancer app the shared switch's label reads 15px and its help text / disabled reason 14px (the protected component is untouched) | e2e `me-edit.spec.ts` "hide-surname help text and its disabled reason are at least 13px": NOT RUN (context gate hit before the e2e run): the test is written, not yet executed red or green |
+| **Perf** | `perf-budgets.json` `attribution.baseline.routes` gains the dancer-app row (measured below) | n/a |
+
+(*) The S5 red quote came from the first version of the test, which did not yet publish the analytics identity
+(the probe route sits outside the shell). The unfixed `usePutMyDancerEdit` contained no tracking call at all
+(`git show 3a6aa23:src/modules/dancer-app/api/useMyDancerEdit.ts`), so it cannot pass either way.
+
+
+### STATUS: PARTIAL (owner context gate at 30%; this worker stopped)
+
+Done: every SHOULD-FIX code change (S1-S8, S10-S13), B1 fixtures + pack spec edits, S9 test, N1/N2/N8/N10/N16/N23.
+Green in the sandbox (NODE_PATH= set empty): `tests/client/dancerApp*`, `src/modules/dancer-app`, `tests/catchallClientPaths.test.ts`,
+`tests/regression/today`, `tests/ssr` = 34 files, 1178 tests passed, 0 failed (run before the fixture `noPhoto`
+shape was added: 1161; after: 1178).
+
+CI per-job (sandbox, this worker, before the stop):
+
+| Job | Command | Exit |
+|---|---|---|
+| architecture-guard | PyYAML present; `bin/check-integrity.sh`; `check:legacy-tables`; `check:legacy-program-rpcs`; `lint:architecture`; `AUDIT_STRICT=1 check:images`; image-widths (self-test + guard); plan-hygiene self-test; workflow-artifact-policy (self-test + guard); mojibake self-test; mojibake `git grep`; `prove:entry-point` (self-test + guard) | 0 (all 12) |
+| typecheck | `check:rpc-typing`; `check:wallclock-brand` | 0, 0 |
+| unit-tests / dancer-area-isolation | `--self-test` | 0 (55 cases) |
+| unit-tests / dancer-area-isolation | `npm run check:dancer-area-isolation` | 0 after `git fetch origin main` (the sandbox's stale origin/main made it exit 2 "could not measure" first; a `chmod +x bin/*.sh` mode change was reverted so it is not committed) |
+| unit-tests | `TZ=Europe/London npm run test:unit:offline` | NOT FINISHED (stopped at the gate). WARNING: that full run rewrote 10 `tests/regression/today/__snapshots__` + 1 organiser snapshot in the working tree (the N21 trap); they were restored with `git checkout`, NOT committed. Re-run with care and never commit a snapshot change. |
+| unit-tests | `test:unit:timing`, workflow-lint, db-contract (migration stamps), perf-budget (canaries, build, bundle-budget, first-load-requests, chunk-cycles), `npm run lint` | NOT RUN |
+| e2e-smoke / phone-qa / dancer-app e2e specs / review pack regeneration | | NOT RUN |
+
+### What is left (exact next steps for the next worker, on `claude/dancer-app-r1a`)
+
+1. `git fetch origin main` first (else the isolation check exits 2). Never `chmod +x bin/*.sh` without reverting the mode before commit.
+2. Run the no-secret CI steps above that are NOT RUN; fill the table. `test:unit:offline` with `NODE_PATH=`; afterwards
+   `git status` and `git checkout -- '*.snap'` if any snapshot moved (do not commit snapshot rewrites).
+3. Perf: build with the perf-budget workflow env, `npm run check:bundle-budget`, then add the dancer-app row to
+   `perf-budgets.json` `attribution.baseline.routes` (`firstLoadGzipKB`, `chunks`, `pullers` as measured) with a `//` note.
+4. e2e: `npx playwright test tests/e2e/dancer-app` (the `me-edit.spec.ts` S12 picker test and S13 font-size test are
+   new and UNRUN; show S13 red by running it with the `theme/dancer.css` S13 block removed, then green). Then the
+   `test:e2e` list and phone-qa.
+5. Regenerate the review pack: `REVIEW_PACK_DIR=docs/review-pack/r1a npx playwright test tests/e2e/dancer-app/review-pack.spec.ts --project=chromium`
+   (B1: the seven `*--no-photo.png` shots change; complete-extras edit shot changes for the prod-shaped styles).
+6. 390x844 browser walk on prod-shaped data; `/code-review` per CLAUDE.md; then a final commit whose subject ends
+   `[worker-done dt_368c8ffe2ee6]`.
+
+### NOTEs
+
+| Note | Outcome |
+|---|---|
+| N1 empty delta sent without `current` | FIXED (`api/rpc.ts`: reads the person, sends nothing). Red: `expected [ 'save' ] to not include 'save'` |
+| N2 explicit `undefined` counted as a change | FIXED (`api/delta.ts`). Red: `expected [ 'first_name' ] to deeply equal []` |
+| N3 admin-only codes unmapped | Not changed: deliberate (no Website wrapper calls an admin RPC); recorded here as the INTERFACE deviation the review asked to record |
+| N4 unconfirmed email | Spec gap, not code: needs an orchestrator decision on how the client can tell "unconfirmed" from "unlisted" |
+| N5 fake backend rule gaps | Not done: test-only breadth, no user-visible effect; left for a test-hardening slice |
+| N6 photo delete host / `%2F` | Not done: needs the admin delete function's key semantics confirmed first (admin repo) |
+| N7 5 MB cap on the original | Not done: `src/lib/upload-validation.ts` is outside the seam list (needs an orchestrator decision) |
+| N8 "to reach 70%" on every required step | FIXED via S2: only the last missing required step "reaches" 70%, earlier ones move "towards 70%" (pure test N8) |
+| N9 nudge card wording / window | Not done: copy decision for the owner ("Rate last night's event" for a 3-day-old night) |
+| N10 one vote per past occurrence | FIXED: one vote per series, on its most recent past night (`NightsScreen.tsx`; `dancerAppHomeNights.test.tsx` vote test now pins 1 prompt for 3 past dates of one series) |
+| N11 "Boost to 100%" with bio not asked | Brief-dictated label: for the orchestrator |
+| N12 `first_going_tap` / `first_level_vote` fire nowhere | Not done: conscious 1a gap (W2-SHARED); recorded |
+| N13 disabled-without-reason / rollover | Not done |
+| N14 duplicated error copy | Not done (cosmetic; one copy is in a protected file) |
+| N15 `useDancerArea` ready while auth resolves | Not done: safe behind `AuthGuard`, recorded |
+| N16 bare `/app` not in robots | FIXED: `public/robots.txt` adds `Disallow: /app$` (exact; does not catch `/apps...`) |
+| N17-N25 | Not done except: N23 `me-edit.spec.ts` "a teacher does" now really opens the teacher shape; N24 adds the true no-photo shape (B1), `is_active: false` and every RSVP status (S3), toggle-twice (S4), Retry-after-edit (S1). The rest of N24/N25 (more pack shapes, real-photo shots, 360x640, focus trap) is a separate pack slice |
+
+### Isolation allow-list (S10) -- for the orchestrator to mirror into INTERFACE section 5
+
+`scripts/dancer-area-isolation-allowlist.json` is now the ONLY copy the guard reads. Contents (paths):
+
+- docPrefixes: `docs/handover/`, `docs/review-pack/`
+- seams: `src/components/AnimatedRoutes.tsx`, `src/components/AppChrome.tsx`, `src/lib/profileCompletion.ts`, `src/components/profile/ProfileCompletionChrome.tsx`, `src/components/catchallClientPaths.ts`, `tests/catchallClientPaths.test.ts`, `public/robots.txt`, `package.json`, `perf-budgets.json`, `src/lib/analytics.ts`, `.github/workflows/unit-tests.yml`, `scripts/check-dancer-area-isolation.mjs`, `src/modules/event-page/bento/BentoPage.tsx`, `playwright.config.ts`, `scripts/prove-entry-point-dispatch.mjs`, `scripts/dancer-area-isolation-allowlist.json`
+- protected: `src/pages/Account.tsx`, `src/pages/AuthCallback.tsx`, `src/components/account/DancerProfileGate.tsx`, `src/components/auth/AuthGuard.tsx`, `src/components/account/DancerHome.tsx`, `src/pages/FinishProfile.tsx`, `src/components/profile/DancerDashboard.tsx`, `src/pages/EditProfile.tsx`, `src/components/EventAttendanceButtons.tsx`, `src/hooks/useAttendance.ts`, `src/modules/event-page/hooks/useOccurrenceRsvp.ts`, `src/pages/AccountSettings.tsx`, `src/lib/accountSettings.ts`, `src/hooks/useMyProfileVisibility.ts`, `src/components/profile/HideSurnameSwitch.tsx`, `src/components/account/HideSurnameCard.tsx`, `src/lib/publicDancerNames.ts`, `src/pages/PracticePartners.tsx`, `app/routes/sitemap.tsx`, `src/pages/Auth.tsx`, `src/components/auth/AuthStepper.tsx`, `src/pages/DancerProfile.tsx`, `app/routes/dancers.tsx`, `src/modules/event-page/bento/blocks/RsvpBlock*.tsx`, `src/pages/FestivalHub.tsx`
+
+Note for INTERFACE Round-3: it names `src/pages/BentoPage.tsx`, which does not exist; the real path (and the JSON
+entry) is `src/modules/event-page/bento/BentoPage.tsx`. CODEOWNERS on the script (review S10) is not added: a new
+`.github/CODEOWNERS` is outside the seam list (orchestrator decision).
+
+### Decisions made without asking
+
+- Band labels: "Just started / 1 to 2 years / 3 to 5 years / 6 years or more" with Edit's stored years (0/1/4/8 back):
+  Onboarding's old "1 to 3 years" stored 2 years back, which Edit read as "1-2 years"; one table now.
+- Me shows `nextStepLine` (same words as Home and Onboarding) plus a separate line "Going and Interested unlock at
+  70%." while incomplete; the main button keeps the short label.
+- The name rule follows the PUBLIC page exactly: with a first name set, a display name is NOT what the public sees
+  (`_public_person_name_v1` prefers first name + surname), so Me/Edit no longer show the display name in that case.
+- Unlisted nights stay in the lists (with "This event is no longer listed.") rather than being hidden.
+- `favorite_styles` is diffed as a set; `favorite_songs` / `achievements` / `languages` keep in-order compare.
+- Done copy after a save: "Your changes are live." (the banned word was "Saved").
+- `robots.txt`: `Disallow: /app$` instead of `Disallow: /app` (which would also match any `/app...` prefix).
+
+### Observed, not in scope
+
+- `get_my_event_attendance_v2.start_time` is a `timestamptz` (live definition, read-only), but `mapNight` only
+  accepts `HH:MM...`, so the Nights / Home time is always blank on real data. Needs a London wall-time read; left
+  for the orchestrator (not a review finding).
+- The S9 SSR render of an anonymous upcoming event shows "RSVPs are closed for this event" in the RSVP block
+  (seeded snapshot without attendance data; may be the fixture, may be real: worth a look on main).
+
+### Shapes surveyed (prod `stsdtacfauprzrdebmzg`, read-only, counts only)
+
+- `event_attendance`: 3 rows; status CHECK = going / interested / not_going; going x inactive series past 1,
+  going x live past 1, interested x live past 1 (so `is_active: false` is a REAL shape today).
+- Name rule: bodies of `_public_surname_v1`, `_public_display_name_v1`, `_public_person_name_v1`.
+- `favorite_styles` and `nationality` shapes: from the review's survey (values listed in S11; 18 ISO codes / 149 empty).

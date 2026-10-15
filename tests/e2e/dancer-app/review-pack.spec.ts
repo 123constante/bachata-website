@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
 import { NOW, PHONE, OrganiserFake, json } from '../helpers/organiserFake';
-import { DANCER_SHAPES } from '../../../src/modules/dancer-app/api/fixtures';
+import { DANCER_SHAPES, withDerived } from '../../../src/modules/dancer-app/api/fixtures';
 
 // R1a review pack: every dancer-app screen x six profile shapes at 390x844, MOCKED RPCs (the
 // organiser fake + page.route; no real backend). NOT in `test:e2e`: it only runs when
@@ -25,18 +25,27 @@ const ROWS = [night('s1', 'Soho Sensual Thursdays', 4), night('s2', 'Camden Soci
 
 const base = DANCER_SHAPES.fourFieldComplete.profile!;
 const extras = DANCER_SHAPES.completeAllExtras.profile!;
+// Every shape goes through withDerived (the server's strength rule, mirrored for the fake), so no
+// shape can show a state the server never returns (review B1: the old no-photo shape was 70% with
+// no photo). The long-name shape re-sets city_name AFTER withDerived (display-only field).
 const SHAPES = [
   { name: 'new-stub', profile: DANCER_SHAPES.emptyStub.profile!, rows: [] },
   { name: 'partial', profile: DANCER_SHAPES.nameCityOnly.profile!, rows: [] },
   { name: 'complete-extras', profile: extras, rows: ROWS },
   {
     name: 'long-name-city',
-    profile: { ...extras, first_name: 'Maximiliana-Esperanza', surname: 'Fernandez de la Cruz Villanueva', display_name: null, city_name: 'Llanfairpwllgwyngyll-on-the-Menai-Strait' },
+    profile: {
+      ...withDerived({ ...extras, first_name: 'Maximiliana-Esperanza', surname: 'Fernandez de la Cruz Villanueva', display_name: null }),
+      city_name: 'Llanfairpwllgwyngyll-on-the-Menai-Strait',
+    },
     rows: ROWS,
   },
-  { name: 'no-photo', profile: { ...base, avatar_url: null, complete: false }, rows: [] },
-  { name: 'legacy-photo', profile: { ...base, avatar_url: 'https://legacy-cdn.example.net/uploads/2019/old-photo.jpg' }, rows: ROWS },
+  { name: 'no-photo', profile: withDerived({ ...base, avatar_url: null }), rows: [] },
+  { name: 'legacy-photo', profile: withDerived({ ...base, avatar_url: 'https://legacy-cdn.example.net/uploads/2019/old-photo.jpg' }), rows: ROWS },
 ];
+/** Where each screen shows the next step (the shared api/nextStep.ts sentence). */
+const NEXT_STEP_TESTID: Record<string, string> = { home: 'tile-strength-next', me: 'me-next-step', welcome: 'onboarding-next-step' };
+
 const SCREENS = [
   ['welcome', '/app/welcome'],
   ['home', '/app/home'],
@@ -104,6 +113,12 @@ test.describe('R1a review pack 390x844 (MOCKED RPCs)', () => {
   test.use({ viewport: PHONE });
   const results: Record<string, unknown> = {};
 
+  test('every pack shape is one the server can return (pct >= 70 <=> complete)', () => {
+    for (const shape of SHAPES) expect(shape.profile.strength.pct >= 70, shape.name).toBe(shape.profile.complete);
+    const noPhoto = SHAPES.find((x) => x.name === 'no-photo')!.profile;
+    expect(noPhoto.strength).toMatchObject({ pct: 55, next_step: 'photo' });
+  });
+
   for (const shape of SHAPES) {
     for (const [screen, path] of SCREENS) {
       test(`${screen} x ${shape.name}`, async ({ page }) => {
@@ -112,6 +127,10 @@ test.describe('R1a review pack 390x844 (MOCKED RPCs)', () => {
         await page.waitForLoadState('networkidle');
         await page.screenshot({ path: `${DIR}/${screen}--${shape.name}.png`, fullPage: true });
         results[`${screen}--${shape.name}`] = await measure(page);
+        // B1: the 55% person is told to add a photo, in the same words, on Home, Me and Onboarding.
+        if (shape.name === 'no-photo' && NEXT_STEP_TESTID[screen]) {
+          await expect(page.getByTestId(NEXT_STEP_TESTID[screen])).toHaveText('Add your photo to reach 70%.');
+        }
       });
     }
   }

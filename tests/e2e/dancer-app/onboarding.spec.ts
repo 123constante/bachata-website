@@ -88,7 +88,7 @@ test.describe('onboarding 390x844', () => {
     await shot(page, 'complete-5-in');
     await page.getByTestId('onboarding-boost').click();
     await expect(page.getByTestId('onboarding-years')).toBeVisible();
-    await page.getByRole('radio', { name: '3 to 6 years' }).click();
+    await page.getByRole('radio', { name: '3 to 5 years' }).click();
     await shot(page, 'complete-6-years');
     await page.getByTestId('onboarding-continue').click();
     await expect(page.getByTestId('onboarding-styles')).toBeVisible();

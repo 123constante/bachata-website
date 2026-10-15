@@ -10,7 +10,8 @@ import { countCommitted, inDaysLabel, nextNight, nudgeCandidates, placeAndTime, 
 import { buttonStyle, gradientBg, linkStyle } from '../nights/nightsStyles';
 import { useBrowseHref } from '../nights/useBrowseHref';
 import { useMyNights } from '../nights/useMyNights';
-import { greeting, NEXT_STEP_COPY } from './homeCopy';
+import { greeting } from './homeCopy';
+import { nextStepLine } from '../../api/nextStep';
 import { RateNudge } from './RateNudge';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { WhatsOn } from './WhatsOn';
@@ -113,7 +114,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
             <div style={{ fontSize: 13, fontWeight: 700 }}>Your next night &middot; {inDaysLabel(hero.date, todayKey)}</div>
             <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.15, margin: '4px 0', overflowWrap: 'anywhere' }}>{hero.name}</div>
             <div style={{ fontSize: 14, marginBottom: 10 }}>
-              {[shortDate(hero.date), placeAndTime(hero)].filter(Boolean).join(' · ')} &middot; {statusLabel(hero)}
+              {[shortDate(hero.date), placeAndTime(hero)].filter(Boolean).join(' \u00B7 ')} &middot; {statusLabel(hero)}
             </div>
             <a href={hero.href} style={{ ...buttonStyle, background: '#fff', color: '#1A0F0B' }}>See event</a>
           </>
@@ -121,7 +122,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
           <>
             <div style={{ fontSize: 13, fontWeight: 700 }}>Your next night</div>
             <div style={{ fontSize: 20, fontWeight: 800, margin: '4px 0 10px' }}>
-              {isLoading ? 'Loading…' : isError ? 'We couldn’t load your nights.' : 'No upcoming night yet.'}
+              {isLoading ? 'Loading\u2026' : isError ? 'We couldn\u2019t load your nights.' : 'No upcoming night yet.'}
             </div>
             <a href={browseHref} style={{ ...buttonStyle, background: '#fff', color: '#1A0F0B' }}>Browse what&rsquo;s on</a>
           </>
@@ -135,8 +136,8 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Ring pct={profile.strength.pct} />
           </div>
-          <span style={{ fontSize: 13 }}>
-            {profile.strength.next_step ? NEXT_STEP_COPY[profile.strength.next_step] : 'Your profile is complete'}
+          <span style={{ fontSize: 13 }} data-testid="tile-strength-next">
+            {nextStepLine(profile.strength)}
           </span>
         </Link>
         <div style={soon} data-testid="tile-views">
@@ -183,7 +184,7 @@ const HomeScreen = () => {
   } else if (profile.error || !profile.data) {
     body = (
       <Message>
-        <b>{profile.error instanceof Error ? profile.error.message : 'We couldn’t load your home.'}</b>
+        <b>{profile.error instanceof Error ? profile.error.message : 'We couldn\u2019t load your home.'}</b>
         <div>
           <button type="button" className="da-tap" style={{ ...linkStyle, background: 'none', border: 0 }} onClick={() => void profile.refetch()}>Try again</button>
         </div>

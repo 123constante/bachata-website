@@ -54,6 +54,11 @@ const MeScreen = () => {
           <p data-testid="me-next-step" className="da-muted" style={{ fontSize: 14, margin: '8px 0 0' }}>
             {nextStepCopy(p)}
           </p>
+          {!p.complete && (
+            <p data-testid="me-unlock-note" className="da-muted" style={{ fontSize: 14, margin: '4px 0 0' }}>
+              Going and Interested unlock at 70%.
+            </p>
+          )}
         </div>
 
         <Link to={action.href} className="da-tap" style={mainButton} data-testid="me-main-action">

@@ -1,7 +1,7 @@
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { DancerApiError, codeFromMessage, toDancerError } from './errors';
 import { DANCER_GATE_RPC, backendOverride, fetchGateRaw, type DancerBackend } from './gateRpc';
-import type { DancerDelta, DancerGate, MyDancerEdit, PublicDancerExtras } from './types';
+import { DANCE_ROLES, STRENGTH_STEPS, type DanceRole, type DancerDelta, type DancerGate, type MyDancerEdit, type PublicDancerExtras, type StrengthStep } from './types';
 
 export { setFakeBackend, parseGate, type DancerBackend } from './gateRpc';
 
@@ -37,6 +37,41 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 
+/**
+ * Review S7: a vocabulary value the client does not know (admin renamed or added one)
+ * degrades to the safe default and is logged once per value, never cast through.
+ */
+const warned = new Set<string>();
+const unknownValue = (field: string, value: unknown) => {
+  const key = `${field}:${String(value)}`;
+  if (warned.has(key)) return;
+  warned.add(key);
+  console.warn(`[dancer-app] unknown ${field} from the server: ${JSON.stringify(value)}; using the safe default`);
+};
+const isStep = (v: unknown): v is StrengthStep => (STRENGTH_STEPS as readonly unknown[]).includes(v);
+const isRole = (v: unknown): v is DanceRole => (DANCE_ROLES as readonly unknown[]).includes(v);
+
+const parseRole = (v: unknown): DanceRole | null => {
+  if (v === null || v === undefined || v === '') return null;
+  if (isRole(v)) return v;
+  unknownValue('dance_role', v);
+  return null;
+};
+
+const parseStep = (v: unknown): StrengthStep | null => {
+  if (v === null || v === undefined) return null;
+  if (isStep(v)) return v;
+  unknownValue('strength.next_step', v);
+  return null;
+};
+
+const parseSteps = (v: unknown): StrengthStep[] =>
+  strings(v).filter((s): s is StrengthStep => {
+    if (isStep(s)) return true;
+    unknownValue('strength.missing', s);
+    return false;
+  });
+
 /** my_dancer_edit_v1 / save_my_dancer_profile_v2 -> MyDancerEdit; arrays are never null. */
 export const parseMyDancerEdit = (data: unknown): MyDancerEdit => {
   if (!isRecord(data) || typeof data.profile_id !== 'string') {
@@ -52,7 +87,7 @@ export const parseMyDancerEdit = (data: unknown): MyDancerEdit => {
     hide_surname_publicly: data.hide_surname_publicly === true,
     based_city_id: str(data.based_city_id),
     city_name: str(data.city_name),
-    dance_role: str(data.dance_role) as MyDancerEdit['dance_role'],
+    dance_role: parseRole(data.dance_role),
     nationality: str(data.nationality),
     languages: strings(data.languages),
     bio: str(data.bio),
@@ -73,8 +108,8 @@ export const parseMyDancerEdit = (data: unknown): MyDancerEdit => {
     complete: data.complete === true,
     strength: {
       pct: typeof s.pct === 'number' ? s.pct : 0,
-      next_step: (str(s.next_step) as MyDancerEdit['strength']['next_step']) ?? null,
-      missing: strings(s.missing) as MyDancerEdit['strength']['missing'],
+      next_step: parseStep(s.next_step),
+      missing: parseSteps(s.missing),
     },
   };
 };
@@ -129,7 +164,8 @@ export const dropWhatsappIfNotAllowed = (delta: DancerDelta, person: Pick<MyDanc
 export const saveMyDancerProfile = (delta: DancerDelta, current?: MyDancerEdit): Promise<MyDancerEdit> =>
   wrap(async () => {
     let person = current;
-    if (!person && WHATSAPP_KEYS.some((k) => k in delta)) person = await backend().fetchMyDancerEdit();
+    // Review N1: an empty delta is never sent, with or without `current` (read the person instead).
+    if (!person && (Object.keys(delta).length === 0 || WHATSAPP_KEYS.some((k) => k in delta))) person = await backend().fetchMyDancerEdit();
     const send = person ? dropWhatsappIfNotAllowed(delta, person) : delta;
     if (Object.keys(send).length === 0 && person) return person;
     return backend().saveMyDancerProfile(send);

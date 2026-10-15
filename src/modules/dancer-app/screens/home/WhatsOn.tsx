@@ -52,7 +52,7 @@ export const WhatsOn = ({ hasCity }: { hasCity: boolean }) => {
               <a href={`/event/${e.event_id}`} style={{ color: 'var(--da-text)', minWidth: 0, minHeight: 44, display: 'block' }} data-testid="whats-on-row">
                 <b style={{ display: 'block', fontSize: 15, overflowWrap: 'anywhere' }}>{e.name}</b>
                 <span className="da-muted" style={{ fontSize: 13 }}>
-                  {[e.location, wallClockTimeKey(e.occurrence_starts_at)].filter(Boolean).join(' · ')}
+                  {[e.location, wallClockTimeKey(e.occurrence_starts_at)].filter(Boolean).join(' \u00B7 ')}
                 </span>
               </a>
             </li>

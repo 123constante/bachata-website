@@ -1,25 +1,33 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { nextStepLine } from '../../api/nextStep';
+import type { DancerStrength } from '../../api/types';
 
 /** Small presentational pieces for the onboarding cards. Sizes in px (the phone html font-size trap). */
 
 export const wrap: CSSProperties = { overflowWrap: 'anywhere', wordBreak: 'break-word' };
 
-export const Meter = ({ pct }: { pct: number }) => (
+/** The strength meter, with the SAME next-step sentence Home and Me show (api/nextStep.ts, review S2). */
+export const Meter = ({ strength }: { strength: DancerStrength }) => (
   <div data-testid="onboarding-meter" style={{ marginBottom: 12 }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700 }}>
       <span>Profile strength</span>
-      <span data-testid="onboarding-pct">{pct}%</span>
+      <span data-testid="onboarding-pct">{strength.pct}%</span>
     </div>
     <div
       role="progressbar"
       aria-label="Profile strength"
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-valuenow={pct}
+      aria-valuenow={strength.pct}
       style={{ height: 6, borderRadius: 999, background: 'var(--da-surface-2)', marginTop: 6, overflow: 'hidden' }}
     >
-      <div style={{ width: `${pct}%`, height: '100%', background: 'var(--da-accent)', transition: 'width .2s' }} />
+      <div style={{ width: `${strength.pct}%`, height: '100%', background: 'var(--da-accent)', transition: 'width .2s' }} />
     </div>
+    {strength.next_step ? (
+      <p data-testid="onboarding-next-step" style={{ ...wrap, fontSize: 14, margin: '6px 0 0' }}>
+        {nextStepLine(strength)}
+      </p>
+    ) : null}
   </div>
 );
 
@@ -55,7 +63,7 @@ export const PrimaryButton = ({ children, onClick, disabled, busy, testId }: { c
     data-testid={testId ?? 'onboarding-continue'}
     style={{ ...btn, border: 'none', background: 'var(--da-accent)', color: 'var(--da-on-accent)', opacity: disabled || busy ? 0.55 : 1 }}
   >
-    {busy ? 'Saving…' : children}
+    {busy ? 'Saving\u2026' : children}
   </button>
 );
 

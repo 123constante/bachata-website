@@ -71,17 +71,42 @@ test.describe('me + edit 390x844', () => {
 
   test('a change sends only the changed key, then Save is disabled again', async ({ page }) => {
     const { saves } = await open(page, '/app/me/edit', 'completeAllExtras');
-    await page.locator('#nationality').fill('French');
+    await page.locator('#languages').fill('French');
     await page.getByTestId('edit-save').click();
     await expect(page.getByTestId('edit-saved')).toBeVisible();
-    expect(saves).toEqual([{ nationality: 'French' }]);
+    expect(saves).toEqual([{ languages: ['French'] }]);
     await expect(page.getByTestId('edit-save')).toBeDisabled();
+  });
+
+  // Review S12: nationality is the shared country picker. It shows the name and saves the ISO code.
+  test('nationality shows "Spain" for a stored ES and saves FR when France is picked', async ({ page }) => {
+    const { saves } = await open(page, '/app/me/edit', 'completeAllExtras');
+    const field = page.locator('#nationality');
+    await expect(field).toContainText('Spain');
+    await field.getByRole('combobox').click();
+    await page.getByPlaceholder('Search country...').fill('France');
+    await page.getByRole('option', { name: /France/ }).first().click();
+    await expect(field).toContainText('France');
+    await page.getByTestId('edit-save').click();
+    await expect(page.getByTestId('edit-saved')).toBeVisible();
+    expect(saves).toEqual([{ nationality: 'FR' }]);
+  });
+
+  // Review S13: the shared hide-surname switch's help text and disabled reason read at body size (not ~10px).
+  test('hide-surname help text and its disabled reason are at least 13px at 390 wide', async ({ page }) => {
+    await open(page, '/app/me/edit', 'emptyStub');
+    await expect(page.getByTestId('dancer-screen-edit')).toBeVisible();
+    const sizes = await page.locator('[data-testid="hide-surname-switch"] p').evaluateAll((els) => els.map((el) => parseFloat(getComputedStyle(el).fontSize)));
+    expect(sizes.length).toBe(2); // the help text and the "Add your first name and city first" reason
+    for (const px of sizes) expect(px).toBeGreaterThanOrEqual(13);
   });
 
   test('a pure dancer has no WhatsApp field; a teacher does', async ({ page }) => {
     await open(page, '/app/me/edit', 'fourFieldComplete');
     await expect(page.getByTestId('dancer-screen-edit')).toBeVisible();
     await expect(page.getByTestId('edit-whatsapp')).toHaveCount(0);
-    await page.close();
+    await page.goto('about:blank');
+    await open(page, '/app/me/edit', 'teacherWithWhatsapp');
+    await expect(page.getByTestId('edit-whatsapp')).toBeVisible();
   });
 });
