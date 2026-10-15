@@ -14,6 +14,7 @@ import { greeting, NEXT_STEP_COPY } from './homeCopy';
 import { RateNudge } from './RateNudge';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { WhatsOn } from './WhatsOn';
+import { Avatar } from '../me/ui';
 
 const path = (id: 'nights' | 'me' | 'options') => DANCER_TABS.find((t) => t.id === id)?.path ?? '/app';
 
@@ -65,13 +66,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {profile.avatar_url ? (
-          <img src={profile.avatar_url} alt="" width={52} height={52} style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover' }} />
-        ) : (
-          <div aria-hidden="true" style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--da-surface-2)', display: 'grid', placeItems: 'center', fontWeight: 800 }}>
-            {name[0]?.toUpperCase()}
-          </div>
-        )}
+        <Avatar profile={profile} size={52} />
         <div style={{ minWidth: 0 }}>
           <div className="da-muted" style={{ fontSize: 14 }}>{greeting(new Date().getHours())}</div>
           <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0, overflowWrap: 'anywhere' }}>{name}</h1>

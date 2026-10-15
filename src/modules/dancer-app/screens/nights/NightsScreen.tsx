@@ -20,7 +20,7 @@ const NightRow = ({ night, profileComplete, focused, past }: { night: Night; pro
       <DateBlock dateKey={night.date} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <a href={night.href} style={{ color: 'var(--da-text)', fontWeight: 700, fontSize: 15, overflowWrap: 'anywhere' }}>
+          <a href={night.href} style={{ color: 'var(--da-text)', fontWeight: 700, fontSize: 15, overflowWrap: 'anywhere', display: 'flex', alignItems: 'center', minHeight: 44 }}>
             {night.name}
           </a>
           <StatusPill label={statusLabel(night)} />

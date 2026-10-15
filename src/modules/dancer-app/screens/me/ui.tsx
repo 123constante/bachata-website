@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { toDancerError } from '../../api/errors';
@@ -46,8 +46,11 @@ export const StrengthBar = ({ pct }: { pct: number }) => (
 export const Avatar = ({ profile, size }: { profile: Pick<MyDancerEdit, 'avatar_url' | 'first_name' | 'display_name'>; size: number }) => {
   const initial = (profile.display_name || profile.first_name || '?').trim().charAt(0).toUpperCase();
   const box: CSSProperties = { width: size, height: size, borderRadius: '50%', flex: '0 0 auto', background: 'var(--da-surface-2)' };
-  return profile.avatar_url ? (
-    <img src={profile.avatar_url} alt="" style={{ ...box, objectFit: 'cover' }} data-testid="me-photo" />
+  // A URL the browser refuses (a legacy host outside app/csp.ts img-src: 2 prod rows, R1a
+  // survey) or that 404s shows the initial, never a broken-image icon.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  return profile.avatar_url && failedUrl !== profile.avatar_url ? (
+    <img src={profile.avatar_url} alt="" style={{ ...box, objectFit: 'cover' }} data-testid="me-photo" onError={() => setFailedUrl(profile.avatar_url)} />
   ) : (
     <span
       aria-hidden="true"
