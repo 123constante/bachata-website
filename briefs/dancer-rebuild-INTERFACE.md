@@ -254,3 +254,10 @@ mock the four RPCs with these shapes.
 - **Allowed = confirmed email** on `dancer_area_access` (`email_confirmed_at` set). Sign-in by 8-digit code confirms it.
 - **Flag write paths**: only `admin_dancer_area_set_open_v1` audits and purges; never flip `dancer_area_open` any
   other way (documented in admin `docs/db-contracts.md`; a trigger is a PR A2 item).
+
+## Round-3 addition (orchestrator, 2026-10-15, R1a integration): section 5 isolation allow-list
+The dancer-area isolation check (`scripts/check-dancer-area-isolation.mjs` RULES) also allows these paths outside
+`src/modules/dancer-app/`, each required by the R1a integration brief: `docs/review-pack/**` (review shots),
+`src/pages/BentoPage.tsx` (lazy level-rating children; keeps the event route inside the 0.5 KB rule; it shrank
+3.4 KB gz), `playwright.config.ts` (deterministic sandbox sign-in), `scripts/prove-entry-point-dispatch.mjs`
+(entry-point TARGETS registration). Anything else outside the module still needs an orchestrator decision.
