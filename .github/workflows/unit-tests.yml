@@ -161,3 +161,31 @@ jobs:
             # substitute for the London leg's second pass.
             npx vitest run --no-file-parallelism tests/londonDate.test.ts tests/festivalGridDays.test.ts tests/pinnedDayKeyEdgeTtl.test.ts tests/festivalLoaderEdgeTtl.test.ts tests/seoLandingLoaderEdgeTtl.test.ts tests/homeLoaderEdgeTtl.test.ts src/modules/home-map/__tests__/mapListDerivations.test.ts src/modules/home-map/__tests__/todayLiveStatus.test.ts src/modules/home-map/__tests__/soonestLiveStatusChange.test.ts
           fi
+
+  # Dancer Rebuild R0: the rebuild may change only src/modules/dancer-app/**,
+  # tests, and the named seam files; the protected legacy files must stay
+  # byte-identical to main. The lists live in ONE constant at the top of the
+  # script (mirroring briefs/dancer-rebuild-INTERFACE.md section 5). No secrets,
+  # no database, no npm install: the script is plain node + git. fetch-depth 0
+  # because the check diffs against the merge-base with origin/main. The
+  # self-test breaks every rule on purpose in a throwaway repo, so a check that
+  # cannot fail goes red here first.
+  dancer-area-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Dancer-area isolation self-test (the check can fail)
+        run: node scripts/check-dancer-area-isolation.mjs --self-test
+
+      - name: Dancer-area isolation check
+        run: npm run check:dancer-area-isolation
