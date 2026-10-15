@@ -13,6 +13,10 @@
  *   (c) nothing outside the seam files imports from the dancer-app module
  *       (tests are exempt: they exist to import it).
  *
+ * (a) and (b) run only on a DANCER-AREA PR, one that changes at least one file
+ * under src/modules/dancer-app/; any other PR runs (c) only. The first output
+ * line after the base note names the mode that ran.
+ *
  * The seam and protected lists live in ONE file, scripts/dancer-area-isolation-allowlist.json,
  * exposed here as RULES. THE SOURCE OF TRUTH IS briefs/dancer-rebuild-INTERFACE.md
  * section 5 (+ Round-3) on branch arc/briefs-dancer-rebuild; the orchestrator mirrors
@@ -181,33 +185,42 @@ export const runCheck = ({ root = REPO_ROOT, base = process.env.DANCER_ISOLATION
   } catch (error) {
     return { code: 2, violations, notes: [`COULD NOT MEASURE: git failed (${String(error.stderr || error.message).trim()}).`] };
   }
-  notes.push(`base ${base} @ ${mergeBase.slice(0, 10)}; ${changed.length} changed file(s); ${protectedFiles.length} protected file(s) checked.`);
-
-  // (a) protected files byte-identical; changed files outside the folder / tests / docs must be seams.
-  const changedSet = new Set(changed);
-  for (const file of protectedFiles) {
-    if (changedSet.has(file)) violations.push(`(a) PROTECTED file changed: ${file}`);
-  }
-  const seams = new Set(rules.SEAMS);
-  const protectedSet = new Set(protectedFiles);
-  for (const file of changed) {
-    if (file.startsWith(rules.DANCER_APP_DIR + '/')) continue;
-    if (rules.TEST_PREFIXES.some((p) => file.startsWith(p))) continue;
-    if (rules.DOC_PREFIXES.some((p) => file.startsWith(p))) continue;
-    if (seams.has(file)) continue;
-    if (protectedSet.has(file)) continue; // already reported as protected
-    violations.push(`(a) changed file is neither inside ${rules.DANCER_APP_DIR}/, nor a test, nor a seam: ${file}`);
-  }
-
-  // (b) the folder imports no legacy dancer screen.
-  const forbidden = new Set(rules.FORBIDDEN_IMPORTS);
+  // Rules (a) and (b) police a DANCER-AREA PR (one that changes a file under the folder):
+  // they stop dancer work leaking into the public site. An ordinary site PR (legal pages,
+  // nav) runs rule (c) only, which guards the boundary from both sides (brief
+  // isolation-scope-fix, 2026-10-15). (b) is lossless to skip: it reads only folder files,
+  // and a PR that changes none of them leaves them as the base already passed them.
   const appDir = rules.DANCER_APP_DIR + '/';
-  for (const file of walk(root, rules.DANCER_APP_DIR)) {
-    for (const spec of importSpecifiers(readFileSync(path.join(root, file), 'utf8'))) {
-      const target = resolveSpecifier(spec, file);
-      if (target !== null && (target + '/').startsWith(appDir)) continue; // inside the folder
-      const name = lastSegment(spec);
-      if (forbidden.has(name)) violations.push(`(b) ${file} imports "${spec}" (${name} is off limits to the dancer app)`);
+  const dancerAreaPr = changed.some((f) => f.startsWith(appDir));
+  notes.push(`base ${base} @ ${mergeBase.slice(0, 10)}; ${changed.length} changed file(s); ${dancerAreaPr ? `${protectedFiles.length} protected file(s) checked` : 'protected files not checked'}.`);
+  notes.push(dancerAreaPr ? 'dancer-area PR: rules a+b+c' : 'not a dancer-area PR: rule c only');
+  const seams = new Set(rules.SEAMS);
+
+  if (dancerAreaPr) {
+    // (a) protected files byte-identical; changed files outside the folder / tests / docs must be seams.
+    const changedSet = new Set(changed);
+    for (const file of protectedFiles) {
+      if (changedSet.has(file)) violations.push(`(a) PROTECTED file changed: ${file}`);
+    }
+    const protectedSet = new Set(protectedFiles);
+    for (const file of changed) {
+      if (file.startsWith(rules.DANCER_APP_DIR + '/')) continue;
+      if (rules.TEST_PREFIXES.some((p) => file.startsWith(p))) continue;
+      if (rules.DOC_PREFIXES.some((p) => file.startsWith(p))) continue;
+      if (seams.has(file)) continue;
+      if (protectedSet.has(file)) continue; // already reported as protected
+      violations.push(`(a) changed file is neither inside ${rules.DANCER_APP_DIR}/, nor a test, nor a seam: ${file}`);
+    }
+
+    // (b) the folder imports no legacy dancer screen.
+    const forbidden = new Set(rules.FORBIDDEN_IMPORTS);
+    for (const file of walk(root, rules.DANCER_APP_DIR)) {
+      for (const spec of importSpecifiers(readFileSync(path.join(root, file), 'utf8'))) {
+        const target = resolveSpecifier(spec, file);
+        if (target !== null && (target + '/').startsWith(appDir)) continue; // inside the folder
+        const name = lastSegment(spec);
+        if (forbidden.has(name)) violations.push(`(b) ${file} imports "${spec}" (${name} is off limits to the dancer app)`);
+      }
     }
   }
 
@@ -251,6 +264,8 @@ const buildFixture = (rules) => {
   write(dir, 'src/pages/Other.tsx', 'export const Other = 1;\n');
   write(dir, 'src/pages/Home.tsx', "import { Other } from './Other';\nexport const Home = Other;\n");
   write(dir, 'src/pages/DancerHome.tsx', 'export const DancerHome = 1;\n');
+  write(dir, 'src/pages/Privacy.tsx', 'export const Privacy = 1;\n');
+  write(dir, `${rules.DANCER_APP_DIR}/seed.tsx`, 'export const seed = 1;\n');
   gitIn(dir, 'add', '-A');
   gitIn(dir, 'commit', '-q', '-m', 'base');
   gitIn(dir, 'branch', 'base');
@@ -283,15 +298,41 @@ const selfTest = async () => {
     write(d, `${rules.DANCER_APP_DIR}/screens/me/App.tsx`, "import { P } from './Profile';\n") ,
   );
 
+  // Rules (a)+(b) only run when the PR changes a folder file; `inArea` makes a case one.
+  const inArea = (d) => write(d, `${rules.DANCER_APP_DIR}/x.tsx`, 'export const x = 1;\n');
+  expectExit('not a dancer-area PR: only src/pages/Privacy.tsx changes', 0, (d) => write(d, 'src/pages/Privacy.tsx', 'export const Privacy = 2;\n'), 'not a dancer-area PR: rule c only');
+  expectExit('not a dancer-area PR: a protected file may change', 0, (d) => write(d, 'src/pages/Account.tsx', '// ordinary site edit\n'), 'not a dancer-area PR: rule c only');
+  expectExit('dancer-area PR: the mode line says so', 0, inArea, 'dancer-area PR: rules a+b+c');
+  expectExit('(a) dancer-area PR: src/modules/dancer-app/x.tsx + src/pages/Other.tsx', 1, (d) => {
+    inArea(d);
+    write(d, 'src/pages/Other.tsx', 'export const Other = 2;\n');
+  }, 'src/pages/Other.tsx');
+  expectExit('(a) dancer-area PR: deleting a folder file still counts', 1, (d) => {
+    write(d, 'src/pages/Other.tsx', 'export const Other = 2;\n');
+    rmSync(path.join(d, `${rules.DANCER_APP_DIR}/seed.tsx`));
+  }, 'src/pages/Other.tsx');
+
   for (const entry of rules.PROTECTED) {
     const file = concretePath(entry);
-    expectExit(`(a) protected file edited: ${file}`, 1, (d) => write(d, file, '// tampered\n'), file);
+    expectExit(`(a) protected file edited: ${file}`, 1, (d) => {
+      inArea(d);
+      write(d, file, '// tampered\n');
+    }, file);
   }
-  expectExit('(a) protected file deleted', 1, (d) => rmSync(path.join(d, 'src/pages/Account.tsx')), 'src/pages/Account.tsx');
-  expectExit('(a) protected glob: a sibling RsvpBlock*.tsx edited', 1, (d) => write(d, 'src/modules/event-page/bento/blocks/RsvpBlockPlaceholder.tsx', '// tampered\n'), 'RsvpBlockPlaceholder.tsx');
-  expectExit('(a) non-seam file changed', 1, (d) => write(d, 'src/pages/Other.tsx', 'export const Other = 2;\n'), 'src/pages/Other.tsx');
-  expectExit('(a) non-seam file added', 1, (d) => write(d, 'src/lib/newThing.ts', 'export {};\n'), 'src/lib/newThing.ts');
+  expectExit('(a) protected file deleted', 1, (d) => {
+    inArea(d);
+    rmSync(path.join(d, 'src/pages/Account.tsx'));
+  }, 'src/pages/Account.tsx');
+  expectExit('(a) protected glob: a sibling RsvpBlock*.tsx edited', 1, (d) => {
+    inArea(d);
+    write(d, 'src/modules/event-page/bento/blocks/RsvpBlockPlaceholder.tsx', '// tampered\n');
+  }, 'RsvpBlockPlaceholder.tsx');
+  expectExit('(a) non-seam file added', 1, (d) => {
+    inArea(d);
+    write(d, 'src/lib/newThing.ts', 'export {};\n');
+  }, 'src/lib/newThing.ts');
   expectExit('(a) staged-then-committed change is still seen', 1, (d) => {
+    inArea(d);
     write(d, 'src/pages/Other.tsx', 'export const Other = 3;\n');
     gitIn(d, 'add', '-A');
     gitIn(d, 'commit', '-q', '-m', 'sneaky');
@@ -306,6 +347,7 @@ const selfTest = async () => {
   expectExit('(b) re-export', 1, (d) => write(d, `${rules.DANCER_APP_DIR}/shell/App.tsx`, "export { default } from '@/pages/EditProfile';\n"), 'EditProfile');
   expectExit('(b) index barrel of a legacy screen', 1, (d) => write(d, `${rules.DANCER_APP_DIR}/shell/App.tsx`, "import X from '@/components/account/DancerHome/index';\n"), 'DancerHome');
 
+  expectExit('(c) not a dancer-area PR: src/pages/Other.tsx imports src/modules/dancer-app/x', 1, (d) => write(d, 'src/pages/Other.tsx', "import { x } from '@/modules/dancer-app/x';\n"), 'src/pages/Other.tsx');
   expectExit('(c) a page imports the module (alias)', 1, (d) => write(d, 'src/pages/Home.tsx', "import { A } from '@/modules/dancer-app/shell/App';\n"), 'src/pages/Home.tsx');
   expectExit('(c) a page imports the module (relative)', 1, (d) => write(d, 'src/pages/Home.tsx', "import { A } from '../modules/dancer-app/shell/App';\n"), 'src/pages/Home.tsx');
   expectExit('(c) a page imports the module (dynamic)', 1, (d) => write(d, 'src/pages/Home.tsx', "const A = () => import('@/modules/dancer-app');\n"), 'src/pages/Home.tsx');
