@@ -83,6 +83,7 @@ Verified: pure crop maths and EXIF corners (all eight orientations, pixel sample
 ## What is left for the orchestrator
 
 1. Add `tests/e2e/dancer-app/photo.spec.ts` to `package.json` `test:e2e` by name.
-2. Confirm or fix the `storage-delete-object` body in `photoFlow.ts` (`deleteOwnPhoto`).
+2. ~~Confirm or fix the `storage-delete-object` body~~ **RESOLVED (w2d-fix).** `deleteOwnPhoto(url, uid)` now sends `{ keys: [key] }` only, where `keyFromPublicUrl(url, uid)` returns the URL pathname (no leading `/`) iff it starts with `avatars/u/<uid>/`, else null (skip, warn once, nothing sent). `uid` = `current.user_id`; `deleteOld` now takes `(url, uid)`; still runs after a successful save, errors swallowed. Not done: brief point 3 (reuse the `key` from sign-upload) because `uploadToR2` returns only the URL and is not mine to change; the key is re-derived from the URL, which is equivalent (`publicUrl = https://<domain>/<key>`).
+   Red-first: new `__tests__/photoDelete.test.ts` (10 tests) run against the unfixed code: 8 failed, e.g. `own-prefix URL -> keys sent`: expected `invoke('storage-delete-object', { body: { keys: [...] } })`, received `{ bucket: 'avatars', publicUrl }`; and every `nothing sent` row failed because the old code sent the foreign/malformed URL. After the fix: photo folder 82/82, build PASS, no tsc errors in the photo folder. Still not verified against the deployed function.
 3. Swap `useMyDancerEdit.ts` for W1's hook when it lands.
 4. Re-measure `perf-budgets.json` (dancer-app row) with all five screens in.

@@ -15,7 +15,7 @@ import type { MyDancerEdit } from '../../api/types';
 export type PhotoFlowDeps = {
   upload: (blob: Blob) => Promise<string>;
   save: (url: string, current: MyDancerEdit) => Promise<MyDancerEdit>;
-  deleteOld: (url: string) => Promise<void>;
+  deleteOld: (url: string, uid: string) => Promise<void>;
   log: (message: string, detail?: unknown) => void;
 };
 
@@ -59,7 +59,7 @@ export const replacePhoto = async (
   const previous = input.current.avatar_url;
   if (previous && previous !== url) {
     try {
-      await deps.deleteOld(previous);
+      await deps.deleteOld(previous, input.current.user_id);
     } catch (err) {
       // The save already succeeded; an orphaned old object is harmless. Never surfaced.
       deps.log('dancer-app photo: old object not deleted', err);
@@ -69,14 +69,35 @@ export const replacePhoto = async (
 };
 
 /**
- * storage-delete-object, called through the same supabase client uploadToR2 uses.
- * The site has no other caller of it (docs/briefs/storage-callers-handover.md), so
- * the request body is the one NOT verified against the deployed function; the
- * server refuses anything outside the caller's own prefix (403 not_owner), and the
- * flow swallows that.
+ * The storage key (`<bucket>/<path>`, what storage-sign-upload returns) for a public
+ * URL, only when it sits under this person's own upload prefix `avatars/u/<uid>/`.
+ * Anything else (admin-uploaded, legacy, another user's, malformed) is null: the
+ * function refuses a whole batch if one key is foreign, so such a key is never sent.
  */
-export const deleteOwnPhoto = async (publicUrl: string): Promise<void> => {
-  const { error } = await supabase.functions.invoke('storage-delete-object', { body: { bucket: 'avatars', publicUrl } });
+export const keyFromPublicUrl = (url: string | null | undefined, uid: string): string | null => {
+  if (!url || !uid) return null;
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return null;
+  }
+  const key = pathname.replace(/^\/+/, '');
+  return key.startsWith(`avatars/u/${uid}/`) && key.length > `avatars/u/${uid}/`.length ? key : null;
+};
+
+/**
+ * storage-delete-object accepts ONLY `{ keys: string[] }` and lets a non-admin delete
+ * keys under its own prefix. Sends nothing when the old photo is not the person's own.
+ * Errors still throw; the flow swallows them (the save already succeeded).
+ */
+export const deleteOwnPhoto = async (publicUrl: string, uid: string): Promise<void> => {
+  const key = keyFromPublicUrl(publicUrl, uid);
+  if (!key) {
+    console.warn('dancer-app photo: old photo is not under the own upload prefix; not deleted');
+    return;
+  }
+  const { error } = await supabase.functions.invoke('storage-delete-object', { body: { keys: [key] } });
   if (error) throw error;
 };
 
