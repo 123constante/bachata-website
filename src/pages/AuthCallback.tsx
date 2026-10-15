@@ -17,11 +17,9 @@ import {
   isDanceRoleValue,
   isFirstSignIn,
   landingPathAfterAuth,
-  needsOrganiserLookup,
   normalizeLandingRole,
   shouldHonorReturnTo,
 } from "@/lib/auth-otp-routing";
-import { fetchOrganiserHome } from "@/modules/organiser-self-serve/selfServeApi";
 
 const VALID_ROLES: Record<string, string> = {
   organiser: "/create-organiser-profile",
@@ -149,22 +147,13 @@ const AuthCallback = () => {
             return;
           }
 
-          // With self-serve on, only organiser-type roles land on /account
-          // (its first run asks "Which organiser are you?"); a dancer goes
-          // home. A sign-in with no role at all (older accounts) goes to
-          // /account only if the user already manages an organiser.
+          // No returnTo: lib/auth-otp-routing decides. A sign-in (and a dancer
+          // sign-up) goes to /account/continue, which reads the person's sides
+          // and goes straight to the only one or shows "Continue as..."; an
+          // organiser-type sign-up goes to the organiser onboarding as before.
           const landingRole = normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type);
-          let managesOrganiser: boolean | null = null;
-          if (needsOrganiserLookup({ organiserSelfServe: flags.organiserSelfServe, role: landingRole })) {
-            try {
-              managesOrganiser = (await fetchOrganiserHome()).organisers.length > 0;
-            } catch {
-              // A failed lookup is not "no organiser": /account handles its own load error.
-              managesOrganiser = null;
-            }
-          }
           navigate(
-            landingPathAfterAuth({ organiserSelfServe: flags.organiserSelfServe, role: landingRole, managesOrganiser }),
+            landingPathAfterAuth({ organiserSelfServe: flags.organiserSelfServe, role: landingRole, isSignup: isSignupFlow }),
             { replace: true },
           );
           localStorage.removeItem("pending_profile_role");

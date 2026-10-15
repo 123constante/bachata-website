@@ -66,7 +66,8 @@ export const FEEDBACK_MESSAGE = "Hi! Feedback on the Bachata Calendar dancer are
 export const HELP_MESSAGE = 'Hi! I need help with my Bachata Calendar dancer profile.';
 
 export const PAUSED_REASON = 'Your page is paused, so this link would not open. Unpause it in Account settings.';
-export const NO_ORGANISER_REASON = 'Organiser tools: not on your account.';
+/** A dancer who runs no events: a quiet way into today's organiser request flow (owner workflow 2026-10-15). */
+export const BECOME_ORGANISER_LABEL = 'Run events? Become an organiser';
 export const SOON_REASON = 'Coming soon.';
 export const TERMS_REASON = 'The terms and privacy pages are not published on the site yet.';
 
@@ -77,7 +78,7 @@ export const optionsRows = (profile: Pick<MyDancerEdit, 'other_roles' | 'is_acti
   rows.push(
     types.organising
       ? { id: 'switch-organiser', label: 'I run events', href: ORGANISER_AREA_PATH }
-      : { id: 'switch-organiser', label: 'Organiser tools', disabledReason: NO_ORGANISER_REASON },
+      : { id: 'switch-organiser', label: BECOME_ORGANISER_LABEL, href: ORGANISER_AREA_PATH },
   );
   if (types.teaching) rows.push({ id: 'switch-teacher', label: 'I teach', disabledReason: `Teacher area: ${SOON_REASON.toLowerCase()}` });
   if (types.djing) rows.push({ id: 'switch-dj', label: 'I DJ', disabledReason: `DJ area: ${SOON_REASON.toLowerCase()}` });

@@ -4,6 +4,7 @@ import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { AlertCircle, ArrowLeft, Calendar, Camera, Check, ChevronDown, GraduationCap, Mail, Music, ShoppingBag, Sparkles, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ import {
   callbackErrorCopy,
   isOtpSignupDisabledError,
   isSignupAllowlistRefusal,
+  SIGNED_IN_LANDING_PATH,
 } from "@/lib/auth-otp-routing";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
@@ -79,8 +81,8 @@ const AuthContent = () => {
 
   const explicitReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
   // With organiser self-serve on, a sign-in with no destination lands on
-  // /account (Lever 2 W1) instead of the homepage.
-  const returnTo = explicitReturnTo || (flags.organiserSelfServe ? "/account" : "/");
+  // /account/continue (the person's sides: straight on, or "Continue as...").
+  const returnTo = explicitReturnTo || (flags.organiserSelfServe ? SIGNED_IN_LANDING_PATH : "/");
   const userType = searchParams.get("userType");
   const mode = searchParams.get("mode") || "signup";
 
@@ -89,6 +91,16 @@ const AuthContent = () => {
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const callbackNotice = mode === "signin" ? callbackErrorCopy(searchParams.get("callbackError")) : null;
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  // Already signed in (e.g. the organiser launch link opened in a browser that
+  // has a session): no sign-up form to fill in again -- straight on to the
+  // link's returnTo, or the signed-in landing. Never once an e-mail was sent or a
+  // send is running: the code step hands over to /auth/callback itself.
+  const { user: signedInUser, isLoading: authLoading } = useAuth();
+  useEffect(() => {
+    if (authLoading || !signedInUser || magicLinkSent || isSubmitting) return;
+    navigate(returnTo, { replace: true });
+  }, [authLoading, signedInUser, magicLinkSent, isSubmitting, navigate, returnTo]);
 
   const [stepDirection, setStepDirection] = useState(1);
   const [step2Touched, setStep2Touched] = useState(false);
