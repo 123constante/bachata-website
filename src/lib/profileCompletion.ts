@@ -167,8 +167,14 @@ export type BannerModel = {
 
 // The account pages state the fact themselves (the dancer home's line, the organiser
 // home's row) and the organiser frame covers the banner anyway: one copy per screen.
+// /app is the dancer area (modules/dancer-app): it has its own onboarding, so the reminder banner never draws over it.
 const BANNER_HIDDEN_ON = (pathname: string) =>
-  pathname === FINISH_PROFILE_PATH || pathname === "/auth" || pathname.startsWith("/auth/") || isAccountPath(pathname);
+  pathname === FINISH_PROFILE_PATH ||
+  pathname === "/auth" ||
+  pathname.startsWith("/auth/") ||
+  isAccountPath(pathname) ||
+  pathname.toLowerCase() === "/app" ||
+  pathname.toLowerCase().startsWith("/app/");
 
 /** The reminder banner. `dismissed` is per page view; it never outlives a navigation. */
 export const bannerModel = (
