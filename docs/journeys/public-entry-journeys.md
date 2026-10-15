@@ -66,6 +66,11 @@ Sign-in lands on `/account/continue`. `signInLanding` sees an unfinished dancer,
 (the sign-up `user_type`), and sends them to `/app/welcome?returnTo=%2Faccount%2Fo`.
 END: `/account/o`.
 
+**`organiser-link-closed-tab-after-required`: the same, but the person finishes the required cards and closes the tab on "You're in".**
+The profile is now finished. Sign-in lands on `/account/continue`. `signInLanding` sees one finished dancer side,
+organiser intent, no organiser and no open request, and sends them to `/account/o` (decision 2).
+END: `/account/o`.
+
 **`organiser-link-magic-link`: the same, but the person opens the e-mailed link in the same browser.**
 The link is `/auth/callback?mode=signup&returnTo=%2Faccount%2Fo`, and the rest is the same as the code step.
 END: `/account/o`.
@@ -144,8 +149,13 @@ account has a dancer profile), and dancer-first gates it onto the Finish screen,
 1. **Every hop carries the onward destination as `?returnTo=`**, including `/finish-profile` to `/app/welcome`,
    and the photo hand-off there and back. A reload keeps it because it lives in the URL, not in storage.
 2. **Closing the tab and signing in again later keeps the organiser intent.** It is read from the sign-up
-   metadata `user_type` (the same reading `landingPathAfterAuth` uses). This only applies while the dancer
-   profile is unfinished and the person runs no organiser. Once finished, a sign-in is a plain sign-in.
+   metadata `user_type` (the same reading `landingPathAfterAuth` uses), and applies while the person runs no
+   organiser. While the dancer profile is unfinished, sign-in resumes onboarding with `returnTo=/account/o`.
+   Once it is finished (the tab closed on "You're in" or on an optional card), sign-in goes straight to
+   `/account/o`, the claim screen, as long as there is also no open organiser request. This is review F2,
+   option (b), chosen by the orchestrator on the owner's behalf (it is the owner's failure shape); the owner can
+   overrule it. Only the landing changes: the dancer side in the switcher still opens the dancer app. A
+   finished dancer without organiser intent, or with an organiser or an open request, signs in as before.
 3. **A signed-in person on `/auth` is sent on** to the link's returnTo, or to `/account/continue`, instead of
    being shown a sign-up form again. This never happens once a code was sent, because the code step hands over
    to `/auth/callback` itself.

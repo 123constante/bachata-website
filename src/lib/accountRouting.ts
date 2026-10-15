@@ -248,6 +248,11 @@ export type SidesFacts = {
    * onboarding and signs in again later still ends on the organiser page.
    */
   organiserIntent?: boolean;
+  /**
+   * Open organiser access requests: undefined while loading, null when the read
+   * failed. Only signInLanding reads it (a request is not a side).
+   */
+  openRequestCount?: number | null;
 };
 
 export type ProfileSide =
@@ -306,6 +311,13 @@ export type SignInLanding = { kind: 'wait' } | { kind: 'go'; to: string } | { ki
  * "remember"); no side at all (admin-only, or no dancer profile) -> the site
  * home, as before. A failed read cannot prove the sides: /account decides, with
  * its own error card.
+ *
+ * One exception (review F2, option (b)): a single FINISHED dancer side whose
+ * account came by the organiser link, with no organiser and no open request,
+ * goes to the organiser claim screen -- the person closed the tab after the
+ * required cards. Only the landing changes; the dancer side's own `to` (the
+ * switcher's entry) still opens the dancer app. A failed request read keeps the
+ * plain landing.
  */
 export const signInLanding = (f: SidesFacts, returnTo: string | null): SignInLanding => {
   if (returnTo) return { kind: 'go', to: returnTo };
@@ -313,7 +325,12 @@ export const signInLanding = (f: SidesFacts, returnTo: string | null): SignInLan
   if (state.status === 'loading') return { kind: 'wait' };
   if (state.status === 'failed') return { kind: 'go', to: ACCOUNT_HOME_PATH };
   if (state.sides.length === 0) return { kind: 'go', to: '/' };
-  if (state.sides.length === 1) return { kind: 'go', to: state.sides[0].to };
+  if (state.sides.length === 1) {
+    const unclaimedOrganiser = state.sides[0].kind === 'dancer' && f.dancer === 'complete' && f.organiserIntent;
+    if (unclaimedOrganiser && f.openRequestCount === undefined) return { kind: 'wait' };
+    if (unclaimedOrganiser && f.openRequestCount === 0) return { kind: 'go', to: ORGANISER_HOME_PATH };
+    return { kind: 'go', to: state.sides[0].to };
+  }
   return { kind: 'choose', sides: state.sides };
 };
 

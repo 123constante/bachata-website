@@ -18,6 +18,8 @@ export type Person = {
   organisers: number;
   /** The sign-up metadata role (Auth.tsx user_type), when the account has one. */
   userType?: string;
+  /** Open organiser access requests. Default 0. */
+  openRequests?: number;
 };
 
 export type Journey = {
@@ -29,7 +31,7 @@ export type Journey = {
   /** For an /auth entry: sign up or sign in (what the form does after the code). */
   auth?: 'signup' | 'signin';
   /** Something that happens half way through onboarding. */
-  midway?: 'reload' | 'closed-tab-then-sign-in' | 'magic-link-same-browser' | 'wrong-code-first' | 'expired-link';
+  midway?: 'reload' | 'closed-tab-then-sign-in' | 'closed-tab-after-required' | 'magic-link-same-browser' | 'wrong-code-first' | 'expired-link';
   /** The END: the path (no query unless it matters), the screen, and the state left behind. */
   end: { path: string; screen: string; state: string };
 };
@@ -64,6 +66,15 @@ export const JOURNEYS: Journey[] = [
     person: { ...NEW, userType: 'organiser' },
     auth: 'signup',
     midway: 'closed-tab-then-sign-in',
+    end: { path: '/account/o', screen: 'organiser claim-your-page (OnboardingView)', state: 'dancer profile complete, no organiser yet' },
+  },
+  {
+    id: 'organiser-link-closed-tab-after-required',
+    title: 'Organiser link, new e-mail, finishes the required cards, closes the tab on "You\'re in", later signs in from the header',
+    entry: ORGANISER_LINK,
+    person: { ...NEW, userType: 'organiser' },
+    auth: 'signup',
+    midway: 'closed-tab-after-required',
     end: { path: '/account/o', screen: 'organiser claim-your-page (OnboardingView)', state: 'dancer profile complete, no organiser yet' },
   },
   {

@@ -98,7 +98,8 @@ const AuthContent = () => {
   // send is running: the code step hands over to /auth/callback itself.
   const { user: signedInUser, isLoading: authLoading } = useAuth();
   useEffect(() => {
-    if (authLoading || !signedInUser || magicLinkSent || isSubmitting) return;
+    // An anonymous session (dev auth bypass) is not a sign-in: keep the form, like every other signed-in check.
+    if (authLoading || !signedInUser || signedInUser.is_anonymous || magicLinkSent || isSubmitting) return;
     navigate(returnTo, { replace: true });
   }, [authLoading, signedInUser, magicLinkSent, isSubmitting, navigate, returnTo]);
 

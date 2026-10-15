@@ -323,7 +323,8 @@ async function photoStep(page: Page, shot: Shot) {
 }
 
 /** Answers every card the server asks for, then presses the end button. Ends from the 'in' card or after the optional ones. */
-async function onboarding(page: Page, shot: Shot, endLabel: string | undefined, endFrom: 'in' | 'nice') {
+/** endFrom 'close': stop on the 'in' card without pressing anything (the tab is about to close). */
+async function onboarding(page: Page, shot: Shot, endLabel: string | undefined, endFrom: 'in' | 'nice' | 'close') {
   let prev: string | null = null;
   for (let i = 0; i < 12; i += 1) {
     const stage = await nextStage(page, prev);
@@ -347,6 +348,8 @@ async function onboarding(page: Page, shot: Shot, endLabel: string | undefined, 
     } else if (stage === 'photo') {
       await photoStep(page, shot);
       prev = null; // back on /app/welcome: a fresh mount
+    } else if (stage === 'in' && endFrom === 'close') {
+      return;
     } else if (stage === 'in' && endFrom === 'in') {
       return pressEnd(page, endLabel);
     } else if (stage === 'in') {
@@ -459,7 +462,19 @@ async function runRow(page: Page, context: BrowserContext, row: Journey, dir: st
       await page.goto('/account/continue');
       await page.waitForURL((u) => isWelcome(u), { timeout: 30_000 });
     }
-    await onboarding(page, shot, end.label, row.midway === 'reload' ? 'in' : 'nice');
+    const afterRequired = row.midway === 'closed-tab-after-required';
+    await onboarding(page, shot, end.label, afterRequired ? 'close' : row.midway === 'reload' ? 'in' : 'nice');
+    if (afterRequired) {
+      await shot('midway-before-close', `required cards done: "You're in" on ${pathQuery(new URL(page.url()))}, the tab is closed`);
+      const tab = await context.newPage();
+      await wire(tab, backend);
+      trailOf(tab, trail);
+      await page.close();
+      page = tab;
+      current = tab;
+      // A later header sign-in with no returnTo lands on /account/continue; the session is kept, so go there.
+      await page.goto('/account/continue');
+    }
   }
 
   const want = row.end.path;

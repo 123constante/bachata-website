@@ -7,6 +7,7 @@ import {
   onboardingEnd,
   onboardingEndLabel,
   onwardReturnTo,
+  profileSides,
   signInLanding,
   type SidesFacts,
 } from '@/lib/accountRouting';
@@ -50,6 +51,7 @@ const sidesFacts = (s: Person): SidesFacts => ({
   dancer: s.dancer === 'none' ? 'no_profile' : s.dancer,
   areaAllowed: true,
   organiserIntent: hasOrganiserIntent(s.userType),
+  openRequestCount: s.openRequests ?? 0,
 });
 
 const walk = (row: Journey): Walk => {
@@ -103,6 +105,10 @@ const walk = (row: Journey): Walk => {
           next = returnPathFor(handoff.searchParams.get('return'));
           st.dancer = 'complete';
         }
+      } else if (midway === 'closed-tab-after-required') {
+        // Required cards done, the tab closed on "You're in" (review F2). They sign in from the header later.
+        midway = undefined;
+        next = afterAuth('/auth?mode=signin', st, 'signin');
       } else {
         // The 'in' card (or the optional cards, then 'nice'): its end button.
         next = onboardingEnd(returnTo);
@@ -195,7 +201,28 @@ describe('organiser intent from the sign-up role', () => {
     expect(hasOrganiserIntent(raw)).toBe(want);
   });
 
-  it('a finished dancer with organiser intent is not pushed anywhere at sign-in (one side: Home)', () => {
-    expect(signInLanding({ organisers: [], dancer: 'complete', areaAllowed: true, organiserIntent: true }, null)).toEqual({ kind: 'go', to: '/app/home' });
+  // Review F2, option (b): a finished dancer who came by the organiser link and has not organised anything yet
+  // lands on the claim screen at sign-in; everyone else is unchanged.
+  const org = [{ id: 'o0', name: 'Org 0', avatar_url: null }];
+  const finished = { dancer: 'complete', areaAllowed: true } as const;
+  it.each([
+    ['intent, no organiser, no open request -> the claim screen', { ...finished, organisers: [], organiserIntent: true, openRequestCount: 0 }, { kind: 'go', to: '/account/o' }],
+    ['intent, closed dancer area -> still the claim screen', { ...finished, areaAllowed: false, organisers: [], organiserIntent: true, openRequestCount: 0 }, { kind: 'go', to: '/account/o' }],
+    ['NO intent -> dancer Home (signin-dancer)', { ...finished, organisers: [], organiserIntent: false, openRequestCount: 0 }, { kind: 'go', to: '/app/home' }],
+    ['intent, an open request -> dancer Home, not the claim screen', { ...finished, organisers: [], organiserIntent: true, openRequestCount: 1 }, { kind: 'go', to: '/app/home' }],
+    ['intent, open requests still loading -> wait', { ...finished, organisers: [], organiserIntent: true, openRequestCount: undefined }, { kind: 'wait' }],
+    ['intent, open requests read failed -> dancer Home', { ...finished, organisers: [], organiserIntent: true, openRequestCount: null }, { kind: 'go', to: '/app/home' }],
+  ] as const)('one finished dancer side, %s', (_name, facts, want) => {
+    expect(signInLanding(facts as SidesFacts, null)).toEqual(want);
+  });
+
+  it('intent, already runs an organiser -> "Continue as..." (signin-both), never the claim screen', () => {
+    const landing = signInLanding({ ...finished, organisers: org, organiserIntent: true, openRequestCount: 0 }, null);
+    expect(landing.kind).toBe('choose');
+  });
+
+  it("the dancer side's own button still opens the dancer app (the switcher's dancer entry)", () => {
+    const state = profileSides({ ...finished, organisers: [], organiserIntent: true, openRequestCount: 0 });
+    expect(state.status === 'ready' && state.sides.map((s) => s.to)).toEqual(['/app/home']);
   });
 });

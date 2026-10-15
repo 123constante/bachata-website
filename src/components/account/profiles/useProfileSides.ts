@@ -54,10 +54,7 @@ export function useProfileSides(): ProfileSidesResult {
     dancerFace: face.data ? { firstName: face.data.first_name, avatarUrl: face.data.avatar_url } : null,
     // The sign-up's role (Auth.tsx writes user_type): an organiser-type sign-up keeps its intent past a closed tab.
     organiserIntent: hasOrganiserIntent(user?.user_metadata?.user_type),
-  };
-  return {
-    facts,
-    state: profileSides(facts),
     openRequestCount: fact(requests, (d) => d.filter((r) => r.status === 'open').length),
   };
+  return { facts, state: profileSides(facts), openRequestCount: facts.openRequestCount };
 }
