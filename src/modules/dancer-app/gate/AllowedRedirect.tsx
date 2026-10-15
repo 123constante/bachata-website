@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ProfileGateContext, useAuth } from '@/hooks/useAuth';
-import { ACCOUNT_HOME_PATH, isLegacyAccountLink } from '@/lib/accountRouting';
+import { ACCOUNT_HOME_PATH, RETURN_TO_PARAM, isLegacyAccountLink } from '@/lib/accountRouting';
 import {
   fetchMyAccessRequests,
   fetchOrganiserHome,
@@ -33,6 +33,8 @@ const AllowedRedirect = () => {
     organiserCount: queryFact(home, (d) => d.organisers.length),
     openRequestCount: queryFact(requests, (d) => d.filter((r) => r.status === 'open').length),
     profile: gate === null ? null : gate === 'loading' ? 'loading' : gate.status,
+    // /finish-profile?returnTo=/account/o (the organiser link, via the gate) carries on into onboarding.
+    returnTo: new URLSearchParams(search).get(RETURN_TO_PARAM),
   }, oldDancerView(pathname));
   return target ? <Navigate to={target} replace /> : null;
 };

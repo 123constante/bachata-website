@@ -12,9 +12,11 @@
  *   unfinished dancer profile reaches none of these pages (see below).
  *
  * Nothing else decides any of it, so the icon, the page, the gate and the menu
- * cannot disagree. Import-free on purpose: GlobalHeader is on every page's
- * first load.
+ * cannot disagree. Imports only lib/authRouting (itself import-free): GlobalHeader
+ * is on every page's first load, and already loads that module.
  */
+
+import { sanitizeReturnTo } from './authRouting';
 
 export const ACCOUNT_HOME_PATH = '/account';
 /** The dancer home for anyone, organisers included (the account menu's dancer entry). */
@@ -170,6 +172,65 @@ export const CONTINUE_AS_PATH = '/account/continue';
 export const APP_HOME_PATH = '/app/home';
 export const APP_WELCOME_PATH = '/app/welcome';
 
+// ---- The onward destination through onboarding (owner decision 2026-10-15) ----
+//
+// The organiser launch link (/auth?mode=signup&userType=organiser&returnTo=/account/o)
+// runs the FULL dancer setup, then lands on the organiser 'claim your page'
+// screen. Its returnTo rides every hop as `?returnTo=`: /auth -> the code step
+// -> /auth/callback -> /account/o's gate -> /finish-profile -> /app/welcome ->
+// the photo screen and back -> the end of onboarding. One explicit returnTo
+// always wins; with none, onboarding ends on the dancer Home, as before.
+// docs/journeys/public-entry-journeys.md walks every row.
+
+/** The query key the onward destination travels under, on /finish-profile and /app/welcome alike. */
+export const RETURN_TO_PARAM = 'returnTo';
+
+/** The pages onboarding itself is made of: never an onward destination (it would loop back into them). */
+const ONBOARDING_PATHS = [APP_WELCOME_PATH, '/finish-profile'];
+
+/**
+ * A returnTo onboarding may carry on to: same-site and relative (sanitizeReturnTo:
+ * no //host, no scheme, no backslash trick, never /auth), and not onboarding itself.
+ */
+export const onwardReturnTo = (raw: string | null | undefined): string | null => {
+  const safe = sanitizeReturnTo(raw ?? null);
+  if (!safe) return null;
+  let path = safe.split(/[?#]/, 1)[0];
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    return null;
+  }
+  path = path.toLowerCase().replace(/\/+$/, '');
+  return ONBOARDING_PATHS.includes(path) ? null : safe;
+};
+
+/**
+ * The account was created for an organiser-type role: sign-up metadata user_type
+ * set and not 'dancer' -- the same reading lib/auth-otp-routing landingPathAfterAuth
+ * gives a sign-up (a non-dancer role goes on to /account/o).
+ */
+export const hasOrganiserIntent = (userType: unknown): boolean =>
+  typeof userType === 'string' && userType.trim() !== '' && userType.trim().toLowerCase() !== 'dancer';
+
+/** The dancer onboarding, carrying the onward destination when there is one. */
+export const appWelcomeHref = (returnTo: string | null | undefined): string => {
+  const onward = onwardReturnTo(returnTo);
+  return onward ? `${APP_WELCOME_PATH}?${RETURN_TO_PARAM}=${encodeURIComponent(onward)}` : APP_WELCOME_PATH;
+};
+
+/** Where onboarding ends: the onward destination, else the dancer Home. */
+export const onboardingEnd = (returnTo: string | null | undefined): string => onwardReturnTo(returnTo) ?? APP_HOME_PATH;
+
+/** The end-of-onboarding button names where it goes; it never says Home when it does not go there. */
+export const onboardingEndLabel = (end: string): string => {
+  const path = end.split(/[?#]/, 1)[0].toLowerCase();
+  if (path === APP_HOME_PATH) return 'Go to Home';
+  if (path === ORGANISER_HOME_PATH || path.startsWith(`${ORGANISER_HOME_PATH}/`)) return 'Next: set up your organiser page';
+  if (path === INVITE_PATH || path.startsWith(`${INVITE_PATH}/`)) return 'Next: join the team';
+  return 'Continue';
+};
+
 export type SideOrganiser = { id: string; name: string; avatar_url: string | null };
 
 export type SidesFacts = {
@@ -181,6 +242,12 @@ export type SidesFacts = {
   areaAllowed: boolean | undefined;
   /** The dancer's own name and photo when read (the dancer app's my-dancer-edit cache); null when unknown. */
   dancerFace?: { firstName: string | null; avatarUrl: string | null } | null;
+  /**
+   * The account was created from an organiser-type link (sign-up metadata
+   * user_type is not 'dancer'). Someone who closed the tab half way through
+   * onboarding and signs in again later still ends on the organiser page.
+   */
+  organiserIntent?: boolean;
 };
 
 export type ProfileSide =
@@ -221,7 +288,11 @@ export const profileSides = (f: SidesFacts): SidesState => {
       key: 'dancer',
       firstName: f.dancerFace?.firstName ?? null,
       avatarUrl: f.dancerFace?.avatarUrl ?? null,
-      to: dancerSidePath(f.dancer, f.areaAllowed),
+      // Organiser intent with nothing organised yet: the unfinished onboarding carries on to the organiser page.
+      to:
+        f.dancer === 'incomplete' && f.areaAllowed && f.organiserIntent && f.organisers.length === 0
+          ? appWelcomeHref(ORGANISER_HOME_PATH)
+          : dancerSidePath(f.dancer, f.areaAllowed),
     });
   }
   return { status: 'ready', sides };
@@ -272,6 +343,8 @@ export type OldDancerHomeFacts = {
   organiserCount: number | null | undefined;
   openRequestCount: number | null | undefined;
   profile: 'complete' | 'incomplete' | 'no_profile' | 'error' | 'loading' | 'signed_out' | null;
+  /** /finish-profile's ?returnTo= (the gated page the person wanted): it rides on into onboarding. */
+  returnTo?: string | null;
 };
 
 /**
@@ -282,7 +355,10 @@ export type OldDancerHomeFacts = {
  *   (accountHome), proven -- an organiser, an open request, an old organiser
  *   link, a loading or FAILED organiser read all stay on today's page;
  * - complete -> Home; incomplete -> onboarding; anything else stays (today's
- *   Finish screen has the message-us and Try-again paths).
+ *   Finish screen has the message-us and Try-again paths);
+ * - /finish-profile?returnTo=X: X is an explicit destination and always wins --
+ *   incomplete -> onboarding carrying X (the organiser link's /account/o),
+ *   complete -> X itself.
  */
 export const oldDancerHomeRedirect = (f: OldDancerHomeFacts): string | null => {
   if (!f.allowed) return null;
@@ -291,7 +367,8 @@ export const oldDancerHomeRedirect = (f: OldDancerHomeFacts): string | null => {
     if (where !== 'dancer') return null;
     if (f.organiserCount === null || f.openRequestCount === null) return null;
   }
-  if (f.profile === 'complete') return APP_HOME_PATH;
-  if (f.profile === 'incomplete') return APP_WELCOME_PATH;
+  const onward = f.view === 'finish' ? f.returnTo : null;
+  if (f.profile === 'complete') return onboardingEnd(onward);
+  if (f.profile === 'incomplete') return appWelcomeHref(onward);
   return null;
 };

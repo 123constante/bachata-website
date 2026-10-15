@@ -2,6 +2,7 @@
   "$comment": "Dancer-area isolation allow-list: the ONE copy (review S10). scripts/check-dancer-area-isolation.mjs reads it; tests/client/dancerAppReviewFixes.test.ts fails if the script names a path in code. Mirrors briefs/dancer-rebuild-INTERFACE.md section 5 + Round-3 on arc/briefs-dancer-rebuild; change both together (orchestrator decision). seamNotes say why each non-section-5 seam is here.",
   "docPrefixes": [
     "docs/handover/",
+    "docs/journeys/",
     "docs/review-pack/",
     "docs/review-packs/"
   ],

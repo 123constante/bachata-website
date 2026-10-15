@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
-import { profileSides, type SidesFacts, type SidesState } from '@/lib/accountRouting';
+import { hasOrganiserIntent, profileSides, type SidesFacts, type SidesState } from '@/lib/accountRouting';
 import { completenessFact } from '@/lib/profileCompletion';
 import { useDancerArea } from '@/modules/dancer-app/gate/useDancerArea';
 import { fetchMyDancerEdit } from '@/modules/dancer-app/api/rpc';
@@ -52,6 +52,8 @@ export function useProfileSides(): ProfileSidesResult {
     dancer: kind,
     areaAllowed: area.status === 'loading' ? undefined : area.allowed,
     dancerFace: face.data ? { firstName: face.data.first_name, avatarUrl: face.data.avatar_url } : null,
+    // The sign-up's role (Auth.tsx writes user_type): an organiser-type sign-up keeps its intent past a closed tab.
+    organiserIntent: hasOrganiserIntent(user?.user_metadata?.user_type),
   };
   return {
     facts,

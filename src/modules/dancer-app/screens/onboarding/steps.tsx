@@ -2,6 +2,7 @@ import { Suspense, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import type { DancerDelta, MyDancerEdit } from '../../api/types';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { APP_WELCOME_PATH, appWelcomeHref } from '@/lib/accountRouting';
 import { DISPLAY_NAME_MAX, ROLE_CHOICES } from './model';
 import { Chip, ErrorLine, Field, PrimaryButton, Question, Reason, Tag, textInput, wrap } from './ui';
 
@@ -13,6 +14,12 @@ const CityPicker = lazyWithRetry(() => import('@/components/ui/city-picker').the
 
 /** Where the photo screen sends the person back to. */
 export const PHOTO_HANDOFF = '/app/me/photo?return=/app/welcome';
+
+/** The hand-off carrying onboarding's onward destination (?returnTo=) there and back. */
+export const photoHandoff = (returnTo: string | null | undefined): string => {
+  const back = appWelcomeHref(returnTo);
+  return back === APP_WELCOME_PATH ? PHOTO_HANDOFF : `/app/me/photo?return=${encodeURIComponent(back)}`;
+};
 
 export type CardProps = {
   profile: MyDancerEdit;
@@ -88,7 +95,7 @@ export const RoleCard = ({ profile, busy, error, onSubmit, tag }: CardProps) => 
 };
 
 /** Cannot be skipped: there is no Continue or Skip, only the hand-off to the photo screen. */
-export const PhotoCard = ({ tag }: Pick<CardProps, 'tag'>) => (
+export const PhotoCard = ({ tag, returnTo }: Pick<CardProps, 'tag'> & { returnTo?: string | null }) => (
   <>
     {tag ? <Tag>{tag}</Tag> : null}
     <Question>Add your photo</Question>
@@ -104,10 +111,10 @@ export const PhotoCard = ({ tag }: Pick<CardProps, 'tag'>) => (
     </div>
     <p style={{ ...wrap, fontSize: 14, margin: '0 0 12px' }}>Head and shoulders inside the outline. This is how people find you.</p>
     <div style={{ display: 'grid', gap: 8 }}>
-      <Link to={PHOTO_HANDOFF} className="da-tap" data-testid="onboarding-take-photo" style={linkBtn(true)}>
+      <Link to={photoHandoff(returnTo)} className="da-tap" data-testid="onboarding-take-photo" style={linkBtn(true)}>
         Take photo
       </Link>
-      <Link to={PHOTO_HANDOFF} className="da-tap" data-testid="onboarding-choose-photo" style={linkBtn(false)}>
+      <Link to={photoHandoff(returnTo)} className="da-tap" data-testid="onboarding-choose-photo" style={linkBtn(false)}>
         Choose from my photos
       </Link>
     </div>

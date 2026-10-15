@@ -4,6 +4,7 @@ import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { AlertCircle, ArrowLeft, Calendar, Camera, Check, ChevronDown, GraduationCap, Mail, Music, ShoppingBag, Sparkles, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -90,6 +91,16 @@ const AuthContent = () => {
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const callbackNotice = mode === "signin" ? callbackErrorCopy(searchParams.get("callbackError")) : null;
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  // Already signed in (e.g. the organiser launch link opened in a browser that
+  // has a session): no sign-up form to fill in again -- straight on to the
+  // link's returnTo, or the signed-in landing. Never once an e-mail was sent or a
+  // send is running: the code step hands over to /auth/callback itself.
+  const { user: signedInUser, isLoading: authLoading } = useAuth();
+  useEffect(() => {
+    if (authLoading || !signedInUser || magicLinkSent || isSubmitting) return;
+    navigate(returnTo, { replace: true });
+  }, [authLoading, signedInUser, magicLinkSent, isSubmitting, navigate, returnTo]);
 
   const [stepDirection, setStepDirection] = useState(1);
   const [step2Touched, setStep2Touched] = useState(false);
