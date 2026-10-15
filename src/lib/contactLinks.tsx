@@ -74,6 +74,8 @@ const SECTIONS: FooterSection[] = [
     links: [
       { label: 'WhatsApp', href: WHATSAPP_GROUP_URL },
       { label: 'Instagram', href: INSTAGRAM_URL },
+      { label: 'Privacy', to: '/privacy' },
+      { label: 'Terms', to: '/terms' },
     ],
   },
 ];
