@@ -309,3 +309,62 @@ entry) is `src/modules/event-page/bento/BentoPage.tsx`. CODEOWNERS on the script
   going x live past 1, interested x live past 1 (so `is_active: false` is a REAL shape today).
 - Name rule: bodies of `_public_surname_v1`, `_public_display_name_v1`, `_public_person_name_v1`.
 - `favorite_styles` and `nationality` shapes: from the review's survey (values listed in S11; 18 ISO codes / 149 empty).
+
+## Real-data fixes (F1-F3) (worker dt_95c2fb1ca8dd, 2026-10-15)
+
+Brief `briefs/dancer-rebuild-r1a-fix-3.md` (sha 7b4d2fe). Base d50046f; fix commit 4243bee. New prod-shaped fixture
+`linkNoBio` in `api/fixtures.ts` (90%, next step bio_social, website `www.` without a scheme, 1-letter Facebook,
+36-char Instagram, no bio, `other_roles: ['organising']`, no WhatsApp number) joins every table test and the review pack.
+New test file `tests/client/dancerAppRealDataFixes.test.tsx`. Prod counts come from the brief (orchestrator's survey);
+this worker did not re-query prod.
+
+| Finding | Fix | Red on d50046f (quote) |
+|---|---|---|
+| **F1** "Add a bio and a link" shown to a person with links (68/167) | `api/nextStep.ts` NEW `nextStepFor(profile)`: the ONE reading; bio_social -> link and no bio "Add a short bio" (focus bio), bio and no link "Add your Instagram, Facebook or website" (focus instagram, new `EditFocus` + Edit `FOCUS_IDS` entry), neither keeps "Add a bio and a link". `nextStepShort` / `nextStepLine` take the profile; Home, Me (`mainAction`, `nextStepCopy`) and the Onboarding `Meter` (now `profile` prop) all call it | `F1 ... link, no bio` -> `TypeError: nextStepFor is not a function`; `Home, Me and the onboarding meter` -> Home rendered the old label, then `TypeError: Cannot read properties of undefined (reading 'pct')` on the meter; `the Edit focus for "bio, no link"` -> `expected '' to be 'instagram'`; existing table `main action ... > linkNoBio` now pins the new label |
+| **F2** untouched stored value blocks every save (7 profiles) | `screens/me/model.ts`: the rules live in `ruleFindings`; `validateDraft(d, profile)` keeps only fields in `buildDelta` (as the server validates only the delta); NEW `storedValueHints` / `STORED_VALUE_HINT` give an untouched failing value a calm note (website: "Add https:// at the start so this works as a link."). `fields.tsx` `Field` gains `note` (muted 14px `<p>`, no `role=alert`, no aria-invalid, hidden while an error shows); Edit passes it for display name, bio, Instagram, Facebook, website, WhatsApp | `F2 untouched` -> `expected <p id="website_url-error" ...> to be null`; `change only the first name` -> `expected true to be false` (Save stayed disabled); existing tables `dancerAppMeEdit > linkNoBio: Save disabled with the reason` -> received `Fix the fields marked above, then save.`, `dancerAppMeEditModel untouched ... > linkNoBio` red. The "edit the website to another bad value" test passed on d50046f too (that behaviour was already right; it pins it) |
+| **F3** "Show my WhatsApp: On" with no number (166/167) | `EditScreen.tsx`: while the number field is empty the switch is `disabled`, `aria-describedby="whatsapp-switch-reason"`, with "Add your number above to show it on your page." It keeps its stored value; an untouched save sends nothing; typing a number enables it | `F3 ...` -> `expected false to be true` (switch not disabled) |
+
+Test updates (signature only): `dancerAppReviewFixes.test.ts` S2/N8 pass a no-bio/no-link profile to `nextStepShort`;
+`dancerAppMeEditModel.test.ts` main-action table compares with `nextStepFor`.
+
+### CI per job (sandbox, on 4243bee; `git fetch origin main` first, origin/main = 4a63921)
+
+| Job / step | Command | Exit / result |
+|---|---|---|
+| typecheck | `npm run typecheck` | 2: **96** `error TS` lines = the baseline the job compares against (none in dancer-app) |
+| typecheck | `check:rpc-typing`; `check:wallclock-brand` | 0; 0 |
+| integrity | `bash bin/check-integrity.sh`; `AUDIT_STRICT=1 npm run check:images`; `npm run prove:entry-point`; `lint:architecture` | 0 (1613 files); 0; 0 (43 entry points); 0 |
+| dancer-area-isolation | `--self-test`; `npm run check:dancer-area-isolation` | 0 (55 cases); 0 |
+| db-contract (no-secret) | `node scripts/check-migration-stamps.mjs` | 0 |
+| unit | `NODE_PATH= TZ=Europe/London npm run test:unit:offline` | 0: 313 files, 8043 passed, 26 skipped (it rewrote the `tests/regression/today` + organiser `.snap` files again; restored, NOT committed) |
+| unit timing | `NODE_PATH= TZ=Europe/London npm run test:unit:timing` | 0: 65 passed |
+| dancer-app unit | `NODE_PATH= npx vitest run tests/client/dancerApp src/modules/dancer-app` | 0: 18 files, 782 passed |
+| lint chain | `npm run lint` (run with `chmod +x bin/*.sh`, mode reverted before commit: 0 mode changes) | 0: 16/16 links |
+| eslint (changed files) | `npx eslint src/modules/dancer-app <changed tests>` | 1 error, pre-existing: `EditScreen.tsx` "Cannot access refs during render" (`draftRef.current = draft`, S1 code, also 1 error on d50046f); 8 warnings |
+| e2e-smoke | `CI=true npm run test:e2e` (includes all six dancer-app specs) | 0: 147 passed, 1 skipped, 1 flaky (`dancer-home.spec.ts:168` organiser /account/o, untouched spec, passed on retry) |
+| phone-qa | `npx playwright test --config playwright.phone.config.ts` | 0: 174 passed, 64 skipped |
+| perf-budget | 3 self-tests; `npm run build` (workflow env); `check:bundle-budget`; `check:first-load-requests`; `check:chunk-cycles` | 0,0,0; 0; 0; 0; 0 |
+| review pack | `REVIEW_PACK_DIR=docs/review-pack/r1a npx playwright test tests/e2e/dancer-app/review-pack.spec.ts --project=chromium --workers=1` | first run 1 (cold-start: `welcome x new-stub` navigation timeout, 15 s); full re-run 0: 50 passed |
+
+Perf: event route first-load (owner rule <= +0.5 KB gz vs main), perf-budget.yml env: this branch **376.4 KB / 47
+files**, main 4a63921 379.8 KB / 47 files (measured by the previous worker on the same main commit; main has not
+moved) = **-3.4 KB**, unchanged by F1-F3. Dancer-app route 357.7 KB / 58 chunks (was 357.2; budget 360, allowance 58):
+`perf-budgets.json` not edited, its attribution baseline row still reads 357.2 (gate green; the orchestrator may
+re-baseline).
+
+Review pack: new `link-no-bio` shape (7 shots, 7 measurement rows, all 390/390, no control < 44px, primary on it); the
+spec asserts Home/Me "Add a short bio towards 100%.", Edit's website note visible with no error, Save reason "Nothing
+has changed yet...", the WhatsApp switch reason visible. Every other shot and row is byte-identical.
+
+### Verified
+- F1-F3 red on d50046f then green; every dancer-app table test runs `linkNoBio`; every CI step above.
+- Edit x link-no-bio screenshot inspected: calm hint under the website, switch dimmed with its reason, Save off only
+  for "Nothing has changed yet".
+
+### Not verified
+- Browser walk on the owner's real profile and `/code-review` (orchestrator, per the brief).
+- Live-DB contract suites (`test:unit` with secrets), Lighthouse; real PR CI on 4243bee not read by this worker
+  (`gh api` is off-limits); Vercel preview not checked.
+- The hint copy for Instagram / Facebook / display name / bio / WhatsApp is my wording (only the website hint was
+  given by the brief); the 2 Instagram and 1 Facebook prod values that fail the handle rule were not looked at.
+- The F2 class covers the client; that the server validates ONLY the delta is taken from the brief, not re-read.
