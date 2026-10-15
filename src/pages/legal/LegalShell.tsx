@@ -30,14 +30,15 @@ export const Section = ({ title, children }: { title: string; children: ReactNod
   </section>
 );
 
-/** Who runs the site. Anything the code cannot know is a marked placeholder the owner fills. */
+const CONTACT_EMAIL = 'support@bachatacalendar.co.uk';
+
+/** Who runs the site. The e-mail is the contact route; Instagram is an optional second channel. */
 const Contact = () => (
   <Section title="Who we are and how to reach us">
+    <p>This site is operated by Bachata Calendar.</p>
     <p>
-      Bachata Calendar is run by [OWNER: legal name of the person or company that runs the site], [OWNER: postal address].
-    </p>
-    <p>
-      Questions, data requests or complaints: [OWNER: contact e-mail address]. You can also message us on{' '}
+      Questions, data requests or complaints:{' '}
+      <a href={`mailto:${CONTACT_EMAIL}`} className="underline">{CONTACT_EMAIL}</a>. You can also message us on{' '}
       <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" className="underline">Instagram</a>.
     </p>
   </Section>

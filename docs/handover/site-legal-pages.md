@@ -9,7 +9,7 @@
 - NEW test `src/pages/__tests__/LegalPages.test.tsx`. Screenshots in `docs/handover/legal-shots/`.
 - Not done: sign-up/onboarding agreement line (consent recording is release 1b); sitemap entries (left for the owner to decide).
 
-## Owner must fill (3 `[OWNER:` placeholders, all in LegalShell.tsx)
+## Owner values (filled 2026-10-15, see docs/review-packs/site-legal-pages/HANDOVER.md)
 1. Legal name of the person/company running the site.
 2. Postal address.
 3. Contact e-mail address (none exists in the code; the Instagram link is used meanwhile).

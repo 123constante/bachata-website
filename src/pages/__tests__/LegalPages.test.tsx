@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /**
  * /privacy and /terms: each renders its heading, the footer links to both, both
- * are reachable as client paths, and every [OWNER: ...] placeholder is one the
- * handover/PR lists (the count is pinned so a new one cannot slip in unlisted).
+ * are reachable as client paths, and no owner placeholder remains and the contact block
+ * shows the operator name and the support mailto.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
@@ -20,6 +20,7 @@ import { FooterLinks } from '@/lib/contactLinks';
 import { PRIVACY_VERSION, TERMS_VERSION } from '@/lib/legalVersions';
 
 afterEach(cleanup);
+const PLACEHOLDER = '[OWN' + 'ER:';
 const wrap = (ui: ReactNode) => render(<MemoryRouter>{ui}</MemoryRouter>);
 const read = (p: string) => readFileSync(path.resolve(__dirname, '../../..', p), 'utf8');
 
@@ -50,10 +51,17 @@ describe('legal pages', () => {
       expect(routes).toContain(`path="${p}"`);
     }
   });
-  it('owner placeholders: exactly the pinned count (listed in the PR body)', () => {
-    const found = ['src/pages/Privacy.tsx', 'src/pages/Terms.tsx', 'src/pages/legal/LegalShell.tsx']
-      .map((f) => (read(f).match(/\[OWNER:/g) ?? []).length)
-      .reduce((a, b) => a + b, 0);
-    expect(found).toBe(3);
+  it('no owner placeholder is left in the legal sources', () => {
+    for (const f of ['src/pages/Privacy.tsx', 'src/pages/Terms.tsx', 'src/pages/legal/LegalShell.tsx']) {
+      expect(read(f)).not.toContain(PLACEHOLDER);
+    }
+  });
+  it.each([['Privacy', Privacy], ['Terms', Terms]])('%s renders the operator name and mailto, no placeholder', (_n, Page) => {
+    const { container } = wrap(<Page />);
+    expect(container.textContent).not.toContain(PLACEHOLDER);
+    expect(container.textContent).toContain('Bachata Calendar');
+    expect(container.textContent).not.toMatch(/postal address/i);
+    const mail = container.querySelector('a[href="mailto:support@bachatacalendar.co.uk"]');
+    expect(mail).toBeTruthy();
   });
 });
