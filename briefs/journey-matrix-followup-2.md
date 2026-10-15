@@ -5,8 +5,8 @@ Read first: `docs/review-packs/public-journeys/FOLLOWUP-HANDOVER.md` and `MATRIX
 worker's report; it stopped at its context limit without a done marker). Do NOT redo its work.
 
 ## What is left (quoted from its handover + orchestrator review)
-1. Its per-job table row `e2e-smoke` is unfilled (`E2E_EXIT | E2E_NOTE`). Run `npm run test:e2e` the way
-   `.github/workflows/` runs the e2e-smoke job and fill the row with the real exit and counts.
+1. (DONE by the previous worker at d671a70: e2e-smoke exit 0, 148 passed, 1 skipped. Do not re-run unless your
+   change touches what it covers.)
 2. MATRIX M77 is PARTIAL: "no spec signs B in as an organiser after A". Add that case to
    `tests/e2e-build/account-edges.build.spec.ts` (A signs out, B with an organiser side signs in on the same browser:
    B's chooser/landing shows only B's sides and nothing of A). Red-first is not possible for a passing behaviour: instead
