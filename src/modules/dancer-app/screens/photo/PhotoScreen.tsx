@@ -326,7 +326,7 @@ const PhotoScreen = () => {
       {(phase === 'preview' || phase === 'saving') && previewUrl && (
         <div data-testid="photo-preview">
           <div style={{ width: '50%', aspectRatio: '1 / 1', margin: '12px auto 0', borderRadius: 12, overflow: 'hidden', background: '#000' }}>
-            <img src={previewUrl} alt="Your new photo" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <img src={previewUrl} alt="Your new photo" loading="eager" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           </div>
           <p style={{ ...note, textAlign: 'center', border: '1px solid var(--da-border)', borderRadius: 12, padding: '10px 12px', color: 'var(--da-text)' }}>
             This is how people will see you.
