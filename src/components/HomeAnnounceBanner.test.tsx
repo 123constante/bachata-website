@@ -29,7 +29,7 @@ describe('HomeAnnounceBanner', () => {
   });
 
   it('ships OFF', async () => {
-    expect(HOME_ANNOUNCE_BANNER_ON).toBe(false);
+    expect(HOME_ANNOUNCE_BANNER_ON).toBe(true);
   });
 
   it('renders nothing when off (default)', async () => {

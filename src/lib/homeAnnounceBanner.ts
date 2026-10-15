@@ -1,6 +1,6 @@
 // Home-page announcement banner. Ships OFF; flip this one constant to launch
 // the "all dancers" wave. OFF renders nothing and changes no layout.
-export const HOME_ANNOUNCE_BANNER_ON = false;
+export const HOME_ANNOUNCE_BANNER_ON = true;
 
 export const HOME_ANNOUNCE_TEXT = 'New: dancer profiles + organiser pages';
 export const HOME_ANNOUNCE_CTA = 'Create your profile';
