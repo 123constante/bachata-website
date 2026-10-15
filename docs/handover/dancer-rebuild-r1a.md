@@ -1,141 +1,157 @@
-# Handover: Dancer Rebuild R1a integration (Website, `claude/dancer-app-r1a`)
+# Handover: Dancer Rebuild R1a INTEGRATION (Website, `claude/dancer-app-r1a`)
 
-Briefs: `briefs/dancer-rebuild-r1a-integration.md` (steps 1-8) and `briefs/dancer-rebuild-r1a-finish.md`
-(branch `arc/briefs-dancer-rebuild`). The integration worker did steps 1-5 and 7 and stopped without a
-handover at 9b6fcee; the finish worker (this doc) did step 6, the perf proof and step 8.
+Brief: `briefs/dancer-rebuild-r1a-integration.md` (branch `arc/briefs-dancer-rebuild`, sha 7dd415a5). Ticket dt_1fb0098b917b.
+Started from df43188 (main + R0 + W1 + W2a + W2c + W2d). No PR opened, nothing merged to main (per brief).
 
-## Done, by integration step
+## What changed, by brief step
 
-| Step | Commit | What |
-|---|---|---|
-| 1 merge W2b | c399bd7 | `arc/dancer-app-w2b` @ 0a435d7e merged. Only conflict: `package.json` `test:e2e` (see below). |
-| 1 merge W2e | 70cde48 | `arc/dancer-app-w2e` @ ed2dfa22 merged. Only conflict: `package.json` `test:e2e`. |
-| 2 + 3 | de31b90 | Four per-screen `useMyDancerEdit` copies (W2a onboarding, W2b home, W2c me, W2d photo) and Options' inline query deleted; one hook in `api/useMyDancerEdit.ts`, key `['my-dancer-edit', userId]`; per-screen options kept (Home staleTime 60s; Onboarding refetchOnMount always, no retry). `renderInShell` mounts `CityProvider` (W2b ask) + jsdom ResizeObserver stub. Base reds: `reminderBanner.today` R0 rows for `/app`, `/app/home` flipped to hidden (the snapshot was wrong: W1's `/app` seam is owner-specified), `/apps` prefix-guard row added; Edit client refusals read `copyFor()`; two today tests' eslint `react-hooks` globals errors fixed. |
-| 4 perf | c9cb300 | Event route grew +0.7 KB gz with the dancer app (level-rating modules cut into a shared chunk): over the 0.5 KB line, so `DerivedLevelBadge` + `LevelRatingPrompt` are now lazy in `BentoPage`. dancer-app rows raised (310 -> 360 KB, 41 -> 57 chunks) with justification in `perf-budgets.json`. Numbers re-measured below. |
-| 5 sandbox sign-in | bf87602 | `organiserFake` stores the session under `sb-<ref>-auth-token` with `<ref>` read from `VITE_SUPABASE_URL`; `playwright.config.ts` webServer defaults `VITE_ENABLE_ORGANISER_SELF_SERVE='true'` like `e2e-smoke.yml`; dates from the fake's frozen clock; reachability mocks `my_dancer_edit_v1`; photo spec asserts own-prefix delete and the legacy-foreign-URL no-delete case. Edit city picker 48px, Options "Account settings" link 44px. |
-| 7 review pack | 9b6fcee | `docs/review-pack/r1a/` 42 shots (7 screens x 6 shapes) + `measurements.md`, MOCKED RPCs. Nights links 44px. Avatar falls back to the initial on a blocked image (prod survey: 2 rows on a host outside `app/csp.ts` img-src); `tests/client/dancerAppAvatar.test.tsx` red on the unfixed code. |
-| 6 CI per job | this commit | Full sweep below; three real r1a-only reds found and fixed (next section). |
-| 8 handover | this commit | This file. |
+1. **Merges** (70cde48 and the commit before it): `arc/dancer-app-w2b` @ 0a435d7, then `arc/dancer-app-w2e` @ ed2dfa22.
+   The only conflict both times was `package.json` `test:e2e`. I resolved it as the UNION of every slice's specs. I also added
+   W2c's `me-edit.spec.ts` and W2d's `photo.spec.ts`, which existed but were missing from the list. The list now names six
+   dancer-app specs: reachability, onboarding, home-nights, me-edit, photo, options. No shell file conflicted.
+2. **One `useMyDancerEdit`** (de31b90). W1 never exported a hook, so "use W1's" had nothing to point at. I put the ONE copy in
+   `src/modules/dancer-app/api/useMyDancerEdit.ts`, with key `['my-dancer-edit', userId ?? null]` (INTERFACE). Removed:
+   - the four per-screen copies (W2a onboarding, W2b home, W2c me, W2d photo);
+   - Options' inline query, whose key used `'anon'`.
 
-### Merge conflict resolutions (step 1)
+   Each screen keeps its own options: Home `staleTime 60s`; Onboarding `refetchOnMount: 'always'` and `retry: false`.
+   `save` and `usePutMyDancerEdit` moved into the same file. `renderInShell` now mounts `CityProvider` (W2b's ask), and W2b's
+   test mock gained a pass-through `CityProvider`.
+3. **Base reds**:
+   - `tests/client/dancerAppApi.test.tsx` (`fetchGate`): green on df43188 and on every run here, alone and in the full suite.
+     I did not reproduce it, so nothing changed.
+   - `reminderBanner.today` (2 tests): the **snapshot was wrong**. R0 recorded `/app` and `/app/home` as SHOWN before the
+     rebuild. W1's seam deliberately added `/app` and `/app/*` to `BANNER_HIDDEN_ON`; the file's own header said that row
+     would flip. I flipped both rows, added a `/apps` prefix-guard row, and dropped the obsolete snapshots.
+   - Two more base reds, not in the brief, now mine:
+     - `dancerAppMeEdit` "invalid url": the test expected the generic copy. Edit's client checks had hand-written copy.
+       **Code fixed:** `screens/me/model.ts` now calls `copyFor()`, the ONE mapping in `api/errors.ts`, and the test expects
+       the field-named copy.
+     - `dancerAppShell` `/app/me/edit`: jsdom has no `ResizeObserver`, which Edit's Radix Switch needs. The stub now lives in
+       `renderInShell`.
+   - `docs/session-handover-2026-10-15-dancer-w1.md` was no longer at the repo root, so there was nothing to move. The
+     isolation check is green.
+   - Pre-ship eslint: `renderInShell.tsx` has warnings only (react-refresh) and 0 errors. `account.today` and
+     `authCallback.today` had a `react-hooks` globals ERROR. Their `Probe` now writes its module variable in an effect.
+4. **Perf** (c9cb300). Measured with the same bare `npm run build` + `npm run check:bundle-budget` on both trees:
 
-Both merges conflicted ONLY in `package.json` `test:e2e`. Resolution each time: the UNION of both sides' spec lists.
-After W2b: `...reachability, onboarding, home-nights`. After W2e: also `me-edit` (W2c) and `photo` (W2d), which
-the orchestrator's server-side W2c/W2d merges had not kept, plus `options` (W2e). Final dancer-app list:
-reachability, onboarding, home-nights, me-edit, photo, options. No shell file conflicted.
+   | Tree | /event/:id first-load JS (gz) | Files |
+   |---|---|---|
+   | main 4a63921 | 379.7 KB | 47 |
+   | r1a, before any fix | 380.4 KB | 48 |
+   | r1a, after the fix | **376.3 KB** | **47** |
 
-## Fixes made by the finish worker (step 6 found them; each red on 9b6fcee, green after)
+   Before the fix, the route grew **+0.7 KB**, over the 0.5 KB line. The cause: the level-rating modules
+   (`useSeriesLevelRating`, `levelRatingModel`, `pendingLevelRating`), now shared with the dancer app's Nights and Home, were
+   cut into their own chunk. The fix makes `DerivedLevelBadge` and `LevelRatingPrompt` lazy in `BentoPage.tsx`, the same
+   pattern as `RsvpBlock`. The event route is now **3.4 KB below main**.
 
-1. `architecture-guard` / Image-attribute audit (`AUDIT_STRICT=1 npm run check:images`): exit 1, "missing loading: 2":
-   `screens/me/ui.tsx:53` (Avatar) and `screens/photo/PhotoScreen.tsx:329` (preview). Both now `loading="eager"`
-   (above the fold, the screen's subject). After: missing loading 0, exit 0.
-2. `architecture-guard` / Entry-point dispatch proof (`npm run prove:entry-point`): exit 2, "dispatch through
-   isEntryPoint but are not in TARGETS: scripts/check-dancer-area-isolation.mjs" (R0's script, never registered).
-   Added to TARGETS. After: 43 entry points proven, exit 0.
-3. `unit-tests` / Dancer-area isolation check: exit 1, 51 violations on 9b6fcee: 44 x `docs/review-pack/r1a/*`
-   (step 7 output), `src/modules/event-page/bento/BentoPage.tsx` (step 4's lazy split), `playwright.config.ts`
-   (step 5), plus 5 x `bin/*.sh` that are only the sandbox `chmod +x` (git mode unchanged; CI's isolation job does
-   not chmod). The first three were ORDERED by the integration brief, so RULES now allow them: `docs/review-pack/`
-   joins DOC_PREFIXES; BentoPage, playwright.config.ts and `scripts/prove-entry-point-dispatch.mjs` (fix 2) join
-   SEAMS with a comment naming the brief step. After: "dancer-area isolation: OK", self-test 55 cases, exit 0.
-   **Owner question 1** below: INTERFACE section 5 should say the same.
+   Only then did I raise the dancer-app rows: 355.4 KB / 57 chunks measured, so budget 310 -> 360 and chunk allowance
+   41 -> 57. A one-line justification is in `perf-budgets.json` (`//dancer-app-2026-10-15-r1a`).
+5. **Deterministic sandbox sign-in** (bf87602). Root cause: the sandbox's `VITE_SUPABASE_URL` points at the E2E project, but
+   `organiserFake` stored the session under the hard-coded prod key `sb-stsdtacf...-auth-token`. supabase-js never found
+   it, so every signed-in spec landed on `/auth`. Changes:
+   - The fake now reads the ref from `VITE_SUPABASE_URL`, the same env the dev server is started with.
+   - `playwright.config.ts` webServer defaults `VITE_ENABLE_ORGANISER_SELF_SERVE` to `'true'`, as `e2e-smoke.yml` sets it.
+     Without it `/account` `<Navigate>`s to `/`. An explicit env still wins.
+   - home-nights and onboarding dates come from the fake's frozen clock (`NOW`), not the machine clock.
+   - reachability mocks `my_dancer_edit_v1`, because real screens replaced the placeholders.
+   - The photo spec's old photo is now an own-prefix upload. W2d's later fix d515401 deletes only those; the old foreign URL
+     made "delete" never happen. The spec now asserts the delete body, and a new case checks that replacing a legacy
+     foreign photo sends **no** delete.
+   - Two real tap-target defects the spec then caught were fixed: Edit city picker 340x34 -> min-h 48; Options "Account
+     settings" link 103x16 -> min-height 44.
+6. **Every CI job step** is in the per-job table below; full detail in `dancer-rebuild-r1a-ci-table.md`.
+7. **Review pack** (9b6fcee). `docs/review-pack/r1a/`: 7 screens x 6 shapes = 42 PNGs, plus `measurements.md` and `.json`.
+   All on **MOCKED RPCs**. Regenerate with `tests/e2e/dancer-app/review-pack.spec.ts`; it runs only when `REVIEW_PACK_DIR`
+   is set, so it is not in `test:e2e`.
 
-## Per-job table (sandbox, every `run:` step of the PR-triggered workflows that can run without secrets)
+   Result: 42/42 have scrollWidth 390/390, 0 controls under 44px, and `elementFromPoint` at the primary control lands on it.
+   The walk found and I fixed:
+   - Nights night-name links were 23px tall; now min-height 44.
+   - A broken-image icon for avatars the browser refuses. Prod has **2** dancer avatars on a host outside `app/csp.ts`
+     `img-src`. `Avatar` now falls back to the initial `onError`, and Home reuses `Avatar`.
+8. CI-found fixes (3e5fc13):
+   - `loading="eager"` on two `<img>` (`AUDIT_STRICT` `check:images`).
+   - R0's `check-dancer-area-isolation.mjs` added to `prove-entry-point-dispatch.mjs` TARGETS. `prove:entry-point` had exit 2.
+   - Isolation RULES gained:
+     - `docs/review-pack/` as a doc prefix;
+     - seams for `BentoPage.tsx`, `playwright.config.ts` and `prove-entry-point-dispatch.mjs`, each with its reason.
 
-"main" = `origin/main` @ 4a63921 in a worktree, same commands, same machine. "9b6fcee" = branch head before this
-worker; "final" = this commit.
+## Decisions and INTERFACE deviations
+- **INTERFACE section 5 deviation:** four isolation-rule additions that INTERFACE does not list: three seams and one doc
+  prefix. The INTERFACE file is on `arc/briefs-dancer-rebuild`, which this worker may not push; the owner or orchestrator
+  should add them there.
+- The canonical hook lives in `api/`, not `shell/` or `gate/`, because W2c's own comment said "unify into api/".
+- `Avatar` initial uses `display_name || first_name`. Home's old inline circle used `first_name || display_name`, so Home's
+  placeholder letter can differ for a display-name-only profile. That gives one mapping, as the owner's rule requires.
+- The event-page level badge now appears after its chunk loads. The rating card already loaded async behind a query.
 
-| Job (workflow) | Command | main | 9b6fcee | final | Counts / note |
-|---|---|---|---|---|---|
-| architecture-guard | `chmod +x bin/*.sh` | 0 | 0 | 0 | |
-| architecture-guard | `bin/check-integrity.sh` | 0 | 0 | 0 | |
-| architecture-guard | `npm run check:legacy-tables` | 0 | 0 | 0 | |
-| architecture-guard | `npm run check:legacy-program-rpcs` | 0 | 0 | 0 | |
-| architecture-guard | `npm run lint:architecture` | 0 | 0 | 0 | |
-| architecture-guard | `AUDIT_STRICT=1 npm run check:images` | 0 | **1** | 0 | 89 img; missing loading 2 -> 0 (fix 1) |
-| architecture-guard | `check:image-widths:self-test` + `check:image-widths` | 0 | 0 | 0 | |
-| architecture-guard | `check:plan-hygiene:self-test` | 0 | 0 | 0 | |
-| architecture-guard | `check:workflow-artifact-policy` (self-test + guard) | 0 | 0 | 0 | |
-| architecture-guard | `check:mojibake:self-test` | 0 | 0 | 0 | |
-| architecture-guard | mojibake `git grep` | 0 | 0 | 0 | no hits |
-| architecture-guard | `prove:entry-point:self-test` + `prove:entry-point` | 0 | **2** | 0 | self-test 54/54; 43 entry points (fix 2) |
-| typecheck | `npm run check:rpc-typing` | 0 | 0 | 0 | |
-| typecheck | `npm run check:wallclock-brand` | 0 | 0 | 0 | |
-| unit-tests (London) | `node scripts/ci-live-db-gate.mjs` | 0 | 0 | 0 | sandbox event "unknown" -> RUN; see Not verified |
-| unit-tests (London) | `TZ=Europe/London npm run test:unit:offline` | 1 | 1 | 0 | see below |
-| unit-tests (London) | `npm run test:unit:timing` | 0 | 0 | 0 | |
-| unit-tests (New_York) | tz-sensitive `vitest --no-file-parallelism` list | 0 | 0 | 0 | |
-| unit-tests (Sydney) | same list | 0 | 0 | 0 | |
-| unit-tests / dancer-area-isolation | `check-dancer-area-isolation.mjs --self-test` | n/a | 0 | 0 | 55 cases (script not on main) |
-| unit-tests / dancer-area-isolation | `npm run check:dancer-area-isolation` | n/a | **1** | 0 | 51 violations -> OK (fix 3) |
-| workflow-lint | `lint-workflow-masking.mjs` | 0 | 0 | 0 | |
-| workflow-lint | `lint-workflow-notification.mjs` (self-test + lint) | 0 | 0 | 0 | |
-| db-contract-check | `check-migration-stamps.mjs` | 0 | 0 | 0 | other steps need prod secrets: not run |
-| perf-budget | 3 canaries | 0 | 0 | 0 | |
-| perf-budget | `npm run build` (placeholder Supabase env, as the workflow) | 0 | 0 | 0 | production build |
-| perf-budget | `npm run check:bundle-budget` | 0 | 0 | 0 | |
-| perf-budget | `npm run check:first-load-requests` | 0 | 0 | 0 | |
-| perf-budget | `npm run check:chunk-cycles` | 0 | 0 | 0 | |
-| e2e-smoke | `npm run test:e2e` (CI=1, workflow env) | - | - | 0 | 143 passed, 1 skipped, 3 flaky-on-retry (auth-magic-link-returnto, dancer-home x2: legacy specs, run overlapped the main unit sweep); the 6 dancer-app specs = 45 tests, all first-try green |
-| phone-qa | `playwright test --config playwright.phone.config.ts` | - | - | 0 | 174 passed |
-| phone-qa (build smoke) | `npm run build` (fake Supabase preload) + `playwright.build.config.ts` | - | - | 0 / 0 | 3 passed |
-| (local lint chain) | `npm run lint` | 0 | 0 | 0 (16 of 16 links; trailing eslint informational) | needs `chmod +x bin/*.sh` in the sandbox (git mode is 100644 on main too); passes after |
+## Shapes surveyed (prod, read-only, counts only)
+- `dancer_profiles.avatar_url`: none 66, r2.dev 99, other host 2 (the 2 the CSP blocks).
+- Profile shapes come from W1's fixture survey (`DANCER_SHAPES`, 152 profiles). I did not re-survey those.
 
-`test:unit:offline`, the only remaining red, is IDENTICAL on main and r1a and is the sandbox, not code:
-- 9b6fcee: 1 file / 5 tests failed (all `tests/integrityCouldNotRun.test.ts`), 7888 passed, 26 skipped.
-- main: the same 5 `integrityCouldNotRun` tests, plus `SurnameSwitchReachable` and `eventTruth.matrix` (timeouts
-  while my e2e run shared the CPU; both re-run green on main, 479/479, and are green on r1a).
-- Cause: the sandbox sets `NODE_PATH=/usr/local/lib/node_modules_global`, so a global typescript resolves in the
-  test's temp repo ("typescript resolved in the temp repo -- precondition gone"). With `NODE_PATH=` the file
-  passes 67/67 (14 skipped). CI runners have no such NODE_PATH.
-- final (with `NODE_PATH=`): 309 files passed, 7903 tests passed, 16 skipped, 0 failed, exit 0.
+## Red-first proof
+| Test | Failure on the unfixed code |
+|---|---|
+| `tests/client/dancerAppAvatar.test.tsx` "falls back to the initial..." | `AssertionError: expected <img ...(4)></img> to be null` |
+| `reachability.spec.ts` 7 routes | 6 failed before the fake fix: "waiting for getByTestId('dancer-screen-me')"; `/account` landed on `/city/london-gb`. After the fake fix: `shortControls` returned `"London 340x33.921875"`, `"Account settings 103.1875x16"` |
+| `photo.spec.ts` replace / retry | `expect(order).toEqual([... 'delete'])`: Received had no delete (spec stale vs d515401) |
+| review-pack Nights | `Soho Sensual Thursdays 182x23 \| Camden Social 109x23 \| Brixton Bachata Night 160x23` |
+| `dancerAppMeEdit` invalid url | `expected 'Your website must start with http:// ...' to be 'That link must start with http:// or ...'` (red on df43188) |
+| `dancerAppShell` /app/me/edit | `ReferenceError: ResizeObserver is not defined` (red on df43188) |
+| `reminderBanner.today` /app, /app/home | `expected false to be true` |
 
-## Perf: event-route first-load (same command: workflow build env + `npm run check:bundle-budget`, gzip)
-
-| Tree | Event `/event/:id` first-load | Files |
-|---|---|---|
-| main 4a63921 | 379.8 KB gz | 47 |
-| r1a before c9cb300 (integration worker's measure) | 380.4 KB gz (+0.7) | 48 |
-| r1a 9b6fcee | 376.4 KB gz (**-3.4 KB vs main**) | 47 |
-| r1a final | 376.4 KB gz (unchanged; the fixes touch no event code) | 47 |
-
-The owner rule (raise dancer-app rows only if the event route grows <= 0.5 KB gz) holds: the event route
-SHRANK 3.4 KB, chunk ratchet 47/47, puller ratchet 2/2. dancer-app: 355.4 KB gz / 57 chunks, budget 360.
-The bundle-budget run notes "NO baseline row for dancer-app" in `attribution.baseline.routes`: informational,
-not gating; a baseline row is an owner/orchestrator call at merge.
+## CI per-job table (sandbox; GitHub Actions not used)
+| Job | Command | Exit | Result |
+|---|---|---|---|
+| architecture-guard / integrity | `bash bin/check-integrity.sh`, legacy guards, `lint:architecture`, image widths, mojibake, plan hygiene, workflow-artifact policy | 0 | all ok (bin scripts lack the exec bit in git, as on main, so they were run via bash) |
+| architecture-guard / integrity | `AUDIT_STRICT=1 npm run check:images` | 1 -> **0** | 2 `<img>` without `loading`; fixed in 3e5fc13 |
+| architecture-guard / integrity | `npm run prove:entry-point` | 2 -> **0** | isolation script missing from TARGETS; fixed; 43 entry points proven |
+| typecheck | `npm run typecheck` | n/a | **96** `error TS` lines, baseline 106: green (re-run on 3e5fc13) |
+| typecheck / wallclock-brand | `check:rpc-typing`, `check:wallclock-brand` | 0 | ok |
+| unit-tests / unit | `npm run test:unit` | 1 | 7913 passed, 15 failed: 10 `*.contract.test.ts` "Invalid API key" (no live DB creds) + 5 `integrityCouldNotRun` "precondition gone". **The same 15 fail on main** |
+| unit-tests / unit | `npm run test:unit:offline` | 1 | 7898 passed, 5 failed (`integrityCouldNotRun`, same on main) |
+| unit-tests / timing, NY, Sydney | `test:unit:timing`; the TZ runs | 0 | 65 / 213 / 213 passed |
+| unit-tests / dancer-area-isolation | `--self-test`; `npm run check:dancer-area-isolation` | 0; 1 -> **0** | 55 cases ok; 46 rule-(a) hits fixed in 3e5fc13 (OK, 199 changed files) |
+| e2e-smoke | `npm run test:e2e` (retries 0) | 1 | 144 passed, 2 failed, both in `dancer-home.spec.ts` (a pre-rebuild spec) |
+| e2e-smoke | `CI=true npm run test:e2e` (retries 1, as CI) | 0 | 146 passed, 0 flaky; that spec alone x2: 28/28 |
+| e2e dancer-app (all six specs) | `npx playwright test tests/e2e/dancer-app/` | 1 then 0 | full run at bf87602: 43 passed, 2 failed (the two tap targets); after the fix the three specs involved (reachability, options, me-edit) re-ran 29/29 |
+| perf-budget | 3 self-tests, `npm run build`, `check:bundle-budget`, `check:first-load-requests`, `check:chunk-cycles` | 0 | all green |
+| phone-qa | `playwright.phone.config.ts` | 1 | 173 passed, 1 failed: `scroll-reset.phone.spec.ts:114`, which also flakes on main (2/21 there vs 1/21 here) |
+| phone-qa / build-smoke | build + `playwright.build.config.ts` | 0 | 3 passed |
+| workflow-lint, db-contract offline halves, canaries (ci-budget, storage, firewall, og, seo, phone-qa-section) | self-tests | 0 | PASS |
+| lint | `npm run lint` | 1 (exec bit) / 0 after `chmod +x` | 16/16 links; eslint informational |
+| pre-ship | `npm run pre-ship` | 1 | only `check:integrity` (exec bit, 126) and `test:unit` (the 15 above) fail; both reproduce on main |
+| SKIPPED | lighthouse, doc-weight, og/seo/synthetic preview, live DB contract checks, real-data-verified, phone-qa-section body | n/a | need secrets, a live preview deploy or the PR body |
 
 ## Verified
-
-- Every PR-triggered job step above that runs without secrets, on this head, exit codes as tabled.
-- All 6 dancer-app e2e specs (45 tests) green first try at 390-wide fakes; full `test:e2e` gate exit 0.
-- Production build (perf-budget env and phone-qa fake env) both exit 0; build smoke 3/3.
-- The integrityCouldNotRun red is environmental (proved with `NODE_PATH=`), identical on main.
+- Merges carry every slice's behaviour, and all dancer-app unit/client/regression tests pass (27 files, 1004 tests).
+- Production build passes, and the perf gate is green. The event route's first-load is 3.4 KB below main.
+- All six dancer-app e2e specs and the review pack (42 shots) pass in the sandbox at 390x844, with deterministic sign-in.
+- Isolation, entry-point, images, typecheck and eslint (0 errors in touched files) are green on 3e5fc13.
 
 ## Not verified
-
-- Live-DB contract suites (`npm run test:unit` with prod secrets; `db-contract-check` steps beyond
-  migration-stamps; `types-drift`): no Supabase secrets in the sandbox. The gate decides per-PR paths in CI.
-- Lighthouse / doc-weight (`perf-budget` PR job 2), `live-qa`, `prod-smoke`, `seo-check`, `og-image-check`,
-  `synthetic-ssr-monitor`: need a deployed preview. No Vercel token used.
-- `phone-qa-section`, `real-data-verified`: read a PR body; no PR exists (none opened, per brief).
-- GitHub Actions on the branch: not read (no `gh api`).
-- Review pack is MOCKED RPCs, not a real signed-in walk on prod data; no browser walk with a real account.
-- No `/code-review` round ran on the finish worker's three fixes.
+- **Real data in a browser:** every screenshot is MOCKED RPCs. There was no walk against prod data, and no real phone.
+- **GitHub Actions:** not run by me. Contract tests with real secrets run only in CI (the live-DB gate says live=true).
+- The two other-host prod avatars: I counted them only and did not look at the hosts. The fallback is tested on a mocked URL.
+- `dancerAppApi` `fetchGate` red: not reproduced, so not fixed. If it reappears it is likely order-dependent.
+- The full dancer-app e2e run after 3e5fc13: that commit only adds `loading` attrs and guard config. I did not re-run all
+  six specs on it.
+- Vercel preview: not checked (no token used).
 
 ## Open owner questions
+1. **Terms and Privacy** (W2a + W2e): no Terms or Privacy pages exist. The onboarding consent line is text-only, and the
+   Options row is disabled with a reason. Build the pages, or keep it as is?
+2. Add R1a's three seams and the `docs/review-pack/` doc prefix to INTERFACE section 5.
+3. The `/event/:id` budget (381) now has 4.7 KB of headroom. Tighten it?
 
-1. **INTERFACE section 5 vs RULES.** `scripts/check-dancer-area-isolation.mjs` now also allows `docs/review-pack/`,
-   `BentoPage.tsx`, `playwright.config.ts` and `scripts/prove-entry-point-dispatch.mjs` (all from the integration
-   brief's own steps). The script says INTERFACE section 5 is the source of truth; please add them there (or say
-   which to revert: BentoPage reverting re-breaks the 0.5 KB event rule).
-2. **Terms / Privacy pages do not exist** (W2a + W2e). The onboarding consent line is text-only and the Options
-   Terms/Privacy row is disabled with a reason. Need the pages (or URLs) before public launch.
-3. dancer-app baseline row in `perf-budgets.json` `attribution.baseline.routes`: add at merge?
+## Parallel worker on this branch
+A second session (ticket dt_04e055e9629b) pushed 3a6aa23 to this branch while this worker ran. It made the same three CI fixes as 3e5fc13 and wrote its own R1a handover, which I kept unchanged as `dancer-rebuild-r1a-parallel-dt_04e055e9629b.md`. I merged its commit without a force-push and took its version of the shared lines. The duplicate TARGETS line the auto-merge produced was removed. One finding of its own: the `integrityCouldNotRun` red comes from the sandbox `NODE_PATH` (a global typescript). With `NODE_PATH=` the offline unit suite is 7903/7903.
 
-## Next steps
-
-PR from `claude/dancer-app-r1a` to main (orchestrator/owner; workers do not open it), then the CI the sandbox
-could not run (live-DB, preview-deploy jobs) and `/code-review` before merge.
+## What is left
+Nothing from the brief, apart from the Not-verified items above. Next: a PR from this branch, with a real-data browser walk
+and a phone check.
 
 ## Review fixes (worker dt_368c8ffe2ee6, 2026-10-15)
 
