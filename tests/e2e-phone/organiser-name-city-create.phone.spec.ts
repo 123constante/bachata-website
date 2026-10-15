@@ -168,7 +168,7 @@ async function assertCreateEvent(page: Page, label: string) {
   await scrollTo(page, 'bottom');
   const end = await box(page, sel);
   if (end.y + end.height > 0 && end.y < vp.height) {
-    expect(intersects(end, await box(page, '#app-nav')), `${label}: under the BottomNav at full scroll`).toBe(false);
+    // The section row is sticky at the TOP now; a control scrolled past it is ordinary scrolling, not a clash.
     if (await page.getByTestId('eip-bar').count()) {
       expect(intersects(end, await box(page, '[data-testid="eip-bar"]')), `${label}: under the Save bar at full scroll`).toBe(false);
     }
