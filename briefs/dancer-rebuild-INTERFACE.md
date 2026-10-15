@@ -234,3 +234,23 @@ with a confirm dialog that states the consequence ("Opens the new dancer area an
 everyone") -> `admin_dancer_area_set_open_v1`. Every state: loading, error (with the RPC code),
 empty ("No one is on the list yet. Add an email above."), long list. Codes against this file; its tests
 mock the four RPCs with these shapes.
+
+## Round-2 additions (orchestrator, 2026-10-15, from the independent review of PR A1; wins over earlier text)
+- **Error codes the Website must cover** (from the SQL): gate/admin `area_closed` 42501, `not_signed_in` 42501,
+  `admin_only` 42501, `invalid_email` 22023, `invalid_note` 22023, `invalid_argument` 22023. Member:
+  `no_profile` P0002, `profile_mismatch` P0002, `rate_limited` 54000, `whatsapp_not_allowed` 42501; 22023:
+  `invalid_payload`, `unknown_key` (DETAIL = key), `invalid_type` (DETAIL = key), `first_name_required`,
+  `city_required` (clear OR unknown city), `photo_required`, `invalid_display_name`, `invalid_text`
+  (DETAIL = first_name|surname|nationality|bio), `invalid_role`, `invalid_year`, `bio_too_long`, `bio_has_link`,
+  `invalid_handle` (DETAIL = instagram|facebook), `invalid_url` (DETAIL = website_url|avatar_url),
+  `invalid_whatsapp`, `invalid_list` (DETAIL = key). PostgreSQL's own `permission denied for function ...` (42501)
+  when a signed-out caller reaches a member RPC.
+- **WhatsApp keys for pure dancers**: `save_my_dancer_profile_v2` refuses the mere PRESENCE of `whatsapp` or
+  `show_whatsapp_publicly` with `whatsapp_not_allowed` when the person has no other profile type. The Website save
+  wrapper drops both keys when `other_roles` is empty; the fake backend refuses like the DB.
+- **WhatsApp eligibility** = an active profile type other than `dancing` and `guest_dancer` (one DB helper).
+- **Existing WhatsApp opt-outs are kept**: on apply, `show_whatsapp_publicly` = the row's `show_contact_publicly`
+  for rows that already have a number; new rows default to true (D2).
+- **Allowed = confirmed email** on `dancer_area_access` (`email_confirmed_at` set). Sign-in by 8-digit code confirms it.
+- **Flag write paths**: only `admin_dancer_area_set_open_v1` audits and purges; never flip `dancer_area_open` any
+  other way (documented in admin `docs/db-contracts.md`; a trigger is a PR A2 item).
