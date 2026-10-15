@@ -43,3 +43,10 @@
 1. The owner answers DECISIONS rounds 1-3.
 2. After #764 merges, dispatch PR-1 (1a and 1b) and PR-2 (2a, 2b, 2c) in parallel.
 3. Then dispatch PR-3 (3a, 3b, 3c), PR-4, PR-5 and PR-6, in that order (dependency graph in PLAN.md).
+
+## Environment note for the next cloud worker
+
+In the cloud container the pre-push unit gate fails in `tests/integrityCouldNotRun.test.ts` (5 tests) because
+the environment sets `NODE_PATH=/usr/local/lib/node_modules_global`. That makes `typescript` resolvable from a
+temp repo, which breaks the test's precondition. This is not a repo failure. Push with
+`env -u NODE_PATH git push …`: the hook still runs in full, and all 317 files passed.
