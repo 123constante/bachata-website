@@ -1,6 +1,8 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { checkOverflow, fakeSupabase, settled } from './helpers';
 import { FAKE_ORIGIN, FLAG_DANCER_ID } from './fakeSupabase.mjs';
+import { DANCER_SHAPES, makeProfile } from '../../src/modules/dancer-app/api/fixtures';
+import type { MyDancerEdit } from '../../src/modules/dancer-app/api/types';
 
 /**
  * Every text field on a PHONE with the keyboard up (brief site-keyboard-safe):
@@ -18,6 +20,12 @@ import { FAKE_ORIGIN, FLAG_DANCER_ID } from './fakeSupabase.mjs';
  * The owner's case (2026-10-16): the organiser onboarding search sat at the
  * bottom of the screen with every result under the keyboard, and nothing scrolled.
  * Nothing reaches any database (fakeSupabase.mjs); a search answers 22 long names.
+ * A row with a `primary` button (a confirm or Continue right under the field)
+ * also asserts that button is visible and tappable with the keyboard up.
+ *
+ * Red-first switch: KEYBOARD_SAFE_MUTANT=1 serves a do-nothing keyboardSafe
+ * module to the browser (the dev server's /src/lib/keyboard/keyboardSafe.ts),
+ * so the rows can be seen failing without the helper and without editing src.
  */
 
 /**
@@ -26,7 +34,11 @@ import { FAKE_ORIGIN, FLAG_DANCER_ID } from './fakeSupabase.mjs';
  */
 const visibleWithKeyboard = (height: number) => Math.min(470, height - 300);
 
-type Who = 'visitor' | 'owner' | 'newcomer';
+/**
+ * visitor: signed out. owner: signed in (organiser owner). newcomer: signed in with a finished
+ * dancer profile and no organiser. dancer: signed in, the row's `setup` fakes the dancer reads.
+ */
+type Who = 'visitor' | 'owner' | 'newcomer' | 'dancer';
 interface Row {
   name: string;
   path: string;
@@ -35,11 +47,47 @@ interface Row {
   field: string;
   /** Its first result row, for a field that shows results. */
   result?: string;
+  /** The form's primary button, when it sits right under the field (it must stay above the keyboard too). */
+  primary?: string;
   /** What to type. */
   text: string;
   /** Steps that reveal the field (open a sheet, a menu). */
   reveal?: (page: Page) => Promise<void>;
+  /** The reveal already focuses the field (a picker's search): the person types straight away, no tap on it. */
+  focused?: boolean;
+  /** Extra page.route fakes for this screen's reads, asked before fakeSupabase's. */
+  setup?: (page: Page) => Promise<void>;
 }
+
+const RPC = `${FAKE_ORIGIN}/rest/v1/rpc/`;
+const reply = (body: unknown) => (route: Route) =>
+  route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+/** The /app/* dancer area (as tests/e2e/dancer-app/*.spec.ts fake it): the gate lets them in, my_dancer_edit_v1 answers `profile`. */
+const dancerArea = (profile: MyDancerEdit) => async (page: Page) => {
+  await page.route(`${RPC}dancer_area_gate_v1`, reply({ open: false, allowed: true }));
+  await page.route(`${RPC}my_dancer_edit_v1`, reply(profile));
+};
+
+/**
+ * /finish-profile: an incomplete dancer profile; the form asks for each empty field. `row` is what the
+ * profile already has (all four empty by default; only the first name missing puts Save right under it).
+ */
+const FINISH_ID = 'b1000000-0000-4000-8000-0000000000f1';
+const EMPTY_FOUR = { first_name: null, based_city_id: null, dance_role: null, avatar_url: null };
+const finishProfile = (have: Record<string, string | null> = {}) => async (page: Page) => {
+  await page.route(`${RPC}_my_dancer_profile_id_v1`, reply(FINISH_ID));
+  await page.route(`${RPC}profile_complete_v1`, reply(false));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/dancer_profiles**`, (route: Route) =>
+    new URL(route.request().url()).searchParams.get('id') === `eq.${FINISH_ID}`
+      ? reply({ ...EMPTY_FOUR, ...have })(route)
+      : route.fallback(),
+  );
+};
+
+/** The city picker's popover: its trigger opens it, the search field and its first option are the row. */
+const CITY_SEARCH = '[cmdk-input]';
+const CITY_OPTION = '[cmdk-item]';
 
 const ROWS: Row[] = [
   {
@@ -86,6 +134,99 @@ const ROWS: Row[] = [
     result: '[data-testid="onboarding-result"]',
     text: 'Sen',
   },
+  {
+    name: 'account settings: delete confirm word + Delete button',
+    path: '/account/settings/delete',
+    who: 'newcomer',
+    field: '#delete-type-input',
+    primary: '[data-testid="delete-confirm"]',
+    text: 'DELETE',
+    setup: (page) => page.route(`${RPC}my_account_erase_check_v1`, reply({ can_erase: true, blockers: [], code: null })),
+  },
+  {
+    name: 'dancer setup: first name',
+    path: '/app/welcome',
+    who: 'dancer',
+    field: '#ob-first',
+    text: 'Ana',
+    setup: dancerArea(DANCER_SHAPES.emptyStub.profile!),
+  },
+  {
+    name: 'dancer setup: shown name + Continue',
+    path: '/app/welcome',
+    who: 'dancer',
+    field: '#ob-display',
+    primary: '[data-testid="onboarding-continue"]',
+    text: 'Ana',
+    setup: dancerArea(DANCER_SHAPES.emptyStub.profile!),
+  },
+  {
+    name: 'dancer setup: city search (combobox, results)',
+    path: '/app/welcome',
+    who: 'dancer',
+    field: CITY_SEARCH,
+    result: CITY_OPTION,
+    text: 'Lon',
+    setup: dancerArea(makeProfile({ first_name: 'Ana' })),
+    reveal: (page) => page.locator('[data-testid="onboarding-city"] button[role="combobox"]').click(),
+    focused: true,
+  },
+  {
+    name: 'dancer edit: first name',
+    path: '/app/me/edit',
+    who: 'dancer',
+    field: '#first_name',
+    text: 'a',
+    setup: dancerArea(DANCER_SHAPES.fourFieldComplete.profile!),
+  },
+  {
+    name: 'dancer edit: city search (combobox, results)',
+    path: '/app/me/edit',
+    who: 'dancer',
+    field: CITY_SEARCH,
+    result: CITY_OPTION,
+    text: 'Lon',
+    setup: dancerArea(DANCER_SHAPES.fourFieldComplete.profile!),
+    reveal: (page) => page.getByRole('combobox', { name: 'City', exact: true }).click(),
+    focused: true,
+  },
+  {
+    name: 'dancer edit: website (last field) + Save',
+    path: '/app/me/edit',
+    who: 'dancer',
+    field: '#website_url',
+    primary: '[data-testid="edit-save"]',
+    text: 'htt',
+    setup: dancerArea(DANCER_SHAPES.fourFieldComplete.profile!),
+  },
+  {
+    name: 'finish profile: first name + Save (only the name missing)',
+    path: '/finish-profile',
+    who: 'dancer',
+    field: '#finish-first-name',
+    primary: 'main form button[type="submit"]',
+    text: 'Ana',
+    setup: finishProfile({ based_city_id: 'c1000000-0000-4000-8000-000000000001', dance_role: 'Follower', avatar_url: 'https://img.example/a.jpg' }),
+  },
+  {
+    name: 'finish profile: first name (all four missing)',
+    path: '/finish-profile',
+    who: 'dancer',
+    field: '#finish-first-name',
+    text: 'Ana',
+    setup: finishProfile(),
+  },
+  {
+    name: 'finish profile: city search (combobox, results)',
+    path: '/finish-profile',
+    who: 'dancer',
+    field: CITY_SEARCH,
+    result: CITY_OPTION,
+    text: 'Lon',
+    setup: finishProfile(),
+    reveal: (page) => page.locator('main form').getByRole('combobox').first().click(),
+    focused: true,
+  },
 ];
 
 /** 22 organisers with long names, so a search's results run past the keyboard. */
@@ -99,6 +240,7 @@ const MANY = Array.from({ length: 22 }, (_, i) => ({
 
 async function open(page: Page, row: Row) {
   // newcomer: signed in with a finished dancer profile and no organiser yet (organiser_home_v1 answers none).
+  // dancer: signed in; the row's setup answers the dancer reads.
   await fakeSupabase(page, { signedInAsOwner: row.who !== 'visitor', realClock: true, asDancer: row.who === 'newcomer' ? FLAG_DANCER_ID : undefined });
   // Registered after fakeSupabase, so it is asked first: a name search answers MANY.
   await page.route(`${FAKE_ORIGIN}/rest/v1/organiser_profiles**`, (route: Route) => {
@@ -107,6 +249,12 @@ async function open(page: Page, row: Row) {
     const limit = Number(url.searchParams.get('limit')) || MANY.length;
     return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(MANY.slice(0, limit)) });
   });
+  await row.setup?.(page);
+  if (process.env.KEYBOARD_SAFE_MUTANT) {
+    await page.route(/\/src\/lib\/keyboard\/keyboardSafe\.ts/, (route: Route) =>
+      route.fulfill({ status: 200, contentType: 'application/javascript', body: 'export const installKeyboardSafe = () => () => {};\nexport const isTextField = () => false;\n' }),
+    );
+  }
   await page.goto(row.path);
   await settled(page);
   await row.reveal?.(page);
@@ -139,7 +287,7 @@ async function fakeVisualViewport(page: Page) {
 /** What is wrong with the field and its first result, with `bottom` px still visible. */
 function problems(page: Page, row: Row, bottom: number) {
   return page.evaluate(
-    ({ field, result, bottom }) => {
+    ({ field, result, primary, bottom }) => {
       const out: string[] = [];
       const f = document.querySelector<HTMLElement>(field);
       if (!f) return ['field not found'];
@@ -169,9 +317,14 @@ function problems(page: Page, row: Row, bottom: number) {
         if (!first) out.push('no result row');
         else check(first, 'first result');
       }
+      if (primary) {
+        const button = document.querySelector<HTMLElement>(primary);
+        if (!button) out.push('no primary button');
+        else check(button, 'primary button');
+      }
       return out;
     },
-    { field: row.field, result: row.result, bottom },
+    { field: row.field, result: row.result, primary: row.primary, bottom },
   );
 }
 
@@ -183,9 +336,11 @@ for (const mode of ['resize', 'overlay'] as const) {
         if (mode === 'overlay') await fakeVisualViewport(page);
         await open(page, row);
         const field = page.locator(row.field).first();
-        await field.click();
+        if (row.focused) await expect(field).toBeFocused();
+        else await field.click();
         await field.pressSequentially(row.text, { delay: 30 });
         if (row.result) await page.locator(row.result).first().waitFor();
+        if (row.primary) await page.locator(row.primary).first().waitFor();
         const visible = visibleWithKeyboard(vp.height);
         if (mode === 'resize') await page.setViewportSize({ width: vp.width, height: visible });
         else await page.evaluate((px) => (window as unknown as { __keyboard: (px: number) => void }).__keyboard(px), vp.height - visible);

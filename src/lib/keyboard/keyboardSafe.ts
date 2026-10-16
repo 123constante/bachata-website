@@ -137,7 +137,20 @@ function check() {
   let need = row ? row.getBoundingClientRect().bottom : isSearchLike(field) ? r.bottom + ROW : r.bottom;
   need = Math.min(Math.max(need, r.bottom), r.top + (bottom - top) - GAP);
   if (r.top >= top && need <= bottom) return;
+  // A field in a floating panel (a picker's popover) moves with its trigger: scroll the trigger up instead.
+  const anchor = popoverAnchor(field);
+  if (anchor) return scrollBy(anchor, anchor.getBoundingClientRect().top - (top + GAP));
   scrollBy(field, r.top - (top + GAP));
+}
+
+/**
+ * The trigger of the floating panel (Radix popper) that holds the field. The panel is position:fixed and
+ * placed against its trigger, so the page cannot scroll the field itself; scrolling the trigger up makes
+ * the panel re-place itself (flipping below it) inside what the keyboard leaves.
+ */
+function popoverAnchor(field: HTMLElement): HTMLElement | null {
+  const id = field.closest('[data-radix-popper-content-wrapper]')?.firstElementChild?.id;
+  return id ? document.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(id)}"]`) : null;
 }
 
 /** Move the field by `delta` px: its scrolling boxes first, then the page. */
