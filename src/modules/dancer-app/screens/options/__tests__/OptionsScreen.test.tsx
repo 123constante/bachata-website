@@ -29,8 +29,7 @@ import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
 import OptionsScreen_ from '../OptionsScreen';
 import {
   BECOME_ORGANISER_LABEL,
-  PAUSED_REASON,
-  TERMS_REASON,
+  HIDDEN_SHARE_REASON,
   detectPlatform,
   installOrder,
   messageUsUrl,
@@ -81,8 +80,9 @@ describe('options model x every production shape', () => {
   it.each([
     ['pure dancer', makeProfile({ other_roles: [] }), false, ['switch-organiser']],
     ['dancer + organising', makeProfile({ other_roles: ['organising'] }), true, ['switch-organiser']],
-    ['dancer + teaching', makeProfile({ other_roles: ['teaching'] }), false, ['switch-organiser', 'switch-teacher']],
-    ['dancer + teaching + djing', makeProfile({ other_roles: ['teaching', 'djing'] }), false, ['switch-organiser', 'switch-teacher', 'switch-dj']],
+    // Audit L12: no teacher / DJ rows until those areas exist.
+    ['dancer + teaching', makeProfile({ other_roles: ['teaching'] }), false, ['switch-organiser']],
+    ['dancer + teaching + djing', makeProfile({ other_roles: ['teaching', 'djing'] }), false, ['switch-organiser']],
   ] as const)('%s: switch-profile rows', (_n, profile, runsEvents, ids) => {
     const rows = optionsRows(profile);
     expect(rows.filter((r) => r.id.startsWith('switch-')).map((r) => r.id)).toEqual(ids);
@@ -100,15 +100,15 @@ describe('options model x every production shape', () => {
     }
   });
 
-  it('paused: share is disabled with the reason; active: share is enabled', () => {
-    expect(optionsRows(makeProfile({ is_active: false })).find((r) => r.id === 'share')?.disabledReason).toBe(PAUSED_REASON);
+  it('hidden: share is disabled with the reason; active: share is enabled', () => {
+    expect(optionsRows(makeProfile({ is_active: false })).find((r) => r.id === 'share')?.disabledReason).toBe(HIDDEN_SHARE_REASON);
     expect(optionsRows(makeProfile({ is_active: true })).find((r) => r.id === 'share')?.disabledReason).toBeUndefined();
   });
 
-  it('terms and privacy has no route on the site: disabled with a reason, no href', () => {
-    const terms = optionsRows(makeProfile()).find((r) => r.id === 'terms')!;
-    expect(terms.href).toBeUndefined();
-    expect(terms.disabledReason).toBe(TERMS_REASON);
+  it('terms and privacy are live pages (audit H3): two enabled links', () => {
+    const rows = optionsRows(makeProfile());
+    expect(rows.find((r) => r.id === 'terms')).toEqual({ id: 'terms', label: 'Terms', href: '/terms' });
+    expect(rows.find((r) => r.id === 'privacy')).toEqual({ id: 'privacy', label: 'Privacy policy', href: '/privacy' });
   });
 
   it('the share URL is the site helper output, and the message-us link keeps the site number', () => {
@@ -144,25 +144,25 @@ describe('options screen', () => {
     await waitFor(() => expect(location()).toBe('/account/o'));
   });
 
-  it('dancer + teaching: a disabled coming-soon teacher row', async () => {
+  it('dancer + teaching: no teacher row and no coming-soon text (audit L12)', async () => {
     await shown({ backend: { profile: makeProfile({ other_roles: ['teaching'] }) } });
-    expect(screen.getByTestId('opt-switch-teacher').hasAttribute('disabled')).toBe(true);
-    expect(screen.getByTestId('opt-why-switch-teacher').textContent).toMatch(/coming soon/i);
+    expect(screen.queryByTestId('opt-switch-teacher')).toBeNull();
+    expect(screen.getByTestId('dancer-screen-options').textContent).not.toMatch(/coming soon/i);
   });
 
-  it('paused: share is disabled with its reason and copies nothing', async () => {
+  it('hidden: share is disabled with its reason and copies nothing', async () => {
     const writeText = vi.fn();
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
     await shown({ backend: { shape: 'paused' } });
     expect(screen.getByTestId('opt-share').hasAttribute('disabled')).toBe(true);
-    expect(screen.getByTestId('opt-why-share').textContent).toBe(PAUSED_REASON);
+    expect(screen.getByTestId('opt-why-share').textContent).toBe(HIDDEN_SHARE_REASON);
     fireEvent.click(screen.getByTestId('opt-share'));
     expect(writeText).not.toHaveBeenCalled();
   });
 
   it('clipboard available: copies the site URL and says "Link copied"', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    vi.stubGlobal('navigator', { ...navigator, share: undefined, clipboard: { writeText } });
     await shown();
     fireEvent.click(screen.getByTestId('opt-share'));
     await screen.findByText('Link copied');
@@ -198,9 +198,9 @@ describe('options screen', () => {
     expect(screen.getByTestId('opt-help').getAttribute('href')).toMatch(/^https:\/\/wa\.me\//);
   });
 
-  it('the account-settings line and the second card link to routes that exist', async () => {
+  it('the account-settings line and the back-to-site link go to routes that exist', async () => {
     await shown();
-    for (const el of [screen.getByText('Account settings'), screen.getByTestId('opt-back-to-site'), screen.getByTestId('opt-browse-events')]) {
+    for (const el of [screen.getByText('Account settings'), screen.getByTestId('opt-back-to-site'), screen.getByTestId('opt-terms'), screen.getByTestId('opt-privacy')]) {
       const href = el.closest('a')!.getAttribute('href')!;
       expect(CATCHALL_CLIENT_PATHS.some((p) => matchesPattern(href, p)), href).toBe(true);
     }
@@ -216,16 +216,19 @@ describe('options screen', () => {
     expect(signOutMock).toHaveBeenCalledTimes(1);
   });
 
-  it('sign out failure: stays signed in, shows the DancerHome failure copy with Retry, then succeeds', async () => {
+  // Audit H10: the shared useSignOutToHome leaves for / first, so a failure brings the
+  // person BACK to Options (signed in; the hook toasts SIGN_OUT_FAILED_COPY), and a
+  // second try lands on /. The inline line with Retry is covered in optionsAudit.test.tsx.
+  it('sign out failure: comes back to Options still signed in, then a second try lands on /', async () => {
     signOutMock.mockResolvedValueOnce('failed').mockResolvedValueOnce('signed-out');
     const { location } = await shown();
     fireEvent.click(screen.getByTestId('opt-sign-out'));
     fireEvent.click(await screen.findByTestId('opt-signout-confirm'));
-    expect((await screen.findByRole('alert')).textContent).toBe(SIGN_OUT_FAILED_COPY);
-    expect(location()).toBe('/app/options');
-    const retry = screen.getByTestId('opt-signout-confirm');
-    expect(retry.textContent).toBe('Retry');
-    fireEvent.click(retry);
+    await waitFor(() => expect(signOutMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(location()).toBe('/app/options'));
+    expect(SIGN_OUT_FAILED_COPY.length).toBeGreaterThan(0);
+    fireEvent.click(await screen.findByTestId('opt-sign-out'));
+    fireEvent.click(await screen.findByTestId('opt-signout-confirm'));
     await waitFor(() => expect(location()).toBe('/'));
     expect(signOutMock).toHaveBeenCalledTimes(2);
   });

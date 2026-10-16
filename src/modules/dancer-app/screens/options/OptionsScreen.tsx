@@ -1,22 +1,22 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { Link } from 'react-router-dom';
+import { SIGN_OUT_FAILED, useSignOutToHome } from '@/components/account/profiles/signOutToHome';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
+import { ACCOUNT_SETTINGS_LABEL } from '../../copy/sharedCopy';
 import {
   ACCOUNT_SETTINGS_PATH,
-  BROWSE_EVENTS_PATH,
   INSTALL_STEPS,
   SITE_HOME_PATH,
-  copyText,
   detectPlatform,
   installOrder,
   optionsRows,
+  shareOrCopy,
   shareUrlFor,
   type OptionsRow,
 } from './optionsModel';
 
-/** The failure line today's DancerHome shows when sign-out does not complete (same words). */
-export const SIGN_OUT_FAILED_COPY = 'Sign-out did not complete. Check your connection and try again.';
+/** The one sign-out failure line (owned by signOutToHome, shared with the profile switcher). */
+export const SIGN_OUT_FAILED_COPY = SIGN_OUT_FAILED;
 const LOAD_FAILED_COPY = 'We could not load your options. Check your connection and try again.';
 
 const ROW: CSSProperties = {
@@ -61,12 +61,10 @@ const Sheet = ({ title, testId, onClose, children }: { title: string; testId: st
 );
 
 const OptionsScreen = () => {
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
+  const { signOutToHome, busy: signingOut } = useSignOutToHome();
   const profile = useMyDancerEdit();
   const [sheet, setSheet] = useState<'install' | 'sign-out' | null>(null);
   const [copied, setCopied] = useState<'idle' | 'copied' | 'manual'>('idle');
-  const [signingOut, setSigningOut] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
 
   if (profile.isError) {
@@ -92,17 +90,12 @@ const OptionsScreen = () => {
   const shareUrl = shareUrlFor(me.profile_id);
   const platform = detectPlatform(typeof navigator === 'undefined' ? '' : navigator.userAgent, typeof navigator === 'undefined' ? 0 : navigator.maxTouchPoints);
 
+  // Audit H10: leave for the site home FIRST, then sign out (useSignOutToHome). On
+  // 'ok' this screen has already unmounted. On 'failed' the hook comes back here
+  // and toasts the same line; if this sheet is still mounted it shows it too.
   const doSignOut = async () => {
-    setSigningOut(true);
     setSignOutFailed(false);
-    const outcome = await signOut();
-    setSigningOut(false);
-    if (outcome === 'failed') {
-      setSignOutFailed(true);
-      return;
-    }
-    setSheet(null);
-    navigate(SITE_HOME_PATH, { replace: true });
+    if ((await signOutToHome()) === 'failed') setSignOutFailed(true);
   };
 
   const renderRow = (row: OptionsRow) => {
@@ -126,7 +119,10 @@ const OptionsScreen = () => {
       );
     }
     const onClick = async () => {
-      if (row.id === 'share') setCopied(await copyText(shareUrl));
+      if (row.id === 'share') {
+        const outcome = await shareOrCopy(shareUrl, 'My dancer page');
+        setCopied(outcome === 'copied' || outcome === 'manual' ? outcome : 'idle');
+      }
       else if (row.id === 'install') setSheet('install');
       else if (row.id === 'sign-out') { setSignOutFailed(false); setSheet('sign-out'); }
     };
@@ -157,13 +153,12 @@ const OptionsScreen = () => {
         )}
         <p style={REASON} data-testid="opt-account-settings-line">
           Hide your profile, download your data or delete your account:{' '}
-          <Link to={ACCOUNT_SETTINGS_PATH} style={{ color: 'var(--da-accent)', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>Account settings</Link>
+          <Link to={ACCOUNT_SETTINGS_PATH} style={{ color: 'var(--da-accent)', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>{ACCOUNT_SETTINGS_LABEL}</Link>
         </p>
       </div>
 
       <div className="da-card" style={{ display: 'grid', gap: 8 }}>
         <Link to={SITE_HOME_PATH} style={ROW} data-testid="opt-back-to-site">&larr; Back to the Bachata Calendar website</Link>
-        <Link to={BROWSE_EVENTS_PATH} style={ROW} data-testid="opt-browse-events">Browse all events</Link>
       </div>
 
       {sheet === 'install' && (
