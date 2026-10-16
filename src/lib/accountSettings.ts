@@ -5,6 +5,15 @@
 // in the app reads these responses.
 import { getSupabase } from "@/integrations/supabase/getSupabase";
 import { rpcLoose } from "@/integrations/supabase/rpcLoose";
+import { deleteRefusalMessage } from "@/lib/accountDeletionCopy";
+
+/**
+ * The `account-erase` edge function's refusal codes (admin #820 handler.ts STATUS_BY_CODE). Here, not in
+ * lib/accountDeletion: importing that module from the settings/dancer-app entries split it into a chunk of
+ * its own, one more first-load request on /app (perf-budgets.json chunk ratchet).
+ */
+export type DeleteRefusalCode = "admin_account" | "sole_organiser_owner" | "already_archived" | "rate_limited";
+export const DELETE_REFUSAL_CODES: readonly DeleteRefusalCode[] = ["admin_account", "sole_organiser_owner", "already_archived", "rate_limited"];
 
 export const ERASE_CONFIRM_WORD = "DELETE";
 /** Exactly DELETE: case-sensitive, no padding. */
@@ -67,34 +76,40 @@ export const fetchEraseCheck = async (): Promise<EraseCheck> => {
   return { can_erase: d?.can_erase === true, blockers: d?.blockers ?? [], code: d?.code ?? null };
 };
 
+/**
+ * Delete = hide (admin PR #820): `account-erase` now runs my_account_delete_v1, which
+ * hides the person at once and erases nothing. `ok:true` means HIDDEN, never erased.
+ */
 export type EraseOutcome =
-  | { kind: "erased" }
-  | { kind: "blocked"; code: EraseCode | null; blockers: EraseBlocker[] }
-  | { kind: "media_failed" }
+  | { kind: "hidden" }
+  | { kind: "refused"; code: DeleteRefusalCode; blockers: EraseBlocker[] }
   | { kind: "failed" };
 
-type ErasePayload = { ok?: boolean; code?: string; blockers?: EraseBlocker[] };
+type ErasePayload = { ok?: boolean; hidden?: boolean; code?: string; blockers?: EraseBlocker[] };
 
-const classify = (payload: ErasePayload | null, status: number | null): EraseOutcome => {
-  if (payload?.ok === true) return { kind: "erased" };
-  if (payload?.code === "media_delete_failed") return { kind: "media_failed" };
-  if (status === 409 || payload?.code === "admin_account" || payload?.code === "sole_organiser_owner") {
-    const code = payload?.code === "admin_account" || payload?.code === "sole_organiser_owner" ? payload.code : null;
-    return { kind: "blocked", code, blockers: payload?.blockers ?? [] };
+/** Exported for the table-driven tests. A refusal is read by its code, never by the HTTP status alone. */
+export const classifyErase = (payload: ErasePayload | null): EraseOutcome => {
+  // `hidden` is not required: the #820 function always sends it, and the old erasing one (live until the
+  // owner's deploy step, same window as this build) sends only ok:true -- the account is gone from view
+  // either way, and "failed" would invite a retry that can only fail.
+  if (payload?.ok === true) return { kind: "hidden" };
+  const code = payload?.code;
+  if (code && (DELETE_REFUSAL_CODES as readonly string[]).includes(code)) {
+    return { kind: "refused", code: code as DeleteRefusalCode, blockers: code === "sole_organiser_owner" ? (payload?.blockers ?? []) : [] };
   }
   return { kind: "failed" };
 };
 
-/** The final, irreversible step: the edge function does it all (photo files included). */
+/** Hides the account (restorable for 30 days); the edge function runs it as the caller. */
 export const eraseAccount = async (): Promise<EraseOutcome> => {
   try {
     const supabase = await getSupabase();
     const { data, error } = await supabase.functions.invoke("account-erase", { body: { confirm: ERASE_CONFIRM_WORD } });
-    if (!error) return classify(data as ErasePayload | null, 200);
+    if (!error) return classifyErase(data as ErasePayload | null);
     const ctx = (error as { context?: unknown }).context;
     if (ctx instanceof Response) {
       const body = (await ctx.json().catch(() => null)) as ErasePayload | null;
-      return classify(body, ctx.status);
+      return classifyErase(body);
     }
     return { kind: "failed" };
   } catch {
@@ -113,14 +128,10 @@ export type EraseFact = {
 export const eraseCheckFact = (check: Pick<EraseCheck, "can_erase" | "blockers" | "code">): EraseFact => {
   const names = check.blockers.map((b) => b.name);
   if (check.code === "admin_account") {
-    return { kind: "admin", blockerNames: [], text: "This is an admin account, so it can't be deleted here. You can still hide your dancer profile instead." };
+    return { kind: "admin", blockerNames: [], text: deleteRefusalMessage("admin_account") };
   }
   if (check.code === "sole_organiser_owner") {
-    return {
-      kind: "sole_owner",
-      blockerNames: names,
-      text: "You're the only owner of the organiser page(s) below. Add another owner, or remove the page, then come back to delete your account.",
-    };
+    return { kind: "sole_owner", blockerNames: names, text: deleteRefusalMessage("sole_organiser_owner") };
   }
   if (check.can_erase) return { kind: "can_erase", blockerNames: [], text: "" };
   return { kind: "blocked_unknown", blockerNames: names, text: "This account can't be deleted right now. You can hide your dancer profile instead." };

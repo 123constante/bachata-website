@@ -12,11 +12,12 @@
  *   unfinished dancer profile reaches none of these pages (see below).
  *
  * Nothing else decides any of it, so the icon, the page, the gate and the menu
- * cannot disagree. Imports only lib/authRouting (itself import-free): GlobalHeader
- * is on every page's first load, and already loads that module.
+ * cannot disagree. Imports only lib/authRouting and lib/accountDeletion (both
+ * import-free): GlobalHeader is on every page's first load.
  */
 
 import { sanitizeReturnTo } from './authRouting';
+import { deletionLanding, type DeletionStatus } from './accountDeletion';
 
 export const ACCOUNT_HOME_PATH = '/account';
 /** The dancer home for anyone, organisers included (the account menu's dancer entry). */
@@ -29,6 +30,8 @@ export const MY_ATTENDANCE_PATH = '/account/attendance';
 export const ACCOUNT_SETTINGS_PATH = '/account/settings';
 /** The page shown after the account was erased (public: the person is signed out by then). */
 export const ACCOUNT_DELETED_PATH = '/account/deleted';
+/** Where a deleted (= hidden) account lands after sign-in: restore within 30 days, else the deleted card. */
+export const ACCOUNT_RESTORE_PATH = '/account/restore';
 
 export type AccountHome = 'organiser' | 'dancer' | 'loading';
 
@@ -100,6 +103,8 @@ export const isDancerGatedPath = (pathname: string): boolean => {
   if (path === MY_ATTENDANCE_PATH || path === `${MY_ATTENDANCE_PATH}/`) return false;
   // Settings must never trap anyone: a person with an unfinished profile can still sign out, hide it or erase the account.
   if (path === ACCOUNT_SETTINGS_PATH || path.startsWith(`${ACCOUNT_SETTINGS_PATH}/`) || path === ACCOUNT_DELETED_PATH) return false;
+  // A hidden account has no live dancer profile: the gate would send it to onboarding instead of restoring it.
+  if (path === ACCOUNT_RESTORE_PATH || path === `${ACCOUNT_RESTORE_PATH}/`) return false;
   // The sign-in landing only reads; each side it opens is gated where it lives.
   if (path === CONTINUE_AS_PATH || path === `${CONTINUE_AS_PATH}/`) return false;
   return isAccountPath(path) || path === INVITE_PATH || path.startsWith(`${INVITE_PATH}/`);
@@ -259,6 +264,11 @@ export type SidesFacts = {
    * for a person with no side at all (M44).
    */
   isAdmin?: boolean | null;
+  /**
+   * my_account_deletion_status_v1 (lib/accountDeletion): 'loading' while read; null or absent when
+   * unknown or failed (sign-in carries on as usual). Only signInLanding reads it.
+   */
+  deletion?: DeletionStatus | 'loading' | null;
 };
 
 export type ProfileSide =
@@ -328,6 +338,10 @@ export type SignInLanding = { kind: 'wait' } | { kind: 'go'; to: string } | { ki
  * plain landing.
  */
 export const signInLanding = (f: SidesFacts, returnTo: string | null): SignInLanding => {
+  // A deleted (= hidden) account first: restore it, or show the deleted card. Before returnTo, or the
+  // sign-in that is meant to undo a delete would land on a page and leave the account hidden.
+  if (f.deletion === 'loading') return { kind: 'wait' };
+  if (deletionLanding(f.deletion) !== null) return { kind: 'go', to: ACCOUNT_RESTORE_PATH };
   if (returnTo) return { kind: 'go', to: returnTo };
   const state = profileSides(f);
   if (state.status === 'loading') return { kind: 'wait' };

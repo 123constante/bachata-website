@@ -143,6 +143,8 @@ export const LINKS = [
   "check:wallclock-brand",
   "check:workflow-artifact-policy:self-test",
   "check:workflow-artifact-policy",
+  "check:journey-grid:self-test",
+  "check:journey-grid",
 ];
 
 /**

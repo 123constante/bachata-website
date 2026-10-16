@@ -67,6 +67,7 @@ export const SITE_IA = {
   'accountSettings.ownership': { label: 'Account ownership', path: '/account/settings/ownership', parent: 'accountSettings' },
   'accountSettings.delete': { label: 'Delete account', parent: 'accountSettings.ownership' },
   accountDeleted:   { label: 'Account deleted' },
+  accountRestore:   { label: 'Your account' },
   // Signed-in, noindex (Lever 2 W1); never reaches a crawler's BreadcrumbList.
   account:          { label: 'Your account',      path: '/account/o' },
   'account.new':    { label: 'New event',         parent: 'account' },

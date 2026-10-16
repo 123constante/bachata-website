@@ -51,6 +51,7 @@ vi.mock('@/lib/accountSettings', async (orig) => {
 });
 
 import AccountSettings from '../AccountSettings';
+import { ACCOUNT_CONTACT_EMAIL } from '@/lib/accountDeletionCopy';
 
 const SETTINGS = '/account/settings';
 const mount = (at: string) =>
@@ -193,6 +194,20 @@ describe('settings home', () => {
     expect(await screen.findByText('start')).toBeTruthy();
   });
 
+  it('sign out of all devices: global sign-out, then home; a failure says so and stays', async () => {
+    mount(SETTINGS);
+    fireEvent.click(await screen.findByTestId('settings-signout-all'));
+    await waitFor(() => expect(h.signOut).toHaveBeenCalledWith({ everywhere: true }));
+    expect(await screen.findByText('start')).toBeTruthy();
+  });
+
+  it('sign out of all devices failing keeps the person here with a reason', async () => {
+    h.signOut.mockResolvedValue('failed');
+    mount(SETTINGS);
+    fireEvent.click(await screen.findByTestId('settings-signout-all'));
+    expect((await screen.findByTestId('settings-signout-all-error')).textContent).toMatch(/did not complete/i);
+  });
+
   it('settings is not behind the dancer-first gate (an unfinished profile can reach it)', () => {
     const src = readFileSync(path.resolve(__dirname, '../AccountSettings.tsx'), 'utf8');
     expect(src).not.toMatch(/DancerProfileGate/);
@@ -231,17 +246,27 @@ describe('ownership + delete: the same fact on both screens', () => {
     }
   }
 
-  it('lists what is lost', async () => {
+  // Delete = hide (admin PR #820): the copy may never promise an erase.
+  const FORBIDDEN = /erased|permanent|cannot be undone|photos are gone|for good|log back in/i;
+  it('says what happens: hidden now, 30 days to undo, ask us for a full erase', async () => {
     mount('/account/settings/delete');
     const lost = await screen.findByTestId('delete-lost');
-    expect(lost.textContent).toMatch(/profile/i);
-    expect(lost.textContent).toMatch(/photos/i);
-    expect(lost.textContent).toMatch(/ratings/i);
-    expect(lost.textContent).toMatch(/cannot be undone/i);
+    expect(lost.textContent).toMatch(/hidden from everyone straight away/i);
+    expect(lost.textContent).toMatch(/within 30 days/i);
+    expect(lost.textContent).toMatch(/stays hidden/i);
+    expect(lost.textContent).toContain(ACCOUNT_CONTACT_EMAIL);
+    expect(document.body.textContent).not.toMatch(FORBIDDEN);
   });
 
-  it('erase stays disabled until DELETE is typed exactly; then erases, signs out, routes to the deleted page', async () => {
-    h.erase.mockResolvedValue({ kind: 'erased' });
+  it('ownership: no promise of permanence', async () => {
+    mount('/account/settings/ownership');
+    expect((await screen.findByTestId('ownership-delete-link')).textContent).toBe('Delete account');
+    expect(document.body.textContent).toMatch(/within 30 days/i);
+    expect(document.body.textContent).not.toMatch(FORBIDDEN);
+  });
+
+  it('delete stays disabled until DELETE is typed exactly; then hides, signs out everywhere, routes to the deleted page', async () => {
+    h.erase.mockResolvedValue({ kind: 'hidden' });
     mount('/account/settings/delete');
     const input = await screen.findByTestId('delete-type-input');
     const btn = screen.getByTestId('delete-confirm') as HTMLButtonElement;
@@ -254,12 +279,12 @@ describe('ownership + delete: the same fact on both screens', () => {
     expect(btn.disabled).toBe(false);
     fireEvent.click(btn);
     await waitFor(() => expect(h.erase).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(h.signOut).toHaveBeenCalled());
+    await waitFor(() => expect(h.signOut).toHaveBeenCalledWith({ everywhere: true }));
     expect(await screen.findByText('deleted-page')).toBeTruthy();
   });
 
-  it('a failed local sign-out after erasing is ignored', async () => {
-    h.erase.mockResolvedValue({ kind: 'erased' });
+  it('a failed sign-out after hiding is ignored', async () => {
+    h.erase.mockResolvedValue({ kind: 'hidden' });
     h.signOut.mockRejectedValue(new Error('session gone'));
     mount('/account/settings/delete');
     fireEvent.change(await screen.findByTestId('delete-type-input'), { target: { value: 'DELETE' } });
@@ -267,23 +292,34 @@ describe('ownership + delete: the same fact on both screens', () => {
     expect(await screen.findByText('deleted-page')).toBeTruthy();
   });
 
-  it('media_delete_failed: try again, nothing erased, stays on the screen', async () => {
-    h.erase.mockResolvedValue({ kind: 'media_failed' });
+  // Each refusal code has its own words; the person stays, signed in, with nothing changed.
+  const REFUSALS: Array<[string, unknown, RegExp, string | null]> = [
+    ['admin_account', { kind: 'refused', code: 'admin_account', blockers: [] }, /admin account/i, null],
+    ['sole_organiser_owner', { kind: 'refused', code: 'sole_organiser_owner', blockers: [{ entity_id: 'o9', name: 'Late Club' }] }, /only owner/i, 'Late Club'],
+    ['already_archived', { kind: 'refused', code: 'already_archived', blockers: [] }, /admin has already hidden/i, null],
+    ['rate_limited', { kind: 'refused', code: 'rate_limited', blockers: [] }, /wait until tomorrow/i, null],
+  ];
+  it.each(REFUSALS)('refused %s at the last moment: its own message, no sign-out', async (_c, out, words, blocker) => {
+    h.erase.mockResolvedValue(out);
+    mount('/account/settings/delete');
+    fireEvent.change(await screen.findByTestId('delete-type-input'), { target: { value: 'DELETE' } });
+    fireEvent.click(screen.getByTestId('delete-confirm'));
+    const box = await screen.findByTestId('delete-blocked');
+    expect(box.textContent).toMatch(words);
+    if (blocker) expect(box.textContent).toContain(blocker);
+    expect(h.signOut).not.toHaveBeenCalled();
+  });
+
+  it('an unknown failure: generic message with retry, nothing deleted, no sign-out', async () => {
+    h.erase.mockResolvedValue({ kind: 'failed' });
     mount('/account/settings/delete');
     fireEvent.change(await screen.findByTestId('delete-type-input'), { target: { value: 'DELETE' } });
     fireEvent.click(screen.getByTestId('delete-confirm'));
     const msg = await screen.findByTestId('delete-error');
-    expect(msg.textContent).toMatch(/nothing was deleted/i);
+    expect(msg.textContent).toMatch(/not deleted/i);
     expect(msg.textContent).toMatch(/try again/i);
     expect(h.signOut).not.toHaveBeenCalled();
-  });
-
-  it('a 409 at the last moment switches to the blocked reading', async () => {
-    h.erase.mockResolvedValue({ kind: 'blocked', code: 'sole_organiser_owner', blockers: [{ entity_id: 'o9', name: 'Late Club' }] });
-    mount('/account/settings/delete');
-    fireEvent.change(await screen.findByTestId('delete-type-input'), { target: { value: 'DELETE' } });
-    fireEvent.click(screen.getByTestId('delete-confirm'));
-    expect((await screen.findByTestId('delete-blocked')).textContent).toContain('Late Club');
+    expect((screen.getByTestId('delete-confirm') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('the erase check failing keeps erase disabled and offers retry', async () => {
