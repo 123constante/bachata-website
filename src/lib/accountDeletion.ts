@@ -9,6 +9,7 @@
 // restoreAccount, DeletionStatus. The RPC names and JSON keys are pinned against the
 // #820 SQL by src/lib/__tests__/accountDeletion.contract.test.ts.
 import { rpcLoose } from "@/integrations/supabase/rpcLoose";
+import { sanitizeReturnTo } from "./authRouting";
 
 const rpc = (fn: string) => rpcLoose(fn);
 
@@ -40,13 +41,36 @@ export const deletionLanding = (status: DeletionStatus | null | undefined): Dele
   return null;
 };
 
-/** The react-query key both readers share (the sign-in landing and /account/restore). */
+/** The react-query key both readers share (the sign-in check and /account/restore). */
 export const DELETION_STATUS_KEY = "account-deletion-status";
 
 export const fetchDeletionStatus = async (): Promise<DeletionStatus | null> => {
   const { data, error } = await rpc("my_account_deletion_status_v1");
   if (error) throw error;
   return parseDeletionStatus(data);
+};
+
+/** Where a deleted (= hidden) account lands after sign-in: restore within 30 days, else the deleted card. */
+export const ACCOUNT_RESTORE_PATH = "/account/restore";
+
+/** /account/restore, carrying the page the sign-in was headed for (its "Continue" goes there). */
+export const restorePathFor = (returnTo: string | null): string => {
+  const safe = sanitizeReturnTo(returnTo);
+  return safe ? `${ACCOUNT_RESTORE_PATH}?returnTo=${encodeURIComponent(safe)}` : ACCOUNT_RESTORE_PATH;
+};
+
+/**
+ * The sign-in's deletion check (pages/AuthCallback, which EVERY sign-in passes through, with or
+ * without a returnTo): the restore page for a deleted account, else null. Runs before any returnTo
+ * is followed, or the sign-in meant to undo a delete would land on a page and leave the account
+ * hidden. A failed read is null: it never strands a sign-in.
+ */
+export const signInDeletionTarget = async (returnTo: string | null): Promise<string | null> => {
+  try {
+    return deletionLanding(await fetchDeletionStatus()) === null ? null : restorePathFor(returnTo);
+  } catch {
+    return null;
+  }
 };
 
 /** my_account_restore_v1 codes (20261122210000): each changes nothing. */

@@ -1,12 +1,14 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { useNoindexMeta } from "@/hooks/useNoindexMeta";
 import { buildBreadcrumbs } from "@/lib/breadcrumbs";
-import { ACCOUNT_CONTACT_EMAIL } from "@/lib/accountDeletionCopy";
+import { ACCOUNT_CONTACT_EMAIL, OTHER_DEVICES_NOT_SIGNED_OUT } from "@/lib/accountDeletionCopy";
 
 /** Shown after the account was deleted (= hidden, admin PR #820). Public: the person is signed out by then. */
 const AccountDeleted = () => {
   useNoindexMeta(true);
+  // The delete (pages/AccountSettings) signs out everywhere; when only this device got out, say so.
+  const otherDevicesSignedIn = Boolean((useLocation().state as { otherDevicesSignedIn?: boolean } | null)?.otherDevicesSignedIn);
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs("accountDeleted")}>
       <div className="px-4 pb-24 pt-3">
@@ -18,6 +20,11 @@ const AccountDeleted = () => {
             <span className="break-all font-semibold">{ACCOUNT_CONTACT_EMAIL}</span>{" "}
             for a full erase.
           </p>
+          {otherDevicesSignedIn && (
+            <p role="alert" className="text-[14px] font-semibold text-foreground" data-testid="account-deleted-other-devices">
+              {OTHER_DEVICES_NOT_SIGNED_OUT}
+            </p>
+          )}
           <p className="text-[13px] text-muted-foreground">You can still browse parties without an account.</p>
           <Link
             to="/"

@@ -11,6 +11,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { readFileSync } from 'node:fs';
+import AccountDeleted from '../AccountDeleted';
 import path from 'node:path';
 
 const h = vi.hoisted(() => ({
@@ -22,6 +23,7 @@ const h = vi.hoisted(() => ({
   exportFn: vi.fn(),
   updateUser: vi.fn(),
   signOut: vi.fn(),
+  toast: vi.fn((_t: { title?: string; description?: string }) => undefined),
   user: { id: 'u1', email: 'me@x.co', new_email: undefined as string | undefined },
 }));
 
@@ -31,6 +33,7 @@ vi.mock('@/hooks/useAuth', () => ({
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
+vi.mock('@/hooks/use-toast', async (orig) => ({ ...(await orig<typeof import('@/hooks/use-toast')>()), toast: h.toast }));
 vi.mock('@/hooks/useMyProfileVisibility', () => ({
   useMyProfileVisibility: () => ({ status: h.visibility.status, refetch: vi.fn() }),
 }));
@@ -78,6 +81,7 @@ beforeEach(() => {
   h.exportFn.mockReset().mockResolvedValue(h.exportData);
   h.updateUser.mockReset();
   h.signOut.mockReset().mockResolvedValue('signed-out');
+  h.toast.mockClear();
 });
 afterEach(cleanup);
 
@@ -297,7 +301,7 @@ describe('ownership + delete: the same fact on both screens', () => {
     ['admin_account', { kind: 'refused', code: 'admin_account', blockers: [] }, /admin account/i, null],
     ['sole_organiser_owner', { kind: 'refused', code: 'sole_organiser_owner', blockers: [{ entity_id: 'o9', name: 'Late Club' }] }, /only owner/i, 'Late Club'],
     ['already_archived', { kind: 'refused', code: 'already_archived', blockers: [] }, /admin has already hidden/i, null],
-    ['rate_limited', { kind: 'refused', code: 'rate_limited', blockers: [] }, /wait until tomorrow/i, null],
+    ['rate_limited', { kind: 'refused', code: 'rate_limited', blockers: [] }, /wait 24 hours/i, null],
   ];
   it.each(REFUSALS)('refused %s at the last moment: its own message, no sign-out', async (_c, out, words, blocker) => {
     h.erase.mockResolvedValue(out);
@@ -327,5 +331,54 @@ describe('ownership + delete: the same fact on both screens', () => {
     mount('/account/settings/delete');
     expect(await screen.findByTestId('delete-check-failed')).toBeTruthy();
     expect((screen.getByTestId('delete-confirm') as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+// Review B2: when the global revoke fails and only THIS device signs out ("signed-out-locally"),
+// the person is told their other devices may still be signed in -- never a silent "/" (a lost phone
+// is the reason to press it). Same after a delete, on /account/deleted. Never for "signed-out".
+describe('sign out everywhere: the other devices are never falsely reassured', () => {
+  const OTHERS = /couldn.t reach the server to sign out your other devices/i;
+  const mountReal = (at: string) =>
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={[at]}>
+          <Routes>
+            <Route path="/account/settings" element={<AccountSettings view="home" />} />
+            <Route path="/account/settings/delete" element={<AccountSettings view="delete" />} />
+            <Route path="/account/deleted" element={<AccountDeleted />} />
+            <Route path="/" element={<p>start</p>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  // The words ride a toast (the settings page ends at "/"): what the toast is asked to say.
+  const toasted = () => h.toast.mock.calls.map(([t]) => `${t.title} ${t.description}`).join('\n');
+
+  it.each([
+    ['signed-out-locally', true],
+    ['signed-out', false],
+  ] as const)('settings, %s: says so = %s', async (outcome, says) => {
+    h.signOut.mockResolvedValue(outcome);
+    mountReal(SETTINGS);
+    fireEvent.click(await screen.findByTestId('settings-signout-all'));
+    expect(await screen.findByText('start')).toBeTruthy();
+    if (says) expect(toasted()).toMatch(OTHERS);
+    else expect(toasted()).not.toMatch(OTHERS);
+  });
+
+  it.each([
+    ['signed-out-locally', true],
+    ['failed', true],
+    ['signed-out', false],
+  ] as const)('delete, %s: /account/deleted says so = %s', async (outcome, says) => {
+    h.erase.mockResolvedValue({ kind: 'hidden' });
+    h.signOut.mockResolvedValue(outcome);
+    mountReal('/account/settings/delete');
+    fireEvent.change(await screen.findByTestId('delete-type-input'), { target: { value: 'DELETE' } });
+    fireEvent.click(screen.getByTestId('delete-confirm'));
+    expect(await screen.findByTestId('account-deleted')).toBeTruthy();
+    if (says) expect(screen.getByText(OTHERS)).toBeTruthy();
+    else expect(screen.queryByText(OTHERS)).toBeNull();
   });
 });

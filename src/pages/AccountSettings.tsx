@@ -22,7 +22,8 @@ import {
   type EraseBlocker,
   type EraseCode,
 } from "@/lib/accountSettings";
-import { ACCOUNT_CONTACT_EMAIL, deleteRefusalMessage } from "@/lib/accountDeletionCopy";
+import { ACCOUNT_CONTACT_EMAIL, OTHER_DEVICES_NOT_SIGNED_OUT, deleteRefusalMessage } from "@/lib/accountDeletionCopy";
+import { toast } from "@/hooks/use-toast";
 
 /**
  * /account/settings, /account/settings/ownership, /account/settings/delete.
@@ -147,8 +148,11 @@ function SignOutEverywhere() {
       setNote("Sign-out did not complete. Check your connection and try again.");
       return;
     }
-    // "signed-out-locally": this device is out, the global revoke did not land (handover: known gap,
-    // nothing at "/" can say so yet).
+    // "signed-out-locally": this device is out, the global revoke did not land. Say so: the page
+    // ends here (AuthGuard), so the words ride a toast that outlives the navigation.
+    if (outcome === "signed-out-locally") {
+      toast({ title: "Other devices may still be signed in", description: OTHER_DEVICES_NOT_SIGNED_OUT, variant: "destructive", duration: 20000 });
+    }
     navigate("/", { replace: true });
   };
   return (
@@ -401,13 +405,15 @@ function Delete() {
     const out = await eraseAccount();
     if (out.kind === "hidden") {
       // Hidden now; every device is signed out (signing in again within 30 days restores it).
+      // When the global revoke did not land, /account/deleted says so (OTHER_DEVICES_NOT_SIGNED_OUT).
+      let signedOutEverywhere = false;
       try {
-        await signOut({ everywhere: true });
+        signedOutEverywhere = (await signOut({ everywhere: true })) === "signed-out";
       } catch {
-        /* ignored: the account is hidden either way */
+        /* the account is hidden either way; the deleted page says the other devices may be signed in */
       }
       queryClient.clear();
-      navigate(DELETED_PATH, { replace: true });
+      navigate(DELETED_PATH, { replace: true, state: signedOutEverywhere ? null : { otherDevicesSignedIn: true } });
       return;
     }
     setBusy(false);

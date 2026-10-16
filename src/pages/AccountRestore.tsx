@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { sanitizeReturnTo } from "@/lib/authRouting";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,7 +13,7 @@ import { DELETION_STATUS_KEY, deletionLanding, fetchDeletionStatus, restoreAccou
 import { ACCOUNT_CONTACT_EMAIL, accountContactHref, formatDeletedOn, restoreMessage } from "@/lib/accountDeletionCopy";
 
 /**
- * /account/restore -- where signInLanding sends a person whose account is deleted
+ * /account/restore -- where pages/AuthCallback sends a person whose account is deleted
  * (= hidden, admin PR #820). Within 30 days it restores at once and says so; an
  * admin archive is never undone here; after 30 days it shows the deleted card.
  * Not behind the dancer-first gate: a hidden account has no live dancer profile.
@@ -44,7 +45,7 @@ export function DeletedCard({ deletedAt }: { deletedAt: string | null }) {
   );
 }
 
-export function RestoreResult({ outcome, onRetry }: { outcome: RestoreOutcome; onRetry: () => void }) {
+export function RestoreResult({ outcome, onRetry, continueTo = CONTINUE_AS_PATH }: { outcome: RestoreOutcome; onRetry: () => void; continueTo?: string }) {
   const text = restoreMessage(outcome);
   if (outcome.kind === "window_closed") return <DeletedCard deletedAt={outcome.status?.requested_at ?? null} />;
   return (
@@ -62,7 +63,7 @@ export function RestoreResult({ outcome, onRetry }: { outcome: RestoreOutcome; o
       ) : outcome.kind === "admin_archived" ? (
         <Link to="/" className={OUTLINE}>Back to the calendar</Link>
       ) : (
-        <Link to={CONTINUE_AS_PATH} replace className={PILL} data-testid="restore-continue">
+        <Link to={continueTo} replace className={PILL} data-testid="restore-continue">
           Continue
         </Link>
       )}
@@ -73,6 +74,9 @@ export function RestoreResult({ outcome, onRetry }: { outcome: RestoreOutcome; o
 export const AccountRestoreScreen = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  // The page the sign-in was headed for (pages/AuthCallback carries it): Continue goes there.
+  const [searchParams] = useSearchParams();
+  const continueTo = sanitizeReturnTo(searchParams.get("returnTo")) ?? CONTINUE_AS_PATH;
   const status = useQuery({
     queryKey: [DELETION_STATUS_KEY, user?.id ?? null],
     queryFn: fetchDeletionStatus,
@@ -111,9 +115,9 @@ export const AccountRestoreScreen = () => {
   } else if (landing === "deleted-card") {
     body = <DeletedCard deletedAt={status.data?.requested_at ?? null} />;
   } else if (outcome) {
-    body = <RestoreResult outcome={outcome} onRetry={() => void restore()} />;
+    body = <RestoreResult outcome={outcome} onRetry={() => void restore()} continueTo={continueTo} />;
   } else {
-    body = <RestoreResult outcome={{ kind: "nothing_to_restore" }} onRetry={() => void restore()} />;
+    body = <RestoreResult outcome={{ kind: "nothing_to_restore" }} onRetry={() => void restore()} continueTo={continueTo} />;
   }
 
   return (

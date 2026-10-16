@@ -131,3 +131,115 @@ They come from `tests/e2e-build/account-delete.build.spec.ts`.
 - Phone test, axe: not run (no axe job applies to these routes in `.github/workflows`).
 - `check:doc-weight`, `check:og`, `check:seo`, `synthetic:ssr` and lighthouse need a preview deploy or
   `GITHUB_REPOSITORY`. The DB contract-check scripts need live DB secrets. None of these ran.
+
+## Round 1 fixes (review `docs/review-packs/account-grid/REVIEW-3AD.md` on `claude/account-grid-3ad-review`)
+Worker ticket dt_0e3e1bac7782. Started from head 1e2dfb03 (as the brief expected). The Left list above is
+superseded where this section says so (Left 2 and Left 4 are fixed here).
+
+### What changed, per finding
+- **B1 (returnTo sign-in never restored).** The deletion check moved OUT of `signInLanding` and INTO the sign-in
+  callback: `pages/AuthCallback.tsx` calls `signInDeletionTarget()` (new, `lib/accountDeletion.ts`) right after the
+  self-claim, before any returnTo (link or stashed) is followed and before the profile read. Every real sign-in
+  (magic link, and the code step, which hands over to `/auth/callback`) passes through there. A deleted account
+  goes to `/account/restore?returnTo=<sanitised>`; the restore page's Continue now goes to that returnTo (else
+  `/account/continue`). A failed status read carries on as before. `ACCOUNT_RESTORE_PATH` now lives in
+  `lib/accountDeletion.ts`.
+- **B2 (false "signed out everywhere").** `signed-out-locally` on "Sign out of all devices" now raises a toast with
+  `OTHER_DEVICES_NOT_SIGNED_OUT` ("This device is signed out, but we couldn't reach the server to sign out your
+  other devices. Sign in and try again.") before going to `/` (the page ends there: AuthGuard). The delete flow
+  passes `{ otherDevicesSignedIn: true }` to `/account/deleted` for any outcome but `signed-out` (including a
+  thrown sign-out) and that page shows the same words.
+- **S1.** `ACCOUNT_CONTACT_EMAIL = "support@bachatacalendar.co.uk"`, the NEEDS OWNER note dropped; a test pins it
+  and that no other source file spells a `@bachatacalendar.co.uk` mailbox. (#762's /privacy page is not on this
+  branch, so the "/privacy names the same constant" test is queued: see Left R1-3.)
+- **S2.** `src/lib/accountRouting.ts`, `ContinueAsPage.tsx`, `profiles.test.tsx`, `accountRouting.test.tsx` and
+  `accountSidesRouting.test.ts` are back to base b58f39d byte-for-byte: ZERO edits in slice 3b's files (the brief
+  allowed one, in signInLanding; B1's fix made it unnecessary). A test pins that accountRouting and Continue-as do
+  not import `lib/accountDeletion`, that AuthCallback runs the check, and that `/account/restore` is not behind
+  `DancerProfileGate`.
+- **S3.** `accountDeletion.contract.test.ts` now READS the key names, states, restore codes, refusal codes and the
+  rate window from the admin SQL: the last `CREATE OR REPLACE FUNCTION` of each function across the admin
+  migrations (from `ADMIN_REPO_DIR`, else a sibling `../bachata-admin` or `../bachata-admin-11april`). The parsed
+  facts are pinned in `src/lib/__tests__/fixtures/account-820-contract.json`; with an admin checkout present a
+  rename in the SQL OR drift from that JSON goes red. Without one (this repo's CI), the drift test is skipped and
+  the client half runs on the JSON (honest limit; Left R1-2).
+- **S4.** "You've tried this several times. Please wait 24 hours and try again." (`_member_rate_check_v1(...,
+  interval '1 day')` is rolling). The contract test also ties the copy to the window parsed from the SQL.
+- Notes N1-N4: unchanged (N2's "Back to the calendar" on the deleted card not added: outside the findings).
+
+### Red on 1e2dfb03, green after
+New/changed test files copied onto a 1e2dfb03 worktree (`AuthCallbackDeletion.test.tsx`,
+`accountReviewRound1.test.ts`, `AccountSettings.test.tsx`):
+```
+1e2dfb03:  Test Files  3 failed (3)       Tests  16 failed | 50 passed (66)
+  B1: 6 x "AuthCallback: a deleted account restores before anything else" (pending|expired x link returnTo|stashed|none)
+      + "/account/restore?returnTo=%2Fevent%2Fe1 -> Continue to /event/e1"
+  B2: settings signed-out-locally; delete signed-out-locally; delete failed
+  S1: is support@bachatacalendar.co.uk
+  S2: accountRouting / ContinueAsPage do not import lib/accountDeletion; the sign-in callback runs the check
+  S4: names 24 hours, never tomorrow; refused rate_limited at the last moment (AccountSettings)
+this head: Test Files  3 passed (3)        Tests  66 passed (66)
+```
+S3 (mutation: `'restore_until'` renamed to `'restore_by'` in a copy of `20261122140000_account_delete_hide_v1.sql`):
+```
+NEW test vs mutant SQL (ADMIN_REPO_DIR=mutant):   Tests  2 failed | 11 passed (13)
+OLD 1e2dfb03 test vs mutant SQL:                  Tests  13 passed (13)      <- the reviewer's point
+NEW test vs real SQL (bachata-admin claude/account-system-db @ f7b5a16): Tests 13 passed (13)
+NEW test, no admin checkout (CI shape):           Tests  12 passed | 1 skipped (13)
+```
+
+### Commands run on this head (round 1)
+| Command | Exit | Note |
+|---|---|---|
+| `npm run build` (production) | 0 | |
+| `npm run check:bundle-budget` | 0 | all routes within budget, none raised (auth 292.1/310 KB) |
+| `npm run check:first-load-requests` | 0 | |
+| `npm run check:chunk-cycles` | 0 | |
+| `npm run lint` (chain) | 0 | after `chmod +x bin/check-integrity.sh` (CI does the same; mode not committed); eslint link informational |
+| `npx eslint <10 changed files>` | 1 | 1 error `AuthCallback.tsx:78 no-explicit-any` (`session: any`, identical on base b58f39d:77) + 2 old warnings; nothing new |
+| `npm run typecheck` | 2 | 96 errors, none in a changed file; same 96 as 1e2dfb03 (base b58f39d: 100) |
+| `npx vitest run --pool=forks` (whole tree, incl. EdgeTtl) | 1 | 79 failed: 20 were the `accountSettings.today` snapshot (address + rate copy only, updated: 22 snapshots, diff checked line by line); the other 59 in 6 files = the base's known set (DatePage 8, levelsByType 36, eventViewCompat 5, integrityCouldNotRun 5, occurrenceProgram 2, publicEventPageLineup 3) |
+| `npm run check:journey-grid` | 0 | 85 rows |
+| e2e: see below | | |
+| `npx playwright test -c playwright.build.config.ts tests/e2e-build/account-delete.build.spec.ts` | 0 | 7/7 on the PRODUCTION build. The 3 restore walks now sign in through `/auth/callback?mode=signin&returnTo=%2Fparties` and assert `/account/restore?returnTo=%2Fparties` (B1 end to end); screenshots 01-08 regenerated (the cards now show support@) |
+| `npx playwright test tests/e2e/dancer-home.spec.ts tests/e2e/account-settings.spec.ts` (head) | 1 | 21 passed, 2 failed: `dancer-home:93` (unfinished dancer, gated Finish screen) and `dancer-home:168` (unfinished organiser at /account/o). account-settings all green |
+| same, on base b58f39d (worktree) | 1 | 22 passed, 1 failed: `dancer-home:168`. So :168 is inherited |
+| `dancer-home.spec.ts:93` alone, head / base | 0 / 1 | head 2/2 passed; base failed both viewports. :93 is timing-flaky on BOTH (load), not this change. The "3 failures on base" in the brief did not reproduce as 3 this run: 1 in the full run, 2 when :93 is run alone |
+
+Also: the account-related unit suites (`src/pages/__tests__`, `src/lib/__tests__/account*`, `src/components/account`,
+the settings snapshot) re-run after the snapshot update: 683/684, the one red `DancerFirstGate.matrix` row passes
+alone (114/114) and in the whole-tree run; it went red only while Playwright was loading the machine.
+
+### Left after round 1 (for the orchestrator / slice 3b)
+- **R1-1 (slice 3b).** `src/lib/accountRouting.ts` and the Continue-as page carry NO deletion logic now (base
+  b58f39d). The deletion check lives in `pages/AuthCallback.tsx` (`signInDeletionTarget`, lib/accountDeletion).
+  3b must NOT re-add it to `signInLanding` (a second copy), and must keep `/account/restore` out of
+  `DancerProfileGate` (pinned by `accountReviewRound1.test.ts`). `isDancerGatedPath('/account/restore')` is `true`
+  at base; it is reached only by FinishProfile's returnTo, which never carries /account/restore today. If 3b ever
+  gates by path, add the exemption there.
+- **R1-2 (S3, CI).** This repo's CI has no admin checkout, so there the SQL-drift test is skipped and the client
+  half runs on `fixtures/account-820-contract.json`. Two ways to make it bite in CI: check out
+  `123constante/bachata-admin` in the unit job with the existing `ADMIN_READ_TOKEN` secret and set
+  `ADMIN_REPO_DIR`; and (the reviewer's) a live `scripts/check-*.mjs` in `db-contract-check.yml` calling the three
+  RPCs once #820 is applied. Neither is in this PR.
+- **R1-3 (S1).** When #762 (/privacy) merges into this line, add a test that the /privacy page renders
+  `ACCOUNT_CONTACT_EMAIL`. Not possible here: the page is not on this branch.
+- **R1-4.** `/auth` opened by an ALREADY signed-in session (another device that stayed signed in to a hidden
+  account) follows its returnTo without the check: that is not a sign-in. Every fresh sign-in goes through the
+  callback.
+- **R1-5.** After a delete whose sign-out returned `failed` (rare: local sign-out also failed), `/account/deleted`
+  shows the notice, but its first line still says "you're signed out". Acceptable; noted.
+- Review round 2 is the orchestrator's (user-facing change: two rounds). `/code-review` not run by this worker.
+
+### Verified (round 1)
+- Each finding's failure reproduced red on 1e2dfb03 and green here (outputs above), including the S3 mutation.
+- Production build + bundle budget + first-load requests + chunk cycles green on this head.
+- B1 end to end on the production build (callback with returnTo -> restore -> Continue target), 390x844.
+- S3 parsed against the real #820 SQL (bachata-admin `claude/account-system-db` @ f7b5a16).
+
+### Not verified (round 1)
+- Real data: #820 is still not on a DB this worker can reach; shapes come from the SQL source. No Supabase query run.
+- GitHub Actions: no PR (brief), so no checks ran; the table above is the local fallback.
+- The toast on "/" after a `signed-out-locally` (B2, settings path) is asserted as the call the page makes, not as
+  pixels in a browser (the settings e2e mocks a successful global sign-out).
+- Phone test: not run.

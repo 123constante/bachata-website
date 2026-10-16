@@ -10,6 +10,8 @@ const SHOTS = 'docs/handover/shots-3ad';
 const NONE = { state: 'none', requested_at: null, restore_until: null };
 const PENDING = { state: 'pending', requested_at: '2026-10-01T10:00:00+00:00', restore_until: '2026-10-31T10:00:00+00:00' };
 const EXPIRED = { state: 'expired', requested_at: '2026-08-01T10:00:00+00:00', restore_until: '2026-08-31T10:00:00+00:00' };
+// Review B1: a sign-in carrying a returnTo (here /parties) still restores first, via /auth/callback.
+const SIGN_IN = '/auth/callback?mode=signin&returnTo=%2Fparties';
 const FORBIDDEN = /erased|permanent|cannot be undone|photos are gone|for good/i;
 
 type Mocks = { status?: unknown; restore?: unknown; check?: unknown; erase?: { status: number; body: unknown } };
@@ -61,14 +63,14 @@ test('a rate-limited delete says to wait, and nothing changes', async ({ page })
   await page.goto('/account/settings/delete');
   await page.getByTestId('delete-type-input').fill('DELETE');
   await page.getByTestId('delete-confirm').click();
-  await expect(page.getByTestId('delete-blocked')).toContainText('wait until tomorrow');
+  await expect(page.getByTestId('delete-blocked')).toContainText('wait 24 hours');
   await shot(page, '04-refused-rate-limited');
 });
 
 test('signing in within 30 days restores the account and says welcome back', async ({ page }) => {
   const { calls } = await mocked(page, { status: PENDING, restore: { ...NONE, restored: true, code: null } });
-  await page.goto('/account/continue');
-  await expect(page).toHaveURL(/\/account\/restore$/);
+  await page.goto(SIGN_IN);
+  await expect(page).toHaveURL(/\/account\/restore\?returnTo=%2Fparties$/);
   await expect(page.getByTestId('restore-restored')).toContainText('Welcome back, your account is restored');
   expect(calls.filter((c) => c === 'restore')).toHaveLength(1);
   await expectNoHorizontalScroll(page);
@@ -77,7 +79,7 @@ test('signing in within 30 days restores the account and says welcome back', asy
 
 test('an admin-archived profile is not restored: it says an admin hid it', async ({ page }) => {
   await mocked(page, { status: PENDING, restore: { ...PENDING, restored: false, code: 'admin_archived' } });
-  await page.goto('/account/continue');
+  await page.goto(SIGN_IN);
   await expect(page.getByTestId('restore-admin_archived')).toContainText('An admin has hidden this profile');
   await expect(page.getByTestId('restore-contact')).toHaveAttribute('href', /^mailto:/);
   await shot(page, '06-admin-archived');
@@ -85,7 +87,7 @@ test('an admin-archived profile is not restored: it says an admin hid it', async
 
 test('after 30 days the deleted card names the date, and both asks go to the contact address', async ({ page }) => {
   const { calls } = await mocked(page, { status: EXPIRED });
-  await page.goto('/account/continue');
+  await page.goto(SIGN_IN);
   await expect(page.getByTestId('restore-deleted-card')).toContainText('This account was deleted on 1 August 2026');
   await expect(page.getByTestId('restore-ask-restore')).toHaveAttribute('href', /^mailto:.*restore/i);
   await expect(page.getByTestId('restore-ask-erase')).toHaveAttribute('href', /^mailto:.*erase/i);

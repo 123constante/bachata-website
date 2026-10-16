@@ -1,7 +1,4 @@
 import { Link, Navigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/hooks/useAuth';
-import { DELETION_STATUS_KEY, fetchDeletionStatus } from '@/lib/accountDeletion';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { signInLanding } from '@/lib/accountRouting';
@@ -17,16 +14,7 @@ import { useProfileSides } from './useProfileSides';
  */
 export const ContinueAsScreen = () => {
   const { facts } = useProfileSides();
-  const { user } = useAuth();
-  // A deleted (= hidden) account is read first (lib/accountDeletion); a failed read is null, never a block.
-  const deletion = useQuery({
-    queryKey: [DELETION_STATUS_KEY, user?.id ?? null],
-    queryFn: fetchDeletionStatus,
-    enabled: Boolean(user?.id),
-    staleTime: 0,
-    retry: false,
-  });
-  const landing = signInLanding({ ...facts, deletion: deletion.isLoading ? 'loading' : (deletion.data ?? null) }, null);
+  const landing = signInLanding(facts, null);
   if (landing.kind === 'go') return <Navigate to={landing.to} replace />;
   if (landing.kind === 'wait') {
     return (

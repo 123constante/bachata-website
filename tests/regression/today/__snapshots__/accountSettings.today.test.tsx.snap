@@ -2,7 +2,7 @@
 
 exports[`account settings at '390x844' > /account/deleted 1`] = `
 "heading "Your account was deleted" level=1
-text "Your profile is hidden now, and you’re signed out. Sign in within 30 days to undo. After that it stays hidden; ask us at privacy@bachatacalendar.co.uk for a full erase."
+text "Your profile is hidden now, and you’re signed out. Sign in within 30 days to undo. After that it stays hidden; ask us at support@bachatacalendar.co.uk for a full erase."
 text "You can still browse parties without an account."
 link "Back to the calendar" href=/"
 `;
@@ -187,7 +187,7 @@ exports[`account settings at '390x844' > /account/settings/delete: the delete (=
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -205,7 +205,7 @@ exports[`account settings at '390x844' > /account/settings/delete: the delete (=
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -213,7 +213,7 @@ heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
 link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
-text "An admin has already hidden this profile, so there is nothing to delete here. Contact us at privacy@bachatacalendar.co.uk if you need help."
+text "An admin has already hidden this profile, so there is nothing to delete here. Contact us at support@bachatacalendar.co.uk if you need help."
 button "Delete my account" [disabled]
 text "You cannot delete your account yet. See the reason above.""
 `;
@@ -223,7 +223,7 @@ exports[`account settings at '390x844' > /account/settings/delete: the delete (=
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -243,7 +243,7 @@ exports[`account settings at '390x844' > /account/settings/delete: the delete (=
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -251,7 +251,7 @@ heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
 link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
-text "You've tried this several times today. Please wait until tomorrow and try again."
+text "You've tried this several times. Please wait 24 hours and try again."
 button "Delete my account" [disabled]
 text "You cannot delete your account yet. See the reason above.""
 `;
@@ -261,7 +261,7 @@ exports[`account settings at '390x844' > /account/settings/delete: the delete (=
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -280,7 +280,7 @@ exports[`account settings at '390x844' > /account/settings/delete: the delete (=
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -295,7 +295,7 @@ button "Delete my account""
 
 exports[`account settings at '390x844' > /account/settings/delete: the delete (= hide) flow > delete is disabled until DELETE is typed exactly, then hides, signs out, lands on /account/deleted > deleted page 1`] = `
 "heading "Your account was deleted" level=1
-text "Your profile is hidden now, and you’re signed out. Sign in within 30 days to undo. After that it stays hidden; ask us at privacy@bachatacalendar.co.uk for a full erase."
+text "Your profile is hidden now, and you’re signed out. Sign in within 30 days to undo. After that it stays hidden; ask us at support@bachatacalendar.co.uk for a full erase."
 text "You can still browse parties without an account."
 link "Back to the calendar" href=/"
 `;
@@ -305,7 +305,7 @@ exports[`account settings at '390x844' > check: admin > /account/settings/delete
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -331,7 +331,7 @@ exports[`account settings at '390x844' > check: plain dancer > /account/settings
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -358,7 +358,7 @@ exports[`account settings at '390x844' > check: sole organiser owner > /account/
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -382,7 +382,7 @@ link "Delete account" href=/account/settings/delete"
 
 exports[`account settings at 'desktop' > /account/deleted 1`] = `
 "heading "Your account was deleted" level=1
-text "Your profile is hidden now, and you’re signed out. Sign in within 30 days to undo. After that it stays hidden; ask us at privacy@bachatacalendar.co.uk for a full erase."
+text "Your profile is hidden now, and you’re signed out. Sign in within 30 days to undo. After that it stays hidden; ask us at support@bachatacalendar.co.uk for a full erase."
 text "You can still browse parties without an account."
 link "Back to the calendar" href=/"
 `;
@@ -567,7 +567,7 @@ exports[`account settings at 'desktop' > /account/settings/delete: the delete (=
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -585,7 +585,7 @@ exports[`account settings at 'desktop' > /account/settings/delete: the delete (=
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -593,7 +593,7 @@ heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
 link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
-text "An admin has already hidden this profile, so there is nothing to delete here. Contact us at privacy@bachatacalendar.co.uk if you need help."
+text "An admin has already hidden this profile, so there is nothing to delete here. Contact us at support@bachatacalendar.co.uk if you need help."
 button "Delete my account" [disabled]
 text "You cannot delete your account yet. See the reason above.""
 `;
@@ -603,7 +603,7 @@ exports[`account settings at 'desktop' > /account/settings/delete: the delete (=
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -623,7 +623,7 @@ exports[`account settings at 'desktop' > /account/settings/delete: the delete (=
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -631,7 +631,7 @@ heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
 link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
-text "You've tried this several times today. Please wait until tomorrow and try again."
+text "You've tried this several times. Please wait 24 hours and try again."
 button "Delete my account" [disabled]
 text "You cannot delete your account yet. See the reason above.""
 `;
@@ -641,7 +641,7 @@ exports[`account settings at 'desktop' > /account/settings/delete: the delete (=
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -660,7 +660,7 @@ exports[`account settings at 'desktop' > /account/settings/delete: the delete (=
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -675,7 +675,7 @@ button "Delete my account""
 
 exports[`account settings at 'desktop' > /account/settings/delete: the delete (= hide) flow > delete is disabled until DELETE is typed exactly, then hides, signs out, lands on /account/deleted > deleted page 1`] = `
 "heading "Your account was deleted" level=1
-text "Your profile is hidden now, and you’re signed out. Sign in within 30 days to undo. After that it stays hidden; ask us at privacy@bachatacalendar.co.uk for a full erase."
+text "Your profile is hidden now, and you’re signed out. Sign in within 30 days to undo. After that it stays hidden; ask us at support@bachatacalendar.co.uk for a full erase."
 text "You can still browse parties without an account."
 link "Back to the calendar" href=/"
 `;
@@ -685,7 +685,7 @@ exports[`account settings at 'desktop' > check: admin > /account/settings/delete
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -711,7 +711,7 @@ exports[`account settings at 'desktop' > check: plain dancer > /account/settings
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
@@ -738,7 +738,7 @@ exports[`account settings at 'desktop' > check: sole organiser owner > /account/
 heading "What happens" level=2
 text "Your profile is hidden from everyone straight away, and you are signed out on every device."
 text "Sign in within 30 days to undo it: your account comes back as it was."
-text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+text "After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
 text "Download your data now, while you are signed in."
 button "Download my data"
