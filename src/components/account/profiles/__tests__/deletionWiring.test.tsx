@@ -7,7 +7,7 @@
 import { cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const world = vi.hoisted(() => ({
@@ -52,9 +52,12 @@ const wrapper = ({ children }: { children: ReactNode }) => {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 };
 
-let here = '';
+const seen = { here: '' };
 const Probe = () => {
-  here = useLocation().pathname;
+  const { pathname } = useLocation();
+  useEffect(() => {
+    seen.here = pathname;
+  }, [pathname]);
   return null;
 };
 
@@ -71,7 +74,7 @@ const mountScreen = () =>
 
 beforeEach(() => {
   world.deletion = 'none';
-  here = '';
+  seen.here = '';
 });
 afterEach(cleanup);
 
@@ -101,12 +104,12 @@ describe('ContinueAsScreen with the real hook', () => {
   it.each(['pending', 'expired'] as const)('a %s deletion navigates to /account/restore', async (d) => {
     world.deletion = d;
     mountScreen();
-    await waitFor(() => expect(here).toMatch(/^\/account\/restore/));
+    await waitFor(() => expect(seen.here).toMatch(/^\/account\/restore/));
   });
   it('shows continue-as-loading while the deletion read is pending, and does not navigate', async () => {
     world.deletion = 'hang';
     mountScreen();
     expect(await screen.findByTestId('continue-as-loading')).toBeTruthy();
-    expect(here).toBe('/account/continue');
+    expect(seen.here).toBe('/account/continue');
   });
 });
