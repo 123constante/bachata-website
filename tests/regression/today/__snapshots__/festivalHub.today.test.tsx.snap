@@ -96,8 +96,8 @@ exports[`festival hub at '390x844' > signed-out Going: no RPC, the sign-in promp
 "dialog "Sign in required"
   heading "Sign in required" level=2
   text "Sign in to view attendee profiles and update attendance."
-  button "Log In"
-  button "Sign Up"
+  button "Sign in"
+  button "Create account"
   button "Continue browsing"
   button "Close""
 `;
@@ -198,8 +198,8 @@ exports[`festival hub at 'desktop' > signed-out Going: no RPC, the sign-in promp
 "dialog "Sign in required"
   heading "Sign in required" level=2
   text "Sign in to view attendee profiles and update attendance."
-  button "Log In"
-  button "Sign Up"
+  button "Sign in"
+  button "Create account"
   button "Continue browsing"
   button "Close""
 `;

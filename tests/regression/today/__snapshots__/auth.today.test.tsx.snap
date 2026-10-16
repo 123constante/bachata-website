@@ -41,7 +41,7 @@ button "Continue browsing""
 exports[`/auth at '390x844' > sign-in error: otp_disabled switches to create-account with its notice 1`] = `
 "img "Bachata Calendar"
 heading "Join the community" level=1
-text "Create your account in 3 easy steps."
+text "Three quick steps, then we email you a code."
 button "Sign in"
 button "Create account"
 text "Step 1 of 333%"
@@ -52,18 +52,18 @@ status
 heading "What brings you here?" level=3
 text "You can always add more roles later."
 button "Dancer Find classes, partners, and events" [pressed=true]
-button "I’m also an organiser / teacher / DJ / videographer / vendor" [expanded=false]
-button "Continue as Dancer"
-button "Continue browsing""
+button "I’m an organiser / teacher / DJ / videographer / vendor" [expanded=false]
+button "Continue as Dancer""
 `;
 
 exports[`/auth at '390x844' > sign-in: link sent (8-digit code box) 1`] = `
 "heading "Check your email" level=1
-text "We sent a sign-in email to known@example.com.Click the link in the email, or enter the code from it."
+text "We sent a sign-in email to . Click the link in the email, or enter the code from it."
+text "known @example.com"
 text "8-digit code"
 textbox "8-digit code" value=""
 alert
-button "Resend code in 30s" [disabled]
+button "Resend code in 60s" [disabled]
 button "Use a different email"
 button "Continue browsing""
 `;
@@ -71,7 +71,7 @@ button "Continue browsing""
 exports[`/auth at '390x844' > sign-up error: allowlist 403 (invite-only + WhatsApp link) 1`] = `
 "img "Bachata Calendar"
 heading "Join the community" level=1
-text "Create your account in 3 easy steps."
+text "Three quick steps, then we email you a code."
 button "Sign in"
 button "Create account"
 text "Step 3 of 3100%"
@@ -80,20 +80,22 @@ heading "Last step — your email" level=3
 text "We’ll email you a link and a code to sign in."
 text "Email"
 textbox "Email" value="stranger@example.com"
+text "By tapping Email me a link you agree to our and ."
+link "Terms" href=/terms
+link "Privacy Policy" href=/privacy
 button "Back"
 button "Email me a link"
 alert
-  text "Sign-up is invite-only for now. This beta is limited to approved organisers. If you run bachata events and want in, ask us to add your email, then try again."
-link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+  text "We can't create an account for this email yet. New accounts are open to invited people for now. Message us and we'll add your email, then try again."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'm%20trying%20to%20create%20an%20account%20on%20Bachata%20Calendar.
 text "Dev tools"
-button "Instant dev login"
-button "Continue browsing""
+button "Instant dev login""
 `;
 
 exports[`/auth at '390x844' > sign-up step 1: role 1`] = `
 "img "Bachata Calendar"
 heading "Join the community" level=1
-text "Create your account in 3 easy steps."
+text "Three quick steps, then we email you a code."
 button "Sign in"
 button "Create account"
 text "Step 2 of 367%"
@@ -101,15 +103,14 @@ progressbar "Sign-up progress"
 heading "What brings you here?" level=3
 text "You can always add more roles later."
 button "Dancer Find classes, partners, and events" [pressed=true]
-button "I’m also an organiser / teacher / DJ / videographer / vendor" [expanded=false]
-button "Continue as Dancer"
-button "Continue browsing""
+button "I’m an organiser / teacher / DJ / videographer / vendor" [expanded=false]
+button "Continue as Dancer""
 `;
 
 exports[`/auth at '390x844' > sign-up step 2 error: continue without a dance role 1`] = `
 "img "Bachata Calendar"
 heading "Join the community" level=1
-text "Create your account in 3 easy steps."
+text "Three quick steps, then we email you a code."
 button "Sign in"
 button "Create account"
 text "Step 2 of 367%"
@@ -120,6 +121,7 @@ text "First name"
 textbox "First name" value="Sam"
 text "City"
 button "Pick city"
+link "City not in the list? Message us to add it" href=https://wa.me/447577576006?text=Hi!%20My%20city%20is%20not%20in%20the%20list%20on%20Bachata%20Calendar.%20Please%20add%3A%20
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
@@ -128,14 +130,13 @@ radiogroup "Dance role"
 alert
   text "Choose your dance role."
 button "Back"
-button "Continue"
-button "Continue browsing""
+button "Continue""
 `;
 
 exports[`/auth at '390x844' > sign-up step 2: name / city / role 1`] = `
 "img "Bachata Calendar"
 heading "Join the community" level=1
-text "Create your account in 3 easy steps."
+text "Three quick steps, then we email you a code."
 button "Sign in"
 button "Create account"
 text "Step 2 of 367%"
@@ -146,20 +147,20 @@ text "First name"
 textbox "First name" value="Sam"
 text "City"
 button "Pick city"
+link "City not in the list? Message us to add it" href=https://wa.me/447577576006?text=Hi!%20My%20city%20is%20not%20in%20the%20list%20on%20Bachata%20Calendar.%20Please%20add%3A%20
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
 button "Back"
-button "Continue"
-button "Continue browsing""
+button "Continue""
 `;
 
 exports[`/auth at '390x844' > sign-up step 3: email 1`] = `
 "img "Bachata Calendar"
 heading "Join the community" level=1
-text "Create your account in 3 easy steps."
+text "Three quick steps, then we email you a code."
 button "Sign in"
 button "Create account"
 text "Step 3 of 3100%"
@@ -168,25 +169,27 @@ heading "Last step — your email" level=3
 text "We’ll email you a link and a code to sign in."
 text "Email"
 textbox "Email" value=""
+text "By tapping Email me a link you agree to our and ."
+link "Terms" href=/terms
+link "Privacy Policy" href=/privacy
 button "Back"
 button "Email me a link"
 text "Dev tools"
-button "Instant dev login"
-button "Continue browsing""
+button "Instant dev login""
 `;
 
 exports[`/auth at '390x844' > sign-up: link sent 1`] = `
 "heading "Check your email" level=1
-text "We sent a sign-in email to sam@example.com.Click the link in the email, or enter the code from it."
+text "We sent a sign-in email to . Click the link in the email, or enter the code from it."
+text "sam @example.com"
 text "8-digit code"
 textbox "8-digit code" value=""
 alert
-text "By continuing you agree to the and ."
+text "Entering the code confirms you agree to our and ."
 link "Terms" href=/terms
 link "Privacy Policy" href=/privacy
-button "Resend code in 30s" [disabled]
-button "Use a different email"
-button "Continue browsing""
+button "Resend code in 60s" [disabled]
+button "Use a different email""
 `;
 
 exports[`/auth at 'desktop' > sign-in 1`] = `
@@ -230,7 +233,7 @@ button "Continue browsing""
 exports[`/auth at 'desktop' > sign-in error: otp_disabled switches to create-account with its notice 1`] = `
 "img "Bachata Calendar"
 heading "Join the community" level=1
-text "Create your account in 3 easy steps."
+text "Three quick steps, then we email you a code."
 button "Sign in"
 button "Create account"
 text "Step 1 of 333%"
@@ -241,18 +244,18 @@ status
 heading "What brings you here?" level=3
 text "You can always add more roles later."
 button "Dancer Find classes, partners, and events" [pressed=true]
-button "I’m also an organiser / teacher / DJ / videographer / vendor" [expanded=false]
-button "Continue as Dancer"
-button "Continue browsing""
+button "I’m an organiser / teacher / DJ / videographer / vendor" [expanded=false]
+button "Continue as Dancer""
 `;
 
 exports[`/auth at 'desktop' > sign-in: link sent (8-digit code box) 1`] = `
 "heading "Check your email" level=1
-text "We sent a sign-in email to known@example.com.Click the link in the email, or enter the code from it."
+text "We sent a sign-in email to . Click the link in the email, or enter the code from it."
+text "known @example.com"
 text "8-digit code"
 textbox "8-digit code" value=""
 alert
-button "Resend code in 30s" [disabled]
+button "Resend code in 60s" [disabled]
 button "Use a different email"
 button "Continue browsing""
 `;
@@ -260,7 +263,7 @@ button "Continue browsing""
 exports[`/auth at 'desktop' > sign-up error: allowlist 403 (invite-only + WhatsApp link) 1`] = `
 "img "Bachata Calendar"
 heading "Join the community" level=1
-text "Create your account in 3 easy steps."
+text "Three quick steps, then we email you a code."
 button "Sign in"
 button "Create account"
 text "Step 3 of 3100%"
@@ -269,20 +272,22 @@ heading "Last step — your email" level=3
 text "We’ll email you a link and a code to sign in."
 text "Email"
 textbox "Email" value="stranger@example.com"
+text "By tapping Email me a link you agree to our and ."
+link "Terms" href=/terms
+link "Privacy Policy" href=/privacy
 button "Back"
 button "Email me a link"
 alert
-  text "Sign-up is invite-only for now. This beta is limited to approved organisers. If you run bachata events and want in, ask us to add your email, then try again."
-link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+  text "We can't create an account for this email yet. New accounts are open to invited people for now. Message us and we'll add your email, then try again."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'm%20trying%20to%20create%20an%20account%20on%20Bachata%20Calendar.
 text "Dev tools"
-button "Instant dev login"
-button "Continue browsing""
+button "Instant dev login""
 `;
 
 exports[`/auth at 'desktop' > sign-up step 1: role 1`] = `
 "img "Bachata Calendar"
 heading "Join the community" level=1
-text "Create your account in 3 easy steps."
+text "Three quick steps, then we email you a code."
 button "Sign in"
 button "Create account"
 text "Step 2 of 367%"
@@ -290,15 +295,14 @@ progressbar "Sign-up progress"
 heading "What brings you here?" level=3
 text "You can always add more roles later."
 button "Dancer Find classes, partners, and events" [pressed=true]
-button "I’m also an organiser / teacher / DJ / videographer / vendor" [expanded=false]
-button "Continue as Dancer"
-button "Continue browsing""
+button "I’m an organiser / teacher / DJ / videographer / vendor" [expanded=false]
+button "Continue as Dancer""
 `;
 
 exports[`/auth at 'desktop' > sign-up step 2 error: continue without a dance role 1`] = `
 "img "Bachata Calendar"
 heading "Join the community" level=1
-text "Create your account in 3 easy steps."
+text "Three quick steps, then we email you a code."
 button "Sign in"
 button "Create account"
 text "Step 2 of 367%"
@@ -309,6 +313,7 @@ text "First name"
 textbox "First name" value="Sam"
 text "City"
 button "Pick city"
+link "City not in the list? Message us to add it" href=https://wa.me/447577576006?text=Hi!%20My%20city%20is%20not%20in%20the%20list%20on%20Bachata%20Calendar.%20Please%20add%3A%20
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
@@ -317,14 +322,13 @@ radiogroup "Dance role"
 alert
   text "Choose your dance role."
 button "Back"
-button "Continue"
-button "Continue browsing""
+button "Continue""
 `;
 
 exports[`/auth at 'desktop' > sign-up step 2: name / city / role 1`] = `
 "img "Bachata Calendar"
 heading "Join the community" level=1
-text "Create your account in 3 easy steps."
+text "Three quick steps, then we email you a code."
 button "Sign in"
 button "Create account"
 text "Step 2 of 367%"
@@ -335,20 +339,20 @@ text "First name"
 textbox "First name" value="Sam"
 text "City"
 button "Pick city"
+link "City not in the list? Message us to add it" href=https://wa.me/447577576006?text=Hi!%20My%20city%20is%20not%20in%20the%20list%20on%20Bachata%20Calendar.%20Please%20add%3A%20
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
 button "Back"
-button "Continue"
-button "Continue browsing""
+button "Continue""
 `;
 
 exports[`/auth at 'desktop' > sign-up step 3: email 1`] = `
 "img "Bachata Calendar"
 heading "Join the community" level=1
-text "Create your account in 3 easy steps."
+text "Three quick steps, then we email you a code."
 button "Sign in"
 button "Create account"
 text "Step 3 of 3100%"
@@ -357,25 +361,27 @@ heading "Last step — your email" level=3
 text "We’ll email you a link and a code to sign in."
 text "Email"
 textbox "Email" value=""
+text "By tapping Email me a link you agree to our and ."
+link "Terms" href=/terms
+link "Privacy Policy" href=/privacy
 button "Back"
 button "Email me a link"
 text "Dev tools"
-button "Instant dev login"
-button "Continue browsing""
+button "Instant dev login""
 `;
 
 exports[`/auth at 'desktop' > sign-up: link sent 1`] = `
 "heading "Check your email" level=1
-text "We sent a sign-in email to sam@example.com.Click the link in the email, or enter the code from it."
+text "We sent a sign-in email to . Click the link in the email, or enter the code from it."
+text "sam @example.com"
 text "8-digit code"
 textbox "8-digit code" value=""
 alert
-text "By continuing you agree to the and ."
+text "Entering the code confirms you agree to our and ."
 link "Terms" href=/terms
 link "Privacy Policy" href=/privacy
-button "Resend code in 30s" [disabled]
-button "Use a different email"
-button "Continue browsing""
+button "Resend code in 60s" [disabled]
+button "Use a different email""
 `;
 
 exports[`AuthStepper sign-up wizard at '390x844' > allowlist 403 on send 1`] = `
@@ -399,7 +405,7 @@ progressbar "Step 3 of 3"
 text "Email code"
 textbox value=""
 button "Verify code"
-button "Resend code in 30s" [disabled]
+button "Resend code in 60s" [disabled]
 button "Use different email"
 text "🛠 Dev Tools"
 button "⚡ Instant Dev Login (random account)"
@@ -478,7 +484,7 @@ progressbar "Step 3 of 3"
 text "Email code"
 textbox value=""
 button "Verify code"
-button "Resend code in 30s" [disabled]
+button "Resend code in 60s" [disabled]
 button "Use different email"
 text "🛠 Dev Tools"
 button "⚡ Instant Dev Login (random account)"

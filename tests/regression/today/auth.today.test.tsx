@@ -159,7 +159,7 @@ describe.each(VIEWPORTS)('/auth at $name', (vp) => {
     mountAuth('/auth?mode=signup&userType=dancer');
     await signUpToEmail();
     sendLink('stranger@example.com');
-    await screen.findByText(/Sign-up is invite-only for now/);
+    await screen.findByText(/We can.t create an account for this email yet/);
     expect(signInWithOtp.mock.calls[0][0].options.shouldCreateUser).toBe(true);
     expect(a11yTree()).toMatchSnapshot();
   });

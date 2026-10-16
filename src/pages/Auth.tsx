@@ -33,6 +33,7 @@ import { acceptTerms, hasAcceptedTerms } from "@/lib/termsConsent";
 import { TermsAcceptCard } from "@/components/auth/TermsAcceptCard";
 import MagicLinkConfirmation, { forgetCodeStep, readCodeStep, rememberCodeStep, type ResendOutcome } from "@/components/MagicLinkConfirmation";
 import { ConsentLine } from "@/components/auth/ConsentLine";
+import { AUTH_ACTION_LABELS } from "@/lib/auth-labels";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
 import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import GlobalLayout from "@/components/layout/GlobalLayout";
@@ -517,7 +518,7 @@ const AuthContent = () => {
             }`}
             onClick={() => navigate(signInAuthUrl)}
           >
-            Sign in
+            {AUTH_ACTION_LABELS.signin}
           </button>
           <button
             type="button"
@@ -529,7 +530,7 @@ const AuthContent = () => {
             }`}
             onClick={() => navigate(signUpAuthUrl)}
           >
-            Create account
+            {AUTH_ACTION_LABELS.signup}
           </button>
         </div>
 
