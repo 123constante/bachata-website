@@ -185,11 +185,11 @@ The check cannot verify that a walk asserts the stated END. That stays a review 
 |---|---|---|---|---|---|---|
 | `ac.signout.storage` | S-ORG1 signs out, S-NEW signs up on the same browser | Sign out then DL | B ends as dl.new.straight; B's form is EMPTY; no A key left (D1) | R:sign out then a different person signs up: no trace of A | required | every shared device |
 | `ac.signout.then-org` | S-DANCER out, S-ORG1 in, same browser | Sign out then Sign in | "Continue as" shows only B's sides | R:sign out, then an organiser (B) signs in on the same phone: B sees B's sides and nothing of A (M77) | required | - |
-| `ac.delete.hide` | S-DANCER | delete account, type DELETE | signed out; the account is hidden at once (login refused); nothing is erased | **MISSING** | required | 0 |
-| `ac.delete.restore-30` | S-DANCER (hidden) | signs in within 30 days | account restored as it was | **MISSING** | required | 0 |
-| `ac.delete.after-30` | S-DANCER (hidden) | 30 days pass | an admin erases the data; signing up again makes a brand-new person | **MISSING** | required | 0 |
-| `ac.delete.refused-sole-owner` | S-ORG1 sole owner | delete account | refused: `sole_organiser_owner`, transfer first | **MISSING** | required | 0 |
-| `ac.delete.admin-erase` | S-ADMIN-* | admin erases a hidden account after the 30 days | data erased by an admin only; no automatic erase | **MISSING** | required | 0 |
+| `ac.delete.hide` | S-DANCER | delete account, type DELETE | signed out on every device; hidden from everyone at once; nothing is erased | R + U (slice 3ad) | required | 0 |
+| `ac.delete.restore-30` | S-DANCER (hidden) | signs in within 30 days | restored as it was, "Welcome back"; an admin archive is not restored | R + U (slice 3ad) | required | 0 |
+| `ac.delete.after-30` | S-DANCER (hidden) | 30 days pass, signs in | stays hidden and kept (never auto-erased); "This account was deleted on <date>" card | R + U (slice 3ad) | required | 0 |
+| `ac.delete.refused-sole-owner` | S-ORG1 sole owner | delete account | refused: `sole_organiser_owner`, the pages listed, transfer first | R + U (slice 3ad) | required | 0 |
+| `ac.delete.admin-erase` | S-ADMIN-* | asks for a full erase; an admin erases | erased by an admin only (admin repo); the Website routes the ask to the contact address | R + U (slice 3ad) | required | 0 |
 | `ac.export` | any signed in | download my data | JSON file of every section incl. extras | E:account-settings | required | 10 |
 | `ac.email-change` | S-DANCER | changes e-mail | "Open both links"; after both, sign-in works with the new e-mail only | **MISSING** | required | 0 pending |
 | `ac.hide` | S-DANCER | hide / show profile | profile off / on the public site | E:account-settings | required | - |

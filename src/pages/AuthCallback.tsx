@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
 import { resolveCanonicalCity } from "@/lib/city-canonical";
 import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo } from "@/lib/authRouting";
+import { signInDeletionTarget } from "@/lib/accountDeletion";
 import { hasDancerProfileBasics, inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { flags } from "@/lib/featureFlags";
@@ -90,6 +91,16 @@ const AuthCallback = () => {
       // was not pressed). Every later sign-in gets the banner alone. Not on the
       // sign-in that just linked an admin-made profile: it may be complete already.
       if (shouldArmFinishHop({ firstSignIn: isFirstSignIn(user), claim })) armPostLoginPrompt();
+
+      // A deleted (= hidden) account restores BEFORE anything else: before any returnTo is followed
+      // and before the profile read (a hidden profile reads as missing). The returnTo rides along
+      // so the restore page's Continue still gets there. A failed read carries on (lib/accountDeletion).
+      const restoreTo = await signInDeletionTarget(safeReturnTo ?? sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY)));
+      if (restoreTo) {
+        localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
+        navigate(restoreTo, { replace: true });
+        return;
+      }
 
       try {
         const pendingRole = localStorage.getItem("pending_profile_role");
