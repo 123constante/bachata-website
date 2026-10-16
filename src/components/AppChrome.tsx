@@ -2,6 +2,8 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { GlobalBackground } from '@/components/GlobalBackground';
 import { GlobalHeader } from '@/components/GlobalHeader';
+import { FocusHeader } from '@/components/layout/FocusHeader';
+import { isSignupFocusPath } from '@/lib/focusMode';
 import { BottomNav } from '@/components/BottomNav';
 import { GlobalFooter } from '@/components/layout/GlobalFooter';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -60,9 +62,14 @@ const isDancerAppPath = (pathname: string) => {
  * this edit is backwards-compatible.
  */
 export function AppChrome({ children }: { children?: React.ReactNode }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const isHome = HOME_RE.test(pathname);
   const ownChrome = isDancerAppPath(pathname);
+  // Sign-up focus mode (lib/focusMode): logo + "Not now" only. The /app setup
+  // screens are focus paths too, but the dancer-app shell draws those itself, so
+  // here only the pre-account /auth paths matter (profileComplete is moot there).
+  const focus = !ownChrome && isSignupFocusPath(pathname, search, false);
+  const siteChrome = !ownChrome && !focus;
   // `user` is null on the server and on the first client render alike (auth
   // resolves after hydration), so this cannot cause a hydration mismatch.
   const { user } = useAuth();
@@ -78,11 +85,12 @@ export function AppChrome({ children }: { children?: React.ReactNode }) {
   return (
     <ProfileGateContext.Provider value={gateValue}>
       <GlobalBackground />
-      {!ownChrome && <GlobalHeader />}
+      {siteChrome && <GlobalHeader />}
+      {focus && <FocusHeader />}
       {/* Spacer that matches the sticky header height so NO page is blocked behind it. */}
       {!ownChrome && <div className="h-[60px] shrink-0" aria-hidden="true" />}
       {/* Mobile section row: sticky just under the header (md:hidden inside). Not on /app (own chrome). */}
-      {!ownChrome && <BottomNav />}
+      {siteChrome && <BottomNav />}
       {/* Stays mounted on /app too: it publishes ProfileGateContext (its banner is hidden there by BANNER_HIDDEN_ON). */}
       {signedIn && (
         // A reminder must never take the page down with it: on any failure it renders nothing.
@@ -100,7 +108,7 @@ export function AppChrome({ children }: { children?: React.ReactNode }) {
         </ErrorBoundary>
       </main>
       {/* Footer is suppressed on the full-bleed map home (both breakpoints). */}
-      {!isHome && !ownChrome && <GlobalFooter />}
+      {!isHome && siteChrome && <GlobalFooter />}
       {!ownChrome && <div className="h-[env(safe-area-inset-bottom)] shrink-0" aria-hidden="true" />}
     </ProfileGateContext.Provider>
   );
