@@ -74,6 +74,8 @@ export const SITE_IA = {
   accountTeam:      { label: 'Team',              path: '/account/o/team', parent: 'account' },
   search:           { label: 'Search',            path: '/search' },
   faq:              { label: 'FAQ',               path: '/faq' },
+  privacy:          { label: 'Privacy',           path: '/privacy' },
+  terms:            { label: 'Terms of use',      path: '/terms' },
   notFound:         { label: 'Page not found' },
   // Admin-only, noindex; the page passes these crumbs only to a confirmed admin.
   'admin.organisers': { label: 'Organiser access' },
