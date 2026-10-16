@@ -345,3 +345,8 @@ Base for every run: branch head `b9fd165` merged with `origin/main` @ `ecc3432` 
 - Live prod data in the browser; the Vercel preview (lighthouse, doc-weight); GitHub CI on the head.
 - The 4 live-DB contract suites (no network to prod here); they fail identically on main for that reason.
 - `.githooks` pre-commit/pre-push are not executable in this container, so they did not run on these commits.
+
+### Continuation: unhandled error in unit job (brief `briefs/pr789-unhandled-error.md`; ticket dt_79f599c435c9)
+- Failure: GitHub job "unit (Europe/London, full)" exited 1 on `TypeError: document.elementFromPoint is not a function` (input-otp `use-pwm-badge` timer, from `MagicLinkConfirmationEmail.test.tsx`), though all tests passed.
+- Fix: new `vitest.setup.ts` (wired via `setupFiles` in `vitest.config.ts`) stubs `document.elementFromPoint` only when missing.
+- Before/after: `MagicLinkConfirmationEmail.test.tsx` exit 1 with Unhandled Errors -> exit 0, none. Full `npm run test:unit`: no "Unhandled Errors" section; only the pre-existing 15 failures here (4 live-DB contract files, no network; `integrityCouldNotRun` with global typescript). Not verified: the GitHub job itself.
