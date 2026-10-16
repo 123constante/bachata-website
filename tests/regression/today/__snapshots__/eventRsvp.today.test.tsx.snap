@@ -1,0 +1,355 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`event page Going / Interested at '390x844' > 'anonymous session' 1`] = `
+"button "I'm Going" [pressed=false]
+button "Interested" [pressed=false]
+text "4 going""
+`;
+
+exports[`event page Going / Interested at '390x844' > 'signed in, going' 1`] = `
+"button "You're Going" [pressed=true]
+button "Interested" [pressed=false]
+text "4 going""
+`;
+
+exports[`event page Going / Interested at '390x844' > 'signed in, interested' 1`] = `
+"button "I'm Going" [pressed=false]
+button "Interested" [pressed=true]
+text "4 going""
+`;
+
+exports[`event page Going / Interested at '390x844' > 'signed in, not going' 1`] = `
+"button "I'm Going" [pressed=false]
+button "Interested" [pressed=false]
+text "4 going""
+`;
+
+exports[`event page Going / Interested at '390x844' > 'signed out' 1`] = `
+"button "I'm Going" [pressed=false]
+button "Interested" [pressed=false]
+text "4 going""
+`;
+
+exports[`event page Going / Interested at '390x844' > closed: 'cancelled night' 1`] = `
+"button "I'm Going" [disabled] [pressed=false]
+button "Interested" [disabled] [pressed=false]
+text "This night is cancelled""
+`;
+
+exports[`event page Going / Interested at '390x844' > closed: 'ended night' 1`] = `
+"button "I'm Going" [disabled] [pressed=false]
+button "Interested" [disabled] [pressed=false]
+text "This night has ended""
+`;
+
+exports[`event page Going / Interested at '390x844' > closed: 'series not live (draft)' 1`] = `
+"button "I'm Going" [disabled] [pressed=false]
+button "Interested" [disabled] [pressed=false]
+text "RSVPs are closed for this event""
+`;
+
+exports[`event page Going / Interested at '390x844' > signed-out Going sends nothing and asks to sign in 1`] = `
+"dialog "Sign in to RSVP"
+  heading "Sign in to RSVP" level=2
+  text "Sign in to let the organiser know you're going."
+  button "Log In"
+  button "Sign Up"
+  button "Continue browsing"
+  button "Close""
+`;
+
+exports[`event page Going / Interested at 'desktop' > 'anonymous session' 1`] = `
+"button "I'm Going" [pressed=false]
+button "Interested" [pressed=false]
+text "4 going""
+`;
+
+exports[`event page Going / Interested at 'desktop' > 'signed in, going' 1`] = `
+"button "You're Going" [pressed=true]
+button "Interested" [pressed=false]
+text "4 going""
+`;
+
+exports[`event page Going / Interested at 'desktop' > 'signed in, interested' 1`] = `
+"button "I'm Going" [pressed=false]
+button "Interested" [pressed=true]
+text "4 going""
+`;
+
+exports[`event page Going / Interested at 'desktop' > 'signed in, not going' 1`] = `
+"button "I'm Going" [pressed=false]
+button "Interested" [pressed=false]
+text "4 going""
+`;
+
+exports[`event page Going / Interested at 'desktop' > 'signed out' 1`] = `
+"button "I'm Going" [pressed=false]
+button "Interested" [pressed=false]
+text "4 going""
+`;
+
+exports[`event page Going / Interested at 'desktop' > closed: 'cancelled night' 1`] = `
+"button "I'm Going" [disabled] [pressed=false]
+button "Interested" [disabled] [pressed=false]
+text "This night is cancelled""
+`;
+
+exports[`event page Going / Interested at 'desktop' > closed: 'ended night' 1`] = `
+"button "I'm Going" [disabled] [pressed=false]
+button "Interested" [disabled] [pressed=false]
+text "This night has ended""
+`;
+
+exports[`event page Going / Interested at 'desktop' > closed: 'series not live (draft)' 1`] = `
+"button "I'm Going" [disabled] [pressed=false]
+button "Interested" [disabled] [pressed=false]
+text "RSVPs are closed for this event""
+`;
+
+exports[`event page Going / Interested at 'desktop' > signed-out Going sends nothing and asks to sign in 1`] = `
+"dialog "Sign in to RSVP"
+  heading "Sign in to RSVP" level=2
+  text "Sign in to let the organiser know you're going."
+  button "Log In"
+  button "Sign Up"
+  button "Continue browsing"
+  button "Close""
+`;
+
+exports[`level vote at '390x844' > compact=false > 'check loading' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "WhatLevelwas the dancing?"
+radiogroup "Choose the level of the dancing"
+  radio "Mostly beginners" [checked=false]
+  radio "Mixed" [checked=false]
+  radio "Strong" [checked=false]",
+}
+`;
+
+exports[`level vote at '390x844' > compact=false > 'complete' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "WhatLevelwas the dancing?"
+radiogroup "Choose the level of the dancing"
+  radio "Mostly beginners" [checked=false]
+  radio "Mixed" [checked=false]
+  radio "Strong" [checked=false]",
+}
+`;
+
+exports[`level vote at '390x844' > compact=false > 'incomplete (photo missing)' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "WhatLevelwas the dancing?"
+radiogroup "Choose the level of the dancing"
+  radio "Mostly beginners" [disabled] [checked=false]
+  radio "Mixed" [disabled] [checked=false]
+  radio "Strong" [disabled] [checked=false]
+text "Add your photo to rate parties ."
+link "Finish your profile" href=/finish-profile?returnTo=%2Fevent%2Fev1%3Focc%3D2%23level-rating",
+}
+`;
+
+exports[`level vote at '390x844' > compact=false > 'no profile row' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "WhatLevelwas the dancing?"
+radiogroup "Choose the level of the dancing"
+  radio "Mostly beginners" [disabled] [checked=false]
+  radio "Mixed" [disabled] [checked=false]
+  radio "Strong" [disabled] [checked=false]
+text "Your account has no dancer profile yet, so it can’t rate ."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.",
+}
+`;
+
+exports[`level vote at '390x844' > compact=false > 'signed out / no provider' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "WhatLevelwas the dancing?"
+radiogroup "Choose the level of the dancing"
+  radio "Mostly beginners" [checked=false]
+  radio "Mixed" [checked=false]
+  radio "Strong" [checked=false]",
+}
+`;
+
+exports[`level vote at '390x844' > compact=true > 'check loading' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "What level was the dancing?"
+radiogroup
+  radio "Mostly beginners" [checked=false]
+  radio "Mixed" [checked=false]
+  radio "Strong" [checked=false]",
+}
+`;
+
+exports[`level vote at '390x844' > compact=true > 'complete' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "What level was the dancing?"
+radiogroup
+  radio "Mostly beginners" [checked=false]
+  radio "Mixed" [checked=false]
+  radio "Strong" [checked=false]",
+}
+`;
+
+exports[`level vote at '390x844' > compact=true > 'incomplete (photo missing)' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "What level was the dancing?"
+radiogroup
+  radio "Mostly beginners" [disabled] [checked=false]
+  radio "Mixed" [disabled] [checked=false]
+  radio "Strong" [disabled] [checked=false]
+text "Add your photo to rate parties ."
+link "Finish your profile" href=/finish-profile?returnTo=%2Fevent%2Fev1%3Focc%3D2%23level-rating",
+}
+`;
+
+exports[`level vote at '390x844' > compact=true > 'no profile row' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "What level was the dancing?"
+radiogroup
+  radio "Mostly beginners" [disabled] [checked=false]
+  radio "Mixed" [disabled] [checked=false]
+  radio "Strong" [disabled] [checked=false]
+text "Your account has no dancer profile yet, so it can’t rate ."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.",
+}
+`;
+
+exports[`level vote at '390x844' > compact=true > 'signed out / no provider' 1`] = `
+{
+  "tilesShown": false,
+  "tree": "",
+}
+`;
+
+exports[`level vote at '390x844' > complete, already voted: shows the voter's level 1`] = `
+"text "You rated it StrongThanks for helping other dancers choose."
+button "Change your rating" [expanded=false]"
+`;
+
+exports[`level vote at 'desktop' > compact=false > 'check loading' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "WhatLevelwas the dancing?"
+radiogroup "Choose the level of the dancing"
+  radio "Mostly beginners" [checked=false]
+  radio "Mixed" [checked=false]
+  radio "Strong" [checked=false]",
+}
+`;
+
+exports[`level vote at 'desktop' > compact=false > 'complete' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "WhatLevelwas the dancing?"
+radiogroup "Choose the level of the dancing"
+  radio "Mostly beginners" [checked=false]
+  radio "Mixed" [checked=false]
+  radio "Strong" [checked=false]",
+}
+`;
+
+exports[`level vote at 'desktop' > compact=false > 'incomplete (photo missing)' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "WhatLevelwas the dancing?"
+radiogroup "Choose the level of the dancing"
+  radio "Mostly beginners" [disabled] [checked=false]
+  radio "Mixed" [disabled] [checked=false]
+  radio "Strong" [disabled] [checked=false]
+text "Add your photo to rate parties ."
+link "Finish your profile" href=/finish-profile?returnTo=%2Fevent%2Fev1%3Focc%3D2%23level-rating",
+}
+`;
+
+exports[`level vote at 'desktop' > compact=false > 'no profile row' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "WhatLevelwas the dancing?"
+radiogroup "Choose the level of the dancing"
+  radio "Mostly beginners" [disabled] [checked=false]
+  radio "Mixed" [disabled] [checked=false]
+  radio "Strong" [disabled] [checked=false]
+text "Your account has no dancer profile yet, so it can’t rate ."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.",
+}
+`;
+
+exports[`level vote at 'desktop' > compact=false > 'signed out / no provider' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "WhatLevelwas the dancing?"
+radiogroup "Choose the level of the dancing"
+  radio "Mostly beginners" [checked=false]
+  radio "Mixed" [checked=false]
+  radio "Strong" [checked=false]",
+}
+`;
+
+exports[`level vote at 'desktop' > compact=true > 'check loading' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "What level was the dancing?"
+radiogroup
+  radio "Mostly beginners" [checked=false]
+  radio "Mixed" [checked=false]
+  radio "Strong" [checked=false]",
+}
+`;
+
+exports[`level vote at 'desktop' > compact=true > 'complete' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "What level was the dancing?"
+radiogroup
+  radio "Mostly beginners" [checked=false]
+  radio "Mixed" [checked=false]
+  radio "Strong" [checked=false]",
+}
+`;
+
+exports[`level vote at 'desktop' > compact=true > 'incomplete (photo missing)' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "What level was the dancing?"
+radiogroup
+  radio "Mostly beginners" [disabled] [checked=false]
+  radio "Mixed" [disabled] [checked=false]
+  radio "Strong" [disabled] [checked=false]
+text "Add your photo to rate parties ."
+link "Finish your profile" href=/finish-profile?returnTo=%2Fevent%2Fev1%3Focc%3D2%23level-rating",
+}
+`;
+
+exports[`level vote at 'desktop' > compact=true > 'no profile row' 1`] = `
+{
+  "tilesShown": true,
+  "tree": "text "What level was the dancing?"
+radiogroup
+  radio "Mostly beginners" [disabled] [checked=false]
+  radio "Mixed" [disabled] [checked=false]
+  radio "Strong" [disabled] [checked=false]
+text "Your account has no dancer profile yet, so it can’t rate ."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.",
+}
+`;
+
+exports[`level vote at 'desktop' > compact=true > 'signed out / no provider' 1`] = `
+{
+  "tilesShown": false,
+  "tree": "",
+}
+`;
+
+exports[`level vote at 'desktop' > complete, already voted: shows the voter's level 1`] = `
+"text "You rated it StrongThanks for helping other dancers choose."
+button "Change your rating" [expanded=false]"
+`;

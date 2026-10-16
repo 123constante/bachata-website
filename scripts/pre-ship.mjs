@@ -74,7 +74,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  * the single source of truth for what a check actually invokes; `args` is
  * appended after `--` and exists only to make a reporter quiet.
  *
- * The first SIXTEEN are exactly scripts/run-lint-chain.mjs's LINKS, in its
+ * The first EIGHTEEN are exactly scripts/run-lint-chain.mjs's LINKS, in its
  * order. NOT "the npm-run links of the lint chain" any more, and not followed
  * by "a bare `eslint .`": as of 2026-08-26 `lint` is `node
  * scripts/run-lint-chain.mjs`, which owns LINKS plus TAIL (`lint:eslint`), and
@@ -286,6 +286,8 @@ export const CHECKS = [
   ["check:workflow-artifact-policy", "every workflow artifact upload is cost-bounded"],
   ["check:no-preview-prefixes:self-test", "the preview-job prefix drift guard can still fail"],
   ["check:no-preview-prefixes", "preview jobs exclude exactly the Vercel no-preview prefixes"],
+  ["check:journey-grid:self-test", "every journey-grid rule still fails its own mutant"],
+  ["check:journey-grid", "every account journey-grid row is covered or in the reasoned baseline"],
   // Not a lint-chain link: the plan layer lives outside the repo (the home
   // plans dir), so it has no place in "npm run lint" and SKIPs in CI. It sits
   // here because the ship gate is the one place a local tree is guaranteed to
@@ -337,6 +339,11 @@ export const CHECKS = [
   // already had its review round.
   ["check:bundle-budget", "first-load JS budgets + puller/chunk ratchets (SSR routes included)"],
   ["check:first-load-requests", "first-load REQUEST-count ratchet (prerendered routes)"],
+  // The check reads the same fresh build. Its canary is buildless (CI runs it
+  // before the build); it sits here beside its check only so the pair reads as
+  // one decision, and it costs well under a second.
+  ["check:chunk-cycles:self-test", "the chunk-cycle rules are still proven in both directions"],
+  ["check:chunk-cycles", "no static import cycle between chunks (PR #746 TypeError class)"],
 ];
 
 /** Where CI declares the env the perf build is designed to run under. */

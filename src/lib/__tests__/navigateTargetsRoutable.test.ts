@@ -27,8 +27,6 @@ const SRC = path.resolve(__dirname, '../..');
 // The three sign-in files (AuthCallback, AuthGuard, ProfileEntryRouter) are
 // deliberately absent, so they can never be added back by accident.
 const KNOWN_UNROUTABLE = new Set([
-  'src/components/auth/AuthStepper.tsx -> /profile',
-  'src/components/auth/ProfileEntryFlow.tsx -> /profile',
   'src/components/profile/DJDashboard.tsx -> /create-event',
   'src/components/profile/DJDashboard.tsx -> /profile',
   'src/components/profile/DancerDashboard.tsx -> /create-dancers-profile',
@@ -57,7 +55,6 @@ const KNOWN_UNROUTABLE = new Set([
   // scope (listed in its body). Fix the link, then delete the entry.
   'src/components/PartnersMarquee.tsx -> /partners',
   'src/components/organiser/GetListedHoloCta.tsx -> /create-organiser-profile',
-  'src/modules/event-page/bento/modals/RaffleEntryDialog.tsx -> /privacy',
   'src/pages/Organisers.tsx -> /listing-request',
 ]);
 

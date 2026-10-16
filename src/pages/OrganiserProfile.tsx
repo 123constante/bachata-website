@@ -1,4 +1,6 @@
-﻿import React from 'react';
+﻿import { withPublicNames } from '@/lib/publicDancerNames';
+import { resolvePublicName } from '@/lib/publicName';
+import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -727,13 +729,14 @@ const OrganiserProfile = () => {
       const memberIds = teamRows.map((r) => r.member_profile_id);
       const { data: dancerRows } = await supabase
         .from('dancer_profiles')
-        .select('id, first_name, surname, display_name, avatar_url, nationality')
+        .select('id, first_name, avatar_url, nationality')
         .in('id', memberIds);
-      type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; avatar_url: string | null; nationality: string | null };
-      const dancerMap = new Map<string, DancerRow>((dancerRows as DancerRow[] | null ?? []).map((d) => [d.id, d]));
+      type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; public_name?: string | null; avatar_url: string | null; nationality: string | null };
+      const maskedRows = await withPublicNames((dancerRows ?? []) as Array<Pick<DancerRow, 'id' | 'first_name' | 'avatar_url' | 'nationality'>>);
+      const dancerMap = new Map<string, DancerRow>(maskedRows.map((d) => [d.id, d as unknown as DancerRow]));
       return teamRows.map((t) => {
         const d = dancerMap.get(t.member_profile_id);
-        const name = d?.display_name?.trim() || [d?.first_name, d?.surname].filter(Boolean).join(' ').trim() || 'Team member';
+        const name = resolvePublicName({ public_name: d?.public_name, display_name: d?.display_name, first_name: d?.first_name, surname: d?.surname }) || 'Team member';
         return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? null, nationalityCode: pickNationalityCode(d), role: t.role, isHead: t.is_head, isLeader: t.is_leader };
       });
     },
@@ -1269,14 +1272,16 @@ const OrganiserProfile = () => {
         {/* Brand colour fade &mdash; bleeds the hero tint into the body. Two
             stacked layers (default + sampled) so this crossfades the same way
             the hero overlay above does, instead of popping the moment a
-            colour sample lands. */}
-        <div style={{ pointerEvents: 'none', position: 'relative', height: '10vh', maxHeight: 80, marginTop: '-1px', zIndex: 0 }}>
-          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(${DEFAULT_HERO_RGB[0]},${DEFAULT_HERO_RGB[1]},${DEFAULT_HERO_RGB[2]},0.18) 0%,transparent 100%)` }} />
-          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(${cr},${cg},${cb},0.18) 0%,transparent 100%)`, opacity: heroColourReady ? 1 : 0, transition: 'opacity 600ms ease-out' }} />
+            colour sample lands. It takes NO height (2026-10-13): it was a 10vh /
+            80px empty band between the hero's EQ bars and the stats; the fade
+            now lies UNDER the stats strip (zIndex 1 there) instead. */}
+        <div aria-hidden style={{ pointerEvents: 'none', position: 'relative', height: 0, marginTop: '-1px', zIndex: 0 }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 'min(10vh, 80px)', background: `linear-gradient(180deg,rgba(${DEFAULT_HERO_RGB[0]},${DEFAULT_HERO_RGB[1]},${DEFAULT_HERO_RGB[2]},0.18) 0%,transparent 100%)` }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 'min(10vh, 80px)', background: `linear-gradient(180deg,rgba(${cr},${cg},${cb},0.18) 0%,transparent 100%)`, opacity: heroColourReady ? 1 : 0, transition: 'opacity 600ms ease-out' }} />
         </div>
 
         {/* Stats strip */}
-        <div className="flex justify-around py-3 px-5" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
+        <div className="flex justify-around py-3 px-5" style={{ position: 'relative', zIndex: 1, borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
           {[
             { value: totalUpcomingDateCount,   label: 'Upcoming dates',  title: undefined, href: upcomingListItems.length > 0 ? 'upcoming' : undefined },
             { value: pastEvents.length,        label: 'Past nights',     title: undefined, href: pastEvents.length > 0 ? 'past' : undefined },

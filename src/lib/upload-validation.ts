@@ -5,22 +5,29 @@ const ALLOWED_TYPES = new Set([
   'image/png',
   'image/webp',
   'image/gif',
-  'image/svg+xml',
+  'image/avif',
 ]);
 
 const ALLOWED_EXTENSIONS = new Set([
-  'jpg', 'jpeg', 'png', 'webp', 'gif', 'svg',
+  'jpg', 'jpeg', 'png', 'webp', 'gif', 'avif',
 ]);
 
 export type UploadValidationResult =
   | { ok: true }
   | { ok: false; message: string };
 
+export const SVG_REJECTED_MESSAGE =
+  'SVG images can\'t be uploaded. Please choose a JPG, PNG or WebP photo instead.';
+
 export function validateImageFile(file: File): UploadValidationResult {
+  const fileExt = file.name.split('.').pop()?.toLowerCase() ?? '';
+  if (file.type === 'image/svg+xml' || fileExt === 'svg') {
+    return { ok: false, message: SVG_REJECTED_MESSAGE };
+  }
   if (!ALLOWED_TYPES.has(file.type)) {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
     if (!ALLOWED_EXTENSIONS.has(ext)) {
-      return { ok: false, message: `Only image files are allowed (JPEG, PNG, WebP, GIF). Got "${file.type || ext}".` };
+      return { ok: false, message: `Only image files are allowed (JPG, PNG, WebP, GIF). Got "${file.type || ext}".` };
     }
   }
 

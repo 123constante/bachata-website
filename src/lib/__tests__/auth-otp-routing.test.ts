@@ -3,7 +3,7 @@ import {
   callbackErrorCopy,
   isOtpSignupDisabledError,
   landingPathAfterAuth,
-  needsOrganiserLookup,
+  SIGNED_IN_LANDING_PATH,
   normalizeLandingRole,
   shouldHonorReturnTo,
 } from "@/lib/auth-otp-routing";
@@ -65,27 +65,26 @@ describe("callbackErrorCopy", () => {
 describe("landingPathAfterAuth (no returnTo)", () => {
   const on = { organiserSelfServe: true };
 
-  it("sends a dancer home, not to the organiser form", () => {
-    expect(landingPathAfterAuth({ ...on, role: "dancer", managesOrganiser: null })).toBe("/");
+  // Owner workflow 2026-10-15: /account/continue reads the person's sides and
+  // goes straight to the only one, or shows "Continue as...".
+  it("sends every sign-in to /account/continue, whatever role the metadata carries", () => {
+    for (const role of [null, "dancer", "organiser", "teacher", "dj"]) {
+      expect(landingPathAfterAuth({ ...on, role, isSignup: false })).toBe(SIGNED_IN_LANDING_PATH);
+    }
+    expect(SIGNED_IN_LANDING_PATH).toBe("/account/continue");
   });
 
-  // /account is the dancer home for someone with no organiser (layout D), so an
-  // organiser-intent sign-up goes straight to the organiser onboarding.
-  it.each(["organiser", "teacher", "dj", "vendor", "videographer"])("sends a %s to the organiser onboarding", (role) => {
-    expect(landingPathAfterAuth({ ...on, role, managesOrganiser: null })).toBe("/account/o");
+  it("sends a dancer sign-up to /account/continue (the dancer app's onboarding follows)", () => {
+    expect(landingPathAfterAuth({ ...on, role: "dancer", isSignup: true })).toBe(SIGNED_IN_LANDING_PATH);
+    expect(landingPathAfterAuth({ ...on, role: null, isSignup: true })).toBe(SIGNED_IN_LANDING_PATH);
   });
 
-  it("sends a role-less sign-in to the organiser home only when they manage an organiser", () => {
-    expect(landingPathAfterAuth({ ...on, role: null, managesOrganiser: true })).toBe("/account/o");
-    expect(landingPathAfterAuth({ ...on, role: null, managesOrganiser: false })).toBe("/");
-  });
-
-  it("falls back to /account when the organiser lookup failed", () => {
-    expect(landingPathAfterAuth({ ...on, role: null, managesOrganiser: null })).toBe("/account");
+  it.each(["organiser", "teacher", "dj", "vendor", "videographer"])("sends a %s sign-up to the organiser onboarding, as before", (role) => {
+    expect(landingPathAfterAuth({ ...on, role, isSignup: true })).toBe("/account/o");
   });
 
   it("keeps the legacy routes with the flag off", () => {
-    const off = { organiserSelfServe: false, managesOrganiser: null };
+    const off = { organiserSelfServe: false };
     expect(landingPathAfterAuth({ ...off, role: "organiser" })).toBe("/create-organiser-profile");
     expect(landingPathAfterAuth({ ...off, role: "videographer" })).toBe("/create-videographer-profile");
     // /profile was unrouted 2026-09-12 (a 404): the rest land home.
@@ -95,13 +94,7 @@ describe("landingPathAfterAuth (no returnTo)", () => {
   });
 });
 
-describe("needsOrganiserLookup / normalizeLandingRole", () => {
-  it("looks up only for a role-less user with the flag on", () => {
-    expect(needsOrganiserLookup({ organiserSelfServe: true, role: null })).toBe(true);
-    expect(needsOrganiserLookup({ organiserSelfServe: true, role: "dancer" })).toBe(false);
-    expect(needsOrganiserLookup({ organiserSelfServe: false, role: null })).toBe(false);
-  });
-
+describe("normalizeLandingRole", () => {
   it("normalises role strings and drops non-strings", () => {
     expect(normalizeLandingRole(" Dancer ")).toBe("dancer");
     expect(normalizeLandingRole("")).toBeNull();

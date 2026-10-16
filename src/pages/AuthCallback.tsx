@@ -9,19 +9,19 @@ import { Button } from "@/components/ui/button";
 import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
 import { resolveCanonicalCity } from "@/lib/city-canonical";
 import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo } from "@/lib/authRouting";
+import { signInDeletionTarget } from "@/lib/accountDeletion";
 import { hasDancerProfileBasics, inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { flags } from "@/lib/featureFlags";
+import { acceptTerms } from "@/lib/termsConsent";
 import {
   armPostLoginPrompt,
   isDanceRoleValue,
   isFirstSignIn,
   landingPathAfterAuth,
-  needsOrganiserLookup,
   normalizeLandingRole,
   shouldHonorReturnTo,
 } from "@/lib/auth-otp-routing";
-import { fetchOrganiserHome } from "@/modules/organiser-self-serve/selfServeApi";
 
 const VALID_ROLES: Record<string, string> = {
   organiser: "/create-organiser-profile",
@@ -93,9 +93,23 @@ const AuthCallback = () => {
       // sign-in that just linked an admin-made profile: it may be complete already.
       if (shouldArmFinishHop({ firstSignIn: isFirstSignIn(user), claim })) armPostLoginPrompt();
 
+      // A deleted (= hidden) account restores BEFORE anything else: before any returnTo is followed
+      // and before the profile read (a hidden profile reads as missing). The returnTo rides along
+      // so the restore page's Continue still gets there. A failed read carries on (lib/accountDeletion).
+      const restoreTo = await signInDeletionTarget(safeReturnTo ?? sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY)));
+      if (restoreTo) {
+        localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
+        navigate(restoreTo, { replace: true });
+        return;
+      }
+
       try {
         const pendingRole = localStorage.getItem("pending_profile_role");
         const isSignupFlow = callbackMode === "signup" || (callbackMode !== "signin" && Boolean(pendingRole));
+        // An e-mailed-link sign-up saw the clickwrap but never passed the typed-code screen, so record the
+        // consent here (idempotent server-side, so a typed-code sign-up that already did is harmless).
+        // Not awaited: it never holds the person back; acceptTerms has its own timeout and never throws.
+        if (callbackMode === "signup") void acceptTerms();
         const meta = user.user_metadata || {};
         // Called for its side effect (it persists a metadata role); routing reads the role itself.
         resolveRolePreference(pendingRole, meta.user_type);
@@ -149,22 +163,13 @@ const AuthCallback = () => {
             return;
           }
 
-          // With self-serve on, only organiser-type roles land on /account
-          // (its first run asks "Which organiser are you?"); a dancer goes
-          // home. A sign-in with no role at all (older accounts) goes to
-          // /account only if the user already manages an organiser.
+          // No returnTo: lib/auth-otp-routing decides. A sign-in (and a dancer
+          // sign-up) goes to /account/continue, which reads the person's sides
+          // and goes straight to the only one or shows "Continue as..."; an
+          // organiser-type sign-up goes to the organiser onboarding as before.
           const landingRole = normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type);
-          let managesOrganiser: boolean | null = null;
-          if (needsOrganiserLookup({ organiserSelfServe: flags.organiserSelfServe, role: landingRole })) {
-            try {
-              managesOrganiser = (await fetchOrganiserHome()).organisers.length > 0;
-            } catch {
-              // A failed lookup is not "no organiser": /account handles its own load error.
-              managesOrganiser = null;
-            }
-          }
           navigate(
-            landingPathAfterAuth({ organiserSelfServe: flags.organiserSelfServe, role: landingRole, managesOrganiser }),
+            landingPathAfterAuth({ organiserSelfServe: flags.organiserSelfServe, role: landingRole, isSignup: isSignupFlow }),
             { replace: true },
           );
           localStorage.removeItem("pending_profile_role");

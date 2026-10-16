@@ -145,6 +145,8 @@ export const LINKS = [
   "check:workflow-artifact-policy",
   "check:no-preview-prefixes:self-test",
   "check:no-preview-prefixes",
+  "check:journey-grid:self-test",
+  "check:journey-grid",
 ];
 
 /**

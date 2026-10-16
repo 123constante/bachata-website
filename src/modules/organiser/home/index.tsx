@@ -25,7 +25,6 @@ import { OnboardingView } from './onboarding/OnboardingView';
 import { OrganiserStatusCard } from './OrganiserStatusCard';
 // Layout D (2026-10-11): the dancer side of a person who organises -- one account-menu entry.
 // No "finish your dancer profile" row: the dancer-first gate keeps an unfinished profile off this page.
-import { AccountMenu } from '@/components/account/OrganiserHomeDancer';
 
 /** One upcoming date: chip, event name, venue, status. Opens the date editor. */
 function DateRow({ d, today }: { d: NextDate; today: string }) {
@@ -82,10 +81,6 @@ export default function HomePage() {
   const adding = params.get('add') === '1';
   const eventBlock = newEventBlock(organisers);
   const notLive = organisers.filter((o) => o.lifecycle_status !== 'live');
-  const counts = {
-    organiserCount: organisers.length,
-    openRequestCount: (requests.data ?? []).filter((r) => r.status === 'open').length,
-  };
 
   const onChanged = (confirmation: string) => {
     announce(confirmation);
@@ -105,7 +100,6 @@ export default function HomePage() {
       <OrganiserShell
         title={adding ? 'Add an organiser' : 'Welcome'}
         back={adding ? { to: ORG_PATHS.home, label: 'Home' } : undefined}
-        topBarEnd={adding ? undefined : <AccountMenu {...counts} />}
         testId="org-page-home"
       >
         {/* No announce region here: OnboardingView shows the confirmation itself in a
@@ -123,7 +117,7 @@ export default function HomePage() {
   }
 
   return (
-    <OrganiserShell title="Home" topBarEnd={<AccountMenu {...counts} />} testId="org-page-home">
+    <OrganiserShell title="Home" testId="org-page-home">
       {/* Shows and announces a confirmation that arrives here (a claim or create that
           moved Home out of onboarding); one element, so it is never said twice. */}
       <p

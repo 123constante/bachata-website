@@ -157,9 +157,8 @@ test.describe('organiser editor on the real RPCs (E2E project)', () => {
   const seriesName = `RPC Journey ${tag}`;
   const description = `Real RPC journey ${tag}: weekly class, friendly crowd.`;
   const sessionTitle = `Improvers ${tag}`;
-  // The name-only New event starts a week from today (London), weekly on that weekday, 8 dates.
+  // The name-only New event lists ONE date a week from today (London); Repeats makes it weekly (FIX-6 F-e).
   const firstDate = londonDate(new Date(Date.now() + 7 * 24 * 3600 * 1000));
-  const weekday = new Date(`${firstDate}T12:00:00Z`).getUTCDay();
   const dateRow = () => page.locator(`[data-testid="org-date-row"][data-date="${firstDate}"]`);
   const sessionRow = () => page.getByTestId('session-row').filter({ has: page.getByTestId('session-row-name').getByText(sessionTitle, { exact: true }) });
 
@@ -298,12 +297,11 @@ test.describe('organiser editor on the real RPCs (E2E project)', () => {
     expect(s.category).toBe('class');
     expect(s.lifecycle_status).toBe('draft');
     expect(s.default_description).toBe(description);
-    expect(s.recurrence_rule?.mode).toBe('weekly');
-    expect(s.recurrence_rule?.weekdays).toEqual([weekday]);
+    expect(s.recurrence_rule ?? null).toBeNull();
     const occ = (ws.data?.occurrences ?? []).find((o: { occurrence_date: string }) => o.occurrence_date === firstDate);
     expect(occ, `occurrence on ${firstDate}`).toBeTruthy();
     occurrenceId = occ.id;
-    console.log(`[real-rpc] workspace: v${s.version} ${s.lifecycle_status} weekly ${JSON.stringify(s.recurrence_rule?.weekdays)} desc ok; occurrence ${occurrenceId}`);
+    console.log(`[real-rpc] workspace: v${s.version} ${s.lifecycle_status} one date, desc ok; occurrence ${occurrenceId}`);
 
     if (flyerSaved) {
       const cover = String(s.default_cover_image_url ?? '');

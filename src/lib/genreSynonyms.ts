@@ -33,3 +33,23 @@ export function genreLabel(raw: string): string {
   const t = normalizeGenreToken(raw);
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
+
+/**
+ * Chip -> stored words a Search genre chip matches (FIX-7 R1). New events never
+ * store `workshop` (the Workshop create chip seeds a class session and the
+ * server derives `class`), so "Class" also matches masterclass + workshop;
+ * the Workshop and Masterclass chips still match their own legacy rows.
+ */
+const GENRE_FILTER_EXPANSION: Partial<Record<string, readonly string[]>> = {
+  class: ['class', 'masterclass', 'workshop'],
+};
+
+/** Build the `p_category` array (exact `= ANY` match) from chip tokens. */
+export function genreFilterTokens(chips: readonly string[]): string[] {
+  const out = new Set<string>();
+  for (const chip of chips) {
+    const t = normalizeGenreToken(chip);
+    for (const w of GENRE_FILTER_EXPANSION[t] ?? [t]) out.add(w);
+  }
+  return Array.from(out);
+}

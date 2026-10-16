@@ -1,0 +1,629 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`/auth at '390x844' > sign-in 1`] = `
+"img "Bachata Calendar"
+heading "Welcome back" level=1
+text "Sign in with a link or a code."
+button "Sign in"
+button "Create account"
+heading "Sign in" level=3
+text "Enter your email and we’ll send you a link and a code."
+text "Email"
+textbox "Email" value=""
+button "Email me a sign-in link"
+button "New here? Create an account"
+text "Dev tools"
+button "Instant dev login (random account)"
+button "Dev login (env credentials)"
+button "Continue browsing""
+`;
+
+exports[`/auth at '390x844' > sign-in error: generic send failure 1`] = `
+"img "Bachata Calendar"
+heading "Welcome back" level=1
+text "Sign in with a link or a code."
+button "Sign in"
+button "Create account"
+heading "Sign in" level=3
+text "Enter your email and we’ll send you a link and a code."
+text "Email"
+textbox "Email" value="someone@example.com"
+button "Email me a sign-in link"
+alert
+  text "We couldn't send your email. Please try again in a moment."
+button "New here? Create an account"
+text "Dev tools"
+button "Instant dev login (random account)"
+button "Dev login (env credentials)"
+button "Continue browsing""
+`;
+
+exports[`/auth at '390x844' > sign-in error: otp_disabled switches to create-account with its notice 1`] = `
+"img "Bachata Calendar"
+heading "Join the community" level=1
+text "Create your account in 3 easy steps."
+button "Sign in"
+button "Create account"
+text "Step 1 of 333%"
+progressbar "Sign-up progress"
+status
+  text "No account found"
+  text "No account for this email yet. Create one to continue."
+heading "What brings you here?" level=3
+text "You can always add more roles later."
+button "Dancer Find classes, partners, and events" [pressed=true]
+button "I’m also an organiser / teacher / DJ / videographer / vendor" [expanded=false]
+button "Continue as Dancer"
+button "Continue browsing""
+`;
+
+exports[`/auth at '390x844' > sign-in: link sent (8-digit code box) 1`] = `
+"heading "Check your email" level=1
+text "We sent a sign-in email to known@example.com.Click the link in the email, or enter the code from it."
+text "8-digit code"
+textbox "8-digit code" value=""
+alert
+button "Resend code in 30s" [disabled]
+button "Use a different email"
+button "Continue browsing""
+`;
+
+exports[`/auth at '390x844' > sign-up error: allowlist 403 (invite-only + WhatsApp link) 1`] = `
+"img "Bachata Calendar"
+heading "Join the community" level=1
+text "Create your account in 3 easy steps."
+button "Sign in"
+button "Create account"
+text "Step 3 of 3100%"
+progressbar "Sign-up progress"
+heading "Last step — your email" level=3
+text "We’ll email you a link and a code to sign in."
+text "Email"
+textbox "Email" value="stranger@example.com"
+button "Back"
+button "Email me a link"
+alert
+  text "Sign-up is invite-only for now. This beta is limited to approved organisers. If you run bachata events and want in, ask us to add your email, then try again."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+text "Dev tools"
+button "Instant dev login"
+button "Continue browsing""
+`;
+
+exports[`/auth at '390x844' > sign-up step 1: role 1`] = `
+"img "Bachata Calendar"
+heading "Join the community" level=1
+text "Create your account in 3 easy steps."
+button "Sign in"
+button "Create account"
+text "Step 2 of 367%"
+progressbar "Sign-up progress"
+heading "What brings you here?" level=3
+text "You can always add more roles later."
+button "Dancer Find classes, partners, and events" [pressed=true]
+button "I’m also an organiser / teacher / DJ / videographer / vendor" [expanded=false]
+button "Continue as Dancer"
+button "Continue browsing""
+`;
+
+exports[`/auth at '390x844' > sign-up step 2 error: continue without a dance role 1`] = `
+"img "Bachata Calendar"
+heading "Join the community" level=1
+text "Create your account in 3 easy steps."
+button "Sign in"
+button "Create account"
+text "Step 2 of 367%"
+progressbar "Sign-up progress"
+heading "A little about you" level=3
+text "Three quick things and we’re done."
+text "First name"
+textbox "First name" value="Sam"
+text "City"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+alert
+  text "Choose your dance role."
+button "Back"
+button "Continue"
+button "Continue browsing""
+`;
+
+exports[`/auth at '390x844' > sign-up step 2: name / city / role 1`] = `
+"img "Bachata Calendar"
+heading "Join the community" level=1
+text "Create your account in 3 easy steps."
+button "Sign in"
+button "Create account"
+text "Step 2 of 367%"
+progressbar "Sign-up progress"
+heading "A little about you" level=3
+text "Three quick things and we’re done."
+text "First name"
+textbox "First name" value="Sam"
+text "City"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+button "Back"
+button "Continue"
+button "Continue browsing""
+`;
+
+exports[`/auth at '390x844' > sign-up step 3: email 1`] = `
+"img "Bachata Calendar"
+heading "Join the community" level=1
+text "Create your account in 3 easy steps."
+button "Sign in"
+button "Create account"
+text "Step 3 of 3100%"
+progressbar "Sign-up progress"
+heading "Last step — your email" level=3
+text "We’ll email you a link and a code to sign in."
+text "Email"
+textbox "Email" value=""
+button "Back"
+button "Email me a link"
+text "Dev tools"
+button "Instant dev login"
+button "Continue browsing""
+`;
+
+exports[`/auth at '390x844' > sign-up: link sent 1`] = `
+"heading "Check your email" level=1
+text "We sent a sign-in email to sam@example.com.Click the link in the email, or enter the code from it."
+text "8-digit code"
+textbox "8-digit code" value=""
+alert
+text "By continuing you agree to the and ."
+link "Terms" href=/terms
+link "Privacy Policy" href=/privacy
+button "Resend code in 30s" [disabled]
+button "Use a different email"
+button "Continue browsing""
+`;
+
+exports[`/auth at 'desktop' > sign-in 1`] = `
+"img "Bachata Calendar"
+heading "Welcome back" level=1
+text "Sign in with a link or a code."
+button "Sign in"
+button "Create account"
+heading "Sign in" level=3
+text "Enter your email and we’ll send you a link and a code."
+text "Email"
+textbox "Email" value=""
+button "Email me a sign-in link"
+button "New here? Create an account"
+text "Dev tools"
+button "Instant dev login (random account)"
+button "Dev login (env credentials)"
+button "Continue browsing""
+`;
+
+exports[`/auth at 'desktop' > sign-in error: generic send failure 1`] = `
+"img "Bachata Calendar"
+heading "Welcome back" level=1
+text "Sign in with a link or a code."
+button "Sign in"
+button "Create account"
+heading "Sign in" level=3
+text "Enter your email and we’ll send you a link and a code."
+text "Email"
+textbox "Email" value="someone@example.com"
+button "Email me a sign-in link"
+alert
+  text "We couldn't send your email. Please try again in a moment."
+button "New here? Create an account"
+text "Dev tools"
+button "Instant dev login (random account)"
+button "Dev login (env credentials)"
+button "Continue browsing""
+`;
+
+exports[`/auth at 'desktop' > sign-in error: otp_disabled switches to create-account with its notice 1`] = `
+"img "Bachata Calendar"
+heading "Join the community" level=1
+text "Create your account in 3 easy steps."
+button "Sign in"
+button "Create account"
+text "Step 1 of 333%"
+progressbar "Sign-up progress"
+status
+  text "No account found"
+  text "No account for this email yet. Create one to continue."
+heading "What brings you here?" level=3
+text "You can always add more roles later."
+button "Dancer Find classes, partners, and events" [pressed=true]
+button "I’m also an organiser / teacher / DJ / videographer / vendor" [expanded=false]
+button "Continue as Dancer"
+button "Continue browsing""
+`;
+
+exports[`/auth at 'desktop' > sign-in: link sent (8-digit code box) 1`] = `
+"heading "Check your email" level=1
+text "We sent a sign-in email to known@example.com.Click the link in the email, or enter the code from it."
+text "8-digit code"
+textbox "8-digit code" value=""
+alert
+button "Resend code in 30s" [disabled]
+button "Use a different email"
+button "Continue browsing""
+`;
+
+exports[`/auth at 'desktop' > sign-up error: allowlist 403 (invite-only + WhatsApp link) 1`] = `
+"img "Bachata Calendar"
+heading "Join the community" level=1
+text "Create your account in 3 easy steps."
+button "Sign in"
+button "Create account"
+text "Step 3 of 3100%"
+progressbar "Sign-up progress"
+heading "Last step — your email" level=3
+text "We’ll email you a link and a code to sign in."
+text "Email"
+textbox "Email" value="stranger@example.com"
+button "Back"
+button "Email me a link"
+alert
+  text "Sign-up is invite-only for now. This beta is limited to approved organisers. If you run bachata events and want in, ask us to add your email, then try again."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+text "Dev tools"
+button "Instant dev login"
+button "Continue browsing""
+`;
+
+exports[`/auth at 'desktop' > sign-up step 1: role 1`] = `
+"img "Bachata Calendar"
+heading "Join the community" level=1
+text "Create your account in 3 easy steps."
+button "Sign in"
+button "Create account"
+text "Step 2 of 367%"
+progressbar "Sign-up progress"
+heading "What brings you here?" level=3
+text "You can always add more roles later."
+button "Dancer Find classes, partners, and events" [pressed=true]
+button "I’m also an organiser / teacher / DJ / videographer / vendor" [expanded=false]
+button "Continue as Dancer"
+button "Continue browsing""
+`;
+
+exports[`/auth at 'desktop' > sign-up step 2 error: continue without a dance role 1`] = `
+"img "Bachata Calendar"
+heading "Join the community" level=1
+text "Create your account in 3 easy steps."
+button "Sign in"
+button "Create account"
+text "Step 2 of 367%"
+progressbar "Sign-up progress"
+heading "A little about you" level=3
+text "Three quick things and we’re done."
+text "First name"
+textbox "First name" value="Sam"
+text "City"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+alert
+  text "Choose your dance role."
+button "Back"
+button "Continue"
+button "Continue browsing""
+`;
+
+exports[`/auth at 'desktop' > sign-up step 2: name / city / role 1`] = `
+"img "Bachata Calendar"
+heading "Join the community" level=1
+text "Create your account in 3 easy steps."
+button "Sign in"
+button "Create account"
+text "Step 2 of 367%"
+progressbar "Sign-up progress"
+heading "A little about you" level=3
+text "Three quick things and we’re done."
+text "First name"
+textbox "First name" value="Sam"
+text "City"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+button "Back"
+button "Continue"
+button "Continue browsing""
+`;
+
+exports[`/auth at 'desktop' > sign-up step 3: email 1`] = `
+"img "Bachata Calendar"
+heading "Join the community" level=1
+text "Create your account in 3 easy steps."
+button "Sign in"
+button "Create account"
+text "Step 3 of 3100%"
+progressbar "Sign-up progress"
+heading "Last step — your email" level=3
+text "We’ll email you a link and a code to sign in."
+text "Email"
+textbox "Email" value=""
+button "Back"
+button "Email me a link"
+text "Dev tools"
+button "Instant dev login"
+button "Continue browsing""
+`;
+
+exports[`/auth at 'desktop' > sign-up: link sent 1`] = `
+"heading "Check your email" level=1
+text "We sent a sign-in email to sam@example.com.Click the link in the email, or enter the code from it."
+text "8-digit code"
+textbox "8-digit code" value=""
+alert
+text "By continuing you agree to the and ."
+link "Terms" href=/terms
+link "Privacy Policy" href=/privacy
+button "Resend code in 30s" [disabled]
+button "Use a different email"
+button "Continue browsing""
+`;
+
+exports[`AuthStepper sign-up wizard at '390x844' > allowlist 403 on send 1`] = `
+"button "🎲 Mock fill"
+button "⚡ Instant login"
+text "Step 3 of 3Fresh start"
+progressbar "Step 3 of 3"
+button "Send code"
+button "Use different email"
+text "🛠 Dev Tools"
+button "⚡ Instant Dev Login (random account)"
+button "Dev login (env credentials)"
+text "You are moments away from your profile.""
+`;
+
+exports[`AuthStepper sign-up wizard at '390x844' > email step, then send code, then the 8-digit code entry > code entry 1`] = `
+"button "🎲 Mock fill"
+button "⚡ Instant login"
+text "Step 3 of 3Fresh start"
+progressbar "Step 3 of 3"
+text "Email code"
+textbox value=""
+button "Verify code"
+button "Resend code in 30s" [disabled]
+button "Use different email"
+text "🛠 Dev Tools"
+button "⚡ Instant Dev Login (random account)"
+button "Dev login (env credentials)"
+text "You are moments away from your profile.""
+`;
+
+exports[`AuthStepper sign-up wizard at '390x844' > email step, then send code, then the 8-digit code entry > email step 1`] = `
+"button "🎲 Mock fill"
+button "⚡ Instant login"
+text "Step 1 of 3Fresh start"
+progressbar "Step 1 of 3"
+text "Email"
+textbox value="sam@example.com"
+text "We’ll use this to continue securely."
+button "Continue""
+`;
+
+exports[`AuthStepper sign-up wizard at '390x844' > name step 1`] = `
+"button "🎲 Mock fill"
+button "⚡ Instant login"
+text "Step 2 of 3Fresh start"
+progressbar "Step 2 of 3"
+text "First name"
+textbox value=""
+text "Surname (optional)"
+textbox value=""
+text "Your city"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+button "Continue""
+`;
+
+exports[`AuthStepper sign-up wizard at '390x844' > name step error: continue without a dance role 1`] = `
+"button "🎲 Mock fill"
+button "⚡ Instant login"
+text "Step 2 of 3Fresh start"
+progressbar "Step 2 of 3"
+text "First name"
+textbox value="Sam"
+text "Surname (optional)"
+textbox value=""
+text "Your city"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Choose your dance role."
+button "Continue""
+`;
+
+exports[`AuthStepper sign-up wizard at 'desktop' > allowlist 403 on send 1`] = `
+"button "🎲 Mock fill"
+button "⚡ Instant login"
+text "Step 3 of 3Fresh start"
+progressbar "Step 3 of 3"
+button "Send code"
+button "Use different email"
+text "🛠 Dev Tools"
+button "⚡ Instant Dev Login (random account)"
+button "Dev login (env credentials)"
+text "You are moments away from your profile.""
+`;
+
+exports[`AuthStepper sign-up wizard at 'desktop' > email step, then send code, then the 8-digit code entry > code entry 1`] = `
+"button "🎲 Mock fill"
+button "⚡ Instant login"
+text "Step 3 of 3Fresh start"
+progressbar "Step 3 of 3"
+text "Email code"
+textbox value=""
+button "Verify code"
+button "Resend code in 30s" [disabled]
+button "Use different email"
+text "🛠 Dev Tools"
+button "⚡ Instant Dev Login (random account)"
+button "Dev login (env credentials)"
+text "You are moments away from your profile.""
+`;
+
+exports[`AuthStepper sign-up wizard at 'desktop' > email step, then send code, then the 8-digit code entry > email step 1`] = `
+"button "🎲 Mock fill"
+button "⚡ Instant login"
+text "Step 1 of 3Fresh start"
+progressbar "Step 1 of 3"
+text "Email"
+textbox value="sam@example.com"
+text "We’ll use this to continue securely."
+button "Continue""
+`;
+
+exports[`AuthStepper sign-up wizard at 'desktop' > name step 1`] = `
+"button "🎲 Mock fill"
+button "⚡ Instant login"
+text "Step 2 of 3Fresh start"
+progressbar "Step 2 of 3"
+text "First name"
+textbox value=""
+text "Surname (optional)"
+textbox value=""
+text "Your city"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+button "Continue""
+`;
+
+exports[`AuthStepper sign-up wizard at 'desktop' > name step error: continue without a dance role 1`] = `
+"button "🎲 Mock fill"
+button "⚡ Instant login"
+text "Step 2 of 3Fresh start"
+progressbar "Step 2 of 3"
+text "First name"
+textbox value="Sam"
+text "Surname (optional)"
+textbox value=""
+text "Your city"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Choose your dance role."
+button "Continue""
+`;
+
+exports[`organiser email-code screens at '390x844' > EmailCode > before sending 1`] = `
+"status
+  text "First, prove a@b.example is yours. We’ll email you a code."
+button "Email me a code""
+`;
+
+exports[`organiser email-code screens at '390x844' > EmailCode > code box after sending, then a short code is refused in words > sent 1`] = `
+"status
+  text "We’ve emailed a code to a@b.example. It can take a minute; check your spam folder too."
+text "Code from your email"
+textbox "Code from your email" value=""
+button "Confirm"
+button "Send a new code in 30s" [disabled]"
+`;
+
+exports[`organiser email-code screens at '390x844' > EmailCode > send failure 1`] = `
+"status
+  text "First, prove a@b.example is yours. We’ll email you a code."
+button "Email me a code"
+alert
+  text "We could not send the code. Please try again in a moment.""
+`;
+
+exports[`organiser email-code screens at '390x844' > EmailCodeProof > before sending 1`] = `
+"status
+  text "To prove a@b.example is yours, we’ll email you a code."
+button "Email me a code""
+`;
+
+exports[`organiser email-code screens at '390x844' > EmailCodeProof > code box after sending, then a short code is refused in words > sent 1`] = `
+"status
+  text "We’ve emailed a code to a@b.example. It can take a minute; check your spam folder too."
+text "Code from your email"
+textbox "The code from your email" value=""
+button "Confirm"
+button "Resend in 30s" [disabled]"
+`;
+
+exports[`organiser email-code screens at '390x844' > EmailCodeProof > send failure 1`] = `
+"status
+  text "To prove a@b.example is yours, we’ll email you a code."
+button "Email me a code"
+alert
+  text "We could not send the code. Please try again in a moment.""
+`;
+
+exports[`organiser email-code screens at 'desktop' > EmailCode > before sending 1`] = `
+"status
+  text "First, prove a@b.example is yours. We’ll email you a code."
+button "Email me a code""
+`;
+
+exports[`organiser email-code screens at 'desktop' > EmailCode > code box after sending, then a short code is refused in words > sent 1`] = `
+"status
+  text "We’ve emailed a code to a@b.example. It can take a minute; check your spam folder too."
+text "Code from your email"
+textbox "Code from your email" value=""
+button "Confirm"
+button "Send a new code in 30s" [disabled]"
+`;
+
+exports[`organiser email-code screens at 'desktop' > EmailCode > send failure 1`] = `
+"status
+  text "First, prove a@b.example is yours. We’ll email you a code."
+button "Email me a code"
+alert
+  text "We could not send the code. Please try again in a moment.""
+`;
+
+exports[`organiser email-code screens at 'desktop' > EmailCodeProof > before sending 1`] = `
+"status
+  text "To prove a@b.example is yours, we’ll email you a code."
+button "Email me a code""
+`;
+
+exports[`organiser email-code screens at 'desktop' > EmailCodeProof > code box after sending, then a short code is refused in words > sent 1`] = `
+"status
+  text "We’ve emailed a code to a@b.example. It can take a minute; check your spam folder too."
+text "Code from your email"
+textbox "The code from your email" value=""
+button "Confirm"
+button "Resend in 30s" [disabled]"
+`;
+
+exports[`organiser email-code screens at 'desktop' > EmailCodeProof > send failure 1`] = `
+"status
+  text "To prove a@b.example is yours, we’ll email you a code."
+button "Email me a code"
+alert
+  text "We could not send the code. Please try again in a moment.""
+`;

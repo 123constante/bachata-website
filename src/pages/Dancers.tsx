@@ -1,3 +1,4 @@
+import { withPublicNames } from '@/lib/publicDancerNames';
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Heart, Music, Star, Sparkles, Users, UserCheck, Loader2, Camera } from 'lucide-react';
@@ -74,12 +75,13 @@ const Dancers = () => {
       try {
         const { data, error } = await supabase
           .from('dancer_profiles')
-          .select('id, display_name, first_name, surname, avatar_url, nationality, dance_role, cities!based_city_id(name), dancing_role_details(favorite_styles, dance_started_year, looking_for_partner)')
+          .select('id, first_name, avatar_url, nationality, dance_role, cities!based_city_id(name), dancing_role_details(favorite_styles, dance_started_year, looking_for_partner)')
           .or('is_active.is.null,is_active.eq.true')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        setDancers((data || []).map((row) => ({
+        const masked = await withPublicNames(data || []);
+        setDancers(masked.map((row) => ({
           ...row,
           favorite_styles: row.dancing_role_details?.favorite_styles ?? null,
           dance_started_year: row.dancing_role_details?.dance_started_year ?? null,

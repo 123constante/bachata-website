@@ -17,7 +17,7 @@ import { LevelBadge, LevelFilterChips, UnratedLine, parseLevelParam } from '@/co
 import { flags } from '@/lib/featureFlags';
 import { recordSearchResultClick } from '@/lib/searchClickTelemetry';
 import { hrefFor, type SearchKind } from '@/lib/searchEntities';
-import { normalizeGenreToken } from '@/lib/genreSynonyms';
+import { genreFilterTokens } from '@/lib/genreSynonyms';
 import { resolveEventImage } from '@/lib/utils';
 import { eventResultSubtitle } from '@/lib/searchEventSubtitle';
 import { optimizedImageUrl } from '@/lib/imageCdn';
@@ -133,8 +133,9 @@ const SearchResults = () => {
     includePast: time === 'all',
     formats: eformat,
     // Fold legacy/synonym genre tokens (e.g. a bookmarked `ecat=social`) to the
-    // canonical category before it hits the RPC. dedupe in case the fold collides.
-    categories: Array.from(new Set(ecat.map(normalizeGenreToken))),
+    // canonical category, and widen Class to masterclass + workshop, before it
+    // hits the RPC (genreFilterTokens dedupes).
+    categories: genreFilterTokens(ecat),
     styles,
     dateFrom: from || null,
     dateTo: to || null,

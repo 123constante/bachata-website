@@ -1,0 +1,145 @@
+// @vitest-environment jsdom
+/**
+ * D7 (owner decision): the e-mail code box
+ *  - survives a page reload for 10 minutes (same e-mail, same step: the same
+ *    /auth mode), so a person who reloads while fetching the code is not sent
+ *    back to type their e-mail again;
+ *  - stops accepting codes after 5 wrong ones and offers "Send a new code"
+ *    (also across a reload).
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { installJsdomPolyfills } from '../../../tests/client/jsdomPolyfills';
+
+const mocks = vi.hoisted(() => ({ signInWithOtp: vi.fn(), verifyOtp: vi.fn() }));
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: { auth: { signInWithOtp: mocks.signInWithOtp, verifyOtp: mocks.verifyOtp }, rpc: vi.fn() },
+}));
+vi.mock('@/lib/auth-intent', async (orig) => ({
+  ...(await orig<typeof import('@/lib/auth-intent')>()),
+  checkAccountExistsByEmail: vi.fn(async () => 'existing'),
+}));
+vi.mock('@/lib/analytics', () => ({ trackAnalyticsEvent: vi.fn() }));
+vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
+vi.mock('@/components/ui/city-picker', () => ({ CityPicker: () => <div /> }));
+
+import Auth from '@/pages/Auth';
+
+const renderAuth = (url: string) =>
+  render(
+    <MemoryRouter initialEntries={[url]}>
+      <Routes>
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/auth/callback" element={<p data-testid="callback">callback</p>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+const reachCodeScreen = async (url = '/auth?mode=signin') => {
+  const user = userEvent.setup();
+  renderAuth(url);
+  await user.type(await screen.findByLabelText('Email'), 'ada@example.com');
+  await user.click(screen.getByRole('button', { name: /email me a sign-in link/i }));
+  await screen.findByText('Check your email');
+  return user;
+};
+
+/** A page reload: everything in memory is gone, browser storage stays. */
+const reload = (url = '/auth?mode=signin') => {
+  cleanup();
+  renderAuth(url);
+};
+
+const box = () => screen.getByLabelText('8-digit code') as HTMLInputElement;
+
+const typeWrongCodes = async (user: ReturnType<typeof userEvent.setup>, n: number) => {
+  for (let i = 1; i <= n; i += 1) {
+    await waitFor(() => expect(box().disabled).toBe(false));
+    await user.type(box(), '00000000');
+    await waitFor(() => expect(mocks.verifyOtp).toHaveBeenCalledTimes(i));
+  }
+};
+
+beforeEach(() => {
+  installJsdomPolyfills();
+  document.elementFromPoint = () => null;
+  localStorage.clear();
+  sessionStorage.clear();
+  mocks.signInWithOtp.mockReset();
+  mocks.signInWithOtp.mockResolvedValue({ error: null });
+  mocks.verifyOtp.mockReset();
+  mocks.verifyOtp.mockResolvedValue({ error: { message: 'Token has expired or is invalid' } });
+});
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+describe('the code step survives a reload for 10 minutes', () => {
+  it('reload within 10 minutes: still on the code box, same e-mail', async () => {
+    await reachCodeScreen();
+    reload();
+    expect(await screen.findByText('Check your email')).toBeTruthy();
+    expect(screen.getByText('ada@example.com')).toBeTruthy();
+    expect(box()).toBeTruthy();
+  });
+
+  it('reload after 10 minutes: back to the e-mail form', async () => {
+    const t0 = Date.now();
+    await reachCodeScreen();
+    vi.spyOn(Date, 'now').mockReturnValue(t0 + 10 * 60 * 1000 + 1000);
+    reload();
+    expect(await screen.findByLabelText('Email')).toBeTruthy();
+    expect(screen.queryByText('Check your email')).toBeNull();
+  });
+
+  it('another step (the sign-up mode) does not reopen the sign-in code box', async () => {
+    await reachCodeScreen();
+    reload('/auth?mode=signup');
+    await waitFor(() => expect(screen.queryByText('Check your email')).toBeNull());
+  });
+
+  it('"Use a different email" forgets it', async () => {
+    const user = await reachCodeScreen();
+    await user.click(screen.getByRole('button', { name: /use a different email/i }));
+    reload();
+    expect(await screen.findByLabelText('Email')).toBeTruthy();
+    expect(screen.queryByText('Check your email')).toBeNull();
+  });
+});
+
+describe('5 wrong codes: the box stops accepting and offers "Send a new code"', () => {
+  it('locks after the fifth wrong code; a sixth is never sent; a new code unlocks', async () => {
+    const user = await reachCodeScreen();
+    await typeWrongCodes(user, 5);
+    await waitFor(() => expect(box().disabled).toBe(true));
+    expect(screen.getByRole('alert').textContent).toMatch(/Send a new code/);
+    const send = screen.getByRole('button', { name: 'Send a new code' }) as HTMLButtonElement;
+    // Offered at once, not after the resend cooldown.
+    expect(send.disabled).toBe(false);
+    await user.type(box(), '11111111');
+    expect(mocks.verifyOtp).toHaveBeenCalledTimes(5);
+    await user.click(send);
+    await waitFor(() => expect(mocks.signInWithOtp).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(box().disabled).toBe(false));
+  });
+
+  it('four wrong codes still accept a fifth try', async () => {
+    const user = await reachCodeScreen();
+    await typeWrongCodes(user, 4);
+    await waitFor(() => expect(box().disabled).toBe(false));
+    expect(screen.queryByRole('button', { name: 'Send a new code' })).toBeNull();
+  });
+
+  it('the lock survives a reload', async () => {
+    const user = await reachCodeScreen();
+    await typeWrongCodes(user, 5);
+    reload();
+    await screen.findByText('Check your email');
+    expect(box().disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Send a new code' })).toBeTruthy();
+  });
+});

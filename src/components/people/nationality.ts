@@ -3,7 +3,8 @@
  *
  * Every public read that carries a person (list_public_djs_v1, get_public_dj_v1,
  * get_public_teachers_list_v1, get_public_teacher_detail_v1, get_all_profiles_v1,
- * get_event_program_v1, get_occurrence_program_v1, get_public_festival_detail_v2,
+ * get_event_program_v1, get_occurrence_program_v1, event_view_p5 legacy_compat (each
+ * programme person, admin #799), get_public_festival_detail_v2,
  * search_public_v4/v5/v6, get_public_vendor_detail_v1) emits `nationality_code`: an
  * upper-case ISO 3166-1 alpha-2 code, or null when the nationality is unknown or could
  * not be mapped with certainty (admin #774). Direct table reads (dancer_profiles,

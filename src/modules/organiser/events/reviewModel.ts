@@ -18,6 +18,7 @@
 // already block). Prod 2026-10-08: every live, ended and paused series has one.
 
 import { LIFECYCLE_WORD, TEAM } from '@/modules/organiser/shared/eventState';
+import { isCancelledDate } from '@/modules/organiser/shared/seriesModel';
 
 export interface ReviewInput {
   status: string;
@@ -42,15 +43,16 @@ export const NO_SESSION_REASON = 'Add at least one session first.';
 export const NO_COVER_REASON = 'Add a cover image first.';
 
 /**
- * Upcoming listed (not cancelled) dates that have a session: every one of them
- * when the series programme has a session, else those with a per-date added
- * session. `upcoming` is upcomingDates(ws.dates, today).
+ * Listed (not cancelled) dates that have a session: every one of them when the
+ * series programme has a session, else those with a per-date added session.
+ * `dates` is upcomingDates(ws.dates, today) for the review card; the Type row
+ * passes every date when nothing can be edited (FIX-7 R3).
  */
 export function sessionDates(
   seriesHasSessions: boolean,
-  upcoming: ReadonlyArray<{ lifecycle_status: string; added_sessions_count: number }>,
+  dates: ReadonlyArray<{ lifecycle_status: string; added_sessions_count: number }>,
 ): number {
-  const listed = upcoming.filter((d) => d.lifecycle_status !== 'cancelled');
+  const listed = dates.filter((d) => !isCancelledDate(d));
   return seriesHasSessions ? listed.length : listed.filter((d) => d.added_sessions_count > 0).length;
 }
 

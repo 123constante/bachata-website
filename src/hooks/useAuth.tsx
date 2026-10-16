@@ -1,7 +1,9 @@
 import { createContext, startTransition, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import type { User, Session } from "@supabase/supabase-js";
+import { QueryClientContext } from "@tanstack/react-query";
 import { getSupabase } from "@/integrations/supabase/getSupabase";
 import type { ProfileCompletionStatus, RatingGate } from "@/lib/profileCompletion";
+import { clearPersonScopedStorage } from "@/lib/personScopedStorage";
 import {
   startAuthResolution,
   AUTH_RESOLVE_TIMEOUT_MS,
@@ -32,9 +34,12 @@ type AuthContextType = {
   session: Session | null;
   isLoading: boolean;
   authStatus: AuthStatus;
-  signOut: () => Promise<SignOutOutcome>;
+  /** This device only (owner decision D6); `{ everywhere: true }` is settings' "Sign out of all devices". */
+  signOut: (opts?: SignOutOptions) => Promise<SignOutOutcome>;
   retryAuth: () => void;
 };
+
+export type SignOutOptions = { everywhere?: boolean };
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -133,7 +138,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    * (offline, 5xx) sailed straight through the happy path.
    *
    * Structured as three explicit outcomes; see SignOutOutcome. */
-  const signOut = async (): Promise<SignOutOutcome> => {
+  /* D1: the person's cached server reads go with them too (the next person on this
+   * browser must not see A's sides or profile for a frame). The context, not
+   * useQueryClient(): a provider rendered without a QueryClient must not throw. */
+  const queryClient = useContext(QueryClientContext);
+  const forgetPerson = () => {
+    clearPersonScopedStorage();
+    queryClient?.clear();
+  };
+
+  const signOut = async (opts?: SignOutOptions): Promise<SignOutOutcome> => {
     let supabase: Awaited<ReturnType<typeof getSupabase>>;
     try {
       // getSupabase() is a runtime fetch (the arc deferred this client off the
@@ -150,13 +164,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
      * The old body caught only the thrown shape and let the returned one through;
      * catching only the returned shape would just invert the same bug, so a throw
      * is funnelled into `error` and treated identically. */
+    /* D6: an ordinary sign-out is THIS device only (supabase-js defaults to
+     * global, which also ended the person's other phones and laptops). */
+    if (!opts?.everywhere) {
+      try {
+        const { error: localOnly } = await supabase.auth.signOut({ scope: "local" });
+        if (localOnly) return "failed";
+      } catch {
+        return "failed";
+      }
+      forgetPerson();
+      return "signed-out";
+    }
+
     let error: unknown = null;
     try {
-      ({ error } = await supabase.auth.signOut());
+      ({ error } = await supabase.auth.signOut({ scope: "global" }));
     } catch (err) {
       error = err;
     }
-    if (!error) return "signed-out";
+    /* The person is gone from this browser: so is everything they left in its
+     * storage (owner decision D1, lib/personScopedStorage). Here, the one
+     * sign-out every control goes through, so no path can skip it. */
+    if (!error) {
+      forgetPerson();
+      return "signed-out";
+    }
     
     /* The global revoke did not land. Clearing the LOCAL session is a different
      * operation -- storage, not network -- so it can still succeed, and on a
@@ -172,6 +205,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
             return "failed";
     }
+    forgetPerson();
     return "signed-out-locally";
   };
 

@@ -71,6 +71,8 @@ beforeEach(() => {
     if (fn === 'get_organiser_venue_options_v1') return { data: [{ id: 'v1', name: 'Salsa Club', city_name: 'Leeds' }, { id: 'v2', name: 'Studio 2', city_name: 'York' }], error: null };
     if (fn === 'resolve_city_id') return { data: args?.p_city === 'York' ? CITY_YORK : null, error: null };
     if (fn === 'organiser_search_people_v1') return { data: searchRows, error: null };
+    // The masked-names RPC (surname switch): profileRows stand in for its answer.
+    if (fn === 'get_public_dancer_names_v1') return { data: profileRows.filter((r) => (args.p_ids as string[]).includes(r.id as string)), error: null };
     if (fn === 'occurrence_command_p5') return { data: { ok: true, new_version: 2 }, error: null };
     return { data: null, error: null };
   });

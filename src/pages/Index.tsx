@@ -27,6 +27,7 @@ import { useSeo, buildSeoForRoute, SITE_ORIGIN } from '@/lib/seo';
 // exactly the empty dark box this route used to paint. Leaflet stays lazy inside
 // it (HomeMapCard), so the map's bytes are still off the critical path.
 import HomeMapShell from '@/modules/home-map/HomeMapShell';
+import HomeAnnounceBanner from '@/components/HomeAnnounceBanner';
 
 // Stable empty fallback so useMapList's memoised derivations don't churn while
 // the map query is loading.
@@ -218,6 +219,7 @@ const Index = ({
           "What's on in {city}" IS the page heading now. It was only ever an
           sr-only duplicate because the visible one was locked inside the
           client-only mobile surface. */}
+      <HomeAnnounceBanner />
       <HomeClockProvider serverNowMs={serverNowMs ?? Date.now()}>
         <HomeMapShell
           state={state}

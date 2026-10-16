@@ -16,6 +16,7 @@ import {
   armPostLoginPrompt,
   isFirstSignIn,
   isSignupAllowlistRefusal,
+  SIGNED_IN_LANDING_PATH,
 } from "@/lib/auth-otp-routing";
 import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
 import { claimAtSignIn, shouldArmFinishHop } from "@/lib/claimMyDancerProfile";
@@ -166,7 +167,7 @@ export const AuthStepper = ({
     }
 
     if (intent === "new" && userType) {
-      navigate("/profile");
+      navigate(SIGNED_IN_LANDING_PATH);
       return;
     }
 

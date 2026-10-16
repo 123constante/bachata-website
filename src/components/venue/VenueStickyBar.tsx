@@ -8,7 +8,7 @@ interface VenueStickyBarProps {
   onDirections: () => void;
 }
 
-// Floating action bar that sits above BottomNav on mobile.
+// Floating action bar that sits at the bottom edge on mobile.
 // Hidden on md+ -- the in-card Get-directions CTA is enough on desktop.
 // Portalled to document.body so an ancestor filter / transform on the page
 // container does not break position:fixed.
@@ -32,7 +32,7 @@ export default function VenueStickyBar({
       style={{
         ...(venueGoldInvertTheme as React.CSSProperties),
         bottom:
-          'calc(var(--bottom-nav-h, 68px) + env(safe-area-inset-bottom, 0px))',
+          'env(safe-area-inset-bottom, 0px)',
         background:
           'linear-gradient(to top, var(--va-bg) 55%, color-mix(in srgb, var(--va-bg) 50%, transparent) 80%, transparent)',
         fontFamily: 'var(--va-body)',

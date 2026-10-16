@@ -145,6 +145,15 @@ export function whatsappHref(organiserName: string, link: string): string {
 
 export const TOKEN_RE = /^[0-9a-f]{64}$/;
 
+/**
+ * Who a signed-in person joins the team as (M57: the link is bearer-style, so the
+ * card names the account BEFORE it is used): the dancer first name, else the
+ * display name, else the account e-mail.
+ */
+export function joiningAsName(row: { first_name?: string | null; display_name?: string | null } | null | undefined, email: string | null | undefined): string {
+  return row?.first_name?.trim() || row?.display_name?.trim() || email?.trim() || 'this account';
+}
+
 // ---- redeem ---------------------------------------------------------------------
 
 export type RedeemAction = 'sign_in' | 'retry' | 'home' | 'finish_profile' | null;
