@@ -309,10 +309,20 @@ const COMMONJS_HELPERS_ID = "\0commonjsHelpers.js";
 // by root and lazy chunks, rollup gave it a chunk of its own: +1 first-load
 // request on every budgeted route. Its bytes were already on every route (root),
 // so pairing it here costs no bytes and takes the request back.
+//
+// src/lib/accountPaths.ts and src/lib/authRouting.ts (2026-10-16, review #789
+// S6): import-free leaves the site header reads on EVERY route once
+// VITE_ENABLE_ORGANISER_SELF_SERVE is on (account icon, sign-in link). Left to
+// rollup, authRouting rode lib-account (accountRouting imports it), so the
+// header pulled the whole lib-account chunk -- the avatar with it, ~2.5 KB gz --
+// onto every public page. Here they cost ~0.5 KB gz on every route and no
+// request, flag on or off; re-measure both flag states before moving them.
 export const LIB_EVENT_RULES_MODULES = [
   "/src/lib/eventCategory.ts",
   "/src/lib/londonDate.ts",
   "/src/lib/focusMode.ts",
+  "/src/lib/accountPaths.ts",
+  "/src/lib/authRouting.ts",
 ];
 
 // The SECOND first-party group (2026-10-16, dancer journey fixes): the ONE avatar

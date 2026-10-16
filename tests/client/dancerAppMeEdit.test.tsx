@@ -59,7 +59,7 @@ describe('Me x every shape', () => {
     // Paused: banner + a disabled public-page button with its reason; otherwise a plain link.
     if (!p.is_active) {
       expect(screen.getByText('Your profile is hidden')).toBeTruthy();
-      expect(screen.getByRole('link', { name: 'Open account settings' }).getAttribute('href')).toBe('/account/settings');
+      expect(screen.getByRole('link', { name: 'Open account settings' }).getAttribute('href')).toBe('/account/settings?from=app') // review #789 S1;
       expect((screen.getByTestId('me-public-page') as HTMLButtonElement).disabled).toBe(true);
       expect(screen.getByTestId('me-public-page-reason').textContent).toMatch(/hidden/);
     } else {

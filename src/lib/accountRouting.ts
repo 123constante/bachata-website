@@ -18,8 +18,10 @@
 
 import { sanitizeReturnTo } from './authRouting';
 import type { DeletionLanding } from './accountDeletion';
+import { ACCOUNT_HOME_PATH, isAccountPath } from './accountPaths';
 
-export const ACCOUNT_HOME_PATH = '/account';
+// The two the site header needs live in an import-free leaf (review #789 S6); re-exported here.
+export { ACCOUNT_HOME_PATH, isAccountPath };
 /** The dancer home for anyone, organisers included (the account menu's dancer entry). */
 export const DANCER_HOME_PATH = '/account/dancer';
 /** The organiser area's Home. Equal to ORG_PATHS.home (asserted in accountRouting.test.tsx). */
@@ -99,10 +101,6 @@ export const accountHome = (facts: AccountFacts): AccountHome => {
 /** completenessFact(...).kind (lib/profileCompletion). An archived profile resolves to no persona: 'no_profile'. */
 export type DancerFactKind = 'complete' | 'incomplete' | 'no_profile' | 'unknown';
 
-/** True on every page the account icon stands for (dancer home, attendance, organiser area). */
-export const isAccountPath = (pathname: string): boolean =>
-  pathname === ACCOUNT_HOME_PATH || pathname.startsWith(`${ACCOUNT_HOME_PATH}/`);
-
 // ---- Dancer first, then organiser (owner decision 2026-10-11) ----------------
 //
 // Every signed-in account finishes its dancer profile -- the one completeness
@@ -148,6 +146,24 @@ export const isDancerGatedTarget = (target: string): boolean => {
     // An undecodable path is no route; judge it as written.
   }
   return isDancerGatedPath(decoded) || query.split('&').includes('claim=1');
+};
+
+/**
+ * The dancer app's base, restated from modules/dancer-app/shell/routes DANCER_APP_BASE (pinned equal by
+ * accountRouting tests): importing it from there split that leaf into a chunk of its own (+1 request on /app/*).
+ */
+export const DANCER_APP_PREFIX = '/app';
+
+/**
+ * Is `target` a page a signed-out person cannot open (AuthGuard sends them to "Welcome back") or a gated
+ * one (mid-setup it sends them back into setup)? /account/*, /app/*, and every isDancerGatedTarget.
+ * Review #789 S2: a sign-up's "Not now" never goes to one.
+ */
+export const isSignedInOnlyTarget = (target: string): boolean => {
+  const path = target.split('#', 1)[0].split('?', 1)[0].toLowerCase();
+  return (
+    isAccountPath(path) || path === DANCER_APP_PREFIX || path.startsWith(`${DANCER_APP_PREFIX}/`) || isDancerGatedTarget(target)
+  );
 };
 
 /** ProfileCompletionStatus (lib/profileCompletion), restated: this module is import-free. */

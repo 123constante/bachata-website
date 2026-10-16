@@ -171,6 +171,30 @@ const ROWS: Row[] = [
     reveal: (page) => page.locator('[data-testid="onboarding-city"] button[role="combobox"]').click(),
     focused: true,
   },
+  // Review #789 S3: the picker's real first request (empty query, p_limit 20) fills the list with
+  // 20 rows; Radix used to flip the popover ABOVE the trigger and push the search box off the top.
+  {
+    name: 'dancer setup: city search, 20-row list (empty query)',
+    path: '/app/welcome',
+    who: 'dancer',
+    field: CITY_SEARCH,
+    result: CITY_OPTION,
+    text: '',
+    setup: dancerArea(makeProfile({ first_name: 'Ana' })),
+    reveal: (page) => page.locator('[data-testid="onboarding-city"] button[role="combobox"]').click(),
+    focused: true,
+  },
+  {
+    name: 'dancer edit: city search, 20-row list (empty query)',
+    path: '/app/me/edit',
+    who: 'dancer',
+    field: CITY_SEARCH,
+    result: CITY_OPTION,
+    text: '',
+    setup: dancerArea(DANCER_SHAPES.fourFieldComplete.profile!),
+    reveal: (page) => page.getByRole('combobox', { name: 'City', exact: true }).click(),
+    focused: true,
+  },
   {
     name: 'dancer edit: first name',
     path: '/app/me/edit',

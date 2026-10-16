@@ -152,7 +152,7 @@ describe('Home x profile shapes', () => {
     home({ backend: { profile: makeProfile({ first_name: 'Ana', based_city_id: CITY_LONDON.id, is_active: false }) } });
     const b = await screen.findByTestId('paused-banner');
     expect(b.textContent).toContain(HIDDEN_STATE_LINE);
-    expect(within(b).getByRole('link').getAttribute('href')).toBe('/account/settings');
+    expect(within(b).getByRole('link').getAttribute('href')).toBe('/account/settings?from=app') // review #789 S1;
   });
 
   it('active profile: no hidden banner', async () => {

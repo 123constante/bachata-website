@@ -32,7 +32,9 @@ export interface PreviewBarProps {
  * `actionBar` slot (which keeps it above the tab bar and the keyboard).
  */
 export function PreviewBar({ preview, actionLabel, onAction, loading, disabled, live = true, shakeProps, compact = false, summary, testId = 'org-preview-bar' }: PreviewBarProps) {
-  // While the keyboard is up only the button stays, so the bar fits above it.
+  // While the keyboard is up only the button stays, so the bar fits above it. `typing` reads the
+  // overlay inset (iOS); `data-keyboard-hide` covers Android's resizes-content, where that inset is
+  // about 0 and keyboardSafe flags the shrink on <html> instead (review #789 S5).
   const typing = useKeyboardInset().inset > 0;
   if (compact) {
     return (
@@ -47,14 +49,14 @@ export function PreviewBar({ preview, actionLabel, onAction, loading, disabled, 
   return (
     <div data-testid={testId} className={`space-y-[8px] px-[16px] py-[12px] ${shakeProps?.className ?? ''}`} onAnimationEnd={shakeProps?.onAnimationEnd}>
       {preview && !typing && (
-        <div data-testid={`${testId}-preview`} className="max-h-[22dvh] overflow-hidden rounded-[12px] border border-[var(--line)] bg-[var(--card)]">
+        <div data-testid={`${testId}-preview`} data-keyboard-hide className="max-h-[22dvh] overflow-hidden rounded-[12px] border border-[var(--line)] bg-[var(--card)]">
           {preview}
         </div>
       )}
       <PrimaryButton onClick={onAction} loading={loading} disabled={disabled} testId={`${testId}-action`}>
         {actionLabel}
       </PrimaryButton>
-      {live && !typing && <p className="text-center text-[13px] text-[var(--mut)]">{LIVE_NOTE}</p>}
+      {live && !typing && <p data-keyboard-hide className="text-center text-[13px] text-[var(--mut)]">{LIVE_NOTE}</p>}
     </div>
   );
 }

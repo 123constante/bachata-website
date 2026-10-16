@@ -1,9 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
 import bachataCalendarLogo from '@/assets/brand/bachata-calendar-logo.png';
-import { isAccountPath, isDancerGatedTarget } from '@/lib/accountRouting';
+import { isSignedInOnlyTarget } from '@/lib/accountRouting';
 import { sanitizeReturnTo } from '@/lib/authRouting';
 import { FOCUS_NOT_NOW_LABEL, isSignupFocusPath } from '@/lib/focusMode';
-import { isDancerAppPath } from '@/modules/dancer-app/shell/routes';
 
 /**
  * Where "Not now" goes: the safe in-site returnTo the flow was opened with,
@@ -18,7 +17,7 @@ export function focusNotNowHref(search: string): string {
   const target = sanitizeReturnTo(params.get('returnTo'));
   if (!target) return '/';
   const [targetPath, targetSearch = ''] = target.split('#', 1)[0].split('?');
-  if (isAccountPath(targetPath) || isDancerAppPath(targetPath) || isDancerGatedTarget(target)) return '/';
+  if (isSignedInOnlyTarget(target)) return '/';
   return isSignupFocusPath(targetPath, targetSearch, false) ? '/' : target;
 }
 

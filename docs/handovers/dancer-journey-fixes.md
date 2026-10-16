@@ -143,3 +143,43 @@ Tests  5 failed | 1 passed (6)      (the passing row is Options, already fixed)
   `/app/home`, `/account/settings`); 42/42 after.
 
 ### S4 (done): `/finish-profile` passes `showGradientBg={false}`; source guard in `AccountSliceB.test.tsx` L7 block.
+
+### S3 (done): city picker popover stays below its trigger
+- `city-picker.tsx`: `side="bottom" avoidCollisions={false}`; `CommandList` max height
+  `min(300px, var(--radix-popover-content-available-height) - 48px)` (the review's fix; a full-screen phone sheet
+  was the sturdier option, not taken: bigger change to a shared picker used by 7 callers).
+- `keyboard.phone.spec.ts`: 2 rows with the picker's real first request (empty query, 20 rows), both keyboards, both sizes.
+- Red-first on the unfixed picker: 1 of 8 cells red (`[phone-390x844] keyboard (resize) dancer setup: city search,
+  20-row list`, the review's measured case); 7 passed. Fixed: 8/8, and 58/60 over `--repeat-each=3` of every city
+  row, the 2 failures being "Execution context was destroyed / navigation" from Vite reloading while I edited files
+  during that run (dev-server suite), not layout.
+
+### S5 (done): organiser PreviewBar hides its preview card and live note under an Android keyboard
+- `data-keyboard-hide` on the preview card and the live note (index.css hides those whenever keyboardSafe flags
+  `html[data-keyboard-open]`, which it does for a resize keyboard too). Nothing else on organiser screens changed.
+- Test: `src/lib/keyboard/__tests__/previewBarKeyboardHide.test.tsx` (red on the unfixed bar: `expected false to be true`).
+
+### S6 (done): `lib-account` off the public routes with the self-serve flag on
+- Cause, measured: `authRouting` (import-free) was pulled INTO `lib-account` (accountRouting imports it), and the
+  header imports `authRouting` + `accountRouting` when `VITE_ENABLE_ORGANISER_SELF_SERVE=true`.
+- Fix: new leaf `src/lib/accountPaths.ts` (`ACCOUNT_HOME_PATH`, `isAccountPath`; accountRouting re-exports);
+  GlobalHeader reads it; `accountPaths.ts` and `authRouting.ts` join `LIB_EVENT_RULES_MODULES` (the every-route
+  group, as focusMode did). `tests/chunkClassifier.test.ts` list updated.
+- Also: S2's first version imported `isDancerAppPath` from `modules/dancer-app/shell/routes` into FocusHeader, which
+  split `routes.ts` into its own chunk (dancer-app 58 vs allowance 57). Moved into `accountRouting`
+  (`isSignedInOnlyTarget`, `DANCER_APP_PREFIX` pinned equal to `DANCER_APP_BASE` by a test).
+- Measured on PRODUCTION builds (perf-budget env), no budget raised:
+
+  | build | bundle-budget | first-load-requests | chunk-cycles | /event KB | dancer-app KB / chunks |
+  |---|---|---|---|---|---|
+  | head, flag off (CI, prod) | exit 0 | exit 0 | exit 0 | 377.6 / 381 | 362.5 / 363, 57 / 57 |
+  | head, flag on | exit 1 (2 overs) | exit 0 | exit 0 | 377.8 | 363.1 / 363, 58 / 57 |
+  | d176c86, flag on | exit 1 (9 overs) | exit 1 (6 overs) | exit 0 | 379.9 | 362.9, 58 / 57 |
+
+  Flag on, every public route (home, event, parties, classes, faq, landings) is back at its flag-off chunk count and
+  allowance. Left with the flag on: auth 34 vs 33 (base 35) and dancer-app 58 vs 57 (base 58) chunks, and dancer-app
+  363.1 KB vs 363 (+0.2 KB vs base: the B1/S1 code). Both routes need lib-account (AuthGuard imports it). Not fixed
+  here; flag is off in CI and prod. Whoever turns the flag on must re-measure these two.
+
+### S7 (done, in B1): the 2 s cap is armed only after `navigate()` resolves (`Promise.race` after the await).
+  Not proven on a throttled network (no throttled build spec written).
