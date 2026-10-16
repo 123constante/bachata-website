@@ -51,7 +51,26 @@ for NON-production builds only:
   `perf-budget.yml`, `synthetic-ssr-monitor.yml`, `seo-check.yml` and
   `og-image-check.yml` copy it, and `npm run check:no-preview-prefixes` (run in
   `workflow-lint.yml`) fails when a copy drifts.
-- **`[skip preview]` in the commit SUBJECT skips the build** (the body is never read). Workers end every
+- **`vercel.json` `git.deploymentEnabled` turns those three always-skip
+  prefixes off at the source** (`"arc/briefs-*": false`, ...). An ignored build
+  still COUNTS toward the Hobby ~100/day deployment limit (Vercel docs, Ignored
+  Build Step: "canceled builds ... will still count towards your deployment
+  quotas"); a branch with deployments disabled creates no deployment at all.
+  The script's `ALWAYS_SKIP_PREFIXES` stays as defence in depth, and
+  `check:no-preview-prefixes` fails when the `false` keys differ from it (each
+  key is the prefix plus `*`). Such a branch posts no Vercel commit status: if
+  the `main` ruleset ever requires the Vercel status, its PRs would wait
+  forever. Vercel reads `vercel.json` from the PUSHED commit, so a long-lived
+  brief branch must merge `main` once before this takes effect there; and its
+  `*` does not cross `/`, so keep those branch names slash-free after the prefix.
+- **Those three prefixes are docs-only by convention.** A PR from them that
+  touches `src/`, `app/` or `api/` gets NO preview and its preview jobs report
+  Skipped; open such work from a `claude/<task>` branch instead. Automerge
+  already refuses those paths on any branch; a CI check that reds such a PR is
+  proposed (`docs/handovers/vercel-build-budget.md`), not built.
+- **`[skip preview]` at the END of the commit SUBJECT skips the build** (the body is never read; the tag
+  mid-subject does nothing). `[skip preview]` saves build minutes and a concurrent build slot, NOT a
+  deployment; the 100/day budget is only saved by not pushing. Workers end every
   CHECKPOINT commit subject with `[skip preview]`, and NEVER put it on the final
   `[worker-done ...]` push: the final push must build the preview the PR checks
   need. A skipped build is CANCELED, so the next untagged push builds normally.

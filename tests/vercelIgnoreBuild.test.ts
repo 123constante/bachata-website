@@ -410,6 +410,16 @@ const cases: Case[] = [
     want: 'BUILD',
   },
   {
+    name: 'budget: [skip preview] mid-SUBJECT (not at its end) builds -- only a suffix tag marks a checkpoint',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      const message = 'docs: explain the [skip preview] tag';
+      commit(cwd, ['src/main.tsx'], message);
+      return { cwd, previousSha: base, ref: 'claude/feature-x', message };
+    },
+    want: 'BUILD',
+  },
+  {
     name: 'budget: bot/* checkpoint src change skipped, docs-only final push still BUILDS (base pinned to the last real deploy)',
     setup: () => {
       const { cwd, base } = seedRepo();

@@ -17,8 +17,10 @@
 #
 # BUILD BUDGET (non-production only, decided BEFORE the diff rule): a branch
 # under ALWAYS_SKIP_PREFIXES (arc/briefs-*, claude/done-*, claude/review-*)
-# and a commit whose message carries `[skip preview]` (a worker checkpoint)
-# always SKIP. Vercel Hobby allows ~100 deployments per rolling 24 h and we hit
+# and a commit whose SUBJECT ENDS with `[skip preview]` (a worker checkpoint)
+# always SKIP. vercel.json git.deploymentEnabled also turns those three
+# prefixes off before any deployment exists (an ignored build still counts
+# toward the limit); this list stays as defence in depth. Vercel Hobby allows ~100 deployments per rolling 24 h and we hit
 # the limit on 2026-10-16 (see docs/pr-batching-policy.md, "Vercel build budget").
 #
 # Every OTHER branch always builds, because its PR's preview jobs need a
@@ -108,13 +110,13 @@ if [ "${VERCEL_ENV:-}" != production ]; then
   for p in $ALWAYS_SKIP_PREFIXES; do
     case $ref in "$p"*) skip "branch '${ref}' matches no-preview prefix '${p}'" ;; esac
   done
-  # SUBJECT line only: a squash of checkpoints, a revert, or a body that merely
-  # mentions the tag must not lose its preview.
+  # SUBJECT line only, and only at its END: a squash of checkpoints, a revert,
+  # a body or a subject that merely mentions the tag must not lose its preview.
   nl='
 '
   msg=${VERCEL_GIT_COMMIT_MESSAGE:-}
   case ${msg%%"$nl"*} in
-    *"$SKIP_PREVIEW_TAG"*) skip "commit subject carries '${SKIP_PREVIEW_TAG}' (worker checkpoint)" ;;
+    *"$SKIP_PREVIEW_TAG") skip "commit subject carries '${SKIP_PREVIEW_TAG}' (worker checkpoint)" ;;
   esac
   # SKIP_ELIGIBLE for the diff rule: main plus DIFF_RULE_PREFIXES.
   eligible=

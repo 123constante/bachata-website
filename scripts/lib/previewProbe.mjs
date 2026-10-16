@@ -126,7 +126,7 @@ async function headCommitMessage(repo, sha, token, log) {
  * API. Polls until a Preview deployment reports a `success` status with an
  * `environment_url`, or throws on timeout (fail-loud — never returns null).
  *
- * A head whose commit SUBJECT carries `[skip preview]` THROWS at once instead
+ * A head whose commit SUBJECT ENDS with `[skip preview]` THROWS at once instead
  * of polling 600s (after ONE pass, in case it was built anyway): Vercel skipped its build by design (Vercel build budget,
  * docs/pr-batching-policy.md). It stays RED, never a green skip -- a head that
  * was never previewed must not look verified. `commitMessage` is injectable;
@@ -164,12 +164,12 @@ export async function resolvePreviewUrl({
     return null;
   };
 
-  // The SUBJECT only, as scripts/vercel-ignore-build.sh matches it. One pass
+  // The END of the SUBJECT only, as scripts/vercel-ignore-build.sh matches it. One pass
   // first: if Vercel built this head anyway (fail-safe build, truncated or
   // missing VERCEL_GIT_COMMIT_MESSAGE), the real preview is used.
   const message = commitMessage ?? (await headCommitMessage(repo, sha, token, log));
   const subject = typeof message === 'string' ? message.split('\n')[0] : '';
-  if (subject.includes(SKIP_PREVIEW_TAG)) {
+  if (subject.endsWith(SKIP_PREVIEW_TAG)) {
     let url = null;
     try {
       url = await readyUrl(1);

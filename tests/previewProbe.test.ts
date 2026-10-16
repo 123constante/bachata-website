@@ -150,6 +150,16 @@ describe('resolvePreviewUrl: [skip preview] checkpoint heads (Vercel build budge
     ).rejects.toThrow(/no ready Vercel preview/);
   });
 
+  it('the tag mid-SUBJECT (not at its end) does not fast-fail (suffix match, as in the ignore script)', async () => {
+    vi.stubGlobal('fetch', noDeployments());
+    await expect(
+      resolvePreviewUrl({
+        sha: 'abc', token: 't', repo: 'o/r', commitMessage: 'docs: explain the [skip preview] tag',
+        timeoutMs: 30, intervalMs: 1, log: () => {},
+      }),
+    ).rejects.toThrow(/no ready Vercel preview/);
+  });
+
   it('a tagged head that Vercel built anyway uses the real preview (one pass before failing)', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url.includes('/deployments?')) return { ok: true, json: async () => [{ id: 9, environment: 'Preview' }] } as Response;
