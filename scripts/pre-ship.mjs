@@ -284,6 +284,8 @@ export const CHECKS = [
   // figure is not the number recorded.
   ["check:workflow-artifact-policy:self-test", "upload steps are still recognised, and the policy still rejects"],
   ["check:workflow-artifact-policy", "every workflow artifact upload is cost-bounded"],
+  ["check:no-preview-prefixes:self-test", "the preview-job prefix drift guard can still fail"],
+  ["check:no-preview-prefixes", "preview jobs exclude exactly the Vercel no-preview prefixes"],
   ["check:journey-grid:self-test", "every journey-grid rule still fails its own mutant"],
   ["check:journey-grid", "every account journey-grid row is covered or in the reasoned baseline"],
   // Not a lint-chain link: the plan layer lives outside the repo (the home
