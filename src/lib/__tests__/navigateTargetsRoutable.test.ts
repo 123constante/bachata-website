@@ -55,7 +55,6 @@ const KNOWN_UNROUTABLE = new Set([
   // scope (listed in its body). Fix the link, then delete the entry.
   'src/components/PartnersMarquee.tsx -> /partners',
   'src/components/organiser/GetListedHoloCta.tsx -> /create-organiser-profile',
-  'src/modules/event-page/bento/modals/RaffleEntryDialog.tsx -> /privacy',
   'src/pages/Organisers.tsx -> /listing-request',
 ]);
 
