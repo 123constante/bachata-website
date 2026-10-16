@@ -91,3 +91,40 @@ Real bug found WITH the helper on, fixed: on `/app/me/edit`, City opened then ke
 - Live DB contract suites, SEO/OG/Lighthouse (need secrets or a preview deploy). Vercel not touched.
 - `/code-review` not run (no owner in the session).
 - The full unit and phone runs each had load-only failures listed above; each was re-run in isolation, but CI on GitHub may still show the phone flake.
+
+## Review fix (review #789, brief `briefs/review-789-fix.md` @ 23eaac07; ticket dt_94afc180f567)
+
+Review: `origin/claude/review-789:docs/review-packs/dancer-journey-fixes/REVIEW.md` (head reviewed `d176c86`).
+
+### B1 (done): every sign-out button goes through `useSignOutToHome`
+
+- The hook (`src/components/account/profiles/signOutToHome.ts`) now takes `{ everywhere, to, state, onFailed }`
+  and returns the `SignOutOutcome` (was `'ok' | 'failed'`). No second copy of the leave-first order anywhere.
+- Moved onto it: Account settings Sign out, Sign out of all devices (still raises the "Other devices may still be
+  signed in" toast on `signed-out-locally`), the delete flow (`to: /account/deleted`, `onFailed: 'stay'`, then
+  `otherDevicesSignedIn` state when the sign-out was not complete), restore `DeletedCard` Sign out, and the old
+  `/account` home's Sign out (`DancerHome` `SignOut`, same bug, also inside `AuthGuard`).
+- Decision: a failed sign-out now comes BACK to the page and says why in a toast (the hook's existing contract).
+  The inline error lines stay for the case where the page never unmounted. Tests updated to that contract:
+  `AccountSettings.test.tsx` (sign out everywhere failing; delete caveat now appears after the page),
+  `AccountSliceB.test.tsx` (restore failure), `switcherSignOut.test.tsx` (`'ok'` -> `'signed-out'`).
+- NOT moved (out of scope, owned by the organiser-rebuild session): `src/modules/organiser/profile/index.tsx:280`
+  and `src/modules/organiser/home/onboarding/SignOutLine.tsx:26` still sign out then `navigate('/')`. If those
+  screens sit inside an AuthGuard they have the same H10 race; the organiser session should move them onto
+  `useSignOutToHome()`. `InviteRedeemPage` "Not you?" deliberately goes to sign-in; `Profile.tsx` is not guarded.
+- Table test: `src/components/account/profiles/__tests__/signOutEntryPoints.test.tsx` (6 rows, real `AuthGuard`,
+  data router with lazy landing routes as in framework mode). Red-first on `d176c86` source:
+
+```
+FAIL 'Account settings: Sign out -> Yes, si…'   AssertionError: expected '/auth' to be '/'
+FAIL 'Account settings: Sign out of all dev…'   expected '/auth' to be '/'
+FAIL 'Restore (deleted, expired): Sign out'     expected '/auth' to be '/'
+FAIL '/account home: Sign out -> Yes, sign …'   expected '/auth' to be '/'
+FAIL 'Account settings: Delete my account'      AssertionError: expected '/auth' to be '/account/deleted'
+Tests  5 failed | 1 passed (6)      (the passing row is Options, already fixed)
+```
+
+- Build-smoke rows: `tests/e2e-build/account-delete.build.spec.ts` "sign-out lands on ..." x4 (final path after the
+  move settles, plus 1.5 s). On the unfixed source (production fake-Supabase build): settings Sign out, settings
+  Sign out of all devices, restore Sign out red with `Received string: "/auth"`; the delete row passed on the
+  unfixed build (the race did not fire on screen there; the unit table catches it). With the fix: 11/11 pass.

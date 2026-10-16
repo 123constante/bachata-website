@@ -25,6 +25,8 @@ const h = vi.hoisted(() => ({
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ user: h.user, session: {}, isLoading: false, authStatus: 'ready', signOut: h.signOut }),
 }));
+const sonner = vi.hoisted(() => ({ error: vi.fn() }));
+vi.mock('sonner', () => ({ toast: sonner }));
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('@/components/layout/GlobalLayout', () => ({
   default: ({ children, ...props }: { children: ReactNode } & Record<string, unknown>) => {
@@ -189,12 +191,15 @@ describe('M26: the expired restore card is not a dead end', () => {
     await waitFor(() => expect(h.signOut).toHaveBeenCalledTimes(1));
     expect(await screen.findByText('calendar-home')).toBeTruthy();
   });
-  it('expired: a failed sign-out says so and stays', async () => {
+  // Review #789 B1: leave first, so a failure comes BACK to the card and says why in a toast.
+  it('expired: a failed sign-out says so and comes back', async () => {
+    sonner.error.mockClear();
     arrangeStatus(EXPIRED);
     h.signOut.mockResolvedValue('failed');
     mount('/account/restore');
     fireEvent.click(await screen.findByTestId('restore-signout'));
-    expect((await screen.findByTestId('restore-signout-error')).textContent).toMatch(/try again/i);
+    await waitFor(() => expect(sonner.error).toHaveBeenCalledWith(expect.stringMatching(/try again/i)));
+    expect(await screen.findByTestId('restore-deleted-card')).toBeTruthy();
   });
   it('window closed during restore (pending -> window_closed) shows the same exits', async () => {
     arrangeStatus(PENDING, { data: { ...EXPIRED, restored: false, code: 'restore_window_closed' }, error: null });

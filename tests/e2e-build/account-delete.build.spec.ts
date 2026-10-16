@@ -106,3 +106,28 @@ test('settings: sign out of all devices is a global sign-out', async ({ page }) 
   await page.getByTestId('settings-signout-all').click();
   await expect.poll(() => calls).toContain('logout:global');
 });
+
+// Review #789 B1: every sign-out button on these pages lands where it says, never on the
+// sign-in form ("Welcome back"). Each row reads the FINAL address after the move settles.
+// The site home: "/" itself, or the city home it forwards to.
+const HOME = /^\/(city\/[a-z0-9-]+)?$/;
+const SIGN_OUT_ROWS = [
+  { name: 'settings: Sign out, Yes', at: '/account/settings?from=app', m: {}, taps: ['settings-signout', 'settings-signout-yes'], lands: HOME, scope: 'local' },
+  { name: 'settings: Sign out of all devices', at: '/account/settings?from=app', m: {}, taps: ['settings-signout-all'], lands: HOME, scope: 'global' },
+  { name: 'restore (deleted, expired): Sign out', at: SIGN_IN, m: { status: EXPIRED }, taps: ['restore-signout'], lands: HOME, scope: 'local' },
+  { name: 'delete: Delete my account', at: '/account/settings/delete?from=app', m: {}, taps: ['delete-type-input', 'delete-confirm'], lands: /^\/account\/deleted$/, scope: 'global' },
+] as const;
+for (const row of SIGN_OUT_ROWS) {
+  test(`sign-out lands on ${row.lands === HOME ? 'the site home' : '/account/deleted'}, not /auth: ${row.name}`, async ({ page }) => {
+    const { calls } = await mocked(page, row.m);
+    await page.goto(row.at);
+    for (const id of row.taps) {
+      if (id === 'delete-type-input') await page.getByTestId(id).fill('DELETE');
+      else await page.getByTestId(id).click();
+    }
+    await expect.poll(() => calls).toContain(`logout:${row.scope}`);
+    await expect.poll(() => new URL(page.url()).pathname).toMatch(row.lands);
+    await page.waitForTimeout(1500);
+    expect(new URL(page.url()).pathname).toMatch(row.lands);
+  });
+}

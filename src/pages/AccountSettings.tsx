@@ -29,6 +29,7 @@ import {
 } from "@/lib/accountSettings";
 import { ACCOUNT_CONTACT_EMAIL, OTHER_DEVICES_NOT_SIGNED_OUT, deleteRefusalMessage } from "@/lib/accountDeletionCopy";
 import { toast } from "@/hooks/use-toast";
+import { SIGN_OUT_FAILED, useSignOutToHome } from "@/components/account/profiles/signOutToHome";
 import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from "@/lib/accountRouting";
 
 /**
@@ -101,22 +102,16 @@ function ExportButton({ testId, label = "Download my data" }: { testId: string; 
   );
 }
 
-function SignOutSection() {
-  const { signOut, user } = useAuth();
-  const navigate = useNavigate();
+// Review #789 B1: both buttons go through the one sign-out path (leave first, then sign out),
+// so AuthGuard cannot send the person to "Welcome back" first.
+export function SignOutSection() {
+  const { user } = useAuth();
+  const { signOutToHome, busy } = useSignOutToHome();
   const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const go = async () => {
-    setBusy(true);
     setFailed(false);
-    const outcome = await signOut();
-    setBusy(false);
-    if (outcome === "failed") {
-      setFailed(true);
-      return;
-    }
-    navigate("/", { replace: true });
+    if ((await signOutToHome()) === "failed") setFailed(true);
   };
   return (
     <Section title="Sign out">
@@ -136,7 +131,7 @@ function SignOutSection() {
         </button>
       )}
       {failed && (
-        <p role="alert" className={ERR}>Sign-out did not complete. Check your connection and try again.</p>
+        <p role="alert" className={ERR}>{SIGN_OUT_FAILED}</p>
       )}
       <SignOutEverywhere />
     </Section>
@@ -145,25 +140,20 @@ function SignOutSection() {
 
 /** D6: ends every session of this account (other phones and laptops too), then this one. */
 function SignOutEverywhere() {
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
-  const [busy, setBusy] = useState(false);
+  const { signOutToHome, busy } = useSignOutToHome();
   const [note, setNote] = useState<string | null>(null);
   const go = async () => {
-    setBusy(true);
     setNote(null);
-    const outcome = await signOut({ everywhere: true });
-    setBusy(false);
+    const outcome = await signOutToHome({ everywhere: true });
     if (outcome === "failed") {
-      setNote("Sign-out did not complete. Check your connection and try again.");
+      setNote(SIGN_OUT_FAILED);
       return;
     }
     // "signed-out-locally": this device is out, the global revoke did not land. Say so: the page
-    // ends here (AuthGuard), so the words ride a toast that outlives the navigation.
+    // has gone by now, so the words ride a toast that outlives it.
     if (outcome === "signed-out-locally") {
       toast({ title: "Other devices may still be signed in", description: OTHER_DEVICES_NOT_SIGNED_OUT, variant: "destructive", duration: 20000 });
     }
-    navigate("/", { replace: true });
   };
   return (
     <div className="space-y-2 border-t border-border pt-2">
@@ -367,8 +357,9 @@ function Blocked({ text, names, code }: { text: string; names: string[]; code: E
   );
 }
 
-function Delete() {
-  const { user, signOut } = useAuth();
+export function Delete() {
+  const { user } = useAuth();
+  const { signOutToHome } = useSignOutToHome();
   const fromApp = useFromApp();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -403,15 +394,12 @@ function Delete() {
     const out = await eraseAccount();
     if (out.kind === "hidden") {
       // Hidden now; every device is signed out (signing in again within 30 days restores it).
-      // When the global revoke did not land, /account/deleted says so (OTHER_DEVICES_NOT_SIGNED_OUT).
-      let signedOutEverywhere = false;
-      try {
-        signedOutEverywhere = (await signOut({ everywhere: true })) === "signed-out";
-      } catch {
-        /* the account is hidden either way; the deleted page says the other devices may be signed in */
-      }
+      // Review #789 B1: leave for /account/deleted FIRST, then sign out (the one sign-out path),
+      // or AuthGuard sends the person to the sign-in form. The account is hidden either way, so a
+      // failed sign-out stays on the deleted page, which says the other devices may be signed in.
+      const outcome = await signOutToHome({ everywhere: true, to: DELETED_PATH, onFailed: "stay" });
       queryClient.clear();
-      navigate(DELETED_PATH, { replace: true, state: signedOutEverywhere ? null : { otherDevicesSignedIn: true } });
+      if (outcome !== "signed-out") navigate(DELETED_PATH, { replace: true, state: { otherDevicesSignedIn: true } });
       return;
     }
     setBusy(false);

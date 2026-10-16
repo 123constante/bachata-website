@@ -1,9 +1,10 @@
 import { Suspense, useId, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, ChevronDown, Music } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
+import { useSignOutToHome } from "@/components/account/profiles/signOutToHome";
 import { useCity } from "@/contexts/CityContext";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { useMyDancerSummary } from "@/hooks/useMyDancerSummary";
@@ -57,23 +58,15 @@ function Avatar({ url, name }: { url: string | null; name: string | null }) {
   );
 }
 
-function SignOut({ email }: { email: string | null }) {
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
+export function SignOut({ email }: { email: string | null }) {
+  // Review #789 B1: the one sign-out path (leave first), or AuthGuard lands the person on "Welcome back".
+  const { signOutToHome, busy } = useSignOutToHome();
   const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
   const go = async () => {
-    setBusy(true);
     setFailed(false);
-    const outcome = await signOut();
-    setBusy(false);
-    if (outcome === "failed") {
-      setFailed(true);
-      return;
-    }
-    navigate("/", { replace: true });
+    if ((await signOutToHome()) === "failed") setFailed(true);
   };
 
   return (

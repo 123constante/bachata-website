@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import GlobalLayout from "@/components/layout/GlobalLayout";
@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmailText } from "@/components/account/EmailText";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useAuth } from "@/hooks/useAuth";
+import { SIGN_OUT_FAILED, useSignOutToHome } from "@/components/account/profiles/signOutToHome";
 import { useNoindexMeta } from "@/hooks/useNoindexMeta";
 import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 import { ACCOUNT_RESTORE_PATH, CONTINUE_AS_PATH } from "@/lib/accountRouting";
@@ -32,20 +33,12 @@ const CARD = "space-y-2 rounded-xl border border-border bg-card p-3";
  */
 export function DeletedCard({ deletedAt }: { deletedAt: string | null }) {
   const on = formatDeletedOn(deletedAt);
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
-  const [busy, setBusy] = useState(false);
+  // Review #789 B1: the one sign-out path (leave first), or AuthGuard lands the person on "Welcome back".
+  const { signOutToHome, busy } = useSignOutToHome();
   const [failed, setFailed] = useState(false);
   const leave = async () => {
-    setBusy(true);
     setFailed(false);
-    const outcome = await signOut();
-    setBusy(false);
-    if (outcome === "failed") {
-      setFailed(true);
-      return;
-    }
-    navigate("/", { replace: true });
+    if ((await signOutToHome()) === "failed") setFailed(true);
   };
   return (
     <section className={CARD} data-testid="restore-deleted-card">
@@ -68,7 +61,7 @@ export function DeletedCard({ deletedAt }: { deletedAt: string | null }) {
       </button>
       {failed && (
         <p role="alert" className="text-[13px] text-destructive" data-testid="restore-signout-error">
-          Sign-out did not complete. Check your connection and try again.
+          {SIGN_OUT_FAILED}
         </p>
       )}
     </section>

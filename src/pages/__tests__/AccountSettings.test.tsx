@@ -30,6 +30,8 @@ const h = vi.hoisted(() => ({
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ user: h.user, session: {}, isLoading: false, authStatus: 'ready', signOut: h.signOut }),
 }));
+const sonner = vi.hoisted(() => ({ error: vi.fn() }));
+vi.mock('sonner', () => ({ toast: sonner }));
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
@@ -206,11 +208,15 @@ describe('settings home', () => {
     expect(await screen.findByText('start')).toBeTruthy();
   });
 
-  it('sign out of all devices failing keeps the person here with a reason', async () => {
+  // Review #789 B1: the one sign-out path leaves first, so a failure brings the person BACK here
+  // and says why in a toast (the page they tapped on was gone by then).
+  it('sign out of all devices failing brings the person back here with a reason', async () => {
+    sonner.error.mockClear();
     h.signOut.mockResolvedValue('failed');
     mount(SETTINGS);
     fireEvent.click(await screen.findByTestId('settings-signout-all'));
-    expect((await screen.findByTestId('settings-signout-all-error')).textContent).toMatch(/did not complete/i);
+    await waitFor(() => expect(sonner.error).toHaveBeenCalledWith(expect.stringMatching(/did not complete/i)));
+    expect(await screen.findByTestId('settings-signout-all')).toBeTruthy();
   });
 
   it('settings is not behind the dancer-first gate (an unfinished profile can reach it)', () => {
@@ -381,7 +387,9 @@ describe('sign out everywhere: the other devices are never falsely reassured', (
     fireEvent.change(await screen.findByTestId('delete-type-input'), { target: { value: 'DELETE' } });
     fireEvent.click(screen.getByTestId('delete-confirm'));
     expect(await screen.findByTestId('account-deleted')).toBeTruthy();
-    if (says) expect(screen.getByText(OTHERS)).toBeTruthy();
+    // Leave first (B1), so the deleted page is up before the sign-out answers; its caveat follows.
+    await waitFor(() => expect(h.signOut).toHaveBeenCalled());
+    if (says) expect(await screen.findByText(OTHERS)).toBeTruthy();
     else expect(screen.queryByText(OTHERS)).toBeNull();
   });
 });

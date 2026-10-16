@@ -62,7 +62,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-let result: 'ok' | 'failed' | null = null;
+let result: 'signed-out' | 'signed-out-locally' | 'failed' | null = null;
 const HookProbe = () => {
   const { signOutToHome, busy } = useSignOutToHome();
   return (
@@ -77,7 +77,7 @@ describe('useSignOutToHome', () => {
     result = null;
     mountAt(from, <HookProbe />);
     await act(async () => fireEvent.click(screen.getByTestId('go')));
-    await waitFor(() => expect(result).toBe('ok'));
+    await waitFor(() => expect(result).toBe('signed-out'));
     expect(auth.at).toEqual(['/']);
     expect(here).toBe('/');
     expect(toastError).not.toHaveBeenCalled();
