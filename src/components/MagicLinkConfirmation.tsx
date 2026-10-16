@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { trackAnalyticsEvent } from '@/lib/analytics';
 import { OTP_CODE_LENGTH } from '@/lib/auth-otp-routing';
+import { trackAuthStep } from '@/lib/trackAuthStep';
+import { ConsentLine } from '@/components/auth/ConsentLine';
 
 interface MagicLinkConfirmationProps {
   email: string;
@@ -16,7 +18,10 @@ interface MagicLinkConfirmationProps {
    * parent routes onwards (via /auth/callback) so a typed code lands exactly
    * where the emailed link would have.
    */
-  onVerified: () => void;
+  /** May return a promise: the box stays busy ("Checking code") until it settles. */
+  onVerified: () => void | Promise<void>;
+  /** D8: sign-UP only -- the one-line Terms and Privacy clickwrap under the code box. */
+  showConsent?: boolean;
   /** Optional extra action, e.g. "Continue browsing" */
   extraAction?: { label: string; onClick: () => void };
 }
@@ -89,7 +94,7 @@ const storeWrongCodes = (email: string, wrong: number) => {
 
 const LOCKED_MESSAGE = 'Too many wrong codes. Send a new code to try again.';
 
-const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, extraAction }: MagicLinkConfirmationProps) => {
+const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, showConsent, extraAction }: MagicLinkConfirmationProps) => {
   const [countdown, setCountdown] = useState(COOLDOWN);
   const [isResending, setIsResending] = useState(false);
   const [code, setCode] = useState('');
@@ -114,10 +119,21 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, ext
       const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
       if (error) throw error;
       trackAnalyticsEvent('auth_code_verified', { source: 'auth_page', route: 'returning' });
-      onVerified();
+      trackAuthStep({ step: 'code_ok', outcome: 'ok' });
+      // The code is spent now: whatever the hand-over does must never reach the wrong-code path below.
+      try {
+        await onVerified();
+      } catch {
+        /* the parent owns its own failures */
+      }
     } catch (error) {
-      const message = String((error as { message?: unknown } | null)?.message || '').toLowerCase();
-      const isInvalid = message.includes('invalid') || message.includes('expired');
+      const { code: errorCode, message: rawMessage } = (error as { code?: unknown; message?: unknown } | null) ?? {};
+      const message = String(rawMessage || '').toLowerCase();
+      const isInvalid = message.includes('invalid') || message.includes('expired') || errorCode === 'otp_expired';
+      // Supabase answers a wrong code with the ambiguous "Token has expired or is invalid", so the word
+      // "expired" alone proves nothing: only error.code otp_expired (or an "expired" with no "invalid") is expired.
+      const isExpired = errorCode === 'otp_expired' || (message.includes('expired') && !message.includes('invalid'));
+      trackAuthStep({ step: 'code_fail', outcome: !isInvalid ? 'error' : isExpired ? 'expired' : 'wrong' });
       if (isInvalid) {
         const wrong = wrongCodes + 1;
         setWrongCodes(wrong);
@@ -179,12 +195,13 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, ext
             }}
             onComplete={(value) => void verify(value)}
             disabled={isVerifying || locked}
+            autoFocus
             autoComplete="one-time-code"
             inputMode="numeric"
             pattern="[0-9]*"
             aria-label={CODE_LABEL}
             aria-invalid={codeError || locked ? true : undefined}
-            aria-describedby={codeError || locked ? ERROR_ID : undefined}
+            aria-describedby={ERROR_ID}
           >
             {[0, 1].map((group) => (
               <Fragment key={group}>
@@ -202,12 +219,12 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, ext
             ))}
           </InputOTP>
         </div>
-        {(codeError || locked) && (
-          <p id={ERROR_ID} role="alert" className="text-sm text-destructive">
-            {locked ? LOCKED_MESSAGE : codeError}
-          </p>
-        )}
-        {isVerifying && <p className="text-sm text-muted-foreground">Checking code&hellip;</p>}
+        {/* Always mounted so screen readers announce the text when it appears. */}
+        <p id={ERROR_ID} role="alert" aria-live="assertive" className="text-sm text-destructive">
+          {locked ? LOCKED_MESSAGE : codeError}
+        </p>
+        {isVerifying && <p className="text-sm text-muted-foreground" role="status">Checking code&hellip;</p>}
+        {showConsent && <ConsentLine />}
       </div>
 
       <div className="w-full space-y-2">

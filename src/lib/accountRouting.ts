@@ -17,6 +17,7 @@
  */
 
 import { sanitizeReturnTo } from './authRouting';
+import type { DeletionLanding } from './accountDeletion';
 
 export const ACCOUNT_HOME_PATH = '/account';
 /** The dancer home for anyone, organisers included (the account menu's dancer entry). */
@@ -27,6 +28,15 @@ export const ORGANISER_HOME_PATH = '/account/o';
 export const MY_ATTENDANCE_PATH = '/account/attendance';
 /** Account settings (src/pages/AccountSettings.tsx): sign out, email, export, hide, erase. Never gated: see isDancerGatedPath. */
 export const ACCOUNT_SETTINGS_PATH = '/account/settings';
+/** Where a deleted (= hidden) account lands after sign-in: restore within 30 days, else the deleted card (pages/AccountRestore). */
+export const ACCOUNT_RESTORE_PATH = '/account/restore';
+
+/** /account/restore, carrying the page the sign-in was headed for (its "Continue" goes there). */
+export const restorePathFor = (returnTo: string | null): string => {
+  const safe = sanitizeReturnTo(returnTo);
+  return safe ? `${ACCOUNT_RESTORE_PATH}?returnTo=${encodeURIComponent(safe)}` : ACCOUNT_RESTORE_PATH;
+};
+
 /** The page shown after the account was erased (public: the person is signed out by then). */
 export const ACCOUNT_DELETED_PATH = '/account/deleted';
 
@@ -259,6 +269,11 @@ export type SidesFacts = {
    * for a person with no side at all (M44).
    */
   isAdmin?: boolean | null;
+  /**
+   * lib/accountGate's `deletion`: a soft-deleted login routes to restore / the deleted card BEFORE
+   * any side or returnTo. 'loading' = not read yet; undefined / null = not deleted (or a failed read).
+   */
+  deletion?: DeletionLanding | 'loading';
 };
 
 export type ProfileSide =
@@ -312,7 +327,7 @@ export const profileSides = (f: SidesFacts): SidesState => {
 export type SignInLanding = { kind: 'wait' } | { kind: 'go'; to: string } | { kind: 'choose'; sides: ProfileSide[] };
 
 /**
- * After sign-in: an explicit returnTo (a link the person followed) always wins;
+ * After sign-in: a deleted login goes to restore / the deleted card (lib/accountGate); an explicit returnTo (a link the person followed) always wins;
  * one side -> straight there; two or more -> "Continue as..." (every sign-in, no
  * "remember"). No side at all (no live dancer row, no organiser): an admin stays
  * on the site home, as before; anyone else goes to the dancer setup (M44, owner
@@ -328,6 +343,9 @@ export type SignInLanding = { kind: 'wait' } | { kind: 'go'; to: string } | { ki
  * plain landing.
  */
 export const signInLanding = (f: SidesFacts, returnTo: string | null): SignInLanding => {
+  // A deleted login first (AuthCallback already did this on the way in; the organiser area relies on it too).
+  if (f.deletion === 'loading') return { kind: 'wait' };
+  if (f.deletion) return { kind: 'go', to: restorePathFor(returnTo) };
   if (returnTo) return { kind: 'go', to: returnTo };
   const state = profileSides(f);
   if (state.status === 'loading') return { kind: 'wait' };

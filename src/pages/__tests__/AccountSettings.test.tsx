@@ -11,6 +11,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { readFileSync } from 'node:fs';
+import AccountDeleted from '../AccountDeleted';
 import path from 'node:path';
 
 const h = vi.hoisted(() => ({
@@ -22,6 +23,7 @@ const h = vi.hoisted(() => ({
   exportFn: vi.fn(),
   updateUser: vi.fn(),
   signOut: vi.fn(),
+  toast: vi.fn((_t: { title?: string; description?: string }) => undefined),
   user: { id: 'u1', email: 'me@x.co', new_email: undefined as string | undefined },
 }));
 
@@ -31,6 +33,7 @@ vi.mock('@/hooks/useAuth', () => ({
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
+vi.mock('@/hooks/use-toast', async (orig) => ({ ...(await orig<typeof import('@/hooks/use-toast')>()), toast: h.toast }));
 vi.mock('@/hooks/useMyProfileVisibility', () => ({
   useMyProfileVisibility: () => ({ status: h.visibility.status, refetch: vi.fn() }),
 }));
@@ -51,6 +54,7 @@ vi.mock('@/lib/accountSettings', async (orig) => {
 });
 
 import AccountSettings from '../AccountSettings';
+import { ACCOUNT_CONTACT_EMAIL } from '@/lib/accountDeletionCopy';
 
 const SETTINGS = '/account/settings';
 const mount = (at: string) =>
@@ -77,6 +81,7 @@ beforeEach(() => {
   h.exportFn.mockReset().mockResolvedValue(h.exportData);
   h.updateUser.mockReset();
   h.signOut.mockReset().mockResolvedValue('signed-out');
+  h.toast.mockClear();
 });
 afterEach(cleanup);
 
@@ -193,6 +198,20 @@ describe('settings home', () => {
     expect(await screen.findByText('start')).toBeTruthy();
   });
 
+  it('sign out of all devices: global sign-out, then home; a failure says so and stays', async () => {
+    mount(SETTINGS);
+    fireEvent.click(await screen.findByTestId('settings-signout-all'));
+    await waitFor(() => expect(h.signOut).toHaveBeenCalledWith({ everywhere: true }));
+    expect(await screen.findByText('start')).toBeTruthy();
+  });
+
+  it('sign out of all devices failing keeps the person here with a reason', async () => {
+    h.signOut.mockResolvedValue('failed');
+    mount(SETTINGS);
+    fireEvent.click(await screen.findByTestId('settings-signout-all'));
+    expect((await screen.findByTestId('settings-signout-all-error')).textContent).toMatch(/did not complete/i);
+  });
+
   it('settings is not behind the dancer-first gate (an unfinished profile can reach it)', () => {
     const src = readFileSync(path.resolve(__dirname, '../AccountSettings.tsx'), 'utf8');
     expect(src).not.toMatch(/DancerProfileGate/);
@@ -231,17 +250,27 @@ describe('ownership + delete: the same fact on both screens', () => {
     }
   }
 
-  it('lists what is lost', async () => {
+  // Delete = hide (admin PR #820): the copy may never promise an erase.
+  const FORBIDDEN = /erased|permanent|cannot be undone|photos are gone|for good|log back in/i;
+  it('says what happens: hidden now, 30 days to undo, ask us for a full erase', async () => {
     mount('/account/settings/delete');
     const lost = await screen.findByTestId('delete-lost');
-    expect(lost.textContent).toMatch(/profile/i);
-    expect(lost.textContent).toMatch(/photos/i);
-    expect(lost.textContent).toMatch(/ratings/i);
-    expect(lost.textContent).toMatch(/cannot be undone/i);
+    expect(lost.textContent).toMatch(/hidden from everyone straight away/i);
+    expect(lost.textContent).toMatch(/within 30 days/i);
+    expect(lost.textContent).toMatch(/stays hidden/i);
+    expect(lost.textContent).toContain(ACCOUNT_CONTACT_EMAIL);
+    expect(document.body.textContent).not.toMatch(FORBIDDEN);
   });
 
-  it('erase stays disabled until DELETE is typed exactly; then erases, signs out, routes to the deleted page', async () => {
-    h.erase.mockResolvedValue({ kind: 'erased' });
+  it('ownership: no promise of permanence', async () => {
+    mount('/account/settings/ownership');
+    expect((await screen.findByTestId('ownership-delete-link')).textContent).toBe('Delete account');
+    expect(document.body.textContent).toMatch(/within 30 days/i);
+    expect(document.body.textContent).not.toMatch(FORBIDDEN);
+  });
+
+  it('delete stays disabled until DELETE is typed exactly; then hides, signs out everywhere, routes to the deleted page', async () => {
+    h.erase.mockResolvedValue({ kind: 'hidden' });
     mount('/account/settings/delete');
     const input = await screen.findByTestId('delete-type-input');
     const btn = screen.getByTestId('delete-confirm') as HTMLButtonElement;
@@ -254,12 +283,12 @@ describe('ownership + delete: the same fact on both screens', () => {
     expect(btn.disabled).toBe(false);
     fireEvent.click(btn);
     await waitFor(() => expect(h.erase).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(h.signOut).toHaveBeenCalled());
+    await waitFor(() => expect(h.signOut).toHaveBeenCalledWith({ everywhere: true }));
     expect(await screen.findByText('deleted-page')).toBeTruthy();
   });
 
-  it('a failed local sign-out after erasing is ignored', async () => {
-    h.erase.mockResolvedValue({ kind: 'erased' });
+  it('a failed sign-out after hiding is ignored', async () => {
+    h.erase.mockResolvedValue({ kind: 'hidden' });
     h.signOut.mockRejectedValue(new Error('session gone'));
     mount('/account/settings/delete');
     fireEvent.change(await screen.findByTestId('delete-type-input'), { target: { value: 'DELETE' } });
@@ -267,23 +296,34 @@ describe('ownership + delete: the same fact on both screens', () => {
     expect(await screen.findByText('deleted-page')).toBeTruthy();
   });
 
-  it('media_delete_failed: try again, nothing erased, stays on the screen', async () => {
-    h.erase.mockResolvedValue({ kind: 'media_failed' });
+  // Each refusal code has its own words; the person stays, signed in, with nothing changed.
+  const REFUSALS: Array<[string, unknown, RegExp, string | null]> = [
+    ['admin_account', { kind: 'refused', code: 'admin_account', blockers: [] }, /admin account/i, null],
+    ['sole_organiser_owner', { kind: 'refused', code: 'sole_organiser_owner', blockers: [{ entity_id: 'o9', name: 'Late Club' }] }, /only owner/i, 'Late Club'],
+    ['already_archived', { kind: 'refused', code: 'already_archived', blockers: [] }, /admin has already hidden/i, null],
+    ['rate_limited', { kind: 'refused', code: 'rate_limited', blockers: [] }, /wait 24 hours/i, null],
+  ];
+  it.each(REFUSALS)('refused %s at the last moment: its own message, no sign-out', async (_c, out, words, blocker) => {
+    h.erase.mockResolvedValue(out);
+    mount('/account/settings/delete');
+    fireEvent.change(await screen.findByTestId('delete-type-input'), { target: { value: 'DELETE' } });
+    fireEvent.click(screen.getByTestId('delete-confirm'));
+    const box = await screen.findByTestId('delete-blocked');
+    expect(box.textContent).toMatch(words);
+    if (blocker) expect(box.textContent).toContain(blocker);
+    expect(h.signOut).not.toHaveBeenCalled();
+  });
+
+  it('an unknown failure: generic message with retry, nothing deleted, no sign-out', async () => {
+    h.erase.mockResolvedValue({ kind: 'failed' });
     mount('/account/settings/delete');
     fireEvent.change(await screen.findByTestId('delete-type-input'), { target: { value: 'DELETE' } });
     fireEvent.click(screen.getByTestId('delete-confirm'));
     const msg = await screen.findByTestId('delete-error');
-    expect(msg.textContent).toMatch(/nothing was deleted/i);
+    expect(msg.textContent).toMatch(/not deleted/i);
     expect(msg.textContent).toMatch(/try again/i);
     expect(h.signOut).not.toHaveBeenCalled();
-  });
-
-  it('a 409 at the last moment switches to the blocked reading', async () => {
-    h.erase.mockResolvedValue({ kind: 'blocked', code: 'sole_organiser_owner', blockers: [{ entity_id: 'o9', name: 'Late Club' }] });
-    mount('/account/settings/delete');
-    fireEvent.change(await screen.findByTestId('delete-type-input'), { target: { value: 'DELETE' } });
-    fireEvent.click(screen.getByTestId('delete-confirm'));
-    expect((await screen.findByTestId('delete-blocked')).textContent).toContain('Late Club');
+    expect((screen.getByTestId('delete-confirm') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('the erase check failing keeps erase disabled and offers retry', async () => {
@@ -291,5 +331,54 @@ describe('ownership + delete: the same fact on both screens', () => {
     mount('/account/settings/delete');
     expect(await screen.findByTestId('delete-check-failed')).toBeTruthy();
     expect((screen.getByTestId('delete-confirm') as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+// Review B2: when the global revoke fails and only THIS device signs out ("signed-out-locally"),
+// the person is told their other devices may still be signed in -- never a silent "/" (a lost phone
+// is the reason to press it). Same after a delete, on /account/deleted. Never for "signed-out".
+describe('sign out everywhere: the other devices are never falsely reassured', () => {
+  const OTHERS = /couldn.t reach the server to sign out your other devices/i;
+  const mountReal = (at: string) =>
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={[at]}>
+          <Routes>
+            <Route path="/account/settings" element={<AccountSettings view="home" />} />
+            <Route path="/account/settings/delete" element={<AccountSettings view="delete" />} />
+            <Route path="/account/deleted" element={<AccountDeleted />} />
+            <Route path="/" element={<p>start</p>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  // The words ride a toast (the settings page ends at "/"): what the toast is asked to say.
+  const toasted = () => h.toast.mock.calls.map(([t]) => `${t.title} ${t.description}`).join('\n');
+
+  it.each([
+    ['signed-out-locally', true],
+    ['signed-out', false],
+  ] as const)('settings, %s: says so = %s', async (outcome, says) => {
+    h.signOut.mockResolvedValue(outcome);
+    mountReal(SETTINGS);
+    fireEvent.click(await screen.findByTestId('settings-signout-all'));
+    expect(await screen.findByText('start')).toBeTruthy();
+    if (says) expect(toasted()).toMatch(OTHERS);
+    else expect(toasted()).not.toMatch(OTHERS);
+  });
+
+  it.each([
+    ['signed-out-locally', true],
+    ['failed', true],
+    ['signed-out', false],
+  ] as const)('delete, %s: /account/deleted says so = %s', async (outcome, says) => {
+    h.erase.mockResolvedValue({ kind: 'hidden' });
+    h.signOut.mockResolvedValue(outcome);
+    mountReal('/account/settings/delete');
+    fireEvent.change(await screen.findByTestId('delete-type-input'), { target: { value: 'DELETE' } });
+    fireEvent.click(screen.getByTestId('delete-confirm'));
+    expect(await screen.findByTestId('account-deleted')).toBeTruthy();
+    if (says) expect(screen.getByText(OTHERS)).toBeTruthy();
+    else expect(screen.queryByText(OTHERS)).toBeNull();
   });
 });

@@ -73,23 +73,29 @@ describe('eraseAccount (edge function account-erase)', () => {
     error: { name: 'FunctionsHttpError', message: 'non-2xx', context: new Response(JSON.stringify(body), { status }) },
   });
 
-  it('sends confirm DELETE and maps 200', async () => {
-    h.invoke.mockResolvedValue({ data: { ok: true }, error: null });
-    expect(await eraseAccount()).toEqual({ kind: 'erased' });
+  // Delete = hide (admin PR #820, account-erase handler.ts STATUS_BY_CODE): every response shape.
+  const B = [{ entity_id: 'o1', name: 'A' }];
+  const SHAPES: Array<[string, unknown, unknown]> = [
+    ['200 hidden', { data: { ok: true, hidden: true, deletion: { state: 'pending' } }, error: null }, { kind: 'hidden' }],
+    ['200 from the old erasing deploy (ok only)', { data: { ok: true }, error: null }, { kind: 'hidden' }],
+    ['403 admin_account', httpError(403, { ok: false, code: 'admin_account' }), { kind: 'refused', code: 'admin_account', blockers: [] }],
+    ['409 sole_organiser_owner + blockers', httpError(409, { ok: false, code: 'sole_organiser_owner', blockers: B }), { kind: 'refused', code: 'sole_organiser_owner', blockers: B }],
+    ['409 already_archived', httpError(409, { ok: false, code: 'already_archived' }), { kind: 'refused', code: 'already_archived', blockers: [] }],
+    ['429 rate_limited', httpError(429, { ok: false, code: 'rate_limited' }), { kind: 'refused', code: 'rate_limited', blockers: [] }],
+    ['409 with no code is NOT a refusal', httpError(409, { ok: false }), { kind: 'failed' }],
+    ['500 delete_failed', httpError(500, { ok: false, code: 'delete_failed' }), { kind: 'failed' }],
+    ['500 media_delete_failed (old deploy)', httpError(500, { ok: false, code: 'media_delete_failed' }), { kind: 'failed' }],
+    ['401 not_authenticated', httpError(401, { ok: false, code: 'not_authenticated' }), { kind: 'failed' }],
+    ['422 confirm_required', httpError(422, { ok: false, code: 'confirm_required' }), { kind: 'failed' }],
+    ['network error', { data: null, error: { name: 'FunctionsFetchError', message: 'offline' } }, { kind: 'failed' }],
+  ];
+  it.each(SHAPES)('%s', async (_n, response, expected) => {
+    h.invoke.mockResolvedValue(response);
+    expect(await eraseAccount()).toEqual(expected);
     expect(h.invoke).toHaveBeenCalledWith('account-erase', { body: { confirm: 'DELETE' } });
   });
-  it('maps 409 blockers', async () => {
-    h.invoke.mockResolvedValue(httpError(409, { ok: false, code: 'sole_organiser_owner', blockers: [{ entity_id: 'o1', name: 'A' }] }));
-    expect(await eraseAccount()).toEqual({ kind: 'blocked', code: 'sole_organiser_owner', blockers: [{ entity_id: 'o1', name: 'A' }] });
-  });
-  it('maps media_delete_failed to try-again (nothing erased)', async () => {
-    h.invoke.mockResolvedValue(httpError(500, { ok: false, code: 'media_delete_failed' }));
-    expect(await eraseAccount()).toEqual({ kind: 'media_failed' });
-  });
-  it('maps 422 and anything unreadable to failed', async () => {
-    h.invoke.mockResolvedValue(httpError(422, { ok: false, code: 'confirm_required' }));
-    expect(await eraseAccount()).toEqual({ kind: 'failed' });
-    h.invoke.mockResolvedValue({ data: null, error: { name: 'FunctionsFetchError', message: 'offline' } });
+  it('a thrown invoke is failed', async () => {
+    h.invoke.mockRejectedValue(new Error('boom'));
     expect(await eraseAccount()).toEqual({ kind: 'failed' });
   });
 });
