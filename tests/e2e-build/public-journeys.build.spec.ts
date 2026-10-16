@@ -1,5 +1,6 @@
 import { appendFileSync } from 'node:fs';
 import { test, expect, devices, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { expectNoHorizontalScroll } from '../e2e/helpers/organiserFake';
 import { JOURNEYS, type Journey } from '../journeys/publicEntryJourneys';
 import { Backend, CODE, codeStep, isWelcome, onboarding, pathQuery, pressBack, signinForm, signupForm, trailOf, wire, nextStage, type Shot } from './helpers/journeyHarness';
@@ -43,6 +44,12 @@ const END_BY_ROW: Record<string, { testId: string; absent?: string; label?: stri
   // M71: the end card's own button (only the 'in' and 'nice' cards carry it), never a question card.
   'bookmark-app-welcome-finished': { testId: 'onboarding-home', text: 'Go to Home' },
 };
+
+/**
+ * Rows whose END screen has a KNOWN serious/critical axe violation: the axe rule ids still tolerated for that row,
+ * each listed (element, reason) in docs/review-packs/account-grid/AXE.md. Empty = zero tolerated (GAPS G-A2).
+ */
+const AXE_KNOWN: Record<string, string[]> = {};
 
 /** Rows the sandbox cannot drive to their END, with the one-line reason. Never a faked pass. */
 const FIXME: Record<string, string> = {};
@@ -194,6 +201,11 @@ async function runRow(page: Page, context: BrowserContext, row: Journey, dir: st
   if ('absent' in end && end.absent) await expect(page.getByTestId(end.absent)).toHaveCount(0);
   if ('text' in end && end.text) await expect(page.getByTestId(end.testId)).toHaveText(end.text);
   await expectNoHorizontalScroll(page);
+  // GAPS G-A2: axe on every row's END, zero serious/critical (rules listed in AXE_KNOWN are the documented exceptions).
+  const axe = await new AxeBuilder({ page }).analyze();
+  const serious = axe.violations.filter((v) => (v.impact === 'serious' || v.impact === 'critical') && !(AXE_KNOWN[row.id] ?? []).includes(v.id));
+  if (process.env.AXE_LOG) appendFileSync(process.env.AXE_LOG, `${JSON.stringify({ row: row.id, found: axe.violations.map((v) => ({ id: v.id, impact: v.impact, targets: v.nodes.map((n) => n.target.join(' ')).slice(0, 4) })) })}\n`);
+  expect(serious.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`), 'axe: serious/critical violations at the END').toEqual([]);
   await shot('end', `END ${row.end.screen}: ${pathQuery(new URL(page.url()))}`);
 
   // The onward destination rode every onboarding hop (the owner's 2026-10-15 failure).

@@ -1,0 +1,1684 @@
+{
+ "version": 1,
+ "model": "docs/account-system/ACCOUNT-MODEL.md",
+ "covered_by_kinds": {
+  "J": "row id in tests/journeys/publicEntryJourneys.ts: walked by publicEntryJourneys.test.ts AND tests/e2e-build/public-journeys.build.spec.ts (390x844)",
+  "R": "test title in tests/e2e-build/*.build.spec.ts (a build walk)",
+  "E": "spec in tests/e2e (name without .spec.ts); counts as a walk only when listed in package.json test:e2e",
+  "U": "unit test file (a test, not a walk)",
+  "OTP": "spec run against a Supabase test project reading the real e-mailed code (PLAN PR-5)"
+ },
+ "coverage_rule": "required rows need >=1 test (any kind) AND >=1 walk (J, R, E or OTP) before merge (owner decision O8); optional rows (0 prod accounts) need >=1 test",
+ "groups": [
+  {
+   "entry": "OL",
+   "title": "Organiser link `/auth?mode=signup&userType=organiser&returnTo=/account/o`"
+  },
+  {
+   "entry": "DL",
+   "title": "Dancer link / home banner `/auth?mode=signup&userType=dancer`"
+  },
+  {
+   "entry": "SI",
+   "title": "Header Sign in `/auth?mode=signin`"
+  },
+  {
+   "entry": "TI",
+   "title": "Team invite `/invite/<token>`"
+  },
+  {
+   "entry": "CL",
+   "title": "Claim link `/organisers/<slug>?claim=1`"
+  },
+  {
+   "entry": "DI",
+   "title": "Dancer invite e-mail `/join/<token>`"
+  },
+  {
+   "entry": "DP",
+   "title": "Deep links and bookmarks"
+  },
+  {
+   "entry": "AC",
+   "title": "Account settings: sign out, erase, export, e-mail"
+  },
+  {
+   "entry": "XD",
+   "title": "Cross-tab and cross-device"
+  }
+ ],
+ "rows": [
+  {
+   "id": "ol.new.straight",
+   "matrix": "M01",
+   "entry": "OL",
+   "state": "S-NEW",
+   "action": "straight through",
+   "end": "`/account/o` claim screen; dancer complete",
+   "transition": "T-SIGNUP,T-CONFIRM,T-ONBOARD",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-new"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.new.reload",
+   "matrix": "M02",
+   "entry": "OL",
+   "state": "S-NEW",
+   "action": "reload mid-onboarding",
+   "end": "as ol.new.straight",
+   "transition": "T-ONBOARD",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-new-reload"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.new.closed-tab",
+   "matrix": "M03",
+   "entry": "OL",
+   "state": "S-NEW",
+   "action": "close tab mid-onboarding, later Sign in",
+   "end": "onboarding resumes with returnTo=/account/o, then claim screen",
+   "transition": "T-SIGNIN,T-ONBOARD",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-new-closed-tab"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.new.closed-tab-after-required",
+   "matrix": "M04",
+   "entry": "OL",
+   "state": "S-NEW",
+   "action": "close tab on \"You're in\", later Sign in",
+   "end": "`/account/o` claim screen (O1)",
+   "transition": "T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-closed-tab-after-required"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.new.magic-link",
+   "matrix": "M05",
+   "entry": "OL",
+   "state": "S-NEW",
+   "action": "magic link, same browser",
+   "end": "as ol.new.straight",
+   "transition": "T-CONFIRM",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-magic-link"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.new.magic-link-other-device",
+   "matrix": "M06",
+   "entry": "OL",
+   "state": "S-NEW",
+   "action": "magic link opened on a second device",
+   "end": "device 2: claim screen; device 1: code says wrong/expired",
+   "transition": "T-CONFIRM",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-magic-link-other-device"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.new.wrong-code",
+   "matrix": "M07",
+   "entry": "OL",
+   "state": "S-NEW",
+   "action": "wrong code first",
+   "end": "inline error, then as ol.new.straight",
+   "transition": "T-CODE-WRONG",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-wrong-code"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.new.expired-link",
+   "matrix": "M08",
+   "entry": "OL",
+   "state": "S-NEW",
+   "action": "expired link",
+   "end": "`/auth?mode=signin&callbackError=expired&returnTo=/account/o`, then claim screen",
+   "transition": "T-LINK-EXPIRED",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-expired-link"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.new.hostile-returnto",
+   "matrix": "M09",
+   "entry": "OL",
+   "state": "S-NEW",
+   "action": "hostile returnTo",
+   "end": "off-site value dropped; as ol.new.straight",
+   "transition": "T-CONFIRM",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-hostile-returnto"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.new.back-each-card",
+   "matrix": "M10",
+   "entry": "OL",
+   "state": "S-NEW",
+   "action": "browser Back on each onboarding card",
+   "end": "stays inside the area; never `/auth` with a session, never blank",
+   "transition": "T-ONBOARD",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-back-each-card"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": "D3",
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.dancer.signin-form",
+   "matrix": "M11",
+   "entry": "OL",
+   "state": "S-DANCER",
+   "action": "signs in from the switched form",
+   "end": "`/account/o` claim screen, dancer unchanged",
+   "transition": "T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-existing-dancer"
+    }
+   ],
+   "people": "7",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.dancer.signed-in",
+   "matrix": "M12",
+   "entry": "OL",
+   "state": "S-DANCER",
+   "action": "already signed in",
+   "end": "`/account/o`, no form",
+   "transition": "-",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-signed-in"
+    }
+   ],
+   "people": "7",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.dancer-part.signed-in",
+   "matrix": "M13",
+   "entry": "OL",
+   "state": "S-DANCER-PART",
+   "action": "already signed in or signs in",
+   "end": "gate, `/finish-profile?returnTo`, `/app/welcome`, `/account/o`",
+   "transition": "T-ONBOARD",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "tests/journeys/publicEntryJourneys.test.ts"
+    },
+    {
+     "kind": "J",
+     "ref": "organiser-link-unfinished-dancer-signed-in"
+    }
+   ],
+   "people": "7",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.org1.signed-in",
+   "matrix": "M14",
+   "entry": "OL",
+   "state": "S-ORG1",
+   "action": "signed in, opens the OL",
+   "end": "`/account/o` Home (not the claim screen)",
+   "transition": "-",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-organiser-signed-in"
+    }
+   ],
+   "people": "4",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.org2.signed-in",
+   "matrix": "M15",
+   "entry": "OL",
+   "state": "S-ORG2",
+   "action": "signed in, opens the OL",
+   "end": "`/account/o` Home, every organiser listed",
+   "transition": "-",
+   "covered_by": [],
+   "people": "0",
+   "coverage": "optional",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.request.signed-in",
+   "matrix": "M16",
+   "entry": "OL",
+   "state": "S-REQUEST",
+   "action": "signed in, opens the OL",
+   "end": "`/account/o` open-request screen",
+   "transition": "-",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-open-request-signed-in"
+    }
+   ],
+   "people": "1",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ol.admin-only.signed-in",
+   "matrix": "M17",
+   "entry": "OL",
+   "state": "S-ADMIN-ONLY",
+   "action": "signed in, opens the OL",
+   "end": "gate `no_profile`: Finish, onboarding, claim screen",
+   "transition": "T-ONBOARD",
+   "covered_by": [],
+   "people": "2",
+   "coverage": "required",
+   "decision": "D2",
+   "built": "BUILT"
+  },
+  {
+   "id": "dl.new.straight",
+   "matrix": "M20",
+   "entry": "DL",
+   "state": "S-NEW",
+   "action": "straight through",
+   "end": "`/app/home`, dancer complete",
+   "transition": "T-SIGNUP,T-CONFIRM,T-ONBOARD",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "dancer-link-new"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dl.new.reload",
+   "matrix": "M21",
+   "entry": "DL",
+   "state": "S-NEW",
+   "action": "reload",
+   "end": "as dl.new.straight",
+   "transition": "T-ONBOARD",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "dancer-link-new-reload"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dl.new.closed-tab",
+   "matrix": "M22",
+   "entry": "DL",
+   "state": "S-NEW",
+   "action": "close tab mid-onboarding, later Sign in",
+   "end": "`/app/welcome` first missing card, then `/app/home`",
+   "transition": "T-SIGNIN,T-ONBOARD",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "signin-unfinished-dancer"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dl.new.expired-link",
+   "matrix": "M23",
+   "entry": "DL",
+   "state": "S-NEW",
+   "action": "expired link",
+   "end": "expired notice; sign in; `/app/welcome`, then `/app/home`",
+   "transition": "T-LINK-EXPIRED",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AuthCallbackNotice.test.tsx"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dl.new.back-each-card",
+   "matrix": "M24",
+   "entry": "DL",
+   "state": "S-NEW",
+   "action": "Back on each card",
+   "end": "as ol.new.back-each-card, ending `/app/home`",
+   "transition": "T-ONBOARD",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "dancer-link-back-each-card"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": "D3",
+   "built": "BUILT"
+  },
+  {
+   "id": "dl.dancer.signed-in",
+   "matrix": "M25",
+   "entry": "DL",
+   "state": "S-DANCER / S-ORG1",
+   "action": "signed in, opens the DL",
+   "end": "`/account/continue`: S-DANCER `/app/home`, S-ORG1 \"Continue as\"",
+   "transition": "T-SWITCH",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "tests/client/authPage.test.tsx"
+    }
+   ],
+   "people": "11",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dl.dancer.signup-form",
+   "matrix": "M26",
+   "entry": "DL",
+   "state": "S-DANCER",
+   "action": "signed out, existing e-mail on the sign-up form",
+   "end": "form switches to sign in; `/app/home`",
+   "transition": "T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "dancer-link-existing-dancer"
+    }
+   ],
+   "people": "7",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dl.banner-href",
+   "matrix": "M60",
+   "entry": "DL",
+   "state": "S-NEW",
+   "action": "home banner href",
+   "end": "href equals DANCER_LINK",
+   "transition": "-",
+   "covered_by": [],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dl.new.real-otp",
+   "matrix": "-",
+   "entry": "DL",
+   "state": "S-NEW",
+   "action": "sign up reading the REAL e-mailed code (test project)",
+   "end": "`/app/home`; the code length and expiry match the client",
+   "transition": "T-SIGNUP,T-CONFIRM",
+   "covered_by": [],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "NOT BUILT"
+  },
+  {
+   "id": "si.new.unknown-email",
+   "matrix": "M30",
+   "entry": "SI",
+   "state": "S-NEW",
+   "action": "new e-mail on the sign-in form",
+   "end": "`otp_disabled`: switches to sign-up, then as dl.new.straight",
+   "transition": "T-SIGNIN-UNKNOWN",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AuthOtpDisabled.test.tsx"
+    },
+    {
+     "kind": "E",
+     "ref": "auth-stepper-email-routing"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.dancer-part",
+   "matrix": "M31",
+   "entry": "SI",
+   "state": "S-DANCER-PART",
+   "action": "signs in",
+   "end": "`/app/welcome` first missing card, then `/app/home`",
+   "transition": "T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "signin-unfinished-dancer"
+    }
+   ],
+   "people": "7",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.dancer",
+   "matrix": "M32",
+   "entry": "SI",
+   "state": "S-DANCER",
+   "action": "signs in",
+   "end": "`/app/home`, no chooser",
+   "transition": "T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "signin-dancer"
+    },
+    {
+     "kind": "R",
+     "ref": "dancer-only: sign-in lands straight in the dancer app (no chooser)"
+    }
+   ],
+   "people": "5",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.org1",
+   "matrix": "M33",
+   "entry": "SI",
+   "state": "S-ORG1",
+   "action": "signs in",
+   "end": "\"Continue as\": organiser first, then dancer; Back does not return to `/auth`",
+   "transition": "T-SIGNIN,T-SWITCH",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "signin-both"
+    }
+   ],
+   "people": "4",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.org2",
+   "matrix": "M34",
+   "entry": "SI",
+   "state": "S-ORG2",
+   "action": "signs in",
+   "end": "\"Continue as\" with 3 buttons, each organiser with `?o=`",
+   "transition": "T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "two-orgs+dancer: \"Continue as...\" lists organisers first, then the dancer"
+    }
+   ],
+   "people": "0",
+   "coverage": "optional",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.org1-dancer-part",
+   "matrix": "M35",
+   "entry": "SI",
+   "state": "S-ORG1 (dancer incomplete)",
+   "action": "signs in",
+   "end": "\"Continue as\"; organiser goes gate, onboarding, `/account/o` Home; dancer goes `/app/welcome`",
+   "transition": "T-SIGNIN,T-ONBOARD",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "signin-unfinished-dancer-with-organiser"
+    }
+   ],
+   "people": "1",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.request",
+   "matrix": "M36",
+   "entry": "SI",
+   "state": "S-REQUEST",
+   "action": "signs in",
+   "end": "`/app/home`; no F2 jump",
+   "transition": "T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "tests/journeys/publicEntryJourneys.test.ts"
+    },
+    {
+     "kind": "J",
+     "ref": "signin-open-request"
+    }
+   ],
+   "people": "1",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.dancer-intent",
+   "matrix": "M37",
+   "entry": "SI",
+   "state": "S-DANCER-INTENT",
+   "action": "signs in",
+   "end": "`/account/o` claim screen (O1)",
+   "transition": "T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "organiser-link-closed-tab-after-required"
+    },
+    {
+     "kind": "J",
+     "ref": "signin-open-request"
+    }
+   ],
+   "people": "2",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.admin-only",
+   "matrix": "M38",
+   "entry": "SI",
+   "state": "S-ADMIN-ONLY",
+   "action": "signs in",
+   "end": "`/` (no side)",
+   "transition": "T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "admin-only: sign-in lands on the site home, as before"
+    }
+   ],
+   "people": "2",
+   "coverage": "required",
+   "decision": "D2",
+   "built": "BUILT"
+  },
+  {
+   "id": "si.dancer.wrong-code",
+   "matrix": "M40",
+   "entry": "SI",
+   "state": "S-DANCER",
+   "action": "wrong code / expired link",
+   "end": "inline error / expired notice, then as si.dancer",
+   "transition": "T-CODE-WRONG,T-LINK-EXPIRED",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AuthCallbackNotice.test.tsx"
+    }
+   ],
+   "people": "5",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.admin-dancer",
+   "matrix": "M41",
+   "entry": "SI",
+   "state": "S-ADMIN-DANCER (no organiser)",
+   "action": "signs in",
+   "end": "`/app/home`",
+   "transition": "T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountSidesRouting.test.ts"
+    }
+   ],
+   "people": "0",
+   "coverage": "optional",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.org1.switch",
+   "matrix": "M42",
+   "entry": "SI",
+   "state": "S-ORG1",
+   "action": "switch sheet dancer to organiser and back",
+   "end": "`/account/o` ticked; `/app/home` Dancer ticked",
+   "transition": "T-SWITCH",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "switch sheet in the dancer app: every side, a tick on Dancer, settings, sign out"
+    },
+    {
+     "kind": "R",
+     "ref": "switch sheet in the organiser area: same sheet, a tick on the organiser"
+    }
+   ],
+   "people": "4",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.org2.switch",
+   "matrix": "M43",
+   "entry": "SI",
+   "state": "S-ORG2",
+   "action": "switch sheet from organiser B to A",
+   "end": "`/account/o?o=A`, A ticked",
+   "transition": "T-SWITCH",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountSidesRouting.test.ts"
+    },
+    {
+     "kind": "R",
+     "ref": "two organisers: the switch sheet ticks the ?o= organiser and switches between them"
+    }
+   ],
+   "people": "0",
+   "coverage": "optional",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.empty",
+   "matrix": "M44",
+   "entry": "SI",
+   "state": "S-EMPTY",
+   "action": "signs in",
+   "end": "`/app/welcome` dancer setup (O5)",
+   "transition": "T-SIGNIN,T-ONBOARD",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "no side, not an admin: /account/continue lands on /app/welcome, never the site home (M44)"
+    }
+   ],
+   "people": "0",
+   "coverage": "optional",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.org-only",
+   "matrix": "M46",
+   "entry": "SI",
+   "state": "S-ORG-ONLY",
+   "action": "signs in",
+   "end": "`/account/o`, gate shows Finish",
+   "transition": "T-SIGNIN",
+   "covered_by": [],
+   "people": "0",
+   "coverage": "optional",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.unconfirmed-later",
+   "matrix": "-",
+   "entry": "SI",
+   "state": "S-UNCONF",
+   "action": "comes back days later and signs in",
+   "end": "code sent; entering it finishes sign-up as dl.new.straight (stub kept); after 7 days the purge makes it S-NEW",
+   "transition": "T-SIGNIN,T-CONFIRM",
+   "covered_by": [],
+   "people": "6",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "si.code-step-reload",
+   "matrix": "-",
+   "entry": "SI",
+   "state": "any, code_sent",
+   "action": "reloads the code screen",
+   "end": "back to the e-mail form (code page state lost); a new code is needed",
+   "transition": "-",
+   "covered_by": [],
+   "people": "new",
+   "coverage": "required",
+   "decision": "D7",
+   "built": "BUILT"
+  },
+  {
+   "id": "si.signup-refused",
+   "matrix": "-",
+   "entry": "SI",
+   "state": "S-NEW (not allowlisted, area closed; or blocked domain)",
+   "action": "sign up",
+   "end": "invite-only copy plus WhatsApp link",
+   "transition": "T-SIGNUP-REFUSED",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/auth-signup-allowlist.test.ts"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ti.new",
+   "matrix": "M52",
+   "entry": "TI",
+   "state": "S-NEW",
+   "action": "sign up from the invite",
+   "end": "redeem card, redeemed, `/account/o`",
+   "transition": "T-SIGNUP,T-INVITE-REDEEM",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "team-invite-new"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ti.dancer.signin",
+   "matrix": "M53",
+   "entry": "TI",
+   "state": "S-DANCER",
+   "action": "signed out, Sign in on the card",
+   "end": "`/account/o` Home of the joined organiser",
+   "transition": "T-SIGNIN,T-INVITE-REDEEM",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "team-invite-existing-dancer"
+    }
+   ],
+   "people": "5",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ti.dancer-part",
+   "matrix": "M54",
+   "entry": "TI",
+   "state": "S-DANCER-PART",
+   "action": "signed in",
+   "end": "`/finish-profile?returnTo=/invite/<t>`, onboarding \"Next: join the team\", then the card",
+   "transition": "T-ONBOARD,T-INVITE-REDEEM",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/modules/admin-organisers/__tests__/inviteWalkthrough.test.tsx"
+    },
+    {
+     "kind": "J",
+     "ref": "team-invite-unfinished-dancer"
+    }
+   ],
+   "people": "7",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ti.member",
+   "matrix": "M55",
+   "entry": "TI",
+   "state": "S-ORG1",
+   "action": "already a member",
+   "end": "`already_member`: `/account/o`; link stays open",
+   "transition": "-",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/modules/admin-organisers/__tests__/inviteModel.test.ts"
+    }
+   ],
+   "people": "4",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ti.dead-token",
+   "matrix": "M56",
+   "entry": "TI",
+   "state": "any",
+   "action": "used / revoked / expired / malformed token",
+   "end": "terminal card with Home link; token stripped",
+   "transition": "-",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/modules/admin-organisers/__tests__/inviteModel.test.ts"
+    },
+    {
+     "kind": "U",
+     "ref": "src/modules/admin-organisers/__tests__/inviteWalkthrough.test.tsx"
+    }
+   ],
+   "people": "1 open invite",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ti.other-person",
+   "matrix": "M57",
+   "entry": "TI",
+   "state": "S-DANCER signed in as B, invite meant for A",
+   "action": "opens A's invite",
+   "end": "card says \"Joining as <B's e-mail>\" + \"Not you? Sign out\"; B joins on confirm (O3)",
+   "transition": "T-INVITE-REDEEM",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "a different signed-in person opens an invite: the card names who is joining (M57)"
+    }
+   ],
+   "people": "5",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ti.new.other-device",
+   "matrix": "M58",
+   "entry": "TI",
+   "state": "S-NEW",
+   "action": "magic link on a second device",
+   "end": "device 2 ends on the card",
+   "transition": "T-CONFIRM",
+   "covered_by": [],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "cl.new",
+   "matrix": "M59",
+   "entry": "CL",
+   "state": "S-NEW",
+   "action": "sign up from \"Sign in to claim\"",
+   "end": "claim card on `/organisers/<slug>?claim=1`; dancer complete",
+   "transition": "T-SIGNUP,T-CLAIM",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "claim-link-new"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "cl.dancer.email-match",
+   "matrix": "M61",
+   "entry": "CL",
+   "state": "S-DANCER, e-mail matches",
+   "action": "signs in",
+   "end": "claim runs once, marker removed, \"This is your page\"",
+   "transition": "T-CLAIM",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/modules/organiser/shared/__tests__/PublicClaimCard.intent.test.tsx"
+    }
+   ],
+   "people": "5",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "cl.dancer.email-differs",
+   "matrix": "M62",
+   "entry": "CL",
+   "state": "S-DANCER, e-mail differs",
+   "action": "signs in",
+   "end": "marker dropped; request panel only",
+   "transition": "T-REQUEST",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/modules/organiser/shared/__tests__/PublicClaimCard.intent.test.tsx"
+    }
+   ],
+   "people": "5",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "cl.dancer-part",
+   "matrix": "M63",
+   "entry": "CL",
+   "state": "S-DANCER-PART",
+   "action": "signs in",
+   "end": "`/finish-profile?returnTo=<page>?claim=1`, onboarding, the page",
+   "transition": "T-ONBOARD,T-CLAIM",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountRouting.test.tsx"
+    }
+   ],
+   "people": "7",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "cl.org1",
+   "matrix": "M64",
+   "entry": "CL",
+   "state": "S-ORG1",
+   "action": "already organiser elsewhere",
+   "end": "claim runs (person with roles)",
+   "transition": "T-CLAIM",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/modules/organiser/shared/__tests__/PublicClaimCard.intent.test.tsx"
+    }
+   ],
+   "people": "4",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "cl.managed",
+   "matrix": "M65",
+   "entry": "CL",
+   "state": "any",
+   "action": "page already claimed",
+   "end": "badge only, marker consumed",
+   "transition": "-",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/modules/organiser/shared/__tests__/PublicClaimCard.intent.test.tsx"
+    }
+   ],
+   "people": "-",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "di.new",
+   "matrix": "M70",
+   "entry": "DI",
+   "state": "S-NEW (admin-made profile, e-mail matches)",
+   "action": "opens `/join/<token>`",
+   "end": "peek shows the profile; sign up with the e-mail fixed; redeem attaches the profile; onboarding for missing cards; `/app/home` (O6)",
+   "transition": "T-DANCER-INVITE",
+   "covered_by": [],
+   "people": "0 issued",
+   "coverage": "required",
+   "decision": null,
+   "built": "NOT BUILT"
+  },
+  {
+   "id": "di.dancer-part.signed-in",
+   "matrix": "-",
+   "entry": "DI",
+   "state": "S-DANCER-PART, same e-mail",
+   "action": "opens the link signed in",
+   "end": "redeem, then `/app/welcome` first missing card",
+   "transition": "T-DANCER-INVITE",
+   "covered_by": [],
+   "people": "0 issued",
+   "coverage": "required",
+   "decision": null,
+   "built": "NOT BUILT"
+  },
+  {
+   "id": "di.other-email",
+   "matrix": "-",
+   "entry": "DI",
+   "state": "any signed in, as a different e-mail",
+   "action": "opens the link",
+   "end": "`email_mismatch` card: names the signed-in e-mail, \"Sign out and use <masked invited e-mail>\"",
+   "transition": "-",
+   "covered_by": [],
+   "people": "0 issued",
+   "coverage": "required",
+   "decision": null,
+   "built": "NOT BUILT"
+  },
+  {
+   "id": "di.dead-token",
+   "matrix": "-",
+   "entry": "DI",
+   "state": "any",
+   "action": "expired / redeemed / revoked / invalid",
+   "end": "terminal card, Home link, token stripped; expired offers \"Ask for a new link\"",
+   "transition": "-",
+   "covered_by": [],
+   "people": "0 issued",
+   "coverage": "required",
+   "decision": null,
+   "built": "NOT BUILT"
+  },
+  {
+   "id": "dp.account-o.signed-out",
+   "matrix": "M66",
+   "entry": "DP",
+   "state": "S-NEW",
+   "action": "opens `/account/o` signed out",
+   "end": "sign up via returnTo, onboarding, claim screen",
+   "transition": "T-SIGNUP",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "deep-link-account-o-signed-out"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dp.app.signed-out",
+   "matrix": "M67",
+   "entry": "DP",
+   "state": "S-DANCER",
+   "action": "opens `/app/nights` signed out",
+   "end": "sign in, then `/app/nights`",
+   "transition": "T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "deep-link-app-signed-out"
+    },
+    {
+     "kind": "E",
+     "ref": "dancer-app/reachability"
+    }
+   ],
+   "people": "5",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dp.old-account-dancer",
+   "matrix": "M68",
+   "entry": "DP",
+   "state": "S-DANCER",
+   "action": "old bookmark `/account/dancer`",
+   "end": "`/app/home`",
+   "transition": "-",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "the old /account/dancer URL opens the dancer app (organiser + dancer: the owner report)"
+    }
+   ],
+   "people": "5",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dp.old-finish-profile",
+   "matrix": "M69",
+   "entry": "DP",
+   "state": "S-DANCER",
+   "action": "old bookmark `/finish-profile`",
+   "end": "`/app/home`",
+   "transition": "-",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountSidesRouting.test.ts"
+    },
+    {
+     "kind": "J",
+     "ref": "bookmark-finish-profile-finished"
+    }
+   ],
+   "people": "5",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dp.app-welcome.finished",
+   "matrix": "M71",
+   "entry": "DP",
+   "state": "S-DANCER",
+   "action": "opens `/app/welcome` directly",
+   "end": "the end card \"Go to Home\", never re-asking",
+   "transition": "-",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "bookmark-app-welcome-finished"
+    }
+   ],
+   "people": "5",
+   "coverage": "required",
+   "decision": "D4",
+   "built": "BUILT"
+  },
+  {
+   "id": "dp.legacy-account-link",
+   "matrix": "M72",
+   "entry": "DP",
+   "state": "S-DANCER",
+   "action": "old e-mail `/account?from=` / `?claim=`",
+   "end": "`/account/o` claim screen",
+   "transition": "-",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountRouting.test.tsx"
+    },
+    {
+     "kind": "E",
+     "ref": "organiser-legacy-redirects"
+    }
+   ],
+   "people": "5",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dp.account-o.dancer-part",
+   "matrix": "M73",
+   "entry": "DP",
+   "state": "S-DANCER-PART",
+   "action": "opens `/account/o` bookmark",
+   "end": "gate, onboarding with returnTo, `/account/o`",
+   "transition": "T-ONBOARD",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "tests/journeys/publicEntryJourneys.test.ts"
+    },
+    {
+     "kind": "J",
+     "ref": "organiser-link-unfinished-dancer-signed-in"
+    }
+   ],
+   "people": "7",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dp.old-account.org1",
+   "matrix": "M74",
+   "entry": "DP",
+   "state": "S-ORG1",
+   "action": "old bookmark `/account`",
+   "end": "`/account/o` Home",
+   "transition": "-",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountRouting.test.tsx"
+    },
+    {
+     "kind": "R",
+     "ref": "the old /account/dancer URL opens the dancer app (organiser + dancer: the owner report)"
+    }
+   ],
+   "people": "4",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dp.case-folded",
+   "matrix": "M75",
+   "entry": "DP",
+   "state": "any",
+   "action": "`/APP/Home/`",
+   "end": "same as lowercase",
+   "transition": "-",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountRouting.test.tsx"
+    }
+   ],
+   "people": "-",
+   "coverage": "optional",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "dp.app.admin-only",
+   "matrix": "M45/M81",
+   "entry": "DP",
+   "state": "S-ADMIN-ONLY",
+   "action": "opens `/app/*`",
+   "end": "DancerAreaGate, `/account`, Finish screen",
+   "transition": "-",
+   "covered_by": [
+    {
+     "kind": "E",
+     "ref": "dancer-app/reachability"
+    },
+    {
+     "kind": "R",
+     "ref": "admin-only opens /app/home: /account, then the Finish screen"
+    }
+   ],
+   "people": "2",
+   "coverage": "required",
+   "decision": "D2",
+   "built": "BUILT"
+  },
+  {
+   "id": "dp.erase-cancel-link",
+   "matrix": "-",
+   "entry": "DP",
+   "state": "any",
+   "action": "opens `/app/options/data/erase?cancel=` from a grace e-mail",
+   "end": "route retired with the grace path (O4); if an old e-mail exists: `/app/options` with \"Nothing to cancel\"",
+   "transition": "-",
+   "covered_by": [],
+   "people": "0 (no requests)",
+   "coverage": "optional",
+   "decision": null,
+   "built": "NOT BUILT"
+  },
+  {
+   "id": "ac.signout.storage",
+   "matrix": "M76",
+   "entry": "AC",
+   "state": "S-ORG1 signs out, S-NEW signs up on the same browser",
+   "action": "Sign out then DL",
+   "end": "B ends as dl.new.straight; B's form is EMPTY; no A key left",
+   "transition": "T-SIGNOUT",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "sign out then a different person signs up: no trace of A"
+    }
+   ],
+   "people": "every shared device",
+   "coverage": "required",
+   "decision": "D1",
+   "built": "BUILT"
+  },
+  {
+   "id": "ac.signout.then-org",
+   "matrix": "M77",
+   "entry": "AC",
+   "state": "S-DANCER out, S-ORG1 in, same browser",
+   "action": "Sign out then Sign in",
+   "end": "\"Continue as\" shows only B's sides",
+   "transition": "T-SIGNOUT,T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "sign out, then an organiser (B) signs in on the same phone: B sees B's sides and nothing of A (M77)"
+    }
+   ],
+   "people": "-",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "matrix": "-",
+   "entry": "AC",
+   "state": "S-DANCER",
+   "transition": "-",
+   "people": "0",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT",
+   "id": "ac.delete.hide",
+   "action": "delete account, type DELETE",
+   "end": "signed out on every device; the account is hidden from everyone at once; nothing is erased",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "delete hides: type DELETE, signed out on every device, the deleted page says hidden and 30 days"
+    },
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountSettings.test.ts"
+    },
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AccountSettings.test.tsx"
+    }
+   ]
+  },
+  {
+   "matrix": "-",
+   "entry": "AC",
+   "state": "S-DANCER (hidden)",
+   "transition": "-",
+   "people": "0",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT",
+   "id": "ac.delete.restore-30",
+   "action": "signs in within 30 days",
+   "end": "account restored as it was, \"Welcome back\" banner; an admin-archived profile is not restored (\"an admin has hidden this profile\")",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "signing in within 30 days restores the account and says welcome back"
+    },
+    {
+     "kind": "R",
+     "ref": "an admin-archived profile is not restored: it says an admin hid it"
+    },
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountDeletion.test.ts"
+    },
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AccountRestore.test.tsx"
+    }
+   ]
+  },
+  {
+   "matrix": "-",
+   "entry": "AC",
+   "state": "S-DANCER (hidden)",
+   "transition": "-",
+   "people": "0",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT",
+   "id": "ac.delete.after-30",
+   "action": "30 days pass",
+   "end": "stays hidden and KEPT (never auto-erased); sign-in shows \"This account was deleted on <date>\" with ask-us-to-restore / ask-us-to-erase",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "after 30 days the deleted card names the date, and both asks go to the contact address"
+    },
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AccountRestore.test.tsx"
+    }
+   ]
+  },
+  {
+   "matrix": "-",
+   "entry": "AC",
+   "state": "S-ORG1 sole owner",
+   "transition": "-",
+   "people": "0",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT",
+   "id": "ac.delete.refused-sole-owner",
+   "action": "delete account",
+   "end": "refused: `sole_organiser_owner`, transfer first",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "a sole organiser owner is refused at delete, with the pages listed"
+    },
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AccountSettings.test.tsx"
+    }
+   ]
+  },
+  {
+   "matrix": "-",
+   "entry": "AC",
+   "state": "S-ADMIN-*",
+   "transition": "-",
+   "people": "0",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT",
+   "id": "ac.delete.admin-erase",
+   "action": "asks for a full erase (deleted card / delete screen) and an admin erases it",
+   "end": "data erased by an admin only (admin_account_erase_v1, admin repo); no automatic erase; the Website only routes the request to the contact address",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "after 30 days the deleted card names the date, and both asks go to the contact address"
+    },
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountDeletion.contract.test.ts"
+    }
+   ]
+  },
+  {
+   "id": "ac.export",
+   "matrix": "-",
+   "entry": "AC",
+   "state": "any signed in",
+   "action": "download my data",
+   "end": "JSON file of every section incl. extras",
+   "transition": "T-EXPORT",
+   "covered_by": [
+    {
+     "kind": "E",
+     "ref": "account-settings"
+    }
+   ],
+   "people": "10",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ac.email-change",
+   "matrix": "-",
+   "entry": "AC",
+   "state": "S-DANCER",
+   "action": "changes e-mail",
+   "end": "\"Open both links\"; after both, sign-in works with the new e-mail only",
+   "transition": "T-EMAIL-CHANGE",
+   "covered_by": [],
+   "people": "0 pending",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "ac.hide",
+   "matrix": "-",
+   "entry": "AC",
+   "state": "S-DANCER",
+   "action": "hide / show profile",
+   "end": "profile off / on the public site",
+   "transition": "T-HIDE",
+   "covered_by": [
+    {
+     "kind": "E",
+     "ref": "account-settings"
+    }
+   ],
+   "people": "-",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "xd.signout-other-tab",
+   "matrix": "M78",
+   "entry": "XD",
+   "state": "S-ORG1",
+   "action": "signs out in tab 1",
+   "end": "tab 2 guarded page goes to `/auth?mode=signin&returnTo=<page>`",
+   "transition": "T-SIGNOUT",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "sign out in tab 1 sends tab 2's guarded page to /auth"
+    }
+   ],
+   "people": "4",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "xd.second-device",
+   "matrix": "M79",
+   "entry": "XD",
+   "state": "S-DANCER",
+   "action": "signs in on a second device",
+   "end": "both sessions live; same END on each",
+   "transition": "T-SIGNIN",
+   "covered_by": [],
+   "people": "1 has 2+ sessions",
+   "coverage": "optional",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "xd.two-tabs-onboarding",
+   "matrix": "M80",
+   "entry": "XD",
+   "state": "S-DANCER-PART",
+   "action": "finishes in tab 1, saves in tab 2",
+   "end": "tab 2 ends at `/app/home`, no error",
+   "transition": "T-ONBOARD",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "two tabs mid-onboarding: tab 2 save after tab 1 finished ends /app/home, no error"
+    }
+   ],
+   "people": "7",
+   "coverage": "required",
+   "decision": "D3",
+   "built": "BUILT"
+  }
+ ]
+}

@@ -124,11 +124,12 @@ test.describe('flows @390', () => {
       await page.screenshot({ path: 'test-results/settings-deleted.png', fullPage: false });
   });
 
-  test('media_delete_failed: stays put and says nothing was deleted', async ({ page }) => {
-    await open(page, '/account/settings/delete', { erase: { status: 500, body: { ok: false, code: 'media_delete_failed' } } });
+  // Delete = hide (admin PR #820): any unmapped failure (here delete_failed) is the generic retry line.
+  test('delete_failed: stays put and says the account was not deleted', async ({ page }) => {
+    await open(page, '/account/settings/delete', { erase: { status: 500, body: { ok: false, code: 'delete_failed' } } });
     await page.getByTestId('delete-type-input').fill('DELETE');
     await page.getByTestId('delete-confirm').click();
-    await expect(page.getByTestId('delete-error')).toContainText('nothing was deleted');
+    await expect(page.getByTestId('delete-error')).toContainText('your account was not deleted');
     await expect(page).toHaveURL(/\/account\/settings\/delete$/);
   });
 
