@@ -1,6 +1,6 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { Suspense, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { SIGN_OUT_FAILED, useSignOutToHome } from '@/components/account/profiles/signOutToHome';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { ACCOUNT_SETTINGS_LABEL } from '../../copy/sharedCopy';
 import {
@@ -15,8 +15,9 @@ import {
   type OptionsRow,
 } from './optionsModel';
 
-/** The one sign-out failure line (owned by signOutToHome, shared with the profile switcher). */
-export const SIGN_OUT_FAILED_COPY = SIGN_OUT_FAILED;
+// On demand: the shared sign-out-to-home module is then not a first-load chunk of /app/*
+// (perf-budgets chunk ratchet). Its failure line is SignOutConfirm's SIGN_OUT_FAILED_COPY.
+const SignOutConfirm = lazyWithRetry(() => import('./SignOutConfirm'));
 const LOAD_FAILED_COPY = 'We could not load your options. Check your connection and try again.';
 
 const ROW: CSSProperties = {
@@ -39,7 +40,7 @@ const ROW: CSSProperties = {
 const DISABLED: CSSProperties = { ...ROW, opacity: 0.6, cursor: 'not-allowed' };
 const REASON: CSSProperties = { fontSize: 13, color: 'var(--da-text-muted)', margin: '2px 4px 0' };
 
-const Sheet = ({ title, testId, onClose, children }: { title: string; testId: string; onClose: () => void; children: ReactNode }) => (
+const Sheet = ({ title, testId, onClose, closeDisabled = false, children }: { title: string; testId: string; onClose: () => void; closeDisabled?: boolean; children: ReactNode }) => (
   <div
     role="dialog"
     aria-modal="true"
@@ -53,7 +54,7 @@ const Sheet = ({ title, testId, onClose, children }: { title: string; testId: st
     >
       <h2 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 8px' }}>{title}</h2>
       {children}
-      <button type="button" className="da-tap" style={{ ...ROW, marginTop: 12, justifyContent: 'center' }} onClick={onClose}>
+      <button type="button" className="da-tap" style={{ ...ROW, marginTop: 12, justifyContent: 'center' }} onClick={onClose} disabled={closeDisabled}>
         Close
       </button>
     </div>
@@ -61,11 +62,10 @@ const Sheet = ({ title, testId, onClose, children }: { title: string; testId: st
 );
 
 const OptionsScreen = () => {
-  const { signOutToHome, busy: signingOut } = useSignOutToHome();
   const profile = useMyDancerEdit();
   const [sheet, setSheet] = useState<'install' | 'sign-out' | null>(null);
   const [copied, setCopied] = useState<'idle' | 'copied' | 'manual'>('idle');
-  const [signOutFailed, setSignOutFailed] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   if (profile.isError) {
     return (
@@ -89,14 +89,6 @@ const OptionsScreen = () => {
   const rows = optionsRows(me);
   const shareUrl = shareUrlFor(me.profile_id);
   const platform = detectPlatform(typeof navigator === 'undefined' ? '' : navigator.userAgent, typeof navigator === 'undefined' ? 0 : navigator.maxTouchPoints);
-
-  // Audit H10: leave for the site home FIRST, then sign out (useSignOutToHome). On
-  // 'ok' this screen has already unmounted. On 'failed' the hook comes back here
-  // and toasts the same line; if this sheet is still mounted it shows it too.
-  const doSignOut = async () => {
-    setSignOutFailed(false);
-    if ((await signOutToHome()) === 'failed') setSignOutFailed(true);
-  };
 
   const renderRow = (row: OptionsRow) => {
     if (row.disabledReason) {
@@ -124,7 +116,7 @@ const OptionsScreen = () => {
         setCopied(outcome === 'copied' || outcome === 'manual' ? outcome : 'idle');
       }
       else if (row.id === 'install') setSheet('install');
-      else if (row.id === 'sign-out') { setSignOutFailed(false); setSheet('sign-out'); }
+      else if (row.id === 'sign-out') setSheet('sign-out');
     };
     return (
       <button key={row.id} type="button" style={ROW} onClick={() => void onClick()} data-testid={`opt-${row.id}`}>{row.label}</button>
@@ -175,12 +167,17 @@ const OptionsScreen = () => {
       )}
 
       {sheet === 'sign-out' && (
-        <Sheet title="Sign out?" testId="opt-signout-sheet" onClose={() => setSheet(null)}>
+        <Sheet title="Sign out?" testId="opt-signout-sheet" onClose={() => setSheet(null)} closeDisabled={signingOut}>
           <p style={{ fontSize: 14, margin: '0 0 8px' }}>You can sign back in any time with your email.</p>
-          {signOutFailed && <p role="alert" style={{ fontSize: 14, color: 'var(--da-danger)', margin: '0 0 8px' }}>{SIGN_OUT_FAILED_COPY}</p>}
-          <button type="button" className="da-tap" style={{ ...ROW, justifyContent: 'center' }} onClick={() => void doSignOut()} disabled={signingOut} data-testid="opt-signout-confirm">
-            {signingOut ? <>Signing out&hellip;</> : signOutFailed ? 'Retry' : 'Yes, sign out'}
-          </button>
+          <Suspense
+            fallback={
+              <button type="button" className="da-tap" style={{ ...ROW, justifyContent: 'center' }} disabled data-testid="opt-signout-loading">
+                Yes, sign out
+              </button>
+            }
+          >
+            <SignOutConfirm buttonStyle={{ ...ROW, justifyContent: 'center' }} onBusyChange={setSigningOut} />
+          </Suspense>
         </Sheet>
       )}
     </section>

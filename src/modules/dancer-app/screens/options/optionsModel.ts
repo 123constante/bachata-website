@@ -1,7 +1,7 @@
 import { buildCityPath } from '@/lib/cityPath';
-import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
 import { hrefFor } from '@/lib/searchEntities';
 import { SITE_ORIGIN } from '@/lib/seo';
+import { PROFILE_HELP_MESSAGE, dancerMessageUsUrl } from '../../api/messageUs';
 import type { MyDancerEdit } from '../../api/types';
 import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../../copy/sharedCopy';
 
@@ -52,17 +52,12 @@ export const profileTypesOf = (otherRoles: readonly string[]): ProfileTypes => (
 export const shareUrlFor = (profileId: string): string => `${SITE_ORIGIN}${hrefFor('dancer', profileId)}`;
 
 /**
- * The site's existing direct WhatsApp chat (the number in WHATSAPP_GET_LISTED_URL),
- * with a message for this screen. The number is read from the one constant, never copied.
- * ORCHESTRATOR: export the number (or a message-us builder) from src/lib/contactLinks.tsx and
- * replace this parse; W2e must not edit that file.
+ * The dancer area's ONE message-us builder (api/messageUs), re-exported under the name
+ * this screen and its tests already use. Never a second copy of the WhatsApp parse.
  */
-export const messageUsUrl = (text: string): string => {
-  const base = new URL(WHATSAPP_GET_LISTED_URL);
-  return `${base.origin}${base.pathname}?text=${encodeURIComponent(text)}`;
-};
+export const messageUsUrl = dancerMessageUsUrl;
 export const FEEDBACK_MESSAGE = "Hi! Feedback on the Bachata Calendar dancer area: what's missing is ";
-export const HELP_MESSAGE = 'Hi! I need help with my Bachata Calendar dancer profile.';
+export const HELP_MESSAGE = PROFILE_HELP_MESSAGE;
 
 /**
  * Why Share is off for a hidden profile (audit M16): the shared hidden line, then the

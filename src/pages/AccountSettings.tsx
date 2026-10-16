@@ -29,7 +29,7 @@ import {
 } from "@/lib/accountSettings";
 import { ACCOUNT_CONTACT_EMAIL, OTHER_DEVICES_NOT_SIGNED_OUT, deleteRefusalMessage } from "@/lib/accountDeletionCopy";
 import { toast } from "@/hooks/use-toast";
-import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from "@/modules/dancer-app/copy/sharedCopy";
+import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from "@/lib/accountRouting";
 
 /**
  * /account/settings, /account/settings/ownership, /account/settings/delete.

@@ -13,10 +13,9 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { MY_DANCER_SUMMARY_ROOT } from "@/lib/myPersona";
-import { ACCOUNT_SETTINGS_PATH, DANCER_GATE_REASON, isDancerGatedTarget } from "@/lib/accountRouting";
+import { ACCOUNT_SETTINGS_LABEL, ACCOUNT_SETTINGS_PATH, DANCER_GATE_REASON, isDancerGatedTarget } from "@/lib/accountRouting";
 import type { DanceRoleValue } from "@/lib/auth-otp-routing";
 import { FOCUS_NOT_NOW_LABEL } from "@/lib/focusMode";
-import { ACCOUNT_SETTINGS_LABEL } from "@/modules/dancer-app/copy/sharedCopy";
 import {
   NO_PROFILE_CONTACT_LABEL,
   NO_PROFILE_CONTACT_URL,

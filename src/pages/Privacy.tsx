@@ -1,9 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useSeo } from '@/lib/seo';
 import { PRIVACY_VERSION } from '@/lib/legalVersions';
-import { ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
+import { ACCOUNT_SETTINGS_LABEL, ACCOUNT_SETTINGS_PATH, HIDDEN_STATE_WORD } from '@/lib/accountRouting';
 import { LegalShell, Section } from '@/pages/legal/LegalShell';
-import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_WORD } from '@/modules/dancer-app/copy/sharedCopy';
 
 const Privacy = () => {
   useSeo({

@@ -13,7 +13,14 @@ import { buildSignInHref } from "@/lib/authRouting";
 import { danceRoleLabel } from "@/lib/auth-otp-routing";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { optimizedImageUrl, srcWidthFor } from "@/lib/imageCdn";
-import { ACCOUNT_SETTINGS_PATH, MY_ATTENDANCE_PATH, ORGANISER_HOME_PATH } from "@/lib/accountRouting";
+import {
+  ACCOUNT_SETTINGS_LABEL,
+  ACCOUNT_SETTINGS_PATH,
+  HIDDEN_STATE_LINE,
+  MY_ATTENDANCE_PATH,
+  ORGANISER_HOME_PATH,
+  SHOW_AGAIN_LABEL,
+} from "@/lib/accountRouting";
 import {
   NO_PROFILE_CONTACT_LABEL,
   NO_PROFILE_CONTACT_URL,
@@ -24,7 +31,6 @@ import {
 import { ORGANISER_HOME_KEY, myAccessRequestsQueryKey, type MyAccessRequest } from "@/modules/organiser/shared/selfServeApi";
 import { NationalityFlag } from "@/components/people/NationalityFlag";
 import { HideSurnameCard } from "./HideSurnameCard";
-import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from "@/modules/dancer-app/copy/sharedCopy";
 
 // The organiser onboarding (claim / request access / create) loads only when
 // "I organise events" is opened: most dancers never open it.

@@ -37,7 +37,7 @@ import {
   optionsRows,
   shareUrlFor,
 } from '../optionsModel';
-import { SIGN_OUT_FAILED_COPY } from '../OptionsScreen';
+import { SIGN_OUT_FAILED_COPY } from '../SignOutConfirm';
 
 void OptionsScreen_;
 
