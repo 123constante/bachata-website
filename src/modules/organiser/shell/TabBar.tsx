@@ -8,6 +8,7 @@ export function TabBar() {
     <nav
       aria-label="Organiser"
       data-testid="org-tabbar"
+      data-keyboard-hide
       className="shrink-0 border-t border-[var(--line)] bg-[var(--tab)]"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
