@@ -7,10 +7,10 @@ import { FAKE_ORIGIN, FLAG_DANCER_ID } from './fakeSupabase.mjs';
  * one row per field (the inventory in the PR body), at 390x844 and 360x640
  * (playwright.phone.config.ts projects), with the keyboard simulated BOTH ways
  * a phone does it:
- *   - resize: the page itself shrinks by KEYBOARD px (Android Chrome with the
+ *   - resize: the page itself shrinks to what the keyboard leaves (Android Chrome with the
  *     viewport meta's interactive-widget=resizes-content);
- *   - overlay: the page keeps its height and window.visualViewport shrinks by
- *     KEYBOARD px (iOS Safari and in-app tabs; the keyboard covers the rest).
+ *   - overlay: the page keeps its height and window.visualViewport shrinks to
+ *     that height (iOS Safari and in-app tabs; the keyboard covers the rest).
  * For each: open the route, focus the field, type a few letters, raise the
  * keyboard, then assert the field is fully inside what is still visible, a tap
  * at its centre reaches it, the first result row (fields with results) is
@@ -21,11 +21,10 @@ import { FAKE_ORIGIN, FLAG_DANCER_ID } from './fakeSupabase.mjs';
  */
 
 /**
- * A phone keyboard is about the same height in CSS px on every phone (keys plus
- * the suggestion strip): 374px leaves the brief's ~470px on a 390x844 phone and
- * 266px on a 360x640 one, the small phone where a field low on the page goes under.
+ * What the keyboard leaves visible: the brief's ~470px on a 390x844 phone; on a
+ * 360x640 phone a keyboard with its suggestion strip is about 300 CSS px, so 340.
  */
-const KEYBOARD = 374;
+const visibleWithKeyboard = (height: number) => Math.min(470, height - 300);
 
 type Who = 'visitor' | 'owner' | 'newcomer';
 interface Row {
@@ -187,9 +186,9 @@ for (const mode of ['resize', 'overlay'] as const) {
         await field.click();
         await field.pressSequentially(row.text, { delay: 30 });
         if (row.result) await page.locator(row.result).first().waitFor();
-        const visible = vp.height - KEYBOARD;
+        const visible = visibleWithKeyboard(vp.height);
         if (mode === 'resize') await page.setViewportSize({ width: vp.width, height: visible });
-        else await page.evaluate((px) => (window as unknown as { __keyboard: (px: number) => void }).__keyboard(px), KEYBOARD);
+        else await page.evaluate((px) => (window as unknown as { __keyboard: (px: number) => void }).__keyboard(px), vp.height - visible);
         await expect.poll(() => problems(page, row, visible), { timeout: 4_000 }).toEqual([]);
         expect(await checkOverflow(page), 'no sideways scroll with the keyboard up').toEqual([]);
       });

@@ -71,8 +71,12 @@ function layersAt(y: number): HTMLElement[] {
   return [...out];
 }
 
-const ownLayer = (layer: HTMLElement, field: HTMLElement) =>
-  layer.contains(field) || !!layer.closest('[role="dialog"],[aria-modal="true"],[data-keyboard-keep]');
+/** The field's own layers: what holds it, what holds its results (a portalled panel), dialogs and sheets. */
+function ownLayer(layer: HTMLElement, field: HTMLElement) {
+  const id = field.getAttribute('aria-controls')?.trim().split(/\s+/)[0];
+  const results = id ? document.getElementById(id) : null;
+  return layer.contains(field) || (!!results && layer.contains(results)) || !!layer.closest('[role="dialog"],[aria-modal="true"],[data-keyboard-keep]');
+}
 
 let tallest = { w: 0, h: 0 };
 
@@ -115,7 +119,11 @@ function check() {
   }
   let top = m.top;
   let bottom = m.bottom;
-  for (const l of layersAt(m.top + 1)) if (!ownLayer(l, field)) top = Math.max(top, l.getBoundingClientRect().bottom);
+  // Headers stack (the site header, then the sticky section row under it): look again under each.
+  for (let i = 0, prev = -1; i < 4 && top !== prev; i++) {
+    prev = top;
+    for (const l of layersAt(top + 1)) if (!ownLayer(l, field)) top = Math.max(top, l.getBoundingClientRect().bottom);
+  }
   // A scrolling box (the organiser frame's body, a sheet) clips the field to its own edges.
   for (let el = field.parentElement; el && el !== document.body; el = el.parentElement) {
     if (!/^(?:auto|scroll)$/.test(getComputedStyle(el).overflowY)) continue;

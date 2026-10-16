@@ -19,6 +19,7 @@ import { CityProvider } from "@/contexts/CityContext";
 import { SearchProvider } from "@/components/search/SearchProvider";
 import { AppChrome } from "@/components/AppChrome";
 import { reportClientErrorLazy } from "@/lib/reportClientErrorLazy";
+import { installKeyboardSafe } from "@/lib/keyboard/keyboardSafe";
 import { NavigationSplash } from "./NavigationSplash";
 import { useNonce } from "./nonce";
 import "@/index.css";
@@ -67,7 +68,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang="en">
       <head>
         <meta charSet="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        {/* interactive-widget: on Android the keyboard shrinks the page, so fixed
+            bottoms and dvh sit above it; src/lib/keyboard/keyboardSafe.ts covers
+            the browsers that overlay it instead (iOS Safari, in-app tabs). */}
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
         {/* No hardcoded canonical here: it would self-canonicalize every route to
             the homepage AND duplicate the per-page canonical that detail routes
             emit via meta(). Routes own their canonical; the client useSeo effect
@@ -201,6 +205,9 @@ export default function Root() {
     if ("requestIdleCallback" in window) requestIdleCallback(() => reportClientErrorLazy());
     else setTimeout(reportClientErrorLazy, 3000); // no args: installs
   }, []);
+
+  // Every text field stays visible above the phone keyboard (one site-wide rule).
+  useEffect(() => installKeyboardSafe(), []);
 
   // AppShell minus BrowserRouter — the framework router provides the routing
   // context. AppChrome renders <Outlet/> in its <main> in place of the legacy
