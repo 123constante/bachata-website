@@ -10,7 +10,7 @@
  * must say the same thing. The expected table is written out here on purpose
  * (not imported from the mapping under test).
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -27,6 +27,15 @@ const LEVEL_SETS: Record<string, string[]> = { none: [], one: ['beginner'], many
 const LABEL: Record<string, string> = { beginner: 'Beginner', improver: 'Improver', intermediate: 'Intermediate', advanced: 'Advanced' };
 const ITEM = '11111111-1111-4111-8111-111111111111';
 const DATE = '2026-10-15';
+
+// Freeze Date so DATE stays in the future (promises and timers keep working).
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-01T12:00:00Z'));
+});
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 let stored: Record<string, unknown>[];
 const setCalls = () => rpc.mock.calls.filter(([f]) => f === 'organiser_set_occurrence_programme_v1');
