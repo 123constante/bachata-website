@@ -2,7 +2,6 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { GlobalBackground } from '@/components/GlobalBackground';
 import { GlobalHeader } from '@/components/GlobalHeader';
-import { FocusHeader } from '@/components/layout/FocusHeader';
 import { isSignupFocusPath } from '@/lib/focusMode';
 import { BottomNav } from '@/components/BottomNav';
 import { GlobalFooter } from '@/components/layout/GlobalFooter';
@@ -10,6 +9,9 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Skeleton } from '@/components/ui/skeleton';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { ProfileGateContext, useAuth, type ProfileGateValue } from '@/hooks/useAuth';
+
+// Lazy: only sign-up focus paths fetch it (and authRouting with it), never every route.
+const FocusHeader = lazyWithRetry(() => import('@/components/layout/FocusHeader'));
 
 // Signed-in only: the "Finish your profile" reminder banner + the one hop to
 // /finish-profile after sign-in. Lazy so a signed-out first load (nearly every
@@ -86,7 +88,11 @@ export function AppChrome({ children }: { children?: React.ReactNode }) {
     <ProfileGateContext.Provider value={gateValue}>
       <GlobalBackground />
       {siteChrome && <GlobalHeader />}
-      {focus && <FocusHeader />}
+      {focus && (
+        <Suspense fallback={null}>
+          <FocusHeader />
+        </Suspense>
+      )}
       {/* Spacer that matches the sticky header height so NO page is blocked behind it. */}
       {!ownChrome && <div className="h-[60px] shrink-0" aria-hidden="true" />}
       {/* Mobile section row: sticky just under the header (md:hidden inside). Not on /app (own chrome). */}

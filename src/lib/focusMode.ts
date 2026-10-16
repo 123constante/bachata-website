@@ -1,4 +1,5 @@
-import { sanitizeReturnTo } from '@/lib/authRouting';
+// A LEAF module on purpose: AppChrome (every route's first load) reads it, so an
+// import here is one more first-load request on every page (perf-budget ratchet).
 
 /**
  * Sign-up FOCUS MODE (owner decision, 2026-10-16). From "Create account" through
@@ -34,17 +35,4 @@ export function isSignupFocusPath(pathname: string, search: string, profileCompl
   if (profileComplete) return false;
   if (path === SETUP_PATH) return true;
   return path === SETUP_PHOTO_PATH && trimSlash((params.get('return') ?? '').toLowerCase()) === SETUP_PATH;
-}
-
-/**
- * Where "Not now" goes: the safe in-site returnTo the flow was
- * opened with, else home. A plain link: the person stays signed in and nothing
- * is deleted. Never back into the focus flow itself.
- */
-export function focusNotNowHref(search: string): string {
-  const params = new URLSearchParams(search);
-  const target = sanitizeReturnTo(params.get('returnTo'));
-  if (!target) return '/';
-  const [targetPath, targetSearch = ''] = target.split('#', 1)[0].split('?');
-  return isSignupFocusPath(targetPath, targetSearch, false) ? '/' : target;
 }

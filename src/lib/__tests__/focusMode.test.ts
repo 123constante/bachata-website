@@ -4,7 +4,8 @@
  * look-alikes that must keep the normal site.
  */
 import { describe, expect, it } from 'vitest';
-import { FOCUS_NOT_NOW_LABEL, focusNotNowHref, isSignupFocusPath } from '@/lib/focusMode';
+import { FOCUS_NOT_NOW_LABEL, isSignupFocusPath } from '@/lib/focusMode';
+import { focusNotNowHref } from '@/components/layout/FocusHeader';
 
 const CASES: Array<[string, string, boolean, boolean]> = [
   // pathname, search, profileComplete, expected

@@ -38,13 +38,13 @@ describe('sign-up focus mode chrome', () => {
     ['/auth', '/'],
     ['/auth?mode=signup&returnTo=%2Fevent%2Fabc', '/event/abc'],
     ['/auth/callback?mode=signup&returnTo=%2Fevent%2Fabc', '/event/abc'],
-  ])('%s: logo + "Not now" (-> %s) only', (path, notNow) => {
+  ])('%s: logo + "Not now" (-> %s) only', async (path, notNow) => {
     renderAt(path);
+    const header = await screen.findByTestId('focus-header');
     expect(screen.getByTestId('page')).toBeTruthy();
     expect(screen.queryByTestId('site-header')).toBeNull();
     expect(screen.queryByTestId('site-bottom-nav')).toBeNull();
     expect(screen.queryByTestId('site-footer')).toBeNull();
-    const header = screen.getByTestId('focus-header');
     const links = header.querySelectorAll('a');
     expect(links).toHaveLength(1); // one exit, the logo is not a second one
     expect(links[0].textContent).toBe('Not now');

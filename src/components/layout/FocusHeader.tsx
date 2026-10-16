@@ -1,13 +1,28 @@
 import { Link, useLocation } from 'react-router-dom';
 import bachataCalendarLogo from '@/assets/brand/bachata-calendar-logo.png';
-import { FOCUS_NOT_NOW_LABEL, focusNotNowHref } from '@/lib/focusMode';
+import { sanitizeReturnTo } from '@/lib/authRouting';
+import { FOCUS_NOT_NOW_LABEL, isSignupFocusPath } from '@/lib/focusMode';
+
+/**
+ * Where "Not now" goes: the safe in-site returnTo the flow was opened with,
+ * else home. A plain link: the person stays signed in and nothing is deleted.
+ * Never back into the focus flow itself. Lives here, not in lib/focusMode, so
+ * the every-page mapping stays a leaf (authRouting rides this lazy chunk).
+ */
+export function focusNotNowHref(search: string): string {
+  const params = new URLSearchParams(search);
+  const target = sanitizeReturnTo(params.get('returnTo'));
+  if (!target) return '/';
+  const [targetPath, targetSearch = ''] = target.split('#', 1)[0].split('?');
+  return isSignupFocusPath(targetPath, targetSearch, false) ? '/' : target;
+}
 
 /**
  * Sign-up focus mode top bar (lib/focusMode): the logo (not a link -- one exit,
- * not two) and a small "Not now" that goes back to where the flow was opened
- * from, or home. Same 60px box as GlobalHeader so the page spacer still fits.
+ * not two) and a small "Not now". Same 60px box as GlobalHeader so the page
+ * spacer still fits. Lazy-loaded by AppChrome: only focus paths ever fetch it.
  */
-export function FocusHeader() {
+export default function FocusHeader() {
   const { search } = useLocation();
   return (
     <header
