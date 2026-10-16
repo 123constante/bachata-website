@@ -284,6 +284,8 @@ export const CHECKS = [
   // figure is not the number recorded.
   ["check:workflow-artifact-policy:self-test", "upload steps are still recognised, and the policy still rejects"],
   ["check:workflow-artifact-policy", "every workflow artifact upload is cost-bounded"],
+  ["check:no-preview-prefixes:self-test", "the preview-job prefix drift guard can still fail"],
+  ["check:no-preview-prefixes", "preview jobs exclude exactly the Vercel no-preview prefixes"],
   // Not a lint-chain link: the plan layer lives outside the repo (the home
   // plans dir), so it has no place in "npm run lint" and SKIPs in CI. It sits
   // here because the ship gate is the one place a local tree is guaranteed to

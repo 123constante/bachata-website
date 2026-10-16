@@ -143,6 +143,8 @@ export const LINKS = [
   "check:wallclock-brand",
   "check:workflow-artifact-policy:self-test",
   "check:workflow-artifact-policy",
+  "check:no-preview-prefixes:self-test",
+  "check:no-preview-prefixes",
 ];
 
 /**

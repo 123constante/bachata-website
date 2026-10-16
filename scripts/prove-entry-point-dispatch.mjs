@@ -177,6 +177,7 @@ const TARGETS = [
   { rel: 'scripts/check-image-refs-live.mjs' },
   { rel: 'scripts/check-io-health.mjs' },
   { rel: 'scripts/check-mojibake.mjs' },
+  { rel: 'scripts/check-no-preview-prefixes.mjs' },
   { rel: 'scripts/check-occurrence-delete-booking-safety.mjs' },
   { rel: 'scripts/check-og-images.mjs' },
   { rel: 'scripts/check-og-render-health.mjs' },

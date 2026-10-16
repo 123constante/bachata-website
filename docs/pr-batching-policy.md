@@ -34,6 +34,39 @@ pushes is the whole goal.
 8. **Dependabot: group updates.**
    Why: one grouped PR replaces many single-package PRs.
 
+## Vercel build budget
+
+Vercel Hobby allows about 100 deployments per rolling 24 hours. On 2026-10-16
+we made 93 and hit "Deployment rate limited - retry in 24 hours": no PR
+previews, and a merge to `main` would not have deployed production either.
+Over the 3 days before, docs-only brief branches alone were 36% of all builds.
+
+The rule (`scripts/vercel-ignore-build.sh`, the `vercel.json` ignoreCommand),
+for NON-production builds only:
+
+- **No preview for these branch prefixes:** `arc/briefs-`, `claude/done-`,
+  `claude/review-` always skip; `bot/` and `dependabot/` skip when no build path
+  changed (as before). That list lives ONLY in the script
+  (`ALWAYS_SKIP_PREFIXES` + `DIFF_RULE_PREFIXES`); the preview jobs' `if:` in
+  `perf-budget.yml`, `synthetic-ssr-monitor.yml`, `seo-check.yml` and
+  `og-image-check.yml` copy it, and `npm run check:no-preview-prefixes` (run in
+  `workflow-lint.yml`) fails when a copy drifts.
+- **`[skip preview]` in the commit SUBJECT skips the build** (the body is never read). Workers end every
+  CHECKPOINT commit subject with `[skip preview]`, and NEVER put it on the final
+  `[worker-done ...]` push: the final push must build the preview the PR checks
+  need. A skipped build is CANCELED, so the next untagged push builds normally.
+  The preview checks fail a `[skip preview]` head FAST and RED
+  (`scripts/lib/previewProbe.mjs`: "checkpoint commit: no preview by design;
+  the final worker push builds one"); a head that was never previewed never
+  looks verified.
+- Production (`main`, `VERCEL_ENV=production`) is unchanged, and every unknown
+  case still builds.
+
+**Emergency path when rate-limited:** Vercel Instant Rollback to the previous
+production deployment (dashboard: Deployments, pick the last good production
+deployment, Instant Rollback). It reuses an existing build, so it should not
+need a build slot. **Not verified on Hobby.**
+
 ## Proposal (not applied)
 
 - Enable `groups:` in `.github/dependabot.yml` so minor and patch updates for
@@ -69,5 +102,6 @@ PR HYGIENE (docs/pr-batching-policy.md):
 - Iterate locally (build + tests). Push ONCE when finished; no pushes to re-run CI.
 - Fix your own mistakes on this branch. Follow-up PR only for a defect found after merge.
 - No draft PR pushed until there is something to look at.
+- Any checkpoint push: end the commit subject with [skip preview]. NEVER on the final [worker-done] push.
 - Never merge or approve. Leave merging to the owner (batched).
 ```

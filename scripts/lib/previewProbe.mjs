@@ -103,10 +103,34 @@ async function ghJson(path, token) {
   return res.json();
 }
 
+/** The tag a worker CHECKPOINT commit carries. scripts/vercel-ignore-build.sh
+ *  skips the Vercel build for it (SKIP_PREVIEW_TAG there), so no preview will
+ *  ever exist for that head. */
+export const SKIP_PREVIEW_TAG = '[skip preview]';
+
+/** The head commit's message via the GitHub commits API, or null when it cannot
+ *  be read. null never skips anything: the caller polls as before and a missing
+ *  preview still times out RED. */
+async function headCommitMessage(repo, sha, token, log) {
+  try {
+    const c = await ghJson(`/repos/${repo}/commits/${sha}`, token);
+    return typeof c?.commit?.message === 'string' ? c.commit.message : null;
+  } catch (e) {
+    log(`previewProbe: could not read the head commit message (${e.message}); polling as usual`);
+    return null;
+  }
+}
+
 /**
  * Resolve the ready Vercel preview URL for a commit via the GitHub Deployments
  * API. Polls until a Preview deployment reports a `success` status with an
  * `environment_url`, or throws on timeout (fail-loud — never returns null).
+ *
+ * A head whose commit SUBJECT carries `[skip preview]` THROWS at once instead
+ * of polling 600s (after ONE pass, in case it was built anyway): Vercel skipped its build by design (Vercel build budget,
+ * docs/pr-batching-policy.md). It stays RED, never a green skip -- a head that
+ * was never previewed must not look verified. `commitMessage` is injectable;
+ * left undefined it is read from the GitHub API.
  */
 export async function resolvePreviewUrl({
   sha = getPreviewSha(),
@@ -115,30 +139,57 @@ export async function resolvePreviewUrl({
   timeoutMs = 600_000,
   intervalMs = 5_000,
   log = console.log,
+  commitMessage = undefined,
 } = {}) {
   if (!repo) throw new Error('previewProbe: GITHUB_REPOSITORY is not set.');
   if (!sha) throw new Error('previewProbe: could not determine the preview commit sha.');
+
+  // One pass over the deployments: the ready preview URL, or null.
+  const readyUrl = async (attempt) => {
+    const deployments = await ghJson(
+      `/repos/${repo}/deployments?sha=${sha}&per_page=30`,
+      token,
+    );
+    // Vercel labels the environment "Preview" (sometimes "Preview – <project>").
+    const previews = deployments.filter((d) => /preview/i.test(d.environment ?? ''));
+    for (const d of previews) {
+      const statuses = await ghJson(`/repos/${repo}/deployments/${d.id}/statuses?per_page=30`, token);
+      const ready = statuses.find((s) => s.state === 'success' && s.environment_url);
+      if (ready) {
+        const url = ready.environment_url.replace(/\/$/, '');
+        log(`previewProbe: preview ready at ${url} (deployment ${d.id}, attempt ${attempt})`);
+        return url;
+      }
+    }
+    return null;
+  };
+
+  // The SUBJECT only, as scripts/vercel-ignore-build.sh matches it. One pass
+  // first: if Vercel built this head anyway (fail-safe build, truncated or
+  // missing VERCEL_GIT_COMMIT_MESSAGE), the real preview is used.
+  const message = commitMessage ?? (await headCommitMessage(repo, sha, token, log));
+  const subject = typeof message === 'string' ? message.split('\n')[0] : '';
+  if (subject.includes(SKIP_PREVIEW_TAG)) {
+    let url = null;
+    try {
+      url = await readyUrl(1);
+    } catch (e) {
+      log(`previewProbe: poll error on a checkpoint head: ${e.message}`);
+    }
+    if (url) return url;
+    throw new Error(
+      `previewProbe: ${sha} is a checkpoint commit: no preview by design; the final worker push builds one. ` +
+        `(Its subject carries '${SKIP_PREVIEW_TAG}', so scripts/vercel-ignore-build.sh skipped the build.)`,
+    );
+  }
 
   const deadline = Date.now() + timeoutMs;
   let attempt = 0;
   while (Date.now() < deadline) {
     attempt += 1;
     try {
-      const deployments = await ghJson(
-        `/repos/${repo}/deployments?sha=${sha}&per_page=30`,
-        token,
-      );
-      // Vercel labels the environment "Preview" (sometimes "Preview – <project>").
-      const previews = deployments.filter((d) => /preview/i.test(d.environment ?? ''));
-      for (const d of previews) {
-        const statuses = await ghJson(`/repos/${repo}/deployments/${d.id}/statuses?per_page=30`, token);
-        const ready = statuses.find((s) => s.state === 'success' && s.environment_url);
-        if (ready) {
-          const url = ready.environment_url.replace(/\/$/, '');
-          log(`previewProbe: preview ready at ${url} (deployment ${d.id}, attempt ${attempt})`);
-          return url;
-        }
-      }
+      const url = await readyUrl(attempt);
+      if (url) return url;
       log(`previewProbe: waiting for a ready Preview deployment for ${sha.slice(0, 8)} (attempt ${attempt})`);
     } catch (e) {
       log(`previewProbe: poll error (attempt ${attempt}): ${e.message}`);
