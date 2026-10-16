@@ -38,6 +38,7 @@ import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '@/m
 import { SIGN_OUT_FAILED } from '@/components/account/profiles/signOutToHome';
 import * as model from '../optionsModel';
 import { optionsRows, shareUrlFor } from '../optionsModel';
+import { withFromApp } from '@/lib/accountSettings';
 
 const OWNED = [
   'src/modules/dancer-app/screens/options/OptionsScreen.tsx',
@@ -151,6 +152,12 @@ describe('L13: the account link uses the shared label', () => {
     await options();
     expect(screen.getByRole('link', { name: ACCOUNT_SETTINGS_LABEL }).getAttribute('href')).toBe('/account/settings?from=app');
     expect(await readSrc(OWNED[0])).toMatch(/ACCOUNT_SETTINGS_LABEL/);
+  });
+});
+
+describe('M4: Options opens settings in the from=app context', () => {
+  it('the link is lib/accountSettings withFromApp, so settings shows Back to Options', () => {
+    expect(model.ACCOUNT_SETTINGS_PATH).toBe(withFromApp('/account/settings', true));
   });
 });
 

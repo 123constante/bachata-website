@@ -1,17 +1,3 @@
-import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
-
-/**
- * "Message us" links for dancers: the site's one direct WhatsApp chat (the number in
- * WHATSAPP_GET_LISTED_URL, read from that constant, never copied) with a DANCER message,
- * not the organiser "list my events" prefill. Static: lib/contactLinks already rides the
- * chunk every route loads (GlobalHeader, BottomNav), so the href is there on first render.
- */
-export const dancerMessageUsUrl = (text: string): string => {
-  const base = new URL(WHATSAPP_GET_LISTED_URL);
-  return `${base.origin}${base.pathname}?text=${encodeURIComponent(text)}`;
-};
-
-export const NOT_ME_MESSAGE = 'Hi! The dancer profile linked to my Bachata Calendar account is not me.';
-export const ADD_CITY_MESSAGE = 'Hi! Please add my city to Bachata Calendar. My city is: ';
-export const NO_PROFILE_MESSAGE = 'Hi! My Bachata Calendar account has no dancer profile yet. Please can you set one up?';
-export const PROFILE_HELP_MESSAGE = 'Hi! I need help with my Bachata Calendar dancer profile.';
+// The dancer "Message us" builder and messages live in lib/contactLinks, so site pages
+// (Auth, FinishProfile via lib/profileCompletion) share the ONE copy with the dancer app.
+export { ADD_CITY_MESSAGE, NOT_ME_MESSAGE, NO_PROFILE_MESSAGE, PROFILE_HELP_MESSAGE, dancerMessageUsUrl } from '@/lib/contactLinks';

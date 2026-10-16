@@ -1,5 +1,5 @@
 import { sanitizeReturnTo } from "@/lib/authRouting";
-import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
+import { NO_PROFILE_MESSAGE, dancerMessageUsUrl } from "@/lib/contactLinks";
 import { isAccountPath } from "@/lib/accountRouting";
 
 /**
@@ -83,7 +83,7 @@ export const RATE_BLOCKED_REASON = "Finish your profile to rate";
 export const PROFILE_COMPLETE_TEXT = "Your profile is complete. You can rate parties now.";
 export const NO_PROFILE_REASON = "Your account has no dancer profile yet, so it can\u2019t rate";
 export const NO_PROFILE_TEXT =
-  "Your account has no dancer profile yet, so you can\u2019t rate parties. Message us and we\u2019ll set it up.";
+  "Your account does not have a dancer profile yet. Message us and we\u2019ll set one up for you.";
 
 export const completenessFact = (c: Pick<ProfileCompletion, "status" | "missing">): CompletenessFact => {
   if (c.status === "incomplete") {
@@ -124,7 +124,8 @@ export const finishProfileHref = (returnTo?: string | null): string => {
 };
 
 export const NO_PROFILE_CONTACT_LABEL = "Message us on WhatsApp";
-export const NO_PROFILE_CONTACT_URL = WHATSAPP_GET_LISTED_URL;
+// The dancer prefill (lib/contactLinks), never the organiser "list my events" one (audit H6).
+export const NO_PROFILE_CONTACT_URL = dancerMessageUsUrl(NO_PROFILE_MESSAGE);
 
 // One flat shape, not a union on `allowed`: this repo compiles without
 // strictNullChecks, where a boolean discriminant does not narrow.
