@@ -9,7 +9,7 @@
 // restoreAccount, DeletionStatus. The RPC names and JSON keys are pinned against the
 // #820 SQL by src/lib/__tests__/accountDeletion.contract.test.ts.
 import { rpcLoose } from "@/integrations/supabase/rpcLoose";
-import { sanitizeReturnTo } from "./authRouting";
+import { ACCOUNT_RESTORE_PATH, restorePathFor } from "./accountRouting";
 
 const rpc = (fn: string) => rpcLoose(fn);
 
@@ -50,14 +50,8 @@ export const fetchDeletionStatus = async (): Promise<DeletionStatus | null> => {
   return parseDeletionStatus(data);
 };
 
-/** Where a deleted (= hidden) account lands after sign-in: restore within 30 days, else the deleted card. */
-export const ACCOUNT_RESTORE_PATH = "/account/restore";
-
-/** /account/restore, carrying the page the sign-in was headed for (its "Continue" goes there). */
-export const restorePathFor = (returnTo: string | null): string => {
-  const safe = sanitizeReturnTo(returnTo);
-  return safe ? `${ACCOUNT_RESTORE_PATH}?returnTo=${encodeURIComponent(safe)}` : ACCOUNT_RESTORE_PATH;
-};
+// Defined in lib/accountRouting (import-light, so the sign-in landing can name it); re-exported for existing callers.
+export { ACCOUNT_RESTORE_PATH, restorePathFor };
 
 /**
  * The sign-in's deletion check (pages/AuthCallback, which EVERY sign-in passes through, with or

@@ -326,7 +326,12 @@
    "action": "signed in, opens the OL",
    "end": "`/account/o` Home, every organiser listed",
    "transition": "-",
-   "covered_by": [],
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountGate.test.tsx"
+    }
+   ],
    "people": "0",
    "coverage": "optional",
    "decision": null,
@@ -359,7 +364,12 @@
    "action": "signed in, opens the OL",
    "end": "gate `no_profile`: Finish, onboarding, claim screen",
    "transition": "T-ONBOARD",
-   "covered_by": [],
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountGate.test.tsx"
+    }
+   ],
    "people": "2",
    "coverage": "required",
    "decision": "D2",
@@ -824,7 +834,12 @@
    "action": "signs in",
    "end": "`/account/o`, gate shows Finish",
    "transition": "T-SIGNIN",
-   "covered_by": [],
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountGate.test.tsx"
+    }
+   ],
    "people": "0",
    "coverage": "optional",
    "decision": null,

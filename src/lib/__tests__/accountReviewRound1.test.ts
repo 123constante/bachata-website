@@ -2,7 +2,8 @@
  * Review round 1 pins for slice 3a+3d.
  *  - S1: the ONE contact address is support@bachatacalendar.co.uk (the mailbox the /privacy page,
  *    Website PR #762, names), and no other source file spells a bachatacalendar.co.uk mailbox.
- *  - S2: the deletion check lives in the sign-in callback, so slice 3b's files carry none of it:
+ *  - S2: the deletion check lives in the sign-in callback, so slice 3b's files never import it as a value (a
+ *    type-only import of DeletionLanding is allowed; 3b reads lib/accountGate):
  *    lib/accountRouting and the Continue-as page do not import lib/accountDeletion, and
  *    /account/restore is not behind the dancer-first gate (a hidden account has no live profile).
  *  - S4: the rate-limit copy names the SQL's rolling 24 hours, never "tomorrow".
@@ -32,8 +33,8 @@ describe('S1: one contact address', () => {
 });
 
 describe("S2: none of the deletion check in slice 3b's files", () => {
-  it.each(['lib/accountRouting.ts', 'components/account/profiles/ContinueAsPage.tsx'])('%s does not import lib/accountDeletion', (f) => {
-    expect(read(f)).not.toMatch(/accountDeletion/);
+  it.each(['lib/accountRouting.ts', 'components/account/profiles/ContinueAsPage.tsx'])('%s does not import lib/accountDeletion (a type-only import is fine: slice 3b reads the gate, never the RPC)', (f) => {
+    expect(read(f)).not.toMatch(/^import (?!type\b)[^;]*accountDeletion/m);
   });
   it('the sign-in callback runs the check', () => {
     expect(read('pages/AuthCallback.tsx')).toMatch(/signInDeletionTarget\(/);
