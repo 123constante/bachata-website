@@ -35,3 +35,7 @@ Brief: `arc/briefs-dancer-rebuild:briefs/site-keyboard-safe.md`. Branch `claude/
 ## Next steps
 1. Add rows for the screens above. Each one needs a fake for the data it reads.
 2. Ricky: phone test, on Android Chrome and on iOS Safari.
+
+## PR
+- #785 (https://github.com/123constante/bachata-website/pull/785). The body carries the inventory, the red, green and mutation runs, and the per-job CI table.
+- Not deleted: the e2e smoke run created `docs/handover/dancer-rebuild-w2b/` and `docs/handover/dancer-rebuild-w2e/` as untracked folders. They are not committed and can be deleted.
