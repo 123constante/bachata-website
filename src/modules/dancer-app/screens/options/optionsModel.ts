@@ -32,7 +32,7 @@ export type OptionsRow = {
 };
 
 export const ORGANISER_AREA_PATH = '/account/o';
-export const ACCOUNT_SETTINGS_PATH = '/account/settings';
+export const ACCOUNT_SETTINGS_PATH = '/account/settings?from=app'; // from=app: settings shows Back to Options (M4)
 /** The site home (the events feed). The ONE way back to the site from Options (audit L9). */
 export const SITE_HOME_PATH = buildCityPath(null);
 

@@ -204,7 +204,7 @@ describe('options screen', () => {
       const href = el.closest('a')!.getAttribute('href')!;
       expect(CATCHALL_CLIENT_PATHS.some((p) => matchesPattern(href, p)), href).toBe(true);
     }
-    expect(screen.getByText('Account settings').closest('a')!.getAttribute('href')).toBe('/account/settings');
+    expect(screen.getByText('Account settings').closest('a')!.getAttribute('href')).toBe('/account/settings?from=app');
   });
 
   it('sign out success: confirm sheet, the shared signOut is called once, then home', async () => {

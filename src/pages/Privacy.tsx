@@ -3,6 +3,7 @@ import { useSeo } from '@/lib/seo';
 import { PRIVACY_VERSION } from '@/lib/legalVersions';
 import { ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
 import { LegalShell, Section } from '@/pages/legal/LegalShell';
+import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_WORD } from '@/modules/dancer-app/copy/sharedCopy';
 
 const Privacy = () => {
   useSeo({
@@ -37,7 +38,10 @@ const Privacy = () => {
           </li>
           <li>WhatsApp is shown publicly only if you switch &ldquo;show WhatsApp publicly&rdquo; on. Your e-mail is never shown.</li>
           <li>Your nights (going or interested) are private to you. Only anonymous totals per event are shown to others.</li>
-          <li>You can hide your whole profile or pause it at any time.</li>
+          <li>
+            You can hide your whole profile at any time, and show it again whenever you like. While it is {HIDDEN_STATE_WORD},
+            only you can see it.
+          </li>
         </ul>
       </Section>
 
@@ -80,7 +84,7 @@ const Privacy = () => {
 
       <Section title="Download or delete your data">
         <p>
-          Go to <Link to={ACCOUNT_SETTINGS_PATH} className="underline">Account settings</Link> (also under Options in the
+          Go to <Link to={ACCOUNT_SETTINGS_PATH} className="underline">{ACCOUNT_SETTINGS_LABEL}</Link> (also under Options in the
           dancer area). There you can download everything we hold about you, hide your profile, or delete your account.
         </p>
         <p>

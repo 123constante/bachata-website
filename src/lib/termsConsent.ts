@@ -1,13 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
+import { TERMS_VERSION } from '@/lib/legalVersions';
 
 /** D8. The one clickwrap line records kind `terms_privacy` at this document version (admin accept_terms_v1). */
 export const TERMS_KIND = 'terms_privacy';
 /**
- * ONE constant for the terms version. It must equal TERMS_VERSION in Website PR #762
- * (`src/lib/legalVersions.ts`, branch claude/site-legal-pages); termsConsent.test.ts fails if both files
- * are present and differ. When #762 lands, re-export from legalVersions instead of keeping a copy.
+ * The terms version has ONE source: src/lib/legalVersions.ts (audit L27). Re-exported, never copied, so a
+ * bump there re-asks everyone (termsConsent.version.test.ts proves it).
  */
-export const TERMS_VERSION = '2026-10-16';
+export { TERMS_VERSION };
 /** Longest sign-in/sign-up waits on a consent or gate call; on timeout the person simply carries on. */
 export const CONSENT_TIMEOUT_MS = 2500;
 export const TERMS_PATH = '/terms';

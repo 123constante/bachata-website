@@ -26,10 +26,11 @@ beforeEach(() => {
 });
 
 describe('erase confirmation word', () => {
-  it('is exactly DELETE, case-sensitive, no padding', () => {
+  // L19: stray spaces are ignored (a phone keyboard adds one); the capitals are still required.
+  it('is DELETE, case-sensitive, ignoring surrounding spaces', () => {
     expect(ERASE_CONFIRM_WORD).toBe('DELETE');
-    expect(canConfirmErase('DELETE')).toBe(true);
-    for (const bad of ['', 'delete', 'Delete', 'DELETE ', ' DELETE', 'DELET', 'DELETEE']) {
+    for (const ok of ['DELETE', 'DELETE ', ' DELETE']) expect(canConfirmErase(ok), JSON.stringify(ok)).toBe(true);
+    for (const bad of ['', 'delete', 'Delete', 'DELET', 'DELETEE', 'DE LETE']) {
       expect(canConfirmErase(bad), JSON.stringify(bad)).toBe(false);
     }
   });

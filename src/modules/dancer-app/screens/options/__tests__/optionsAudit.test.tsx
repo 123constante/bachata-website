@@ -115,7 +115,7 @@ describe('M16: one word for the hidden state (Options x Home)', () => {
     expect(s.line().textContent).toContain(SHOW_AGAIN_LABEL);
     expect(root.textContent).not.toMatch(/paus/i);
     // The page the line points at is linked on screen.
-    expect(within(root).getAllByRole('link').some((a) => a.getAttribute('href') === '/account/settings')).toBe(true);
+    expect(within(root).getAllByRole('link').some((a) => (a.getAttribute('href') ?? '').startsWith('/account/settings'))).toBe(true);
   });
 
   it.each(OWNED)('%s never says paused / Unpause in copy', async (f) => {
@@ -149,7 +149,7 @@ describe('L9 / L12: one control per destination; organiser below Help; no coming
 describe('L13: the account link uses the shared label', () => {
   it('reads ACCOUNT_SETTINGS_LABEL from sharedCopy', async () => {
     await options();
-    expect(screen.getByRole('link', { name: ACCOUNT_SETTINGS_LABEL }).getAttribute('href')).toBe('/account/settings');
+    expect(screen.getByRole('link', { name: ACCOUNT_SETTINGS_LABEL }).getAttribute('href')).toBe('/account/settings?from=app');
     expect(await readSrc(OWNED[0])).toMatch(/ACCOUNT_SETTINGS_LABEL/);
   });
 });

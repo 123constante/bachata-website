@@ -96,13 +96,14 @@ const visibilityFor = (p: (typeof PROFILE_STATES)[number]) => (p === 'none' ? 'n
 
 describe('settings home', () => {
   for (const p of PROFILE_STATES) {
-    it(`${p}: sign out, email, export and ownership are always there`, async () => {
+    it(`${p}: sign out, email, export and delete are always there`, async () => {
       h.visibility = { status: visibilityFor(p) };
       mount(SETTINGS);
       expect(await screen.findByTestId('settings-signout')).toBeTruthy();
       expect(screen.getByTestId('settings-email-input')).toBeTruthy();
       expect(screen.getByTestId('settings-export')).toBeTruthy();
-      expect(screen.getByTestId('settings-ownership-link').getAttribute('href')).toBe('/account/settings/ownership');
+      // M21: straight to the delete view (the ownership step is gone).
+      expect(screen.getByTestId('settings-delete-link').getAttribute('href')).toBe('/account/settings/delete');
     });
   }
 
@@ -224,8 +225,8 @@ describe('ownership + delete: the same fact on both screens', () => {
       it(`${role} x ${p}: ownership offers Delete account, delete screen reads the check`, async () => {
         h.visibility = { status: visibilityFor(p) };
         h.check = { ...check, blockers: [...check.blockers] };
-        mount('/account/settings/ownership');
-        expect(await screen.findByTestId('ownership-delete-link')).toBeTruthy();
+        mount('/account/settings');
+        expect(await screen.findByTestId('settings-delete-link')).toBeTruthy();
         cleanup();
         mount('/account/settings/delete');
         const erase = (await screen.findByTestId('delete-confirm')) as HTMLButtonElement;
@@ -262,11 +263,13 @@ describe('ownership + delete: the same fact on both screens', () => {
     expect(document.body.textContent).not.toMatch(FORBIDDEN);
   });
 
-  it('ownership: no promise of permanence', async () => {
-    mount('/account/settings/ownership');
-    expect((await screen.findByTestId('ownership-delete-link')).textContent).toBe('Delete account');
-    expect(document.body.textContent).toMatch(/within 30 days/i);
-    expect(document.body.textContent).not.toMatch(FORBIDDEN);
+  it('settings home delete entry: no promise of permanence', async () => {
+    mount('/account/settings');
+    expect((await screen.findByTestId('settings-delete-link')).textContent).toBe('Delete account');
+    // Scoped to the delete section: the visibility card truthfully says hiding is "not permanent".
+    const section = screen.getByTestId('settings-delete').textContent ?? '';
+    expect(section).toMatch(/within 30 days/i);
+    expect(section).not.toMatch(FORBIDDEN);
   });
 
   it('delete stays disabled until DELETE is typed exactly; then hides, signs out everywhere, routes to the deleted page', async () => {
@@ -274,7 +277,7 @@ describe('ownership + delete: the same fact on both screens', () => {
     mount('/account/settings/delete');
     const input = await screen.findByTestId('delete-type-input');
     const btn = screen.getByTestId('delete-confirm') as HTMLButtonElement;
-    for (const v of ['delete', 'Delete', 'DELETE ', 'DELET']) {
+    for (const v of ['delete', 'Delete', 'DELET']) {
       fireEvent.change(input, { target: { value: v } });
       expect(btn.disabled, v).toBe(true);
     }

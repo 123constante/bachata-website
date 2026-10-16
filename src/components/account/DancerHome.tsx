@@ -24,6 +24,7 @@ import {
 import { ORGANISER_HOME_KEY, myAccessRequestsQueryKey, type MyAccessRequest } from "@/modules/organiser/shared/selfServeApi";
 import { NationalityFlag } from "@/components/people/NationalityFlag";
 import { HideSurnameCard } from "./HideSurnameCard";
+import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from "@/modules/dancer-app/copy/sharedCopy";
 
 // The organiser onboarding (claim / request access / create) loads only when
 // "I organise events" is opened: most dancers never open it.
@@ -183,10 +184,10 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
     <div className="space-y-3" data-testid="dancer-home">
       {visibility.status === "hidden" && (
         <div className={`${CARD} space-y-2 border-primary/60`} role="status" data-testid="dancer-home-hidden-banner">
-          <p className="text-[14px] font-semibold text-foreground">Your dancer profile is hidden.</p>
-          <p className="text-[13px] text-muted-foreground">Nobody else can see it. You can show it again in your settings.</p>
+          <p className="text-[14px] font-semibold text-foreground">{HIDDEN_STATE_LINE}</p>
+          <p className="text-[13px] text-muted-foreground">You can show it again in {ACCOUNT_SETTINGS_LABEL}.</p>
           <Link to={ACCOUNT_SETTINGS_PATH} className={PILL} data-testid="dancer-home-hidden-settings">
-            Show my profile again
+            {SHOW_AGAIN_LABEL}
           </Link>
         </div>
       )}
@@ -364,7 +365,7 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
         className="flex min-h-[44px] items-center justify-center text-[14px] font-semibold text-primary underline underline-offset-2"
         data-testid="dancer-home-settings"
       >
-        Settings: email, your data, hide or delete account
+        {ACCOUNT_SETTINGS_LABEL}: email, your data, hide or delete account
       </Link>
 
       {/* The open onboarding has its own "Signed in as ... Sign out" line: one per screen. */}

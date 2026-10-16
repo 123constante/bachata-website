@@ -18,6 +18,7 @@ import Privacy from '@/pages/Privacy';
 import Terms from '@/pages/Terms';
 import { FooterLinks } from '@/lib/contactLinks';
 import { PRIVACY_VERSION, TERMS_VERSION } from '@/lib/legalVersions';
+import { formatLongDate } from '@/lib/accountDeletionCopy';
 
 afterEach(cleanup);
 const PLACEHOLDER = '[OWN' + 'ER:';
@@ -28,12 +29,12 @@ describe('legal pages', () => {
   it('Privacy renders its heading and Last updated from the constant', () => {
     wrap(<Privacy />);
     expect(screen.getByRole('heading', { level: 1, name: /privacy/i })).toBeTruthy();
-    expect(screen.getByText(new RegExp(`Last updated ${PRIVACY_VERSION}`))).toBeTruthy();
+    expect(screen.getByText(`Last updated ${formatLongDate(PRIVACY_VERSION)}`)).toBeTruthy();
   });
   it('Terms renders its heading and Last updated from the constant', () => {
     wrap(<Terms />);
     expect(screen.getByRole('heading', { level: 1, name: /terms/i })).toBeTruthy();
-    expect(screen.getByText(new RegExp(`Last updated ${TERMS_VERSION}`))).toBeTruthy();
+    expect(screen.getByText(`Last updated ${formatLongDate(TERMS_VERSION)}`)).toBeTruthy();
   });
   it('versions match the accept_terms_v1 format', () => {
     for (const v of [TERMS_VERSION, PRIVACY_VERSION]) expect(v).toMatch(/^[0-9A-Za-z._-]{1,32}$/);
