@@ -5,7 +5,6 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useKeyboardInset } from '../ui/useKeyboardInset';
-import { TabBar } from './TabBar';
 import '../theme.css';
 
 export interface OrganiserShellProps {
@@ -26,18 +25,17 @@ export interface OrganiserShellProps {
   detail?: ReactNode;
   /** Wide screens only: shown in the detail column when `detail` is absent. */
   detailPlaceholder?: ReactNode;
-  /** Sticky bottom action bar (e.g. PreviewBar). Sits above the tab bar, never over it. */
+  /** Sticky bottom action bar (e.g. PreviewBar): the last thing in the frame (no tabs, D32). */
   actionBar?: ReactNode;
-  hideTabs?: boolean;
   testId?: string;
 }
 
 /**
  * The organiser area frame: a fixed full-viewport layer (100dvh) over the
  * public chrome, laid out as a flex column -- top bar, scrolling content,
- * action bar, tab bar -- so nothing can overlap anything. Safe-area aware.
- * When the on-screen keyboard is up the frame shrinks above it and the tab
- * bar hides, so the action bar stays reachable.
+ * action bar -- so nothing can overlap anything, and nothing sits below the
+ * content (no tabs, D32). Safe-area aware. When the on-screen keyboard is up
+ * the frame shrinks above it, so the action bar stays reachable.
  */
 // Switch profile: the ONE shared sheet (components/account/profiles), in its own
 // lazy chunk; declared here rather than through a shared wrapper module, which
@@ -67,7 +65,6 @@ export function OrganiserShell({
   detail,
   detailPlaceholder,
   actionBar,
-  hideTabs = false,
   testId = 'org-shell',
 }: OrganiserShellProps) {
   const { inset } = useKeyboardInset();
@@ -126,12 +123,11 @@ export function OrganiserShell({
         <div
           data-testid="org-actionbar"
           className={cn('shrink-0 border-t border-[var(--line)] bg-[var(--bg)]')}
-          style={{ paddingBottom: hideTabs || keyboardUp ? 'env(safe-area-inset-bottom)' : undefined }}
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
           <div className="mx-auto max-w-[640px]">{actionBar}</div>
         </div>
       )}
-      {!hideTabs && !keyboardUp && <TabBar />}
     </div>
   );
 }
