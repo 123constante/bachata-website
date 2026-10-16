@@ -37,7 +37,8 @@ export const BENTO_ACCENT = 'hsl(var(--bento-accent))';
 // PinkFallback is semantically distinct from a normal tile (no-cover / error
 // state) and retains its legacy pink. Kept as a named export so
 // PinkFallback.tsx has a token to import instead of a floating hex literal.
-export const PINK_FALLBACK_SURFACE = '#E13A8A';
+// Darkened from #E13A8A (4.06:1 under the white event title, audit M13) to 5.36:1.
+export const PINK_FALLBACK_SURFACE = '#C42A72';
 
 // BLOCK_COLORS is retained for backward compatibility with consumers that
 // still read `BLOCK_COLORS[id]` — every entry now points to BENTO_SURFACE so

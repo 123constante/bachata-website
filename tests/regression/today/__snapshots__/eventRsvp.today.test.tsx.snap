@@ -49,11 +49,11 @@ text "RSVPs are closed for this event""
 `;
 
 exports[`event page Going / Interested at '390x844' > signed-out Going sends nothing and asks to sign in 1`] = `
-"dialog "Sign in to RSVP"
-  heading "Sign in to RSVP" level=2
-  text "Sign in to let the organiser know you're going."
-  button "Log In"
-  button "Sign Up"
+"dialog "Save this night"
+  heading "Save this night" level=2
+  text "Sign in or create an account to save this night. Your nights are private to you."
+  button "Sign in"
+  button "Create account"
   button "Continue browsing"
   button "Close""
 `;
@@ -107,11 +107,11 @@ text "RSVPs are closed for this event""
 `;
 
 exports[`event page Going / Interested at 'desktop' > signed-out Going sends nothing and asks to sign in 1`] = `
-"dialog "Sign in to RSVP"
-  heading "Sign in to RSVP" level=2
-  text "Sign in to let the organiser know you're going."
-  button "Log In"
-  button "Sign Up"
+"dialog "Save this night"
+  heading "Save this night" level=2
+  text "Sign in or create an account to save this night. Your nights are private to you."
+  button "Sign in"
+  button "Create account"
   button "Continue browsing"
   button "Close""
 `;

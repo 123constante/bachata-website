@@ -276,8 +276,9 @@ export async function signupForm(page: Page, entry: string, shot: Shot, who = { 
   await page.getByPlaceholder('Search city...').fill('Lon');
   await page.getByRole('option', { name: /London/ }).click();
   await shot('auth-details', '/auth sign-up step 2 of 3: first name and city filled (the dance role is next)');
-  // The third detail completes the step: the form moves on to the e-mail by itself (no Continue press).
+  // The details step is left only by its Continue (audit M15), never the moment the third detail is picked.
   await page.getByRole('radio', { name: 'Follower', exact: true }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(page.getByText(/Last step/)).toBeVisible();
   await page.locator('#signup-email').fill(who.email);
   await shot('auth-email', '/auth sign-up step 3 of 3: e-mail filled');

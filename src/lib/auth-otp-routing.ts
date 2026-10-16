@@ -1,5 +1,6 @@
 // Pure auth-routing decisions for the magic-link flow, kept out of the page
 // components so they can be unit-tested without a Supabase client.
+import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
 
 // Shown when sign-in mode discovers the email has no account (Lever 2 walk B3).
 /**
@@ -8,6 +9,30 @@
  * labels and the tests all derive from this.
  */
 export const OTP_CODE_LENGTH = 8;
+
+/**
+ * Seconds before "Resend code" works again. Supabase refuses a second send to
+ * the same address inside its per-address interval (default 60 s), so a shorter
+ * cooldown only offers a button that fails (audit H7). One value for every code box.
+ */
+export const OTP_RESEND_COOLDOWN_SECONDS = 60;
+
+/** Supabase's 429 (`over_email_send_rate_limit`, "For security purposes..."). */
+export function isOtpRateLimitedError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const { status, code, message } = error as { status?: unknown; code?: unknown; message?: unknown };
+  const text = typeof message === "string" ? message.toLowerCase() : "";
+  return status === 429 || code === "over_email_send_rate_limit" || text.includes("rate limit") || text.includes("for security purposes");
+}
+
+/** Said under the code box (or the e-mail form) when a send was refused as too soon. */
+export const OTP_RATE_LIMITED_MESSAGE = "We sent you a code a moment ago. Wait a minute, then try again.";
+
+// The one WhatsApp number, with a prefill that fits a person signing up (not the
+// organiser "list my events" one): derived from the shared link, never a 2nd copy.
+const whatsAppWith = (text: string) => `${WHATSAPP_GET_LISTED_URL.split("?")[0]}?text=${encodeURIComponent(text)}`;
+export const SIGNUP_HELP_WHATSAPP_URL = whatsAppWith("Hi! I'm trying to create an account on Bachata Calendar.");
+export const CITY_REQUEST_WHATSAPP_URL = whatsAppWith("Hi! My city is not in the list on Bachata Calendar. Please add: ");
 
 export const OTP_NO_ACCOUNT_NOTICE = "No account for this email yet. Create one to continue.";
 
@@ -29,9 +54,10 @@ export function isOtpSignupDisabledError(error: unknown): boolean {
 // path with HTTP 403 "Sign-up is limited to approved organisers.". Only a
 // create attempt can be an allowlist refusal -- a 403 on the login path
 // (shouldCreateUser false) is something else and keeps the generic copy.
-export const SIGNUP_INVITE_ONLY_TITLE = "Sign-up is invite-only for now";
+// Neutral copy (audit M18): the person refused is usually a dancer, not an organiser.
+export const SIGNUP_INVITE_ONLY_TITLE = "We can't create an account for this email yet";
 export const SIGNUP_INVITE_ONLY_DESCRIPTION =
-  "This beta is limited to approved organisers. If you run bachata events and want in, ask us to add your email, then try again.";
+  "New accounts are open to invited people for now. Message us and we'll add your email, then try again.";
 
 export function isSignupAllowlistRefusal(error: unknown, shouldCreateUser: boolean): boolean {
   if (!shouldCreateUser || !error || typeof error !== "object") return false;
