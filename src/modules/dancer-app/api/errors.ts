@@ -27,7 +27,8 @@ const COPY: Record<DancerErrorCode, string> = {
   photo_required: 'Your photo cannot be removed. You can replace it with a new one.',
   invalid_display_name: 'Display name must be 1 to 40 characters, with no links or @.',
   invalid_text: 'Some of your text has characters we cannot save. Remove any links or odd symbols and try again.',
-  invalid_role: 'Pick Leader, Follower or Lead and Follow.',
+  // The chips' own words (api/nextStep ROLE_CHOICES labels), not the stored value 'Lead and Follow' (L17).
+  invalid_role: 'Pick Leader, Follower or Both.',
   invalid_year: 'Pick a year between 1950 and this year.',
   bio_too_long: 'Your bio can be up to 280 characters.',
   bio_has_link: 'Links are not allowed in your bio. Add your Instagram, Facebook or website in their own fields.',
