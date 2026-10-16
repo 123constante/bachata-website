@@ -37,19 +37,11 @@
   },
   {
     "id": "ol.admin-only.signed-in",
-    "reason": "BUILT, no test and no walk: admin-only landing waits on decision D2; PR-3b (SidesFacts.isAdmin) covers it."
-  },
-  {
-    "id": "ol.org2.signed-in",
-    "reason": "optional, no test: S-ORG2 has 0 prod people and no fake person shape yet; PR-3b adds the fake and the test."
+    "reason": "BUILT with a unit test (accountGate.test.tsx: admin row), no build walk yet; the admin-only walk needs an admin fake person in tests/e2e-build."
   },
   {
     "id": "si.dancer.wrong-code",
     "reason": "BUILT with a unit test, no build walk yet; needs a real code to type wrong; PR-5b real-OTP spec."
-  },
-  {
-    "id": "si.org-only",
-    "reason": "optional, no test: S-ORG-ONLY has 0 prod people and no fake person shape yet; PR-3b adds the fake and the test."
   },
   {
     "id": "si.signup-refused",

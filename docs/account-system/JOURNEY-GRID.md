@@ -90,9 +90,9 @@ The check cannot verify that a walk asserts the stated END. That stays a review 
 | `ol.dancer.signed-in` | S-DANCER | already signed in | `/account/o`, no form | J:organiser-link-signed-in | required | 7 |
 | `ol.dancer-part.signed-in` | S-DANCER-PART | already signed in or signs in | gate, `/finish-profile?returnTo`, `/app/welcome`, `/account/o` | U:tests/journeys/publicEntryJourneys.test.ts; J:organiser-link-unfinished-dancer-signed-in | required | 7 |
 | `ol.org1.signed-in` | S-ORG1 | signed in, opens the OL | `/account/o` Home (not the claim screen) | J:organiser-link-organiser-signed-in | required | 4 |
-| `ol.org2.signed-in` | S-ORG2 | signed in, opens the OL | `/account/o` Home, every organiser listed | **MISSING** | optional | 0 |
+| `ol.org2.signed-in` | S-ORG2 | signed in, opens the OL | `/account/o` Home, every organiser listed | U:src/lib/__tests__/accountGate.test.tsx | optional | 0 |
 | `ol.request.signed-in` | S-REQUEST | signed in, opens the OL | `/account/o` open-request screen | J:organiser-link-open-request-signed-in | required | 1 |
-| `ol.admin-only.signed-in` | S-ADMIN-ONLY | signed in, opens the OL | gate `no_profile`: Finish, onboarding, claim screen (D2) | **MISSING** | required | 2 |
+| `ol.admin-only.signed-in` | S-ADMIN-ONLY | signed in, opens the OL | gate `no_profile`: Finish, onboarding, claim screen (D2) | U:src/lib/__tests__/accountGate.test.tsx | required | 2 |
 
 ### Dancer link / home banner `/auth?mode=signup&userType=dancer`
 
@@ -126,7 +126,7 @@ The check cannot verify that a walk asserts the stated END. That stays a review 
 | `si.org1.switch` | S-ORG1 | switch sheet dancer to organiser and back | `/account/o` ticked; `/app/home` Dancer ticked | R:switch sheet in the dancer app: every side, a tick on Dancer, settings, sign out; R:switch sheet in the organiser area: same sheet, a tick on the organiser | required | 4 |
 | `si.org2.switch` | S-ORG2 | switch sheet from organiser B to A | `/account/o?o=A`, A ticked | U:src/lib/__tests__/accountSidesRouting.test.ts; R:two organisers: the switch sheet ticks the ?o= organiser and switches between them | optional | 0 |
 | `si.empty` | S-EMPTY | signs in | `/app/welcome` dancer setup (O5) | R:no side, not an admin: /account/continue lands on /app/welcome, never the site home (M44) | optional | 0 |
-| `si.org-only` | S-ORG-ONLY | signs in | `/account/o`, gate shows Finish | **MISSING** | optional | 0 |
+| `si.org-only` | S-ORG-ONLY | signs in | `/account/o`, gate shows Finish | U:src/lib/__tests__/accountGate.test.tsx | optional | 0 |
 | `si.unconfirmed-later` | S-UNCONF | comes back days later and signs in | code sent; entering it finishes sign-up as dl.new.straight (stub kept); after 7 days the purge makes it S-NEW | **MISSING** | required | 6 |
 | `si.code-step-reload` | any, code_sent | reloads the code screen | the code box reopens for the same e-mail within 10 minutes; after 5 wrong codes it locks and offers "Send a new code" (a new code resets the count) (D7) | U:src/pages/__tests__/AuthCodeStep.test.tsx; W:docs/handover/shots-3c | required | new |
 | `si.consent.signup` | S-NEW | types the sign-up code | clickwrap line under the code box; accept_terms_v1 once on success; then as dl.new.straight (D8) | U:src/pages/__tests__/AuthConsentFunnel.test.tsx; W:docs/handover/shots-3c | required | new |
@@ -187,11 +187,11 @@ The check cannot verify that a walk asserts the stated END. That stays a review 
 |---|---|---|---|---|---|---|
 | `ac.signout.storage` | S-ORG1 signs out, S-NEW signs up on the same browser | Sign out then DL | B ends as dl.new.straight; B's form is EMPTY; no A key left (D1) | R:sign out then a different person signs up: no trace of A | required | every shared device |
 | `ac.signout.then-org` | S-DANCER out, S-ORG1 in, same browser | Sign out then Sign in | "Continue as" shows only B's sides | R:sign out, then an organiser (B) signs in on the same phone: B sees B's sides and nothing of A (M77) | required | - |
-| `ac.delete.hide` | S-DANCER | delete account, type DELETE | signed out on every device; hidden from everyone at once; nothing is erased | R + U (slice 3ad) | required | 0 |
-| `ac.delete.restore-30` | S-DANCER (hidden) | signs in within 30 days | restored as it was, "Welcome back"; an admin archive is not restored | R + U (slice 3ad) | required | 0 |
-| `ac.delete.after-30` | S-DANCER (hidden) | 30 days pass, signs in | stays hidden and kept (never auto-erased); "This account was deleted on <date>" card | R + U (slice 3ad) | required | 0 |
-| `ac.delete.refused-sole-owner` | S-ORG1 sole owner | delete account | refused: `sole_organiser_owner`, the pages listed, transfer first | R + U (slice 3ad) | required | 0 |
-| `ac.delete.admin-erase` | S-ADMIN-* | asks for a full erase; an admin erases | erased by an admin only (admin repo); the Website routes the ask to the contact address | R + U (slice 3ad) | required | 0 |
+| `ac.delete.hide` | S-DANCER | delete account, type DELETE | signed out on every device; the account is hidden from everyone at once; nothing is erased | R:delete hides: type DELETE, signed out on every device, the deleted page says hidden and 30 days; U:src/lib/__tests__/accountSettings.test.ts; U:src/pages/__tests__/AccountSettings.test.tsx | required | 0 |
+| `ac.delete.restore-30` | S-DANCER (hidden) | signs in within 30 days | account restored as it was, "Welcome back" banner; an admin-archived profile is not restored ("an admin has hidden this profile") | R:signing in within 30 days restores the account and says welcome back; R:an admin-archived profile is not restored: it says an admin hid it; U:src/lib/__tests__/accountDeletion.test.ts; U:src/pages/__tests__/AccountRestore.test.tsx | required | 0 |
+| `ac.delete.after-30` | S-DANCER (hidden) | 30 days pass | stays hidden and KEPT (never auto-erased); sign-in shows "This account was deleted on <date>" with ask-us-to-restore / ask-us-to-erase | R:after 30 days the deleted card names the date, and both asks go to the contact address; U:src/pages/__tests__/AccountRestore.test.tsx | required | 0 |
+| `ac.delete.refused-sole-owner` | S-ORG1 sole owner | delete account | refused: `sole_organiser_owner`, transfer first | R:a sole organiser owner is refused at delete, with the pages listed; U:src/pages/__tests__/AccountSettings.test.tsx | required | 0 |
+| `ac.delete.admin-erase` | S-ADMIN-* | asks for a full erase (deleted card / delete screen) and an admin erases it | data erased by an admin only (admin_account_erase_v1, admin repo); no automatic erase; the Website only routes the request to the contact address | R:after 30 days the deleted card names the date, and both asks go to the contact address; U:src/lib/__tests__/accountDeletion.contract.test.ts | required | 0 |
 | `ac.export` | any signed in | download my data | JSON file of every section incl. extras | E:account-settings | required | 10 |
 | `ac.email-change` | S-DANCER | changes e-mail | "Open both links"; after both, sign-in works with the new e-mail only | **MISSING** | required | 0 pending |
 | `ac.hide` | S-DANCER | hide / show profile | profile off / on the public site | E:account-settings | required | - |
