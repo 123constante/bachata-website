@@ -18,7 +18,6 @@ import { ORG_PATHS } from './paths';
 // point at ./placeholders, and each slice (S1-S9) changes only its import target.
 const HomePage = lazyWithRetry(() => import('../home'));
 const EventsPage = lazyWithRetry(() => import('../events'));
-const NewEventPage = lazyWithRetry(() => import('../events/NewEventPage'));
 const EventEditorPage = lazyWithRetry(() => import('../events/EventEditorPage'));
 const DatePage = lazyWithRetry(() => import('../dates'));
 const TeamPage = lazyWithRetry(() => import('../team'));
@@ -27,7 +26,7 @@ const SwitchFlow = lazyWithRetry(() => import('./placeholders')); // S1 switch/
 const ChangeFlow = lazyWithRetry(() => import('./placeholders')); // S2 flows/change
 const AddFlow = lazyWithRetry(() => import('./placeholders')); // S3 flows/add
 const CancelFlow = lazyWithRetry(() => import('./placeholders')); // S3 flows/cancel
-const NewFlow = lazyWithRetry(() => import('./placeholders')); // S4 flows/new
+const NewFlow = lazyWithRetry(() => import('../flows/new'));
 const EventDetails = lazyWithRetry(() => import('./placeholders')); // S5 events/Details
 const TeamFlow = lazyWithRetry(() => import('./placeholders')); // S6 team/
 const HandoverFlow = lazyWithRetry(() => import('./placeholders')); // S6 flows/handover
@@ -105,12 +104,12 @@ export default function OrganiserRoutes() {
             <Route path="cancel/:seriesId" element={<CancelFlow name="Cancel a date" />} />
             <Route path="cancel/:seriesId/:occurrenceId" element={<CancelFlow name="Cancel a date" />} />
 
-            <Route path="new/what" element={<NewEventPage />} />
-            <Route path="new/name" element={<NewFlow name="New event" />} />
-            <Route path="new/:seriesId/venue" element={<NewFlow name="New event" />} />
-            <Route path="new/:seriesId/date" element={<NewFlow name="New event" />} />
-            <Route path="new/:seriesId/time" element={<NewFlow name="New event" />} />
-            <Route path="new/:seriesId/cover" element={<NewFlow name="New event" />} />
+            <Route path="new/what" element={<NewFlow />} />
+            <Route path="new/name" element={<NewFlow />} />
+            <Route path="new/:seriesId/venue" element={<NewFlow />} />
+            <Route path="new/:seriesId/date" element={<NewFlow />} />
+            <Route path="new/:seriesId/time" element={<NewFlow />} />
+            <Route path="new/:seriesId/cover" element={<NewFlow />} />
 
             <Route path="events" element={<EventsPage />} />
             <Route path="events/:seriesId" element={<EventEditorPage />} />
