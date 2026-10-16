@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { INSTAGRAM_URL } from '@/lib/contactLinks';
+import { ACCOUNT_CONTACT_EMAIL as CONTACT_EMAIL } from '@/lib/accountDeletionCopy';
 
 type Props = { routeId: 'privacy' | 'terms'; title: string; updated: string; children: ReactNode };
 
@@ -30,7 +31,6 @@ export const Section = ({ title, children }: { title: string; children: ReactNod
   </section>
 );
 
-const CONTACT_EMAIL = 'support@bachatacalendar.co.uk';
 
 /** Who runs the site. The e-mail is the contact route; Instagram is an optional second channel. */
 const Contact = () => (
