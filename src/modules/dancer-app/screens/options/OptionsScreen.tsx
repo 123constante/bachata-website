@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { ACCOUNT_SETTINGS_LABEL } from '../../copy/sharedCopy';
+import { toDancerError } from '../../api/errors';
+import { NO_PROFILE_MESSAGE, PROFILE_HELP_MESSAGE } from '../../api/messageUs';
+import { MessageUsLink } from '../me/ui';
 import {
   ACCOUNT_SETTINGS_PATH,
   INSTALL_STEPS,
@@ -68,6 +71,17 @@ const OptionsScreen = () => {
   const [signingOut, setSigningOut] = useState(false);
 
   if (profile.isError) {
+    // No profile / wrong profile: Retry cannot help, so say so and offer the one way out (journey matrix, check b).
+    const err = toDancerError(profile.error);
+    if (err.code === 'no_profile' || err.code === 'profile_mismatch') {
+      return (
+        <section className="da-card" data-testid="dancer-screen-options">
+          <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Options</h1>
+          <p role="alert" style={{ fontSize: 14, margin: '8px 0' }}>{err.message}</p>
+          <MessageUsLink message={err.code === 'no_profile' ? NO_PROFILE_MESSAGE : PROFILE_HELP_MESSAGE} style={ROW} />
+        </section>
+      );
+    }
     return (
       <section className="da-card" data-testid="dancer-screen-options">
         <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Options</h1>

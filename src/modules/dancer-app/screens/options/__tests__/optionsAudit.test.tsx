@@ -208,3 +208,12 @@ describe('seeds', () => {
     expect(screen.getByTestId('opt-sign-out')).toBeTruthy();
   });
 });
+
+describe('journey check b: Options with no dancer profile says what to do', () => {
+  it('shows the server reason and the Message us link, not a Retry that cannot help', async () => {
+    renderInShell({ path: '/app/options', backend: { profile: null } });
+    const link = await screen.findByRole('link', { name: /message us/i });
+    expect(link.getAttribute('href')).toContain(encodeURIComponent('has no dancer profile yet'));
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  });
+});

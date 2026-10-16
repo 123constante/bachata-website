@@ -32,7 +32,6 @@ export const OTP_RATE_LIMITED_MESSAGE = "We sent you a code a moment ago. Wait a
 // organiser "list my events" one): derived from the shared link, never a 2nd copy.
 const whatsAppWith = (text: string) => `${WHATSAPP_GET_LISTED_URL.split("?")[0]}?text=${encodeURIComponent(text)}`;
 export const SIGNUP_HELP_WHATSAPP_URL = whatsAppWith("Hi! I'm trying to create an account on Bachata Calendar.");
-export const CITY_REQUEST_WHATSAPP_URL = whatsAppWith("Hi! My city is not in the list on Bachata Calendar. Please add: ");
 
 export const OTP_NO_ACCOUNT_NOTICE = "No account for this email yet. Create one to continue.";
 

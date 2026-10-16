@@ -15,7 +15,8 @@ import { nextStepLine } from '../../api/nextStep';
 import { RateNudge } from './RateNudge';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { WhatsOn } from './WhatsOn';
-import { Avatar } from '../me/ui';
+import { Avatar, MessageUsLink } from '../me/ui';
+import { NO_PROFILE_MESSAGE } from '../../api/messageUs';
 import { HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../../copy/sharedCopy';
 import { BROWSE_EVENTS_LABEL } from './homeCopy';
 
@@ -174,9 +175,9 @@ const HomeScreen = () => {
     body = (
       <Message>
         <b>We can&rsquo;t find a dancer profile for you yet.</b>
-        <p style={{ margin: '4px 0 0', fontSize: 14 }}>
-          Message us from <Link to={path('options')} style={linkStyle}>Options</Link> and we&rsquo;ll sort it out.
-        </p>
+        <p style={{ margin: '4px 0 8px', fontSize: 14 }}>Message us and we&rsquo;ll sort it out.</p>
+        {/* The control itself, not a pointer to Options: Options cannot load without a profile either. */}
+        <MessageUsLink message={NO_PROFILE_MESSAGE} style={{ ...linkStyle, display: 'inline-flex', alignItems: 'center', minHeight: 44 }} />
       </Message>
     );
   } else if (profile.error || !profile.data) {

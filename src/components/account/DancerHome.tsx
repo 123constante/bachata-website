@@ -1,7 +1,7 @@
 import { Suspense, useId, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, ChevronDown, Music, UserRound } from "lucide-react";
+import { CalendarDays, ChevronDown, Music } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useCity } from "@/contexts/CityContext";
@@ -31,6 +31,7 @@ import {
 import { ORGANISER_HOME_KEY, myAccessRequestsQueryKey, type MyAccessRequest } from "@/modules/organiser/shared/selfServeApi";
 import { NationalityFlag } from "@/components/people/NationalityFlag";
 import { HideSurnameCard } from "./HideSurnameCard";
+import { PersonAvatar } from "./profiles/PersonAvatar";
 
 // The organiser onboarding (claim / request access / create) loads only when
 // "I organise events" is opened: most dancers never open it.
@@ -41,29 +42,18 @@ const PILL =
 const CARD = "rounded-xl border border-border bg-card p-3";
 const AVATAR_PX = 56;
 
+/** The ONE PersonAvatar (its no-photo disc is the site's muted tone, never the black background). */
 function Avatar({ url, name }: { url: string | null; name: string | null }) {
-  if (url) {
-    return (
-      <img
-        src={optimizedImageUrl(url, srcWidthFor(AVATAR_PX))}
-        alt={name ? `${name}'s photo` : "Your photo"}
-        width={AVATAR_PX}
-        height={AVATAR_PX}
-        loading="eager"
-        className="h-[56px] w-[56px] shrink-0 rounded-full object-cover"
-        data-testid="dancer-home-photo"
-      />
-    );
-  }
-  const initial = name?.[0]?.toUpperCase();
   return (
-    <span
-      aria-hidden="true"
-      className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-full border border-border bg-background text-[20px] font-bold text-muted-foreground"
-      data-testid="dancer-home-photo-empty"
-    >
-      {initial ?? <UserRound className="h-5 w-5" />}
-    </span>
+    <PersonAvatar
+      photoUrl={url ? optimizedImageUrl(url, srcWidthFor(AVATAR_PX)) : null}
+      name={name}
+      size={AVATAR_PX}
+      loading="eager"
+      alt={name ? `${name}'s photo` : "Your photo"}
+      imgTestId="dancer-home-photo"
+      placeholderTestId="dancer-home-photo-empty"
+    />
   );
 }
 

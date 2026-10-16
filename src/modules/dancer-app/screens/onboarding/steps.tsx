@@ -73,7 +73,7 @@ export const CityCard = ({ profile, busy, error, onSubmit, tag }: CardProps) => 
       <Question>Where do you dance?</Question>
       <Field id="ob-city" label="Your city">
         <Suspense fallback={<div aria-busy="true" style={{ minHeight: 48, borderRadius: 12, background: 'var(--da-surface-2)' }} />}>
-          <CityPicker value={city} onChange={(id) => setCity(id)} placeholder="Search for your city" className="min-h-[48px] w-full" />
+          <CityPicker id="ob-city" value={city} onChange={(id) => setCity(id)} placeholder="Search for your city" className="min-h-[48px] w-full" />
         </Suspense>
         {/* Audit M28: the picker's own request form is switched off, and city is required. */}
         <p className="da-muted" style={{ ...wrap, fontSize: 14, margin: '4px 0 0' }}>

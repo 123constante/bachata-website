@@ -5,6 +5,7 @@ import { toDancerError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
 import { NO_NAME_YET, ownPublicName } from '../../api/publicName';
 import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
+import { NO_PROFILE_MESSAGE, PROFILE_HELP_MESSAGE, dancerMessageUsUrl } from '../../api/messageUs';
 
 /** Shared bits of the Me and Edit screens (sizes in px, never rem: the phone html font-size is ~13.5px). */
 
@@ -66,6 +67,13 @@ export const Avatar = ({
   );
 };
 
+/** The dancer "Message us" control: WhatsApp, pre-filled. Wherever copy says "Message us", this is on screen. */
+export const MessageUsLink = ({ message, style }: { message: string; style: CSSProperties }) => (
+  <a href={dancerMessageUsUrl(message)} target="_blank" rel="noopener noreferrer" className="da-tap" style={style} data-testid="message-us">
+    Message us on WhatsApp
+  </a>
+);
+
 /** Loading / error states for the query both screens share. Returns null when the data is ready. */
 export const QueryGate = ({ q, id }: { q: UseQueryResult<MyDancerEdit>; id: string }): ReactNode => {
   if (q.isPending) {
@@ -77,13 +85,20 @@ export const QueryGate = ({ q, id }: { q: UseQueryResult<MyDancerEdit>; id: stri
   }
   if (q.isError) {
     const err = toDancerError(q.error);
+    // A profile the server cannot find (or match) is not fixed by retrying: its copy says
+    // "Message us", so the control is Message us (as Onboarding's, audit M23).
+    const needsUs = err.code === 'no_profile' || err.code === 'profile_mismatch';
     return (
       <section className="da-card" data-testid={`dancer-state-${id}`} role="alert">
         <p style={{ fontSize: 14, margin: '0 0 10px' }} data-testid="load-error">{err.message}</p>
         <div style={{ display: 'grid', gap: 8 }}>
-          <button type="button" className="da-tap" style={mainButton} onClick={() => void q.refetch()}>
-            Try again
-          </button>
+          {needsUs ? (
+            <MessageUsLink message={err.code === 'no_profile' ? NO_PROFILE_MESSAGE : PROFILE_HELP_MESSAGE} style={mainButton} />
+          ) : (
+            <button type="button" className="da-tap" style={mainButton} onClick={() => void q.refetch()}>
+              Try again
+            </button>
+          )}
           <Link to="/" className="da-tap" style={ghostButton}>
             Back to the Bachata Calendar website
           </Link>

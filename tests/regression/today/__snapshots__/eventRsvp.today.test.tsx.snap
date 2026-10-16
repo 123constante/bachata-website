@@ -160,7 +160,7 @@ radiogroup "Choose the level of the dancing"
   radio "Mixed" [disabled] [checked=false]
   radio "Strong" [disabled] [checked=false]
 text "Your account has no dancer profile yet, so it can’t rate ."
-link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.",
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F",
 }
 `;
 
@@ -219,7 +219,7 @@ radiogroup
   radio "Mixed" [disabled] [checked=false]
   radio "Strong" [disabled] [checked=false]
 text "Your account has no dancer profile yet, so it can’t rate ."
-link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.",
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F",
 }
 `;
 
@@ -279,7 +279,7 @@ radiogroup "Choose the level of the dancing"
   radio "Mixed" [disabled] [checked=false]
   radio "Strong" [disabled] [checked=false]
 text "Your account has no dancer profile yet, so it can’t rate ."
-link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.",
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F",
 }
 `;
 
@@ -338,7 +338,7 @@ radiogroup
   radio "Mixed" [disabled] [checked=false]
   radio "Strong" [disabled] [checked=false]
 text "Your account has no dancer profile yet, so it can’t rate ."
-link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.",
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F",
 }
 `;
 

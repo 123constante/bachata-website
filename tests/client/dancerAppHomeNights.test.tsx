@@ -140,11 +140,12 @@ describe('Home x profile shapes', () => {
     expect(tile.textContent).toMatch(/Choose how you dance towards 70%/);
   });
 
-  it('no profile: message-us copy pointing at Options', async () => {
+  it('no profile: the Message us control itself (Options cannot load without a profile)', async () => {
     home({ backend: { profile: null } });
     const m = await screen.findByTestId('home-message');
     await waitFor(() => expect(m.textContent).toMatch(/Message us/));
-    expect(within(m).getByRole('link', { name: 'Options' }).getAttribute('href')).toBe('/app/options');
+    expect(within(m).getByRole('link', { name: 'Message us on WhatsApp' }).getAttribute('href')).toMatch(/^https:\/\/wa\.me\//);
+    expect(within(m).queryByRole('link', { name: 'Options' })).toBeNull();
   });
 
   it('paused profile: hidden banner links to account settings', async () => {

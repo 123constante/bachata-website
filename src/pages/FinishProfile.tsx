@@ -198,8 +198,9 @@ export const FinishProfileScreen = () => {
 
         {fields.includes("based_city_id") && (
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Your city</Label>
+            <Label htmlFor="finish-city" className="text-sm font-medium">Your city</Label>
             <CityPicker
+              id="finish-city"
               value={draft.based_city_id}
               onChange={(id) => set("based_city_id", id)}
               placeholder="Select your city&hellip;"
@@ -226,7 +227,7 @@ export const FinishProfileScreen = () => {
               value={draft.avatar_url}
               onChange={(url) => set("avatar_url", url)}
               userId={completion.profileId}
-              initials={(draft.first_name.trim()[0] ?? "?").toUpperCase()}
+              name={draft.first_name.trim() || null}
             />
           </div>
         )}

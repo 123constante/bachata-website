@@ -39,7 +39,7 @@ vi.mock('@/components/profile/AvatarUpload', () => ({
 
 import { FinishProfileScreen as FinishProfile } from '../FinishProfile';
 import { SKIP_FINISH_PROFILE_KEY } from '@/lib/profileCompletion';
-import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
+import { NO_PROFILE_CONTACT_URL } from '@/lib/profileCompletion';
 
 let path = '';
 const Probe = () => {
@@ -165,7 +165,8 @@ it('no profile row: explains, offers the WhatsApp contact, no form that cannot s
   h.completion = { status: 'no_profile', missing: ALL, profileId: null };
   mount();
   expect(screen.queryByRole('button', { name: /^save/i })).toBeNull();
-  expect(screen.getByRole('link', { name: /whatsapp/i }).getAttribute('href')).toBe(WHATSAPP_GET_LISTED_URL);
+  expect(screen.getByRole('link', { name: /whatsapp/i }).getAttribute('href')).toBe(NO_PROFILE_CONTACT_URL);
+  expect(NO_PROFILE_CONTACT_URL).toContain(encodeURIComponent('has no dancer profile yet')); // the dancer prefill, not "list my events" (H6)
 });
 
 it('a failed save says so and keeps what they typed', async () => {

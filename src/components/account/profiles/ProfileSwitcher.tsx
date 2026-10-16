@@ -1,10 +1,11 @@
 import { useEffect, useId, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { Check, UserRound } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { ACCOUNT_SETTINGS_PATH, switcherItems, type SwitcherWhere } from '@/lib/accountRouting';
 import { ACCOUNT_SETTINGS_LABEL } from '@/modules/dancer-app/copy/sharedCopy';
 import { SideAvatar, sideKind, sideTitle } from './SideAvatar';
+import { PersonAvatar } from './PersonAvatar';
 import { useProfileSides } from './useProfileSides';
 import { SIGN_OUT_FAILED, useSignOutToHome } from './signOutToHome';
 
@@ -73,7 +74,8 @@ export function ProfileSwitcher({ where }: { where: SwitcherWhere }) {
         onClick={() => setOpen(true)}
         className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full"
       >
-        {current ? <SideAvatar side={current} size={32} /> : <UserRound aria-hidden="true" style={{ width: 20, height: 20 }} />}
+        {/* No side known yet: the same PersonAvatar glyph disc, not a second, bare picture of a person. */}
+        {current ? <SideAvatar side={current} size={32} /> : <PersonAvatar photoUrl={null} name={null} size={32} />}
       </button>
       {/* Portalled to <body>: a shell header is its own stacking context, and the dancer app's
           bottom tabs covered the sheet's last row (Sign out) at 390x844. */}

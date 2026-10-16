@@ -121,7 +121,8 @@ text "First name"
 textbox "First name" value="Sam"
 text "City"
 button "Pick city"
-link "City not in the list? Message us to add it" href=https://wa.me/447577576006?text=Hi!%20My%20city%20is%20not%20in%20the%20list%20on%20Bachata%20Calendar.%20Please%20add%3A%20
+text "City not in the list?"
+link "Message us to add your city" href=https://wa.me/447577576006?text=Hi!%20Please%20add%20my%20city%20to%20Bachata%20Calendar.%20My%20city%20is%3A%20
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
@@ -147,7 +148,8 @@ text "First name"
 textbox "First name" value="Sam"
 text "City"
 button "Pick city"
-link "City not in the list? Message us to add it" href=https://wa.me/447577576006?text=Hi!%20My%20city%20is%20not%20in%20the%20list%20on%20Bachata%20Calendar.%20Please%20add%3A%20
+text "City not in the list?"
+link "Message us to add your city" href=https://wa.me/447577576006?text=Hi!%20Please%20add%20my%20city%20to%20Bachata%20Calendar.%20My%20city%20is%3A%20
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
@@ -313,7 +315,8 @@ text "First name"
 textbox "First name" value="Sam"
 text "City"
 button "Pick city"
-link "City not in the list? Message us to add it" href=https://wa.me/447577576006?text=Hi!%20My%20city%20is%20not%20in%20the%20list%20on%20Bachata%20Calendar.%20Please%20add%3A%20
+text "City not in the list?"
+link "Message us to add your city" href=https://wa.me/447577576006?text=Hi!%20Please%20add%20my%20city%20to%20Bachata%20Calendar.%20My%20city%20is%3A%20
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
@@ -339,7 +342,8 @@ text "First name"
 textbox "First name" value="Sam"
 text "City"
 button "Pick city"
-link "City not in the list? Message us to add it" href=https://wa.me/447577576006?text=Hi!%20My%20city%20is%20not%20in%20the%20list%20on%20Bachata%20Calendar.%20Please%20add%3A%20
+text "City not in the list?"
+link "Message us to add your city" href=https://wa.me/447577576006?text=Hi!%20Please%20add%20my%20city%20to%20Bachata%20Calendar.%20My%20city%20is%3A%20
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]

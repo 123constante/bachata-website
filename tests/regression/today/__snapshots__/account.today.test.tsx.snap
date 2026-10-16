@@ -48,8 +48,8 @@ exports[`/account entry at '390x844' > /account > 'no profile' 1`] = `
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Set up your dancer profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
-link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+text "Your account does not have a dancer profile yet. Message us and we’ll set one up for you."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F
 link "Back to the calendar" href=/
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
@@ -158,8 +158,8 @@ exports[`/account entry at '390x844' > /account/dancer > 'no profile' 1`] = `
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Set up your dancer profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
-link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+text "Your account does not have a dancer profile yet. Message us and we’ll set one up for you."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F
 link "Back to the calendar" href=/
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
@@ -270,8 +270,8 @@ exports[`/account entry at '390x844' > /account/o > 'no profile' 1`] = `
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Set up your dancer profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
-link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+text "Your account does not have a dancer profile yet. Message us and we’ll set one up for you."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F
 link "Back to the calendar" href=/
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
@@ -380,8 +380,8 @@ exports[`/account entry at 'desktop' > /account > 'no profile' 1`] = `
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Set up your dancer profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
-link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+text "Your account does not have a dancer profile yet. Message us and we’ll set one up for you."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F
 link "Back to the calendar" href=/
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
@@ -490,8 +490,8 @@ exports[`/account entry at 'desktop' > /account/dancer > 'no profile' 1`] = `
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Set up your dancer profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
-link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+text "Your account does not have a dancer profile yet. Message us and we’ll set one up for you."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F
 link "Back to the calendar" href=/
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
@@ -602,8 +602,8 @@ exports[`/account entry at 'desktop' > /account/o > 'no profile' 1`] = `
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Set up your dancer profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
-link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
+text "Your account does not have a dancer profile yet. Message us and we’ll set one up for you."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F
 link "Back to the calendar" href=/
 link "Account settings (sign out or delete account)" href=/account/settings",
 }

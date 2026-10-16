@@ -570,13 +570,14 @@ export const AuthStepper = ({
             />
           </div>
           <div className="space-y-2">
-            <Label className={fieldErrors.city ? "text-destructive" : undefined}>
+            <Label htmlFor="stepper-city" className={fieldErrors.city ? "text-destructive" : undefined}>
               <span className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5" />
                 Your city
               </span>
             </Label>
             <CityPicker
+              id="stepper-city"
               value={cityId}
               onChange={(val, cityOption) => {
                 setCityId(val);

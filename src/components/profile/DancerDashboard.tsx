@@ -1527,6 +1527,7 @@ export const DancerDashboard = () => {
                 className="bg-slate-900/80 border-slate-700"
               />
               <CityPicker
+                aria-label="City"
                 value={editForm.city}
                 onChange={(city) => applyEditForm((prev) => ({ ...prev, city }))}
                 placeholder="Select city..."

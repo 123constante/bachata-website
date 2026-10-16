@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CityPicker } from "@/components/ui/city-picker";
+import { ADD_CITY_MESSAGE, dancerMessageUsUrl } from "@/lib/contactLinks";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-intent";
 import {
@@ -21,7 +22,6 @@ import {
   isOtpSignupDisabledError,
   isSignupAllowlistRefusal,
   SIGNED_IN_LANDING_PATH,
-  CITY_REQUEST_WHATSAPP_URL,
   OTP_RATE_LIMITED_MESSAGE,
   SIGNUP_HELP_WHATSAPP_URL,
   isOtpRateLimitedError,
@@ -775,9 +775,10 @@ const AuthContent = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">City</Label>
+                      <Label htmlFor="signup-city" className="text-sm font-medium">City</Label>
                       <div>
                         <CityPicker
+                          id="signup-city"
                           value={cityId}
                           onChange={(id, obj) => {
                             setCityId(id);
@@ -789,14 +790,18 @@ const AuthContent = () => {
                         />
                       </div>
                       <FieldError id="signup-city-error" message={step2Touched && !cityId ? "City is required." : undefined} />
-                      <a
-                        href={CITY_REQUEST_WHATSAPP_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex min-h-[44px] items-center text-sm text-muted-foreground underline underline-offset-2"
-                      >
-                        City not in the list? Message us to add it
-                      </a>
+                      {/* Audit M28: the same link and prefill as the dancer setup and Edit city fields. */}
+                      <p className="text-sm text-muted-foreground">
+                        City not in the list?{" "}
+                        <a
+                          href={dancerMessageUsUrl(ADD_CITY_MESSAGE)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-h-[44px] items-center underline underline-offset-2"
+                        >
+                          Message us to add your city
+                        </a>
+                      </p>
                     </div>
 
                     <div className="space-y-2">

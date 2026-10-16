@@ -649,6 +649,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, onSaved }: Ve
               <div>
                 <Label>City</Label>
                 <CityPicker
+                  aria-label="City"
                   value={form.city}
                   onChange={(city) => setForm((prev) => ({ ...prev, city }))}
                   placeholder="Select city..."

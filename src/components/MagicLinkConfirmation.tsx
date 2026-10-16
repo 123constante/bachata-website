@@ -7,6 +7,8 @@ import { trackAnalyticsEvent } from '@/lib/analytics';
 import { OTP_CODE_LENGTH, OTP_RESEND_COOLDOWN_SECONDS } from '@/lib/auth-otp-routing';
 import { trackAuthStep } from '@/lib/trackAuthStep';
 import { ConsentLine } from '@/components/auth/ConsentLine';
+// L1: the account pages' one long-email wrap (break before "@", then overflow-wrap:anywhere).
+import { EmailText } from '@/components/account/EmailText';
 
 /** What a resend did: sent, refused as too soon (wait out a fresh cooldown), or failed. */
 export type ResendOutcome = 'sent' | 'wait' | 'failed';
@@ -99,19 +101,6 @@ const storeWrongCodes = (email: string, wrong: number) => {
 
 const LOCKED_MESSAGE = 'Too many wrong codes. Send a new code to try again.';
 
-/** L1: a long address breaks at the "@" first, and mid-word only if one half still does not fit. */
-const EmailText = ({ email }: { email: string }) => {
-  const at = email.lastIndexOf('@');
-  if (at <= 0) return <>{email}</>;
-  return (
-    <>
-      {email.slice(0, at)}
-      <wbr />
-      {email.slice(at)}
-    </>
-  );
-};
-
 const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, onVerified, showConsent, extraAction }: MagicLinkConfirmationProps) => {
   const [countdown, setCountdown] = useState(COOLDOWN);
   const [isResending, setIsResending] = useState(false);
@@ -197,7 +186,7 @@ const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, on
         <h1 className="text-xl font-bold">Check your email</h1>
         <p className="text-sm text-muted-foreground">
           We sent a sign-in email to{' '}
-          <strong className="text-foreground [overflow-wrap:anywhere]">
+          <strong className="text-foreground">
             <EmailText email={email} />
           </strong>
           .

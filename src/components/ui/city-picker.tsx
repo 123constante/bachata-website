@@ -43,6 +43,10 @@ export interface CityPickerProps {
   className?: string;
   disabled?: boolean;
   placeholder?: string;
+  /** Audit M17: the trigger is the combobox, so it carries the id a <label htmlFor> targets, or a name. */
+  id?: string;
+  'aria-label'?: string;
+  'aria-labelledby'?: string;
 }
 
 interface CitySearchResult {
@@ -59,6 +63,9 @@ export function CityPicker({
   className,
   disabled,
   placeholder = 'Select city...',
+  id,
+  'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
 }: CityPickerProps) {
   const cityRequestsEnabled = import.meta.env.VITE_ENABLE_CITY_REQUESTS === 'true';
   const [open, setOpen] = React.useState(false);
@@ -225,6 +232,9 @@ export function CityPicker({
           <Button
             variant='outline'
             role='combobox'
+            id={id}
+            aria-label={ariaLabel}
+            aria-labelledby={ariaLabelledBy}
             aria-expanded={open}
             className={cn('w-full justify-between', className)}
             disabled={disabled}

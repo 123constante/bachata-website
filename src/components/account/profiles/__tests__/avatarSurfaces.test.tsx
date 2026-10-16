@@ -20,6 +20,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'me' }, signOu
 
 import { ProfileSwitcher } from '../ProfileSwitcher';
 import { Avatar } from '@/modules/dancer-app/screens/me/ui';
+import { AvatarUpload } from '@/components/profile/AvatarUpload';
 
 afterEach(cleanup);
 
@@ -52,6 +53,11 @@ const SURFACES: Array<[string, (s: Shape) => HTMLElement]> = [
     render(<Avatar profile={{ avatar_url: s.avatarUrl, first_name: s.firstName, display_name: null, surname: null, hide_surname_publicly: false }} size={52} />);
     return (screen.queryByTestId('me-photo') ?? screen.getByTestId('me-photo-placeholder')) as HTMLElement;
   }],
+  // The Finish screen's photo field (it was a shadcn Avatar with a see-through bg-muted/50 fallback).
+  ['Finish profile photo field', (s) => {
+    render(<AvatarUpload value={s.avatarUrl} name={s.firstName} userId="persona-1" onChange={() => {}} />);
+    return (screen.queryByTestId('avatar-upload-photo') ?? screen.getByTestId('avatar-upload-empty')) as HTMLElement;
+  }],
 ];
 
 const faceOf = (el: HTMLElement) => (el.tagName === 'IMG' ? 'photo' : el.querySelector('svg') ? 'glyph' : 'initial');
@@ -68,6 +74,11 @@ describe.each(SURFACES)('%s', (_surface, mount) => {
     expect(el.getAttribute('data-face')).toBe(s.face);
     expect(faceOf(el)).toBe(s.face);
     if (s.face !== 'photo') expect(el.textContent).toBe(s.letter);
+    // The no-photo disc on every surface: the avatar token (site fallback muted-foreground), never black or see-through.
+    if (s.face !== 'photo') {
+      expect(el.style.background).toBe('var(--da-avatar, hsl(var(--muted-foreground)))');
+      expect(el.className).not.toMatch(/bg-(background|black|transparent)|bg-muted\/\d+/);
+    }
   });
 });
 

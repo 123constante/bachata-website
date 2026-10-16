@@ -12,6 +12,8 @@ export type PersonAvatarProps = {
   loading?: 'lazy' | 'eager';
   imgTestId?: string;
   placeholderTestId?: string;
+  /** The photo's alt text where the photo is content (DancerHome); decorative ("") by default. */
+  alt?: string;
 };
 
 /**
@@ -23,7 +25,7 @@ export type PersonAvatarProps = {
  * it (organiser area, site pages) the site's muted-foreground on background,
  * which every site theme keeps at AA, so the disc is visible there too.
  */
-export function PersonAvatar({ photoUrl, name, size, shape = 'circle', loading = 'lazy', imgTestId, placeholderTestId }: PersonAvatarProps) {
+export function PersonAvatar({ photoUrl, name, size, shape = 'circle', loading = 'lazy', imgTestId, placeholderTestId, alt = '' }: PersonAvatarProps) {
   // Keyed on the URL: a new photo gets a fresh try.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const face = avatarFallback({ photoUrl, imgFailed: Boolean(photoUrl) && failedUrl === photoUrl, name });
@@ -32,7 +34,9 @@ export function PersonAvatar({ photoUrl, name, size, shape = 'circle', loading =
     return (
       <img
         src={photoUrl}
-        alt=""
+        alt={alt}
+        width={size}
+        height={size}
         loading={loading}
         data-face="photo"
         data-testid={imgTestId}

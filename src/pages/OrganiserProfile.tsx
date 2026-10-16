@@ -1549,7 +1549,7 @@ const OrganiserProfile = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="city">City</Label>
-              <CityPicker value={editForm.city} onChange={(city) => setEditForm({ ...editForm, city })} placeholder="Select city..." />
+              <CityPicker id="city" value={editForm.city} onChange={(city) => setEditForm({ ...editForm, city })} placeholder="Select city..." />
             </div>
             <div className="space-y-2">
               <Label htmlFor="bio">Bio</Label>
