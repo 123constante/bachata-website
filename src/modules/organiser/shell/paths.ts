@@ -20,6 +20,8 @@ export const ORG_PATHS = {
   changeTime: (seriesId: string, occurrenceId: string) => `${changeDate(seriesId, occurrenceId)}/time`,
   changeVenue: (seriesId: string, occurrenceId: string) => `${changeDate(seriesId, occurrenceId)}/venue`,
   changeDay: (seriesId: string, occurrenceId: string) => `${changeDate(seriesId, occurrenceId)}/day`,
+  /** One date's line-up (sessions and their people): main's date editor, kept as is (4.2); S5 links it from the event. */
+  dateLineup: (seriesId: string, occurrenceId: string) => `${changeDate(seriesId, occurrenceId)}/lineup`,
 
   add: `${ORG_BASE}/add`,
   addEvent: (seriesId: string) => `${ORG_BASE}/add/${id(seriesId)}`,

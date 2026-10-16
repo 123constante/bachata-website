@@ -24,7 +24,7 @@ const DatePage = lazyWithRetry(() => import('../dates'));
 const TeamPage = lazyWithRetry(() => import('../team'));
 const ProfilePage = lazyWithRetry(() => import('../profile'));
 const SwitchFlow = lazyWithRetry(() => import('./placeholders')); // S1 switch/
-const ChangeFlow = lazyWithRetry(() => import('./placeholders')); // S2 flows/change
+const ChangeFlow = lazyWithRetry(() => import('../flows/change')); // S2 flows/change
 const AddFlow = lazyWithRetry(() => import('./placeholders')); // S3 flows/add
 const CancelFlow = lazyWithRetry(() => import('./placeholders')); // S3 flows/cancel
 const NewFlow = lazyWithRetry(() => import('./placeholders')); // S4 flows/new
@@ -33,7 +33,7 @@ const TeamFlow = lazyWithRetry(() => import('./placeholders')); // S6 team/
 const HandoverFlow = lazyWithRetry(() => import('./placeholders')); // S6 flows/handover
 const MorePage = lazyWithRetry(() => import('./placeholders')); // S7 more/
 const CoverFlow = lazyWithRetry(() => import('./placeholders')); // S7 flows/fix
-const DonePage = lazyWithRetry(() => import('./placeholders')); // S0b flows/Done
+const DonePage = lazyWithRetry(() => import('../flows/Done')); // S0b flows/Done (wired by S2, its first caller)
 
 function ShellFallback() {
   return (
@@ -90,12 +90,13 @@ export default function OrganiserRoutes() {
             <Route index element={<HomePage />} />
             <Route path="switch" element={<SwitchFlow name="Switch page" />} />
 
-            <Route path="change" element={<ChangeFlow name="Change a date" />} />
-            <Route path="change/:seriesId" element={<ChangeFlow name="Change a date" />} />
-            <Route path="change/:seriesId/:occurrenceId" element={<DatePage />} />
-            <Route path="change/:seriesId/:occurrenceId/time" element={<ChangeFlow name="Change a date" />} />
-            <Route path="change/:seriesId/:occurrenceId/venue" element={<ChangeFlow name="Change a date" />} />
-            <Route path="change/:seriesId/:occurrenceId/day" element={<ChangeFlow name="Change a date" />} />
+            <Route path="change" element={<ChangeFlow step="event" />} />
+            <Route path="change/:seriesId" element={<ChangeFlow step="date" />} />
+            <Route path="change/:seriesId/:occurrenceId" element={<ChangeFlow step="what" />} />
+            <Route path="change/:seriesId/:occurrenceId/time" element={<ChangeFlow step="time" />} />
+            <Route path="change/:seriesId/:occurrenceId/venue" element={<ChangeFlow step="venue" />} />
+            <Route path="change/:seriesId/:occurrenceId/day" element={<ChangeFlow step="day" />} />
+            <Route path="change/:seriesId/:occurrenceId/lineup" element={<DatePage />} />
 
             <Route path="add" element={<AddFlow name="Add a date" />} />
             <Route path="add/:seriesId" element={<AddFlow name="Add a date" />} />
@@ -125,7 +126,7 @@ export default function OrganiserRoutes() {
             <Route path="page" element={<ProfilePage />} />
             <Route path="more" element={<MorePage name="More" />} />
             <Route path="cover/:seriesId" element={<CoverFlow name="Cover" />} />
-            <Route path="done" element={<DonePage name="Done" />} />
+            <Route path="done" element={<DonePage />} />
 
             {/* main's URLs (bookmarks, links already sent) -> their R1 paths. */}
             <Route path="events/new" element={<ModuleLegacyRedirect target="newEvent" />} />
