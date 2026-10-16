@@ -1,0 +1,54 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { ORGANISER_HOME_KEY, runSeriesCommand, seriesWorkspaceQueryKey } from '@/modules/organiser/shared/selfServeApi';
+import { envelope, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
+import { parseEventWorkspace, type EventWorkspace } from '@/modules/organiser/events/eventModel';
+
+// Moved from events/eventsApi.ts with the same signatures (plan 4.3 #11, the
+// 4.11 COLLISION line): every R1 flow sends and reads through here, and
+// events/eventsApi.ts re-exports these, so S5's rewrite of that file cannot
+// break S2/S3.
+
+/** The editor's own cache entry: the old parser's shape plus styles, gallery and videos. */
+export const eventWorkspaceQueryKey = (seriesId: string | undefined) => ['org-event-workspace', seriesId] as const;
+
+/** admin_event_workspace_p5 (an organiser member of the series may call it). */
+export async function fetchEventWorkspace(seriesId: string): Promise<EventWorkspace> {
+  const { data, error } = await supabase.rpc('admin_event_workspace_p5', { p_series_id: seriesId });
+  if (error) throw error;
+  return parseEventWorkspace(data);
+}
+
+export function useEventWorkspace(seriesId: string | undefined) {
+  return useQuery({
+    queryKey: eventWorkspaceQueryKey(seriesId),
+    queryFn: () => fetchEventWorkspace(seriesId as string),
+    enabled: !!seriesId,
+  });
+}
+
+/**
+ * Sends owner commands one after another through series_command_p5, each against
+ * the version the previous one returned, then reloads everything they touch.
+ * Returns the last version.
+ */
+export function useRunCommands(seriesId: string) {
+  const queryClient = useQueryClient();
+  const reload = () => {
+    void queryClient.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
+    void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
+    void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+  };
+  return async (commands: OwnerCommand[], version: number | null) => {
+    let v = version;
+    try {
+      for (const command of commands) {
+        const res = await runSeriesCommand(envelope(seriesId, v, command));
+        if (typeof res?.new_version === 'number') v = res.new_version;
+      }
+    } finally {
+      if (commands.length) reload();
+    }
+    return v;
+  };
+}
