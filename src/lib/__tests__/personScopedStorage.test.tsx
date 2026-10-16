@@ -14,6 +14,7 @@ import { join, relative } from 'node:path';
 import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const h = vi.hoisted(() => ({
   signOut: vi.fn(),
@@ -28,7 +29,7 @@ vi.mock('@/integrations/supabase/getSupabase', () => ({
   }),
 }));
 
-import { AuthProvider, useAuth, type SignOutOutcome } from '@/hooks/useAuth';
+import { AuthProvider, useAuth, type SignOutOptions, type SignOutOutcome } from '@/hooks/useAuth';
 import { AuthFormProvider, useAuthForm } from '@/contexts/AuthFormContext';
 
 const SUPABASE_TOKEN = 'sb-stsdtacfauprzrdebmzg-auth-token';
@@ -74,7 +75,7 @@ const expectAClean = () => {
   for (const k of KEPT) expect([k, localStorage.getItem(k)]).not.toEqual([k, null]);
 };
 
-let signOutFn: () => Promise<SignOutOutcome> = async () => 'failed';
+let signOutFn: (opts?: SignOutOptions) => Promise<SignOutOutcome> = async () => 'failed';
 function Grab() {
   const { signOut } = useAuth();
   useEffect(() => {
@@ -125,16 +126,41 @@ describe('clearPersonScopedStorage (the one key list)', () => {
 
 describe('AuthProvider.signOut is the choke point', () => {
   it.each([
-    ['signed-out', () => h.signOut.mockResolvedValue({ error: null })],
-    ['signed-out-locally', () => h.signOut.mockResolvedValueOnce({ error: { message: 'offline' } }).mockResolvedValueOnce({ error: null })],
-  ] as const)('%s: every person-scoped key is gone', async (want, arrange) => {
+    ['signed-out', undefined, () => h.signOut.mockResolvedValue({ error: null })],
+    ['signed-out', { everywhere: true }, () => h.signOut.mockResolvedValue({ error: null })],
+    ['signed-out-locally', { everywhere: true }, () => h.signOut.mockResolvedValueOnce({ error: { message: 'offline' } }).mockResolvedValueOnce({ error: null })],
+  ] as const)('%s (%o): every person-scoped key and the query cache are gone', async (want, opts, arrange) => {
     arrange();
     seedPersonA();
-    render(<AuthProvider><Grab /></AuthProvider>);
+    const qc = new QueryClient();
+    qc.setQueryData(['my-dancer-edit', 'A'], { first_name: 'Ana' });
+    render(<QueryClientProvider client={qc}><AuthProvider><Grab /></AuthProvider></QueryClientProvider>);
     let outcome: SignOutOutcome = 'failed';
-    await act(async () => { outcome = await signOutFn(); });
+    await act(async () => { outcome = await signOutFn(opts); });
     expect(outcome).toBe(want);
     expectAClean();
+    expect(qc.getQueryCache().getAll()).toHaveLength(0);
+  });
+
+  // D6: an ordinary sign-out is this device; "Sign out of all devices" is the global revoke.
+  it.each([
+    [undefined, [{ scope: 'local' }]],
+    [{ everywhere: true }, [{ scope: 'global' }]],
+  ] as const)('scope for %o', async (opts, calls) => {
+    h.signOut.mockResolvedValue({ error: null });
+    render(<AuthProvider><Grab /></AuthProvider>);
+    await act(async () => { await signOutFn(opts); });
+    expect(h.signOut.mock.calls.map((c) => c[0])).toEqual(calls);
+  });
+
+  it('a failed this-device sign-out keeps everything and says failed', async () => {
+    h.signOut.mockResolvedValue({ error: { message: 'storage' } });
+    seedPersonA();
+    render(<AuthProvider><Grab /></AuthProvider>);
+    let outcome: SignOutOutcome = 'signed-out';
+    await act(async () => { outcome = await signOutFn(); });
+    expect(outcome).toBe('failed');
+    expect(localStorage.length).toBeGreaterThan(0);
   });
 
   it('A signs out, B opens /auth: the form shows nothing of A', async () => {

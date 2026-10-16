@@ -1,0 +1,8 @@
+{
+  "_source": "Read from the admin repo's SQL by src/lib/__tests__/accountDeletion.contract.test.ts (123constante/bachata-admin, branch claude/account-system-db @ f7b5a16, PR #820). Refresh it from that test, never by hand: with an admin checkout present the test fails when this file and the SQL disagree.",
+  "statusKeys": ["requested_at", "restore_until", "state"],
+  "states": ["expired", "none", "pending"],
+  "restoreCodes": ["admin_archived", "no_self_delete", "restore_window_closed"],
+  "deleteRefusalCodes": ["admin_account", "already_archived", "rate_limited", "sole_organiser_owner"],
+  "deleteRateWindow": "1 day"
+}

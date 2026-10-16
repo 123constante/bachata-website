@@ -178,6 +178,7 @@ const TARGETS = [
   { rel: 'scripts/check-guest-list-contract.mjs' },
   { rel: 'scripts/check-image-refs-live.mjs' },
   { rel: 'scripts/check-io-health.mjs' },
+  { rel: 'scripts/check-journey-grid.mjs' },
   { rel: 'scripts/check-mojibake.mjs' },
   { rel: 'scripts/check-occurrence-delete-booking-safety.mjs' },
   { rel: 'scripts/check-og-images.mjs' },

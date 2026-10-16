@@ -38,6 +38,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/account/settings/ownership',
   '/account/settings/delete',
   '/account/deleted',
+  '/account/restore',
   '/account/new',
   '/account/series/:seriesId',
   '/account/team/:organiserId?',
