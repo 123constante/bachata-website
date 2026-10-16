@@ -10,7 +10,8 @@
  *   - hides the fixed bars that sit on the bottom edge of what is still visible
  *     (bottom nav, consent, sticky actions, toasts): ONE rule for every bar.
  *     Dialogs and sheets are left alone (they lift themselves), as is anything
- *     marked `data-keyboard-keep`;
+ *     marked `data-keyboard-keep`; a bar that is not fixed itself (the organiser
+ *     tabs, in a fixed frame's column) opts in with `data-keyboard-hide`;
  *   - scrolls the field so its top sits just under any sticky header when the
  *     field, or its first result, is not visible. Results are the element named
  *     by `aria-controls`, or `[data-keyboard-results]` inside the field's
@@ -113,13 +114,21 @@ function check() {
     bars.forEach((b) => b.setAttribute(HIDDEN, ''));
   }
   let top = m.top;
+  let bottom = m.bottom;
   for (const l of layersAt(m.top + 1)) if (!ownLayer(l, field)) top = Math.max(top, l.getBoundingClientRect().bottom);
+  // A scrolling box (the organiser frame's body, a sheet) clips the field to its own edges.
+  for (let el = field.parentElement; el && el !== document.body; el = el.parentElement) {
+    if (!/^(?:auto|scroll)$/.test(getComputedStyle(el).overflowY)) continue;
+    const box = el.getBoundingClientRect();
+    top = Math.max(top, box.top);
+    bottom = Math.min(bottom, box.bottom);
+  }
 
   const r = field.getBoundingClientRect();
   const row = firstResult(field);
   let need = row ? row.getBoundingClientRect().bottom : isSearchLike(field) ? r.bottom + ROW : r.bottom;
-  need = Math.min(Math.max(need, r.bottom), r.top + (m.bottom - top) - GAP);
-  if (r.top >= top && need <= m.bottom) return;
+  need = Math.min(Math.max(need, r.bottom), r.top + (bottom - top) - GAP);
+  if (r.top >= top && need <= bottom) return;
   scrollBy(field, r.top - (top + GAP));
 }
 
