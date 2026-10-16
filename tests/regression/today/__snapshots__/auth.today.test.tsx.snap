@@ -62,6 +62,7 @@ exports[`/auth at '390x844' > sign-in: link sent (8-digit code box) 1`] = `
 text "We sent a sign-in email to known@example.com.Click the link in the email, or enter the code from it."
 text "8-digit code"
 textbox "8-digit code" value=""
+alert
 button "Resend code in 30s" [disabled]
 button "Use a different email"
 button "Continue browsing""
@@ -179,6 +180,10 @@ exports[`/auth at '390x844' > sign-up: link sent 1`] = `
 text "We sent a sign-in email to sam@example.com.Click the link in the email, or enter the code from it."
 text "8-digit code"
 textbox "8-digit code" value=""
+alert
+text "By continuing you agree to the and ."
+link "Terms" href=/terms
+link "Privacy Policy" href=/privacy
 button "Resend code in 30s" [disabled]
 button "Use a different email"
 button "Continue browsing""
@@ -246,6 +251,7 @@ exports[`/auth at 'desktop' > sign-in: link sent (8-digit code box) 1`] = `
 text "We sent a sign-in email to known@example.com.Click the link in the email, or enter the code from it."
 text "8-digit code"
 textbox "8-digit code" value=""
+alert
 button "Resend code in 30s" [disabled]
 button "Use a different email"
 button "Continue browsing""
@@ -363,6 +369,10 @@ exports[`/auth at 'desktop' > sign-up: link sent 1`] = `
 text "We sent a sign-in email to sam@example.com.Click the link in the email, or enter the code from it."
 text "8-digit code"
 textbox "8-digit code" value=""
+alert
+text "By continuing you agree to the and ."
+link "Terms" href=/terms
+link "Privacy Policy" href=/privacy
 button "Resend code in 30s" [disabled]
 button "Use a different email"
 button "Continue browsing""

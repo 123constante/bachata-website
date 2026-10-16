@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
+import { useAccountGate } from '@/lib/accountGate';
 import { hasOrganiserIntent, profileSides, type SidesFacts, type SidesState } from '@/lib/accountRouting';
 import { completenessFact } from '@/lib/profileCompletion';
 import { useDancerArea } from '@/modules/dancer-app/gate/useDancerArea';
@@ -38,6 +39,8 @@ export function useProfileSides(): ProfileSidesResult {
   const home = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled });
   const requests = useQuery({ queryKey: myAccessRequestsQueryKey(user?.id), queryFn: fetchMyAccessRequests, enabled });
   const completion = useProfileCompletion();
+  // A deleted login lands on restore / the deleted card before any side (lib/accountGate: the one composition).
+  const gate = useAccountGate();
   const area = useDancerArea();
   const kind = completion.status === 'loading' ? 'loading' : completenessFact(completion).kind;
   const hasDancer = kind === 'complete' || kind === 'incomplete';
@@ -66,6 +69,7 @@ export function useProfileSides(): ProfileSidesResult {
     organiserIntent: hasOrganiserIntent(user?.user_metadata?.user_type),
     openRequestCount: fact(requests, (d) => d.filter((r) => r.status === 'open').length),
     isAdmin: fact(admin, (d) => d === true),
+    deletion: gate.deletion ?? (gate.status === 'loading' ? 'loading' : null),
   };
   return { facts, state: profileSides(facts), openRequestCount: facts.openRequestCount };
 }

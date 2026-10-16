@@ -60,6 +60,7 @@ const AccountSettings = lazyWithRetry(() => import("../pages/AccountSettings"));
 const AccountDeleted = lazyWithRetry(() => import("../pages/AccountDeleted"));
 const Privacy = lazyWithRetry(() => import("../pages/Privacy"));
 const Terms = lazyWithRetry(() => import("../pages/Terms"));
+const AccountRestore = lazyWithRetry(() => import("../pages/AccountRestore"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
 const DancerApp = lazyWithRetry(() => import("@/modules/dancer-app/dancer-app"));
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
@@ -213,6 +214,7 @@ export const AnimatedRoutes = () => {
             <Route path="/privacy" element={<PageTransition><Privacy /></PageTransition>} />
             <Route path="/terms" element={<PageTransition><Terms /></PageTransition>} />
             <Route path="/account/deleted" element={<PageTransition><AccountDeleted /></PageTransition>} />
+            <Route path="/account/restore" element={<PageTransition><AccountRestore /></PageTransition>} />
             <Route path="/account/new" element={
               flags.organiserSelfServe
                 ? <LegacyAccountRedirect target="new" />
