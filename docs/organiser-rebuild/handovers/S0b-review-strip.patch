@@ -1,0 +1,433 @@
+diff --git a/src/modules/organiser/shared/__tests__/createModel.test.ts b/src/modules/organiser/shared/__tests__/createModel.test.ts
+index 51c70f1..99a3dbe 100644
+--- a/src/modules/organiser/shared/__tests__/createModel.test.ts
++++ b/src/modules/organiser/shared/__tests__/createModel.test.ts
+@@ -16,7 +16,7 @@ import {
+   weekdayOf,
+   type CreateForm,
+ } from '../createModel';
+-import { OWNER_CREATE_KEYS, SERIES_TIMEZONE, createPayload, submitForReviewCommand, weeklyRuleCommand } from '../seriesCommands';
++import { OWNER_CREATE_KEYS, SERIES_TIMEZONE, createPayload, weeklyRuleCommand } from '../seriesCommands';
+ import { commandErrorMessage, isServerRefusal } from '../selfServeErrors';
+ 
+ // selfServeApi imports the Supabase client; only its pure createSeriesCommand is under test.
+@@ -123,7 +123,7 @@ describe('the submit gate (Lever 2 B2: approval refuses a series with no venue)'
+ 
+   it('the hint says what submitting still needs, and that a draft does not need the venue', () => {
+     expect(submitHint(weeklyForm, TODAY)).toBeNull();
+-    expect(submitHint(noVenue, TODAY)).toBe('To submit for review, add a venue. You can save a draft without one.');
++    expect(submitHint(noVenue, TODAY)).toBe('To go live, add a venue. You can save a draft without one.');
+     expect(submitHint({ ...noVenue, name: '' }, TODAY)).toBe('To continue, add a name and a venue. A draft can be saved without a venue.');
+     expect(submitHint({ ...weeklyForm, name: '' }, TODAY)).toBe('To continue, add a name.');
+   });
+@@ -135,7 +135,7 @@ describe('createBlock (the server: series.upsert (create) needs a live organiser
+     for (const status of ['draft', 'pending_review', 'rejected', 'paused', 'ended']) {
+       const text = createBlock({ name: 'Ritmo', lifecycle_status: status });
+       expect(text).toContain('Ritmo');
+-      expect(text).toMatch(/approves it|approved|needs changes|Ask the Bachata Calendar team/);
++      expect(text).toMatch(/Ask the Bachata Calendar team\.$/);
+     }
+   });
+ });
+@@ -201,21 +201,15 @@ describe('createSeriesCommand (selfServeApi, the one file allowed to spell the o
+ });
+ 
+ describe('followUpCommands', () => {
+-  it('a party draft adds its one date; a submitted party also moves to review', () => {
+-    expect(followUpCommands(partyForm, false)).toEqual([{ kind: 'series.add_date', payload: { date: '2026-10-17' } }]);
+-    expect(followUpCommands(partyForm, true)).toEqual([
+-      { kind: 'series.add_date', payload: { date: '2026-10-17' } },
+-      { kind: 'series.set_lifecycle', payload: { to: 'pending_review' } },
+-    ]);
++  it('a party adds its one date and nothing else: there is no review step (D4)', () => {
++    expect(followUpCommands(partyForm)).toEqual([{ kind: 'series.add_date', payload: { date: '2026-10-17' } }]);
+   });
+ 
+   it('a weekly class sets the owner rule on the first date\'s weekday, open-ended, interval absent', () => {
+-    expect(followUpCommands(weeklyForm, true)).toEqual([
++    expect(followUpCommands(weeklyForm)).toEqual([
+       { kind: 'series.set_recurrence', payload: { mode: 'weekly', weekdays: [2], end: { kind: 'none' } } },
+-      { kind: 'series.set_lifecycle', payload: { to: 'pending_review' } },
+     ]);
+     expect(weeklyRuleCommand(0).payload).toEqual({ mode: 'weekly', weekdays: [0], end: { kind: 'none' } });
+-    expect(submitForReviewCommand()).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'pending_review' } });
+   });
+ });
+ 
+@@ -255,7 +249,7 @@ describe('isServerRefusal (decides whether a failed create may have landed)', ()
+ 
+ describe('the create refusals read as copy, never as server text', () => {
+   it.each([
+-    ['permission_denied: series.upsert (create) needs a live organiser', /not public yet/],
++    ['permission_denied: series.upsert (create) needs a live organiser', /not live yet/],
+     // The server's message names the organiser key; it is assembled so the architecture lint's ban stays exact.
+     [`permission_denied: series.upsert (create) needs ${'organiser'}_ids naming one organiser the caller owns or manages`, /Choose one of your organisers/],
+     ['permission_denied: series.upsert category must be party, class or workshop', /cannot be set here/],
+diff --git a/src/modules/organiser/shared/__tests__/organiserStatus.test.ts b/src/modules/organiser/shared/__tests__/organiserStatus.test.ts
+index afa33b5..7f15be1 100644
+--- a/src/modules/organiser/shared/__tests__/organiserStatus.test.ts
++++ b/src/modules/organiser/shared/__tests__/organiserStatus.test.ts
+@@ -1,47 +1,34 @@
+ import { describe, expect, it } from 'vitest';
+ import { organiserStatus } from '../organiserStatus';
+ import { createBlock } from '../createModel';
+-import { reviewStatus } from '../../profile/reviewModel';
+ 
+-const STATES = ['draft', 'pending_review', 'rejected', 'live', 'paused', 'ended', 'archived'];
+-
+-describe('organiserStatus: THE lifecycle -> copy mapping', () => {
+-  it('offers "Send for review" for exactly the states submit_organiser_profile_v1 admits', () => {
+-    expect(STATES.filter((s) => organiserStatus('Ritmo', s).canSendForReview)).toEqual(['draft', 'rejected']);
+-  });
++const STATES = ['draft', 'live', 'paused', 'ended', 'archived'];
+ 
++describe('organiserStatus: THE lifecycle -> copy mapping (D4: everything live)', () => {
+   it('blocks New event for every state but live, and every block says what to do', () => {
+     for (const s of STATES) {
+       const block = organiserStatus('Ritmo', s).newEventBlock;
+       if (s === 'live') expect(block).toBeNull();
+-      else expect(block).toMatch(/Send it for review|once it is approved|Profile page|Ask the Bachata Calendar team/);
++      else expect(block).toMatch(/Ask the Bachata Calendar team\.$/);
+     }
+   });
+ 
+-  it('every non-live state says what the person can do next', () => {
+-    for (const s of STATES.filter((x) => x !== 'live')) expect(organiserStatus('Ritmo', s).next).toBeTruthy();
+-  });
+-
+   it.each([
+-    ['draft', 'Draft: not visible to the public yet.'],
+-    ['pending_review', 'Waiting for review: not visible to the public yet.'],
+-    ['live', 'Live on the site.'],
+-  ])('%s line', (s, line) => expect(organiserStatus('Ritmo', s).line).toBe(line));
++    ['draft', 'Draft'], ['live', 'Live'], ['paused', 'Paused'], ['ended', 'Ended'], ['archived', 'Archived'],
++  ])('%s label', (s, label) => expect(organiserStatus('Ritmo', s).label).toBe(label));
+ 
+-  it('pending_review explains the New event refusal as waiting for approval', () => {
+-    expect(organiserStatus('Ritmo', 'pending_review').newEventBlock).toMatch(/^Your organiser is waiting for approval\./);
++  it('never says "review" for any state, old ones included', () => {
++    for (const s of [...STATES, 'pending_review', 'rejected']) {
++      expect(JSON.stringify(organiserStatus('Ritmo', s))).not.toMatch(/review/i);
++    }
+   });
+ 
+-  it('a rejected organiser shows its reason, trimmed, and is offered the send again', () => {
+-    const s = organiserStatus('Ritmo', 'rejected', '  Add your Instagram ');
+-    expect(s.line).toBe('The team asked for changes: Add your Instagram');
+-    expect(s.sendLabel).toBe('Send for review again');
+-    expect(organiserStatus('Ritmo', 'rejected', null).line).toBe('The team asked for changes.');
++  it('an old pending_review or rejected row reads like a paused page', () => {
++    expect(organiserStatus('Ritmo', 'pending_review')).toEqual(organiserStatus('Ritmo', 'paused'));
++    expect(organiserStatus('Ritmo', 'rejected')).toEqual(organiserStatus('Ritmo', 'paused'));
+   });
+ 
+-  it.each(STATES)('the Profile status and the New event block are views of it, not copies (%s)', (s) => {
+-    const shared = organiserStatus('Ritmo', s, 'why');
+-    expect(reviewStatus(s, 'why')).toEqual({ label: shared.label, tone: shared.tone, sentence: shared.line, canSend: shared.canSendForReview });
+-    expect(createBlock({ name: 'Ritmo', lifecycle_status: s })).toBe(shared.newEventBlock);
++  it.each(STATES)('the New event block is a view of it, not a copy (%s)', (s) => {
++    expect(createBlock({ name: 'Ritmo', lifecycle_status: s })).toBe(organiserStatus('Ritmo', s).newEventBlock);
+   });
+ });
+diff --git a/src/modules/organiser/shared/createModel.ts b/src/modules/organiser/shared/createModel.ts
+index 4d5c803..3994d7d 100644
+--- a/src/modules/organiser/shared/createModel.ts
++++ b/src/modules/organiser/shared/createModel.ts
+@@ -10,7 +10,6 @@ import { organiserStatus } from './organiserStatus';
+ import { formToDraft, minutesBetween } from './seriesModel';
+ import {
+   addDateCommand,
+-  submitForReviewCommand,
+   weeklyRuleCommand,
+   type CreateDraft,
+   type OwnerCommand,
+@@ -97,9 +96,9 @@ export const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value.trim(
+  * server checks the same things again (admin D3's payload arm); this list only
+  * keeps the buttons honest.
+  *
+- * `forSubmit` adds the venue (Lever 2 B2): "Save draft" works without one, but the
+- * admin's approval refuses a series with no venue (event_publish_readiness_v1,
+- * "publish_blocked: missing a venue"), so "Submit for review" needs it.
++ * `forSubmit` adds the venue (Lever 2 B2): "Save draft" works without one, but
++ * going live refuses a series with no venue (event_publish_readiness_v1,
++ * "publish_blocked: missing a venue").
+  */
+ export function createProblems(form: CreateForm, today: string, { forSubmit = false }: { forSubmit?: boolean } = {}): string[] {
+   const problems: string[] = [];
+@@ -129,14 +128,14 @@ export function problemsSentence(problems: string[]): string | null {
+ }
+ 
+ /**
+- * The line under the buttons: what "Submit for review" still needs, saying when only
++ * The line under the buttons: what going live still needs, saying when only
+  * the venue stands between the form and a draft. Null when both buttons are ready.
+  */
+ export function submitHint(form: CreateForm, today: string): string | null {
+   const draft = createProblems(form, today);
+   const submit = createProblems(form, today, { forSubmit: true });
+   if (submit.length === 0) return null;
+-  if (draft.length === 0) return 'To submit for review, add a venue. You can save a draft without one.';
++  if (draft.length === 0) return 'To go live, add a venue. You can save a draft without one.';
+   return `${problemsSentence(submit)}${submit.length > draft.length ? ' A draft can be saved without a venue.' : ''}`;
+ }
+ 
+@@ -161,12 +160,11 @@ export function createDraft(form: CreateForm): CreateDraft {
+ 
+ /**
+  * The commands after the create lands, in order: the schedule (the party's
+- * one date, or the class's weekly rule on the first date's weekday), then the
+- * submit when asked. Each needs the version the previous one returned.
++ * one date, or the class's weekly rule on the first date's weekday). There is
++ * no review step to send (D4).
+  */
+-export function followUpCommands(form: CreateForm, submit: boolean): OwnerCommand[] {
+-  const schedule = form.kind === 'party' ? addDateCommand(form.date) : weeklyRuleCommand(weekdayOf(form.date));
+-  return submit ? [schedule, submitForReviewCommand()] : [schedule];
++export function followUpCommands(form: CreateForm): OwnerCommand[] {
++  return [form.kind === 'party' ? addDateCommand(form.date) : weeklyRuleCommand(weekdayOf(form.date))];
+ }
+ 
+ // ---- the preview ----------------------------------------------------------------
+diff --git a/src/modules/organiser/shared/organiserStatus.ts b/src/modules/organiser/shared/organiserStatus.ts
+index e459e6d..a0e202b 100644
+--- a/src/modules/organiser/shared/organiserStatus.ts
++++ b/src/modules/organiser/shared/organiserStatus.ts
+@@ -1,75 +1,58 @@
+ import { LIFECYCLE_LABEL } from './selfServeApi';
+ 
+ /**
+- * THE organiser lifecycle -> copy mapping (draft-organiser dead end,
+- * 2026-10-09 walk). Home's status card, the Profile's ReviewCard and the New
+- * event refusal all read this one table, so a draft never says one thing on
+- * one screen and another elsewhere. submit_organiser_profile_v1 admits draft
+- * and rejected only (owner or manager); series.upsert (create) needs a live
+- * organiser.
++ * THE organiser lifecycle -> copy mapping. Everything is live (D4): a page is
++ * live on creation and there is no review step, so the UI knows draft, live,
++ * paused, ended and archived; anything else (an older pending_review or
++ * rejected row) reads like a paused page: ask the team. series.upsert (create)
++ * needs a live organiser, so New event is blocked for every state but live.
+  */
+ export interface OrganiserStatusCopy {
+-  /** The status tag ("Draft", "In review"). */
++  /** The status tag ("Live", "Paused"). */
+   label: string;
+   /** StatusTag tone (structurally the ui StatusTone). */
+   tone: 'live' | 'draft' | 'neutral';
+-  /** The status line: where the organiser stands. Null for a state with nothing to say. */
++  /** The status line: where the page stands. */
+   line: string | null;
+   /** What the person can do now, or null when nothing is needed (live). */
+   next: string | null;
+-  /** Offer "Send for review". */
+-  canSendForReview: boolean;
+-  sendLabel: string;
+-  /** Why New event cannot work for this organiser, and what to do; null when it can. */
++  /** Why New event cannot work for this page, and what to do; null when it can. */
+   newEventBlock: string | null;
+ }
+ 
+-export function organiserStatus(name: string, lifecycle: string, reason?: string | null): OrganiserStatusCopy {
+-  const label = LIFECYCLE_LABEL[lifecycle] ?? lifecycle;
++export type OrganiserUiState = 'draft' | 'live' | 'paused' | 'ended' | 'archived';
++
++const ASK = 'Ask the Bachata Calendar team.';
++
++export function organiserStatus(name: string, lifecycle: string): OrganiserStatusCopy {
+   switch (lifecycle) {
++    case 'live':
++      return { label: LIFECYCLE_LABEL.live, tone: 'live', line: null, next: null, newEventBlock: null };
+     case 'draft':
+       return {
+-        label,
++        label: LIFECYCLE_LABEL.draft,
+         tone: 'draft',
+-        line: 'Draft: not visible to the public yet.',
+-        next: 'Send it for review. Once the Bachata Calendar team approves it you can add events.',
+-        canSendForReview: true,
+-        sendLabel: 'Send for review',
+-        newEventBlock: `${name} is a draft, so it cannot take events yet. Send it for review first; once the team approves it you can add events.`,
++        line: 'Not live yet.',
++        next: ASK,
++        newEventBlock: `${name} is not live yet, so it cannot take events. ${ASK}`,
+       };
+-    case 'pending_review':
++    case 'paused':
++    case 'ended':
++    case 'archived':
+       return {
+-        label,
++        label: LIFECYCLE_LABEL[lifecycle],
+         tone: 'neutral',
+-        line: 'Waiting for review: not visible to the public yet.',
+-        next: 'The Bachata Calendar team checks new organisers, usually within a day. You can add events once it is approved.',
+-        canSendForReview: false,
+-        sendLabel: 'Send for review',
+-        newEventBlock: `Your organiser is waiting for approval. The team is checking ${name}, usually within a day; you can add events once it is approved.`,
+-      };
+-    case 'rejected': {
+-      const why = reason?.trim();
+-      return {
+-        label,
+-        tone: 'draft',
+-        line: why ? `The team asked for changes: ${why}` : 'The team asked for changes.',
+-        next: 'Make the changes on your Profile page, then send it for review again.',
+-        canSendForReview: true,
+-        sendLabel: 'Send for review again',
+-        newEventBlock: `${name} needs changes before it can take events. Make them on your Profile page, then send it for review again.`,
++        line: null,
++        next: ASK,
++        newEventBlock: `${name} cannot take new events right now. ${ASK}`,
+       };
+-    }
+-    case 'live':
+-      return { label, tone: 'live', line: 'Live on the site.', next: null, canSendForReview: false, sendLabel: 'Send for review', newEventBlock: null };
+     default:
+       return {
+-        label,
++        label: LIFECYCLE_LABEL.paused,
+         tone: 'neutral',
+         line: null,
+-        next: 'Ask the Bachata Calendar team to switch it back on.',
+-        canSendForReview: false,
+-        sendLabel: 'Send for review',
+-        newEventBlock: `${name} cannot take new events right now. Ask the Bachata Calendar team.`,
++        next: ASK,
++        newEventBlock: `${name} cannot take new events right now. ${ASK}`,
+       };
+   }
+ }
+diff --git a/src/modules/organiser/shared/useSendForReview.ts b/src/modules/organiser/shared/useSendForReview.ts
+deleted file mode 100644
+index e0a7d4f..0000000
+--- a/src/modules/organiser/shared/useSendForReview.ts
++++ /dev/null
+@@ -1,39 +0,0 @@
+-import { useMutation, useQueryClient } from '@tanstack/react-query';
+-import {
+-  ORGANISER_HOME_KEY,
+-  submitOrganiserProfile,
+-  type OrganiserHome,
+-  type SubmittedOrganiser,
+-} from './selfServeApi';
+-
+-/**
+- * "Send for review" (admin D6, submit_organiser_profile_v1), then the home's
+- * view of it, the way useOwnerCommand does for a series command: the organiser
+- * reads with the lifecycle the server returned at once (the selector row and
+- * the home header), then every organiser-home query reloads. A refusal reloads
+- * too: each one (invalid_state, not_authorised, organiser_not_found) means the
+- * home no longer matches the server, so the stale badge and button go.
+- */
+-export function useSendForReview(onSent: (sent: SubmittedOrganiser) => void) {
+-  const queryClient = useQueryClient();
+-  const reload = () => void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+-
+-  return useMutation<SubmittedOrganiser, Error, string>({
+-    mutationFn: (organiserId) => submitOrganiserProfile(organiserId),
+-    onSuccess: (sent) => {
+-      queryClient.setQueriesData<OrganiserHome>({ queryKey: ORGANISER_HOME_KEY }, (current) =>
+-        current
+-          ? {
+-              ...current,
+-              organisers: current.organisers.map((o) =>
+-                o.id === sent.organiserId ? { ...o, lifecycle_status: sent.lifecycleStatus } : o,
+-              ),
+-            }
+-          : current,
+-      );
+-      reload();
+-      onSent(sent);
+-    },
+-    onError: reload,
+-  });
+-}
+diff --git a/src/modules/organiser/shared/seriesCommands.ts b/src/modules/organiser/shared/seriesCommands.ts
+index 8bc8a97..b1684d8 100644
+--- a/src/modules/organiser/shared/seriesCommands.ts
++++ b/src/modules/organiser/shared/seriesCommands.ts
+@@ -235,13 +235,8 @@ export const addDateCommand = (date: string): OwnerCommand => ({ kind: 'series.a
+ export const removeDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.remove_date', payload: { occurrence_id: occurrenceId } });
+ export const skipDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.skip_date', payload: { occurrence_id: occurrenceId } });
+ export const unskipDateCommand = (date: string): OwnerCommand => ({ kind: 'series.unskip_date', payload: { date } });
+-/** Pause / resume (`{to}`, 4.11). */
+-export const lifecycleCommand = (to: 'paused' | 'live' | 'archived' | 'pending_review'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
+-/**
+- * @deprecated review-era (D4): goes with useSendForReview once its last importer
+- * (events/ReviewCard.tsx, S5) is deleted; see docs/organiser-rebuild/handovers/S0b-review-strip.patch.
+- */
+-export const submitForReviewCommand = (): OwnerCommand => lifecycleCommand('pending_review');
++/** Pause / resume (`{to}`, 4.11). There is no review step (D4): the UI never sends pending_review. */
++export const lifecycleCommand = (to: 'paused' | 'live' | 'archived'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
+ 
+ // ---- one date (W5) -------------------------------------------------------------
+ 
+diff --git a/src/modules/organiser/shared/selfServeErrors.ts b/src/modules/organiser/shared/selfServeErrors.ts
+index 98caf14..85ab1a2 100644
+--- a/src/modules/organiser/shared/selfServeErrors.ts
++++ b/src/modules/organiser/shared/selfServeErrors.ts
+@@ -85,15 +85,12 @@ const COPY: Record<string, SelfServeErrorCopy> = {
+     message: 'You already have three organisers waiting. Finish or remove one first.',
+     next: null,
+   },
+-  // D6 submit_organiser_profile_v1.
+   not_authorised: {
+-    message: 'Only an owner or manager of this organiser can send it for review.',
++    message: 'Only an owner or manager of this page can do that.',
+     next: null,
+   },
+-  // Raised for every lifecycle outside draft and rejected (pending_review, live,
+-  // paused, ended, archived). The home reloads on it (useSendForReview).
+   invalid_state: {
+-    message: 'Nothing to send: this organiser is already in review, live, or no longer active.',
++    message: 'This page cannot do that right now. Reload and check it.',
+     next: null,
+   },
+ };
+@@ -152,7 +149,7 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
+   { match: /^invalid_payload: name required/, message: 'Enter the event name.' },
+   { match: /^(not_found|series_not_found)/, message: 'This date or event no longer exists. Reload the page.' },
+   // W3, the create (admin D3/D7 refusals on series.upsert (create) and series.set_recurrence).
+-  { match: /\(create\) needs a live organiser/, message: 'Your organiser is not public yet. Send it for review from Home if you have not; once the Bachata Calendar team approves it you can add events.' },
++  { match: /\(create\) needs a live organiser/, message: 'Your page is not live yet, so it cannot take events. Ask the Bachata Calendar team.' },
+   { match: /naming one organiser the caller owns or manages/, message: 'Choose one of your organisers.' },
+   { match: /category must be party, class or workshop|category on a live series is admin-only/, message: 'That kind of event cannot be set here. Ask the Bachata Calendar team.' },
+   { match: /format must be one_off or recurring/, message: 'Choose a party or a weekly class.' },
+diff --git a/src/modules/organiser/shared/__tests__/selfServe.test.ts b/src/modules/organiser/shared/__tests__/selfServe.test.ts
+index 5ec225b..dcf7e34 100644
+--- a/src/modules/organiser/shared/__tests__/selfServe.test.ts
++++ b/src/modules/organiser/shared/__tests__/selfServe.test.ts
+@@ -50,10 +50,10 @@ describe('selfServeErrors', () => {
+ 
+   it('explains each submit refusal in plain words', () => {
+     expect(selfServeErrorCopy({ message: 'invalid_state', code: 'P0001' }).message).toBe(
+-      'Nothing to send: this organiser is already in review, live, or no longer active.',
++      'This page cannot do that right now. Reload and check it.',
+     );
+     expect(selfServeErrorCopy({ message: 'not_authorised' }).message).toBe(
+-      'Only an owner or manager of this organiser can send it for review.',
++      'Only an owner or manager of this page can do that.',
+     );
+     expect(selfServeErrorCopy({ message: 'organiser_not_found' }).message).toBe('That organiser no longer exists.');
+     expect(selfServeErrorCopy({ message: 'authentication_required' }).next).toBe('sign_in');
+diff --git a/src/modules/organiser/shared/__tests__/seriesCommands.r1.test.ts b/src/modules/organiser/shared/__tests__/seriesCommands.r1.test.ts
+index 7c67fa0..3038036 100644
+--- a/src/modules/organiser/shared/__tests__/seriesCommands.r1.test.ts
++++ b/src/modules/organiser/shared/__tests__/seriesCommands.r1.test.ts
+@@ -1,4 +1,5 @@
+ import { describe, expect, it } from 'vitest';
++import * as commands from '../seriesCommands';
+ import { createDraftPayload, lifecycleCommand, moveDateCommand, uncancelCommand, unskipDateCommand, SERIES_TIMEZONE } from '../seriesCommands';
+ import { createSeriesCommand } from '../selfServeApi';
+ 
+@@ -16,6 +17,10 @@ describe('R1 commands (4.3 #6)', () => {
+     expect(lifecycleCommand('paused')).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'paused' } });
+     expect(lifecycleCommand('live')).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'live' } });
+   });
++
++  it('the review path is gone (D4): no submitForReviewCommand', () => {
++    expect('submitForReviewCommand' in commands).toBe(false);
++  });
+ });
+ 
+ describe('createDraftPayload (D44)', () => {
