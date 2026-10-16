@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
 import { resolveCanonicalCity } from "@/lib/city-canonical";
 import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo } from "@/lib/authRouting";
+import { signInDeletionTarget } from "@/lib/accountDeletion";
 import { hasDancerProfileBasics, inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { flags } from "@/lib/featureFlags";
+import { acceptTerms } from "@/lib/termsConsent";
 import {
   armPostLoginPrompt,
   isDanceRoleValue,
@@ -91,9 +93,23 @@ const AuthCallback = () => {
       // sign-in that just linked an admin-made profile: it may be complete already.
       if (shouldArmFinishHop({ firstSignIn: isFirstSignIn(user), claim })) armPostLoginPrompt();
 
+      // A deleted (= hidden) account restores BEFORE anything else: before any returnTo is followed
+      // and before the profile read (a hidden profile reads as missing). The returnTo rides along
+      // so the restore page's Continue still gets there. A failed read carries on (lib/accountDeletion).
+      const restoreTo = await signInDeletionTarget(safeReturnTo ?? sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY)));
+      if (restoreTo) {
+        localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
+        navigate(restoreTo, { replace: true });
+        return;
+      }
+
       try {
         const pendingRole = localStorage.getItem("pending_profile_role");
         const isSignupFlow = callbackMode === "signup" || (callbackMode !== "signin" && Boolean(pendingRole));
+        // An e-mailed-link sign-up saw the clickwrap but never passed the typed-code screen, so record the
+        // consent here (idempotent server-side, so a typed-code sign-up that already did is harmless).
+        // Not awaited: it never holds the person back; acceptTerms has its own timeout and never throws.
+        if (callbackMode === "signup") void acceptTerms();
         const meta = user.user_metadata || {};
         // Called for its side effect (it persists a metadata role); routing reads the role itself.
         resolveRolePreference(pendingRole, meta.user_type);
