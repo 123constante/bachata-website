@@ -1,0 +1,103 @@
+{
+ "version": 1,
+ "groups": [
+  {
+   "entry": "OL",
+   "title": "x"
+  }
+ ],
+ "rows": [
+  {
+   "id": "row.one",
+   "matrix": "M0",
+   "entry": "OL",
+   "state": "S-NEW",
+   "action": "a",
+   "end": "e",
+   "transition": "T",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "journey-one"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "row.two",
+   "matrix": "M0",
+   "entry": "OL",
+   "state": "S-DANCER",
+   "action": "a",
+   "end": "e",
+   "transition": "T",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "two-orgs: lists organisers first"
+    },
+    {
+     "kind": "U",
+     "ref": "src/covered.test.ts"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "row.three",
+   "matrix": "M0",
+   "entry": "OL",
+   "state": "S-DANCER",
+   "action": "a",
+   "end": "e",
+   "transition": "T",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/covered.test.ts"
+    },
+    {
+     "kind": "W",
+     "ref": "docs/walks/WALK.md#line-3"
+    },
+    {
+     "kind": "E",
+     "ref": "listed"
+    }
+   ],
+   "people": "new",
+   "coverage": "optional",
+   "decision": null,
+   "built": "BUILT"
+  },
+  {
+   "id": "row.four",
+   "matrix": "M0",
+   "entry": "OL",
+   "state": "S-NEW",
+   "action": "a",
+   "end": "e",
+   "transition": "T",
+   "covered_by": [
+    {
+     "kind": "J",
+     "ref": "journey-two"
+    },
+    {
+     "kind": "R",
+     "ref": "it's an escaped title"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": null,
+   "built": "BUILT"
+  }
+ ]
+}

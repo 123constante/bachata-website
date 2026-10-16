@@ -24,6 +24,9 @@ import {
 } from "@/lib/auth-otp-routing";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
+import { trackAuthStep } from "@/lib/trackAuthStep";
+import { acceptTerms, hasAcceptedTerms } from "@/lib/termsConsent";
+import { TermsAcceptCard } from "@/components/auth/TermsAcceptCard";
 import MagicLinkConfirmation, { forgetCodeStep, readCodeStep, rememberCodeStep } from "@/components/MagicLinkConfirmation";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
 import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
@@ -160,6 +163,10 @@ const AuthContent = () => {
   }, [activeStep, lastStep]);
 
   useEffect(() => {
+    trackAuthStep({ step: "auth_view", outcome: "ok" });
+  }, []);
+
+  useEffect(() => {
     if (mode === "signin") {
       setAuthNotice(null);
     }
@@ -282,6 +289,7 @@ const AuthContent = () => {
         },
       });
       if (error) throw error;
+      trackAuthStep({ step: "code_sent", outcome: "ok" });
       rememberCodeStep(normalizedEmail, mode);
       setCodeEmail(normalizedEmail);
       setMagicLinkSent(true);
@@ -289,6 +297,7 @@ const AuthContent = () => {
       trackAnalyticsEvent("auth_viewed", { mode: isCreateAccount ? "signup" : "signin", source: "magic_link_sent" });
     } catch (error: any) {
       const isSignupDisabled = isOtpSignupDisabledError(error);
+      trackAuthStep({ step: "code_sent", outcome: isSignupDisabled || isSignupAllowlistRefusal(error, isCreateAccount) ? "refused" : "error" });
       // Sign-in for an email with no account. The pre-lookup above can't catch
       // it (account_exists_by_email is not anon-callable, so it answers
       // "unknown"), and this 422 is the first time we learn it. Move to
@@ -317,13 +326,36 @@ const AuthContent = () => {
   // A verified code leaves a session behind, exactly as the emailed link does.
   // Hand over to /auth/callback so both routes share one post-login resolution
   // (returnTo, pending role, profile stub) instead of a second copy of it here.
-  const handleCodeVerified = () => {
+  const continueToCallback = () => {
     forgetCodeStep();
     const callbackUrl = new URLSearchParams({ mode: mode === "signup" ? "signup" : "signin" });
     if (explicitReturnTo) {
       callbackUrl.set("returnTo", explicitReturnTo);
     }
     navigate(`/auth/callback?${callbackUrl.toString()}`, { replace: true });
+  };
+
+  // D8. Sign-UP: the clickwrap under the code box is the consent, recorded once now that a session
+  // exists. Sign-IN: an account with no acceptance on file gets the one-tap card first. Neither a
+  // failed record nor a failed check holds the person back.
+  const [needsAccept, setNeedsAccept] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const handleCodeVerified = async () => {
+    if (mode === "signup") {
+      await acceptTerms();
+      continueToCallback();
+      return;
+    }
+    if (await hasAcceptedTerms()) {
+      continueToCallback();
+      return;
+    }
+    setNeedsAccept(true);
+  };
+  const handleAccept = async () => {
+    setAccepting(true);
+    await acceptTerms();
+    continueToCallback();
   };
 
   const handleDevQuickLogin = async (destination: string) => {
@@ -357,6 +389,20 @@ const AuthContent = () => {
     }
   };
 
+  if (needsAccept) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 bg-background">
+        <div className="w-full max-w-md">
+          <Card className="shadow-none">
+            <CardContent className="pt-6">
+              <TermsAcceptCard busy={accepting} onAccept={() => void handleAccept()} />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   if (magicLinkSent) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4 bg-background">
@@ -370,7 +416,8 @@ const AuthContent = () => {
                   forgetCodeStep();
                   setMagicLinkSent(false);
                 }}
-                onVerified={handleCodeVerified}
+                onVerified={() => void handleCodeVerified()}
+                showConsent={mode === "signup"}
                 extraAction={{ label: "Continue browsing", onClick: () => navigate(returnTo) }}
               />
             </CardContent>

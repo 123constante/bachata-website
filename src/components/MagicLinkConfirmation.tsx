@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { trackAnalyticsEvent } from '@/lib/analytics';
 import { OTP_CODE_LENGTH } from '@/lib/auth-otp-routing';
+import { trackAuthStep } from '@/lib/trackAuthStep';
+import { ConsentLine } from '@/components/auth/ConsentLine';
 
 interface MagicLinkConfirmationProps {
   email: string;
@@ -17,6 +19,8 @@ interface MagicLinkConfirmationProps {
    * where the emailed link would have.
    */
   onVerified: () => void;
+  /** D8: sign-UP only -- the one-line Terms and Privacy clickwrap under the code box. */
+  showConsent?: boolean;
   /** Optional extra action, e.g. "Continue browsing" */
   extraAction?: { label: string; onClick: () => void };
 }
@@ -89,7 +93,7 @@ const storeWrongCodes = (email: string, wrong: number) => {
 
 const LOCKED_MESSAGE = 'Too many wrong codes. Send a new code to try again.';
 
-const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, extraAction }: MagicLinkConfirmationProps) => {
+const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, showConsent, extraAction }: MagicLinkConfirmationProps) => {
   const [countdown, setCountdown] = useState(COOLDOWN);
   const [isResending, setIsResending] = useState(false);
   const [code, setCode] = useState('');
@@ -114,10 +118,12 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, ext
       const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
       if (error) throw error;
       trackAnalyticsEvent('auth_code_verified', { source: 'auth_page', route: 'returning' });
+      trackAuthStep({ step: 'code_ok', outcome: 'ok' });
       onVerified();
     } catch (error) {
       const message = String((error as { message?: unknown } | null)?.message || '').toLowerCase();
       const isInvalid = message.includes('invalid') || message.includes('expired');
+      trackAuthStep({ step: 'code_fail', outcome: !isInvalid ? 'error' : message.includes('expired') ? 'expired' : 'wrong' });
       if (isInvalid) {
         const wrong = wrongCodes + 1;
         setWrongCodes(wrong);
@@ -179,12 +185,13 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, ext
             }}
             onComplete={(value) => void verify(value)}
             disabled={isVerifying || locked}
+            autoFocus
             autoComplete="one-time-code"
             inputMode="numeric"
             pattern="[0-9]*"
             aria-label={CODE_LABEL}
             aria-invalid={codeError || locked ? true : undefined}
-            aria-describedby={codeError || locked ? ERROR_ID : undefined}
+            aria-describedby={ERROR_ID}
           >
             {[0, 1].map((group) => (
               <Fragment key={group}>
@@ -202,12 +209,12 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, ext
             ))}
           </InputOTP>
         </div>
-        {(codeError || locked) && (
-          <p id={ERROR_ID} role="alert" className="text-sm text-destructive">
-            {locked ? LOCKED_MESSAGE : codeError}
-          </p>
-        )}
-        {isVerifying && <p className="text-sm text-muted-foreground">Checking code&hellip;</p>}
+        {/* Always mounted so screen readers announce the text when it appears. */}
+        <p id={ERROR_ID} role="alert" aria-live="assertive" className="text-sm text-destructive">
+          {locked ? LOCKED_MESSAGE : codeError}
+        </p>
+        {isVerifying && <p className="text-sm text-muted-foreground" role="status">Checking code&hellip;</p>}
+        {showConsent && <ConsentLine />}
       </div>
 
       <div className="w-full space-y-2">
