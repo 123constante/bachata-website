@@ -11,6 +11,8 @@ import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-
 import { getAuthStepperStage } from "@/lib/auth-signup-resolver";
 import {
   DANCE_ROLE_REQUIRED_ERROR,
+  OTP_RESEND_COOLDOWN_SECONDS,
+  SIGNUP_HELP_WHATSAPP_URL,
   SIGNUP_INVITE_ONLY_DESCRIPTION,
   SIGNUP_INVITE_ONLY_TITLE,
   armPostLoginPrompt,
@@ -18,7 +20,6 @@ import {
   isSignupAllowlistRefusal,
   SIGNED_IN_LANDING_PATH,
 } from "@/lib/auth-otp-routing";
-import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
 import { claimAtSignIn, shouldArmFinishHop } from "@/lib/claimMyDancerProfile";
 import { useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import { Button } from "@/components/ui/button";
@@ -44,7 +45,7 @@ type AuthStepperProps = {
 };
 
 const emailPattern = /\S+@\S+\.\S+/;
-const OTP_RESEND_COOLDOWN_SECONDS = 30;
+// OTP_RESEND_COOLDOWN_SECONDS: the one shared value (lib/auth-otp-routing, audit H7).
 const SIGNUPS_DISABLED_HINT = "Signups are disabled for OTP. Contact support or use an existing account.";
 
 export const AuthStepper = ({
@@ -294,7 +295,7 @@ export const AuthStepper = ({
           description: (
             <>
               {SIGNUP_INVITE_ONLY_DESCRIPTION}{" "}
-              <a href={WHATSAPP_GET_LISTED_URL} target="_blank" rel="noopener noreferrer" className="underline">
+              <a href={SIGNUP_HELP_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="underline">
                 Message us on WhatsApp
               </a>
               .
