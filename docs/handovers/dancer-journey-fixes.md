@@ -282,33 +282,66 @@ src/pages/legal/LegalShell.tsx
 vite.chunks.ts
 ```
 
-### Per-job table (run locally in this container; GitHub Actions not used)
+### Continuation (brief `briefs/review-789-fix-cont.md` @ 925ed7b6; ticket dt_fcc38efcb499)
+
+No code change was needed: every mutant is still red and every gate that can run in a container is green.
+Base for every run: branch head `b9fd165` merged with `origin/main` @ `ecc3432` (merge-base = main head).
+
+#### Step 5: the review's 10 mutants, re-run on the fixed code (all red; each reverted with `git checkout`)
+
+| # | Test | Mutant | Base | Result |
+|---|---|---|---|---|
+| 1 | `src/lib/__tests__/focusMode.test.ts` | photo `?return=/app/welcome` rule -> `return false` | 42/42 | red 3/42 |
+| 2 | same | `trimSlash` = identity (no trailing-slash folding) | 42/42 | red 2/42 |
+| 3 | same | drop `.split('?')[0]` on the nested return | 42/42 | red 1/42 |
+| 4 | `src/components/ui/__tests__/pickerAccessibleName.test.tsx` | CityPicker trigger drops `id` / `aria-label` / `aria-labelledby` | 25/25 | red 3/25 |
+| 5 | same | remove `id="ob-city"` in `onboarding/steps.tsx:76` | 25/25 | red 2/25 |
+| 6 | `avatarSurfaces.test.tsx` | PersonAvatar no-photo disc `background: 'transparent'` | 21/21 | red 16/21 |
+| 7 | same | remove `onError` from PersonAvatar | 21/21 | red 8/21 |
+| 8 | `journeyGuards` + `journeyConsistencySite` | `DancerHome.tsx` reverted to `origin/main` | 85/85 | red 5/85 |
+| 9 | `optionsAudit.test.tsx` | `APP_ACCOUNT_SETTINGS_PATH` without `?from=app` (accountRouting) | 31/31 | red 2/31 |
+| 9b | same | `optionsModel` link hard-coded to `/account/settings` | 31/31 | red 2/31 |
+| 10 | `termsConsent.version.test.ts` | `termsConsent.ts` keeps its own copied `TERMS_VERSION` | 4/4 | red 4/4 |
+
+`termsConsent.ts` does not exist on `origin/main` any more, so "revert to main" became the closest real regression
+(a local version copy, audit L27); the emptied-file variant is also red 4/4.
+
+#### Item 3: the isolation guard's self-test, read once and mutated
+- Allowlist diff: the 77 seam paths + the 7 protected removals listed above; `protected` is 15 plain paths, no glob.
+  The self-test adds the fixture-only `SELF_TEST_GLOB` so the trailing-`*` case still proves something.
+- Self-test (51 cases) still breaks every rule on purpose; each rule mutated in the script turns it red:
+  glob matcher broken -> 18 cases fail (fixture config error); rule (a) protected-edit disabled -> 18 fail;
+  rule (a) non-seam disabled -> 4 fail; rule (b) disabled -> 13 fail; rule (c) disabled -> 5 fail.
+- Real check exit 0 (164 changed files, 15 protected checked). Note: with a STALE local `origin/main` it exits 2
+  ("protected entries match no file"): fetch main first, as its own message says.
+
+### Per-job table (final; run locally in this container, GitHub Actions not used)
 
 | Job / step | Command | Exit | Counts |
 |---|---|---|---|
-| unit-tests | `npm run test:unit` | 1 | 9019 passed, 18 failed, 17 skipped; after fixes the 3 real reds (chunkClassifier list, 2 dancer-app hrefs) pass. The other 15 (live-DB `*.contract.test.ts`, `integrityCouldNotRun`) fail identically on the base with no network/TS helper here. NOT re-run in full after the last fixes. |
-| unit, 3 timezone runs | not run | - | - |
-| typecheck | `tsc -p tsconfig.app.json` | errors | 97 pre-existing errors, none in files touched here; the CI job's ratchet steps not run |
-| lint chain | not run | - | - |
-| architecture-guard | not run | - | - |
-| perf-budget (prod build) | `npm run build` + `check:bundle-budget`, `check:first-load-requests`, `check:chunk-cycles` | 0 / 0 / 0 | flag off; flag-on table under S6 |
-| phone-qa build-smoke | `playwright.build.config.ts` `account-delete.build.spec.ts` | 0 | 11/11 (fake-Supabase prod build) |
-| phone-qa phone suite | keyboard spec, city rows only | 0 | 8/8 new rows; 58/60 on x3 repeat (2 = dev reload while editing) |
-| e2e-smoke | not run | - | - |
-| dancer-area isolation | check + `--self-test` | 0 / 0 | OK; 51 cases |
+| unit-tests (London, full) | `npm run test:unit` (offline Supabase placeholders) | 1 | 9010 passed, 17 failed, 27 skipped / 371 files. All 17 are pre-existing: the same 5 files on `origin/main` @ ecc3432 give the same 17 failed / 75 passed (4 live-DB `*.contract.test.ts` with no network, 5 in `integrityCouldNotRun.test.ts` with no TS helper). 0 failures elsewhere. |
+| unit-tests timing | `npm run test:unit:timing` | 0 | 65/65 |
+| unit-tests New York | tz-sensitive file list from the workflow | 0 | 213/213 |
+| unit-tests Sydney | same | 0 | 213/213 |
+| dancer-area isolation | `--self-test`, `npm run check:dancer-area-isolation` | 0 / 0 | 51 cases; OK |
+| lint chain | `chmod +x bin/*.sh; npm run lint` | 0 | 18/18 links PASS (whole-tree eslint informational, red on main too) |
+| architecture-guard | every step of the job (integrity, legacy-tables, legacy-program-rpcs, lint:architecture, `AUDIT_STRICT=1 check:images`, image-widths + self-test, plan-hygiene self-test, workflow-artifact-policy + self-test, mojibake self-test + grep, entry-point proof + self-test) | all 0 | integrity 1770 files 0 issues; entry points 44/44 |
+| typecheck | `check:rpc-typing`, `check:wallclock-brand` | 0 / 0 | OK |
+| e2e-smoke | `npm run test:e2e` (workflow env) | 0 | 146 passed, 2 flaky, 1 skipped. The 2 flaky (`dancer-app/home-nights:63`, `dancer-home:168`) failed only on the first attempt of the cold dev server; re-run `--repeat-each=5 --retries=0`: 25/25 passed. |
+| phone-qa phone suite | `npx playwright test --config playwright.phone.config.ts` | 0 | 268 passed, 74 skipped (spec-declared), 0 failed |
+| phone-qa build-smoke | fake-Supabase `npm run build` + `playwright.build.config.ts` | 0 / 0 | 66/66 |
+| perf-budget | 3 self-tests, `npm run build`, bundle-budget, first-load-requests, chunk-cycles | all 0 | budgets respected; 6/6 routes match the request pin |
+| perf-budget lighthouse, doc-weight | `check:lighthouse`, `check:doc-weight` | not run | need the PR's Vercel preview via the GitHub Deployments API (`GITHUB_TOKEN`) + `VERCEL_AUTOMATION_BYPASS_SECRET`: CI-only |
 
 ### Left (next worker)
-1. Step 5: re-run the review's 10 mutants that touch changed code (focusMode x3, pickerAccessibleName x2,
-   avatarSurfaces x2, journeyGuards, optionsAudit settings link, termsConsent) and confirm all still red.
-   `optionsAudit` M4 mutant: the link is now `APP_ACCOUNT_SETTINGS_PATH` from accountRouting.
-2. The full gate pass: `npm run test:unit` (and its 3 TZ runs), lint chain (`chmod +x bin/*.sh` first),
-   architecture-guard, typecheck job steps, e2e-smoke, full phone-qa (phone + build), build-smoke; fill the table.
-3. `/code-review` of the whole review-fix diff was NOT run (CLAUDE.md asks for it before commit; the guard change
-   in step 4 gets ONE round). `.githooks` are not executable in this container, so pre-commit/pre-push did not run.
-4. Organiser sign-outs (`organiser/profile/index.tsx:280`, `onboarding/SignOutLine.tsx:26`) left for the
-   organiser session (see B1).
+1. Nothing in the review-fix scope. GitHub Actions on the current head (billing may refuse jobs; the table above is
+   the record), and the owner's phone test.
+2. Organiser sign-outs (`organiser/profile/index.tsx:280`, `onboarding/SignOutLine.tsx:26`): organiser session (B1).
+3. The orchestrator mirrors the seam list above into `briefs/dancer-rebuild-INTERFACE.md`.
 
 ### Not verified
 - Real phone, real keyboard (Android S5 especially: verified only by attribute + keyboardSafe's CSS rule).
 - S7 on a throttled network. B1 delete-flow row was green on screen even before the fix (red only in the unit table).
-- Live prod data in the browser; Vercel preview; GitHub CI.
+- Live prod data in the browser; the Vercel preview (lighthouse, doc-weight); GitHub CI on the head.
+- The 4 live-DB contract suites (no network to prod here); they fail identically on main for that reason.
+- `.githooks` pre-commit/pre-push are not executable in this container, so they did not run on these commits.
