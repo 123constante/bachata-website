@@ -27,7 +27,10 @@ vi.mock('../useProfileSides', () => ({
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
     user: { id: 'me' },
-    signOut: async () => {
+    // Like the real AuthProvider: storage is cleared, the caller's `leave` runs, THEN the
+    // in-memory sign-out (recorded here). A failure that signs nothing out never leaves.
+    signOut: async (opts?: { leave?: () => Promise<void> }) => {
+      if (auth.outcome !== 'failed') await opts?.leave?.();
       auth.at.push(here);
       return auth.outcome;
     },

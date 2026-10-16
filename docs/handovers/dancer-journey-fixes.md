@@ -350,3 +350,73 @@ Base for every run: branch head `b9fd165` merged with `origin/main` @ `ecc3432` 
 - Failure: GitHub job "unit (Europe/London, full)" exited 1 on `TypeError: document.elementFromPoint is not a function` (input-otp `use-pwm-badge` timer, from `MagicLinkConfirmationEmail.test.tsx`), though all tests passed.
 - Fix: new `vitest.setup.ts` (wired via `setupFiles` in `vitest.config.ts`) stubs `document.elementFromPoint` only when missing.
 - Before/after: `MagicLinkConfirmationEmail.test.tsx` exit 1 with Unhandled Errors -> exit 0, none. Full `npm run test:unit`: no "Unhandled Errors" section; only the pre-existing 15 failures here (4 live-DB contract files, no network; `integrityCouldNotRun` with global typescript). Not verified: the GitHub job itself.
+
+## Sign-out storage race (brief `briefs/pr789-signout-storage.md` @ 4da16cb7; ticket dt_20bd2678a05a)
+
+**Failure.** build-smoke `account-edges.build.spec.ts:28` ("no trace of A"), intermittent on GitHub at e92f315:
+`storage keys still holding A after sign-out: auth_last_email, sb-phoneqafakenotaproject-auth-token, auth_form_state_v1`.
+
+**Cause (verified by reading, then red-first).** `useSignOutToHome` (B1/S7) navigated home FIRST, waited up to 2 s for
+the move to commit, and only THEN called `useAuth().signOut`, which is where `clearPersonScopedStorage()` ran and where
+supabase-js removed its token. The URL left `/app/` while A's keys were still in storage; the spec reads storage as soon
+as the URL changes, so it raced. On a shared phone the next person could find A's e-mail and form in that window, and
+for good if the sign-out never completed.
+
+**Fix (by construction, no retry or wait in the spec).** `useAuth().signOut` owns the order, in four steps
+(`src/hooks/useAuth.tsx`):
+1. server revoke (`auth.admin.signOut(token, scope)` with the provider's own session token), capped at 3 s;
+2. `clearPersonScopedStorage()` on success, failure AND timeout;
+3. the caller's new `leave` step (`useSignOutToHome` passes navigate + commit wait; H10 still holds, as `user` is still
+   set in memory);
+4. the in-memory sign-out (`auth.signOut({ scope: 'local' })`: storage is empty, so no request, only SIGNED_OUT), then
+   storage again plus the query cache.
+The Supabase session keys (`sb-*-auth-token`, `-user`, `-code-verifier`) joined the ONE list,
+`src/lib/personScopedStorage.ts` (`PERSON_SCOPED_LOCAL_PATTERNS`). There is no second copy.
+Changed behaviour: an ordinary sign-out while offline now clears the device and returns `signed-out`. Before, it
+returned `failed` and the person stayed signed in. `everywhere` with an unrevoked server session still returns
+`signed-out-locally`. `failed` now means the client never loaded (nothing is left: the person stays on the page with
+the toast) or the local sign-out threw.
+Organiser sign-outs call `useAuth().signOut` without `leave`, so the same order applies without a navigation.
+Organiser files untouched.
+
+**Tests.** New `src/components/account/profiles/__tests__/signOutStorageRace.test.tsx`: real AuthProvider and hook, with
+a navigate spy that snapshots storage. Fast, slow (10 s, past both caps) and rejecting server call. Red-first on the
+e92f315 sources (fix stashed):
+```
+ FAIL  ...signOutStorageRace.test.tsx > sign-out clears A from storage BEFORE leaving the page > server call fast: ...
+ FAIL  ...signOutStorageRace.test.tsx > ... > server call slow: ...
+ FAIL  ...signOutStorageRace.test.tsx > ... > server call reject: ...
+AssertionError: expected [ …(3) ] to deeply equal []
+      Tests  3 failed | 1 passed (4)
+```
+Green with the fix: 4/4. Existing mocks updated to the `leave` contract: `switcherSignOut`, `signOutEntryPoints`,
+`AccountSettings` (`objectContaining`), and `personScopedStorage` (the token is now cleared; scope goes to the revoke; a
+throwing local sign-out says `failed` with A already gone).
+Spec assertion untouched. `account-edges.build.spec.ts --repeat-each=10 --retries=0` on the fake-Supabase production
+build: **80 passed, 0 failed** (8 tests x 10, "no trace of A" 10/10).
+
+**Isolation.** `vitest.config.ts` and `vitest.setup.ts` are now seams with the note "test setup for #789 (input-otp
+elementFromPoint stub)", plus the new test file. Rule (a) counts only `tests/` as a test prefix, so the sibling
+`__tests__` files are seams too.
+Check: exit 0, OK. `--self-test`: exit 0, 51 cases.
+
+### Per-job table (this pass; run locally in this container, GitHub Actions not used)
+
+| Job / step | Command | Exit | Counts |
+|---|---|---|---|
+| unit-tests (London, full) | `npm run test:unit` | 1 | 9017 passed, 15 failed, 27 skipped / 372 files; no "Unhandled Errors". The 15 are the known ones: 3 live-DB `*.contract.test.ts` with no network (10), `integrityCouldNotRun.test.ts` (5). |
+| dancer-area isolation | check, `--self-test` | 0 / 0 | OK; 51 cases |
+| typecheck | `npm run typecheck` | n/a | 96 errors vs baseline 106 in `pre-ship.mjs`; none in the changed files |
+| eslint (changed files) | `npx eslint <changed>` | 0 | 0 errors; the warnings were already there |
+| phone-qa build-smoke | fake-Supabase `npm run build` + `playwright.build.config.ts` | 0 / 0 | 66/66 |
+| build-smoke repeat | `account-edges.build.spec.ts --repeat-each=10 --retries=0` | 0 | 80/80 |
+| phone-qa phone suite | `playwright.phone.config.ts` | 1 | 267 passed, 1 failed, 74 skipped. The failure was `keyboard.phone.spec.ts:358` timing out in `settled()` (hydration wait on open); there is no sign-out in that path. Re-run `keyboard.phone.spec.ts --repeat-each=5 --retries=0`: 400/400 passed. |
+| e2e-smoke | `npm run test:e2e` (workflow env) | 0 | 148 passed, 1 skipped, 0 flaky |
+| perf-budget | perf-env `npm run build`, `check:bundle-budget`, `check:first-load-requests`, `check:chunk-cycles` | 0 / 0 / 0 / 0 | dancer-app 362.7 KB of 363 KB, 57 files. With the phone-qa build env (organiser flags on) dancer-app is 363.3 KB, over budget, as noted under S6 (flag-on only) |
+
+### Not verified
+- GitHub Actions on the new head (billing may refuse jobs), the Vercel preview, and a real phone.
+- The server revoke against real Supabase. It was tested only with mocks and the fake backend.
+  `auth.admin.signOut(jwt, scope)` is the same call supabase-js makes inside `signOut`.
+- The lint chain and architecture-guard were not re-run in this pass. The code change is 3 ASCII source files plus tests.
+- `.githooks` are not executable here, so pre-commit and pre-push did not run.

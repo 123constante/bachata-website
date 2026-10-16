@@ -9,7 +9,7 @@ export const SIGN_OUT_HOME_PATH = '/';
 /** The one sign-out failure line (switcher sheet, dancer Options, Account settings, restore). */
 export const SIGN_OUT_FAILED = 'Sign-out did not complete. Check your connection and try again.';
 
-/** Upper bound on waiting for the move to commit once navigate() has resolved; sign-out still happens after it. */
+/** Upper bound on waiting for the move to commit once navigate() has resolved; the in-memory sign-out still happens after it. */
 const LEAVE_WAIT_MS = 2000;
 
 export type SignOutToHomeOptions = {
@@ -30,21 +30,27 @@ export type SignOutToHomeOptions = {
  * Sign out and land on the site home (or `to`). THE one sign-out path: every sign-out button
  * goes through it (review #789 B1; signOutEntryPoints.test.tsx is the table of them).
  *
- * ORDER MATTERS (audit H10). Signing out first nulls `user` while the person is
- * still inside an AuthGuard-wrapped route; AuthGuard then navigates to
- * /auth?mode=signin, and in framework mode that navigation ABORTS our pending
- * navigate('/') -- the person ended on "Welcome back". So we leave first and
- * sign out only once the move has COMMITTED: this hook's own component has
- * either re-rendered on the target or unmounted with the guarded page. React Router
- * applies location changes in a transition, so neither the navigate() call nor
- * its promise alone proves the guarded tree is gone. The time cap is armed only
- * AFTER navigate() resolves (review S7): a slow route chunk on 3G must not let
- * sign-out run while the guarded page is still up.
+ * ORDER MATTERS, and useAuth().signOut owns it (its `leave` step):
+ *  1. the server revoke, capped (useAuth SIGN_OUT_SERVER_WAIT_MS);
+ *  2. the person's data leaves this browser's storage -- on success, failure AND timeout --
+ *     BEFORE the page is left (#789 storage race: navigating first let the next person
+ *     find A's e-mail, form and session token on a shared phone);
+ *  3. `leave`, below: the move home, while `user` is still set. Signing out first nulled
+ *     `user` inside an AuthGuard-wrapped route; AuthGuard then navigated to
+ *     /auth?mode=signin and, in framework mode, ABORTED our navigate('/') (audit H10).
+ *     So the in-memory sign-out waits until the move has COMMITTED: this hook's own
+ *     component has re-rendered on the target or unmounted with the guarded page (React
+ *     Router applies location changes in a transition, so neither the navigate() call nor
+ *     its promise alone proves the guarded tree is gone). The time cap is armed only AFTER
+ *     navigate() resolves (review S7): a slow route chunk on 3G must not let the in-memory
+ *     sign-out run while the guarded page is still up;
+ *  4. the in-memory sign-out (user -> null).
  *
  * Returns the sign-out outcome, so a caller can still speak about 'signed-out-locally'
- * (a toast outlives the page). Failure is told truthfully: nothing was signed out, so by
- * default we go back to the screen the person was on and raise a toast (the calling
- * sheet has unmounted by then, so an inline line could not be seen).
+ * (a toast outlives the page). 'failed' means nothing was signed out (the client never
+ * loaded, or the local sign-out itself threw): by default we stay on, or go back to, the
+ * screen the person was on and raise a toast (the calling sheet has unmounted by then, so
+ * an inline line could not be seen).
  */
 export function useSignOutToHome(): {
   signOutToHome: (opts?: SignOutToHomeOptions) => Promise<SignOutOutcome>;
@@ -71,24 +77,31 @@ export function useSignOutToHome(): {
   const signOutToHome = useCallback(
     async ({ everywhere = false, to = SIGN_OUT_HOME_PATH, state, onFailed = 'return' }: SignOutToHomeOptions = {}): Promise<SignOutOutcome> => {
       setBusy(true);
+      let left = false;
+      const leave = async () => {
+        if (left) return;
+        left = true;
+        if (from.split(/[?#]/, 1)[0] === to) return;
+        target.current = to;
+        const committed = new Promise<void>((done) => {
+          waiters.current.push(done);
+        });
+        await navigate(to, { replace: true, flushSync: true, state });
+        await Promise.race([committed, new Promise<void>((done) => setTimeout(done, LEAVE_WAIT_MS))]);
+      };
       try {
-        if (from.split(/[?#]/, 1)[0] !== to) {
-          target.current = to;
-          const left = new Promise<void>((done) => {
-            waiters.current.push(done);
-          });
-          await navigate(to, { replace: true, flushSync: true, state });
-          await Promise.race([left, new Promise<void>((done) => setTimeout(done, LEAVE_WAIT_MS))]);
-        }
         let outcome: SignOutOutcome = 'failed';
         try {
-          outcome = await signOut({ everywhere });
+          outcome = await signOut({ everywhere, leave });
         } catch {
           /* told as a failure below */
         }
         if (outcome === 'failed' && onFailed === 'return') {
           toast.error(SIGN_OUT_FAILED);
-          if (from !== to) await navigate(from, { replace: true });
+          if (left && from !== to) await navigate(from, { replace: true });
+        } else {
+          // Signed out without a leave step having run, or 'stay' on a failure: land on `to` now.
+          await leave();
         }
         return outcome;
       } finally {

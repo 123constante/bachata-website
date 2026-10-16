@@ -133,7 +133,10 @@
     "src/pages/__tests__/LegalPages.test.tsx",
     "src/pages/__tests__/journeyConsistencySite.test.tsx",
     "src/pages/legal/LegalShell.tsx",
-    "vite.chunks.ts"
+    "vite.chunks.ts",
+    "vitest.config.ts",
+    "vitest.setup.ts",
+    "src/components/account/profiles/__tests__/signOutStorageRace.test.tsx"
   ],
   "seamNotes": {
     "src/modules/event-page/bento/BentoPage.tsx": "R1a step 4 (Round-3): lazy level-rating children",
@@ -250,7 +253,10 @@
     "src/pages/__tests__/LegalPages.test.tsx": "dancer journey audit fixes 2026-10-16 (#789)",
     "src/pages/__tests__/journeyConsistencySite.test.tsx": "dancer journey audit fixes 2026-10-16 (#789)",
     "src/pages/legal/LegalShell.tsx": "dancer journey audit fixes 2026-10-16 (#789)",
-    "vite.chunks.ts": "dancer journey audit fixes 2026-10-16 (#789)"
+    "vite.chunks.ts": "dancer journey audit fixes 2026-10-16 (#789)",
+    "vitest.config.ts": "test setup for #789 (input-otp elementFromPoint stub)",
+    "vitest.setup.ts": "test setup for #789 (input-otp elementFromPoint stub)",
+    "src/components/account/profiles/__tests__/signOutStorageRace.test.tsx": "#789 sign-out storage race: keys gone before navigate"
   },
   "protected": [
     "src/pages/Account.tsx",

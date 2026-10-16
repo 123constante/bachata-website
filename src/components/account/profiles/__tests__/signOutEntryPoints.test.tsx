@@ -41,9 +41,11 @@ vi.mock('@/hooks/useAuth', () => ({
       isLoading: false,
       authStatus: 'ready',
       retryAuth: () => {},
-      // Like supabase: the call resolves, THEN the auth listener nulls `user` (a tick later).
-      signOut: async (opts?: { everywhere?: boolean }) => {
+      // Like the real AuthProvider: the caller's `leave` runs before the in-memory sign-out;
+      // then the auth listener nulls `user` (a tick later).
+      signOut: async (opts?: { everywhere?: boolean; leave?: () => Promise<void> }) => {
         store.calls.push({ everywhere: Boolean(opts?.everywhere) });
+        await opts?.leave?.();
         await new Promise((r) => setTimeout(r, 0));
         setTimeout(() => store.set(null), 0);
         return 'signed-out';

@@ -208,7 +208,7 @@ describe('settings home', () => {
   it('sign out of all devices: global sign-out, then home; a failure says so and stays', async () => {
     mount(SETTINGS);
     fireEvent.click(await screen.findByTestId('settings-signout-all'));
-    await waitFor(() => expect(h.signOut).toHaveBeenCalledWith({ everywhere: true }));
+    await waitFor(() => expect(h.signOut).toHaveBeenCalledWith(expect.objectContaining({ everywhere: true })));
     expect(await screen.findByText('start')).toBeTruthy();
   });
 
@@ -307,7 +307,7 @@ describe('ownership + delete: the same fact on both screens', () => {
     expect(btn.disabled).toBe(false);
     fireEvent.click(btn);
     await waitFor(() => expect(h.erase).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(h.signOut).toHaveBeenCalledWith({ everywhere: true }));
+    await waitFor(() => expect(h.signOut).toHaveBeenCalledWith(expect.objectContaining({ everywhere: true })));
     expect(await screen.findByText('deleted-page')).toBeTruthy();
   });
 
