@@ -1457,11 +1457,24 @@
    "people": "0",
    "coverage": "required",
    "decision": null,
-   "built": "PLANNED",
+   "built": "BUILT",
    "id": "ac.delete.hide",
    "action": "delete account, type DELETE",
-   "end": "signed out; the account is hidden at once (login refused); nothing is erased",
-   "covered_by": []
+   "end": "signed out on every device; the account is hidden from everyone at once; nothing is erased",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "delete hides: type DELETE, signed out on every device, the deleted page says hidden and 30 days"
+    },
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountSettings.test.ts"
+    },
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AccountSettings.test.tsx"
+    }
+   ]
   },
   {
    "matrix": "-",
@@ -1471,11 +1484,28 @@
    "people": "0",
    "coverage": "required",
    "decision": null,
-   "built": "PLANNED",
+   "built": "BUILT",
    "id": "ac.delete.restore-30",
    "action": "signs in within 30 days",
-   "end": "account restored as it was",
-   "covered_by": []
+   "end": "account restored as it was, \"Welcome back\" banner; an admin-archived profile is not restored (\"an admin has hidden this profile\")",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "signing in within 30 days restores the account and says welcome back"
+    },
+    {
+     "kind": "R",
+     "ref": "an admin-archived profile is not restored: it says an admin hid it"
+    },
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountDeletion.test.ts"
+    },
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AccountRestore.test.tsx"
+    }
+   ]
   },
   {
    "matrix": "-",
@@ -1485,11 +1515,20 @@
    "people": "0",
    "coverage": "required",
    "decision": null,
-   "built": "PLANNED",
+   "built": "BUILT",
    "id": "ac.delete.after-30",
    "action": "30 days pass",
-   "end": "an admin erases the data; signing up again makes a brand-new person",
-   "covered_by": []
+   "end": "stays hidden and KEPT (never auto-erased); sign-in shows \"This account was deleted on <date>\" with ask-us-to-restore / ask-us-to-erase",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "after 30 days the deleted card names the date, and both asks go to the contact address"
+    },
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AccountRestore.test.tsx"
+    }
+   ]
   },
   {
    "matrix": "-",
@@ -1499,11 +1538,20 @@
    "people": "0",
    "coverage": "required",
    "decision": null,
-   "built": "PLANNED",
+   "built": "BUILT",
    "id": "ac.delete.refused-sole-owner",
    "action": "delete account",
    "end": "refused: `sole_organiser_owner`, transfer first",
-   "covered_by": []
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "a sole organiser owner is refused at delete, with the pages listed"
+    },
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AccountSettings.test.tsx"
+    }
+   ]
   },
   {
    "matrix": "-",
@@ -1513,11 +1561,20 @@
    "people": "0",
    "coverage": "required",
    "decision": null,
-   "built": "PLANNED",
+   "built": "BUILT",
    "id": "ac.delete.admin-erase",
-   "action": "admin erases a hidden account after the 30 days",
-   "end": "data erased by an admin only; no automatic erase",
-   "covered_by": []
+   "action": "asks for a full erase (deleted card / delete screen) and an admin erases it",
+   "end": "data erased by an admin only (admin_account_erase_v1, admin repo); no automatic erase; the Website only routes the request to the contact address",
+   "covered_by": [
+    {
+     "kind": "R",
+     "ref": "after 30 days the deleted card names the date, and both asks go to the contact address"
+    },
+    {
+     "kind": "U",
+     "ref": "src/lib/__tests__/accountDeletion.contract.test.ts"
+    }
+   ]
   },
   {
    "id": "ac.export",

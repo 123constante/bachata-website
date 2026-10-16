@@ -3,7 +3,7 @@
  * TODAY's /account/settings, /account/settings/ownership, /account/settings/delete
  * and /account/deleted (src/pages/AccountSettings.tsx, AccountDeleted.tsx), pinned
  * as the accessible tree for every view x shape, at 390x844 and desktop, with the
- * hide/show switch states and the IMMEDIATE erase flow (mocked RPCs, exactly the
+ * hide/show switch states and the delete (= hide, admin PR #820) flow (mocked RPCs, exactly the
  * mocks src/pages/__tests__/AccountSettings.test.tsx uses).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -144,9 +144,9 @@ describe.each(VIEWPORTS)('account settings at $name', (vp) => {
     });
   });
 
-  describe('/account/settings/delete: the immediate erase flow', () => {
-    it('erase is disabled until DELETE is typed exactly, then erases, signs out, lands on /account/deleted', async () => {
-      h.erase.mockResolvedValue({ kind: 'erased' });
+  describe('/account/settings/delete: the delete (= hide) flow', () => {
+    it('delete is disabled until DELETE is typed exactly, then hides, signs out, lands on /account/deleted', async () => {
+      h.erase.mockResolvedValue({ kind: 'hidden' });
       mount('/account/settings/delete');
       const input = await screen.findByTestId('delete-type-input');
       const btn = screen.getByTestId('delete-confirm') as HTMLButtonElement;
@@ -164,10 +164,12 @@ describe.each(VIEWPORTS)('account settings at $name', (vp) => {
       expect(a11yTree()).toMatchSnapshot('deleted page');
     });
     it.each([
-      ['blocked', { kind: 'blocked', code: 'sole_organiser_owner', blockers: [{ entity_id: 'o1', name: 'Salsa Nights' }] }],
-      ['media_failed', { kind: 'media_failed' }],
+      ['sole_organiser_owner', { kind: 'refused', code: 'sole_organiser_owner', blockers: [{ entity_id: 'o1', name: 'Salsa Nights' }] }],
+      ['admin_account', { kind: 'refused', code: 'admin_account', blockers: [] }],
+      ['already_archived', { kind: 'refused', code: 'already_archived', blockers: [] }],
+      ['rate_limited', { kind: 'refused', code: 'rate_limited', blockers: [] }],
       ['failed', { kind: 'failed' }],
-    ])('a %s erase stays on the page, does not sign out, and says so', async (_n, outcome) => {
+    ])('a %s delete stays on the page, does not sign out, and says so', async (_n, outcome) => {
       h.erase.mockResolvedValue(outcome);
       mount('/account/settings/delete');
       fireEvent.change(await screen.findByTestId('delete-type-input'), { target: { value: 'DELETE' } });

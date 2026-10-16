@@ -90,6 +90,8 @@ describe.each([
   ['/account/settings/ownership', false],
   ['/account/settings/delete', false],
   ['/account/deleted', false],
+  ['/account/restore', false],
+  ['/account/restore/', false],
   ['/', false],
   ['/event/e1', false],
   ['/organiser/salsa-nights', false],

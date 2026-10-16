@@ -18,15 +18,17 @@ import {
   eraseCheckFact,
   fetchEraseCheck,
   setProfileDisabled,
+  type DeleteRefusalCode,
   type EraseBlocker,
   type EraseCode,
 } from "@/lib/accountSettings";
+import { ACCOUNT_CONTACT_EMAIL, deleteRefusalMessage } from "@/lib/accountDeletionCopy";
 
 /**
  * /account/settings, /account/settings/ownership, /account/settings/delete.
  *
  * Deliberately NOT behind the dancer-first gate: a person with an unfinished (or no)
- * dancer profile must still be able to sign out, hide the profile or erase the
+ * dancer profile must still be able to sign out, hide the profile or delete the
  * account. lib/accountRouting isDancerGatedPath leaves these paths open.
  */
 
@@ -125,7 +127,38 @@ function SignOutSection() {
       {failed && (
         <p role="alert" className={ERR}>Sign-out did not complete. Check your connection and try again.</p>
       )}
+      <SignOutEverywhere />
     </Section>
+  );
+}
+
+/** D6: ends every session of this account (other phones and laptops too), then this one. */
+function SignOutEverywhere() {
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const go = async () => {
+    setBusy(true);
+    setNote(null);
+    const outcome = await signOut({ everywhere: true });
+    setBusy(false);
+    if (outcome === "failed") {
+      setNote("Sign-out did not complete. Check your connection and try again.");
+      return;
+    }
+    // "signed-out-locally": this device is out, the global revoke did not land (handover: known gap,
+    // nothing at "/" can say so yet).
+    navigate("/", { replace: true });
+  };
+  return (
+    <div className="space-y-2 border-t border-border pt-2">
+      <p className={NOTE}>Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included.</p>
+      <button type="button" className={OUTLINE} onClick={() => void go()} disabled={busy} data-testid="settings-signout-all">
+        {busy ? <>Signing out&hellip;</> : "Sign out of all devices"}
+      </button>
+      {note && <p role="alert" className={ERR} data-testid="settings-signout-all-error">{note}</p>}
+    </div>
   );
 }
 
@@ -295,7 +328,7 @@ function Home() {
         <ExportButton testId="settings-export" />
       </Section>
       <Section title="Account ownership">
-        <p className={NOTE}>Delete your account for good.</p>
+        <p className={NOTE}>Delete your account: it is hidden at once, and you have 30 days to change your mind.</p>
         <Link to={OWNERSHIP_PATH} className={OUTLINE} data-testid="settings-ownership-link">
           Account ownership
         </Link>
@@ -310,7 +343,7 @@ function Ownership() {
     <div className="space-y-3">
       <Section title="Delete your account">
         <p className="text-[14px] text-foreground">
-          Deleting your account is permanent. If you just want a break, hide your dancer profile instead: you can bring it back any time.
+          Deleting your account hides it from everyone at once. Sign in within 30 days to undo it. If you just want a break, hide your dancer profile instead: you can bring it back any time.
         </p>
         <Link to={SETTINGS_PATH} className={OUTLINE}>Back to settings</Link>
         <Link to={DELETE_PATH} className={OUTLINE} data-testid="ownership-delete-link">
@@ -321,7 +354,7 @@ function Ownership() {
   );
 }
 
-function Blocked({ text, names, code }: { text: string; names: string[]; code: EraseCode | null }) {
+function Blocked({ text, names, code }: { text: string; names: string[]; code: EraseCode | DeleteRefusalCode | null }) {
   return (
     <div className="space-y-2 rounded-xl border border-destructive/60 p-3" data-testid="delete-blocked" data-code={code ?? ""}>
       <p className="text-[14px] text-foreground">{text}</p>
@@ -348,10 +381,11 @@ function Delete() {
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [late, setLate] = useState<{ code: EraseCode | null; blockers: EraseBlocker[] } | null>(null);
+  const [late, setLate] = useState<{ code: DeleteRefusalCode; blockers: EraseBlocker[] } | null>(null);
 
+  // A late refusal (the edge function's code) reads through the same one mapping as the check.
   const fact = late
-    ? eraseCheckFact({ can_erase: false, blockers: late.blockers, code: late.code })
+    ? { kind: "refused" as const, text: deleteRefusalMessage(late.code), blockerNames: late.blockers.map((b) => b.name) }
     : check.data
       ? eraseCheckFact(check.data)
       : null;
@@ -365,22 +399,20 @@ function Delete() {
     setBusy(true);
     setError(null);
     const out = await eraseAccount();
-    if (out.kind === "erased") {
-      // The session is gone server-side, so a failing sign-out is expected: ignore it.
+    if (out.kind === "hidden") {
+      // Hidden now; every device is signed out (signing in again within 30 days restores it).
       try {
-        await signOut();
+        await signOut({ everywhere: true });
       } catch {
-        /* ignored */
+        /* ignored: the account is hidden either way */
       }
       queryClient.clear();
       navigate(DELETED_PATH, { replace: true });
       return;
     }
     setBusy(false);
-    if (out.kind === "blocked") setLate({ code: out.code, blockers: out.blockers });
-    else if (out.kind === "media_failed") {
-      setError("We couldn't delete your photos, so nothing was deleted. Please try again.");
-    } else setError("Something went wrong and we couldn't confirm your account was deleted. Please try again.");
+    if (out.kind === "refused") setLate({ code: out.code, blockers: out.blockers });
+    else setError(deleteRefusalMessage(null));
   };
 
   const reason = blocked
@@ -393,16 +425,18 @@ function Delete() {
 
   return (
     <div className="space-y-3">
-      <Section title="What you will lose" testId="delete-lost">
+      <Section title="What happens" testId="delete-lost">
         <ul className="list-disc space-y-1 pl-5 text-[14px] text-foreground">
-          <li>Your dancer profile and photos</li>
-          <li>Your ratings and your attendance history</li>
-          <li>Your sign-in: you will not be able to log back in</li>
+          <li>Your profile is hidden from everyone straight away, and you are signed out on every device.</li>
+          <li>Sign in within 30 days to undo it: your account comes back as it was.</li>
+          <li>
+            After that it stays hidden. For a full erase of your data, ask us at{" "}
+            <span className="break-all font-semibold">{ACCOUNT_CONTACT_EMAIL}</span>.
+          </li>
         </ul>
-        <p className="text-[14px] font-semibold text-foreground">This happens straight away and cannot be undone.</p>
       </Section>
       <Section title="Keep a copy first?">
-        <p className={NOTE}>Download your data now. After deleting, it is gone.</p>
+        <p className={NOTE}>Download your data now, while you are signed in.</p>
         <ExportButton testId="delete-export" />
       </Section>
       <Section title="Or just hide your profile">
@@ -439,7 +473,7 @@ function Delete() {
           </>
         )}
         <button type="button" className={DANGER} disabled={!enabled} onClick={() => void erase()} data-testid="delete-confirm">
-          {busy ? <>Deleting&hellip;</> : "Delete my account for good"}
+          {busy ? <>Deleting&hellip;</> : "Delete my account"}
         </button>
         {!enabled && !busy && (
           <p className={NOTE} data-testid={blocked ? "delete-blocked-reason" : "delete-confirm-reason"}>{reason}</p>

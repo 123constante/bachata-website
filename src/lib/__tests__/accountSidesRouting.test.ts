@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  ACCOUNT_RESTORE_PATH,
   APP_HOME_PATH,
   APP_WELCOME_PATH,
   CONTINUE_AS_PATH,
@@ -291,5 +292,26 @@ describe('loading and failed reads', () => {
   it('the app paths are the dancer app\'s own', () => {
     expect(APP_HOME_PATH).toBe(DANCER_HOME);
     expect(APP_WELCOME_PATH).toBe(DANCER_WELCOME);
+  });
+});
+
+// Delete = hide (admin PR #820, lib/accountDeletion): every shape, every deletion state. A deleted
+// account lands on /account/restore before any side and before returnTo; a read in flight waits;
+// none / unknown / failed carries on exactly as before.
+describe.each(SHAPES)('$name x deletion status', (shape) => {
+  const S = (state: 'none' | 'pending' | 'expired') => ({ state, requested_at: state === 'none' ? null : '2026-10-01T10:00:00Z', restore_until: null });
+  const plain = signInLanding(shape.facts, null);
+  it.each([
+    ['pending', S('pending'), { kind: 'go', to: ACCOUNT_RESTORE_PATH }],
+    ['expired', S('expired'), { kind: 'go', to: ACCOUNT_RESTORE_PATH }],
+    ['loading', 'loading' as const, { kind: 'wait' }],
+    ['none', S('none'), plain],
+    ['failed read (null)', null, plain],
+  ])('%s', (_n, deletion, want) => {
+    expect(signInLanding({ ...shape.facts, deletion }, null)).toEqual(want);
+  });
+  it('a deleted account restores before following returnTo', () => {
+    expect(signInLanding({ ...shape.facts, deletion: S('pending') }, '/event/e1')).toEqual({ kind: 'go', to: ACCOUNT_RESTORE_PATH });
+    expect(signInLanding({ ...shape.facts, deletion: S('none') }, '/event/e1')).toEqual({ kind: 'go', to: '/event/e1' });
   });
 });

@@ -2,7 +2,7 @@
 
 exports[`account settings at '390x844' > /account/deleted 1`] = `
 "heading "Your account was deleted" level=1
-text "Your profile, photos, ratings and attendance are gone, and you’re signed out. Thanks for dancing with us."
+text "Your profile is hidden now, and you’re signed out. Sign in within 30 days to undo. After that it stays hidden; ask us at privacy@bachatacalendar.co.uk for a full erase."
 text "You can still browse parties without an account."
 link "Back to the calendar" href=/"
 `;
@@ -22,11 +22,13 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
 exports[`account settings at '390x844' > /account/settings (home) > hide switch: confirm step, then the hidden state > confirm step 1`] = `
@@ -46,11 +48,13 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
 exports[`account settings at '390x844' > /account/settings (home) > hide with no_profile error shows the reason 1`] = `
@@ -72,11 +76,13 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
 exports[`account settings at '390x844' > /account/settings (home) > pending email change on arrival 1`] = `
@@ -96,11 +102,13 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
 exports[`account settings at '390x844' > /account/settings (home) > profile hidden 1`] = `
@@ -118,11 +126,13 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
 exports[`account settings at '390x844' > /account/settings (home) > profile none 1`] = `
@@ -139,11 +149,13 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
 exports[`account settings at '390x844' > /account/settings (home) > profile visible 1`] = `
@@ -161,22 +173,97 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
-exports[`account settings at '390x844' > /account/settings/delete: the immediate erase flow > a blocked erase stays on the page, does not sign out, and says so 1`] = `
+exports[`account settings at '390x844' > /account/settings/delete: the delete (= hide) flow > a admin_account delete stays on the page, does not sign out, and says so 1`] = `
 "heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
+text "Download your data now, while you are signed in."
+button "Download my data"
+heading "Or just hide your profile" level=2
+text "Hiding is reversible and keeps your account."
+link "Hide my profile instead" href=/account/settings
+heading "Delete my account" level=2
+text "This is an admin account, so it can't be deleted here. You can still hide your dancer profile instead."
+button "Delete my account" [disabled]
+text "You cannot delete your account yet. See the reason above.""
+`;
+
+exports[`account settings at '390x844' > /account/settings/delete: the delete (= hide) flow > a already_archived delete stays on the page, does not sign out, and says so 1`] = `
+"heading "Delete account" level=1
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+heading "Keep a copy first?" level=2
+text "Download your data now, while you are signed in."
+button "Download my data"
+heading "Or just hide your profile" level=2
+text "Hiding is reversible and keeps your account."
+link "Hide my profile instead" href=/account/settings
+heading "Delete my account" level=2
+text "An admin has already hidden this profile, so there is nothing to delete here. Contact us at privacy@bachatacalendar.co.uk if you need help."
+button "Delete my account" [disabled]
+text "You cannot delete your account yet. See the reason above.""
+`;
+
+exports[`account settings at '390x844' > /account/settings/delete: the delete (= hide) flow > a failed delete stays on the page, does not sign out, and says so 1`] = `
+"heading "Delete account" level=1
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+heading "Keep a copy first?" level=2
+text "Download your data now, while you are signed in."
+button "Download my data"
+heading "Or just hide your profile" level=2
+text "Hiding is reversible and keeps your account."
+link "Hide my profile instead" href=/account/settings
+heading "Delete my account" level=2
+text "Type DELETE to confirm"
+textbox "Type DELETE to confirm" value="DELETE"
+button "Delete my account"
+alert
+  text "Something went wrong and your account was not deleted. Please try again.""
+`;
+
+exports[`account settings at '390x844' > /account/settings/delete: the delete (= hide) flow > a rate_limited delete stays on the page, does not sign out, and says so 1`] = `
+"heading "Delete account" level=1
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+heading "Keep a copy first?" level=2
+text "Download your data now, while you are signed in."
+button "Download my data"
+heading "Or just hide your profile" level=2
+text "Hiding is reversible and keeps your account."
+link "Hide my profile instead" href=/account/settings
+heading "Delete my account" level=2
+text "You've tried this several times today. Please wait until tomorrow and try again."
+button "Delete my account" [disabled]
+text "You cannot delete your account yet. See the reason above.""
+`;
+
+exports[`account settings at '390x844' > /account/settings/delete: the delete (= hide) flow > a sole_organiser_owner delete stays on the page, does not sign out, and says so 1`] = `
+"heading "Delete account" level=1
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+heading "Keep a copy first?" level=2
+text "Download your data now, while you are signed in."
 button "Download my data"
 heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
@@ -184,19 +271,18 @@ link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
 text "You're the only owner of the organiser page(s) below. Add another owner, or remove the page, then come back to delete your account."
 text "Salsa Nights"
-button "Delete my account for good" [disabled]
+button "Delete my account" [disabled]
 text "You cannot delete your account yet. See the reason above.""
 `;
 
-exports[`account settings at '390x844' > /account/settings/delete: the immediate erase flow > a failed erase stays on the page, does not sign out, and says so 1`] = `
+exports[`account settings at '390x844' > /account/settings/delete: the delete (= hide) flow > delete is disabled until DELETE is typed exactly, then hides, signs out, lands on /account/deleted > armed 1`] = `
 "heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
+text "Download your data now, while you are signed in."
 button "Download my data"
 heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
@@ -204,94 +290,50 @@ link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
 text "Type DELETE to confirm"
 textbox "Type DELETE to confirm" value="DELETE"
-button "Delete my account for good"
-alert
-  text "Something went wrong and we couldn't confirm your account was deleted. Please try again.""
+button "Delete my account""
 `;
 
-exports[`account settings at '390x844' > /account/settings/delete: the immediate erase flow > a media_failed erase stays on the page, does not sign out, and says so 1`] = `
-"heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
-heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
-button "Download my data"
-heading "Or just hide your profile" level=2
-text "Hiding is reversible and keeps your account."
-link "Hide my profile instead" href=/account/settings
-heading "Delete my account" level=2
-text "Type DELETE to confirm"
-textbox "Type DELETE to confirm" value="DELETE"
-button "Delete my account for good"
-alert
-  text "We couldn't delete your photos, so nothing was deleted. Please try again.""
-`;
-
-exports[`account settings at '390x844' > /account/settings/delete: the immediate erase flow > erase is disabled until DELETE is typed exactly, then erases, signs out, lands on /account/deleted > armed 1`] = `
-"heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
-heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
-button "Download my data"
-heading "Or just hide your profile" level=2
-text "Hiding is reversible and keeps your account."
-link "Hide my profile instead" href=/account/settings
-heading "Delete my account" level=2
-text "Type DELETE to confirm"
-textbox "Type DELETE to confirm" value="DELETE"
-button "Delete my account for good""
-`;
-
-exports[`account settings at '390x844' > /account/settings/delete: the immediate erase flow > erase is disabled until DELETE is typed exactly, then erases, signs out, lands on /account/deleted > deleted page 1`] = `
+exports[`account settings at '390x844' > /account/settings/delete: the delete (= hide) flow > delete is disabled until DELETE is typed exactly, then hides, signs out, lands on /account/deleted > deleted page 1`] = `
 "heading "Your account was deleted" level=1
-text "Your profile, photos, ratings and attendance are gone, and you’re signed out. Thanks for dancing with us."
+text "Your profile is hidden now, and you’re signed out. Sign in within 30 days to undo. After that it stays hidden; ask us at privacy@bachatacalendar.co.uk for a full erase."
 text "You can still browse parties without an account."
 link "Back to the calendar" href=/"
 `;
 
 exports[`account settings at '390x844' > check: admin > /account/settings/delete 1`] = `
 "heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
+text "Download your data now, while you are signed in."
 button "Download my data"
 heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
 link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
 text "This is an admin account, so it can't be deleted here. You can still hide your dancer profile instead."
-button "Delete my account for good" [disabled]
+button "Delete my account" [disabled]
 text "You cannot delete your account yet. See the reason above.""
 `;
 
 exports[`account settings at '390x844' > check: admin > /account/settings/ownership 1`] = `
 "heading "Account ownership" level=1
 heading "Delete your account" level=2
-text "Deleting your account is permanent. If you just want a break, hide your dancer profile instead: you can bring it back any time."
+text "Deleting your account hides it from everyone at once. Sign in within 30 days to undo it. If you just want a break, hide your dancer profile instead: you can bring it back any time."
 link "Back to settings" href=/account/settings
 link "Delete account" href=/account/settings/delete"
 `;
 
 exports[`account settings at '390x844' > check: plain dancer > /account/settings/delete 1`] = `
 "heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
+text "Download your data now, while you are signed in."
 button "Download my data"
 heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
@@ -299,27 +341,26 @@ link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
 text "Type DELETE to confirm"
 textbox "Type DELETE to confirm" value=""
-button "Delete my account for good" [disabled]
+button "Delete my account" [disabled]
 text "The button works once you type DELETE in capital letters.""
 `;
 
 exports[`account settings at '390x844' > check: plain dancer > /account/settings/ownership 1`] = `
 "heading "Account ownership" level=1
 heading "Delete your account" level=2
-text "Deleting your account is permanent. If you just want a break, hide your dancer profile instead: you can bring it back any time."
+text "Deleting your account hides it from everyone at once. Sign in within 30 days to undo it. If you just want a break, hide your dancer profile instead: you can bring it back any time."
 link "Back to settings" href=/account/settings
 link "Delete account" href=/account/settings/delete"
 `;
 
 exports[`account settings at '390x844' > check: sole organiser owner > /account/settings/delete 1`] = `
 "heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
+text "Download your data now, while you are signed in."
 button "Download my data"
 heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
@@ -327,21 +368,21 @@ link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
 text "You're the only owner of the organiser page(s) below. Add another owner, or remove the page, then come back to delete your account."
 text "Salsa Nights"
-button "Delete my account for good" [disabled]
+button "Delete my account" [disabled]
 text "You cannot delete your account yet. See the reason above.""
 `;
 
 exports[`account settings at '390x844' > check: sole organiser owner > /account/settings/ownership 1`] = `
 "heading "Account ownership" level=1
 heading "Delete your account" level=2
-text "Deleting your account is permanent. If you just want a break, hide your dancer profile instead: you can bring it back any time."
+text "Deleting your account hides it from everyone at once. Sign in within 30 days to undo it. If you just want a break, hide your dancer profile instead: you can bring it back any time."
 link "Back to settings" href=/account/settings
 link "Delete account" href=/account/settings/delete"
 `;
 
 exports[`account settings at 'desktop' > /account/deleted 1`] = `
 "heading "Your account was deleted" level=1
-text "Your profile, photos, ratings and attendance are gone, and you’re signed out. Thanks for dancing with us."
+text "Your profile is hidden now, and you’re signed out. Sign in within 30 days to undo. After that it stays hidden; ask us at privacy@bachatacalendar.co.uk for a full erase."
 text "You can still browse parties without an account."
 link "Back to the calendar" href=/"
 `;
@@ -361,11 +402,13 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
 exports[`account settings at 'desktop' > /account/settings (home) > hide switch: confirm step, then the hidden state > confirm step 1`] = `
@@ -385,11 +428,13 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
 exports[`account settings at 'desktop' > /account/settings (home) > hide with no_profile error shows the reason 1`] = `
@@ -411,11 +456,13 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
 exports[`account settings at 'desktop' > /account/settings (home) > pending email change on arrival 1`] = `
@@ -435,11 +482,13 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
 exports[`account settings at 'desktop' > /account/settings (home) > profile hidden 1`] = `
@@ -457,11 +506,13 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
 exports[`account settings at 'desktop' > /account/settings (home) > profile none 1`] = `
@@ -478,11 +529,13 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
 exports[`account settings at 'desktop' > /account/settings (home) > profile visible 1`] = `
@@ -500,22 +553,97 @@ heading "Your data" level=2
 text "Saves a file with what we hold about you: your profile, ratings and attendance."
 button "Download my data"
 heading "Account ownership" level=2
-text "Delete your account for good."
+text "Delete your account: it is hidden at once, and you have 30 days to change your mind."
 link "Account ownership" href=/account/settings/ownership
 heading "Sign out" level=2
 text "Signed in as me@x.co ."
-button "Sign out""
+button "Sign out"
+text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
+button "Sign out of all devices""
 `;
 
-exports[`account settings at 'desktop' > /account/settings/delete: the immediate erase flow > a blocked erase stays on the page, does not sign out, and says so 1`] = `
+exports[`account settings at 'desktop' > /account/settings/delete: the delete (= hide) flow > a admin_account delete stays on the page, does not sign out, and says so 1`] = `
 "heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
+text "Download your data now, while you are signed in."
+button "Download my data"
+heading "Or just hide your profile" level=2
+text "Hiding is reversible and keeps your account."
+link "Hide my profile instead" href=/account/settings
+heading "Delete my account" level=2
+text "This is an admin account, so it can't be deleted here. You can still hide your dancer profile instead."
+button "Delete my account" [disabled]
+text "You cannot delete your account yet. See the reason above.""
+`;
+
+exports[`account settings at 'desktop' > /account/settings/delete: the delete (= hide) flow > a already_archived delete stays on the page, does not sign out, and says so 1`] = `
+"heading "Delete account" level=1
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+heading "Keep a copy first?" level=2
+text "Download your data now, while you are signed in."
+button "Download my data"
+heading "Or just hide your profile" level=2
+text "Hiding is reversible and keeps your account."
+link "Hide my profile instead" href=/account/settings
+heading "Delete my account" level=2
+text "An admin has already hidden this profile, so there is nothing to delete here. Contact us at privacy@bachatacalendar.co.uk if you need help."
+button "Delete my account" [disabled]
+text "You cannot delete your account yet. See the reason above.""
+`;
+
+exports[`account settings at 'desktop' > /account/settings/delete: the delete (= hide) flow > a failed delete stays on the page, does not sign out, and says so 1`] = `
+"heading "Delete account" level=1
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+heading "Keep a copy first?" level=2
+text "Download your data now, while you are signed in."
+button "Download my data"
+heading "Or just hide your profile" level=2
+text "Hiding is reversible and keeps your account."
+link "Hide my profile instead" href=/account/settings
+heading "Delete my account" level=2
+text "Type DELETE to confirm"
+textbox "Type DELETE to confirm" value="DELETE"
+button "Delete my account"
+alert
+  text "Something went wrong and your account was not deleted. Please try again.""
+`;
+
+exports[`account settings at 'desktop' > /account/settings/delete: the delete (= hide) flow > a rate_limited delete stays on the page, does not sign out, and says so 1`] = `
+"heading "Delete account" level=1
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+heading "Keep a copy first?" level=2
+text "Download your data now, while you are signed in."
+button "Download my data"
+heading "Or just hide your profile" level=2
+text "Hiding is reversible and keeps your account."
+link "Hide my profile instead" href=/account/settings
+heading "Delete my account" level=2
+text "You've tried this several times today. Please wait until tomorrow and try again."
+button "Delete my account" [disabled]
+text "You cannot delete your account yet. See the reason above.""
+`;
+
+exports[`account settings at 'desktop' > /account/settings/delete: the delete (= hide) flow > a sole_organiser_owner delete stays on the page, does not sign out, and says so 1`] = `
+"heading "Delete account" level=1
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
+heading "Keep a copy first?" level=2
+text "Download your data now, while you are signed in."
 button "Download my data"
 heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
@@ -523,19 +651,18 @@ link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
 text "You're the only owner of the organiser page(s) below. Add another owner, or remove the page, then come back to delete your account."
 text "Salsa Nights"
-button "Delete my account for good" [disabled]
+button "Delete my account" [disabled]
 text "You cannot delete your account yet. See the reason above.""
 `;
 
-exports[`account settings at 'desktop' > /account/settings/delete: the immediate erase flow > a failed erase stays on the page, does not sign out, and says so 1`] = `
+exports[`account settings at 'desktop' > /account/settings/delete: the delete (= hide) flow > delete is disabled until DELETE is typed exactly, then hides, signs out, lands on /account/deleted > armed 1`] = `
 "heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
+text "Download your data now, while you are signed in."
 button "Download my data"
 heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
@@ -543,94 +670,50 @@ link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
 text "Type DELETE to confirm"
 textbox "Type DELETE to confirm" value="DELETE"
-button "Delete my account for good"
-alert
-  text "Something went wrong and we couldn't confirm your account was deleted. Please try again.""
+button "Delete my account""
 `;
 
-exports[`account settings at 'desktop' > /account/settings/delete: the immediate erase flow > a media_failed erase stays on the page, does not sign out, and says so 1`] = `
-"heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
-heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
-button "Download my data"
-heading "Or just hide your profile" level=2
-text "Hiding is reversible and keeps your account."
-link "Hide my profile instead" href=/account/settings
-heading "Delete my account" level=2
-text "Type DELETE to confirm"
-textbox "Type DELETE to confirm" value="DELETE"
-button "Delete my account for good"
-alert
-  text "We couldn't delete your photos, so nothing was deleted. Please try again.""
-`;
-
-exports[`account settings at 'desktop' > /account/settings/delete: the immediate erase flow > erase is disabled until DELETE is typed exactly, then erases, signs out, lands on /account/deleted > armed 1`] = `
-"heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
-heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
-button "Download my data"
-heading "Or just hide your profile" level=2
-text "Hiding is reversible and keeps your account."
-link "Hide my profile instead" href=/account/settings
-heading "Delete my account" level=2
-text "Type DELETE to confirm"
-textbox "Type DELETE to confirm" value="DELETE"
-button "Delete my account for good""
-`;
-
-exports[`account settings at 'desktop' > /account/settings/delete: the immediate erase flow > erase is disabled until DELETE is typed exactly, then erases, signs out, lands on /account/deleted > deleted page 1`] = `
+exports[`account settings at 'desktop' > /account/settings/delete: the delete (= hide) flow > delete is disabled until DELETE is typed exactly, then hides, signs out, lands on /account/deleted > deleted page 1`] = `
 "heading "Your account was deleted" level=1
-text "Your profile, photos, ratings and attendance are gone, and you’re signed out. Thanks for dancing with us."
+text "Your profile is hidden now, and you’re signed out. Sign in within 30 days to undo. After that it stays hidden; ask us at privacy@bachatacalendar.co.uk for a full erase."
 text "You can still browse parties without an account."
 link "Back to the calendar" href=/"
 `;
 
 exports[`account settings at 'desktop' > check: admin > /account/settings/delete 1`] = `
 "heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
+text "Download your data now, while you are signed in."
 button "Download my data"
 heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
 link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
 text "This is an admin account, so it can't be deleted here. You can still hide your dancer profile instead."
-button "Delete my account for good" [disabled]
+button "Delete my account" [disabled]
 text "You cannot delete your account yet. See the reason above.""
 `;
 
 exports[`account settings at 'desktop' > check: admin > /account/settings/ownership 1`] = `
 "heading "Account ownership" level=1
 heading "Delete your account" level=2
-text "Deleting your account is permanent. If you just want a break, hide your dancer profile instead: you can bring it back any time."
+text "Deleting your account hides it from everyone at once. Sign in within 30 days to undo it. If you just want a break, hide your dancer profile instead: you can bring it back any time."
 link "Back to settings" href=/account/settings
 link "Delete account" href=/account/settings/delete"
 `;
 
 exports[`account settings at 'desktop' > check: plain dancer > /account/settings/delete 1`] = `
 "heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
+text "Download your data now, while you are signed in."
 button "Download my data"
 heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
@@ -638,27 +721,26 @@ link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
 text "Type DELETE to confirm"
 textbox "Type DELETE to confirm" value=""
-button "Delete my account for good" [disabled]
+button "Delete my account" [disabled]
 text "The button works once you type DELETE in capital letters.""
 `;
 
 exports[`account settings at 'desktop' > check: plain dancer > /account/settings/ownership 1`] = `
 "heading "Account ownership" level=1
 heading "Delete your account" level=2
-text "Deleting your account is permanent. If you just want a break, hide your dancer profile instead: you can bring it back any time."
+text "Deleting your account hides it from everyone at once. Sign in within 30 days to undo it. If you just want a break, hide your dancer profile instead: you can bring it back any time."
 link "Back to settings" href=/account/settings
 link "Delete account" href=/account/settings/delete"
 `;
 
 exports[`account settings at 'desktop' > check: sole organiser owner > /account/settings/delete 1`] = `
 "heading "Delete account" level=1
-heading "What you will lose" level=2
-text "Your dancer profile and photos"
-text "Your ratings and your attendance history"
-text "Your sign-in: you will not be able to log back in"
-text "This happens straight away and cannot be undone."
+heading "What happens" level=2
+text "Your profile is hidden from everyone straight away, and you are signed out on every device."
+text "Sign in within 30 days to undo it: your account comes back as it was."
+text "After that it stays hidden. For a full erase of your data, ask us at privacy@bachatacalendar.co.uk."
 heading "Keep a copy first?" level=2
-text "Download your data now. After deleting, it is gone."
+text "Download your data now, while you are signed in."
 button "Download my data"
 heading "Or just hide your profile" level=2
 text "Hiding is reversible and keeps your account."
@@ -666,14 +748,14 @@ link "Hide my profile instead" href=/account/settings
 heading "Delete my account" level=2
 text "You're the only owner of the organiser page(s) below. Add another owner, or remove the page, then come back to delete your account."
 text "Salsa Nights"
-button "Delete my account for good" [disabled]
+button "Delete my account" [disabled]
 text "You cannot delete your account yet. See the reason above.""
 `;
 
 exports[`account settings at 'desktop' > check: sole organiser owner > /account/settings/ownership 1`] = `
 "heading "Account ownership" level=1
 heading "Delete your account" level=2
-text "Deleting your account is permanent. If you just want a break, hide your dancer profile instead: you can bring it back any time."
+text "Deleting your account hides it from everyone at once. Sign in within 30 days to undo it. If you just want a break, hide your dancer profile instead: you can bring it back any time."
 link "Back to settings" href=/account/settings
 link "Delete account" href=/account/settings/delete"
 `;

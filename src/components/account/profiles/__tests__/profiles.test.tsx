@@ -8,7 +8,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { profileSides, type SidesFacts } from '@/lib/accountRouting';
+import { DELETION_STATUS_KEY, type DeletionStatus } from '@/lib/accountDeletion';
 
 const sides = vi.hoisted(() => ({ facts: null as unknown as SidesFacts }));
 const auth = vi.hoisted(() => ({ signOut: vi.fn(async () => 'signed_out' as const) }));
@@ -17,6 +19,16 @@ vi.mock('../useProfileSides', () => ({
   useProfileSides: () => ({ facts: sides.facts, state: profileSides(sides.facts), openRequestCount: 0 }),
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'me' }, signOut: auth.signOut }) }));
+// The sign-in landing's deletion read (lib/accountDeletion). `seed` is what the cache already holds
+// (undefined = nothing: the fetch runs, and `fetchFails` makes it reject).
+const deletion = vi.hoisted(() => ({ seed: undefined as DeletionStatus | undefined, fetchFails: false }));
+vi.mock('@/lib/accountDeletion', async (orig) => ({
+  ...(await orig<typeof import('@/lib/accountDeletion')>()),
+  fetchDeletionStatus: vi.fn(async () => {
+    if (deletion.fetchFails) throw new Error('offline');
+    return deletion.seed ?? { state: 'none', requested_at: null, restore_until: null };
+  }),
+}));
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 
@@ -33,14 +45,20 @@ const Probe = () => {
   return null;
 };
 
-const mountAt = (path: string, ui: React.ReactNode) =>
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="*" element={<>{ui}<Probe /></>} />
-      </Routes>
-    </MemoryRouter>,
+const NONE: DeletionStatus = { state: 'none', requested_at: null, restore_until: null };
+const mountAt = (path: string, ui: React.ReactNode, seed: DeletionStatus | null = NONE) => {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  if (seed) qc.setQueryData([DELETION_STATUS_KEY, 'me'], seed);
+  return render(
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="*" element={<>{ui}<Probe /></>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
+};
 
 const SHAPES: Array<[string, SidesFacts, string[]]> = [
   ['dancer only', { organisers: [], dancer: 'complete', areaAllowed: true, dancerFace: FACE }, ['Ana']],
@@ -80,6 +98,27 @@ describe('Continue as...', () => {
     mountAt('/account/continue', <ContinueAsPage />);
     fireEvent.click(screen.getByTestId('continue-as-dancer'));
     await waitFor(() => expect(here).toBe('/app/home'));
+  });
+
+  // Delete = hide (admin PR #820): a deleted account goes to /account/restore before any side, for
+  // every account shape; a failed read never blocks the sign-in.
+  const PENDING: DeletionStatus = { state: 'pending', requested_at: '2026-10-01T10:00:00Z', restore_until: '2026-10-31T10:00:00Z' };
+  const EXPIRED: DeletionStatus = { state: 'expired', requested_at: '2026-08-01T10:00:00Z', restore_until: '2026-08-31T10:00:00Z' };
+  it.each(SHAPES.flatMap(([n, f]) => [[`${n}, pending`, f, PENDING] as const, [`${n}, expired`, f, EXPIRED] as const]))(
+    'deleted account (%s) lands on /account/restore',
+    async (_n, facts, seed) => {
+      sides.facts = facts;
+      mountAt('/account/continue', <ContinueAsPage />, seed);
+      await waitFor(() => expect(here).toBe('/account/restore'));
+    },
+  );
+
+  it('a failed deletion read carries on to the normal landing', async () => {
+    deletion.fetchFails = true;
+    sides.facts = SHAPES[0][1];
+    mountAt('/account/continue', <ContinueAsPage />, null);
+    await waitFor(() => expect(here).toBe('/app/home'));
+    deletion.fetchFails = false;
   });
 
   it('waits (never a blank screen) while the reads load', () => {
