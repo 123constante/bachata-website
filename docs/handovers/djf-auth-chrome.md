@@ -11,7 +11,8 @@ No PR opened (the orchestrator merges the slices).
 
 - `isSignupFocusPath(pathname, search, profileComplete): boolean`
 - `FOCUS_NOT_NOW_LABEL = 'Not now'`
-- Extra, optional: `focusNotNowHref(search)`. It returns the safe in-site `returnTo`, or `/`, and never a path back into the flow. Slice B can use it for its own "Not now".
+- Extra, optional: `focusNotNowHref(search)`, exported from `src/components/layout/FocusHeader.tsx` (not from focusMode). It returns the safe in-site `returnTo`, or `/`, and never a path back into the flow. Slice B can use it for its own "Not now".
+- `focusMode.ts` is a **leaf** module (no imports) on purpose. AppChrome loads it on every route, and an import from it once cost +1 first-load request on every page; the perf-budget ratchet caught it. `FocusHeader` is lazy-loaded. Slice B: keep focusMode import-free.
 
 True for:
 - `/auth` in every mode except `signin`. This includes no mode, because Auth.tsx draws the sign-up steps for every mode but `signin`.
@@ -32,7 +33,7 @@ The site chrome (`AppChrome`) reads it. On a focus path it draws `FocusHeader` (
 | H9 | fixed | "Continue browsing" goes to the explicit returnTo, else `/`. It never goes to `/account/continue`, the guarded signed-in landing. |
 | M1 | fixed in my file | Both e-mail fields have `enterKeyHint="send"`, and Enter sends. The keyboard inset itself belongs to `claude/site-keyboard-safe`. |
 | M4 | partly | `/auth/callback?mode=signup` is in focus mode. Account pages (`/account/settings*`, restore, deleted) are Slice B files, and the owner decision limits focus mode to sign-up. Unowned here. |
-| M6 | fixed | Consent links are 44 px tall (in px) and open in a new tab. |
+| M6 | fixed | Consent links have a 44 px tap area, drawn by an invisible `before:` box so the sentence keeps normal line spacing, and open in a new tab. |
 | M7 | fixed | The clickwrap now sits above "Email me a link": "By tapping Email me a link you agree to our Terms and Privacy Policy." The code step line now reads "Entering the code confirms you agree to our...", because there is no Continue button there. |
 | M10 | fixed | RSVP buttons are `h-[44px]`, in both the block and its placeholder. The sticky Share / Calendar buttons are 44x44. The hint dismiss has a 44 px invisible hit area, so its look is unchanged. |
 | M11 | fixed | `DIALOG_CLOSE_44` (`lib/auth-labels.ts`) makes the close button 44 px from each dialog's own className, so `ui/dialog.tsx` is untouched (CLAUDE.md). Buttons are `min-h-[44px]`. Applied to the event sign-in prompt and the level-rating sheet. |
@@ -85,9 +86,27 @@ The site chrome (`AppChrome`) reads it. On a focus path it draws `FocusHeader` (
 7. **The pink fallback goes to `#C42A72`.** It is the nearest shade that passes AA with margin.
 8. **M25 is left as is** (see above).
 
-## CI (every PR job step, run locally)
+## CI (every PR job step, run locally at `ae6825c`, then the two failing jobs re-run after the fix)
 
-See the table appended below. A billing or spending-limit failure on GitHub Actions is not a code failure.
+A billing or spending-limit failure on GitHub Actions is not a code failure. Secrets-only steps cannot run in a worker.
+
+| Workflow / job | Command | Exit | Result |
+|---|---|---|---|
+| all | `npm ci` | 0 | pass |
+| architecture-guard / integrity | `bin/check-integrity.sh`, `check:legacy-tables`, `check:legacy-program-rpcs`, `lint:architecture`, `AUDIT_STRICT=1 check:images`, `check:image-widths` (+ self-test), `check:plan-hygiene:self-test`, `check:workflow-artifact-policy` (+ self-test), `check:mojibake:self-test` + git-grep guard, `prove:entry-point` (+ self-test) | 0 each | pass |
+| typecheck / wallclock-brand | `check:rpc-typing`, `check:wallclock-brand` | 0 | pass |
+| workflow-lint | BOM, masking, notification (+ self-test) | 0 | pass |
+| unit-tests / unit | `npm run test:unit` | 1 | 12 `*.contract.test.ts` need the live Supabase secrets (skipped). 5 in `tests/integrityCouldNotRun.test.ts` also fail on main (pre-existing). Offline: 338/339 files pass. |
+| unit-tests | `test:unit:timing`; New_York and Sydney TZ runs | 0 | pass |
+| unit-tests / dancer-area-isolation | self-test + check | 0 | pass |
+| db-contract-check | `check-migration-stamps`, every `--self-test`, guest-list self-test, day-rollover, script-conventions | 0 | pass |
+| db-contract-check | `precheck-supabase-secrets` + live `check-*` steps | 2 / - | needs secrets (placeholders in a worker) |
+| e2e-smoke | `npm run test:e2e` | 0 | 146 passed, 2 flaky, 1 skipped |
+| perf-budget / bundle-budget | `npm run build`, `check:bundle-budget`, `check:first-load-requests`, `check:chunk-cycles` (+ self-tests) | 0 | pass **after the fix**. The first run was +1 first-load chunk on every route: focusMode imported authRouting. |
+| perf-budget / lighthouse, doc-weight; og, seo and synthetic preview | - | - | need a Vercel preview + bypass secret |
+| phone-qa / phone-qa | `playwright test --config playwright.phone.config.ts` | 0 | 188 passed, 74 skipped |
+| phone-qa / build-smoke | fake-env `npm run build` + `playwright.build.config.ts` | 0 | 62 passed **after the fix**. The first run had 19 red: the harness expected the old auto-advance that M15 removes. It now presses Continue. |
+| phone-qa-section, real-data-verified | PR-body checks | - | need the PR body (orchestrator's PR) |
 
 ## Verified on real data
 
@@ -96,6 +115,6 @@ See the table appended below. A billing or spending-limit failure on GitHub Acti
 ## Not verified
 
 - A real phone, a real keyboard, and real e-mail delivery: the Supabase 429 shape is taken from the docs and the audit.
-- The browser walk at 390x844, if the table below does not list it.
+- **Browser walk.** Only the production-build smoke screenshots at 390x844 were looked at, for sign-up steps 1-3 and the code step. They show the focus bar (logo + "Not now", no other links), the clickwrap above "Email me a link", and the Continue-gated details step. The 360x640 size was not looked at by eye; it is covered by the phone suite.
 - Slice B's shell reading `isSignupFocusPath` (their branch).
-- Whether the chunk graph moved: the new `lib/auth-labels.ts` leaf is shared by lazy chunks only. The `perf-budget` result is in the table below.
+- Lighthouse and doc-weight on a real preview.
