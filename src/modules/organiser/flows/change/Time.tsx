@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { setTimeCommand } from '@/modules/organiser/shared/seriesCommands';
+import { localAsZTime } from '@/modules/organiser/shared/homeModel';
 import { FIELD_CLASS } from '@/modules/organiser/ui';
 import { cn } from '@/lib/utils';
 import { DateStep, type DateStepReady } from './DateStep';
@@ -17,8 +18,10 @@ export default function Time() {
   );
 }
 
-function TimeForm({ seriesId, occurrenceId, detail }: DateStepReady) {
-  const current = detail.start ?? '';
+function TimeForm({ seriesId, occurrenceId, date, detail }: DateStepReady) {
+  // The date's own start (what set_time writes and what "which date" shows), so one
+  // fact reads the same on both screens; event_view's session-derived start is the fallback.
+  const current = localAsZTime(date.materialised_start_utc) ?? detail.start ?? '';
   const [value, setValue] = useState(current);
   const { send, busy, conflict, error } = useChangeSend(seriesId, occurrenceId);
   if (conflict) return <Conflict seriesId={seriesId} />;

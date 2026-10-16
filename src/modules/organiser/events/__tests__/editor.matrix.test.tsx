@@ -59,7 +59,7 @@ function mount(path: string) {
         <Routes>
           <Route path="/account/o/events" element={<EventsPage />} />
           <Route path="/account/o/events/:seriesId" element={<EventEditorPage />} />
-          <Route path="/account/o/events/:seriesId/dates/:occurrenceId" element={<span data-testid="date-page" />} />
+          <Route path="/account/o/change/:seriesId/:occurrenceId/lineup" element={<span data-testid="date-page" />} />
         </Routes>
         <Where />
       </MemoryRouter>
@@ -180,7 +180,7 @@ describe.each(SHAPES.map((s) => [s.key, s] as const))('shape %s', (_key, s) => {
       expect(rows).toHaveLength(past.length);
       rows.forEach((r) => expect(r.querySelector('.lucide-chevron-right')).not.toBeNull());
       fireEvent.click(rows[0]);
-      expect(text(screen.getByTestId('where'))).toBe(`/account/o/events/${s.id}/dates/${past.sort((a, b) => b.date.localeCompare(a.date))[0].id}`);
+      expect(text(screen.getByTestId('where'))).toBe(`/account/o/change/${s.id}/${past.sort((a, b) => b.date.localeCompare(a.date))[0].id}/lineup`);
     }
     if (up.length && up.every((d) => d.status === 'cancelled')) {
       within(dates).getAllByTestId('org-date-row').slice(0, up.length).forEach((r) => expect(text(r)).toMatch(/Cancelled/));

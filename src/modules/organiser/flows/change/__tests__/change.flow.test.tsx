@@ -58,6 +58,7 @@ const series = (id: string, name: string, over: Record<string, unknown> = {}) =>
 });
 
 let seriesList: () => unknown[];
+let sessionStart = '20:00:00';
 let commandResult: () => { data: unknown; error: unknown };
 
 function home() {
@@ -75,11 +76,12 @@ const workspace = (seriesId: string) => ({
 const dateView = (id: string) => ({
   occurrence: { id, date: OCC_DATE()[id], version: OCC_VERSION[id], lifecycle_status: 'scheduled', materialised_start_utc: `${OCC_DATE()[id]}T20:00:00Z` },
   event: { venue_id: 'v1' },
-  schedule: { local_start_time: '20:00:00', local_end_time: '23:30:00' },
+  schedule: { local_start_time: sessionStart, local_end_time: '23:30:00' },
 });
 
 beforeEach(() => {
   rpc.mockReset();
+  sessionStart = '20:00:00';
   seriesList = () => [
     series(A, 'Friday Social'),
     series(B, 'Sunday Class'),
@@ -245,6 +247,17 @@ describe('Change a date: steps', () => {
     expect(commands()).toHaveLength(0);
   });
 
+  it('the time screen and the date list read the same start (one fact, one mapping)', async () => {
+    sessionStart = '22:00:00'; // event_view's session-derived start differs from the date's own
+    mount(ORG_PATHS.changeEvent(A));
+    const list = await screen.findByTestId('change-which-date');
+    expect(within(list).getAllByText('20:00').length).toBeGreaterThan(0);
+    cleanup();
+    mount(ORG_PATHS.changeTime(A, BEFORE));
+    const input = (await screen.findByTestId('change-time-input')) as HTMLInputElement;
+    expect(input.value).toBe('20:00');
+  });
+
   it('the venue Save stays disabled until a DIFFERENT venue is picked', async () => {
     mount(ORG_PATHS.changeVenue(A, BEFORE));
     fireEvent.click(await screen.findByText('Salsa Bar'));
@@ -306,8 +319,6 @@ describe('Change a date: every control is a 44px+ target', () => {
     const body = await screen.findByTestId(testId);
     await waitFor(() => expect(body.querySelectorAll('button, input, a').length).toBeGreaterThan(0));
     for (const el of Array.from(body.querySelectorAll('button, input, a'))) {
-      // The search field's clear button sits inside its 48px field.
-      if (el.closest('[data-org-search]')) continue;
       expect([el.getAttribute('data-testid'), el.className]).toEqual([el.getAttribute('data-testid'), expect.stringMatching(TALL)]);
     }
   });
