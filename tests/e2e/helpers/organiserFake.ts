@@ -433,7 +433,7 @@ export class OrganiserFake {
       if (hit) s.removed_dates.push(hit.date);
     }
     s.version += 1;
-    // _cmd_series_add_date_p5 answers the date it listed (the New event page seeds that date).
+    // _cmd_series_add_date_p5 answers the date it listed (a replay answers the same id).
     const data = kind === 'series.add_date' ? { occurrence_id: this.occId(s, String(payload.date)) } : {};
     return { ok: true, data, audit_id: 'a', new_version: s.version };
   }

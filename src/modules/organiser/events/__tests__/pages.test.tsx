@@ -16,7 +16,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
 const londonToday = vi.hoisted(() => ({ value: '2026-10-08' }));
 vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => londonToday.value }));
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: 'c-edinburgh' }) }));
-// The ONE first-date helper (FIX-3 fix 6), spied: the editor's `next` and the create's seed date must both read it.
+// The ONE first-date helper (FIX-3 fix 6), spied: the editor's `next` reads it; the create never does (W1).
 vi.mock('@/modules/organiser/shared/seriesModel', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/modules/organiser/shared/seriesModel')>();
   return { ...real, firstListedDate: vi.fn(real.firstListedDate) };
@@ -35,7 +35,7 @@ import NewEventPage from '../NewEventPage';
 import EventEditorPage from '../EventEditorPage';
 import { useOrganiserHome } from '../eventsApi';
 import { LIVE_NOTE } from '../../ui';
-import { CHIPS_LOCKED_HINT, EVENT_TYPES, unconfirmedExitNote } from '../eventType';
+import { FORMAT_LOCKED_HINT, formatHint, unconfirmedExitNote } from '../eventType';
 
 type Handler = (args: Record<string, unknown>) => unknown;
 let handlers: Record<string, Handler>;
@@ -140,19 +140,25 @@ describe('events list', () => {
 });
 
 describe('new event (name only)', () => {
-  // FIX-6 F-e: the chip seeds ONE session on ONE date, so it lists only that date (a weekly rule
-  // listed 8, and dates 2-8 had no session: the calendar reads hasClass from each date's programme).
-  it('creates the draft with defaults at once, lists ONE date (the one its session goes on), then opens the editor', async () => {
+  // W1: the create seeds no session (the organiser adds them on the draft), so it never reads or
+  // writes a date's programme.
+  const programmeCalls = () => rpc.mock.calls.filter(([fn]) => /occurrence_programme/.test(String(fn)));
+  const card = (id: string) => screen.getByTestId(`org-new-event-format-${id}`) as HTMLButtonElement;
+  const SELECTABLE = ['one_off', 'recurring'] as const;
+  const hint = () => screen.getByTestId('org-new-event-format-hint').textContent;
+
+  it('a One-off creates the draft with defaults at once, lists its ONE date, then opens the editor', async () => {
     mount('/account/o/events/new');
     const name = await screen.findByTestId('org-new-event-name');
     fireEvent.change(name, { target: { value: 'Tuesday Class' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    const before = rpc.mock.calls.length;
+    fireEvent.click(card('one_off'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
     const [create, rule] = commands();
     expect(create.command.kind).toBe('series.upsert');
     expect(create.command.payload).toMatchObject({
-      name: 'Tuesday Class', format: 'recurring', default_duration_minutes: 120,
+      name: 'Tuesday Class', format: 'one_off', default_duration_minutes: 120,
       default_start_date: '2026-10-15', timezone: 'Europe/London', default_city_id: 'c1',
     });
     expect(Object.keys(create.command.payload)).not.toContain('default_venue_id');
@@ -161,30 +167,40 @@ describe('new event (name only)', () => {
     expect(rule.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
     expect(rule.expected_version).toBe(4);
     expect(commands()).toHaveLength(2);
+    // Create, then its date: nothing else before the page navigates (no session is seeded).
+    const during = rpc.mock.calls.slice(before).map(([fn]) => fn).filter((fn) => fn !== 'organiser_home_v1');
+    expect(during.slice(0, 2)).toEqual(['series_command_p5', 'series_command_p5']);
+    expect(programmeCalls()).toHaveLength(0);
   });
 
-  it('a party starts as ONE date (no weekly rule), with its own duration', async () => {
+  it('a Recurring event is created recurring, then gets the weekly rule on its first date\u2019s weekday', async () => {
     mount('/account/o/events/new');
-    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Thursday Class' } });
+    fireEvent.click(card('recurring'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
-    const [create, date] = commands();
-    expect(create.command.payload).toMatchObject({ format: 'recurring', default_duration_minutes: 300 });
+    const [create, rule] = commands();
+    expect(create.command.payload).toMatchObject({ format: 'recurring', default_duration_minutes: 120, default_start_date: '2026-10-15' });
     expect(create.command.payload).not.toHaveProperty('category');
-    expect(date.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
+    // 15 Oct 2026 is a Thursday (weekday 4).
+    expect(rule.command).toEqual({ kind: 'series.set_recurrence', payload: { mode: 'weekly', weekdays: [4], end: { kind: 'none' } } });
+    expect(rule.expected_version).toBe(4);
     expect(commands()).toHaveLength(2);
+    expect(programmeCalls()).toHaveLength(0);
   });
 
-  it('asks for the first session before creating', async () => {
+  it('asks for the format before creating', async () => {
     mount('/account/o/events/new');
     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'X' } });
     fireEvent.click(screen.getByTestId('org-new-event-create'));
-    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/Choose the first session/);
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toBe('Choose One-off or Recurring.');
     expect(commands()).toHaveLength(0);
   });
 
-  it('a refused date is shown, not swallowed, and the event can be opened (class chip)', async () => {
+  it.each([
+    ['one_off', /saved as a draft, but its date was not listed/],
+    ['recurring', /saved as a draft, but its weekly dates were not listed/],
+  ] as const)('a refused schedule is shown, not swallowed, and the event can be opened (%s)', async (format, message) => {
     let n = 0;
     handlers.series_command_p5 = (a) => {
       n += 1;
@@ -193,45 +209,15 @@ describe('new event (name only)', () => {
     };
     mount('/account/o/events/new');
     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Tuesday Class' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    fireEvent.click(card(format));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
-    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/saved as a draft, but its date was not listed/);
+    expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(message);
     expect(screen.getByTestId('where').textContent).toBe('/account/o/events/new');
+    // The event exists in this format: the cards lock, and the hint says why and what to do.
+    for (const id of SELECTABLE) expect(card(id).disabled).toBe(true);
+    expect(hint()).toBe(FORMAT_LOCKED_HINT);
     fireEvent.click(screen.getByTestId('org-new-event-open'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
-  });
-
-  // The chip seeds ONE session on the first upcoming date (organiser_set_occurrence_programme_v1
-  // writes date-only sessions; the server derives the category from them). Table-driven over
-  // the three chips; the fixture's o0 is in the past, so o1 (9 Oct) is the first upcoming date.
-  const setCalls = () => rpc.mock.calls.filter(([fn]) => fn === 'organiser_set_occurrence_programme_v1').map(([, a]) => a as { p_occurrence_id: string; p_expected_version: number; p_sessions: Record<string, unknown>[] });
-  it.each([
-    ['class', { type: 'class', title: 'Class', start_time: '20:00', end_time: '22:00', ends_next_day: false }],
-    ['party', { type: 'party', title: 'Party', start_time: '20:00', end_time: '01:00', ends_next_day: true }],
-    ['workshop', { type: 'class', title: 'Workshop', start_time: '20:00', end_time: '22:00', ends_next_day: false }],
-  ] as const)('the %s chip seeds one session on the date its add_date listed, in four calls (F-g)', async (chip, session) => {
-    // The listed date is the one the add_date reply names: 'o-new', which the workspace does not hold.
-    handlers.series_command_p5 = (a) => {
-      const reply = ok(a) as { data?: { occurrence_id: string } };
-      return reply.data ? { ...reply, data: { occurrence_id: 'o-new' } } : reply;
-    };
-    handlers.organiser_get_occurrence_programme_v1 = (a) => ({ ...programme, occurrence_id: a.p_occurrence_id, sessions: [], session_people: [] });
-    handlers.organiser_set_occurrence_programme_v1 = () => ({ ok: true, changed: true, version: 3, sessions: [] });
-    mount('/account/o/events/new');
-    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
-    const before = rpc.mock.calls.length;
-    fireEvent.click(screen.getByTestId(`org-new-event-type-${chip}`));
-    fireEvent.click(screen.getByTestId('org-new-event-create'));
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
-    expect(setCalls()).toHaveLength(1);
-    const [call] = setCalls();
-    expect(call.p_occurrence_id).toBe('o-new');
-    expect(call.p_expected_version).toBe(2);
-    expect(call.p_sessions).toEqual([{ new: true, level_keys: [], ...session }]);
-    // F-g: create, its date, that date's programme, its save. No workspace read for the dates.
-    // Up to the save: after it the page navigates, and the editor reads the workspace for itself.
-    const during = rpc.mock.calls.slice(before).map(([fn]) => fn).filter((fn) => fn !== 'organiser_home_v1');
-    expect(during.slice(0, during.indexOf('organiser_set_occurrence_programme_v1') + 1)).toEqual(['series_command_p5', 'series_command_p5', 'organiser_get_occurrence_programme_v1', 'organiser_set_occurrence_programme_v1']);
   });
 
   // FIX-6 F-h: the city lookup runs before anything is sent. Its failure is its own message, sends
@@ -241,88 +227,61 @@ describe('new event (name only)', () => {
     mount('/account/o/events/new');
     const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
     fireEvent.change(name, { target: { value: 'Saturday Party' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(card('one_off'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     expect((await screen.findByTestId('org-new-event-error')).textContent).toBe('We could not look up your city; nothing was saved. Press Create to try again.');
     await waitFor(() => expect(screen.getByTestId('org-new-event-create').getAttribute('aria-busy')).toBeNull());
     expect(commands()).toHaveLength(0);
     expect(name.disabled).toBe(false);
-    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(false);
+    for (const id of SELECTABLE) expect(card(id).disabled).toBe(false);
     expect(screen.queryByTestId('org-new-event-open')).toBeNull();
     // Still open: an edit is taken, and the next press sends the create with it.
     fireEvent.change(name, { target: { value: 'Sunday Party' } });
+    fireEvent.click(card('recurring'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
-    expect(commands()[0].command.payload).toMatchObject({ name: 'Sunday Party' });
+    expect(commands()[0].command.payload).toMatchObject({ name: 'Sunday Party', format: 'recurring' });
   });
 
-  it('a first date that already holds a session gets no second one (Create pressed again)', async () => {
-    handlers.organiser_set_occurrence_programme_v1 = () => ({ ok: true, changed: true, version: 3, sessions: [] });
-    mount('/account/o/events/new');
-    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
-    fireEvent.click(screen.getByTestId('org-new-event-create'));
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
-    expect(setCalls()).toHaveLength(0);
-  });
-
-  it('a refused first session is shown, not swallowed, and the event can be opened', async () => {
-    handlers.organiser_get_occurrence_programme_v1 = () => ({ ...programme, sessions: [], session_people: [] });
-    handlers.organiser_set_occurrence_programme_v1 = () => { throw { message: 'permission_denied: programme edit on a cancelled date is not allowed', code: 'P0001' }; };
-    mount('/account/o/events/new');
-    fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
-    fireEvent.click(screen.getByTestId('org-new-event-create'));
-    const error = (await screen.findByTestId('org-new-event-error')).textContent ?? '';
-    expect(error).toMatch(/saved as a draft, but the first session was not added/);
-    expect(error).toMatch(/This date is cancelled/);
-    expect(error).not.toMatch(/permission_denied/);
-    expect(screen.getByTestId('where').textContent).toBe('/account/o/events/new');
-    // The event exists with this chip: the chips lock, and the hint says why and what to do.
-    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
-    fireEvent.click(screen.getByTestId('org-new-event-open'));
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
-  });
-
-  // Review A (FIX-2): once the event exists, the chosen type is the one its first session carries.
-  // A retry whose create REPLAY fails must not unlock the chips: a different chip would seed a
-  // different session under the same idempotency keys on an event that already exists.
-  it('a failed create replay keeps the chips locked and retries the ORIGINAL type', async () => {
+  // Review A (FIX-2): once the event exists, the chosen format is the one it was made with. A
+  // retry whose create REPLAY fails must not unlock the cards: a different format would send a
+  // different schedule under the same idempotency keys on an event that already exists.
+  it('a failed create replay keeps the cards locked and retries the ORIGINAL format', async () => {
     let n = 0;
     handlers.series_command_p5 = (a) => {
       n += 1;
       if (n === 1) return ok(a); // the create
-      if (n === 2) throw { message: 'invalid_payload: rule refused', code: 'P0001' }; // its date: the chips lock
+      if (n === 2) throw { message: 'invalid_payload: rule refused', code: 'P0001' }; // its date: the cards lock
       throw new TypeError('fetch failed'); // every later create replay: the network is gone
     };
     mount('/account/o/events/new');
     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(card('one_off'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/date was not listed/);
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(screen.getByTestId('org-new-event-error').textContent).toMatch(/could not confirm the save/));
-    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
+    for (const id of SELECTABLE) expect(card(id).disabled).toBe(true);
+    expect(hint()).toBe(FORMAT_LOCKED_HINT);
     // The hint says "open the event", so that control stays on screen, and it works: the event exists.
     expect((screen.getByTestId('org-new-event-open') as HTMLButtonElement).disabled).toBe(false);
-    // Picking another chip does nothing; the next Create replays the PARTY create (300 min), never a class one.
-    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    // Picking another card does nothing; the next Create replays the ONE-OFF create, never a recurring one.
+    fireEvent.click(card('recurring'));
+    expect(card('one_off').getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(commands()).toHaveLength(4));
     const creates = commands().filter((c) => c.command.kind === 'series.upsert');
     expect(creates).toHaveLength(3);
-    for (const c of creates) expect(c.command.payload).toMatchObject({ default_duration_minutes: 300 });
+    for (const c of creates) expect(c.command.payload).toMatchObject({ format: 'one_off' });
   });
 
   // FIX-3 (review F3, F4, F6, F7, F10): while the FIRST create is in flight the hint says so (the
   // event is not made yet), Open is ABSENT (the event may not exist), Create spins. FIX-4 F3 + F9:
-  // once the create is CONFIRMED but its date and first session still run, Open stays ABSENT (a tap
-  // would race the schedule) and the hint says "finishing", never "press Create" (Create is busy).
-  // When the run ends (here: its date is refused) Open mounts BELOW Create, enabled. The held calls
-  // are released and the follow-up awaited, so nothing runs into the next test's mockReset.
-  it('while the first create is in flight: chips disabled with the creating hint, no Open; confirmed but still running: no Open, the finishing hint; idle: Open below Create, enabled', async () => {
+  // once the create is CONFIRMED but its date still runs, Open stays ABSENT (a tap would race the
+  // schedule) and the hint says "finishing", never "press Create" (Create is busy). When the run
+  // ends (here: its date is refused) Open mounts BELOW Create, enabled. The held calls are released
+  // and the follow-up awaited, so nothing runs into the next test's mockReset.
+  it('while the first create is in flight: cards disabled with the creating hint, no Open; confirmed but still running: no Open, the finishing hint; idle: Open below Create, enabled', async () => {
     const gates: Array<() => void> = [];
     let n = 0;
     handlers.series_command_p5 = (a) => {
@@ -333,19 +292,19 @@ describe('new event (name only)', () => {
     };
     mount('/account/o/events/new');
     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
-    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(card('one_off'));
+    for (const id of SELECTABLE) expect(card(id).disabled).toBe(false);
     expect(screen.queryByTestId('org-new-event-open')).toBeNull();
     const create = screen.getByTestId('org-new-event-create') as HTMLButtonElement;
     fireEvent.click(create);
     await waitFor(() => expect(gates).toHaveLength(1));
     expect(create.getAttribute('aria-busy')).toBe('true');
-    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Creating your event\u2026');
+    for (const id of SELECTABLE) expect(card(id).disabled).toBe(true);
+    expect(hint()).toBe('Creating your event\u2026');
     expect(screen.queryByTestId('org-new-event-open')).toBeNull();
     gates[0]();
     await waitFor(() => expect(gates).toHaveLength(2));
-    await waitFor(() => expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Finishing your event\u2026'));
+    await waitFor(() => expect(hint()).toBe('Finishing your event\u2026'));
     expect(create.getAttribute('aria-busy')).toBe('true');
     expect(screen.queryByTestId('org-new-event-open')).toBeNull();
     gates[1]();
@@ -353,21 +312,21 @@ describe('new event (name only)', () => {
     expect(create.getAttribute('aria-busy')).toBeNull();
     expect(open.disabled).toBe(false);
     expect(create.compareDocumentPosition(open) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
+    expect(hint()).toBe(FORMAT_LOCKED_HINT);
     fireEvent.click(open);
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
   });
 
   // FIX-3 (review F1 + F2): the create is frozen the moment it is SENT. A lost reply may have saved
-  // the event server-side, so the name, the three chips and the organiser chips stay disabled for
+  // the event server-side, so the name, the format cards and the organiser chips stay disabled for
   // the life of the page, and every later press sends the IDENTICAL create (same name, organiser,
-  // city, start date, duration, key) and the schedule computed at the first press: nothing is re-read.
+  // city, start date, format, key) and the schedule computed at the first press: nothing is re-read.
   const twoOrganisers = () => {
     const base = home();
     handlers.organiser_home_v1 = () => ({ ...base, organisers: [base.organisers[0], { ...base.organisers[0], id: 'org2', name: 'Salsa Crew', city_id: 'c2' }] });
   };
   const organiserChips = () => screen.getAllByTestId('org-new-event-organiser') as HTMLButtonElement[];
-  it('a lost create reply freezes name, chips and organiser; the retry sends the identical create even after London midnight and another chip', async () => {
+  it('a lost create reply freezes name, cards and organiser; the retry sends the identical create even after London midnight and another card', async () => {
     twoOrganisers();
     let n = 0;
     handlers.series_command_p5 = (a) => {
@@ -378,31 +337,31 @@ describe('new event (name only)', () => {
     const client = mount('/account/o/events/new');
     const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
     fireEvent.change(name, { target: { value: 'Saturday Party' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(card('one_off'));
     expect(organiserChips().map((o) => o.disabled)).toEqual([false, false]);
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/could not confirm the save/);
     // Frozen, with the reason on screen; the event may not exist, so nothing offers to open it.
     expect(name.disabled).toBe(true);
-    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(true);
+    for (const id of SELECTABLE) expect(card(id).disabled).toBe(true);
     expect(organiserChips().map((o) => o.disabled)).toEqual([true, true]);
-    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Not confirmed yet. Press Create to finish: nothing is made twice.');
+    expect(hint()).toBe('Not confirmed yet. Press Create to finish: nothing is made twice.');
     expect(screen.queryByTestId('org-new-event-open')).toBeNull();
-    // London midnight passes, and the person tries another chip and another organiser (both disabled).
+    // London midnight passes, and the person tries another card and another organiser (both disabled).
     // The page re-reads the London date only when it renders: Home is refetched with the new
     // date, so the form really holds 9 Oct before the next press.
     londonToday.value = '2026-10-09';
     const homeBefore = handlers.organiser_home_v1;
     handlers.organiser_home_v1 = (a) => ({ ...(homeBefore(a) as object), today: '2026-10-09' });
     await act(async () => { await client.invalidateQueries(); });
-    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    fireEvent.click(card('recurring'));
     fireEvent.click(organiserChips()[1]);
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(commands()).toHaveLength(2));
     const [first, second] = commands();
-    expect(first.command.payload).toMatchObject({ name: 'Saturday Party', default_duration_minutes: 300, default_start_date: '2026-10-15', default_city_id: 'c1' });
+    expect(first.command.payload).toMatchObject({ name: 'Saturday Party', format: 'one_off', default_start_date: '2026-10-15', default_city_id: 'c1' });
     expect(second).toEqual(first);
-    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe('Not confirmed yet. Press Create to finish: nothing is made twice.');
+    expect(hint()).toBe('Not confirmed yet. Press Create to finish: nothing is made twice.');
     // The third press is confirmed: the same create again, then the schedule computed at the FIRST press.
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
@@ -412,7 +371,7 @@ describe('new event (name only)', () => {
     expect(commands()).toHaveLength(4);
   });
 
-  it('a REFUSED first create (nothing saved) leaves name, chips and organiser open; the retry may change them, under the same key', async () => {
+  it('a REFUSED first create (nothing saved) leaves name, cards and organiser open; the retry may change them, under the same key', async () => {
     twoOrganisers();
     let n = 0;
     handlers.series_command_p5 = (a) => {
@@ -423,22 +382,22 @@ describe('new event (name only)', () => {
     mount('/account/o/events/new');
     const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
     fireEvent.change(name, { target: { value: 'Saturday Party' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(card('one_off'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await screen.findByTestId('org-new-event-error');
     expect(name.disabled).toBe(false);
-    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(false);
+    for (const id of SELECTABLE) expect(card(id).disabled).toBe(false);
     expect(organiserChips().map((o) => o.disabled)).toEqual([false, false]);
-    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(EVENT_TYPES.find((t) => t.type === 'party')?.hint);
+    expect(hint()).toBe(formatHint('open', false, 'one_off'));
     expect(screen.queryByTestId('org-new-event-open')).toBeNull();
     fireEvent.change(name, { target: { value: 'Thursday Class' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-class'));
+    fireEvent.click(card('recurring'));
     fireEvent.click(organiserChips()[1]);
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
     const [refused, retried] = commands().filter((c) => c.command.kind === 'series.upsert');
-    expect(refused.command.payload).toMatchObject({ name: 'Saturday Party', default_duration_minutes: 300, default_city_id: 'c1' });
-    expect(retried.command.payload).toMatchObject({ name: 'Thursday Class', default_duration_minutes: 120, default_city_id: 'c2' });
+    expect(refused.command.payload).toMatchObject({ name: 'Saturday Party', format: 'one_off', default_city_id: 'c1' });
+    expect(retried.command.payload).toMatchObject({ name: 'Thursday Class', format: 'recurring', default_city_id: 'c2' });
     // Key handling is unchanged: one key per write for the life of the page.
     expect(retried.idempotency_key).toBe(refused.idempotency_key);
     expect(retried.target_id).toBe(refused.target_id);
@@ -476,7 +435,7 @@ describe('new event (name only)', () => {
     for (let p = 1; p <= presses; p += 1) {
       // Whatever is still open, the person changes before each press.
       if (!name.disabled) fireEvent.change(name, { target: { value: `Night ${p}` } });
-      fireEvent.click(screen.getByTestId(`org-new-event-type-${p % 2 ? 'party' : 'class'}`));
+      fireEvent.click(card(p % 2 ? 'one_off' : 'recurring'));
       const before = creates().length;
       fireEvent.click(create);
       await waitFor(() => expect(creates().length).toBe(before + 1));
@@ -484,10 +443,10 @@ describe('new event (name only)', () => {
     }
     await screen.findByTestId('org-new-event-error');
     expect(name.disabled).toBe(frozen);
-    for (const chip of ['class', 'party', 'workshop']) expect((screen.getByTestId(`org-new-event-type-${chip}`) as HTMLButtonElement).disabled).toBe(frozen);
+    for (const id of SELECTABLE) expect(card(id).disabled).toBe(frozen);
     expect(organiserChips().map((o) => o.disabled)).toEqual([frozen, frozen]);
     if (!frozen) return;
-    // Frozen: another chip and organiser do nothing, and the next press resends the last create byte for byte.
+    // Frozen: another card and organiser do nothing, and the next press resends the last create byte for byte.
     const last = creates()[creates().length - 1];
     // London midnight passes (Home refetched with the new date): a create recomputed from the
     // form would start a day later, so only the kept create can be byte-equal.
@@ -497,7 +456,7 @@ describe('new event (name only)', () => {
     await act(async () => { await client.invalidateQueries(); });
     // The page has rendered the new London date (no fixed sleep).
     await waitFor(() => expect(screen.getByTestId('home-probe').textContent).toBe('success:2026-10-09'));
-    fireEvent.click(screen.getByTestId('org-new-event-type-workshop'));
+    for (const id of SELECTABLE) fireEvent.click(card(id));
     fireEvent.click(organiserChips()[1]);
     fireEvent.click(create);
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
@@ -519,7 +478,7 @@ describe('new event (name only)', () => {
     const client = mount('/account/o/events/new');
     const name = await screen.findByTestId('org-new-event-name') as HTMLTextAreaElement;
     fireEvent.change(name, { target: { value: 'Saturday Party' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(card('one_off'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/could not confirm the save/);
     handlers.organiser_home_v1 = () => { throw { message: 'JWT expired', code: 'PGRST301' }; };
@@ -545,7 +504,7 @@ describe('new event (name only)', () => {
   });
 
   // FIX-4 F5: the organiser becomes blocked (a Home refetch) while a create is sent but not
-  // confirmed: Create is disabled, the chips frozen. The one exit is the shell's back link, so a
+  // confirmed: Create is disabled, the cards frozen. The one exit is the shell's back link, so a
   // note under the block names it as it reads. Before a send there is nothing to find; once the
   // create is confirmed Open the event is the way on. One row per phase.
   it.each([
@@ -562,7 +521,7 @@ describe('new event (name only)', () => {
     };
     const client = mount('/account/o/events/new');
     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(card('one_off'));
     const create = screen.getByTestId('org-new-event-create') as HTMLButtonElement;
     for (let p = 0; p < presses; p += 1) {
       fireEvent.click(create);
@@ -595,7 +554,7 @@ describe('new event (name only)', () => {
     const asks = () => { const ev = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(ev); return ev.defaultPrevented; };
     mount('/account/o/events/new');
     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Saturday Party' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(card('one_off'));
     expect(asks()).toBe(true);
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     expect((await screen.findByTestId('org-new-event-error')).textContent).toMatch(/could not confirm the save/);
@@ -603,13 +562,13 @@ describe('new event (name only)', () => {
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(screen.getByTestId('org-new-event-error').textContent).toMatch(/date was not listed/));
     expect(asks()).toBe(false);
-    expect(screen.getByTestId('org-new-event-type-hint').textContent).toBe(CHIPS_LOCKED_HINT);
+    expect(hint()).toBe(FORMAT_LOCKED_HINT);
   });
 
   // FIX-3 fix 6 (review F9): the editor's `next` reads ONE helper (seriesModel.firstListedDate); a
-  // cancelled first date is skipped. FIX-6 F-g: the create no longer picks a date from the workspace:
-  // it seeds the one date its add_date listed (the reply names it), so it never calls the helper.
-  it('the editor\'s next date skips a cancelled date through the one shared helper; the create seeds the date it listed', async () => {
+  // cancelled first date is skipped. W1: the create picks no date from the workspace and seeds no
+  // session, so it never calls the helper (nor any programme RPC).
+  it('the editor\'s next date skips a cancelled date through the one shared helper; the create never calls it', async () => {
     const dates = [
       { id: 'o2', occurrence_date: '2026-10-16', lifecycle_status: 'scheduled', version: 1 },
       { id: 'o1', occurrence_date: '2026-10-09', lifecycle_status: 'cancelled', version: 1 },
@@ -625,15 +584,14 @@ describe('new event (name only)', () => {
     expect((nextResults[nextResults.length - 1]?.value as { id?: string } | null)?.id).toBe('o2');
     cleanup();
     vi.mocked(firstListedDate).mockClear();
-    handlers.organiser_get_occurrence_programme_v1 = () => ({ ...programme, sessions: [], session_people: [] });
-    handlers.organiser_set_occurrence_programme_v1 = () => ({ ok: true, changed: true, version: 3, sessions: [] });
+    rpc.mockClear();
     mount('/account/o/events/new');
     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'New night' } });
-    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(card('one_off'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/^\/account\/o\/events\/[0-9a-f-]{36}$/));
-    expect(setCalls().map((c) => c.p_occurrence_id)).toEqual(['o1']);
     expect(firstListedDate).not.toHaveBeenCalled();
+    expect(programmeCalls().filter(([fn]) => fn === 'organiser_set_occurrence_programme_v1')).toHaveLength(0);
   });
 
   it('asks for a name instead of sending a blank one', async () => {
@@ -657,7 +615,7 @@ describe('new event (name only)', () => {
     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'Tuesday Class' } });
     const chosen = screen.getAllByTestId('org-new-event-organiser').find((b) => b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-checked') === 'true');
     expect(chosen?.textContent).toBe(expected === 'org2' ? 'Salsa Crew' : 'Latin Nights');
-    fireEvent.click(screen.getByTestId('org-new-event-type-party'));
+    fireEvent.click(card('one_off'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
     await waitFor(() => expect(commands().length).toBeGreaterThan(0));
     // Nothing else: the create flow still only creates a DRAFT (series.upsert, no publish).
@@ -669,8 +627,11 @@ describe('new event (name only)', () => {
     handlers.series_command_p5 = () => { throw { message: 'permission_denied: series.upsert (create) needs a live organiser', code: 'P0001' }; };
     mount('/account/o/events/new');
     fireEvent.change(await screen.findByTestId('org-new-event-name'), { target: { value: 'X' } });
+    fireEvent.click(card('one_off'));
     fireEvent.click(screen.getByTestId('org-new-event-create'));
-    expect((await screen.findByTestId('org-new-event-error')).textContent).not.toMatch(/permission_denied/);
+    const error = (await screen.findByTestId('org-new-event-error')).textContent ?? '';
+    expect(commands()).toHaveLength(1);
+    expect(error).not.toMatch(/permission_denied/);
   });
 });
 

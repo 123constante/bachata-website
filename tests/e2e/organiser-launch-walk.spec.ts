@@ -194,7 +194,7 @@ test.describe('organiser launch walk on the real RPCs (E2E project)', () => {
   test('1+2 creates a weekly party; the editor says what it still needs until venue, session and cover are in', async () => {
     await page.goto('/account/o/events/new');
     await page.getByTestId('org-new-event-name').fill(name);
-    await page.getByTestId('org-new-event-type-party').click();
+    await page.getByTestId('org-new-event-format-recurring').click();
     const created = rpcDone(page, '/rest/v1/rpc/series_command_p5');
     await page.getByTestId('org-new-event-create').click();
     expect((await created).status()).toBe(200);
@@ -211,10 +211,7 @@ test.describe('organiser launch walk on the real RPCs (E2E project)', () => {
     await expectDisabledWithReason(page, page.getByTestId('org-event-review-send'), /venue/i);
     await shotBoth(page, '01-new-event-needs');
 
-    // Weekly + venue.
-    await page.getByTestId('org-row-repeats').click();
-    await page.getByRole('radio', { name: /^Every / }).click();
-    await page.getByTestId('org-sheet-done').click();
+    // Venue (Recurring already lists the weekly dates, W1).
     await page.getByTestId('org-row-venue').click();
     await page.getByTestId('org-venue-search-open').click();
     await page.getByTestId('org-venue-query').fill(VENUE);
@@ -480,7 +477,7 @@ test.describe('organiser launch walk on the real RPCs (E2E project)', () => {
     const cName = `RPC Journey Launch cancelled-only ${tag}`;
     await page.goto('/account/o/events/new');
     await page.getByTestId('org-new-event-name').fill(cName);
-    await page.getByTestId('org-new-event-type-party').click();
+    await page.getByTestId('org-new-event-format-one_off').click();
     const created = rpcDone(page, '/rest/v1/rpc/series_command_p5');
     await page.getByTestId('org-new-event-create').click();
     expect((await created).status()).toBe(200);

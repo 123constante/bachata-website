@@ -194,7 +194,7 @@ test.describe('organiser editor on the real RPCs (E2E project)', () => {
     await page.goto('/account/o/events/new');
     await expect(page.getByTestId('org-page-new-event')).toBeVisible();
     await page.getByTestId('org-new-event-name').fill(seriesName);
-    await page.getByTestId('org-new-event-type-class').click();
+    await page.getByTestId('org-new-event-format-recurring').click();
     const created = rpcDone(page, '/rest/v1/rpc/series_command_p5');
     await page.getByTestId('org-new-event-create').click();
     expect((await created).status()).toBe(200);

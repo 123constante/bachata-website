@@ -1,30 +1,49 @@
-// The first session an organiser picks when creating an event (G2), and how a
-// series' type reads. Nobody is asked what an event IS any more (event-truth
-// P1): category is derived from the sessions (src/lib/eventCategory.ts and its
-// SQL twin), so a chip here only seeds the first session on the first date and
-// sets the schedule a create starts with. The Type row reads the stored mirror
-// through the shared label, the same word every other screen shows (one mapping,
-// never a copy). A course FORMAT stays admin-only (a
-// non-admin create is forced to one_off or recurring). Pure.
+// The FORMAT an organiser picks when creating an event (W1), and how a series'
+// type reads. Nobody is asked what an event IS (event-truth P1): category is
+// derived from the sessions (src/lib/eventCategory.ts and its SQL twin), which
+// the organiser adds on the draft, so the create asks only the format. The Type
+// row reads the stored mirror through the shared label, the same word every
+// other screen shows (one mapping, never a copy). A course or festival FORMAT
+// stays admin-only (a non-admin create is forced to one_off or recurring): its
+// card is shown, never selectable, and says why (d33). Pure.
 import { wordForStored } from '@/lib/eventCategory';
 
-export type NewEventType = 'class' | 'party' | 'workshop';
+/** The formats an organiser may create (OwnerFormat's members). */
+export type NewEventFormat = 'one_off' | 'recurring';
 
-export const EVENT_TYPES: Array<{ type: NewEventType; label: string; hint: string }> = [
-  { type: 'class', label: 'Class', hint: 'One date with a class session. Make it weekly later from Repeats. Add more sessions after.' },
-  { type: 'party', label: 'Party', hint: 'One date with a party session. Make it weekly later from Repeats. Add more sessions after.' },
-  { type: 'workshop', label: 'Workshop', hint: 'One date with a workshop session (listed under Classes). Add more sessions after.' },
+/** Every card the New event page shows: the two it may create, then the two only the team sets up. */
+export type FormatCardId = NewEventFormat | 'course' | 'festival';
+
+/** Why a Course or Festival card cannot be chosen (d33), on the card itself. */
+export const TEAM_SETS_UP = 'Ask the Bachata Calendar team to set this up.';
+
+export type FormatCard =
+  | { id: NewEventFormat; label: string; hint: string; disabledReason: null }
+  | { id: 'course' | 'festival'; label: string; hint: null; disabledReason: string };
+
+/** The four format cards, in the admin's order. A hint never names a disabled card. */
+export const FORMAT_CARDS: FormatCard[] = [
+  { id: 'one_off', label: 'One-off', hint: 'One date. You add its sessions on the event page next.', disabledReason: null },
+  { id: 'recurring', label: 'Recurring', hint: 'Every week on the same day, from its first date. You add its sessions on the event page next.', disabledReason: null },
+  { id: 'course', label: 'Course', hint: null, disabledReason: TEAM_SETS_UP },
+  { id: 'festival', label: 'Festival', hint: null, disabledReason: TEAM_SETS_UP },
 ];
 
-/** The hint before a chip is picked. */
-export const FIRST_SESSION_HINT = 'Choose one. It becomes the first session; you can add more after.';
+/** Whether a card is one an organiser can create (the type guard the cards and the hint read). */
+export const isNewEventFormat = (id: FormatCardId): id is NewEventFormat => id === 'one_off' || id === 'recurring';
+
+/** The cards an organiser can choose (the hint table's domain). */
+export const SELECTABLE_FORMATS = FORMAT_CARDS.filter((c) => isNewEventFormat(c.id));
+
+/** The hint before a card is picked: names only the cards that can be chosen. */
+export const FORMAT_HINT = 'Choose One-off or Recurring. You add its sessions on the event page next.';
 
 /**
- * The hint once the create is CONFIRMED (the event exists with this chip), whatever
- * later step (its dates, its first session) runs or failed: the chips are locked, so
- * this says why and what to do next. Open the event is on screen from then on.
+ * The hint once the create is CONFIRMED (the event exists with this format), whatever
+ * later step (its dates) runs or failed: the cards are locked, so this says why and
+ * what to do next. Open the event is on screen from then on.
  */
-export const CHIPS_LOCKED_HINT = 'Already chosen: your event is made with it. Press Create to finish, or open the event.';
+export const FORMAT_LOCKED_HINT = 'Already chosen: your event is made with it. Press Create to finish, or open the event.';
 
 /**
  * Where a create stands (FIX-3): 'open' nothing sent yet; 'sent' the create went out
@@ -34,26 +53,26 @@ export const CHIPS_LOCKED_HINT = 'Already chosen: your event is made with it. Pr
 export type CreatePhase = 'open' | 'sent' | 'made';
 
 /**
- * The one hint under the New event chips, per phase, whether a step is running, and whether
+ * The one hint under the New event cards, per phase, whether a step is running, and whether
  * the organiser is blocked. Blocked disables Create, so no hint names it then (FIX-7 R2): the
  * confirmed hint keeps only its exit, the unconfirmed one only its fact (the note under the
  * block message names the way out).
  */
-export function chipHint(phase: CreatePhase, busy: boolean, type: NewEventType | null, blocked = false): string {
-  // Made but its date or first session still running (FIX-4 F9): Create is busy, so never "press Create".
+export function formatHint(phase: CreatePhase, busy: boolean, format: NewEventFormat | null, blocked = false): string {
+  // Made but its dates still running (FIX-4 F9): Create is busy, so never "press Create".
   if (phase === 'made') {
     if (busy) return 'Finishing your event\u2026';
-    return blocked ? 'Already chosen: your event is made with it. Open the event.' : CHIPS_LOCKED_HINT;
+    return blocked ? 'Already chosen: your event is made with it. Open the event.' : FORMAT_LOCKED_HINT;
   }
   if (busy) return 'Creating your event\u2026';
   if (phase === 'sent') return blocked ? 'Not confirmed yet.' : 'Not confirmed yet. Press Create to finish: nothing is made twice.';
-  return (type && EVENT_TYPES.find((t) => t.type === type)?.hint) || FIRST_SESSION_HINT;
+  return (format && SELECTABLE_FORMATS.find((c) => c.id === format)?.hint) || FORMAT_HINT;
 }
 
 /**
  * The hint box's fixed height, in lines of HINT_LINE_PX, so Create never moves as the hint
  * changes (FIX-4 F4). Measured in headless Chromium (13px text, html 13.57px): at 320 and 360px
- * wide the Class hint takes 3 lines, at 375 and 390px 2. HINT_CHARS_PER_LINE is a floor under
+ * wide the longest hint takes 3 lines, at 375 and 390px 2. HINT_CHARS_PER_LINE is a floor under
  * the measured line (at least 44 characters at 320px); a unit test holds every hint to the box.
  */
 export const HINT_BOX_LINES = 3;
@@ -68,20 +87,6 @@ export const HINT_CHARS_PER_LINE = 40;
 export function unconfirmedExitNote(backLabel: string): string {
   return `If your event was saved it is in your Events list; use ${backLabel} at the top to leave.`;
 }
-
-/**
- * The one session a create seeds on the first date (organiser_set_occurrence_programme_v1
- * takes type class | masterclass | party | performance, so a workshop is a class session
- * titled Workshop). Times are the create's start time plus its default length.
- */
-export const SEED_SESSION: Record<NewEventType, { type: 'class' | 'party'; title: string }> = {
-  class: { type: 'class', title: 'Class' },
-  party: { type: 'party', title: 'Party' },
-  workshop: { type: 'class', title: 'Workshop' },
-};
-
-/** default_duration_minutes a create sends (G4; the server takes 1-1200), and the seeded session's length. */
-export const DEFAULT_DURATION_MINUTES: Record<NewEventType, number> = { class: 120, party: 300, workshop: 120 };
 
 /**
  * What the editor knows that decides which controls the Type row may point at.
