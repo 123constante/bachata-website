@@ -101,7 +101,8 @@ export function TabBar({
               setTab(t.id);
             }}
             className={cn(
-              'relative flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold transition-colors',
+              // The before: box lifts the tap area to 44px without making the rail taller (audit L8).
+              "relative flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold transition-colors before:absolute before:inset-x-0 before:-inset-y-[10px] before:content-['']",
               focusRing,
               on
                 ? 'bg-primary text-primary-foreground shadow-sm'
