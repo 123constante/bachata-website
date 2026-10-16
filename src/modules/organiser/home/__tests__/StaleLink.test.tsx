@@ -25,7 +25,10 @@ describe('StaleLink (C34)', () => {
     );
     expect(screen.getByTestId('stale-link-text').textContent).toBe('This date has already happened, so it can no longer be changed.');
     expect(screen.getByTestId('stale-link-text').textContent).toBe(dateLock('live', '2026-01-01', '2026-01-02'));
+    // ONE Home target: no shell back link besides the button (N1).
     expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.queryByTestId('org-back')).toBeNull();
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Home' }));
     expect(screen.getByTestId('where').textContent).toBe(ORG_PATHS.home);
   });

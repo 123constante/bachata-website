@@ -3,7 +3,6 @@
 // what surrounds the list, never a count or a status of its own.
 import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { calendarDate } from '@/modules/organiser/shared/homeModel';
-import { createBlock } from '@/modules/organiser/shared/createModel';
 import type { Job } from '@/modules/organiser/jobs/homeJobs';
 import { ORG_PATHS } from '../shell/paths';
 
@@ -28,9 +27,10 @@ export const readsRequests = (organiser: HomeOrganiser | null): boolean =>
 /**
  * Why New event cannot work yet on this page, or null: only a live organiser
  * takes events (series.upsert create). D4 makes a new page live on creation;
- * this covers a page an admin parked.
+ * this covers a page an admin parked. ONE line for every non-live status: R1
+ * has no review step and Home has no Profile page, so the line names neither.
  */
 export function newEventBlock(organiser: HomeOrganiser | null): string | null {
   if (!organiser || organiser.lifecycle_status === 'live') return null;
-  return createBlock(organiser);
+  return `${organiser.name} is not live, so it cannot take events. Ask the Bachata Calendar team.`;
 }

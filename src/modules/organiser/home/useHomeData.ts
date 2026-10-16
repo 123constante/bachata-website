@@ -16,7 +16,7 @@ import { readsRequests } from './homeView';
  * Home agree on the page shown), the page's incoming join requests and the
  * login's own requests (onboarding), all through selfServeApi. Series pass
  * isListedSeries first (R3-4); the rows are homeJobs() and nothing else.
- * `today` is the London wall-clock date of this device's clock.
+ * `today` is organiser_home_v1's London day, else this device's London day.
  */
 export function useHomeData() {
   const { user, home, organisers, selected } = useOrganiserChoice();
@@ -27,7 +27,9 @@ export function useHomeData() {
     staleTime: 60_000,
   });
   const mine = useQuery({ queryKey: myAccessRequestsQueryKey(user?.id), queryFn: fetchMyAccessRequests, enabled: !!user });
-  const today = londonTodayKey();
+  // The server's London day when organiser_home_v1 sends one (parseHome gives ''
+  // when absent), so a phone with a wrong clock agrees with the server (N4).
+  const today = home.data?.today || londonTodayKey();
   const page = selected ? { ...selected, series: (selected.series ?? []).filter(isListedSeries) } : null;
   // A join-request row is a nudge: it waits for its read and never blocks the list.
   const jobs = page ? homeJobs(page, incoming.data ?? [], today) : [];

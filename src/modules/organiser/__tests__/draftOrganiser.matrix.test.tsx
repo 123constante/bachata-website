@@ -123,7 +123,6 @@ describe('Home: everything live (D4), New event says why it cannot work', () => 
   it.each(cases)('%s organiser, %s', async (state, role) => {
     setup(state, role);
     mount('/account/o');
-    const copy = organiserStatus('Firstrun Org', state, state === 'rejected' ? decision.reason : null);
     const newEvent = (await screen.findByTestId('home-new-event')) as HTMLButtonElement;
     // No status card and no review step on Home under rule 2 (D4, D22).
     expect(screen.queryByTestId('home-org-status')).toBeNull();
@@ -134,8 +133,11 @@ describe('Home: everything live (D4), New event says why it cannot work', () => 
     }
     // A control that cannot work is disabled WITH its reason.
     expect(newEvent.disabled).toBe(true);
+    // One R1 line for every non-live status: it names no review step and no
+    // Profile page, neither of which is on Home any more (F-S1 B1).
     const reason = screen.getByTestId('home-new-event-reason');
-    expect(reason.textContent).toBe(copy.newEventBlock);
+    expect(reason.textContent).toBe('Firstrun Org is not live, so it cannot take events. Ask the Bachata Calendar team.');
+    expect(reason.textContent).not.toMatch(/review|Profile/i);
     expect(newEvent.getAttribute('aria-describedby')).toBe(reason.id);
   });
 

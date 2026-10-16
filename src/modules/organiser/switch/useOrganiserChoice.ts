@@ -1,22 +1,26 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchOrganiserHome, organiserHomeQueryKey, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 
-const STORAGE_KEY = 'org-r1-chosen-page';
+/** Scoped to the login, so a second login on a shared phone never reads it. */
+const storageKey = (userId: string) => `org-r1-chosen-page:${userId}`;
 
 /** The page picked on Switch, remembered on this device (a convenience: absent is fine). */
-function remembered(): string | null {
+function remembered(userId: string | undefined): string | null {
+  if (!userId) return null;
   try {
-    return window.localStorage.getItem(STORAGE_KEY);
+    return window.localStorage.getItem(storageKey(userId));
   } catch {
     return null;
   }
 }
 
-export function rememberChoice(id: string) {
+export function rememberChoice(userId: string | undefined, id: string) {
+  if (!userId) return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, id);
+    window.localStorage.setItem(storageKey(userId), id);
   } catch {
     /* private mode: the ?o= link still carries the choice */
   }
@@ -34,10 +38,17 @@ export function useOrganiserChoice() {
   const [params, setParams] = useSearchParams();
   const home = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled: !!user });
   const organisers = home.data?.organisers ?? [];
-  const wanted = params.get('o') ?? remembered();
-  const selected: HomeOrganiser | null = organisers.find((o) => o.id === wanted) ?? organisers[0] ?? null;
+  const linked = params.get('o');
+  const fromLink = linked ? organisers.find((o) => o.id === linked) : undefined;
+  const wanted = linked ?? remembered(user?.id);
+  const selected: HomeOrganiser | null = fromLink ?? organisers.find((o) => o.id === wanted) ?? organisers[0] ?? null;
+  // A ?o= link to a member page becomes the remembered choice, so the screens
+  // Home opens (bare paths) show the same page. A non-member id never is.
+  useEffect(() => {
+    if (fromLink) rememberChoice(user?.id, fromLink.id);
+  }, [fromLink, user?.id]);
   const choose = (id: string) => {
-    rememberChoice(id);
+    rememberChoice(user?.id, id);
     const next = new URLSearchParams(params);
     next.set('o', id);
     setParams(next, { replace: true });

@@ -33,9 +33,9 @@ const ROLE: Record<HomeOrganiser['role'], string> = { owner: 'Owner', manager: '
  */
 export default function SwitchPage() {
   const navigate = useNavigate();
-  const { home, organisers, selected } = useOrganiserChoice();
+  const { user, home, organisers, selected } = useOrganiserChoice();
   const choose = (id: string) => {
-    rememberChoice(id);
+    rememberChoice(user?.id, id);
     navigate(`${ORG_PATHS.home}?o=${encodeURIComponent(id)}`);
   };
   const failed = (home.isError || (home.isPending && home.isPaused)) && !home.data;
