@@ -8,7 +8,7 @@ export const TermsAcceptCard = ({ busy, onAccept }: { busy: boolean; onAccept: (
     <p className="text-sm text-muted-foreground">We have updated how we ask. Please confirm to carry on.</p>
     <ConsentLine />
     <Button className="w-full min-h-[44px] rounded-full" disabled={busy} onClick={onAccept}>
-      {busy ? 'Saving…' : 'Accept and continue'}
+      {busy ? 'Saving...' : 'Accept and continue'}
     </Button>
   </div>
 );

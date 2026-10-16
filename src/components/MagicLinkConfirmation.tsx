@@ -18,7 +18,8 @@ interface MagicLinkConfirmationProps {
    * parent routes onwards (via /auth/callback) so a typed code lands exactly
    * where the emailed link would have.
    */
-  onVerified: () => void;
+  /** May return a promise: the box stays busy ("Checking code") until it settles. */
+  onVerified: () => void | Promise<void>;
   /** D8: sign-UP only -- the one-line Terms and Privacy clickwrap under the code box. */
   showConsent?: boolean;
   /** Optional extra action, e.g. "Continue browsing" */
@@ -119,11 +120,20 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, sho
       if (error) throw error;
       trackAnalyticsEvent('auth_code_verified', { source: 'auth_page', route: 'returning' });
       trackAuthStep({ step: 'code_ok', outcome: 'ok' });
-      onVerified();
+      // The code is spent now: whatever the hand-over does must never reach the wrong-code path below.
+      try {
+        await onVerified();
+      } catch {
+        /* the parent owns its own failures */
+      }
     } catch (error) {
-      const message = String((error as { message?: unknown } | null)?.message || '').toLowerCase();
-      const isInvalid = message.includes('invalid') || message.includes('expired');
-      trackAuthStep({ step: 'code_fail', outcome: !isInvalid ? 'error' : message.includes('expired') ? 'expired' : 'wrong' });
+      const { code: errorCode, message: rawMessage } = (error as { code?: unknown; message?: unknown } | null) ?? {};
+      const message = String(rawMessage || '').toLowerCase();
+      const isInvalid = message.includes('invalid') || message.includes('expired') || errorCode === 'otp_expired';
+      // Supabase answers a wrong code with the ambiguous "Token has expired or is invalid", so the word
+      // "expired" alone proves nothing: only error.code otp_expired (or an "expired" with no "invalid") is expired.
+      const isExpired = errorCode === 'otp_expired' || (message.includes('expired') && !message.includes('invalid'));
+      trackAuthStep({ step: 'code_fail', outcome: !isInvalid ? 'error' : isExpired ? 'expired' : 'wrong' });
       if (isInvalid) {
         const wrong = wrongCodes + 1;
         setWrongCodes(wrong);

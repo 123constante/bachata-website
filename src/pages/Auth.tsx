@@ -416,7 +416,7 @@ const AuthContent = () => {
                   forgetCodeStep();
                   setMagicLinkSent(false);
                 }}
-                onVerified={() => void handleCodeVerified()}
+                onVerified={handleCodeVerified}
                 showConsent={mode === "signup"}
                 extraAction={{ label: "Continue browsing", onClick: () => navigate(returnTo) }}
               />

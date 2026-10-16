@@ -39,9 +39,10 @@ vi.mock('@/components/ui/city-picker', () => ({ CityPicker: () => <div /> }));
 
 import Auth from '@/pages/Auth';
 
-type RpcImpl = { funnel: 'ok' | 'missing' | 'reject'; consents: unknown };
-const setRpc = ({ funnel, consents }: RpcImpl) =>
+type RpcImpl = { funnel: 'ok' | 'missing' | 'reject'; consents: unknown; allowed?: boolean };
+const setRpc = ({ funnel, consents, allowed = true }: RpcImpl) =>
   mocks.state.impl = async (fn: string) => {
+    if (fn === 'dancer_area_gate_v1') return { data: { open: allowed, allowed }, error: null };
     if (fn === 'record_auth_funnel_step_v1') {
       if (funnel === 'reject') throw new Error('network');
       return { data: null, error: funnel === 'missing' ? { code: 'PGRST202' } : null };
@@ -148,6 +149,46 @@ describe('sign-IN code screen', () => {
     const { user } = await reopenCodeBox('signin');
     await typeGoodCode(user);
     await screen.findByTestId('callback');
+  });
+});
+
+describe('round 1 fixes', () => {
+  it('B1: a consent read that never settles still reaches the callback, and the box stays busy meanwhile', async () => {
+    mocks.state.impl = async (fn: string) => (fn === 'record_auth_funnel_step_v1' ? { data: null, error: null } : new Promise(() => {}));
+    const { user } = await reopenCodeBox('signin');
+    await typeGoodCode(user);
+    await screen.findByText(/Checking code/);
+    expect((screen.getByLabelText('8-digit code') as HTMLInputElement).disabled).toBe(true);
+    expect(screen.queryByTestId('callback')).toBeNull();
+    await screen.findByTestId('callback', {}, { timeout: 6000 });
+  }, 12000);
+
+  it('B1: a sign-up consent write that never settles still reaches the callback', async () => {
+    mocks.state.impl = async (fn: string) => (fn === 'record_auth_funnel_step_v1' ? { data: null, error: null } : new Promise(() => {}));
+    const { user } = await reopenCodeBox('signup');
+    await typeGoodCode(user);
+    await screen.findByTestId('callback', {}, { timeout: 6000 });
+  }, 12000);
+
+  it('S2: dancer area closed for this person -> no accept card, nothing recorded', async () => {
+    setRpc({ funnel: 'ok', consents: [], allowed: false });
+    const { user } = await reopenCodeBox('signin');
+    await typeGoodCode(user);
+    await screen.findByTestId('callback');
+    expect(screen.queryByTestId('terms-accept-card')).toBeNull();
+    expect(calls('accept_terms_v1')).toHaveLength(0);
+  });
+
+  it.each([
+    ['the combined Supabase message', { message: 'Token has expired or is invalid' }, 'wrong'],
+    ['error.code otp_expired', { code: 'otp_expired', message: 'Token has expired or is invalid' }, 'expired'],
+    ['an expired-only message', { message: 'Email link has expired' }, 'expired'],
+  ])('S3: %s is counted as %s', async (_label, err, outcome) => {
+    setRpc({ funnel: 'ok', consents: [] });
+    mocks.verifyOtp.mockResolvedValue({ error: err });
+    const { user } = await reopenCodeBox('signin');
+    await typeGoodCode(user);
+    await waitFor(() => expect(calls('record_auth_funnel_step_v1').map((c) => c[1])).toContainEqual({ p_step: 'code_fail', p_outcome: outcome }));
   });
 });
 

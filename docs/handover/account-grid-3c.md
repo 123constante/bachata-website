@@ -57,3 +57,34 @@ sign-out clear-list needs nothing new. No new person-scoped key was added.
 Verified: the above, on mocked responses and fake backend. Not verified: bundle budget script, `pre-ship`, GitHub Actions,
 `check:integrity`, real e-mailed code (OTP spec), real `accept_terms_v1` / funnel RPC on a live project (funnel not applied),
 Supabase shape survey (no SELECT run: the screens read no new table).
+
+## Round 1 fixes (review REVIEW-3C.md; ticket dt_9676541a1a39)
+- **B1** `termsConsent.ts`: `acceptTerms` / `hasAcceptedTerms` race a 2.5 s timeout (`CONSENT_TIMEOUT_MS`); on timeout the
+  person proceeds (read answers true, write answers false). `MagicLinkConfirmation.onVerified` may return a promise that
+  `verify` awaits, so the box stays disabled with "Checking code" until navigation; the hand-over can never reach the
+  wrong-code path. `Auth.tsx` passes `handleCodeVerified` directly.
+- **S1** one constant, now `2026-10-16` (= PR #762 `legalVersions.ts`), comment names #762. `termsConsent.test.ts` compares it
+  with `src/lib/legalVersions.ts` when present; today it is absent so that test is SKIPPED (printed reason).
+- **S2** `hasAcceptedTerms` also reads `dancer_area_gate_v1` in parallel; `allowed !== true` (closed, error, odd shape) -> true: no card, nothing recorded.
+- **S3** `error.code === 'otp_expired'` -> `expired`; the ambiguous "expired or is invalid" -> `wrong`; "expired" alone -> `expired`.
+- **S4** fixed in `AuthCallback.tsx` (not `accountRouting.ts`, so nothing for 3b): for `mode=signup` it calls `void acceptTerms()`
+  (not awaited, own timeout; idempotent so a typed-code sign-up that already recorded is harmless). Note: AuthCallback was
+  also touched by #764 (3b-era) -- the edit is 4 lines after `isSignupFlow`; merge conflicts, if any, are trivial.
+- N1 raw U+2026 in `TermsAcceptCard.tsx` replaced by `...`.
+- Left for owner/others: server-side narrow `my_terms_accepted_v1` (review's "better" B1 fix, admin); prefer moving `accept_terms_v1` out of the beta gate; when #762 lands re-export from `legalVersions.ts` and un-skip the parity test.
+
+Red-first on dd1fe33c (new tests copied onto a clean worktree of that commit): AuthConsentFunnel 4 failed (B1 x2, S2, S3 combined) / 12 passed; AuthCallbackSignupConsent 1 failed (signup records consent) / 2 passed.
+After the change: AuthConsentFunnel 16 passed; AuthCallbackSignupConsent 3 passed; termsConsent 1 passed + 1 skipped. S1 has no red-first (needs #762's file).
+
+| Command | Exit |
+|---|---|
+| `vitest run --pool=forks` src/pages/__tests__ src/lib/__tests__ src/components tests/journeys | 0 (65 files, 1536 passed, 2 skipped) |
+| `npm run build` | 0 |
+| `npm run check:bundle-budget` | 0 (all first-load budgets respected) |
+| `npm run lint` | 1: only `check:integrity` exit 126 (not executable here; same as base); 17 links PASS incl. check:journey-grid |
+| `npm run check:journey-grid` | 0 |
+| `tsc -p tsconfig.app.json --noEmit` | 2: 110 errors, identical 110 on dd1fe33c in this environment; none in touched files |
+| `playwright test --config playwright.build.config.ts auth-consent.build.spec.ts` | 0 (3 passed) |
+| `npx eslint` touched files | 1 pre-existing `no-explicit-any` at AuthCallback.tsx:78 (not mine); rest warnings |
+
+Verified: the above on mocked responses / fake backend. Not verified: real `accept_terms_v1` / gate on a live project, GitHub Actions, `pre-ship`, `check:integrity`, other e2e specs beyond auth-consent, Vercel (no token used).
