@@ -15,3 +15,6 @@ Matrix rows over `ClaimHint`: `no_email` (claim step absent, the D63 copy presen
 
 ## Not R1 (for the record, D64)
 Setting `organiser_claim_emails` for the 43 pages without an email is the owner's admin task (`queued-organiser-claim-emails.md`); R1 does not wait for it.
+
+## Orchestrator addition (cross-session note from the account-system session, 2026-10-16): sign-out lands on Home
+`home/onboarding/SignOutLine.tsx` (line ~26 on main) has a sign-out that lands on the sign-in form. Website PR #789 adds the shared hook `useSignOutToHome` for every dancer/account sign-out (grep it on branch `claude/dancer-journey-fixes`). If the hook exists on `main` or on `feat/organiser-r1` when you start, use it here; if not, do NOT write a parallel hook: leave the call, say so in the handover, and the orchestrator switches it after #789 merges.
