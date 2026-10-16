@@ -47,14 +47,20 @@ export function Failed({ onRetry }: { onRetry: () => void }) {
   return <ErrorState title="Did not load" onRetry={onRetry} testId="change-error" />;
 }
 
-/** A date this flow cannot change: the reason (dateLock text verbatim) and ONE way on. */
-export function Refusal({ text, seriesId }: { text: string; seriesId: string }) {
+/**
+ * A date (or event) this flow cannot change: the reason (dateLock text
+ * verbatim) and ONE way on: Other dates, or Home from the event's own list.
+ */
+export function Refusal({ text, seriesId, home = false }: { text: string; seriesId: string; home?: boolean }) {
   const navigate = useNavigate();
   return (
     <div className="flex flex-col gap-3" data-testid="change-refusal">
       <p className="text-[15px] text-[var(--fg)]">{text}</p>
-      <GhostButton testId="change-refusal-back" onClick={() => navigate(ORG_PATHS.changeEvent(seriesId), { replace: true })}>
-        Other dates
+      <GhostButton
+        testId="change-refusal-back"
+        onClick={() => navigate(home ? ORG_PATHS.home : ORG_PATHS.changeEvent(seriesId), { replace: true })}
+      >
+        {home ? 'Back to Home' : 'Other dates'}
       </GhostButton>
     </div>
   );

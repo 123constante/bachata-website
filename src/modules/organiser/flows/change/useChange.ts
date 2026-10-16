@@ -82,5 +82,8 @@ export function useChangeSend(seriesId: string, occurrenceId: string) {
     }
   };
 
-  return { send, busy: command.isPending, conflict, error };
+  /** A failure before the send reaches the server: the same message line. */
+  const fail = (err: unknown) => setError(commandErrorMessage(err));
+
+  return { send, fail, busy: command.isPending, conflict, error };
 }

@@ -17,11 +17,25 @@ import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn() } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
+// venueOverridePatch as shipped, unless a test makes it throw (REVIEW-S2 S1).
+let patchFails = false;
+vi.mock('@/modules/organiser/dates/venueOverride', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/modules/organiser/dates/venueOverride')>();
+  return {
+    ...real,
+    venueOverridePatch: (...args: Parameters<typeof real.venueOverridePatch>) => {
+      if (patchFails) throw new Error('city lookup failed');
+      return real.venueOverridePatch(...args);
+    },
+  };
+});
 
 import ChangeFlow from '../index';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { dayLabel } from '@/modules/organiser/shared/dateList';
 import { dateLock } from '@/modules/organiser/shared/eventState';
+import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { seriesLock } from '../changeModel';
 import { VERSION_CONFLICT } from '@/modules/organiser/shared/copy';
 import { readDoneState } from '@/modules/organiser/flows/doneState';
 
@@ -68,19 +82,28 @@ function home() {
   };
 }
 
+/** More dates of the series beyond the three above (a weekly series holds up to 59 coming on prod). */
+let extraDates: { id: string; date: string; status: string }[] = [];
+const dateOf = (id: string) => OCC_DATE()[id] ?? extraDates.find((e) => e.id === id)?.date;
+
 const workspace = (seriesId: string) => ({
   series: { series: { id: seriesId, name: 'Friday Social', lifecycle_status: 'live', version: 9, default_venue_id: 'v1', default_start_date: '2026-01-01' }, program: [] },
-  occurrences: [PAST, BEFORE, AFTER].map((id) => ({ id, occurrence_date: OCC_DATE()[id], lifecycle_status: 'scheduled', version: OCC_VERSION[id], materialised_start_utc: `${OCC_DATE()[id]}T20:00:00Z` })),
+  occurrences: [
+    ...[PAST, BEFORE, AFTER].map((id) => ({ id, occurrence_date: OCC_DATE()[id], lifecycle_status: 'scheduled', version: OCC_VERSION[id], materialised_start_utc: `${OCC_DATE()[id]}T20:00:00Z` })),
+    ...extraDates.map((e) => ({ id: e.id, occurrence_date: e.date, lifecycle_status: e.status, version: 1, materialised_start_utc: `${e.date}T20:00:00Z` })),
+  ],
 });
 
 const dateView = (id: string) => ({
-  occurrence: { id, date: OCC_DATE()[id], version: OCC_VERSION[id], lifecycle_status: 'scheduled', materialised_start_utc: `${OCC_DATE()[id]}T20:00:00Z` },
+  occurrence: { id, date: dateOf(id), version: OCC_VERSION[id] ?? 1, lifecycle_status: 'scheduled', materialised_start_utc: `${dateOf(id)}T20:00:00Z` },
   event: { venue_id: 'v1' },
   schedule: { local_start_time: sessionStart, local_end_time: '23:30:00' },
 });
 
 beforeEach(() => {
   rpc.mockReset();
+  patchFails = false;
+  extraDates = [];
   sessionStart = '20:00:00';
   seriesList = () => [
     series(A, 'Friday Social'),
@@ -102,6 +125,8 @@ beforeEach(() => {
 });
 
 const commands = () => rpc.mock.calls.filter(([fn]) => fn === 'series_command_p5' || fn === 'occurrence_command_p5');
+/** Only Date is faked, so a real timeout lets any pending send reach the rpc spy. */
+const flush = () => new Promise((r) => setTimeout(r, 50));
 
 function DoneProbe() {
   const state = readDoneState(useLocation().state);
@@ -244,6 +269,9 @@ describe('Change a date: steps', () => {
     // Typing the same time back is still untouched.
     fireEvent.change(input, { target: { value: '20:00' } });
     fireEvent.click(save);
+    // The send is async (useOwnerCommand's mutationFn runs on a later tick):
+    // let it land before asserting it never happened (REVIEW-S2 B1).
+    await flush();
     expect(commands()).toHaveLength(0);
   });
 
@@ -265,6 +293,7 @@ describe('Change a date: steps', () => {
     expect(save.getAttribute('aria-disabled')).toBe('true');
     expect(screen.getByTestId('change-save-reason').textContent).toBeTruthy();
     fireEvent.click(save);
+    await flush();
     expect(commands()).toHaveLength(0);
   });
 
@@ -302,6 +331,105 @@ describe('Change a date: steps', () => {
     fireEvent.click(buttons[0]);
     expect(screen.getByTestId('where').textContent).toBe(ORG_PATHS.event(A));
     expect(commands()).toHaveLength(1);
+  });
+});
+
+describe('Change a date: a failed Save', () => {
+  it('a retry after a non-conflict refusal reuses the SAME idempotency key (REVIEW-S2 B2)', async () => {
+    let calls = 0;
+    commandResult = () => (++calls === 1 ? { data: null, error: { message: 'network' } } : { data: { ok: true, new_version: 99 }, error: null });
+    mount(ORG_PATHS.changeTime(A, BEFORE));
+    const input = (await screen.findByTestId('change-time-input')) as HTMLInputElement;
+    await waitFor(() => expect(input.value).toBe('20:00'));
+    fireEvent.change(input, { target: { value: '21:00' } });
+    fireEvent.click(screen.getByTestId('change-save'));
+    await screen.findByTestId('change-error-message');
+    fireEvent.click(screen.getByTestId('change-save'));
+    await waitFor(() => expect(screen.getByTestId('done-probe').textContent).toBe('Moved to 21:00'));
+    expect(commands()).toHaveLength(2);
+    const key = (i: number) => (commands()[i][1] as { p_envelope: { idempotency_key: unknown } }).p_envelope.idempotency_key;
+    expect(typeof key(0)).toBe('string');
+    expect(key(1)).toBe(key(0));
+  });
+
+  it('a venue Save that throws before the send shows the message and Save comes back (REVIEW-S2 S1)', async () => {
+    patchFails = true;
+    mount(ORG_PATHS.changeVenue(A, BEFORE));
+    fireEvent.click(await screen.findByText('Dance Hub'));
+    fireEvent.click(screen.getByTestId('change-save'));
+    const message = await screen.findByTestId('change-error-message');
+    expect(message.textContent).toBe(commandErrorMessage(new Error('city lookup failed')));
+    const save = screen.getByTestId('change-save') as HTMLButtonElement;
+    expect(save.getAttribute('aria-disabled')).toBeNull();
+    expect(save.disabled).toBe(false);
+    expect(commands()).toHaveLength(0);
+    patchFails = false;
+    fireEvent.click(save);
+    await waitFor(() => expect(screen.getByTestId('done-probe').textContent).toBe(`Different venue - ${dayLabel(beforeDate())}`));
+    expect(commands()).toHaveLength(1);
+  });
+});
+
+describe('Change a date: a long series on "which date" (14 shown, then "N more")', () => {
+  const CANCELLED = 'o9999999-0000-4000-8000-000000000009';
+  /** `coming` scheduled dates in all (BEFORE and AFTER are two), weekly after AFTER, plus one cancelled. */
+  function longSeries(coming: number) {
+    extraDates = Array.from({ length: coming - 2 }, (_, i) => ({
+      id: `o3${String(i).padStart(7, '0')}-0000-4000-8000-000000000003`, date: addDaysToKey(afterDate(), 7 * (i + 1)), status: 'scheduled',
+    }));
+    extraDates.push({ id: CANCELLED, date: addDaysToKey(afterDate(), 3), status: 'cancelled' });
+    return extraDates.filter((e) => e.status === 'scheduled').map((e) => e.date);
+  }
+
+  it.each([
+    [14, 0],
+    [15, 1],
+    [59, 45],
+  ])('%i coming dates: 14 rows, then a "%i more" row that expands to every one', async (coming, more) => {
+    const dates = longSeries(coming);
+    const last = dates[dates.length - 1];
+    mount(ORG_PATHS.changeEvent(A));
+    const list = await screen.findByTestId('change-which-date');
+    await waitFor(() => expect(within(list).getAllByTestId('change-date-row')).toHaveLength(14));
+    if (more === 0) {
+      expect(within(list).getByText(dayLabel(last))).toBeTruthy();
+      expect(within(list).queryByTestId('change-more-dates')).toBeNull();
+      return;
+    }
+    expect(within(list).queryByText(dayLabel(last))).toBeNull();
+    const row = within(list).getByTestId('change-more-dates');
+    expect(row.textContent).toBe(`${more} more`);
+    expect(row.className).toMatch(/(^|\s)(min-)?h-\[(4[4-9]|[5-9]\d)px\]/);
+    fireEvent.click(row);
+    expect(within(list).getAllByTestId('change-date-row')).toHaveLength(coming);
+    expect(within(list).queryByTestId('change-more-dates')).toBeNull();
+    // Still never a past or a cancelled date after expanding.
+    expect(within(list).queryByText(dayLabel(pastDate()))).toBeNull();
+    expect(within(list).queryByText(dayLabel(addDaysToKey(afterDate(), 3)))).toBeNull();
+    // The 15th date (and the last) is reachable.
+    fireEvent.click(within(list).getByText(dayLabel(last)));
+    expect(await screen.findByTestId('change-time')).toBeTruthy();
+  });
+
+  it('a cancelled date reached by URL after expanding is still refused', async () => {
+    longSeries(15);
+    mount(ORG_PATHS.changeTime(A, CANCELLED));
+    expect(await screen.findByTestId('change-refusal')).toBeTruthy();
+    expect(screen.queryByTestId('change-save')).toBeNull();
+  });
+});
+
+describe('Change a date: a paused or ended event reached by URL (REVIEW-S2 N2)', () => {
+  it.each(['paused', 'ended'])('%s: "which date" refuses with the lock text and one way Home', async (status) => {
+    seriesList = () => [series(A, 'Friday Social', { lifecycle_status: status }), series(B, 'Sunday Class')];
+    mount(ORG_PATHS.changeEvent(A));
+    const refusal = await screen.findByTestId('change-refusal');
+    expect(refusal.textContent).toContain(seriesLock(status) as string);
+    expect(screen.queryByText('No coming dates')).toBeNull();
+    const buttons = within(refusal).getAllByRole('button');
+    expect(buttons).toHaveLength(1);
+    fireEvent.click(buttons[0]);
+    expect(screen.getByTestId('where').textContent).toBe(ORG_PATHS.home);
   });
 });
 

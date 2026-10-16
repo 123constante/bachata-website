@@ -4,8 +4,8 @@
 
 import type { OrganiserHome } from '@/modules/organiser/shared/selfServeApi';
 import { isListedSeries, type HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
-import { comingDates, comingDays, dayLabel, type DateRow, type DayRow } from '@/modules/organiser/shared/dateList';
-import { dateLock } from '@/modules/organiser/shared/eventState';
+import { comingDates, comingDays, dayLabel, moreDatesCount, type DateRow, type DayRow } from '@/modules/organiser/shared/dateList';
+import { dateLock, eventLock } from '@/modules/organiser/shared/eventState';
 import type { SeriesWorkspace, WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 
 /** Every listed series of the login, across its pages (a series shared by two pages is listed once). */
@@ -48,6 +48,27 @@ function withWorkspaceDates(series: HomeSeriesFull, ws: SeriesWorkspace | undefi
 /** C3: coming scheduled dates, soonest first. */
 export const changeDates = (series: HomeSeriesFull, ws: SeriesWorkspace | undefined, today: string): DateRow[] =>
   comingDates(withWorkspaceDates(series, ws), today);
+
+/**
+ * C3 in full: the first 14 coming dates, every coming date (the workspace read
+ * holds them all; 30 of 67 live series had more than 14 on 2026-10-16, max
+ * 59), and how many the "N more" row stands for.
+ */
+export function changeDateList(series: HomeSeriesFull, ws: SeriesWorkspace | undefined, today: string) {
+  const full = withWorkspaceDates(series, ws);
+  const all = comingDates(full, today, Number.POSITIVE_INFINITY);
+  const first = changeDates(series, ws, today);
+  return { first, all, more: moreDatesCount({ ...full, upcoming_count: all.length }, first) };
+}
+
+/**
+ * Why no date of this event can be changed here (an ended/archived event:
+ * eventLock verbatim; a paused or not-yet-live one), null for a live event.
+ */
+export function seriesLock(status: string): string | null {
+  if (status === 'live') return null;
+  return eventLock(status) ?? `This event is ${status === 'paused' ? 'paused' : 'not live'}, so its dates can't be changed here.`;
+}
 
 /** C5c: the next 30 days minus every day that already holds a date of this series. */
 export const moveDays = (series: HomeSeriesFull, ws: SeriesWorkspace | undefined, today: string): DayRow[] =>

@@ -19,10 +19,9 @@ export interface DateStepReady {
  * one (dateLock text verbatim) or one that is not this login's, and renders
  * the step only for a date that can change.
  */
-export function DateStep({ title, back, needsDetail = true, children }: {
+export function DateStep({ title, back, children }: {
   title?: (date: string) => ReactNode;
   back: (seriesId: string, occurrenceId: string) => string;
-  needsDetail?: boolean;
   children: (ready: DateStepReady) => ReactNode;
 }) {
   const { seriesId = '', occurrenceId = '' } = useParams();
@@ -34,7 +33,6 @@ export function DateStep({ title, back, needsDetail = true, children }: {
   else if (!d.gate || !d.ws.data) body = <Loading />;
   else if (d.gate.kind === 'missing' || !d.series) body = <Missing />;
   else if (d.gate.kind === 'refused') body = <Refusal text={d.gate.text} seriesId={seriesId} />;
-  else if (needsDetail && !d.detail.data) body = <Loading />;
   else if (date && d.detail.data) body = children({ seriesId, occurrenceId, today: d.today, ws: d.ws.data, date, detail: d.detail.data });
   else body = <Loading />;
 

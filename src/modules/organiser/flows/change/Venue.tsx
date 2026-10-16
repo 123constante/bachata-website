@@ -23,7 +23,7 @@ function VenuePicker({ seriesId, occurrenceId, ws, date, detail }: DateStepReady
   const venues = useVenueOptions();
   const [q, setQ] = useState('');
   const [picked, setPicked] = useState<string | null>(detail.venueId);
-  const { send, busy, conflict, error } = useChangeSend(seriesId, occurrenceId);
+  const { send, fail, busy, conflict, error } = useChangeSend(seriesId, occurrenceId);
   if (conflict) return <Conflict seriesId={seriesId} />;
 
   const term = q.trim().toLowerCase();
@@ -33,9 +33,14 @@ function VenuePicker({ seriesId, occurrenceId, ws, date, detail }: DateStepReady
   const ready = !!picked && picked !== detail.venueId;
 
   const save = async () => {
-    // The usual venue clears the override (and its city) instead of copying it onto the date.
-    const patch = await venueOverridePatch(picked === ws.series.default_venue_id ? null : picked, venues.data);
-    await send(overrideCommand(patch), detail.version, venueDoneMessage(date.occurrence_date));
+    try {
+      // The usual venue clears the override (and its city) instead of copying it onto the date.
+      const patch = await venueOverridePatch(picked === ws.series.default_venue_id ? null : picked, venues.data);
+      await send(overrideCommand(patch), detail.version, venueDoneMessage(date.occurrence_date));
+    } catch (err) {
+      // A throw before the send (the city lookup, an empty patch) is a message, not silence.
+      fail(err);
+    }
   };
 
   return (
