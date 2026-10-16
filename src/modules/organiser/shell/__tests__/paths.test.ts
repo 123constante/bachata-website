@@ -6,7 +6,7 @@ import { ORG_BASE, ORG_PATHS } from '../paths';
 const S = 's 1';
 const O = 'o/1';
 const U = 'u 1';
-const DAY = 'day-1';
+const DAY = 'day 1';
 
 function evaluate(): Record<string, string> {
   const out: Record<string, string> = {};
@@ -34,7 +34,7 @@ describe('ORG_PATHS (v2)', () => {
       changeDay: '/account/o/change/s%201/o%2F1/day',
       add: '/account/o/add',
       addEvent: '/account/o/add/s%201',
-      addDate: '/account/o/add/s%201/day-1',
+      addDate: '/account/o/add/s%201/day%201',
       cancel: '/account/o/cancel',
       cancelEvent: '/account/o/cancel/s%201',
       cancelDate: '/account/o/cancel/s%201/o%2F1',
@@ -60,7 +60,6 @@ describe('ORG_PATHS (v2)', () => {
       // R1 path by OrganiserRoutes (legacy.test.tsx proves the landing).
       newEvent: '/account/o/events/new',
       date: '/account/o/events/s%201/dates/o%2F1',
-      profile: '/account/o/profile',
     });
   });
 

@@ -105,7 +105,12 @@ export function OrganiserShell({
         )}
       </header>
       {/* A div, not a second <main>: the site layout already has the page's one main landmark (id=main-content). */}
-      <div ref={mainRef} data-testid="org-content" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div
+        ref={mainRef}
+        data-testid="org-content"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        style={{ paddingBottom: actionBar ? undefined : 'env(safe-area-inset-bottom)' }}
+      >
         {split ? (
           <div className="org-split" data-has-detail={detail !== undefined}>
             <div className="org-split-list" data-testid="org-list">

@@ -53,7 +53,7 @@ export const ORG_PATHS = {
   cover: (seriesId: string) => `${ORG_BASE}/cover/${id(seriesId)}`,
   done: `${ORG_BASE}/done`,
 
-  // Deprecated: main's three keys, kept on main's URLs so the screens and tests
+  // Deprecated: main's two keys, kept on main's URLs so the screens and tests
   // that still use them keep working; OrganiserRoutes redirects each (replace)
   // to its R1 path (legacyPaths.ts moduleLegacyPath). Each goes when the slice
   // that rewrites its last caller lands (S1, S2, S4, S5, S7).
@@ -61,6 +61,4 @@ export const ORG_PATHS = {
   newEvent: `${ORG_BASE}/events/new`,
   /** @deprecated use `changeDate` (redirects there). */
   date: (seriesId: string, occurrenceId: string) => `${ORG_BASE}/events/${id(seriesId)}/dates/${id(occurrenceId)}`,
-  /** @deprecated use `page` (redirects there). */
-  profile: `${ORG_BASE}/profile`,
 } as const;

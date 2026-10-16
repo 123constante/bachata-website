@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -121,6 +122,25 @@ describe('OrganiserShell (no tabs, D32)', () => {
     );
     const order = Array.from(screen.getByTestId('org-shell').children).map((c) => c.getAttribute('data-testid') ?? c.tagName);
     expect(order).toEqual(['HEADER', 'org-content']);
+  });
+
+  it('pads the scroller for the bottom safe area only when no action bar does', () => {
+    // jsdom's CSS parser drops env() and Chromium resolves it to 0, so assert the
+    // inline style string React writes, from static markup.
+    const scrollerStyle = (html: string) => /data-testid="org-content"[^>]*?style="([^"]*)"/.exec(html)?.[1] ?? '';
+    const without = renderToStaticMarkup(
+      <MemoryRouter>
+        <OrganiserShell title="Home">body</OrganiserShell>
+      </MemoryRouter>,
+    );
+    expect(scrollerStyle(without)).toBe('padding-bottom:env(safe-area-inset-bottom)');
+    const withBar = renderToStaticMarkup(
+      <MemoryRouter>
+        <OrganiserShell title="Edit" actionBar={<button>Save</button>}>body</OrganiserShell>
+      </MemoryRouter>,
+    );
+    expect(scrollerStyle(withBar)).toBe('');
+    expect(withBar).toMatch(/data-testid="org-actionbar"[^>]*style="padding-bottom:env\(safe-area-inset-bottom\)"/);
   });
 
   it('keeps the two-column split', () => {
