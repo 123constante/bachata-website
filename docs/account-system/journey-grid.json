@@ -850,12 +850,67 @@
    "entry": "SI",
    "state": "any, code_sent",
    "action": "reloads the code screen",
-   "end": "back to the e-mail form (code page state lost); a new code is needed",
+   "end": "the code box reopens for the same e-mail within 10 minutes; after 5 wrong codes it locks and offers \"Send a new code\" (a new code resets the count)",
    "transition": "-",
-   "covered_by": [],
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AuthCodeStep.test.tsx"
+    },
+    {
+     "kind": "W",
+     "ref": "docs/handover/shots-3c"
+    }
+   ],
    "people": "new",
    "coverage": "required",
    "decision": "D7",
+   "built": "BUILT"
+  },
+  {
+   "id": "si.consent.signup",
+   "matrix": "-",
+   "entry": "SI",
+   "state": "S-NEW",
+   "action": "types the sign-up code",
+   "end": "clickwrap line under the code box; accept_terms_v1 once on success; then as dl.new.straight",
+   "transition": "T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AuthConsentFunnel.test.tsx"
+    },
+    {
+     "kind": "W",
+     "ref": "docs/handover/shots-3c"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": "D8",
+   "built": "BUILT"
+  },
+  {
+   "id": "si.consent.accept-card",
+   "matrix": "-",
+   "entry": "SI",
+   "state": "S-DANCER",
+   "action": "signs in with no acceptance on file",
+   "end": "one-tap accept card (one button), then as si.dancer; a failed check never walls sign-in",
+   "transition": "T-SIGNIN",
+   "covered_by": [
+    {
+     "kind": "U",
+     "ref": "src/pages/__tests__/AuthConsentFunnel.test.tsx"
+    },
+    {
+     "kind": "W",
+     "ref": "docs/handover/shots-3c"
+    }
+   ],
+   "people": "new",
+   "coverage": "required",
+   "decision": "D8",
    "built": "BUILT"
   },
   {
