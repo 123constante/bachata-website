@@ -58,3 +58,36 @@ Real bug found WITH the helper on, fixed: on `/app/me/edit`, City opened then ke
 - No focus mode on account pages (owner decision); the way back is the `?from=app` "Back to Options" link.
 - Keyboard: on setup, Continue is asserted from the LAST field, not the first: at 360x640 with first name focused Continue is two fields lower; the keyboard's Next key moves on (audit M2), and forcing the button up would hide the next field. Same for Finish (Save asserted when first name is the only field) and Edit (Save from the last text field).
 - `NO_PROFILE_TEXT` no longer mentions rating; the rating card keeps its own `NO_PROFILE_REASON` ("...so it can&rsquo;t rate").
+
+## Per-job CI table (run locally in this container; GitHub Actions not used)
+
+| Workflow / job | Command | Exit | Result |
+|---|---|---|---|
+| unit-tests / unit (Europe/London, full) | `TZ=Europe/London npm run test:unit:offline` | 1 | 8958 passed, 16 skipped, 10 failed in the full parallel run. Re-run alone: 5 of those 6 files pass (organiser shell, heroMetaLine, eventTruth matrix, gateCacheReset, account.today = load flakes). `tests/integrityCouldNotRun.test.ts` (5) fails ONLY because this container has a GLOBAL typescript (`/opt/node22/lib/node_modules/typescript`), so its "typescript must not resolve in a temp repo" precondition is false here; CI runners have none. Live `*.contract.test.ts` not run (prod secrets; `ci-live-db-gate` says a PR runs them). |
+| unit-tests / unit (America/New_York, Australia/Sydney) | the tz-sensitive vitest list from unit-tests.yml | 0 / 0 | 213 / 213 passed each |
+| unit-tests / timing | `npm run test:unit:timing` | 0 | 65 passed |
+| unit-tests / dancer-area-isolation | `--self-test`; `npm run check:dancer-area-isolation` | 0; **1** | **RED, needs the orchestrator** (see below) |
+| typecheck | `check:rpc-typing`, `check:wallclock-brand` | 0, 0 | pass |
+| architecture-guard | `chmod +x bin/*.sh`, `bin/check-integrity.sh`, `check:legacy-tables`, `check:legacy-program-rpcs`, `lint:architecture`, `AUDIT_STRICT=1 check:images`, `check:image-widths(+self-test)`, `check:plan-hygiene:self-test`, `check:mojibake:self-test`, `check:workflow-artifact-policy(+self-test)`, `prove:entry-point(+self-test)` | all 0 | integrity 1767 files, 0 issues |
+| lint chain | `npm run lint` | 1 then 0 | the only red link was `check:integrity` exit 126 = the checkout lost the exec bit on `bin/*.sh` (CI chmods first); with +x it passes, 17 other links PASS. eslint is informational. |
+| perf-budget / bundle-budget | self-tests; `npm run build` (job env); `check:bundle-budget`; `check:first-load-requests`; `check:chunk-cycles` | 0 all | all 9 routes within KB and exactly at chunk allowance; dancer-app 362.3 KB / 57 chunks (budget 363 / 57); 6 prerendered routes match request pins; 251 chunks, no cycle |
+| e2e-smoke | `npm run test:e2e` | 1 then 0 | 147 passed, 1 skipped, 1 failed: `dancer-app/me-edit.spec.ts` nationality (looked for a combobox INSIDE `#nationality`; M17 put the id on the combobox). Spec fixed; me-edit.spec 14/14. `home-nights.spec.ts` and `options.spec.ts` passed in the run. |
+| phone-qa / phone-qa | `npx playwright test --config playwright.phone.config.ts` | 1 | 259 passed, 74 skipped, 1 failed: `organiser-contact-sheet.phone.spec.ts:85` [360x640] "a tap on Done reaches Done" (organiser screen). Passes alone (12/12). With `--repeat-each 3`: 1/9 fail on this head, 2/9 fail with the PRE-fix keyboard helper, so it is a pre-existing flake, not from this branch. |
+| phone-qa / build-smoke | `npm run build` (job env) + `npx playwright test --config playwright.build.config.ts` | 0 | 62/62, incl. `account-edges.build.spec.ts` |
+| workflow-lint | masking; notification (+self-test) | 0 | pass |
+| ci-budget-guard | `check-ci-budget.mjs --self-test`; run | 0; 2 | self-test pass; the guard needs `CI_BUDGET_GITHUB_TOKEN` (could not run) |
+| pr-mergeable-guard | `check:pr-mergeable:self-test` | 0 | pass |
+| seo-check / og-image-check | `check:seo:self-test` | 0 | the live checks need a preview deploy: not run |
+| phone-qa-section / real-data-verified | `check-pr-phone-qa.mjs --self-test` | 0 | the PR-body checks run on the PR the orchestrator opens: its body must carry the Phone QA section and "Verified on real data" |
+| db-contract-check | -- | -- | needs prod secrets: not run |
+
+### dancer-area isolation (needs the orchestrator)
+72 rule-(a) lines. This branch is by design a cross-area fixes PR (slice A site chrome + keyboard helper + slice B + this slice), so it changes files the rebuild guard lists as PROTECTED: `DancerHome.tsx`, `FinishProfile.tsx`, `DancerDashboard.tsx`, `EditProfile.tsx` (M17 picker names only), `AccountSettings.tsx`, `lib/accountSettings.ts`, `RsvpBlock.tsx`, `RsvpBlockPlaceholder.tsx`, plus ~64 site files that are not seams. The script says adding a seam is an orchestrator decision mirrored from `briefs/dancer-rebuild-INTERFACE.md`, so I did not edit `scripts/dancer-area-isolation-allowlist.json`. Rule (b) and (c) are clean (no site file imports the dancer module; Auth reads `lib/contactLinks`).
+
+## Not verified
+- No real phone: real on-screen keyboard (both keyboard models are simulations), real camera/photo upload, safe-area insets.
+- No real inbox (code e-mail) and the support mailbox (M27, owner).
+- No browser walk against PROD data; shapes come from the fixtures built from the 2026-10-15 prod survey. The only prod read this slice was the READ-ONLY `_dancer_strength_v1` definition (M24).
+- Live DB contract suites, SEO/OG/Lighthouse (need secrets or a preview deploy). Vercel not touched.
+- `/code-review` not run (no owner in the session).
+- The full unit and phone runs each had load-only failures listed above; each was re-run in isolation, but CI on GitHub may still show the phone flake.
