@@ -66,7 +66,10 @@ describe('reachability: an allowed, complete person reaches every route inside t
     const { location } = renderInShell({ path });
     expect(await screen.findByTestId(`dancer-screen-${id}`)).toBeTruthy();
     expect(screen.getByTestId('dancer-app-shell').getAttribute('data-profile')).toBe('dancer');
-    expect(screen.getByTestId('dancer-app-logo').getAttribute('href')).toBe('/');
+    // H5: /app/welcome keeps the setup frame until the profile read says the required steps are done.
+    await waitFor(() => expect(screen.getByTestId('dancer-app-shell').getAttribute('data-chrome')).toBe('full'));
+    // Audit L9: "Events" is the one way to "/"; the logo is the brand, not a second link there.
+    expect(screen.getByTestId('dancer-app-logo').getAttribute('href')).toBeNull();
     expect(screen.getByTestId('dancer-app-logo').textContent).toBe('Bachata Calendar');
     expect(screen.getByTestId('dancer-app-events').getAttribute('href')).toBe('/');
     expect(screen.getByTestId('dancer-app-type-label').textContent).toBe('Dancer');
