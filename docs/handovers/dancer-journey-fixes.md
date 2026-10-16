@@ -183,3 +183,132 @@ Tests  5 failed | 1 passed (6)      (the passing row is Options, already fixed)
 
 ### S7 (done, in B1): the 2 s cap is armed only after `navigate()` resolves (`Promise.race` after the await).
   Not proven on a throttled network (no throttled build spec written).
+
+### NITs: none taken
+None is a few lines in a file this pass already touches: DancerAppShell `retry`, keyboardSafe timers, AppChrome's
+FocusHeader fallback and `/account/continue` focus are untouched files; the picker `aria-labelledby` fix spans 7 callers.
+
+### Dancer-area isolation (step 4, done)
+- `scripts/dancer-area-isolation-allowlist.json`: 77 paths added to `seams`, each with seamNotes
+  "dancer journey audit fixes 2026-10-16 (#789)". Removed from `protected`: `src/components/account/DancerHome.tsx`,
+  `src/pages/FinishProfile.tsx`, `src/components/profile/DancerDashboard.tsx`, `src/pages/EditProfile.tsx`,
+  `src/pages/AccountSettings.tsx`, `src/lib/accountSettings.ts`, and the glob
+  `src/modules/event-page/bento/blocks/RsvpBlock*.tsx` (it expands to exactly the two changed files, RsvpBlock.tsx
+  and RsvpBlockPlaceholder.tsx). Doc prefixes and rules untouched.
+- Guard change (needs the orchestrator's eye): with no glob left in `protected`, the self-test's "protected glob"
+  case would have gone green-for-nothing. It now adds a fixture-only `SELF_TEST_GLOB = 'src/fixture/Guarded*.tsx'`
+  to the rules it runs with (`main` takes `deps.rules`, default `RULES`); the real check is unchanged.
+- `npm run check:dancer-area-isolation` exit 0 (15 protected files checked); `--self-test` exit 0 (51 cases);
+  `tests/client/dancerAppReviewFixes.test.ts` 117/117.
+- Paths added to `seams` (for the orchestrator to mirror into `briefs/dancer-rebuild-INTERFACE.md`):
+
+```
+src/components/account/DancerHome.tsx
+src/pages/FinishProfile.tsx
+src/components/profile/DancerDashboard.tsx
+src/pages/EditProfile.tsx
+src/pages/AccountSettings.tsx
+src/lib/accountSettings.ts
+src/modules/event-page/bento/blocks/RsvpBlock.tsx
+src/modules/event-page/bento/blocks/RsvpBlockPlaceholder.tsx
+app/root.tsx
+docs/handovers/dancer-journey-fixes.md
+docs/handovers/djf-auth-chrome.md
+docs/handovers/djf-dancer-app.md
+docs/handovers/site-keyboard-safe.md
+index.html
+src/components/AuthPromptModal.tsx
+src/components/GlobalHeader.tsx
+src/components/LevelRatingSignInSheet.tsx
+src/components/__tests__/LevelRatingGate.test.tsx
+src/components/__tests__/MagicLinkConfirmationEmail.test.tsx
+src/components/account/EmailText.tsx
+src/components/account/profiles/PersonAvatar.tsx
+src/components/account/profiles/__tests__/avatarFallback.test.ts
+src/components/account/profiles/__tests__/avatarSurfaces.test.tsx
+src/components/account/profiles/__tests__/continueAsHint.test.tsx
+src/components/account/profiles/__tests__/signOutAuthGuard.test.tsx
+src/components/account/profiles/__tests__/signOutEntryPoints.test.tsx
+src/components/account/profiles/__tests__/switcherSignOut.test.tsx
+src/components/account/profiles/avatarFallback.ts
+src/components/account/profiles/signOutToHome.ts
+src/components/auth/ConsentLine.tsx
+src/components/auth/TermsAcceptCard.tsx
+src/components/layout/FocusHeader.tsx
+src/components/profile/AvatarUpload.tsx
+src/components/search/HeaderSearch.tsx
+src/components/ui/__tests__/pickerAccessibleName.test.tsx
+src/components/ui/city-picker.tsx
+src/components/ui/nationality-picker.tsx
+src/index.css
+src/lib/__tests__/accountSettings.test.ts
+src/lib/__tests__/focusMode.test.ts
+src/lib/__tests__/termsConsent.version.test.ts
+src/lib/accountDeletionCopy.ts
+src/lib/accountPaths.ts
+src/lib/auth-labels.ts
+src/lib/breadcrumbs/siteIa.ts
+src/lib/contactLinks.tsx
+src/lib/focusMode.ts
+src/lib/keyboard/__tests__/previewBarKeyboardHide.test.tsx
+src/lib/keyboard/keyboardSafe.ts
+src/lib/keyboard/useKeyboardInset.ts
+src/lib/termsConsent.ts
+src/modules/event-page/bento/BentoGrid.tsx
+src/modules/event-page/bento/EventStickyActionBar.tsx
+src/modules/event-page/bento/TapHintSticker.tsx
+src/modules/event-page/bento/blocks/ErrorScreen.tsx
+src/modules/home-map/cards/controls.tsx
+src/modules/organiser/shell/TabBar.tsx
+src/modules/organiser/ui/PreviewBar.tsx
+src/modules/organiser/ui/useKeyboardInset.ts
+src/pages/AccountDeleted.tsx
+src/pages/AccountRestore.tsx
+src/pages/CreateVideographerProfile.tsx
+src/pages/Onboarding.tsx
+src/pages/OrganiserProfile.tsx
+src/pages/Privacy.tsx
+src/pages/VendorDashboardPage.tsx
+src/pages/VendorPortal.tsx
+src/pages/__tests__/AccountSettings.test.tsx
+src/pages/__tests__/AccountSliceB.test.tsx
+src/pages/__tests__/AuthJourneyFixes.test.tsx
+src/pages/__tests__/AuthOtpDisabled.test.tsx
+src/pages/__tests__/FinishProfile.test.tsx
+src/pages/__tests__/FinishProfileNoProfile.test.tsx
+src/pages/__tests__/LegalPages.test.tsx
+src/pages/__tests__/journeyConsistencySite.test.tsx
+src/pages/legal/LegalShell.tsx
+vite.chunks.ts
+```
+
+### Per-job table (run locally in this container; GitHub Actions not used)
+
+| Job / step | Command | Exit | Counts |
+|---|---|---|---|
+| unit-tests | `npm run test:unit` | 1 | 9019 passed, 18 failed, 17 skipped; after fixes the 3 real reds (chunkClassifier list, 2 dancer-app hrefs) pass. The other 15 (live-DB `*.contract.test.ts`, `integrityCouldNotRun`) fail identically on the base with no network/TS helper here. NOT re-run in full after the last fixes. |
+| unit, 3 timezone runs | not run | - | - |
+| typecheck | `tsc -p tsconfig.app.json` | errors | 97 pre-existing errors, none in files touched here; the CI job's ratchet steps not run |
+| lint chain | not run | - | - |
+| architecture-guard | not run | - | - |
+| perf-budget (prod build) | `npm run build` + `check:bundle-budget`, `check:first-load-requests`, `check:chunk-cycles` | 0 / 0 / 0 | flag off; flag-on table under S6 |
+| phone-qa build-smoke | `playwright.build.config.ts` `account-delete.build.spec.ts` | 0 | 11/11 (fake-Supabase prod build) |
+| phone-qa phone suite | keyboard spec, city rows only | 0 | 8/8 new rows; 58/60 on x3 repeat (2 = dev reload while editing) |
+| e2e-smoke | not run | - | - |
+| dancer-area isolation | check + `--self-test` | 0 / 0 | OK; 51 cases |
+
+### Left (next worker)
+1. Step 5: re-run the review's 10 mutants that touch changed code (focusMode x3, pickerAccessibleName x2,
+   avatarSurfaces x2, journeyGuards, optionsAudit settings link, termsConsent) and confirm all still red.
+   `optionsAudit` M4 mutant: the link is now `APP_ACCOUNT_SETTINGS_PATH` from accountRouting.
+2. The full gate pass: `npm run test:unit` (and its 3 TZ runs), lint chain (`chmod +x bin/*.sh` first),
+   architecture-guard, typecheck job steps, e2e-smoke, full phone-qa (phone + build), build-smoke; fill the table.
+3. `/code-review` of the whole review-fix diff was NOT run (CLAUDE.md asks for it before commit; the guard change
+   in step 4 gets ONE round). `.githooks` are not executable in this container, so pre-commit/pre-push did not run.
+4. Organiser sign-outs (`organiser/profile/index.tsx:280`, `onboarding/SignOutLine.tsx:26`) left for the
+   organiser session (see B1).
+
+### Not verified
+- Real phone, real keyboard (Android S5 especially: verified only by attribute + keyboardSafe's CSS rule).
+- S7 on a throttled network. B1 delete-flow row was green on screen even before the fix (red only in the unit table).
+- Live prod data in the browser; Vercel preview; GitHub CI.
