@@ -135,6 +135,13 @@ describe('L7: task pages draw no floating icons over their text', () => {
       for (const p of h.layoutProps) expect(p.showGradientBg).toBe(false);
     });
   }
+  // Review #789 S4: /finish-profile is a task page too (its icons drew over "Not now" and the settings link).
+  it('/finish-profile: every GlobalLayout passes showGradientBg={false}', () => {
+    const src = readFileSync(path.resolve(__dirname, '../FinishProfile.tsx'), 'utf8');
+    const layouts = src.match(/<GlobalLayout\b[^>]*>/g) ?? [];
+    expect(layouts.length).toBeGreaterThan(0);
+    for (const tag of layouts) expect(tag).toContain('showGradientBg={false}');
+  });
 });
 
 describe('M16: one word for the hidden state', () => {

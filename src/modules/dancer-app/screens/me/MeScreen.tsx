@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
 import { mainAction, nextStepCopy, profileName, roleCityLine } from './model';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, HIDDEN_STATE_WORD } from '../../copy/sharedCopy';
@@ -27,9 +28,9 @@ const MeScreen = () => {
           <p className="da-muted" style={{ fontSize: 14, margin: '4px 0 8px' }}>
             {HIDDEN_STATE_LINE} You can show it again in {ACCOUNT_SETTINGS_LABEL}.
           </p>
-          <a href="/account/settings" className="da-tap" style={{ ...ghostButton, minHeight: 44 }}>
+          <Link to={APP_ACCOUNT_SETTINGS_PATH} className="da-tap" style={{ ...ghostButton, minHeight: 44 }}>
             Open account settings
-          </a>
+          </Link>
         </div>
       )}
 

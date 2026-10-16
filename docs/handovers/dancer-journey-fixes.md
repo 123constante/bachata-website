@@ -128,3 +128,18 @@ Tests  5 failed | 1 passed (6)      (the passing row is Options, already fixed)
   move settles, plus 1.5 s). On the unfixed source (production fake-Supabase build): settings Sign out, settings
   Sign out of all devices, restore Sign out red with `Received string: "/auth"`; the delete row passed on the
   unfixed build (the race did not fire on screen there; the unit table catches it). With the fix: 11/11 pass.
+
+### S1 (done): `?from=app` kept on every route into settings
+- New `APP_ACCOUNT_SETTINGS_PATH` in `src/lib/accountRouting.ts` (one value; Options' `optionsModel` now points at it).
+- Settings crumb maps `/account/settings` -> `withFromApp(...)`; switcher row uses it when `where.area === 'dancer'`;
+  Home and Me hidden-profile banners are `<Link to={APP_ACCOUNT_SETTINGS_PATH}>` (no full reload).
+- Tests: crumb x2 (`AccountSettings.test.tsx`), switcher x2 + banner source guard (`switcherSignOut.test.tsx`);
+  `profiles.test.tsx:105` and `homeAudit.test.tsx:149` updated to the `?from=app` href.
+
+### S2 (done): FocusHeader "Not now" never targets a guarded page
+- `focusNotNowHref` returns `/` for `isAccountPath`, `isDancerAppPath` (/app/*) and `isDancerGatedTarget`.
+  `isDancerAppPath` added beyond the review's two because `/app/home` passed both (red row proved it).
+- Red-first: 4 new rows in `focusMode.test.ts` failed on the unfixed function (`/account/o`, `/account`,
+  `/app/home`, `/account/settings`); 42/42 after.
+
+### S4 (done): `/finish-profile` passes `showGradientBg={false}`; source guard in `AccountSliceB.test.tsx` L7 block.

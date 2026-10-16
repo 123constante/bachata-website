@@ -135,6 +135,24 @@ describe('sheet surface and naming', () => {
     expect(screen.getByTestId('profile-switcher-sheet').closest('[data-profile="dancer"]')).toBeNull();
   });
 
+  // Review #789 S1: inside the dancer app the settings row keeps "Back to Options"; elsewhere a plain link.
+  it.each([
+    [{ area: 'dancer' as const }, '/account/settings?from=app'],
+    [{ area: 'organiser' as const, organiserId: null }, '/account/settings'],
+  ])('S1: settings row from %o goes to %s', (where, href) => {
+    mountAt('/app/home', <ProfileSwitcher where={where} />);
+    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe(href);
+  });
+
+  it('S1: the dancer-app hidden-profile banners link in-app to settings with ?from=app', () => {
+    for (const f of ['src/modules/dancer-app/screens/home/HomeScreen.tsx', 'src/modules/dancer-app/screens/me/MeScreen.tsx']) {
+      const src = readFileSync(path.resolve(__dirname, '../../../../..', f), 'utf8');
+      expect(src).not.toMatch(/<a\s+href=\{?["'`]?(\/account\/settings|\{ACCOUNT_SETTINGS_PATH)/);
+      expect(src).toMatch(/<Link to=\{APP_ACCOUNT_SETTINGS_PATH\}/);
+    }
+  });
+
   it('L13: the settings row is called ACCOUNT_SETTINGS_LABEL', () => {
     mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
     fireEvent.click(screen.getByTestId('profile-switcher-button'));

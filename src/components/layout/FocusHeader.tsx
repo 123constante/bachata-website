@@ -1,12 +1,16 @@
 import { Link, useLocation } from 'react-router-dom';
 import bachataCalendarLogo from '@/assets/brand/bachata-calendar-logo.png';
+import { isAccountPath, isDancerGatedTarget } from '@/lib/accountRouting';
 import { sanitizeReturnTo } from '@/lib/authRouting';
 import { FOCUS_NOT_NOW_LABEL, isSignupFocusPath } from '@/lib/focusMode';
+import { isDancerAppPath } from '@/modules/dancer-app/shell/routes';
 
 /**
  * Where "Not now" goes: the safe in-site returnTo the flow was opened with,
  * else home. A plain link: the person stays signed in and nothing is deleted.
- * Never back into the focus flow itself. Lives here, not in lib/focusMode, so
+ * Never back into the focus flow itself, and never a page behind AuthGuard or the
+ * dancer gate (review #789 S2: signed out it opened "Welcome back"; mid-setup it
+ * sent the person back into setup). Mirrors the dancer shell's notNowTarget. Lives here, not in lib/focusMode, so
  * the every-page mapping stays a leaf (authRouting rides this lazy chunk).
  */
 export function focusNotNowHref(search: string): string {
@@ -14,6 +18,7 @@ export function focusNotNowHref(search: string): string {
   const target = sanitizeReturnTo(params.get('returnTo'));
   if (!target) return '/';
   const [targetPath, targetSearch = ''] = target.split('#', 1)[0].split('?');
+  if (isAccountPath(targetPath) || isDancerAppPath(targetPath) || isDancerGatedTarget(target)) return '/';
   return isSignupFocusPath(targetPath, targetSearch, false) ? '/' : target;
 }
 

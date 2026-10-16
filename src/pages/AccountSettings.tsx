@@ -492,7 +492,11 @@ export const AccountSettingsScreen = ({ view = "home" }: { view?: View }) => {
   const fromApp = useFromApp();
   return (
     // L7: a task page; no floating decoration under the form text.
-    <GlobalLayout breadcrumbs={buildBreadcrumbs(CRUMBS[view])} showGradientBg={false}>
+    // S1 (review #789): the "Account settings" crumb keeps ?from=app, or "Back to Options" is lost one tap later.
+    <GlobalLayout
+      breadcrumbs={buildBreadcrumbs(CRUMBS[view]).map((c) => (c.path === SETTINGS_PATH ? { ...c, path: withFromApp(c.path, fromApp) } : c))}
+      showGradientBg={false}
+    >
       <div className="px-4 pb-24 pt-3">
         <div className="mx-auto w-full max-w-md space-y-3">
           {fromApp && (

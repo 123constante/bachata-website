@@ -33,7 +33,11 @@ vi.mock('@/hooks/useAuth', () => ({
 const sonner = vi.hoisted(() => ({ error: vi.fn() }));
 vi.mock('sonner', () => ({ toast: sonner }));
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
-vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
+vi.mock('@/components/layout/GlobalLayout', () => ({
+  default: ({ children, breadcrumbs }: { children: ReactNode; breadcrumbs?: unknown }) => (
+    <div data-testid="layout" data-crumbs={JSON.stringify(breadcrumbs ?? [])}>{children}</div>
+  ),
+}));
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
 vi.mock('@/hooks/use-toast', async (orig) => ({ ...(await orig<typeof import('@/hooks/use-toast')>()), toast: h.toast }));
 vi.mock('@/hooks/useMyProfileVisibility', () => ({
@@ -217,6 +221,17 @@ describe('settings home', () => {
     fireEvent.click(await screen.findByTestId('settings-signout-all'));
     await waitFor(() => expect(sonner.error).toHaveBeenCalledWith(expect.stringMatching(/did not complete/i)));
     expect(await screen.findByTestId('settings-signout-all')).toBeTruthy();
+  });
+
+  // Review #789 S1: the "Account settings" crumb keeps ?from=app, or "Back to Options" is lost one tap later.
+  it.each([
+    ['/account/settings/delete?from=app', '/account/settings?from=app'],
+    ['/account/settings/delete', '/account/settings'],
+  ])('crumb from %s links to %s', async (at, crumb) => {
+    mount(at);
+    await screen.findByTestId('delete-confirm');
+    const crumbs = JSON.parse(screen.getByTestId('layout').getAttribute('data-crumbs') ?? '[]') as { label: string; path?: string }[];
+    expect(crumbs.filter((c) => c.path?.startsWith('/account/settings')).map((c) => c.path)).toEqual([crumb]);
   });
 
   it('settings is not behind the dancer-first gate (an unfinished profile can reach it)', () => {

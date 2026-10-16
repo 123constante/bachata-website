@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
+import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
 import { DancerApiError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
 import { trackDancerEvent } from '../../analytics/events';
@@ -86,7 +86,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
         <div className="da-card" role="status" data-testid="paused-banner" style={{ borderColor: 'var(--da-danger)' }}>
           <b>{HIDDEN_STATE_LINE}</b>
           <p style={{ margin: '4px 0 0', fontSize: 14 }}>
-            <a href={ACCOUNT_SETTINGS_PATH} style={linkStyle}>{SHOW_AGAIN_LABEL}</a>
+            <Link to={APP_ACCOUNT_SETTINGS_PATH} style={linkStyle}>{SHOW_AGAIN_LABEL}</Link>
           </p>
         </div>
       )}

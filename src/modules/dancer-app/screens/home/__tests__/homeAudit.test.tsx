@@ -146,7 +146,7 @@ describe('M16: hidden profile on Home', () => {
     home(londoner({ is_active: false }));
     const b = await screen.findByTestId('paused-banner');
     expect(b.textContent).toContain(HIDDEN_STATE_LINE);
-    expect(within(b).getByRole('link', { name: SHOW_AGAIN_LABEL }).getAttribute('href')).toBe('/account/settings');
+    expect(within(b).getByRole('link', { name: SHOW_AGAIN_LABEL }).getAttribute('href')).toBe('/account/settings?from=app') // S1: keeps Back to Options;
     expect(screen.getByTestId('dancer-screen-home').textContent).not.toMatch(/paus/i);
   });
 });

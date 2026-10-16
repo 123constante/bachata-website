@@ -59,6 +59,11 @@ describe('focusNotNowHref', () => {
     ['?returnTo=%2F%2Fevil.example', '/'],
     ['?returnTo=%2Fauth%3Fmode%3Dsignup', '/'], // never back into the flow
     ['?returnTo=%2Fapp%2Fwelcome', '/'],
+    // Review #789 S2: never a page behind AuthGuard or the dancer gate ("Welcome back" when signed out).
+    ['?mode=signup&userType=organiser&returnTo=%2Faccount%2Fo', '/'],
+    ['?mode=signup&returnTo=%2Faccount', '/'],
+    ['?mode=signup&returnTo=%2Fapp%2Fhome', '/'],
+    ['?mode=signup&returnTo=%2Faccount%2Fsettings', '/'],
   ])('%s -> %s', (search, expected) => {
     expect(focusNotNowHref(search)).toBe(expected);
   });

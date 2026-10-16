@@ -261,7 +261,8 @@ export const FinishProfileScreen = () => {
   // No breadcrumb: a sign-in step like Auth / AuthCallback / Onboarding
   // (.claude/rules/breadcrumbs.md), so showSubheader={false}.
   return (
-    <GlobalLayout showSubheader={false}>
+    // L7 (review #789 S4): a task page; no floating decoration over "Not now" or the settings link.
+    <GlobalLayout showSubheader={false} showGradientBg={false}>
       {/* No background and no min-height here: GlobalLayout paints the page wash
           (fixed, full screen). An opaque bg-background block 70vh tall used to sit
           on top of it, so the page read as a black block with the wash showing

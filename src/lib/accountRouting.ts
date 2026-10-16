@@ -28,6 +28,8 @@ export const ORGANISER_HOME_PATH = '/account/o';
 export const MY_ATTENDANCE_PATH = '/account/attendance';
 /** Account settings (src/pages/AccountSettings.tsx): sign out, email, export, hide, erase. Never gated: see isDancerGatedPath. */
 export const ACCOUNT_SETTINGS_PATH = '/account/settings';
+/** Settings opened from inside the dancer app: `?from=app` makes the page offer "Back to Options" (audit M4). */
+export const APP_ACCOUNT_SETTINGS_PATH = `${ACCOUNT_SETTINGS_PATH}?from=app`;
 /**
  * The account copy shown on BOTH the site and the dancer app (audit M16, L13): one string
  * per fact. src/modules/dancer-app/copy/sharedCopy.ts re-exports these unchanged, so the

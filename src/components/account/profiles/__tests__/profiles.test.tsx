@@ -102,7 +102,7 @@ describe('Switch profile sheet', () => {
     expect(items.map((a) => a.querySelector('.font-semibold')?.textContent)).toEqual(names);
     const ticked = items.filter((a) => a.getAttribute('aria-current') === 'true').map((a) => a.querySelector('.font-semibold')?.textContent);
     expect(ticked).toEqual(facts.dancer === 'complete' ? ['Ana'] : []);
-    expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe('/account/settings');
+    expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe('/account/settings?from=app') // S1: keeps Back to Options;
     expect(screen.getByTestId('profile-switcher-sign-out')).toBeTruthy();
   });
 

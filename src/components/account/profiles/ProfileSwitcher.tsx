@@ -2,7 +2,7 @@ import { useEffect, useId, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
-import { ACCOUNT_SETTINGS_PATH, switcherItems, type SwitcherWhere } from '@/lib/accountRouting';
+import { ACCOUNT_SETTINGS_PATH, APP_ACCOUNT_SETTINGS_PATH, switcherItems, type SwitcherWhere } from '@/lib/accountRouting';
 import { ACCOUNT_SETTINGS_LABEL } from '@/modules/dancer-app/copy/sharedCopy';
 import { SideAvatar, sideKind, sideTitle } from './SideAvatar';
 import { PersonAvatar } from './PersonAvatar';
@@ -129,7 +129,8 @@ export function ProfileSwitcher({ where }: { where: SwitcherWhere }) {
                 </li>
               ))}
             </ul>
-            <Link to={ACCOUNT_SETTINGS_PATH} onClick={close} className={`${row} font-semibold`} data-testid="profile-switcher-settings">
+            {/* Inside the dancer app, settings keeps "Back to Options" (review #789 S1). */}
+            <Link to={where.area === 'dancer' ? APP_ACCOUNT_SETTINGS_PATH : ACCOUNT_SETTINGS_PATH} onClick={close} className={`${row} font-semibold`} data-testid="profile-switcher-settings">
               {ACCOUNT_SETTINGS_LABEL}
             </Link>
             {!confirming ? (
