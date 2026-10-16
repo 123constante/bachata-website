@@ -88,22 +88,23 @@ function firstSteps(home: HomeOrganiser): Draft[] {
 }
 
 /**
- * Home's numbered list for ONE page, in D37 order: Change, Add, Cancel (only
- * when a live series has a coming scheduled date), then the D6 problems by
- * kind: no dates left, join requests, stale drafts, no cover. A page with no
- * listed series gets the first steps instead.
+ * Home's numbered list for ONE page, in D37 order: Change and Cancel (only
+ * when a live series has a coming scheduled date), Add (only when a live or
+ * draft series exists; paused/ended are server-locked, D6), then the D6
+ * problems by kind: no dates left, join requests, stale drafts, no cover. A
+ * page where neither Change nor Add applies gets the first steps instead.
  */
 export function homeJobs(home: HomeOrganiser, requests: IncomingAccessRequest[], today: string): Job[] {
   const listed = home.series.filter(isListedSeries);
+  const hasComingDate = listed.some((s) => s.lifecycle_status === 'live' && s.upcoming_count > 0);
+  const canAdd = listed.some((s) => s.lifecycle_status === 'live' || s.lifecycle_status === 'draft');
   const drafts: Draft[] = [];
-  if (listed.length === 0) {
+  if (!hasComingDate && !canAdd) {
     drafts.push(...firstSteps(home));
   } else {
-    drafts.push({ kind: 'change', title: 'Change a date', to: ORG_PATHS.change, tone: 'plain' });
-    drafts.push({ kind: 'add', title: 'Add a date', to: ORG_PATHS.add, tone: 'plain' });
-    if (listed.some((s) => s.lifecycle_status === 'live' && s.upcoming_count > 0)) {
-      drafts.push({ kind: 'cancel', title: 'Cancel a date', to: ORG_PATHS.cancel, tone: 'plain' });
-    }
+    if (hasComingDate) drafts.push({ kind: 'change', title: 'Change a date', to: ORG_PATHS.change, tone: 'plain' });
+    if (canAdd) drafts.push({ kind: 'add', title: 'Add a date', to: ORG_PATHS.add, tone: 'plain' });
+    if (hasComingDate) drafts.push({ kind: 'cancel', title: 'Cancel a date', to: ORG_PATHS.cancel, tone: 'plain' });
   }
   const problems = listed.flatMap((s) => seriesProblems(s, today).map((problem) => ({ s, problem })));
   const rows = (problem: SeriesProblem) => problems

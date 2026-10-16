@@ -80,7 +80,7 @@ createDraftPayload sends a start date: 1 failed | 3 passed
 ```
 
 ## Real-data shape survey (prod `stsdtacfauprzrdebmzg`, read-only, counts only, 2026-10-16)
-Non-archived series 92. Live with 0 scheduled coming dates: **16**, of which 1 has only cancelled coming dates (R3-3 row). Live with 14+ scheduled: 30. Live with no cover: 0. Drafts older than 7 days: 4; 7 days or newer: 1. Each shape is a matrix row in `jobs/__tests__/homeJobs.matrix.test.ts`; the clock is frozen at 2026-10-20 so fixtures straddle 2026-10-25 (R3-18).
+Non-archived series 92. Live with 0 scheduled coming dates: **16**, of which 1 has only cancelled coming dates (R3-3 row). Live with 14+ scheduled: 30. Live with no cover: 0. Drafts stale by the code's rule (more than 7 London calendar days since `created_at`): **2**; exactly 7 days (on the boundary, not stale): 2; younger: 1 (reviewer's measured figure, REVIEW-S0b NOTE-2; the earlier "4" used an interval rule). Organisers whose non-archived series are all paused/ended: **2**; organisers with drafts and no live series: **1** (counts from REVIEW-S0b). Each shape is a matrix row in `jobs/__tests__/homeJobs.matrix.test.ts`; the clock is frozen at 2026-10-20 so fixtures straddle 2026-10-25 (R3-18).
 
 ## CI, run in the sandbox (per job)
 
@@ -123,3 +123,37 @@ Run on this branch + S0a's `shell/paths.ts` laid over the tree (uncommitted; the
 - No real phone.
 - Vercel: not touched (nothing to deploy from a slice branch).
 
+## F-S0b fix pass (ticket dt_8a2e7f9f3cd3)
+
+Changes: `jobs/homeJobs.ts` (Change/Add rule, SHOULD-1), `jobs/__tests__/homeJobs.matrix.test.ts` (rows updated + three new rows, SHOULD-2), `shared/support.ts` + `shared/__tests__/support.test.ts` (bare `https://wa.me/` rejected, NOTE-5), this file (NOTE-2 figure). Owner-default decisions (orchestrator): (1) `change` only when a LIVE series has a scheduled upcoming date (same test as `cancel`); (2) `add` only when a LIVE or DRAFT series exists; (3) when neither shows, the four first steps, dropping off by their own rules; (4) `no_dates_left`, `join_request`, `stale_draft`, `no_cover` keep D37 order, unaffected.
+
+What the rule gives (asserted exactly, kinds + titles + sub + `to` + tone, clock frozen 2026-10-20, dates straddle 2026-10-25, chip asserted from both sides):
+- drafts only (9 days + 2 days; prod 1 org): `1 add`, `2 stale_draft "Old draft" / "Draft, 9 days" -> ORG_PATHS.event(id)`. No change, no cancel, and NO first steps, because `add` shows (decision 2 + 3). Chips: "Draft, 9 days" bad, "Draft, 2 days" n.
+- paused + ended only (prod 2 orgs): the four first steps (New event, Add a photo, Show your WhatsApp, Add a manager). Chips Paused / Ended, n.
+- paused + one live with a scheduled date: change, add, cancel as before. Chips Paused n, Live ok.
+- Changed old rows: live with 0 scheduled and live all-cancelled now give `add, no_dates_left` (no Change: there is no scheduled date to change). The paused+ended row at the old :146 now asserts no problem rows; the exact first-steps expectation is the new row.
+
+RED first (old code, new tests): 5 failed / 36 passed in `npx vitest run src/modules/organiser/jobs src/modules/organiser/shared/__tests__/support.test.ts`:
+```
+live with 0 scheduled upcoming -> add + no_dates_left ...   expected [ [ 1, 'change', ...(4) ], ...(2) ] to deeply equal [ ...(2) ]
+all upcoming cancelled -> no_dates_left                     expected [ 'change', 'add', 'no_dates_left' ] to deeply equal [ 'add', 'no_dates_left' ]
+drafts only (one 9 days, one 2 days) -> add + stale_draft    received [1,"change","Change a date",undefined,"/account/o/change","plain"], [2,"add",...], [3,"stale_draft","Old draft","Draft, 9 days",...]
+paused + ended only -> the four first steps                  received [1,"change","Change a date",...], [2,"add","Add a date",...]; expected create_first_event, add_cover, show_whatsapp, add_manager
+supportLinks: wa.me with no number                          expected { whatsapp: 'https://wa.me/', ...(1) } to deeply equal { whatsapp: null, ...(1) }
+```
+After the fix: 36 files / **635 passed**.
+
+Mutation: only the new `change` condition reverted (`if (hasComingDate)` removed before the change push) -> 3 failed / 632 passed: "live with 0 scheduled", "all upcoming cancelled", "drafts only" (all `expected [ [ 1, 'change', ...`). The paused+ended row stays green under this one mutant because it is guarded by the fallback branch (neither change nor add); it goes red against the old code (above). Restored after.
+
+CI steps in the sandbox, S0a `shell/paths.ts` overlaid (not committed):
+
+| Job | Command | Exit | Note |
+|---|---|---|---|
+| slice tests | `npx vitest run src/modules/organiser/jobs src/modules/organiser/shared src/modules/organiser/flows` | 0 | 36 files, 635 passed |
+| eslint (changed files) | `npx eslint src/modules/organiser/jobs src/modules/organiser/shared/support.ts src/modules/organiser/shared/__tests__/support.test.ts` | 0 | |
+| integrity | `npm run check:mojibake` | 0 | |
+| lint chain | `npm run lint` | 1 | 17/18 PASS; the red is `check:integrity` exit 126, ENVIRONMENTAL (file mode 100644 in git; `bash bin/check-integrity.sh` exits 0) |
+| typecheck | `npm run typecheck` | 2 | 97 errors, same count as the review; none in `jobs/` or `shared/support*` (pre-existing on main + the `shell/tabs.ts` overlay artefact) |
+| perf-budget (build) | `npm run build` | 0 | production build + prerender ok |
+
+Not run: full `npm run test:unit` (unchanged files; review table stands), `test:e2e`, Lighthouse, a browser walk (Home is not mounted in this slice), a real phone, GitHub Actions. Not verified against the E2E project.

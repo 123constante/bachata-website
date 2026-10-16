@@ -79,21 +79,20 @@ describe('homeJobs: the Home matrix (4.5)', () => {
     ]);
   });
 
-  it('live with 0 scheduled upcoming -> no_dates_left, and no cancel job', () => {
+  it('live with 0 scheduled upcoming -> add + no_dates_left, and no change/cancel job (nothing to change)', () => {
     const s = series({ name: 'Fridays', upcoming_count: 0, next_dates: [] });
     const jobs = homeJobs(page([s]), [], today());
     expect(jobs.map((j) => [j.n, j.kind, j.title, j.sub, j.to, j.tone])).toEqual([
-      [1, 'change', 'Change a date', undefined, ORG_PATHS.change, 'plain'],
-      [2, 'add', 'Add a date', undefined, ORG_PATHS.add, 'plain'],
-      [3, 'no_dates_left', 'Fridays', 'Needs dates', ORG_PATHS.addEvent(s.id), 'problem'],
+      [1, 'add', 'Add a date', undefined, ORG_PATHS.add, 'plain'],
+      [2, 'no_dates_left', 'Fridays', 'Needs dates', ORG_PATHS.addEvent(s.id), 'problem'],
     ]);
   });
 
   it('all upcoming cancelled -> no_dates_left (R3-3: counts are scheduled-only)', () => {
     const s = series({ name: 'Sundays', upcoming_count: 0, cancelled_upcoming_count: 2, next_dates: [] });
     const jobs = homeJobs(page([s]), [], today());
-    expect(kinds(jobs)).toEqual(['change', 'add', 'no_dates_left']);
-    expect(jobs[2]).toMatchObject({ n: 3, title: 'Sundays', sub: 'Needs dates', to: ORG_PATHS.addEvent(s.id) });
+    expect(kinds(jobs)).toEqual(['add', 'no_dates_left']);
+    expect(jobs[1]).toMatchObject({ n: 2, title: 'Sundays', sub: 'Needs dates', to: ORG_PATHS.addEvent(s.id) });
   });
 
   it('draft 9 days old -> stale_draft; draft 2 days old -> none', () => {
@@ -143,7 +142,61 @@ describe('homeJobs: the Home matrix (4.5)', () => {
   it('paused and ended series are never listed as problems (D6)', () => {
     const paused = series({ lifecycle_status: 'paused', upcoming_count: 0, next_dates: [], default_cover_image_url: null });
     const ended = series({ lifecycle_status: 'ended', upcoming_count: 0, next_dates: [], default_cover_image_url: null });
-    expect(kinds(homeJobs(page([paused, ended]), [], today()))).toEqual(['change', 'add']);
+    expect(kinds(homeJobs(page([paused, ended]), [], today())).filter((k) => k === 'no_dates_left' || k === 'no_cover')).toEqual([]);
+  });
+
+  // F-S0b (REVIEW-S0b SHOULD-1/2): `change` only when a live series has a
+  // scheduled coming date (as `cancel`), `add` only when a live or draft
+  // series exists, else the first steps. Prod: 2 pages are paused/ended
+  // only, 1 page has drafts and no live series.
+  const chipAgreesWithHome = (jobs: Job[], all: HomeSeriesFull[]) => {
+    for (const s of all) {
+      const chip = seriesChip(s, today());
+      const rows = jobs.filter((j) => j.tone === 'problem' && j.title === s.name);
+      expect(rows.map((r) => r.sub)).toEqual(chip.tone === 'bad' ? [chip.label] : []);
+    }
+  };
+
+  it('drafts only (one 9 days, one 2 days) -> add + stale_draft; no change/cancel, no first steps', () => {
+    const old = series({ name: 'Old draft', lifecycle_status: 'draft', created_at: daysAgoIso(9), upcoming_count: 0, next_dates: [] });
+    const fresh = series({ name: 'New draft', lifecycle_status: 'draft', created_at: daysAgoIso(2), upcoming_count: 0, next_dates: [] });
+    const jobs = homeJobs(page([old, fresh]), [], today());
+    expect(jobs.map((j) => [j.n, j.kind, j.title, j.sub, j.to, j.tone])).toEqual([
+      [1, 'add', 'Add a date', undefined, ORG_PATHS.add, 'plain'],
+      [2, 'stale_draft', 'Old draft', 'Draft, 9 days', ORG_PATHS.event(old.id), 'problem'],
+    ]);
+    expect(seriesChip(old, today())).toEqual({ label: 'Draft, 9 days', tone: 'bad' });
+    expect(seriesChip(fresh, today())).toEqual({ label: 'Draft, 2 days', tone: 'n' });
+    chipAgreesWithHome(jobs, [old, fresh]);
+  });
+
+  it('paused + ended only -> the four first steps, no change/add/cancel', () => {
+    const paused = series({ name: 'Paused one', lifecycle_status: 'paused', next_dates: [date(2), date(9)] });
+    const ended = series({ name: 'Ended one', lifecycle_status: 'ended', upcoming_count: 0, next_dates: [], default_cover_image_url: null });
+    const jobs = homeJobs(page([paused, ended]), [], today());
+    expect(jobs.map((j) => [j.n, j.kind, j.title, j.to, j.tone])).toEqual([
+      [1, 'create_first_event', 'New event', ORG_PATHS.newWhat, 'gold'],
+      [2, 'add_cover', 'Add a photo', ORG_PATHS.page, 'plain'],
+      [3, 'show_whatsapp', 'Show your WhatsApp', ORG_PATHS.page, 'plain'],
+      [4, 'add_manager', 'Add a manager', ORG_PATHS.teamAdd, 'plain'],
+    ]);
+    expect(seriesChip(paused, today())).toEqual({ label: 'Paused', tone: 'n' });
+    expect(seriesChip(ended, today())).toEqual({ label: 'Ended', tone: 'n' });
+    chipAgreesWithHome(jobs, [paused, ended]);
+  });
+
+  it('paused + one live series with a scheduled date -> change, add, cancel as before', () => {
+    const paused = series({ name: 'Paused one', lifecycle_status: 'paused', upcoming_count: 0, next_dates: [] });
+    const live = series({ name: 'Live one', upcoming_count: 1, next_dates: [date(6)] });
+    const jobs = homeJobs(page([paused, live]), [], today());
+    expect(jobs.map((j) => [j.n, j.kind, j.title, j.to, j.tone])).toEqual([
+      [1, 'change', 'Change a date', ORG_PATHS.change, 'plain'],
+      [2, 'add', 'Add a date', ORG_PATHS.add, 'plain'],
+      [3, 'cancel', 'Cancel a date', ORG_PATHS.cancel, 'plain'],
+    ]);
+    expect(seriesChip(paused, today())).toEqual({ label: 'Paused', tone: 'n' });
+    expect(seriesChip(live, today())).toEqual({ label: 'Live', tone: 'ok' });
+    chipAgreesWithHome(jobs, [paused, live]);
   });
 
   it('a page holding only archived series gets the first steps', () => {

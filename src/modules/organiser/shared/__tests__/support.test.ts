@@ -23,4 +23,10 @@ describe('supportLinks (D7)', () => {
     vi.stubEnv('VITE_SUPPORT_EMAIL', 'not-an-email');
     expect(supportLinks()).toEqual({ whatsapp: null, email: null });
   });
+
+  it('a WhatsApp link with no number after the host is treated as absent', () => {
+    vi.stubEnv('VITE_SUPPORT_WHATSAPP', 'https://wa.me/');
+    vi.stubEnv('VITE_SUPPORT_EMAIL', 'help@example.com');
+    expect(supportLinks()).toEqual({ whatsapp: null, email: 'help@example.com' });
+  });
 });

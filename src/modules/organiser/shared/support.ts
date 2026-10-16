@@ -2,7 +2,7 @@
 // are never written in the repo. A missing or malformed value is null, and the
 // screen hides that row, so an empty state is never a dead link.
 
-const WHATSAPP = /^https:\/\/(wa\.me|api\.whatsapp\.com|chat\.whatsapp\.com)\//;
+const WHATSAPP = /^https:\/\/(wa\.me|api\.whatsapp\.com|chat\.whatsapp\.com)\/[^\s/]+/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function read(value: unknown, shape: RegExp): string | null {
