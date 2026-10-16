@@ -1,0 +1,78 @@
+[
+  {
+    "id": "ac.email-change",
+    "reason": "BUILT, no test and no walk: needs a real e-mail code; PR-5b real-OTP spec (tests/e2e-otp)."
+  },
+  {
+    "id": "cl.dancer-part",
+    "reason": "BUILT with a unit test, no build walk yet; claim-screen walks land with PR-3b (landing and re-entry)."
+  },
+  {
+    "id": "cl.dancer.email-differs",
+    "reason": "BUILT with a unit test, no build walk yet; claim-screen walks land with PR-3b (landing and re-entry)."
+  },
+  {
+    "id": "cl.dancer.email-match",
+    "reason": "BUILT with a unit test, no build walk yet; claim-screen walks land with PR-3b (landing and re-entry)."
+  },
+  {
+    "id": "cl.managed",
+    "reason": "BUILT with a unit test, no build walk yet; claim-screen walks land with PR-3b (landing and re-entry)."
+  },
+  {
+    "id": "cl.org1",
+    "reason": "BUILT with a unit test, no build walk yet; claim-screen walks land with PR-3b (landing and re-entry)."
+  },
+  {
+    "id": "dl.banner-href",
+    "reason": "BUILT, no test and no walk: PR-1 backlog slice 1b did not close (home banner href == DANCER_LINK); next PR that touches the home banner, at the latest PR-3."
+  },
+  {
+    "id": "dl.dancer.signed-in",
+    "reason": "BUILT with a unit test, no build walk yet; auth-screen walks land with PR-3c (Auth/AuthCallback)."
+  },
+  {
+    "id": "dl.new.expired-link",
+    "reason": "BUILT with a unit test, no build walk yet; auth-screen walks land with PR-3c (Auth/AuthCallback)."
+  },
+  {
+    "id": "ol.admin-only.signed-in",
+    "reason": "BUILT, no test and no walk: admin-only landing waits on decision D2; PR-3b (SidesFacts.isAdmin) covers it."
+  },
+  {
+    "id": "ol.org2.signed-in",
+    "reason": "optional, no test: S-ORG2 has 0 prod people and no fake person shape yet; PR-3b adds the fake and the test."
+  },
+  {
+    "id": "si.dancer.wrong-code",
+    "reason": "BUILT with a unit test, no build walk yet; needs a real code to type wrong; PR-5b real-OTP spec."
+  },
+  {
+    "id": "si.org-only",
+    "reason": "optional, no test: S-ORG-ONLY has 0 prod people and no fake person shape yet; PR-3b adds the fake and the test."
+  },
+  {
+    "id": "si.signup-refused",
+    "reason": "BUILT with a unit test, no build walk yet; the kill-switch rehearsal (G-R1) in PR-5b walks it."
+  },
+  {
+    "id": "si.unconfirmed-later",
+    "reason": "BUILT, no test and no walk: needs a real code days later; PR-5b real-OTP spec."
+  },
+  {
+    "id": "ti.dead-token",
+    "reason": "BUILT with a unit test, no build walk yet; invite card walks land with PR-3b (InviteRedeemPage)."
+  },
+  {
+    "id": "ti.member",
+    "reason": "BUILT with a unit test, no build walk yet; invite card walks land with PR-3b (InviteRedeemPage)."
+  },
+  {
+    "id": "ti.new.other-device",
+    "reason": "BUILT, no test and no walk: needs a magic link opened on a second device; PR-5 real-OTP harness."
+  },
+  {
+    "id": "xd.second-device",
+    "reason": "optional, no test: needs two live sessions for one login; PR-5 real-OTP harness."
+  }
+]
