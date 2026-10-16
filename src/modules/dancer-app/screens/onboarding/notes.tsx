@@ -21,9 +21,9 @@ const FirstCardNotes = ({ linked }: { linked: boolean }) => {
           .
         </p>
       ) : null}
-      {/* Consent is recorded at /auth (lib/termsConsent acceptTerms, D8): the sign-up code screen carries the
-          clickwrap and calls accept_terms_v1 once on success; an existing account gets a one-tap card at
-          sign-in. This line only repeats it. /terms and /privacy are not routes yet: plain text here. */}
+      {/* TODO(1b): accept_terms_v1 -- release 1a only shows the line; the RPC ships in PR A2.
+          ORCHESTRATOR: the brief asks for links, but no Terms or Privacy page exists on the site (/terms and
+          /privacy are not routes; navigateTargetsRoutable refuses them). Plain text until the pages exist. */}
       <p data-testid="onboarding-consent" style={{ margin: 0 }}>
         By continuing you accept the Terms and Privacy policy.
       </p>

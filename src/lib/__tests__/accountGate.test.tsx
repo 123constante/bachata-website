@@ -36,7 +36,7 @@ vi.mock('@/integrations/supabase/getSupabase', () => ({
   }),
 }));
 
-import { fetchAccountGate, useAccountGate, type SettledAccountGate } from '@/lib/accountGate';
+import { composeAccountGate, fetchAccountGate, useAccountGate, type GateFacts, type SettledAccountGate } from '@/lib/accountGate';
 import { APP_HOME_PATH, APP_WELCOME_PATH, ORGANISER_HOME_PATH, restorePathFor, signInLanding, type SidesFacts } from '@/lib/accountRouting';
 
 const ORG_A = { id: 'org-a', name: 'Bachata Nights', avatar_url: null };
@@ -174,5 +174,25 @@ describe('the gate itself', () => {
   });
   it('a loading deletion read waits the landing', () => {
     expect(signInLanding({ organisers: [], dancer: 'complete', areaAllowed: true, deletion: 'loading' }, null)).toEqual({ kind: 'wait' });
+  });
+});
+
+describe('composeAccountGate: the pure table (review S2)', () => {
+  const c = (status: GateFacts['completion']['status'], profileId: string | null = null) => ({ status, profileId });
+  const TABLE: Array<[string, GateFacts, string]> = [
+    ['completion loading + restore -> deleted', { completion: c('loading'), deletion: 'restore' }, 'deleted'],
+    ['completion loading + deleted-card -> deleted', { completion: c('loading'), deletion: 'deleted-card' }, 'deleted'],
+    ['completion error + restore -> deleted', { completion: c('error'), deletion: 'restore' }, 'deleted'],
+    ['complete + deletion loading -> loading', { completion: c('complete', 'p1'), deletion: 'loading' }, 'loading'],
+    ['completion loading + no deletion -> loading', { completion: c('loading'), deletion: null }, 'loading'],
+    ['signed out + restore -> signed-out', { completion: c('signed_out'), deletion: 'restore' }, 'signed-out'],
+    ['signed out + deleted-card -> signed-out', { completion: c('signed_out'), deletion: 'deleted-card' }, 'signed-out'],
+    ['signed out + loading -> signed-out', { completion: c('signed_out'), deletion: 'loading' }, 'signed-out'],
+    ['signed out + null -> signed-out', { completion: c('signed_out'), deletion: null }, 'signed-out'],
+    ['complete + null -> complete', { completion: c('complete', 'p1'), deletion: null }, 'complete'],
+    ['error + null -> incomplete (fail closed)', { completion: c('error'), deletion: null }, 'incomplete'],
+  ];
+  it.each(TABLE)('%s', (_n, facts, status) => {
+    expect(composeAccountGate(facts).status).toBe(status);
   });
 });

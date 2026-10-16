@@ -93,6 +93,8 @@ The back end binds the invite to the e-mail (`email_mismatch`). A team invite is
    card is harmless.
 2. Same, but `/app/welcome` for a finished dancer redirects straight to `/app/home`.
 
+**Settled reading of D4 (orchestrator, for the owner; review S3):** D4 means "a finished dancer is never sent back into setup". A 100% dancer on `/app/welcome` goes straight on; a 70-99% dancer sees the end card. Changing it needs a dancer-app-only PR.
+
 ### D5. Team contributor role: does it give an organiser side? (model section 8)
 `organiser_home_v1` counts owner and manager only. `entity_members` holds only owner rows today.
 1. **No side for contributors until a contributor screen exists (recommended).** A side with nothing to do
