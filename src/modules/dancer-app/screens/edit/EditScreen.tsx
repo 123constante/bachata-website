@@ -8,6 +8,7 @@ import { FAVORITE_STYLE_OPTIONS } from '@/components/profile/dancerConstants';
 import { toast } from '@/hooks/use-toast';
 import { saveMyDancerProfile } from '../../api/rpc';
 import { toDancerError } from '../../api/errors';
+import { ADD_CITY_MESSAGE, dancerMessageUsUrl } from '../../api/messageUs';
 import type { DancerDelta, MyDancerEdit } from '../../api/types';
 import {
   BIO_MAX,
@@ -206,6 +207,19 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
           <div id="based_city_id">
             <CityPicker value={draft.based_city_id || undefined} onChange={(id) => set('based_city_id', id)} placeholder="Pick your city" className="min-h-[48px] w-full" />
           </div>
+          {/* Audit M28: the picker's own city request is switched off; this is the way on. */}
+          <p className="da-muted" style={{ fontSize: 14, margin: 0 }}>
+            City not in the list?{' '}
+            <a
+              href={dancerMessageUsUrl(ADD_CITY_MESSAGE)}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="edit-add-city"
+              style={{ textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}
+            >
+              Message us to add your city
+            </a>
+          </p>
         </Field>
 
         <Field id="dance_role" label="I dance as" error={shown('dance_role')}>

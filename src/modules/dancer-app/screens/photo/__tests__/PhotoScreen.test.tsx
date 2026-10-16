@@ -134,7 +134,8 @@ describe('failures each have a way out', () => {
     await ready();
     await toPreview();
     fireEvent.click(screen.getByTestId('photo-use'));
-    expect((await screen.findByTestId('photo-failure')).textContent).toMatch(/upload failed/i);
+    // Audit M22: an unknown upload message is mapped to one plain sentence (photo/uploadFailure.ts).
+    expect((await screen.findByTestId('photo-failure')).textContent).toMatch(/could not upload your photo/i);
     expect(screen.getByTestId('photo-another')).toBeTruthy();
     expect(backend.writes).toBe(0);
     fireEvent.click(screen.getByTestId('photo-use'));

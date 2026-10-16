@@ -13,8 +13,9 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { MY_DANCER_SUMMARY_ROOT } from "@/lib/myPersona";
-import { ACCOUNT_SETTINGS_PATH, DANCER_GATE_REASON, isDancerGatedTarget } from "@/lib/accountRouting";
+import { ACCOUNT_SETTINGS_LABEL, ACCOUNT_SETTINGS_PATH, DANCER_GATE_REASON, isDancerGatedTarget } from "@/lib/accountRouting";
 import type { DanceRoleValue } from "@/lib/auth-otp-routing";
+import { FOCUS_NOT_NOW_LABEL } from "@/lib/focusMode";
 import {
   NO_PROFILE_CONTACT_LABEL,
   NO_PROFILE_CONTACT_URL,
@@ -47,7 +48,6 @@ export const buildFinishProfileSave = (fields: readonly ProfileField[], draft: D
 };
 
 const PILL = "w-full min-h-[44px] rounded-full font-semibold";
-
 /** The screen itself; exported for tests. The route renders the guarded default export. */
 export const FinishProfileScreen = () => {
   const completion = useProfileCompletion();
@@ -67,6 +67,7 @@ export const FinishProfileScreen = () => {
   const [notice, setNotice] = useState<string | null>(null);
 
   const mode = finishScreenMode(completion);
+  const noProfile = mode.kind === "no_profile";
   const fields = mode.kind === "form" ? mode.fields : [];
   const pending = buildFinishProfileSave(fields, draft);
 
@@ -133,9 +134,17 @@ export const FinishProfileScreen = () => {
       </div>
     );
   } else if (mode.kind === "no_profile") {
+    // Audit H6. The site cannot create the profile: my_dancer_edit_v1 and save_my_dancer_profile_v2 raise
+    // no_profile, and only the sign-up trigger (trg_handle_new_dancer_profile) makes the stub. So this page is
+    // the real next step, not /app/welcome (that would be the same dead end in another skin). The fact and
+    // the contact link stay the ONE shared ones (completenessFact / NO_PROFILE_CONTACT_URL, the matrix in
+    // DancerFirstGate.matrix.test.tsx): their wording lives in lib/profileCompletion.ts.
     body = (
       <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">{completenessFact(completion).text}</p>
+        <p className="text-sm text-muted-foreground" data-testid="finish-profile-no-profile">{completenessFact(completion).text}</p>
+        {!gated && (
+          <p className="text-sm text-muted-foreground">You can still browse events in the meantime.</p>
+        )}
         <a
           href={NO_PROFILE_CONTACT_URL}
           target="_blank"
@@ -151,7 +160,7 @@ export const FinishProfileScreen = () => {
           </Link>
         ) : (
           <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={goBack}>
-            Continue
+            {FOCUS_NOT_NOW_LABEL}
           </Button>
         )}
       </div>
@@ -258,7 +267,7 @@ export const FinishProfileScreen = () => {
           below it as a purple band. */}
       <div className="px-4 pb-24 pt-6">
         <div className="mx-auto w-full max-w-md space-y-3">
-          <h1 className="text-lg font-bold text-foreground">Finish your profile</h1>
+          <h1 className="text-lg font-bold text-foreground">{noProfile ? "Set up your dancer profile" : "Finish your profile"}</h1>
           {gated && (
             <p className="text-sm text-foreground" data-testid="finish-profile-gate-reason">{DANCER_GATE_REASON}</p>
           )}
@@ -269,7 +278,7 @@ export const FinishProfileScreen = () => {
             className="flex min-h-[44px] items-center justify-center text-[14px] font-semibold text-primary underline underline-offset-2"
             data-testid="finish-profile-settings"
           >
-            Account settings (sign out or delete account)
+            {ACCOUNT_SETTINGS_LABEL} (sign out or delete account)
           </Link>
         </div>
       </div>

@@ -1,9 +1,11 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { useNavigate, useSearchParams, type NavigateFunction } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, type NavigateFunction } from 'react-router-dom';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { APP_HOME_PATH, RETURN_TO_PARAM, onboardingEnd, onboardingEndLabel } from '@/lib/accountRouting';
 import { diffDelta } from '../../api/delta';
 import { toDancerError } from '../../api/errors';
+import { NO_PROFILE_MESSAGE, PROFILE_HELP_MESSAGE, dancerMessageUsUrl } from '../../api/messageUs';
+import { HIDDEN_STATE_LINE } from '../../copy/sharedCopy';
 import type { DancerDelta, MyDancerEdit } from '../../api/types';
 import { trackDancerEvent } from '../../analytics/events';
 
@@ -11,7 +13,7 @@ import { REQUIRED_STAGES, requiredMissing, stageAfterSave, stageAfterSkip, stage
 import FirstCardNotes from './notes';
 import { StylesCard, YearsCard } from './optional';
 import { CityCard, NameCard, PhotoCard, RoleCard } from './steps';
-import { GhostButton, Meter, PrimaryButton, Question, Tag, wrap } from './ui';
+import { GhostButton, Meter, PrimaryButton, Question, Tag, linkButton, wrap } from './ui';
 import { resetDancerGate, useMyDancerEdit } from '../../api/useMyDancerEdit';
 
 const gradientCard: CSSProperties = {
@@ -49,7 +51,7 @@ const OnboardingCards = () => {
   const returnTo = params.get(RETURN_TO_PARAM);
   const end = onboardingEnd(returnTo);
   const endLabel = onboardingEndLabel(end);
-  const { data: profile, isPending, isError, error: loadError, save } = useMyDancerEdit({ refetchOnMount: 'always', retry: false });
+  const { data: profile, isPending, isError, isFetching, error: loadError, save, refetch } = useMyDancerEdit({ refetchOnMount: 'always', retry: false });
   const [stage, setStage] = useState<Stage | null>(null);
   const [firstStage, setFirstStage] = useState<Stage | null>(null);
   const [requiredStart, setRequiredStart] = useState<Stage[]>([]);
@@ -83,9 +85,31 @@ const OnboardingCards = () => {
   if (redirectHome) return null;
 
   if (isError) {
+    // Audit M23: never a dead end. Try again re-reads; the calendar is always a way out. A profile the
+    // server cannot find (or match) is not fixed by retrying, so its copy's "Message us" is a real link.
+    const failure = toDancerError(loadError);
+    const needsUs = failure.code === 'no_profile' || failure.code === 'profile_mismatch';
     return (
-      <section className="da-card" role="alert" data-testid="onboarding-load-error">
-        <p style={{ ...wrap, margin: 0 }}>{toDancerError(loadError).message}</p>
+      <section className="da-card" role="alert" data-testid="onboarding-load-error" style={{ display: 'grid', gap: 8 }}>
+        <p style={{ ...wrap, margin: 0 }}>{failure.message}</p>
+        {needsUs ? (
+          <a
+            href={dancerMessageUsUrl(failure.code === 'no_profile' ? NO_PROFILE_MESSAGE : PROFILE_HELP_MESSAGE)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="da-tap"
+            style={linkButton(true)}
+          >
+            Message us on WhatsApp
+          </a>
+        ) : (
+          <PrimaryButton testId="onboarding-retry" disabled={isFetching} onClick={() => void refetch()}>
+            Try again
+          </PrimaryButton>
+        )}
+        <Link to="/" className="da-tap" style={linkButton(false)}>
+          Back to the calendar
+        </Link>
       </section>
     );
   }
@@ -123,20 +147,25 @@ const OnboardingCards = () => {
   const card = { profile, busy, error, onSubmit: (d: DancerDelta) => void run(d, stage), tag };
   const first = stage === firstStage;
   const left = optionalStagesLeft(profile.strength.missing).length;
+  const quick = left === 2 ? 'Two quick questions' : 'One quick question';
 
   return (
     <section data-testid={`onboarding-${stage}`} style={{ ...wrap, maxWidth: 520, margin: '0 auto' }}>
       <Meter profile={profile} />
       {stage === 'in' ? (
         <div style={gradientCard} data-testid="onboarding-in-card">
-          <Tag onGradient>{profile.strength.pct}% &middot; you&rsquo;re past the line</Tag>
+          {/* Audit M8/M24: the server's own pct, plain words, and no claim about RSVPs (the RSVP RPC has no
+              profile rule). A hidden profile is not called live. The button says what it opens. */}
+          <Tag onGradient>
+            {profile.strength.pct}%{profile.is_active ? <> &middot; Your profile is live</> : null}
+          </Tag>
           <Question>You&rsquo;re in, {nameOf(profile)}</Question>
-          <p style={{ fontSize: 15, margin: '0 0 14px' }}>
-            Your page is live and Going and Interested are unlocked.
-            {left > 0 ? ` ${left === 2 ? 'Two quick questions' : 'One quick question'} will make it stronger.` : ''}
+          <p style={{ ...wrap, fontSize: 15, margin: '0 0 14px' }}>
+            {profile.is_active ? 'People can find your page now.' : HIDDEN_STATE_LINE}
+            {left > 0 ? ` ${quick} will make it stronger.` : ''}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
-            {left > 0 ? <PrimaryButton testId="onboarding-boost" onClick={() => go(stageForBoost(profile))}>Boost to 100%</PrimaryButton> : null}
+            {left > 0 ? <PrimaryButton testId="onboarding-boost" onClick={() => go(stageForBoost(profile))}>{quick}</PrimaryButton> : null}
             <GhostButton testId="onboarding-home" onClick={() => leaveFor(qc, navigate, end)}>{endLabel}</GhostButton>
           </div>
         </div>

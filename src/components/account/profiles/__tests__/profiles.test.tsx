@@ -123,11 +123,14 @@ describe('Switch profile sheet', () => {
     expect(screen.queryByTestId('profile-switcher-sheet')).toBeNull();
   });
 
-  it('sign out signs out and goes home', async () => {
+  it('sign out asks, then signs out and goes home', async () => {
     sides.facts = SHAPES[0][1];
     mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
     fireEvent.click(screen.getByTestId('profile-switcher-button'));
     fireEvent.click(screen.getByTestId('profile-switcher-sign-out'));
+    // L23: it asks first, like Options and Account settings.
+    expect(auth.signOut).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('profile-switcher-signout-confirm'));
     await waitFor(() => expect(here).toBe('/'));
     expect(auth.signOut).toHaveBeenCalledTimes(1);
   });

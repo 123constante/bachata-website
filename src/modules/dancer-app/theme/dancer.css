@@ -24,6 +24,7 @@
   --da-gradient-to: #C23B55;
   --da-on-gradient: #FFFFFF;
   --da-focus: #FFC2B8;
+  --da-avatar: #8A5A9C;
   --da-radius: 14px;
   --da-tap: 44px;
   --da-header-h: 52px;
@@ -65,14 +66,21 @@
   outline-offset: 2px;
 }
 
+/* L2: one line at any width. No media queries in this sheet (tests/client/dancerAppTheme.test.ts),
+   so the size steps down below 375px through clamp(): 16px at 375+, 14.5px at 360, 13px floor. */
 [data-profile="dancer"] .da-logo {
-  font-size: 16px;
+  font-size: clamp(13px, calc(10vw - 21.5px), 16px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
   font-weight: 800;
   letter-spacing: -0.01em;
   padding: 0 4px;
 }
 
 [data-profile="dancer"] .da-type-label {
+  flex-shrink: 0;
   font-size: 12px;
   font-weight: 700;
   padding: 2px 8px;
@@ -84,7 +92,8 @@
 [data-profile="dancer"] .da-events {
   font-size: 14px;
   font-weight: 700;
-  padding: 0 10px;
+  white-space: nowrap;
+  padding: 0 6px;
   color: var(--da-accent);
 }
 
@@ -145,4 +154,13 @@
 [data-profile="dancer"] [data-testid="hide-surname-switch"] p {
   font-size: 14px;
   line-height: 1.4;
+}
+
+/* Focus mode (audit H5): the setup frame's one way out, small and quiet. */
+[data-profile="dancer"] .da-not-now {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 0 8px;
+  color: var(--da-text-muted);
 }

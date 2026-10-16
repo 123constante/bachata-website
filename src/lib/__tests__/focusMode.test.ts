@@ -26,6 +26,7 @@ const CASES: Array<[string, string, boolean, boolean]> = [
   ['/app/me/photo', '?return=/app/welcome', false, true],
   ['/app/me/photo', '?return=%2Fapp%2Fwelcome', false, true],
   ['/app/me/photo', '?return=/app/welcome', true, false],
+  ['/app/me/photo', '?return=%2Fapp%2Fwelcome%3FreturnTo%3D%252Faccount%252Fo', false, true],
   ['/app/me/photo', '', false, false], // editing the photo later: normal app
   ['/app/me/photo', '?return=/app/me', false, false],
   ['/app/home', '', false, false],

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { INSTAGRAM_URL } from '@/lib/contactLinks';
-import { ACCOUNT_CONTACT_EMAIL as CONTACT_EMAIL } from '@/lib/accountDeletionCopy';
+import { ACCOUNT_CONTACT_EMAIL as CONTACT_EMAIL, formatLongDate } from '@/lib/accountDeletionCopy';
 
 type Props = { routeId: 'privacy' | 'terms'; title: string; updated: string; children: ReactNode };
 
@@ -13,7 +13,7 @@ export const LegalShell = ({ routeId, title, updated, children }: Props) => (
     <article className="mx-auto w-full max-w-2xl space-y-4 px-4 pb-24 pt-3 text-sm text-foreground" data-testid={`legal-${routeId}`}>
       <header className="space-y-1">
         <h1 className="text-lg font-bold">{title}</h1>
-        <p className="text-xs text-muted-foreground">Last updated {updated}</p>
+        <p className="text-xs text-muted-foreground">Last updated {formatLongDate(updated)}</p>
       </header>
       {children}
       <Contact />

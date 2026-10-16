@@ -96,8 +96,8 @@ describe('disabled with a visible reason', () => {
     open('adminUnclaimedPhotoless');
     await stage('photo');
     expect(screen.queryByRole('button', { name: /continue|skip/i })).toBeNull();
-    const hrefs = [screen.getByTestId('onboarding-take-photo'), screen.getByTestId('onboarding-choose-photo')].map((a) => a.getAttribute('href'));
-    expect(hrefs).toEqual(['/app/me/photo?return=/app/welcome', '/app/me/photo?return=/app/welcome']);
+    // Audit M9: ONE button to the photo screen (it owns the camera / library choice).
+    expect(screen.getByTestId('onboarding-add-photo').getAttribute('href')).toBe('/app/me/photo?return=/app/welcome');
     expect(screen.getByTestId('onboarding-reason').textContent).toMatch(/cannot be skipped/);
   });
 });
@@ -131,8 +131,9 @@ describe('the whole walk: exact keys per step, meter from the server', () => {
     await stage('in');
     expect(pct()).toBe('70%');
     expect(screen.getByTestId('onboarding-in-card').textContent).toContain('You\u2019re in, Ana');
-    expect(screen.getByTestId('onboarding-in-card').textContent).toContain('Your page is live and Going and Interested are unlocked.');
-    await click('Boost to 100%');
+    // Audit M8/M24: plain words, and no claim about RSVPs (the RSVP RPC has no profile rule).
+    expect(screen.getByTestId('onboarding-in-card').textContent).toContain('People can find your page now. Two quick questions will make it stronger.');
+    await click('Two quick questions');
     await stage('years');
     await click('1 to 2 years');
     await click('Continue');
@@ -160,7 +161,7 @@ describe('the whole walk: exact keys per step, meter from the server', () => {
   it('Skip sends nothing, and moves on', async () => {
     const { backend } = open('fourFieldComplete');
     await stage('in');
-    await click('Boost to 100%');
+    await click('Two quick questions');
     await stage('years');
     await click('Skip');
     await stage('styles');
@@ -205,7 +206,7 @@ describe('server pct wins; funnel events', () => {
     open('fourFieldComplete', { profile: { ...p, strength: { ...p.strength, pct: 73 } } });
     await stage('in');
     expect(pct()).toBe('73%');
-    expect(screen.getByTestId('onboarding-in-card').textContent).toContain('73% \u00b7 you\u2019re past the line');
+    expect(screen.getByTestId('onboarding-in-card').textContent).toContain('73% \u00b7 Your profile is live');
   });
 
   it('onboarding_step fires per card; profile_strength_70 once, with the server pct', async () => {
@@ -243,21 +244,20 @@ describe('errors use the one copy map', () => {
 });
 
 describe('first-card notes', () => {
-  it('consent line on the first card only; linked notice only for a linked profile', async () => {
+  // Audit M5: no consent line (Terms and Privacy are accepted and recorded at sign-up).
+  it('linked notice on the first card only, and only for a linked profile; never a consent line', async () => {
     open('claimedIncompleteAdmin');
     await stage('role');
-    expect((await screen.findByTestId('onboarding-consent')).textContent).toBe('By continuing you accept the Terms and Privacy policy.');
-    // No Terms/Privacy page exists on the site yet, so the line carries no dead links.
-    expect((await screen.findByTestId('onboarding-consent')).querySelectorAll('a')).toHaveLength(0);
     expect((await screen.findByTestId('onboarding-linked-notice')).textContent).toContain('We linked your existing profile. Not you?');
+    expect(screen.queryByTestId('onboarding-consent')).toBeNull();
     await click('Leader');
     await click('Continue');
     await stage('photo');
-    expect(screen.queryByTestId('onboarding-consent')).toBeNull();
+    expect(screen.queryByTestId('onboarding-linked-notice')).toBeNull();
     cleanup();
     open('emptyStub');
     await stage('name');
-    expect(await screen.findByTestId('onboarding-consent')).toBeTruthy();
+    expect(screen.queryByTestId('onboarding-consent')).toBeNull();
     expect(screen.queryByTestId('onboarding-linked-notice')).toBeNull();
   });
 });

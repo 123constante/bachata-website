@@ -34,5 +34,8 @@ export function isSignupFocusPath(pathname: string, search: string, profileCompl
   }
   if (profileComplete) return false;
   if (path === SETUP_PATH) return true;
-  return path === SETUP_PHOTO_PATH && trimSlash((params.get('return') ?? '').toLowerCase()) === SETUP_PATH;
+  // The photo hand-off can carry an onward destination inside its own return
+  // (/app/me/photo?return=%2Fapp%2Fwelcome%3FreturnTo%3D...): compare the path only.
+  const back = (params.get('return') ?? '').split('?')[0];
+  return path === SETUP_PHOTO_PATH && trimSlash(back.toLowerCase()) === SETUP_PATH;
 }

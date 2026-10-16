@@ -351,7 +351,7 @@ export async function nextStage(page: Page, prev: string | null): Promise<string
 }
 
 async function photoStep(page: Page, shot: Shot) {
-  await page.getByTestId('onboarding-choose-photo').click();
+  await page.getByTestId('onboarding-add-photo').click();
   await expect(page).toHaveURL(/\/app\/me\/photo\?return=/);
   await expect(page.getByTestId('photo-pick')).toBeVisible();
   await shot('photo', `photo screen (pick), return=${new URL(page.url()).searchParams.get('return')}`);

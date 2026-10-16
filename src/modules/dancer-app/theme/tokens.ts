@@ -22,6 +22,8 @@ export const DANCER_TOKENS = {
   '--da-gradient-to': '#C23B55',
   '--da-on-gradient': '#FFFFFF',
   '--da-focus': '#FFC2B8',
+  /** The no-photo avatar disc (audit H4): >= 3:1 on --da-bg and --da-surface, --da-text on it is AA. */
+  '--da-avatar': '#8A5A9C',
 } as const;
 
 export type DancerToken = keyof typeof DANCER_TOKENS;
@@ -49,6 +51,10 @@ export const TEXT_PAIRS: ReadonlyArray<{ fg: DancerToken; bg: DancerToken; min: 
   { fg: '--da-on-gradient', bg: '--da-gradient-from', min: 4.5 },
   { fg: '--da-on-gradient', bg: '--da-gradient-to', min: 4.5 },
   { fg: '--da-focus', bg: '--da-bg', min: 3 },
+  // The avatar letter, and the disc itself as a non-text shape on the header and the switcher sheet (H4).
+  { fg: '--da-text', bg: '--da-avatar', min: 4.5 },
+  { fg: '--da-avatar', bg: '--da-bg', min: 3 },
+  { fg: '--da-avatar', bg: '--da-surface', min: 3 },
 ];
 
 const channel = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
