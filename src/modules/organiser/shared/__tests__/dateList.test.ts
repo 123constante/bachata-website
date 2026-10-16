@@ -9,7 +9,9 @@ beforeAll(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-10-20T10:00:00Z'));
 });
-afterAll(() => vi.useRealTimers());
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 const today = () => londonTodayKey();
 const day = (n: number) => addDaysToKey(today(), n);

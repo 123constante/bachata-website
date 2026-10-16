@@ -84,7 +84,42 @@ Non-archived series 92. Live with 0 scheduled coming dates: **16**, of which 1 h
 
 ## CI, run in the sandbox (per job)
 
-CI_TABLE
+Run on this branch + S0a's `shell/paths.ts` laid over the tree (uncommitted; the state the orchestrator merges into), 2026-10-16, Node in the cloud sandbox. Then the reds re-checked on this branch alone.
+
+| Workflow / job | Command | Exit | Notes |
+|---|---|---|---|
+| typecheck | `npm run check:rpc-typing` | 0 | |
+| typecheck | `npm run check:wallclock-brand` | 0 | |
+| (not a CI step) | `npm run typecheck` (tsc) | 2 | ~97 errors pre-exist on `main` (app/, calendar, DancerDashboard...). After the fix commit, files touched here: **0 errors with S0a's paths.ts**; on this branch alone only the missing `ORG_PATHS` keys (S0a). |
+| architecture-guard | `bin/check-integrity.sh` | 126 | sandbox: the script is not executable in this checkout (CI runs `chmod +x bin/*.sh` first). Not a code failure. |
+| architecture-guard | `npm run check:legacy-tables` | 0 | |
+| architecture-guard | `npm run check:legacy-program-rpcs` | 0 | |
+| architecture-guard | `npm run lint:architecture` | 1 then **0** | 2 violations in `seriesCommands.r1.test.ts` (spelled the organiser key). Fixed in the final commit (key assembled, as createModel.test.ts does); re-run: passed. |
+| architecture-guard | `AUDIT_STRICT=1 npm run check:images` | 0 | |
+| unit-tests | `npm run check:dancer-area-isolation` | 0 | |
+| unit-tests | `npm run test:unit` | 1 | 31 failed / 8556 passed. NONE in a file touched here: 13 are live-DB contract tests (`eventViewCompat`, `occurrenceProgram`, `publicEventPageLineup`; CI runs the offline arm without secrets), 5 `integrityCouldNotRun` (sandbox env), 16 `shell.test` + `account.today` that fail ONLY with the S0a overlay on main's shell (both pass, 47/47, on this branch as committed). |
+| unit-tests | `npm run test:unit:timing` | 0 | |
+| unit-tests | `npx vitest run src/modules/organiser` (branch alone) | 1 | 12 failed / 3201 passed: `homeJobs.matrix` (9) and `Done` (3) read `ORG_PATHS.change/add/cancel/done/...`, which only S0a defines. With S0a's paths: 631/631 in jobs/flows/shared. |
+| perf-budget | `npm run build` | 0 | production build |
+| perf-budget | `npm run check:bundle-budget` | 0 | |
+| perf-budget | `npm run check:first-load-requests` | 0 | |
+| perf-budget | `npm run check:chunk-cycles` | 0 | |
+| perf-budget (lighthouse) | `check:lighthouse`, `check:doc-weight` | not run | needs a browser + preview server pass; nothing here is routed yet (Done is not mounted). |
+| lint chain | `npm run lint` | 1 | 2 of 18 links: `check:integrity` (126, sandbox, see above) and `lint:architecture` (fixed, see above). The other 16 PASS. |
+| e2e-smoke | `npm run test:e2e` | 1 | 145 passed, 3 failed with the overlay (`organiser-loop`, `dancer-home` "I organise events", `dancer-app/home-nights`). On this branch alone the same 3 specs: **20/20 passed**. |
+| types-drift | `npm run gen:types` | not run | no Supabase access token in the sandbox; `types.ts` is unchanged here (see Done table). |
+| real-data-verified / phone-qa | PR-body checks | n/a | no PR opened by this worker. |
+
 
 ## Verified / Not verified
-CI_VERIFIED
+**Verified:** every pinned S0b interface is implemented, with tests that are table-driven over the prod shapes (survey above) and a frozen clock straddling 25 October. The tests were red on values first, and each of 17 per-rule mutations turns them red. The production build and the perf budgets pass. The `eventsApi` re-export keeps S2/S3/S5 importers working (identity test).
+
+**Not verified:**
+- Done is not mounted on a route, so there was no browser walk at 390x844. S0a/S1 mount it.
+- No real-RPC run against the E2E project. A1a is not applied there; `claude/org-r1-admin` does not exist yet.
+- `organiser_home_v1` v2 fields (`created_at`, `cancelled_upcoming_count`, scheduled-only counts) are typed on the client but not yet sent by the server.
+- `types.ts` was not regenerated.
+- The review-era strip is NOT on this branch; it is a ready patch (see LEFT).
+- No real phone.
+- Vercel: not touched (nothing to deploy from a slice branch).
+

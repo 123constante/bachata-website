@@ -11,7 +11,9 @@ import { homeJobs, seriesChip, type Job } from '../homeJobs';
 // every date is derived from it, never written down.
 vi.useFakeTimers();
 vi.setSystemTime(new Date('2026-10-20T10:00:00Z'));
-afterAll(() => vi.useRealTimers());
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 const today = () => londonTodayKey();
 const daysAgoIso = (n: number) => `${addDaysToKey(today(), -n)}T09:00:00+00:00`;

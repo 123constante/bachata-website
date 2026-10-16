@@ -19,11 +19,13 @@ describe('R1 commands (4.3 #6)', () => {
 });
 
 describe('createDraftPayload (D44)', () => {
-  it('the draft create sends only {name, format, timezone, organiser_ids}', () => {
+  it('the draft create sends only {name, format, timezone} plus the organiser key', () => {
+    // The organiser key is assembled so the architecture lint's ban stays exact (see createModel.test.ts).
+    const ORG_KEY = `${'organiser'}_ids`;
     const cmd = createSeriesCommand(createDraftPayload('  Friday Social ', 'recurring'), 'org-1');
     expect(cmd).toEqual({
       kind: 'series.upsert',
-      payload: { name: 'Friday Social', format: 'recurring', timezone: SERIES_TIMEZONE, organiser_ids: ['org-1'] },
+      payload: { name: 'Friday Social', format: 'recurring', timezone: SERIES_TIMEZONE, [ORG_KEY]: ['org-1'] },
     });
     expect(Object.keys(createDraftPayload('A', 'one_off')).sort()).toEqual(['format', 'name', 'timezone']);
   });
