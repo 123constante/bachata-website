@@ -16,3 +16,7 @@ Repo `123constante/bachata-website`, branch `claude/org-r1-events`, base `feat/o
 
 ## Orchestrator addition (S0a review SHOULD-3b, 2026-10-16): you own the last `ORG_PATHS.date` callers
 The deprecated alias `ORG_PATHS.date` (main's `/events/:s/dates/:o`, redirected to `/change/:s/:o`) has two callers in the event-truth file `events/EditorRows.tsx` (lines 37 and 83 on S0a's branch), which is otherwise NOT yours. You MAY make exactly one change there: replace `ORG_PATHS.date(` with `ORG_PATHS.changeDate(` (same arguments) at those two call sites. No other edit to `EditorRows.tsx`, no reformatting. Add a source-scan assertion that `ORG_PATHS.date` and `ORG_PATHS.newEvent` have no caller under `events/**` (S1 and S7 own the rest). Say in the handover which line numbers you changed.
+
+
+## Orchestrator addendum 2026-10-16 (S0b review strip)
+S0b left out the review-era strip on purpose (it would break S1, S4, S5, S7 files). It ships as `docs/organiser-rebuild/handovers/S0b-review-strip.patch` on `claude/org-r1-core`. If S1, S4 and S7 are already merged into the integration branch when you start, apply it in YOUR PR (`git apply --check` first, then apply, then `npm run test:unit`); otherwise leave it and say so in your handover: the final integration step applies it.
