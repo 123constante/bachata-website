@@ -60,7 +60,7 @@ test.describe('tap targets @390', () => {
 
   test('Home', async ({ page }) => {
     await openOrganiser(page, '/account/o');
-    await expect(page.getByTestId('home-strip-lineup')).toBeVisible();
+    await expect(page.getByTestId('home-jobs')).toBeVisible();
     await expectTapTargets(page);
   });
 
@@ -167,7 +167,7 @@ test.describe('tap targets @390', () => {
   // No screen scrolls sideways at 390 (sheets are covered by the tap-target cases above).
   test('no screen or sheet scrolls sideways', async ({ page }) => {
     await openOrganiser(page, '/account/o');
-    await expect(page.getByTestId('home-strip-lineup')).toBeVisible();
+    await expect(page.getByTestId('home-jobs')).toBeVisible();
     await expectNoHorizontalScroll(page);
     for (const [path, ready] of [
       ['/account/o/events', 'org-event-row'],

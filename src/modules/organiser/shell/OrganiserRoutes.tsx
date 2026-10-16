@@ -23,7 +23,7 @@ const EventEditorPage = lazyWithRetry(() => import('../events/EventEditorPage'))
 const DatePage = lazyWithRetry(() => import('../dates'));
 const TeamPage = lazyWithRetry(() => import('../team'));
 const ProfilePage = lazyWithRetry(() => import('../profile'));
-const SwitchFlow = lazyWithRetry(() => import('./placeholders')); // S1 switch/
+const SwitchFlow = lazyWithRetry(() => import('../switch')); // S1 switch/
 const ChangeFlow = lazyWithRetry(() => import('./placeholders')); // S2 flows/change
 const AddFlow = lazyWithRetry(() => import('./placeholders')); // S3 flows/add
 const CancelFlow = lazyWithRetry(() => import('./placeholders')); // S3 flows/cancel
@@ -33,7 +33,7 @@ const TeamFlow = lazyWithRetry(() => import('./placeholders')); // S6 team/
 const HandoverFlow = lazyWithRetry(() => import('./placeholders')); // S6 flows/handover
 const MorePage = lazyWithRetry(() => import('./placeholders')); // S7 more/
 const CoverFlow = lazyWithRetry(() => import('./placeholders')); // S7 flows/fix
-const DonePage = lazyWithRetry(() => import('./placeholders')); // S0b flows/Done
+const DonePage = lazyWithRetry(() => import('../flows/Done')); // S0b flows/Done
 
 function ShellFallback() {
   return (
@@ -88,7 +88,7 @@ export default function OrganiserRoutes() {
         <Suspense fallback={<ShellFallback />}>
           <Routes>
             <Route index element={<HomePage />} />
-            <Route path="switch" element={<SwitchFlow name="Switch page" />} />
+            <Route path="switch" element={<SwitchFlow />} />
 
             <Route path="change" element={<ChangeFlow name="Change a date" />} />
             <Route path="change/:seriesId" element={<ChangeFlow name="Change a date" />} />
@@ -125,7 +125,7 @@ export default function OrganiserRoutes() {
             <Route path="page" element={<ProfilePage />} />
             <Route path="more" element={<MorePage name="More" />} />
             <Route path="cover/:seriesId" element={<CoverFlow name="Cover" />} />
-            <Route path="done" element={<DonePage name="Done" />} />
+            <Route path="done" element={<DonePage />} />
 
             {/* main's URLs (bookmarks, links already sent) -> their R1 paths. */}
             <Route path="events/new" element={<ModuleLegacyRedirect target="newEvent" />} />

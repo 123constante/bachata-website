@@ -83,13 +83,18 @@ link "Just here to dance? Browse events" href=/",
 exports[`/account entry at '390x844' > /account > 'organiser-type (complete)' 1`] = `
 {
   "landing": "/account/o",
-  "tree": "heading "Home" level=1
+  "tree": "heading "Org 0" level=1
 button "Your account" [expanded=false]
 status
-text "No events yet"
-text "Add your first event. You can keep it as a draft until it is ready."
 button "New event"
-link "Add another organiser" href=/account/o?add=1",
+button "Add a photo"
+button "Show your WhatsApp"
+button "Add a manager"
+button "New event"
+button "Team"
+button "My page"
+button "My events"
+button "More"",
 }
 `;
 
@@ -290,13 +295,18 @@ link "Just here to dance? Browse events" href=/",
 exports[`/account entry at '390x844' > /account/o > 'organiser-type (complete)' 1`] = `
 {
   "landing": "/account/o",
-  "tree": "heading "Home" level=1
+  "tree": "heading "Org 0" level=1
 button "Your account" [expanded=false]
 status
-text "No events yet"
-text "Add your first event. You can keep it as a draft until it is ready."
 button "New event"
-link "Add another organiser" href=/account/o?add=1",
+button "Add a photo"
+button "Show your WhatsApp"
+button "Add a manager"
+button "New event"
+button "Team"
+button "My page"
+button "My events"
+button "More"",
 }
 `;
 
@@ -390,13 +400,18 @@ link "Just here to dance? Browse events" href=/",
 exports[`/account entry at 'desktop' > /account > 'organiser-type (complete)' 1`] = `
 {
   "landing": "/account/o",
-  "tree": "heading "Home" level=1
+  "tree": "heading "Org 0" level=1
 button "Your account" [expanded=false]
 status
-text "No events yet"
-text "Add your first event. You can keep it as a draft until it is ready."
 button "New event"
-link "Add another organiser" href=/account/o?add=1",
+button "Add a photo"
+button "Show your WhatsApp"
+button "Add a manager"
+button "New event"
+button "Team"
+button "My page"
+button "My events"
+button "More"",
 }
 `;
 
@@ -597,13 +612,18 @@ link "Just here to dance? Browse events" href=/",
 exports[`/account entry at 'desktop' > /account/o > 'organiser-type (complete)' 1`] = `
 {
   "landing": "/account/o",
-  "tree": "heading "Home" level=1
+  "tree": "heading "Org 0" level=1
 button "Your account" [expanded=false]
 status
-text "No events yet"
-text "Add your first event. You can keep it as a draft until it is ready."
 button "New event"
-link "Add another organiser" href=/account/o?add=1",
+button "Add a photo"
+button "Show your WhatsApp"
+button "Add a manager"
+button "New event"
+button "Team"
+button "My page"
+button "My events"
+button "More"",
 }
 `;
 

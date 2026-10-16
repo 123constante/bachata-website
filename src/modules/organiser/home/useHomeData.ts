@@ -1,91 +1,35 @@
-import { useMemo } from 'react';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { londonTodayKey } from '@/lib/londonDate';
 import {
   fetchIncomingAccessRequests,
   fetchMyAccessRequests,
-  fetchOccurrenceProgramme,
-  fetchOrganiserHome,
-  fetchSeriesWorkspace,
   incomingAccessRequestsQueryKey,
   myAccessRequestsQueryKey,
-  occurrenceProgrammeQueryKey,
-  organiserHomeQueryKey,
-  seriesWorkspaceQueryKey,
 } from '@/modules/organiser/shared/selfServeApi';
-import type { Programme } from '@/modules/organiser/shared/programmeModel';
-import {
-  datesWithoutLineup,
-  lastUpcomingDate,
-  lineupCheckDates,
-  nextDates,
-  requestReaders,
-  runwayCandidates,
-  offersExtend,
-  runwayStrip,
-  type NextDate,
-} from './homeView';
-
-/** The home read and the user's own access requests (the same keys the old /account uses). */
-export function useOrganiserHome(userId: string | undefined) {
-  const home = useQuery({ queryKey: organiserHomeQueryKey(userId), queryFn: fetchOrganiserHome, enabled: !!userId });
-  const requests = useQuery({ queryKey: myAccessRequestsQueryKey(userId), queryFn: fetchMyAccessRequests, enabled: !!userId });
-  return { home, requests };
-}
+import { isListedSeries } from '@/modules/organiser/shared/homeModel';
+import { homeJobs } from '@/modules/organiser/jobs/homeJobs';
+import { useOrganiserChoice } from '../switch/useOrganiserChoice';
+import { readsRequests } from './homeView';
 
 /**
- * The three Home strips. Each is computed from reads the old module already
- * makes (no new RPC); each stays hidden while loading or when its read fails,
- * because a strip is a nudge, never the page.
+ * Home's reads: organiser_home_v1 (through the shared choice, so Switch and
+ * Home agree on the page shown), the page's incoming join requests and the
+ * login's own requests (onboarding), all through selfServeApi. Series pass
+ * isListedSeries first (R3-4); the rows are homeJobs() and nothing else.
+ * `today` is the London wall-clock date of this device's clock.
  */
-export function useHomeStrips(home: Awaited<ReturnType<typeof fetchOrganiserHome>> | undefined) {
-  const organisers = useMemo(() => home?.organisers ?? [], [home]);
-  const today = home?.today ?? '';
-  const dates: NextDate[] = useMemo(() => nextDates(organisers, today), [organisers, today]);
-
-  // (a) team requests waiting
-  const readers = useMemo(() => requestReaders(organisers), [organisers]);
-  const incoming = useQueries({
-    queries: readers.map((o) => ({
-      queryKey: incomingAccessRequestsQueryKey(o.id),
-      queryFn: () => fetchIncomingAccessRequests(o.id),
-      staleTime: 60_000,
-    })),
+export function useHomeData() {
+  const { user, home, organisers, selected } = useOrganiserChoice();
+  const incoming = useQuery({
+    queryKey: incomingAccessRequestsQueryKey(selected?.id),
+    queryFn: () => fetchIncomingAccessRequests(selected!.id),
+    enabled: readsRequests(selected),
+    staleTime: 60_000,
   });
-  const teamRequests = incoming.reduce((n, q) => n + (q.data?.length ?? 0), 0);
-
-  // (b) runway: only series that may be short are read (1..8 upcoming dates). The
-  // read also says whether the event's editor has Extend (the owner's weekly rule);
-  // the home read carries no rule, so a candidate stays hidden until its read lands.
-  const candidates = useMemo(() => runwayCandidates(organisers), [organisers]);
-  const workspaces = useQueries({
-    queries: candidates.map((c) => ({
-      queryKey: seriesWorkspaceQueryKey(c.seriesId),
-      queryFn: () => fetchSeriesWorkspace(c.seriesId),
-      staleTime: 60_000,
-    })),
-  });
-  const resolved = candidates.map((c, i) => {
-    const ws = workspaces[i]?.data;
-    if (!ws || !offersExtend(ws.series)) return { ...c, lastDate: null };
-    return { ...c, lastDate: c.lastDate ?? lastUpcomingDate(ws.dates, today) };
-  });
-  const runway = today ? runwayStrip(resolved, today) : null;
-
-  // (c) the first few dates with nobody teaching or DJing
-  const checked = useMemo(() => lineupCheckDates(dates), [dates]);
-  const programmes = useQueries({
-    queries: checked.map((d) => ({
-      queryKey: occurrenceProgrammeQueryKey(d.occurrenceId),
-      queryFn: () => fetchOccurrenceProgramme(d.occurrenceId),
-      staleTime: 60_000,
-    })),
-  });
-  const byId = new Map<string, Programme>();
-  programmes.forEach((q, i) => {
-    if (q.data) byId.set(checked[i].occurrenceId, q.data);
-  });
-  const noLineup = datesWithoutLineup(checked, byId);
-
-  // How many dates the line-up count is out of (the strip names this window).
-  return { organisers, today, dates, teamRequests, runway, noLineup, lineupChecked: checked.length };
+  const mine = useQuery({ queryKey: myAccessRequestsQueryKey(user?.id), queryFn: fetchMyAccessRequests, enabled: !!user });
+  const today = londonTodayKey();
+  const page = selected ? { ...selected, series: (selected.series ?? []).filter(isListedSeries) } : null;
+  // A join-request row is a nudge: it waits for its read and never blocks the list.
+  const jobs = page ? homeJobs(page, incoming.data ?? [], today) : [];
+  return { user, home, organisers, selected, jobs, mine, today };
 }

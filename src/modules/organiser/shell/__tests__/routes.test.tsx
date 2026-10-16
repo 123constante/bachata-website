@@ -46,6 +46,9 @@ function at(path: string) {
 describe('main screens stay mounted on the new paths', () => {
   it.each([
     ['/account/o', 'org-page-home'],
+    ['/account/o/switch', 'org-page-switch'],
+    // Done with no router state (a reload) goes Home (S0b Done.tsx).
+    ['/account/o/done', 'org-page-home'],
     ['/account/o/events', 'org-page-events'],
     ['/account/o/new/what', 'org-page-new-event'],
     ['/account/o/events/s1', 'org-page-event-editor'],
@@ -66,7 +69,6 @@ describe('main screens stay mounted on the new paths', () => {
 
 describe('every R1 route answers until its slice lands (placeholder)', () => {
   it.each([
-    ['/account/o/switch', 'Switch page'],
     ['/account/o/change', 'Change a date'],
     ['/account/o/change/s1', 'Change a date'],
     ['/account/o/change/s1/o1/time', 'Change a date'],
@@ -90,7 +92,6 @@ describe('every R1 route answers until its slice lands (placeholder)', () => {
     ['/account/o/handover/u1', 'Hand over'],
     ['/account/o/more', 'More'],
     ['/account/o/cover/s1', 'Cover'],
-    ['/account/o/done', 'Done'],
   ])('%s -> %s', async (path, name) => {
     at(path);
     const el = await screen.findByTestId('org-placeholder', {}, COLD);

@@ -20,7 +20,7 @@ test('create an organiser, send it for review, get approved, create an event, st
   await page.getByTestId('onboarding-city-search').fill('Lon');
   await page.getByTestId('onboarding-city-option').first().click();
   await page.getByTestId('onboarding-create-submit').click();
-  await expect(page.getByTestId('home-empty')).toBeVisible();
+  await expect(page.getByTestId('home-jobs')).toBeVisible();
 
   await page.getByTestId('org-tab-profile').click();
   await expect(page.getByTestId('profile-status-tag')).toHaveText('Draft');
