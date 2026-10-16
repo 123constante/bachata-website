@@ -19,7 +19,7 @@ import { CityProvider } from "@/contexts/CityContext";
 import { SearchProvider } from "@/components/search/SearchProvider";
 import { AppChrome } from "@/components/AppChrome";
 import { reportClientErrorLazy } from "@/lib/reportClientErrorLazy";
-import { installKeyboardSafe } from "@/lib/keyboard/keyboardSafe";
+
 import { NavigationSplash } from "./NavigationSplash";
 import { useNonce } from "./nonce";
 import "@/index.css";
@@ -206,8 +206,23 @@ export default function Root() {
     else setTimeout(reportClientErrorLazy, 3000); // no args: installs
   }, []);
 
-  // Every text field stays visible above the phone keyboard (one site-wide rule).
-  useEffect(() => installKeyboardSafe(), []);
+  // Every text field stays visible above the phone keyboard (one site-wide rule,
+  // src/lib/keyboard/keyboardSafe.ts). Loaded on idle, off the first-load path:
+  // static, it put ~1.5 KB gz on every route (perf-budgets.json, dancer-app over).
+  useEffect(() => {
+    let off: (() => void) | undefined;
+    let gone = false;
+    const load = () =>
+      void import("@/lib/keyboard/keyboardSafe").then((m) => {
+        if (!gone) off = m.installKeyboardSafe();
+      });
+    if ("requestIdleCallback" in window) requestIdleCallback(load);
+    else setTimeout(load, 1000);
+    return () => {
+      gone = true;
+      off?.();
+    };
+  }, []);
 
   // AppShell minus BrowserRouter — the framework router provides the routing
   // context. AppChrome renders <Outlet/> in its <main> in place of the legacy
