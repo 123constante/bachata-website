@@ -44,10 +44,6 @@
     "reason": "optional, no test: S-ORG2 has 0 prod people and no fake person shape yet; PR-3b adds the fake and the test."
   },
   {
-    "id": "si.code-step-reload",
-    "reason": "BUILT, no test and no walk: code-step persistence (D7) is rebuilt in PR-3c auth screens, which walks it."
-  },
-  {
     "id": "si.dancer.wrong-code",
     "reason": "BUILT with a unit test, no build walk yet; needs a real code to type wrong; PR-5b real-OTP spec."
   },

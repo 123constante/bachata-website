@@ -128,7 +128,9 @@ The check cannot verify that a walk asserts the stated END. That stays a review 
 | `si.empty` | S-EMPTY | signs in | `/app/welcome` dancer setup (O5) | R:no side, not an admin: /account/continue lands on /app/welcome, never the site home (M44) | optional | 0 |
 | `si.org-only` | S-ORG-ONLY | signs in | `/account/o`, gate shows Finish | **MISSING** | optional | 0 |
 | `si.unconfirmed-later` | S-UNCONF | comes back days later and signs in | code sent; entering it finishes sign-up as dl.new.straight (stub kept); after 7 days the purge makes it S-NEW | **MISSING** | required | 6 |
-| `si.code-step-reload` | any, code_sent | reloads the code screen | back to the e-mail form (code page state lost); a new code is needed (D7) | **MISSING** | required | new |
+| `si.code-step-reload` | any, code_sent | reloads the code screen | the code box reopens for the same e-mail within 10 minutes; after 5 wrong codes it locks and offers "Send a new code" (a new code resets the count) (D7) | U:src/pages/__tests__/AuthCodeStep.test.tsx; W:docs/handover/shots-3c | required | new |
+| `si.consent.signup` | S-NEW | types the sign-up code | clickwrap line under the code box; accept_terms_v1 once on success; then as dl.new.straight (D8) | U:src/pages/__tests__/AuthConsentFunnel.test.tsx; W:docs/handover/shots-3c | required | new |
+| `si.consent.accept-card` | S-DANCER | signs in with no acceptance on file | one-tap accept card (one button), then as si.dancer; a failed check never walls sign-in (D8) | U:src/pages/__tests__/AuthConsentFunnel.test.tsx; W:docs/handover/shots-3c | required | new |
 | `si.signup-refused` | S-NEW (not allowlisted, area closed; or blocked domain) | sign up | invite-only copy plus WhatsApp link | U:src/lib/__tests__/auth-signup-allowlist.test.ts | required | new |
 
 ### Team invite `/invite/<token>`

@@ -13,6 +13,7 @@ import { signInDeletionTarget } from "@/lib/accountDeletion";
 import { hasDancerProfileBasics, inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { flags } from "@/lib/featureFlags";
+import { acceptTerms } from "@/lib/termsConsent";
 import {
   armPostLoginPrompt,
   isDanceRoleValue,
@@ -105,6 +106,10 @@ const AuthCallback = () => {
       try {
         const pendingRole = localStorage.getItem("pending_profile_role");
         const isSignupFlow = callbackMode === "signup" || (callbackMode !== "signin" && Boolean(pendingRole));
+        // An e-mailed-link sign-up saw the clickwrap but never passed the typed-code screen, so record the
+        // consent here (idempotent server-side, so a typed-code sign-up that already did is harmless).
+        // Not awaited: it never holds the person back; acceptTerms has its own timeout and never throws.
+        if (callbackMode === "signup") void acceptTerms();
         const meta = user.user_metadata || {};
         // Called for its side effect (it persists a metadata role); routing reads the role itself.
         resolveRolePreference(pendingRole, meta.user_type);
