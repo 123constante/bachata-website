@@ -56,7 +56,26 @@ Cause (asset diff): rollup cut three new shared chunks, `useDancerArea`, `nextSt
 
 ## CI per-job table
 
-CI_TABLE_PLACEHOLDER
+Run locally in the sandbox on 66d077c (the code in this commit), with the env from the workflows. `npm ci` was skipped because node_modules was already installed.
+
+| Workflow / job | Command(s) | Exit | Result | Same on main? |
+|---|---|---|---|---|
+| architecture-guard / integrity | check-integrity.sh (run with bash), check:legacy-tables, check:legacy-program-rpcs, lint:architecture, AUDIT_STRICT=1 check:images, image-widths, plan-hygiene, workflow-artifact-policy, mojibake guards, prove:entry-point | 0 | pass | - |
+| db-contract-check / live-db-gate + contract-check | gate self-test + gate, check-migration-stamps, guest-list self-test, day-rollover-consistency, script-conventions | 0 | pass; the ~50 live `check-*.mjs` scripts were skipped because they need real secrets | - |
+| e2e-smoke | `npm run test:e2e` | 0 | 146 passed, 1 skipped | - |
+| perf-budget / bundle-budget | self-tests, `npm run build`, check:first-load-requests, check:chunk-cycles | 0 | pass | - |
+| perf-budget / bundle-budget | `npm run check:bundle-budget` | 1 | **FAIL**: auth chunk 34/33, pullers 3/2; dancer-app 363.3/363 KB, chunks 59/57, pullers 4/3 (see Bundle report) | no, main passes |
+| phone-qa / phone-qa | `playwright test --config playwright.phone.config.ts` | 0 | 272 passed, 74 skipped | - |
+| phone-qa / build-smoke | fake-Supabase build + playwright.build.config.ts | 0 | 66 passed | - |
+| typecheck / wallclock-brand | check:rpc-typing, check:wallclock-brand | 0 | pass | - |
+| unit-tests / unit (London) | `test:unit:offline` (the full run needs secrets) | 1 | 6 failed / 9152 passed. 5 failures in `tests/integrityCouldNotRun.test.ts`, which fail the same way on main (this sandbox). 1 failure in `festivalClientState.test.tsx`, which passed 8/8 in two runs on its own (flaky under load). | integrity: yes |
+| unit-tests / timing + New_York + Sydney | `test:unit:timing`; the tz list | 0 | pass (65, 213, 213) | - |
+| unit-tests / dancer-area-isolation | self-test | 0 | pass (51 cases) | - |
+| unit-tests / dancer-area-isolation | `npm run check:dancer-area-isolation` | 1 | **FAIL**: `(a) PROTECTED file changed: src/pages/FestivalHub.tsx` and `(c) FestivalHub.tsx imports @/modules/dancer-app/gate/useGoingLock and is not a seam file`. The brief requires that change, so `scripts/dancer-area-isolation-allowlist.json` needs an ORCHESTRATOR decision to make FestivalHub.tsx a seam (INTERFACE: a worker may not edit it). The RsvpBlock files are seams already and pass. | no, main passes |
+| workflow-lint | BOM, masking, notification, no-preview-prefixes | 0 | pass | - |
+| skipped | types-drift (token), db live checks (secrets), lighthouse / doc-weight / og / seo / synthetic (Vercel preview, `claude/*` builds none), real-data-verified / phone-qa-section (need a PR body; no PR by brief), automerge jobs (PR events) | - | not run | - |
+
+Separate run: `goingLock.test.tsx` + `rsvpBlock.test.tsx` + `tests/regression/today` + eventPageLevelRating + MyAttendance: all pass, 0 snapshots changed.
 
 ## 390x844 walk
 
@@ -72,10 +91,11 @@ NOT RUN in the sandbox: `/event/:id` and `/festivals` are SSR/prerendered routes
 ## Verified / Not verified
 
 Verified: unit + today-regression suites (see CI table); red-first; bundle numbers above; prod shapes (counts).
-NOT verified: real browser walk at 390x844 (script above); real sign-in against prod; `/code-review` round (needs the owner to type it); perf-budget green (needs the decision above).
+NOT verified: real browser walk at 390x844 (script above); real sign-in against prod; `/code-review` round (needs the owner to type it); perf-budget and dancer-area-isolation green (both need the orchestrator decisions in What is left).
 
 ## What is left
 
-1. Orchestrator/owner: the perf-budget decision above (allowances or chunk pins), then re-run `npm run check:bundle-budget`.
-2. Optional cleanup with an owner OK: expose `missing` on `ProfileGateValue` and drop `missingFromGate`'s inversion.
-3. The 390x844 walk on a preview.
+1. Orchestrator: add `src/pages/FestivalHub.tsx` as a seam in `scripts/dancer-area-isolation-allowlist.json` (the brief requires the change; INTERFACE forbids a worker editing the list), then re-run `npm run check:dancer-area-isolation`.
+2. Orchestrator/owner: the perf-budget decision above (allowances or chunk pins), then re-run `npm run check:bundle-budget`.
+3. Optional cleanup with an owner OK: expose `missing` on `ProfileGateValue` and drop `missingFromGate`'s inversion.
+4. The 390x844 walk on a preview.
