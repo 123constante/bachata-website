@@ -9,6 +9,7 @@ import { OrganiserShell } from '../../shell';
 import { ORG_PATHS } from '../../shell/paths';
 import { ErrorState, SkeletonRows } from '../../ui';
 import { goDone } from '../doneState';
+import { EventConflict } from '../event/parts';
 import { COVER_TITLE, coverDone, coverFixCommands } from './coverModel';
 
 /**
@@ -26,6 +27,7 @@ export default function CoverFlow() {
   const key = useRef<{ url: string; key: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
   const workspace = useQuery({ queryKey: seriesWorkspaceQueryKey(seriesId), queryFn: () => fetchSeriesWorkspace(seriesId), enabled: !!seriesId });
   const current = workspace.data?.series.default_cover_image_url ?? null;
 
@@ -51,8 +53,9 @@ export default function CoverFlow() {
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       goDone(navigate, coverDone(seriesId));
     } catch (err) {
-      // Never the raw message ("Failed to fetch"): the command copy, offline included.
-      setError(commandErrorMessage(err));
+      // R3-7: someone changed the event first; else never the raw message ("Failed to fetch").
+      if (/version_conflict/i.test(String((err as { message?: unknown } | null)?.message ?? ''))) setConflict(true);
+      else setError(commandErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -60,7 +63,9 @@ export default function CoverFlow() {
 
   return (
     <OrganiserShell title={COVER_TITLE} back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-page-cover">
-      {workspace.isPending ? (
+      {conflict ? (
+        <div className="p-3"><EventConflict seriesId={seriesId} /></div>
+      ) : workspace.isPending ? (
         <SkeletonRows count={2} label="Loading" testId="cover-loading" />
       ) : workspace.isError ? (
         <ErrorState title="This event did not load" onRetry={() => void workspace.refetch()} retrying={workspace.isFetching} testId="cover-load-error" />

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Check, Plus } from 'lucide-react';
 import { searchClaimableOrganisers, type ClaimCandidate, type MyAccessRequest } from '@/modules/organiser/shared/selfServeApi';
 import { declinedRequests } from '@/modules/organiser/shared/accessRequestModel';
-import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, StatusTag, useDebounced } from '../../ui';
+import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, useDebounced } from '../../ui';
 import { HINT_TEXT, NO_HINT_TEXT, askedOn, rowAction } from './onboardingModel';
 import { ORG_PATHS } from '../../shell/paths';
 import { goDone } from '../../flows/doneState';
@@ -169,7 +169,7 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
                   Home
                 </GhostButton>
               )}
-              {action === 'requested' && <StatusTag tone="neutral" testId="onboarding-requested">Asked</StatusTag>}
+              {action === 'requested' && <span className="shrink-0 text-[13px] text-[var(--mut)]" data-testid="onboarding-requested">Asked</span>}
             </div>
           ))}
         </Card>
@@ -187,7 +187,6 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
                 <p className="truncate text-[15px] text-[var(--fg)]">{r.organiserName ?? 'An organiser'}</p>
                 <p className="text-[13px] text-[var(--mut)]">Asked {askedOn(r.createdAt)}</p>
               </div>
-              <StatusTag tone="draft">Waiting</StatusTag>
             </div>
           ))}
         </Card>

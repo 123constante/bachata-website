@@ -1,15 +1,10 @@
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ORGANISER_HOME_KEY, fetchSeriesWorkspace, runSeriesCommand, seriesWorkspaceQueryKey,
 } from '@/modules/organiser/shared/selfServeApi';
 import { envelope, newIdempotencyKey, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
 import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
-import { goDone } from '../doneState';
-
-/** R3-7: another device changed the draft while this screen was open. */
-export const CONFLICT_MESSAGE = 'This event changed on another device. Open it from Home to see the latest.';
 const isConflict = (err: unknown) => /version_conflict/i.test(String((err as { message?: unknown } | null)?.message ?? ''));
 
 /**
@@ -20,11 +15,12 @@ const isConflict = (err: unknown) => /version_conflict/i.test(String((err as { m
  * reply replays instead of writing twice.
  */
 export function useNewSend(seriesId: string) {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const keys = useRef(new Map<string, string>());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** R3-7: another device changed the draft first; the step shows EventConflict instead. */
+  const [conflict, setConflict] = useState(false);
 
   const send = async (commands: OwnerCommand[]): Promise<boolean> => {
     if (busy) return false;
@@ -45,7 +41,7 @@ export function useNewSend(seriesId: string) {
       return true;
     } catch (err) {
       if (isConflict(err)) {
-        goDone(navigate, { title: 'New event', message: CONFLICT_MESSAGE, seriesId });
+        setConflict(true);
         return false;
       }
       setError(commandErrorMessage(err));
@@ -57,5 +53,5 @@ export function useNewSend(seriesId: string) {
     }
   };
 
-  return { send, busy, error, setError };
+  return { send, busy, error, setError, conflict };
 }

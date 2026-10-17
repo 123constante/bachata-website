@@ -595,10 +595,10 @@ export class OrganiserFake {
       }
       case 'create_organiser_profile_v1': {
         const id = 'a0000000-0000-4000-8000-0000000000aa';
-        this.organisers.push({ id, name: String(body.p_name), lifecycle_status: 'draft', role: 'owner', city_id: (body.p_city_id as string) ?? null,
+        this.organisers.push({ id, name: String(body.p_name), lifecycle_status: 'live', role: 'owner', city_id: (body.p_city_id as string) ?? null,
           latest_decision: null, series: [], team: [{ user_id: ME, member_role: 'owner', is_primary: true, email: EMAIL, display_name: null }],
           requests: [], instagram: null, website: null, bio: null, contact_email: EMAIL });
-        return json(route, { organiser_id: id, slug: null, lifecycle_status: 'draft', member_role: 'owner', is_primary: true });
+        return json(route, { organiser_id: id, slug: null, lifecycle_status: 'live', member_role: 'owner', is_primary: true });
       }
       case 'submit_organiser_profile_v1': {
         const o = org(body.p_organiser_id);

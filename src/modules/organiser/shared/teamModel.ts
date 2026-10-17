@@ -68,7 +68,7 @@ export interface MemberAction {
 }
 
 /** The sole owner's reason for no Leave, said once for the row and for the server refusal (last_owner). */
-export const LAST_OWNER_NOTE = 'You are the only owner, so you cannot leave. To step down, tap Make owner on a teammate’s row, or contact the Bachata Calendar team.';
+export const LAST_OWNER_NOTE = 'You are the only owner, so you cannot leave. To step down, hand the page over to a teammate first, or contact the Bachata Calendar team.';
 
 /**
  * The one action a row may offer the viewer, mirroring remove_organiser_member_v1:

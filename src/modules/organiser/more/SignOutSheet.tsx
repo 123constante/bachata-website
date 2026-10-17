@@ -1,30 +1,22 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { SIGN_OUT_FAILED, useSignOutToHome } from '@/components/account/profiles/signOutToHome';
 import { GhostButton, PrimaryButton, SheetView, useShake } from '../ui';
 
 /**
- * Sign out, confirmed. TODO(orchestrator): switch `go` to the shared
- * `useSignOutToHome` once website #789 is merged; the hook does not exist on
- * this base, so the existing signOut() + navigate('/') call is kept as it was.
+ * Sign out, confirmed, through the shared useSignOutToHome: leave for the site
+ * home first, then sign out (audit H10). On a failure the hook comes back here
+ * and toasts; the sheet shows the same line if it is still open.
  */
 export function SignOutSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
-  const [busy, setBusy] = useState(false);
+  const { signOutToHome, busy } = useSignOutToHome();
   const [note, setNote] = useState<string | null>(null);
   const { shake, shakeProps } = useShake();
   const go = async () => {
-    setBusy(true);
     setNote(null);
-    const outcome = await signOut();
-    setBusy(false);
-    if (outcome === 'failed') {
-      setNote('Sign-out did not complete. Check your connection and try again.');
+    if ((await signOutToHome()) === 'failed') {
+      setNote(SIGN_OUT_FAILED);
       shake();
-      return;
     }
-    navigate('/', { replace: true });
   };
   return (
     <SheetView open={open} onOpenChange={(o) => { if (!o) onClose(); }} title="Sign out" testId="signout-sheet">

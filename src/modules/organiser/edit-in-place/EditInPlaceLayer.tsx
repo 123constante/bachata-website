@@ -78,7 +78,7 @@ export interface EditInPlaceLayerInternals {
 
 const btn = { minHeight: 44, padding: '0 16px', borderRadius: 999, fontSize: 14, fontWeight: 700, cursor: 'pointer' } as const;
 
-export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId, client, uploadPhoto, searchCities, resolveCity, fetchContact, fetchTeam, searchPeople, addPerson }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
+export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId, dockZ = BAR_Z, client, uploadPhoto, searchCities, resolveCity, fetchContact, fetchTeam, searchPeople, addPerson }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
   const queryClient = useQueryClient();
   // Who may add people (owner or admin), from the server's own answer; a manager or
   // contributor gets no Team card and no picker. A failed read shows nothing.
@@ -421,7 +421,7 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
       {room > 0 && inBody(<div aria-hidden="true" data-testid="eip-spacer" style={{ height: `${room}px` }} />)}
       {/* In document.body (see layers.tsx), at the real bottom edge (the section row is under the header now). */}
       {inBody(
-      <div ref={dockRef} data-testid="eip-dock" style={{ position: 'fixed', left: 0, right: 0, bottom: `calc(${BOTTOM_NAV_OFFSET})`, zIndex: BAR_Z, pointerEvents: 'none' }}>
+      <div ref={dockRef} data-testid="eip-dock" style={{ position: 'fixed', left: 0, right: 0, bottom: `calc(${BOTTOM_NAV_OFFSET})`, zIndex: dockZ, pointerEvents: 'none' }}>
         <div aria-live="polite" role="status" style={{ pointerEvents: 'auto' }}>
           {notice && (
             <div data-testid="eip-notice" data-tone={notice.tone} style={{ margin: '0 8px 6px', padding: '8px 12px', borderRadius: 12, fontSize: 13.5, lineHeight: 1.35, display: 'flex', gap: 8, alignItems: 'center', background: notice.tone === 'error' ? '#3A1712' : '#1E1A12', color: notice.tone === 'error' ? '#FFB4A2' : GOLD, border: `1px solid ${notice.tone === 'error' ? 'rgba(255,138,112,0.5)' : 'rgba(231,190,110,0.5)'}` }}>

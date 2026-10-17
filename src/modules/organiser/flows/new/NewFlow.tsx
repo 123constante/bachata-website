@@ -19,6 +19,7 @@ import {
   nameBlock, parseFormat, timeBlock, timeCommands, venueCommands,
 } from './model';
 import { useNewSend } from './useNewSend';
+import { EventConflict } from '../event/parts';
 
 const TITLE = 'New event';
 const ROW = 'flex min-h-[56px] w-full items-center rounded-[12px] bg-[var(--card2)] px-[16px] text-left text-[16px] font-semibold text-[var(--fg)]';
@@ -57,6 +58,15 @@ function Frame({ title, back, children }: { title: string; back: string; childre
   return (
     <OrganiserShell title={title} back={{ to: back, label: 'Back' }} testId="org-new-step">
       <div className="flex flex-col gap-[12px] p-[12px]">{children}</div>
+    </OrganiserShell>
+  );
+}
+
+/** R3-7: another device changed the draft first; ONE button, to the event. */
+function NewConflict({ seriesId }: { seriesId: string }) {
+  return (
+    <OrganiserShell title="New event" back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-new-conflict">
+      <div className="p-[12px]"><EventConflict seriesId={seriesId} /></div>
     </OrganiserShell>
   );
 }
@@ -141,7 +151,7 @@ function VenueStep({ seriesId }: { seriesId: string }) {
   const navigate = useNavigate();
   const { selected } = useOrganiserChoice();
   const venues = useVenueOptions();
-  const { send, busy, error, setError } = useNewSend(seriesId);
+  const { send, busy, error, setError, conflict } = useNewSend(seriesId);
   const [term, setTerm] = useState('');
   const needle = term.trim().toLowerCase();
   const shown = (venues.data ?? []).filter((v) => !needle || v.name.toLowerCase().includes(needle)).slice(0, MAX_VENUE_ROWS);
@@ -172,6 +182,7 @@ function VenueStep({ seriesId }: { seriesId: string }) {
       </div>
     );
   }
+  if (conflict) return <NewConflict seriesId={seriesId} />;
   return (
     <OrganiserShell title={STEP_TITLE.venue} back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-new-venue">
       <div className="flex flex-col gap-[12px] p-[12px]">
@@ -196,7 +207,7 @@ function DateStep({ seriesId }: { seriesId: string }) {
   const navigate = useNavigate();
   const today = useLondonToday();
   const draft = useDraft(seriesId);
-  const { send, busy, error } = useNewSend(seriesId);
+  const { send, busy, error, conflict } = useNewSend(seriesId);
   const back = ORG_PATHS.newVenue(seriesId);
   if (draft.isPending) return <Frame title={STEP_TITLE.date} back={back}><SkeletonRows count={4} label="Loading" /></Frame>;
   if (!draft.data) return <Frame title={STEP_TITLE.date} back={back}><ErrorState onRetry={() => void draft.refetch()} retrying={draft.isFetching} /></Frame>;
@@ -204,6 +215,7 @@ function DateStep({ seriesId }: { seriesId: string }) {
   const pick = async (date: string) => {
     if (await send(dateCommands(format, date))) navigate(ORG_PATHS.newTime(seriesId));
   };
+  if (conflict) return <NewConflict seriesId={seriesId} />;
   return (
     <Frame title={STEP_TITLE.date} back={back}>
       <StepError message={error} />
@@ -221,11 +233,12 @@ function DateStep({ seriesId }: { seriesId: string }) {
 
 function TimeStep({ seriesId }: { seriesId: string }) {
   const navigate = useNavigate();
-  const { send, busy, error, setError } = useNewSend(seriesId);
+  const { send, busy, error, setError, conflict } = useNewSend(seriesId);
   const [time, setTime] = useState('');
   const go = async () => {
     if (!timeBlock(time) && (await send(timeCommands(time)))) navigate(ORG_PATHS.newCover(seriesId));
   };
+  if (conflict) return <NewConflict seriesId={seriesId} />;
   return (
     <Frame title={STEP_TITLE.time} back={ORG_PATHS.newDate(seriesId)}>
       <input
@@ -249,7 +262,7 @@ function TimeStep({ seriesId }: { seriesId: string }) {
 function CoverStep({ seriesId }: { seriesId: string }) {
   const navigate = useNavigate();
   const draft = useDraft(seriesId);
-  const { send, busy, error, setError } = useNewSend(seriesId);
+  const { send, busy, error, setError, conflict } = useNewSend(seriesId);
   const [picked, setPicked] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const cover = picked ?? draft.data?.series.default_cover_image_url ?? null;
@@ -280,6 +293,7 @@ function CoverStep({ seriesId }: { seriesId: string }) {
     goDone(navigate, { title: TITLE, message, seriesId });
   };
 
+  if (conflict) return <NewConflict seriesId={seriesId} />;
   return (
     <Frame title={STEP_TITLE.cover} back={ORG_PATHS.newTime(seriesId)}>
       {cover && <img src={cover} alt="Your photo" loading="eager" className="max-h-[240px] w-full rounded-[12px] object-cover" data-testid="org-new-cover-preview" />}

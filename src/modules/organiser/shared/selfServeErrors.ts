@@ -127,7 +127,7 @@ export const KNOWN_SELF_SERVE_CODES = Object.keys(COPY);
  */
 export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
   { match: /^version_conflict/, message: VERSION_CONFLICT },
-  { match: /on a past date is admin-only|^past_date/, message: 'That date has already happened, so it can no longer be changed.' },
+  { match: /on a past date is admin-only|^past_date/, message: 'This date has already happened, so it can no longer be changed.' },
   { match: /^has_bookings/, message: 'People have already booked this date, so it cannot be removed. Cancel it instead, so they see why.' },
   { match: /^no_sessions_for_time_override/, message: 'This date has no session times to move yet. Ask the Bachata Calendar team to set up the class times.' },
   { match: /cancellation_reasons label/, message: 'Choose a reason. Dancers see it.' },

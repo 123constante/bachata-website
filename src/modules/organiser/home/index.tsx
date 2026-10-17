@@ -113,7 +113,7 @@ export default function HomePage() {
   if (home.data && (organisers.length === 0 || adding)) {
     return (
       <OrganiserShell
-        title={adding ? 'Add an organiser' : 'Welcome'}
+        title={adding ? 'Add a page' : 'Welcome'}
         back={adding ? { to: ORG_PATHS.home, label: 'Home' } : undefined}
         testId="org-page-home"
       >

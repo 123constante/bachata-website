@@ -8,7 +8,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { home, rawWorkspace, venues } from '../../../events/__tests__/fixtures';
@@ -258,11 +258,14 @@ describe('screens: cover, leaving, conflicts', () => {
     expect(sent()).toHaveLength(0);
   });
 
-  it('a version conflict ends on the shared Done screen (R3-7), not a raw error', async () => {
+  it('a version conflict ends on the R3-7 view: ONE button, to the event, not a raw error', async () => {
     conflict = true;
     mount('/account/o/new/s1/venue');
     fireEvent.click((await screen.findAllByTestId('org-new-venue-row'))[0]);
-    await waitFor(() => expect(where()).toBe('/account/o/done'));
+    const box = await screen.findByTestId('event-conflict');
+    expect(within(box).getAllByRole('button')).toHaveLength(1);
+    fireEvent.click(within(box).getByRole('button'));
+    await waitFor(() => expect(where()).toBe(ORG_PATHS.event('s1')));
   });
 });
 

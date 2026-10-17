@@ -15,7 +15,8 @@ import type { ProfileEntity } from './profileForm';
 // sheets, the photo upload and the ONE Save; this screen only places its slots.
 const EditInPlaceLayer = lazyWithRetry(() => import('../edit-in-place/EditInPlaceLayer'));
 
-const DOCK_ABOVE_SHELL = '[data-testid="eip-dock"]{z-index:60 !important}';
+/** The organiser shell is z-60; the Save dock sits on it (later in the DOM wins the tie), the sheets (61) above both. */
+const DOCK_Z = 60;
 
 const json = (v: unknown) => JSON.stringify(v ?? null);
 
@@ -114,10 +115,7 @@ export function useOwnPage() {
 
   const layer: ReactNode = id && entity.data ? (
     <Suspense fallback={null}>
-      {/* The layer's Save bar is portalled to <body> at z-50; the organiser shell is z-60 and would
-          cover it. Later in the DOM wins a tie, and the sheets (61) stay above both. */}
-      <style>{DOCK_ABOVE_SHELL}</style>
-      <EditInPlaceLayer key={id} organiserId={id} entity={entity.data as ProfileEntity} userId={user?.id} onBridge={onBridge} />
+      <EditInPlaceLayer key={id} organiserId={id} entity={entity.data as ProfileEntity} userId={user?.id} onBridge={onBridge} dockZ={DOCK_Z} />
     </Suspense>
   ) : null;
 
