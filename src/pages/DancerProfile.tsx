@@ -21,6 +21,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyPersonaId } from "@/hooks/useMyPersonaId";
 import { isMyProfile } from "@/lib/myPersona";
+import { PublicDancerPageV2 } from "@/modules/dancer-app/public-page/PublicDancerPageV2";
+import { buildPublicDancerPage, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
 
 type AttendanceRow = {
   event_id: string;
@@ -47,7 +49,12 @@ type AttendanceItem = {
   status: "going" | "interested";
 };
 
-const DancerProfile = () => {
+type DancerProfileProps = {
+  /** From the route loader: v2 when the dancer area is open, else null/absent = today's page. */
+  publicPage?: PublicPageV2Data | null;
+};
+
+const DancerProfile = ({ publicPage = null }: DancerProfileProps = {}) => {
   const { id: routeParam } = useParams<{ id: string }>();
   const resolved = useEntitySlugOrId(routeParam, 'dancer_profiles');
   const id = resolved.id ?? undefined;
@@ -273,56 +280,7 @@ const DancerProfile = () => {
     );
   }
 
-  const dancerSubtitle = [dancer.cities?.name, dancer.nationality].filter(Boolean).join(' · ');
-
-  return (
-    <GlobalLayout
-      showSubheader={false}
-      backHref="/dancers"
-      hero={{
-        emoji: '',
-        // Empty, not "Dancer": the hero already prints "Dancer" as titleOrange,
-        // so a nameless profile reads "Dancer" once rather than twice -- and the
-        // page's SUBJECT stays unclaimed, which is what the noindex on this same
-        // resolution (app/routes/dancers.tsx) is asserting to a crawler.
-        titleWhite: dancerView.displayName ?? '',
-        titleOrange: 'Dancer',
-        subtitle: dancerSubtitle,
-        largeTitle: true,
-      }}
-    >
-      <div className="container max-w-5xl mx-auto px-4 pb-24 pt-8">
-        <DancerProfileGrid dancer={dancerView} />
-
-        {/* Gallery */}
-        {(() => {
-          const gallery = Array.isArray((dancer as any)?.gallery_urls)
-            ? ((dancer as any).gallery_urls as string[]).filter(Boolean)
-            : [];
-          if (!gallery.length) return null;
-          return (
-            <div className="mt-8">
-              <h2 className="text-xl font-bold text-foreground mb-3 flex items-center gap-2">
-                <Image className="w-5 h-5 text-primary" /> Gallery
-              </h2>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {gallery.slice(0, 12).map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                    <img
-                      src={url}
-                      alt={`${dancerView.displayName ?? 'Dancer'} photo ${i + 1}`}
-                      className="w-full aspect-square object-cover rounded-xl hover:opacity-80 transition-opacity"
-                      loading="lazy"
-                    />
-                  </a>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Self-view only: the profile owner's own attendance plans */}
-        {isSelfView && (
+  const ownerPlans = (
         <div className="mt-8">
           <h2 className="text-base font-semibold text-foreground mb-3">Your plans</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -403,7 +361,76 @@ const DancerProfile = () => {
             </Card>
           </div>
         </div>
-        )}
+  );
+
+  if (publicPage) {
+    const gallery = (dancer as { gallery_urls?: unknown }).gallery_urls;
+    const galleryList: unknown[] = Array.isArray(gallery) ? gallery : [];
+    return (
+      <GlobalLayout showSubheader={false} backHref="/dancers">
+        <div className="container max-w-xl mx-auto px-4 pb-24 pt-3">
+          <PublicDancerPageV2
+            model={buildPublicDancerPage(dancerView, publicPage.extras, galleryList)}
+            extrasOk={publicPage.extrasOk}
+            profileId={dancerView.id}
+            pathname={resolved.slug ? `/dancers/${resolved.slug}` : `/dancers/${routeParam ?? dancerView.id}`}
+            ownerPlans={isSelfView ? ownerPlans : null}
+          />
+        </div>
+      </GlobalLayout>
+    );
+  }
+
+  const dancerSubtitle = [dancer.cities?.name, dancer.nationality].filter(Boolean).join(' \u00b7 ');
+
+  return (
+    <GlobalLayout
+      showSubheader={false}
+      backHref="/dancers"
+      hero={{
+        emoji: '',
+        // Empty, not "Dancer": the hero already prints "Dancer" as titleOrange,
+        // so a nameless profile reads "Dancer" once rather than twice -- and the
+        // page's SUBJECT stays unclaimed, which is what the noindex on this same
+        // resolution (app/routes/dancers.tsx) is asserting to a crawler.
+        titleWhite: dancerView.displayName ?? '',
+        titleOrange: 'Dancer',
+        subtitle: dancerSubtitle,
+        largeTitle: true,
+      }}
+    >
+      <div className="container max-w-5xl mx-auto px-4 pb-24 pt-8">
+        <DancerProfileGrid dancer={dancerView} />
+
+        {/* Gallery */}
+        {(() => {
+          const gallery = Array.isArray((dancer as any)?.gallery_urls)
+            ? ((dancer as any).gallery_urls as string[]).filter(Boolean)
+            : [];
+          if (!gallery.length) return null;
+          return (
+            <div className="mt-8">
+              <h2 className="text-xl font-bold text-foreground mb-3 flex items-center gap-2">
+                <Image className="w-5 h-5 text-primary" /> Gallery
+              </h2>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {gallery.slice(0, 12).map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={url}
+                      alt={`${dancerView.displayName ?? 'Dancer'} photo ${i + 1}`}
+                      className="w-full aspect-square object-cover rounded-xl hover:opacity-80 transition-opacity"
+                      loading="lazy"
+                    />
+                  </a>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Self-view only: the profile owner's own attendance plans */}
+        {isSelfView && ownerPlans}
       </div>
     </GlobalLayout>
   );

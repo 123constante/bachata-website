@@ -35,8 +35,13 @@ const JOURNEY = [
   'src/components/account/profiles/SideAvatar.tsx',
   'src/components/profile/AvatarUpload.tsx',
 ];
-/** <img> allowed: PersonAvatar itself, and the Photo screen's crop / preview of the NEW photo (not an avatar). */
-const IMG_ALLOWED = new Set(['src/components/account/profiles/PersonAvatar.tsx', 'src/modules/dancer-app/screens/photo/PhotoScreen.tsx']);
+/** <img> allowed: PersonAvatar itself, the Photo screen's crop / preview of the NEW photo (not an avatar), and the
+ *  public page's full-width portrait + gallery photos (not avatar discs; its no-photo face IS PersonAvatar). */
+const IMG_ALLOWED = new Set([
+  'src/components/account/profiles/PersonAvatar.tsx',
+  'src/modules/dancer-app/screens/photo/PhotoScreen.tsx',
+  'src/modules/dancer-app/public-page/PublicDancerPageV2.tsx',
+]);
 
 describe('the journey draws avatars only through PersonAvatar', () => {
   it('the table covers the screens (sanity)', () => {

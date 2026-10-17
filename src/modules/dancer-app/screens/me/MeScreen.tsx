@@ -71,6 +71,9 @@ const MeScreen = () => {
             Edit my profile
           </Link>
         )}
+        <Link to="/app/page" className="da-tap" style={ghostButton} data-testid="me-my-page">
+          My page: how it looks and who visited
+        </Link>
         {p.is_active ? (
           <a href={`/dancers/${p.profile_id}`} className="da-tap" style={ghostButton} data-testid="me-public-page">
             See my public page

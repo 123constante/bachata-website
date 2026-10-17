@@ -24,7 +24,8 @@ vi.mock('@/hooks/useAuth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
   useAuth: () => ({ user: h.user, isLoading: false, authStatus: 'ready' }),
 }));
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...a: unknown[]) => h.rpc(...a) } }));
+// `auth` too: getSupabase (rpcLoose, so the dancer-area gate read) checks the client has it.
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...a: unknown[]) => h.rpc(...a), auth: {} } }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock('@/lib/festivalsList', async (orig) => ({
   ...(await orig<typeof import('@/lib/festivalsList')>()),
@@ -67,6 +68,8 @@ beforeEach(() => {
   h.user = null;
   h.myStatus = null;
   h.rpc.mockReset().mockImplementation(async (name: string) => {
+    // Outside the dancer area (B1b S1): the Going lock never applies, so today's page is unchanged.
+    if (name === 'dancer_area_gate_v1') return { data: { open: false, allowed: false }, error: null };
     if (name === 'get_event_attendance_counts') return { data: [{ event_id: 'fest-1', interested_count: 3, going_count: 5 }], error: null };
     if (name === 'get_my_event_attendance_v1') return { data: h.myStatus ? [{ event_id: 'fest-1', status: h.myStatus, updated_at: null }] : [], error: null };
     if (name === 'set_attendance') return { data: null, error: null };
