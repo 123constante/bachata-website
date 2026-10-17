@@ -7,9 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { TODAY, shapeByKey, workspaceOf } from '../../__tests__/shapes/shapes';
 import { draftFromWorkspace, draftProblem, oneDateLoss, parseEventWorkspace, savePlan } from '../eventModel';
 import { scheduleView } from '../schedule';
-import { newEventCommands } from '../newEvent';
 import { categoryLabelFor } from '@/lib/eventCategory';
-import { EVENT_TYPES } from '../eventType';
 import { eventReviewView } from '../reviewModel';
 import { confirmCopy, saveBarState } from '@/modules/organiser/shared/editorGuards';
 import { LINK_PROBLEM, linkProblem } from '@/modules/organiser/shared/linkRules';
@@ -90,29 +88,7 @@ describe('7: weekly -> One date says how many dates go, before Save', () => {
   });
 });
 
-describe('G2 + G4: what the create sends for each type', () => {
-  const cases = [
-    // FIX-6 F-e: every chip lists ONE date, the one its seeded session goes on.
-    { type: 'class', minutes: 120, schedule: 'series.add_date' },
-    { type: 'party', minutes: 300, schedule: 'series.add_date' },
-    { type: 'workshop', minutes: 120, schedule: 'series.add_date' },
-  ] as const;
-  it.each(cases)('$type', ({ type, minutes, schedule }) => {
-    const cmds = newEventCommands('Night', TODAY, 'org1', 'c1', type);
-    const p = cmds.create.payload;
-    // Category is derived from the sessions on the server (event-truth P2): a create never sends it.
-    expect(p).not.toHaveProperty('category');
-    // Owners may not create a course; recurring with no rule is the owner's one-date shape.
-    expect(p.format).toBe('recurring');
-    expect(p.default_duration_minutes).toBe(minutes);
-    expect(minutes).toBeGreaterThanOrEqual(1);
-    expect(minutes).toBeLessThanOrEqual(1200);
-    expect(cmds.schedule.kind).toBe(schedule);
-    if (schedule === 'series.add_date') expect(cmds.schedule.payload).toEqual({ date: p.default_start_date });
-  });
-  it('offers exactly Class, Party, Workshop as the first session (no festival)', () => {
-    expect(EVENT_TYPES.map((t) => t.label)).toEqual(['Class', 'Party', 'Workshop']);
-  });
+describe('category label per stored format + category', () => {
   it.each([
     ['recurring', 'class', 'Class'], ['recurring', 'party', 'Night'], ['one_off', 'workshop', 'Class'],
     ['recurring', 'masterclass', 'Masterclass'], ['recurring', null, 'Not set'],

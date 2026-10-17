@@ -50,7 +50,6 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: '
 vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-10-09' }));
 
 import HomePage from '../home';
-import NewEventPage from '../events/NewEventPage';
 import ProfilePage from '../profile';
 import { organiserStatus } from '../shared/organiserStatus';
 import { fetchOrganiserEntity } from '@/modules/profile/organiserPublicProfile';
@@ -108,7 +107,6 @@ function mount(path: string) {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/account/o" element={<HomePage />} />
-          <Route path="/account/o/events/new" element={<NewEventPage />} />
           <Route path="/account/o/profile" element={<ProfilePage />} />
           <Route path="*" element={<span data-testid="elsewhere" />} />
         </Routes>
@@ -147,32 +145,6 @@ describe('Home: everything live (D4), New event says why it cannot work', () => 
     await waitFor(() => expect(db.rpc).toHaveBeenCalledWith('organiser_home_v1'));
     await waitFor(() => expect(screen.queryByTestId('home-org-status')).toBeNull());
     expect(screen.queryByTestId('home-send-review')).toBeNull();
-  });
-});
-
-describe('New event: the refusal says why and what to do', () => {
-  it.each(cases)('%s organiser, %s', async (state, role) => {
-    setup(state, role);
-    mount('/account/o/events/new');
-    const create = (await screen.findByTestId('org-new-event-create')) as HTMLButtonElement;
-    const copy = organiserStatus('Firstrun Org', state);
-    if (state === 'live') {
-      expect(screen.queryByTestId('org-new-event-block')).toBeNull();
-      expect(create.disabled).toBe(false);
-      return;
-    }
-    const block = screen.getByTestId('org-new-event-block');
-    expect(block.textContent).toBe(copy.newEventBlock);
-    expect(create.disabled).toBe(true);
-    expect(create.getAttribute('aria-describedby')).toBe(block.id);
-    // Draft or changes-needed: a way to the place the send lives.
-    expect(!!screen.queryByTestId('org-new-event-go-home')).toBe(copy.canSendForReview);
-  });
-
-  it('pending_review says the organiser is waiting for approval', async () => {
-    setup('pending_review', 'creator');
-    mount('/account/o/events/new');
-    expect((await screen.findByTestId('org-new-event-block')).textContent).toMatch(/^Your organiser is waiting for approval\./);
   });
 });
 

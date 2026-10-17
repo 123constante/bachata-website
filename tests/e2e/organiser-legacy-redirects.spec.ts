@@ -9,7 +9,7 @@ test.use({ viewport: PHONE });
 
 const cases: [string, RegExp, string][] = [
   ['/account?from=email#top', /\/account\/o\?from=email#top$/, 'org-page-home'],
-  ['/account/new?organiser=x', /\/account\/o\/new\/what\?organiser=x$/, 'org-page-new-event'],
+  ['/account/new?organiser=x', /\/account\/o\/new\/what\?organiser=x$/, 'org-new-what'],
   [`/account/series/${FRIDAY}?tab=dates`, new RegExp(`/account/o/events/${FRIDAY}\\?tab=dates$`), 'org-event-editor'],
   [`/account/team/${ORG}`, new RegExp(`/account/o/team\\?o=${ORG}$`), 'org-page-team'],
   [`/account/team/${ORG}?o=keep`, /\/account\/o\/team\?o=keep$/, 'org-page-team'],

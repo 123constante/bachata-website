@@ -50,7 +50,7 @@ describe('main screens stay mounted on the new paths', () => {
     // Done with no router state (a reload) goes Home (S0b Done.tsx).
     ['/account/o/done', 'org-page-home'],
     ['/account/o/events', 'org-page-events'],
-    ['/account/o/new/what', 'org-page-new-event'],
+    ['/account/o/new/what', 'org-new-what'],
     ['/account/o/events/s1', 'org-page-event-editor'],
     ['/account/o/change/s1/o1/lineup', 'org-page-date'],
     ['/account/o/team', 'org-page-team'],
@@ -106,11 +106,6 @@ describe('Change a date (S2) owns its six paths', () => {
 
 describe('every R1 route answers until its slice lands (placeholder)', () => {
   it.each([
-    ['/account/o/new/name?format=recurring', 'New event'],
-    ['/account/o/new/s1/venue', 'New event'],
-    ['/account/o/new/s1/date', 'New event'],
-    ['/account/o/new/s1/time', 'New event'],
-    ['/account/o/new/s1/cover', 'New event'],
     ['/account/o/events/s1/details', 'Event details'],
     ['/account/o/team/add', 'Team'],
     ['/account/o/team/u1', 'Team'],
