@@ -119,45 +119,24 @@ function mount(path: string) {
 
 const cases = STATES.flatMap((s) => ROLES.map((r) => [s, r] as const));
 
-describe('Home: the organiser status line and Send for review', () => {
+describe('Home: everything live (D4), New event says why it cannot work', () => {
   it.each(cases)('%s organiser, %s', async (state, role) => {
     setup(state, role);
     mount('/account/o');
     const copy = organiserStatus('Firstrun Org', state, state === 'rejected' ? decision.reason : null);
     const newEvent = (await screen.findByTestId('home-new-event')) as HTMLButtonElement;
+    // No status card and no review step on Home under rule 2 (D4, D22).
+    expect(screen.queryByTestId('home-org-status')).toBeNull();
+    expect(screen.queryByTestId('home-send-review')).toBeNull();
     if (state === 'live') {
-      expect(screen.queryByTestId('home-org-status')).toBeNull();
       expect(newEvent.disabled).toBe(false);
       return;
     }
-    expect(screen.getByTestId('home-org-status-line').textContent).toBe(copy.line ?? '');
-    expect(screen.getByTestId('home-org-status-tag').textContent).toBe(copy.label);
     // A control that cannot work is disabled WITH its reason.
     expect(newEvent.disabled).toBe(true);
     const reason = screen.getByTestId('home-new-event-reason');
     expect(reason.textContent).toBe(copy.newEventBlock);
     expect(newEvent.getAttribute('aria-describedby')).toBe(reason.id);
-    expect(!!screen.queryByTestId('home-send-review')).toBe(copy.canSendForReview);
-    if (!copy.canSendForReview) expect(screen.getByTestId('home-org-status-next').textContent).toBe(copy.next);
-  });
-
-  it.each([['draft'], ['rejected']] as const)('%s -> Send for review calls submit_organiser_profile_v1 and then shows Waiting for review', async (state) => {
-    setup(state, 'creator');
-    mount('/account/o');
-    fireEvent.click(await screen.findByTestId('home-send-review'));
-    await waitFor(() => expect(screen.getByTestId('home-org-status-line').textContent).toBe('Waiting for review: not visible to the public yet.'));
-    expect(db.rpc).toHaveBeenCalledWith('submit_organiser_profile_v1', { p_organiser_id: 'org-1' });
-    expect(screen.queryByTestId('home-send-review')).toBeNull();
-    expect((screen.getByTestId('home-new-event-reason')).textContent).toMatch(/^Your organiser is waiting for approval/);
-  });
-
-  it('a refused send says why and reloads (already in review elsewhere)', async () => {
-    setup('draft', 'creator');
-    mount('/account/o');
-    const button = await screen.findByTestId('home-send-review');
-    lifecycleNow = 'pending_review';
-    fireEvent.click(button);
-    expect((await screen.findByTestId('home-send-error')).textContent).toMatch(/already in review/);
   });
 
   it('stranger: no organiser, so onboarding, never a status card', async () => {

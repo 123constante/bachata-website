@@ -76,30 +76,25 @@ heading "Waiting for an answer" level=2
 text "Org 0"
 text "Asked 1 Oct . The team usually replies within a day."
 text "Waiting"
-link "Just here to dance? Browse events" href=/
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Just here to dance? Browse events" href=/",
 }
 `;
 
 exports[`/account entry at '390x844' > /account > 'organiser-type (complete)' 1`] = `
 {
   "landing": "/account/o",
-  "tree": "heading "Home" level=1
+  "tree": "heading "Org 0" level=1
 button "Your account" [expanded=false]
 status
-text "No events yet"
-text "Add your first event. You can keep it as a draft until it is ready."
 button "New event"
-link "Add another organiser" href=/account/o?add=1
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+button "Add a photo"
+button "Show your WhatsApp"
+button "Add a manager"
+button "New event"
+button "Team"
+button "My page"
+button "My events"
+button "More"",
 }
 `;
 
@@ -237,12 +232,7 @@ searchbox "Search organisers by name"
 status
 button "Create a new organiser"
 text "Name and city. The team checks new organisers within a day."
-link "Just here to dance? Browse events" href=/
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Just here to dance? Browse events" href=/",
 }
 `;
 
@@ -298,30 +288,25 @@ heading "Waiting for an answer" level=2
 text "Org 0"
 text "Asked 1 Oct . The team usually replies within a day."
 text "Waiting"
-link "Just here to dance? Browse events" href=/
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Just here to dance? Browse events" href=/",
 }
 `;
 
 exports[`/account entry at '390x844' > /account/o > 'organiser-type (complete)' 1`] = `
 {
   "landing": "/account/o",
-  "tree": "heading "Home" level=1
+  "tree": "heading "Org 0" level=1
 button "Your account" [expanded=false]
 status
-text "No events yet"
-text "Add your first event. You can keep it as a draft until it is ready."
 button "New event"
-link "Add another organiser" href=/account/o?add=1
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+button "Add a photo"
+button "Show your WhatsApp"
+button "Add a manager"
+button "New event"
+button "Team"
+button "My page"
+button "My events"
+button "More"",
 }
 `;
 
@@ -408,30 +393,25 @@ heading "Waiting for an answer" level=2
 text "Org 0"
 text "Asked 1 Oct . The team usually replies within a day."
 text "Waiting"
-link "Just here to dance? Browse events" href=/
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Just here to dance? Browse events" href=/",
 }
 `;
 
 exports[`/account entry at 'desktop' > /account > 'organiser-type (complete)' 1`] = `
 {
   "landing": "/account/o",
-  "tree": "heading "Home" level=1
+  "tree": "heading "Org 0" level=1
 button "Your account" [expanded=false]
 status
-text "No events yet"
-text "Add your first event. You can keep it as a draft until it is ready."
 button "New event"
-link "Add another organiser" href=/account/o?add=1
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+button "Add a photo"
+button "Show your WhatsApp"
+button "Add a manager"
+button "New event"
+button "Team"
+button "My page"
+button "My events"
+button "More"",
 }
 `;
 
@@ -569,12 +549,7 @@ searchbox "Search organisers by name"
 status
 button "Create a new organiser"
 text "Name and city. The team checks new organisers within a day."
-link "Just here to dance? Browse events" href=/
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Just here to dance? Browse events" href=/",
 }
 `;
 
@@ -630,30 +605,25 @@ heading "Waiting for an answer" level=2
 text "Org 0"
 text "Asked 1 Oct . The team usually replies within a day."
 text "Waiting"
-link "Just here to dance? Browse events" href=/
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Just here to dance? Browse events" href=/",
 }
 `;
 
 exports[`/account entry at 'desktop' > /account/o > 'organiser-type (complete)' 1`] = `
 {
   "landing": "/account/o",
-  "tree": "heading "Home" level=1
+  "tree": "heading "Org 0" level=1
 button "Your account" [expanded=false]
 status
-text "No events yet"
-text "Add your first event. You can keep it as a draft until it is ready."
 button "New event"
-link "Add another organiser" href=/account/o?add=1
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+button "Add a photo"
+button "Show your WhatsApp"
+button "Add a manager"
+button "New event"
+button "Team"
+button "My page"
+button "My events"
+button "More"",
 }
 `;
 

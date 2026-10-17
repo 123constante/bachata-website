@@ -41,7 +41,7 @@ test('a mailbox-proven session claims, and Home then shows the organiser', async
   // The home re-read lists the organiser, so onboarding gives way to Home, which announces it.
   await expect(page.getByTestId('org-page-home')).toContainText('Ritmo Latino Leeds is yours');
   expect(fake.sent('claim_organiser_v1')).toEqual([{ p_organiser_id: LEEDS }]);
-  await expect(page.getByTestId('home-empty')).toBeVisible();
+  await expect(page.getByTestId('home-jobs')).toBeVisible();
   await expect(page.getByTestId('org-onboarding')).toHaveCount(0);
 });
 
@@ -100,7 +100,7 @@ test('create: name and a city picked in a view of the same sheet, then Home', as
     { p_name: 'Salsa & Bachata Leeds', p_city_id: CITY.id, p_contact_email: EMAIL },
   ]);
   await expect(page.getByTestId('org-page-home')).toContainText('Salsa & Bachata Leeds is saved as a draft');
-  await expect(page.getByTestId('home-empty')).toBeVisible();
+  await expect(page.getByTestId('home-jobs')).toBeVisible();
 });
 
 test('a declined request is shown with the answer', async ({ page }) => {

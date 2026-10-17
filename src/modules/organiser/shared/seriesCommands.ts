@@ -15,6 +15,8 @@ export const OWNER_COMMAND_KINDS = [
   'series.upsert', 'series.add_date', 'series.remove_date', 'occurrence.set_time',
   'series.set_lifecycle', 'occurrence.cancel', 'occurrence.set_override', 'series.skip_date',
   'series.unskip_date', 'series.set_recurrence', 'series.stop_repeating', 'series.end_run',
+  // D39 (admin A1): apply_aggregate_write_p5 gains the move arm.
+  'occurrence.move_date',
 ] as const;
 
 /**
@@ -233,15 +235,22 @@ export const addDateCommand = (date: string): OwnerCommand => ({ kind: 'series.a
 export const removeDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.remove_date', payload: { occurrence_id: occurrenceId } });
 export const skipDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.skip_date', payload: { occurrence_id: occurrenceId } });
 export const unskipDateCommand = (date: string): OwnerCommand => ({ kind: 'series.unskip_date', payload: { date } });
+/** Pause / resume (`{to}`, 4.11). */
 export const lifecycleCommand = (to: 'paused' | 'live' | 'archived' | 'pending_review'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
-/** Send a draft or returned series for review (W6; _owner_lifecycle_transition_allowed_p5 admits draft|rejected -> pending_review). */
+/**
+ * @deprecated review-era (D4): goes with useSendForReview once its last importer
+ * (events/ReviewCard.tsx, S5) is deleted; see docs/organiser-rebuild/handovers/S0b-review-strip.patch.
+ */
 export const submitForReviewCommand = (): OwnerCommand => lifecycleCommand('pending_review');
 
 // ---- one date (W5) -------------------------------------------------------------
 
 /** Cancel with a reason that is a cancellation_reasons label (required for owners). */
 export const cancelCommand = (reason: string): OwnerCommand => ({ kind: 'occurrence.cancel', payload: { cancelled: true, reason } });
+/** Put a CANCELLED date back (D46); a taken-off date uses unskipDateCommand. */
 export const uncancelCommand = (): OwnerCommand => ({ kind: 'occurrence.cancel', payload: { cancelled: false } });
+/** Move one date to another day (D39); the server rebuilds the instant from the wall-clock time (R3-18). */
+export const moveDateCommand = (toDate: string): OwnerCommand => ({ kind: 'occurrence.move_date', payload: { to_date: toDate } });
 
 /** London wall-clock HH:MM digits, sent as typed; an empty end lets the server keep the length. */
 export const setTimeCommand = (start: string, end: string | null): OwnerCommand => ({
@@ -319,6 +328,16 @@ export function createPayload(draft: CreateDraft, cityId?: string | null): Recor
     if (value) payload[FIELD_KEY[field]] = value;
   });
   return payload;
+}
+
+/**
+ * series.upsert payload for the New event DRAFT (D44): created at the name
+ * step with only the name, the format from the URL and the zone; every later
+ * step upserts the rest. Without the organiser key, like createPayload
+ * (selfServeApi.createSeriesCommand attaches it).
+ */
+export function createDraftPayload(name: string, format: OwnerFormat): Record<string, unknown> {
+  return { name: name.trim(), format, timezone: SERIES_TIMEZONE };
 }
 
 /**
