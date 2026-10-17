@@ -102,7 +102,7 @@ export function confirmCopy(kind: ConfirmKind, ctx: ConfirmContext): ConfirmCopy
       return {
         title: `Pause ${s}?`,
         consequence: 'The page and all its dates are hidden from dancers until you resume. Nothing is deleted.',
-        undo: 'Press Resume any time to bring it back.',
+        undo: 'Tap Resume any time to bring it back.',
         confirmLabel: 'Yes, pause it',
         keepLabel: 'No, leave it live',
         requireAck: false,

@@ -44,7 +44,7 @@ export const lifecycleTag = (status: string): Tag => ({ tone: TONE[status] ?? 'd
 
 /** The tag one date shows: a cancelled date says so; otherwise its event's tag. */
 export const dateTag = (seriesStatus: string, dateStatus: string): Tag =>
-  dateStatus === 'cancelled' ? { tone: 'neutral', label: 'Cancelled' } : lifecycleTag(seriesStatus);
+  dateStatus === 'cancelled' ? { tone: 'neutral', label: CANCELLED_WORD } : lifecycleTag(seriesStatus);
 
 export const TEAM = 'the Bachata Calendar team';
 
@@ -58,7 +58,7 @@ export function eventLock(status: string): string | null {
   return null;
 }
 
-/** 'Ended on Sat 5 Sep' ('... 2025' in another year; null when the event has not ended or has no end date). */
+/** 'Ended on Saturday 5 September' ('... 2025' in another year; null when not ended or no end date). */
 export const endedOnLabel = (status: string, endedOn: string | null | undefined, today: string) =>
   status === 'ended' && endedOn ? `Ended on ${calendarDate(endedOn, today)}` : null;
 
@@ -86,3 +86,11 @@ export function ownerWeeklyRule(series: { format: string | null; recurrence_rule
   const rule = weeklyRule(series.recurrence_rule);
   return rule && rule.interval === 1 && rule.weekdays.length === 1 ? rule : null;
 }
+
+/**
+ * The word for a cancelled date, and for an event whose every coming date is
+ * cancelled (My events and One event chips, the One event date rows, the date
+ * page tag): one export, never retyped. Declared last so the line numbers the
+ * tests read above stay put.
+ */
+export const CANCELLED_WORD = 'Cancelled';

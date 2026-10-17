@@ -57,7 +57,7 @@ export const CONTACT_COPY = {
   emailAdminOnly: 'Your email is set when the page is claimed. Only an admin can change it.',
   hint: 'Done adds it to your draft. Nothing goes live until you tap Save.',
   notAdded: 'Not added',
-  loading: 'Loading your contact details…',
+  loading: 'Loading your contact details\u2026',
   failed: 'Your contact details did not load, so they cannot be changed right now.',
   retry: 'Try again',
   noChange: 'No change: your contact details are already like this on your page.',

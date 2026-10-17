@@ -51,7 +51,7 @@ let resolveCity = vi.fn(async (id: string): Promise<Resolved> => {
   return c ? { cityId: c.id, cityName: c.name, citySlug: c.slug } : null;
 });
 
-function Harness({ rpc, uploadPhoto }: { rpc: Rpc; uploadPhoto?: (id: string, f: File) => Promise<string> }) {
+function Harness({ rpc, uploadPhoto, dockZ }: { rpc: Rpc; uploadPhoto?: (id: string, f: File) => Promise<string>; dockZ?: number }) {
   const { data: entity } = useQuery({ queryKey: organiserEntityQueryKey(ID), queryFn: async () => ({ ...server }), initialData: STORED, staleTime: Infinity });
   const [eip, setEip] = useState<EipBridge | null>(null);
   const ep = { ...entity, ...(eip?.overlay ?? {}) } as ProfileEntity;
@@ -66,17 +66,17 @@ function Harness({ rpc, uploadPhoto }: { rpc: Rpc; uploadPhoto?: (id: string, f:
       {ep.bio ? <p data-testid="bio" className={eip?.mark('bio')}>{ep.bio}</p> : eip?.slot('about-empty')}
       {eip?.slot('links')}
       <Link to="/organisers">Back to organisers</Link>
-      <EditInPlaceLayer organiserId={ID} entity={entity!} onBridge={setEip} client={{ rpc } as never} uploadPhoto={uploadPhoto} searchCities={searchCities} resolveCity={(id) => resolveCity(id)} />
+      <EditInPlaceLayer organiserId={ID} entity={entity!} onBridge={setEip} client={{ rpc } as never} uploadPhoto={uploadPhoto} searchCities={searchCities} resolveCity={(id) => resolveCity(id)} dockZ={dockZ} />
     </div>
   );
 }
 
-function setup(opts: { rpc?: Rpc; uploadPhoto?: (id: string, f: File) => Promise<string> } = {}) {
+function setup(opts: { rpc?: Rpc; uploadPhoto?: (id: string, f: File) => Promise<string>; dockZ?: number } = {}) {
   const rpc = opts.rpc ?? okRpc();
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: '/organisers/ritmo', element: <Harness rpc={rpc} uploadPhoto={opts.uploadPhoto} /> },
+      { path: '/organisers/ritmo', element: <Harness rpc={rpc} uploadPhoto={opts.uploadPhoto} dockZ={opts.dockZ} /> },
       { path: '/organisers', element: <p>All organisers</p> },
     ],
     { initialEntries: ['/organisers/ritmo'] },
@@ -161,6 +161,16 @@ describe('draft states x bar / tags', () => {
     expect(bar()).toBeNull();
     expect(tags()).toEqual([]);
     expect(window.localStorage.getItem(draftStorageKey(ID))).toBeNull();
+  });
+});
+
+describe('the Save dock layer', () => {
+  it.each([
+    { name: 'the public page keeps BAR_Z', dockZ: undefined, z: '50' },
+    { name: 'the organiser shell passes its own (dockZ)', dockZ: 60, z: '60' },
+  ])('$name', async ({ dockZ, z }) => {
+    setup({ dockZ });
+    await waitFor(() => expect(screen.getByTestId('eip-dock').style.zIndex).toBe(z));
   });
 });
 
@@ -658,5 +668,56 @@ describe('review round 1 fixes', () => {
     await waitFor(() => expect(within(dialog).getByRole('alert').textContent).toBe(CITY_COPY.checkFailed));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Check again' }));
     await waitFor(() => expect(within(dialog).getByTestId('eip-will-save').textContent).toBe('We will save:Manchester'));
+  });
+});
+
+describe('G3 fix pass: the leave dialog keeps focus (B-S8 c) and the came-back-different notice names a city (N-10)', () => {
+  beforeEach(() => {
+    resolveCity = vi.fn(async (id: string): Promise<Resolved> => {
+      const c = [LONDON, MANCHESTER].find((x) => x.id === id);
+      return c ? { cityId: c.id, cityName: c.name, citySlug: c.slug } : null;
+    });
+  });
+  const leaveFrom = async (link: HTMLElement) => {
+    link.focus();
+    fireEvent.click(link);
+    return screen.findByTestId('eip-leave');
+  };
+
+  it('Tab and Shift+Tab stay inside the leave dialog', async () => {
+    setup();
+    await draft('bio', 'Hi');
+    const d = await leaveFrom(screen.getByRole('link', { name: 'Back to organisers' }));
+    const buttons = within(d).getAllByRole('button');
+    buttons[buttons.length - 1].focus();
+    fireEvent.keyDown(d, { key: 'Tab' });
+    expect(document.activeElement).toBe(buttons[0]);
+    fireEvent.keyDown(d, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(buttons[buttons.length - 1]);
+  });
+
+  it('Stay here gives focus back to what had it before the dialog', async () => {
+    setup();
+    await draft('bio', 'Hi');
+    const link = screen.getByRole('link', { name: 'Back to organisers' });
+    const d = await leaveFrom(link);
+    fireEvent.click(within(d).getByRole('button', { name: 'Stay here' }));
+    await waitFor(() => expect(screen.queryByTestId('eip-leave')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(link));
+  });
+
+  it('a city that came back different is shown by its name, never its id', async () => {
+    const rpc: Rpc = vi.fn(async () => ({ data: { changed_keys: [], profile: { ...server, city_id: LONDON.id } }, error: null }));
+    setup({ rpc });
+    fireEvent.click(await waitFor(() => pencil('city')));
+    const dialog = await screen.findByRole('dialog', { name: 'City' });
+    fireEvent.change(within(dialog).getByRole('searchbox'), { target: { value: 'manc' } });
+    fireEvent.click(await within(dialog).findByLabelText('Manchester, United Kingdom'));
+    await waitFor(() => expect(within(dialog).getByTestId('eip-will-save').textContent).toBe('We will save:Manchester'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    fireEvent.click(within(await waitFor(() => bar()!)).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(notice()).toMatch(/came back different/));
+    expect(notice()).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/i);
+    expect(notice()).toContain('(we will show: Manchester)');
   });
 });
