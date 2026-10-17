@@ -297,7 +297,7 @@ export class OrganiserFake {
             upcoming_count: up.length, latest_decision: null, version: s.version,
             next_dates: up.slice(0, 3).map((d) => ({
               occurrence_id: this.occId(s, d), occurrence_date: d, lifecycle_status: s.cancelled[d] ? 'cancelled' : 'scheduled',
-              materialised_start_utc: `${d}T19:00:00+00:00`, has_own_changes: false, version: 1,
+              materialised_start_utc: `${d}T20:00:00+00:00`, has_own_changes: false, version: 1,
               venue_name: VENUES.find((v) => v.id === s.default_venue_id)?.name ?? null,
             })),
           };
@@ -318,7 +318,7 @@ export class OrganiserFake {
       },
       occurrences: [...this.dates(s)].reverse().map((d) => ({
         id: this.occId(s, d), occurrence_date: d, lifecycle_status: s.cancelled[d] ? 'cancelled' : 'scheduled', version: 1,
-        has_override: false, session_overrides_count: 0, materialised_start_utc: `${d}T19:00:00+00:00`,
+        has_override: false, session_overrides_count: 0, materialised_start_utc: `${d}T20:00:00+00:00`,
         added_sessions_count: (this.programmes.get(this.occId(s, d))?.sessions ?? []).filter((x) => x.added_session_id && x.removed !== true).length,
       })),
     };
@@ -334,7 +334,7 @@ export class OrganiserFake {
       program: [],
       schedule: { timezone: 'Europe/London', local_start_time: '20:00:00', local_end_time: '23:30:00' },
       occurrence: { id: this.occId(s, date), date, version: 1, series_id: s.id, lifecycle_status: s.cancelled[date] ? 'cancelled' : 'scheduled',
-        materialised_start_utc: `${date}T19:00:00+00:00` },
+        materialised_start_utc: `${date}T20:00:00+00:00` },
       added_sessions: [],
     };
   }

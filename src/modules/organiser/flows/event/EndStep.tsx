@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { WARN_END } from '@/modules/organiser/shared/copy';
-import { endRunCommand, tonightDate, wsComing, type EventWorkspace, type TodaySession } from '@/modules/organiser/events/eventModel';
+import { endRunCommand, readIsFull, tonightDate, wsComing, type EventWorkspace, type TodaySession } from '@/modules/organiser/events/eventModel';
 import { endLine } from './eventSteps';
 import { ChoiceButton, EventConflict, SendButton, StepError } from './parts';
 import { useEventSend } from './useEventSend';
@@ -17,7 +17,8 @@ export function EndStep({ ws, today }: { ws: EventWorkspace; today: string }) {
   const tonight = tonightDate(ws, today);
   const [answer, setAnswer] = useState<TodaySession | null>(null);
   if (conflict) return <EventConflict seriesId={seriesId} />;
-  const coming = wsComing(ws, today).filter((d) => d.occurrence_date > today).length;
+  // A full read misses the soonest dates: say what End does without a count (REVIEW-S5 SHOULD-1).
+  const coming = readIsFull(ws, today) ? null : wsComing(ws, today).filter((d) => d.occurrence_date > today).length;
   const end = () => sendThenDone(ws.series.version, endRunCommand(tonight ? answer : null), { title: 'Ended', message: `Ended - ${ws.series.name}` });
   return (
     <>

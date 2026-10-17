@@ -18,7 +18,7 @@ import {
   type SeriesWorkspace,
   type WorkspaceDate,
 } from '@/modules/organiser/shared/seriesModel';
-import { eventLock, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
+import { endedOnLabel, eventLock, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
 import { MAX_UPCOMING, endWithinCap, type CapInput } from './dateCap';
 import { ownerOneDate, scheduleView } from './schedule';
 
@@ -296,6 +296,20 @@ export const wsCancelledComing = (ws: EventWorkspace, today: string): WorkspaceD
   ws.dates.filter((d) => d.lifecycle_status === 'cancelled' && d.occurrence_date >= today).sort(byDate);
 
 /**
+ * The read is ORDER BY occurrence_date DESC LIMIT 100: when it is full and
+ * holds no past date, the SOONEST coming dates are the ones missing, so no
+ * count or keep list can be built from it (REVIEW-S5 SHOULD-1).
+ */
+export const readIsFull = (ws: EventWorkspace, today: string): boolean =>
+  ws.hasMore && ws.dates.every((d) => d.occurrence_date >= today);
+
+/** The lines a closed (ended / archived) event shows under its title, on the one-event screen and on Details. */
+export const closedLines = (ws: EventWorkspace, today: string): { lock: string | null; endedOn: string | null } => ({
+  lock: eventLock(ws.series.lifecycle_status),
+  endedOn: endedOnLabel(ws.series.lifecycle_status, ws.endedOn, today),
+});
+
+/**
  * The "N more" line under the dates Home lists (4.11: read from the workspace).
  * admin_event_workspace_p5 returns at most 100 dates; when it is full and every
  * date in it is still to come, the real count is past what it can say: "100+"
@@ -303,7 +317,7 @@ export const wsCancelledComing = (ws: EventWorkspace, today: string): WorkspaceD
  */
 export function moreLabel(ws: EventWorkspace | undefined, shown: number, homeCount: number, today: string): string | null {
   if (!ws) return homeCount - shown > 0 ? `${homeCount - shown} more` : null;
-  if (ws.hasMore && ws.dates.every((d) => d.occurrence_date >= today)) return '100+';
+  if (readIsFull(ws, today)) return '100+';
   const n = wsComing(ws, today).length - shown;
   return n > 0 ? `${n} more` : null;
 }

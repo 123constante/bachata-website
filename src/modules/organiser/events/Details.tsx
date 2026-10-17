@@ -19,6 +19,7 @@ import {
   type DetailField, type EventDraft, type EventWorkspace, type TextDetail,
 } from './eventModel';
 import { useEventWorkspace } from './eventsApi';
+import { ClosedLines } from './ClosedLines';
 
 const TEXT_FIELDS: TextDetail[] = ['name', 'time', 'level', 'music', 'tickets', 'instagram', 'about'];
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left';
@@ -109,16 +110,23 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
 
   return (
     <>
-      {lock && <p className="text-[14px] text-[var(--mut)]" data-testid="org-detail-lock">{lock}</p>}
+      <ClosedLines ws={ws} today={today} testId="org-detail" />
       <Card testId="org-detail-rows">
         {row('name', shown(ws, 'name'))}
         {row('venue', venueName(venues.data, ws.series.default_venue_id) ?? (ws.series.default_venue_id ? 'Venue' : 'Add'))}
         {(['time', 'level', 'music', 'tickets', 'instagram', 'about'] as TextDetail[]).map((f) => row(f, shown(ws, f)))}
-        <Link to={ORG_PATHS.cover(seriesId)} data-testid="org-detail-cover" className={ROW}>
-          <span className="w-[88px] shrink-0 text-[14px] text-[var(--mut)]">Cover</span>
-          <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{ws.series.default_cover_image_url ? 'Change' : 'Add'}</span>
-          <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
-        </Link>
+        {lock ? (
+          <div className={cn(ROW, 'text-[var(--mut)]')} data-testid="org-detail-cover">
+            <span className="w-[88px] shrink-0 text-[14px]">Cover</span>
+            <span className="min-w-0 flex-1 truncate text-[15px]">{ws.series.default_cover_image_url ? 'Set' : 'None'}</span>
+          </div>
+        ) : (
+          <Link to={ORG_PATHS.cover(seriesId)} data-testid="org-detail-cover" className={ROW}>
+            <span className="w-[88px] shrink-0 text-[14px] text-[var(--mut)]">Cover</span>
+            <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{ws.series.default_cover_image_url ? 'Change' : 'Add'}</span>
+            <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
+          </Link>
+        )}
       </Card>
       <StepError text={error ?? cityError} />
       <ScheduleCard seriesId={seriesId} next={firstListedDate(ws.dates, today)} today={today} upcoming={upcoming.length}

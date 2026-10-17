@@ -12,9 +12,10 @@ import { useFlowHome } from '@/modules/organiser/flows/add/useFlow';
 import { ACTION_LABEL, EventStep, eventActions, eventStepPath, readStep, STEP_PARAM, type EventStepName } from '@/modules/organiser/flows/event';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Card, EmptyState, ErrorState, SkeletonRows } from '../ui';
+import { ClosedLines } from './ClosedLines';
 import { DatesTakenOff } from './DatesTakenOff';
 import { EventList } from './EventList';
-import { moreLabel, wsCancelledComing, type EventWorkspace } from './eventModel';
+import { moreLabel, readIsFull, wsCancelledComing, type EventWorkspace } from './eventModel';
 import { useEventWorkspace } from './eventsApi';
 
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left text-[15px]';
@@ -77,6 +78,7 @@ function Dates({ seriesId, home, ws, today }: { seriesId: string; home: HomeSeri
         {!shown.length && (
           <div className="px-[16px] py-[10px]" data-testid="org-coming-none">
             <p className="text-[15px] text-[var(--fg)]">No coming dates</p>
+            {status === 'paused' && <p className="pt-[4px] text-[14px] text-[var(--mut)]" data-testid="org-coming-resume">Resume it to add dates</p>}
             {canAddTo(status) && (
               <Link to={ORG_PATHS.addEvent(seriesId)} className={cn(ROW, 'px-0 font-semibold text-[var(--gold)]')} data-testid="org-coming-add">Add a date</Link>
             )}
@@ -107,8 +109,8 @@ function Dates({ seriesId, home, ws, today }: { seriesId: string; home: HomeSeri
   );
 }
 
-function Actions({ ws }: { ws: EventWorkspace }) {
-  const rows = eventActions(ws.series);
+function Actions({ ws, today }: { ws: EventWorkspace; today: string }) {
+  const rows = eventActions(ws.series, readIsFull(ws, today));
   const shown = (Object.keys(rows) as EventStepName[]).filter((k) => rows[k]);
   if (!shown.length) return null;
   return (
@@ -167,11 +169,12 @@ export default function OneEvent() {
         {one && <span className="shrink-0 text-[13px] text-[var(--mut)]" data-testid="org-event-chip">{seriesChip(one, today).label}</span>}
         <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
       </button>
+      <ClosedLines ws={ws.data} today={today} testId="org-event" />
       <MonthDots ws={ws.data} today={today} />
       <Dates seriesId={seriesId} home={one} ws={ws.data} today={today} />
       <DatesTakenOff series={ws.data.series} dates={ws.data.dates} today={today} lock={eventLock(ws.data.series.lifecycle_status)}
         dirty={false} canChooseEnd={!!ownerWeeklyRule(ws.data.series)} />
-      <Actions ws={ws.data} />
+      <Actions ws={ws.data} today={today} />
     </>
   );
 

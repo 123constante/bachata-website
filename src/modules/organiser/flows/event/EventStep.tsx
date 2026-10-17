@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { lifecycleCommand } from '@/modules/organiser/shared/seriesCommands';
 import { ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
-import { dayChangeCommand, stopKeepingCommand, wsComing, type EventWorkspace } from '@/modules/organiser/events/eventModel';
+import { dayChangeCommand, readIsFull, stopKeepingCommand, wsComing, type EventWorkspace } from '@/modules/organiser/events/eventModel';
 import { EndStep } from './EndStep';
 import { ACTION_LABEL, WEEKDAY, eventActions, type EventStepName } from './eventSteps';
 import { ChoiceButton, EventConflict, EventStepShell, SendButton, StepError } from './parts';
@@ -68,7 +68,7 @@ function StopStep({ ws, today }: { ws: EventWorkspace; today: string }) {
  * cannot take (a stale link, a course's stop) shows the reason, never a button.
  */
 export function EventStep({ ws, today, step }: { ws: EventWorkspace; today: string; step: EventStepName }) {
-  const row = eventActions(ws.series)[step];
+  const row = eventActions(ws.series, readIsFull(ws, today))[step];
   const body = !row || row.reason ? (
     <p className="text-[15px] text-[var(--mut)]" data-testid="event-step-refused">{row?.reason ?? 'This event cannot do that now.'}</p>
   ) : step === 'pause' ? <LifecycleStep ws={ws} to="paused" />

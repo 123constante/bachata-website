@@ -47,11 +47,13 @@ async function controls(page: Page) {
   });
 }
 
-async function expectTapTargets(page: Page) {
+// `min`: how many controls the screen must hold, so an empty measure never passes. A locked
+// (ended) Details screen holds only the header's back and account controls.
+async function expectTapTargets(page: Page, min = 3) {
   // Let entrance motion (0.3s) finish before measuring.
   await page.waitForTimeout(400);
   const found = await controls(page);
-  expect(found.length, 'the screen has controls to measure').toBeGreaterThan(2);
+  expect(found.length, 'the screen has controls to measure').toBeGreaterThanOrEqual(min);
   expect(found.filter((c) => c.h < MIN - 0.5), `controls under ${MIN}px high`).toEqual([]);
   await expectNoHorizontalScroll(page);
 }
@@ -150,9 +152,11 @@ test.describe('tap targets @390', () => {
     await page.getByTestId('org-event-title').click();
     await expect(page.getByTestId('org-detail-lock')).toContainText('To run it again, ask the Bachata Calendar team.');
     await expect(page.getByTestId('org-detail-venue')).toBeVisible();
-    await expect(page.locator('a[data-testid^="org-detail-"]').filter({ hasNotText: 'Cover' })).toHaveCount(0);
+    // Every row reads only, the Cover row too (REVIEW-S5 NOTE-5).
+    await expect(page.getByTestId('org-detail-cover')).toBeVisible();
+    await expect(page.locator('a[data-testid^="org-detail-"]')).toHaveCount(0);
     await expect(page.getByTestId('org-page-details')).not.toContainText('Extend');
-    await expectTapTargets(page);
+    await expectTapTargets(page, 2);
     // A stale ?edit= link on an ended event shows the read-only rows, never a box.
     await page.goto(`/account/o/events/${PICNIC}/details?edit=about`);
     await expect(page.getByTestId('org-detail-lock')).toBeVisible();

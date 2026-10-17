@@ -2,7 +2,7 @@
 // URL: the event's own route plus one query key (the same way Cancel's put
 // back rides on its confirm route), so no new route is needed in the shell.
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
-import { ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
+import { TEAM, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
 import type { DetailField } from '@/modules/organiser/events/eventModel';
 
 export type EventStepName = 'pause' | 'resume' | 'end' | 'day' | 'stop';
@@ -19,6 +19,8 @@ export const readStep = (raw: string | null): EventStepName | null =>
 /** R3-1: a live course must keep its schedule (the server refuses stop_repeating). */
 export const COURSE_STOP_REASON = 'A course keeps its weeks';
 export const PATTERN_REASON = 'Only a weekly event changes its day here';
+/** REVIEW-S5 SHOULD-1: the read holds only the newest 100 dates, so the keep list would drop the soonest. */
+export const FULL_READ_STOP_REASON = `This event has over 100 coming dates, too many to stop here. To stop it repeating, ask ${TEAM}.`;
 
 export const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -32,9 +34,10 @@ const hasRule = (rule: unknown) => !!rule && typeof rule === 'object';
 /**
  * Which of the five rows an event shows, and why one cannot work. Pause only
  * when live, Resume only when paused, End only when live or paused (a draft is
- * archived, never ended); ended and archived events show none.
+ * archived, never ended); ended and archived events show none. `fullRead`
+ * (eventModel.readIsFull) turns Stop repeating off: its keep list needs every coming date.
  */
-export function eventActions(s: SeriesFacts): Record<EventStepName, ActionRow> {
+export function eventActions(s: SeriesFacts, fullRead = false): Record<EventStepName, ActionRow> {
   const closed = s.lifecycle_status === 'ended' || s.lifecycle_status === 'archived';
   const running = s.lifecycle_status === 'live' || s.lifecycle_status === 'paused';
   const repeats = !closed && (s.format === 'recurring' || s.format === 'course') && hasRule(s.recurrence_rule);
@@ -43,7 +46,7 @@ export function eventActions(s: SeriesFacts): Record<EventStepName, ActionRow> {
     resume: s.lifecycle_status === 'paused' ? { reason: null } : null,
     end: running ? { reason: null } : null,
     day: !repeats ? null : s.format === 'course' ? { reason: COURSE_STOP_REASON } : ownerWeeklyRule(s) ? { reason: null } : { reason: PATTERN_REASON },
-    stop: !repeats ? null : s.format === 'course' ? { reason: COURSE_STOP_REASON } : { reason: null },
+    stop: !repeats ? null : s.format === 'course' ? { reason: COURSE_STOP_REASON } : fullRead ? { reason: FULL_READ_STOP_REASON } : { reason: null },
   };
 }
 
@@ -55,8 +58,12 @@ export const ACTION_LABEL: Record<EventStepName, string> = {
   stop: 'Stop repeating',
 };
 
-/** "2 coming dates come off. Past dates stay." -- what series.end_run does (S5 measured the server body). */
-export function endLine(coming: number): string {
+/**
+ * "2 coming dates come off. Past dates stay." -- what series.end_run does (S5
+ * measured the server body). null = the count is unknown (a full read), so no number.
+ */
+export function endLine(coming: number | null): string {
+  if (coming === null) return 'Every coming date comes off. Past dates stay.';
   if (coming <= 0) return 'Past dates stay.';
   return `${coming} coming ${coming === 1 ? 'date comes' : 'dates come'} off. Past dates stay.`;
 }
