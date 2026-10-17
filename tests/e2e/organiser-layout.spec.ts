@@ -91,7 +91,7 @@ test.describe('tap targets @390', () => {
   });
 
   test('date editor, session view and people search', async ({ page }) => {
-    await openOrganiser(page, `/account/o/events/${FRIDAY}/dates/${OCC}`);
+    await openOrganiser(page, `/account/o/change/${FRIDAY}/${OCC}/lineup`);
     await expect(page.getByTestId('session-row')).toHaveCount(2);
     await expectTapTargets(page);
     await page.getByTestId('session-row-open').first().click();
@@ -126,7 +126,7 @@ test.describe('tap targets @390', () => {
     await expect(page.getByTestId('org-preview-bar-preview')).toBeVisible();
     expect(await barHeight(page)).toBeGreaterThan(64);
 
-    await page.goto(`/account/o/events/${FRIDAY}/dates/${OCC}`);
+    await page.goto(`/account/o/change/${FRIDAY}/${OCC}/lineup`);
     await expect(page.getByTestId('session-row')).toHaveCount(2);
     expect(await barHeight(page)).toBeLessThan(64);
     await expect(page.getByTestId('date-preview-bar-preview')).toHaveCount(0);
@@ -173,7 +173,7 @@ test.describe('tap targets @390', () => {
       ['/account/o/events', 'org-event-row'],
       ['/account/o/events/new', 'org-new-event-name'],
       [`/account/o/events/${FRIDAY}`, 'org-schedule-session'],
-      [`/account/o/events/${FRIDAY}/dates/${OCC}`, 'session-row'],
+      [`/account/o/change/${FRIDAY}/${OCC}/lineup`, 'session-row'],
       ['/account/o/team', 'access-request'],
       ['/account/o/profile', 'profile-name'],
     ]) {
@@ -181,7 +181,7 @@ test.describe('tap targets @390', () => {
       await expect(page.getByTestId(ready).first()).toBeVisible();
       await expectNoHorizontalScroll(page);
     }
-    await page.goto(`/account/o/events/${FRIDAY}/dates/${OCC}`);
+    await page.goto(`/account/o/change/${FRIDAY}/${OCC}/lineup`);
     await page.getByTestId('session-row-open').first().click();
     await page.getByTestId('session-add-person').click();
     await page.getByTestId('people-search').fill('ev');

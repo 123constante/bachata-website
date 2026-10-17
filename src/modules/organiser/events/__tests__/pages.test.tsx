@@ -700,7 +700,7 @@ describe('event editor', () => {
     expect(rows[0].textContent).toContain('20:00\u201321:00');
     expect(rows[1].textContent).toContain('DJ Sol');
     fireEvent.click(rows[0]);
-    expect(screen.getByTestId('where').textContent).toBe('/account/o/events/s1/dates/o1');
+    expect(screen.getByTestId('where').textContent).toBe('/account/o/change/s1/o1/lineup');
   });
 
   it('shows the organisers of the event', async () => {
@@ -715,7 +715,7 @@ describe('event editor', () => {
     fireEvent.click(screen.getByTestId('org-dates-past-toggle'));
     expect(await screen.findByTestId('org-dates-past')).toBeTruthy();
     fireEvent.click(screen.getAllByTestId('org-date-row')[0]);
-    expect(screen.getByTestId('where').textContent).toBe('/account/o/events/s1/dates/o1');
+    expect(screen.getByTestId('where').textContent).toBe('/account/o/change/s1/o1/lineup');
   });
 
   it('nothing unsaved: a slim bar (one line + the disabled button); an edit brings the public card, ONE primary and the live note', async () => {

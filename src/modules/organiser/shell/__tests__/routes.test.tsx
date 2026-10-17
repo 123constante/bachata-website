@@ -52,7 +52,7 @@ describe('main screens stay mounted on the new paths', () => {
     ['/account/o/events', 'org-page-events'],
     ['/account/o/new/what', 'org-page-new-event'],
     ['/account/o/events/s1', 'org-page-event-editor'],
-    ['/account/o/change/s1/o1', 'org-page-date'],
+    ['/account/o/change/s1/o1/lineup', 'org-page-date'],
     ['/account/o/team', 'org-page-team'],
     ['/account/o/page', 'org-page-profile'],
   ])('%s renders %s, with no tab bar', async (path, page) => {
@@ -67,13 +67,30 @@ describe('main screens stay mounted on the new paths', () => {
   });
 });
 
+describe('Change a date (S2) owns its six paths', () => {
+  it.each([
+    '/account/o/change',
+    '/account/o/change/s1',
+    '/account/o/change/s1/o1',
+    '/account/o/change/s1/o1/time',
+    '/account/o/change/s1/o1/venue',
+    '/account/o/change/s1/o1/day',
+  ])('%s renders the flow (reads pending: loading), not a placeholder', async (path) => {
+    at(path);
+    expect(await screen.findByTestId('change-loading', {}, COLD)).toBeTruthy();
+    expect(screen.queryByTestId('org-placeholder')).toBeNull();
+    expect(screen.queryByTestId('org-page-date')).toBeNull();
+  });
+
+  it('/account/o/done is the shared Done screen (a visit with no state goes Home)', async () => {
+    at('/account/o/done');
+    expect(await screen.findByTestId('org-page-home', {}, COLD)).toBeTruthy();
+    expect(screen.queryByTestId('org-placeholder')).toBeNull();
+  });
+});
+
 describe('every R1 route answers until its slice lands (placeholder)', () => {
   it.each([
-    ['/account/o/change', 'Change a date'],
-    ['/account/o/change/s1', 'Change a date'],
-    ['/account/o/change/s1/o1/time', 'Change a date'],
-    ['/account/o/change/s1/o1/venue', 'Change a date'],
-    ['/account/o/change/s1/o1/day', 'Change a date'],
     ['/account/o/add', 'Add a date'],
     ['/account/o/add/s1', 'Add a date'],
     ['/account/o/add/s1/day-1', 'Add a date'],
