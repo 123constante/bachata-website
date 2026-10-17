@@ -4,11 +4,13 @@ import { sanitizeReturnTo } from "@/lib/authRouting";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmailText } from "@/components/account/EmailText";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useAuth } from "@/hooks/useAuth";
+import { SIGN_OUT_FAILED, useSignOutToHome } from "@/components/account/profiles/signOutToHome";
 import { useNoindexMeta } from "@/hooks/useNoindexMeta";
 import { buildBreadcrumbs } from "@/lib/breadcrumbs";
-import { CONTINUE_AS_PATH } from "@/lib/accountRouting";
+import { ACCOUNT_RESTORE_PATH, CONTINUE_AS_PATH } from "@/lib/accountRouting";
 import { DELETION_STATUS_KEY, deletionLanding, fetchDeletionStatus, restoreAccount, type RestoreOutcome } from "@/lib/accountDeletion";
 import { ACCOUNT_CONTACT_EMAIL, accountContactHref, formatDeletedOn, restoreMessage } from "@/lib/accountDeletionCopy";
 
@@ -25,15 +27,25 @@ const OUTLINE =
   "inline-flex min-h-[44px] w-full items-center justify-center rounded-full border border-border px-[16px] text-[14px] font-semibold text-foreground";
 const CARD = "space-y-2 rounded-xl border border-border bg-card p-3";
 
-/** After 30 days: hidden and kept. Both actions go to the one contact address. */
+/**
+ * After 30 days: hidden and kept. Two asks go to the one contact address; the person is still signed in,
+ * so the card also offers the calendar and a sign-out (audit M26: never a dead end).
+ */
 export function DeletedCard({ deletedAt }: { deletedAt: string | null }) {
   const on = formatDeletedOn(deletedAt);
+  // Review #789 B1: the one sign-out path (leave first), or AuthGuard lands the person on "Welcome back".
+  const { signOutToHome, busy } = useSignOutToHome();
+  const [failed, setFailed] = useState(false);
+  const leave = async () => {
+    setFailed(false);
+    if ((await signOutToHome()) === "failed") setFailed(true);
+  };
   return (
     <section className={CARD} data-testid="restore-deleted-card">
       <h2 className="text-[15px] font-semibold text-foreground">{on ? <>This account was deleted on {on}</> : "This account was deleted"}</h2>
       <p className="text-[14px] text-foreground">
         It is hidden from everyone and more than 30 days have passed, so signing in no longer brings it back. We still
-        keep it, hidden. Write to us at <span className="break-all font-semibold">{ACCOUNT_CONTACT_EMAIL}</span> and we will help.
+        keep it, hidden. Write to us at <EmailText email={ACCOUNT_CONTACT_EMAIL} className="font-semibold" /> and we will help.
       </p>
       <a className={PILL} href={accountContactHref("Please restore my account")} data-testid="restore-ask-restore">
         Ask us to restore it
@@ -41,6 +53,17 @@ export function DeletedCard({ deletedAt }: { deletedAt: string | null }) {
       <a className={OUTLINE} href={accountContactHref("Please erase my account")} data-testid="restore-ask-erase">
         Ask us to erase it
       </a>
+      <Link to="/" className={OUTLINE} data-testid="restore-back-to-calendar">
+        Back to the calendar
+      </Link>
+      <button type="button" className={OUTLINE} onClick={() => void leave()} disabled={busy} data-testid="restore-signout">
+        {busy ? <>Signing out&hellip;</> : "Sign out"}
+      </button>
+      {failed && (
+        <p role="alert" className="text-[13px] text-destructive" data-testid="restore-signout-error">
+          {SIGN_OUT_FAILED}
+        </p>
+      )}
     </section>
   );
 }
@@ -76,7 +99,8 @@ export const AccountRestoreScreen = () => {
   const queryClient = useQueryClient();
   // The page the sign-in was headed for (pages/AuthCallback carries it): Continue goes there.
   const [searchParams] = useSearchParams();
-  const continueTo = sanitizeReturnTo(searchParams.get("returnTo")) ?? CONTINUE_AS_PATH;
+  // Never Continue back to this page (the deleted page's "Sign in to undo" returns here).
+  const continueTo = sanitizeReturnTo(searchParams.get("returnTo"), { exclude: ACCOUNT_RESTORE_PATH }) ?? CONTINUE_AS_PATH;
   const status = useQuery({
     queryKey: [DELETION_STATUS_KEY, user?.id ?? null],
     queryFn: fetchDeletionStatus,
@@ -133,7 +157,7 @@ export const AccountRestoreScreen = () => {
 const AccountRestore = () => {
   useNoindexMeta(true);
   return (
-    <GlobalLayout breadcrumbs={buildBreadcrumbs("accountRestore")}>
+    <GlobalLayout breadcrumbs={buildBreadcrumbs("accountRestore")} showGradientBg={false}>
       <AuthGuard>
         <AccountRestoreScreen />
       </AuthGuard>

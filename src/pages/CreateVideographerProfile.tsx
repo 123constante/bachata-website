@@ -351,6 +351,7 @@ const CreateVideographerProfile = () => {
                   <div>
                     <Label>City</Label>
                     <CityPicker
+                      aria-label="City"
                       value={form.city}
                       onChange={(city) => setForm({ ...form, city })}
                       placeholder="Select city..."

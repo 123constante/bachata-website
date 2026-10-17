@@ -115,7 +115,7 @@ describe("/auth role step", () => {
     expect(screen.queryByRole("button", { name: /^organiser/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /^teacher/i })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /i.m also an organiser/i }));
+    fireEvent.click(screen.getByRole("button", { name: /i.m an organiser/i }));
 
     expect(screen.getByRole("button", { name: /^organiser/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /^teacher/i })).toBeTruthy();

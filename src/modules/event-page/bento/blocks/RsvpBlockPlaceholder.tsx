@@ -15,7 +15,7 @@ const RSVP_GHOST_STYLE: CSSProperties = {
   border: '1px solid hsl(var(--bento-fg-muted) / 0.25)',
 };
 const RSVP_BTN =
-  'flex h-10 items-center justify-center gap-1.5 rounded-full px-3 text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50';
+  'flex h-[44px] items-center justify-center gap-1.5 rounded-full px-3 text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50';
 const RSVP_META_CLASS = 'mt-2 text-[12px]';
 const RSVP_META_STYLE: CSSProperties = { color: 'hsl(var(--bento-fg-muted))' };
 

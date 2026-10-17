@@ -178,3 +178,26 @@ describe('the header account icon', () => {
     expect(icon()).toBeNull();
   });
 });
+
+// Review #789 S2: the restated dancer-app base cannot drift from the app's own constant.
+describe('isSignedInOnlyTarget', () => {
+  it('DANCER_APP_PREFIX is the dancer app base', async () => {
+    const { DANCER_APP_PREFIX } = await import('@/lib/accountRouting');
+    const { DANCER_APP_BASE } = await import('@/modules/dancer-app/shell/routes');
+    expect(DANCER_APP_PREFIX).toBe(DANCER_APP_BASE);
+  });
+  it.each([
+    ['/account/o', true],
+    ['/account/settings?from=app', true],
+    ['/APP/home', true],
+    ['/app', true],
+    ['/invite/abc', true],
+    ['/organisers/x?claim=1', true],
+    ['/event/abc', false],
+    ['/apple', false],
+    ['/', false],
+  ])('%s -> %s', async (target, expected) => {
+    const { isSignedInOnlyTarget } = await import('@/lib/accountRouting');
+    expect(isSignedInOnlyTarget(target)).toBe(expected);
+  });
+});

@@ -302,10 +302,45 @@ const COMMONJS_HELPERS_ID = "\0commonjsHelpers.js";
 // not match -- that copy belongs to its package), and it must not be under
 // node_modules at all. Adding a module here moves its bytes onto every route
 // that loads londonDate; re-measure with the command in the header first.
+//
+// src/lib/focusMode.ts (2026-10-16, dancer journey fixes) rides here too: the
+// sign-up focus mapping, a no-import leaf that the root AppChrome reads on EVERY
+// route, and that the lazy dancer-app shell and FinishProfile also import. Shared
+// by root and lazy chunks, rollup gave it a chunk of its own: +1 first-load
+// request on every budgeted route. Its bytes were already on every route (root),
+// so pairing it here costs no bytes and takes the request back.
+//
+// src/lib/accountPaths.ts and src/lib/authRouting.ts (2026-10-16, review #789
+// S6): import-free leaves the site header reads on EVERY route once
+// VITE_ENABLE_ORGANISER_SELF_SERVE is on (account icon, sign-in link). Left to
+// rollup, authRouting rode lib-account (accountRouting imports it), so the
+// header pulled the whole lib-account chunk -- the avatar with it, ~2.5 KB gz --
+// onto every public page. Here they cost ~0.5 KB gz on every route and no
+// request, flag on or off; re-measure both flag states before moving them.
 export const LIB_EVENT_RULES_MODULES = [
   "/src/lib/eventCategory.ts",
   "/src/lib/londonDate.ts",
+  "/src/lib/focusMode.ts",
+  "/src/lib/accountPaths.ts",
+  "/src/lib/authRouting.ts",
 ];
+
+// The SECOND first-party group (2026-10-16, dancer journey fixes): the ONE avatar
+// (src/components/account/profiles/PersonAvatar.tsx + its pure avatarFallback.ts)
+// rides with src/lib/accountRouting.ts. The avatar is shared by the dancer-app
+// chunk and the lazy account pages (switcher, Continue as, /account, FinishProfile),
+// so rollup cut it into a chunk of its own: +1 first-load request on /app/* (chunk
+// ratchet 59 vs 58). accountRouting is in the first load of every one of those
+// importers already; among the budgeted routes only dancer-app loads it, so the
+// pairing moves ~0.6 KB gz onto no budgeted route that did not already pay it.
+export const LIB_ACCOUNT_MODULES = [
+  "/src/lib/accountRouting.ts",
+  "/src/components/account/profiles/PersonAvatar.tsx",
+  "/src/components/account/profiles/avatarFallback.ts",
+];
+
+const isLibAccountModule = (id: string): boolean =>
+  !id.includes("node_modules") && LIB_ACCOUNT_MODULES.some((needle) => id.endsWith(needle));
 
 const isLibEventRulesModule = (id: string): boolean =>
   !id.includes("node_modules") &&
@@ -339,6 +374,7 @@ export function classifyChunk(id: string): string | undefined {
   // The SECOND branch ahead of the node_modules gate, and the only first-party
   // one. LIB_EVENT_RULES_MODULES above says what it buys and how it is bounded.
   if (isLibEventRulesModule(id)) return "lib-event-rules";
+  if (isLibAccountModule(id)) return "lib-account";
   if (!id.includes("node_modules")) return undefined;
   // tslib rides with react, and it is FIRST, for a reason that is
   // not about react at all. DO NOT DELETE THIS BRANCH after

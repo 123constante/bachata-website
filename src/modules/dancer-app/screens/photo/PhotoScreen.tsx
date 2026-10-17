@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, KeyboardEvent, PointerEvent, WheelEvent } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
-import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
+import { validateImageFile } from '@/lib/upload-validation';
+import { APP_WELCOME_PATH } from '@/lib/accountRouting';
+import { photoUploadFailureMessage } from './uploadFailure';
 import { DancerApiError } from '../../api/errors';
 import {
   OUTPUT_QUALITY,
@@ -60,6 +62,10 @@ const PhotoScreen = () => {
   const putProfile = usePutMyDancerEdit();
   const profileQuery = useMyDancerEdit();
   const returnTo = returnPathFor(params.get('return'));
+  // Audit L11: reached with ?return= (setup, Edit) the shell's tabs may be hidden (sign-up focus mode),
+  // so pick and crop carry their own way back. Without it, the tabs are the way back.
+  const hasReturn = params.get('return') !== null;
+  const backLabel = returnTo.split('?')[0] === APP_WELCOME_PATH ? 'Back to setup' : 'Back';
 
   const [phase, setPhase] = useState<Phase>('pick');
   const [decoded, setDecoded] = useState<DecodedPhoto | null>(null);
@@ -215,13 +221,18 @@ const PhotoScreen = () => {
           ? cause.message
           : stage === 'save'
             ? 'Your photo uploaded but we could not save it to your profile. Check your connection and try again.'
-            : uploadErrorMessage(cause),
+            : photoUploadFailureMessage(cause),
       );
       setPhase('preview');
     }
   };
 
   const inputStyle = useMemo(() => ({ display: 'none' }) as const, []);
+  const backLink = hasReturn ? (
+    <Link to={returnTo} replace className="da-tap" data-testid="photo-back" style={{ ...btn(false), display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+      {backLabel}
+    </Link>
+  ) : null;
 
   return (
     <section className="da-card" data-testid="dancer-screen-photo" aria-labelledby="photo-title" style={{ padding: 14 }}>
@@ -259,6 +270,7 @@ const PhotoScreen = () => {
               Choose from my photos
               <input type="file" accept="image/*" onChange={onFile} style={inputStyle} data-testid="photo-input-library" aria-label="Choose from my photos" />
             </label>
+            {backLink}
           </div>
           <p className="da-muted" style={note}>
             If your camera does not open, allow camera access for this site in your browser settings, or choose from your photos instead.
@@ -318,6 +330,7 @@ const PhotoScreen = () => {
             <button type="button" className="da-tap" style={btn(false)} onClick={startOver}>
               Choose a different photo
             </button>
+            {backLink}
           </div>
         </div>
       )}

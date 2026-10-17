@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CityPicker } from "@/components/ui/city-picker";
+import { ADD_CITY_MESSAGE, dancerMessageUsUrl } from "@/lib/contactLinks";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-intent";
 import {
@@ -21,19 +22,23 @@ import {
   isOtpSignupDisabledError,
   isSignupAllowlistRefusal,
   SIGNED_IN_LANDING_PATH,
+  OTP_RATE_LIMITED_MESSAGE,
+  SIGNUP_HELP_WHATSAPP_URL,
+  isOtpRateLimitedError,
 } from "@/lib/auth-otp-routing";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
 import { trackAuthStep } from "@/lib/trackAuthStep";
 import { acceptTerms, hasAcceptedTerms } from "@/lib/termsConsent";
 import { TermsAcceptCard } from "@/components/auth/TermsAcceptCard";
-import MagicLinkConfirmation, { forgetCodeStep, readCodeStep, rememberCodeStep } from "@/components/MagicLinkConfirmation";
+import MagicLinkConfirmation, { forgetCodeStep, readCodeStep, rememberCodeStep, type ResendOutcome } from "@/components/MagicLinkConfirmation";
+import { ConsentLine } from "@/components/auth/ConsentLine";
+import { AUTH_ACTION_LABELS } from "@/lib/auth-labels";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
 import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { flags } from "@/lib/featureFlags";
 import { SIGNUP_STEPS, getNextStep, getPreviousStep, getStepIndex, type SignupStep } from "@/lib/auth-signup-resolver";
-import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
 import { DanceRolePicker } from "@/components/profile/DanceRolePicker";
 
 const ROLE_OPTIONS: { label: string; icon: typeof Sparkles; value: EntryRole; description: string }[] = [
@@ -86,6 +91,9 @@ const AuthContent = () => {
   // With organiser self-serve on, a sign-in with no destination lands on
   // /account/continue (the person's sides: straight on, or "Continue as...").
   const returnTo = explicitReturnTo || (flags.organiserSelfServe ? SIGNED_IN_LANDING_PATH : "/");
+  // H9: "Continue browsing" is for someone who is NOT signed in, so it never goes
+  // to the signed-in landing (a guarded page that bounces straight back here).
+  const browseTo = explicitReturnTo || "/";
   const userType = searchParams.get("userType");
   const mode = searchParams.get("mode") || "signup";
 
@@ -144,7 +152,11 @@ const AuthContent = () => {
     trackAnalyticsEvent("auth_viewed", { mode: mode === "signin" ? "signin" : "signup", source: "auth_page" });
   }, [mode]);
 
-  const autoStep = getNextStep(formState);
+  // M15: the details step is left only by its Continue, never the moment its
+  // third field is filled. A form that arrives already filled starts past it.
+  const [detailsDone, setDetailsDone] = useState(() => getNextStep(formState) === "email");
+  const resolvedStep = getNextStep(formState);
+  const autoStep: SignupStep = resolvedStep === "email" && !detailsDone ? "details" : resolvedStep;
   const activeStep = manualStep ?? autoStep;
   const activeStepIndex = getStepIndex(activeStep);
   const progressPercent = mode === "signup" ? Math.round(((activeStepIndex + 1) / SIGNUP_STEPS.length) * 100) : 0;
@@ -222,26 +234,29 @@ const AuthContent = () => {
     setFieldErrors((prev) => ({ ...prev, email: undefined, send: undefined }));
   };
 
-  const handleSendMagicLink = async () => {
-    const normalizedEmail = normalizeEmail(email);
+  // Resolves with what happened, so the code box can say it (H7) instead of resetting silently.
+  // A resend goes to the address the code box shows: after a reload the form is empty, and the
+  // account already exists (the first send created it), so the sign-up fields are not re-checked.
+  const handleSendMagicLink = async ({ resend = false }: { resend?: boolean } = {}): Promise<ResendOutcome> => {
+    const normalizedEmail = normalizeEmail(resend ? codeEmail || email : email);
     if (!isValidEmail(normalizedEmail)) {
       setFieldErrors({ email: "Enter a valid email, like name@example.com." });
-      return;
+      return "failed";
     }
-    if (mode === "signup" && !selectedRole) {
+    if (!resend && mode === "signup" && !selectedRole) {
       setFieldErrors({ role: "Choose a role to continue." });
       setManualStep("role");
-      return;
+      return "failed";
     }
-    if (mode === "signup" && (!firstName.trim() || !cityId || !danceRole)) {
+    if (!resend && mode === "signup" && (!firstName.trim() || !cityId || !danceRole)) {
       setStep2Touched(true);
       setFieldErrors({});
       setManualStep("details");
-      return;
+      return "failed";
     }
     setFieldErrors({});
     const emailUpdate = updateEmail(normalizedEmail);
-    if (emailUpdate.changed) {
+    if (emailUpdate.changed && !resend) {
       setMagicLinkSent(false);
       setAuthNotice(null);
     }
@@ -256,7 +271,7 @@ const AuthContent = () => {
       transition.analytics.forEach((event) => trackAnalyticsEvent(event.event, event.payload));
       if (transition.nextIntent === "new") {
         switchToSignup(transition.notice || null);
-        return;
+        return "failed";
       }
     }
     const isCreateAccount = mode === "signup";
@@ -295,6 +310,7 @@ const AuthContent = () => {
       setMagicLinkSent(true);
       localStorage.setItem("auth_last_email", normalizedEmail);
       trackAnalyticsEvent("auth_viewed", { mode: isCreateAccount ? "signup" : "signin", source: "magic_link_sent" });
+      return "sent";
     } catch (error: any) {
       const isSignupDisabled = isOtpSignupDisabledError(error);
       trackAuthStep({ step: "code_sent", outcome: isSignupDisabled || isSignupAllowlistRefusal(error, isCreateAccount) ? "refused" : "error" });
@@ -305,19 +321,24 @@ const AuthContent = () => {
       if (isSignupDisabled && !isCreateAccount) {
         trackAnalyticsEvent("auth_auto_switched_to_signup", { source: "auth_page", reason: "email_not_found" });
         switchToSignup(OTP_NO_ACCOUNT_NOTICE);
-        return;
+        return "failed";
       }
       // Production answers an unlisted sign-up with 403 "Sign-up is limited to
       // approved organisers." -- say so instead of "try again".
       if (isSignupAllowlistRefusal(error, isCreateAccount)) {
         setFieldErrors({ send: `${SIGNUP_INVITE_ONLY_TITLE}. ${SIGNUP_INVITE_ONLY_DESCRIPTION}`, sendInviteOnly: true });
-        return;
+        return "failed";
+      }
+      if (isOtpRateLimitedError(error)) {
+        setFieldErrors({ send: OTP_RATE_LIMITED_MESSAGE });
+        return "wait";
       }
       setFieldErrors({
         send: isSignupDisabled
           ? "We can't create new accounts right now. If you already have an account, sign in instead."
           : "We couldn't send your email. Please try again in a moment.",
       });
+      return "failed";
     } finally {
       setIsSubmitting(false);
     }
@@ -350,6 +371,8 @@ const AuthContent = () => {
       continueToCallback();
       return;
     }
+    // The code is spent: nothing may reopen its box once the card is up (H8).
+    forgetCodeStep();
     setNeedsAccept(true);
   };
   const handleAccept = async () => {
@@ -411,14 +434,17 @@ const AuthContent = () => {
             <CardContent className="pt-6">
               <MagicLinkConfirmation
                 email={codeEmail || email}
-                onResend={handleSendMagicLink}
+                onResend={() => handleSendMagicLink({ resend: true })}
+                resendError={fieldErrors.send}
                 onChangeEmail={() => {
                   forgetCodeStep();
+                  clearEmailFeedback();
                   setMagicLinkSent(false);
                 }}
                 onVerified={handleCodeVerified}
                 showConsent={mode === "signup"}
-                extraAction={{ label: "Continue browsing", onClick: () => navigate(returnTo) }}
+                // Sign-up runs in focus mode: its one exit is "Not now" in the top bar.
+                extraAction={mode === "signin" ? { label: "Continue browsing", onClick: () => navigate(browseTo) } : undefined}
               />
             </CardContent>
           </Card>
@@ -438,7 +464,7 @@ const AuthContent = () => {
       <FieldError id={SEND_ERROR_ID} message={fieldErrors.send} />
       {fieldErrors.send && fieldErrors.sendInviteOnly && (
         <a
-          href={WHATSAPP_GET_LISTED_URL}
+          href={SIGNUP_HELP_WHATSAPP_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex min-h-[44px] items-center text-sm font-medium text-primary underline underline-offset-2"
@@ -459,7 +485,7 @@ const AuthContent = () => {
     ) : null;
 
   return (
-    <GlobalLayout showSubheader={false}>
+    <GlobalLayout showSubheader={false} showGradientBg={false}>
     <MotionConfig reducedMotion="user">
     <div className="min-h-screen flex flex-col items-center justify-start pt-8 sm:pt-12 pb-24 px-4 bg-background">
       <div className="w-full max-w-md space-y-6">
@@ -476,7 +502,7 @@ const AuthContent = () => {
             {mode === "signin" ? "Welcome back" : "Join the community"}
           </h1>
           <p className="text-sm text-muted-foreground text-center">
-            {mode === "signin" ? "Sign in with a link or a code." : "Create your account in 3 easy steps."}
+            {mode === "signin" ? "Sign in with a link or a code." : "Three quick steps, then we email you a code."}
           </p>
         </div>
 
@@ -492,7 +518,7 @@ const AuthContent = () => {
             }`}
             onClick={() => navigate(signInAuthUrl)}
           >
-            Sign in
+            {AUTH_ACTION_LABELS.signin}
           </button>
           <button
             type="button"
@@ -504,7 +530,7 @@ const AuthContent = () => {
             }`}
             onClick={() => navigate(signUpAuthUrl)}
           >
-            Create account
+            {AUTH_ACTION_LABELS.signup}
           </button>
         </div>
 
@@ -570,9 +596,16 @@ const AuthContent = () => {
                     id="signin-email"
                     type="email"
                     autoComplete="email"
+                    enterKeyHint="send"
                     placeholder="you@example.com"
                     className="min-h-[44px] pl-10"
                     value={email}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !isSubmitting) {
+                        e.preventDefault();
+                        void handleSendMagicLink();
+                      }
+                    }}
                     {...invalidProps(emailErrorId, fieldErrors.email)}
                     onChange={(e) => {
                       const update = updateEmail(e.target.value);
@@ -588,7 +621,7 @@ const AuthContent = () => {
               </div>
               <Button
                 className={primaryButtonClass}
-                onClick={handleSendMagicLink}
+                onClick={() => void handleSendMagicLink()}
                 disabled={isSubmitting}
               >
                 {isSubmitting ? "Sending\u2026" : "Email me a sign-in link"}
@@ -662,7 +695,7 @@ const AuthContent = () => {
                       aria-controls="other-roles"
                       onClick={() => setOtherRolesOpen((open) => !open)}
                     >
-                      <span>I&rsquo;m also an organiser / teacher / DJ / videographer / vendor</span>
+                      <span>I&rsquo;m an organiser / teacher / DJ / videographer / vendor</span>
                       <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${otherRolesOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                     </button>
 
@@ -742,9 +775,10 @@ const AuthContent = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">City</Label>
+                      <Label htmlFor="signup-city" className="text-sm font-medium">City</Label>
                       <div>
                         <CityPicker
+                          id="signup-city"
                           value={cityId}
                           onChange={(id, obj) => {
                             setCityId(id);
@@ -756,6 +790,18 @@ const AuthContent = () => {
                         />
                       </div>
                       <FieldError id="signup-city-error" message={step2Touched && !cityId ? "City is required." : undefined} />
+                      {/* Audit M28: the same link and prefill as the dancer setup and Edit city fields. */}
+                      <p className="text-sm text-muted-foreground">
+                        City not in the list?{" "}
+                        <a
+                          href={dancerMessageUsUrl(ADD_CITY_MESSAGE)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-h-[44px] items-center underline underline-offset-2"
+                        >
+                          Message us to add your city
+                        </a>
+                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -778,7 +824,10 @@ const AuthContent = () => {
                         className="flex-1 min-h-[44px] rounded-full font-semibold"
                         onClick={() => {
                           setStep2Touched(true);
-                          if (firstName.trim() && cityId && danceRole) setManualStep(null);
+                          if (firstName.trim() && cityId && danceRole) {
+                            setDetailsDone(true);
+                            setManualStep(null);
+                          }
                         }}
                       >
                         Continue
@@ -811,9 +860,16 @@ const AuthContent = () => {
                           id="signup-email"
                           type="email"
                           autoComplete="email"
+                          enterKeyHint="send"
                           placeholder="you@example.com"
                           className="min-h-[44px] pl-10"
                           value={email}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !isSubmitting) {
+                              e.preventDefault();
+                              void handleSendMagicLink();
+                            }
+                          }}
                           {...invalidProps(emailErrorId, fieldErrors.email)}
                           onChange={(e) => {
                             const update = updateEmail(e.target.value);
@@ -828,13 +884,16 @@ const AuthContent = () => {
                       <FieldError id={emailErrorId} message={fieldErrors.email} />
                     </div>
 
+                    {/* M7: the clickwrap sits where the account is created, worded for the button that does it. */}
+                    <ConsentLine lead="By tapping Email me a link you agree to our" />
+
                     <div className="flex gap-2 pt-1">
                       <Button variant="ghost" className="flex-1 min-h-[44px] rounded-full text-muted-foreground" onClick={() => setManualStep(getPreviousStep(activeStep))}>
                         <ArrowLeft className="w-4 h-4 mr-1" aria-hidden="true" /> Back
                       </Button>
                       <Button
                         className="flex-1 min-h-[44px] rounded-full font-semibold"
-                        onClick={handleSendMagicLink}
+                        onClick={() => void handleSendMagicLink()}
                         disabled={isSubmitting}
                       >
                         {isSubmitting ? "Sending\u2026" : "Email me a link"}
@@ -854,9 +913,12 @@ const AuthContent = () => {
           </Card>
         )}
 
-        <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={() => navigate(returnTo)}>
-          Continue browsing
-        </Button>
+        {/* Sign-up runs in focus mode: its one exit is "Not now" in the top bar. */}
+        {mode === "signin" && (
+          <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={() => navigate(browseTo)}>
+            Continue browsing
+          </Button>
+        )}
       </div>
     </div>
     </MotionConfig>

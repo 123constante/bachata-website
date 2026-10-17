@@ -102,7 +102,7 @@ describe('Switch profile sheet', () => {
     expect(items.map((a) => a.querySelector('.font-semibold')?.textContent)).toEqual(names);
     const ticked = items.filter((a) => a.getAttribute('aria-current') === 'true').map((a) => a.querySelector('.font-semibold')?.textContent);
     expect(ticked).toEqual(facts.dancer === 'complete' ? ['Ana'] : []);
-    expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe('/account/settings');
+    expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe('/account/settings?from=app') // S1: keeps Back to Options;
     expect(screen.getByTestId('profile-switcher-sign-out')).toBeTruthy();
   });
 
@@ -123,11 +123,14 @@ describe('Switch profile sheet', () => {
     expect(screen.queryByTestId('profile-switcher-sheet')).toBeNull();
   });
 
-  it('sign out signs out and goes home', async () => {
+  it('sign out asks, then signs out and goes home', async () => {
     sides.facts = SHAPES[0][1];
     mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
     fireEvent.click(screen.getByTestId('profile-switcher-button'));
     fireEvent.click(screen.getByTestId('profile-switcher-sign-out'));
+    // L23: it asks first, like Options and Account settings.
+    expect(auth.signOut).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('profile-switcher-signout-confirm'));
     await waitFor(() => expect(here).toBe('/'));
     expect(auth.signOut).toHaveBeenCalledTimes(1);
   });

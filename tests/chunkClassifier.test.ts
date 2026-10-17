@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  LIB_ACCOUNT_MODULES,
   LIB_EVENT_RULES_MODULES,
   VENDOR_UI_MODAL_PACKAGES,
   VENDOR_UI_SHELL_PACKAGES,
@@ -133,6 +134,23 @@ describe("classifyChunk -- the needles are bounded on both sides", () => {
   });
 });
 
+describe("classifyChunk -- the second first-party group (lib-account)", () => {
+  it.each(LIB_ACCOUNT_MODULES)("%s rides in lib-account", (mod) => {
+    expect(classifyChunk("/repo" + mod)).toBe("lib-account");
+    expect(existsSync(path.join(process.cwd(), mod)), mod + " is not on disk").toBe(true);
+  });
+
+  it("holds exactly the named modules, bounded like lib-event-rules", () => {
+    expect(LIB_ACCOUNT_MODULES).toEqual([
+      "/src/lib/accountRouting.ts",
+      "/src/components/account/profiles/PersonAvatar.tsx",
+      "/src/components/account/profiles/avatarFallback.ts",
+    ]);
+    expect(classifyChunk("/repo/src/components/account/profiles/__tests__/avatarFallback.test.ts")).toBeUndefined();
+    expect(classifyChunk("/repo/node_modules/x/src/lib/accountRouting.ts")).toBeUndefined();
+  });
+});
+
 describe("classifyChunk -- the one first-party group (lib-event-rules)", () => {
   // The event-category rule lib is read by the public event page AND the
   // organiser editor and by nothing they otherwise share, so rollup gave it a
@@ -145,8 +163,9 @@ describe("classifyChunk -- the one first-party group (lib-event-rules)", () => {
     expect(classifyChunk("/repo" + mod)).toBe("lib-event-rules");
   });
 
-  it("holds exactly the two named modules -- a sibling in src/lib keeps rollup's chunking", () => {
-    expect(LIB_EVENT_RULES_MODULES).toEqual(["/src/lib/eventCategory.ts", "/src/lib/londonDate.ts"]);
+  it("holds exactly the named modules -- a sibling in src/lib keeps rollup's chunking", () => {
+    expect(LIB_EVENT_RULES_MODULES).toEqual(["/src/lib/eventCategory.ts", "/src/lib/londonDate.ts", "/src/lib/focusMode.ts", "/src/lib/accountPaths.ts", "/src/lib/authRouting.ts"]);
+    expect(classifyChunk("/repo/src/lib/__tests__/focusMode.test.ts")).toBeUndefined();
     expect(classifyChunk("/repo/src/lib/eventCategoryLabels.ts")).toBeUndefined();
     expect(classifyChunk("/repo/src/lib/londonDateRange.ts")).toBeUndefined();
     expect(classifyChunk("/repo/src/lib/__tests__/eventCategory.test.ts")).toBeUndefined();

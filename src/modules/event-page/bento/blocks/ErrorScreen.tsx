@@ -23,7 +23,7 @@ const BtnPrimary = ({ children, onClick }: { children: React.ReactNode; onClick?
   <button
     type="button"
     onClick={onClick}
-    className="inline-flex items-center justify-center rounded-full bg-white px-5 py-[10px] text-[13px] font-bold text-[#E13A8A] transition hover:bg-white/90"
+    className="inline-flex items-center justify-center rounded-full bg-white px-5 py-[10px] text-[13px] font-bold text-[#C42A72] transition hover:bg-white/90"
   >
     {children}
   </button>
@@ -32,7 +32,7 @@ const BtnPrimary = ({ children, onClick }: { children: React.ReactNode; onClick?
 const BtnLink = ({ children, to }: { children: React.ReactNode; to: string }) => (
   <Link
     to={to}
-    className="inline-flex items-center justify-center rounded-full bg-white px-5 py-[10px] text-[13px] font-bold text-[#E13A8A] transition hover:bg-white/90"
+    className="inline-flex items-center justify-center rounded-full bg-white px-5 py-[10px] text-[13px] font-bold text-[#C42A72] transition hover:bg-white/90"
   >
     {children}
   </Link>

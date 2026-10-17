@@ -1515,3 +1515,11 @@ body:has([data-sticky-action-bar="always"]) .site-footer { padding-bottom: 6rem;
 }
 /* Header background/blur fade on scroll -- was framer-motion animate={{...}}. */
 #app-header { transition: background-color 0.3s ease, backdrop-filter 0.3s ease, -webkit-backdrop-filter 0.3s ease; }
+/* Phone keyboard up (src/lib/keyboard/keyboardSafe.ts sets the attribute and the
+   variable): fixed bars on the visible bottom edge get [data-keyboard-hidden];
+   in-flow bars opt in with [data-keyboard-hide]; and where the keyboard OVERLAYS
+   the page (iOS) the page gets that much more room, so a field near the end can
+   still scroll up above the keys. */
+html[data-keyboard-open] [data-keyboard-hidden] { visibility: hidden !important; }
+html[data-keyboard-open] [data-keyboard-hide] { display: none !important; }
+html[data-keyboard-open] body { padding-bottom: var(--keyboard-inset, 0px); }

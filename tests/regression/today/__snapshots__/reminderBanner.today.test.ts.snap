@@ -110,9 +110,9 @@ exports[`reminder banner: incomplete profile, by path > /festival/f1 -> shown=tr
 
 exports[`reminder banner: other states > no profile: the message-us banner on a normal page, hidden on /account 1`] = `
 {
-  "body": "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up.",
+  "body": "Your account does not have a dancer profile yet. Message us and we’ll set one up for you.",
   "cta": {
-    "href": "https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.",
+    "href": "https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F",
     "kind": "external",
     "label": "Message us on WhatsApp",
   },

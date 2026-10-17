@@ -11,8 +11,9 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 vi.mock('@/hooks/useAuth', async (importOriginal) =>
   (await import('@/modules/dancer-app/shell/testAuth')).authModuleMock(importOriginal));
 vi.mock('@/components/ui/city-picker', () => ({
-  CityPicker: ({ value, onChange }: { value?: string; onChange: (id: string) => void }) => (
-    <button type="button" data-testid="city-picker" onClick={() => onChange('c1000000-0000-4000-8000-000000000002')}>{value ?? 'Pick'}</button>
+  // Forwards id like the real trigger (M17): EditScreen's ?focus=city finds the combobox by it.
+  CityPicker: ({ id, value, onChange }: { id?: string; value?: string; onChange: (id: string) => void }) => (
+    <button type="button" id={id} data-testid="city-picker" onClick={() => onChange('c1000000-0000-4000-8000-000000000002')}>{value ?? 'Pick'}</button>
   ),
 }));
 
@@ -58,7 +59,7 @@ describe('Me x every shape', () => {
     // Paused: banner + a disabled public-page button with its reason; otherwise a plain link.
     if (!p.is_active) {
       expect(screen.getByText('Your profile is hidden')).toBeTruthy();
-      expect(screen.getByRole('link', { name: 'Open account settings' }).getAttribute('href')).toBe('/account/settings');
+      expect(screen.getByRole('link', { name: 'Open account settings' }).getAttribute('href')).toBe('/account/settings?from=app') // review #789 S1;
       expect((screen.getByTestId('me-public-page') as HTMLButtonElement).disabled).toBe(true);
       expect(screen.getByTestId('me-public-page-reason').textContent).toMatch(/hidden/);
     } else {
@@ -81,7 +82,9 @@ describe('Me x every shape', () => {
   it('no profile: says what the person can do', async () => {
     renderInShell({ path: '/app/me', backend: { shape: 'authUserNoPersona' } });
     expect((await screen.findByTestId('load-error')).textContent).toBe(copyFor('no_profile'));
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    // The copy says "Message us", so Message us is the control (retrying cannot find a missing profile).
+    expect(screen.getByRole('link', { name: 'Message us on WhatsApp' }).getAttribute('href')).toMatch(/^https:\/\/wa\.me\//);
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
     expect(screen.getByRole('link', { name: /back to the bachata calendar website/i })).toBeTruthy();
   });
 });

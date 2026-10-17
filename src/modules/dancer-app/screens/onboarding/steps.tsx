@@ -1,10 +1,11 @@
-import { Suspense, useState, type CSSProperties } from 'react';
+import { Suspense, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import type { DancerDelta, MyDancerEdit } from '../../api/types';
+import { ADD_CITY_MESSAGE, dancerMessageUsUrl } from '../../api/messageUs';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { APP_WELCOME_PATH, appWelcomeHref } from '@/lib/accountRouting';
 import { DISPLAY_NAME_MAX, ROLE_CHOICES } from './model';
-import { Chip, ErrorLine, Field, PrimaryButton, Question, Reason, Tag, textInput, wrap } from './ui';
+import { Chip, ErrorLine, Field, PrimaryButton, Question, Reason, Tag, linkButton, textInput, wrap } from './ui';
 
 /**
  * The real CityPicker (319 cities), loaded only when the city card shows: it drags cmdk, the popover and
@@ -35,18 +36,28 @@ export const NameCard = ({ profile, busy, error, onSubmit, tag }: CardProps) => 
   const [first, setFirst] = useState(profile.first_name ?? '');
   const [display, setDisplay] = useState(profile.display_name ?? '');
   const ready = first.trim() !== '';
+  const submit = () => {
+    if (ready && !busy) onSubmit({ first_name: first.trim(), display_name: display.trim() });
+  };
+  // Audit M2: with the keyboard up, Continue sits under it. The keyboard's own key ("Next") submits the card;
+  // an empty first name sends nothing (the visible reason below says why).
+  const onEnter = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    submit();
+  };
   return (
     <>
       {tag ? <Tag>{tag}</Tag> : null}
       <Question>What&rsquo;s your name?</Question>
       <Field id="ob-first" label="First name">
-        <input id="ob-first" autoComplete="given-name" value={first} onChange={(e) => setFirst(e.target.value)} style={textInput} />
+        <input id="ob-first" autoComplete="given-name" enterKeyHint="next" value={first} onChange={(e) => setFirst(e.target.value)} onKeyDown={onEnter} style={textInput} />
       </Field>
       <Field id="ob-display" label="Name shown on your page (optional)" hint={`Up to ${DISPLAY_NAME_MAX} characters, no links.`}>
-        <input id="ob-display" value={display} maxLength={DISPLAY_NAME_MAX} onChange={(e) => setDisplay(e.target.value)} style={textInput} />
+        <input id="ob-display" enterKeyHint="next" value={display} maxLength={DISPLAY_NAME_MAX} onChange={(e) => setDisplay(e.target.value)} onKeyDown={onEnter} style={textInput} />
       </Field>
       <ErrorLine message={error} />
-      <PrimaryButton busy={busy} disabled={!ready} onClick={() => onSubmit({ first_name: first.trim(), display_name: display.trim() })}>
+      <PrimaryButton busy={busy} disabled={!ready} onClick={submit}>
         Continue
       </PrimaryButton>
       {!ready ? <Reason>Enter your first name to continue.</Reason> : null}
@@ -62,8 +73,15 @@ export const CityCard = ({ profile, busy, error, onSubmit, tag }: CardProps) => 
       <Question>Where do you dance?</Question>
       <Field id="ob-city" label="Your city">
         <Suspense fallback={<div aria-busy="true" style={{ minHeight: 48, borderRadius: 12, background: 'var(--da-surface-2)' }} />}>
-          <CityPicker value={city} onChange={(id) => setCity(id)} placeholder="Search for your city" className="min-h-[48px] w-full" />
+          <CityPicker id="ob-city" value={city} onChange={(id) => setCity(id)} placeholder="Search for your city" className="min-h-[48px] w-full" />
         </Suspense>
+        {/* Audit M28: the picker's own request form is switched off, and city is required. */}
+        <p className="da-muted" style={{ ...wrap, fontSize: 14, margin: '4px 0 0' }}>
+          City not in the list?{' '}
+          <a href={dancerMessageUsUrl(ADD_CITY_MESSAGE)} target="_blank" rel="noopener noreferrer" style={tapLink}>
+            Message us to add your city
+          </a>
+        </p>
       </Field>
       <ErrorLine message={error} />
       <PrimaryButton busy={busy} disabled={!city} onClick={() => onSubmit({ based_city_id: city })}>
@@ -110,26 +128,14 @@ export const PhotoCard = ({ tag, returnTo }: Pick<CardProps, 'tag'> & { returnTo
       </svg>
     </div>
     <p style={{ ...wrap, fontSize: 14, margin: '0 0 12px' }}>Head and shoulders inside the outline. This is how people find you.</p>
-    <div style={{ display: 'grid', gap: 8 }}>
-      <Link to={photoHandoff(returnTo)} className="da-tap" data-testid="onboarding-take-photo" style={linkBtn(true)}>
-        Take photo
-      </Link>
-      <Link to={photoHandoff(returnTo)} className="da-tap" data-testid="onboarding-choose-photo" style={linkBtn(false)}>
-        Choose from my photos
-      </Link>
-    </div>
+    {/* Audit M9: ONE button. The photo screen owns the camera / library choice and the crop. */}
+    <Link to={photoHandoff(returnTo)} className="da-tap" data-testid="onboarding-add-photo" style={linkButton(true)}>
+      Add my photo
+    </Link>
     <Reason>A photo is needed to finish setting up your page, so this step cannot be skipped.</Reason>
   </>
 );
 
-const linkBtn = (primary: boolean) => ({
-  minHeight: 48,
-  borderRadius: 12,
-  fontSize: 16,
-  fontWeight: 700,
-  width: '100%',
-  background: primary ? 'var(--da-accent)' : 'transparent',
-  color: primary ? 'var(--da-on-accent)' : 'inherit',
-  border: primary ? 'none' : '1px solid var(--da-border)',
-});
+/** Inline links still get a 44px tap target. */
+const tapLink: CSSProperties = { textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: 44 };
 

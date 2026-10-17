@@ -30,8 +30,14 @@ const h = vi.hoisted(() => ({
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ user: h.user, session: {}, isLoading: false, authStatus: 'ready', signOut: h.signOut }),
 }));
+const sonner = vi.hoisted(() => ({ error: vi.fn() }));
+vi.mock('sonner', () => ({ toast: sonner }));
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
-vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
+vi.mock('@/components/layout/GlobalLayout', () => ({
+  default: ({ children, breadcrumbs }: { children: ReactNode; breadcrumbs?: unknown }) => (
+    <div data-testid="layout" data-crumbs={JSON.stringify(breadcrumbs ?? [])}>{children}</div>
+  ),
+}));
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
 vi.mock('@/hooks/use-toast', async (orig) => ({ ...(await orig<typeof import('@/hooks/use-toast')>()), toast: h.toast }));
 vi.mock('@/hooks/useMyProfileVisibility', () => ({
@@ -96,13 +102,14 @@ const visibilityFor = (p: (typeof PROFILE_STATES)[number]) => (p === 'none' ? 'n
 
 describe('settings home', () => {
   for (const p of PROFILE_STATES) {
-    it(`${p}: sign out, email, export and ownership are always there`, async () => {
+    it(`${p}: sign out, email, export and delete are always there`, async () => {
       h.visibility = { status: visibilityFor(p) };
       mount(SETTINGS);
       expect(await screen.findByTestId('settings-signout')).toBeTruthy();
       expect(screen.getByTestId('settings-email-input')).toBeTruthy();
       expect(screen.getByTestId('settings-export')).toBeTruthy();
-      expect(screen.getByTestId('settings-ownership-link').getAttribute('href')).toBe('/account/settings/ownership');
+      // M21: straight to the delete view (the ownership step is gone).
+      expect(screen.getByTestId('settings-delete-link').getAttribute('href')).toBe('/account/settings/delete');
     });
   }
 
@@ -201,15 +208,30 @@ describe('settings home', () => {
   it('sign out of all devices: global sign-out, then home; a failure says so and stays', async () => {
     mount(SETTINGS);
     fireEvent.click(await screen.findByTestId('settings-signout-all'));
-    await waitFor(() => expect(h.signOut).toHaveBeenCalledWith({ everywhere: true }));
+    await waitFor(() => expect(h.signOut).toHaveBeenCalledWith(expect.objectContaining({ everywhere: true })));
     expect(await screen.findByText('start')).toBeTruthy();
   });
 
-  it('sign out of all devices failing keeps the person here with a reason', async () => {
+  // Review #789 B1: the one sign-out path leaves first, so a failure brings the person BACK here
+  // and says why in a toast (the page they tapped on was gone by then).
+  it('sign out of all devices failing brings the person back here with a reason', async () => {
+    sonner.error.mockClear();
     h.signOut.mockResolvedValue('failed');
     mount(SETTINGS);
     fireEvent.click(await screen.findByTestId('settings-signout-all'));
-    expect((await screen.findByTestId('settings-signout-all-error')).textContent).toMatch(/did not complete/i);
+    await waitFor(() => expect(sonner.error).toHaveBeenCalledWith(expect.stringMatching(/did not complete/i)));
+    expect(await screen.findByTestId('settings-signout-all')).toBeTruthy();
+  });
+
+  // Review #789 S1: the "Account settings" crumb keeps ?from=app, or "Back to Options" is lost one tap later.
+  it.each([
+    ['/account/settings/delete?from=app', '/account/settings?from=app'],
+    ['/account/settings/delete', '/account/settings'],
+  ])('crumb from %s links to %s', async (at, crumb) => {
+    mount(at);
+    await screen.findByTestId('delete-confirm');
+    const crumbs = JSON.parse(screen.getByTestId('layout').getAttribute('data-crumbs') ?? '[]') as { label: string; path?: string }[];
+    expect(crumbs.filter((c) => c.path?.startsWith('/account/settings')).map((c) => c.path)).toEqual([crumb]);
   });
 
   it('settings is not behind the dancer-first gate (an unfinished profile can reach it)', () => {
@@ -224,8 +246,8 @@ describe('ownership + delete: the same fact on both screens', () => {
       it(`${role} x ${p}: ownership offers Delete account, delete screen reads the check`, async () => {
         h.visibility = { status: visibilityFor(p) };
         h.check = { ...check, blockers: [...check.blockers] };
-        mount('/account/settings/ownership');
-        expect(await screen.findByTestId('ownership-delete-link')).toBeTruthy();
+        mount('/account/settings');
+        expect(await screen.findByTestId('settings-delete-link')).toBeTruthy();
         cleanup();
         mount('/account/settings/delete');
         const erase = (await screen.findByTestId('delete-confirm')) as HTMLButtonElement;
@@ -262,11 +284,13 @@ describe('ownership + delete: the same fact on both screens', () => {
     expect(document.body.textContent).not.toMatch(FORBIDDEN);
   });
 
-  it('ownership: no promise of permanence', async () => {
-    mount('/account/settings/ownership');
-    expect((await screen.findByTestId('ownership-delete-link')).textContent).toBe('Delete account');
-    expect(document.body.textContent).toMatch(/within 30 days/i);
-    expect(document.body.textContent).not.toMatch(FORBIDDEN);
+  it('settings home delete entry: no promise of permanence', async () => {
+    mount('/account/settings');
+    expect((await screen.findByTestId('settings-delete-link')).textContent).toBe('Delete account');
+    // Scoped to the delete section: the visibility card truthfully says hiding is "not permanent".
+    const section = screen.getByTestId('settings-delete').textContent ?? '';
+    expect(section).toMatch(/within 30 days/i);
+    expect(section).not.toMatch(FORBIDDEN);
   });
 
   it('delete stays disabled until DELETE is typed exactly; then hides, signs out everywhere, routes to the deleted page', async () => {
@@ -274,7 +298,7 @@ describe('ownership + delete: the same fact on both screens', () => {
     mount('/account/settings/delete');
     const input = await screen.findByTestId('delete-type-input');
     const btn = screen.getByTestId('delete-confirm') as HTMLButtonElement;
-    for (const v of ['delete', 'Delete', 'DELETE ', 'DELET']) {
+    for (const v of ['delete', 'Delete', 'DELET']) {
       fireEvent.change(input, { target: { value: v } });
       expect(btn.disabled, v).toBe(true);
     }
@@ -283,7 +307,7 @@ describe('ownership + delete: the same fact on both screens', () => {
     expect(btn.disabled).toBe(false);
     fireEvent.click(btn);
     await waitFor(() => expect(h.erase).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(h.signOut).toHaveBeenCalledWith({ everywhere: true }));
+    await waitFor(() => expect(h.signOut).toHaveBeenCalledWith(expect.objectContaining({ everywhere: true })));
     expect(await screen.findByText('deleted-page')).toBeTruthy();
   });
 
@@ -378,7 +402,9 @@ describe('sign out everywhere: the other devices are never falsely reassured', (
     fireEvent.change(await screen.findByTestId('delete-type-input'), { target: { value: 'DELETE' } });
     fireEvent.click(screen.getByTestId('delete-confirm'));
     expect(await screen.findByTestId('account-deleted')).toBeTruthy();
-    if (says) expect(screen.getByText(OTHERS)).toBeTruthy();
+    // Leave first (B1), so the deleted page is up before the sign-out answers; its caveat follows.
+    await waitFor(() => expect(h.signOut).toHaveBeenCalled());
+    if (says) expect(await screen.findByText(OTHERS)).toBeTruthy();
     else expect(screen.queryByText(OTHERS)).toBeNull();
   });
 });

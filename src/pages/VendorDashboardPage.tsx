@@ -1098,6 +1098,7 @@ const VendorDashboard = ({ forcedSection = null, embedded = false, profileFocus 
                 <div>
                 <Label>City *</Label>
                 <CityPicker
+                  aria-label="City"
                   value={form.city}
                   onChange={(city) => { setForm((prev) => ({ ...prev, city })); setTouched((prev) => ({ ...prev, city: true })); }}
                   placeholder="Select city..."

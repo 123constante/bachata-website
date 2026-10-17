@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
+import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
 import { mainAction, nextStepCopy, profileName, roleCityLine } from './model';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
+import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, HIDDEN_STATE_WORD } from '../../copy/sharedCopy';
 import { Avatar, QueryGate, StrengthBar, ghostButton, mainButton } from './ui';
 
 /**
@@ -22,13 +24,13 @@ const MeScreen = () => {
 
       {!p.is_active && (
         <div className="da-card" role="status" data-testid="me-paused" style={{ borderColor: 'var(--da-danger)' }}>
-          <p style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Your profile is hidden</p>
+          <p style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Your profile is {HIDDEN_STATE_WORD}</p>
           <p className="da-muted" style={{ fontSize: 14, margin: '4px 0 8px' }}>
-            Nobody can see your page while it is hidden. You can show it again in your account settings.
+            {HIDDEN_STATE_LINE} You can show it again in {ACCOUNT_SETTINGS_LABEL}.
           </p>
-          <a href="/account/settings" className="da-tap" style={{ ...ghostButton, minHeight: 44 }}>
+          <Link to={APP_ACCOUNT_SETTINGS_PATH} className="da-tap" style={{ ...ghostButton, minHeight: 44 }}>
             Open account settings
-          </a>
+          </Link>
         </div>
       )}
 
@@ -54,11 +56,8 @@ const MeScreen = () => {
           <p data-testid="me-next-step" className="da-muted" style={{ fontSize: 14, margin: '8px 0 0' }}>
             {nextStepCopy(p)}
           </p>
-          {!p.complete && (
-            <p data-testid="me-unlock-note" className="da-muted" style={{ fontSize: 14, margin: '4px 0 0' }}>
-              Going and Interested unlock at 70%.
-            </p>
-          )}
+          {/* Audit M24: no "Going and Interested unlock at 70%" line. The RSVP RPC
+              (set_my_occurrence_attendance_p5_v1) checks only sign-in and the night, never the profile. */}
         </div>
 
         <Link to={action.href} className="da-tap" style={mainButton} data-testid="me-main-action">

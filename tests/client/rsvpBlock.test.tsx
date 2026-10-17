@@ -217,8 +217,8 @@ describe('RsvpBlock', () => {
     h.user = user;
     await mount();
     fireEvent.click(screen.getByTestId('rsvp-going'));
-    expect(await screen.findByText('Sign in to RSVP')).toBeTruthy();
-    expect(screen.getByText('Log In')).toBeTruthy();
+    expect(await screen.findByText('Save this night')).toBeTruthy();
+    expect(screen.getByText('Sign in')).toBeTruthy();
     expect(h.rpc).not.toHaveBeenCalled();
   });
 

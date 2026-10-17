@@ -19,6 +19,7 @@ import { CityProvider } from "@/contexts/CityContext";
 import { SearchProvider } from "@/components/search/SearchProvider";
 import { AppChrome } from "@/components/AppChrome";
 import { reportClientErrorLazy } from "@/lib/reportClientErrorLazy";
+
 import { NavigationSplash } from "./NavigationSplash";
 import { useNonce } from "./nonce";
 import "@/index.css";
@@ -67,7 +68,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang="en">
       <head>
         <meta charSet="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        {/* interactive-widget: on Android the keyboard shrinks the page, so fixed
+            bottoms and dvh sit above it; src/lib/keyboard/keyboardSafe.ts covers
+            the browsers that overlay it instead (iOS Safari, in-app tabs). */}
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
         {/* No hardcoded canonical here: it would self-canonicalize every route to
             the homepage AND duplicate the per-page canonical that detail routes
             emit via meta(). Routes own their canonical; the client useSeo effect
@@ -200,6 +204,24 @@ export default function Root() {
   useEffect(() => {
     if ("requestIdleCallback" in window) requestIdleCallback(() => reportClientErrorLazy());
     else setTimeout(reportClientErrorLazy, 3000); // no args: installs
+  }, []);
+
+  // Every text field stays visible above the phone keyboard (one site-wide rule,
+  // src/lib/keyboard/keyboardSafe.ts). Loaded on idle, off the first-load path:
+  // static, it put ~1.5 KB gz on every route (perf-budgets.json, dancer-app over).
+  useEffect(() => {
+    let off: (() => void) | undefined;
+    let gone = false;
+    const load = () =>
+      void import("@/lib/keyboard/keyboardSafe").then((m) => {
+        if (!gone) off = m.installKeyboardSafe();
+      });
+    if ("requestIdleCallback" in window) requestIdleCallback(load);
+    else setTimeout(load, 1000);
+    return () => {
+      gone = true;
+      off?.();
+    };
   }, []);
 
   // AppShell minus BrowserRouter — the framework router provides the routing
