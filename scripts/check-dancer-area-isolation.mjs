@@ -252,6 +252,12 @@ const write = (dir, rel, body = '// x\n') => {
   writeFileSync(path.join(dir, rel), body);
 };
 
+/**
+ * No real PROTECTED entry is a glob since #789 (its RsvpBlock*.tsx files became seams, orchestrator
+ * decision 2026-10-16), so the self-test adds this fixture-only one to keep proving trailing-`*` matching.
+ */
+const SELF_TEST_GLOB = 'src/fixture/Guarded*.tsx';
+
 const concretePath = (entry) => entry.replace('*', entry.includes('RsvpBlock') ? '' : 'x');
 
 const buildFixture = (rules) => {
@@ -259,7 +265,7 @@ const buildFixture = (rules) => {
   gitIn(dir, 'init', '-q', '-b', 'main');
   for (const entry of rules.PROTECTED) write(dir, concretePath(entry), `// ${entry}\n`);
   write(dir, 'src/components/profile/RsvpBlockExtra.txt', 'unrelated\n');
-  write(dir, 'src/modules/event-page/bento/blocks/RsvpBlockPlaceholder.tsx', '// placeholder\n');
+  write(dir, 'src/fixture/GuardedSibling.tsx', '// sibling\n');
   for (const entry of rules.SEAMS) if (!entry.startsWith('tests/')) write(dir, entry, `// ${entry}\n`);
   write(dir, 'src/pages/Other.tsx', 'export const Other = 1;\n');
   write(dir, 'src/pages/Home.tsx', "import { Other } from './Other';\nexport const Home = Other;\n");
@@ -280,7 +286,7 @@ const reset = (dir) => {
 
 /** Drives main() end to end (not just runCheck) so the EXIT CODES are what is proven. */
 const selfTest = async () => {
-  const rules = RULES;
+  const rules = { ...RULES, PROTECTED: [...RULES.PROTECTED, SELF_TEST_GLOB] };
   const dir = buildFixture(rules);
   let failed = 0;
   const cases = [];
@@ -323,10 +329,10 @@ const selfTest = async () => {
     inArea(d);
     rmSync(path.join(d, 'src/pages/Account.tsx'));
   }, 'src/pages/Account.tsx');
-  expectExit('(a) protected glob: a sibling RsvpBlock*.tsx edited', 1, (d) => {
+  expectExit('(a) protected glob: a sibling Guarded*.tsx edited', 1, (d) => {
     inArea(d);
-    write(d, 'src/modules/event-page/bento/blocks/RsvpBlockPlaceholder.tsx', '// tampered\n');
-  }, 'RsvpBlockPlaceholder.tsx');
+    write(d, 'src/fixture/GuardedSibling.tsx', '// tampered\n');
+  }, 'GuardedSibling.tsx');
   expectExit('(a) non-seam file added', 1, (d) => {
     inArea(d);
     write(d, 'src/lib/newThing.ts', 'export {};\n');
@@ -358,7 +364,7 @@ const selfTest = async () => {
 
   const run = async (base, d) => {
     const lines = [];
-    const code = await main([], { root: d, base, out: (l) => lines.push(l), err: (l) => lines.push(l) });
+    const code = await main([], { root: d, base, rules, out: (l) => lines.push(l), err: (l) => lines.push(l) });
     return { code, text: lines.join('\n') };
   };
 
@@ -392,7 +398,7 @@ const selfTest = async () => {
 
 /** The exit-code owner. `deps` lets the canary drive it with a throwaway repo and captured output. */
 export async function main(argv = [], deps = {}) {
-  const { root = REPO_ROOT, base = process.env.DANCER_ISOLATION_BASE || 'origin/main', out = console.log, err = console.error } = deps ?? {};
+  const { root = REPO_ROOT, base = process.env.DANCER_ISOLATION_BASE || 'origin/main', rules = RULES, out = console.log, err = console.error } = deps ?? {};
   const known = ['--self-test'];
   const unknown = argv.filter((a) => !known.includes(a));
   if (unknown.length > 0) {
@@ -401,7 +407,7 @@ export async function main(argv = [], deps = {}) {
   }
   if (argv.includes('--self-test')) return (await selfTest()) ? 0 : 1;
 
-  const result = runCheck({ root, base });
+  const result = runCheck({ root, base, rules });
   for (const note of result.notes) (result.code === 2 ? err : out)(note);
   if (result.code === 1) {
     err(`dancer-area isolation: ${result.violations.length} violation(s)`);

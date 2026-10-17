@@ -231,7 +231,7 @@ export const HeaderSearch = ({ expanded, onExpandedChange }: HeaderSearchProps) 
         className={cn(
           'flex items-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
           // mobile: a search pill that fills the bar (GlobalHeader hides its spacer < md)
-          'ml-2 h-9 min-w-0 max-w-xs flex-1 gap-2 rounded-full border border-primary/30 bg-primary/[0.04] px-3 shadow-[0_0_0_3px_hsl(var(--primary)/0.07)] hover:border-primary/50 hover:bg-primary/[0.07]',
+          'ml-2 h-[44px] min-w-0 max-w-xs flex-1 gap-2 rounded-full border border-primary/30 bg-primary/[0.04] px-3 shadow-[0_0_0_3px_hsl(var(--primary)/0.07)] hover:border-primary/50 hover:bg-primary/[0.07]',
           // desktop (md+): collapse back to the icon-only circle
           'md:ml-auto md:h-9 md:w-9 md:max-w-none md:flex-none md:justify-center md:gap-0 md:rounded-full md:border-0 md:bg-transparent md:px-0 md:shadow-none md:hover:bg-primary/10',
         )}

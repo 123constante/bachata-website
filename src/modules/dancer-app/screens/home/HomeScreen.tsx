@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
+import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
 import { DancerApiError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
 import { trackDancerEvent } from '../../analytics/events';
@@ -15,7 +15,11 @@ import { nextStepLine } from '../../api/nextStep';
 import { RateNudge } from './RateNudge';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { WhatsOn } from './WhatsOn';
-import { Avatar } from '../me/ui';
+import NoProfileWayOut from '../options/NoProfileWayOut';
+import { Avatar, MessageUsLink } from '../me/ui';
+import { NO_PROFILE_MESSAGE } from '../../api/messageUs';
+import { HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../../copy/sharedCopy';
+import { BROWSE_EVENTS_LABEL } from './homeCopy';
 
 const path = (id: 'nights' | 'me' | 'options') => DANCER_TABS.find((t) => t.id === id)?.path ?? '/app';
 
@@ -38,7 +42,12 @@ const writeFlag = (store: 'session' | 'local', key: string) => {
 };
 
 const tile: CSSProperties = { minHeight: 112, borderRadius: 16, padding: 14, display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--da-text)', textDecoration: 'none' };
-const soon: CSSProperties = { ...tile, border: '1px dashed var(--da-border)', background: 'transparent' };
+/**
+ * The hero is painted with the dancer gradient token pair (audit M14). White on
+ * --da-gradient-from / --da-gradient-to is pinned at >= 4.5:1 by the theme test;
+ * the old coral start (--da-accent) was 2.55:1 under 13-14px text.
+ */
+export const HERO_BACKGROUND = gradientBg;
 
 const Ring = ({ pct }: { pct: number }) => (
   <div
@@ -57,7 +66,7 @@ const Message = ({ children }: { children: ReactNode }) => (
 const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
   const { user } = useAuth();
   const { nights, todayKey, isError, isLoading } = useMyNights();
-  const browseHref = useBrowseHref();
+  const browseHref = useBrowseHref(profile.based_city_id);
   const hero = nextNight(nights.upcoming);
   const committed = countCommitted(nights.upcoming);
   const nextDate = nights.upcoming.find((n) => n.date !== null && n.status !== 'other')?.date ?? null;
@@ -76,10 +85,9 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
 
       {!profile.is_active && (
         <div className="da-card" role="status" data-testid="paused-banner" style={{ borderColor: 'var(--da-danger)' }}>
-          <b>Your profile is hidden</b>
+          <b>{HIDDEN_STATE_LINE}</b>
           <p style={{ margin: '4px 0 0', fontSize: 14 }}>
-            People can&rsquo;t find you right now.{' '}
-            <a href={ACCOUNT_SETTINGS_PATH} style={linkStyle}>Show my profile again</a>
+            <Link to={APP_ACCOUNT_SETTINGS_PATH} style={linkStyle}>{SHOW_AGAIN_LABEL}</Link>
           </p>
         </div>
       )}
@@ -107,7 +115,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
 
       <section
         data-testid="home-hero"
-        style={{ borderRadius: 16, padding: 14, color: 'var(--da-on-gradient)', background: 'linear-gradient(135deg, var(--da-accent) 0%, #9B5DE5 140%)' }}
+        style={{ borderRadius: 16, padding: 14, color: 'var(--da-on-gradient)', background: HERO_BACKGROUND }}
       >
         {hero && hero.date ? (
           <>
@@ -124,12 +132,12 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
             <div style={{ fontSize: 20, fontWeight: 800, margin: '4px 0 10px' }}>
               {isLoading ? 'Loading\u2026' : isError ? 'We couldn\u2019t load your nights.' : 'No upcoming night yet.'}
             </div>
-            <a href={browseHref} style={{ ...buttonStyle, background: '#fff', color: '#1A0F0B' }}>Browse what&rsquo;s on</a>
+            <a href={browseHref} style={{ ...buttonStyle, background: '#fff', color: '#1A0F0B' }}>{BROWSE_EVENTS_LABEL}</a>
           </>
         )}
       </section>
 
-      <RateNudge candidates={nudgeCandidates(nights.past, todayKey)} />
+      <RateNudge candidates={nudgeCandidates(nights.past, todayKey)} todayKey={todayKey} />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <Link to={path('me')} data-testid="tile-strength" style={{ ...tile, background: gradientBg, color: 'var(--da-on-gradient)' }}>
@@ -140,22 +148,14 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
             {nextStepLine(profile)}
           </span>
         </Link>
-        <div style={soon} data-testid="tile-views">
-          <b style={{ fontSize: 14 }}>Views this month</b>
-          <span className="da-muted" style={{ fontSize: 14 }}>Coming soon</span>
-        </div>
         <Link to={path('nights')} data-testid="tile-going" className="da-card" style={{ ...tile }}>
-          <b style={{ fontSize: 14 }}>Going / Interested</b>
+          <b style={{ fontSize: 14 }}>Upcoming nights</b>
           <span style={{ fontSize: 28, fontWeight: 800 }} data-testid="tile-going-count">{committed}</span>
-          <span className="da-muted" style={{ fontSize: 13 }}>{nextDate ? `Next: ${shortDate(nextDate)}` : 'Nothing coming up'}</span>
+          <span className="da-muted" style={{ fontSize: 13 }}>{nextDate ? `Next: ${shortDate(nextDate)}` : 'Going or Interested'}</span>
         </Link>
-        <div style={soon} data-testid="tile-partners">
-          <b style={{ fontSize: 14 }}>Practice partners</b>
-          <span className="da-muted" style={{ fontSize: 14 }}>Coming soon.</span>
-        </div>
       </div>
 
-      <WhatsOn hasCity={Boolean(profile.based_city_id)} />
+      <WhatsOn cityId={profile.based_city_id} />
     </div>
   );
 };
@@ -176,9 +176,11 @@ const HomeScreen = () => {
     body = (
       <Message>
         <b>We can&rsquo;t find a dancer profile for you yet.</b>
-        <p style={{ margin: '4px 0 0', fontSize: 14 }}>
-          Message us from <Link to={path('options')} style={linkStyle}>Options</Link> and we&rsquo;ll sort it out.
-        </p>
+        <p style={{ margin: '4px 0 8px', fontSize: 14 }}>Message us and we&rsquo;ll sort it out.</p>
+        {/* The control itself, not a pointer to Options: Options cannot load without a profile either. */}
+        <MessageUsLink message={NO_PROFILE_MESSAGE} style={{ ...linkStyle, display: 'inline-flex', alignItems: 'center', minHeight: 44 }} />
+        {/* Walk bug 1: never trapped here -- Account settings, Sign out, and the organiser area for an organiser. */}
+        <NoProfileWayOut />
       </Message>
     );
   } else if (profile.error || !profile.data) {

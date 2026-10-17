@@ -67,12 +67,12 @@ export const TapHintSticker = () => {
             transform: 'rotate(-2deg)',
           }}
         />
-        <span>Psst — every card opens something. Tap around!</span>
+        <span>Psst &mdash; every card opens something. Tap around!</span>
         <button
           type="button"
           onClick={dismiss}
           aria-label="Dismiss hint"
-          className="-mr-0.5 shrink-0 rounded-full p-0.5 hover:bg-black/10"
+          className="relative -mr-0.5 shrink-0 rounded-full p-0.5 hover:bg-black/10 before:absolute before:-inset-[16px] before:content-['']"
           style={{ color: '#3A2A08' }}
         >
           <X className="h-2.5 w-2.5" />

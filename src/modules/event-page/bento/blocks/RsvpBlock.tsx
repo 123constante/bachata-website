@@ -68,7 +68,7 @@ const GHOST_STYLE: React.CSSProperties = {
   border: '1px solid hsl(var(--bento-fg-muted) / 0.25)',
 };
 const BTN =
-  'flex h-10 items-center justify-center gap-1.5 rounded-full px-3 text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50';
+  'flex h-[44px] items-center justify-center gap-1.5 rounded-full px-3 text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50';
 
 /**
  * "I'm Going" / "Interested" for the night on screen. Tap sets, tap again
@@ -177,8 +177,8 @@ export const RsvpBlock = ({
           <AuthPromptModal
             open={authOpen}
             onOpenChange={setAuthOpen}
-            title="Sign in to RSVP"
-            description="Sign in to let the organiser know you're going."
+            title="Save this night"
+            description="Sign in or create an account to save this night. Your nights are private to you."
             returnTo={`${location.pathname}${location.search}`}
           />
         </Suspense>

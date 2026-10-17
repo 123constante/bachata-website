@@ -57,7 +57,7 @@ const PRIMARY_CLASS =
   'flex h-12 flex-1 items-center justify-center gap-2 rounded-full text-[14px] font-bold tracking-[0.01em]';
 const SECONDARY_CLASS =
   'flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-[13px] font-semibold';
-const ICON_CLASS = 'flex h-12 w-12 shrink-0 items-center justify-center rounded-full';
+const ICON_CLASS = 'flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full';
 
 /**
  * Sticky bottom action bar for the bento event page.

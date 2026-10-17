@@ -4,14 +4,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { trackAnalyticsEvent } from '@/lib/analytics';
-import { OTP_CODE_LENGTH } from '@/lib/auth-otp-routing';
+import { OTP_CODE_LENGTH, OTP_RESEND_COOLDOWN_SECONDS } from '@/lib/auth-otp-routing';
 import { trackAuthStep } from '@/lib/trackAuthStep';
 import { ConsentLine } from '@/components/auth/ConsentLine';
+// L1: the account pages' one long-email wrap (break before "@", then overflow-wrap:anywhere).
+import { EmailText } from '@/components/account/EmailText';
+
+/** What a resend did: sent, refused as too soon (wait out a fresh cooldown), or failed. */
+export type ResendOutcome = 'sent' | 'wait' | 'failed';
 
 interface MagicLinkConfirmationProps {
   email: string;
-  /** Re-sends the email. Resolves once the request has settled. */
-  onResend: () => Promise<void>;
+  /** Re-sends the email. Resolves with the outcome once the request has settled. */
+  onResend: () => Promise<ResendOutcome>;
+  /** Why the last send failed, shown under the code box (the parent owns the wording). */
+  resendError?: string;
   onChangeEmail: () => void;
   /**
    * Called once the emailed code has been verified and a session exists. The
@@ -26,7 +33,7 @@ interface MagicLinkConfirmationProps {
   extraAction?: { label: string; onClick: () => void };
 }
 
-const COOLDOWN = 30;
+const COOLDOWN = OTP_RESEND_COOLDOWN_SECONDS;
 const CODE_LENGTH = OTP_CODE_LENGTH;
 const CODE_LABEL = `${CODE_LENGTH}-digit code`;
 // Two groups of four: 8 slots must fit a 390px screen inside the card.
@@ -94,7 +101,7 @@ const storeWrongCodes = (email: string, wrong: number) => {
 
 const LOCKED_MESSAGE = 'Too many wrong codes. Send a new code to try again.';
 
-const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, showConsent, extraAction }: MagicLinkConfirmationProps) => {
+const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, onVerified, showConsent, extraAction }: MagicLinkConfirmationProps) => {
   const [countdown, setCountdown] = useState(COOLDOWN);
   const [isResending, setIsResending] = useState(false);
   const [code, setCode] = useState('');
@@ -154,10 +161,14 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, sho
   const handleResend = async () => {
     setIsResending(true);
     try {
-      await onResend();
-      setCountdown(COOLDOWN);
-      setCode('');
-      setCodeError(null);
+      const outcome = await onResend();
+      // H7: only a send that landed, or a "too soon" refusal (wait it out), restarts the wait;
+      // a plain failure can be retried at once. The reason shows under the box (resendError).
+      if (outcome !== 'failed') setCountdown(COOLDOWN);
+      if (outcome === 'sent') {
+        setCode('');
+        setCodeError(null);
+      }
       // A send that landed started a fresh step (rememberCodeStep); a failed one keeps the count.
       setWrongCodes(storedWrongCodes(email));
     } finally {
@@ -174,7 +185,11 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, sho
       <div className="space-y-1.5">
         <h1 className="text-xl font-bold">Check your email</h1>
         <p className="text-sm text-muted-foreground">
-          We sent a sign-in email to <strong className="text-foreground break-all">{email}</strong>.
+          We sent a sign-in email to{' '}
+          <strong className="text-foreground">
+            <EmailText email={email} />
+          </strong>
+          .
           <br />
           Click the link in the email, or enter the code from it.
         </p>
@@ -205,13 +220,14 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, sho
           >
             {[0, 1].map((group) => (
               <Fragment key={group}>
-                {group === 1 && <div role="separator" aria-hidden="true" className="mx-2 h-0.5 w-2 rounded bg-muted-foreground/50" />}
-                <InputOTPGroup className="gap-1.5">
+                {group === 1 && <div role="separator" aria-hidden="true" className="mx-1 min-[360px]:mx-2 h-0.5 w-2 rounded bg-muted-foreground/50" />}
+                {/* L20: narrower slots below 360px so all 8 fit a 320px screen. */}
+                <InputOTPGroup className="gap-1 min-[360px]:gap-1.5">
                   {Array.from({ length: GROUP_SIZE }, (_, i) => (
                     <InputOTPSlot
                       key={i}
                       index={group * GROUP_SIZE + i}
-                      className="h-12 w-9 rounded-md border bg-card text-base"
+                      className="h-12 w-7 min-[360px]:w-9 rounded-md border bg-card text-base"
                     />
                   ))}
                 </InputOTPGroup>
@@ -221,10 +237,11 @@ const MagicLinkConfirmation = ({ email, onResend, onChangeEmail, onVerified, sho
         </div>
         {/* Always mounted so screen readers announce the text when it appears. */}
         <p id={ERROR_ID} role="alert" aria-live="assertive" className="text-sm text-destructive">
-          {locked ? LOCKED_MESSAGE : codeError}
+          {locked ? LOCKED_MESSAGE : codeError || resendError}
         </p>
         {isVerifying && <p className="text-sm text-muted-foreground" role="status">Checking code&hellip;</p>}
-        {showConsent && <ConsentLine />}
+        {/* The code auto-submits: there is no Continue, so the line names what it does. */}
+        {showConsent && <ConsentLine lead="Entering the code confirms you agree to our" />}
       </div>
 
       <div className="w-full space-y-2">

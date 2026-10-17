@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, X, Loader2 } from 'lucide-react';
 import { uploadToR2 } from '@/lib/uploadToR2';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
@@ -10,14 +10,15 @@ interface AvatarUploadProps {
   value?: string | null;
   onChange: (url: string) => void;
   userId: string;
-  initials?: string;
+  /** The person's first name so far: its initial, or a person glyph with none. */
+  name?: string | null;
 }
 
 export const AvatarUpload: React.FC<AvatarUploadProps> = ({ 
   value, 
   onChange, 
   userId,
-  initials = '?'
+  name = null
 }) => {
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
@@ -65,10 +66,15 @@ export const AvatarUpload: React.FC<AvatarUploadProps> = ({
   return (
     <div className="flex items-center gap-6">
       <div className="relative group">
-        <Avatar className="w-24 h-24 border-4 border-background">
-          <AvatarImage src={value || ''} className="object-cover" />
-          <AvatarFallback className="text-2xl bg-muted/50">{initials}</AvatarFallback>
-        </Avatar>
+        {/* The ONE PersonAvatar: its no-photo disc is the site's muted tone, never a see-through blank. */}
+        <PersonAvatar
+          photoUrl={value || null}
+          name={name}
+          size={88}
+          loading="eager"
+          imgTestId="avatar-upload-photo"
+          placeholderTestId="avatar-upload-empty"
+        />
         
         {value && (
           <button

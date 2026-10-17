@@ -8,8 +8,12 @@
  * The ONE caller is AuthProvider's signOut (hooks/useAuth), which every sign-out
  * control goes through; personScopedStorage.test.tsx greps src to keep it so.
  *
- * NOT here, on purpose: the Supabase session token (sb-*-auth-token: supabase-js
- * removes it itself), and device prefs / anonymous per-browser ids that are not
+ * The Supabase session (sb-<ref>-auth-token, its -user and -code-verifier
+ * companions) IS here (#789 sign-out storage race): it carries the person's
+ * e-mail, and sign-out clears this list BEFORE it leaves the page, while
+ * supabase-js would only remove the token after the leave has committed.
+ *
+ * NOT here, on purpose: device prefs / anonymous per-browser ids that are not
  * a person's (activeCitySlug, calendar view, search recents, geolocation,
  * tap-hint dismissal, raffle/viewer session ids, chunk-reload and RUM flags).
  *
@@ -38,6 +42,11 @@ export const PERSON_SCOPED_LOCAL_PREFIXES: readonly string[] = [
   'dancer_app_linked_notice_dismissed:', // dancer app Home, per user id
 ];
 
+/** Whole-key patterns: the Supabase session, whatever the project ref (a regex, since the ref is in the middle). */
+export const PERSON_SCOPED_LOCAL_PATTERNS: readonly RegExp[] = [
+  /^sb-.+-auth-token(?:-user|-code-verifier)?$/, // supabase-js storageKey (integrations/supabase/client)
+];
+
 export const PERSON_SCOPED_SESSION_KEYS: readonly string[] = [
   'dancer_app_entered', // dancer app Home: the once-per-session entered event
   'auth_code_step_v1', // components/MagicLinkConfirmation: the code step kept over a reload
@@ -47,7 +56,7 @@ export const PERSON_SCOPED_SESSION_PREFIXES: readonly string[] = [
   'finish_profile_', // lib/auth-otp-routing POST_LOGIN_PROMPT_KEY, SKIP_FINISH_PROFILE_KEY
 ];
 
-const clearFrom = (get: () => Storage, keys: readonly string[], prefixes: readonly string[]) => {
+const clearFrom = (get: () => Storage, keys: readonly string[], prefixes: readonly string[], patterns: readonly RegExp[] = []) => {
   let store: Storage;
   try {
     store = get();
@@ -58,7 +67,7 @@ const clearFrom = (get: () => Storage, keys: readonly string[], prefixes: readon
     const doomed = new Set(keys);
     for (let i = 0; i < store.length; i += 1) {
       const key = store.key(i);
-      if (key && prefixes.some((p) => key.startsWith(p))) doomed.add(key);
+      if (key && (prefixes.some((p) => key.startsWith(p)) || patterns.some((r) => r.test(key)))) doomed.add(key);
     }
     for (const key of doomed) {
       try {
@@ -75,6 +84,6 @@ const clearFrom = (get: () => Storage, keys: readonly string[], prefixes: readon
 /** Removes every person-scoped key from localStorage and sessionStorage. Never throws. */
 export const clearPersonScopedStorage = (): void => {
   if (typeof window === 'undefined') return;
-  clearFrom(() => window.localStorage, PERSON_SCOPED_LOCAL_KEYS, PERSON_SCOPED_LOCAL_PREFIXES);
+  clearFrom(() => window.localStorage, PERSON_SCOPED_LOCAL_KEYS, PERSON_SCOPED_LOCAL_PREFIXES, PERSON_SCOPED_LOCAL_PATTERNS);
   clearFrom(() => window.sessionStorage, PERSON_SCOPED_SESSION_KEYS, PERSON_SCOPED_SESSION_PREFIXES);
 };

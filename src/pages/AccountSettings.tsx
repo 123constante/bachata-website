@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmailText } from "@/components/account/EmailText";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useAuth } from "@/hooks/useAuth";
 import { useNoindexMeta } from "@/hooks/useNoindexMeta";
@@ -11,8 +12,12 @@ import { getSupabase } from "@/integrations/supabase/getSupabase";
 import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 import { isPlausibleEmail } from "@/modules/organiser/shared/emailShape";
 import {
+  APP_OPTIONS_PATH,
+  BACK_TO_OPTIONS_LABEL,
   ERASE_CONFIRM_WORD,
   canConfirmErase,
+  isFromApp,
+  withFromApp,
   downloadAccountExport,
   eraseAccount,
   eraseCheckFact,
@@ -24,6 +29,8 @@ import {
 } from "@/lib/accountSettings";
 import { ACCOUNT_CONTACT_EMAIL, OTHER_DEVICES_NOT_SIGNED_OUT, deleteRefusalMessage } from "@/lib/accountDeletionCopy";
 import { toast } from "@/hooks/use-toast";
+import { SIGN_OUT_FAILED, useSignOutToHome } from "@/components/account/profiles/signOutToHome";
+import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from "@/lib/accountRouting";
 
 /**
  * /account/settings, /account/settings/ownership, /account/settings/delete.
@@ -44,11 +51,15 @@ const NOTE = "text-[13px] text-muted-foreground";
 const ERR = "text-[13px] text-destructive";
 
 const SETTINGS_PATH = "/account/settings";
+/** Old address of the delete step (audit M21): it now opens the delete view itself, so old links still work. */
 export const OWNERSHIP_PATH = "/account/settings/ownership";
 export const DELETE_PATH = "/account/settings/delete";
 export const DELETED_PATH = "/account/deleted";
 
 type View = "home" | "ownership" | "delete";
+
+/** Came from the dancer app (`?from=app`, audit M4): keep that context on every in-settings link. */
+const useFromApp = () => isFromApp(useLocation().search);
 
 function Section({ title, children, testId }: { title: string; children: ReactNode; testId?: string }) {
   return (
@@ -91,26 +102,20 @@ function ExportButton({ testId, label = "Download my data" }: { testId: string; 
   );
 }
 
-function SignOutSection() {
-  const { signOut, user } = useAuth();
-  const navigate = useNavigate();
+// Review #789 B1: both buttons go through the one sign-out path (leave first, then sign out),
+// so AuthGuard cannot send the person to "Welcome back" first.
+export function SignOutSection() {
+  const { user } = useAuth();
+  const { signOutToHome, busy } = useSignOutToHome();
   const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const go = async () => {
-    setBusy(true);
     setFailed(false);
-    const outcome = await signOut();
-    setBusy(false);
-    if (outcome === "failed") {
-      setFailed(true);
-      return;
-    }
-    navigate("/", { replace: true });
+    if ((await signOutToHome()) === "failed") setFailed(true);
   };
   return (
     <Section title="Sign out">
-      <p className={`${NOTE} break-all`}>{user?.email ? <>Signed in as {user.email}.</> : <>Signed in.</>}</p>
+      <p className={NOTE}>{user?.email ? <>Signed in as <EmailText email={user.email} />.</> : <>Signed in.</>}</p>
       {confirming ? (
         <div className="space-y-2">
           <button type="button" className={PILL} onClick={() => void go()} disabled={busy} data-testid="settings-signout-yes">
@@ -126,7 +131,7 @@ function SignOutSection() {
         </button>
       )}
       {failed && (
-        <p role="alert" className={ERR}>Sign-out did not complete. Check your connection and try again.</p>
+        <p role="alert" className={ERR}>{SIGN_OUT_FAILED}</p>
       )}
       <SignOutEverywhere />
     </Section>
@@ -135,25 +140,20 @@ function SignOutSection() {
 
 /** D6: ends every session of this account (other phones and laptops too), then this one. */
 function SignOutEverywhere() {
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
-  const [busy, setBusy] = useState(false);
+  const { signOutToHome, busy } = useSignOutToHome();
   const [note, setNote] = useState<string | null>(null);
   const go = async () => {
-    setBusy(true);
     setNote(null);
-    const outcome = await signOut({ everywhere: true });
-    setBusy(false);
+    const outcome = await signOutToHome({ everywhere: true });
     if (outcome === "failed") {
-      setNote("Sign-out did not complete. Check your connection and try again.");
+      setNote(SIGN_OUT_FAILED);
       return;
     }
     // "signed-out-locally": this device is out, the global revoke did not land. Say so: the page
-    // ends here (AuthGuard), so the words ride a toast that outlives the navigation.
+    // has gone by now, so the words ride a toast that outlives it.
     if (outcome === "signed-out-locally") {
       toast({ title: "Other devices may still be signed in", description: OTHER_DEVICES_NOT_SIGNED_OUT, variant: "destructive", duration: 20000 });
     }
-    navigate("/", { replace: true });
   };
   return (
     <div className="space-y-2 border-t border-border pt-2">
@@ -203,11 +203,12 @@ function EmailSection() {
 
   return (
     <Section title="Email address" testId="settings-email">
-      <p className={`${NOTE} break-all`}>{current ? <>Your email is {current}.</> : "Your email isn't shown here."}</p>
+      <p className={NOTE}>{current ? <>Your email is <EmailText email={current} />.</> : "Your email isn't shown here."}</p>
       {pending && (
         <p role="status" className="text-[14px] text-foreground" data-testid="settings-email-pending">
-          Almost there: check both inboxes. We sent a link to {current ?? "your current address"} and to {pending}.
-          Open both links to switch to {pending}; until then you still sign in with {current ?? "your current email"}.
+          Almost there: check both inboxes. We sent a link to {current ? <EmailText email={current} /> : "your current address"} and to{" "}
+          <EmailText email={pending} />. Open both links to switch to <EmailText email={pending} />; until then you still sign in with{" "}
+          {current ? <EmailText email={current} /> : "your current email"}.
         </p>
       )}
       <label className="block text-[13px] font-semibold text-foreground" htmlFor="settings-email-input">
@@ -291,7 +292,7 @@ function VisibilitySection() {
         <>
           <p className="text-[14px] text-foreground" data-testid="settings-disable-state">
             {hidden
-              ? "Your dancer profile is hidden. Nobody else can see it. You can show it again any time."
+              ? `${HIDDEN_STATE_LINE} You can show it again any time.`
               : "Your dancer profile is visible to everyone. Hiding it is not permanent: you can show it again any time."}
           </p>
           {hidden || !confirming ? (
@@ -302,7 +303,7 @@ function VisibilitySection() {
               onClick={() => (hidden ? void apply(false) : setConfirming(true))}
               data-testid="settings-disable-toggle"
             >
-              {busy ? <>Working&hellip;</> : hidden ? "Show my profile again" : "Hide my profile"}
+              {busy ? <>Working&hellip;</> : hidden ? SHOW_AGAIN_LABEL : "Hide my profile"}
             </button>
           ) : (
             <div className="space-y-2">
@@ -323,6 +324,7 @@ function VisibilitySection() {
 }
 
 function Home() {
+  const fromApp = useFromApp();
   return (
     <div className="space-y-3">
       <EmailSection />
@@ -331,29 +333,13 @@ function Home() {
         <p className={NOTE}>Saves a file with what we hold about you: your profile, ratings and attendance.</p>
         <ExportButton testId="settings-export" />
       </Section>
-      <Section title="Account ownership">
-        <p className={NOTE}>Delete your account: it is hidden at once, and you have 30 days to change your mind.</p>
-        <Link to={OWNERSHIP_PATH} className={OUTLINE} data-testid="settings-ownership-link">
-          Account ownership
-        </Link>
-      </Section>
-      <SignOutSection />
-    </div>
-  );
-}
-
-function Ownership() {
-  return (
-    <div className="space-y-3">
-      <Section title="Delete your account">
-        <p className="text-[14px] text-foreground">
-          Deleting your account hides it from everyone at once. Sign in within 30 days to undo it. If you just want a break, hide your dancer profile instead: you can bring it back any time.
-        </p>
-        <Link to={SETTINGS_PATH} className={OUTLINE}>Back to settings</Link>
-        <Link to={DELETE_PATH} className={OUTLINE} data-testid="ownership-delete-link">
+      <Section title="Delete account" testId="settings-delete">
+        <p className={NOTE}>Your account is hidden from everyone at once. Sign in within 30 days to undo it.</p>
+        <Link to={withFromApp(DELETE_PATH, fromApp)} className={OUTLINE} data-testid="settings-delete-link">
           Delete account
         </Link>
       </Section>
+      <SignOutSection />
     </div>
   );
 }
@@ -371,8 +357,10 @@ function Blocked({ text, names, code }: { text: string; names: string[]; code: E
   );
 }
 
-function Delete() {
-  const { user, signOut } = useAuth();
+export function Delete() {
+  const { user } = useAuth();
+  const { signOutToHome } = useSignOutToHome();
+  const fromApp = useFromApp();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const check = useQuery({
@@ -400,20 +388,18 @@ function Delete() {
   const enabled = canType && canConfirmErase(typed) && !busy;
 
   const erase = async () => {
+    if (!enabled) return;
     setBusy(true);
     setError(null);
     const out = await eraseAccount();
     if (out.kind === "hidden") {
       // Hidden now; every device is signed out (signing in again within 30 days restores it).
-      // When the global revoke did not land, /account/deleted says so (OTHER_DEVICES_NOT_SIGNED_OUT).
-      let signedOutEverywhere = false;
-      try {
-        signedOutEverywhere = (await signOut({ everywhere: true })) === "signed-out";
-      } catch {
-        /* the account is hidden either way; the deleted page says the other devices may be signed in */
-      }
+      // Review #789 B1: leave for /account/deleted FIRST, then sign out (the one sign-out path),
+      // or AuthGuard sends the person to the sign-in form. The account is hidden either way, so a
+      // failed sign-out stays on the deleted page, which says the other devices may be signed in.
+      const outcome = await signOutToHome({ everywhere: true, to: DELETED_PATH, onFailed: "stay" });
       queryClient.clear();
-      navigate(DELETED_PATH, { replace: true, state: signedOutEverywhere ? null : { otherDevicesSignedIn: true } });
+      if (outcome !== "signed-out") navigate(DELETED_PATH, { replace: true, state: { otherDevicesSignedIn: true } });
       return;
     }
     setBusy(false);
@@ -437,7 +423,7 @@ function Delete() {
           <li>Sign in within 30 days to undo it: your account comes back as it was.</li>
           <li>
             After that it stays hidden. For a full erase of your data, ask us at{" "}
-            <span className="break-all font-semibold">{ACCOUNT_CONTACT_EMAIL}</span>.
+            <EmailText email={ACCOUNT_CONTACT_EMAIL} className="font-semibold" />.
           </li>
         </ul>
       </Section>
@@ -447,7 +433,7 @@ function Delete() {
       </Section>
       <Section title="Or just hide your profile">
         <p className={NOTE}>Hiding is reversible and keeps your account.</p>
-        <Link to={SETTINGS_PATH} className={OUTLINE} data-testid="delete-hide-instead">
+        <Link to={withFromApp(SETTINGS_PATH, fromApp)} className={OUTLINE} data-testid="delete-hide-instead">
           Hide my profile instead
         </Link>
       </Section>
@@ -461,7 +447,14 @@ function Delete() {
         )}
         {fact && blocked && <Blocked text={fact.text} names={fact.blockerNames} code={late ? late.code : (check.data?.code ?? null)} />}
         {canType && (
-          <>
+          // M3: Enter / the keyboard's Done submits; erase() refuses unless the word is typed.
+          <form
+            className="space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void erase();
+            }}
+          >
             <label htmlFor="delete-type-input" className="block text-[13px] font-semibold text-foreground">
               Type {ERASE_CONFIRM_WORD} to confirm
             </label>
@@ -469,14 +462,15 @@ function Delete() {
               id="delete-type-input"
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              autoCapitalize="off"
+              autoCapitalize="characters"
               autoCorrect="off"
               autoComplete="off"
               spellCheck={false}
+              enterKeyHint="done"
               className="min-h-[44px] w-full rounded-lg border border-border bg-background px-3 text-[16px]"
               data-testid="delete-type-input"
             />
-          </>
+          </form>
         )}
         <button type="button" className={DANGER} disabled={!enabled} onClick={() => void erase()} data-testid="delete-confirm">
           {busy ? <>Deleting&hellip;</> : "Delete my account"}
@@ -490,19 +484,44 @@ function Delete() {
   );
 }
 
-const TITLES: Record<View, string> = { home: "Settings", ownership: "Account ownership", delete: "Delete account" };
-const CRUMBS = { home: "accountSettings", ownership: "accountSettings.ownership", delete: "accountSettings.delete" } as const;
+// The old ownership step is gone (M21): its address shows the delete view, with the delete crumbs.
+const TITLES: Record<View, string> = { home: ACCOUNT_SETTINGS_LABEL, ownership: "Delete account", delete: "Delete account" };
+const CRUMBS = { home: "accountSettings", ownership: "accountSettings.delete", delete: "accountSettings.delete" } as const;
+// Walk bug 2 (#789): the shared crumb links are 17 px high. Only while this page is mounted (its <style>
+// goes with it), every crumb link is >= 44 px (explicit px: the phone root font is ~13.5px). Kept in this
+// page, not PageBreadcrumb, so no other page changes (and the dancer-area seam list stays as it is).
+export const CRUMB_TAP_CSS =
+  'nav[aria-label="breadcrumb"] a{min-height:44px}nav[aria-label="breadcrumb"] a:not(.flex){display:inline-block;line-height:44px}';
 
-export const AccountSettingsScreen = ({ view = "home" }: { view?: View }) => (
-  <GlobalLayout breadcrumbs={buildBreadcrumbs(CRUMBS[view])}>
-    <div className="px-4 pb-24 pt-3">
-      <div className="mx-auto w-full max-w-md space-y-3">
-        <h1 className="text-lg font-bold text-foreground">{TITLES[view]}</h1>
-        {view === "home" ? <Home /> : view === "ownership" ? <Ownership /> : <Delete />}
+export const AccountSettingsScreen = ({ view = "home" }: { view?: View }) => {
+  const fromApp = useFromApp();
+  return (
+    // L7: a task page; no floating decoration under the form text.
+    // S1 (review #789): the "Account settings" crumb keeps ?from=app, or "Back to Options" is lost one tap later.
+    <GlobalLayout
+      breadcrumbs={buildBreadcrumbs(CRUMBS[view]).map((c) => (c.path === SETTINGS_PATH ? { ...c, path: withFromApp(c.path, fromApp) } : c))}
+      showGradientBg={false}
+    >
+      {/* Walk bug 2 (#789): the crumbs are this page's way out, so each link is a 44 px tap target. */}
+      <style>{CRUMB_TAP_CSS}</style>
+      <div className="px-4 pb-24 pt-3">
+        <div className="mx-auto w-full max-w-md space-y-3">
+          {fromApp && (
+            <Link
+              to={APP_OPTIONS_PATH}
+              className="inline-flex min-h-[44px] items-center text-[14px] font-semibold text-primary underline underline-offset-2"
+              data-testid="settings-back-to-options"
+            >
+              {BACK_TO_OPTIONS_LABEL}
+            </Link>
+          )}
+          <h1 className="text-lg font-bold text-foreground">{TITLES[view]}</h1>
+          {view === "home" ? <Home /> : <Delete />}
+        </div>
       </div>
-    </div>
-  </GlobalLayout>
-);
+    </GlobalLayout>
+  );
+};
 
 // Signed out -> /auth with returnTo. no dancer-first gate: see the header comment.
 const AccountSettings = ({ view = "home" }: { view?: View }) => {

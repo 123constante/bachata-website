@@ -33,7 +33,7 @@ vi.mock('@/components/ui/city-picker', () => ({
 import Auth from '../Auth';
 import { AuthStepper } from '@/components/auth/AuthStepper';
 import { AuthFormProvider } from '@/contexts/AuthFormContext';
-import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
+import { SIGNUP_HELP_WHATSAPP_URL } from '@/lib/auth-otp-routing';
 import { installJsdomPolyfills } from '../../../tests/client/jsdomPolyfills';
 
 beforeEach(() => {
@@ -102,9 +102,9 @@ describe('/auth create account', () => {
     if (cont) fireEvent.click(cont);
     fireEvent.change(await screen.findByLabelText(/^email$/i), { target: { value: 'stranger@example.com' } });
     fireEvent.click(screen.getByRole('button', { name: /email me a link/i }));
-    await waitFor(() => expect(screen.getByText(/Sign-up is invite-only for now/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/We can.t create an account for this email yet/)).toBeTruthy());
     const link = screen.getByRole('link', { name: /message us on whatsapp/i });
-    expect(link.getAttribute('href')).toBe(WHATSAPP_GET_LISTED_URL);
+    expect(link.getAttribute('href')).toBe(SIGNUP_HELP_WHATSAPP_URL);
     expect(link.getAttribute('target')).toBe('_blank');
   });
 });

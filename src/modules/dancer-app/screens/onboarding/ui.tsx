@@ -127,6 +127,21 @@ export const Field = ({ id, label, hint, children }: { id: string; label: string
   </div>
 );
 
+/** A link that looks like a PrimaryButton (primary) or a GhostButton: same 48px height, centred text. */
+export const linkButton = (primary: boolean): CSSProperties => ({
+  ...btn,
+  ...wrap,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textAlign: 'center',
+  textDecoration: 'none',
+  boxSizing: 'border-box',
+  background: primary ? 'var(--da-accent)' : 'transparent',
+  color: primary ? 'var(--da-on-accent)' : 'inherit',
+  border: primary ? 'none' : '1px solid var(--da-border)',
+});
+
 export const textInput: CSSProperties = {
   width: '100%',
   minHeight: 48,

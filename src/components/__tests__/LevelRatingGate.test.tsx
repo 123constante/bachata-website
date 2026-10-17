@@ -40,7 +40,7 @@ import { LevelRatingPrompt } from '../LevelRatingPrompt';
 import { ProfileGateContext } from '@/hooks/useAuth';
 import { completenessFact, profileGateValue } from '@/lib/profileCompletion';
 import { PENDING_LEVEL_RATING_KEY } from '@/lib/pendingLevelRating';
-import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
+import { NO_PROFILE_CONTACT_URL } from '@/lib/profileCompletion';
 import { PROFILE_FIELD_LABEL as LABELS } from '@/lib/profileCompletion';
 
 const ALL = ['first_name', 'based_city_id', 'dance_role', 'avatar_url'] as const;
@@ -103,7 +103,7 @@ describe.each([false, true])('compact=%s', (compact) => {
           `/finish-profile?returnTo=${encodeURIComponent('/event/ev1?occ=2#level-rating')}`,
         );
       } else {
-        expect(screen.getByRole('link', { name: /whatsapp/i }).getAttribute('href')).toBe(WHATSAPP_GET_LISTED_URL);
+        expect(screen.getByRole('link', { name: /whatsapp/i }).getAttribute('href')).toBe(NO_PROFILE_CONTACT_URL);
       }
     });
   });

@@ -81,9 +81,9 @@ test.describe('me + edit 390x844', () => {
   // Review S12: nationality is the shared country picker. It shows the name and saves the ISO code.
   test('nationality shows "Spain" for a stored ES and saves FR when France is picked', async ({ page }) => {
     const { saves } = await open(page, '/app/me/edit', 'completeAllExtras');
-    const field = page.locator('#nationality');
+    const field = page.locator('#nationality'); // the combobox itself (M17: its label names it)
     await expect(field).toContainText('Spain');
-    await field.getByRole('combobox').click();
+    await field.click();
     await page.getByPlaceholder('Search country...').fill('France');
     await page.getByRole('option', { name: /France/ }).first().click();
     await expect(field).toContainText('France');

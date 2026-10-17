@@ -1,9 +1,10 @@
 import { Suspense, useId, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, ChevronDown, Music, UserRound } from "lucide-react";
+import { CalendarDays, ChevronDown, Music } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
+import { useSignOutToHome } from "@/components/account/profiles/signOutToHome";
 import { useCity } from "@/contexts/CityContext";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { useMyDancerSummary } from "@/hooks/useMyDancerSummary";
@@ -13,7 +14,14 @@ import { buildSignInHref } from "@/lib/authRouting";
 import { danceRoleLabel } from "@/lib/auth-otp-routing";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { optimizedImageUrl, srcWidthFor } from "@/lib/imageCdn";
-import { ACCOUNT_SETTINGS_PATH, MY_ATTENDANCE_PATH, ORGANISER_HOME_PATH } from "@/lib/accountRouting";
+import {
+  ACCOUNT_SETTINGS_LABEL,
+  ACCOUNT_SETTINGS_PATH,
+  HIDDEN_STATE_LINE,
+  MY_ATTENDANCE_PATH,
+  ORGANISER_HOME_PATH,
+  SHOW_AGAIN_LABEL,
+} from "@/lib/accountRouting";
 import {
   NO_PROFILE_CONTACT_LABEL,
   NO_PROFILE_CONTACT_URL,
@@ -24,6 +32,7 @@ import {
 import { ORGANISER_HOME_KEY, myAccessRequestsQueryKey, type MyAccessRequest } from "@/modules/organiser/shared/selfServeApi";
 import { NationalityFlag } from "@/components/people/NationalityFlag";
 import { HideSurnameCard } from "./HideSurnameCard";
+import { PersonAvatar } from "./profiles/PersonAvatar";
 
 // The organiser onboarding (claim / request access / create) loads only when
 // "I organise events" is opened: most dancers never open it.
@@ -34,49 +43,30 @@ const PILL =
 const CARD = "rounded-xl border border-border bg-card p-3";
 const AVATAR_PX = 56;
 
+/** The ONE PersonAvatar (its no-photo disc is the site's muted tone, never the black background). */
 function Avatar({ url, name }: { url: string | null; name: string | null }) {
-  if (url) {
-    return (
-      <img
-        src={optimizedImageUrl(url, srcWidthFor(AVATAR_PX))}
-        alt={name ? `${name}'s photo` : "Your photo"}
-        width={AVATAR_PX}
-        height={AVATAR_PX}
-        loading="eager"
-        className="h-[56px] w-[56px] shrink-0 rounded-full object-cover"
-        data-testid="dancer-home-photo"
-      />
-    );
-  }
-  const initial = name?.[0]?.toUpperCase();
   return (
-    <span
-      aria-hidden="true"
-      className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-full border border-border bg-background text-[20px] font-bold text-muted-foreground"
-      data-testid="dancer-home-photo-empty"
-    >
-      {initial ?? <UserRound className="h-5 w-5" />}
-    </span>
+    <PersonAvatar
+      photoUrl={url ? optimizedImageUrl(url, srcWidthFor(AVATAR_PX)) : null}
+      name={name}
+      size={AVATAR_PX}
+      loading="eager"
+      alt={name ? `${name}'s photo` : "Your photo"}
+      imgTestId="dancer-home-photo"
+      placeholderTestId="dancer-home-photo-empty"
+    />
   );
 }
 
-function SignOut({ email }: { email: string | null }) {
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
+export function SignOut({ email }: { email: string | null }) {
+  // Review #789 B1: the one sign-out path (leave first), or AuthGuard lands the person on "Welcome back".
+  const { signOutToHome, busy } = useSignOutToHome();
   const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
   const go = async () => {
-    setBusy(true);
     setFailed(false);
-    const outcome = await signOut();
-    setBusy(false);
-    if (outcome === "failed") {
-      setFailed(true);
-      return;
-    }
-    navigate("/", { replace: true });
+    if ((await signOutToHome()) === "failed") setFailed(true);
   };
 
   return (
@@ -183,10 +173,10 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
     <div className="space-y-3" data-testid="dancer-home">
       {visibility.status === "hidden" && (
         <div className={`${CARD} space-y-2 border-primary/60`} role="status" data-testid="dancer-home-hidden-banner">
-          <p className="text-[14px] font-semibold text-foreground">Your dancer profile is hidden.</p>
-          <p className="text-[13px] text-muted-foreground">Nobody else can see it. You can show it again in your settings.</p>
+          <p className="text-[14px] font-semibold text-foreground">{HIDDEN_STATE_LINE}</p>
+          <p className="text-[13px] text-muted-foreground">You can show it again in {ACCOUNT_SETTINGS_LABEL}.</p>
           <Link to={ACCOUNT_SETTINGS_PATH} className={PILL} data-testid="dancer-home-hidden-settings">
-            Show my profile again
+            {SHOW_AGAIN_LABEL}
           </Link>
         </div>
       )}
@@ -364,7 +354,7 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
         className="flex min-h-[44px] items-center justify-center text-[14px] font-semibold text-primary underline underline-offset-2"
         data-testid="dancer-home-settings"
       >
-        Settings: email, your data, hide or delete account
+        {ACCOUNT_SETTINGS_LABEL}: email, your data, hide or delete account
       </Link>
 
       {/* The open onboarding has its own "Signed in as ... Sign out" line: one per screen. */}

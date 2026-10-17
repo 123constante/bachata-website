@@ -34,6 +34,77 @@ pushes is the whole goal.
 8. **Dependabot: group updates.**
    Why: one grouped PR replaces many single-package PRs.
 
+## Vercel build budget
+
+Vercel Hobby allows about 100 deployments per rolling 24 hours. On 2026-10-16
+we made 93 and hit "Deployment rate limited - retry in 24 hours": no PR
+previews, and a merge to `main` would not have deployed production either.
+Over the 3 days before, docs-only brief branches alone were 36% of all builds.
+
+The rule (`scripts/vercel-ignore-build.sh`, the `vercel.json` ignoreCommand),
+for NON-production builds only:
+
+- **No preview for these branch prefixes:** `arc/briefs-` and `claude/`
+  always skip; `bot/` and `dependabot/` skip when no build path
+  changed (as before). That list lives ONLY in the script
+  (`ALWAYS_SKIP_PREFIXES` + `DIFF_RULE_PREFIXES`); the preview jobs' `if:` in
+  `perf-budget.yml`, `synthetic-ssr-monitor.yml`, `seo-check.yml` and
+  `og-image-check.yml` copy it, and `npm run check:no-preview-prefixes` (run in
+  `workflow-lint.yml`) fails when a copy drifts.
+- **`vercel.json` `git.deploymentEnabled` turns those always-skip
+  prefixes off at the source** (`"arc/briefs-*": false`, ...). An ignored build
+  still COUNTS toward the Hobby ~100/day deployment limit (Vercel docs, Ignored
+  Build Step: "canceled builds ... will still count towards your deployment
+  quotas"); a branch with deployments disabled creates no deployment at all.
+  The script's `ALWAYS_SKIP_PREFIXES` stays as defence in depth, and
+  `check:no-preview-prefixes` fails when the `false` keys differ from it (each
+  key is the prefix plus `*`). Such a branch posts no Vercel commit status: if
+  the `main` ruleset ever requires the Vercel status, its PRs would wait
+  forever. Vercel reads `vercel.json` from the PUSHED commit, so a long-lived
+  brief branch must merge `main` once before this takes effect there; and its
+  `*` does not cross `/`, so keep those branch names slash-free after the prefix.
+- **A preview exists ONLY for `main`, `feat/*` and PRs from `feat/*`** (VB2,
+  2026-10-17). Every `claude/*` branch (worker slices, review and done-signal
+  branches) and `arc/briefs-*` get no deployment: `vercel.json` has
+  `"claude/*": false`, `"arc/briefs-*": false`, and the keep-on entries
+  `"main": true`, `"feat/*": true`. Vercel deploys a branch when ANY matching key
+  is `true` (a `true` always wins; unmatched branches deploy), so the guard
+  allows no other `true` key: a stray glob such as `*-dev` would re-enable
+  slices. `bot/*` and `dependabot/*` are unmatched and keep deploying (their
+  preview jobs are skipped anyway; the diff rule still skips docs-only bot
+  builds). Why: 117 deploys in 24 h on 2026-10-16, ~55 of them `claude/*` slice
+  previews nobody opened.
+- **A slice PR's evidence is the worker's sandbox table** (build, tests, every CI
+  step run locally, browser walk), not a preview. On such a PR every preview job
+  (lighthouse, doc-weight, synthetic SSR, seo-preview, og preview) is SKIPPED and
+  a `no-preview-reason` job in each of those workflows writes why to the step
+  summary. The real preview gates run when the slices land on the `feat/*`
+  integration branch and its PR to `main`. Work that needs a preview opens from
+  a `feat/<topic>` branch. `check:no-preview-prefixes` keeps the `false` keys,
+  the `true` keys, the job exclusions and the reason jobs in step.
+- **`arc/briefs-*` is docs-only by convention.** A PR from it that
+  touches `src/`, `app/` or `api/` gets NO preview and its preview jobs report
+  Skipped; open such work from a `feat/<topic>` branch instead. Automerge
+  already refuses those paths on any branch; a CI check that reds such a PR is
+  proposed (`docs/handovers/vercel-build-budget.md`), not built.
+- **`[skip preview]` at the END of the commit SUBJECT skips the build** (the body is never read; the tag
+  mid-subject does nothing). `[skip preview]` saves build minutes and a concurrent build slot, NOT a
+  deployment; the 100/day budget is only saved by not pushing. Workers end every
+  CHECKPOINT commit subject with `[skip preview]`, and NEVER put it on the final
+  `[worker-done ...]` push: the final push must build the preview the PR checks
+  need. A skipped build is CANCELED, so the next untagged push builds normally.
+  The preview checks fail a `[skip preview]` head FAST and RED
+  (`scripts/lib/previewProbe.mjs`: "checkpoint commit: no preview by design;
+  the final worker push builds one"); a head that was never previewed never
+  looks verified.
+- Production (`main`, `VERCEL_ENV=production`) is unchanged, and every unknown
+  case still builds.
+
+**Emergency path when rate-limited:** Vercel Instant Rollback to the previous
+production deployment (dashboard: Deployments, pick the last good production
+deployment, Instant Rollback). It reuses an existing build, so it should not
+need a build slot. **Not verified on Hobby.**
+
 ## Proposal (not applied)
 
 - Enable `groups:` in `.github/dependabot.yml` so minor and patch updates for
@@ -69,5 +140,7 @@ PR HYGIENE (docs/pr-batching-policy.md):
 - Iterate locally (build + tests). Push ONCE when finished; no pushes to re-run CI.
 - Fix your own mistakes on this branch. Follow-up PR only for a defect found after merge.
 - No draft PR pushed until there is something to look at.
+- Any checkpoint push: end the commit subject with [skip preview]. NEVER on the final [worker-done] push.
+- claude/* branches get NO Vercel preview: your evidence is your sandbox table (every CI step run locally).
 - Never merge or approve. Leave merging to the owner (batched).
 ```

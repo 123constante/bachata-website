@@ -20,6 +20,8 @@ const rowFor = (person: Person, auth?: 'signup' | 'signin'): Journey => ({
 async function signOutFromSheet(page: Page) {
   await page.getByTestId('profile-switcher-button').click();
   await page.getByTestId('profile-switcher-sign-out').click();
+  // Slice B: the sheet asks first (its own confirm step), then signs out.
+  await page.getByTestId('profile-switcher-signout-confirm').click();
   await expect(page).not.toHaveURL(/\/app\//);
 }
 
@@ -109,7 +111,8 @@ test('admin-only opens /app/home: /account, then the Finish screen', async ({ pa
   });
   await page.goto('/app/home');
   await expect(page).toHaveURL((u) => u.pathname === '/finish-profile' && u.searchParams.get('returnTo') === '/account', { timeout: 20_000 });
-  await expect(page.getByRole('heading', { name: 'Finish your profile' })).toBeVisible();
+  // Slice B: with no dancer profile at all, the screen says what it does: set one up.
+  await expect(page.getByRole('heading', { name: 'Set up your dancer profile' })).toBeVisible();
   expect(trail, 'the dancer area sent them to /account first').toContain('/account');
   await expectNoHorizontalScroll(page);
 });
@@ -165,11 +168,18 @@ test('sign out, then an organiser (B) signs in on the same phone: B sees B\'s si
   for (const d of bOrg.emptyLineup) fake.emptyLineup.add(d);
   const bEmail = 'bea.org@example.com';
   backend.becomeReturning(bEmail, '77777777-7777-4777-8777-777777777777');
-  // Stay in the same page session: the app has sent the signed-out person to the sign-in form, no page.goto.
+  // Stay in the same page session, no page.goto. Audit H10 (Slice B): sign-out lands on the site home,
+  // never the sign-in form, so B signs in from the header's Sign in link.
+  await expect(page).not.toHaveURL(/\/auth/);
+  await page.getByTestId('header-sign-in-link').click();
   await signinForm(page, noShot, bEmail);
   await codeStep(page, noShot, backend, false);
-  // The sign-out sent them back to the page they left (returnTo=/app/home), so B's sides are read from the switch sheet.
-  await expect(page.getByTestId('dancer-screen-home')).toBeVisible({ timeout: 30_000 });
+  // Back on the page B signed in from; B opens the account from the header (B runs events: the organiser
+  // area, which carries the same switch sheet), still without a reload. B's sides are read from that sheet.
+  await expect(page).not.toHaveURL(/\/auth/, { timeout: 30_000 });
+  await page.getByTestId('header-account-link').click();
+  // B runs an organiser page, so /account is the organiser home (A's cached "no organiser" must not leak).
+  await expect(page).toHaveURL((u) => u.pathname.startsWith('/account/o'), { timeout: 30_000 });
   await page.getByTestId('profile-switcher-button').click();
   await expect(page.locator('[data-testid^="profile-switcher-side-organiser:"]')).toHaveCount(1);
   await expect(page.getByTestId(`profile-switcher-side-organiser:${ORG}`)).toContainText(ORG_NAME);

@@ -11,7 +11,7 @@ import { flags } from '@/lib/featureFlags';
 import { WHATSAPP_GROUP_URL } from '@/lib/contactLinks';
 import { useAuth } from '@/hooks/useAuth';
 import { buildSignInHref, sanitizeReturnTo } from '@/lib/authRouting';
-import { ACCOUNT_HOME_PATH, isAccountPath } from '@/lib/accountRouting';
+import { ACCOUNT_HOME_PATH, isAccountPath } from '@/lib/accountPaths';
 
 // NO framer-motion here (perf, Pillar A): the header mounts on every page, so
 // a `motion.*` import would drag the whole library into the first-load bundle.

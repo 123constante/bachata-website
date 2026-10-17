@@ -92,3 +92,12 @@ jobs:
 
       - name: Lint workflows for unnotified scheduled prod probes
         run: node scripts/lint-workflow-notification.mjs
+
+      # The preview jobs' `if:` must exclude exactly the no-preview branch
+      # prefixes in scripts/vercel-ignore-build.sh (Vercel build budget).
+      # Here, not in masking-check: it parses YAML, so it needs npm ci.
+      - name: No-preview prefixes canary (self-test)
+        run: node scripts/check-no-preview-prefixes.mjs --self-test
+
+      - name: No-preview prefixes in sync with the Vercel ignore step
+        run: node scripts/check-no-preview-prefixes.mjs
