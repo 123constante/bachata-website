@@ -1,3 +1,67 @@
+# Fix pass from the signed-in walk (ticket dt_a874ff1c956e)
+
+Brief: arc/briefs-dancer-rebuild briefs/fix-789-walk-bugs.md. Walk: docs/review-packs/dancer-journey-fixes/WALK.md on claude/done-walk-789.
+Fix commit 3fe9e0c (on top of the merge of origin/main, 12c6d45: #797 + #802, no conflict).
+
+## Done
+- **Bug 1 (no dancer profile trapped on Options / Home).** Both screens keep the "message us" text + WhatsApp button and add under it
+  `screens/options/NoProfileWayOut.tsx`: "Go to my organiser area" (-> `/account/o`, ONLY when organiser_home_v1 lists >= 1 organiser),
+  "Account settings" (-> `/account/settings?from=app`), and "Sign out". Sign out is ONE shared component, `screens/options/SignOutControl.tsx`
+  (row + "Sign out?" sheet + the lazy `SignOutConfirm` -> `useSignOutToHome`, so it still lands Home and clears local data); the full Options
+  screen's sign-out row now renders the same component. `Sheet` / `ROW` moved to `screens/options/optionsUi.tsx` (no copy).
+  The organiser read uses the gate's cache key (`organiserHomeKey`, pinned equal to `organiserHomeQueryKey` by a test) and imports the
+  organiser API on demand, so the dancer-app first load does not grow by a chunk. Resolves WALK Observation A.
+- **Bug 2 (17 px crumbs).** `/account/settings` and `/account/settings/delete`: every crumb link is >= 44 px (Home 44, Your account 44,
+  Account settings 44 on delete), via a `<style>` mounted only with that page (`CRUMB_TAP_CSS` in `src/pages/AccountSettings.tsx`).
+  Organiser-area footer links untouched.
+- Observations B and C left as is (orchestrator decision).
+
+## Red first, then green
+| Test | Unfixed code | Fixed |
+|---|---|---|
+| `journeyConsistency.test.tsx` "walk bug 1": every signed-in `DANCER_SHAPES` shape + organiser-no-dancer + organiser-and-dancer x Options/Home: Sign out + Account settings, organiser link only for an organiser, no pointer to an absent control, Sign out opens the confirm | 6 failed / 36 passed (the 3 no-profile shapes x 2 screens) | 43 passed (+1 cache-key pin) |
+| `tests/e2e-phone/account-crumbs.phone.spec.ts` (phone-qa project): crumb links >= 44 px and a tap at the centre hits them | 2 failed (Home 17, Your account 17) at 390x844 | 4 passed (390x844 + 360x640) |
+
+## Decisions (mine, with reasons)
+- **Home with a profile is unchanged.** The brief's test line says "Options and Home each expose Sign out + Account settings" for every
+  shape, but decision 1 changes only the no-profile state. The matrix asserts both controls ON Home for no-profile shapes, and for a
+  full Home asserts the Options tab (where they live) is on screen. If the owner wants Sign out on the full Home too, that is a new decision.
+- **Crumb fix lives in AccountSettings.tsx, not PageBreadcrumb/GlobalLayout.** I first added an opt-in `tapTargets` prop to the shared
+  crumb, but `check:dancer-area-isolation` went red: those two files are not seams, and adding a seam is an orchestrator decision. The
+  scoped `<style>` touches only the AccountSettings seam. Cleaner later option: make PageBreadcrumb a seam and add the prop.
+- No budget pin raised: dancer-app 362.9 KB / 57 chunks (budget 363 / 57).
+
+## Per-job CI table (run locally on 3fe9e0c; GitHub Actions not used)
+| Workflow / job | Command | Exit | Result |
+|---|---|---|---|
+| unit-tests / unit (Europe/London) | `TZ=Europe/London npm run test:unit:offline` | 1 | 9073 passed, 16 skipped, 5 failed: all in `tests/integrityCouldNotRun.test.ts` ("typescript resolved in the temp repo -- precondition gone"): this container has a GLOBAL typescript, CI runners do not. Same as the previous pass. |
+| unit-tests / timing | `npm run test:unit:timing` | 0 | pass |
+| unit-tests / unit (America/New_York, Australia/Sydney) | tz vitest list from unit-tests.yml | 0 / 0 | 213 / 213 each |
+| unit-tests / dancer-area-isolation | `--self-test`; `npm run check:dancer-area-isolation` | 0; 0 | OK (was red with the first crumb approach, see Decisions) |
+| typecheck | `check:rpc-typing`, `check:wallclock-brand` | 0, 0 | pass |
+| architecture-guard | `bin/check-integrity.sh`, `check:legacy-tables`, `check:legacy-program-rpcs`, `lint:architecture`, `AUDIT_STRICT=1 check:images`, `check:plan-hygiene:self-test`, `prove:entry-point` | all 0 | pass |
+| lint chain | `npm run lint` (after `chmod +x bin/*.sh`, as CI does) | 0 | 20 of 20 links green; eslint informational |
+| perf-budget / bundle-budget | 3 self-tests; `npm run build` (job env); `check:bundle-budget`; `check:first-load-requests`; `check:chunk-cycles` | all 0 | dancer-app 362.9 KB / 57 chunks (budget 363 / 57) |
+| e2e-smoke | `npm run test:e2e` (job env) | 0 | 148 passed, 1 skipped |
+| phone-qa / phone-qa | `npx playwright test --config playwright.phone.config.ts` | 0 | 272 passed, 74 skipped (incl. the new crumb spec) |
+| phone-qa / build-smoke | `npm run build` (fake env) + `npx playwright test --config playwright.build.config.ts` | 0 | 66 passed |
+| pr-mergeable-guard, seo-check | `check:pr-mergeable:self-test`, `check:seo:self-test` | 0, 0 | pass; live checks need a preview |
+
+## Browser walk (390x844, dev server, fake Supabase, throw-away spec not committed)
+`/app/options` and `/app/home` x {no profile, organiser with no dancer}: overflow 0; every control 44-48 px high and a tap at its centre
+hits it (Message us, Go to my organiser area [organiser only], Account settings, Sign out); Sign out opens the "Sign out?" sheet with
+"Yes, sign out". Shots: `docs/review-packs/dancer-journey-fixes/shots-fix/`.
+
+## Not verified
+- A real sign-out on a real phone after the new no-profile path (the confirm is the same component the walk already checked end to end).
+- The organiser link against the real `organiser_home_v1` (fake answers only); the production build for the no-profile walk (dev server).
+- Live contract suites (need prod secrets); ci-budget-guard (needs its token); Vercel preview (see report).
+
+## Left / next
+- Nothing left from the brief. Possible follow-ups (owner): Sign out on the full Home; PageBreadcrumb as a seam with a tap-target prop.
+
+---
+
 # Handover: dancer journey fixes, finishing slice (claude/dancer-journey-fixes)
 
 Ticket dt_49a3af1c5b92. Brief: arc/briefs-dancer-rebuild briefs/dancer-journey-fixes-finish.md.
