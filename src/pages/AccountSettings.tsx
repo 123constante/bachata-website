@@ -487,6 +487,11 @@ export function Delete() {
 // The old ownership step is gone (M21): its address shows the delete view, with the delete crumbs.
 const TITLES: Record<View, string> = { home: ACCOUNT_SETTINGS_LABEL, ownership: "Delete account", delete: "Delete account" };
 const CRUMBS = { home: "accountSettings", ownership: "accountSettings.delete", delete: "accountSettings.delete" } as const;
+// Walk bug 2 (#789): the shared crumb links are 17 px high. Only while this page is mounted (its <style>
+// goes with it), every crumb link is >= 44 px (explicit px: the phone root font is ~13.5px). Kept in this
+// page, not PageBreadcrumb, so no other page changes (and the dancer-area seam list stays as it is).
+export const CRUMB_TAP_CSS =
+  'nav[aria-label="breadcrumb"] a{min-height:44px}nav[aria-label="breadcrumb"] a:not(.flex){display:inline-block;line-height:44px}';
 
 export const AccountSettingsScreen = ({ view = "home" }: { view?: View }) => {
   const fromApp = useFromApp();
@@ -497,6 +502,8 @@ export const AccountSettingsScreen = ({ view = "home" }: { view?: View }) => {
       breadcrumbs={buildBreadcrumbs(CRUMBS[view]).map((c) => (c.path === SETTINGS_PATH ? { ...c, path: withFromApp(c.path, fromApp) } : c))}
       showGradientBg={false}
     >
+      {/* Walk bug 2 (#789): the crumbs are this page's way out, so each link is a 44 px tap target. */}
+      <style>{CRUMB_TAP_CSS}</style>
       <div className="px-4 pb-24 pt-3">
         <div className="mx-auto w-full max-w-md space-y-3">
           {fromApp && (

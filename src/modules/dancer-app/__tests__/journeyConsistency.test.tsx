@@ -48,6 +48,7 @@ import { DANCER_SHAPES } from '@/modules/dancer-app/api/fixtures';
 import type { MyDancerEdit } from '@/modules/dancer-app/api/types';
 import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
 import { avatars, disabled, emptyStates, pointers } from './journeyChecks';
+import { organiserHomeKey } from '@/modules/dancer-app/screens/options/NoProfileWayOut';
 
 const today = londonTodayKey();
 const night = (id: string, n: number, status = 'going') => ({
@@ -125,6 +126,67 @@ describe('d: the dancer avatar is drawn on the screens that show it, for every s
       await land(path, shape);
       const face = screen.queryByTestId(testId) ?? screen.getByTestId(`${testId}-placeholder`);
       expect(face.getAttribute('data-face')).toBe(shape.profile?.avatar_url ? 'photo' : shape.profile?.first_name ? 'initial' : 'glyph');
+    });
+  });
+});
+
+/**
+ * Walk bug 1 (PR #789): with no dancer profile, Options and Home were only "message us" -- no Sign out,
+ * no Account settings, so the person was trapped. Every signed-in shape in DANCER_SHAPES, plus the
+ * organiser with no dancer side, x Options and Home x each way out.
+ *   - Options: Sign out + Account settings for every shape.
+ *   - Home: with no profile, Home itself carries both (the full Home keeps them one tab away, on Options:
+ *     the owner decision changes only the no-profile state).
+ *   - "Go to my organiser area" only for an organiser with no dancer profile.
+ */
+describe('walk bug 1: a way out (Sign out, Account settings) for every shape', () => {
+  type WayOutShape = { label: string; profile: MyDancerEdit | null; organisers: number };
+  const WAY_OUT_SHAPES: WayOutShape[] = [
+    ...Object.values(DANCER_SHAPES)
+      .filter((s) => s.signedIn)
+      .map((s) => ({ label: s.label, profile: s.profile, organisers: 0 })),
+    { label: 'organiser, no dancer profile', profile: null, organisers: 1 },
+    { label: 'organiser and dancer', profile: DANCER_SHAPES.organiserAlsoDancer.profile, organisers: 1 },
+  ];
+  const landAs = async (path: string, s: WayOutShape) => {
+    renderInShell({ path, backend: { profile: s.profile }, organisers: s.organisers });
+    await waitFor(() => {
+      expect(document.body.textContent ?? '').not.toMatch(/Loading/);
+      expect(screen.queryByTestId('dancer-app-content')).not.toBeNull();
+    });
+    // The no-profile way out may arrive a moment later (on-demand chunk).
+    if (!s.profile) await screen.findByTestId('no-profile-way-out');
+  };
+  const settingsLink = () =>
+    screen.getAllByRole('link', { name: 'Account settings' }).filter((a) => a.getAttribute('href') === '/account/settings?from=app');
+  const organiserLink = () => screen.queryByRole('link', { name: 'Go to my organiser area' });
+
+  it('the way out reads the organiser side through the same cache key as the gate', async () => {
+    const { organiserHomeQueryKey } = await import('@/modules/organiser/shared/selfServeApi');
+    expect(organiserHomeKey('u-1')).toEqual(organiserHomeQueryKey('u-1'));
+  });
+
+  describe.each([['options', '/app/options'], ['home', '/app/home']] as const)('%s', (name, path) => {
+    it.each(WAY_OUT_SHAPES)('$label', async (s) => {
+      await landAs(path, s);
+      const root = document.body;
+      expect(pointers(root), 'a: copy points at a control that is not on screen').toEqual([]);
+      if (name === 'home' && s.profile) {
+        // The full Home: Sign out and Account settings live on Options, one tab away.
+        expect(screen.getAllByRole('link').some((a) => a.getAttribute('href') === '/app/options')).toBe(true);
+        return;
+      }
+      expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
+      expect(settingsLink().length).toBeGreaterThan(0);
+      if (!s.profile) {
+        // The "message us" text and control stay (owner decision): the way out is added under them.
+        expect(screen.getByTestId('message-us').getAttribute('href')).toMatch(/^https:\/\/wa\.me\//);
+        expect(Boolean(organiserLink()), 'organiser link only for an organiser').toBe(s.organisers > 0);
+        if (s.organisers > 0) expect(organiserLink()?.getAttribute('href')).toBe('/account/o');
+        // The control works: it opens the same sign-out confirm the full Options uses.
+        screen.getByRole('button', { name: 'Sign out' }).click();
+        await screen.findByTestId('opt-signout-confirm');
+      }
     });
   });
 });

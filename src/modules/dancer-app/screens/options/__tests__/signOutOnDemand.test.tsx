@@ -35,6 +35,8 @@ import { renderInShell, resetShell } from '@/modules/dancer-app/shell/renderInSh
 import { CITY_LONDON, makeProfile } from '@/modules/dancer-app/api/fixtures';
 
 const SCREEN = 'src/modules/dancer-app/screens/options/OptionsScreen.tsx';
+// The one Sign out control (Options and the no-profile way out) owns the lazy confirm.
+const CONTROL = 'src/modules/dancer-app/screens/options/SignOutControl.tsx';
 
 beforeEach(() => { h.busy = false; h.signOutToHome = () => Promise.resolve('ok'); });
 afterEach(() => { cleanup(); resetShell(); });
@@ -45,8 +47,8 @@ describe('Options sign-out is loaded on demand', () => {
     expect(src).not.toMatch(/^import[^;]*from\s+['"]@\/components\/account\/profiles\/signOutToHome['"]/m);
   });
 
-  it('OptionsScreen lazy-loads the confirm through lazyWithRetry', () => {
-    const src = readFileSync(SCREEN, 'utf8');
+  it('the Sign out control lazy-loads the confirm through lazyWithRetry', () => {
+    const src = readFileSync(CONTROL, 'utf8');
     expect(src).toMatch(/lazyWithRetry\(\(\) => import\('\.\/SignOutConfirm'\)\)/);
   });
 
