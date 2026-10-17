@@ -85,15 +85,12 @@ const COPY: Record<string, SelfServeErrorCopy> = {
     message: 'You already have three organisers waiting. Finish or remove one first.',
     next: null,
   },
-  // D6 submit_organiser_profile_v1.
   not_authorised: {
-    message: 'Only an owner or manager of this organiser can send it for review.',
+    message: 'Only an owner or manager of this page can do that.',
     next: null,
   },
-  // Raised for every lifecycle outside draft and rejected (pending_review, live,
-  // paused, ended, archived). The home reloads on it (useSendForReview).
   invalid_state: {
-    message: 'Nothing to send: this organiser is already in review, live, or no longer active.',
+    message: 'This page cannot do that right now. Reload and check it.',
     next: null,
   },
 };
@@ -152,7 +149,7 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
   { match: /^invalid_payload: name required/, message: 'Enter the event name.' },
   { match: /^(not_found|series_not_found)/, message: 'This date or event no longer exists. Reload the page.' },
   // W3, the create (admin D3/D7 refusals on series.upsert (create) and series.set_recurrence).
-  { match: /\(create\) needs a live organiser/, message: 'Your organiser is not public yet. Send it for review from Home if you have not; once the Bachata Calendar team approves it you can add events.' },
+  { match: /\(create\) needs a live organiser/, message: 'Your page is not live yet, so it cannot take events. Ask the Bachata Calendar team.' },
   { match: /naming one organiser the caller owns or manages/, message: 'Choose one of your organisers.' },
   { match: /category must be party, class or workshop|category on a live series is admin-only/, message: 'That kind of event cannot be set here. Ask the Bachata Calendar team.' },
   { match: /format must be one_off or recurring/, message: 'Choose a party or a weekly class.' },

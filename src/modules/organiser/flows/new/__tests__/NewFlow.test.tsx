@@ -157,6 +157,22 @@ describe('screens: one question each', () => {
     expect(Object.keys(calls[0].command.payload).sort()).toEqual(DRAFT_KEYS);
   });
 
+  it('C19 keeps ?o=<organiserId> (Page, Events callers) and the draft is created on THAT organiser (INT2)', async () => {
+    window.localStorage.clear();
+    const two = home();
+    two.organisers = [two.organisers[0], { ...two.organisers[0], id: 'org2', name: 'Second page', series: [] }];
+    const base = rpc.getMockImplementation()!;
+    rpc.mockImplementation(async (fn: string, args?: unknown) => (fn === 'organiser_home_v1' ? { data: two, error: null } : base(fn, args)));
+    mount('/account/o/new/what?o=org2');
+    fireEvent.click(await screen.findByTestId('org-new-format-recurring'));
+    await waitFor(() => expect(where()).toBe('/account/o/new/name?format=recurring&o=org2'));
+    fireEvent.change(await screen.findByTestId('org-new-name'), { target: { value: 'Friday Night' } });
+    await waitFor(() => expect((screen.getByTestId('org-new-next') as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId('org-new-next'));
+    await waitFor(() => expect(sent()).toHaveLength(1));
+    expect(sent()[0].command.payload).toMatchObject(organiserPart('org2'));
+  });
+
   it('C20 without a valid format goes back to the first question and sends nothing', async () => {
     mount('/account/o/new/name?format=course');
     await waitFor(() => expect(where()).toBe('/account/o/new/what'));

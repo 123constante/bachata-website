@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import * as commands from '../seriesCommands';
 import { createDraftPayload, lifecycleCommand, moveDateCommand, uncancelCommand, unskipDateCommand, SERIES_TIMEZONE } from '../seriesCommands';
 import { createSeriesCommand } from '../selfServeApi';
 
@@ -15,6 +16,10 @@ describe('R1 commands (4.3 #6)', () => {
   it('pause/resume send set_lifecycle {to}', () => {
     expect(lifecycleCommand('paused')).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'paused' } });
     expect(lifecycleCommand('live')).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'live' } });
+  });
+
+  it('the review path is gone (D4): no submitForReviewCommand', () => {
+    expect('submitForReviewCommand' in commands).toBe(false);
   });
 });
 

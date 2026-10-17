@@ -63,13 +63,18 @@ function Frame({ title, back, children }: { title: string; back: string; childre
 
 // ---- C19 what --------------------------------------------------------------------
 
+/** Page and Events open New event with `?o=<organiserId>`; the steps before the draft keep it. */
+const withOrganiser = (path: string, organiserId: string | null) =>
+  organiserId ? `${path}${path.includes('?') ? '&' : '?'}o=${encodeURIComponent(organiserId)}` : path;
+
 function WhatStep() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   return (
     <OrganiserShell title={STEP_TITLE.what} back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-new-what">
       <div className="flex flex-col gap-[12px] p-[12px]">
         {NEW_FORMATS.map((f) => (
-          <button key={f.format} type="button" className={ROW} data-testid={'org-new-format-' + f.format} onClick={() => navigate(ORG_PATHS.newName(f.format))}>
+          <button key={f.format} type="button" className={ROW} data-testid={'org-new-format-' + f.format} onClick={() => navigate(withOrganiser(ORG_PATHS.newName(f.format), params.get('o')))}>
             {f.label}
           </button>
         ))}
@@ -85,6 +90,7 @@ function NameStep({ format }: { format: NewEventFormat }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { home, selected } = useOrganiserChoice();
+  const [params] = useSearchParams();
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +129,7 @@ function NameStep({ format }: { format: NewEventFormat }) {
     );
   }
   return (
-    <OrganiserShell title={STEP_TITLE.name} back={{ to: ORG_PATHS.newWhat, label: 'Back' }} testId="org-new-name-step">
+    <OrganiserShell title={STEP_TITLE.name} back={{ to: withOrganiser(ORG_PATHS.newWhat, params.get('o')), label: 'Back' }} testId="org-new-name-step">
       <div className="flex flex-col gap-[12px] p-[12px]">{body}</div>
     </OrganiserShell>
   );

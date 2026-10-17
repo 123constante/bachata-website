@@ -187,8 +187,8 @@ describe('source: the old review UI and hand-built state are gone', () => {
     expect(src).toContain("import('../edit-in-place/EditInPlaceLayer')");
   });
 
-  it('ORG_PATHS.newEvent has no caller left (events/ is S5\'s and swaps its own)', () => {
-    const hits = all.filter((f) => !/[\\/](shell[\\/]paths\.ts|events[\\/])/.test(f) && /ORG_PATHS\.newEvent\b/.test(readFileSync(f, 'utf8')));
+  it('ORG_PATHS.newEvent has no caller left anywhere in src/modules/organiser (INT2: events/ included)', () => {
+    const hits = all.filter((f) => !/[\\/]shell[\\/]paths\.ts$/.test(f) && /ORG_PATHS\.newEvent\b/.test(readFileSync(f, 'utf8')));
     expect(hits).toEqual([]);
   });
 

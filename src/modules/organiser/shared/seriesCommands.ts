@@ -235,13 +235,8 @@ export const addDateCommand = (date: string): OwnerCommand => ({ kind: 'series.a
 export const removeDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.remove_date', payload: { occurrence_id: occurrenceId } });
 export const skipDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.skip_date', payload: { occurrence_id: occurrenceId } });
 export const unskipDateCommand = (date: string): OwnerCommand => ({ kind: 'series.unskip_date', payload: { date } });
-/** Pause / resume (`{to}`, 4.11). */
-export const lifecycleCommand = (to: 'paused' | 'live' | 'archived' | 'pending_review'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
-/**
- * @deprecated review-era (D4): goes with useSendForReview once its last importer
- * (events/ReviewCard.tsx, S5) is deleted; see docs/organiser-rebuild/handovers/S0b-review-strip.patch.
- */
-export const submitForReviewCommand = (): OwnerCommand => lifecycleCommand('pending_review');
+/** Pause / resume (`{to}`, 4.11). There is no review step (D4): the UI never sends pending_review. */
+export const lifecycleCommand = (to: 'paused' | 'live' | 'archived'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
 
 // ---- one date (W5) -------------------------------------------------------------
 

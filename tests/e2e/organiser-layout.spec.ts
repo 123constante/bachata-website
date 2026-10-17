@@ -120,24 +120,28 @@ test.describe('tap targets @390', () => {
     await expectTapTargets(page);
   });
 
-  test('Profile', async ({ page }) => {
-    await openOrganiser(page, '/account/o/profile', { organiserStatus: 'draft' });
-    await expect(page.getByTestId('profile-send-review')).toBeVisible();
+  // S7 replaced the profile editor with /page (edit in place, D4: no review button) and /more.
+  test('Page and More', async ({ page }) => {
+    await openOrganiser(page, '/account/o/page');
+    await expect(page.getByTestId('page-name')).toBeVisible();
+    await expectTapTargets(page);
+    await page.goto('/account/o/more');
+    await expect(page.getByTestId('more-add-page')).toBeVisible();
     await expectTapTargets(page);
   });
 
   // F4 (owner on a phone): nothing unsaved -> one line + the disabled button, under 64px,
-  // no preview card. (The event editor and its bar went with S5: Details saves one field at a time.)
-  test('nothing unsaved: the action bar is a slim bar under 64px on the date and profile editors', async ({ page }) => {
+  // no preview card. (The event editor and its bar went with S5: Details saves one field at a time;
+  // the profile editor and its bar went with S7: /page shows no bar until something is drafted.)
+  test('nothing unsaved: the action bar is a slim bar under 64px on the date editor, and /page shows none', async ({ page }) => {
     await openOrganiser(page, `/account/o/change/${FRIDAY}/${OCC}/lineup`);
     await expect(page.getByTestId('session-row')).toHaveCount(2);
     expect(await barHeight(page)).toBeLessThan(64);
     await expect(page.getByTestId('date-preview-bar-preview')).toHaveCount(0);
 
-    await page.goto('/account/o/profile');
-    await expect(page.getByTestId('profile-name')).toBeVisible();
-    expect(await barHeight(page)).toBeLessThan(64);
-    await expect(page.getByTestId('profile-bar-preview')).toHaveCount(0);
+    await page.goto('/account/o/page');
+    await expect(page.getByTestId('page-name')).toBeVisible();
+    await expect(page.getByTestId('eip-bar')).toHaveCount(0);
   });
 
   // S5: the ended event (the Bachata Picnic shape) on OneEvent and Details: nothing offered that
@@ -177,7 +181,9 @@ test.describe('tap targets @390', () => {
       [`/account/o/events/${FRIDAY}?do=end`, 'event-step'],
       [`/account/o/change/${FRIDAY}/${OCC}/lineup`, 'session-row'],
       ['/account/o/team', 'join-request'],
-      ['/account/o/profile', 'profile-name'],
+      ['/account/o/page', 'page-name'],
+      ['/account/o/more', 'more-add-page'],
+      ['/account/o/more/help', 'org-page-help'],
     ]) {
       await page.goto(path);
       await expect(page.getByTestId(ready).first()).toBeVisible();
