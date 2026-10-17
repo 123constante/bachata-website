@@ -73,6 +73,7 @@ const SCREENS = [
   ['me', '/app/me'],
   ['edit', '/app/me/edit'],
   ['photo', '/app/me/photo'],
+  ['my page', '/app/page'],
   ['options', '/app/options'],
 ] as const;
 

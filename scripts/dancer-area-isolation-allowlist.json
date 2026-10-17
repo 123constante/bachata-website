@@ -136,7 +136,11 @@
     "vite.chunks.ts",
     "vitest.config.ts",
     "vitest.setup.ts",
-    "src/components/account/profiles/__tests__/signOutStorageRace.test.tsx"
+    "src/components/account/profiles/__tests__/signOutStorageRace.test.tsx",
+    "src/pages/FestivalHub.tsx",
+    "src/pages/DancerProfile.tsx",
+    "app/routes/dancers.tsx",
+    "src/components/ListingRequestForm.tsx"
   ],
   "seamNotes": {
     "src/modules/event-page/bento/BentoPage.tsx": "R1a step 4 (Round-3): lazy level-rating children",
@@ -256,7 +260,11 @@
     "vite.chunks.ts": "dancer journey audit fixes 2026-10-16 (#789)",
     "vitest.config.ts": "test setup for #789 (input-otp elementFromPoint stub)",
     "vitest.setup.ts": "test setup for #789 (input-otp elementFromPoint stub)",
-    "src/components/account/profiles/__tests__/signOutStorageRace.test.tsx": "#789 sign-out storage race: keys gone before navigate"
+    "src/components/account/profiles/__tests__/signOutStorageRace.test.tsx": "#789 sign-out storage race: keys gone before navigate",
+    "src/pages/FestivalHub.tsx": "B1b S1 Going lock (brief dancer-rebuild-b1b-s1-lock.md, orchestrator 2026-10-17): setAttendanceRpc path uses gate/useGoingLock",
+    "src/pages/DancerProfile.tsx": "B1b S2 public page v2 (brief dancer-rebuild-b1b-s2-public.md, orchestrator 2026-10-17): renders PublicDancerPageV2 when open",
+    "app/routes/dancers.tsx": "B1b S2 public page v2 (brief dancer-rebuild-b1b-s2-public.md, orchestrator 2026-10-17): loader reads the open flag + extras",
+    "src/components/ListingRequestForm.tsx": "B1b finish F2 (bundle ratchets, 2026-10-17): submit RPC via rpcLoose so AnimatedRoutes stops hoisting a static vendor-supabase import; no dancer-area import. Needs orchestrator OK (not part of the approved Q4 edit)"
   },
   "protected": [
     "src/pages/Account.tsx",
@@ -270,9 +278,6 @@
     "src/components/account/HideSurnameCard.tsx",
     "src/lib/publicDancerNames.ts",
     "src/pages/PracticePartners.tsx",
-    "app/routes/sitemap.tsx",
-    "src/pages/DancerProfile.tsx",
-    "app/routes/dancers.tsx",
-    "src/pages/FestivalHub.tsx"
+    "app/routes/sitemap.tsx"
   ]
 }

@@ -149,10 +149,13 @@ export const profileGateValue = (
   c: ProfileCompletion,
 ): {
   status: ProfileCompletionStatus;
+  missing: readonly ProfileField[];
   gateFor: (returnTo: string) => RatingGate;
   refusedGateFor: (returnTo: string) => RatingGate;
 } => ({
   status: c.status,
+  // The fields themselves, so a reader (the Going lock) never parses the reason text.
+  missing: c.missing,
   gateFor: (returnTo: string) => ratingGate(c, returnTo),
   // The server refused the vote for an incomplete profile (it can know before this
   // cached answer does): the SAME gate as "incomplete", whatever this copy says.

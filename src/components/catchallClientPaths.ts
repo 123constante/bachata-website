@@ -65,6 +65,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/app/nights',
   '/app/me',
   '/app/me/edit',
+  '/app/page',
   '/app/me/photo',
   '/app/options',
 ];

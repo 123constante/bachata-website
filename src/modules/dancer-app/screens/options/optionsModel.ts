@@ -15,6 +15,7 @@ import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../
 export type OptionsRowId =
   | 'switch-organiser'
   | 'share'
+  | 'page'
   | 'feedback'
   | 'install'
   | 'help'
@@ -32,6 +33,7 @@ export type OptionsRow = {
   disabledReason?: string;
 };
 
+export const PAGE_PATH = '/app/page';
 export const ORGANISER_AREA_PATH = '/account/o';
 export const ACCOUNT_SETTINGS_PATH = APP_ACCOUNT_SETTINGS_PATH; // from=app: settings shows Back to Options (M4)
 /** The site home (the events feed). The ONE way back to the site from Options (audit L9). */
@@ -57,7 +59,6 @@ export const shareUrlFor = (profileId: string): string => `${SITE_ORIGIN}${hrefF
  * this screen and its tests already use. Never a second copy of the WhatsApp parse.
  */
 export const messageUsUrl = dancerMessageUsUrl;
-export const FEEDBACK_MESSAGE = "Hi! Feedback on the Bachata Calendar dancer area: what's missing is ";
 export const HELP_MESSAGE = PROFILE_HELP_MESSAGE;
 
 /**
@@ -85,7 +86,9 @@ export const optionsRows = (profile: Pick<MyDancerEdit, 'other_roles' | 'is_acti
       ? { id: 'share', label: 'Share my page' }
       : { id: 'share', label: 'Share my page', disabledReason: HIDDEN_SHARE_REASON },
   );
-  rows.push({ id: 'feedback', label: "Send feedback: what's missing?", href: messageUsUrl(FEEDBACK_MESSAGE) });
+  rows.push({ id: 'page', label: 'My page', href: PAGE_PATH });
+  // In-app form (submit_feedback_v1). The WhatsApp "message us" way stays as the separate help row.
+  rows.push({ id: 'feedback', label: "Send feedback: what's missing?" });
   rows.push({ id: 'install', label: "Add to my phone's home screen" });
   rows.push({ id: 'help', label: 'Help and message us', href: messageUsUrl(HELP_MESSAGE) });
   rows.push(
