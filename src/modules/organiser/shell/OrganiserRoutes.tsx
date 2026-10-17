@@ -14,14 +14,14 @@ import { OrganiserShell } from './OrganiserShell';
 import { ORG_PATHS } from './paths';
 
 // One lazy chunk per folder. main's screens stay mounted on the R1 paths until
-// their slice swaps them; the R1 route groups whose folder does not exist yet
-// point at ./placeholders, and each slice (S1-S9) changes only its import target.
+// their slice swaps them. Every R1 route group has landed (INT2): no route
+// points at ./placeholders any more.
 const HomePage = lazyWithRetry(() => import('../home'));
 const EventsPage = lazyWithRetry(() => import('../events'));
 const OneEvent = lazyWithRetry(() => import('../events/OneEvent'));
 const DatePage = lazyWithRetry(() => import('../dates'));
 const TeamPage = lazyWithRetry(() => import('../team'));
-const ProfilePage = lazyWithRetry(() => import('../profile'));
+const PageScreen = lazyWithRetry(() => import('../page')); // S7 page/
 const SwitchFlow = lazyWithRetry(() => import('../switch')); // S1 switch/
 const ChangeFlow = lazyWithRetry(() => import('../flows/change')); // S2 flows/change
 const AddFlow = lazyWithRetry(() => import('../flows/add')); // S3 flows/add
@@ -30,8 +30,9 @@ const NewFlow = lazyWithRetry(() => import('../flows/new'));
 const EventDetails = lazyWithRetry(() => import('../events/Details'));
 const TeamFlow = lazyWithRetry(() => import('../team/TeamFlow')); // S6 team/ (add, person)
 const HandoverFlow = lazyWithRetry(() => import('../flows/handover')); // S6 flows/handover
-const MorePage = lazyWithRetry(() => import('./placeholders')); // S7 more/
-const CoverFlow = lazyWithRetry(() => import('./placeholders')); // S7 flows/fix
+const MorePage = lazyWithRetry(() => import('../more')); // S7 more/
+const HelpPage = lazyWithRetry(() => import('../more/help')); // S7 more/help
+const CoverFlow = lazyWithRetry(() => import('../flows/fix')); // S7 flows/fix
 const DonePage = lazyWithRetry(() => import('../flows/Done')); // S0b flows/Done (wired by S2, its first caller)
 
 function ShellFallback() {
@@ -122,9 +123,10 @@ export default function OrganiserRoutes() {
             <Route path="handover" element={<HandoverFlow step="to" />} />
             <Route path="handover/:userId" element={<HandoverFlow step="confirm" />} />
 
-            <Route path="page" element={<ProfilePage />} />
-            <Route path="more" element={<MorePage name="More" />} />
-            <Route path="cover/:seriesId" element={<CoverFlow name="Cover" />} />
+            <Route path="page" element={<PageScreen />} />
+            <Route path="more" element={<MorePage />} />
+            <Route path="more/help" element={<HelpPage />} />
+            <Route path="cover/:seriesId" element={<CoverFlow />} />
             <Route path="done" element={<DonePage />} />
 
             {/* main's URLs (bookmarks, links already sent) -> their R1 paths. */}

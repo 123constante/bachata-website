@@ -55,6 +55,7 @@ describe('ORG_PATHS (v2)', () => {
       handoverTo: '/account/o/handover/u%201',
       page: '/account/o/page',
       more: '/account/o/more',
+      help: '/account/o/more/help',
       cover: '/account/o/cover/s%201',
       done: '/account/o/done',
       // Deprecated: main's keys on main's URLs, each redirected (replace) to the

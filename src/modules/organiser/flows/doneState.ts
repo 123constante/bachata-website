@@ -11,7 +11,7 @@ export interface DoneState {
   message: string;
   seriesId: string | null;
   next?: string;
-  /** The `next` button's words; defaults to NEXT_LABEL (Team's removal says "Add them back", C26b). */
+  /** The `next` button's words; defaults to NEXT_LABEL (Cancel's put-back; Team's removal says "Add them back", C26b). */
   nextLabel?: string;
 }
 

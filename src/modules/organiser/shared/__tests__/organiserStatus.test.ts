@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { organiserStatus } from '../organiserStatus';
 import { createBlock } from '../createModel';
-import { reviewStatus } from '../../profile/reviewModel';
 
 const STATES = ['draft', 'pending_review', 'rejected', 'live', 'paused', 'ended', 'archived'];
 
@@ -39,9 +38,8 @@ describe('organiserStatus: THE lifecycle -> copy mapping', () => {
     expect(organiserStatus('Ritmo', 'rejected', null).line).toBe('The team asked for changes.');
   });
 
-  it.each(STATES)('the Profile status and the New event block are views of it, not copies (%s)', (s) => {
+  it.each(STATES)('the New event block is a view of it, not a copy (%s)', (s) => {
     const shared = organiserStatus('Ritmo', s, 'why');
-    expect(reviewStatus(s, 'why')).toEqual({ label: shared.label, tone: shared.tone, sentence: shared.line, canSend: shared.canSendForReview });
     expect(createBlock({ name: 'Ritmo', lifecycle_status: s })).toBe(shared.newEventBlock);
   });
 });

@@ -5,6 +5,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
@@ -55,7 +57,7 @@ describe('main screens stay mounted on the new paths', () => {
     ['/account/o/events/s1/details', 'org-page-details'],
     ['/account/o/change/s1/o1/lineup', 'org-page-date'],
     ['/account/o/team', 'org-page-team'],
-    ['/account/o/page', 'org-page-profile'],
+    ['/account/o/page', 'org-page-page'],
   ])('%s renders %s, with no tab bar', async (path, page) => {
     at(path);
     expect(await screen.findByTestId(page, {}, COLD)).toBeTruthy();
@@ -105,16 +107,10 @@ describe('Change a date (S2) owns its six paths', () => {
   });
 });
 
-describe('every R1 route answers until its slice lands (placeholder)', () => {
-  it.each([
-    ['/account/o/more', 'More'],
-    ['/account/o/cover/s1', 'Cover'],
-  ])('%s -> %s', async (path, name) => {
-    at(path);
-    const el = await screen.findByTestId('org-placeholder', {}, COLD);
-    expect(el.getAttribute('data-route')).toBe(name);
-    expect(screen.queryByTestId('org-page-home')).toBeNull();
-    expect(screen.queryByTestId('org-tabbar')).toBeNull();
+describe('every R1 route has landed (no placeholder left)', () => {
+  it('OrganiserRoutes points no route at ./placeholders', () => {
+    const src = readFileSync(resolve(__dirname, '../OrganiserRoutes.tsx'), 'utf8');
+    expect(src).not.toMatch(/import\(['"]\.\/placeholders['"]\)/);
   });
 });
 

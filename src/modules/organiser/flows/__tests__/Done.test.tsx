@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import Done from '../Done';
 import { goDone, type DoneState } from '../doneState';
+import { coverDone } from '../fix/coverModel';
 
 afterEach(cleanup);
 
@@ -50,6 +51,18 @@ describe('Done (D29, D49, D51, D61)', () => {
     expect(labels).toEqual(['Back to Home', 'Add them back']);
     fireEvent.click(screen.getByText('Add them back'));
     expect(screen.getByTestId('where').textContent).toBe(ORG_PATHS.teamAdd);
+  });
+
+  // INT2: S6 and S7 both added `nextLabel`; ONE definition serves both callers.
+  it.each([
+    ['team removal (S6)', { title: 'Removed', message: 'Removed from the team', seriesId: null, next: ORG_PATHS.teamAdd, nextLabel: 'Add them back' } as DoneState],
+    ['cover added (S7)', coverDone('s1')],
+  ])('%s shows its own `nextLabel`', (_who, state) => {
+    renderAt(state);
+    const labels = within(screen.getByTestId('org-done')).getAllByRole('button').map((b) => b.textContent);
+    expect(labels).toEqual(['Back to Home', state.nextLabel]);
+    fireEvent.click(screen.getByText(state.nextLabel as string));
+    expect(screen.getByTestId('where').textContent).toBe(state.next);
   });
 
   it('a reload with no state goes Home', () => {
