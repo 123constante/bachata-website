@@ -1,0 +1,18 @@
+# Review brief R-S5 -- independent review of slice S5 (My events, one event, Details, pause / end / repeats / put back)
+
+Repo `123constante/bachata-website`. You are the REVIEWER, not the author. Work on branch `claude/org-r1-review-S5` (create from `claude/org-r1-events`, head 5bb70a1); you commit ONLY `docs/organiser-rebuild/reviews/REVIEW-S5.md` and change no source file. Read `briefs/00-COMMON.md`, `briefs/S5-events.md`, `briefs/S5-addendum.md`, `handovers/S5.md` on the slice branch (fetch origin arc/briefs-organiser-r1 for the briefs), and `reviews/REVIEW-S3.md` / `REVIEW-S2.md` (same author pattern: check the same classes of defect: an untouched-Save test that cannot fail, idempotency reuse untested, a control that cannot work but is not disabled WITH a reason).
+
+## Stopping rule
+Opus, xhigh, correctness first. ONE pass; findings go back to the SAME slice in one fix pass; you do not fix. BLOCKING / SHOULD / NOTE. Plain git only, never `gh api`. Commands without variables, loops or `$(...)`. Under 30% context; at 25% start nothing new. ONE push; last commit subject ends `[worker-done <ticket>]` (PARTIAL if cut short).
+
+## Verify (command + output for each)
+1. Files touched vs the S5 Owns row (`git diff --name-only claude/org-r1-integrate...`): declared out-of-row edits (`shell/OrganiserRoutes.tsx`, `routes.test.tsx`); protected files untouched (EditorRows/EditorGroup/EditorSheet, density-exempt calendar files). Trial `git merge` of S5 into a scratch branch from `claude/org-r1-integrate` is clean?
+2. Every command is exactly ONE of the pinned kind with keys + `expected_version`: pause, resume, end (`series.end_run`; tonight question when a not-cancelled date is today), change the day, stop repeating (`keep_occurrence_ids` = every coming date), put back, unskip, each Details field. Untouched Save sends NOTHING. Course: stop/day disabled with the reason "A course keeps its weeks". "100+" at the 100-row cap. `WARN_END` imported by exactly one file. No Undo bar.
+3. The author's open warning **W1** (coming-date time vs Details time): is it a real inconsistency a person would see? Same fact must read the same on every screen (one shared mapping, not two copies): chip text equals Home's `seriesChip` for the same fixture.
+4. Real-data shapes (prod `stsdtacfauprzrdebmzg`, SELECT only, counts only): re-run ONE aggregate of the author's survey (live recurring 30-99 coming = 27; cancelled-only; ended 20; festival; paused). For each shape, walk the screens in code/tests: every empty state says what the person CAN do; no copy points at a control not on screen; a festival and an ended series are sane.
+5. Tests that can fail: run `npx vitest run src/modules/organiser/events src/modules/organiser/flows/event src/modules/organiser/shell`, then MUTATE and paste each red, reverting after each: (a) two commands on a single-step action, (b) untouched Save sends an upsert, (c) course stop row enabled, (d) End no longer requires the tonight answer, (e) stop_repeating keeps nothing, (f) chip mapping duplicated with a different label.
+6. CI steps from `.github/workflows` in the sandbox: typecheck count vs base (96), `test:unit` (15 live-DB/sandbox reds are identical on base `fe2de2b`: confirm), lint, `build`, `check:mojibake`, `lint:architecture`, `check:images`. List what could not run.
+7. Look at the walk screenshots in `docs/organiser-rebuild/walk-S5/` (390x844): anything cramped, truncated or inconsistent.
+
+## Output
+`docs/organiser-rebuild/reviews/REVIEW-S5.md`: verdict (CLEAN / n BLOCKING / n SHOULD / n NOTE), findings with file:line, why, one-sentence fix, mutation evidence, CI table, Verified / Not verified.
