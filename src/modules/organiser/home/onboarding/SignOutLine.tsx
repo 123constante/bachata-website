@@ -1,36 +1,30 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { GhostButton, PrimaryButton, SheetView, useShake } from '../../ui';
+import { SIGN_OUT_FAILED, useSignOutToHome } from '@/components/account/profiles/signOutToHome';
+import { GhostButton, PrimaryButton, SheetView, useOpenerRef, useShake } from '../../ui';
 
 /**
  * "Signed in as <email> . Not you? Sign out": the way out of the first-time
  * screen for someone who signed in with the wrong email. The confirm sheet is
- * the same flow as the Profile tab's (useAuth().signOut, then the start page).
+ * the same flow as More's: the shared useSignOutToHome (leave for the site
+ * home first, then sign out; on a failure it comes back here and says so).
  */
 export function SignOutLine({ email }: { email: string | null }) {
   const [open, setOpen] = useState(false);
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
-  const [busy, setBusy] = useState(false);
+  const { signOutToHome, busy } = useSignOutToHome();
   const [note, setNote] = useState<string | null>(null);
   const { shake, shakeProps } = useShake();
+  const opener = useOpenerRef(open);
 
   const close = () => {
     setOpen(false);
     setNote(null);
   };
   const go = async () => {
-    setBusy(true);
     setNote(null);
-    const outcome = await signOut();
-    setBusy(false);
-    if (outcome === 'failed') {
-      setNote('Sign-out did not complete. Check your connection and try again.');
+    if ((await signOutToHome()) === 'failed') {
+      setNote(SIGN_OUT_FAILED);
       shake();
-      return;
     }
-    navigate('/', { replace: true });
   };
 
   return (
@@ -50,7 +44,7 @@ export function SignOutLine({ email }: { email: string | null }) {
           Sign out
         </button>
       </p>
-      <SheetView open={open} onOpenChange={(o) => { if (!o) close(); }} title="Sign out" testId="onboarding-signout-sheet">
+      <SheetView open={open} returnFocusRef={opener} onOpenChange={(o) => { if (!o) close(); }} title="Sign out" testId="onboarding-signout-sheet">
         <div className={`space-y-[12px] p-[16px] ${shakeProps.className}`} onAnimationEnd={shakeProps.onAnimationEnd}>
           <p className="break-words text-[15px] text-[var(--fg)]">
             {email ? `Sign out of ${email} on this device?` : 'Sign out of Bachata Calendar on this device?'}

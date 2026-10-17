@@ -96,7 +96,8 @@ describe('2. sole-owner copy: one wording, tells the person what they can do', (
   it('is one shared constant used in both places and no longer a dead end', () => {
     expect(TEAM_COPY.last_owner).toBe(LAST_OWNER_NOTE);
     expect(LAST_OWNER_NOTE).not.toMatch(/Ask the Bachata Calendar team to add another owner first/);
-    expect(LAST_OWNER_NOTE).toMatch(/Make owner/);
+    // R1: the owner steps down by handing the page over (team/Person.tsx); there is no Make owner row.
+    expect(LAST_OWNER_NOTE).toMatch(/hand the page over/);
   });
 });
 
@@ -104,7 +105,9 @@ describe('3. admin use_transfer copy is something an admin can act on', () => {
   it('does not tell an admin to sign in as an admin', () => {
     expect(ADMIN_COPY.use_transfer).not.toMatch(/Sign in with your admin account/);
     expect(ADMIN_COPY.use_transfer).toMatch(/Generate invite/);
-    expect(ADMIN_COPY.use_transfer).toMatch(/Make owner/);
+    // R1 has no Make owner control (B-N1): the owner hands the page over from their name on Team.
+    expect(ADMIN_COPY.use_transfer).not.toMatch(/Make owner/);
+    expect(ADMIN_COPY.use_transfer).toMatch(/Hand the page over/);
   });
 });
 

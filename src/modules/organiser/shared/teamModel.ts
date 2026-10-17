@@ -7,10 +7,15 @@
 // button each row shows and mirrors the server's refusal rules so the screen
 // does not offer what remove_organiser_member_v1 would refuse.
 
+import { londonDateKey } from '@/lib/londonDate';
+import { fullDate } from './dateWords';
+
 export type TeamRole = 'owner' | 'manager' | 'contributor';
 
 export interface TeamMember {
   userId: string;
+  /** The member's dancer profile id when organiser_team_v1 sends one; else it is taken to be userId. */
+  profileId?: string | null;
   role: TeamRole;
   isPrimary: boolean;
   /** When the person joined (a real instant, not local-as-Z). */
@@ -18,6 +23,10 @@ export interface TeamMember {
   isSelf: boolean;
   email: string | null;
   displayName: string | null;
+  /** organiser_team_v1 D48 addition; null until A1 ships it (initials show instead). */
+  photoUrl?: string | null;
+  /** R3-11: on the caller's own row, who added them; null otherwise. */
+  addedByDisplayName?: string | null;
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
@@ -32,12 +41,15 @@ export function parseTeam(raw: unknown): TeamMember[] {
     if ((role !== 'owner' && role !== 'manager' && role !== 'contributor') || typeof row.user_id !== 'string') continue;
     members.push({
       userId: row.user_id,
+      profileId: str(row.profile_id),
       role,
       isPrimary: row.is_primary === true,
       joinedAt: str(row.joined_at),
       isSelf: row.is_self === true || row.is_me === true,
       email: str(row.email),
       displayName: str(row.display_name),
+      photoUrl: str(row.photo_url),
+      addedByDisplayName: str(row.added_by_display_name),
     });
   }
   return members;
@@ -59,7 +71,7 @@ export interface MemberAction {
 }
 
 /** The sole owner's reason for no Leave, said once for the row and for the server refusal (last_owner). */
-export const LAST_OWNER_NOTE = 'You are the only owner, so you cannot leave. To step down, tap Make owner on a teammate’s row, or contact the Bachata Calendar team.';
+export const LAST_OWNER_NOTE = 'You are the only owner, so you cannot leave. To step down, hand the page over to a teammate first, or contact the Bachata Calendar team.';
 
 /**
  * The one action a row may offer the viewer, mirroring remove_organiser_member_v1:
@@ -132,16 +144,16 @@ export function parseRemoval(raw: unknown, fallbackUserId: string): MemberRemova
 export const londonYear = (d: Date) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric' }).format(d);
 
 /**
- * "Sat 3 Oct" for a real instant (created_at, joined_at), on the London
- * calendar, with the year when it is not this year ("Mon 3 Nov 2025"). These
- * are timestamptz, not local-as-Z, so the zone conversion is the right one here.
+ * "Saturday 3 October" for a real instant (created_at, joined_at), on the London
+ * calendar, with the year when it is not this year ("Monday 3 November 2025").
+ * These are timestamptz, not local-as-Z, so the zone conversion (londonDateKey)
+ * is the right one here; the words are the shared formatter's (dateWords.ts).
  */
 export function instantDateLabel(iso: string | null | undefined, now: Date = new Date()): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  const year = londonYear(d) === londonYear(now) ? '' : ` ${londonYear(d)}`;
-  return `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })}${year}`;
+  return fullDate(londonDateKey(d), londonDateKey(now));
 }
 
 /** What an owner can do to one other member, from the owner-only team RPCs. */
@@ -162,7 +174,7 @@ export interface OwnerMoves {
 export function ownerMoves(member: TeamMember, viewerRole: TeamRole): OwnerMoves | null {
   if (viewerRole !== 'owner' || member.isSelf) return null;
   if (member.role === 'owner') {
-    return { changeTo: null, canTransfer: false, note: 'Another owner’s role cannot be changed here. They can transfer ownership, or ask the Bachata Calendar team.' };
+    return { changeTo: null, canTransfer: false, note: 'Another owner\u2019s role cannot be changed here. They can transfer ownership, or ask the Bachata Calendar team.' };
   }
   return { changeTo: member.role === 'manager' ? 'contributor' : 'manager', canTransfer: true, note: null };
 }
@@ -192,3 +204,27 @@ export function parseTeamRead(raw: unknown): { myRole: TeamRole | 'admin' | null
   const myRole = r === 'owner' || r === 'manager' || r === 'contributor' || r === 'admin' ? r : null;
   return { myRole, members: parseTeam(row.members) };
 }
+
+/** A team holds at most this many people (D60); at the cap Add someone is off with a reason. */
+export const TEAM_CAP = 20;
+export const TEAM_FULL_REASON = `This team is full (${TEAM_CAP})`;
+
+/** "Priya Sharma" -> "Priya S." (the form every Done line and card uses); one word stays one word. */
+export function shortName(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return words[0] ?? name;
+  return `${words[0]} ${Array.from(words[words.length - 1])[0]?.toLocaleUpperCase('en-GB') ?? ''}.`;
+}
+
+export const firstName = (name: string): string => name.trim().split(/\s+/)[0] ?? name;
+
+/** The recognisable short name of a member: "Maya R.", else the email, else a placeholder. */
+export const memberShortName = (m: TeamMember): string => (m.displayName ? shortName(m.displayName) : memberLabel(m));
+
+/**
+ * Who C30 may list: another member the server can hand ownership to. The hand-over
+ * RPC needs a confirmed email; organiser_team_v1 sends an email only for such a
+ * person, so a missing email means "not offered" (the server's unconfirmed_email
+ * refusal stays the backstop).
+ */
+export const canReceiveOwnership = (m: TeamMember): boolean => !m.isSelf && m.role !== 'owner' && m.email !== null;
