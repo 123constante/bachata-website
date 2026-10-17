@@ -50,10 +50,10 @@ describe('selfServeErrors', () => {
 
   it('explains each submit refusal in plain words', () => {
     expect(selfServeErrorCopy({ message: 'invalid_state', code: 'P0001' }).message).toBe(
-      'Nothing to send: this organiser is already in review, live, or no longer active.',
+      'This page cannot do that right now. Reload and check it.',
     );
     expect(selfServeErrorCopy({ message: 'not_authorised' }).message).toBe(
-      'Only an owner or manager of this organiser can send it for review.',
+      'Only an owner or manager of this page can do that.',
     );
     expect(selfServeErrorCopy({ message: 'organiser_not_found' }).message).toBe('That organiser no longer exists.');
     expect(selfServeErrorCopy({ message: 'authentication_required' }).next).toBe('sign_in');
@@ -85,7 +85,7 @@ describe('commandErrorMessage (series and date commands)', () => {
   // Real messages from apply_aggregate_write_p5 and its handlers (admin repo,
   // 20261108180000 and the handler bodies read on E2E 2026-10-04).
   const cases: Array<[string, RegExp]> = [
-    ['version_conflict: expected 3, got 4', /changed somewhere else/],
+    ['version_conflict: expected 3, got 4', /^Someone changed this first\. Check it\.$/],
     ['permission_denied: occurrence.cancel on a past date is admin-only', /already happened/],
     ['past_date: break on 2026-10-01 is already past and cannot be restored', /already happened/],
     ['has_bookings: occurrence x on 2026-10-11 has attendance or guest-list entries and cannot be deleted (cancel it instead)', /Cancel it instead/],

@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 /**
- * TODAY's /auth (src/pages/Auth.tsx + components/auth/AuthStepper.tsx) and the two
- * organiser email-code screens (organiser/home/onboarding/EmailCode.tsx and
- * organiser/shared/components/EmailCodeProof.tsx -- the brief names the second
- * under onboarding/, it lives under shared/components/), as the accessible tree of
+ * TODAY's /auth (src/pages/Auth.tsx + components/auth/AuthStepper.tsx) and the
+ * organiser email-code screen (organiser/shared/components/EmailCodeProof.tsx; the
+ * onboarding copy EmailCode.tsx was deleted by S9, which uses this one), as the accessible tree of
  * sign-in, each sign-up step, each error copy and the code entry, at 390x844 and
  * desktop. No captcha site key is set, so this is the byte-identical "no key" form.
  */
@@ -32,7 +31,6 @@ vi.mock('@/components/ui/city-picker', () => ({
 import Auth from '@/pages/Auth';
 import { AuthStepper } from '@/components/auth/AuthStepper';
 import { AuthFormProvider } from '@/contexts/AuthFormContext';
-import { EmailCode } from '@/modules/organiser/home/onboarding/EmailCode';
 import { EmailCodeProof } from '@/modules/organiser/shared/components/EmailCodeProof';
 
 const WithQueryClient = ({ children }: { children: ReactNode }) => (
@@ -228,7 +226,6 @@ describe.each(VIEWPORTS)('organiser email-code screens at $name', (vp) => {
   beforeEach(() => setViewport(vp));
 
   describe.each([
-    ['EmailCode', (onProven: () => void) => <EmailCode email="a@b.example" onProven={onProven} />],
     ['EmailCodeProof', (onProven: () => void) => <EmailCodeProof email="a@b.example" onProven={onProven} />],
   ])('%s', (_name, el) => {
     it('before sending', () => {
