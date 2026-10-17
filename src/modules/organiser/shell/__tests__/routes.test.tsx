@@ -67,6 +67,21 @@ describe('main screens stay mounted on the new paths', () => {
   });
 });
 
+describe('Add a date and Cancel a date (S3) own their six paths', () => {
+  it.each([
+    ['/account/o/add', 'add-loading'],
+    ['/account/o/add/s1', 'add-loading'],
+    ['/account/o/add/s1/2026-10-27', 'add-loading'],
+    ['/account/o/cancel', 'cancel-loading'],
+    ['/account/o/cancel/s1', 'cancel-loading'],
+    ['/account/o/cancel/s1/o1', 'cancel-loading'],
+  ])('%s renders the flow (reads pending: %s), not a placeholder', async (path, loading) => {
+    at(path);
+    expect(await screen.findByTestId(loading, {}, COLD)).toBeTruthy();
+    expect(screen.queryByTestId('org-placeholder')).toBeNull();
+  });
+});
+
 describe('Change a date (S2) owns its six paths', () => {
   it.each([
     '/account/o/change',
@@ -91,12 +106,6 @@ describe('Change a date (S2) owns its six paths', () => {
 
 describe('every R1 route answers until its slice lands (placeholder)', () => {
   it.each([
-    ['/account/o/add', 'Add a date'],
-    ['/account/o/add/s1', 'Add a date'],
-    ['/account/o/add/s1/day-1', 'Add a date'],
-    ['/account/o/cancel', 'Cancel a date'],
-    ['/account/o/cancel/s1', 'Cancel a date'],
-    ['/account/o/cancel/s1/o1', 'Cancel a date'],
     ['/account/o/new/name?format=recurring', 'New event'],
     ['/account/o/new/s1/venue', 'New event'],
     ['/account/o/new/s1/date', 'New event'],

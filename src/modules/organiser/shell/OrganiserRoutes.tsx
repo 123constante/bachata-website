@@ -25,8 +25,8 @@ const TeamPage = lazyWithRetry(() => import('../team'));
 const ProfilePage = lazyWithRetry(() => import('../profile'));
 const SwitchFlow = lazyWithRetry(() => import('../switch')); // S1 switch/
 const ChangeFlow = lazyWithRetry(() => import('../flows/change')); // S2 flows/change
-const AddFlow = lazyWithRetry(() => import('./placeholders')); // S3 flows/add
-const CancelFlow = lazyWithRetry(() => import('./placeholders')); // S3 flows/cancel
+const AddFlow = lazyWithRetry(() => import('../flows/add')); // S3 flows/add
+const CancelFlow = lazyWithRetry(() => import('../flows/cancel')); // S3 flows/cancel
 const NewFlow = lazyWithRetry(() => import('./placeholders')); // S4 flows/new
 const EventDetails = lazyWithRetry(() => import('./placeholders')); // S5 events/Details
 const TeamFlow = lazyWithRetry(() => import('./placeholders')); // S6 team/
@@ -98,13 +98,13 @@ export default function OrganiserRoutes() {
             <Route path="change/:seriesId/:occurrenceId/day" element={<ChangeFlow step="day" />} />
             <Route path="change/:seriesId/:occurrenceId/lineup" element={<DatePage />} />
 
-            <Route path="add" element={<AddFlow name="Add a date" />} />
-            <Route path="add/:seriesId" element={<AddFlow name="Add a date" />} />
-            <Route path="add/:seriesId/:date" element={<AddFlow name="Add a date" />} />
+            <Route path="add" element={<AddFlow step="event" />} />
+            <Route path="add/:seriesId" element={<AddFlow step="day" />} />
+            <Route path="add/:seriesId/:date" element={<AddFlow step="time" />} />
 
-            <Route path="cancel" element={<CancelFlow name="Cancel a date" />} />
-            <Route path="cancel/:seriesId" element={<CancelFlow name="Cancel a date" />} />
-            <Route path="cancel/:seriesId/:occurrenceId" element={<CancelFlow name="Cancel a date" />} />
+            <Route path="cancel" element={<CancelFlow step="event" />} />
+            <Route path="cancel/:seriesId" element={<CancelFlow step="date" />} />
+            <Route path="cancel/:seriesId/:occurrenceId" element={<CancelFlow step="confirm" />} />
 
             <Route path="new/what" element={<NewEventPage />} />
             <Route path="new/name" element={<NewFlow name="New event" />} />
