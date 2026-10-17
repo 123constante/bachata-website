@@ -21,7 +21,7 @@ import { runNoun } from '@/modules/event-page/bento/utils/endedRun';
 import { parseCalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { matchesCategory, transformCalendarEvents } from '@/components/calendar/calendarUtils';
 import { SHAPES, VENUES, homeOf, programmeOf, shapeByKey, upcomingOf, workspaceOf, type SeriesShape } from '../../__tests__/shapes/shapes';
-import { EVERY_UPCOMING_CANCELLED, SEED_SESSION, typeSublabel, type TypeRowState } from '../eventType';
+import { EVERY_UPCOMING_CANCELLED, typeSublabel, type TypeRowState } from '../eventType';
 import { NO_SESSION_REASON } from '../reviewModel';
 
 const rpc = vi.hoisted(() => vi.fn());
@@ -125,7 +125,7 @@ const calendarRow = (program: Array<{ type: string }>, format = 'recurring') => 
   original_party_start: null, original_party_end: null, format, category: null, slug: 'x',
 } as never);
 
-describe('calendar tab membership is the SET reading (deriveCategories), for every session set a create can seed', () => {
+describe('calendar tab membership is the SET reading (deriveCategories), for every session set an event can carry', () => {
   // The chips seed class / party sessions (a workshop chip seeds a class titled Workshop); 'workshop'
   // is the legacy item type prod still holds. 'performance' is in neither tab (a show is not a class or a party).
   const sessionSets: Array<string[]> = [['class'], ['party'], ['workshop'], ['class', 'party'], ['party', 'workshop'], ['performance'], []];
@@ -134,12 +134,6 @@ describe('calendar tab membership is the SET reading (deriveCategories), for eve
     const [item] = transformCalendarEvents([calendarRow(types.map((type) => ({ type })))]);
     expect(matchesCategory(item, 'parties')).toBe(set.includes('party'));
     expect(matchesCategory(item, 'classes')).toBe(set.includes('class'));
-  });
-  it.each(Object.entries(SEED_SESSION))('the %s chip\'s seed lands the event under the tab its word names', (_chip, seed) => {
-    const { set, word } = deriveCategories('recurring', [], [seed.type]);
-    const [item] = transformCalendarEvents([calendarRow([{ type: seed.type }])]);
-    expect(matchesCategory(item, word === 'night' ? 'parties' : 'classes')).toBe(true);
-    expect(set).toEqual(word === 'night' ? ['party'] : ['class']);
   });
   // FIX-6 F-f. calendarUtils.ts is on CLAUDE.md's ask-Ricky list, so the READER is pinned here, not
   // changed: from a date's programme alone (key_times quiet) it lists a 'masterclass' item under NO

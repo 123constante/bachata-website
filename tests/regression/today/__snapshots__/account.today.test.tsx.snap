@@ -76,12 +76,7 @@ heading "Waiting for an answer" level=2
 text "Org 0"
 text "Asked 1 Oct . The team usually replies within a day."
 text "Waiting"
-link "Just here to dance? Browse events" href=/
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Just here to dance? Browse events" href=/",
 }
 `;
 
@@ -94,12 +89,7 @@ status
 text "No events yet"
 text "Add your first event. You can keep it as a draft until it is ready."
 button "New event"
-link "Add another organiser" href=/account/o?add=1
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Add another organiser" href=/account/o?add=1",
 }
 `;
 
@@ -237,12 +227,7 @@ searchbox "Search organisers by name"
 status
 button "Create a new organiser"
 text "Name and city. The team checks new organisers within a day."
-link "Just here to dance? Browse events" href=/
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Just here to dance? Browse events" href=/",
 }
 `;
 
@@ -298,12 +283,7 @@ heading "Waiting for an answer" level=2
 text "Org 0"
 text "Asked 1 Oct . The team usually replies within a day."
 text "Waiting"
-link "Just here to dance? Browse events" href=/
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Just here to dance? Browse events" href=/",
 }
 `;
 
@@ -316,12 +296,7 @@ status
 text "No events yet"
 text "Add your first event. You can keep it as a draft until it is ready."
 button "New event"
-link "Add another organiser" href=/account/o?add=1
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Add another organiser" href=/account/o?add=1",
 }
 `;
 
@@ -408,12 +383,7 @@ heading "Waiting for an answer" level=2
 text "Org 0"
 text "Asked 1 Oct . The team usually replies within a day."
 text "Waiting"
-link "Just here to dance? Browse events" href=/
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Just here to dance? Browse events" href=/",
 }
 `;
 
@@ -426,12 +396,7 @@ status
 text "No events yet"
 text "Add your first event. You can keep it as a draft until it is ready."
 button "New event"
-link "Add another organiser" href=/account/o?add=1
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Add another organiser" href=/account/o?add=1",
 }
 `;
 
@@ -569,12 +534,7 @@ searchbox "Search organisers by name"
 status
 button "Create a new organiser"
 text "Name and city. The team checks new organisers within a day."
-link "Just here to dance? Browse events" href=/
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Just here to dance? Browse events" href=/",
 }
 `;
 
@@ -630,12 +590,7 @@ heading "Waiting for an answer" level=2
 text "Org 0"
 text "Asked 1 Oct . The team usually replies within a day."
 text "Waiting"
-link "Just here to dance? Browse events" href=/
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Just here to dance? Browse events" href=/",
 }
 `;
 
@@ -648,12 +603,7 @@ status
 text "No events yet"
 text "Add your first event. You can keep it as a draft until it is ready."
 button "New event"
-link "Add another organiser" href=/account/o?add=1
-navigation "Organiser"
-  link "Home" href=/account/o
-  link "Events" href=/account/o/events
-  link "Team" href=/account/o/team
-  link "Profile" href=/account/o/profile",
+link "Add another organiser" href=/account/o?add=1",
 }
 `;
 
