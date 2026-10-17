@@ -51,7 +51,8 @@ describe('main screens stay mounted on the new paths', () => {
     ['/account/o/done', 'org-page-home'],
     ['/account/o/events', 'org-page-events'],
     ['/account/o/new/what', 'org-new-what'],
-    ['/account/o/events/s1', 'org-page-event-editor'],
+    ['/account/o/events/s1', 'org-page-event'],
+    ['/account/o/events/s1/details', 'org-page-details'],
     ['/account/o/change/s1/o1/lineup', 'org-page-date'],
     ['/account/o/team', 'org-page-team'],
     ['/account/o/page', 'org-page-profile'],
@@ -106,7 +107,6 @@ describe('Change a date (S2) owns its six paths', () => {
 
 describe('every R1 route answers until its slice lands (placeholder)', () => {
   it.each([
-    ['/account/o/events/s1/details', 'Event details'],
     ['/account/o/team/add', 'Team'],
     ['/account/o/team/u1', 'Team'],
     ['/account/o/handover', 'Hand over'],

@@ -8,7 +8,6 @@ import { TODAY, shapeByKey, workspaceOf } from '../../__tests__/shapes/shapes';
 import { draftFromWorkspace, draftProblem, oneDateLoss, parseEventWorkspace, savePlan } from '../eventModel';
 import { scheduleView } from '../schedule';
 import { categoryLabelFor } from '@/lib/eventCategory';
-import { eventReviewView } from '../reviewModel';
 import { confirmCopy, saveBarState } from '@/modules/organiser/shared/editorGuards';
 import { LINK_PROBLEM, linkProblem } from '@/modules/organiser/shared/linkRules';
 
@@ -95,37 +94,6 @@ describe('category label per stored format + category', () => {
     ['course', 'party', 'Course'], ['festival', null, 'Festival'],
   ] as const)('%s + category %s reads %s', (f, c, label) => {
     expect(categoryLabelFor(f, c)).toBe(label);
-  });
-});
-
-describe('G1: send for review', () => {
-  const ready = { missing: [], upcomingListed: 3, datesWithSessions: 3, hasCover: true, organisers: [{ name: 'Org', lifecycle_status: 'live' }], dirty: false };
-  it('a ready draft can be sent', () => {
-    const v = eventReviewView({ status: 'draft', ...ready });
-    expect(v).toMatchObject({ show: true, canSend: true, blockers: [] });
-  });
-  it.each([
-    [{ missing: ['venue', 'city'] }, /a venue/],
-    [{ missing: ['name'] }, /a name/],
-    [{ upcomingListed: 0 }, /an upcoming date/],
-    [{ organisers: [{ name: 'Org', lifecycle_status: 'pending_review' }] }, /Org is not live yet/],
-    [{ dirty: true }, /Save your changes first/],
-    [{ missing: null }, /Checking/],
-  ] as const)('blocked with a reason: %o', (over, reason) => {
-    const v = eventReviewView({ status: 'draft', ...ready, ...over });
-    expect(v.canSend).toBe(false);
-    expect(v.blockers.join(' ')).toMatch(reason);
-  });
-  it('in review: no button, says so', () => {
-    const v = eventReviewView({ status: 'pending_review', ...ready });
-    expect(v).toMatchObject({ show: true, canSend: false });
-    expect(v.sentence).toMatch(/team is checking/);
-  });
-  it('changes needed: can send again', () => {
-    expect(eventReviewView({ status: 'rejected', ...ready })).toMatchObject({ canSend: true, again: true });
-  });
-  it.each(['live', 'paused', 'ended', 'archived'])('%s: no review card', (status) => {
-    expect(eventReviewView({ status, ...ready }).show).toBe(false);
   });
 });
 

@@ -22,7 +22,6 @@ import { parseCalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { matchesCategory, transformCalendarEvents } from '@/components/calendar/calendarUtils';
 import { SHAPES, VENUES, homeOf, programmeOf, shapeByKey, upcomingOf, workspaceOf, type SeriesShape } from '../../__tests__/shapes/shapes';
 import { EVERY_UPCOMING_CANCELLED, typeSublabel, type TypeRowState } from '../eventType';
-import { NO_SESSION_REASON } from '../reviewModel';
 
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn(), storage: { from: vi.fn() } } }));
@@ -30,7 +29,6 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
 vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-10-08' }));
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: 'c1' }) }));
 
-import EventEditorPage from '../EventEditorPage';
 
 const FORMATS = ['one_off', 'recurring', 'course', 'festival', null] as const;
 const STORED = ['party', 'class', 'workshop', 'masterclass', null] as const;
@@ -157,136 +155,5 @@ describe('calendar tab membership is the SET reading (deriveCategories), for eve
     // The divergence itself: the reader's tabs are not the lib's set.
     const lib: readonly string[] = libSet;
     expect(reader.parties === lib.includes('party') && reader.classes === lib.includes('class')).toBe(false);
-  });
-});
-
-// ---- the rendered Type row, over real series shapes ----------------------------------------------
-
-beforeEach(() => rpc.mockReset());
-afterEach(cleanup);
-
-async function openEditor(s: SeriesShape, stored: string | null) {
-  const raw = workspaceOf(s) as { series: { series: { category: string | null } } };
-  raw.series.series.category = stored;
-  rpc.mockImplementation(async (fn: string) => {
-    const next = upcomingOf(s).find((d) => d.status !== 'cancelled') ?? upcomingOf(s)[0];
-    const answers: Record<string, unknown> = {
-      organiser_home_v1: homeOf([s]),
-      admin_event_workspace_p5: raw,
-      organiser_get_occurrence_programme_v1: next ? programmeOf(s, next) : null,
-      get_organiser_venue_options_v1: VENUES,
-      event_publish_readiness_v1: { missing: [] },
-      series_command_p5: { ok: true, new_version: 6 },
-    };
-    return fn in answers ? { data: answers[fn], error: null } : { data: null, error: { message: `unexpected ${fn}` } };
-  });
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[`/account/o/events/${s.id}`]}>
-        <Routes><Route path="/account/o/events/:seriesId" element={<EventEditorPage />} /></Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-  await screen.findByTestId('org-event-editor');
-  return screen.getByTestId('org-row-type').textContent ?? '';
-}
-
-describe('the rendered Type row, over the real shapes (prod survey) x every stored value', () => {
-  const editable = shapeByKey('live-weekly-until'); // live, 6 upcoming
-  const lapsed = shapeByKey('live-norule-lapsed'); // live, 0 upcoming
-  const cancelledOnly = shapeByKey('live-norule-cancelled-only'); // live, 2 upcoming, BOTH cancelled (1 live prod series today)
-  const ended = shapeByKey('ended-picnic'); // ended: locked, 0 upcoming
-  const course = shapeByKey('live-course');
-  const festival = shapeByKey('live-festival');
-
-  it.each(STORED)('editable with upcoming dates, stored %s', async (stored) => {
-    const text = await openEditor(editable, stored);
-    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: false, hasUpcoming: true, cancelledOnly: false, hasSession: true })}${categoryLabelFor('recurring', stored)}`);
-    expect(text).not.toMatch(/workshop/i);
-  });
-  it.each(STORED)('live with no upcoming date, stored %s', async (stored) => {
-    const text = await openEditor(lapsed, stored);
-    // Not editable: hasSession is over every listed date, and this shape runs a series programme (FIX-7 R3).
-    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: false, hasUpcoming: false, cancelledOnly: false, hasSession: lapsed.seriesProgramme })}${categoryLabelFor('recurring', stored)}`);
-    expect(text).not.toMatch(/one of its dates|Change the sessions|across all its dates|Every upcoming date is cancelled/);
-  });
-  // Every upcoming date cancelled: the dates are listed, but the writer refuses each one
-  // (date_cancelled), so the row must not send the organiser to change or add a session on them,
-  // nor say "once a date is listed" while When lists them (review F8). The step it names is on
-  // screen: cancelled date rows under When (each opens the date and its "Put this date back on"),
-  // and the Schedule card states the same fact in the same words (one constant, never two copies).
-  it.each(STORED)('live, every upcoming date cancelled, stored %s', async (stored) => {
-    const text = await openEditor(cancelledOnly, stored);
-    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: false, hasUpcoming: false, cancelledOnly: true, hasSession: cancelledOnly.seriesProgramme })}${categoryLabelFor('recurring', stored)}`);
-    expect(text).not.toMatch(/one of its dates|Change the sessions|across all its dates|once a date is listed/);
-    const rows = within(screen.getByTestId('org-group-when')).getAllByTestId('org-date-row');
-    expect(rows.length).toBeGreaterThan(0);
-    for (const row of rows) expect(row.textContent).toContain('Cancelled');
-    expect(screen.getByTestId('org-schedule-none').textContent?.startsWith(EVERY_UPCOMING_CANCELLED)).toBe(true);
-    if (stored === null) expect(text).toContain(`${EVERY_UPCOMING_CANCELLED}. Open one under When`);
-  });
-  it.each(STORED)('ended (locked), stored %s', async (stored) => {
-    const text = await openEditor(ended, stored);
-    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: true, hasUpcoming: false, cancelledOnly: false, hasSession: ended.seriesProgramme })}${categoryLabelFor('recurring', stored)}`);
-    expect(text).not.toMatch(/Add a session|Change the sessions/);
-  });
-  // FIX-7 R3: ended with a stored word and NO session on any date never claims "Set by its sessions".
-  it.each(STORED)('ended (locked) with no session on any date, stored %s', async (stored) => {
-    const text = await openEditor({ ...ended, seriesProgramme: false }, stored);
-    expect(text).toBe(`Type${expectedSublabel('recurring', stored, { locked: true, hasUpcoming: false, cancelledOnly: false, hasSession: false })}${categoryLabelFor('recurring', stored)}`);
-    expect(text).not.toMatch(/Set by its sessions|Add a session/);
-  });
-  it('a course and a festival are set by their format whatever is stored', async () => {
-    expect(await openEditor(course, 'party')).toBe('TypeSet by its format.Course');
-    cleanup();
-    expect(await openEditor(festival, null)).toBe('TypeSet by its format.Festival');
-  });
-  // FIX-6 F-b: the snapshot drafts (a stored category, no session on any date; 4 such drafts on prod
-  // 2026-10-13) read the review card's fact on the Type row too, from the one sessionDates mapping.
-  it.each(['draft-norule-one', 'draft-weekly-first-off'])('%s: the Type row and the review card state the same "no session" fact', async (key) => {
-    const s = shapeByKey(key);
-    const text = await openEditor(s, 'class');
-    await waitFor(() => expect(screen.getByTestId('org-event-review-blocked').textContent).toContain(NO_SESSION_REASON));
-    expect(text).toBe('TypeNo session yet. Add one to one of its dates and it is set from it.Class');
-    expect(text).not.toMatch(/Set by its sessions/);
-  });
-  // FIX-6 F-c: the only session on a date is a performance (no genre): the mirror stays null, the
-  // review card counts a session, and the row must not say "add a session".
-  it('a series whose only session sets no type says so, never "add a session"', async () => {
-    const s = { ...shapeByKey('draft-norule-one') };
-    const raw = workspaceOf(s) as { series: { series: { category: string | null } }; occurrences: Array<{ added_sessions_count: number }> };
-    raw.occurrences[0].added_sessions_count = 1;
-    raw.series.series.category = null;
-    rpc.mockImplementation(async (fn: string) => {
-      const answers: Record<string, unknown> = {
-        organiser_home_v1: homeOf([s]), admin_event_workspace_p5: raw, organiser_get_occurrence_programme_v1: programmeOf(s, upcomingOf(s)[0]),
-        get_organiser_venue_options_v1: VENUES, event_publish_readiness_v1: { missing: [] },
-      };
-      return fn in answers ? { data: answers[fn], error: null } : { data: null, error: { message: `unexpected ${fn}` } };
-    });
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={[`/account/o/events/${s.id}`]}>
-          <Routes><Route path="/account/o/events/:seriesId" element={<EventEditorPage />} /></Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-    await screen.findByTestId('org-event-editor');
-    const text = screen.getByTestId('org-row-type').textContent ?? '';
-    expect(text).toBe(`TypeIts sessions set no type yet. Add a class or a party to one of its dates and it is set for you.${NOT_SET_LABEL}`);
-    // The card has finished checking (readiness answered) and counts the session.
-    await waitFor(() => expect(screen.queryByTestId('org-event-review-blocked')?.textContent ?? '').not.toMatch(/Checking/));
-    expect(screen.queryByTestId('org-event-review-blocked')?.textContent ?? '').not.toContain(NO_SESSION_REASON);
-  });
-  it('every shape renders a Type row with one of the five labels or Not set, never the raw stored value', async () => {
-    const labels = new Set([...Object.values(CATEGORY_WORD_LABEL), NOT_SET_LABEL]);
-    for (const s of SHAPES) {
-      const text = await openEditor(s, 'workshop');
-      expect([...labels].some((l) => text.endsWith(l)), `${s.key}: ${text}`).toBe(true);
-      expect(text).not.toMatch(/workshop/i);
-      cleanup();
-    }
   });
 });

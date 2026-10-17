@@ -18,7 +18,7 @@ import { ORG_PATHS } from './paths';
 // point at ./placeholders, and each slice (S1-S9) changes only its import target.
 const HomePage = lazyWithRetry(() => import('../home'));
 const EventsPage = lazyWithRetry(() => import('../events'));
-const EventEditorPage = lazyWithRetry(() => import('../events/EventEditorPage'));
+const OneEvent = lazyWithRetry(() => import('../events/OneEvent'));
 const DatePage = lazyWithRetry(() => import('../dates'));
 const TeamPage = lazyWithRetry(() => import('../team'));
 const ProfilePage = lazyWithRetry(() => import('../profile'));
@@ -27,7 +27,7 @@ const ChangeFlow = lazyWithRetry(() => import('../flows/change')); // S2 flows/c
 const AddFlow = lazyWithRetry(() => import('../flows/add')); // S3 flows/add
 const CancelFlow = lazyWithRetry(() => import('../flows/cancel')); // S3 flows/cancel
 const NewFlow = lazyWithRetry(() => import('../flows/new'));
-const EventDetails = lazyWithRetry(() => import('./placeholders')); // S5 events/Details
+const EventDetails = lazyWithRetry(() => import('../events/Details'));
 const TeamFlow = lazyWithRetry(() => import('./placeholders')); // S6 team/
 const HandoverFlow = lazyWithRetry(() => import('./placeholders')); // S6 flows/handover
 const MorePage = lazyWithRetry(() => import('./placeholders')); // S7 more/
@@ -113,8 +113,8 @@ export default function OrganiserRoutes() {
             <Route path="new/:seriesId/cover" element={<NewFlow />} />
 
             <Route path="events" element={<EventsPage />} />
-            <Route path="events/:seriesId" element={<EventEditorPage />} />
-            <Route path="events/:seriesId/details" element={<EventDetails name="Event details" />} />
+            <Route path="events/:seriesId" element={<OneEvent />} />
+            <Route path="events/:seriesId/details" element={<EventDetails />} />
 
             <Route path="team" element={<TeamPage />} />
             <Route path="team/add" element={<TeamFlow name="Team" />} />
