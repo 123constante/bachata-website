@@ -85,7 +85,7 @@ describe('commandErrorMessage (series and date commands)', () => {
   // Real messages from apply_aggregate_write_p5 and its handlers (admin repo,
   // 20261108180000 and the handler bodies read on E2E 2026-10-04).
   const cases: Array<[string, RegExp]> = [
-    ['version_conflict: expected 3, got 4', /changed somewhere else/],
+    ['version_conflict: expected 3, got 4', /^Someone changed this first\. Check it\.$/],
     ['permission_denied: occurrence.cancel on a past date is admin-only', /already happened/],
     ['past_date: break on 2026-10-01 is already past and cannot be restored', /already happened/],
     ['has_bookings: occurrence x on 2026-10-11 has attendance or guest-list entries and cannot be deleted (cancel it instead)', /Cancel it instead/],

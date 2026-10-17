@@ -11,7 +11,8 @@ import { FRIDAY, PHONE, openOrganiser, setKeyboard } from './helpers/organiserFa
 test.use({ viewport: PHONE });
 
 const OCC = 'c0000001-0000-4000-8000-202610090000';
-const PATH = `/account/o/events/${FRIDAY}/dates/${OCC}`;
+// R1 (S2): main's /events/:s/dates/:o now redirects to Change a date; the line-up editor lives on /lineup.
+const PATH = `/account/o/change/${FRIDAY}/${OCC}/lineup`;
 
 const row = (page: Page, name: string) =>
   page.getByTestId('session-row').filter({ has: page.getByTestId('session-row-name').getByText(name, { exact: true }) });
