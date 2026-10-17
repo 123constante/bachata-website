@@ -192,9 +192,9 @@ describe('options screen', () => {
     expect(blocks).toHaveLength(2);
   });
 
-  it('feedback and help are the WhatsApp message-us link; release 1a fires no analytics', async () => {
+  it('B1b: help is the WhatsApp message-us link; feedback is an in-app button, not a link', async () => {
     await shown();
-    expect(screen.getByTestId('opt-feedback').getAttribute('href')).toMatch(/^https:\/\/wa\.me\//);
+    expect(screen.getByTestId('opt-feedback').getAttribute('href')).toBeNull();
     expect(screen.getByTestId('opt-help').getAttribute('href')).toMatch(/^https:\/\/wa\.me\//);
   });
 

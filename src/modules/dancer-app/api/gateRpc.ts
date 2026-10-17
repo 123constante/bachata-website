@@ -1,5 +1,5 @@
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
-import type { DancerDelta, DancerGate, MyDancerEdit, PublicDancerExtras } from './types';
+import type { DancerDelta, DancerGate, FeatureKey, FeedbackKind, FeedbackReceipt, MyDancerEdit, MyDancerStats, MyFeatureInterest, MyProfileViews, PublicDancerExtras } from './types';
 
 /**
  * The SMALL half of api/: the backend slot and the gate read. It is all that
@@ -13,6 +13,11 @@ export type DancerBackend = {
   fetchMyDancerEdit(): Promise<MyDancerEdit>;
   saveMyDancerProfile(delta: DancerDelta): Promise<MyDancerEdit>;
   fetchPublicExtras(profileId: string): Promise<PublicDancerExtras>;
+  fetchMyStats(): Promise<MyDancerStats>;
+  fetchMyViews(): Promise<MyProfileViews>;
+  submitFeedback(body: string, kind: FeedbackKind, page: string | null): Promise<FeedbackReceipt>;
+  registerFeatureInterest(feature: FeatureKey): Promise<{ alreadyRegistered: boolean }>;
+  fetchMyFeatureInterest(): Promise<MyFeatureInterest>;
 };
 
 export const DANCER_GATE_RPC = 'dancer_area_gate_v1';
