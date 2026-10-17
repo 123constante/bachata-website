@@ -216,11 +216,12 @@ export function LinkRows({ values, drafted, onOpen }: {
 // ---- create event ------------------------------------------------------------------------
 
 /**
- * The organiser area's existing create flow (NewEventPage: it creates a DRAFT
- * only, then opens its editor), with this organiser preselected through `?o=`,
- * the id useOrganiserChoice and NewEventPage read. Nothing is published from here.
+ * The organiser area's create flow. The legacy path redirects to the
+ * one-question flow (new/what), which creates a DRAFT first; this organiser is
+ * preselected through `?o=`, the id useOrganiserChoice reads. Nothing is
+ * published from here.
  */
-const newEventHref = (organiserId: string) => `${ORG_PATHS.newEvent}?o=${encodeURIComponent(organiserId)}`;
+const newEventHref = (organiserId: string) => `${ORG_PATHS.newWhat}?o=${encodeURIComponent(organiserId)}`;
 
 export function CreateEventLink({ organiserId, label }: { organiserId: string; label: string }) {
   return (

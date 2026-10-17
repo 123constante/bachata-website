@@ -51,7 +51,7 @@ let resolveCity = vi.fn(async (id: string): Promise<Resolved> => {
   return c ? { cityId: c.id, cityName: c.name, citySlug: c.slug } : null;
 });
 
-function Harness({ rpc, uploadPhoto }: { rpc: Rpc; uploadPhoto?: (id: string, f: File) => Promise<string> }) {
+function Harness({ rpc, uploadPhoto, dockZ }: { rpc: Rpc; uploadPhoto?: (id: string, f: File) => Promise<string>; dockZ?: number }) {
   const { data: entity } = useQuery({ queryKey: organiserEntityQueryKey(ID), queryFn: async () => ({ ...server }), initialData: STORED, staleTime: Infinity });
   const [eip, setEip] = useState<EipBridge | null>(null);
   const ep = { ...entity, ...(eip?.overlay ?? {}) } as ProfileEntity;
@@ -66,17 +66,17 @@ function Harness({ rpc, uploadPhoto }: { rpc: Rpc; uploadPhoto?: (id: string, f:
       {ep.bio ? <p data-testid="bio" className={eip?.mark('bio')}>{ep.bio}</p> : eip?.slot('about-empty')}
       {eip?.slot('links')}
       <Link to="/organisers">Back to organisers</Link>
-      <EditInPlaceLayer organiserId={ID} entity={entity!} onBridge={setEip} client={{ rpc } as never} uploadPhoto={uploadPhoto} searchCities={searchCities} resolveCity={(id) => resolveCity(id)} />
+      <EditInPlaceLayer organiserId={ID} entity={entity!} onBridge={setEip} client={{ rpc } as never} uploadPhoto={uploadPhoto} searchCities={searchCities} resolveCity={(id) => resolveCity(id)} dockZ={dockZ} />
     </div>
   );
 }
 
-function setup(opts: { rpc?: Rpc; uploadPhoto?: (id: string, f: File) => Promise<string> } = {}) {
+function setup(opts: { rpc?: Rpc; uploadPhoto?: (id: string, f: File) => Promise<string>; dockZ?: number } = {}) {
   const rpc = opts.rpc ?? okRpc();
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: '/organisers/ritmo', element: <Harness rpc={rpc} uploadPhoto={opts.uploadPhoto} /> },
+      { path: '/organisers/ritmo', element: <Harness rpc={rpc} uploadPhoto={opts.uploadPhoto} dockZ={opts.dockZ} /> },
       { path: '/organisers', element: <p>All organisers</p> },
     ],
     { initialEntries: ['/organisers/ritmo'] },
@@ -161,6 +161,16 @@ describe('draft states x bar / tags', () => {
     expect(bar()).toBeNull();
     expect(tags()).toEqual([]);
     expect(window.localStorage.getItem(draftStorageKey(ID))).toBeNull();
+  });
+});
+
+describe('the Save dock layer', () => {
+  it.each([
+    { name: 'the public page keeps BAR_Z', dockZ: undefined, z: '50' },
+    { name: 'the organiser shell passes its own (dockZ)', dockZ: 60, z: '60' },
+  ])('$name', async ({ dockZ, z }) => {
+    setup({ dockZ });
+    await waitFor(() => expect(screen.getByTestId('eip-dock').style.zIndex).toBe(z));
   });
 });
 

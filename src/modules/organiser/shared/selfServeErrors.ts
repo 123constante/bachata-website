@@ -10,6 +10,7 @@
  * than leaking raw text.
  */
 import { DANCER_GATE_REASON, PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
+import { VERSION_CONFLICT } from './copy';
 
 import { LAST_OWNER_NOTE } from './teamModel';
 
@@ -84,15 +85,12 @@ const COPY: Record<string, SelfServeErrorCopy> = {
     message: 'You already have three organisers waiting. Finish or remove one first.',
     next: null,
   },
-  // D6 submit_organiser_profile_v1.
   not_authorised: {
-    message: 'Only an owner or manager of this organiser can send it for review.',
+    message: 'Only an owner or manager of this page can do that.',
     next: null,
   },
-  // Raised for every lifecycle outside draft and rejected (pending_review, live,
-  // paused, ended, archived). The home reloads on it (useSendForReview).
   invalid_state: {
-    message: 'Nothing to send: this organiser is already in review, live, or no longer active.',
+    message: 'This page cannot do that right now. Reload and check it.',
     next: null,
   },
 };
@@ -128,8 +126,8 @@ export const KNOWN_SELF_SERVE_CODES = Object.keys(COPY);
  * shown: anything unmatched gets the generic line.
  */
 export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
-  { match: /^version_conflict/, message: 'This changed somewhere else after you opened it. We have reloaded it; check it and save again.' },
-  { match: /on a past date is admin-only|^past_date/, message: 'That date has already happened, so it can no longer be changed.' },
+  { match: /^version_conflict/, message: VERSION_CONFLICT },
+  { match: /on a past date is admin-only|^past_date/, message: 'This date has already happened, so it can no longer be changed.' },
   { match: /^has_bookings/, message: 'People have already booked this date, so it cannot be removed. Cancel it instead, so they see why.' },
   { match: /^no_sessions_for_time_override/, message: 'This date has no session times to move yet. Ask the Bachata Calendar team to set up the class times.' },
   { match: /cancellation_reasons label/, message: 'Choose a reason. Dancers see it.' },
@@ -151,7 +149,7 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
   { match: /^invalid_payload: name required/, message: 'Enter the event name.' },
   { match: /^(not_found|series_not_found)/, message: 'This date or event no longer exists. Reload the page.' },
   // W3, the create (admin D3/D7 refusals on series.upsert (create) and series.set_recurrence).
-  { match: /\(create\) needs a live organiser/, message: 'Your organiser is not public yet. Send it for review from Home if you have not; once the Bachata Calendar team approves it you can add events.' },
+  { match: /\(create\) needs a live organiser/, message: 'Your page is not live yet, so it cannot take events. Ask the Bachata Calendar team.' },
   { match: /naming one organiser the caller owns or manages/, message: 'Choose one of your organisers.' },
   { match: /category must be party, class or workshop|category on a live series is admin-only/, message: 'That kind of event cannot be set here. Ask the Bachata Calendar team.' },
   { match: /format must be one_off or recurring/, message: 'Choose a party or a weekly class.' },

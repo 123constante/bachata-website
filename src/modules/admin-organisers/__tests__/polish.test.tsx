@@ -96,7 +96,8 @@ describe('2. sole-owner copy: one wording, tells the person what they can do', (
   it('is one shared constant used in both places and no longer a dead end', () => {
     expect(TEAM_COPY.last_owner).toBe(LAST_OWNER_NOTE);
     expect(LAST_OWNER_NOTE).not.toMatch(/Ask the Bachata Calendar team to add another owner first/);
-    expect(LAST_OWNER_NOTE).toMatch(/Make owner/);
+    // R1: the owner steps down by handing the page over (team/Person.tsx); there is no Make owner row.
+    expect(LAST_OWNER_NOTE).toMatch(/hand the page over/);
   });
 });
 
