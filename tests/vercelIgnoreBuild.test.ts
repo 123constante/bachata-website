@@ -139,13 +139,31 @@ const cases: Case[] = [
     want: 'SKIP',
   },
   {
-    name: 'docs-only on a PR branch (claude/*): builds, its preview jobs need a preview',
+    name: 'docs-only on a PR branch (feat/*): builds, its preview jobs need a preview',
     setup: () => {
       const { cwd, base } = seedRepo();
       commit(cwd, ['docs/b.md']);
-      return { cwd, previousSha: base, ref: 'claude/docs-sweep' };
+      return { cwd, previousSha: base, ref: 'feat/docs-sweep' };
     },
     want: 'BUILD',
+  },
+  {
+    name: 'slice budget: a claude/* worker slice branch skips, src changed',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx'], 'feat(x): slice');
+      return { cwd, previousSha: base, ref: 'claude/vercel-slice-budget', message: 'feat(x): slice' };
+    },
+    want: 'SKIP',
+  },
+  {
+    name: 'slice budget: claude/a/b skips too (the shell prefix crosses `/`; vercel.json `claude/*` does not)',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx']);
+      return { cwd, previousSha: base, ref: 'claude/organiser/slice-2' };
+    },
+    want: 'SKIP',
   },
   {
     name: 'docs-only, branch unknown (VERCEL_GIT_COMMIT_REF empty)',
@@ -390,12 +408,12 @@ const cases: Case[] = [
     want: 'SKIP',
   },
   {
-    name: 'budget: [skip preview] checkpoint commit on a claude/* branch skips, src changed',
+    name: 'budget: [skip preview] checkpoint commit on a feat/* branch skips, src changed',
     setup: () => {
       const { cwd, base } = seedRepo();
       const message = 'feat(x): half done CHECKPOINT [skip preview]';
       commit(cwd, ['src/main.tsx'], message);
-      return { cwd, previousSha: base, ref: 'claude/feature-x', message };
+      return { cwd, previousSha: base, ref: 'feat/feature-x', message };
     },
     want: 'SKIP',
   },
@@ -405,7 +423,7 @@ const cases: Case[] = [
       const { cwd, base } = seedRepo();
       const message = 'feat(x): done\n\n* cp 1 [skip preview]\n* cp 2 [skip preview]\n';
       commit(cwd, ['src/main.tsx'], message);
-      return { cwd, previousSha: base, ref: 'claude/feature-x', message };
+      return { cwd, previousSha: base, ref: 'feat/feature-x', message };
     },
     want: 'BUILD',
   },
@@ -415,7 +433,7 @@ const cases: Case[] = [
       const { cwd, base } = seedRepo();
       const message = 'docs: explain the [skip preview] tag';
       commit(cwd, ['src/main.tsx'], message);
-      return { cwd, previousSha: base, ref: 'claude/feature-x', message };
+      return { cwd, previousSha: base, ref: 'feat/feature-x', message };
     },
     want: 'BUILD',
   },
@@ -441,12 +459,12 @@ const cases: Case[] = [
     want: 'SKIP',
   },
   {
-    name: 'budget: a normal claude/* commit builds',
+    name: 'budget: a normal feat/* commit builds',
     setup: () => {
       const { cwd, base } = seedRepo();
       const message = 'feat(x): add the thing';
       commit(cwd, ['src/main.tsx'], message);
-      return { cwd, previousSha: base, ref: 'claude/feature-x', message };
+      return { cwd, previousSha: base, ref: 'feat/feature-x', message };
     },
     want: 'BUILD',
   },
@@ -458,7 +476,7 @@ const cases: Case[] = [
       commit(cwd, ['src/b.tsx'], 'cp 2 [skip preview]');
       const message = 'feat(x): done [worker-done dt_0123456789ab]';
       commit(cwd, ['docs/handover.md'], message);
-      return { cwd, previousSha: base, ref: 'claude/feature-x', message };
+      return { cwd, previousSha: base, ref: 'feat/feature-x', message };
     },
     want: 'BUILD',
   },
@@ -468,16 +486,16 @@ const cases: Case[] = [
       const { cwd, base } = seedRepo();
       const message = 'chore: x [skip-preview] [skip ci] skip preview';
       commit(cwd, ['docs/b.md'], message);
-      return { cwd, previousSha: base, ref: 'claude/feature-x', message };
+      return { cwd, previousSha: base, ref: 'feat/feature-x', message };
     },
     want: 'BUILD',
   },
   {
-    name: 'budget: prefix match is anchored (claude/fix-review-*, arc/briefs without dash build)',
+    name: 'budget: prefix match is anchored (feat/claude-*, arc/briefs without dash build)',
     setup: () => {
       const { cwd, base } = seedRepo();
       commit(cwd, ['docs/b.md']);
-      return { cwd, previousSha: base, ref: 'claude/fix-review-claude-done-arc/briefs-x' };
+      return { cwd, previousSha: base, ref: 'feat/claude-done-arc/briefs-x' };
     },
     want: 'BUILD',
   },
