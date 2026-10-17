@@ -44,6 +44,10 @@ export default defineConfig({
     // every Dependabot PR permanently red.
     url: 'http://127.0.0.1:4173/auth',
     reuseExistingServer: true,
+    // The specs that drive signed-in areas (organiser fake, dancer app) need the flag e2e-smoke.yml
+    // sets. Default it here so a local or sandbox run behaves like CI; an explicit env still wins.
+    // Without it /account <Navigate>s to / and the dancer-app /account specs failed in sandboxes.
+    env: { VITE_ENABLE_ORGANISER_SELF_SERVE: process.env.VITE_ENABLE_ORGANISER_SELF_SERVE ?? 'true' },
     timeout: 120_000,
   },
   projects: [

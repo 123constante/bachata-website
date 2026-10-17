@@ -15,14 +15,22 @@
 # merge to main no longer makes a new production deployment (production keeps
 # serving the identical previous build).
 #
+# BUILD BUDGET (non-production only, decided BEFORE the diff rule): a branch
+# under ALWAYS_SKIP_PREFIXES (arc/briefs-*, claude/done-*, claude/review-*)
+# and a commit whose SUBJECT ENDS with `[skip preview]` (a worker checkpoint)
+# always SKIP. vercel.json git.deploymentEnabled also turns those three
+# prefixes off before any deployment exists (an ignored build still counts
+# toward the limit); this list stays as defence in depth. Vercel Hobby allows ~100 deployments per rolling 24 h and we hit
+# the limit on 2026-10-16 (see docs/pr-batching-policy.md, "Vercel build budget").
+#
 # Every OTHER branch always builds, because its PR's preview jobs need a
-# preview for the exact head sha: perf-budget.yml (lighthouse, doc-weight) and
-# synthetic-ssr-monitor.yml poll scripts/lib/previewProbe.mjs, which THROWS
-# after 600s when no ready deployment exists for that sha. Those jobs exclude
-# exactly bot/* and dependabot/* ("Keep this list in sync with that
-# ignoreCommand") -- keep SKIP_ELIGIBLE below in sync with them. Extending the
-# skip to PR branches first needs previewProbe to treat an ignored build as a
-# green skip.
+# preview for the exact head sha: perf-budget.yml (lighthouse, doc-weight),
+# synthetic-ssr-monitor.yml, seo-check.yml and og-image-check.yml poll
+# scripts/lib/previewProbe.mjs, which THROWS after 600s when no ready
+# deployment exists for that sha. Those jobs exclude exactly the no-preview
+# prefixes below; scripts/check-no-preview-prefixes.mjs keeps them in sync. A
+# `[skip preview]` head is NOT excluded: previewProbe fails it FAST and RED (a
+# head that was never previewed must not look verified).
 #
 # WHY THE BASE IS VERCEL_GIT_PREVIOUS_SHA, NOT HEAD~1: Vercel builds only the
 # tip of a push. `HEAD~1` sees only the tip commit, so a push of [src change,
@@ -73,14 +81,51 @@ postcss.config.* tailwind.config.* .env* vercel.json .vercelignore
 build() { echo "vercel-ignore-build: BUILD -- $1"; exit 1; }
 skip() { echo "vercel-ignore-build: SKIP -- $1"; exit 0; }
 
+# NO-PREVIEW BRANCH PREFIXES -- the ONE list. A branch starting with any of
+# these never gets a PR preview, so the preview jobs in perf-budget.yml,
+# synthetic-ssr-monitor.yml, seo-check.yml and og-image-check.yml exclude
+# exactly this union in their `if:`. scripts/check-no-preview-prefixes.mjs
+# fails CI when any workflow's list differs from these two lines together.
+#   DIFF_RULE_PREFIXES    skip only when no build path changed (bot PRs)
+#   ALWAYS_SKIP_PREFIXES  never build a preview at all: brief/doc branches,
+#                         review branches, worker done-signal branches
+#                         (Vercel Hobby: ~100 deploys / rolling 24 h; on
+#                         2026-10-16 these were 36% of all builds)
+DIFF_RULE_PREFIXES='bot/ dependabot/'
+ALWAYS_SKIP_PREFIXES='arc/briefs- claude/done- claude/review-'
+
+# SKIP_PREVIEW_TAG: a worker CHECKPOINT commit ends its subject with this (the
+# SUBJECT is matched, never the body; check-no-preview-prefixes.mjs pins this
+# literal equal to previewProbe.mjs's). Known cost: a dashboard Redeploy of a
+# skipped head is skipped again; push a commit without the tag instead. The
+# skipped build is CANCELED, so VERCEL_GIT_PREVIOUS_SHA stays on the last real
+# deployment and the final untagged push builds normally. previewProbe.mjs
+# fails such a head fast (red, never green): it was never previewed.
+SKIP_PREVIEW_TAG='[skip preview]'
+
 ref=${VERCEL_GIT_COMMIT_REF:-}
 if [ "${VERCEL_ENV:-}" != production ]; then
-  # SKIP_ELIGIBLE. Vercel sets VERCEL_GIT_COMMIT_REF to the bare branch name
-  # ("main", not "refs/heads/main" -- the old command's spelling never matched).
-  case $ref in
-    main | bot/* | dependabot/*) ;;
-    *) build "branch '${ref}' is not skip-eligible (its PR preview jobs need a preview)" ;;
+  # Vercel sets VERCEL_GIT_COMMIT_REF to the bare branch name ("main", not
+  # "refs/heads/main" -- the old command's spelling never matched).
+  for p in $ALWAYS_SKIP_PREFIXES; do
+    case $ref in "$p"*) skip "branch '${ref}' matches no-preview prefix '${p}'" ;; esac
+  done
+  # SUBJECT line only, and only at its END: a squash of checkpoints, a revert,
+  # a body or a subject that merely mentions the tag must not lose its preview.
+  nl='
+'
+  msg=${VERCEL_GIT_COMMIT_MESSAGE:-}
+  case ${msg%%"$nl"*} in
+    *"$SKIP_PREVIEW_TAG") skip "commit subject carries '${SKIP_PREVIEW_TAG}' (worker checkpoint)" ;;
   esac
+  # SKIP_ELIGIBLE for the diff rule: main plus DIFF_RULE_PREFIXES.
+  eligible=
+  [ "$ref" = main ] && eligible=1
+  for p in $DIFF_RULE_PREFIXES; do
+    case $ref in "$p"*) eligible=1 ;; esac
+  done
+  [ -n "$eligible" ] \
+    || build "branch '${ref}' is not skip-eligible (its PR preview jobs need a preview)"
 fi
 
 git rev-parse --git-dir >/dev/null 2>&1 || build "no git checkout here"

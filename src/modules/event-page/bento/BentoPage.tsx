@@ -22,9 +22,7 @@ import { pickPlayableVideo } from '@/lib/parseVenueVideoUrl';
 import { DateBlock } from '@/modules/event-page/bento/blocks/DateBlock';
 import { DescriptionBlock } from '@/modules/event-page/bento/blocks/DescriptionBlock';
 import { OrganiserCardBlock } from '@/modules/event-page/bento/blocks/OrganiserCardBlock';
-import { DerivedLevelBadge } from '@/modules/event-page/bento/blocks/DerivedLevelBadge';
 import { MusicStylesRow } from '@/modules/event-page/bento/blocks/MusicStylesRow';
-import { LevelRatingPrompt } from '@/components/LevelRatingPrompt';
 import { GroupChatBlock } from '@/modules/event-page/bento/blocks/GroupChatBlock';
 import { RsvpBlockPlaceholder } from '@/modules/event-page/bento/blocks/RsvpBlockPlaceholder';
 import { MoreEventsSection } from '@/modules/event-page/sections/MoreEventsSection';
@@ -89,6 +87,17 @@ const ERROR_COPY: Record<
 // lives only in this route's chunk (see useOccurrenceRsvp's snapshotQueryKey).
 const RsvpBlock = lazyWithRetry(() =>
   import('@/modules/event-page/bento/blocks/RsvpBlock').then((m) => ({ default: m.RsvpBlock })),
+);
+
+// Lazy, for the same budget reason: the level badge and rating card pull the level-rating
+// modules (useSeriesLevelRating, levelRatingModel, pendingLevelRating), which the dancer
+// app (/app/nights, /app/home) shares, so rollup cuts them into their own chunk. Static,
+// that chunk was one more first-load request and +0.5 KB gz on /event/:id (R1a measure).
+const DerivedLevelBadge = lazyWithRetry(() =>
+  import('@/modules/event-page/bento/blocks/DerivedLevelBadge').then((m) => ({ default: m.DerivedLevelBadge })),
+);
+const LevelRatingPrompt = lazyWithRetry(() =>
+  import('@/components/LevelRatingPrompt').then((m) => ({ default: m.LevelRatingPrompt })),
 );
 
 // Loading shimmer placeholder sized to fill a tile's content region.
@@ -712,7 +721,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
               levelVoteCount={pageModel.identity.levelVoteCount}
             />
           );
-          return occurrence?.isCancelled ? badge : <LevelRatingPrompt seriesId={eventId} fallback={badge} />;
+          return <Suspense fallback={null}>{occurrence?.isCancelled ? badge : <LevelRatingPrompt seriesId={eventId} fallback={badge} />}</Suspense>;
         })()}
 
         <MusicStylesRow musicStyles={pageModel.identity.musicStyles} />
@@ -744,7 +753,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
 
       {/* Sticky bottom action bar -- primary "Get directions" plus Tickets,
           Add-to-calendar and Share. Folds in the old standalone ticket pill so
-          dancers get one consolidated bar. Fixed above the BottomNav; rendered
+          dancers get one consolidated bar. Fixed to the bottom edge; rendered
           via a body portal so it escapes the centred content column and any
           framer-motion transform ancestors. */}
       <EventStickyActionBar

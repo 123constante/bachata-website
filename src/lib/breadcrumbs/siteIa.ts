@@ -67,12 +67,15 @@ export const SITE_IA = {
   'accountSettings.ownership': { label: 'Account ownership', path: '/account/settings/ownership', parent: 'accountSettings' },
   'accountSettings.delete': { label: 'Delete account', parent: 'accountSettings.ownership' },
   accountDeleted:   { label: 'Account deleted' },
+  accountRestore:   { label: 'Your account' },
   // Signed-in, noindex (Lever 2 W1); never reaches a crawler's BreadcrumbList.
   account:          { label: 'Your account',      path: '/account/o' },
   'account.new':    { label: 'New event',         parent: 'account' },
   accountTeam:      { label: 'Team',              path: '/account/o/team', parent: 'account' },
   search:           { label: 'Search',            path: '/search' },
   faq:              { label: 'FAQ',               path: '/faq' },
+  privacy:          { label: 'Privacy',           path: '/privacy' },
+  terms:            { label: 'Terms of use',      path: '/terms' },
   notFound:         { label: 'Page not found' },
   // Admin-only, noindex; the page passes these crumbs only to a confirmed admin.
   'admin.organisers': { label: 'Organiser access' },

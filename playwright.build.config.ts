@@ -19,7 +19,31 @@ import { defineConfig, devices } from '@playwright/test';
 //   npx playwright test --config playwright.build.config.ts
 // (FAKE_ORIGIN in tests/e2e-phone/fakeSupabase.mjs is that origin; without the
 // organiser flag /organisers/<slug> is a "coming soon" gate and its case fails.)
+//
+// 2026-10-15 (PR #764): this config now OWNS that build, so local runs and CI
+// cannot drift. The workflow's own build step sets neither the self-serve flag
+// (the /account/o claim screen is behind it) nor, in the test step, the
+// VITE_SUPABASE_URL the specs derive the stored-session key from
+// (sb-<ref>-auth-token); every signed-in build spec then bounced to /auth.
+// The webServer below rebuilds with FAKE_BUILD_ENV before serving, and the test
+// runner's own VITE_SUPABASE_URL is pinned to the same fake origin.
+// BUILD_QA_SKIP_BUILD=1 serves the existing build/ as-is (local iteration only).
 const PORT = Number(process.env.BUILD_QA_PORT || 4186);
+
+const FAKE_ORIGIN = 'https://phoneqafakenotaproject.supabase.co';
+const FAKE_BUILD_ENV = {
+  VITE_SUPABASE_URL: FAKE_ORIGIN,
+  VITE_SUPABASE_PUBLISHABLE_KEY:
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0.e2e-test-placeholder-not-a-real-key',
+  VITE_ENABLE_ORGANISER_DETAIL: 'true',
+  VITE_ENABLE_ORGANISERS_DIRECTORY: 'true',
+  VITE_ENABLE_ORGANISER_SELF_SERVE: 'true',
+};
+// Read by the specs (projectRefFromUrl) in this process and its workers. It is
+// overridden, not defaulted: a real URL in a developer's shell would key the
+// fake session to a project the build does not read.
+process.env.VITE_SUPABASE_URL = FAKE_ORIGIN;
+const BUILD = process.env.BUILD_QA_SKIP_BUILD === '1' ? '' : 'npm run build && ';
 
 // Playwright starts the server with process.env MERGED UNDER this object, so a
 // credential is removed only by overriding it: a developer's shell may hold real
@@ -45,11 +69,16 @@ export default defineConfig({
   },
   webServer: {
     // The preload answers the SSR server's own fetches to the fake origin.
-    command: `node --conditions=production --import ./tests/e2e-phone/fakeSupabasePreload.mjs scripts/_serve-build.mjs --port ${PORT}`,
+    command: `${BUILD}node --conditions=production --import ./tests/e2e-phone/fakeSupabasePreload.mjs scripts/_serve-build.mjs --port ${PORT}`,
     url: `http://127.0.0.1:${PORT}/auth`,
     reuseExistingServer: false,
-    timeout: 120_000,
-    env: { ...BLANKED, NODE_ENV: 'production' },
+    timeout: 300_000,
+    env: {
+      ...BLANKED,
+      ...FAKE_BUILD_ENV,
+      NODE_OPTIONS: '--import ./tests/e2e-phone/fakeSupabasePreload.mjs',
+      NODE_ENV: 'production',
+    },
   },
   projects: [{ name: 'build-390x844' }],
 });

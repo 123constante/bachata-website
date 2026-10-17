@@ -10,7 +10,18 @@ import { deriveCategories, storedCategory } from '../../../src/lib/eventCategory
 // Shapes follow the parsers in src/modules/organiser/shared (selfServeApi, programmeModel,
 // teamModel) and the unit-test fixtures of each screen.
 
-export const projectRef = 'stsdtacfauprzrdebmzg';
+// supabase-js keys the stored session as sb-<ref>-auth-token, <ref> = the first label of the
+// VITE_SUPABASE_URL host the DEV SERVER was built with. Playwright starts that server from this
+// same process env, so read the ref from it: a sandbox pointed at another project (the E2E one)
+// otherwise stored the session under the prod key and every signed-in spec landed on /auth.
+export const projectRefFromUrl = (url: string | undefined): string | null => {
+  try {
+    return url ? new URL(url).host.split('.')[0] || null : null;
+  } catch {
+    return null;
+  }
+};
+export const projectRef = projectRefFromUrl(process.env.VITE_SUPABASE_URL) ?? 'stsdtacfauprzrdebmzg';
 export const ME = '11111111-1111-4111-8111-111111111111';
 export const EMAIL = 'diego@ritmo.example';
 /** Thursday 8 Oct 2026, noon in London. */

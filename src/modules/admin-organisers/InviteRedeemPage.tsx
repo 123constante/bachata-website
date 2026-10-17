@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { DancerProfileGate } from '@/components/account/DancerProfileGate';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
+import { useProfileCompletion } from '@/hooks/useProfileCompletion';
+import { supabase } from '@/integrations/supabase/client';
 import { buildSignInHref } from '@/lib/authRouting';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { finishProfileHref } from '@/lib/profileCompletion';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { redeemOrganiserInvite } from './adminApi';
-import { INVITE_PATH, REDEEM_COPY, TOKEN_RE, interpretRedeem, type RedeemCopy } from './inviteModel';
+import { INVITE_PATH, REDEEM_COPY, TOKEN_RE, interpretRedeem, joiningAsName, type RedeemCopy } from './inviteModel';
 
 /**
  * One in-flight redeem per token for the whole page lifetime. StrictMode mounts
@@ -24,6 +26,20 @@ const inFlight = new Map<string, Promise<ReturnType<typeof interpretRedeem>>>();
 
 const BTN = 'inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground';
 const LINK = 'inline-flex min-h-[44px] items-center justify-center rounded-lg border border-border px-4 py-2 text-sm font-medium';
+
+const JOIN_COPY: RedeemCopy = {
+  title: 'Join your organiser team',
+  body: 'Someone has invited you to manage an organiser on Bachata Calendar. Whoever uses this link joins the team.',
+  action: null,
+  terminal: false,
+};
+
+/** The signed-in person's dancer name for the join card; null when the row cannot be read (the card falls back to the e-mail). */
+const fetchJoiningAsRow = async (profileId: string) => {
+  const { data, error } = await supabase.from('dancer_profiles').select('first_name, display_name').eq('id', profileId).maybeSingle();
+  if (error) throw error;
+  return data as { first_name: string | null; display_name: string | null } | null;
+};
 
 /** The token leaves the address bar (and so history, the share sheet and Referer) once the link is finished with. */
 const stripToken = () => {
@@ -77,9 +93,22 @@ function InviteRedeem() {
   const { token = '' } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, authStatus } = useAuth();
+  const { user, authStatus, signOut } = useAuth();
   const [copy, setCopy] = useState<RedeemCopy | null>(null);
   const [busy, setBusy] = useState(false);
+  // M57 (owner decision): the link is bearer-style -- whoever is signed in joins -- so it is
+  // used only once the person has seen who they are joining as and pressed Join.
+  const [joining, setJoining] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+  const { profileId } = useProfileCompletion();
+  const nameEnabled = Boolean(user && profileId);
+  const nameRow = useQuery({
+    queryKey: ['invite-joining-as', profileId],
+    queryFn: () => fetchJoiningAsRow(profileId as string),
+    enabled: nameEnabled,
+    retry: false,
+    staleTime: 60_000,
+  });
   const tokenRef = useRef(token);
   if (token) tokenRef.current = token;
 
@@ -121,21 +150,40 @@ function InviteRedeem() {
     setCopy(outcome.copy);
   }, [navigate, queryClient]);
 
-  const started = useRef(false);
-  useEffect(() => {
-    if (authStatus !== 'ready' || !user || started.current) return;
-    started.current = true;
+  const join = () => {
+    setJoining(true);
     void run();
-  }, [authStatus, user, run]);
+  };
+
+  // "Not you? Sign out": the one shared sign-out (it also clears the person's storage), then
+  // this invite's sign-in, the link still unused. A failed sign-out stays here and says so.
+  const notYou = async () => {
+    setSignOutError(null);
+    const outcome = await signOut();
+    if (outcome === 'failed') {
+      setSignOutError('You are still signed in. Check your connection and try again.');
+      return;
+    }
+    navigate(buildSignInHref(`${INVITE_PATH}/${tokenRef.current}`), { replace: true });
+  };
 
   let body: React.ReactNode;
-  if (authStatus === 'resolving') {
+  if (authStatus === 'resolving' || (user && !joining && nameEnabled && nameRow.isPending)) {
     body = <div className="mx-auto max-w-md space-y-2 px-4 pt-10" data-testid="invite-checking"><Skeleton className="h-6 w-48" /><Skeleton className="h-16 w-full" /></div>;
   } else if (!user && TOKEN_RE.test(token)) {
     const here = `${INVITE_PATH}/${token}`;
     body = (
       <Card copy={{ title: 'Join your organiser team', body: 'Someone has invited you to manage an organiser on Bachata Calendar. Sign in with your own email, then you will come straight back here and the link is used.', action: 'sign_in', terminal: false }}>
         <Link to={buildSignInHref(here)} className={BTN} data-testid="invite-sign-in">Sign in</Link>
+      </Card>
+    );
+  } else if (user && !joining) {
+    body = (
+      <Card copy={JOIN_COPY}>
+        <p className="text-sm font-medium" data-testid="invite-joining-as">You are joining as {joiningAsName(nameRow.data, user.email)}</p>
+        <button type="button" className={BTN} onClick={join} data-testid="invite-join">Join the team</button>
+        <button type="button" className={LINK} onClick={() => void notYou()} data-testid="invite-not-you">Not you? Sign out</button>
+        {signOutError && <p className="text-sm text-destructive" role="alert" data-testid="invite-signout-error">{signOutError}</p>}
       </Card>
     );
   } else if (copy || !user) {

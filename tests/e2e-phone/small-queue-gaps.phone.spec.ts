@@ -5,9 +5,9 @@ import { FLAG_EVENT_SLUG, FLAG_PROGRAMME_CODES } from './fakeSupabase.mjs';
 /**
  * Website small queue (2026-10-13), measured with rects at both phone sizes:
  *
- * 1. No dead band above the BottomNav. At full scroll the last painted content
- *    (clipped to its scroll container, so a feed's hidden overflow does not
- *    count) meets the nav's top edge: |gap| <= 1px. It was 127px on the home
+ * 1. No dead band at the page bottom (the nav moved to the top). At full scroll the
+ *    last painted content (clipped to its scroll container, so a feed's hidden
+ *    overflow does not count) meets the viewport's bottom edge: |gap| <= 1px. It was 127px on the home
  *    (every route's wrapper was a bare 100vh ON TOP of the 60px header and 64px
  *    nav spacers) and 3px on every footer page (a 61px nav over a 64px spacer).
  * 3. No empty band under the organiser hero's EQ bars: the stats strip starts
@@ -21,7 +21,8 @@ import { FLAG_EVENT_SLUG, FLAG_PROGRAMME_CODES } from './fakeSupabase.mjs';
 /** nav top minus the lowest visible painted bottom of in-flow content. */
 async function gapAboveNav(page: Page) {
   return page.evaluate(() => {
-    const nav = document.getElementById('app-nav')!.getBoundingClientRect();
+    // Nav is now a sticky row under the header, so the reference edge is the viewport bottom.
+    const navTop = window.innerHeight;
     let lowest = -Infinity;
     let who = '';
     for (const el of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
@@ -46,14 +47,14 @@ async function gapAboveNav(page: Page) {
       const bottom = Math.min(r.bottom, clipBottom);
       if (bottom > lowest) { lowest = bottom; who = `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 60)}`; }
     }
-    return { gap: Math.round((nav.top - lowest) * 10) / 10, navTop: nav.top, lowest, who, scrollH: document.documentElement.scrollHeight, vh: window.innerHeight };
+    return { gap: Math.round((navTop - lowest) * 10) / 10, navTop, lowest, who, scrollH: document.documentElement.scrollHeight, vh: window.innerHeight };
   });
 }
 
 const GAP_ROUTES = ['/', '/events', '/djs', '/organisers', `/event/${FLAG_EVENT_SLUG}`] as const;
 
 for (const path of GAP_ROUTES) {
-  test(`gap above the BottomNav ${path}: none at full scroll`, async ({ page }, info) => {
+  test(`gap below the last content ${path}: none at full scroll`, async ({ page }, info) => {
     await fakeSupabase(page);
     await page.goto(path);
     await settled(page);
@@ -67,7 +68,7 @@ for (const path of GAP_ROUTES) {
     await scrollTo(page, 'bottom');
     const m = await gapAboveNav(page);
     console.log(`GAP ${info.project.name} ${path} ${JSON.stringify(m)}`);
-    expect(Math.abs(m.gap), `${path}: px between the last content (${m.who}) and the nav`).toBeLessThanOrEqual(1);
+    expect(Math.abs(m.gap), `${path}: px between the last content (${m.who}) and the viewport bottom`).toBeLessThanOrEqual(1);
   });
 }
 

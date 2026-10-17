@@ -145,9 +145,8 @@ export function InitialVisiblePageTransition({ children }: { children: ReactNode
   // Every framework route funnels through here, and every framework route emits
   // its head via meta() — so signal useSeo() to stand down (no double head
   // management / title marquee) for the whole subtree.
-  // .route-shell (index.css): at least the screen BETWEEN the header and nav
-  // spacers, never a full 100vh on top of them -- that left a 124px dead band
-  // above the BottomNav on every page shorter than the screen (home, 2026-10-13).
+  // .route-shell (index.css): at least the screen below the header + top section
+  // row, never a full 100vh on top of them (nothing is fixed at the bottom now).
   const plain = <div className="route-shell">{children}</div>;
   return (
     <RouteOwnsHeadContext.Provider value={true}>

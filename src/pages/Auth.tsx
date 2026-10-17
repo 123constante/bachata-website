@@ -4,6 +4,7 @@ import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { AlertCircle, ArrowLeft, Calendar, Camera, Check, ChevronDown, GraduationCap, Mail, Music, ShoppingBag, Sparkles, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,10 +20,14 @@ import {
   callbackErrorCopy,
   isOtpSignupDisabledError,
   isSignupAllowlistRefusal,
+  SIGNED_IN_LANDING_PATH,
 } from "@/lib/auth-otp-routing";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
-import MagicLinkConfirmation from "@/components/MagicLinkConfirmation";
+import { trackAuthStep } from "@/lib/trackAuthStep";
+import { acceptTerms, hasAcceptedTerms } from "@/lib/termsConsent";
+import { TermsAcceptCard } from "@/components/auth/TermsAcceptCard";
+import MagicLinkConfirmation, { forgetCodeStep, readCodeStep, rememberCodeStep } from "@/components/MagicLinkConfirmation";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
 import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import GlobalLayout from "@/components/layout/GlobalLayout";
@@ -79,16 +84,31 @@ const AuthContent = () => {
 
   const explicitReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
   // With organiser self-serve on, a sign-in with no destination lands on
-  // /account (Lever 2 W1) instead of the homepage.
-  const returnTo = explicitReturnTo || (flags.organiserSelfServe ? "/account" : "/");
+  // /account/continue (the person's sides: straight on, or "Continue as...").
+  const returnTo = explicitReturnTo || (flags.organiserSelfServe ? SIGNED_IN_LANDING_PATH : "/");
   const userType = searchParams.get("userType");
   const mode = searchParams.get("mode") || "signup";
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  // D7: a reload within 10 minutes of the send reopens the code box for the same
+  // e-mail and the same step (this /auth mode), instead of the e-mail form.
+  const [restoredStep] = useState(() => readCodeStep(mode));
+  const [magicLinkSent, setMagicLinkSent] = useState(() => Boolean(restoredStep));
+  const [codeEmail, setCodeEmail] = useState(restoredStep?.email ?? "");
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const callbackNotice = mode === "signin" ? callbackErrorCopy(searchParams.get("callbackError")) : null;
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  // Already signed in (e.g. the organiser launch link opened in a browser that
+  // has a session): no sign-up form to fill in again -- straight on to the
+  // link's returnTo, or the signed-in landing. Never once an e-mail was sent or a
+  // send is running: the code step hands over to /auth/callback itself.
+  const { user: signedInUser, isLoading: authLoading } = useAuth();
+  useEffect(() => {
+    // An anonymous session (dev auth bypass) is not a sign-in: keep the form, like every other signed-in check.
+    if (authLoading || !signedInUser || signedInUser.is_anonymous || magicLinkSent || isSubmitting) return;
+    navigate(returnTo, { replace: true });
+  }, [authLoading, signedInUser, magicLinkSent, isSubmitting, navigate, returnTo]);
 
   const [stepDirection, setStepDirection] = useState(1);
   const [step2Touched, setStep2Touched] = useState(false);
@@ -141,6 +161,10 @@ const AuthContent = () => {
     setStepDirection(nextDir);
     setLastStep(activeStep);
   }, [activeStep, lastStep]);
+
+  useEffect(() => {
+    trackAuthStep({ step: "auth_view", outcome: "ok" });
+  }, []);
 
   useEffect(() => {
     if (mode === "signin") {
@@ -265,11 +289,15 @@ const AuthContent = () => {
         },
       });
       if (error) throw error;
+      trackAuthStep({ step: "code_sent", outcome: "ok" });
+      rememberCodeStep(normalizedEmail, mode);
+      setCodeEmail(normalizedEmail);
       setMagicLinkSent(true);
       localStorage.setItem("auth_last_email", normalizedEmail);
       trackAnalyticsEvent("auth_viewed", { mode: isCreateAccount ? "signup" : "signin", source: "magic_link_sent" });
     } catch (error: any) {
       const isSignupDisabled = isOtpSignupDisabledError(error);
+      trackAuthStep({ step: "code_sent", outcome: isSignupDisabled || isSignupAllowlistRefusal(error, isCreateAccount) ? "refused" : "error" });
       // Sign-in for an email with no account. The pre-lookup above can't catch
       // it (account_exists_by_email is not anon-callable, so it answers
       // "unknown"), and this 422 is the first time we learn it. Move to
@@ -298,12 +326,36 @@ const AuthContent = () => {
   // A verified code leaves a session behind, exactly as the emailed link does.
   // Hand over to /auth/callback so both routes share one post-login resolution
   // (returnTo, pending role, profile stub) instead of a second copy of it here.
-  const handleCodeVerified = () => {
+  const continueToCallback = () => {
+    forgetCodeStep();
     const callbackUrl = new URLSearchParams({ mode: mode === "signup" ? "signup" : "signin" });
     if (explicitReturnTo) {
       callbackUrl.set("returnTo", explicitReturnTo);
     }
     navigate(`/auth/callback?${callbackUrl.toString()}`, { replace: true });
+  };
+
+  // D8. Sign-UP: the clickwrap under the code box is the consent, recorded once now that a session
+  // exists. Sign-IN: an account with no acceptance on file gets the one-tap card first. Neither a
+  // failed record nor a failed check holds the person back.
+  const [needsAccept, setNeedsAccept] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const handleCodeVerified = async () => {
+    if (mode === "signup") {
+      await acceptTerms();
+      continueToCallback();
+      return;
+    }
+    if (await hasAcceptedTerms()) {
+      continueToCallback();
+      return;
+    }
+    setNeedsAccept(true);
+  };
+  const handleAccept = async () => {
+    setAccepting(true);
+    await acceptTerms();
+    continueToCallback();
   };
 
   const handleDevQuickLogin = async (destination: string) => {
@@ -337,6 +389,20 @@ const AuthContent = () => {
     }
   };
 
+  if (needsAccept) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 bg-background">
+        <div className="w-full max-w-md">
+          <Card className="shadow-none">
+            <CardContent className="pt-6">
+              <TermsAcceptCard busy={accepting} onAccept={() => void handleAccept()} />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   if (magicLinkSent) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4 bg-background">
@@ -344,10 +410,14 @@ const AuthContent = () => {
           <Card className="shadow-none">
             <CardContent className="pt-6">
               <MagicLinkConfirmation
-                email={email}
+                email={codeEmail || email}
                 onResend={handleSendMagicLink}
-                onChangeEmail={() => setMagicLinkSent(false)}
+                onChangeEmail={() => {
+                  forgetCodeStep();
+                  setMagicLinkSent(false);
+                }}
                 onVerified={handleCodeVerified}
+                showConsent={mode === "signup"}
                 extraAction={{ label: "Continue browsing", onClick: () => navigate(returnTo) }}
               />
             </CardContent>

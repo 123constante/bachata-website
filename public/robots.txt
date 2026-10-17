@@ -67,6 +67,8 @@ Disallow: /
 # /search is a query-parameter surface that is in no sitemap: followed from an
 # internal link it mints unbounded distinct URLs, each one a metered request.
 # /auth, /onboarding and /profile are session pages with nothing to index.
+# /app/ is the signed-in dancer area (every page also carries a noindex meta);
+# /app$ blocks the bare /app redirect too without matching /apps-style paths.
 User-agent: *
 Allow: /api/og/card
 Disallow: /api/
@@ -74,5 +76,7 @@ Disallow: /search
 Disallow: /auth
 Disallow: /onboarding
 Disallow: /profile
+Disallow: /app/
+Disallow: /app$
 
 Sitemap: https://www.bachatacalendar.co.uk/sitemap.xml

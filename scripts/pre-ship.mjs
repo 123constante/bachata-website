@@ -74,7 +74,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  * the single source of truth for what a check actually invokes; `args` is
  * appended after `--` and exists only to make a reporter quiet.
  *
- * The first SIXTEEN are exactly scripts/run-lint-chain.mjs's LINKS, in its
+ * The first EIGHTEEN are exactly scripts/run-lint-chain.mjs's LINKS, in its
  * order. NOT "the npm-run links of the lint chain" any more, and not followed
  * by "a bare `eslint .`": as of 2026-08-26 `lint` is `node
  * scripts/run-lint-chain.mjs`, which owns LINKS plus TAIL (`lint:eslint`), and
@@ -284,6 +284,10 @@ export const CHECKS = [
   // figure is not the number recorded.
   ["check:workflow-artifact-policy:self-test", "upload steps are still recognised, and the policy still rejects"],
   ["check:workflow-artifact-policy", "every workflow artifact upload is cost-bounded"],
+  ["check:no-preview-prefixes:self-test", "the preview-job prefix drift guard can still fail"],
+  ["check:no-preview-prefixes", "preview jobs exclude exactly the Vercel no-preview prefixes"],
+  ["check:journey-grid:self-test", "every journey-grid rule still fails its own mutant"],
+  ["check:journey-grid", "every account journey-grid row is covered or in the reasoned baseline"],
   // Not a lint-chain link: the plan layer lives outside the repo (the home
   // plans dir), so it has no place in "npm run lint" and SKIPs in CI. It sits
   // here because the ship gate is the one place a local tree is guaranteed to

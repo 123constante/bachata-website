@@ -136,10 +136,11 @@ jobs:
   seo-preview:
     # Pre-merge run against the PR's Vercel preview. check-seo.mjs + previewProbe
     # use only Node builtins + fetch, so no `npm ci`.
-    # vercel.json ignoreCommand skips builds for bot/* + dependabot/*, so no
-    # preview is ever published for them; previewProbe polls 600s then THROWS.
-    # Keep this list in sync with that ignoreCommand.
-    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'bot/') && !startsWith(github.head_ref, 'dependabot/')
+    # scripts/vercel-ignore-build.sh (vercel.json ignoreCommand) never builds a
+    # preview for its no-preview prefixes, so previewProbe would poll 600s then
+    # THROW. Keep this list in sync with DIFF_RULE_PREFIXES +
+    # ALWAYS_SKIP_PREFIXES there: npm run check:no-preview-prefixes fails on drift.
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'bot/') && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'arc/briefs-') && !startsWith(github.head_ref, 'claude/done-') && !startsWith(github.head_ref, 'claude/review-')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

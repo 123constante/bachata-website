@@ -1,0 +1,365 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`directory + attendance at '390x844' > /account/attendance: empty > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "Events you have marked as going or interested."
+text "No event attendance yet."
+text "Tap “I’m Going” or “Interested” on any event page and it will show up here."
+button "Browse events""
+`;
+
+exports[`directory + attendance at '390x844' > /account/attendance: future party > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "Events you have marked as going or interested."
+text "1 event"
+button "Friday Social Going 02 Jan 2099London""
+`;
+
+exports[`directory + attendance at '390x844' > /account/attendance: mixed > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "Events you have marked as going or interested."
+text "3 events"
+button "Costa Congress Going 02 Jun 2099London"
+button "Friday Social Interested 02 Jan 2099London"
+button "Friday Social Going 02 Jan 2026London"
+link "Rate the dancing level" href=/event/past1#level-rating"
+`;
+
+exports[`directory + attendance at '390x844' > /account/attendance: past festival > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "Events you have marked as going or interested."
+text "1 event"
+button "Friday Social Going 02 Jan 2026London""
+`;
+
+exports[`directory + attendance at '390x844' > /account/attendance: past party > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "Events you have marked as going or interested."
+text "1 event"
+button "Friday Social Going 02 Jan 2026London"
+link "Rate the dancing level" href=/event/past1#level-rating"
+`;
+
+exports[`directory + attendance at '390x844' > /dancers: empty > signed in, with plans 1`] = `
+"text "??"
+heading "Find Practice Partners" level=3
+text "?"
+heading "Create a Profile" level=3
+text "??"
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+text "No dancers yet. Be the first to join!"
+button "Create Your Profile"
+heading "YourPlans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 02 Jan"
+text "Going: 1 · Interested: 0"
+button "Friday Social GB 866 months 18 days"
+heading "Festivals" level=3
+text "0 saved"
+text "Next: No upcoming festivals"
+text "Going: 0 · Interested: 0"
+text "No upcoming festivals yet."
+text "??"
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "??"
+text "??"
+text "??"
+text "??"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at '390x844' > /dancers: empty > signed out 1`] = `
+"text "??"
+heading "Find Practice Partners" level=3
+text "?"
+heading "Create a Profile" level=3
+text "??"
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+text "No dancers yet. Be the first to join!"
+button "Create Your Profile"
+heading "YourPlans" level=2
+heading "Events" level=3
+text "0 saved"
+text "Sign in to track your events."
+button "Sign in"
+heading "Festivals" level=3
+text "0 saved"
+text "Sign in to track your festivals."
+button "Sign in"
+text "??"
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "??"
+text "??"
+text "??"
+text "??"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at '390x844' > /dancers: mixed shapes > signed in, with plans 1`] = `
+"text "??"
+heading "Find Practice Partners" level=3
+text "?"
+heading "Create a Profile" level=3
+text "??"
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+img "Ana Lopez"
+heading "Ana Lopez" level=3
+text "Follower"
+text "Sensual"
+text "F"
+heading "Fay" level=3
+text "Leader"
+text "EG"
+heading "Eli Gomez" level=3
+text "D"
+heading "Dancer" level=3
+heading "YourPlans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 02 Jan"
+text "Going: 1 · Interested: 0"
+button "Friday Social GB 866 months 18 days"
+heading "Festivals" level=3
+text "0 saved"
+text "Next: No upcoming festivals"
+text "Going: 0 · Interested: 0"
+text "No upcoming festivals yet."
+text "??"
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "??"
+text "??"
+text "??"
+text "??"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at '390x844' > /dancers: mixed shapes > signed out 1`] = `
+"text "??"
+heading "Find Practice Partners" level=3
+text "?"
+heading "Create a Profile" level=3
+text "??"
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+img "Ana Lopez"
+heading "Ana Lopez" level=3
+text "Follower"
+text "Sensual"
+text "F"
+heading "Fay" level=3
+text "Leader"
+text "EG"
+heading "Eli Gomez" level=3
+text "D"
+heading "Dancer" level=3
+heading "YourPlans" level=2
+heading "Events" level=3
+text "0 saved"
+text "Sign in to track your events."
+button "Sign in"
+heading "Festivals" level=3
+text "0 saved"
+text "Sign in to track your festivals."
+button "Sign in"
+text "??"
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "??"
+text "??"
+text "??"
+text "??"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at 'desktop' > /account/attendance: empty > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "Events you have marked as going or interested."
+text "No event attendance yet."
+text "Tap “I’m Going” or “Interested” on any event page and it will show up here."
+button "Browse events""
+`;
+
+exports[`directory + attendance at 'desktop' > /account/attendance: future party > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "Events you have marked as going or interested."
+text "1 event"
+button "Friday Social Going 02 Jan 2099London""
+`;
+
+exports[`directory + attendance at 'desktop' > /account/attendance: mixed > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "Events you have marked as going or interested."
+text "3 events"
+button "Costa Congress Going 02 Jun 2099London"
+button "Friday Social Interested 02 Jan 2099London"
+button "Friday Social Going 02 Jan 2026London"
+link "Rate the dancing level" href=/event/past1#level-rating"
+`;
+
+exports[`directory + attendance at 'desktop' > /account/attendance: past festival > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "Events you have marked as going or interested."
+text "1 event"
+button "Friday Social Going 02 Jan 2026London""
+`;
+
+exports[`directory + attendance at 'desktop' > /account/attendance: past party > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "Events you have marked as going or interested."
+text "1 event"
+button "Friday Social Going 02 Jan 2026London"
+link "Rate the dancing level" href=/event/past1#level-rating"
+`;
+
+exports[`directory + attendance at 'desktop' > /dancers: empty > signed in, with plans 1`] = `
+"text "??"
+heading "Find Practice Partners" level=3
+text "?"
+heading "Create a Profile" level=3
+text "??"
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+text "No dancers yet. Be the first to join!"
+button "Create Your Profile"
+heading "YourPlans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 02 Jan"
+text "Going: 1 · Interested: 0"
+button "Friday Social GB 866 months 18 days"
+heading "Festivals" level=3
+text "0 saved"
+text "Next: No upcoming festivals"
+text "Going: 0 · Interested: 0"
+text "No upcoming festivals yet."
+text "??"
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "??"
+text "??"
+text "??"
+text "??"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at 'desktop' > /dancers: empty > signed out 1`] = `
+"text "??"
+heading "Find Practice Partners" level=3
+text "?"
+heading "Create a Profile" level=3
+text "??"
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+text "No dancers yet. Be the first to join!"
+button "Create Your Profile"
+heading "YourPlans" level=2
+heading "Events" level=3
+text "0 saved"
+text "Sign in to track your events."
+button "Sign in"
+heading "Festivals" level=3
+text "0 saved"
+text "Sign in to track your festivals."
+button "Sign in"
+text "??"
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "??"
+text "??"
+text "??"
+text "??"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at 'desktop' > /dancers: mixed shapes > signed in, with plans 1`] = `
+"text "??"
+heading "Find Practice Partners" level=3
+text "?"
+heading "Create a Profile" level=3
+text "??"
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+img "Ana Lopez"
+heading "Ana Lopez" level=3
+text "Follower"
+text "Sensual"
+text "F"
+heading "Fay" level=3
+text "Leader"
+text "EG"
+heading "Eli Gomez" level=3
+text "D"
+heading "Dancer" level=3
+heading "YourPlans" level=2
+heading "Events" level=3
+text "1 saved"
+text "Next: Friday Social • 02 Jan"
+text "Going: 1 · Interested: 0"
+button "Friday Social GB 866 months 18 days"
+heading "Festivals" level=3
+text "0 saved"
+text "Next: No upcoming festivals"
+text "Going: 0 · Interested: 0"
+text "No upcoming festivals yet."
+text "??"
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "??"
+text "??"
+text "??"
+text "??"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at 'desktop' > /dancers: mixed shapes > signed out 1`] = `
+"text "??"
+heading "Find Practice Partners" level=3
+text "?"
+heading "Create a Profile" level=3
+text "??"
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+img "Ana Lopez"
+heading "Ana Lopez" level=3
+text "Follower"
+text "Sensual"
+text "F"
+heading "Fay" level=3
+text "Leader"
+text "EG"
+heading "Eli Gomez" level=3
+text "D"
+heading "Dancer" level=3
+heading "YourPlans" level=2
+heading "Events" level=3
+text "0 saved"
+text "Sign in to track your events."
+button "Sign in"
+heading "Festivals" level=3
+text "0 saved"
+text "Sign in to track your festivals."
+button "Sign in"
+text "??"
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "??"
+text "??"
+text "??"
+text "??"
+text "200+ looking for partners"
+button "Find Partners""
+`;

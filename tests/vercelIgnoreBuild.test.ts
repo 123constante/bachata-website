@@ -92,7 +92,7 @@ function seedRepo(): { cwd: string; base: string } {
 
 interface Case {
   name: string;
-  setup: () => { cwd: string; previousSha: string; ref?: string };
+  setup: () => { cwd: string; previousSha: string; ref?: string; message?: string; env?: string };
   want: Verdict;
   /** Asserted only where the old command's outcome is the point of the row. */
   oldWas?: Verdict;
@@ -349,16 +349,214 @@ const cases: Case[] = [
     setup: () => ({ cwd: newDir(), previousSha: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef' }),
     want: 'BUILD',
   },
+
+  // ---- Vercel build budget (briefs/vercel-build-budget.md) ----------------
+  // Non-production only, decided BEFORE the diff: no-preview branch prefixes
+  // and `[skip preview]` checkpoint commits SKIP even when a build path
+  // changed. Production keeps its diff rule; every unknown still BUILDS.
+  {
+    name: 'budget: src change on an arc/briefs-* branch skips (brief branch, no preview)',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx']);
+      return { cwd, previousSha: base, ref: 'arc/briefs-dancer-rebuild' };
+    },
+    want: 'SKIP',
+  },
+  {
+    name: 'budget: first deploy of an arc/briefs-* branch skips (no base needed)',
+    setup: () => {
+      const { cwd } = seedRepo();
+      commit(cwd, ['briefs/x.md']);
+      return { cwd, previousSha: '', ref: 'arc/briefs-organiser-r1' };
+    },
+    want: 'SKIP',
+  },
+  {
+    name: 'budget: claude/review-* branch skips',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx']);
+      return { cwd, previousSha: base, ref: 'claude/review-pr-797' };
+    },
+    want: 'SKIP',
+  },
+  {
+    name: 'budget: claude/done-* done-signal branch skips',
+    setup: () => {
+      const { cwd } = seedRepo();
+      return { cwd, previousSha: '', ref: 'claude/done-dt_0123456789ab' };
+    },
+    want: 'SKIP',
+  },
+  {
+    name: 'budget: [skip preview] checkpoint commit on a claude/* branch skips, src changed',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      const message = 'feat(x): half done CHECKPOINT [skip preview]';
+      commit(cwd, ['src/main.tsx'], message);
+      return { cwd, previousSha: base, ref: 'claude/feature-x', message };
+    },
+    want: 'SKIP',
+  },
+  {
+    name: 'budget: [skip preview] only in the commit BODY builds (subject is matched; squash/revert/mention keep a preview)',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      const message = 'feat(x): done\n\n* cp 1 [skip preview]\n* cp 2 [skip preview]\n';
+      commit(cwd, ['src/main.tsx'], message);
+      return { cwd, previousSha: base, ref: 'claude/feature-x', message };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'budget: [skip preview] mid-SUBJECT (not at its end) builds -- only a suffix tag marks a checkpoint',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      const message = 'docs: explain the [skip preview] tag';
+      commit(cwd, ['src/main.tsx'], message);
+      return { cwd, previousSha: base, ref: 'claude/feature-x', message };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'budget: bot/* checkpoint src change skipped, docs-only final push still BUILDS (base pinned to the last real deploy)',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx'], 'cp [skip preview]');
+      const message = 'docs: final';
+      commit(cwd, ['docs/b.md'], message);
+      return { cwd, previousSha: base, ref: 'bot/types-regen', message };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'budget: bot/* docs-only final push with no skipped src before it skips (diff rule as before)',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      const message = 'docs: final';
+      commit(cwd, ['docs/b.md'], message);
+      return { cwd, previousSha: base, ref: 'bot/types-regen', message };
+    },
+    want: 'SKIP',
+  },
+  {
+    name: 'budget: a normal claude/* commit builds',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      const message = 'feat(x): add the thing';
+      commit(cwd, ['src/main.tsx'], message);
+      return { cwd, previousSha: base, ref: 'claude/feature-x', message };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'budget: final commit after skipped checkpoints builds (base still the last REAL deploy)',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx'], 'cp 1 [skip preview]');
+      commit(cwd, ['src/b.tsx'], 'cp 2 [skip preview]');
+      const message = 'feat(x): done [worker-done dt_0123456789ab]';
+      commit(cwd, ['docs/handover.md'], message);
+      return { cwd, previousSha: base, ref: 'claude/feature-x', message };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'budget: a near-miss tag ([skip-preview], [skip ci]) does not skip',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      const message = 'chore: x [skip-preview] [skip ci] skip preview';
+      commit(cwd, ['docs/b.md'], message);
+      return { cwd, previousSha: base, ref: 'claude/feature-x', message };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'budget: prefix match is anchored (claude/fix-review-*, arc/briefs without dash build)',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['docs/b.md']);
+      return { cwd, previousSha: base, ref: 'claude/fix-review-claude-done-arc/briefs-x' };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'budget: arc/* feature branch (not arc/briefs-) still builds',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['docs/b.md']);
+      return { cwd, previousSha: base, ref: 'arc/dancer-rebuild' };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'budget: production ignores [skip preview] -- src change still builds',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      const message = 'merge [skip preview]';
+      commit(cwd, ['src/main.tsx'], message);
+      return { cwd, previousSha: base, message };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'budget: production with [skip preview] and docs only -- diff rule as before (skip)',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      const message = 'docs [skip preview]';
+      commit(cwd, ['docs/b.md'], message);
+      return { cwd, previousSha: base, message };
+    },
+    want: 'SKIP',
+  },
+  {
+    name: 'budget: production on an arc/briefs-* ref (env says production) keeps the diff rule',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx']);
+      return { cwd, previousSha: base, ref: 'arc/briefs-x', env: 'production' };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'budget: bot/* src change still builds (unchanged)',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx']);
+      return { cwd, previousSha: base, ref: 'bot/types-regen' };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'budget: main as a PREVIEW (VERCEL_ENV=preview) keeps the diff rule: src builds',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx']);
+      return { cwd, previousSha: base, env: 'preview' };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'budget: main as a PREVIEW (VERCEL_ENV=preview) keeps the diff rule: docs-only skips',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['docs/b.md']);
+      return { cwd, previousSha: base, env: 'preview' };
+    },
+    want: 'SKIP',
+  },
 ];
 
-function run(cmd: 'new' | 'old', cwd: string, previousSha: string, ref: string) {
+function run(cmd: 'new' | 'old', cwd: string, previousSha: string, ref: string, message = '', vercelEnv?: string) {
   const env = {
     ...GIT_ENV,
     // Stop git looking above a temp dir for a repo (the no-checkout row).
     GIT_CEILING_DIRECTORIES: tmpdir(),
     VERCEL_GIT_PREVIOUS_SHA: previousSha,
     VERCEL_GIT_COMMIT_REF: ref,
-    VERCEL_ENV: ref === 'main' ? 'production' : 'preview',
+    VERCEL_GIT_COMMIT_MESSAGE: message,
+    VERCEL_ENV: vercelEnv ?? (ref === 'main' ? 'production' : 'preview'),
   };
   const r =
     cmd === 'new'
@@ -375,9 +573,9 @@ describe('scripts/vercel-ignore-build.sh', () => {
 
   for (const c of cases) {
     it(c.name, () => {
-      const { cwd, previousSha, ref = 'main' } = c.setup();
-      const next = run('new', cwd, previousSha, ref);
-      const old = run('old', cwd, previousSha, ref);
+      const { cwd, previousSha, ref = 'main', message, env } = c.setup();
+      const next = run('new', cwd, previousSha, ref, message, env);
+      const old = run('old', cwd, previousSha, ref, message, env);
       rows.push(`${c.name} | ${next.verdict} | ${old.verdict}`);
       expect(next.verdict, next.out).toBe(c.want);
       // Every decision names itself in the Vercel build log.
