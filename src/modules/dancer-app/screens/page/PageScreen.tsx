@@ -2,7 +2,7 @@ import { useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
 import { toDancerError } from '../../api/errors';
-import { fmt, NUMBERS_LOAD_FAILED, viewsDetail, VIEWS_WEEK_LABEL } from '../../api/numbersModel';
+import { fmt, numbersCanRetry, numbersErrorCopy, viewsDetail, VIEWS_WEEK_LABEL } from '../../api/numbersModel';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { useMyNumbers } from '../../api/useMyNumbers';
 import { ACCOUNT_SETTINGS_LABEL } from '../../copy/sharedCopy';
@@ -66,7 +66,14 @@ const PageScreen = () => {
             <span className="da-muted" style={{ fontSize: 13 }} data-testid="page-views-detail">{viewsDetail(numbers.data, hasPhoto)}</span>
           </>
         ) : (
-          <span role="status" data-testid="page-views-error" style={{ fontSize: 14 }}>{NUMBERS_LOAD_FAILED}</span>
+          <>
+            <span role="status" data-testid="page-views-error" style={{ fontSize: 14 }}>{numbersErrorCopy(numbers.error)}</span>
+            {numbersCanRetry(numbers.error) && (
+              <div>
+                <button type="button" className="da-tap" data-testid="page-views-retry" style={{ ...linkStyle, background: 'none', border: 0 }} onClick={() => void numbers.refetch()}>Try again</button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -95,8 +102,9 @@ const PageScreen = () => {
         {m.disabledReason && (
           <p id="page-why" data-testid="page-why" className="da-muted" style={{ fontSize: 13, margin: 0 }}>
             {m.disabledReason}{' '}
-            {m.fixHint === 'edit' && <Link to="/app/me/edit" style={linkStyle}>Edit my profile</Link>}
-            {m.fixHint === 'account-settings' && <Link to={APP_ACCOUNT_SETTINGS_PATH} style={linkStyle}>{ACCOUNT_SETTINGS_LABEL}</Link>}
+            {/* F8: the only way forward when View and Share are off, so a full 44px tap target (px, not rem). */}
+            {m.fixHint === 'edit' && <Link to="/app/me/edit" className="da-tap" style={linkStyle}>Edit my profile</Link>}
+            {m.fixHint === 'account-settings' && <Link to={APP_ACCOUNT_SETTINGS_PATH} className="da-tap" style={linkStyle}>{ACCOUNT_SETTINGS_LABEL}</Link>}
           </p>
         )}
         {copied === 'copied' && <p role="status" className="da-muted" style={{ fontSize: 13, margin: 0 }}>Link copied</p>}

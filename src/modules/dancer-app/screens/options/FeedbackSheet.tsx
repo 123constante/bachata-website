@@ -84,9 +84,10 @@ const FeedbackSheet = ({ onClose }: { onClose: () => void }) => {
             type="button"
             className="da-tap"
             data-testid="feedback-send"
-            disabled={why !== null}
-            aria-describedby="feedback-why"
-            style={{ ...ROW, justifyContent: 'center', background: 'var(--da-accent)', color: 'var(--da-on-accent)', opacity: why ? 0.6 : 1 }}
+            disabled={sending || why !== null}
+            // F14: point at the reason only when it is on screen (while sending the label is the reason).
+            aria-describedby={why ? 'feedback-why' : undefined}
+            style={{ ...ROW, justifyContent: 'center', background: 'var(--da-accent)', color: 'var(--da-on-accent)', opacity: sending || why ? 0.6 : 1 }}
             onClick={() => void send()}
           >
             {sending ? 'Sending\u2026' : 'Send'}

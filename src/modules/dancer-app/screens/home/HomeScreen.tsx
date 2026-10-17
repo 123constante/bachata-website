@@ -6,7 +6,9 @@ import { DancerApiError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
 import { trackDancerEvent } from '../../analytics/events';
 import { DANCER_TABS } from '../../shell/routes';
-import { countCommitted, inDaysLabel, nextNight, nudgeCandidates, placeAndTime, shortDate, statusLabel } from '../nights/nightsModel';
+import { inDaysLabel, nextNight, nudgeCandidates, placeAndTime, shortDate, statusLabel } from '../nights/nightsModel';
+import { GOING_TILE_HELP, goingTileValue } from '../../api/numbersModel';
+import { useMyNumbers } from '../../api/useMyNumbers';
 import { buttonStyle, gradientBg, linkStyle } from '../nights/nightsStyles';
 import { useBrowseHref } from '../nights/useBrowseHref';
 import { useMyNights } from '../nights/useMyNights';
@@ -70,8 +72,11 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
   const { nights, todayKey, isError, isLoading } = useMyNights();
   const browseHref = useBrowseHref(profile.based_city_id);
   const hero = nextNight(nights.upcoming);
-  const committed = countCommitted(nights.upcoming);
-  const nextDate = nights.upcoming.find((n) => n.date !== null && n.status !== 'other')?.date ?? null;
+  // F7 (owner decision): the tile and the strip read ONE number from ONE source,
+  // my_dancer_stats_v1.nights_going_upcoming (scheduled nights only, so a cancelled
+  // night is not counted). The nights list above stays as it is.
+  const numbers = useMyNumbers();
+  const going = goingTileValue(numbers);
   const name = profile.first_name || profile.display_name || 'there';
   const [noticeGone, setNoticeGone] = useState(() => (user?.id ? readFlag('local', noticeKey(user.id)) : true));
 
@@ -152,8 +157,9 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
         </Link>
         <Link to={path('nights')} data-testid="tile-going" className="da-card" style={{ ...tile }}>
           <b style={{ fontSize: 14 }}>Upcoming nights</b>
-          <span style={{ fontSize: 28, fontWeight: 800 }} data-testid="tile-going-count">{committed}</span>
-          <span className="da-muted" style={{ fontSize: 13 }}>{nextDate ? `Next: ${shortDate(nextDate)}` : 'Going or Interested'}</span>
+          {/* A number is big; the loading / failed words are body size so they fit the tile. */}
+          <span style={{ fontSize: numbers.data ? 28 : 14, fontWeight: 800, overflowWrap: 'anywhere' }} data-testid="tile-going-count">{going}</span>
+          <span className="da-muted" style={{ fontSize: 13 }}>{GOING_TILE_HELP}</span>
         </Link>
       </div>
 

@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { fmt, NUMBERS_LOAD_FAILED, stripCells, STRIP_EMPTY_HELP, viewsDetail, VIEWS_WEEK_LABEL, type Numbers } from '../../api/numbersModel';
+import { fmt, numbersCanRetry, numbersErrorCopy, stripCells, STRIP_EMPTY_HELP, viewsDetail, VIEWS_WEEK_LABEL, type Numbers } from '../../api/numbersModel';
 import { useMyNumbers } from '../../api/useMyNumbers';
 import { linkStyle } from '../nights/nightsStyles';
 
@@ -39,10 +39,12 @@ export const NumbersTiles = ({ hasPhoto }: { hasPhoto: boolean }) => {
   if (q.isError || !q.data) {
     return (
       <div className="da-card" role="status" data-testid="numbers-error">
-        <span style={{ fontSize: 14 }}>{NUMBERS_LOAD_FAILED}</span>
-        <div>
-          <button type="button" className="da-tap" style={{ ...linkStyle, background: 'none', border: 0 }} onClick={() => void q.refetch()}>Try again</button>
-        </div>
+        <span style={{ fontSize: 14 }}>{numbersErrorCopy(q.error)}</span>
+        {numbersCanRetry(q.error) && (
+          <div>
+            <button type="button" className="da-tap" data-testid="numbers-retry" style={{ ...linkStyle, background: 'none', border: 0 }} onClick={() => void q.refetch()}>Try again</button>
+          </div>
+        )}
       </div>
     );
   }

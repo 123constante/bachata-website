@@ -1,3 +1,4 @@
+import { toDancerError } from './errors';
 import type { MyDancerStats, MyProfileViews } from './types';
 
 /**
@@ -40,6 +41,32 @@ export const fmt = (n: number): string => (Number.isFinite(n) ? Math.max(0, Math
 
 export const VIEWS_WEEK_LABEL = 'People who looked at your page this week';
 export const NUMBERS_LOAD_FAILED = 'We could not load your numbers. Check your connection and try again.';
+
+/**
+ * F12: a failed numbers read -> the words for THAT failure. A connection-type failure
+ * (`unknown`) keeps NUMBERS_LOAD_FAILED; `no_profile`, `area_closed` and the rest get
+ * their own plain copy from api/errors.ts. Home and My page both use this one mapping.
+ */
+export const numbersErrorCopy = (err: unknown): string => {
+  const e = toDancerError(err);
+  return e.code === 'unknown' ? NUMBERS_LOAD_FAILED : e.message;
+};
+
+/** Try again only helps when the failure can pass by itself (not for a missing profile or a closed area). */
+export const numbersCanRetry = (err: unknown): boolean =>
+  !(['no_profile', 'area_closed', 'not_signed_in', 'profile_mismatch'] as const).includes(toDancerError(err).code as never);
+
+/**
+ * F7: Home's "Upcoming nights" tile shows the strip's Going number (my_dancer_stats_v1
+ * nights_going_upcoming), never a count of the attendance list. While that read is on its
+ * way, or after it failed, the tile says so in words instead of a number from elsewhere.
+ */
+export const GOING_TILE_LOADING = 'Loading\u2026';
+export const GOING_TILE_FAILED = 'Could not load';
+/** Under the tile's number: what it counts (the strip's "Going" cell is the same number). */
+export const GOING_TILE_HELP = 'Nights you said Going to';
+export const goingTileValue = (q: { isLoading: boolean; data: Numbers | undefined }): string =>
+  q.data ? fmt(q.data.going) : q.isLoading ? GOING_TILE_LOADING : GOING_TILE_FAILED;
 
 /** What the dancer can do when nobody has looked yet; says the photo first when there is none. */
 export const noViewsHelp = (hasPhoto: boolean): string =>

@@ -166,10 +166,13 @@ describe('L14: one browse verb on Home', () => {
 });
 
 describe('seeds', () => {
-  it('15 nights: the count tile says 15', async () => {
+  // Review F7 (owner decision): the tile reads my_dancer_stats_v1.nights_going_upcoming, the
+  // same number as the strip's Going cell, not a count of these 15 list rows.
+  it('15 nights in the list: the count tile says the stats Going number (3), same as the strip', async () => {
     h.rows = Array.from({ length: 15 }, (_, i) => row(`s${i}`, `Night ${i}`, i + 1, i % 2 ? 'interested' : 'going'));
-    home();
-    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe('15'));
+    renderInShell({ path: '/app/home', backend: { profile: londoner(), statsShape: 'normal' } });
+    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe('3'));
+    expect(screen.getByTestId('stat-going-value').textContent).toBe('3');
   });
 
   it('long name + no city: renders the name in full and the no-city hint', async () => {
