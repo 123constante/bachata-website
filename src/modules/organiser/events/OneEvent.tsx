@@ -19,6 +19,7 @@ import { moreLabel, readIsFull, wsCancelledComing, type EventWorkspace } from '.
 import { useEventWorkspace } from './eventsApi';
 import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
+import { LifecycleActions } from './LifecycleActions';
 
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left text-[15px]';
 const MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -189,6 +190,7 @@ export default function OneEvent() {
       <DatesTakenOff series={ws.data.series} dates={ws.data.dates} today={today} lock={eventLock(ws.data.series.lifecycle_status)}
         dirty={false} canChooseEnd={!!ownerWeeklyRule(ws.data.series)} />
       <Actions ws={ws.data} today={today} />
+      <LifecycleActions ws={ws.data} today={today} />
     </>
   );
 

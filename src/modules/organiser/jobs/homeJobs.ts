@@ -9,7 +9,7 @@ import { CANCELLED_WORD, isClosed, lifecycleTag } from '@/modules/organiser/shar
 import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { parseTeam, type IncomingAccessRequest } from '@/modules/organiser/shared/teamModel';
 
-export type JobKind = 'change'|'add'|'cancel'|'no_dates_left'|'join_request'|'stale_draft'|'no_cover'|'create_first_event'|'add_cover'|'show_whatsapp'|'add_manager';
+export type JobKind = 'change'|'add'|'cancel'|'no_dates_left'|'join_request'|'stale_draft'|'no_cover'|'create_first_event'|'add_cover'|'add_manager';
 
 export interface Job { kind: JobKind; n: number; title: string; sub?: string; to: string; tone: 'gold'|'plain'|'problem' }
 
@@ -91,9 +91,7 @@ type Draft = Omit<Job, 'n'>;
 function firstSteps(home: HomeOrganiser): Draft[] {
   const steps: Draft[] = [{ kind: 'create_first_event', title: 'New event', to: ORG_PATHS.newWhat, tone: 'gold' }];
   if (!home.avatar_url) steps.push({ kind: 'add_cover', title: 'Add a photo', to: ORG_PATHS.page, tone: 'plain' });
-  // organiser_home_v1 does not carry the page's WhatsApp yet: the step shows until it does.
-  const whatsapp = (home as HomeOrganiser & { whatsapp_url?: string | null }).whatsapp_url;
-  if (!whatsapp) steps.push({ kind: 'show_whatsapp', title: 'Show your WhatsApp', to: ORG_PATHS.page, tone: 'plain' });
+  // No WhatsApp step (C69): no organiser table has a WhatsApp column and My page has no such field (prod, 2026-10-17).
   if (parseTeam(home.team).length < 2) steps.push({ kind: 'add_manager', title: 'Add a manager', to: ORG_PATHS.teamAdd, tone: 'plain' });
   return steps;
 }

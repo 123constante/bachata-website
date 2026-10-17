@@ -2,6 +2,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// Done reads the named event's lifecycle for "See it live" (C38); here the read finds nothing.
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn(async () => ({ data: null, error: { message: 'none' } })) } }));
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import Done from '../Done';
 import { goDone, type DoneState } from '../doneState';
@@ -15,12 +19,14 @@ function Where() {
 
 function renderAt(state: DoneState | null) {
   return render(
-    <MemoryRouter initialEntries={[{ pathname: ORG_PATHS.done, state }]}>
-      <Routes>
-        <Route path={ORG_PATHS.done} element={<Done />} />
-        <Route path="*" element={<Where />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter initialEntries={[{ pathname: ORG_PATHS.done, state }]}>
+        <Routes>
+          <Route path={ORG_PATHS.done} element={<Done />} />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

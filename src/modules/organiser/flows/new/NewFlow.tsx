@@ -16,10 +16,11 @@ import { ORG_PATHS, type NewEventFormat } from '@/modules/organiser/shell/paths'
 import { EmptyState, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, TitleInput } from '@/modules/organiser/ui';
 import { goDone } from '../doneState';
 import {
-  NEW_FORMATS, STEP_TITLE, coverCommands, dateCommands, draftCommand, firstDateChoices, liveCommands, liveMessage,
+  DRAFT_ONLY_NOTE, DRAFT_SAVED_MESSAGE, NEW_FORMATS, STEP_TITLE, coverCommands, dateCommands, draftCommand, finishLabel, firstDateChoices, liveCommands, liveMessage,
   nameBlock, parseFormat, timeBlock, timeCommands, venueCommands,
 } from './model';
 import { useNewSend } from './useNewSend';
+import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
 import { EventConflict } from '../event/parts';
 
 const TITLE = 'New event';
@@ -289,7 +290,13 @@ function CoverStep({ seriesId }: { seriesId: string }) {
   };
 
   const goLive = async () => {
-    if (!cover || !(await send(liveCommands()))) return;
+    if (!cover) return;
+    // A1 not on prod: going live would be refused, so the draft stays a draft and Done says so.
+    if (!liveCommands().length) {
+      goDone(navigate, { title: 'Saved', message: DRAFT_SAVED_MESSAGE, seriesId });
+      return;
+    }
+    if (!(await send(liveCommands()))) return;
     let message = liveMessage(null, null);
     try {
       const after = await fetchSeriesWorkspace(seriesId);
@@ -309,8 +316,9 @@ function CoverStep({ seriesId }: { seriesId: string }) {
         <input type="file" accept="image/*" className="sr-only" disabled={busy || uploading} data-testid="org-new-cover-input" onChange={(e) => void choose(e.target.files?.[0])} />
       </label>
       <StepError message={error} />
-      <StepButton label="Go live" reason={cover ? null : 'Choose a photo to go live.'} busy={busy && !uploading} onClick={() => void goLive()} testId="org-new-live" />
-      <LeaveLink />
+      {!A1_APPLIED && <p className="text-[14px] text-[var(--mut)]" data-testid="org-new-draft-note">{DRAFT_ONLY_NOTE}</p>}
+      <StepButton label={finishLabel()} reason={cover ? null : 'Choose a photo to go live.'} busy={busy && !uploading} onClick={() => void goLive()} testId="org-new-live" />
+      {A1_APPLIED && <LeaveLink />}
     </Frame>
   );
 }

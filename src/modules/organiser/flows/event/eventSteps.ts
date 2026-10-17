@@ -5,13 +5,18 @@ import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { TEAM, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
 import type { DetailField } from '@/modules/organiser/events/eventModel';
 
-export type EventStepName = 'pause' | 'resume' | 'end' | 'day' | 'stop';
-export const EVENT_STEPS: readonly EventStepName[] = ['pause', 'resume', 'end', 'day', 'stop'];
+export type EventStepName = 'pause' | 'resume' | 'end' | 'day' | 'stop' | 'weekly';
+export const EVENT_STEPS: readonly EventStepName[] = ['pause', 'resume', 'end', 'day', 'stop', 'weekly'];
 export const STEP_PARAM = 'do';
 export const EDIT_PARAM = 'edit';
 
 export const eventStepPath = (seriesId: string, step: EventStepName) => `${ORG_PATHS.event(seriesId)}?${STEP_PARAM}=${step}`;
-export const detailEditPath = (seriesId: string, field: DetailField) => `${ORG_PATHS.eventDetails(seriesId)}?${EDIT_PARAM}=${field}`;
+export const detailEditPath = (seriesId: string, field: DetailField | ExtraDetail) => `${ORG_PATHS.eventDetails(seriesId)}?${EDIT_PARAM}=${field}`;
+
+/** The Details rows that are not one text box (P-SERIES C14, C09b): the usual end and the price list. */
+export type ExtraDetail = 'ends' | 'prices';
+export const EXTRA_DETAILS: readonly ExtraDetail[] = ['ends', 'prices'];
+export const readExtra = (raw: string | null): ExtraDetail | null => EXTRA_DETAILS.find((f) => f === raw) ?? null;
 
 export const readStep = (raw: string | null): EventStepName | null =>
   EVENT_STEPS.find((s) => s === raw) ?? null;
@@ -32,10 +37,13 @@ interface SeriesFacts { lifecycle_status: string; format: string | null; recurre
 const hasRule = (rule: unknown) => !!rule && typeof rule === 'object';
 
 /**
- * Which of the five rows an event shows, and why one cannot work. Pause only
+ * Which of the six rows an event shows, and why one cannot work. Pause only
  * when live, Resume only when paused, End only when live or paused (a draft is
  * archived, never ended); ended and archived events show none. `fullRead`
  * (eventModel.readIsFull) turns Stop repeating off: its keep list needs every coming date.
+ * Make it weekly (C40) only for a `recurring` series with no rule that is not
+ * closed: series.set_recurrence is an owner kind there, and with no old rule the
+ * server prunes nothing (_reconcile_series_occurrences_after_rule_change_p5_v1).
  */
 export function eventActions(s: SeriesFacts, fullRead = false): Record<EventStepName, ActionRow> {
   const closed = s.lifecycle_status === 'ended' || s.lifecycle_status === 'archived';
@@ -47,6 +55,7 @@ export function eventActions(s: SeriesFacts, fullRead = false): Record<EventStep
     end: running ? { reason: null } : null,
     day: !repeats ? null : s.format === 'course' ? { reason: COURSE_STOP_REASON } : ownerWeeklyRule(s) ? { reason: null } : { reason: PATTERN_REASON },
     stop: !repeats ? null : s.format === 'course' ? { reason: COURSE_STOP_REASON } : fullRead ? { reason: FULL_READ_STOP_REASON } : { reason: null },
+    weekly: !closed && s.format === 'recurring' && !hasRule(s.recurrence_rule) ? { reason: null } : null,
   };
 }
 
@@ -56,6 +65,7 @@ export const ACTION_LABEL: Record<EventStepName, string> = {
   end: 'End',
   day: 'Change the day',
   stop: 'Stop repeating',
+  weekly: 'Make it weekly',
 };
 
 /**

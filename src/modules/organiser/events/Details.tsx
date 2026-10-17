@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,7 @@ import { eventLock } from '@/modules/organiser/shared/eventState';
 import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { useFlowHome } from '@/modules/organiser/flows/add/useFlow';
 import { EDIT_PARAM, EventConflict, EventStepShell, SendButton, StepError, detailEditPath, useEventSend } from '@/modules/organiser/flows/event';
+import { readExtra } from '@/modules/organiser/flows/event/eventSteps';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Card, ErrorState, FIELD_CLASS, SkeletonRows } from '../ui';
 import { ScheduleCard } from './EditorRows';
@@ -22,6 +23,9 @@ import { useEventWorkspace } from './eventsApi';
 import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { ClosedLines } from './ClosedLines';
+import { uploadEventPicture } from './media';
+import { countLabel, mediaCommand, passCount, pricesLock, usualEnd } from './seriesExtras';
+import { EndEdit, PricesEdit } from './DetailsExtras';
 
 const TEXT_FIELDS: TextDetail[] = ['name', 'time', 'level', 'music', 'tickets', 'instagram', 'about'];
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left';
@@ -75,15 +79,50 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
   const { sendThenDone, busy, conflict, error } = useEventSend(seriesId);
   const loaded = draftFromWorkspace(ws, today);
   const [draft, setDraft] = useState<EventDraft>(loaded);
+  // The sheet's Done patches then closes in one tap: the close reads the patched draft from here.
+  const latest = useRef<EventDraft>(loaded);
+  const patch = (p: Partial<EventDraft>) => {
+    latest.current = { ...latest.current, ...p };
+    setDraft(latest.current);
+  };
   const [sheet, setSheet] = useState<SheetName | null>(null);
   const [cityError, setCityError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const upcoming = upcomingDates(ws.dates, today);
 
-  // The sheet closes: a new venue is ONE series.upsert; an untouched sheet sends nothing.
+  // C06: each picture is checked and uploaded now; the new list saves when the sheet closes.
+  const onUploadGallery = (files: File[]) => {
+    if (uploading) return;
+    setUploading(true);
+    setUploadError(null);
+    void (async () => {
+      try {
+        for (const file of files) {
+          const url = await uploadEventPicture(seriesId, file);
+          patch({ gallery: [...latest.current.gallery, url] });
+        }
+      } catch (err) {
+        setUploadError(err instanceof Error ? err.message : commandErrorMessage(err));
+      } finally {
+        setUploading(false);
+      }
+    })();
+  };
+
+  // The sheet closes: a new venue, gallery or video list is ONE series.upsert; an untouched sheet sends nothing.
   const onSheet = (next: SheetName | null) => {
+    const closing = sheet;
     setSheet(next);
-    if (next !== null || !draft.venueId || draft.venueId === ws.series.default_venue_id || busy) return;
-    const venueId = draft.venueId;
+    if (next !== null || busy) return;
+    if (closing === 'gallery' || closing === 'video') {
+      const now = latest.current;
+      const command = closing === 'gallery' ? mediaCommand(ws, 'default_gallery', now.gallery) : mediaCommand(ws, 'default_video_urls', now.videos);
+      if (command) void sendThenDone(ws.series.version, command, { title: 'Saved', message: 'Saved' });
+      return;
+    }
+    const venueId = latest.current.venueId;
+    if (!venueId || venueId === ws.series.default_venue_id) return;
     void (async () => {
       try {
         const city = venues.data?.find((v) => v.id === venueId)?.city_name ?? null;
@@ -96,6 +135,36 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
   };
 
   if (conflict) return <EventConflict seriesId={seriesId} />;
+  // Gallery and videos open the editor's sheet (C06); a closed event shows them read only.
+  const sheetRow = (label: string, value: string, open: SheetName, testId: string) => lock ? (
+    <div key={testId} className={cn(ROW, 'text-[var(--mut)]')} data-testid={testId}>
+      <span className="w-[88px] shrink-0 text-[14px]">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-[15px]">{value === 'Add' ? 'None' : value}</span>
+    </div>
+  ) : (
+    <button key={testId} type="button" data-testid={testId} className={ROW} onClick={() => setSheet(open)}>
+      <span className="w-[88px] shrink-0 text-[14px] text-[var(--mut)]">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{value}</span>
+      <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
+    </button>
+  );
+  // The usual end (C14) and the price list (C09b): their own edit view on this route; the
+  // price list a team set up is shown off with its reason (the server would refuse it).
+  const extraRow = (field: 'ends' | 'prices', label: string, value: string, reason: string | null) => lock || reason ? (
+    <div key={field}>
+      <a role="link" aria-disabled="true" data-testid={`org-detail-${field}`} className={cn(ROW, 'cursor-not-allowed text-[var(--mut)]')}>
+        <span className="w-[88px] shrink-0 text-[14px]">{label}</span>
+        <span className="min-w-0 flex-1 truncate text-[15px]">{value === 'Add' ? 'None' : value}</span>
+      </a>
+      {reason && !lock && <p className="px-[16px] pb-[10px] text-[13px] text-[var(--mut)]" data-testid={`org-detail-${field}-reason`}>{reason}</p>}
+    </div>
+  ) : (
+    <Link key={field} to={detailEditPath(seriesId, field)} data-testid={`org-detail-${field}`} className={ROW}>
+      <span className="w-[88px] shrink-0 text-[14px] text-[var(--mut)]">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{value}</span>
+      <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
+    </Link>
+  );
   const row = (field: DetailField, value: string) => lock ? (
     <div key={field} className={cn(ROW, 'text-[var(--mut)]')} data-testid={`org-detail-${field}`}>
       <span className="w-[88px] shrink-0 text-[14px]">{DETAIL_LABEL[field]}</span>
@@ -116,7 +185,10 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
       <Card testId="org-detail-rows">
         {row('name', shown(ws, 'name'))}
         {row('venue', venueName(venues.data, ws.series.default_venue_id) ?? (ws.series.default_venue_id ? 'Venue' : 'Add'))}
-        {(['time', 'level', 'music', 'tickets', 'instagram', 'about'] as TextDetail[]).map((f) => row(f, shown(ws, f)))}
+        {row('time', shown(ws, 'time'))}
+        {extraRow('ends', 'Ends', usualEnd(ws) || 'Add', null)}
+        {(['level', 'music', 'tickets', 'instagram', 'about'] as TextDetail[]).map((f) => row(f, shown(ws, f)))}
+        {extraRow('prices', 'Prices', countLabel(passCount(ws), 'price', 'prices'), pricesLock(ws))}
         {lock ? (
           <div className={cn(ROW, 'text-[var(--mut)]')} data-testid="org-detail-cover">
             <span className="w-[88px] shrink-0 text-[14px]">Cover</span>
@@ -129,22 +201,25 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
             <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
           </Link>
         )}
+        {sheetRow('Gallery', countLabel(draft.gallery.length, 'photo', 'photos'), 'gallery', 'org-detail-gallery')}
+        {sheetRow('Videos', countLabel(draft.videos.length, 'video', 'videos'), 'video', 'org-detail-videos')}
       </Card>
       <StepError text={error ?? cityError} />
       <ScheduleCard seriesId={seriesId} next={firstListedDate(ws.dates, today)} today={today} upcoming={upcoming.length}
         pastCount={ws.dates.length - upcoming.length} closed={!!lock} />
-      <EditorSheet sheet={sheet} onSheet={onSheet} draft={draft} patch={(p) => setDraft((d) => ({ ...d, ...p }))} today={today}
+      <EditorSheet sheet={sheet} onSheet={onSheet} draft={draft} patch={patch} today={today}
         cap={capInput(ws, draft, today)} venues={venues.data} venuesError={venues.isError} onRetryVenues={() => void venues.refetch()}
-        venuesRetrying={venues.isFetching} onUploadGallery={() => undefined} uploading={false} uploadError={null} />
+        venuesRetrying={venues.isFetching} onUploadGallery={onUploadGallery} uploading={uploading} uploadError={uploadError} />
     </>
   );
 }
 
 /**
- * /account/o/events/:seriesId/details (C37): name, venue, time, level, music,
- * tickets, Instagram, about, the cover (S7's screen, a link) and the line-up /
- * sessions row (the event-truth ScheduleCard). Each edit is ONE series.upsert
- * with the changed field (`?edit=` on this route), then Done.
+ * /account/o/events/:seriesId/details (C37): name, venue, time, the usual end,
+ * level, music, tickets, Instagram, about, prices, the cover (S7's screen, a
+ * link), gallery and videos (the editor's sheets) and the line-up / sessions
+ * row (the event-truth ScheduleCard). Each edit is ONE series.upsert with the
+ * changed field (`?edit=` on this route), then Done.
  */
 export default function Details() {
   const { seriesId = '' } = useParams();
@@ -153,8 +228,11 @@ export default function Details() {
   const ws = useEventWorkspace(seriesId);
   const today = home.data?.today ?? londonTodayKey();
   const field = readField(search.get(EDIT_PARAM));
+  const extra = readExtra(search.get(EDIT_PARAM));
 
   if (field && ws.data && !eventLock(ws.data.series.lifecycle_status)) return <DetailEdit key={field} ws={ws.data} field={field} />;
+  if (extra === 'ends' && ws.data && !eventLock(ws.data.series.lifecycle_status)) return <EndEdit ws={ws.data} />;
+  if (extra === 'prices' && ws.data && !eventLock(ws.data.series.lifecycle_status) && !pricesLock(ws.data)) return <PricesEdit ws={ws.data} />;
   return (
     <OrganiserShell title={ws.data?.series.name ?? 'Details'} back={{ to: ORG_PATHS.event(seriesId), label: 'Back' }} testId="org-page-details">
       <div className="flex flex-col gap-3 p-3">
