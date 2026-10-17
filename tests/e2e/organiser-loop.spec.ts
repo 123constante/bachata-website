@@ -16,10 +16,10 @@ test('create an organiser, send it for review, get approved, create an event, st
 
   await page.getByTestId('onboarding-create').click();
   await page.getByTestId('onboarding-create-name').fill('Salsa Nova');
-  await page.getByTestId('onboarding-create-city').click();
+  await page.getByTestId('onboarding-create-next').click();
   await page.getByTestId('onboarding-city-search').fill('Lon');
+  // Picking the city is the create (S9: name, then city).
   await page.getByTestId('onboarding-city-option').first().click();
-  await page.getByTestId('onboarding-create-submit').click();
   await expect(page.getByTestId('home-jobs')).toBeVisible();
 
   await page.getByTestId('org-tab-profile').click();

@@ -66,15 +66,13 @@ text "Your events"
 text "Signed in as ana@example.com ."
 text "Not you?"
 button "Sign out of ana@example.com"
-heading "Which organiser are you?" level=2
-text "We’ve probably listed you already. Find your name, or create a new organiser."
-searchbox "Search organisers by name"
+heading "Find your page" level=2
+searchbox "Search pages by name"
 status
-button "Create a new organiser"
-text "Name and city. The team checks new organisers within a day."
+button "Create a new page"
 heading "Waiting for an answer" level=2
 text "Org 0"
-text "Asked 1 Oct . The team usually replies within a day."
+text "Asked 1 Oct"
 text "Waiting"
 link "Just here to dance? Browse events" href=/",
 }
@@ -226,12 +224,10 @@ text "Your events"
 text "Signed in as ana@example.com ."
 text "Not you?"
 button "Sign out of ana@example.com"
-heading "Which organiser are you?" level=2
-text "We’ve probably listed you already. Find your name, or create a new organiser."
-searchbox "Search organisers by name"
+heading "Find your page" level=2
+searchbox "Search pages by name"
 status
-button "Create a new organiser"
-text "Name and city. The team checks new organisers within a day."
+button "Create a new page"
 link "Just here to dance? Browse events" href=/",
 }
 `;
@@ -278,15 +274,13 @@ text "Your events"
 text "Signed in as ana@example.com ."
 text "Not you?"
 button "Sign out of ana@example.com"
-heading "Which organiser are you?" level=2
-text "We’ve probably listed you already. Find your name, or create a new organiser."
-searchbox "Search organisers by name"
+heading "Find your page" level=2
+searchbox "Search pages by name"
 status
-button "Create a new organiser"
-text "Name and city. The team checks new organisers within a day."
+button "Create a new page"
 heading "Waiting for an answer" level=2
 text "Org 0"
-text "Asked 1 Oct . The team usually replies within a day."
+text "Asked 1 Oct"
 text "Waiting"
 link "Just here to dance? Browse events" href=/",
 }
@@ -383,15 +377,13 @@ text "Your events"
 text "Signed in as ana@example.com ."
 text "Not you?"
 button "Sign out of ana@example.com"
-heading "Which organiser are you?" level=2
-text "We’ve probably listed you already. Find your name, or create a new organiser."
-searchbox "Search organisers by name"
+heading "Find your page" level=2
+searchbox "Search pages by name"
 status
-button "Create a new organiser"
-text "Name and city. The team checks new organisers within a day."
+button "Create a new page"
 heading "Waiting for an answer" level=2
 text "Org 0"
-text "Asked 1 Oct . The team usually replies within a day."
+text "Asked 1 Oct"
 text "Waiting"
 link "Just here to dance? Browse events" href=/",
 }
@@ -543,12 +535,10 @@ text "Your events"
 text "Signed in as ana@example.com ."
 text "Not you?"
 button "Sign out of ana@example.com"
-heading "Which organiser are you?" level=2
-text "We’ve probably listed you already. Find your name, or create a new organiser."
-searchbox "Search organisers by name"
+heading "Find your page" level=2
+searchbox "Search pages by name"
 status
-button "Create a new organiser"
-text "Name and city. The team checks new organisers within a day."
+button "Create a new page"
 link "Just here to dance? Browse events" href=/",
 }
 `;
@@ -595,15 +585,13 @@ text "Your events"
 text "Signed in as ana@example.com ."
 text "Not you?"
 button "Sign out of ana@example.com"
-heading "Which organiser are you?" level=2
-text "We’ve probably listed you already. Find your name, or create a new organiser."
-searchbox "Search organisers by name"
+heading "Find your page" level=2
+searchbox "Search pages by name"
 status
-button "Create a new organiser"
-text "Name and city. The team checks new organisers within a day."
+button "Create a new page"
 heading "Waiting for an answer" level=2
 text "Org 0"
-text "Asked 1 Oct . The team usually replies within a day."
+text "Asked 1 Oct"
 text "Waiting"
 link "Just here to dance? Browse events" href=/",
 }

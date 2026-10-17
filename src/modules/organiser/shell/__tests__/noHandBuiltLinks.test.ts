@@ -7,9 +7,7 @@ const LITERAL = /['"`]\/account\/o(?![A-Za-z0-9_-])/;
 
 // Files on main that still carry a literal, each owned by a later slice. The list
 // only shrinks: an entry whose file no longer has a hit fails the second test.
-const KNOWN: Record<string, string> = {
-  'home/onboarding/EmailCode.tsx': 'S9 door (default returnTo)',
-};
+const KNOWN: Record<string, string> = {};
 
 export function handBuiltLinkHits(files: { rel: string; text: string }[]): string[] {
   return files.filter((f) => f.rel !== 'shell/paths.ts' && LITERAL.test(f.text)).map((f) => f.rel);
