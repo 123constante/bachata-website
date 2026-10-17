@@ -6,6 +6,7 @@ import { fetchOwnOrganiserEntity, organiserEntityQueryKey, ownOrganiserEntityQue
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { organiserContactSettingsQueryKey } from '@/modules/organiser/shared/ownershipApi';
 import type { EipBridge } from '../edit-in-place/bridge';
+import { FIELD_KEYS } from '../edit-in-place/fieldRules';
 import { goDone } from '../flows/doneState';
 import { useOrganiserChoice } from '../switch/useOrganiserChoice';
 import type { ProfileEntity } from './profileForm';
@@ -18,20 +19,32 @@ const DOCK_ABOVE_SHELL = '[data-testid="eip-dock"]{z-index:60 !important}';
 
 const json = (v: unknown) => JSON.stringify(v ?? null);
 
+/** Any draft at all, the contact ones included (the overlay leaves those out). */
+const hasDrafts = (b: EipBridge | null) => !!b && FIELD_KEYS.some((f) => b.mark(f) !== undefined);
+
 /**
  * The layer saves by writing the stored row (and the private contact read) into
  * the query cache. A write that CHANGES what is cached is a save: go to Done
  * (D29). A refetch that returns the same data (a window refocus after the photo
- * picker) changes nothing and is ignored.
+ * picker) changes nothing and is ignored. `seeded` keys start from what is
+ * already cached: the contact read is fresh for 60 s, so a quick return makes
+ * no load event and the save's own write would otherwise pass for the load.
+ * (A stale entry's mount refetch may differ from it; that write holds no drafts,
+ * so useOwnPage does not take it for a save.)
  */
-function useSavedSignal(keys: ReadonlyArray<readonly unknown[]>, onSaved: () => void) {
+function useSavedSignal(keys: ReadonlyArray<readonly unknown[]>, seeded: ReadonlyArray<readonly unknown[]>, onSaved: () => void) {
   const queryClient = useQueryClient();
   const onSavedRef = useRef(onSaved);
   useEffect(() => { onSavedRef.current = onSaved; });
   const seen = useRef(new Map<string, string>());
-  const signature = JSON.stringify(keys);
+  const signature = JSON.stringify([keys, seeded]);
   useEffect(() => {
-    const watched = new Set((JSON.parse(signature) as unknown[][]).map((k) => JSON.stringify(k)));
+    const [all, seed] = JSON.parse(signature) as [unknown[][], unknown[][]];
+    const watched = new Set(all.map((k) => JSON.stringify(k)));
+    for (const k of seed) {
+      const cached = queryClient.getQueryData(k);
+      if (cached !== undefined && !seen.current.has(JSON.stringify(k))) seen.current.set(JSON.stringify(k), json(cached));
+    }
     return queryClient.getQueryCache().subscribe((event) => {
       if (event.type !== 'updated' || event.action.type !== 'success') return;
       const key = JSON.stringify(event.query.queryKey);
@@ -58,6 +71,11 @@ export function useOwnPage() {
   const [bridge, setBridge] = useState<EipBridge | null>(null);
   const onBridge = useCallback((b: EipBridge | null) => setBridge(b), []);
   const id = selected?.id;
+  // One save writes two watched keys (the row, then the contact read): one trip to Done.
+  // `pending` holds the bridge seen at the save; the decision waits for the next one.
+  const pending = useRef<{ bridge: EipBridge | null } | null>(null);
+  const bridgeRef = useRef(bridge);
+  useEffect(() => { bridgeRef.current = bridge; });
 
   const entity = useQuery({
     queryKey: ownOrganiserEntityQueryKey(id),
@@ -72,16 +90,27 @@ export function useOwnPage() {
     if (id && entity.data) queryClient.setQueryData(organiserEntityQueryKey(id), entity.data);
   }, [queryClient, id, entity.data]);
 
+  const contactKey = organiserContactSettingsQueryKey(id, user?.id);
   useSavedSignal(
-    id ? [organiserEntityQueryKey(id), organiserContactSettingsQueryKey(id, user?.id)] : [],
+    id ? [organiserEntityQueryKey(id), contactKey] : [],
+    id ? [contactKey] : [],
     () => {
       void queryClient.invalidateQueries({ queryKey: ownOrganiserEntityQueryKey(id) });
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-      // After the layer has cleared its drafts (it does so right after writing the cache), or its
-      // leave guard would still see unsaved changes and stop this very navigation.
-      window.setTimeout(() => goDone(navigate, { title: 'Saved', message: 'Saved', seriesId: null }), 0);
+      // A save always holds drafts when it writes; a write with none is a refetch, not a save.
+      if (!pending.current && hasDrafts(bridgeRef.current)) pending.current = { bridge: bridgeRef.current };
     },
   );
+
+  // The layer clears its drafts right after writing the cache, and hands a new bridge.
+  // Drafts left over mean "came back different": stay, so its warning stays on screen.
+  useEffect(() => {
+    if (!pending.current || bridge === pending.current.bridge) return;
+    pending.current = null;
+    if (!bridge || hasDrafts(bridge)) return;
+    // A tick later, or the layer's leave guard would still see the old drafts.
+    window.setTimeout(() => goDone(navigate, { title: 'Saved', message: 'Saved', seriesId: null }), 0);
+  }, [bridge, navigate]);
 
   const layer: ReactNode = id && entity.data ? (
     <Suspense fallback={null}>

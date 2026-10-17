@@ -14,12 +14,19 @@ vi.mock('@/modules/organiser/shared/selfServeApi', async () => ({
   ...(await vi.importActual<object>('@/modules/organiser/shared/selfServeApi')),
   fetchOrganiserHome: api.home,
 }));
+// Every trip to Done, counted at the one helper that makes it.
+const done = vi.hoisted(() => ({ calls: 0 }));
+vi.mock('../../flows/doneState', async () => {
+  const real = await vi.importActual<typeof import('../../flows/doneState')>('../../flows/doneState');
+  return { ...real, goDone: (...a: Parameters<typeof real.goDone>) => { done.calls += 1; real.goDone(...a); } };
+});
 vi.mock('@/modules/profile/organiserPublicProfile', async () => ({
   ...(await vi.importActual<object>('@/modules/profile/organiserPublicProfile')),
   fetchOwnOrganiserEntity: api.entity,
 }));
 
 import PageScreen from '../index';
+import { draftStorageKey } from '../../edit-in-place/draftModel';
 import { ORG_PATHS } from '../../shell/paths';
 
 const ORG = { id: 'org-1', name: 'Ritmo', slug: 'ritmo', avatar_url: null, city_id: 'c1', lifecycle_status: 'live', role: 'owner', latest_decision: null, series: [] };
@@ -28,8 +35,11 @@ const ENTITY = {
   instagram: '@ritmoleeds', website: null, organisation_category: 'school', founded_year: 2015, cities: { name: 'Leeds', slug: 'leeds' },
 };
 
+// Every distinct entry the router lands on (a push twice to /done is two entries).
+const landed: string[] = [];
 function Where() {
   const l = useLocation();
+  if (!landed.includes(l.key)) landed.push(l.key);
   return <p data-testid="where" data-state={JSON.stringify(l.state ?? null)}>{l.pathname}</p>;
 }
 
@@ -49,6 +59,8 @@ function mount() {
 
 beforeEach(() => {
   window.localStorage.clear();
+  landed.length = 0;
+  done.calls = 0;
   api.home.mockReset().mockResolvedValue({ today: '2026-10-07', organisers: [ORG] });
   api.entity.mockReset().mockResolvedValue(ENTITY);
   api.rpc.mockReset().mockImplementation(async (name: string, args: { p_patch?: Record<string, unknown> }) => {
@@ -117,6 +129,44 @@ describe('Save (the layer\'s one)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(screen.queryByTestId('eip-bar')).toBeNull();
     expect(saves()).toHaveLength(0);
+  });
+});
+
+// SH-1 / SH-2: the save writes two cache keys (the row and the contact read); Done comes once,
+// and never while the layer still holds drafts and its "came back different" warning.
+const draftBioAndPhone = () => window.localStorage.setItem(draftStorageKey('org-1'), JSON.stringify({ v: 1, fields: { bio: 'We dance on Tuesdays.', contact_phone: '07700 900123' } }));
+
+describe('Save -> Done, exactly once and only when nothing is left', () => {
+  it.each([
+    { name: 'a page field and a contact field saved together', comesBack: (p: Record<string, unknown>) => p, toDone: 1 },
+    { name: 'a value that comes back different', comesBack: (p: Record<string, unknown>) => ({ ...p, bio: 'We dance on Mondays.' }), toDone: 0 },
+    { name: 'a contact value that comes back different', comesBack: (p: Record<string, unknown>) => ({ ...p, contact_phone: '+447700900123' }), toDone: 0 },
+  ])('$name', async ({ comesBack, toDone }) => {
+    draftBioAndPhone();
+    api.rpc.mockImplementation(async (name: string, args: { p_patch?: Record<string, unknown> }) => {
+      if (name === 'get_organiser_contact_settings_v1') return { data: { contact_email: 'a@x.example', contact_phone: null, show_phone_publicly: false, show_email_publicly: false, claim_email: null }, error: null };
+      if (name === 'organiser_team_v1') return { data: { my_role: 'owner', members: [] }, error: null };
+      if (name === 'organiser_profile_update_p5_v1') return { data: { changed_keys: Object.keys(args.p_patch ?? {}), profile: comesBack({ ...ENTITY, ...(args.p_patch ?? {}) }) }, error: null };
+      return { data: null, error: { message: `unmocked ${name}` } };
+    });
+    mount();
+    const bar = await screen.findByTestId('eip-bar');
+    await waitFor(() => expect(within(bar).getByRole('button', { name: 'Save' })).toBeTruthy());
+    fireEvent.click(within(bar).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(saves()).toHaveLength(1));
+    expect(Object.keys(saves()[0][1].p_patch)).toEqual(expect.arrayContaining(['bio', 'contact_phone']));
+    if (toDone) {
+      expect((await screen.findByTestId('where')).textContent).toBe(ORG_PATHS.done);
+      await new Promise((r) => setTimeout(r, 30));
+      expect(done.calls).toBe(1);
+      expect(landed).toHaveLength(1);
+    } else {
+      expect((await screen.findByText(/came back different/)).textContent).toMatch(/tap Save again/);
+      await new Promise((r) => setTimeout(r, 30));
+      expect(done.calls).toBe(0);
+      expect(landed).toHaveLength(0);
+      expect(screen.queryByTestId('where')).toBeNull();
+    }
   });
 });
 

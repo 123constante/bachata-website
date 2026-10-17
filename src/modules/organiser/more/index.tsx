@@ -1,9 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, CircleHelp, FileText, LogOut, Mail, MessageCircle, Plus, Settings, Shield, UserRoundCog } from 'lucide-react';
 import { ORGANISER_HOME_KEY, removeOrganiserMember } from '@/modules/organiser/shared/selfServeApi';
 import { teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { memberAction } from '@/modules/organiser/shared/teamModel';
+import { fetchOrganiserTeam, organiserTeamQueryKey } from '@/modules/organiser/shared/teamRpcApi';
 import { supportLinks } from '@/modules/organiser/shared/support';
 import { goDone } from '../flows/doneState';
 import { useOwnPage } from '../page/useOwnPage';
@@ -12,7 +14,7 @@ import { ORG_PATHS } from '../shell/paths';
 import { Card, ErrorState, GhostButton, PrimaryButton, SheetView, SkeletonRows } from '../ui';
 import { SignOutSheet } from './SignOutSheet';
 
-/** The owner's reason for no Leave: the sole-owner refusal (4.8), pointing at the control that exists. */
+/** The SOLE owner's reason for no Leave: the sole-owner refusal (4.8), pointing at the control that exists. */
 export const HAND_OVER_FIRST = 'Hand over first';
 
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[14px] text-left text-[15px] text-[var(--fg)]';
@@ -47,6 +49,19 @@ export default function MorePage() {
   const [signOut, setSignOut] = useState(false);
   const support = supportLinks();
   const isOwner = selected?.role === 'owner';
+  // The server refuses only the LAST owner (remove_organiser_member_v1 last_owner), so a
+  // co-owner may leave. The count is the layer's own team read (same key, one request).
+  const team = useQuery({
+    queryKey: organiserTeamQueryKey(selected?.id),
+    queryFn: () => fetchOrganiserTeam(selected!.id),
+    enabled: !!selected && isOwner,
+    staleTime: 60 * 1000,
+    retry: false,
+  });
+  // Team's own rule (memberAction). Until the read answers, refused (the safe side); if it
+  // fails, the server decides, and its last_owner copy shows in the confirm sheet.
+  const self = team.data?.members.find((m) => m.isSelf);
+  const soleOwner = isOwner && !team.isError && !(self && team.data && memberAction(self, 'owner', team.data.members)?.enabled);
 
   const leave = useMutation({
     mutationFn: () => removeOrganiserMember(selected!.id, user!.id),
@@ -78,16 +93,16 @@ export default function MorePage() {
             <div>
               <button
                 type="button"
-                className={`${ROW} ${isOwner ? 'cursor-not-allowed opacity-60' : ''}`}
-                aria-disabled={isOwner ? true : undefined}
-                aria-describedby={isOwner ? 'more-leave-reason' : undefined}
-                onClick={() => { if (!isOwner) setConfirmLeave(true); }}
+                className={`${ROW} ${soleOwner ? 'cursor-not-allowed opacity-60' : ''}`}
+                aria-disabled={soleOwner ? true : undefined}
+                aria-describedby={soleOwner ? 'more-leave-reason' : undefined}
+                onClick={() => { if (!soleOwner) setConfirmLeave(true); }}
                 data-testid="more-leave"
               >
                 <LogOut aria-hidden="true" className={ICON} />
                 <span className="flex-1">Leave this page</span>
               </button>
-              {isOwner && <p id="more-leave-reason" className="px-[16px] pb-[12px] text-[13px] text-[var(--mut)]" data-testid="more-leave-reason">{HAND_OVER_FIRST}</p>}
+              {soleOwner && <p id="more-leave-reason" className="px-[16px] pb-[12px] text-[13px] text-[var(--mut)]" data-testid="more-leave-reason">{HAND_OVER_FIRST}</p>}
             </div>
           )}
         </Card>

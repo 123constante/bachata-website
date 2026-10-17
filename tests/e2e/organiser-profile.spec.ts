@@ -35,11 +35,24 @@ test('no review step anywhere on the page, for a draft organiser too', async ({ 
   await expect(page.getByText(/send for review/i)).toHaveCount(0);
 });
 
-test('More: the owner cannot leave until they hand over, and Help lists the jobs', async ({ page }) => {
-  await openOrganiser(page, '/account/o/more');
+test('More: the SOLE owner cannot leave until they hand over, and Help lists the jobs', async ({ page }) => {
+  await openOrganiser(page, '/account/o/more', {}, (fake) => {
+    fake.organisers[0].team = fake.organisers[0].team.filter((m) => m.member_role !== 'owner' || m.user_id === fake.organisers[0].team[0].user_id);
+  });
   await expect(page.getByTestId('more-leave')).toHaveAttribute('aria-disabled', 'true');
   await expect(page.getByTestId('more-leave-reason')).toHaveText('Hand over first');
   await expect(page.getByTestId('more-hand-over')).toBeVisible();
   await page.getByTestId('more-help').click();
   await expect(page.getByTestId('help-rows')).toBeVisible();
+});
+
+test('More: an owner with a co-owner may leave (the server refuses only the last owner)', async ({ page }) => {
+  const fake = await openOrganiser(page, '/account/o/more');
+  await expect(page.getByTestId('more-hand-over')).toBeVisible();
+  await expect(page.getByTestId('more-leave')).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByTestId('more-leave-reason')).toHaveCount(0);
+  await page.getByTestId('more-leave').click();
+  await page.getByTestId('more-leave-yes').click();
+  await expect(page.getByTestId('org-done-message')).toHaveText(/You left/);
+  expect(fake.sent('remove_organiser_member_v1')).toHaveLength(1);
 });

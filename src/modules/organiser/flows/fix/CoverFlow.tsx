@@ -20,7 +20,10 @@ export default function CoverFlow() {
   const { seriesId = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const key = useRef<string | null>(null);
+  // One key per uploaded photo: the server replays a stored answer for (actor, key)
+  // without comparing the payload, so a retry of the SAME photo is safe and a
+  // different photo must not ride the first one's key.
+  const key = useRef<{ url: string; key: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const workspace = useQuery({ queryKey: seriesWorkspaceQueryKey(seriesId), queryFn: () => fetchSeriesWorkspace(seriesId), enabled: !!seriesId });
@@ -30,17 +33,26 @@ export default function CoverFlow() {
     if (!file || busy) return;
     setBusy(true);
     setError(null);
+    let url: string;
     try {
-      const url = await uploadEventPicture(seriesId, file);
+      url = await uploadEventPicture(seriesId, file);
+    } catch (err) {
+      // The upload already throws plain copy ("That photo is too big.").
+      setError(err instanceof Error ? err.message : commandErrorMessage(err));
+      setBusy(false);
+      return;
+    }
+    try {
       const [command] = coverFixCommands(url);
-      key.current ??= newIdempotencyKey();
+      if (key.current?.url !== url) key.current = { url, key: newIdempotencyKey() };
       const version = (await fetchSeriesWorkspace(seriesId)).series.version;
-      await runSeriesCommand(envelope(seriesId, version, command, key.current));
+      await runSeriesCommand(envelope(seriesId, version, command, key.current.key));
       void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       goDone(navigate, coverDone(seriesId));
     } catch (err) {
-      setError(err instanceof Error && !/version_conflict|rpc|permission/i.test(err.message) ? err.message : commandErrorMessage(err));
+      // Never the raw message ("Failed to fetch"): the command copy, offline included.
+      setError(commandErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -57,7 +69,7 @@ export default function CoverFlow() {
           {current && <img src={current} alt="Current cover" loading="eager" className="max-h-[240px] w-full rounded-[12px] object-cover" data-testid="cover-current" />}
           <label className="flex min-h-[56px] w-full cursor-pointer items-center justify-center rounded-[12px] bg-[var(--card2)] px-[16px] text-[16px] font-semibold text-[var(--fg)]" data-testid="cover-label">
             {busy ? 'Uploading' : current ? 'Choose a different photo' : 'Choose a photo'}
-            <input type="file" accept="image/*" className="sr-only" disabled={busy} data-testid="cover-input" onChange={(e) => void choose(e.target.files?.[0])} />
+            <input type="file" accept="image/*" className="sr-only" disabled={busy} data-testid="cover-input" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void choose(f); }} />
           </label>
           {error && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="cover-error">{error}</p>}
         </div>

@@ -15,6 +15,7 @@ vi.mock('@/modules/organiser/shared/selfServeApi', async () => ({
 vi.mock('../../../events/media', () => ({ uploadEventPicture: api.upload }));
 
 import CoverFlow from '../index';
+import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { ORG_PATHS } from '../../../shell/paths';
 
 function Where() {
@@ -58,7 +59,7 @@ describe('cover fix', () => {
     expect(sent.command.kind).toBe('series.upsert');
     expect(sent.command.payload).toEqual({ default_cover_image_url: 'https://cdn.example/c.jpg' });
     expect(where.textContent).toBe(ORG_PATHS.done);
-    expect(JSON.parse(where.getAttribute('data-state')!)).toMatchObject({ message: 'Cover added', next: ORG_PATHS.event('s1') });
+    expect(JSON.parse(where.getAttribute('data-state')!)).toMatchObject({ message: 'Cover added', next: ORG_PATHS.event('s1'), nextLabel: 'Back to the event' });
   });
 
   it('a refused upload sends nothing and says why', async () => {
@@ -67,6 +68,38 @@ describe('cover fix', () => {
     fireEvent.change(await screen.findByTestId('cover-input'), { target: { files: [file()] } });
     expect((await screen.findByTestId('cover-error')).textContent).toBe('That photo is too big.');
     expect(api.run).not.toHaveBeenCalled();
+  });
+
+  it('the version sent is read fresh at send time, not the one the screen loaded with', async () => {
+    api.workspace.mockReset()
+      .mockResolvedValueOnce({ series: { version: 7, default_cover_image_url: null } })
+      .mockResolvedValue({ series: { version: 9, default_cover_image_url: null } });
+    mount();
+    fireEvent.change(await screen.findByTestId('cover-input'), { target: { files: [file()] } });
+    await screen.findByTestId('where');
+    expect(api.run.mock.calls[0][0].expected_version).toBe(9);
+  });
+
+  // SH-5: the server replays a stored answer for (actor, key) without comparing the payload.
+  it.each([
+    { row: 'the SAME photo again reuses the key', second: 'https://cdn.example/c.jpg', sameKey: true },
+    { row: 'a DIFFERENT photo gets a new key', second: 'https://cdn.example/other.jpg', sameKey: false },
+  ])('a retry after a lost answer: $row', async ({ second, sameKey }) => {
+    api.run.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    api.upload.mockResolvedValueOnce('https://cdn.example/c.jpg').mockResolvedValueOnce(second);
+    mount();
+    const input = await screen.findByTestId('cover-input');
+    fireEvent.change(input, { target: { files: [file()] } });
+    const error = await screen.findByTestId('cover-error');
+    // N-8: plain copy, never the raw fetch message.
+    expect(error.textContent).not.toMatch(/Failed to fetch/);
+    expect(error.textContent).toBe(commandErrorMessage(new TypeError('Failed to fetch')));
+    fireEvent.change(await screen.findByTestId('cover-input'), { target: { files: [file()] } });
+    await screen.findByTestId('where');
+    expect(api.run).toHaveBeenCalledTimes(2);
+    const [a, b] = api.run.mock.calls.map(([env]) => env as { idempotency_key: string; command: { payload: unknown } });
+    expect(b.command.payload).toEqual({ default_cover_image_url: second });
+    expect(a.idempotency_key === b.idempotency_key).toBe(sameKey);
   });
 
   it('the picker is a 44px+ control', async () => {
