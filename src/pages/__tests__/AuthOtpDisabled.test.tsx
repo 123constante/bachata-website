@@ -122,7 +122,7 @@ describe('Auth sign-in with an email that has no account', () => {
     await screen.findByLabelText(/email/i);
     await sendMagicLink('stranger@example.com');
 
-    await waitFor(() => expect(screen.getByText(/Sign-up is invite-only for now/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/We can.t create an account for this email yet/)).toBeTruthy());
     expect(screen.queryByText(/couldn.t send your email/i)).toBeNull();
     expect(signInWithOtp.mock.calls[0][0]).toMatchObject({ options: { shouldCreateUser: true } });
   });
