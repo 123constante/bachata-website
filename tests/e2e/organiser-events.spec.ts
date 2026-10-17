@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { FRIDAY, ORG, PHONE, openOrganiser } from './helpers/organiserFake';
 
-// Events (W2) at /account/o/events*: the name-only New event (creates the draft at once, then
-// the editor opens), the editor's summary rows + the ONE save button in the preview bar, and
+// Events (W2) at /account/o/events*: the one-question New event (S4, /account/o/new/*, a draft
+// first, then venue, date, time and cover), the editor's summary rows + the ONE save button in the preview bar, and
 // the 30-upcoming-date cap ('Listed until <date> - Extend', end choices within 30). Replaces
 // the old /account/new and /account/series/:id specs (deleted UI). Every write is asserted by
 // the exact envelope sent to series_command_p5 (helpers/organiserFake.ts), then the screen is
@@ -12,136 +12,78 @@ test.use({ viewport: PHONE });
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-test('New event: name only creates the draft and ONE date with its class session, then the editor opens', async ({ page }) => {
-  const fake = await openOrganiser(page, '/account/o/events/new');
-  await expect(page.getByTestId('org-page-new-event')).toBeVisible();
-
-  // A blank name is refused on the screen; nothing is sent.
-  await page.getByTestId('org-new-event-create').click();
-  await expect(page.getByTestId('org-new-event-error')).toHaveText('Give your event a name.');
-  expect(fake.envelopes()).toHaveLength(0);
-
-  await page.getByTestId('org-new-event-name').fill('Thursday Bachata Class');
-  // No first session chosen yet (G2, event-truth P1): refused on the screen, nothing is sent.
-  await page.getByTestId('org-new-event-create').click();
-  await expect(page.getByTestId('org-new-event-error')).toHaveText('Choose the first session: a class, a party or a workshop.');
-  expect(fake.envelopes()).toHaveLength(0);
-
-  await page.getByTestId('org-new-event-type-class').click();
-  await page.getByTestId('org-new-event-create').click();
-  await expect(page).toHaveURL(/\/account\/o\/events\/[0-9a-f-]{36}$/);
-  const id = page.url().split('/').pop()!;
+// New event (S4, C19-C23): the one-question flow at /account/o/new/*. It replaced the
+// name-only NewEventPage (and its create-button layout specs). Each step sends only its own
+// commands, through series_command_p5; the cover step needs a photo before Go live.
+const walkToVenue = async (page: Page, format: 'recurring' | 'one_off', name: string) => {
+  await expect(page.getByTestId('org-new-what')).toBeVisible();
+  await page.getByTestId(`org-new-format-${format}`).click();
+  await expect(page).toHaveURL(new RegExp(`/account/o/new/name\\?format=${format}$`));
+  await page.getByTestId('org-new-name').fill(name);
+  await page.getByTestId('org-new-next').click();
+  await expect(page).toHaveURL(/\/account\/o\/new\/[0-9a-f-]{36}\/venue$/);
+  const id = page.url().split('/').slice(-2)[0];
   expect(id).toMatch(UUID);
+  return id;
+};
 
-  const [create, rule] = fake.envelopes();
+test('New event: a weekly night walks what, name, venue, date and time, each step sending only its own commands', async ({ page }) => {
+  const fake = await openOrganiser(page, '/account/o/new/what');
+  await expect(page.locator('[data-testid^="org-new-format-"]')).toHaveCount(2);
+  await page.getByTestId('org-new-format-recurring').click();
+  // Next is off with its reason until there is a name; nothing is sent.
+  await expect(page.getByTestId('org-new-next')).toBeDisabled();
+  await expect(page.getByTestId('org-new-next-reason')).toBeVisible();
+  expect(fake.envelopes()).toHaveLength(0);
+  await page.goto('/account/o/new/what');
+  const id = await walkToVenue(page, 'recurring', 'Thursday Bachata Class');
+
+  const [create] = fake.envelopes();
   expect(create.target_id).toBe(id);
   expect(create.command.kind).toBe('series.upsert');
-  expect(create.command.payload).toMatchObject({ name: 'Thursday Bachata Class', format: 'recurring', default_duration_minutes: 120, default_start_date: '2026-10-15', timezone: 'Europe/London' });
-  // Category is derived from the sessions on the server (event-truth P1): a create never sends it.
-  expect(create.command.payload).not.toHaveProperty('category');
-  expect(create.command.payload.organiser_ids).toEqual([ORG]);
-  // FIX-6 F-e: ONE date, the one its session goes on (8 weekly dates left 2-8 without a session).
-  expect(rule.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
-  expect(rule.expected_version).toBe(1);
+  expect(create.command.payload).toMatchObject({ name: 'Thursday Bachata Class', format: 'recurring', timezone: 'Europe/London', organiser_ids: [ORG] });
+  expect(fake.series.get(id)!.lifecycle_status).toBe('draft');
+
+  await page.getByTestId('org-new-venue-row').first().click();
+  await expect(page).toHaveURL(new RegExp(`/account/o/new/${id}/date$`));
   expect(fake.envelopes()).toHaveLength(2);
-  // The Class chip seeded ONE class session on the date the add_date reply named, nothing else.
-  const seeds = fake.sent('organiser_set_occurrence_programme_v1');
-  expect(seeds).toHaveLength(1);
-  expect(seeds[0].p_occurrence_id).toBe(fake.occId(fake.series.get(id)!, '2026-10-15'));
-  expect(seeds[0].p_sessions).toEqual([{ new: true, type: 'class', title: 'Class', start_time: '20:00', end_time: '22:00', ends_next_day: false, level_keys: [] }]);
+  expect(fake.envelopes()[1].command.kind).toBe('series.upsert');
+  expect(fake.envelopes()[1].command.payload).toHaveProperty('default_venue_id');
 
-  await expect(page.getByTestId('org-event-editor')).toBeVisible();
-  await expect(page.getByTestId('org-event-name')).toHaveValue('Thursday Bachata Class');
-  await expect(page.getByTestId('org-date-row')).toHaveCount(1);
-  // Every listed date carries a session: the review card does not ask for one.
-  await expect(page.getByTestId('org-event-review-blocked')).not.toContainText('Add at least one session first.');
-  // The Type row reads the word the sessions derive (the fake mirrors the server's trigger: the
-  // union over every date, keep-if-agrees), and the sublabel promises no change (FIX-2, d22).
-  await expect(page.getByTestId('org-row-type')).toContainText('Class');
-  await expect(page.getByTestId('org-row-type')).toContainText('Set by its sessions across all its dates.');
+  await page.getByTestId('org-new-date-row').first().click();
+  await expect(page).toHaveURL(new RegExp(`/account/o/new/${id}/time$`));
+  // A weekly night: ONE upsert of the first date, then ONE weekly rule on that weekday (D55).
+  const afterDate = fake.envelopes().slice(2).map((e) => e.command.kind);
+  expect(afterDate).toEqual(['series.upsert', 'series.set_recurrence']);
+  expect(fake.envelopes()[2].command.payload).toHaveProperty('default_start_date');
+
+  await expect(page.getByTestId('org-new-next')).toBeDisabled();
+  await page.getByTestId('org-new-time').fill('20:30');
+  await page.getByTestId('org-new-next').click();
+  await expect(page).toHaveURL(new RegExp(`/account/o/new/${id}/cover$`));
+  // Go live is off until a photo is chosen, and says so.
+  await expect(page.getByTestId('org-new-live')).toBeDisabled();
+  await expect(page.getByTestId('org-new-live-reason')).toHaveText('Choose a photo to go live.');
+  expect(fake.series.get(id)!.lifecycle_status).toBe('draft');
 });
 
-test('New event: a party is created with ONE date (no weekly rule), then the editor opens', async ({ page }) => {
-  const fake = await openOrganiser(page, '/account/o/events/new');
-  await page.getByTestId('org-new-event-name').fill('Saturday Social');
-  await page.getByTestId('org-new-event-type-party').click();
-  await page.getByTestId('org-new-event-create').click();
-  await expect(page).toHaveURL(/\/account\/o\/events\/[0-9a-f-]{36}$/);
-  const id = page.url().split('/').pop()!;
-
-  const sent = fake.envelopes();
-  expect(sent).toHaveLength(2);
-  const [create, date] = sent;
-  expect(create.target_id).toBe(id);
-  expect(create.command.payload).toMatchObject({ name: 'Saturday Social', format: 'recurring', default_duration_minutes: 300, default_start_date: '2026-10-15' });
-  expect(create.command.payload).not.toHaveProperty('category');
-  expect(date.command).toEqual({ kind: 'series.add_date', payload: { date: '2026-10-15' } });
-  expect(date.expected_version).toBe(1);
-  // The Party chip seeded ONE party session (20:00 plus 300 minutes: 01:00 next day) on its one date.
-  const seeds = fake.sent('organiser_set_occurrence_programme_v1');
-  expect(seeds).toHaveLength(1);
-  expect(seeds[0].p_sessions).toEqual([{ new: true, type: 'party', title: 'Party', start_time: '20:00', end_time: '01:00', ends_next_day: true, level_keys: [] }]);
-
-  await expect(page.getByTestId('org-event-editor')).toBeVisible();
-  await expect(page.getByTestId('org-event-name')).toHaveValue('Saturday Social');
-  await expect(page.getByTestId('org-date-row')).toHaveCount(1);
-  await expect(page.getByTestId('org-row-type')).toContainText('Night');
+test('New event: a one night sends no weekly rule', async ({ page }) => {
+  const fake = await openOrganiser(page, '/account/o/new/what');
+  const id = await walkToVenue(page, 'one_off', 'Saturday Social');
+  expect(fake.envelopes()[0].command.payload).toMatchObject({ name: 'Saturday Social', format: 'one_off' });
+  await page.getByTestId('org-new-venue-row').first().click();
+  await expect(page).toHaveURL(new RegExp(`/account/o/new/${id}/date$`));
+  await page.getByTestId('org-new-date-row').first().click();
+  await expect(page).toHaveURL(new RegExp(`/account/o/new/${id}/time$`));
+  expect(fake.envelopes().map((e) => e.command.kind)).toEqual(['series.upsert', 'series.upsert', 'series.upsert']);
 });
 
-// FIX-3 (review F4, F10): nothing above the tapped Create moves while it runs. Open the event
-// mounts only once the create is CONFIRMED and the run has ended (FIX-4 F3: not while its date
-// still runs), BELOW Create. FIX-4 F4: the hint box holds the longest hint (the Class chip takes 3
-// lines at 360px), so Create's y is equal before, while creating, and while finishing, at 390 and 360.
-for (const width of [390, 360]) {
-  test(`New event at ${width}px: the Create button stays put before, during and after the create; Open appears below it once the run ends`, async ({ page }) => {
-    await page.setViewportSize({ width, height: PHONE.height });
-    const fake = await openOrganiser(page, '/account/o/events/new');
-    const gates: Array<() => void> = [];
-    let held = 0;
-    // Registered after the fake, so it runs first: hold the create, then its date (refused), then hand on.
-    await page.route('**/rest/v1/rpc/series_command_p5', async (route) => {
-      held += 1;
-      const n = held;
-      if (n <= 2) await new Promise<void>((resolve) => gates.push(resolve));
-      if (n === 2) {
-        await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: 'P0001', message: 'invalid_payload: rule refused' }) });
-        return;
-      }
-      await route.fallback();
-    });
-    await page.getByTestId('org-new-event-name').fill('Thursday Class');
-    await page.getByTestId('org-new-event-type-class').click();
-    const create = page.getByTestId('org-new-event-create');
-    const hint = page.getByTestId('org-new-event-type-hint');
-    const y = async () => (await create.boundingBox())!.y;
-    const before = await y();
-    await expect(page.getByTestId('org-new-event-open')).toHaveCount(0);
-
-    await create.click();
-    await expect.poll(() => gates.length).toBe(1);
-    await expect(create).toHaveAttribute('aria-busy', 'true');
-    await expect(hint).toHaveText(/^Creating your event/);
-    await expect(page.getByTestId('org-new-event-open')).toHaveCount(0);
-    expect(await y()).toBe(before);
-
-    gates[0]();
-    await expect.poll(() => gates.length).toBe(2);
-    await expect(hint).toHaveText(/^Finishing your event/);
-    await expect(create).toHaveAttribute('aria-busy', 'true');
-    await expect(page.getByTestId('org-new-event-open')).toHaveCount(0);
-    expect(await y()).toBe(before);
-
-    gates[1]();
-    const open = page.getByTestId('org-new-event-open');
-    await expect(open).toBeVisible();
-    await expect(open).toBeEnabled();
-    await expect(page.getByTestId('org-new-event-error')).toContainText('its date was not listed');
-    expect((await open.boundingBox())!.y).toBeGreaterThan(await y());
-    await open.click();
-    await expect(page).toHaveURL(/\/account\/o\/events\/[0-9a-f-]{36}$/);
-    expect(fake.envelopes()).toHaveLength(1);
-  });
-}
+// The old /account/o/events/new link still works: it lands on the first question.
+test('New event: the legacy events/new link opens the first question', async ({ page }) => {
+  await openOrganiser(page, '/account/o/events/new');
+  await expect(page).toHaveURL(/\/account\/o\/new\/what$/);
+  await expect(page.getByTestId('org-new-what')).toBeVisible();
+});
 
 test('editor: summary rows edit the draft, the preview follows, ONE save sends only what changed', async ({ page }) => {
   const fake = await openOrganiser(page, `/account/o/events/${FRIDAY}`);
@@ -265,10 +207,8 @@ test('the schedule card shows the next date’s sessions with their people and o
 });
 
 test('New event: an organiser not approved yet cannot create, and is told why', async ({ page }) => {
-  const fake = await openOrganiser(page, '/account/o/events/new', { organiserStatus: 'draft' });
-  await expect(page.getByTestId('org-new-event-block')).toContainText('is a draft, so it cannot take events yet. Send it for review first');
-  await expect(page.getByTestId('org-new-event-go-home')).toBeVisible();
-  await page.getByTestId('org-new-event-name').fill('Too Soon');
-  await expect(page.getByTestId('org-new-event-create')).toBeDisabled();
+  const fake = await openOrganiser(page, '/account/o/new/name?format=one_off', { organiserStatus: 'draft' });
+  await expect(page.getByTestId('org-new-blocked')).toBeVisible();
+  await expect(page.getByTestId('org-new-name')).toHaveCount(0);
   expect(fake.envelopes()).toHaveLength(0);
 });

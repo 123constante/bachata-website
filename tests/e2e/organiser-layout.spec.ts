@@ -26,7 +26,8 @@ const barHeight = async (page: Page) => (await page.getByTestId('org-actionbar')
 /** Every visible control inside the organiser screen and any open sheet, with its height. */
 async function controls(page: Page) {
   return page.evaluate(() => {
-    const roots = Array.from(document.querySelectorAll('[data-testid^="org-page-"], [role="dialog"]'));
+    // The New event steps (S4) name their shells org-new-*, not org-page-*.
+    const roots = Array.from(document.querySelectorAll('[data-testid^="org-page-"], [data-testid="org-new-what"], [data-testid="org-new-name-step"], [role="dialog"]'));
     const seen = new Set<Element>();
     const out: { name: string; h: number }[] = [];
     for (const root of roots) {
@@ -76,8 +77,11 @@ test.describe('tap targets @390', () => {
     await expect(page.getByTestId('org-event-row').first()).toBeVisible();
     await expect(page.getByTestId('org-events-new')).toBeVisible();
     await expectTapTargets(page);
-    await page.goto('/account/o/events/new');
-    await expect(page.getByTestId('org-new-event-name')).toBeVisible();
+    await page.goto('/account/o/new/what');
+    await expect(page.getByTestId('org-new-format-recurring')).toBeVisible();
+    await expectTapTargets(page);
+    await page.getByTestId('org-new-format-recurring').click();
+    await expect(page.getByTestId('org-new-name')).toBeVisible();
     await expectTapTargets(page);
   });
 
@@ -171,7 +175,8 @@ test.describe('tap targets @390', () => {
     await expectNoHorizontalScroll(page);
     for (const [path, ready] of [
       ['/account/o/events', 'org-event-row'],
-      ['/account/o/events/new', 'org-new-event-name'],
+      ['/account/o/new/what', 'org-new-format-recurring'],
+      ['/account/o/new/name?format=recurring', 'org-new-name'],
       [`/account/o/events/${FRIDAY}`, 'org-schedule-session'],
       [`/account/o/change/${FRIDAY}/${OCC}/lineup`, 'session-row'],
       ['/account/o/team', 'access-request'],

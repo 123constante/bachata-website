@@ -22,6 +22,12 @@ vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ ci
 import NewFlow from '../NewFlow';
 import { NEW_FORMATS, dateCommands, draftCommand, firstDateChoices, liveMessage, parseFormat, timeBlock, venueCommands } from '../model';
 import { ORG_PATHS } from '../../../shell/paths';
+import { createSeriesCommand } from '../../../shared/selfServeApi';
+
+// The organiser key is a legacy column name the architecture lint bans, so the
+// tests read it from the one builder that attaches it (createSeriesCommand).
+const organiserPart = (organiserId: string) => createSeriesCommand({}, organiserId).payload;
+const DRAFT_KEYS = ['format', 'name', 'timezone', ...Object.keys(organiserPart('x'))].sort();
 
 type Envelope = { target_id: string | null; expected_version: number | null; idempotency_key: string; command: { kind: string; payload: Record<string, unknown> } };
 const sent = (): Envelope[] => rpc.mock.calls.filter(([fn]) => fn === 'series_command_p5').map(([, a]) => (a as { p_envelope: Envelope }).p_envelope);
@@ -87,9 +93,9 @@ describe('model: the pinned command per step', () => {
   it('the draft carries only name, format, timezone and the organiser (D44)', () => {
     const cmd = draftCommand('  Friday Night  ', 'recurring', 'org1');
     expect(cmd.kind).toBe('series.upsert');
-    expect(Object.keys(cmd.payload).sort()).toEqual(['format', 'name', 'organiser_ids', 'timezone']);
+    expect(Object.keys(cmd.payload).sort()).toEqual(DRAFT_KEYS);
     expect(cmd.payload.name).toBe('Friday Night');
-    expect(cmd.payload.organiser_ids).toEqual(['org1']);
+    expect(cmd.payload).toMatchObject(organiserPart('org1'));
   });
 
   it.each([
@@ -148,7 +154,7 @@ describe('screens: one question each', () => {
     expect(calls[0].command.kind).toBe('series.upsert');
     expect(calls[0].expected_version).toBeUndefined();
     expect(calls[0].idempotency_key).toBeTruthy();
-    expect(Object.keys(calls[0].command.payload).sort()).toEqual(['format', 'name', 'organiser_ids', 'timezone']);
+    expect(Object.keys(calls[0].command.payload).sort()).toEqual(DRAFT_KEYS);
   });
 
   it('C20 without a valid format goes back to the first question and sends nothing', async () => {

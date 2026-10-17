@@ -276,7 +276,7 @@ function CoverStep({ seriesId }: { seriesId: string }) {
 
   return (
     <Frame title={STEP_TITLE.cover} back={ORG_PATHS.newTime(seriesId)}>
-      {cover && <img src={cover} alt="Your photo" className="max-h-[240px] w-full rounded-[12px] object-cover" data-testid="org-new-cover-preview" />}
+      {cover && <img src={cover} alt="Your photo" loading="eager" className="max-h-[240px] w-full rounded-[12px] object-cover" data-testid="org-new-cover-preview" />}
       <label className={ROW + ' cursor-pointer justify-center'} data-testid="org-new-cover-label">
         {uploading ? 'Uploading' : cover ? 'Choose a different photo' : 'Choose a photo'}
         <input type="file" accept="image/*" className="sr-only" disabled={busy || uploading} data-testid="org-new-cover-input" onChange={(e) => void choose(e.target.files?.[0])} />

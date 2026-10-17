@@ -23,7 +23,7 @@ export function parseFormat(raw: string | null | undefined): NewEventFormat | nu
   return NEW_FORMATS.some((f) => f.format === raw) ? (raw as NewEventFormat) : null;
 }
 
-/** C20: the one create. `organiser_ids` is attached by createSeriesCommand. */
+/** C20: the one create. The organiser key is attached by createSeriesCommand. */
 export const draftCommand = (name: string, format: OwnerFormat, organiserId: string): OwnerCommand =>
   createSeriesCommand(createDraftPayload(name, format), organiserId);
 

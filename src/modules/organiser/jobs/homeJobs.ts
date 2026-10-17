@@ -36,7 +36,9 @@ function seriesProblems(series: HomeSeriesFull, today: string): SeriesProblem[] 
   }
   if (series.lifecycle_status !== 'live') return [];
   const problems: SeriesProblem[] = [];
-  if (series.upcoming_count <= 0) problems.push('no_dates_left');
+  // F4 (owner default): a festival holds one date, so Add a date has every day
+  // disabled for it; a festival with no coming date is finished, not a problem.
+  if (series.upcoming_count <= 0 && series.format !== 'festival') problems.push('no_dates_left');
   if (!series.default_cover_image_url) problems.push('no_cover');
   return problems;
 }
