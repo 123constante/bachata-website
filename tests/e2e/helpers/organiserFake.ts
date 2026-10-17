@@ -419,6 +419,8 @@ export class OrganiserFake {
       }
     } else if (kind === 'series.set_recurrence') {
       s.recurrence_rule = payload as unknown as Rule;
+    } else if (kind === 'series.set_lifecycle') {
+      s.lifecycle_status = String(payload.to);
     } else if (kind === 'series.stop_repeating') {
       s.recurrence_rule = null;
     } else if (kind === 'series.add_date') {

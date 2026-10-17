@@ -13,6 +13,7 @@ import { ACTION_LABEL, EventStep, eventActions, eventStepPath, readStep, STEP_PA
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Card, EmptyState, ErrorState, SkeletonRows } from '../ui';
 import { DatesTakenOff } from './DatesTakenOff';
+import { EventList } from './EventList';
 import { moreLabel, wsCancelledComing, type EventWorkspace } from './eventModel';
 import { useEventWorkspace } from './eventsApi';
 
@@ -175,8 +176,8 @@ export default function OneEvent() {
   );
 
   return (
-    <OrganiserShell title={name} back={{ to: ORG_PATHS.events, label: 'Events' }} testId="org-page-event">
-      <div className="flex flex-col gap-3 p-3">{body}</div>
-    </OrganiserShell>
+    // Wide screens keep My events beside the event (the split the old editor had); a phone shows the event only.
+    <OrganiserShell title={name} back={{ to: ORG_PATHS.events, label: 'Events' }} testId="org-page-event"
+      list={<EventList />} detail={<div className="flex flex-col gap-3 p-3">{body}</div>} />
   );
 }
