@@ -29,6 +29,25 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # The preview job(s) below are SKIPPED on the no-preview branches (vercel.json
+  # git.deploymentEnabled turns their deployment off; scripts/vercel-ignore-build.sh
+  # skips the build). This job runs on exactly those branches so the skip carries
+  # an explicit reason instead of a bare "skipped". check-no-preview-prefixes.mjs
+  # keeps its prefix list equal to the preview jobs' exclusions.
+  no-preview-reason:
+    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'bot/') || startsWith(github.head_ref, 'dependabot/') || startsWith(github.head_ref, 'arc/briefs-') || startsWith(github.head_ref, 'claude/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Explain the skipped preview job(s)
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          msg="Preview checks in this workflow are SKIPPED by design for branch '$HEAD_REF': claude/* and arc/briefs-* get no Vercel deployment, bot/* and dependabot/* skip preview checks (docs/pr-batching-policy.md, Vercel build budget). A slice PR's evidence is the worker's sandbox table; preview checks run on PRs from feat/* and other branches."
+          echo "::notice title=No preview by design::$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+
   seo-check:
     # Production run. For deployment_status, only a successful production deploy;
     # never on PRs (the preview job covers those).
@@ -140,7 +159,7 @@ jobs:
     # preview for its no-preview prefixes, so previewProbe would poll 600s then
     # THROW. Keep this list in sync with DIFF_RULE_PREFIXES +
     # ALWAYS_SKIP_PREFIXES there: npm run check:no-preview-prefixes fails on drift.
-    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'bot/') && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'arc/briefs-') && !startsWith(github.head_ref, 'claude/done-') && !startsWith(github.head_ref, 'claude/review-')
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'bot/') && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'arc/briefs-') && !startsWith(github.head_ref, 'claude/')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

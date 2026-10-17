@@ -177,8 +177,9 @@
   "git": {
     "deploymentEnabled": {
       "arc/briefs-*": false,
-      "claude/done-*": false,
-      "claude/review-*": false
+      "claude/*": false,
+      "main": true,
+      "feat/*": true
     }
   }
 }
