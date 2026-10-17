@@ -59,11 +59,25 @@ drafts 6 (4 older than 7 days, 5 without a cover); live 67; live with gallery 15
 
 ## CI, every job step run in the sandbox
 
-CI_TABLE_PLACEHOLDER
+| Job (workflow) | Step / command | Exit |
+|---|---|---|
+| typecheck | `npm run check:rpc-typing` | 0 |
+| typecheck | `npm run check:wallclock-brand` | 0 |
+| typecheck (not gating in CI) | `tsc -p tsconfig.app.json` filtered to `src/modules/organiser` | 1 pre-existing error only (`edit-in-place/__tests__/TeamPicker.test.tsx:297`, untouched); the repo has many other pre-existing errors outside the module |
+| architecture-guard | `bin/check-integrity.sh` | 0 |
+| architecture-guard | `npm run check:legacy-tables` / `check:legacy-program-rpcs` | 0 / 0 |
+| architecture-guard | `npm run lint:architecture` | 0 |
+| architecture-guard | `AUDIT_STRICT=1 npm run check:images` | 0 (final tree) |
+| lint chain | `npm run lint` | 0 (20/20) after `chmod +x bin/*.sh` as CI does; 1 before it (`check:integrity` exit 126 = file not executable in the sandbox checkout) |
+| unit-tests | `npm run test:unit` | 1: 15 tests in 4 files fail, all sandbox-only: `eventViewCompat` / `occurrenceProgram` / `publicEventPageLineup` contract tests ("Invalid API key", live DB; CI gates them with `ci-live-db-gate.mjs`) and `integrityCouldNotRun` ("typescript resolved in the temp repo -- precondition gone"). None import the changed code. `src/modules/organiser` + `tests/regression` on the final tree: 111 files, 3191 passed, 0 failed |
+| perf-budget | `npm run build` (PRODUCTION) | 0 (final tree) |
+| perf-budget | `check:bundle-budget` / `check:first-load-requests` / `check:chunk-cycles` | 0 / 0 / 0 |
+| e2e-smoke | `npm run test:e2e` (full list) | 1 on the first run: 157 passed, 1 failed -- `organiser-layout.spec.ts:149` (an ended event's new Ends/Prices rows rendered as `<a aria-disabled>`; the spec allows no `a[data-testid^=org-detail-]` there). FIXED (locked rows are plain `div`s now); re-run `organiser-layout` + `organiser-events`: 22 passed |
+
 
 ## Verified / Not verified
 
-**Verified:** the 16 render tests (commands, payload keys, disabled reasons, tap sizes on the lifecycle card); the prod facts in Decisions 1-6 (function bodies and counts read this session); the CI table above.
+**Verified:** the 16 render tests (commands, payload keys, disabled reasons, tap sizes on the lifecycle card); the prod facts in Decisions 1-6 (function bodies and counts read this session); the CI table above (the e2e catch on ended events is a real bug this slice introduced and fixed before the push).
 
 **Not verified:**
 - No real phone and no browser walk at 390x844 (not run this slice); no live storage upload (the gallery upload is mocked in tests).

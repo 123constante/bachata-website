@@ -150,13 +150,18 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
   );
   // The usual end (C14) and the price list (C09b): their own edit view on this route; the
   // price list a team set up is shown off with its reason (the server would refuse it).
-  const extraRow = (field: 'ends' | 'prices', label: string, value: string, reason: string | null) => lock || reason ? (
+  const extraRow = (field: 'ends' | 'prices', label: string, value: string, reason: string | null) => lock ? (
+    <div key={field} className={cn(ROW, 'text-[var(--mut)]')} data-testid={`org-detail-${field}`}>
+      <span className="w-[88px] shrink-0 text-[14px]">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-[15px]">{value === 'Add' ? 'None' : value}</span>
+    </div>
+  ) : reason ? (
     <div key={field}>
       <a role="link" aria-disabled="true" data-testid={`org-detail-${field}`} className={cn(ROW, 'cursor-not-allowed text-[var(--mut)]')}>
         <span className="w-[88px] shrink-0 text-[14px]">{label}</span>
         <span className="min-w-0 flex-1 truncate text-[15px]">{value === 'Add' ? 'None' : value}</span>
       </a>
-      {reason && !lock && <p className="px-[16px] pb-[10px] text-[13px] text-[var(--mut)]" data-testid={`org-detail-${field}-reason`}>{reason}</p>}
+      <p className="px-[16px] pb-[10px] text-[13px] text-[var(--mut)]" data-testid={`org-detail-${field}-reason`}>{reason}</p>
     </div>
   ) : (
     <Link key={field} to={detailEditPath(seriesId, field)} data-testid={`org-detail-${field}`} className={ROW}>
