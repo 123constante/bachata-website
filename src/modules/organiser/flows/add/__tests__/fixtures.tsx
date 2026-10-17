@@ -19,6 +19,11 @@ export const B = 'bbbbbbbb-0000-4000-8000-000000000002';
 export const DRAFT = 'cccccccc-0000-4000-8000-000000000003';
 export const PAUSED = 'dddddddd-0000-4000-8000-000000000004';
 export const EMPTY = 'eeeeeeee-0000-4000-8000-000000000005';
+export const FEST = 'ffffffff-0000-4000-8000-000000000006';
+
+/** n coming scheduled dates from day 1 (prod: the 27 at-cap live series hold 47 to 59). */
+export const comingRun = (n: number, from = 1): Occ[] =>
+  Array.from({ length: n }, (_, i) => ({ id: `run${i}`, date: day(from + i), status: 'scheduled', version: 1 }));
 
 /** Dates of series A: one past, one before 25 October, one after, one cancelled after. */
 export const PAST = 'o0000000-0000-4000-8000-000000000000';

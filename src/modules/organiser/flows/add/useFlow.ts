@@ -35,8 +35,9 @@ export const useDateDetail = (occurrenceId: string, enabled: boolean) =>
  * version_conflict (R3-7) is a state the screen shows; any other refusal is a
  * message and the button comes back. A retry of the same command reuses its
  * idempotency key, so a lost reply is replayed by the server, not applied twice.
+ * `refusal` lets a step word a refusal its own way (put back's date_cap).
  */
-export function useFlowSend(seriesId: string) {
+export function useFlowSend(seriesId: string, refusal?: (err: unknown) => string | null) {
   const command = useOwnerCommand(seriesId);
   const keys = useRef(new Map<string, string>());
   const [conflict, setConflict] = useState(false);
@@ -52,7 +53,7 @@ export function useFlowSend(seriesId: string) {
       return await command.mutateAsync({ targetId, version, command: cmd, idempotencyKey: keys.current.get(sig) });
     } catch (err) {
       if (isVersionConflict(err)) setConflict(true);
-      else setError(commandErrorMessage(err));
+      else setError(refusal?.(err) ?? commandErrorMessage(err));
       return null;
     }
   };

@@ -9,7 +9,7 @@ import type { SeriesWorkspace } from '@/modules/organiser/shared/seriesModel';
 import { goDone } from '@/modules/organiser/flows/doneState';
 import { FIELD_CLASS, PrimaryButton } from '@/modules/organiser/ui';
 import { cn } from '@/lib/utils';
-import { addDayGate, addDoneMessage, type DayGate, findSeries, seriesLock, usualTime } from './addModel';
+import { addDayGate, addDoneMessage, type DayGate, findSeries, seriesLock, timeNotSavedMessage, usualTime } from './addModel';
 import { useFlowHome, useFlowSend, useSeriesWorkspace } from './useFlow';
 import { Conflict, ErrorLine, Failed, Loading, Missing, Refusal, Step } from './parts';
 
@@ -62,18 +62,19 @@ function TimeForm({ series, ws, date, onSend }: { series: HomeSeriesFull; ws: Se
     onSend();
     const added = await send(series.id, ws.series.version, addDateCommand(date));
     if (!added) return;
-    let shown = usual;
+    let message = addDoneMessage(date, usual);
     if (value && value !== usual) {
       const fromReply = added.data?.occurrence_id;
       const occurrenceId = typeof fromReply === 'string'
         ? fromReply
         : (await fetchSeriesWorkspace(series.id)).dates.find((d) => d.occurrence_date === date)?.id;
-      if (occurrenceId) {
-        const detail = await fetchDateDetail(occurrenceId);
-        if (await send(occurrenceId, detail.version, setTimeCommand(value, null))) shown = value;
-      }
+      const detail = occurrenceId ? await fetchDateDetail(occurrenceId) : null;
+      // The date exists either way; Done says whether the typed time made it (S1).
+      message = occurrenceId && detail && await send(occurrenceId, detail.version, setTimeCommand(value, null))
+        ? addDoneMessage(date, value)
+        : timeNotSavedMessage(date, usual, value);
     }
-    goDone(navigate, { title: 'Added', message: addDoneMessage(date, shown), seriesId: series.id });
+    goDone(navigate, { title: 'Added', message, seriesId: series.id });
   });
 
   return (

@@ -72,6 +72,26 @@ export function atCap(series: HomeSeriesFull, ws: SeriesWorkspace | undefined, t
   return scheduled >= MAX_UPCOMING;
 }
 
+/** Why a festival takes no new date (the server's festival_extra_date: a festival holds ONE date). */
+export const FESTIVAL_NOTE = 'A festival has one date';
+
+/**
+ * True when this is a festival that already holds a date of any status, past
+ * included (prod _cmd_series_add_date_p5 counts every row). Without the
+ * workspace (C7) only Home's coming counts are known, so a festival whose one
+ * date is past is caught on C8, not on its C7 row.
+ */
+export function festivalHeld(series: HomeSeriesFull, ws: SeriesWorkspace | undefined): boolean {
+  if (series.format !== 'festival') return false;
+  return ws ? ws.dates.length > 0 : series.upcoming_count + series.cancelled_upcoming_count > 0;
+}
+
+/** Why no day of this event can take a new date (festival, then cap), or null. One rule for C7, C8 and C9. */
+export function addBlock(series: HomeSeriesFull, ws: SeriesWorkspace | undefined, today: string): string | null {
+  if (festivalHeld(series, ws)) return FESTIVAL_NOTE;
+  return atCap(series, ws, today) ? CAP_NOTE : null;
+}
+
 export interface AddDay {
   date: string;
   label: string;
@@ -79,13 +99,13 @@ export interface AddDay {
   reason: string | null;
 }
 
-/** C8: the next 30 days minus every day holding a date (scheduled or cancelled); capped days carry the reason. */
+/** C8: the next 30 days minus every day holding a date (scheduled or cancelled); blocked days carry the reason. */
 export function addDays(series: HomeSeriesFull, ws: SeriesWorkspace | undefined, today: string): AddDay[] {
-  const capped = atCap(series, ws, today);
+  const block = addBlock(series, ws, today);
   return comingDays(series, today, 30, ws?.dates.map((d) => d.occurrence_date) ?? []).map((d) => ({
     date: d.date,
     label: d.label,
-    reason: capped ? CAP_NOTE : null,
+    reason: block,
   }));
 }
 
@@ -99,7 +119,8 @@ export function addDayGate(series: HomeSeriesFull, ws: SeriesWorkspace, date: st
   const lock = dateLock(series.lifecycle_status, date, today);
   if (lock) return { kind: 'refused', text: lock };
   if (ws.dates.some((d) => d.occurrence_date === date)) return { kind: 'refused', text: `${dayLabel(date)} already has a date.` };
-  if (atCap(series, ws, today)) return { kind: 'refused', text: CAP_NOTE };
+  const block = addBlock(series, ws, today);
+  if (block) return { kind: 'refused', text: block };
   return { kind: 'ok' };
 }
 
@@ -111,6 +132,9 @@ export function usualTime(series: HomeSeriesFull, ws: SeriesWorkspace | undefine
 
 // The D29 confirmation lines (Done, no Undo: D49).
 export const addDoneMessage = (date: string, time: string) => `Added - ${dayLabel(date)}${time ? `, ${time}` : ''}`;
+/** S1: the date was added at the usual time, the typed one did not save; Home's "Change a date" row fixes it. */
+export const timeNotSavedMessage = (date: string, usual: string, typed: string) =>
+  `${addDoneMessage(date, usual)}. ${typed} was not saved: change it from Home, Change a date.`;
 export const cancelDoneMessage = (date: string) => `Cancelled - ${dayLabel(date)}`;
 export const backOnMessage = (date: string) => `Back on - ${dayLabel(date)}`;
 

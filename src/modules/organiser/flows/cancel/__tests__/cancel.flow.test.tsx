@@ -24,7 +24,8 @@ import CancelFlow from '../index';
 import Done from '@/modules/organiser/flows/Done';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { VERSION_CONFLICT, WARN_DATE } from '@/modules/organiser/shared/copy';
-import { A, AFTER, BEFORE, FROZEN, GONE, PAST, answer, commandsOf, day, defaultWorld, flush, line75, mount, series, tooSmall, type World } from '../../add/__tests__/fixtures';
+import { RESTORE_CAP_NOTE } from '../cancelModel';
+import { A, AFTER, BEFORE, FROZEN, GONE, PAST, answer, commandsOf, comingRun, day, defaultWorld, flush, line75, mount, series, tooSmall, type World } from '../../add/__tests__/fixtures';
 
 const ROOT = resolve(__dirname, '../../../../../..');
 const read = (p: string) => readFileSync(resolve(ROOT, p), 'utf8');
@@ -176,6 +177,100 @@ describe('C13 confirm, then ONE command; Done with Put it back (D61)', () => {
     const box = await screen.findByTestId('cancel-conflict');
     expect(box.textContent).toContain(VERSION_CONFLICT);
     expect(within(box).getAllByRole('button')).toHaveLength(1);
+  });
+});
+
+// B1: the server caps an UN-cancel at 30 coming scheduled dates (date_cap). Prod 2026-10-17:
+// 27 of 67 live series hold 30+, the smallest 47, so a put back there is always refused.
+describe.each([
+  { shape: 'the default series (2 coming)', run: 0, offered: true },
+  { shape: '29 coming after the cancel', run: 28, offered: true },
+  { shape: '30 coming after the cancel', run: 29, offered: false },
+  { shape: '47 coming (the smallest prod at-cap series)', run: 45, offered: false },
+])('Put it back with $shape', ({ run, offered }) => {
+  beforeEach(() => {
+    // Day 30 on, clear of the default dates; the cancelled one (GONE) never counts.
+    world.occs[A] = [...world.occs[A], ...comingRun(run, 30)];
+    world.series[0] = series(A, 'Friday Social', world.occs[A]);
+  });
+
+  it(offered ? 'Done offers Put it back after a cancel' : 'Done offers no Put it back after a cancel', async () => {
+    mount(ORG_PATHS.cancelDate(A, AFTER), routes);
+    fireEvent.click(await screen.findByTestId('cancel-send'));
+    const done = await screen.findByTestId('org-done');
+    expect(within(done).getAllByRole('button').map((b) => b.textContent)).toEqual(offered ? ['Back to Home', 'Put it back'] : ['Back to Home']);
+  });
+
+  it(offered ? 'an already-cancelled date can be put back' : 'an already-cancelled date shows Put it back disabled with the reason; a tap sends nothing', async () => {
+    world.occs[A] = world.occs[A].filter((o) => o.id !== AFTER); // so the count is the same as after the cancel above
+    world.series[0] = series(A, 'Friday Social', world.occs[A]);
+    mount(ORG_PATHS.cancelDate(A, GONE), routes);
+    const box = await screen.findByTestId('cancel-already');
+    const button = screen.getByTestId('cancel-put-back');
+    expect(button.getAttribute('aria-disabled')).toBe(offered ? null : 'true');
+    expect((box.textContent ?? '').includes(RESTORE_CAP_NOTE)).toBe(!offered);
+    fireEvent.click(button);
+    await flush();
+    expect(commandsOf(rpc)).toHaveLength(offered ? 1 : 0);
+  });
+
+  it(offered ? 'the put-back link sends ONE uncancel' : 'the put-back link (a stale Done) sends nothing', async () => {
+    world.occs[A] = world.occs[A].filter((o) => o.id !== AFTER);
+    world.series[0] = series(A, 'Friday Social', world.occs[A]);
+    mount(`${ORG_PATHS.cancelDate(A, GONE)}?put=back`, routes);
+    if (offered) await screen.findByTestId('org-done');
+    else await screen.findByTestId('cancel-already');
+    await flush();
+    expect(commandsOf(rpc)).toHaveLength(offered ? 1 : 0);
+  });
+});
+
+describe('refusals and retries on the cancel writes (S2)', () => {
+  it('a cancel retry after a lost reply reuses its idempotency key; the error line shows between', async () => {
+    const base = world.command;
+    let n = 0;
+    world.command = (fn, env) => (n++ === 0 ? { data: null, error: { message: 'network' } } : base(fn, env));
+    mount(ORG_PATHS.cancelDate(A, AFTER), routes);
+    fireEvent.click(await screen.findByTestId('cancel-send'));
+    expect(await screen.findByTestId('cancel-error-message')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('cancel-send'));
+    await screen.findByTestId('org-done');
+    const sent = commandsOf(rpc);
+    expect(sent).toHaveLength(2);
+    expect(sent[1].env.idempotency_key).toBe(sent[0].env.idempotency_key);
+  });
+
+  it('a put-back retry after a lost reply reuses its idempotency key', async () => {
+    const base = world.command;
+    let n = 0;
+    world.command = (fn, env) => (n++ === 0 ? { data: null, error: { message: 'network' } } : base(fn, env));
+    mount(ORG_PATHS.cancelDate(A, GONE), routes);
+    fireEvent.click(await screen.findByTestId('cancel-put-back'));
+    expect(await screen.findByTestId('cancel-error-message')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('cancel-put-back'));
+    await screen.findByTestId('org-done');
+    const sent = commandsOf(rpc);
+    expect(sent).toHaveLength(2);
+    expect(sent[1].env.idempotency_key).toBe(sent[0].env.idempotency_key);
+  });
+
+  const DATE_CAP = 'permission_denied: date_cap: this series already has 47 upcoming dates (cap 30); remove or cancel one before restoring another';
+
+  it('a date_cap refusal of Put it back (C13 button) says why in restore words, not the add-date copy', async () => {
+    world.command = () => ({ data: null, error: { message: DATE_CAP } });
+    mount(ORG_PATHS.cancelDate(A, GONE), routes);
+    fireEvent.click(await screen.findByTestId('cancel-put-back'));
+    const line = await screen.findByTestId('cancel-error-message');
+    expect(line.textContent).toBe(RESTORE_CAP_NOTE);
+    expect(line.textContent).not.toContain('No new date can be added');
+  });
+
+  it('a date_cap refusal of Put it back (from Done) says why in restore words, not the add-date copy', async () => {
+    world.command = () => ({ data: null, error: { message: DATE_CAP } });
+    mount(`${ORG_PATHS.cancelDate(A, GONE)}?put=back`, routes);
+    const line = await screen.findByTestId('cancel-error-message');
+    expect(line.textContent).toBe(RESTORE_CAP_NOTE);
+    expect(commandsOf(rpc)).toHaveLength(1);
   });
 });
 

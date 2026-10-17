@@ -11,10 +11,11 @@ import { cancelCommand, uncancelCommand } from '@/modules/organiser/shared/serie
 import type { DateDetail, WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 import { goDone } from '@/modules/organiser/flows/doneState';
 import { Chip, GhostButton, PrimaryButton } from '@/modules/organiser/ui';
+import { cn } from '@/lib/utils';
 import { backOnMessage, cancelDoneMessage, DEFAULT_REASON, findSeries } from '../add/addModel';
 import { useDateDetail, useFlowHome, useFlowSend, useSeriesWorkspace } from '../add/useFlow';
 import { Conflict, ErrorLine, Failed, Loading, Missing, Refusal, Step } from '../add/parts';
-import { PUT_BACK, putBackPath } from './cancelModel';
+import { PUT_BACK, putBackPath, RESTORE_CAP_NOTE, restoreCapped, restoreRefusal } from './cancelModel';
 
 type Gate =
   | { kind: 'refused'; text: string }
@@ -62,15 +63,30 @@ export default function Confirm() {
       ) : gate.kind === 'refused' ? (
         <Refusal flow="cancel" text={gate.text} back={ORG_PATHS.cancelEvent(seriesId)} backLabel="Other dates" />
       ) : gate.kind === 'cancelled' ? (
-        <PutBack seriesId={seriesId} date={gate.date} detail={gate.detail} auto={search.get('put') === PUT_BACK} onSend={hold} />
+        <PutBack
+          seriesId={seriesId}
+          date={gate.date}
+          detail={gate.detail}
+          capped={restoreCapped(ws.data?.dates ?? [], gate.date.id, today)}
+          auto={search.get('put') === PUT_BACK}
+          onSend={hold}
+        />
       ) : (
-        <CancelForm seriesId={seriesId} date={gate.date} detail={gate.detail} onSend={hold} />
+        <CancelForm
+          seriesId={seriesId}
+          date={gate.date}
+          detail={gate.detail}
+          canPutBack={!restoreCapped(ws.data?.dates ?? [], gate.date.id, today)}
+          onSend={hold}
+        />
       )}
     </Step>
   );
 }
 
-function CancelForm({ seriesId, date, detail, onSend }: { seriesId: string; date: WorkspaceDate; detail: DateDetail; onSend: () => void }) {
+function CancelForm({ seriesId, date, detail, canPutBack, onSend }: {
+  seriesId: string; date: WorkspaceDate; detail: DateDetail; canPutBack: boolean; onSend: () => void;
+}) {
   const navigate = useNavigate();
   const [reason, setReason] = useState<string | null>(null);
   const reasons = useQuery({ queryKey: ['cancellation-reasons'], queryFn: fetchCancellationReasons, staleTime: Infinity });
@@ -87,7 +103,8 @@ function CancelForm({ seriesId, date, detail, onSend }: { seriesId: string; date
         title: 'Cancelled',
         message: cancelDoneMessage(date.occurrence_date),
         seriesId,
-        next: putBackPath(seriesId, date.id),
+        // At the cap the server refuses the put back (B1), so Done does not offer it.
+        ...(canPutBack ? { next: putBackPath(seriesId, date.id) } : {}),
       });
     }
   });
@@ -123,11 +140,17 @@ function CancelForm({ seriesId, date, detail, onSend }: { seriesId: string; date
   );
 }
 
-/** A cancelled date: put it back (ONE uncancel). From Done's "Put it back" it sends on arrival. */
-function PutBack({ seriesId, date, detail, auto, onSend }: { seriesId: string; date: WorkspaceDate; detail: DateDetail; auto: boolean; onSend: () => void }) {
+/**
+ * A cancelled date: put it back (ONE uncancel). From Done's "Put it back" it
+ * sends on arrival. At the cap the button is aria-disabled with the reason and
+ * nothing is sent, not even from a stale put-back link.
+ */
+function PutBack({ seriesId, date, detail, capped, auto, onSend }: {
+  seriesId: string; date: WorkspaceDate; detail: DateDetail; capped: boolean; auto: boolean; onSend: () => void;
+}) {
   const navigate = useNavigate();
-  const { send, run, busy, conflict, error } = useFlowSend(seriesId);
-  const putBack = () => run(async () => {
+  const { send, run, busy, conflict, error } = useFlowSend(seriesId, restoreRefusal);
+  const putBack = () => capped ? Promise.resolve() : run(async () => {
     onSend();
     if (await send(date.id, detail.version, uncancelCommand())) {
       goDone(navigate, { title: 'Back on', message: backOnMessage(date.occurrence_date), seriesId });
@@ -139,14 +162,21 @@ function PutBack({ seriesId, date, detail, auto, onSend }: { seriesId: string; d
       fired.current = true;
       void putBack();
     }
-  });
+  }, [auto]); // eslint-disable-line react-hooks/exhaustive-deps -- fires once on arrival (N3)
   if (conflict) return <Conflict flow="cancel" seriesId={seriesId} />;
   return (
     <div className="flex flex-col gap-3" data-testid="cancel-already">
       <p className="text-[16px] font-bold text-[var(--fg)]">{dayLabel(date.occurrence_date)}</p>
       <p className="text-[14px] text-[var(--mut)]">Cancelled</p>
+      {capped && <p className="text-[14px] text-[var(--mut)]" data-testid="cancel-put-back-reason">{RESTORE_CAP_NOTE}</p>}
       <ErrorLine flow="cancel" text={error} />
-      <PrimaryButton testId="cancel-put-back" loading={busy} onClick={() => void putBack()}>
+      <PrimaryButton
+        testId="cancel-put-back"
+        loading={busy}
+        aria-disabled={capped || undefined}
+        className={cn(capped && 'cursor-not-allowed opacity-60')}
+        onClick={() => void putBack()}
+      >
         Put it back
       </PrimaryButton>
       <GhostButton testId="cancel-other-dates" onClick={() => navigate(ORG_PATHS.cancelEvent(seriesId), { replace: true })}>

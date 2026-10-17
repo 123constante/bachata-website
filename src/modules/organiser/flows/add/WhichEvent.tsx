@@ -2,8 +2,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { comingDates } from '@/modules/organiser/shared/dateList';
 import { EmptyState, PrimaryButton } from '@/modules/organiser/ui';
-import { CAP_NOTE } from '@/modules/organiser/events/dateCap';
-import { addableSeries, atCap } from './addModel';
+import { addBlock, addableSeries } from './addModel';
 import { useFlowHome } from './useFlow';
 import { Failed, Loading, Step, StepList, StepRow } from './parts';
 
@@ -32,10 +31,10 @@ export default function WhichEvent() {
               key={s.id}
               testId="add-event-row"
               label={s.name}
-              // 27 of 67 live events held 30+ coming dates on 2026-10-16: say so before the day list does.
-              sub={atCap(s, undefined, home.data.today)
-                ? CAP_NOTE
-                : comingDates(s, home.data.today, 1)[0]?.label ?? (s.lifecycle_status === 'draft' ? 'Draft' : 'No dates')}
+              // A row that cannot work is disabled with its reason (open call S3): 27 of 67 live
+              // events sat at the 30-date cap and 7 festivals held their one date on 2026-10-17.
+              reason={addBlock(s, undefined, home.data.today)}
+              sub={comingDates(s, home.data.today, 1)[0]?.label ?? (s.lifecycle_status === 'draft' ? 'Draft' : 'No dates')}
               onClick={() => navigate(ORG_PATHS.addEvent(s.id))}
             />
           ))}
