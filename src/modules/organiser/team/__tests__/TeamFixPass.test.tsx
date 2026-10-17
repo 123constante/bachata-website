@@ -18,8 +18,11 @@ import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { shortWallLine } from '../browseApi';
 import { ORG, makeRpc, mountAt, org, row } from './fixtures';
 
-/** Everything the Team screens READ; any other RPC is a write. */
-const READS = new Set(['organiser_team_v1', 'list_organiser_access_requests_v1', 'organiser_team_browse_people_v1', 'organiser_team_search_people_v1']);
+/** Everything the Team screens and the shell READ; any other RPC (an unknown one too) counts as a write. */
+const READS = new Set([
+  'organiser_team_v1', 'list_organiser_access_requests_v1', 'organiser_team_browse_people_v1', 'organiser_team_search_people_v1',
+  '_my_dancer_profile_id_v1', 'my_account_deletion_status_v1', 'dancer_area_gate_v1',
+]);
 const ADD = 'organiser_team_add_member_by_profile_v1';
 const err = (code: string) => () => new Error(code);
 const REQUEST = { request_id: 'r1', user_id: 'u9', requester_email: 'cleo@x.example', created_at: '2026-10-01T10:00:00Z' };

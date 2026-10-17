@@ -53,6 +53,6 @@ test('an owner opens a manager and removes them; Done offers Add them back', asy
 test('a manager sees the role but not the change control, with the reason', async ({ page }) => {
   await openOrganiser(page, `/account/o/team/${ANA}`, {}, (f) => { f.organisers[0].role = 'manager'; });
   await expect(page.getByTestId('person-change-role')).toBeDisabled();
-  await expect(page.getByTestId('person-role-reason')).toHaveText('Only the owner changes roles');
+  await expect(page.getByTestId('person-role-reason')).toHaveText('Only the owner changes roles or removes people');
   await expect(page.getByTestId('person-remove')).toHaveCount(0);
 });
