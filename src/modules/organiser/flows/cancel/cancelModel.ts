@@ -10,6 +10,9 @@ import type { WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
  */
 export const PUT_BACK = 'back';
 export const putBackPath = (seriesId: string, occurrenceId: string) => `${ORG_PATHS.cancelDate(seriesId, occurrenceId)}?put=${PUT_BACK}`;
+/** Cancel opened from Change "what" (?from=change): Keep it and Back return to Change for that date (INT3). */
+export const FROM_CHANGE = 'change';
+export const cancelFromChangePath = (seriesId: string, occurrenceId: string) => `${ORG_PATHS.cancelDate(seriesId, occurrenceId)}?from=${FROM_CHANGE}`;
 
 /** Why a cancelled date cannot be put back: the server caps an un-cancel at 30 coming dates (date_cap). */
 export const RESTORE_CAP_NOTE = `${CAP_NOTE}, and ${MAX_UPCOMING} or more are listed, so this date can't be put back now.`;

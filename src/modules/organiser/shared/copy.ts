@@ -11,6 +11,17 @@ export const WARN_END = 'Only Ricky can reopen an ended event.';
 /** A write refused with version_conflict (R3-7): someone else saved first. */
 export const VERSION_CONFLICT = 'Someone changed this first. Check it.';
 
+/**
+ * A rule date taken off (series.skip_date): ONE name on Change "what", its
+ * confirm and the date page (INT3; it was "Break this week" on the date page).
+ */
+export const TAKE_OFF = {
+  label: 'Take this date off',
+  sub: 'Skip it. No cancellation shows.',
+  confirm: 'Take it off',
+  done: (day: string) => `${day} is taken off`,
+} as const;
+
 /** Hand-over confirm only (D14 verbatim; D40: this sentence IS that screen's warning). */
 export const handOverWarning = (pageName: string, toName: string): string =>
   `Hand ${pageName} over to ${toName}? You become a Manager: you can still edit events but no longer hand the page over or remove people. ${toName} can hand it back.`;

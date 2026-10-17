@@ -21,6 +21,7 @@ import { newSession, notEditableCopy, type DraftSession } from '@/modules/organi
 import { fetchCancellationReasons } from '@/modules/organiser/shared/selfServeApi';
 import { cancelCommand, skipDateCommand, uncancelCommand } from '@/modules/organiser/shared/seriesCommands';
 import { UNSAVED_MESSAGE, saveBarState } from '@/modules/organiser/shared/editorGuards';
+import { TAKE_OFF } from '@/modules/organiser/shared/copy';
 import { cancelledLabel } from '@/modules/organiser/shared/cancelLabel';
 import { dateLabel as labelOf, isRuleDate } from '@/modules/organiser/shared/seriesModel';
 import { calendarDate } from '@/modules/organiser/shared/homeModel';
@@ -236,7 +237,7 @@ export default function DatePage() {
         ) : (
           <>
             {ruleDate && (
-              <SummaryRow icon={<Coffee />} label="Break this week" sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : 'Skip this date. No cancellation shows.')}
+              <SummaryRow icon={<Coffee />} label={TAKE_OFF.label} sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : TAKE_OFF.sub)}
                 disabled={ed.dirty || !!lock} onPress={() => { setCommandError(null); setSheet({ view: 'break' }); }} testId="date-break" />
             )}
             <SummaryRow icon={<Ban />} label="Cancel this date" sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : 'Dancers see Cancelled and your reason.')}
@@ -295,7 +296,7 @@ export default function DatePage() {
         onRetryReasons={() => void reasons.refetch()}
         onCancelDate={(reason) => void command('occurrence', cancelCommand(reason), `${label} is cancelled.`)}
         onUncancelDate={() => void command('occurrence', uncancelCommand(), `${label} is back on.`)}
-        onBreak={() => void command('series', skipDateCommand(occurrenceId), `${label} is a break.`, () => navigate(ORG_PATHS.event(seriesId)))}
+        onBreak={() => void command('series', skipDateCommand(occurrenceId), TAKE_OFF.done(label), () => navigate(ORG_PATHS.event(seriesId)))}
         commandBusy={ed.commandBusy}
         commandError={commandError}
       />

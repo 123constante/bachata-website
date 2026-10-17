@@ -16,7 +16,7 @@ import { backOnMessage, cancelDoneMessage, DEFAULT_REASON, findSeries } from '..
 import { useDateDetail, useFlowHome, useFlowSend, useSeriesWorkspace } from '../add/useFlow';
 import { ErrorLine, Failed, Loading, Missing, Refusal, Step } from '../add/parts';
 import { EventConflict } from '../event/parts';
-import { PUT_BACK, putBackPath, RESTORE_CAP_NOTE, restoreCapped, restoreRefusal } from './cancelModel';
+import { FROM_CHANGE, PUT_BACK, putBackPath, RESTORE_CAP_NOTE, restoreCapped, restoreRefusal } from './cancelModel';
 
 type Gate =
   | { kind: 'refused'; text: string }
@@ -50,9 +50,11 @@ export default function Confirm() {
     : null;
   const gate = held ?? live;
   const hold = () => setHeld(gate);
+  // Opened from Change "what": going back without cancelling returns there, not to the cancel list.
+  const back = search.get('from') === FROM_CHANGE ? ORG_PATHS.changeDate(seriesId, occurrenceId) : ORG_PATHS.cancelEvent(seriesId);
 
   return (
-    <Step title={one?.name ?? 'Cancel a date'} back={ORG_PATHS.cancelEvent(seriesId)}>
+    <Step title={one?.name ?? 'Cancel a date'} back={back}>
       {home.isError || ws.isError || detail.isError ? (
         <Failed flow="cancel" error={ws.error} onRetry={() => { void home.refetch(); void ws.refetch(); void detail.refetch(); }} />
       ) : !home.data || (one && !ws.data) ? (
@@ -78,6 +80,7 @@ export default function Confirm() {
           date={gate.date}
           detail={gate.detail}
           canPutBack={!restoreCapped(ws.data?.dates ?? [], gate.date.id, today)}
+          back={back}
           onSend={hold}
         />
       )}
@@ -85,8 +88,8 @@ export default function Confirm() {
   );
 }
 
-function CancelForm({ seriesId, date, detail, canPutBack, onSend }: {
-  seriesId: string; date: WorkspaceDate; detail: DateDetail; canPutBack: boolean; onSend: () => void;
+function CancelForm({ seriesId, date, detail, canPutBack, back, onSend }: {
+  seriesId: string; date: WorkspaceDate; detail: DateDetail; canPutBack: boolean; back: string; onSend: () => void;
 }) {
   const navigate = useNavigate();
   const [reason, setReason] = useState<string | null>(null);
@@ -132,7 +135,7 @@ function CancelForm({ seriesId, date, detail, canPutBack, onSend }: {
       <button
         type="button"
         data-testid="cancel-keep"
-        onClick={() => navigate(ORG_PATHS.cancelEvent(seriesId), { replace: true })}
+        onClick={() => navigate(back, { replace: true })}
         className="min-h-[44px] w-full text-[15px] font-semibold text-[var(--mut)]"
       >
         Keep it

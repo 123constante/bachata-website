@@ -96,6 +96,30 @@ describe('everything is live (D4): no review machinery in the module', () => {
   });
 });
 
+describe('INT3: one name for a rule date taken off: "Take this date off" on Change, its confirm and the date page', () => {
+  const FILES = ['flows/change/WhatChanges.tsx', 'flows/change/TakeOff.tsx', 'dates/index.tsx', 'dates/DateSheet.tsx'];
+  it('no screen calls it a break week', () => {
+    const hits = ALL.flatMap(({ file, src }) =>
+      copyOf(src).filter((s) => /break this week|this week off|is a break/i.test(s)).map((s) => `${file}: ${s.trim()}`));
+    expect(hits).toEqual([]);
+  });
+  it.each(FILES)('%s reads the shared TAKE_OFF words, not its own spelling', (file) => {
+    const src = ALL.find((f) => f.file === file)!.src;
+    expect(src).toMatch(/\bTAKE_OFF\b/);
+    expect(copyOf(src).filter((s) => /^take (this date|it) off$/i.test(s.trim()))).toEqual([]);
+  });
+});
+
+describe('INT3: Go live (P-SERIES) and Move a date (P-DATES) follow ONE A1 gate', () => {
+  const USERS = ['events/lifecycleModel.ts', 'flows/change/Day.tsx', 'flows/change/WhatChanges.tsx', 'flows/new/model.ts'];
+  it('only shared/a1Gate.ts defines A1_APPLIED', () => {
+    expect(ALL.filter(({ src }) => /\bA1_APPLIED\s*[:=]/.test(stripComments(src))).map((f) => f.file)).toEqual(['shared/a1Gate.ts']);
+  });
+  it.each(USERS)('%s reads it from shared/a1Gate', (file) => {
+    expect(ALL.find((f) => f.file === file)!.src).toMatch(/import \{[^}]*\bA1_APPLIED\b[^}]*\} from '@\/modules\/organiser\/shared\/a1Gate'/);
+  });
+});
+
 describe('the add-a-page screen is "Add a page" everywhere (orchestrator naming decision)', () => {
   it('no screen says "Add an organiser" or "Add another organiser"', () => {
     expect(ALL.filter(({ src }) => /Add (an|another) organiser/.test(src)).map((f) => f.file)).toEqual([]);

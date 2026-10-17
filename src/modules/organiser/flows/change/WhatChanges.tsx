@@ -3,6 +3,8 @@ import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { isRuleDate } from '@/modules/organiser/shared/seriesModel';
 import { notEditableCopy } from '@/modules/organiser/shared/programmeModel';
 import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
+import { TAKE_OFF } from '@/modules/organiser/shared/copy';
+import { cancelFromChangePath } from '@/modules/organiser/flows/cancel/cancelModel';
 import { useNextDateProgramme } from '@/modules/organiser/events/eventsApi';
 import { DateStep } from './DateStep';
 import { DETAIL_LABEL, type DetailField } from './changeModel';
@@ -21,7 +23,7 @@ export default function WhatChanges() {
   return (
     <DateStep back={(s) => ORG_PATHS.changeEvent(s)}>
       {({ seriesId, occurrenceId, ws, date }) => {
-        // The same fact the date page reads for "Break this week" (dates/index.tsx).
+        // The same fact the date page reads for its "Take this date off" row (dates/index.tsx).
         const ruleDate = isRuleDate(date.occurrence_date, ws.series);
         return (
           <>
@@ -40,8 +42,8 @@ export default function WhatChanges() {
             <StepList testId="change-what-off">
               <StepRow
                 testId="change-off"
-                label="Take this date off"
-                sub={ruleDate ? 'Skip it. No cancellation shows.' : OFF_ONLY_RULE}
+                label={TAKE_OFF.label}
+                sub={ruleDate ? TAKE_OFF.sub : OFF_ONLY_RULE}
                 disabled={!ruleDate}
                 onClick={() => navigate(ORG_PATHS.changeOff(seriesId, occurrenceId))}
               />
@@ -49,7 +51,7 @@ export default function WhatChanges() {
                 testId="change-cancel"
                 label="Cancel this date"
                 sub="Dancers see Cancelled and your reason."
-                onClick={() => navigate(ORG_PATHS.cancelDate(seriesId, occurrenceId))}
+                onClick={() => navigate(cancelFromChangePath(seriesId, occurrenceId))}
               />
             </StepList>
           </>

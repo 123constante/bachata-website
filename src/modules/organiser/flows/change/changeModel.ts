@@ -252,6 +252,16 @@ export function copyPatches(source: DateOwnChanges, target: DateOwnChanges): { k
   return pairs.filter(([, s, t]) => !!s && s !== t).map(([key, s]) => ({ key, value: s as string }));
 }
 
+/**
+ * The Copy list (INT3): dates it can copy from first, newest first, then the
+ * dates with nothing of their own (shown disabled with the reason), newest first.
+ */
+export function copySources<T extends { id: string; occurrence_date: string; has_override: boolean }>(dates: T[], targetId: string): T[] {
+  const newest = (a: T, b: T) => b.occurrence_date.localeCompare(a.occurrence_date);
+  const others = dates.filter((d) => d.id !== targetId);
+  return [...others.filter((d) => d.has_override).sort(newest), ...others.filter((d) => !d.has_override).sort(newest)];
+}
+
 export const hasOwnChanges = (d: DateOwnChanges) =>
   !!(d.venueOverride || d.descriptionOverride || d.coverImageOverride || d.ticketUrlOverride);
 

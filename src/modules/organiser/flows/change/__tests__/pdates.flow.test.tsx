@@ -27,6 +27,7 @@ const gate = vi.hoisted(() => ({ a1: false }));
 vi.mock('@/modules/organiser/shared/a1Gate', () => ({ get A1_APPLIED() { return gate.a1; } }));
 
 import ChangeFlow from '../index';
+import CancelFlow from '@/modules/organiser/flows/cancel';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { dayLabel } from '@/modules/organiser/shared/dateList';
 import { NOT_EDITABLE_COPY } from '@/modules/organiser/shared/programmeModel';
@@ -144,6 +145,7 @@ function mount(path: string) {
           <Route path={`${base}/:occurrenceId/off`} element={<ChangeFlow step="off" />} />
           <Route path={`${base}/:occurrenceId/copy`} element={<ChangeFlow step="copy" />} />
           <Route path={`${base}/:occurrenceId/:field`} element={<ChangeFlow step="detail" />} />
+          <Route path="/account/o/cancel/:seriesId/:occurrenceId" element={<CancelFlow step="confirm" />} />
           <Route path="/account/o/done" element={<DoneProbe />} />
           <Route path="*" element={<Where />} />
         </Routes>
@@ -155,7 +157,6 @@ function mount(path: string) {
 describe('P-DATES: what can change on one date (C4)', () => {
   const ROWS: { testId: string; to: () => string }[] = [
     { testId: 'change-lineup', to: () => ORG_PATHS.dateLineup(S, D2) },
-    { testId: 'change-cancel', to: () => ORG_PATHS.cancelDate(S, D2) },
   ];
   it.each(ROWS)('$testId opens its screen for ANY coming date, not just the next', async ({ testId, to }) => {
     mount(ORG_PATHS.changeDate(S, D2));
@@ -176,6 +177,21 @@ describe('P-DATES: what can change on one date (C4)', () => {
     mount(ORG_PATHS.changeDate(S, D1));
     await screen.findByTestId('change-what');
     expect(!!screen.queryByTestId('change-day')).toBe(shown);
+  });
+
+  it('Cancel this date opens the cancel screen for THAT date; Keep it and Back return to Change, not the cancel list (INT3)', async () => {
+    mount(ORG_PATHS.changeDate(S, D2));
+    fireEvent.click(await screen.findByTestId('change-cancel'));
+    expect((await screen.findByTestId('cancel-confirm')).textContent).toContain(dayLabel(DATE()[D2]));
+    fireEvent.click(screen.getByTestId('cancel-keep'));
+    expect(await screen.findByTestId('change-what')).toBeTruthy();
+    expect(commands()).toHaveLength(0);
+  });
+
+  it('opened from the cancel flow (no ?from), Keep it still goes back to the cancel list', async () => {
+    mount(ORG_PATHS.cancelDate(S, D2));
+    fireEvent.click(await screen.findByTestId('cancel-keep'));
+    expect((await screen.findByTestId('where')).textContent).toBe(ORG_PATHS.cancelEvent(S));
   });
 
   it('Move by URL before A1 is refused with a reason, never a command', async () => {
@@ -320,6 +336,16 @@ describe('P-DATES: copy one date’s changes from another (C60)', () => {
     const rows = await screen.findAllByTestId('change-copy-source');
     rows.forEach((r) => expect(r.hasAttribute('disabled')).toBe(true));
     expect(screen.getAllByText(COPY_NONE).length).toBeGreaterThan(0);
+  });
+
+  it('lists the dates it can copy first, newest first, then the disabled ones with the reason (INT3)', async () => {
+    hasOverride[PAST] = true;
+    hasOverride[D3] = true;
+    mount(ORG_PATHS.changeCopy(S, D1));
+    const rows = await screen.findAllByTestId('change-copy-source');
+    expect(rows.map((r) => [r.hasAttribute('disabled'), r.textContent?.includes(dayLabel(DATE()[D3])) ? 'D3' : r.textContent?.includes(dayLabel(DATE()[PAST])) ? 'PAST' : 'D2']))
+      .toEqual([[false, 'D3'], [false, 'PAST'], [true, 'D2']]);
+    expect(rows[2].textContent).toContain(COPY_NONE);
   });
 
   it('copies each changed key as ONE set_override, each against the version the last returned', async () => {

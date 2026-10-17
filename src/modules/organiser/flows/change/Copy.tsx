@@ -8,7 +8,7 @@ import { useVenueOptions } from '@/modules/organiser/shared/publicVenues';
 import { venueOverridePatch } from '@/modules/organiser/dates/venueOverride';
 import { PrimaryButton } from '@/modules/organiser/ui';
 import { DateStep, type DateStepReady } from './DateStep';
-import { COPY_NONE, COPY_NONE_KEYS, copyPatches, hasOwnChanges } from './changeModel';
+import { COPY_NONE, COPY_NONE_KEYS, copyPatches, copySources, hasOwnChanges } from './changeModel';
 import { useNavigate } from 'react-router-dom';
 import { useChangeSend } from './useChange';
 import { Failed, Loading, StepList, StepRow } from './parts';
@@ -40,7 +40,7 @@ function CopyFrom({ seriesId, occurrenceId, ws, detail }: DateStepReady) {
   const { sendAll, fail, busy, conflict, error } = useChangeSend(seriesId, occurrenceId);
   const source = useQuery({ queryKey: dateDetailQueryKey(sourceId ?? ''), queryFn: () => fetchDateDetail(sourceId as string), enabled: !!sourceId });
   if (conflict) return <EventConflict seriesId={seriesId} testId="change-conflict" />;
-  const others = ws.dates.filter((d) => d.id !== occurrenceId).sort((a, b) => b.occurrence_date.localeCompare(a.occurrence_date));
+  const others = copySources(ws.dates, occurrenceId);
 
   if (!sourceId && others.length === 0) {
     return (

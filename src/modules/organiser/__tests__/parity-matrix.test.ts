@@ -11,16 +11,18 @@
  *   in its key snapshot; a write prod refuses today (BROKEN-ON-PROD) must sit
  *   behind the A1 gate;
  * - every `from` link (file, token) is itself reached and holds the token.
- * Rows the P-DATES slice owns are it.todo here; that worker fills them. Static
- * reads of the source plus pure builder calls; no render, no network.
+ * A bulk write (admin_bulk_occurrence_command_p5) is checked against its own
+ * prod kind snapshot. Static reads of the source plus pure builder calls; no
+ * render, no network.
  */
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import {
   OWNER_CANCEL_KEYS, OWNER_COMMAND_KINDS, OWNER_OVERRIDE_KEYS, OWNER_UPSERT_KEYS,
-  addDateCommand, cancelCommand, lifecycleCommand, overrideCommand, setTimeCommand, uncancelCommand, unskipDateCommand,
-  type OwnerCommand,
+  addDateCommand, bulkCancelCommand, bulkShiftCommand, cancelCommand, lifecycleCommand, moveDateCommand, overrideCommand,
+  resetTimeCommand, setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand,
+  type BulkCommand, type OwnerCommand,
 } from '@/modules/organiser/shared/seriesCommands';
 import { dayChangeCommand, detailCommand, endRunCommand, parseEventWorkspace, stopRepeatingCommand, venueCommand, weeklyUntilCommand } from '@/modules/organiser/events/eventModel';
 import { endCommand, mediaCommand, pricesCommand } from '@/modules/organiser/events/seriesExtras';
@@ -49,6 +51,11 @@ const PROD_OVERRIDE_KEYS = ['venue_id', 'city_id', 'cancellation_reason_label', 
 const PROD_CANCEL_KEYS = ['cancelled', 'reason'];
 const PROD_KEYS: Record<string, string[]> = {
   'series.upsert': PROD_UPSERT_KEYS, 'occurrence.set_override': PROD_OVERRIDE_KEYS, 'occurrence.cancel': PROD_CANCEL_KEYS,
+};
+/** admin_bulk_occurrence_command_p5 kinds and payload keys (prod fn, read 2026-10-17 by P-DATES). */
+const PROD_BULK_KEYS: Record<string, string[]> = {
+  'occurrence.bulk_cancel': ['occurrence_ids', 'reason'],
+  'occurrence.bulk_shift': ['occurrence_ids', 'shift_days'],
 };
 /** Kinds the client may send only once admin A1 is on prod (D39). */
 const A1_KINDS = ['occurrence.move_date'];
@@ -113,7 +120,9 @@ interface Send {
   token: string;
   kind?: string;
   keys?: string[];
-  build?: () => OwnerCommand | null | undefined;
+  build?: () => OwnerCommand | BulkCommand | null | undefined;
+  /** Sent through admin_bulk_occurrence_command_p5, not the owner command RPC. */
+  bulk?: boolean;
   /** Prod refuses it today; the file named here must carry the A1 gate. */
   a1Gate?: string;
   /** The screen this write is sent from, when not the row's own (create, the cancel flow). */
@@ -123,7 +132,6 @@ interface Row {
   id: string;
   capability: string;
   verdict: Verdict;
-  owner?: 'P-DATES';
   /** The screen file (module-relative) the capability lives on. */
   screen?: string;
   sends?: Send[];
@@ -144,7 +152,13 @@ const TO_DETAILS: [string, string][] = [['events/OneEvent.tsx', 'ORG_PATHS.event
 const TO_STEP: [string, string][] = [['events/OneEvent.tsx', 'eventStepPath']];
 const DETAILS = 'events/Details.tsx';
 const ONE = 'events/OneEvent.tsx';
-const P_DATES = (id: string, capability: string, verdict: Verdict): Row => ({ id, capability, verdict, owner: 'P-DATES' });
+const LINEUP = 'dates/index.tsx';
+const SHEET = 'dates/DateSheet.tsx';
+const WHAT = 'flows/change/WhatChanges.tsx';
+/** Every way to one date's session editor (C59): One event, Change "which date", Change "what". */
+const TO_LINEUP: [string, string][] = [[ONE, 'ORG_PATHS.dateLineup'], ['flows/change/WhichDate.tsx', 'ORG_PATHS.dateLineup'], [WHAT, 'ORG_PATHS.dateLineup']];
+/** The date editor saves the COMPLETE programme in one call. */
+const SAVE_PROGRAMME: Send = { in: 'shared/selfServeApi.ts', token: "programmeRpc('organiser_set_occurrence_programme_v1'" };
 
 export const PARITY: Row[] = [
   { id: 'C01', capability: 'Event name', verdict: 'MATCH', screen: DETAILS, from: TO_DETAILS,
@@ -175,7 +189,8 @@ export const PARITY: Row[] = [
     sends: [upsert(['name', 'instagram_url'], () => detailCommand(ws, 'instagram', 'https://instagram.com/fridaysocial'), DETAILS, 'detailCommand(')] },
   { id: 'C11', capability: 'Co-organisers on the event', verdict: 'MISSING-ADMIN-ONLY', adminKind: 'series.set_organisers' },
   { id: 'C12', capability: 'Line-up at series level', verdict: 'MISSING-ADMIN-ONLY', adminKind: 'series.set_program' },
-  P_DATES('C13', 'See + edit the sessions inside one date', 'PARTIAL'),
+  { id: 'C13', capability: 'See + edit the sessions inside one date', verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
+    sends: [SAVE_PROGRAMME], shows: [['shared/selfServeApi.ts', "programmeRpc('organiser_get_occurrence_programme_v1'"], [SHEET, 'label="Type"']] },
   { id: 'C14', capability: 'Usual start / end time', verdict: 'MATCH', screen: DETAILS, from: [[DETAILS, 'detailEditPath']],
     sends: [
       upsert(['name', 'default_local_start_time'], () => detailCommand(ws, 'time', '21:00'), DETAILS, 'detailCommand('),
@@ -195,22 +210,35 @@ export const PARITY: Row[] = [
       { in: 'flows/add/Time.tsx', token: 'setTimeCommand(', kind: 'occurrence.set_time', keys: ['new_local_start', 'new_local_end'], build: () => setTimeCommand('21:00', '02:00') },
     ] },
   { id: 'C18', capability: 'Multi-day festival schedule', verdict: 'DROPPED-BY-DECISION', decision: 'D54' },
-  P_DATES('C19', 'Change the time of one date', 'PARTIAL'),
-  P_DATES('C20', 'Move one date to another day', 'PARTIAL'),
+  { id: 'C19', capability: 'Change the time of one date', verdict: 'MATCH', screen: 'flows/change/Time.tsx', from: [[WHAT, 'ORG_PATHS.changeTime']],
+    sends: [{ in: 'flows/change/Time.tsx', token: 'setTimeCommand(', kind: 'occurrence.set_time', keys: ['new_local_start', 'new_local_end'], build: () => setTimeCommand('21:00', '01:00') }],
+    shows: [['flows/change/Time.tsx', 'previewTimes('], ['flows/change/Time.tsx', 'ORG_PATHS.dateLineup']] },
+  // PARTIAL until admin A1: prod refuses occurrence.move_date, so the row is hidden and the URL refuses.
+  { id: 'C20', capability: 'Move one date to another day', verdict: 'PARTIAL', screen: 'flows/change/Day.tsx', from: [[WHAT, 'ORG_PATHS.changeDay'], [WHAT, 'A1_APPLIED && (']],
+    sends: [{ in: 'flows/change/Day.tsx', token: 'moveDateCommand(', kind: 'occurrence.move_date', keys: ['to_date'], build: () => moveDateCommand('2026-10-24'), a1Gate: 'flows/change/Day.tsx' }] },
   { id: 'C21', capability: 'Different venue for one date', verdict: 'MATCH', screen: 'flows/change/Venue.tsx',
     from: [['flows/change/WhatChanges.tsx', 'ORG_PATHS.changeVenue']],
     sends: [{ in: 'flows/change/Venue.tsx', token: 'overrideCommand(', kind: 'occurrence.set_override', keys: ['venue_id', 'city_id'], build: () => overrideCommand({ venue_id: 'v1', city_id: 'c1' }) }] },
-  P_DATES('C22', 'Line-up (teachers/DJs) of one date', 'PARTIAL'),
+  { id: 'C22', capability: 'Line-up (teachers/DJs) of one date', verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
+    sends: [SAVE_PROGRAMME], shows: [[SHEET, "'Add a teacher'"], [SHEET, "'Add a DJ'"], [SHEET, 'data-testid="session-people"']] },
   { id: 'C23', capability: 'Cancel one date (with reason)', verdict: 'MATCH', screen: 'flows/cancel/Confirm.tsx',
     from: [['flows/cancel/WhichDate.tsx', 'ORG_PATHS.cancelDate'], ['jobs/homeJobs.ts', 'ORG_PATHS.cancel']],
     sends: [{ in: 'flows/cancel/Confirm.tsx', token: 'cancelCommand(', kind: 'occurrence.cancel', keys: ['cancelled', 'reason'], build: () => cancelCommand('Venue closed') }] },
-  P_DATES('C24', 'Take a date off (break week)', 'PARTIAL'),
+  { id: 'C24', capability: 'Take a date off (break week)', verdict: 'MATCH', screen: 'flows/change/TakeOff.tsx', from: [[WHAT, 'ORG_PATHS.changeOff']],
+    sends: [{ in: 'flows/change/TakeOff.tsx', token: 'skipDateCommand(', kind: 'series.skip_date', keys: ['occurrence_id'], build: () => skipDateCommand('o1') }],
+    shows: [[WHAT, 'isRuleDate(']] },
   { id: 'C25', capability: 'Put back a cancelled / taken-off date', verdict: 'MATCH', screen: ONE, from: [[ONE, 'putBackPath']],
     sends: [
       { in: 'flows/cancel/Confirm.tsx', screen: 'flows/cancel/Confirm.tsx', token: 'uncancelCommand(', kind: 'occurrence.cancel', keys: ['cancelled'], build: () => uncancelCommand() },
       { in: 'events/takenOff.ts', token: 'unskipDateCommand(', kind: 'series.unskip_date', keys: ['date'], build: () => unskipDateCommand('2026-10-30') },
     ] },
-  P_DATES('C26', 'Note / picture / ticket link for one date', 'MISSING-ALLOWED'),
+  { id: 'C26', capability: 'Note / picture / ticket link for one date', verdict: 'MATCH', screen: 'flows/change/Detail.tsx', from: [[WHAT, 'ORG_PATHS.changeDetail']],
+    sends: [
+      { in: 'flows/change/Detail.tsx', token: 'overrideCommand({ [key]: value })', kind: 'occurrence.set_override', keys: ['description'], build: () => overrideCommand({ description: 'Bring water' }) },
+      { in: 'flows/change/Detail.tsx', token: 'overrideCommand({ [key]: value })', kind: 'occurrence.set_override', keys: ['ticket_url'], build: () => overrideCommand({ ticket_url: 'https://tix.example/b' }) },
+      { in: 'flows/change/Detail.tsx', token: 'overrideCommand({ [key]: value })', kind: 'occurrence.set_override', keys: ['cover_image_url'], build: () => overrideCommand({ cover_image_url: 'https://x/d.jpg' }) },
+      { in: 'flows/change/Detail.tsx', token: 'overrideCommand({ [key]: null })', kind: 'occurrence.set_override', keys: ['ticket_url'], build: () => overrideCommand({ ticket_url: null }) },
+    ] },
   { id: 'C27', capability: 'Scope: this date / this and future / all', verdict: 'MISSING-ADMIN-ONLY', adminKind: 'series.apply_forward_from' },
   // PARTIAL until admin A1: an owner's draft -> live is refused on prod, so the wizard saves a draft.
   { id: 'C28a', capability: 'New event goes live from the wizard', verdict: 'PARTIAL', screen: 'flows/new/NewFlow.tsx', from: [['home/index.tsx', 'ORG_PATHS.newWhatFor']],
@@ -237,7 +265,8 @@ export const PARITY: Row[] = [
     shows: [[DETAILS, 'EventConflict']] },
   { id: 'C38', capability: 'Open the public event page', verdict: 'MATCH', screen: ONE, from: [['jobs/homeJobs.ts', 'ORG_PATHS.event']],
     shows: [['events/lifecycleModel.ts', 'publicEventPath'], ['events/LifecycleActions.tsx', 'seeLive']] },
-  P_DATES('C39', 'List of dates', 'PARTIAL'),
+  { id: 'C39', capability: 'List of dates', verdict: 'MATCH', screen: ONE, from: [['jobs/homeJobs.ts', 'ORG_PATHS.event']],
+    shows: [[ONE, 'data-testid="org-coming-date"'], [ONE, 'pastOnly'], ['events/EditorRows.tsx', 'Past dates (']] },
   { id: 'C40', capability: 'One date -> weekly', verdict: 'MATCH', screen: ONE, from: TO_STEP,
     sends: [{ in: 'flows/event/EventStep.tsx', token: 'weeklyUntilCommand(', kind: 'series.set_recurrence', keys: ['mode', 'weekdays', 'end'], build: () => weeklyUntilCommand('2026-10-23', '2026-12-18') }] },
   { id: 'C50', capability: 'Create a new event (wizard)', verdict: 'MATCH', screen: 'flows/new/NewFlow.tsx', from: [['home/index.tsx', 'ORG_PATHS.newWhatFor']],
@@ -247,16 +276,37 @@ export const PARITY: Row[] = [
       upsert(['default_local_start_time'], () => timeCommands('20:00')[0], 'flows/new/NewFlow.tsx', 'timeCommands('),
     ] },
   { id: 'C51', capability: 'Course length (N weeks)', verdict: 'MISSING-ADMIN-ONLY', adminKey: 'course_total_sessions' },
-  P_DATES('C52', "One session's name / type / start / end on one date", 'PARTIAL'),
-  P_DATES('C53', 'Session levels on one date', 'PARTIAL'),
-  P_DATES('C54', 'Add a session to one date', 'PARTIAL'),
-  P_DATES('C55', 'Remove a session from one date', 'PARTIAL'),
+  { id: 'C52', capability: "One session's name / type / start / end on one date", verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
+    sends: [SAVE_PROGRAMME], shows: [[SHEET, 'label="Name"'], [SHEET, 'label="Type"'], [SHEET, 'label="Starts"'], [SHEET, 'label="Ends"']] },
+  { id: 'C53', capability: 'Session levels on one date', verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
+    sends: [SAVE_PROGRAMME], shows: [[SHEET, 'levelsApplyTo(row.type)'], [SHEET, 'testId="session-levels"']] },
+  { id: 'C54', capability: 'Add a session to one date', verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
+    sends: [SAVE_PROGRAMME], shows: [[LINEUP, "newSession('class')"], [LINEUP, 'Add a session']] },
+  { id: 'C55', capability: 'Remove a session from one date', verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
+    sends: [SAVE_PROGRAMME], shows: [[SHEET, 'Remove from this date']] },
   { id: 'C56', capability: 'Session room / rooms list', verdict: 'MISSING-ADMIN-ONLY', adminKind: 'series.set_rooms' },
   { id: 'C57', capability: 'Whole-series programme', verdict: 'MISSING-ADMIN-ONLY', adminKind: 'series.set_program' },
-  P_DATES('C58', 'Cancel or shift many dates at once', 'MISSING-ALLOWED'),
-  P_DATES('C59', "Open ANY date's session editor", 'PARTIAL'),
-  P_DATES('C60', "Copy one date's changes from another date", 'MISSING-ALLOWED'),
-  P_DATES('C61', 'Put a date back to the usual time / details', 'PARTIAL'),
+  { id: 'C58', capability: 'Cancel or shift many dates at once', verdict: 'MATCH', screen: 'flows/change/Pick.tsx', from: [['flows/change/WhichDate.tsx', 'ORG_PATHS.changePick']],
+    sends: [
+      { in: 'flows/change/Pick.tsx', token: 'bulkCancelCommand(', kind: 'occurrence.bulk_cancel', keys: ['occurrence_ids', 'reason'], bulk: true, build: () => bulkCancelCommand(['o1', 'o2'], 'Venue closed') },
+      { in: 'flows/change/Pick.tsx', token: 'bulkShiftCommand(', kind: 'occurrence.bulk_shift', keys: ['occurrence_ids', 'shift_days'], bulk: true, build: () => bulkShiftCommand(['o1'], 7) },
+      { in: 'flows/change/bulkApi.ts', token: "rpc('admin_bulk_occurrence_command_p5'" },
+    ] },
+  { id: 'C59', capability: "Open ANY date's session editor", verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
+    shows: [['shared/programmeModel.ts', 'NOT_EDITABLE_COPY']] },
+  { id: 'C60', capability: "Copy one date's changes from another date", verdict: 'MATCH', screen: 'flows/change/Copy.tsx', from: [[WHAT, 'ORG_PATHS.changeCopy']],
+    sends: [
+      { in: 'flows/change/Copy.tsx', token: 'overrideCommand({ [p.key]: p.value })', kind: 'occurrence.set_override', keys: ['description'], build: () => overrideCommand({ description: 'Bring water' }) },
+      { in: 'flows/change/Copy.tsx', token: 'overrideCommand(await venueOverridePatch(', kind: 'occurrence.set_override', keys: ['venue_id', 'city_id'], build: () => overrideCommand({ venue_id: 'v1', city_id: 'c1' }) },
+    ],
+    shows: [['flows/change/changeModel.ts', 'export function copyPatches']] },
+  // PARTIAL: no read exposes a per-date time change; the start-differs proxy misses an end-only change (P-DATES decision 5).
+  { id: 'C61', capability: 'Put a date back to the usual time / details', verdict: 'PARTIAL', screen: 'flows/change/Time.tsx', from: [[WHAT, 'ORG_PATHS.changeTime']],
+    sends: [
+      { in: 'flows/change/Time.tsx', token: 'resetTimeCommand()', kind: 'occurrence.set_time', keys: ['reset'], build: () => resetTimeCommand() },
+      { in: 'flows/change/Detail.tsx', screen: 'flows/change/Detail.tsx', token: 'overrideCommand({ [key]: null })', kind: 'occurrence.set_override', keys: ['description'], build: () => overrideCommand({ description: null }) },
+    ],
+    shows: [['flows/change/Time.tsx', 'hasOwnTime(']] },
   { id: 'C62', capability: 'Featured flag / promotion log', verdict: 'MISSING-ADMIN-ONLY', adminKey: 'featured' },
   { id: 'C63', capability: 'Review / approval step', verdict: 'DROPPED-BY-DECISION', decision: 'D4' },
   { id: 'C64', capability: 'Undo the last change', verdict: 'DROPPED-BY-DECISION', decision: 'D49' },
@@ -277,7 +327,7 @@ export const PARITY: Row[] = [
   { id: 'C71', capability: 'Switch page; support contact', verdict: 'MATCH', screen: 'switch/index.tsx', from: [['home/index.tsx', 'ORG_PATHS.switch']] },
 ];
 
-const isBuilt = (r: Row) => !r.owner && (r.verdict === 'MATCH' || r.verdict === 'PARTIAL');
+const isBuilt = (r: Row) => r.verdict === 'MATCH' || r.verdict === 'PARTIAL';
 const sortKeys = (o: Record<string, unknown>) => Object.keys(o).sort();
 /** Every non-test source file in the module, for the "nowhere sends it" checks. */
 const MODULE_FILES = [...REACHED].filter((f) => !f.startsWith('..') && !f.includes('__tests__'));
@@ -320,12 +370,18 @@ describe('organiser parity matrix', () => {
         const cmd = s.build?.();
         expect(cmd, 'the builder returns a command for a changed value').toBeTruthy();
         expect(cmd!.kind).toBe(s.kind);
-        expect(sortKeys(cmd!.payload)).toEqual([...s.keys!].sort());
+        const payload = cmd!.payload as Record<string, unknown>;
+        expect(sortKeys(payload)).toEqual([...s.keys!].sort());
+        if (s.bulk) {
+          expect(PROD_BULK_KEYS[cmd!.kind], `${cmd!.kind} is not a prod bulk kind`).toBeTruthy();
+          expect(sortKeys(payload)).toEqual([...PROD_BULK_KEYS[cmd!.kind]].sort());
+          return;
+        }
         if (!PROD_OWNER_KINDS.includes(cmd!.kind)) {
           expect(s.a1Gate, `${cmd!.kind} is refused on prod (BROKEN-ON-PROD) and has no A1 gate`).toBeTruthy();
         }
         const allowed = PROD_KEYS[cmd!.kind];
-        if (allowed) expect(sortKeys(cmd!.payload).filter((k) => !allowed.includes(k)), 'keys the prod owner allowlist refuses').toEqual([]);
+        if (allowed) expect(sortKeys(payload).filter((k) => !allowed.includes(k)), 'keys the prod owner allowlist refuses').toEqual([]);
         if (s.a1Gate) expect(read(s.a1Gate), `${s.a1Gate} gates on A1`).toMatch(/\bA1_APPLIED\b/);
       });
     }
@@ -338,11 +394,7 @@ describe('organiser parity matrix', () => {
     }
   });
 
-  describe.each(PARITY.filter((r) => r.owner === 'P-DATES'))('$id $capability (owner P-DATES)', () => {
-    it.todo('filled by the P-DATES integration worker: screen, command, keys, reachability');
-  });
-
-  describe.each(PARITY.filter((r) => !r.owner && r.verdict === 'MISSING-ADMIN-ONLY'))('$id $capability (admin only)', (row) => {
+  describe.each(PARITY.filter((r) => r.verdict === 'MISSING-ADMIN-ONLY'))('$id $capability (admin only)', (row) => {
     if (row.adminKind) {
       it(`the owner allowlist has no ${row.adminKind}, and nothing here sends it`, () => {
         expect(PROD_OWNER_KINDS).not.toContain(row.adminKind);
@@ -378,7 +430,13 @@ describe('organiser parity matrix', () => {
     }
   });
 
-  it('no MISSING-ALLOWED row is left outside P-DATES (every one this slice owned is built)', () => {
-    expect(PARITY.filter((r) => !r.owner && r.verdict === 'MISSING-ALLOWED').map((r) => r.id)).toEqual([]);
+  it('no MISSING-ALLOWED row is left (every row the owner may do is built)', () => {
+    expect(PARITY.filter((r) => r.verdict === 'MISSING-ALLOWED').map((r) => r.id)).toEqual([]);
+  });
+
+  it('the counts: MATCH / PARTIAL / admin-only / dropped, nothing left to fill', () => {
+    const count = (v: Verdict) => PARITY.filter((r) => r.verdict === v).length;
+    expect({ match: count('MATCH'), partial: count('PARTIAL'), adminOnly: count('MISSING-ADMIN-ONLY'), dropped: count('DROPPED-BY-DECISION') })
+      .toEqual({ match: 43, partial: 5, adminOnly: 11, dropped: 7 });
   });
 });
