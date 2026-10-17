@@ -89,6 +89,9 @@ describe('C28b / C30b / C38: the lifecycle card on One event', () => {
     expect(reason).toContain('Needs the next platform update');
     expect(reason).toMatch(/a venue/);
     expect(reason).toMatch(/a cover picture/);
+    // Walk fix: the venue and cover are on Details, so the card names it AND links there.
+    expect(reason).toMatch(/in Details\.$/);
+    expect(screen.getByTestId('org-life-details').getAttribute('href')).toBe(ORG_PATHS.eventDetails(DRAFT));
     fireEvent.click(go);
     await flush();
     expect(commandsOf(rpc)).toEqual([]);
@@ -180,6 +183,8 @@ describe('C06: gallery and videos open their sheets from Details and save ONE up
     const row = await screen.findByTestId('org-detail-videos');
     expect(row.textContent).toContain('Add');
     fireEvent.click(row);
+    // Walk fix: an empty Videos sheet says what to do, as Gallery does.
+    expect((await screen.findByTestId('org-video-empty')).textContent).toBe('No videos yet. Paste a video link below to add one.');
     fireEvent.change(await screen.findByTestId('org-video-input'), { target: { value: 'https://youtube.com/watch?v=abc' } });
     fireEvent.click(screen.getByTestId('org-sheet-done'));
     await flush();

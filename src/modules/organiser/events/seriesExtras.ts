@@ -65,7 +65,7 @@ export function endProblem(ws: EventWorkspace, typed: string): string | null {
  * length is stored and every date ADDED from now on uses it; dates already
  * listed keep their times (only a new START time re-times them). Said plainly.
  */
-export const END_CONSEQUENCE = 'Dates added from now on end at this time. Dates already listed keep their times; to change one, open it from Coming dates.';
+export const END_CONSEQUENCE = 'Dates added from now on end at this time. Dates already listed keep their times; to change one, open it from Coming dates on the event.';
 
 export function endCommand(ws: EventWorkspace, typed: string): OwnerCommand | null {
   if (endProblem(ws, typed) || typed.trim() === usualEnd(ws)) return null;

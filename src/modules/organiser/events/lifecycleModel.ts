@@ -9,7 +9,7 @@ import type { EventWorkspace } from './eventModel';
 
 /** Going live from a draft waits on the admin A1 migration; plain words, no jargon. */
 export const A1_REASON = 'Needs the next platform update';
-export const SEE_LIVE_DRAFT_REASON = 'Dancers can see it once it is live';
+export const SEE_LIVE_DRAFT_REASON = 'Dancers can see it once it is live.';
 
 /**
  * What a draft still needs, in the order the organiser fixes it. The server's
@@ -35,12 +35,14 @@ const list = (items: string[]) =>
 /** Why Go live is off, or null when it can be pressed. */
 export function goLiveReason(ws: EventWorkspace, today: string, a1 = A1_APPLIED): string | null {
   const missing = goLiveMissing(ws, today);
-  const add = missing.length ? `add ${list(missing)}` : null;
+  // The venue and the cover are set on Details; the card links there (LifecycleActions).
+  const add = missing.length ? `add ${list(missing)} in Details` : null;
   if (!a1) return add ? `${A1_REASON}. Before then, ${add}.` : `${A1_REASON}.`;
   return add ? `To go live, ${add}.` : null;
 }
 
-export type LifecycleRow = { reason: string | null } | null;
+/** `toDetails`: what is missing is set on Details, so the card offers the way there. */
+export type LifecycleRow = { reason: string | null; toDetails?: boolean } | null;
 
 export interface LifecycleRows {
   goLive: LifecycleRow;
@@ -57,7 +59,7 @@ export interface LifecycleRows {
 export function lifecycleRows(ws: EventWorkspace, today: string, a1 = A1_APPLIED): LifecycleRows {
   const status = ws.series.lifecycle_status;
   if (status === 'draft') {
-    return { goLive: { reason: goLiveReason(ws, today, a1) }, discard: { reason: null }, seeLive: { href: null, reason: SEE_LIVE_DRAFT_REASON } };
+    return { goLive: { reason: goLiveReason(ws, today, a1), toDetails: goLiveMissing(ws, today).length > 0 }, discard: { reason: null }, seeLive: { href: null, reason: SEE_LIVE_DRAFT_REASON } };
   }
   if (status === 'live') return { goLive: null, discard: null, seeLive: { href: publicEventPath(ws.series), reason: null } };
   return { goLive: null, discard: null, seeLive: null };

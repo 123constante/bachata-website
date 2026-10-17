@@ -91,3 +91,64 @@ drafts 6 (4 older than 7 days, 5 without a cover); live 67; live with gallery 15
 1. Item 9: write `src/modules/organiser/__tests__/parity-matrix.test.ts` per PARITY-GAP.md section (c): one `PARITY` table of all 66 rows (ids C01-C71 as listed there; mark C13, C19, C20, C22, C24, C26, C39, C52-C55, C59, C61 `owner: 'P-DATES'` + `it.todo`). Each built row: screen file, command kind, payload keys, reachability (`from` screen source contains the link token). Owner snapshot: kinds = upsert, add_date, remove_date, occurrence.set_time, set_lifecycle, occurrence.cancel, occurrence.set_override, skip_date, unskip_date, set_recurrence, stop_repeating, end_run; upsert keys per M21:647-651 (incl. `default_duration_minutes`, `default_gallery`, `default_video_urls`, `default_passes`, `instagram_url`). Screens are reached when `shell/OrganiserRoutes.tsx` lazy-imports them. This slice's rows after the fix: C06 MATCH (Details), C09b PARTIAL (no quantity: admin-only), C14 MATCH, C16 MATCH, C28a PARTIAL (A1), C28b PARTIAL (A1), C30b MATCH, C38 MATCH, C40 MATCH, C69 removed (no BUG). Then mutate one row, paste the red output here.
 2. Browser walk at 390x844 of: a draft's One event, Details (Gallery, Videos, Ends, Prices, a team price list), Stop repeating, Make it weekly, the wizard's last step.
 3. Open the PR (template "Verified on real data" block) and put the CI table in its body.
+
+---
+
+# Continuation (ticket `dt_144df069ea53`, brief P-SERIES-cont @987bc72)
+
+Status: **DONE** for this slice (items 9, walk, CI). No PR opened (the brief: the integration branch collects both slices). The "Left" step 3 (open the PR) is superseded by that brief.
+
+## Item 9: the parity matrix -- `src/modules/organiser/__tests__/parity-matrix.test.ts`
+
+- One `PARITY` table, all 66 PARITY-GAP rows (C01-C71), verdicts after this slice: C06 MATCH, C09b PARTIAL (no quantity: admin-only), C14 MATCH, C16 MATCH, C28a PARTIAL (A1), C28b PARTIAL (A1), C30b MATCH, C38 MATCH, C40 MATCH, C69 MISSING-ADMIN-ONLY (the Home step is gone; the test fails if "Show your WhatsApp" comes back).
+- Built rows (MATCH/PARTIAL): the screen is in the static import closure of a module `shell/OrganiserRoutes.tsx` lazy-imports; each write names its file (in the screen's closure, holds the builder token); the builder's output is exactly `kind` + `keys`; kind in the prod `v_owner_kinds` snapshot (12 kinds, M21:621-626) and keys in the prod key snapshot (upsert / override / cancel); a write prod refuses today needs an `a1Gate` file that reads `A1_APPLIED`; each `from` link file is reached and holds its link token.
+- Snapshot vs client mirror: `OWNER_COMMAND_KINDS` minus `occurrence.move_date` (A1) = the 12; upsert/override/cancel keys equal.
+- ADMIN-ONLY rows: their kind/key is in neither allowlist and no reached module file sends it. DROPPED rows: a D-number is cited in the module (R1-PLAN.md is not in this repo; C33 cites "plan 1.6" and asserts nothing calls `admin_duplicate_event_p5`).
+- P-DATES rows `owner: 'P-DATES'` + `it.todo` (15): C13, C19, C20, C22, C24, C26, C39, C52-C55, C58, C59, C60, C61 (C58/C60 = its bulk/copy rows).
+- Result: 164 passed, 15 todo.
+
+**Red-first (the rule itself):** C38's `from` pointed at `shell/placeholders.tsx` (no route reaches it), then restored:
+```
+ FAIL  src/modules/organiser/__tests__/parity-matrix.test.ts > organiser parity matrix > 'C38' 'Open the public event page' ('MATCH') > reachable from shell/placeholders.tsx (ORG_PATHS.home)
+AssertionError: shell/placeholders.tsx is in no routed module's import closure: expected false to be true // Object.is equality
+ Test Files  1 failed (1)
+      Tests  1 failed | 163 passed | 15 todo (179)
+```
+The first draft of the table also caught three real table errors (C15's create rule and C25's uncancel live on other screens; `occurrence.set_time` keys are `new_local_start/new_local_end`), fixed in the table.
+
+## Browser walk at 390x844 -- `docs/organiser-rebuild/walk-P-SERIES/` (README there, one line per shot)
+
+Production build (`VITE_ENABLE_ORGANISER_SELF_SERVE=true npm run build`, `node scripts/_serve-build.mjs --port 4173`), `OrganiserFake` from the phone specs, script `tests/e2e/walk-p-series.spec.ts` (NOT in the `test:e2e` gate list). 14 screens (+ `-b` scrolled shots): draft One event, Discard confirm, live See it live, Details rows, Gallery, Videos, Ends, Prices empty, a team price list read-only, Stop repeating, Make it weekly (row, step, day chosen), wizard last step. No horizontal scroll, clipping or mojibake seen.
+
+Defects found and fixed red-first (6 tests red before, green after):
+1. Wizard last step: "Save as draft" button with the reason "Choose a photo to go live." under the A1 note, and no way out but Back. Now "Choose a photo first." (`coverStepReason`) and "Save as draft and leave" shows while the button is off (`offerLeave`). e2e `organiser-events.spec.ts:66` copy updated with it.
+2. Draft Go live reason named a venue/cover with no control on One event. Now "... in Details." plus an "Open Details" row under it (`org-life-details`).
+3. Empty Videos sheet had no line: "No videos yet. Paste a video link below to add one."
+4. See it live reason gets its full stop; Ends note says "Coming dates on the event".
+Not changed: the team price list reason ends "Ask the Bachata Calendar team." (module-wide convention, tests pin it elsewhere) -- owner's call.
+
+## CI, every job step on the final tree
+
+| Job | Step | Exit |
+|---|---|---|
+| typecheck | `check:rpc-typing` / `check:wallclock-brand` | 0 / 0 |
+| typecheck (not gating) | `tsc -p tsconfig.app.json` filtered to the module | 1 pre-existing (`TeamPicker.test.tsx:297`), nothing new |
+| architecture-guard | `bin/check-integrity.sh` (after `chmod +x bin/*.sh`) | 0 |
+| architecture-guard | `check:legacy-tables` / `check:legacy-program-rpcs` / `lint:architecture` | 0 / 0 / 0 |
+| architecture-guard | `AUDIT_STRICT=1 check:images` | 0 |
+| lint chain | `npm run lint` | 0 (20/20) |
+| unit-tests | `env -u NODE_PATH npm run test:unit` | 1: 10 tests in 3 files, all live-DB contract (`eventViewCompat`, `occurrenceProgram`, `publicEventPageLineup`: no DB key in the sandbox; CI gates them). `integrityCouldNotRun` passes with `env -u NODE_PATH`. Organiser module after the walk fixes: 101 files, 2992 passed, 15 todo |
+| perf-budget | `npm run build` + `check:bundle-budget` / `check:first-load-requests` / `check:chunk-cycles` | 0 / 0 / 0 / 0 |
+| e2e-smoke | `npm run test:e2e` | 1: 157 passed, 1 failed -- `dancer-home.spec.ts:188` (profile-switcher-side-dancer never appears). **Not this slice's:** it fails identically with this slice's changes stashed, and no changed file touches the profile switcher |
+
+## Verified / Not verified
+
+**Verified:** the matrix (and its red on a mutated row); the six walk-fix tests red before / green after; the walk screenshots on the production build at 390x844 with the fake; the CI table above.
+
+**Not verified:** a real phone; real prod data in the walk (fake shapes only; no new prod survey this continuation -- the shapes in the survey above stand); no live command sent; `/code-review` not run (owner types it); the `dancer-home.spec.ts:188` failure's cause (base-red, outside this slice); GitHub Actions results (not read: no `gh`).
+
+## Next
+
+- P-DATES worker: replace the 15 `it.todo` rows with real rows (screen, sends, from) in the same table.
+- Owner: the team price list "Ask the Bachata Calendar team." wording; flip `A1_APPLIED` after admin A1, then C28a/C28b become MATCH (the matrix's `a1Gate` stays as proof).
+- Someone: `dancer-home.spec.ts:188` is red on this base.

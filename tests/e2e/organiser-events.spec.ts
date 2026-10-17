@@ -63,7 +63,7 @@ test('New event: a weekly night walks what, name, venue, date and time, each ste
   await expect(page).toHaveURL(new RegExp(`/account/o/new/${id}/cover$`));
   // Go live is off until a photo is chosen, and says so.
   await expect(page.getByTestId('org-new-live')).toBeDisabled();
-  await expect(page.getByTestId('org-new-live-reason')).toHaveText('Choose a photo to go live.');
+  await expect(page.getByTestId('org-new-live-reason')).toHaveText('Choose a photo first.');
   expect(fake.series.get(id)!.lifecycle_status).toBe('draft');
 });
 

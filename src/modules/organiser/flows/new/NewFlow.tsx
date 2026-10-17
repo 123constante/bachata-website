@@ -16,7 +16,7 @@ import { ORG_PATHS, type NewEventFormat } from '@/modules/organiser/shell/paths'
 import { EmptyState, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, TitleInput } from '@/modules/organiser/ui';
 import { goDone } from '../doneState';
 import {
-  DRAFT_ONLY_NOTE, DRAFT_SAVED_MESSAGE, NEW_FORMATS, STEP_TITLE, coverCommands, dateCommands, draftCommand, finishLabel, firstDateChoices, liveCommands, liveMessage,
+  DRAFT_ONLY_NOTE, DRAFT_SAVED_MESSAGE, NEW_FORMATS, STEP_TITLE, coverCommands, coverStepReason, offerLeave, dateCommands, draftCommand, finishLabel, firstDateChoices, liveCommands, liveMessage,
   nameBlock, parseFormat, timeBlock, timeCommands, venueCommands,
 } from './model';
 import { useNewSend } from './useNewSend';
@@ -317,8 +317,8 @@ function CoverStep({ seriesId }: { seriesId: string }) {
       </label>
       <StepError message={error} />
       {!A1_APPLIED && <p className="text-[14px] text-[var(--mut)]" data-testid="org-new-draft-note">{DRAFT_ONLY_NOTE}</p>}
-      <StepButton label={finishLabel()} reason={cover ? null : 'Choose a photo to go live.'} busy={busy && !uploading} onClick={() => void goLive()} testId="org-new-live" />
-      {A1_APPLIED && <LeaveLink />}
+      <StepButton label={finishLabel()} reason={coverStepReason(!!cover)} busy={busy && !uploading} onClick={() => void goLive()} testId="org-new-live" />
+      {offerLeave(!!cover) && <LeaveLink />}
     </Frame>
   );
 }

@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronRight, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { lifecycleCommand } from '@/modules/organiser/shared/seriesCommands';
 import { useEventSend, EventConflict, StepError } from '@/modules/organiser/flows/event';
+import { ORG_PATHS } from '../shell/paths';
 import { Card, GhostButton, PrimaryButton } from '../ui';
 import { lifecycleRows } from './lifecycleModel';
 import type { EventWorkspace } from './eventModel';
@@ -40,6 +42,12 @@ export function LifecycleActions({ ws, today }: { ws: EventWorkspace; today: str
           <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
         </button>
       ))}
+      {rows.goLive?.reason && rows.goLive.toDetails && (
+        <Link to={ORG_PATHS.eventDetails(ws.series.id)} data-testid="org-life-details" className={cn(ROW, 'font-semibold text-[var(--gold)]')}>
+          <span className="min-w-0 flex-1">Open Details</span>
+          <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
+        </Link>
+      )}
       {rows.seeLive && (rows.seeLive.href ? (
         <a href={rows.seeLive.href} target="_blank" rel="noopener noreferrer" data-testid="org-life-seelive" className={cn(ROW, 'text-[var(--fg)]')}>
           <span className="min-w-0 flex-1">See it live</span>

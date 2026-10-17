@@ -52,6 +52,16 @@ export const coverCommands = (url: string): OwnerCommand[] => [upsertCommand({ d
  */
 export const liveCommands = (a1 = A1_APPLIED): OwnerCommand[] => (a1 ? [lifecycleCommand('live')] : []);
 
+/** Why the last step's button is off: no photo yet (it does not promise going live while A1 waits). */
+export const coverStepReason = (hasCover: boolean, a1 = A1_APPLIED): string | null =>
+  hasCover ? null : a1 ? 'Choose a photo to go live.' : 'Choose a photo first.';
+
+/**
+ * "Save as draft and leave": with A1 on, always; with A1 off only while the main
+ * button is off (no photo), since that button then saves the draft itself.
+ */
+export const offerLeave = (hasCover: boolean, a1 = A1_APPLIED): boolean => a1 || !hasCover;
+
 /** The last step's button: Go live, or Save as draft while going live waits on A1. */
 export const finishLabel = (a1 = A1_APPLIED): string => (a1 ? 'Go live' : 'Save as draft');
 
