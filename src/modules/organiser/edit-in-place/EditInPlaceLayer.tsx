@@ -33,6 +33,7 @@ import {
   draftCount,
   draftMatchesStored,
   fieldInPatch,
+  sentValueWords,
   londonTime,
   overlayFor,
   prunedDrafts,
@@ -52,6 +53,7 @@ import { ContactCard } from './ContactCard';
 import { CONTACT_COPY, contactItems, isContactField, storedContactFromSettings } from './contactModel';
 import type { CityLookups } from './cityCheck';
 import { BAR_Z, BOTTOM_NAV_OFFSET, inBody } from './layers';
+import { trapTab } from './sheetStyles';
 import { uploadOrganiserPhoto } from './organiserPhotoUploadApi';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { addTeamMemberByProfile, fetchOrganiserTeam, organiserTeamQueryKey, searchTeamPeople } from '@/modules/organiser/shared/teamRpcApi';
@@ -324,7 +326,7 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
       const time = londonTime();
       if (outcome.unmatched.length > 0) {
         const names = outcome.unmatched.map((k) => FIELD_LABEL[k]).join(', ');
-        setNotice({ tone: 'error', text: `Saved at ${time}, but ${names} came back different from what you entered (we will show: ${outcome.unmatched.map((k) => String(fieldInPatch(sent, k) ?? 'empty')).join(', ')}). Check it and tap Save again.` });
+        setNotice({ tone: 'error', text: `Saved at ${time}, but ${names} came back different from what you entered (we will show: ${outcome.unmatched.map((k) => sentValueWords(sent, k, cityNames)).join(', ')}). Check it and tap Save again.` });
       } else {
         setNotice({ tone: 'ok', text: savedMessage(time) });
       }
@@ -493,13 +495,22 @@ function LeaveGuard({ active, onSave, onDiscard }: { active: boolean; onSave: ()
   );
   const blocker = useLeaveBlocker(shouldBlock);
   const firstRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // What had focus before the dialog: Stay here gives it back (B-S8 c).
+  const before = useRef<HTMLElement | null>(null);
   const [busy, setBusy] = useState(false);
   const blocked = blocker.state === 'blocked';
   useEffect(() => {
-    if (blocked) firstRef.current?.focus();
+    if (!blocked) return;
+    before.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+    firstRef.current?.focus();
   }, [blocked]);
   if (!blocked) return null;
-  const stay = () => blocker.reset?.();
+  const stay = () => {
+    const back = before.current;
+    blocker.reset?.();
+    if (back?.isConnected) window.setTimeout(() => back.focus(), 0);
+  };
   return inBody(
     <>
       <div aria-hidden="true" onClick={stay} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(0,0,0,0.6)' }} />
@@ -509,7 +520,11 @@ function LeaveGuard({ active, onSave, onDiscard }: { active: boolean; onSave: ()
         aria-labelledby="eip-leave-title"
         aria-describedby="eip-leave-desc"
         data-testid="eip-leave"
-        onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); stay(); } }}
+        ref={dialogRef}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') { e.preventDefault(); stay(); return; }
+          trapTab(e, dialogRef.current);
+        }}
         style={{ position: 'fixed', left: 12, right: 12, bottom: 'calc(12px + env(safe-area-inset-bottom))', zIndex: 71, maxWidth: 440, margin: '0 auto', padding: 16, borderRadius: 16, background: '#17131A', color: CREAM, border: '1px solid rgba(231,190,110,0.4)' }}
       >
         <h2 id="eip-leave-title" style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>You have changes that are not saved</h2>

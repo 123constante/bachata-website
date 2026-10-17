@@ -3,7 +3,8 @@ import { moveDateCommand } from '@/modules/organiser/shared/seriesCommands';
 import { DateStep, type DateStepReady } from './DateStep';
 import { dayDoneMessage, findSeries, moveDays } from './changeModel';
 import { useChangeHome, useChangeSend } from './useChange';
-import { Conflict, StepList, StepRow } from './parts';
+import { StepList, StepRow } from './parts';
+import { EventConflict } from '../event/parts';
 
 /**
  * C5c: move this date to another day. The list is the next 30 days minus the
@@ -23,7 +24,7 @@ function DayList({ seriesId, occurrenceId, today, ws, detail }: DateStepReady) {
   const home = useChangeHome();
   const { send, busy, conflict, error } = useChangeSend(seriesId, occurrenceId);
   const series = findSeries(home.data, seriesId);
-  if (conflict) return <Conflict seriesId={seriesId} />;
+  if (conflict) return <EventConflict seriesId={seriesId} testId="change-conflict" />;
   const days = series ? moveDays(series, ws, today) : [];
   return (
     <>

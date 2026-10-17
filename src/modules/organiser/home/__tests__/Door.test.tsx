@@ -192,7 +192,9 @@ describe('the claim path reuses sessionProof.ts and EmailCodeProof.tsx unchanged
 
   it('byte for byte against main (checksums pinned from origin/main c36fbaf)', () => {
     expect(sha('shared/sessionProof.ts')).toBe('a5b3134170b5890e6915789351a06b07999c2f62b165d8d7cc5ae8cef00737d5');
-    expect(sha('shared/components/EmailCodeProof.tsx')).toBe('bfd2478530189f4de4190959be8861f22f642e54134fab4ebb4c4bfc64891087');
+    // The one change since main: its spinners stop under reduced motion (F-INT B-N6). Nothing else moved.
+    const proof = createHash('sha256').update(read('shared/components/EmailCodeProof.tsx').replace(/ motion-reduce:animate-none/g, '')).digest('hex');
+    expect(proof).toBe('bfd2478530189f4de4190959be8861f22f642e54134fab4ebb4c4bfc64891087');
   });
 
   it('the sheet imports the shared component and Home imports the shared proof; no parallel copy is left', () => {

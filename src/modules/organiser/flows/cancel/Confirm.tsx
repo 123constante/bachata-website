@@ -14,7 +14,8 @@ import { Chip, GhostButton, PrimaryButton } from '@/modules/organiser/ui';
 import { cn } from '@/lib/utils';
 import { backOnMessage, cancelDoneMessage, DEFAULT_REASON, findSeries } from '../add/addModel';
 import { useDateDetail, useFlowHome, useFlowSend, useSeriesWorkspace } from '../add/useFlow';
-import { Conflict, ErrorLine, Failed, Loading, Missing, Refusal, Step } from '../add/parts';
+import { ErrorLine, Failed, Loading, Missing, Refusal, Step } from '../add/parts';
+import { EventConflict } from '../event/parts';
 import { PUT_BACK, putBackPath, RESTORE_CAP_NOTE, restoreCapped, restoreRefusal } from './cancelModel';
 
 type Gate =
@@ -53,7 +54,7 @@ export default function Confirm() {
   return (
     <Step title={one?.name ?? 'Cancel a date'} back={ORG_PATHS.cancelEvent(seriesId)}>
       {home.isError || ws.isError || detail.isError ? (
-        <Failed flow="cancel" onRetry={() => { void home.refetch(); void ws.refetch(); void detail.refetch(); }} />
+        <Failed flow="cancel" error={ws.error} onRetry={() => { void home.refetch(); void ws.refetch(); void detail.refetch(); }} />
       ) : !home.data || (one && !ws.data) ? (
         <Loading flow="cancel" />
       ) : !one || !date ? (
@@ -91,7 +92,7 @@ function CancelForm({ seriesId, date, detail, canPutBack, onSend }: {
   const [reason, setReason] = useState<string | null>(null);
   const reasons = useQuery({ queryKey: ['cancellation-reasons'], queryFn: fetchCancellationReasons, staleTime: Infinity });
   const { send, run, busy, conflict, error } = useFlowSend(seriesId);
-  if (conflict) return <Conflict flow="cancel" seriesId={seriesId} />;
+  if (conflict) return <EventConflict seriesId={seriesId} testId="cancel-conflict" />;
   const time = localAsZTime(date.materialised_start_utc) ?? detail.start;
   // "Other" is what no pick means, so it is not offered as a chip.
   const offered = (reasons.data ?? []).filter((r) => r.label !== DEFAULT_REASON);
@@ -163,7 +164,7 @@ function PutBack({ seriesId, date, detail, capped, auto, onSend }: {
       void putBack();
     }
   }, [auto]); // eslint-disable-line react-hooks/exhaustive-deps -- fires once on arrival (N3)
-  if (conflict) return <Conflict flow="cancel" seriesId={seriesId} />;
+  if (conflict) return <EventConflict seriesId={seriesId} testId="cancel-conflict" />;
   return (
     <div className="flex flex-col gap-3" data-testid="cancel-already">
       <p className="text-[16px] font-bold text-[var(--fg)]">{dayLabel(date.occurrence_date)}</p>

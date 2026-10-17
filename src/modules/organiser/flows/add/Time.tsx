@@ -11,7 +11,8 @@ import { FIELD_CLASS, PrimaryButton } from '@/modules/organiser/ui';
 import { cn } from '@/lib/utils';
 import { addDayGate, addDoneMessage, type DayGate, findSeries, seriesLock, timeNotSavedMessage, usualTime } from './addModel';
 import { useFlowHome, useFlowSend, useSeriesWorkspace } from './useFlow';
-import { Conflict, ErrorLine, Failed, Loading, Missing, Refusal, Step } from './parts';
+import { ErrorLine, Failed, Loading, Missing, Refusal, Step } from './parts';
+import { EventConflict } from '../event/parts';
 
 /** C9: the time of the new date, prefilled with the event's usual time; Save adds it (C10 Done, no Undo). */
 export default function Time() {
@@ -30,7 +31,7 @@ export default function Time() {
   return (
     <Step title={one?.name ?? 'Add a date'} back={ORG_PATHS.addEvent(seriesId)}>
       {home.isError || ws.isError ? (
-        <Failed flow="add" onRetry={() => { void home.refetch(); void ws.refetch(); }} />
+        <Failed flow="add" error={ws.error} onRetry={() => { void home.refetch(); void ws.refetch(); }} />
       ) : !home.data ? (
         <Loading flow="add" />
       ) : !one ? (
@@ -53,7 +54,7 @@ function TimeForm({ series, ws, date, onSend }: { series: HomeSeriesFull; ws: Se
   const usual = usualTime(series, ws);
   const [value, setValue] = useState(usual);
   const { send, run, busy, conflict, error } = useFlowSend(series.id);
-  if (conflict) return <Conflict flow="add" seriesId={series.id} />;
+  if (conflict) return <EventConflict seriesId={series.id} testId="add-conflict" />;
   const ready = value === '' || /^\d{2}:\d{2}$/.test(value);
 
   // ONE series.add_date. Only a time other than the usual one adds a second

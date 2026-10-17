@@ -72,7 +72,7 @@ status
 button "Create a new page"
 heading "Waiting for an answer" level=2
 text "Org 0"
-text "Asked 1 Oct"
+text "Asked Thursday 1 October"
 link "Just here to dance? Browse events" href=/",
 }
 `;
@@ -279,7 +279,7 @@ status
 button "Create a new page"
 heading "Waiting for an answer" level=2
 text "Org 0"
-text "Asked 1 Oct"
+text "Asked Thursday 1 October"
 link "Just here to dance? Browse events" href=/",
 }
 `;
@@ -381,7 +381,7 @@ status
 button "Create a new page"
 heading "Waiting for an answer" level=2
 text "Org 0"
-text "Asked 1 Oct"
+text "Asked Thursday 1 October"
 link "Just here to dance? Browse events" href=/",
 }
 `;
@@ -588,7 +588,7 @@ status
 button "Create a new page"
 heading "Waiting for an answer" level=2
 text "Org 0"
-text "Asked 1 Oct"
+text "Asked Thursday 1 October"
 link "Just here to dance? Browse events" href=/",
 }
 `;

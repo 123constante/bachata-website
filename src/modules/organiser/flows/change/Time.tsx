@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils';
 import { DateStep, type DateStepReady } from './DateStep';
 import { timeDoneMessage } from './changeModel';
 import { useChangeSend } from './useChange';
-import { Conflict, SaveButton } from './parts';
+import { SaveButton } from './parts';
+import { EventConflict } from '../event/parts';
 
 /** C5: the time of this one date. Save only once the time differs from the current one. */
 export default function Time() {
@@ -24,7 +25,7 @@ function TimeForm({ seriesId, occurrenceId, date, detail }: DateStepReady) {
   const current = localAsZTime(date.materialised_start_utc) ?? detail.start ?? '';
   const [value, setValue] = useState(current);
   const { send, busy, conflict, error } = useChangeSend(seriesId, occurrenceId);
-  if (conflict) return <Conflict seriesId={seriesId} />;
+  if (conflict) return <EventConflict seriesId={seriesId} testId="change-conflict" />;
   const ready = /^\d{2}:\d{2}$/.test(value) && value !== current;
   return (
     <div className="flex flex-col gap-3" data-testid="change-time-screen">

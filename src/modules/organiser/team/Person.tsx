@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ORGANISER_HOME_KEY, removeOrganiserMember } from '@/modules/organiser/shared/selfServeApi';
-import { teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { ROLE_HELP, teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { organiserTeamQueryKey, setTeamMember } from '@/modules/organiser/shared/teamRpcApi';
 import { ROLE_LABEL, canReceiveOwnership, memberLabel, memberShortName } from '@/modules/organiser/shared/teamModel';
 import { goDone } from '../flows/doneState';
@@ -11,7 +11,8 @@ import { ErrorState, GhostButton, PrimaryButton, SkeletonRows } from '../ui';
 import { Avatar } from './Avatar';
 import { useTeamContext } from './useTeamContext';
 
-export const ROLE_EXPLAINER = 'Owners and managers add people. Only the owner removes people, changes roles and hands the page over. Managers edit every event and send it for review.';
+/** The role explanation: the ONE string in selfServeErrors, shared with the /page picker (A-S5). */
+export const ROLE_EXPLAINER = ROLE_HELP;
 export const OWNER_ONLY_ROLE = 'Only the owner changes roles or removes people';
 
 /**
@@ -28,6 +29,17 @@ export default function Person() {
   const queryClient = useQueryClient();
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The inline confirm swaps the focused button out: focus goes into it on open, back to Remove on Keep (B-S8).
+  const confirmRef = useRef<HTMLDivElement>(null);
+  const removeRef = useRef<HTMLButtonElement>(null);
+  const backToRemove = useRef(false);
+  useEffect(() => {
+    if (asking) confirmRef.current?.focus();
+    else if (backToRemove.current) {
+      backToRemove.current = false;
+      removeRef.current?.focus();
+    }
+  }, [asking]);
   const member = members.find((m) => m.userId === userId) ?? null;
   const name = member ? memberLabel(member) : 'Team';
 
@@ -39,7 +51,7 @@ export default function Person() {
     mutationFn: () => removeOrganiserMember(organiser!.id, userId),
     onSuccess: () => {
       refresh();
-      goDone(navigate, { title: 'Removed', message: 'Removed from the team', seriesId: null, next: ORG_PATHS.teamAdd, nextLabel: 'Add them back' });
+      goDone(navigate, { title: 'Removed', message: 'Removed from the team', seriesId: null, next: member?.displayName ? ORG_PATHS.teamAddFor(member.displayName) : ORG_PATHS.teamAdd, nextLabel: 'Add them back' });
     },
     onError: (e) => setError(teamErrorMessage(e)),
   });
@@ -82,16 +94,16 @@ export default function Person() {
               <Link to={ORG_PATHS.handoverTo(userId)} data-testid="person-hand-over" className="flex h-[52px] w-full items-center justify-center rounded-[12px] bg-[var(--card2)] text-[16px] font-bold text-[var(--fg)]">Hand the page over</Link>
             )}
             {member.isSelf && member.role !== 'owner' && (
-              <Link to={ORG_PATHS.more} data-testid="person-leave" className="flex min-h-[44px] items-center justify-center text-[15px] font-semibold text-[var(--mut)]">Leave this team</Link>
+              <Link to={ORG_PATHS.more} data-testid="person-leave" className="flex min-h-[44px] items-center justify-center text-[15px] font-semibold text-[var(--mut)]">Leave this page</Link>
             )}
             {canRemove && (asking ? (
-              <div role="alertdialog" aria-label={`Remove ${name}?`} className="flex flex-col gap-2" data-testid="person-remove-confirm">
+              <div ref={confirmRef} role="group" tabIndex={-1} aria-label={`Remove ${name}?`} className="flex flex-col gap-2 outline-none" data-testid="person-remove-confirm">
                 <p className="text-[15px] text-[var(--fg)]">Remove {name}? They will no longer see or edit these events.</p>
                 <PrimaryButton loading={remove.isPending} loadingLabel="Removing" onClick={() => { setError(null); remove.mutate(); }} testId="person-remove-yes">Remove</PrimaryButton>
-                <GhostButton disabled={remove.isPending} onClick={() => setAsking(false)} testId="person-remove-no">Keep them</GhostButton>
+                <GhostButton disabled={remove.isPending} onClick={() => { backToRemove.current = true; setAsking(false); }} testId="person-remove-no">Keep them</GhostButton>
               </div>
             ) : (
-              <GhostButton onClick={() => setAsking(true)} testId="person-remove">Remove from the team</GhostButton>
+              <GhostButton ref={removeRef} onClick={() => setAsking(true)} testId="person-remove">Remove from the team</GhostButton>
             ))}
           </>
         )}

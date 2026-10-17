@@ -209,7 +209,8 @@ describe('seriesChip: the same fact as the Home row (one mapping)', () => {
   const shapes: Array<[string, Partial<HomeSeriesFull>, { label: string; tone: 'ok' | 'bad' | 'n' }]> = [
     ['live with dates', {}, { label: 'Live', tone: 'ok' }],
     ['live, 0 scheduled', { upcoming_count: 0, next_dates: [] }, { label: 'Needs dates', tone: 'bad' }],
-    ['live, all cancelled', { upcoming_count: 0, cancelled_upcoming_count: 3, next_dates: [] }, { label: 'Needs dates', tone: 'bad' }],
+    // Decision 3 (INT-B N-9): every coming date cancelled outranks every Home problem on the chip.
+    ['live, all cancelled', { upcoming_count: 0, cancelled_upcoming_count: 3, next_dates: [] }, { label: 'Cancelled', tone: 'bad' }],
     ['live, no cover', { default_cover_image_url: null }, { label: 'Needs a cover', tone: 'bad' }],
     ['draft 9 days', { lifecycle_status: 'draft', created_at: daysAgoIso(9) }, { label: 'Draft, 9 days', tone: 'bad' }],
     ['draft 2 days', { lifecycle_status: 'draft', created_at: daysAgoIso(2) }, { label: 'Draft, 2 days', tone: 'n' }],
@@ -227,7 +228,10 @@ describe('seriesChip: the same fact as the Home row (one mapping)', () => {
     const s = series(over);
     const chip = seriesChip(s, today());
     const rows = homeJobs(page([s, series()]), [], today()).filter((j) => j.tone === 'problem' && j.title === s.name);
-    if (chip.tone === 'bad') {
+    if (chip.label === 'Cancelled') {
+      // A cancelled-only series: the chip states the cancellation (decision 3); Home keeps its job row.
+      expect(rows.map((r) => r.sub)).toEqual(['Needs dates']);
+    } else if (chip.tone === 'bad') {
       expect(rows.map((r) => r.sub)).toEqual([chip.label]);
     } else {
       expect(rows).toEqual([]);

@@ -11,7 +11,7 @@ import { goDone } from '../flows/doneState';
 import { useOwnPage } from '../page/useOwnPage';
 import { OrganiserShell } from '../shell';
 import { ORG_PATHS } from '../shell/paths';
-import { Card, ErrorState, GhostButton, PrimaryButton, SheetView, SkeletonRows } from '../ui';
+import { Card, ErrorState, GhostButton, PrimaryButton, SheetView, SkeletonRows, useOpenerRef } from '../ui';
 import { SignOutSheet } from './SignOutSheet';
 
 /** The SOLE owner's reason for no Leave: the sole-owner refusal (4.8), pointing at the control that exists. */
@@ -46,6 +46,7 @@ export default function MorePage() {
   const queryClient = useQueryClient();
   const { user, home, selected, bridge, layer } = useOwnPage();
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const leaveOpener = useOpenerRef(confirmLeave);
   const [signOut, setSignOut] = useState(false);
   const support = supportLinks();
   const isOwner = selected?.role === 'owner';
@@ -124,7 +125,7 @@ export default function MorePage() {
         </Card>
       </div>
 
-      <SheetView open={confirmLeave} onOpenChange={(o) => { if (!o) setConfirmLeave(false); }} title="Leave this page" testId="more-leave-sheet">
+      <SheetView open={confirmLeave} returnFocusRef={leaveOpener} onOpenChange={(o) => { if (!o) setConfirmLeave(false); }} title="Leave this page" testId="more-leave-sheet">
         <div className="space-y-[12px] p-[16px]">
           <p className="text-[15px] text-[var(--fg)]">Leave {selected?.name}? You can ask to join again later.</p>
           {leave.isError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="more-leave-error">{teamErrorMessage(leave.error)}</p>}

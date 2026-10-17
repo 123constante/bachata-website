@@ -5,9 +5,9 @@ import { PHONE, openOrganiser } from './helpers/organiserFake';
 // 44px tall and 44px wide (owner rule; the site's ~13.5px root font makes rem sizes run
 // small, so this is measured, not read off the classes). Backend: helpers/organiserFake.ts.
 //
-// ONE exemption, open for the owner (no D-number yet): the edit-in-place hero's compact
-// pencils on /page are 32 wide x 44 high by design (edit-in-place/parts.tsx pencilCompact,
-// shared with the public event page). They are let through on width only, never on height.
+// No exemptions: the edit-in-place hero's compact pencils are 44x44 on /page (owner decision,
+// F-INT; .org-theme .eip-pencil--compact in edit-in-place/parts.tsx LAYER_CSS). The public
+// organiser page keeps its 32x44 compact pencils and is not measured here.
 
 test.use({ viewport: PHONE });
 
@@ -37,8 +37,8 @@ for (const path of SCREENS) {
       .evaluateAll((els) =>
         els
           .filter((e) => (e as HTMLElement).offsetParent !== null)
-          .map((e) => ({ e, id: e.getAttribute('data-testid') ?? e.getAttribute('aria-label') ?? e.textContent?.trim().slice(0, 30), r: e.getBoundingClientRect() }))
-          .filter(({ e, r }) => r.height < 44 || (r.width < 44 && !(e.classList.contains('eip-pencil') && r.width >= 32)))
+          .map((e) => ({ id: e.getAttribute('data-testid') ?? e.getAttribute('aria-label') ?? e.textContent?.trim().slice(0, 30), r: e.getBoundingClientRect() }))
+          .filter(({ r }) => r.height < 44 || r.width < 44)
           .map(({ id, r }) => `${id} ${Math.round(r.width)}x${Math.round(r.height)}`),
       );
     expect(small).toEqual([]);

@@ -22,7 +22,7 @@ export default function WhichDate() {
   return (
     <Step title={one?.name ?? 'Which date?'} back={back}>
       {home.isError || ws.isError ? (
-        <Failed flow="cancel" onRetry={() => { void home.refetch(); void ws.refetch(); }} />
+        <Failed flow="cancel" error={ws.error} onRetry={() => { void home.refetch(); void ws.refetch(); }} />
       ) : !home.data ? (
         <Loading flow="cancel" />
       ) : !one ? (

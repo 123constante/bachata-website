@@ -309,7 +309,8 @@ function SessionRow({ row, problem, onOpen, onUndo }: { row: DraftSession; probl
   const body = (
     <span className={`flex min-w-0 flex-1 flex-col gap-[4px] text-left ${row.removed ? 'opacity-[.72]' : ''}`}>
       <span className="flex min-w-0 items-center gap-[8px]">
-        {showsTypeChip(row) && <StatusTag tone={typeTone(row.type)} className="shrink-0" testId="session-row-type">{typeLabel(row.type)}</StatusTag>}
+        {/* On a faded (removed) row the neutral chip's --mut falls under AA (3.79:1), so it switches to --fg too (B-S11). */}
+        {showsTypeChip(row) && <StatusTag tone={typeTone(row.type)} className={row.removed ? 'shrink-0 text-[var(--fg)]' : 'shrink-0'} testId="session-row-type">{typeLabel(row.type)}</StatusTag>}
         <span className={`truncate text-[15px] font-semibold text-[var(--fg)] ${row.removed ? 'line-through' : ''}`} data-testid="session-row-name">{sessionName(row)}</span>
       </span>
       {/* A faded row's muted text would fall under 4.5:1, so it switches to --fg. */}

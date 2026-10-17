@@ -5,6 +5,7 @@
 
 import { addDaysToKey, weekdayOfKey } from '@/lib/londonDate';
 import { isListedSeries, localAsZTime, type HomeSeriesFull } from './homeModel';
+import { fullDate } from './dateWords';
 
 export interface DateRow {
   occurrenceId: string;
@@ -22,14 +23,8 @@ export interface DayRow {
   weekday: number;
 }
 
-const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-/** "Friday 23 October" for a London date key. */
-export function dayLabel(date: string): string {
-  const [, m, d] = date.split('-').map(Number);
-  return `${WEEKDAY[weekdayOfKey(date)]} ${d} ${MONTH[m - 1]}`;
-}
+/** "Friday 23 October" for a London date key (the shared formatter, shared/dateWords.ts; no year). */
+export const dayLabel = (date: string): string => fullDate(date);
 
 /**
  * The series' coming SCHEDULED dates from today, soonest first, at most

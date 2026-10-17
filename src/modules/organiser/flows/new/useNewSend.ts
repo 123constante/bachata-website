@@ -4,8 +4,7 @@ import {
   ORGANISER_HOME_KEY, fetchSeriesWorkspace, runSeriesCommand, seriesWorkspaceQueryKey,
 } from '@/modules/organiser/shared/selfServeApi';
 import { envelope, newIdempotencyKey, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
-import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
-const isConflict = (err: unknown) => /version_conflict/i.test(String((err as { message?: unknown } | null)?.message ?? ''));
+import { commandErrorMessage, isVersionConflict } from '@/modules/organiser/shared/selfServeErrors';
 
 /**
  * One step of New event sends its command(s) here, one after another, each
@@ -40,7 +39,7 @@ export function useNewSend(seriesId: string) {
       }
       return true;
     } catch (err) {
-      if (isConflict(err)) {
+      if (isVersionConflict(err)) {
         setConflict(true);
         return false;
       }

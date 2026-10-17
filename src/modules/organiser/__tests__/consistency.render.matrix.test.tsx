@@ -444,3 +444,225 @@ describe('version_conflict on every write ends on the R3-7 view: VERSION_CONFLIC
   // conflict is PROGRAMME_VERSION_CONFLICT with an in-place reload (selfServeErrors.ts:272-280), not R3-7.
   it.skip('date line-up: skipped, main\'s editor kept as is (4.2) reloads in place on a conflict, outside R3-7', () => {});
 });
+
+// ---- G2 (F-INT-fix): A-B2 access refusal, A-S1 Put back on One event ----------------------
+
+/** Wraps the current rpc answers: `fn` gets `over` instead (args passed for a per-call answer). */
+const overRpc = (fn: string, over: (args: Record<string, unknown>) => unknown) => {
+  const prev = rpc.getMockImplementation() as (f: string, a: Record<string, unknown>) => Promise<unknown>;
+  rpc.mockImplementation(async (f: string, a: Record<string, unknown>) => (f === fn ? over(a) : prev(f, a)));
+};
+/** What _assert_can_edit_series_p5 raises for a login that is not an owner/manager of the series. */
+const REFUSED = { data: null, error: { message: 'permission_denied: caller cannot edit this series', code: '42501' } };
+
+interface NoAccessRow { screen: string; path: () => string; routes?: Parameters<typeof mount>[1] }
+
+const NO_ACCESS_ROWS: NoAccessRow[] = [
+  { screen: 'One event', path: () => ORG_PATHS.event(A) },
+  { screen: 'Event details', path: () => ORG_PATHS.eventDetails(A) },
+  { screen: 'Cover photo', path: () => ORG_PATHS.cover(A) },
+  { screen: 'Cancel a date (confirm)', path: () => ORG_PATHS.cancelDate(A, BEFORE) },
+  { screen: 'Cancel a date (which date)', path: () => ORG_PATHS.cancelEvent(A), routes: <Route path="/account/o/cancel/:seriesId" element={<CancelFlow step="date" />} /> },
+  { screen: 'Add a date (which day)', path: () => ORG_PATHS.addEvent(A) },
+  { screen: 'Add a date (time)', path: () => ORG_PATHS.addDate(A, day(7)) },
+  { screen: 'Change a date (time)', path: () => ORG_PATHS.changeTime(A, BEFORE) },
+  { screen: 'New event (first date)', path: () => ORG_PATHS.newDate(DRAFT), routes: <Route path="/account/o/new/:seriesId/date" element={<NewFlow />} /> },
+];
+
+describe('A-B2: a login the event workspace refuses sees the no-access copy, with NO retry', () => {
+  it.each(NO_ACCESS_ROWS)('$screen', async ({ path, routes }) => {
+    const { NO_ACCESS_BODY, NO_ACCESS_TESTID, NO_ACCESS_TITLE } = await import('@/modules/organiser/shared/components/NoAccess');
+    overRpc('admin_event_workspace_p5', () => REFUSED);
+    mount(path(), <>{ROUTES}{routes}</>);
+    const box = await screen.findByTestId(NO_ACCESS_TESTID, {}, { timeout: 3000 });
+    expect(box.textContent).toContain(NO_ACCESS_TITLE);
+    expect(box.textContent).toContain(NO_ACCESS_BODY);
+    expect(box.textContent).not.toMatch(/connection|Try again/);
+    expect(within(box).queryAllByRole('button')).toHaveLength(0);
+    expect(screen.queryByText('Try again')).toBeNull();
+  });
+
+  it('a signed-out caller is not "no access" (signing in may fix it): the retry stays', async () => {
+    const { NO_ACCESS_TESTID } = await import('@/modules/organiser/shared/components/NoAccess');
+    overRpc('admin_event_workspace_p5', () => ({ data: null, error: { message: 'permission_denied: authentication_required', code: '42501' } }));
+    open(ORG_PATHS.event(A));
+    expect(await screen.findByTestId('org-event-error-retry')).toBeTruthy();
+    expect(screen.queryByTestId(NO_ACCESS_TESTID)).toBeNull();
+  });
+});
+
+describe('A-S1: Put back on One event is a CONFLICTS row (R3-7 view, one button) and reuses its key on a retry', () => {
+  const TAKEN = day(10); // Friday 30 October 2026: a weekly-Friday rule date, taken off.
+  const takeOff = () => {
+    const prev = rpc.getMockImplementation() as (f: string, a: Record<string, unknown>) => Promise<{ data: { series: { series: Record<string, unknown> } } }>;
+    rpc.mockImplementation(async (f: string, a: Record<string, unknown>) => {
+      const res = await prev(f, a);
+      if (f === 'admin_event_workspace_p5') res.data.series.series.removed_dates = [TAKEN];
+      return res;
+    });
+  };
+
+  it('put a taken-off date back: version_conflict ends on the R3-7 view, ONE button, to the event', async () => {
+    world.command = () => CONFLICT;
+    takeOff();
+    open(ORG_PATHS.event(A));
+    await press('org-taken-off-put-back');
+    await waitFor(() => expect(writes().length).toBeGreaterThan(0));
+    await flush();
+    const box = await screen.findByTestId('event-conflict');
+    expect(box.textContent).toContain(VERSION_CONFLICT);
+    const buttons = within(box).queryAllByRole('button');
+    expect(buttons).toHaveLength(1);
+    expect(screen.queryByTestId('org-taken-off-error')).toBeNull();
+    fireEvent.click(buttons[0]);
+    await waitFor(() => expect(where()).toBe(ORG_PATHS.event(A)));
+    // Back on the event, looking again: the conflict view is gone and Put back is offered afresh.
+    await waitFor(() => expect(screen.queryByTestId('event-conflict')).toBeNull());
+    expect(await screen.findByTestId('org-taken-off-put-back')).toBeTruthy();
+    expect(commandsOf(rpc)).toHaveLength(1);
+  });
+
+  it('a lost reply then a retry sends the SAME idempotency key (the server replays, no second write)', async () => {
+    let n = 0;
+    world.command = () => (++n === 1 ? { data: null, error: { message: 'Failed to fetch' } } : { data: { ok: true, new_version: 10 }, error: null });
+    takeOff();
+    open(ORG_PATHS.event(A));
+    await press('org-taken-off-put-back');
+    await screen.findByTestId('org-taken-off-error');
+    await press('org-taken-off-put-back');
+    await waitFor(() => expect(commandsOf(rpc)).toHaveLength(2));
+    const [first, second] = commandsOf(rpc);
+    expect(first.env.command.payload).toEqual({ date: TAKEN });
+    expect(second.env.command).toEqual(first.env.command);
+    expect(first.env.idempotency_key).toMatch(/\S/);
+    expect(second.env.idempotency_key).toBe(first.env.idempotency_key);
+  });
+});
+
+describe('B-S6: One event month grid has a Monday-first weekday header and says each marked date\'s state', () => {
+  it('October 2026: M T W T F S S over the days, 1 October under Thursday, "on" / "cancelled" for screen readers', async () => {
+    world.occs[A] = [...world.occs[A], { id: 'oc25', date: day(5), status: 'cancelled', version: 1 }]; // Sunday 25 October
+    open(ORG_PATHS.event(A));
+    const month = await screen.findByTestId('org-month');
+    const head = within(month).getByTestId('org-month-weekdays');
+    const cells = Array.from(head.children) as HTMLElement[];
+    expect(cells.map((c) => c.querySelector('[aria-hidden="true"]')?.textContent).join('')).toBe('MTWTFSS');
+    expect(cells.map((c) => c.querySelector('.sr-only')?.textContent)).toEqual(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
+    // Day cells sit in the same 7 columns as the header: 1 October 2026 is a Thursday (column 4).
+    const grid = within(month).getByTestId('org-month-days');
+    expect(Array.from(grid.children).findIndex((c) => c.getAttribute('data-date') === '2026-10-01') % 7).toBe(3);
+    const state = (date: string) => month.querySelector(`[data-date="${date}"] .sr-only`)?.textContent?.trim() ?? null;
+    expect(state(day(3))).toBe('on'); // Friday 23 October, scheduled
+    expect(state(day(10))).toBe('on');
+    expect(state(day(5))).toBe('cancelled');
+    expect(state(day(1))).toBeNull(); // no date that day: nothing extra to hear
+    expect(within(month).getAllByTestId('org-month-dot')).toHaveLength(4);
+  });
+});
+
+// ---- G1 (F-INT-fix): status chips rendered, no events at all, ?o= on New event ---------------
+
+/** Two pages for this login: the fixture page first, then an empty second page. */
+const g1TwoPages = () => {
+  const prev = rpc.getMockImplementation() as (f: string, a: Record<string, unknown>) => Promise<unknown>;
+  rpc.mockImplementation(async (f: string, a: Record<string, unknown>) => {
+    const res = (await prev(f, a)) as { data: { organisers: Array<Record<string, unknown>> } };
+    if (f !== 'organiser_home_v1') return res;
+    const first = res.data.organisers[0];
+    return { data: { ...res.data, organisers: [first, { ...first, id: 'org2', name: 'Second Page', series: [] }] }, error: null };
+  });
+};
+const g1Pages = async () => ({
+  HomePage: (await import('@/modules/organiser/home')).default,
+  EventsPage: (await import('@/modules/organiser/events')).default,
+});
+
+describe('G1: the status chip on My events and One event is the shared word for every lifecycle_status (B-B1)', () => {
+  const STATUSES = ['live', 'draft', 'paused', 'ended', 'archived', 'pending_review', 'rejected'];
+  it.each(STATUSES)('%s', async (status) => {
+    const { lifecycleTag } = await import('@/modules/organiser/shared/eventState');
+    const { EventsPage } = await g1Pages();
+    world.occs[A] = comingRun(3);
+    world.series = [series(A, 'Friday Social', world.occs[A], { lifecycle_status: status, created_at: `${day(0)}T09:00:00Z` })];
+    const routes = (
+      <>
+        <Route path="/account/o/events" element={<EventsPage />} />
+        <Route path="/account/o/events/:seriesId" element={<OneEvent />} />
+      </>
+    );
+    mount(ORG_PATHS.events, routes);
+    if (status === 'archived') {
+      // R3-4: an archived series is never a row or a chip.
+      expect(await screen.findByTestId('org-events-empty')).toBeTruthy();
+    } else {
+      const row = await screen.findByTestId('org-event-row');
+      expect(within(row).getByTestId('org-event-chip').textContent).toBe(lifecycleTag(status).label);
+    }
+    cleanup();
+    mount(ORG_PATHS.event(A), routes);
+    const title = await screen.findByTestId('org-event-title');
+    const chip = within(title).queryByTestId('org-event-chip');
+    expect(chip?.textContent ?? null).toBe(status === 'archived' ? null : lifecycleTag(status).label);
+  });
+});
+
+describe('G1: a login with no events at all: Change, Cancel and Add say "No events yet" with New event (B-S4)', () => {
+  const FLOWS = [
+    { flow: 'change', path: ORG_PATHS.change, el: () => <ChangeFlow step="event" /> },
+    { flow: 'cancel', path: ORG_PATHS.cancel, el: () => <CancelFlow step="event" /> },
+    { flow: 'add', path: ORG_PATHS.add, el: () => <AddFlow step="event" /> },
+  ];
+  it.each(FLOWS)('$flow', async ({ flow, path, el }) => {
+    world.series = [];
+    mount(path, <Route path={path} element={el()} />);
+    const box = await screen.findByTestId(`${flow}-which-event`);
+    expect(box.textContent).toContain('No events yet');
+    fireEvent.click(within(box).getByTestId(`${flow}-empty-new`));
+    await waitFor(() => expect(where()).toBe(ORG_PATHS.newWhat));
+  });
+  it('the three flows draw ONE shared empty state', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const src = (f: string) => readFileSync(join(__dirname, '..', f), 'utf8');
+    for (const f of ['flows/change/WhichEvent.tsx', 'flows/cancel/WhichEvent.tsx', 'flows/add/WhichEvent.tsx']) {
+      expect(src(f)).toMatch(/import[^;]*\bNoEventsYet\b[^;]*from/);
+      expect(src(f)).not.toContain("'No events yet'");
+    }
+  });
+  it('events with no coming dates still say "No coming dates" on Change', async () => {
+    world.occs[A] = [{ id: 'p1', date: day(-3), status: 'scheduled', version: 1 }];
+    world.series = [series(A, 'Friday Social', world.occs[A])];
+    mount(ORG_PATHS.change, <Route path={ORG_PATHS.change} element={<ChangeFlow step="event" />} />);
+    const box = await screen.findByTestId('change-which-event');
+    expect(box.textContent).toContain('No coming dates');
+    expect(box.textContent).not.toContain('No events yet');
+  });
+});
+
+describe('G1: New event carries the page in ?o= when the login has two pages; an unknown ?o= falls back to the first (A-N8)', () => {
+  beforeEach(() => {
+    try { window.localStorage.clear(); } catch { /* no storage */ }
+    g1TwoPages();
+  });
+  it('Home: the gold New event opens New event for the page on screen', async () => {
+    const { HomePage } = await g1Pages();
+    mount(`${ORG_PATHS.home}?o=org2`, <Route path={ORG_PATHS.home} element={<HomePage />} />);
+    expect((await screen.findByTestId('home-page-name')).textContent).toBe('Second Page');
+    fireEvent.click(await screen.findByTestId('home-new-event'));
+    await waitFor(() => expect(where()).toBe(`${ORG_PATHS.newWhat}?o=org2`));
+  });
+  it('My events (no events): New event opens New event for the chosen page', async () => {
+    const { EventsPage } = await g1Pages();
+    world.series = [];
+    mount(`${ORG_PATHS.events}?o=org2`, <Route path={ORG_PATHS.events} element={<EventsPage />} />);
+    fireEvent.click(await screen.findByTestId('org-events-new'));
+    await waitFor(() => expect(where()).toBe(`${ORG_PATHS.newWhat}?o=org2`));
+  });
+  it('an unknown ?o= falls back to the first page, and New event names that page', async () => {
+    const { HomePage } = await g1Pages();
+    mount(`${ORG_PATHS.home}?o=not-a-page`, <Route path={ORG_PATHS.home} element={<HomePage />} />);
+    expect((await screen.findByTestId('home-page-name')).textContent).toBe('Bachata Nights');
+    fireEvent.click(await screen.findByTestId('home-new-event'));
+    await waitFor(() => expect(where()).toBe(`${ORG_PATHS.newWhat}?o=org1`));
+  });
+});

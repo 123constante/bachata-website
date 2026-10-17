@@ -4,6 +4,7 @@ import { ChevronRight, Users } from 'lucide-react';
 import { OrganiserShell } from '../shell';
 import { ORG_PATHS } from '../shell/paths';
 import { EmptyState, ErrorState, SkeletonRows, StatusTag, initials } from '../ui';
+import { lifecycleTag } from '@/modules/organiser/shared/eventState';
 import type { ProfileEntity } from './profileForm';
 import { useOwnPage } from './useOwnPage';
 
@@ -81,7 +82,7 @@ export default function PageScreen() {
     <OrganiserShell
       title={selected?.name ?? 'Your page'}
       back={{ to: ORG_PATHS.home, label: 'Home' }}
-      topBarEnd={live ? <StatusTag tone="live" testId="page-live-chip">Live</StatusTag> : undefined}
+      topBarEnd={live ? <StatusTag tone="live" testId="page-live-chip">{lifecycleTag('live').label}</StatusTag> : undefined}
       testId="org-page-page"
     >
       {body}

@@ -2,6 +2,8 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { comingDates } from '@/modules/organiser/shared/dateList';
 import { EmptyState, PrimaryButton } from '@/modules/organiser/ui';
+import { listedSeries } from '@/modules/organiser/events/eventsApi';
+import { NoEventsYet } from '../NoEventsYet';
 import { changeableSeries } from './changeModel';
 import { useChangeHome } from './useChange';
 import { Failed, Loading, Step, StepList, StepRow } from './parts';
@@ -18,6 +20,8 @@ export default function WhichEvent() {
         <Failed onRetry={() => void home.refetch()} />
       ) : !home.data ? (
         <Loading />
+      ) : listedSeries(home.data.organisers).length === 0 ? (
+        <NoEventsYet flow="change" />
       ) : list.length === 0 ? (
         <EmptyState
           title="No coming dates"

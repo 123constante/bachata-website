@@ -15,13 +15,17 @@ export function EventStepShell({ seriesId, title, back, children }: { seriesId: 
   );
 }
 
-/** R3-7: someone changed the event first. The one button goes back to it. */
-export function EventConflict({ seriesId }: { seriesId: string }) {
+/**
+ * R3-7: someone changed the event first. The one button goes back to it. The
+ * ONE conflict view of the module (A-S2): every write screen renders this,
+ * `testId` keeps each flow's screens tellable apart (`<testId>-event` on the button).
+ */
+export function EventConflict({ seriesId, testId = 'event-conflict' }: { seriesId: string; testId?: string }) {
   const navigate = useNavigate();
   return (
-    <div className="flex flex-col gap-3" data-testid="event-conflict" role="alert">
+    <div className="flex flex-col gap-3" data-testid={testId} role="alert">
       <p className="text-[16px] font-bold text-[var(--fg)]">{VERSION_CONFLICT}</p>
-      <PrimaryButton testId="event-conflict-event" onClick={() => navigate(ORG_PATHS.event(seriesId), { replace: true })}>
+      <PrimaryButton testId={`${testId}-event`} onClick={() => navigate(ORG_PATHS.event(seriesId), { replace: true })}>
         Open the event
       </PrimaryButton>
     </div>

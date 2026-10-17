@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { OrganiserShell } from '@/modules/organiser/shell/OrganiserShell';
-import { VERSION_CONFLICT } from '@/modules/organiser/shared/copy';
-import { Card, ErrorState, GhostButton, PrimaryButton, SkeletonRows } from '@/modules/organiser/ui';
+import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
+import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
+import { Card, ErrorState, GhostButton, SkeletonRows } from '@/modules/organiser/ui';
 import { cn } from '@/lib/utils';
 
 // The step pieces Add a date and Cancel a date share (S3). `flow` prefixes the
@@ -46,9 +47,9 @@ export const StepList = ({ children, testId }: { children: ReactNode; testId: st
 
 export const Loading = ({ flow }: { flow: FlowName }) => <SkeletonRows count={3} label="Loading" testId={`${flow}-loading`} />;
 
-export const Failed = ({ flow, onRetry }: { flow: FlowName; onRetry: () => void }) => (
-  <ErrorState title="Did not load" onRetry={onRetry} testId={`${flow}-error`} />
-);
+/** A read failed. `error` is the event workspace's: a refusal of this login is NoAccess, with no retry (A-B2). */
+export const Failed = ({ flow, onRetry, error }: { flow: FlowName; onRetry: () => void; error?: unknown }) =>
+  isAccessRefusal(error) ? <NoAccess /> : <ErrorState title="Did not load" onRetry={onRetry} testId={`${flow}-error`} />;
 
 /** A day, date or event this flow cannot use: the reason (dateLock text verbatim) and ONE way on. */
 export function Refusal({ flow, text, back, backLabel }: { flow: FlowName; text: string; back: string; backLabel: string }) {
@@ -68,18 +69,6 @@ export const Missing = ({ flow }: { flow: FlowName }) => (
   <Refusal flow={flow} text="Not found" back={ORG_PATHS.home} backLabel="Back to Home" />
 );
 
-/** R3-7: someone saved this first. One button: the event, to look again. */
-export function Conflict({ flow, seriesId }: { flow: FlowName; seriesId: string }) {
-  const navigate = useNavigate();
-  return (
-    <div className="flex flex-col gap-3" data-testid={`${flow}-conflict`} role="alert">
-      <p className="text-[16px] font-bold text-[var(--fg)]">{VERSION_CONFLICT}</p>
-      <PrimaryButton testId={`${flow}-conflict-event`} onClick={() => navigate(ORG_PATHS.event(seriesId), { replace: true })}>
-        Open the event
-      </PrimaryButton>
-    </div>
-  );
-}
 
 export const ErrorLine = ({ flow, text }: { flow: FlowName; text: string | null }) =>
   text ? <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid={`${flow}-error-message`}>{text}</p> : null;

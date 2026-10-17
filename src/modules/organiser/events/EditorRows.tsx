@@ -6,6 +6,7 @@ import { sessionHeading, sessionSummary } from '@/modules/organiser/shared/sessi
 import { upcomingDates, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 import { ORG_PATHS } from '../shell';
 import { Card, Collapse, DateChip, GhostButton, SkeletonRows, SummaryRow } from '../ui';
+import { CANCELLED_WORD } from '@/modules/organiser/shared/eventState';
 import { shortDate } from './eventModel';
 import { useNextDateProgramme } from './eventsApi';
 import { EVERY_UPCOMING_CANCELLED } from './eventType';
@@ -84,7 +85,7 @@ export function DatesList({ seriesId, dates, today, emptyHint, truncated = false
       className="flex min-h-[60px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left">
       <DateChip date={d.occurrence_date} today={today} />
       <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{shortDate(d.occurrence_date, today)}</span>
-      {d.lifecycle_status === 'cancelled' && <span className="text-[13px] text-[var(--danger)]">Cancelled</span>}
+      {d.lifecycle_status === 'cancelled' && <span className="text-[13px] text-[var(--danger)]">{CANCELLED_WORD}</span>}
       <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
     </button>
   );

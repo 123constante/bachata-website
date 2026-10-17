@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Share2 } from 'lucide-react';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
@@ -25,7 +25,9 @@ export default function AddSomeone() {
   const { organiser, members, viewerRole } = ctx;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [query, setQuery] = useState('');
+  // ?q= prefills the search: Person's "Add them back" lands here on that person (A-N7).
+  const [params] = useSearchParams();
+  const [query, setQuery] = useState(() => params.get('q') ?? '');
   const [limit, setLimit] = useState(BROWSE_PAGE);
   const [error, setError] = useState<string | null>(null);
   const [message, announce] = useAnnounce();
@@ -78,6 +80,8 @@ export default function AddSomeone() {
   };
 
   const faces: Face[] = (browse.data ?? []).filter((f) => !memberIds.has(f.profileId));
+  // "No one found" tests the list the person SEES: hits already on the team are not shown (B-S5).
+  const results = (search.data ?? []).filter((p) => !memberIds.has(p.profileId));
   const tap = (f: { profileId: string; name: string; canAdd?: boolean }) => {
     if (full || add.isPending) return;
     setError(null);
@@ -106,8 +110,13 @@ export default function AddSomeone() {
 
             {term ? (
               <ul className="flex flex-col" data-testid="add-results" aria-busy={search.isFetching}>
-                {search.isError && <li className="text-[14px] text-[var(--mut)]">We could not search just now. Try again.</li>}
-                {(search.data ?? []).filter((p) => !memberIds.has(p.profileId)).map((p) => (
+                {search.isError && (
+                  <li role="alert" className="flex items-center gap-3 text-[14px] text-[var(--mut)]" data-testid="add-search-error">
+                    <span className="min-w-0 flex-1">We could not search just now.</span>
+                    <button type="button" onClick={() => void search.refetch()} className="min-h-[44px] min-w-[44px] shrink-0 rounded-[12px] bg-[var(--card2)] px-[12px] text-[15px] font-semibold text-[var(--fg)]" data-testid="add-search-retry">Retry</button>
+                  </li>
+                )}
+                {results.map((p) => (
                   <li key={p.profileId}>
                     <button type="button" disabled={full || add.isPending} onClick={() => tap({ profileId: p.profileId, name: p.name })} data-testid="add-result" className="flex min-h-[56px] w-full items-center gap-3 px-1 py-2 text-left disabled:opacity-60">
                       <Avatar name={p.name} photoUrl={p.photoUrl} size={40} />
@@ -118,7 +127,7 @@ export default function AddSomeone() {
                     </button>
                   </li>
                 ))}
-                {search.data && search.data.length === 0 && <li className="text-[14px] text-[var(--mut)]" data-testid="add-no-results">No one found. Share an invite link below.</li>}
+                {search.data && results.length === 0 && <li className="text-[14px] text-[var(--mut)]" data-testid="add-no-results">No one found. Share an invite link below.</li>}
               </ul>
             ) : (
               <>

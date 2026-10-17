@@ -49,6 +49,8 @@ export function useChangeDate(seriesId: string, occurrenceId: string) {
     gate,
     detail,
     failed: home.isError || ws.isError || detail.isError,
+    /** The workspace read's error: a refusal of this login is NoAccess (A-B2). */
+    wsError: ws.error,
     retry: () => { void home.refetch(); void ws.refetch(); void detail.refetch(); },
   };
 }

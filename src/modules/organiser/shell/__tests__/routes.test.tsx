@@ -49,15 +49,28 @@ describe('main screens stay mounted on the new paths', () => {
   it.each([
     ['/account/o', 'org-page-home'],
     ['/account/o/switch', 'org-page-switch'],
-    // Done with no router state (a reload) goes Home (S0b Done.tsx).
-    ['/account/o/done', 'org-page-home'],
+    // /account/o/done (no router state goes Home) is pinned once, in the Change block below.
     ['/account/o/events', 'org-page-events'],
     ['/account/o/new/what', 'org-new-what'],
+    // The name step needs its ?format= (without one it goes back to new/what).
+    ['/account/o/new/name?format=recurring', 'org-new-name-step'],
+    ['/account/o/new/s1/venue', 'org-new-venue'],
+    // The date, time and cover steps share the step shell (org-new-step); each is pinned by its own control.
+    ['/account/o/new/s1/date', 'org-new-step'],
+    ['/account/o/new/s1/time', 'org-new-time'],
+    ['/account/o/new/s1/cover', 'org-new-cover-input'],
     ['/account/o/events/s1', 'org-page-event'],
     ['/account/o/events/s1/details', 'org-page-details'],
     ['/account/o/change/s1/o1/lineup', 'org-page-date'],
     ['/account/o/team', 'org-page-team'],
+    ['/account/o/team/add', 'org-page-team-add'],
+    ['/account/o/team/u2', 'org-page-team-person'],
+    ['/account/o/handover', 'org-page-handover'],
+    ['/account/o/handover/u2', 'org-page-handover-confirm'],
     ['/account/o/page', 'org-page-page'],
+    ['/account/o/more', 'org-page-more'],
+    ['/account/o/more/help', 'org-page-help'],
+    ['/account/o/cover/s1', 'org-page-cover'],
   ])('%s renders %s, with no tab bar', async (path, page) => {
     at(path);
     expect(await screen.findByTestId(page, {}, COLD)).toBeTruthy();

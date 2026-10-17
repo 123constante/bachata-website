@@ -17,9 +17,13 @@ import { DatesTakenOff } from './DatesTakenOff';
 import { EventList } from './EventList';
 import { moreLabel, readIsFull, wsCancelledComing, type EventWorkspace } from './eventModel';
 import { useEventWorkspace } from './eventsApi';
+import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
+import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left text-[15px]';
 const MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+const WEEKDAY_HEAD = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 /** The month with dots (D23): this London month, a dot on each day that holds a date. */
 function MonthDots({ ws, today }: { ws: EventWorkspace | undefined; today: string }) {
@@ -32,14 +36,22 @@ function MonthDots({ ws, today }: { ws: EventWorkspace | undefined; today: strin
   return (
     <section aria-label={`${MONTH[m - 1]} ${y}`} data-testid="org-month" className="rounded-[12px] bg-[var(--card)] p-3">
       <p className="pb-2 text-[14px] font-semibold text-[var(--fg)]">{MONTH[m - 1]}</p>
-      <div className="grid grid-cols-7 gap-y-1 text-center text-[12px]">
+      {/* B-S6: the weekday over each column (Monday first); the letter is visual, the full name is read. */}
+      <div className="grid grid-cols-7 pb-1 text-center text-[11px] font-semibold text-[var(--mut)]" data-testid="org-month-weekdays">
+        {WEEKDAY_HEAD.map((w) => (
+          <span key={w}><span aria-hidden="true">{w[0]}</span><span className="sr-only">{w}</span></span>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-y-1 text-center text-[12px]" data-testid="org-month-days">
         {cells.map((d, i) => {
           if (d === null) return <span key={`x${i}`} />;
           const key = `${today.slice(0, 8)}${String(d).padStart(2, '0')}`;
           const status = held.get(key);
           return (
-            <span key={key} className={cn('flex flex-col items-center', key < today ? 'text-[var(--mut)]' : 'text-[var(--fg)]', key === today && 'font-bold')}>
+            <span key={key} data-date={key} className={cn('flex flex-col items-center', key < today ? 'text-[var(--mut)]' : 'text-[var(--fg)]', key === today && 'font-bold')}>
               {d}
+              {/* The dot's state, for a screen reader: the dot itself is decoration. */}
+              {status && <span className="sr-only">{status === 'cancelled' ? ' cancelled' : ' on'}</span>}
               <span aria-hidden="true" data-testid={status ? 'org-month-dot' : undefined}
                 className={cn('mt-[2px] h-[5px] w-[5px] rounded-full', status === 'scheduled' ? 'bg-[var(--gold)]' : status ? 'bg-[var(--mut)]' : 'bg-transparent')} />
             </span>
@@ -155,7 +167,9 @@ export default function OneEvent() {
 
   if (step && ws.data) return <EventStep ws={ws.data} today={today} step={step} />;
 
-  const body = home.isError || ws.isError ? (
+  const body = ws.isError && isAccessRefusal(ws.error) ? (
+    <NoAccess />
+  ) : home.isError || ws.isError ? (
     <ErrorState onRetry={() => { void home.refetch(); void ws.refetch(); }} retrying={home.isFetching || ws.isFetching} testId="org-event-error" />
   ) : !home.data || !ws.data ? (
     <SkeletonRows count={5} label="Loading the event" testId="org-event-loading" />

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { SIGN_OUT_FAILED, useSignOutToHome } from '@/components/account/profiles/signOutToHome';
-import { GhostButton, PrimaryButton, SheetView, useShake } from '../ui';
+import { GhostButton, PrimaryButton, SheetView, useOpenerRef, useShake } from '../ui';
 
 /**
  * Sign out, confirmed, through the shared useSignOutToHome: leave for the site
@@ -11,6 +11,7 @@ export function SignOutSheet({ open, onClose }: { open: boolean; onClose: () => 
   const { signOutToHome, busy } = useSignOutToHome();
   const [note, setNote] = useState<string | null>(null);
   const { shake, shakeProps } = useShake();
+  const opener = useOpenerRef(open);
   const go = async () => {
     setNote(null);
     if ((await signOutToHome()) === 'failed') {
@@ -19,7 +20,7 @@ export function SignOutSheet({ open, onClose }: { open: boolean; onClose: () => 
     }
   };
   return (
-    <SheetView open={open} onOpenChange={(o) => { if (!o) onClose(); }} title="Sign out" testId="signout-sheet">
+    <SheetView open={open} returnFocusRef={opener} onOpenChange={(o) => { if (!o) onClose(); }} title="Sign out" testId="signout-sheet">
       <div className={`space-y-[12px] p-[16px] ${shakeProps.className}`} onAnimationEnd={shakeProps.onAnimationEnd}>
         <p className="text-[15px] text-[var(--fg)]">Sign out of Bachata Calendar on this device?</p>
         {note && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="signout-error">{note}</p>}

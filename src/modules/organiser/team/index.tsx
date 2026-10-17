@@ -53,7 +53,7 @@ export default function TeamPage() {
         ) : ctx.failed ? (
           <ErrorState title="Your team did not load" onRetry={ctx.retry} testId="team-load-error" />
         ) : !organiser ? (
-          <EmptyState title="You don&rsquo;t run an organiser yet" body="A team belongs to an organiser. Claim yours or create one from Home, then your team shows here." testId="team-no-organiser" />
+          <EmptyState title="You don&rsquo;t have a page yet" body="A team belongs to a page. Claim yours or add one from Home, then your team shows here." testId="team-no-organiser" />
         ) : (
           <>
             {(requests.data ?? []).length > 0 && (
@@ -79,7 +79,7 @@ export default function TeamPage() {
               )
             )}
             {me && me.role !== 'owner' && (
-              <Link to={ORG_PATHS.more} data-testid="team-leave" className="flex min-h-[44px] items-center justify-center text-[15px] font-semibold text-[var(--mut)]">Leave this team</Link>
+              <Link to={ORG_PATHS.more} data-testid="team-leave" className="flex min-h-[44px] items-center justify-center text-[15px] font-semibold text-[var(--mut)]">Leave this page</Link>
             )}
           </>
         )}

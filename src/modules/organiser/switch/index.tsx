@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Card, Chip, ErrorState, SkeletonRows } from '../ui';
+import { lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { rememberChoice, useOrganiserChoice } from './useOrganiserChoice';
 
 /**
@@ -66,7 +67,7 @@ export default function SwitchPage() {
                 <span className="block text-[13px] text-[var(--mut)]">{ROLE[o.role] ?? o.role}</span>
               </span>
               {o.lifecycle_status === 'live' && (
-                <span className="rounded-[8px] bg-[var(--ok-bg)] px-[8px] py-[2px] text-[12px] font-semibold text-[var(--ok-fg)]">Live</span>
+                <span className="rounded-[8px] bg-[var(--ok-bg)] px-[8px] py-[2px] text-[12px] font-semibold text-[var(--ok-fg)]">{lifecycleTag('live').label}</span>
               )}
             </button>
           ))}

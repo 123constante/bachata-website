@@ -7,6 +7,9 @@
 // button each row shows and mirrors the server's refusal rules so the screen
 // does not offer what remove_organiser_member_v1 would refuse.
 
+import { londonDateKey } from '@/lib/londonDate';
+import { fullDate } from './dateWords';
+
 export type TeamRole = 'owner' | 'manager' | 'contributor';
 
 export interface TeamMember {
@@ -141,16 +144,16 @@ export function parseRemoval(raw: unknown, fallbackUserId: string): MemberRemova
 export const londonYear = (d: Date) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric' }).format(d);
 
 /**
- * "Sat 3 Oct" for a real instant (created_at, joined_at), on the London
- * calendar, with the year when it is not this year ("Mon 3 Nov 2025"). These
- * are timestamptz, not local-as-Z, so the zone conversion is the right one here.
+ * "Saturday 3 October" for a real instant (created_at, joined_at), on the London
+ * calendar, with the year when it is not this year ("Monday 3 November 2025").
+ * These are timestamptz, not local-as-Z, so the zone conversion (londonDateKey)
+ * is the right one here; the words are the shared formatter's (dateWords.ts).
  */
 export function instantDateLabel(iso: string | null | undefined, now: Date = new Date()): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  const year = londonYear(d) === londonYear(now) ? '' : ` ${londonYear(d)}`;
-  return `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })}${year}`;
+  return fullDate(londonDateKey(d), londonDateKey(now));
 }
 
 /** What an owner can do to one other member, from the owner-only team RPCs. */
@@ -171,7 +174,7 @@ export interface OwnerMoves {
 export function ownerMoves(member: TeamMember, viewerRole: TeamRole): OwnerMoves | null {
   if (viewerRole !== 'owner' || member.isSelf) return null;
   if (member.role === 'owner') {
-    return { changeTo: null, canTransfer: false, note: 'Another owner’s role cannot be changed here. They can transfer ownership, or ask the Bachata Calendar team.' };
+    return { changeTo: null, canTransfer: false, note: 'Another owner\u2019s role cannot be changed here. They can transfer ownership, or ask the Bachata Calendar team.' };
   }
   return { changeTo: member.role === 'manager' ? 'contributor' : 'manager', canTransfer: true, note: null };
 }

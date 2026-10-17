@@ -1,6 +1,8 @@
 // Pure, client-free view model for the organiser home (Lever 2 W2, mockup
 // 01-B with 01-C's attention notice). Input is organiser_home_v1's JSON.
 
+import { fullDate } from './dateWords';
+
 export interface HomeDate {
   occurrence_id: string;
   /** Plain London calendar date, YYYY-MM-DD. */
@@ -56,20 +58,13 @@ export function localAsZTime(iso: string | null | undefined): string | null {
   return match ? `${match[1]}:${match[2]}` : null;
 }
 
-const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
 /**
- * "Tue 6 Oct" for a London calendar date, with the year when it is not
- * today's year ("Wed 6 Oct 2027"), so a date a year away never reads as this
- * one. An unknown `today` ('') always shows the year.
+ * "Tuesday 6 October" for a London calendar date, with the year when it is not
+ * today's year ("Wednesday 6 October 2027"), so a date a year away never reads
+ * as this one. An unknown `today` ('') always shows the year. The words are
+ * shared/dateWords.ts fullDate (one formatter, full names: INT-B S-1).
  */
-export function calendarDate(date: string, today: string): string {
-  const [y, m, d] = date.split('-').map(Number);
-  const day = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-  const year = String(y) === today.slice(0, 4) ? '' : ` ${y}`;
-  return `${WEEKDAY[day]} ${d} ${MONTH[m - 1]}${year}`;
-}
+export const calendarDate = (date: string, today: string): string => fullDate(date, today);
 
 /** calendarDate, or "Tonight" for today's date. */
 export function dateLabel(date: string, today: string): string {

@@ -1,7 +1,8 @@
 import { Navigate, useNavigate } from 'react-router-dom';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { comingDates } from '@/modules/organiser/shared/dateList';
-import { EmptyState, PrimaryButton } from '@/modules/organiser/ui';
+import { lifecycleTag } from '@/modules/organiser/shared/eventState';
+import { NoEventsYet } from '../NoEventsYet';
 import { addBlock, addableSeries } from './addModel';
 import { useFlowHome } from './useFlow';
 import { Failed, Loading, Step, StepList, StepRow } from './parts';
@@ -19,11 +20,7 @@ export default function WhichEvent() {
       ) : !home.data ? (
         <Loading flow="add" />
       ) : list.length === 0 ? (
-        <EmptyState
-          title="No events yet"
-          testId="add-which-event"
-          action={<PrimaryButton testId="add-empty-new" onClick={() => navigate(ORG_PATHS.newWhat)}>New event</PrimaryButton>}
-        />
+        <NoEventsYet flow="add" />
       ) : (
         <StepList testId="add-which-event">
           {list.map((s) => (
@@ -34,7 +31,7 @@ export default function WhichEvent() {
               // A row that cannot work is disabled with its reason (open call S3): 27 of 67 live
               // events sat at the 30-date cap and 7 festivals held their one date on 2026-10-17.
               reason={addBlock(s, undefined, home.data.today)}
-              sub={comingDates(s, home.data.today, 1)[0]?.label ?? (s.lifecycle_status === 'draft' ? 'Draft' : 'No dates')}
+              sub={comingDates(s, home.data.today, 1)[0]?.label ?? (s.lifecycle_status === 'draft' ? lifecycleTag('draft').label : 'No dates')}
               onClick={() => navigate(ORG_PATHS.addEvent(s.id))}
             />
           ))}

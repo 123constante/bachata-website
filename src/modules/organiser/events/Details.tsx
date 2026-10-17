@@ -19,6 +19,8 @@ import {
   type DetailField, type EventDraft, type EventWorkspace, type TextDetail,
 } from './eventModel';
 import { useEventWorkspace } from './eventsApi';
+import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
+import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { ClosedLines } from './ClosedLines';
 
 const TEXT_FIELDS: TextDetail[] = ['name', 'time', 'level', 'music', 'tickets', 'instagram', 'about'];
@@ -156,7 +158,8 @@ export default function Details() {
   return (
     <OrganiserShell title={ws.data?.series.name ?? 'Details'} back={{ to: ORG_PATHS.event(seriesId), label: 'Back' }} testId="org-page-details">
       <div className="flex flex-col gap-3 p-3">
-        {ws.isError ? <ErrorState onRetry={() => void ws.refetch()} retrying={ws.isFetching} testId="org-details-error" />
+        {ws.isError && isAccessRefusal(ws.error) ? <NoAccess />
+          : ws.isError ? <ErrorState onRetry={() => void ws.refetch()} retrying={ws.isFetching} testId="org-details-error" />
           : !ws.data ? <SkeletonRows count={6} label="Loading the details" testId="org-details-loading" />
             : <DetailRows key={ws.data.series.version} ws={ws.data} today={today} />}
       </div>

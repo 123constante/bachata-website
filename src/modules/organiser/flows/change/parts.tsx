@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { OrganiserShell } from '@/modules/organiser/shell/OrganiserShell';
-import { VERSION_CONFLICT } from '@/modules/organiser/shared/copy';
+import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
+import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { Card, ErrorState, GhostButton, PrimaryButton, SkeletonRows } from '@/modules/organiser/ui';
 import { cn } from '@/lib/utils';
 
@@ -43,7 +44,9 @@ export function Loading() {
   return <SkeletonRows count={3} label="Loading" testId="change-loading" />;
 }
 
-export function Failed({ onRetry }: { onRetry: () => void }) {
+/** A read failed. `error` is the event workspace's: a refusal of this login is NoAccess, with no retry (A-B2). */
+export function Failed({ onRetry, error }: { onRetry: () => void; error?: unknown }) {
+  if (isAccessRefusal(error)) return <NoAccess />;
   return <ErrorState title="Did not load" onRetry={onRetry} testId="change-error" />;
 }
 
@@ -79,18 +82,6 @@ export function Missing() {
   );
 }
 
-/** R3-7: someone saved this date first. One button: the event, to look again. */
-export function Conflict({ seriesId }: { seriesId: string }) {
-  const navigate = useNavigate();
-  return (
-    <div className="flex flex-col gap-3" data-testid="change-conflict" role="alert">
-      <p className="text-[16px] font-bold text-[var(--fg)]">{VERSION_CONFLICT}</p>
-      <PrimaryButton testId="change-conflict-event" onClick={() => navigate(ORG_PATHS.event(seriesId), { replace: true })}>
-        Open the event
-      </PrimaryButton>
-    </div>
-  );
-}
 
 /**
  * The Save of a typed step: aria-disabled (still focusable, so a screen

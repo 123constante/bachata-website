@@ -5,7 +5,7 @@ import { finishProfileHref } from '@/lib/profileCompletion';
 import { claimOrganiser, requestOrganiserAccess, type ClaimCandidate } from '@/modules/organiser/shared/selfServeApi';
 import { selfServeErrorCopy, type SelfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
 import { EmailCodeProof } from '../../shared/components/EmailCodeProof';
-import { Field, FIELD_CLASS, PrimaryButton, SheetView, useShake } from '../../ui';
+import { Field, FIELD_CLASS, PrimaryButton, SheetView, useOpenerRef, useShake } from '../../ui';
 import { NewPageFlow, type NewPageStep } from '../../flows/newpage';
 
 export type SheetTask =
@@ -41,6 +41,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
   const [note, setNote] = useState('');
   const [name, setName] = useState('');
   const { shake, shakeProps } = useShake();
+  const opener = useOpenerRef(!!task);
   const ids = useId();
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
@@ -174,6 +175,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
   return (
     <SheetView
       open={!!task}
+      returnFocusRef={opener}
       onOpenChange={(o) => {
         if (!o) close();
       }}

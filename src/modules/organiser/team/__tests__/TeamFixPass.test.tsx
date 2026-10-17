@@ -17,6 +17,7 @@ import HandoverFlow from '../../flows/handover/index';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { shortWallLine } from '../browseApi';
 import { ORG, makeRpc, mountAt, org, row } from './fixtures';
+import { OWNER_ONLY_ADD, ROLE_HELP } from '@/modules/organiser/shared/selfServeErrors';
 
 /** Everything the Team screens and the shell READ; any other RPC (an unknown one too) counts as a write. */
 const READS = new Set([
@@ -75,7 +76,6 @@ describe('S1 the request card does exactly ONE write', () => {
 });
 
 describe('B2 / S2 refusals on add read sensibly', () => {
-  const OWNER_ONLY_ADD = 'Only the owner can add people to this page for now. Ask them to add this person.';
   it('owner_only on the request card (a manager before A1b) says who can add, not "you can see the team and leave it"', async () => {
     myRole = 'manager'; homeRole = 'manager';
     members = [row('me', 'manager', { is_self: true }), row('o', 'owner')];
@@ -118,7 +118,8 @@ describe('S3 the wall never lists a member whose profile id differs from their u
 describe('S4 / N3 one person', () => {
   it('the explainer agrees with D50 (managers add)', async () => {
     mountAt(ORG_PATHS.teamPerson('ana'), routes);
-    expect((await screen.findByTestId('person-explainer')).textContent).toBe('Owners and managers add people. Only the owner removes people, changes roles and hands the page over. Managers edit every event and send it for review.');
+    expect((await screen.findByTestId('person-explainer')).textContent).toBe(ROLE_HELP);
+    expect(ROLE_HELP).toMatch(/^Owners and managers add people\./);
   });
   it('a manager viewing another member: one reason covers role AND remove', async () => {
     myRole = 'manager'; homeRole = 'manager';

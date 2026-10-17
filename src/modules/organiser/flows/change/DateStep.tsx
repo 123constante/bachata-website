@@ -29,7 +29,7 @@ export function DateStep({ title, back, children }: {
   const date = d.gate?.kind === 'ok' ? d.gate.date : null;
 
   let body: ReactNode;
-  if (d.failed) body = <Failed onRetry={d.retry} />;
+  if (d.failed) body = <Failed error={d.wsError} onRetry={d.retry} />;
   else if (!d.gate || !d.ws.data) body = <Loading />;
   else if (d.gate.kind === 'missing' || !d.series) body = <Missing />;
   else if (d.gate.kind === 'refused') body = <Refusal text={d.gate.text} seriesId={seriesId} />;

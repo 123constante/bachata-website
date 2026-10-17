@@ -1,7 +1,7 @@
-import { selfServeErrorCode, teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { OWNER_ONLY_ADD, selfServeErrorCode, teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 
-/** Until A1b lets a manager add (D50), prod refuses a manager's add with owner_only. */
-export const OWNER_ONLY_ADD = 'Only the owner can add people to this page for now. Ask them to add this person.';
+/** owner_only on an add: the ONE string in selfServeErrors (shared with the /page picker, A-S4). */
+export { OWNER_ONLY_ADD };
 /** The request card adds by the requester's user id; a refusal there is not "ask them to sign up" (REVIEW-S6 S2). */
 export const REQUEST_ADD_FAILED = 'We could not add them from here. Ask the Bachata Calendar team.';
 

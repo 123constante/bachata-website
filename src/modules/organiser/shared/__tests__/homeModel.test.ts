@@ -41,8 +41,8 @@ describe('localAsZTime', () => {
 describe('dateLabel', () => {
   it('names today "Tonight" and formats other London dates', () => {
     expect(dateLabel(TODAY, TODAY)).toBe('Tonight');
-    expect(dateLabel('2026-10-06', TODAY)).toBe('Tue 6 Oct');
-    expect(dateLabel('2026-11-01', TODAY)).toBe('Sun 1 Nov');
+    expect(dateLabel('2026-10-06', TODAY)).toBe('Tuesday 6 October');
+    expect(dateLabel('2026-11-01', TODAY)).toBe('Sunday 1 November');
   });
 });
 
@@ -58,7 +58,7 @@ describe('attentionItems', () => {
       TODAY,
     );
     expect(items.map((i) => [i.kind, i.seriesId])).toEqual([['cancelled', 'live'], ['tonight', 'live']]);
-    expect(items[0].text).toContain('Tue 13 Oct');
+    expect(items[0].text).toContain('Tuesday 13 October');
     expect(items[1].text).toContain('at 19:30');
   });
 

@@ -122,8 +122,8 @@ describe('SHOULD-1: a full 100-date read cannot build the stop keep list', () =>
 
 type StatusShape = { name: string; status: string; occs: () => World['occs'][string]; endedOn?: string; lock: boolean; endedLine: string | null; none: RegExp };
 const SHAPES: StatusShape[] = [
-  { name: 'ended', status: 'ended', occs: () => [{ id: 'p1', date: day(-30), status: 'scheduled', version: 1 }], endedOn: '2026-09-05', lock: true, endedLine: 'Ended on Sat 5 Sep', none: /^No coming dates$/ },
-  { name: 'ended, cancelled-only', status: 'ended', occs: () => [{ id: 'c1', date: day(-12), status: 'cancelled', version: 1 }], endedOn: '2026-10-01', lock: true, endedLine: 'Ended on Thu 1 Oct', none: /^No coming dates$/ },
+  { name: 'ended', status: 'ended', occs: () => [{ id: 'p1', date: day(-30), status: 'scheduled', version: 1 }], endedOn: '2026-09-05', lock: true, endedLine: 'Ended on Saturday 5 September', none: /^No coming dates$/ },
+  { name: 'ended, cancelled-only', status: 'ended', occs: () => [{ id: 'c1', date: day(-12), status: 'cancelled', version: 1 }], endedOn: '2026-10-01', lock: true, endedLine: 'Ended on Thursday 1 October', none: /^No coming dates$/ },
   { name: 'archived', status: 'archived', occs: () => [], lock: true, endedLine: null, none: /^No coming dates$/ },
   { name: 'paused, 0 coming dates', status: 'paused', occs: () => [], lock: false, endedLine: null, none: /Resume it to add dates/ },
   { name: 'live, 0 coming dates', status: 'live', occs: () => [], lock: false, endedLine: null, none: /Add a date/ },
@@ -155,7 +155,7 @@ describe('SHOULD-2: the one-event screen says why and what to do, per status sha
     wsOver[PAUSED] = { lifecycle_status: 'ended', ended_on: '2026-09-05' };
     mount(ORG_PATHS.eventDetails(PAUSED), routes);
     expect((await screen.findByTestId('org-detail-lock')).textContent).toBe(eventLock('ended'));
-    expect(screen.getByTestId('org-detail-ended-on').textContent).toBe('Ended on Sat 5 Sep');
+    expect(screen.getByTestId('org-detail-ended-on').textContent).toBe('Ended on Saturday 5 September');
   });
 });
 

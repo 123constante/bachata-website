@@ -125,7 +125,7 @@ describe('dates and scope', () => {
     const note = scopeNote(upcoming, TODAY);
     expect(note.count).toBe(2);
     expect(note.text).toContain('A change here applies to every future date.');
-    expect(note.text).toContain('Tonight (own changes) and Sun 11 Oct (cancelled)');
+    expect(note.text).toContain('Tonight (own changes) and Sunday 11 October (cancelled)');
     expect(scopeNote([], TODAY)).toEqual({ count: 0, text: 'A change here applies to every future date. No date has its own changes yet.' });
   });
 

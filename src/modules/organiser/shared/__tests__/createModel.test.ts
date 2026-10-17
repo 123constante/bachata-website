@@ -217,14 +217,14 @@ describe('previewModel', () => {
   it('reads like the public page for a weekly class', () => {
     const m = previewModel(weeklyForm, 'Studio 3, Battersea Arts Hub', 'Ritmo Bachata London', TODAY);
     expect(m.title).toBe('Tuesday Bachata Class');
-    expect(m.when).toBe('Every Tuesday \u00b7 19:00\u201321:30 \u00b7 first Tue 6 Oct');
+    expect(m.when).toBe('Every Tuesday \u00b7 19:00\u201321:30 \u00b7 first Tuesday 6 October');
     expect(m.where).toBe('Studio 3, Battersea Arts Hub');
     expect(m.by).toBe('Ritmo Bachata London');
     expect(m.coverImageUrl).toBe('https://img.example/a.jpg');
   });
 
   it('reads like the public page for a party, and fills blanks the way the page would', () => {
-    expect(previewModel(partyForm, null, 'Ritmo', TODAY).when).toBe('Sat 17 Oct \u00b7 20:00');
+    expect(previewModel(partyForm, null, 'Ritmo', TODAY).when).toBe('Saturday 17 October \u00b7 20:00');
     // A weekly class starting today: never "first Tonight".
     expect(previewModel({ ...weeklyForm, date: TODAY, endTime: '' }, null, 'Ritmo', TODAY).when).toBe('Every Sunday \u00b7 19:00 \u00b7 first class tonight');
     const empty = previewModel(emptyCreateForm(), null, 'Ritmo', TODAY);

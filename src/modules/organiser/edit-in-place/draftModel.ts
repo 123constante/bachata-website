@@ -72,6 +72,14 @@ export function fieldInPatch(patch: Record<string, unknown>, field: FieldKey): u
   return patch[field] ?? null;
 }
 
+/** One sent value in words for a notice: a city by its name, never its id (N-10). */
+export function sentValueWords(patch: Record<string, unknown>, field: FieldKey, cityNames: Readonly<Record<string, string>>): string {
+  const v = fieldInPatch(patch, field);
+  if (v === null || v === undefined || v === '') return 'empty';
+  if (field === 'city') return cityNames[String(v)] ?? 'the city you picked';
+  return String(v);
+}
+
 /** The stored value of one field, in patch terms. */
 export function storedInPatchTerms(entity: EditBase, field: FieldKey): unknown {
   if (isContactField(field)) {

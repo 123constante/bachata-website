@@ -8,7 +8,8 @@ import { SearchField } from '@/modules/organiser/ui';
 import { DateStep, type DateStepReady } from './DateStep';
 import { venueDoneMessage } from './changeModel';
 import { useChangeSend } from './useChange';
-import { Conflict, Failed, Loading, SaveButton, StepList, StepRow } from './parts';
+import { Failed, Loading, SaveButton, StepList, StepRow } from './parts';
+import { EventConflict } from '../event/parts';
 
 /** C5b: a different venue for this one date. Save only once a different venue is picked. */
 export default function Venue() {
@@ -24,7 +25,7 @@ function VenuePicker({ seriesId, occurrenceId, ws, date, detail }: DateStepReady
   const [q, setQ] = useState('');
   const [picked, setPicked] = useState<string | null>(detail.venueId);
   const { send, fail, busy, conflict, error } = useChangeSend(seriesId, occurrenceId);
-  if (conflict) return <Conflict seriesId={seriesId} />;
+  if (conflict) return <EventConflict seriesId={seriesId} testId="change-conflict" />;
 
   const term = q.trim().toLowerCase();
   const list = (venues.data ?? [])

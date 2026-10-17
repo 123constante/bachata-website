@@ -41,7 +41,7 @@ function JobRow({ job }: { job: Job }) {
           {job.n}
         </span>
         <span className="min-w-0 flex-1">
-          <span data-testid="home-job-title" className="block truncate text-[16px] font-semibold text-[var(--fg)]">{job.title}</span>
+          <span data-testid="home-job-title" className="line-clamp-2 break-words text-[16px] font-semibold leading-[20px] text-[var(--fg)]">{job.title}</span>
           {job.sub && <span data-testid="home-job-sub" className="block truncate text-[13px] text-[var(--warn-fg)]">{job.sub}</span>}
         </span>
       </button>
@@ -49,13 +49,14 @@ function JobRow({ job }: { job: Job }) {
   );
 }
 
-function NewEventButton({ block }: { block: string | null }) {
+/** `pageId`: the page on screen when the login has two or more (New event then keeps it in ?o=). */
+function NewEventButton({ block, pageId }: { block: string | null; pageId: string | null }) {
   const navigate = useNavigate();
   const reasonId = useId();
   return (
     <div className="space-y-[8px]">
       <PrimaryButton
-        onClick={() => navigate(ORG_PATHS.newWhat)}
+        onClick={() => navigate(ORG_PATHS.newWhatFor(pageId))}
         disabled={!!block}
         aria-describedby={block ? reasonId : undefined}
         className="bg-[var(--gold)] text-[var(--btnfg)]"
@@ -167,7 +168,7 @@ export default function HomePage() {
           <ol data-testid="home-jobs" className="overflow-hidden rounded-[16px] border border-[var(--line)] bg-[var(--card)] [&>li:last-child>button]:border-b-0">
             {jobs.map((job) => <JobRow key={`${job.kind}-${job.n}`} job={job} />)}
           </ol>
-          <NewEventButton block={newEventBlock(selected)} />
+          <NewEventButton block={newEventBlock(selected)} pageId={organisers.length > 1 ? selected?.id ?? null : null} />
           <div className="grid grid-cols-2 gap-[8px]" data-testid="home-small-buttons">
             {SMALL_BUTTONS.map((b) => (
               <GhostButton key={b.to} size="sm" onClick={() => navigate(b.to)} testId="home-small">{b.label}</GhostButton>

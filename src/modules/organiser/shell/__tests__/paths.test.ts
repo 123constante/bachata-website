@@ -14,7 +14,7 @@ function evaluate(): Record<string, string> {
     if (typeof value === 'string') out[key] = value;
     else if (key === 'newName') out[key] = (value as (f: string) => string)('recurring');
     else if (key === 'addDate') out[key] = (value as (a: string, b: string) => string)(S, DAY);
-    else if (key === 'teamPerson' || key === 'handoverTo') out[key] = (value as (a: string) => string)(U);
+    else if (key === 'teamPerson' || key === 'handoverTo' || key === 'teamAddFor') out[key] = (value as (a: string) => string)(U);
     else out[key] = (value as (a: string, b: string) => string)(S, O);
   }
   return out;
@@ -40,6 +40,7 @@ describe('ORG_PATHS (v2)', () => {
       cancelEvent: '/account/o/cancel/s%201',
       cancelDate: '/account/o/cancel/s%201/o%2F1',
       newWhat: '/account/o/new/what',
+      newWhatFor: '/account/o/new/what?o=s%201',
       newName: '/account/o/new/name?format=recurring',
       newVenue: '/account/o/new/s%201/venue',
       newDate: '/account/o/new/s%201/date',
@@ -50,6 +51,7 @@ describe('ORG_PATHS (v2)', () => {
       eventDetails: '/account/o/events/s%201/details',
       team: '/account/o/team',
       teamAdd: '/account/o/team/add',
+      teamAddFor: '/account/o/team/add?q=u%201',
       teamPerson: '/account/o/team/u%201',
       handover: '/account/o/handover',
       handoverTo: '/account/o/handover/u%201',
@@ -68,6 +70,11 @@ describe('ORG_PATHS (v2)', () => {
   it('every entry is a string or a function of ids, under ORG_BASE', () => {
     for (const value of Object.values(ORG_PATHS)) expect(['string', 'function']).toContain(typeof value);
     for (const path of Object.values(evaluate())) expect(path.startsWith(ORG_BASE)).toBe(true);
+  });
+
+  it('newWhatFor without a page is the bare New event path (A-N8: one page needs no ?o=)', () => {
+    expect(ORG_PATHS.newWhatFor(null)).toBe(ORG_PATHS.newWhat);
+    expect(ORG_PATHS.newWhatFor(undefined)).toBe(ORG_PATHS.newWhat);
   });
 
   it('newName carries the format in the query, one_off too', () => {

@@ -34,6 +34,8 @@ export const ORG_PATHS = {
 
   /** New event (D44): the format rides in the URL; the server draft is created at the name step. */
   newWhat: `${ORG_BASE}/new/what`,
+  /** New event for one page (`?o=`, the id useOrganiserChoice reads); a login with one page needs none (null). */
+  newWhatFor: (organiserId: string | null | undefined) => (organiserId ? `${ORG_BASE}/new/what?o=${id(organiserId)}` : `${ORG_BASE}/new/what`),
   newName: (format: NewEventFormat) => `${ORG_BASE}/new/name?format=${id(format)}`,
   newVenue: (seriesId: string) => `${ORG_BASE}/new/${id(seriesId)}/venue`,
   newDate: (seriesId: string) => `${ORG_BASE}/new/${id(seriesId)}/date`,
@@ -46,6 +48,8 @@ export const ORG_PATHS = {
 
   team: `${ORG_BASE}/team`,
   teamAdd: `${ORG_BASE}/team/add`,
+  /** Add someone with the search prefilled (Person's "Add them back", A-N7). */
+  teamAddFor: (name: string) => `${ORG_BASE}/team/add?q=${encodeURIComponent(name)}`,
   teamPerson: (userId: string) => `${ORG_BASE}/team/${id(userId)}`,
   handover: `${ORG_BASE}/handover`,
   handoverTo: (userId: string) => `${ORG_BASE}/handover/${id(userId)}`,

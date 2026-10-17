@@ -173,6 +173,31 @@ describe('screens: one question each', () => {
     expect(sent()[0].command.payload).toMatchObject(organiserPart('org2'));
   });
 
+  it('C20 (A-N3): the create key is per name + format; the same name reuses it, an edited name gets a new one', async () => {
+    const base = rpc.getMockImplementation()!;
+    rpc.mockImplementation(async (fn: string, args?: unknown) =>
+      (fn === 'series_command_p5' ? { data: null, error: { message: 'Failed to fetch' } } : base(fn, args)));
+    mount('/account/o/new/name?format=recurring');
+    const tap = async () => {
+      await waitFor(() => expect((screen.getByTestId('org-new-next') as HTMLButtonElement).disabled).toBe(false));
+      fireEvent.click(screen.getByTestId('org-new-next'));
+    };
+    fireEvent.change(await screen.findByTestId('org-new-name'), { target: { value: 'Friday Night' } });
+    await tap();
+    await waitFor(() => expect(sent()).toHaveLength(1));
+    await tap();
+    await waitFor(() => expect(sent()).toHaveLength(2));
+    fireEvent.change(screen.getByTestId('org-new-name'), { target: { value: 'Friday Social' } });
+    await tap();
+    await waitFor(() => expect(sent()).toHaveLength(3));
+    const [a, b, c] = sent();
+    expect(b.idempotency_key).toBe(a.idempotency_key);
+    expect(c.idempotency_key).not.toBe(a.idempotency_key);
+    expect(c.command.payload.name).toBe('Friday Social');
+    // One draft id for the screen: a create that did land under the old name cannot be doubled by the new key.
+    expect(new Set([a.target_id, b.target_id, c.target_id]).size).toBe(1);
+  });
+
   it('C20 without a valid format goes back to the first question and sends nothing', async () => {
     mount('/account/o/new/name?format=course');
     await waitFor(() => expect(where()).toBe('/account/o/new/what'));

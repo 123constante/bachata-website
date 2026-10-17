@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ORGANISER_HOME_KEY, fetchSeriesWorkspace, runSeriesCommand, seriesWorkspaceQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { envelope, newIdempotencyKey } from '@/modules/organiser/shared/seriesCommands';
-import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { commandErrorMessage, isAccessRefusal, isVersionConflict } from '@/modules/organiser/shared/selfServeErrors';
+import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { uploadEventPicture } from '../../events/media';
 import { OrganiserShell } from '../../shell';
 import { ORG_PATHS } from '../../shell/paths';
@@ -54,7 +55,7 @@ export default function CoverFlow() {
       goDone(navigate, coverDone(seriesId));
     } catch (err) {
       // R3-7: someone changed the event first; else never the raw message ("Failed to fetch").
-      if (/version_conflict/i.test(String((err as { message?: unknown } | null)?.message ?? ''))) setConflict(true);
+      if (isVersionConflict(err)) setConflict(true);
       else setError(commandErrorMessage(err));
     } finally {
       setBusy(false);
@@ -67,6 +68,8 @@ export default function CoverFlow() {
         <div className="p-3"><EventConflict seriesId={seriesId} /></div>
       ) : workspace.isPending ? (
         <SkeletonRows count={2} label="Loading" testId="cover-loading" />
+      ) : workspace.isError && isAccessRefusal(workspace.error) ? (
+        <div className="p-3"><NoAccess /></div>
       ) : workspace.isError ? (
         <ErrorState title="This event did not load" onRetry={() => void workspace.refetch()} retrying={workspace.isFetching} testId="cover-load-error" />
       ) : (

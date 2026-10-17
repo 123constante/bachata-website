@@ -6,7 +6,8 @@ import { ORGANISER_HOME_KEY, fetchSeriesWorkspace, runSeriesCommand, seriesWorks
 import { createBlock } from '@/modules/organiser/shared/createModel';
 import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
 import { envelope, newIdempotencyKey, newSeriesId } from '@/modules/organiser/shared/seriesCommands';
-import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { commandErrorMessage, isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
+import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { useVenueOptions, type VenueOption } from '@/modules/organiser/shared/publicVenues';
 import { uploadEventPicture } from '@/modules/organiser/events/media';
 import { useOrganiserChoice } from '@/modules/organiser/profile/useOrganiserChoice';
@@ -104,8 +105,11 @@ function NameStep({ format }: { format: NewEventFormat }) {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Chosen once per screen: a retry after a lost reply replays the same create.
-  const draft = useRef({ seriesId: newSeriesId(), key: newIdempotencyKey() });
+  // The draft id is chosen once per screen. The key is per name + format (A-N3, as Cover keys by URL):
+  // the server replays a stored answer for (actor, key) without comparing the payload, so a retry of
+  // the SAME name replays, and an edited name must not ride the old one's key (it would come back as
+  // the old name). The id stays, so a create that did land cannot be doubled by the new key.
+  const draft = useRef({ seriesId: newSeriesId(), sig: '', key: '' });
   const block = selected ? createBlock(selected) : null;
 
   const next = async () => {
@@ -113,6 +117,8 @@ function NameStep({ format }: { format: NewEventFormat }) {
     setBusy(true);
     setError(null);
     try {
+      const sig = JSON.stringify([name, format]);
+      if (draft.current.sig !== sig) draft.current = { ...draft.current, sig, key: newIdempotencyKey() };
       await runSeriesCommand(envelope(draft.current.seriesId, null, draftCommand(name, format, selected.id), draft.current.key));
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       // replace: Back must not return here and create a second draft.
@@ -210,6 +216,7 @@ function DateStep({ seriesId }: { seriesId: string }) {
   const { send, busy, error, conflict } = useNewSend(seriesId);
   const back = ORG_PATHS.newVenue(seriesId);
   if (draft.isPending) return <Frame title={STEP_TITLE.date} back={back}><SkeletonRows count={4} label="Loading" /></Frame>;
+  if (!draft.data && isAccessRefusal(draft.error)) return <Frame title={STEP_TITLE.date} back={back}><NoAccess /></Frame>;
   if (!draft.data) return <Frame title={STEP_TITLE.date} back={back}><ErrorState onRetry={() => void draft.refetch()} retrying={draft.isFetching} /></Frame>;
   const format: NewEventFormat = draft.data.series.format === 'one_off' ? 'one_off' : 'recurring';
   const pick = async (date: string) => {

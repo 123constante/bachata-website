@@ -102,8 +102,8 @@ describe('access requests (D4 incoming rows)', () => {
   });
 
   it('dates a real instant on the London calendar', () => {
-    // 23:30 UTC on 3 Oct is 00:30 BST on Sat 4 Oct.
-    expect(instantDateLabel('2026-10-03T23:30:00+00:00')).toBe('Sun 4 Oct');
+    // 23:30 UTC on 3 Oct is 00:30 BST on Saturday 4 October.
+    expect(instantDateLabel('2026-10-03T23:30:00+00:00')).toBe('Sunday 4 October');
     expect(instantDateLabel(null)).toBeNull();
     expect(instantDateLabel('garbage')).toBeNull();
   });

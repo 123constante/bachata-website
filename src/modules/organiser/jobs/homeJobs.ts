@@ -5,6 +5,7 @@
 import { londonDateKey, londonDaysBetweenKeys, parseUtcIso } from '@/lib/londonDate';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { isListedSeries, type HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
+import { CANCELLED_WORD, isClosed, lifecycleTag } from '@/modules/organiser/shared/eventState';
 import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { parseTeam, type IncomingAccessRequest } from '@/modules/organiser/shared/teamModel';
 
@@ -45,8 +46,9 @@ function seriesProblems(series: HomeSeriesFull, today: string): SeriesProblem[] 
 
 function draftLabel(series: HomeSeriesFull, today: string): string {
   const age = draftAgeDays(series, today);
-  if (!age || age < 1) return 'Draft';
-  return `Draft, ${age} ${age === 1 ? 'day' : 'days'}`;
+  const word = lifecycleTag('draft').label;
+  if (!age || age < 1) return word;
+  return `${word}, ${age} ${age === 1 ? 'day' : 'days'}`;
 }
 
 /** The words for a problem: the Home row's sub-line AND the My events chip. */
@@ -58,15 +60,22 @@ function problemLabel(problem: SeriesProblem, series: HomeSeriesFull, today: str
   }
 }
 
-const LIFECYCLE_CHIP: Record<string, string> = { live: 'Live', paused: 'Paused', ended: 'Ended', archived: 'Archived' };
+/** Every coming date is cancelled (dancers see the cancellation): what an open event's chip says first. */
+const cancelledOnly = (series: HomeSeriesFull) =>
+  !isClosed(series.lifecycle_status) && series.upcoming_count <= 0 && series.cancelled_upcoming_count > 0;
 
-/** My events' chip for a series: its first Home problem, else its plain state (D22: Live is the one status mark). */
+/**
+ * My events' (and One event's) chip for a series: CANCELLED_WORD when every coming
+ * date is cancelled (decision 3, INT-B N-9: it outranks every Home problem), else
+ * its first Home problem, else its plain state in the shared words (lifecycleTag,
+ * the date page's too; D22: Live is the one status mark).
+ */
 export function seriesChip(series: HomeSeriesFull, today: string): { label: string; tone: 'ok'|'bad'|'n' } {
+  if (cancelledOnly(series)) return { label: CANCELLED_WORD, tone: 'bad' };
   const [first] = seriesProblems(series, today);
   if (first) return { label: problemLabel(first, series, today), tone: 'bad' };
   if (series.lifecycle_status === 'draft') return { label: draftLabel(series, today), tone: 'n' };
-  if (series.lifecycle_status === 'live') return { label: 'Live', tone: 'ok' };
-  return { label: LIFECYCLE_CHIP[series.lifecycle_status] ?? series.lifecycle_status, tone: 'n' };
+  return { label: lifecycleTag(series.lifecycle_status).label, tone: series.lifecycle_status === 'live' ? 'ok' : 'n' };
 }
 
 const PROBLEM_TO: Record<SeriesProblem, (seriesId: string) => string> = {
