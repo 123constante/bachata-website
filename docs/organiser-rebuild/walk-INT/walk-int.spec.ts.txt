@@ -1,0 +1,106 @@
+import { test, type Page } from '@playwright/test';
+import { mkdirSync, appendFileSync } from 'node:fs';
+import { ORG, ME, FRIDAY, PHONE, openOrganiser, setKeyboard, type OrganiserFake, type Member } from '../helpers/organiserFake';
+
+// R-INT-B walk (reviewer-only, not committed): every organiser screen x prod shape at 390x844,
+// against the PRODUCTION build. Writes screenshots + a JSONL of measurements.
+const OUT = 'docs/organiser-rebuild/walk-INT';
+const LOG = `${OUT}/measure.jsonl`;
+mkdirSync(OUT, { recursive: true });
+test.use({ viewport: PHONE });
+
+const tm = (n: number): Member[] => Array.from({ length: n }, (_, i) => ({
+  user_id: i === 0 ? ME : `${String(i + 6).repeat(8)}-0000-4000-8000-00000000000${i}`.slice(0, 36),
+  member_role: i === 0 ? 'owner' : 'manager', is_primary: i === 0, email: i === 0 ? 'diego@ritmo.example' : `p${i}@x.example`, display_name: i === 0 ? 'Diego R.' : `Person ${i}`,
+}));
+
+type Setup = (f: OrganiserFake) => void;
+const org = (f: OrganiserFake) => f.organisers[0];
+const clear = (f: OrganiserFake) => { for (const id of org(f).series) f.series.delete(id); org(f).series = []; };
+const SHAPES: Record<string, Setup> = {
+  default: () => {},
+  zero_team1: (f) => { clear(f); org(f).team = tm(1); org(f).requests = []; },
+  one_team1: (f) => { clear(f); org(f).team = tm(1); org(f).requests = []; f.addSeries(org(f), { id: FRIDAY, name: 'Friday Bachata', default_start_date: '2026-10-09', recurrence_rule: { mode: 'weekly', weekdays: [5], end: { kind: 'none' } } }); },
+  ten_team5: (f) => {
+    clear(f); org(f).team = tm(5);
+    f.addSeries(org(f), { id: FRIDAY, name: 'Friday Bachata', default_start_date: '2026-10-09', recurrence_rule: { mode: 'weekly', weekdays: [5], end: { kind: 'none' } } });
+    for (let i = 2; i <= 12; i++) f.addSeries(org(f), { id: `b0000000-0000-4000-8000-0000000001${String(i).padStart(2, '0')}`, name: `Series number ${i} with a long-ish name`, default_start_date: '2026-10-1' + (i % 9), recurrence_rule: { mode: 'weekly', weekdays: [i % 7], end: { kind: 'none' } } });
+  },
+  states: (f) => {
+    clear(f); org(f).team = tm(2);
+    f.addSeries(org(f), { id: FRIDAY, name: 'Ended weekly', lifecycle_status: 'ended', ended_on: '2026-09-05', default_start_date: '2026-06-05', recurrence_rule: { mode: 'weekly', weekdays: [5], end: { kind: 'until_date', date: '2026-09-04' } } });
+    f.addSeries(org(f), { id: 'b0000000-0000-4000-8000-000000000201', name: 'Paused Sundays', lifecycle_status: 'paused', default_start_date: '2026-10-11', recurrence_rule: { mode: 'weekly', weekdays: [0], end: { kind: 'none' } } });
+    f.addSeries(org(f), { id: 'b0000000-0000-4000-8000-000000000202', name: 'Cancelled one-off', format: 'one_off', default_start_date: '2026-10-20', cancelled: { '2026-10-20': 'Venue unavailable' } });
+    f.addSeries(org(f), { id: 'b0000000-0000-4000-8000-000000000203', name: 'Summer Festival', format: 'festival', category: 'festival', default_start_date: '2026-11-06', extra_dates: ['2026-11-07', '2026-11-08'] });
+    f.addSeries(org(f), { id: 'b0000000-0000-4000-8000-000000000204', name: 'Beginners Course', format: 'course', default_start_date: '2026-10-13', extra_dates: ['2026-10-20', '2026-10-27'] });
+  },
+};
+const SCREENS = ['', 'events', `events/${FRIDAY}`, `events/${FRIDAY}/details`, 'team', 'team/add', `team/${ME}`, 'handover', 'page', 'more', 'more/help', 'switch', 'change', `change/${FRIDAY}`, 'add', `add/${FRIDAY}`, 'cancel', `cancel/${FRIDAY}`, 'new/what', 'new/name', `cover/${FRIDAY}`];
+
+async function measure(page: Page) {
+  return page.evaluate(() => {
+    const vw = document.documentElement.clientWidth;
+    const hscroll = document.documentElement.scrollWidth - vw;
+    const sel = 'a[href],button,input:not([type=hidden]),select,textarea,[role=button],[role=link],[role=tab],[role=switch],[role=checkbox],[role=radio],[role=menuitem],summary,label[for]';
+    const small: string[] = [];
+    const clipped: string[] = [];
+    const fixed = [...document.querySelectorAll('body *')].filter((e) => { const s = getComputedStyle(e); return (s.position === 'fixed' || s.position === 'sticky') && e.getBoundingClientRect().height > 0 && e.getBoundingClientRect().height < 400; });
+    const fixedRects = fixed.map((e) => ({ r: e.getBoundingClientRect(), e }));
+    const covered: string[] = [];
+    const name = (e: Element) => `${e.tagName.toLowerCase()}[${(e.getAttribute('data-testid') || e.getAttribute('aria-label') || (e.textContent || '').trim().slice(0, 40)).replace(/\s+/g, ' ')}]`;
+    for (const e of document.querySelectorAll(sel)) {
+      const r = e.getBoundingClientRect();
+      const st = getComputedStyle(e);
+      if (r.width === 0 || r.height === 0 || st.visibility === 'hidden') continue;
+      if (e.closest('header') && !e.closest('[data-testid^=org]')) { /* site chrome still measured */ }
+      if (r.width < 44 || r.height < 44) small.push(`${name(e)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+      // covered: centre point hits a fixed/sticky element that is not an ancestor/descendant
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      if (cy > 0 && cy < innerHeight) {
+        const hit = document.elementFromPoint(cx, cy);
+        if (hit && !e.contains(hit) && !hit.contains(e)) {
+          const f = fixedRects.find(({ e: fe }) => fe.contains(hit) && !fe.contains(e));
+          if (f) covered.push(`${name(e)} under ${name(f.e)}`);
+        }
+      }
+    }
+    for (const e of document.querySelectorAll('main *, [role=dialog] *')) {
+      const h = e as HTMLElement;
+      if (!h.childElementCount && (h.textContent || '').trim() && (h.scrollWidth > h.clientWidth + 1) && getComputedStyle(h).overflow !== 'visible') clipped.push(`${name(h)} ${h.scrollWidth}>${h.clientWidth}`);
+    }
+    return { hscroll, small, covered, clipped, h1: [...document.querySelectorAll('h1')].map((h) => (h.textContent || '').trim().slice(0, 50)) };
+  });
+}
+
+for (const [shape, setup] of Object.entries(SHAPES)) {
+  for (const screen of SCREENS) {
+    test(`${shape} /${screen}`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message.slice(0, 120)));
+      await openOrganiser(page, `/account/o/${screen}`, {}, setup);
+      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForTimeout(800);
+      const slug = `${shape}__${screen.replace(/[^a-z0-9]+/gi, '_').replace(/_[0-9a-f]{8}_0000_4000_8000_[0-9a-f]+/g, '_ID') || 'home'}`;
+      await page.screenshot({ path: `${OUT}/${slug}.png`, fullPage: true });
+      const m = await measure(page);
+      const url = new URL(page.url()).pathname;
+      // keyboard-open: every visible text field, focus + 300px keyboard, is it above the keyboard and not covered?
+      const kb: string[] = [];
+      const fields = page.locator('input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=file]), textarea');
+      const n = Math.min(await fields.count(), 8);
+      for (let i = 0; i < n; i++) {
+        const fl = fields.nth(i);
+        if (!(await fl.isVisible())) continue;
+        await fl.focus();
+        await setKeyboard(page, 336);
+        await page.waitForTimeout(400);
+        const r = await fl.evaluate((e) => { const b = e.getBoundingClientRect(); const vh = window.visualViewport!.height; const hit = document.elementFromPoint(b.left + b.width / 2, Math.min(b.bottom - 2, innerHeight - 1)); return { top: Math.round(b.top), bottom: Math.round(b.bottom), vh: Math.round(vh), hit: hit && (e === hit || e.contains(hit)), id: e.getAttribute('data-testid') || e.getAttribute('aria-label') || e.getAttribute('name') || e.id }; });
+        if (r.bottom > r.vh || r.top < 0 || !r.hit) kb.push(`${r.id} top${r.top} bottom${r.bottom} visible-h${r.vh} hitSelf=${r.hit}`);
+        if (i === 0) await page.screenshot({ path: `${OUT}/${slug}__kb.png` });
+        await setKeyboard(page, 0);
+      }
+      appendFileSync(LOG, JSON.stringify({ shape, screen, url, ...m, kb, fields: n, errors }) + '\n');
+    });
+  }
+}
