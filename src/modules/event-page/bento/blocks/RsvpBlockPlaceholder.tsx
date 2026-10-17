@@ -3,7 +3,9 @@ import type { CSSProperties } from 'react';
 // Mirrors RsvpBlock's box, ghost buttons and meta line so the Suspense fallback is
 // the same size (no layout shift when the lazy chunk lands). Copied, not shared:
 // RsvpBlock importing anything that lives only in the event route chunk splits
-// that chunk and adds a first-load request. rsvpBlock.test.tsx pins the match.
+// that chunk and adds a first-load request. rsvpBlock.test.tsx pins the match,
+// for an open night and for the dancer-area profile lock (its reason and link sit
+// inline in the same meta line, so the box is this one either way).
 const RSVP_SECTION_CLASS = 'mt-3 rounded-[18px] border p-3';
 const RSVP_SECTION_STYLE: CSSProperties = {
   background: 'hsl(var(--bento-surface-raised))',
