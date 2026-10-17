@@ -128,7 +128,7 @@ describe('screens: one question each', () => {
     expect(screen.getByTestId('org-new-leave').textContent).toBe('Leave');
     fireEvent.click(screen.getByTestId('org-new-format-one_off'));
     await waitFor(() => expect(where()).toBe('/account/o/new/name?format=one_off'));
-    expect(rpc).not.toHaveBeenCalled();
+    expect(sent()).toHaveLength(0);
   });
 
   it('C20 name: Next is off with a reason until a name is typed, then sends ONE create and replaces the entry', async () => {
@@ -146,7 +146,7 @@ describe('screens: one question each', () => {
     const calls = sent();
     expect(calls).toHaveLength(1);
     expect(calls[0].command.kind).toBe('series.upsert');
-    expect(calls[0].expected_version).toBeNull();
+    expect(calls[0].expected_version).toBeUndefined();
     expect(calls[0].idempotency_key).toBeTruthy();
     expect(Object.keys(calls[0].command.payload).sort()).toEqual(['format', 'name', 'organiser_ids', 'timezone']);
   });
