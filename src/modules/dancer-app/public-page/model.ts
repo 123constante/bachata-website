@@ -22,18 +22,107 @@ export const NO_EXTRAS: PublicPageExtras = { bio: null, languages: [], whatsapp:
  * wa.me wants digits only, country code first. The save RPC accepts local
  * numbers too, and this is a UK site, so a number with no "+" that starts "00"
  * drops the 00, and one that starts with a single "0" is read as UK (0 -> 44).
- * Fewer than 7 digits is not a phone number: no button.
+ * The UK habit "+44 (0)7700..." drops the "(0)", and "+44 07700..." its stray 0.
+ * Anything it cannot normalise gets NO button rather than a wrong link: letters
+ * or other symbols ("ext 5"), no "+" / "00" / "0" prefix (country unknown), or
+ * fewer than 7 / more than 15 digits (E.164).
  */
 export const whatsappHref = (raw: string | null): string | null => {
   if (!raw) return null;
   const trimmed = raw.trim();
-  let digits = trimmed.replace(/\D/g, '');
-  if (!trimmed.startsWith('+')) {
-    if (digits.startsWith('00')) digits = digits.slice(2);
-    else if (digits.startsWith('0')) digits = `44${digits.slice(1)}`;
-  }
-  return digits.length >= 7 ? `https://wa.me/${digits}` : null;
+  if (!/^[+\d\s().\-/]+$/.test(trimmed)) return null;
+  const international = trimmed.startsWith('+') || trimmed.startsWith('00');
+  let digits = (international ? trimmed.replace(/\(\s*0\s*\)/g, '') : trimmed).replace(/\D/g, '');
+  if (trimmed.startsWith('+')) {
+    // nothing to strip
+  } else if (digits.startsWith('00')) digits = digits.slice(2);
+  else if (digits.startsWith('0')) digits = `44${digits.slice(1)}`;
+  else return null;
+  if (digits.startsWith('440')) digits = `44${digits.slice(3)}`;
+  return digits.length >= 7 && digits.length <= 15 ? `https://wa.me/${digits}` : null;
 };
+
+/** Built lazily: Intl.DisplayNames is missing on very old browsers (then only FALLBACK_LANGUAGE_NAMES apply). */
+let displayNames: Intl.DisplayNames | null | undefined;
+let knownNames: Map<string, string> | undefined;
+
+/** The codes prod stores today (survey 2026-10-17) plus the commonest, for a browser without Intl.DisplayNames. */
+const FALLBACK_LANGUAGE_NAMES: Record<string, string> = {
+  en: 'English', es: 'Spanish', it: 'Italian', de: 'German', fr: 'French', pt: 'Portuguese', pl: 'Polish',
+};
+
+const languageNamer = (): Intl.DisplayNames | null => {
+  if (displayNames === undefined) {
+    try {
+      displayNames = new Intl.DisplayNames(['en'], { type: 'language', fallback: 'none' });
+    } catch {
+      displayNames = null;
+    }
+  }
+  return displayNames;
+};
+
+const nameOfCode = (code: string): string | null => {
+  const lower = code.toLowerCase();
+  const namer = languageNamer();
+  if (!namer) return FALLBACK_LANGUAGE_NAMES[lower] ?? null;
+  try {
+    const name = namer.of(lower);
+    return name && name.toLowerCase() !== lower ? name : null;
+  } catch {
+    return null;
+  }
+};
+
+/** lower-case English name -> its spelling, for every 2-letter code Intl can name (a stored "english" still reads "English"). */
+const languageNameIndex = (): Map<string, string> => {
+  if (!knownNames) {
+    knownNames = new Map();
+    const letters = 'abcdefghijklmnopqrstuvwxyz';
+    for (const a of letters) {
+      for (const b of letters) {
+        const name = nameOfCode(a + b);
+        if (name) knownNames.set(name.toLowerCase(), name);
+      }
+    }
+    for (const name of Object.values(FALLBACK_LANGUAGE_NAMES)) knownNames.set(name.toLowerCase(), name);
+  }
+  return knownNames;
+};
+
+/**
+ * One stored language value -> the name the page shows, or null = hide it.
+ * Prod stores ISO codes ("en", "es"; also accepted: "ES", "pt-BR", "pt_BR"); an
+ * older save may hold the English name ("English"). A code Intl cannot name
+ * ("xx", "zz-QQ") or free text that is not a language name is never shown raw.
+ */
+export const languageName = (raw: unknown): string | null => {
+  if (typeof raw !== 'string') return null;
+  const value = raw.trim();
+  if (!value) return null;
+  if (/^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$/.test(value)) {
+    const fromCode = nameOfCode(value.replace(/_/g, '-'));
+    if (fromCode) return fromCode;
+  }
+  return languageNameIndex().get(value.toLowerCase()) ?? null;
+};
+
+/** Every stored value mapped to a name, unknowns dropped, each name once (first-seen order). */
+export const languageNames = (raw: readonly unknown[]): string[] => {
+  const out: string[] = [];
+  for (const value of raw) {
+    const name = languageName(value);
+    if (name && !out.includes(name)) out.push(name);
+  }
+  return out;
+};
+
+/**
+ * The share-sheet title for a profile with no public name (2 live on prod,
+ * 2026-10-17). Owner decision (F18): keep this neutral wording, never an id or a
+ * guessed name; one constant so the page and the tests cannot drift.
+ */
+export const NAMELESS_SHARE_TITLE = 'Dancer on Bachata Calendar';
 
 /** The same five bands today's Experience tile uses (DancerProfileGrid). */
 export const experienceLevel = (years: number): string => {
@@ -72,6 +161,8 @@ export type ContactLink = { kind: 'instagram' | 'facebook' | 'website' | 'email'
 export type PublicDancerPageModel = {
   /** The heading. "Dancer" only when no real name resolves (the head is still noindexed by the loader). */
   name: string;
+  /** What the share sheet is titled: "<name> on Bachata Calendar", or NAMELESS_SHARE_TITLE. */
+  shareTitle: string;
   avatarUrl: string | null;
   nationalityCode: string | null;
   /** "London, middle dot, Spain", or null. */
@@ -128,13 +219,14 @@ export const buildPublicDancerPage = (
 
   return {
     name,
+    shareTitle: view.displayName ? `${view.displayName} on Bachata Calendar` : NAMELESS_SHARE_TITLE,
     avatarUrl: view.avatarUrl,
     nationalityCode: view.nationalityCode,
     // Today prints the nationality only next to a city; v2 shows whichever exists.
     place: [view.city, view.nationality].filter(Boolean).join(' \u00b7 ') || null,
     role: view.partnerRole,
     bio: extras.bio?.trim() || null,
-    languages: clean(extras.languages),
+    languages: languageNames(extras.languages),
     whatsappHref: wa,
     experience: Number.isFinite(years) && years >= 0 ? { years, level: experienceLevel(years) } : null,
     contacts,

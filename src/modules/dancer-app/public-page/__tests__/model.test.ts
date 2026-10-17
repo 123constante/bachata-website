@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mapDancerPublicProfile } from '@/modules/profile/dancerPublicProfile';
-import { type PublicPageExtras, NO_EXTRAS, SHARE_MESSAGES, buildPublicDancerPage, joinHref, shareDancerPage, whatsappHref } from '../model';
+import { type PublicPageExtras, NAMELESS_SHARE_TITLE, NO_EXTRAS, SHARE_MESSAGES, buildPublicDancerPage, joinHref, shareDancerPage, whatsappHref } from '../model';
 import { EXTRAS, SHAPES } from './shapes';
 
 const page = (key: keyof typeof SHAPES, extras = NO_EXTRAS) => {
@@ -64,6 +64,17 @@ describe('public page v2 model, by shape', () => {
     expect(page('photoless', EXTRAS.manyLanguages).languages).toEqual(['English', 'Spanish', 'Portuguese', 'French', 'Italian', 'Polish']);
   });
 
+  // F4: prod stores ISO codes. Codes become names; a code Intl cannot name is hidden, never shown raw.
+  it.each([
+    ['ISO codes (prod shape)', EXTRAS.isoCodes, ['English', 'Spanish', 'Italian', 'German']],
+    ['unknown codes and garbage', EXTRAS.unknownCodes, []],
+    ['code + stored full name + region, deduped', EXTRAS.mixed, ['English', 'Spanish', 'Brazilian Portuguese']],
+    ['full names already stored', EXTRAS.full, ['English', 'Spanish']],
+    ['none', NO_EXTRAS, []],
+  ] as [string, PublicPageExtras, string[]][])('languages: %s', (_n, extras, expected) => {
+    expect(page('photoless', extras).languages).toEqual(expected);
+  });
+
   it.each([
     ['WhatsApp on (RPC returned a number)', EXTRAS.full, 'https://wa.me/447700900123'],
     ['WhatsApp off (RPC returned null)', NO_EXTRAS, null],
@@ -84,6 +95,20 @@ describe('public page v2 model, by shape', () => {
   });
 });
 
+describe('share title (F18)', () => {
+  it('NAMELESS_SHARE_TITLE is pinned', () => {
+    expect(NAMELESS_SHARE_TITLE).toBe('Dancer on Bachata Calendar');
+  });
+
+  it.each([
+    ['nameless', NAMELESS_SHARE_TITLE],
+    ['complete + all extras', 'Carla Ruiz on Bachata Calendar'],
+    ['surname hidden', 'Fay on Bachata Calendar'],
+  ] as const)('%s shares as %s', (key, title) => {
+    expect(page(key).shareTitle).toBe(title);
+  });
+});
+
 describe('helpers', () => {
   it('whatsappHref keeps digits only', () => {
     expect(whatsappHref('+44 7700 900-123')).toBe('https://wa.me/447700900123');
@@ -91,6 +116,28 @@ describe('helpers', () => {
     // The save RPC accepts local numbers; this is a UK site.
     expect(whatsappHref('07123 456789')).toBe('https://wa.me/447123456789');
     expect(whatsappHref('0034 612 345 678')).toBe('https://wa.me/34612345678');
+  });
+
+  // F16: a "(0)" after the country code is dropped; a number it cannot normalise gets no button.
+  it.each([
+    ['+44 7700 900123', 'https://wa.me/447700900123'],
+    ['+44 (0)7700 900123', 'https://wa.me/447700900123'],
+    ['+44(0)7700900123', 'https://wa.me/447700900123'],
+    ['0044 (0)7700 900123', 'https://wa.me/447700900123'],
+    ['07700 900123', 'https://wa.me/447700900123'],
+    ['+34 612 345 678', 'https://wa.me/34612345678'],
+    ['+44 07700 900123', 'https://wa.me/447700900123'],
+    ['+1 415 555 0100 2222 333', null],
+    ['7700900123', null],
+    ['12', null],
+    ['+44 12', null],
+    ['call me', null],
+    ['07700 9001ab', null],
+    ['+44 7700 900123 ext 5', null],
+    ['', null],
+    ['   ', null],
+  ] as [string, string | null][])('whatsappHref(%j) = %s', (raw, href) => {
+    expect(whatsappHref(raw)).toBe(href);
   });
 
   it('joinHref returns to the same page after sign-in', () => {

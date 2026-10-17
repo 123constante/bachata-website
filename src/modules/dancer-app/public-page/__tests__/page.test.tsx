@@ -11,7 +11,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { installJsdomPolyfills } from '../../../../../tests/client/jsdomPolyfills';
-import { NO_EXTRAS, type PublicPageV2Data } from '../model';
+import { NAMELESS_SHARE_TITLE, NO_EXTRAS, type PublicPageV2Data } from '../model';
 import { EXTRAS, SHAPES, type ShapeKey } from './shapes';
 
 const h = vi.hoisted(() => ({
@@ -201,6 +201,17 @@ describe('Share', () => {
     expect(share).toHaveBeenCalledWith({ title: 'Maria-Fernanda Alejandra de los Santos on Bachata Calendar', url: `${window.location.origin}/dancers/long-name` });
   });
 
+  // F18: a nameless profile shares under the one documented constant, never "undefined" or an id.
+  it('nameless: shares as NAMELESS_SHARE_TITLE ("Dancer on Bachata Calendar")', async () => {
+    const share = vi.fn(async () => undefined);
+    setNav(share, null);
+    mount('nameless', { extrasOk: true, extras: NO_EXTRAS });
+    await settle();
+    await act(async () => { fireEvent.click(q('dancer-share')!); });
+    expect(NAMELESS_SHARE_TITLE).toBe('Dancer on Bachata Calendar');
+    expect(share).toHaveBeenCalledWith({ title: NAMELESS_SHARE_TITLE, url: `${window.location.origin}/dancers/nameless` });
+  });
+
   it('no share sheet: copies the link and says so', async () => {
     const writeText = vi.fn(async () => undefined);
     setNav(undefined, writeText);
@@ -226,6 +237,28 @@ describe('views and names', () => {
     mount('complete + all extras', { extrasOk: true, extras: EXTRAS.full });
     await settle();
     expect(h.rpcCalls.filter((n) => /view/.test(n))).toEqual([]);
+  });
+
+  // F6: the portrait is above the fold, so it loads eagerly (check:images needs an explicit loading attr).
+  it('the portrait image loads eagerly', async () => {
+    mount('long name', { extrasOk: true, extras: NO_EXTRAS });
+    await settle();
+    const portrait = screen.getAllByRole('img').find((el) => el.getAttribute('alt') === 'Maria-Fernanda Alejandra de los Santos');
+    expect(portrait?.getAttribute('loading')).toBe('eager');
+  });
+
+  // F4: prod stores ISO codes; the chips show names, and unknown codes never appear raw.
+  it('language codes render as names; unknown codes are hidden', async () => {
+    mount('photoless', { extrasOk: true, extras: { ...NO_EXTRAS, languages: ['en', 'es', 'xx'] } });
+    await settle();
+    const chips = Array.from(q('dancer-languages')!.querySelectorAll('li')).map((li) => li.textContent);
+    expect(chips).toEqual(['English', 'Spanish']);
+  });
+
+  it('only unknown language codes: no Speaks section at all', async () => {
+    mount('photoless', { extrasOk: true, extras: EXTRAS.unknownCodes });
+    await settle();
+    expect(q('dancer-languages')).toBeNull();
   });
 
   it('surname hidden: no surname on screen', async () => {

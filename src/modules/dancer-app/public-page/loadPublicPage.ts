@@ -15,8 +15,11 @@ import { NO_EXTRAS, type PublicPageV2Data } from './model';
  *   archived) cannot happen for a page that renders: anon RLS on dancer_profiles
  *   uses the same visibility predicate, so the loader has already 404'd.
  *
- * Both reads start at once (the loader also starts this beside its own profile
- * read); when the flag is closed the extras answer is dropped.
+ * The two reads are SEQUENCED (F17): the extras are read only after the flag
+ * says open, so a closed flag (or a failed flag read) never fetches bio /
+ * languages / WhatsApp at all. The deadline is ONE budget for the pair: the
+ * extras read gets whatever the flag read left of it. (The loader still starts
+ * this whole call beside its own profile read.)
  */
 export const PUBLIC_PAGE_DEADLINE_MS = 2500;
 
@@ -34,15 +37,19 @@ const withDeadline = <T>(work: Promise<T>, ms: number): Promise<T> => {
 };
 
 export const loadPublicPageV2 = async (profileId: string, deadlineMs = PUBLIC_PAGE_DEADLINE_MS): Promise<PublicPageLoad> => {
-  const [gate, extras] = await Promise.allSettled([
-    withDeadline(fetchGateRaw(), deadlineMs),
-    withDeadline(fetchPublicExtras(profileId), deadlineMs),
-  ]);
-  if (gate.status !== 'fulfilled') return { page: null, degraded: true };
-  if (!gate.value.open) return { page: null, degraded: false };
-  const extrasOk = extras.status === 'fulfilled';
-  return {
-    page: { extras: extrasOk && extras.value ? extras.value : NO_EXTRAS, extrasOk },
-    degraded: !extrasOk,
-  };
+  const startedAt = Date.now();
+  let open: boolean;
+  try {
+    open = (await withDeadline(fetchGateRaw(), deadlineMs)).open;
+  } catch {
+    return { page: null, degraded: true };
+  }
+  if (!open) return { page: null, degraded: false };
+  const remainingMs = Math.max(0, deadlineMs - (Date.now() - startedAt));
+  try {
+    const extras = await withDeadline(fetchPublicExtras(profileId), remainingMs);
+    return { page: { extras: extras ?? NO_EXTRAS, extrasOk: true }, degraded: false };
+  } catch {
+    return { page: { extras: NO_EXTRAS, extrasOk: false }, degraded: true };
+  }
 };

@@ -27,7 +27,13 @@ export const SHAPES = {
 
 export type ShapeKey = keyof typeof SHAPES;
 
-export const EXTRAS: Record<'full' | 'manyLanguages', PublicPageExtras> = {
+export const EXTRAS: Record<'full' | 'manyLanguages' | 'isoCodes' | 'unknownCodes' | 'mixed', PublicPageExtras> = {
   full: { bio: 'I dance every Friday.', languages: ['English', 'Spanish'], whatsapp: '+44 7700 900123' },
   manyLanguages: { bio: null, languages: ['English', 'Spanish', ' ', 'Portuguese', 'French', 'Italian', 'Polish'], whatsapp: null },
+  // What prod actually stores (survey 2026-10-17: en=11, es=9, it=1, de=1): ISO 639-1 codes.
+  isoCodes: { bio: null, languages: ['en', 'es', 'it', 'de'], whatsapp: null },
+  // Codes Intl cannot name, and garbage: never shown raw.
+  unknownCodes: { bio: null, languages: ['xx', 'zz-QQ', '', '12', 'not a language', 'qqq'], whatsapp: null },
+  // A code and its stored full name, upper-case code, region subtag: one chip each.
+  mixed: { bio: null, languages: ['en', 'English', 'ES', 'Spanish', 'pt-BR', 'xx'], whatsapp: null },
 };

@@ -120,7 +120,7 @@ export function PublicDancerPageV2({ model, extrasOk = true, profileId, pathname
           name at 200% text grows the header instead of being clipped off its top. */}
       <header className="relative w-full flex flex-col justify-end overflow-hidden min-h-[min(125vw,62vh)]" data-testid="dancer-portrait">
         {model.avatarUrl ? (
-          <img src={optimizedImageUrl(model.avatarUrl, srcWidthFor(PORTRAIT_CSS_PX))} alt={model.name} className="absolute inset-0 w-full h-full object-cover" />
+          <img src={optimizedImageUrl(model.avatarUrl, srcWidthFor(PORTRAIT_CSS_PX))} alt={model.name} className="absolute inset-0 w-full h-full object-cover" loading="eager" />
         ) : (
           // No photo: the site's ONE avatar (its no-photo face), centred on the dancer gradient.
           <div
@@ -148,7 +148,7 @@ export function PublicDancerPageV2({ model, extrasOk = true, profileId, pathname
 
       <div className="p-3 space-y-3">
         <div className="flex flex-wrap gap-2">
-          <ShareButton title={`${model.name} on Bachata Calendar`} pathname={pathname} />
+          <ShareButton title={model.shareTitle} pathname={pathname} />
           {model.whatsappHref && (
             <a
               href={model.whatsappHref}

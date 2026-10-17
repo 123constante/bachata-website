@@ -32,7 +32,8 @@ export const loader = withSsrLoaderTimeout("dancer-loader", async function loade
 
   // Public page v2 (dancer rebuild W2f): decided HERE so the server HTML and the
   // first paint agree. Started beside today's read below; it never rejects and
-  // has its own deadline. page null (flag closed, or the read failed) = today's
+  // has its own deadline. Inside it the extras are read only once the flag says
+  // open (never fetched-then-dropped). page null (flag closed, or the read failed) = today's
   // page. It changes the BODY only: entityName / entitySlug / ogImage, and so
   // meta(), are computed exactly as before in both modes.
   const publicPageLoad = loadPublicPageV2(ref.id as string);

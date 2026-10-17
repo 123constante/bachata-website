@@ -36,7 +36,7 @@ const SHAPES: Record<string, Row> = {
 type GateMode = 'closed' | 'open' | 'gate error' | 'gate odd shape';
 const MODES: GateMode[] = ['closed', 'open', 'gate error', 'gate odd shape'];
 
-const h = vi.hoisted(() => ({ hang: false, rows: [] as Row[], mode: 'closed' as string, extras: 'ok' as 'ok' | 'error', rpcCalls: [] as string[] }));
+const h = vi.hoisted(() => ({ hang: false, rows: [] as Row[], mode: 'closed' as string, extras: 'ok' as 'ok' | 'error' | 'hang', rpcCalls: [] as string[] }));
 
 const client = () => {
   const query = (table: string) => {
@@ -73,6 +73,7 @@ const client = () => {
       }
       if (name === 'get_public_dancer_extras_v1') {
         if (h.extras === 'error') return { data: null, error: { message: 'boom' } };
+        if (h.extras === 'hang') return new Promise(() => undefined);
         const row = h.rows.find((r) => r.id === args.p_profile_id);
         return { data: row && row.visible !== false ? { bio: 'Hi', languages: ['English'], whatsapp: null } : null, error: null };
       }
@@ -162,6 +163,40 @@ describe('rules', () => {
     h.mode = 'open';
     const out = await callLoader('fay');
     expect(JSON.stringify(out)).not.toMatch(/surname"\s*:\s*"[^"]/);
+  });
+
+  // F17: extras are read only AFTER the flag says open (sequenced), never read-then-discarded.
+  it.each(['closed', 'gate error', 'gate odd shape'] as const)('flag %s: the extras RPC is never called', async (mode) => {
+    h.mode = mode;
+    await callLoader('dani');
+    expect(h.rpcCalls).not.toContain('get_public_dancer_extras_v1');
+  });
+
+  it('a hanging gate read: the extras RPC is never called either', async () => {
+    h.hang = true;
+    await callLoader('dani');
+    expect(h.rpcCalls).not.toContain('get_public_dancer_extras_v1');
+  });
+
+  it('flag open: the extras RPC is called after the gate, once', async () => {
+    h.mode = 'open';
+    await callLoader('dani');
+    const gateAt = h.rpcCalls.indexOf('dancer_area_gate_v1');
+    const extrasAt = h.rpcCalls.indexOf('get_public_dancer_extras_v1');
+    expect(gateAt).toBeGreaterThanOrEqual(0);
+    expect(extrasAt).toBeGreaterThan(gateAt);
+    expect(h.rpcCalls.filter((n) => n === 'get_public_dancer_extras_v1')).toHaveLength(1);
+  });
+
+  it('flag open but a hanging extras read: v2 without extras, cached briefly, inside the same deadline', async () => {
+    h.mode = 'open';
+    h.extras = 'hang';
+    const t0 = Date.now();
+    const out = await callLoader('dani');
+    expect(Date.now() - t0).toBeLessThan(4000);
+    if (out.kind !== 'ok') throw new Error('expected 200');
+    expect(out.publicPage).toEqual({ extrasOk: false, extras: { bio: null, languages: [], whatsapp: null } });
+    expect(out.bound).toBe('60');
   });
 
   it('records no profile view in the loader (no recorder added)', async () => {
