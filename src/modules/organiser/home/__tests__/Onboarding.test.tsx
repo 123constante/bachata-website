@@ -75,8 +75,9 @@ describe('search results', () => {
     expect(rows[0].querySelector('[data-testid="onboarding-claim"]')).toBeTruthy();
     expect(rows[1].querySelector('[data-testid="onboarding-request"]')).toBeTruthy();
     expect(rows[2].querySelector('[data-testid="onboarding-request"]')).toBeTruthy();
-    expect(rows[3].querySelector('button')).toBeNull();
-    expect(rows[3].textContent).toContain('You already manage this');
+    expect(rows[3].querySelectorAll('button')).toHaveLength(1);
+    expect(rows[3].querySelector('[data-testid="onboarding-home"]')).toBeTruthy();
+    expect(rows[3].textContent).toContain('Yours');
   });
 
   it('a row without a hint (the hint call failed) offers only Ask to join, and says nothing false', async () => {
@@ -170,7 +171,7 @@ describe('ask to join', () => {
     fireEvent.change(await screen.findByTestId('onboarding-request-note'), { target: { value: 'I run it' } });
     fireEvent.click(screen.getByTestId('onboarding-request-send'));
     await waitFor(() => expect(api.request).toHaveBeenCalledWith('b', 'I run it'));
-    await waitFor(() => expect(onChanged).toHaveBeenCalledWith('Request sent. The team will check and add you to Beta.'));
+    await waitFor(() => expect(onChanged).toHaveBeenCalledWith('Asked to join Beta'));
   });
 
   it('opens with focus on the note, not on Close, so the keyboard opens on the field', async () => {
@@ -191,26 +192,21 @@ describe('create', () => {
     await waitFor(() => expect(document.activeElement).toBe(name));
   });
 
-  it('needs a name and a city; the city is picked in a view of the same sheet', async () => {
+  it('needs a name; the city is the second step and picking it creates', async () => {
     api.rpc.mockResolvedValue({ data: [{ city_id: 'c1', city_name: 'Leeds', city_slug: 'leeds', country_name: 'UK', display_name: 'Leeds, UK' }], error: null });
-    api.create.mockResolvedValue({ organiserId: 'n1', slug: 'n', lifecycleStatus: 'draft' });
+    api.create.mockResolvedValue({ organiserId: 'n1', slug: 'n', lifecycleStatus: 'live' });
     const { onChanged } = mount();
     fireEvent.click(screen.getByTestId('onboarding-create'));
-    const submit = await screen.findByTestId('onboarding-create-submit');
-    expect((submit as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('onboarding-create-missing').textContent).toContain('the organiser name and the city');
+    expect((await screen.findByTestId('onboarding-create-next') as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByTestId('onboarding-create-name'), { target: { value: 'Nova' } });
-    fireEvent.click(screen.getByTestId('onboarding-create-city'));
+    fireEvent.click(screen.getByTestId('onboarding-create-next'));
     fireEvent.change(await screen.findByTestId('onboarding-city-search'), { target: { value: 'Le' } });
+    expect(api.create).not.toHaveBeenCalled();
     fireEvent.click(await screen.findByTestId('onboarding-city-option'));
-    expect((await screen.findByTestId('onboarding-create-city')).textContent).toContain('Leeds, UK');
-    expect((await screen.findByTestId('onboarding-create-name') as HTMLInputElement).value).toBe('Nova');
-    fireEvent.click(screen.getByTestId('onboarding-create-submit'));
     await waitFor(() =>
-      expect(api.create).toHaveBeenCalledWith({ name: 'Nova', cityId: 'c1', contactEmail: 'me@x.example', instagram: '', website: '' }),
+      expect(api.create).toHaveBeenCalledWith({ name: 'Nova', cityId: 'c1', contactEmail: '', instagram: '', website: '' }),
     );
-    await waitFor(() => expect(onChanged).toHaveBeenCalled());
-    expect(onChanged.mock.calls[0][0]).toContain('Nova is saved as a draft');
+    await waitFor(() => expect(onChanged).toHaveBeenCalledWith('Nova created'));
   });
 });
 
@@ -219,7 +215,7 @@ describe('model', () => {
     expect(rowAction('email_matches', false)).toBe('claim');
     expect(rowAction('email_differs', false)).toBe('request');
     expect(rowAction('no_email', true)).toBe('requested');
-    expect(rowAction('yours', true)).toBe('none');
+    expect(rowAction('yours', true)).toBe('home');
     expect(instagramProblem('@good.name')).toBeNull();
     expect(instagramProblem('bad name')).not.toBeNull();
     expect(websiteProblem('https://x.example')).toBeNull();

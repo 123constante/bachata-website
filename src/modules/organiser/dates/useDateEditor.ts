@@ -133,7 +133,7 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
   const invalidateAround = () => {
     void queryClient.invalidateQueries({ queryKey: dateDetailQueryKey(occurrenceId) });
     void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
-    // The event page's Send for review counts this date's sessions (reviewModel).
+    // The event page reads this date's session count.
     void queryClient.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
   };

@@ -11,7 +11,8 @@ import { FRIDAY, PHONE, openOrganiser, setKeyboard } from './helpers/organiserFa
 test.use({ viewport: PHONE });
 
 const OCC = 'c0000001-0000-4000-8000-202610090000';
-const PATH = `/account/o/events/${FRIDAY}/dates/${OCC}`;
+// R1 (S2): main's /events/:s/dates/:o now redirects to Change a date; the line-up editor lives on /lineup.
+const PATH = `/account/o/change/${FRIDAY}/${OCC}/lineup`;
 
 const row = (page: Page, name: string) =>
   page.getByTestId('session-row').filter({ has: page.getByTestId('session-row-name').getByText(name, { exact: true }) });
@@ -208,9 +209,9 @@ test('break this week sends series.skip_date and goes back to the event; unsaved
   await page.getByTestId('date-break-confirm').click();
   await expect(page).toHaveURL(new RegExp(`/account/o/events/${FRIDAY}$`));
   expect(fake.envelopes()[0]).toMatchObject({ target_id: FRIDAY, expected_version: 3, command: { kind: 'series.skip_date', payload: { occurrence_id: OCC } } });
-  // The event's date list no longer has 9 Oct.
-  await expect(page.locator('[data-testid="org-date-row"][data-date="2026-10-09"]')).toHaveCount(0);
-  await expect(page.locator('[data-testid="org-date-row"][data-date="2026-10-16"]')).toHaveCount(1);
+  // The event's coming dates (S5 OneEvent) no longer have 9 Oct: 16 Oct leads.
+  await expect(page.getByTestId('org-coming-date').first()).toContainText('16 Oct');
+  await expect(page.getByTestId('org-coming')).not.toContainText(' 9 Oct');
 });
 
 test('a week off shows under "Dates taken off" on the event page, and Put back brings it back', async ({ page }) => {
@@ -232,7 +233,7 @@ test('a week off shows under "Dates taken off" on the event page, and Put back b
   await putBack.click();
   await expect.poll(() => fake.envelopes().length).toBe(2);
   expect(fake.envelopes()[1]).toMatchObject({ target_id: FRIDAY, expected_version: 4, command: { kind: 'series.unskip_date', payload: { date: '2026-10-09' } } });
-  // Back in the dates list; the section hides once nothing is taken off.
-  await expect(page.locator('[data-testid="org-date-row"][data-date="2026-10-09"]')).toHaveCount(1);
+  // Back in the coming dates (S5 OneEvent); the section hides once nothing is taken off.
+  await expect(page.getByTestId('org-coming-date').first()).toContainText(' 9 Oct');
   await expect(page.getByTestId('org-taken-off')).toHaveCount(0);
 });

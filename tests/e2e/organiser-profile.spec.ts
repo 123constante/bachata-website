@@ -1,61 +1,58 @@
 import { test, expect } from '@playwright/test';
-import { CITY, ORG, PHONE, openOrganiser } from './helpers/organiserFake';
+import { ORG, PHONE, openOrganiser } from './helpers/organiserFake';
 
-// Profile (W4 + F1) at /account/o/profile at 390x844: the organiser's name and links saved
-// through organiser_profile_update_p5_v1 (ONE primary 'Save profile' in the preview bar), and
-// the Status card's 'Send for review' (draft / changes needed only) -> confirm ->
-// submit_organiser_profile_v1 -> In review. Replaces the send-for-review coverage of the old
-// /account specs (deleted UI). Backend: helpers/organiserFake.ts.
+// Your page (S7, C27/C28/C28b) at /account/o/page, 390x844: the public page's facts as rows over the
+// existing edit-in-place sheets, ONE Save through organiser_profile_update_p5_v1, then the shared Done
+// "Saved". No review card and no status copy (D22): a Live chip is the only status mark.
+// Backend: helpers/organiserFake.ts.
 
 test.use({ viewport: PHONE });
 
-test('profile save sends the whole form and the page shows the saved values', async ({ page }) => {
-  const fake = await openOrganiser(page, '/account/o/profile');
-  await expect(page.getByTestId('org-page-profile')).toBeVisible();
-  const action = page.getByTestId('profile-bar-action');
-  await expect(page.getByTestId('profile-name')).toHaveValue('Ritmo Bachata London');
-  await expect(page.getByTestId('profile-instagram-value')).toHaveText('@ritmo');
-  await expect(action).toBeDisabled();
+test('a changed About is drafted, saved once, and the page lands on Done "Saved"', async ({ page }) => {
+  const fake = await openOrganiser(page, '/account/o/page');
+  await expect(page.getByTestId('org-page-page')).toBeVisible();
+  await expect(page.getByTestId('page-name')).toHaveText('Ritmo Bachata London');
+  await expect(page.getByTestId('page-live-chip')).toHaveText('Live');
+  await expect(page.getByTestId('eip-bar')).toHaveCount(0);
 
-  await page.getByTestId('profile-name').fill('Ritmo Bachata Soho');
-  await page.getByTestId('profile-instagram').click();
-  await page.getByTestId('profile-field').fill('@ritmo.soho');
-  await page.getByTestId('profile-sheet-done').click();
-  await expect(page.getByTestId('profile-preview-name')).toHaveText('Ritmo Bachata Soho');
-  await expect(action).toContainText('Save profile');
-  await action.click();
+  await page.locator('[data-eip-pencil="bio"]').click();
+  await page.getByRole('dialog').getByRole('textbox').fill('Weekly bachata in Soho.');
+  await page.getByRole('dialog').getByRole('button', { name: 'Done' }).click();
+  expect(fake.sent('organiser_profile_update_p5_v1')).toHaveLength(0);
+  await page.getByTestId('eip-bar').getByRole('button', { name: 'Save' }).click();
 
-  await expect(action).toContainText('Saved');
+  await expect(page.getByTestId('org-done-message')).toHaveText('Saved');
   const [save] = fake.sent('organiser_profile_update_p5_v1');
   expect(save.p_organiser_id).toBe(ORG);
-  expect(save.p_patch).toMatchObject({ name: 'Ritmo Bachata Soho', city_id: CITY.id, bio: 'Weekly bachata in London.' });
-  expect(String((save.p_patch as Record<string, unknown>).instagram)).toContain('ritmo.soho');
-  expect(fake.organisers[0].name).toBe('Ritmo Bachata Soho');
+  expect(save.p_patch).toMatchObject({ bio: 'Weekly bachata in Soho.' });
+  expect(fake.organisers[0].bio).toBe('Weekly bachata in Soho.');
 });
 
-test('a draft organiser is sent for review after the confirm and then reads In review', async ({ page }) => {
-  const fake = await openOrganiser(page, '/account/o/profile', { organiserStatus: 'draft' });
-  await expect(page.getByTestId('profile-status-tag')).toHaveText('Draft');
-  await page.getByTestId('profile-send-review').click();
-  await expect(page.getByTestId('profile-send-confirm')).toContainText(`Send Ritmo Bachata London to the Bachata Calendar team for review?`);
-  expect(fake.sent('submit_organiser_profile_v1')).toHaveLength(0);
-  await page.getByTestId('profile-send-yes').click();
-  await expect(page.getByTestId('profile-status-tag')).toHaveText('In review');
-  await expect(page.getByTestId('profile-send-review')).toHaveCount(0);
-  expect(fake.sent('submit_organiser_profile_v1')).toEqual([{ p_organiser_id: ORG }]);
+test('no review step anywhere on the page, for a draft organiser too', async ({ page }) => {
+  await openOrganiser(page, '/account/o/page', { organiserStatus: 'draft' });
+  await expect(page.getByTestId('org-page-page')).toBeVisible();
+  await expect(page.getByTestId('page-live-chip')).toHaveCount(0);
+  await expect(page.getByText(/send for review/i)).toHaveCount(0);
 });
 
-test('changes needed shows the team’s reason and offers to send again; live offers nothing', async ({ page }) => {
-  await openOrganiser(page, '/account/o/profile', { organiserStatus: 'rejected' }, (f) => {
-    f.organisers[0].latest_decision = { action: 'rejected', from_state: 'pending_review', to_state: 'rejected', reason: 'Add your Instagram', created_at: '2026-10-01T10:00:00Z' };
+test('More: the SOLE owner cannot leave until they hand over, and Help lists the jobs', async ({ page }) => {
+  await openOrganiser(page, '/account/o/more', {}, (fake) => {
+    fake.organisers[0].team = fake.organisers[0].team.filter((m) => m.member_role !== 'owner' || m.user_id === fake.organisers[0].team[0].user_id);
   });
-  await expect(page.getByTestId('profile-status-tag')).toHaveText('Changes needed');
-  await expect(page.getByTestId('profile-status-sentence')).toHaveText('The team asked for changes: Add your Instagram');
-  await expect(page.getByTestId('profile-send-review')).toHaveText('Send for review again');
+  await expect(page.getByTestId('more-leave')).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByTestId('more-leave-reason')).toHaveText('Hand over first');
+  await expect(page.getByTestId('more-hand-over')).toBeVisible();
+  await page.getByTestId('more-help').click();
+  await expect(page.getByTestId('help-rows')).toBeVisible();
 });
 
-test('a live organiser is not offered Send for review', async ({ page }) => {
-  await openOrganiser(page, '/account/o/profile');
-  await expect(page.getByTestId('profile-status-tag')).toHaveText('Live');
-  await expect(page.getByTestId('profile-send-review')).toHaveCount(0);
+test('More: an owner with a co-owner may leave (the server refuses only the last owner)', async ({ page }) => {
+  const fake = await openOrganiser(page, '/account/o/more');
+  await expect(page.getByTestId('more-hand-over')).toBeVisible();
+  await expect(page.getByTestId('more-leave')).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByTestId('more-leave-reason')).toHaveCount(0);
+  await page.getByTestId('more-leave').click();
+  await page.getByTestId('more-leave-yes').click();
+  await expect(page.getByTestId('org-done-message')).toHaveText(/You left/);
+  expect(fake.sent('remove_organiser_member_v1')).toHaveLength(1);
 });

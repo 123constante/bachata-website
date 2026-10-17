@@ -49,8 +49,8 @@ describe('locks', () => {
     else expect(lock).toMatch(want);
   });
 
-  it("says when an ended event ended ('Ended on Sat 5 Sep')", () => {
-    expect(endedOnLabel('ended', '2026-09-05', '2026-10-08')).toBe('Ended on Sat 5 Sep');
+  it("says when an ended event ended ('Ended on Saturday 5 September')", () => {
+    expect(endedOnLabel('ended', '2026-09-05', '2026-10-08')).toBe('Ended on Saturday 5 September');
     expect(endedOnLabel('ended', null, '2026-10-08')).toBeNull();
     expect(endedOnLabel('live', '2026-09-05', '2026-10-08')).toBeNull();
   });

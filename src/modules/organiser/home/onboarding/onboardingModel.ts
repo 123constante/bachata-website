@@ -1,6 +1,6 @@
 // Pure, client-free helpers for the onboarding screens (W1).
 import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
-import { londonYear } from '@/modules/organiser/shared/teamModel';
+import { instantDateLabel } from '@/modules/organiser/shared/teamModel';
 
 /**
  * Light client-side checks; the server (invalid_instagram / invalid_website)
@@ -25,23 +25,30 @@ export function websiteProblem(value: string): string | null {
   }
 }
 
-/** What a search result row says about the organiser. */
+/**
+ * R3-5 / D63, verbatim: a page with no email on file has no claim step; the row
+ * leads straight to Ask to join.
+ */
+export const NO_EMAIL_COPY = 'This page has no email on file yet. Ask to join and Ricky approves it, usually the same day.';
+
+/** What a search result row says about the organiser (D28: words, not sentences, except D63's line). */
 export const HINT_TEXT: Record<ClaimHint, string> = {
-  yours: 'You already manage this',
-  managed: 'Run by someone else. Ask to join and the team replies within a day.',
-  email_matches: 'Its contact email is yours, so you can claim it now.',
-  email_differs: 'Listed with a different email. Ask to join and the team replies within a day.',
-  no_email: 'No contact email listed. Ask to join and the team replies within a day.',
+  yours: 'Yours',
+  managed: 'Has a team',
+  email_matches: 'Email on file is yours',
+  // Names only that an email exists, never the address (the client never reads it).
+  email_differs: 'Has an email on file',
+  no_email: NO_EMAIL_COPY,
 };
 
-/** When the hint call failed: the one action that can always be tried is asking to join. */
-export const NO_HINT_TEXT = 'Ask to join and the team replies within a day.';
+/** When the hint call failed: say nothing false. */
+export const NO_HINT_TEXT = 'Ask to join';
 
-/** The one action a row offers: claim only when it can succeed; otherwise ask to join. */
-export type RowAction = 'none' | 'claim' | 'request' | 'requested';
+/** The one action a row offers: claim only when it can succeed; Home for your own; otherwise ask to join. */
+export type RowAction = 'home' | 'claim' | 'request' | 'requested';
 
 export function rowAction(hint: ClaimHint | null, requested: boolean): RowAction {
-  if (hint === 'yours') return 'none';
+  if (hint === 'yours') return 'home';
   if (requested) return 'requested';
   return hint === 'email_matches' ? 'claim' : 'request';
 }
@@ -52,9 +59,5 @@ export const EMAIL_CODE_MAX_LENGTH = 10;
 /** Seconds before another code can be sent; the mail provider rate-limits sends. */
 export const RESEND_COOLDOWN_SECONDS = 30;
 
-/** "6 Oct" from an ISO timestamp, London time; "6 Oct 2025" when not this year. */
-export const askedOn = (iso: string, now: Date = new Date()) => {
-  const d = new Date(iso);
-  const year = londonYear(d) === londonYear(now) ? '' : ` ${londonYear(d)}`;
-  return `${d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' })}${year}`;
-};
+/** "Tuesday 6 October" from an ISO timestamp, London time, with the year when not this year (the shared formatter). */
+export const askedOn = (iso: string, now: Date = new Date()) => instantDateLabel(iso, now) ?? '';
