@@ -117,7 +117,7 @@ export function EmailCodeProof({ email, onProven, returnTo = ORG_PATHS.home }: {
               data-testid="email-code-input"
             />
             <Button type="button" size="sm" className="rounded-full min-h-[44px]" onClick={() => void verify()} disabled={busy} data-testid="email-code-verify">
-              {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Confirm
+              {busy && <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />} Confirm
             </Button>
             <Button type="button" size="sm" variant="ghost" className="min-h-[44px]" onClick={() => void send()} disabled={busy || cooldown > 0} data-testid="email-code-resend">
               {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend'}
@@ -126,7 +126,7 @@ export function EmailCodeProof({ email, onProven, returnTo = ORG_PATHS.home }: {
         </div>
       ) : (
         <Button type="button" size="sm" className="rounded-full min-h-[44px]" onClick={() => void send()} disabled={busy} data-testid="email-code-send">
-          {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Email me a code
+          {busy && <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />} Email me a code
         </Button>
       )}
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}

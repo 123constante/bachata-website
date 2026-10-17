@@ -17,6 +17,8 @@ export const LAYER_CSS = `
 .eip-drafted{outline:2px dashed ${GOLD};outline-offset:3px;border-radius:8px}
 .eip-unsaved{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:999px;border:1px dashed ${GOLD};color:${GOLD};font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:lowercase;white-space:nowrap}
 .eip-pencil:focus-visible,.eip-btn:focus-visible,.eip-file:focus-within{outline:2px solid ${GOLD};outline-offset:2px}
+.eip-pencil--compact{width:32px;min-width:32px}
+.org-theme .eip-pencil--compact{width:44px;min-width:44px}
 `;
 
 export type OpenSheet = (field: FieldKey, opener: HTMLElement | null) => void;
@@ -30,17 +32,19 @@ const pencilDot: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
 };
 
-// Compact: the hero's name and chips. A 24px dot (14px glyph) in a 32x44 tap area, so
-// the hero is not dominated by pencils but a thumb still has 44px of height to hit.
-const pencilCompact: CSSProperties = { width: 32, minWidth: 32, height: 44 };
+// Compact: the hero's name and chips. A 24px dot (14px glyph) in a 32x44 tap area on the
+// public page, so the hero is not dominated by pencils but a thumb still has 44px of height.
+// On /page (inside the organiser shell's .org-theme) the tap area is 44x44 (owner decision,
+// F-INT). The width lives in LAYER_CSS (.eip-pencil--compact) so the scope can set it.
+const pencilCompact: CSSProperties = { width: undefined, minWidth: undefined, height: 44 };
 const pencilDotCompact: CSSProperties = { width: 24, height: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.35)' };
 
-/** A 44px tap target holding a small gold pencil (`compact`: 32 wide, still 44 high). */
+/** A 44px tap target holding a small gold pencil (`compact`: 32 wide on the public page, 44 on /page; always 44 high). */
 export function PencilButton({ field, onOpen, style, compact }: { field: FieldKey; onOpen: OpenSheet; style?: CSSProperties; compact?: boolean }) {
   return (
     <button
       type="button"
-      className="eip-pencil"
+      className={compact ? 'eip-pencil eip-pencil--compact' : 'eip-pencil'}
       aria-label={`Edit ${FIELD_LABEL[field].toLowerCase()}`}
       data-eip-pencil={field}
       onClick={(e: MouseEvent<HTMLButtonElement>) => onOpen(field, e.currentTarget)}
@@ -216,11 +220,12 @@ export function LinkRows({ values, drafted, onOpen }: {
 // ---- create event ------------------------------------------------------------------------
 
 /**
- * The organiser area's existing create flow (NewEventPage: it creates a DRAFT
- * only, then opens its editor), with this organiser preselected through `?o=`,
- * the id useOrganiserChoice and NewEventPage read. Nothing is published from here.
+ * The organiser area's create flow. The legacy path redirects to the
+ * one-question flow (new/what), which creates a DRAFT first; this organiser is
+ * preselected through `?o=`, the id useOrganiserChoice reads. Nothing is
+ * published from here.
  */
-const newEventHref = (organiserId: string) => `${ORG_PATHS.newEvent}?o=${encodeURIComponent(organiserId)}`;
+const newEventHref = (organiserId: string) => `${ORG_PATHS.newWhat}?o=${encodeURIComponent(organiserId)}`;
 
 export function CreateEventLink({ organiserId, label }: { organiserId: string; label: string }) {
   return (

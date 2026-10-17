@@ -6,7 +6,8 @@
  * address. Signing out before leaving the guarded page let AuthGuard send the person to
  * /auth?mode=signin ("Welcome back") ahead of our own navigate (audit H10). The rows are the
  * review's list: Options, Account settings (sign out, sign out of all devices, delete),
- * restore (deleted card), plus the old /account home's sign-out.
+ * restore (deleted card), plus the old /account home's sign-out, and the organiser area's two
+ * (More's Sign out sheet, the first-time screen's "Not you? Sign out").
  */
 import { useSyncExternalStore } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -68,6 +69,8 @@ import SignOutConfirm from '@/modules/dancer-app/screens/options/SignOutConfirm'
 import { Delete, SignOutSection } from '@/pages/AccountSettings';
 import { DeletedCard } from '@/pages/AccountRestore';
 import { SignOut as DancerHomeSignOut } from '@/components/account/DancerHome';
+import { SignOutSheet as OrganiserMoreSignOut } from '@/modules/organiser/more/SignOutSheet';
+import { SignOutLine as OrganiserOnboardingSignOut } from '@/modules/organiser/home/onboarding/SignOutLine';
 
 /** The landing pages are lazy route modules, as in framework mode: the move there is not instant. */
 const lazyPage = (testId: string) => async () => {
@@ -141,6 +144,22 @@ const ROWS: Row[] = [
     start: '/account',
     page: <DancerHomeSignOut email="me@example.com" />,
     steps: [() => tap('dancer-home-signout-start'), () => tap('dancer-home-signout-yes')],
+    lands: '/',
+    everywhere: false,
+  },
+  {
+    name: 'Organiser More: Sign out -> Yes, sign out',
+    start: '/account/o/more',
+    page: <OrganiserMoreSignOut open onClose={() => {}} />,
+    steps: [() => tap('signout-yes')],
+    lands: '/',
+    everywhere: false,
+  },
+  {
+    name: 'Organiser first-time screen: Not you? Sign out -> Yes, sign out',
+    start: '/account/o',
+    page: <OrganiserOnboardingSignOut email="me@example.com" />,
+    steps: [() => tap('onboarding-signout'), () => tap('onboarding-signout-yes')],
     lands: '/',
     everywhere: false,
   },

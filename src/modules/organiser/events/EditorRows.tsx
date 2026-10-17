@@ -6,6 +6,7 @@ import { sessionHeading, sessionSummary } from '@/modules/organiser/shared/sessi
 import { upcomingDates, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 import { ORG_PATHS } from '../shell';
 import { Card, Collapse, DateChip, GhostButton, SkeletonRows, SummaryRow } from '../ui';
+import { CANCELLED_WORD } from '@/modules/organiser/shared/eventState';
 import { shortDate } from './eventModel';
 import { useNextDateProgramme } from './eventsApi';
 import { EVERY_UPCOMING_CANCELLED } from './eventType';
@@ -34,7 +35,7 @@ export function ScheduleCard({ seriesId, next, today, upcoming = 0, pastCount = 
       </Card>
     );
   }
-  const open = () => navigate(ORG_PATHS.date(seriesId, next.id));
+  const open = () => navigate(ORG_PATHS.dateLineup(seriesId, next.id));
   const sessions = programme.data
     ? toDraft(programme.data.sessions, programme.data.sessionPeople).filter((s) => !s.removed).sort((a, b) => a.start.localeCompare(b.start))
     : [];
@@ -80,11 +81,11 @@ export function DatesList({ seriesId, dates, today, emptyHint, truncated = false
   const past = dates.filter((d) => d.occurrence_date < today).sort((a, b) => b.occurrence_date.localeCompare(a.occurrence_date));
   const row = (d: WorkspaceDate) => (
     <button key={d.id} type="button" data-testid="org-date-row" data-date={d.occurrence_date}
-      onClick={() => navigate(ORG_PATHS.date(seriesId, d.id))}
+      onClick={() => navigate(ORG_PATHS.dateLineup(seriesId, d.id))}
       className="flex min-h-[60px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left">
       <DateChip date={d.occurrence_date} today={today} />
       <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{shortDate(d.occurrence_date, today)}</span>
-      {d.lifecycle_status === 'cancelled' && <span className="text-[13px] text-[var(--danger)]">Cancelled</span>}
+      {d.lifecycle_status === 'cancelled' && <span className="text-[13px] text-[var(--danger)]">{CANCELLED_WORD}</span>}
       <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
     </button>
   );

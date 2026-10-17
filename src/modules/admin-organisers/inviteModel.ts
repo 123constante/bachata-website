@@ -221,7 +221,7 @@ export const ADMIN_COPY: Record<string, string> = {
   organiser_not_found: 'That organiser no longer exists. Reload the page.',
   invalid_member_role: 'Choose Owner, Manager or Contributor.',
   ambassador_only_on_city: 'Ambassador is only for cities, not organisers.',
-  use_transfer: 'Add person only adds Managers and Contributors. To add an owner, tap Generate invite, or use Make owner on the organiser’s team screen.',
+  use_transfer: 'Add person only adds Managers and Contributors. To add an owner, tap Generate invite. Or add them as a Manager here; the owner can then open their name on Team and tap Hand the page over.',
   user_not_found: 'No account has that email address. Ask them to sign up to Bachata Calendar first, then add them.',
   unconfirmed_email: 'That account has not confirmed its email address yet. Ask them to confirm it, then add them.',
 };
