@@ -50,9 +50,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: '
 vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-10-09' }));
 
 import HomePage from '../home';
-import NewEventPage from '../events/NewEventPage';
-import ProfilePage from '../profile';
-import { organiserStatus } from '../shared/organiserStatus';
+import PageScreen from '../page';
 import { fetchOrganiserEntity } from '@/modules/profile/organiserPublicProfile';
 
 type Role = 'creator' | 'member' | 'stranger';
@@ -108,8 +106,7 @@ function mount(path: string) {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/account/o" element={<HomePage />} />
-          <Route path="/account/o/events/new" element={<NewEventPage />} />
-          <Route path="/account/o/profile" element={<ProfilePage />} />
+          <Route path="/account/o/page" element={<PageScreen />} />
           <Route path="*" element={<span data-testid="elsewhere" />} />
         </Routes>
       </MemoryRouter>
@@ -119,45 +116,26 @@ function mount(path: string) {
 
 const cases = STATES.flatMap((s) => ROLES.map((r) => [s, r] as const));
 
-describe('Home: the organiser status line and Send for review', () => {
+describe('Home: everything live (D4), New event says why it cannot work', () => {
   it.each(cases)('%s organiser, %s', async (state, role) => {
     setup(state, role);
     mount('/account/o');
-    const copy = organiserStatus('Firstrun Org', state, state === 'rejected' ? decision.reason : null);
     const newEvent = (await screen.findByTestId('home-new-event')) as HTMLButtonElement;
+    // No status card and no review step on Home under rule 2 (D4, D22).
+    expect(screen.queryByTestId('home-org-status')).toBeNull();
+    expect(screen.queryByTestId('home-send-review')).toBeNull();
     if (state === 'live') {
-      expect(screen.queryByTestId('home-org-status')).toBeNull();
       expect(newEvent.disabled).toBe(false);
       return;
     }
-    expect(screen.getByTestId('home-org-status-line').textContent).toBe(copy.line ?? '');
-    expect(screen.getByTestId('home-org-status-tag').textContent).toBe(copy.label);
     // A control that cannot work is disabled WITH its reason.
     expect(newEvent.disabled).toBe(true);
+    // One R1 line for every non-live status: it names no review step and no
+    // Profile page, neither of which is on Home any more (F-S1 B1).
     const reason = screen.getByTestId('home-new-event-reason');
-    expect(reason.textContent).toBe(copy.newEventBlock);
+    expect(reason.textContent).toBe('Firstrun Org is not live, so it cannot take events. Ask the Bachata Calendar team.');
+    expect(reason.textContent).not.toMatch(/review|Profile/i);
     expect(newEvent.getAttribute('aria-describedby')).toBe(reason.id);
-    expect(!!screen.queryByTestId('home-send-review')).toBe(copy.canSendForReview);
-    if (!copy.canSendForReview) expect(screen.getByTestId('home-org-status-next').textContent).toBe(copy.next);
-  });
-
-  it.each([['draft'], ['rejected']] as const)('%s -> Send for review calls submit_organiser_profile_v1 and then shows Waiting for review', async (state) => {
-    setup(state, 'creator');
-    mount('/account/o');
-    fireEvent.click(await screen.findByTestId('home-send-review'));
-    await waitFor(() => expect(screen.getByTestId('home-org-status-line').textContent).toBe('Waiting for review: not visible to the public yet.'));
-    expect(db.rpc).toHaveBeenCalledWith('submit_organiser_profile_v1', { p_organiser_id: 'org-1' });
-    expect(screen.queryByTestId('home-send-review')).toBeNull();
-    expect((screen.getByTestId('home-new-event-reason')).textContent).toMatch(/^Your organiser is waiting for approval/);
-  });
-
-  it('a refused send says why and reloads (already in review elsewhere)', async () => {
-    setup('draft', 'creator');
-    mount('/account/o');
-    const button = await screen.findByTestId('home-send-review');
-    lifecycleNow = 'pending_review';
-    fireEvent.click(button);
-    expect((await screen.findByTestId('home-send-error')).textContent).toMatch(/already in review/);
   });
 
   it('stranger: no organiser, so onboarding, never a status card', async () => {
@@ -169,47 +147,21 @@ describe('Home: the organiser status line and Send for review', () => {
   });
 });
 
-describe('New event: the refusal says why and what to do', () => {
+describe('Page: the creator/member can open their own non-live organiser (D22: a Live chip, no review)', () => {
   it.each(cases)('%s organiser, %s', async (state, role) => {
     setup(state, role);
-    mount('/account/o/events/new');
-    const create = (await screen.findByTestId('org-new-event-create')) as HTMLButtonElement;
-    const copy = organiserStatus('Firstrun Org', state);
-    if (state === 'live') {
-      expect(screen.queryByTestId('org-new-event-block')).toBeNull();
-      expect(create.disabled).toBe(false);
-      return;
-    }
-    const block = screen.getByTestId('org-new-event-block');
-    expect(block.textContent).toBe(copy.newEventBlock);
-    expect(create.disabled).toBe(true);
-    expect(create.getAttribute('aria-describedby')).toBe(block.id);
-    // Draft or changes-needed: a way to the place the send lives.
-    expect(!!screen.queryByTestId('org-new-event-go-home')).toBe(copy.canSendForReview);
-  });
-
-  it('pending_review says the organiser is waiting for approval', async () => {
-    setup('pending_review', 'creator');
-    mount('/account/o/events/new');
-    expect((await screen.findByTestId('org-new-event-block')).textContent).toMatch(/^Your organiser is waiting for approval\./);
-  });
-});
-
-describe('Profile: the creator/member can open their own non-live organiser', () => {
-  it.each(cases)('%s organiser, %s', async (state, role) => {
-    setup(state, role);
-    mount('/account/o/profile');
-    const copy = organiserStatus('Firstrun Org', state, state === 'rejected' ? decision.reason : null);
-    expect((await screen.findByTestId('profile-status-tag')).textContent).toBe(copy.label);
-    expect(screen.queryByTestId('profile-missing')).toBeNull();
-    expect(screen.queryByTestId('profile-status-sentence')?.textContent ?? null).toBe(copy.line);
-    expect(!!screen.queryByTestId('profile-send-review')).toBe(copy.canSendForReview);
+    mount('/account/o/page');
+    expect(await screen.findByTestId('page-facts')).toBeTruthy();
+    expect(screen.queryByTestId('page-missing')).toBeNull();
+    expect(!!screen.queryByTestId('page-live-chip')).toBe(state === 'live');
+    expect(screen.queryByTestId('profile-send-review')).toBeNull();
+    expect(screen.queryByTestId('profile-status-tag')).toBeNull();
   });
 
   it('stranger: no organiser of theirs, so nothing to open', async () => {
     setup('draft', 'stranger');
-    mount('/account/o/profile');
-    expect(await screen.findByTestId('profile-no-organiser')).toBeTruthy();
+    mount('/account/o/page');
+    expect(await screen.findByTestId('page-no-organiser')).toBeTruthy();
   });
 });
 

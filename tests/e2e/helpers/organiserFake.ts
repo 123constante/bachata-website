@@ -297,7 +297,7 @@ export class OrganiserFake {
             upcoming_count: up.length, latest_decision: null, version: s.version,
             next_dates: up.slice(0, 3).map((d) => ({
               occurrence_id: this.occId(s, d), occurrence_date: d, lifecycle_status: s.cancelled[d] ? 'cancelled' : 'scheduled',
-              materialised_start_utc: `${d}T19:00:00+00:00`, has_own_changes: false, version: 1,
+              materialised_start_utc: `${d}T20:00:00+00:00`, has_own_changes: false, version: 1,
               venue_name: VENUES.find((v) => v.id === s.default_venue_id)?.name ?? null,
             })),
           };
@@ -318,7 +318,7 @@ export class OrganiserFake {
       },
       occurrences: [...this.dates(s)].reverse().map((d) => ({
         id: this.occId(s, d), occurrence_date: d, lifecycle_status: s.cancelled[d] ? 'cancelled' : 'scheduled', version: 1,
-        has_override: false, session_overrides_count: 0, materialised_start_utc: `${d}T19:00:00+00:00`,
+        has_override: false, session_overrides_count: 0, materialised_start_utc: `${d}T20:00:00+00:00`,
         added_sessions_count: (this.programmes.get(this.occId(s, d))?.sessions ?? []).filter((x) => x.added_session_id && x.removed !== true).length,
       })),
     };
@@ -334,7 +334,7 @@ export class OrganiserFake {
       program: [],
       schedule: { timezone: 'Europe/London', local_start_time: '20:00:00', local_end_time: '23:30:00' },
       occurrence: { id: this.occId(s, date), date, version: 1, series_id: s.id, lifecycle_status: s.cancelled[date] ? 'cancelled' : 'scheduled',
-        materialised_start_utc: `${date}T19:00:00+00:00` },
+        materialised_start_utc: `${date}T20:00:00+00:00` },
       added_sessions: [],
     };
   }
@@ -419,6 +419,8 @@ export class OrganiserFake {
       }
     } else if (kind === 'series.set_recurrence') {
       s.recurrence_rule = payload as unknown as Rule;
+    } else if (kind === 'series.set_lifecycle') {
+      s.lifecycle_status = String(payload.to);
     } else if (kind === 'series.stop_repeating') {
       s.recurrence_rule = null;
     } else if (kind === 'series.add_date') {
@@ -543,7 +545,7 @@ export class OrganiserFake {
           const r = o.requests.find((x) => x.request_id === body.p_request_id);
           if (!r) continue;
           o.requests = o.requests.filter((x) => x !== r);
-          if (body.p_decision === 'grant') o.team.push({ user_id: r.user_id, member_role: 'manager', is_primary: false, email: r.requester_email, display_name: null });
+          if (body.p_decision === 'grant' && !o.team.some((m) => m.user_id === r.user_id)) o.team.push({ user_id: r.user_id, member_role: 'manager', is_primary: false, email: r.requester_email, display_name: null });
           return json(route, { request_id: r.request_id, user_id: r.user_id, decision: body.p_decision, member_role: body.p_decision === 'grant' ? 'manager' : null });
         }
         return refuse(route, 'request_not_open');
@@ -564,6 +566,20 @@ export class OrganiserFake {
         o.team = o.team.filter((x) => x !== m);
         return json(route, { user_id: m.user_id, member_role: m.member_role, removed_rows: 1, self_removed: m.user_id === ME, primary_passed_to: null, audit_id: 'a' });
       }
+      case 'organiser_team_add_member_by_profile_v1': {
+        const o = org(body.p_organiser_id);
+        if (!o) return refuse(route, 'not_authorised');
+        const req = o.requests.find((x) => x.user_id === body.p_profile_id);
+        o.team.push({ user_id: String(body.p_profile_id), member_role: 'manager', is_primary: false, email: req?.requester_email ?? `${String(body.p_profile_id).slice(0, 4)}@faces.example`, display_name: null });
+        // Prod derives a request's status from membership: once they are a member it is no longer 'open'.
+        if (req) o.requests = o.requests.filter((x) => x !== req);
+        return json(route, { changed: true, member_role: 'manager' });
+      }
+      case 'organiser_team_browse_people_v1':
+        return json(route, [
+          { profile_id: '66666666-6666-4666-8666-666666666666', display_name: 'Priya Sharma', photo_url: null, fact: 'attended:3', can_add: true },
+          { profile_id: '77777777-7777-4777-8777-777777777777', display_name: 'Lena Voss', photo_url: null, fact: null, can_add: false },
+        ]);
       case 'claim_organiser_v1': {
         const c = this.claimable.find((x) => x.id === body.p_organiser_id);
         if (!c) return refuse(route, 'not_found');
@@ -579,10 +595,10 @@ export class OrganiserFake {
       }
       case 'create_organiser_profile_v1': {
         const id = 'a0000000-0000-4000-8000-0000000000aa';
-        this.organisers.push({ id, name: String(body.p_name), lifecycle_status: 'draft', role: 'owner', city_id: (body.p_city_id as string) ?? null,
+        this.organisers.push({ id, name: String(body.p_name), lifecycle_status: 'live', role: 'owner', city_id: (body.p_city_id as string) ?? null,
           latest_decision: null, series: [], team: [{ user_id: ME, member_role: 'owner', is_primary: true, email: EMAIL, display_name: null }],
           requests: [], instagram: null, website: null, bio: null, contact_email: EMAIL });
-        return json(route, { organiser_id: id, slug: null, lifecycle_status: 'draft', member_role: 'owner', is_primary: true });
+        return json(route, { organiser_id: id, slug: null, lifecycle_status: 'live', member_role: 'owner', is_primary: true });
       }
       case 'submit_organiser_profile_v1': {
         const o = org(body.p_organiser_id);
@@ -599,7 +615,8 @@ export class OrganiserFake {
         o.website = (patch.website as string | null) ?? null;
         o.bio = (patch.bio as string | null) ?? null;
         o.city_id = (patch.city_id as string | null) ?? o.city_id;
-        return json(route, { ok: true });
+        // The real RPC hands back the stored row (`profile`); the edit layer reads it to confirm the save.
+        return json(route, { ok: true, changed_keys: Object.keys(patch), profile: { id: o.id, name: o.name, bio: o.bio, instagram: o.instagram, website: o.website, city_id: o.city_id, avatar_url: null, socials: null, organisation_category: null, founded_year: null } });
       }
       case 'search_cities':
         return json(route, [{ city_id: CITY.id, city_name: 'London', city_slug: 'london', country_name: 'United Kingdom', display_name: 'London, United Kingdom' }]);

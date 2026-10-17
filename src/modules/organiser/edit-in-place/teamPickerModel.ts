@@ -12,7 +12,7 @@
 // each, and a refused chip stays with the server's reason in plain words.
 // Team access is not page content, so it is NOT part of the page's draft and
 // Save bar: like the Team page, an add is live once Done answers.
-import { selfServeErrorCode, teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { OWNER_ONLY_ADD, ROLE_HELP, USE_TRANSFER_ADD, selfServeErrorCode, teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { ROLE_LABEL } from '@/modules/organiser/shared/teamModel';
 
 export const MIN_QUERY = 2;
@@ -71,22 +71,22 @@ export const PICKER_COPY = {
   searchLabel: 'Search by name',
   placeholder: 'Type their name',
   idle: 'Type at least two letters of their name. Only people with a dancer profile show up.',
-  searching: 'Searching…',
+  searching: 'Searching\u2026',
   error: 'The search did not work. Check your connection, then type again.',
-  none: (term: string) => `No one called “${term}” can be added yet. Check the spelling, or send them an invite link below.`,
+  none: (term: string) => `No one called \u201c${term}\u201d can be added yet. Check the spelling, or send them an invite link below.`,
   capped: 'These are the first 8 matches. Type more of the name to find someone else.',
-  inviteLead: 'Can’t find them?',
+  inviteLead: 'Can\u2019t find them?',
   inviteLink: 'Send an invite link',
   inviteShared: 'Invite link ready. Once they have signed up and made a dancer profile, search for them here.',
   inviteCopied: 'Invite link copied. Send it to them; once they have signed up and made a dancer profile, search for them here.',
   inviteFailed: (url: string) => `Copy this link and send it to them: ${url}`,
   roleLegend: 'Add them as',
-  roleHelp: 'Managers edit every event and send it for review. Contributors help edit events.',
+  roleHelp: ROLE_HELP,
   reasonLabel: 'Reason (admins only)',
   reasonHelp: 'Admins must say why they change a team. It goes in the audit log.',
   chipsLabel: 'People you picked',
   noneYet: 'Pick someone from the list, or send an invite link.',
-  adding: 'Adding…',
+  adding: 'Adding\u2026',
   done: 'Done',
   cancel: 'Cancel',
   pick: 'Add',
@@ -154,9 +154,9 @@ const PROFILE_COPY: Record<string, string> = {
   user_not_found: 'This person can no longer be added: their profile is hidden or gone. Search again, or send them an invite link.',
   unconfirmed_email: 'This person has not confirmed their email address yet, so they cannot be added. Ask them to confirm it, then try again.',
   target_is_owner: 'This person is already an owner of this page.',
-  not_authorised: 'Only an owner of this page can add people. Nothing was changed.',
-  owner_only: 'Only an owner of this page can add people. Nothing was changed.',
-  use_transfer: 'A new person cannot be added as an owner. Add them as a manager, then use Make owner on the Team page.',
+  not_authorised: OWNER_ONLY_ADD,
+  owner_only: OWNER_ONLY_ADD,
+  use_transfer: USE_TRANSFER_ADD,
 };
 
 const NETWORK_RE = /failed to fetch|network|load failed|fetch failed|timeout|aborted/i;

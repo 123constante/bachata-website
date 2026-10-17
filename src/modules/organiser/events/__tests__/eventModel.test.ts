@@ -65,6 +65,6 @@ describe('eventModel', () => {
   });
 
   it('previews the public card', () => {
-    expect(cardPreview(base, ws, TODAY, 'Studio One')).toEqual({ title: 'Friday Party', coverUrl: null, when: 'Fri 9 Oct', where: 'Studio One' });
+    expect(cardPreview(base, ws, TODAY, 'Studio One')).toEqual({ title: 'Friday Party', coverUrl: null, when: 'Friday 9 October', where: 'Studio One' });
   });
 });
