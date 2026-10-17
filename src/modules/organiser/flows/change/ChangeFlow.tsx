@@ -4,10 +4,14 @@ import WhatChanges from './WhatChanges';
 import Time from './Time';
 import Venue from './Venue';
 import Day from './Day';
+import Detail from './Detail';
+import TakeOff from './TakeOff';
+import Copy from './Copy';
+import Pick from './Pick';
 
-export type ChangeStep = 'event' | 'date' | 'what' | 'time' | 'venue' | 'day';
+export type ChangeStep = 'event' | 'date' | 'what' | 'time' | 'venue' | 'day' | 'detail' | 'off' | 'copy' | 'pick';
 
-const STEPS = { event: WhichEvent, date: WhichDate, what: WhatChanges, time: Time, venue: Venue, day: Day } as const;
+const STEPS = { event: WhichEvent, date: WhichDate, what: WhatChanges, time: Time, venue: Venue, day: Day, detail: Detail, off: TakeOff, copy: Copy, pick: Pick } as const;
 
 /**
  * Change a date (S2, boards C2 -> C3 -> C4 -> C5/C5b/C5c -> Done). One lazy

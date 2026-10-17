@@ -71,9 +71,11 @@ export function ScheduleCard({ seriesId, next, today, upcoming = 0, pastCount = 
  * Upcoming dates and past dates (collapsed below). Every row opens that date and
  * shows a chevron saying so. `emptyHint` is what the person can do when nothing
  * is upcoming; `truncated` says the read holds only the newest 100 dates.
+ * `pastOnly` (one event's page, whose coming dates are listed above it) shows
+ * just the collapsed past dates.
  */
-export function DatesList({ seriesId, dates, today, emptyHint, truncated = false }: {
-  seriesId: string; dates: WorkspaceDate[]; today: string; emptyHint: string; truncated?: boolean;
+export function DatesList({ seriesId, dates, today, emptyHint, truncated = false, pastOnly = false }: {
+  seriesId: string; dates: WorkspaceDate[]; today: string; emptyHint?: string; truncated?: boolean; pastOnly?: boolean;
 }) {
   const navigate = useNavigate();
   const [showPast, setShowPast] = useState(false);
@@ -89,9 +91,10 @@ export function DatesList({ seriesId, dates, today, emptyHint, truncated = false
       <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
     </button>
   );
+  if (pastOnly && !past.length && !truncated) return null;
   return (
-    <section aria-label="Dates" className="space-y-[12px]" data-testid="org-dates">
-      <Card label={`Upcoming dates (${upcoming.length})`}>
+    <section aria-label={pastOnly ? 'Past dates' : 'Dates'} className="space-y-[12px]" data-testid="org-dates">
+      {!pastOnly && <Card label={`Upcoming dates (${upcoming.length})`}>
         {upcoming.length ? upcoming.map(row) : (
           <div className="flex min-h-[52px] items-start gap-[12px] px-[16px] py-[14px]" data-testid="org-dates-none">
             <CalendarDays aria-hidden="true" className="mt-[2px] h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
@@ -101,8 +104,8 @@ export function DatesList({ seriesId, dates, today, emptyHint, truncated = false
             </span>
           </div>
         )}
-      </Card>
-      {truncated && (
+      </Card>}
+      {truncated && (!pastOnly || past.length > 0) && (
         <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="org-dates-truncated">
           Showing the newest 100 dates. Older dates are not listed here.
         </p>

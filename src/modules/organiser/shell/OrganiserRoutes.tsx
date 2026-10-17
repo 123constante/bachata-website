@@ -97,6 +97,10 @@ export default function OrganiserRoutes() {
             <Route path="change/:seriesId/:occurrenceId/venue" element={<ChangeFlow step="venue" />} />
             <Route path="change/:seriesId/:occurrenceId/day" element={<ChangeFlow step="day" />} />
             <Route path="change/:seriesId/:occurrenceId/lineup" element={<DatePage />} />
+            <Route path="change/:seriesId/pick" element={<ChangeFlow step="pick" />} />
+            <Route path="change/:seriesId/:occurrenceId/off" element={<ChangeFlow step="off" />} />
+            <Route path="change/:seriesId/:occurrenceId/copy" element={<ChangeFlow step="copy" />} />
+            <Route path="change/:seriesId/:occurrenceId/:field" element={<ChangeFlow step="detail" />} />
 
             <Route path="add" element={<AddFlow step="event" />} />
             <Route path="add/:seriesId" element={<AddFlow step="day" />} />

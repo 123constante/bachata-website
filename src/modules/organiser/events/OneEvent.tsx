@@ -14,6 +14,7 @@ import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Card, EmptyState, ErrorState, SkeletonRows } from '../ui';
 import { ClosedLines } from './ClosedLines';
 import { DatesTakenOff } from './DatesTakenOff';
+import { DatesList } from './EditorRows';
 import { EventList } from './EventList';
 import { moreLabel, readIsFull, wsCancelledComing, type EventWorkspace } from './eventModel';
 import { useEventWorkspace } from './eventsApi';
@@ -81,10 +82,17 @@ function Dates({ seriesId, home, ws, today }: { seriesId: string; home: HomeSeri
     <>
       <Card label="Coming dates" testId="org-coming">
         {shown.map((d) => (
-          <Link key={d.occurrenceId} to={ORG_PATHS.changeDate(seriesId, d.occurrenceId)} data-testid="org-coming-date" className={ROW}>
-            <span className="min-w-0 flex-1 truncate text-[var(--fg)]">{d.label}{d.time ? `, ${d.time}` : ''}</span>
-            <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
-          </Link>
+          <div key={d.occurrenceId} className="flex items-center">
+            <Link to={ORG_PATHS.changeDate(seriesId, d.occurrenceId)} data-testid="org-coming-date" className={cn(ROW, 'min-w-0 flex-1 pr-[4px]')}>
+              <span className="min-w-0 flex-1 truncate text-[var(--fg)]">{d.label}{d.time ? `, ${d.time}` : ''}</span>
+              <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
+            </Link>
+            {/* Every coming date opens its own sessions and line-up (PARITY-GAP C59), not only the next. */}
+            <Link to={ORG_PATHS.dateLineup(seriesId, d.occurrenceId)} data-testid="org-coming-sessions" aria-label={`Sessions and line-up, ${d.label}`}
+              className="flex min-h-[52px] min-w-[44px] shrink-0 items-center px-[12px] text-[14px] font-semibold text-[var(--gold)]">
+              Sessions
+            </Link>
+          </div>
         ))}
         {more && <p className="px-[16px] py-[10px] text-[14px] text-[var(--mut)]" data-testid="org-coming-more">{more}</p>}
         {!shown.length && (
@@ -117,6 +125,8 @@ function Dates({ seriesId, home, ws, today }: { seriesId: string; home: HomeSeri
           })}
         </Card>
       )}
+      {/* C39: the past dates, collapsed; each opens that date read-only. */}
+      {ws && <DatesList seriesId={seriesId} dates={ws.dates} today={today} truncated={ws.hasMore} pastOnly />}
     </>
   );
 }

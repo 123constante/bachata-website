@@ -13,6 +13,7 @@ function evaluate(): Record<string, string> {
   for (const [key, value] of Object.entries(ORG_PATHS)) {
     if (typeof value === 'string') out[key] = value;
     else if (key === 'newName') out[key] = (value as (f: string) => string)('recurring');
+    else if (key === 'changeDetail') out[key] = (value as (a: string, b: string, f: string) => string)(S, O, 'note');
     else if (key === 'addDate') out[key] = (value as (a: string, b: string) => string)(S, DAY);
     else if (key === 'teamPerson' || key === 'handoverTo' || key === 'teamAddFor') out[key] = (value as (a: string) => string)(U);
     else out[key] = (value as (a: string, b: string) => string)(S, O);
@@ -33,6 +34,10 @@ describe('ORG_PATHS (v2)', () => {
       changeVenue: '/account/o/change/s%201/o%2F1/venue',
       changeDay: '/account/o/change/s%201/o%2F1/day',
       dateLineup: '/account/o/change/s%201/o%2F1/lineup',
+      changeDetail: '/account/o/change/s%201/o%2F1/note',
+      changeOff: '/account/o/change/s%201/o%2F1/off',
+      changeCopy: '/account/o/change/s%201/o%2F1/copy',
+      changePick: '/account/o/change/s%201/pick',
       add: '/account/o/add',
       addEvent: '/account/o/add/s%201',
       addDate: '/account/o/add/s%201/day%201',

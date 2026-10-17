@@ -17,6 +17,9 @@ import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn() } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
+// The Move path (C5c) as it runs once admin A1 is applied; before A1 the row is hidden
+// and the screen refuses (pdates.flow.test.tsx pins both sides of the gate).
+vi.mock('@/modules/organiser/shared/a1Gate', () => ({ A1_APPLIED: true }));
 // venueOverridePatch as shipped, unless a test makes it throw (REVIEW-S2 S1).
 let patchFails = false;
 vi.mock('@/modules/organiser/dates/venueOverride', async (importOriginal) => {
@@ -241,7 +244,7 @@ describe('Change a date: steps', () => {
     expect(within(list).queryByText(dayLabel(pastDate()))).toBeNull();
   });
 
-  it('what changes: three rows, tap advances (D35)', async () => {
+  it('what changes: the time, venue and (after A1) move rows, tap advances (D35)', async () => {
     mount(ORG_PATHS.changeDate(A, BEFORE));
     await screen.findByTestId('change-time');
     expect(['change-time', 'change-venue', 'change-day'].map((t) => screen.getByTestId(t).textContent)).toEqual([

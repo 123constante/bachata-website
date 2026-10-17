@@ -84,8 +84,33 @@ export function useChangeSend(seriesId: string, occurrenceId: string) {
     }
   };
 
+  /**
+   * Several commands, one after another, each against the version the last
+   * one returned, then ONE Done. `target: 'series'` sends to the event (a
+   * series.* kind, checked against the series version). An empty list sends
+   * nothing (an untouched save).
+   */
+  const sendAll = async (cmds: OwnerCommand[], version: number, message: string, target: 'date' | 'series' = 'date') => {
+    if (!cmds.length) return;
+    setError(null);
+    let v = version;
+    try {
+      for (const cmd of cmds) {
+        const sig = JSON.stringify([target, v, cmd]);
+        if (!keys.current.has(sig)) keys.current.set(sig, newIdempotencyKey());
+        const res = await command.mutateAsync({ targetId: target === 'series' ? seriesId : occurrenceId, version: v, command: cmd, idempotencyKey: keys.current.get(sig) });
+        // Every applied command bumps the date's version by one; a reply without it (a replay) still moves on.
+        v = typeof res?.new_version === 'number' ? res.new_version : v + 1;
+      }
+      goDone(navigate, { title: 'Changed', message, seriesId });
+    } catch (err) {
+      if (isVersionConflict(err)) setConflict(true);
+      else setError(commandErrorMessage(err));
+    }
+  };
+
   /** A failure before the send reaches the server: the same message line. */
   const fail = (err: unknown) => setError(commandErrorMessage(err));
 
-  return { send, fail, busy: command.isPending, conflict, error };
+  return { send, sendAll, fail, busy: command.isPending, conflict, error };
 }

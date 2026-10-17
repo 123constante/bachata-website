@@ -29,7 +29,7 @@ export function StepRow({ label, sub, end, onClick, testId, disabled, pressed }:
     >
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-semibold text-[var(--fg)]">{label}</span>
-        {sub && <span className="block truncate text-[13px] text-[var(--mut)]">{sub}</span>}
+        {sub && <span className="block text-[13px] text-[var(--mut)]">{sub}</span>}
       </span>
       {end ?? <ChevronRight aria-hidden="true" className="h-[16px] w-[16px] shrink-0 text-[var(--mut)]" />}
     </button>

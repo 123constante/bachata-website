@@ -254,6 +254,19 @@ export const setTimeCommand = (start: string, end: string | null): OwnerCommand 
 });
 export const resetTimeCommand = (): OwnerCommand => ({ kind: 'occurrence.set_time', payload: { reset: true } });
 
+/**
+ * Several dates at once (admin_bulk_occurrence_command_p5, which admits an
+ * owner/manager of the series: prod fn lines 75 + 127). Not an aggregate kind,
+ * so it is its own type; the envelope targets the SERIES at its version.
+ */
+export type BulkCommand =
+  | { kind: 'occurrence.bulk_cancel'; payload: { occurrence_ids: string[]; reason: string } }
+  | { kind: 'occurrence.bulk_shift'; payload: { occurrence_ids: string[]; shift_days: number } };
+export const bulkCancelCommand = (occurrenceIds: string[], reason: string): BulkCommand =>
+  ({ kind: 'occurrence.bulk_cancel', payload: { occurrence_ids: occurrenceIds, reason } });
+export const bulkShiftCommand = (occurrenceIds: string[], shiftDays: number): BulkCommand =>
+  ({ kind: 'occurrence.bulk_shift', payload: { occurrence_ids: occurrenceIds, shift_days: shiftDays } });
+
 /** One date's own changes. `null` for a key = back to the series. */
 export type OverridePatch = Partial<Record<OwnerOverrideKey, string | null>>;
 

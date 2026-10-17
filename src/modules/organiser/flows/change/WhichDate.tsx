@@ -42,15 +42,29 @@ export default function WhichDate() {
           action={<PrimaryButton testId="change-empty-add" onClick={() => navigate(ORG_PATHS.addEvent(seriesId))}>Add a date</PrimaryButton>}
         />
       ) : (
+        <>
         <StepList testId="change-which-date">
           {dates.map((d) => (
-            <StepRow
-              key={d.occurrenceId}
-              testId="change-date-row"
-              label={d.label}
-              sub={d.time ?? undefined}
-              onClick={() => navigate(ORG_PATHS.changeDate(seriesId, d.occurrenceId))}
-            />
+            <div key={d.occurrenceId} className="flex items-center">
+              <div className="min-w-0 flex-1">
+                <StepRow
+                  testId="change-date-row"
+                  label={d.label}
+                  sub={d.time ?? undefined}
+                  onClick={() => navigate(ORG_PATHS.changeDate(seriesId, d.occurrenceId))}
+                />
+              </div>
+              {/* Every coming date opens its sessions and line-up in one tap (PARITY-GAP C59). */}
+              <button
+                type="button"
+                data-testid="change-date-sessions"
+                aria-label={`Sessions and line-up, ${d.label}`}
+                onClick={() => navigate(ORG_PATHS.dateLineup(seriesId, d.occurrenceId))}
+                className="flex min-h-[52px] min-w-[44px] shrink-0 items-center px-3 text-[14px] font-semibold text-[var(--gold)]"
+              >
+                Sessions
+              </button>
+            </div>
           ))}
           {!expanded && list && list.more > 0 && (
             <StepRow
@@ -61,6 +75,10 @@ export default function WhichDate() {
             />
           )}
         </StepList>
+        <StepList testId="change-pick-entry">
+          <StepRow testId="change-pick" label="Pick several dates" sub="Cancel or move them together" onClick={() => navigate(ORG_PATHS.changePick(seriesId))} />
+        </StepList>
+        </>
       )}
     </Step>
   );

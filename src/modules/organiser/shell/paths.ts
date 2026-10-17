@@ -22,6 +22,14 @@ export const ORG_PATHS = {
   changeDay: (seriesId: string, occurrenceId: string) => `${changeDate(seriesId, occurrenceId)}/day`,
   /** One date's line-up (sessions and their people): main's date editor, kept as is (4.2); S5 links it from the event. */
   dateLineup: (seriesId: string, occurrenceId: string) => `${changeDate(seriesId, occurrenceId)}/lineup`,
+  /** One date's note / ticket link / picture (P-DATES, C26). */
+  changeDetail: (seriesId: string, occurrenceId: string, field: 'note' | 'ticket' | 'picture') => `${changeDate(seriesId, occurrenceId)}/${field}`,
+  /** Take a rule date off (series.skip_date, C24). */
+  changeOff: (seriesId: string, occurrenceId: string) => `${changeDate(seriesId, occurrenceId)}/off`,
+  /** Copy another date's own changes onto this one (C60). */
+  changeCopy: (seriesId: string, occurrenceId: string) => `${changeDate(seriesId, occurrenceId)}/copy`,
+  /** Pick several dates, then cancel or move them together (C58). */
+  changePick: (seriesId: string) => `${ORG_BASE}/change/${id(seriesId)}/pick`,
 
   add: `${ORG_BASE}/add`,
   addEvent: (seriesId: string) => `${ORG_BASE}/add/${id(seriesId)}`,

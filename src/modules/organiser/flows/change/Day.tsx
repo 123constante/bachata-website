@@ -3,8 +3,12 @@ import { moveDateCommand } from '@/modules/organiser/shared/seriesCommands';
 import { DateStep, type DateStepReady } from './DateStep';
 import { dayDoneMessage, findSeries, moveDays } from './changeModel';
 import { useChangeHome, useChangeSend } from './useChange';
-import { StepList, StepRow } from './parts';
+import { Refusal, StepList, StepRow } from './parts';
+import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
 import { EventConflict } from '../event/parts';
+
+/** Prod refuses occurrence.move_date as admin-only until admin A1 (PARITY-GAP C20). */
+export const MOVE_NOT_OPEN = 'Moving a date to another day is not open yet.';
 
 /**
  * C5c: move this date to another day. The list is the next 30 days minus the
@@ -24,6 +28,7 @@ function DayList({ seriesId, occurrenceId, today, ws, detail }: DateStepReady) {
   const home = useChangeHome();
   const { send, busy, conflict, error } = useChangeSend(seriesId, occurrenceId);
   const series = findSeries(home.data, seriesId);
+  if (!A1_APPLIED) return <Refusal text={MOVE_NOT_OPEN} seriesId={seriesId} />;
   if (conflict) return <EventConflict seriesId={seriesId} testId="change-conflict" />;
   const days = series ? moveDays(series, ws, today) : [];
   return (

@@ -97,3 +97,182 @@ export function dateGate(ws: SeriesWorkspace, occurrenceId: string, today: strin
 export const timeDoneMessage = (time: string) => `Moved to ${time}`;
 export const venueDoneMessage = (date: string) => `Different venue - ${dayLabel(date)}`;
 export const dayDoneMessage = (date: string) => `Moved to ${dayLabel(date)}`;
+
+// ---- Change time with its sessions (PARITY-GAP C19 + C61) -------------------
+
+const toMinutes = (hhmm: string): number | null => {
+  const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
+const fromMinutes = (mins: number): string => {
+  const m = ((mins % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+};
+
+/** A start before 08:00 is the night of the date (the 08:00 boundary of src/lib/programDayRollover.ts). */
+const NIGHT_ENDS = 8 * 60;
+const onTheNight = (mins: number) => (mins < NIGHT_ENDS ? mins + 1440 : mins);
+
+/** Minutes of a start on its night (00:30 sorts after 23:00), for ordering; null when not HH:MM. */
+export const nightStart = (hhmm: string): number | null => {
+  const m = toMinutes(hhmm);
+  return m === null ? null : onTheNight(m);
+};
+/** Minutes of an end on the night of a start: never at or before it (02:00 after 21:00 is the same night). */
+const nightEnd = (startN: number, end: number) => {
+  let e = onTheNight(end);
+  while (e <= startN) e += 1440;
+  return e;
+};
+
+/** A typed end at or before the start it lands on, on the night's clock (02:00 after 21:00 is fine): the reason, else null. */
+export function endProblem(start: string, end: string): string | null {
+  const s = nightStart(start);
+  const e = nightStart(end);
+  if (s === null || e === null) return null;
+  return e <= s ? 'The end must be after the start' : null;
+}
+
+/**
+ * The move from the date's start to a new start, in minutes: 23:00 -> 01:00
+ * is 2 h later (the same night), 21:00 -> 08:00 is 13 h earlier (the
+ * morning). set_time adds new - current to every session and the times wrap,
+ * so the new times are the same either way; this only picks the words. Null
+ * while either time is not HH:MM.
+ */
+export function timeDelta(current: string, next: string): number | null {
+  const a = toMinutes(current);
+  const b = toMinutes(next);
+  if (a === null || b === null) return null;
+  return onTheNight(b) - onTheNight(a);
+}
+
+/** "1 h", "30 min", "1 h 30 min". */
+export function durationWords(mins: number): string {
+  const m = Math.abs(mins);
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return [h ? `${h} h` : '', r ? `${r} min` : ''].filter(Boolean).join(' ') || '0 min';
+}
+
+/** The line under the preview: what occurrence.set_time does to EVERY session (ST, M21:2367-2396). */
+export const deltaLine = (mins: number) =>
+  `Every session moves by ${durationWords(mins)} ${mins < 0 ? 'earlier' : 'later'}`;
+
+export interface TimedSession { key: string; name: string; kind: string; start: string; end: string }
+export interface PreviewSession extends TimedSession { newStart: string; newEnd: string }
+
+/**
+ * The live preview of set_time: every session moved by the same delta the
+ * server applies; a typed end replaces only the last-ending session's end
+ * (M21:2397-2411). Sessions stay in start order.
+ */
+export function previewTimes(sessions: TimedSession[], delta: number, end: string | null): PreviewSession[] {
+  const moved = sessions.map((s) => {
+    const st = toMinutes(s.start);
+    const en = toMinutes(s.end);
+    return { ...s, newStart: st === null ? s.start : fromMinutes(st + delta), newEnd: en === null ? s.end : fromMinutes(en + delta) };
+  });
+  const last = lastEnding(sessions);
+  if (end && last) return moved.map((s) => (s.key === last.key ? { ...s, newEnd: end } : s));
+  return moved;
+}
+
+/** The session that ends last (an end before its start runs past midnight). */
+export function lastEnding<T extends { start: string; end: string }>(sessions: T[]): T | null {
+  let best: T | null = null;
+  let bestEnd = -1;
+  for (const s of sessions) {
+    const st = nightStart(s.start);
+    const en = toMinutes(s.end);
+    if (st === null || en === null) continue;
+    // The night's clock (08:00 rollover): an after-party 00:30-04:00 ends after a party 21:00-00:00.
+    const abs = nightEnd(st, en);
+    if (abs > bestEnd) { best = s; bestEnd = abs; }
+  }
+  return best;
+}
+
+/**
+ * Does this date run at its own time? Its start (the date's own, local-as-Z)
+ * differs from the series' usual start. Prod 2026-10-17, 1,540 coming dates
+ * of live series: no date without a time change differs; 1 end-only change
+ * does not show (no read exposes it). Null facts never show a reset.
+ */
+export function hasOwnTime(date: { materialised_start_utc: string | null }, usualStart: string | null): boolean {
+  const own = date.materialised_start_utc?.match(/T(\d{2}:\d{2})/)?.[1] ?? null;
+  const usual = usualStart?.slice(0, 5) ?? null;
+  return !!own && !!usual && /^\d{2}:\d{2}$/.test(usual) && own !== usual;
+}
+
+// ---- One date's note / picture / ticket link (C26) and copy (C60) ------------
+
+export type DetailField = 'note' | 'ticket' | 'picture';
+export const DETAIL_KEY = { note: 'description', ticket: 'ticket_url', picture: 'cover_image_url' } as const;
+export const DETAIL_LABEL: Record<DetailField, string> = {
+  note: 'Note for this date only',
+  ticket: 'Ticket link for this date only',
+  picture: 'Picture for this date only',
+};
+export const DETAIL_DONE: Record<DetailField, string> = { note: 'Note changed', ticket: 'Ticket link changed', picture: 'Picture changed' };
+export const isDetailField = (v: string | undefined): v is DetailField => v === 'note' || v === 'ticket' || v === 'picture';
+
+/** A typed ticket link the server will take: http(s) only, else the reason. */
+export function ticketProblem(value: string): string | null {
+  const v = value.trim();
+  if (!v) return null;
+  return /^https?:\/\/[^\s.]+\.[^\s]+$/i.test(v) ? null : 'Start the link with https://';
+}
+
+/** The four one-date changes a date can hand to another (the owner override keys; the city rides with the venue). */
+export interface DateOwnChanges {
+  venueOverride: string | null;
+  descriptionOverride: string | null;
+  coverImageOverride: string | null;
+  ticketUrlOverride: string | null;
+}
+
+export const COPY_NONE = 'This date has no changes of its own to copy';
+/** After the read: the date's own changes are none of the four a date can copy (a time change, a cancellation). */
+export const COPY_NONE_KEYS = 'This date has no venue, note, picture or ticket link of its own to copy';
+
+/**
+ * C60: the set_override patches that copy the source date's own changes onto
+ * the target, ONE patch per changed key, nothing for a key the target already
+ * holds. The venue patch is completed with its city by the caller
+ * (venueOverridePatch). Empty = nothing to send.
+ */
+export function copyPatches(source: DateOwnChanges, target: DateOwnChanges): { key: 'venue_id' | 'description' | 'cover_image_url' | 'ticket_url'; value: string }[] {
+  const pairs = [
+    ['venue_id', source.venueOverride, target.venueOverride],
+    ['description', source.descriptionOverride, target.descriptionOverride],
+    ['cover_image_url', source.coverImageOverride, target.coverImageOverride],
+    ['ticket_url', source.ticketUrlOverride, target.ticketUrlOverride],
+  ] as const;
+  return pairs.filter(([, s, t]) => !!s && s !== t).map(([key, s]) => ({ key, value: s as string }));
+}
+
+export const hasOwnChanges = (d: DateOwnChanges) =>
+  !!(d.venueOverride || d.descriptionOverride || d.coverImageOverride || d.ticketUrlOverride);
+
+// ---- Several dates at once (C58: admin_bulk_occurrence_command_p5) -----------
+
+/** The repeat modes bulk_shift refuses ("convert to custom dates first", prod fn line 217). */
+export function shiftRefusal(recurrenceRule: unknown): string | null {
+  const mode = (recurrenceRule as { mode?: unknown } | null)?.mode;
+  return mode === 'weekly' || mode === 'monthly'
+    ? 'Dates of a repeating event can\u2019t be moved together. Change the repeat instead.'
+    : null;
+}
+
+/**
+ * "N done, M not changed": the server changes only scheduled, coming dates of
+ * this event and skips the rest silently (prod fn lines 138-143), so a
+ * requested date missing from affected_ids was not changed, and why.
+ */
+export function bulkResult(requested: string[], affected: string[]) {
+  const done = new Set(affected);
+  const refused = requested.filter((id) => !done.has(id));
+  return { done: requested.length - refused.length, refused, line: `${requested.length - refused.length} done, ${refused.length} not changed` };
+}
+export const BULK_REFUSED_REASON = 'Not changed: it was already cancelled or has passed';

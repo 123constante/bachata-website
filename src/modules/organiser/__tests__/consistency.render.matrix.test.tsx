@@ -18,6 +18,8 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, signOut: vi.fn() }) }));
+// The Move row (C5c) as it runs once admin A1 is applied (P-DATES pins the hidden side).
+vi.mock('@/modules/organiser/shared/a1Gate', () => ({ A1_APPLIED: true }));
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: null }) }));
 vi.mock('@/modules/organiser/events/media', async (orig) => ({ ...(await orig<object>()), uploadEventPicture: upload }));
 vi.mock('@/modules/profile/organiserPublicProfile', async (orig) => ({
