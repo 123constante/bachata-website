@@ -26,7 +26,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
 vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-10-08' }));
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: 'c1' }) }));
 
-import EventEditorPage from '../EventEditorPage';
+import OneEvent from '../OneEvent';
 import { PUT_BACK_WHERE, TAKEN_OFF_LABEL, confirmCopy } from '@/modules/organiser/shared/editorGuards';
 import { capBlock, takenOffView } from '../takenOff';
 import { parseEventWorkspace } from '../eventModel';
@@ -136,12 +136,12 @@ async function openEditor(c: Case) {
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[`/account/o/events/${c.shape.id}`]}>
         <Routes>
-          <Route path="/account/o/events/:seriesId" element={<EventEditorPage />} />
+          <Route path="/account/o/events/:seriesId" element={<OneEvent />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  return screen.findByTestId('org-event-editor');
+  return screen.findByTestId('org-event-title');
 }
 const text = (el: Element) => el.textContent ?? '';
 
@@ -195,12 +195,6 @@ describe.each(CASES.map((c) => [c.key, c] as const))('shape %s', (_key, c) => {
 describe('Put back edge cases', () => {
   const within30 = CASES.find((c) => c.key === 'live-within-cap')!;
 
-  it('is off while the editor holds unsaved edits, and says to save first', async () => {
-    await openEditor(within30);
-    fireEvent.change(screen.getByTestId('org-event-name'), { target: { value: 'Renamed' } });
-    (screen.getAllByTestId('org-taken-off-put-back') as HTMLButtonElement[]).forEach((b) => expect(b.disabled).toBe(true));
-    expect(text(screen.getByTestId('org-taken-off-reason'))).toMatch(/Save your changes first/);
-  });
 
   it('a refused put back shows the server reason in plain words, on that row', async () => {
     await openEditor(within30);

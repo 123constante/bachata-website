@@ -16,7 +16,7 @@ import {
   weekdayOf,
   type CreateForm,
 } from '../createModel';
-import { OWNER_CREATE_KEYS, SERIES_TIMEZONE, createPayload, submitForReviewCommand, weeklyRuleCommand } from '../seriesCommands';
+import { OWNER_CREATE_KEYS, SERIES_TIMEZONE, createPayload, weeklyRuleCommand } from '../seriesCommands';
 import { commandErrorMessage, isServerRefusal } from '../selfServeErrors';
 
 // selfServeApi imports the Supabase client; only its pure createSeriesCommand is under test.
@@ -123,7 +123,7 @@ describe('the submit gate (Lever 2 B2: approval refuses a series with no venue)'
 
   it('the hint says what submitting still needs, and that a draft does not need the venue', () => {
     expect(submitHint(weeklyForm, TODAY)).toBeNull();
-    expect(submitHint(noVenue, TODAY)).toBe('To submit for review, add a venue. You can save a draft without one.');
+    expect(submitHint(noVenue, TODAY)).toBe('To go live, add a venue. You can save a draft without one.');
     expect(submitHint({ ...noVenue, name: '' }, TODAY)).toBe('To continue, add a name and a venue. A draft can be saved without a venue.');
     expect(submitHint({ ...weeklyForm, name: '' }, TODAY)).toBe('To continue, add a name.');
   });
@@ -135,7 +135,7 @@ describe('createBlock (the server: series.upsert (create) needs a live organiser
     for (const status of ['draft', 'pending_review', 'rejected', 'paused', 'ended']) {
       const text = createBlock({ name: 'Ritmo', lifecycle_status: status });
       expect(text).toContain('Ritmo');
-      expect(text).toMatch(/approves it|approved|needs changes|Ask the Bachata Calendar team/);
+      expect(text).toMatch(/Ask the Bachata Calendar team\.$/);
     }
   });
 });
@@ -201,21 +201,15 @@ describe('createSeriesCommand (selfServeApi, the one file allowed to spell the o
 });
 
 describe('followUpCommands', () => {
-  it('a party draft adds its one date; a submitted party also moves to review', () => {
-    expect(followUpCommands(partyForm, false)).toEqual([{ kind: 'series.add_date', payload: { date: '2026-10-17' } }]);
-    expect(followUpCommands(partyForm, true)).toEqual([
-      { kind: 'series.add_date', payload: { date: '2026-10-17' } },
-      { kind: 'series.set_lifecycle', payload: { to: 'pending_review' } },
-    ]);
+  it('a party adds its one date and nothing else: there is no review step (D4)', () => {
+    expect(followUpCommands(partyForm)).toEqual([{ kind: 'series.add_date', payload: { date: '2026-10-17' } }]);
   });
 
   it('a weekly class sets the owner rule on the first date\'s weekday, open-ended, interval absent', () => {
-    expect(followUpCommands(weeklyForm, true)).toEqual([
+    expect(followUpCommands(weeklyForm)).toEqual([
       { kind: 'series.set_recurrence', payload: { mode: 'weekly', weekdays: [2], end: { kind: 'none' } } },
-      { kind: 'series.set_lifecycle', payload: { to: 'pending_review' } },
     ]);
     expect(weeklyRuleCommand(0).payload).toEqual({ mode: 'weekly', weekdays: [0], end: { kind: 'none' } });
-    expect(submitForReviewCommand()).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'pending_review' } });
   });
 });
 
@@ -255,7 +249,7 @@ describe('isServerRefusal (decides whether a failed create may have landed)', ()
 
 describe('the create refusals read as copy, never as server text', () => {
   it.each([
-    ['permission_denied: series.upsert (create) needs a live organiser', /not public yet/],
+    ['permission_denied: series.upsert (create) needs a live organiser', /not live yet/],
     // The server's message names the organiser key; it is assembled so the architecture lint's ban stays exact.
     [`permission_denied: series.upsert (create) needs ${'organiser'}_ids naming one organiser the caller owns or manages`, /Choose one of your organisers/],
     ['permission_denied: series.upsert category must be party, class or workshop', /cannot be set here/],

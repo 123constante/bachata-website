@@ -1,0 +1,13 @@
+{"tag":"page_Edit_photo","n":0,"out":[]}
+{"tag":"details_0","n":0,"out":[]}
+{"tag":"team_add","n":1,"out":[{"id":"add-search","top":79,"bottom":127,"vh":508,"visible":true,"hitSelf":true,"actions":["Search events, v@7-51"]}]}
+{"tag":"page_Edit_name","n":1,"out":[{"id":":r7:-input","top":345,"bottom":389,"vh":508,"visible":true,"hitSelf":true,"actions":["Search events, v@7-51","Add a person@786-830","Done@452-496"]}]}
+{"tag":"new_after_first_choice","n":0,"out":[]}
+{"tag":"details_1","n":0,"out":[]}
+{"tag":"page_Edit_city","n":1,"out":[{"id":"Search for your city","top":300,"bottom":344,"vh":508,"visible":true,"hitSelf":true,"actions":["Search events, v@7-51","Add a person@786-830","Done@452-496"]}]}
+{"tag":"page_Edit_year_started","n":1,"out":[{"id":":rd:-input","top":396,"bottom":440,"vh":508,"visible":true,"hitSelf":true,"actions":["Search events, v@7-51","Add a person@786-830","Done@452-496"]}]}
+{"tag":"details_2","n":3,"out":[{"id":"session-name","top":181,"bottom":229,"vh":508,"visible":true,"hitSelf":true,"actions":["Search events, v@7-51","Add a session@449-501","Saved@456-500","Add a teacher@564-608","Done@444-496"]},{"id":"session-start","top":267,"bottom":315,"vh":508,"visible":true,"hitSelf":true,"actions":["Search events, v@7-51","Add a session@449-501","Saved@456-500","Add a teacher@564-608","Done@444-496"]},{"id":"session-end","top":267,"bottom":315,"vh":508,"visible":true,"hitSelf":true,"actions":["Search events, v@7-51","Add a session@449-501","Saved@456-500","Add a teacher@564-608","Done@444-496"]}]}
+{"tag":"page_Edit_category","n":0,"out":[]}
+{"tag":"page_Edit_about","n":1,"out":[{"id":":rj:-input","top":255,"bottom":411,"vh":508,"visible":true,"hitSelf":true,"actions":["Search events, v@7-51","Add a person@786-830","Done@452-496"]}]}
+{"tag":"page_Edit_instagram","n":1,"out":[{"id":":rm:-input","top":324,"bottom":369,"vh":508,"visible":true,"hitSelf":true,"actions":["Search events, v@7-51","Add a person@786-830","Done@452-496"]}]}
+{"tag":"page_Edit_facebook","n":1,"out":[{"id":":rp:-input","top":396,"bottom":440,"vh":508,"visible":true,"hitSelf":true,"actions":["Search events, v@7-51","Add a person@786-830","Done@452-496"]}]}

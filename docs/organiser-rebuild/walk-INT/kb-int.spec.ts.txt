@@ -1,0 +1,68 @@
+import { test, type Page } from '@playwright/test';
+import { appendFileSync } from 'node:fs';
+import { PHONE, FRIDAY, openOrganiser, setKeyboard } from '../helpers/organiserFake';
+const OUT = 'docs/organiser-rebuild/walk-INT';
+test.use({ viewport: PHONE });
+
+async function probe(page: Page, tag: string) {
+  const fields = page.locator('input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=file]), textarea');
+  const n = await fields.count();
+  const out: unknown[] = [];
+  for (let i = 0; i < n; i++) {
+    const fl = fields.nth(i);
+    if (!(await fl.isVisible())) continue;
+    await fl.focus();
+    await setKeyboard(page, 336);
+    await page.waitForTimeout(500);
+    out.push(await fl.evaluate((e) => {
+      const b = e.getBoundingClientRect(); const vh = window.visualViewport!.height;
+      const hit = document.elementFromPoint(b.left + b.width / 2, Math.max(1, Math.min(b.top + b.height / 2, innerHeight - 1)));
+      // the primary action (Save / Next / Done) still reachable above the keyboard?
+      const act = [...document.querySelectorAll('button')].filter((x) => /^(Save|Next|Done|Continue|Add|Search)/.test((x.textContent || '').trim()) && x.getBoundingClientRect().height > 0).map((x) => { const r = x.getBoundingClientRect(); return `${(x.textContent || '').trim().slice(0, 16)}@${Math.round(r.top)}-${Math.round(r.bottom)}`; });
+      return { id: e.getAttribute('data-testid') || e.getAttribute('aria-label') || e.id, top: Math.round(b.top), bottom: Math.round(b.bottom), vh: Math.round(vh), visible: b.top >= 0 && b.bottom <= vh, hitSelf: !!hit && (hit === e || e.contains(hit) || hit.contains(e)), actions: act };
+    }));
+    await page.screenshot({ path: `${OUT}/kb__${tag}__${i}.png` });
+    await setKeyboard(page, 0);
+  }
+  appendFileSync(`${OUT}/kb.jsonl`, JSON.stringify({ tag, n, out }) + '\n');
+}
+
+test('kb /page sheets', async ({ page }) => {
+  await openOrganiser(page, '/account/o/page');
+  await page.waitForTimeout(1000);
+  await page.waitForLoadState('networkidle'); await page.locator('button[aria-label^="Edit"]').first().waitFor();
+  const pencils = page.locator('button[aria-label^="Edit"]');
+  const labels = await pencils.evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label')));
+  for (const l of labels.slice(0, 8)) {
+    await page.locator(`button[aria-label="${l}"]`).first().click().catch(() => {});
+    await page.waitForTimeout(600);
+    await probe(page, `page_${String(l).replace(/\W+/g, '_')}`);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+  }
+});
+test('kb team add search', async ({ page }) => {
+  await openOrganiser(page, '/account/o/team/add');
+  await page.waitForLoadState('networkidle'); await page.waitForTimeout(1500);
+  await probe(page, 'team_add');
+});
+test('kb new flow name', async ({ page }) => {
+  await openOrganiser(page, '/account/o/new/what');
+  await page.waitForLoadState('networkidle'); await page.waitForTimeout(1500);
+  await page.locator('main button, [data-testid^=org] button').first().click();
+  await page.waitForLoadState('networkidle'); await page.waitForTimeout(1500);
+  await probe(page, 'new_after_first_choice');
+});
+test('kb event details sheets', async ({ page }) => {
+  await openOrganiser(page, `/account/o/events/${FRIDAY}/details`);
+  await page.waitForLoadState('networkidle'); await page.waitForTimeout(1500);
+  const rows = page.locator('main button');
+  const k = Math.min(await rows.count(), 6);
+  for (let i = 0; i < k; i++) {
+    await rows.nth(i).click().catch(() => {});
+    await page.waitForTimeout(600);
+    await probe(page, `details_${i}`);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+  }
+});

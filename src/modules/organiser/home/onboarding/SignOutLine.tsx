@@ -1,18 +1,16 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { SIGN_OUT_FAILED, useSignOutToHome } from '@/components/account/profiles/signOutToHome';
 import { GhostButton, PrimaryButton, SheetView, useShake } from '../../ui';
 
 /**
  * "Signed in as <email> . Not you? Sign out": the way out of the first-time
  * screen for someone who signed in with the wrong email. The confirm sheet is
- * the same flow as the Profile tab's (useAuth().signOut, then the start page).
+ * the same flow as More's: the shared useSignOutToHome (leave for the site
+ * home first, then sign out; on a failure it comes back here and says so).
  */
 export function SignOutLine({ email }: { email: string | null }) {
   const [open, setOpen] = useState(false);
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
-  const [busy, setBusy] = useState(false);
+  const { signOutToHome, busy } = useSignOutToHome();
   const [note, setNote] = useState<string | null>(null);
   const { shake, shakeProps } = useShake();
 
@@ -21,16 +19,11 @@ export function SignOutLine({ email }: { email: string | null }) {
     setNote(null);
   };
   const go = async () => {
-    setBusy(true);
     setNote(null);
-    const outcome = await signOut();
-    setBusy(false);
-    if (outcome === 'failed') {
-      setNote('Sign-out did not complete. Check your connection and try again.');
+    if ((await signOutToHome()) === 'failed') {
+      setNote(SIGN_OUT_FAILED);
       shake();
-      return;
     }
-    navigate('/', { replace: true });
   };
 
   return (
