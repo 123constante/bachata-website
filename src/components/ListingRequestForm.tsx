@@ -1,5 +1,9 @@
 import { useState, type FormEvent } from 'react';
-import { supabase } from '@/lib/supabase';
+// rpcLoose (getSupabase() underneath), not a static `@/lib/supabase` import: the
+// client is only needed on submit, and a static edge here put vendor-supabase
+// into the AnimatedRoutes chunk's hoisted imports (an extra direct puller on
+// /auth and /app/*). eagerAuthClient.ts holds the eager auth-path edge on purpose.
+import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { toast } from '@/hooks/use-toast';
 import type { ListingSection } from '@/lib/featureFlags';
 
@@ -38,7 +42,7 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
         ? window.location.pathname + window.location.search
         : null;
 
-      const { data, error } = await (supabase.rpc as any)('submit_listing_request_v1', {
+      const { data, error } = await rpcLoose('submit_listing_request_v1', {
         p_payload: {
           section,
           name: name.trim(),
