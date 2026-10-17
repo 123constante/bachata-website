@@ -95,6 +95,95 @@ describe('assertMeasured', () => {
   });
 });
 
+describe('resolvePreviewUrl: [skip preview] checkpoint heads (Vercel build budget)', () => {
+  const noDeployments = () =>
+    vi.fn(async (url: string) => {
+      if (url.includes('/commits/')) {
+        return { ok: true, json: async () => ({ commit: { message: 'wip CHECKPOINT [skip preview]' } }) } as Response;
+      }
+      if (url.includes('/deployments?')) return { ok: true, json: async () => [] } as Response;
+      throw new Error(`unexpected ${url}`);
+    });
+
+  it('fails FAST and RED when the injected head message carries [skip preview] (never polls 600s)', async () => {
+    vi.stubGlobal('fetch', noDeployments());
+    const t0 = Date.now();
+    await expect(
+      resolvePreviewUrl({
+        sha: 'abc', token: 't', repo: 'o/r', commitMessage: 'feat: x CHECKPOINT [skip preview]\n\nbody',
+        timeoutMs: 60_000, intervalMs: 1, log: () => {},
+      }),
+    ).rejects.toThrow('checkpoint commit: no preview by design; the final worker push builds one');
+    expect(Date.now() - t0).toBeLessThan(2_000);
+  }, 5_000);
+
+  it('reads the head message from the GitHub commits API when not injected, and fails fast', async () => {
+    const f = noDeployments();
+    vi.stubGlobal('fetch', f);
+    await expect(
+      resolvePreviewUrl({ sha: 'abc', token: 't', repo: 'o/r', timeoutMs: 60_000, intervalMs: 1, log: () => {} }),
+    ).rejects.toThrow(/checkpoint commit: no preview by design/);
+    expect(f.mock.calls.map((c) => String(c[0]))).toContain('https://api.github.com/repos/o/r/commits/abc');
+  }, 5_000);
+
+  it('a normal head message still polls and resolves the preview', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.includes('/commits/')) return { ok: true, json: async () => ({ commit: { message: 'feat: done [worker-done dt_x]' } }) } as Response;
+      if (url.includes('/deployments?')) return { ok: true, json: async () => [{ id: 7, environment: 'Preview' }] } as Response;
+      if (url.includes('/deployments/7/statuses')) {
+        return { ok: true, json: async () => [{ state: 'success', environment_url: 'https://p.vercel.app' }] } as Response;
+      }
+      throw new Error(`unexpected ${url}`);
+    }));
+    await expect(
+      resolvePreviewUrl({ sha: 'abc', token: 't', repo: 'o/r', intervalMs: 1, log: () => {} }),
+    ).resolves.toBe('https://p.vercel.app');
+  });
+
+  it('the tag only in the BODY does not fast-fail (the subject is matched, as in the ignore script)', async () => {
+    vi.stubGlobal('fetch', noDeployments());
+    await expect(
+      resolvePreviewUrl({
+        sha: 'abc', token: 't', repo: 'o/r', commitMessage: 'feat: done\n\n* cp [skip preview]',
+        timeoutMs: 30, intervalMs: 1, log: () => {},
+      }),
+    ).rejects.toThrow(/no ready Vercel preview/);
+  });
+
+  it('the tag mid-SUBJECT (not at its end) does not fast-fail (suffix match, as in the ignore script)', async () => {
+    vi.stubGlobal('fetch', noDeployments());
+    await expect(
+      resolvePreviewUrl({
+        sha: 'abc', token: 't', repo: 'o/r', commitMessage: 'docs: explain the [skip preview] tag',
+        timeoutMs: 30, intervalMs: 1, log: () => {},
+      }),
+    ).rejects.toThrow(/no ready Vercel preview/);
+  });
+
+  it('a tagged head that Vercel built anyway uses the real preview (one pass before failing)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.includes('/deployments?')) return { ok: true, json: async () => [{ id: 9, environment: 'Preview' }] } as Response;
+      if (url.includes('/deployments/9/statuses')) {
+        return { ok: true, json: async () => [{ state: 'success', environment_url: 'https://cp.vercel.app/' }] } as Response;
+      }
+      throw new Error(`unexpected ${url}`);
+    }));
+    await expect(
+      resolvePreviewUrl({ sha: 'abc', token: 't', repo: 'o/r', commitMessage: 'cp [skip preview]', log: () => {} }),
+    ).resolves.toBe('https://cp.vercel.app');
+  });
+
+  it('an unreadable head message does not skip anything: it polls, and times out RED', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.includes('/deployments?')) return { ok: true, json: async () => [] } as Response;
+      return { ok: false, status: 500, json: async () => ({}) } as Response;
+    }));
+    await expect(
+      resolvePreviewUrl({ sha: 'abc', token: 't', repo: 'o/r', timeoutMs: 30, intervalMs: 1, log: () => {} }),
+    ).rejects.toThrow(/no ready Vercel preview/);
+  });
+});
+
 describe('resolvePreviewUrl', () => {
   it('returns the environment_url of a ready Preview deployment', async () => {
     const calls: string[] = [];
@@ -115,7 +204,9 @@ describe('resolvePreviewUrl', () => {
       sha: 'abc', token: 't', repo: 'o/r', log: () => {},
     });
     expect(url).toBe('https://x-abc.vercel.app'); // trailing slash stripped
-    expect(calls[0]).toContain('/repos/o/r/deployments?sha=abc');
+    // calls[0] is the head-commit message lookup ([skip preview] fast-fail).
+    expect(calls[0]).toBe('https://api.github.com/repos/o/r/commits/abc');
+    expect(calls[1]).toContain('/repos/o/r/deployments?sha=abc');
   });
 
   it('THROWS on timeout when no ready preview appears (fail-loud, never null)', async () => {
