@@ -145,6 +145,7 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
       };
       body = (
         <div className="space-y-[12px]" data-testid="org-sheet-video">
+          {videos.length === 0 && <p className="text-[14px] text-[var(--mut)]" data-testid="org-video-empty">No videos yet. Paste a video link below to add one.</p>}
           {videos.length > 0 && (
             <Card>
               {videos.map(({ url, leaving }, i) => (

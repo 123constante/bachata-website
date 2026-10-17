@@ -160,7 +160,7 @@ describe('Ask to join -> Done', () => {
 });
 
 describe('Create a new page -> Home', () => {
-  it('name, then city = ONE create call; the page is live, so no review copy; Home reads the four first steps', async () => {
+  it('name, then city = ONE create call; the page is live, so no review copy; Home reads the three first steps', async () => {
     api.create.mockResolvedValue({ organiserId: 'n1', slug: 'nova', lifecycleStatus: 'live' });
     const { onChanged } = mount();
     expect(document.body.textContent).not.toMatch(/checks new|review|draft/i);
@@ -173,7 +173,7 @@ describe('Create a new page -> Home', () => {
     expect(api.create).toHaveBeenCalledTimes(1);
     expect((await screen.findByTestId('where')).textContent).toBe(ORG_PATHS.home);
     const fresh = { id: 'n1', name: 'Nova', slug: 'nova', avatar_url: null, city_id: 'c1', lifecycle_status: 'live', role: 'owner', latest_decision: null, series: [], team: [] };
-    expect(homeJobs(fresh as never, [], '2026-10-20').map((j) => j.kind)).toEqual(['create_first_event', 'add_cover', 'show_whatsapp', 'add_manager']);
+    expect(homeJobs(fresh as never, [], '2026-10-20').map((j) => j.kind)).toEqual(['create_first_event', 'add_cover', 'add_manager']);
   });
 
   it('a name searched for with no match is carried into the create name step', async () => {

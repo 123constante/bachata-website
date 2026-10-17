@@ -6,6 +6,7 @@ import {
 } from '@/modules/organiser/shared/seriesCommands';
 import { createSeriesCommand } from '@/modules/organiser/shared/selfServeApi';
 import type { NewEventFormat } from '@/modules/organiser/shell/paths';
+import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
 
 /**
  * New event, one question per screen (plan 4.5, D44, D54, D55). Pure: every
@@ -44,8 +45,29 @@ export const timeCommands = (time: string): OwnerCommand[] => [upsertCommand({ d
 /** C23: ONE upsert (the picture is already uploaded). */
 export const coverCommands = (url: string): OwnerCommand[] => [upsertCommand({ default_cover_image_url: url })];
 
-/** C23 -> C24: ONE lifecycle command; the server gates on readiness, a cover and a scheduled date (A1b). */
-export const liveCommands = (): OwnerCommand[] => [lifecycleCommand('live')];
+/**
+ * C23 -> C24: ONE lifecycle command; the server gates on readiness, a cover and a
+ * scheduled date (A1b). Until admin A1 is on prod (an owner's draft -> live is
+ * refused there, PARITY-GAP C28a) the wizard sends NOTHING and says it saved a draft.
+ */
+export const liveCommands = (a1 = A1_APPLIED): OwnerCommand[] => (a1 ? [lifecycleCommand('live')] : []);
+
+/** Why the last step's button is off: no photo yet (it does not promise going live while A1 waits). */
+export const coverStepReason = (hasCover: boolean, a1 = A1_APPLIED): string | null =>
+  hasCover ? null : a1 ? 'Choose a photo to go live.' : 'Choose a photo first.';
+
+/**
+ * "Save as draft and leave": with A1 on, always; with A1 off only while the main
+ * button is off (no photo), since that button then saves the draft itself.
+ */
+export const offerLeave = (hasCover: boolean, a1 = A1_APPLIED): boolean => a1 || !hasCover;
+
+/** The last step's button: Go live, or Save as draft while going live waits on A1. */
+export const finishLabel = (a1 = A1_APPLIED): string => (a1 ? 'Go live' : 'Save as draft');
+
+/** Said on the last step and on Done while going live waits on A1 (plain words, no jargon). */
+export const DRAFT_ONLY_NOTE = 'Going live needs the next platform update. Your event is saved as a draft until then; go live from the event.';
+export const DRAFT_SAVED_MESSAGE = 'Saved as a draft. Going live needs the next platform update.';
 
 /** The next 30 days from today, soonest first (C22). */
 export function firstDateChoices(today: string, days = 30): Array<{ date: string; label: string }> {

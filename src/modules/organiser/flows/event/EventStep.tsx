@@ -1,7 +1,12 @@
 import { useState } from 'react';
+import { weekdayOfKey } from '@/lib/londonDate';
 import { lifecycleCommand } from '@/modules/organiser/shared/seriesCommands';
 import { ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
-import { dayChangeCommand, readIsFull, stopKeepingCommand, wsComing, type EventWorkspace } from '@/modules/organiser/events/eventModel';
+import { dayLabel } from '@/modules/organiser/shared/dateList';
+import {
+  dayChangeCommand, otherUpcoming, readIsFull, stopRepeatingCommand, weeklyUntilCommand, wsComing, type EventWorkspace,
+} from '@/modules/organiser/events/eventModel';
+import { allowedEndChoices, firstOnWeekday } from '@/modules/organiser/events/dateCap';
 import { EndStep } from './EndStep';
 import { ACTION_LABEL, WEEKDAY, eventActions, type EventStepName } from './eventSteps';
 import { ChoiceButton, EventConflict, EventStepShell, SendButton, StepError } from './parts';
@@ -47,17 +52,82 @@ function DayStep({ ws }: { ws: EventWorkspace }) {
   );
 }
 
-/** C44: stop repeating, a confirm then ONE series.stop_repeating keeping every coming date. */
+/**
+ * C44 + C16: stop repeating, choosing the last date (the old editor's "until"):
+ * ONE series.stop_repeating keeping the coming dates up to it. The default is
+ * the last listed date, so every coming date stays (as before). The keep list
+ * is what stops the server deleting them (_cmd_series_stop_repeating_p5).
+ */
 function StopStep({ ws, today }: { ws: EventWorkspace; today: string }) {
   const { sendThenDone, busy, conflict, error } = useEventSend(ws.series.id);
+  const coming = wsComing(ws, today);
+  const [last, setLast] = useState<string | null>(coming[coming.length - 1]?.id ?? null);
   if (conflict) return <EventConflict seriesId={ws.series.id} />;
-  const n = wsComing(ws, today).length;
+  const cut = coming.findIndex((d) => d.id === last);
+  const keep = cut < 0 ? coming : coming.slice(0, cut + 1);
+  const gone = coming.length - keep.length;
+  const n = keep.length;
   const dates = `${n} ${n === 1 ? 'date' : 'dates'}`;
+  const line = `${dates} ${n === 1 ? 'stays' : 'stay'}.${gone ? ` ${gone} after ${n === 1 ? 'it' : 'them'} ${gone === 1 ? 'comes' : 'come'} off.` : ''} No new dates after ${n === 1 ? 'it' : 'them'}.`;
   return (
     <>
-      <p className="text-[16px] font-bold text-[var(--fg)]" data-testid="event-stop-line">{`${dates} stay. No new dates after them.`}</p>
+      {coming.length > 1 && (
+        <>
+          <p className="text-[15px] text-[var(--fg)]">Which is the last date?</p>
+          <div role="radiogroup" aria-label="Last date" className="flex flex-col gap-2">
+            {coming.map((d) => (
+              <ChoiceButton key={d.id} selected={last === d.id} onPick={() => setLast(d.id)} testId="event-stop-last">{dayLabel(d.occurrence_date)}</ChoiceButton>
+            ))}
+          </div>
+        </>
+      )}
+      <p className="text-[16px] font-bold text-[var(--fg)]" data-testid="event-stop-line">{line}</p>
       <SendButton label="Stop repeating" reason={null} busy={busy}
-        onSend={() => void sendThenDone(ws.series.version, stopKeepingCommand(ws, today), { title: 'Saved', message: `Stops repeating - ${dates} stay` })} />
+        onSend={() => void sendThenDone(ws.series.version, stopRepeatingCommand(keep.map((d) => d.id)), { title: 'Saved', message: `Stops repeating - ${dates} ${n === 1 ? 'stays' : 'stay'}` })} />
+      <StepError text={error} />
+    </>
+  );
+}
+
+/**
+ * C40: a `recurring` event with no rule (its dates set one by one) becomes
+ * weekly: ONE series.set_recurrence on the chosen weekday, ending on a date
+ * that keeps it within 30 coming dates. With no old rule the server removes
+ * nothing, so every date already listed stays.
+ */
+function WeeklyStep({ ws, today }: { ws: EventWorkspace; today: string }) {
+  const { sendThenDone, busy, conflict, error } = useEventSend(ws.series.id);
+  const next = wsComing(ws, today)[0]?.occurrence_date ?? null;
+  const [picked, setPicked] = useState<number | null>(next ? weekdayOfKey(next) : null);
+  const [until, setUntil] = useState<string | null>(null);
+  if (conflict) return <EventConflict seriesId={ws.series.id} />;
+  const start = picked === null ? null : firstOnWeekday(today, picked);
+  const choices = start ? allowedEndChoices({ today, startDate: start, otherUpcoming: otherUpcoming(ws.dates, today, start) }) : [];
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  const reason = picked === null ? 'Pick a day' : !choices.length ? 'No end fits: 30 coming dates are already listed.' : !until ? 'Pick how long it is listed' : null;
+  return (
+    <>
+      <p className="text-[15px] text-[var(--fg)]">Every week on</p>
+      <div role="radiogroup" aria-label="Day" className="flex flex-col gap-2">
+        {order.map((d) => (
+          <ChoiceButton key={d} selected={picked === d} onPick={() => { setPicked(d); setUntil(null); }} testId={`event-day-${d}`}>{WEEKDAY[d]}</ChoiceButton>
+        ))}
+      </div>
+      {choices.length > 0 && (
+        <>
+          <p className="text-[15px] text-[var(--fg)]">Listed until</p>
+          <div role="radiogroup" aria-label="Listed until" className="flex flex-col gap-2">
+            {choices.map((c) => (
+              <ChoiceButton key={c.until} selected={until === c.until} onPick={() => setUntil(c.until)} testId="event-weekly-until">
+                {`${c.count} weeks, until ${dayLabel(c.until)}`}
+              </ChoiceButton>
+            ))}
+          </div>
+        </>
+      )}
+      <p className="text-[14px] text-[var(--mut)]" data-testid="event-weekly-line">Dates already listed stay. New dates are added each week.</p>
+      <SendButton label="Make it weekly" reason={reason} busy={busy}
+        onSend={() => start && until && picked !== null && void sendThenDone(ws.series.version, weeklyUntilCommand(start, until), { title: 'Saved', message: `Every ${WEEKDAY[picked]}` })} />
       <StepError text={error} />
     </>
   );
@@ -75,7 +145,8 @@ export function EventStep({ ws, today, step }: { ws: EventWorkspace; today: stri
     : step === 'resume' ? <LifecycleStep ws={ws} to="live" />
       : step === 'end' ? <EndStep ws={ws} today={today} />
         : step === 'day' ? <DayStep ws={ws} />
-          : <StopStep ws={ws} today={today} />;
+          : step === 'weekly' ? <WeeklyStep ws={ws} today={today} />
+            : <StopStep ws={ws} today={today} />;
   return (
     <EventStepShell seriesId={ws.series.id} title={`${ACTION_LABEL[step]} - ${ws.series.name}`}>
       {body}
