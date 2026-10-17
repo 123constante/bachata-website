@@ -66,6 +66,6 @@ test('create an organiser, send it for review, get approved, create an event, st
   await expect(first).toContainText('Draft');
 
   await page.getByTestId('org-tab-team').click();
-  await expect(page.getByTestId('requests-empty')).toBeVisible();
+  await expect(page.getByTestId('join-request')).toHaveCount(0);
   await expect(page.getByTestId('team-member')).toHaveCount(1);
 });

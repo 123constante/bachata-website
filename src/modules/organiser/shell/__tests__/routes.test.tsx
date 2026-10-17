@@ -107,10 +107,6 @@ describe('Change a date (S2) owns its six paths', () => {
 describe('every R1 route answers until its slice lands (placeholder)', () => {
   it.each([
     ['/account/o/events/s1/details', 'Event details'],
-    ['/account/o/team/add', 'Team'],
-    ['/account/o/team/u1', 'Team'],
-    ['/account/o/handover', 'Hand over'],
-    ['/account/o/handover/u1', 'Hand over'],
     ['/account/o/more', 'More'],
     ['/account/o/cover/s1', 'Cover'],
   ])('%s -> %s', async (path, name) => {
