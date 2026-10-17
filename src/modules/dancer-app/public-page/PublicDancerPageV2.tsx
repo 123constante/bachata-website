@@ -1,11 +1,12 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Share2 } from 'lucide-react';
 import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { NationalityFlag, TILE_FLAG_SIZE } from '@/components/people/NationalityFlag';
-import { optimizedImageUrl } from '@/lib/imageCdn';
+import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
+import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 import { useAuth } from '@/hooks/useAuth';
-import '../theme/dancer.css';
+import { DANCER_TOKENS } from '../theme/tokens';
 import { SHARE_MESSAGES, joinHref, shareDancerPage, type ContactLink, type PublicDancerPageModel, type ShareOutcome } from './model';
 
 /**
@@ -28,6 +29,14 @@ export type PublicDancerPageV2Props = {
 };
 
 const TAP = { minHeight: 44 } as const;
+
+// The dancer theme as CSS variables on this page's root. theme/dancer.css stays the
+// shell's alone (tests/client/dancerAppTheme.test.ts: one importer); the values are
+// the same object that sheet is pinned to, so the two cannot drift.
+const THEME_VARS = { ...DANCER_TOKENS, background: 'var(--da-bg)', color: 'var(--da-text)' } as CSSProperties;
+
+/** The portrait is the page width (max-w-xl = 576 css px). */
+const PORTRAIT_CSS_PX = 576;
 
 const ICONS: Record<ContactLink['kind'], typeof Instagram> = {
   whatsapp: MessageCircle,
@@ -106,19 +115,20 @@ export function PublicDancerPageV2({ model, extrasOk = true, profileId, pathname
   const otherContacts = model.contacts.filter((c) => c.kind !== 'whatsapp');
 
   return (
-    <div data-profile="dancer" data-testid="dancer-page-v2" className="relative z-10 rounded-[14px] overflow-hidden" style={{ minHeight: 'auto', isolation: 'isolate' }}>
+    <div data-profile="dancer" data-testid="dancer-page-v2" className="relative z-10 rounded-[14px] overflow-hidden" style={{ ...THEME_VARS, isolation: 'isolate' }}>
       {/* The photo fills the header; the name block is IN FLOW at the bottom, so a long
           name at 200% text grows the header instead of being clipped off its top. */}
       <header className="relative w-full flex flex-col justify-end overflow-hidden min-h-[min(125vw,62vh)]" data-testid="dancer-portrait">
         {model.avatarUrl ? (
-          <img src={optimizedImageUrl(model.avatarUrl, 720)} alt={model.name} className="absolute inset-0 w-full h-full object-cover" />
+          <img src={optimizedImageUrl(model.avatarUrl, srcWidthFor(PORTRAIT_CSS_PX))} alt={model.name} className="absolute inset-0 w-full h-full object-cover" />
         ) : (
+          // No photo: the site's ONE avatar (its no-photo face), centred on the dancer gradient.
           <div
-            className="absolute inset-0 flex items-center justify-center text-[96px] font-black"
-            style={{ background: 'linear-gradient(160deg, var(--da-gradient-from), var(--da-gradient-to))', color: 'var(--da-on-gradient)' }}
-            aria-hidden
+            className="absolute inset-0 flex items-center justify-center pb-24"
+            style={{ background: 'linear-gradient(160deg, var(--da-gradient-from), var(--da-gradient-to))' }}
+            data-testid="dancer-portrait-placeholder"
           >
-            {model.initial}
+            <PersonAvatar photoUrl={null} name={model.name} size={128} />
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" aria-hidden />

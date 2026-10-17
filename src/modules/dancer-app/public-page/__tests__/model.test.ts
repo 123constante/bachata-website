@@ -27,7 +27,6 @@ describe('public page v2 model, by shape', () => {
   ] as const)('%s: heading %s, place %s', (key, name, place) => {
     const m = page(key);
     expect(m.name).toBe(name);
-    expect(m.initial).toBe(name.charAt(0));
     if (place) expect(m.place).toBe(place);
   });
 
@@ -35,10 +34,8 @@ describe('public page v2 model, by shape', () => {
     expect(JSON.stringify(page('surname hidden'))).not.toContain('Secret');
   });
 
-  it('photoless: no avatar, the initial stands in', () => {
-    const m = page('photoless');
-    expect(m.avatarUrl).toBeNull();
-    expect(m.initial).toBe('D');
+  it('photoless: no avatar url (the page draws PersonAvatar\'s no-photo face)', () => {
+    expect(page('photoless').avatarUrl).toBeNull();
   });
 
   it("every section of today's page has a home in v2 (complete + all extras)", () => {

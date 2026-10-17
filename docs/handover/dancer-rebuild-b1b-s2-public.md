@@ -27,6 +27,8 @@ Changed (both named in the brief):
   states are shared by both modes. Today's render is unchanged (the R0 snapshot suite passes untouched).
 - `src/modules/profile/dancerPublicProfile.ts`: NOT changed (not needed).
 
+Also `src/modules/dancer-app/__tests__/journeyGuards.test.tsx` (IMG_ALLOWED += the public page, see Decisions).
+
 Docs: this file; `docs/review-pack/r1b-public/` (11 PNGs, each < 50 KB, + `captions.md`).
 
 ## Section inventory: old -> new (nothing lost)
@@ -37,7 +39,7 @@ Docs: this file; `docs/review-pack/r1b-public/` (11 PNGs, each < 50 KB, + `capti
 | Loading skeleton | same (shared) |
 | Not found (unknown, paused, hidden, archived, deactivated) | same page (shared; loader 404 unchanged) |
 | Hero title: name / "Dancer", subtitle city . nationality | portrait header: name (h1), city . nationality |
-| Identity tile: photo or initial, nationality flag | full-width portrait, or the initial on the dancer gradient; flag kept |
+| Identity tile: photo or initial, nationality flag | full-width portrait, or PersonAvatar (no-photo face) on the dancer gradient; flag kept |
 | Role + "N years dancing" tile | role . N years dancing line on the portrait |
 | Experience tile (years, months, Veteran/Experienced/Intermediate/Rising/Newcomer) | Experience section (years + same five levels). Months: today's `dancingStartDate` is always null, so it never showed |
 | Connect tile (Instagram, Facebook, website, email icons; "No public contacts") | Connect list with labels; empty state "No public contacts yet. Use Share to send this page to a friend." |
@@ -62,6 +64,11 @@ Docs: this file; `docs/review-pack/r1b-public/` (11 PNGs, each < 50 KB, + `capti
   site chrome is out of scope). Flagged for the orchestrator against `.claude/rules/breadcrumbs.md`.
 - WhatsApp link: the save RPC accepts local numbers (`^\+?[0-9][0-9 ()-]{5,24}$`), so with no "+" a leading "00" is dropped and a
   single leading "0" is read as UK (0 -> 44). Fewer than 7 digits = no button.
+- Theme: the page sets the dancer CSS variables inline from `theme/tokens.ts` (`DANCER_TOKENS`, the object `dancer.css` is
+  pinned to) instead of importing `dancer.css`, which must keep exactly one importer (the shell).
+- Photoless portrait: the site's one avatar (`PersonAvatar`, no-photo face) centred on the dancer gradient, not an own initials
+  disc. The full-width portrait and gallery `<img>` are not avatar discs: `PublicDancerPageV2.tsx` joins `IMG_ALLOWED` in
+  `src/modules/dancer-app/__tests__/journeyGuards.test.tsx` (a module test, edited with that reason).
 - Join uses the site's `buildSignInHref(pathname, 'signup')` (sanitised `returnTo`), not a hand-built URL.
 - Paused / hidden / archived need no new rule: anon RLS on `dancer_profiles` uses the same predicate as the extras RPC
   (`is_active IS NOT FALSE AND archived_at IS NULL AND _person_publicly_visible_v1(person_id)`), so the loader 404s first in both modes.
@@ -111,7 +118,33 @@ fixed by putting the name block in flow (header grows). Screenshot 07.
 
 ## CI per-job table
 
-CI_TABLE_PLACEHOLDER
+Run in the sandbox on this branch. GitHub Actions did not run (no PR, by the brief).
+
+| workflow | job | command | exit | result |
+|---|---|---|---|---|
+| architecture-guard | integrity | `bash bin/check-integrity.sh` | 0 | 1780 files, 0 issues |
+| architecture-guard | integrity | `check:legacy-tables`, `check:legacy-program-rpcs`, `lint:architecture` | 0 | pass |
+| architecture-guard | integrity | `AUDIT_STRICT=1 npm run check:images` | 0 | 0 missing alt/loading |
+| architecture-guard | integrity | `check:image-widths` (+ self-test) | 1 -> 0 | first run: `PublicDancerPageV2.tsx:114 optimizedImageUrl(..., 720)` not an allowed size; fixed with `srcWidthFor(576)`; re-run ok (54 calls) |
+| architecture-guard | integrity | plan-hygiene, workflow-artifact-policy, mojibake (self-test + grep), prove:entry-point (+ self-test) | 0 | pass (45 entry points) |
+| typecheck | wallclock-brand | `check:rpc-typing`, `check:wallclock-brand` | 0 | pass |
+| (pre-ship) | - | `npm run typecheck` | 2 | 97 errors (baseline 106), 0 in changed files |
+| (pre-ship) | - | eslint on changed files | 1 | 4 `no-explicit-any` errors in `DancerProfile.tsx`, all pre-existing (main has the same 4); 0 in `public-page/` |
+| workflow-lint | bom / masking / notification / preview-prefixes | as in the workflow | 0 | pass |
+| unit-tests | unit (London) | `TZ=Europe/London npm run test:unit` | 1 | first run 18 failed / 9209 passed. Mine (fixed, then re-run green): `journeyGuards` hand-drawn `<img>` in PublicDancerPageV2, `dancerAppTheme` "exactly one importer" of dancer.css, `imageWidths`. Not mine (sandbox): 10 event-RPC contract tests "Invalid API key" (the sandbox Supabase is not prod), 5 `integrityCouldNotRun` (global NODE_PATH makes typescript resolvable) |
+| unit-tests | unit (London), after fixes | `vitest run src/modules/dancer-app tests/client/dancerAppTheme.test.ts tests/imageWidths.test.ts tests/regression/today/dancer*` | 0 | 28 files, 662 tests |
+| unit-tests | timing / New_York / Sydney | as in the workflow | 0 | 65 / 213 / 213 passed |
+| unit-tests | dancer-area-isolation | self-test / check | 0 / 1 | check fails, EXPECTED (see NEEDS ORCHESTRATOR): `(a) PROTECTED file changed` x2, `(c) ... imports from the dancer-app module and is not a seam file` x3 |
+| e2e-smoke | e2e-smoke | `npm run test:e2e` | 0 | 147 passed, 1 flaky (`dancer-home.spec.ts:168`, not this page), 1 skipped |
+| phone-qa | phone-qa / build-smoke | phone config; build + build config | 0 | 272 passed / 66 passed |
+| perf-budget | bundle-budget | build + bundle-budget + first-load-requests + chunk-cycles (+ self-tests) | 0 | budgets respected, request pins match, no cycle |
+| db-contract-check | contract-check | migration stamps, guest-list self-test, day-rollover, script conventions | 0 | pass |
+| db-contract-check | contract-check | the live-DB contract steps | - | cannot run: no prod secret in the sandbox (they read the live DB, not this code) |
+| phone-qa-section / real-data-verified / bot-pr | - | - | - | cannot run: need a PR body / GitHub API (no PR by the brief) |
+| (other) | - | `tests/regression/today/account.today.test.tsx` | 1 | 1 failure, identical on a clean `origin/main` worktree: not this branch |
+| build | - | `npm run build` | 0 | built |
+
+Note: the e2e / phone runs rewrite committed PNGs under `docs/handover/` and `docs/review-packs/`; those were restored, not committed.
 
 ## 390x844 walk
 

@@ -72,7 +72,6 @@ export type ContactLink = { kind: 'instagram' | 'facebook' | 'website' | 'email'
 export type PublicDancerPageModel = {
   /** The heading. "Dancer" only when no real name resolves (the head is still noindexed by the loader). */
   name: string;
-  initial: string;
   avatarUrl: string | null;
   nationalityCode: string | null;
   /** "London, middle dot, Spain", or null. */
@@ -129,7 +128,6 @@ export const buildPublicDancerPage = (
 
   return {
     name,
-    initial: name.charAt(0).toUpperCase(),
     avatarUrl: view.avatarUrl,
     nationalityCode: view.nationalityCode,
     // Today prints the nationality only next to a city; v2 shows whichever exists.
