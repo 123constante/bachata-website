@@ -26,6 +26,21 @@ export const WHATSAPP_GET_LISTED_URL =
   `https://wa.me/${WHATSAPP_LISTING_NUMBER}?text=${encodeURIComponent(WHATSAPP_LISTING_MESSAGE)}`;
 
 /**
+ * "Message us" links for dancers: the same direct WhatsApp chat with a DANCER message,
+ * not the organiser "list my events" prefill. Here, not in a module of its own: this
+ * file already rides the chunk every route loads (GlobalHeader, BottomNav), so the
+ * builder costs no extra first-load request (perf-budgets chunk ratchet). The dancer
+ * app (modules/dancer-app/api/messageUs), Auth and lib/profileCompletion share it.
+ */
+export const dancerMessageUsUrl = (text: string): string =>
+  `https://wa.me/${WHATSAPP_LISTING_NUMBER}?text=${encodeURIComponent(text)}`;
+
+export const NOT_ME_MESSAGE = 'Hi! The dancer profile linked to my Bachata Calendar account is not me.';
+export const ADD_CITY_MESSAGE = 'Hi! Please add my city to Bachata Calendar. My city is: ';
+export const NO_PROFILE_MESSAGE = 'Hi! My Bachata Calendar account has no dancer profile yet. Please can you set one up?';
+export const PROFILE_HELP_MESSAGE = 'Hi! I need help with my Bachata Calendar dancer profile.';
+
+/**
  * The site's footer link block: Fatsoma-style headed columns + copyright line.
  * Rendered by GlobalFooter on every page, and by the Festival Map home (which
  * suppresses GlobalFooter) at the tail of its scrolling feed, so the two never

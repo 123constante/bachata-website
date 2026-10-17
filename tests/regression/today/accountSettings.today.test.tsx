@@ -132,8 +132,9 @@ describe.each(VIEWPORTS)('account settings at $name', (vp) => {
   describe.each(Object.entries(CHECKS))('check: %s', (_role, check) => {
     it('/account/settings/ownership', async () => {
       h.check = { ...check, blockers: [...check.blockers] };
+      // Audit M21: the ownership step is gone; its old address shows the delete view.
       mount('/account/settings/ownership');
-      expect(await settleTree('ownership-delete-link')).toMatchSnapshot();
+      expect(await settleTree('delete-confirm')).toMatchSnapshot();
     });
     it('/account/settings/delete', async () => {
       h.check = { ...check, blockers: [...check.blockers] };
@@ -150,7 +151,8 @@ describe.each(VIEWPORTS)('account settings at $name', (vp) => {
       mount('/account/settings/delete');
       const input = await screen.findByTestId('delete-type-input');
       const btn = screen.getByTestId('delete-confirm') as HTMLButtonElement;
-      for (const v of ['', 'delete', 'DELETE ', 'DELET']) {
+      // Audit L19: surrounding spaces are trimmed (' DELETE ' arms it; AccountSliceB pins that).
+      for (const v of ['', 'delete', 'Delete', 'DELET']) {
         fireEvent.change(input, { target: { value: v } });
         expect(btn.disabled, `"${v}"`).toBe(true);
       }

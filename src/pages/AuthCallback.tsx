@@ -315,7 +315,7 @@ const AuthCallback = () => {
 
   if (error) {
     return (
-      <GlobalLayout showSubheader={false}>
+      <GlobalLayout showSubheader={false} showGradientBg={false}>
         <div className="pt-20 px-4">
           <div className="max-w-sm mx-auto text-center space-y-4">
             <h1 className="text-xl font-semibold text-foreground">Authentication failed</h1>
@@ -330,12 +330,12 @@ const AuthCallback = () => {
   }
 
   return (
-    <GlobalLayout showSubheader={false}>
+    <GlobalLayout showSubheader={false} showGradientBg={false}>
       <div className="pt-20 px-4">
         <div className="max-w-md mx-auto space-y-4">
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-64 w-full" />
-          <p className="text-center text-sm text-muted-foreground">Signing you in…</p>
+          <p className="text-center text-sm text-muted-foreground">Signing you in&hellip;</p>
         </div>
       </div>
     </GlobalLayout>

@@ -42,7 +42,9 @@ h.rpc = async (fn, args) => {
 };
 
 
-vi.mock('@/integrations/supabase/getSupabase', () => ({ getSupabase: async () => ({ rpc: (f: string, a?: Record<string, unknown>) => h.rpc(f, a) }) }));
+// cities.id -> slug (Home's What's On and Browse events use the dancer's own city, audit M20).
+const citiesFrom = () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { slug: 'london-gb' }, error: null }) }) }) });
+vi.mock('@/integrations/supabase/getSupabase', () => ({ getSupabase: async () => ({ rpc: (f: string, a?: Record<string, unknown>) => h.rpc(f, a), from: citiesFrom }) }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (f: string, a?: Record<string, unknown>) => h.rpc(f, a) } }));
 vi.mock('@/contexts/CityContext', () => ({
   CityProvider: ({ children }: { children: ReactNode }) => children,
@@ -60,6 +62,7 @@ import { renderInShell, resetShell } from '@/modules/dancer-app/shell/renderInSh
 import { DANCER_SHAPES, DANCER_SHAPE_NAMES, FAKE_PROFILE_ID, makeProfile, CITY_LONDON } from '@/modules/dancer-app/api/fixtures';
 import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
 import { PENDING_LEVEL_RATING_KEY } from '@/lib/pendingLevelRating';
+import { HIDDEN_STATE_LINE } from '@/modules/dancer-app/copy/sharedCopy';
 
 const today = londonTodayKey();
 const day = (n: number) => addDaysToKey(today, n);
@@ -96,7 +99,7 @@ describe('Home x attendance shapes', () => {
     if (c.hero) expect(hero.textContent).toMatch(c.hero);
     else {
       expect(hero.textContent).toMatch(/No upcoming night yet/);
-      expect(within(hero).getByRole('link', { name: /Browse what.s on/ })).toBeTruthy();
+      expect(within(hero).getByRole('link', { name: 'Browse events' })).toBeTruthy();
     }
     if (c.nudge) expect(await screen.findByTestId('rate-nudge')).toBeTruthy();
     else {
@@ -105,14 +108,11 @@ describe('Home x attendance shapes', () => {
     }
   });
 
-  it('shows no fake numbers: "Coming soon" tiles carry no digits and no button', async () => {
+  it('shows no fake numbers and no dead "Coming soon" tiles (audit M19)', async () => {
     home();
-    for (const id of ['tile-views', 'tile-partners']) {
-      const t = await screen.findByTestId(id);
-      expect(t.textContent).toMatch(/Coming soon/);
-      expect(t.textContent).not.toMatch(/\d/);
-      expect(within(t).queryByRole('button')).toBeNull();
-    }
+    await screen.findByTestId('home-hero');
+    expect(screen.queryByTestId('tile-views')).toBeNull();
+    expect(screen.queryByTestId('tile-partners')).toBeNull();
     expect(screen.queryByText(/12 views/)).toBeNull();
   });
 
@@ -140,17 +140,18 @@ describe('Home x profile shapes', () => {
     expect(tile.textContent).toMatch(/Choose how you dance towards 70%/);
   });
 
-  it('no profile: message-us copy pointing at Options', async () => {
+  it('no profile: the Message us control itself (Options cannot load without a profile)', async () => {
     home({ backend: { profile: null } });
     const m = await screen.findByTestId('home-message');
     await waitFor(() => expect(m.textContent).toMatch(/Message us/));
-    expect(within(m).getByRole('link', { name: 'Options' }).getAttribute('href')).toBe('/app/options');
+    expect(within(m).getByRole('link', { name: 'Message us on WhatsApp' }).getAttribute('href')).toMatch(/^https:\/\/wa\.me\//);
+    expect(within(m).queryByRole('link', { name: 'Options' })).toBeNull();
   });
 
   it('paused profile: hidden banner links to account settings', async () => {
     home({ backend: { profile: makeProfile({ first_name: 'Ana', based_city_id: CITY_LONDON.id, is_active: false }) } });
     const b = await screen.findByTestId('paused-banner');
-    expect(b.textContent).toMatch(/Your profile is hidden/);
+    expect(b.textContent).toContain(HIDDEN_STATE_LINE);
     expect(within(b).getByRole('link').getAttribute('href')).toBe('/account/settings');
   });
 
@@ -179,11 +180,12 @@ describe('Home x profile shapes', () => {
 
   it('no city: what\'s on is hidden with a hint', async () => {
     home({ backend: { profile: makeProfile({ first_name: 'Ana' }) } });
-    expect((await screen.findByTestId('whats-on-no-city')).textContent).toMatch(/Add your city in Me/);
+    const hint = await screen.findByTestId('whats-on-no-city');
+    expect(within(hint).getByRole('link', { name: 'Add my city' }).getAttribute('href')).toBe('/app/me/edit?focus=city');
     expect(screen.queryByTestId('whats-on-row')).toBeNull();
   });
 
-  it('with a city: 3 events at most, each opening the event page, plus Browse all events', async () => {
+  it('with a city: 3 events at most, each opening the event page, plus Browse events', async () => {
     h.calendar = [1, 2, 3, 4].map((i) => ({ event_id: `e${i}`, name: `Event ${i}`, instance_date: day(i), occurrence_starts_at: `${day(i)}T20:00:00`, location: 'Soho', is_cancelled: false }));
     home();
     const rows = await screen.findAllByTestId('whats-on-row');
@@ -212,10 +214,10 @@ describe('analytics', () => {
 describe('Nights', () => {
   it('empty states name controls that exist', async () => {
     nights();
-    const up = await screen.findByTestId('nights-upcoming-empty');
-    expect(up.textContent).toMatch(/not going to anything yet/);
-    expect(within(up).getByRole('link', { name: /Browse what.s on/ }).getAttribute('href')).toBe('/city/london-gb/calendar');
-    expect(screen.getByTestId('nights-past-empty').textContent).toBe('Your past nights will appear here.');
+    // Audit L22: zero nights is ONE state covering Going and Interested.
+    const empty = await screen.findByTestId('nights-empty');
+    expect(empty.textContent).toMatch(/No nights saved yet/);
+    expect(within(empty).getByRole('link', { name: 'Browse events' }).getAttribute('href')).toBe('/city/london-gb/calendar');
   });
 
   it('upcoming and past lists with status pills', async () => {

@@ -472,8 +472,9 @@ const EditProfile = () => {
               />
               <div className='grid grid-cols-2 gap-2'>
                 <div>
-                  <label className='text-xs text-muted-foreground mb-1 block'>City</label>
+                  <label htmlFor='edit-profile-city' className='text-xs text-muted-foreground mb-1 block'>City</label>
                   <CityPicker
+                    id='edit-profile-city'
                     value={form.city}
                     onChange={(city) => setForm({ ...form, city })}
                     placeholder='Select city...'
@@ -481,8 +482,9 @@ const EditProfile = () => {
                   />
                 </div>
                 <div>
-                  <label className='text-xs text-muted-foreground mb-1 block'>Nationality</label>
+                  <label htmlFor='edit-profile-nationality' className='text-xs text-muted-foreground mb-1 block'>Nationality</label>
                   <NationalityPicker
+                    id='edit-profile-nationality'
                     value={form.nationality}
                     onChange={(value) => setForm({ ...form, nationality: value })}
                     className='h-9 text-sm'

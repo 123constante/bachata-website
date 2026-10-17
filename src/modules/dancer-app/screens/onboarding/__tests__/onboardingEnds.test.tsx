@@ -54,7 +54,7 @@ describe('every end of onboarding replaces /app/welcome (Back never re-opens "Yo
 
   it('"Nice work" -> Go to Home', async () => {
     const { location } = open('fourFieldComplete');
-    await click('Boost to 100%');
+    await click('Two quick questions');
     await click('Skip');
     await click('Skip');
     await screen.findByTestId('onboarding-nice-card');

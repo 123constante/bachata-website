@@ -63,9 +63,9 @@ export const SITE_IA = {
   dancerProfile:    { label: 'Your dancer profile', path: '/account/dancer' },
   'dancerProfile.attendance': { label: 'My attendance', parent: 'dancerProfile' },
   // Signed-in, noindex. Not behind the dancer-first gate (an unfinished profile can still leave).
-  accountSettings:  { label: 'Settings', path: '/account/settings', parent: 'dancerHome' },
+  accountSettings:  { label: 'Account settings', path: '/account/settings', parent: 'dancerHome' },
   'accountSettings.ownership': { label: 'Account ownership', path: '/account/settings/ownership', parent: 'accountSettings' },
-  'accountSettings.delete': { label: 'Delete account', parent: 'accountSettings.ownership' },
+  'accountSettings.delete': { label: 'Delete account', parent: 'accountSettings' },
   accountDeleted:   { label: 'Account deleted' },
   accountRestore:   { label: 'Your account' },
   // Signed-in, noindex (Lever 2 W1); never reaches a crawler's BreadcrumbList.

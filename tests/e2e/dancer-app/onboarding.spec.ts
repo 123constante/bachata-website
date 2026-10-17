@@ -55,7 +55,8 @@ test.describe('onboarding 390x844', () => {
   test('empty stub: name, city (real picker), then the role card', async ({ page }) => {
     const { saves } = await open(page, 'emptyStub');
     await expect(page.getByTestId('onboarding-name')).toBeVisible();
-    await expect(page.getByTestId('onboarding-consent')).toContainText('By continuing you accept the Terms and Privacy policy');
+    // Audit M5: Terms and Privacy are accepted at sign-up, so setup shows no consent line.
+    await expect(page.getByTestId('onboarding-consent')).toHaveCount(0);
     await expect(page.getByTestId('onboarding-continue')).toBeDisabled();
     await expect(page.getByTestId('onboarding-reason')).toContainText('first name');
     await shot(page, 'stub-1-name');
@@ -77,7 +78,7 @@ test.describe('onboarding 390x844', () => {
     await expect(page.getByRole('button', { name: /skip|continue/i })).toHaveCount(0);
     await shot(page, 'namecity-4-photo');
     expect(saves).toEqual([{ dance_role: 'Follower' }]);
-    await page.getByTestId('onboarding-take-photo').click();
+    await page.getByTestId('onboarding-add-photo').click();
     await expect(page).toHaveURL(/\/app\/me\/photo\?return=\/app\/welcome$/);
   });
 
