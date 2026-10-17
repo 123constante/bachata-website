@@ -30,6 +30,16 @@
 // limit, so those branches are turned off at the source; the script's list
 // stays as defence in depth).
 //
+// KEEP-ON branches (KEEP_ON: main and feat/*) must keep their deployment and
+// their preview jobs: vercel.json's `true` keys must be EXACTLY KEEP_ON (Vercel
+// deploys a branch when ANY matching key is true, so a stray `true` glob could
+// re-enable claude/*), and no no-preview prefix may cover a keep-on branch.
+//
+// SKIP REASON: a preview job skipped by its `if:` shows only "skipped". So each
+// REQUIRED workflow also has a reason job (`no-preview-reason`) that runs on
+// exactly the excluded branches -- its `if:` holds `startsWith(github.head_ref,
+// '<prefix>')` for exactly the same union -- and writes why to the step summary.
+//
 // Exit: 0 every list matches / 1 drift (or a required workflow has no preview
 // job) / 2 cannot read or parse an input, or an unknown flag.
 //
@@ -120,6 +130,11 @@ export function previewRunMatcher({ files, aliases }) {
 // The floor (no silent green on an empty scan): each of these workflows has a
 // preview job today. One where no preview job is found is drift, not "nothing
 // to compare".
+// Branches that always get a Vercel deployment and their preview jobs:
+// vercel.json key -> a sample branch name it must cover.
+export const KEEP_ON = { main: 'main', 'feat/*': 'feat/x' };
+export const REASON_JOB = 'no-preview-reason';
+
 export const REQUIRED_WORKFLOWS = [
   'perf-budget.yml',
   'synthetic-ssr-monitor.yml',
@@ -152,6 +167,17 @@ export function parseScriptPrefixes(text) {
 }
 
 const STARTS = /!startsWith\(\s*github\.head_ref\s*,\s*'([^']*)'\s*\)/g;
+const STARTS_POS = /(?<!!)\bstartsWith\(\s*github\.head_ref\s*,\s*'([^']*)'\s*\)/g;
+
+/** The reason job's positive prefixes, or null when the workflow has none that writes a summary. */
+export function reasonJobPrefixes(doc) {
+  const def = doc?.jobs?.[REASON_JOB];
+  if (!def) return null;
+  const steps = Array.isArray(def.steps) ? def.steps : [];
+  if (!steps.some((s) => typeof s?.run === 'string' && s.run.includes('GITHUB_STEP_SUMMARY'))) return null;
+  const cond = typeof def.if === 'string' ? def.if : '';
+  return [...cond.matchAll(STARTS_POS)].map((m) => m[1]);
+}
 
 /** Every preview job in one parsed workflow: [{job, prefixes}]. */
 export function previewJobs(doc, isPreviewRun) {
@@ -181,7 +207,7 @@ export function runCheck({ scriptText, probeText, workflows, vercelText, package
   } catch (error) {
     throw new Error(`${VERCEL_PATH}: will not parse: ${error.message}`);
   }
-  // Vercel's `*` does not cross `/`: `claude/review-a/b` still deploys (the
+  // Vercel's `*` does not cross `/`: `claude/a/b` still deploys (the
   // script then skips its build). Keep these branch names slash-free after the prefix.
   const wantOff = scriptList(scriptText, 'ALWAYS_SKIP_PREFIXES').map((p) => `${p}*`);
   const enabled = vercel?.git?.deploymentEnabled;
@@ -191,6 +217,23 @@ export function runCheck({ scriptText, probeText, workflows, vercelText, package
     const extra = off.filter((k) => !wantOff.includes(k));
     lines.push(`DRIFT ${VERCEL_PATH} git.deploymentEnabled false keys: missing [${missing.join(' ')}] extra [${extra.join(' ')}]`);
     drift += 1;
+  }
+
+  // KEEP_ON: the true keys are exactly KEEP_ON, and no prefix covers a keep-on branch.
+  const on = enabled && typeof enabled === 'object' ? Object.keys(enabled).filter((k) => enabled[k] === true) : [];
+  const keepKeys = Object.keys(KEEP_ON);
+  if (!sameSet(on, keepKeys)) {
+    const missing = keepKeys.filter((k) => !on.includes(k));
+    const extra = on.filter((k) => !keepKeys.includes(k));
+    lines.push(`DRIFT ${VERCEL_PATH} git.deploymentEnabled true keys must be exactly KEEP_ON: missing [${missing.join(' ')}] extra [${extra.join(' ')}]`);
+    drift += 1;
+  }
+  for (const [key, sample] of Object.entries(KEEP_ON)) {
+    const hit = want.filter((p) => sample.startsWith(p));
+    if (hit.length) {
+      lines.push(`DRIFT keep-on branch ${key} is covered by no-preview prefix [${hit.join(' ')}]`);
+      drift += 1;
+    }
   }
 
   const scripts = previewScripts(scriptFiles, packageText);
@@ -217,6 +260,18 @@ export function runCheck({ scriptText, probeText, workflows, vercelText, package
     if (jobs.length === 0 && REQUIRED_WORKFLOWS.includes(file)) {
       lines.push(`DRIFT ${file}: no preview job found (nothing runs a preview script)`);
       drift += 1;
+    }
+    if (REQUIRED_WORKFLOWS.includes(file)) {
+      const reason = reasonJobPrefixes(doc);
+      if (reason === null) {
+        lines.push(`DRIFT ${file}: no ${REASON_JOB} job writing GITHUB_STEP_SUMMARY (skipped preview jobs need an explicit reason)`);
+        drift += 1;
+      } else if (!sameSet(reason, want)) {
+        const missing = want.filter((p) => !reason.includes(p));
+        const extra = reason.filter((p) => !want.includes(p));
+        lines.push(`DRIFT ${WORKFLOW_DIR}/${file} job ${REASON_JOB}: missing [${missing.join(' ')}] extra [${extra.join(' ')}]`);
+        drift += 1;
+      }
     }
     for (const { job, prefixes } of jobs) {
       compared += 1;
@@ -256,20 +311,24 @@ function readInputs() {
 
 // --- canary -----------------------------------------------------------------
 const S_OK =
-  "x\nDIFF_RULE_PREFIXES='bot/ dependabot/'\nALWAYS_SKIP_PREFIXES='arc/briefs- claude/done- claude/review-'\n" +
+  "x\nDIFF_RULE_PREFIXES='bot/ dependabot/'\nALWAYS_SKIP_PREFIXES='arc/briefs- claude/'\n" +
   "SKIP_PREVIEW_TAG='[skip preview]'\n";
 const P_OK = "export const SKIP_PREVIEW_TAG = '[skip preview]';\n";
-const ALL = ['bot/', 'dependabot/', 'arc/briefs-', 'claude/done-', 'claude/review-'];
+const ALL = ['bot/', 'dependabot/', 'arc/briefs-', 'claude/'];
 const cond = (ps) => ["github.event_name == 'pull_request'", ...ps.map((p) => `!startsWith(github.head_ref, '${p}')`)].join(' && ');
-const WF = (ps, run = 'URL="$(node scripts/resolve-preview-url.mjs)"') =>
-  `jobs:\n  a:\n    if: ${cond(ps)}\n    steps:\n      - run: echo hi\n      - run: ${JSON.stringify(run)}\n`;
+const reasonCond = (ps) => `github.event_name == 'pull_request' && (${ps.map((p) => `startsWith(github.head_ref, '${p}')`).join(' || ')})`;
+const REASON = (ps = ALL, run = 'echo why >> "$GITHUB_STEP_SUMMARY"') =>
+  `  ${REASON_JOB}:\n    if: ${reasonCond(ps)}\n    steps:\n      - run: ${JSON.stringify(run)}\n`;
+const WF = (ps, run = 'URL="$(node scripts/resolve-preview-url.mjs)"', reason = REASON()) =>
+  `jobs:\n  a:\n    if: ${cond(ps)}\n    steps:\n      - run: echo hi\n      - run: ${JSON.stringify(run)}\n${reason}`;
 const wfs = (override = {}) => ({
   ...Object.fromEntries(REQUIRED_WORKFLOWS.map((f) => [f, WF(ALL)])),
   'other.yml': "jobs:\n  b:\n    if: \"!startsWith(github.head_ref, 'dependabot/')\"\n    steps:\n      - run: npm test\n",
   ...override,
 });
-const V_OK = JSON.stringify({ git: { deploymentEnabled: { 'arc/briefs-*': false, 'claude/done-*': false, 'claude/review-*': false, 'x/*': true } } });
-const vercel = (enabled) => JSON.stringify({ git: { deploymentEnabled: enabled } });
+const KEEP = { main: true, 'feat/*': true };
+const V_OK = JSON.stringify({ git: { deploymentEnabled: { 'arc/briefs-*': false, 'claude/*': false, ...KEEP } } });
+const vercel = (enabled) => JSON.stringify({ git: { deploymentEnabled: { ...KEEP, ...enabled } } });
 const SF_OK = {
   'scripts/resolve-preview-url.mjs': "import { resolvePreviewUrl } from './lib/previewProbe.mjs';\n",
   'scripts/check-lighthouse.mjs': "import { resolvePreviewUrl } from './lib/previewProbe.mjs';\n",
@@ -296,19 +355,26 @@ async function selfTest() {
   const cases = [
     ['all lists equal -> 0', () => drive(() => input()), 0, '4 preview job(s) compared, 0 drift'],
     ['order differs, same set -> 0', () => drive(() => input({ workflows: wfs({ 'seo-check.yml': WF([...ALL].reverse()) }) })), 0, '0 drift'],
-    ['multi-line `if: >-` is read -> 0', () => drive(() => input({ workflows: wfs({ 'seo-check.yml': `jobs:\n  a:\n    if: >-\n      ${cond(ALL)}\n    steps:\n      - run: npm run check:lighthouse\n` }) })), 0, '0 drift'],
+    ['multi-line `if: >-` is read -> 0', () => drive(() => input({ workflows: wfs({ 'seo-check.yml': `jobs:\n  a:\n    if: >-\n      ${cond(ALL)}\n    steps:\n      - run: npm run check:lighthouse\n${REASON()}` }) })), 0, '0 drift'],
     ['a non-preview job with a partial exclusion is ignored -> 0', () => drive(() => input()), 0, '4 preview job(s)'],
     ['one workflow drops a prefix -> 1', () => drive(() => input({ workflows: wfs({ 'seo-check.yml': WF(ALL.slice(1)) }) })), 1, 'seo-check.yml job a: missing [bot/]'],
     ['one workflow adds a prefix -> 1', () => drive(() => input({ workflows: wfs({ 'og-image-check.yml': WF([...ALL, 'x/']) }) })), 1, 'extra [x/]'],
     ['second preview job in a workflow loses its exclusion -> 1', () => drive(() => input({ workflows: wfs({ 'perf-budget.yml': WF(ALL, 'npm run check:lighthouse') + `  b:\n    if: github.event_name == 'pull_request'\n    steps:\n      - run: npm run check:doc-weight\n` }) })), 1, 'perf-budget.yml job b: missing [bot/ dependabot/'],
     ['a preview job in an unrequired workflow drifts -> 1', () => drive(() => input({ workflows: wfs({ 'new.yml': WF(['bot/']) }) })), 1, 'new.yml job a'],
-    ['script adds a prefix no workflow has -> 1', () => drive(() => input({ scriptText: S_OK.replace("claude/review-'", "claude/review- y/'") })), 1, 'missing [y/]'],
+    ['script adds a prefix no workflow has -> 1', () => drive(() => input({ scriptText: S_OK.replace("claude/'", "claude/ y/'") })), 1, 'missing [y/]'],
     ['required workflow has no preview job -> 1', () => drive(() => input({ workflows: wfs({ 'perf-budget.yml': 'jobs: {}\n' }) })), 1, 'perf-budget.yml: no preview job found'],
     ['required workflow missing -> 1', () => drive(() => { const w = wfs(); delete w['seo-check.yml']; return input({ workflows: w }); }), 1, 'seo-check.yml: required workflow not found'],
-    ['vercel.json lacks an always-skip key -> 1', () => drive(() => input({ vercelText: vercel({ 'arc/briefs-*': false, 'claude/done-*': false }) })), 1, 'false keys: missing [claude/review-*] extra []'],
-    ['vercel.json turns off an extra branch -> 1', () => drive(() => input({ vercelText: vercel({ 'arc/briefs-*': false, 'claude/done-*': false, 'claude/review-*': false, 'bot/*': false }) })), 1, 'extra [bot/*]'],
-    ['vercel.json key set to true, not false -> 1', () => drive(() => input({ vercelText: vercel({ 'arc/briefs-*': true, 'claude/done-*': false, 'claude/review-*': false }) })), 1, 'missing [arc/briefs-*]'],
-    ['vercel.json has no git key -> 1', () => drive(() => input({ vercelText: '{}' })), 1, 'missing [arc/briefs-* claude/done-* claude/review-*]'],
+    ['vercel.json lacks an always-skip key -> 1', () => drive(() => input({ vercelText: vercel({ 'arc/briefs-*': false }) })), 1, 'false keys: missing [claude/*] extra []'],
+    ['vercel.json turns off an extra branch -> 1', () => drive(() => input({ vercelText: vercel({ 'arc/briefs-*': false, 'claude/*': false, 'bot/*': false }) })), 1, 'extra [bot/*]'],
+    ['vercel.json key set to true, not false -> 1', () => drive(() => input({ vercelText: vercel({ 'arc/briefs-*': true, 'claude/*': false }) })), 1, 'missing [arc/briefs-*]'],
+    ['vercel.json has no git key -> 1', () => drive(() => input({ vercelText: '{}' })), 1, 'missing [arc/briefs-* claude/*]'],
+    ['KEEP_ON: vercel.json loses main: true -> 1', () => drive(() => input({ vercelText: JSON.stringify({ git: { deploymentEnabled: { 'arc/briefs-*': false, 'claude/*': false, 'feat/*': true } } }) })), 1, 'true keys must be exactly KEEP_ON: missing [main]'],
+    ['KEEP_ON: a stray true glob (could re-enable claude/*) -> 1', () => drive(() => input({ vercelText: vercel({ 'arc/briefs-*': false, 'claude/*': false, '*-dev': true }) })), 1, 'extra [*-dev]'],
+    ['KEEP_ON: a no-preview prefix covers feat/* -> 1', () => drive(() => input({ scriptText: S_OK.replace("claude/'", "claude/ feat/'"), vercelText: vercel({ 'arc/briefs-*': false, 'claude/*': false, 'feat/*': false }), workflows: Object.fromEntries(Object.entries(wfs()).map(([f, t]) => [f, f === 'other.yml' ? t : WF([...ALL, 'feat/'], undefined, REASON([...ALL, 'feat/']))])) })), 1, 'keep-on branch feat/* is covered by no-preview prefix [feat/]'],
+    ['REASON: a required workflow has no reason job -> 1', () => drive(() => input({ workflows: wfs({ 'seo-check.yml': WF(ALL, undefined, '') }) })), 1, 'seo-check.yml: no no-preview-reason job'],
+    ['REASON: the reason job writes no step summary -> 1', () => drive(() => input({ workflows: wfs({ 'og-image-check.yml': WF(ALL, undefined, REASON(ALL, 'echo why')) }) })), 1, 'og-image-check.yml: no no-preview-reason job'],
+    ['REASON: the reason job drops a prefix -> 1', () => drive(() => input({ workflows: wfs({ 'perf-budget.yml': WF(ALL, undefined, REASON(ALL.slice(0, 3))) }) })), 1, 'perf-budget.yml job no-preview-reason: missing [claude/]'],
+    ['REASON: the reason job adds a prefix -> 1', () => drive(() => input({ workflows: wfs({ 'perf-budget.yml': WF(ALL, undefined, REASON([...ALL, 'z/'])) }) })), 1, 'job no-preview-reason: missing [] extra [z/]'],
     ['new npm alias to a NEW preview script, job has no exclusions -> 1 (S2)', () => drive(() => input({ scriptFiles: { ...SF_OK, 'scripts/new-preview-thing.mjs': "import { resolvePreviewUrl } from './lib/previewProbe.mjs';\n" }, workflows: wfs({ 'new.yml': "jobs:\n  n:\n    steps:\n      - run: npm run check:new\n" }) })), 1, 'new.yml job n: missing'],
     ['a script importing a preview script is one too (fixpoint) -> 1', () => drive(() => input({ scriptFiles: { ...SF_OK, 'scripts/wrap.mjs': "import './check-lighthouse.mjs';\n" }, workflows: wfs({ 'new.yml': "jobs:\n  n:\n    steps:\n      - run: node scripts/wrap.mjs\n" }) })), 1, 'new.yml job n: missing'],
     ['`npm run -s <alias>` is still a preview run -> 1', () => drive(() => input({ workflows: wfs({ 'new.yml': "jobs:\n  n:\n    steps:\n      - run: npm run -s check:doc-weight\n" }) })), 1, 'new.yml job n: missing'],
@@ -362,7 +428,7 @@ export async function main(argv = [], deps = {}) {
   }
   for (const l of result.lines) (result.code === 0 ? out : err)(l);
   if (result.code !== 0) {
-    err(`Fix: make every preview job's if: exclude exactly the prefixes in ${SCRIPT_PATH}, and ${VERCEL_PATH} git.deploymentEnabled turn off exactly its ALWAYS_SKIP_PREFIXES (each plus *).`);
+    err(`Fix: make every preview job's if: exclude (and each ${REASON_JOB} job's if: match) exactly the prefixes in ${SCRIPT_PATH}, and ${VERCEL_PATH} git.deploymentEnabled turn off exactly its ALWAYS_SKIP_PREFIXES (each plus *) and turn on exactly KEEP_ON.`);
   }
   return result.code;
 }

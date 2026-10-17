@@ -16,10 +16,10 @@
 # serving the identical previous build).
 #
 # BUILD BUDGET (non-production only, decided BEFORE the diff rule): a branch
-# under ALWAYS_SKIP_PREFIXES (arc/briefs-*, claude/done-*, claude/review-*)
-# and a commit whose SUBJECT ENDS with `[skip preview]` (a worker checkpoint)
-# always SKIP. vercel.json git.deploymentEnabled also turns those three
-# prefixes off before any deployment exists (an ignored build still counts
+# under ALWAYS_SKIP_PREFIXES (arc/briefs-*, and every claude/* worker branch:
+# slices, review and done-signal branches) and a commit whose SUBJECT ENDS with
+# `[skip preview]` (a worker checkpoint) always SKIP. vercel.json
+# git.deploymentEnabled also turns those prefixes off before any deployment exists (an ignored build still counts
 # toward the limit); this list stays as defence in depth. Vercel Hobby allows ~100 deployments per rolling 24 h and we hit
 # the limit on 2026-10-16 (see docs/pr-batching-policy.md, "Vercel build budget").
 #
@@ -87,12 +87,14 @@ skip() { echo "vercel-ignore-build: SKIP -- $1"; exit 0; }
 # exactly this union in their `if:`. scripts/check-no-preview-prefixes.mjs
 # fails CI when any workflow's list differs from these two lines together.
 #   DIFF_RULE_PREFIXES    skip only when no build path changed (bot PRs)
-#   ALWAYS_SKIP_PREFIXES  never build a preview at all: brief/doc branches,
-#                         review branches, worker done-signal branches
-#                         (Vercel Hobby: ~100 deploys / rolling 24 h; on
-#                         2026-10-16 these were 36% of all builds)
+#   ALWAYS_SKIP_PREFIXES  never build a preview at all: brief/doc branches
+#                         and every claude/* worker branch (slices, review,
+#                         done-signal). Workers test in their own sandbox; a
+#                         preview exists only for main and feat/* (vercel.json
+#                         KEEP_ON). Vercel Hobby: ~100 deploys / rolling 24 h;
+#                         on 2026-10-16 these were ~85% of 117 deploys.
 DIFF_RULE_PREFIXES='bot/ dependabot/'
-ALWAYS_SKIP_PREFIXES='arc/briefs- claude/done- claude/review-'
+ALWAYS_SKIP_PREFIXES='arc/briefs- claude/'
 
 # SKIP_PREVIEW_TAG: a worker CHECKPOINT commit ends its subject with this (the
 # SUBJECT is matched, never the body; check-no-preview-prefixes.mjs pins this
