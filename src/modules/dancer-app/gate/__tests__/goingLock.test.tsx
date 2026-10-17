@@ -12,7 +12,8 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import { installJsdomPolyfills } from '../../../../../tests/client/jsdomPolyfills';
 
 type Gate = 'closed' | 'allowed' | 'loading' | 'error';
@@ -20,6 +21,10 @@ const h = vi.hoisted(() => ({
   user: null as null | { id: string; is_anonymous?: boolean; user_metadata?: Record<string, unknown> },
   gate: 'closed' as 'closed' | 'allowed' | 'loading' | 'error',
   myStatus: null as string | null,
+  /** F9: the person's own RSVP read fails (status stays unknown). */
+  statusFails: false,
+  /** How many festivals the hub lists (F10: the lock line shows once, not per card). */
+  festivals: 1,
   rpc: vi.fn(),
 }));
 vi.mock('@/hooks/useAuth', async (importOriginal) => ({
@@ -32,9 +37,11 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock('@/lib/festivalsList', async (orig) => ({
   ...(await orig<typeof import('@/lib/festivalsList')>()),
-  fetchPublicFestivalsList: async () => [
-    { id: 'fest-1', name: 'Costa Bachata Congress', city: 'Alicante', date: '2026-12-20', start_time: '2026-12-20T10:00:00Z', poster_url: null },
-  ],
+  fetchPublicFestivalsList: async () =>
+    [
+      { id: 'fest-1', name: 'Costa Bachata Congress', city: 'Alicante', date: '2026-12-20', start_time: '2026-12-20T10:00:00Z', poster_url: null },
+      { id: 'fest-2', name: 'Second Sensual Weekend', city: 'Porto', date: '2027-01-20', start_time: '2027-01-20T10:00:00Z', poster_url: null },
+    ].slice(0, h.festivals),
 }));
 
 import { ProfileGateContext, type ProfileGateValue } from '@/hooks/useAuth';
@@ -43,6 +50,7 @@ import { CATCHALL_CLIENT_PATHS } from '@/components/catchallClientPaths';
 import { RsvpBlock } from '@/modules/event-page/bento/blocks/RsvpBlock';
 import { eventPageQueryKey } from '@/modules/event-page/useEventPageQuery';
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
+import { asWallClock } from '@/lib/time/wallClock';
 import FestivalHub from '@/pages/FestivalHub';
 import { DANCER_APP_PATHS } from '../../shell/routes';
 import { GOING_LOCK_LINK_LABEL, GOING_UNLOCKED, goingLockFor, missingFromGate } from '../useGoingLock';
@@ -83,20 +91,36 @@ const ROWS: Row[] = [
   { name: 'gate loading, incomplete', user: DANCER, gate: 'loading', profile: incomplete(['avatar_url']), expected: OPEN },
   { name: 'gate failed, incomplete', user: DANCER, gate: 'error', profile: incomplete(['avatar_url']), expected: OPEN },
   { name: 'organiser-type, allowed, incomplete', user: ORGANISER, gate: 'allowed', profile: incomplete(['avatar_url']), expected: OPEN },
-  { name: 'allowed, missing first name only', user: DANCER, gate: 'allowed', profile: incomplete(['first_name']), expected: locked("Add your first name to say you're going") },
-  { name: 'allowed, missing city only', user: DANCER, gate: 'allowed', profile: incomplete(['based_city_id']), expected: locked("Add your city to say you're going") },
-  { name: 'allowed, missing role only', user: DANCER, gate: 'allowed', profile: incomplete(['dance_role']), expected: locked("Choose how you dance to say you're going") },
-  { name: 'allowed, missing photo only', user: DANCER, gate: 'allowed', profile: incomplete(['avatar_url']), expected: locked("Add your photo to say you're going") },
-  { name: 'allowed, missing everything', user: DANCER, gate: 'allowed', profile: incomplete([...PROFILE_FIELDS]), expected: locked("Add your first name and a few details to say you're going") },
-  { name: 'allowed, missing city, role and photo', user: DANCER, gate: 'allowed', profile: incomplete(['based_city_id', 'dance_role', 'avatar_url']), expected: locked("Add your city and a few details to say you're going") },
-  { name: 'allowed, missing role and photo', user: DANCER, gate: 'allowed', profile: incomplete(['dance_role', 'avatar_url']), expected: locked("Choose how you dance and a few details to say you're going") },
+  // F10: Interested is locked too, so the words name both.
+  { name: 'allowed, missing first name only', user: DANCER, gate: 'allowed', profile: incomplete(['first_name']), expected: locked("Add your first name to say you're going or interested") },
+  { name: 'allowed, missing city only', user: DANCER, gate: 'allowed', profile: incomplete(['based_city_id']), expected: locked("Add your city to say you're going or interested") },
+  { name: 'allowed, missing role only', user: DANCER, gate: 'allowed', profile: incomplete(['dance_role']), expected: locked("Choose how you dance to say you're going or interested") },
+  { name: 'allowed, missing photo only', user: DANCER, gate: 'allowed', profile: incomplete(['avatar_url']), expected: locked("Add your photo to say you're going or interested") },
+  { name: 'allowed, missing everything', user: DANCER, gate: 'allowed', profile: incomplete([...PROFILE_FIELDS]), expected: locked("Add your first name and a few details to say you're going or interested") },
+  { name: 'allowed, missing city, role and photo', user: DANCER, gate: 'allowed', profile: incomplete(['based_city_id', 'dance_role', 'avatar_url']), expected: locked("Add your city and a few details to say you're going or interested") },
+  { name: 'allowed, missing role and photo', user: DANCER, gate: 'allowed', profile: incomplete(['dance_role', 'avatar_url']), expected: locked("Choose how you dance and a few details to say you're going or interested") },
 ];
 
+// typeof first: the app tsconfig has no strictNullChecks, so `p === null` narrows nothing.
 const gateValue = (p: Row['profile']): ProfileGateValue | 'loading' | null =>
-  p === null || p === 'loading' ? p : profileGateValue(p);
+  typeof p === 'string' ? p : p === null ? null : profileGateValue(p);
 
-const occ = (): EventPageSnapshotOccurrence =>
-  ({ occurrenceId: OCC, startsAt: '2026-12-20T20:00:00', endsAt: '2026-12-20T23:59:00', timezone: 'Europe/London', isCancelled: false, isPast: false }) as EventPageSnapshotOccurrence;
+const occ = (): EventPageSnapshotOccurrence => ({
+  occurrenceId: OCC,
+  startsAt: asWallClock('2026-12-20T20:00:00'),
+  endsAt: asWallClock('2026-12-20T23:59:00'),
+  localDate: asWallClock('2026-12-20T00:00:00'),
+  timezone: 'Europe/London',
+  isCancelled: false,
+  cancellationReasonLabel: null,
+  isLive: false,
+  isPast: false,
+  isUpcoming: true,
+  lineup: { teachers: [], djs: [], dancers: [], vendors: [], videographers: [] },
+});
+
+/** Where the router is now: a tap that falls through to a festival card navigates away. */
+const Where = () => <span data-testid="where">{useLocation().pathname}</span>;
 
 const wrap = (row: Row, path: string, child: ReactNode) => {
   const value = gateValue(row.profile);
@@ -104,6 +128,7 @@ const wrap = (row: Row, path: string, child: ReactNode) => {
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[path]}>
         {value === null ? child : <ProfileGateContext.Provider value={value}>{child}</ProfileGateContext.Provider>}
+        <Where />
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -130,7 +155,7 @@ const SURFACES = {
       });
     },
     buttons: () => [screen.getByTestId('rsvp-going'), screen.getByTestId('rsvp-interested')] as HTMLButtonElement[],
-    lockLine: () => (screen.queryByTestId('rsvp-lock-link') ? screen.getByTestId('rsvp-meta') : null),
+    lockLine: () => screen.queryByTestId('rsvp-lock'),
     setCalls: () => h.rpc.mock.calls.filter(([n]) => n === 'set_my_occurrence_attendance_p5_v1').map(([, a]) => a.p_status),
   },
   'festival hub': {
@@ -182,7 +207,12 @@ beforeEach(() => {
   h.user = null;
   h.gate = 'closed';
   h.myStatus = null;
+  h.statusFails = false;
+  h.festivals = 1;
   h.rpc.mockReset().mockImplementation(async (name: string, args: { p_status?: string | null }) => {
+    if (name === 'get_my_occurrence_attendance_p5_v1' && h.statusFails) {
+      return { data: null, error: { code: '57014', message: 'canceling statement' } };
+    }
     if (name === 'dancer_area_gate_v1') {
       if (h.gate === 'loading') return new Promise(() => {});
       if (h.gate === 'error') return { data: null, error: { message: 'boom' } };
@@ -267,7 +297,7 @@ describe('the lock never points at something that is not there', () => {
     expect(CATCHALL_CLIENT_PATHS).toContain('/app/welcome');
   });
 
-  it('the locked event block shows the link it names, and no count line beside it', async () => {
+  it('the locked event block shows the link it names, and the going count stays beside it (F10)', async () => {
     h.user = DANCER;
     h.gate = 'allowed';
     SURFACES['event page block'].mount(ROWS.find((r) => r.name === 'allowed, missing photo only')!);
@@ -275,11 +305,81 @@ describe('the lock never points at something that is not there', () => {
     await gateAsked();
     const link = screen.getByRole('link', { name: GOING_LOCK_LINK_LABEL });
     expect(link.getAttribute('href')).toBe(welcomeFor(EVENT_PATH));
-    expect(screen.queryByText('4 going')).toBeNull();
+    expect(screen.getByTestId('rsvp-meta').textContent).toContain('4 going');
+    expect(screen.getByTestId('rsvp-meta').textContent).toContain("Add your photo to say you're going or interested.");
   });
 
   it('every missing-field list the gate can carry is read back exactly (no lost step)', () => {
     const lists = Array.from({ length: 15 }, (_, i) => PROFILE_FIELDS.filter((_, bit) => ((i + 1) >> bit) & 1));
     for (const missing of lists) expect(missingFromGate(profileGateValue(incomplete(missing)))).toEqual(missing);
   });
+
+  // F11: the fields come from the gate's data. Rewording the rating card must not lose them.
+  it.each([
+    ['photo', ['avatar_url']],
+    ['city and role', ['based_city_id', 'dance_role']],
+    ['everything', [...PROFILE_FIELDS]],
+  ] as [string, ProfileField[]][])('missing %s is read from the gate data, whatever the rating copy says', (_n, missing) => {
+    const real = profileGateValue(incomplete(missing));
+    const reworded: ProfileGateValue = { ...real, gateFor: (r: string) => ({ ...real.gateFor(r), reason: 'Reworded rating card copy' }) };
+    expect(missingFromGate(reworded)).toEqual(missing);
+  });
+});
+
+describe('F9: a locked person whose RSVP read failed can still reach the retry', () => {
+  it.each([
+    ['going', 'rsvp-going'],
+    ['interested', 'rsvp-interested'],
+  ])('event page block: %s stays tappable and a tap re-reads the status', async (_n, testId) => {
+    h.user = DANCER;
+    h.gate = 'allowed';
+    h.statusFails = true;
+    SURFACES['event page block'].mount(ROWS.find((r) => r.name === 'allowed, missing photo only')!);
+    await SURFACES['event page block'].settled();
+    await gateAsked();
+    const button = screen.getByTestId(testId) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    const reads = () => h.rpc.mock.calls.filter(([n]) => n === 'get_my_occurrence_attendance_p5_v1').length;
+    const before = reads();
+    fireEvent.click(button);
+    await act(async () => {});
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith("Couldn't load your RSVP. Please try again.");
+    await waitFor(() => expect(reads()).toBe(before + 1));
+    expect(SURFACES['event page block'].setCalls()).toEqual([]);
+  });
+});
+
+describe('F10: the festival hub shows the lock once, and a locked tap stays put', () => {
+  const LOCKED_ROW = ROWS.find((r) => r.name === 'allowed, missing photo only')!;
+
+  it.each([1, 2])('%i festival card(s): one lock line, above the first card', async (n) => {
+    h.user = DANCER;
+    h.gate = 'allowed';
+    h.festivals = n;
+    SURFACES['festival hub'].mount(LOCKED_ROW);
+    await SURFACES['festival hub'].settled();
+    await gateAsked();
+    const lines = screen.getAllByTestId('festival-going-lock');
+    expect(lines).toHaveLength(1);
+    const firstCard = screen.getByText('Costa Bachata Congress');
+    expect(lines[0].compareDocumentPosition(firstCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each(['going', 'interested'])(
+    'a tap on the locked %s button (disabled, so the tap lands on what is under it) does not open the festival',
+    async (which) => {
+      h.user = DANCER;
+      h.gate = 'allowed';
+      SURFACES['festival hub'].mount(LOCKED_ROW);
+      await SURFACES['festival hub'].settled();
+      await gateAsked();
+      const [going, interested] = SURFACES['festival hub'].buttons();
+      const button = which === 'going' ? going : interested;
+      expect(button.disabled).toBe(true);
+      // The Button has disabled:pointer-events-none, so a real tap hits the element under it.
+      fireEvent.click(button.parentElement!);
+      await act(async () => {});
+      expect(screen.getByTestId('where').textContent).toBe(FESTIVALS_PATH);
+    },
+  );
 });

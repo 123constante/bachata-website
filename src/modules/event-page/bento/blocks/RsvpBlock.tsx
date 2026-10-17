@@ -119,12 +119,16 @@ export const RsvpBlock = ({
   const isGoing = status === 'going';
   const isInterested = status === 'interested';
 
-  const goingLocked = goingTapLocked(lock, status, 'going');
-  const interestedLocked = goingTapLocked(lock, status, 'interested');
+  // The read failed, so whether a tap would REMOVE an old RSVP is unknown: leave
+  // the buttons tappable so onTap's "Couldn't load your RSVP" retry can run.
+  const statusReadFailed = statusUnknown && statusError;
+  const tapLocked = (target: RsvpStatus) => !statusReadFailed && goingTapLocked(lock, status, target);
+  const goingLocked = tapLocked('going');
+  const interestedLocked = tapLocked('interested');
 
   const onTap = async (target: RsvpStatus) => {
     if (reason || now === null || isPending || authLoading) return;
-    if (goingTapLocked(lock, status, target)) return;
+    if (tapLocked(target)) return;
     if (nightHasEnded(occurrence, Date.now())) {
       setNow(Date.now());
       return;
@@ -183,15 +187,17 @@ export const RsvpBlock = ({
         </button>
       </div>
       <p className="mt-2 text-[12px]" style={{ color: 'hsl(var(--bento-fg-muted))' }} data-testid="rsvp-meta">
-        {showLock ? (
+        {reason ?? goingCountLabel}
+        {showLock && (
           <>
-            {`${lock.reason}. `}
-            <Link to={lock.href} className={LOCK_LINK} data-testid="rsvp-lock-link">
-              {GOING_LOCK_LINK_LABEL}
-            </Link>
+            {' '}&middot;{' '}
+            <span data-testid="rsvp-lock">
+              {`${lock.reason}. `}
+              <Link to={lock.href} className={LOCK_LINK} data-testid="rsvp-lock-link">
+                {GOING_LOCK_LINK_LABEL}
+              </Link>
+            </span>
           </>
-        ) : (
-          reason ?? goingCountLabel
         )}
       </p>
       {authMounted && (

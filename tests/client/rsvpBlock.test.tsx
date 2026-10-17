@@ -336,9 +336,10 @@ describe('RsvpBlock', () => {
     expect(realShape[0][1]).toContain('border-color');
     expect(shape(ph)).toEqual(realShape);
   });
-  it('the profile lock keeps the placeholder box: reason and link ride in the same meta line', async () => {
+  it('the profile lock keeps the placeholder box: count, reason and link ride in the same meta line', async () => {
     // B1b S1: inside the dancer area with an unfinished profile, both buttons go ghost and
     // the meta line carries the reason plus its link -- no new box, so no layout shift.
+    // F10: the going count stays in that line, before the reason.
     gateAllowed = true;
     const { container: real } = render(
       <ProfileGateContext.Provider value={profileGateValue({ status: 'incomplete', missing: ['avatar_url'], profileId: 'p1' })}>
@@ -357,6 +358,8 @@ describe('RsvpBlock', () => {
       ]);
     };
     expect(shape(ph)).toEqual(shape(real));
-    expect(screen.getByTestId('rsvp-meta').textContent).toBe("Add your photo to say you're going. Finish your profile");
+    expect(screen.getByTestId('rsvp-meta').textContent).toBe(
+      "4 going · Add your photo to say you're going or interested. Finish your profile",
+    );
   });
 });

@@ -334,6 +334,15 @@ const FestivalHubInner = () => {
 
       {/* Festival Cards Grid */}
       <section id="festivals" className="px-4 mb-24 relative z-10">
+        {/* The Going lock is the same for every card: say it once, above the list. */}
+        {goingLock.locked && (
+          <p className="mb-3 text-[12px] text-muted-foreground" data-testid="festival-going-lock">
+            {`${goingLock.reason}. `}
+            <Link to={goingLock.href} className="py-[14px] font-semibold text-primary underline">
+              {GOING_LOCK_LINK_LABEL}
+            </Link>
+          </p>
+        )}
         <StaggerContainer staggerDelay={0.15} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {festivals.map((festival) => {
             const counts = countsByEvent.get(festival.id) || { interested_count: 0, going_count: 0 };
@@ -510,8 +519,9 @@ const FestivalHubInner = () => {
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex gap-2">
+                    {/* Action Buttons. A disabled Button has pointer-events: none, so a tap on a
+                        locked or pending one lands here: stop it opening the festival card. */}
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                       <motion.div className="flex-1" whileTap={{ scale: 0.95 }}>
                         <Button
                           variant={status === "going" ? "default" : "outline"}
@@ -545,18 +555,6 @@ const FestivalHubInner = () => {
                         </Button>
                       </motion.div>
                     </div>
-                    {goingLock.locked && (
-                      <p className="mt-2 text-[12px] text-muted-foreground" data-testid="festival-going-lock">
-                        {`${goingLock.reason}. `}
-                        <Link
-                          to={goingLock.href}
-                          onClick={(e) => e.stopPropagation()}
-                          className="py-[14px] font-semibold text-primary underline"
-                        >
-                          {GOING_LOCK_LINK_LABEL}
-                        </Link>
-                      </p>
-                    )}
 
                     {/* View Details Arrow */}
                     <div className="flex items-center justify-center mt-3 text-primary">

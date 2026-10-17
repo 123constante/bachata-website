@@ -2,20 +2,25 @@ import { useContext } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ProfileGateContext, useAuth, type ProfileGateValue } from '@/hooks/useAuth';
 import { appWelcomeHref, hasOrganiserIntent } from '@/lib/accountRouting';
-import { PROFILE_FIELDS, completenessFact, type ProfileField } from '@/lib/profileCompletion';
+import { PROFILE_FIELDS, type ProfileField } from '@/lib/profileCompletion';
 import { NEXT_STEP } from '../api/nextStep';
 import type { StrengthStep } from '../api/types';
 import { useDancerArea, type DancerAreaState } from './useDancerArea';
 
 /**
  * The Going / Interested lock (B1b S1, PLAN C14). A person inside the dancer
- * area whose profile is not finished cannot say they are going: the server
- * already refuses them with `profile_incomplete`, so the buttons say why first
- * and link to the onboarding.
+ * area whose profile is not finished is asked to finish it before saying they
+ * are going or interested: the buttons are disabled, say why, and link to the
+ * onboarding.
+ *
+ * This lock is BROWSER-ONLY (owner decision 2026-10-17). The server does NOT
+ * refuse an incomplete profile's RSVP: neither set_my_occurrence_attendance_p5_v1
+ * (event page) nor set_attendance (festival hub) checks completeness; only the
+ * button does. A direct call, or a tap while this is unsure, goes through.
  *
  * Reads useDancerArea() and ProfileGateContext only -- no request of its own.
  * Every doubt (loading, error, signed out, not in the area, organiser-type, no
- * dancer profile) is UNLOCKED: today's buttons, and the server still refuses.
+ * dancer profile) is UNLOCKED: today's buttons, which then save as before.
  *
  * The event page block (RsvpBlock) and the festival hub both read this one
  * mapping, so the two surfaces cannot disagree.
@@ -35,27 +40,25 @@ const FIELD_STEP: Record<ProfileField, StrengthStep> = {
   avatar_url: 'photo',
 };
 
-/** Every non-empty run of PROFILE_FIELDS in profile order: the lists the gate can carry. */
-const MISSING_LISTS: ProfileField[][] = Array.from({ length: (1 << PROFILE_FIELDS.length) - 1 }, (_, i) =>
-  PROFILE_FIELDS.filter((_, bit) => ((i + 1) >> bit) & 1),
-);
-
 /**
- * Which fields the published gate says are missing. ProfileGateValue carries the
- * list only inside its rating reason (lib/profileCompletion's completenessFact),
- * so this finds the list whose reason it is -- through that same mapping, never
- * by reading the words. null = it does not name one (then the reason is general).
+ * Which fields the published gate says are missing, read from the gate's own
+ * data (ProfileGateValue.missing), in profile order -- never from its display
+ * text, so rewording the rating card cannot lose a step. null = it names none
+ * (then the reason is the general one).
  */
 export const missingFromGate = (gate: ProfileGateValue): ProfileField[] | null => {
-  const reason = gate.gateFor('/').reason;
-  return MISSING_LISTS.find((m) => completenessFact({ status: 'incomplete', missing: m }).reason === reason) ?? null;
+  const missing = PROFILE_FIELDS.filter((f) => gate.missing?.includes(f));
+  return missing.length > 0 ? missing : null;
 };
 
-/** "Add your photo to say you're going" -- the next missing step's own words (api/nextStep). */
+/** Interested is locked too, so the words name both. */
+const LOCK_TAIL = "to say you're going or interested";
+
+/** "Add your photo to say you're going or interested" -- the next missing step's own words (api/nextStep). */
 export const goingLockReason = (missing: readonly ProfileField[] | null): string => {
-  if (!missing || missing.length === 0) return "Finish your profile to say you're going";
+  if (!missing || missing.length === 0) return `Finish your profile ${LOCK_TAIL}`;
   const next = NEXT_STEP[FIELD_STEP[missing[0]]].label;
-  return missing.length === 1 ? `${next} to say you're going` : `${next} and a few details to say you're going`;
+  return missing.length === 1 ? `${next} ${LOCK_TAIL}` : `${next} and a few details ${LOCK_TAIL}`;
 };
 
 export type GoingLockFacts = {
