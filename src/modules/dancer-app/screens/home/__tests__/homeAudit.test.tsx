@@ -95,12 +95,16 @@ describe('M14: hero text contrast', () => {
 });
 
 describe('M19: no dead tiles', () => {
-  it('no "Coming soon" tile on Home', async () => {
+  it('B1b: the only "coming soon" tile is partner search, and it has a working button', async () => {
     home();
     await screen.findByTestId('home-hero');
-    expect(screen.queryByTestId('tile-views')).toBeNull();
+    // The numbers tiles are real (they link to My page); the one coming-soon tile can be asked about.
+    expect(await screen.findByTestId('tile-views')).toBeTruthy();
     expect(screen.queryByTestId('tile-partners')).toBeNull();
-    expect(screen.getByTestId('dancer-screen-home').textContent).not.toMatch(/coming soon/i);
+    const text = screen.getByTestId('dancer-screen-home').textContent ?? '';
+    expect(text.match(/coming soon/gi)).toHaveLength(1);
+    expect(screen.getByTestId('tile-partner').textContent).toMatch(/Partner search: coming soon/);
+    expect((screen.getByTestId('partner-notify') as HTMLButtonElement).disabled).toBe(false);
   });
 });
 

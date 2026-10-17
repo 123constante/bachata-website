@@ -1,7 +1,7 @@
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { DancerApiError, codeFromMessage, toDancerError } from './errors';
 import { DANCER_GATE_RPC, backendOverride, fetchGateRaw, type DancerBackend } from './gateRpc';
-import { DANCE_ROLES, STRENGTH_STEPS, type DanceRole, type DancerDelta, type DancerGate, type MyDancerEdit, type PublicDancerExtras, type StrengthStep } from './types';
+import { DANCE_ROLES, FEEDBACK_KINDS, STRENGTH_STEPS, type DanceRole, type DancerDelta, type DancerGate, type FeatureKey, type FeedbackKind, type FeedbackReceipt, type MyDancerEdit, type MyDancerStats, type MyFeatureInterest, type MyProfileViews, type PublicDancerExtras, type StrengthStep } from './types';
 
 export { setFakeBackend, parseGate, type DancerBackend } from './gateRpc';
 
@@ -20,6 +20,11 @@ export const DANCER_RPC = {
   myEdit: 'my_dancer_edit_v1',
   save: 'save_my_dancer_profile_v2',
   publicExtras: 'get_public_dancer_extras_v1',
+  stats: 'my_dancer_stats_v1',
+  views: 'my_profile_views_v1',
+  feedback: 'submit_feedback_v1',
+  registerInterest: 'register_feature_interest_v1',
+  myInterest: 'my_feature_interest_v1',
 } as const;
 
 const call = async (fn: string, args?: Record<string, unknown>): Promise<unknown> => {
@@ -120,11 +125,63 @@ export const parsePublicExtras = (data: unknown): PublicDancerExtras => {
   return { bio: str(data.bio), languages: strings(data.languages), whatsapp: str(data.whatsapp) };
 };
 
+/** A count from the server: a whole number >= 0, anything else (null, NaN, text, negative) is 0 -- never NaN on a screen. */
+const count = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
+
+export const parseMyStats = (data: unknown): MyDancerStats => {
+  if (!isRecord(data) || typeof data.profile_id !== 'string') throw new DancerApiError('unknown', 'my_dancer_stats_v1 returned an unexpected shape');
+  return {
+    profile_id: data.profile_id,
+    member_since: str(data.member_since),
+    nights_going_upcoming: count(data.nights_going_upcoming),
+    nights_went: count(data.nights_went),
+    interested_upcoming: count(data.interested_upcoming),
+    level_votes: count(data.level_votes),
+    views_30_days: count(data.views_30_days),
+    views_total: count(data.views_total),
+  };
+};
+
+export const parseMyViews = (data: unknown): MyProfileViews => {
+  if (!isRecord(data) || typeof data.profile_id !== 'string') throw new DancerApiError('unknown', 'my_profile_views_v1 returned an unexpected shape');
+  return {
+    profile_id: data.profile_id,
+    total: count(data.total),
+    last_7_days: count(data.last_7_days),
+    last_30_days: count(data.last_30_days),
+    previous_30_days: count(data.previous_30_days),
+    last_viewed_at: str(data.last_viewed_at),
+  };
+};
+
+const isKind = (v: unknown): v is FeedbackKind => (FEEDBACK_KINDS as readonly unknown[]).includes(v);
+
+export const parseFeedbackReceipt = (data: unknown): FeedbackReceipt => {
+  if (!isRecord(data) || typeof data.id !== 'string') throw new DancerApiError('unknown', 'submit_feedback_v1 returned an unexpected shape');
+  return { id: data.id, kind: isKind(data.kind) ? data.kind : 'general', created_at: str(data.created_at) ?? '' };
+};
+
+const FEATURES: readonly FeatureKey[] = ['partner_search', 'classes', 'badges', 'year_in_review'];
+
+export const parseMyInterest = (data: unknown): MyFeatureInterest => {
+  const rows = isRecord(data) && Array.isArray(data.features) ? data.features : [];
+  const registered = rows.flatMap((r) => (isRecord(r) && FEATURES.includes(r.feature as FeatureKey) ? [r.feature as FeatureKey] : []));
+  return { registered };
+};
+
 const realBackend: DancerBackend = {
   fetchGate: fetchGateRaw,
   fetchMyDancerEdit: async () => parseMyDancerEdit(await call(DANCER_RPC.myEdit)),
   saveMyDancerProfile: async (delta) => parseMyDancerEdit(await call(DANCER_RPC.save, { p_payload: delta })),
   fetchPublicExtras: async (profileId) => parsePublicExtras(await call(DANCER_RPC.publicExtras, { p_profile_id: profileId })),
+  fetchMyStats: async () => parseMyStats(await call(DANCER_RPC.stats)),
+  fetchMyViews: async () => parseMyViews(await call(DANCER_RPC.views)),
+  submitFeedback: async (body, kind, page) => parseFeedbackReceipt(await call(DANCER_RPC.feedback, { p_body: body, p_kind: kind, p_page: page })),
+  registerFeatureInterest: async (feature) => {
+    const data = await call(DANCER_RPC.registerInterest, { p_feature: feature });
+    return { alreadyRegistered: isRecord(data) && data.already_registered === true };
+  },
+  fetchMyFeatureInterest: async () => parseMyInterest(await call(DANCER_RPC.myInterest)),
 };
 
 const backend = (): DancerBackend => backendOverride() ?? realBackend;
@@ -174,3 +231,20 @@ export const saveMyDancerProfile = (delta: DancerDelta, current?: MyDancerEdit):
 /** get_public_dancer_extras_v1: bio, languages and (only when allowed) WhatsApp for a public page. */
 export const fetchPublicExtras = (profileId: string): Promise<PublicDancerExtras> =>
   wrap(() => backend().fetchPublicExtras(profileId));
+
+/** my_dancer_stats_v1: the numbers strip on Home and My page. */
+export const fetchMyStats = (): Promise<MyDancerStats> => wrap(() => backend().fetchMyStats());
+
+/** my_profile_views_v1: how many people looked at the page. */
+export const fetchMyViews = (): Promise<MyProfileViews> => wrap(() => backend().fetchMyViews());
+
+/** submit_feedback_v1: one message; `page` is the route the person was on. */
+export const submitFeedback = (body: string, kind: FeedbackKind, page: string | null): Promise<FeedbackReceipt> =>
+  wrap(() => backend().submitFeedback(body, kind, page));
+
+/** register_feature_interest_v1: idempotent ("tell me when it is ready"). */
+export const registerFeatureInterest = (feature: FeatureKey): Promise<{ alreadyRegistered: boolean }> =>
+  wrap(() => backend().registerFeatureInterest(feature));
+
+/** my_feature_interest_v1: which features this person already asked about. */
+export const fetchMyFeatureInterest = (): Promise<MyFeatureInterest> => wrap(() => backend().fetchMyFeatureInterest());

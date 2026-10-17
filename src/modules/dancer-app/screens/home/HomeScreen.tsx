@@ -15,6 +15,8 @@ import { nextStepLine } from '../../api/nextStep';
 import { RateNudge } from './RateNudge';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { WhatsOn } from './WhatsOn';
+import { NumbersTiles } from './NumbersTiles';
+import { PartnerTile } from './PartnerTile';
 import NoProfileWayOut from '../options/NoProfileWayOut';
 import { Avatar, MessageUsLink } from '../me/ui';
 import { NO_PROFILE_MESSAGE } from '../../api/messageUs';
@@ -154,6 +156,10 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
           <span className="da-muted" style={{ fontSize: 13 }}>{nextDate ? `Next: ${shortDate(nextDate)}` : 'Going or Interested'}</span>
         </Link>
       </div>
+
+      <NumbersTiles hasPhoto={Boolean(profile.avatar_url)} />
+
+      <PartnerTile />
 
       <WhatsOn cityId={profile.based_city_id} />
     </div>

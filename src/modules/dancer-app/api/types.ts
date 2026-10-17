@@ -121,9 +121,47 @@ export const DANCER_ERROR_CODES = [
   'invalid_url',
   'invalid_whatsapp',
   'invalid_list',
+  'invalid_body',
+  'invalid_kind',
+  'invalid_page',
+  'invalid_feature',
   'unknown',
 ] as const;
 export type DancerErrorCode = (typeof DANCER_ERROR_CODES)[number];
 
 /** The field a code belongs to, so an Edit screen can put the message under the right input. */
 export type DancerErrorField = SaveKey | null;
+
+/** my_dancer_stats_v1() (admin migration 20261121140000). All counts are whole numbers >= 0. */
+export type MyDancerStats = {
+  profile_id: string;
+  member_since: string | null;
+  nights_going_upcoming: number;
+  nights_went: number;
+  interested_upcoming: number;
+  level_votes: number;
+  views_30_days: number;
+  views_total: number;
+};
+
+/** my_profile_views_v1() (same migration). */
+export type MyProfileViews = {
+  profile_id: string;
+  total: number;
+  last_7_days: number;
+  last_30_days: number;
+  previous_30_days: number;
+  last_viewed_at: string | null;
+};
+
+/** submit_feedback_v1: the kinds and the body limit the RPC enforces. */
+export const FEEDBACK_KINDS = ['general', 'bug', 'idea', 'praise'] as const;
+export type FeedbackKind = (typeof FEEDBACK_KINDS)[number];
+export const FEEDBACK_MAX_LENGTH = 2000;
+export const FEEDBACK_DAILY_LIMIT = 5;
+export type FeedbackReceipt = { id: string; kind: FeedbackKind; created_at: string };
+
+/** The feature keys register_feature_interest_v1 accepts; the app uses only partner_search. */
+export type FeatureKey = 'partner_search' | 'classes' | 'badges' | 'year_in_review';
+/** my_feature_interest_v1(): the features this person has asked to hear about. */
+export type MyFeatureInterest = { registered: FeatureKey[] };
