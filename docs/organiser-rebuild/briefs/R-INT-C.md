@@ -1,0 +1,23 @@
+# Walk brief R-INT-C -- final 390x844 walk of PR #809 on prod-shaped data (after the fix pass)
+
+Repo `123constante/bachata-website`. You are a WALKER, not an author or a fixer. Work on branch `claude/org-r1-walk-final`, created from `claude/org-r1-integrate` (head e04dea0). You commit ONLY under `docs/organiser-rebuild/walk-final/` (screenshots, measurements, `WALK-FINAL.md`). You change NO source file; if you find a defect, you write it down (BLOCKING / SHOULD / NOTE with file:line, a one-sentence fix, a screenshot), you do not fix it. Opus. Plain git only, never `gh api`. Shell commands without variables, loops or `$(...)`. Under 30% context; at 25% start nothing new; by 30% push PARTIAL. ONE push; last commit subject ends `[worker-done <ticket>]`.
+
+## Re-use, do not rebuild
+`git fetch origin claude/org-r1-review-INTB` and take the INT-B walk from `docs/organiser-rebuild/walk-INT/` (two walk specs saved as `.txt`, plus `measure.jsonl`, `kb.jsonl`). Re-run that same walk on the PRODUCTION build (`npm run build`, then serve it) of the current head, against the e2e fakes (`tests/e2e/helpers/organiserFake.ts`) fed the five prod shapes: `default` (2 series, team of 3, 2 join requests), `zero_team1` (0 series, team of 1), `one_team1`, `ten_team5` (12 series, team of 5), `states` (ended weekly with ended_on, paused weekly, cancelled-only one-off, 3-day festival, 3-date course, team of 2). Prod facts these mirror (read-only survey 2026-10-17): 46 organiser pages; 0 with no active team; 4 with 2-5 team members; pages by series count 0 = 2, 1 = 17, 2-9 = 23, 10+ = 4; organiser-owned series: live 67 (recurring 44, one_off 10, festival 7, course 6), draft 6, ended 20, paused 1, archived 652 in total, 33 of 74 open series have names longer than 18 characters. Write the result of each cell (screen x shape) in a grid like REVIEW-INT-B's.
+
+## The new things the fix pass changed that nobody has walked yet (look at each, screenshot each)
+1. No-access screens: One event, Details, Cover, Cancel confirm and which-date, Add which-day and time, Change time, New first date. Title "You do not have access to this event", no retry button, Back works. (Make the fake refuse with the access-refusal error.)
+2. "No events yet" + New event on Change, Cancel and Add for the `zero_team1` page; "No coming dates" kept for a page whose events are all past (`states` ended series).
+3. Full weekday and month names ("Friday 23 October") inside truncating rows at 390: Home job lines, My events rows, One event, Details, Team join-request line. Anything clipped or wrapping badly? Row heights with `line-clamp-2` titles on `ten_team5` (long names): still compact, no row taller than needed?
+4. One event month grid: weekday header row, sr-only state text present (read the accessibility tree), cancelled and scheduled dates distinguishable.
+5. Status chip words for all 7 lifecycle values on My events and One event (use the fake to serve each value once): identical on both screens.
+6. Team: "Leave this page", Add someone empty-after-filter and search-error Retry, "Add them back" prefilling the search, role help without any "review" text, no "Make owner" anywhere, `/team/add?q=`.
+7. /page pencils: Edit city, Edit year started, Edit category measure 44x44; the PUBLIC organiser page's pencils unchanged (32x44).
+8. Focus: after closing a sheet, focus returns to the control that opened it (check at least the Details sheet and the sign-out sheet with a real tap-style click, then read `document.activeElement`).
+9. Cancelled-only event on My events reads Cancelled first, not "Needs a cover" / "Needs dates".
+10. Keyboard open (fake 336px visualViewport) still fine for Add someone search and the DateSheet name field with its new error wiring (aria-invalid / aria-describedby present when an error shows).
+
+For every screen: no horizontal scroll, no control below 44x44 (report /page separately), no sticky bar covering a control, no text clipped, no page error, console clean. Copy check: the same fact reads the same on every screen; no text points at a control that is not on screen.
+
+## Output
+`docs/organiser-rebuild/walk-final/WALK-FINAL.md`: verdict line (CLEAN / n BLOCKING / n SHOULD / n NOTE), the screen x shape grid (W = walked and measured, R = only read in code), the 10 items above with PASS / FAIL and the screenshot name, a "Verified / Not verified" block (be honest: no real iPhone, no VoiceOver, fakes not live RPCs), and the commands you ran. The orchestrator will use your screenshots in the owner's review pack, so name them by screen and shape and keep them at 390x844.
