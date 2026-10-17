@@ -16,8 +16,23 @@ export type DeleteRefusalCode = "admin_account" | "sole_organiser_owner" | "alre
 export const DELETE_REFUSAL_CODES: readonly DeleteRefusalCode[] = ["admin_account", "sole_organiser_owner", "already_archived", "rate_limited"];
 
 export const ERASE_CONFIRM_WORD = "DELETE";
-/** Exactly DELETE: case-sensitive, no padding. */
-export const canConfirmErase = (typed: string): boolean => typed === ERASE_CONFIRM_WORD;
+/**
+ * DELETE in capitals, ignoring stray spaces (a phone keyboard adds one after a word). Still case-sensitive:
+ * the field capitalises on phones (autoCapitalize="characters"), and typing the capitals is the deliberate act.
+ */
+export const canConfirmErase = (typed: string): boolean => typed.trim() === ERASE_CONFIRM_WORD;
+
+/**
+ * Audit M4: settings opened from the dancer app (/app/options) carry `?from=app`, so the page can offer
+ * "Back to Options". Search-param based (no document.referrer: it is empty after an in-app navigation).
+ */
+export const FROM_PARAM = "from";
+export const FROM_APP = "app";
+export const APP_OPTIONS_PATH = "/app/options";
+export const BACK_TO_OPTIONS_LABEL = "Back to Options";
+export const isFromApp = (search: string): boolean => new URLSearchParams(search).get(FROM_PARAM) === FROM_APP;
+/** `path`, keeping the from=app context when the person came from the dancer app. */
+export const withFromApp = (path: string, fromApp: boolean): string => (fromApp ? `${path}?${FROM_PARAM}=${FROM_APP}` : path);
 
 export type AccountExport = {
   exported_at: string;

@@ -18,7 +18,7 @@ text "Anyone viewing your profile or a line-up sees your first name and surname.
 button "Save" [disabled]
 text "Change the switch, then save."
 button "I organise eventsClaim your organiser, ask to join one, or create one" [expanded=false]
-link "Settings: email, your data, hide or delete account" href=/account/settings
+link "Account settings: email, your data, hide or delete account" href=/account/settings
 text "Signed in as ana@example.com ."
 button "Sign out"",
 }
@@ -46,7 +46,7 @@ link "Account settings (sign out or delete account)" href=/account/settings",
 exports[`/account entry at '390x844' > /account > 'no profile' 1`] = `
 {
   "landing": "/finish-profile?returnTo=<encoded>",
-  "tree": "heading "Finish your profile" level=1
+  "tree": "heading "Set up your dancer profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
 text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
 link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
@@ -128,7 +128,7 @@ text "Anyone viewing your profile or a line-up sees your first name and surname.
 button "Save" [disabled]
 text "Change the switch, then save."
 button "I organise eventsClaim your organiser, ask to join one, or create one" [expanded=false]
-link "Settings: email, your data, hide or delete account" href=/account/settings
+link "Account settings: email, your data, hide or delete account" href=/account/settings
 text "Signed in as ana@example.com ."
 button "Sign out"",
 }
@@ -156,7 +156,7 @@ link "Account settings (sign out or delete account)" href=/account/settings",
 exports[`/account entry at '390x844' > /account/dancer > 'no profile' 1`] = `
 {
   "landing": "/finish-profile?returnTo=<encoded>",
-  "tree": "heading "Finish your profile" level=1
+  "tree": "heading "Set up your dancer profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
 text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
 link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
@@ -183,7 +183,7 @@ text "Anyone viewing your profile or a line-up sees your first name and surname.
 button "Save" [disabled]
 text "Change the switch, then save."
 link "Back to your organiser home" href=/account/o
-link "Settings: email, your data, hide or delete account" href=/account/settings
+link "Account settings: email, your data, hide or delete account" href=/account/settings
 text "Signed in as ana@example.com ."
 button "Sign out"",
 }
@@ -207,7 +207,7 @@ text "Anyone viewing your profile or a line-up sees your first name and surname.
 button "Save" [disabled]
 text "Change the switch, then save."
 link "Back to your organiser home" href=/account/o
-link "Settings: email, your data, hide or delete account" href=/account/settings
+link "Account settings: email, your data, hide or delete account" href=/account/settings
 text "Signed in as ana@example.com ."
 button "Sign out"",
 }
@@ -268,7 +268,7 @@ link "Account settings (sign out or delete account)" href=/account/settings",
 exports[`/account entry at '390x844' > /account/o > 'no profile' 1`] = `
 {
   "landing": "/finish-profile?returnTo=<encoded>",
-  "tree": "heading "Finish your profile" level=1
+  "tree": "heading "Set up your dancer profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
 text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
 link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
@@ -350,7 +350,7 @@ text "Anyone viewing your profile or a line-up sees your first name and surname.
 button "Save" [disabled]
 text "Change the switch, then save."
 button "I organise eventsClaim your organiser, ask to join one, or create one" [expanded=false]
-link "Settings: email, your data, hide or delete account" href=/account/settings
+link "Account settings: email, your data, hide or delete account" href=/account/settings
 text "Signed in as ana@example.com ."
 button "Sign out"",
 }
@@ -378,7 +378,7 @@ link "Account settings (sign out or delete account)" href=/account/settings",
 exports[`/account entry at 'desktop' > /account > 'no profile' 1`] = `
 {
   "landing": "/finish-profile?returnTo=<encoded>",
-  "tree": "heading "Finish your profile" level=1
+  "tree": "heading "Set up your dancer profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
 text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
 link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
@@ -460,7 +460,7 @@ text "Anyone viewing your profile or a line-up sees your first name and surname.
 button "Save" [disabled]
 text "Change the switch, then save."
 button "I organise eventsClaim your organiser, ask to join one, or create one" [expanded=false]
-link "Settings: email, your data, hide or delete account" href=/account/settings
+link "Account settings: email, your data, hide or delete account" href=/account/settings
 text "Signed in as ana@example.com ."
 button "Sign out"",
 }
@@ -488,7 +488,7 @@ link "Account settings (sign out or delete account)" href=/account/settings",
 exports[`/account entry at 'desktop' > /account/dancer > 'no profile' 1`] = `
 {
   "landing": "/finish-profile?returnTo=<encoded>",
-  "tree": "heading "Finish your profile" level=1
+  "tree": "heading "Set up your dancer profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
 text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
 link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.
@@ -515,7 +515,7 @@ text "Anyone viewing your profile or a line-up sees your first name and surname.
 button "Save" [disabled]
 text "Change the switch, then save."
 link "Back to your organiser home" href=/account/o
-link "Settings: email, your data, hide or delete account" href=/account/settings
+link "Account settings: email, your data, hide or delete account" href=/account/settings
 text "Signed in as ana@example.com ."
 button "Sign out"",
 }
@@ -539,7 +539,7 @@ text "Anyone viewing your profile or a line-up sees your first name and surname.
 button "Save" [disabled]
 text "Change the switch, then save."
 link "Back to your organiser home" href=/account/o
-link "Settings: email, your data, hide or delete account" href=/account/settings
+link "Account settings: email, your data, hide or delete account" href=/account/settings
 text "Signed in as ana@example.com ."
 button "Sign out"",
 }
@@ -600,7 +600,7 @@ link "Account settings (sign out or delete account)" href=/account/settings",
 exports[`/account entry at 'desktop' > /account/o > 'no profile' 1`] = `
 {
   "landing": "/finish-profile?returnTo=<encoded>",
-  "tree": "heading "Finish your profile" level=1
+  "tree": "heading "Set up your dancer profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
 text "Your account has no dancer profile yet, so you can’t rate parties. Message us and we’ll set it up."
 link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'd%20like%20to%20list%20my%20events%20on%20Bachata%20Calendar.

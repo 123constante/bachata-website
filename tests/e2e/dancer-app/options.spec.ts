@@ -30,11 +30,13 @@ async function open(page: Page, otherRoles: string[]) {
 test.describe('dancer app options 390x844', () => {
   test.use({ viewport: PHONE });
 
-  test('pure dancer: rows, become-an-organiser, disabled reasons, no horizontal scroll', async ({ page }) => {
+  test('pure dancer: rows, become-an-organiser, live legal links, no horizontal scroll', async ({ page }) => {
     await open(page, []);
     // A quiet way into today's organiser onboarding (owner workflow 2026-10-15).
     await expect(page.getByTestId('opt-switch-organiser')).toContainText('Run events? Become an organiser');
-    await expect(page.getByTestId('opt-terms')).toBeDisabled();
+    // Audit H3: Terms and Privacy are live pages, so their rows are links, never disabled.
+    await expect(page.getByTestId('opt-terms')).toHaveAttribute('href', '/terms');
+    await expect(page.getByTestId('opt-privacy')).toHaveAttribute('href', '/privacy');
     await expectNoHorizontalScroll(page);
     await page.screenshot({ path: `${SHOTS}/options.png` });
   });

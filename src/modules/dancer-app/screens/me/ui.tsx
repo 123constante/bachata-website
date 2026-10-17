@@ -1,9 +1,10 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { toDancerError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
-import { ownInitial } from '../../api/publicName';
+import { NO_NAME_YET, ownPublicName } from '../../api/publicName';
+import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 
 /** Shared bits of the Me and Edit screens (sizes in px, never rem: the phone html font-size is ~13.5px). */
 
@@ -44,6 +45,7 @@ export const StrengthBar = ({ pct }: { pct: number }) => (
   </div>
 );
 
+/** The dancer's own avatar: the ONE PersonAvatar, named by the public name (no name yet -> a person glyph). */
 export const Avatar = ({
   profile,
   size,
@@ -51,21 +53,16 @@ export const Avatar = ({
   profile: Pick<MyDancerEdit, 'avatar_url' | 'first_name' | 'display_name' | 'surname' | 'hide_surname_publicly'>;
   size: number;
 }) => {
-  const initial = ownInitial(profile);
-  const box: CSSProperties = { width: size, height: size, borderRadius: '50%', flex: '0 0 auto', background: 'var(--da-surface-2)' };
-  // A URL the browser refuses (a legacy host outside app/csp.ts img-src: 2 prod rows, R1a
-  // survey) or that 404s shows the initial, never a broken-image icon.
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  return profile.avatar_url && failedUrl !== profile.avatar_url ? (
-    <img src={profile.avatar_url} alt="" loading="eager" style={{ ...box, objectFit: 'cover' }} data-testid="me-photo" onError={() => setFailedUrl(profile.avatar_url)} />
-  ) : (
-    <span
-      aria-hidden="true"
-      data-testid="me-photo-placeholder"
-      style={{ ...box, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: size / 2.5 }}
-    >
-      {initial}
-    </span>
+  const name = ownPublicName(profile);
+  return (
+    <PersonAvatar
+      photoUrl={profile.avatar_url}
+      name={name === NO_NAME_YET ? null : name}
+      size={size}
+      loading="eager"
+      imgTestId="me-photo"
+      placeholderTestId="me-photo-placeholder"
+    />
   );
 };
 

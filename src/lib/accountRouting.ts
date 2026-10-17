@@ -28,6 +28,20 @@ export const ORGANISER_HOME_PATH = '/account/o';
 export const MY_ATTENDANCE_PATH = '/account/attendance';
 /** Account settings (src/pages/AccountSettings.tsx): sign out, email, export, hide, erase. Never gated: see isDancerGatedPath. */
 export const ACCOUNT_SETTINGS_PATH = '/account/settings';
+/**
+ * The account copy shown on BOTH the site and the dancer app (audit M16, L13): one string
+ * per fact. src/modules/dancer-app/copy/sharedCopy.ts re-exports these unchanged, so the
+ * dancer app reads them there; site pages read them here and never import the dancer-app
+ * module (dancer-area isolation rule c). They live in THIS module, not a file of their own,
+ * because every surface that shows them already loads this one: a separate module became a
+ * separate first-load chunk on /app/* (one more request per view, perf-budgets chunk ratchet).
+ */
+/** The "nobody else can see my dancer page" state. One word everywhere: hidden. */
+export const HIDDEN_STATE_WORD = 'hidden';
+export const HIDDEN_STATE_LINE = 'Your dancer profile is hidden. Only you can see it.';
+export const SHOW_AGAIN_LABEL = 'Show my profile again';
+/** The one name for the account page (was Options / Settings / Your account). */
+export const ACCOUNT_SETTINGS_LABEL = 'Account settings';
 /** Where a deleted (= hidden) account lands after sign-in: restore within 30 days, else the deleted card (pages/AccountRestore). */
 export const ACCOUNT_RESTORE_PATH = '/account/restore';
 

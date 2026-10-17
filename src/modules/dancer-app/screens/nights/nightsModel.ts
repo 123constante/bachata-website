@@ -36,7 +36,7 @@ export type Night = {
   /** Where "See event" goes (leaves the app). */
   href: string;
   past: boolean;
-  /** false = the event is no longer listed (series not live): never the hero, never counted or nudged. */
+  /** false = the event is no longer listed (series inactive): never the hero, never counted or nudged. */
   listed: boolean;
 };
 
@@ -64,7 +64,14 @@ export const STATUS_LABELS: Readonly<Record<string, string>> = {
 };
 export const STATUS_UNKNOWN = 'Status unknown';
 
-export const statusLabel = (n: Pick<Night, 'status' | 'rawStatus'>): string => STATUS_LABELS[n.rawStatus] ?? STATUS_UNKNOWN;
+/** Audit L3: a night that has happened reads in the past tense. Other statuses read the same either way. */
+export const PAST_STATUS_LABELS: Readonly<Record<string, string>> = {
+  going: 'Went',
+  interested: 'Was interested',
+};
+
+export const statusLabel = (n: Pick<Night, 'status' | 'rawStatus'> & { past?: boolean }): string =>
+  (n.past ? PAST_STATUS_LABELS[n.rawStatus] : undefined) ?? STATUS_LABELS[n.rawStatus] ?? STATUS_UNKNOWN;
 
 /** The night counts as a plan: Going or Interested, and the event is still listed. */
 const isPlan = (n: Night): boolean => n.listed && (n.status === 'going' || n.status === 'interested');

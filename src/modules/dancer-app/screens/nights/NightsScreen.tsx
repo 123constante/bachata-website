@@ -6,6 +6,15 @@ import { statusLabel, placeAndTime, type Night } from './nightsModel';
 import { linkStyle } from './nightsStyles';
 import { DateBlock, StatusPill } from './nightsUi';
 import { useBrowseHref } from './useBrowseHref';
+import { BROWSE_EVENTS_LABEL } from '../home/homeCopy';
+
+/**
+ * Audit L22 / L14: the zero-nights state names BOTH ways a night gets saved (the
+ * event page's "I'm Going" and "Interested") and offers the browse link.
+ */
+export const NO_NIGHTS_LINE = 'No nights saved yet.';
+export const NO_NIGHTS_HOW = 'Tap I\u2019m Going or Interested on any event and it shows up here.';
+export const NO_UPCOMING_LINE = 'No upcoming nights.';
 import { useMyNights } from './useMyNights';
 
 const rowStyle = { display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 0', borderTop: '1px solid var(--da-border)' } as const;
@@ -45,7 +54,7 @@ const NightRow = ({ night, profileComplete, focused, rate }: { night: Night; pro
 const NightsScreen = () => {
   const { isLoading, isError, retry, nights } = useMyNights();
   const profile = useMyDancerEdit();
-  const browseHref = useBrowseHref();
+  const browseHref = useBrowseHref(profile.data?.based_city_id);
   const [params] = useSearchParams();
   const focus = params.get('focus');
   const complete = profile.data?.complete === true;
@@ -62,14 +71,21 @@ const NightsScreen = () => {
           <button type="button" className="da-tap" onClick={retry} style={{ ...linkStyle, background: 'none', border: 0 }}>Try again</button>
         </div>
       )}
-      {!isLoading && !isError && (
+      {!isLoading && !isError && nights.upcoming.length === 0 && nights.past.length === 0 && (
+        <section className="da-card" aria-label="Your nights" data-testid="nights-empty">
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>{NO_NIGHTS_LINE}</p>
+          <p className="da-muted" style={{ margin: '2px 0 0', fontSize: 14 }}>{NO_NIGHTS_HOW}</p>
+          <a href={browseHref} style={linkStyle}>{BROWSE_EVENTS_LABEL}</a>
+        </section>
+      )}
+      {!isLoading && !isError && (nights.upcoming.length > 0 || nights.past.length > 0) && (
         <>
           <section className="da-card" aria-label="Upcoming nights" data-testid="nights-upcoming">
             <h2 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 4px' }}>Upcoming</h2>
             {nights.upcoming.length === 0 ? (
               <p style={{ margin: 0, fontSize: 14 }} data-testid="nights-upcoming-empty">
-                You&rsquo;re not going to anything yet.{' '}
-                <a href={browseHref} style={linkStyle}>Browse what&rsquo;s on</a>
+                {NO_UPCOMING_LINE}{' '}
+                <a href={browseHref} style={linkStyle}>{BROWSE_EVENTS_LABEL}</a>
               </p>
             ) : (
               <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>

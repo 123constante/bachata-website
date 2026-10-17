@@ -52,10 +52,21 @@ export const deleteRefusalMessage = (code: string | null): string => {
   }
 };
 
+/**
+ * THE long-date formatter of the account and legal pages: "16 October 2026". A plain calendar date
+ * ("2026-10-16", a legal version) is that day as written; a timestamp is its London day. Anything that is
+ * not a date is returned unchanged, so a non-date legal version still shows.
+ */
+export const formatLongDate = (value: string): string => {
+  const plain = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  const d = plain ? new Date(Date.UTC(Number(plain[1]), Number(plain[2]) - 1, Number(plain[3]))) : new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: plain ? "UTC" : "Europe/London" });
+};
+
 /** "15 October 2026" in London time: the date a deleted card names. */
 export const formatDeletedOn = (iso: string | null): string | null => {
   if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" });
+  const out = formatLongDate(iso);
+  return out === iso ? null : out;
 };

@@ -63,11 +63,14 @@ test.describe('dancer app home + nights 390x844', () => {
     test(`home and nights: ${shape.name}`, async ({ page }) => {
       await open(page, '/app/home', shape);
       await expect(page.getByTestId('home-hero')).toBeVisible();
-      await expect(page.getByTestId('tile-views')).toContainText('Coming soon');
+      // Audit L12: no "Coming soon" tiles on Home.
+      await expect(page.getByTestId('tile-views')).toHaveCount(0);
+      await expect(page.getByText('Coming soon')).toHaveCount(0);
       await expectNoHorizontalScroll(page);
       await page.screenshot({ path: `${SHOTS}/home-${shape.name}.png`, fullPage: true });
       await page.getByTestId('dancer-app-tab-nights').click();
-      await expect(page.getByTestId('nights-upcoming')).toBeVisible();
+      // Slice B: no nights at all shows ONE empty state (what you can do), not empty sections.
+      await expect(page.getByTestId(shape.rows.length === 0 ? 'nights-empty' : 'nights-upcoming')).toBeVisible();
       await expectNoHorizontalScroll(page);
       await page.screenshot({ path: `${SHOTS}/nights-${shape.name}.png`, fullPage: true });
     });
