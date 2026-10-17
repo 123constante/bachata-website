@@ -105,7 +105,7 @@ test('a declined request is shown with the answer', async ({ page }) => {
 });
 
 test('the first-time screen has a way out: Signed in as <email>, Not you? Sign out, asked first', async ({ page }) => {
-  await openOrganiser(page, '/account/o', { noOrganiser: true });
+  const fake = await openOrganiser(page, '/account/o', { noOrganiser: true });
   const line = page.getByTestId('onboarding-signedin-line');
   await expect(line).toContainText(`Signed in as ${EMAIL}`);
   await expect(line).toContainText('Not you?');
@@ -122,10 +122,12 @@ test('the first-time screen has a way out: Signed in as <email>, Not you? Sign o
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('onboarding-signout-yes')).toHaveCount(0);
   await expect(page.getByTestId('org-onboarding')).toBeVisible();
-  // Confirming signs out; the guard then sends the now signed-out visitor to the sign-in page.
+  // Confirming signs out through useSignOutToHome. Where it lands (the site home, never the
+  // sign-in form, audit H10) is pinned by signOutEntryPoints.test.tsx: here the init script
+  // re-plants the session on any document load, so the landing is not this spec's to read.
   await btn.click();
   await page.getByTestId('onboarding-signout-yes').click();
-  await expect(page).toHaveURL(/\/auth\?mode=signin/);
+  await expect.poll(() => fake.calls.some((c) => c.rpc === 'auth:logout')).toBe(true);
   await expect(page.getByTestId('org-onboarding')).toHaveCount(0);
 });
 
