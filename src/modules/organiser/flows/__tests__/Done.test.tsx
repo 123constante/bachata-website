@@ -44,6 +44,14 @@ describe('Done (D29, D49, D51, D61)', () => {
     expect(screen.getByTestId('where').textContent).toBe(next);
   });
 
+  it('a `nextLabel` renames the second button (Team removal: Add them back, C26b)', () => {
+    renderAt({ title: 'Removed', message: 'Removed from the team', seriesId: null, next: ORG_PATHS.teamAdd, nextLabel: 'Add them back' });
+    const labels = within(screen.getByTestId('org-done')).getAllByRole('button').map((b) => b.textContent);
+    expect(labels).toEqual(['Back to Home', 'Add them back']);
+    fireEvent.click(screen.getByText('Add them back'));
+    expect(screen.getByTestId('where').textContent).toBe(ORG_PATHS.teamAdd);
+  });
+
   it('a reload with no state goes Home', () => {
     renderAt(null);
     expect(screen.getByTestId('where').textContent).toBe(ORG_PATHS.home);

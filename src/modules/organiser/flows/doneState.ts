@@ -11,6 +11,8 @@ export interface DoneState {
   message: string;
   seriesId: string | null;
   next?: string;
+  /** The `next` button's words; defaults to NEXT_LABEL (Team's removal says "Add them back", C26b). */
+  nextLabel?: string;
 }
 
 /** The second button's words. R1 has one `next` (D61, Cancel -> put it back). */
@@ -30,5 +32,6 @@ export function readDoneState(raw: unknown): DoneState | null {
     message: s.message,
     seriesId: typeof s.seriesId === 'string' ? s.seriesId : null,
     ...(typeof s.next === 'string' && s.next ? { next: s.next } : {}),
+    ...(typeof s.nextLabel === 'string' && s.nextLabel ? { nextLabel: s.nextLabel } : {}),
   };
 }

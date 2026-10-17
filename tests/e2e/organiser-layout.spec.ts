@@ -116,7 +116,7 @@ test.describe('tap targets @390', () => {
 
   test('Team', async ({ page }) => {
     await openOrganiser(page, '/account/o/team');
-    await expect(page.getByTestId('access-request')).toHaveCount(2);
+    await expect(page.getByTestId('join-request')).toHaveCount(2);
     await expectTapTargets(page);
   });
 
@@ -176,7 +176,7 @@ test.describe('tap targets @390', () => {
       [`/account/o/events/${FRIDAY}/details`, 'org-schedule-session'],
       [`/account/o/events/${FRIDAY}?do=end`, 'event-step'],
       [`/account/o/change/${FRIDAY}/${OCC}/lineup`, 'session-row'],
-      ['/account/o/team', 'access-request'],
+      ['/account/o/team', 'join-request'],
       ['/account/o/profile', 'profile-name'],
     ]) {
       await page.goto(path);

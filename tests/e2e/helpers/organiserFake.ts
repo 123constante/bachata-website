@@ -545,7 +545,7 @@ export class OrganiserFake {
           const r = o.requests.find((x) => x.request_id === body.p_request_id);
           if (!r) continue;
           o.requests = o.requests.filter((x) => x !== r);
-          if (body.p_decision === 'grant') o.team.push({ user_id: r.user_id, member_role: 'manager', is_primary: false, email: r.requester_email, display_name: null });
+          if (body.p_decision === 'grant' && !o.team.some((m) => m.user_id === r.user_id)) o.team.push({ user_id: r.user_id, member_role: 'manager', is_primary: false, email: r.requester_email, display_name: null });
           return json(route, { request_id: r.request_id, user_id: r.user_id, decision: body.p_decision, member_role: body.p_decision === 'grant' ? 'manager' : null });
         }
         return refuse(route, 'request_not_open');
@@ -566,6 +566,20 @@ export class OrganiserFake {
         o.team = o.team.filter((x) => x !== m);
         return json(route, { user_id: m.user_id, member_role: m.member_role, removed_rows: 1, self_removed: m.user_id === ME, primary_passed_to: null, audit_id: 'a' });
       }
+      case 'organiser_team_add_member_by_profile_v1': {
+        const o = org(body.p_organiser_id);
+        if (!o) return refuse(route, 'not_authorised');
+        const req = o.requests.find((x) => x.user_id === body.p_profile_id);
+        o.team.push({ user_id: String(body.p_profile_id), member_role: 'manager', is_primary: false, email: req?.requester_email ?? `${String(body.p_profile_id).slice(0, 4)}@faces.example`, display_name: null });
+        // Prod derives a request's status from membership: once they are a member it is no longer 'open'.
+        if (req) o.requests = o.requests.filter((x) => x !== req);
+        return json(route, { changed: true, member_role: 'manager' });
+      }
+      case 'organiser_team_browse_people_v1':
+        return json(route, [
+          { profile_id: '66666666-6666-4666-8666-666666666666', display_name: 'Priya Sharma', photo_url: null, fact: 'attended:3', can_add: true },
+          { profile_id: '77777777-7777-4777-8777-777777777777', display_name: 'Lena Voss', photo_url: null, fact: null, can_add: false },
+        ]);
       case 'claim_organiser_v1': {
         const c = this.claimable.find((x) => x.id === body.p_organiser_id);
         if (!c) return refuse(route, 'not_found');

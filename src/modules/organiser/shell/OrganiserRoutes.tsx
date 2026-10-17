@@ -28,8 +28,8 @@ const AddFlow = lazyWithRetry(() => import('../flows/add')); // S3 flows/add
 const CancelFlow = lazyWithRetry(() => import('../flows/cancel')); // S3 flows/cancel
 const NewFlow = lazyWithRetry(() => import('../flows/new'));
 const EventDetails = lazyWithRetry(() => import('../events/Details'));
-const TeamFlow = lazyWithRetry(() => import('./placeholders')); // S6 team/
-const HandoverFlow = lazyWithRetry(() => import('./placeholders')); // S6 flows/handover
+const TeamFlow = lazyWithRetry(() => import('../team/TeamFlow')); // S6 team/ (add, person)
+const HandoverFlow = lazyWithRetry(() => import('../flows/handover')); // S6 flows/handover
 const MorePage = lazyWithRetry(() => import('./placeholders')); // S7 more/
 const CoverFlow = lazyWithRetry(() => import('./placeholders')); // S7 flows/fix
 const DonePage = lazyWithRetry(() => import('../flows/Done')); // S0b flows/Done (wired by S2, its first caller)
@@ -117,10 +117,10 @@ export default function OrganiserRoutes() {
             <Route path="events/:seriesId/details" element={<EventDetails />} />
 
             <Route path="team" element={<TeamPage />} />
-            <Route path="team/add" element={<TeamFlow name="Team" />} />
-            <Route path="team/:userId" element={<TeamFlow name="Team" />} />
-            <Route path="handover" element={<HandoverFlow name="Hand over" />} />
-            <Route path="handover/:userId" element={<HandoverFlow name="Hand over" />} />
+            <Route path="team/add" element={<TeamFlow step="add" />} />
+            <Route path="team/:userId" element={<TeamFlow step="person" />} />
+            <Route path="handover" element={<HandoverFlow step="to" />} />
+            <Route path="handover/:userId" element={<HandoverFlow step="confirm" />} />
 
             <Route path="page" element={<ProfilePage />} />
             <Route path="more" element={<MorePage name="More" />} />
