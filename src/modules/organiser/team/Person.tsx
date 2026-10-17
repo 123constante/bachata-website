@@ -11,8 +11,8 @@ import { ErrorState, GhostButton, PrimaryButton, SkeletonRows } from '../ui';
 import { Avatar } from './Avatar';
 import { useTeamContext } from './useTeamContext';
 
-export const ROLE_EXPLAINER = 'Owners add and remove people, change roles and hand the page over. Managers edit every event and send it for review.';
-export const OWNER_ONLY_ROLE = 'Only the owner changes roles';
+export const ROLE_EXPLAINER = 'Owners and managers add people. Only the owner removes people, changes roles and hands the page over. Managers edit every event and send it for review.';
+export const OWNER_ONLY_ROLE = 'Only the owner changes roles or removes people';
 
 /**
  * /account/o/team/:userId (C26): one person, keyed by user_id (what organiser_team_v1 returns and the

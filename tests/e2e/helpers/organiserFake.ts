@@ -569,6 +569,8 @@ export class OrganiserFake {
         if (!o) return refuse(route, 'not_authorised');
         const req = o.requests.find((x) => x.user_id === body.p_profile_id);
         o.team.push({ user_id: String(body.p_profile_id), member_role: 'manager', is_primary: false, email: req?.requester_email ?? `${String(body.p_profile_id).slice(0, 4)}@faces.example`, display_name: null });
+        // Prod derives a request's status from membership: once they are a member it is no longer 'open'.
+        if (req) o.requests = o.requests.filter((x) => x !== req);
         return json(route, { changed: true, member_role: 'manager' });
       }
       case 'organiser_team_browse_people_v1':

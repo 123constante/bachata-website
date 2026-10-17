@@ -244,7 +244,7 @@ describe('C26 one person (keyed by user_id)', () => {
     members = [row('me', 'manager', { is_self: true }), row('o', 'owner'), row('ana', 'manager')];
     mountAt(ORG_PATHS.teamPerson('ana'), routes);
     expect(((await screen.findByTestId('person-change-role')) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('person-role-reason').textContent).toBe('Only the owner changes roles');
+    expect(screen.getByTestId('person-role-reason').textContent).toBe('Only the owner changes roles or removes people');
     expect(screen.queryByTestId('person-remove')).toBeNull();
   });
 

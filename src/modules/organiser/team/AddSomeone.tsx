@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Share2 } from 'lucide-react';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
-import { teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { addTeamMemberByProfile, organiserTeamQueryKey, searchTeamPeople } from '@/modules/organiser/shared/teamRpcApi';
 import { TEAM_CAP, TEAM_FULL_REASON, shortName } from '@/modules/organiser/shared/teamModel';
 import { MIN_QUERY, SEARCH_LIMIT, inviteShare, parsePeople, searchTerm } from '@/modules/organiser/edit-in-place/teamPickerModel';
@@ -12,6 +11,7 @@ import { OrganiserShell, ORG_PATHS } from '../shell';
 import { AnnounceRegion, ErrorState, GhostButton, SearchField, SkeletonRows, useAnnounce, useDebounced } from '../ui';
 import { Avatar } from './Avatar';
 import { BROWSE_PAGE, SHORT_WALL, browseQueryKey, factLabel, fetchBrowsePeople, inviteMessage, shortWallLine, type Face } from './browseApi';
+import { addErrorMessage } from './teamErrors';
 import { useTeamContext } from './useTeamContext';
 
 /**
@@ -32,7 +32,9 @@ export default function AddSomeone() {
   const term = searchTerm(useDebounced(query));
   const full = members.length >= TEAM_CAP;
   const allowed = viewerRole === 'owner' || viewerRole === 'manager';
-  const memberIds = new Set(members.map((m) => m.userId));
+  // Faces and results carry profile ids; a member's profile id is their user id unless organiser_team_v1
+  // says otherwise, so exclude by both (REVIEW-S6 S3). The server should exclude members too.
+  const memberIds = new Set(members.flatMap((m) => (m.profileId ? [m.userId, m.profileId] : [m.userId])));
 
   const browse = useQuery({
     queryKey: browseQueryKey(organiser?.id, limit),
@@ -53,7 +55,7 @@ export default function AddSomeone() {
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager`, seriesId: null });
     },
-    onError: (err) => setError(teamErrorMessage(err)),
+    onError: (err) => setError(addErrorMessage(err, 'wall')),
   });
 
   const share = async (payload: { title: string; text: string; url?: string }) => {
@@ -93,9 +95,9 @@ export default function AddSomeone() {
         ) : ctx.failed ? (
           <ErrorState title="This did not load" onRetry={ctx.retry} testId="add-load-error" />
         ) : !organiser ? (
-          <p className="text-[14px] text-[var(--mut)]">Choose a page first.</p>
+          <p className="text-[14px] text-[var(--mut)]" data-testid="add-no-page">Choose a page on Team first. <Link to={ORG_PATHS.team} className="underline">Go to Team</Link></p>
         ) : !allowed ? (
-          <p className="text-[14px] text-[var(--mut)]" data-testid="add-read-only">Only an owner or a manager adds people.</p>
+          <p className="text-[14px] text-[var(--mut)]" data-testid="add-read-only">Only an owner or a manager adds people. <Link to={ORG_PATHS.team} className="underline">Back to the team</Link></p>
         ) : (
           <>
             <SearchField value={query} onChange={setQuery} aria-label="Search dancers by name" placeholder="Search by name" testId="add-search" />
@@ -151,7 +153,7 @@ export default function AddSomeone() {
                     {more && (
                       <GhostButton testId="add-show-more" loading={browse.isFetching} loadingLabel="Loading" onClick={() => setLimit((n) => n + BROWSE_PAGE)}>Show more</GhostButton>
                     )}
-                    {faces.length < SHORT_WALL && !more && <p className="text-[14px] text-[var(--mut)]" data-testid="add-short">{shortWallLine(faces.length)}</p>}
+                    {faces.length < SHORT_WALL && !more && <p className="text-[14px] text-[var(--mut)]" data-testid="add-short">{shortWallLine(faces.length, faces.every((f) => !!f.photoUrl))}</p>}
                   </>
                 )}
               </>

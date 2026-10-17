@@ -39,7 +39,8 @@ export function useTeamContext(): TeamContext & { choose: (id: string) => void; 
   const viewerRole: TeamRole =
     readRole === 'owner' || readRole === 'contributor' ? readRole
     : readRole === 'manager' || readRole === 'admin' ? 'manager'
-    : selected?.role === 'owner' ? 'owner' : 'manager';
+    // No team read yet: trust the Home read's role, and never grant more than it says (REVIEW-S6 N5).
+    : selected?.role === 'owner' || selected?.role === 'manager' ? selected.role : 'contributor';
   return {
     organiser: selected,
     organisers,
@@ -47,7 +48,8 @@ export function useTeamContext(): TeamContext & { choose: (id: string) => void; 
     members,
     viewerRole,
     loading: home.isPending || (!!selected && read.isPending && homeTeam.length === 0),
-    failed: home.isError && !home.data,
+    // A failed team read is a retry, not a guess at the viewer's role.
+    failed: (home.isError && !home.data) || (!!selected && read.isError && !read.data),
     retry: () => { void home.refetch(); void read.refetch(); },
   };
 }

@@ -64,6 +64,8 @@ export function inviteMessage(name: string, pageName: string, url: string): stri
   return `${firstName(name)}, join ${pageName} on Bachata Calendar: ${url}. Sign up with the email we have for you and your profile links automatically; otherwise ask us to link it.`;
 }
 
-export const shortWallLine = (n: number) => `${n} dancers have an account and a photo so far. Share an invite link to reach the rest.`;
+/** "and a photo" only when every face shown has one (attendee-tier faces show initials). */
+export const shortWallLine = (n: number, allHavePhotos: boolean) =>
+  `${n} ${n === 1 ? 'dancer has' : 'dancers have'} an account${allHavePhotos ? ' and a photo' : ''} so far. Share an invite link to reach the rest.`;
 /** Fewer faces than this and the wall says so (three full rows). */
 export const SHORT_WALL = 9;

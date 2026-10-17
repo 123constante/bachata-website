@@ -11,6 +11,8 @@ export type TeamRole = 'owner' | 'manager' | 'contributor';
 
 export interface TeamMember {
   userId: string;
+  /** The member's dancer profile id when organiser_team_v1 sends one; else it is taken to be userId. */
+  profileId?: string | null;
   role: TeamRole;
   isPrimary: boolean;
   /** When the person joined (a real instant, not local-as-Z). */
@@ -36,6 +38,7 @@ export function parseTeam(raw: unknown): TeamMember[] {
     if ((role !== 'owner' && role !== 'manager' && role !== 'contributor') || typeof row.user_id !== 'string') continue;
     members.push({
       userId: row.user_id,
+      profileId: str(row.profile_id),
       role,
       isPrimary: row.is_primary === true,
       joinedAt: str(row.joined_at),

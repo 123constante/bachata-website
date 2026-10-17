@@ -20,6 +20,7 @@ test('the join request is above the list; Add as Manager sends one add and the m
   await expect(page.getByTestId('team-member')).toHaveCount(4);
   expect(fake.sent('organiser_team_add_member_by_profile_v1')).toEqual([{ p_organiser_id: ORG, p_profile_id: MARIA, p_member_role: 'manager', p_reason: null }]);
   await expect(page.getByTestId('join-request')).toHaveCount(1);
+  expect(fake.sent('resolve_organiser_access_request_v1')).toHaveLength(0); // the add alone closes the request (REVIEW-S6 S1)
 });
 
 test('Decline answers the other request without adding anyone', async ({ page }) => {

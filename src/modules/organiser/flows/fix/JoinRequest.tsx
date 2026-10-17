@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ORGANISER_HOME_KEY, incomingAccessRequestsQueryKey, resolveAccessRequest } from '@/modules/organiser/shared/selfServeApi';
 import { teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { addErrorMessage } from '@/modules/organiser/team/teamErrors';
 import { addTeamMemberByProfile, organiserTeamQueryKey } from '@/modules/organiser/shared/teamRpcApi';
 import { instantDateLabel, type IncomingAccessRequest } from '@/modules/organiser/shared/teamModel';
 import { Avatar } from '@/modules/organiser/team/Avatar';
@@ -9,9 +10,10 @@ import { GhostButton, PrimaryButton, useShake } from '@/modules/organiser/ui';
 
 /**
  * C16 -> C17, the Home `join_request` row, shown ABOVE the Team list (D9). "Add as Manager" is
- * ONE organiser_team_add_member_by_profile_v1 (the requester's profile id is their user id: a
- * login always gets its own dancer profile), then the request is closed best-effort so it does
- * not linger; "Decline" is the existing resolve call. `blockedReason` disables both (team full).
+ * ONE organiser_team_add_member_by_profile_v1 and nothing else: the server derives the request's
+ * status from membership, so the add closes it (REVIEW-S6 S1). The requester's user id stands in
+ * for their profile id until A1 sends profile_id on the incoming-requests read (S2). "Decline" is
+ * the existing resolve call. `blockedReason` disables both (team full).
  */
 export function JoinRequestCard({ organiserId, request, blockedReason, onAnswered }: {
   organiserId: string;
@@ -28,21 +30,17 @@ export function JoinRequestCard({ organiserId, request, blockedReason, onAnswere
     void queryClient.invalidateQueries({ queryKey: organiserTeamQueryKey(organiserId) });
     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
   };
-  const fail = (err: unknown) => { setError(teamErrorMessage(err)); shake(); };
+  const fail = (message: string) => { setError(message); shake(); };
 
   const add = useMutation({
-    mutationFn: async () => {
-      await addTeamMemberByProfile(organiserId, request.userId, 'manager', null);
-      // Close the request so it leaves the card; a refusal here (not the owner, already answered) changes nothing.
-      try { await resolveAccessRequest(request.requestId, 'grant'); } catch { /* the member is added either way */ }
-    },
+    mutationFn: () => addTeamMemberByProfile(organiserId, request.userId, 'manager', null),
     onSuccess: () => { settle(); onAnswered(`${who} is a Manager`); },
-    onError: fail,
+    onError: (err) => fail(addErrorMessage(err, 'request')),
   });
   const decline = useMutation({
     mutationFn: () => resolveAccessRequest(request.requestId, 'decline'),
     onSuccess: () => { settle(); onAnswered(`Declined. ${who} can ask again later.`); },
-    onError: fail,
+    onError: (err) => fail(teamErrorMessage(err)),
   });
   const pending = add.isPending || decline.isPending;
   const asked = instantDateLabel(request.createdAt);

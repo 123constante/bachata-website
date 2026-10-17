@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { handOverWarning } from '@/modules/organiser/shared/copy';
-import { teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { transferErrorMessage } from '../../team/teamErrors';
 import { organiserTeamQueryKey, transferOwnership } from '@/modules/organiser/shared/teamRpcApi';
 import { canReceiveOwnership, firstName, memberLabel, memberShortName } from '@/modules/organiser/shared/teamModel';
 import { OrganiserShell, ORG_PATHS } from '../../shell';
@@ -36,7 +36,7 @@ export default function Confirm() {
         seriesId: null,
       });
     },
-    onError: (e) => setError(teamErrorMessage(e)),
+    onError: (e) => setError(transferErrorMessage(e, firstName(memberLabel(member!)))),
   });
 
   return (
