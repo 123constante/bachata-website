@@ -599,7 +599,8 @@ export class OrganiserFake {
         o.website = (patch.website as string | null) ?? null;
         o.bio = (patch.bio as string | null) ?? null;
         o.city_id = (patch.city_id as string | null) ?? o.city_id;
-        return json(route, { ok: true });
+        // The real RPC hands back the stored row (`profile`); the edit layer reads it to confirm the save.
+        return json(route, { ok: true, changed_keys: Object.keys(patch), profile: { id: o.id, name: o.name, bio: o.bio, instagram: o.instagram, website: o.website, city_id: o.city_id, avatar_url: null, socials: null, organisation_category: null, founded_year: null } });
       }
       case 'search_cities':
         return json(route, [{ city_id: CITY.id, city_name: 'London', city_slug: 'london', country_name: 'United Kingdom', display_name: 'London, United Kingdom' }]);

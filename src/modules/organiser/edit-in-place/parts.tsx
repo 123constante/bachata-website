@@ -221,7 +221,7 @@ export function LinkRows({ values, drafted, onOpen }: {
  * preselected through `?o=`, the id useOrganiserChoice reads. Nothing is
  * published from here.
  */
-const newEventHref = (organiserId: string) => `${ORG_PATHS.newEvent}?o=${encodeURIComponent(organiserId)}`;
+const newEventHref = (organiserId: string) => `${ORG_PATHS.newWhat}?o=${encodeURIComponent(organiserId)}`;
 
 export function CreateEventLink({ organiserId, label }: { organiserId: string; label: string }) {
   return (

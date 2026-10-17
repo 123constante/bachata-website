@@ -27,7 +27,7 @@ export default function Done() {
         </PrimaryButton>
         {state.next && (
           <GhostButton testId="org-done-next" onClick={() => navigate(state.next as string, { replace: true })}>
-            {NEXT_LABEL}
+            {state.nextLabel ?? NEXT_LABEL}
           </GhostButton>
         )}
       </div>

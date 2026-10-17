@@ -50,8 +50,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: '
 vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-10-09' }));
 
 import HomePage from '../home';
-import ProfilePage from '../profile';
-import { organiserStatus } from '../shared/organiserStatus';
+import PageScreen from '../page';
 import { fetchOrganiserEntity } from '@/modules/profile/organiserPublicProfile';
 
 type Role = 'creator' | 'member' | 'stranger';
@@ -107,7 +106,7 @@ function mount(path: string) {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/account/o" element={<HomePage />} />
-          <Route path="/account/o/profile" element={<ProfilePage />} />
+          <Route path="/account/o/page" element={<PageScreen />} />
           <Route path="*" element={<span data-testid="elsewhere" />} />
         </Routes>
       </MemoryRouter>
@@ -148,21 +147,21 @@ describe('Home: everything live (D4), New event says why it cannot work', () => 
   });
 });
 
-describe('Profile: the creator/member can open their own non-live organiser', () => {
+describe('Page: the creator/member can open their own non-live organiser (D22: a Live chip, no review)', () => {
   it.each(cases)('%s organiser, %s', async (state, role) => {
     setup(state, role);
-    mount('/account/o/profile');
-    const copy = organiserStatus('Firstrun Org', state, state === 'rejected' ? decision.reason : null);
-    expect((await screen.findByTestId('profile-status-tag')).textContent).toBe(copy.label);
-    expect(screen.queryByTestId('profile-missing')).toBeNull();
-    expect(screen.queryByTestId('profile-status-sentence')?.textContent ?? null).toBe(copy.line);
-    expect(!!screen.queryByTestId('profile-send-review')).toBe(copy.canSendForReview);
+    mount('/account/o/page');
+    expect(await screen.findByTestId('page-facts')).toBeTruthy();
+    expect(screen.queryByTestId('page-missing')).toBeNull();
+    expect(!!screen.queryByTestId('page-live-chip')).toBe(state === 'live');
+    expect(screen.queryByTestId('profile-send-review')).toBeNull();
+    expect(screen.queryByTestId('profile-status-tag')).toBeNull();
   });
 
   it('stranger: no organiser of theirs, so nothing to open', async () => {
     setup('draft', 'stranger');
-    mount('/account/o/profile');
-    expect(await screen.findByTestId('profile-no-organiser')).toBeTruthy();
+    mount('/account/o/page');
+    expect(await screen.findByTestId('page-no-organiser')).toBeTruthy();
   });
 });
 

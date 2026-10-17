@@ -54,7 +54,7 @@ describe('main screens stay mounted on the new paths', () => {
     ['/account/o/events/s1', 'org-page-event-editor'],
     ['/account/o/change/s1/o1/lineup', 'org-page-date'],
     ['/account/o/team', 'org-page-team'],
-    ['/account/o/page', 'org-page-profile'],
+    ['/account/o/page', 'org-page-page'],
   ])('%s renders %s, with no tab bar', async (path, page) => {
     at(path);
     expect(await screen.findByTestId(page, {}, COLD)).toBeTruthy();
@@ -111,8 +111,6 @@ describe('every R1 route answers until its slice lands (placeholder)', () => {
     ['/account/o/team/u1', 'Team'],
     ['/account/o/handover', 'Hand over'],
     ['/account/o/handover/u1', 'Hand over'],
-    ['/account/o/more', 'More'],
-    ['/account/o/cover/s1', 'Cover'],
   ])('%s -> %s', async (path, name) => {
     at(path);
     const el = await screen.findByTestId('org-placeholder', {}, COLD);

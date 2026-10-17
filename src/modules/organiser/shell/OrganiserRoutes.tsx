@@ -21,7 +21,7 @@ const EventsPage = lazyWithRetry(() => import('../events'));
 const EventEditorPage = lazyWithRetry(() => import('../events/EventEditorPage'));
 const DatePage = lazyWithRetry(() => import('../dates'));
 const TeamPage = lazyWithRetry(() => import('../team'));
-const ProfilePage = lazyWithRetry(() => import('../profile'));
+const PageScreen = lazyWithRetry(() => import('../page')); // S7 page/
 const SwitchFlow = lazyWithRetry(() => import('../switch')); // S1 switch/
 const ChangeFlow = lazyWithRetry(() => import('../flows/change')); // S2 flows/change
 const AddFlow = lazyWithRetry(() => import('../flows/add')); // S3 flows/add
@@ -30,8 +30,9 @@ const NewFlow = lazyWithRetry(() => import('../flows/new'));
 const EventDetails = lazyWithRetry(() => import('./placeholders')); // S5 events/Details
 const TeamFlow = lazyWithRetry(() => import('./placeholders')); // S6 team/
 const HandoverFlow = lazyWithRetry(() => import('./placeholders')); // S6 flows/handover
-const MorePage = lazyWithRetry(() => import('./placeholders')); // S7 more/
-const CoverFlow = lazyWithRetry(() => import('./placeholders')); // S7 flows/fix
+const MorePage = lazyWithRetry(() => import('../more')); // S7 more/
+const HelpPage = lazyWithRetry(() => import('../more/help')); // S7 more/help
+const CoverFlow = lazyWithRetry(() => import('../flows/fix')); // S7 flows/fix
 const DonePage = lazyWithRetry(() => import('../flows/Done')); // S0b flows/Done (wired by S2, its first caller)
 
 function ShellFallback() {
@@ -122,9 +123,10 @@ export default function OrganiserRoutes() {
             <Route path="handover" element={<HandoverFlow name="Hand over" />} />
             <Route path="handover/:userId" element={<HandoverFlow name="Hand over" />} />
 
-            <Route path="page" element={<ProfilePage />} />
-            <Route path="more" element={<MorePage name="More" />} />
-            <Route path="cover/:seriesId" element={<CoverFlow name="Cover" />} />
+            <Route path="page" element={<PageScreen />} />
+            <Route path="more" element={<MorePage />} />
+            <Route path="more/help" element={<HelpPage />} />
+            <Route path="cover/:seriesId" element={<CoverFlow />} />
             <Route path="done" element={<DonePage />} />
 
             {/* main's URLs (bookmarks, links already sent) -> their R1 paths. */}

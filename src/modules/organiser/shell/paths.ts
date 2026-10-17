@@ -52,6 +52,7 @@ export const ORG_PATHS = {
 
   page: `${ORG_BASE}/page`,
   more: `${ORG_BASE}/more`,
+  help: `${ORG_BASE}/more/help`,
   cover: (seriesId: string) => `${ORG_BASE}/cover/${id(seriesId)}`,
   done: `${ORG_BASE}/done`,
 
