@@ -37,6 +37,8 @@ const SERVER_OWNER_KINDS = [
   'series.upsert', 'series.add_date', 'series.remove_date', 'occurrence.set_time',
   'series.set_lifecycle', 'occurrence.cancel', 'occurrence.set_override', 'series.skip_date',
   'series.unskip_date', 'series.set_recurrence', 'series.stop_repeating', 'series.end_run',
+  // D39 (A1): apply_aggregate_write_p5 v_owner_kinds gains the move.
+  'occurrence.move_date',
 ];
 const SERVER_UPSERT_KEYS = [
   'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',
