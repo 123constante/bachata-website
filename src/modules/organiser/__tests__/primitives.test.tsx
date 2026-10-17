@@ -111,7 +111,7 @@ describe('DateChip', () => {
   });
   it('gives screen readers the full date', () => {
     render(<DateChip date="2026-10-09" testId="d" />);
-    expect(screen.getByTestId('d').textContent).toContain('Fri 9 October');
+    expect(screen.getByTestId('d').textContent).toContain('Friday 9 October');
   });
 });
 

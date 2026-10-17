@@ -34,4 +34,6 @@ export interface EditInPlaceLayerProps {
   onBridge: (bridge: EipBridge | null) => void;
   /** Keys the private contact read's cache per signed-in user (organiserContactSettingsQueryKey). */
   userId?: string;
+  /** The Save dock's z-index; default BAR_Z (the public page's layer order). The organiser shell passes its own. */
+  dockZ?: number;
 }

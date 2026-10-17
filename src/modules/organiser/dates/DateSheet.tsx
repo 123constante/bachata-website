@@ -8,6 +8,7 @@ import {
   ErrorState,
   Field,
   FIELD_CLASS,
+  fieldNoteId,
   GhostButton,
   PersonRow,
   PrimaryButton,
@@ -16,6 +17,7 @@ import {
   SkeletonRows,
   StatusTag,
   useDebounced,
+  useOpenerRef,
 } from '../ui';
 import {
   LEVEL_KEYS,
@@ -32,6 +34,7 @@ import {
 } from '@/modules/organiser/shared/programmeModel';
 import { PEOPLE_SEARCH_MIN, type CancellationReason } from '@/modules/organiser/shared/selfServeApi';
 import { shownCancelReason } from '@/modules/organiser/shared/cancelLabel';
+import { TAKE_OFF } from '@/modules/organiser/shared/copy';
 import { pickerQueryKey, searchPickerRows } from './peoplePicker';
 import { PUT_BACK_WHERE, confirmCopy } from '@/modules/organiser/shared/editorGuards';
 import type { VenueOption } from '@/modules/organiser/shared/publicVenues';
@@ -87,6 +90,7 @@ export interface DateSheetProps {
 export function DateSheet(props: DateSheetProps) {
   const { state, onState, rows } = props;
   const open = state !== null;
+  const opener = useOpenerRef(open);
   const row = state && 'key' in state ? rows.find((r) => r.key === state.key) ?? null : null;
   const close = () => onState(null);
 
@@ -120,7 +124,7 @@ export function DateSheet(props: DateSheetProps) {
     );
     footer = <PrimaryButton onClick={props.onUncancelDate} loading={props.commandBusy} testId="date-uncancel-confirm">Put it back on</PrimaryButton>;
   } else if (state?.view === 'break') {
-    title = 'Break this week';
+    title = TAKE_OFF.label;
     body = (
       <div className="space-y-[12px] text-[15px] text-[var(--fg)]" data-testid="date-break-view">
         <p>{props.dateLabel} comes off the calendar for a break. Dancers do not see a cancellation, the date just is not listed.</p>
@@ -128,13 +132,14 @@ export function DateSheet(props: DateSheetProps) {
         {props.commandError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="date-command-error">{props.commandError}</p>}
       </div>
     );
-    footer = <PrimaryButton onClick={props.onBreak} loading={props.commandBusy} testId="date-break-confirm">Take this week off</PrimaryButton>;
+    footer = <PrimaryButton onClick={props.onBreak} loading={props.commandBusy} testId="date-break-confirm">{TAKE_OFF.confirm}</PrimaryButton>;
   }
 
   // CancelView renders its own footer content through the body (it needs its local state).
   return (
     <SheetView
       open={open && body !== null}
+      returnFocusRef={opener}
       onOpenChange={(next) => { if (!next) close(); }}
       title={title}
       viewKey={state ? `${state.view}${'key' in state ? `:${state.key}` : ''}` : undefined}
@@ -187,6 +192,8 @@ function SessionView({ row, updateRow, removeSession, onState, problems, editabl
           maxLength={120}
           placeholder={typeLabel(row.type)}
           disabled={!editable}
+          aria-invalid={problem('title') ? true : undefined}
+          aria-describedby={problem('title') ? fieldNoteId({ htmlFor: nameId }) : undefined}
           onChange={(e) => set((r) => ({ ...r, title: e.target.value }))}
           data-testid="session-name"
         />

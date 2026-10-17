@@ -121,7 +121,7 @@ describe('the organiser onboarding sheet (claim / request / create)', () => {
     rpc.mockResolvedValue(refused);
     mountAt(
       '/account/o?add=1',
-      <OrganiserSheet task={task} onTaskChange={vi.fn()} email={ME.email} mailboxProven onDone={vi.fn()} />,
+      <OrganiserSheet task={task} onTaskChange={vi.fn()} email={ME.email} mailboxProven onClaimed={vi.fn()} onRequested={vi.fn()} onCreated={vi.fn()} onFindPage={vi.fn()} onHome={vi.fn()} />,
     );
     const send = screen.queryByTestId(button) ?? screen.getByRole('button', { name: /Send|Ask/ });
     fireEvent.click(send);

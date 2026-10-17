@@ -11,7 +11,10 @@ const series = (over: Partial<HomeSeriesFull>): HomeSeriesFull => ({
   category: 'class',
   lifecycle_status: 'live',
   default_local_start_time: '19:00:00',
+  default_cover_image_url: null,
+  created_at: '2026-09-01T10:00:00+00:00',
   upcoming_count: 3,
+  cancelled_upcoming_count: 0,
   next_dates: [],
   latest_decision: null,
   ...over,
@@ -38,30 +41,25 @@ describe('localAsZTime', () => {
 describe('dateLabel', () => {
   it('names today "Tonight" and formats other London dates', () => {
     expect(dateLabel(TODAY, TODAY)).toBe('Tonight');
-    expect(dateLabel('2026-10-06', TODAY)).toBe('Tue 6 Oct');
-    expect(dateLabel('2026-11-01', TODAY)).toBe('Sun 1 Nov');
+    expect(dateLabel('2026-10-06', TODAY)).toBe('Tuesday 6 October');
+    expect(dateLabel('2026-11-01', TODAY)).toBe('Sunday 1 November');
   });
 });
 
 describe('attentionItems', () => {
-  it('orders a sent-back series first, then review, cancellations, tonight', () => {
+  it('lists cancellations, then tonight; no review rows (D4) and no archived series (R3-4)', () => {
     const items = attentionItems(
       [
         series({ id: 'live', next_dates: [date(TODAY), date('2026-10-13', { lifecycle_status: 'cancelled' })] }),
-        series({ id: 'review', name: 'Sundays', lifecycle_status: 'pending_review' }),
-        series({
-          id: 'back',
-          name: 'Fridays',
-          lifecycle_status: 'rejected',
-          latest_decision: { action: 'rejected', to_state: 'rejected', reason: 'Add the venue', created_at: '' },
-        }),
+        series({ id: 'gone', lifecycle_status: 'archived', next_dates: [date('2026-10-14', { lifecycle_status: 'cancelled' })] }),
+        series({ id: 'old', name: 'Sundays', lifecycle_status: 'pending_review' }),
+        series({ id: 'back', name: 'Fridays', lifecycle_status: 'rejected' }),
       ],
       TODAY,
     );
-    expect(items.map((i) => i.kind)).toEqual(['rejected', 'in_review', 'cancelled', 'tonight']);
-    expect(items[0].text).toContain('Add the venue');
-    expect(items[2].text).toContain('Tue 13 Oct');
-    expect(items[3].text).toContain('at 19:30');
+    expect(items.map((i) => [i.kind, i.seriesId])).toEqual([['cancelled', 'live'], ['tonight', 'live']]);
+    expect(items[0].text).toContain('Tuesday 13 October');
+    expect(items[1].text).toContain('at 19:30');
   });
 
   it('is empty for a quiet live series', () => {
