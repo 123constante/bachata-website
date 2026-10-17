@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AuthPromptModal } from "@/components/AuthPromptModal";
 import { setAttendanceRpc, type AttendanceStatus } from "@/hooks/useAttendance";
+import { GOING_LOCK_LINK_LABEL, goingTapLocked, useGoingLock } from "@/modules/dancer-app/gate/useGoingLock";
 
 type AttendanceCounts = {
   interested_count: number;
@@ -61,6 +62,8 @@ const FestivalHubInner = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  // Same lock as the event page's RsvpBlock: one mapping for both surfaces.
+  const goingLock = useGoingLock();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authReturnTo, setAuthReturnTo] = useState<string | null>(null);
   const [pendingByEvent, setPendingByEvent] = useState<Record<string, AttendanceStatus | null>>({});
@@ -227,6 +230,7 @@ const FestivalHubInner = () => {
     }
 
     const currentStatus = resolveStatus(festivalId);
+    if (goingTapLocked(goingLock, currentStatus, status)) return;
     const nextStatus = currentStatus === status ? null : status;
 
     setPendingByEvent((prev) => ({ ...prev, [festivalId]: status }));
@@ -517,7 +521,7 @@ const FestivalHubInner = () => {
                             e.stopPropagation();
                             void handleStatus(festival.id, "going");
                           }}
-                          disabled={isPending}
+                          disabled={isPending || goingTapLocked(goingLock, status, "going")}
                         >
                           {isPending && pendingStatus === 'going' ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -533,7 +537,7 @@ const FestivalHubInner = () => {
                             e.stopPropagation();
                             void handleStatus(festival.id, "interested");
                           }}
-                          disabled={isPending}
+                          disabled={isPending || goingTapLocked(goingLock, status, "interested")}
                         >
                           {isPending && pendingStatus === 'interested' ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -541,6 +545,18 @@ const FestivalHubInner = () => {
                         </Button>
                       </motion.div>
                     </div>
+                    {goingLock.locked && (
+                      <p className="mt-2 text-[12px] text-muted-foreground" data-testid="festival-going-lock">
+                        {`${goingLock.reason}. `}
+                        <Link
+                          to={goingLock.href}
+                          onClick={(e) => e.stopPropagation()}
+                          className="py-[14px] font-semibold text-primary underline"
+                        >
+                          {GOING_LOCK_LINK_LABEL}
+                        </Link>
+                      </p>
+                    )}
 
                     {/* View Details Arrow */}
                     <div className="flex items-center justify-center mt-3 text-primary">
