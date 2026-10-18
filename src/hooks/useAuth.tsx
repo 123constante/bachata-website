@@ -2,7 +2,7 @@ import { createContext, startTransition, useCallback, useContext, useEffect, use
 import type { User, Session } from "@supabase/supabase-js";
 import { QueryClientContext } from "@tanstack/react-query";
 import { getSupabase } from "@/integrations/supabase/getSupabase";
-import type { ProfileCompletionStatus, RatingGate } from "@/lib/profileCompletion";
+import type { ProfileCompletionStatus, ProfileField, RatingGate } from "@/lib/profileCompletion";
 import { clearPersonScopedStorage } from "@/lib/personScopedStorage";
 import {
   startAuthResolution,
@@ -79,6 +79,8 @@ export const useAuth = () => useContext(AuthContext);
  */
 export type ProfileGateValue = {
   status: ProfileCompletionStatus;
+  /** The required fields still empty, in profile order (the Going lock reads these, never the reason text). */
+  missing: readonly ProfileField[];
   gateFor: (returnTo: string) => RatingGate;
   /** The gate to show when rate_series_level_p5_v1 refuses with `profile_incomplete` (the server is the authority). */
   refusedGateFor: (returnTo: string) => RatingGate;

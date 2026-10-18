@@ -42,6 +42,7 @@ describe('route table', () => {
       '/app/me',
       '/app/me/edit',
       '/app/me/photo',
+      '/app/page',
       '/app/options',
     ]);
     for (const r of DANCER_ROUTES) expect(DANCER_SCREENS[r.id], r.id).toBeTypeOf('function');

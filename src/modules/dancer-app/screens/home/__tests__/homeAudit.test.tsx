@@ -95,12 +95,16 @@ describe('M14: hero text contrast', () => {
 });
 
 describe('M19: no dead tiles', () => {
-  it('no "Coming soon" tile on Home', async () => {
+  it('B1b: the only "coming soon" tile is partner search, and it has a working button', async () => {
     home();
     await screen.findByTestId('home-hero');
-    expect(screen.queryByTestId('tile-views')).toBeNull();
+    // The numbers tiles are real (they link to My page); the one coming-soon tile can be asked about.
+    expect(await screen.findByTestId('tile-views')).toBeTruthy();
     expect(screen.queryByTestId('tile-partners')).toBeNull();
-    expect(screen.getByTestId('dancer-screen-home').textContent).not.toMatch(/coming soon/i);
+    const text = screen.getByTestId('dancer-screen-home').textContent ?? '';
+    expect(text.match(/coming soon/gi)).toHaveLength(1);
+    expect(screen.getByTestId('tile-partner').textContent).toMatch(/Partner search: coming soon/);
+    expect((screen.getByTestId('partner-notify') as HTMLButtonElement).disabled).toBe(false);
   });
 });
 
@@ -162,10 +166,13 @@ describe('L14: one browse verb on Home', () => {
 });
 
 describe('seeds', () => {
-  it('15 nights: the count tile says 15', async () => {
+  // Review F7 (owner decision): the tile reads my_dancer_stats_v1.nights_going_upcoming, the
+  // same number as the strip's Going cell, not a count of these 15 list rows.
+  it('15 nights in the list: the count tile says the stats Going number (3), same as the strip', async () => {
     h.rows = Array.from({ length: 15 }, (_, i) => row(`s${i}`, `Night ${i}`, i + 1, i % 2 ? 'interested' : 'going'));
-    home();
-    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe('15'));
+    renderInShell({ path: '/app/home', backend: { profile: londoner(), statsShape: 'normal' } });
+    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe('3'));
+    expect(screen.getByTestId('stat-going-value').textContent).toBe('3');
   });
 
   it('long name + no city: renders the name in full and the no-city hint', async () => {

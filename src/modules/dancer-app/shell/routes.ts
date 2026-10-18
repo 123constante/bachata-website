@@ -11,7 +11,7 @@
 
 export const DANCER_APP_BASE = '/app';
 
-export type DancerRouteId = 'welcome' | 'home' | 'nights' | 'me' | 'edit' | 'photo' | 'options';
+export type DancerRouteId = 'welcome' | 'home' | 'nights' | 'me' | 'edit' | 'photo' | 'page' | 'options';
 
 export type DancerRoute = {
   id: DancerRouteId;
@@ -28,6 +28,7 @@ export const DANCER_ROUTES: readonly DancerRoute[] = [
   { id: 'me', path: '/app/me', title: 'Me' },
   { id: 'edit', path: '/app/me/edit', title: 'Edit profile' },
   { id: 'photo', path: '/app/me/photo', title: 'Photo' },
+  { id: 'page', path: '/app/page', title: 'My page' },
   { id: 'options', path: '/app/options', title: 'Options' },
 ];
 

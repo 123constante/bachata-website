@@ -13,6 +13,7 @@ import NightsScreen from '../screens/nights/NightsScreen';
 import MeScreen from '../screens/me/MeScreen';
 import EditScreen from '../screens/edit/EditScreen';
 import PhotoScreen from '../screens/photo/PhotoScreen';
+import PageScreen from '../screens/page/PageScreen';
 import OptionsScreen from '../screens/options/OptionsScreen';
 
 /** Route id -> screen. One entry per DANCER_ROUTES row (TypeScript refuses a missing one). */
@@ -23,6 +24,7 @@ export const DANCER_SCREENS: Record<DancerRouteId, ComponentType> = {
   me: MeScreen,
   edit: EditScreen,
   photo: PhotoScreen,
+  page: PageScreen,
   options: OptionsScreen,
 };
 

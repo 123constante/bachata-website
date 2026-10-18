@@ -5,6 +5,7 @@ import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { DANCER_PUBLIC_COLS, attachPublicDancerName, mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
 import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 import DancerProfile from "@/pages/DancerProfile";
+import { DEGRADED_EDGE_TTL_SECONDS, loadPublicPageV2 } from "@/modules/dancer-app/public-page/loadPublicPage";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import {
   resolveEntityInLoader,
@@ -28,6 +29,14 @@ export const loader = withSsrLoaderTimeout("dancer-loader", async function loade
   const ref = await resolveEntityInLoader(qc, "dancer_profiles", params.id);
   if (!ref.id) throwDetailNotFound("Dancer");
   redirectUuidToSlug(ref, request, "/dancers");
+
+  // Public page v2 (dancer rebuild W2f): decided HERE so the server HTML and the
+  // first paint agree. Started beside today's read below; it never rejects and
+  // has its own deadline. Inside it the extras are read only once the flag says
+  // open (never fetched-then-dropped). page null (flag closed, or the read failed) = today's
+  // page. It changes the BODY only: entityName / entitySlug / ogImage, and so
+  // meta(), are computed exactly as before in both modes.
+  const publicPageLoad = loadPublicPageV2(ref.id as string);
 
   // Return null on a genuine miss (→ 404 below) but let a TRANSIENT supabase
   // error propagate — a swallowing catch would 404+noindex a valid dancer on a
@@ -53,9 +62,11 @@ export const loader = withSsrLoaderTimeout("dancer-loader", async function loade
   if (!dancer) throwDetailNotFound("Dancer");
 
   const view = mapDancerPublicProfile(dancer as never);
+  const { page: publicPage, degraded } = await publicPageLoad;
   return taggedData(
     {
       dehydratedState: dehydrate(qc),
+      publicPage,
       // `?? undefined` is load-bearing, not tidiness: buildSeoForRoute noindexes a
       // .detail route on a FALSY entityName, so a nameless dancer must arrive as
       // undefined. resolvePublicName already refuses to invent one (it returns
@@ -70,6 +81,8 @@ export const loader = withSsrLoaderTimeout("dancer-loader", async function loade
       ogImage: normalizeOgImage({ rawUrl: dancer.avatar_url as string | null, request, fallbackImage: DEFAULT_OG_IMAGE }),
     },
     stampDancer(ref.id),
+    // A failed flag / extras read is cached briefly, never for the full edge TTL.
+    degraded ? { edgeTtlBoundSeconds: DEGRADED_EDGE_TTL_SECONDS } : undefined,
   );
 });
 
@@ -91,7 +104,7 @@ export default function DancerRoute({ loaderData, params }: Route.ComponentProps
   return (
     <HydrationBoundary state={loaderData.dehydratedState}>
       <InitialVisiblePageTransition key={params.id}>
-        <DancerProfile />
+        <DancerProfile publicPage={loaderData.publicPage} />
       </InitialVisiblePageTransition>
     </HydrationBoundary>
   );
