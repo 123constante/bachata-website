@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { GOING_CHECKIN_ENABLED } from '../../../src/lib/goingCheckin';
 import { NOW, PHONE, OrganiserFake, expectNoHorizontalScroll, json } from '../helpers/organiserFake';
 
 // W2b: Home and Nights at 390x844 against the organiser fake (session + REST) with the dancer RPCs
@@ -78,14 +79,23 @@ test.describe('dancer app home + nights 390x844', () => {
       // whose title "Partner search: coming soon" is the approved copy. Audit L12 still holds:
       // no dead placeholder that says only "Coming soon".
       await expect(page.getByTestId('tile-views')).toBeVisible();
-      await expect(page.getByTestId('stats-strip')).toBeVisible();
+      // The strip carries Going / Interested cells; with the check-in switch off only the other two
+      // remain, so a shape with no nights been to and no levels rated shows no strip at all.
+      const stripShown = GOING_CHECKIN_ENABLED || shape.stats.nights_went > 0;
+      await expect(page.getByTestId('stats-strip')).toHaveCount(stripShown ? 1 : 0);
       await expect(page.getByTestId('tile-partner')).toContainText('Partner search: coming soon');
       await expect(page.getByText(/^Coming soon\.?$/)).toHaveCount(0);
       // Review F7: the "Upcoming nights" tile and the strip's Going cell are ONE number.
       const going = String(shape.stats.nights_going_upcoming);
-      await expect(page.getByTestId('tile-going-count')).toHaveText(going);
-      if (shape.name !== 'empty') await expect(page.getByTestId('stat-going-value')).toHaveText(going);
-      else await expect(page.getByTestId('stats-strip-empty')).toBeVisible();
+      if (GOING_CHECKIN_ENABLED) {
+        await expect(page.getByTestId('tile-going-count')).toHaveText(going);
+        if (shape.name !== 'empty') await expect(page.getByTestId('stat-going-value')).toHaveText(going);
+        else await expect(page.getByTestId('stats-strip-empty')).toBeVisible();
+      } else {
+        await expect(page.getByTestId('tile-going')).toHaveCount(0);
+        await expect(page.getByTestId('stat-going')).toHaveCount(0);
+        await expect(page.getByTestId('stat-interested')).toHaveCount(0);
+      }
       await expectNoHorizontalScroll(page);
       await page.screenshot({ path: `${SHOTS}/home-${shape.name}.png`, fullPage: true });
       await page.getByTestId('dancer-app-tab-nights').click();
