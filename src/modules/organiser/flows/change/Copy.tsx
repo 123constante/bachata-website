@@ -8,7 +8,7 @@ import { useVenueOptions } from '@/modules/organiser/shared/publicVenues';
 import { venueOverridePatch } from '@/modules/organiser/dates/venueOverride';
 import { PrimaryButton } from '@/modules/organiser/ui';
 import { DateStep, type DateStepReady } from './DateStep';
-import { COPY_NONE, COPY_NONE_KEYS, copyPatches, copySources, hasOwnChanges } from './changeModel';
+import { COPY_NONE, COPY_NONE_KEYS, copyHalfDone, copyPatches, copySources, hasOwnChanges } from './changeModel';
 import { useNavigate } from 'react-router-dom';
 import { useChangeSend } from './useChange';
 import { Failed, Loading, StepList, StepRow } from './parts';
@@ -80,7 +80,8 @@ function CopyFrom({ seriesId, occurrenceId, ws, detail }: DateStepReady) {
           ? overrideCommand(await venueOverridePatch(p.value, venues.data))
           : overrideCommand({ [p.key]: p.value }));
       }
-      await sendAll(cmds, detail.version, copyDoneMessage(from));
+      const words = patches.map((p) => KEY_WORD[p.key]);
+      await sendAll(cmds, detail.version, copyDoneMessage(from), 'date', (n, reason) => copyHalfDone(words.slice(0, n), words.slice(n), reason));
     } catch (err) {
       fail(err);
     } finally {
@@ -96,15 +97,17 @@ function CopyFrom({ seriesId, occurrenceId, ws, detail }: DateStepReady) {
           {patches.map((p) => <li key={p.key}>{KEY_WORD[p.key]}</li>)}
         </ul>
       ) : (
-        <p className="text-[14px] text-[var(--mut)]" data-testid="change-copy-same">{hasOwnChanges(source.data) ? COPY_SAME : COPY_NONE_KEYS}</p>
+        <p id="change-copy-same" className="text-[14px] text-[var(--mut)]" data-testid="change-copy-same">{hasOwnChanges(source.data) ? COPY_SAME : COPY_NONE_KEYS}</p>
       )}
       {error && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="change-error-message">{error}</p>}
       <PrimaryButton testId="change-copy-confirm" loading={busy || running} aria-disabled={!ready || undefined}
+        // PAR-B N3: an off button points at the line that says why.
+        aria-describedby={ready ? undefined : patches.length ? 'change-copy-wait' : 'change-copy-same'}
         className={ready ? undefined : 'cursor-not-allowed opacity-60'}
         onClick={() => { if (ready && !busy && !running) void copy(); }}>
-        Copy {patches.length === 1 ? 'this change' : `${patches.length} changes`}
+        {patches.length === 0 ? 'Nothing to copy' : patches.length === 1 ? 'Copy this change' : `Copy ${patches.length} changes`}
       </PrimaryButton>
-      {waitReason && <p className="text-[13px] text-[var(--mut)]" data-testid="change-copy-wait">{waitReason}</p>}
+      {waitReason && <p id="change-copy-wait" className="text-[13px] text-[var(--mut)]" data-testid="change-copy-wait">{waitReason}</p>}
       <StepRow testId="change-copy-other" label="Pick another date" onClick={() => setSourceId(null)} />
     </div>
   );

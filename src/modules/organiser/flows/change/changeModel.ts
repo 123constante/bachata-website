@@ -7,6 +7,7 @@ import { isListedSeries, type HomeSeriesFull } from '@/modules/organiser/shared/
 import { comingDates, comingDays, dayLabel, moreDatesCount, type DateRow, type DayRow } from '@/modules/organiser/shared/dateList';
 import { dateLock, eventLock } from '@/modules/organiser/shared/eventState';
 import type { SeriesWorkspace, WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
+import { addDaysToKey } from '@/lib/londonDate';
 
 /** Every listed series of the login, across its pages (a series shared by two pages is listed once). */
 function allSeries(home: OrganiserHome | undefined): HomeSeriesFull[] {
@@ -157,7 +158,7 @@ export function durationWords(mins: number): string {
 
 /** The line under the preview: what occurrence.set_time does to EVERY session (ST, M21:2367-2396). */
 export const deltaLine = (mins: number) =>
-  `Every session moves by ${durationWords(mins)} ${mins < 0 ? 'earlier' : 'later'}`;
+  `Every session moves ${durationWords(mins)} ${mins < 0 ? 'earlier' : 'later'}`;
 
 export interface TimedSession { key: string; name: string; kind: string; start: string; end: string }
 export interface PreviewSession extends TimedSession { newStart: string; newEnd: string }
@@ -192,6 +193,33 @@ export function lastEnding<T extends { start: string; end: string }>(sessions: T
   }
   return best;
 }
+
+/**
+ * The session(s) prod set_time gives a typed end: the plain-clock max(eff_end),
+ * midnight ignored (_cmd_occurrence_set_time_p5, read 2026-10-17). On a class
+ * 20:00-21:00 + party 21:00-02:00 night that is the CLASS (21:00 > 02:00).
+ */
+export function serverEndTargets<T extends { start: string; end: string }>(sessions: T[]): T[] {
+  const ends = sessions.map((s) => toMinutes(s.end)).filter((m): m is number => m !== null);
+  if (!ends.length) return [];
+  const max = Math.max(...ends);
+  return sessions.filter((s) => toMinutes(s.end) === max);
+}
+
+/**
+ * F-PAR decision 1: the end box is offered only where the server's end target
+ * is the one session the night ends with (or there is one session). Otherwise
+ * the preview could not match what the server writes, so the screen sends the
+ * organiser to one session's time instead (END_GUARD). The server quirk itself
+ * is queued as an admin defect.
+ */
+export function endBoxShown<T extends { key: string; start: string; end: string }>(sessions: T[]): boolean {
+  if (sessions.length < 2) return true;
+  const last = lastEnding(sessions);
+  const targets = serverEndTargets(sessions);
+  return !!last && targets.length === 1 && targets[0].key === last.key;
+}
+export const END_GUARD = 'To change when the night ends, change one session’s time';
 
 /**
  * Does this date run at its own time? Its start (the date's own, local-as-Z)
@@ -286,3 +314,16 @@ export function bulkResult(requested: string[], affected: string[]) {
   return { done: requested.length - refused.length, refused, line: `${requested.length - refused.length} done, ${refused.length} not changed` };
 }
 export const BULK_REFUSED_REASON = 'Not changed: it was already cancelled or has passed';
+
+/** The server refuses the WHOLE call when a shift lands a date before today (PAR-A S1); said before the send. */
+export const PICK_PAST = 'That would move a ticked date before today. Pick fewer days or other dates.';
+export function shiftPastProblem(dates: string[], shiftDays: number, today: string): string | null {
+  return dates.some((d) => addDaysToKey(d, shiftDays) < today) ? PICK_PAST : null;
+}
+
+const listWords = (items: string[]) =>
+  items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+
+/** PAR-A S3: a copy refused partway: "<keys> copied, <rest> not copied: <reason>". */
+export const copyHalfDone = (done: string[], rest: string[], reason: string) =>
+  `${listWords(done)} copied, ${listWords(rest)} not copied: ${reason}`;

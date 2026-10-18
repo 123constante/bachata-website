@@ -11,7 +11,8 @@ import { Chip, FIELD_CLASS, GhostButton, PrimaryButton } from '@/modules/organis
 import { cn } from '@/lib/utils';
 import { DEFAULT_REASON } from '../add/addModel';
 import { EventConflict } from '../event/parts';
-import { BULK_REFUSED_REASON, bulkResult, changeDateList, findSeries, seriesLock, shiftRefusal } from './changeModel';
+import { NO_COMING } from '@/modules/organiser/shared/copy';
+import { BULK_REFUSED_REASON, bulkResult, changeDateList, findSeries, seriesLock, shiftPastProblem, shiftRefusal } from './changeModel';
 import { runBulkCommand } from './bulkApi';
 import { useChangeHome, useSeriesWorkspace } from './useChange';
 import { Failed, Loading, Missing, Refusal, Step, StepList } from './parts';
@@ -34,6 +35,7 @@ export default function Pick() {
   const reasons = useQuery({ queryKey: ['cancellation-reasons'], queryFn: fetchCancellationReasons, staleTime: Infinity });
   const [ticked, setTicked] = useState<string[]>([]);
   const [days, setDays] = useState('7');
+  const [later, setLater] = useState(true);
   const [reason, setReason] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>({ kind: 'pick' });
   const [busy, setBusy] = useState(false);
@@ -53,11 +55,15 @@ export default function Pick() {
   else {
     const dates = changeDateList(one, ws.data, home.data.today).all;
     const label = (id: string) => dates.find((d) => d.occurrenceId === id)?.label ?? id;
-    const n = Number(days);
-    const daysOk = Number.isInteger(n) && n !== 0 && Math.abs(n) <= 60;
+    // PAR-B S8: an unsigned number (the iPhone number pad has no minus) plus Earlier / Later.
+    const n = /^\d{1,2}$/.test(days.trim()) ? Number(days.trim()) : NaN;
+    const daysOk = n >= 1 && n <= 60;
+    const shift = later ? n : -n;
     const ids = dates.map((d) => d.occurrenceId).filter((id) => ticked.includes(id));
     const shiftOff = shiftRefusal(ws.data.series.recurrence_rule);
-    const moveReason = !ids.length ? PICK_NONE : shiftOff ?? (daysOk ? null : 'Type a number of days from -60 to 60 (not 0)');
+    // PAR-A S1: the server refuses the whole call when a date would land before today; say so first.
+    const past = daysOk ? shiftPastProblem(dates.filter((d) => ids.includes(d.occurrenceId)).map((d) => d.date), shift, home.data.today) : null;
+    const moveReason = !ids.length ? PICK_NONE : shiftOff ?? (daysOk ? past : 'Type a number of days from 1 to 60');
     const toggle = (id: string) => setTicked((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
     // (ids: ticks that are still listed, in list order, so the payload reads soonest first.)
 
@@ -105,7 +111,9 @@ export default function Pick() {
       body = (
         <div className="flex flex-col gap-3" data-testid="change-pick-confirm-screen">
           <p className="text-[16px] font-bold text-[var(--fg)]">
-            {cancel ? `Cancel ${count} date${count === 1 ? '' : 's'}?` : `Move ${count} date${count === 1 ? '' : 's'} by ${durationDays(n)}?`}
+            {stage.command.kind === 'occurrence.bulk_cancel'
+              ? `Cancel ${count} date${count === 1 ? '' : 's'}?`
+              : `Move ${count} date${count === 1 ? '' : 's'} ${durationDays(stage.command.payload.shift_days)}?`}
           </p>
           <p className="text-[14px] text-[var(--mut)]">{cancel ? 'Dancers see Cancelled and your reason on each one.' : 'Each date keeps its time.'}</p>
           {cancel && (reasons.data ?? []).filter((r) => r.label !== DEFAULT_REASON).length > 0 && (
@@ -130,7 +138,10 @@ export default function Pick() {
       body = (
         <div className="flex flex-col gap-3" data-testid="change-pick-screen">
           {dates.length === 0 ? (
-            <p className="text-[15px] text-[var(--fg)]" data-testid="change-pick-empty">No coming dates to pick. Add a date first.</p>
+            <>
+              <p className="text-[15px] text-[var(--fg)]" data-testid="change-pick-empty">{NO_COMING}</p>
+              <PrimaryButton testId="change-pick-add" onClick={() => navigate(ORG_PATHS.addEvent(seriesId))}>Add a date</PrimaryButton>
+            </>
           ) : (
             <StepList testId="change-pick-list">
               {dates.map((d) => {
@@ -152,12 +163,16 @@ export default function Pick() {
             onGo={() => setStage({ kind: 'confirm', command: bulkCancelCommand(ids, reason ?? DEFAULT_REASON) })}>
             Cancel the ticked dates
           </Action>
+          <div className="flex gap-2" role="group" aria-label="Move the ticked dates">
+            <Chip testId="change-pick-earlier" selected={!later} onToggle={() => setLater(false)}>Earlier</Chip>
+            <Chip testId="change-pick-later" selected={later} onToggle={() => setLater(true)}>Later</Chip>
+          </div>
           <label className="flex flex-col gap-1 text-[13px] font-semibold text-[var(--mut)]">
-            Move by days (use minus for earlier)
-            <input type="number" inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} data-testid="change-pick-days"
-              aria-label="Move by days" className={cn(FIELD_CLASS, 'h-[52px] text-[16px]')} />
+            How many days {later ? 'later' : 'earlier'}
+            <input type="text" inputMode="numeric" pattern="[0-9]*" value={days} onChange={(e) => setDays(e.target.value)} data-testid="change-pick-days"
+              className={cn(FIELD_CLASS, 'h-[52px] text-[16px]')} />
           </label>
-          <Action testId="change-pick-move" reason={moveReason} ghost onGo={() => setStage({ kind: 'confirm', command: bulkShiftCommand(ids, n) })}>
+          <Action testId="change-pick-move" reason={moveReason} ghost onGo={() => setStage({ kind: 'confirm', command: bulkShiftCommand(ids, shift) })}>
             Move the ticked dates
           </Action>
         </div>

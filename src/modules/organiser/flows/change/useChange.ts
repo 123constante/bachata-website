@@ -88,24 +88,31 @@ export function useChangeSend(seriesId: string, occurrenceId: string) {
    * Several commands, one after another, each against the version the last
    * one returned, then ONE Done. `target: 'series'` sends to the event (a
    * series.* kind, checked against the series version). An empty list sends
-   * nothing (an untouched save).
+   * nothing (an untouched save). A refusal after some commands landed is
+   * said as half done when `partial` is given (PAR-A S3): it gets how many
+   * landed and the reason, and returns the line to show.
    */
-  const sendAll = async (cmds: OwnerCommand[], version: number, message: string, target: 'date' | 'series' = 'date') => {
+  const sendAll = async (
+    cmds: OwnerCommand[], version: number, message: string, target: 'date' | 'series' = 'date',
+    partial?: (applied: number, reason: string) => string,
+  ) => {
     if (!cmds.length) return;
     setError(null);
     let v = version;
+    let applied = 0;
     try {
       for (const cmd of cmds) {
         const sig = JSON.stringify([target, v, cmd]);
         if (!keys.current.has(sig)) keys.current.set(sig, newIdempotencyKey());
         const res = await command.mutateAsync({ targetId: target === 'series' ? seriesId : occurrenceId, version: v, command: cmd, idempotencyKey: keys.current.get(sig) });
+        applied += 1;
         // Every applied command bumps the date's version by one; a reply without it (a replay) still moves on.
         v = typeof res?.new_version === 'number' ? res.new_version : v + 1;
       }
       goDone(navigate, { title: 'Changed', message, seriesId });
     } catch (err) {
       if (isVersionConflict(err)) setConflict(true);
-      else setError(commandErrorMessage(err));
+      else setError(partial && applied > 0 ? partial(applied, commandErrorMessage(err)) : commandErrorMessage(err));
     }
   };
 

@@ -157,6 +157,10 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
   // Admin refusals raised as a bare code: the daily edit limit, the dates limit, and undo.
   { match: /^(permission_denied: )?daily_edit_cap/, message: "You have reached today's limit of 100 changes. You can carry on tomorrow, or ask the Bachata Calendar team." },
   { match: /^(permission_denied: )?date_cap/, message: 'No new date can be added while 30 or more upcoming dates are listed (past and cancelled dates do not count). Cancel or remove an upcoming date first, or start a new event.' },
+  // PAR-A S1: admin_bulk_occurrence_command_p5 refuses the WHOLE call (nothing changed); a retry would fail the same way.
+  { match: /shift would move a date into the past/, message: 'Nothing was moved: one of the ticked dates would land before today. Pick fewer days or other dates.' },
+  { match: /shift would collide/, message: 'Nothing was moved: one of the ticked dates would land on a day that already has a date of this event (a cancelled one counts too). Pick another number of days.' },
+  { match: /bulk_too_large/, message: 'Nothing was changed: too many dates at once. Tick fewer dates and do the rest in a second go.' },
   { match: /^undo_conflict/, message: 'Someone changed this after you. Look at the event as it is now before you change it again.' },
   { match: /^not_undoable/, message: 'That change cannot be undone here. Change it back by hand.' },
   { match: /^permission_denied: series\.set_recurrence/, message: 'The weekly pattern could not be saved. Pick one weekday and a first date from today on.' },

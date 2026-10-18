@@ -32,7 +32,8 @@ import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { dayLabel } from '@/modules/organiser/shared/dateList';
 import { NOT_EDITABLE_COPY } from '@/modules/organiser/shared/programmeModel';
 import { readDoneState } from '@/modules/organiser/flows/doneState';
-import { BULK_REFUSED_REASON, COPY_NONE, shiftRefusal } from '../changeModel';
+import { BULK_REFUSED_REASON, COPY_NONE, END_GUARD, PICK_PAST, shiftRefusal } from '../changeModel';
+import { NO_COMING, TAKE_OFF } from '@/modules/organiser/shared/copy';
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
@@ -243,7 +244,7 @@ describe('P-DATES: Change time shows the sessions (C19, C61)', () => {
     const list = await screen.findByTestId('change-time-sessions');
     expect(within(list).getAllByTestId('change-time-session')).toHaveLength(2);
     fireEvent.change(screen.getByTestId('change-time-input'), { target: { value: '21:00' } });
-    expect(screen.getByTestId('change-time-delta').textContent).toBe('Every session moves by 1 h later');
+    expect(screen.getByTestId('change-time-delta').textContent).toBe('Every session moves 1 h later');
     const rows = within(list).getAllByTestId('change-time-session').map((r) => r.textContent);
     expect(rows[0]).toContain('21:00');
     expect(rows[0]).toContain('22:00');
@@ -287,9 +288,9 @@ describe('P-DATES: Change time shows the sessions (C19, C61)', () => {
   it('a move to the morning reads as earlier, a move past midnight as later (the 08:00 rollover)', async () => {
     mount(ORG_PATHS.changeTime(S, D1));
     fireEvent.change(await screen.findByTestId('change-time-input'), { target: { value: '08:00' } });
-    expect(screen.getByTestId('change-time-delta').textContent).toBe('Every session moves by 12 h earlier');
+    expect(screen.getByTestId('change-time-delta').textContent).toBe('Every session moves 12 h earlier');
     fireEvent.change(screen.getByTestId('change-time-input'), { target: { value: '01:00' } });
-    expect(screen.getByTestId('change-time-delta').textContent).toBe('Every session moves by 5 h later');
+    expect(screen.getByTestId('change-time-delta').textContent).toBe('Every session moves 5 h later');
   });
 
   it('an untouched Save sends nothing', async () => {
@@ -409,5 +410,179 @@ describe('P-DATES: pick several dates (C58)', () => {
     fireEvent.click(await screen.findByTestId('change-pick-confirm'));
     await waitFor(() => expect(commands()).toHaveLength(1));
     expect(commands()[0][1].p_envelope.command).toEqual({ kind: 'occurrence.bulk_shift', payload: { occurrence_ids: [D2], shift_days: 2 } });
+  });
+});
+
+// ---- F-PAR (PAR-A B1/S1/S3, PAR-B S1-S3/S6/S8/N2-N4/N9): written red-first ----------------------
+
+describe('F-PAR decision 1: Change time offers an end box only where the server ends that session', () => {
+  it.each([
+    { shape: 'class 20:00-21:00 + party 21:00-02:00', ss: [{ id: 'i1', type: 'class', title: '', start: '20:00', end: '21:00' }, { id: 'i2', type: 'party', title: 'Late Party', start: '21:00', end: '02:00' }], box: false },
+    { shape: 'two daytime sessions', ss: [{ id: 'i1', type: 'class', title: 'Footwork', start: '14:00', end: '15:00' }, { id: 'i2', type: 'class', title: 'Turns', start: '15:00', end: '17:00' }], box: true },
+    { shape: 'one session', ss: [{ id: 'i1', type: 'party', title: '', start: '20:00', end: '23:00' }], box: true },
+  ])('$shape: end box $box', async ({ ss, box }) => {
+    sessions = ss;
+    mount(ORG_PATHS.changeTime(S, D1));
+    await screen.findByTestId('change-time-screen');
+    expect(!!screen.queryByTestId('change-time-end')).toBe(box);
+    expect(!!screen.queryByTestId('change-time-end-guard')).toBe(!box);
+    if (box) return;
+    expect(screen.getByTestId('change-time-end-guard').textContent).toContain(END_GUARD);
+    fireEvent.click(screen.getByTestId('change-time-end-sessions'));
+    expect((await screen.findByTestId('where')).textContent).toBe(ORG_PATHS.dateLineup(S, D1));
+  });
+
+  it('class + party: a start move still sends ONE set_time with no end', async () => {
+    mount(ORG_PATHS.changeTime(S, D1));
+    fireEvent.change(await screen.findByTestId('change-time-input'), { target: { value: '20:30' } });
+    fireEvent.click(screen.getByTestId('change-save'));
+    await waitFor(() => expect(commands()).toHaveLength(1));
+    expect(commands()[0][1].p_envelope.command.payload).toEqual({ new_local_start: '20:30', new_local_end: null });
+  });
+});
+
+describe('F-PAR Change time preview and words (PAR-B S1, S2, S3, N2, N9)', () => {
+  const day = [{ id: 'i1', type: 'class', title: 'Footwork', start: '14:00', end: '15:00' }, { id: 'i2', type: 'class', title: 'Turns', start: '15:00', end: '17:00' }];
+
+  it('S1: an end before the start keeps the old end in the preview', async () => {
+    sessions = day;
+    ownStart[D1] = '14:00';
+    mount(ORG_PATHS.changeTime(S, D1));
+    fireEvent.change(await screen.findByTestId('change-time-input'), { target: { value: '16:00' } });
+    fireEvent.change(screen.getByTestId('change-time-end'), { target: { value: '16:30' } });
+    const rows = within(screen.getByTestId('change-time-sessions')).getAllByTestId('change-time-session');
+    expect(rows[1].textContent).not.toContain('16:30');
+    expect(rows[1].textContent).toContain('19:00');
+    expect(screen.getByTestId('change-save-reason').textContent).toBe('The end must be after the start');
+  });
+
+  it('S2: the delta line reads "Every session moves 1 h later"', async () => {
+    mount(ORG_PATHS.changeTime(S, D1));
+    fireEvent.change(await screen.findByTestId('change-time-input'), { target: { value: '21:00' } });
+    expect(screen.getByTestId('change-time-delta').textContent).toBe('Every session moves 1 h later');
+  });
+
+  it('S3: one session gets a now -> new preview, and the field says "Night starts" when the date starts before it', async () => {
+    sessions = [{ id: 'i1', type: 'party', title: '', start: '21:00', end: '01:00' }];
+    mount(ORG_PATHS.changeTime(S, D1));
+    expect((await screen.findByTestId('change-time-start-label')).textContent).toBe('Night starts');
+    fireEvent.change(screen.getByTestId('change-time-input'), { target: { value: '21:00' } });
+    expect(screen.getByTestId('change-time-one-preview').textContent).toMatch(/^Now 21:00.01:00 . new 22:00.02:00$/);
+  });
+
+  it('S3: the field keeps its plain label when the date starts with its session', async () => {
+    sessions = [{ id: 'i1', type: 'party', title: '', start: '20:00', end: '23:00' }];
+    mount(ORG_PATHS.changeTime(S, D1));
+    expect((await screen.findByTestId('change-time-start-label')).textContent).toBe('Start time');
+  });
+
+  it('N2: the reset button and its done line use one label', async () => {
+    ownStart[D1] = '21:30';
+    mount(ORG_PATHS.changeTime(S, D1));
+    expect((await screen.findByTestId('change-time-reset')).textContent).toMatch(/^Back to the usual time/);
+  });
+
+  it('N9: the live region is mounted before any change, and the time fields keep their visible label (no aria-label)', async () => {
+    sessions = [{ id: 'i1', type: 'party', title: '', start: '20:00', end: '23:00' }];
+    mount(ORG_PATHS.changeTime(S, D1));
+    const live = await screen.findByTestId('change-time-live');
+    expect(live.getAttribute('aria-live')).toBe('polite');
+    const end = screen.getByTestId('change-time-end');
+    expect(end.hasAttribute('aria-label')).toBe(false);
+    expect(screen.getByTestId('change-time-input').hasAttribute('aria-label')).toBe(false);
+    const hint = document.getElementById(end.getAttribute('aria-describedby') ?? '');
+    expect(hint?.textContent).toMatch(/Leave it empty/);
+  });
+});
+
+describe('F-PAR Pick several (PAR-A S1, PAR-B S8, N4 / decision 5)', () => {
+  it('S8: Earlier / Later plus an unsigned number of days; the command sends the signed shift', async () => {
+    rule = { mode: 'custom', dates: [] };
+    mount(ORG_PATHS.changePick(S));
+    fireEvent.click((await screen.findAllByTestId('change-pick-date'))[1]);
+    const daysBox = screen.getByTestId('change-pick-days');
+    expect(daysBox.getAttribute('inputmode')).toBe('numeric');
+    fireEvent.click(screen.getByTestId('change-pick-earlier'));
+    fireEvent.change(daysBox, { target: { value: '2' } });
+    fireEvent.click(screen.getByTestId('change-pick-move'));
+    expect((await screen.findByTestId('change-pick-confirm-screen')).textContent).toContain('2 days earlier');
+    fireEvent.click(screen.getByTestId('change-pick-confirm'));
+    await waitFor(() => expect(commands()).toHaveLength(1));
+    expect(commands()[0][1].p_envelope.command).toEqual({ kind: 'occurrence.bulk_shift', payload: { occurrence_ids: [D2], shift_days: -2 } });
+  });
+
+  it('S1: a shift that lands a ticked date before today is refused on the screen, nothing sent', async () => {
+    rule = { mode: 'custom', dates: [] };
+    mount(ORG_PATHS.changePick(S));
+    fireEvent.click((await screen.findAllByTestId('change-pick-date'))[0]);
+    fireEvent.click(screen.getByTestId('change-pick-earlier'));
+    fireEvent.change(screen.getByTestId('change-pick-days'), { target: { value: '5' } });
+    expect(screen.getByTestId('change-pick-move').getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getByTestId('change-pick-move-reason').textContent).toBe(PICK_PAST);
+    fireEvent.click(screen.getByTestId('change-pick-move'));
+    await flush();
+    expect(commands()).toHaveLength(0);
+  });
+
+  it('S1: a whole-call refusal (a collision) shows its reason, not "Something went wrong"', async () => {
+    rule = { mode: 'custom', dates: [] };
+    const base = rpc.getMockImplementation();
+    rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => (fn === 'admin_bulk_occurrence_command_p5'
+      ? { data: null, error: { code: 'P0001', message: 'contract_violation: shift would collide with an existing date' } }
+      : base!(fn, args)));
+    mount(ORG_PATHS.changePick(S));
+    fireEvent.click((await screen.findAllByTestId('change-pick-date'))[1]);
+    fireEvent.change(screen.getByTestId('change-pick-days'), { target: { value: '7' } });
+    fireEvent.click(screen.getByTestId('change-pick-move'));
+    fireEvent.click(await screen.findByTestId('change-pick-confirm'));
+    const msg = await screen.findByTestId('change-error-message');
+    expect(msg.textContent).not.toMatch(/Something went wrong/);
+    expect(msg.textContent).toMatch(/already/);
+  });
+
+  it('N4 / decision 5: no coming dates says so and links to Add a date', async () => {
+    cancelledNow = new Set([D1, D2, D3]);
+    mount(ORG_PATHS.changePick(S));
+    expect((await screen.findByTestId('change-pick-empty')).textContent).toBe(NO_COMING);
+    fireEvent.click(screen.getByTestId('change-pick-add'));
+    expect((await screen.findByTestId('where')).textContent).toBe(ORG_PATHS.addEvent(S));
+  });
+});
+
+describe('F-PAR Copy (PAR-A S3, PAR-B N3)', () => {
+  it('S3: the second set_override is refused: says which key was copied and which was not, and why', async () => {
+    hasOverride[D2] = true;
+    overrides[D2] = { description_override: 'Live band', ticket_url_override: 'https://t.example.com/b' };
+    const base = rpc.getMockImplementation();
+    let n = 0;
+    rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => {
+      if (fn === 'occurrence_command_p5' && ++n === 2) return { data: null, error: { code: 'P0001', message: 'invalid_payload: ticket_url must be blank or an http(s) URL' } };
+      return base!(fn, args);
+    });
+    mount(ORG_PATHS.changeCopy(S, D1));
+    fireEvent.click((await screen.findAllByTestId('change-copy-source')).find((r) => !r.hasAttribute('disabled'))!);
+    fireEvent.click(await screen.findByTestId('change-copy-confirm'));
+    expect((await screen.findByTestId('change-error-message')).textContent)
+      .toBe('Note copied, Ticket link not copied: Enter a full link starting with https://.');
+  });
+
+  it('N3: nothing to copy reads "Nothing to copy" and points at the reason', async () => {
+    hasOverride[D2] = true;
+    overrides[D2] = { description_override: 'Band' };
+    overrides[D1] = { description_override: 'Band' };
+    mount(ORG_PATHS.changeCopy(S, D1));
+    fireEvent.click((await screen.findAllByTestId('change-copy-source')).find((r) => !r.hasAttribute('disabled'))!);
+    const btn = await screen.findByTestId('change-copy-confirm');
+    expect(btn.textContent).toBe('Nothing to copy');
+    expect(document.getElementById(btn.getAttribute('aria-describedby') ?? '')?.getAttribute('data-testid')).toBe('change-copy-same');
+  });
+});
+
+describe('F-PAR Take this date off (PAR-B S6): the one shared body', () => {
+  it('shows TAKE_OFF.body and where to put it back', async () => {
+    mount(ORG_PATHS.changeOff(S, D2));
+    const screenEl = await screen.findByTestId('change-off-screen');
+    expect(screenEl.textContent).toContain(TAKE_OFF.body);
+    expect(screenEl.textContent).toContain(TAKE_OFF.undo);
   });
 });
