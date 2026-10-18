@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { EmptyState, PrimaryButton } from '@/modules/organiser/ui';
-import { changeableSeries, changeDateList, findSeries, seriesLock } from './changeModel';
+import { FESTIVAL_TIME, changeableSeries, changeDateList, findSeries, isFestival, seriesLock } from './changeModel';
 import { useChangeHome, useSeriesWorkspace } from './useChange';
 import { Failed, Loading, Missing, Refusal, Step, StepList, StepRow } from './parts';
 
@@ -24,6 +24,8 @@ export default function WhichDate() {
   const lock = one ? seriesLock(one.lifecycle_status) : null;
   const list = one && home.data && !lock ? changeDateList(one, ws.data, home.data.today) : null;
   const dates = list ? (expanded ? list.all : list.first) : [];
+  // F-PAR-final N2: Home carries the format; festival_id arrives with the workspace.
+  const festival = !!one && (isFestival(one) || (!!ws.data && isFestival(ws.data.series)));
 
   return (
     <Step title={one?.name ?? 'Which date?'} back={back}>
@@ -75,6 +77,7 @@ export default function WhichDate() {
             />
           )}
         </StepList>
+        {festival && <p className="text-[14px] text-[var(--mut)]" data-testid="change-festival-time">{FESTIVAL_TIME}</p>}
         <StepList testId="change-pick-entry">
           <StepRow testId="change-pick" label="Pick several dates" sub="Cancel or move them together" onClick={() => navigate(ORG_PATHS.changePick(seriesId))} />
         </StepList>

@@ -7,7 +7,7 @@ import { TAKE_OFF } from '@/modules/organiser/shared/copy';
 import { cancelFromChangePath } from '@/modules/organiser/flows/cancel/cancelModel';
 import { useNextDateProgramme } from '@/modules/organiser/events/eventsApi';
 import { DateStep } from './DateStep';
-import { DETAIL_LABEL, type DetailField } from './changeModel';
+import { DETAIL_LABEL, FESTIVAL_TIME, isFestival, type DetailField } from './changeModel';
 import { StepList, StepRow } from './parts';
 
 const DETAILS: DetailField[] = ['note', 'ticket', 'picture'];
@@ -25,11 +25,14 @@ export default function WhatChanges() {
       {({ seriesId, occurrenceId, ws, date }) => {
         // The same fact the date page reads for its "Take this date off" row (dates/index.tsx).
         const ruleDate = isRuleDate(date.occurrence_date, ws.series);
+        const festival = isFestival(ws.series);
         return (
           <>
             <StepList testId="change-what">
               <LineupRow seriesId={seriesId} occurrenceId={occurrenceId} />
-              <StepRow testId="change-time" label="Change the time" onClick={() => navigate(ORG_PATHS.changeTime(seriesId, occurrenceId))} />
+              {/* F-PAR-final N2: set_time refuses a festival; Sessions and line-up above is the way on. */}
+              <StepRow testId="change-time" label="Change the time" sub={festival ? FESTIVAL_TIME : undefined} disabled={festival}
+                onClick={() => navigate(ORG_PATHS.changeTime(seriesId, occurrenceId))} />
               <StepRow testId="change-venue" label="Different venue this date only" onClick={() => navigate(ORG_PATHS.changeVenue(seriesId, occurrenceId))} />
               {DETAILS.map((f) => (
                 <StepRow key={f} testId={`change-${f}`} label={DETAIL_LABEL[f]} onClick={() => navigate(ORG_PATHS.changeDetail(seriesId, occurrenceId, f))} />

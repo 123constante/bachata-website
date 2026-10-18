@@ -293,6 +293,24 @@ export function copySources<T extends { id: string; occurrence_date: string; has
 export const hasOwnChanges = (d: DateOwnChanges) =>
   !!(d.venueOverride || d.descriptionOverride || d.coverImageOverride || d.ticketUrlOverride);
 
+// ---- A festival's time (F-PAR-final N2) ---------------------------------------
+
+/**
+ * occurrence.set_time refuses a festival ("per-date time is not supported for
+ * festivals"; the server's test is format = 'festival' OR festival_id set).
+ * ONE wording for Which date, Change what and Time.
+ */
+export const FESTIVAL_TIME = 'Festival times are set for the whole festival, not one date.';
+
+export const isFestival = (series: { format: string | null; festival_id?: string | null }) =>
+  series.format === 'festival' || !!series.festival_id;
+
+/** The way on from FESTIVAL_TIME: this date's sessions when they can change here, else who to ask. */
+export const festivalTimeNext = (sessionsEditable: boolean) =>
+  sessionsEditable
+    ? 'Change a session\u2019s time in this date\u2019s sessions.'
+    : 'Ask the Bachata Calendar team to change it for you.';
+
 // ---- Several dates at once (C58: admin_bulk_occurrence_command_p5) -----------
 
 /** The repeat modes bulk_shift refuses ("convert to custom dates first", prod fn line 217). */

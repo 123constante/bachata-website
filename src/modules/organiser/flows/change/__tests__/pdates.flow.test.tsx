@@ -32,7 +32,7 @@ import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { dayLabel } from '@/modules/organiser/shared/dateList';
 import { NOT_EDITABLE_COPY } from '@/modules/organiser/shared/programmeModel';
 import { readDoneState } from '@/modules/organiser/flows/doneState';
-import { BULK_REFUSED_REASON, COPY_NONE, END_GUARD, PICK_PAST, shiftRefusal } from '../changeModel';
+import { BULK_REFUSED_REASON, COPY_NONE, END_GUARD, FESTIVAL_TIME, PICK_PAST, festivalTimeNext, shiftRefusal } from '../changeModel';
 import { NO_COMING, TAKE_OFF } from '@/modules/organiser/shared/copy';
 
 beforeEach(() => {
@@ -55,6 +55,8 @@ const VERSION: Record<string, number> = { [D1]: 5, [D2]: 6, [D3]: 7, [PAST]: 2 }
 
 type Session = { id: string; type: string; title: string; start: string; end: string };
 let rule: unknown;
+let fmt: string;
+let festivalId: string | null;
 let usualStart: string | null;
 let ownStart: Record<string, string>;
 let sessions: Session[];
@@ -69,13 +71,13 @@ const homeDate = (id: string) => ({ occurrence_id: id, occurrence_date: DATE()[i
 const home = () => ({
   today: today(),
   organisers: [{ id: 'org1', name: 'Bachata Nights', slug: null, avatar_url: null, city_id: null, lifecycle_status: 'live', role: 'owner', latest_decision: null, series: [{
-    id: S, name: 'Friday Social', slug: null, format: 'recurring', category: null, lifecycle_status: 'live', default_local_start_time: '20:00',
+    id: S, name: 'Friday Social', slug: null, format: fmt, category: null, lifecycle_status: 'live', default_local_start_time: '20:00',
     default_cover_image_url: null, created_at: '2026-01-01T00:00:00Z', upcoming_count: 3, cancelled_upcoming_count: 0,
     next_dates: [homeDate(D1), homeDate(D2), homeDate(D3)], latest_decision: null,
   }] }],
 });
 const workspace = () => ({
-  series: { series: { id: S, name: 'Friday Social', format: 'recurring', lifecycle_status: 'live', version: 9, default_venue_id: 'v1', default_local_start_time: usualStart, recurrence_rule: rule, default_start_date: '2026-01-01' }, program: [] },
+  series: { series: { id: S, name: 'Friday Social', format: fmt, festival_id: festivalId, lifecycle_status: 'live', version: 9, default_venue_id: 'v1', default_local_start_time: usualStart, recurrence_rule: rule, default_start_date: '2026-01-01' }, program: [] },
   occurrences: [PAST, D1, D2, D3].map((id) => ({ id, occurrence_date: DATE()[id], lifecycle_status: status(id), version: VERSION[id], has_override: !!hasOverride[id], materialised_start_utc: `${DATE()[id]}T${ownStart[id] ?? '20:00'}:00Z` })),
 });
 const dateView = (id: string) => ({
@@ -93,6 +95,8 @@ beforeEach(() => {
   rpc.mockReset();
   gate.a1 = false;
   rule = { mode: 'weekly', weekdays: [5], interval: 1, end: { kind: 'none' } };
+  fmt = 'recurring';
+  festivalId = null;
   usualStart = '20:00:00';
   ownStart = {};
   sessions = [{ id: 'i1', type: 'class', title: '', start: '20:00', end: '21:00' }, { id: 'i2', type: 'party', title: 'Late Party', start: '21:00', end: '02:00' }];
@@ -394,11 +398,11 @@ describe('P-DATES: pick several dates (C58)', () => {
     expect(screen.getByTestId('change-pick-result').textContent).not.toContain(D3);
   });
 
-  it('move together is disabled with the reason on a weekly repeat', async () => {
+  it('move together is replaced by the reason on a weekly repeat (F-PAR-final S1)', async () => {
     mount(ORG_PATHS.changePick(S));
     fireEvent.click((await screen.findAllByTestId('change-pick-date'))[0]);
-    expect(screen.getByTestId('change-pick-move').getAttribute('aria-disabled')).toBe('true');
-    expect(screen.getByTestId('change-pick-move-reason').textContent).toBe(shiftRefusal(rule));
+    expect(screen.queryByTestId('change-pick-move')).toBeNull();
+    expect(screen.getByTestId('change-pick-shift-off').textContent).toBe(shiftRefusal(rule));
   });
 
   it('move together on listed dates sends bulk_shift with the days', async () => {
@@ -575,6 +579,104 @@ describe('F-PAR Copy (PAR-A S3, PAR-B N3)', () => {
     const btn = await screen.findByTestId('change-copy-confirm');
     expect(btn.textContent).toBe('Nothing to copy');
     expect(document.getElementById(btn.getAttribute('aria-describedby') ?? '')?.getAttribute('data-testid')).toBe('change-copy-same');
+  });
+});
+
+// ---- F-PAR-final (REVIEW-PAR-C S1, N2, N4): written red-first --------------------------------------
+
+describe('F-PAR-final S1: Pick several never offers a move the server refuses', () => {
+  const SHAPES: { name: string; format: string; rule: unknown; shiftOff: boolean }[] = [
+    { name: 'weekly', format: 'recurring', rule: { mode: 'weekly', weekdays: [5], interval: 1, end: { kind: 'none' } }, shiftOff: true },
+    { name: 'monthly', format: 'recurring', rule: { mode: 'monthly', week: 1, weekday: 5, end: { kind: 'none' } }, shiftOff: true },
+    { name: 'no rule', format: 'recurring', rule: null, shiftOff: false },
+    { name: 'one-off', format: 'one_off', rule: null, shiftOff: false },
+  ];
+  it.each(SHAPES)('$name: the shift controls show only when the server can move the dates', async (shape) => {
+    fmt = shape.format;
+    rule = shape.rule;
+    mount(ORG_PATHS.changePick(S));
+    fireEvent.click((await screen.findAllByTestId('change-pick-date'))[0]);
+    for (const id of ['change-pick-earlier', 'change-pick-later', 'change-pick-days', 'change-pick-move']) {
+      expect(!!screen.queryByTestId(id), id).toBe(!shape.shiftOff);
+    }
+    const off = screen.queryByTestId('change-pick-shift-off');
+    expect(off?.textContent ?? null).toBe(shape.shiftOff ? shiftRefusal(shape.rule) : null);
+  });
+
+  it('cancelling ticked dates still works on a weekly series', async () => {
+    mount(ORG_PATHS.changePick(S));
+    fireEvent.click((await screen.findAllByTestId('change-pick-date'))[1]);
+    fireEvent.click(screen.getByTestId('change-pick-cancel'));
+    fireEvent.click(await screen.findByTestId('change-pick-confirm'));
+    await waitFor(() => expect(commands()).toHaveLength(1));
+    expect(commands()[0][1].p_envelope.command.kind).toBe('occurrence.bulk_cancel');
+  });
+});
+
+describe('F-PAR-final N4: Pick several with no coming dates shows only the empty state', () => {
+  it('renders NO_COMING and Add a date, and no action block', async () => {
+    cancelledNow = new Set([D1, D2, D3]);
+    mount(ORG_PATHS.changePick(S));
+    expect((await screen.findByTestId('change-pick-empty')).textContent).toBe(NO_COMING);
+    expect(screen.getByTestId('change-pick-add')).toBeTruthy();
+    for (const id of ['change-pick-count', 'change-pick-cancel', 'change-pick-earlier', 'change-pick-days', 'change-pick-move', 'change-pick-shift-off']) {
+      expect(screen.queryByTestId(id), id).toBeNull();
+    }
+  });
+});
+
+describe('F-PAR-final N2: Change time is refused on a festival before the form', () => {
+  // Prod 2026-10-18: 7 live festivals, 6 coming dates (format 'festival'; 0 rows carry festival_id).
+  const SHAPES: { name: string; format: string; festivalId: string | null; editable: boolean; refused: boolean }[] = [
+    { name: 'festival', format: 'festival', festivalId: null, editable: true, refused: true },
+    { name: 'festival multi-day', format: 'festival', festivalId: null, editable: false, refused: true },
+    { name: 'linked to a festival', format: 'recurring', festivalId: 'f1', editable: true, refused: true },
+    { name: 'normal', format: 'recurring', festivalId: null, editable: true, refused: false },
+    { name: 'normal multi-day', format: 'recurring', festivalId: null, editable: false, refused: false },
+  ];
+  const setShape = (shape: (typeof SHAPES)[number]) => {
+    fmt = shape.format;
+    festivalId = shape.festivalId;
+    if (shape.format === 'festival') rule = null;
+    editable = shape.editable ? { editable: true, reason: null } : { editable: false, reason: 'multi_day' };
+  };
+
+  it.each(SHAPES)('$name: Which date says it once', async (shape) => {
+    setShape(shape);
+    mount(ORG_PATHS.changeEvent(S));
+    await screen.findAllByTestId('change-date-row');
+    await flush();
+    expect(screen.queryByTestId('change-festival-time')?.textContent ?? null).toBe(shape.refused ? FESTIVAL_TIME : null);
+  });
+
+  it.each(SHAPES)('$name: Change what disables Change the time with the same words', async (shape) => {
+    setShape(shape);
+    mount(ORG_PATHS.changeDate(S, D2));
+    const row = await screen.findByTestId('change-time');
+    await flush();
+    expect((row as HTMLButtonElement).disabled).toBe(shape.refused);
+    expect(row.textContent?.includes(FESTIVAL_TIME)).toBe(shape.refused);
+  });
+
+  it.each(SHAPES)('$name: the Time screen refuses before the form, with a way forward', async (shape) => {
+    setShape(shape);
+    mount(ORG_PATHS.changeTime(S, D2));
+    await waitFor(() => expect(screen.queryByTestId('change-time-screen') ?? screen.queryByTestId('change-time-festival')).toBeTruthy());
+    if (!shape.refused) {
+      expect(screen.getByTestId('change-time-input')).toBeTruthy();
+      return;
+    }
+    const box = screen.getByTestId('change-time-festival');
+    expect(screen.queryByTestId('change-time-input')).toBeNull();
+    expect(box.textContent).toContain(FESTIVAL_TIME);
+    expect(box.textContent).toContain(festivalTimeNext(shape.editable));
+    const link = screen.queryByTestId('change-time-festival-sessions');
+    expect(!!link).toBe(shape.editable);
+    if (link) {
+      fireEvent.click(link);
+      expect((await screen.findByTestId('where')).textContent).toBe(ORG_PATHS.dateLineup(S, D2));
+    }
+    expect(commands()).toHaveLength(0);
   });
 });
 

@@ -24,7 +24,7 @@ import OneEvent from '@/modules/organiser/events/OneEvent';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { isRuleDate, parseWorkspace } from '@/modules/organiser/shared/seriesModel';
 import { OFF_ONLY_RULE } from '@/modules/organiser/flows/change/WhatChanges';
-import { seriesLock } from '@/modules/organiser/flows/change/changeModel';
+import { FESTIVAL_TIME, isFestival, seriesLock } from '@/modules/organiser/flows/change/changeModel';
 import { SHAPES, TODAY, dateViewOf, homeOf, programmeOf, workspaceOf, type SeriesShape } from './shapes/shapes';
 
 beforeEach(() => {
@@ -117,10 +117,20 @@ describe('P-DATES matrix: one date’s Change screen', () => {
     if (!weekly) expect(off.textContent).toContain(OFF_ONLY_RULE);
     expect(screen.getByTestId('change-lineup')).toBeTruthy();
     expect(screen.queryByTestId('change-day')).toBeNull();
+    // F-PAR-final N2: set_time refuses a festival, so its row is off with the shared words.
+    const time = screen.getByTestId('change-time');
+    expect(time.hasAttribute('disabled')).toBe(isFestival(s));
+    expect(time.textContent?.includes(FESTIVAL_TIME)).toBe(isFestival(s));
   });
 
   it.each(LIVE_WITH_DATES.map((s) => [s.key, s] as const))('%s: Change time shows the sessions the session editor reads', async (_k, s) => {
     mount(ORG_PATHS.changeTime(s.id, coming(s)[0].id));
+    if (isFestival(s)) {
+      // F-PAR-final N2: refused before the form (the server says "per-date time is not supported for festivals").
+      expect((await screen.findByTestId('change-time-festival')).textContent).toContain(FESTIVAL_TIME);
+      expect(screen.queryByTestId('change-time-input')).toBeNull();
+      return;
+    }
     await screen.findByTestId('change-time-screen');
     const many = s.sessionsOnNext;
     expect(!!screen.queryByTestId('change-time-sessions')).toBe(many);

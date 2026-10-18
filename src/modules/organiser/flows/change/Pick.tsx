@@ -63,7 +63,7 @@ export default function Pick() {
     const shiftOff = shiftRefusal(ws.data.series.recurrence_rule);
     // PAR-A S1: the server refuses the whole call when a date would land before today; say so first.
     const past = daysOk ? shiftPastProblem(dates.filter((d) => ids.includes(d.occurrenceId)).map((d) => d.date), shift, home.data.today) : null;
-    const moveReason = !ids.length ? PICK_NONE : shiftOff ?? (daysOk ? past : 'Type a number of days from 1 to 60');
+    const moveReason = !ids.length ? PICK_NONE : daysOk ? past : 'Type a number of days from 1 to 60';
     const toggle = (id: string) => setTicked((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
     // (ids: ticks that are still listed, in list order, so the payload reads soonest first.)
 
@@ -137,12 +137,14 @@ export default function Pick() {
     } else {
       body = (
         <div className="flex flex-col gap-3" data-testid="change-pick-screen">
+          {/* F-PAR-final N4: with nothing to tick, the empty state is the whole screen. */}
           {dates.length === 0 ? (
             <>
               <p className="text-[15px] text-[var(--fg)]" data-testid="change-pick-empty">{NO_COMING}</p>
               <PrimaryButton testId="change-pick-add" onClick={() => navigate(ORG_PATHS.addEvent(seriesId))}>Add a date</PrimaryButton>
             </>
           ) : (
+            <>
             <StepList testId="change-pick-list">
               {dates.map((d) => {
                 const on = ticked.includes(d.occurrenceId);
@@ -157,24 +159,32 @@ export default function Pick() {
                 );
               })}
             </StepList>
+            <p className="text-[13px] text-[var(--mut)]" data-testid="change-pick-count">{ids.length} ticked</p>
+            <Action testId="change-pick-cancel" reason={ids.length ? null : PICK_NONE}
+              onGo={() => setStage({ kind: 'confirm', command: bulkCancelCommand(ids, reason ?? DEFAULT_REASON) })}>
+              Cancel the ticked dates
+            </Action>
+            {/* F-PAR-final S1: the server refuses every shift of a weekly or monthly series, so its reason stands in for the move controls. */}
+            {shiftOff ? (
+              <p className="text-[14px] text-[var(--mut)]" data-testid="change-pick-shift-off">{shiftOff}</p>
+            ) : (
+              <>
+                <div className="flex gap-2" role="group" aria-label="Move the ticked dates">
+                  <Chip testId="change-pick-earlier" selected={!later} onToggle={() => setLater(false)}>Earlier</Chip>
+                  <Chip testId="change-pick-later" selected={later} onToggle={() => setLater(true)}>Later</Chip>
+                </div>
+                <label className="flex flex-col gap-1 text-[13px] font-semibold text-[var(--mut)]">
+                  How many days {later ? 'later' : 'earlier'}
+                  <input type="text" inputMode="numeric" pattern="[0-9]*" value={days} onChange={(e) => setDays(e.target.value)} data-testid="change-pick-days"
+                    className={cn(FIELD_CLASS, 'h-[52px] text-[16px]')} />
+                </label>
+                <Action testId="change-pick-move" reason={moveReason} ghost onGo={() => setStage({ kind: 'confirm', command: bulkShiftCommand(ids, shift) })}>
+                  Move the ticked dates
+                </Action>
+              </>
+            )}
+            </>
           )}
-          <p className="text-[13px] text-[var(--mut)]" data-testid="change-pick-count">{ids.length} ticked</p>
-          <Action testId="change-pick-cancel" reason={ids.length ? null : PICK_NONE}
-            onGo={() => setStage({ kind: 'confirm', command: bulkCancelCommand(ids, reason ?? DEFAULT_REASON) })}>
-            Cancel the ticked dates
-          </Action>
-          <div className="flex gap-2" role="group" aria-label="Move the ticked dates">
-            <Chip testId="change-pick-earlier" selected={!later} onToggle={() => setLater(false)}>Earlier</Chip>
-            <Chip testId="change-pick-later" selected={later} onToggle={() => setLater(true)}>Later</Chip>
-          </div>
-          <label className="flex flex-col gap-1 text-[13px] font-semibold text-[var(--mut)]">
-            How many days {later ? 'later' : 'earlier'}
-            <input type="text" inputMode="numeric" pattern="[0-9]*" value={days} onChange={(e) => setDays(e.target.value)} data-testid="change-pick-days"
-              className={cn(FIELD_CLASS, 'h-[52px] text-[16px]')} />
-          </label>
-          <Action testId="change-pick-move" reason={moveReason} ghost onGo={() => setStage({ kind: 'confirm', command: bulkShiftCommand(ids, shift) })}>
-            Move the ticked dates
-          </Action>
         </div>
       );
     }

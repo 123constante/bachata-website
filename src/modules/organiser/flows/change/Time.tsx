@@ -10,7 +10,8 @@ import { FIELD_CLASS, GhostButton } from '@/modules/organiser/ui';
 import { cn } from '@/lib/utils';
 import { DateStep, type DateStepReady } from './DateStep';
 import {
-  END_GUARD, deltaLine, endBoxShown, endProblem, hasOwnTime, lastEnding, nightStart, previewTimes, timeDelta, timeDoneMessage, type TimedSession,
+  END_GUARD, FESTIVAL_TIME, deltaLine, endBoxShown, endProblem, festivalTimeNext, hasOwnTime, isFestival, lastEnding, nightStart, previewTimes, timeDelta,
+  timeDoneMessage, type TimedSession,
 } from './changeModel';
 import { useChangeSend } from './useChange';
 import { Loading, SaveButton, StepList, StepRow } from './parts';
@@ -30,8 +31,29 @@ export const BACK_TO_USUAL_DONE = 'Back to the usual time';
 export default function Time() {
   return (
     <DateStep back={ORG_PATHS.changeDate}>
-      {(ready) => <TimeForm key={ready.occurrenceId} {...ready} />}
+      {(ready) => (isFestival(ready.ws.series)
+        ? <FestivalTime seriesId={ready.seriesId} occurrenceId={ready.occurrenceId} />
+        : <TimeForm key={ready.occurrenceId} {...ready} />)}
     </DateStep>
+  );
+}
+
+/** F-PAR-final N2: set_time refuses a festival, so the reason and the way on come before any form. */
+function FestivalTime({ seriesId, occurrenceId }: { seriesId: string; occurrenceId: string }) {
+  const navigate = useNavigate();
+  const programme = useNextDateProgramme(occurrenceId);
+  if (programme.isPending) return <Loading />;
+  const editable = !!programme.data?.editable;
+  return (
+    <div className="flex flex-col gap-3" data-testid="change-time-festival">
+      <p className="text-[15px] text-[var(--fg)]">{FESTIVAL_TIME}</p>
+      <p className="text-[14px] text-[var(--mut)]">{festivalTimeNext(editable)}</p>
+      {editable && (
+        <GhostButton testId="change-time-festival-sessions" onClick={() => navigate(ORG_PATHS.dateLineup(seriesId, occurrenceId))}>
+          Open Sessions
+        </GhostButton>
+      )}
+    </div>
   );
 }
 

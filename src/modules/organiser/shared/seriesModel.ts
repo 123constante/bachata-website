@@ -19,6 +19,8 @@ export interface WorkspaceSeries {
   name: string;
   slug: string | null;
   format: string | null;
+  /** Set when the series belongs to a festival (set_time refuses it, like format 'festival'). */
+  festival_id?: string | null;
   category: string | null;
   lifecycle_status: string;
   version: number;
@@ -84,6 +86,7 @@ export function parseWorkspace(raw: unknown): SeriesWorkspace {
     name: String(s.name ?? ''),
     slug: str(s.slug),
     format: str(s.format),
+    festival_id: str(s.festival_id),
     category: str(s.category),
     lifecycle_status: String(s.lifecycle_status ?? ''),
     version: num(s.version),
