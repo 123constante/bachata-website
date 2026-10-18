@@ -1,0 +1,9 @@
+# AW1 addendum B1 -- series.set_program must not destroy per-date session overrides (from REVIEW-SW1, 2026-10-18)
+
+Applies to the AW1 admin worker AND any continuation. A reviewer found: prod `_cmd_series_set_program_p5` does `DELETE FROM event_series_program_day_p5 WHERE series_id = ...` then re-inserts with NEW ids. `event_occurrence_session_override_p5.program_item_id` is `REFERENCES event_series_program_item_p5(id) ON DELETE CASCADE`, so EVERY Save of a series programme wipes every per-date session override of that series (prod today: 89 overrides on 19 series, 88 on 18 live recurring series), plus `legacy_program_item_id` (595 items) and `created_at`.
+
+Required in AW1 (this is a data-loss blocker; do not widen owner access to the writer until it is fixed):
+1. Rewrite the writer so day/section/item/people rows are UPSERTED by id when the payload carries `id` (the Website sends stored ids; new rows send none and get new ids), and only rows whose ids are absent from the payload are deleted. Preserve `legacy_program_item_id` and `created_at` of kept rows. A deleted item may cascade its overrides (that is intended and the Website confirm says so).
+2. Admin editor: check whether `lib/programTreeP5Converters.ts` + the editor save path already send item ids; if the admin editor has the same defect today, say so plainly in the PR body (it affects prod now, for admins) and fix it the same way. Tell the orchestrator in the handover under a heading "ADMIN EDITOR DATA LOSS TODAY?".
+3. Tests (RED first): a series with an override on item X; Save the programme untouched -> the override row still exists with the same item id; rename X -> still exists; delete X from the tree -> the override is gone; add an item -> new id. Also: a person with `profile_type` kept as sent (never rewritten by the writer).
+4. `organiser_series_cast_v1.recent_people` rows carry `profile_type`: `{profile_id, profile_type, display_name, photo_url, roles[]}`.
