@@ -33,7 +33,7 @@ Other edits: `EventWorkspace` gained `program` and `organiserIds` (additive); `O
 1. **Cast row reads the workspace tree, not `organiser_series_cast_v1`.** The tree is already loaded and is the same data the rows show, so one fact reads one way on every screen; the RPC is used ONLY for `recent_people` (the picker's RECENT list), and only when `AW1_APPLIED` (it does not exist on prod today).
 2. **"Differs on N dates" is one badge for the screen, not one per session.** The workspace read carries per-date COUNTS of session overrides, not which session; a per-session badge would be a guess.
 3. **"Link a page", not "Add an organiser".** `consistency.matrix` forbids the words "Add an/another organiser" (owner naming decision: "Add a page" is the add-your-own-page screen).
-4. **Empty sections are not sent.** A section with no sessions is dropped from the tree (untouched trees round-trip identically because both sides go through the same builder).
+4. **Empty stored sections go back as stored** (changed by FIX-SW1, REVIEW-SW1 S2; prod has 90 such sections, which the admin editor shows). Only a section THIS screen emptied is dropped; the screen still hides empty sections. Untouched trees round-trip identically because both sides go through the same builder.
 5. **Level and role words come from `shared/programmeModel` (`LEVEL_LABEL`, `PEOPLE_ROLE_LABEL`)**; the compact chips B/IM/IN/AD/OL are one table (`LEVEL_SHORT`) used by the row, the sheet and the legend; the full word is the accessible name.
 6. **A person's `level`** is any of the five level keys or none (prod: 8 of 284 people rows carry one: beginner 3, improver 3, intermediate 2).
 7. **Social section kind shows as "Party"** (`check:no-social-word`).

@@ -103,9 +103,10 @@ const AW1_KINDS = ['series.set_program', 'series.set_organisers'];
 // The list key is spelled in two parts: the architecture lint bans the whole word outside selfServeApi.ts.
 export const ORG_LIST_KEY = ['organiser', 'ids'].join('_');
 const AW1_KEYS: Record<string, string[]> = { 'series.set_program': ['days'], 'series.set_organisers': [ORG_LIST_KEY] };
-const PROG_DAY_KEYS = ['day_index', 'date_offset_days', 'label', 'sort_order', 'sections'];
-const PROG_SECTION_KEYS = ['kind', 'sort_order', 'label_override', 'items'];
-const PROG_ITEM_KEYS = ['title', 'type', 'start_time', 'end_time', 'room', 'venue_room_id', 'level_keys', 'style', 'theme', 'track_id', 'parallel_group_id', 'sort_order', 'people'];
+// A stored day / section / item sends its own id (AW1 upserts by id, so per-date session changes survive: REVIEW-SW1 B1).
+const PROG_DAY_KEYS = ['id', 'day_index', 'date_offset_days', 'label', 'sort_order', 'sections'];
+const PROG_SECTION_KEYS = ['id', 'kind', 'sort_order', 'label_override', 'items'];
+const PROG_ITEM_KEYS = ['id', 'title', 'type', 'start_time', 'end_time', 'room', 'venue_room_id', 'level_keys', 'style', 'theme', 'track_id', 'parallel_group_id', 'sort_order', 'people'];
 const PROG_PERSON_KEYS = ['profile_id', 'profile_type', 'role', 'level', 'sort'];
 
 // ---- reachability: the static import closure of every routed module ------------------------
@@ -221,7 +222,7 @@ const SERIES_ORGS = 'events/SeriesOrganisers.tsx';
 const withLineup = () => {
   const was = parseTree(PROGRAM);
   const b = was.days[0].sections[0].items[0];
-  return { was, now: updateItem(was, b.key, addPerson(b, { id: 'p2', name: 'Ben', role: 'teaching' })) };
+  return { was, now: updateItem(was, b.key, addPerson(b, { id: 'p2', name: 'Ben', profileType: 'teacher', role: 'teaching' })) };
 };
 const SEND_PROGRAM: Send = {
   in: 'events/ProgrammeSeries.tsx', token: 'programCommand(', kind: 'series.set_program', keys: ['days'], a1Gate: 'events/programmeSeriesModel.ts',

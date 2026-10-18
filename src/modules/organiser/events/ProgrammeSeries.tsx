@@ -6,6 +6,7 @@ import { londonTodayKey } from '@/lib/londonDate';
 import { dateLabel } from '@/modules/organiser/shared/homeModel';
 import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
+import { LevelText } from '@/modules/organiser/shared/components/LevelText';
 import { useFlowHome } from '@/modules/organiser/flows/add/useFlow';
 import { EventConflict, SendButton, StepError, useEventSend } from '@/modules/organiser/flows/event';
 import { OrganiserShell, ORG_PATHS } from '../shell';
@@ -15,8 +16,8 @@ import type { EventWorkspace } from './eventModel';
 import { useRecentPeople, useSeriesRole } from './programmeSeriesApi';
 import { ProgrammeSheet, type SheetState } from './ProgrammeSheet';
 import {
-  START_SECTIONS, addSession, differingDates, differsLabel, itemName, lengthLine, levelShort, levelWord, moveOff, moveSession, parseTree,
-  programCommand, programmeOff, removeSession, roleWord, sectionWord, sessionCount, timeLine, treeDirty, typeWord, updateItem, validateTree,
+  START_SECTIONS, addSession, differingDates, differsLabel, itemName, lengthLine, moveOff, moveSession, parseTree,
+  programCommand, programmeOff, removeConfirmCopy, removeSession, roleWord, sectionWord, sessionCount, timeLine, treeDirty, typeWord, updateItem, validateTree,
   type PItem, type PSection, type PTree,
 } from './programmeSeriesModel';
 
@@ -36,11 +37,11 @@ function SessionRow({ it, tree, off, onOpen, onMove, onRemove }: {
   const [confirm, setConfirm] = useState(false);
   const lineup = lineupLine(it);
   const length = lengthLine(it);
-  const levels = it.levels.map((l) => <span key={l} title={levelWord(l)} aria-label={levelWord(l)} className="rounded-[6px] bg-[var(--card2)] px-[6px] py-[1px] text-[12px] font-semibold text-[var(--fg)]">{levelShort(l)}</span>);
+  const levels = it.levels.map((l) => <span key={l} className="rounded-[6px] bg-[var(--card2)] px-[6px] py-[1px] text-[12px] text-[var(--fg)]"><LevelText level={l} /></span>);
   const main = (
     <span className="min-w-0 flex-1 text-left">
       <span className="block truncate text-[15px] font-semibold text-[var(--fg)]" data-testid="prog-item-name">{itemName(it)}</span>
-      <span className="block break-words text-[13px] text-[var(--mut)]" data-testid="prog-item-time">{timeLine(it)}{length ? ` · ${length}` : ''}</span>
+      <span className="block break-words text-[13px] text-[var(--mut)]" data-testid="prog-item-time">{timeLine(it)}{length ? ` \u00b7 ${length}` : ''}</span>
       {lineup && <span className="block break-words text-[13px] text-[var(--mut)]" data-testid="prog-item-lineup">{lineup}</span>}
       {levels.length > 0 && <span className="mt-[2px] flex flex-wrap gap-[4px]" data-testid="prog-item-levels">{levels}</span>}
     </span>
@@ -60,7 +61,7 @@ function SessionRow({ it, tree, off, onOpen, onMove, onRemove }: {
       </div>
       {confirm && !off && (
         <div role="group" aria-label="Confirm remove" className="mb-[8px] space-y-[8px] rounded-[12px] bg-[var(--card2)] p-[12px]" data-testid="prog-delete-confirm">
-          <p className="text-[14px] text-[var(--fg)]">Remove &ldquo;{itemName(it)}&rdquo; from every date? Dates you changed yourself keep their own sessions. It comes off when you save.</p>
+          <p className="text-[14px] text-[var(--fg)]" data-testid="prog-delete-copy">{removeConfirmCopy(itemName(it))}</p>
           <div className="flex gap-[8px]">
             <GhostButton size="sm" block={false} onClick={() => setConfirm(false)} testId="prog-delete-keep">Keep it</GhostButton>
             <GhostButton size="sm" block={false} onClick={() => { setConfirm(false); onRemove(); }} testId="prog-delete-yes">Remove it</GhostButton>
@@ -81,7 +82,7 @@ function SectionCard({ section, tree, off, onOpen, onMove, onRemove, readOnly }:
         {section.items.map((it) => readOnly ? (
           <div key={it.key} data-testid="prog-item" className="px-[16px] py-[10px]">
             <p className="truncate text-[15px] font-semibold text-[var(--fg)]" data-testid="prog-item-name">{itemName(it)}</p>
-            <p className="truncate text-[13px] text-[var(--mut)]" data-testid="prog-item-time">{timeLine(it)}{lengthLine(it) ? ` · ${lengthLine(it)}` : ''} &middot; {typeWord(it.type)}</p>
+            <p className="truncate text-[13px] text-[var(--mut)]" data-testid="prog-item-time">{[timeLine(it), lengthLine(it), typeWord(it.type)].filter(Boolean).join(' \u00b7 ')}</p>
             {lineupLine(it) && <p className="truncate text-[13px] text-[var(--mut)]" data-testid="prog-item-lineup">{lineupLine(it)}</p>}
           </div>
         ) : (
@@ -99,7 +100,7 @@ function ProgrammeBody({ ws, today }: { ws: EventWorkspace; today: string }) {
   const [sheet, setSheet] = useState<SheetState>(null);
   const [message, announce] = useAnnounce();
   const { sendThenDone, busy, conflict, error } = useEventSend(seriesId);
-  const { role } = useSeriesRole(seriesId);
+  const { role, loading: roleLoading } = useSeriesRole(seriesId);
   const recent = useRecentPeople(seriesId);
   const festival = ws.series.format === 'festival';
   const off = programmeOff({ format: ws.series.format, lifecycle: ws.series.lifecycle_status, canEdit: role !== null });
@@ -110,6 +111,8 @@ function ProgrammeBody({ ws, today }: { ws: EventWorkspace; today: string }) {
   const total = sessionCount(draft);
 
   if (conflict) return <EventConflict seriesId={seriesId} />;
+  // Until organiser_home_v1 says who is looking, the "who may change it" reason would be a guess (REVIEW-SW1 N4).
+  if (roleLoading) return <SkeletonRows count={4} label="Loading the programme" testId="org-programme-role-loading" />;
   const update = (key: string, fn: (it: PItem) => PItem) => setDraft((t) => {
     const it = t.days.flatMap((d) => d.sections.flatMap((s) => s.items)).find((i) => i.key === key);
     return it ? updateItem(t, key, fn(it)) : t;
@@ -132,7 +135,7 @@ function ProgrammeBody({ ws, today }: { ws: EventWorkspace; today: string }) {
       {differing.length > 0 && (
         <div className="space-y-[6px] rounded-[16px] border border-[var(--line)] bg-[var(--card)] p-[12px]" data-testid="prog-differs">
           <p className="text-[14px] font-semibold text-[var(--fg)]" data-testid="prog-differs-badge">{differsLabel(differing.length)}</p>
-          <p className="text-[13px] text-[var(--mut)]">Those dates keep their own sessions. A change here does not overwrite them.</p>
+          <p className="text-[13px] text-[var(--mut)]">Those dates keep their own changes when you edit a session here. Removing a session takes its date changes with it.</p>
           <div className="flex flex-col">
             {differing.slice(0, 5).map((d) => (
               <Link key={d.id} to={ORG_PATHS.dateLineup(seriesId, d.id)} data-testid="prog-differs-link" className="flex min-h-[44px] items-center text-[14px] text-[var(--gold)] underline">

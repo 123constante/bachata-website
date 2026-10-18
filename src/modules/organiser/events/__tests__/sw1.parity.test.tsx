@@ -135,10 +135,12 @@ describe('the programme tree: parse, edit, build', () => {
   it('the line-up: add (once), role, level, remove; the team\'s MC is never removed or re-roled', () => {
     const was = tree(MANY);
     const it0 = was.days[0].sections[0].items[1];
-    const added = addPerson(addPerson(it0, { id: 'p-cara', name: 'Cara', role: 'teaching' }), { id: 'p-cara', name: 'Cara', role: 'teaching' });
+    const cara = { id: 'p-cara', name: 'Cara', profileType: 'teacher', role: 'teaching' } as const;
+    const added = addPerson(addPerson(it0, cara), cara);
     expect(added.people.map((p) => p.name)).toEqual(['Ana', 'Cara']);
+    // A teacher profile cannot DJ: the role stays, and the profile type is never rewritten (REVIEW-SW1 B2).
     const dj = setPersonRole(added, 'p-cara', 'djing');
-    expect(dj.people[1]).toMatchObject({ role: 'djing', profileType: 'dj' });
+    expect(dj.people[1]).toMatchObject({ role: 'teaching', profileType: 'teacher' });
     expect(setPersonLevel(dj, 'p-cara', 'advanced').people[1].level).toBe('advanced');
     expect(setPersonLevel(setPersonLevel(dj, 'p-cara', 'advanced'), 'p-cara', 'advanced').people[1].level).toBeNull();
     expect(removePerson(dj, 'p-cara').people.map((p) => p.name)).toEqual(['Ana']);
@@ -224,7 +226,7 @@ describe('who can change what, and why not (one mapping per fact)', () => {
 
 // ---- the screens ---------------------------------------------------------------------------------
 
-interface Over { format?: string; lifecycle?: string; program?: unknown[]; organisers?: string[]; role?: 'owner' | 'manager'; dates?: Record<string, unknown>[] }
+interface Over { homeHang?: boolean; format?: string; lifecycle?: string; program?: unknown[]; organisers?: string[]; role?: 'owner' | 'manager'; dates?: Record<string, unknown>[] }
 let world: World;
 let over: Over;
 let recent: unknown[];
@@ -245,6 +247,7 @@ beforeEach(() => {
   rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => {
     if (fn === 'organiser_series_cast_v1') return { data: { cast: [], recent_people: recent }, error: null };
     if (fn === 'organiser_home_v1') {
+      if (over.homeHang) return new Promise(() => {});
       const r = (await base(fn, args)) as { data: { organisers: { role: string }[] } };
       return { data: { ...r.data, organisers: r.data.organisers.map((o) => ({ ...o, role: over.role ?? 'owner' })) }, error: null };
     }
@@ -296,10 +299,22 @@ describe('Details: Programme, Cast, Organisers, Music (SW1)', () => {
     expect(screen.getByTestId('org-detail-organisers').textContent).toContain('1 organiser');
   });
 
-  it('with nobody on the programme the Cast row says what to do', async () => {
+  it('with nobody on the programme the Cast row says what to do (gate ON), or why it cannot be done yet (gate OFF)', async () => {
     over.program = ONE;
     mount(ORG_PATHS.eventDetails(A), routes);
-    expect((await screen.findByTestId('org-detail-cast-line')).textContent).toBe('Add a teacher to a class to show them here.');
+    expect((await screen.findByTestId('org-detail-cast-line')).textContent).toBe(GATE_REASON);
+    cleanup();
+    gate.on = true;
+    mount(ORG_PATHS.eventDetails(A), routes);
+    await waitFor(() => expect(screen.getByTestId('org-detail-cast-line').textContent).toBe('Add a teacher to a class to show them here.'));
+  });
+
+  it('an ended event with nobody on the programme gives the lock reason, not the call to action', async () => {
+    over.program = ONE;
+    over.lifecycle = 'ended';
+    gate.on = true;
+    mount(ORG_PATHS.eventDetails(A), routes);
+    expect((await screen.findByTestId('org-detail-cast-line')).textContent).toContain('has ended');
   });
 
   it('an ended event shows the rows as plain lines (no link, no edit)', async () => {
@@ -354,7 +369,7 @@ describe('Programme screen across the shapes', () => {
     expect(within(rows[0]).getByTestId('prog-item-name').textContent).toBe('Beginner class');
     expect(within(rows[0]).getByTestId('prog-item-time').textContent).toBe('19:00–20:00 · 1h');
     expect(within(rows[0]).getByTestId('prog-item-lineup').textContent).toBe('Ana (Teacher), Ben (Teacher)');
-    expect(within(rows[0]).getByTestId('prog-item-levels').textContent).toBe('B');
+    expect(within(rows[0]).getByTestId('prog-item-levels').textContent).toBe('B Beginner');
     expect(within(rows[2]).getByTestId('prog-item-time').textContent).toBe('21:00–01:00 (next day) · 4h');
     expect(within(rows[2]).getByTestId('prog-item-lineup').textContent).toBe('Dee (DJ)');
     expect(screen.getAllByTestId('prog-section-title').map((t) => t.textContent)).toEqual(['Classes', 'Party']);
@@ -370,6 +385,23 @@ describe('Programme screen across the shapes', () => {
     expect(screen.getAllByTestId('prog-item')).toHaveLength(2);
     expect(screen.queryByTestId('prog-save')).toBeNull();
     expect(screen.queryByTestId('prog-add-party')).toBeNull();
+  });
+
+  it('while the viewer role loads, a skeleton shows, never the who-may-change-it reason (REVIEW-SW1 N4)', async () => {
+    over = { homeHang: true };
+    mount(ORG_PATHS.eventProgramme(A), routes);
+    expect(await screen.findByTestId('org-programme-role-loading')).toBeTruthy();
+    expect(screen.queryByTestId('prog-off-reason')).toBeNull();
+  });
+
+  it('the remove confirm says the dates that changed that session lose the change (REVIEW-SW1 B1)', async () => {
+    gate.on = true;
+    mount(ORG_PATHS.eventProgramme(A), routes);
+    fireEvent.click((await screen.findAllByTestId('prog-delete'))[0]);
+    const copy = (await screen.findByTestId('prog-delete-copy')).textContent ?? '';
+    expect(copy).toContain('Beginner class');
+    expect(copy).toContain('loses that change too');
+    expect(copy).not.toContain('keep their own sessions');
   });
 
   it('an ended event gives the lock reason; a viewer who may not write gets the plain reason', async () => {
@@ -439,7 +471,7 @@ describe('Programme screen across the shapes', () => {
     });
 
     it('add a class with a name, times and a level, plus a RECENT teacher with a role and level', async () => {
-      recent = [{ profile_id: 'p-rex', display_name: 'Rex', photo_url: null, roles: ['teaching'], sessions: 4 }];
+      recent = [{ profile_id: 'p-rex', profile_type: 'teacher', display_name: 'Rex', photo_url: null, roles: ['teaching'], sessions: 4 }];
       const { container } = mount(ORG_PATHS.eventProgramme(A), routes);
       fireEvent.click(await screen.findByTestId('prog-add-classes'));
       fireEvent.click(await screen.findByTestId('prog-type-class'));

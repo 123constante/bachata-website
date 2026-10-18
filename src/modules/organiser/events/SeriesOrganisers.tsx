@@ -10,7 +10,7 @@ import { Card, ErrorState, GhostButton, PersonRow, PrimaryButton, SearchField, S
 import { useEventWorkspace } from './eventsApi';
 import type { EventWorkspace } from './eventModel';
 import { fetchOrganiserPages, searchLiveOrganisers, useSeriesRole } from './programmeSeriesApi';
-import { ORGANISERS_EMPTY, addOrganiser, organisersCommand, organisersOff, removeOff, removeOrganiser } from './organisersModel';
+import { addOrganiser, organisersEmpty, organisersCommand, organisersOff, removeOff, removeOrganiser } from './organisersModel';
 
 function AddSheet({ open, onClose, linked, onPick }: { open: boolean; onClose: () => void; linked: string[]; onPick: (id: string) => void }) {
   const opener = useOpenerRef(open);
@@ -57,7 +57,7 @@ function OrganisersBody({ ws }: { ws: EventWorkspace }) {
     <>
       {off && <p id="org-off-reason" className="px-[4px] text-[14px] text-[var(--mut)]" data-testid="org-off-reason">{off}</p>}
       {ids.length === 0 ? (
-        <p className="px-[4px] text-[14px] text-[var(--mut)]" data-testid="org-empty">{ORGANISERS_EMPTY}</p>
+        <p className="px-[4px] text-[14px] text-[var(--mut)]" data-testid="org-empty">{organisersEmpty(off)}</p>
       ) : pages.isLoading ? <SkeletonRows count={ids.length} label="Loading the organisers" /> : (
         <Card testId="org-linked">
           {ids.map((id) => (

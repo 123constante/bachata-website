@@ -3,12 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { Card, Chip, Field, FIELD_CLASS, GhostButton, PersonRow, PrimaryButton, SearchField, SheetView, SkeletonRows, useDebounced, useOpenerRef } from '../ui';
 import { LEVEL_KEYS, PEOPLE_ROLES, SESSION_TYPES, levelsApplyTo, type PeopleRole } from '@/modules/organiser/shared/programmeModel';
+import { LevelText } from '@/modules/organiser/shared/components/LevelText';
 import { PEOPLE_SEARCH_MIN } from '@/modules/organiser/shared/selfServeApi';
 import { pickerQueryKey, searchPickerRows } from '../dates/peoplePicker';
-import type { RecentPerson } from './programmeSeriesApi';
 import {
-  addPerson, addRoleFor, itemName, lengthLine, levelShort, levelWord, removePerson, roleWord, setPersonLevel, setPersonRole, setType,
-  toggleLevel, typeWord, whyCannotAddPerson, type ItemProblem, type PItem,
+  addPerson, addRoleFor, itemName, lengthLine, profileTypeOf, recentFor, removePerson, roleWord, rolesFor, setPersonLevel, setPersonRole, setType,
+  toggleLevel, typeWord, whyCannotAddPerson, type ItemProblem, type PItem, type RecentPerson,
 } from './programmeSeriesModel';
 
 export type SheetState = { view: 'session' | 'search'; key: string } | null;
@@ -98,11 +98,10 @@ function SessionView({ item, update, problems, onState, announce }: ProgrammeShe
           <div className="flex flex-wrap gap-[8px]" role="group" aria-label="Levels">
             {LEVEL_KEYS.map((l) => (
               <Chip key={l} selected={item.levels.includes(l)} onToggle={() => set((it) => toggleLevel(it, l))} testId={`prog-level-${l}`}>
-                <span aria-hidden="true">{levelShort(l)}</span><span className="sr-only">{levelWord(l)}</span>
+                <LevelText level={l} />
               </Chip>
             ))}
           </div>
-          <p className="text-[13px] text-[var(--mut)]">B Beginner, IM Improver, IN Intermediate, AD Advanced, OL Open level.</p>
         </Field>
       )}
 
@@ -112,21 +111,26 @@ function SessionView({ item, update, problems, onState, announce }: ProgrammeShe
           <Card>
             {item.people.map((p) => {
               const mine = (PEOPLE_ROLES as readonly string[]).includes(p.role ?? '');
+              // Only roles this person's profile type can hold (a teacher profile teaches, a DJ profile DJs): the
+              // role never rewrites profile_type, so with one fitting role there is nothing to choose (REVIEW-SW1 B2).
+              const fits = rolesFor(p.profileType);
               return (
                 <div key={p.profileId} data-testid="prog-person">
                   <PersonRow name={p.name} role={roleWord(p.role)} sublabel={mine ? undefined : 'Added by the team'}
                     onRemove={mine ? () => { set((it) => removePerson(it, p.profileId)); announce(`${p.name} taken off.`); } : undefined} />
                   {mine && (
                     <div className="space-y-[8px] px-[16px] pb-[12px]">
-                      <div className="flex flex-wrap gap-[8px]" role="group" aria-label={`Role for ${p.name}`}>
-                        {PEOPLE_ROLES.map((r) => (
-                          <Chip key={r} selected={p.role === r} onToggle={() => set((it) => setPersonRole(it, p.profileId, r))} testId={`prog-role-${r}`}>{roleWord(r)}</Chip>
-                        ))}
-                      </div>
+                      {fits.length > 1 && (
+                        <div className="flex flex-wrap gap-[8px]" role="group" aria-label={`Role for ${p.name}`}>
+                          {fits.map((r) => (
+                            <Chip key={r} selected={p.role === r} onToggle={() => set((it) => setPersonRole(it, p.profileId, r))} testId={`prog-role-${r}`}>{roleWord(r)}</Chip>
+                          ))}
+                        </div>
+                      )}
                       <div className="flex flex-wrap gap-[8px]" role="group" aria-label={`Level for ${p.name}`}>
                         {LEVEL_KEYS.map((l) => (
                           <Chip key={l} selected={p.level === l} onToggle={() => set((it) => setPersonLevel(it, p.profileId, l))} testId={`prog-plevel-${l}`}>
-                            <span aria-hidden="true">{levelShort(l)}</span><span className="sr-only">{levelWord(l)}</span>
+                            <LevelText level={l} />
                           </Chip>
                         ))}
                       </div>
@@ -156,12 +160,12 @@ function SearchView({ item, update, onState, recent, recentLoading, announce }: 
   const results = useQuery({ queryKey: pickerQueryKey(role, term), queryFn: () => searchPickerRows(term, role), enabled: ready, staleTime: 60_000 });
   const on = new Set(item.people.map((p) => p.profileId));
   const noun = role === 'djing' ? 'DJ' : 'teacher';
-  const pick = (id: string, name: string, as: PeopleRole) => {
-    update(item.key, (it) => addPerson(it, { id, name, role: as }));
+  const pick = (id: string, name: string, profileType: string) => {
+    update(item.key, (it) => addPerson(it, { id, name, profileType, role }));
     announce(`${name} added. Save to keep it.`);
     onState({ view: 'session', key: item.key });
   };
-  const recents = recent.filter((r) => !on.has(r.profileId) && (r.role === null || r.role === role));
+  const recents = recentFor(recent, role).filter((r) => !on.has(r.profileId));
   const list = (results.data ?? []).filter((p) => !on.has(p.id));
   return (
     <div className="space-y-[12px]" data-testid="prog-search-view">
@@ -171,7 +175,7 @@ function SearchView({ item, update, onState, recent, recentLoading, announce }: 
           <p className="text-[13px] font-semibold text-[var(--mut)]">Recent</p>
           <Card>
             {recents.map((r) => (
-              <PersonRow key={r.profileId} testId="prog-recent-person" name={r.name} onPress={() => pick(r.profileId, r.name, role)}
+              <PersonRow key={r.profileId} testId="prog-recent-person" name={r.name} onPress={() => pick(r.profileId, r.name, r.profileType)}
                 trailing={<Plus aria-hidden="true" className="h-[20px] w-[20px] shrink-0 text-[var(--gold)]" />} />
             ))}
           </Card>
@@ -189,7 +193,7 @@ function SearchView({ item, update, onState, recent, recentLoading, announce }: 
       ) : (
         <Card testId="prog-results">
           {list.map((p) => (
-            <PersonRow key={p.id} testId="prog-result" name={p.name} sublabel={p.sublabel} onPress={() => pick(p.id, p.name, role)}
+            <PersonRow key={p.id} testId="prog-result" name={p.name} sublabel={p.sublabel} onPress={() => pick(p.id, p.name, profileTypeOf(role))}
               trailing={<Plus aria-hidden="true" className="h-[20px] w-[20px] shrink-0 text-[var(--gold)]" />} />
           ))}
         </Card>

@@ -21,7 +21,6 @@ import {
 } from '../ui';
 import {
   LEVEL_KEYS,
-  LEVEL_LABEL,
   PEOPLE_ROLE_LABEL,
   SESSION_TYPES,
   TYPE_LABEL,
@@ -32,6 +31,7 @@ import {
   type DraftSession,
   type RowProblem,
 } from '@/modules/organiser/shared/programmeModel';
+import { LevelText } from '@/modules/organiser/shared/components/LevelText';
 import { PEOPLE_SEARCH_MIN, type CancellationReason } from '@/modules/organiser/shared/selfServeApi';
 import { shownCancelReason } from '@/modules/organiser/shared/cancelLabel';
 import { PUT_IT_BACK, TAKE_OFF } from '@/modules/organiser/shared/copy';
@@ -224,7 +224,7 @@ function SessionView({ row, updateRow, removeSession, onState, problems, editabl
               return (
                 <Chip key={l} selected={on} disabled={!editable} testId={`session-level-${l}`}
                   onToggle={() => set((r) => ({ ...r, levels: on ? r.levels.filter((x) => x !== l) : [...r.levels, l] }))}>
-                  {LEVEL_LABEL[l]}
+                  <LevelText level={l} />
                 </Chip>
               );
             })}

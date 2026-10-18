@@ -1,6 +1,7 @@
 // Reads for the series programme, cast and organisers screens (parity wave 1, SW1).
 // organiser_series_cast_v1 (admin AW1) is called only when AW1_APPLIED: its
-// recent_people feed the line-up picker's RECENT list. Organiser names come from
+// recent_people feed the line-up picker's RECENT list. Each row is pinned with AW1 as
+// {profile_id, profile_type, display_name, photo_url, roles[]} (parseRecentPeople). Organiser names come from
 // the public organiser pages; the search lists live pages only.
 
 import { useQuery } from '@tanstack/react-query';
@@ -10,10 +11,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { AW1_APPLIED } from '@/modules/organiser/shared/parityGate';
 import type { LinkedOrganiser } from './organisersModel';
+import { parseRecentPeople, type RecentPerson } from './programmeSeriesModel';
 
 type UntypedRpc = { rpc(fn: string, args?: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }> };
 
-export interface RecentPerson { profileId: string; name: string; role: 'teaching' | 'djing' | null }
+export type { RecentPerson };
 
 export const seriesCastQueryKey = (seriesId: string) => ['org-series-cast', seriesId] as const;
 
@@ -21,19 +23,7 @@ export const seriesCastQueryKey = (seriesId: string) => ['org-series-cast', seri
 export async function fetchRecentPeople(seriesId: string): Promise<RecentPerson[]> {
   const { data, error } = await (supabase as unknown as UntypedRpc).rpc('organiser_series_cast_v1', { p_series_id: seriesId });
   if (error) throw error;
-  const recent = (data as { recent_people?: unknown } | null)?.recent_people;
-  if (!Array.isArray(recent)) return [];
-  return recent.flatMap((r): RecentPerson[] => {
-    const row = (r ?? {}) as Record<string, unknown>;
-    const id = typeof row.profile_id === 'string' ? row.profile_id : typeof row.id === 'string' ? row.id : null;
-    if (!id) return [];
-    const roles = Array.isArray(row.roles) ? row.roles : [];
-    return [{
-      profileId: id,
-      name: typeof row.display_name === 'string' && row.display_name.trim() ? row.display_name.trim() : 'Unnamed',
-      role: roles.includes('djing') ? 'djing' : roles.includes('teaching') ? 'teaching' : null,
-    }];
-  });
+  return parseRecentPeople(data);
 }
 
 export function useRecentPeople(seriesId: string) {

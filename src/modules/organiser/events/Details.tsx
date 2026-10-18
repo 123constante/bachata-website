@@ -27,7 +27,8 @@ import { uploadEventPicture } from './media';
 import { countLabel, mediaCommand, passCount, pricesLock, usualEnd } from './seriesExtras';
 import { EndEdit, PricesEdit } from './DetailsExtras';
 import { MusicEdit } from './MusicEdit';
-import { CAST_EMPTY, castLine, castOf, parseTree, sessionCount } from './programmeSeriesModel';
+import { castEmptyLine, castLine, castOf, parseTree, programmeOff, sessionCount } from './programmeSeriesModel';
+import { useSeriesRole } from './programmeSeriesApi';
 
 const TEXT_FIELDS: TextDetail[] = ['name', 'time', 'level', 'music', 'tickets', 'instagram', 'about'];
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left';
@@ -78,6 +79,7 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
   const seriesId = ws.series.id;
   const lock = eventLock(ws.series.lifecycle_status);
   const venues = useVenueOptions();
+  const seriesRole = useSeriesRole(seriesId);
   const { sendThenDone, busy, conflict, error } = useEventSend(seriesId);
   const loaded = draftFromWorkspace(ws, today);
   const [draft, setDraft] = useState<EventDraft>(loaded);
@@ -175,6 +177,10 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
   // The series programme and organisers (SW1): their own screens; an ended event shows them as plain lines.
   const tree = parseTree(ws.program);
   const cast = castOf(tree);
+  // An empty cast says what the person CAN do: the call to action only when the programme can be edited (REVIEW-SW1 S4).
+  const programmeReason = programmeOff({
+    format: ws.series.format, lifecycle: ws.series.lifecycle_status, canEdit: seriesRole.loading || seriesRole.role !== null,
+  });
   const pageRow = (key: string, label: string, value: string, to: string) => lock ? (
     <div key={key} className={cn(ROW, 'text-[var(--mut)]')} data-testid={`org-detail-${key}`}>
       <span className="w-[88px] shrink-0 text-[14px]">{label}</span>
@@ -214,7 +220,7 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
         {pageRow('programme', 'Programme', countLabel(sessionCount(tree), 'session', 'sessions'), ORG_PATHS.eventProgramme(seriesId))}
         <div className={cn(ROW, 'text-[var(--mut)]')} data-testid="org-detail-cast">
           <span className="w-[88px] shrink-0 text-[14px]">Cast</span>
-          <span className="min-w-0 flex-1 text-[15px] text-[var(--fg)]" data-testid="org-detail-cast-line">{cast.length ? castLine(cast) : CAST_EMPTY}</span>
+          <span className="min-w-0 flex-1 text-[15px] text-[var(--fg)]" data-testid="org-detail-cast-line">{cast.length ? castLine(cast) : castEmptyLine(programmeReason)}</span>
         </div>
         {pageRow('organisers', 'Organisers', countLabel(ws.organiserIds.length, 'organiser', 'organisers'), ORG_PATHS.eventOrganisers(seriesId))}
         {lock ? (

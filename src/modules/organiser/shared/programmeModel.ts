@@ -52,6 +52,9 @@ export const LEVEL_LABEL: Record<LevelKey, string> = {
   open_level: 'Open level',
 };
 
+/** The compact level chips the admin editor shows (B / IM / IN / AD / OL). Rendered ONLY through shared/components/LevelText, with the word. */
+export const LEVEL_SHORT: Record<LevelKey, string> = { beginner: 'B', improver: 'IM', intermediate: 'IN', advanced: 'AD', open_level: 'OL' };
+
 /** The server's limits (the writer's constants), mirrored so a bad save is caught before the call. */
 export const LIMITS = {
   titleMax: 120,

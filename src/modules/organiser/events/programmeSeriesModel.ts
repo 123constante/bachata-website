@@ -1,14 +1,16 @@
 // The programme of the WHOLE SERIES, as an organiser edits it (parity wave 1, SW1).
 // Pure: no React, no client. The read is admin_event_workspace_p5 series.program
 // (days > sections > items > people, from _snapshot_series_p5); the write is
-// series.set_program (_cmd_series_set_program_p5), which takes the COMPLETE tree and
-// deletes + re-inserts it. So every field the editor does not touch (room, style,
-// theme, track...) is echoed from the stored row, and an untouched tree builds the
-// same payload as the one read (dirty = the two payloads differ; an untouched Save
-// sends nothing).
+// series.set_program (_cmd_series_set_program_p5), which takes the COMPLETE tree.
+// Every stored day / section / item goes back with its own `id` (AW1 upserts by id and
+// deletes only the ids that left the tree, so the per-date session changes keyed by an
+// item id survive a Save -- REVIEW-SW1 B1); a new row sends no id. Every field the
+// editor does not touch (room, style, theme, track...) is echoed from the stored row,
+// and an untouched tree builds the same payload as the one read (dirty = the two
+// payloads differ; an untouched Save sends nothing).
 
 import {
-  LEVEL_KEYS, LEVEL_LABEL, LIMITS, PEOPLE_ROLE_LABEL, SESSION_TYPES, TYPE_LABEL,
+  LEVEL_KEYS, LEVEL_LABEL, LEVEL_SHORT, LIMITS, PEOPLE_ROLE_LABEL, SESSION_TYPES, TYPE_LABEL,
   endsNextDay, isEditableRole, levelsApplyTo, sessionLevels, sessionMinutes, timesProblem, titleProblem,
   type LevelKey, type PeopleRole,
 } from '@/modules/organiser/shared/programmeModel';
@@ -25,8 +27,7 @@ const hhmm = (v: unknown) => (typeof v === 'string' ? v.slice(0, 5) : '');
 
 // ---- words (ONE mapping: the chips, the rows and the cast read these) -----------------
 
-/** The compact level chips the admin editor shows (B / IM / IN / AD / OL); the word is the label. */
-export const LEVEL_SHORT: Record<LevelKey, string> = { beginner: 'B', improver: 'IM', intermediate: 'IN', advanced: 'AD', open_level: 'OL' };
+export { LEVEL_SHORT };
 export const levelShort = (key: string) => LEVEL_SHORT[key as LevelKey] ?? key;
 export const levelWord = (key: string) => LEVEL_LABEL[key as LevelKey] ?? key;
 export const roleWord = (role: string | null) => PEOPLE_ROLE_LABEL[role ?? ''] ?? 'Guest';
@@ -61,7 +62,11 @@ export interface PItem {
   /** Added on this screen, not saved yet. */
   added: boolean;
 }
-export interface PSection { key: string; raw: Raw; kind: string; items: PItem[] }
+export interface PSection {
+  key: string; raw: Raw; kind: string; items: PItem[];
+  /** Stored with no sessions: sent back as stored (only a section THIS screen emptied is dropped). */
+  storedEmpty: boolean;
+}
 export interface PDay { key: string; raw: Raw; sections: PSection[] }
 export interface PTree { days: PDay[] }
 
@@ -81,6 +86,7 @@ export function parseTree(program: unknown): PTree {
             key: `s:${str(section.id) ?? `${di}.${si}`}`,
             raw: section,
             kind: str(section.kind) ?? 'party',
+            storedEmpty: arr(obj(s).items).length === 0,
             items: arr(obj(s).items).map((e, ii) => {
               const item = obj(obj(e).item);
               return {
@@ -150,11 +156,17 @@ export function castOf(tree: PTree): CastEntry[] {
   return [...out.values()];
 }
 
-/** "Ana (Teacher), Ben (DJ)" for the Details cast row. */
-export const castLine = (cast: CastEntry[]): string =>
-  cast.map((c) => `${c.name}${c.roles.length ? ` (${c.roles.map(roleWord).join(', ')})` : ''}`).join(', ');
+export const CAST_MAX = 6;
+
+/** "Ana (Teacher), Ben (DJ)" for the Details cast row: the first CAST_MAX names, then "and N more". */
+export function castLine(cast: CastEntry[]): string {
+  const line = cast.slice(0, CAST_MAX).map((c) => `${c.name}${c.roles.length ? ` (${c.roles.map(roleWord).join(', ')})` : ''}`).join(', ');
+  return cast.length > CAST_MAX ? `${line} and ${cast.length - CAST_MAX} more` : line;
+}
 
 export const CAST_EMPTY = 'Add a teacher to a class to show them here.';
+/** The cast row with nobody on it: the call to action only when the programme can be edited, else why not. */
+export const castEmptyLine = (off: string | null): string => off ?? CAST_EMPTY;
 
 // ---- the dates that differ ---------------------------------------------------------------
 
@@ -182,7 +194,7 @@ export function addSession(t: PTree, kind: string, type: string): { tree: PTree;
   const at = first.sections.findIndex((s) => s.kind === kind);
   const sections = at >= 0
     ? first.sections.map((s, i) => (i === at ? { ...s, items: [...s.items, item] } : s))
-    : [...first.sections, { key: nextKey('s'), raw: {}, kind, items: [item] }];
+    : [...first.sections, { key: nextKey('s'), raw: {}, kind, items: [item], storedEmpty: false }];
   return { tree: { days: [{ ...first, sections }, ...days.slice(1)] }, key };
 }
 
@@ -222,11 +234,16 @@ export const toggleLevel = (it: PItem, level: string): PItem =>
 /** The people-search role a session type adds (a party takes DJs, a class teachers); null for the rest. */
 export const addRoleFor = (type: string | null): PeopleRole | null =>
   type === 'party' ? 'djing' : type === 'class' || type === 'masterclass' ? 'teaching' : null;
+/** The profile type the people search returns for a role (a teacher search lists teacher profiles). */
 export const profileTypeOf = (role: PeopleRole) => (role === 'djing' ? 'dj' : 'teacher');
+/** The roles a profile of this type can hold: a teacher profile teaches, a DJ profile DJs (REVIEW-SW1 B2). */
+export const rolesFor = (profileType: string): PeopleRole[] =>
+  profileType === 'teacher' ? ['teaching'] : profileType === 'dj' ? ['djing'] : [];
 
-export function addPerson(it: PItem, p: { id: string; name: string; role: PeopleRole; level?: string | null }): PItem {
-  if (it.people.some((q) => q.profileId === p.id)) return it;
-  return { ...it, people: [...it.people, { profileId: p.id, name: p.name, profileType: profileTypeOf(p.role), role: p.role, level: p.level ?? null }] };
+/** Adds a person with the profile type of the profile picked (never derived from the role); a role that type cannot hold is refused. */
+export function addPerson(it: PItem, p: { id: string; name: string; profileType: string; role: PeopleRole; level?: string | null }): PItem {
+  if (it.people.some((q) => q.profileId === p.id) || !rolesFor(p.profileType).includes(p.role)) return it;
+  return { ...it, people: [...it.people, { profileId: p.id, name: p.name, profileType: p.profileType, role: p.role, level: p.level ?? null }] };
 }
 export const removePerson = (it: PItem, id: string): PItem => {
   const p = it.people.find((q) => q.profileId === id);
@@ -234,7 +251,7 @@ export const removePerson = (it: PItem, id: string): PItem => {
 };
 export const setPersonRole = (it: PItem, id: string, role: PeopleRole): PItem => ({
   ...it,
-  people: it.people.map((p) => (p.profileId === id && isEditableRole(p.role) ? { ...p, role, profileType: profileTypeOf(role) } : p)),
+  people: it.people.map((p) => (p.profileId === id && isEditableRole(p.role) && rolesFor(p.profileType).includes(role) ? { ...p, role } : p)),
 });
 export const setPersonLevel = (it: PItem, id: string, level: string | null): PItem => ({
   ...it,
@@ -242,6 +259,33 @@ export const setPersonLevel = (it: PItem, id: string, level: string | null): PIt
 });
 export const whyCannotAddPerson = (it: PItem): string | null =>
   it.people.length >= LIMITS.peopleMax ? `A session can have up to ${LIMITS.peopleMax} teachers and DJs.` : addRoleFor(it.type) === null ? 'Performers and the MC are added by the Bachata Calendar team.' : null;
+
+/** The remove confirm: true about the dates that changed this session (their change goes with it). */
+export const removeConfirmCopy = (name: string) =>
+  `Remove \u201c${name}\u201d from every date? Any date where you changed this session loses that change too. It comes off when you save.`;
+
+// ---- RECENT people (organiser_series_cast_v1.recent_people, pinned with AW1) ------------------
+
+export interface RecentPerson { profileId: string; profileType: string; name: string; photoUrl: string | null; roles: string[] }
+
+/** `{profile_id, profile_type, display_name, photo_url, roles[]}` rows; a row with no profile type is left out (never guessed). */
+export function parseRecentPeople(data: unknown): RecentPerson[] {
+  return arr(obj(data).recent_people).map(obj).flatMap((row): RecentPerson[] => {
+    const id = str(row.profile_id);
+    const type = str(row.profile_type);
+    if (!id || !type) return [];
+    return [{
+      profileId: id,
+      profileType: type,
+      name: str(row.display_name)?.trim() || 'Unnamed',
+      photoUrl: str(row.photo_url),
+      roles: arr(row.roles).filter((r): r is string => typeof r === 'string'),
+    }];
+  });
+}
+
+/** The RECENT people a session of this role can take: their own profile type must hold the role (no role / both roles do not matter). */
+export const recentFor = (recent: RecentPerson[], role: PeopleRole) => recent.filter((r) => rolesFor(r.profileType).includes(role));
 
 // ---- summary lines ---------------------------------------------------------------------------
 
@@ -252,7 +296,7 @@ export const itemName = (it: Pick<PItem, 'type' | 'title'>) => it.title.trim() |
 export function timeLine(it: Pick<PItem, 'start' | 'end'>): string {
   if (!it.start) return 'No time yet';
   if (!it.end) return it.start;
-  return `${it.start}–${it.end}${endsNextDay(it.start, it.end) ? ' (next day)' : ''}`;
+  return `${it.start}\u2013${it.end}${endsNextDay(it.start, it.end) ? ' (next day)' : ''}`;
 }
 /** "1h 30m" for a session with both times; '' otherwise. */
 export function lengthLine(it: Pick<PItem, 'start' | 'end'>): string {
@@ -290,18 +334,24 @@ const timeOut = (now: string, raw: unknown): string | null => {
   return typeof raw === 'string' && hhmm(raw) === now ? raw : now;
 };
 
+/** A stored row's id (AW1 upserts by it); a new row has none and sends none. */
+const idOf = (raw: Raw): { id?: string } => (typeof raw.id === 'string' ? { id: raw.id } : {});
+
 /** The days array series.set_program takes: the complete tree, every untouched field echoed. */
 export function buildDays(tree: PTree): unknown[] {
   return tree.days.map((d, di) => ({
+    ...idOf(d.raw),
     day_index: d.raw.day_index ?? di,
     date_offset_days: d.raw.date_offset_days ?? 0,
     label: d.raw.label ?? null,
     sort_order: di,
-    sections: d.sections.filter((s) => s.items.length > 0).map((s, si) => ({
+    sections: d.sections.filter((s) => s.items.length > 0 || s.storedEmpty).map((s, si) => ({
+      ...idOf(s.raw),
       kind: s.kind,
       sort_order: si,
       label_override: s.raw.label_override ?? null,
       items: s.items.map((it, ii) => ({
+        ...idOf(it.raw),
         title: it.title.trim(),
         type: it.type,
         start_time: timeOut(it.start, it.raw.start_time),

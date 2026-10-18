@@ -13,6 +13,9 @@ export interface LinkedOrganiser { id: string; name: string; avatarUrl: string |
 export const MANAGER_REASON = 'Only the owner can change who runs this event.';
 export const LAST_ORGANISER_REASON = 'An event needs at least one organiser.';
 export const ORGANISERS_EMPTY = 'No organiser is linked yet. Ask the Bachata Calendar team to link your page.';
+/** The empty list for an owner who can link (Link a page is on screen and on); anyone else asks the team. */
+export const ORGANISERS_EMPTY_OWNER = 'No organiser is linked yet. Use Link a page below to add yours.';
+export const organisersEmpty = (off: string | null): string => (off ? ORGANISERS_EMPTY : ORGANISERS_EMPTY_OWNER);
 
 /** Why the list cannot change here, or null. */
 export function organisersOff(input: { lifecycle: string; isOwner: boolean; gate?: boolean }): string | null {
