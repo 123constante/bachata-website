@@ -156,7 +156,41 @@ export const facebookLabel = (url: string | null): string | null => {
   return seg && seg !== 'profile.php' ? `facebook.com/${seg}` : 'View Facebook profile';
 };
 
-export type ContactLink = { kind: 'instagram' | 'facebook' | 'website' | 'email' | 'whatsapp'; href: string; label: string };
+/** `label` is what the row shows (the handle or address); `copyText` is the FULL text the Copy button copies. */
+export type ContactLink = { kind: 'instagram' | 'facebook' | 'website' | 'email' | 'whatsapp'; href: string; label: string; copyText: string };
+
+/** One "Going next" card. Built from the dancer's own opt-in list; see GoingNextInput. */
+export type GoingNextEvent = { id: string; date: string; name: string; venue: string | null };
+export type GoingNextInput = { optIn: boolean; events: readonly GoingNextEvent[] };
+/** 1 event = one full-width card, 2 = side by side, more = the first two plus "See all N events". */
+export type GoingNextModel = { shown: GoingNextEvent[]; total: number; seeAll: boolean };
+
+/**
+ * F13 teal card facts. A column exists only when its value does; none = no row.
+ * Level is the same five bands as experienceLevel (one mapping, every screen).
+ */
+export type CardFacts = { dancing: string | null; level: string | null; style: string | null };
+
+const UK_POSTCODE = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/gi;
+const OUTWARD_CODE = /\b[A-Z]{1,2}\d[A-Z\d]?\b$/i;
+/** City name only: a postcode (or its outward half) that leaked into the city field is cut off. */
+export const cityOnly = (raw: string | null): string | null => {
+  if (!raw) return null;
+  const name = raw.replace(UK_POSTCODE, '').replace(OUTWARD_CODE, '').replace(/[,\s]+$/, '').trim();
+  return name || null;
+};
+
+/** partner_practice_goals -> "Goal: ..." text: first two, joined in plain words; null = hide the line. */
+export const practiceGoalText = (goals: readonly string[]): string | null => {
+  const picked = goals.slice(0, 2).map((g) => g.trim().toLowerCase()).filter(Boolean);
+  return picked.length ? picked.join(' and ') : null;
+};
+
+export const goingNextModel = (input: GoingNextInput | undefined): GoingNextModel | null => {
+  // Going is private and beta-only today: OFF unless the dancer opted in.
+  if (!input?.optIn || input.events.length === 0) return null;
+  return { shown: input.events.slice(0, 2), total: input.events.length, seeAll: input.events.length > 2 };
+};
 
 export type PublicDancerPageModel = {
   /** The heading. "Dancer" only when no real name resolves (the head is still noindexed by the loader). */
@@ -173,6 +207,12 @@ export type PublicDancerPageModel = {
   whatsappHref: string | null;
   experience: { years: number; level: string } | null;
   contacts: ContactLink[];
+  /** The F13 card: city name only, facts row, languages. */
+  city: string | null;
+  facts: CardFacts;
+  /** The gold stamp: only when looking_for_partner is true. goal = null hides the Goal line. */
+  stamp: { goal: string | null } | null;
+  goingNext: GoingNextModel | null;
   practice: {
     status: string;
     lookingFor: string | null;
@@ -196,19 +236,20 @@ export const buildPublicDancerPage = (
   view: DancerPublicViewModel,
   extras: PublicPageExtras,
   galleryUrls: readonly unknown[] = [],
+  goingNext?: GoingNextInput,
 ): PublicDancerPageModel => {
   const name = view.displayName ?? 'Dancer';
   const years = view.yearsDancing !== null ? Number(view.yearsDancing) : NaN;
   const wa = whatsappHref(extras.whatsapp);
   const links = view.connectLinks;
   const contacts: ContactLink[] = [];
-  if (wa) contacts.push({ kind: 'whatsapp', href: wa, label: 'Message on WhatsApp' });
+  if (wa) contacts.push({ kind: 'whatsapp', href: wa, label: extras.whatsapp!.trim(), copyText: extras.whatsapp!.trim() });
   const ig = instagramLabel(links.instagram);
-  if (links.instagram && ig) contacts.push({ kind: 'instagram', href: links.instagram, label: ig });
+  if (links.instagram && ig) contacts.push({ kind: 'instagram', href: links.instagram, label: ig, copyText: ig });
   const fb = facebookLabel(links.facebook);
-  if (links.facebook && fb) contacts.push({ kind: 'facebook', href: links.facebook, label: fb });
-  if (links.website) contacts.push({ kind: 'website', href: links.website, label: 'Website' });
-  if (links.email) contacts.push({ kind: 'email', href: `mailto:${links.email}`, label: 'Email' });
+  if (links.facebook && fb) contacts.push({ kind: 'facebook', href: links.facebook, label: fb, copyText: links.facebook });
+  if (links.website) contacts.push({ kind: 'website', href: links.website, label: links.website.replace(/^https?:\/\//, '').replace(/\/$/, ''), copyText: links.website });
+  if (links.email) contacts.push({ kind: 'email', href: `mailto:${links.email}`, label: links.email, copyText: links.email });
 
   const hasPractice =
     view.lookingForPartner ||
@@ -230,6 +271,14 @@ export const buildPublicDancerPage = (
     whatsappHref: wa,
     experience: Number.isFinite(years) && years >= 0 ? { years, level: experienceLevel(years) } : null,
     contacts,
+    city: cityOnly(view.city),
+    facts: {
+      dancing: Number.isFinite(years) && years >= 0 ? `${years} ${years === 1 ? 'year' : 'years'}` : null,
+      level: Number.isFinite(years) && years >= 0 ? experienceLevel(years) : null,
+      style: clean(view.favoriteStyles).join(', ') || null,
+    },
+    stamp: view.lookingForPartner ? { goal: practiceGoalText(clean(view.partnerPracticeGoals)) } : null,
+    goingNext: goingNextModel(goingNext),
     practice: hasPractice
       ? {
           status: view.lookingForPartner ? 'Up for practice' : 'Not right now',

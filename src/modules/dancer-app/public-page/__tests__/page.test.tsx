@@ -96,7 +96,10 @@ describe.each(Object.keys(SHAPES) as ShapeKey[])('%s', (key) => {
     expect(q('dancer-share')).not.toBeNull();
     expect(q('dancer-join') !== null).toBe(user === null);
     expect(screen.queryByText('Your plans') !== null).toBe(self);
-    expect(screen.getByText('Event appearances')).toBeTruthy();
+    // F13: no appearances list, no gallery, no description.
+    expect(screen.queryByText('Event appearances')).toBeNull();
+    expect(q('dancer-gallery')).toBeNull();
+    expect(q('dancer-bio')).toBeNull();
   });
 
   it('flag closed (no prop) or null: today\'s page, no v2', async () => {
@@ -117,7 +120,7 @@ describe('extras', () => {
   ] as const)('%s', async (_n, extras, on) => {
     mount('photoless', { extrasOk: true, extras });
     await settle();
-    expect(q('dancer-bio') !== null).toBe(on);
+    expect(q('dancer-bio')).toBeNull(); // owner: the description stays hidden
     expect(q('dancer-languages') !== null).toBe(on);
     const wa = q('dancer-whatsapp');
     expect(wa !== null).toBe(on);
@@ -127,13 +130,13 @@ describe('extras', () => {
   it('many languages: every one is shown', async () => {
     mount('photoless', { extrasOk: true, extras: EXTRAS.manyLanguages });
     await settle();
-    expect(q('dancer-languages')!.querySelectorAll('li')).toHaveLength(6);
+    expect(q('dancer-languages')!.textContent).toContain('English, Spanish, Portuguese, French, Italian, Polish');
   });
 
   it('no contacts and no WhatsApp: the empty state says what the visitor can do, and Share is on screen', async () => {
     mount('photoless', { extrasOk: true, extras: NO_EXTRAS });
     await settle();
-    expect(q('dancer-connect')!.textContent).toContain('Use Share');
+    expect(q('dancer-connect-empty')!.textContent).toContain('Use Share');
     expect(q('dancer-share')).not.toBeNull();
   });
 
@@ -142,25 +145,25 @@ describe('extras', () => {
     await settle();
     expect(q('dancer-page-v2')).not.toBeNull();
     expect(q('dancer-connect')).toBeNull();
+    expect(q('dancer-connect-empty')).toBeNull();
   });
 
-  it('WhatsApp only: no "no contacts" line under a WhatsApp button', async () => {
+  it('WhatsApp only: one contact row, no "no contacts" line', async () => {
     mount('photoless', { extrasOk: true, extras: { ...NO_EXTRAS, whatsapp: '+447700900123' } });
     await settle();
-    expect(q('dancer-connect')).toBeNull();
+    expect(q('dancer-connect-empty')).toBeNull();
     expect(q('dancer-whatsapp')).not.toBeNull();
   });
 });
 
 describe('every section of today\'s page is on v2 (complete + all extras)', () => {
-  it('role, years, practice buddy, styles, songs, highlights, contacts, gallery, appearances', async () => {
+  it('role, years, level, style, stamp, achievements, contacts', async () => {
     mount('complete + all extras', { extrasOk: true, extras: NO_EXTRAS });
     await settle();
     const text = q('dancer-page-v2')!.textContent!;
-    for (const s of ['Lead and Follow', '11 years dancing', 'Veteran', 'Up for practice', 'Looking for: Leader', 'Intermediate', 'Footwork', 'Weekday evenings', 'Sensual', 'Dominican', 'Obsesion', 'Best newcomer 2022', '@carla', 'facebook.com/carla.ruiz', 'Website', 'Manchester', 'Spain', 'Event appearances']) {
+    for (const s of ['Lead and Follow \u00b7 Manchester', '11 years', 'Veteran', 'Sensual, Dominican', 'Practice partner wanted', 'Goal: footwork', 'Best newcomer 2022', '@carla', 'facebook.com/carla.ruiz', 'carla.example']) {
       expect(text, s).toContain(s);
     }
-    expect(q('dancer-gallery')!.querySelectorAll('img')).toHaveLength(2);
   });
 });
 
@@ -251,8 +254,8 @@ describe('views and names', () => {
   it('language codes render as names; unknown codes are hidden', async () => {
     mount('photoless', { extrasOk: true, extras: { ...NO_EXTRAS, languages: ['en', 'es', 'xx'] } });
     await settle();
-    const chips = Array.from(q('dancer-languages')!.querySelectorAll('li')).map((li) => li.textContent);
-    expect(chips).toEqual(['English', 'Spanish']);
+    expect(q('dancer-languages')!.textContent).toContain('English, Spanish');
+    expect(q('dancer-languages')!.textContent).not.toContain('xx');
   });
 
   it('only unknown language codes: no Speaks section at all', async () => {

@@ -1,12 +1,10 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Share2 } from 'lucide-react';
-import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
-import { NationalityFlag, TILE_FLAG_SIZE } from '@/components/people/NationalityFlag';
+import { ArrowUpRight, ArrowLeft, Copy, Share2 } from 'lucide-react';
+import { NationalityFlag } from '@/components/people/NationalityFlag';
 import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
 import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 import { useAuth } from '@/hooks/useAuth';
-import { DANCER_TOKENS } from '../theme/tokens';
 import { SHARE_MESSAGES, joinHref, shareDancerPage, type ContactLink, type PublicDancerPageModel, type ShareOutcome } from './model';
 
 /**
@@ -18,9 +16,9 @@ import { SHARE_MESSAGES, joinHref, shareDancerPage, type ContactLink, type Publi
  */
 export type PublicDancerPageV2Props = {
   model: PublicDancerPageModel;
-  /** false = the extras read failed: no "no public contacts" claim (WhatsApp may exist). */
+  /** false = the extras read failed: no contact claims (WhatsApp may exist). */
   extrasOk?: boolean;
-  /** dancer_profiles.id, for the event appearances list. */
+  /** dancer_profiles.id (kept for the caller; the F13 page lists no appearances). */
   profileId: string;
   /** The path to share and to come back to after Join, e.g. "/dancers/ana-lopez". */
   pathname: string;
@@ -28,37 +26,33 @@ export type PublicDancerPageV2Props = {
   ownerPlans?: ReactNode;
 };
 
+/**
+ * DESIGN DEPARTURE (named, owner-approved 2026-10-18): the public dancer page keeps
+ * the TEAL "dancer ID world" (mockup F13) instead of the site's Bachata palette.
+ * Website DESIGN.md allows named departures; the reason is recorded in
+ * docs/dancer-page-f13.md. Only the date line uses the site's Bachata Amber.
+ * Font: the site's own stack (inherited), not the mockup's drawing fonts.
+ */
+const TEAL = {
+  page: '#06191F', card: '#0D3340', border: '#1F5566', text: '#EAF7FA', muted: '#8FBAC7',
+  accent: '#5EE0E6', gold: '#F2C14E', amber: '#FF9900',
+  hero: 'linear-gradient(160deg,#1C7D93 0%,#0F5468 55%,#0A3A4A 100%)',
+} as const;
+
 const TAP = { minHeight: 44 } as const;
+const PORTRAIT_PX = 116;
+/** NationalityFlag sizes the sticker from the photo: 91px photo -> 42px flag (brief: 42px). */
+const FLAG_BASIS_PX = 91;
 
-// The dancer theme as CSS variables on this page's root. theme/dancer.css stays the
-// shell's alone (tests/client/dancerAppTheme.test.ts: one importer); the values are
-// the same object that sheet is pinned to, so the two cannot drift.
-const THEME_VARS = { ...DANCER_TOKENS, background: 'var(--da-bg)', color: 'var(--da-text)' } as CSSProperties;
-
-/** The portrait is the page width (max-w-xl = 576 css px). */
-const PORTRAIT_CSS_PX = 576;
-
-const ICONS: Record<ContactLink['kind'], typeof Instagram> = {
-  whatsapp: MessageCircle,
-  instagram: Instagram,
-  facebook: Facebook,
-  website: Globe,
-  email: Mail,
-};
-
-const Section = ({ title, children, testId }: { title: string; children: ReactNode; testId: string }) => (
-  <section className="rounded-[14px] p-3 space-y-2" style={{ background: 'var(--da-surface)' }} data-testid={testId} aria-label={title}>
-    <h2 className="text-[13px] font-bold uppercase tracking-wider" style={{ color: 'var(--da-text-muted)' }}>{title}</h2>
-    {children}
-  </section>
+const SectionTitle = ({ children }: { children: ReactNode }) => (
+  <h2 className="mt-6 mb-2 text-[13px] font-extrabold uppercase tracking-[1.5px]" style={{ color: TEAL.accent }}>{children}</h2>
 );
 
-const Chips = ({ items }: { items: string[] }) => (
-  <ul className="flex flex-wrap gap-2">
-    {items.map((x, i) => (
-      <li key={`${x}-${i}`} className="rounded-full px-3 py-1 text-[14px] break-words" style={{ background: 'var(--da-surface-2)' }}>{x}</li>
-    ))}
-  </ul>
+const Fact = ({ label, value }: { label: string; value: string }) => (
+  <div className="min-w-0 px-1 py-3 text-center">
+    <div className="text-[11px] tracking-[2px] uppercase" style={{ color: '#BFE9EE' }}>{label}</div>
+    <div className="mt-1 text-[15px] font-extrabold leading-tight break-words">{value}</div>
+  </div>
 );
 
 const ShareButton = ({ title, pathname }: { title: string; pathname: string }) => {
@@ -78,17 +72,17 @@ const ShareButton = ({ title, pathname }: { title: string; pathname: string }) =
   };
   const message = outcome ? SHARE_MESSAGES[outcome] : null;
   return (
-    <div className="flex-1 min-w-[140px]">
+    <div>
       <button
         type="button"
         onClick={() => void onShare()}
-        className="w-full inline-flex items-center justify-center gap-2 rounded-[14px] px-3 text-[15px] font-semibold"
-        style={{ ...TAP, background: 'var(--da-accent)', color: 'var(--da-on-accent)' }}
+        className="inline-flex items-center gap-2 px-2 text-[15px] font-bold"
+        style={{ ...TAP, color: TEAL.text }}
         data-testid="dancer-share"
       >
         <Share2 className="w-4 h-4" aria-hidden /> Share
       </button>
-      <p role="status" aria-live="polite" className="mt-1 text-[13px]" style={{ color: 'var(--da-text-muted)' }} data-testid="dancer-share-status">
+      <p role="status" aria-live="polite" className="text-[13px] text-right" style={{ color: TEAL.muted }} data-testid="dancer-share-status">
         {message}
       </p>
       {outcome === 'manual' && (
@@ -97,8 +91,8 @@ const ShareButton = ({ title, pathname }: { title: string; pathname: string }) =
           value={url}
           aria-label="Link to this page"
           onFocus={(e) => e.currentTarget.select()}
-          className="mt-1 w-full rounded-[10px] px-2 text-[14px]"
-          style={{ ...TAP, background: 'var(--da-surface-2)', color: 'var(--da-text)' }}
+          className="w-full rounded-[10px] px-2 text-[14px]"
+          style={{ ...TAP, background: TEAL.card, color: TEAL.text }}
           data-testid="dancer-share-link"
         />
       )}
@@ -106,160 +100,153 @@ const ShareButton = ({ title, pathname }: { title: string; pathname: string }) =
   );
 };
 
-export function PublicDancerPageV2({ model, extrasOk = true, profileId, pathname, ownerPlans }: PublicDancerPageV2Props) {
+const copyLabelFor = (kind: ContactLink['kind']) =>
+  ({ instagram: 'Instagram handle', facebook: 'Facebook link', website: 'website link', email: 'email address', whatsapp: 'WhatsApp number' })[kind];
+
+/** C8 Copy: thin divider, icon + "Copy", no box; "Copied" in green for ~2s. Copies the FULL text. */
+const CopyButton = ({ kind, text }: { kind: ContactLink['kind']; text: string }) => {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      return;
+    }
+    setCopied(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button
+      type="button"
+      onClick={() => void onCopy()}
+      aria-label={`Copy ${copyLabelFor(kind)}`}
+      className="inline-flex items-center justify-center gap-1.5 px-4 h-[50px] text-[13px] font-extrabold shrink-0"
+      style={{ borderLeft: `1px solid ${TEAL.border}`, color: copied ? '#4ADE80' : TEAL.accent, background: 'transparent' }}
+      data-testid="dancer-copy"
+    >
+      <Copy className="w-[18px] h-[18px]" aria-hidden />{copied ? 'Copied' : 'Copy'}
+    </button>
+  );
+};
+
+export function PublicDancerPageV2({ model, extrasOk = true, pathname, ownerPlans }: PublicDancerPageV2Props) {
   const { user, authStatus } = useAuth();
-  // Signed-out only, and only once auth has settled: the server (and the first
-  // client paint) never knows who is looking, so Join appears after hydration
-  // for a visitor and never flashes for a signed-in dancer.
+  // Signed-out only, and only once auth has settled (no flash for a signed-in dancer).
   const showJoin = authStatus !== 'resolving' && (!user || user.is_anonymous === true);
-  const otherContacts = model.contacts.filter((c) => c.kind !== 'whatsapp');
+  const { facts } = model;
+  const factItems = [
+    facts.dancing && { label: 'Dancing', value: facts.dancing },
+    facts.level && { label: 'Level', value: facts.level },
+    facts.style && { label: 'Style', value: facts.style },
+  ].filter((x): x is { label: string; value: string } => Boolean(x));
+  const roleCity = [model.role, model.city].filter(Boolean).join(' \u00b7 ');
+  const going = model.goingNext;
 
   return (
-    <div data-profile="dancer" data-testid="dancer-page-v2" className="relative z-10 rounded-[14px] overflow-hidden" style={{ ...THEME_VARS, isolation: 'isolate' }}>
-      {/* The photo fills the header; the name block is IN FLOW at the bottom, so a long
-          name at 200% text grows the header instead of being clipped off its top. */}
-      <header className="relative w-full flex flex-col justify-end overflow-hidden min-h-[min(125vw,62vh)]" data-testid="dancer-portrait">
-        {model.avatarUrl ? (
-          <img src={optimizedImageUrl(model.avatarUrl, srcWidthFor(PORTRAIT_CSS_PX))} alt={model.name} className="absolute inset-0 w-full h-full object-cover" loading="eager" />
-        ) : (
-          // No photo: the site's ONE avatar (its no-photo face), centred on the dancer gradient.
-          <div
-            className="absolute inset-0 flex items-center justify-center pb-24"
-            style={{ background: 'linear-gradient(160deg, var(--da-gradient-from), var(--da-gradient-to))' }}
-            data-testid="dancer-portrait-placeholder"
-          >
-            <PersonAvatar photoUrl={null} name={model.name} size={128} />
+    <div data-profile="dancer" data-testid="dancer-page-v2" className="relative z-10 rounded-[14px] overflow-hidden px-4 pb-6 pt-3" style={{ background: TEAL.page, color: TEAL.text, isolation: 'isolate' }}>
+      <div className="flex items-center justify-between" style={TAP}>
+        <Link to="/dancers" className="inline-flex items-center gap-2 text-[15px] font-bold" style={{ ...TAP, color: TEAL.text }} data-testid="dancer-back">
+          <ArrowLeft className="w-4 h-4" aria-hidden /> Back
+        </Link>
+        <ShareButton title={model.shareTitle} pathname={pathname} />
+      </div>
+
+      <header className="mt-2 rounded-[24px] px-4 pt-[22px] pb-2 text-center" style={{ background: TEAL.hero, border: '1px solid #2A7C90', boxShadow: '0 10px 30px rgba(0,0,0,.4)' }} data-testid="dancer-portrait">
+        <div className="text-[11px] tracking-[2px]" style={{ color: '#CFF3F6' }}>DANCER</div>
+        <div className="relative mx-auto mt-3.5" style={{ width: PORTRAIT_PX, height: PORTRAIT_PX }}>
+          <div className="w-full h-full rounded-full box-border flex items-center justify-center overflow-hidden" style={{ border: `4px solid ${TEAL.accent}`, background: '#06303B' }} data-testid={model.avatarUrl ? undefined : 'dancer-portrait-placeholder'}>
+            <PersonAvatar photoUrl={model.avatarUrl ? optimizedImageUrl(model.avatarUrl, srcWidthFor(PORTRAIT_PX * 2)) : null} name={model.name} size={PORTRAIT_PX - 8} loading="eager" alt={model.name} />
+          </div>
+          <NationalityFlag code={model.nationalityCode} size={FLAG_BASIS_PX} placement="corner" />
+        </div>
+        <h1 className="mt-3 text-[26px] font-extrabold leading-tight break-words line-clamp-3" data-testid="dancer-name">{model.name}</h1>
+        {roleCity && <p className="mt-0.5 text-[14px]" style={{ color: '#DDF6F8' }} data-testid="dancer-role-line">{roleCity}</p>}
+        {factItems.length > 0 && (
+          <div className="mt-4 grid" style={{ gridTemplateColumns: `repeat(${factItems.length}, minmax(0, 1fr))`, borderTop: '1px solid rgba(255,255,255,.28)' }} data-testid="dancer-facts">
+            {factItems.map((f) => <Fact key={f.label} label={f.label} value={f.value} />)}
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" aria-hidden />
-        <NationalityFlag code={model.nationalityCode} size={TILE_FLAG_SIZE} placement="inset" inset={8} />
-        <div className="relative p-3 pt-16 space-y-1">
-          <h1 className="text-[28px] leading-tight font-black text-white break-words" data-testid="dancer-name">{model.name}</h1>
-          {model.place && (
-            <p className="flex items-center gap-1 text-[15px] text-white/85"><MapPin className="w-4 h-4 shrink-0" aria-hidden />{model.place}</p>
-          )}
-          {(model.role || model.experience) && (
-            <p className="text-[15px] text-white/85" data-testid="dancer-role-line">
-              {[model.role, model.experience ? `${model.experience.years} ${model.experience.years === 1 ? 'year' : 'years'} dancing` : null].filter(Boolean).join(' \u00b7 ')}
-            </p>
-          )}
-        </div>
+        {model.languages.length > 0 && (
+          <div className="px-1 py-3" style={{ borderTop: '1px solid rgba(255,255,255,.28)', marginTop: factItems.length ? 0 : 16 }} data-testid="dancer-languages">
+            <div className="text-[11px] tracking-[2px]" style={{ color: '#BFE9EE' }}>SPEAKS</div>
+            <div className="mt-1 text-[15px] font-extrabold break-words">{model.languages.join(', ')}</div>
+          </div>
+        )}
       </header>
 
-      <div className="p-3 space-y-3">
-        <div className="flex flex-wrap gap-2">
-          <ShareButton title={model.shareTitle} pathname={pathname} />
-          {model.whatsappHref && (
-            <a
-              href={model.whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 min-w-[140px] inline-flex items-center justify-center gap-2 rounded-[14px] px-3 text-[15px] font-semibold"
-              style={{ ...TAP, background: 'var(--da-surface-2)', color: 'var(--da-text)' }}
-              data-testid="dancer-whatsapp"
-            >
-              <MessageCircle className="w-4 h-4" aria-hidden /> Message on WhatsApp
-            </a>
-          )}
-        </div>
-
-        {showJoin && (
-          <div className="rounded-[14px] p-3 space-y-2" style={{ background: 'var(--da-surface)' }} data-testid="dancer-join">
-            <p className="text-[15px]">Dance bachata too? Make your own page and save the nights you go to.</p>
-            <Link
-              to={joinHref(pathname)}
-              className="inline-flex items-center justify-center rounded-[14px] px-4 text-[15px] font-semibold"
-              style={{ ...TAP, background: 'linear-gradient(90deg, var(--da-gradient-from), var(--da-gradient-to))', color: 'var(--da-on-gradient)' }}
-            >
-              Join Bachata Calendar
-            </Link>
+      {model.stamp && (
+        <div className="mt-4 flex justify-center" data-testid="dancer-practice">
+          <div className="text-center rounded-[10px] px-4 py-2" style={{ transform: 'rotate(-2deg)', border: `2px solid ${TEAL.gold}` }}>
+            <div className="text-[14px] font-black uppercase tracking-[1px] leading-tight" style={{ color: TEAL.gold }}>Practice partner wanted</div>
+            {model.stamp.goal && <div className="mt-0.5 text-[12px]">Goal: {model.stamp.goal}</div>}
           </div>
-        )}
-
-        {model.bio && (
-          <Section title="About" testId="dancer-bio">
-            <p className="text-[15px] whitespace-pre-line break-words">{model.bio}</p>
-          </Section>
-        )}
-
-        {model.languages.length > 0 && (
-          <Section title="Speaks" testId="dancer-languages"><Chips items={model.languages} /></Section>
-        )}
-
-        {model.experience && (
-          <Section title="Experience" testId="dancer-experience">
-            <p className="text-[15px]"><span className="text-[22px] font-black" style={{ color: 'var(--da-accent)' }}>{model.experience.years}</span> {model.experience.years === 1 ? 'year' : 'years'} &middot; {model.experience.level}</p>
-          </Section>
-        )}
-
-        {model.practice && (
-          <Section title="Practice buddy" testId="dancer-practice">
-            <p className="text-[15px] font-semibold">{model.practice.status}</p>
-            {model.practice.lookingFor && <p className="text-[14px]">Looking for: {model.practice.lookingFor}</p>}
-            {model.practice.levels.length > 0 && (<><p className="text-[13px]" style={{ color: 'var(--da-text-muted)' }}>Happy to practise with</p><Chips items={model.practice.levels} /></>)}
-            {model.practice.goals.length > 0 && (<><p className="text-[13px]" style={{ color: 'var(--da-text-muted)' }}>Goals</p><Chips items={model.practice.goals} /></>)}
-            {model.practice.details && <p className="text-[14px] italic break-words">{model.practice.details}</p>}
-          </Section>
-        )}
-
-        {model.styles.length > 0 && <Section title="Styles" testId="dancer-styles"><Chips items={model.styles} /></Section>}
-
-        {model.songs.length > 0 && (
-          <Section title="My sound" testId="dancer-songs">
-            <ul className="space-y-1">{model.songs.map((s, i) => <li key={i} className="text-[14px] break-words">{s}</li>)}</ul>
-          </Section>
-        )}
-
-        {model.highlights.length > 0 && (
-          <Section title="Highlights" testId="dancer-highlights">
-            <ul className="space-y-1 list-disc pl-5">{model.highlights.map((a, i) => <li key={i} className="text-[14px] break-words">{a}</li>)}</ul>
-          </Section>
-        )}
-
-        {(otherContacts.length > 0 || (!model.whatsappHref && extrasOk)) && (
-        <Section title="Connect" testId="dancer-connect">
-          {otherContacts.length > 0 ? (
-            <ul className="grid grid-cols-1 gap-2">
-              {otherContacts.map((c) => {
-                const Icon = ICONS[c.kind];
-                return (
-                  <li key={c.kind}>
-                    <a
-                      href={c.href}
-                      {...(c.kind === 'email' ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
-                      className="flex items-center gap-2 rounded-[10px] px-3 text-[15px] break-all"
-                      style={{ ...TAP, background: 'var(--da-surface-2)' }}
-                    >
-                      <Icon className="w-4 h-4 shrink-0" aria-hidden /> {c.label}
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="text-[14px]" style={{ color: 'var(--da-text-muted)' }}>No public contacts yet. Use Share to send this page to a friend.</p>
-          )}
-        </Section>
-        )}
-
-        <div className="rounded-[14px] p-3" style={{ background: 'var(--da-surface)' }}>
-          <ProfileEventTimeline personType="dancer" personId={profileId} title="Event appearances" emptyText="No event appearances yet." />
         </div>
+      )}
 
-        {model.gallery.length > 0 && (
-          <Section title="Gallery" testId="dancer-gallery">
-            <div className="grid grid-cols-3 gap-2">
-              {model.gallery.map((url, i) => (
-                <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                  <img src={url} alt={`${model.name} photo ${i + 1}`} className="w-full aspect-square object-cover rounded-[10px]" loading="lazy" />
+      {going && (
+        <section aria-label="Going next" data-testid="dancer-going">
+          <SectionTitle>Going next</SectionTitle>
+          <div className="flex gap-2.5">
+            {going.shown.map((e) => (
+              <div key={e.id} className="flex-1 min-w-0 rounded-2xl p-3.5" style={{ background: TEAL.card, border: `1px solid ${TEAL.border}` }}>
+                <div className="text-[12px] font-extrabold uppercase tracking-[.5px]" style={{ color: TEAL.amber }}>{e.date}</div>
+                <div className="mt-1 text-[15px] font-bold leading-tight break-words">{e.name}</div>
+                {e.venue && <div className="mt-1 text-[12px] break-words" style={{ color: TEAL.muted }}>{e.venue}</div>}
+              </div>
+            ))}
+          </div>
+          {going.seeAll && (
+            <Link to={pathname} className="mt-2 inline-flex items-center text-[14px] font-bold underline" style={{ ...TAP, color: TEAL.accent }}>See all {going.total} events</Link>
+          )}
+        </section>
+      )}
+
+      {model.contacts.length > 0 && (
+        <section aria-label="Contact" data-testid="dancer-connect">
+          <SectionTitle>Contact</SectionTitle>
+          <ul className="flex flex-col gap-2">
+            {model.contacts.map((c) => (
+              <li key={c.kind} className="flex items-center rounded-xl" style={{ background: TEAL.card, border: `1px solid ${TEAL.border}` }}>
+                <a
+                  href={c.href}
+                  {...(c.kind === 'email' ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
+                  className="flex-1 min-w-0 min-h-[50px] flex items-center gap-2 pl-3.5 text-[15px] font-bold underline underline-offset-4 decoration-[1.5px]"
+                  style={{ color: TEAL.accent }}
+                  data-testid={c.kind === 'whatsapp' ? 'dancer-whatsapp' : undefined}
+                >
+                  <span className="truncate">{c.label}</span>
+                  <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden />
                 </a>
-              ))}
-            </div>
-          </Section>
-        )}
+                <CopyButton kind={c.kind} text={c.copyText} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {model.contacts.length === 0 && extrasOk && (
+        <p className="mt-6 text-[14px]" style={{ color: TEAL.muted }} data-testid="dancer-connect-empty">No public contacts yet. Use Share to send this page to a friend.</p>
+      )}
 
-        {ownerPlans}
-      </div>
+      {model.highlights.length > 0 && (
+        <section aria-label="Achievements" data-testid="dancer-highlights">
+          <SectionTitle>Achievements</SectionTitle>
+          <ul className="rounded-[14px] p-3.5 space-y-1" style={{ background: TEAL.card, border: `1px solid ${TEAL.border}` }}>
+            {model.highlights.map((a, i) => <li key={i} className="text-[14px] leading-normal break-words">{a}</li>)}
+          </ul>
+        </section>
+      )}
+
+      {ownerPlans && <div className="mt-6">{ownerPlans}</div>}
+
+      {showJoin && (
+        <p className="pt-6 text-center text-[13px]" style={{ color: TEAL.muted }} data-testid="dancer-join">
+          Dance bachata too?{' '}
+          <Link to={joinHref(pathname)} className="font-extrabold underline" style={{ color: TEAL.accent }}>Get your own card</Link>
+        </p>
+      )}
     </div>
   );
 }
