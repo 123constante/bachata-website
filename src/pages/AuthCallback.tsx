@@ -109,7 +109,12 @@ const AuthCallback = () => {
         // An e-mailed-link sign-up saw the clickwrap but never passed the typed-code screen, so record the
         // consent here (idempotent server-side, so a typed-code sign-up that already did is harmless).
         // Not awaited: it never holds the person back; acceptTerms has its own timeout and never throws.
-        if (callbackMode === "signup") void acceptTerms();
+        let alreadyRecorded = false;
+        try {
+          alreadyRecorded = sessionStorage.getItem("terms_recorded_this_signup") === "1";
+          sessionStorage.removeItem("terms_recorded_this_signup");
+        } catch { /* unreadable: record again, harmless */ }
+        if (callbackMode === "signup" && !alreadyRecorded) void acceptTerms();
         const meta = user.user_metadata || {};
         // Called for its side effect (it persists a metadata role); routing reads the role itself.
         resolveRolePreference(pendingRole, meta.user_type);

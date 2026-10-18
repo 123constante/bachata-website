@@ -73,6 +73,10 @@ test('sign-up code box: consent line, recorded once on success', async ({ page }
   expect(log.filter((l) => l === 'accept_terms_v1')).toHaveLength(0);
   await page.locator('input[autocomplete="one-time-code"]').pressSequentially(CODE);
   await expect.poll(() => log.filter((l) => l === 'accept_terms_v1').length).toBe(1);
+  // Settled, not just sampled: the hand-over to /auth/callback must not record a second time.
+  await expect(page).toHaveURL(/\/(?!auth)/);
+  await page.waitForTimeout(2500);
+  expect(log.filter((l) => l === 'accept_terms_v1')).toHaveLength(1);
   expect(log.some((l) => l.startsWith('funnel:') && l.includes('code_ok'))).toBe(true);
 });
 
