@@ -24,3 +24,8 @@ Existing specs that assume Going is visible now mock the flag to `true` (one lin
 ## Verified / Not verified
 Verified: `vitest run src` 254 files / 6496 tests pass; `tests/client` + `tests/regression` 35 files / 1158 pass; build; check:legacy-tables, check:legacy-program-rpcs, lint:architecture, check:rpc-typing, check:wallclock-brand, check:mojibake all exit 0.
 Not verified: browser walk at 390x844, prod-shape survey (read-only SELECT not run), Actions on GitHub, remaining `tests/*.contract.test.ts` and `integrityCouldNotRun` (fail identically on unmodified main here: need network/tooling), `tsc` errors in BentoPage/FestivalHub/Venues are pre-existing (same lines untouched).
+
+## Isolation fix (dancer-area-isolation, run 39104714650)
+Before (`npm run check:dancer-area-isolation`, base origin/main 0a9d2d4): 4 violations, all rule (a): `src/lib/__tests__/goingHidden.test.tsx`, `src/lib/goingCheckin.ts`, `src/pages/MyAttendance.tsx`, `src/pages/__tests__/MyAttendance.test.tsx`.
+Fix (owner/orchestrator decision): both specs `git mv`'d to `tests/client/goingHidden.test.tsx` and `tests/client/myAttendance.test.tsx` (imports fixed); `src/lib/goingCheckin.ts` and `src/pages/MyAttendance.tsx` added to `seams` + `seamNotes` in `scripts/dancer-area-isolation-allowlist.json`. The check script is untouched. `briefs/dancer-rebuild-INTERFACE.md` lives on another branch and is untouched: the orchestrator mirrors the two seams there.
+Deviation: `src/pages/__tests__/MyAttendance.test.tsx` already exists on main, so moving it counts as a change to that path; it is a third seam (with note) in the allow-list. The orchestrator mirrors all three seams into the INTERFACE doc.

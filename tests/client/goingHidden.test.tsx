@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
-import { installJsdomPolyfills } from '../../../tests/client/jsdomPolyfills';
+import { installJsdomPolyfills } from './jsdomPolyfills';
 
 const h = vi.hoisted(() => ({ on: false, rpc: vi.fn() }));
 vi.mock('@/lib/goingCheckin', () => ({
