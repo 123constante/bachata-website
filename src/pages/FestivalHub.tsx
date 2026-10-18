@@ -15,6 +15,7 @@ import { FESTIVALS_LIST_QUERY_KEY, fetchPublicFestivalsList } from "@/lib/festiv
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AuthPromptModal } from "@/components/AuthPromptModal";
+import { GOING_CHECKIN_ENABLED } from "@/lib/goingCheckin";
 import { setAttendanceRpc, type AttendanceStatus } from "@/hooks/useAttendance";
 import { GOING_LOCK_LINK_LABEL, goingTapLocked, useGoingLock } from "@/modules/dancer-app/gate/useGoingLock";
 
@@ -335,7 +336,7 @@ const FestivalHubInner = () => {
       {/* Festival Cards Grid */}
       <section id="festivals" className="px-4 mb-24 relative z-10">
         {/* The Going lock is the same for every card: say it once, above the list. */}
-        {goingLock.locked && (
+        {GOING_CHECKIN_ENABLED && goingLock.locked && (
           <p className="mb-3 text-[12px] text-muted-foreground" data-testid="festival-going-lock">
             {`${goingLock.reason}. `}
             <Link to={goingLock.href} className="py-[14px] font-semibold text-primary underline">
@@ -401,6 +402,8 @@ const FestivalHubInner = () => {
                       </span>
                     </div>
 
+                    {GOING_CHECKIN_ENABLED && (
+                    <>
                     {/* Attendance Stats */}
                     <div className="flex items-center gap-4 mb-3">
                       <div className="flex items-center gap-1.5">
@@ -503,6 +506,8 @@ const FestivalHubInner = () => {
                       </AnimatePresence>
                     </div>
 
+                    </>
+                    )}
                     {/* Crew Finder Stats */}
                     <div className="flex items-center gap-2 mb-3">
                       <div className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded-full">
@@ -519,6 +524,8 @@ const FestivalHubInner = () => {
                       </div>
                     </div>
 
+                    {GOING_CHECKIN_ENABLED && (
+                    <>
                     {/* Action Buttons. A disabled Button has pointer-events: none, so a tap on a
                         locked or pending one lands here: stop it opening the festival card. */}
                     <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
@@ -556,6 +563,8 @@ const FestivalHubInner = () => {
                       </motion.div>
                     </div>
 
+                    </>
+                    )}
                     {/* View Details Arrow */}
                     <div className="flex items-center justify-center mt-3 text-primary">
                       <span className="text-[10px]">View details & find crew</span>

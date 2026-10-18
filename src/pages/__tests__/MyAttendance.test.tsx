@@ -13,6 +13,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
 const h = vi.hoisted(() => ({ rows: [] as unknown[] }));
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: { rpc: async () => ({ data: h.rows, error: null }) },
 }));

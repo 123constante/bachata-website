@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
 vi.mock('@/hooks/useAuth', async (importOriginal) =>
   (await import('@/modules/dancer-app/shell/testAuth')).authModuleMock(importOriginal));
 
