@@ -34,9 +34,9 @@ import {
 } from '@/modules/organiser/shared/programmeModel';
 import { PEOPLE_SEARCH_MIN, type CancellationReason } from '@/modules/organiser/shared/selfServeApi';
 import { shownCancelReason } from '@/modules/organiser/shared/cancelLabel';
-import { TAKE_OFF } from '@/modules/organiser/shared/copy';
+import { PUT_IT_BACK, TAKE_OFF } from '@/modules/organiser/shared/copy';
 import { pickerQueryKey, searchPickerRows } from './peoplePicker';
-import { PUT_BACK_WHERE, confirmCopy } from '@/modules/organiser/shared/editorGuards';
+import { confirmCopy } from '@/modules/organiser/shared/editorGuards';
 import type { VenueOption } from '@/modules/organiser/shared/publicVenues';
 import { ROLE_NOUN, addRoleFor, onSessionIds, pickPerson, sessionName, setSessionType, typeLabel, typeTone } from './dateModel';
 
@@ -122,13 +122,15 @@ export function DateSheet(props: DateSheetProps) {
         {props.commandError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="date-command-error">{props.commandError}</p>}
       </div>
     );
-    footer = <PrimaryButton onClick={props.onUncancelDate} loading={props.commandBusy} testId="date-uncancel-confirm">Put it back on</PrimaryButton>;
+    footer = <PrimaryButton onClick={props.onUncancelDate} loading={props.commandBusy} testId="date-uncancel-confirm">{PUT_IT_BACK}</PrimaryButton>;
   } else if (state?.view === 'break') {
     title = TAKE_OFF.label;
     body = (
       <div className="space-y-[12px] text-[15px] text-[var(--fg)]" data-testid="date-break-view">
-        <p>{props.dateLabel} comes off the calendar for a break. Dancers do not see a cancellation, the date just is not listed.</p>
-        <p className="text-[13px] text-[var(--mut)]" data-testid="date-break-undo">{PUT_BACK_WHERE}</p>
+        {/* F-PAR S6: the ONE Take-this-date-off body (Change's Take off shows it too), then its undo line. */}
+        <p className="font-semibold">{props.dateLabel}</p>
+        <p>{TAKE_OFF.body}</p>
+        <p className="text-[13px] text-[var(--mut)]" data-testid="date-break-undo">{TAKE_OFF.undo}</p>
         {props.commandError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="date-command-error">{props.commandError}</p>}
       </div>
     );

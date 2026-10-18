@@ -11,12 +11,16 @@ import type { EventWorkspace } from './eventModel';
 
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left text-[15px]';
 
-/** A row that cannot work: it stays, off, with its reason under it. */
+/**
+ * A row that cannot work: it stays, off, with its reason under it. It can still
+ * be reached with Tab (PAR-B N9), and a screen reader reads the reason with it.
+ */
 function Off({ label, reason, testId, tone = 'text-[var(--mut)]' }: { label: string; reason: string; testId: string; tone?: string }) {
+  const reasonId = `${testId}-reason`;
   return (
     <div>
-      <a role="link" aria-disabled="true" data-testid={testId} className={cn(ROW, 'cursor-not-allowed', tone)}>{label}</a>
-      <p className="px-[16px] pb-[10px] text-[13px] text-[var(--mut)]" data-testid={`${testId}-reason`}>{reason}</p>
+      <a role="link" aria-disabled="true" tabIndex={0} aria-describedby={reasonId} data-testid={testId} className={cn(ROW, 'cursor-not-allowed', tone)}>{label}</a>
+      <p id={reasonId} className="px-[16px] pb-[10px] text-[13px] text-[var(--mut)]" data-testid={reasonId}>{reason}</p>
     </div>
   );
 }
@@ -48,6 +52,12 @@ export function LifecycleActions({ ws, today }: { ws: EventWorkspace; today: str
           <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
         </Link>
       )}
+      {rows.goLive?.reason && rows.goLive.toAddDate && (
+        <Link to={ORG_PATHS.addEvent(ws.series.id)} data-testid="org-life-add-date" className={cn(ROW, 'font-semibold text-[var(--gold)]')}>
+          <span className="min-w-0 flex-1">Add a date</span>
+          <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
+        </Link>
+      )}
       {rows.seeLive && (rows.seeLive.href ? (
         <a href={rows.seeLive.href} target="_blank" rel="noopener noreferrer" data-testid="org-life-seelive" className={cn(ROW, 'text-[var(--fg)]')}>
           <span className="min-w-0 flex-1">See it live</span>
@@ -63,7 +73,7 @@ export function LifecycleActions({ ws, today }: { ws: EventWorkspace; today: str
         <div className="flex flex-col gap-2 p-3" data-testid="org-life-discard-ask">
           <p className="text-[15px] font-semibold text-[var(--fg)]">Discard this draft?</p>
           <p className="text-[14px] text-[var(--mut)]">It leaves your events. Dancers never saw it.</p>
-          <PrimaryButton testId="org-life-discard-confirm" loading={busy} loadingLabel="Discarding"
+          <PrimaryButton testId="org-life-discard-confirm" loading={busy} loadingLabel="Discarding" className="bg-[var(--danger)] text-[var(--btnfg)]"
             onClick={() => void sendThenDone(ws.series.version, lifecycleCommand('archived'), { title: 'Discarded', message: `Draft discarded - ${name}` })}>
             Discard draft
           </PrimaryButton>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { TAKEN_OFF_LABEL } from '@/modules/organiser/shared/editorGuards';
+import { PUT_IT_BACK } from '@/modules/organiser/shared/copy';
 import { eventWorkspaceQueryKey } from '@/modules/organiser/shared/runCommands';
 import type { WorkspaceDate, WorkspaceSeries } from '@/modules/organiser/shared/seriesModel';
 import { useFlowSend } from '@/modules/organiser/flows/add/useFlow';
@@ -60,10 +61,10 @@ function TakenOff({ series, dates, today, lock, dirty, canChooseEnd }: TakenOffP
                 <DateChip date={row.date} />
                 <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{label}</span>
                 <button type="button" disabled={!!view.blocked || flow.busy} onClick={() => void putBack(row)}
-                  aria-label={view.blocked ? `Put back ${label} (${view.blocked})` : `Put back ${label}`}
+                  aria-label={view.blocked ? `${PUT_IT_BACK}: ${label} (${view.blocked})` : `${PUT_IT_BACK}: ${label}`}
                   data-testid="org-taken-off-put-back"
                   className="h-[44px] shrink-0 rounded-[12px] px-[12px] text-[15px] font-semibold text-[var(--gold)] disabled:text-[var(--mut)]">
-                  {flow.busy && tried === row.date ? <>Putting back&hellip;</> : 'Put back'}
+                  {flow.busy && tried === row.date ? <>Putting back&hellip;</> : PUT_IT_BACK}
                 </button>
               </div>
               {flow.error && tried === row.date && (

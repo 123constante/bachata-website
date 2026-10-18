@@ -80,7 +80,7 @@ export const OWNER_PASS_KEYS = ['id', 'name', 'price', 'currency', 'description'
 export const MAX_PASSES = 10;
 export type Currency = 'GBP' | 'EUR' | 'USD';
 export const CURRENCIES: Currency[] = ['GBP', 'EUR', 'USD'];
-const SIGN: Record<Currency, string> = { GBP: '£', EUR: '€', USD: '$' };
+const SIGN: Record<Currency, string> = { GBP: '\u00a3', EUR: '\u20ac', USD: '$' };
 
 export interface PriceRow { id: string; name: string; price: string; currency: Currency; description?: string }
 

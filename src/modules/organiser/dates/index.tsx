@@ -193,7 +193,8 @@ export default function DatePage() {
       </Card>
 
       <section aria-labelledby="schedule-label" className="space-y-[8px]">
-        <h2 id="schedule-label" className="px-[4px] text-[13px] font-semibold uppercase tracking-[.04em] text-[var(--mut)]">Schedule</h2>
+        {/* PAR-B N1: one word with the rows and One event's "Sessions" link. */}
+        <h2 id="schedule-label" className="px-[4px] text-[13px] font-semibold uppercase tracking-[.04em] text-[var(--mut)]">Sessions</h2>
         {!editable && ed.base && !lock && (
           <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="date-readonly-note">{notEditableCopy(ed.base.notEditableReason)}</p>
         )}

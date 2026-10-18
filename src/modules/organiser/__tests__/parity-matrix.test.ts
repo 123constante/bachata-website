@@ -33,6 +33,38 @@ const SRC = resolve(__dirname, '../../..');
 const ROOT = resolve(__dirname, '..');
 const read = (file: string) => readFileSync(join(ROOT, file), 'utf8');
 
+/**
+ * PAR-A N1: the source with its comments taken out (// lines, /* blocks *\/, so
+ * JSX {/* *\/} too), strings and template literals kept as they are. A token that
+ * only sits in a comment is not an entry anyone can reach.
+ */
+function codeOnly(src: string): string {
+  let out = '';
+  let quote: string | null = null;
+  for (let i = 0; i < src.length; i += 1) {
+    const c = src[i];
+    if (quote) {
+      out += c;
+      if (c === '\\') { out += src[i + 1] ?? ''; i += 1; } else if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '/' && src[i + 1] === '/') {
+      while (i < src.length && src[i] !== '\n') i += 1;
+      out += '\n';
+      continue;
+    }
+    if (c === '/' && src[i + 1] === '*') {
+      const end = src.indexOf('*/', i + 2);
+      i = end < 0 ? src.length : end + 1;
+      out += ' ';
+      continue;
+    }
+    if (c === '\'' || c === '"' || c === '`') quote = c;
+    out += c;
+  }
+  return out;
+}
+
 // ---- the prod owner snapshot (admin M21:621-659, read 2026-10-17) -----------------------
 // A server change must land here by hand; the mirror test below then says which
 // client list drifted.
@@ -389,7 +421,8 @@ describe('organiser parity matrix', () => {
     if (row.from?.length) {
       it.each(row.from)('reachable from %s (%s)', (file, token) => {
         expect(REACHED.has(file), `${file} is in no routed module's import closure`).toBe(true);
-        expect(read(file)).toContain(token);
+        // A token only in a comment does not count (PAR-A N1).
+        expect(codeOnly(read(file))).toContain(token);
       });
     }
   });
@@ -438,5 +471,32 @@ describe('organiser parity matrix', () => {
     const count = (v: Verdict) => PARITY.filter((r) => r.verdict === v).length;
     expect({ match: count('MATCH'), partial: count('PARTIAL'), adminOnly: count('MISSING-ADMIN-ONLY'), dropped: count('DROPPED-BY-DECISION') })
       .toEqual({ match: 43, partial: 5, adminOnly: 11, dropped: 7 });
+  });
+});
+
+// PAR-A N1: a token that only sits in a comment does not make a screen reachable.
+describe('codeOnly: comments never count as a reachable entry', () => {
+  const TOKEN = 'ORG_PATHS.changePick';
+  it.each([
+    ['a // line comment', `const a = 1; // ${TOKEN}(id)\n`],
+    ['a /* block */ comment', `/* ${TOKEN} */ const a = 1;`],
+    ['a JSX {/* */} comment', `<div>{/* ${TOKEN} */}</div>`],
+    ['a multi-line block', `/**\n * goes to ${TOKEN}\n */\nexport const x = 1;`],
+  ])('%s: the token is not code', (_n, src) => {
+    expect(codeOnly(src)).not.toContain(TOKEN);
+  });
+  it.each([
+    ['a call', `onClick={() => navigate(${TOKEN}(seriesId))}`],
+    ['after a URL in a string', `const u = 'https://x.test/a'; go(${TOKEN});`],
+    ['after a template string', 'const u = `a//b ${c}`; go(' + TOKEN + ');'],
+  ])('%s: the token stays', (_n, src) => {
+    expect(codeOnly(src)).toContain(TOKEN);
+  });
+  it('the mutant (the Pick row left only as a comment) is caught; the raw read was fooled', () => {
+    const real = read('flows/change/WhichDate.tsx');
+    expect(codeOnly(real)).toContain(TOKEN);
+    const mutant = real.split(/\r?\n/).map((l) => (l.includes(TOKEN) ? `        {/* ${TOKEN} */}` : l)).join('\n');
+    expect(mutant).toContain(TOKEN);
+    expect(codeOnly(mutant)).not.toContain(TOKEN);
   });
 });

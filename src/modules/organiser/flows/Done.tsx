@@ -20,8 +20,10 @@ function SeeItLive({ seriesId }: { seriesId: string }) {
     </a>
   ) : (
     <div>
-      <a role="link" aria-disabled="true" data-testid="org-done-live" className="flex min-h-[48px] cursor-not-allowed items-center justify-center text-[15px] text-[var(--mut)]">See it live</a>
-      <p className="text-center text-[13px] text-[var(--mut)]" data-testid="org-done-live-reason">{see.reason}</p>
+      {/* Off, but reachable with Tab and read with its reason (PAR-B N9). */}
+      <a role="link" aria-disabled="true" tabIndex={0} aria-describedby="org-done-live-reason" data-testid="org-done-live"
+        className="flex min-h-[48px] cursor-not-allowed items-center justify-center text-[15px] text-[var(--mut)]">See it live</a>
+      <p id="org-done-live-reason" className="text-center text-[13px] text-[var(--mut)]" data-testid="org-done-live-reason">{see.reason}</p>
     </div>
   );
 }

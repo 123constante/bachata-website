@@ -6,11 +6,20 @@ import { OrganiserShell } from '@/modules/organiser/shell';
 import { VERSION_CONFLICT } from '@/modules/organiser/shared/copy';
 import { PrimaryButton } from '@/modules/organiser/ui';
 
-/** One step of the event screen: its title, Back to the event, the step body. */
-export function EventStepShell({ seriesId, title, back, children }: { seriesId: string; title: ReactNode; back?: string; children: ReactNode }) {
+/**
+ * One step of the event screen: its title, Back to the event, the step body.
+ * `name` (the event's) sits on its own line over the body, never clipped into
+ * the one-line title (PAR-B N6: "Stop repeating - Summer Wed..." lost the name).
+ */
+export function EventStepShell({ seriesId, title, name, back, children }: {
+  seriesId: string; title: ReactNode; name?: string; back?: string; children: ReactNode;
+}) {
   return (
     <OrganiserShell title={title} back={{ to: back ?? ORG_PATHS.event(seriesId), label: 'Back' }}>
-      <div className="flex flex-col gap-3 p-3" data-testid="event-step">{children}</div>
+      <div className="flex flex-col gap-3 p-3" data-testid="event-step">
+        {name && <p className="break-words text-[15px] font-semibold text-[var(--fg)]" data-testid="event-step-name">{name}</p>}
+        {children}
+      </div>
     </OrganiserShell>
   );
 }

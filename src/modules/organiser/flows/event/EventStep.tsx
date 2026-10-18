@@ -1,5 +1,8 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { weekdayOfKey } from '@/lib/londonDate';
+import { ORG_PATHS } from '@/modules/organiser/shell/paths';
+import { NO_COMING } from '@/modules/organiser/shared/copy';
 import { lifecycleCommand } from '@/modules/organiser/shared/seriesCommands';
 import { ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
 import { dayLabel } from '@/modules/organiser/shared/dateList';
@@ -8,7 +11,7 @@ import {
 } from '@/modules/organiser/events/eventModel';
 import { allowedEndChoices, firstOnWeekday } from '@/modules/organiser/events/dateCap';
 import { EndStep } from './EndStep';
-import { ACTION_LABEL, WEEKDAY, eventActions, type EventStepName } from './eventSteps';
+import { ACTION_LABEL, WEEKDAY, eventActions, stepRefusal, stopLine, weeksLabel, type EventStepName } from './eventSteps';
 import { ChoiceButton, EventConflict, EventStepShell, SendButton, StepError } from './parts';
 import { useEventSend } from './useEventSend';
 
@@ -56,19 +59,17 @@ function DayStep({ ws }: { ws: EventWorkspace }) {
  * C44 + C16: stop repeating, choosing the last date (the old editor's "until"):
  * ONE series.stop_repeating keeping the coming dates up to it. The default is
  * the last listed date, so every coming date stays (as before). The keep list
- * is what stops the server deleting them (_cmd_series_stop_repeating_p5).
+ * is what stops the server deleting them (_cmd_series_stop_repeating_p5); a
+ * later date with its own changes stays too, and the line says so (stopLine).
  */
 function StopStep({ ws, today }: { ws: EventWorkspace; today: string }) {
   const { sendThenDone, busy, conflict, error } = useEventSend(ws.series.id);
   const coming = wsComing(ws, today);
   const [last, setLast] = useState<string | null>(coming[coming.length - 1]?.id ?? null);
   if (conflict) return <EventConflict seriesId={ws.series.id} />;
-  const cut = coming.findIndex((d) => d.id === last);
-  const keep = cut < 0 ? coming : coming.slice(0, cut + 1);
-  const gone = coming.length - keep.length;
+  const { keep, line } = stopLine(coming, last);
   const n = keep.length;
   const dates = `${n} ${n === 1 ? 'date' : 'dates'}`;
-  const line = `${dates} ${n === 1 ? 'stays' : 'stay'}.${gone ? ` ${gone} after ${n === 1 ? 'it' : 'them'} ${gone === 1 ? 'comes' : 'come'} off.` : ''} No new dates after ${n === 1 ? 'it' : 'them'}.`;
   return (
     <>
       {coming.length > 1 && (
@@ -119,7 +120,7 @@ function WeeklyStep({ ws, today }: { ws: EventWorkspace; today: string }) {
           <div role="radiogroup" aria-label="Listed until" className="flex flex-col gap-2">
             {choices.map((c) => (
               <ChoiceButton key={c.until} selected={until === c.until} onPick={() => setUntil(c.until)} testId="event-weekly-until">
-                {`${c.count} weeks, until ${dayLabel(c.until)}`}
+                {`${weeksLabel(c.count)}, until ${dayLabel(c.until)}`}
               </ChoiceButton>
             ))}
           </div>
@@ -135,12 +136,20 @@ function WeeklyStep({ ws, today }: { ws: EventWorkspace; today: string }) {
 
 /**
  * The step a `?do=` URL names, on the event's own route. A step the event
- * cannot take (a stale link, a course's stop) shows the reason, never a button.
+ * cannot take (a stale link, a course's stop) shows the reason, never a button;
+ * when the reason is that nothing is coming, it offers Add a date (decision 5).
  */
 export function EventStep({ ws, today, step }: { ws: EventWorkspace; today: string; step: EventStepName }) {
-  const row = eventActions(ws.series, readIsFull(ws, today))[step];
-  const body = !row || row.reason ? (
-    <p className="text-[15px] text-[var(--mut)]" data-testid="event-step-refused">{row?.reason ?? 'This event cannot do that now.'}</p>
+  const row = eventActions(ws.series, readIsFull(ws, today), wsComing(ws, today).length)[step];
+  const refused = !row ? stepRefusal(ws.series, step) : row.reason;
+  const body = refused ? (
+    <>
+      <p className="text-[15px] text-[var(--mut)]" data-testid="event-step-refused">{refused}</p>
+      {refused === NO_COMING && (
+        <Link to={ORG_PATHS.addEvent(ws.series.id)} data-testid="event-step-add-date"
+          className="flex min-h-[52px] items-center text-[15px] font-semibold text-[var(--gold)]">Add a date</Link>
+      )}
+    </>
   ) : step === 'pause' ? <LifecycleStep ws={ws} to="paused" />
     : step === 'resume' ? <LifecycleStep ws={ws} to="live" />
       : step === 'end' ? <EndStep ws={ws} today={today} />
@@ -148,7 +157,7 @@ export function EventStep({ ws, today, step }: { ws: EventWorkspace; today: stri
           : step === 'weekly' ? <WeeklyStep ws={ws} today={today} />
             : <StopStep ws={ws} today={today} />;
   return (
-    <EventStepShell seriesId={ws.series.id} title={`${ACTION_LABEL[step]} - ${ws.series.name}`}>
+    <EventStepShell seriesId={ws.series.id} title={ACTION_LABEL[step]} name={ws.series.name}>
       {body}
     </EventStepShell>
   );

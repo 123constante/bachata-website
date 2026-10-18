@@ -3,6 +3,8 @@
 // back rides on its confirm route), so no new route is needed in the shell.
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { TEAM, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
+import { NO_COMING } from '@/modules/organiser/shared/copy';
+import { keepsOwnChanges, type WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 import type { DetailField } from '@/modules/organiser/events/eventModel';
 
 export type EventStepName = 'pause' | 'resume' | 'end' | 'day' | 'stop' | 'weekly';
@@ -41,11 +43,13 @@ const hasRule = (rule: unknown) => !!rule && typeof rule === 'object';
  * when live, Resume only when paused, End only when live or paused (a draft is
  * archived, never ended); ended and archived events show none. `fullRead`
  * (eventModel.readIsFull) turns Stop repeating off: its keep list needs every coming date.
+ * `comingCount` (wsComing(ws, today).length) of 0 turns it off too, with NO_COMING:
+ * with no coming date nothing repeats, and the way out is Add a date (F-PAR decision 5).
  * Make it weekly (C40) only for a `recurring` series with no rule that is not
  * closed: series.set_recurrence is an owner kind there, and with no old rule the
  * server prunes nothing (_reconcile_series_occurrences_after_rule_change_p5_v1).
  */
-export function eventActions(s: SeriesFacts, fullRead = false): Record<EventStepName, ActionRow> {
+export function eventActions(s: SeriesFacts, fullRead = false, comingCount?: number): Record<EventStepName, ActionRow> {
   const closed = s.lifecycle_status === 'ended' || s.lifecycle_status === 'archived';
   const running = s.lifecycle_status === 'live' || s.lifecycle_status === 'paused';
   const repeats = !closed && (s.format === 'recurring' || s.format === 'course') && hasRule(s.recurrence_rule);
@@ -54,10 +58,55 @@ export function eventActions(s: SeriesFacts, fullRead = false): Record<EventStep
     resume: s.lifecycle_status === 'paused' ? { reason: null } : null,
     end: running ? { reason: null } : null,
     day: !repeats ? null : s.format === 'course' ? { reason: COURSE_STOP_REASON } : ownerWeeklyRule(s) ? { reason: null } : { reason: PATTERN_REASON },
-    stop: !repeats ? null : s.format === 'course' ? { reason: COURSE_STOP_REASON } : fullRead ? { reason: FULL_READ_STOP_REASON } : { reason: null },
+    stop: !repeats ? null : s.format === 'course' ? { reason: COURSE_STOP_REASON } : fullRead ? { reason: FULL_READ_STOP_REASON }
+      : comingCount === 0 ? { reason: NO_COMING } : { reason: null },
     weekly: !closed && s.format === 'recurring' && !hasRule(s.recurrence_rule) ? { reason: null } : null,
   };
 }
+
+export const STEP_NOT_NOW = 'This event cannot do that now.';
+export const ALREADY_WEEKLY = 'It already repeats weekly.';
+export const NOT_REPEATING = 'It does not repeat.';
+
+/**
+ * PAR-B N5: why a `?do=` step the event does not show cannot be taken (a stale
+ * or hand-typed link). A closed event, or a step with no plainer reason, says
+ * STEP_NOT_NOW.
+ */
+export function stepRefusal(s: SeriesFacts, step: EventStepName): string {
+  const closed = s.lifecycle_status === 'ended' || s.lifecycle_status === 'archived';
+  if (closed) return STEP_NOT_NOW;
+  if (step === 'weekly' && hasRule(s.recurrence_rule)) return ALREADY_WEEKLY;
+  if ((step === 'stop' || step === 'day') && !hasRule(s.recurrence_rule)) return NOT_REPEATING;
+  return STEP_NOT_NOW;
+}
+
+/**
+ * C16 + PAR-A S2: what Stop repeating with `lastId` as the last date does. The
+ * coming dates up to it are kept (`keep`, sent as keep_occurrence_ids). Of those
+ * after it, the server deletes only the ones without their own changes: a date
+ * that keeps its own changes (seriesModel.keepsOwnChanges, the server's
+ * _occurrence_is_curated_v1) is left out of the deletion, so it stays.
+ */
+export function stopLine(coming: WorkspaceDate[], lastId: string | null): { keep: WorkspaceDate[]; line: string } {
+  const cut = coming.findIndex((d) => d.id === lastId);
+  const keep = cut < 0 ? coming : coming.slice(0, cut + 1);
+  const after = coming.slice(keep.length);
+  const stay = after.filter(keepsOwnChanges).length;
+  const gone = after.length - stay;
+  const n = keep.length;
+  const them = n === 1 ? 'it' : 'them';
+  const line = [
+    `${n} ${n === 1 ? 'date stays' : 'dates stay'}.`,
+    gone ? `${gone} after ${them} ${gone === 1 ? 'comes' : 'come'} off.` : null,
+    stay ? `${stay} with ${stay === 1 ? 'its own changes stays' : 'their own changes stay'}.` : null,
+    `No new dates after ${them}.`,
+  ].filter(Boolean).join(' ');
+  return { keep, line };
+}
+
+/** PAR-B N7: "1 week", "4 weeks". */
+export const weeksLabel = (count: number) => `${count} ${count === 1 ? 'week' : 'weeks'}`;
 
 export const ACTION_LABEL: Record<EventStepName, string> = {
   pause: 'Pause',

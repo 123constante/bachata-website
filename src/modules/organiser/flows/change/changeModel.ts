@@ -219,7 +219,7 @@ export function endBoxShown<T extends { key: string; start: string; end: string 
   const targets = serverEndTargets(sessions);
   return !!last && targets.length === 1 && targets[0].key === last.key;
 }
-export const END_GUARD = 'To change when the night ends, change one session’s time';
+export const END_GUARD = 'To change when the night ends, change one session\u2019s time';
 
 /**
  * Does this date run at its own time? Its start (the date's own, local-as-Z)

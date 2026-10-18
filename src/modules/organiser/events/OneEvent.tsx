@@ -16,7 +16,8 @@ import { ClosedLines } from './ClosedLines';
 import { DatesTakenOff } from './DatesTakenOff';
 import { DatesList } from './EditorRows';
 import { EventList } from './EventList';
-import { moreLabel, readIsFull, wsCancelledComing, type EventWorkspace } from './eventModel';
+import { moreLabel, readIsFull, wsCancelledComing, wsComing, type EventWorkspace } from './eventModel';
+import { NO_COMING } from '@/modules/organiser/shared/copy';
 import { useEventWorkspace } from './eventsApi';
 import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
@@ -64,12 +65,23 @@ function MonthDots({ ws, today }: { ws: EventWorkspace | undefined; today: strin
   );
 }
 
-/** A row of the event that cannot work: it stays, off, with its reason under it. */
-function OffRow({ label, reason, testId }: { label: string; reason: string; testId: string }) {
+/**
+ * A row of the event that cannot work: it stays, off, with its reason under it
+ * (reachable with Tab, read with its reason). When the reason is that nothing is
+ * coming, the way out is offered under it: Add a date (F-PAR decision 5).
+ */
+function OffRow({ label, reason, testId, addTo }: { label: string; reason: string; testId: string; addTo?: string }) {
+  const reasonId = `${testId}-reason`;
   return (
     <div>
-      <a role="link" aria-disabled="true" data-testid={testId} className={cn(ROW, 'cursor-not-allowed text-[var(--mut)]')}>{label}</a>
-      <p className="px-[16px] pb-[10px] text-[13px] text-[var(--mut)]" data-testid={`${testId}-reason`}>{reason}</p>
+      <a role="link" aria-disabled="true" tabIndex={0} aria-describedby={reasonId} data-testid={testId} className={cn(ROW, 'cursor-not-allowed text-[var(--mut)]')}>{label}</a>
+      <p id={reasonId} className="px-[16px] pb-[10px] text-[13px] text-[var(--mut)]" data-testid={reasonId}>{reason}</p>
+      {addTo && (
+        <Link to={addTo} data-testid={`${testId}-add-date`} className={cn(ROW, 'font-semibold text-[var(--gold)]')}>
+          <span className="min-w-0 flex-1">Add a date</span>
+          <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
+        </Link>
+      )}
     </div>
   );
 }
@@ -133,7 +145,7 @@ function Dates({ seriesId, home, ws, today }: { seriesId: string; home: HomeSeri
 }
 
 function Actions({ ws, today }: { ws: EventWorkspace; today: string }) {
-  const rows = eventActions(ws.series, readIsFull(ws, today));
+  const rows = eventActions(ws.series, readIsFull(ws, today), wsComing(ws, today).length);
   const shown = (Object.keys(rows) as EventStepName[]).filter((k) => rows[k]);
   if (!shown.length) return null;
   return (
@@ -141,7 +153,9 @@ function Actions({ ws, today }: { ws: EventWorkspace; today: string }) {
       {shown.map((step) => {
         const reason = rows[step]?.reason;
         const label = step === 'day' ? `${ACTION_LABEL.day}${dayNow(ws)}` : ACTION_LABEL[step];
-        return reason ? <OffRow key={step} label={label} reason={reason} testId={`org-event-${step}`} /> : (
+        return reason ? (
+          <OffRow key={step} label={label} reason={reason} testId={`org-event-${step}`} addTo={reason === NO_COMING ? ORG_PATHS.addEvent(ws.series.id) : undefined} />
+        ) : (
           <Link key={step} to={eventStepPath(ws.series.id, step)} data-testid={`org-event-${step}`} className={cn(ROW, step === 'end' ? 'text-[var(--danger)]' : 'text-[var(--fg)]')}>
             <span className="min-w-0 flex-1">{label}</span>
             <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />

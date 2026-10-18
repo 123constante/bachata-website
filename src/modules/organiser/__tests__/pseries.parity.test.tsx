@@ -90,8 +90,10 @@ describe('C28b / C30b / C38: the lifecycle card on One event', () => {
     expect(reason).toMatch(/a venue/);
     expect(reason).toMatch(/a cover picture/);
     // Walk fix: the venue and cover are on Details, so the card names it AND links there.
-    expect(reason).toMatch(/in Details\.$/);
+    // This draft has no date either: that is added with Add a date, never "in Details" (PAR-B S7).
+    expect(reason).toMatch(/a venue and a cover picture in Details, and add a date from today on with Add a date\.$/);
     expect(screen.getByTestId('org-life-details').getAttribute('href')).toBe(ORG_PATHS.eventDetails(DRAFT));
+    expect(screen.getByTestId('org-life-add-date').getAttribute('href')).toBe(ORG_PATHS.addEvent(DRAFT));
     fireEvent.click(go);
     await flush();
     expect(commandsOf(rpc)).toEqual([]);
