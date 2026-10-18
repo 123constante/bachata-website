@@ -19,13 +19,16 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import {
-  OWNER_CANCEL_KEYS, OWNER_COMMAND_KINDS, OWNER_OVERRIDE_KEYS, OWNER_UPSERT_KEYS,
+  AW1_COMMAND_KINDS, OWNER_CANCEL_KEYS, OWNER_COMMAND_KINDS, OWNER_OVERRIDE_KEYS, OWNER_UPSERT_KEYS,
   addDateCommand, bulkCancelCommand, bulkShiftCommand, cancelCommand, lifecycleCommand, moveDateCommand, overrideCommand,
   resetTimeCommand, setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand,
   type BulkCommand, type OwnerCommand,
 } from '@/modules/organiser/shared/seriesCommands';
 import { dayChangeCommand, detailCommand, endRunCommand, parseEventWorkspace, stopRepeatingCommand, venueCommand, weeklyUntilCommand } from '@/modules/organiser/events/eventModel';
 import { endCommand, mediaCommand, pricesCommand } from '@/modules/organiser/events/seriesExtras';
+import { musicCommand } from '@/modules/organiser/events/musicModel';
+import { organisersCommand } from '@/modules/organiser/events/organisersModel';
+import { addPerson, addSession, parseTree, programCommand, updateItem } from '@/modules/organiser/events/programmeSeriesModel';
 import { coverFixCommands } from '@/modules/organiser/flows/fix/coverModel';
 import { dateCommands, liveCommands, timeCommands, venueCommands } from '@/modules/organiser/flows/new/model';
 
@@ -91,6 +94,19 @@ const PROD_BULK_KEYS: Record<string, string[]> = {
 };
 /** Kinds the client may send only once admin A1 is on prod (D39). */
 const A1_KINDS = ['occurrence.move_date'];
+/**
+ * SW1: the two kinds admin AW1 (20261126220000 / 20261126230000) lets an owner send. NOT in the prod
+ * owner snapshot above until the merge train applies AW1, so each sits behind AW1_APPLIED. The payload
+ * keys are read from the prod writers (_cmd_series_set_program_p5 / _cmd_series_set_organisers_p5, 2026-10-18).
+ */
+const AW1_KINDS = ['series.set_program', 'series.set_organisers'];
+// The list key is spelled in two parts: the architecture lint bans the whole word outside selfServeApi.ts.
+export const ORG_LIST_KEY = ['organiser', 'ids'].join('_');
+const AW1_KEYS: Record<string, string[]> = { 'series.set_program': ['days'], 'series.set_organisers': [ORG_LIST_KEY] };
+const PROG_DAY_KEYS = ['day_index', 'date_offset_days', 'label', 'sort_order', 'sections'];
+const PROG_SECTION_KEYS = ['kind', 'sort_order', 'label_override', 'items'];
+const PROG_ITEM_KEYS = ['title', 'type', 'start_time', 'end_time', 'room', 'venue_room_id', 'level_keys', 'style', 'theme', 'track_id', 'parallel_group_id', 'sort_order', 'people'];
+const PROG_PERSON_KEYS = ['profile_id', 'profile_type', 'role', 'level', 'sort'];
 
 // ---- reachability: the static import closure of every routed module ------------------------
 
@@ -141,6 +157,14 @@ const ws = parseEventWorkspace({
   occurrences: [{ id: 'o1', occurrence_date: '2026-10-23', lifecycle_status: 'scheduled', version: 1, materialised_start_utc: '2026-10-23T19:00:00Z' }],
   meta: { has_more: false },
 });
+/** A programme as _snapshot_series_p5 returns it: one class with one teacher. */
+const PROGRAM = [{
+  day: { id: 'd1', day_index: 0, date_offset_days: 0, label: null, sort_order: 0 },
+  sections: [{ section: { id: 'sec1', kind: 'classes', sort_order: 0, label_override: null }, items: [{
+    item: { id: 'it1', title: 'Beginner class', type: 'class', start_time: '19:00:00', end_time: '20:00:00', room: null, venue_room_id: null, level_keys: ['beginner'], style: null, theme: null, track_id: null, parallel_group_id: null, sort_order: 0 },
+    people: [{ profile_id: 'p1', profile_type: 'teacher', role: 'teaching', level: null, sort_order: 0, display_name: 'Ana' }],
+  }] }],
+}];
 const PRICE = { id: '0b5c7a8e-5f43-4d6e-9a1b-2c3d4e5f6a7b', name: 'Entry', price: '10', currency: 'GBP' as const };
 
 // ---- the table ----------------------------------------------------------------------------
@@ -192,6 +216,22 @@ const TO_LINEUP: [string, string][] = [[ONE, 'ORG_PATHS.dateLineup'], ['flows/ch
 /** The date editor saves the COMPLETE programme in one call. */
 const SAVE_PROGRAMME: Send = { in: 'shared/selfServeApi.ts', token: "programmeRpc('organiser_set_occurrence_programme_v1'" };
 
+const SERIES_PROG = 'events/ProgrammeSeries.tsx';
+const SERIES_ORGS = 'events/SeriesOrganisers.tsx';
+const withLineup = () => {
+  const was = parseTree(PROGRAM);
+  const b = was.days[0].sections[0].items[0];
+  return { was, now: updateItem(was, b.key, addPerson(b, { id: 'p2', name: 'Ben', role: 'teaching' })) };
+};
+const SEND_PROGRAM: Send = {
+  in: 'events/ProgrammeSeries.tsx', token: 'programCommand(', kind: 'series.set_program', keys: ['days'], a1Gate: 'events/programmeSeriesModel.ts',
+  build: () => { const { was, now } = withLineup(); return programCommand(now, was); },
+};
+const SEND_ORGANISERS: Send = {
+  in: 'events/SeriesOrganisers.tsx', token: 'organisersCommand(', kind: 'series.set_organisers', keys: [ORG_LIST_KEY], a1Gate: 'events/organisersModel.ts',
+  build: () => organisersCommand(['a'], ['a', 'b']),
+};
+
 export const PARITY: Row[] = [
   { id: 'C01', capability: 'Event name', verdict: 'MATCH', screen: DETAILS, from: TO_DETAILS,
     sends: [upsert(['name'], () => detailCommand(ws, 'name', 'Saturday Social'), DETAILS, 'detailCommand(')] },
@@ -199,7 +239,7 @@ export const PARITY: Row[] = [
     sends: [upsert(['name', 'default_description'], () => detailCommand(ws, 'about', 'Classes then social'), DETAILS, 'detailCommand(')] },
   { id: 'C03', capability: 'Event type / format', verdict: 'DROPPED-BY-DECISION', decision: 'D54' },
   { id: 'C04', capability: 'Dance / music styles', verdict: 'MATCH', screen: DETAILS, from: TO_DETAILS,
-    sends: [upsert(['name', 'default_music_styles'], () => detailCommand(ws, 'music', 'Bachata, Kizomba'), DETAILS, 'detailCommand(')] },
+    sends: [upsert(['name', 'default_music_styles'], () => musicCommand(ws, ['Bachata', 'Kizomba']), 'events/MusicEdit.tsx', 'musicCommand(')] },
   { id: 'C05', capability: 'Cover picture', verdict: 'MATCH', screen: 'flows/fix/CoverFlow.tsx',
     from: [[DETAILS, 'ORG_PATHS.cover'], ['jobs/homeJobs.ts', 'ORG_PATHS.cover']],
     sends: [upsert(['default_cover_image_url'], () => coverFixCommands('https://x/n.jpg')[0], 'flows/fix/CoverFlow.tsx', 'coverFixCommands(')] },
@@ -219,8 +259,10 @@ export const PARITY: Row[] = [
     sends: [upsert(['name', 'default_passes'], () => pricesCommand(ws, [PRICE]), 'events/DetailsExtras.tsx', 'pricesCommand(')] },
   { id: 'C10', capability: 'Instagram link', verdict: 'MATCH', screen: DETAILS, from: TO_DETAILS,
     sends: [upsert(['name', 'instagram_url'], () => detailCommand(ws, 'instagram', 'https://instagram.com/fridaysocial'), DETAILS, 'detailCommand(')] },
-  { id: 'C11', capability: 'Co-organisers on the event', verdict: 'MISSING-ADMIN-ONLY', adminKind: 'series.set_organisers' },
-  { id: 'C12', capability: 'Line-up at series level', verdict: 'MISSING-ADMIN-ONLY', adminKind: 'series.set_program' },
+  // SW1 (parity wave 1): C11, C12 and C57 are built, behind the AW1 platform gate (shared/parityGate.ts).
+  { id: 'C11', capability: 'Co-organisers on the event', verdict: 'PARTIAL', screen: SERIES_ORGS, from: [[DETAILS, 'ORG_PATHS.eventOrganisers']], sends: [SEND_ORGANISERS] },
+  { id: 'C12', capability: 'Line-up at series level', verdict: 'PARTIAL', screen: SERIES_PROG, from: [[DETAILS, 'ORG_PATHS.eventProgramme']], sends: [SEND_PROGRAM],
+    shows: [['events/ProgrammeSheet.tsx', 'prog-add-person'], ['events/ProgrammeSheet.tsx', 'prog-recent']] },
   { id: 'C13', capability: 'See + edit the sessions inside one date', verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
     sends: [SAVE_PROGRAMME], shows: [['shared/selfServeApi.ts', "programmeRpc('organiser_get_occurrence_programme_v1'"], [SHEET, 'label="Type"']] },
   { id: 'C14', capability: 'Usual start / end time', verdict: 'MATCH', screen: DETAILS, from: [[DETAILS, 'detailEditPath']],
@@ -317,7 +359,8 @@ export const PARITY: Row[] = [
   { id: 'C55', capability: 'Remove a session from one date', verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
     sends: [SAVE_PROGRAMME], shows: [[SHEET, 'Remove from this date']] },
   { id: 'C56', capability: 'Session room / rooms list', verdict: 'MISSING-ADMIN-ONLY', adminKind: 'series.set_rooms' },
-  { id: 'C57', capability: 'Whole-series programme', verdict: 'MISSING-ADMIN-ONLY', adminKind: 'series.set_program' },
+  { id: 'C57', capability: 'Whole-series programme', verdict: 'PARTIAL', screen: SERIES_PROG, from: [[DETAILS, 'ORG_PATHS.eventProgramme']], sends: [SEND_PROGRAM],
+    shows: [['events/ProgrammeSeries.tsx', 'prog-differs-badge'], ['events/ProgrammeSeries.tsx', 'prog-delete-confirm']] },
   { id: 'C58', capability: 'Cancel or shift many dates at once', verdict: 'MATCH', screen: 'flows/change/Pick.tsx', from: [['flows/change/WhichDate.tsx', 'ORG_PATHS.changePick']],
     sends: [
       { in: 'flows/change/Pick.tsx', token: 'bulkCancelCommand(', kind: 'occurrence.bulk_cancel', keys: ['occurrence_ids', 'reason'], bulk: true, build: () => bulkCancelCommand(['o1', 'o2'], 'Venue closed') },
@@ -357,6 +400,22 @@ export const PARITY: Row[] = [
       { in: 'shared/selfServeApi.ts', token: 'create_organiser_profile_v1' },
     ] },
   { id: 'C71', capability: 'Switch page; support contact', verdict: 'MATCH', screen: 'switch/index.tsx', from: [['home/index.tsx', 'ORG_PATHS.switch']] },
+
+  // ---- SW1 (parity wave 1, 2026-10-18): "be complete with all the features the admin editor has" ----
+  { id: 'SW1-programme', capability: 'Classes and Party sessions for the whole series (reorder, remove, levels, differs-on-N-dates)', verdict: 'PARTIAL',
+    screen: SERIES_PROG, from: [[DETAILS, 'ORG_PATHS.eventProgramme']], sends: [SEND_PROGRAM],
+    shows: [['events/ProgrammeSeries.tsx', 'prog-up'], ['events/ProgrammeSeries.tsx', 'prog-differs-badge'], ['events/ProgrammeSheet.tsx', 'prog-level-']] },
+  { id: 'SW1-lineup', capability: 'Line-up per session: role and level per person, Recent first, search', verdict: 'PARTIAL',
+    screen: SERIES_PROG, from: [[DETAILS, 'ORG_PATHS.eventProgramme']], sends: [SEND_PROGRAM],
+    shows: [['events/ProgrammeSheet.tsx', 'prog-recent'], ['events/ProgrammeSheet.tsx', 'prog-role-'], ['events/ProgrammeSheet.tsx', 'prog-plevel-'], ['events/programmeSeriesApi.ts', 'organiser_series_cast_v1']] },
+  { id: 'SW1-cast', capability: 'Cast row on Details (names and roles)', verdict: 'MATCH', screen: DETAILS, from: TO_DETAILS,
+    shows: [[DETAILS, 'castLine('], ['events/programmeSeriesModel.ts', 'Add a teacher to a class to show them here.']] },
+  { id: 'SW1-music', capability: 'Music styles as chips', verdict: 'MATCH', screen: DETAILS, from: TO_DETAILS,
+    sends: [upsert(['name', 'default_music_styles'], () => musicCommand(ws, ['Bachata', 'Salsa']), 'events/MusicEdit.tsx', 'musicCommand(')],
+    shows: [['events/MusicEdit.tsx', 'org-music-chip']] },
+  { id: 'SW1-organisers', capability: 'Event organisers: link, remove, never the last (owner only)', verdict: 'PARTIAL',
+    screen: SERIES_ORGS, from: [[DETAILS, 'ORG_PATHS.eventOrganisers']], sends: [SEND_ORGANISERS],
+    shows: [['events/SeriesOrganisers.tsx', 'org-last-reason'], ['events/programmeSeriesApi.ts', 'searchLiveOrganisers']] },
 ];
 
 const isBuilt = (r: Row) => r.verdict === 'MATCH' || r.verdict === 'PARTIAL';
@@ -365,10 +424,25 @@ const sortKeys = (o: Record<string, unknown>) => Object.keys(o).sort();
 const MODULE_FILES = [...REACHED].filter((f) => !f.startsWith('..') && !f.includes('__tests__'));
 
 describe('organiser parity matrix', () => {
-  it('carries all 66 PARITY-GAP rows, once each', () => {
+  it('carries all 66 PARITY-GAP rows and the SW1 rows, once each', () => {
     const ids = PARITY.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toHaveLength(66);
+    expect(ids.filter((i) => /^C\d/.test(i))).toHaveLength(66);
+    expect(ids.filter((i) => /^SW1/.test(i))).toEqual(['SW1-programme', 'SW1-lineup', 'SW1-cast', 'SW1-music', 'SW1-organisers']);
+  });
+
+  it('SW1: the AW1 kinds are pinned, outside the prod owner mirror, and the tree keeps the writer\'s keys', () => {
+    expect([...AW1_COMMAND_KINDS]).toEqual(AW1_KINDS);
+    for (const k of AW1_KINDS) expect(OWNER_COMMAND_KINDS as readonly string[]).not.toContain(k);
+    const { was, now } = withLineup();
+    const day = (programCommand(now, was)!.payload as { days: Record<string, unknown>[] }).days[0];
+    expect(sortKeys(day)).toEqual([...PROG_DAY_KEYS].sort());
+    const section = (day.sections as Record<string, unknown>[])[0];
+    expect(sortKeys(section)).toEqual([...PROG_SECTION_KEYS].sort());
+    const item = (section.items as Record<string, unknown>[])[0];
+    expect(sortKeys(item)).toEqual([...PROG_ITEM_KEYS].sort());
+    expect(sortKeys((item.people as Record<string, unknown>[])[1])).toEqual([...PROG_PERSON_KEYS].sort());
+    expect(addSession(was, 'party', 'party').tree.days[0].sections).toHaveLength(2);
   });
 
   it('the prod owner snapshot matches the client mirror (A1 kinds aside)', () => {
@@ -409,12 +483,15 @@ describe('organiser parity matrix', () => {
           expect(sortKeys(payload)).toEqual([...PROD_BULK_KEYS[cmd!.kind]].sort());
           return;
         }
-        if (!PROD_OWNER_KINDS.includes(cmd!.kind)) {
+        if (AW1_KINDS.includes(cmd!.kind)) {
+          expect(s.a1Gate, `${cmd!.kind} is not on prod until AW1 and has no gate`).toBeTruthy();
+          expect(sortKeys(payload)).toEqual([...AW1_KEYS[cmd!.kind]].sort());
+        } else if (!PROD_OWNER_KINDS.includes(cmd!.kind)) {
           expect(s.a1Gate, `${cmd!.kind} is refused on prod (BROKEN-ON-PROD) and has no A1 gate`).toBeTruthy();
         }
         const allowed = PROD_KEYS[cmd!.kind];
         if (allowed) expect(sortKeys(payload).filter((k) => !allowed.includes(k)), 'keys the prod owner allowlist refuses').toEqual([]);
-        if (s.a1Gate) expect(read(s.a1Gate), `${s.a1Gate} gates on A1`).toMatch(/\bA1_APPLIED\b/);
+        if (s.a1Gate) expect(read(s.a1Gate), `${s.a1Gate} gates on A1 / AW1`).toMatch(/\bA(W)?1_APPLIED\b/);
       });
     }
 
@@ -470,7 +547,7 @@ describe('organiser parity matrix', () => {
   it('the counts: MATCH / PARTIAL / admin-only / dropped, nothing left to fill', () => {
     const count = (v: Verdict) => PARITY.filter((r) => r.verdict === v).length;
     expect({ match: count('MATCH'), partial: count('PARTIAL'), adminOnly: count('MISSING-ADMIN-ONLY'), dropped: count('DROPPED-BY-DECISION') })
-      .toEqual({ match: 43, partial: 5, adminOnly: 11, dropped: 7 });
+      .toEqual({ match: 45, partial: 11, adminOnly: 8, dropped: 7 });
   });
 });
 

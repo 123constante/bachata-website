@@ -251,7 +251,7 @@ const FIELDS: Field[] = [
   { field: 'name', value: 'Friday Social Club', key: 'name', sent: 'Friday Social Club' },
   { field: 'time', value: '21:30', key: 'default_local_start_time', sent: '21:30' },
   { field: 'level', value: 'All levels', key: 'default_level', sent: 'All levels' },
-  { field: 'music', value: 'Bachata, Kizomba', key: 'default_music_styles', sent: ['Bachata', 'Kizomba'] },
+  // 'music' is chips since SW1: events/__tests__/sw1.parity.test.tsx
   { field: 'tickets', value: 'https://tickets.example.com/x', key: 'default_ticket_url', sent: 'https://tickets.example.com/x' },
   { field: 'instagram', value: 'https://www.instagram.com/fridaysocial', key: 'instagram_url', sent: 'https://www.instagram.com/fridaysocial' },
   { field: 'about', value: 'Open social, all levels.', key: 'default_description', sent: 'Open social, all levels.' },

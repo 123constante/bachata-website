@@ -19,6 +19,7 @@ import {
   type WorkspaceDate,
 } from '@/modules/organiser/shared/seriesModel';
 import { endedOnLabel, eventLock, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
+import { linkedOrganiserIds } from '@/modules/organiser/shared/selfServeApi';
 import { MAX_UPCOMING, endWithinCap, type CapInput } from './dateCap';
 import { ownerOneDate, scheduleView } from './schedule';
 
@@ -32,6 +33,10 @@ export interface EventWorkspace extends SeriesWorkspace {
   hasMore: boolean;
   /** event_series_p5.default_level (free text; null on every prod series, 2026-10-17). */
   level: string | null;
+  /** The programme tree as the read returns it (series.program): the series-level editor round-trips it. */
+  program: unknown;
+  /** The organiser pages linked to the event, in order (linkedOrganiserIds). */
+  organiserIds: string[];
 }
 
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
@@ -47,6 +52,8 @@ export function parseEventWorkspace(raw: unknown): EventWorkspace {
     endedOn: typeof row.ended_on === 'string' ? row.ended_on : null,
     hasMore: root?.meta?.has_more === true,
     level: typeof row.default_level === 'string' && row.default_level.trim() ? row.default_level : null,
+    program: (raw as { series?: { program?: unknown } } | null)?.series?.program ?? null,
+    organiserIds: linkedOrganiserIds(row),
   };
 }
 

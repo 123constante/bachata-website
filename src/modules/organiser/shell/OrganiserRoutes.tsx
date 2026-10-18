@@ -28,6 +28,8 @@ const AddFlow = lazyWithRetry(() => import('../flows/add')); // S3 flows/add
 const CancelFlow = lazyWithRetry(() => import('../flows/cancel')); // S3 flows/cancel
 const NewFlow = lazyWithRetry(() => import('../flows/new'));
 const EventDetails = lazyWithRetry(() => import('../events/Details'));
+const ProgrammeSeries = lazyWithRetry(() => import('../events/ProgrammeSeries')); // SW1 series programme
+const SeriesOrganisers = lazyWithRetry(() => import('../events/SeriesOrganisers')); // SW1 event organisers
 const TeamFlow = lazyWithRetry(() => import('../team/TeamFlow')); // S6 team/ (add, person)
 const HandoverFlow = lazyWithRetry(() => import('../flows/handover')); // S6 flows/handover
 const MorePage = lazyWithRetry(() => import('../more')); // S7 more/
@@ -120,6 +122,8 @@ export default function OrganiserRoutes() {
             <Route path="events" element={<EventsPage />} />
             <Route path="events/:seriesId" element={<OneEvent />} />
             <Route path="events/:seriesId/details" element={<EventDetails />} />
+            <Route path="events/:seriesId/programme" element={<ProgrammeSeries />} />
+            <Route path="events/:seriesId/organisers" element={<SeriesOrganisers />} />
 
             <Route path="team" element={<TeamPage />} />
             <Route path="team/add" element={<TeamFlow step="add" />} />

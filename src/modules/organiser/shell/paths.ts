@@ -53,6 +53,10 @@ export const ORG_PATHS = {
   events: `${ORG_BASE}/events`,
   event: (seriesId: string) => `${ORG_BASE}/events/${id(seriesId)}`,
   eventDetails: (seriesId: string) => `${ORG_BASE}/events/${id(seriesId)}/details`,
+  /** The programme and line-up of the whole series (SW1). */
+  eventProgramme: (seriesId: string) => `${ORG_BASE}/events/${id(seriesId)}/programme`,
+  /** The organiser pages linked to the event (SW1). */
+  eventOrganisers: (seriesId: string) => `${ORG_BASE}/events/${id(seriesId)}/organisers`,
 
   team: `${ORG_BASE}/team`,
   teamAdd: `${ORG_BASE}/team/add`,

@@ -54,6 +54,8 @@ describe('ORG_PATHS (v2)', () => {
       events: '/account/o/events',
       event: '/account/o/events/s%201',
       eventDetails: '/account/o/events/s%201/details',
+      eventProgramme: '/account/o/events/s%201/programme',
+      eventOrganisers: '/account/o/events/s%201/organisers',
       team: '/account/o/team',
       teamAdd: '/account/o/team/add',
       teamAddFor: '/account/o/team/add?q=u%201',

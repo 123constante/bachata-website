@@ -116,7 +116,7 @@ export const OWNER_OVERRIDE_KEYS = [
 
 export const OWNER_CANCEL_KEYS = ['cancelled', 'reason'] as const;
 
-export type OwnerCommandKind = (typeof OWNER_COMMAND_KINDS)[number];
+export type OwnerCommandKind = (typeof OWNER_COMMAND_KINDS)[number] | (typeof AW1_COMMAND_KINDS)[number];
 export type OwnerUpsertKey = (typeof OWNER_UPSERT_KEYS)[number];
 export type OwnerOverrideKey = (typeof OWNER_OVERRIDE_KEYS)[number];
 
@@ -358,3 +358,17 @@ export const weeklyRuleCommand = (weekday: number): OwnerCommand => ({
   kind: 'series.set_recurrence',
   payload: { mode: 'weekly', weekdays: [weekday], end: { kind: 'none' } },
 });
+
+// ---- parity wave 1 (SW1): the series programme and the event's organisers -----------
+// Two kinds the server admits for an owner only once admin AW1 (migrations
+// 20261126220000 / 20261126230000) is on prod; every control that sends one sits
+// behind shared/parityGate.ts. They are NOT in OWNER_COMMAND_KINDS (that list mirrors
+// the prod v_owner_kinds snapshot the mirror test pins). The payloads are the ones the
+// admin editor sends: _cmd_series_set_program_p5 takes the COMPLETE tree {days:[...]}
+// (it deletes and re-inserts); the organisers builder lives in selfServeApi.ts, the one
+// file the architecture lint lets spell the organiser list key.
+export const AW1_COMMAND_KINDS = ['series.set_program', 'series.set_organisers'] as const;
+
+/** series.set_program: the whole programme tree, days > sections > items > people. */
+export const setProgramCommand = (days: unknown[]): OwnerCommand => ({ kind: 'series.set_program', payload: { days } });
+

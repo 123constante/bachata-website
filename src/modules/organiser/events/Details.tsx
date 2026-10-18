@@ -26,6 +26,8 @@ import { ClosedLines } from './ClosedLines';
 import { uploadEventPicture } from './media';
 import { countLabel, mediaCommand, passCount, pricesLock, usualEnd } from './seriesExtras';
 import { EndEdit, PricesEdit } from './DetailsExtras';
+import { MusicEdit } from './MusicEdit';
+import { CAST_EMPTY, castLine, castOf, parseTree, sessionCount } from './programmeSeriesModel';
 
 const TEXT_FIELDS: TextDetail[] = ['name', 'time', 'level', 'music', 'tickets', 'instagram', 'about'];
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left';
@@ -170,6 +172,21 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
       <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
     </Link>
   );
+  // The series programme and organisers (SW1): their own screens; an ended event shows them as plain lines.
+  const tree = parseTree(ws.program);
+  const cast = castOf(tree);
+  const pageRow = (key: string, label: string, value: string, to: string) => lock ? (
+    <div key={key} className={cn(ROW, 'text-[var(--mut)]')} data-testid={`org-detail-${key}`}>
+      <span className="w-[88px] shrink-0 text-[14px]">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-[15px]">{value === 'Add' ? 'None' : value}</span>
+    </div>
+  ) : (
+    <Link key={key} to={to} data-testid={`org-detail-${key}`} className={ROW}>
+      <span className="w-[88px] shrink-0 text-[14px] text-[var(--mut)]">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{value}</span>
+      <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
+    </Link>
+  );
   const row = (field: DetailField, value: string) => lock ? (
     <div key={field} className={cn(ROW, 'text-[var(--mut)]')} data-testid={`org-detail-${field}`}>
       <span className="w-[88px] shrink-0 text-[14px]">{DETAIL_LABEL[field]}</span>
@@ -194,6 +211,12 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
         {extraRow('ends', 'Ends', usualEnd(ws) || 'Add', null)}
         {(['level', 'music', 'tickets', 'instagram', 'about'] as TextDetail[]).map((f) => row(f, shown(ws, f)))}
         {extraRow('prices', 'Prices', countLabel(passCount(ws), 'price', 'prices'), pricesLock(ws))}
+        {pageRow('programme', 'Programme', countLabel(sessionCount(tree), 'session', 'sessions'), ORG_PATHS.eventProgramme(seriesId))}
+        <div className={cn(ROW, 'text-[var(--mut)]')} data-testid="org-detail-cast">
+          <span className="w-[88px] shrink-0 text-[14px]">Cast</span>
+          <span className="min-w-0 flex-1 text-[15px] text-[var(--fg)]" data-testid="org-detail-cast-line">{cast.length ? castLine(cast) : CAST_EMPTY}</span>
+        </div>
+        {pageRow('organisers', 'Organisers', countLabel(ws.organiserIds.length, 'organiser', 'organisers'), ORG_PATHS.eventOrganisers(seriesId))}
         {lock ? (
           <div className={cn(ROW, 'text-[var(--mut)]')} data-testid="org-detail-cover">
             <span className="w-[88px] shrink-0 text-[14px]">Cover</span>
@@ -235,6 +258,7 @@ export default function Details() {
   const field = readField(search.get(EDIT_PARAM));
   const extra = readExtra(search.get(EDIT_PARAM));
 
+  if (field === 'music' && ws.data && !eventLock(ws.data.series.lifecycle_status)) return <MusicEdit ws={ws.data} />;
   if (field && ws.data && !eventLock(ws.data.series.lifecycle_status)) return <DetailEdit key={field} ws={ws.data} field={field} />;
   if (extra === 'ends' && ws.data && !eventLock(ws.data.series.lifecycle_status)) return <EndEdit ws={ws.data} />;
   if (extra === 'prices' && ws.data && !eventLock(ws.data.series.lifecycle_status) && !pricesLock(ws.data)) return <PricesEdit ws={ws.data} />;
