@@ -30,7 +30,7 @@ export type PublicDancerPageV2Props = {
  * DESIGN DEPARTURE (named, owner-approved 2026-10-18): the public dancer page keeps
  * the TEAL "dancer ID world" (mockup F13) instead of the site's Bachata palette.
  * Website DESIGN.md allows named departures; the reason is recorded in
- * docs/dancer-page-f13.md. Only the date line uses the site's Bachata Amber.
+ * docs/handover/dancer-page-f13-design.md. Only the date line uses the site's Bachata Amber.
  * Font: the site's own stack (inherited), not the mockup's drawing fonts.
  */
 const TEAL = {
