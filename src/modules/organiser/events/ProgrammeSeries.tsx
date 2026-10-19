@@ -17,7 +17,7 @@ import { useRecentPeople, useSeriesRole } from './programmeSeriesApi';
 import { ProgrammeSheet, type SheetState } from './ProgrammeSheet';
 import {
   START_SECTIONS, addSession, differingDates, differsLabel, itemName, lengthLine, moveOff, moveSession, parseTree,
-  programCommand, programmeOff, removeConfirmCopy, removeSession, roleWord, sectionWord, sessionCount, timeLine, treeDirty, typeWord, updateItem, validateTree,
+  CHANGED_SESSION_REMOVE, programCommand, programmeOff, removeConfirmCopy, removeSession, roleWord, sectionWord, sessionCount, timeLine, treeDirty, typeWord, updateItem, validateTree,
   type PItem, type PSection, type PTree,
 } from './programmeSeriesModel';
 
@@ -135,7 +135,7 @@ function ProgrammeBody({ ws, today }: { ws: EventWorkspace; today: string }) {
       {differing.length > 0 && (
         <div className="space-y-[6px] rounded-[16px] border border-[var(--line)] bg-[var(--card)] p-[12px]" data-testid="prog-differs">
           <p className="text-[14px] font-semibold text-[var(--fg)]" data-testid="prog-differs-badge">{differsLabel(differing.length)}</p>
-          <p className="text-[13px] text-[var(--mut)]">Those dates keep their own changes when you edit a session here. Removing a session takes its date changes with it.</p>
+          <p className="text-[13px] text-[var(--mut)]">Those dates keep their own changes when you edit a session here. {CHANGED_SESSION_REMOVE}</p>
           <div className="flex flex-col">
             {differing.slice(0, 5).map((d) => (
               <Link key={d.id} to={ORG_PATHS.dateLineup(seriesId, d.id)} data-testid="prog-differs-link" className="flex min-h-[44px] items-center text-[14px] text-[var(--gold)] underline">

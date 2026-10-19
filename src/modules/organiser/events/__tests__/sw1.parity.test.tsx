@@ -42,7 +42,7 @@ import { A, DRAFT, FEST, FROZEN, answer, commandsOf, defaultWorld, flush, mount,
 import {
   addPerson, addSession, buildDays, castLine, castOf, differingDates, differsLabel, lengthLine, moveOff, moveSession, parseTree, programCommand,
   programmeOff, removePerson, removeSession, setPersonLevel, setPersonRole, timeLine, toggleLevel, treeDirty, updateItem, validateTree,
-  FESTIVAL_REASON, levelShort, type PTree,
+  CHANGED_SESSION_REMOVE, FESTIVAL_REASON, levelShort, type PTree,
 } from '../programmeSeriesModel';
 import { MUSIC_VOCAB, isOn, musicChips, musicCommand, toggleStyle } from '../musicModel';
 import { ADD_NONE_LEFT, ADD_ONLY_YOURS, LAST_ORGANISER_REASON, MANAGER_REASON, organisersCommand, organisersOff, removeOff, removeOrganiser } from '../organisersModel';
@@ -395,13 +395,14 @@ describe('Programme screen across the shapes', () => {
     expect(screen.queryByTestId('prog-off-reason')).toBeNull();
   });
 
-  it('the remove confirm says the dates that changed that session lose the change (REVIEW-SW1 B1)', async () => {
+  it('the remove confirm says a session changed on a date is removed by the team (final AW1 refuses an owner; INT4)', async () => {
     gate.on = true;
     mount(ORG_PATHS.eventProgramme(A), routes);
     fireEvent.click((await screen.findAllByTestId('prog-delete'))[0]);
     const copy = (await screen.findByTestId('prog-delete-copy')).textContent ?? '';
     expect(copy).toContain('Beginner class');
-    expect(copy).toContain('loses that change too');
+    expect(copy).toContain(CHANGED_SESSION_REMOVE);
+    expect(copy).not.toContain('loses that change');
     expect(copy).not.toContain('keep their own sessions');
   });
 

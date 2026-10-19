@@ -494,7 +494,9 @@ describe('A-B2: a login the event workspace refuses sees the no-access copy, wit
 });
 
 describe('A-S1: Put back on One event is a CONFLICTS row (R3-7 view, one button) and reuses its key on a retry', () => {
-  const TAKEN = day(10); // Friday 30 October 2026: a weekly-Friday rule date, taken off.
+  // Friday 13 November 2026: a weekly-Friday rule date, taken off. Not day(10): AFTER is listed there, and
+  // takenOffView never offers a date that is still listed (INT4: the test had never passed).
+  const TAKEN = day(24);
   const takeOff = () => {
     const prev = rpc.getMockImplementation() as (f: string, a: Record<string, unknown>) => Promise<{ data: { series: { series: Record<string, unknown> } } }>;
     rpc.mockImplementation(async (f: string, a: Record<string, unknown>) => {

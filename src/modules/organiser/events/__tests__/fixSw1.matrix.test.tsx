@@ -64,11 +64,20 @@ describe('B1: stored ids travel with the tree, so a Save keeps every per-date se
     expect('id' in days[0]).toBe(false);
     expect('id' in days[0].sections[0]).toBe(false);
   });
+  // INT4 (final AW1, admin #838): the server REFUSES an owner/manager removing a session that has per-date changes
+  // (an admin may). The copy must not promise that the date changes go with it.
   it('the remove confirm says what really happens to the dates that changed that session', () => {
     const copy = M.removeConfirmCopy('Beginner class');
     expect(copy).not.toMatch(/keep their own sessions/);
+    expect(copy).not.toMatch(/loses that change|takes its date changes/);
     expect(copy).toMatch(/Beginner class/);
-    expect(copy).toMatch(/lose/);
+    expect(copy).toContain(M.CHANGED_SESSION_REMOVE);
+  });
+  it('the Differs card says a session changed on a date is removed by the team, not here', async () => {
+    const src = (await import('node:fs')).readFileSync('src/modules/organiser/events/ProgrammeSeries.tsx', 'utf8');
+    expect(src).not.toMatch(/takes its date changes with it/);
+    expect(src).toMatch(/CHANGED_SESSION_REMOVE/);
+    expect(M.CHANGED_SESSION_REMOVE).toMatch(/only[\s\S]*Bachata Calendar team/);
   });
 });
 

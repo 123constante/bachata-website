@@ -260,9 +260,15 @@ export const setPersonLevel = (it: PItem, id: string, level: string | null): PIt
 export const whyCannotAddPerson = (it: PItem): string | null =>
   it.people.length >= LIMITS.peopleMax ? `A session can have up to ${LIMITS.peopleMax} teachers and DJs.` : addRoleFor(it.type) === null ? 'Performers and the MC are added by the Bachata Calendar team.' : null;
 
-/** The remove confirm: true about the dates that changed this session (their change goes with it). */
+/**
+ * AW1 (admin #838): an owner or manager save that would delete a session with per-date changes is refused (an admin
+ * may remove it). One sentence, on the Differs card and in the remove confirm.
+ */
+export const CHANGED_SESSION_REMOVE = 'A session you changed on one of those dates can only be removed by the Bachata Calendar team.';
+
+/** The remove confirm: true about what happens, including the sessions changed on a date (refused, see above). */
 export const removeConfirmCopy = (name: string) =>
-  `Remove \u201c${name}\u201d from every date? Any date where you changed this session loses that change too. It comes off when you save.`;
+  `Remove \u201c${name}\u201d from every date? It comes off when you save. ${CHANGED_SESSION_REMOVE}`;
 
 // ---- RECENT people (organiser_series_cast_v1.recent_people, pinned with AW1) ------------------
 
