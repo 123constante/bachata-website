@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { ArrowUpRight, ArrowLeft, Copy, Share2 } from 'lucide-react';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
 import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
@@ -143,7 +144,7 @@ export function PublicDancerPageV2({ model, extrasOk = true, pathname, ownerPlan
     facts.style && { label: 'Style', value: facts.style },
   ].filter((x): x is { label: string; value: string } => Boolean(x));
   const roleCity = [model.role, model.city].filter(Boolean).join(' \u00b7 ');
-  const going = model.goingNext;
+  const going = GOING_CHECKIN_ENABLED ? model.goingNext : null;
 
   return (
     <div data-profile="dancer" data-testid="dancer-page-v2" className="relative z-10 rounded-[14px] overflow-hidden px-4 pb-6 pt-3" style={{ background: TEAL.page, color: TEAL.text, isolation: 'isolate' }}>

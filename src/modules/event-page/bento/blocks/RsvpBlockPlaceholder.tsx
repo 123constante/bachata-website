@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 
 // Mirrors RsvpBlock's box, ghost buttons and meta line so the Suspense fallback is
 // the same size (no layout shift when the lazy chunk lands). Copied, not shared:
@@ -22,7 +23,7 @@ const RSVP_META_CLASS = 'mt-2 text-[12px]';
 const RSVP_META_STYLE: CSSProperties = { color: 'hsl(var(--bento-fg-muted))' };
 
 /** Disabled-looking stand-in for the button row while RsvpBlock's chunk loads. */
-export const RsvpBlockPlaceholder = ({ goingCountLabel }: { goingCountLabel: string }) => (
+const RsvpBlockPlaceholderInner = ({ goingCountLabel }: { goingCountLabel: string }) => (
   <section
     className={RSVP_SECTION_CLASS}
     style={RSVP_SECTION_STYLE}
@@ -45,3 +46,7 @@ export const RsvpBlockPlaceholder = ({ goingCountLabel }: { goingCountLabel: str
     </p>
   </section>
 );
+
+/** Renders nothing while GOING_CHECKIN_ENABLED is off (no gap while the block loads). */
+export const RsvpBlockPlaceholder = (props: { goingCountLabel: string }) =>
+  GOING_CHECKIN_ENABLED ? <RsvpBlockPlaceholderInner {...props} /> : null;

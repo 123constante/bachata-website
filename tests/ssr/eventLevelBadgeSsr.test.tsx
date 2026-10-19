@@ -24,6 +24,7 @@
  * dynamic imports so the stubs land before the supabase client evaluates).
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // this spec pins the RSVP slot, which only renders with the check-in on
 import type { ReactElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { StaticRouter, Routes, Route } from 'react-router';

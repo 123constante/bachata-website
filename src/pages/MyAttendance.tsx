@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { useQuery } from '@tanstack/react-query';
 import { CalendarDays, MapPin, Loader2 } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
@@ -208,9 +209,11 @@ const MyAttendance = () => {
                   <CalendarDays className="h-4 w-4 text-slate-400" />
                 </span>
                 <p className="text-sm text-foreground">No event attendance yet.</p>
-                <p className="text-xs text-muted-foreground max-w-xs">
-                  Tap &ldquo;I&rsquo;m Going&rdquo; or &ldquo;Interested&rdquo; on any event page and it will show up here.
-                </p>
+                {GOING_CHECKIN_ENABLED && (
+                  <p className="text-xs text-muted-foreground max-w-xs">
+                    Tap &ldquo;I&rsquo;m Going&rdquo; or &ldquo;Interested&rdquo; on any event page and it will show up here.
+                  </p>
+                )}
                 <Button
                   size="sm"
                   className="mt-1 bg-primary hover:bg-primary/90"

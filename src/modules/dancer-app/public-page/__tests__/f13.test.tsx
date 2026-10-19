@@ -11,6 +11,7 @@ import { NO_EXTRAS, buildPublicDancerPage, cityOnly, practiceGoalText, type Goin
 import { PublicDancerPageV2 } from '../PublicDancerPageV2';
 import { installJsdomPolyfills } from '../../../../../tests/client/jsdomPolyfills';
 
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null, authStatus: 'ready' }) }));
 
 const rec = (over: Record<string, unknown>) => ({
