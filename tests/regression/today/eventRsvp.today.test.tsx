@@ -7,6 +7,7 @@
  * asserted beside the snapshots. The festival hub twin is festivalHub.today.test.tsx.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -25,7 +26,8 @@ vi.mock('@/hooks/useAuth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
   useAuth: () => ({ user: h.user, isLoading: false }),
 }));
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...a: unknown[]) => h.rpc(...a) } }));
+// `auth` too: getSupabase (rpcLoose, so the dancer-area gate read) checks the client has it.
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...a: unknown[]) => h.rpc(...a), auth: {} } }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
 import { RsvpBlock } from '@/modules/event-page/bento/blocks/RsvpBlock';
@@ -101,6 +103,8 @@ beforeEach(() => {
   h.myLevel = null;
   h.rate.mockReset().mockResolvedValue({ data: {}, error: null });
   h.rpc.mockReset().mockImplementation(async (name: string) => {
+    // Outside the dancer area (B1b S1): the Going lock never applies, so today's page is unchanged.
+    if (name === 'dancer_area_gate_v1') return { data: { open: false, allowed: false }, error: null };
     if (name === 'get_my_occurrence_attendance_p5_v1') return { data: h.myStatus, error: null };
     if (name === 'set_my_occurrence_attendance_p5_v1') return { data: { status: h.myStatus }, error: null };
     if (name === 'rate_series_level_p5_v1') return h.rate();
@@ -148,7 +152,8 @@ describe.each(VIEWPORTS)('event page Going / Interested at $name', (vp) => {
     ['complete', COMPLETE],
   ] as const)('Going is NOT gated by profile completeness (%s): the tap reaches set_my_occurrence_attendance_p5_v1', async (_n, completion) => {
     h.user = { id: 'u1' };
-    // RsvpBlock does not read ProfileGateContext at all; wrapping proves it stays that way.
+    // RsvpBlock reads ProfileGateContext only for a person INSIDE the dancer area (B1b S1);
+    // outside it (this gate answer) the profile never locks Going.
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={qc}>

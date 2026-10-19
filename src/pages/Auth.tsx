@@ -363,7 +363,10 @@ const AuthContent = () => {
   const [accepting, setAccepting] = useState(false);
   const handleCodeVerified = async () => {
     if (mode === "signup") {
-      await acceptTerms();
+      // Tell /auth/callback (which records for the e-mailed-link path) that this record already landed.
+      if (await acceptTerms()) {
+        try { sessionStorage.setItem("terms_recorded_this_signup", "1"); } catch { /* callback records again: harmless */ }
+      }
       continueToCallback();
       return;
     }

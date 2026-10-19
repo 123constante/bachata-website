@@ -36,6 +36,10 @@ const COPY: Record<DancerErrorCode, string> = {
   invalid_url: 'That link must start with http:// or https://.',
   invalid_whatsapp: 'That does not look like a WhatsApp number. Use the full number with the country code, like +44 7700 900123.',
   invalid_list: 'One of your lists could not be saved. Keep each item short and try again.',
+  invalid_body: 'Write a message of 1 to 2000 characters.',
+  invalid_kind: 'Pick what kind of message this is.',
+  invalid_page: 'We could not tell which page you were on. Try sending it again.',
+  invalid_feature: 'We could not save that. Try again later.',
   unknown: 'Something went wrong. Check your connection and try again.',
 };
 
@@ -99,6 +103,10 @@ const FIELD: Record<DancerErrorCode, DancerErrorField> = {
   invalid_url: 'website_url',
   invalid_whatsapp: 'whatsapp',
   invalid_list: null,
+  invalid_body: null,
+  invalid_kind: null,
+  invalid_page: null,
+  invalid_feature: null,
   unknown: null,
 };
 

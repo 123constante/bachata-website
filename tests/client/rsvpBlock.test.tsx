@@ -13,6 +13,7 @@
  */
 import { Suspense } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -23,13 +24,20 @@ const h = vi.hoisted(() => ({
   toastError: vi.fn(),
 }));
 
-vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: h.user, isLoading: false }) }));
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: h.rpc } }));
+// The real ProfileGateContext rides along: RsvpBlock reads it through useGoingLock.
+vi.mock('@/hooks/useAuth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
+  useAuth: () => ({ user: h.user, isLoading: false }),
+}));
+// `auth` too: getSupabase (rpcLoose, so the dancer-area gate read) checks the client has it.
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: h.rpc, auth: {} } }));
 vi.mock('sonner', () => ({ toast: { error: h.toastError } }));
 
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { RsvpBlock } from '@/modules/event-page/bento/blocks/RsvpBlock';
 import { RsvpBlockPlaceholder } from '@/modules/event-page/bento/blocks/RsvpBlockPlaceholder';
+import { ProfileGateContext } from '@/hooks/useAuth';
+import { profileGateValue } from '@/lib/profileCompletion';
 import { rsvpErrorMessage } from '@/modules/event-page/hooks/useOccurrenceRsvp';
 import { eventPageQueryKey } from '@/modules/event-page/useEventPageQuery';
 import type { EventPageSnapshot, EventPageSnapshotOccurrence } from '@/modules/event-page/types';
@@ -118,14 +126,17 @@ const statusSettled = () =>
 const setCalls = () => h.rpc.mock.calls.filter(([name]) => name === 'set_my_occurrence_attendance_p5_v1');
 
 let myStatus: string | null;
+let gateAllowed: boolean;
 
 beforeEach(() => {
   qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   h.user = { id: 'u1' };
   h.toastError.mockReset();
   myStatus = null;
+  gateAllowed = false;
   h.rpc.mockReset();
   h.rpc.mockImplementation(async (name: string, args: { p_status?: string | null }) => {
+    if (name === 'dancer_area_gate_v1') return { data: { open: false, allowed: gateAllowed }, error: null };
     if (name === 'get_my_occurrence_attendance_p5_v1') return { data: myStatus, error: null };
     if (name === 'set_my_occurrence_attendance_p5_v1') {
       myStatus = args.p_status ?? null;
@@ -325,5 +336,31 @@ describe('RsvpBlock', () => {
     const realShape = shape(real);
     expect(realShape[0][1]).toContain('border-color');
     expect(shape(ph)).toEqual(realShape);
+  });
+  it('the profile lock keeps the placeholder box: count, reason and link ride in the same meta line', async () => {
+    // B1b S1: inside the dancer area with an unfinished profile, both buttons go ghost and
+    // the meta line carries the reason plus its link -- no new box, so no layout shift.
+    // F10: the going count stays in that line, before the reason.
+    gateAllowed = true;
+    const { container: real } = render(
+      <ProfileGateContext.Provider value={profileGateValue({ status: 'incomplete', missing: ['avatar_url'], profileId: 'p1' })}>
+        {tree()}
+      </ProfileGateContext.Provider>,
+    );
+    await screen.findByTestId('rsvp-lock-link');
+    const { container: ph } = render(<RsvpBlockPlaceholder goingCountLabel="4 going" />);
+    const shape = (root: HTMLElement) => {
+      const section = root.querySelector('section') as HTMLElement;
+      const [going, interested] = Array.from(section.querySelectorAll('button'));
+      const meta = section.querySelector('p') as HTMLElement;
+      return [section, section.firstElementChild as HTMLElement, going, interested, meta].map((el) => [
+        el.className,
+        el.getAttribute('style'),
+      ]);
+    };
+    expect(shape(ph)).toEqual(shape(real));
+    expect(screen.getByTestId('rsvp-meta').textContent).toBe(
+      "4 going · Add your photo to say you're going or interested. Finish your profile",
+    );
   });
 });

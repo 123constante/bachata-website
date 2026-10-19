@@ -7,6 +7,7 @@
  *      the RSVP prompt's copy matches /privacy ("Your nights are private to you").
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { installJsdomPolyfills } from './jsdomPolyfills';

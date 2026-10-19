@@ -15,7 +15,9 @@ import { FESTIVALS_LIST_QUERY_KEY, fetchPublicFestivalsList } from "@/lib/festiv
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AuthPromptModal } from "@/components/AuthPromptModal";
+import { GOING_CHECKIN_ENABLED } from "@/lib/goingCheckin";
 import { setAttendanceRpc, type AttendanceStatus } from "@/hooks/useAttendance";
+import { GOING_LOCK_LINK_LABEL, goingTapLocked, useGoingLock } from "@/modules/dancer-app/gate/useGoingLock";
 
 type AttendanceCounts = {
   interested_count: number;
@@ -61,6 +63,8 @@ const FestivalHubInner = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  // Same lock as the event page's RsvpBlock: one mapping for both surfaces.
+  const goingLock = useGoingLock();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authReturnTo, setAuthReturnTo] = useState<string | null>(null);
   const [pendingByEvent, setPendingByEvent] = useState<Record<string, AttendanceStatus | null>>({});
@@ -227,6 +231,7 @@ const FestivalHubInner = () => {
     }
 
     const currentStatus = resolveStatus(festivalId);
+    if (goingTapLocked(goingLock, currentStatus, status)) return;
     const nextStatus = currentStatus === status ? null : status;
 
     setPendingByEvent((prev) => ({ ...prev, [festivalId]: status }));
@@ -330,6 +335,15 @@ const FestivalHubInner = () => {
 
       {/* Festival Cards Grid */}
       <section id="festivals" className="px-4 mb-24 relative z-10">
+        {/* The Going lock is the same for every card: say it once, above the list. */}
+        {GOING_CHECKIN_ENABLED && goingLock.locked && (
+          <p className="mb-3 text-[12px] text-muted-foreground" data-testid="festival-going-lock">
+            {`${goingLock.reason}. `}
+            <Link to={goingLock.href} className="py-[14px] font-semibold text-primary underline">
+              {GOING_LOCK_LINK_LABEL}
+            </Link>
+          </p>
+        )}
         <StaggerContainer staggerDelay={0.15} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {festivals.map((festival) => {
             const counts = countsByEvent.get(festival.id) || { interested_count: 0, going_count: 0 };
@@ -388,6 +402,8 @@ const FestivalHubInner = () => {
                       </span>
                     </div>
 
+                    {GOING_CHECKIN_ENABLED && (
+                    <>
                     {/* Attendance Stats */}
                     <div className="flex items-center gap-4 mb-3">
                       <div className="flex items-center gap-1.5">
@@ -490,6 +506,8 @@ const FestivalHubInner = () => {
                       </AnimatePresence>
                     </div>
 
+                    </>
+                    )}
                     {/* Crew Finder Stats */}
                     <div className="flex items-center gap-2 mb-3">
                       <div className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded-full">
@@ -506,8 +524,11 @@ const FestivalHubInner = () => {
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex gap-2">
+                    {GOING_CHECKIN_ENABLED && (
+                    <>
+                    {/* Action Buttons. A disabled Button has pointer-events: none, so a tap on a
+                        locked or pending one lands here: stop it opening the festival card. */}
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                       <motion.div className="flex-1" whileTap={{ scale: 0.95 }}>
                         <Button
                           variant={status === "going" ? "default" : "outline"}
@@ -517,7 +538,7 @@ const FestivalHubInner = () => {
                             e.stopPropagation();
                             void handleStatus(festival.id, "going");
                           }}
-                          disabled={isPending}
+                          disabled={isPending || goingTapLocked(goingLock, status, "going")}
                         >
                           {isPending && pendingStatus === 'going' ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -533,7 +554,7 @@ const FestivalHubInner = () => {
                             e.stopPropagation();
                             void handleStatus(festival.id, "interested");
                           }}
-                          disabled={isPending}
+                          disabled={isPending || goingTapLocked(goingLock, status, "interested")}
                         >
                           {isPending && pendingStatus === 'interested' ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -542,6 +563,8 @@ const FestivalHubInner = () => {
                       </motion.div>
                     </div>
 
+                    </>
+                    )}
                     {/* View Details Arrow */}
                     <div className="flex items-center justify-center mt-3 text-primary">
                       <span className="text-[10px]">View details & find crew</span>

@@ -111,7 +111,7 @@ export const mapNights = (rows: readonly AttendanceRow[], todayKey: string): Map
 export const nextNight = (upcoming: readonly Night[]): Night | null =>
   upcoming.find((n) => n.date !== null && isPlan(n)) ?? null;
 
-/** Going + Interested upcoming count (the Home tile). */
+/** Going + Interested upcoming count of the LIST. Not the Home tile: since review F7 that reads my_dancer_stats_v1. */
 export const countCommitted = (upcoming: readonly Night[]): number =>
   upcoming.filter(isPlan).length;
 

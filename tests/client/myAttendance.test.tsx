@@ -13,6 +13,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
 const h = vi.hoisted(() => ({ rows: [] as unknown[] }));
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: { rpc: async () => ({ data: h.rows, error: null }) },
 }));
@@ -26,7 +27,7 @@ vi.mock('@/components/layout/GlobalLayout', () => ({
 vi.mock('@/contexts/CityContext', () => ({ useCity: () => ({ citySlug: 'london-gb' }) }));
 vi.mock('@/lib/seo', () => ({ useSeo: () => undefined }));
 
-import MyAttendance, { RATE_ANCHOR } from '../MyAttendance';
+import MyAttendance, { RATE_ANCHOR } from '@/pages/MyAttendance';
 import { LEVEL_RATING_ANCHOR } from '@/components/LevelRatingPrompt';
 import { DANCER_HOME_PATH } from '@/lib/accountRouting';
 import { readFileSync } from 'node:fs';
@@ -58,7 +59,7 @@ describe('My attendance', () => {
     mount();
     expect(await screen.findByText(/No event attendance yet/)).toBeTruthy();
     // The event page's RsvpBlock labels these two buttons exactly so.
-    const rsvp = readFileSync(path.resolve(__dirname, '../../modules/event-page/bento/blocks/RsvpBlock.tsx'), 'utf8');
+    const rsvp = readFileSync(path.resolve(__dirname, '../../src/modules/event-page/bento/blocks/RsvpBlock.tsx'), 'utf8');
     expect(rsvp).toContain(`"I'm Going"`);
     expect(rsvp).toMatch(/>\s*Interested\s*</);
     expect(screen.getByText(/I\u2019m Going\u201d or \u201cInterested\u201d on any event page/)).toBeTruthy();

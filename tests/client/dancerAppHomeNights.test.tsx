@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient } from '@tanstack/react-query';
 
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
 vi.mock('@/hooks/useAuth', async (importOriginal) =>
   (await import('@/modules/dancer-app/shell/testAuth')).authModuleMock(importOriginal));
 
@@ -80,10 +81,13 @@ const home = (opts: Parameters<typeof renderInShell>[0] = {}) => renderInShell({
 const nights = (opts: Parameters<typeof renderInShell>[0] = {}) => renderInShell({ path: '/app/nights', ...opts });
 
 describe('Home x attendance shapes', () => {
+  // Review F7 (owner decision): `count` is the "Upcoming nights" tile, which reads
+  // my_dancer_stats_v1 (the fake backend's zero shape here), NOT this list. So it stays 0
+  // whatever the list says; the tile === strip table is in dancer-app/__tests__/b1bFinishFixes.
   const cases: Array<{ name: string; rows: () => Record<string, unknown>[]; hero: RegExp | null; count: string; nudge: boolean }> = [
     { name: 'no attendance', rows: () => [], hero: null, count: '0', nudge: false },
-    { name: 'one upcoming Going', rows: () => [row('s1', 'Soho Sensual', 4)], hero: /Soho Sensual/, count: '1', nudge: false },
-    { name: 'one Interested', rows: () => [row('s2', 'Camden Social', 3, 'interested')], hero: /Camden Social/, count: '1', nudge: false },
+    { name: 'one upcoming Going', rows: () => [row('s1', 'Soho Sensual', 4)], hero: /Soho Sensual/, count: '0', nudge: false },
+    { name: 'one Interested', rows: () => [row('s2', 'Camden Social', 3, 'interested')], hero: /Camden Social/, count: '0', nudge: false },
     { name: 'past unrated, 2 days ago (nudge)', rows: () => [row('s3', 'Last Thursday', -2)], hero: null, count: '0', nudge: true },
     { name: 'past unrated, 7 days ago (nudge)', rows: () => [row('s3', 'Last Thursday', -7)], hero: null, count: '0', nudge: true },
     { name: 'past unrated, 8 days ago (no nudge)', rows: () => [row('s3', 'Last Thursday', -8)], hero: null, count: '0', nudge: false },
@@ -122,7 +126,8 @@ describe('Home x attendance shapes', () => {
     const hero = await screen.findByTestId('home-hero');
     await waitFor(() => expect(hero.textContent).toMatch(/Sooner/));
     expect(within(hero).getByRole('link', { name: 'See event' }).getAttribute('href')).toBe('/event/soon');
-    expect(screen.getByTestId('tile-going').textContent).toMatch(/Next: /);
+    // F7: the tile no longer repeats the list's next date (the hero above shows it); it says what it counts.
+    expect(screen.getByTestId('tile-going').textContent).toMatch(/Nights you said Going to/);
   });
 });
 

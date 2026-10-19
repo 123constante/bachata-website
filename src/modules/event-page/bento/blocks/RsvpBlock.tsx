@@ -1,8 +1,9 @@
 import { Suspense, useEffect, useState } from 'react';
 import type { QueryKey } from '@tanstack/react-query';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Check, Heart, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { wallClockToInstant } from '@/lib/time/wallClock';
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
@@ -11,6 +12,8 @@ import {
   useOccurrenceRsvp,
   type RsvpStatus,
 } from '@/modules/event-page/hooks/useOccurrenceRsvp';
+// Inside this lazy chunk, never the event route chunk (see RsvpBlockPlaceholder).
+import { GOING_LOCK_LINK_LABEL, goingTapLocked, useGoingLock } from '@/modules/dancer-app/gate/useGoingLock';
 
 // Lazy: the dialog stack only matters after a signed-out tap, and a static
 // import added two first-load chunks to /event/:id (perf-budgets chunk ratchet).
@@ -56,6 +59,10 @@ const closedReason = (
   return null;
 };
 
+// The lock's link sits inline in the meta line: the vertical padding widens the
+// tap area without growing the line, so the box stays the placeholder's.
+const LOCK_LINK = 'py-[14px] font-semibold underline';
+
 // The box, ghost button and meta line are mirrored in RsvpBlockPlaceholder (the
 // Suspense fallback); rsvpBlock.test.tsx fails if the two drift apart.
 const GOING_STYLE: React.CSSProperties = {
@@ -75,7 +82,7 @@ const BTN =
  * clears. Signed-out and anonymous visitors see the same buttons, but a tap
  * opens the site's sign-in prompt and never reaches the RPC.
  */
-export const RsvpBlock = ({
+const RsvpBlockInner = ({
   snapshotQueryKey,
   publicEventId,
   occurrenceId,
@@ -95,6 +102,9 @@ export const RsvpBlock = ({
   useEffect(() => setNow(Date.now()), [occurrence]);
   const hasEnded = Boolean(occurrence?.isPast) || (now !== null && nightHasEnded(occurrence, now));
   const reason = closedReason(seriesLifecycle, occurrence, hasEnded);
+  // A closed night wins over the profile lock; the lock blocks only a NEW status.
+  const lock = useGoingLock();
+  const showLock = reason === null && lock.locked;
   // The read still runs on a closed night, so an RSVP made before the night was
   // cancelled or ended keeps showing; only the write is blocked.
   const { status, statusUnknown, statusError, refetchStatus, canRsvp, authLoading, setStatus, isPending } =
@@ -110,8 +120,16 @@ export const RsvpBlock = ({
   const isGoing = status === 'going';
   const isInterested = status === 'interested';
 
+  // The read failed, so whether a tap would REMOVE an old RSVP is unknown: leave
+  // the buttons tappable so onTap's "Couldn't load your RSVP" retry can run.
+  const statusReadFailed = statusUnknown && statusError;
+  const tapLocked = (target: RsvpStatus) => !statusReadFailed && goingTapLocked(lock, status, target);
+  const goingLocked = tapLocked('going');
+  const interestedLocked = tapLocked('interested');
+
   const onTap = async (target: RsvpStatus) => {
     if (reason || now === null || isPending || authLoading) return;
+    if (tapLocked(target)) return;
     if (nightHasEnded(occurrence, Date.now())) {
       setNow(Date.now());
       return;
@@ -147,10 +165,10 @@ export const RsvpBlock = ({
         <button
           type="button"
           onClick={() => void onTap('going')}
-          disabled={reason !== null}
+          disabled={reason !== null || goingLocked}
           aria-pressed={isGoing}
           className={`${BTN} flex-1`}
-          style={reason ? GHOST_STYLE : GOING_STYLE}
+          style={reason || goingLocked ? GHOST_STYLE : GOING_STYLE}
           data-testid="rsvp-going"
         >
           {isGoing ? <Check className="h-4 w-4" strokeWidth={2.4} /> : <Users className="h-4 w-4" />}
@@ -159,7 +177,7 @@ export const RsvpBlock = ({
         <button
           type="button"
           onClick={() => void onTap('interested')}
-          disabled={reason !== null}
+          disabled={reason !== null || interestedLocked}
           aria-pressed={isInterested}
           className={BTN}
           style={GHOST_STYLE}
@@ -171,6 +189,17 @@ export const RsvpBlock = ({
       </div>
       <p className="mt-2 text-[12px]" style={{ color: 'hsl(var(--bento-fg-muted))' }} data-testid="rsvp-meta">
         {reason ?? goingCountLabel}
+        {showLock && (
+          <>
+            {' '}&middot;{' '}
+            <span data-testid="rsvp-lock">
+              {`${lock.reason}. `}
+              <Link to={lock.href} className={LOCK_LINK} data-testid="rsvp-lock-link">
+                {GOING_LOCK_LINK_LABEL}
+              </Link>
+            </span>
+          </>
+        )}
       </p>
       {authMounted && (
         <Suspense fallback={null}>
@@ -186,3 +215,7 @@ export const RsvpBlock = ({
     </section>
   );
 };
+
+/** Renders nothing (and runs no RPC) while GOING_CHECKIN_ENABLED is off. */
+export const RsvpBlock = (props: RsvpBlockProps) =>
+  GOING_CHECKIN_ENABLED ? <RsvpBlockInner {...props} /> : null;

@@ -1,8 +1,9 @@
 import { DancerApiError } from './errors';
 import { DANCER_SHAPES, FAKE_CITIES, withDerived, type DancerShapeName } from './fixtures';
 import type { DancerBackend } from './rpc';
-import { DANCE_ROLES, SAVE_KEYS, type DancerDelta, type DancerErrorCode, type DancerGate, type MyDancerEdit, type PublicDancerExtras } from './types';
+import { DANCE_ROLES, FEEDBACK_KINDS, FEEDBACK_MAX_LENGTH, SAVE_KEYS, type DancerDelta, type FeatureKey, type FeedbackKind, type DancerErrorCode, type DancerGate, type MyDancerEdit, type PublicDancerExtras } from './types';
 import { sameValue } from './delta';
+import { STATS_SHAPES, type StatsShapeName } from './statsFixtures';
 
 /**
  * In-memory stand-in for the four dancer-area RPCs, for tests only (never
@@ -34,9 +35,27 @@ export type FakeBackendOptions = {
   rateLimit?: number;
   /** Public extras by profile id (default: derived from the current profile when live). */
   publicExtras?: Record<string, PublicDancerExtras>;
+  /** Named stats/views shape (api/statsFixtures.ts). Default: zero. */
+  statsShape?: StatsShapeName;
+  /** Features already registered (my_feature_interest_v1). Default: none. */
+  interest?: FeatureKey[];
+  /** Feedback messages allowed per day before `rate_limited` (server: 5). */
+  feedbackLimit?: number;
 };
 
-export type FakeCall = { fn: 'fetchGate' | 'fetchMyDancerEdit' | 'saveMyDancerProfile' | 'fetchPublicExtras'; args?: unknown };
+export type FakeCall = {
+  fn:
+    | 'fetchGate'
+    | 'fetchMyDancerEdit'
+    | 'saveMyDancerProfile'
+    | 'fetchPublicExtras'
+    | 'fetchMyStats'
+    | 'fetchMyViews'
+    | 'submitFeedback'
+    | 'registerFeatureInterest'
+    | 'fetchMyFeatureInterest';
+  args?: unknown;
+};
 
 export type FakeDancerBackend = DancerBackend & {
   calls: FakeCall[];
@@ -47,6 +66,10 @@ export type FakeDancerBackend = DancerBackend & {
   setGate(gate: DancerGate): void;
   /** The next call (any wrapper) fails with this code, once. */
   failNextWith(code: DancerErrorCode): void;
+  /** Feedback messages stored so far. */
+  readonly feedback: Array<{ body: string; kind: FeedbackKind; page: string | null }>;
+  /** Features registered so far. */
+  readonly interest: FeatureKey[];
 };
 
 const HANDLE_RE = /^[A-Za-z0-9._]{1,50}$/;
@@ -103,6 +126,10 @@ export const createFakeBackend = (opts: FakeBackendOptions = {}): FakeDancerBack
   let writes = 0;
   let failNext: DancerErrorCode | null = null;
   const calls: FakeCall[] = [];
+  const statsFixture = STATS_SHAPES[opts.statsShape ?? 'zero'];
+  const feedback: Array<{ body: string; kind: FeedbackKind; page: string | null }> = [];
+  const interest: FeatureKey[] = [...(opts.interest ?? [])];
+  const feedbackLimit = opts.feedbackLimit ?? 5;
 
   const consumeFailure = () => {
     if (failNext) {
@@ -125,6 +152,8 @@ export const createFakeBackend = (opts: FakeBackendOptions = {}): FakeDancerBack
       return writes;
     },
     current: () => profile,
+    feedback,
+    interest,
     setGate: (g) => {
       gate = g;
     },
@@ -180,6 +209,51 @@ export const createFakeBackend = (opts: FakeBackendOptions = {}): FakeDancerBack
       if (!profile || profile.profile_id !== profileId || !profile.is_active) return null;
       const whatsapp = profile.show_whatsapp_publicly && profile.other_roles.length > 0 ? profile.whatsapp : null;
       return { bio: profile.bio, languages: profile.languages, whatsapp };
+    },
+
+    async fetchMyStats() {
+      calls.push({ fn: 'fetchMyStats' });
+      consumeFailure();
+      requireMember();
+      if ('error' in statsFixture) throw new DancerApiError(statsFixture.error, statsFixture.error);
+      return statsFixture.stats;
+    },
+
+    async fetchMyViews() {
+      calls.push({ fn: 'fetchMyViews' });
+      consumeFailure();
+      requireMember();
+      if ('error' in statsFixture) throw new DancerApiError(statsFixture.error, statsFixture.error);
+      return statsFixture.views;
+    },
+
+    async submitFeedback(body, kind, page) {
+      calls.push({ fn: 'submitFeedback', args: { body, kind, page } });
+      consumeFailure();
+      if (!signedIn ? true : !gate.allowed) throw new DancerApiError(signedIn ? 'area_closed' : 'not_signed_in', 'area_closed');
+      const text = body.trim();
+      if (text.length < 1 || text.length > FEEDBACK_MAX_LENGTH) throw new DancerApiError('invalid_body', 'invalid_body');
+      if (!(FEEDBACK_KINDS as readonly string[]).includes(kind)) throw new DancerApiError('invalid_kind', 'invalid_kind');
+      if (page !== null && page.length > 200) throw new DancerApiError('invalid_page', 'invalid_page');
+      if (feedback.length >= feedbackLimit) throw new DancerApiError('rate_limited', 'rate_limited');
+      feedback.push({ body: text, kind, page });
+      return { id: `f-${feedback.length}`, kind, created_at: '2026-10-17T12:00:00Z' };
+    },
+
+    async registerFeatureInterest(feature) {
+      calls.push({ fn: 'registerFeatureInterest', args: feature });
+      consumeFailure();
+      requireMember();
+      if (interest.includes(feature)) return { alreadyRegistered: true };
+      interest.push(feature);
+      return { alreadyRegistered: false };
+    },
+
+    async fetchMyFeatureInterest() {
+      calls.push({ fn: 'fetchMyFeatureInterest' });
+      consumeFailure();
+      requireMember();
+      return { registered: [...interest] };
     },
   };
 };

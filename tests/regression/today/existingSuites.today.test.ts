@@ -23,7 +23,7 @@ const SUITES: Record<string, string[]> = {
     'src/pages/__tests__/AuthCallbackNotice.test.tsx',
   ],
   AuthOtpDisabled: ['src/pages/__tests__/AuthOtpDisabled.test.tsx'],
-  MyAttendance: ['src/pages/__tests__/MyAttendance.test.tsx'],
+  MyAttendance: ['tests/client/myAttendance.test.tsx'],
   AuthSignupDanceRole: ['src/pages/__tests__/AuthSignupDanceRole.test.tsx'],
   AccountSettings: ['src/pages/__tests__/AccountSettings.test.tsx'],
   accountSettings: ['src/lib/__tests__/accountSettings.test.ts'],

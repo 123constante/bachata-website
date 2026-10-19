@@ -317,12 +317,29 @@ const COMMONJS_HELPERS_ID = "\0commonjsHelpers.js";
 // header pulled the whole lib-account chunk -- the avatar with it, ~2.5 KB gz --
 // onto every public page. Here they cost ~0.5 KB gz on every route and no
 // request, flag on or off; re-measure both flag states before moving them.
+//
+// src/modules/dancer-app/gate/useDancerArea.ts (2026-10-17, B1b review F2): the
+// dancer-area gate hook. The going lock made RsvpBlock (event's lazy RSVP chunk)
+// and FestivalHub import it beside RedirectIfAllowed (AnimatedRoutes) and the
+// dancer-app shell, so rollup cut it into chunks of its own: auth 34 first-load
+// chunks vs an allowance of 33, dancer-app 59 vs 57.
+// PINNING ONE MODULE MOVES ITS UNASSIGNED STATIC DEPS TOO -- rollup adds them to
+// the manual group -- so this group now also holds gateRpc, rpcLoose, useAuth and
+// useAuth's leaves (getSupabase, lazyWithRetry, staleChunk, personScopedStorage,
+// authResolution). All of them were already in every budgeted route's first load
+// as separate small chunks, so the pin MEASURED -4 first-load chunks on every
+// route (-3 on /app/*) and 0.3-0.6 KB gz less on each; the ratchets were tightened
+// to match. Re-measure every route before moving it out again.
 export const LIB_EVENT_RULES_MODULES = [
   "/src/lib/eventCategory.ts",
   "/src/lib/londonDate.ts",
   "/src/lib/focusMode.ts",
   "/src/lib/accountPaths.ts",
   "/src/lib/authRouting.ts",
+  "/src/modules/dancer-app/gate/useDancerArea.ts",
+  // One boolean read by the event page, festival hub and dancer app: alone it was
+  // its own chunk and one more first-load request on /event and /app.
+  "/src/lib/goingCheckin.ts",
 ];
 
 // The SECOND first-party group (2026-10-16, dancer journey fixes): the ONE avatar

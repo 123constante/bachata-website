@@ -17,6 +17,7 @@ import {
   type OptionsRow,
 } from './optionsModel';
 import { ROW, Sheet } from './optionsUi';
+import FeedbackSheet from './FeedbackSheet';
 import SignOutControl from './SignOutControl';
 import NoProfileWayOut from './NoProfileWayOut';
 
@@ -27,7 +28,7 @@ const REASON: CSSProperties = { fontSize: 13, color: 'var(--da-text-muted)', mar
 
 const OptionsScreen = () => {
   const profile = useMyDancerEdit();
-  const [sheet, setSheet] = useState<'install' | null>(null);
+  const [sheet, setSheet] = useState<'install' | 'feedback' | null>(null);
   const [copied, setCopied] = useState<'idle' | 'copied' | 'manual'>('idle');
 
   if (profile.isError) {
@@ -81,7 +82,6 @@ const OptionsScreen = () => {
     if (row.href) {
       const external = /^https?:/.test(row.href);
       return external ? (
-        // TODO(release 1b): when the feedback inbox exists, fire trackDancerEvent('feedback_sent', ...) here. 1a fires nothing.
         <a key={row.id} href={row.href} target="_blank" rel="noreferrer" style={ROW} data-testid={`opt-${row.id}`}>{row.label}</a>
       ) : (
         <Link key={row.id} to={row.href} style={ROW} data-testid={`opt-${row.id}`}>{row.label}</Link>
@@ -93,6 +93,7 @@ const OptionsScreen = () => {
         setCopied(outcome === 'copied' || outcome === 'manual' ? outcome : 'idle');
       }
       else if (row.id === 'install') setSheet('install');
+      else if (row.id === 'feedback') setSheet('feedback');
     };
     return (
       <button key={row.id} type="button" style={ROW} onClick={() => void onClick()} data-testid={`opt-${row.id}`}>{row.label}</button>
@@ -128,6 +129,8 @@ const OptionsScreen = () => {
       <div className="da-card" style={{ display: 'grid', gap: 8 }}>
         <Link to={SITE_HOME_PATH} style={ROW} data-testid="opt-back-to-site">&larr; Back to the Bachata Calendar website</Link>
       </div>
+
+      {sheet === 'feedback' && <FeedbackSheet onClose={() => setSheet(null)} />}
 
       {sheet === 'install' && (
         <Sheet title="Add to my phone's home screen" testId="opt-install-sheet" onClose={() => setSheet(null)}>
