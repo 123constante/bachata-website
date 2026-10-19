@@ -6,35 +6,29 @@ import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { EventConflict, StepError, useEventSend } from '@/modules/organiser/flows/event';
 import { OrganiserShell, ORG_PATHS } from '../shell';
-import { Card, ErrorState, GhostButton, PersonRow, PrimaryButton, SearchField, SheetView, SkeletonRows, useDebounced, useOpenerRef } from '../ui';
+import { Card, ErrorState, GhostButton, PersonRow, PrimaryButton, SheetView, SkeletonRows, useOpenerRef } from '../ui';
 import { useEventWorkspace } from './eventsApi';
 import type { EventWorkspace } from './eventModel';
-import { fetchOrganiserPages, searchLiveOrganisers, useSeriesRole } from './programmeSeriesApi';
-import { addOrganiser, organisersEmpty, organisersCommand, organisersOff, removeOff, removeOrganiser } from './organisersModel';
+import { fetchOrganiserPages, useSeriesRole } from './programmeSeriesApi';
+import { ADD_NONE_LEFT, ADD_ONLY_YOURS, addablePages, addOrganiser, type LinkedOrganiser, organisersEmpty, organisersCommand, organisersOff, removeOff, removeOrganiser } from './organisersModel';
 
-function AddSheet({ open, onClose, linked, onPick }: { open: boolean; onClose: () => void; linked: string[]; onPick: (id: string) => void }) {
+/** AW1 B-2: only the viewer's own live pages are offered; the server refuses any other added page. */
+function AddSheet({ open, onClose, offer, onPick }: { open: boolean; onClose: () => void; offer: LinkedOrganiser[]; onPick: (id: string) => void }) {
   const opener = useOpenerRef(open);
-  const [q, setQ] = useState('');
-  const term = useDebounced(q.trim());
-  const ready = term.length >= 2;
-  const found = useQuery({ queryKey: ['org-organiser-search', term], queryFn: () => searchLiveOrganisers(term), enabled: open && ready, staleTime: 60_000 });
-  const list = (found.data ?? []).filter((o) => !linked.includes(o.id));
   return (
     <SheetView open={open} returnFocusRef={opener} onOpenChange={(next) => { if (!next) onClose(); }} title="Link an organiser page" fullHeight testId="org-add-sheet">
       <div className="space-y-[12px]" data-testid="org-add-view">
-        <SearchField value={q} onChange={setQ} aria-label="Search organiser pages" placeholder="Search live organiser pages" autoFocusInSheet testId="org-add-search" />
-        {!ready ? <p className="text-[13px] text-[var(--mut)]">Type at least 2 letters of the organiser&rsquo;s name. Only live pages are listed.</p>
-          : found.isLoading ? <SkeletonRows count={3} label="Searching organisers" />
-          : found.isError ? <p role="alert" className="text-[14px] text-[var(--danger)]">We could not search just now. Check your connection and try again.</p>
-          : list.length === 0 ? <p className="text-[14px] text-[var(--mut)]" data-testid="org-add-empty">No live page matches &ldquo;{term}&rdquo;.</p>
-          : (
+        {offer.length === 0 ? <p className="text-[14px] text-[var(--mut)]" data-testid="org-add-empty">{ADD_NONE_LEFT}</p> : (
+          <>
+            <p className="text-[13px] text-[var(--mut)]" data-testid="org-add-note">{ADD_ONLY_YOURS}</p>
             <Card testId="org-add-results">
-              {list.map((o) => (
+              {offer.map((o) => (
                 <PersonRow key={o.id} testId="org-add-result" name={o.name} onPress={() => { onPick(o.id); onClose(); }}
                   trailing={<Plus aria-hidden="true" className="h-[20px] w-[20px] shrink-0 text-[var(--gold)]" />} />
               ))}
             </Card>
-          )}
+          </>
+        )}
       </div>
     </SheetView>
   );
@@ -46,7 +40,7 @@ function OrganisersBody({ ws }: { ws: EventWorkspace }) {
   const [ids, setIds] = useState<string[]>(stored);
   const [adding, setAdding] = useState(false);
   const { sendThenDone, busy, conflict, error } = useEventSend(seriesId);
-  const { role } = useSeriesRole(seriesId);
+  const { role, myPages } = useSeriesRole(seriesId);
   const off = organisersOff({ lifecycle: ws.series.lifecycle_status, isOwner: role === 'owner' });
   const pages = useQuery({ queryKey: ['org-organiser-pages', ...ids], queryFn: () => fetchOrganiserPages(ids), enabled: ids.length > 0 });
   const command = organisersCommand(stored, ids);
@@ -83,7 +77,7 @@ function OrganisersBody({ ws }: { ws: EventWorkspace }) {
       </PrimaryButton>
       {(off || !command) && <p className="text-[13px] text-[var(--mut)]" data-testid="org-save-reason">{off ?? 'Nothing changed yet'}</p>}
       <StepError text={error} />
-      <AddSheet open={adding && !off} onClose={() => setAdding(false)} linked={ids} onPick={(id) => setIds((l) => addOrganiser(l, id))} />
+      <AddSheet open={adding && !off} onClose={() => setAdding(false)} offer={addablePages(myPages, ids)} onPick={(id) => setIds((l) => addOrganiser(l, id))} />
     </>
   );
 }

@@ -416,7 +416,7 @@ export const PARITY: Row[] = [
     shows: [['events/MusicEdit.tsx', 'org-music-chip']] },
   { id: 'SW1-organisers', capability: 'Event organisers: link, remove, never the last (owner only)', verdict: 'PARTIAL',
     screen: SERIES_ORGS, from: [[DETAILS, 'ORG_PATHS.eventOrganisers']], sends: [SEND_ORGANISERS],
-    shows: [['events/SeriesOrganisers.tsx', 'org-last-reason'], ['events/programmeSeriesApi.ts', 'searchLiveOrganisers']] },
+    shows: [['events/SeriesOrganisers.tsx', 'org-last-reason'], ['events/SeriesOrganisers.tsx', 'org-add-note'], ['events/organisersModel.ts', 'addablePages']] },
 ];
 
 const isBuilt = (r: Row) => r.verdict === 'MATCH' || r.verdict === 'PARTIAL';

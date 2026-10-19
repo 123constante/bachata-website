@@ -125,7 +125,7 @@ export const KNOWN_SELF_SERVE_CODES = Object.keys(COPY);
  * by matching the message, most specific first. Raw server text is never
  * shown: anything unmatched gets the generic line.
  */
-export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
+export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegExpMatchArray) => string) }> = [
   { match: /^version_conflict/, message: VERSION_CONFLICT },
   { match: /on a past date is admin-only|^past_date/, message: 'This date has already happened, so it can no longer be changed.' },
   { match: /^has_bookings/, message: 'People have already booked this date, so it cannot be removed. Cancel it instead, so they see why.' },
@@ -164,6 +164,12 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
   { match: /^undo_conflict/, message: 'Someone changed this after you. Look at the event as it is now before you change it again.' },
   { match: /^not_undoable/, message: 'That change cannot be undone here. Change it back by hand.' },
   { match: /^permission_denied: series\.set_recurrence/, message: 'The weekly pattern could not be saved. Pick one weekday and a first date from today on.' },
+  // INT4, the final AW1 contract (admin PR #838): an owner may not delete a session that has per-date changes (named),
+  // an id-less or stale-id programme save is refused (reload brings the stored ids), and an owner may only ADD
+  // organiser pages they own or manage.
+  { match: /^permission_denied: removing the session "(.{1,200})" would delete its per-date changes/, message: (hit) => `The session \u201c${hit[1].trim().slice(0, 80)}\u201d has changes on some dates, so only an admin can remove it. Keep it, or ask the Bachata Calendar team to remove it.` },
+  { match: /^invalid_payload: (this programme save carries no ids|a programme id )/, message: 'This programme changed since you opened it. Reload the page, then make your change and save again.' },
+  { match: /^permission_denied: series\.set_organisers can only add an organiser page you own or manage/, message: 'You can only add organiser pages you run. To add another page, ask the Bachata Calendar team.' },
   { match: /^permission_denied/, message: 'You cannot make that change here. Ask the Bachata Calendar team.' },
 ];
 
@@ -193,8 +199,10 @@ export function commandErrorMessage(error: unknown): string {
   const message = error && typeof error === 'object' ? (error as { message?: unknown }).message : null;
   if (typeof message === 'string') {
     const text = message.trim();
-    const hit = COMMAND_COPY.find((c) => c.match.test(text));
-    if (hit) return hit.message;
+    for (const c of COMMAND_COPY) {
+      const hit = text.match(c.match);
+      if (hit) return typeof c.message === 'string' ? c.message : c.message(hit);
+    }
   }
   return GENERIC.message;
 }

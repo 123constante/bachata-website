@@ -45,7 +45,7 @@ import {
   FESTIVAL_REASON, levelShort, type PTree,
 } from '../programmeSeriesModel';
 import { MUSIC_VOCAB, isOn, musicChips, musicCommand, toggleStyle } from '../musicModel';
-import { LAST_ORGANISER_REASON, MANAGER_REASON, organisersCommand, organisersOff, removeOff, removeOrganiser } from '../organisersModel';
+import { ADD_NONE_LEFT, ADD_ONLY_YOURS, LAST_ORGANISER_REASON, MANAGER_REASON, organisersCommand, organisersOff, removeOff, removeOrganiser } from '../organisersModel';
 import { parseEventWorkspace } from '../eventModel';
 
 const GATE_REASON = 'Needs the next platform update';
@@ -226,7 +226,7 @@ describe('who can change what, and why not (one mapping per fact)', () => {
 
 // ---- the screens ---------------------------------------------------------------------------------
 
-interface Over { homeHang?: boolean; format?: string; lifecycle?: string; program?: unknown[]; organisers?: string[]; role?: 'owner' | 'manager'; dates?: Record<string, unknown>[] }
+interface Over { homeHang?: boolean; format?: string; lifecycle?: string; program?: unknown[]; organisers?: string[]; role?: 'owner' | 'manager'; extraHome?: { id: string; name: string; lifecycle_status: string; role: 'owner' | 'manager' }[]; dates?: Record<string, unknown>[] }
 let world: World;
 let over: Over;
 let recent: unknown[];
@@ -249,7 +249,8 @@ beforeEach(() => {
     if (fn === 'organiser_home_v1') {
       if (over.homeHang) return new Promise(() => {});
       const r = (await base(fn, args)) as { data: { organisers: { role: string }[] } };
-      return { data: { ...r.data, organisers: r.data.organisers.map((o) => ({ ...o, role: over.role ?? 'owner' })) }, error: null };
+      const extra = (over.extraHome ?? []).map((o) => ({ slug: null, avatar_url: null, city_id: null, latest_decision: null, series: [], ...o }));
+      return { data: { ...r.data, organisers: [...r.data.organisers.map((o) => ({ ...o, role: over.role ?? 'owner' })), ...extra] }, error: null };
     }
     if (fn !== 'admin_event_workspace_p5') return base(fn, args);
     const id = String(args.p_series_id);
@@ -549,19 +550,49 @@ describe('Organisers screen', () => {
   it('owner, gate ON: remove one of two -> ONE series.set_organisers with the remaining ids; link a live page adds it', async () => {
     gate.on = true;
     over.organisers = ['org1', 'org2'];
+    over.extraHome = [{ id: 'org3', name: 'Zouk Club', lifecycle_status: 'live', role: 'manager' }];
     const { container } = mount(ORG_PATHS.eventOrganisers(A), routes);
     await screen.findAllByTestId('org-linked-row');
     expect(screen.getByTestId('org-save').getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(screen.getAllByTestId('org-remove')[1]);
     await waitFor(() => expect(screen.getAllByTestId('org-linked-row')).toHaveLength(1));
     fireEvent.click(screen.getByTestId('org-add'));
-    fireEvent.change(await screen.findByTestId('org-add-search'), { target: { value: 'zo' } });
-    press((await screen.findAllByTestId('org-add-result', {}, { timeout: 3000 }))[1]);
+    press((await screen.findAllByTestId('org-add-result', {}, { timeout: 3000 }))[0]);
     await waitFor(() => expect(screen.getAllByTestId('org-linked-row')).toHaveLength(2));
     expect(tooSmall(container.ownerDocument.body)).toEqual([]);
     await click('org-save');
     expect(commandsOf(rpc)).toHaveLength(1);
     expect(lastCommand()).toEqual({ kind: 'series.set_organisers', payload: { [ORG_LIST_KEY]: ['org1', 'org3'] } });
+  });
+});
+
+// INT4 (AW1 B-2): series.set_organisers refuses an ADDED page the caller does not own or manage, so the picker
+// offers only the viewer's own live pages (organiser_home_v1, already loaded for the role) and never a stranger's.
+describe('Organisers: the add picker offers only pages the viewer runs (AW1)', () => {
+  it('lists live owned and managed pages not yet linked; never a stranger page, a draft page or a linked one', async () => {
+    gate.on = true;
+    over.extraHome = [
+      { id: 'org3', name: 'Zouk Club', lifecycle_status: 'live', role: 'manager' },
+      { id: 'org4', name: 'Kizomba Draft', lifecycle_status: 'draft', role: 'owner' },
+    ];
+    pages.rows = [...pages.rows, { id: 'org9', name: 'Stranger Socials', avatar_url: null, lifecycle_status: 'live' }];
+    mount(ORG_PATHS.eventOrganisers(A), routes);
+    await screen.findByTestId('org-linked-row');
+    fireEvent.click(screen.getByTestId('org-add'));
+    const rows = await screen.findAllByTestId('org-add-result', {}, { timeout: 3000 });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('Zouk Club');
+    expect(screen.getByTestId('org-add-view').textContent).not.toMatch(/Stranger|Kizomba|Bachata Nights/);
+    expect(screen.getByTestId('org-add-note').textContent).toBe(ADD_ONLY_YOURS);
+  });
+
+  it('nothing left to add: says so and how to get another page added', async () => {
+    gate.on = true;
+    mount(ORG_PATHS.eventOrganisers(A), routes);
+    await screen.findByTestId('org-linked-row');
+    fireEvent.click(screen.getByTestId('org-add'));
+    expect((await screen.findByTestId('org-add-empty')).textContent).toBe(ADD_NONE_LEFT);
+    expect(screen.queryByTestId('org-add-result')).toBeNull();
   });
 });
 

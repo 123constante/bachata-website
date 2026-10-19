@@ -17,6 +17,17 @@ export const ORGANISERS_EMPTY = 'No organiser is linked yet. Ask the Bachata Cal
 export const ORGANISERS_EMPTY_OWNER = 'No organiser is linked yet. Use Link a page below to add yours.';
 export const organisersEmpty = (off: string | null): string => (off ? ORGANISERS_EMPTY : ORGANISERS_EMPTY_OWNER);
 
+/** AW1 B-2: series.set_organisers refuses an ADDED page the caller does not own or manage. */
+export const ADD_ONLY_YOURS = 'You can only link organiser pages you run. To add another page, ask the Bachata Calendar team.';
+export const ADD_NONE_LEFT = 'Every live organiser page you run is already linked. To add another page, ask the Bachata Calendar team.';
+
+/** One of the viewer's own pages, from organiser_home_v1 (owner or manager rows only). */
+export interface MyPage { id: string; name: string; avatar_url: string | null; lifecycle_status: string }
+
+/** What Link a page offers: the viewer's own LIVE pages not yet linked, in home order. */
+export const addablePages = (mine: MyPage[], linked: string[]): LinkedOrganiser[] =>
+  mine.filter((p) => p.lifecycle_status === 'live' && !linked.includes(p.id)).map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatar_url }));
+
 /** Why the list cannot change here, or null. */
 export function organisersOff(input: { lifecycle: string; isOwner: boolean; gate?: boolean }): string | null {
   const lock = eventLock(input.lifecycle);

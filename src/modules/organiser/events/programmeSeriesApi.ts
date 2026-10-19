@@ -2,13 +2,14 @@
 // organiser_series_cast_v1 (admin AW1) is called only when AW1_APPLIED: its
 // recent_people feed the line-up picker's RECENT list. Each row is pinned with AW1 as
 // {profile_id, profile_type, display_name, photo_url, roles[]} (parseRecentPeople). Organiser names come from
-// the public organiser pages; the search lists live pages only.
+// the public organiser pages; Link a page offers only the viewer's own live pages (organiser_home_v1), since
+// series.set_organisers refuses an added page the caller does not own or manage (AW1 B-2).
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { NOT_DEACTIVATED } from '@/lib/notDeactivatedFilter';
+
 import { useAuth } from '@/hooks/useAuth';
-import { fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
+import { fetchOrganiserHome, organiserHomeQueryKey, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { AW1_APPLIED } from '@/modules/organiser/shared/parityGate';
 import type { LinkedOrganiser } from './organisersModel';
 import { parseRecentPeople, type RecentPerson } from './programmeSeriesModel';
@@ -42,30 +43,13 @@ export async function fetchOrganiserPages(ids: string[]): Promise<LinkedOrganise
   });
 }
 
-/** `%` and `_` are wildcards to ILIKE; a typed name means them literally. */
-const escapeLike = (value: string) => value.replace(/[\\%_]/g, (c) => `\\${c}`);
 
-/** Live organiser pages by name (the Add picker). */
-export async function searchLiveOrganisers(query: string): Promise<LinkedOrganiser[]> {
-  const term = query.trim();
-  if (term.length < 2) return [];
-  const { data, error } = await supabase
-    .from('organiser_profiles')
-    .select('id, name, avatar_url')
-    .eq('lifecycle_status', 'live')
-    .not(...NOT_DEACTIVATED)
-    .ilike('name', `%${escapeLike(term)}%`)
-    .order('name')
-    .limit(8);
-  if (error) throw error;
-  return (data ?? []).map((r) => ({ id: r.id, name: r.name ?? 'Organiser', avatarUrl: r.avatar_url ?? null }));
-}
 
-/** The viewer's role on a series: owner when any organiser they own runs it, else manager, else null. */
-export function useSeriesRole(seriesId: string): { role: 'owner' | 'manager' | null; loading: boolean } {
+/** The viewer's role on a series: owner when any organiser they own runs it, else manager, else null; plus every page they own or manage. */
+export function useSeriesRole(seriesId: string): { role: 'owner' | 'manager' | null; loading: boolean; myPages: HomeOrganiser[] } {
   const { user } = useAuth();
   const home = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled: !!user?.id });
   const mine = (home.data?.organisers ?? []).filter((o) => o.series.some((s) => s.id === seriesId));
   const role = mine.some((o) => o.role === 'owner') ? 'owner' : mine.length ? 'manager' : null;
-  return { role, loading: home.isLoading };
+  return { role, loading: home.isLoading, myPages: home.data?.organisers ?? [] };
 }
