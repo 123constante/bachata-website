@@ -1,22 +1,24 @@
 import { useId, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import {
-  ORGANISER_HOME_KEY, fetchOccurrenceProgramme, runSeriesCommand, saveOccurrenceProgramme, type HomeOrganiser,
+  ORGANISER_HOME_KEY, runSeriesCommand, type HomeOrganiser,
 } from '@/modules/organiser/shared/selfServeApi';
 import { createBlock } from '@/modules/organiser/shared/createModel';
 import { organiserStatus } from '@/modules/organiser/shared/organiserStatus';
 import { envelope, newIdempotencyKey, newSeriesId } from '@/modules/organiser/shared/seriesCommands';
 import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
-import { commandErrorMessage, isServerRefusal, programmeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
+import { commandErrorMessage, isServerRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { UNSAVED_MESSAGE } from '@/modules/organiser/shared/editorGuards';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Chip, EmptyState, ErrorState, GhostButton, PrimaryButton, SectionLabel, SkeletonRows, TitleInput, useShake } from '../ui';
 import { useOrganiserHome } from './eventsApi';
-import { listedOccurrenceId, newEventCommands, reopensAfterFailedCreate, seedSessions } from './newEvent';
-import { EVENT_TYPES, HINT_BOX_LINES, HINT_LINE_PX, chipHint, unconfirmedExitNote, type NewEventType } from './eventType';
+import { duplicateNamed, newEventCommands, reopensAfterFailedCreate } from './newEvent';
+import { FORMAT_CARDS, HINT_BOX_LINES, HINT_LINE_PX, formatHint, isNewEventFormat, unconfirmedExitNote, type NewEventFormat } from './eventType';
 
 // `?o=<organiser id>` (useOrganiserChoice's shape; the public organiser page's
 // Create event passes it) preselects that organiser when it is one of mine.
@@ -31,22 +33,64 @@ class CityLookupFailed extends Error {}
 const CITY_LOOKUP_FAILED = 'We could not look up your city; nothing was saved. Press Create to try again.';
 
 /** The create as computed at the first press: every later press sends exactly this. */
-interface SentCreate { cmds: ReturnType<typeof newEventCommands>; type: NewEventType }
+interface SentCreate { cmds: ReturnType<typeof newEventCommands>; format: NewEventFormat }
+
+/**
+ * The four format cards (W1). Exactly ONE selected state at a time: the selected look is
+ * aria-pressed alone, with no colour transition to linger on the card just left and a focus
+ * ring only for keyboard focus (#750 walk: the old chip kept an amber outline). Course and
+ * Festival are shown, never selectable, each with its reason on the card (d33).
+ */
+function FormatCards({ value, onPick, frozen }: { value: NewEventFormat | null; onPick: (f: NewEventFormat) => void; frozen: boolean }) {
+  return (
+    <div className="grid grid-cols-2 gap-[8px]">
+      {FORMAT_CARDS.map((c) => {
+        // The id it picks, or null for a card only the team sets up (narrowed here, not in the handler).
+        const pick = isNewEventFormat(c.id) ? c.id : null;
+        const selected = pick !== null && value === pick;
+        return (
+          <button
+            key={c.id}
+            type="button"
+            aria-pressed={pick !== null ? selected : undefined}
+            data-selected={selected}
+            data-testid={`org-new-event-format-${c.id}`}
+            disabled={frozen || pick === null}
+            onClick={() => { if (pick) onPick(pick); }}
+            className={cn(
+              'flex min-h-[56px] flex-col items-start justify-center rounded-[8px] border bg-[var(--card2)] p-[12px] text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]',
+              selected ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--line-strong)] text-[var(--fg)]',
+              c.disabledReason !== null ? 'cursor-not-allowed opacity-60' : frozen && 'cursor-not-allowed',
+            )}
+          >
+            <span className="flex items-center gap-[6px] text-[14px] font-semibold">
+              {selected && <Check aria-hidden="true" className="h-[16px] w-[16px]" />}
+              {c.label}
+            </span>
+            {c.disabledReason !== null && (
+              <span className="mt-[2px] text-[12px] text-[var(--mut)]" data-testid={`org-new-event-format-${c.id}-reason`}>{c.disabledReason}</span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; today: string }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const [name, setName] = useState('');
-  const [type, setType] = useState<NewEventType | null>(null);
-  // The create as first SENT (name, organiser, city, London date, chip), kept for the
+  const [format, setFormat] = useState<NewEventFormat | null>(null);
+  // The create as first SENT (name, organiser, city, London date, format), kept for the
   // life of the page: a lost reply may have saved it, so every later press resends it
   // and its schedule verbatim and never re-reads the form (review F1, F2).
   const sentRef = useRef<SentCreate | null>(null);
-  // The create went out: name, chips and organiser freeze. Only a server refusal of the
+  // The create went out: name, format cards and organiser freeze. Only a server refusal of the
   // FIRST send (nothing was saved) opens them again.
   const [sent, setSent] = useState(false);
-  // The create was confirmed: the event exists with the chosen chip. Never reset.
+  // The create was confirmed: the event exists in the chosen format. Never reset.
   const [made, setMade] = useState(false);
   const [organiserId, setOrganiserId] = useState(() => pickInitial(organisers, params.get('o')));
   const [seriesId] = useState(newSeriesId);
@@ -72,12 +116,12 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
     } else {
       if (!organiser || block) return;
       if (!name.trim()) { setError('Give your event a name.'); shake(); return; }
-      if (!type) { setError('Choose the first session: a class, a party or a workshop.'); shake(); return; }
+      if (!format) { setError('Choose One-off or Recurring.'); shake(); return; }
       const org = organiser;
-      const chip = type;
+      const chosen = format;
       start = async () => {
         const cityId = await resolveCreateCityId({ venueCityName: null, organiserCityId: org.city_id }).catch(() => { throw new CityLookupFailed(); });
-        const first = { cmds: newEventCommands(name, today, org.id, cityId, chip), type: chip };
+        const first = { cmds: newEventCommands(name, today, org.id, cityId, chosen), format: chosen };
         sentRef.current = first;
         setSent(true);
         return first;
@@ -112,31 +156,14 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
       setBusy(false);
       return;
     }
-    let listed: string | null;
     try {
       // The event exists now. A refused schedule is shown, never swallowed: Create
       // again retries it (the create replays under its key), or the editor sets it.
-      listed = listedOccurrenceId(await runSeriesCommand(envelope(seriesId, version, go.cmds.schedule, keys.rule)));
+      await runSeriesCommand(envelope(seriesId, version, go.cmds.schedule, keys.rule));
     } catch (err) {
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-      setError(`Your event is saved as a draft, but its date was not listed: ${commandErrorMessage(err)} Press Create to try again, or open the event and set the date there.`);
-      shake();
-      setBusy(false);
-      return;
-    }
-    try {
-      // The first session goes on the date just listed (the add_date reply names it:
-      // no read of the date list, FIX-6 F-g). seedSessions sends nothing when the
-      // date already holds one, so pressing Create again after a lost reply never
-      // adds a second session.
-      if (!listed) throw new Error('no_listed_date');
-      const programme = await fetchOccurrenceProgramme(listed);
-      const sessions = seedSessions(programme, go.type);
-      if (sessions) await saveOccurrenceProgramme(listed, programme.version, sessions);
-    } catch (err) {
-      void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-      const why = isServerRefusal(err) ? ` ${programmeErrorCopy(err).message}` : '';
-      setError(`Your event and its date are saved as a draft, but the first session was not added.${why} Press Create to try again, or open the event and add it on its first date.`);
+      const what = go.format === 'recurring' ? 'its weekly dates were' : 'its date was';
+      setError(`Your event is saved as a draft, but ${what} not listed: ${commandErrorMessage(err)} Press Create to try again, or open the event and set the date there.`);
       shake();
       setBusy(false);
       return;
@@ -148,6 +175,8 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
   // Frozen from the moment a create is sent (and while any step runs): the hint above
   // Create says why.
   const frozen = busy || sent || made;
+  // d32: a quiet note, never a block. Only before the create is confirmed (the made draft is not live).
+  const duplicate = made ? null : duplicateNamed(name, organiser?.series ?? []);
 
   return (
     <form
@@ -156,16 +185,18 @@ function NewEventForm({ organisers, today }: { organisers: HomeOrganiser[]; toda
       onSubmit={(e) => { e.preventDefault(); void create(); }}
     >
       <TitleInput value={name} onChange={(v) => { setName(v); setError(null); }} aria-label="Event name" placeholder="Event name" maxLength={120} disabled={frozen} testId="org-new-event-name" />
-      <section aria-label="First session" data-testid="org-new-event-type">
-        <SectionLabel as="p">First session</SectionLabel>
-        <div className="flex flex-wrap gap-[8px]">
-          {EVENT_TYPES.map((t) => (
-            <Chip key={t.type} selected={type === t.type} onToggle={() => { setType(t.type); setError(null); }} disabled={frozen} testId={`org-new-event-type-${t.type}`}>{t.label}</Chip>
-          ))}
-        </div>
+      {duplicate && (
+        <p className="text-[13px] text-[var(--mut)]" data-testid="org-new-event-duplicate">
+          You already have an event called &ldquo;{duplicate.name}&rdquo;.{' '}
+          <Link to={ORG_PATHS.event(duplicate.id)} className="inline-flex min-h-[44px] items-center font-semibold text-[var(--gold)] underline" data-testid="org-new-event-duplicate-open">Open it</Link>
+        </p>
+      )}
+      <section aria-label="Format" data-testid="org-new-event-format">
+        <SectionLabel as="p">Format</SectionLabel>
+        <FormatCards value={format} onPick={(f) => { setFormat(f); setError(null); }} frozen={frozen} />
         {/* A fixed box of HINT_BOX_LINES lines (the longest hint at 320px): the hint changes as the create runs, and nothing above Create may move. */}
-        <p className="mt-[8px] text-[13px] text-[var(--mut)]" style={{ minHeight: HINT_BOX_LINES * HINT_LINE_PX, lineHeight: `${HINT_LINE_PX}px` }} data-testid="org-new-event-type-hint">
-          {chipHint(made ? 'made' : sent ? 'sent' : 'open', busy, type, !!block)}
+        <p className="mt-[8px] text-[13px] text-[var(--mut)]" style={{ minHeight: HINT_BOX_LINES * HINT_LINE_PX, lineHeight: `${HINT_LINE_PX}px` }} data-testid="org-new-event-format-hint">
+          {formatHint(made ? 'made' : sent ? 'sent' : 'open', busy, format, !!block)}
         </p>
       </section>
       <p className="text-[14px] text-[var(--mut)]">
