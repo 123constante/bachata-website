@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { parseVenueVideoUrl } from '@/lib/parseVenueVideoUrl';
+import { frameFor, frameStyle } from '@/lib/videoFrame';
 
 interface VenueVideoEmbedProps {
   videoUrls: string[];
@@ -6,7 +8,10 @@ interface VenueVideoEmbedProps {
 
 export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
   const parsed = videoUrls.map((u) => parseVenueVideoUrl(u)).find(Boolean) ?? null;
+  const [measured, setMeasured] = useState(() => frameFor());
   if (!parsed) return null;
+  const frame = parsed.kind === 'youtube' && parsed.portrait ? frameFor(9, 16) : measured;
+  const style = frameStyle(frame);
 
   const shell = {
     background: 'var(--va-surface)',
@@ -31,7 +36,8 @@ export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
         muted
         loop
         playsInline
-        className="absolute inset-0 h-full w-full rounded-[14px] object-cover"
+        className={`absolute inset-0 h-full w-full rounded-[14px] ${frame.landscape ? 'object-cover' : 'object-contain'}`}
+        onLoadedMetadata={(e) => setMeasured(frameFor(e.currentTarget.videoWidth, e.currentTarget.videoHeight))}
       />
     );
 
@@ -40,8 +46,14 @@ export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
       className="overflow-hidden rounded-[18px] border p-2"
       style={shell}
     >
-      <div className="relative w-full overflow-hidden rounded-[14px]" style={{ paddingBottom: '56.25%' }}>
-        {inner}
+      <div className="w-full overflow-hidden rounded-[14px] bg-black">
+        <div
+          data-video-frame
+          className={`relative ${frame.landscape ? 'aspect-video w-full' : ''}`}
+          style={style}
+        >
+          {inner}
+        </div>
       </div>
     </div>
   );
