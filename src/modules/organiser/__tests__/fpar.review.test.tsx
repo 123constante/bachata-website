@@ -82,8 +82,12 @@ const VENUE = { default_venue_id: 'v1' };
 const COVER = { default_cover_image_url: 'https://x/c.jpg' };
 const NO_DATE = { default_start_date: '2026-01-01' };
 const COMING = [{ id: 'o1', occurrence_date: '2026-10-16', lifecycle_status: 'scheduled', version: 1 }];
-const draftWs = (over: Record<string, unknown>, occs: unknown[]) =>
-  parseEventWorkspace(rawWorkspace({ lifecycle_status: 'draft', default_venue_id: null, default_cover_image_url: null, ...over }, occs));
+// These rows isolate Details/date items, so the draft carries a programme session (the session rule has its own matrix).
+const draftWs = (over: Record<string, unknown>, occs: unknown[]) => {
+  const raw = rawWorkspace({ lifecycle_status: 'draft', default_venue_id: null, default_cover_image_url: null, ...over }, occs);
+  raw.series.program = [{ day: { id: 'd' }, sections: [{ section: { id: 's' }, items: [{ item: { id: 'i', start_time: '20:00:00' }, people: [] }] }] }] as never[];
+  return parseEventWorkspace(raw);
+};
 
 type GoCase = [string, Record<string, unknown>, unknown[], boolean, string | null, boolean, boolean];
 const GO_CASES: GoCase[] = [
