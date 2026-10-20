@@ -10,6 +10,7 @@
  * than leaking raw text.
  */
 import { DANCER_GATE_REASON, PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
+import { VERSION_CONFLICT } from './copy';
 
 import { LAST_OWNER_NOTE } from './teamModel';
 
@@ -128,7 +129,7 @@ export const KNOWN_SELF_SERVE_CODES = Object.keys(COPY);
  * shown: anything unmatched gets the generic line.
  */
 export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
-  { match: /^version_conflict/, message: 'This changed somewhere else after you opened it. We have reloaded it; check it and save again.' },
+  { match: /^version_conflict/, message: VERSION_CONFLICT },
   { match: /on a past date is admin-only|^past_date/, message: 'That date has already happened, so it can no longer be changed.' },
   { match: /^has_bookings/, message: 'People have already booked this date, so it cannot be removed. Cancel it instead, so they see why.' },
   { match: /^no_sessions_for_time_override/, message: 'This date has no session times to move yet. Ask the Bachata Calendar team to set up the class times.' },
