@@ -1,10 +1,13 @@
 import { useRef, useState } from 'react';
 import { parseVenueVideoUrl } from '@/lib/parseVenueVideoUrl';
-import { VIDEO_CAP_CLASS, frameFor, frameStyle, resolveFrame, useReportVideoSize, type MeasuredFrame } from '@/lib/videoFrame';
+import { VIDEO_CAP_CLASS, frameFor, frameStyle, hugStyle, resolveFrame, useReportVideoSize, type MeasuredFrame } from '@/lib/videoFrame';
 
 interface VenueVideoEmbedProps {
   videoUrls: string[];
 }
+
+/** The tile's p-2 (0.5rem a side) + 1px border a side, added to a hugging tile's width. */
+const SHELL_CHROME = '1rem + 2px';
 
 export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
   const parsed = videoUrls.map((u) => parseVenueVideoUrl(u)).find(Boolean) ?? null;
@@ -15,6 +18,8 @@ export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
   if (!parsed) return null;
   const frame = resolveFrame(parsed, measured);
   const style = frameStyle(frame);
+  // Portrait/square: the tile hugs the video (as wide as it, centred), no black bars.
+  const hug = !frame.landscape;
 
   const shell = {
     background: 'var(--va-surface)',
@@ -49,10 +54,11 @@ export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
 
   return (
     <div
-      className="overflow-hidden rounded-[18px] border p-2"
-      style={shell}
+      data-video-hug={hug || undefined}
+      className={hug ? `${VIDEO_CAP_CLASS} mx-auto overflow-hidden rounded-[18px] border p-2` : 'overflow-hidden rounded-[18px] border p-2'}
+      style={hug ? { ...shell, ...hugStyle(frame, SHELL_CHROME) } : shell}
     >
-      <div className="w-full overflow-hidden rounded-[14px] bg-black">
+      <div className={hug ? 'w-full overflow-hidden rounded-[14px]' : 'w-full overflow-hidden rounded-[14px] bg-black'}>
         <div
           data-video-frame
           className={`relative ${frame.landscape ? 'aspect-video w-full' : VIDEO_CAP_CLASS}`}

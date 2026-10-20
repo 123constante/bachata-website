@@ -3098,13 +3098,14 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
             <h2 className="nl-title">Aftermovie</h2>
             <hr className="neon-rule" />
           </div>
-          <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-black">
-            <VideoFrame
-              video={festivalVideo}
-              poster={posterUrl}
-              title={festivalDetail?.identity.name ?? festival?.name ?? "Festival"}
-            />
-          </div>
+          <VideoFrame
+            video={festivalVideo}
+            poster={posterUrl}
+            title={festivalDetail?.identity.name ?? festival?.name ?? "Festival"}
+            boxClassName="mx-auto w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-black"
+            hugClassName="max-w-3xl overflow-hidden rounded-xl border border-white/10"
+            hugChrome="2px"
+          />
         </section>
       )}
 
