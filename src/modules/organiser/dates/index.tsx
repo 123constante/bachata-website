@@ -23,9 +23,10 @@ import { cancelCommand, skipDateCommand, uncancelCommand } from '@/modules/organ
 import { UNSAVED_MESSAGE, saveBarState } from '@/modules/organiser/shared/editorGuards';
 import { TAKE_OFF } from '@/modules/organiser/shared/copy';
 import { cancelledLabel } from '@/modules/organiser/shared/cancelLabel';
-import { dateLabel as labelOf, isRuleDate } from '@/modules/organiser/shared/seriesModel';
+import { dateLabel as labelOf, isRuleDate, upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { calendarDate } from '@/modules/organiser/shared/homeModel';
 import { dateLock, dateTag } from '@/modules/organiser/shared/eventState';
+import { seriesLife } from '@/modules/organiser/shared/lifeLabel';
 import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
 import { londonTodayKey } from '@/lib/londonDate';
 import { DateSheet, type SheetState } from './DateSheet';
@@ -79,7 +80,7 @@ export default function DatePage() {
   const lock = date && series ? dateLock(series.lifecycle_status, date, today) : null;
   const lockShort = !lock ? null : date && date < today ? 'This date has already happened.'
     : series?.lifecycle_status === 'ended' ? 'This event has ended.' : 'This event is archived.';
-  const tag = cancelled ? dateTag('', 'cancelled') : series ? dateTag(series.lifecycle_status, 'scheduled') : null;
+  const tag = cancelled ? dateTag('', 'cancelled') : series ? seriesLife(series, upcomingDates(ed.workspace.data?.dates ?? [], today).length).tag : null;
 
   const updateRow = (key: string, fn: (r: DraftSession) => DraftSession) => {
     ed.setRows((rows) => rows.map((r) => (r.key === key ? fn(r) : r)));

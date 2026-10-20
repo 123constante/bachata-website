@@ -599,6 +599,8 @@ describe('G1: the status chip on My events and One event is the shared word for 
       // R3-4: an archived series is never a row or a chip.
       expect(await screen.findByTestId('org-events-empty')).toBeTruthy();
     } else {
+      // An ended series sits under the collapsed Past heading (W3): open it first.
+      if (status === 'ended') fireEvent.click(await screen.findByTestId('org-events-past-toggle'));
       const row = await screen.findByTestId('org-event-row');
       expect(within(row).getByTestId('org-event-chip').textContent).toBe(lifecycleTag(status).label);
     }

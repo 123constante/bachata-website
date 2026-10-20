@@ -27,7 +27,7 @@
 
 export type VenueVideo =
   | { kind: 'direct'; src: string }
-  | { kind: 'youtube'; embedUrl: string; videoId: string }
+  | { kind: 'youtube'; embedUrl: string; videoId: string; portrait: boolean }
   | { kind: 'vimeo'; embedUrl: string; videoId: string };
 
 const DIRECT_VIDEO_EXT = /\.(mp4|webm|mov|m4v)(\?|$)/i;
@@ -69,6 +69,7 @@ export const parseVenueVideoUrl = (url: string | null | undefined): VenueVideo |
       return {
         kind: 'youtube',
         videoId,
+        portrait: /youtube\.com\/shorts\//i.test(trimmed),
         embedUrl: `https://www.youtube.com/embed/${videoId}?${params.toString()}`,
       };
     }

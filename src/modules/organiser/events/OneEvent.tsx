@@ -5,7 +5,7 @@ import { londonTodayKey, weekdayOfKey } from '@/lib/londonDate';
 import { eventLock, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
 import { comingDates, dayLabel } from '@/modules/organiser/shared/dateList';
 import type { HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
-import { seriesChip } from '@/modules/organiser/jobs/homeJobs';
+import { lifeChip } from '@/modules/organiser/jobs/homeJobs';
 import { putBackPath, RESTORE_CAP_NOTE, restoreCapped } from '@/modules/organiser/flows/cancel/cancelModel';
 import { canAddTo, findSeries } from '@/modules/organiser/flows/add/addModel';
 import { useFlowHome } from '@/modules/organiser/flows/add/useFlow';
@@ -205,7 +205,7 @@ export default function OneEvent() {
       <button type="button" onClick={() => navigate(ORG_PATHS.eventDetails(seriesId))} data-testid="org-event-title"
         className="flex min-h-[52px] w-full items-center gap-[12px] rounded-[12px] bg-[var(--card)] px-[16px] text-left">
         <span className="min-w-0 flex-1 truncate text-[16px] font-bold text-[var(--fg)]">{name}</span>
-        {one && <span className="shrink-0 text-[13px] text-[var(--mut)]" data-testid="org-event-chip">{seriesChip(one, today).label}</span>}
+        {one && <span className="shrink-0 text-[13px] text-[var(--mut)]" data-testid="org-event-chip">{lifeChip(one, today).label}</span>}
         <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
       </button>
       <ClosedLines ws={ws.data} today={today} testId="org-event" />
@@ -221,6 +221,6 @@ export default function OneEvent() {
   return (
     // Wide screens keep My events beside the event (the split the old editor had); a phone shows the event only.
     <OrganiserShell title={name} back={{ to: ORG_PATHS.events, label: 'Events' }} testId="org-page-event"
-      list={<EventList />} detail={<div className="flex flex-col gap-3 p-3">{body}</div>} />
+      list={<EventList activeId={seriesId} />} detail={<div className="flex flex-col gap-3 p-3">{body}</div>} />
   );
 }

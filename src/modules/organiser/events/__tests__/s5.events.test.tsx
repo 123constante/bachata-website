@@ -101,12 +101,13 @@ describe('C33 My events', () => {
     expect(tooSmall(container)).toEqual([]);
   });
 
-  it('a live event with no coming date reads "Needs dates", as on Home', async () => {
+  it('a live event with no coming date reads "Nothing coming up" under Past (W3 d31)', async () => {
     world.occs[B] = [];
     world.series[1] = series(B, 'Sunday Class', []);
     mount(ORG_PATHS.events, routes);
+    fireEvent.click(await screen.findByTestId('org-events-past-toggle'));
     const row = (await screen.findAllByTestId('org-event-row')).find((r) => r.getAttribute('data-series-id') === B) as HTMLElement;
-    expect(within(row).getByTestId('org-event-chip').textContent).toBe('Needs dates');
+    expect(within(row).getByTestId('org-event-chip').textContent).toBe('Nothing coming up');
   });
 
   it('C33b: no events -> "No events yet" with the one action New event', async () => {

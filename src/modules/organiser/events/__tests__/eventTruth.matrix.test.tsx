@@ -5,8 +5,8 @@
  *   format (one_off | recurring | course | festival | null)
  *   x stored category (party | class | workshop | masterclass | null)
  *   x has an upcoming date that is not cancelled or not (x locked or not, for the editor).
- * Surfaces: the organiser Type row (value + sublabel), the event page's ended
- * noun (runNoun), the calendar's Parties / Classes tab membership. Mutation proof
+ * Surfaces: the event page's ended noun (runNoun), the calendar's Parties /
+ * Classes tab membership. The organiser editor has no Type row any more (W3, d39). Mutation proof
  * is in docs/handover/event-truth-p1-ui.md: a surface swapped back to the raw
  * stored value reds the 'workshop' rows here (a stored workshop reads Class).
  */
@@ -21,7 +21,6 @@ import { runNoun } from '@/modules/event-page/bento/utils/endedRun';
 import { parseCalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { matchesCategory, transformCalendarEvents } from '@/components/calendar/calendarUtils';
 import { SHAPES, VENUES, homeOf, programmeOf, shapeByKey, upcomingOf, workspaceOf, type SeriesShape } from '../../__tests__/shapes/shapes';
-import { EVERY_UPCOMING_CANCELLED, typeSublabel, type TypeRowState } from '../eventType';
 
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn(), storage: { from: vi.fn() } } }));
@@ -41,11 +40,11 @@ const EXPECTED_WORD: Record<string, string | null> = {
 const expectedWord = (format: string | null, stored: string | null) =>
   format === 'festival' || format === 'course' ? format : EXPECTED_WORD[String(stored)];
 
-describe('the Type row and the ended noun show the one word, for every format x stored category', () => {
+describe('the lib label and the ended noun show the one word, for every format x stored category', () => {
   it.each(GRID)('%s + %s', (format, stored) => {
     const word = expectedWord(format, stored);
     expect(wordForStored(format, stored)).toBe(word);
-    // Organiser Type row value: the word's label, or Not set.
+    // The lib's label (admin's read-only Event type row): the word's label, or Not set.
     expect(categoryLabelFor(format, stored)).toBe(word ? CATEGORY_WORD_LABEL[word as keyof typeof CATEGORY_WORD_LABEL] : NOT_SET_LABEL);
     // Event page ended line: the same word; no word (no session yet) reads as a night.
     expect(runNoun(format, null, stored)).toBe(word ?? 'night');
@@ -55,59 +54,6 @@ describe('the Type row and the ended noun show the one word, for every format x 
   });
 });
 
-/** The sentence under the Type row, spelled out per state so a drift in eventType.ts is caught here. */
-const CANCELLED_ONLY_SENTENCE = 'Every upcoming date is cancelled. Open one under When and put it back on, then add a session and it is set for you.';
-function expectedSublabel(format: string | null, stored: string | null, state: TypeRowState): string {
-  if (format === 'festival' || format === 'course') return 'Set by its format.';
-  const word = expectedWord(format, stored);
-  // The editable sentence promises nothing: the derivation is the union over the series programme
-  // and every date (keep-if-agrees), so changing one date's sessions need not move the word.
-  if (word) {
-    // FIX-7 R3: not editable, so hasSession is over every listed date (the editor's mapping), and a
-    // stored word with no session never claims its sessions set it.
-    if (state.locked) return state.hasSession ? 'Set by its sessions.' : 'No session on its dates.';
-    if (!state.hasUpcoming) {
-      if (state.hasSession) return 'Set by its sessions.';
-      return state.cancelledOnly ? CANCELLED_ONLY_SENTENCE : 'Add a session once a date is listed under When, and it is set for you.';
-    }
-    // FIX-6 F-b: a legacy draft keeps a stored category with NO session; the review card says
-    // "Add at least one session first.", so the row must not claim its sessions set it.
-    return state.hasSession ? 'Set by its sessions across all its dates.' : 'No session yet. Add one to one of its dates and it is set from it.';
-  }
-  if (state.locked) return 'No session, so not set.';
-  // FIX-6 F-c: a session exists but sets no type (a performance): never "add a session".
-  if (state.hasUpcoming) return state.hasSession ? 'Its sessions set no type yet. Add a class or a party to one of its dates and it is set for you.' : 'Add a session to one of its dates and it is set for you.';
-  // FIX-3 fix 5 (review F8): cancelled upcoming dates exist but none can take a session. When lists them
-  // (each opens the date, whose "Put this date back on" is the un-cancel), so that is the step named.
-  return state.cancelledOnly ? CANCELLED_ONLY_SENTENCE : 'Add a session once a date is listed under When, and it is set for you.';
-}
-
-describe('the Type row sublabel points only at controls that are on the page', () => {
-  // hasUpcoming is "an upcoming date that is NOT cancelled": the programme writer refuses a
-  // cancelled date (date_cancelled), so a series whose every upcoming date is cancelled has
-  // no date to put a session on. cancelledOnly tells that shape from "no upcoming date at all":
-  // When lists the cancelled dates, so the row can name the real next step. Every
-  // locked x hasUpcoming x cancelledOnly row, including the pair that cannot occur (a listable
-  // date AND cancelled-only), which reads as the listable date.
-  const states: TypeRowState[] = [false, true].flatMap((locked) => [false, true].flatMap((hasUpcoming) => [false, true].flatMap((cancelledOnly) => [false, true].map((hasSession) => ({ locked, hasUpcoming, cancelledOnly, hasSession })))));
-  it.each(GRID.flatMap(([f, s]) => states.map((st) => [f, s, st] as const)))('%s + %s, %o', (format, stored, state) => {
-    const text = typeSublabel(format, stored, state);
-    expect(text).toBe(expectedSublabel(format, stored, state));
-    // Never a session action when no session can be edited; never 'one of its dates' with no date to take one.
-    if (state.locked || !state.hasUpcoming) expect(text).not.toMatch(/Change the sessions|across all its dates/);
-    if (!state.hasUpcoming) expect(text).not.toMatch(/one of its dates|across all its dates/);
-    // Cancelled-only never says "once a date is listed": the dates ARE listed under When.
-    if (!state.hasUpcoming && state.cancelledOnly) expect(text).not.toMatch(/once a date is listed/);
-    expect(text).not.toMatch(/Change the sessions/);
-    // One fact (FIX-6 F-b, F-c): no session never reads "set by its sessions"; a session never reads "add a session".
-    if (!state.locked && state.hasUpcoming && !state.hasSession) expect(text).not.toMatch(/Set by its sessions/);
-    if (!state.locked && state.hasUpcoming && state.hasSession) expect(text).not.toMatch(/^Add a session/);
-  });
-  it('the cancelled-only sentence opens with the fact the Schedule card states, from the one shared constant', () => {
-    expect(CANCELLED_ONLY_SENTENCE.startsWith(`${EVERY_UPCOMING_CANCELLED}.`)).toBe(true);
-    expect(EVERY_UPCOMING_CANCELLED).toBe('Every upcoming date is cancelled');
-  });
-});
 
 /** The calendar row get_calendar_events_v2 returns for one date whose only sessions are `program` (key_times quiet). */
 const calendarRow = (program: Array<{ type: string }>, format = 'recurring') => parseCalendarEventRow({

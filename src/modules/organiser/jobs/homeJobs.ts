@@ -6,6 +6,7 @@ import { londonDateKey, londonDaysBetweenKeys, parseUtcIso } from '@/lib/londonD
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { isListedSeries, type HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
 import { CANCELLED_WORD, isClosed, lifecycleTag } from '@/modules/organiser/shared/eventState';
+import { seriesLife } from '@/modules/organiser/shared/lifeLabel';
 import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { parseTeam, type IncomingAccessRequest } from '@/modules/organiser/shared/teamModel';
 
@@ -76,6 +77,18 @@ export function seriesChip(series: HomeSeriesFull, today: string): { label: stri
   if (first) return { label: problemLabel(first, series, today), tone: 'bad' };
   if (series.lifecycle_status === 'draft') return { label: draftLabel(series, today), tone: 'n' };
   return { label: lifecycleTag(series.lifecycle_status).label, tone: series.lifecycle_status === 'live' ? 'ok' : 'n' };
+}
+
+/**
+ * The chip on My events and One event (W3 d31): a live series with nothing coming up reads
+ * Finished / Nothing coming up from the ONE life mapping (lifeLabel), the words the Past section
+ * uses; every other series keeps seriesChip. Home's job row keeps its own actionable "Needs dates".
+ */
+export function lifeChip(series: HomeSeriesFull, today: string): { label: string; tone: 'ok'|'bad'|'n' } {
+  if (series.lifecycle_status === 'live' && series.upcoming_count <= 0 && !cancelledOnly(series)) {
+    return { label: seriesLife(series, series.upcoming_count).tag.label, tone: 'n' };
+  }
+  return seriesChip(series, today);
 }
 
 const PROBLEM_TO: Record<SeriesProblem, (seriesId: string) => string> = {
