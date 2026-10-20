@@ -24,6 +24,10 @@ import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { nothingComingUp } from '@/modules/organiser/shared/lifeLabel';
 import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { LifecycleActions } from './LifecycleActions';
+import { LockedRow, LockedScreen, LockNote, useEventLock, type EventLock } from './ProfileLock';
+
+/** The event-wide steps the C14 lock turns off (pause, end, repeats); Resume stays open (C3: a resume is not a go-live). */
+const LOCKED_STEPS: ReadonlySet<EventStepName> = new Set(['pause', 'end', 'day', 'stop', 'weekly']);
 
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left text-[15px]';
 const MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -88,7 +92,7 @@ function OffRow({ label, reason, testId, addTo }: { label: string; reason: strin
   );
 }
 
-function Dates({ seriesId, home, ws, today }: { seriesId: string; home: HomeSeriesFull | null; ws: EventWorkspace | undefined; today: string }) {
+function Dates({ seriesId, home, ws, today, lock }: { seriesId: string; home: HomeSeriesFull | null; ws: EventWorkspace | undefined; today: string; lock: EventLock }) {
   const shown = home ? comingDates(home, today) : [];
   const more = moreLabel(ws, shown.length, home?.upcoming_count ?? 0, today);
   const cancelled = ws ? wsCancelledComing(ws, today) : [];
@@ -102,11 +106,19 @@ function Dates({ seriesId, home, ws, today }: { seriesId: string; home: HomeSeri
               <span className="min-w-0 flex-1 truncate text-[var(--fg)]">{d.label}{d.time ? `, ${d.time}` : ''}</span>
               <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
             </Link>
-            {/* Every coming date opens its own sessions and line-up (PARITY-GAP C59), not only the next. */}
-            <Link to={ORG_PATHS.dateLineup(seriesId, d.occurrenceId)} data-testid="org-coming-sessions" aria-label={`Sessions and line-up, ${d.label}`}
-              className="flex min-h-[52px] min-w-[44px] shrink-0 items-center px-[12px] text-[14px] font-semibold text-[var(--gold)]">
-              Sessions
-            </Link>
+            {/* Every coming date opens its own sessions and line-up (PARITY-GAP C59), not only the next. Line-ups are locked by C14. */}
+            {lock.locked ? (
+              <a role="link" aria-disabled="true" tabIndex={0} aria-describedby="org-coming-lock-reason" data-testid="org-coming-sessions" data-locked="true"
+                aria-label={`Sessions and line-up, ${d.label}`}
+                className="flex min-h-[52px] min-w-[44px] shrink-0 cursor-not-allowed items-center px-[12px] text-[14px] text-[var(--mut)]">
+                Sessions
+              </a>
+            ) : (
+              <Link to={ORG_PATHS.dateLineup(seriesId, d.occurrenceId)} data-testid="org-coming-sessions" aria-label={`Sessions and line-up, ${d.label}`}
+                className="flex min-h-[52px] min-w-[44px] shrink-0 items-center px-[12px] text-[14px] font-semibold text-[var(--gold)]">
+                Sessions
+              </Link>
+            )}
           </div>
         ))}
         {more && <p className="px-[16px] py-[10px] text-[14px] text-[var(--mut)]" data-testid="org-coming-more">{more}</p>}
@@ -114,11 +126,13 @@ function Dates({ seriesId, home, ws, today }: { seriesId: string; home: HomeSeri
           <div className="px-[16px] py-[10px]" data-testid="org-coming-none">
             <p className="text-[15px] text-[var(--fg)]">No coming dates</p>
             {status === 'paused' && <p className="pt-[4px] text-[14px] text-[var(--mut)]" data-testid="org-coming-resume">Resume it to add dates</p>}
-            {canAddTo(status) && (
-              <Link to={ORG_PATHS.addEvent(seriesId)} className={cn(ROW, 'px-0 font-semibold text-[var(--gold)]')} data-testid="org-coming-add">Add a date</Link>
+            {canAddTo(status) && (lock.locked
+              ? <LockedRow label="Add a date" reasonId="org-coming-lock-reason" testId="org-coming-add" className="px-0" />
+              : <Link to={ORG_PATHS.addEvent(seriesId)} className={cn(ROW, 'px-0 font-semibold text-[var(--gold)]')} data-testid="org-coming-add">Add a date</Link>
             )}
           </div>
         )}
+        {lock.locked && lock.reason && (shown.length > 0 || canAddTo(status)) && <LockNote reason={lock.reason} seriesId={seriesId} testId="org-coming-lock" />}
       </Card>
       {cancelled.length > 0 && ws && (
         <Card label="Cancelled" testId="org-cancelled">
@@ -146,7 +160,7 @@ function Dates({ seriesId, home, ws, today }: { seriesId: string; home: HomeSeri
   );
 }
 
-function Actions({ ws, today }: { ws: EventWorkspace; today: string }) {
+function Actions({ ws, today, lock }: { ws: EventWorkspace; today: string; lock: EventLock }) {
   const rows = eventActions(ws.series, readIsFull(ws, today), wsComing(ws, today).length);
   // S-FEEDBACK 5: a Finished / Nothing coming up event offers only See it live; Pause and End go until a date is added.
   const idle = nothingComingUp(ws.series, upcomingDates(ws.dates, today).length);
@@ -157,8 +171,10 @@ function Actions({ ws, today }: { ws: EventWorkspace; today: string }) {
       {shown.map((step) => {
         const reason = rows[step]?.reason;
         const label = step === 'day' ? `${ACTION_LABEL.day}${dayNow(ws)}` : ACTION_LABEL[step];
+        if (lock.locked && LOCKED_STEPS.has(step)) return <LockedRow key={step} label={label} reasonId="org-event-lock-reason" testId={`org-event-${step}`} />;
         return reason ? (
-          <OffRow key={step} label={label} reason={reason} testId={`org-event-${step}`} addTo={reason === NO_COMING ? ORG_PATHS.addEvent(ws.series.id) : undefined} />
+          // Add a date is locked by C14: the way out is not offered while the lock is on.
+          <OffRow key={step} label={label} reason={reason} testId={`org-event-${step}`} addTo={reason === NO_COMING && !lock.locked ? ORG_PATHS.addEvent(ws.series.id) : undefined} />
         ) : (
           <Link key={step} to={eventStepPath(ws.series.id, step)} data-testid={`org-event-${step}`} className={cn(ROW, step === 'end' ? 'text-[var(--danger)]' : 'text-[var(--fg)]')}>
             <span className="min-w-0 flex-1">{label}</span>
@@ -166,6 +182,7 @@ function Actions({ ws, today }: { ws: EventWorkspace; today: string }) {
           </Link>
         );
       })}
+      {lock.locked && lock.reason && shown.some((s) => LOCKED_STEPS.has(s)) && <LockNote reason={lock.reason} seriesId={ws.series.id} testId="org-event-lock" />}
     </Card>
   );
 }
@@ -193,7 +210,16 @@ export default function OneEvent() {
   const one = findSeries(home.data, seriesId);
   const step = readStep(search.get(STEP_PARAM));
   const name = one?.name ?? ws.data?.series.name ?? 'Event';
+  const lock = useEventLock(ws.data);
 
+  // A locked step reached by its URL says why instead of opening (C14).
+  if (step && ws.data && lock.locked && lock.reason && LOCKED_STEPS.has(step)) {
+    return (
+      <OrganiserShell title={name} back={{ to: ORG_PATHS.event(seriesId), label: 'Back' }} testId="org-page-event">
+        <LockedScreen reason={lock.reason} seriesId={seriesId} testId="org-event-step-locked" />
+      </OrganiserShell>
+    );
+  }
   if (step && ws.data) return <EventStep ws={ws.data} today={today} step={step} />;
 
   const body = ws.isError && isAccessRefusal(ws.error) ? (
@@ -214,11 +240,11 @@ export default function OneEvent() {
       </button>
       <ClosedLines ws={ws.data} today={today} testId="org-event" />
       <MonthDots ws={ws.data} today={today} />
-      <Dates seriesId={seriesId} home={one} ws={ws.data} today={today} />
+      <Dates seriesId={seriesId} home={one} ws={ws.data} today={today} lock={lock} />
       <DatesTakenOff series={ws.data.series} dates={ws.data.dates} today={today} lock={eventLock(ws.data.series.lifecycle_status)}
         dirty={false} canChooseEnd={!!ownerWeeklyRule(ws.data.series)} />
-      <Actions ws={ws.data} today={today} />
-      <LifecycleActions ws={ws.data} today={today} />
+      <Actions ws={ws.data} today={today} lock={lock} />
+      <LifecycleActions ws={ws.data} today={today} lock={lock} />
     </>
   );
 

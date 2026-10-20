@@ -78,50 +78,31 @@ const routes = (
 
 // ---- 1. PAR-B B1 + S7: every Go live reason names what to do -------------------------------
 
-const VENUE = { default_venue_id: 'v1' };
-const COVER = { default_cover_image_url: 'https://x/c.jpg' };
-const NO_DATE = { default_start_date: '2026-01-01' };
-const COMING = [{ id: 'o1', occurrence_date: '2026-10-16', lifecycle_status: 'scheduled', version: 1 }];
-const draftWs = (over: Record<string, unknown>, occs: unknown[]) =>
-  parseEventWorkspace(rawWorkspace({ lifecycle_status: 'draft', default_venue_id: null, default_cover_image_url: null, ...over }, occs));
-
-type GoCase = [string, Record<string, unknown>, unknown[], boolean, string | null, boolean, boolean];
+// A-WEB1a: the client copy of the go-live rule (goLiveMissing / goLiveReason) is gone; the server's
+// series_go_live_check_v1 answers. What stays here: the A1 gate over that answer, pure.
+const CHECK = { ready: true, eventMissing: [], recommended: [], profileRuleApplies: false, profileMissing: [] };
+const OPEN = { locked: false, reason: null };
+type GoCase = [string, typeof CHECK | undefined, boolean, ReturnType<typeof life.goLiveState>];
 const GO_CASES: GoCase[] = [
-  ['venue missing, a1 off', { ...COVER }, COMING, false, 'Needs the next platform update. Before then, add a venue in Details.', true, false],
-  ['date missing, a1 off', { ...VENUE, ...COVER, ...NO_DATE }, [], false, 'Needs the next platform update. Before then, add a date from today on with Add a date.', false, true],
-  ['cover missing, a1 off', { ...VENUE }, COMING, false, 'Needs the next platform update. Before then, add a flyer in Details.', true, false],
-  ['venue, cover and date missing, a1 off', { ...NO_DATE }, [], false,
-    'Needs the next platform update. Before then, add a venue and a flyer in Details, and add a date from today on with Add a date.', true, true],
-  ['nothing missing, a1 off', { ...VENUE, ...COVER }, COMING, false, 'Your event is ready. Go live switches on here after the next platform update.', false, false],
-  ['venue missing, a1 on', { ...COVER }, COMING, true, 'To go live, add a venue in Details.', true, false],
-  ['date missing, a1 on', { ...VENUE, ...COVER, ...NO_DATE }, [], true, 'To go live, add a date from today on with Add a date.', false, true],
-  ['cover missing, a1 on', { ...VENUE }, COMING, true, 'To go live, add a flyer in Details.', true, false],
-  ['nothing missing, a1 on', { ...VENUE, ...COVER }, COMING, true, null, false, false],
+  ['ready, a1 off', CHECK, false, { kind: 'a1', reason: 'Your event is ready. Go live switches on here after the next platform update.' }],
+  ['venue missing, a1 off', { ...CHECK, ready: false, eventMissing: [{ code: 'venue', section: 'venue' }] } as typeof CHECK, false, { kind: 'a1', reason: 'Needs the next platform update.' }],
+  ['not loaded, a1 off', undefined, false, { kind: 'a1', reason: 'Needs the next platform update.' }],
+  ['ready, a1 on', CHECK, true, { kind: 'send' }],
+  ['venue missing, a1 on', { ...CHECK, ready: false, eventMissing: [{ code: 'venue', section: 'venue' }] } as typeof CHECK, true,
+    { kind: 'fix', to: `${ORG_PATHS.eventDetails(DRAFT)}?returnTo=${encodeURIComponent(ORG_PATHS.event(DRAFT))}` }],
+  ['not loaded, a1 on: the server decides', undefined, true, { kind: 'send' }],
 ];
 
-describe('1. Go live reasons (PAR-B B1, S7)', () => {
+describe('1. Go live over the server list (PAR-B B1, A-WEB1a)', () => {
   it('GO_LIVE_READY is the one ready sentence', () => {
     expect((life as Record<string, unknown>).GO_LIVE_READY).toBe('Your event is ready. Go live switches on here after the next platform update.');
   });
-  it.each(GO_CASES)('%s: the reason names what to do, and the card offers the way there', (_n, over, occs, a1, reason, toDetails, toAddDate) => {
-    const ws = draftWs(over, occs);
-    expect(life.goLiveReason(ws, TODAY, a1)).toBe(reason);
-    const row = life.lifecycleRows(ws, TODAY, a1).goLive as Record<string, unknown>;
-    expect(!!row.toDetails).toBe(toDetails);
-    expect(!!row.toAddDate).toBe(toAddDate);
-    // A date is never said to be "in Details".
-    if (reason) expect(reason).not.toMatch(/date[^.]*in Details/);
+  it.each(GO_CASES)('%s', (_n, check, a1, state) => {
+    expect(life.goLiveState(check, DRAFT, OPEN, a1)).toEqual(state);
   });
-
-  it('a draft with no coming date links to Add a date; Open Details only while a Details item is missing', async () => {
-    mount(ORG_PATHS.event(DRAFT), routes);
-    expect((await screen.findByTestId('org-life-add-date')).getAttribute('href')).toBe(ORG_PATHS.addEvent(DRAFT));
-    expect(screen.getByTestId('org-life-details')).toBeTruthy();
-    cleanup();
-    wsOver[DRAFT] = { ...VENUE, ...COVER };
-    mount(ORG_PATHS.event(DRAFT), routes);
-    expect((await screen.findByTestId('org-life-add-date')).getAttribute('href')).toBe(ORG_PATHS.addEvent(DRAFT));
-    expect(screen.queryByTestId('org-life-details')).toBeNull();
+  it('the profile lock wins over everything', () => {
+    expect(life.goLiveState(CHECK, DRAFT, { locked: true, reason: 'Finish your profiles first, 2 left' }, true))
+      .toEqual({ kind: 'locked', reason: 'Finish your profiles first, 2 left' });
   });
 });
 
