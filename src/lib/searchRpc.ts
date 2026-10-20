@@ -3,6 +3,7 @@ import { resolveEventImage } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
 import { fetchPublicFestivalsList, filterUpcomingFestivals } from '@/lib/festivalsList';
 import { hrefFor, type SearchKind } from '@/lib/searchEntities';
+import { orderedRoles, roleLine, telemetryKindFor, type PersonRole } from '@/lib/searchPeople';
 import { londonTodayKey } from '@/lib/londonDate';
 
 // Re-export the canonical 8-kind SearchKind (defined in searchEntities) so the
@@ -37,6 +38,11 @@ export interface SearchResult {
   levelVoteCount?: number;
   // People only (teacher / dj / dancer): ISO alpha-2 or null -- the flag on the photo.
   nationalityCode?: string | null;
+  // search_public_v7 person rows (kind 'person') only: the roles in fixed order,
+  // and the OLD entity kind logged on click (primary_role) so popularity ranking
+  // keeps working with no new entity_type.
+  roles?: PersonRole[];
+  telemetryKind?: PersonRole;
 }
 
 // search_public_v2 -- events / venues / organisers text-match by name.
@@ -97,6 +103,8 @@ interface V3PersonRow {
   avatar_url: string | null;
   slug: string | null;
   nationality_code?: string | null;
+  roles?: string[];          // v7 only
+  primary_role?: string;     // v7 only
 }
 
 interface V3VendorRow {
@@ -118,9 +126,10 @@ interface V3Payload {
   query: string;
   events: V3EventRow[];
   organisers: V3OrganiserRow[];
-  teachers: V3PersonRow[];
-  djs: V3PersonRow[];
-  dancers: V3PersonRow[];
+  teachers?: V3PersonRow[];  // absent on v7
+  djs?: V3PersonRow[];       // absent on v7
+  dancers?: V3PersonRow[];   // absent on v7
+  people?: V3PersonRow[];    // v7 only
   venues: V3VenueRow[];
   vendors?: V3VendorRow[];  // v5 only
   cities?: V3CityRow[];     // v5 only
@@ -142,7 +151,9 @@ export async function searchPublicV3(
   if (!term) return [];
   // v6 is a strict superset of v5's envelope, so it wins over searchV5 when on.
   // `levels` is only ever sent to v6; with searchV6 off the call is unchanged.
-  const fn = flags.searchV6 ? 'search_public_v6' : flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
+  // v7 is v6 with one `people` key in place of teachers/djs/dancers (same args).
+  const v6 = flags.searchV6 || flags.searchV7;
+  const fn = flags.searchV7 ? 'search_public_v7' : flags.searchV6 ? 'search_public_v6' : flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
   // Global festivals are fetched separately so a festival in ANOTHER city still
   // surfaces in search (mirrors prior v3/v4 behaviour). They come from the
   // P5-native shared festivals-list seam (module-cached, so the per-keystroke
@@ -164,7 +175,7 @@ export async function searchPublicV3(
         p_city_slug: citySlug ?? null,
         p_section_limit: sectionLimit,
         p_include_past: includePast,
-        ...(flags.searchV6 ? { p_level: levels && levels.length ? levels : null } : {}),
+        ...(v6 ? { p_level: levels && levels.length ? levels : null } : {}),
       }),
     ),
     fetchPublicFestivalsList(),
@@ -188,6 +199,16 @@ export async function searchPublicV3(
     href: hrefFor(kind, r.id),
     nationalityCode: r.nationality_code ?? null,
   });
+
+  const mapPersonV7 = (r: V3PersonRow): SearchResult => {
+    const roles = orderedRoles(r.roles);
+    return {
+      ...mapPerson(r, 'person'),
+      subtitle: roleLine(roles) || null,
+      roles,
+      telemetryKind: telemetryKindFor(r.primary_role, roles),
+    };
+  };
 
   const localEventIds = new Set((payload.events ?? []).map((e) => e.id));
   const globalFests: SearchResult[] = festResult
@@ -213,7 +234,7 @@ export async function searchPublicV3(
       eventType: e.event_type,
       startTime: e.start_time,
       href: e.event_type === 'festival' ? `/festival/${e.id}` : hrefFor('event', e.id),
-      ...(flags.searchV6
+      ...(v6
         ? { derivedLevel: e.derived_level ?? null, levelVoteCount: e.level_vote_count ?? 0 }
         : {}),
     })),
@@ -261,5 +282,6 @@ export async function searchPublicV3(
     ...(payload.teachers ?? []).map((r) => mapPerson(r, 'teacher')),
     ...(payload.djs ?? []).map((r) => mapPerson(r, 'dj')),
     ...(payload.dancers ?? []).map((r) => mapPerson(r, 'dancer')),
+    ...(payload.people ?? []).map(mapPersonV7),
   ];
 }
