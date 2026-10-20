@@ -27,3 +27,12 @@ export function findByName<T extends { name: string }>(rows: readonly T[], name:
   const key = nameKey(name);
   return rows.find((r) => nameKey(r.name) === key) ?? null;
 }
+
+export const NEW_PAGE_TITLE = 'New organiser page';
+export type NewPageRefusalKind = 'name_taken' | 'cap' | 'invite' | 'other';
+
+/** ONE title for the create sheet: a refusal is never headed by the step ("City") it replaced. */
+export function newPageSheetTitle(step: 'name' | 'city', refusal: NewPageRefusalKind | null): string {
+  if (refusal) return NEW_PAGE_TITLE;
+  return step === 'city' ? 'City' : 'New page';
+}

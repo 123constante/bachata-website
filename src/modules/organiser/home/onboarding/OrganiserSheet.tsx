@@ -7,6 +7,7 @@ import { selfServeErrorCopy, type SelfServeErrorCopy } from '@/modules/organiser
 import { EmailCodeProof } from '../../shared/components/EmailCodeProof';
 import { Field, FIELD_CLASS, PrimaryButton, SheetView, useOpenerRef, useShake } from '../../ui';
 import { NewPageFlow, type NewPageStep } from '../../flows/newpage';
+import { newPageSheetTitle, type NewPageRefusalKind } from '../../flows/newpage/model';
 
 export type SheetTask =
   | { kind: 'claim'; org: ClaimCandidate }
@@ -40,6 +41,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
   const [failure, setFailure] = useState<SelfServeErrorCopy | null>(null);
   const [note, setNote] = useState('');
   const [name, setName] = useState('');
+  const [refusalKind, setRefusalKind] = useState<NewPageRefusalKind | null>(null);
   const { shake, shakeProps } = useShake();
   const opener = useOpenerRef(!!task);
   const ids = useId();
@@ -56,12 +58,14 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
   if (seenTask !== taskKey) {
     setSeenTask(taskKey);
     setStep('name');
+    setRefusalKind(null);
     if (kind === 'create' && !name.trim()) setName(prefill);
   }
 
   const close = () => {
     onTaskChange(null);
     setFailure(null);
+    setRefusalKind(null);
   };
 
   const run = async (action: () => Promise<unknown>, success: () => void) => {
@@ -148,11 +152,12 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
       </PrimaryButton>
     );
   } else if (task?.kind === 'create') {
-    title = step === 'city' ? 'City' : 'New page';
+    title = newPageSheetTitle(step, refusalKind);
     body = (
       <NewPageFlow
         step={step}
         onStep={setStep}
+        onRefusalChange={setRefusalKind}
         name={name}
         onName={setName}
         onCreated={(page) => {
@@ -181,7 +186,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
       }}
       title={title || 'Organiser'}
       viewKey={`${kind ?? 'none'}:${orgId ?? ''}:${step}`}
-      onBack={kind === 'create' && step === 'city' ? () => setStep('name') : undefined}
+      onBack={kind === 'create' && step === 'city' && !refusalKind ? () => setStep('name') : undefined}
       fullHeight={kind === 'create'}
       footer={footer}
       testId="onboarding-sheet"

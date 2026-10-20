@@ -218,14 +218,7 @@ const OFF_ROWS: OffRow[] = [
     reason: () => screen.queryByTestId('team-full'),
     says: () => TEAM_FULL_REASON,
   },
-  {
-    row: 'team, add someone: Invite on a full team',
-    path: () => ORG_PATHS.teamAdd,
-    setup: () => { team.members = Array.from({ length: TEAM_CAP }, (_, i) => member(i ? `m${i}` : 'u1', i ? 'manager' : 'owner', i ? {} : { is_self: true })); },
-    control: () => screen.findByTestId('add-invite'),
-    reason: () => screen.queryByTestId('add-full'),
-    says: () => TEAM_FULL_REASON,
-  },
+  // S-POLISH: the invite-link share row on a full team STAYS enabled (it writes nothing); the faces are the Add controls.
   {
     row: 'change the time: an untouched Save',
     path: () => ORG_PATHS.changeTime(A, BEFORE),

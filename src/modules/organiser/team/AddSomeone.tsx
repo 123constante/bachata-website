@@ -3,8 +3,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Share2 } from 'lucide-react';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
+import { selfServeErrorCode } from '@/modules/organiser/shared/selfServeErrors';
 import { addTeamMemberByProfile, organiserTeamQueryKey, searchTeamPeople } from '@/modules/organiser/shared/teamRpcApi';
-import { TEAM_CAP, TEAM_FULL_REASON, shortName } from '@/modules/organiser/shared/teamModel';
+import { TEAM_FULL_REASON, shortName, teamIsFull } from '@/modules/organiser/shared/teamModel';
 import { MIN_QUERY, SEARCH_LIMIT, inviteShare, parsePeople, searchTerm } from '@/modules/organiser/edit-in-place/teamPickerModel';
 import { goDone } from '../flows/doneState';
 import { OrganiserShell, ORG_PATHS } from '../shell';
@@ -30,9 +31,11 @@ export default function AddSomeone() {
   const [query, setQuery] = useState(() => params.get('q') ?? '');
   const [limit, setLimit] = useState(BROWSE_PAGE);
   const [error, setError] = useState<string | null>(null);
+  // The server said team_full (a race): Add stays disabled, the message stays on screen.
+  const [serverFull, setServerFull] = useState(false);
   const [message, announce] = useAnnounce();
   const term = searchTerm(useDebounced(query));
-  const full = members.length >= TEAM_CAP;
+  const full = teamIsFull(members.length, serverFull);
   const allowed = viewerRole === 'owner' || viewerRole === 'manager';
   // Faces and results carry profile ids; a member's profile id is their user id unless organiser_team_v1
   // says otherwise, so exclude by both (REVIEW-S6 S3). The server should exclude members too.
@@ -57,7 +60,10 @@ export default function AddSomeone() {
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager`, seriesId: null });
     },
-    onError: (err) => setError(addErrorMessage(err, 'wall')),
+    onError: (err) => {
+      if (selfServeErrorCode(err) === 'team_full') setServerFull(true);
+      setError(addErrorMessage(err, 'wall'));
+    },
   });
 
   const share = async (payload: { title: string; text: string; url?: string }) => {
@@ -84,7 +90,7 @@ export default function AddSomeone() {
   const results = (search.data ?? []).filter((p) => !memberIds.has(p.profileId));
   const tap = (f: { profileId: string; name: string; canAdd?: boolean }) => {
     if (full || add.isPending) return;
-    setError(null);
+    if (!serverFull) setError(null);
     if (f.canAdd === false) void share(invite(f.name));
     else add.mutate({ profileId: f.profileId, name: f.name });
   };
@@ -105,7 +111,7 @@ export default function AddSomeone() {
         ) : (
           <>
             <SearchField value={query} onChange={setQuery} aria-label="Search dancers by name" placeholder="Search by name" testId="add-search" />
-            {full && <p className="text-[14px] text-[var(--mut)]" data-testid="add-full">{TEAM_FULL_REASON}</p>}
+            {full && !(serverFull && error) && <p className="text-[14px] text-[var(--mut)]" data-testid="add-full">{TEAM_FULL_REASON}</p>}
             {error && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="add-error">{error}</p>}
 
             {term ? (
@@ -167,7 +173,7 @@ export default function AddSomeone() {
                 )}
               </>
             )}
-            <GhostButton testId="add-invite" disabled={full} onClick={() => void share(invite(null))}>
+            <GhostButton testId="add-invite" onClick={() => void share(invite(null))}>
               <Share2 aria-hidden="true" className="h-[18px] w-[18px]" /> Share an invite link
             </GhostButton>
           </>

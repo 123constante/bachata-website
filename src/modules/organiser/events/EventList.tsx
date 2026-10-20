@@ -87,7 +87,7 @@ export function EventList({ activeId }: { activeId?: string } = {}) {
             className="flex min-h-[44px] w-full items-center justify-between gap-[8px] px-[4px] text-left text-[13px] font-semibold uppercase text-[var(--mut)]"
           >
             <span>Past <span data-testid="org-events-past-count">({past.length})</span></span>
-            <ChevronDown aria-hidden="true" className={cn('h-[16px] w-[16px] transition-transform', showPast && 'rotate-180')} />
+            <ChevronDown aria-hidden="true" size={16} className={cn('block h-[16px] w-[16px] shrink-0 self-center transition-transform', showPast && 'rotate-180')} />
           </button>
           {showPast && (
             <div id="org-events-past-rows">

@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Mail, MessageCircle } from 'lucide-react';
@@ -9,7 +9,7 @@ import { selfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
 import { supportLinks } from '@/modules/organiser/shared/support';
 import { Card, Field, FIELD_CLASS, PrimaryButton, SearchField, SkeletonRows, SummaryRow, useShake } from '../../ui';
 import { searchCities } from '../../home/onboarding/citySearch';
-import { CAP_REASON, classifyRefusal, findByName } from './model';
+import { CAP_REASON, classifyRefusal, findByName, type NewPageRefusalKind } from './model';
 
 export type NewPageStep = 'name' | 'city';
 
@@ -31,6 +31,8 @@ interface Props {
   /** `organiser_name_taken` and the page could not be found by name: back to the search with the name. */
   onFindPage: (name: string) => void;
   onHome: () => void;
+  /** The kind of refusal on screen (null when none): the sheet heads it with one title, not the step's. */
+  onRefusalChange?: (kind: NewPageRefusalKind | null) => void;
 }
 
 /**
@@ -39,12 +41,16 @@ interface Props {
  * here speaks of a draft or a review). A refusal replaces the step with its
  * reason and ONE action.
  */
-export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin, onFindPage, onHome }: Props) {
+export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin, onFindPage, onHome, onRefusalChange }: Props) {
   const [cityQuery, setCityQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
   const [refusal, setRefusal] = useState<Refusal | null>(null);
   const { shake, shakeProps } = useShake();
+  const refusalKind = refusal?.kind ?? null;
+  useEffect(() => {
+    onRefusalChange?.(refusalKind);
+  }, [refusalKind, onRefusalChange]);
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
   const nameId = useId();

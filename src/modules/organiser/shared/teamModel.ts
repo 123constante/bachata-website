@@ -208,6 +208,8 @@ export function parseTeamRead(raw: unknown): { myRole: TeamRole | 'admin' | null
 /** A team holds at most this many people (D60); at the cap Add someone is off with a reason. */
 export const TEAM_CAP = 20;
 export const TEAM_FULL_REASON = `This team is full (${TEAM_CAP})`;
+/** Full when the list says so OR the server said `team_full` (a race): both disable Add. */
+export const teamIsFull = (memberCount: number, serverSaidFull: boolean): boolean => serverSaidFull || memberCount >= TEAM_CAP;
 
 /** "Priya Sharma" -> "Priya S." (the form every Done line and card uses); one word stays one word. */
 export function shortName(name: string): string {

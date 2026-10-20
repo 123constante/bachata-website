@@ -213,6 +213,32 @@ describe('C25b the faces wall', () => {
     expect((await screen.findByTestId('add-error')).textContent).toBe(`This team already has ${TEAM_CAP} people. Remove someone first, or ask the Bachata Calendar team.`);
   });
 
+  // S-POLISH 2: member count x server answer -> Add enabled/disabled, the reason on screen when disabled.
+  it.each([
+    { name: 'under cap', count: 2, serverFull: false, disabled: false },
+    { name: 'at cap', count: TEAM_CAP, serverFull: false, disabled: true },
+    { name: 'server said team_full', count: 2, serverFull: true, disabled: true },
+  ])('$name -> faces disabled=$disabled, reason visible when disabled, invite link row stays', async ({ count, serverFull, disabled }) => {
+    members = Array.from({ length: count }, (_, i) => row(i === 0 ? 'me' : `m${i}`, i === 0 ? 'owner' : 'manager', i === 0 ? { is_self: true } : {}));
+    faces = [face(1), face(2)];
+    install({ organiser_team_add_member_by_profile_v1: () => new Error('team_full') });
+    at();
+    const first = (await screen.findAllByTestId('add-face'))[0] as HTMLButtonElement;
+    if (serverFull) {
+      fireEvent.click(first);
+      await screen.findByTestId('add-error');
+    }
+    for (const b of screen.getAllByTestId('add-face')) expect((b as HTMLButtonElement).disabled).toBe(disabled);
+    const text = document.body.textContent ?? '';
+    if (disabled) expect(text).toMatch(/team is full|already has 20 people/);
+    expect((screen.getByTestId('add-invite') as HTMLButtonElement).disabled).toBe(false);
+    if (serverFull) {
+      fireEvent.click(screen.getAllByTestId('add-face')[1]);
+      expect(world.calls('organiser_team_add_member_by_profile_v1')).toHaveLength(1);
+      expect(screen.getByTestId('add-error')).toBeTruthy();
+    }
+  });
+
   it('search needs 2 letters, asks for 8 results, and a result tap adds with ONE call', async () => {
     install({ organiser_team_search_people_v1: [{ profile_id: 'pz', display_name: 'Zoe Park', photo_url: null, city_name: 'Leeds' }] });
     at();
