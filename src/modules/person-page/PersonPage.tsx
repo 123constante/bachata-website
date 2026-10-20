@@ -95,6 +95,7 @@ export default function PersonPage({ person, slugOrId }: Props) {
               alt=""
               width={96}
               height={96}
+              loading="eager"
               className="h-24 w-24 rounded-full object-cover"
             />
           ) : (
