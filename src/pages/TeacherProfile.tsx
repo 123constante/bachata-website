@@ -18,6 +18,7 @@ import ProfileEventTimeline from '@/components/profile/ProfileEventTimeline';
 import { getPublicName } from '@/lib/name-utils';
 import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
+import { AlsoRoles } from '@/modules/person-page/AlsoRoles';
 import { buildMailtoHref, buildTelHref } from '@/lib/contactValidation';
 
 type TeacherRow = {
@@ -281,6 +282,7 @@ const TeacherProfile = () => {
       }}
     >
       <div className="max-w-5xl mx-auto px-4 pb-24">
+        <AlsoRoles current="teacher" id={id} slug={resolved.slug} />
         {/* ═══ Bento Grid ═══ */}
         <motion.div
           variants={containerVariants}

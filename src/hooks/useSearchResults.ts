@@ -35,6 +35,12 @@ export interface SearchResultPerson {
   nationality_code?: string | null;
 }
 
+/** search_public_v7: ONE row per human; roles in the fixed order teacher, dj, dancer. */
+export interface SearchResultPersonV7 extends SearchResultPerson {
+  roles: ('teacher' | 'dj' | 'dancer')[];
+  primary_role: 'teacher' | 'dj' | 'dancer';
+}
+
 export interface SearchResultVenue {
   id: string;
   name: string | null;
@@ -64,6 +70,8 @@ export interface SearchResultsPayload {
   teachers: SearchResultPerson[];
   djs: SearchResultPerson[];
   dancers: SearchResultPerson[];
+  /** search_public_v7 only (flags.searchV7); [] on every other path. */
+  people?: SearchResultPersonV7[];
   venues: SearchResultVenue[];
   vendors: SearchResultVendor[];
   cities: SearchResultCity[];
@@ -104,19 +112,21 @@ export function useSearchResults(
   const from = opts.dateFrom || null;
   const to = opts.dateTo || null;
   const levels = opts.levels && opts.levels.length ? opts.levels : null;
-  const v6 = flags.searchV6;
+  const v7 = flags.searchV7;
+  // v7 carries every v6 key (level fields, p_level), so it implies the v6 path.
+  const v6 = flags.searchV6 || v7;
 
   return useQuery<SearchResultsPayload>({
     // searchV5 is a build-time constant but keep it in the key so a flag flip
     // between builds never serves a stale v4 envelope. The v6 tail is only
     // appended when that flag is on, so the flag-off key is unchanged.
-    queryKey: ['search-results', term, city, includePast, etype, formats, categories, styles, from, to, flags.searchV5, ...(v6 ? ['v6', levels] : [])],
+    queryKey: ['search-results', term, city, includePast, etype, formats, categories, styles, from, to, flags.searchV5, ...(v6 ? ['v6', levels] : []), ...(v7 ? ['v7'] : [])],
     enabled: term.length > 0,
     // Phase 3 (IO optimization arc, resumed): 60s -> 3min.
     staleTime: 3 * 60_000,
     queryFn: async () => {
       // v6 is a strict superset of v5 (same args + p_level), so it wins when on.
-      const fn = v6 ? 'search_public_v6' : flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
+      const fn = v7 ? 'search_public_v7' : v6 ? 'search_public_v6' : flags.searchV5 ? 'search_public_v5' : 'search_public_v4';
       const args: Record<string, unknown> = v6 || flags.searchV5
         ? {
             p_query: term,
@@ -153,6 +163,8 @@ export function useSearchResults(
         did_you_mean: d.did_you_mean ?? null,
       };
       if (!v6) return base;
+      // `people` exists on the envelope only on the v7 path, so a flag-off
+      // payload is byte-identical to before.
       return {
         ...base,
         events: base.events.map((e) => ({
@@ -161,6 +173,7 @@ export function useSearchResults(
           level_vote_count: e.level_vote_count ?? 0,
         })),
         unrated_event_count: d.unrated_event_count ?? null,
+        ...(v7 ? { people: d.people ?? [] } : {}),
       };
     },
   });

@@ -110,6 +110,9 @@ export const SITE_IA = {
                         detailPath: (id: string) => `/organisers/${id}` },
   'teacher.detail':   { label: 'Teacher',   parent: 'teachers',   entity: true,
                         detailPath: (id: string) => `/teachers/${id}` },
+  // /people/:id: one page per person, roles as tabs. Hangs off Search (where people are found).
+  'person.detail':    { label: 'Person',    parent: 'search',     entity: true,
+                        detailPath: (id: string) => `/people/${id}` },
   'vendor.detail':    { label: 'Vendor',    parent: 'vendors',    entity: true,
                         detailPath: (id: string) => `/vendors/${id}` },
   'festival.detail':  { label: 'Festival',  parent: 'festivals',  entity: true,

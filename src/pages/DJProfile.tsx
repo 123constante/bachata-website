@@ -11,6 +11,7 @@ import { useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import { useProfileProgramAppearances } from '@/hooks/useProfileProgramAppearances';
 import { londonTodayKey } from '@/lib/londonDate';
 import { resolvePublicName } from '@/lib/publicName';
+import { AlsoRoles } from '@/modules/person-page/AlsoRoles';
 import { djInkTheme, useDjPageFonts } from '@/components/dj/djPageTheme';
 import {
   DjHero,
@@ -196,6 +197,7 @@ const DJProfile = () => {
         className="min-h-screen pb-24"
         style={{ ...(djInkTheme as React.CSSProperties), background: 'var(--dj-bg)', color: 'var(--dj-cream)', fontFamily: 'var(--dj-body)' }}
       >
+        <AlsoRoles current="dj" id={id} slug={resolved.slug} className="mx-auto w-full max-w-6xl px-3 pt-4 sm:px-5 md:px-8 md:pt-6" />
         <div className="dj-bento mx-auto w-full max-w-6xl px-3 pt-4 sm:px-5 md:px-8 md:pt-6">
           <section className="dj-hero">
             <DjHero

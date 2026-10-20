@@ -3,6 +3,7 @@ import { motion, useScroll, useSpring } from 'framer-motion';
 import { ChevronLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useEmbeddedProfile } from '@/lib/embeddedProfile';
 import PageHero, { type HeroWidget } from '@/components/PageHero';
 import PageBreadcrumb, { type BreadcrumbItemType } from '@/components/PageBreadcrumb';
 import { FloatingElements } from '@/components/FloatingElements';
@@ -120,6 +121,7 @@ const GlobalLayout = ({
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
   const location = useLocation();
+  const embedded = useEmbeddedProfile();
 
   // Dev-mode safeguard: warn when a page renders the sub-header (which holds
   // the breadcrumb) but doesn't pass any breadcrumbs. This catches the
@@ -176,6 +178,9 @@ const GlobalLayout = ({
     gradientPalette === 'velvet' ||
     gradientPalette === 'brass' ||
     gradientPalette === 'organiser';
+
+  // Role page shown as a tab of /people/:id: the person page owns the chrome.
+  if (embedded) return <>{children}</>;
 
   return (
     <div className="min-h-screen text-foreground overflow-x-clip relative">
