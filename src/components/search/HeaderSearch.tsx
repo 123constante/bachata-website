@@ -19,6 +19,7 @@ import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import type { SearchKind } from '@/lib/searchRpc';
 import { optimizedImageUrl } from '@/lib/imageCdn';
+import { personAriaLabel } from '@/lib/searchEntities';
 
 // Inline header omnibox (approach: omnibox typeahead). Lives in GlobalHeader;
 // the magnifier expands into a field that fills the bar, and a typeahead panel
@@ -32,13 +33,13 @@ const ELLIPSIS = '...';
 
 const KIND_ICON: Record<SearchKind, LucideIcon> = {
   event: Calendar, venue: MapPin, organiser: Building2,
-  teacher: GraduationCap, dj: Music, dancer: User, vendor: ShoppingBag, city: Globe,
+  teacher: GraduationCap, dj: Music, dancer: User, person: User, vendor: ShoppingBag, city: Globe,
 };
 const KIND_LABEL: Record<SearchKind, string> = {
   event: 'Event', venue: 'Venue', organiser: 'Organiser',
-  teacher: 'Teacher', dj: 'DJ', dancer: 'Dancer', vendor: 'Vendor', city: 'City',
+  teacher: 'Teacher', dj: 'DJ', dancer: 'Dancer', person: 'Person', vendor: 'Vendor', city: 'City',
 };
-const CIRCLE_KINDS: SearchKind[] = ['organiser', 'teacher', 'dj', 'dancer'];
+const CIRCLE_KINDS: SearchKind[] = ['organiser', 'teacher', 'dj', 'dancer', 'person'];
 
 function usePrefersReducedMotion(): boolean {
   const [reduce, setReduce] = useState(false);
@@ -328,6 +329,7 @@ export const HeaderSearch = ({ expanded, onExpandedChange }: HeaderSearchProps) 
                         key={`${r.kind}-${r.id}`}
                         id={`omnibox-opt-${idx}`}
                         role="option"
+                        aria-label={r.kind === 'person' ? personAriaLabel(r.title, r.roles) : undefined}
                         aria-selected={activeIndex === idx}
                         type="button"
                         onMouseEnter={() => setActiveIndex(idx)}
@@ -351,7 +353,7 @@ export const HeaderSearch = ({ expanded, onExpandedChange }: HeaderSearchProps) 
                           <span className="block truncate text-sm font-semibold text-foreground">{highlight(r.title, term)}</span>
                           {r.subtitle ? <span className="block truncate text-xs text-muted-foreground">{r.subtitle}</span> : null}
                         </span>
-                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{KIND_LABEL[r.kind]}</span>
+                        {r.kind === 'person' ? null : <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{KIND_LABEL[r.kind]}</span>}
                       </button>
                     );
                   })}
