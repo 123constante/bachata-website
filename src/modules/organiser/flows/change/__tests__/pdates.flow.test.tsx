@@ -145,7 +145,6 @@ function mount(path: string) {
           <Route path={`${base}/pick`} element={<ChangeFlow step="pick" />} />
           <Route path={`${base}/:occurrenceId`} element={<ChangeFlow step="what" />} />
           <Route path={`${base}/:occurrenceId/time`} element={<ChangeFlow step="time" />} />
-          <Route path={`${base}/:occurrenceId/day`} element={<ChangeFlow step="day" />} />
           <Route path={`${base}/:occurrenceId/lineup`} element={<Where />} />
           <Route path={`${base}/:occurrenceId/off`} element={<ChangeFlow step="off" />} />
           <Route path={`${base}/:occurrenceId/copy`} element={<ChangeFlow step="copy" />} />

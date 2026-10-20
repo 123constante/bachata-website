@@ -25,13 +25,15 @@ import CoverFlow from '../fix/CoverFlow';
 type Envelope = { command: { kind: string; payload: Record<string, unknown> } };
 const sent = (): Envelope[] => rpc.mock.calls.filter(([fn]) => fn === 'series_command_p5').map(([, a]) => (a as { p_envelope: Envelope }).p_envelope);
 
+let wsFormat = 'one_off';
 beforeEach(() => {
+  wsFormat = 'one_off';
   rpc.mockReset();
   upload.mockReset().mockResolvedValue('https://cdn.example/c.jpg');
   rpc.mockImplementation(async (fn: string, args: { p_envelope?: Envelope }) => {
     if (fn === 'organiser_home_v1') return { data: home(), error: null };
     if (fn === 'get_organiser_venue_options_v1') return { data: venues, error: null };
-    if (fn === 'admin_event_workspace_p5') return { data: rawWorkspace({ format: 'one_off', version: 3, default_cover_image_url: null }), error: null };
+    if (fn === 'admin_event_workspace_p5') return { data: rawWorkspace({ format: wsFormat, version: 3, default_cover_image_url: null }), error: null };
     if (fn === 'series_command_p5') {
       const c = args.p_envelope!.command;
       if (c.kind === 'series.upsert' && !String(c.payload.name ?? '').trim()) return { data: null, error: { code: 'P0001', message: 'invalid_payload: name required' } };
@@ -93,5 +95,19 @@ describe('F1: a route step on an existing event sends the name the server requir
     expect(upserts.some((u) => key in u.command.payload)).toBe(true);
     // The harness refused nothing: no error is on screen.
     expect(screen.queryByText(/Enter the event name/i)).toBeNull();
+  });
+});
+
+describe('F1: a recurring (weekly night) first date', () => {
+  it('sends the name on the upsert, then set_recurrence', async () => {
+    wsFormat = 'recurring';
+    mount('/account/o/new/s1/date');
+    fireEvent.click((await screen.findAllByTestId('org-new-date-row'))[1]);
+    await waitFor(() => expect(sent().some((e) => e.command.kind === 'series.set_recurrence')).toBe(true));
+    const kinds = sent().map((e) => e.command.kind);
+    expect(kinds.indexOf('series.upsert')).toBeLessThan(kinds.indexOf('series.set_recurrence'));
+    const upsert = sent().find((e) => e.command.kind === 'series.upsert')!;
+    expect(upsert.command.payload.name).toBe('Friday Party');
+    expect(upsert.command.payload).toHaveProperty('default_start_date');
   });
 });

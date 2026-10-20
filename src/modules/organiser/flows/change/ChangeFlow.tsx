@@ -8,7 +8,7 @@ import TakeOff from './TakeOff';
 import Copy from './Copy';
 import Pick from './Pick';
 
-export type ChangeStep = 'event' | 'date' | 'what' | 'time' | 'venue' | 'day' | 'detail' | 'off' | 'copy' | 'pick';
+export type ChangeStep = 'event' | 'date' | 'what' | 'time' | 'venue' | 'detail' | 'off' | 'copy' | 'pick';
 
 const STEPS = { event: WhichEvent, date: WhichDate, what: WhatChanges, time: Time, venue: Venue, detail: Detail, off: TakeOff, copy: Copy, pick: Pick } as const;
 

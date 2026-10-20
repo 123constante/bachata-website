@@ -124,7 +124,6 @@ const ROUTES = (
   <>
     <Route path="/account/o/change/:seriesId/:occurrenceId/time" element={<ChangeFlow step="time" />} />
     <Route path="/account/o/change/:seriesId/:occurrenceId/venue" element={<ChangeFlow step="venue" />} />
-    <Route path="/account/o/change/:seriesId/:occurrenceId/day" element={<ChangeFlow step="day" />} />
     <Route path="/account/o/add" element={<AddFlow step="event" />} />
     <Route path="/account/o/add/:seriesId" element={<AddFlow step="day" />} />
     <Route path="/account/o/add/:seriesId/:date" element={<AddFlow step="time" />} />

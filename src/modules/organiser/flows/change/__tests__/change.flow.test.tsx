@@ -150,7 +150,7 @@ function mount(path: string) {
           <Route path="/account/o/change/:seriesId/:occurrenceId" element={<ChangeFlow step="what" />} />
           <Route path="/account/o/change/:seriesId/:occurrenceId/time" element={<ChangeFlow step="time" />} />
           <Route path="/account/o/change/:seriesId/:occurrenceId/venue" element={<ChangeFlow step="venue" />} />
-          <Route path="/account/o/change/:seriesId/:occurrenceId/day" element={<ChangeFlow step="day" />} />
+          <Route path="/account/o/change/:seriesId/:occurrenceId/:field" element={<ChangeFlow step="detail" />} />
           <Route path="/account/o/done" element={<DoneProbe />} />
           <Route path="*" element={<Where />} />
         </Routes>
@@ -210,6 +210,13 @@ describe('Change a date: each path sends exactly ONE command', () => {
 });
 
 describe('Change a date: steps', () => {
+  it('the old Move to another day deep link (/day) renders Not found with a way back, never a form (C20)', async () => {
+    mount(`${ORG_PATHS.changeDate(A, BEFORE)}/day`);
+    expect(await screen.findByTestId('change-missing')).toBeTruthy();
+    expect(screen.getByTestId('change-missing-home')).toBeTruthy();
+    expect(screen.queryByTestId('change-save')).toBeNull();
+  });
+
   it('lists only live series with a coming date; tap advances', async () => {
     mount(ORG_PATHS.change);
     await screen.findByText('Friday Social');
