@@ -29,7 +29,7 @@ import { ARRANGEMENTS, FIXTURES, ORGANISER_FIXTURE, type Arrangement, type Fixtu
 const TeacherProfile = lazy(() => import('@/pages/TeacherProfile'));
 
 // Copied from PublicDancerPageV2 (not exported there): the teal "dancer ID world".
-const TEAL = {
+export const TEAL = {
   page: '#06191F', card: '#0D3340', border: '#1F5566', text: '#EAF7FA', muted: '#8FBAC7',
   accent: '#5EE0E6', gold: '#F2C14E',
   hero: 'linear-gradient(160deg,#1C7D93 0%,#0F5468 55%,#0A3A4A 100%)',
@@ -39,7 +39,7 @@ const PORTRAIT_PX = 104;
 type DjRow = Record<string, unknown> & {
   photo_url?: string | string[] | null; genres?: string[] | null; gallery_urls?: string[] | null;
 };
-type Data = {
+export type Data = {
   person: PersonSnapshot;
   roles: PersonRole[];
   dancerRow: Record<string, unknown> | null;
@@ -50,7 +50,7 @@ type Data = {
 const dateKey = (iso: string | null | undefined) => (iso ? /^(\d{4}-\d{2}-\d{2})/.exec(iso)?.[1] ?? null : null);
 const firstPhoto = (raw: string | string[] | null | undefined) => (Array.isArray(raw) ? raw.find(Boolean) ?? null : raw?.trim() || null);
 
-function useMockData(fixture: FixtureKey): { data: Data | null; error: string | null } {
+export function useMockData(fixture: FixtureKey): { data: Data | null; error: string | null } {
   const qc = useQueryClient();
   const [state, setState] = useState<{ data: Data | null; error: string | null }>({ data: null, error: null });
   useEffect(() => {
@@ -80,7 +80,7 @@ function useMockData(fixture: FixtureKey): { data: Data | null; error: string | 
   return state;
 }
 
-function useDjGigs(id: string) {
+export function useDjGigs(id: string) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const { data: appearances } = useProfileProgramAppearances('dj', mounted ? id : undefined, 1000);
@@ -98,12 +98,12 @@ function useDjGigs(id: string) {
 }
 
 /** Lead role = the role with something happening: a DJ with upcoming gigs, else dancing, else the first. */
-const leadRole = (roles: PersonRole[], upcomingGigs: number): PersonRole =>
+export const leadRole = (roles: PersonRole[], upcomingGigs: number): PersonRole =>
   roles.includes('dj') && upcomingGigs > 0 ? 'dj' : roles.includes('dancer') ? 'dancer' : roles[0];
-const orderRoles = (roles: PersonRole[], lead: PersonRole) => [lead, ...roles.filter((r) => r !== lead)];
+export const orderRoles = (roles: PersonRole[], lead: PersonRole) => [lead, ...roles.filter((r) => r !== lead)];
 
 // ---------------------------------------------------------------- the ONE card (teal ID of a person)
-function PersonCard({ d, slug, stamps }: { d: Data; slug: string; stamps?: ReactNode }) {
+export function PersonCard({ d, slug, stamps }: { d: Data; slug: string; stamps?: ReactNode }) {
   const view = d.dancerRow ? mapDancerPublicProfile(d.dancerRow as never) : null;
   const model = view ? buildPublicDancerPage(view, d.extras, []) : null;
   const [note, setNote] = useState<string | null>(null);
@@ -147,7 +147,7 @@ function PersonCard({ d, slug, stamps }: { d: Data; slug: string; stamps?: React
   );
 }
 
-function OrganiserLine({ show }: { show: boolean }) {
+export function OrganiserLine({ show }: { show: boolean }) {
   if (!show) return null;
   return (
     <p className="mt-3 text-center text-[14px]" style={{ color: TEAL.text }} data-testid="mock-organiser">
@@ -158,7 +158,7 @@ function OrganiserLine({ show }: { show: boolean }) {
 }
 
 // ---------------------------------------------------------------- role bodies (real pieces)
-function DancerBody({ d, slug }: { d: Data; slug: string }) {
+export function DancerBody({ d, slug }: { d: Data; slug: string }) {
   const view = d.dancerRow ? mapDancerPublicProfile(d.dancerRow as never) : null;
   if (!view) return null;
   const full = buildPublicDancerPage(view, d.extras, []);
@@ -179,7 +179,7 @@ function DancerBody({ d, slug }: { d: Data; slug: string }) {
 }
 
 /** The DJ page's own tiles, drawn exactly as /djs/:id draws them (near-black + gold, vinyl portrait). */
-function DjBody({ d }: { d: Data }) {
+export function DjBody({ d }: { d: Data }) {
   useDjPageFonts();
   const dj = d.dj;
   const { upcoming, past, isLive } = useDjGigs(d.person.id);
@@ -208,7 +208,7 @@ function DjBody({ d }: { d: Data }) {
 }
 
 /** The real TeacherProfile, embedded; the :id it reads from the URL is supplied by a nested Routes. */
-function TeacherBody({ id }: { id: string }) {
+export function TeacherBody({ id }: { id: string }) {
   const base = useLocation().pathname.replace(/\/$/, '');
   return (
     <EmbeddedProfileContext.Provider value={true}>
