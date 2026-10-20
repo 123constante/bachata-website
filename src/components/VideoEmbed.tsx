@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import type { VenueVideo } from '@/lib/parseVenueVideoUrl';
+import { useReportVideoSize } from '@/lib/videoFrame';
 
 type VideoEmbedProps = {
   video: VenueVideo;
   poster?: string | null;
   title: string;
+  /** Direct clips only: reports intrinsic size once metadata loads. */
+  onVideoSize?: (w: number, h: number) => void;
+  /** Direct clips only: show the whole frame (adaptive) instead of cropping. */
+  contain?: boolean;
 };
 
 /**
@@ -18,12 +23,15 @@ type VideoEmbedProps = {
  * a plain <iframe> (their player owns controls + bandwidth). Extracted verbatim
  * from the original CoverBlock `CoverVideo`, minus the cover-tile chrome.
  */
-export const VideoEmbed = ({ video, poster, title }: VideoEmbedProps) => {
+export const VideoEmbed = ({ video, poster, title, onVideoSize, contain }: VideoEmbedProps) => {
   const [muted, setMuted] = useState(true);
   const [paused, setPaused] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isDirect = video.kind === 'direct';
+
+  // SSR: metadata can load before hydration, so onLoadedMetadata never fires.
+  useReportVideoSize(videoRef, video.kind === 'direct' ? video.src : undefined, (w, h) => onVideoSize?.(w, h));
 
   // Mirror the play/pause toggle onto the <video> element (direct path only).
   useEffect(() => {
@@ -62,7 +70,7 @@ export const VideoEmbed = ({ video, poster, title }: VideoEmbedProps) => {
         <>
           <video
             ref={videoRef}
-            className="h-full w-full object-cover object-center"
+            className={`h-full w-full ${contain ? 'object-contain' : 'object-cover'} object-center`}
             src={video.src}
             autoPlay
             preload="metadata"
@@ -72,6 +80,7 @@ export const VideoEmbed = ({ video, poster, title }: VideoEmbedProps) => {
             poster={poster ?? undefined}
             onPlay={() => setPaused(false)}
             onPause={() => setPaused(true)}
+            onLoadedMetadata={(e) => onVideoSize?.(e.currentTarget.videoWidth, e.currentTarget.videoHeight)}
           />
           <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1.5">
             <button

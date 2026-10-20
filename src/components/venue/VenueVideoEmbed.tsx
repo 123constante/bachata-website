@@ -1,4 +1,6 @@
+import { useRef, useState } from 'react';
 import { parseVenueVideoUrl } from '@/lib/parseVenueVideoUrl';
+import { VIDEO_CAP_CLASS, frameFor, frameStyle, resolveFrame, useReportVideoSize, type MeasuredFrame } from '@/lib/videoFrame';
 
 interface VenueVideoEmbedProps {
   videoUrls: string[];
@@ -6,7 +8,13 @@ interface VenueVideoEmbedProps {
 
 export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
   const parsed = videoUrls.map((u) => parseVenueVideoUrl(u)).find(Boolean) ?? null;
+  const [measured, setMeasured] = useState<MeasuredFrame | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const src = parsed?.kind === 'direct' ? parsed.src : undefined;
+  useReportVideoSize(videoRef, src, (w, h) => src && setMeasured({ src, shape: frameFor(w, h) }));
   if (!parsed) return null;
+  const frame = resolveFrame(parsed, measured);
+  const style = frameStyle(frame);
 
   const shell = {
     background: 'var(--va-surface)',
@@ -26,12 +34,16 @@ export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
       />
     ) : (
       <video
+        ref={videoRef}
         src={parsed.src}
         autoPlay
         muted
         loop
         playsInline
-        className="absolute inset-0 h-full w-full rounded-[14px] object-cover"
+        className={`absolute inset-0 h-full w-full rounded-[14px] ${frame.landscape ? 'object-cover' : 'object-contain'}`}
+        onLoadedMetadata={(e) =>
+          setMeasured({ src: parsed.src, shape: frameFor(e.currentTarget.videoWidth, e.currentTarget.videoHeight) })
+        }
       />
     );
 
@@ -40,8 +52,14 @@ export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
       className="overflow-hidden rounded-[18px] border p-2"
       style={shell}
     >
-      <div className="relative w-full overflow-hidden rounded-[14px]" style={{ paddingBottom: '56.25%' }}>
-        {inner}
+      <div className="w-full overflow-hidden rounded-[14px] bg-black">
+        <div
+          data-video-frame
+          className={`relative ${frame.landscape ? 'aspect-video w-full' : VIDEO_CAP_CLASS}`}
+          style={style}
+        >
+          {inner}
+        </div>
       </div>
     </div>
   );
