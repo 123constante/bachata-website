@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import type { VenueVideo } from '@/lib/parseVenueVideoUrl';
+import { useReportVideoSize } from '@/lib/videoFrame';
 
 type VideoEmbedProps = {
   video: VenueVideo;
@@ -28,6 +29,9 @@ export const VideoEmbed = ({ video, poster, title, onVideoSize, contain }: Video
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isDirect = video.kind === 'direct';
+
+  // SSR: metadata can load before hydration, so onLoadedMetadata never fires.
+  useReportVideoSize(videoRef, video.kind === 'direct' ? video.src : undefined, (w, h) => onVideoSize?.(w, h));
 
   // Mirror the play/pause toggle onto the <video> element (direct path only).
   useEffect(() => {

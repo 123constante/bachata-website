@@ -13,3 +13,15 @@ Measured frame shape is now stored with the clip src it came from
 `VideoFrame` and `VenueVideoEmbed`). A reused instance no longer carries clip
 A's portrait shape onto clip B / a YouTube watch / Vimeo embed. Four new tests
 in `VideoFrame.test.tsx` (red on 65363a7, green now). Done; nothing left.
+
+## Fix pass 2
+
+SSR race: the server-rendered `<video>` loads metadata before hydration, so
+`onLoadedMetadata` never fired and portrait clips kept the landscape box.
+`useReportVideoSize` (in `src/lib/videoFrame.ts`) reads `readyState >= 1` and
+`videoWidth > 0` on mount per src and reports the size; used by `VideoEmbed`
+and `VenueVideoEmbed`. `onLoadedMetadata` kept for late loads. Tests (jsdom
+prototype getters, plus a real `renderToString` -> `hydrateRoot` sequence) red
+on b82b862 (3 failures), green now. Note: `videoWidth/Height` live on
+`HTMLVideoElement.prototype` in jsdom, so the tests define them there.
+Left: orchestrator re-walks femme-style and the-camden-tuesdays in a browser.

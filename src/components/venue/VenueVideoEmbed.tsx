@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { parseVenueVideoUrl } from '@/lib/parseVenueVideoUrl';
-import { frameFor, frameStyle, resolveFrame, type MeasuredFrame } from '@/lib/videoFrame';
+import { frameFor, frameStyle, resolveFrame, useReportVideoSize, type MeasuredFrame } from '@/lib/videoFrame';
 
 interface VenueVideoEmbedProps {
   videoUrls: string[];
@@ -9,6 +9,9 @@ interface VenueVideoEmbedProps {
 export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
   const parsed = videoUrls.map((u) => parseVenueVideoUrl(u)).find(Boolean) ?? null;
   const [measured, setMeasured] = useState<MeasuredFrame | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const src = parsed?.kind === 'direct' ? parsed.src : undefined;
+  useReportVideoSize(videoRef, src, (w, h) => src && setMeasured({ src, shape: frameFor(w, h) }));
   if (!parsed) return null;
   const frame = resolveFrame(parsed, measured);
   const style = frameStyle(frame);
@@ -31,6 +34,7 @@ export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
       />
     ) : (
       <video
+        ref={videoRef}
         src={parsed.src}
         autoPlay
         muted

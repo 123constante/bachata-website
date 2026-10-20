@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, type CSSProperties, type RefObject } from 'react';
 
 /** A direct clip at or above this width/height ratio keeps the 16:9 box. */
 export const LANDSCAPE_MIN_RATIO = 1.6;
@@ -43,4 +43,21 @@ export const resolveFrame = (
   if (video.kind === 'youtube' && video.portrait) return frameFor(9, 16);
   if (video.kind === 'direct' && measured && measured.src === video.src) return measured.shape;
   return frameFor();
+};
+
+/**
+ * Report the size of a clip whose metadata loaded BEFORE React hydrated (the
+ * server-rendered <video> fires loadedmetadata before onLoadedMetadata is
+ * attached, so that handler never runs). Runs once per src.
+ */
+export const useReportVideoSize = (
+  ref: RefObject<HTMLVideoElement | null>,
+  src: string | undefined,
+  report: (w: number, h: number) => void,
+) => {
+  useEffect(() => {
+    const v = ref.current;
+    if (v && v.readyState >= 1 && v.videoWidth > 0) report(v.videoWidth, v.videoHeight);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src]);
 };

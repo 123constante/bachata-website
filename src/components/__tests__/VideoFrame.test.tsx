@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
-import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render } from '@testing-library/react';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
+import { hydrateRoot } from 'react-dom/client';
 import { VideoFrame } from '@/components/VideoFrame';
 import VideoBlock from '@/modules/event-page/bento/blocks/VideoBlock';
 import VenueVideoEmbed from '@/components/venue/VenueVideoEmbed';
@@ -84,6 +86,55 @@ describe('source change on a mounted frame', () => {
     expect(frameBox(container).className).toContain('aspect-video');
     size(container.querySelector('video')!, 480, 848);
     expect(ar(frameBox(container))).toBeCloseTo(480 / 848);
+  });
+});
+
+describe('metadata already loaded before React attaches onLoadedMetadata (SSR + hydrate)', () => {
+  const setProto = (state: number, w: number, h: number) => {
+    Object.defineProperty(HTMLMediaElement.prototype, 'readyState', { value: state, configurable: true });
+    Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', { value: w, configurable: true });
+    Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', { value: h, configurable: true });
+  };
+  afterEach(() => {
+    delete (HTMLMediaElement.prototype as unknown as Record<string, unknown>).readyState;
+    delete (HTMLVideoElement.prototype as unknown as Record<string, unknown>).videoWidth;
+    delete (HTMLVideoElement.prototype as unknown as Record<string, unknown>).videoHeight;
+  });
+  const surfaces: [string, () => JSX.Element][] = [
+    ['VideoFrame', () => <VideoFrame video={direct} title="t" />],
+    ['VenueVideoEmbed', () => <VenueVideoEmbed videoUrls={['https://x.test/a.mp4']} />],
+  ];
+  describe.each(surfaces)('%s', (_n, make) => {
+    it('portrait 480x848 with no event is adaptive', () => {
+      setProto(4, 480, 848);
+      const { container } = render(make());
+      expect(ar(frameBox(container))).toBeCloseTo(480 / 848);
+      expect(container.querySelector('video')!.className).toContain('object-contain');
+    });
+    it('landscape 848x474 with no event stays landscape', () => {
+      setProto(4, 848, 474);
+      const { container } = render(make());
+      expect(frameBox(container).className).toContain('aspect-video');
+      expect(container.querySelector('video')!.className).toContain('object-cover');
+    });
+    it('readyState 0 with no event stays landscape', () => {
+      setProto(0, 0, 0);
+      const { container } = render(make());
+      expect(frameBox(container).className).toContain('aspect-video');
+    });
+  });
+  it('real sequence: renderToString, then hydrateRoot, no event', async () => {
+    const html = renderToString(<VideoFrame video={direct} title="t" />);
+    const host = document.createElement('div');
+    host.innerHTML = html;
+    document.body.appendChild(host);
+    setProto(4, 480, 848);
+    await act(async () => {
+      hydrateRoot(host, <VideoFrame video={direct} title="t" />);
+    });
+    expect(frameBox(host).className).not.toContain('aspect-video');
+    expect(ar(frameBox(host))).toBeCloseTo(480 / 848);
+    host.remove();
   });
 });
 
