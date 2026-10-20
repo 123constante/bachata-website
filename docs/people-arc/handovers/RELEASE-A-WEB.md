@@ -564,3 +564,17 @@ Conflicts: one only, `src/modules/event-page/bento/BentoPage.tsx` imports. Kept 
 | lint | integrity direct | `bash bin/check-integrity.sh` | 0 (2088 files, 0 issues) |
 | unit | vitest | `npx vitest run src/modules/organiser src/modules/admin-organisers src/modules/event-page src/components` | 0 (198 files, 4573 passed, 2 skipped) |
 | build | production | `npm run build` | 0 |
+
+## Snapshot (D88)
+
+`tests/regression/today/__snapshots__/account.today.test.tsx.snap` updated with `-u` for the D83 Home wording. Diff (4 cases `organiser-type (complete)`, 390x844 and desktop, `/account` and `/account/o`): `button "New event"` (first) replaced by `heading "Your to-do list" level=2` + `button "Create your first event"`. Nothing else.
+
+Note: a bare `-u` run once also dropped `button "Your account" [expanded=false]` from the 390x844 `/account` case. That is a timing flake (the header button renders or not between runs; 1 of 3 re-runs without `-u` flipped). I kept the button line, as in the old snapshot and the other three cases; 5 consecutive runs of the file then passed 36/36. The flake is pre-existing and not D83, and is worth its own ticket.
+
+| job | command | exit |
+|---|---|---|
+| account snapshot | `TZ=Europe/London npx vitest run tests/regression/today/account.today.test.tsx` (x5) | 0 (36/36) |
+| unit (Europe/London, full) pass 1 | `TZ=Europe/London npm run test:unit:offline` (live gate not run: no secrets here) | 1: 6 failed / 10499 passed / 28 skipped |
+| pass 2 | `npm run test:unit:timing` | 0 (65/65) |
+
+The 6 failures are not D83/D84/D85 wording: 5 in `tests/integrityCouldNotRun.test.ts` ("typescript resolved in the temp repo -- precondition gone", a sandbox module-resolution quirk; fails in isolation here, file untouched by this branch) and 1 in `tests/client/festivalClientState.test.tsx` (load flake; passes 8/8 in isolation). Not fixed. Check against the CI result.
