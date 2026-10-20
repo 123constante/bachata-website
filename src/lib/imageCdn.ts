@@ -4,16 +4,19 @@
 // Optimization (/_vercel/image), which resizes + re-encodes (WebP) at the edge
 // and caches the variant for minimumCacheTTL (31 days).
 //
-// HOST GATE -- READ BEFORE EDITING. This must list the host the DATABASE
-// actually stores, not the host we wish it stored. It previously listed only
-// `media.bachatacalendar.co.uk`, which does not resolve to R2 at all -- it is a
-// dangling DNS record pointing at Vercel ("The deployment could not be found on
-// Vercel"). Every stored URL is `pub-<id>.r2.dev`, so the gate never matched and
-// this function silently returned the untouched multi-MB original on every call:
-// image optimization was written, wired into every cover call site, and dead on
+// HOST GATE -- READ BEFORE EDITING. This must list the hosts the DATABASE
+// actually stores, not the host we wish it stored. It once listed ONLY
+// `media.bachatacalendar.co.uk` while that name was a dangling DNS record
+// pointing at Vercel ("The deployment could not be found on Vercel") and every
+// stored URL was `pub-<id>.r2.dev`, so the gate never matched and this function
+// silently returned the untouched multi-MB original on every call: image
+// optimization was written, wired into every cover call site, and dead on
 // arrival. Measured cost on prod: 5.94 MB of images on the homepage, 0 optimized,
-// LCP 15-25s. If you ever move to a real custom domain, add it here rather than
-// replacing these -- stored rows keep the r2.dev host until they are backfilled.
+// LCP 15-25s.
+// Since 2026-10-20 `media.bachatacalendar.co.uk` is the custom address attached
+// to the same R2 bucket, and new uploads return it once the R2_PUBLIC_DOMAIN
+// secret is flipped. It is listed BESIDE the r2.dev hosts, never instead of
+// them: stored rows keep the r2.dev host until they are backfilled.
 //
 // A hostname MUST also appear in vercel.json images.remotePatterns or Vercel
 // rejects the request with 400 INVALID_IMAGE_OPTIMIZE_REQUEST. `width` MUST be
@@ -22,6 +25,7 @@
 const OPTIMIZABLE_HOSTS = new Set([
   'pub-07f606224cac4f2596903c44df723644.r2.dev', // media bucket: covers, posters, avatars
   'pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev', // secondary media bucket
+  'media.bachatacalendar.co.uk', // custom address on the media bucket (new uploads)
 ]);
 
 export function optimizedImageUrl(url: string, width: number, quality = 70): string {
