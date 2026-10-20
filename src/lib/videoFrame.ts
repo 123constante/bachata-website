@@ -25,15 +25,31 @@ export const frameFor = (width?: number, height?: number): VideoFrameShape => {
  */
 export const VIDEO_CAP_CLASS = '[--video-cap:35svh] md:[--video-cap:75svh]';
 
+/** The one width formula for an adaptive frame, plus an optional CSS length for a tile's own chrome. */
+const capWidth = (ratio: number, chrome?: string) =>
+  chrome
+    ? `min(100%, calc(var(--video-cap) * ${ratio} + ${chrome}))`
+    : `min(100%, calc(var(--video-cap) * ${ratio}))`;
+
 /** Inline style for the adaptive (non-landscape) frame; undefined for landscape. */
 export const frameStyle = (frame: VideoFrameShape): CSSProperties | undefined =>
   frame.landscape
     ? undefined
     : {
         aspectRatio: `${frame.ratio}`,
-        width: `min(100%, calc(var(--video-cap) * ${frame.ratio}))`,
+        width: capWidth(frame.ratio),
         marginInline: 'auto',
       };
+
+/**
+ * Inline style for the element that draws a portrait tile (its border, corners
+ * and background): as wide as the video, so no black side bars are left. Same
+ * width formula as frameStyle; `chrome` is the tile's own padding + border as a
+ * CSS length (e.g. '2px', '1rem + 2px': rem, because the phone root font is
+ * ~13.5px) so the video inside still gets the full width. Undefined for landscape.
+ */
+export const hugStyle = (frame: VideoFrameShape, chrome?: string): CSSProperties | undefined =>
+  frame.landscape ? undefined : { width: capWidth(frame.ratio, chrome) };
 
 /** A shape measured from one specific direct clip. */
 export type MeasuredFrame = { src: string; shape: VideoFrameShape };
