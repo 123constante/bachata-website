@@ -1,12 +1,14 @@
 import { useId, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { PROFILE_REQUIRED_NOTE } from '@/modules/organiser/shared/selfServeErrors';
 import { fetchShownOnPublicTeam, publicTeamErrorMessage, publicTeamQueryKey, setShownOnPublicTeam } from './publicTeamApi';
 
 export const PUBLIC_TOGGLE_LABEL = 'Show me on the public team';
 export const PUBLIC_ON_NOTE = 'Visitors to your page see your name and photo in its team.';
 export const PUBLIC_OFF_NOTE = 'Visitors do not see you in the team on your page. You still help run it.';
-export const NO_PROFILE_NOTE = 'Finish your dancer profile first, then you can show on the public team.';
+/** The server's `profile_required` sentence, written once in selfServeErrors.ts. */
+export const NO_PROFILE_NOTE = PROFILE_REQUIRED_NOTE;
 
 /**
  * The person's OWN row only (A-DB2): one switch, saying what visitors see. It

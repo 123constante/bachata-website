@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { detailEditPath } from '@/modules/organiser/flows/event/eventSteps';
+import { requiredLeftText } from './profileProgress';
 
 // series_go_live_check_v1 is not in the generated Database type yet: string-named boundary (check:rpc-typing).
 type UntypedRpc = {
@@ -51,8 +52,8 @@ export const UNKNOWN_ITEM_LABEL = 'Something else on the event';
 export const goLiveLabel = (code: string): string =>
   Object.prototype.hasOwnProperty.call(GO_LIVE_LABEL, code) ? GO_LIVE_LABEL[code] : UNKNOWN_ITEM_LABEL;
 
-/** The one profile row: how many profile fields are still to fill. */
-export const profileRowLabel = (left: number) => `Complete your profile (${left} left)`;
+/** The one profile row: how many profile fields are still to fill, in the ONE "N left" wording. */
+export const profileRowLabel = (left: number) => `Complete your profile (${requiredLeftText(left)})`;
 export const profileFieldsLeft = (c: GoLiveCheck): number => c.profileMissing.reduce((n, p) => n + p.fields.length, 0);
 /** The profile row shows only when the rule applies to this person and something is left. */
 export const showsProfileRow = (c: GoLiveCheck): boolean => c.profileRuleApplies && profileFieldsLeft(c) > 0;

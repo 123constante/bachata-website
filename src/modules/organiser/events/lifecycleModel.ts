@@ -49,9 +49,21 @@ export function goLiveList(check: GoLiveCheck, seriesId: string, linked = true):
     missing: check.eventMissing.map(line(false)),
     recommended: check.recommended.map(line(true)),
     profile: showsProfileRow(check)
-      ? { label: profileRowLabel(profileFieldsLeft(check)), href: withReturnTo(PROFILE_WIZARD_PATH, ORG_PATHS.event(seriesId)) }
+      ? { label: profileRowLabel(profileFieldsLeft(check)), href: withReturnTo(profileFixPath(check), ORG_PATHS.event(seriesId)) }
       : null,
   };
+}
+
+/**
+ * The wizard ON the page the server says is incomplete: the first organiser
+ * entry of profile_missing with fields left, as `?o=<id>` (the page choice
+ * useOrganiserChoice reads; an id the person holds no seat on is ignored
+ * there). Without it a multi-page owner, or a 2-organiser series, fixed the
+ * page that happened to be selected and Go live stayed blocked.
+ */
+export function profileFixPath(check: GoLiveCheck): string {
+  const page = check.profileMissing.find((p) => p.area === 'organiser' && p.organiserId && p.fields.length > 0)?.organiserId;
+  return page ? `${PROFILE_WIZARD_PATH}?o=${encodeURIComponent(page)}` : PROFILE_WIZARD_PATH;
 }
 
 /** Where one tap on Go live goes when the event is not ready: the FIRST missing item with a screen, else the profile. */
@@ -94,12 +106,18 @@ export interface LifecycleRows {
 /**
  * Draft: Go live (what it does comes from goLiveState), Discard (set_lifecycle
  * archived, draft -> archived is an owner transition on prod) and See it live
- * off. Live: See it live. Paused, ended, archived: none of the three.
+ * off. Rejected: Go live too (the server gates draft | rejected -> live for the
+ * owner, series_go_live_check_v1 decides), See it live off, no Discard (only
+ * draft -> archived is known to be allowed). Live: See it live. Paused, ended,
+ * archived, pending review: none of the three.
  */
 export function lifecycleRows(ws: EventWorkspace, _today?: string): LifecycleRows {
   const status = ws.series.lifecycle_status;
   if (status === 'draft') {
     return { goLive: { reason: null }, discard: { reason: null }, seeLive: { href: null, reason: SEE_LIVE_DRAFT_REASON } };
+  }
+  if (status === 'rejected') {
+    return { goLive: { reason: null }, discard: null, seeLive: { href: null, reason: SEE_LIVE_DRAFT_REASON } };
   }
   if (status === 'live') return { goLive: null, discard: null, seeLive: { href: publicEventPath(ws.series), reason: null } };
   return { goLive: null, discard: null, seeLive: null };

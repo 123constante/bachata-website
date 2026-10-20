@@ -26,9 +26,18 @@ export function parseWizardDancer(raw: unknown): WizardDancer {
   return { ...o, languages: list(o.languages), favorite_styles: list(o.favorite_styles), achievements: list(o.achievements), other_roles: list(o.other_roles) };
 }
 
+/**
+ * D76: the server counts an owner/manager seat as WhatsApp-eligible, so this is
+ * rare. The step stays required; the wizard shows the team's contact links
+ * under this copy (needsTeamHelp), so it is never a dead end.
+ */
+export const WHATSAPP_NOT_ALLOWED_COPY = 'We could not save your WhatsApp number yet. Message us and we will sort it out. Your number is kept.';
+/** A save refusal only the Bachata Calendar team can clear: the wizard shows how to reach them. */
+export const needsTeamHelp = (message: string | null): boolean => message === WHATSAPP_NOT_ALLOWED_COPY;
+
 const COPY: Record<string, string> = {
   invalid_handle: 'Enter just the handle, like your.handle.',
-  whatsapp_not_allowed: 'A WhatsApp number can be saved once your dancer profile is linked to a page you run. Ask the Bachata Calendar team.',
+  whatsapp_not_allowed: WHATSAPP_NOT_ALLOWED_COPY,
   rate_limited: 'That was a lot of saves in a short time. Wait a few minutes, then try again.',
   not_signed_in: 'You are signed out. Sign in again, then answer this question.',
 };

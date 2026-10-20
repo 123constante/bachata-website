@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { londonTodayKey, weekdayOfKey } from '@/lib/londonDate';
 import { eventLock, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
-import { comingDates, dayLabel } from '@/modules/organiser/shared/dateList';
+import { dayLabel } from '@/modules/organiser/shared/dateList';
 import type { HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
 import { lifeChip } from '@/modules/organiser/jobs/homeJobs';
 import { putBackPath, RESTORE_CAP_NOTE, restoreCapped } from '@/modules/organiser/flows/cancel/cancelModel';
@@ -16,7 +16,7 @@ import { ClosedLines } from './ClosedLines';
 import { DatesTakenOff } from './DatesTakenOff';
 import { DatesList } from './EditorRows';
 import { EventList } from './EventList';
-import { moreLabel, readIsFull, wsCancelledComing, wsComing, type EventWorkspace } from './eventModel';
+import { comingCard, readIsFull, wsCancelledComing, wsComing, type EventWorkspace } from './eventModel';
 import { NO_COMING } from '@/modules/organiser/shared/copy';
 import { useEventWorkspace } from './eventsApi';
 import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
@@ -93,8 +93,7 @@ function OffRow({ label, reason, testId, addTo }: { label: string; reason: strin
 }
 
 function Dates({ seriesId, home, ws, today, lock }: { seriesId: string; home: HomeSeriesFull | null; ws: EventWorkspace | undefined; today: string; lock: EventLock }) {
-  const shown = home ? comingDates(home, today) : [];
-  const more = moreLabel(ws, shown.length, home?.upcoming_count ?? 0, today);
+  const { shown, more } = comingCard(home, ws, today);
   const cancelled = ws ? wsCancelledComing(ws, today) : [];
   const status = home?.lifecycle_status ?? ws?.series.lifecycle_status ?? '';
   return (

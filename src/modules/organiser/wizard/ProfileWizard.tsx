@@ -204,7 +204,7 @@ function WizardBody({ organiserId, userId, writers, uploadLogo }: { organiserId:
     <OrganiserShell topBar={<TopBar onBack={back} onFinishLater={finishLater} />} testId="org-page-wizard">
       <WizardEnvContext.Provider value={env}>
         <div className="space-y-[20px]">
-          {p && <ProgressBar percent={p.percent} />}
+          {p && <ProgressBar percent={p.percent} requiredLeft={p.requiredLeft} />}
           {body}
         </div>
       </WizardEnvContext.Provider>

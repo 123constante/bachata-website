@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
-import { PROFILE_WIZARD_PATH, useProfileProgress } from '@/modules/organiser/shared/profileProgress';
+import { PROFILE_WIZARD_PATH, requiredLeftText, useProfileProgress } from '@/modules/organiser/shared/profileProgress';
 import { ProgressRing } from '../wizard/LevelTrack';
 import { markNotNow, readNudge } from '../wizard/nudgeStore';
 import { canSayNotNow, levelName, levelOf, shouldAutoOpen, showHomeButton } from '../wizard/wizardModel';
@@ -30,7 +30,7 @@ export function ProfileButton({ organiserId, userId, now = Date.now }: { organis
   if (!p || !showHomeButton(p, nudge, now())) return null;
   const level = levelName(levelOf(p));
   // C14's words while required answers are missing; the level name after.
-  const sub = p.requiredLeft > 0 ? `${level}. Finish your profiles, ${p.requiredLeft} left` : level;
+  const sub = p.requiredLeft > 0 ? `${level}. Finish your profiles, ${requiredLeftText(p.requiredLeft)}` : level;
   return (
     <div className="space-y-[4px]" data-testid="home-profile">
       <button

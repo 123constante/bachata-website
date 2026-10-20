@@ -64,5 +64,5 @@ export const requiredLeftText = (n: number): string => (n === 1 ? '1 answer left
  *  server still enforces the go-live rule). An admin is never locked. */
 export function profileLock(p: ProfileProgress | undefined, isAdmin: boolean): { locked: boolean; reason: string | null } {
   if (isAdmin || !p || p.publishReady) return { locked: false, reason: null };
-  return { locked: true, reason: `Finish your profiles first, ${p.requiredLeft} left` };
+  return { locked: true, reason: `Finish your profiles first, ${requiredLeftText(p.requiredLeft)}` };
 }

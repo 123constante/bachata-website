@@ -117,7 +117,7 @@ afterEach(cleanup);
 
 describe('Home: ONE "Complete your profile" button', () => {
   it.each([
-    [37, 3, false, '3 left', 'Starter'],
+    [37, 3, false, '3 answers left', 'Starter'],
     [64, 0, true, 'Ready to publish', 'Ready to publish'],
   ])('percent %i / required_left %i: ring and level are the RPC\'s', async (percent, left, ready, text, level) => {
     progress = { ...progress, percent, required_left: left, publish_ready: ready };
@@ -167,7 +167,7 @@ describe('My page: "Required to publish: N left"', () => {
       return;
     }
     const line = await screen.findByTestId('page-required-line');
-    expect(line.textContent).toBe(`Required to publish: ${left} left`);
+    expect(line.textContent).toBe(`Required to publish: ${left} answers left`);
     expect(line.getAttribute('href')).toBe(PROFILE_WIZARD_PATH);
   });
 });

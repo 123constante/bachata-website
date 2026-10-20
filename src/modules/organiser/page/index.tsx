@@ -5,7 +5,7 @@ import { OrganiserShell } from '../shell';
 import { ORG_PATHS } from '../shell/paths';
 import { EmptyState, ErrorState, SkeletonRows, StatusTag, initials } from '../ui';
 import { lifecycleTag } from '@/modules/organiser/shared/eventState';
-import { PROFILE_WIZARD_PATH, useProfileProgress } from '@/modules/organiser/shared/profileProgress';
+import { PROFILE_WIZARD_PATH, requiredLeftText, useProfileProgress } from '@/modules/organiser/shared/profileProgress';
 import type { ProfileEntity } from './profileForm';
 import { useOwnPage } from './useOwnPage';
 
@@ -20,7 +20,7 @@ export function RequiredLine({ organiserId }: { organiserId: string }) {
   if (left <= 0) return null;
   return (
     <Link to={PROFILE_WIZARD_PATH} data-testid="page-required-line" className="flex min-h-[48px] items-center gap-[8px] rounded-[12px] border border-[var(--gold)] bg-[var(--card)] px-[16px] text-[15px] font-semibold text-[var(--fg)]">
-      <span className="flex-1">Required to publish: {left} left</span>
+      <span className="flex-1">Required to publish: {requiredLeftText(left)}</span>
       <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] text-[var(--gold)]" />
     </Link>
   );

@@ -7,14 +7,20 @@
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Camera, X } from 'lucide-react';
+import { Camera, Mail, MessageCircle, X } from 'lucide-react';
+import { supportLinks } from '@/modules/organiser/shared/support';
 import type { WizardStepProps } from '@/modules/areas/wizardStep';
 import { Chip, FIELD_CLASS, PrimaryButton, useDebounced } from '../ui';
+import { needsTeamHelp } from './dancerApi';
 import { useWizardEnv, type WizardEnv } from './wizardEnv';
 import { LIST_ITEM_MAX, LIST_MAX_ITEMS, isBlankAnswer, withPendingItem } from './wizardModel';
 
 export const SKIP_LABEL = 'Skip for now';
 export const REQUIRED_HINT = 'Needed before your events can go live.';
+/** Why a list step's Add is off while nothing is typed (on screen, linked to the button). */
+export const LIST_ADD_HINT = 'Type one first, then tap Add.';
+/** Why it is off once the list is full. */
+export const LIST_FULL_HINT = `That is the most there can be (${LIST_MAX_ITEMS}).`;
 
 type Check = (raw: string) => string | null;
 
@@ -27,13 +33,45 @@ export function SkipButton({ onSkip, disabled }: { onSkip: () => void; disabled:
 }
 
 /** "Optional." (plus the help) on optional steps; the required reason on required ones. */
-function Hint({ id, required, help }: { id: string; required: boolean; help?: string }) {
-  const text = required ? (help ? `${help} ${REQUIRED_HINT}` : REQUIRED_HINT) : help ? `Optional. ${help}` : 'Optional.';
+function Hint({ id, required, help }: { id: string; required: boolean; help?: ReactNode }) {
+  const text = required ? (help ? <>{help} {REQUIRED_HINT}</> : REQUIRED_HINT) : help ? <>Optional. {help}</> : 'Optional.';
   return <p id={id} data-testid="step-hint" className="text-[13px] text-[var(--mut)]">{text}</p>;
 }
 
+const SUPPORT_ROW = 'flex min-h-[48px] w-full items-center gap-[12px] rounded-[12px] border border-[var(--line)] px-[16px] text-[15px] font-semibold text-[var(--fg)]';
+
+/** A refusal only the team can clear: the contact rows that exist (never a dead link), or words saying what to do. */
+function TeamHelp() {
+  const { whatsapp, email } = supportLinks();
+  return (
+    <div className="space-y-[8px]" data-testid="step-support">
+      {whatsapp && (
+        <a href={whatsapp} target="_blank" rel="noopener noreferrer" className={SUPPORT_ROW} data-testid="step-support-whatsapp">
+          <MessageCircle aria-hidden="true" className="h-[16px] w-[16px] shrink-0 text-[var(--mut)]" />WhatsApp us
+        </a>
+      )}
+      {email && (
+        <a href={`mailto:${email}`} className={SUPPORT_ROW} data-testid="step-support-email">
+          <Mail aria-hidden="true" className="h-[16px] w-[16px] shrink-0 text-[var(--mut)]" />Email us
+        </a>
+      )}
+      {!whatsapp && !email && (
+        <p className="text-[13px] text-[var(--mut)]" data-testid="step-support-none">
+          Our contact details are not available here yet. Tap Finish later; your other answers are saved.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function StepError({ error }: { error: string | null }) {
-  return error ? <p role="alert" data-testid="step-error" className="text-[13px] text-[var(--danger)]">{error}</p> : null;
+  if (!error) return null;
+  return (
+    <>
+      <p role="alert" data-testid="step-error" className="text-[13px] text-[var(--danger)]">{error}</p>
+      {needsTeamHelp(error) && <TeamHelp />}
+    </>
+  );
 }
 
 /** Continue once something is entered; else Skip (optional) or a disabled Continue with its reason (required). */
@@ -56,7 +94,8 @@ function Frame({ testId, children }: { testId: string; children: ReactNode }) {
 
 export interface TextStepConfig {
   label: string;
-  help?: string;
+  /** Plain words, or words with a link (a JSX fragment). */
+  help?: ReactNode;
   placeholder?: string;
   maxLength?: number;
   multiline?: boolean;
@@ -121,7 +160,7 @@ export function makeTextStep(key: string, c: TextStepConfig) {
 
 // ---- one choice (answers on the tap) ----------------------------------------------------------
 
-export function makeChoiceStep(key: string, c: { label: string; help?: string; options: readonly { value: string; label: string }[] }) {
+export function makeChoiceStep(key: string, c: { label: string; help?: ReactNode; options: readonly { value: string; label: string }[] }) {
   function ChoiceStep({ value, required, saving, error, onAnswer, onSkip }: WizardStepProps) {
     const id = useId();
     return (
@@ -145,13 +184,16 @@ export function makeChoiceStep(key: string, c: { label: string; help?: string; o
 
 // ---- a list (D27) -----------------------------------------------------------------------------
 
-export function makeListStep(key: string, c: { label: string; help?: string; placeholder: string }) {
+export function makeListStep(key: string, c: { label: string; help?: ReactNode; placeholder: string }) {
   function ListStep({ value, required, saving, error, onAnswer, onSkip }: WizardStepProps) {
     const id = useId();
     const [items, setItems] = useState<string[]>(() => (Array.isArray(value) ? value.map(String) : []));
     const [pending, setPending] = useState('');
     const effective = withPendingItem(items, pending);
     const add = () => { setItems(effective); setPending(''); };
+    const full = items.length >= LIST_MAX_ITEMS;
+    // A disabled Add always says why, on screen (never a silent grey button).
+    const addOff = !saving && (full || pending.trim() === '') ? (full ? LIST_FULL_HINT : LIST_ADD_HINT) : null;
     return (
       <Frame testId={`step-${key}`}>
         <div className="space-y-[8px]">
@@ -172,7 +214,7 @@ export function makeListStep(key: string, c: { label: string; help?: string; pla
             <input
               id={id}
               value={pending}
-              disabled={saving || items.length >= LIST_MAX_ITEMS}
+              disabled={saving || full}
               autoFocus
               maxLength={LIST_ITEM_MAX}
               placeholder={c.placeholder}
@@ -181,10 +223,11 @@ export function makeListStep(key: string, c: { label: string; help?: string; pla
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
               className={`${FIELD_CLASS} h-[48px] flex-1`}
             />
-            <button type="button" data-testid="step-list-add" disabled={saving || pending.trim() === ''} onClick={add} className="h-[48px] min-w-[64px] rounded-[12px] bg-[var(--card2)] px-[12px] text-[15px] font-semibold text-[var(--fg)] disabled:opacity-60">
+            <button type="button" data-testid="step-list-add" disabled={saving || full || pending.trim() === ''} aria-describedby={addOff ? `${id}-add` : undefined} onClick={add} className="h-[48px] min-w-[64px] rounded-[12px] bg-[var(--card2)] px-[12px] text-[15px] font-semibold text-[var(--fg)] disabled:opacity-60">
               Add
             </button>
           </div>
+          {addOff && <p id={`${id}-add`} data-testid="step-list-add-reason" className="text-[13px] text-[var(--mut)]">{addOff}</p>}
           <Hint id={`${id}-hint`} required={required} help={c.help} />
         </div>
         <StepError error={error} />
@@ -200,7 +243,7 @@ export function makeListStep(key: string, c: { label: string; help?: string; pla
 
 export interface PickResult { id: string; label: string }
 
-export function makePickStep(key: string, c: { label: string; help?: string; placeholder: string; search: (q: string) => Promise<PickResult[]>; currentLabel?: (value: unknown) => string | null }) {
+export function makePickStep(key: string, c: { label: string; help?: ReactNode; placeholder: string; search: (q: string) => Promise<PickResult[]>; currentLabel?: (value: unknown) => string | null }) {
   function PickStep({ value, required, saving, error, onAnswer, onSkip }: WizardStepProps) {
     const id = useId();
     const [q, setQ] = useState('');
@@ -244,7 +287,7 @@ export function makePickStep(key: string, c: { label: string; help?: string; pla
 // ---- a picture --------------------------------------------------------------------------------
 
 /** Pick a file; it uploads, then the URL is the answer. `upload` throws plain copy. */
-export function makeUploadStep(key: string, c: { label: string; help?: string; accept: string; upload: (env: WizardEnv) => ((file: File) => Promise<string>) | null }) {
+export function makeUploadStep(key: string, c: { label: string; help?: ReactNode; accept: string; upload: (env: WizardEnv) => ((file: File) => Promise<string>) | null }) {
   function UploadStep({ value, required, saving, error, onAnswer, onSkip }: WizardStepProps) {
     const id = useId();
     const input = useRef<HTMLInputElement>(null);
@@ -286,7 +329,7 @@ export function makeUploadStep(key: string, c: { label: string; help?: string; a
 }
 
 /** A step answered on another screen (the dancer photo has its own crop screen); it comes back here after. */
-export function makeElsewhereStep(key: string, c: { label: string; help?: string; cta: string; to: (returnTo: string) => string }) {
+export function makeElsewhereStep(key: string, c: { label: string; help?: ReactNode; cta: string; to: (returnTo: string) => string }) {
   function ElsewhereStep({ required, saving, error, onSkip }: WizardStepProps) {
     const id = useId();
     const { returnTo } = useWizardEnv();

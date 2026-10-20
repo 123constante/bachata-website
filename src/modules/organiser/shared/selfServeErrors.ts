@@ -20,6 +20,8 @@ export type SelfServeNextStep = 'request_access' | 'reauth' | 'sign_in' | 'finis
 
 /** A page holds at most TEAM_CAP people (admin A1b): add-member / set-member raise `team_full`, invite redeem returns it as a reason. */
 export const TEAM_FULL_COPY = `This team already has ${TEAM_CAP} people. Remove someone first, or ask the Bachata Calendar team.`;
+/** `profile_required` (organiser_team_set_public_v1), and the Team switch's note before it is ever tapped: ONE sentence. */
+export const PROFILE_REQUIRED_NOTE = 'Finish your dancer profile first, then you can show on the public team.';
 /** Creating a NEW organiser page is invite-only (owner decision 2026-10-20); the admin trigger raises `organiser_invite_required`. */
 export const INVITE_REQUIRED_COPY = 'Creating a new organiser page needs an invite from the Bachata Calendar team. Message us and we\u2019ll set you up.';
 
@@ -291,7 +293,7 @@ export const TEAM_COPY: Record<string, string> = {
   invalid_target_rule: 'Something went wrong. Please try again.',
   // organiser_team_set_public_v1 (People arc A-DB2): the person's own public-team row.
   invalid_arguments: 'Something went wrong. Please try again.',
-  profile_required: 'Finish your dancer profile first, then you can show on the public team.',
+  profile_required: PROFILE_REQUIRED_NOTE,
   not_on_team: 'You are no longer on this team. Reload the page.',
 };
 

@@ -7,10 +7,12 @@
 // (toPatch). An organiser answer is a draft of the SAME edit-in-place field keys
 // My page uses, so it goes through draftModel's ONE save (saveDrafts), never a
 // second mapping.
+import { Link } from 'react-router-dom';
 import { searchCities } from '@/modules/organiser/home/onboarding/citySearch';
+import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import type { WizardStepDef } from '@/modules/areas/wizardStep';
 import { storedInPatchTerms, type EditBase } from '../edit-in-place/draftModel';
-import { CATEGORY_OPTIONS, checkField, type FieldKey } from '../edit-in-place/fieldRules';
+import { CATEGORY_OPTIONS, FIELD_LABEL, checkField, type FieldKey } from '../edit-in-place/fieldRules';
 import { PHOTO_ACCEPT } from '../edit-in-place/organiserPhotoModel';
 import { countryNameFor, wizardCountries } from './wizardCountries';
 import { DANCE_ROLE_VALUES, type WizardDancer } from './dancerApi';
@@ -115,21 +117,22 @@ const ENTRIES: WizardEntry[] = [
   dancer('achievements', 'Anything you are proud of in dance?', 'achievements', makeListStep('achievements', { label: 'Achievements', placeholder: 'Competition final 2024' })),
 
   // ---- organiser ----------------------------------------------------------------------------
-  organiser('name', 'What is your organisation called?', 'name', makeTextStep('org-name', { label: 'Organisation name', maxLength: 80, check: orgCheck('name'), toValue: orgText('name') })),
-  organiser('city', 'Which city is it based in?', 'city', makePickStep('org-city', { label: 'Organisation city', placeholder: 'Search for the city', search: searchCities }), { advanceOnAnswer: true }),
-  organiser('logo', 'Add your organisation logo', 'avatar_url', makeUploadStep('org-logo', { label: 'Organisation logo', accept: PHOTO_ACCEPT, upload: (env) => env.uploadLogo })),
-  organiser('category', 'What kind of organisation is it?', 'organisation_category', makeChoiceStep('org-category', { label: 'Category', options: CATEGORY }), { advanceOnAnswer: true }),
+  organiser('name', 'What is your organisation called?', 'name', makeTextStep('org-name', { label: FIELD_LABEL.name, maxLength: 80, check: orgCheck('name'), toValue: orgText('name') })),
+  organiser('city', 'Which city is it based in?', 'city', makePickStep('org-city', { label: FIELD_LABEL.city, placeholder: 'Search for the city', search: searchCities }), { advanceOnAnswer: true }),
+  organiser('logo', 'Add your organisation logo', 'avatar_url', makeUploadStep('org-logo', { label: FIELD_LABEL.avatar_url, accept: PHOTO_ACCEPT, upload: (env) => env.uploadLogo })),
+  organiser('category', 'What kind of organisation is it?', 'organisation_category', makeChoiceStep('org-category', { label: FIELD_LABEL.organisation_category, options: CATEGORY }), { advanceOnAnswer: true }),
   organiser('founded_year', 'What year did it start?', 'founded_year', makeTextStep('org-founded', {
-    label: 'Year started', inputMode: 'numeric', placeholder: '2018', maxLength: 4, check: orgCheck('founded_year'), toValue: orgText('founded_year'),
+    label: FIELD_LABEL.founded_year, inputMode: 'numeric', placeholder: '2018', maxLength: 4, check: orgCheck('founded_year'), toValue: orgText('founded_year'),
   })),
-  organiser('instagram', 'What is its Instagram?', 'instagram', makeTextStep('org-instagram', { label: 'Organisation Instagram', placeholder: 'your.handle', maxLength: 100, check: orgCheck('instagram'), toValue: orgText('instagram') })),
+  organiser('instagram', 'What is its Instagram?', 'instagram', makeTextStep('org-instagram', { label: FIELD_LABEL.instagram, placeholder: 'your.handle', maxLength: 100, check: orgCheck('instagram'), toValue: orgText('instagram') })),
   organiser('contact_phone', 'What number can dancers call?', 'contact_phone', makeTextStep('org-phone', {
-    label: 'Phone', inputMode: 'tel', placeholder: '+44 7700 900123', maxLength: 40, check: orgCheck('contact_phone'), toValue: orgText('contact_phone'),
-    help: 'It shows on your page only if you switch that on in My page.',
+    label: FIELD_LABEL.contact_phone, inputMode: 'tel', placeholder: '+44 7700 900123', maxLength: 40, check: orgCheck('contact_phone'), toValue: orgText('contact_phone'),
+    // The switch itself is on My page (Edit contact details), so the help links there.
+    help: <>It shows on your page only if you switch that on in <Link to={ORG_PATHS.page} className="inline-flex min-h-[44px] items-center font-semibold text-[var(--gold)] underline underline-offset-4">My page</Link>.</>,
   })),
-  organiser('bio', 'Tell dancers about your organisation', 'bio', makeTextStep('org-bio', { label: 'About', multiline: true, maxLength: 4000, check: orgCheck('bio'), toValue: orgText('bio') })),
-  organiser('website', 'Does it have a website?', 'website', makeTextStep('org-website', { label: 'Website', inputMode: 'url', placeholder: 'example.com', maxLength: 300, check: orgCheck('website'), toValue: orgText('website') })),
-  organiser('facebook', 'Does it have a Facebook page?', 'facebook', makeTextStep('org-facebook', { label: 'Facebook', inputMode: 'url', placeholder: 'facebook.com/yourpage', maxLength: 300, check: orgCheck('facebook'), toValue: orgText('facebook') })),
+  organiser('bio', 'Tell dancers about your organisation', 'bio', makeTextStep('org-bio', { label: FIELD_LABEL.bio, multiline: true, maxLength: 4000, check: orgCheck('bio'), toValue: orgText('bio') })),
+  organiser('website', 'Does it have a website?', 'website', makeTextStep('org-website', { label: FIELD_LABEL.website, inputMode: 'url', placeholder: 'example.com', maxLength: 300, check: orgCheck('website'), toValue: orgText('website') })),
+  organiser('facebook', 'Does it have a Facebook page?', 'facebook', makeTextStep('org-facebook', { label: FIELD_LABEL.facebook, inputMode: 'url', placeholder: 'facebook.com/yourpage', maxLength: 300, check: orgCheck('facebook'), toValue: orgText('facebook') })),
 ];
 
 export const WIZARD_STEPS: ReadonlyMap<string, WizardEntry> = new Map(ENTRIES.map((e) => [`${e.area}:${e.field}`, e]));

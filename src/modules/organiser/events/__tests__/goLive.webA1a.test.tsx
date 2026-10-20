@@ -261,10 +261,11 @@ describe('the rule is the server\'s', () => {
     check = { data: { ...READY, ready: false, profile_missing: [{ area: 'dancer', organiser_id: null, fields: ['photo', 'city'] }, { area: 'organiser', organiser_id: ORG, fields: ['logo'] }] }, error: null };
     mount(ORG_PATHS.event(DRAFT), routes);
     const row = await screen.findByTestId('org-life-profile');
-    expect(row.textContent).toBe('Complete your profile (3 left)');
-    expect(row.getAttribute('href')).toBe(`${WIZARD}?${back(DRAFT)}`);
+    expect(row.textContent).toBe('Complete your profile (3 answers left)');
+    // The wizard opens ON the incomplete page (RELEASE-A-WEB finding 3).
+    expect(row.getAttribute('href')).toBe(`${WIZARD}?o=${ORG}&${back(DRAFT)}`);
     fireEvent.click(screen.getByTestId('org-life-golive'));
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(`${WIZARD}?${back(DRAFT)}`));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(`${WIZARD}?o=${ORG}&${back(DRAFT)}`));
     expect(seriesCommands()).toHaveLength(0);
   });
 
@@ -280,7 +281,7 @@ describe('the rule is the server\'s', () => {
 const LOCKED_ON_EVENT = ['org-event-pause', 'org-event-end', 'org-event-day', 'org-event-stop', 'org-coming-sessions'];
 const LOCKED_ON_DETAILS = ['org-detail-name', 'org-detail-venue', 'org-detail-time', 'org-detail-music', 'org-detail-tickets', 'org-detail-about',
   'org-detail-programme', 'org-detail-organisers', 'org-detail-cover', 'org-detail-gallery', 'org-detail-videos'];
-const REASON = 'Finish your profiles first, 4 left';
+const REASON = 'Finish your profiles first, 4 answers left';
 
 const reasonOf = (el: Element) => document.getElementById(el.getAttribute('aria-describedby') ?? '')?.textContent;
 

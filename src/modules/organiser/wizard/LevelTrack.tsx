@@ -2,6 +2,7 @@
 // numbers through levelOf(): the ring, the track and Home can never disagree.
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { requiredLeftText } from '@/modules/organiser/shared/profileProgress';
 import { usePrefersReducedMotion } from '../motion';
 import { LEVELS, levelName, levelOf, type LevelId } from './wizardModel';
 
@@ -21,12 +22,15 @@ export function ProgressRing({ percent, size = 44, testId }: { percent: number; 
   );
 }
 
-/** The bar on top of every wizard screen: the server's percent. */
-export function ProgressBar({ percent }: { percent: number }) {
+/** The bar on top of every wizard screen: the server's percent, and while required answers are missing, how many (the ONE "N left" wording). */
+export function ProgressBar({ percent, requiredLeft = 0 }: { percent: number; requiredLeft?: number }) {
   const p = Math.max(0, Math.min(100, Math.round(percent)));
   return (
-    <div role="progressbar" aria-label="Profile complete" aria-valuemin={0} aria-valuemax={100} aria-valuenow={p} data-testid="wizard-progress" className="h-[6px] w-full overflow-hidden rounded-full bg-[var(--card2)]">
-      <div className="h-full rounded-full bg-[var(--gold)] transition-[width] duration-300 ease-in-out motion-reduce:transition-none" style={{ width: `${p}%` }} />
+    <div className="space-y-[4px]">
+      <div role="progressbar" aria-label="Profile complete" aria-valuemin={0} aria-valuemax={100} aria-valuenow={p} data-testid="wizard-progress" className="h-[6px] w-full overflow-hidden rounded-full bg-[var(--card2)]">
+        <div className="h-full rounded-full bg-[var(--gold)] transition-[width] duration-300 ease-in-out motion-reduce:transition-none" style={{ width: `${p}%` }} />
+      </div>
+      {requiredLeft > 0 && <p className="text-right text-[13px] text-[var(--mut)]" data-testid="wizard-required-left">{requiredLeftText(requiredLeft)}</p>}
     </div>
   );
 }
