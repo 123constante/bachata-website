@@ -15,6 +15,8 @@ export const OWNER_COMMAND_KINDS = [
   'series.upsert', 'series.add_date', 'series.remove_date', 'occurrence.set_time',
   'series.set_lifecycle', 'occurrence.cancel', 'occurrence.set_override', 'series.skip_date',
   'series.unskip_date', 'series.set_recurrence', 'series.stop_repeating', 'series.end_run',
+  // D39 (admin A1): apply_aggregate_write_p5 gains the move arm.
+  'occurrence.move_date',
 ] as const;
 
 /**
@@ -114,7 +116,7 @@ export const OWNER_OVERRIDE_KEYS = [
 
 export const OWNER_CANCEL_KEYS = ['cancelled', 'reason'] as const;
 
-export type OwnerCommandKind = (typeof OWNER_COMMAND_KINDS)[number];
+export type OwnerCommandKind = (typeof OWNER_COMMAND_KINDS)[number] | (typeof AW1_COMMAND_KINDS)[number];
 export type OwnerUpsertKey = (typeof OWNER_UPSERT_KEYS)[number];
 export type OwnerOverrideKey = (typeof OWNER_OVERRIDE_KEYS)[number];
 
@@ -233,15 +235,17 @@ export const addDateCommand = (date: string): OwnerCommand => ({ kind: 'series.a
 export const removeDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.remove_date', payload: { occurrence_id: occurrenceId } });
 export const skipDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.skip_date', payload: { occurrence_id: occurrenceId } });
 export const unskipDateCommand = (date: string): OwnerCommand => ({ kind: 'series.unskip_date', payload: { date } });
-export const lifecycleCommand = (to: 'paused' | 'live' | 'archived' | 'pending_review'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
-/** Send a draft or returned series for review (W6; _owner_lifecycle_transition_allowed_p5 admits draft|rejected -> pending_review). */
-export const submitForReviewCommand = (): OwnerCommand => lifecycleCommand('pending_review');
+/** Pause / resume (`{to}`, 4.11). There is no review step (D4): the UI never sends pending_review. */
+export const lifecycleCommand = (to: 'paused' | 'live' | 'archived'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
 
 // ---- one date (W5) -------------------------------------------------------------
 
 /** Cancel with a reason that is a cancellation_reasons label (required for owners). */
 export const cancelCommand = (reason: string): OwnerCommand => ({ kind: 'occurrence.cancel', payload: { cancelled: true, reason } });
+/** Put a CANCELLED date back (D46); a taken-off date uses unskipDateCommand. */
 export const uncancelCommand = (): OwnerCommand => ({ kind: 'occurrence.cancel', payload: { cancelled: false } });
+/** Move one date to another day (D39); the server rebuilds the instant from the wall-clock time (R3-18). */
+export const moveDateCommand = (toDate: string): OwnerCommand => ({ kind: 'occurrence.move_date', payload: { to_date: toDate } });
 
 /** London wall-clock HH:MM digits, sent as typed; an empty end lets the server keep the length. */
 export const setTimeCommand = (start: string, end: string | null): OwnerCommand => ({
@@ -249,6 +253,19 @@ export const setTimeCommand = (start: string, end: string | null): OwnerCommand 
   payload: { new_local_start: start, new_local_end: end && end.trim() ? end : null },
 });
 export const resetTimeCommand = (): OwnerCommand => ({ kind: 'occurrence.set_time', payload: { reset: true } });
+
+/**
+ * Several dates at once (admin_bulk_occurrence_command_p5, which admits an
+ * owner/manager of the series: prod fn lines 75 + 127). Not an aggregate kind,
+ * so it is its own type; the envelope targets the SERIES at its version.
+ */
+export type BulkCommand =
+  | { kind: 'occurrence.bulk_cancel'; payload: { occurrence_ids: string[]; reason: string } }
+  | { kind: 'occurrence.bulk_shift'; payload: { occurrence_ids: string[]; shift_days: number } };
+export const bulkCancelCommand = (occurrenceIds: string[], reason: string): BulkCommand =>
+  ({ kind: 'occurrence.bulk_cancel', payload: { occurrence_ids: occurrenceIds, reason } });
+export const bulkShiftCommand = (occurrenceIds: string[], shiftDays: number): BulkCommand =>
+  ({ kind: 'occurrence.bulk_shift', payload: { occurrence_ids: occurrenceIds, shift_days: shiftDays } });
 
 /** One date's own changes. `null` for a key = back to the series. */
 export type OverridePatch = Partial<Record<OwnerOverrideKey, string | null>>;
@@ -322,6 +339,16 @@ export function createPayload(draft: CreateDraft, cityId?: string | null): Recor
 }
 
 /**
+ * series.upsert payload for the New event DRAFT (D44): created at the name
+ * step with only the name, the format from the URL and the zone; every later
+ * step upserts the rest. Without the organiser key, like createPayload
+ * (selfServeApi.createSeriesCommand attaches it).
+ */
+export function createDraftPayload(name: string, format: OwnerFormat): Record<string, unknown> {
+  return { name: name.trim(), format, timezone: SERIES_TIMEZONE };
+}
+
+/**
  * The one rule an owner may set (admin D3 _owner_weekly_rule_problem_p5): every
  * week on ONE weekday (0 = Sunday .. 6 = Saturday), open-ended. The rule
  * materialises from the series' default_start_date, so the create sends the
@@ -331,3 +358,17 @@ export const weeklyRuleCommand = (weekday: number): OwnerCommand => ({
   kind: 'series.set_recurrence',
   payload: { mode: 'weekly', weekdays: [weekday], end: { kind: 'none' } },
 });
+
+// ---- parity wave 1 (SW1): the series programme and the event's organisers -----------
+// Two kinds the server admits for an owner only once admin AW1 (migrations
+// 20261126220000 / 20261126230000) is on prod; every control that sends one sits
+// behind shared/parityGate.ts. They are NOT in OWNER_COMMAND_KINDS (that list mirrors
+// the prod v_owner_kinds snapshot the mirror test pins). The payloads are the ones the
+// admin editor sends: _cmd_series_set_program_p5 takes the COMPLETE tree {days:[...]}
+// (it deletes and re-inserts); the organisers builder lives in selfServeApi.ts, the one
+// file the architecture lint lets spell the organiser list key.
+export const AW1_COMMAND_KINDS = ['series.set_program', 'series.set_organisers'] as const;
+
+/** series.set_program: the whole programme tree, days > sections > items > people. */
+export const setProgramCommand = (days: unknown[]): OwnerCommand => ({ kind: 'series.set_program', payload: { days } });
+

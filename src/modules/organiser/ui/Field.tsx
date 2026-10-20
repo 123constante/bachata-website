@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { fieldNoteId } from './fieldNote';
 
 /** The text input / textarea look: card2, radius 12, 16px text (no iOS zoom), 3:1 border, gold on focus. */
 export const FIELD_CLASS =
@@ -15,15 +16,15 @@ export interface FieldProps {
   testId?: string;
 }
 
-/** Label + input + hint or error. The error is role=alert so it is read out. */
+/** Label + input + hint or error. The error is role=alert so it is read out, and has an id the control can name. */
 export function Field({ label, htmlFor, help, error, children, testId }: FieldProps) {
-  const noteId = testId ? `${testId}-error` : htmlFor ? `${htmlFor}-help` : undefined;
+  const noteId = fieldNoteId({ testId, htmlFor });
   return (
     <div className="space-y-[4px]" data-testid={testId}>
       <label htmlFor={htmlFor} className="block text-[13px] font-semibold text-[var(--mut)]">{label}</label>
       {children}
       {error ? (
-        <p role="alert" className="text-[13px] text-[var(--danger)]" data-testid={noteId}>{error}</p>
+        <p role="alert" id={noteId} className="text-[13px] text-[var(--danger)]" data-testid={noteId}>{error}</p>
       ) : help ? (
         <p className="text-[13px] text-[var(--mut)]" data-testid={htmlFor ? `${htmlFor}-help` : undefined}>{help}</p>
       ) : null}

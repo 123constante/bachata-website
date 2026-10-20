@@ -226,7 +226,7 @@ describe('the owner layer on the live public page', () => {
 // An upcoming night with no dated occurrence: the page lists it as upcoming.
 const UPCOMING = [{ id: 'e1', name: 'Friday Social', date: null, start_time: null, is_active: true, poster_url: null, location: 'Studio', city: 'London' }];
 const PAST = [{ id: 'e0', name: 'Old Social', date: '2020-01-10', start_time: '2020-01-10T20:00:00', is_active: true, poster_url: null, location: 'Studio', city: 'London' }];
-const NEW_EVENT_HREF = `/account/o/events/new?o=${ORG_ID}`;
+const NEW_EVENT_HREF = `/account/o/new/what?o=${ORG_ID}`;
 
 describe('Create event: only the owner or a manager, on both events shapes', () => {
   it.each(ROLES.flatMap((r) => [
@@ -260,7 +260,7 @@ describe('Create event: only the owner or a manager, on both events shapes', () 
     } else {
       await new Promise((res) => setTimeout(res, 50));
       expect(screen.queryByTestId('eip-create-event')).toBeNull();
-      expect(document.querySelector(`a[href^="/account/o/events/new"]`)).toBeNull();
+      expect(document.querySelector(`a[href^="/account/o/new/what"]`)).toBeNull();
     }
   });
 });
