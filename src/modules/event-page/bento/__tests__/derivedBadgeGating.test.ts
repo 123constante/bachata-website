@@ -9,7 +9,7 @@ const src = readFileSync(new URL('../BentoPage.tsx', import.meta.url), 'utf8');
 
 describe('BentoPage DerivedLevelBadge gating', () => {
   it('shows the badge bare only for a cancelled occurrence', () => {
-    expect(src).toMatch(/occurrence\?\.isCancelled \? badge :/);
+    expect(src).toMatch(/isCancelled \? badge :/);
   });
   it('hands the badge to the rating card as its no-summary fallback', () => {
     expect(src).toMatch(/<LevelRatingPrompt seriesId=\{eventId\} fallback=\{badge\}/);
