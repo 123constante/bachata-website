@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   ADD_ROLES,
+  canReceiveOwnership,
+  shortName,
   READ_ONLY_REASON,
   instantDateLabel,
   memberAction,
@@ -100,8 +102,8 @@ describe('access requests (D4 incoming rows)', () => {
   });
 
   it('dates a real instant on the London calendar', () => {
-    // 23:30 UTC on 3 Oct is 00:30 BST on Sat 4 Oct.
-    expect(instantDateLabel('2026-10-03T23:30:00+00:00')).toBe('Sun 4 Oct');
+    // 23:30 UTC on 3 Oct is 00:30 BST on Saturday 4 October.
+    expect(instantDateLabel('2026-10-03T23:30:00+00:00')).toBe('Sunday 4 October');
     expect(instantDateLabel(null)).toBeNull();
     expect(instantDateLabel('garbage')).toBeNull();
   });
@@ -152,6 +154,8 @@ const SERVER_TEAM_CODES = [
   // and the shared write gate + member helpers, read from the live bodies 2026-10-11.
   'owner_only', 'use_transfer', 'target_is_owner', 'already_owner', 'user_not_found', 'unconfirmed_email',
   'reason_required', 'reason_too_long', 'reason_invalid', 'primary_requires_owner', 'invalid_target_rule',
+  // admin A1b: a page holds at most 20 members.
+  'team_full',
 ];
 
 describe('teamErrorMessage', () => {
@@ -164,5 +168,29 @@ describe('teamErrorMessage', () => {
     expect(teamErrorMessage({ message: 'cannot_remove_owner' })).toMatch(/cannot be removed here/);
     expect(teamErrorMessage({ message: 'permission denied for table entity_members' })).toBe('Something went wrong. Please try again.');
     expect(teamErrorMessage({ message: 'some_future_code' })).toBe('Something went wrong. Please try again.');
+  });
+});
+
+describe('S6 additions (D48, R3-11, D60)', () => {
+  it('maps photo_url and added_by_display_name, tolerating their absence', () => {
+    const [a, b] = parseTeam([
+      { user_id: 'u1', member_role: 'manager', display_name: 'Priya Sharma', photo_url: 'https://i.example/p.jpg', added_by_display_name: 'Maya R.' },
+      { user_id: 'u2', member_role: 'owner' },
+    ]);
+    expect(a).toMatchObject({ photoUrl: 'https://i.example/p.jpg', addedByDisplayName: 'Maya R.' });
+    expect(b.photoUrl).toBeNull();
+    expect(b.addedByDisplayName).toBeNull();
+  });
+  it('shortName: first name + last initial; one word stays', () => {
+    expect(shortName('Priya Sharma')).toBe('Priya S.');
+    expect(shortName('Maya  de la Rosa')).toBe('Maya R.');
+    expect(shortName('Cher')).toBe('Cher');
+  });
+  it('only another non-owner member with an email can receive ownership', () => {
+    const m = (o: Partial<TeamMember>): TeamMember => ({ userId: 'u', role: 'manager', isPrimary: false, joinedAt: null, isSelf: false, email: 'a@x.example', displayName: null, ...o });
+    expect(canReceiveOwnership(m({}))).toBe(true);
+    expect(canReceiveOwnership(m({ email: null }))).toBe(false);
+    expect(canReceiveOwnership(m({ isSelf: true }))).toBe(false);
+    expect(canReceiveOwnership(m({ role: 'owner' }))).toBe(false);
   });
 });

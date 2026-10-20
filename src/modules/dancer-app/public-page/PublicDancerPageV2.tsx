@@ -24,6 +24,12 @@ export type PublicDancerPageV2Props = {
   pathname: string;
   /** Owner-only block (today's "Your plans"), or null. */
   ownerPlans?: ReactNode;
+  /**
+   * The Dancing tab of /people/:id. Drops ONLY the DANCER label, photo and name (the person
+   * page shows them once) and the Back link (the person page has its own). Stats, languages,
+   * contacts, share, achievements and the rest stay.
+   */
+  embedded?: boolean;
 };
 
 /**
@@ -132,7 +138,7 @@ const CopyButton = ({ kind, text }: { kind: ContactLink['kind']; text: string })
   );
 };
 
-export function PublicDancerPageV2({ model, extrasOk = true, pathname, ownerPlans }: PublicDancerPageV2Props) {
+export function PublicDancerPageV2({ model, extrasOk = true, pathname, ownerPlans, embedded = false }: PublicDancerPageV2Props) {
   const { user, authStatus } = useAuth();
   // Signed-out only, and only once auth has settled (no flash for a signed-in dancer).
   const showJoin = authStatus !== 'resolving' && (!user || user.is_anonymous === true);
@@ -142,19 +148,26 @@ export function PublicDancerPageV2({ model, extrasOk = true, pathname, ownerPlan
     facts.level && { label: 'Level', value: facts.level },
     facts.style && { label: 'Style', value: facts.style },
   ].filter((x): x is { label: string; value: string } => Boolean(x));
-  const roleCity = [model.role, model.city].filter(Boolean).join(' \u00b7 ');
+  // Embedded: the person page shows the city once in its own header, so only the role stays here.
+  const roleCity = [model.role, embedded ? null : model.city].filter(Boolean).join(' \u00b7 ');
   const going = model.goingNext;
 
   return (
     <div data-profile="dancer" data-testid="dancer-page-v2" className="relative z-10 rounded-[14px] overflow-hidden px-4 pb-6 pt-3" style={{ background: TEAL.page, color: TEAL.text, isolation: 'isolate' }}>
-      <div className="flex items-center justify-between" style={TAP}>
-        <Link to="/dancers" className="inline-flex items-center gap-2 text-[15px] font-bold" style={{ ...TAP, color: TEAL.text }} data-testid="dancer-back">
-          <ArrowLeft className="w-4 h-4" aria-hidden /> Back
-        </Link>
+      <div className={`flex items-center ${embedded ? 'justify-end' : 'justify-between'}`} style={TAP}>
+        {/* Embedded: the person page owns Back, so a second one here would be a duplicate control. */}
+        {!embedded && (
+          <Link to="/dancers" className="inline-flex items-center gap-2 text-[15px] font-bold" style={{ ...TAP, color: TEAL.text }} data-testid="dancer-back">
+            <ArrowLeft className="w-4 h-4" aria-hidden /> Back
+          </Link>
+        )}
         <ShareButton title={model.shareTitle} pathname={pathname} />
       </div>
 
       <header className="mt-2 rounded-[24px] px-4 pt-[22px] pb-2 text-center" style={{ background: TEAL.hero, border: '1px solid #2A7C90', boxShadow: '0 10px 30px rgba(0,0,0,.4)' }} data-testid="dancer-portrait">
+        {/* Embedded: label, photo and name come from the person page (shown once). */}
+        {!embedded && (
+          <>
         <div className="text-[11px] tracking-[2px]" style={{ color: '#CFF3F6' }}>DANCER</div>
         <div className="relative mx-auto mt-3.5" style={{ width: PORTRAIT_PX, height: PORTRAIT_PX }}>
           <div className="w-full h-full rounded-full box-border flex items-center justify-center overflow-hidden" style={{ border: `4px solid ${TEAL.accent}`, background: '#06303B' }} data-testid={model.avatarUrl ? undefined : 'dancer-portrait-placeholder'}>
@@ -163,6 +176,8 @@ export function PublicDancerPageV2({ model, extrasOk = true, pathname, ownerPlan
           <NationalityFlag code={model.nationalityCode} size={FLAG_BASIS_PX} placement="corner" />
         </div>
         <h1 className="mt-3 text-[26px] font-extrabold leading-tight break-words line-clamp-3" data-testid="dancer-name">{model.name}</h1>
+          </>
+        )}
         {roleCity && <p className="mt-0.5 text-[14px]" style={{ color: '#DDF6F8' }} data-testid="dancer-role-line">{roleCity}</p>}
         {factItems.length > 0 && (
           <div className="mt-4 grid" style={{ gridTemplateColumns: `repeat(${factItems.length}, minmax(0, 1fr))`, borderTop: '1px solid rgba(255,255,255,.28)' }} data-testid="dancer-facts">

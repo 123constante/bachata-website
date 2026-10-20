@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
+import { useEmbeddedProfile } from '@/lib/embeddedProfile';
 
 // ============================================================
 // DJ profile bento tiles
@@ -104,6 +105,33 @@ const HERO_PORTRAIT = Math.round(188 * 0.7);
 
 export function DjHero({ name, photoUrl, cityName, nationality, nationalityCode, bio, isLive, stats }: DjHeroProps) {
   const locLine = [cityName, nationality].filter(Boolean).join(' \u00B7 ');
+  const embedded = useEmbeddedProfile();
+  // Tab of /people/:id: the person page already shows photo, name and city, so
+  // keep only what is DJ-specific (bio, stats, live badge).
+  if (embedded) {
+    return (
+      <div style={{ borderRadius: 22, background: 'linear-gradient(155deg,#2a1622,#0b090c 72%)' }} className="p-4 text-center md:text-left">
+        {isLive ? (
+          <span
+            className="mb-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold"
+            style={{ background: 'rgba(255,106,44,0.16)', border: '1px solid rgba(255,106,44,0.4)', color: 'var(--dj-orange-soft)' }}
+          >
+            On the decks tonight
+          </span>
+        ) : null}
+        {bio ? (
+          <p className="m-0 mb-4 text-[15px] leading-relaxed" style={{ color: 'rgba(246,241,234,0.72)' }}>
+            {bio}
+          </p>
+        ) : null}
+        <div className="flex justify-center gap-6 md:justify-start">
+          {stats.gigs != null ? <Stat value={String(stats.gigs)} label="Gigs" /> : null}
+          {stats.upcoming != null ? <Stat value={String(stats.upcoming)} label="Upcoming" /> : null}
+          {stats.genres != null ? <Stat value={String(stats.genres)} label="Genres" /> : null}
+        </div>
+      </div>
+    );
+  }
   return (
     <div
       style={{

@@ -7,6 +7,7 @@
  * and Math.random are pinned (the hub has a countdown and a random confetti layer).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
 import type { ReactNode } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

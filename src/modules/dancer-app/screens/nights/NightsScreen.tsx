@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { LevelVote } from './LevelVote';
 import { statusLabel, placeAndTime, type Night } from './nightsModel';
@@ -74,7 +75,7 @@ const NightsScreen = () => {
       {!isLoading && !isError && nights.upcoming.length === 0 && nights.past.length === 0 && (
         <section className="da-card" aria-label="Your nights" data-testid="nights-empty">
           <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>{NO_NIGHTS_LINE}</p>
-          <p className="da-muted" style={{ margin: '2px 0 0', fontSize: 14 }}>{NO_NIGHTS_HOW}</p>
+          {GOING_CHECKIN_ENABLED && <p className="da-muted" style={{ margin: '2px 0 0', fontSize: 14 }}>{NO_NIGHTS_HOW}</p>}
           <a href={browseHref} style={linkStyle}>{BROWSE_EVENTS_LABEL}</a>
         </section>
       )}

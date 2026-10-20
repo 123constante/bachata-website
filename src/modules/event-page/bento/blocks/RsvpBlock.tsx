@@ -3,6 +3,7 @@ import type { QueryKey } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
 import { Check, Heart, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { wallClockToInstant } from '@/lib/time/wallClock';
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
@@ -81,7 +82,7 @@ const BTN =
  * clears. Signed-out and anonymous visitors see the same buttons, but a tap
  * opens the site's sign-in prompt and never reaches the RPC.
  */
-export const RsvpBlock = ({
+const RsvpBlockInner = ({
   snapshotQueryKey,
   publicEventId,
   occurrenceId,
@@ -214,3 +215,7 @@ export const RsvpBlock = ({
     </section>
   );
 };
+
+/** Renders nothing (and runs no RPC) while GOING_CHECKIN_ENABLED is off. */
+export const RsvpBlock = (props: RsvpBlockProps) =>
+  GOING_CHECKIN_ENABLED ? <RsvpBlockInner {...props} /> : null;

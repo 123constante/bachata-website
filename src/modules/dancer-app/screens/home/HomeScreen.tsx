@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { useAuth } from '@/hooks/useAuth';
 import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
 import { DancerApiError } from '../../api/errors';
@@ -155,12 +156,14 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
             {nextStepLine(profile)}
           </span>
         </Link>
+        {GOING_CHECKIN_ENABLED && (
         <Link to={path('nights')} data-testid="tile-going" className="da-card" style={{ ...tile }}>
           <b style={{ fontSize: 14 }}>Upcoming nights</b>
           {/* A number is big; the loading / failed words are body size so they fit the tile. */}
           <span style={{ fontSize: numbers.data ? 28 : 14, fontWeight: 800, overflowWrap: 'anywhere' }} data-testid="tile-going-count">{going}</span>
           <span className="da-muted" style={{ fontSize: 13 }}>{GOING_TILE_HELP}</span>
         </Link>
+        )}
       </div>
 
       <NumbersTiles hasPhoto={Boolean(profile.avatar_url)} />

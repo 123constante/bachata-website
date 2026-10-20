@@ -27,6 +27,10 @@ export const flags = {
   // level_vote_count per event, unrated_event_count, p_level filter) and the
   // level chips on /search. OFF: every search path stays on v5/v4 unchanged.
   searchV6:            import.meta.env.VITE_ENABLE_SEARCH_V6 === 'true',
+  // search_public_v7 = v6 with ONE row per person (`people`, roles as a line)
+  // instead of separate teachers / djs / dancers arrays. OFF until /people/:id
+  // ships (a result row links there); OFF = every search path is unchanged.
+  searchV7:            import.meta.env.VITE_ENABLE_SEARCH_V7 === 'true',
   // Self-owned RUM (web-vitals -> record_web_vital_v1, see lib/webVitals.ts).
   // OFF until the admin-repo migration ships the RPC; flipping this in Vercel
   // env enables reporting with no code change.

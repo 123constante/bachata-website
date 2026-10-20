@@ -25,4 +25,6 @@ export { useAnnounce } from './useAnnounce';
 export { useKeyboardInset, type KeyboardInset } from './useKeyboardInset';
 export { usePrefersReducedMotion, MOTION_MS, MOTION_EASE, MOTION_TRANSITION } from '../motion';
 export { Field, FIELD_CLASS, type FieldProps } from './Field';
+export { fieldNoteId } from './fieldNote';
 export { useDebounced } from './useDebounced';
+export { useOpenerRef } from './useOpenerRef';

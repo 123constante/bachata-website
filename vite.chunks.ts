@@ -337,6 +337,9 @@ export const LIB_EVENT_RULES_MODULES = [
   "/src/lib/accountPaths.ts",
   "/src/lib/authRouting.ts",
   "/src/modules/dancer-app/gate/useDancerArea.ts",
+  // One boolean read by the event page, festival hub and dancer app: alone it was
+  // its own chunk and one more first-load request on /event and /app.
+  "/src/lib/goingCheckin.ts",
 ];
 
 // The SECOND first-party group (2026-10-16, dancer journey fixes): the ONE avatar

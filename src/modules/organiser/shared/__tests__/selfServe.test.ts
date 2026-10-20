@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { KNOWN_SELF_SERVE_CODES, commandErrorMessage, isVersionConflict, selfServeErrorCode, selfServeErrorCopy } from '../selfServeErrors';
+import { KNOWN_SELF_SERVE_CODES, commandErrorMessage, isVersionConflict, selfServeErrorCode, selfServeErrorCopy, teamErrorMessage } from '../selfServeErrors';
+import { TEAM_CAP } from '../teamModel';
 import { isMailboxProvenToken } from '../sessionProof';
 import { DANCER_GATE_REASON, PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
 import { PROFILE_INCOMPLETE_ERROR } from '@/hooks/useSeriesLevelRating';
@@ -18,10 +19,31 @@ const SERVER_CODES = [
   'not_authorised', 'invalid_state',
   // Dancer first, then organiser: create / claim / request refuse an unfinished dancer profile (separate admin PR).
   'profile_incomplete',
+  // S-ERR: the invite-only create trigger (admin) and the 20-person cap (admin A1b).
+  'organiser_invite_required', 'team_full',
 ];
 
 const token = (payload: unknown) =>
   `x.${btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}.y`;
+
+describe('selfServeErrors S-ERR', () => {
+  it.each(['organiser_invite_required', 'team_full'])('%s maps to its own message, not the generic line', (code) => {
+    const copy = selfServeErrorCopy({ message: code, code: 'P0001' });
+    expect(copy.message).not.toBe('Something went wrong. Please try again.');
+    expect(KNOWN_SELF_SERVE_CODES).toContain(code);
+  });
+
+  it('organiser_invite_required carries the invite copy and offers the support link', () => {
+    const copy = selfServeErrorCopy({ message: 'organiser_invite_required' });
+    expect(copy.message).toBe('Creating a new organiser page needs an invite from the Bachata Calendar team. Message us and we\u2019ll set you up.');
+    expect(copy.next).toBe('contact_support');
+  });
+
+  it('team_full takes its number from TEAM_CAP', () => {
+    expect(selfServeErrorCopy({ message: 'team_full' }).message).toBe(`This team already has ${TEAM_CAP} people. Remove someone first, or ask the Bachata Calendar team.`);
+    expect(teamErrorMessage({ message: 'team_full' })).toBe(selfServeErrorCopy({ message: 'team_full' }).message);
+  });
+});
 
 describe('selfServeErrors', () => {
   it('has copy for every code the server raises', () => {
@@ -50,10 +72,10 @@ describe('selfServeErrors', () => {
 
   it('explains each submit refusal in plain words', () => {
     expect(selfServeErrorCopy({ message: 'invalid_state', code: 'P0001' }).message).toBe(
-      'Nothing to send: this organiser is already in review, live, or no longer active.',
+      'This page cannot do that right now. Reload and check it.',
     );
     expect(selfServeErrorCopy({ message: 'not_authorised' }).message).toBe(
-      'Only an owner or manager of this organiser can send it for review.',
+      'Only an owner or manager of this page can do that.',
     );
     expect(selfServeErrorCopy({ message: 'organiser_not_found' }).message).toBe('That organiser no longer exists.');
     expect(selfServeErrorCopy({ message: 'authentication_required' }).next).toBe('sign_in');
@@ -85,7 +107,7 @@ describe('commandErrorMessage (series and date commands)', () => {
   // Real messages from apply_aggregate_write_p5 and its handlers (admin repo,
   // 20261108180000 and the handler bodies read on E2E 2026-10-04).
   const cases: Array<[string, RegExp]> = [
-    ['version_conflict: expected 3, got 4', /changed somewhere else/],
+    ['version_conflict: expected 3, got 4', /^Someone changed this first\. Check it\.$/],
     ['permission_denied: occurrence.cancel on a past date is admin-only', /already happened/],
     ['past_date: break on 2026-10-01 is already past and cannot be restored', /already happened/],
     ['has_bookings: occurrence x on 2026-10-11 has attendance or guest-list entries and cannot be deleted (cancel it instead)', /Cancel it instead/],
@@ -103,6 +125,49 @@ describe('commandErrorMessage (series and date commands)', () => {
 
   it.each(cases)('%s', (message, expected) => {
     expect(commandErrorMessage({ message, code: 'P0001' })).toMatch(expected);
+  });
+
+  // INT4: the final AW1 refusals (admin PR #838, AW1-fix.md B-1/B-2 and AW1-fix2.md S-1), exact server texts.
+  describe('AW1 programme and organiser refusals', () => {
+    const aw1: Array<[string, RegExp, string[]]> = [
+      ['permission_denied: removing the session "Beginners footwork" would delete its per-date changes; ask an admin to remove it',
+        /^The session \u201cBeginners footwork\u201d has changes on some dates[\s\S]*only an admin can remove it[\s\S]*ask the Bachata Calendar team/, ['permission_denied', 'per-date']],
+      ['invalid_payload: this programme save carries no ids but the series has per-date changes; reload the editor and save again',
+        /Reload the page/, ['invalid_payload', 'ids']],
+      ['permission_denied: series.set_organisers can only add an organiser page you own or manage; ask an admin to add another page',
+        /only add organiser pages you run[\s\S]*Bachata Calendar team/, ['permission_denied', 'set_organisers']],
+      ['invalid_payload: a programme id must be blank or a uuid', /Reload the page/, ['invalid_payload', 'uuid']],
+      ['invalid_payload: a programme id appears more than once', /Reload the page/, ['invalid_payload']],
+      ['invalid_payload: a programme id does not belong to this series', /Reload the page/, ['invalid_payload']],
+      // FIX-INT4 S-1: the server sends left(title, 80) and prod has sessions titled '' WITH per-date changes.
+      ['permission_denied: removing the session "" would delete its per-date changes; ask an admin to remove it',
+        /^One of the sessions has changes on some dates, so only an admin can remove it\. Keep it, or ask the Bachata Calendar team to remove it\.$/, ['permission_denied', 'per-date', '\u201c']],
+      ['permission_denied: removing the session "   " would delete its per-date changes; ask an admin to remove it',
+        /^One of the sessions has changes on some dates/, ['permission_denied', '\u201c']],
+      // FIX-INT4 S-3: the title is free text; an earlier unanchored rule must not see it first.
+      ['permission_denied: removing the session "Bachata on a past date is admin-only" would delete its per-date changes; ask an admin to remove it',
+        /^The session \u201cBachata on a past date is admin-only\u201d has changes on some dates/, ['permission_denied', 'per-date']],
+      ['permission_denied: removing the session "Drill: shift would collide" would delete its per-date changes; ask an admin to remove it',
+        /^The session \u201cDrill: shift would collide\u201d has changes on some dates/, ['permission_denied', 'per-date']],
+      // FIX-INT4 N-2: the exact server text (admin 20261126230000, the live check on an ADDED page).
+      ['permission_denied: series.set_organisers can only add a live organiser page',
+        /^That page isn't live, so it can't be added\.$/, ['permission_denied', 'set_organisers']],
+    ];
+
+    // FIX-INT4 N-1: the 80-character cut (the server already sends left(title, 80); this pins the client's own clamp).
+    it('a 120-character session title is cut to its first 80 characters', () => {
+      const title = `${'x'.repeat(80)}${'z'.repeat(40)}`;
+      const text = commandErrorMessage({ message: `permission_denied: removing the session "${title}" would delete its per-date changes; ask an admin to remove it`, code: 'P0001' });
+      expect(text).toContain(`\u201c${'x'.repeat(80)}\u201d`);
+      expect(text).not.toContain('z');
+    });
+
+    it.each(aw1)('%s', (message, expected, leaks) => {
+      const text = commandErrorMessage({ message, code: 'P0001' });
+      expect(text).toMatch(expected);
+      for (const raw of leaks) expect(text).not.toContain(raw);
+      expect(text.length).toBeLessThan(200);
+    });
   });
 
   describe('bare refusal codes from the admin caps and undo', () => {

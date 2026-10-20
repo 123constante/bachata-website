@@ -27,6 +27,7 @@ const h = vi.hoisted(() => ({
   festivals: 1,
   rpc: vi.fn(),
 }));
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
 vi.mock('@/hooks/useAuth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
   useAuth: () => ({ user: h.user, isLoading: false, authStatus: 'ready' }),

@@ -161,3 +161,29 @@ describe('admin write refusals', () => {
     expect(adminErrorMessage(null)).toBe('Something went wrong. Please try again.');
   });
 });
+
+describe('redeem: team_full (S-MERGE) -- the server reason has its own terminal entry, never the generic fallback', () => {
+  // Every reason redeem_organiser_invite_v1 can return in its {ok:false} answer, plus the raised ones.
+  const SERVER_REASONS = ['sign_in_required', 'unconfirmed_account', 'rate_limited', 'invalid', 'used', 'revoked', 'expired', 'team_full', 'authentication_required'];
+  it.each(SERVER_REASONS.filter((r) => r !== 'authentication_required'))('%s maps to its own copy, not the fallback', (reason) => {
+    const out = interpretRedeem({ ok: false, reason }, null);
+    expect(out.kind).toBe('refused');
+    if (out.kind === 'refused') {
+      expect(out.copy).not.toBe(REDEEM_FALLBACK);
+      expect(out.copy.title).not.toBe(REDEEM_FALLBACK.title);
+    }
+  });
+  it('team_full is terminal: no retry control, its action leads home (the route that exists), the token leaves the URL', () => {
+    const c = REDEEM_COPY.team_full;
+    expect(c.terminal).toBe(true);
+    expect(c.action).toBe('home');
+    expect(c.action).not.toBe('retry');
+    expect(c.title).toBe('This team is full');
+  });
+  it('team_full copy states the cap and who to ask, and names no control that is not on screen (no Remove, Add, tap, button)', () => {
+    const body = REDEEM_COPY.team_full.body;
+    expect(body).toContain('20');
+    expect(body).toMatch(/ask the Bachata Calendar team/i);
+    expect(body).not.toMatch(/\b(remove|add|tap|click|press|button|menu|tab|try again)\b/i);
+  });
+});

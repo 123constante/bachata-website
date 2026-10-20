@@ -1,6 +1,6 @@
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BENTO_SURFACE, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
-import { VideoEmbed } from '@/components/VideoEmbed';
+import { VideoFrame } from '@/components/VideoFrame';
 import type { VenueVideo } from '@/lib/parseVenueVideoUrl';
 
 type VideoBlockProps = {
@@ -12,7 +12,9 @@ type VideoBlockProps = {
 /**
  * VideoBlock — the dedicated event video tile. The cover stays the flyer/images;
  * this full-width tile plays the first playable video (YouTube/Vimeo/direct
- * upload) in a 16:9 frame via the shared <VideoEmbed>. BentoPage hides the tile
+ * upload) in an adaptive frame (16:9, or whole-and-centred for portrait) via <VideoFrame>,
+ * which also draws the rounded inner box (it hugs a portrait video; the card
+ * keeps its full-width grid slot and title). BentoPage hides the tile
  * entirely when there's no playable video, so this never renders empty.
  *
  * `multi-target` mode = the brass button-visual shell (matching other tiles)
@@ -21,9 +23,13 @@ type VideoBlockProps = {
  */
 export const VideoBlock = ({ video, poster, title }: VideoBlockProps) => (
   <BentoTile title={BLOCK_TITLES.video} color={BENTO_SURFACE} mode="multi-target">
-    <div className="aspect-video w-full overflow-hidden rounded-[14px] bg-black">
-      <VideoEmbed video={video} poster={poster} title={title} />
-    </div>
+    <VideoFrame
+      video={video}
+      poster={poster}
+      title={title}
+      boxClassName="overflow-hidden rounded-[14px]"
+      hugClassName="overflow-hidden rounded-[14px]"
+    />
   </BentoTile>
 );
 

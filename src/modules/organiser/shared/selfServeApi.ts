@@ -390,6 +390,20 @@ export function createSeriesCommand(payload: Record<string, unknown>, organiserI
   return upsertCommand({ ...payload, organiser_ids: [organiserId] });
 }
 
+/**
+ * series.set_organisers (SW1, admin AW1): the complete, ordered list of organiser page ids
+ * linked to the event. Built here for the same reason as createSeriesCommand: the list key
+ * is the one the architecture lint bans everywhere else.
+ */
+export const setOrganisersCommand = (organiserIds: string[]): OwnerCommand => ({
+  kind: 'series.set_organisers',
+  payload: { organiser_ids: organiserIds },
+});
+
+/** The organiser page ids linked to a stored series row, in order (event_series_p5, read through the workspace). */
+export const linkedOrganiserIds = (row: Record<string, unknown>): string[] =>
+  Array.isArray(row.organiser_ids) ? row.organiser_ids.filter((v): v is string => typeof v === 'string') : [];
+
 // ---- W6: team and access requests --------------------------------------------
 
 export const incomingAccessRequestsQueryKey = (organiserId: string | undefined) =>

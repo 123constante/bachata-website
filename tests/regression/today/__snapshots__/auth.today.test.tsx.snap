@@ -546,29 +546,6 @@ text "Choose your dance role."
 button "Continue""
 `;
 
-exports[`organiser email-code screens at '390x844' > EmailCode > before sending 1`] = `
-"status
-  text "First, prove a@b.example is yours. We’ll email you a code."
-button "Email me a code""
-`;
-
-exports[`organiser email-code screens at '390x844' > EmailCode > code box after sending, then a short code is refused in words > sent 1`] = `
-"status
-  text "We’ve emailed a code to a@b.example. It can take a minute; check your spam folder too."
-text "Code from your email"
-textbox "Code from your email" value=""
-button "Confirm"
-button "Send a new code in 30s" [disabled]"
-`;
-
-exports[`organiser email-code screens at '390x844' > EmailCode > send failure 1`] = `
-"status
-  text "First, prove a@b.example is yours. We’ll email you a code."
-button "Email me a code"
-alert
-  text "We could not send the code. Please try again in a moment.""
-`;
-
 exports[`organiser email-code screens at '390x844' > EmailCodeProof > before sending 1`] = `
 "status
   text "To prove a@b.example is yours, we’ll email you a code."
@@ -587,29 +564,6 @@ button "Resend in 30s" [disabled]"
 exports[`organiser email-code screens at '390x844' > EmailCodeProof > send failure 1`] = `
 "status
   text "To prove a@b.example is yours, we’ll email you a code."
-button "Email me a code"
-alert
-  text "We could not send the code. Please try again in a moment.""
-`;
-
-exports[`organiser email-code screens at 'desktop' > EmailCode > before sending 1`] = `
-"status
-  text "First, prove a@b.example is yours. We’ll email you a code."
-button "Email me a code""
-`;
-
-exports[`organiser email-code screens at 'desktop' > EmailCode > code box after sending, then a short code is refused in words > sent 1`] = `
-"status
-  text "We’ve emailed a code to a@b.example. It can take a minute; check your spam folder too."
-text "Code from your email"
-textbox "Code from your email" value=""
-button "Confirm"
-button "Send a new code in 30s" [disabled]"
-`;
-
-exports[`organiser email-code screens at 'desktop' > EmailCode > send failure 1`] = `
-"status
-  text "First, prove a@b.example is yours. We’ll email you a code."
 button "Email me a code"
 alert
   text "We could not send the code. Please try again in a moment.""

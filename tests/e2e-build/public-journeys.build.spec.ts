@@ -37,10 +37,12 @@ const END: Record<string, { testId: string; label?: string }> = {
  * one that must NOT, the end-of-onboarding label, and the END element's own text.
  */
 const END_BY_ROW: Record<string, { testId: string; absent?: string; label?: string; text?: string }> = {
-  'organiser-link-organiser-signed-in': { testId: 'home-dates', absent: 'org-onboarding' },
+  // R1 Home (home/index.tsx): its job list renders only once Home has loaded for a person with a page
+  // (org-page-home alone is also the onboarding/"Add a page" shell). Main's `home-dates` card is gone.
+  'organiser-link-organiser-signed-in': { testId: 'home-jobs', absent: 'org-onboarding' },
   'organiser-link-open-request-signed-in': { testId: 'onboarding-pending-row' },
-  'signin-unfinished-dancer-with-organiser': { testId: 'home-dates', absent: 'org-onboarding', label: 'Next: set up your organiser page' },
-  'team-invite-existing-dancer': { testId: 'home-dates', absent: 'org-onboarding' },
+  'signin-unfinished-dancer-with-organiser': { testId: 'home-jobs', absent: 'org-onboarding', label: 'Next: set up your organiser page' },
+  'team-invite-existing-dancer': { testId: 'home-jobs', absent: 'org-onboarding' },
   // M71: the end card's own button (only the 'in' and 'nice' cards carry it), never a question card.
   'bookmark-app-welcome-finished': { testId: 'onboarding-home', text: 'Go to Home' },
 };

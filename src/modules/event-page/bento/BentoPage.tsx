@@ -24,6 +24,7 @@ import { DescriptionBlock } from '@/modules/event-page/bento/blocks/DescriptionB
 import { OrganiserCardBlock } from '@/modules/event-page/bento/blocks/OrganiserCardBlock';
 import { MusicStylesRow } from '@/modules/event-page/bento/blocks/MusicStylesRow';
 import { GroupChatBlock } from '@/modules/event-page/bento/blocks/GroupChatBlock';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { RsvpBlockPlaceholder } from '@/modules/event-page/bento/blocks/RsvpBlockPlaceholder';
 import { MoreEventsSection } from '@/modules/event-page/sections/MoreEventsSection';
 import type { MoreEventsBlock } from '@/modules/event-page/sections/MoreEventsSection';
@@ -698,7 +699,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
 
         {/* "I'm Going" RSVP for the night on screen -- via the
             set/get_my_occurrence_attendance_p5_v1 RPCs, never the table. */}
-        {state === 'ready' && snapshot?.eventId && snapshot.occurrenceId && (
+        {GOING_CHECKIN_ENABLED && state === 'ready' && snapshot?.eventId && snapshot.occurrenceId && (
           <Suspense fallback={<RsvpBlockPlaceholder goingCountLabel={pageModel.attendance.goingCountLabel} />}>
             <RsvpBlock
               snapshotQueryKey={eventPageQueryKey(eventId).slice(0, 2)}

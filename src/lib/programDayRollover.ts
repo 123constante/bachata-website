@@ -17,7 +17,7 @@
 // =============================================================================
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const ROLLOVER_HOUR = 8; // sessions starting strictly before this hour roll back
+export const ROLLOVER_HOUR = 8; // sessions starting strictly before this hour roll back
 
 /**
  * Parse an ISO timestamp ("YYYY-MM-DDTHH:MM[:SS][Z|+hh:mm]") into a UTC Date.

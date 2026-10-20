@@ -11,6 +11,7 @@ import { motion } from "framer-motion";
 import { calculateDuration } from "@/components/profile/ExperiencePicker";
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { NationalityFlag, TILE_FLAG_SIZE } from '@/components/people/NationalityFlag';
+import { useEmbeddedProfile } from '@/lib/embeddedProfile';
 
 interface DancerProfileGridProps {
   dancer: DancerPublicViewModel;
@@ -109,6 +110,8 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
   // ONCE here: `.charAt(0)` on the null was a 500 on the two live, sitemapped
   // profiles that have neither a name nor an avatar.
   const label = dancer.displayName ?? 'Dancer';
+  // Tab of /people/:id: the person page shows the photo and the name once.
+  const embedded = useEmbeddedProfile();
 
   return (
     <>
@@ -119,6 +122,7 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
       className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[minmax(160px,auto)]"
     >
       {/* 1. Identity Hero (2x2) */}
+      {!embedded && (
       <motion.div variants={itemVariants} className="col-span-2 row-span-2">
         <Card className="h-full relative overflow-hidden group border-white/10 bg-card/50 backdrop-blur-sm transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/20 hover:border-primary/30">
           <div className="absolute inset-0">
@@ -162,6 +166,7 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
           </div>
         </Card>
       </motion.div>
+      )}
 
       {/* 2. Role & Experience (1x1) */}
       {(dancer.partnerRole || dancer.yearsDancing) && (

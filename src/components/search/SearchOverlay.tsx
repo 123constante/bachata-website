@@ -11,7 +11,7 @@ import { usePublicSearch } from '@/hooks/usePublicSearch';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { KIND_ICON, KIND_LABEL, CIRCLE_KINDS, type SearchKind } from '@/lib/searchEntities';
+import { KIND_ICON, KIND_LABEL, CIRCLE_KINDS, personAriaLabel, type SearchKind } from '@/lib/searchEntities';
 import { highlight } from './highlight';
 import { pushRecent } from '@/lib/searchRecents';
 import { recordSearchResultClick } from '@/lib/searchClickTelemetry';
@@ -26,7 +26,7 @@ const ELLIPSIS = '...';
 const GROUPS: { label: string; kinds: SearchKind[]; cap: number }[] = [
   { label: 'Events',     kinds: ['event'], cap: 4 },
   { label: 'Venues',     kinds: ['venue'], cap: 3 },
-  { label: 'People',     kinds: ['teacher', 'dj', 'dancer'], cap: 5 },
+  { label: 'People',     kinds: ['teacher', 'dj', 'dancer', 'person'], cap: 5 },
   { label: 'Organisers', kinds: ['organiser'], cap: 3 },
   { label: 'Vendors',    kinds: ['vendor'], cap: 3 },
   { label: 'Places',     kinds: ['city'], cap: 3 },
@@ -88,7 +88,7 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
       const t = (q.trim() || term).trim();
       if (t) {
         pushRecent(t);
-        recordSearchResultClick({ query: t, kind: r.kind, id: r.id, position });
+        recordSearchResultClick({ query: t, kind: r.telemetryKind ?? r.kind, id: r.id, position });
       }
       close();
       navigate(r.href);
@@ -185,6 +185,7 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
                 <button
                   key={`${r.kind}-${r.id}`}
                   role="option"
+                  aria-label={r.kind === 'person' ? personAriaLabel(r.title, r.roles) : undefined}
                   aria-selected={activeIndex === idx}
                   type="button"
                   onMouseEnter={() => setActiveIndex(idx)}
@@ -202,7 +203,8 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
                     <span className="block truncate text-sm font-semibold text-foreground">{highlight(r.title, term)}</span>
                     {r.subtitle ? <span className="block truncate text-xs text-muted-foreground">{r.subtitle}</span> : null}
                   </span>
-                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{KIND_LABEL[r.kind]}</span>
+                  {/* A person's roles are their subtitle line, so no second badge. */}
+                  {r.kind === 'person' ? null : <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{KIND_LABEL[r.kind]}</span>}
                 </button>
               );
             })}

@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 
 import { useEntitySlugOrId, SITE_ORIGIN } from "@/lib/seo";
 
-import { VideoEmbed } from "@/components/VideoEmbed";
+import { VideoFrame } from "@/components/VideoFrame";
 
 import { pickPlayableVideo } from "@/lib/parseVenueVideoUrl";
 
@@ -3098,13 +3098,14 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
             <h2 className="nl-title">Aftermovie</h2>
             <hr className="neon-rule" />
           </div>
-          <div className="mx-auto aspect-video w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-black">
-            <VideoEmbed
-              video={festivalVideo}
-              poster={posterUrl}
-              title={festivalDetail?.identity.name ?? festival?.name ?? "Festival"}
-            />
-          </div>
+          <VideoFrame
+            video={festivalVideo}
+            poster={posterUrl}
+            title={festivalDetail?.identity.name ?? festival?.name ?? "Festival"}
+            boxClassName="mx-auto w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-black"
+            hugClassName="max-w-3xl overflow-hidden rounded-xl border border-white/10"
+            hugChrome="2px"
+          />
         </section>
       )}
 

@@ -21,6 +21,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyPersonaId } from "@/hooks/useMyPersonaId";
 import { isMyProfile } from "@/lib/myPersona";
+import { useEmbeddedProfile } from "@/lib/embeddedProfile";
+import { AlsoRoles } from "@/modules/person-page/AlsoRoles";
 import { PublicDancerPageV2 } from "@/modules/dancer-app/public-page/PublicDancerPageV2";
 import { buildPublicDancerPage, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
 
@@ -52,9 +54,13 @@ type AttendanceItem = {
 type DancerProfileProps = {
   /** From the route loader: v2 when the dancer area is open, else null/absent = today's page. */
   publicPage?: PublicPageV2Data | null;
+  /** The Dancing tab of /people/:id: v2 renders embedded (no Back, photo, name). Absent = today's page. */
+  embedded?: boolean;
 };
 
-const DancerProfile = ({ publicPage = null }: DancerProfileProps = {}) => {
+const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: DancerProfileProps = {}) => {
+  const embeddedCtx = useEmbeddedProfile();
+  const embedded = embeddedProp || embeddedCtx;
   const { id: routeParam } = useParams<{ id: string }>();
   const resolved = useEntitySlugOrId(routeParam, 'dancer_profiles');
   const id = resolved.id ?? undefined;
@@ -368,13 +374,15 @@ const DancerProfile = ({ publicPage = null }: DancerProfileProps = {}) => {
     const galleryList: unknown[] = Array.isArray(gallery) ? gallery : [];
     return (
       <GlobalLayout showSubheader={false} backHref="/dancers">
-        <div className="container max-w-xl mx-auto px-4 pb-24 pt-3">
+        <div className={`container max-w-xl mx-auto px-4 pt-3${embedded ? '' : ' pb-24'}`}>
+          <AlsoRoles current="dancer" id={id} slug={resolved.slug} />
           <PublicDancerPageV2
             model={buildPublicDancerPage(dancerView, publicPage.extras, galleryList)}
             extrasOk={publicPage.extrasOk}
             profileId={dancerView.id}
             pathname={resolved.slug ? `/dancers/${resolved.slug}` : `/dancers/${routeParam ?? dancerView.id}`}
             ownerPlans={isSelfView ? ownerPlans : null}
+            embedded={embedded}
           />
         </div>
       </GlobalLayout>
@@ -400,6 +408,7 @@ const DancerProfile = ({ publicPage = null }: DancerProfileProps = {}) => {
       }}
     >
       <div className="container max-w-5xl mx-auto px-4 pb-24 pt-8">
+        <AlsoRoles current="dancer" id={id} slug={resolved.slug} />
         <DancerProfileGrid dancer={dancerView} />
 
         {/* Gallery */}

@@ -58,6 +58,7 @@
  * from mountFestival for that reason.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach, vi } from 'vitest';
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
 import { Profiler } from 'react';
 import { render, cleanup, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
