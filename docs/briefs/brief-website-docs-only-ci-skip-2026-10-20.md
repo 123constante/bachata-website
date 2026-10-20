@@ -31,3 +31,7 @@ ONE bot PR "ci: skip heavy steps on docs-only PRs (required check names unchange
 
 ## After merge (orchestrator, not the worker)
 Open one tiny docs-only PR; expect the 7 required checks green within a couple of minutes with the heavy steps skipped; then one code PR still runs in full. If the docs-only run ever hides a real failure class, revert the PR (one commit).
+
+## If the push is refused for workflow files (added 2026-10-20)
+A cloud worker's git push can be refused for changes under `.github/workflows` ("refusing to allow ... workflow scope"). If that happens, do NOT retry in a loop and do NOT edit around it: push everything else (the classifier, its self-test, the handover) on your branch, and put each changed workflow as a complete file under `docs/handover/ci-docs-skip/workflows/<name>.yml` plus a one-paragraph apply note (the orchestrator applies them with the bot token, which has workflow scope). Say this plainly in the PR body and the handover. The PR is then PARTIAL by design; end the last commit subject with `PARTIAL [worker-done <ticket>]`.
+Also: "the worker must NOT run `gh api`" stands; use plain git only. Workers: set `automerge-ok` label NEVER on this PR (it edits CI).
