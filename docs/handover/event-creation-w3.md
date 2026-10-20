@@ -113,3 +113,30 @@ back on `dateTag`) is exactly that base state: killed by 16 rows; M12 (old `show
 
 Not verified: 390x844 production-build walk of the list and date page for this pass (the earlier walk's
 harness is not in the repo, no new screenshots); phone suite and bundle-budget job not run; real prod RPCs.
+
+## Fix pass walk
+
+Production build (`npm run build` with the fake Supabase origin and `VITE_ENABLE_ORGANISER_SELF_SERVE=true`), served by the
+`playwright.build.config.ts` server, organiser fake (`tests/e2e/helpers/organiserFake.ts`) seeded from the prod shapes in
+`shapes.ts`, fixed clock 2026-10-08, Pixel 7 touch profile. Run on head `a5157e5`. Screenshots:
+`docs/screenshots/event-creation-w3/fixpass-*.png`. The throwaway walk script is not committed.
+
+| Screen | Shape | Read | Measured |
+|---|---|---|---|
+| Events list, 390 (list route) | no open event, 4 past | Past collapsed, `aria-expanded=false`; tap opens (`true`, 7 rows) | toggle 44px; scrollWidth 390 |
+| Events list, 1280 split | open = `ended-picnic` (past) | Past OPEN on arrival (`true`, 7 rows); tap 1 COLLAPSES (`false`, 3 rows); tap 2 opens (`true`) | toggle 44px; toggle y and current-section y moved 0px |
+| Events list, 1280 split | open = `live-weekly-until` (current) | Past collapsed (`false`); tap opens (`true`); open row visible | n/a |
+| Date page, 390 | live one-off, 1 past date | **Finished** | scrollWidth 390 |
+| Date page, 390 | live course, 4 past dates, none upcoming | **Finished** | scrollWidth 390 |
+| Date page, 390 | live recurring, lapsed (`live-norule-lapsed`), past date | **Nothing coming up** | scrollWidth 390 |
+| Date page, 390 | live weekly, later dates, past date | **Live** | scrollWidth 390 |
+| Date page, 390 | live, upcoming dates all cancelled, past date | **Live** (as decided) | scrollWidth 390 |
+
+No walk contradicted the code.
+
+Not walked / deviations:
+- Brief items 1 and 2 ("open event" beside the list) were walked at **1280x800**, not 390: at phone width the list and the
+  editor are separate routes (`OrganiserShell`: the split needs >= 900px), so "open event on arrival" does not exist at 390.
+  At 390 only the list route was walked (Past collapsed, tap opens). scrollWidth was not measured on the 1280 screens.
+- Fake data only, no real prod RPCs. The course case uses a purpose-built lapsed course (4 past dates), because the prod-shape
+  `live-course` has upcoming dates.
