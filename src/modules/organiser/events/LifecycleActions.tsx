@@ -58,6 +58,12 @@ export function LifecycleActions({ ws, today }: { ws: EventWorkspace; today: str
           <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
         </Link>
       )}
+      {rows.goLive?.reason && rows.goLive.toProgramme && (
+        <Link to={ORG_PATHS.eventProgramme(ws.series.id)} data-testid="org-life-add-session" className={cn(ROW, 'font-semibold text-[var(--gold)]')}>
+          <span className="min-w-0 flex-1">Add a session</span>
+          <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
+        </Link>
+      )}
       {rows.seeLive && (rows.seeLive.href ? (
         <a href={rows.seeLive.href} target="_blank" rel="noopener noreferrer" data-testid="org-life-seelive" className={cn(ROW, 'text-[var(--fg)]')}>
           <span className="min-w-0 flex-1">See it live</span>
