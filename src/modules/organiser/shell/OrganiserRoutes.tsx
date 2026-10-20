@@ -37,9 +37,12 @@ const HelpPage = lazyWithRetry(() => import('../more/help')); // S7 more/help
 const CoverFlow = lazyWithRetry(() => import('../flows/fix')); // S7 flows/fix
 const DonePage = lazyWithRetry(() => import('../flows/Done')); // S0b flows/Done (wired by S2, its first caller)
 
+// The loading frame keeps the header's shape but draws NO Switch-profile button: this
+// frame is thrown away when the gate settles and again when the page chunk arrives, and a
+// sheet opened from it vanished mid-tap with it. The real button comes with the page.
 function ShellFallback() {
   return (
-    <OrganiserShell title="">
+    <OrganiserShell title="" topBarEnd={<span aria-hidden="true" className="inline-block h-[44px] w-[44px] shrink-0" />}>
       <SkeletonRows count={4} label="Loading" testId="org-route-loading" />
     </OrganiserShell>
   );

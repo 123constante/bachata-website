@@ -92,7 +92,12 @@ Run on 828e5d3 (the tip before this doc). The later commits only add the handove
 | misc | `npm run check:mojibake`; `check:pr-mergeable:self-test`; `check-pr-phone-qa.mjs --self-test`; `check:seo:self-test`; `check:og:self-test` | 0 each |
 | NOT RUN | lighthouse, doc-weight, `check:og`/`check:seo`/`synthetic:ssr` (need a deploy); types-drift (`SUPABASE_ACCESS_TOKEN`); live DB contract checks (secrets); `check:pr-mergeable` live sweep and ci-budget measure (GitHub tokens); real-data-verified and phone-qa-section guards (read the PR on GitHub; their self-tests ran) | n/a |
 
-E2E_NOTE_PLACEHOLDER
+**e2e note.** In the first full run, `dancer-home.spec.ts:188` (organiser with a finished dancer profile: the Switch-profile sheet opens the dancer profile) was flaky. On its own, with `--retries=0`, it failed **3/6 on the branch and passed 6/6 on main**, so it is a branch regression.
+
+- **Root cause:** `shell/OrganiserRoutes.tsx` `ShellFallback`, the loading frame, rendered a full `OrganiserShell` with a live Switch-profile button. The frame is thrown away when the page chunk arrives, so a sheet opened from it vanished mid-tap. The bug exists on main too, but there the button is live for about 40 ms. On the branch the R1 account gate (`useAccountGate` waits on `my_account_deletion_status_v1`) widened that to about 250 ms (c712d1a).
+- **Fix:** the loading frame draws a 44 px spacer instead of the button, so the header shape is unchanged.
+- **Red then green:** 3/6 failed before the fix; 8/8 (and 10/10 in a scratch worktree) passed after.
+- **Final full gate on the fixed tree:** `CI=true npm run test:e2e` exits 0: 157 pass, 1 flaky, 1 skip. The remaining flaky test is `dancer-home.spec.ts:168` (unfinished organiser at /account/o: the gate redirect). The same spec's gate-redirect `toHaveURL` also failed or flaked on **main** in 3 repeats (1 failed, 1 flaky), so it is pre-existing and not fixed here. `npm run lint` exits 0, the organiser suite passes 112 files / 3517 tests, and `check:mojibake` exits 0 on the final tree.
 
 ## Verified
 
@@ -100,7 +105,7 @@ E2E_NOTE_PLACEHOLDER
 - Each AW1 mismatch has a red then a green run (b, b', c); a, d and e are confirmed by tests.
 - Prod read-only SELECTs (2026-10-19): the search RPC signature, and organiser pages per user (1 page: 5 users; 3 pages: 1 user).
 - The 390x844 walk, gate off and on, on a production build.
-- The CI steps in section 5.
+- The CI steps in section 5, and the e2e regression fix (red, then green).
 
 ## Not verified
 
