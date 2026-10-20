@@ -21,6 +21,8 @@ import { NO_COMING } from '@/modules/organiser/shared/copy';
 import { useEventWorkspace } from './eventsApi';
 import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
+import { nothingComingUp } from '@/modules/organiser/shared/lifeLabel';
+import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { LifecycleActions } from './LifecycleActions';
 
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left text-[15px]';
@@ -146,7 +148,9 @@ function Dates({ seriesId, home, ws, today }: { seriesId: string; home: HomeSeri
 
 function Actions({ ws, today }: { ws: EventWorkspace; today: string }) {
   const rows = eventActions(ws.series, readIsFull(ws, today), wsComing(ws, today).length);
-  const shown = (Object.keys(rows) as EventStepName[]).filter((k) => rows[k]);
+  // S-FEEDBACK 5: a Finished / Nothing coming up event offers only See it live; Pause and End go until a date is added.
+  const idle = nothingComingUp(ws.series, upcomingDates(ws.dates, today).length);
+  const shown = (Object.keys(rows) as EventStepName[]).filter((k) => rows[k] && !(idle && (k === 'pause' || k === 'end')));
   if (!shown.length) return null;
   return (
     <Card testId="org-event-actions">

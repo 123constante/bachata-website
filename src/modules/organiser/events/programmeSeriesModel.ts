@@ -10,7 +10,7 @@
 // payloads differ; an untouched Save sends nothing).
 
 import {
-  LEVEL_KEYS, LEVEL_LABEL, LEVEL_SHORT, LIMITS, PEOPLE_ROLE_LABEL, SESSION_TYPES, TYPE_LABEL,
+  LEVEL_KEYS, LEVEL_LABEL, LIMITS, PEOPLE_ROLE_LABEL, SESSION_TYPES, TYPE_LABEL,
   endsNextDay, isEditableRole, levelsApplyTo, sessionLevels, sessionMinutes, timesProblem, titleProblem,
   type LevelKey, type PeopleRole,
 } from '@/modules/organiser/shared/programmeModel';
@@ -27,8 +27,6 @@ const hhmm = (v: unknown) => (typeof v === 'string' ? v.slice(0, 5) : '');
 
 // ---- words (ONE mapping: the chips, the rows and the cast read these) -----------------
 
-export { LEVEL_SHORT };
-export const levelShort = (key: string) => LEVEL_SHORT[key as LevelKey] ?? key;
 export const levelWord = (key: string) => LEVEL_LABEL[key as LevelKey] ?? key;
 export const roleWord = (role: string | null) => PEOPLE_ROLE_LABEL[role ?? ''] ?? 'Guest';
 
@@ -202,30 +200,26 @@ export const removeSession = (t: PTree, key: string): PTree => ({
   days: t.days.map((d) => ({ ...d, sections: d.sections.map((s) => ({ ...s, items: s.items.filter((it) => it.key !== key) })) })),
 });
 
-export function moveSession(t: PTree, key: string, dir: -1 | 1): PTree {
-  return {
-    days: t.days.map((d) => ({
-      ...d,
-      sections: d.sections.map((s) => {
-        const i = s.items.findIndex((it) => it.key === key);
-        const j = i + dir;
-        if (i < 0 || j < 0 || j >= s.items.length) return s;
-        const items = [...s.items];
-        [items[i], items[j]] = [items[j], items[i]];
-        return { ...s, items };
-      }),
-    })),
-  };
-}
+/** Minutes after midnight of a "HH:MM" start; null when there is no (complete) start time. Overnight sessions sort by their START. */
+const startMinutes = (start: string): number | null => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(start);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
 
-/** Why a session cannot go up / down, or null. */
-export function moveOff(t: PTree, key: string, dir: -1 | 1): string | null {
-  for (const d of t.days) for (const s of d.sections) {
-    const i = s.items.findIndex((it) => it.key === key);
-    if (i >= 0) return i + dir < 0 ? 'Already first' : i + dir >= s.items.length ? 'Already last' : null;
-  }
-  return null;
-}
+/**
+ * S-FEEDBACK 4: the order a section reads in. Earliest start first, a session with no start time last, ties keep
+ * their stored order (Array.prototype.sort is stable). Keys, ids and everything else are untouched, so the
+ * by-id round trip holds; only the position (sort_order) moves.
+ */
+export const sortSessions = (t: PTree): PTree => ({
+  days: t.days.map((d) => ({
+    ...d,
+    sections: d.sections.map((s) => ({
+      ...s,
+      items: [...s.items].sort((a, b) => (startMinutes(a.start) ?? Infinity) - (startMinutes(b.start) ?? Infinity) || 0),
+    })),
+  })),
+});
 
 export const setType = (it: PItem, type: string): PItem => ({ ...it, type, levels: sessionLevels({ type, levels: it.levels }) });
 export const toggleLevel = (it: PItem, level: string): PItem =>

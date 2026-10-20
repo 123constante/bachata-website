@@ -220,8 +220,8 @@ describe('NOTE-4: Change the day, untouched', () => {
   });
 });
 
-describe('NOTE-5: a locked Details screen keeps the Cover row read-only', () => {
-  it('ended -> the Cover row is not a link', async () => {
+describe('NOTE-5: a locked Details screen keeps the Flyer row read-only', () => {
+  it('ended -> the Flyer row is not a link', async () => {
     world.series[0] = series(A, 'Friday Social', world.occs[A], { lifecycle_status: 'ended' });
     wsOver[A] = { lifecycle_status: 'ended' };
     mount(ORG_PATHS.eventDetails(A), routes);
@@ -231,7 +231,7 @@ describe('NOTE-5: a locked Details screen keeps the Cover row read-only', () => 
     expect(cover.closest('a')).toBeNull();
   });
 
-  it('live -> the Cover row links to the cover screen', async () => {
+  it('live -> the Flyer row links to the flyer screen', async () => {
     mount(ORG_PATHS.eventDetails(A), routes);
     expect((await screen.findByTestId('org-detail-cover')).getAttribute('href')).toBe(ORG_PATHS.cover(A));
   });

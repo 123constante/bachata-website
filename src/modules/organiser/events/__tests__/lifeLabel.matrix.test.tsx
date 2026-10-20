@@ -227,3 +227,21 @@ describe('the date page reads the same word as the list row and the editor tag (
     expect(text(screen.getByTestId('date-status'))).toBe(expected(s).word);
   });
 });
+
+// S-FEEDBACK 5: a Finished / Nothing coming up event offers only See it live; Pause and End come back with a date.
+describe.each(LISTED.map((s) => [s.key, s] as const))('event actions, shape %s', (_key, s) => {
+  const idle = s.lifecycle === 'live' && upcomingOf(s).length === 0;
+  const running = s.lifecycle === 'live' || s.lifecycle === 'paused';
+  it(idle ? 'only See it live: no Pause, no End' : 'keeps the actions it always had', async () => {
+    home = [s];
+    current = s;
+    mount(`/account/o/events/${s.id}`);
+    await screen.findByTestId('org-page-event');
+    await screen.findByTestId('org-event-title');
+    await waitFor(() => expect(screen.queryByTestId('org-event-loading')).toBeNull());
+    expect(!!screen.queryByTestId('org-event-pause')).toBe(s.lifecycle === 'live' && !idle);
+    expect(!!screen.queryByTestId('org-event-end')).toBe(running && !idle);
+    expect(!!screen.queryByTestId('org-event-resume')).toBe(s.lifecycle === 'paused');
+    expect(!!screen.queryByTestId('org-life-seelive')).toBe(s.lifecycle === 'live' || s.lifecycle === 'draft');
+  });
+});

@@ -7,6 +7,7 @@ import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { isListedSeries, type HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
 import { CANCELLED_WORD, isClosed, lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { seriesLife } from '@/modules/organiser/shared/lifeLabel';
+import { FLYER_WORD } from '@/modules/organiser/shared/flyerLabel';
 import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { parseTeam, type IncomingAccessRequest } from '@/modules/organiser/shared/teamModel';
 
@@ -56,7 +57,7 @@ function draftLabel(series: HomeSeriesFull, today: string): string {
 function problemLabel(problem: SeriesProblem, series: HomeSeriesFull, today: string): string {
   switch (problem) {
     case 'no_dates_left': return 'Needs dates';
-    case 'no_cover': return 'Needs a cover';
+    case 'no_cover': return `Needs a ${FLYER_WORD}`;
     case 'stale_draft': return draftLabel(series, today);
   }
 }

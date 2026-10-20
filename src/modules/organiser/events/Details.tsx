@@ -10,7 +10,6 @@ import { eventLock } from '@/modules/organiser/shared/eventState';
 import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { useFlowHome } from '@/modules/organiser/flows/add/useFlow';
 import { EDIT_PARAM, EventConflict, EventStepShell, SendButton, StepError, detailEditPath, useEventSend } from '@/modules/organiser/flows/event';
-import { readExtra } from '@/modules/organiser/flows/event/eventSteps';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Card, ErrorState, FIELD_CLASS, SkeletonRows } from '../ui';
 import { ScheduleCard } from './EditorRows';
@@ -24,13 +23,13 @@ import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { ClosedLines } from './ClosedLines';
 import { uploadEventPicture } from './media';
-import { countLabel, mediaCommand, passCount, pricesLock, usualEnd } from './seriesExtras';
-import { EndEdit, PricesEdit } from './DetailsExtras';
+import { countLabel, mediaCommand } from './seriesExtras';
+import { FLYER_LABEL } from '../shared/flyerLabel';
 import { MusicEdit } from './MusicEdit';
 import { castEmptyLine, castLine, castOf, parseTree, programmeOff, sessionCount } from './programmeSeriesModel';
 import { useSeriesRole } from './programmeSeriesApi';
 
-const TEXT_FIELDS: TextDetail[] = ['name', 'time', 'level', 'music', 'tickets', 'instagram', 'about'];
+const TEXT_FIELDS: TextDetail[] = ['name', 'time', 'music', 'tickets', 'about'];
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left';
 const MAX_LEN: Record<TextDetail, number> = { name: 120, time: 5, level: 60, music: 300, tickets: 500, instagram: 300, about: MAX_DESCRIPTION };
 
@@ -57,7 +56,7 @@ function DetailEdit({ ws, field }: { ws: EventWorkspace; field: TextDetail }) {
         <>
           {field === 'about'
             ? <textarea {...props} rows={6} className={cn(FIELD_CLASS, 'min-h-[132px] py-[10px]')} />
-            : <input {...props} type="text" inputMode={field === 'time' ? 'numeric' : field === 'tickets' || field === 'instagram' ? 'url' : 'text'}
+            : <input {...props} type="text" inputMode={field === 'time' ? 'numeric' : field === 'tickets' ? 'url' : 'text'}
                 placeholder={field === 'time' ? '20:00' : field === 'music' ? 'Bachata, Kizomba' : undefined} className={cn(FIELD_CLASS, 'h-[48px]')} />}
           {problem && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="org-detail-problem">{problem}</p>}
           <SendButton label="Save" testId="org-detail-save" reason={!changed ? 'Nothing changed yet' : problem} busy={busy} onSend={save} />
@@ -152,28 +151,6 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
       <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
     </button>
   );
-  // The usual end (C14) and the price list (C09b): their own edit view on this route; the
-  // price list a team set up is shown off with its reason (the server would refuse it).
-  const extraRow = (field: 'ends' | 'prices', label: string, value: string, reason: string | null) => lock ? (
-    <div key={field} className={cn(ROW, 'text-[var(--mut)]')} data-testid={`org-detail-${field}`}>
-      <span className="w-[88px] shrink-0 text-[14px]">{label}</span>
-      <span className="min-w-0 flex-1 truncate text-[15px]">{value === 'Add' ? 'None' : value}</span>
-    </div>
-  ) : reason ? (
-    <div key={field}>
-      <a role="link" aria-disabled="true" data-testid={`org-detail-${field}`} className={cn(ROW, 'cursor-not-allowed text-[var(--mut)]')}>
-        <span className="w-[88px] shrink-0 text-[14px]">{label}</span>
-        <span className="min-w-0 flex-1 truncate text-[15px]">{value === 'Add' ? 'None' : value}</span>
-      </a>
-      <p className="px-[16px] pb-[10px] text-[13px] text-[var(--mut)]" data-testid={`org-detail-${field}-reason`}>{reason}</p>
-    </div>
-  ) : (
-    <Link key={field} to={detailEditPath(seriesId, field)} data-testid={`org-detail-${field}`} className={ROW}>
-      <span className="w-[88px] shrink-0 text-[14px] text-[var(--mut)]">{label}</span>
-      <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{value}</span>
-      <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
-    </Link>
-  );
   // The series programme and organisers (SW1): their own screens; an ended event shows them as plain lines.
   const tree = parseTree(ws.program);
   const cast = castOf(tree);
@@ -214,9 +191,7 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
         {row('name', shown(ws, 'name'))}
         {row('venue', venueName(venues.data, ws.series.default_venue_id) ?? (ws.series.default_venue_id ? 'Venue' : 'Add'))}
         {row('time', shown(ws, 'time'))}
-        {extraRow('ends', 'Ends', usualEnd(ws) || 'Add', null)}
-        {(['level', 'music', 'tickets', 'instagram', 'about'] as TextDetail[]).map((f) => row(f, shown(ws, f)))}
-        {extraRow('prices', 'Prices', countLabel(passCount(ws), 'price', 'prices'), pricesLock(ws))}
+        {(['music', 'tickets', 'about'] as TextDetail[]).map((f) => row(f, shown(ws, f)))}
         {pageRow('programme', 'Programme', countLabel(sessionCount(tree), 'session', 'sessions'), ORG_PATHS.eventProgramme(seriesId))}
         <div className={cn(ROW, 'text-[var(--mut)]')} data-testid="org-detail-cast">
           <span className="w-[88px] shrink-0 text-[14px]">Cast</span>
@@ -225,12 +200,12 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
         {pageRow('organisers', 'Organisers', countLabel(ws.organiserIds.length, 'organiser', 'organisers'), ORG_PATHS.eventOrganisers(seriesId))}
         {lock ? (
           <div className={cn(ROW, 'text-[var(--mut)]')} data-testid="org-detail-cover">
-            <span className="w-[88px] shrink-0 text-[14px]">Cover</span>
+            <span className="w-[88px] shrink-0 text-[14px]">{FLYER_LABEL}</span>
             <span className="min-w-0 flex-1 truncate text-[15px]">{ws.series.default_cover_image_url ? 'Set' : 'None'}</span>
           </div>
         ) : (
           <Link to={ORG_PATHS.cover(seriesId)} data-testid="org-detail-cover" className={ROW}>
-            <span className="w-[88px] shrink-0 text-[14px] text-[var(--mut)]">Cover</span>
+            <span className="w-[88px] shrink-0 text-[14px] text-[var(--mut)]">{FLYER_LABEL}</span>
             <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{ws.series.default_cover_image_url ? 'Change' : 'Add'}</span>
             <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
           </Link>
@@ -262,12 +237,9 @@ export default function Details() {
   const ws = useEventWorkspace(seriesId);
   const today = home.data?.today ?? londonTodayKey();
   const field = readField(search.get(EDIT_PARAM));
-  const extra = readExtra(search.get(EDIT_PARAM));
 
   if (field === 'music' && ws.data && !eventLock(ws.data.series.lifecycle_status)) return <MusicEdit ws={ws.data} />;
   if (field && ws.data && !eventLock(ws.data.series.lifecycle_status)) return <DetailEdit key={field} ws={ws.data} field={field} />;
-  if (extra === 'ends' && ws.data && !eventLock(ws.data.series.lifecycle_status)) return <EndEdit ws={ws.data} />;
-  if (extra === 'prices' && ws.data && !eventLock(ws.data.series.lifecycle_status) && !pricesLock(ws.data)) return <PricesEdit ws={ws.data} />;
   return (
     <OrganiserShell title={ws.data?.series.name ?? 'Details'} back={{ to: ORG_PATHS.event(seriesId), label: 'Back' }} testId="org-page-details">
       <div className="flex flex-col gap-3 p-3">

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { londonTodayKey } from '@/lib/londonDate';
 import { dateLabel } from '@/modules/organiser/shared/homeModel';
@@ -16,8 +16,8 @@ import type { EventWorkspace } from './eventModel';
 import { useRecentPeople, useSeriesRole } from './programmeSeriesApi';
 import { ProgrammeSheet, type SheetState } from './ProgrammeSheet';
 import {
-  START_SECTIONS, addSession, differingDates, differsLabel, itemName, lengthLine, moveOff, moveSession, parseTree,
-  CHANGED_SESSION_REMOVE, programCommand, programmeOff, removeConfirmCopy, removeSession, roleWord, sectionWord, sessionCount, timeLine, treeDirty, typeWord, updateItem, validateTree,
+  START_SECTIONS, addSession, differingDates, differsLabel, itemName, lengthLine, parseTree,
+  CHANGED_SESSION_REMOVE, programCommand, programmeOff, removeConfirmCopy, removeSession, roleWord, sectionWord, sessionCount, sortSessions, timeLine, treeDirty, typeWord, updateItem, validateTree,
   type PItem, type PSection, type PTree,
 } from './programmeSeriesModel';
 
@@ -31,8 +31,8 @@ const lineupLine = (it: PItem): string | null => {
   return it.people.length > 2 ? `${names.join(', ')} +${it.people.length - 2}` : names.join(', ');
 };
 
-function SessionRow({ it, tree, off, onOpen, onMove, onRemove }: {
-  it: PItem; tree: PTree; off: string | null; onOpen: () => void; onMove: (dir: -1 | 1) => void; onRemove: () => void;
+function SessionRow({ it, off, onOpen, onRemove }: {
+  it: PItem; off: string | null; onOpen: () => void; onRemove: () => void;
 }) {
   const [confirm, setConfirm] = useState(false);
   const lineup = lineupLine(it);
@@ -52,10 +52,6 @@ function SessionRow({ it, tree, off, onOpen, onMove, onRemove }: {
         {off ? <div className="flex min-w-0 flex-1 items-center px-[8px] py-[4px]">{main}</div> : (
           <button type="button" onClick={onOpen} className="flex min-h-[52px] min-w-0 flex-1 items-center px-[8px] py-[4px]" data-testid="prog-item-open">{main}</button>
         )}
-        <button type="button" className={BTN} disabled={!!off || !!moveOff(tree, it.key, -1)} aria-label={`Move ${itemName(it)} up`}
-          aria-describedby={off ? REASON_ID : undefined} onClick={() => onMove(-1)} data-testid="prog-up"><ArrowUp aria-hidden="true" className="h-[18px] w-[18px]" /></button>
-        <button type="button" className={BTN} disabled={!!off || !!moveOff(tree, it.key, 1)} aria-label={`Move ${itemName(it)} down`}
-          aria-describedby={off ? REASON_ID : undefined} onClick={() => onMove(1)} data-testid="prog-down"><ArrowDown aria-hidden="true" className="h-[18px] w-[18px]" /></button>
         <button type="button" className={cn(BTN, 'text-[var(--danger)]')} disabled={!!off} aria-label={`Remove ${itemName(it)}`}
           aria-describedby={off ? REASON_ID : undefined} onClick={() => setConfirm(true)} data-testid="prog-delete"><Trash2 aria-hidden="true" className="h-[18px] w-[18px]" /></button>
       </div>
@@ -72,8 +68,8 @@ function SessionRow({ it, tree, off, onOpen, onMove, onRemove }: {
   );
 }
 
-function SectionCard({ section, tree, off, onOpen, onMove, onRemove, readOnly }: {
-  section: PSection; tree: PTree; off: string | null; onOpen: (key: string) => void; onMove: (key: string, dir: -1 | 1) => void; onRemove: (key: string) => void; readOnly: boolean;
+function SectionCard({ section, off, onOpen, onRemove, readOnly }: {
+  section: PSection; off: string | null; onOpen: (key: string) => void; onRemove: (key: string) => void; readOnly: boolean;
 }) {
   return (
     <section aria-label={sectionWord(section)} data-testid="prog-section">
@@ -86,7 +82,7 @@ function SectionCard({ section, tree, off, onOpen, onMove, onRemove, readOnly }:
             {lineupLine(it) && <p className="truncate text-[13px] text-[var(--mut)]" data-testid="prog-item-lineup">{lineupLine(it)}</p>}
           </div>
         ) : (
-          <SessionRow key={it.key} it={it} tree={tree} off={off} onOpen={() => onOpen(it.key)} onMove={(d) => onMove(it.key, d)} onRemove={() => onRemove(it.key)} />
+          <SessionRow key={it.key} it={it} off={off} onOpen={() => onOpen(it.key)} onRemove={() => onRemove(it.key)} />
         ))}
       </Card>
     </section>
@@ -115,11 +111,11 @@ function ProgrammeBody({ ws, today }: { ws: EventWorkspace; today: string }) {
   if (roleLoading) return <SkeletonRows count={4} label="Loading the programme" testId="org-programme-role-loading" />;
   const update = (key: string, fn: (it: PItem) => PItem) => setDraft((t) => {
     const it = t.days.flatMap((d) => d.sections.flatMap((s) => s.items)).find((i) => i.key === key);
-    return it ? updateItem(t, key, fn(it)) : t;
+    return it ? sortSessions(updateItem(t, key, fn(it))) : t;
   });
   const add = (kind: string, type: string) => {
     const r = addSession(draft, kind, type);
-    setDraft(r.tree);
+    setDraft(sortSessions(r.tree));
     setSheet({ view: 'session', key: r.key });
   };
   const save = () => {
@@ -128,6 +124,8 @@ function ProgrammeBody({ ws, today }: { ws: EventWorkspace; today: string }) {
   };
   const saveReason = off ?? (!dirty ? 'Nothing changed yet' : problems.length ? 'Fix the highlighted session first' : null);
   const multiDay = draft.days.length > 1;
+  // S-FEEDBACK 4: sessions read earliest first. An untouched stored order is only DISPLAYED sorted; the first edit stores the sorted order.
+  const shown = sortSessions(draft);
 
   return (
     <>
@@ -151,14 +149,13 @@ function ProgrammeBody({ ws, today }: { ws: EventWorkspace; today: string }) {
           {festival ? 'This festival has no days listed yet.' : off ? 'No sessions are listed on this event.' : 'No sessions yet. Add a class or a party so dancers see what is on.'}
         </p>
       )}
-      {draft.days.map((day, di) => (
+      {shown.days.map((day, di) => (
         <div key={day.key} className="flex flex-col gap-3" data-testid="prog-day">
           {(multiDay || festival) && <p className="px-[4px] text-[15px] font-bold text-[var(--fg)]" data-testid="prog-day-title">{`DAY ${di + 1}${typeof day.raw.label === 'string' && day.raw.label ? `: ${day.raw.label}` : ''}`}</p>}
           {day.sections.filter((s) => s.items.length > 0).map((s) => (
-            <SectionCard key={s.key} section={s} tree={draft} off={off} readOnly={festival}
+            <SectionCard key={s.key} section={s} off={off} readOnly={festival}
               onOpen={(key) => setSheet({ view: 'session', key })}
-              onMove={(key, dir) => setDraft((t) => moveSession(t, key, dir))}
-              onRemove={(key) => { setDraft((t) => removeSession(t, key)); announce('Session removed. Save to keep it.'); }} />
+              onRemove={(key) => { setDraft((t) => sortSessions(removeSession(t, key))); announce('Session removed. Save to keep it.'); }} />
           ))}
         </div>
       ))}

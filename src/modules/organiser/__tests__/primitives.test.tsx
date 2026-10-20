@@ -154,7 +154,7 @@ describe('Cover / AttentionStrip / SearchField', () => {
     const { rerender } = render(<Cover alt="" testId="c" />);
     expect(screen.queryByTestId('c-change')).toBeNull();
     rerender(<Cover alt="" onChange={onChange} testId="c" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Change cover' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Change flyer' }));
     expect(onChange).toHaveBeenCalled();
   });
   it('strip is one button with its action word', () => {

@@ -12,6 +12,7 @@ import {
   upsertCommand,
   type OwnerCommand,
 } from '@/modules/organiser/shared/seriesCommands';
+import { FLYER_WORD } from '@/modules/organiser/shared/flyerLabel';
 import {
   parseWorkspace,
   upcomingDates,
@@ -122,7 +123,7 @@ export function draftFromWorkspace(ws: EventWorkspace, today: string): EventDraf
 export type DraftField = keyof EventDraft;
 export const FIELD_LABEL: Record<DraftField, string> = {
   name: 'the name', description: 'the description', venueId: 'the place', ticketUrl: 'the ticket link',
-  coverUrl: 'the cover', gallery: 'the gallery', videos: 'the videos', styles: 'the music styles',
+  coverUrl: `the ${FLYER_WORD}`, gallery: 'the gallery', videos: 'the videos', styles: 'the music styles',
   startDate: 'the start date', shape: 'how it repeats', until: 'how long it is listed',
 };
 

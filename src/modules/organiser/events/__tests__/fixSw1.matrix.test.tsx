@@ -41,7 +41,7 @@ describe('B1: stored ids travel with the tree, so a Save keeps every per-date se
   const EDITS: [string, M.PTree, string[]][] = [
     ['untouched', tree, ['a', 'b', 'c']],
     ['rename one class', M.updateItem(tree, a.key, { title: 'Renamed' }), ['a', 'b', 'c']],
-    ['move a class down', M.moveSession(tree, a.key, 1), ['b', 'a', 'c']],
+    ['a later start sorts a class down', M.sortSessions(M.updateItem(tree, a.key, { start: '20:30' })), ['b', 'a', 'c']],
     ['change a time', M.updateItem(tree, b.key, { start: '18:30' }), ['a', 'b', 'c']],
     ['delete one class', M.removeSession(tree, b.key), ['a', 'c']],
   ];
@@ -151,12 +151,12 @@ describe('S2: empty stored sections go back as stored', () => {
 });
 
 describe('S3: one level renderer on every screen', () => {
-  it.each(LEVEL_KEYS)('%s reads short chip + word, the short one hidden from screen readers', async (key) => {
+  it.each(LEVEL_KEYS)('%s reads the word only, never a code (S-FEEDBACK 3)', async (key) => {
     const { LevelText } = await import('@/modules/organiser/shared/components/LevelText');
     const { container } = render(<LevelText level={key} />);
-    const hidden = container.querySelector('[aria-hidden="true"]');
-    expect(hidden?.textContent).toBe(M.levelShort(key));
-    expect(container.textContent).toBe(`${M.levelShort(key)} ${LEVEL_LABEL[key]}`);
+    expect(container.textContent).toBe(LEVEL_LABEL[key]);
+    expect(container.textContent).not.toMatch(/^(B|IM|IN|AD|OL)\b/);
+    expect(container.querySelector('[aria-hidden="true"]')).toBeNull();
   });
   it.each(['events/ProgrammeSeries.tsx', 'events/ProgrammeSheet.tsx', 'dates/DateSheet.tsx'])('%s renders levels only through LevelText', (file) => {
     const src = readFileSync(`src/modules/organiser/${file}`, 'utf8');
@@ -206,5 +206,26 @@ describe('S5: no raw Unicode punctuation in the SW1 sources', () => {
   ])('%s', (file) => {
     const src = readFileSync(`src/modules/organiser/${file}`, 'utf8');
     expect(src.match(/[–—·…‘’“”]/g) ?? []).toEqual([]);
+  });
+});
+
+describe('S-FEEDBACK 4: sessions sort by start', () => {
+  const item = (id: string, start: string | null, end = '23:00:00') => ({ item: { id, title: id, type: 'class', start_time: start, end_time: start ? end : null, level_keys: [], sort_order: 0 }, people: [] });
+  const one = (items: unknown[]) => M.parseTree([{ day: { id: 'd', day_index: 0, date_offset_days: 0, sort_order: 0 }, sections: [{ section: { id: 's', kind: 'classes', sort_order: 0 }, items }] }]);
+  const order = (t: M.PTree) => M.allItems(M.sortSessions(t)).map((i) => i.title);
+  it.each([
+    ['already sorted', [item('a', '18:00:00'), item('b', '19:00:00')], ['a', 'b']],
+    ['reversed', [item('a', '19:00:00'), item('b', '18:00:00')], ['b', 'a']],
+    ['no start goes last', [item('a', null), item('b', '19:00:00'), item('c', null)], ['b', 'a', 'c']],
+    ['ties keep stored order', [item('a', '19:00:00'), item('b', '19:00:00'), item('c', '18:00:00')], ['c', 'a', 'b']],
+    ['overnight sorts by its START, not its end', [item('a', '22:00:00', '02:00:00'), item('b', '20:00:00', '21:00:00')], ['b', 'a']],
+    ['a late start with an early end still sorts by start', [item('a', '23:30:00', '00:30:00'), item('b', '23:00:00', '23:15:00'), item('c', '09:00:00')], ['c', 'b', 'a']],
+  ])('%s', (_n, items, want) => {
+    expect(order(one(items))).toEqual(want);
+  });
+  it('sorting moves nothing but position: ids and fields are untouched', () => {
+    const t = one([item('a', '19:00:00'), item('b', '18:00:00')]);
+    expect(itemIds(sent(M.sortSessions(t)))).toEqual(['b', 'a']);
+    expect(M.sortSessions(t).days[0].sections[0].items.map((i) => i.raw.id)).toEqual(['b', 'a']);
   });
 });

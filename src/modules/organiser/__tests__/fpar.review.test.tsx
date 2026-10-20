@@ -23,7 +23,7 @@ import { NO_COMING, PUT_IT_BACK } from '@/modules/organiser/shared/copy';
 import { parseEventWorkspace } from '@/modules/organiser/events/eventModel';
 import * as life from '@/modules/organiser/events/lifecycleModel';
 import * as steps from '@/modules/organiser/flows/event/eventSteps';
-import { detailEditPath, eventStepPath } from '@/modules/organiser/flows/event/eventSteps';
+import { eventStepPath } from '@/modules/organiser/flows/event/eventSteps';
 import { rawWorkspace, TODAY } from '@/modules/organiser/events/__tests__/fixtures';
 import { A, DRAFT, FROZEN, answer, comingRun, day, defaultWorld, flush, mount, type World } from '@/modules/organiser/flows/add/__tests__/fixtures';
 
@@ -89,13 +89,13 @@ type GoCase = [string, Record<string, unknown>, unknown[], boolean, string | nul
 const GO_CASES: GoCase[] = [
   ['venue missing, a1 off', { ...COVER }, COMING, false, 'Needs the next platform update. Before then, add a venue in Details.', true, false],
   ['date missing, a1 off', { ...VENUE, ...COVER, ...NO_DATE }, [], false, 'Needs the next platform update. Before then, add a date from today on with Add a date.', false, true],
-  ['cover missing, a1 off', { ...VENUE }, COMING, false, 'Needs the next platform update. Before then, add a cover picture in Details.', true, false],
+  ['cover missing, a1 off', { ...VENUE }, COMING, false, 'Needs the next platform update. Before then, add a flyer in Details.', true, false],
   ['venue, cover and date missing, a1 off', { ...NO_DATE }, [], false,
-    'Needs the next platform update. Before then, add a venue and a cover picture in Details, and add a date from today on with Add a date.', true, true],
+    'Needs the next platform update. Before then, add a venue and a flyer in Details, and add a date from today on with Add a date.', true, true],
   ['nothing missing, a1 off', { ...VENUE, ...COVER }, COMING, false, 'Your event is ready. Go live switches on here after the next platform update.', false, false],
   ['venue missing, a1 on', { ...COVER }, COMING, true, 'To go live, add a venue in Details.', true, false],
   ['date missing, a1 on', { ...VENUE, ...COVER, ...NO_DATE }, [], true, 'To go live, add a date from today on with Add a date.', false, true],
-  ['cover missing, a1 on', { ...VENUE }, COMING, true, 'To go live, add a cover picture in Details.', true, false],
+  ['cover missing, a1 on', { ...VENUE }, COMING, true, 'To go live, add a flyer in Details.', true, false],
   ['nothing missing, a1 on', { ...VENUE, ...COVER }, COMING, true, null, false, false],
 ];
 
@@ -264,41 +264,5 @@ describe('12. Focusable off rows and a destructive Discard (PAR-B N9)', () => {
     mount(ORG_PATHS.event(DRAFT), routes);
     fireEvent.click(await screen.findByTestId('org-life-discard'));
     expect((await screen.findByTestId('org-life-discard-confirm')).className).toContain('bg-[var(--danger)]');
-  });
-});
-
-// ---- 13. PAR-B S9: Prices and Ends validate on blur or Save, once ----------------------------
-
-const reasonCount = (text: string) => (document.body.textContent ?? '').split(text).length - 1;
-
-describe('13. Prices and Ends: one reason, after blur or Save (PAR-B S9)', () => {
-  it('Add a price shows no alert; after Save the name reason shows once', async () => {
-    mount(detailEditPath(A, 'prices'), routes);
-    fireEvent.click(await screen.findByTestId('org-prices-add'));
-    expect(screen.queryAllByRole('alert')).toEqual([]);
-    expect(reasonCount('Give every price a name')).toBe(0);
-    fireEvent.click(screen.getByTestId('org-detail-save'));
-    await flush();
-    expect(reasonCount('Give every price a name')).toBe(1);
-    expect(rpc.mock.calls.filter(([fn]) => fn === 'series_command_p5')).toEqual([]);
-  });
-  it('blurring the empty name shows the reason once', async () => {
-    mount(detailEditPath(A, 'prices'), routes);
-    fireEvent.click(await screen.findByTestId('org-prices-add'));
-    fireEvent.blur(screen.getByTestId('org-price-name'));
-    expect(reasonCount('Give every price a name')).toBe(1);
-  });
-  it('Ends: typing raises no alert; the problem shows once after blur', async () => {
-    mount(detailEditPath(A, 'ends'), routes);
-    const input = await screen.findByTestId('org-detail-input');
-    fireEvent.change(input, { target: { value: '2' } });
-    fireEvent.change(input, { target: { value: '25' } });
-    expect(screen.queryAllByRole('alert')).toEqual([]);
-    expect(screen.queryByTestId('event-step-reason')?.textContent ?? '').not.toMatch(/\d/);
-    fireEvent.blur(input);
-    const reason = screen.getByTestId('event-step-reason').textContent ?? '';
-    expect(reason).not.toBe('Nothing changed yet');
-    expect(reasonCount(reason)).toBe(1);
-    expect(screen.queryAllByRole('alert')).toEqual([]);
   });
 });

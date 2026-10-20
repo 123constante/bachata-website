@@ -23,6 +23,7 @@ import Done from '@/modules/organiser/flows/Done';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { seriesChip } from '@/modules/organiser/jobs/homeJobs';
 import { VERSION_CONFLICT, WARN_END } from '@/modules/organiser/shared/copy';
+import { FLYER_LABEL } from '@/modules/organiser/shared/flyerLabel';
 import { putBackPath, RESTORE_CAP_NOTE } from '@/modules/organiser/flows/cancel/cancelModel';
 import { eventStepPath, detailEditPath, COURSE_STOP_REASON } from '@/modules/organiser/flows/event/eventSteps';
 import {
@@ -251,20 +252,23 @@ type Field = { field: Parameters<typeof detailEditPath>[1]; value: string; key: 
 const FIELDS: Field[] = [
   { field: 'name', value: 'Friday Social Club', key: 'name', sent: 'Friday Social Club' },
   { field: 'time', value: '21:30', key: 'default_local_start_time', sent: '21:30' },
-  { field: 'level', value: 'All levels', key: 'default_level', sent: 'All levels' },
   // 'music' is chips since SW1: events/__tests__/sw1.parity.test.tsx
   { field: 'tickets', value: 'https://tickets.example.com/x', key: 'default_ticket_url', sent: 'https://tickets.example.com/x' },
-  { field: 'instagram', value: 'https://www.instagram.com/fridaysocial', key: 'instagram_url', sent: 'https://www.instagram.com/fridaysocial' },
   { field: 'about', value: 'Open social, all levels.', key: 'default_description', sent: 'Open social, all levels.' },
 ];
 
 describe('C37 details: tap-to-edit rows, ONE series.upsert each', () => {
   it('lists the rows, the cover link and the existing line-up row (EditorRows ScheduleCard)', async () => {
     const { container } = mount(ORG_PATHS.eventDetails(A), routes);
-    for (const f of ['name', 'venue', 'time', 'level', 'music', 'tickets', 'instagram', 'about']) {
+    for (const f of ['name', 'venue', 'time', 'music', 'tickets', 'about']) {
       expect(await screen.findByTestId(`org-detail-${f}`)).toBeTruthy();
     }
+    // S-FEEDBACK 1: the owner's four rows are not on the event page.
+    for (const f of ['ends', 'level', 'instagram', 'prices']) expect(screen.queryByTestId(`org-detail-${f}`)).toBeNull();
+    const card = screen.getByTestId('org-detail-rows').textContent ?? '';
+    for (const word of ['Ends', 'Level', 'Instagram', 'Prices']) expect(card).not.toContain(word);
     expect(screen.getByTestId('org-detail-cover').getAttribute('href')).toBe(ORG_PATHS.cover(A));
+    expect(screen.getByTestId('org-detail-cover').textContent).toContain(FLYER_LABEL);
     expect(await screen.findByTestId('org-schedule')).toBeTruthy();
     await waitFor(() => expect(tooSmall(container)).toEqual([]));
   });

@@ -25,7 +25,7 @@ import {
   type BulkCommand, type OwnerCommand,
 } from '@/modules/organiser/shared/seriesCommands';
 import { dayChangeCommand, detailCommand, endRunCommand, parseEventWorkspace, stopRepeatingCommand, venueCommand, weeklyUntilCommand } from '@/modules/organiser/events/eventModel';
-import { endCommand, mediaCommand, pricesCommand } from '@/modules/organiser/events/seriesExtras';
+import { mediaCommand } from '@/modules/organiser/events/seriesExtras';
 import { musicCommand } from '@/modules/organiser/events/musicModel';
 import { organisersCommand } from '@/modules/organiser/events/organisersModel';
 import { addPerson, addSession, parseTree, programCommand, updateItem } from '@/modules/organiser/events/programmeSeriesModel';
@@ -166,7 +166,6 @@ const PROGRAM = [{
     people: [{ profile_id: 'p1', profile_type: 'teacher', role: 'teaching', level: null, sort_order: 0, display_name: 'Ana' }],
   }] }],
 }];
-const PRICE = { id: '0b5c7a8e-5f43-4d6e-9a1b-2c3d4e5f6a7b', name: 'Entry', price: '10', currency: 'GBP' as const };
 
 // ---- the table ----------------------------------------------------------------------------
 
@@ -255,11 +254,8 @@ export const PARITY: Row[] = [
     sends: [upsert(['name', 'default_venue_id', 'default_city_id'], () => venueCommand(ws, 'v1', 'c1'), DETAILS, 'venueCommand(')] },
   { id: 'C09a', capability: 'Ticket link', verdict: 'MATCH', screen: DETAILS, from: TO_DETAILS,
     sends: [upsert(['name', 'default_ticket_url'], () => detailCommand(ws, 'tickets', 'https://tix.example/a'), DETAILS, 'detailCommand(')] },
-  // PARTIAL: no quantity (admin-only key on prod, Decision 1); a team-made list is read-only (Decision 2).
-  { id: 'C09b', capability: 'Price list (name, price, currency)', verdict: 'PARTIAL', screen: DETAILS, from: [[DETAILS, 'detailEditPath']],
-    sends: [upsert(['name', 'default_passes'], () => pricesCommand(ws, [PRICE]), 'events/DetailsExtras.tsx', 'pricesCommand(')] },
-  { id: 'C10', capability: 'Instagram link', verdict: 'MATCH', screen: DETAILS, from: TO_DETAILS,
-    sends: [upsert(['name', 'instagram_url'], () => detailCommand(ws, 'instagram', 'https://instagram.com/fridaysocial'), DETAILS, 'detailCommand(')] },
+  { id: 'C09b', capability: 'Price list (name, price, currency)', verdict: 'DROPPED-BY-DECISION', decision: 'S-FEEDBACK-1' },
+  { id: 'C10', capability: 'Instagram link', verdict: 'DROPPED-BY-DECISION', decision: 'S-FEEDBACK-1' },
   // SW1 (parity wave 1): C11, C12 and C57 are built, behind the AW1 platform gate (shared/parityGate.ts).
   { id: 'C11', capability: 'Co-organisers on the event', verdict: 'PARTIAL', screen: SERIES_ORGS, from: [[DETAILS, 'ORG_PATHS.eventOrganisers']], sends: [SEND_ORGANISERS] },
   { id: 'C12', capability: 'Line-up at series level', verdict: 'PARTIAL', screen: SERIES_PROG, from: [[DETAILS, 'ORG_PATHS.eventProgramme']], sends: [SEND_PROGRAM],
@@ -269,7 +265,6 @@ export const PARITY: Row[] = [
   { id: 'C14', capability: 'Usual start / end time', verdict: 'MATCH', screen: DETAILS, from: [[DETAILS, 'detailEditPath']],
     sends: [
       upsert(['name', 'default_local_start_time'], () => detailCommand(ws, 'time', '21:00'), DETAILS, 'detailCommand('),
-      upsert(['name', 'default_duration_minutes'], () => endCommand(ws, '23:30'), 'events/DetailsExtras.tsx', 'endCommand('),
     ] },
   { id: 'C15', capability: 'Repeat rule (weekly)', verdict: 'MATCH', screen: ONE, from: TO_STEP,
     sends: [
@@ -330,8 +325,7 @@ export const PARITY: Row[] = [
   { id: 'C32', capability: 'Delete an event', verdict: 'MISSING-ADMIN-ONLY', adminKind: 'series.delete' },
   { id: 'C33', capability: 'Duplicate / copy an event', verdict: 'DROPPED-BY-DECISION', decision: 'plan 1.6', absent: 'admin_duplicate_event_p5' },
   { id: 'C34', capability: 'Private / unlisted', verdict: 'MISSING-ADMIN-ONLY', adminKey: 'visibility' },
-  { id: 'C35', capability: 'Level', verdict: 'MATCH', screen: DETAILS, from: TO_DETAILS,
-    sends: [upsert(['name', 'default_level'], () => detailCommand(ws, 'level', 'Improvers'), DETAILS, 'detailCommand(')] },
+  { id: 'C35', capability: 'Level', verdict: 'DROPPED-BY-DECISION', decision: 'S-FEEDBACK-1' },
   { id: 'C36a', capability: 'Team: add, change role, remove, hand over', verdict: 'MATCH', screen: 'team/index.tsx',
     from: [['home/homeView.ts', 'ORG_PATHS.team']],
     sends: [{ in: 'shared/teamRpcApi.ts', token: 'organiser_team_set_member_v' }, { in: 'shared/teamRpcApi.ts', token: 'organiser_team_add_member_by_profile_v' }] },
@@ -405,7 +399,7 @@ export const PARITY: Row[] = [
   // ---- SW1 (parity wave 1, 2026-10-18): "be complete with all the features the admin editor has" ----
   { id: 'SW1-programme', capability: 'Classes and Party sessions for the whole series (reorder, remove, levels, differs-on-N-dates)', verdict: 'PARTIAL',
     screen: SERIES_PROG, from: [[DETAILS, 'ORG_PATHS.eventProgramme']], sends: [SEND_PROGRAM],
-    shows: [['events/ProgrammeSeries.tsx', 'prog-up'], ['events/ProgrammeSeries.tsx', 'prog-differs-badge'], ['events/ProgrammeSheet.tsx', 'prog-level-']] },
+    shows: [['events/ProgrammeSeries.tsx', 'prog-delete'], ['events/ProgrammeSeries.tsx', 'prog-differs-badge'], ['events/ProgrammeSheet.tsx', 'prog-level-']] },
   { id: 'SW1-lineup', capability: 'Line-up per session: role and level per person, Recent first, search', verdict: 'PARTIAL',
     screen: SERIES_PROG, from: [[DETAILS, 'ORG_PATHS.eventProgramme']], sends: [SEND_PROGRAM],
     shows: [['events/ProgrammeSheet.tsx', 'prog-recent'], ['events/ProgrammeSheet.tsx', 'prog-role-'], ['events/ProgrammeSheet.tsx', 'prog-plevel-'], ['events/programmeSeriesApi.ts', 'organiser_series_cast_v1']] },
@@ -548,7 +542,7 @@ describe('organiser parity matrix', () => {
   it('the counts: MATCH / PARTIAL / admin-only / dropped, nothing left to fill', () => {
     const count = (v: Verdict) => PARITY.filter((r) => r.verdict === v).length;
     expect({ match: count('MATCH'), partial: count('PARTIAL'), adminOnly: count('MISSING-ADMIN-ONLY'), dropped: count('DROPPED-BY-DECISION') })
-      .toEqual({ match: 45, partial: 11, adminOnly: 8, dropped: 7 });
+      .toEqual({ match: 43, partial: 10, adminOnly: 8, dropped: 10 });
   });
 });
 

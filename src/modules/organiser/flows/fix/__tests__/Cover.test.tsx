@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** Cover fix (C18 -> C18b): pick a photo, ONE series.upsert, Done "Cover added" with `next`. */
+/** Cover fix (C18 -> C18b): pick a photo, ONE series.upsert, Done "Flyer added" with `next`. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -59,7 +59,7 @@ describe('cover fix', () => {
     expect(sent.command.kind).toBe('series.upsert');
     expect(sent.command.payload).toEqual({ default_cover_image_url: 'https://cdn.example/c.jpg' });
     expect(where.textContent).toBe(ORG_PATHS.done);
-    expect(JSON.parse(where.getAttribute('data-state')!)).toMatchObject({ message: 'Cover added', next: ORG_PATHS.event('s1'), nextLabel: 'Back to the event' });
+    expect(JSON.parse(where.getAttribute('data-state')!)).toMatchObject({ message: 'Flyer added', next: ORG_PATHS.event('s1'), nextLabel: 'Back to the event' });
   });
 
   it('a refused upload sends nothing and says why', async () => {

@@ -455,7 +455,7 @@ interface NoAccessRow { screen: string; path: () => string; routes?: Parameters<
 const NO_ACCESS_ROWS: NoAccessRow[] = [
   { screen: 'One event', path: () => ORG_PATHS.event(A) },
   { screen: 'Event details', path: () => ORG_PATHS.eventDetails(A) },
-  { screen: 'Cover photo', path: () => ORG_PATHS.cover(A) },
+  { screen: 'Flyer', path: () => ORG_PATHS.cover(A) },
   { screen: 'Cancel a date (confirm)', path: () => ORG_PATHS.cancelDate(A, BEFORE) },
   { screen: 'Cancel a date (which date)', path: () => ORG_PATHS.cancelEvent(A), routes: <Route path="/account/o/cancel/:seriesId" element={<CancelFlow step="date" />} /> },
   { screen: 'Add a date (which day)', path: () => ORG_PATHS.addEvent(A) },

@@ -6,7 +6,6 @@
 import { describe, expect, it } from 'vitest';
 import { coverStepReason, offerLeave } from '@/modules/organiser/flows/new/model';
 import { SEE_LIVE_DRAFT_REASON } from '@/modules/organiser/events/lifecycleModel';
-import { END_CONSEQUENCE } from '@/modules/organiser/events/seriesExtras';
 
 describe('new event, last step (walk 14)', () => {
   it('with A1 off the reason does not promise going live', () => {
@@ -23,5 +22,4 @@ describe('new event, last step (walk 14)', () => {
 
 describe('copy (walk 03, 07)', () => {
   it('See it live reason is a sentence', () => expect(SEE_LIVE_DRAFT_REASON).toMatch(/\.$/));
-  it('the Ends note says where Coming dates is', () => expect(END_CONSEQUENCE).toContain('Coming dates on the event'));
 });

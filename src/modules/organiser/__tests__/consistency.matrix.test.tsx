@@ -219,7 +219,7 @@ describe('G1: a cancelled-only event says Cancelled on My events and One event, 
   });
   it('a cancelled date beside a scheduled one is not cancelled-only: the cover problem still shows', async () => {
     const { seriesChip } = await import('@/modules/organiser/jobs/homeJobs');
-    expect(seriesChip(g1Series('live', G1_TODAY, { upcoming_count: 1, cancelled_upcoming_count: 1, default_cover_image_url: null }), G1_TODAY).label).toBe('Needs a cover');
+    expect(seriesChip(g1Series('live', G1_TODAY, { upcoming_count: 1, cancelled_upcoming_count: 1, default_cover_image_url: null }), G1_TODAY).label).toBe('Needs a flyer');
   });
 });
 

@@ -27,7 +27,6 @@ import { eventStepPath } from '@/modules/organiser/flows/event/eventSteps';
 import { A, AFTER, BEFORE, DRAFT, FROZEN, answer, commandsOf, defaultWorld, flush, mount, tooSmall, type World } from '@/modules/organiser/flows/add/__tests__/fixtures';
 
 const WEEKLY_FRIDAY = { mode: 'weekly', weekdays: [5], interval: 1, end: { kind: 'none' } };
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 let world: World;
 let wsOver: Record<string, Record<string, unknown>>;
@@ -88,10 +87,10 @@ describe('C28b / C30b / C38: the lifecycle card on One event', () => {
     const reason = screen.getByTestId('org-life-golive-reason').textContent ?? '';
     expect(reason).toContain('Needs the next platform update');
     expect(reason).toMatch(/a venue/);
-    expect(reason).toMatch(/a cover picture/);
+    expect(reason).toMatch(/a flyer/);
     // Walk fix: the venue and cover are on Details, so the card names it AND links there.
     // This draft has no date either: that is added with Add a date, never "in Details" (PAR-B S7).
-    expect(reason).toMatch(/a venue and a cover picture in Details, and add a date from today on with Add a date\.$/);
+    expect(reason).toMatch(/a venue and a flyer in Details, and add a date from today on with Add a date\.$/);
     expect(screen.getByTestId('org-life-details').getAttribute('href')).toBe(ORG_PATHS.eventDetails(DRAFT));
     expect(screen.getByTestId('org-life-add-date').getAttribute('href')).toBe(ORG_PATHS.addEvent(DRAFT));
     fireEvent.click(go);
@@ -191,58 +190,6 @@ describe('C06: gallery and videos open their sheets from Details and save ONE up
     fireEvent.click(screen.getByTestId('org-sheet-done'));
     await flush();
     await waitFor(() => expect(lastCommand()).toEqual({ kind: 'series.upsert', payload: { name: 'Friday Social', default_video_urls: ['https://youtube.com/watch?v=abc'] } }));
-  });
-});
-
-describe('C14: the usual end', () => {
-  it('Ends row -> an end time saves default_duration_minutes, and says what it does to listed dates', async () => {
-    mount(ORG_PATHS.eventDetails(A), routes);
-    const row = await screen.findByTestId('org-detail-ends');
-    expect(row.textContent).toContain('Add');
-    fireEvent.click(row);
-    const input = await screen.findByTestId('org-detail-input');
-    expect(screen.getByTestId('org-detail-save').getAttribute('aria-disabled') ?? screen.getByTestId('org-detail-save').hasAttribute('disabled')).toBeTruthy();
-    fireEvent.change(input, { target: { value: '23:30' } });
-    expect(screen.getByTestId('org-ends-consequence').textContent).toMatch(/Dates already listed keep/);
-    fireEvent.click(screen.getByTestId('org-detail-save'));
-    await flush();
-    await waitFor(() => expect(lastCommand()).toEqual({ kind: 'series.upsert', payload: { name: 'Friday Social', default_duration_minutes: 210 } }));
-  });
-
-  it('an end past midnight counts into the next day', async () => {
-    wsOver[A] = { default_duration: '05:00:00' };
-    mount(ORG_PATHS.eventDetails(A), routes);
-    expect((await screen.findByTestId('org-detail-ends')).textContent).toContain('01:00');
-  });
-});
-
-describe('C09b: the price list', () => {
-  it('no prices: the row says Add; a new price saves default_passes with the owner keys only', async () => {
-    mount(ORG_PATHS.eventDetails(A), routes);
-    const row = await screen.findByTestId('org-detail-prices');
-    expect(row.textContent).toContain('Add');
-    fireEvent.click(row);
-    expect((await screen.findByTestId('org-prices-empty')).textContent).toMatch(/Add a price/);
-    fireEvent.click(screen.getByTestId('org-prices-add'));
-    fireEvent.change(screen.getByTestId('org-price-name'), { target: { value: 'Entry' } });
-    fireEvent.change(screen.getByTestId('org-price-amount'), { target: { value: '12.50' } });
-    fireEvent.click(screen.getByTestId('org-detail-save'));
-    await flush();
-    await waitFor(() => expect(lastCommand()?.kind).toBe('series.upsert'));
-    const passes = lastCommand()?.payload.default_passes as Array<Record<string, unknown>>;
-    expect(passes).toHaveLength(1);
-    expect(Object.keys(passes[0]).sort()).toEqual(['currency', 'id', 'name', 'price']);
-    expect(passes[0]).toMatchObject({ name: 'Entry', price: 12.5, currency: 'GBP' });
-    expect(String(passes[0].id)).toMatch(UUID);
-  });
-
-  it('a price list the team set up (keys the owner cannot write) is shown off with the reason', async () => {
-    wsOver[A] = { passes: [{ id: 'p1', name: 'Full pass', price: 90, currency: 'GBP', tier: 'Full', type: 'full_pass', quantity: '100' }] };
-    mount(ORG_PATHS.eventDetails(A), routes);
-    const row = await screen.findByTestId('org-detail-prices');
-    expect(row.getAttribute('href')).toBeNull();
-    expect(row.textContent).toContain('1 price');
-    expect(screen.getByTestId('org-detail-prices-reason').textContent).toMatch(/Bachata Calendar team/);
   });
 });
 

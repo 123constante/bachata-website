@@ -5,6 +5,7 @@
 import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
 import { publicEventPath } from '@/modules/organiser/shared/editorGuards';
+import { FLYER_WORD } from '@/modules/organiser/shared/flyerLabel';
 import type { EventWorkspace } from './eventModel';
 
 /** Going live from a draft waits on the admin A1 migration; plain words, no jargon. */
@@ -29,7 +30,7 @@ export function goLiveMissing(ws: EventWorkspace, today: string): string[] {
   if (!s.default_venue_id) missing.push('a venue');
   const coming = upcomingDates(ws.dates, today).some((d) => d.lifecycle_status === 'scheduled');
   if (!coming && !(s.default_start_date && s.default_start_date >= today)) missing.push(MISSING_DATE);
-  if (!s.default_cover_image_url) missing.push('a cover picture');
+  if (!s.default_cover_image_url) missing.push(`a ${FLYER_WORD}`);
   return missing;
 }
 

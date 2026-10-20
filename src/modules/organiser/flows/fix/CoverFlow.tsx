@@ -11,12 +11,13 @@ import { ORG_PATHS } from '../../shell/paths';
 import { ErrorState, SkeletonRows } from '../../ui';
 import { goDone } from '../doneState';
 import { EventConflict } from '../event/parts';
+import { FLYER_WORD } from '../../shared/flyerLabel';
 import { COVER_TITLE, coverDone, coverFixCommands } from './coverModel';
 
 /**
  * /account/o/cover/:seriesId (C18 -> C18b): pick a photo (the existing event
  * upload), send ONE series.upsert {default_cover_image_url}, land on Done
- * "Cover added". The Home no_cover row, New event and Event details link here.
+ * "Flyer added". The Home no_cover row, New event and Event details link here.
  */
 export default function CoverFlow() {
   const { seriesId = '' } = useParams();
@@ -74,7 +75,7 @@ export default function CoverFlow() {
         <ErrorState title="This event did not load" onRetry={() => void workspace.refetch()} retrying={workspace.isFetching} testId="cover-load-error" />
       ) : (
         <div className="flex flex-col gap-3 p-3">
-          {current && <img src={current} alt="Current cover" loading="eager" className="max-h-[240px] w-full rounded-[12px] object-cover" data-testid="cover-current" />}
+          {current && <img src={current} alt={`Current ${FLYER_WORD}`} loading="eager" className="max-h-[240px] w-full rounded-[12px] object-cover" data-testid="cover-current" />}
           <label className="flex min-h-[56px] w-full cursor-pointer items-center justify-center rounded-[12px] bg-[var(--card2)] px-[16px] text-[16px] font-semibold text-[var(--fg)]" data-testid="cover-label">
             {busy ? 'Uploading' : current ? 'Choose a different photo' : 'Choose a photo'}
             <input type="file" accept="image/*" className="sr-only" disabled={busy} data-testid="cover-input" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void choose(f); }} />

@@ -13,12 +13,8 @@ export const STEP_PARAM = 'do';
 export const EDIT_PARAM = 'edit';
 
 export const eventStepPath = (seriesId: string, step: EventStepName) => `${ORG_PATHS.event(seriesId)}?${STEP_PARAM}=${step}`;
-export const detailEditPath = (seriesId: string, field: DetailField | ExtraDetail) => `${ORG_PATHS.eventDetails(seriesId)}?${EDIT_PARAM}=${field}`;
+export const detailEditPath = (seriesId: string, field: DetailField) => `${ORG_PATHS.eventDetails(seriesId)}?${EDIT_PARAM}=${field}`;
 
-/** The Details rows that are not one text box (P-SERIES C14, C09b): the usual end and the price list. */
-export type ExtraDetail = 'ends' | 'prices';
-export const EXTRA_DETAILS: readonly ExtraDetail[] = ['ends', 'prices'];
-export const readExtra = (raw: string | null): ExtraDetail | null => EXTRA_DETAILS.find((f) => f === raw) ?? null;
 
 export const readStep = (raw: string | null): EventStepName | null =>
   EVENT_STEPS.find((s) => s === raw) ?? null;

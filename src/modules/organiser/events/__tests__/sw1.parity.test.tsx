@@ -40,9 +40,9 @@ import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { detailEditPath } from '@/modules/organiser/flows/event/eventSteps';
 import { A, DRAFT, FEST, FROZEN, answer, commandsOf, defaultWorld, flush, mount, tooSmall, type World } from '@/modules/organiser/flows/add/__tests__/fixtures';
 import {
-  addPerson, addSession, buildDays, castLine, castOf, differingDates, differsLabel, lengthLine, moveOff, moveSession, parseTree, programCommand,
-  programmeOff, removePerson, removeSession, setPersonLevel, setPersonRole, timeLine, toggleLevel, treeDirty, updateItem, validateTree,
-  CHANGED_SESSION_REMOVE_CONFIRM, FESTIVAL_REASON, levelShort, type PTree,
+  addPerson, addSession, buildDays, castLine, castOf, differingDates, differsLabel, lengthLine, parseTree, programCommand,
+  programmeOff, removePerson, removeSession, setPersonLevel, sortSessions, setPersonRole, timeLine, toggleLevel, treeDirty, updateItem, validateTree,
+  CHANGED_SESSION_REMOVE_CONFIRM, FESTIVAL_REASON, type PTree,
 } from '../programmeSeriesModel';
 import { MUSIC_VOCAB, isOn, musicChips, musicCommand, toggleStyle } from '../musicModel';
 import { ADD_NONE_LEFT, ADD_ONLY_YOURS, LAST_ORGANISER_REASON, MANAGER_REASON, organisersCommand, organisersOff, removeOff, removeOrganiser } from '../organisersModel';
@@ -107,16 +107,14 @@ describe('the programme tree: parse, edit, build', () => {
     expect((programCommand(now, was)!.payload as { days: any[] }).days[0].sections[0].items[0]).toMatchObject({ start_time: '21:30', end_time: '02:00:00' });
   });
 
-  it('reorder is within the section and stops at the ends; remove drops a session (and an emptied section is not sent)', () => {
+  it('a later start sorts inside the section, by itself; remove drops a session (and an emptied section is not sent)', () => {
     const was = tree(MANY);
     const [a, b] = was.days[0].sections[0].items;
-    expect(moveOff(was, a.key, -1)).toBe('Already first');
-    expect(moveOff(was, b.key, 1)).toBe('Already last');
-    expect(moveOff(was, a.key, 1)).toBeNull();
-    const moved = moveSession(was, a.key, 1);
+    const moved = sortSessions(updateItem(was, a.key, { start: '20:30', end: '21:30' }));
     expect(moved.days[0].sections[0].items.map((i) => i.title)).toEqual(['Improver class', 'Beginner class']);
     const sent = (programCommand(moved, was)!.payload as { days: any[] }).days[0].sections[0].items;
     expect(sent.map((i: any) => [i.title, i.sort_order])).toEqual([['Improver class', 0], ['Beginner class', 1]]);
+    expect(sent.map((i: { id: string }) => i.id)).toEqual(['i2', 'i1']);
     const gone = removeSession(removeSession(was, a.key), b.key);
     expect((programCommand(gone, was)!.payload as { days: any[] }).days[0].sections.map((s: any) => s.kind)).toEqual(['party']);
   });
@@ -168,7 +166,6 @@ describe('the programme tree: parse, edit, build', () => {
     ]);
     expect(castLine(cast)).toBe('Ana (Teacher), Ben (Teacher), Dee (DJ)');
     expect(castOf(tree(NONE))).toEqual([]);
-    expect(levelShort('open_level')).toBe('OL');
   });
 
   it('differs-on-N-dates counts coming, not-cancelled dates with their own sessions', () => {
@@ -354,7 +351,7 @@ describe('Programme screen across the shapes', () => {
     expect(screen.getByTestId('prog-off-reason').textContent).toBe(GATE_REASON);
     expect(screen.queryAllByTestId('prog-item')).toHaveLength(count);
     for (const id of ['prog-add-classes', 'prog-add-party']) expect((screen.getByTestId(id) as HTMLButtonElement).disabled).toBe(true);
-    screen.queryAllByTestId('prog-up').concat(screen.queryAllByTestId('prog-down'), screen.queryAllByTestId('prog-delete')).forEach((b) => expect((b as HTMLButtonElement).disabled).toBe(true));
+    screen.queryAllByTestId('prog-delete').forEach((b) => expect((b as HTMLButtonElement).disabled).toBe(true));
     expect(screen.queryByTestId('prog-item-open')).toBeNull();
     expect(screen.getByTestId('prog-save').getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(screen.getByTestId('prog-save'));
@@ -370,7 +367,7 @@ describe('Programme screen across the shapes', () => {
     expect(within(rows[0]).getByTestId('prog-item-name').textContent).toBe('Beginner class');
     expect(within(rows[0]).getByTestId('prog-item-time').textContent).toBe('19:00–20:00 · 1h');
     expect(within(rows[0]).getByTestId('prog-item-lineup').textContent).toBe('Ana (Teacher), Ben (Teacher)');
-    expect(within(rows[0]).getByTestId('prog-item-levels').textContent).toBe('B Beginner');
+    expect(within(rows[0]).getByTestId('prog-item-levels').textContent).toBe('Beginner');
     expect(within(rows[2]).getByTestId('prog-item-time').textContent).toBe('21:00–01:00 (next day) · 4h');
     expect(within(rows[2]).getByTestId('prog-item-lineup').textContent).toBe('Dee (DJ)');
     expect(screen.getAllByTestId('prog-section-title').map((t) => t.textContent)).toEqual(['Classes', 'Party']);
@@ -437,6 +434,61 @@ describe('Programme screen across the shapes', () => {
       expect(commandsOf(rpc)).toEqual([]);
     });
 
+    // S-FEEDBACK 4: sessions sort by start (no start last, ties keep stored order); a stored order that differs is only DISPLAYED sorted until an edit.
+    const UNSORTED = [day('d1', [section('s1', 'classes', [
+      item('i1', 'class', 'Late class', '20:00:00', '21:00:00'),
+      item('i2', 'class', 'Early class', '18:00:00', '19:00:00'),
+      item('i3', 'class', 'No time class', null, null),
+      item('i4', 'class', 'Late twin', '20:00:00', '21:00:00'),
+    ])])];
+    const names = () => screen.getAllByTestId('prog-item-name').map((n) => n.textContent);
+
+    it('a stored order that is not by start is shown sorted, and open + close with no edit is still "Nothing changed yet"', async () => {
+      over = { program: UNSORTED };
+      mount(ORG_PATHS.eventProgramme(A), routes);
+      await screen.findAllByTestId('prog-item');
+      expect(names()).toEqual(['Early class', 'Late class', 'Late twin', 'No time class']);
+      expect(screen.queryByTestId('prog-up')).toBeNull();
+      expect(screen.queryByTestId('prog-down')).toBeNull();
+      fireEvent.click(screen.getAllByTestId('prog-item-open')[0]);
+      fireEvent.click(await screen.findByTestId('prog-sheet-done'));
+      await flush();
+      const save = screen.getByTestId('prog-save');
+      expect(save.getAttribute('aria-disabled')).toBe('true');
+      expect(screen.getByTestId('event-step-reason').textContent).toBe('Nothing changed yet');
+      fireEvent.click(save);
+      await flush();
+      expect(commandsOf(rpc)).toEqual([]);
+    });
+
+    it('the first edit stores the sorted order, keeping every stored id', async () => {
+      over = { program: UNSORTED };
+      mount(ORG_PATHS.eventProgramme(A), routes);
+      fireEvent.click((await screen.findAllByTestId('prog-item-open'))[0]);
+      fireEvent.change(await screen.findByTestId('prog-name'), { target: { value: 'Early salsa' } });
+      fireEvent.click(screen.getByTestId('prog-sheet-done'));
+      await click('prog-save');
+      const items = commandsOf(rpc)[0].env.command.payload.days[0].sections[0].items;
+      expect(items.map((i: { id: string; title: string; sort_order: number }) => [i.id, i.title, i.sort_order])).toEqual([['i2', 'Early salsa', 0], ['i1', 'Late class', 1], ['i4', 'Late twin', 2], ['i3', 'No time class', 3]]);
+    });
+
+    it('a new session with an early time lands in its sorted place at once, and is saved there', async () => {
+      over = { program: UNSORTED };
+      mount(ORG_PATHS.eventProgramme(A), routes);
+      fireEvent.click(await screen.findByTestId('prog-add-classes'));
+      fireEvent.click(await screen.findByTestId('prog-type-class'));
+      fireEvent.change(await screen.findByTestId('prog-name'), { target: { value: 'Warm up' } });
+      fireEvent.change(screen.getByTestId('prog-start'), { target: { value: '17:00' } });
+      fireEvent.change(screen.getByTestId('prog-end'), { target: { value: '17:30' } });
+      fireEvent.click(screen.getByTestId('prog-sheet-done'));
+      await flush();
+      expect(names()).toEqual(['Warm up', 'Early class', 'Late class', 'Late twin', 'No time class']);
+      await click('prog-save');
+      const items = commandsOf(rpc)[0].env.command.payload.days[0].sections[0].items;
+      expect(items.map((i: { title: string }) => i.title)).toEqual(['Warm up', 'Early class', 'Late class', 'Late twin', 'No time class']);
+      expect('id' in items[0]).toBe(false);
+    });
+
     it('rename a session: ONE series.set_program with the complete tree (unchanged fields echoed), then Done', async () => {
       mount(ORG_PATHS.eventProgramme(A), routes);
       fireEvent.click((await screen.findAllByTestId('prog-item-open'))[0]);
@@ -454,12 +506,12 @@ describe('Programme screen across the shapes', () => {
       await waitFor(() => expect(where()).toBe(ORG_PATHS.done));
     });
 
-    it('up / down reorder and delete (in-page confirm, no browser confirm) send ONE command', async () => {
+    it('no arrows; delete (in-page confirm, no browser confirm) sends ONE command', async () => {
       const confirmSpy = vi.spyOn(window, 'confirm');
       mount(ORG_PATHS.eventProgramme(A), routes);
       await screen.findAllByTestId('prog-item');
-      expect((screen.getAllByTestId('prog-up')[0] as HTMLButtonElement).disabled).toBe(true);
-      fireEvent.click(screen.getAllByTestId('prog-down')[0]);
+      expect(screen.queryByTestId('prog-up')).toBeNull();
+      expect(screen.queryByTestId('prog-down')).toBeNull();
       fireEvent.click(screen.getAllByTestId('prog-delete')[2]);
       fireEvent.click(await screen.findByTestId('prog-delete-keep'));
       expect(screen.getAllByTestId('prog-item')).toHaveLength(3);
@@ -471,7 +523,7 @@ describe('Programme screen across the shapes', () => {
       expect(cmds).toHaveLength(1);
       const sections = cmds[0].env.command.payload.days[0].sections;
       expect(sections.map((s: any) => s.kind)).toEqual(['classes']);
-      expect(sections[0].items.map((i: any) => i.title)).toEqual(['Improver class', 'Beginner class']);
+      expect(sections[0].items.map((i: any) => i.title)).toEqual(['Beginner class', 'Improver class']);
     });
 
     it('add a class with a name, times and a level, plus a RECENT teacher with a role and level', async () => {

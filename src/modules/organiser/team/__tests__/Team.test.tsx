@@ -213,6 +213,28 @@ describe('C25b the faces wall', () => {
     expect((await screen.findByTestId('add-error')).textContent).toBe(`This team already has ${TEAM_CAP} people. Remove someone first, or ask the Bachata Calendar team.`);
   });
 
+  // S-FEEDBACK 6: a full team still shows people's faces (photo when there is one, initials otherwise), dimmed and not tappable.
+  it.each([
+    { name: 'at cap', count: TEAM_CAP, serverFull: false },
+    { name: 'server said team_full', count: 2, serverFull: true },
+  ])('$name -> photo face shows its photo, the other shows initials, both disabled', async ({ count, serverFull }) => {
+    members = Array.from({ length: count }, (_, i) => row(i === 0 ? 'me' : `m${i}`, i === 0 ? 'owner' : 'manager', i === 0 ? { is_self: true } : {}));
+    faces = [face(1, { photo_url: 'https://img.example/p1.jpg' }), face(2)];
+    install({ organiser_team_add_member_by_profile_v1: () => new Error('team_full') });
+    at();
+    const buttons = (await screen.findAllByTestId('add-face')) as HTMLButtonElement[];
+    if (serverFull) {
+      fireEvent.click(buttons[0]);
+      await screen.findByTestId('add-error');
+    }
+    const [withPhoto, without] = screen.getAllByTestId('add-face') as HTMLButtonElement[];
+    expect(withPhoto.querySelector('img')?.getAttribute('src')).toBe('https://img.example/p1.jpg');
+    expect(withPhoto.querySelector('[data-testid="avatar-initials"]')).toBeNull();
+    expect(without.querySelector('img')).toBeNull();
+    expect(without.querySelector('[data-testid="avatar-initials"]')?.textContent).toBeTruthy();
+    expect(withPhoto.disabled && without.disabled).toBe(true);
+  });
+
   // S-POLISH 2: member count x server answer -> Add enabled/disabled, the reason on screen when disabled.
   it.each([
     { name: 'under cap', count: 2, serverFull: false, disabled: false },

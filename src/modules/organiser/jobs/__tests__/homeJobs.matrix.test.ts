@@ -110,7 +110,7 @@ describe('homeJobs: the Home matrix (4.5)', () => {
   it('live with no cover -> no_cover', () => {
     const s = series({ name: 'Bare', default_cover_image_url: null });
     const jobs = homeJobs(page([s]), [], today());
-    expect(jobs[3]).toEqual({ kind: 'no_cover', n: 4, title: 'Bare', sub: 'Needs a cover', to: ORG_PATHS.cover(s.id), tone: 'problem' });
+    expect(jobs[3]).toEqual({ kind: 'no_cover', n: 4, title: 'Bare', sub: 'Needs a flyer', to: ORG_PATHS.cover(s.id), tone: 'problem' });
   });
 
   it('an open join request -> join_request', () => {
@@ -209,7 +209,7 @@ describe('seriesChip: the same fact as the Home row (one mapping)', () => {
     ['live, 0 scheduled', { upcoming_count: 0, next_dates: [] }, { label: 'Needs dates', tone: 'bad' }],
     // Decision 3 (INT-B N-9): every coming date cancelled outranks every Home problem on the chip.
     ['live, all cancelled', { upcoming_count: 0, cancelled_upcoming_count: 3, next_dates: [] }, { label: 'Cancelled', tone: 'bad' }],
-    ['live, no cover', { default_cover_image_url: null }, { label: 'Needs a cover', tone: 'bad' }],
+    ['live, no cover', { default_cover_image_url: null }, { label: 'Needs a flyer', tone: 'bad' }],
     ['draft 9 days', { lifecycle_status: 'draft', created_at: daysAgoIso(9) }, { label: 'Draft, 9 days', tone: 'bad' }],
     ['draft 2 days', { lifecycle_status: 'draft', created_at: daysAgoIso(2) }, { label: 'Draft, 2 days', tone: 'n' }],
     ['draft today', { lifecycle_status: 'draft', created_at: daysAgoIso(0) }, { label: 'Draft', tone: 'n' }],
@@ -239,7 +239,7 @@ describe('seriesChip: the same fact as the Home row (one mapping)', () => {
   it('a live series with no dates AND no cover: the chip shows the first Home row', () => {
     const s = series({ upcoming_count: 0, next_dates: [], default_cover_image_url: null });
     const rows = homeJobs(page([s]), [], today()).filter((j) => j.tone === 'problem');
-    expect(rows.map((r) => r.sub)).toEqual(['Needs dates', 'Needs a cover']);
+    expect(rows.map((r) => r.sub)).toEqual(['Needs dates', 'Needs a flyer']);
     expect(seriesChip(s, today()).label).toBe(rows[0].sub);
   });
 });
