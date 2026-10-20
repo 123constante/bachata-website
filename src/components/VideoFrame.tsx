@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { VideoEmbed } from '@/components/VideoEmbed';
 import type { VenueVideo } from '@/lib/parseVenueVideoUrl';
-import { frameFor, frameStyle } from '@/lib/videoFrame';
+import { frameFor, frameStyle, resolveFrame, type MeasuredFrame } from '@/lib/videoFrame';
 
 type VideoFrameProps = {
   video: VenueVideo;
@@ -16,9 +16,8 @@ type VideoFrameProps = {
  * centred on black, capped at 75svh (see src/lib/videoFrame.ts).
  */
 export const VideoFrame = ({ video, poster, title }: VideoFrameProps) => {
-  const [measured, setMeasured] = useState(() => frameFor());
-  const frame =
-    video.kind === 'youtube' && video.portrait ? frameFor(9, 16) : measured;
+  const [measured, setMeasured] = useState<MeasuredFrame | null>(null);
+  const frame = resolveFrame(video, measured);
   const style = frameStyle(frame);
   return (
     <div className="w-full overflow-hidden bg-black">
@@ -32,7 +31,9 @@ export const VideoFrame = ({ video, poster, title }: VideoFrameProps) => {
           poster={poster}
           title={title}
           contain={!frame.landscape}
-          onVideoSize={(w, h) => setMeasured(frameFor(w, h))}
+          onVideoSize={(w, h) =>
+            video.kind === 'direct' && setMeasured({ src: video.src, shape: frameFor(w, h) })
+          }
         />
       </div>
     </div>

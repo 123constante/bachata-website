@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { parseVenueVideoUrl } from '@/lib/parseVenueVideoUrl';
-import { frameFor, frameStyle } from '@/lib/videoFrame';
+import { frameFor, frameStyle, resolveFrame, type MeasuredFrame } from '@/lib/videoFrame';
 
 interface VenueVideoEmbedProps {
   videoUrls: string[];
@@ -8,9 +8,9 @@ interface VenueVideoEmbedProps {
 
 export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
   const parsed = videoUrls.map((u) => parseVenueVideoUrl(u)).find(Boolean) ?? null;
-  const [measured, setMeasured] = useState(() => frameFor());
+  const [measured, setMeasured] = useState<MeasuredFrame | null>(null);
   if (!parsed) return null;
-  const frame = parsed.kind === 'youtube' && parsed.portrait ? frameFor(9, 16) : measured;
+  const frame = resolveFrame(parsed, measured);
   const style = frameStyle(frame);
 
   const shell = {
@@ -37,7 +37,9 @@ export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
         loop
         playsInline
         className={`absolute inset-0 h-full w-full rounded-[14px] ${frame.landscape ? 'object-cover' : 'object-contain'}`}
-        onLoadedMetadata={(e) => setMeasured(frameFor(e.currentTarget.videoWidth, e.currentTarget.videoHeight))}
+        onLoadedMetadata={(e) =>
+          setMeasured({ src: parsed.src, shape: frameFor(e.currentTarget.videoWidth, e.currentTarget.videoHeight) })
+        }
       />
     );
 

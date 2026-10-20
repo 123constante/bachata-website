@@ -28,3 +28,19 @@ export const frameStyle = (frame: VideoFrameShape): CSSProperties | undefined =>
         width: `min(100%, calc(75svh * ${frame.ratio}))`,
         marginInline: 'auto',
       };
+
+/** A shape measured from one specific direct clip. */
+export type MeasuredFrame = { src: string; shape: VideoFrameShape };
+
+/**
+ * The frame for the video on screen. A measurement only applies to the clip it
+ * came from, so a reused component never carries clip A's shape onto clip B.
+ */
+export const resolveFrame = (
+  video: { kind: string; src?: string; portrait?: boolean },
+  measured: MeasuredFrame | null,
+): VideoFrameShape => {
+  if (video.kind === 'youtube' && video.portrait) return frameFor(9, 16);
+  if (video.kind === 'direct' && measured && measured.src === video.src) return measured.shape;
+  return frameFor();
+};
