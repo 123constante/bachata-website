@@ -29,20 +29,21 @@ export interface GoLiveCheck {
 }
 
 /**
- * The ONE label per code (D49). The six A-DB1 codes, the D55 readiness codes
- * (name, country, organiser) and the recommended ticket link.
+ * The ONE label per code (D49, D82): an ACTION, because the card is a to-do list.
+ * The six A-DB1 codes, the D55 readiness codes (name, country, organiser) and the
+ * recommended ticket link.
  */
 export const GO_LIVE_LABEL: Readonly<Record<string, string>> = {
-  venue: 'A venue',
-  city: 'A city',
-  upcoming_date: 'An upcoming date',
-  session: 'At least one session with a title, start and end',
-  cover: 'A flyer',
-  description: 'A description',
-  name: 'An event name',
-  country: 'A city with a country on file',
-  organiser: 'An active organiser',
-  ticket_link: 'A ticket link',
+  venue: 'Add a venue',
+  city: 'Add a city',
+  upcoming_date: 'Add a date',
+  session: 'Add a session with a title, start and end',
+  cover: 'Upload a flyer',
+  description: 'Write a description',
+  name: 'Add an event name',
+  country: 'Pick a city with a country',
+  organiser: 'Link an active organiser',
+  ticket_link: 'Add a ticket link',
 };
 /** The word beside a recommended item: it never blocks. */
 export const RECOMMENDED_WORD = 'Recommended';
@@ -53,8 +54,11 @@ export const goLiveLabel = (code: string): string =>
   Object.prototype.hasOwnProperty.call(GO_LIVE_LABEL, code) ? GO_LIVE_LABEL[code] : UNKNOWN_ITEM_LABEL;
 
 /** The one profile row: how many profile fields are still to fill, in the ONE "N left" wording. */
-export const profileRowLabel = (left: number) => `Complete your profile (${requiredLeftText(left)})`;
+export const profileRowLabel = (left: number) => `Finish your profile (${requiredLeftText(left)})`;
 export const profileFieldsLeft = (c: GoLiveCheck): number => c.profileMissing.reduce((n, p) => n + p.fields.length, 0);
+/** The ONE "N things left" formatter (D82): the card's count line. */
+export const thingsLeftText = (n: number): string => (n === 1 ? '1 thing left' : `${n} things left`);
+
 /** The profile row shows only when the rule applies to this person and something is left. */
 export const showsProfileRow = (c: GoLiveCheck): boolean => c.profileRuleApplies && profileFieldsLeft(c) > 0;
 

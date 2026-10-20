@@ -451,3 +451,46 @@ Nothing committed. Line endings preserved (CRLF on all edited sources). No edit 
 
 #### Not verified
 - No browser walk at 390x844; no prod read (Supabase not queried: the review's counts were used). Rejected Go live on the real server (0 rejected series on prod). Whether Home's real organiser_home_v1 omits next_dates for drafts (fallback covers either way).
+
+## Go live card (D82)
+Owner feedback "this section is not intuitive" -> the card is a checklist with a real button. Presentation only: `goLiveState`'s
+rule, `parseGoLiveCheck`, the server list, order, codes and fix links are unchanged.
+
+- Files: `src/modules/organiser/events/LifecycleActions.tsx` (card), `events/lifecycleModel.ts` (`leftCount`, `READY_HEADING`,
+  `OPTIONAL_HEADING`, `STILL_NEEDED` = "Before you go live"; state `fix` is now `{ kind: 'fix', left }`, `firstFix` removed),
+  `shared/goLiveCheck.ts` (`GO_LIVE_LABEL` = action labels, `thingsLeftText` the one "N things left" formatter,
+  `profileRowLabel` = "Finish your profile (N answers left)").
+- Card: heading "Before you go live" + "N things left" (event rows + one profile row; "1 thing left"); N = 0 -> "Ready to go live".
+  Required rows = empty circle + action label + chevron + the same link. Recommended rows under "Optional", no circle.
+  Go live = full-width primary button at the bottom (`data-testid="org-life-golive"`), reason under it via `aria-describedby`:
+  "Finish the N things above first"; locked keeps the lock reason + wizard link; a1 keeps its reason. Rejected/past-only keep their meaning.
+- Labels (every code the parser knows): venue "Add a venue", city "Add a city", upcoming_date "Add a date", session "Add a session
+  with a title, start and end", cover "Upload a flyer", description "Write a description", name "Add an event name", country "Pick a
+  city with a country", organiser "Link an active organiser", ticket_link "Add a ticket link". No code was missing from the brief's
+  list except `city` and `ticket_link` (written in the same style). Unknown codes keep "Something else on the event".
+- Decision: the off button uses `aria-disabled` (not `disabled`) and ignores clicks, so Tab still reaches it and the reason is read
+  (PAR-B N9 test kept in spirit). Behaviour change: a not-ready tap no longer navigates to the first fix; the rows are the way.
+  With the check unloaded/failed the button still sends and the server's refusal fills the list (unchanged).
+- Red first: the new D82 matrix + label tests on unchanged source (9ff01c8e) -> `Tests 33 failed | 22 passed (55)` in
+  `goLive.webA1a.test.tsx`; on the new code 55 passed. Old-noun tests updated (`fpar.review`, `lifecycleGate`, `requiredLeft.oneFormatter`).
+- Tests: `goLive.webA1a.test.tsx` "D82: the Go live card, every state" (event only, profile only, both, recommended only, N=0,
+  locked; rejected via refusal; a1 is the existing `fpar.review` case) x heading/count/rows/enabled/reason; label test fails if a code has no action label.
+
+| job | step | command | exit |
+|---|---|---|---|
+| lint chain | 20 links (integrity, mojibake, legacy, architecture, rpc-typing, script-conventions ...) | `npm run lint` | 0 (trailing eslint informational WARN, red on main) |
+| typecheck | tsc | `npx tsc --noEmit -p .` | 0 |
+| unit | organiser module | `npx vitest run src/modules/organiser` | 0 (3593 passed, 2 skipped) |
+| build | production build | `npm run build` | 0 |
+| eslint | changed files | `npx eslint <changed>` | 0 errors (1 pre-existing warning) |
+| e2e, phone-qa, full test:unit, pre-ship | - | - | NOT RUN here (the pre-push hook runs the suite once) |
+
+## Screens (D82)
+`golive-draft-missing`, `golive-draft-dates`, `golive-draft-pastonly`, `golive-rejected` re-shot and NEW `golive-ready`, at 390x844
+and 360x640, in `screens/RELEASE-A-WEB/`. They show the real `LifecycleActions` in an isolated temp harness (stubbed
+Supabase, not committed), not the full page. Measured at both widths: button 44 px tall, 332 px (390) / 302 px (360) wide,
+`elementFromPoint` at its centre is the button, rows 52 px, no horizontal scroll, disabled-reason contrast 6.42:1 (dark theme).
+Light theme not shot (the organiser theme is dark-only in this harness): NOT VERIFIED.
+
+## Not verified (D82)
+No real-data walk, no Vercel preview, no light theme, no phone-suite run; pastonly shot uses the same server codes as dates plus session.

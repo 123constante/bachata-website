@@ -24,7 +24,10 @@ export const SEE_LIVE_DRAFT_REASON = 'Dancers can see it once it is live.';
 /** PAR-B B1: a draft with nothing missing, waiting only on A1. The ONE ready sentence. */
 export const GO_LIVE_READY = 'Your event is ready. Go live switches on here after the next platform update.';
 /** The heading over the server's list. */
-export const STILL_NEEDED = 'Still needed to go live';
+export const STILL_NEEDED = 'Before you go live';
+/** D82: the heading when nothing is left, and the sub-heading over the recommended rows. */
+export const READY_HEADING = 'Ready to go live';
+export const OPTIONAL_HEADING = 'Optional';
 
 /** One line of the Go live list: the label from the one map, and the screen that fixes it (null: no screen, no link). */
 export interface GoLiveLine { code: string; label: string; href: string | null; recommended: boolean }
@@ -66,10 +69,8 @@ export function profileFixPath(check: GoLiveCheck): string {
   return page ? `${PROFILE_WIZARD_PATH}?o=${encodeURIComponent(page)}` : PROFILE_WIZARD_PATH;
 }
 
-/** Where one tap on Go live goes when the event is not ready: the FIRST missing item with a screen, else the profile. */
-export function firstFix(list: GoLiveList): string | null {
-  return list.missing.find((l) => l.href)?.href ?? list.profile?.href ?? null;
-}
+/** D82: required items left = event rows + the profile row (one). */
+export const leftCount = (list: GoLiveList): number => list.missing.length + (list.profile ? 1 : 0);
 
 /** True when the list holds something that blocks (a recommended item never does). */
 export const blocks = (list: GoLiveList) => list.missing.length > 0 || list.profile !== null;
@@ -82,16 +83,15 @@ export type GoLiveState =
   | { kind: 'locked'; reason: string }
   | { kind: 'a1'; reason: string }
   | { kind: 'send' }
-  | { kind: 'fix'; to: string };
+  | { kind: 'fix'; left: number };
 
 export function goLiveState(check: GoLiveCheck | undefined, seriesId: string, lock: { locked: boolean; reason: string | null }, a1 = A1_APPLIED): GoLiveState {
   if (lock.locked) return { kind: 'locked', reason: lock.reason ?? '' };
   const list = check ? goLiveList(check, seriesId) : null;
   const notReady = !!check && (!check.ready || blocks(list!));
   if (!a1) return { kind: 'a1', reason: check && !notReady ? GO_LIVE_READY : `${A1_REASON}.` };
-  // Nothing missing has a screen here (a code this site does not know yet): send, and the refusal shows the list.
-  const to = notReady ? firstFix(list!) : null;
-  return to ? { kind: 'fix', to } : { kind: 'send' };
+  // D82: Go live is a button, off while anything is left; the rows above it are the way to fix each item.
+  return notReady ? { kind: 'fix', left: leftCount(list!) } : { kind: 'send' };
 }
 
 export type LifecycleRow = { reason: string | null } | null;

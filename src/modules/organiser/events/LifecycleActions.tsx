@@ -1,22 +1,24 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, ExternalLink } from 'lucide-react';
+import { ChevronRight, Circle, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { lifecycleCommand, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
 import { eventWorkspaceQueryKey } from '@/modules/organiser/shared/runCommands';
-import { goLiveCheckQueryKey, goLiveRefusal, RECOMMENDED_WORD, useGoLiveCheck, type GoLiveCheck } from '@/modules/organiser/shared/goLiveCheck';
+import { goLiveCheckQueryKey, goLiveRefusal, thingsLeftText, useGoLiveCheck, type GoLiveCheck } from '@/modules/organiser/shared/goLiveCheck';
 import { goDone } from '@/modules/organiser/flows/doneState';
 import { useFlowSend } from '@/modules/organiser/flows/add/useFlow';
 import { EventConflict, StepError } from '@/modules/organiser/flows/event';
 import { Card, GhostButton, PrimaryButton } from '../ui';
-import { goLiveList, goLiveState, lifecycleRows, STILL_NEEDED, type GoLiveLine } from './lifecycleModel';
-import { LockNote, LockedRow, type EventLock } from './ProfileLock';
+import { goLiveList, goLiveState, leftCount, lifecycleRows, OPTIONAL_HEADING, READY_HEADING, STILL_NEEDED, type GoLiveLine } from './lifecycleModel';
+import { LockNote, type EventLock } from './ProfileLock';
 import type { EventWorkspace } from './eventModel';
 
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left text-[15px]';
 /** The step line when the server refused Go live with its list: the list itself says what to do. */
 export const NOT_READY_LINE = 'Not ready to go live yet.';
+/** D82: why Go live is off while items are left (never 0: the other kinds say their own reason). */
+export const goLiveBlockedReason = (left: number): string => (left > 0 ? `Finish the ${thingsLeftText(left).replace(' left', '')} above first` : NOT_READY_LINE);
 const UNLOCKED: EventLock = { locked: false, reason: null };
 
 /**
@@ -37,8 +39,8 @@ function Line({ line }: { line: GoLiveLine }) {
   const testId = `org-life-item-${line.code}`;
   const body = (
     <>
+      {!line.recommended && <Circle aria-hidden="true" data-testid={`${testId}-circle`} className="h-[20px] w-[20px] shrink-0 text-[var(--mut)]" />}
       <span className="min-w-0 flex-1 text-[var(--fg)]">{line.label}</span>
-      {line.recommended && <span className="shrink-0 text-[13px] text-[var(--mut)]" data-testid={`${testId}-tag`}>{RECOMMENDED_WORD}</span>}
     </>
   );
   return line.href ? (
@@ -49,26 +51,38 @@ function Line({ line }: { line: GoLiveLine }) {
   ) : <div data-testid={testId} className={ROW}>{body}</div>;
 }
 
-/** The server's list, in its order: what blocks, the profile row, then what is only recommended. */
+/**
+ * D82: the checklist. A heading with the count, one row per required item (event
+ * rows in the server's order, then the profile row), then the optional rows.
+ */
 function GoLiveListView({ check, seriesId, linked }: { check: GoLiveCheck; seriesId: string; linked: boolean }) {
   const list = goLiveList(check, seriesId, linked);
-  const blocking = list.missing.length > 0 || !!list.profile;
-  if (!blocking && !list.recommended.length) return null;
+  const left = leftCount(list);
+  if (!left && !list.recommended.length) return null;
   return (
     <div data-testid="org-life-list">
-      {blocking && <p className="px-[16px] pt-[10px] text-[13px] font-semibold text-[var(--mut)]" data-testid="org-life-list-head">{STILL_NEEDED}</p>}
+      <div className="px-[16px] pt-[12px]">
+        <p className="text-[15px] font-semibold text-[var(--fg)]" data-testid="org-life-list-head">{left ? STILL_NEEDED : READY_HEADING}</p>
+        {left > 0 && <p className="text-[13px] text-[var(--mut)]" data-testid="org-life-count">{thingsLeftText(left)}</p>}
+      </div>
       <ul>
         {list.missing.map((l) => <li key={l.code}><Line line={l} /></li>)}
         {list.profile && (
           <li>
             <Link to={list.profile.href} data-testid="org-life-profile" className={ROW}>
+              <Circle aria-hidden="true" className="h-[20px] w-[20px] shrink-0 text-[var(--mut)]" />
               <span className="min-w-0 flex-1 text-[var(--fg)]">{list.profile.label}</span>
               <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
             </Link>
           </li>
         )}
-        {list.recommended.map((l) => <li key={l.code}><Line line={l} /></li>)}
       </ul>
+      {list.recommended.length > 0 && (
+        <>
+          <p className="px-[16px] pt-[8px] text-[13px] font-semibold text-[var(--mut)]" data-testid="org-life-optional-head">{OPTIONAL_HEADING}</p>
+          <ul>{list.recommended.map((l) => <li key={l.code}><Line line={l} /></li>)}</ul>
+        </>
+      )}
     </div>
   );
 }
@@ -107,27 +121,23 @@ export function LifecycleActions({ ws, today, lock = UNLOCKED }: { ws: EventWork
   // A readable refusal is the newest word from the server; else the check, once it loaded.
   const shown = refused ?? check.data;
   const state = goLiveState(shown, seriesId, lock);
+  const reasonId = state.kind === 'locked' ? 'org-life-lock-note-reason' : 'org-life-golive-reason';
   return (
     <Card testId="org-life">
-      {rows.goLive && state.kind === 'locked' && (
-        <div data-testid="org-life-lock">
-          <LockedRow label="Go live" reasonId="org-life-lock-note-reason" testId="org-life-golive" />
-          <LockNote reason={state.reason} seriesId={seriesId} testId="org-life-lock-note" />
-        </div>
-      )}
-      {rows.goLive && state.kind === 'a1' && <Off label="Go live" reason={state.reason} testId="org-life-golive" />}
-      {rows.goLive && (state.kind === 'send' || state.kind === 'fix') && (
-        <button type="button" data-testid="org-life-golive" data-goes={state.kind} disabled={flow.busy} className={cn(ROW, 'font-semibold text-[var(--gold)]')}
-          onClick={() => {
-            if (state.kind === 'fix') { navigate(state.to); return; }
-            void sendThenDone(lifecycleCommand('live'), { title: 'Live', message: `Live - ${name}` });
-          }}>
-          <span className="min-w-0 flex-1">Go live</span>
-          <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
-        </button>
-      )}
       {/* The profile row is the lock's own way out, so a locked card shows the event items only, without links. */}
       {rows.goLive && shown && <GoLiveListView check={state.kind === 'locked' ? { ...shown, profileMissing: [] } : shown} seriesId={seriesId} linked={state.kind !== 'locked'} />}
+      {rows.goLive && (
+        <div className="px-[16px] py-[12px]" data-testid={state.kind === 'locked' ? 'org-life-lock' : undefined}>
+          <PrimaryButton testId="org-life-golive" data-goes={state.kind} data-locked={state.kind === 'locked' ? 'true' : undefined} loading={flow.busy} loadingLabel="Going live" size="sm" className={cn('min-h-[44px]', state.kind !== 'send' && 'cursor-not-allowed opacity-60')}
+            aria-disabled={state.kind !== 'send' || undefined} aria-describedby={reasonId}
+            onClick={() => state.kind === 'send' && void sendThenDone(lifecycleCommand('live'), { title: 'Live', message: `Live - ${name}` })}>
+            Go live
+          </PrimaryButton>
+          {state.kind === 'locked' && <LockNote reason={state.reason} seriesId={seriesId} testId="org-life-lock-note" />}
+          {state.kind === 'a1' && <p id={reasonId} className="pt-[8px] text-[13px] text-[var(--mut)]" data-testid={reasonId}>{state.reason}</p>}
+          {state.kind === 'fix' && <p id={reasonId} className="pt-[8px] text-[13px] text-[var(--mut)]" data-testid={reasonId}>{goLiveBlockedReason(state.left)}</p>}
+        </div>
+      )}
       {rows.seeLive && (rows.seeLive.href ? (
         <a href={rows.seeLive.href} target="_blank" rel="noopener noreferrer" data-testid="org-life-seelive" className={cn(ROW, 'text-[var(--fg)]')}>
           <span className="min-w-0 flex-1">See it live</span>

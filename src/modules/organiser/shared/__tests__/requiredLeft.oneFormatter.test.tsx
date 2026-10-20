@@ -59,7 +59,7 @@ describe.each([
   });
 
   it('the Go live profile row', () => {
-    expect(profileRowLabel(n)).toBe(`Complete your profile (${text})`);
+    expect(profileRowLabel(n)).toBe(`Finish your profile (${text})`);
   });
 
   it('the wizard: beside the progress bar', () => {

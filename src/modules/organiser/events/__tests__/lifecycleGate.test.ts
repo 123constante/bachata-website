@@ -23,7 +23,7 @@ describe('goLiveState gate', () => {
     expect(s.kind).toBe('a1');
     expect(s.kind === 'a1' ? s.reason : '').toContain(A1_REASON);
   });
-  it('ON: never names the platform update; a missing item goes to its fix', () => {
+  it('ON: never names the platform update; a missing item blocks it (fix, with the count)', () => {
     const s = goLiveState(notReady, S, unlocked, true);
     expect(s.kind).toBe('fix');
     expect(JSON.stringify(s)).not.toContain(A1_REASON);

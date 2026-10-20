@@ -31,12 +31,12 @@ const WIZARD = '/account/o/complete';
 
 /** D49: the words, written out here so a change to the one map is red in every render below. */
 const SIX: Array<[code: string, section: string, word: string, screen: (id: string) => string]> = [
-  ['venue', 'venue', 'A venue', (id) => ORG_PATHS.eventDetails(id)],
-  ['city', 'venue', 'A city', (id) => ORG_PATHS.eventDetails(id)],
-  ['upcoming_date', 'dates', 'An upcoming date', (id) => ORG_PATHS.addEvent(id)],
-  ['session', 'programme', 'At least one session with a title, start and end', (id) => ORG_PATHS.eventProgramme(id)],
-  ['cover', 'cover', 'A flyer', (id) => ORG_PATHS.cover(id)],
-  ['description', 'about', 'A description', (id) => `${ORG_PATHS.eventDetails(id)}?edit=about`],
+  ['venue', 'venue', 'Add a venue', (id) => ORG_PATHS.eventDetails(id)],
+  ['city', 'venue', 'Add a city', (id) => ORG_PATHS.eventDetails(id)],
+  ['upcoming_date', 'dates', 'Add a date', (id) => ORG_PATHS.addEvent(id)],
+  ['session', 'programme', 'Add a session with a title, start and end', (id) => ORG_PATHS.eventProgramme(id)],
+  ['cover', 'cover', 'Upload a flyer', (id) => ORG_PATHS.cover(id)],
+  ['description', 'about', 'Write a description', (id) => `${ORG_PATHS.eventDetails(id)}?edit=about`],
 ];
 
 type Check = { ready: boolean; event_missing: unknown[]; recommended: unknown[]; profile_rule_applies: boolean; profile_missing: unknown[] };
@@ -139,7 +139,7 @@ describe('Go live renders the server list, one label per code (D49)', () => {
     refusal = { message: `permission_denied: series.set_lifecycle draft -> live needs a ready series: ${JSON.stringify(notReady('cover', 'cover'))}`, details: null, code: 'P0001' };
     mount(ORG_PATHS.event(DRAFT), routes);
     fireEvent.click(await screen.findByTestId('org-life-golive'));
-    expect((await screen.findByTestId('org-life-item-cover')).textContent).toBe('A flyer');
+    expect((await screen.findByTestId('org-life-item-cover')).textContent).toBe('Upload a flyer');
   });
 
   it('mutating the one map changes the Go live list AND the refusal render', async () => {
@@ -170,15 +170,15 @@ describe('Go live renders the server list, one label per code (D49)', () => {
  * names (owner rule: no text points at a control that is not on screen).
  */
 const NINE: Array<[code: string, section: string, word: string, to: (id: string) => string, control: string]> = [
-  ['venue', 'venue', 'A venue', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
-  ['city', 'venue', 'A city', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
-  ['upcoming_date', 'dates', 'An upcoming date', (id) => ORG_PATHS.addEvent(id), 'landed-dates'],
-  ['session', 'programme', 'At least one session with a title, start and end', (id) => ORG_PATHS.eventProgramme(id), 'landed'],
-  ['cover', 'cover', 'A flyer', (id) => ORG_PATHS.cover(id), 'landed-cover'],
-  ['description', 'about', 'A description', (id) => `${ORG_PATHS.eventDetails(id)}?edit=about`, 'org-detail-input'],
-  ['name', 'basics', 'An event name', (id) => ORG_PATHS.eventDetails(id), 'org-detail-name'],
-  ['country', 'venue', 'A city with a country on file', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
-  ['organiser', 'organisers', 'An active organiser', (id) => ORG_PATHS.eventOrganisers(id), 'landed-organisers'],
+  ['venue', 'venue', 'Add a venue', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
+  ['city', 'venue', 'Add a city', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
+  ['upcoming_date', 'dates', 'Add a date', (id) => ORG_PATHS.addEvent(id), 'landed-dates'],
+  ['session', 'programme', 'Add a session with a title, start and end', (id) => ORG_PATHS.eventProgramme(id), 'landed'],
+  ['cover', 'cover', 'Upload a flyer', (id) => ORG_PATHS.cover(id), 'landed-cover'],
+  ['description', 'about', 'Write a description', (id) => `${ORG_PATHS.eventDetails(id)}?edit=about`, 'org-detail-input'],
+  ['name', 'basics', 'Add an event name', (id) => ORG_PATHS.eventDetails(id), 'org-detail-name'],
+  ['country', 'venue', 'Pick a city with a country', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
+  ['organiser', 'organisers', 'Link an active organiser', (id) => ORG_PATHS.eventOrganisers(id), 'landed-organisers'],
 ];
 const nineRoutes = (
   <>
@@ -212,7 +212,7 @@ describe('D55: every event_missing code has a label and a link to a screen that 
     mount(ORG_PATHS.event(DRAFT), nineRoutes);
     await screen.findByTestId('org-life-item-organiser');
     const shown = Array.from(document.querySelectorAll('[data-testid^="org-life-item-"]'))
-      .map((n) => n.getAttribute('data-testid')!.replace('org-life-item-', '')).filter((c) => !c.endsWith('-tag'));
+      .map((n) => n.getAttribute('data-testid')!.replace('org-life-item-', '')).filter((c) => !c.endsWith('-circle'));
     expect(shown).toEqual(NINE.map(([code]) => code));
   });
 
@@ -227,45 +227,54 @@ describe('D55: every event_missing code has a label and a link to a screen that 
 });
 
 describe('the rule is the server\'s', () => {
-  it('a weekly event with one dated session and `session` missing is NOT ready: one tap jumps to the programme, nothing is sent', async () => {
+  it('a weekly event with one dated session and `session` missing is NOT ready: Go live is off, nothing is sent, the row links to the programme', async () => {
     check = { data: notReady('session', 'programme'), error: null };
     mount(ORG_PATHS.event(DRAFT), routes);
     expect(await screen.findByTestId('org-life-list-head')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('org-life-golive'));
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(`${ORG_PATHS.eventProgramme(DRAFT)}?${back(DRAFT)}`));
+    const btn = screen.getByTestId('org-life-golive');
+    expect(btn.getAttribute('aria-disabled')).toBe('true');
+    expect(reasonOf(btn)).toBe('Finish the 1 thing above first');
+    fireEvent.click(btn);
     expect(seriesCommands()).toHaveLength(0);
+    fireEvent.click(screen.getByTestId('org-life-item-session'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(`${ORG_PATHS.eventProgramme(DRAFT)}?${back(DRAFT)}`));
   });
 
-  it('several missing: the list keeps the server order and the tap goes to the FIRST', async () => {
+  it('several missing: the list keeps the server order and the count says how many', async () => {
     check = { data: { ...READY, ready: false, event_missing: [{ code: 'session', section: 'programme' }, { code: 'venue', section: 'venue' }] }, error: null };
     mount(ORG_PATHS.event(DRAFT), routes);
     await screen.findByTestId('org-life-item-venue');
     const order = [...screen.getByTestId('org-life-list').querySelectorAll('[data-testid^="org-life-item-"]')].map((e) => e.getAttribute('data-testid'));
-    expect(order).toEqual(['org-life-item-session', 'org-life-item-venue']);
-    fireEvent.click(screen.getByTestId('org-life-golive'));
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toContain(ORG_PATHS.eventProgramme(DRAFT)));
+    expect(order.filter((t) => !t!.endsWith('-circle'))).toEqual(['org-life-item-session', 'org-life-item-venue']);
+    expect(screen.getByTestId('org-life-count').textContent).toBe('2 things left');
+    expect(reasonOf(screen.getByTestId('org-life-golive'))).toBe('Finish the 2 things above first');
   });
 
-  it('a recommended ticket link never blocks: it shows as Recommended and Go live sends ONE set_lifecycle live', async () => {
+  it('a recommended ticket link never blocks: it sits under Optional, no circle, and Go live sends ONE set_lifecycle live', async () => {
     check = { data: { ...READY, recommended: [{ code: 'ticket_link', section: 'tickets' }] }, error: null };
     mount(ORG_PATHS.event(DRAFT), routes);
     const item = await screen.findByTestId('org-life-item-ticket_link');
-    expect(item.textContent).toBe('A ticket linkRecommended');
-    expect(screen.queryByTestId('org-life-list-head')).toBeNull();
+    expect(item.textContent).toBe('Add a ticket link');
+    expect(screen.queryByTestId('org-life-item-ticket_link-circle')).toBeNull();
+    expect(screen.getByTestId('org-life-optional-head').textContent).toBe('Optional');
+    expect(screen.getByTestId('org-life-list-head').textContent).toBe('Ready to go live');
+    expect(screen.queryByTestId('org-life-count')).toBeNull();
     fireEvent.click(screen.getByTestId('org-life-golive'));
     await screen.findByTestId('org-done-message');
     expect(seriesCommands().map((c) => c.env.command)).toEqual([{ kind: 'series.set_lifecycle', payload: { to: 'live' } }]);
   });
 
-  it('the profile rule: ONE row "Complete your profile (N left)" to the wizard; with nothing else missing the tap goes there', async () => {
+  it('the profile rule: ONE row "Finish your profile (N left)" to the wizard; it counts as one thing and Go live is off', async () => {
     check = { data: { ...READY, ready: false, profile_missing: [{ area: 'dancer', organiser_id: null, fields: ['photo', 'city'] }, { area: 'organiser', organiser_id: ORG, fields: ['logo'] }] }, error: null };
     mount(ORG_PATHS.event(DRAFT), routes);
     const row = await screen.findByTestId('org-life-profile');
-    expect(row.textContent).toBe('Complete your profile (3 answers left)');
+    expect(row.textContent).toBe('Finish your profile (3 answers left)');
     // The wizard opens ON the incomplete page (RELEASE-A-WEB finding 3).
     expect(row.getAttribute('href')).toBe(`${WIZARD}?o=${ORG}&${back(DRAFT)}`);
-    fireEvent.click(screen.getByTestId('org-life-golive'));
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(`${WIZARD}?o=${ORG}&${back(DRAFT)}`));
+    expect(screen.getByTestId('org-life-count').textContent).toBe('1 thing left');
+    const btn = screen.getByTestId('org-life-golive');
+    expect(btn.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(btn);
     expect(seriesCommands()).toHaveLength(0);
   });
 
@@ -277,13 +286,60 @@ describe('the rule is the server\'s', () => {
   });
 });
 
+const REASON_LOCKED = 'Finish your profiles first, 4 answers left';
+const reasonOf = (el: Element) => document.getElementById(el.getAttribute('aria-describedby') ?? '')?.textContent;
+/** D82: every state x heading / count / rows / button / reason. */
+const PROFILE = [{ area: 'dancer', organiser_id: null, fields: ['photo', 'city'] }];
+const STATES: Array<[name: string, data: Check, locked: boolean, heading: string, count: string | null, rows: number, enabled: boolean, reason: string | null]> = [
+  ['event items only', notReady('venue', 'venue'), false, 'Before you go live', '1 thing left', 1, false, 'Finish the 1 thing above first'],
+  ['profile only', { ...READY, ready: false, profile_missing: PROFILE }, false, 'Before you go live', '1 thing left', 1, false, 'Finish the 1 thing above first'],
+  ['both', { ...READY, ready: false, event_missing: [{ code: 'venue', section: 'venue' }, { code: 'cover', section: 'cover' }], profile_missing: PROFILE }, false, 'Before you go live', '3 things left', 3, false, 'Finish the 3 things above first'],
+  ['recommended only', { ...READY, recommended: [{ code: 'ticket_link', section: 'tickets' }] }, false, 'Ready to go live', null, 0, true, null],
+  ['N = 0 ready', READY, false, '', null, 0, true, null],
+  ['locked', notReady('venue', 'venue'), true, 'Before you go live', '1 thing left', 1, false, REASON_LOCKED],
+];
+describe('D82: the Go live card, every state', () => {
+  it.each(STATES)('%s', async (_n, data, locked, heading, count, rows, enabled, reason) => {
+    check = { data, error: null };
+    if (locked) progress = { data: LOCKED, error: null };
+    mount(ORG_PATHS.event(DRAFT), routes);
+    const btn = await screen.findByTestId('org-life-golive');
+    await waitFor(() => expect(btn.getAttribute('aria-disabled') === 'true').toBe(!enabled));
+    if (heading) expect(screen.getByTestId('org-life-list-head').textContent).toBe(heading); else expect(screen.queryByTestId('org-life-list-head')).toBeNull();
+    expect(screen.queryByTestId('org-life-count')?.textContent ?? null).toBe(count);
+    // The count equals the required rows shown (one circle each).
+    expect(document.querySelectorAll('[data-testid="org-life-list"] ul:first-of-type svg.lucide-circle').length).toBe(rows);
+    expect(btn.tagName).toBe('BUTTON');
+    if (reason) expect(reasonOf(btn)).toBe(reason);
+  });
+
+  it('a rejected Go live (server refusal) shows the same card: count, rows, button off', async () => {
+    check = { data: null, error: { message: 'x' } };
+    const json = JSON.stringify({ ...notReady('venue', 'venue'), event_missing: [{ code: 'venue', section: 'venue' }, { code: 'cover', section: 'cover' }] });
+    refusal = { message: `permission_denied: series.set_lifecycle draft -> live needs a ready series: ${json}`, details: json, code: 'P0001' };
+    mount(ORG_PATHS.event(DRAFT), routes);
+    fireEvent.click(await screen.findByTestId('org-life-golive'));
+    expect((await screen.findByTestId('org-life-count')).textContent).toBe('2 things left');
+    expect(screen.getByTestId('org-life-golive').getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('every code the parser accepts has an action label (none falls back to the generic line)', async () => {
+    const { GO_LIVE_LABEL, goLiveLabel, UNKNOWN_ITEM_LABEL } = await import('@/modules/organiser/shared/goLiveCheck');
+    const codes = [...SIX.map(([c]) => c), ...NINE.map(([c]) => c), 'ticket_link'];
+    for (const code of codes) {
+      expect(GO_LIVE_LABEL[code], code).toBeTruthy();
+      expect(goLiveLabel(code), code).not.toBe(UNKNOWN_ITEM_LABEL);
+      expect(goLiveLabel(code), code).toMatch(/^(Add|Upload|Write|Pick|Link) /);
+    }
+    expect(Object.keys(GO_LIVE_LABEL).sort()).toEqual([...new Set(codes)].sort());
+  });
+});
+
 // The controls C14 turns off on One event (series A: live, weekly) and the draft's Go live.
 const LOCKED_ON_EVENT = ['org-event-pause', 'org-event-end', 'org-event-day', 'org-event-stop', 'org-coming-sessions'];
 const LOCKED_ON_DETAILS = ['org-detail-name', 'org-detail-venue', 'org-detail-time', 'org-detail-music', 'org-detail-tickets', 'org-detail-about',
   'org-detail-programme', 'org-detail-organisers', 'org-detail-cover', 'org-detail-gallery', 'org-detail-videos'];
 const REASON = 'Finish your profiles first, 4 answers left';
-
-const reasonOf = (el: Element) => document.getElementById(el.getAttribute('aria-describedby') ?? '')?.textContent;
 
 describe('C14 edit lock', () => {
   it.each([
@@ -297,7 +353,7 @@ describe('C14 edit lock', () => {
     for (const id of ids) {
       for (const el of screen.getAllByTestId(id)) {
         expect(el.getAttribute('data-locked'), id).toBe('true');
-        expect(el.tagName, id).not.toBe('BUTTON');
+        if (id === 'org-life-golive') expect(el.getAttribute('aria-disabled'), id).toBe('true'); else expect(el.tagName, id).not.toBe('BUTTON');
         expect(el.getAttribute('href'), id).toBeNull();
         expect(reasonOf(el), id).toBe(REASON);
       }

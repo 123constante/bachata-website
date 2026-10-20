@@ -93,7 +93,7 @@ const GO_CASES: GoCase[] = [
   ['not loaded, a1 off', undefined, false, { kind: 'a1', reason: 'Needs the next platform update.' }],
   ['ready, a1 on', CHECK, true, { kind: 'send' }],
   ['venue missing, a1 on', { ...CHECK, ready: false, eventMissing: [{ code: 'venue', section: 'venue' }] } as typeof CHECK, true,
-    { kind: 'fix', to: `${ORG_PATHS.eventDetails(DRAFT)}?returnTo=${encodeURIComponent(ORG_PATHS.event(DRAFT))}` }],
+    { kind: 'fix', left: 1 }],
   ['not loaded, a1 on: the server decides', undefined, true, { kind: 'send' }],
 ];
 
@@ -238,7 +238,8 @@ describe('12. Focusable off rows and a destructive Discard (PAR-B N9)', () => {
     onTestFinished(() => { a1.on = true; });
     mount(ORG_PATHS.event(DRAFT), routes);
     const go = await screen.findByTestId('org-life-golive');
-    expect(go.getAttribute('tabindex')).toBe('0');
+    expect(go.getAttribute('aria-disabled')).toBe('true');
+    expect((go as HTMLButtonElement).disabled).toBe(false);
     expect(describedBy(go)).toBe(screen.getByTestId('org-life-golive-reason'));
   });
   it('Done: See it live (off) is focusable and described by its reason', async () => {
