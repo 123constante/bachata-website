@@ -15,6 +15,7 @@ import {
   rolePagePath,
   type PersonRole,
 } from './personRoles';
+import type { PublicPageV2Data } from '@/modules/dancer-app/public-page/model';
 import type { PersonSnapshot } from './reads';
 
 // Each tab body IS the existing role page (same reads, same components); only the
@@ -23,7 +24,7 @@ const TeacherProfile = lazy(() => import('@/pages/TeacherProfile'));
 const DJProfile = lazy(() => import('@/pages/DJProfile'));
 const DancerProfile = lazy(() => import('@/pages/DancerProfile'));
 
-const BODY: Record<PersonRole, React.LazyExoticComponent<() => JSX.Element>> = {
+const BODY: Record<PersonRole, React.LazyExoticComponent<(props: { publicPage?: PublicPageV2Data | null }) => JSX.Element>> = {
   teacher: TeacherProfile as never,
   dj: DJProfile as never,
   dancer: DancerProfile as never,
@@ -45,9 +46,11 @@ type Props = {
   person: PersonSnapshot;
   /** The slug (or id) this page was opened with; role-page links reuse it. */
   slugOrId: string;
+  /** From the /people loader (same read as /dancers/:id): v2 when the dancer area is open; null/absent = the classic grid. */
+  publicPage?: PublicPageV2Data | null;
 };
 
-export default function PersonPage({ person, slugOrId }: Props) {
+export default function PersonPage({ person, slugOrId, publicPage = null }: Props) {
   const { roles } = person;
   const navigate = useNavigate();
   // The hash is client-only, so the server and the first client render both show
@@ -161,7 +164,7 @@ export default function PersonPage({ person, slugOrId }: Props) {
         >
           <EmbeddedProfileContext.Provider value={true}>
             <Suspense fallback={<Skeleton className="h-48 w-full rounded-xl" />}>
-              <BodyComponent key={active} />
+              <BodyComponent key={active} publicPage={active === 'dancer' ? publicPage : null} />
             </Suspense>
           </EmbeddedProfileContext.Provider>
           <Link

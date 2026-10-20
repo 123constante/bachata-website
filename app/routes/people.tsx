@@ -2,6 +2,7 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createServerQueryClient } from "@/App";
 import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_ORIGIN, type SeoInput } from "@/lib/seo";
 import PersonPage from "@/modules/person-page/PersonPage";
+import { DEGRADED_EDGE_TTL_SECONDS, loadPublicPageV2 } from "@/modules/dancer-app/public-page/loadPublicPage";
 import { loadPersonSnapshot } from "@/modules/person-page/reads";
 import { ROLE_PAGE_BASE, strongestRole } from "@/modules/person-page/personRoles";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
@@ -32,13 +33,20 @@ export const loader = withSsrLoaderTimeout("person-loader", async function loade
   if (!ref.id) throwDetailNotFound("Person");
   redirectUuidToSlug(ref, request, "/people");
 
+  // Public page v2 for the Dancing tab, exactly as app/routes/dancers.tsx loads it (same
+  // deadline; never rejects): the tab then matches /dancers/:id. page null (flag closed or
+  // read failed) = the classic embedded grid.
+  const publicPageLoad = loadPublicPageV2(ref.id as string);
+
   const person = await loadPersonSnapshot(qc, ref.id as string);
   if (!person || person.roles.length === 0) throwDetailNotFound("Person");
+  const { page: publicPage, degraded } = await publicPageLoad;
 
   return taggedData(
     {
       dehydratedState: dehydrate(qc),
       person,
+      publicPage,
       slugOrId: ref.slug ?? params.id,
       ogImage: normalizeOgImage({
         rawUrl: person.avatarUrl ?? person.djPhoto,
@@ -47,6 +55,8 @@ export const loader = withSsrLoaderTimeout("person-loader", async function loade
       }),
     },
     stampDancer(ref.id),
+    // A failed flag / extras read is cached briefly, never for the full edge TTL.
+    degraded ? { edgeTtlBoundSeconds: DEGRADED_EDGE_TTL_SECONDS } : undefined,
   );
 });
 
@@ -81,7 +91,7 @@ export default function PeopleRoute({ loaderData, params }: Route.ComponentProps
   return (
     <HydrationBoundary state={loaderData.dehydratedState}>
       <InitialVisiblePageTransition key={params.id}>
-        <PersonPage person={loaderData.person} slugOrId={loaderData.slugOrId} />
+        <PersonPage person={loaderData.person} slugOrId={loaderData.slugOrId} publicPage={loaderData.publicPage} />
       </InitialVisiblePageTransition>
     </HydrationBoundary>
   );

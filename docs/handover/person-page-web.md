@@ -35,3 +35,29 @@ Not run: check:images (AUDIT_STRICT), lighthouse, e2e-smoke, db-contract-check, 
 
 ## Walk (production build, live prod data, read-only)
 390x844, 360x640, 1280x800 on `chong` (2 inferred roles), `ricky-quinonez` (3 roles), `paola`, `bobby-blanco` (DJ only): no horizontal scroll, every tab/back/link target 44px high, one h1, hash switches tabs (#dj, #dancing). Chip text is rgba(255,255,255,.8) on a dark page (about 13:1 estimated; resolved bg read as black, not a measured gradient contrast). Screenshots: `docs/screenshots/person-page-web/`. A dancer-only person and long-name fixtures were NOT walked on prod (covered in unit tests only). Photo shows blank in the local screenshots (the local /_vercel/image emulation).
+
+## S2b2 (roles from the database + v2 Dancing tab)
+Brief: `docs/briefs/search-v7/S2b2-person-page-roles-and-v2.md`.
+
+### Done
+- Roles: `reads.ts` calls `get_public_person_roles_v1(p_person_id)` and feeds `RoleSignals.publicRoles` into `derivePersonRoles` (still the ONE mapper). Missing function (`42883` / `PGRST202`) -> `publicRoles = null` -> the old inferred signals (`TODO(remove after get_public_person_roles_v1 is on prod)`). Any other error is thrown (the loader fails like the other reads). The RPC is called through a typed local cast (not `as never` on the name; it is not in the generated types yet, so `check:rpc-typing` stays green).
+- Teacher flag off: `teacherPagesOpen=false` drops `teacher` from the single list, so the Teaching tab AND the Teacher chip go together. Teacher-only + flag off = empty roles = 404 + noindex.
+- Empty roles = 404 (loader already did this).
+- v2: `/people/:id` loader calls `loadPublicPageV2` exactly as `/dancers/:id` (same deadline, `DEGRADED_EDGE_TTL_SECONDS` rule), passes `publicPage` to `PersonPage` -> Dancing tab -> `DancerProfile` -> `PublicDancerPageV2 embedded`. `embedded` drops ONLY the DANCER label, photo, name (h1) and the Back link (the person page has its own); role line, stats, languages, contacts, share, achievements, join stay. Flag closed / failed = classic grid.
+- Tests (red first, each shown failing for the right reason): `personRoles.test.ts` (11 combos + flag + fallback), `reads.test.ts` (fake RPC: ok, empty, flag, both fallback codes, other error surfaced), `PersonPage.test.tsx` (v2 vs classic), `public-page/__tests__/embedded.test.tsx` (standalone snapshot written BEFORE the prop existed and unchanged after; embedded drops/keeps), `app/routes/people.loader.test.ts` (3 of 4 failed on the old loader).
+
+### CI (local)
+| step | exit |
+|---|---|
+| `npm run typecheck` | 97 errors = same as before, 0 in touched files |
+| `npx vitest run` | 15 failed / 9616 passed: 3 live-DB contract files + `integrityCouldNotRun` (all pre-existing, same as S2b) |
+| `npm run build` (prod Supabase, teacher flag off and on) | 0 |
+| check:rpc-typing, wallclock-brand, legacy-tables, legacy-program-rpcs, lint:architecture, bundle-budget, first-load-requests, chunk-cycles | 0 |
+| `AUDIT_STRICT=1 check:images` | 0 |
+| `check:dancer-area-isolation` | **1 -- needs the orchestrator**: this PR now touches `src/modules/dancer-app/` so it counts as a dancer-area PR; rule (a) lists every non-seam changed file (all of S2b's person-page files too) and rule (c) flags `app/routes/people.tsx` and `PersonPage.tsx` importing dancer-app. Adding seams is an orchestrator decision (allowlist JSON); I did not edit it. |
+| eslint on touched files | only pre-existing errors (`DancerProfile.tsx` `any`, `usePersonRoles` set-state-in-effect) |
+Not run: lighthouse, e2e-smoke, db-contract-check, lint chain, `/code-review`, pre-ship.
+
+### Walk (production build, REAL prod data via the anon key, 390x844; teacher flag off and on)
+ricky-quinonez (3 role), chong, leoncio (dancer-only), bobby-blanco (DJ-only), unknown id. All: one h1, no horizontal scroll, `noindex`; unknown = 404. Flag off: ricky = DJ, Dancing (no Teaching tab, no Teacher chip); flag on: Teaching, DJ, Dancing. Clicking Dancing writes `#dancing` and shows the v2 body (`dancer-page-v2`, no second name/photo); dancer-only shows v2 too. Screenshots `docs/screenshots/person-page-web/s2b2-{on,off}-*`.
+Not verified: the new RPC on live data (the function is not on prod, so the walk used the inferred fallback: chong shows Teaching + DJ / DJ only, NOT Dancing; the "dancing + empty dancer section" persona is proven by the fake-RPC tests only); 44px targets inside v2 body: the "Get your own card" join link and some site chrome are under 44px (unchanged from standalone v2, not touched); the classic-grid fallback was not walked live (the live flag is open); tab-bar targets are 44px.

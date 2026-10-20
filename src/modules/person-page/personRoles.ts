@@ -21,16 +21,28 @@ export type RoleSignals = {
   hasDancerRow: boolean;
   /** The row carries dancer-specific content (years, styles, partner role, achievements). */
   hasDancerContent: boolean;
+  /**
+   * get_public_person_roles_v1: the person's active public roles. null/absent = the
+   * function is not on prod yet, so the four inferred signals above decide.
+   */
+  publicRoles?: readonly PersonRole[] | null;
+  /** flags.teacherDetail. Closed = no Teaching tab and no Teacher chip (the old page is locked). Default open. */
+  teacherPagesOpen?: boolean;
 };
 
 /**
- * person_roles is not readable by the public (RLS, no policy), so 'dancer' is
+ * With `publicRoles` (the database's answer) the roles are exact. Without it
+ * (TEMPORARY, until get_public_person_roles_v1 is on prod) 'dancer' is
  * inferred: dancer content, or a person with no other public role. This never
  * shows Dancing to a teacher-only or DJ-only person; it can miss Dancing for a
  * dancer who is also teacher/DJ and has filled in no dancer content. An exact
  * answer needs a public roles RPC (admin repo); see docs/handover/person-page-web.md.
  */
 export function derivePersonRoles(s: RoleSignals): PersonRole[] {
+  if (s.publicRoles) {
+    const open = s.teacherPagesOpen ?? true;
+    return ROLE_ORDER.filter((r) => s.publicRoles?.includes(r) && (r !== 'teacher' || open));
+  }
   if (!s.hasDancerRow && !s.isTeacher && !s.isDj) return [];
   const roles: PersonRole[] = [];
   if (s.isTeacher) roles.push('teacher');

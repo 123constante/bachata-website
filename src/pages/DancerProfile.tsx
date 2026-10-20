@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyPersonaId } from "@/hooks/useMyPersonaId";
 import { isMyProfile } from "@/lib/myPersona";
+import { useEmbeddedProfile } from "@/lib/embeddedProfile";
 import { AlsoRoles } from "@/modules/person-page/AlsoRoles";
 import { PublicDancerPageV2 } from "@/modules/dancer-app/public-page/PublicDancerPageV2";
 import { buildPublicDancerPage, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
@@ -57,7 +58,9 @@ type DancerProfileProps = {
   embedded?: boolean;
 };
 
-const DancerProfile = ({ publicPage = null, embedded = false }: DancerProfileProps = {}) => {
+const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: DancerProfileProps = {}) => {
+  const embeddedCtx = useEmbeddedProfile();
+  const embedded = embeddedProp || embeddedCtx;
   const { id: routeParam } = useParams<{ id: string }>();
   const resolved = useEntitySlugOrId(routeParam, 'dancer_profiles');
   const id = resolved.id ?? undefined;

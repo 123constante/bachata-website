@@ -6,6 +6,8 @@ let dancerRow: Record<string, unknown> | null = null;
 let djRow: unknown = null;
 let teacherRows: unknown[] = [];
 let djError: unknown = null;
+let rolesResult: { data: unknown; error: { code?: string; message?: string } | null } = { data: null, error: { code: '42883' } };
+const rolesCall = vi.fn();
 const names = vi.fn();
 
 vi.mock('@/integrations/supabase/client', () => ({
@@ -16,8 +18,10 @@ vi.mock('@/integrations/supabase/client', () => ({
       q.maybeSingle = async () => ({ data: dancerRow, error: null });
       return q;
     },
-    rpc: async (fn: string) =>
-      fn === 'get_public_dj_v1' ? { data: djRow, error: djError } : { data: teacherRows, error: null },
+    rpc: async (fn: string, args?: unknown) => {
+      if (fn === 'get_public_person_roles_v1') { rolesCall(args); return rolesResult; }
+      return fn === 'get_public_dj_v1' ? { data: djRow, error: djError } : { data: teacherRows, error: null };
+    },
   },
 }));
 vi.mock('@/modules/profile/dancerPublicProfile', async (orig) => {
@@ -35,6 +39,7 @@ const load = () => loadPersonSnapshot(new QueryClient(), 'p1');
 beforeEach(() => {
   dancerRow = { ...base };
   djRow = null; teacherRows = []; djError = null; flag.teacherDetail = true;
+  rolesResult = { data: null, error: { code: '42883' } }; rolesCall.mockClear();
   names.mockReturnValue({ surname: null, display_name: 'Ana' });
 });
 
@@ -80,5 +85,48 @@ describe('loadPersonSnapshot', () => {
     const p = await load();
     expect(p?.city).toBe('London');
     expect(p?.instagramUrl).toBe('https://instagram.com/ana_g');
+  });
+});
+
+// S2b2: roles from get_public_person_roles_v1.
+describe('loadPersonSnapshot: roles from the database', () => {
+  const ok = (roles: string[]) => { rolesResult = { data: roles, error: null }; };
+
+  it('asks the function with the person id and uses its answer, ignoring the inferred signals', async () => {
+    ok(['teacher', 'dancer']);
+    djRow = { id: 'p1' }; // would infer dj; the database says no
+    const p = await load();
+    expect(rolesCall).toHaveBeenCalledWith({ p_person_id: 'p1' });
+    expect(p?.roles).toEqual(['teacher', 'dancer']);
+  });
+
+  it('holds dancing with an EMPTY dancer section -> Dancing tab (the inference gap is closed)', async () => {
+    ok(['teacher', 'dj', 'dancer']);
+    expect((await load())?.roles).toEqual(['teacher', 'dj', 'dancer']);
+  });
+
+  it('no public roles -> empty roles (the route 404s)', async () => {
+    ok([]);
+    expect((await load())?.roles).toEqual([]);
+  });
+
+  it('teacher flag off: Teaching AND the Teacher role are both gone; on: both there', async () => {
+    ok(['teacher', 'dancer']);
+    flag.teacherDetail = false;
+    expect((await load())?.roles).toEqual(['dancer']);
+    flag.teacherDetail = true;
+    expect((await load())?.roles).toEqual(['teacher', 'dancer']);
+  });
+
+  it.each([['42883'], ['PGRST202']])('function missing (%s): falls back to the inferred signals', async (code) => {
+    rolesResult = { data: null, error: { code } };
+    teacherRows = [{ entity_id: 'p1' }]; djRow = { id: 'p1' };
+    expect((await load())?.roles).toEqual(['teacher', 'dj']);
+  });
+
+  it('any OTHER error is surfaced, never a silent guess', async () => {
+    rolesResult = { data: null, error: { code: '57014', message: 'statement timeout' } };
+    teacherRows = [{ entity_id: 'p1' }];
+    await expect(load()).rejects.toMatchObject({ code: '57014' });
   });
 });

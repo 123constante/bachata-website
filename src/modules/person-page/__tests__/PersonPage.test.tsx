@@ -11,7 +11,10 @@ vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { c
 const Body = (label: string) => () => <div data-testid={`body-${label}`}>{label}:{String(useEmbeddedProfile())}</div>;
 vi.mock('@/pages/TeacherProfile', () => ({ default: Body('teacher') }));
 vi.mock('@/pages/DJProfile', () => ({ default: Body('dj') }));
-vi.mock('@/pages/DancerProfile', () => ({ default: Body('dancer') }));
+const DancerBody = ({ publicPage }: { publicPage?: unknown }) => (
+  <div data-testid="body-dancer">dancer:{String(useEmbeddedProfile())}:{publicPage ? 'v2' : 'classic'}</div>
+);
+vi.mock('@/pages/DancerProfile', () => ({ default: DancerBody }));
 
 import PersonPage from '../PersonPage';
 
@@ -19,8 +22,8 @@ const person = (roles: PersonRole[], over: Partial<PersonSnapshot> = {}): Person
   id: 'p1', name: 'Ana G', avatarUrl: null, city: 'London', instagramUrl: 'https://instagram.com/ana_g', roles, djPhoto: null, ...over,
 });
 
-const mount = (p: PersonSnapshot, slugOrId = 'ana-g') =>
-  render(<MemoryRouter><PersonPage person={p} slugOrId={slugOrId} /></MemoryRouter>);
+const mount = (p: PersonSnapshot, slugOrId = 'ana-g', publicPage?: { extras: never; extrasOk: boolean } | null) =>
+  render(<MemoryRouter><PersonPage person={p} slugOrId={slugOrId} publicPage={publicPage} /></MemoryRouter>);
 
 beforeEach(() => { window.location.hash = ''; });
 afterEach(cleanup);
@@ -110,5 +113,21 @@ describe('PersonPage', () => {
     mount(person(['dancer'], { name: 'Maria-Fernanda Alejandra de los Santos Quinonez Villalobos' }));
     expect(document.querySelector('img')).toBeNull();
     expect(screen.getByRole('heading', { level: 1 }).className).toMatch(/break-words/);
+  });
+});
+
+describe('PersonPage: the Dancing tab and the v2 public page (S2b2)', () => {
+  const V2 = { extras: {} as never, extrasOk: true };
+  it('v2 open: the dancer body gets the loader\'s publicPage', async () => {
+    mount(person(['dancer']), 'ana-g', V2);
+    expect(await screen.findByText('dancer:true:v2')).toBeTruthy();
+  });
+  it.each([[undefined], [null]])('flag closed or read failed (%s): the classic body, as today', async (pp) => {
+    mount(person(['dancer']), 'ana-g', pp);
+    expect(await screen.findByText('dancer:true:classic')).toBeTruthy();
+  });
+  it('the name is still shown once with v2 on', async () => {
+    mount(person(['dj', 'dancer']), 'ana-g', V2);
+    expect(screen.getAllByText('Ana G')).toHaveLength(1);
   });
 });

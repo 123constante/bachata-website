@@ -7,7 +7,7 @@ import {
   attachPublicDancerName,
   mapDancerPublicProfile,
 } from '@/modules/profile/dancerPublicProfile';
-import { derivePersonRoles, type PersonRole } from './personRoles';
+import { derivePersonRoles, ROLE_ORDER, type PersonRole } from './personRoles';
 
 export type PersonSnapshot = {
   id: string;
@@ -20,6 +20,31 @@ export type PersonSnapshot = {
   /** First DJ photo, for the og:image when the person has no avatar. */
   djPhoto: string | null;
 };
+
+type RolesRpc = (
+  fn: 'get_public_person_roles_v1',
+  args: { p_person_id: string },
+) => Promise<{ data: unknown; error: { code?: string; message?: string } | null }>;
+
+// "The function does not exist": Postgres 42883 or PostgREST PGRST202.
+const isMissingFunction = (e: { code?: string }) => e.code === '42883' || e.code === 'PGRST202';
+
+/**
+ * The person's active public roles from get_public_person_roles_v1, or null when the
+ * function is not deployed yet. Any other error is thrown, like the other reads.
+ * TODO(remove after get_public_person_roles_v1 is on prod): drop the null path and the
+ * inferred signals; the function is not in the generated types until types-drift runs.
+ */
+async function fetchPublicRoles(id: string): Promise<PersonRole[] | null> {
+  const rpc = supabase.rpc.bind(supabase) as unknown as RolesRpc;
+  const { data, error } = await rpc('get_public_person_roles_v1', { p_person_id: id });
+  if (error) {
+    if (isMissingFunction(error)) return null;
+    throw error;
+  }
+  const got = Array.isArray(data) ? data : [];
+  return ROLE_ORDER.filter((r) => got.includes(r));
+}
 
 /**
  * The existing public reads of /dancers/:id, /djs/:id and /teachers/:id, run
@@ -52,17 +77,20 @@ export async function loadPersonSnapshot(qc: QueryClient, id: string): Promise<P
     },
     staleTime: 5 * 60 * 1000,
   }).catch(() => null); // a DJ-read hiccup hides the DJ tab; it must not take the person page down
+  const rolesP = fetchPublicRoles(id);
   const teacherP = flags.teacherDetail
     ? Promise.resolve(supabase.rpc('get_public_teacher_detail_v1', { p_entity_id: id }))
         .then(({ data, error }) => !error && ((data ?? []) as unknown[]).length > 0)
         .catch(() => false)
     : Promise.resolve(false);
 
-  const [dancer, dj, isTeacher] = await Promise.all([dancerP, djP, teacherP]);
+  const [dancer, dj, isTeacher, publicRoles] = await Promise.all([dancerP, djP, teacherP, rolesP]);
   if (!dancer) return null;
 
   const view = mapDancerPublicProfile(dancer as never);
   const roles = derivePersonRoles({
+    publicRoles,
+    teacherPagesOpen: flags.teacherDetail,
     isTeacher,
     isDj: !!dj,
     hasDancerRow: true,

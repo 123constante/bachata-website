@@ -85,3 +85,37 @@ describe('links', () => {
     expect(otherRoles(['dancer'], 'dancer')).toEqual([]);
   });
 });
+
+// S2b2: roles come from get_public_person_roles_v1 (publicRoles). Table-driven on the
+// 11 combinations in COMMON.md; the inferred signals are ignored once the DB answered.
+const DB = (publicRoles: PersonRole[] | null, teacherPagesOpen = true): RoleSignals => ({
+  isTeacher: false, isDj: false, hasDancerRow: true, hasDancerContent: false, publicRoles, teacherPagesOpen,
+});
+const DB_COMBOS: Array<[string, PersonRole[], PersonRole[]]> = [
+  ['teacher only', ['teacher'], ['teacher']],
+  ['dj only', ['dj'], ['dj']],
+  ['dancer only', ['dancer'], ['dancer']],
+  ['teacher + dj', ['teacher', 'dj'], ['teacher', 'dj']],
+  ['teacher + dancer', ['teacher', 'dancer'], ['teacher', 'dancer']],
+  ['dj + dancer', ['dj', 'dancer'], ['dj', 'dancer']],
+  ['teacher + dj + dancer', ['teacher', 'dj', 'dancer'], ['teacher', 'dj', 'dancer']],
+  ['four roles (performing/organising are not in the list)', ['teacher', 'dj', 'dancer'], ['teacher', 'dj', 'dancer']],
+  ['out-of-order input is put in tab order', ['dancer', 'teacher', 'dj'], ['teacher', 'dj', 'dancer']],
+  ['dancing + teaching with an EMPTY dancer section still shows Dancing', ['teacher', 'dancer'], ['teacher', 'dancer']],
+  ['no public roles -> 404 shape', [], []],
+];
+describe('derivePersonRoles: database roles', () => {
+  it.each(DB_COMBOS)('%s', (_n, db, expected) => {
+    expect(derivePersonRoles(DB(db))).toEqual(expected);
+  });
+  it('teacher pages closed: Teaching is dropped from the ONE list (tabs and chips share it)', () => {
+    expect(derivePersonRoles(DB(['teacher', 'dj', 'dancer'], false))).toEqual(['dj', 'dancer']);
+    expect(derivePersonRoles(DB(['teacher', 'dj', 'dancer'], true))).toEqual(['teacher', 'dj', 'dancer']);
+  });
+  it('a teacher-only person with the teacher pages closed has no public role -> empty (404)', () => {
+    expect(derivePersonRoles(DB(['teacher'], false))).toEqual([]);
+  });
+  it('publicRoles null (function not on prod yet) falls back to the inferred signals', () => {
+    expect(derivePersonRoles({ ...S(true, true, true, false), publicRoles: null })).toEqual(['teacher', 'dj']);
+  });
+});
