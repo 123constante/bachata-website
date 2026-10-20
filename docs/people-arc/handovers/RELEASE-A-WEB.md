@@ -578,3 +578,23 @@ Note: a bare `-u` run once also dropped `button "Your account" [expanded=false]`
 | pass 2 | `npm run test:unit:timing` | 0 (65/65) |
 
 The 6 failures are not D83/D84/D85 wording: 5 in `tests/integrityCouldNotRun.test.ts` ("typescript resolved in the temp repo -- precondition gone", a sandbox module-resolution quirk; fails in isolation here, file untouched by this branch) and 1 in `tests/client/festivalClientState.test.tsx` (load flake; passes 8/8 in isolation). Not fixed. Check against the CI result.
+
+## Admin check (D89)
+
+**Failure.** Prod `admin_is_admin()` raises `admin_only` (42501, HTTP 403) for a non-admin; `fetchIsAdmin` threw on it, so react-query retried (pending ~2 s, then error): `/admin/organisers` said "could not check your access" and `useEventLock` showed locked controls open for ~2 s.
+
+**Fix.** `fetchIsAdmin` (`src/modules/admin-organisers/adminApi.ts`) returns `false` for `code === '42501'`; every other error still throws. One place.
+
+**Red first.** `src/modules/admin-organisers/__tests__/adminCheck.d89.test.tsx` (5 tests), run on the UNFIXED code: 3 failed (fetchIsAdmin 42501 -> false; AdminGate -> NotAvailable and one rpc call; useEventLock locks once settled), 2 passed (`data: true`, 500/network still throws). After the fix: 5/5.
+
+| job | command | exit |
+|---|---|---|
+| types | `npx tsc -p tsconfig.app.json --noEmit` | 99 errors, same as without the change (baseline 106); none in the changed files |
+| eslint (changed files) | `npx eslint src/modules/admin-organisers/adminApi.ts src/modules/admin-organisers/__tests__/adminCheck.d89.test.tsx` | 0 |
+| lint chain | `node scripts/run-lint-chain.mjs` | 1: only `check:integrity` exit 126 (sandbox exec bit); other 19 PASS |
+| integrity direct | `bash bin/check-integrity.sh` | 0 (2088 files, 0 issues) |
+| unit (Europe/London, full) | `TZ=Europe/London npm run test:unit:offline` | 1: 5 failed / 10515 passed; all 5 in `tests/integrityCouldNotRun.test.ts` (sandbox module-resolution, untouched file, same as D88) |
+| unit (scope) | `npx vitest run src/modules/admin-organisers src/modules/organiser` | 0 (146 files, 3833 passed) |
+| build | `npm run build` | 0 |
+
+Not verified: the live-gate unit job (no secrets here), a browser walk as a non-admin on prod, GitHub Actions.

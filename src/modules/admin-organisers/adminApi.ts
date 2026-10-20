@@ -14,10 +14,15 @@ export const adminInvitesQueryKey = (organiserId: string) => ['admin-organiser-i
 export const adminOwnershipQueryKey = (organiserId: string) => ['admin-organiser-managed', organiserId] as const;
 export const ADMIN_ORGANISERS_KEY = ['admin-organisers'] as const;
 
-/** admin_is_admin() -> is_admin(): the one definition. Never profiles.is_admin. */
+/** admin_is_admin() -> is_admin(): the one definition. Never profiles.is_admin.
+ *  Prod RAISES admin_only (42501, HTTP 403) for a non-admin: that is the ANSWER (false), not an error (D89).
+ *  Any other error still throws, so a real outage keeps its "could not check" screen. */
 export async function fetchIsAdmin(): Promise<boolean> {
   const { data, error } = await supabase.rpc('admin_is_admin');
-  if (error) throw error;
+  if (error) {
+    if ((error as { code?: string }).code === '42501') return false;
+    throw error;
+  }
   return data === true;
 }
 
