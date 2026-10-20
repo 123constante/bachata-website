@@ -4,7 +4,7 @@
  * pinned table-driven where it is a mapping, and rendered where it is a screen.
  * The clock is frozen on Tuesday 20 October 2026 (flows/add fixtures).
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -14,6 +14,10 @@ vi.mock('@/integrations/supabase/client', () => ({
   supabase: { rpc, from: () => ({ select: () => ({ is: () => ({ order: async () => ({ data: [], error: null }) }) }) }) },
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
+// A1 is on in prod (main #869); the gate is the rollback switch. Section 12 holds the OFF row, so the
+// switch is read live here: on for every other test, off only inside that row.
+const a1 = vi.hoisted(() => ({ on: true }));
+vi.mock('@/modules/organiser/shared/a1Gate', () => ({ get A1_APPLIED() { return a1.on; } }));
 
 import OneEvent from '../events/OneEvent';
 import Details from '../events/Details';
@@ -230,6 +234,8 @@ const describedBy = (el: HTMLElement) => document.getElementById(el.getAttribute
 
 describe('12. Focusable off rows and a destructive Discard (PAR-B N9)', () => {
   it('Go live (off) is focusable and described by its reason', async () => {
+    a1.on = false;
+    onTestFinished(() => { a1.on = true; });
     mount(ORG_PATHS.event(DRAFT), routes);
     const go = await screen.findByTestId('org-life-golive');
     expect(go.getAttribute('tabindex')).toBe('0');

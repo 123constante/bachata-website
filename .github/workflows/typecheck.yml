@@ -30,15 +30,28 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Docs-only PRs skip the heavy steps below; the job still runs, so the
+      # required check keeps its name and reports success. Fail-safe: any error
+      # means docs_only=false (scripts/ci/docs-only.mjs).
+      - name: Detect docs-only PR
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_SHA: ${{ github.sha }}
+        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
+
       - uses: actions/setup-node@v7
+        if: steps.changes.outputs.docs_only != 'true'
         with:
           node-version: 22
           cache: npm
 
       - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm install -g npm@11
 
       - name: Install dependencies
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm ci
 
       # Closes the hole the brand gate structurally cannot see: a type-checker
@@ -48,10 +61,12 @@ jobs:
       # against scripts/rpc-typing-allowlist.json; get_calendar_events_v2 is absent
       # from the allowlist, so it stays zero-tolerance.
       - name: RPC typing guard
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:rpc-typing
 
       # `react-router typegen` generates the ./+types/* route modules; without
       # them tsc reports ~13 spurious TS2307s. Harmless to this message-scoped
       # gate, but the npm script runs typegen first anyway so local and CI agree.
       - name: WallClock/Instant brand gate
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:wallclock-brand
