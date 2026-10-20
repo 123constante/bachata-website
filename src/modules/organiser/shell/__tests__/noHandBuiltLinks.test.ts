@@ -7,7 +7,10 @@ const LITERAL = /['"`]\/account\/o(?![A-Za-z0-9_-])/;
 
 // Files on main that still carry a literal, each owned by a later slice. The list
 // only shrinks: an entry whose file no longer has a hit fails the second test.
-const KNOWN: Record<string, string> = {};
+const KNOWN: Record<string, string> = {
+  // The People arc's PINNED file (D48): byte-identical in two slices, so its PROFILE_WIZARD_PATH cannot import ORG_BASE.
+  'shared/profileProgress.ts': 'people-arc PINNED (D48)',
+};
 
 export function handBuiltLinkHits(files: { rel: string; text: string }[]): string[] {
   return files.filter((f) => f.rel !== 'shell/paths.ts' && LITERAL.test(f.text)).map((f) => f.rel);
