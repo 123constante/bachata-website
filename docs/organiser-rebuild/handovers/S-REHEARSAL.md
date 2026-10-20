@@ -26,3 +26,14 @@ The brief names `tests/e2e/organiser-r1.real-rpc.spec.ts`; that file does not ex
 
 ## Verified / Not verified
 Verified: E2E token is rejected (401); seed prerequisites are missing. Not verified: everything else (ledger, seed, spec, walk, screenshots, real phone keyboard, live storage, Docker).
+
+## Re-run 2026-10-20 (dt_2533f8903574) -- still BLOCKED, now with the ledger answer
+The Supabase connector in this run lists BOTH projects, so the ledger comparison (read-only `list_migrations`) was possible. `VITE_SUPABASE_URL` here points at E2E (`srrpvuxldthwumzrngla`).
+
+- E2E: 927 migrations, max `20261126190000`. Prod: 933, max `20261129200000`.
+- **E2E is MISSING 8 migrations up to 20261129200000:** `20261128200000`, `20261128210000`, `20261128240000`, `20261129060000`, `20261129070000`, `20261129100000`, `20261129110000`, `20261129200000` (A1 / AW1 / door).
+- E2E has 2 not on prod: `20261126180000`, `20261126190000`.
+- Per the brief, stop: applying admin migrations to E2E is the orchestrator's job via the admin repo (`supabase db push` there).
+- Also still missing: `E2E_ORGANISER_OWNER_PASSWORD` and `E2E_ORGANISER_CONTRIBUTOR_PASSWORD`; no service key / PAT for E2E in env.
+
+Next: orchestrator applies the 8 migrations to E2E from the admin repo and supplies the two passwords, then re-dispatch. Step table, screenshots, jobs: NOT RUN. Verified: ledger diff only (read-only). Not verified: everything else.
