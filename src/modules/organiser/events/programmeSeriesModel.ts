@@ -14,6 +14,7 @@ import {
   endsNextDay, isEditableRole, levelsApplyTo, sessionLevels, sessionMinutes, timesProblem, titleProblem,
   type LevelKey, type PeopleRole,
 } from '@/modules/organiser/shared/programmeModel';
+import { ROLLOVER_HOUR } from '@/lib/programDayRollover';
 import { eventLock } from '@/modules/organiser/shared/eventState';
 import { AW1_APPLIED, PARITY_GATE_REASON } from '@/modules/organiser/shared/parityGate';
 import { setProgramCommand, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
@@ -200,10 +201,10 @@ export const removeSession = (t: PTree, key: string): PTree => ({
   days: t.days.map((d) => ({ ...d, sections: d.sections.map((s) => ({ ...s, items: s.items.filter((it) => it.key !== key) })) })),
 });
 
-/** Minutes after midnight of a "HH:MM" start; null when there is no (complete) start time. Overnight sessions sort by their START. */
+/** Sort key of a "HH:MM" start; null when there is no (complete) start time. Overnight sessions sort by their START. Starts before ROLLOVER_HOUR belong to the prior day (the locked day-rollover rule), so they get +24h. */
 const startMinutes = (start: string): number | null => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(start);
-  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  return m ? Number(m[1]) * 60 + Number(m[2]) + (Number(m[1]) < ROLLOVER_HOUR ? 24 * 60 : 0) : null;
 };
 
 /**

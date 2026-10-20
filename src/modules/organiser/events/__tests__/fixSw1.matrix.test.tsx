@@ -223,6 +223,19 @@ describe('S-FEEDBACK 4: sessions sort by start', () => {
   ])('%s', (_n, items, want) => {
     expect(order(one(items))).toEqual(want);
   });
+  // S-SORT: 00:00-07:59 starts belong to the PRIOR day (src/lib/programDayRollover.ts), so they sort after the evening.
+  it.each([
+    ['after-party at 00:30 sorts last', [item('party', '00:30:00'), item('warm', '18:00:00'), item('beg', '19:00:00'), item('soc', '21:00:00', '01:00:00')], ['warm', 'beg', 'soc', 'party']],
+    ['01:00 and 00:30 keep their clock order after 22:30', [item('late', '01:00:00'), item('mid', '22:30:00'), item('early', '00:30:00')], ['mid', 'early', 'late']],
+    ['07:59 sorts after 22:30', [item('x', '07:59:00'), item('y', '22:30:00')], ['y', 'x']],
+    ['08:00 is not rolled back: it sorts first', [item('y', '21:00:00'), item('x', '08:00:00')], ['x', 'y']],
+    ['08:30 morning class stays before the evening', [item('e', '19:00:00'), item('m', '08:30:00'), item('n', '07:59:00')], ['m', 'e', 'n']],
+    ['no start stays last, after a rolled-back session', [item('n', null), item('p', '00:30:00'), item('e', '18:00:00')], ['e', 'p', 'n']],
+    ['an overnight END (21:00-01:00) never moves the key', [item('a', '21:00:00', '01:00:00'), item('b', '20:00:00', '23:00:00'), item('c', '22:30:00', '02:00:00')], ['b', 'a', 'c']],
+    ['full shuffled list', [item('1', '00:30:00'), item('2', '08:00:00'), item('3', null), item('4', '22:30:00'), item('5', '01:00:00'), item('6', '07:59:00'), item('7', '18:00:00'), item('8', '21:00:00'), item('9', '19:00:00'), item('10', '08:30:00')], ['2', '10', '7', '9', '8', '4', '1', '5', '6', '3']],
+  ])('S-SORT %s', (_n, items, want) => {
+    expect(order(one(items))).toEqual(want);
+  });
   it('sorting moves nothing but position: ids and fields are untouched', () => {
     const t = one([item('a', '19:00:00'), item('b', '18:00:00')]);
     expect(itemIds(sent(M.sortSessions(t)))).toEqual(['b', 'a']);
