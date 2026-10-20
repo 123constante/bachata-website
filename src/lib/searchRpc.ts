@@ -2,8 +2,7 @@ import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { resolveEventImage } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
 import { fetchPublicFestivalsList, filterUpcomingFestivals } from '@/lib/festivalsList';
-import { hrefFor, type SearchKind } from '@/lib/searchEntities';
-import { orderedRoles, roleLine, telemetryKindFor, type PersonRole } from '@/lib/searchPeople';
+import { hrefFor, orderedRoles, roleLine, telemetryKindFor, type PersonRole, type SearchKind } from '@/lib/searchEntities';
 import { londonTodayKey } from '@/lib/londonDate';
 
 // Re-export the canonical 8-kind SearchKind (defined in searchEntities) so the

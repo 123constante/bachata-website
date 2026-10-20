@@ -11,13 +11,12 @@ import { usePublicSearch } from '@/hooks/usePublicSearch';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { KIND_ICON, KIND_LABEL, CIRCLE_KINDS, type SearchKind } from '@/lib/searchEntities';
+import { KIND_ICON, KIND_LABEL, CIRCLE_KINDS, personAriaLabel, type SearchKind } from '@/lib/searchEntities';
 import { highlight } from './highlight';
 import { pushRecent } from '@/lib/searchRecents';
 import { recordSearchResultClick } from '@/lib/searchClickTelemetry';
 import { DiscoveryPanel } from './DiscoveryPanel';
 import type { SearchResult } from '@/lib/searchRpc';
-import { personAriaLabel } from '@/lib/searchPeople';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 
 const ELLIPSIS = '...';

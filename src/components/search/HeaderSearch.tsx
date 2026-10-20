@@ -19,7 +19,7 @@ import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import type { SearchKind } from '@/lib/searchRpc';
 import { optimizedImageUrl } from '@/lib/imageCdn';
-import { personAriaLabel } from '@/lib/searchPeople';
+import { personAriaLabel } from '@/lib/searchEntities';
 
 // Inline header omnibox (approach: omnibox typeahead). Lives in GlobalHeader;
 // the magnifier expands into a field that fills the bar, and a typeahead panel
