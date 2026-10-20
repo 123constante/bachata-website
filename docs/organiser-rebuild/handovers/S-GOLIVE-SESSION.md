@@ -27,3 +27,23 @@ Not verified: 390x844 browser walk / Vercel preview, real phone, live publish. T
 
 ## Next steps (if anything fails in CI)
 Re-run the table rows above; the rule is in one function, `hasUpcomingSession`.
+
+## Fix pass on R-GOLIVE-SESSION (PASS WITH FIXES)
+- F1: new `events/__tests__/goLiveSession.render.test.tsx` renders `LifecycleActions` (zz-test shape: off with `Add at least one session first.`, `org-life-add-session` href = `ORG_PATHS.eventProgramme(id)`; with a session: a pressable button, no link) and the New flow cover step (`org-new-live` off with `NO_SESSION_NEW_REASON`; on with a programme session).
+  MUTATION: NewFlow `finishReason` wiring reverted + card `toProgramme` link removed -> 2 of 9 render tests failed (one per screen); both restored, 9 pass.
+- N1: unused `coverStepReason` import removed from `NewFlow.tsx`.
+- N2: when the session is the only blocker on the last step (`finishReason === NO_SESSION_NEW_REASON`), "Save as draft and leave" goes to `ORG_PATHS.eventProgramme(seriesId)`; otherwise Home. Tested both ways, plus the no-photo case.
+- N3: A1-off reason lower-cases the tail after "Before then, " (`... Before then, add at least one session first.`); A1-on text unchanged. Tested both.
+- N4: a festival draft with no session shows `Festival days are edited with the platform team for now.` (the programme screen's `FESTIVAL_REASON`) and no "Add a session" link. Tested.
+- N5, N6: accepted as is (draft-fetch failure shows the checking reason with the leave link on screen; MISSING_DATE skip when no scheduled occurrence row).
+
+| Command | Exit |
+|---|---|
+| `npx vitest run src/modules/organiser` | 0 (120 files, 3378 passed, 2 skipped) |
+| `npm run build` | 0 |
+| `npx eslint` on the 7 touched src/test files | 0 |
+| `npm run lint:architecture` | 0 |
+| `npm run check:rpc-typing` | 0 |
+| `npm run check:wallclock-brand` | 0 |
+
+Not verified (unchanged): browser walk at 390x844, real phone, GitHub check status, e2e-smoke / perf-budget / check:images / full-repo vitest.

@@ -7,6 +7,7 @@ import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
 import { publicEventPath } from '@/modules/organiser/shared/editorGuards';
 import { FLYER_WORD } from '@/modules/organiser/shared/flyerLabel';
 import type { EventWorkspace } from './eventModel';
+import { FESTIVAL_REASON } from './programmeSeriesModel';
 
 /** Going live from a draft waits on the admin A1 migration; plain words, no jargon. */
 export const A1_REASON = 'Needs the next platform update';
@@ -64,10 +65,13 @@ export function goLiveReason(ws: EventWorkspace, today: string, a1 = A1_APPLIED)
   ].filter((p): p is string => !!p);
   const add = parts.length ? parts.join(', and ') : null;
   const session = missing.includes(MISSING_SESSION);
-  const tail = [add ? `${add}.` : null, session ? NO_SESSION_REASON : null].filter(Boolean).join(' ');
-  if (!a1) return tail ? `${A1_REASON}. Before then, ${tail}` : GO_LIVE_READY;
-  if (!add) return session ? NO_SESSION_REASON : null;
-  return `To go live, ${add}.${session ? ` ${NO_SESSION_REASON}` : ''}`;
+  // A festival's programme is a day tree the platform team edits: say that, not "add a session".
+  const sessionText = ws.series.format === 'festival' ? FESTIVAL_REASON : NO_SESSION_REASON;
+  const tail = [add ? `${add}.` : null, session ? sessionText : null].filter(Boolean).join(' ');
+  // "Before then, " joins mid-sentence, so a tail that starts with a sentence starts lower case.
+  if (!a1) return tail ? `${A1_REASON}. Before then, ${tail.charAt(0).toLowerCase()}${tail.slice(1)}` : GO_LIVE_READY;
+  if (!add) return session ? sessionText : null;
+  return `To go live, ${add}.${session ? ` ${sessionText}` : ''}`;
 }
 
 /**
@@ -94,7 +98,7 @@ export function lifecycleRows(ws: EventWorkspace, today: string, a1 = A1_APPLIED
   if (status === 'draft') {
     const missing = goLiveMissing(ws, today);
     return {
-      goLive: { reason: goLiveReason(ws, today, a1), toDetails: missing.some((m) => m !== MISSING_DATE && m !== MISSING_SESSION), toAddDate: missing.includes(MISSING_DATE), toProgramme: missing.includes(MISSING_SESSION) },
+      goLive: { reason: goLiveReason(ws, today, a1), toDetails: missing.some((m) => m !== MISSING_DATE && m !== MISSING_SESSION), toAddDate: missing.includes(MISSING_DATE), toProgramme: missing.includes(MISSING_SESSION) && ws.series.format !== 'festival' },
       discard: { reason: null },
       seeLive: { href: null, reason: SEE_LIVE_DRAFT_REASON },
     };
