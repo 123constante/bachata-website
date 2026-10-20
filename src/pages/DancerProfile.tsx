@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyPersonaId } from "@/hooks/useMyPersonaId";
 import { isMyProfile } from "@/lib/myPersona";
+import { AlsoRoles } from "@/modules/person-page/AlsoRoles";
 import { PublicDancerPageV2 } from "@/modules/dancer-app/public-page/PublicDancerPageV2";
 import { buildPublicDancerPage, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
 
@@ -371,6 +372,7 @@ const DancerProfile = ({ publicPage = null, embedded = false }: DancerProfilePro
     return (
       <GlobalLayout showSubheader={false} backHref="/dancers">
         <div className={`container max-w-xl mx-auto px-4 pt-3${embedded ? '' : ' pb-24'}`}>
+          <AlsoRoles current="dancer" id={id} slug={resolved.slug} />
           <PublicDancerPageV2
             model={buildPublicDancerPage(dancerView, publicPage.extras, galleryList)}
             extrasOk={publicPage.extrasOk}
@@ -403,6 +405,7 @@ const DancerProfile = ({ publicPage = null, embedded = false }: DancerProfilePro
       }}
     >
       <div className="container max-w-5xl mx-auto px-4 pb-24 pt-8">
+        <AlsoRoles current="dancer" id={id} slug={resolved.slug} />
         <DancerProfileGrid dancer={dancerView} />
 
         {/* Gallery */}

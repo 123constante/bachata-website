@@ -8,6 +8,7 @@
  * page from this point onwards copy the slug URL.
  */
 import { useEffect } from 'react';
+import { useEmbeddedProfile } from '@/lib/embeddedProfile';
 
 interface Opts {
   /** True only when the URL param was a UUID. Skip the swap otherwise. */
@@ -19,11 +20,13 @@ interface Opts {
 }
 
 export function useCanonicalReplaceState({ arrivedViaUuid, slug, buildPath }: Opts) {
+  // A role page shown as a tab of /people/:id must not rewrite that URL to /djs/...
+  const embedded = useEmbeddedProfile();
   useEffect(() => {
-    if (!arrivedViaUuid || !slug) return;
+    if (embedded || !arrivedViaUuid || !slug) return;
     if (typeof window === 'undefined') return;
     const target = buildPath(slug) + window.location.search + window.location.hash;
     if (window.location.pathname + window.location.search + window.location.hash === target) return;
     window.history.replaceState(window.history.state, '', target);
-  }, [arrivedViaUuid, slug, buildPath]);
+  }, [embedded, arrivedViaUuid, slug, buildPath]);
 }
