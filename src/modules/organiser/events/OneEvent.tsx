@@ -24,6 +24,7 @@ import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { nothingComingUp } from '@/modules/organiser/shared/lifeLabel';
 import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { LifecycleActions } from './LifecycleActions';
+import { goLiveLeads } from './lifecycleModel';
 import { LockedRow, LockedScreen, LockNote, useEventLock, type EventLock } from './ProfileLock';
 
 /** The event-wide steps the C14 lock turns off (pause, end, repeats); Resume stays open (C3: a resume is not a go-live). */
@@ -238,12 +239,13 @@ export default function OneEvent() {
         <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
       </button>
       <ClosedLines ws={ws.data} today={today} testId="org-event" />
+      {goLiveLeads(ws.data) && <LifecycleActions ws={ws.data} today={today} lock={lock} />}
       <MonthDots ws={ws.data} today={today} />
       <Dates seriesId={seriesId} home={one} ws={ws.data} today={today} lock={lock} />
       <DatesTakenOff series={ws.data.series} dates={ws.data.dates} today={today} lock={eventLock(ws.data.series.lifecycle_status)}
         dirty={false} canChooseEnd={!!ownerWeeklyRule(ws.data.series)} />
       <Actions ws={ws.data} today={today} lock={lock} />
-      <LifecycleActions ws={ws.data} today={today} lock={lock} />
+      {!goLiveLeads(ws.data) && <LifecycleActions ws={ws.data} today={today} lock={lock} />}
     </>
   );
 

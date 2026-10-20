@@ -126,7 +126,7 @@ describe('Home rows are homeJobs() (C1/C1b)', () => {
     organisers = [page([series(), series({ name: 'Sunday Party', upcoming_count: 0, next_dates: [] })])];
     mount();
     await waitFor(() => expect(rows()).toHaveLength(4));
-    expect(rows().map((r) => r.textContent)).toEqual(['1Change a date', '2Add a date', '3Cancel a date', '4Sunday PartyNeeds dates']);
+    expect(rows().map((r) => r.textContent)).toEqual(['1Change a date', '2Add a date', '3Cancel a date', '4Add dates: Sunday PartyNo coming dates, so dancers see nothing']);
     expect(rows()[3].getAttribute('data-tone')).toBe('problem');
     fireEvent.click(screen.getByTestId('home-new-event'));
     expect(screen.getByTestId('where').textContent).toBe(ORG_PATHS.newWhat);
@@ -139,7 +139,7 @@ describe('Home rows are homeJobs() (C1/C1b)', () => {
     mount();
     await waitFor(() => expect(screen.getAllByTestId('home-job').length).toBeGreaterThan(0));
     const seriesRows = rows().filter((r) => r.getAttribute('data-tone') === 'problem');
-    expect(seriesRows.map((r) => within(r).getByTestId('home-job-title').textContent)).toEqual(live.map((s) => s.name));
+    expect(seriesRows.map((r) => within(r).getByTestId('home-job-title').textContent)).toEqual(live.map((s) => `Add a flyer: ${s.name}`));
   });
 
   it('no series -> C1b: exactly two numbered rows + New event + the four small buttons', async () => {

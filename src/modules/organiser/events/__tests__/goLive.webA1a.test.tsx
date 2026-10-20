@@ -114,12 +114,15 @@ const routes = (
 const seriesCommands = () => commandsOf(rpc).filter((c) => c.fn === 'series_command_p5');
 const notReady = (code: string, section: string): Check => ({ ...READY, ready: false, event_missing: [{ code, section }] });
 
+/** D85: a row's words without its leading number (the number is aria-hidden). */
+const words = (el: Element): string => [...el.querySelectorAll('span:not([aria-hidden])')].map((s) => s.textContent).join('');
+
 describe('Go live renders the server list, one label per code (D49)', () => {
   it.each(SIX)('%s: the Go live list says the D49 word and links to its screen, back to this event', async (code, section, word, to) => {
     check = { data: notReady(code, section), error: null };
     mount(ORG_PATHS.event(DRAFT), routes);
     const item = await screen.findByTestId(`org-life-item-${code}`);
-    expect(item.textContent).toBe(word);
+    expect(words(item)).toBe(word);
     expect(item.getAttribute('href')).toBe(`${to(DRAFT)}${to(DRAFT).includes('?') ? '&' : '?'}${back(DRAFT)}`);
   });
 
@@ -129,7 +132,7 @@ describe('Go live renders the server list, one label per code (D49)', () => {
     refusal = { message: `permission_denied: series.set_lifecycle draft -> live needs a ready series: ${json}`, details: json, code: 'P0001', hint: null };
     mount(ORG_PATHS.event(DRAFT), routes);
     fireEvent.click(await screen.findByTestId('org-life-golive'));
-    expect((await screen.findByTestId(`org-life-item-${code}`)).textContent).toBe(word);
+    expect(words(await screen.findByTestId(`org-life-item-${code}`))).toBe(word);
     expect(screen.getByTestId('event-step-error').textContent).toBe('Not ready to go live yet.');
     expect(seriesCommands()).toHaveLength(1);
   });
@@ -139,7 +142,7 @@ describe('Go live renders the server list, one label per code (D49)', () => {
     refusal = { message: `permission_denied: series.set_lifecycle draft -> live needs a ready series: ${JSON.stringify(notReady('cover', 'cover'))}`, details: null, code: 'P0001' };
     mount(ORG_PATHS.event(DRAFT), routes);
     fireEvent.click(await screen.findByTestId('org-life-golive'));
-    expect((await screen.findByTestId('org-life-item-cover')).textContent).toBe('Upload a flyer');
+    expect(words(await screen.findByTestId('org-life-item-cover'))).toBe('Upload a flyer');
   });
 
   it('mutating the one map changes the Go live list AND the refusal render', async () => {
@@ -150,14 +153,14 @@ describe('Go live renders the server list, one label per code (D49)', () => {
     try {
       check = { data: notReady('venue', 'venue'), error: null };
       mount(ORG_PATHS.event(DRAFT), routes);
-      expect((await screen.findByTestId('org-life-item-venue')).textContent).toBe('MUTANT');
+      expect(words(await screen.findByTestId('org-life-item-venue'))).toBe('MUTANT');
       cleanup();
       check = { data: null, error: { message: 'x' } };
       const json = JSON.stringify(notReady('venue', 'venue'));
       refusal = { message: `permission_denied: series.set_lifecycle draft -> live needs a ready series: ${json}`, details: json, code: 'P0001' };
       mount(ORG_PATHS.event(DRAFT), routes);
       fireEvent.click(await screen.findByTestId('org-life-golive'));
-      expect((await screen.findByTestId('org-life-item-venue')).textContent).toBe('MUTANT');
+      expect(words(await screen.findByTestId('org-life-item-venue'))).toBe('MUTANT');
     } finally {
       map.venue = was;
     }
@@ -201,7 +204,7 @@ describe('D55: every event_missing code has a label and a link to a screen that 
     check = { data: notReady(code, section), error: null };
     mount(ORG_PATHS.event(DRAFT), nineRoutes);
     const item = await screen.findByTestId(`org-life-item-${code}`);
-    expect(item.textContent).toBe(word);
+    expect(words(item)).toBe(word);
     expect(item.getAttribute('href')).toBe(`${to(DRAFT)}${to(DRAFT).includes('?') ? '&' : '?'}${back(DRAFT)}`);
     fireEvent.click(item);
     expect(await screen.findByTestId(control)).toBeTruthy();
@@ -212,7 +215,7 @@ describe('D55: every event_missing code has a label and a link to a screen that 
     mount(ORG_PATHS.event(DRAFT), nineRoutes);
     await screen.findByTestId('org-life-item-organiser');
     const shown = Array.from(document.querySelectorAll('[data-testid^="org-life-item-"]'))
-      .map((n) => n.getAttribute('data-testid')!.replace('org-life-item-', '')).filter((c) => !c.endsWith('-circle'));
+      .map((n) => n.getAttribute('data-testid')!.replace('org-life-item-', '')).filter((c) => !c.endsWith('-n'));
     expect(shown).toEqual(NINE.map(([code]) => code));
   });
 
@@ -220,8 +223,8 @@ describe('D55: every event_missing code has a label and a link to a screen that 
     check = { data: notReady('zz_new_rule', 'zz_section'), error: null };
     mount(ORG_PATHS.event(DRAFT), nineRoutes);
     const item = await screen.findByTestId('org-life-item-zz_new_rule');
-    expect(item.textContent).toBe('Something else on the event');
-    expect(item.textContent).not.toContain('zz_');
+    expect(words(item)).toBe('Something else on the event');
+    expect(words(item)).not.toContain('zz_');
     expect(item.getAttribute('href')).toBeNull();
   });
 });
@@ -245,17 +248,17 @@ describe('the rule is the server\'s', () => {
     mount(ORG_PATHS.event(DRAFT), routes);
     await screen.findByTestId('org-life-item-venue');
     const order = [...screen.getByTestId('org-life-list').querySelectorAll('[data-testid^="org-life-item-"]')].map((e) => e.getAttribute('data-testid'));
-    expect(order.filter((t) => !t!.endsWith('-circle'))).toEqual(['org-life-item-session', 'org-life-item-venue']);
+    expect(order.filter((t) => !t!.endsWith('-n'))).toEqual(['org-life-item-session', 'org-life-item-venue']);
     expect(screen.getByTestId('org-life-count').textContent).toBe('2 things left');
     expect(reasonOf(screen.getByTestId('org-life-golive'))).toBe('Finish the 2 things above first');
   });
 
-  it('a recommended ticket link never blocks: it sits under Optional, no circle, and Go live sends ONE set_lifecycle live', async () => {
+  it('a recommended ticket link never blocks: it sits under Optional (numbered on its own), and Go live sends ONE set_lifecycle live', async () => {
     check = { data: { ...READY, recommended: [{ code: 'ticket_link', section: 'tickets' }] }, error: null };
     mount(ORG_PATHS.event(DRAFT), routes);
     const item = await screen.findByTestId('org-life-item-ticket_link');
-    expect(item.textContent).toBe('Add a ticket link');
-    expect(screen.queryByTestId('org-life-item-ticket_link-circle')).toBeNull();
+    expect(words(item)).toBe('Add a ticket link');
+    expect(screen.getByTestId('org-life-item-ticket_link-n').textContent).toBe('1'); // optional rows are numbered on their own
     expect(screen.getByTestId('org-life-optional-head').textContent).toBe('Optional');
     expect(screen.getByTestId('org-life-list-head').textContent).toBe('Ready to go live');
     expect(screen.queryByTestId('org-life-count')).toBeNull();
@@ -268,7 +271,7 @@ describe('the rule is the server\'s', () => {
     check = { data: { ...READY, ready: false, profile_missing: [{ area: 'dancer', organiser_id: null, fields: ['photo', 'city'] }, { area: 'organiser', organiser_id: ORG, fields: ['logo'] }] }, error: null };
     mount(ORG_PATHS.event(DRAFT), routes);
     const row = await screen.findByTestId('org-life-profile');
-    expect(row.textContent).toBe('Finish your profile (3 answers left)');
+    expect(words(row)).toBe('Finish your profile (3 answers left)');
     // The wizard opens ON the incomplete page (RELEASE-A-WEB finding 3).
     expect(row.getAttribute('href')).toBe(`${WIZARD}?o=${ORG}&${back(DRAFT)}`);
     expect(screen.getByTestId('org-life-count').textContent).toBe('1 thing left');
@@ -307,8 +310,9 @@ describe('D82: the Go live card, every state', () => {
     await waitFor(() => expect(btn.getAttribute('aria-disabled') === 'true').toBe(!enabled));
     if (heading) expect(screen.getByTestId('org-life-list-head').textContent).toBe(heading); else expect(screen.queryByTestId('org-life-list-head')).toBeNull();
     expect(screen.queryByTestId('org-life-count')?.textContent ?? null).toBe(count);
-    // The count equals the required rows shown (one circle each).
-    expect(document.querySelectorAll('[data-testid="org-life-list"] ul:first-of-type svg.lucide-circle').length).toBe(rows);
+    // The count equals the required rows shown (one number each, 1..N in order).
+    const nums = [...document.querySelectorAll('[data-testid="org-life-list"] ol:first-of-type [data-testid$="-n"]')].map((n) => n.textContent);
+    expect(nums).toEqual(Array.from({ length: rows }, (_, i) => String(i + 1)));
     expect(btn.tagName).toBe('BUTTON');
     if (reason) expect(reasonOf(btn)).toBe(reason);
   });
@@ -446,5 +450,37 @@ describe('loading or an error of either RPC never locks and never crashes', () =
     fireEvent.click(await screen.findByTestId('org-life-golive'));
     await screen.findByTestId('org-done-message');
     expect(seriesCommands()).toHaveLength(1);
+  });
+});
+
+describe('D85: the card is a numbered to-do, and on a draft it leads the screen', () => {
+  const FIRST = Node.DOCUMENT_POSITION_FOLLOWING;
+  it('numbers 1..N for the required rows, no checkbox or radio role, no circle icon', async () => {
+    check = { data: { ...READY, ready: false, event_missing: [{ code: 'venue', section: 'venue' }, { code: 'cover', section: 'cover' }], recommended: [{ code: 'ticket_link', section: 'tickets' }], profile_missing: PROFILE }, error: null };
+    mount(ORG_PATHS.event(DRAFT), routes);
+    const card = await screen.findByTestId('org-life-list');
+    await waitFor(() => expect(card.querySelectorAll('[data-testid$="-n"]').length).toBeGreaterThan(2));
+    const required = [...card.querySelectorAll('ol:first-of-type [data-testid$="-n"]')].map((n) => n.textContent);
+    expect(required).toEqual(['1', '2', '3']);
+    expect(card.querySelector('[role="checkbox"], [role="radio"], [role="switch"], input, svg.lucide-circle, svg.lucide-circle-check, svg.lucide-square')).toBeNull();
+    // the whole row is the link, with a trailing chevron
+    const row = screen.getByTestId('org-life-item-venue');
+    expect(row.tagName).toBe('A');
+    expect(row.querySelector('svg.lucide-chevron-right')).not.toBeNull();
+  });
+
+  it('a draft shows the card BEFORE the dates', async () => {
+    check = { data: notReady('venue', 'venue'), error: null };
+    mount(ORG_PATHS.event(DRAFT), routes);
+    const card = await screen.findByTestId('org-life');
+    const dates = await screen.findByTestId('org-coming');
+    expect(card.compareDocumentPosition(dates) & FIRST).toBeTruthy();
+  });
+
+  it('a live event keeps the card AFTER the dates', async () => {
+    mount(ORG_PATHS.event(A), routes);
+    const dates = await screen.findByTestId('org-coming');
+    const card = await screen.findByTestId('org-life');
+    expect(dates.compareDocumentPosition(card) & FIRST).toBeTruthy();
   });
 });

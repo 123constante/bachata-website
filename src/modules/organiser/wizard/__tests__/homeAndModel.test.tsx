@@ -117,7 +117,7 @@ afterEach(cleanup);
 
 describe('Home: ONE "Complete your profile" button', () => {
   it.each([
-    [37, 3, false, '3 answers left', 'Starter'],
+    [37, 3, false, '3 answers left. Needed before your events can go live.', 'Finish your profile'],
     [64, 0, true, 'Ready to publish', 'Ready to publish'],
   ])('percent %i / required_left %i: ring and level are the RPC\'s', async (percent, left, ready, text, level) => {
     progress = { ...progress, percent, required_left: left, publish_ready: ready };
@@ -127,7 +127,8 @@ describe('Home: ONE "Complete your profile" button', () => {
     expect(btn.getAttribute('data-percent')).toBe(String(percent));
     expect(screen.getByTestId('home-profile-ring').getAttribute('data-percent')).toBe(String(percent));
     expect(screen.getByTestId('home-profile-level').textContent).toContain(text);
-    expect(screen.getByTestId('home-profile-level').textContent).toContain(level);
+    if (left > 0) expect(screen.getByTestId('home-profile-level').textContent).not.toContain('Ready to publish');
+    expect(btn.textContent).toContain(left > 0 ? level : 'Complete your profile');
     fireEvent.click(btn);
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(PROFILE_WIZARD_PATH));
   });

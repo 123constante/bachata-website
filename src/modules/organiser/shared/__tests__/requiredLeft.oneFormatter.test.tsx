@@ -46,7 +46,7 @@ describe.each([
   it('Home: the button\'s line', async () => {
     markFinishLater('u1', Date.now()); // no auto-open
     wrap(<ProfileButton organiserId="org-1" userId="u1" />);
-    expect((await screen.findByTestId('home-profile-level')).textContent).toBe(`Starter. Finish your profiles, ${text}`);
+    expect((await screen.findByTestId('home-profile-level')).textContent).toBe(`${text}. Needed before your events can go live.`);
   });
 
   it('My page: the required line', async () => {

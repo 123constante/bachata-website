@@ -494,3 +494,59 @@ Light theme not shot (the organiser theme is dark-only in this harness): NOT VER
 
 ## Not verified (D82)
 No real-data walk, no Vercel preview, no light theme, no phone-suite run; pastonly shot uses the same server codes as dates plus session.
+
+## Home + background (D83, D84) and Go live polish (D85)
+
+### D84: plain background
+`src/components/layout/plainBackground.ts` holds the ONE list `PLAIN_BACKGROUND_ROUTES = ['/invite', '/admin/organisers']`
+(+ `isPlainBackgroundPath`, matches the route and anything under it). `GlobalLayout` reads it: on those paths the wash is a
+fixed `#0f0d0b` layer (the `.org-theme --bg`), no floating doodles, no animated gradient. Site header and breadcrumb stay (the
+organiser area has its own shell, but these two pages still render inside the site frame). Nothing else changed.
+Test: `src/components/layout/__tests__/plainBackground.test.tsx` (both route families plain, `/`, `/parties`, `/organisers`,
+`/invites`, `/admin/organisers-x` keep the wash). GlobalLayout background layers now carry `data-testid="layout-bg" data-bg=...`.
+
+### D83: copy, before -> after
+| where | before | after |
+|---|---|---|
+| Home profile card title (answers left) | Complete your profile | Finish your profile |
+| Home profile card sub | `Starter. Finish your profiles, 2 answers left` / `Ready to publish ...` | `2 answers left. Needed before your events can go live.` (`1 answer left` singular; level name only when 0 left; card hidden as before at 0 + dismissed) |
+| heading over jobs | (none) | Your to-do list |
+| empty list | (none) | Nothing to do right now. To put something on, tap New event below. (unreachable from `homeJobs` today, it always returns at least one job; covered by a forced test) |
+| stale_draft title / sub | `<event>` / `Draft, 287 days` | `Finish and go live: <event>` / `Not live yet, started 287 days ago` (`1 day`) |
+| no_dates_left | `<event>` / `Needs dates` | `Add dates: <event>` / `No coming dates, so dancers see nothing` |
+| no_cover | `<event>` / `Needs a flyer` | `Add a flyer: <event>` / `Events with a flyer get more clicks` |
+| create_first_event | New event | Create your first event |
+| join_request | Wants to join | Answer a request to join (sub: requester email, unchanged) |
+| change / add / cancel / add_manager | Change a date / Add a date / Cancel a date / Add a manager | unchanged (already verb + object) |
+| My events chip, stale draft | Draft, 9 days | Not live yet |
+| My events chip, other problems | Needs dates / Needs a flyer | unchanged |
+
+One map: `PROBLEM_COPY` in `jobs/homeJobs.ts` holds `chip`, `title(name)` and `sub()` per problem; `seriesChip` and `homeJobs` both read it.
+Decision: a NOT-stale draft's chip keeps the shared status word and age (`Draft, 2 days`), because the G1 consistency tests pin one status word per lifecycle across My events, One event and the date page. Only the Home problem (stale) chip became `Not live yet`.
+Files: `jobs/homeJobs.ts`, `home/ProfileButton.tsx` (`PROFILE_TODO_LABEL`, `profileTodoSub`), `home/homeView.ts` (`TODO_HEADING`, `TODO_EMPTY`), `home/index.tsx`.
+Tests: new `home/__tests__/HomeTodo.test.tsx` (every JobKind verb + event name, 8/9/287-day subs, London-day count, profile card 1/2/3 left, 0 left, heading, empty state). Updated old-word assertions in `homeJobs.matrix`, `HomeR1`, `requiredLeft.oneFormatter`, `homeAndModel` (no `Draft, ` / old profile words remain in tests/ or e2e).
+
+### D85: Go live card
+Files: `events/LifecycleActions.tsx`, `events/lifecycleModel.ts` (`goLiveLeads`), `events/OneEvent.tsx`.
+- Circles replaced by plain numbers (`<ol>`, number aria-hidden, whole row still the link, trailing chevron). Required rows 1..N (event rows, then the profile row); Optional rows are numbered on their own (1, 2, ...) under the "Optional" heading, so the numbers never disagree with "N things left". No checkbox/radio/circle icon on the card.
+- `goLiveLeads(ws)` (= `lifecycleRows(ws).goLive !== null`, the card's own draft fact; true for draft and rejected) puts the whole card above the month dots and dates; a live event keeps it last. The card still contains See it live and Discard (unchanged).
+- Tests (in `goLive.webA1a.test.tsx`, "D85"): numbers 1..N, no checkbox/radio/switch/input/circle svg, row is a link with chevron; draft: card precedes `org-coming`; live: follows it. Existing tests moved from circle selectors to number selectors and read row words via `words()`.
+
+### Red first
+On the unfixed sources (stash of GlobalLayout/homeJobs/ProfileButton/index): `HomeTodo` + `plainBackground` = 23 failed | 7 passed. D85 tests on unfixed LifecycleActions/OneEvent: 2 failed (numbers, draft order) | 1 passed (live order, which must not move). All pass after.
+
+### Screens
+`screens/RELEASE-A-WEB/` at 390x844 and 360x640 (Playwright against the repo's fake Supabase, signed-in owner; temp spec and config deleted, not committed): `home-claim-notice`, `home-empty` (a brand-new page: first-steps list, the literal empty list is unreachable), `admin-invite-page`, `invite-email-unproven`, `mypage-required`, `golive-draft-missing`, `golive-draft-dates`, `golive-rejected`, `golive-ready`, new `golive-live`. (`golive-draft-pastonly` NOT re-shot; the old one is stale.) Looked at: Home 390, Go live 390, admin + invite 390, my page 360. No horizontal overflow in any shot (scrollWidth - clientWidth = 0). Contrast (dark theme): sub-line `--warn-fg #ffd58a` on `--card #1a1713` and muted text `#a39a8b` on `#1a1713`/`#0f0d0b` computed from the tokens: 12.87:1, 6.42:1, 6.98:1 (all >= 4.5). Job rows min-height 56 px, Go live button 44 px. The organiser theme is dark only: light theme N/A.
+
+### CI
+| job | step | command | exit |
+|---|---|---|---|
+| lint chain | 20 links | `npm run lint` | integrity link failed exit 126 (`bin/check-integrity.sh` has no exec bit in this sandbox); `bash bin/check-integrity.sh` = ok, 0 issues; all other links PASS; eslint link skipped by the chain |
+| typecheck | tsc | `npx tsc --noEmit -p .` | 0 (no output) |
+| eslint | changed files | `npx eslint <changed dirs>` | 0 errors, 4 warnings (react-refresh export warnings, same kind as before) |
+| unit | organiser + admin-organisers + components | `npx vitest run src/modules/organiser src/modules/admin-organisers src/components` | 0 |
+| build | production | `npm run build` | 0 |
+| full unit, e2e smoke, phone-qa, pre-ship | - | - | NOT RUN here (pre-push hook runs the suite once) |
+
+### Not verified
+No real-data shape survey or prod read; no Vercel preview; no light theme; no real phone; full `test:unit` result: see final report. The contrast figures were computed from the tokens, not measured in browser. `golive-draft-pastonly` not re-shot.

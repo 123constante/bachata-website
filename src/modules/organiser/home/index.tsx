@@ -10,7 +10,7 @@ import type { Job } from '@/modules/organiser/jobs/homeJobs';
 import { cn } from '@/lib/utils';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { ErrorState, GhostButton, PrimaryButton, SkeletonRows, useAnnounce } from '../ui';
-import { SMALL_BUTTONS, isFirstSteps, newEventBlock } from './homeView';
+import { SMALL_BUTTONS, TODO_EMPTY, TODO_HEADING, isFirstSteps, newEventBlock } from './homeView';
 import { useHomeData } from './useHomeData';
 import { OnboardingView } from './onboarding/OnboardingView';
 import { ProfileButton } from './ProfileButton';
@@ -170,9 +170,14 @@ export default function HomePage() {
       ) : (
         <div className="space-y-[12px]">
           <ProfileButton key={selected?.id ?? 'none'} organiserId={selected?.id ?? null} userId={user.id} />
-          <ol data-testid="home-jobs" className="overflow-hidden rounded-[16px] border border-[var(--line)] bg-[var(--card)] [&>li:last-child>button]:border-b-0">
-            {jobs.map((job) => <JobRow key={`${job.kind}-${job.n}`} job={job} />)}
-          </ol>
+          <h2 data-testid="home-todo-heading" className="px-[4px] text-[15px] font-bold text-[var(--fg)]">{TODO_HEADING}</h2>
+          {jobs.length === 0 ? (
+            <p data-testid="home-todo-empty" className="rounded-[16px] border border-[var(--line)] bg-[var(--card)] px-[16px] py-[12px] text-[14px] text-[var(--mut)]">{TODO_EMPTY}</p>
+          ) : (
+            <ol data-testid="home-jobs" className="overflow-hidden rounded-[16px] border border-[var(--line)] bg-[var(--card)] [&>li:last-child>button]:border-b-0">
+              {jobs.map((job) => <JobRow key={`${job.kind}-${job.n}`} job={job} />)}
+            </ol>
+          )}
           <NewEventButton block={newEventBlock(selected)} pageId={organisers.length > 1 ? selected?.id ?? null : null} />
           <div className="grid grid-cols-2 gap-[8px]" data-testid="home-small-buttons">
             {SMALL_BUTTONS.map((b) => (

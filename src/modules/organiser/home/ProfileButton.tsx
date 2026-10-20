@@ -13,6 +13,9 @@ import { markNotNow, readNudge } from '../wizard/nudgeStore';
 import { canSayNotNow, levelName, levelOf, shouldAutoOpen, showHomeButton } from '../wizard/wizardModel';
 
 export const PROFILE_BUTTON_LABEL = 'Complete your profile';
+/** D83: while required answers are missing the card is a to-do, named as one. */
+export const PROFILE_TODO_LABEL = 'Finish your profile';
+export const profileTodoSub = (left: number): string => `${requiredLeftText(left)}. Needed before your events can go live.`;
 
 export function ProfileButton({ organiserId, userId, now = Date.now }: { organiserId: string | null; userId: string; now?: () => number }) {
   const navigate = useNavigate();
@@ -29,8 +32,9 @@ export function ProfileButton({ organiserId, userId, now = Date.now }: { organis
 
   if (!p || !showHomeButton(p, nudge, now())) return null;
   const level = levelName(levelOf(p));
-  // C14's words while required answers are missing; the level name after.
-  const sub = p.requiredLeft > 0 ? `${level}. Finish your profiles, ${requiredLeftText(p.requiredLeft)}` : level;
+  // D83's words while required answers are missing (never the level name then: "Ready to publish" contradicted the count); the level name after.
+  const todo = p.requiredLeft > 0;
+  const sub = todo ? profileTodoSub(p.requiredLeft) : level;
   return (
     <div className="space-y-[4px]" data-testid="home-profile">
       <button
@@ -42,7 +46,7 @@ export function ProfileButton({ organiserId, userId, now = Date.now }: { organis
       >
         <ProgressRing percent={p.percent} testId="home-profile-ring" />
         <span className="min-w-0 flex-1">
-          <span className="block text-[16px] font-semibold leading-[20px] text-[var(--fg)]">{PROFILE_BUTTON_LABEL}</span>
+          <span className="block text-[16px] font-semibold leading-[20px] text-[var(--fg)]">{todo ? PROFILE_TODO_LABEL : PROFILE_BUTTON_LABEL}</span>
           <span className="block text-[13px] text-[var(--mut)]" data-testid="home-profile-level">{sub}</span>
         </span>
         <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />

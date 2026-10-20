@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Circle, ExternalLink } from 'lucide-react';
+import { ChevronRight, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { lifecycleCommand, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
 import { eventWorkspaceQueryKey } from '@/modules/organiser/shared/runCommands';
@@ -35,11 +35,16 @@ function Off({ label, reason, testId, tone = 'text-[var(--mut)]' }: { label: str
   );
 }
 
-function Line({ line }: { line: GoLiveLine }) {
+/** D85: a plain number, never a tick-box or radio shape; the <ol> already numbers the list for a screen reader. */
+function Num({ n, testId }: { n: number; testId: string }) {
+  return <span aria-hidden="true" data-testid={testId} className="w-[20px] shrink-0 text-center text-[15px] font-semibold text-[var(--mut)]">{n}</span>;
+}
+
+function Line({ line, n }: { line: GoLiveLine; n: number }) {
   const testId = `org-life-item-${line.code}`;
   const body = (
     <>
-      {!line.recommended && <Circle aria-hidden="true" data-testid={`${testId}-circle`} className="h-[20px] w-[20px] shrink-0 text-[var(--mut)]" />}
+      <Num n={n} testId={`${testId}-n`} />
       <span className="min-w-0 flex-1 text-[var(--fg)]">{line.label}</span>
     </>
   );
@@ -65,22 +70,22 @@ function GoLiveListView({ check, seriesId, linked }: { check: GoLiveCheck; serie
         <p className="text-[15px] font-semibold text-[var(--fg)]" data-testid="org-life-list-head">{left ? STILL_NEEDED : READY_HEADING}</p>
         {left > 0 && <p className="text-[13px] text-[var(--mut)]" data-testid="org-life-count">{thingsLeftText(left)}</p>}
       </div>
-      <ul>
-        {list.missing.map((l) => <li key={l.code}><Line line={l} /></li>)}
+      <ol>
+        {list.missing.map((l, i) => <li key={l.code}><Line line={l} n={i + 1} /></li>)}
         {list.profile && (
           <li>
             <Link to={list.profile.href} data-testid="org-life-profile" className={ROW}>
-              <Circle aria-hidden="true" className="h-[20px] w-[20px] shrink-0 text-[var(--mut)]" />
+              <Num n={list.missing.length + 1} testId="org-life-profile-n" />
               <span className="min-w-0 flex-1 text-[var(--fg)]">{list.profile.label}</span>
               <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
             </Link>
           </li>
         )}
-      </ul>
+      </ol>
       {list.recommended.length > 0 && (
         <>
           <p className="px-[16px] pt-[8px] text-[13px] font-semibold text-[var(--mut)]" data-testid="org-life-optional-head">{OPTIONAL_HEADING}</p>
-          <ul>{list.recommended.map((l) => <li key={l.code}><Line line={l} /></li>)}</ul>
+          <ol>{list.recommended.map((l, i) => <li key={l.code}><Line line={l} n={i + 1} /></li>)}</ol>
         </>
       )}
     </div>

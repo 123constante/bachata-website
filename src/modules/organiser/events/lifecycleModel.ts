@@ -122,3 +122,6 @@ export function lifecycleRows(ws: EventWorkspace, _today?: string): LifecycleRow
   if (status === 'live') return { goLive: null, discard: null, seeLive: { href: publicEventPath(ws.series), reason: null } };
   return { goLive: null, discard: null, seeLive: null };
 }
+
+/** D85: a not-live event (draft, rejected) leads with its Go live card, above the dates; a live one keeps it below. */
+export const goLiveLeads = (ws: EventWorkspace): boolean => lifecycleRows(ws).goLive !== null;
