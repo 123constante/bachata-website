@@ -10,6 +10,7 @@ import { OrganiserShell } from '../../shell';
 import { ORG_PATHS } from '../../shell/paths';
 import { ErrorState, SkeletonRows } from '../../ui';
 import { goDone } from '../doneState';
+import { SeriesLockGate } from '../../events/ProfileLock';
 import { EventConflict } from '../event/parts';
 import { FLYER_WORD } from '../../shared/flyerLabel';
 import { COVER_TITLE, coverDone, coverFixCommands } from './coverModel';
@@ -19,7 +20,12 @@ import { COVER_TITLE, coverDone, coverFixCommands } from './coverModel';
  * upload), send ONE series.upsert {default_cover_image_url}, land on Done
  * "Flyer added". The Home no_cover row, New event and Event details link here.
  */
+/** C14: the flyer is locked while profiles are unfinished. */
 export default function CoverFlow() {
+  return <SeriesLockGate title="Flyer"><CoverFlowScreen /></SeriesLockGate>;
+}
+
+function CoverFlowScreen() {
   const { seriesId = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

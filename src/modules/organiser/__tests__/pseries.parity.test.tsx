@@ -80,19 +80,14 @@ const where = () => screen.getByTestId('where').textContent;
 const lastCommand = () => commandsOf(rpc).slice(-1)[0]?.env.command;
 
 describe('C28b / C30b / C38: the lifecycle card on One event', () => {
-  it('a draft offers Go live OFF with the reason (A1 not applied) and names what is missing', async () => {
+  it('a draft offers Go live OFF with the reason (A1 not applied); what is missing is the server list (A-WEB1a)', async () => {
     const { container } = mount(ORG_PATHS.event(DRAFT), routes);
     const go = await screen.findByTestId('org-life-golive');
     expect(go.getAttribute('aria-disabled')).toBe('true');
-    const reason = screen.getByTestId('org-life-golive-reason').textContent ?? '';
-    expect(reason).toContain('Needs the next platform update');
-    expect(reason).toMatch(/a venue/);
-    expect(reason).toMatch(/a flyer/);
-    // Walk fix: the venue and cover are on Details, so the card names it AND links there.
-    // This draft has no date either: that is added with Add a date, never "in Details" (PAR-B S7).
-    expect(reason).toMatch(/a venue and a flyer in Details, and add a date from today on with Add a date\.$/);
-    expect(screen.getByTestId('org-life-details').getAttribute('href')).toBe(ORG_PATHS.eventDetails(DRAFT));
-    expect(screen.getByTestId('org-life-add-date').getAttribute('href')).toBe(ORG_PATHS.addEvent(DRAFT));
+    // The go-live rule is the server's (series_go_live_check_v1); this fake has none, so only the A1 reason shows.
+    // The list, its words and its links: events/__tests__/goLive.webA1a.test.tsx.
+    expect(screen.getByTestId('org-life-golive-reason').textContent).toBe('Needs the next platform update.');
+    expect(screen.queryByTestId('org-life-list')).toBeNull();
     fireEvent.click(go);
     await flush();
     expect(commandsOf(rpc)).toEqual([]);

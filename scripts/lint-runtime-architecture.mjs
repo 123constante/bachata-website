@@ -58,8 +58,12 @@ const RULES = [
     // Only their boundary file may read the key; it maps it to camelCase.
     // redeem_organiser_invite_v1 (arc PR 4b) answers with the same key; its parser and the specs
     // that feed it a server answer are the only other readers.
+    // series_go_live_check_v1 (People arc A-WEB1a) answers profile_missing[].organiser_id the same way; its
+    // boundary parser and the spec that feeds it a server answer (and a workspace row) read it.
     allowFiles: new Set([
       'src/modules/organiser/shared/selfServeApi.ts',
+      'src/modules/organiser/shared/goLiveCheck.ts',
+      'src/modules/organiser/events/__tests__/goLive.webA1a.test.tsx',
       'src/modules/admin-organisers/inviteModel.ts',
       'src/modules/admin-organisers/__tests__/inviteModel.test.ts',
       'src/modules/admin-organisers/__tests__/routes.matrix.test.tsx',

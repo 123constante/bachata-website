@@ -1,11 +1,21 @@
-// The event as a whole (P-SERIES, PARITY-GAP C28a/C28b/C30b/C38): what a draft
-// still needs before it can go live, and which lifecycle rows One event shows.
-// Pure; the ONE mapping the lifecycle card and the parity matrix both read.
+// The event as a whole (P-SERIES, PARITY-GAP C28a/C28b/C30b/C38; People arc
+// A-WEB1a): which lifecycle rows One event shows, and what Go live lists. The
+// go-live RULE is the server's (series_go_live_check_v1, shared/goLiveCheck):
+// this file only lays out its answer, in its order. Pure.
 
-import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
 import { publicEventPath } from '@/modules/organiser/shared/editorGuards';
-import { FLYER_WORD } from '@/modules/organiser/shared/flyerLabel';
+import {
+  goLiveFixHref,
+  goLiveLabel,
+  profileFieldsLeft,
+  profileRowLabel,
+  showsProfileRow,
+  withReturnTo,
+  type GoLiveCheck,
+} from '@/modules/organiser/shared/goLiveCheck';
+import { PROFILE_WIZARD_PATH } from '@/modules/organiser/shared/profileProgress';
+import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import type { EventWorkspace } from './eventModel';
 
 /** Going live from a draft waits on the admin A1 migration; plain words, no jargon. */
@@ -13,49 +23,66 @@ export const A1_REASON = 'Needs the next platform update';
 export const SEE_LIVE_DRAFT_REASON = 'Dancers can see it once it is live.';
 /** PAR-B B1: a draft with nothing missing, waiting only on A1. The ONE ready sentence. */
 export const GO_LIVE_READY = 'Your event is ready. Go live switches on here after the next platform update.';
-/** The one missing item that is not set on Details: a date is added with Add a date (PAR-B S7). */
-export const MISSING_DATE = 'a date from today on';
+/** The heading over the server's list. */
+export const STILL_NEEDED = 'Still needed to go live';
 
-/**
- * What a draft still needs, in the order the organiser fixes it. The server's
- * readiness (event_publish_readiness_v1) checks name, venue, city and a start
- * date; it does not check a cover or a date still to come, which the go-live
- * gate (A1b) also needs, so those are added here.
- */
-export function goLiveMissing(ws: EventWorkspace, today: string): string[] {
-  const s = ws.series;
-  const missing: string[] = [];
-  if (!s.name.trim()) missing.push('a name');
-  // The city rides with the venue (Details sends both), so a venue stands for both.
-  if (!s.default_venue_id) missing.push('a venue');
-  const coming = upcomingDates(ws.dates, today).some((d) => d.lifecycle_status === 'scheduled');
-  if (!coming && !(s.default_start_date && s.default_start_date >= today)) missing.push(MISSING_DATE);
-  if (!s.default_cover_image_url) missing.push(`a ${FLYER_WORD}`);
-  return missing;
-}
+/** One line of the Go live list: the label from the one map, and the screen that fixes it (null: no screen, no link). */
+export interface GoLiveLine { code: string; label: string; href: string | null; recommended: boolean }
 
-const list = (items: string[]) =>
-  items.length === 1 ? items[0] : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
-
-/** Why Go live is off, or null when it can be pressed. Each reason names where to do it. */
-export function goLiveReason(ws: EventWorkspace, today: string, a1 = A1_APPLIED): string | null {
-  const missing = goLiveMissing(ws, today);
-  // Name, venue and cover are set on Details; a date is added with Add a date. The card links to each (LifecycleActions).
-  const details = missing.filter((m) => m !== MISSING_DATE);
-  const parts = [
-    details.length ? `add ${list(details)} in Details` : null,
-    missing.includes(MISSING_DATE) ? `add ${MISSING_DATE} with Add a date` : null,
-  ].filter((p): p is string => !!p);
-  const add = parts.length ? parts.join(', and ') : null;
-  if (!a1) return add ? `${A1_REASON}. Before then, ${add}.` : GO_LIVE_READY;
-  return add ? `To go live, ${add}.` : null;
+export interface GoLiveList {
+  /** Blocking items, in the server's order. */
+  missing: GoLiveLine[];
+  /** Never blocking (the ticket link). */
+  recommended: GoLiveLine[];
+  /** The ONE profile row, when the profile rule applies and something is left. */
+  profile: { label: string; href: string } | null;
 }
 
 /**
- * `toDetails`: something missing is set on Details, so the card offers Open Details.
- * `toAddDate`: no date from today on, so the card offers Add a date.
+ * The server's answer as the card's lines. `linked` false (the edit lock is on)
+ * leaves the event items without links: they would point at locked controls.
  */
-export type LifecycleRow = { reason: string | null; toDetails?: boolean; toAddDate?: boolean } | null;
+export function goLiveList(check: GoLiveCheck, seriesId: string, linked = true): GoLiveList {
+  const line = (recommended: boolean) => ({ code, section }: { code: string; section: string }): GoLiveLine =>
+    ({ code, label: goLiveLabel(code), href: linked ? goLiveFixHref(section, seriesId) : null, recommended });
+  return {
+    missing: check.eventMissing.map(line(false)),
+    recommended: check.recommended.map(line(true)),
+    profile: showsProfileRow(check)
+      ? { label: profileRowLabel(profileFieldsLeft(check)), href: withReturnTo(PROFILE_WIZARD_PATH, ORG_PATHS.event(seriesId)) }
+      : null,
+  };
+}
+
+/** Where one tap on Go live goes when the event is not ready: the FIRST missing item with a screen, else the profile. */
+export function firstFix(list: GoLiveList): string | null {
+  return list.missing.find((l) => l.href)?.href ?? list.profile?.href ?? null;
+}
+
+/** True when the list holds something that blocks (a recommended item never does). */
+export const blocks = (list: GoLiveList) => list.missing.length > 0 || list.profile !== null;
+
+/**
+ * What Go live does now. `check` undefined (loading, or the read failed): the
+ * button sends and the server decides; a readable refusal then shows the list.
+ */
+export type GoLiveState =
+  | { kind: 'locked'; reason: string }
+  | { kind: 'a1'; reason: string }
+  | { kind: 'send' }
+  | { kind: 'fix'; to: string };
+
+export function goLiveState(check: GoLiveCheck | undefined, seriesId: string, lock: { locked: boolean; reason: string | null }, a1 = A1_APPLIED): GoLiveState {
+  if (lock.locked) return { kind: 'locked', reason: lock.reason ?? '' };
+  const list = check ? goLiveList(check, seriesId) : null;
+  const notReady = !!check && (!check.ready || blocks(list!));
+  if (!a1) return { kind: 'a1', reason: check && !notReady ? GO_LIVE_READY : `${A1_REASON}.` };
+  // Nothing missing has a screen here (a code this site does not know yet): send, and the refusal shows the list.
+  const to = notReady ? firstFix(list!) : null;
+  return to ? { kind: 'fix', to } : { kind: 'send' };
+}
+
+export type LifecycleRow = { reason: string | null } | null;
 
 export interface LifecycleRows {
   goLive: LifecycleRow;
@@ -65,19 +92,14 @@ export interface LifecycleRows {
 }
 
 /**
- * Draft: Go live (off with its reason until A1 and readiness allow it), Discard
- * (set_lifecycle archived, draft -> archived is an owner transition on prod) and
- * See it live off. Live: See it live. Paused, ended, archived: none of the three.
+ * Draft: Go live (what it does comes from goLiveState), Discard (set_lifecycle
+ * archived, draft -> archived is an owner transition on prod) and See it live
+ * off. Live: See it live. Paused, ended, archived: none of the three.
  */
-export function lifecycleRows(ws: EventWorkspace, today: string, a1 = A1_APPLIED): LifecycleRows {
+export function lifecycleRows(ws: EventWorkspace, _today?: string): LifecycleRows {
   const status = ws.series.lifecycle_status;
   if (status === 'draft') {
-    const missing = goLiveMissing(ws, today);
-    return {
-      goLive: { reason: goLiveReason(ws, today, a1), toDetails: missing.some((m) => m !== MISSING_DATE), toAddDate: missing.includes(MISSING_DATE) },
-      discard: { reason: null },
-      seeLive: { href: null, reason: SEE_LIVE_DRAFT_REASON },
-    };
+    return { goLive: { reason: null }, discard: { reason: null }, seeLive: { href: null, reason: SEE_LIVE_DRAFT_REASON } };
   }
   if (status === 'live') return { goLive: null, discard: null, seeLive: { href: publicEventPath(ws.series), reason: null } };
   return { goLive: null, discard: null, seeLive: null };
