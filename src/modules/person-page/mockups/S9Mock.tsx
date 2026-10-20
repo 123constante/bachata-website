@@ -25,16 +25,16 @@ const EVENT_SERIES_ID = '34156f15-bf26-42bc-b6f1-bfb73007da43'; // live and the 
 /** Up to two initials; a leading "DJ" is not a name. */
 const initials = (name: string) => name.replace(/^dj\s+/i, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join('') || '?';
 /** Photo with a deliberate fallback: initials when there is no photo OR the photo fails to load. */
-function Photo({ src, name, w, className, style }: { src: string | null | undefined; name: string; w: number; className: string; style?: CSSProperties }) {
+export function Photo({ src, name, w, className, style }: { src: string | null | undefined; name: string; w: number; className: string; style?: CSSProperties }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) return <span className={`flex items-center justify-center rounded-full font-bold ${className}`} style={{ width: w, height: w, ...style }}>{initials(name)}</span>;
   return <img src={optimizedImageUrl(src, 160)} alt="" onError={() => setFailed(true)} className="rounded-full object-cover" style={{ width: w, height: w }} loading="lazy" />;
 }
-const GOLD = '#E7BE6E';
+export const GOLD = '#E7BE6E';
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
 /** Active roles for every person at once (person_roles is anon-readable). */
-function useRoles(ids: string[] | null) {
+export function useRoles(ids: string[] | null) {
   const [roles, setRoles] = useState<Record<string, string[]> | null>(null);
   useEffect(() => {
     if (!ids) return;
@@ -51,7 +51,7 @@ function useRoles(ids: string[] | null) {
 }
 
 /** People whose public teacher read is non-empty (a teacher page with something on it). */
-function useTeacherOk(ids: string[] | null) {
+export function useTeacherOk(ids: string[] | null) {
   const [ok, setOk] = useState<Set<string> | null>(null);
   useEffect(() => {
     if (!ids) return;
@@ -77,7 +77,7 @@ function useUpcomingDjs(ids: string[] | null) {
 }
 
 const Count = ({ children }: { children: ReactNode }) => <p className="mb-2 text-center text-xs text-muted-foreground" data-testid="s9-count">{children}</p>;
-const Role = ({ children, gold }: { children: ReactNode; gold?: boolean }) => (
+export const Role = ({ children, gold }: { children: ReactNode; gold?: boolean }) => (
   <span className="rounded-full px-1.5 py-px text-[9px] font-bold" style={gold ? { background: '#1a1410', color: GOLD, border: `1px solid ${GOLD}` } : { border: '1px solid hsl(var(--primary) / .35)', color: 'hsl(var(--foreground))' }}>{children}</span>
 );
 
@@ -217,7 +217,7 @@ function useNames(ids: string[] | null) {
 // ------------------------------------------------------------------ 4. organiser team strip, Option 2
 type Member = { id: string; name: string; avatar: string | null; code: string | null; labels: string[]; href: string | null };
 
-function useTeam(): Member[] | null {
+export function useTeam(): Member[] | null {
   const [team, setTeam] = useState<Member[] | null>(null);
   useEffect(() => {
     (async () => {
