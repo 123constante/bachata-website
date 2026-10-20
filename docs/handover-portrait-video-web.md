@@ -27,7 +27,12 @@ on b82b862 (3 failures), green now. Note: `videoWidth/Height` live on
 Left: orchestrator re-walks femme-style and the-camden-tuesdays in a browser.
 
 ## Fix pass 3 (portrait size)
-- Portrait frame cap is now a CSS variable: `frameStyle` width `min(100%, calc(var(--video-cap) * ratio))`; `VIDEO_CAP_CLASS` (`[--video-cap:55svh] md:[--video-cap:75svh]`) is applied to the non-landscape frame in `VideoFrame.tsx` and `VenueVideoEmbed.tsx`. Landscape unchanged.
+- Portrait frame cap is now a CSS variable: `frameStyle` width `min(100%, calc(var(--video-cap) * ratio))`; `VIDEO_CAP_CLASS` (`[--video-cap:35svh] md:[--video-cap:75svh]`) is applied to the non-landscape frame in `VideoFrame.tsx` and `VenueVideoEmbed.tsx`. Landscape unchanged.
 - Tailwind 3.4.19, default `md` = 768px (only `container.screens` is customised); build CSS confirmed to contain both classes.
 - Gates: new tests red on prior head (5 failures), green after; `test:unit` 15 failed (same count as first worker; tests/eventViewCompat.contract + tests/integrityCouldNotRun etc.), build 0, bundle-budget 0, eslint on touched files 0, tsc has pre-existing errors in unrelated files only.
 - Not verified in a browser: the orchestrator re-walks (expect ~261 wide at 390x844).
+
+## Fix pass 4 (phone cap 35svh)
+- Owner decision: phone cap 35svh (about 167x295 for 9:16 at 390x844); desktop (md+) stays 75svh; landscape unchanged. `VIDEO_CAP_CLASS` is now `'[--video-cap:35svh] md:[--video-cap:75svh]'`.
+- Note: the pass 3 line above was bulk-renamed to 35svh; it read 55svh at that time.
+- Tests asserting the literal tokens were red on 91c4bca (2 failures), green after.

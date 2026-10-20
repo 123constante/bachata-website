@@ -20,10 +20,10 @@ export const frameFor = (width?: number, height?: number): VideoFrameShape => {
 };
 
 /**
- * Sets --video-cap on the adaptive frame: 55svh on phones, 75svh from the md
+ * Sets --video-cap on the adaptive frame: 35svh on phones, 75svh from the md
  * breakpoint (768px, Tailwind default) up. Landscape frames do not use it.
  */
-export const VIDEO_CAP_CLASS = '[--video-cap:55svh] md:[--video-cap:75svh]';
+export const VIDEO_CAP_CLASS = '[--video-cap:35svh] md:[--video-cap:75svh]';
 
 /** Inline style for the adaptive (non-landscape) frame; undefined for landscape. */
 export const frameStyle = (frame: VideoFrameShape): CSSProperties | undefined =>

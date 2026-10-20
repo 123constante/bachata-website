@@ -180,6 +180,10 @@ describe('cross-surface consistency', () => {
 });
 
 describe('portrait cap class', () => {
+  it('cap literals are 35svh on phones and 75svh from md up', () => {
+    expect(VIDEO_CAP_CLASS).toContain('[--video-cap:35svh]');
+    expect(VIDEO_CAP_CLASS).toContain('md:[--video-cap:75svh]');
+  });
   const tokens = VIDEO_CAP_CLASS.split(' ');
   const hasAll = (el: HTMLElement) => tokens.every((t) => el.className.split(' ').includes(t));
   const hasNone = (el: HTMLElement) => tokens.every((t) => !el.className.split(' ').includes(t));

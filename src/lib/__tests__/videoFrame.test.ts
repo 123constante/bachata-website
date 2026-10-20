@@ -33,7 +33,7 @@ describe('frameFor', () => {
 
 
 describe('VIDEO_CAP_CLASS', () => {
-  it('is 55svh on phones and 75svh from md up', () => {
-    expect(VIDEO_CAP_CLASS).toBe('[--video-cap:55svh] md:[--video-cap:75svh]');
+  it('is 35svh on phones and 75svh from md up', () => {
+    expect(VIDEO_CAP_CLASS).toBe('[--video-cap:35svh] md:[--video-cap:75svh]');
   });
 });

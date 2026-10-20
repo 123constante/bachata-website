@@ -13,7 +13,7 @@ type VideoFrameProps = {
  * VideoFrame — owns the box around <VideoEmbed>. Landscape (and Vimeo / ordinary
  * YouTube) = 16:9. Direct clips are measured on loadedmetadata; YouTube Shorts
  * are portrait from the URL. Anything below LANDSCAPE_MIN_RATIO is shown whole,
- * centred on black, capped at 55svh (75svh from md up) (see src/lib/videoFrame.ts).
+ * centred on black, capped at 35svh (75svh from md up) (see src/lib/videoFrame.ts).
  */
 export const VideoFrame = ({ video, poster, title }: VideoFrameProps) => {
   const [measured, setMeasured] = useState<MeasuredFrame | null>(null);
