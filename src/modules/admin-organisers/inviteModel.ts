@@ -6,6 +6,7 @@
 // offer what the RPC would refuse.
 
 import { PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
+import { TEAM_CAP } from '@/modules/organiser/shared/teamModel';
 
 export type InviteStatus = 'sent' | 'used' | 'revoked' | 'expired';
 
@@ -181,6 +182,8 @@ export const REDEEM_COPY: Record<string, RedeemCopy> = {
   used: { title: 'This link was already used', body: `A link works once. If that was not you, ${ASK_NEW}`, action: 'home', terminal: true },
   revoked: { title: 'This link was withdrawn', body: ASK_NEW, action: 'home', terminal: true },
   expired: { title: 'This link has run out', body: `Links last 7 days. ${ASK_NEW}`, action: 'home', terminal: true },
+  // The page is at its cap (admin A1b). A joiner has no Remove control, so the shared TEAM_FULL_COPY ("Remove someone first") does not fit here: same cap, same support route, no absent control.
+  team_full: { title: 'This team is full', body: `This team already has ${TEAM_CAP} people, so you cannot join it yet. Ask the page owner to make room, or ask the Bachata Calendar team.`, action: 'home', terminal: true },
 };
 
 export const REDEEM_FALLBACK: RedeemCopy = { title: 'Something went wrong', body: 'We could not use this link. Check your connection and try again.', action: 'retry', terminal: false };
