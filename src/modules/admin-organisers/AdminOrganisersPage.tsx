@@ -38,6 +38,7 @@ import {
   type MemberRole,
 } from './inviteModel';
 
+import { InvitePerson } from './InvitePerson';
 import { isPlausibleEmail } from '@/modules/organiser/shared/emailShape';
 
 const PAGE_SIZE = 20;
@@ -221,6 +222,7 @@ function AdminOrganisersBody() {
   return (
     <div className="mx-auto max-w-2xl space-y-3 px-3 pb-24 pt-3" data-testid="admin-organisers">
       <h1 className="text-lg font-semibold">Organiser access</h1>
+      <InvitePerson organisers={list.data ?? []} />
       <label className="relative block">
         <Search className="pointer-events-none absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <input type="search" value={query} onChange={(e) => { setQuery(e.target.value); setLimit(PAGE_SIZE); }} placeholder="Search organisers" aria-label="Search organisers" className="h-11 w-full rounded-lg border border-border bg-background pl-8 pr-2 text-sm" data-testid="admin-search" />

@@ -225,7 +225,8 @@ describe('/invite/:token x viewer', () => {
     mount(`/invite/${TOKEN}`);
     const link = (await screen.findByTestId('invite-sign-in')) as HTMLAnchorElement;
     expect(decodeURIComponent(link.getAttribute('href') ?? '')).toContain(`returnTo=/invite/${TOKEN}`);
-    expect(h.rpc).not.toHaveBeenCalled();
+    // Only the masked-hint preview (D36) may run while signed out; the link is never used.
+    expect(h.rpc.mock.calls.map((c) => c[0]).filter((fn) => fn !== 'organiser_invite_preview_v1')).toEqual([]);
   });
 
   it('signed in (a non-admin is fine): redeems once, strips the token, lands on the dashboard', async () => {

@@ -66,6 +66,9 @@ const RULES = [
       'src/modules/admin-organisers/__tests__/fixup1.test.tsx',
       'src/modules/admin-organisers/__tests__/inviteWalkthrough.test.tsx',
       'src/modules/admin-organisers/__tests__/inviteJoiningAs.test.tsx',
+      // claim_my_organisers_v1 (people arc A-WEB2) answers {claimed:[{organiser_id, name}]}.
+      'src/lib/claimMyOrganisers.ts',
+      'src/pages/__tests__/AuthCallbackOrganiserClaim.test.tsx',
     ]),
   },
   {

@@ -96,3 +96,12 @@ export async function addOrganiserPerson(organiserId: string, email: string, rol
 export async function redeemOrganiserInvite(token: string) {
   return rpc('redeem_organiser_invite_v1', { p_token: token });
 }
+
+/**
+ * organiser_invite_preview_v1(p_token) (A-DB2, D36): anon-safe, answers a valid unredeemed token
+ * with {email_hint, organiser_name}, the hint already MASKED. Not on every database yet, so the
+ * caller treats any error or a missing function as "no hint".
+ */
+export async function previewOrganiserInvite(token: string) {
+  return rpc('organiser_invite_preview_v1', { p_token: token });
+}
