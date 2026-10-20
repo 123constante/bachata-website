@@ -146,3 +146,128 @@ a missing function; phone sizes measured in Chromium.
 - A-WEB1b: render `step.Component`, show `title` + `unlockLine`, and send answers with `submitRoleWizardStep`.
 - B-DB1: confirm `null` clears a scalar key and `[]` clears a list.
 - After B-DB1 is on a branch DB: run the table-driven screens against the real RPCs and the prod shape survey.
+
+---
+
+## Fix pass (ticket dt_927455dbd021)
+
+Brief: admin `brief/people-publishing-2026-10-20` `briefs/people-arc/FIX-B-WEB1.md`; review
+`docs/people-arc/reviews/B-WEB1.md` on `claude/review-people-b-web1`. Same owned paths; no PR.
+frontend-design skill: NOT loaded (not offered in this cloud session); built inside `.org-theme` tokens and R1's
+`ui/**` primitives (Card, Chip, GhostButton, PrimaryButton, SectionLabel, States) only. No new palette or font.
+
+### What changed, per finding
+
+| # | Fix | Where |
+|---|---|---|
+| 1 (D32) | Line-up rows grouped by series in SERVER order (first row of a series = its soonest date): one row per series, "<event name>" / "<next date>, <session>" / "and N more dates" (distinct dates; "1 more date" singular). First 10 series, then a 44 px "Show all N". 200-row fixture: 10 rows, page 1,175 px at 390x844 (was 12,377). | `shared/LineupList.tsx` (`groupLineup`, `moreDatesLine`, `LINEUP_FIRST`) |
+| 2 (D27) | `ListInput` reports its typed-not-added text upward (`onPendingChange`). The profile form's diff and the wizard's answer use `withPending` (trimmed; a case-insensitive duplicate is dropped; over the limits it is kept so validation says why instead of losing it). The Add button also refuses an item over 80 characters with a visible reason. | `shared/inputs.tsx`, `shared/roleModel.ts` (`withPending`, `withPendingDraft`), `RoleProfilePage.tsx`, `roleWizard.tsx` |
+| 3 | `no_profile` (from either RPC) renders ONE state with ONE action "Finish your dancer profile" -> `/finish-profile` (the real route, `FINISH_PROFILE_PATH` from `src/lib/profileCompletion.ts`; its no-profile page holds the next step, per `noProfileGate.test.tsx`). No retry, no line-up card. `not_signed_in` likewise: one "Sign in" -> `/auth`. Paths are props on all four pages (`dancerProfilePath`, `signInPath`) with those defaults. | `shared/BlockedState.tsx` (new), `RoleAreaPage.tsx`, `RoleProfilePage.tsx`, `paths.ts`, the four page shells |
+| 4 (D33) | A row with no slug renders as a plain row (no link, no chevron). | `LineupList.tsx` |
+| 5 | A wizard field step whose answer equals the server value sends nothing: Continue (or tapping the held Yes/No) calls `onSkip` instead of `onAnswer`. | `roleWizard.tsx` |
+| 6 | Client refuses control characters like the server's `[[:cntrl:]]` (U+0000-001F, U+007F-009F; pricing keeps `\n`) in text, links and list items. `invalid_text` now reads "too long or has a character that cannot be saved, such as a tab"; `invalid_list` names "no tabs or hidden characters". | `roleModel.ts`, `errorCopy.ts` |
+| 7 | Lengths counted in characters (`charLength` = `[...s].length`). The boxes' `maxLength` is 2x the limit (UTF-16 bound) so a valid emoji answer is never blocked; validation counts the rest. | `roleModel.ts`, `inputs.tsx` |
+| 8 | New server-order fixture that is neither name nor date order (Mid / Zeta / Alpha). Mutation "sort groups by name" -> 2 failed / 113 passed (was 0 failed). | `__tests__/areas.fixpass.test.tsx` |
+| 9, 10 | No change (D35). | |
+
+D26 design pass (wizard steps): the field label is `sr-only` (the shell's heading is the question), the hint line reads
+"Optional. <help>"; an empty step shows ONE quiet "Skip for now" text button (44 px), "Continue" appears only once
+something is entered (or a held value is cleared); Yes/No steps (`offers_private` and `doYouTeachStep`/`doYouDjStep`)
+answer on the tap, no Continue. Expressed through the contract with ADDITIVE optional fields only (D34):
+`WizardStepDef.advanceOnAnswer?: boolean` (true on Yes/No steps) and `labelIsQuestion?: boolean` (true on every role
+step). Pinned fields unchanged. **A-WEB1b**: render `title` as the screen heading, and do not render a Continue of
+your own for these steps.
+
+Copy: `no_profile` now reads "Your teacher and DJ details sit on your dancer profile. Finish it, then come back to add
+them." (the state's title is "Your dancer profile comes first"; the old sentence repeated the title).
+
+Also fixed: a pre-existing TS2345 in `__tests__/roleModel.test.ts:56` (typed the draft); `tsc -p tsconfig.app.json`
+now has zero errors under `src/modules/areas/**`.
+
+### Red first (on the slice head f45a568, before any fix)
+
+`npx vitest run src/modules/areas/__tests__/areas.fixpass.test.tsx`:
+```
+FAIL ... finding 1 (D32) ... a 200-row teacher gets one row per series, in server order, 10 first
+FAIL ... finding 1 (D32) ... a single date reads without "more dates"; one more date is singular
+FAIL ... finding 4 (D33) ... renders the row, but not as a link
+FAIL ... finding 2 (D27) ... profile: type, no Add -> Save is enabled and sends the term
+FAIL ... finding 2 (D27) ... wizard: Continue sends the typed term
+FAIL ... finding 3: {teacher,dj} {dashboard,profile} with no dancer profile > shows ONE state ... (4) and > signed out: one Sign in action (4)
+FAIL ... finding 3: the dancer profile path is a prop
+FAIL ... finding 5 ... years / list / text step prefilled and unchanged: Continue skips, no answer (3)
+FAIL ... finding 5 ... yes/no field step: tapping the held answer skips, the other answer answers
+FAIL ... D26 design pass (3)
+FAIL ... findings 6 and 7 (2)
+Test Files  1 failed (1)
+     Tests  23 failed | 2 passed (25)
+```
+(The 2 that passed on the old head: finding 8's order test, since the old code also kept server order, and the
+duplicate-term case; the finding 8 test is proven by the name-sort mutation above.)
+
+After the fix: `npx vitest run src/modules/areas` -> `Test Files 3 passed (3) / Tests 115 passed (115)`.
+Six old tests in `areas.screens.test.tsx` encoded the superseded behaviour and were updated: the no-slug row now has no
+href (D33); the "pinned refusal on load" row uses `invalid_role` (no_profile now has its own state); the wizard label is
+"Years teaching" (sr-only, D26) and the empty step offers Skip for now; the yes/no step answers on the tap (D26).
+
+### Phone checks (measured in Chromium, temporary harness, not committed)
+
+Harness: an untracked `tmp-harness/` Vite root with `@/integrations/supabase/client` aliased to a fake keyed by
+`?s=<scenario>`, removed before commit. 22 states x 390x844 and 360x640, reduced motion on. Every
+`button, a, input, textarea, [role=button]`: **0 under 44x44 px**; **no horizontal overflow** in any of the 44 renders.
+200-row teacher dashboard (15 series x ~13 dates): **1,175 px tall**, 10 rows + "Show all 15".
+
+Screenshots (390x844, all re-taken) in `docs/people-arc/screens/B-WEB1/`: teacher dashboard filled / empty / loading /
+error / **200-lineup** / **no-profile**; DJ dashboard filled / empty; teacher profile filled / empty / **no-profile** /
+**list-term-pending** (Save enabled); DJ profile filled / save refused; profile loading / error; wizard do-you-teach /
+years / styles / **styles-typed** / **private** (Yes/No on tap) / DJ pricing. (Bold = new.)
+
+### CI: every applicable job step, run in this sandbox on the fix-pass tree
+
+| job | step | command | exit |
+|---|---|---|---|
+| architecture-guard | integrity | `bin/check-integrity.sh` | 0 |
+| architecture-guard | legacy tables / legacy program RPCs | `check:legacy-tables`, `check:legacy-program-rpcs` | 0 / 0 |
+| architecture-guard | runtime architecture | `lint:architecture` | 0 |
+| architecture-guard | images (strict) | `AUDIT_STRICT=1 npm run check:images` (22 PNGs, 872 KB) | 0 |
+| architecture-guard | image widths | `check:image-widths:self-test`, `check:image-widths` | 0 / 0 |
+| architecture-guard | plan hygiene canary | `check:plan-hygiene:self-test` | 0 |
+| architecture-guard | workflow artifact policy | `:self-test`, guard | 0 / 0 |
+| architecture-guard | mojibake | `check:mojibake:self-test`; `src/modules/areas/**` is ASCII-only (grep `[^\x00-\x7F]`: none) | 0 / clean |
+| architecture-guard | entry-point proof | `prove:entry-point:self-test`, `prove:entry-point` | 0 / 0 |
+| typecheck | rpc typing / wallclock brand | `check:rpc-typing`, `check:wallclock-brand` | 0 / 0 |
+| unit-tests | dancer-area isolation | `--self-test`, guard | 0 / 0 |
+| unit-tests | offline suite | `npm run test:unit:offline` | 1: `5 failed / 9489 passed / 16 skipped`, all 5 in `tests/integrityCouldNotRun.test.ts`, the same 5 the author and the reviewer saw fail on `origin/main` in this sandbox (environmental) |
+| unit-tests | live contract suites | `ci-live-db-gate.mjs` + live specs | NOT RUN: need Supabase secrets; no DB code |
+| perf-budget | canaries | bundle-budget / first-load-requests / chunk-cycles self-tests | 0 / 0 / 0 |
+| perf-budget | build | `npm run build` (production) | 0 |
+| perf-budget | budgets | `check:bundle-budget`, `check:first-load-requests`, `check:chunk-cycles` | 0 / 0 / 0 |
+| perf-budget | doc weight / lighthouse | | NOT RUN: need a deployed preview; no VERCEL_TOKEN used |
+| db-contract-check | migration authority | `node scripts/check-migration-stamps.mjs` | 0 |
+| db-contract-check | live contract steps | | NOT RUN: need Supabase secrets; no DB code |
+| phone-qa / e2e-smoke | phone, build specs; `test:e2e` | | NOT RUN: pages are unrouted (B-WEB3), so no spec reaches them; measured in the harness instead |
+| phone-qa-section / real-data-verified | PR-body checks | | N/A: no PR |
+| local | lint chain | `npm run lint` | 0 |
+| local | targeted | `npx vitest run src/modules/areas` | 0 (115/115) |
+| local | types | `tsc -p tsconfig.app.json` filtered to `src/modules/areas` | 0 errors |
+
+### Verified / Not verified (fix pass)
+
+Verified: each finding's red-first test failing on f45a568 and passing now; the finding 8 name-sort mutation is caught;
+44 renders (22 states x 390x844 and 360x640) in Chromium with 0 tap targets under 44 px and no horizontal overflow;
+200-row dashboard is 1,175 px tall; production build and budgets green.
+
+Not verified:
+- Against the real RPCs (B-DB1 not on any database here): fakes at the one boundary only.
+- `/finish-profile` as the destination for a person with no persona: chosen from `AnimatedRoutes.tsx` +
+  `noProfileGate.test.tsx` (its no-profile page is the one with the next step); not walked signed-in.
+- Real screen reader on the sr-only wizard labels; real keyboard; a real phone. The wizard shell (A-WEB1b) is a
+  harness stand-in that renders `title` as an `<h1>`.
+- Contrast was not re-measured (no new colours; only existing tokens, previously measured at least 6.42:1).
+- No prod survey this pass (the review's counts were reused: max 202 teacher rows, 2 of 26 accounts without a persona).
+
+### Next steps
+
+- A-WEB1b: honour `labelIsQuestion` (render `title` as the heading) and `advanceOnAnswer` (no shell Continue);
+  pass `onSkip` on every optional role step (an unchanged answer moves on through it).
+- B-WEB3: pass `dancerProfilePath` / `signInPath` if the routes differ from `/finish-profile` / `/auth`.

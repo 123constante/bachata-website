@@ -1,7 +1,7 @@
 /** B-WEB1: the pinned key list, diff-first patches, client validation, completeness, error copy, response parsers. */
 import { describe, expect, it } from 'vitest';
 import { ROLE_FIELDS, roleFieldKeys, type Role } from '../shared/fieldRegistry';
-import { completeness, completenessLine, diffPatch, toDraft, validatePatch } from '../shared/roleModel';
+import { completeness, completenessLine, diffPatch, toDraft, validatePatch, type Draft, type DraftValue } from '../shared/roleModel';
 import { ROLE_ERROR_CODES, ROLE_ERROR_COPY, ROLE_ERROR_FALLBACK, roleErrorMessage } from '../shared/errorCopy';
 import { MALFORMED, parseDeclinedResult, parseLineup, parseRoleDetails, parseSaveResult } from '../shared/areaApi';
 import { teacherWizardSteps } from '../teacher/wizardSteps';
@@ -53,7 +53,7 @@ describe('diff-first: one changed key sends exactly that key', () => {
     ['dj', 'soundcloud', 'https://soundcloud.com/x', 'https://soundcloud.com/x'],
   ];
   it.each(cases)('%s.%s', (role, key, draftValue, sent) => {
-    const draft = { ...toDraft(role, EMPTY[role]), [key]: draftValue };
+    const draft: Draft = { ...toDraft(role, EMPTY[role]), [key]: draftValue as DraftValue };
     expect(diffPatch(role, EMPTY[role], draft)).toEqual({ [key]: sent });
   });
   it('clearing a filled text sends null, clearing a list sends []', () => {

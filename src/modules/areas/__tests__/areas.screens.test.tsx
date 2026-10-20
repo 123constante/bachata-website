@@ -81,7 +81,8 @@ describe.each(AREAS)('%s dashboard', (role, Page, line) => {
     answers.my_lineup_appearances_v1 = ok(LINEUP);
     mount(<Page />);
     const rows = await screen.findAllByTestId('lineup-row');
-    expect(rows.map((r) => r.getAttribute('href'))).toEqual(['/event/later-night', '/event/s1']);
+    // D33: the row with no slug has no link.
+    expect(rows.map((r) => r.getAttribute('href'))).toEqual(['/event/later-night', null]);
     expect((rows[0]).textContent).toContain('Later Night');
     expect((rows[0]).textContent).toContain('Beginners class');
     expect((rows[1]).textContent).toContain('Sooner Social');
@@ -96,9 +97,9 @@ describe.each(AREAS)('%s dashboard', (role, Page, line) => {
     await waitFor(() => expect(calls('my_role_details_v1').length).toBe(2));
   });
   it('a pinned refusal on load reads as its sentence', async () => {
-    answers.my_role_details_v1 = fail('no_profile');
+    answers.my_role_details_v1 = fail('invalid_role');
     mount(<Page />);
-    expect((await screen.findByTestId('details-error')).textContent).toContain(ROLE_ERROR_COPY.no_profile);
+    expect((await screen.findByTestId('details-error')).textContent).toContain(ROLE_ERROR_COPY.invalid_role);
   });
   it('asks only for its own role', async () => {
     mount(<Page />);
@@ -178,24 +179,24 @@ describe('wizard steps', () => {
     const onSkip = vi.fn();
     const { Component, field } = teacherWizardSteps[0];
     mount(<Component field={field} value={null} required={false} saving={false} error={null} onAnswer={onAnswer} onSkip={onSkip} />);
-    fireEvent.change(screen.getByLabelText('Years teaching (optional)'), { target: { value: '99' } });
+    fireEvent.change(screen.getByLabelText('Years teaching'), { target: { value: '99' } });
     fireEvent.click(screen.getByTestId('step-continue'));
     expect(onAnswer).not.toHaveBeenCalled();
     expect(screen.getByText(ROLE_ERROR_COPY.invalid_years)).toBeTruthy();
-    fireEvent.change(screen.getByLabelText('Years teaching (optional)'), { target: { value: '12' } });
+    fireEvent.change(screen.getByLabelText('Years teaching'), { target: { value: '12' } });
     fireEvent.click(screen.getByTestId('step-continue'));
     expect(onAnswer).toHaveBeenCalledWith(12);
+    fireEvent.change(screen.getByLabelText('Years teaching'), { target: { value: '' } });
     fireEvent.click(screen.getByTestId('step-skip'));
     expect(onSkip).toHaveBeenCalled();
   });
-  it('the yes/no step keeps Continue disabled with a reason until answered', () => {
+  it('the yes/no step answers on the tap; unanswered it offers only Skip for now', () => {
     const onAnswer = vi.fn();
     const { Component, field } = doYouDjStep;
-    mount(<Component field={field} value={null} required={false} saving={false} error={null} onAnswer={onAnswer} />);
-    expect((screen.getByTestId('step-continue')) as HTMLButtonElement).toHaveProperty('disabled', true);
-    expect(screen.getByText('Choose Yes or No to continue.')).toBeTruthy();
+    mount(<Component field={field} value={null} required={false} saving={false} error={null} onAnswer={onAnswer} onSkip={vi.fn()} />);
+    expect(screen.queryByTestId('step-continue')).toBeNull();
+    expect(screen.getByTestId('step-skip').textContent).toBe('Skip for now');
     fireEvent.click(screen.getByRole('button', { name: 'No' }));
-    fireEvent.click(screen.getByTestId('step-continue'));
     expect(onAnswer).toHaveBeenCalledWith(false);
   });
   it('unlock lines promise nothing but the next questions', () => {

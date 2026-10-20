@@ -20,14 +20,14 @@ export type RoleErrorCode = (typeof ROLE_ERROR_CODES)[number];
 export const ROLE_ERROR_COPY: Record<RoleErrorCode, string> = {
   not_signed_in: 'You are signed out. Sign in again, then save.',
   invalid_role: 'This area is not available. Go back and open it again.',
-  no_profile: 'Finish your dancer profile first, then come back to add these details.',
+  no_profile: 'Your teacher and DJ details sit on your dancer profile. Finish it, then come back to add them.',
   invalid_payload: 'Something in this form could not be saved. Check your answers and try again.',
   unknown_key: 'One of these details can no longer be saved. Reload the page and try again.',
   invalid_type: 'One answer is in the wrong form. Check it and try again.',
   invalid_years: 'Years must be a whole number from 0 to 80.',
-  invalid_text: 'This answer is too long. Shorten it and try again.',
+  invalid_text: 'This answer is too long or has a character that cannot be saved, such as a tab. Shorten it or remove that character, then try again.',
   invalid_link: 'Paste the full link, with no spaces, up to 300 characters.',
-  invalid_list: 'Lists can hold up to 20 items of up to 80 characters each.',
+  invalid_list: 'Lists can hold up to 20 items of up to 80 characters each, with no tabs or hidden characters.',
   rate_limited: 'Too many saves in a short time. Wait a minute, then try again.',
 };
 

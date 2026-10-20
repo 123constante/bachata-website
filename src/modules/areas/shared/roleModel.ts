@@ -54,6 +54,21 @@ export function toServerValue(field: RoleField, v: DraftValue): unknown {
   }
 }
 
+/** Length in characters, as the server counts it (an emoji is one, not two UTF-16 units). */
+export function charLength(s: string): number {
+  return [...s].length;
+}
+
+// The server refuses [[:cntrl:]] in text and list items; pricing keeps its new lines.
+function hasControl(s: string, keepNewLines = false): boolean {
+  for (const ch of s) {
+    const c = ch.codePointAt(0)!;
+    if (keepNewLines && c === 10) continue;
+    if (c <= 0x1f || (c >= 0x7f && c <= 0x9f)) return true;
+  }
+  return false;
+}
+
 /** Client copy of the server's per-key rule; null when the value is fine. */
 export function validateValue(field: RoleField, value: unknown): RoleErrorCode | null {
   if (value === null) return null;
@@ -62,18 +77,40 @@ export function validateValue(field: RoleField, value: unknown): RoleErrorCode |
       return typeof value === 'number' && Number.isInteger(value) && value >= YEARS_MIN && value <= YEARS_MAX ? null : 'invalid_years';
     case 'list': {
       const list = value as string[];
-      return list.length <= LIST_MAX_ITEMS && list.every((x) => x.length <= LIST_ITEM_MAX) ? null : 'invalid_list';
+      return list.length <= LIST_MAX_ITEMS && list.every((x) => charLength(x) <= LIST_ITEM_MAX && !hasControl(x)) ? null : 'invalid_list';
     }
     case 'yesno':
       return typeof value === 'boolean' ? null : 'invalid_type';
     case 'link':
-      return typeof value === 'string' && value.length <= (field.max ?? 300) && !/\s/.test(value) ? null : 'invalid_link';
-    default:
-      return typeof value === 'string' && value.length <= (field.max ?? 80) ? null : 'invalid_text';
+      return typeof value === 'string' && charLength(value) <= (field.max ?? 300) && !/\s/.test(value) && !hasControl(value) ? null : 'invalid_link';
+    default: {
+      return typeof value === 'string' && charLength(value) <= (field.max ?? 80) && !hasControl(value, field.kind === 'longtext') ? null : 'invalid_text';
+    }
   }
 }
 
-function same(a: unknown, b: unknown): boolean {
+/**
+ * A list with the text typed but not yet added (D27): trimmed, and dropped
+ * when the list already holds it (any case). Over the limits it is still
+ * kept, so validation says why instead of the term being lost.
+ */
+export function withPending(list: string[], pending: string | undefined): string[] {
+  const term = (pending ?? '').trim();
+  if (term === '' || list.some((v) => v.trim().toLowerCase() === term.toLowerCase())) return list;
+  return [...list, term];
+}
+
+/** The draft as it would be sent: each list field with its pending typed text added. */
+export function withPendingDraft(role: Role, draft: Draft, pending: Record<string, string>): Draft {
+  const out: Draft = { ...draft };
+  for (const f of ROLE_FIELDS[role]) {
+    if (f.kind === 'list' && pending[f.key]) out[f.key] = withPending(Array.isArray(draft[f.key]) ? (draft[f.key] as string[]) : [], pending[f.key]);
+  }
+  return out;
+}
+
+/** Two sent values are the same answer. */
+export function sameValue(a: unknown, b: unknown): boolean {
   if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((x, i) => x === b[i]);
   return a === b;
 }
@@ -87,7 +124,7 @@ export function diffPatch(role: Role, details: Details, draft: Draft): Record<st
   for (const f of ROLE_FIELDS[role]) {
     const before = toServerValue(f, toDraftValue(f, details[f.key]));
     const after = toServerValue(f, draft[f.key] ?? toDraftValue(f, undefined));
-    if (!same(before, after)) patch[f.key] = after;
+    if (!sameValue(before, after)) patch[f.key] = after;
   }
   return patch;
 }

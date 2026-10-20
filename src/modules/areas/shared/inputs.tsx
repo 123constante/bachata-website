@@ -2,9 +2,15 @@ import { useId, useState } from 'react';
 import { X } from 'lucide-react';
 import { Chip, FIELD_CLASS, GhostButton } from '@/modules/organiser/ui';
 import { LIST_ITEM_MAX, LIST_MAX_ITEMS, YEARS_MAX, type RoleField } from './fieldRegistry';
-import type { DraftValue } from './roleModel';
+import { charLength, type DraftValue } from './roleModel';
 
 // One input per field kind, shared by the profile form and the wizard steps.
+
+/**
+ * maxLength counts UTF-16 units but the server counts characters, so the
+ * box allows up to two units per character and validation counts the rest.
+ */
+const boxCap = (max: number) => max * 2;
 
 export interface FieldInputProps {
   field: RoleField;
@@ -14,6 +20,8 @@ export interface FieldInputProps {
   disabled?: boolean;
   describedBy?: string;
   autoFocus?: boolean;
+  /** List fields: the text typed but not yet added (D27), reported upward so Save and Continue include it. */
+  onPendingChange?(text: string): void;
 }
 
 export function YesNoInput({ value, onChange, disabled, label }: { value: boolean | null; onChange(v: boolean | null): void; disabled?: boolean; label: string }) {
@@ -26,19 +34,27 @@ export function YesNoInput({ value, onChange, disabled, label }: { value: boolea
   );
 }
 
-export function ListInput({ id, value, onChange, disabled, describedBy, label, autoFocus }: { id: string; value: string[]; onChange(v: string[]): void; disabled?: boolean; describedBy?: string; label: string; autoFocus?: boolean }) {
-  const [text, setText] = useState('');
+export function ListInput({ id, value, onChange, disabled, describedBy, label, autoFocus, onPendingChange }: { id: string; value: string[]; onChange(v: string[]): void; disabled?: boolean; describedBy?: string; label: string; autoFocus?: boolean; onPendingChange?(text: string): void }) {
+  const [text, setTextState] = useState('');
+  const setText = (t: string) => {
+    setTextState(t);
+    onPendingChange?.(t);
+  };
   const noteId = useId();
   const term = text.trim();
   const full = value.length >= LIST_MAX_ITEMS;
   const duplicate = term !== '' && value.some((v) => v.toLowerCase() === term.toLowerCase());
+  const tooLong = charLength(term) > LIST_ITEM_MAX;
   const reason = full
     ? `You have added the most this list holds (${LIST_MAX_ITEMS}). Remove one to add another.`
     : duplicate
       ? `${term} is already in the list.`
-      : null;
+      : tooLong
+        ? `Each item can be up to ${LIST_ITEM_MAX} characters.`
+        : null;
+  const blocked = term === '' || full || duplicate || tooLong;
   const add = () => {
-    if (term === '' || full || duplicate) return;
+    if (blocked) return;
     onChange([...value, term]);
     setText('');
   };
@@ -49,7 +65,7 @@ export function ListInput({ id, value, onChange, disabled, describedBy, label, a
           id={id}
           className={`${FIELD_CLASS} h-[48px] min-w-0 flex-1`}
           value={text}
-          maxLength={LIST_ITEM_MAX}
+          maxLength={boxCap(LIST_ITEM_MAX)}
           disabled={disabled || full}
           autoFocus={autoFocus}
           aria-describedby={[describedBy, reason ? noteId : undefined].filter(Boolean).join(' ') || undefined}
@@ -61,7 +77,7 @@ export function ListInput({ id, value, onChange, disabled, describedBy, label, a
             }
           }}
         />
-        <GhostButton block={false} size="sm" className="h-[48px] shrink-0" disabled={disabled || term === '' || full || duplicate} onClick={add} aria-label={`Add to ${label}`}>
+        <GhostButton block={false} size="sm" className="h-[48px] shrink-0" disabled={disabled || blocked} onClick={add} aria-label={`Add to ${label}`}>
           Add
         </GhostButton>
       </div>
@@ -88,10 +104,10 @@ export function ListInput({ id, value, onChange, disabled, describedBy, label, a
   );
 }
 
-export function FieldInput({ field, id, value, onChange, disabled, describedBy, autoFocus }: FieldInputProps) {
+export function FieldInput({ field, id, value, onChange, disabled, describedBy, autoFocus, onPendingChange }: FieldInputProps) {
   switch (field.kind) {
     case 'list':
-      return <ListInput id={id} label={field.label} value={Array.isArray(value) ? value : []} onChange={onChange} disabled={disabled} describedBy={describedBy} autoFocus={autoFocus} />;
+      return <ListInput id={id} label={field.label} value={Array.isArray(value) ? value : []} onChange={onChange} disabled={disabled} describedBy={describedBy} autoFocus={autoFocus} onPendingChange={onPendingChange} />;
     case 'yesno':
       return <YesNoInput label={field.label} value={typeof value === 'boolean' ? value : null} onChange={onChange} disabled={disabled} />;
     case 'longtext':
@@ -100,7 +116,7 @@ export function FieldInput({ field, id, value, onChange, disabled, describedBy, 
           id={id}
           className={`${FIELD_CLASS} min-h-[112px] py-[10px]`}
           value={typeof value === 'string' ? value : ''}
-          maxLength={field.max}
+          maxLength={field.max ? boxCap(field.max) : undefined}
           disabled={disabled}
           autoFocus={autoFocus}
           aria-describedby={describedBy}
@@ -130,7 +146,7 @@ export function FieldInput({ field, id, value, onChange, disabled, describedBy, 
           type={field.kind === 'link' ? 'url' : 'text'}
           inputMode={field.kind === 'link' ? 'url' : undefined}
           autoCapitalize={field.kind === 'link' ? 'off' : undefined}
-          maxLength={field.max}
+          maxLength={field.max ? boxCap(field.max) : undefined}
           value={typeof value === 'string' ? value : ''}
           disabled={disabled}
           autoFocus={autoFocus}

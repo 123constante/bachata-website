@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, ErrorState, PrimaryButton, SkeletonRows } from '@/modules/organiser/ui';
 import { fetchMyLineup, fetchMyRoleDetails, lineupQueryKey, roleDetailsQueryKey } from './areaApi';
 import { AreaFrame } from './AreaFrame';
+import { BlockedState, blockedCode, type BlockedPaths } from './BlockedState';
 import { roleErrorCode, roleErrorMessage } from './errorCopy';
 import { ROLE_NAME, ROLE_NOUN, type Role } from './fieldRegistry';
 import { LineupList } from './LineupList';
@@ -14,6 +15,8 @@ export interface RoleAreaPaths {
   /** Where the back link goes (the account home). */
   back: string;
   backLabel?: string;
+  /** Where the no-profile and signed-out states send the person. */
+  blocked: BlockedPaths;
 }
 
 /** Shown the same way on the teacher and the DJ dashboard. */
@@ -43,26 +46,33 @@ export function RoleAreaPage({ role, paths }: { role: Role; paths: RoleAreaPaths
   const details = useQuery({ queryKey: roleDetailsQueryKey(role), queryFn: () => fetchMyRoleDetails(role) });
   const lineup = useQuery({ queryKey: lineupQueryKey(role), queryFn: () => fetchMyLineup(role) });
   const name = ROLE_NAME[role];
+  const blocked = blockedCode(details.error, lineup.error);
   return (
     <AreaFrame title={name} back={{ to: paths.back, label: paths.backLabel ?? 'Account' }} testId={`${role}-area`}>
-      <Card label={`Your ${ROLE_NOUN[role]} details`} variant="padded" testId="details-card">
-        {details.status === 'pending' ? (
-          <SkeletonRows count={2} label={`Loading your ${name} details`} />
-        ) : details.status === 'error' ? (
-          <ErrorState
-            testId="details-error"
-            body={roleErrorCode(details.error) ? roleErrorMessage(details.error) : undefined}
-            onRetry={() => void details.refetch()}
-            retrying={details.isFetching}
-          />
-        ) : (
-          <div className="space-y-[16px]">
-            <CompletenessMeter role={role} {...completeness(role, details.data.details)} />
-            <PrimaryButton testId="edit-details" onClick={() => navigate(paths.profile)}>Edit details</PrimaryButton>
-          </div>
-        )}
-      </Card>
-      <LineupList status={lineup.status} rows={lineup.data} onRetry={() => void lineup.refetch()} retrying={lineup.isFetching} />
+      {blocked ? (
+        <BlockedState code={blocked} paths={paths.blocked} />
+      ) : (
+        <>
+          <Card label={`Your ${ROLE_NOUN[role]} details`} variant="padded" testId="details-card">
+            {details.status === 'pending' ? (
+              <SkeletonRows count={2} label={`Loading your ${name} details`} />
+            ) : details.status === 'error' ? (
+              <ErrorState
+                testId="details-error"
+                body={roleErrorCode(details.error) ? roleErrorMessage(details.error) : undefined}
+                onRetry={() => void details.refetch()}
+                retrying={details.isFetching}
+              />
+            ) : (
+              <div className="space-y-[16px]">
+                <CompletenessMeter role={role} {...completeness(role, details.data.details)} />
+                <PrimaryButton testId="edit-details" onClick={() => navigate(paths.profile)}>Edit details</PrimaryButton>
+              </div>
+            )}
+          </Card>
+          <LineupList status={lineup.status} rows={lineup.data} onRetry={() => void lineup.refetch()} retrying={lineup.isFetching} />
+        </>
+      )}
     </AreaFrame>
   );
 }

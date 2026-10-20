@@ -3,10 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnnounceRegion, Card, ErrorState, Field, PrimaryButton, SkeletonRows, useAnnounce, useShake } from '@/modules/organiser/ui';
 import { fetchMyRoleDetails, roleDetailsQueryKey, saveMyRole, type RoleDetails } from './areaApi';
 import { AreaFrame } from './AreaFrame';
+import { BlockedState, blockedCode, type BlockedPaths } from './BlockedState';
 import { ROLE_ERROR_COPY, roleErrorCode, roleErrorMessage, type RoleErrorCode } from './errorCopy';
 import { ROLE_FIELDS, ROLE_NAME, ROLE_NOUN, type Role } from './fieldRegistry';
 import { FieldInput } from './inputs';
-import { diffPatch, toDraft, validatePatch, type Details, type Draft } from './roleModel';
+import { diffPatch, toDraft, validatePatch, withPendingDraft, type Details, type Draft } from './roleModel';
 
 export const NOTHING_CHANGED = 'Nothing has changed yet, so there is nothing to save.';
 export const SAVED = 'Saved';
@@ -25,7 +26,9 @@ export function RoleProfileForm({ role, details, saving, onSave, serverError }: 
   const [draft, setDraft] = useState<Draft>(() => toDraft(role, details));
   const [errors, setErrors] = useState<Record<string, RoleErrorCode>>({});
   const { shake, shakeProps } = useShake();
-  const patch = useMemo(() => diffPatch(role, details, draft), [role, details, draft]);
+  // Text typed in a list box but not yet added counts as added (D27).
+  const [pending, setPending] = useState<Record<string, string>>({});
+  const patch = useMemo(() => diffPatch(role, details, withPendingDraft(role, draft, pending)), [role, details, draft, pending]);
   const dirty = Object.keys(patch).length > 0;
   const groups = useMemo(() => {
     const out: { name: string; fields: (typeof ROLE_FIELDS)[Role][number][] }[] = [];
@@ -78,6 +81,7 @@ export function RoleProfileForm({ role, details, saving, onSave, serverError }: 
                     value={draft[f.key]}
                     disabled={saving}
                     describedBy={f.help ? `${id}-help` : undefined}
+                    onPendingChange={(t) => setPending((p) => ({ ...p, [f.key]: t }))}
                     onChange={(v) => {
                       setDraft((d) => ({ ...d, [f.key]: v }));
                       if (errors[f.key]) setErrors(({ [f.key]: _gone, ...rest }) => rest);
@@ -101,7 +105,7 @@ export function RoleProfileForm({ role, details, saving, onSave, serverError }: 
 }
 
 /** The teacher / DJ details edit page. */
-export function RoleProfilePage({ role, areaPath }: { role: Role; areaPath: string }) {
+export function RoleProfilePage({ role, areaPath, blocked }: { role: Role; areaPath: string; blocked: BlockedPaths }) {
   const qc = useQueryClient();
   const [announcement, announce] = useAnnounce();
   const details = useQuery({ queryKey: roleDetailsQueryKey(role), queryFn: () => fetchMyRoleDetails(role) });
@@ -121,6 +125,8 @@ export function RoleProfilePage({ role, areaPath }: { role: Role; areaPath: stri
       <AnnounceRegion message={announcement} />
       {details.status === 'pending' ? (
         <SkeletonRows count={4} label={`Loading your ${ROLE_NOUN[role]} details`} />
+      ) : details.status === 'error' && blockedCode(details.error) ? (
+        <BlockedState code={blockedCode(details.error)!} paths={blocked} />
       ) : details.status === 'error' ? (
         <ErrorState
           testId="details-error"

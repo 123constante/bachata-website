@@ -1,37 +1,106 @@
 import { useState } from 'react';
-import { Field, GhostButton, PrimaryButton } from '@/modules/organiser/ui';
+import { Chip, PrimaryButton } from '@/modules/organiser/ui';
 import type { WizardStepDef, WizardStepProps } from '../wizardStep';
 import { saveMyRole, setMyRoleDeclined } from './areaApi';
 import { ROLE_ERROR_COPY } from './errorCopy';
 import { ROLE_FIELDS, roleField, type Role } from './fieldRegistry';
-import { FieldInput, YesNoInput } from './inputs';
-import { toDraftValue, toServerValue, validateValue, type DraftValue } from './roleModel';
+import { FieldInput } from './inputs';
+import { sameValue, toDraftValue, toServerValue, validateValue, withPending, type DraftValue } from './roleModel';
 
 /** The yes/no "Do you teach / DJ?" step's field name; its answer goes to set_my_role_declined_v1. */
 export const DECLINED_FIELD = 'declined';
+export const SKIP_LABEL = 'Skip for now';
+
+// D26: the shell's heading is the question, so each step keeps its field label
+// for screen readers only and puts "Optional" on the hint line. An empty step
+// shows ONE quiet "Skip for now"; Continue appears once something is entered.
+
+/** The one quiet text button an empty optional step shows. */
+function SkipButton({ onSkip, disabled }: { onSkip: () => void; disabled: boolean }) {
+  return (
+    <button type="button" data-testid="step-skip" disabled={disabled} onClick={onSkip} className="h-[44px] w-full text-[15px] font-semibold text-[var(--mut)] underline underline-offset-4">
+      {SKIP_LABEL}
+    </button>
+  );
+}
+
+function StepError({ error }: { error: string | null }) {
+  return error ? <p role="alert" className="text-[13px] text-[var(--danger)]">{error}</p> : null;
+}
+
+/** Yes and No answer on the tap (advanceOnAnswer): no separate Continue. */
+function YesNoAnswer({ label, held, saving, onPick }: { label: string; held: boolean | null; saving: boolean; onPick(v: boolean): void }) {
+  return (
+    <div role="group" aria-label={label} className="flex gap-[8px]">
+      <Chip selected={held === true} disabled={saving} onToggle={() => onPick(true)}>Yes</Chip>
+      <Chip selected={held === false} disabled={saving} onToggle={() => onPick(false)}>No</Chip>
+    </div>
+  );
+}
+
+function isEmpty(v: unknown): boolean {
+  return v === null || (Array.isArray(v) && v.length === 0);
+}
 
 function makeFieldStep(role: Role, key: string) {
   const field = roleField(role, key)!;
   function RoleFieldStep({ value, saving, error, onAnswer, onSkip }: WizardStepProps) {
     const [draft, setDraft] = useState<DraftValue>(() => toDraftValue(field, value));
+    const [pending, setPending] = useState('');
     const [localError, setLocalError] = useState<string | null>(null);
     const id = `wizard-${role}-${key}`;
-    const answer = () => {
-      const sent = toServerValue(field, draft);
-      const code = validateValue(field, sent);
+    const held = toServerValue(field, toDraftValue(field, value));
+    const effective = field.kind === 'list' ? withPending(Array.isArray(draft) ? draft : [], pending) : draft;
+    const sent = toServerValue(field, effective);
+    const changed = !sameValue(sent, held);
+    const hint = <p id={`${id}-help`} className="text-[13px] text-[var(--mut)]">{field.help ? `Optional. ${field.help}` : 'Optional.'}</p>;
+    // An untouched answer sends nothing (finding 5): it moves on as a Skip.
+    const send = (v: unknown) => {
+      if (sameValue(v, held)) {
+        onSkip?.();
+        return;
+      }
+      const code = validateValue(field, v);
       if (code) {
         setLocalError(ROLE_ERROR_COPY[code]);
         return;
       }
-      onAnswer(sent);
+      onAnswer(v);
     };
+    if (field.kind === 'yesno') {
+      return (
+        <div className="space-y-[16px]" data-testid={`step-${key}`}>
+          <div className="space-y-[4px]">
+            <YesNoAnswer label={field.label} held={typeof held === 'boolean' ? held : null} saving={saving} onPick={send} />
+            {hint}
+          </div>
+          <StepError error={error} />
+          {held === null && onSkip && <SkipButton onSkip={onSkip} disabled={saving} />}
+        </div>
+      );
+    }
     return (
-      <div className="space-y-[16px]">
-        <Field label={`${field.label} (optional)`} htmlFor={field.kind === 'yesno' ? undefined : id} help={field.help} error={localError ?? error} testId={`step-${key}`}>
-          <FieldInput field={field} id={id} value={draft} disabled={saving} autoFocus describedBy={field.help ? `${id}-help` : undefined} onChange={(v) => { setDraft(v); setLocalError(null); }} />
-        </Field>
-        <PrimaryButton testId="step-continue" loading={saving} onClick={answer}>Continue</PrimaryButton>
-        {onSkip && <GhostButton testId="step-skip" disabled={saving} onClick={onSkip}>Skip</GhostButton>}
+      <div className="space-y-[16px]" data-testid={`step-${key}`}>
+        <div className="space-y-[4px]">
+          <label htmlFor={id} className="sr-only">{field.label}</label>
+          <FieldInput
+            field={field}
+            id={id}
+            value={draft}
+            disabled={saving}
+            autoFocus
+            describedBy={`${id}-help`}
+            onPendingChange={(t) => { setPending(t); setLocalError(null); }}
+            onChange={(v) => { setDraft(v); setLocalError(null); }}
+          />
+          {hint}
+        </div>
+        <StepError error={localError ?? error} />
+        {!isEmpty(sent) || changed ? (
+          <PrimaryButton testId="step-continue" loading={saving} onClick={() => send(sent)}>Continue</PrimaryButton>
+        ) : (
+          onSkip && <SkipButton onSkip={onSkip} disabled={saving} />
+        )}
       </div>
     );
   }
@@ -47,22 +116,20 @@ export function makeRoleWizardSteps(role: Role): WizardStepDef[] {
     title: f.question,
     Component: makeFieldStep(role, f.key),
     toPatch: (value: unknown) => ({ [f.key]: value }),
+    labelIsQuestion: true,
+    ...(f.kind === 'yesno' ? { advanceOnAnswer: true } : {}),
   }));
 }
 
-/** "Do you teach?" / "Do you DJ?": No = declined true. */
+/** "Do you teach?" / "Do you DJ?": No = declined true. Answers on the tap of Yes or No. */
 export function makeDoYouStep(role: Role, title: string, unlockLine: string): WizardStepDef {
   function DoYouStep({ value, saving, error, onAnswer, onSkip }: WizardStepProps) {
-    const [answer, setAnswer] = useState<boolean | null>(typeof value === 'boolean' ? value : null);
+    const held = typeof value === 'boolean' ? value : null;
     return (
       <div className="space-y-[16px]">
-        <YesNoInput label={title} value={answer} onChange={setAnswer} disabled={saving} />
-        {error && <p role="alert" className="text-[13px] text-[var(--danger)]">{error}</p>}
-        <PrimaryButton testId="step-continue" loading={saving} disabled={answer === null} onClick={() => answer !== null && onAnswer(answer)}>
-          Continue
-        </PrimaryButton>
-        {answer === null && <p className="text-center text-[13px] text-[var(--mut)]">Choose Yes or No to continue.</p>}
-        {onSkip && <GhostButton testId="step-skip" disabled={saving} onClick={onSkip}>Skip</GhostButton>}
+        <YesNoAnswer label={title} held={held} saving={saving} onPick={onAnswer} />
+        <StepError error={error} />
+        {held === null && onSkip && <SkipButton onSkip={onSkip} disabled={saving} />}
       </div>
     );
   }
@@ -74,6 +141,8 @@ export function makeDoYouStep(role: Role, title: string, unlockLine: string): Wi
     unlockLine,
     Component: DoYouStep,
     toPatch: (value: unknown) => ({ [DECLINED_FIELD]: value === false }),
+    labelIsQuestion: true,
+    advanceOnAnswer: true,
   };
 }
 
