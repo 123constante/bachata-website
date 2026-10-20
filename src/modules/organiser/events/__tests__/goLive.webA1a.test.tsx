@@ -164,6 +164,68 @@ describe('Go live renders the server list, one label per code (D49)', () => {
   });
 });
 
+/**
+ * D55 (release A): ALL nine event_missing codes, in the server's order, each with
+ * its plain label and a link that lands on a screen showing the control it
+ * names (owner rule: no text points at a control that is not on screen).
+ */
+const NINE: Array<[code: string, section: string, word: string, to: (id: string) => string, control: string]> = [
+  ['venue', 'venue', 'A venue', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
+  ['city', 'venue', 'A city', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
+  ['upcoming_date', 'dates', 'An upcoming date', (id) => ORG_PATHS.addEvent(id), 'landed-dates'],
+  ['session', 'programme', 'At least one session with a title, start and end', (id) => ORG_PATHS.eventProgramme(id), 'landed'],
+  ['cover', 'cover', 'A flyer', (id) => ORG_PATHS.cover(id), 'landed-cover'],
+  ['description', 'about', 'A description', (id) => `${ORG_PATHS.eventDetails(id)}?edit=about`, 'org-detail-input'],
+  ['name', 'basics', 'An event name', (id) => ORG_PATHS.eventDetails(id), 'org-detail-name'],
+  ['country', 'venue', 'A city with a country on file', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
+  ['organiser', 'organisers', 'An active organiser', (id) => ORG_PATHS.eventOrganisers(id), 'landed-organisers'],
+];
+const nineRoutes = (
+  <>
+    {routes}
+    <Route path="/account/o/add/:seriesId" element={<p data-testid="landed-dates" />} />
+    <Route path="/account/o/cover/:seriesId" element={<p data-testid="landed-cover" />} />
+    <Route path="/account/o/events/:seriesId/organisers" element={<p data-testid="landed-organisers" />} />
+  </>
+);
+
+describe('D55: every event_missing code has a label and a link to a screen that shows its control', () => {
+  it('the table is the server order, nine codes', () => {
+    expect(NINE.map(([code, section]) => `${code}/${section}`)).toEqual([
+      'venue/venue', 'city/venue', 'upcoming_date/dates', 'session/programme', 'cover/cover',
+      'description/about', 'name/basics', 'country/venue', 'organiser/organisers',
+    ]);
+  });
+
+  it.each(NINE)('%s: label, link back to this event, and the control is on the screen it opens', async (code, section, word, to, control) => {
+    check = { data: notReady(code, section), error: null };
+    mount(ORG_PATHS.event(DRAFT), nineRoutes);
+    const item = await screen.findByTestId(`org-life-item-${code}`);
+    expect(item.textContent).toBe(word);
+    expect(item.getAttribute('href')).toBe(`${to(DRAFT)}${to(DRAFT).includes('?') ? '&' : '?'}${back(DRAFT)}`);
+    fireEvent.click(item);
+    expect(await screen.findByTestId(control)).toBeTruthy();
+  });
+
+  it('all nine at once keep the server order on screen', async () => {
+    check = { data: { ...READY, ready: false, event_missing: NINE.map(([code, section]) => ({ code, section })) }, error: null };
+    mount(ORG_PATHS.event(DRAFT), nineRoutes);
+    await screen.findByTestId('org-life-item-organiser');
+    const shown = Array.from(document.querySelectorAll('[data-testid^="org-life-item-"]'))
+      .map((n) => n.getAttribute('data-testid')!.replace('org-life-item-', '')).filter((c) => !c.endsWith('-tag'));
+    expect(shown).toEqual(NINE.map(([code]) => code));
+  });
+
+  it('an unknown code (and an unknown section) shows the generic line, no link, never blank or the raw code', async () => {
+    check = { data: notReady('zz_new_rule', 'zz_section'), error: null };
+    mount(ORG_PATHS.event(DRAFT), nineRoutes);
+    const item = await screen.findByTestId('org-life-item-zz_new_rule');
+    expect(item.textContent).toBe('Something else on the event');
+    expect(item.textContent).not.toContain('zz_');
+    expect(item.getAttribute('href')).toBeNull();
+  });
+});
+
 describe('the rule is the server\'s', () => {
   it('a weekly event with one dated session and `session` missing is NOT ready: one tap jumps to the programme, nothing is sent', async () => {
     check = { data: notReady('session', 'programme'), error: null };

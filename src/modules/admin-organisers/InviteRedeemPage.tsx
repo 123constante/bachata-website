@@ -14,7 +14,7 @@ import { finishProfileHref } from '@/lib/profileCompletion';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { redeemOrganiserInvite } from './adminApi';
-import { EMAIL_MISMATCH_REASON, interpretRedeemWithMismatch } from './redeemMismatch';
+import { EMAIL_UNPROVEN_REASON, SIGN_IN_AGAIN_REASONS, interpretRedeemWithMismatch } from './redeemMismatch';
 import { fetchInvitePreview } from './invitePreview';
 import { INVITE_PATH, REDEEM_COPY, TOKEN_RE, interpretRedeem, joiningAsName, type RedeemCopy } from './inviteModel';
 
@@ -101,7 +101,8 @@ function InviteRedeem() {
   // M57 (owner decision): the link is bearer-style -- whoever is signed in joins -- so it is
   // used only once the person has seen who they are joining as and pressed Join.
   const [joining, setJoining] = useState(false);
-  const [mismatch, setMismatch] = useState(false);
+  // The sign-in-again refusal on screen (email_mismatch or email_unproven), null for any other answer.
+  const [mismatch, setMismatch] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const { profileId } = useProfileCompletion();
   const nameEnabled = Boolean(user && profileId);
@@ -161,7 +162,7 @@ function InviteRedeem() {
       return;
     }
     if (outcome.copy.terminal) stripToken();
-    setMismatch(outcome.kind === 'refused' && outcome.reason === EMAIL_MISMATCH_REASON);
+    setMismatch(outcome.kind === 'refused' && SIGN_IN_AGAIN_REASONS.includes(outcome.reason) ? outcome.reason : null);
     setCopy(outcome.copy);
   }, [navigate, queryClient]);
 
@@ -208,7 +209,7 @@ function InviteRedeem() {
         {copy?.action === 'sign_in' && <Link to={buildSignInHref(TOKEN_RE.test(token) ? `${INVITE_PATH}/${token}` : null)} className={BTN} data-testid="invite-sign-in">Sign in</Link>}
         {copy?.action === 'retry' && <button type="button" className={BTN} disabled={busy} onClick={() => void run()} data-testid="invite-retry">Try again</button>}
         {copy?.action === 'finish_profile' && <Link to={finishProfileHref(`${INVITE_PATH}/${token}`)} className={BTN} data-testid="invite-finish-profile">Finish profile</Link>}
-        {mismatch && <button type="button" className={BTN} onClick={() => void notYou()} data-testid="invite-mismatch-signout">Sign out</button>}
+        {mismatch && <button type="button" className={BTN} onClick={() => void notYou()} data-testid="invite-mismatch-signout">{mismatch === EMAIL_UNPROVEN_REASON ? 'Sign in with the email link' : 'Sign out'}</button>}
         {signOutError && mismatch && <p className="text-sm text-destructive" role="alert">{signOutError}</p>}
         {copy?.action !== 'retry' && copy?.action !== 'finish_profile' && <Link to="/" className={LINK} data-testid="invite-home">Go to Bachata Calendar</Link>}
       </Card>
