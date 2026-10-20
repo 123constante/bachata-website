@@ -476,7 +476,7 @@ async function checkPage(pathOrUrl) {
     // bake OBJECT KEY", strictly, to decide a naming verdict and a liveness
     // count. Merging them would narrow THIS existing gate, which is a
     // behaviour change to a shipped rule and outside what this PR measured.
-    const isBaked = /\.r2\.dev\//i.test(ogImage) || /\/og\/(event|festival)\//i.test(ogImage);
+    const isBaked = isOnBakeHost(ogImage) || /\/og\/(event|festival)\//i.test(ogImage);
     if (isCard && !/[?&]v=/.test(ogImage)) failures.push(`og:image card missing cover version (v=): ${ogImage}`);
     if (/[?&]occurrenceId=/i.test(url) && isCard && !/[?&]occ=/.test(ogImage)) {
       failures.push(`occurrence URL but og:image card drops occ=: ${ogImage}`);
@@ -653,6 +653,16 @@ async function main() {
 // the forgiveness set being inclusion-shaped), while an unmarked response and
 // the one forgiven reason must stay silent.
 // ---------------------------------------------------------------------------
+/**
+ * Loose "is this on a host we bake OG images to": the r2.dev development
+ * address (its existing unanchored match, kept as is) OR the custom address
+ * media.bachatacalendar.co.uk on the same bucket, matched as a whole host so a
+ * look-alike such as media.bachatacalendar.co.uk.evil.example is not ours.
+ */
+export function isOnBakeHost(url) {
+  return /\.r2\.dev\//i.test(url) || /^https:\/\/media\.bachatacalendar\.co\.uk\//i.test(url);
+}
+
 function selfTest() {
   const PROD = 'https://www.bachatacalendar.co.uk';
   // The real R2 public host baked objects live on, so the baked-key fixtures
@@ -668,6 +678,10 @@ function selfTest() {
   // that an unmarked response leaves the fallback rule silent.
   const marked = (reason) => ({ ...inline(`${PROD}/api/og/card?kind=event&id=x&v=1`), fallbackReason: reason });
   const cases = [
+    ['bake host: the r2.dev address is ours', isOnBakeHost(`${R2}/og/event/x.jpg`)],
+    ['bake host: the custom media address is ours', isOnBakeHost('https://media.bachatacalendar.co.uk/og/event/x.jpg')],
+    ['bake host: an unrelated host is not', !isOnBakeHost('https://evil.example/a.jpg')],
+    ['bake host: a look-alike of the custom address is not', !isOnBakeHost('https://media.bachatacalendar.co.uk.evil.example/a.jpg')],
     ['fires: a card 302 to the static fallback, message naming the final URL',
       (cardRedirectFailure(`${PROD}/api/og/card?kind=event&id=x&v=1`, served(STATIC_FALLBACK)) ?? '').includes(STATIC_FALLBACK)],
     ['fires: any /api/og/ endpoint, matched case-insensitively',
