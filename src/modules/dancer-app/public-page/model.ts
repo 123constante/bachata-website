@@ -272,9 +272,10 @@ export const buildPublicDancerPage = (
     experience: Number.isFinite(years) && years >= 0 ? { years, level: experienceLevel(years) } : null,
     contacts,
     city: cityOnly(view.city),
+    // 0 years / Newcomer is what an unanswered start year (or "this year") looks like: shown only once it is a real answer.
     facts: {
-      dancing: Number.isFinite(years) && years >= 0 ? `${years} ${years === 1 ? 'year' : 'years'}` : null,
-      level: Number.isFinite(years) && years >= 0 ? experienceLevel(years) : null,
+      dancing: Number.isFinite(years) && years > 0 ? `${years} ${years === 1 ? 'year' : 'years'}` : null,
+      level: Number.isFinite(years) && years > 0 ? experienceLevel(years) : null,
       style: clean(view.favoriteStyles).join(', ') || null,
     },
     stamp: view.lookingForPartner ? { goal: practiceGoalText(clean(view.partnerPracticeGoals)) } : null,

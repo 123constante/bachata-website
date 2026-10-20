@@ -159,3 +159,20 @@ describe('helpers', () => {
     expect(SHARE_MESSAGES.manual).toMatch(/Copy this link/);
   });
 });
+
+describe('facts: an unanswered start year is not a fact (W1 S2)', () => {
+  const withYear = (y: number | null) => {
+    const rec = { ...SHAPES['complete + all extras'], dancing_role_details: { dance_started_year: y } };
+    return buildPublicDancerPage(mapDancerPublicProfile(rec as never), NO_EXTRAS, []);
+  };
+  it.each([
+    [null, null, null],
+    [2026, null, null], // this year = the default a brand-new row carries (Chi-Wei)
+    [2025, '1 year', 'Rising'],
+    [2015, '11 years', 'Veteran'],
+  ] as const)('start year %s -> dancing %s, level %s', (y, dancing, level) => {
+    const m = withYear(y);
+    expect(m.facts.dancing).toBe(dancing);
+    expect(m.facts.level).toBe(level);
+  });
+});
