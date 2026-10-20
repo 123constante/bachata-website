@@ -20,7 +20,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import {
   AW1_COMMAND_KINDS, OWNER_CANCEL_KEYS, OWNER_COMMAND_KINDS, OWNER_OVERRIDE_KEYS, OWNER_UPSERT_KEYS,
-  addDateCommand, bulkCancelCommand, bulkShiftCommand, cancelCommand, lifecycleCommand, moveDateCommand, overrideCommand,
+  addDateCommand, bulkCancelCommand, bulkShiftCommand, cancelCommand, lifecycleCommand, overrideCommand,
   resetTimeCommand, setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand,
   type BulkCommand, type OwnerCommand,
 } from '@/modules/organiser/shared/seriesCommands';
@@ -283,9 +283,8 @@ export const PARITY: Row[] = [
   { id: 'C19', capability: 'Change the time of one date', verdict: 'MATCH', screen: 'flows/change/Time.tsx', from: [[WHAT, 'ORG_PATHS.changeTime']],
     sends: [{ in: 'flows/change/Time.tsx', token: 'setTimeCommand(', kind: 'occurrence.set_time', keys: ['new_local_start', 'new_local_end'], build: () => setTimeCommand('21:00', '01:00') }],
     shows: [['flows/change/Time.tsx', 'previewTimes('], ['flows/change/Time.tsx', 'ORG_PATHS.dateLineup']] },
-  // PARTIAL until admin A1: prod refuses occurrence.move_date, so the row is hidden and the URL refuses.
-  { id: 'C20', capability: 'Move one date to another day', verdict: 'PARTIAL', screen: 'flows/change/Day.tsx', from: [[WHAT, 'ORG_PATHS.changeDay'], [WHAT, 'A1_APPLIED && (']],
-    sends: [{ in: 'flows/change/Day.tsx', token: 'moveDateCommand(', kind: 'occurrence.move_date', keys: ['to_date'], build: () => moveDateCommand('2026-10-24'), a1Gate: 'flows/change/Day.tsx' }] },
+  // DECIDED: not in R1, cancel + add a date (owner 2026-10-20). occurrence.move_date stays in the database, unused here.
+  { id: 'C20', capability: 'Move one date to another day', verdict: 'DROPPED-BY-DECISION', decision: 'DECIDED: not in R1, cancel + add a date (owner 2026-10-20, D39)' },
   { id: 'C21', capability: 'Different venue for one date', verdict: 'MATCH', screen: 'flows/change/Venue.tsx',
     from: [['flows/change/WhatChanges.tsx', 'ORG_PATHS.changeVenue']],
     sends: [{ in: 'flows/change/Venue.tsx', token: 'overrideCommand(', kind: 'occurrence.set_override', keys: ['venue_id', 'city_id'], build: () => overrideCommand({ venue_id: 'v1', city_id: 'c1' }) }] },
@@ -542,7 +541,7 @@ describe('organiser parity matrix', () => {
   it('the counts: MATCH / PARTIAL / admin-only / dropped, nothing left to fill', () => {
     const count = (v: Verdict) => PARITY.filter((r) => r.verdict === v).length;
     expect({ match: count('MATCH'), partial: count('PARTIAL'), adminOnly: count('MISSING-ADMIN-ONLY'), dropped: count('DROPPED-BY-DECISION') })
-      .toEqual({ match: 43, partial: 10, adminOnly: 8, dropped: 10 });
+      .toEqual({ match: 43, partial: 9, adminOnly: 8, dropped: 11 });
   });
 });
 

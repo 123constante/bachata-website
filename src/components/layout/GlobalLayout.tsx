@@ -7,6 +7,7 @@ import { useEmbeddedProfile } from '@/lib/embeddedProfile';
 import PageHero, { type HeroWidget } from '@/components/PageHero';
 import PageBreadcrumb, { type BreadcrumbItemType } from '@/components/PageBreadcrumb';
 import { FloatingElements } from '@/components/FloatingElements';
+import { PAGE_GROUNDS, isGroundPalette } from '@/components/layout/pageGrounds';
 
 interface HeroProps {
   // ReactNode so detail pages can render a profile avatar in place of an
@@ -45,8 +46,10 @@ export interface GlobalLayoutProps {
   // /raffles backdrop exactly); floating icons are suppressed so the
   // clean cabinet look is preserved. 'organiser' mirrors the organiser
   // profile surface: warm purple-brown base with amber/orange radial
-  // accents. Always defaults to 'default' so existing consumers are unaffected.
-  gradientPalette?: 'default' | 'bento' | 'velvet' | 'brass' | 'organiser';
+  // accents. 'default' is the static calm-graphite ground (#0E1215) and
+  // 'dancer' / 'dj' the role grounds: no animation, no floating icons, and
+  // <html>/<body> painted so no band shows above the footer. See pageGrounds.ts.
+  gradientPalette?: 'default' | 'bento' | 'velvet' | 'brass' | 'organiser' | 'dancer' | 'dj';
   floatingCount?: number;
   heroAfter?: ReactNode;
   children: ReactNode;
@@ -174,7 +177,24 @@ const GlobalLayout = ({
     </div>
   );
 
+  const ground = isGroundPalette(gradientPalette) ? PAGE_GROUNDS[gradientPalette] : null;
+  const groundBase = showGradientBg && ground ? ground.base : null;
+
+  // Paint the document so the strip above the footer matches the ground.
+  useEffect(() => {
+    if (!groundBase) return;
+    const prevB = document.body.style.background;
+    const prevH = document.documentElement.style.background;
+    document.body.style.background = groundBase;
+    document.documentElement.style.background = groundBase;
+    return () => {
+      document.body.style.background = prevB;
+      document.documentElement.style.background = prevH;
+    };
+  }, [groundBase]);
+
   const suppressFloatingIcons =
+    !!ground ||
     gradientPalette === 'velvet' ||
     gradientPalette === 'brass' ||
     gradientPalette === 'organiser';
@@ -193,7 +213,14 @@ const GlobalLayout = ({
 
       {showGradientBg && (
         <>
-          {gradientPalette === 'velvet' ? (
+          {ground ? (
+            <div
+              className="fixed inset-0 -z-10 pointer-events-none"
+              style={ground.wash}
+              data-testid="page-ground"
+              data-palette={gradientPalette}
+            />
+          ) : gradientPalette === 'velvet' ? (
             <div className="fixed inset-0 -z-10 pointer-events-none" style={VELVET_BG} />
           ) : gradientPalette === 'brass' ? (
             <div className="fixed inset-0 -z-10 pointer-events-none" style={BRASS_BG} />

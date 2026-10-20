@@ -32,7 +32,6 @@ describe('ORG_PATHS (v2)', () => {
       changeDate: '/account/o/change/s%201/o%2F1',
       changeTime: '/account/o/change/s%201/o%2F1/time',
       changeVenue: '/account/o/change/s%201/o%2F1/venue',
-      changeDay: '/account/o/change/s%201/o%2F1/day',
       dateLineup: '/account/o/change/s%201/o%2F1/lineup',
       changeDetail: '/account/o/change/s%201/o%2F1/note',
       changeOff: '/account/o/change/s%201/o%2F1/off',

@@ -229,6 +229,19 @@ export function upsertCommand(payload: Record<string, unknown>): OwnerCommand {
   return { kind: 'series.upsert', payload: rest };
 }
 
+/**
+ * The ONE place an upsert on an EXISTING series gets its `name`. The handler
+ * requires it on every upsert (`invalid_payload: name required`), so the route
+ * steps (New event venue/date/time/flyer, the flyer page) build their command
+ * without it and every send passes it through here with the name from the
+ * fresh workspace read. Only a series.upsert that carries no name is touched;
+ * any other kind, or an upsert that already names the series, goes unchanged.
+ */
+export function withSeriesName(command: OwnerCommand, seriesName: string): OwnerCommand {
+  if (command.kind !== 'series.upsert' || String(command.payload.name ?? '').trim()) return command;
+  return { ...command, payload: { name: seriesName.trim(), ...command.payload } };
+}
+
 // ---- the date list (W4) --------------------------------------------------------
 
 export const addDateCommand = (date: string): OwnerCommand => ({ kind: 'series.add_date', payload: { date } });

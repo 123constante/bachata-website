@@ -71,10 +71,6 @@ export function seriesLock(status: string): string | null {
   return eventLock(status) ?? `This event is ${status === 'paused' ? 'paused' : 'not live'}, so its dates can't be changed here.`;
 }
 
-/** C5c: the next 30 days minus every day that already holds a date of this series. */
-export const moveDays = (series: HomeSeriesFull, ws: SeriesWorkspace | undefined, today: string): DayRow[] =>
-  comingDays(series, today, 30, ws?.dates.map((d) => d.occurrence_date) ?? []);
-
 export type DateGate =
   | { kind: 'ok'; date: WorkspaceDate }
   | { kind: 'refused'; text: string }
@@ -97,7 +93,6 @@ export function dateGate(ws: SeriesWorkspace, occurrenceId: string, today: strin
 // The D29 confirmation lines (Done, no Undo: D49).
 export const timeDoneMessage = (time: string) => `Moved to ${time}`;
 export const venueDoneMessage = (date: string) => `Different venue - ${dayLabel(date)}`;
-export const dayDoneMessage = (date: string) => `Moved to ${dayLabel(date)}`;
 
 // ---- Change time with its sessions (PARITY-GAP C19 + C61) -------------------
 
