@@ -262,13 +262,19 @@ export const whyCannotAddPerson = (it: PItem): string | null =>
 
 /**
  * AW1 (admin #838): an owner or manager save that would delete a session with per-date changes is refused (an admin
- * may remove it). One sentence, on the Differs card and in the remove confirm.
+ * may remove it). This sentence is for the Differs card only: it follows the list of dates it calls "those dates".
  */
 export const CHANGED_SESSION_REMOVE = 'A session you changed on one of those dates can only be removed by the Bachata Calendar team.';
 
+/**
+ * The same refusal in the remove confirm (FIX-INT4 S-2). The confirm lists no dates, and the server refuses for a
+ * change on ANY date, past or cancelled included (the Differs card lists upcoming ones only), so it says that.
+ */
+export const CHANGED_SESSION_REMOVE_CONFIRM = 'If this session was changed on any date, past ones included, only the Bachata Calendar team can remove it.';
+
 /** The remove confirm: true about what happens, including the sessions changed on a date (refused, see above). */
 export const removeConfirmCopy = (name: string) =>
-  `Remove \u201c${name}\u201d from every date? It comes off when you save. ${CHANGED_SESSION_REMOVE}`;
+  `Remove \u201c${name}\u201d from every date? It comes off when you save. ${CHANGED_SESSION_REMOVE_CONFIRM}`;
 
 // ---- RECENT people (organiser_series_cast_v1.recent_people, pinned with AW1) ------------------
 

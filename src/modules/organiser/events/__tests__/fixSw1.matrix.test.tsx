@@ -71,7 +71,15 @@ describe('B1: stored ids travel with the tree, so a Save keeps every per-date se
     expect(copy).not.toMatch(/keep their own sessions/);
     expect(copy).not.toMatch(/loses that change|takes its date changes/);
     expect(copy).toMatch(/Beginner class/);
-    expect(copy).toContain(M.CHANGED_SESSION_REMOVE);
+    expect(copy).toContain(M.CHANGED_SESSION_REMOVE_CONFIRM);
+  });
+  // FIX-INT4 S-2: the confirm shows no list of dates, and the server refuses for a change on ANY date (past or
+  // cancelled included), so it says that, and "those dates" stays on the Differs card only.
+  it('the remove confirm points at no "those dates" and counts past dates too', () => {
+    const copy = M.removeConfirmCopy('Beginner class');
+    expect(copy).not.toMatch(/those/i);
+    expect(copy).toContain('If this session was changed on any date, past ones included, only the Bachata Calendar team can remove it.');
+    expect(M.CHANGED_SESSION_REMOVE).toMatch(/those dates/);
   });
   it('the Differs card says a session changed on a date is removed by the team, not here', async () => {
     const src = (await import('node:fs')).readFileSync('src/modules/organiser/events/ProgrammeSeries.tsx', 'utf8');

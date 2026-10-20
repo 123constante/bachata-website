@@ -117,7 +117,28 @@ describe('commandErrorMessage (series and date commands)', () => {
       ['invalid_payload: a programme id must be blank or a uuid', /Reload the page/, ['invalid_payload', 'uuid']],
       ['invalid_payload: a programme id appears more than once', /Reload the page/, ['invalid_payload']],
       ['invalid_payload: a programme id does not belong to this series', /Reload the page/, ['invalid_payload']],
+      // FIX-INT4 S-1: the server sends left(title, 80) and prod has sessions titled '' WITH per-date changes.
+      ['permission_denied: removing the session "" would delete its per-date changes; ask an admin to remove it',
+        /^One of the sessions has changes on some dates, so only an admin can remove it\. Keep it, or ask the Bachata Calendar team to remove it\.$/, ['permission_denied', 'per-date', '\u201c']],
+      ['permission_denied: removing the session "   " would delete its per-date changes; ask an admin to remove it',
+        /^One of the sessions has changes on some dates/, ['permission_denied', '\u201c']],
+      // FIX-INT4 S-3: the title is free text; an earlier unanchored rule must not see it first.
+      ['permission_denied: removing the session "Bachata on a past date is admin-only" would delete its per-date changes; ask an admin to remove it',
+        /^The session \u201cBachata on a past date is admin-only\u201d has changes on some dates/, ['permission_denied', 'per-date']],
+      ['permission_denied: removing the session "Drill: shift would collide" would delete its per-date changes; ask an admin to remove it',
+        /^The session \u201cDrill: shift would collide\u201d has changes on some dates/, ['permission_denied', 'per-date']],
+      // FIX-INT4 N-2: the exact server text (admin 20261126230000, the live check on an ADDED page).
+      ['permission_denied: series.set_organisers can only add a live organiser page',
+        /^That page isn't live, so it can't be added\.$/, ['permission_denied', 'set_organisers']],
     ];
+
+    // FIX-INT4 N-1: the 80-character cut (the server already sends left(title, 80); this pins the client's own clamp).
+    it('a 120-character session title is cut to its first 80 characters', () => {
+      const title = `${'x'.repeat(80)}${'z'.repeat(40)}`;
+      const text = commandErrorMessage({ message: `permission_denied: removing the session "${title}" would delete its per-date changes; ask an admin to remove it`, code: 'P0001' });
+      expect(text).toContain(`\u201c${'x'.repeat(80)}\u201d`);
+      expect(text).not.toContain('z');
+    });
 
     it.each(aw1)('%s', (message, expected, leaks) => {
       const text = commandErrorMessage({ message, code: 'P0001' });
