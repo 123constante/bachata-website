@@ -16,7 +16,8 @@ import { highlight } from '@/components/search/highlight';
 import { LevelBadge, LevelFilterChips, UnratedLine, parseLevelParam } from '@/components/search/LevelFilter';
 import { flags } from '@/lib/featureFlags';
 import { recordSearchResultClick } from '@/lib/searchClickTelemetry';
-import { hrefFor, personAriaLabel, personSearchRow, roleLine, telemetryKindFor, type SearchKind } from '@/lib/searchEntities';
+import { hrefFor, orderedRoles, personAriaLabel, telemetryKindFor, type SearchKind } from '@/lib/searchEntities';
+import { usePeopleBadges, roleTagsFor, linkFor, type PersonBadge } from '@/modules/person-page/badges';
 import { genreFilterTokens } from '@/lib/genreSynonyms';
 import { resolveEventImage } from '@/lib/utils';
 import { eventResultSubtitle } from '@/lib/searchEventSubtitle';
@@ -107,6 +108,50 @@ const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query,
   </Link>
 );
 
+type PersonRowData = {
+  id: string; name: string; image: string | null; roles: string[] | undefined;
+  primaryRole: string | undefined; nationalityCode: string | null | undefined;
+};
+
+// ONE full-width row per person. Tags, stage name and link come from the people-badges
+// mapping: roles are always public (the Teacher tag shows plain while the teacher pages are
+// closed) and the row links DJ page, else dancer page, else nowhere (/people/:id has no route).
+export const PersonRow = ({ p, query, badge }: { p: PersonRowData; query: string; badge: PersonBadge | undefined }) => {
+  const opts = { teacherPagesOpen: flags.teacherDetail };
+  const [imgFailed, setImgFailed] = useState(false);
+  // The search read carries the roles; the stage name arrives with the badges read.
+  const merged: PersonBadge = {
+    id: p.id, roles: orderedRoles(p.roles), djName: badge?.djName ?? null,
+    djHasUpcoming: badge?.djHasUpcoming ?? false, nextGigDate: badge?.nextGigDate ?? null,
+  };
+  const tags = roleTagsFor(merged, { ...opts, withStageName: true });
+  const to = linkFor(merged, opts);
+  const inner = (
+    <>
+      <span className="relative shrink-0">
+        <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-primary/30 bg-muted/50 text-lg font-semibold text-primary">
+          {p.image && !imgFailed ? <img src={optimizedImageUrl(p.image, 96)} alt="" width={48} height={48} className="h-full w-full object-cover" loading="lazy" onError={() => setImgFailed(true)} /> : <span aria-hidden="true">{(p.name.trim().charAt(0) || '?').toUpperCase()}</span>}
+        </span>
+        <NationalityFlag code={p.nationalityCode} size={48} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block break-words text-sm font-bold text-foreground">{highlight(p.name, query)}</span>
+        {tags.length > 0 && (
+          <span className="mt-1 flex flex-wrap gap-1">
+            {tags.map((t) => <span key={t.role} data-person-tag={t.role} className="rounded-full border border-primary/40 px-2 py-0.5 text-[12px] font-semibold leading-tight text-foreground/90">{t.label}</span>)}
+          </span>
+        )}
+      </span>
+    </>
+  );
+  const cls = 'flex w-full items-center gap-3 rounded-lg border border-primary/15 bg-card p-3';
+  return to ? (
+    <Link to={to} data-person-id={p.id} aria-label={personAriaLabel(p.name, merged.roles)} onClick={() => recordSearchResultClick({ query, kind: telemetryKindFor(p.primaryRole, p.roles), id: p.id })} className={cn(cls, 'min-h-[56px] transition-colors hover:border-primary/40')}>{inner}</Link>
+  ) : (
+    <div data-person-row="plain" data-person-id={p.id} className={cls}>{inner}</div>
+  );
+};
+
 const SectionHeader = ({ icon, title, count }: { icon: React.ReactNode; title: string; count: number }) => (
   <div className="mb-3 flex items-center gap-2">
     {icon}
@@ -154,6 +199,7 @@ const SearchResults = () => {
     citySlugOverride: cityOverride,
     ...(levelsOn ? { levels } : {}),
   });
+  const { badges: peopleBadges } = usePeopleBadges(useMemo(() => (data?.people ?? []).map((p) => p.id), [data]));
 
   const update = (mut: (p: URLSearchParams) => void) => {
     const p = new URLSearchParams(params);
@@ -331,19 +377,11 @@ const SearchResults = () => {
             {showSection('people') && (data.people?.length ?? 0) > 0 && (
               <section>
                 <SectionHeader icon={<User className="h-4 w-4 text-primary" />} title="People" count={data.people?.length ?? 0} />
-                <SectionGrid>
-                  {(data.people ?? []).map((p) => {
-                    const name = personName(p);
-                    const row = personSearchRow(p.id, p.roles, flags.teacherDetail);
-                    // Teacher-only: today's Teacher card (no role line), to /teachers/:id.
-                    if (row.kind === 'teacher') {
-                      return <ResultCard key={p.id} to={row.href} image={resolveEventImage(p.photo_url ?? p.avatar_url, null)} title={name} fallbackIcon={<GraduationCap className="h-8 w-8" />} kind="teacher" id={p.id} query={query} nationalityCode={p.nationality_code} />;
-                    }
-                    return (
-                      <ResultCard key={p.id} to={row.href} image={resolveEventImage(p.photo_url ?? p.avatar_url, null)} title={name} subtitle={roleLine(row.roles)} ariaLabel={personAriaLabel(name, row.roles)} telemetryKind={telemetryKindFor(p.primary_role, p.roles)} fallbackIcon={<User className="h-8 w-8" />} kind="person" wrapTitle id={p.id} query={query} nationalityCode={p.nationality_code} />
-                    );
-                  })}
-                </SectionGrid>
+                <div className="flex flex-col gap-2">
+                  {(data.people ?? []).map((p) => (
+                    <PersonRow key={p.id} query={query} badge={peopleBadges.get(p.id)} p={{ id: p.id, name: personName(p), image: resolveEventImage(p.photo_url ?? p.avatar_url, null), roles: p.roles, primaryRole: p.primary_role, nationalityCode: p.nationality_code }} />
+                  ))}
+                </div>
               </section>
             )}
             {showSection('teachers') && data.teachers.length > 0 && (
