@@ -42,3 +42,10 @@ Programme Save (disabled until an edit, screenshot), Go live, Move to another da
 ## Verified / Not verified
 Verified: above, against route-mocked prod-shaped programmes.
 Not verified: real prod walk of the unlocked controls (orchestrator's next step); check:integrity; GitHub Actions jobs; real-data shape survey of occurrence override rows (copy fix relies on `removed:true` on the reader, as in the existing wire shape).
+
+## FIX round (S-FLIP-FIX)
+- Changed: `tests/e2e/organiser-events.spec.ts:66` now expects the gate-ON wording "Choose a photo to go live." (= `coverStepReason(false, true)` in `flows/new/model.ts`). A literal, not an import: importing the model into a Playwright spec pulls in `integrations/supabase/client.ts` (`import.meta.env`) and the spec fails to load. The comment names the source.
+- Other strings that only exist when a gate is false, checked in the `test:e2e` list and `tests/e2e/**organiser*`: none. Hits exist only in `walk-sw1`, `walk-p-series`, `walk-fix-sw1`, `walk-flip` (throwaway walk specs, NOT in the `test:e2e` list; not changed, they would need a gate-aware update if ever promoted).
+- e2e counts (`npm run test:e2e`, dev server as in e2e-smoke.yml, VITE_ENABLE_ORGANISER_SELF_SERVE=true): before (GitHub) 1 failed (organiser-events:30) + known flake; after (sandbox) 156 passed, 1 skipped, 2 failed (`dancer-app/home-nights:75`, `organiser-home:55`); both re-run alone: 11 passed. No product copy or gate touched.
+- Per-job table: Actions not run locally; see PR #869 checks after push.
+- Verified: whole `test:e2e` list locally. Not verified: GitHub Actions on the new head; the 2 sandbox failures are attributed to load (pass on isolated rerun), not proven.
