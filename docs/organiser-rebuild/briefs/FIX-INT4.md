@@ -1,0 +1,16 @@
+# Fix brief FIX-INT4 -- ONE finishing pass on claude/org-r1-integrate (PR #809)
+
+Repo `123constante/bachata-website`. Work and push ONLY `claude/org-r1-integrate` (head fa609c67; no other worker on it). ONE push at the end (PARTIAL allowed). Plain git, never `gh api`; shell commands without variables, loops or `$(...)`; never `--no-verify`. Opus, high. Under 30% context (25% start nothing new). Final commit subject ends `[worker-done <ticket>]`. Do NOT flip `A1_APPLIED`/`AW1_APPLIED`. Supabase READ-ONLY. Vercel cap: one push only. CI rule: GitHub gates on #809 are GREEN at fa609c67 (23 pass); run in your sandbox only: organiser vitest, `npm run lint`, `lint:architecture`, `check:mojibake`, production build + `check:bundle-budget`, and the e2e spec nearest the shell if you touch the shell (you should not). Stopping rule: this is the LAST pass for this delta, no further review round; every change must therefore be RED FIRST (paste the red) and mutation-proven.
+
+Read: `docs/organiser-rebuild/reviews/REVIEW-INT4.md` on `origin/claude/org-r1-review-INT4` (findings with file:line and probe outputs).
+
+## Required (copy only; all dark behind the gate)
+1. **S-1** `shared/selfServeErrors.ts:~170`: match `removing the session "(.{0,200})"`; when the captured title is blank say "One of the sessions has changes on some dates, so only an admin can remove it. Keep it, or ask the Bachata Calendar team to remove it." Add both rows (blank title, normal title) to the AW1 table test.
+2. **S-3** Move the three INT4 rules (session-remove, stale/id-less ids, organiser consent) to the TOP of `COMMAND_COPY`, anchored (`^permission_denied: removing the session` etc.), so free-text titles cannot be matched by earlier unanchored rules. Add a shadowing row: title `Bachata on a past date is admin-only` still gets the session-remove copy. Mutant: put the rule back at the bottom -> that row goes red.
+3. **S-2** `events/programmeSeriesModel.ts:~267` `CHANGED_SESSION_REMOVE` / `removeConfirmCopy` (`ProgrammeSeries.tsx:~64`) and the Differs card (`:~138`): the remove CONFIRM must not say "those dates" (nothing lists dates there). Confirm: "If this session was changed on any date, past ones included, only the Bachata Calendar team can remove it." Keep the "those dates" wording only on the Differs card. Update the matrix tests that pin the old copy; add a test that the confirm text contains no "those". Mutant: put "those" back -> red.
+4. **N-1** add a row with a 120-character title asserting the 80-character cut (or delete the `.slice` and the claim; the server already sends `left(title, 80)`: pick the simpler, say which).
+5. **N-2** Do NOT guess: `organiser_home_v1` has no `is_active`. Add the server text `can only add a live organiser page` to the organiser-consent mapping group with friendly copy ("That page isn't live, so it can't be added."), one test row.
+6. N-3 / N-4 / N-5 / N-6: no change; list them in the handover as accepted with the reason.
+
+## Handover
+`docs/organiser-rebuild/handovers/FIX-INT4.md`: each item with the red-first paste, the mutants, the commands run and exit codes, Verified / Not verified. Note for the review pack: the cold-start e2e flake the reviewer saw (first test after a cold dev server is red on main too) is not this PR's.
