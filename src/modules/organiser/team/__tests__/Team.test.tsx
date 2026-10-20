@@ -205,6 +205,14 @@ describe('C25b the faces wall', () => {
     expect(world.calls('organiser_team_add_member_by_profile_v1')).toHaveLength(0);
   });
 
+  it('team_full from a race: the add is refused with the cap copy, nothing else changes (S-ERR)', async () => {
+    faces = [face(1)];
+    install({ organiser_team_add_member_by_profile_v1: () => new Error('team_full') });
+    at();
+    fireEvent.click(await screen.findByTestId('add-face'));
+    expect((await screen.findByTestId('add-error')).textContent).toBe(`This team already has ${TEAM_CAP} people. Remove someone first, or ask the Bachata Calendar team.`);
+  });
+
   it('search needs 2 letters, asks for 8 results, and a result tap adds with ONE call', async () => {
     install({ organiser_team_search_people_v1: [{ profile_id: 'pz', display_name: 'Zoe Park', photo_url: null, city_name: 'Leeds' }] });
     at();

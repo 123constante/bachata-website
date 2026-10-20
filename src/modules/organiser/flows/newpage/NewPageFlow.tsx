@@ -1,11 +1,12 @@
 import { useId, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Check } from 'lucide-react';
+import { Check, Mail, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { finishProfileHref } from '@/lib/profileCompletion';
 import { createOrganiserProfile, searchClaimableOrganisers, type ClaimCandidate } from '@/modules/organiser/shared/selfServeApi';
 import { selfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
+import { supportLinks } from '@/modules/organiser/shared/support';
 import { Card, Field, FIELD_CLASS, PrimaryButton, SearchField, SkeletonRows, SummaryRow, useShake } from '../../ui';
 import { searchCities } from '../../home/onboarding/citySearch';
 import { CAP_REASON, classifyRefusal, findByName } from './model';
@@ -15,6 +16,7 @@ export type NewPageStep = 'name' | 'city';
 type Refusal =
   | { kind: 'name_taken'; name: string; page: ClaimCandidate | null }
   | { kind: 'cap' }
+  | { kind: 'invite'; message: string }
   | { kind: 'other'; message: string };
 
 interface Props {
@@ -82,7 +84,9 @@ export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin
           navigate(finishProfileHref(`${pathname}${search}`));
           return;
         }
-        setRefusal({ kind, message: copy.message });
+        // Invite-only: a retry cannot work, so the screen offers the support rows instead.
+        if (copy.next === 'contact_support') setRefusal({ kind: 'invite', message: copy.message });
+        else setRefusal({ kind, message: copy.message });
       }
       shake();
     } finally {
@@ -114,6 +118,7 @@ export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin
             <PrimaryButton onClick={onHome} testId="onboarding-create-home">Back to Home</PrimaryButton>
           </>
         )}
+        {refusal.kind === 'invite' && <InviteRequired message={refusal.message} onHome={onHome} />}
         {refusal.kind === 'other' && (
           <>
             <p className="text-[15px] text-[var(--danger)]">{refusal.message}</p>
@@ -181,5 +186,35 @@ export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin
         </Card>
       ) : null}
     </div>
+  );
+}
+
+const SUPPORT_ROW = 'flex min-h-[48px] w-full items-center gap-[12px] rounded-[12px] border border-[var(--line)] px-[16px] text-[15px] text-[var(--fg)]';
+
+/** `organiser_invite_required`: why, the support rows that exist (never a dead link), and Home. No retry. */
+function InviteRequired({ message, onHome }: { message: string; onHome: () => void }) {
+  const support = supportLinks();
+  return (
+    <>
+      <p className="text-[15px] text-[var(--fg)]" data-testid="onboarding-create-invite">{message}</p>
+      {support.whatsapp && (
+        <a href={support.whatsapp} target="_blank" rel="noopener noreferrer" className={SUPPORT_ROW} data-testid="onboarding-create-support-whatsapp">
+          <MessageCircle aria-hidden="true" className="h-[16px] w-[16px] shrink-0 text-[var(--mut)]" />
+          WhatsApp us
+        </a>
+      )}
+      {support.email && (
+        <a href={`mailto:${support.email}`} className={SUPPORT_ROW} data-testid="onboarding-create-support-email">
+          <Mail aria-hidden="true" className="h-[16px] w-[16px] shrink-0 text-[var(--mut)]" />
+          Email us
+        </a>
+      )}
+      {!support.whatsapp && !support.email && (
+        <p className="text-[14px] text-[var(--mut)]" data-testid="onboarding-create-support-none">
+          Our contact details are not available here yet. Try again a little later.
+        </p>
+      )}
+      <PrimaryButton onClick={onHome} testId="onboarding-create-home">Back to Home</PrimaryButton>
+    </>
   );
 }

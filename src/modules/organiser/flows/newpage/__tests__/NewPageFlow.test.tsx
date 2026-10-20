@@ -99,6 +99,38 @@ describe('C40 name, C40b city', () => {
   });
 });
 
+describe('organiser_invite_required (S-ERR)', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('says why, shows the WhatsApp row, and offers no retry that cannot work', async () => {
+    vi.stubEnv('VITE_SUPPORT_WHATSAPP', 'https://wa.me/447000000000');
+    vi.stubEnv('VITE_SUPPORT_EMAIL', '');
+    api.create.mockRejectedValue({ message: 'organiser_invite_required', code: 'P0001' });
+    mount();
+    fireEvent.click(await toCity());
+    const refusal = await screen.findByTestId('onboarding-create-refusal');
+    expect(refusal.textContent).toContain('needs an invite from the Bachata Calendar team');
+    expect(within(refusal).queryByTestId('onboarding-create-retry')).toBeNull();
+    const wa = within(refusal).getByTestId('onboarding-create-support-whatsapp') as HTMLAnchorElement;
+    expect(wa.getAttribute('href')).toBe('https://wa.me/447000000000');
+    expect(within(refusal).getAllByRole('button').length + within(refusal).getAllByRole('link').length).toBe(2);
+    expect(api.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('with no support number configured: the email row, or plain copy, never a dead link', async () => {
+    vi.stubEnv('VITE_SUPPORT_WHATSAPP', '');
+    vi.stubEnv('VITE_SUPPORT_EMAIL', '');
+    api.create.mockRejectedValue({ message: 'organiser_invite_required' });
+    mount();
+    fireEvent.click(await toCity());
+    const refusal = await screen.findByTestId('onboarding-create-refusal');
+    expect(within(refusal).queryByTestId('onboarding-create-support-whatsapp')).toBeNull();
+    expect(within(refusal).queryByTestId('onboarding-create-support-email')).toBeNull();
+    expect(within(refusal).queryByTestId('onboarding-create-retry')).toBeNull();
+    expect(refusal.textContent).toMatch(/not available here yet/);
+  });
+});
+
 describe('refusals leave exactly one action', () => {
   it('organiser_name_taken names the page and offers ONE action, Ask to join <page>', async () => {
     api.create.mockRejectedValue({ message: 'organiser_name_taken' });

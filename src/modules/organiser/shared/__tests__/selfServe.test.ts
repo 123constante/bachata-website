@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { KNOWN_SELF_SERVE_CODES, commandErrorMessage, isVersionConflict, selfServeErrorCode, selfServeErrorCopy } from '../selfServeErrors';
+import { KNOWN_SELF_SERVE_CODES, commandErrorMessage, isVersionConflict, selfServeErrorCode, selfServeErrorCopy, teamErrorMessage } from '../selfServeErrors';
+import { TEAM_CAP } from '../teamModel';
 import { isMailboxProvenToken } from '../sessionProof';
 import { DANCER_GATE_REASON, PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
 import { PROFILE_INCOMPLETE_ERROR } from '@/hooks/useSeriesLevelRating';
@@ -18,10 +19,31 @@ const SERVER_CODES = [
   'not_authorised', 'invalid_state',
   // Dancer first, then organiser: create / claim / request refuse an unfinished dancer profile (separate admin PR).
   'profile_incomplete',
+  // S-ERR: the invite-only create trigger (admin) and the 20-person cap (admin A1b).
+  'organiser_invite_required', 'team_full',
 ];
 
 const token = (payload: unknown) =>
   `x.${btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}.y`;
+
+describe('selfServeErrors S-ERR', () => {
+  it.each(['organiser_invite_required', 'team_full'])('%s maps to its own message, not the generic line', (code) => {
+    const copy = selfServeErrorCopy({ message: code, code: 'P0001' });
+    expect(copy.message).not.toBe('Something went wrong. Please try again.');
+    expect(KNOWN_SELF_SERVE_CODES).toContain(code);
+  });
+
+  it('organiser_invite_required carries the invite copy and offers the support link', () => {
+    const copy = selfServeErrorCopy({ message: 'organiser_invite_required' });
+    expect(copy.message).toBe('Creating a new organiser page needs an invite from the Bachata Calendar team. Message us and we\u2019ll set you up.');
+    expect(copy.next).toBe('contact_support');
+  });
+
+  it('team_full takes its number from TEAM_CAP', () => {
+    expect(selfServeErrorCopy({ message: 'team_full' }).message).toBe(`This team already has ${TEAM_CAP} people. Remove someone first, or ask the Bachata Calendar team.`);
+    expect(teamErrorMessage({ message: 'team_full' })).toBe(selfServeErrorCopy({ message: 'team_full' }).message);
+  });
+});
 
 describe('selfServeErrors', () => {
   it('has copy for every code the server raises', () => {

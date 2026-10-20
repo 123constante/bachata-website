@@ -12,10 +12,16 @@
 import { DANCER_GATE_REASON, PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
 import { VERSION_CONFLICT } from './copy';
 
-import { LAST_OWNER_NOTE } from './teamModel';
+import { LAST_OWNER_NOTE, TEAM_CAP } from './teamModel';
 
 /** `finish_profile`: the screen sends the person to the gated Finish screen (finishProfileHref of where they are). */
-export type SelfServeNextStep = 'request_access' | 'reauth' | 'sign_in' | 'finish_profile' | null;
+/** `contact_support`: the screen shows the support rows (supportLinks()) and no retry, because a retry cannot work. */
+export type SelfServeNextStep = 'request_access' | 'reauth' | 'sign_in' | 'finish_profile' | 'contact_support' | null;
+
+/** A page holds at most TEAM_CAP people (admin A1b): add-member / set-member raise `team_full`, invite redeem returns it as a reason. */
+export const TEAM_FULL_COPY = `This team already has ${TEAM_CAP} people. Remove someone first, or ask the Bachata Calendar team.`;
+/** Creating a NEW organiser page is invite-only (owner decision 2026-10-20); the admin trigger raises `organiser_invite_required`. */
+export const INVITE_REQUIRED_COPY = 'Creating a new organiser page needs an invite from the Bachata Calendar team. Message us and we\u2019ll set you up.';
 
 export interface SelfServeErrorCopy {
   message: string;
@@ -93,6 +99,8 @@ const COPY: Record<string, SelfServeErrorCopy> = {
     message: 'This page cannot do that right now. Reload and check it.',
     next: null,
   },
+  organiser_invite_required: { message: INVITE_REQUIRED_COPY, next: 'contact_support' },
+  team_full: { message: TEAM_FULL_COPY, next: null },
 };
 
 const GENERIC: SelfServeErrorCopy = {
@@ -269,6 +277,7 @@ export const TEAM_COPY: Record<string, string> = {
   note_too_long: 'Keep the note under 500 characters.',
   note_invalid: 'The note contains characters we cannot accept.',
   invalid_scope: 'Something went wrong. Please try again.',
+  team_full: TEAM_FULL_COPY,
   owner_only: 'Only an owner of this page can do that. Owners and managers add people, and anyone on the team can leave this page.',
   use_transfer: `To make someone an owner, ${HAND_OVER_HOW}.`,
   target_is_owner: 'An owner\u2019s role cannot be changed here. They can transfer ownership, or ask the Bachata Calendar team.',

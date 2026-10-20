@@ -154,6 +154,8 @@ const SERVER_TEAM_CODES = [
   // and the shared write gate + member helpers, read from the live bodies 2026-10-11.
   'owner_only', 'use_transfer', 'target_is_owner', 'already_owner', 'user_not_found', 'unconfirmed_email',
   'reason_required', 'reason_too_long', 'reason_invalid', 'primary_requires_owner', 'invalid_target_rule',
+  // admin A1b: a page holds at most 20 members.
+  'team_full',
 ];
 
 describe('teamErrorMessage', () => {
