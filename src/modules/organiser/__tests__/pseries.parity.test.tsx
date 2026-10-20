@@ -80,12 +80,14 @@ const where = () => screen.getByTestId('where').textContent;
 const lastCommand = () => commandsOf(rpc).slice(-1)[0]?.env.command;
 
 describe('C28b / C30b / C38: the lifecycle card on One event', () => {
-  it('a draft offers Go live OFF with the reason (A1 not applied) and names what is missing', async () => {
+  it('a draft offers Go live OFF with the reason (what is missing, A1 applied) and names what is missing', async () => {
     const { container } = mount(ORG_PATHS.event(DRAFT), routes);
     const go = await screen.findByTestId('org-life-golive');
     expect(go.getAttribute('aria-disabled')).toBe('true');
     const reason = screen.getByTestId('org-life-golive-reason').textContent ?? '';
-    expect(reason).toContain('Needs the next platform update');
+    expect(reason).not.toContain('Needs the next platform update');
+    expect(reason).not.toContain('Before then');
+    expect(reason).toMatch(/^To go live, /);
     expect(reason).toMatch(/a venue/);
     expect(reason).toMatch(/a flyer/);
     // Walk fix: the venue and cover are on Details, so the card names it AND links there.
