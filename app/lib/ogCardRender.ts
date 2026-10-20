@@ -24,6 +24,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { supabase } from "@/integrations/supabase/client";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
+import { pickEventCoverSource } from "@/lib/eventCoverImage";
 import { wordForStored, type CategoryWord } from "@/lib/eventCategory";
 import { asWallClock, formatWallClockLocalIntl, wallClockDateKey, type WallClock } from "@/lib/time/wallClock";
 import { fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
@@ -643,7 +644,13 @@ export async function fetchEventCardData(id: string, occ: string | null): Promis
     title: snap.event.name ?? "Bachata Event",
     dateLine: formatOgDate(rawStart ? asWallClock(rawStart) : null),
     venueLine: venue?.name ? `at ${venue.name}` : null,
-    coverUrl: firstString(snap.event.cover_image_url) ?? firstString(venue?.image_url),
+    // Same cover-or-first-gallery-picture rule as the event page's imageUrl,
+    // so the share card shows the picture og:image is keyed on.
+    coverUrl:
+      pickEventCoverSource(
+        firstString(snap.event.cover_image_url) ?? firstString(snap.event.hero_image_url),
+        Array.isArray(snap.event.photo_urls) ? snap.event.photo_urls : [],
+      ) ?? firstString(venue?.image_url),
     // snake_case snapshot, but this key really is a bare `type` -- built by
     // _event_view_snapshot_compat_v1 from format/category (see PILL_LABELS).
     // The same key the page model reads (buildEventPageModel identity.eventType).

@@ -213,13 +213,13 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
     const coverBytes = hasCoverUrl ? await fetchImageBytes(cardData.coverUrl as string) : null;
     // BOTH cover paths are marked, and the no-cover one is the subtle case.
     // For a DIRECT hit on this endpoint it is the designed flyer-less output.
-    // Through a real og:image it is a resolver disagreement: the page's cover
-    // is `cover_image_url ?? hero_image_url` (useEventPageQuery) while this
-    // endpoint's is `cover_image_url ?? venue.image_url` (ogCardRender), so a
-    // hero-only event at a photo-less venue emits a card URL whose card has no
-    // hero in it -- the page promises a picture, the share gets text. Measured
-    // across all 67 live series on 2026-08-10: ZERO are in that shape, so this
-    // reds nothing today and is a tripwire for the day one appears. The two
+    // Through a real og:image it is a resolver disagreement. Both sides now
+    // pick the cover with pickEventCoverSource(cover ?? hero, photo_urls)
+    // (useEventPageQuery and ogCardRender), this endpoint then falling back to
+    // venue.image_url, so a page that promises a picture should never get a
+    // card without one. Kept as a tripwire for the day the two resolvers drift
+    // apart again (they did until 2026-10-20: hero and gallery were page-only).
+    // The two
     // reasons stay distinct because they need different diagnoses: a dead URL
     // is a storage problem, an absent one a resolver problem.
     if (!coverBytes) {

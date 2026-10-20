@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { resolveEventImage } from '@/lib/utils';
+import { pickEventCoverSource } from '@/lib/eventCoverImage';
 import { safeExternalHref } from '@/lib/url';
 import { asEventTimeZone, asWallClock, type WallClock } from '@/lib/time/wallClock';
 import type { EventPageDerivedLevel, EventPageEventLevel, EventPageKeyTimes, EventPagePerson, EventPagePromoCode, EventPageSnapshot, EventPageSnapshotOccurrence, EventPageTicket } from '@/modules/event-page/types';
@@ -166,14 +167,22 @@ export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null
       ranFrom: asString(event.ran_from),
       isPublished: event.is_published !== false,
       createdBy: asString(event.created_by),
+      // No cover but a gallery: the first gallery picture is the cover
+      // (pickEventCoverSource). imageUrl is what the cover tile, the video
+      // poster, JSON-LD and og:image all read, so this is the one place.
       imageUrl:
         resolveEventImage(
           null,
-          asString(event.cover_image_url) ?? asString(event.hero_image_url),
+          pickEventCoverSource(
+            asString(event.cover_image_url) ?? asString(event.hero_image_url),
+            asArray(event.photo_urls),
+          ),
         ) ?? null,
       posterUrl: asString(event.poster_url),
+      // Trimmed, so CoverBlock's `url !== imageUrl` dedupe matches the
+      // (trimmed) gallery-fallback cover and never shows it twice.
       galleryUrls: asArray(event.photo_urls)
-        .map((s) => asString(s))
+        .map((s) => asString(s)?.trim() ?? null)
         .filter((s): s is string => s !== null),
       videoUrls: asArray(event.video_urls)
         .map((s) => asString(s))
