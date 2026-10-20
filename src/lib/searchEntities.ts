@@ -8,25 +8,25 @@ import {
 // searchRpc.ts and HeaderSearch.tsx. Vendors link by id (/vendors/:id); cities
 // by slug (/city/:slug). Keep this in sync with the RPC's entity_type whitelist.
 export type SearchKind =
-  | 'event' | 'venue' | 'organiser' | 'teacher' | 'dj' | 'dancer' | 'vendor' | 'city';
+  | 'event' | 'venue' | 'organiser' | 'teacher' | 'dj' | 'dancer' | 'person' | 'vendor' | 'city';
 
 export const KIND_ICON: Record<SearchKind, LucideIcon> = {
   event: Calendar, venue: MapPin, organiser: Building2, teacher: GraduationCap,
-  dj: Music, dancer: User, vendor: ShoppingBag, city: Globe,
+  dj: Music, dancer: User, person: User, vendor: ShoppingBag, city: Globe,
 };
 
 export const KIND_LABEL: Record<SearchKind, string> = {
   event: 'Event', venue: 'Venue', organiser: 'Organiser', teacher: 'Teacher',
-  dj: 'DJ', dancer: 'Dancer', vendor: 'Vendor', city: 'City',
+  dj: 'DJ', dancer: 'Dancer', person: 'Person', vendor: 'Vendor', city: 'City',
 };
 
 export const KIND_LABEL_PLURAL: Record<SearchKind, string> = {
   event: 'Events', venue: 'Venues', organiser: 'Organisers', teacher: 'Teachers',
-  dj: 'DJs', dancer: 'Dancers', vendor: 'Vendors', city: 'Cities',
+  dj: 'DJs', dancer: 'Dancers', person: 'People', vendor: 'Vendors', city: 'Cities',
 };
 
 // People kinds render with round avatars; everything else a square thumb/glyph.
-export const CIRCLE_KINDS: SearchKind[] = ['organiser', 'teacher', 'dj', 'dancer'];
+export const CIRCLE_KINDS: SearchKind[] = ['organiser', 'teacher', 'dj', 'dancer', 'person'];
 
 // Route for a result row. Cities resolve by slug (id is unused for them);
 // every other kind by id. Festival events are special-cased to /festival/:id at
@@ -38,6 +38,7 @@ export function hrefFor(kind: SearchKind, id: string, slug?: string | null): str
     case 'teacher':   return `/teachers/${id}`;
     case 'dj':        return `/djs/${id}`;
     case 'dancer':    return `/dancers/${id}`;
+    case 'person':    return `/people/${id}`;
     case 'vendor':    return `/vendors/${id}`;
     case 'city':      return `/city/${slug ?? id}`;
     default:          return `/event/${id}`;

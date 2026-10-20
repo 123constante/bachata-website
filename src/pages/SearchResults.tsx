@@ -17,6 +17,7 @@ import { LevelBadge, LevelFilterChips, UnratedLine, parseLevelParam } from '@/co
 import { flags } from '@/lib/featureFlags';
 import { recordSearchResultClick } from '@/lib/searchClickTelemetry';
 import { hrefFor, type SearchKind } from '@/lib/searchEntities';
+import { personAriaLabel, roleLine, telemetryKindFor } from '@/lib/searchPeople';
 import { genreFilterTokens } from '@/lib/genreSynonyms';
 import { resolveEventImage } from '@/lib/utils';
 import { eventResultSubtitle } from '@/lib/searchEventSubtitle';
@@ -59,6 +60,7 @@ const FACETS = [
   { key: 'teachers', label: 'Teachers' },
   { key: 'djs', label: 'DJs' },
   { key: 'dancers', label: 'Dancers' },
+  { key: 'people', label: 'People' },
   { key: 'vendors', label: 'Vendors' },
   { key: 'cities', label: 'Cities' },
 ] as const;
@@ -75,10 +77,16 @@ type ResultCardProps = {
   badge?: React.ReactNode;
   /** People only: nationality_code from the search read. */
   nationalityCode?: string | null;
+  /** v7 people: the accessible name, "Name, Teacher, DJ". */
+  ariaLabel?: string;
+  /** Kind logged on click when it differs from `kind` (v7: primary_role). */
+  telemetryKind?: SearchKind;
+  /** v7 people: let a long name wrap in full instead of clamping to two lines. */
+  wrapTitle?: boolean;
 };
 
-const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query, badge, nationalityCode }: ResultCardProps) => (
-  <Link to={to} onClick={() => recordSearchResultClick({ query, kind, id })} className="group block">
+const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query, badge, nationalityCode, ariaLabel, telemetryKind, wrapTitle }: ResultCardProps) => (
+  <Link to={to} aria-label={ariaLabel} onClick={() => recordSearchResultClick({ query, kind: telemetryKind ?? kind, id })} className="group block">
     <Card className="h-full overflow-hidden border-primary/15 transition-colors hover:border-primary/40">
       <div className="relative aspect-[4/3] bg-muted/50">
         {image ? (
@@ -89,10 +97,10 @@ const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query,
         <NationalityFlag code={nationalityCode} size={TILE_FLAG_SIZE} placement="inset" />
       </div>
       <div className="p-3">
-        <h3 className="line-clamp-2 text-sm font-bold text-foreground transition-colors group-hover:text-primary">
+        <h3 className={cn(wrapTitle ? 'break-words' : 'line-clamp-2', 'text-sm font-bold text-foreground transition-colors group-hover:text-primary')}>
           {highlight(title, query)}
         </h3>
-        {subtitle && <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{subtitle}</p>}
+        {subtitle && <p className={cn('mt-1 text-xs text-muted-foreground', wrapTitle ? 'break-words' : 'line-clamp-1')}>{subtitle}</p>}
         {badge}
       </div>
     </Card>
@@ -127,7 +135,8 @@ const SearchResults = () => {
   const to = params.get('to') ?? '';
   const cityOverride = params.get('city');
   // Dancer-rated level (search_public_v6). Ignored entirely while the flag is off.
-  const levels = flags.searchV6 ? parseLevelParam(params.get('level')) : [];
+  const levelsOn = flags.searchV6 || flags.searchV7;
+  const levels = levelsOn ? parseLevelParam(params.get('level')) : [];
 
   const { data, isLoading, error } = useSearchResults(query, citySlug, {
     includePast: time === 'all',
@@ -140,7 +149,7 @@ const SearchResults = () => {
     dateFrom: from || null,
     dateTo: to || null,
     citySlugOverride: cityOverride,
-    ...(flags.searchV6 ? { levels } : {}),
+    ...(levelsOn ? { levels } : {}),
   });
 
   const update = (mut: (p: URLSearchParams) => void) => {
@@ -168,6 +177,7 @@ const SearchResults = () => {
     teachers: data?.teachers.length ?? 0,
     djs: data?.djs.length ?? 0,
     dancers: data?.dancers.length ?? 0,
+    people: data?.people?.length ?? 0,
     vendors: data?.vendors.length ?? 0,
     cities: data?.cities.length ?? 0,
   };
@@ -212,7 +222,7 @@ const SearchResults = () => {
             </div>
           )}
 
-          {flags.searchV6 && query && (facet === 'all' || facet === 'events') && (
+          {levelsOn && query && (facet === 'all' || facet === 'events') && (
             <div className="mt-3">
               <LevelFilterChips
                 selected={levels}
@@ -275,7 +285,7 @@ const SearchResults = () => {
                 <SectionHeader icon={<Calendar className="h-4 w-4 text-primary" />} title="Events" count={data.events.length} />
                 <SectionGrid>
                   {data.events.map((e) => (
-                    <ResultCard key={e.id} to={hrefFor('event', e.id)} image={resolveEventImage(e.poster_url, null)} title={e.name} subtitle={eventResultSubtitle(e) ?? undefined} fallbackIcon={<Calendar className="h-8 w-8" />} kind="event" id={e.id} query={query} badge={flags.searchV6 ? <LevelBadge level={e.derived_level} /> : undefined} />
+                    <ResultCard key={e.id} to={hrefFor('event', e.id)} image={resolveEventImage(e.poster_url, null)} title={e.name} subtitle={eventResultSubtitle(e) ?? undefined} fallbackIcon={<Calendar className="h-8 w-8" />} kind="event" id={e.id} query={query} badge={levelsOn ? <LevelBadge level={e.derived_level} /> : undefined} />
                   ))}
                 </SectionGrid>
               </section>
@@ -297,6 +307,19 @@ const SearchResults = () => {
                   {data.organisers.map((o) => (
                     <ResultCard key={o.id} to={hrefFor('organiser', o.id)} image={resolveEventImage(o.avatar_url, null)} title={o.name ?? 'Organiser'} fallbackIcon={<Building2 className="h-8 w-8" />} kind="organiser" id={o.id} query={query} />
                   ))}
+                </SectionGrid>
+              </section>
+            )}
+            {showSection('people') && (data.people?.length ?? 0) > 0 && (
+              <section>
+                <SectionHeader icon={<User className="h-4 w-4 text-primary" />} title="People" count={data.people?.length ?? 0} />
+                <SectionGrid>
+                  {(data.people ?? []).map((p) => {
+                    const name = personName(p);
+                    return (
+                      <ResultCard key={p.id} to={hrefFor('person', p.id)} image={resolveEventImage(p.photo_url ?? p.avatar_url, null)} title={name} subtitle={roleLine(p.roles)} ariaLabel={personAriaLabel(name, p.roles)} telemetryKind={telemetryKindFor(p.primary_role, p.roles)} fallbackIcon={<User className="h-8 w-8" />} kind="person" wrapTitle id={p.id} query={query} nationalityCode={p.nationality_code} />
+                    );
+                  })}
                 </SectionGrid>
               </section>
             )}
