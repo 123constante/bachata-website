@@ -69,7 +69,30 @@ Defect found on the walk and fixed red-first: b' above.
 
 ## 5. CI, every job step run in the sandbox
 
-CI_TABLE_PLACEHOLDER
+Run on 828e5d3 (the tip before this doc). The later commits only add the handover doc and the e2e fix below.
+
+| job | command | exit |
+|---|---|---|
+| typecheck | `npm run check:rpc-typing`; `npm run check:wallclock-brand` | 0, 0 |
+| (extra) | `npm run typecheck` | 2: 97 errors, the same as the base. The only organiser hit is `edit-in-place/__tests__/TeamPicker.test.tsx(297,36)`, which is pre-existing and not touched by INT4. |
+| architecture-guard | `chmod +x bin/*.sh`; `bin/check-integrity.sh`; `check:legacy-tables`; `check:legacy-program-rpcs`; `lint:architecture` | 0 each |
+| architecture-guard | `AUDIT_STRICT=1 npm run check:images`; image-widths (+self-test); plan-hygiene self-test; workflow-artifact-policy (+self-test); mojibake self-test + git-grep scan; prove:entry-point (+self-test) | 0 each; scan empty |
+| lint | `npm run lint` | 0 (20 of 20 links) |
+| unit (London) | `TZ=Europe/London LIVE_DB=false env -u NODE_PATH npm run test:unit:offline` | 0: 407 files, 9847 pass, 18 skip |
+| unit | `npm run test:unit:timing` | 0 (65) |
+| unit | tz list, New York + Sydney | 0 / 0 (213 each) |
+| unit | dancer-area-isolation self-test + check | 0 / 0 |
+| organiser module | `npx vitest run src/modules/organiser` | 0: 112 files, 3517 pass, 2 skip |
+| perf-budget | 3 self-tests; `npm run build` (perf-budget.yml env); `check:bundle-budget`; `check:first-load-requests`; `check:chunk-cycles` | 0 each. dancer-app 366.4/368 KB, 55 chunks, 4 pullers; event 377.1/381 KB, 43 chunks, 2 pullers; no chunk cycle |
+| e2e-smoke | `CI=true npm run test:e2e` (job env) | 0: 156 pass, **2 flaky**, 1 skip. See the e2e note. |
+| phone-qa | `CI=true npx playwright test --config playwright.phone.config.ts`; build-smoke (`playwright.build.config.ts`) | 0 (272 pass, 74 skip); 0 (66 pass) |
+| workflow-lint | BOM, masking, notification (+self-test), no-preview-prefixes (+self-test) | 0 each |
+| ci-budget-guard | `node scripts/check-ci-budget.mjs --self-test` | 0 |
+| db-contract-check (offline) | `ci-live-db-gate.mjs --self-test`; `check-migration-stamps.mjs`; `check-guest-list-contract.mjs --self-test` | 0 each |
+| misc | `npm run check:mojibake`; `check:pr-mergeable:self-test`; `check-pr-phone-qa.mjs --self-test`; `check:seo:self-test`; `check:og:self-test` | 0 each |
+| NOT RUN | lighthouse, doc-weight, `check:og`/`check:seo`/`synthetic:ssr` (need a deploy); types-drift (`SUPABASE_ACCESS_TOKEN`); live DB contract checks (secrets); `check:pr-mergeable` live sweep and ci-budget measure (GitHub tokens); real-data-verified and phone-qa-section guards (read the PR on GitHub; their self-tests ran) | n/a |
+
+E2E_NOTE_PLACEHOLDER
 
 ## Verified
 
