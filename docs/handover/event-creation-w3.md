@@ -80,3 +80,36 @@ Branch `claude/event-creation-w3` (from `main` at 4a63921, after #750). PR #757 
   The owner may want it to read "Nothing coming up" too; that is not decided.
 - The walk spec was run from a scratch worktree and is not committed: its screenshot path is absolute,
   and the `e2e-build` dir is a CI suite.
+
+## Fix pass (2026-10-20, owner decisions from the clicks)
+
+1. **Past toggle was dead** when the open event sat under Past (`showPast = pastOpen || past.some(active)`).
+   Chosen fix: **initialise open state from `activeId`**. `EventList` opens Past once when the active event
+   is under it (state adjusted during render, keyed on the active id); after that the toggle is a normal
+   collapse/expand, the 44px button and `aria-expanded` stay truthful. Navigating to a different past event
+   opens it again, so the open row is not hidden on navigation.
+2. **Date page tag** (`dates/index.tsx`) now reads `seriesLife(series, upcomingDates(ws.dates, today).length).tag`
+   (no second copy). Only a LIVE series with no date from today on changes (Finished / Nothing coming up);
+   a live series with later dates, and ended / archived, read as before. A cancelled date still says Cancelled.
+   Display only; no migration.
+3. Unchanged by decision: a live series whose upcoming dates are all cancelled stays "Live".
+
+Tests (`lifeLabel.matrix.test.tsx`, now 171): + 4 Past-toggle rows (active in / not in Past x 1, 2 taps) and
++ 19 date-page rows (all 15 prod live-only-past shapes, over-100, live-weekly-until, ended, archived).
+Red-first on `ea6f877d5`: 17 fail (16 date-page rows + the toggle row), all pass after. Mutant M11 (date page
+back on `dateTag`) is exactly that base state: killed by 16 rows; M12 (old `showPast`) killed by the toggle row.
+
+| Command | Result |
+|---|---|
+| `vitest src/modules/organiser/{events,shared}` | 44 files, 1759 pass |
+| `vitest src/modules/organiser` | 44 FAIL in `dates/__tests__/DatePage.test.tsx` and `levelsByType.matrix.test.tsx`; the SAME 44 fail on unmodified `ea6f877d5` in this sandbox (pre-existing, not from this pass) |
+| eslint on changed files | clean |
+| `npm run build` | exit 0 |
+| `AUDIT_STRICT=1 npm run check:images` | pass |
+| `bash bin/check-integrity.sh` | ok (the npm script gets exit 126 here: no exec bit in the sandbox) |
+| `npm run lint` chain | all links pass except `check:integrity` (126, above); eslint link skipped by the chain |
+| tsc | only pre-existing errors elsewhere (Venues, breadcrumbs); none in changed files |
+| `npm run test:e2e` | NOT completed: killed at the 500s sandbox timeout |
+
+Not verified: 390x844 production-build walk of the list and date page for this pass (the earlier walk's
+harness is not in the repo, no new screenshots); phone suite and bundle-budget job not run; real prod RPCs.

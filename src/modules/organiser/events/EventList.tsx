@@ -54,13 +54,21 @@ export function EventList({ activeId, primaryNew = false }: { activeId?: string;
   const home = useOrganiserHome();
   const navigate = useNavigate();
   const [pastOpen, setPastOpen] = useState(false);
+  const activeInPast = !!activeId && !!home.data && listedSeries(home.data.organisers).some((s) => s.id === activeId && lifeOf(s).section === 'past');
+  // Opening an event under Past opens the section once (state adjusted during render); after
+  // that the person can collapse it. Opening a different past event opens it again.
+  const [seenActive, setSeenActive] = useState<string | undefined>(undefined);
+  const openedId = activeInPast ? activeId : undefined;
+  if (openedId !== seenActive) {
+    setSeenActive(openedId);
+    if (openedId) setPastOpen(true);
+  }
   if (home.isPending) return <SkeletonRows count={4} label="Loading your events" testId="org-events-loading" />;
   if (home.isError) return <ErrorState onRetry={() => void home.refetch()} retrying={home.isFetching} testId="org-events-error" />;
   const series = listedSeries(home.data.organisers);
   const current = series.filter((s) => lifeOf(s).section === 'current');
   const past = series.filter((s) => lifeOf(s).section === 'past');
-  // The open event's row is never folded away.
-  const showPast = pastOpen || past.some((s) => s.id === activeId);
+  const showPast = pastOpen;
   const newButton = (
     <PrimaryButton onClick={() => navigate(ORG_PATHS.newEvent)} testId="org-events-new">
       <Plus aria-hidden="true" className="h-[20px] w-[20px]" /> New event

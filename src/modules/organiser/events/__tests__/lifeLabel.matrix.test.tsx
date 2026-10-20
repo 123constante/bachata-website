@@ -8,11 +8,11 @@
  * Expected words are spelled out here, never imported from lifeLabel.ts.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
-  LIFECYCLE_WORD, SHAPES, VENUES, homeOf, programmeOf, run, shape, upcomingOf, weekly, workspaceOf, type SeriesShape,
+  LIFECYCLE_WORD, SHAPES, VENUES, dateViewOf, homeOf, pastOf, programmeOf, run, shape, upcomingOf, weekly, workspaceOf, type SeriesShape, type ShapeDate,
 } from '../../__tests__/shapes/shapes';
 import { seriesLife } from '@/modules/organiser/shared/lifeLabel';
 
@@ -25,6 +25,7 @@ vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ ci
 
 import EventsPage from '../index';
 import EventEditorPage from '../EventEditorPage';
+import DatePage from '../../dates';
 
 /** The prod rows of live series with no date from today on (2026-10-14): format x rule x past x past cancelled. */
 const PROD_PAST: SeriesShape[] = [
@@ -54,22 +55,24 @@ function expected(s: SeriesShape): { word: string; past: boolean; note: string |
 
 let home: SeriesShape[] = [];
 let current: SeriesShape;
+let dateOpen: ShapeDate | null = null;
 beforeEach(() => {
   rpc.mockReset();
   rpc.mockImplementation(async (fn: string) => {
     const s = current;
-    const next = s && (upcomingOf(s).find((d) => d.status !== 'cancelled') ?? upcomingOf(s)[0]);
+    const next = dateOpen ?? (s && (upcomingOf(s).find((d) => d.status !== 'cancelled') ?? upcomingOf(s)[0]));
     const answers: Record<string, unknown> = {
       organiser_home_v1: homeOf(home),
       admin_event_workspace_p5: s ? workspaceOf(s) : null,
       organiser_get_occurrence_programme_v1: next ? programmeOf(s, next) : null,
+      event_view_p5: dateOpen ? dateViewOf(s, dateOpen) : null,
       get_organiser_venue_options_v1: VENUES,
       event_publish_readiness_v1: { missing: [] },
     };
     return fn in answers ? { data: answers[fn], error: null } : { data: null, error: { message: `unexpected ${fn}` } };
   });
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); dateOpen = null; });
 
 function mount(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -78,6 +81,7 @@ function mount(path: string) {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/account/o/events" element={<EventsPage />} />
+          <Route path="/account/o/events/:seriesId/dates/:occurrenceId" element={<DatePage />} />
           <Route path="/account/o/events/:seriesId" element={<EventEditorPage />} />
         </Routes>
       </MemoryRouter>
@@ -166,6 +170,28 @@ describe('every shape on one list', () => {
     expect(screen.queryByTestId('org-events-none-current')).toBeNull();
   });
 
+  it.each([
+    ['active event under Past', true, 1, false],
+    ['active event under Past', true, 2, true],
+    ['active event not under Past', false, 1, true],
+    ['active event not under Past', false, 2, false],
+  ])('Past toggle, %s (in Past: %s), taps %s: aria-expanded and the rows agree', async (_n, inPast, taps, nowOpen) => {
+    const s = PROD_PAST[0];
+    const other = shapeOf('live-weekly-until');
+    home = [other, s];
+    const act = inPast ? s : other;
+    current = act;
+    mount(`/account/o/events/${act.id}`);
+    await screen.findByTestId('org-event-editor');
+    const toggle = await screen.findByTestId('org-events-past-toggle');
+    // Open once for an event under Past, so a tap really folds it.
+    await waitFor(() => expect(toggle.getAttribute('aria-expanded')).toBe(String(inPast)));
+    for (let i = 0; i < taps; i++) fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe(String(nowOpen));
+    const past = screen.getByTestId('org-events-past');
+    expect(within(past).queryAllByTestId('org-event-row')).toHaveLength(nowOpen ? 1 : 0);
+  });
+
   it('a past event that is open in the editor beside the list is never folded away', async () => {
     const s = PROD_PAST[0];
     home = [shapeOf('live-weekly-until'), s];
@@ -183,3 +209,25 @@ describe('every shape on one list', () => {
 function shapeOf(key: string) {
   return SHAPES.find((x) => x.key === key)!;
 }
+
+describe('the date page reads the same word as the list row and the editor tag (d31)', () => {
+  // A PAST date of a series: the lapsed live series reads its list word; a live series
+  // with later dates keeps "Live"; closed series keep their own word.
+  const ROWS: [string, SeriesShape][] = [
+    ...PROD_PAST.map((p) => [p.key, p] as [string, SeriesShape]),
+    [OVER100_PAST.key, OVER100_PAST],
+    ['live-weekly-until', shapeOf('live-weekly-until')],
+    ['ended-picnic', shapeOf('ended-picnic')],
+    ['archived-norule-past', shapeOf('archived-norule-past')],
+  ];
+  it.each(ROWS)('past date of %s', async (_k, s) => {
+    const d = pastOf(s).find((x) => x.status !== 'cancelled')!;
+    home = [s];
+    current = s;
+    dateOpen = d;
+    mount(`/account/o/events/${s.id}/dates/${d.id}`);
+    await screen.findByTestId('date-header');
+    await waitFor(() => expect(text(screen.getByTestId('date-span'))).toContain(s.name));
+    expect(text(screen.getByTestId('date-status'))).toBe(expected(s).word);
+  });
+});
