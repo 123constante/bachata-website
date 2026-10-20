@@ -1,0 +1,16 @@
+# Brief R-NOMOVE-FLYER -- independent review of PR #880 (read-only)
+
+Repo `123constante/bachata-website`. Review branch `claude/org-r1-nomove-flyer` (PR #880, head 0d90da8f) against `main`. You are NOT the author: do not fix, do not push to that branch. READ-ONLY worker: your only push is ONE empty commit to `claude/done-<your ticket>` whose subject carries the review verdict and ends with the done marker; put the full findings in `docs/organiser-rebuild/reviews/R-NOMOVE-FLYER.md` on that done branch (the same commit). Plain git only, never gh api. Supabase SELECT only.
+
+Author's brief: `git show origin/arc/briefs-organiser-r1:docs/organiser-rebuild/briefs/S-NOMOVE-FLYER.md`; author's handover: `git show origin/claude/org-r1-nomove-flyer:docs/organiser-rebuild/handovers/S-NOMOVE-FLYER.md`.
+
+## What to establish (xhigh depth, evidence for each)
+1. **F1 class completeness.** Every route-based step / sheet that saves to an EXISTING event or series (flows/new/*, flows/fix/*, flows/change/*, events/*, edit-in-place/*, anything building a `series.upsert`, `occurrence.*` or `series.*` command): does each payload reach the live handler with what it requires? Read the live handler bodies with SELECT on pg_proc (project `stsdtacfauprzrdebmzg`, read-only) -- which keys are required for `series.upsert` on an existing target, `occurrence.set_override`, cancel, add date? List any builder that still omits a required key. Check `withSeriesName` itself: name comes from which read? stale name risk? does sending `name` on every step overwrite a name changed meanwhile (version_conflict / expected_version)? Could it rename a record by accident (trim, empty name, name from a different record)?
+2. **Red-first real?** Check out `main`'s versions of the touched source with the author's new test `flows/__tests__/upsertName.test.tsx`: does it fail there for the stated reason? Is the harness faithful to the live handler (does it refuse a nameless upsert for the same reason)? Mutate the fix (drop `withSeriesName` at one send point): does the test fail?
+3. **Move-a-day removal.** Nothing dangling: grep for `changeDay`, `moveDays`, `dayDoneMessage`, `change-day`, copy mentioning moving a date; no text points at a missing control; routes/deep links to the old Day URL: what happens (404? redirect?) -- bookmark/back-button safe? Series-level "Change the day" and Pick.tsx bulk "Move the ticked dates" untouched and still tested. Parity C20 text correct.
+4. **Saving an untouched record sends nothing** still holds for the touched flows.
+5. **Run:** `npx vitest run src/modules/organiser`, `npm run build`, `bash bin/check-integrity.sh`, eslint on changed files; report counts (read the test COUNT, not just exit codes).
+6. Anything the author could not verify (browser walk) that you can reason about from code: the New event flow venue step right after the name step; Add a flyer page after choosing a photo.
+
+## Output
+Verdict PASS / PASS WITH FIXES / FAIL, then numbered findings: severity (blocker / fix / nit), file:line, evidence (command + output), concrete failure scenario. No finding without evidence. Keep under 30% context; at 25% stop starting new checks and write what you have.
