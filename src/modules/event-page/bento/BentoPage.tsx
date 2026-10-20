@@ -1,4 +1,5 @@
 ﻿import { Suspense, useEffect, useMemo, useState } from 'react';
+import { ReportProblemLink } from '@/lib/contactLinks';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
@@ -785,6 +786,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           dangerouslySetInnerHTML={{ __html: serialiseJsonLd(eventJsonLd) }}
         />
       )}
+      <ReportProblemLink />
     </GlobalLayout>
   );
 };

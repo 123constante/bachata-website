@@ -3,6 +3,10 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMyPersonaId } from "@/lib/myPersona";
+import { claimMyOrganisers, claimedNoticeText, type ClaimedOrganiser, NOT_YOU_ORGANISER_MESSAGE } from "@/lib/claimMyOrganisers";
+import { dancerMessageUsUrl } from "@/lib/contactLinks";
+import { toast } from "@/hooks/use-toast";
+import { ORG_PATHS } from "@/modules/organiser/shell/paths";
 import { claimAtSignIn, shouldArmFinishHop } from "@/lib/claimMyDancerProfile";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -43,7 +47,33 @@ const AuthCallback = () => {
   // 2026-09-12 -- so a successful sign-in ended on "Page not found". The reason
   // was only ever read by that page. Carry on to where they were heading
   // (returnTo, then a stashed one), else home.
+  const claimedRef = useRef<ClaimedOrganiser[]>([]);
+
+  // Pages claimed at this sign-in: say so once and land where they are managed.
+  // True when it navigated, so the caller stops.
+  const announceClaimedOrganisers = () => {
+    const claimed = claimedRef.current;
+    if (claimed.length === 0) return false;
+    const names = claimed.map((c) => c.name).join(", ");
+    toast({
+      title: claimedNoticeText(claimed),
+      // A plain link in the description, not ToastAction: importing components/ui/toast here
+      // split it into its own first-load chunk on every route (check:first-load-requests).
+      description: (
+        <span>
+          Not you?{" "}
+          <a className="underline" href={dancerMessageUsUrl(`${NOT_YOU_ORGANISER_MESSAGE}${names}`)} target="_blank" rel="noopener noreferrer">Tell us</a>
+        </span>
+      ),
+      duration: 15000,
+    });
+    localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
+    navigate(ORG_PATHS.home, { replace: true });
+    return true;
+  };
+
   const navigateToSignedInFallback = () => {
+    if (announceClaimedOrganisers()) return;
     const pendingReturnTo = sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY));
     localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
     navigate(safeReturnTo ?? pendingReturnTo ?? "/", { replace: true });
@@ -87,6 +117,9 @@ const AuthCallback = () => {
       // Self-claim FIRST (every sign-in; never throws, never holds the sign-in
       // past its timeout), so the persona read below is the linked profile.
       const claim = await claimAtSignIn(queryClient);
+      // Then the organiser pages an admin recorded this email against (automatic, no confirm
+      // screen). Never throws and never holds the sign-in; empty on any failure.
+      claimedRef.current = await claimMyOrganisers();
       // The account's FIRST sign-in only: wherever this lands, ProfileCompletionChrome
       // then hops once to /finish-profile if profile_complete_v1 is false (and Skip
       // was not pressed). Every later sign-in gets the banner alone. Not on the
@@ -154,6 +187,10 @@ const AuthCallback = () => {
         // The routing tail, which used to be spelled out twice -- once per
         // branch -- and had to be kept in step by hand.
         const routeOnwards = async () => {
+          if (announceClaimedOrganisers()) {
+            localStorage.removeItem("pending_profile_role");
+            return;
+          }
           // A sign-up honours returnTo too once self-serve is on, so "Sign in
           // to claim" -> new account lands back on the claim card (Lever 2 B3).
           if (safeReturnTo && shouldHonorReturnTo({ returnTo: safeReturnTo, isSignupFlow, organiserSelfServe: flags.organiserSelfServe })) {
