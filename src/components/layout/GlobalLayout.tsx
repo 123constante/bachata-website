@@ -7,6 +7,7 @@ import { useEmbeddedProfile } from '@/lib/embeddedProfile';
 import PageHero, { type HeroWidget } from '@/components/PageHero';
 import PageBreadcrumb, { type BreadcrumbItemType } from '@/components/PageBreadcrumb';
 import { FloatingElements } from '@/components/FloatingElements';
+import { useS13Option, useS13Body, S13_BASE, S13_WASH, S13_ICONS } from '@/components/layout/s13Background';
 
 interface HeroProps {
   // ReactNode so detail pages can render a profile avatar in place of an
@@ -122,6 +123,8 @@ const GlobalLayout = ({
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
   const location = useLocation();
   const embedded = useEmbeddedProfile();
+  const s13 = useS13Option(); // prototype flag, null in production
+  useS13Body(s13 && gradientPalette === 'default' && showGradientBg ? s13 : null);
 
   // Dev-mode safeguard: warn when a page renders the sub-header (which holds
   // the breadcrumb) but doesn't pass any breadcrumbs. This catches the
@@ -199,6 +202,8 @@ const GlobalLayout = ({
             <div className="fixed inset-0 -z-10 pointer-events-none" style={BRASS_BG} />
           ) : gradientPalette === 'organiser' ? (
             <div className="fixed inset-0 -z-10 pointer-events-none" style={ORGANISER_BG} />
+          ) : s13 && gradientPalette === 'default' ? (
+            <div className="fixed inset-0 -z-10 pointer-events-none" style={{ backgroundColor: S13_BASE[s13], ...S13_WASH[s13] }} />
           ) : (
             <motion.div
               className={
@@ -211,11 +216,11 @@ const GlobalLayout = ({
               style={{ backgroundSize: '200% 200%' }}
             />
           )}
-          {!suppressFloatingIcons && (
+          {!suppressFloatingIcons && (s13 && gradientPalette === 'default' ? S13_ICONS[s13] : floatingCount) > 0 && (
             <div
-              className={`fixed inset-x-0 bottom-0 ${hero ? 'top-[181px]' : 'top-[101px]'} z-0 pointer-events-none overflow-hidden`}
+              className={`fixed inset-x-0 bottom-0 ${hero ? 'top-[181px]' : 'top-[101px]'} z-0 pointer-events-none overflow-hidden${s13 === 'A' ? ' opacity-25' : ''}`}
             >
-              <FloatingElements count={floatingCount} />
+              <FloatingElements count={s13 && gradientPalette === 'default' ? S13_ICONS[s13] : floatingCount} />
             </div>
           )}
         </>
