@@ -16,7 +16,7 @@ import type { EventWorkspace } from './eventModel';
 import { useRecentPeople, useSeriesRole } from './programmeSeriesApi';
 import { ProgrammeSheet, type SheetState } from './ProgrammeSheet';
 import {
-  START_SECTIONS, addSession, differingDates, differsLabel, itemName, lengthLine, parseTree,
+  ADD_ACTIONS, EMPTY_PROGRAMME, addSession, differingDates, differsLabel, itemName, lengthLine, parseTree,
   CHANGED_SESSION_REMOVE, programCommand, programmeOff, removeConfirmCopy, removeSession, roleWord, sectionWord, sessionCount, sortSessions, timeLine, treeDirty, typeWord, updateItem, validateTree,
   type PItem, type PSection, type PTree,
 } from './programmeSeriesModel';
@@ -146,7 +146,7 @@ function ProgrammeBody({ ws, today }: { ws: EventWorkspace; today: string }) {
       )}
       {total === 0 && (
         <p className="px-[4px] text-[14px] text-[var(--mut)]" data-testid="prog-empty">
-          {festival ? 'This festival has no days listed yet.' : off ? 'No sessions are listed on this event.' : 'No sessions yet. Add a class or a party so dancers see what is on.'}
+          {festival ? 'This festival has no days listed yet.' : off ? 'No sessions are listed on this event.' : EMPTY_PROGRAMME}
         </p>
       )}
       {shown.days.map((day, di) => (
@@ -161,10 +161,10 @@ function ProgrammeBody({ ws, today }: { ws: EventWorkspace; today: string }) {
       ))}
       {!festival && (
         <div className="flex flex-wrap gap-[8px]" data-testid="prog-add-row">
-          {START_SECTIONS.map((kind) => (
-            <GhostButton key={kind} size="sm" block={false} disabled={!!off} aria-describedby={off ? REASON_ID : undefined}
-              onClick={() => add(kind, kind === 'party' ? 'party' : 'class')} testId={`prog-add-${kind}`}>
-              <Plus aria-hidden="true" className="h-[16px] w-[16px]" /> Add {kind === 'party' ? 'a party' : 'a class'}
+          {ADD_ACTIONS.map((a) => (
+            <GhostButton key={a.kind} size="sm" block={false} disabled={!!off} aria-describedby={off ? REASON_ID : undefined}
+              onClick={() => add(a.kind, a.type)} testId={a.testId}>
+              <Plus aria-hidden="true" className="h-[16px] w-[16px]" /> {a.label}
             </GhostButton>
           ))}
         </div>

@@ -40,7 +40,7 @@ import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { detailEditPath } from '@/modules/organiser/flows/event/eventSteps';
 import { A, DRAFT, FEST, FROZEN, answer, commandsOf, defaultWorld, flush, mount, tooSmall, type World } from '@/modules/organiser/flows/add/__tests__/fixtures';
 import {
-  addPerson, addSession, buildDays, castLine, castOf, differingDates, differsLabel, lengthLine, parseTree, programCommand,
+  addPerson, addRoleFor, addSession, setType, whyCannotAddPerson, buildDays, castLine, castOf, differingDates, differsLabel, lengthLine, parseTree, programCommand,
   programmeOff, removePerson, removeSession, setPersonLevel, sortSessions, setPersonRole, timeLine, toggleLevel, treeDirty, updateItem, validateTree,
   CHANGED_SESSION_REMOVE_CONFIRM, FESTIVAL_REASON, type PTree,
 } from '../programmeSeriesModel';
@@ -357,7 +357,7 @@ describe('Programme screen across the shapes', () => {
     fireEvent.click(screen.getByTestId('prog-save'));
     await flush();
     expect(commandsOf(rpc)).toEqual([]);
-    if (count === 0) expect(screen.getByTestId('prog-empty').textContent).toMatch(/Add a class or a party|No sessions are listed/);
+    if (count === 0) expect(screen.getByTestId('prog-empty').textContent).toMatch(/Add a class, a party or a performance|No sessions are listed/);
     expect(tooSmall(container)).toEqual([]);
   });
 
@@ -658,5 +658,79 @@ describe('a draft and an unreachable shape still open', () => {
     mount(ORG_PATHS.eventProgramme(DRAFT), routes);
     expect(await screen.findByTestId('prog-empty')).toBeTruthy();
     expect((screen.getByTestId('prog-add-classes') as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe('S-PERF: Add a performance on the series programme', () => {
+  const ADD_IDS = ['prog-add-classes', 'prog-add-party', 'prog-add-performance'];
+
+  it.each([
+    ['recurring', 'live', NONE, false], ['one_off', 'live', ONE, false], ['course', 'live', MANY, false], ['recurring', 'live', NONE, true],
+  ])('%s / %s: three Add buttons (%#), disabled with the one reason when gate off=%s', async (format, lifecycle, program, gateOff) => {
+    gate.on = !gateOff;
+    over = { format, lifecycle, program };
+    mount(ORG_PATHS.eventProgramme(A), routes);
+    await screen.findByTestId('prog-add-row');
+    expect(ADD_IDS.map((id) => screen.getByTestId(id).textContent?.trim())).toEqual(['Add a class', 'Add a party', 'Add a performance']);
+    for (const id of ADD_IDS) expect((screen.getByTestId(id) as HTMLButtonElement).disabled).toBe(gateOff);
+    if (gateOff) expect(screen.getByTestId('prog-off-reason').textContent).toBe(GATE_REASON);
+  });
+
+  it('a festival shows no Add buttons', async () => {
+    gate.on = true;
+    over = { format: 'festival', lifecycle: 'live', program: FESTIVAL };
+    mount(ORG_PATHS.eventProgramme(A), routes);
+    await screen.findAllByTestId('prog-item');
+    for (const id of ADD_IDS) expect(screen.queryByTestId(id)).toBeNull();
+  });
+
+  it('the empty state names all three buttons', async () => {
+    gate.on = true;
+    over = { program: NONE };
+    mount(ORG_PATHS.eventProgramme(A), routes);
+    expect((await screen.findByTestId('prog-empty')).textContent).toBe('No sessions yet. Add a class, a party or a performance so dancers see what is on.');
+  });
+
+  it('addSession builds a performance in a showcase section: type, no levels, no people', () => {
+    const r = addSession(tree(NONE), 'showcase', 'performance');
+    const it0 = r.tree.days[0].sections[0].items[0];
+    expect(r.tree.days[0].sections[0].kind).toBe('showcase');
+    expect(it0).toMatchObject({ type: 'performance', levels: [], people: [] });
+    expect(toggleLevel(it0, 'beginner').levels).toEqual([]);
+    expect(whyCannotAddPerson(it0)).toBe('Performers and the MC are added by the Bachata Calendar team.');
+    expect(addRoleFor('performance')).toBeNull();
+  });
+
+  it('adding a performance opens the sheet with no levels and no people control, and the saved command carries it', async () => {
+    gate.on = true;
+    over = { program: MANY };
+    mount(ORG_PATHS.eventProgramme(A), routes);
+    fireEvent.click(await screen.findByTestId('prog-add-performance'));
+    expect(screen.queryByTestId('prog-level-beginner')).toBeNull();
+    expect((await screen.findByTestId('prog-add-person') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('prog-add-person-reason').textContent).toBe('Performers and the MC are added by the Bachata Calendar team.');
+    fireEvent.change(await screen.findByTestId('prog-name'), { target: { value: 'Opening show' } });
+    fireEvent.change(screen.getByTestId('prog-start'), { target: { value: '22:30' } });
+    fireEvent.change(screen.getByTestId('prog-end'), { target: { value: '23:00' } });
+    fireEvent.click(screen.getByTestId('prog-sheet-done'));
+    await click('prog-save');
+    const sections = commandsOf(rpc)[0].env.command.payload.days[0].sections;
+    const show = sections.find((s: { kind: string }) => s.kind === 'showcase');
+    expect(show.items).toHaveLength(1);
+    expect(show.items[0]).toMatchObject({ title: 'Opening show', type: 'performance', level_keys: [], people: [] });
+    expect('id' in show.items[0]).toBe(false);
+  });
+
+  it('switching a class to a performance drops its levels and an untouched programme still sends nothing', async () => {
+    const was = tree(MANY);
+    const cls = was.days[0].sections[0].items[0];
+    expect(setType(cls, 'performance').levels).toEqual([]);
+    gate.on = true;
+    over = { program: MANY };
+    mount(ORG_PATHS.eventProgramme(A), routes);
+    await screen.findAllByTestId('prog-item');
+    fireEvent.click(screen.getByTestId('prog-save'));
+    await flush();
+    expect(commandsOf(rpc)).toEqual([]);
   });
 });

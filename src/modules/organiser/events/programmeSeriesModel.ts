@@ -34,8 +34,13 @@ export const roleWord = (role: string | null) => PEOPLE_ROLE_LABEL[role ?? ''] ?
 export const SECTION_LABEL: Record<string, string> = {
   classes: 'Classes', party: 'Party', masterclass: 'Masterclasses', showcase: 'Showcase', competition: 'Competition', social: 'Party',
 };
-/** The section kinds an organiser starts from (the admin editor's Classes and Party). */
-export const START_SECTIONS = ['classes', 'party'] as const;
+/** The Add buttons: section kind, session type and words. A performance lives in the admin's `showcase` section (prod: 1 showcase + 1 competition section hold performances; showcase is the one the editor names). */
+export const ADD_ACTIONS = [
+  { kind: 'classes', type: 'class', testId: 'prog-add-classes', label: 'Add a class' },
+  { kind: 'party', type: 'party', testId: 'prog-add-party', label: 'Add a party' },
+  { kind: 'showcase', type: 'performance', testId: 'prog-add-performance', label: 'Add a performance' },
+] as const;
+export const EMPTY_PROGRAMME = 'No sessions yet. Add a class, a party or a performance so dancers see what is on.';
 
 export const FESTIVAL_REASON = 'Festival days are edited with the platform team for now.';
 export const NEEDS_UPDATE = PARITY_GATE_REASON;
