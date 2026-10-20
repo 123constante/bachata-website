@@ -268,7 +268,7 @@ export function makeUploadStep(key: string, c: { label: string; help?: string; a
     return (
       <Frame testId={`step-${key}`}>
         <div className="space-y-[8px]">
-          {shown && <img src={shown} alt="" className="h-[88px] w-[88px] rounded-[16px] object-cover" data-testid="step-upload-current" />}
+          {shown && <img src={shown} alt="" loading="eager" className="h-[88px] w-[88px] rounded-[16px] object-cover" data-testid="step-upload-current" />}
           <label htmlFor={id} className="sr-only">{c.label}</label>
           <input ref={input} id={id} type="file" accept={c.accept} className="sr-only" aria-describedby={`${id}-hint`} onChange={(e) => void pick(e.target.files?.[0])} />
           <PrimaryButton testId="step-upload" loading={busy || saving} loadingLabel="Uploading" disabled={!upload} onClick={() => input.current?.click()}>
