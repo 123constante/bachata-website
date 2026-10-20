@@ -142,11 +142,11 @@ describe('Home rows are homeJobs() (C1/C1b)', () => {
     expect(seriesRows.map((r) => within(r).getByTestId('home-job-title').textContent)).toEqual(live.map((s) => s.name));
   });
 
-  it('no series -> C1b: exactly three numbered rows + New event + the four small buttons', async () => {
+  it('no series -> C1b: exactly two numbered rows + New event + the four small buttons', async () => {
     organisers = [page([])];
     mount();
-    await waitFor(() => expect(rows()).toHaveLength(3));
-    expect(rows().map((r) => r.getAttribute('data-kind'))).toEqual(['create_first_event', 'add_cover', 'add_manager']);
+    await waitFor(() => expect(rows()).toHaveLength(2));
+    expect(rows().map((r) => r.getAttribute('data-kind'))).toEqual(['create_first_event', 'add_manager']);
     expect(screen.getByTestId('home-new-event')).toBeTruthy();
     expect(screen.getAllByTestId('home-small').map((b) => b.textContent)).toEqual(['Team', 'My page', 'My events', 'More']);
   });
@@ -170,7 +170,7 @@ describe('support rows (D7)', () => {
     vi.stubEnv('VITE_SUPPORT_EMAIL', '');
     organisers = [page([])];
     mount();
-    await waitFor(() => expect(rows()).toHaveLength(3));
+    await waitFor(() => expect(rows()).toHaveLength(2));
     expect(screen.queryByTestId('home-support-whatsapp')).toBeNull();
     expect(screen.queryByTestId('home-support-email')).toBeNull();
   });
@@ -180,7 +180,7 @@ describe('support rows (D7)', () => {
     vi.stubEnv('VITE_SUPPORT_EMAIL', 'help@example.com');
     organisers = [page([])];
     mount();
-    await waitFor(() => expect(rows()).toHaveLength(3));
+    await waitFor(() => expect(rows()).toHaveLength(2));
     expect(screen.getByTestId('home-support-whatsapp').getAttribute('href')).toBe('https://wa.me/447000000000');
     expect(screen.getByTestId('home-support-email').getAttribute('href')).toBe('mailto:help@example.com');
   });

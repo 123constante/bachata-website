@@ -48,7 +48,7 @@ export const FIELD_KEYS: readonly FieldKey[] = [
 export const FIELD_LABEL: Record<FieldKey, string> = {
   name: 'Name',
   city: 'City',
-  avatar_url: 'Photo',
+  avatar_url: 'Organisation logo',
   founded_year: 'Year started',
   instagram: 'Instagram',
   bio: 'About',

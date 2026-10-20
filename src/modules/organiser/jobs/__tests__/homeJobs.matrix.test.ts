@@ -54,17 +54,16 @@ const request: IncomingAccessRequest = { requestId: 'r1', userId: 'u2', requeste
 const kinds = (jobs: Job[]) => jobs.map((j) => j.kind);
 
 describe('homeJobs: the Home matrix (4.5)', () => {
-  it('0 series -> the three first steps, in order, and no change/add/cancel', () => {
+  it('0 series -> the two first steps, in order, and no change/add/cancel; no profile checklist job (C15)', () => {
     const jobs = homeJobs(page([]), [], today());
-    expect(kinds(jobs)).toEqual(['create_first_event', 'add_cover', 'add_manager']);
+    expect(kinds(jobs)).toEqual(['create_first_event', 'add_manager']);
     expect(jobs.map((j) => [j.n, j.title, j.to, j.tone])).toEqual([
       [1, 'New event', ORG_PATHS.newWhat, 'gold'],
-      [2, 'Add a photo', ORG_PATHS.page, 'plain'],
-      [3, 'Add a manager', ORG_PATHS.teamAdd, 'plain'],
+      [2, 'Add a manager', ORG_PATHS.teamAdd, 'plain'],
     ]);
   });
 
-  it('first steps drop off once true (photo, a second team member); no WhatsApp step (C69)', () => {
+  it('first steps drop off once true (a second team member); no WhatsApp step (C69)', () => {
     const done = page([], { avatar_url: 'https://img.example/a.jpg', team: [{ user_id: 'u1', member_role: 'owner' }, { user_id: 'u2', member_role: 'manager' }] });
     expect(kinds(homeJobs({ ...done, whatsapp_url: 'https://wa.me/1' } as HomeOrganiser, [], today()))).toEqual(['create_first_event']);
   });
@@ -169,14 +168,13 @@ describe('homeJobs: the Home matrix (4.5)', () => {
     chipAgreesWithHome(jobs, [old, fresh]);
   });
 
-  it('paused + ended only -> the three first steps, no change/add/cancel', () => {
+  it('paused + ended only -> the two first steps, no change/add/cancel', () => {
     const paused = series({ name: 'Paused one', lifecycle_status: 'paused', next_dates: [date(2), date(9)] });
     const ended = series({ name: 'Ended one', lifecycle_status: 'ended', upcoming_count: 0, next_dates: [], default_cover_image_url: null });
     const jobs = homeJobs(page([paused, ended]), [], today());
     expect(jobs.map((j) => [j.n, j.kind, j.title, j.to, j.tone])).toEqual([
       [1, 'create_first_event', 'New event', ORG_PATHS.newWhat, 'gold'],
-      [2, 'add_cover', 'Add a photo', ORG_PATHS.page, 'plain'],
-      [3, 'add_manager', 'Add a manager', ORG_PATHS.teamAdd, 'plain'],
+      [2, 'add_manager', 'Add a manager', ORG_PATHS.teamAdd, 'plain'],
     ]);
     expect(seriesChip(paused, today())).toEqual({ label: 'Paused', tone: 'n' });
     expect(seriesChip(ended, today())).toEqual({ label: 'Ended', tone: 'n' });

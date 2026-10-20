@@ -289,6 +289,10 @@ export const TEAM_COPY: Record<string, string> = {
   reason_invalid: 'The reason contains characters we cannot accept.',
   primary_requires_owner: 'Something went wrong. Please try again.',
   invalid_target_rule: 'Something went wrong. Please try again.',
+  // organiser_team_set_public_v1 (People arc A-DB2): the person's own public-team row.
+  invalid_arguments: 'Something went wrong. Please try again.',
+  profile_required: 'Finish your dancer profile first, then you can show on the public team.',
+  not_on_team: 'You are no longer on this team. Reload the page.',
 };
 
 export function teamErrorMessage(error: unknown): string {

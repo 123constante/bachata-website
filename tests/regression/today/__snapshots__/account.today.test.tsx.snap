@@ -84,7 +84,6 @@ exports[`/account entry at '390x844' > /account > 'organiser-type (complete)' 1`
 button "Your account" [expanded=false]
 status
 button "New event"
-button "Add a photo"
 button "Add a manager"
 button "New event"
 button "Team"
@@ -290,7 +289,6 @@ exports[`/account entry at '390x844' > /account/o > 'organiser-type (complete)' 
 button "Your account" [expanded=false]
 status
 button "New event"
-button "Add a photo"
 button "Add a manager"
 button "New event"
 button "Team"
@@ -391,7 +389,6 @@ exports[`/account entry at 'desktop' > /account > 'organiser-type (complete)' 1`
 button "Your account" [expanded=false]
 status
 button "New event"
-button "Add a photo"
 button "Add a manager"
 button "New event"
 button "Team"
@@ -597,7 +594,6 @@ exports[`/account entry at 'desktop' > /account/o > 'organiser-type (complete)' 
 button "Your account" [expanded=false]
 status
 button "New event"
-button "Add a photo"
 button "Add a manager"
 button "New event"
 button "Team"

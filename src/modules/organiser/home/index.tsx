@@ -13,6 +13,7 @@ import { ErrorState, GhostButton, PrimaryButton, SkeletonRows, useAnnounce } fro
 import { SMALL_BUTTONS, isFirstSteps, newEventBlock } from './homeView';
 import { useHomeData } from './useHomeData';
 import { OnboardingView } from './onboarding/OnboardingView';
+import { ProfileButton } from './ProfileButton';
 
 const BADGE: Record<Job['tone'], string> = {
   gold: 'bg-[var(--gold)] text-[var(--btnfg)]',
@@ -165,6 +166,7 @@ export default function HomePage() {
         />
       ) : (
         <div className="space-y-[12px]">
+          <ProfileButton key={selected?.id ?? 'none'} organiserId={selected?.id ?? null} userId={user.id} />
           <ol data-testid="home-jobs" className="overflow-hidden rounded-[16px] border border-[var(--line)] bg-[var(--card)] [&>li:last-child>button]:border-b-0">
             {jobs.map((job) => <JobRow key={`${job.kind}-${job.n}`} job={job} />)}
           </ol>
