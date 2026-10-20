@@ -37,7 +37,7 @@ const CASES: SeriesShape[] = [
 const GROUPS: [group: string, heading: string, ids: string[]][] = [
   // Cover and gallery sit together (owner decision 2026-10-08, matching admin editor-v2's
   // 'Cover & gallery' in section 1); the gallery is no longer under What people see.
-  ['what', 'What it is', ['org-event-name', 'org-cover', 'org-row-gallery', 'org-row-type']],
+  ['what', 'What it is', ['org-event-name', 'org-cover', 'org-row-gallery']],
   ['when', 'When', ['org-date-card', 'org-dates', 'org-taken-off']],
   ['where', 'Where', ['org-row-venue']],
   ['see', 'What people see', ['org-row-description', 'org-styles', 'org-row-video']],
@@ -51,7 +51,7 @@ const ORDER = GROUPS.flatMap(([, , ids]) => ids);
 /** Reason and lock sentences: each must read exactly as before the reorder. */
 const REASONS = [
   'org-event-locked', 'org-schedule-reason', 'org-taken-off-reason', 'org-event-review-sentence', 'org-event-review-blocked',
-  'org-dates-none', 'org-schedule-none', 'org-row-type', 'org-row-organisers', 'org-row-until', 'org-row-ended',
+  'org-dates-none', 'org-schedule-none', 'org-row-organisers', 'org-row-until', 'org-row-ended',
 ];
 
 beforeEach(() => rpc.mockReset());
