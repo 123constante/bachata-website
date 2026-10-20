@@ -83,7 +83,7 @@ asserts no RPC other than the preview, so the link is still never used signed ou
 ## Red first (on the slice head 24089ca, then green)
 New/extended tests: `invitePersonFixPass.test.tsx`, `invitePersonApi.leader.test.ts`, `invitePreview.test.tsx`,
 `AuthCallbackOrganiserClaim.test.tsx` (+12), `tests/sitemapOrganiserLifecycle.test.ts`.
-On 24089ca: **22 failed | 34 passed (56)** and `invitePreview.test.tsx` failed to load (module absent). The failures, by finding:
+On 24089ca: **23 failed | 34 passed (57)** (corrected in the RELEASE-A-WEB fix pass, review #18: first written as 22 | 34 (56); the review re-ran it and counted one more) and `invitePreview.test.tsx` failed to load (module absent). The failures, by finding:
 - 2: `complete|incomplete profile x claimed 1 x returnTo an invite link`, `... x stashed invite link`, `... x returnTo an event page` (6 failed: landed on `/account/o`).
 - 3: `fetchPageLeader > no Leader / one Leader / 2 Leaders / 3 Leaders` (4), `Leader prefill > one Leader / two or more Leaders` (2).
 - 5: `email_mismatch never shows the full invite email > full invite_email only / full email only / masked hint / masked hint beside a full address` (4).

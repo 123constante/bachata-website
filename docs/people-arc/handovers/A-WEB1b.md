@@ -39,8 +39,9 @@ FAIL homeJobs.matrix > 0 series -> the two first steps ... no profile checklist 
 AssertionError: expected [ 'create_first_event', ...(2) ] to deeply equal [ 'create_first_event', 'add_manager' ]
 FAIL homeJobs.matrix > paused + ended only -> the two first steps
 FAIL Door.test > ... Home reads the three first steps
-Tests 3 failed | 57 passed
+Tests 3 failed | 45 passed (48)
 ```
+Corrected in the RELEASE-A-WEB fix pass (review #18): the first version of this handover said "57 passed"; the independent review re-ran the same two files on the unfixed code and counted 3 failed | 45 passed (48), the same three named tests.
 then green. Everything else is new code (wizard, Home button, line, toggle): on main its tests fail at import. Mutation: removing the "unchanged answer sends nothing" check in `wizardApi.ts` turns "an untouched answer sends nothing" red.
 
 Tests: `wizard/__tests__/ProfileWizard.test.tsx` (21: server order, skip done, resume, unregistered skipped, no Skip on required, D26 label/Optional hint/Skip-vs-Continue/choice on tap, D27, untouched sends nothing, one key, organiser one-field draft, own check before send, failed save keeps answer, milestone + level track, 100% screen, Finish later, Back, 44 px) and `wizard/__tests__/homeAndModel.test.tsx` (35: levels, D50 table, throwing storage, answers, Home button percent/level = RPC and opens wizard, auto-open, Not now, 100%, failed read shows nothing, My page line, Team toggle states, tap, team_full, no profile).

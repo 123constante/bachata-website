@@ -1,4 +1,5 @@
-// People arc PINNED file (D48): slices A-WEB1a and A-WEB1b create it byte-identical. Change it only via the orchestrator.
+// People arc file, once PINNED (D48: A-WEB1a and A-WEB1b created it byte-identical). The pin moved with the release
+// merge: it now exists once, on the release branch, and the fix pass (FIX-RELEASE-A-WEB) edits it in place.
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -54,6 +55,10 @@ export async function fetchProfileProgress(organiserId: string | null): Promise<
 export function useProfileProgress(organiserId: string | null) {
   return useQuery({ queryKey: profileProgressQueryKey(organiserId), queryFn: () => fetchProfileProgress(organiserId) });
 }
+
+/** The ONE "N left" wording for required profile answers. Home, My page, the go-live lock and row, and the wizard all
+ *  read it, so the same number reads the same way on every screen. */
+export const requiredLeftText = (n: number): string => (n === 1 ? '1 answer left' : `${n} answers left`);
 
 /** C14 edit lock. Locks only when the progress LOADED and says not ready; loading or an error never locks (the
  *  server still enforces the go-live rule). An admin is never locked. */
