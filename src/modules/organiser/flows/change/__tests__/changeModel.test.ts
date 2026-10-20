@@ -4,7 +4,7 @@ import type { OrganiserHome } from '@/modules/organiser/shared/selfServeApi';
 import type { HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
 import type { SeriesWorkspace, WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 import { dateLock } from '@/modules/organiser/shared/eventState';
-import { changeableSeries, changeDates, dateGate, moveDays } from '../changeModel';
+import { changeableSeries, changeDates, dateGate } from '../changeModel';
 
 // Prod shapes, 2026-10-16 (counts only): 67 live series; 16 with no coming
 // date, 16 with 1-3, 35 with more than 3 (home_v1 lists only 3), 30 with
@@ -66,16 +66,6 @@ describe('changeDates (C3) over the full workspace list', () => {
 
   it('falls back to home_v1 next_dates while the workspace loads', () => {
     expect(changeDates(series('a'), undefined, today()).map((r) => r.occurrenceId)).toEqual(['a-1']);
-  });
-});
-
-describe('moveDays (C5c)', () => {
-  it('skips every day holding a date, cancelled ones included (put back, not moved onto)', () => {
-    const days = moveDays(series('a', { next_dates: [] }), ws([wsDate('x', 4), wsDate('y', 9, 'cancelled')]), today()).map((d) => d.date);
-    expect(days).toHaveLength(28);
-    expect(days).not.toContain(day(4));
-    expect(days).not.toContain(day(9));
-    expect(days[0]).toBe(today());
   });
 });
 

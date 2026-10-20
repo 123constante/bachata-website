@@ -40,7 +40,7 @@ function mount() {
 const file = () => new File(['x'], 'cover.png', { type: 'image/png' });
 
 beforeEach(() => {
-  api.workspace.mockReset().mockResolvedValue({ series: { version: 7, default_cover_image_url: null } });
+  api.workspace.mockReset().mockResolvedValue({ series: { name: 'Friday Party', version: 7, default_cover_image_url: null } });
   api.run.mockReset().mockResolvedValue({ new_version: 8 });
   api.upload.mockReset().mockResolvedValue('https://cdn.example/c.jpg');
 });
@@ -57,7 +57,7 @@ describe('cover fix', () => {
     expect(sent.expected_version).toBe(7);
     expect(JSON.stringify(sent.command)).toContain('https://cdn.example/c.jpg');
     expect(sent.command.kind).toBe('series.upsert');
-    expect(sent.command.payload).toEqual({ default_cover_image_url: 'https://cdn.example/c.jpg' });
+    expect(sent.command.payload).toEqual({ name: 'Friday Party', default_cover_image_url: 'https://cdn.example/c.jpg' });
     expect(where.textContent).toBe(ORG_PATHS.done);
     expect(JSON.parse(where.getAttribute('data-state')!)).toMatchObject({ message: 'Flyer added', next: ORG_PATHS.event('s1'), nextLabel: 'Back to the event' });
   });
@@ -72,8 +72,8 @@ describe('cover fix', () => {
 
   it('the version sent is read fresh at send time, not the one the screen loaded with', async () => {
     api.workspace.mockReset()
-      .mockResolvedValueOnce({ series: { version: 7, default_cover_image_url: null } })
-      .mockResolvedValue({ series: { version: 9, default_cover_image_url: null } });
+      .mockResolvedValueOnce({ series: { name: 'Friday Party', version: 7, default_cover_image_url: null } })
+      .mockResolvedValue({ series: { name: 'Friday Party', version: 9, default_cover_image_url: null } });
     mount();
     fireEvent.change(await screen.findByTestId('cover-input'), { target: { files: [file()] } });
     await screen.findByTestId('where');
@@ -98,7 +98,7 @@ describe('cover fix', () => {
     await screen.findByTestId('where');
     expect(api.run).toHaveBeenCalledTimes(2);
     const [a, b] = api.run.mock.calls.map(([env]) => env as { idempotency_key: string; command: { payload: unknown } });
-    expect(b.command.payload).toEqual({ default_cover_image_url: second });
+    expect(b.command.payload).toEqual({ name: 'Friday Party', default_cover_image_url: second });
     expect(a.idempotency_key === b.idempotency_key).toBe(sameKey);
   });
 

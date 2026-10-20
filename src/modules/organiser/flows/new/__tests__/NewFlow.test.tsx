@@ -237,7 +237,7 @@ describe('screens: venue, date, time', () => {
     const calls = sent();
     expect(calls.map((c) => c.command.kind)).toEqual(['series.upsert', 'series.set_recurrence']);
     expect(calls.map((c) => c.expected_version)).toEqual([3, 4]);
-    expect(calls[0].command.payload).toEqual({ default_start_date: '2026-10-09' });
+    expect(calls[0].command.payload).toEqual({ name: 'Friday Party', default_start_date: '2026-10-09' });
     expect(calls[1].command.payload).toMatchObject({ mode: 'weekly', weekdays: [5] });
   });
 
@@ -259,7 +259,7 @@ describe('screens: venue, date, time', () => {
     await waitFor(() => expect((screen.getByTestId('org-new-next') as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByTestId('org-new-next'));
     await waitFor(() => expect(where()).toBe('/account/o/new/s1/cover'));
-    expect(sent().map((c) => c.command.payload)).toEqual([{ default_local_start_time: '20:30' }]);
+    expect(sent().map((c) => c.command.payload)).toEqual([{ name: 'Friday Party', default_local_start_time: '20:30' }]);
   });
 });
 

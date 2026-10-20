@@ -174,14 +174,12 @@ describe('P-DATES: what can change on one date (C4)', () => {
     expect(await screen.findByTestId(id)).toBeTruthy();
   });
 
-  it.each([
-    { a1: false, shown: false },
-    { a1: true, shown: true },
-  ])('Move to another day is shown only once admin A1 is applied (A1_APPLIED=$a1)', async ({ a1, shown }) => {
+  it.each([false, true])('there is no Move to another day row whatever the A1 gate says (A1_APPLIED=%s; owner decision 2026-10-20, C20)', async (a1) => {
     gate.a1 = a1;
     mount(ORG_PATHS.changeDate(S, D1));
     await screen.findByTestId('change-what');
-    expect(!!screen.queryByTestId('change-day')).toBe(shown);
+    expect(screen.queryByTestId('change-day')).toBeNull();
+    expect(screen.queryByText(/move to another day/i)).toBeNull();
   });
 
   it('Cancel this date opens the cancel screen for THAT date; Keep it and Back return to Change, not the cancel list (INT3)', async () => {
@@ -197,12 +195,6 @@ describe('P-DATES: what can change on one date (C4)', () => {
     mount(ORG_PATHS.cancelDate(S, D2));
     fireEvent.click(await screen.findByTestId('cancel-keep'));
     expect((await screen.findByTestId('where')).textContent).toBe(ORG_PATHS.cancelEvent(S));
-  });
-
-  it('Move by URL before A1 is refused with a reason, never a command', async () => {
-    mount(ORG_PATHS.changeDay(S, D1));
-    expect((await screen.findByTestId('change-refusal')).textContent).toMatch(/not open/i);
-    expect(commands()).toHaveLength(0);
   });
 
   it.each(['multi_day', 'date_cancelled', 'past_date'] as const)('a session editor refusal (%s) shows its reason on the row, never a dead button', async (reason) => {

@@ -160,7 +160,7 @@ function mount(path: string) {
 }
 
 /** Home -> Change a date -> Friday Social -> the date before 25 October -> the row. */
-async function walkTo(row: 'change-time' | 'change-venue' | 'change-day') {
+async function walkTo(row: 'change-time' | 'change-venue') {
   mount(ORG_PATHS.change);
   fireEvent.click(await screen.findByText('Friday Social'));
   fireEvent.click(await screen.findByText(dayLabel(beforeDate())));
@@ -189,16 +189,6 @@ const PATHS = [
     kind: 'occurrence.set_override',
     payload: () => ({ venue_id: 'v2', city_id: null }),
     message: () => `Different venue - ${dayLabel(beforeDate())}`,
-  },
-  {
-    name: 'move to another day',
-    row: 'change-day' as const,
-    act: async () => {
-      fireEvent.click(await screen.findByText(dayLabel(addDaysToKey(today(), 11))));
-    },
-    kind: 'occurrence.move_date',
-    payload: () => ({ to_date: addDaysToKey(today(), 11) }),
-    message: () => `Moved to ${dayLabel(addDaysToKey(today(), 11))}`,
   },
 ];
 
@@ -244,17 +234,19 @@ describe('Change a date: steps', () => {
     expect(within(list).queryByText(dayLabel(pastDate()))).toBeNull();
   });
 
-  it('what changes: the time, venue and (after A1) move rows, tap advances (D35)', async () => {
+  it('what changes: the time and venue rows, tap advances (D35); there is no move-to-another-day row (C20)', async () => {
     mount(ORG_PATHS.changeDate(A, BEFORE));
     await screen.findByTestId('change-time');
-    expect(['change-time', 'change-venue', 'change-day'].map((t) => screen.getByTestId(t).textContent)).toEqual([
-      'Change the time', 'Different venue this date only', 'Move to another day',
+    expect(['change-time', 'change-venue'].map((t) => screen.getByTestId(t).textContent)).toEqual([
+      'Change the time', 'Different venue this date only',
     ]);
-    fireEvent.click(screen.getByTestId('change-day'));
-    expect(await screen.findByTestId('change-day-list')).toBeTruthy();
+    expect(screen.queryByTestId('change-day')).toBeNull();
+    expect(screen.getByTestId('change-what').textContent).not.toMatch(/move/i);
+    fireEvent.click(screen.getByTestId('change-venue'));
+    expect(await screen.findByTestId('change-venue-screen')).toBeTruthy();
   });
 
-  it.each(['', '/time', '/venue', '/day'])('a past date is refused with the dateLock text verbatim (%s)', async (tail) => {
+  it.each(['', '/time', '/venue'])('a past date is refused with the dateLock text verbatim (%s)', async (tail) => {
     mount(`${ORG_PATHS.changeDate(A, PAST)}${tail}`);
     const refusal = await screen.findByTestId('change-refusal');
     expect(refusal.textContent).toContain(dateLock('live', pastDate(), today()) as string);
@@ -298,26 +290,6 @@ describe('Change a date: steps', () => {
     fireEvent.click(save);
     await flush();
     expect(commands()).toHaveLength(0);
-  });
-
-  it('the move list skips days already holding a date and offers the rest of the next 30', async () => {
-    mount(ORG_PATHS.changeDay(A, BEFORE));
-    const list = await screen.findByTestId('change-day-list');
-    await waitFor(() => expect(within(list).queryByText(dayLabel(afterDate()))).toBeNull());
-    expect(within(list).queryByText(dayLabel(beforeDate()))).toBeNull();
-    const labels = within(list).getAllByRole('button').map((b) => b.textContent);
-    expect(labels).toHaveLength(28);
-    expect(labels).toContain(dayLabel(addDaysToKey(today(), 1)));
-  });
-
-  it('a date moved across 25 October travels as a wall-clock day, never a shifted instant (R3-18)', async () => {
-    const target = addDaysToKey(beforeDate(), 8); // 24 -> 31 October style: across the clock change
-    mount(ORG_PATHS.changeDay(A, BEFORE));
-    fireEvent.click(await screen.findByText(dayLabel(target)));
-    await waitFor(() => expect(commands()).toHaveLength(1));
-    const payload = (commands()[0][1] as { p_envelope: { command: { payload: Record<string, unknown> } } }).p_envelope.command.payload;
-    expect(payload).toEqual({ to_date: target });
-    expect(String(payload.to_date)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it('version_conflict renders the R3-7 copy with one button to the event', async () => {
@@ -444,7 +416,6 @@ describe('Change a date: every control is a 44px+ target', () => {
     ['C4', () => ORG_PATHS.changeDate(A, BEFORE), 'change-what'],
     ['C5', () => ORG_PATHS.changeTime(A, BEFORE), 'change-time-screen'],
     ['C5b', () => ORG_PATHS.changeVenue(A, BEFORE), 'change-venue-screen'],
-    ['C5c', () => ORG_PATHS.changeDay(A, BEFORE), 'change-day-list'],
   ])('%s', async (_board, path, testId) => {
     mount(path());
     const body = await screen.findByTestId(testId);
