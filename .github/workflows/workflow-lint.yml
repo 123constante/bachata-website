@@ -23,7 +23,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Docs-only PRs skip the heavy steps below; the job still runs, so the
+      # required check keeps its name and reports success. Fail-safe: any error
+      # means docs_only=false (scripts/ci/docs-only.mjs).
+      - name: Detect docs-only PR
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_SHA: ${{ github.sha }}
+        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
+
       - name: Check workflow files for BOM
+        if: steps.changes.outputs.docs_only != 'true'
         run: |
           FAILED=0
           for f in .github/workflows/*.yml .github/workflows/*.yaml; do
@@ -50,11 +61,26 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Docs-only PRs skip the heavy steps below; the job still runs, so the
+      # required check keeps its name and reports success. Fail-safe: any error
+      # means docs_only=false (scripts/ci/docs-only.mjs).
+      - name: Detect docs-only PR
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_SHA: ${{ github.sha }}
+        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
+
+      - name: Docs-only classifier self-test (always runs)
+        run: node scripts/ci/docs-only.mjs --self-test
+
       - uses: actions/setup-node@v7
+        if: steps.changes.outputs.docs_only != 'true'
         with:
           node-version: 22
 
       - name: Lint workflows for unjustified continue-on-error
+        if: steps.changes.outputs.docs_only != 'true'
         run: node scripts/lint-workflow-masking.mjs
 
   notification-check:

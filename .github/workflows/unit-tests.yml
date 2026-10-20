@@ -60,16 +60,29 @@ jobs:
         with:
           fetch-depth: 2
 
+      # Docs-only PRs skip the heavy steps below; the job still runs, so the
+      # required check keeps its name and reports success. Fail-safe: any error
+      # means docs_only=false (scripts/ci/docs-only.mjs).
+      - name: Detect docs-only PR
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_SHA: ${{ github.sha }}
+        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
+
       - name: Setup Node
+        if: steps.changes.outputs.docs_only != 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
       - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm install -g npm@11
 
       - name: Install dependencies
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm ci
 
       # tests/integrityCouldNotRun.test.ts drives the guard's YAML phase for
@@ -77,6 +90,7 @@ jobs:
       # reasoning as architecture-guard.yml: assert the dependency, do not
       # inherit it.
       - name: Ensure PyYAML (the integrity guard's YAML parser)
+        if: steps.changes.outputs.docs_only != 'true'
         run: |
           if python3 -c "import yaml" 2>/dev/null; then
             echo "PyYAML present"
@@ -91,10 +105,11 @@ jobs:
       # asks. Non-PR events always come back live=true.
       - name: Decide whether the live contract suites run
         id: gate
-        if: matrix.scope == 'full'
+        if: ${{ (matrix.scope == 'full') && steps.changes.outputs.docs_only != 'true' }}
         run: node scripts/ci-live-db-gate.mjs
 
       - name: Run unit + contract suite
+        if: steps.changes.outputs.docs_only != 'true'
         env:
           # Replaced by an unroutable stub when the gate said live=false: the
           # offline set must not be ABLE to reach prod, not merely be expected

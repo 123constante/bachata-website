@@ -23,22 +23,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Docs-only PRs skip the heavy steps below; the job still runs, so the
+      # required check keeps its name and reports success. Fail-safe: any error
+      # means docs_only=false (scripts/ci/docs-only.mjs).
+      - name: Detect docs-only PR
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_SHA: ${{ github.sha }}
+        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
+
       - name: Setup Node
+        if: steps.changes.outputs.docs_only != 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
       - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm install -g npm@11
 
       - name: Install dependencies
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm ci
 
       - name: Install Playwright browsers
+        if: steps.changes.outputs.docs_only != 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E smoke suite
+        if: steps.changes.outputs.docs_only != 'true'
         env:
           # E2E smoke tests do NOT use real Supabase — Playwright route mocks
           # intercept every **/auth/v1/** and **/rest/v1/** call. We only need
@@ -69,7 +84,7 @@ jobs:
         run: npm run test:e2e
 
       - name: Upload Playwright artifacts on failure
-        if: failure()
+        if: ${{ (failure()) && steps.changes.outputs.docs_only != 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: playwright-test-results

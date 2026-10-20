@@ -78,15 +78,28 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Docs-only PRs skip the heavy steps below; the job still runs, so the
+      # required check keeps its name and reports success. Fail-safe: any error
+      # means docs_only=false (scripts/ci/docs-only.mjs).
+      - name: Detect docs-only PR
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_SHA: ${{ github.sha }}
+        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
+
       - uses: actions/setup-node@v7
+        if: steps.changes.outputs.docs_only != 'true'
         with:
           node-version: 22
           cache: npm
 
       - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm install -g npm@11
 
       - name: Install dependencies
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm ci
 
       # BEFORE the build, deliberately. The canary drives the graph and
@@ -97,19 +110,23 @@ jobs:
       # self-test with no caller proves nothing and reads as coverage that is
       # not there (the lesson check-image-widths taught in architecture-guard).
       - name: Bundle-budget canary (no build required)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:bundle-budget:self-test
 
       # Same placement, same reason: it drives main() and every rule against
       # fixtures and a fake filesystem, so it still reports in exactly the runs
       # where the build is what broke.
       - name: First-load request canary (no build required)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:first-load-requests:self-test
 
       # Same placement, same reason as the two canaries above.
       - name: Chunk import-cycle canary (no build required)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:chunk-cycles:self-test
 
       - name: Build client + server
+        if: steps.changes.outputs.docs_only != 'true'
         env:
           # Same rationale as e2e-smoke.yml: supabase-js validates the URL shape
           # at module init, so a valid-shaped placeholder is required for the
@@ -119,6 +136,7 @@ jobs:
         run: npm run build
 
       - name: First-load JS budgets
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:bundle-budget
 
       # AFTER the KB budgets, and a separate step on purpose: these two answer
@@ -126,6 +144,7 @@ jobs:
       # can pass one while failing the other. Sharing a step would let the
       # first failure hide the second.
       - name: First-load request count
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:first-load-requests
 
       # Its own step for the same reason: a third question off the same build.
@@ -138,7 +157,7 @@ jobs:
       # the page. It does not reach back past the build: if a pre-build canary
       # or the build itself failed, this exits 2 (no build), red but unnamed.
       - name: Chunk import cycles
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.changes.outputs.docs_only != 'true' }}
         run: npm run check:chunk-cycles
 
   lighthouse:
