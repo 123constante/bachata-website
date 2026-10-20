@@ -184,7 +184,19 @@ export const REDEEM_COPY: Record<string, RedeemCopy> = {
   expired: { title: 'This link has run out', body: `Links last 7 days. ${ASK_NEW}`, action: 'home', terminal: true },
   // The page is at its cap (admin A1b). A joiner has no Remove control, so the shared TEAM_FULL_COPY ("Remove someone first") does not fit here: same cap, same support route, no absent control.
   team_full: { title: 'This team is full', body: `This team already has ${TEAM_CAP} people, so you cannot join it yet. Ask the page owner to make room, or ask the Bachata Calendar team.`, action: 'home', terminal: true },
+  // D56: the RIGHT email in a session that is not a proven mailbox (checked before email_mismatch, no hint).
+  // Same way out as a mismatch: sign out, then this invite's email-link sign-in, the link still unused.
+  email_unproven: { title: 'Use the email link', body: 'Sign in with the email link to accept this invite.', action: 'home', terminal: false },
+  // The signed-in email is not the invited one. The server refuses before using the link, so it stays
+  // in the address bar for the way back. With a masked hint (D36) only the body changes: emailMismatchCopy.
+  email_mismatch: { title: 'Sign in with the invited email', body: 'This link was sent to a different email address. Tap Sign out below, then sign in with the email the invite was sent to and the link is used.', action: 'home', terminal: false },
 };
+
+/** email_mismatch copy. `emailHint` is the MASKED invite address (D36), never the full one. */
+export function emailMismatchCopy(emailHint: string | null): RedeemCopy {
+  const base = REDEEM_COPY.email_mismatch;
+  return emailHint ? { ...base, body: `This link was sent to ${emailHint}. Tap Sign out below, then sign in with that email and the link is used.` } : base;
+}
 
 export const REDEEM_FALLBACK: RedeemCopy = { title: 'Something went wrong', body: 'We could not use this link. Check your connection and try again.', action: 'retry', terminal: false };
 

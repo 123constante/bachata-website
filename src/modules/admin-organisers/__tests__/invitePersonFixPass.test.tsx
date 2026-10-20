@@ -96,9 +96,11 @@ describe('invite message (findings 8, 9)', () => {
     const m = buildInviteMessage({ ...base, personName: null, serverMessage: null });
     expect(m.split('\n')[0]).toBe('Hi!');
   });
-  it('the sent message carries the server text and greets a nameless person plainly', async () => {
+  // Review finding 5: a server message is the whole message (it greets by itself), so the nameless
+  // greeting is the one built here when the server sent none. groupAFixPass covers the server text.
+  it('with no server message, the sent message greets a nameless person plainly', async () => {
     api.searchPeople.mockResolvedValue([{ id: 'p9', name: 'Unnamed person', firstName: null }]);
-    api.invitePerson.mockResolvedValue(parsePersonInvite({ ...ANSWER, message: 'Valid until 3 November.' }));
+    api.invitePerson.mockResolvedValue(parsePersonInvite({ ...ANSWER, message: null }));
     mount();
     fireEvent.click(screen.getByTestId('invite-person-open'));
     fireEvent.change(screen.getByTestId('invite-person-search'), { target: { value: 'Un' } });
@@ -107,7 +109,6 @@ describe('invite message (findings 8, 9)', () => {
     fireEvent.click(screen.getByTestId('invite-person-submit'));
     const msg = ((await screen.findByTestId('invite-person-message')) as HTMLTextAreaElement).value;
     expect(msg.split('\n')[0]).toBe('Hi!');
-    expect(msg).toContain('Valid until 3 November.');
     expect(msg).not.toMatch(/Unnamed/);
   });
 });

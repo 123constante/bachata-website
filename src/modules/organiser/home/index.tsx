@@ -14,6 +14,7 @@ import { SMALL_BUTTONS, isFirstSteps, newEventBlock } from './homeView';
 import { useHomeData } from './useHomeData';
 import { OnboardingView } from './onboarding/OnboardingView';
 import { ProfileButton } from './ProfileButton';
+import { ClaimNotice } from './ClaimNotice';
 
 const BADGE: Record<Job['tone'], string> = {
   gold: 'bg-[var(--gold)] text-[var(--btnfg)]',
@@ -155,6 +156,8 @@ export default function HomePage() {
       >
         {message}
       </p>
+      {/* Pages claimed at this sign-in: an in-flow line with its own Close, never over the rows. */}
+      <ClaimNotice />
       {loading ? (
         <SkeletonRows count={4} label="Loading your jobs" testId="home-loading" />
       ) : failed ? (

@@ -13,7 +13,7 @@ import {
   type PageLeader,
   type PersonHit,
 } from './invitePersonApi';
-import { buildInviteMessage, inviteBlockedReason, invitePersonErrorMessage, shareHref, type PersonInvite } from './invitePersonModel';
+import { buildInviteMessage, inviteBlockedReason, invitePersonErrorMessage, isNoPageInvite, shareHref, type PersonInvite } from './invitePersonModel';
 
 const BTN = 'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50';
 const BTN_PRIMARY = 'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50';
@@ -87,7 +87,11 @@ export function InvitePerson({ organisers }: { organisers: readonly AdminOrganis
       <div data-testid="invite-person-result" className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
         <p className="text-sm font-medium">Invite ready for {result.invite.email}</p>
         <textarea readOnly rows={8} value={result.message} aria-label="Invite message" onFocus={(e) => e.currentTarget.select()} className="w-full rounded border border-border bg-background px-2 py-2 text-xs" data-testid="invite-person-message" />
-        <p className="text-xs text-muted-foreground" data-testid="invite-person-once">This is the only time the link is shown. Once you tap Done it is gone; invite them again if you need a new one.</p>
+        {isNoPageInvite(result.invite) ? (
+          <p className="text-xs text-muted-foreground" data-testid="invite-person-no-page">Their profile now has this email. Send them the message: when they sign in with that email, the profile is theirs.</p>
+        ) : (
+          <p className="text-xs text-muted-foreground" data-testid="invite-person-once">This is the only time the link is shown. Once you tap Done it is gone; invite them again if you need a new one.</p>
+        )}
         <div className="flex flex-wrap gap-2">
           <button type="button" className={BTN} onClick={() => void copy()} data-testid="invite-person-copy"><Copy className="h-4 w-4" aria-hidden="true" /> {copied ? 'Copied' : 'Copy'}</button>
           <a className={BTN} href={shareHref(result.message)} target="_blank" rel="noopener noreferrer" data-testid="invite-person-whatsapp"><MessageCircle className="h-4 w-4" aria-hidden="true" /> WhatsApp</a>
@@ -119,7 +123,7 @@ export function InvitePerson({ organisers }: { organisers: readonly AdminOrganis
             <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search people by name" aria-label="Search people" className={FIELD} data-testid="invite-person-search" />
             {search.trim().length < 2 && <p className="text-xs text-muted-foreground" data-testid="invite-person-search-note">{leaderNote(organiserId ? leader.data : undefined)}</p>}
             {hits.isError && <p role="alert" className="text-sm text-destructive" data-testid="invite-person-search-error">The search did not load. Check your connection and try again.</p>}
-            {hits.data && hits.data.length === 0 && <p className="text-xs text-muted-foreground" data-testid="invite-person-no-hits">No one matches &ldquo;{search.trim()}&rdquo;. Check the spelling, or add them as a profile first.</p>}
+            {hits.data && hits.data.length === 0 && <p className="text-xs text-muted-foreground" data-testid="invite-person-no-hits">No one matches &ldquo;{search.trim()}&rdquo;. Check the spelling, or search for another name they use.</p>}
             {hits.data && hits.data.length > 0 && (
               <ul className="divide-y divide-border overflow-hidden rounded border border-border" data-testid="invite-person-hits">
                 {hits.data.map((h) => <li key={h.id}><button type="button" className="min-h-[44px] w-full px-2 text-left text-sm" onClick={() => setPerson(h)}>{h.name}</button></li>)}

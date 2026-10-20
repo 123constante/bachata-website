@@ -34,12 +34,15 @@ vi.mock('@/lib/featureFlags', () => ({ flags: { organiserSelfServe: true } }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <>{children}</> }));
 
 import AuthCallback from '../AuthCallback';
-import { CLAIM_ORGANISERS_TIMEOUT_MS } from '@/lib/claimMyOrganisers';
+import { CLAIM_ORGANISERS_TIMEOUT_MS, CLAIM_TOAST_MS, claimedNoticeText, readClaimNotice } from '@/lib/claimMyOrganisers';
 import { AUTH_PENDING_RETURN_TO_KEY } from '@/lib/authRouting';
 
 const COMPLETE = { id: 'p1', first_name: 'Ana', based_city_id: 'c1', dance_role: 'follower' };
 const INCOMPLETE = { id: 'p1', first_name: null, based_city_id: null, dance_role: null };
 const ok = (claimed: unknown) => rpcLoose.mockResolvedValue({ data: { status: 'claimed', claimed }, error: null });
+/** The notice kept for organiser Home (review finding 7: Home draws it in flow, no toast over it). */
+const homeNotice = () => (readClaimNotice().length ? claimedNoticeText(readClaimNotice()) : null);
+const EVENT_RETURN = `/auth/callback?mode=signin&returnTo=${encodeURIComponent('/event/e1')}`;
 
 const CASES: { label: string; arrange: () => void; claimed: string[]; lands: string }[] = [
   { label: 'claimed 0 pages', arrange: () => ok([]), claimed: [], lands: '/account/continue' },
@@ -76,6 +79,7 @@ const mount = (entry = '/auth/callback?mode=signin') =>
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   rpcLoose.mockReset();
   toast.mockReset();
   maybeSingle.mockReset();
@@ -95,34 +99,36 @@ describe('AuthCallback organiser auto-claim', () => {
         // Today's routing for a complete profile is /account/continue; for an incomplete one, home.
         const expected = claimedSomething ? c.lands : profile.row === COMPLETE ? c.lands : '/';
         await waitFor(() => expect(landed.textContent).toBe(expected));
-        expect(toast).toHaveBeenCalledTimes(claimedSomething ? 1 : 0);
-        if (claimedSomething) {
-          expect(toast.mock.calls[0][0].title).toBe(c.claimed[0]);
-          expect(render(toast.mock.calls[0][0].description).container.textContent).toBe('Not you? Tell us');
-        }
+        // These land on organiser Home, which shows the notice itself: no toast over its rows.
+        expect(toast).not.toHaveBeenCalled();
+        expect(homeNotice()).toBe(claimedSomething ? c.claimed[0] : null);
       });
     }
   }
 
-  it('the Tell us action is a WhatsApp link naming the page', async () => {
+  it('off Home, the toast says it there, and its Tell us action is a WhatsApp link naming the page', async () => {
     maybeSingle.mockResolvedValue({ data: COMPLETE, error: null });
     ok([{ organiser_id: 'o1', name: 'Ritmo' }]);
-    mount();
+    mount(EVENT_RETURN);
     await screen.findByTestId('landed');
+    expect(render(toast.mock.calls[0][0].description).container.textContent).toBe('Not you? Tell us');
     const { container } = render(toast.mock.calls[0][0].description);
     const href = container.querySelector('a')!.getAttribute('href') as string;
     expect(href).toMatch(/^https:\/\/wa\.me\/\d+\?text=/);
     expect(decodeURIComponent(href)).toContain('Ritmo');
   });
 
-  it('the Tell us link is a 44 px tap target and the notice stays until closed', async () => {
+  // Review finding 7: the shared toast sits mid-screen with a 20 px invisible close, so it is short;
+  // the notice that stays until closed is Home's own line (home/__tests__/ClaimNotice.test.tsx).
+  it('the Tell us link is a 44 px tap target and the toast is short, never Infinity', async () => {
     maybeSingle.mockResolvedValue({ data: COMPLETE, error: null });
     ok([{ organiser_id: 'o1', name: 'Ritmo' }]);
-    mount();
+    mount(EVENT_RETURN);
     await screen.findByTestId('landed');
     const { container } = render(toast.mock.calls[0][0].description);
     expect(container.querySelector('a')!.className).toMatch(/(^|\s)min-h-\[44px\](\s|$)/);
-    expect(toast.mock.calls[0][0].duration).toBe(Infinity);
+    expect(toast.mock.calls[0][0].duration).toBe(CLAIM_TOAST_MS);
+    expect(homeNotice()).toBe('You now manage Ritmo.');
   });
 });
 
@@ -145,8 +151,13 @@ describe('AuthCallback organiser auto-claim x return path (D37)', () => {
         mount(r.entry);
         const landed = await screen.findByTestId('landed');
         await waitFor(() => expect(landed.textContent).toBe(r.lands));
-        expect(toast).toHaveBeenCalledTimes(1);
-        expect(toast.mock.calls[0][0].title).toBe('You now manage Ritmo.');
+        // Off Home a short toast says it there; on Home, Home's own line does. Home keeps it either way.
+        if (r.lands === '/account/o') expect(toast).not.toHaveBeenCalled();
+        else {
+          expect(toast).toHaveBeenCalledTimes(1);
+          expect(toast.mock.calls[0][0].title).toBe('You now manage Ritmo.');
+        }
+        expect(homeNotice()).toBe('You now manage Ritmo.');
         expect(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY)).toBeNull();
       });
     }

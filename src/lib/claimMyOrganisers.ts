@@ -1,4 +1,5 @@
 import { rpcLoose } from "@/integrations/supabase/rpcLoose";
+import { dancerMessageUsUrl } from "@/lib/contactLinks";
 
 /**
  * claim_my_organisers_v1() (admin contract): no args, authenticated; returns
@@ -55,3 +56,37 @@ export const claimedNoticeText = (claimed: readonly ClaimedOrganiser[]): string 
 };
 
 export const NOT_YOU_ORGANISER_MESSAGE = "Hi! I just signed in to Bachata Calendar and it says I now manage an organiser page that is not mine: ";
+
+/** "Not you? Tell us": a WhatsApp message naming the claimed pages. */
+export const notYouOrganiserHref = (claimed: readonly ClaimedOrganiser[]): string =>
+  dancerMessageUsUrl(`${NOT_YOU_ORGANISER_MESSAGE}${claimed.map((c) => c.name).join(", ")}`);
+
+/**
+ * The claim notice, kept for organiser Home to draw in its own flow until it is closed (review
+ * finding 7: a toast that stayed sat over Home's rows). sessionStorage, so it never outlives the
+ * tab; every read and write is guarded, and an unreadable store means no notice, never an error.
+ */
+export const CLAIM_NOTICE_KEY = "bc_org_claim_notice_v1";
+/** Landing anywhere but Home, a short toast says it there too. Never Infinity. */
+export const CLAIM_TOAST_MS = 8000;
+
+export const stashClaimNotice = (claimed: readonly ClaimedOrganiser[]): void => {
+  try {
+    sessionStorage.setItem(CLAIM_NOTICE_KEY, JSON.stringify({ claimed: claimed.map((c) => ({ organiser_id: c.organiserId, name: c.name })) }));
+  } catch { /* storage blocked: Home simply shows no notice */ }
+};
+
+export const readClaimNotice = (): ClaimedOrganiser[] => {
+  try {
+    const raw = sessionStorage.getItem(CLAIM_NOTICE_KEY);
+    return raw ? parseClaimedOrganisers(JSON.parse(raw)) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const clearClaimNotice = (): void => {
+  try {
+    sessionStorage.removeItem(CLAIM_NOTICE_KEY);
+  } catch { /* nothing to clear */ }
+};

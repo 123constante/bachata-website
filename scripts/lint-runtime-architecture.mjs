@@ -64,6 +64,8 @@ const RULES = [
       'src/modules/organiser/shared/selfServeApi.ts',
       'src/modules/organiser/shared/goLiveCheck.ts',
       'src/modules/organiser/events/__tests__/goLive.webA1a.test.tsx',
+      'src/modules/organiser/events/__tests__/goLive.profilePage.test.tsx',
+      'src/modules/organiser/shared/__tests__/goLiveCheck.parse.test.ts',
       'src/modules/admin-organisers/inviteModel.ts',
       'src/modules/admin-organisers/__tests__/inviteModel.test.ts',
       'src/modules/admin-organisers/__tests__/routes.matrix.test.tsx',
@@ -73,6 +75,7 @@ const RULES = [
       // claim_my_organisers_v1 (people arc A-WEB2) answers {claimed:[{organiser_id, name}]}.
       'src/lib/claimMyOrganisers.ts',
       'src/pages/__tests__/AuthCallbackOrganiserClaim.test.tsx',
+      'src/pages/__tests__/AuthCallbackClaimFixPass.test.tsx',
     ]),
   },
   {
