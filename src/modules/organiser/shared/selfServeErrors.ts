@@ -10,11 +10,18 @@
  * than leaking raw text.
  */
 import { DANCER_GATE_REASON, PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
+import { VERSION_CONFLICT } from './copy';
 
-import { LAST_OWNER_NOTE } from './teamModel';
+import { LAST_OWNER_NOTE, TEAM_CAP } from './teamModel';
 
 /** `finish_profile`: the screen sends the person to the gated Finish screen (finishProfileHref of where they are). */
-export type SelfServeNextStep = 'request_access' | 'reauth' | 'sign_in' | 'finish_profile' | null;
+/** `contact_support`: the screen shows the support rows (supportLinks()) and no retry, because a retry cannot work. */
+export type SelfServeNextStep = 'request_access' | 'reauth' | 'sign_in' | 'finish_profile' | 'contact_support' | null;
+
+/** A page holds at most TEAM_CAP people (admin A1b): add-member / set-member raise `team_full`, invite redeem returns it as a reason. */
+export const TEAM_FULL_COPY = `This team already has ${TEAM_CAP} people. Remove someone first, or ask the Bachata Calendar team.`;
+/** Creating a NEW organiser page is invite-only (owner decision 2026-10-20); the admin trigger raises `organiser_invite_required`. */
+export const INVITE_REQUIRED_COPY = 'Creating a new organiser page needs an invite from the Bachata Calendar team. Message us and we\u2019ll set you up.';
 
 export interface SelfServeErrorCopy {
   message: string;
@@ -84,17 +91,16 @@ const COPY: Record<string, SelfServeErrorCopy> = {
     message: 'You already have three organisers waiting. Finish or remove one first.',
     next: null,
   },
-  // D6 submit_organiser_profile_v1.
   not_authorised: {
-    message: 'Only an owner or manager of this organiser can send it for review.',
+    message: 'Only an owner or manager of this page can do that.',
     next: null,
   },
-  // Raised for every lifecycle outside draft and rejected (pending_review, live,
-  // paused, ended, archived). The home reloads on it (useSendForReview).
   invalid_state: {
-    message: 'Nothing to send: this organiser is already in review, live, or no longer active.',
+    message: 'This page cannot do that right now. Reload and check it.',
     next: null,
   },
+  organiser_invite_required: { message: INVITE_REQUIRED_COPY, next: 'contact_support' },
+  team_full: { message: TEAM_FULL_COPY, next: null },
 };
 
 const GENERIC: SelfServeErrorCopy = {
@@ -127,9 +133,23 @@ export const KNOWN_SELF_SERVE_CODES = Object.keys(COPY);
  * by matching the message, most specific first. Raw server text is never
  * shown: anything unmatched gets the generic line.
  */
-export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
-  { match: /^version_conflict/, message: 'This changed somewhere else after you opened it. We have reloaded it; check it and save again.' },
-  { match: /on a past date is admin-only|^past_date/, message: 'That date has already happened, so it can no longer be changed.' },
+export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegExpMatchArray) => string) }> = [
+  // INT4, the final AW1 contract (admin PR #838): an owner may not delete a session that has per-date changes (named),
+  // an id-less or stale-id programme save is refused (reload brings the stored ids), and an owner may only ADD
+  // live organiser pages they own or manage. FIRST and anchored (FIX-INT4 S-3): the session title is free text, so
+  // an unanchored rule below (e.g. "on a past date is admin-only") must never see it first. The server sends
+  // left(title, 80) and a title may be '' (FIX-INT4 S-1).
+  { match: /^permission_denied: removing the session "(.{0,200})" would delete its per-date changes/, message: (hit) => {
+    const title = hit[1].trim().slice(0, 80);
+    return title
+      ? `The session \u201c${title}\u201d has changes on some dates, so only an admin can remove it. Keep it, or ask the Bachata Calendar team to remove it.`
+      : 'One of the sessions has changes on some dates, so only an admin can remove it. Keep it, or ask the Bachata Calendar team to remove it.';
+  } },
+  { match: /^invalid_payload: (this programme save carries no ids|a programme id )/, message: 'This programme changed since you opened it. Reload the page, then make your change and save again.' },
+  { match: /^permission_denied: series\.set_organisers can only add an organiser page you own or manage/, message: 'You can only add organiser pages you run. To add another page, ask the Bachata Calendar team.' },
+  { match: /^permission_denied: series\.set_organisers can only add a live organiser page/, message: "That page isn't live, so it can't be added." },
+  { match: /^version_conflict/, message: VERSION_CONFLICT },
+  { match: /on a past date is admin-only|^past_date/, message: 'This date has already happened, so it can no longer be changed.' },
   { match: /^has_bookings/, message: 'People have already booked this date, so it cannot be removed. Cancel it instead, so they see why.' },
   { match: /^no_sessions_for_time_override/, message: 'This date has no session times to move yet. Ask the Bachata Calendar team to set up the class times.' },
   { match: /cancellation_reasons label/, message: 'Choose a reason. Dancers see it.' },
@@ -151,7 +171,7 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
   { match: /^invalid_payload: name required/, message: 'Enter the event name.' },
   { match: /^(not_found|series_not_found)/, message: 'This date or event no longer exists. Reload the page.' },
   // W3, the create (admin D3/D7 refusals on series.upsert (create) and series.set_recurrence).
-  { match: /\(create\) needs a live organiser/, message: 'Your organiser is not public yet. Send it for review from Home if you have not; once the Bachata Calendar team approves it you can add events.' },
+  { match: /\(create\) needs a live organiser/, message: 'Your page is not live yet, so it cannot take events. Ask the Bachata Calendar team.' },
   { match: /naming one organiser the caller owns or manages/, message: 'Choose one of your organisers.' },
   { match: /category must be party, class or workshop|category on a live series is admin-only/, message: 'That kind of event cannot be set here. Ask the Bachata Calendar team.' },
   { match: /format must be one_off or recurring/, message: 'Choose a party or a weekly class.' },
@@ -159,6 +179,10 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string }> = [
   // Admin refusals raised as a bare code: the daily edit limit, the dates limit, and undo.
   { match: /^(permission_denied: )?daily_edit_cap/, message: "You have reached today's limit of 100 changes. You can carry on tomorrow, or ask the Bachata Calendar team." },
   { match: /^(permission_denied: )?date_cap/, message: 'No new date can be added while 30 or more upcoming dates are listed (past and cancelled dates do not count). Cancel or remove an upcoming date first, or start a new event.' },
+  // PAR-A S1: admin_bulk_occurrence_command_p5 refuses the WHOLE call (nothing changed); a retry would fail the same way.
+  { match: /shift would move a date into the past/, message: 'Nothing was moved: one of the ticked dates would land before today. Pick fewer days or other dates.' },
+  { match: /shift would collide/, message: 'Nothing was moved: one of the ticked dates would land on a day that already has a date of this event (a cancelled one counts too). Pick another number of days.' },
+  { match: /bulk_too_large/, message: 'Nothing was changed: too many dates at once. Tick fewer dates and do the rest in a second go.' },
   { match: /^undo_conflict/, message: 'Someone changed this after you. Look at the event as it is now before you change it again.' },
   { match: /^not_undoable/, message: 'That change cannot be undone here. Change it back by hand.' },
   { match: /^permission_denied: series\.set_recurrence/, message: 'The weekly pattern could not be saved. Pick one weekday and a first date from today on.' },
@@ -191,8 +215,10 @@ export function commandErrorMessage(error: unknown): string {
   const message = error && typeof error === 'object' ? (error as { message?: unknown }).message : null;
   if (typeof message === 'string') {
     const text = message.trim();
-    const hit = COMMAND_COPY.find((c) => c.match.test(text));
-    if (hit) return hit.message;
+    for (const c of COMMAND_COPY) {
+      const hit = text.match(c.match);
+      if (hit) return typeof c.message === 'string' ? c.message : c.message(hit);
+    }
   }
   return GENERIC.message;
 }
@@ -224,12 +250,22 @@ export const isVersionConflict = (error: unknown) =>
  * `not_authorised` means something different here (an owner-only move) than
  * on the other RPCs that raise it.
  */
+/** How someone becomes an owner. There is no "Make owner" control in R1: the owner hands the page over (B-N1). */
+export const HAND_OVER_HOW = 'add them as a Manager, then open their name and tap Hand the page over';
+const HAND_OVER_HOW_SENTENCE = `${HAND_OVER_HOW.charAt(0).toUpperCase()}${HAND_OVER_HOW.slice(1)}.`;
+/** The add-member RPC's owner_only refusal, on EVERY screen that adds people (Team and the /page picker, A-S4). Managers add (decision 1). */
+export const OWNER_ONLY_ADD = 'Only an owner or a manager of this page can add people. Ask one of them to add this person. Nothing was changed.';
+/** What each role can do, on EVERY screen that explains roles (Person and the /page picker). No review step exists (D4, A-S5). */
+export const ROLE_HELP = 'Owners and managers add people. Managers edit every event; contributors help edit events. Only the owner removes people, changes roles and hands the page over.';
+/** The picker's owner refusal: a new person cannot be added straight in as an owner. */
+export const USE_TRANSFER_ADD = `A new person cannot be added as an owner. ${HAND_OVER_HOW_SENTENCE}`;
+
 export const TEAM_COPY: Record<string, string> = {
   authentication_required: 'Please sign in first.',
-  organiser_id_required: 'Choose an organiser first.',
+  organiser_id_required: 'Choose a page first.',
   user_id_required: 'Choose who to remove first.',
-  not_authorised: 'Only an owner of this organiser can do that. As a manager you can leave the team.',
-  organiser_not_found: 'That organiser no longer exists.',
+  not_authorised: 'Only an owner of this page can do that. As a manager you can add people, or leave this page.',
+  organiser_not_found: 'That page no longer exists.',
   not_a_member: 'That person is no longer on the team. Reload the page.',
   cannot_remove_owner: 'Another owner cannot be removed here. They can leave themselves, or ask the Bachata Calendar team.',
   last_owner: LAST_OWNER_NOTE,
@@ -241,9 +277,10 @@ export const TEAM_COPY: Record<string, string> = {
   note_too_long: 'Keep the note under 500 characters.',
   note_invalid: 'The note contains characters we cannot accept.',
   invalid_scope: 'Something went wrong. Please try again.',
-  owner_only: 'Only an owner can do that. As a manager or contributor you can see the team and leave it.',
-  use_transfer: 'To make someone an owner, use Make owner on their row. That hands ownership over.',
-  target_is_owner: 'An owner’s role cannot be changed here. They can transfer ownership, or ask the Bachata Calendar team.',
+  team_full: TEAM_FULL_COPY,
+  owner_only: 'Only an owner of this page can do that. Owners and managers add people, and anyone on the team can leave this page.',
+  use_transfer: `To make someone an owner, ${HAND_OVER_HOW}.`,
+  target_is_owner: 'An owner\u2019s role cannot be changed here. They can transfer ownership, or ask the Bachata Calendar team.',
   already_owner: 'That person is already an owner.',
   user_not_found: 'No account has that email address. Ask them to sign up to Bachata Calendar first, then add them.',
   unconfirmed_email: 'That account has not confirmed its email address yet. Ask them to confirm it, then add them.',
@@ -281,7 +318,7 @@ export const PEOPLE_GENERIC_COPY = 'We could not save the line-up changes. Check
 export const PROGRAMME_COPY: Array<{ match: RegExp; message: string; reload?: boolean }> = [
   { match: /^version_conflict/, message: PROGRAMME_VERSION_CONFLICT, reload: true },
   { match: /^permission_denied: authentication_required/, message: 'Please sign in again.' },
-  { match: /occurrence not found or caller is not an owner or manager/, message: 'You cannot change this date. It may have been removed, or you are no longer on this event’s team.' },
+  { match: /occurrence not found or caller is not an owner or manager/, message: 'You cannot change this date. It may have been removed, or you are no longer on this event\u2019s team.' },
   { match: /on a past date is admin-only/, message: 'This date has already happened, so its schedule can no longer be changed.', reload: true },
   { match: /on an ended or archived series is admin-only/, message: 'This event has ended or is archived, so its schedule cannot be changed here.', reload: true },
   { match: /on a cancelled date is not allowed/, message: 'This date is cancelled, so its schedule cannot be changed.', reload: true },

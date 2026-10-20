@@ -5,7 +5,7 @@ import { FLYER_ACCEPT } from '@/modules/organiser/shared/flyerModel';
 import type { VenueOption } from '@/modules/organiser/shared/publicVenues';
 import { canConfirm, confirmCopy } from '@/modules/organiser/shared/editorGuards';
 import { linkOnClose, linkProblem } from '@/modules/organiser/shared/linkRules';
-import { Card, Collapse, ErrorState, FIELD_CLASS, GhostButton, PrimaryButton, SearchField, SheetView, SkeletonRows, SummaryRow } from '../ui';
+import { Card, Collapse, ErrorState, FIELD_CLASS, GhostButton, PrimaryButton, SearchField, SheetView, SkeletonRows, SummaryRow, useOpenerRef } from '../ui';
 import { CAP_NOTE, allowedEndChoices, type CapInput } from './dateCap';
 import { MAX_GALLERY, MAX_VIDEOS, SHAPE_LABEL, shortDate, weekdayName, type EventDraft, type Shape } from './eventModel';
 
@@ -69,6 +69,7 @@ function withLeaving(list: string[], leaving: Leaving[]) {
 export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, venuesError, onRetryVenues, venuesRetrying, onUploadGallery, uploading, uploadError, stopReason = null, capNote = `${CAP_NOTE}. Extend later to list more.`, oneDateLoss = 0 }: Props) {
   const [query, setQuery] = useState('');
   const [videoInput, setVideoInput] = useState('');
+  const opener = useOpenerRef(sheet !== null);
   const [ack, setAck] = useState(false);
   // The ticket link as the sheet opened: the X puts it back over an invalid entry.
   const [opened, setOpened] = useState({ sheet, ticketUrl: draft.ticketUrl });
@@ -144,6 +145,7 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
       };
       body = (
         <div className="space-y-[12px]" data-testid="org-sheet-video">
+          {videos.length === 0 && <p className="text-[14px] text-[var(--mut)]" data-testid="org-video-empty">No videos yet. Paste a video link below to add one.</p>}
           {videos.length > 0 && (
             <Card>
               {videos.map(({ url, leaving }, i) => (
@@ -302,6 +304,7 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
   return (
     <SheetView
       open={sheet !== null}
+      returnFocusRef={opener}
       onOpenChange={(open) => {
         if (open) return;
         // Closed without Done (X, outside, Escape): an invalid link is discarded (linkOnClose).

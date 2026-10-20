@@ -21,6 +21,7 @@ import { newSession, notEditableCopy, type DraftSession } from '@/modules/organi
 import { fetchCancellationReasons } from '@/modules/organiser/shared/selfServeApi';
 import { cancelCommand, skipDateCommand, uncancelCommand } from '@/modules/organiser/shared/seriesCommands';
 import { UNSAVED_MESSAGE, saveBarState } from '@/modules/organiser/shared/editorGuards';
+import { TAKE_OFF } from '@/modules/organiser/shared/copy';
 import { cancelledLabel } from '@/modules/organiser/shared/cancelLabel';
 import { dateLabel as labelOf, isRuleDate, upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { calendarDate } from '@/modules/organiser/shared/homeModel';
@@ -193,7 +194,8 @@ export default function DatePage() {
       </Card>
 
       <section aria-labelledby="schedule-label" className="space-y-[8px]">
-        <h2 id="schedule-label" className="px-[4px] text-[13px] font-semibold uppercase tracking-[.04em] text-[var(--mut)]">Schedule</h2>
+        {/* PAR-B N1: one word with the rows and One event's "Sessions" link. */}
+        <h2 id="schedule-label" className="px-[4px] text-[13px] font-semibold uppercase tracking-[.04em] text-[var(--mut)]">Sessions</h2>
         {!editable && ed.base && !lock && (
           <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="date-readonly-note">{notEditableCopy(ed.base.notEditableReason)}</p>
         )}
@@ -237,7 +239,7 @@ export default function DatePage() {
         ) : (
           <>
             {ruleDate && (
-              <SummaryRow icon={<Coffee />} label="Break this week" sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : 'Skip this date. No cancellation shows.')}
+              <SummaryRow icon={<Coffee />} label={TAKE_OFF.label} sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : TAKE_OFF.sub)}
                 disabled={ed.dirty || !!lock} onPress={() => { setCommandError(null); setSheet({ view: 'break' }); }} testId="date-break" />
             )}
             <SummaryRow icon={<Ban />} label="Cancel this date" sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : 'Dancers see Cancelled and your reason.')}
@@ -296,7 +298,7 @@ export default function DatePage() {
         onRetryReasons={() => void reasons.refetch()}
         onCancelDate={(reason) => void command('occurrence', cancelCommand(reason), `${label} is cancelled.`)}
         onUncancelDate={() => void command('occurrence', uncancelCommand(), `${label} is back on.`)}
-        onBreak={() => void command('series', skipDateCommand(occurrenceId), `${label} is a break.`, () => navigate(ORG_PATHS.event(seriesId)))}
+        onBreak={() => void command('series', skipDateCommand(occurrenceId), TAKE_OFF.done(label), () => navigate(ORG_PATHS.event(seriesId)))}
         commandBusy={ed.commandBusy}
         commandError={commandError}
       />
@@ -310,7 +312,8 @@ function SessionRow({ row, problem, onOpen, onUndo }: { row: DraftSession; probl
   const body = (
     <span className={`flex min-w-0 flex-1 flex-col gap-[4px] text-left ${row.removed ? 'opacity-[.72]' : ''}`}>
       <span className="flex min-w-0 items-center gap-[8px]">
-        {showsTypeChip(row) && <StatusTag tone={typeTone(row.type)} className="shrink-0" testId="session-row-type">{typeLabel(row.type)}</StatusTag>}
+        {/* On a faded (removed) row the neutral chip's --mut falls under AA (3.79:1), so it switches to --fg too (B-S11). */}
+        {showsTypeChip(row) && <StatusTag tone={typeTone(row.type)} className={row.removed ? 'shrink-0 text-[var(--fg)]' : 'shrink-0'} testId="session-row-type">{typeLabel(row.type)}</StatusTag>}
         <span className={`truncate text-[15px] font-semibold text-[var(--fg)] ${row.removed ? 'line-through' : ''}`} data-testid="session-row-name">{sessionName(row)}</span>
       </span>
       {/* A faded row's muted text would fall under 4.5:1, so it switches to --fg. */}

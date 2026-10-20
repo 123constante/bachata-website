@@ -1,3 +1,6 @@
+import { londonDateKey } from '@/lib/londonDate';
+import { fullDate } from '@/modules/organiser/shared/dateWords';
+
 const LONDON = 'Europe/London';
 
 function toDate(input: string | Date): Date {
@@ -17,8 +20,8 @@ export function londonDateParts(input: string | Date, today?: string): { day: st
   const d = toDate(input);
   const day = new Intl.DateTimeFormat('en-GB', { timeZone: LONDON, day: 'numeric' }).format(d);
   const month = new Intl.DateTimeFormat('en-GB', { timeZone: LONDON, month: 'short' }).format(d);
-  const label = new Intl.DateTimeFormat('en-GB', { timeZone: LONDON, weekday: 'short', day: 'numeric', month: 'long' }).format(d);
   const y = new Intl.DateTimeFormat('en-GB', { timeZone: LONDON, year: 'numeric' }).format(d);
   const year = today && today.slice(0, 4) !== y ? y : null;
-  return { day, month, label: year ? `${label} ${year}` : label, year };
+  // The label is the shared full-name formatter (dateWords.ts), the words every other screen uses.
+  return { day, month, label: fullDate(londonDateKey(d), year ? '' : undefined), year };
 }

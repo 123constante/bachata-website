@@ -53,3 +53,11 @@ export function seriesLife(series: LifeInput, upcomingCount: number): Life {
   return { section: 'current', tag: lifecycleTag(status), note: null };
 }
 
+
+/**
+ * S-FEEDBACK 5: Finished / Nothing coming up. The event screen then offers only See it live
+ * (no Pause, no End); adding a date brings the full set back. The SAME mapping as the tag,
+ * so the two cannot disagree. Draft, paused, ended and archived are never "nothing coming up".
+ */
+export const nothingComingUp = (series: LifeInput, upcomingCount: number): boolean =>
+  !isClosed(series.lifecycle_status) && seriesLife(series, upcomingCount).section === 'past';

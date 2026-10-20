@@ -26,7 +26,8 @@ const barHeight = async (page: Page) => (await page.getByTestId('org-actionbar')
 /** Every visible control inside the organiser screen and any open sheet, with its height. */
 async function controls(page: Page) {
   return page.evaluate(() => {
-    const roots = Array.from(document.querySelectorAll('[data-testid^="org-page-"], [role="dialog"]'));
+    // The New event steps (S4) name their shells org-new-*, the event steps (S5) event-step, not org-page-*.
+    const roots = Array.from(document.querySelectorAll('[data-testid^="org-page-"], [data-testid="org-new-what"], [data-testid="org-new-name-step"], [data-testid="event-step"], [role="dialog"]'));
     const seen = new Set<Element>();
     const out: { name: string; h: number }[] = [];
     for (const root of roots) {
@@ -46,11 +47,13 @@ async function controls(page: Page) {
   });
 }
 
-async function expectTapTargets(page: Page) {
+// `min`: how many controls the screen must hold, so an empty measure never passes. A locked
+// (ended) Details screen holds only the header's back and account controls.
+async function expectTapTargets(page: Page, min = 3) {
   // Let entrance motion (0.3s) finish before measuring.
   await page.waitForTimeout(400);
   const found = await controls(page);
-  expect(found.length, 'the screen has controls to measure').toBeGreaterThan(2);
+  expect(found.length, 'the screen has controls to measure').toBeGreaterThanOrEqual(min);
   expect(found.filter((c) => c.h < MIN - 0.5), `controls under ${MIN}px high`).toEqual([]);
   await expectNoHorizontalScroll(page);
 }
@@ -60,7 +63,7 @@ test.describe('tap targets @390', () => {
 
   test('Home', async ({ page }) => {
     await openOrganiser(page, '/account/o');
-    await expect(page.getByTestId('home-strip-lineup')).toBeVisible();
+    await expect(page.getByTestId('home-jobs')).toBeVisible();
     await expectTapTargets(page);
   });
 
@@ -73,25 +76,33 @@ test.describe('tap targets @390', () => {
 
   test('Events list and New event', async ({ page }) => {
     await openOrganiser(page, '/account/o/events');
+    // C33: a populated list is rows only; New event is the empty state's one action (and Home's).
     await expect(page.getByTestId('org-event-row').first()).toBeVisible();
-    await expect(page.getByTestId('org-events-new')).toBeVisible();
     await expectTapTargets(page);
-    await page.goto('/account/o/events/new');
-    await expect(page.getByTestId('org-new-event-name')).toBeVisible();
+    await page.goto('/account/o/new/what');
+    await expect(page.getByTestId('org-new-format-recurring')).toBeVisible();
+    await expectTapTargets(page);
+    await page.getByTestId('org-new-format-recurring').click();
+    await expect(page.getByTestId('org-new-name')).toBeVisible();
     await expectTapTargets(page);
   });
 
-  test('event editor and its sheet', async ({ page }) => {
+  test('one event, its Details and a one-field edit', async ({ page }) => {
     await openOrganiser(page, `/account/o/events/${FRIDAY}`);
+    await expect(page.getByTestId('org-coming-date').first()).toBeVisible();
+    await expectTapTargets(page);
+    await page.goto(`/account/o/events/${FRIDAY}/details`);
     await expect(page.getByTestId('org-schedule-session').first()).toBeVisible();
     await expectTapTargets(page);
-    await page.getByTestId('org-row-until-open').click();
-    await expect(page.getByTestId('org-sheet-until')).toBeVisible();
-    await expectTapTargets(page);
+    // The edit step holds two controls (the box and Save), under the helper's floor of three: measure them directly.
+    await page.goto(`/account/o/events/${FRIDAY}/details?edit=about`);
+    await expect(page.getByTestId('org-detail-input')).toBeVisible();
+    for (const id of ['org-detail-input', 'org-detail-save']) expect((await page.getByTestId(id).boundingBox())!.height).toBeGreaterThanOrEqual(MIN - 0.5);
+    await expectNoHorizontalScroll(page);
   });
 
   test('date editor, session view and people search', async ({ page }) => {
-    await openOrganiser(page, `/account/o/events/${FRIDAY}/dates/${OCC}`);
+    await openOrganiser(page, `/account/o/change/${FRIDAY}/${OCC}/lineup`);
     await expect(page.getByTestId('session-row')).toHaveCount(2);
     await expectTapTargets(page);
     await page.getByTestId('session-row-open').first().click();
@@ -105,83 +116,80 @@ test.describe('tap targets @390', () => {
 
   test('Team', async ({ page }) => {
     await openOrganiser(page, '/account/o/team');
-    await expect(page.getByTestId('access-request')).toHaveCount(2);
+    await expect(page.getByTestId('join-request')).toHaveCount(2);
     await expectTapTargets(page);
   });
 
-  test('Profile', async ({ page }) => {
-    await openOrganiser(page, '/account/o/profile', { organiserStatus: 'draft' });
-    await expect(page.getByTestId('profile-send-review')).toBeVisible();
+  // S7 replaced the profile editor with /page (edit in place, D4: no review button) and /more.
+  test('Page and More', async ({ page }) => {
+    await openOrganiser(page, '/account/o/page');
+    await expect(page.getByTestId('page-name')).toBeVisible();
+    await expectTapTargets(page);
+    await page.goto('/account/o/more');
+    await expect(page.getByTestId('more-add-page')).toBeVisible();
     await expectTapTargets(page);
   });
 
   // F4 (owner on a phone): nothing unsaved -> one line + the disabled button, under 64px,
-  // no preview card; the card comes back with the first edit.
-  test('nothing unsaved: the action bar is a slim bar under 64px on the event, date and profile editors', async ({ page }) => {
-    await openOrganiser(page, `/account/o/events/${FRIDAY}`);
-    await expect(page.getByTestId('org-schedule-session').first()).toBeVisible();
-    expect(await barHeight(page)).toBeLessThan(64);
-    await expect(page.getByTestId('org-preview-bar-preview')).toHaveCount(0);
-    await page.getByTestId('org-event-name').fill('Friday Fiesta');
-    await expect(page.getByTestId('org-preview-bar-preview')).toBeVisible();
-    expect(await barHeight(page)).toBeGreaterThan(64);
-
-    await page.goto(`/account/o/events/${FRIDAY}/dates/${OCC}`);
+  // no preview card. (The event editor and its bar went with S5: Details saves one field at a time;
+  // the profile editor and its bar went with S7: /page shows no bar until something is drafted.)
+  test('nothing unsaved: the action bar is a slim bar under 64px on the date editor, and /page shows none', async ({ page }) => {
+    await openOrganiser(page, `/account/o/change/${FRIDAY}/${OCC}/lineup`);
     await expect(page.getByTestId('session-row')).toHaveCount(2);
     expect(await barHeight(page)).toBeLessThan(64);
     await expect(page.getByTestId('date-preview-bar-preview')).toHaveCount(0);
 
-    await page.goto('/account/o/profile');
-    await expect(page.getByTestId('profile-name')).toBeVisible();
-    expect(await barHeight(page)).toBeLessThan(64);
-    await expect(page.getByTestId('profile-bar-preview')).toHaveCount(0);
+    await page.goto('/account/o/page');
+    await expect(page.getByTestId('page-name')).toBeVisible();
+    await expect(page.getByTestId('eip-bar')).toHaveCount(0);
   });
 
-  test('an ended repeating event (the Bachata Picnic shape) reads true, offers nothing that cannot work, and its past dates open', async ({ page }) => {
+  // S5: the ended event (the Bachata Picnic shape) on OneEvent and Details: nothing offered that
+  // cannot work -- no coming dates, no Add a date, no Pause/End rows -- and Details reads only, with the lock line.
+  test('an ended repeating event (the Bachata Picnic shape) reads true and offers nothing that cannot work', async ({ page }) => {
     await openOrganiser(page, `/account/o/events/${PICNIC}`, {}, addPicnic);
-    const editor = page.getByTestId('org-event-editor');
-    await expect(editor).toBeVisible();
-    await expect(page.getByTestId('org-event-status')).toHaveText('Ended');
-    await expect(page.getByTestId('org-row-repeats')).toContainText('Every Saturday');
-    await expect(page.getByTestId('org-date-card')).toContainText('Ended on Sat 5 Sep');
-    await expect(page.getByTestId('org-date-card')).not.toContainText('No date listed yet');
-    await expect(page.getByTestId('org-event-locked')).toContainText('To run it again, ask the Bachata Calendar team.');
-    await expect(editor).not.toContainText('Extend');
-    await expect(page.getByTestId('org-extend')).toHaveCount(0);
-    await expect(page.getByTestId('org-row-venue')).toBeDisabled();
-    await expect(page.getByTestId('org-style-chip').filter({ hasText: /^Zouk$/ })).toHaveCount(1);
-    expect(await barHeight(page)).toBeLessThan(64);
+    await expect(page.getByTestId('org-event-title')).toContainText('Park Social');
+    await expect(page.getByTestId('org-coming-none')).toBeVisible();
+    await expect(page.getByTestId('org-coming-add')).toHaveCount(0);
+    for (const step of ['pause', 'resume', 'end', 'day', 'stop']) await expect(page.getByTestId(`org-event-${step}`)).toHaveCount(0);
     await expectTapTargets(page);
-    await page.getByTestId('org-dates-past-toggle').click();
-    const rows = page.getByTestId('org-dates-past').getByTestId('org-date-row');
-    await expect(rows).toHaveCount(13);
-    await expect(rows.first().locator('svg.lucide-chevron-right')).toBeVisible();
-    await rows.first().click();
-    await expect(page.getByTestId('date-locked-note')).toContainText('already happened and the event has ended');
-    await expect(page.getByTestId('date-status')).toHaveText('Ended');
-    await expect(page.getByTestId('date-cancel')).toBeDisabled();
-    await expect(page.getByTestId('date-add-session')).toHaveCount(0);
-    await expectTapTargets(page);
+    await page.getByTestId('org-event-title').click();
+    await expect(page.getByTestId('org-detail-lock')).toContainText('To run it again, ask the Bachata Calendar team.');
+    await expect(page.getByTestId('org-detail-venue')).toBeVisible();
+    // Every row reads only, the Cover row too (REVIEW-S5 NOTE-5).
+    await expect(page.getByTestId('org-detail-cover')).toBeVisible();
+    await expect(page.locator('a[data-testid^="org-detail-"]')).toHaveCount(0);
+    await expect(page.getByTestId('org-page-details')).not.toContainText('Extend');
+    await expectTapTargets(page, 2);
+    // A stale ?edit= link on an ended event shows the read-only rows, never a box.
+    await page.goto(`/account/o/events/${PICNIC}/details?edit=about`);
+    await expect(page.getByTestId('org-detail-lock')).toBeVisible();
+    await expect(page.getByTestId('org-detail-input')).toHaveCount(0);
   });
 
   // No screen scrolls sideways at 390 (sheets are covered by the tap-target cases above).
   test('no screen or sheet scrolls sideways', async ({ page }) => {
     await openOrganiser(page, '/account/o');
-    await expect(page.getByTestId('home-strip-lineup')).toBeVisible();
+    await expect(page.getByTestId('home-jobs')).toBeVisible();
     await expectNoHorizontalScroll(page);
     for (const [path, ready] of [
       ['/account/o/events', 'org-event-row'],
-      ['/account/o/events/new', 'org-new-event-name'],
-      [`/account/o/events/${FRIDAY}`, 'org-schedule-session'],
-      [`/account/o/events/${FRIDAY}/dates/${OCC}`, 'session-row'],
-      ['/account/o/team', 'access-request'],
-      ['/account/o/profile', 'profile-name'],
+      ['/account/o/new/what', 'org-new-format-recurring'],
+      ['/account/o/new/name?format=recurring', 'org-new-name'],
+      [`/account/o/events/${FRIDAY}`, 'org-coming-date'],
+      [`/account/o/events/${FRIDAY}/details`, 'org-schedule-session'],
+      [`/account/o/events/${FRIDAY}?do=end`, 'event-step'],
+      [`/account/o/change/${FRIDAY}/${OCC}/lineup`, 'session-row'],
+      ['/account/o/team', 'join-request'],
+      ['/account/o/page', 'page-name'],
+      ['/account/o/more', 'more-add-page'],
+      ['/account/o/more/help', 'org-page-help'],
     ]) {
       await page.goto(path);
       await expect(page.getByTestId(ready).first()).toBeVisible();
       await expectNoHorizontalScroll(page);
     }
-    await page.goto(`/account/o/events/${FRIDAY}/dates/${OCC}`);
+    await page.goto(`/account/o/change/${FRIDAY}/${OCC}/lineup`);
     await page.getByTestId('session-row-open').first().click();
     await page.getByTestId('session-add-person').click();
     await page.getByTestId('people-search').fill('ev');
@@ -193,14 +201,14 @@ test.describe('tap targets @390', () => {
 test.describe('two columns @1280x800', () => {
   test.use({ viewport: WIDE });
 
-  test('the event editor shows the list left and the editor right', async ({ page }) => {
+  test('one event shows the list left and the event right', async ({ page }) => {
     await openOrganiser(page, `/account/o/events/${FRIDAY}`);
     const list = page.getByTestId('org-list');
     const detail = page.getByTestId('org-detail');
     await expect(list).toBeVisible();
     await expect(detail).toBeVisible();
     await expect(list.getByTestId('org-event-row')).toHaveCount(2);
-    await expect(detail.getByTestId('org-event-editor')).toBeVisible();
+    await expect(detail.getByTestId('org-event-title')).toBeVisible();
     const l = (await list.boundingBox())!;
     const d = (await detail.boundingBox())!;
     expect(l.x + l.width).toBeLessThanOrEqual(d.x + 1);
@@ -212,10 +220,10 @@ test.describe('two columns @1280x800', () => {
     await expectNoHorizontalScroll(page);
   });
 
-  test('on a phone the same URL shows only the editor', async ({ page }) => {
+  test('on a phone the same URL shows only the event', async ({ page }) => {
     await page.setViewportSize(PHONE);
     await openOrganiser(page, `/account/o/events/${FRIDAY}`);
-    await expect(page.getByTestId('org-event-editor')).toBeVisible();
+    await expect(page.getByTestId('org-event-title')).toBeVisible();
     await expect(page.getByTestId('org-list')).toBeHidden();
   });
 });

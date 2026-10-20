@@ -1,84 +1,21 @@
-// The first session an organiser picks when creating an event (G2). Nobody is asked what an event IS any more (event-truth
-// P1): category is derived from the sessions (src/lib/eventCategory.ts and its
-// SQL twin), so a chip here only seeds the first session on the first date and
-// sets the schedule a create starts with. The organiser editor shows no Type
-// row (owner decision d39): the sessions say what it is. A course FORMAT stays admin-only (a
-// non-admin create is forced to one_off or recurring). Pure.
+// The two formats an organiser can create in R1 (R3-1: a course or a festival is
+// never creatable here), and how a series' format reads. Category is derived from
+// the sessions (src/lib/eventCategory.ts and its SQL twin), so nobody is asked
+// what an event IS, and the organiser editor shows no Type row (owner decision
+// d39): the sessions say what it is. Existing course/festival series stay
+// editable through the other flows; they only get read-only labels. Pure.
 
-export type NewEventType = 'class' | 'party' | 'workshop';
+export type CreatableFormat = 'recurring' | 'one_off';
 
-export const EVENT_TYPES: Array<{ type: NewEventType; label: string; hint: string }> = [
-  { type: 'class', label: 'Class', hint: 'One date with a class session. Make it weekly later from Repeats. Add more sessions after.' },
-  { type: 'party', label: 'Party', hint: 'One date with a party session. Make it weekly later from Repeats. Add more sessions after.' },
-  { type: 'workshop', label: 'Workshop', hint: 'One date with a workshop session (listed under Classes). Add more sessions after.' },
+export const CREATABLE_FORMATS: Array<{ format: CreatableFormat; label: string }> = [
+  { format: 'recurring', label: 'Weekly night' },
+  { format: 'one_off', label: 'One night' },
 ];
 
-/** The hint before a chip is picked. */
-export const FIRST_SESSION_HINT = 'Choose one. It becomes the first session; you can add more after.';
-
-/**
- * The hint once the create is CONFIRMED (the event exists with this chip), whatever
- * later step (its dates, its first session) runs or failed: the chips are locked, so
- * this says why and what to do next. Open the event is on screen from then on.
- */
-export const CHIPS_LOCKED_HINT = 'Already chosen: your event is made with it. Press Create to finish, or open the event.';
-
-/**
- * Where a create stands (FIX-3): 'open' nothing sent yet; 'sent' the create went out
- * but its reply never confirmed it (it may or may not exist, and every later press
- * sends the identical create); 'made' the create was confirmed.
- */
-export type CreatePhase = 'open' | 'sent' | 'made';
-
-/**
- * The one hint under the New event chips, per phase, whether a step is running, and whether
- * the organiser is blocked. Blocked disables Create, so no hint names it then (FIX-7 R2): the
- * confirmed hint keeps only its exit, the unconfirmed one only its fact (the note under the
- * block message names the way out).
- */
-export function chipHint(phase: CreatePhase, busy: boolean, type: NewEventType | null, blocked = false): string {
-  // Made but its date or first session still running (FIX-4 F9): Create is busy, so never "press Create".
-  if (phase === 'made') {
-    if (busy) return 'Finishing your event\u2026';
-    return blocked ? 'Already chosen: your event is made with it. Open the event.' : CHIPS_LOCKED_HINT;
-  }
-  if (busy) return 'Creating your event\u2026';
-  if (phase === 'sent') return blocked ? 'Not confirmed yet.' : 'Not confirmed yet. Press Create to finish: nothing is made twice.';
-  return (type && EVENT_TYPES.find((t) => t.type === type)?.hint) || FIRST_SESSION_HINT;
-}
-
-/**
- * The hint box's fixed height, in lines of HINT_LINE_PX, so Create never moves as the hint
- * changes (FIX-4 F4). Measured in headless Chromium (13px text, html 13.57px): at 320 and 360px
- * wide the Class hint takes 3 lines, at 375 and 390px 2. HINT_CHARS_PER_LINE is a floor under
- * the measured line (at least 44 characters at 320px); a unit test holds every hint to the box.
- */
-export const HINT_BOX_LINES = 3;
-export const HINT_LINE_PX = 18;
-export const HINT_CHARS_PER_LINE = 40;
-
-/**
- * Under the block message when a create was sent, never confirmed, and the organiser is now
- * blocked (FIX-4 F5): Create is disabled and the form frozen, so the way out is the shell's back
- * link, named here as it reads on screen.
- */
-export function unconfirmedExitNote(backLabel: string): string {
-  return `If your event was saved it is in your Events list; use ${backLabel} at the top to leave.`;
-}
-
-/**
- * The one session a create seeds on the first date (organiser_set_occurrence_programme_v1
- * takes type class | masterclass | party | performance, so a workshop is a class session
- * titled Workshop). Times are the create's start time plus its default length.
- */
-export const SEED_SESSION: Record<NewEventType, { type: 'class' | 'party'; title: string }> = {
-  class: { type: 'class', title: 'Class' },
-  party: { type: 'party', title: 'Party' },
-  workshop: { type: 'class', title: 'Workshop' },
+/** Read-only labels for every format a series can carry (course and festival are never created here). */
+export const FORMAT_LABELS: Record<string, string> = {
+  recurring: 'Weekly night', one_off: 'One night', course: 'Course', festival: 'Festival',
 };
-
-/** default_duration_minutes a create sends (G4; the server takes 1-1200), and the seeded session's length. */
-export const DEFAULT_DURATION_MINUTES: Record<NewEventType, number> = { class: 120, party: 300, workshop: 120 };
 
 /** The fact the Schedule card states for a cancelled-only series (one constant). */
 export const EVERY_UPCOMING_CANCELLED = 'Every upcoming date is cancelled';

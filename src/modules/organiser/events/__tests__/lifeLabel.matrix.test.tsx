@@ -24,7 +24,7 @@ vi.mock('@/lib/londonDate', async (orig) => ({ ...(await orig<typeof import('@/l
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: 'c1' }) }));
 
 import EventsPage from '../index';
-import EventEditorPage from '../EventEditorPage';
+import OneEvent from '../OneEvent';
 import DatePage from '../../dates';
 
 /** The prod rows of live series with no date from today on (2026-10-14): format x rule x past x past cancelled. */
@@ -42,6 +42,8 @@ const PROD_PAST: SeriesShape[] = [
 /** Over the 100-date cap with every date past: the workspace's newest 100 are all past too. */
 const OVER100_PAST = shape({ key: 'over100-past', about: 'live / recurring / weekly / 130 past / 0 upcoming', lifecycle: 'live', format: 'recurring', rule: weekly(4), dates: run('over100-past', '2024-04-11', 130) });
 const ALL = [...SHAPES, ...PROD_PAST, OVER100_PAST];
+/** R3-4: an archived series is never a list row, so it is not in the list matrices. */
+const LISTED = ALL.filter((s) => s.lifecycle !== 'archived');
 
 /** The word, spelled out: only a LIVE series with no date from today on changes word. */
 function expected(s: SeriesShape): { word: string; past: boolean; note: string | null } {
@@ -82,7 +84,7 @@ function mount(path: string) {
         <Routes>
           <Route path="/account/o/events" element={<EventsPage />} />
           <Route path="/account/o/events/:seriesId/dates/:occurrenceId" element={<DatePage />} />
-          <Route path="/account/o/events/:seriesId" element={<EventEditorPage />} />
+          <Route path="/account/o/events/:seriesId" element={<OneEvent />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -104,7 +106,7 @@ describe('the one mapping, spelled out: lifecycle x format x upcoming', () => {
   });
 });
 
-describe.each(ALL.map((s) => [s.key, s] as const))('shape %s', (_key, s) => {
+describe.each(LISTED.map((s) => [s.key, s] as const))('shape %s', (_key, s) => {
   const want = expected(s);
   it(`list row, its section and the editor tag all read "${want.word}"`, async () => {
     home = [s];
@@ -119,26 +121,21 @@ describe.each(ALL.map((s) => [s.key, s] as const))('shape %s', (_key, s) => {
       expect(screen.queryByTestId('org-event-row')).toBeNull();
       expect(text(screen.getByTestId('org-events-past-count'))).toBe('(1)');
       // Nothing current: the empty state says what the person can do, naming no control that is absent.
-      expect(text(screen.getByTestId('org-events-none-current'))).toMatch(/Open one to see how to add dates, or use New event above\./);
+      expect(text(screen.getByTestId('org-events-none-current'))).toMatch(/Open one to see how to add dates, or use New event\./);
       expect(screen.getByTestId('org-events-new')).toBeTruthy();
       fireEvent.click(toggle!);
       expect(toggle!.getAttribute('aria-expanded')).toBe('true');
     }
     const row = screen.getByTestId('org-event-row');
     expect(row.closest(want.past ? '[data-testid="org-events-past"]' : '[data-testid="org-events-current"]')).not.toBeNull();
-    expect(text(within(row).getByTestId('org-event-row-status'))).toBe(want.word);
-    if (want.note) expect(text(within(row).getByTestId('org-event-row-venue'))).toBe(want.note);
+    expect(text(within(row).getByTestId('org-event-chip'))).toBe(want.word);
     cleanup();
     mount(`/account/o/events/${s.id}`);
-    await screen.findByTestId('org-event-editor');
-    expect(text(screen.getByTestId('org-event-status'))).toBe(want.word);
-    if (want.note) {
-      // The row says "Open it to see how to add dates": the editor says how -- a working Extend
-      // (weekly rule), or, for dates listed one by one, who to ask.
-      const extend = screen.queryByTestId('org-extend') as HTMLButtonElement | null;
-      if (extend) expect(extend.disabled).toBe(false);
-      else expect(text(screen.getByTestId('org-dates-none'))).toMatch(/to add dates, ask the Bachata Calendar team/);
-    }
+    await screen.findByTestId('org-page-event');
+    await screen.findByTestId('org-event-title');
+    expect(text(within(screen.getByTestId('org-event-title')).getByTestId('org-event-chip'))).toBe(want.word);
+    // Nothing coming up on a live series: the page says how to add dates (a working Add a date link).
+    if (want.note) expect(screen.getByTestId('org-coming-add')).toBeTruthy();
   });
 });
 
@@ -148,8 +145,8 @@ describe('every shape on one list', () => {
     current = ALL[0];
     mount('/account/o/events');
     await screen.findByTestId('org-event-list');
-    const pastWant = ALL.filter((s) => expected(s).past);
-    const currentWant = ALL.filter((s) => !expected(s).past);
+    const pastWant = LISTED.filter((s) => expected(s).past);
+    const currentWant = LISTED.filter((s) => !expected(s).past);
     const cur = screen.getByTestId('org-events-current');
     const ids = (rows: HTMLElement[]) => rows.map((r) => r.getAttribute('data-series-id')).sort();
     expect(ids(within(cur).getAllByTestId('org-event-row'))).toEqual(currentWant.map((s) => s.id).sort());
@@ -163,7 +160,7 @@ describe('every shape on one list', () => {
     expect(ids(rows)).toEqual(pastWant.map((s) => s.id).sort());
     for (const r of rows) {
       const s = ALL.find((x) => x.id === r.getAttribute('data-series-id'))!;
-      expect(text(within(r).getByTestId('org-event-row-status'))).toBe(expected(s).word);
+      expect(text(within(r).getByTestId('org-event-chip'))).toBe(expected(s).word);
     }
     // Live but only past dates, as the prod survey found them: none reads "Live".
     for (const s of PROD_PAST) expect(expected(s).word).not.toBe('Live');
@@ -182,7 +179,7 @@ describe('every shape on one list', () => {
     const act = inPast ? s : other;
     current = act;
     mount(`/account/o/events/${act.id}`);
-    await screen.findByTestId('org-event-editor');
+    await screen.findByTestId('org-page-event');
     const toggle = await screen.findByTestId('org-events-past-toggle');
     // Open once for an event under Past, so a tap really folds it.
     await waitFor(() => expect(toggle.getAttribute('aria-expanded')).toBe(String(inPast)));
@@ -197,12 +194,11 @@ describe('every shape on one list', () => {
     home = [shapeOf('live-weekly-until'), s];
     current = s;
     mount(`/account/o/events/${s.id}`);
-    await screen.findByTestId('org-event-editor');
+    await screen.findByTestId('org-page-event');
     const past = await screen.findByTestId('org-events-past');
     expect(screen.getByTestId('org-events-past-toggle').getAttribute('aria-expanded')).toBe('true');
     const row = within(past).getByTestId('org-event-row');
     expect(row.getAttribute('data-series-id')).toBe(s.id);
-    expect(row.getAttribute('aria-current')).toBe('page');
   });
 });
 
@@ -229,5 +225,23 @@ describe('the date page reads the same word as the list row and the editor tag (
     await screen.findByTestId('date-header');
     await waitFor(() => expect(text(screen.getByTestId('date-span'))).toContain(s.name));
     expect(text(screen.getByTestId('date-status'))).toBe(expected(s).word);
+  });
+});
+
+// S-FEEDBACK 5: a Finished / Nothing coming up event offers only See it live; Pause and End come back with a date.
+describe.each(LISTED.map((s) => [s.key, s] as const))('event actions, shape %s', (_key, s) => {
+  const idle = s.lifecycle === 'live' && upcomingOf(s).length === 0;
+  const running = s.lifecycle === 'live' || s.lifecycle === 'paused';
+  it(idle ? 'only See it live: no Pause, no End' : 'keeps the actions it always had', async () => {
+    home = [s];
+    current = s;
+    mount(`/account/o/events/${s.id}`);
+    await screen.findByTestId('org-page-event');
+    await screen.findByTestId('org-event-title');
+    await waitFor(() => expect(screen.queryByTestId('org-event-loading')).toBeNull());
+    expect(!!screen.queryByTestId('org-event-pause')).toBe(s.lifecycle === 'live' && !idle);
+    expect(!!screen.queryByTestId('org-event-end')).toBe(running && !idle);
+    expect(!!screen.queryByTestId('org-event-resume')).toBe(s.lifecycle === 'paused');
+    expect(!!screen.queryByTestId('org-life-seelive')).toBe(s.lifecycle === 'live' || s.lifecycle === 'draft');
   });
 });

@@ -52,6 +52,7 @@ export const LEVEL_LABEL: Record<LevelKey, string> = {
   open_level: 'Open level',
 };
 
+
 /** The server's limits (the writer's constants), mirrored so a bad save is caught before the call. */
 export const LIMITS = {
   titleMax: 120,

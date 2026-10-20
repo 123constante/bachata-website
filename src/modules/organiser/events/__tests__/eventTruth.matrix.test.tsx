@@ -21,8 +21,6 @@ import { runNoun } from '@/modules/event-page/bento/utils/endedRun';
 import { parseCalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { matchesCategory, transformCalendarEvents } from '@/components/calendar/calendarUtils';
 import { SHAPES, VENUES, homeOf, programmeOf, shapeByKey, upcomingOf, workspaceOf, type SeriesShape } from '../../__tests__/shapes/shapes';
-import { EVERY_UPCOMING_CANCELLED, SEED_SESSION } from '../eventType';
-import { NO_SESSION_REASON } from '../reviewModel';
 
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, from: vi.fn(), storage: { from: vi.fn() } } }));
@@ -30,7 +28,6 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
 vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-10-08' }));
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: 'c1' }) }));
 
-import EventEditorPage from '../EventEditorPage';
 
 const FORMATS = ['one_off', 'recurring', 'course', 'festival', null] as const;
 const STORED = ['party', 'class', 'workshop', 'masterclass', null] as const;
@@ -72,7 +69,7 @@ const calendarRow = (program: Array<{ type: string }>, format = 'recurring') => 
   original_party_start: null, original_party_end: null, format, category: null, slug: 'x',
 } as never);
 
-describe('calendar tab membership is the SET reading (deriveCategories), for every session set a create can seed', () => {
+describe('calendar tab membership is the SET reading (deriveCategories), for every session set an event can carry', () => {
   // The chips seed class / party sessions (a workshop chip seeds a class titled Workshop); 'workshop'
   // is the legacy item type prod still holds. 'performance' is in neither tab (a show is not a class or a party).
   const sessionSets: Array<string[]> = [['class'], ['party'], ['workshop'], ['class', 'party'], ['party', 'workshop'], ['performance'], []];
@@ -81,12 +78,6 @@ describe('calendar tab membership is the SET reading (deriveCategories), for eve
     const [item] = transformCalendarEvents([calendarRow(types.map((type) => ({ type })))]);
     expect(matchesCategory(item, 'parties')).toBe(set.includes('party'));
     expect(matchesCategory(item, 'classes')).toBe(set.includes('class'));
-  });
-  it.each(Object.entries(SEED_SESSION))('the %s chip\'s seed lands the event under the tab its word names', (_chip, seed) => {
-    const { set, word } = deriveCategories('recurring', [], [seed.type]);
-    const [item] = transformCalendarEvents([calendarRow([{ type: seed.type }])]);
-    expect(matchesCategory(item, word === 'night' ? 'parties' : 'classes')).toBe(true);
-    expect(set).toEqual(word === 'night' ? ['party'] : ['class']);
   });
   // FIX-6 F-f. calendarUtils.ts is on CLAUDE.md's ask-Ricky list, so the READER is pinned here, not
   // changed: from a date's programme alone (key_times quiet) it lists a 'masterclass' item under NO
@@ -110,53 +101,5 @@ describe('calendar tab membership is the SET reading (deriveCategories), for eve
     // The divergence itself: the reader's tabs are not the lib's set.
     const lib: readonly string[] = libSet;
     expect(reader.parties === lib.includes('party') && reader.classes === lib.includes('class')).toBe(false);
-  });
-});
-// ---- the editor, over real series shapes ------------------------------------------------------
-// ---- the rendered Type row, over real series shapes ----------------------------------------------
-
-beforeEach(() => rpc.mockReset());
-afterEach(cleanup);
-
-async function openEditor(s: SeriesShape, stored: string | null) {
-  const raw = workspaceOf(s) as { series: { series: { category: string | null } } };
-  raw.series.series.category = stored;
-  rpc.mockImplementation(async (fn: string) => {
-    const next = upcomingOf(s).find((d) => d.status !== 'cancelled') ?? upcomingOf(s)[0];
-    const answers: Record<string, unknown> = {
-      organiser_home_v1: homeOf([s]),
-      admin_event_workspace_p5: raw,
-      organiser_get_occurrence_programme_v1: next ? programmeOf(s, next) : null,
-      get_organiser_venue_options_v1: VENUES,
-      event_publish_readiness_v1: { missing: [] },
-      series_command_p5: { ok: true, new_version: 6 },
-    };
-    return fn in answers ? { data: answers[fn], error: null } : { data: null, error: { message: `unexpected ${fn}` } };
-  });
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[`/account/o/events/${s.id}`]}>
-        <Routes><Route path="/account/o/events/:seriesId" element={<EventEditorPage />} /></Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-  await screen.findByTestId('org-event-editor');
-  return screen.getByTestId('org-event-editor').textContent ?? '';
-}
-
-// W3 (owner decision d39): the organiser editor drops the Type row; admin keeps its read-only one.
-// No organiser screen names a type word, so the public "Night" can never show there (d45).
-describe('the editor shows no Type row, over the real shapes (prod survey) x every stored value', () => {
-  it.each(SHAPES.flatMap((s) => STORED.map((stored) => [s.key, stored, s] as const)))('%s, stored %s: no Type row and no type word', async (_key, stored, s) => {
-    const text = await openEditor(s, stored);
-    expect(screen.queryByTestId('org-row-type')).toBeNull();
-    // The public label 'Night' (a word, capitalised), never the stored 'workshop'.
-    expect(text).not.toMatch(/workshop/i);
-    expect(text).not.toMatch(/\bNight\b/);
-  });
-  it('live, every upcoming date cancelled: the Schedule card states the fact', async () => {
-    await openEditor(shapeByKey('live-norule-cancelled-only'), null);
-    expect(screen.getByTestId('org-schedule-none').textContent?.startsWith(EVERY_UPCOMING_CANCELLED)).toBe(true);
   });
 });
