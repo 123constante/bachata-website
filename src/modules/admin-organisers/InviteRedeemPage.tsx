@@ -15,6 +15,7 @@ import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { redeemOrganiserInvite } from './adminApi';
 import { EMAIL_MISMATCH_REASON, interpretRedeemWithMismatch } from './redeemMismatch';
+import { fetchInvitePreview } from './invitePreview';
 import { INVITE_PATH, REDEEM_COPY, TOKEN_RE, interpretRedeem, joiningAsName, type RedeemCopy } from './inviteModel';
 
 /**
@@ -114,6 +115,17 @@ function InviteRedeem() {
   const tokenRef = useRef(token);
   if (token) tokenRef.current = token;
 
+  // Signed out: say who the invite is for, as a MASKED hint only (D36). Held in state, not the
+  // query cache (the token is the key). No hint on any failure; the sign-in card is unchanged.
+  const [emailHint, setEmailHint] = useState<string | null>(null);
+  const signedOut = authStatus !== 'resolving' && !user;
+  useEffect(() => {
+    if (!signedOut || !TOKEN_RE.test(token)) return;
+    let live = true;
+    void fetchInvitePreview(token).then((p) => { if (live) setEmailHint(p?.emailHint ?? null); });
+    return () => { live = false; };
+  }, [signedOut, token]);
+
   // Never leak the token in a Referer header to anything this page links or loads.
   useEffect(() => {
     const meta = document.createElement('meta');
@@ -177,6 +189,7 @@ function InviteRedeem() {
     const here = `${INVITE_PATH}/${token}`;
     body = (
       <Card copy={{ title: 'Join your organiser team', body: 'Someone has invited you to manage an organiser on Bachata Calendar. Sign in with your own email, then you will come straight back here and the link is used.', action: 'sign_in', terminal: false }}>
+        {emailHint && <p className="text-sm font-medium" data-testid="invite-email-hint">This invite is for {emailHint}. Sign in with that email.</p>}
         <Link to={buildSignInHref(here)} className={BTN} data-testid="invite-sign-in">Sign in</Link>
       </Card>
     );

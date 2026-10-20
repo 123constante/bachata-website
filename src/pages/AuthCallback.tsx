@@ -48,12 +48,15 @@ const AuthCallback = () => {
   // was only ever read by that page. Carry on to where they were heading
   // (returnTo, then a stashed one), else home.
   const claimedRef = useRef<ClaimedOrganiser[]>([]);
+  const claimNoticeShown = useRef(false);
 
-  // Pages claimed at this sign-in: say so once and land where they are managed.
-  // True when it navigated, so the caller stops.
-  const announceClaimedOrganisers = () => {
+  // Pages claimed at this sign-in: say so once, on whatever page they land (D37). Returns
+  // where to land when there is no return path: /account/o after a claim, else null.
+  const announceClaimedOrganisers = (): string | null => {
     const claimed = claimedRef.current;
-    if (claimed.length === 0) return false;
+    if (claimed.length === 0) return null;
+    if (claimNoticeShown.current) return ORG_PATHS.home;
+    claimNoticeShown.current = true;
     const names = claimed.map((c) => c.name).join(", ");
     toast({
       title: claimedNoticeText(claimed),
@@ -62,21 +65,20 @@ const AuthCallback = () => {
       description: (
         <span>
           Not you?{" "}
-          <a className="underline" href={dancerMessageUsUrl(`${NOT_YOU_ORGANISER_MESSAGE}${names}`)} target="_blank" rel="noopener noreferrer">Tell us</a>
+          <a className="inline-flex min-h-[44px] items-center px-2 underline" href={dancerMessageUsUrl(`${NOT_YOU_ORGANISER_MESSAGE}${names}`)} target="_blank" rel="noopener noreferrer">Tell us</a>
         </span>
       ),
-      duration: 15000,
+      // Stays until closed: "Tell us" is the only way to undo a claim that skipped the confirm screen.
+      duration: Infinity,
     });
-    localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
-    navigate(ORG_PATHS.home, { replace: true });
-    return true;
+    return ORG_PATHS.home;
   };
 
   const navigateToSignedInFallback = () => {
-    if (announceClaimedOrganisers()) return;
+    const claimLanding = announceClaimedOrganisers();
     const pendingReturnTo = sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY));
     localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
-    navigate(safeReturnTo ?? pendingReturnTo ?? "/", { replace: true });
+    navigate(safeReturnTo ?? pendingReturnTo ?? claimLanding ?? "/", { replace: true });
   };
 
   const navigateToSignInFallback = (reason: "expired" | "invalid" | "manual" | "timeout") => {
@@ -187,10 +189,8 @@ const AuthCallback = () => {
         // The routing tail, which used to be spelled out twice -- once per
         // branch -- and had to be kept in step by hand.
         const routeOnwards = async () => {
-          if (announceClaimedOrganisers()) {
-            localStorage.removeItem("pending_profile_role");
-            return;
-          }
+          // An explicit returnTo, then the stashed path, still wins over the claim landing (D37).
+          const claimLanding = announceClaimedOrganisers();
           // A sign-up honours returnTo too once self-serve is on, so "Sign in
           // to claim" -> new account lands back on the claim card (Lever 2 B3).
           if (safeReturnTo && shouldHonorReturnTo({ returnTo: safeReturnTo, isSignupFlow, organiserSelfServe: flags.organiserSelfServe })) {
@@ -209,9 +209,10 @@ const AuthCallback = () => {
           // sign-up) goes to /account/continue, which reads the person's sides
           // and goes straight to the only one or shows "Continue as..."; an
           // organiser-type sign-up goes to the organiser onboarding as before.
+          // Pages claimed at this sign-in land where they are managed.
           const landingRole = normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type);
           navigate(
-            landingPathAfterAuth({ organiserSelfServe: flags.organiserSelfServe, role: landingRole, isSignup: isSignupFlow }),
+            claimLanding ?? landingPathAfterAuth({ organiserSelfServe: flags.organiserSelfServe, role: landingRole, isSignup: isSignupFlow }),
             { replace: true },
           );
           localStorage.removeItem("pending_profile_role");

@@ -13,7 +13,19 @@ const rpc = (fn: string, args?: Record<string, unknown>) => (supabase as unknown
 export interface PersonHit {
   id: string;
   name: string;
+  /** For the message greeting; null when the profile has no first or display name. */
+  firstName: string | null;
 }
+
+/** A page's Leader: none, exactly one (prefilled), or several (nobody is guessed). */
+export type PageLeader = { kind: 'none' } | { kind: 'one'; person: PersonHit } | { kind: 'several' };
+
+type NameRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null };
+const toPersonHit = (r: NameRow): PersonHit => ({
+  id: r.id,
+  name: [r.first_name, r.surname].filter(Boolean).join(' ').trim() || r.display_name || 'Unnamed person',
+  firstName: r.first_name?.trim() || r.display_name?.trim() || null,
+});
 
 export const personSearchQueryKey = (q: string) => ['admin-invite-person-search', q] as const;
 export const pageLeaderQueryKey = (organiserId: string | null) => ['admin-invite-page-leader', organiserId] as const;
@@ -25,28 +37,31 @@ export async function searchPeople(query: string): Promise<PersonHit[]> {
   if (q.length < 2) return [];
   const { data, error } = await supabase.rpc('admin_search_people_v1', { p_query: q, p_limit: 10, p_include_archived: false });
   if (error) throw error;
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    name: [r.first_name, r.surname].filter(Boolean).join(' ').trim() || r.display_name || 'Unnamed person',
-  }));
+  return (data ?? []).map(toPersonHit);
 }
 
-/** The page's Leader from its public team (organiser_team_members.is_leader), or null when it has none. */
-export async function fetchPageLeader(organiserId: string): Promise<PersonHit | null> {
+/**
+ * The page's Leader from its public team (organiser_team_members.is_leader). Some pages have more
+ * than one (51 Leader rows on 47 pages, 2026-10-20), so it reads two rows: two or more is
+ * 'several' and nobody is prefilled, rather than whichever row the database returns first.
+ */
+export async function fetchPageLeader(organiserId: string): Promise<PageLeader> {
   const { data: rows, error } = await supabase
     .from('organiser_team_members')
     .select('member_profile_id')
     .eq('organiser_profile_id', organiserId)
     .eq('is_active', true)
     .eq('is_leader', true)
-    .limit(1);
+    .order('created_at')
+    .limit(2);
   if (error) throw error;
+  if ((rows?.length ?? 0) >= 2) return { kind: 'several' };
   const memberId = rows?.[0]?.member_profile_id;
-  if (!memberId) return null;
+  if (!memberId) return { kind: 'none' };
   const { data: p, error: pe } = await supabase.from('dancer_profiles').select('id, first_name, surname, display_name').eq('id', memberId).maybeSingle();
   if (pe) throw pe;
-  if (!p) return null;
-  return { id: p.id, name: [p.first_name, p.surname].filter(Boolean).join(' ').trim() || p.display_name || 'Unnamed person' };
+  if (!p) return { kind: 'none' };
+  return { kind: 'one', person: toPersonHit(p) };
 }
 
 /** Upcoming dates for the message, from the same public feed the organiser page uses. */

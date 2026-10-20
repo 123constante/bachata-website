@@ -34,6 +34,8 @@ vi.mock('@/lib/featureFlags', () => ({ flags: { organiserSelfServe: true } }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <>{children}</> }));
 
 import AuthCallback from '../AuthCallback';
+import { CLAIM_ORGANISERS_TIMEOUT_MS } from '@/lib/claimMyOrganisers';
+import { AUTH_PENDING_RETURN_TO_KEY } from '@/lib/authRouting';
 
 const COMPLETE = { id: 'p1', first_name: 'Ana', based_city_id: 'c1', dance_role: 'follower' };
 const INCOMPLETE = { id: 'p1', first_name: null, based_city_id: null, dance_role: null };
@@ -60,10 +62,10 @@ function Landed() {
   return <div data-testid="landed">{l.pathname}</div>;
 }
 
-const mount = () =>
+const mount = (entry = '/auth/callback?mode=signin') =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/auth/callback?mode=signin']}>
+      <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="*" element={<Landed />} />
@@ -111,5 +113,58 @@ describe('AuthCallback organiser auto-claim', () => {
     const href = container.querySelector('a')!.getAttribute('href') as string;
     expect(href).toMatch(/^https:\/\/wa\.me\/\d+\?text=/);
     expect(decodeURIComponent(href)).toContain('Ritmo');
+  });
+
+  it('the Tell us link is a 44 px tap target and the notice stays until closed', async () => {
+    maybeSingle.mockResolvedValue({ data: COMPLETE, error: null });
+    ok([{ organiser_id: 'o1', name: 'Ritmo' }]);
+    mount();
+    await screen.findByTestId('landed');
+    const { container } = render(toast.mock.calls[0][0].description);
+    expect(container.querySelector('a')!.className).toMatch(/(^|\s)min-h-\[44px\](\s|$)/);
+    expect(toast.mock.calls[0][0].duration).toBe(Infinity);
+  });
+});
+
+// D37: an explicit returnTo, then a stashed return path, wins over the auto-claim landing; the
+// notice still shows wherever they land. /account/o only when there was no return path at all.
+const INVITE = `/invite/${'ab'.repeat(32)}`;
+describe('AuthCallback organiser auto-claim x return path (D37)', () => {
+  const ROUTES: { label: string; entry: string; stash: string | null; lands: string }[] = [
+    { label: 'returnTo an invite link', entry: `/auth/callback?mode=signin&returnTo=${encodeURIComponent(INVITE)}`, stash: null, lands: INVITE },
+    { label: 'returnTo an event page', entry: `/auth/callback?mode=signin&returnTo=${encodeURIComponent('/event/e1')}`, stash: null, lands: '/event/e1' },
+    { label: 'stashed invite link', entry: '/auth/callback?mode=signin', stash: INVITE, lands: INVITE },
+    { label: 'no return path', entry: '/auth/callback?mode=signin', stash: null, lands: '/account/o' },
+  ];
+  for (const profile of [{ name: 'complete profile', row: COMPLETE }, { name: 'incomplete profile', row: INCOMPLETE }]) {
+    for (const r of ROUTES) {
+      it(`${profile.name} x claimed 1 x ${r.label}`, async () => {
+        maybeSingle.mockResolvedValue({ data: profile.row, error: null });
+        ok([{ organiser_id: 'o1', name: 'Ritmo' }]);
+        if (r.stash) localStorage.setItem(AUTH_PENDING_RETURN_TO_KEY, r.stash);
+        mount(r.entry);
+        const landed = await screen.findByTestId('landed');
+        await waitFor(() => expect(landed.textContent).toBe(r.lands));
+        expect(toast).toHaveBeenCalledTimes(1);
+        expect(toast.mock.calls[0][0].title).toBe('You now manage Ritmo.');
+        expect(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY)).toBeNull();
+      });
+    }
+  }
+});
+
+describe('AuthCallback organiser auto-claim never blocks sign-in (mutation M2)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  it('a claim call that never answers still lands once its timeout passes', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    maybeSingle.mockResolvedValue({ data: COMPLETE, error: null });
+    rpcLoose.mockReturnValue(new Promise(() => {}));
+    mount();
+    await vi.advanceTimersByTimeAsync(CLAIM_ORGANISERS_TIMEOUT_MS + 50);
+    vi.useRealTimers();
+    expect((await screen.findByTestId('landed')).textContent).toBe('/account/continue');
+    expect(toast).not.toHaveBeenCalled();
   });
 });

@@ -33,8 +33,8 @@ const mount = () =>
 
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
-  api.searchPeople.mockResolvedValue([{ id: 'p9', name: 'Ana Perez' }]);
-  api.fetchPageLeader.mockResolvedValue(null);
+  api.searchPeople.mockResolvedValue([{ id: 'p9', name: 'Ana Perez', firstName: 'Ana' }]);
+  api.fetchPageLeader.mockResolvedValue({ kind: 'none' });
   api.fetchUpcoming.mockResolvedValue([{ name: 'Friday Social', date: '2026-10-30' }]);
 });
 afterEach(cleanup);
@@ -55,7 +55,7 @@ describe('Invite person', () => {
   });
 
   it('prefills the page Leader and sends the organiser id; result has a message, Copy and WhatsApp', async () => {
-    api.fetchPageLeader.mockResolvedValue({ id: 'p1', name: 'Rosa Lima' });
+    api.fetchPageLeader.mockResolvedValue({ kind: 'one', person: { id: 'p1', name: 'Rosa Lima', firstName: 'Rosa' } });
     api.invitePerson.mockResolvedValue(parsePersonInvite(ANSWER));
     mount();
     fireEvent.click(screen.getByTestId('invite-person-open'));
@@ -121,16 +121,16 @@ describe('invite answer parser', () => {
   });
   it('caps the events in the message', () => {
     const upcoming = Array.from({ length: 8 }, (_, i) => ({ name: `E${i}`, date: '2026-11-01' }));
-    const m = buildInviteMessage({ personName: 'Ana', organiserName: 'Ritmo', link: 'L', upcoming, pageUrl: 'P' });
+    const m = buildInviteMessage({ personName: 'Ana', serverMessage: null, organiserName: 'Ritmo', link: 'L', upcoming, pageUrl: 'P' });
     expect(m).toMatch(/and 3 more/);
   });
 });
 
 describe('redeem email_mismatch', () => {
-  it('names the email when the answer carries it, else says to use the invited one', () => {
-    const a = interpretRedeemWithMismatch({ ok: false, reason: 'email_mismatch', invite_email: 'a@b.co' }, null);
+  it('names the masked email hint when the answer carries it, else says to use the invited one', () => {
+    const a = interpretRedeemWithMismatch({ ok: false, reason: 'email_mismatch', invite_email_hint: 'a...@b.co' }, null);
     expect(a.kind).toBe('refused');
-    expect(a.kind === 'refused' && a.copy.body).toContain('a@b.co');
+    expect(a.kind === 'refused' && a.copy.body).toContain('a...@b.co');
     const b = interpretRedeemWithMismatch({ ok: false, reason: 'email_mismatch' }, null);
     expect(b.kind === 'refused' && b.copy.terminal).toBe(false);
   });

@@ -26,7 +26,7 @@ const GENERIC = 'Something went wrong. Please try again.';
 export const INVITE_PERSON_COPY: Record<string, string> = {
   not_admin: 'Only an admin can send invites. Check you are signed in with your admin account.',
   invalid_email: 'That email address does not look right. Check it and try again.',
-  email_in_use: 'That email is already on another profile that nobody has claimed yet. Use that person’s own profile, or a different email.',
+  email_in_use: "That email is already on another profile that nobody has claimed yet. Use that person's own profile, or a different email.",
   profile_not_found: 'That person no longer exists. Pick them again.',
   organiser_not_found: 'That organiser page no longer exists. Reload the page.',
   authentication_required: 'Your sign-in has ended. Sign in again, then retry.',
@@ -51,7 +51,10 @@ export function inviteBlockedReason(personId: string | null, email: string): str
 }
 
 export interface InviteMessageInput {
-  personName: string;
+  /** First name for the greeting; null when the person has none ("Hi!", never "Hi Unnamed!"). */
+  personName: string | null;
+  /** admin_invite_person_v1's own `message` (expiry and use), preferred over anything said here. */
+  serverMessage: string | null;
   organiserName: string | null;
   link: string;
   upcoming: readonly UpcomingEvent[];
@@ -63,13 +66,14 @@ const MAX_EVENTS = 5;
 /** The ready-to-send message: what the link does, what to expect, the page and its upcoming events. */
 export function buildInviteMessage(i: InviteMessageInput): string {
   const lines: string[] = [];
-  lines.push(`Hi ${i.personName}!`);
+  lines.push(i.personName ? `Hi ${i.personName}!` : 'Hi!');
   lines.push(
     i.organiserName
       ? `Here is your link to manage ${i.organiserName} on Bachata Calendar.`
       : 'Here is your link to join Bachata Calendar with your existing profile.',
   );
-  lines.push('Tap it and sign in with the email this was sent to. It works once and runs out in 7 days.');
+  // The expiry is the server's to state (a person invite may not last as long as a page invite).
+  lines.push(i.serverMessage ?? 'Tap it and sign in with the email this was sent to. It works once.');
   if (i.organiserName) {
     lines.push(`Once you are in you can edit the page${i.upcoming.length ? ' and its events' : ''}.`);
     if (i.pageUrl) lines.push(`Your page: ${i.pageUrl}`);
