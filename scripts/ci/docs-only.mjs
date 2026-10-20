@@ -4,8 +4,8 @@
 // heavy STEPS on a PR that changes only documentation; the jobs themselves
 // still run, so the required check names still report success.
 //
-// Docs-only = EVERY changed path is under docs/, .claude/ or plans/, or is a
-// markdown file outside the directories that can ship or drive code (RULES).
+// Docs-only = EVERY changed path is under docs/, .claude/rules/ or plans/, or is a
+// markdown file (.claude/hooks and .claude/settings*.json are code: tests run and parse them) outside the directories that can ship or drive code (RULES).
 // Fail safe: anything we cannot compute or recognise is NOT docs-only.
 //
 //   node scripts/ci/docs-only.mjs                      paths on stdin, one per line
@@ -17,13 +17,19 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
 import { isEntryPoint } from '../lib/entry-point.mjs';
 
-// Markdown under these can ship, or is read by code/tests, so is NOT docs.
-const MD_EXCLUDED = ['src/', 'public/', '.github/', 'scripts/', 'tests/', 'app/'];
+// Markdown under these can ship, or is read by code/tests, so is NOT docs. Mirrors
+// the FORBIDDEN trees of scripts/automerge-classify.mjs (one definition of "not
+// docs"); .claude/ is deliberately absent (its .md is docs, see RULES).
+const MD_EXCLUDED = [
+  'src/', 'public/', '.github/', 'scripts/', 'tests/', 'app/',
+  'api/', 'supabase/', 'bin/', '.githooks/', 'components/', 'e2e/', '.vercel/',
+  'server/', 'node_modules/',
+];
 
 // One entry per arm; the self-test removes each in turn and demands a failure.
 export const RULES = [
   { name: 'docs/', allow: (p) => p.startsWith('docs/') },
-  { name: '.claude/', allow: (p) => p.startsWith('.claude/') },
+  { name: '.claude/rules/', allow: (p) => p.startsWith('.claude/rules/') },
   { name: 'plans/', allow: (p) => p.startsWith('plans/') },
   ...MD_EXCLUDED.map((dir) => ({ name: `md-excluded:${dir}`, veto: (p) => p.startsWith(dir) })),
   { name: '**/*.md', allow: (p) => /\.md$/i.test(p) },
@@ -66,7 +72,22 @@ const CASES = [
   ['lockfile', ['package-lock.json'], false],
   ['workflow file', ['.github/workflows/unit-tests.yml'], false],
   ['mixed docs + code', ['docs/a.md', 'src/a.ts'], false],
-  ['.claude', ['.claude/rules/x.md', '.claude/settings.json'], true],
+  ['.claude settings is code', ['.claude/rules/x.md', '.claude/settings.json'], false],
+  ['.claude hook is code', ['.claude/hooks/post-write-check.sh'], false],
+  ['.claude settings.local is code', ['.claude/settings.local.json'], false],
+  ['.claude rules md', ['.claude/rules/x.md'], true],
+  ['.claude rules non-md', ['.claude/rules/x.json'], true],
+  ['.claude notes md', ['.claude/notes/x.md'], true],
+  ['.claude other json is code', ['.claude/x.json'], false],
+  ['md in api', ['api/README.md'], false],
+  ['md in supabase', ['supabase/README.md'], false],
+  ['md in bin', ['bin/x.md'], false],
+  ['md in .githooks', ['.githooks/x.md'], false],
+  ['md in components', ['components/x.md'], false],
+  ['md in e2e', ['e2e/x.md'], false],
+  ['md in .vercel', ['.vercel/x.md'], false],
+  ['md in server', ['server/x.md'], false],
+  ['md in node_modules', ['node_modules/x/README.md'], false],
   ['plans', ['plans/p1.txt'], true],
   ['uppercase .MD', ['NOTES.MD'], true],
   ['path with spaces', ['docs/my notes/a b.md'], true],
@@ -106,7 +127,10 @@ function changedPaths(argv) {
   let range;
   if (opt('--merge')) {
     const sha = opt('--merge');
-    git(['fetch', '--no-tags', '--depth=2', 'origin', sha]);
+    // Deepen only for a PR: on any other event we never diff, so leave the checkout alone.
+    if (process.env.EVENT_NAME === undefined || process.env.EVENT_NAME === 'pull_request') {
+      git(['fetch', '--no-tags', '--depth=2', 'origin', sha]);
+    }
     range = [`${sha}^1`, sha];
   } else if (opt('--base') && opt('--head')) {
     git(['fetch', '--no-tags', '--depth=1', 'origin', opt('--base'), opt('--head')]);
@@ -130,6 +154,7 @@ if (isEntryPoint(import.meta.url)) {
   let result = false;
   try {
     const ev = process.env.EVENT_NAME;
+    // Any other event: docs_only=false without touching git.
     if (ev === undefined || ev === 'pull_request') result = isDocsOnly(changedPaths(argv));
   } catch (e) {
     console.error(`docs-only: could not compute changed files (${e.message}); running everything`);

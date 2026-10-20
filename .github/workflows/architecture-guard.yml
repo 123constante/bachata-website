@@ -148,15 +148,15 @@ jobs:
       # `â˜…`, `â†'`, `Â·`, `Ã—`) lands in tracked source. The repo was
       # swept clean on 2026-05-18; .editorconfig (charset = utf-8) tells
       # modern editors to never re-encode, so any new hit is a regression.
+      # Runs on docs-only PRs too (node builtins + git grep, no npm ci): markdown is
+      # where FUSE mojibake lands and no other check scans it in time.
       # The canary runs first, per the same rule as the image-width guard above.
       # It proves the DETECTION rules against fixtures and needs no checkout
       # state, so it still reports if the grep below is the thing that broke.
       - name: Mojibake rules (canary)
-        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:mojibake:self-test
 
       - name: Mojibake guard
-        if: steps.changes.outputs.docs_only != 'true'
         run: |
           if git grep -nE 'â€|â˜…|â†|Â·|Ã—|â‰|â”€|â„™' \
               -- ':!.playwright-mcp/' \
