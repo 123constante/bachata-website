@@ -323,7 +323,7 @@ function SessionRow({ row, problem, onOpen, onUndo }: { row: DraftSession; probl
           {people ?? (row.type === 'performance' ? 'Performers added by the team' : row.type === 'party' ? 'No DJ yet' : 'No teacher yet')}
         </span>
       )}
-      {row.removed && <span className="text-[13px] text-[var(--fg)]">Comes off this date when you save</span>}
+      {row.removed && <span className="text-[13px] text-[var(--fg)]">{row.original?.removed === true ? 'Removed from this date' : 'Comes off this date when you save'}</span>}
       {problem && !row.removed && <span className="text-[13px] text-[var(--danger)]" data-testid="session-row-problem">Needs a fix before saving</span>}
     </span>
   );
