@@ -1,6 +1,6 @@
 // PROTOTYPE (search v7 mockups). REAL people from prod, read-only; nothing here is invented
 // except ORGANISER_FIXTURE (get_public_person_organisers_v1 may not be applied yet).
-export type FixtureKey = 'roger' | 'gatica' | 'threerole' | 'djonly' | 'pierre' | 'javier' | 'tcher';
+export type FixtureKey = 'chiwei' | 'roger' | 'gatica' | 'threerole' | 'djonly' | 'pierre' | 'javier' | 'tcher';
 export type Arrangement = 'stamps' | 'stacked' | 'tabs';
 
 export const FIXTURES: Record<FixtureKey, { id: string; slug: string; withTeacher: boolean; organiser: boolean }> = {
@@ -17,6 +17,8 @@ export const FIXTURES: Record<FixtureKey, { id: string; slug: string; withTeache
   pierre: { id: '0dd8819b-1aa1-4c6e-9747-f09b2c177a0c', slug: '0dd8819b-1aa1-4c6e-9747-f09b2c177a0c', withTeacher: true, organiser: false },
   // Teacher-only with a working get_public_teacher_detail_v1 row (Pierre's read is empty); has a photo on prod.
   tcher: { id: '57ef6bdc-e03a-4072-8fde-7a021f538147', slug: '57ef6bdc-e03a-4072-8fde-7a021f538147', withTeacher: true, organiser: false },
+  // S11: dancer-only, has favourite songs (2) in dancing_role_details.
+  chiwei: { id: '797fab23-340a-4fd8-9feb-081c95ef7532', slug: '797fab23-340a-4fd8-9feb-081c95ef7532', withTeacher: false, organiser: false },
   javier: { id: '26ef26e9-ace4-4eef-9722-b6ea54e9699b', slug: '26ef26e9-ace4-4eef-9722-b6ea54e9699b', withTeacher: false, organiser: false },
 };
 
