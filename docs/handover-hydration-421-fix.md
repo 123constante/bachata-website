@@ -54,3 +54,12 @@ exists on unfixed main too.
 - Not every workflow (db-contract-check etc.) was run; they need live DB/secrets.
 - Sandbox SSR answers these pages with HTTP 500 after a full stream in one build
   variant (entry.server onError); the spec judges the body, not the status.
+
+## Fix pass (dt_adc5d7e37041)
+
+- S1: RsvpBlock warm-up `import()` now inside `if (GOING_CHECKIN_ENABLED)`; other two kept; RsvpSlot memo untouched. N1: `.catch(() => {})` on all three warm-ups.
+- S2: `derivedBadgeGating.test.ts` anchors `/\{isCancelled \? badge :/` and adds `/isCancelled=\{Boolean\(occurrence\?\.isCancelled\)\}/`. Mutation proof: `!isCancelled ? badge :` -> RED (1 failed); `isCancelled={false}` -> RED (1 failed); reverted -> 2 passed. No LevelSlot render test added (LevelSlot is not exported; kept scope minimal).
+- Gates (sandbox): event-page vitest 27 files / 225 tests pass; build ok; check:bundle-budget, check:first-load-requests (pins unchanged), check:chunk-cycles pass; check:integrity ok (via `bash`; the exec bit is missing in the sandbox); `npm run lint` links green except check:integrity's exec-bit.
+- Typecheck: 99 TS errors, identical count with and without this change (pre-existing in this sandbox checkout, not from this pass).
+- Not verified: runtime JS request count / 4x-CPU 1000 ms e2e 3/3 in a browser (no Supabase data in sandbox) -- the RsvpBlock fetch is off by construction (flag const false, import guarded), not measured. Run the e2e spec in CI.
+- N4 (possible separate ticket): pre-existing layout shift, CLS ~0.12 on ended event pages. Not touched.

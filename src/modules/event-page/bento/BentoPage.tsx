@@ -110,9 +110,10 @@ const LevelRatingPrompt = lazyWithRetry(importLevelRatingPrompt);
 // below (React #421: a boundary that receives new props while dehydrated is
 // thrown away and client-rendered).
 if (typeof document !== 'undefined') {
-  void importRsvpBlock();
-  void importDerivedLevelBadge();
-  void importLevelRatingPrompt();
+  // RsvpBlock only renders when the flag is on; off, the chunk is never fetched.
+  if (GOING_CHECKIN_ENABLED) void importRsvpBlock().catch(() => {});
+  void importDerivedLevelBadge().catch(() => {});
+  void importLevelRatingPrompt().catch(() => {});
 }
 
 type RsvpSlotProps = {
