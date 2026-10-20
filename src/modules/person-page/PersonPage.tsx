@@ -7,15 +7,15 @@ import { EmbeddedProfileContext } from '@/lib/embeddedProfile';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  CHIP_LABEL,
-  ROLE_ORDER,
+  ROLE_LABEL,
   TAB_HASH,
   TAB_LABEL,
   roleFromHash,
   rolePagePath,
   type PersonRole,
 } from './personRoles';
-import type { PublicPageV2Data } from '@/modules/dancer-app/public-page/model';
+// Through the seam src/pages/DancerProfile.tsx, never from dancer-app (isolation rule c).
+import type { PublicPageV2Data } from '@/pages/DancerProfile';
 import type { PersonSnapshot } from './reads';
 
 // Each tab body IS the existing role page (same reads, same components); only the
@@ -24,7 +24,7 @@ const TeacherProfile = lazy(() => import('@/pages/TeacherProfile'));
 const DJProfile = lazy(() => import('@/pages/DJProfile'));
 const DancerProfile = lazy(() => import('@/pages/DancerProfile'));
 
-const BODY: Record<PersonRole, React.LazyExoticComponent<(props: { publicPage?: PublicPageV2Data | null }) => JSX.Element>> = {
+const BODY: Record<PersonRole, React.LazyExoticComponent<(props: { publicPage?: PublicPageV2Data | null; embedded?: boolean }) => JSX.Element>> = {
   teacher: TeacherProfile as never,
   dj: DJProfile as never,
   dancer: DancerProfile as never,
@@ -73,7 +73,6 @@ export default function PersonPage({ person, slugOrId, publicPage = null }: Prop
   const name = person.name ?? 'Bachata Calendar profile';
   const handle = instagramHandle(person.instagramUrl);
   const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/search'));
-  const chips = ROLE_ORDER.filter((r) => roles.includes(r));
   const BodyComponent = BODY[active];
 
   return (
@@ -111,7 +110,13 @@ export default function PersonPage({ person, slugOrId, publicPage = null }: Prop
           )}
           <h1 className="max-w-full break-words text-xl font-bold text-foreground">{name}</h1>
           <p data-testid="role-chips" className="text-sm text-foreground/80">
-            {chips.map((r) => CHIP_LABEL[r]).join(' · ')}
+            {/* Chips and tabs are the ONE list `roles` (the search row shows the same, review F2). */}
+            {roles.map((r, i) => (
+              <span key={r}>
+                {i > 0 ? <span aria-hidden="true"> &middot; </span> : null}
+                {ROLE_LABEL[r]}
+              </span>
+            ))}
           </p>
           {person.city || handle ? (
             <div className="flex flex-wrap items-center justify-center gap-x-3 text-sm text-foreground/80">
@@ -164,7 +169,7 @@ export default function PersonPage({ person, slugOrId, publicPage = null }: Prop
         >
           <EmbeddedProfileContext.Provider value={true}>
             <Suspense fallback={<Skeleton className="h-48 w-full rounded-xl" />}>
-              <BodyComponent key={active} publicPage={active === 'dancer' ? publicPage : null} />
+              <BodyComponent key={active} publicPage={active === 'dancer' ? publicPage : null} embedded />
             </Suspense>
           </EmbeddedProfileContext.Provider>
           <Link

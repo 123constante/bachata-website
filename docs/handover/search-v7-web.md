@@ -30,4 +30,4 @@ Stays OFF until S2b ships `/people/:id` (the row links there); no dead link is u
 Not run: e2e-smoke, phone-qa, perf/seo/og jobs (need browsers/deploy/live DB).
 
 ## Walk (production build, fixtures in prod shape, Playwright)
-Screenshots and `measurements.json` in `docs/screenshots/search-v7-web/` (390x844, 360x640, 1280x800, plus omnibox 390 and 1280).
+Screenshots and `measurements.json` were in `docs/screenshots/search-v7-web/` at commit `08aef77` (removed on `claude/person-page-web` by F2, isolation rule (a)) (390x844, 360x640, 1280x800, plus omnibox 390 and 1280).

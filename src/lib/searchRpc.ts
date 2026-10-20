@@ -2,7 +2,7 @@ import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { resolveEventImage } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
 import { fetchPublicFestivalsList, filterUpcomingFestivals } from '@/lib/festivalsList';
-import { hrefFor, orderedRoles, roleLine, telemetryKindFor, type PersonRole, type SearchKind } from '@/lib/searchEntities';
+import { hrefFor, personSearchRow, roleLine, telemetryKindFor, type PersonRole, type SearchKind } from '@/lib/searchEntities';
 import { londonTodayKey } from '@/lib/londonDate';
 
 // Re-export the canonical 8-kind SearchKind (defined in searchEntities) so the
@@ -200,12 +200,14 @@ export async function searchPublicV3(
   });
 
   const mapPersonV7 = (r: V3PersonRow): SearchResult => {
-    const roles = orderedRoles(r.roles);
+    const row = personSearchRow(r.id, r.roles, flags.teacherDetail);
+    // Teacher-only: exactly today's Teacher row (no role line, no roles).
+    if (row.kind === 'teacher') return mapPerson(r, 'teacher');
     return {
       ...mapPerson(r, 'person'),
-      subtitle: roleLine(roles) || null,
-      roles,
-      telemetryKind: telemetryKindFor(r.primary_role, roles),
+      subtitle: roleLine(row.roles) || null,
+      roles: row.roles,
+      telemetryKind: telemetryKindFor(r.primary_role, r.roles),
     };
   };
 

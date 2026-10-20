@@ -16,7 +16,7 @@ import { highlight } from '@/components/search/highlight';
 import { LevelBadge, LevelFilterChips, UnratedLine, parseLevelParam } from '@/components/search/LevelFilter';
 import { flags } from '@/lib/featureFlags';
 import { recordSearchResultClick } from '@/lib/searchClickTelemetry';
-import { hrefFor, personAriaLabel, roleLine, telemetryKindFor, type SearchKind } from '@/lib/searchEntities';
+import { hrefFor, personAriaLabel, personSearchRow, roleLine, telemetryKindFor, type SearchKind } from '@/lib/searchEntities';
 import { genreFilterTokens } from '@/lib/genreSynonyms';
 import { resolveEventImage } from '@/lib/utils';
 import { eventResultSubtitle } from '@/lib/searchEventSubtitle';
@@ -28,6 +28,7 @@ type PersonLike = { first_name: string | null; surname: string | null; display_n
 const personName = (p: PersonLike) =>
   p.display_name || [p.first_name, p.surname].filter(Boolean).join(' ') || 'Profile';
 const firstVenuePhoto = (urls: string[] | null) => (urls && urls.length > 0 ? urls[0] : null);
+const OLD_PERSON_FACETS = ['teachers', 'djs', 'dancers'];
 
 // Reused TimeToggle chip styles (the live facet/filter chip language).
 const chipBase = 'text-sm px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap';
@@ -125,7 +126,10 @@ const SearchResults = () => {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const query = (params.get('q') ?? '').trim();
-  const facet = params.get('type') ?? 'all';
+  // v7 (review F6): teachers / DJs / dancers became ONE People facet, so an old shared or
+  // back-navigated ?type=teachers|djs|dancers link opens People instead of an empty page.
+  const rawFacet = params.get('type') ?? 'all';
+  const facet = flags.searchV7 && OLD_PERSON_FACETS.includes(rawFacet) ? 'people' : rawFacet;
   const time = params.get('time') === 'all' ? 'all' : 'upcoming';
   const eformat = (params.get('eformat') ?? '').split(',').filter(Boolean);
   const ecat = (params.get('ecat') ?? '').split(',').filter(Boolean);
@@ -184,6 +188,8 @@ const SearchResults = () => {
     (eformat.length ? 1 : 0) + (ecat.length ? 1 : 0) + (styles.length ? 1 : 0) + (from || to ? 1 : 0) + (time === 'all' ? 1 : 0) + (cityOverride ? 1 : 0);
   const showSection = (key: string) => facet === 'all' || facet === key;
   const facetCount = (key: string) => (key === 'all' ? total : counts[key] ?? 0);
+  // The chosen facet has no hits although others do (review F6): say so, and offer the rest.
+  const facetEmpty = facet !== 'all' && total > 0 && facetCount(facet) === 0;
 
   return (
     <GlobalLayout showSubheader={false}>
@@ -209,8 +215,9 @@ const SearchResults = () => {
               <div role="tablist" aria-label="Result type" className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
                 {FACETS.map((f) => {
                   const c = facetCount(f.key);
-                  if (f.key !== 'all' && c === 0) return null;
                   const active = facet === f.key;
+                  // The chosen facet stays on screen (selected) even at 0, so the empty state below has a selected tab.
+                  if (f.key !== 'all' && c === 0 && !active) return null;
                   return (
                     <button key={f.key} role="tab" aria-selected={active} onClick={() => setParam('type', f.key === 'all' ? null : f.key)} className={cn(chipBase, active ? chipOn : chipOff)}>
                       {f.label} <span className="opacity-70">{c}</span>
@@ -277,7 +284,19 @@ const SearchResults = () => {
           </div>
         )}
 
-        {query && data && total > 0 && (
+        {query && data && !isLoading && facetEmpty && (
+          <div className="px-6 py-16 text-center" data-testid="search-facet-empty">
+            <SearchIcon className="mx-auto h-8 w-8 text-muted-foreground/40" />
+            <p className="mt-4 text-base font-semibold text-foreground">
+              No {FACETS.find((f) => f.key === facet)?.label.toLowerCase() ?? 'results of this type'} for &ldquo;{query}&rdquo;
+            </p>
+            <button type="button" onClick={() => setParam('type', null)} className="mt-3 inline-flex min-h-[44px] items-center px-3 text-sm font-semibold text-primary underline">
+              Show all {total} {total === 1 ? 'result' : 'results'}
+            </button>
+          </div>
+        )}
+
+        {query && data && total > 0 && !facetEmpty && (
           <div className="space-y-8">
             {showSection('events') && data.events.length > 0 && (
               <section>
@@ -315,8 +334,13 @@ const SearchResults = () => {
                 <SectionGrid>
                   {(data.people ?? []).map((p) => {
                     const name = personName(p);
+                    const row = personSearchRow(p.id, p.roles, flags.teacherDetail);
+                    // Teacher-only: today's Teacher card (no role line), to /teachers/:id.
+                    if (row.kind === 'teacher') {
+                      return <ResultCard key={p.id} to={row.href} image={resolveEventImage(p.photo_url ?? p.avatar_url, null)} title={name} fallbackIcon={<GraduationCap className="h-8 w-8" />} kind="teacher" id={p.id} query={query} nationalityCode={p.nationality_code} />;
+                    }
                     return (
-                      <ResultCard key={p.id} to={hrefFor('person', p.id)} image={resolveEventImage(p.photo_url ?? p.avatar_url, null)} title={name} subtitle={roleLine(p.roles)} ariaLabel={personAriaLabel(name, p.roles)} telemetryKind={telemetryKindFor(p.primary_role, p.roles)} fallbackIcon={<User className="h-8 w-8" />} kind="person" wrapTitle id={p.id} query={query} nationalityCode={p.nationality_code} />
+                      <ResultCard key={p.id} to={row.href} image={resolveEventImage(p.photo_url ?? p.avatar_url, null)} title={name} subtitle={roleLine(row.roles)} ariaLabel={personAriaLabel(name, row.roles)} telemetryKind={telemetryKindFor(p.primary_role, p.roles)} fallbackIcon={<User className="h-8 w-8" />} kind="person" wrapTitle id={p.id} query={query} nationalityCode={p.nationality_code} />
                     );
                   })}
                 </SectionGrid>

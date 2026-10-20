@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 
-const flagState = vi.hoisted(() => ({ searchV5: true, searchV6: true, searchV7: false }));
+const flagState = vi.hoisted(() => ({ searchV5: true, searchV6: true, searchV7: false, teacherDetail: true }));
 const rpc = vi.hoisted(() => vi.fn());
 const clickLog = vi.hoisted(() => vi.fn());
 
@@ -45,7 +45,7 @@ const COMBOS: Role[][] = [
   ['teacher', 'dj', 'dancer'],
 ];
 const LABEL: Record<Role, string> = { teacher: 'Teacher', dj: 'DJ', dancer: 'Dancer' };
-const roleText = (roles: Role[]) => roles.map((r) => LABEL[r]).join(' · ');
+const roleText = (roles: Role[]) => roles.map((r) => LABEL[r]).join(' \u00b7 ');
 
 const person = (i: number, roles: Role[], over: Record<string, unknown> = {}) => ({
   id: `p${i}`, first_name: `First${i}`, surname: `Last${i}`, display_name: `First${i} Last${i}`,
@@ -71,7 +71,7 @@ const renderPage = (q = 'first') => render(
 );
 
 beforeEach(() => {
-  flagState.searchV5 = true; flagState.searchV6 = true; flagState.searchV7 = true;
+  flagState.searchV5 = true; flagState.searchV6 = true; flagState.searchV7 = true; flagState.teacherDetail = true;
   rpc.mockReset(); clickLog.mockReset();
   rpc.mockResolvedValue({ data: envelope(), error: null });
 });
@@ -102,6 +102,13 @@ describe('hook + mapper', () => {
     expect(rpc.mock.calls[0][0]).toBe('search_public_v7');
     expect(rows.filter((r) => r.id === `p${i}`)).toHaveLength(1);
     const row = rows.find((r) => r.id === `p${i}`)!;
+    if (roles.length === 1 && roles[0] === 'teacher') {
+      // Teacher-only keeps today's Teacher row (review F1): /teachers/:id, no role line.
+      expect(row.kind).toBe('teacher');
+      expect(row.href).toBe(`/teachers/p${i}`);
+      expect(row.subtitle).toBeNull();
+      return;
+    }
     expect(row.kind).toBe('person');
     expect(row.href).toBe(`/people/p${i}`);
     expect(row.roles).toEqual(roles);
@@ -120,18 +127,21 @@ describe('hook + mapper', () => {
 describe('/search page', () => {
   it('flag ON: exactly one link per person, one People section, count "7"', async () => {
     renderPage();
-    await screen.findByRole('heading', { name: 'People' });
+    // First render in the file: give the lazy chunks time under a loaded full-suite run.
+    await screen.findByRole('heading', { name: 'People' }, { timeout: 5000 });
     expect(screen.queryByRole('heading', { name: 'Teachers' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'DJs' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Dancers' })).toBeNull();
     const links = screen.getAllByRole('link').filter((a) => a.getAttribute('href')?.startsWith('/people/'));
-    expect(links).toHaveLength(7);
+    // 6 people rows + the teacher-only person, who keeps today's /teachers/:id card.
+    expect(links).toHaveLength(6);
+    expect(screen.getAllByRole('link').filter((a) => a.getAttribute('href') === '/teachers/p0')).toHaveLength(1);
     expect(screen.getByText('(7)')).toBeTruthy();
     expect(screen.getByRole('tab', { name: /People/ })).toBeTruthy();
     expect(screen.queryByRole('tab', { name: /Teachers/ })).toBeNull();
   });
 
-  it.each(COMBOS.map((r, i) => [roleText(r), r, i] as const))('row for %s: role line, aria label, href, telemetry kind', async (_n, roles, i) => {
+  it.each(COMBOS.map((r, i) => [roleText(r), r, i] as const).filter(([, r]) => r.join() !== 'teacher'))('row for %s: role line, aria label, href, telemetry kind', async (_n, roles, i) => {
     renderPage();
     const name = `First${i} Last${i}`;
     const link = await screen.findByRole('link', { name: `${name}, ${roles.map((r) => LABEL[r]).join(', ')}` });
@@ -139,6 +149,68 @@ describe('/search page', () => {
     expect(within(link).getByText(roleText(roles))).toBeTruthy();
     fireEvent.click(link);
     expect(clickLog).toHaveBeenCalledWith(expect.objectContaining({ kind: roles[0], id: `p${i}` }));
+  });
+
+  it('teacher-only: today\'s Teacher card (no role line), to /teachers/:id, logs teacher', async () => {
+    renderPage();
+    await screen.findByRole('heading', { name: 'People' });
+    const link = screen.getAllByRole('link').find((a) => a.getAttribute('href') === '/teachers/p0')!;
+    expect(link.textContent).toBe('First0 Last0');
+    fireEvent.click(link);
+    expect(clickLog).toHaveBeenCalledWith(expect.objectContaining({ kind: 'teacher', id: 'p0' }));
+  });
+
+  // Teacher pages closed (prod today): no Teacher on any row (review F1+F2).
+  it.each(COMBOS.map((r, i) => [roleText(r), r, i] as const))('teacher pages closed, %s', async (_n, roles, i) => {
+    flagState.teacherDetail = false;
+    renderPage();
+    await screen.findByRole('heading', { name: 'People' });
+    const shown = roles.filter((r) => r !== 'teacher');
+    const name = `First${i} Last${i}`;
+    if (shown.length === 0) {
+      const link = screen.getAllByRole('link').find((a) => a.getAttribute('href') === `/teachers/p${i}`)!;
+      expect(link.textContent).toBe(name);
+      return;
+    }
+    const link = await screen.findByRole('link', { name: `${name}, ${shown.map((r) => LABEL[r]).join(', ')}` });
+    expect(link.getAttribute('href')).toBe(`/people/p${i}`);
+    expect(within(link).getByText(roleText(shown))).toBeTruthy();
+    expect(link.textContent).not.toContain('Teacher');
+  });
+
+  // Review F6: an old ?type= link with v7 on opens People; an empty facet says what to do.
+  it.each(['teachers', 'djs', 'dancers'])('flag ON, old ?type=%s opens the People facet', async (type) => {
+    render(
+      <QueryClientProvider client={qc()}>
+        <MemoryRouter initialEntries={[`/search?q=first&type=${type}`]}>
+          <Routes><Route path="/search" element={<SearchResults />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await screen.findByRole('heading', { name: 'People' });
+    expect(screen.getByRole('tab', { name: /People/ }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.queryByTestId('search-facet-empty')).toBeNull();
+  });
+
+  it('a facet with 0 hits while others have some: says so and offers all results', async () => {
+    flagState.searchV7 = false;
+    rpc.mockResolvedValue({
+      data: { ...envelope(), people: undefined, total_count: 1, teachers: [], djs: [], dancers: [person(0, ['dancer'])] },
+      error: null,
+    });
+    render(
+      <QueryClientProvider client={qc()}>
+        <MemoryRouter initialEntries={['/search?q=first&type=people']}>
+          <Routes><Route path="/search" element={<SearchResults />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const empty = await screen.findByTestId('search-facet-empty');
+    expect(empty.textContent).toContain('No people for');
+    expect(screen.getByRole('tab', { name: /People/ }).getAttribute('aria-selected')).toBe('true');
+    fireEvent.click(within(empty).getByRole('button', { name: 'Show all 1 result' }));
+    await screen.findByRole('heading', { name: 'Dancers' });
+    expect(screen.queryByTestId('search-facet-empty')).toBeNull();
   });
 
   it('flag OFF renders the old three sections unchanged', async () => {
