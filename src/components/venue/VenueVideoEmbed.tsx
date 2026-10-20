@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { parseVenueVideoUrl } from '@/lib/parseVenueVideoUrl';
-import { frameFor, frameStyle, resolveFrame, useReportVideoSize, type MeasuredFrame } from '@/lib/videoFrame';
+import { VIDEO_CAP_CLASS, frameFor, frameStyle, resolveFrame, useReportVideoSize, type MeasuredFrame } from '@/lib/videoFrame';
 
 interface VenueVideoEmbedProps {
   videoUrls: string[];
@@ -55,7 +55,7 @@ export default function VenueVideoEmbed({ videoUrls }: VenueVideoEmbedProps) {
       <div className="w-full overflow-hidden rounded-[14px] bg-black">
         <div
           data-video-frame
-          className={`relative ${frame.landscape ? 'aspect-video w-full' : ''}`}
+          className={`relative ${frame.landscape ? 'aspect-video w-full' : VIDEO_CAP_CLASS}`}
           style={style}
         >
           {inner}

@@ -8,6 +8,7 @@ import VideoBlock from '@/modules/event-page/bento/blocks/VideoBlock';
 import VenueVideoEmbed from '@/components/venue/VenueVideoEmbed';
 import { parseVenueVideoUrl, type VenueVideo } from '@/lib/parseVenueVideoUrl';
 import { readFileSync } from 'node:fs';
+import { VIDEO_CAP_CLASS } from '@/lib/videoFrame';
 
 beforeAll(() => {
   HTMLMediaElement.prototype.play = vi.fn(() => Promise.resolve());
@@ -149,7 +150,7 @@ describe('cross-surface consistency', () => {
     expect(sa.aspectRatio).toBe(sb.aspectRatio);
     expect(parseFloat(sa.aspectRatio)).toBeCloseTo(720 / 1280);
     expect(sa.width).toBe(sb.width);
-    expect(sa.width).toContain('75svh');
+    expect(sa.width).toContain('var(--video-cap)');
   });
   it('venue: TikTok and .html render nothing', () => {
     expect(render(<VenueVideoEmbed videoUrls={['https://www.tiktok.com/@a/video/1']} />).container.innerHTML).toBe('');
@@ -175,5 +176,27 @@ describe('cross-surface consistency', () => {
     const fd = readFileSync('src/pages/FestivalDetail.tsx', 'utf8');
     expect(fd).not.toMatch(/aspect-video[^\n]*\n?[^\n]*<VideoEmbed/);
     expect(fd).toContain('<VideoFrame');
+  });
+});
+
+describe('portrait cap class', () => {
+  const tokens = VIDEO_CAP_CLASS.split(' ');
+  const hasAll = (el: HTMLElement) => tokens.every((t) => el.className.split(' ').includes(t));
+  const hasNone = (el: HTMLElement) => tokens.every((t) => !el.className.split(' ').includes(t));
+  it('VideoFrame: portrait carries both tokens, landscape neither', () => {
+    const { container } = render(<VideoFrame video={direct} title="t" />);
+    expect(hasNone(frameBox(container))).toBe(true);
+    size(container.querySelector('video')!, 480, 848);
+    expect(hasAll(frameBox(container))).toBe(true);
+    size(container.querySelector('video')!, 848, 474);
+    expect(hasNone(frameBox(container))).toBe(true);
+  });
+  it('VenueVideoEmbed: portrait carries both tokens, landscape neither', () => {
+    const { container } = render(<VenueVideoEmbed videoUrls={['https://x.test/a.mp4']} />);
+    expect(hasNone(frameBox(container))).toBe(true);
+    size(container.querySelector('video')!, 480, 848);
+    expect(hasAll(frameBox(container))).toBe(true);
+    size(container.querySelector('video')!, 848, 474);
+    expect(hasNone(frameBox(container))).toBe(true);
   });
 });

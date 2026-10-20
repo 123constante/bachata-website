@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LANDSCAPE_MIN_RATIO, frameFor, frameStyle } from '@/lib/videoFrame';
+import { LANDSCAPE_MIN_RATIO, VIDEO_CAP_CLASS, frameFor, frameStyle } from '@/lib/videoFrame';
 
 describe('frameFor', () => {
   it('threshold constant', () => expect(LANDSCAPE_MIN_RATIO).toBe(1.6));
@@ -13,7 +13,7 @@ describe('frameFor', () => {
     expect(f.ratio).toBeCloseTo(w / h);
     const s = frameStyle(f)!;
     expect(s.aspectRatio).toBe(`${w / h}`);
-    expect(s.width).toBe(`min(100%, calc(75svh * ${w / h}))`);
+    expect(s.width).toBe(`min(100%, calc(var(--video-cap) * ${w / h}))`);
     expect(s.marginInline).toBe('auto');
   });
   it('boundary 1.59 / 1.6 / 1.61', () => {
@@ -29,4 +29,11 @@ describe('frameFor', () => {
       expect(f.ratio).toBeCloseTo(16 / 9);
     },
   );
+});
+
+
+describe('VIDEO_CAP_CLASS', () => {
+  it('is 55svh on phones and 75svh from md up', () => {
+    expect(VIDEO_CAP_CLASS).toBe('[--video-cap:55svh] md:[--video-cap:75svh]');
+  });
 });

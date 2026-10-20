@@ -25,3 +25,9 @@ prototype getters, plus a real `renderToString` -> `hydrateRoot` sequence) red
 on b82b862 (3 failures), green now. Note: `videoWidth/Height` live on
 `HTMLVideoElement.prototype` in jsdom, so the tests define them there.
 Left: orchestrator re-walks femme-style and the-camden-tuesdays in a browser.
+
+## Fix pass 3 (portrait size)
+- Portrait frame cap is now a CSS variable: `frameStyle` width `min(100%, calc(var(--video-cap) * ratio))`; `VIDEO_CAP_CLASS` (`[--video-cap:55svh] md:[--video-cap:75svh]`) is applied to the non-landscape frame in `VideoFrame.tsx` and `VenueVideoEmbed.tsx`. Landscape unchanged.
+- Tailwind 3.4.19, default `md` = 768px (only `container.screens` is customised); build CSS confirmed to contain both classes.
+- Gates: new tests red on prior head (5 failures), green after; `test:unit` 15 failed (same count as first worker; tests/eventViewCompat.contract + tests/integrityCouldNotRun etc.), build 0, bundle-budget 0, eslint on touched files 0, tsc has pre-existing errors in unrelated files only.
+- Not verified in a browser: the orchestrator re-walks (expect ~261 wide at 390x844).
