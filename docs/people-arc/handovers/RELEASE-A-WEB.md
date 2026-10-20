@@ -550,3 +550,17 @@ On the unfixed sources (stash of GlobalLayout/homeJobs/ProfileButton/index): `Ho
 
 ### Not verified
 No real-data shape survey or prod read; no Vercel preview; no light theme; no real phone; full `test:unit` result: see final report. The contrast figures were computed from the tokens, not measured in browser. `golive-draft-pastonly` not re-shot.
+
+## Main merge (D87)
+
+Merged `origin/main` (0ab0ff90) into `claude/people-release-a-web` (merge commit, no rebase/force).
+
+Conflicts: one only, `src/modules/event-page/bento/BentoPage.tsx` imports. Kept both sides: `memo`, `type ComponentProps`, `EventPageSnapshotOccurrence` (main) and `ReportProblemLink` (branch). All four names are still used in the file. BOM and CRLF preserved. No other conflicts (CoverFlow.tsx, OrganiserRoutes.tsx auto-merged).
+
+| job | step | command | exit |
+|---|---|---|---|
+| types | tsc | `npx tsc --noEmit -p .` | 0 |
+| lint | chain | `npm run lint` | 1 (only `check:integrity` exit 126, sandbox exec bit; 19 other links PASS; eslint link skipped by design) |
+| lint | integrity direct | `bash bin/check-integrity.sh` | 0 (2088 files, 0 issues) |
+| unit | vitest | `npx vitest run src/modules/organiser src/modules/admin-organisers src/modules/event-page src/components` | 0 (198 files, 4573 passed, 2 skipped) |
+| build | production | `npm run build` | 0 |
