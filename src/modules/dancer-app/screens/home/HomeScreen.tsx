@@ -1,5 +1,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { Card } from '@/modules/organiser/ui';
+import { LINK_GHOST_SM, TILE_CLASS } from '../blocks';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { useAuth } from '@/hooks/useAuth';
 import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
@@ -65,7 +67,7 @@ const Ring = ({ pct }: { pct: number }) => (
 );
 
 const Message = ({ children }: { children: ReactNode }) => (
-  <div className="da-card" role="status" data-testid="home-message">{children}</div>
+  <Card variant="padded" role="status" testId="home-message">{children}</Card>
 );
 
 const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
@@ -91,16 +93,16 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
       </div>
 
       {!profile.is_active && (
-        <div className="da-card" role="status" data-testid="paused-banner" style={{ borderColor: 'var(--da-danger)' }}>
+        <Card variant="padded" role="status" data-testid="paused-banner" className="border-[var(--danger)]">
           <b>{HIDDEN_STATE_LINE}</b>
           <p style={{ margin: '4px 0 0', fontSize: 14 }}>
             <Link to={APP_ACCOUNT_SETTINGS_PATH} style={linkStyle}>{SHOW_AGAIN_LABEL}</Link>
           </p>
-        </div>
+        </Card>
       )}
 
       {profile.linked_from_admin && !noticeGone && user?.id && (
-        <div className="da-card" data-testid="linked-notice">
+        <Card variant="padded" testId="linked-notice">
           <b>We&rsquo;ve linked your profile</b>
           <p style={{ margin: '4px 0 8px', fontSize: 14 }}>A profile made for you by the Bachata Calendar team is now yours. Have a look and make it right.</p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -117,10 +119,10 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
               Got it
             </button>
           </div>
-        </div>
+        </Card>
       )}
 
-      <section data-testid="home-hero" className={hero && hero.date ? 'da-hero' : 'da-card'}>
+      <section data-testid="home-hero" className={hero && hero.date ? 'da-hero' : `${TILE_CLASS} p-[16px]`}>
         {hero && hero.date ? (
           <>
             <div style={{ fontSize: 13, fontWeight: 700 }}>Your next night &middot; {inDaysLabel(hero.date, todayKey)}</div>
@@ -148,7 +150,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
       <RateNudge candidates={nudgeCandidates(nights.past, todayKey)} todayKey={todayKey} />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Link to={path('me')} data-testid="tile-strength" className="da-card da-tile-rose" style={{ ...tile }}>
+        <Link to={path('me')} data-testid="tile-strength" className={`${TILE_CLASS} da-tile-rose`} style={{ ...tile }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Ring pct={profile.strength.pct} />
           </div>
@@ -157,7 +159,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
           </span>
         </Link>
         {GOING_CHECKIN_ENABLED && (
-        <Link to={path('nights')} data-testid="tile-going" className="da-card" style={{ ...tile }}>
+        <Link to={path('nights')} data-testid="tile-going" className={TILE_CLASS} style={{ ...tile }}>
           <b style={{ fontSize: 14 }}>Upcoming nights</b>
           {/* A number is big; the loading / failed words are body size so they fit the tile. */}
           <span style={{ fontSize: numbers.data ? 28 : 14, fontWeight: 800, overflowWrap: 'anywhere' }} data-testid="tile-going-count">{going}</span>
@@ -194,7 +196,7 @@ const HomeScreen = () => {
         <b>We can&rsquo;t find a dancer profile for you yet.</b>
         <p style={{ margin: '4px 0 8px', fontSize: 14 }}>Message us and we&rsquo;ll sort it out.</p>
         {/* The control itself, not a pointer to Options: Options cannot load without a profile either. */}
-        <MessageUsLink message={NO_PROFILE_MESSAGE} style={{ ...linkStyle, display: 'inline-flex', alignItems: 'center', minHeight: 44 }} />
+        <MessageUsLink message={NO_PROFILE_MESSAGE} className={LINK_GHOST_SM} />
         {/* Walk bug 1: never trapped here -- Account settings, Sign out, and the organiser area for an organiser. */}
         <NoProfileWayOut />
       </Message>

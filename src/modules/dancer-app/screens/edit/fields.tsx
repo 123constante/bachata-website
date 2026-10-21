@@ -1,20 +1,19 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Chip, FIELD_CLASS, Field as BlockField, GhostButton } from '@/modules/organiser/ui';
+import { cn } from '@/lib/utils';
 import { addChip, LIST_ITEM_MAX } from '../me/model';
 
-/** Form building blocks for the Edit screen. 16px text stops iOS zooming; every target >= 44px; sizes in px. */
+/** Form building blocks for the Edit screen, on the rebuild's Field / Chip. 16px text stops iOS zooming; every target >= 44px; sizes in px. */
 
-export const inputStyle: CSSProperties = {
-  width: '100%',
-  minHeight: 48,
-  boxSizing: 'border-box',
-  padding: '0 12px',
-  borderRadius: 12,
-  border: '1px solid var(--da-border)',
-  background: 'var(--da-surface-2)',
-  color: 'var(--da-text)',
-  fontSize: 16,
-};
+/** The text input look (the rebuild's FIELD_CLASS) at the 48px height this form has always had. */
+export const INPUT_CLASS = `${FIELD_CLASS} min-h-[48px]`;
+const inputClass = (error?: string | null) => cn(INPUT_CLASS, error && 'border-[var(--danger)]');
 
+/**
+ * Label + control on the rebuild's Field (label, spacing, `field-<id>` wrapper). The error and the calm stored-value
+ * note keep their own ids and test ids (`<id>-error`, `error-<id>`, `note-<id>`): the controls point aria-describedby
+ * at them, and the block's own error line is keyed on a different id scheme.
+ */
 export const Field = ({
   id,
   label,
@@ -31,23 +30,19 @@ export const Field = ({
   note?: string | null;
   children: ReactNode;
 }) => (
-  <div data-testid={`field-${id}`} style={{ display: 'grid', gap: 4 }}>
-    <label htmlFor={id} style={{ fontSize: 14, fontWeight: 700 }}>
-      {label}
-      {hint && <span className="da-muted" style={{ fontWeight: 400 }}> {hint}</span>}
-    </label>
+  <BlockField label={hint ? `${label} ${hint}` : label} htmlFor={id} testId={`field-${id}`}>
     {children}
     {error && (
-      <p id={`${id}-error`} role="alert" data-testid={`error-${id}`} style={{ fontSize: 13, margin: 0, color: 'var(--da-danger)' }}>
+      <p id={`${id}-error`} role="alert" data-testid={`error-${id}`} className="m-0 text-[13px] text-[var(--danger)]">
         {error}
       </p>
     )}
     {!error && note && (
-      <p id={`${id}-note`} data-testid={`note-${id}`} className="da-muted" style={{ fontSize: 14, margin: 0 }}>
+      <p id={`${id}-note`} data-testid={`note-${id}`} className="m-0 text-[14px] text-[var(--mut)]">
         {note}
       </p>
     )}
-  </div>
+  </BlockField>
 );
 
 export const TextInput = ({
@@ -82,21 +77,9 @@ export const TextInput = ({
     aria-invalid={error ? true : undefined}
     aria-describedby={error ? `${id}-error` : undefined}
     onChange={(e) => onChange(e.target.value)}
-    style={{ ...inputStyle, borderColor: error ? 'var(--da-danger)' : 'var(--da-border)' }}
+    className={inputClass(error)}
   />
 );
-
-const chipStyle = (on: boolean): CSSProperties => ({
-  minHeight: 44,
-  padding: '0 14px',
-  borderRadius: 999,
-  fontSize: 15,
-  fontWeight: 600,
-  cursor: 'pointer',
-  border: `1px solid ${on ? 'var(--da-accent)' : 'var(--da-border)'}`,
-  background: on ? 'var(--da-accent)' : 'transparent',
-  color: on ? 'var(--da-on-accent)' : 'var(--da-text)',
-});
 
 /** Chips. `multi` toggles each; single toggles the one (pressing the chosen chip again clears it). */
 export const ChipChoice = <T extends string | number>({
@@ -110,15 +93,12 @@ export const ChipChoice = <T extends string | number>({
   selected: ReadonlyArray<T>;
   onToggle: (value: T) => void;
 }) => (
-  <div id={id} role="group" aria-labelledby={undefined} style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-    {options.map((o) => {
-      const on = selected.includes(o.value);
-      return (
-        <button key={String(o.value)} type="button" aria-pressed={on} data-testid={`${id}-${String(o.value)}`} style={chipStyle(on)} onClick={() => onToggle(o.value)}>
-          {o.label}
-        </button>
-      );
-    })}
+  <div id={id} role="group" aria-labelledby={undefined} className="flex flex-wrap gap-[8px]">
+    {options.map((o) => (
+      <Chip key={String(o.value)} selected={selected.includes(o.value)} testId={`${id}-${String(o.value)}`} onToggle={() => onToggle(o.value)}>
+        {o.label}
+      </Chip>
+    ))}
   </div>
 );
 
@@ -141,15 +121,15 @@ export const ChipListInput = ({
     setText('');
   };
   return (
-    <div style={{ display: 'grid', gap: 8 }}>
+    <div className="grid gap-[8px]">
       {value.length > 0 && (
-        <ul style={{ display: 'flex', flexWrap: 'wrap', gap: 8, listStyle: 'none', margin: 0, padding: 0 }} data-testid={`${id}-chips`}>
+        <ul className="m-0 flex list-none flex-wrap gap-[8px] p-0" data-testid={`${id}-chips`}>
           {value.map((item) => (
             <li key={item}>
               <button
                 type="button"
                 aria-label={`Remove ${item}`}
-                style={{ ...chipStyle(true), background: 'var(--da-surface-2)', color: 'var(--da-text)', borderColor: 'var(--da-border)', overflowWrap: 'anywhere' }}
+                className="min-h-[44px] break-words rounded-[var(--r-chip,8px)] border border-[var(--line-strong)] bg-[var(--card2)] px-[14px] text-[15px] font-semibold text-[var(--fg)]"
                 onClick={() => onChange(value.filter((x) => x !== item))}
               >
                 {item} &times;
@@ -158,14 +138,14 @@ export const ChipListInput = ({
           ))}
         </ul>
       )}
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div className="flex gap-[8px]">
         <input
           id={id}
           value={text}
           maxLength={LIST_ITEM_MAX}
           placeholder={placeholder}
           autoComplete="off"
-          style={inputStyle}
+          className={INPUT_CLASS}
           onChange={(e) => {
             const v = e.target.value;
             if (v.endsWith(',')) commit(v.slice(0, -1));
@@ -179,9 +159,9 @@ export const ChipListInput = ({
           }}
           onBlur={() => text.trim() !== '' && commit(text)}
         />
-        <button type="button" style={{ ...chipStyle(false), minWidth: 64 }} onClick={() => commit(text)} data-testid={`${id}-add`}>
+        <GhostButton size="sm" block={false} className="min-w-[64px]" onClick={() => commit(text)} testId={`${id}-add`}>
           Add
-        </button>
+        </GhostButton>
       </div>
     </div>
   );

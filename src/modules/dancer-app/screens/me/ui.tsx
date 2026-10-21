@@ -1,38 +1,16 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { toDancerError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
 import { CoupleArt } from '../art';
 import { NO_NAME_YET, ownPublicName } from '../../api/publicName';
+import { Card, PrimaryButton } from '@/modules/organiser/ui';
+import { LINK_GHOST, LINK_PRIMARY } from '../blocks';
 import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 import { NO_PROFILE_MESSAGE, PROFILE_HELP_MESSAGE, dancerMessageUsUrl } from '../../api/messageUs';
 
 /** Shared bits of the Me and Edit screens (sizes in px, never rem: the phone html font-size is ~13.5px). */
-
-export const mainButton: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: 48,
-  width: '100%',
-  borderRadius: 12,
-  border: 0,
-  background: 'var(--da-accent)',
-  color: 'var(--da-on-accent)',
-  fontSize: 16,
-  fontWeight: 700,
-  textDecoration: 'none',
-  cursor: 'pointer',
-};
-
-export const ghostButton: CSSProperties = {
-  ...mainButton,
-  background: 'transparent',
-  color: 'var(--da-text)',
-  border: '1px solid var(--da-border)',
-  fontWeight: 600,
-};
 
 export const StrengthBar = ({ pct }: { pct: number }) => (
   <div
@@ -41,7 +19,7 @@ export const StrengthBar = ({ pct }: { pct: number }) => (
     aria-valuemin={0}
     aria-valuemax={100}
     aria-valuenow={pct}
-    style={{ height: 8, borderRadius: 999, background: 'var(--da-surface-2)', overflow: 'hidden' }}
+    className="h-[8px] overflow-hidden rounded-full bg-[var(--card2)]"
   >
     <div className="da-bar-fill" style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: '100%' }} />
   </div>
@@ -69,8 +47,8 @@ export const Avatar = ({
 };
 
 /** The dancer "Message us" control: WhatsApp, pre-filled. Wherever copy says "Message us", this is on screen. */
-export const MessageUsLink = ({ message, style }: { message: string; style: CSSProperties }) => (
-  <a href={dancerMessageUsUrl(message)} target="_blank" rel="noopener noreferrer" className="da-tap" style={style} data-testid="message-us">
+export const MessageUsLink = ({ message, className = LINK_PRIMARY }: { message: string; className?: string }) => (
+  <a href={dancerMessageUsUrl(message)} target="_blank" rel="noopener noreferrer" className={className} data-testid="message-us">
     Message us on WhatsApp
   </a>
 );
@@ -79,9 +57,9 @@ export const MessageUsLink = ({ message, style }: { message: string; style: CSSP
 export const QueryGate = ({ q, id }: { q: UseQueryResult<MyDancerEdit>; id: string }): ReactNode => {
   if (q.isPending) {
     return (
-      <section className="da-card" data-testid={`dancer-state-${id}`} aria-busy="true">
-        <p className="da-muted" style={{ fontSize: 14, margin: 0 }}>Loading your profile&hellip;</p>
-      </section>
+      <Card variant="padded" testId={`dancer-state-${id}`} aria-busy="true">
+        <p className="m-0 text-[14px] text-[var(--mut)]">Loading your profile&hellip;</p>
+      </Card>
     );
   }
   if (q.isError) {
@@ -90,22 +68,20 @@ export const QueryGate = ({ q, id }: { q: UseQueryResult<MyDancerEdit>; id: stri
     // "Message us", so the control is Message us (as Onboarding's, audit M23).
     const needsUs = err.code === 'no_profile' || err.code === 'profile_mismatch';
     return (
-      <section className="da-card" data-testid={`dancer-state-${id}`} role="alert">
+      <Card variant="padded" testId={`dancer-state-${id}`} role="alert">
         {needsUs && <CoupleArt />}
-        <p style={{ fontSize: 14, margin: '0 0 10px' }} data-testid="load-error">{err.message}</p>
-        <div style={{ display: 'grid', gap: 8 }}>
+        <p className="mb-[10px] text-[14px]" data-testid="load-error">{err.message}</p>
+        <div className="grid gap-[8px]">
           {needsUs ? (
-            <MessageUsLink message={err.code === 'no_profile' ? NO_PROFILE_MESSAGE : PROFILE_HELP_MESSAGE} style={mainButton} />
+            <MessageUsLink message={err.code === 'no_profile' ? NO_PROFILE_MESSAGE : PROFILE_HELP_MESSAGE} />
           ) : (
-            <button type="button" className="da-tap" style={mainButton} onClick={() => void q.refetch()}>
-              Try again
-            </button>
+            <PrimaryButton onClick={() => void q.refetch()}>Try again</PrimaryButton>
           )}
-          <Link to="/" className="da-tap" style={ghostButton}>
+          <Link to="/" className={LINK_GHOST}>
             Back to the Bachata Calendar website
           </Link>
         </div>
-      </section>
+      </Card>
     );
   }
   return null;

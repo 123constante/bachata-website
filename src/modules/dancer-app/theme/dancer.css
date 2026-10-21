@@ -90,14 +90,6 @@
   color: var(--da-plum);
 }
 
-[data-profile="dancer"] .da-events {
-  font-size: 14px;
-  font-weight: 700;
-  white-space: nowrap;
-  padding: 0 6px;
-  color: var(--da-accent);
-}
-
 [data-profile="dancer"] .da-content {
   padding: 12px max(12px, env(safe-area-inset-right)) calc(var(--da-tabs-h) + env(safe-area-inset-bottom) + 16px)
     max(12px, env(safe-area-inset-left));
@@ -127,13 +119,6 @@
 
 [data-profile="dancer"] .da-tab[aria-current="page"] {
   color: var(--da-accent);
-}
-
-[data-profile="dancer"] .da-card {
-  background: var(--da-surface);
-  border: 1px solid var(--da-border);
-  border-radius: var(--da-radius);
-  padding: 12px;
 }
 
 [data-profile="dancer"] .da-muted {

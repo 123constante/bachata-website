@@ -1,5 +1,6 @@
 import { useFeatureInterest } from '../../api/useFeatureInterest';
 import { toDancerError } from '../../api/errors';
+import { Card } from '@/modules/organiser/ui';
 import { buttonStyle } from '../nights/nightsStyles';
 
 export const PARTNER_TITLE = 'Partner search: coming soon';
@@ -27,7 +28,7 @@ export const PartnerTile = () => {
   const { registered, register, loading } = useFeatureInterest('partner_search');
   const failed = register.isError ? partnerErrorCopy(register.error) : null;
   return (
-    <div className="da-card da-tile-rose" data-testid="tile-partner" style={{ display: 'grid', gap: 6, padding: 14 }}>
+    <Card variant="padded" testId="tile-partner" className="da-tile-rose grid gap-[6px] p-[14px]">
       <b style={{ fontSize: 14 }}>{PARTNER_TITLE}</b>
       <span className="da-tint" style={{ fontSize: 13 }}>{registered ? PARTNER_DONE_BODY : PARTNER_BODY}</span>
       <button
@@ -42,6 +43,6 @@ export const PartnerTile = () => {
         {registered ? PARTNER_DONE : register.isPending ? 'Saving\u2026' : loading ? PARTNER_LOADING : PARTNER_ASK}
       </button>
       {failed && <span role="alert" data-testid="partner-error" style={{ fontSize: 13, color: 'var(--da-danger)' }}>{failed}</span>}
-    </div>
+    </Card>
   );
 };

@@ -83,3 +83,51 @@ Cannot run in the sandbox: Lighthouse, `phone-qa` (`playwright.phone.config.ts` 
 2. Rebuild the remaining screens out of the blocks (see Left), then retire dead `dancer.css` rules.
 3. Re-merge `origin/claude/er-ui-ember` if #902 changed; point `SiteHomeLink` at slice A's shared component.
 4. Run `phone-qa` and the `test:e2e` dancer specs where a browser build is available.
+
+## Continuation (RESTYLE-DANCER-APP-CONT, ticket dt_1cc76452e03b)
+
+Merged `origin/claude/er-ui-ember` first: 4b2a3576 (D117) was already an ancestor of the branch head (d5c548b1), so the merge was a no-op.
+
+### Done
+| Screen | Now built from | Notes |
+|---|---|---|
+| Nights | `Card` (padded) + `SectionLabel`, `EmptyState` (empty), `GhostButton` (retry); date block and tags use Tailwind px classes over the colour layer | `nights-empty` testid now on the `EmptyState` itself |
+| Me | `Card`, `SectionLabel`, `LinkRow` (Edit / My page / public page), `DisabledRow` (hidden profile, reason under the row) | |
+| Page | `Card`, `SectionLabel`, `PrimaryButton`/`GhostButton`, link buttons | |
+| Options | `Card` of `SummaryRow` / `LinkRow` / `DisabledRow`; sheets (`Sheet`) are now `SheetView` | header X is named "Dismiss" so it never collides with the body's "Close" |
+| Onboarding | `Card`, block `Field`, `PrimaryButton`, `GhostButton`; the "You're in" card is `.da-hero` | options keep radio / checkbox roles (see Parked) |
+| Edit form fields | block `Field` (label + wrapper), `FIELD_CLASS` inputs, block `Chip` | error / note ids and test ids kept (`<id>-error`, `error-<id>`, `note-<id>`) |
+| Photo | `Card`, `PrimaryButton`/`GhostButton`, link-buttons for the two file labels | crop frame and preview frame stay bespoke |
+| Home leftovers, `PlaceholderScreen` | every remaining `da-card` became `Card` or the tile classes | |
+
+- New local file `screens/blocks.tsx`: `LINK_PRIMARY` / `LINK_GHOST` / `LINK_GHOST_SM` / `TEXT_ACTION` / `TILE_CLASS` (the blocks' tokens on a `<Link>` or `<a>`), `LinkRow` (a `SummaryRow` that navigates), `DisabledRow`. Reason: `PrimaryButton`, `GhostButton`, `Card` and `SummaryRow` render only a button or div.
+- `dancer.css`: deleted `.da-card` (nothing uses it) and `.da-events` (dead since D131). KEPT `.da-tap` and `.da-header`: the shell itself (header, tab bar, "Not now", home link) and 9 screen files still use them, so "once nothing uses them" has not happened. `dancerAppTheme.test.ts` and `dancerAppColor.test.ts` pass.
+- Tests edited because they asserted inline styles that are now classes: `b1bFinishFixes` (F8 44px link), `onboarding.test` (wrap, 44px, 56px chips), `OptionsScreen.test` (install sheet selector matched the sheet's own `opt-install-sheet-*` test ids). No behaviour assertion was weakened.
+- Side by side: `docs/people-arc/restyle-b/compare/*.png` (left app, right prototype), the halves are `restyle-b/*.png` and `restyle-b/prototype/*.png`. Prototype shots are of `release-b-prototype.html` jump "Dancer app" at 390x844 (the `#frame` element).
+  Prototype states with no app screenshot: edit-discard-sheet has no prototype jump; welcome and edit show the first state only.
+
+### Gates (command: result)
+| Step | Result |
+|---|---|
+| `npx vitest run tests/client src/modules/dancer-app` | 1635 passed, 10 skipped, 0 failed |
+| `npm run build` | exit 0 |
+| `npx playwright test tests/e2e/dancer-app --project=chromium` (390x844 and 1280x800 walk + the 6 specs) | first run 76 passed, 5 failed: `options` sheets (my "Close sheet" label matched `name: 'Close'`, FIXED: now "Dismiss"), and 4 cold-start timeouts (`home-filled` and `home-empty` at 390x844, the two `/account` redirect tests in `reachability.spec.ts`). Re-run of exactly those 7: 7 passed. I did not find why the first four were slow; they passed on the second run without a code change |
+| `npm run lint` | every link PASS except `check:integrity` = exit 126 (`bin/check-integrity.sh` is not executable in this checkout, fails identically on the untouched branch). `bash bin/check-integrity.sh`: ok, 2139 files, 0 issues. `lint:eslint` is skipped by the chain when a link is red, so it was not run |
+| `AUDIT_STRICT=1 npm run check:images` | exit 0 |
+| phone-qa (`playwright.phone.config.ts`, 390x844 + 360x640) | 258 passed, 14 failed, 74 skipped. 2 failures were MINE (`keyboard.phone` dancer setup: Continue fell under the keyboard once the card got 16px padding and a 52px button): FIXED (onboarding card `p-[12px]`, 48px buttons), then all 16 dancer keyboard rows passed on re-run. The other 12 (scroll-reset, small-queue-gaps on public pages, organiser Save bar) touch no dancer-app file; NOT confirmed against the untouched branch, so unverified as pre-existing |
+
+### Still left / Not verified
+- Not verified: production data shape survey (the Supabase connector was not used; no data read changed in this slice); a real phone; Outfit loading (fonts blocked in the headless run); `pre-ship` and `phone-qa-section` as CI jobs; GitHub Actions.
+- Known look differences from the prototype (small): level-vote buttons are outlined, the prototype's are filled `card2`; status tags have no leading dot; prototype date blocks spell the weekday in full (parked, D119).
+- `StatusTag` was not used: its tones are live / draft / party / neutral, none is "Going / Interested / Went". The weekday and status colours stay on the colour layer (`da-tone-*`).
+- `nightsStyles.ts` (`linkStyle`, `buttonStyle`, `gradientBg`) is still used by Home's hero and tiles; Home's inline-styled hero/tile internals were not converted.
+
+### Asked of the rebuild (additions)
+- `PrimaryButton` / `GhostButton` / `Card` with an `asChild` or `href` variant, and `SummaryRow` with `href` / `to` (every dancer row that navigates needed `LinkRow`).
+- A radio / checkbox `Chip` variant (stacked 56px answers in onboarding).
+- `SheetView` close label that does not contain the word "Close" collides in e2e `getByRole`: consider naming it "Dismiss" globally.
+
+### Parked questions (continuation)
+- Q: Onboarding answers (role, years, styles) are block-styled but kept as radio / checkbox buttons, not the pill `Chip`. Default used: keep roles (tests and screen readers rely on them). Options: switch to pills with `aria-pressed`. Cost if wrong: small. Where: `screens/onboarding/ui.tsx` Chip.
+- Q: `.da-tap` / `.da-header` rules kept in `dancer.css`. Default used: keep (shell uses them). Options: move the shell to blocks. Cost if wrong: small. Where: `theme/dancer.css`.
+- Q: Me's "My profile" section label is new (prototype has the three rows in one card under no label). Default used: keep the label. Cost if wrong: small. Where: `screens/me/MeScreen.tsx`.

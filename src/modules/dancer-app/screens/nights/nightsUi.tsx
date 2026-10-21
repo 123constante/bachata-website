@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { dateParts } from './nightsModel';
 /** The accent each weekday block takes (D121): Sat/Sun violet, Mon/Thu teal, Tue/Wed gold, Fri rose. */
 const WEEKDAY_TONE: Record<string, string> = {
@@ -10,20 +9,19 @@ const WEEKDAY_TONE: Record<string, string> = {
  * spell "Wednesday"); the full name is in the label read aloud, and every written date spells it out (D119).
  */
 export const DateBlock = ({ dateKey }: { dateKey: string | null }) => {
-  const box: CSSProperties = { fontSize: 11 };
   if (!dateKey) {
     return (
-      <div className="da-date da-tone-grey" style={{ ...box, padding: '10px 2px' }} aria-label="Date to be confirmed">
+      <div className="da-date da-tone-grey py-[10px] text-[11px]" aria-label="Date to be confirmed">
         TBC
       </div>
     );
   }
   const p = dateParts(dateKey);
   return (
-    <div className={`da-date ${WEEKDAY_TONE[p.weekday] ?? 'da-tone-grey'}`} style={box} role="img" aria-label={`${p.fullWeekday} ${p.day} ${p.month}`}>
-      <div style={{ fontSize: 11 }}>{p.weekday}</div>
-      <div style={{ fontSize: 20, fontWeight: 800 }}>{p.day}</div>
-      <div style={{ fontSize: 11 }}>{p.month}</div>
+    <div className={`da-date text-[11px] ${WEEKDAY_TONE[p.weekday] ?? 'da-tone-grey'}`} role="img" aria-label={`${p.fullWeekday} ${p.day} ${p.month}`}>
+      <div className="text-[11px]">{p.weekday}</div>
+      <div className="text-[20px] font-extrabold">{p.day}</div>
+      <div className="text-[11px]">{p.month}</div>
     </div>
   );
 };

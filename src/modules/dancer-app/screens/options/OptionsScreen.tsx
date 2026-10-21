@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { ACCOUNT_SETTINGS_LABEL } from '../../copy/sharedCopy';
@@ -16,7 +16,9 @@ import {
   shareUrlFor,
   type OptionsRow,
 } from './optionsModel';
-import { ROW, Sheet } from './optionsUi';
+import { Card, FIELD_CLASS, GhostButton, SummaryRow } from '@/modules/organiser/ui';
+import { DisabledRow, LINK_GHOST, LinkRow } from '../blocks';
+import { Sheet } from './optionsUi';
 import FeedbackSheet from './FeedbackSheet';
 import SignOutControl from './SignOutControl';
 import { CoupleArt } from '../art';
@@ -24,8 +26,7 @@ import NoProfileWayOut from './NoProfileWayOut';
 
 const LOAD_FAILED_COPY = 'We could not load your options. Check your connection and try again.';
 
-const DISABLED: CSSProperties = { ...ROW, opacity: 0.6, cursor: 'not-allowed' };
-const REASON: CSSProperties = { fontSize: 13, color: 'var(--da-text-muted)', margin: '2px 4px 0' };
+const REASON = 'mx-[4px] mb-0 mt-[2px] text-[13px] text-[var(--mut)]';
 
 const OptionsScreen = () => {
   const profile = useMyDancerEdit();
@@ -37,30 +38,30 @@ const OptionsScreen = () => {
     const err = toDancerError(profile.error);
     if (err.code === 'no_profile' || err.code === 'profile_mismatch') {
       return (
-        <section className="da-card" data-testid="dancer-screen-options">
-          <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Options</h1>
+        <Card variant="padded" testId="dancer-screen-options">
+          <h1 className="m-0 text-[18px] font-extrabold">Options</h1>
           <CoupleArt />
-          <p role="alert" style={{ fontSize: 14, margin: '8px 0' }}>{err.message}</p>
-          <MessageUsLink message={err.code === 'no_profile' ? NO_PROFILE_MESSAGE : PROFILE_HELP_MESSAGE} style={ROW} />
+          <p role="alert" className="my-[8px] text-[14px]">{err.message}</p>
+          <MessageUsLink message={err.code === 'no_profile' ? NO_PROFILE_MESSAGE : PROFILE_HELP_MESSAGE} className={LINK_GHOST} />
           {/* Walk bug 1: never trapped here -- Account settings, Sign out, and the organiser area for an organiser. */}
           <NoProfileWayOut />
-        </section>
+        </Card>
       );
     }
     return (
-      <section className="da-card" data-testid="dancer-screen-options">
-        <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Options</h1>
-        <p role="alert" style={{ fontSize: 14, margin: '8px 0' }}>{LOAD_FAILED_COPY}</p>
-        <button type="button" className="da-tap" style={ROW} onClick={() => void profile.refetch()}>Retry</button>
-      </section>
+      <Card variant="padded" testId="dancer-screen-options">
+        <h1 className="m-0 text-[18px] font-extrabold">Options</h1>
+        <p role="alert" className="my-[8px] text-[14px]">{LOAD_FAILED_COPY}</p>
+        <GhostButton onClick={() => void profile.refetch()}>Retry</GhostButton>
+      </Card>
     );
   }
   if (!profile.data) {
     return (
-      <section className="da-card" data-testid="dancer-screen-options">
-        <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Options</h1>
-        <p className="da-muted" style={{ fontSize: 14 }}>Loading&hellip;</p>
-      </section>
+      <Card variant="padded" testId="dancer-screen-options">
+        <h1 className="m-0 text-[18px] font-extrabold">Options</h1>
+        <p className="text-[14px] text-[var(--mut)]">Loading&hellip;</p>
+      </Card>
     );
   }
 
@@ -72,21 +73,16 @@ const OptionsScreen = () => {
   const renderRow = (row: OptionsRow) => {
     if (row.disabledReason) {
       return (
-        <div key={row.id}>
-          <button type="button" disabled aria-disabled="true" aria-describedby={`opt-why-${row.id}`} style={DISABLED} data-testid={`opt-${row.id}`}>
-            {row.label}
-          </button>
-          <p id={`opt-why-${row.id}`} style={REASON} data-testid={`opt-why-${row.id}`}>{row.disabledReason}</p>
-        </div>
+        <DisabledRow key={row.id} label={row.label} reason={row.disabledReason} testId={`opt-${row.id}`} reasonTestId={`opt-why-${row.id}`} />
       );
     }
     if (row.id === 'sign-out') return <SignOutControl key={row.id} testId={`opt-${row.id}`} />;
     if (row.href) {
       const external = /^https?:/.test(row.href);
       return external ? (
-        <a key={row.id} href={row.href} target="_blank" rel="noreferrer" style={ROW} data-testid={`opt-${row.id}`}>{row.label}</a>
+        <LinkRow key={row.id} href={row.href} external label={row.label} testId={`opt-${row.id}`} />
       ) : (
-        <Link key={row.id} to={row.href} style={ROW} data-testid={`opt-${row.id}`}>{row.label}</Link>
+        <LinkRow key={row.id} to={row.href} label={row.label} testId={`opt-${row.id}`} />
       );
     }
     const onClick = async () => {
@@ -97,49 +93,47 @@ const OptionsScreen = () => {
       else if (row.id === 'install') setSheet('install');
       else if (row.id === 'feedback') setSheet('feedback');
     };
-    return (
-      <button key={row.id} type="button" style={ROW} onClick={() => void onClick()} data-testid={`opt-${row.id}`}>{row.label}</button>
-    );
+    return <SummaryRow key={row.id} label={row.label} onPress={() => void onClick()} testId={`opt-${row.id}`} />;
   };
 
   return (
-    <section data-testid="dancer-screen-options" style={{ display: 'grid', gap: 12 }}>
-      <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Options</h1>
+    <section data-testid="dancer-screen-options" className="grid gap-[12px]">
+      <h1 className="m-0 text-[18px] font-extrabold">Options</h1>
 
-      <div className="da-card" style={{ display: 'grid', gap: 8 }}>
-        {rows.map(renderRow)}
-        {copied === 'copied' && <p role="status" style={REASON}>Link copied</p>}
+      <div className="grid gap-[8px]">
+        <Card>{rows.map(renderRow)}</Card>
+        {copied === 'copied' && <p role="status" className={REASON}>Link copied</p>}
         {copied === 'manual' && (
           <div>
-            <p role="status" style={REASON}>Copying is not available here. Select the link and copy it:</p>
+            <p role="status" className={REASON}>Copying is not available here. Select the link and copy it:</p>
             <input
               readOnly
               value={shareUrl}
               aria-label="Link to my page"
               data-testid="opt-share-field"
               onFocus={(e) => e.currentTarget.select()}
-              style={{ width: '100%', minHeight: 44, borderRadius: 10, border: '1px solid var(--da-border)', background: 'var(--da-bg)', color: 'var(--da-text)', padding: '0 10px', fontSize: 14 }}
+              className={`${FIELD_CLASS} min-h-[44px]`}
             />
           </div>
         )}
-        <p style={REASON} data-testid="opt-account-settings-line">
+        <p className={REASON} data-testid="opt-account-settings-line">
           Hide your profile, download your data or delete your account:{' '}
-          <Link to={ACCOUNT_SETTINGS_PATH} style={{ color: 'var(--da-accent)', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>{ACCOUNT_SETTINGS_LABEL}</Link>
+          <Link to={ACCOUNT_SETTINGS_PATH} className="inline-flex min-h-[44px] items-center text-[var(--gold-fg,#f5865a)]">{ACCOUNT_SETTINGS_LABEL}</Link>
         </p>
       </div>
 
-      <div className="da-card" style={{ display: 'grid', gap: 8 }}>
-        <Link to={SITE_HOME_PATH} style={ROW} data-testid="opt-back-to-site">&larr; Back to the Bachata Calendar website</Link>
-      </div>
+      <Card>
+        <LinkRow to={SITE_HOME_PATH} label={<>&larr; Back to the Bachata Calendar website</>} testId="opt-back-to-site" />
+      </Card>
 
       {sheet === 'feedback' && <FeedbackSheet onClose={() => setSheet(null)} />}
 
       {sheet === 'install' && (
         <Sheet title="Add to my phone's home screen" testId="opt-install-sheet" onClose={() => setSheet(null)}>
           {installOrder(platform).map((k) => (
-            <div key={k} data-testid={`opt-install-${k}`} style={{ marginBottom: 10 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 4px' }}>{INSTALL_STEPS[k].title}</h3>
-              <ol style={{ margin: 0, paddingLeft: 20, fontSize: 14 }}>
+            <div key={k} data-testid={`opt-install-${k}`} className="mb-[10px]">
+              <h3 className="mb-[4px] mt-0 text-[15px] font-bold">{INSTALL_STEPS[k].title}</h3>
+              <ol className="m-0 pl-[20px] text-[14px]">
                 {INSTALL_STEPS[k].steps.map((s) => <li key={s}>{s}</li>)}
               </ol>
             </div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { TEXT_ACTION } from '../blocks';
 import { Link } from 'react-router-dom';
 import { LEVEL_OPTIONS, useSeriesLevelRating, type SeriesLevel } from '@/hooks/useSeriesLevelRating';
 import { levelLabel } from '@/lib/levelRatingModel';
@@ -47,9 +48,9 @@ export const LevelVote = ({ seriesId, profileComplete }: { seriesId: string; pro
 
   if (mine && !changing) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }} data-testid="level-vote-done">
-        <span style={{ fontSize: 14 }}>You said: {levelLabel(mine)}</span>
-        <button type="button" className="da-tap" style={{ background: 'none', border: 0, color: 'var(--da-accent)', fontWeight: 700, fontSize: 14 }} onClick={() => setChanging(true)}>
+      <div className="flex flex-wrap items-center gap-[8px]" data-testid="level-vote-done">
+        <span className="text-[14px]">You said: {levelLabel(mine)}</span>
+        <button type="button" className={TEXT_ACTION} onClick={() => setChanging(true)}>
           Change
         </button>
       </div>
@@ -58,8 +59,8 @@ export const LevelVote = ({ seriesId, profileComplete }: { seriesId: string; pro
 
   return (
     <div data-testid="level-vote">
-      <p style={{ fontSize: 14, fontWeight: 700, margin: '0 0 6px' }}>What level was it?</p>
-      <div role="radiogroup" aria-label="What level was it?" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+      <p className="mb-[6px] mt-0 text-[14px] font-bold">What level was it?</p>
+      <div role="radiogroup" aria-label="What level was it?" className="grid grid-cols-3 gap-[6px]">
         {LEVEL_OPTIONS.map(({ value, label }) => (
           <button
             key={value}
@@ -69,30 +70,22 @@ export const LevelVote = ({ seriesId, profileComplete }: { seriesId: string; pro
             data-testid={`vote-${seriesId}-${value}`}
             disabled={isRating || !canRate}
             onClick={() => void submit(value)}
-            className={`da-tap${mine === value ? ' da-vote-on' : ''}`}
-            style={{
-              borderRadius: 999,
-              fontSize: 13,
-              fontWeight: 600,
-              padding: '0 6px',
-              border: '1px solid var(--da-border)',
-              ...(mine === value ? null : { background: 'transparent', color: 'var(--da-text)' }),
-            }}
+            className={`da-tap rounded-full border px-[6px] text-[13px] font-semibold${mine === value ? ' da-vote-on' : ' border-[var(--line-strong)] bg-transparent text-[var(--fg)]'}`}
           >
             {label}
           </button>
         ))}
       </div>
       {profileIncomplete && (
-        <p style={{ fontSize: 13, margin: '6px 0 0' }} data-testid="level-vote-held">
+        <p className="mb-0 mt-[6px] text-[13px]" data-testid="level-vote-held">
           {PROFILE_INCOMPLETE_COPY} Your answer is saved and will be sent when you finish.{' '}
-          <Link to={DANCER_WELCOME} style={{ color: 'var(--da-accent)', fontWeight: 700 }}>
+          <Link to={DANCER_WELCOME} className="font-bold text-[var(--gold-fg,#f5865a)]">
             Finish my profile
           </Link>
         </p>
       )}
       {failed && (
-        <p role="alert" style={{ fontSize: 13, margin: '6px 0 0', color: 'var(--da-danger)' }}>
+        <p role="alert" className="mb-0 mt-[6px] text-[13px] text-[var(--danger)]">
           {SAVE_FAILED}
         </p>
       )}

@@ -189,7 +189,7 @@ describe('options screen', () => {
     await shown();
     fireEvent.click(screen.getByTestId('opt-install'));
     const sheet = await screen.findByTestId('opt-install-sheet');
-    const blocks = Array.from(sheet.querySelectorAll('[data-testid^="opt-install-"]'));
+    const blocks = Array.from(sheet.querySelectorAll('[data-testid="opt-install-ios"], [data-testid="opt-install-android"]'));
     expect(blocks[0].getAttribute('data-testid')).toBe(firstId);
     expect(blocks).toHaveLength(2);
   });
