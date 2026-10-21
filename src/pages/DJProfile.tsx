@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Share2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +12,8 @@ import { useProfileProgramAppearances } from '@/hooks/useProfileProgramAppearanc
 import { londonTodayKey } from '@/lib/londonDate';
 import { resolvePublicName } from '@/lib/publicName';
 import { AlsoRoles } from '@/modules/person-page/AlsoRoles';
+import { SHARE_MESSAGES, shareDancerPage, type ShareOutcome } from '@/modules/dancer-app/public-page/model';
+import { splitInstagramWebsite } from '@/components/dj/djContacts';
 import { djInkTheme, useDjPageFonts } from '@/components/dj/djPageTheme';
 import {
   DjHero,
@@ -68,6 +70,33 @@ const dateKey = (iso: string | null): string | null => {
   if (!iso) return null;
   const m = /^(\d{4}-\d{2}-\d{2})/.exec(iso);
   return m ? m[1] : null;
+};
+
+const GOLD = '#E7BE6E';
+
+const DjShare = ({ title, path }: { title: string; path: string }) => {
+  const [outcome, setOutcome] = useState<ShareOutcome | null>(null);
+  const url = typeof window === 'undefined' ? path : `${window.location.origin}${path}`;
+  const onShare = async () => {
+    const nav = typeof navigator === 'undefined' ? undefined : navigator;
+    setOutcome(await shareDancerPage(
+      {
+        share: nav?.share ? (d) => nav.share(d) : undefined,
+        writeText: nav?.clipboard?.writeText ? (t) => nav.clipboard.writeText(t) : undefined,
+      },
+      title,
+      url,
+    ));
+  };
+  const message = outcome ? SHARE_MESSAGES[outcome] : null;
+  return (
+    <div className="flex items-center gap-2">
+      {message ? <span role="status" aria-live="polite" className="text-[13px]" style={{ color: GOLD }}>{message}</span> : null}
+      <button type="button" onClick={() => void onShare()} className="inline-flex items-center gap-2 px-2 text-[15px] font-bold" style={{ minHeight: 44, color: GOLD }} data-testid="dj-share">
+        <Share2 className="h-4 w-4" aria-hidden /> Share
+      </button>
+    </div>
+  );
 };
 
 const DJProfile = () => {
@@ -188,16 +217,25 @@ const DJProfile = () => {
   const photoUrl = firstPhoto(dj.photo_url);
   const totalGigs = (appearances ?? []).filter((a) => a.event_id).length;
 
-  const hasContact = !!(dj.instagram || dj.website || dj.soundcloud || dj.mixcloud || dj.facebook || dj.phone);
+  const { instagram: igLink, website: webLink } = splitInstagramWebsite(dj.instagram, dj.website);
+  const hasContact = !!(igLink || webLink || dj.soundcloud || dj.mixcloud || dj.facebook || dj.phone);
   const hasListen = !!(dj.soundcloud || dj.mixcloud);
 
   return (
-    <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showGradientBg={false}>
+    <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false} gradientPalette="dj">
       <div
         className="min-h-screen pb-24"
         style={{ ...(djInkTheme as React.CSSProperties), background: 'var(--dj-bg)', color: 'var(--dj-cream)', fontFamily: 'var(--dj-body)' }}
       >
-        <AlsoRoles current="dj" id={id} slug={resolved.slug} className="mx-auto w-full max-w-6xl px-3 pt-4 sm:px-5 md:px-8 md:pt-6" />
+        <div className="mx-auto w-full max-w-6xl px-3 pt-3 sm:px-5 md:px-8">
+          <div className="flex items-center justify-between" style={{ minHeight: 44 }} data-testid="dj-head">
+            <Link to="/djs" className="inline-flex items-center gap-2 px-1 text-[15px] font-bold" style={{ minHeight: 44, color: GOLD }} data-testid="dj-back">
+              <ArrowLeft className="h-4 w-4" aria-hidden /> Back
+            </Link>
+            <DjShare title={`${displayName} on Bachata Calendar`} path={resolved.slug ? `/djs/${resolved.slug}` : `/djs/${routeParam ?? dj.id}`} />
+          </div>
+          <AlsoRoles current="dj" id={id} slug={resolved.slug} className="pt-1" />
+        </div>
         <div className="dj-bento mx-auto w-full max-w-6xl px-3 pt-4 sm:px-5 md:px-8 md:pt-6">
           <section className="dj-hero">
             <DjHero
@@ -216,8 +254,8 @@ const DJProfile = () => {
             <section className="dj-contact">
               <DjContactPanel
                 name={displayName}
-                instagram={dj.instagram}
-                website={dj.website}
+                instagram={igLink}
+                website={webLink}
                 soundcloud={dj.soundcloud}
                 mixcloud={dj.mixcloud}
                 facebook={dj.facebook}

@@ -8,7 +8,10 @@ import { DjHero } from '@/components/dj/DjTiles';
 import { installJsdomPolyfills } from '../../../../tests/client/jsdomPolyfills';
 
 const roles = vi.fn();
-vi.mock('../usePersonRoles', () => ({ usePersonRoles: (id: string | undefined) => (id ? roles() : []) }));
+vi.mock('../badges', async (orig) => {
+  const real = await orig<typeof import('../badges')>();
+  return { ...real, usePeopleBadges: (ids: string[]) => ({ badges: ids.length ? new Map([['p1', { id: 'p1', roles: roles(), djName: null, djHasUpcoming: false, nextGigDate: null }]]) : new Map(), isLoading: false }) };
+});
 afterEach(cleanup);
 
 const row = (current: 'teacher' | 'dj' | 'dancer', embedded = false) =>
@@ -20,31 +23,31 @@ const row = (current: 'teacher' | 'dj' | 'dancer', embedded = false) =>
     </MemoryRouter>,
   );
 
-describe('AlsoRoles on the old pages', () => {
+describe('AlsoRoles on the old pages (teacher flag off)', () => {
   it.each([
-    ['teacher', ['teacher', 'dj', 'dancer'], [['DJ', '/people/ana-g#dj'], ['Dancer', '/people/ana-g#dancing']]],
-    ['dj', ['teacher', 'dj', 'dancer'], [['Teacher', '/people/ana-g#teaching'], ['Dancer', '/people/ana-g#dancing']]],
-    ['dancer', ['teacher', 'dancer'], [['Teacher', '/people/ana-g#teaching']]],
-  ] as const)('%s page of %j links the other roles', (current, has, links) => {
+    ['dj', ['teacher', 'dj', 'dancer'], [['Dancer', '/dancers/p1']], ['Teacher']],
+    ['dancer', ['teacher', 'dj', 'dancer'], [['DJ', '/djs/p1']], ['Teacher']],
+    ['dancer', ['teacher', 'dancer'], [], ['Teacher']],
+  ] as const)('%s page of %j: linked chips %j, plain %j', (current, has, links, plain) => {
     roles.mockReturnValue(has);
     row(current);
     for (const [name, href] of links) {
       expect(screen.getByRole('link', { name }).getAttribute('href')).toBe(href);
     }
-    expect(screen.getAllByRole('link')).toHaveLength(links.length);
-    expect(screen.getByText('Also:')).toBeTruthy();
+    expect(screen.queryAllByRole('link')).toHaveLength(links.length);
+    for (const name of plain) expect(screen.getByText(name).closest('a')).toBeNull();
   });
 
-  it('a one-role person gets no row', () => {
+  it('a one-role person gets no bar', () => {
     roles.mockReturnValue(['teacher']);
     row('teacher');
-    expect(screen.queryByText('Also:')).toBeNull();
+    expect(screen.queryByTestId('also-bar')).toBeNull();
   });
 
-  it('no row inside a tab (the tab bar is the navigation)', () => {
+  it('no bar inside a tab (the tab bar is the navigation)', () => {
     roles.mockReturnValue(['teacher', 'dj']);
     row('teacher', true);
-    expect(screen.queryByText('Also:')).toBeNull();
+    expect(screen.queryByTestId('also-bar')).toBeNull();
   });
 });
 

@@ -125,57 +125,46 @@ describe('hook + mapper', () => {
 });
 
 describe('/search page', () => {
-  it('flag ON: exactly one link per person, one People section, count "7"', async () => {
+  // W1 S3: ONE full-width row per person; tags and link are the badges mapping's (roles are
+  // always public, so Teacher shows plain while the teacher pages are closed; the row links
+  // DJ page, else dancer page, else nowhere: /people/:id has no route).
+  const expectedHref = (roles: Role[], open: boolean) =>
+    roles.includes('dj') ? hrefFor('dj', 'X') : roles.includes('dancer') ? hrefFor('dancer', 'X') : roles.includes('teacher') && open ? hrefFor('teacher', 'X') : null;
+
+  it('flag ON: one People section, one row per person, count "7", nothing links to /people/', async () => {
     renderPage();
     // First render in the file: give the lazy chunks time under a loaded full-suite run.
     await screen.findByRole('heading', { name: 'People' }, { timeout: 5000 });
     expect(screen.queryByRole('heading', { name: 'Teachers' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'DJs' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Dancers' })).toBeNull();
-    const links = screen.getAllByRole('link').filter((a) => a.getAttribute('href')?.startsWith('/people/'));
-    // 6 people rows + the teacher-only person, who keeps today's /teachers/:id card.
-    expect(links).toHaveLength(6);
-    expect(screen.getAllByRole('link').filter((a) => a.getAttribute('href') === '/teachers/p0')).toHaveLength(1);
+    expect(screen.getAllByRole('link').filter((a) => a.getAttribute('href')?.startsWith('/people/'))).toHaveLength(0);
+    expect(document.querySelectorAll('[data-person-tag]').length).toBeGreaterThan(0);
     expect(screen.getByText('(7)')).toBeTruthy();
     expect(screen.getByRole('tab', { name: /People/ })).toBeTruthy();
     expect(screen.queryByRole('tab', { name: /Teachers/ })).toBeNull();
   });
 
-  it.each(COMBOS.map((r, i) => [roleText(r), r, i] as const).filter(([, r]) => r.join() !== 'teacher'))('row for %s: role line, aria label, href, telemetry kind', async (_n, roles, i) => {
-    renderPage();
-    const name = `First${i} Last${i}`;
-    const link = await screen.findByRole('link', { name: `${name}, ${roles.map((r) => LABEL[r]).join(', ')}` });
-    expect(link.getAttribute('href')).toBe(`/people/p${i}`);
-    expect(within(link).getByText(roleText(roles))).toBeTruthy();
-    fireEvent.click(link);
-    expect(clickLog).toHaveBeenCalledWith(expect.objectContaining({ kind: roles[0], id: `p${i}` }));
-  });
-
-  it('teacher-only: today\'s Teacher card (no role line), to /teachers/:id, logs teacher', async () => {
-    renderPage();
-    await screen.findByRole('heading', { name: 'People' });
-    const link = screen.getAllByRole('link').find((a) => a.getAttribute('href') === '/teachers/p0')!;
-    expect(link.textContent).toBe('First0 Last0');
-    fireEvent.click(link);
-    expect(clickLog).toHaveBeenCalledWith(expect.objectContaining({ kind: 'teacher', id: 'p0' }));
-  });
-
-  // Teacher pages closed (prod today): no Teacher on any row (review F1+F2).
-  it.each(COMBOS.map((r, i) => [roleText(r), r, i] as const))('teacher pages closed, %s', async (_n, roles, i) => {
-    flagState.teacherDetail = false;
-    renderPage();
-    await screen.findByRole('heading', { name: 'People' });
-    const shown = roles.filter((r) => r !== 'teacher');
-    const name = `First${i} Last${i}`;
-    if (shown.length === 0) {
-      const link = screen.getAllByRole('link').find((a) => a.getAttribute('href') === `/teachers/p${i}`)!;
-      expect(link.textContent).toBe(name);
-      return;
-    }
-    const link = await screen.findByRole('link', { name: `${name}, ${shown.map((r) => LABEL[r]).join(', ')}` });
-    expect(link.getAttribute('href')).toBe(`/people/p${i}`);
-    expect(within(link).getByText(roleText(shown))).toBeTruthy();
-    expect(link.textContent).not.toContain('Teacher');
+  describe.each([true, false])('teacher pages open = %s', (open) => {
+    it.each(COMBOS.map((r, i) => [roleText(r), r, i] as const))('row for %s: tags, aria label, link, telemetry', async (_n, roles, i) => {
+      flagState.teacherDetail = open;
+      renderPage();
+      await screen.findByRole('heading', { name: 'People' });
+      const name = `First${i} Last${i}`;
+      const want = expectedHref(roles, open)?.replace('X', `p${i}`) ?? null;
+      await waitFor(() => expect(document.querySelector(`[data-person-id="p${i}"]`)).not.toBeNull());
+      const row = document.querySelector(`[data-person-id="p${i}"]`)!;
+      expect(row.getAttribute('href')).toBe(want);
+      if (!want) expect(row.getAttribute('data-person-row')).toBe('plain');
+      const tags = Array.from(row.querySelectorAll('[data-person-tag]')).map((e) => e.textContent);
+      expect(tags).toEqual(roles.map((r) => LABEL[r])); // Teacher shows even while its pages are closed
+      if (!open) expect(row.getAttribute('href') ?? '').not.toContain('/teachers/');
+      if (want) {
+        expect(row.getAttribute('aria-label')).toBe(`${name}, ${roles.map((r) => LABEL[r]).join(', ')}`);
+        fireEvent.click(row);
+        expect(clickLog).toHaveBeenCalledWith(expect.objectContaining({ kind: roles[0], id: `p${i}` }));
+      }
+    });
   });
 
   // Review F6: an old ?type= link with v7 on opens People; an empty facet says what to do.
@@ -239,7 +228,7 @@ describe('/search page', () => {
     const long = 'Maria Esperanza de los Angeles Fernandez-Montgomery Wolfeschlegelstein';
     rpc.mockResolvedValue({ data: envelope({ people: [person(9, ['teacher', 'dj', 'dancer'], { display_name: long })], total_count: 1 }), error: null });
     renderPage();
-    const h = (await screen.findByText(long)).closest('h3')!;
+    const h = (await screen.findByText(long)).closest('span.block')!;
     expect(h.className).toMatch(/line-clamp-2|break-words/);
     expect(h.className).not.toMatch(/\btruncate\b/);
   });

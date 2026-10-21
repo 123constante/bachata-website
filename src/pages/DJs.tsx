@@ -1,10 +1,13 @@
 import { motion } from 'framer-motion';
-import { Headphones, Music, Disc3, Radio, Volume2, Mic2 } from 'lucide-react';
+import { Headphones } from 'lucide-react';
+import { useMemo } from 'react';
+import { flags } from '@/lib/featureFlags';
+import { usePeopleBadges } from '@/modules/person-page/badges';
+import { djTile, sortDjsUpcomingFirst } from '@/components/dj/djListModel';
 import { Link } from 'react-router-dom';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { StaggerContainer, StaggerItem } from '@/components/ScrollReveal';
@@ -28,6 +31,8 @@ type DJCard = {
   city_name: string | null;
   city_slug: string | null;
   person_entity_id: string | null;
+  has_upcoming_gig?: boolean | null;
+  next_gig_date?: string | null;
 };
 
 const DJs = () => {
@@ -45,21 +50,25 @@ const DJs = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  const teacherPagesOpen = flags.teacherDetail;
+  const sorted = useMemo(() => sortDjsUpcomingFirst(djs), [djs]);
+  const { badges } = usePeopleBadges(useMemo(() => djs.map((d) => d.id), [djs]));
+
   return (
     <GlobalLayout
       showSubheader={false}
+      gradientPalette="dj"
       hero={{
         emoji: '\u{1F3A7}',
         titleWhite: 'Bachata',
         titleOrange: 'DJs',
         subtitle: 'Discover the DJs behind the music — sensual, traditional, and everything in between.',
-        floatingIcons: [Headphones, Music, Disc3, Radio, Volume2, Mic2],
       }}
     >
       <div className="max-w-6xl mx-auto px-4">
         {/* Grid */}
         {isLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 lg:grid-cols-4 gap-2">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="rounded-2xl border border-border/40 bg-card p-4 space-y-3">
                 <Skeleton className="h-16 w-16 rounded-full mx-auto" />
@@ -74,30 +83,31 @@ const DJs = () => {
             <p className="text-muted-foreground">No DJs yet.</p>
           </div>
         ) : (
-          <StaggerContainer className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {djs.map((dj) => {
+          <StaggerContainer className="grid grid-cols-3 lg:grid-cols-4 gap-2">
+            {sorted.map((dj) => {
               // Measured on prod 2026-09-01: list_public_djs_v1 returns a UUID-shaped
               // display_name for 2 of its 37 rows, the same id fallback
               // get_public_dj_v1 carries. A UUID is truthy, so the old `||` chain
               // rendered it as the card label -- linking to a detail page that now
               // correctly refuses to. Same resolver as the detail page and /dancers.
-              const displayName = renderPublicName(dj, 'DJ');
+              const tile = djTile(dj, renderPublicName(dj, 'DJ'), badges.get(dj.id), teacherPagesOpen);
+              const displayName = tile.name;
               const coverPhoto = Array.isArray(dj.photo_url)
                 ? (dj.photo_url[0] ?? null)
                 : ((dj.photo_url as string | null) ?? null);
               const cityName = dj.city_name;
-              const genres = (dj.genres ?? []).filter(Boolean);
 
               return (
                 <StaggerItem key={dj.id}>
                   <Link
-                  to={`/djs/${dj.id}`}
+                  to={tile.href ?? `/djs/${dj.id}`}
+                  data-testid="dj-tile"
                   onClick={() => emitProfileView({ personId: dj.id, profileType: 'dj', context: 'listing:djs' })}
                 >
                     <motion.div
                       whileHover={{ y: -4, scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="rounded-2xl border border-border/40 bg-card p-4 text-center hover:border-primary/30 hover:shadow-md transition-all h-full flex flex-col"
+                      className="rounded-xl p-2 text-center hover:bg-white/5 transition-colors h-full flex flex-col"
                     >
                       <div className="relative mx-auto mb-3 w-fit">
                         <Avatar className="w-16 h-16 border border-primary/10">
@@ -109,25 +119,19 @@ const DJs = () => {
                         <NationalityFlag code={dj.nationality_code} size={64} />
                       </div>
 
-                      <p className="font-bold text-sm text-foreground leading-tight mb-0.5 line-clamp-1">{displayName}</p>
+                      <p className="font-bold text-sm text-foreground leading-tight mb-0.5 break-words">{displayName}</p>
+                      {tile.playingSoon && (
+                        <p className="text-[12px] font-semibold text-amber-300 mb-0.5" data-testid="playing-soon">Playing soon</p>
+                      )}
                       {cityName && (
                         <p className="text-xs text-muted-foreground mb-2 line-clamp-1">{cityName}</p>
                       )}
 
-                      {genres.length > 0 && (
-                        <div className="flex flex-wrap gap-1 justify-center mt-auto pt-2">
-                          {genres.slice(0, 2).map((g) => (
-                            <Badge key={g} variant="outline" className="text-[10px] px-1.5 py-0 border-primary/25 text-primary/70">
-                              {g}
-                            </Badge>
-                          ))}
-                          {genres.length > 2 && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-border/40 text-muted-foreground">
-                              +{genres.length - 2}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
+                      <div className="mt-auto pt-1 h-[26px] box-content flex items-center justify-center gap-1.5 overflow-hidden" data-testid="role-labels">
+                        {tile.tags.map((t) => (
+                          <span key={t.role} className="text-[12px] leading-none text-muted-foreground">{t.label}</span>
+                        ))}
+                      </div>
                     </motion.div>
                   </Link>
                 </StaggerItem>

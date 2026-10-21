@@ -68,6 +68,7 @@ import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
 import { groupByEventId, stableRowKey } from '@/lib/eventListGrouping';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
 import { pickNationalityCode } from '@/components/people/nationality';
+import { usePeopleBadges, roleTagsFor, nameFor, linkFor, type PersonBadge } from '@/modules/person-page/badges';
 import {
   type EventRow,
   type OrgOccRow,
@@ -385,13 +386,21 @@ const BrowseNightsLink = () => (
   </Link>
 );
 
-const TeamCircle = ({ member }: { member: TeamMember }) => {
+// Name, tags and link come ONLY from the people-badges mapping (badges.ts): the stage name
+// leads where the member is shown as a DJ, the tags are the mapping's, the link is DJ page,
+// else dancer page, else none (a teacher-only member is plain, never a dead end).
+export const TeamCircle = ({ member, badge }: { member: TeamMember; badge: PersonBadge | undefined }) => {
+  const opts = { teacherPagesOpen: flags.teacherDetail };
+  const [imgFailed, setImgFailed] = useState(false);
+  const tags = badge ? roleTagsFor(badge, { ...opts, withStageName: true }) : [];
+  const shownName = nameFor(badge?.roles.includes('dj') ? 'dj' : 'other', { name: member.name, djName: badge?.djName });
+  const href = linkFor(badge, opts);
   const inner = (
     <div className="text-center">
       <div style={{ position: 'relative', aspectRatio: '1', borderRadius: '50%', padding: 2.5, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C)', marginBottom: 6 }}>
         <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%,#33202c,#120c14)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          {member.avatarUrl ? (
-            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(112))} alt={member.name} width={112} height={112} className="w-full h-full object-cover" loading="lazy" />
+          {member.avatarUrl && !imgFailed ? (
+            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(112))} alt={member.name} width={112} height={112} className="w-full h-full object-cover" loading="lazy" onError={() => setImgFailed(true)} />
           ) : (
             <span style={{ fontFamily: SERIF, fontSize: 'clamp(16px,2.5vw,26px)', color: 'rgba(251,239,196,0.8)' }}>{initials(member.name)}</span>
           )}
@@ -399,11 +408,17 @@ const TeamCircle = ({ member }: { member: TeamMember }) => {
         {/* The circle is fluid (about 100px on a phone); 80 keeps the flag inside the page gutter. */}
         <NationalityFlag code={member.nationalityCode} size={80} />
       </div>
-      <div style={{ fontFamily: SERIF, fontSize: 'clamp(13px,1.5vw,18px)', fontWeight: 600, color: D.cream, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflowWrap: 'break-word' }}>{member.name}</div>
-      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 3 }}>{member.role || 'Team'}</div>
+      <div data-team-name style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 600, color: D.cream, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflowWrap: 'break-word' }}>{shownName}</div>
+      {tags.length > 0 && (
+        <div className="flex flex-wrap justify-center" style={{ gap: 4, marginTop: 4 }}>
+          {tags.map((t) => (
+            <span key={t.role} data-team-tag={t.role} style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.2, color: D.gold, border: '1px solid rgba(231,190,110,0.55)', borderRadius: 100, padding: '2px 8px' }}>{t.label}</span>
+          ))}
+        </div>
+      )}
     </div>
   );
-  return member.dancerId ? <Link to={`/dancers/${member.dancerId}`}>{inner}</Link> : <div>{inner}</div>;
+  return href ? <Link to={href} style={{ display: 'block', minHeight: 44 }}>{inner}</Link> : <div>{inner}</div>;
 };
 
 // 44px past rows make a busy year very tall; show the latest few per year.
@@ -748,6 +763,8 @@ const OrganiserProfile = () => {
     if (!teamMembers.length) return null;
     return teamMembers.find((m) => m.isHead) || teamMembers.find((m) => m.isLeader) || teamMembers[0];
   }, [teamMembers]);
+
+  const { badges: teamBadges } = usePeopleBadges(useMemo(() => teamMembers.map((m) => m.dancerId ?? '').filter(Boolean), [teamMembers]));
 
   const orderedTeam = useMemo(
     () => (leader ? [leader, ...teamMembers.filter((m) => m.id !== leader.id)] : teamMembers),
@@ -1456,7 +1473,7 @@ const OrganiserProfile = () => {
             {/* px-3: the nationality sticker stands out past each circle's top-right, so the
                 last column needs room before the page's overflow-x-clip edge. */}
             <div className={orderedTeam.length <= 3 ? 'flex justify-center gap-3 px-3' : 'grid grid-cols-3 gap-3 px-3 lg:grid-cols-8'}>
-              {orderedTeam.map((m) => <div key={m.id} className={cn('min-w-0 max-w-[112px]', orderedTeam.length <= 3 ? 'basis-1/3' : 'mx-auto w-full')}><TeamCircle member={m} /></div>)}
+              {orderedTeam.map((m) => <div key={m.id} className={cn('min-w-0 max-w-[112px]', orderedTeam.length <= 3 ? 'basis-1/3' : 'mx-auto w-full')}><TeamCircle member={m} badge={teamBadges.get(m.dancerId ?? '')} /></div>)}
             </div>
           </section>
         )}
