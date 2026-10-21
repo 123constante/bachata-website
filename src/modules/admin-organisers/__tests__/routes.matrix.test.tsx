@@ -51,6 +51,7 @@ function rpcImpl(isAdmin: boolean) {
       case 'admin_issue_organiser_invite_v1': return ok({ invite_id: 'i9', token: TOKEN, expires_at: '2026-10-18T10:00:00Z', revoked_previous: [] });
       case 'admin_revoke_organiser_invite_v1': return ok({ revoked: 1 });
       case 'admin_add_entity_member_v1': return ok({ id: 'm1' });
+      case 'organiser_invite_preview_v1': return ok({ status: 'open', organiser_name: 'Salsa Norte', inviter_first_name: 'Marta', email_hint: null });
       case 'redeem_organiser_invite_v1': return ok({ ok: true, status: 'redeemed', organiser_id: 'o1', member_role: 'owner' });
       default: return Promise.reject(new Error(`unexpected rpc ${fn}`));
     }
@@ -100,7 +101,7 @@ describe('/admin/organisers x viewer', () => {
     rpcImpl(true);
     mount('/admin/organisers');
     expect(await screen.findByTestId('auth')).toBeTruthy();
-    expect(h.rpc).not.toHaveBeenCalled();
+    expect(h.rpc).not.toHaveBeenCalledWith('redeem_organiser_invite_v1', expect.anything());
   });
 
   it('signed in, not an admin: a plain page that names nothing about the screen', async () => {
@@ -225,7 +226,7 @@ describe('/invite/:token x viewer', () => {
     mount(`/invite/${TOKEN}`);
     const link = (await screen.findByTestId('invite-sign-in')) as HTMLAnchorElement;
     expect(decodeURIComponent(link.getAttribute('href') ?? '')).toContain(`returnTo=/invite/${TOKEN}`);
-    expect(h.rpc).not.toHaveBeenCalled();
+    expect(h.rpc.mock.calls.map((c) => c[0])).toEqual(['organiser_invite_preview_v1']);
   });
 
   it('signed in (a non-admin is fine): redeems once, strips the token, lands on the dashboard', async () => {

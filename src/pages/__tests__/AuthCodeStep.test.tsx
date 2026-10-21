@@ -4,7 +4,7 @@
  *  - survives a page reload for 10 minutes (same e-mail, same step: the same
  *    /auth mode), so a person who reloads while fetching the code is not sent
  *    back to type their e-mail again;
- *  - stops accepting codes after 5 wrong ones and offers "Send a new code"
+ *  - stops accepting codes after 3 wrong ones and offers "Send a new code"
  *    (also across a reload).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -111,35 +111,54 @@ describe('the code step survives a reload for 10 minutes', () => {
   });
 });
 
-describe('5 wrong codes: the box stops accepting and offers "Send a new code"', () => {
-  it('locks after the fifth wrong code; a sixth is never sent; a new code unlocks', async () => {
+describe('3 wrong codes: the box stops accepting and offers "Send a new code"', () => {
+  it('locks after the third wrong code; a fourth is never sent; a new code unlocks', async () => {
     const user = await reachCodeScreen();
-    await typeWrongCodes(user, 5);
+    await typeWrongCodes(user, 3);
     await waitFor(() => expect(box().disabled).toBe(true));
     expect(screen.getByRole('alert').textContent).toMatch(/Send a new code/);
     const send = screen.getByRole('button', { name: 'Send a new code' }) as HTMLButtonElement;
     // Offered at once, not after the resend cooldown.
     expect(send.disabled).toBe(false);
     await user.type(box(), '11111111');
-    expect(mocks.verifyOtp).toHaveBeenCalledTimes(5);
+    expect(mocks.verifyOtp).toHaveBeenCalledTimes(3);
     await user.click(send);
     await waitFor(() => expect(mocks.signInWithOtp).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(box().disabled).toBe(false));
   });
 
-  it('four wrong codes still accept a fifth try', async () => {
+  it('two wrong codes still accept a third try, and say how many are left (flow 4b)', async () => {
     const user = await reachCodeScreen();
-    await typeWrongCodes(user, 4);
+    await typeWrongCodes(user, 1);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('That code is not right. Check the latest email. 2 tries left.'));
+    await waitFor(() => expect(box().disabled).toBe(false));
+    await user.type(box(), '00000000');
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('That code is not right. Check the latest email. 1 try left.'));
     await waitFor(() => expect(box().disabled).toBe(false));
     expect(screen.queryByRole('button', { name: 'Send a new code' })).toBeNull();
   });
 
   it('the lock survives a reload', async () => {
     const user = await reachCodeScreen();
-    await typeWrongCodes(user, 5);
+    await typeWrongCodes(user, 3);
     reload();
     await screen.findByText('Check your email');
     expect(box().disabled).toBe(true);
     expect(screen.getByRole('button', { name: 'Send a new code' })).toBeTruthy();
+  });
+});
+
+describe('an expired code is not a wrong code (flow 4c)', () => {
+  it('says the code ran out, offers a new code at once, and does not spend a try', async () => {
+    mocks.verifyOtp.mockResolvedValue({ error: { code: 'otp_expired', message: 'Token has expired' } });
+    const user = await reachCodeScreen();
+    await typeWrongCodes(user, 1);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('This code has run out. Codes last a few minutes.'));
+    const send = screen.getByRole('button', { name: 'Send a new code' }) as HTMLButtonElement;
+    expect(send.disabled).toBe(false);
+    await user.click(send);
+    await waitFor(() => expect(mocks.signInWithOtp).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(box().disabled).toBe(false));
+    expect(JSON.parse(sessionStorage.getItem('auth_code_step_v1') ?? '{}').wrong).toBe(0);
   });
 });

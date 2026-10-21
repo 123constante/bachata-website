@@ -129,8 +129,8 @@ describe('redeem: every reason has its own message', () => {
     expect(['sign_in_required', 'unconfirmed_account', 'rate_limited', 'authentication_required'].every((r) => !REDEEM_COPY[r].terminal)).toBe(true);
   });
   it('interprets the RPC answers', () => {
-    expect(interpretRedeem({ ok: true, status: 'redeemed', organiser_id: 'o1' }, null)).toEqual({ kind: 'redeemed', organiserId: 'o1', alreadyMember: false });
-    expect(interpretRedeem({ ok: true, status: 'already_member', organiser_id: 'o1', member_role: 'manager' }, null)).toEqual({ kind: 'redeemed', organiserId: 'o1', alreadyMember: true });
+    expect(interpretRedeem({ ok: true, status: 'redeemed', organiser_id: 'o1' }, null)).toEqual({ kind: 'redeemed', organiserId: 'o1', alreadyMember: false, prefill: null });
+    expect(interpretRedeem({ ok: true, status: 'already_member', organiser_id: 'o1', member_role: 'manager' }, null)).toEqual({ kind: 'redeemed', organiserId: 'o1', alreadyMember: true, prefill: null });
     for (const r of REASONS.filter((x) => x !== 'authentication_required')) {
       const out = interpretRedeem({ ok: false, reason: r }, null);
       expect(out).toMatchObject({ kind: 'refused', reason: r });

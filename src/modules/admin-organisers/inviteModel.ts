@@ -178,6 +178,9 @@ export const REDEEM_COPY: Record<string, RedeemCopy> = {
   rate_limited: { title: 'Too many tries', body: 'Too many links were tried from this account in the last hour. Wait an hour, then open this link again.', action: 'home', terminal: false },
   // The server refuses BEFORE consuming the link, so the token must stay in the URL for the way back.
   [PROFILE_INCOMPLETE_CODE]: { title: 'Finish your dancer profile first', body: 'Add your first name, city, dance role and photo, then you will come straight back here and the link is used.', action: 'finish_profile', terminal: false },
+  // The masked hint is filled in by redeemCopy(); without one the body still reads whole.
+  email_mismatch: { title: 'This link is for a different email', body: 'It was sent to another email address. Sign in with that email, or ask for a new link.', action: 'sign_in', terminal: false },
+  email_unproven: { title: 'Use the email link to sign in', body: 'This link is for your email, but you signed in another way. Sign in with an email link or code, then open this link again.', action: 'sign_in', terminal: false },
   invalid: { title: 'This link does not work', body: `It may have been copied incompletely. ${ASK_NEW}`, action: 'home', terminal: true },
   used: { title: 'This link was already used', body: `A link works once. If that was not you, ${ASK_NEW}`, action: 'home', terminal: true },
   revoked: { title: 'This link was withdrawn', body: ASK_NEW, action: 'home', terminal: true },
@@ -188,9 +191,11 @@ export const REDEEM_COPY: Record<string, RedeemCopy> = {
 
 export const REDEEM_FALLBACK: RedeemCopy = { title: 'Something went wrong', body: 'We could not use this link. Check your connection and try again.', action: 'retry', terminal: false };
 
+export interface InvitePrefill { firstName: string | null; cityId: string | null }
+
 export type RedeemOutcome =
-  | { kind: 'redeemed'; organiserId: string; alreadyMember: boolean }
-  | { kind: 'refused'; reason: string; copy: RedeemCopy }
+  | { kind: 'redeemed'; organiserId: string; alreadyMember: boolean; prefill: InvitePrefill | null }
+  | { kind: 'refused'; reason: string; copy: RedeemCopy; emailHint: string | null }
   | { kind: 'failed'; copy: RedeemCopy };
 
 /** redeem_organiser_invite_v1's answer (or the raised error) -> what the landing does next. */
@@ -198,15 +203,82 @@ export function interpretRedeem(data: unknown, error: { message?: string } | nul
   if (error) {
     const msg = error.message ?? '';
     const code = /authentication_required/.test(msg) ? 'authentication_required' : msg.includes(PROFILE_INCOMPLETE_CODE) ? PROFILE_INCOMPLETE_CODE : null;
-    return code ? { kind: 'refused', reason: code, copy: REDEEM_COPY[code] } : { kind: 'failed', copy: REDEEM_FALLBACK };
+    return code ? { kind: 'refused', reason: code, copy: REDEEM_COPY[code], emailHint: null } : { kind: 'failed', copy: REDEEM_FALLBACK };
   }
   const row = (data ?? {}) as Record<string, unknown>;
   if (row.ok === true && (row.status === 'redeemed' || row.status === 'already_member') && typeof row.organiser_id === 'string') {
-    return { kind: 'redeemed', organiserId: row.organiser_id, alreadyMember: row.status === 'already_member' };
+    return { kind: 'redeemed', organiserId: row.organiser_id, alreadyMember: row.status === 'already_member', prefill: parsePrefill(row.prefill) };
   }
   const reason = typeof row.reason === 'string' ? row.reason : '';
   const copy = REDEEM_COPY[reason];
-  return copy ? { kind: 'refused', reason, copy } : { kind: 'failed', copy: REDEEM_FALLBACK };
+  return copy ? { kind: 'refused', reason, copy, emailHint: str(row.invite_email_hint) } : { kind: 'failed', copy: REDEEM_FALLBACK };
+}
+
+/** redeem's `prefill` key; null when absent or empty, so nothing is stored for a link that carries none. */
+export function parsePrefill(raw: unknown): InvitePrefill | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const firstName = str(r.first_name);
+  const cityId = str(r.city_id);
+  return firstName || cityId ? { firstName, cityId } : null;
+}
+
+// ---- preview + "ask for a new link": ONE reason -> screen mapping ----------------------
+
+export type PreviewStatus = 'open' | 'used' | 'revoked' | 'expired';
+export interface InvitePreview { status: PreviewStatus; organiserName: string; inviterFirstName: string | null; emailHint: string | null }
+
+/** organiser_invite_preview_v1: `{}` (malformed/unknown) and anything unreadable -> null. */
+export function parsePreview(raw: unknown): InvitePreview | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const organiserName = str(r.organiser_name);
+  if (!organiserName || !['open', 'used', 'revoked', 'expired'].includes(r.status as string)) return null;
+  return { status: r.status as PreviewStatus, organiserName, inviterFirstName: str(r.inviter_first_name), emailHint: str(r.email_hint) };
+}
+
+/** Reasons whose fix is a NEW link from the sender (not a garbled link, not a sign-in problem). */
+export const NEW_LINK_REASONS: readonly string[] = ['used', 'revoked', 'expired', 'email_mismatch'];
+
+/** The label of the "ask for a new link" control: names the sender when the lookup knows them. */
+export const newLinkLabel = (inviter: string | null | undefined): string => (inviter ? `Ask ${inviter} for a new one` : 'Request a new link');
+
+export interface ReasonScreen extends RedeemCopy {
+  /** Show the "ask for a new link" control (request_new_invite_v1). */
+  offerNewLink: boolean;
+  newLinkLabel: string;
+}
+
+/**
+ * THE mapping from a redeem reason (or a preview status that is already broken) to what any screen
+ * says. The landing, the preview card and the post-Join refusal all call this; none keeps its own words.
+ */
+export function reasonScreen(reason: string, ctx: { organiserName?: string | null; inviterFirstName?: string | null; emailHint?: string | null } = {}): ReasonScreen {
+  const base = REDEEM_COPY[reason] ?? REDEEM_FALLBACK;
+  const body = reason === 'email_mismatch' && ctx.emailHint ? `It was sent to ${ctx.emailHint}. Sign in with that email, or ask for a new link.` : base.body;
+  return { ...base, body, offerNewLink: NEW_LINK_REASONS.includes(reason), newLinkLabel: newLinkLabel(ctx.inviterFirstName) };
+}
+
+/** request_new_invite_v1 answer -> one short line. Rate limit wording is the arc-wide one. */
+export const TRY_LATER_COPY = 'Try again later.';
+export function newLinkResultCopy(data: unknown, error: unknown): { ok: boolean; text: string } {
+  if (error) return { ok: false, text: GENERIC };
+  const r = (data ?? {}) as Record<string, unknown>;
+  if (r.ok === true) return { ok: true, text: 'Request sent. The admin will send you a new link.' };
+  if (r.reason === 'already_requested') return { ok: true, text: 'You already asked. The admin will send a new link.' };
+  if (r.reason === 'rate_limited') return { ok: false, text: TRY_LATER_COPY };
+  return { ok: false, text: 'This link cannot be renewed from here.' };
+}
+
+/** request_signup_access_v1 answer -> a line under the form. */
+export function accessResultCopy(data: unknown, error: unknown): { ok: boolean; text: string } {
+  if (error) return { ok: false, text: GENERIC };
+  const r = (data ?? {}) as Record<string, unknown>;
+  if (r.ok === true) return { ok: true, text: 'Request sent. We will email you when you are in.' };
+  if (r.reason === 'rate_limited') return { ok: false, text: TRY_LATER_COPY };
+  if (r.reason === 'invalid_email') return { ok: false, text: 'Check the email address.' };
+  if (r.reason === 'invalid_note') return { ok: false, text: 'Keep the note under 300 characters.' };
+  return { ok: false, text: GENERIC };
 }
 
 // ---- admin writes: plain-English refusals ----------------------------------------

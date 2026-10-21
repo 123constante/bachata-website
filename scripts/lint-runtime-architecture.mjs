@@ -62,6 +62,7 @@ const RULES = [
       'src/modules/organiser/shared/selfServeApi.ts',
       'src/modules/admin-organisers/inviteModel.ts',
       'src/modules/admin-organisers/__tests__/inviteModel.test.ts',
+      'src/modules/admin-organisers/__tests__/inviteReasons.test.tsx',
       'src/modules/admin-organisers/__tests__/routes.matrix.test.tsx',
       'src/modules/admin-organisers/__tests__/fixup1.test.tsx',
       'src/modules/admin-organisers/__tests__/inviteWalkthrough.test.tsx',

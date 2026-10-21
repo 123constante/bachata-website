@@ -1,3 +1,4 @@
+import { RequestAccess } from "@/components/auth/RequestAccess";
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
@@ -475,6 +476,7 @@ const AuthContent = () => {
           Message us on WhatsApp
         </a>
       )}
+      {fieldErrors.send && fieldErrors.sendInviteOnly && <RequestAccess initialEmail={email} />}
     </>
   );
   const danceRoleMissing = step2Touched && !danceRole;
