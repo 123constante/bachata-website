@@ -17,7 +17,7 @@ import {
   type OptionsRow,
 } from './optionsModel';
 import { Card, FIELD_CLASS, GhostButton, SummaryRow } from '@/modules/organiser/ui';
-import { DisabledRow, LINK_GHOST, LinkRow } from '../blocks';
+import { DisabledRow, LINK_GHOST, LinkRow, ScreenTitle } from '../blocks';
 import { Sheet } from './optionsUi';
 import FeedbackSheet from './FeedbackSheet';
 import SignOutControl from './SignOutControl';
@@ -39,7 +39,7 @@ const OptionsScreen = () => {
     if (err.code === 'no_profile' || err.code === 'profile_mismatch') {
       return (
         <Card variant="padded" testId="dancer-screen-options">
-          <h1 className="m-0 text-[18px] font-extrabold">Options</h1>
+          <ScreenTitle>Options</ScreenTitle>
           <CoupleArt />
           <p role="alert" className="my-[8px] text-[14px]">{err.message}</p>
           <MessageUsLink message={err.code === 'no_profile' ? NO_PROFILE_MESSAGE : PROFILE_HELP_MESSAGE} className={LINK_GHOST} />
@@ -50,7 +50,7 @@ const OptionsScreen = () => {
     }
     return (
       <Card variant="padded" testId="dancer-screen-options">
-        <h1 className="m-0 text-[18px] font-extrabold">Options</h1>
+        <ScreenTitle>Options</ScreenTitle>
         <p role="alert" className="my-[8px] text-[14px]">{LOAD_FAILED_COPY}</p>
         <GhostButton onClick={() => void profile.refetch()}>Retry</GhostButton>
       </Card>
@@ -59,7 +59,7 @@ const OptionsScreen = () => {
   if (!profile.data) {
     return (
       <Card variant="padded" testId="dancer-screen-options">
-        <h1 className="m-0 text-[18px] font-extrabold">Options</h1>
+        <ScreenTitle>Options</ScreenTitle>
         <p className="text-[14px] text-[var(--mut)]">Loading&hellip;</p>
       </Card>
     );
@@ -98,7 +98,7 @@ const OptionsScreen = () => {
 
   return (
     <section data-testid="dancer-screen-options" className="grid gap-[12px]">
-      <h1 className="m-0 text-[18px] font-extrabold">Options</h1>
+      <ScreenTitle>Options</ScreenTitle>
 
       <div className="grid gap-[8px]">
         <Card>{rows.map(renderRow)}</Card>
@@ -118,7 +118,7 @@ const OptionsScreen = () => {
         )}
         <p className={REASON} data-testid="opt-account-settings-line">
           Hide your profile, download your data or delete your account:{' '}
-          <Link to={ACCOUNT_SETTINGS_PATH} className="inline-flex min-h-[44px] items-center text-[var(--gold-fg,#f5865a)]">{ACCOUNT_SETTINGS_LABEL}</Link>
+          <Link to={ACCOUNT_SETTINGS_PATH} className="inline-flex min-h-[44px] items-center text-[var(--gold-fg)]">{ACCOUNT_SETTINGS_LABEL}</Link>
         </p>
       </div>
 

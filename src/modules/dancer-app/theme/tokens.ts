@@ -26,6 +26,18 @@ export const DANCER_TOKENS = {
   '--da-focus': '#FFC2B8',
   /** The no-photo avatar disc (audit H4): >= 3:1 on --da-bg and --da-surface, --da-text on it is AA. */
   '--da-avatar': '#717684',
+  /**
+   * Decorative accents for the line-art pictures (screens/art.tsx) and the confetti (shell/confetti.ts), review N5.
+   * Never text: not in TEXT_PAIRS.
+   */
+  '--da-pop-ember': '#F0703A',
+  '--da-pop-pink': '#E8487F',
+  '--da-pop-violet': '#8A4DFF',
+  '--da-pop-teal': '#4FE0CF',
+  '--da-pop-gold': '#FFCF66',
+  '--da-pop-rose': '#FF9CC0',
+  /** The photo crop and preview well (screens/photo), review N5. A surface, never text. */
+  '--da-photo-well': '#000000',
 } as const;
 
 export type DancerToken = keyof typeof DANCER_TOKENS;

@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Card, EmptyState, GhostButton, SectionLabel } from '@/modules/organiser/ui';
+import { Card, EmptyState, GhostButton } from '@/modules/organiser/ui';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { LevelVote } from './LevelVote';
 import { statusLabel, placeAndTime, type Night } from './nightsModel';
 import { MoonArt } from '../art';
+import { ScreenTitle, SectionTitle } from '../blocks';
 import { DateBlock, StatusPill } from './nightsUi';
+import { FIND_A_NIGHT } from '../../copy/sharedCopy';
 
 /**
  * Audit L22 / L14: the zero-nights state names BOTH ways a night gets saved (the
@@ -14,8 +16,8 @@ import { DateBlock, StatusPill } from './nightsUi';
  */
 export const NO_NIGHTS_LINE = 'No nights saved yet.';
 export const NO_NIGHTS_HOW = 'Tap I\u2019m Going or Interested on any event and it shows up here.';
-/** D130: no Browse events button anywhere in /app/*; the way on is the home link top left. */
-export const NO_NIGHTS_FIND = 'Find a night with the Bachata Calendar link at the top left.';
+/** D130: no Browse events button anywhere in /app/*; the way on is the home link top left. Review S9: ONE sentence app-wide. */
+export const NO_NIGHTS_FIND = FIND_A_NIGHT;
 export const NO_UPCOMING_LINE = 'No upcoming nights.';
 import { useMyNights } from './useMyNights';
 
@@ -68,7 +70,7 @@ const NightsScreen = () => {
 
   return (
     <div data-testid="dancer-screen-nights" className="grid gap-[12px]">
-      <h1 className="m-0 text-[20px] font-extrabold">Nights</h1>
+      <ScreenTitle>Nights</ScreenTitle>
       {isLoading && <p className="text-[var(--mut)]" role="status">Loading your nights&hellip;</p>}
       {isError && (
         <Card variant="padded" role="alert" className="grid gap-[8px]">
@@ -92,7 +94,7 @@ const NightsScreen = () => {
       {!isLoading && !isError && (nights.upcoming.length > 0 || nights.past.length > 0) && (
         <>
           <section aria-label="Upcoming nights" data-testid="nights-upcoming">
-            <SectionLabel>Upcoming</SectionLabel>
+            <SectionTitle>Upcoming</SectionTitle>
             <Card variant="padded" className="py-[6px]">
               {nights.upcoming.length === 0 ? (
                 <p className="my-[10px] text-[14px]" data-testid="nights-upcoming-empty">
@@ -108,7 +110,7 @@ const NightsScreen = () => {
             </Card>
           </section>
           <section aria-label="Past nights" data-testid="nights-past">
-            <SectionLabel>Past</SectionLabel>
+            <SectionTitle>Past</SectionTitle>
             <Card variant="padded" className="py-[6px]">
               {nights.past.length === 0 ? (
                 <p className="my-[10px] text-[14px] text-[var(--mut)]" data-testid="nights-past-empty">

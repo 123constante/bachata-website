@@ -109,3 +109,24 @@ describe('the sheet is imported by the shell only', () => {
     expect(importers).toEqual(['src/modules/dancer-app/shell/DancerAppShell.tsx']);
   });
 });
+
+describe('one focus ring for every control in the dancer app (review N6)', () => {
+  // SummaryRow / Chip buttons, the hero, lineup and nights links and the inputs fell back to the browser's 1px ring;
+  // only .da-tap had the 2px --da-focus one. One rule on the dancer root now covers every focusable kind. Written as a
+  // plain selector list, not :is(a, button, ...): the scope check above splits selector lists on commas.
+  const KINDS = ['a', 'button', 'input', 'select', 'textarea', '[role="button"]', '[role="radio"]', '[role="switch"]'];
+  const want = KINDS.map((k) => `${SCOPE} ${k}:focus-visible`);
+  const body = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = [...body.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find((r) => {
+    const sels = r[1].split(',').map((s) => s.trim());
+    return want.every((w) => sels.includes(w));
+  });
+  const focus = rule ? rule[2] : '';
+  it('ONE rule lists every focusable kind, each scoped to the dancer root', () => {
+    expect(focus).not.toBe('');
+  });
+  it('draws the 2px --da-focus outline, offset 2px', () => {
+    expect(focus).toMatch(/outline:\s*2px solid var\(--da-focus\)/);
+    expect(focus).toMatch(/outline-offset:\s*2px/);
+  });
+});

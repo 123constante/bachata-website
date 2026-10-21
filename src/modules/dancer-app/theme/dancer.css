@@ -26,6 +26,13 @@
   --da-on-gradient: #FFFFFF;
   --da-focus: #FFC2B8;
   --da-avatar: #717684;
+  --da-pop-ember: #F0703A;
+  --da-pop-pink: #E8487F;
+  --da-pop-violet: #8A4DFF;
+  --da-pop-teal: #4FE0CF;
+  --da-pop-gold: #FFCF66;
+  --da-pop-rose: #FF9CC0;
+  --da-photo-well: #000000;
   --da-radius: 14px;
   --da-tap: 44px;
   --da-header-h: 52px;
@@ -70,6 +77,20 @@
 }
 
 [data-profile="dancer"] .da-tap:focus-visible {
+  outline: 2px solid var(--da-focus);
+  outline-offset: 2px;
+}
+
+/* Review N6: the same ring on every control, not only .da-tap (rows, chips, links and inputs fell back to the
+   browser's 1px ring). A plain list, not :is(a, button, ...), so every selector starts with the dancer scope. */
+[data-profile="dancer"] a:focus-visible,
+[data-profile="dancer"] button:focus-visible,
+[data-profile="dancer"] input:focus-visible,
+[data-profile="dancer"] select:focus-visible,
+[data-profile="dancer"] textarea:focus-visible,
+[data-profile="dancer"] [role="button"]:focus-visible,
+[data-profile="dancer"] [role="radio"]:focus-visible,
+[data-profile="dancer"] [role="switch"]:focus-visible {
   outline: 2px solid var(--da-focus);
   outline-offset: 2px;
 }

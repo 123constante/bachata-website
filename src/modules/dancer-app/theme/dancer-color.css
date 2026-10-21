@@ -19,6 +19,23 @@
   --da-gold-soft: rgba(255, 207, 102, 0.14);
 }
 
+/*
+ * Review S7: the shared HideSurnameSwitch reads shadcn variables (HSL triplets, src/index.css).
+ * Mapped to Ember here so the knob is light on the track and the box uses the Ember edge and mute.
+ * Values are the Ember tokens in HSL: --fg #f1f2f4, --btn #f0703a, --line-strong #7b828d,
+ * --line #3d4148, --mut #a3a9b3. The component file itself stays untouched (isolation check).
+ */
+[data-profile="dancer"] [data-testid="hide-surname-switch"] {
+  --background: 220 12% 95%;
+  --primary: 18 86% 58%;
+  --input: 217 7% 52%;
+  --border: 218 8% 26%;
+  --muted-foreground: 218 10% 67%;
+  --ring: 18 86% 58%;
+}
+[data-profile="dancer"] [data-testid="hide-surname-switch"] label { font-size: 15px; font-weight: 600; }
+[data-profile="dancer"] [data-testid="hide-surname-switch"] p { font-size: 13px; }
+
 /* Faint violet / ember glow in the top corners of the graphite ground. */
 [data-profile="dancer"].dancer-app {
   background:
@@ -32,9 +49,6 @@
   padding: 16px;
   color: #fff;
   background: var(--da-sun-scrim), var(--da-sun);
-}
-[data-profile="dancer"] .da-hero--flyer {
-  background: var(--da-sun-scrim), linear-gradient(120deg, #13877d 0%, #5b3fd6 100%);
 }
 
 [data-profile="dancer"] .da-ring-avatar {
@@ -190,15 +204,32 @@
   font-size: 14px;
 }
 
-/* "How your page looks": coloured round ticks. */
-[data-profile="dancer"] .da-ticks li { display: flex; align-items: center; gap: 8px; }
-[data-profile="dancer"] .da-ticks li::before {
-  content: "";
-  flex: 0 0 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--da-teal);
+
+/*
+ * ---- Home (review fix pass, Agent B: S4) ----
+ * Hero "See event": the one primary on Home, full-width pill on the gradient. Light fill, dark text, both
+ * tokens (--da-on-gradient #fff / --da-on-accent #1D0A03, about 19:1). Two classes deep so .da-tap's
+ * 10px radius (dancer.css) never wins on import order.
+ */
+[data-profile="dancer"] .da-hero .da-hero-cta {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--da-on-gradient);
+  color: var(--da-on-accent);
+  font-size: 18px;
+  font-weight: 800;
+  text-decoration: none;
 }
-[data-profile="dancer"] .da-ticks li:nth-child(4n + 2)::before { background: var(--da-violet); }
-[data-profile="dancer"] .da-ticks li:nth-child(4n + 3)::before { background: var(--da-gold); }
-[data-profile="dancer"] .da-ticks li:nth-child(4n + 4)::before { background: var(--da-rose); }
+[data-profile="dancer"] .da-hero .da-hero-cta:active { opacity: 0.85; }
+/* Profile strength: one full-width row (ring, title over next step, chevron), as the prototype. */
+[data-profile="dancer"] .da-strength-row {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+}

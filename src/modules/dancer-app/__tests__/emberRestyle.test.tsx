@@ -200,4 +200,53 @@ describe('D119 Edit: back button and "Discard changes?"', () => {
     expect(await screen.findByText('Discard changes?')).toBeTruthy();
     expect(r.location()).toBe('/app/me/edit');
   });
+  it('S1: Change photo goes through the sheet; Discard then opens the photo screen', async () => {
+    const r = await edit();
+    type('Changed Name');
+    fireEvent.click(screen.getByTestId('edit-change-photo'));
+    expect(await screen.findByText('Discard changes?')).toBeTruthy();
+    expect(r.location()).toBe('/app/me/edit');
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(r.location()).toBe('/app/me/photo?return=/app/me/edit'));
+  });
+  it('S1: a profile-switcher row goes through the sheet; Discard then switches', async () => {
+    h.sides = [{ kind: 'dancer', key: 'dancer', firstName: 'Ana', avatarUrl: null, to: '/app/home' }, { kind: 'organiser', key: 'o1', organiserId: 'o1', name: 'Soho Nights', avatarUrl: null, to: '/account/o?o=o1' }];
+    const r = await edit();
+    type('Changed Name');
+    fireEvent.click(await screen.findByTestId('profile-switcher-button'));
+    fireEvent.click(await screen.findByTestId('profile-switcher-side-o1'));
+    expect(await screen.findByText('Discard changes?')).toBeTruthy();
+    expect(r.location()).toBe('/app/me/edit');
+    // The switcher closes so the discard sheet is the one on screen.
+    expect(screen.queryByTestId('profile-switcher-sheet')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(r.location()).toBe('/account/o?o=o1'));
+  });
+  it('S1: a profile-switcher row switches straight away when nothing changed', async () => {
+    h.sides = [{ kind: 'dancer', key: 'dancer', firstName: 'Ana', avatarUrl: null, to: '/app/home' }, { kind: 'organiser', key: 'o1', organiserId: 'o1', name: 'Soho Nights', avatarUrl: null, to: '/account/o?o=o1' }];
+    const r = await edit();
+    fireEvent.click(await screen.findByTestId('profile-switcher-button'));
+    fireEvent.click(await screen.findByTestId('profile-switcher-side-o1'));
+    await waitFor(() => expect(r.location()).toBe('/account/o?o=o1'));
+    expect(screen.queryByText('Discard changes?')).toBeNull();
+  });
+  it('S1: closing the tab or reloading asks the browser to confirm only while there are unsaved edits', async () => {
+    await edit();
+    const unload = () => {
+      const ev = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    expect(unload()).toBe(false);
+    type('Changed Name');
+    expect(unload()).toBe(true);
+  });
+  it('N7: Discard is quiet danger text, not a ghost button', async () => {
+    await edit();
+    type('Changed Name');
+    fireEvent.click(screen.getByTestId('edit-header-back'));
+    const discard = await screen.findByRole('button', { name: 'Discard' });
+    expect(discard.getAttribute('data-testid')).toBe('edit-discard');
+    expect(discard.className).toContain('text-[var(--danger)]');
+  });
 });

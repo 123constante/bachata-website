@@ -46,9 +46,16 @@ const parsePerson = (v: unknown): LineupPerson => {
   };
 };
 
+/**
+ * Review N3: ONE row per profile_id (the first wins: the RPC sorts by most recent night), so the list key never
+ * collides. `total` is the RPC's count before any cap; the screen says "and N more" only when it is above the rows.
+ */
 export const parseLineupPeople = (data: unknown): LineupPeople => {
   if (!isRecord(data) || typeof data.total !== 'number' || !Array.isArray(data.people)) throw new Error('lineup people: wrong shape');
-  return { total: data.total, people: data.people.map(parsePerson) };
+  const seen = new Set<string>();
+  const people = data.people.map(parsePerson).filter((p) => (seen.has(p.profile_id) ? false : (seen.add(p.profile_id), true)));
+  // A dropped duplicate is not a person left out, so it comes off the total too.
+  return { total: data.total - (data.people.length - people.length), people };
 };
 
 export const fetchLineupPeople = async (): Promise<LineupPeople> => {

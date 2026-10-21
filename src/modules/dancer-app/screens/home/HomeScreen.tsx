@@ -1,7 +1,8 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/modules/organiser/ui';
-import { LINK_GHOST_SM, TILE_CLASS } from '../blocks';
+import { ChevronRight } from 'lucide-react';
+import { LINK_GHOST_SM, TEXT_ACTION, TILE_CLASS } from '../blocks';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { useAuth } from '@/hooks/useAuth';
 import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
@@ -25,7 +26,7 @@ import NoProfileWayOut from '../options/NoProfileWayOut';
 import { CoupleArt } from '../art';
 import { Avatar, MessageUsLink } from '../me/ui';
 import { NO_PROFILE_MESSAGE } from '../../api/messageUs';
-import { HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../../copy/sharedCopy';
+import { FIND_A_NIGHT, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../../copy/sharedCopy';
 
 const path = (id: 'nights' | 'me' | 'options') => DANCER_TABS.find((t) => t.id === id)?.path ?? '/app';
 
@@ -60,9 +61,9 @@ const Ring = ({ pct }: { pct: number }) => (
     role="img"
     aria-label={`Profile strength ${pct}%`}
     className="da-strength-ring"
-    style={{ width: 74, height: 74, '--da-pct': `${pct}%` } as CSSProperties}
+    style={{ width: 56, height: 56, flex: '0 0 auto', '--da-pct': `${pct}%` } as CSSProperties}
   >
-    <span style={{ width: 58, height: 58, fontSize: 16 }}>{pct}%</span>
+    <span style={{ width: 46, height: 46, fontSize: 14 }}>{pct}%</span>
   </div>
 );
 
@@ -72,7 +73,7 @@ const Message = ({ children }: { children: ReactNode }) => (
 
 const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
   const { user } = useAuth();
-  const { nights, todayKey, isError, isLoading } = useMyNights();
+  const { nights, todayKey, isError, isLoading, retry } = useMyNights();
   const hero = nextNight(nights.upcoming);
   // F7 (owner decision): the tile and the strip read ONE number from ONE source,
   // my_dancer_stats_v1.nights_going_upcoming (scheduled nights only, so a cancelled
@@ -130,7 +131,8 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
             <div style={{ fontSize: 14, marginBottom: 10 }}>
               {[fullDate(hero.date), placeAndTime(hero)].filter(Boolean).join(' \u00B7 ')} &middot; {statusLabel(hero)}
             </div>
-            <a href={hero.href} style={{ ...buttonStyle, background: '#fff', color: '#1A0F0B' }}>See event</a>
+            {/* Review S4: full width, 52px+, light fill and dark text from the tokens (the one primary on Home). */}
+            <a href={hero.href} className="da-tap da-hero-cta">See event</a>
           </>
         ) : (
           <>
@@ -140,8 +142,12 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
             </div>
             {!isLoading && !isError && (
               <p className="da-muted" style={{ margin: 0, fontSize: 14 }}>
-                Find one with the Bachata Calendar link at the top left.
+                {FIND_A_NIGHT}
               </p>
+            )}
+            {/* Review S2: a failure state always has one action. */}
+            {isError && (
+              <button type="button" className={TEXT_ACTION} onClick={retry}>Try again</button>
             )}
           </>
         )}
@@ -149,14 +155,17 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
 
       <RateNudge candidates={nudgeCandidates(nights.past, todayKey)} todayKey={todayKey} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Link to={path('me')} data-testid="tile-strength" className={`${TILE_CLASS} da-tile-rose`} style={{ ...tile }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Ring pct={profile.strength.pct} />
-          </div>
-          <span style={{ fontSize: 13 }} data-testid="tile-strength-next">
-            {nextStepLine(profile)}
+      {/* Review S4: one column; strength is the prototype's full-width row (ring, title, next step, chevron). */}
+      <div style={{ display: 'grid', gap: 10 }}>
+        <Link to={path('me')} data-testid="tile-strength" className={`${TILE_CLASS} da-tile-rose da-strength-row`}>
+          <Ring pct={profile.strength.pct} />
+          <span style={{ minWidth: 0, flex: 1 }}>
+            <b style={{ display: 'block', fontSize: 15 }}>Profile strength</b>
+            <span style={{ display: 'block', fontSize: 13 }} data-testid="tile-strength-next">
+              {nextStepLine(profile)}
+            </span>
           </span>
+          <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
         </Link>
         {GOING_CHECKIN_ENABLED && (
         <Link to={path('nights')} data-testid="tile-going" className={TILE_CLASS} style={{ ...tile }}>

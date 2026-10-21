@@ -79,7 +79,16 @@ export const DancerAppShell = () => {
             {FOCUS_NOT_NOW_LABEL}
           </Link>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}
+            // Review S1: the shared switcher's rows (portalled, but React events still reach here) go
+            // through the same leave guard. Only preventDefault: the row's own onClick still closes the
+            // switcher, and react-router's Link skips navigating once the default is prevented.
+            onClickCapture={(e) => {
+              const href = e.target instanceof Element ? e.target.closest('a[href]')?.getAttribute('href') : null;
+              if (href && guardRef.current && !guardRef.current(href)) e.preventDefault();
+            }}
+          >
             {/* A fragment fallback: ErrorBoundary treats a falsy one as "show the default error card". */}
             <ErrorBoundary fallback={<></>}>
               <Suspense fallback={null}>

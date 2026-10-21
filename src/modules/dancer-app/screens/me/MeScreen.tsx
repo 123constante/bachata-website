@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
-import { Card, SectionLabel } from '@/modules/organiser/ui';
+import { Card } from '@/modules/organiser/ui';
 import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
 import { mainAction, nextStepCopy, profileName, roleCityLine } from './model';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, HIDDEN_STATE_WORD } from '../../copy/sharedCopy';
-import { DisabledRow, LINK_GHOST_SM, LINK_PRIMARY, LinkRow } from '../blocks';
+import { DisabledRow, LINK_GHOST_SM, LINK_PRIMARY, LinkRow, ScreenTitle, SectionTitle } from '../blocks';
 import { Avatar, QueryGate, StrengthBar } from './ui';
 
 /**
@@ -22,7 +22,7 @@ const MeScreen = () => {
 
   return (
     <section data-testid="dancer-screen-me" className="grid gap-[12px]">
-      <h1 className="m-0 text-[14px] font-bold text-[var(--mut)]">Me</h1>
+      <ScreenTitle>Me</ScreenTitle>
 
       {!p.is_active && (
         <Card variant="padded" role="status" testId="me-paused" className="border-[var(--danger)]">
@@ -68,7 +68,7 @@ const MeScreen = () => {
       </Card>
 
       <div>
-        <SectionLabel as="p">My profile</SectionLabel>
+        <SectionTitle as="p">My profile</SectionTitle>
         <Card>
           {!action.isEdit && <LinkRow to="/app/me/edit" label="Edit my profile" testId="me-edit" />}
           <LinkRow to="/app/page" label="My page: how it looks and who visited" testId="me-my-page" />

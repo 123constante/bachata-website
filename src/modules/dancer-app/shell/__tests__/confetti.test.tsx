@@ -2,7 +2,7 @@
 /** D121 confetti: fires on "You're in" and on strength crossing 70 / reaching 100; creates NOTHING under reduced motion. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
-import { cleanup, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 
 vi.mock('@/hooks/useAuth', async (importOriginal) =>
   (await import('@/modules/dancer-app/shell/testAuth')).authModuleMock(importOriginal));
@@ -71,5 +71,17 @@ describe('the triggers', () => {
     renderInShell({ path: '/app/welcome', backend: { shape: 'fourFieldComplete' } });
     await screen.findByTestId('onboarding-in-card');
     expect(pieces()).toBe(0);
+  });
+  it('review N1: a save on onboarding that crosses 70 and lands on "You\'re in" bursts ONCE, not twice', async () => {
+    motion(false);
+    const profile = makeProfile({ first_name: 'Ana', based_city_id: CITY_LONDON.id, avatar_url: 'https://img.example/a.jpg' });
+    expect(profile.strength.pct).toBeLessThan(70);
+    renderInShell({ path: '/app/welcome', backend: { profile } });
+    await screen.findByTestId('onboarding-role');
+    fireEvent.click((await screen.findAllByText('Both')).map((n) => n.closest('button')).find(Boolean) as HTMLElement);
+    fireEvent.click((await screen.findAllByText('Continue')).map((n) => n.closest('button')).find(Boolean) as HTMLElement);
+    await screen.findByTestId('onboarding-in-card');
+    expect(document.querySelectorAll('.da-confetti').length).toBe(1);
+    expect(pieces()).toBe(36);
   });
 });

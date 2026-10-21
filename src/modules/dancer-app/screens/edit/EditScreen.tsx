@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { MouseEvent } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { Card, GhostButton, PrimaryButton, SheetView } from '@/modules/organiser/ui';
-import { LINK_GHOST, TEXT_ACTION } from '../blocks';
+import { LINK_GHOST, ScreenTitle, TEXT_ACTION } from '../blocks';
 import { useLeaveGuard } from '../../shell/leaveGuard';
 import { useMutation } from '@tanstack/react-query';
 import { CityPicker } from '@/components/ui/city-picker';
@@ -40,6 +40,12 @@ import { ChipChoice, ChipListInput, Field, INPUT_CLASS, TextInput } from './fiel
 import { SAVE_DONE, chipFor, nationalityCodeForPick, styleChipOptions } from './editModel';
 
 type ServerErrors = Partial<Record<FormFieldId, string>>;
+
+/**
+ * Review S7: the shared CityPicker's trigger is a shadcn outline Button (black fill, rem text).
+ * These overrides make it the Ember input the other fields use; `flex` beats INPUT_CLASS's `block`.
+ */
+const PICKER_CLASS = `${INPUT_CLASS} flex items-center justify-between font-normal hover:bg-[var(--card2)] hover:text-[var(--fg)]`;
 
 /** Where a server error belongs. A code the client did not predict (no field) goes to the top with Retry. */
 const placeServerError = (err: unknown, delta: DancerDelta): { field: ServerErrors; top: string | null } => {
@@ -145,6 +151,18 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
     e.preventDefault();
     setLeaveTo(to);
   };
+  // Closing the tab or reloading cannot show the sheet; the browser's own "Leave site?" asks instead.
+  // Known gap (review S1): browser / iOS swipe back is not caught -- /app/* is under a plain
+  // BrowserRouter, and a history blocker needs a data router.
+  useEffect(() => {
+    if (!dirty) return;
+    const onUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onUnload);
+    return () => window.removeEventListener('beforeunload', onUnload);
+  }, [dirty]);
 
   const reason = saveDisabledReason(delta, errors, mutation.isPending);
   // A programmatic submit with an empty delta sends NO request (the button is also disabled).
@@ -192,10 +210,10 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
       className="grid gap-[12px]"
     >
       <div className="flex items-center gap-[4px]">
-        <Link to="/app/me" onClick={leave('/app/me')} className="da-tap flex-none basis-[44px]" aria-label="Back" data-testid="edit-header-back">
+        <Link to="/app/me" onClick={leave('/app/me')} className="da-tap inline-flex flex-none basis-[44px] items-center justify-center" aria-label="Back" data-testid="edit-header-back">
           <ChevronLeft aria-hidden="true" className="h-[24px] w-[24px]" />
         </Link>
-        <h1 className="m-0 text-[14px] font-bold text-[var(--mut)]">Edit my profile</h1>
+        <ScreenTitle>Edit my profile</ScreenTitle>
       </div>
 
       {topError && (
@@ -212,7 +230,12 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
           <Avatar profile={profile} size={64} />
           <div className="min-w-0 flex-1">
             <p className="m-0 break-words text-[15px] font-bold">{profileName(profile)}</p>
-            <Link to={`${PHOTO_PATH}?return=/app/me/edit`} className={`${TEXT_ACTION} no-underline`} data-testid="edit-change-photo">
+            <Link
+              to={`${PHOTO_PATH}?return=/app/me/edit`}
+              onClick={leave(`${PHOTO_PATH}?return=/app/me/edit`)}
+              className={`${TEXT_ACTION} no-underline`}
+              data-testid="edit-change-photo"
+            >
               {profile.avatar_url ? 'Change photo' : 'Add photo'}
             </Link>
           </div>
@@ -233,7 +256,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
         <HideSurnameRow profile={profile} />
 
         <Field id="based_city_id" label="City" error={shown('based_city_id')}>
-          <CityPicker id="based_city_id" value={draft.based_city_id || undefined} onChange={(id) => set('based_city_id', id)} placeholder="Pick your city" className="min-h-[48px] w-full" />
+          <CityPicker id="based_city_id" value={draft.based_city_id || undefined} onChange={(id) => set('based_city_id', id)} placeholder="Pick your city" className={PICKER_CLASS} />
           {/* Audit M28: the picker's own city request is switched off; this is the way on. */}
           <p className="m-0 text-[14px] text-[var(--mut)]">
             City not in the list?{' '}
@@ -377,15 +400,19 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
       <SheetView open={leaveTo !== null} onOpenChange={(o) => !o && setLeaveTo(null)} title="Discard changes?" description="You have changes that are not saved yet.">
         <div className="grid gap-[8px]">
           <PrimaryButton onClick={() => setLeaveTo(null)}>Keep editing</PrimaryButton>
-          <GhostButton
+          {/* Review N7: quiet danger text, as the prototype's sheets do. */}
+          <button
+            type="button"
+            data-testid="edit-discard"
             onClick={() => {
               const to = leaveTo;
               setLeaveTo(null);
               if (to) navigate(to);
             }}
+            className="min-h-[44px] w-full bg-transparent text-[15px] font-semibold text-[var(--danger)]"
           >
             Discard
-          </GhostButton>
+          </button>
         </div>
       </SheetView>
     </form>

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { GhostButton as BlockGhost, PrimaryButton as BlockPrimary, Field as BlockField, FIELD_CLASS } from '@/modules/organiser/ui';
 import { nextStepLine, type NextStepProfile } from '../../api/nextStep';
+import { ScreenTitle } from '../blocks';
 
 /** Small presentational pieces for the onboarding cards, on the rebuild's blocks. Sizes in px (the phone html font-size trap). */
 
@@ -43,9 +44,8 @@ export const Tag = ({ children, onGradient }: { children: ReactNode; onGradient?
   </span>
 );
 
-export const Question = ({ children }: { children: ReactNode }) => (
-  <h1 className={`${WRAP} mx-0 mb-[12px] mt-0 text-[30px] font-bold leading-[1.1]`}>{children}</h1>
-);
+/** The card's question is the screen title (review S6: the ONE title style), wrapping long names. */
+export const Question = ({ children }: { children: ReactNode }) => <ScreenTitle className={`${WRAP} mb-[12px]`}>{children}</ScreenTitle>;
 
 export const PrimaryButton = ({ children, onClick, disabled, busy, testId }: { children: ReactNode; onClick: () => void; disabled?: boolean; busy?: boolean; testId?: string }) => (
   <BlockPrimary className="h-[48px]" onClick={onClick} disabled={disabled || busy} testId={testId ?? 'onboarding-continue'}>

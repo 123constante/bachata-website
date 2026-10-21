@@ -23,7 +23,7 @@ import { photoScreenDeps, returnPathFor } from './photoScreenDeps';
 import { PhotoFlowError, replacePhoto } from './photoFlow';
 import { useMyDancerEdit, usePutMyDancerEdit } from '../../api/useMyDancerEdit';
 import { Card, GhostButton, PrimaryButton } from '@/modules/organiser/ui';
-import { LINK_GHOST, LINK_PRIMARY } from '../blocks';
+import { LINK_GHOST, LINK_PRIMARY, ScreenTitle, StickyActions } from '../blocks';
 
 const BOX = 300; // CSS px of the square crop box
 const NUDGE = 12; // box px per arrow key press
@@ -39,10 +39,17 @@ const toBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not prepare the photo'))), 'image/jpeg', OUTPUT_QUALITY),
   );
 
+/**
+ * Review N5: the crop well and the guide line, from the --da-* tokens (no hex here). The well stays near-black so the
+ * photo's edges read against it; the guide is white over any photo.
+ */
+const PHOTO_WELL = 'var(--da-photo-well)';
+const GUIDE_INK = 'var(--da-text)';
+
 const GuideOverlay = () => (
   <svg viewBox="0 0 100 100" aria-hidden="true" data-testid="photo-guide" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-    <ellipse cx="50" cy="38" rx="17" ry="22" fill="none" stroke="#fff" strokeWidth="1" strokeDasharray="3 2.5" opacity="0.9" />
-    <path d="M12 96 C14 74 30 66 50 66 C70 66 86 74 88 96" fill="none" stroke="#fff" strokeWidth="1" strokeDasharray="3 2.5" opacity="0.9" />
+    <ellipse cx="50" cy="38" rx="17" ry="22" fill="none" style={{ stroke: GUIDE_INK }} strokeWidth="1" strokeDasharray="3 2.5" opacity="0.9" />
+    <path d="M12 96 C14 74 30 66 50 66 C70 66 86 74 88 96" fill="none" style={{ stroke: GUIDE_INK }} strokeWidth="1" strokeDasharray="3 2.5" opacity="0.9" />
   </svg>
 );
 
@@ -226,34 +233,53 @@ const PhotoScreen = () => {
     </Link>
   ) : null;
 
+  // Review N8: each phase is its words in a Card, then its buttons pinned at the bottom (StickyActions, prototype .foot).
+  // The bar sits OUTSIDE the Card: Card is overflow-hidden, which would stop it sticking.
+  const hasStatus = profileQuery.isError || profileQuery.isLoading || !online;
   return (
-    <Card variant="padded" data-testid="dancer-screen-photo" aria-labelledby="photo-title" className="p-[14px]">
-      <h1 id="photo-title" className="m-0 text-[20px] font-extrabold">
-        Your photo
-      </h1>
+    <section data-testid="dancer-screen-photo" aria-labelledby="photo-title" className="grid gap-[12px]">
+      <ScreenTitle id="photo-title">Your photo</ScreenTitle>
 
-      {profileQuery.isError && (
-        <div role="alert" className={NOTE}>
-          <p className="m-0 text-[var(--danger)]">We could not load your profile, so we cannot save a photo yet. Check your connection and try again.</p>
-          <GhostButton className="mt-[8px]" onClick={() => void profileQuery.refetch()}>
-            Try again
-          </GhostButton>
-        </div>
-      )}
-      {profileQuery.isLoading && <p className={NOTE_MUTED}>Loading&hellip;</p>}
-
-      {!online && (
-        <p role="status" data-testid="photo-offline" className={NOTE_DANGER}>
-          You are offline. You can still pick and crop a photo; saving needs a connection.
-        </p>
+      {hasStatus && (
+        <Card variant="padded" className="p-[14px] [&>*:first-child]:mt-0">
+          {profileQuery.isError && (
+            <div role="alert" className={NOTE}>
+              <p className="m-0 text-[var(--danger)]">We could not load your profile, so we cannot save a photo yet. Check your connection and try again.</p>
+              <GhostButton className="mt-[8px]" onClick={() => void profileQuery.refetch()}>
+                Try again
+              </GhostButton>
+            </div>
+          )}
+          {profileQuery.isLoading && <p className={NOTE_MUTED}>Loading&hellip;</p>}
+          {!online && (
+            <p role="status" data-testid="photo-offline" className={NOTE_DANGER}>
+              You are offline. You can still pick and crop a photo; saving needs a connection.
+            </p>
+          )}
+        </Card>
       )}
 
       {phase === 'pick' && (
-        <div data-testid="photo-pick">
-          <p className={NOTE_MUTED}>
-            Head and shoulders, facing the camera. This is how people find you.
-          </p>
-          <div className="mt-[12px] grid gap-[8px]">
+        <div data-testid="photo-pick" className="grid gap-[12px]">
+          <Card variant="padded" className="p-[14px] [&>*:first-child]:mt-0">
+            <p className={NOTE_MUTED}>
+              Head and shoulders, facing the camera. This is how people find you.
+            </p>
+            <p className={NOTE_MUTED}>
+              If your camera does not open, allow camera access for this site in your browser settings, or choose from your photos instead.
+            </p>
+            {refusal && (
+              <p role="alert" data-testid="photo-refusal" className={NOTE_DANGER}>
+                {refusal} Pick another photo to carry on.
+              </p>
+            )}
+            {current?.avatar_url && (
+              <p className={NOTE_MUTED}>
+                Your current photo stays until you save a new one.
+              </p>
+            )}
+          </Card>
+          <StickyActions testId="photo-actions">
             <label className={`${LINK_PRIMARY} cursor-pointer`}>
               Take photo
               <input type="file" accept="image/*" capture="user" onChange={onFile} style={inputStyle} data-testid="photo-input-camera" aria-label="Take photo" />
@@ -263,59 +289,48 @@ const PhotoScreen = () => {
               <input type="file" accept="image/*" onChange={onFile} style={inputStyle} data-testid="photo-input-library" aria-label="Choose from my photos" />
             </label>
             {backLink}
-          </div>
-          <p className={NOTE_MUTED}>
-            If your camera does not open, allow camera access for this site in your browser settings, or choose from your photos instead.
-          </p>
-          {refusal && (
-            <p role="alert" data-testid="photo-refusal" className={NOTE_DANGER}>
-              {refusal} Pick another photo to carry on.
-            </p>
-          )}
-          {current?.avatar_url && (
-            <p className={NOTE_MUTED}>
-              Your current photo stays until you save a new one.
-            </p>
-          )}
+          </StickyActions>
         </div>
       )}
 
       {phase === 'crop' && decoded && (
-        <div data-testid="photo-crop">
-          <p className={NOTE_MUTED}>
-            Drag to position, pinch or use the slider to zoom. Keep your head and shoulders inside the outline.
-          </p>
-          <div
-            role="application"
-            tabIndex={0}
-            aria-label="Photo crop. Arrow keys move the photo, plus and minus zoom."
-            data-testid="photo-crop-box"
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-            onWheel={onWheel}
-            onKeyDown={onKey}
-            style={{ position: 'relative', width: BOX, maxWidth: '100%', aspectRatio: '1 / 1', margin: '12px auto 0', borderRadius: 12, overflow: 'hidden', touchAction: 'none', background: '#000' }}
-          >
-            <canvas ref={canvasRef} width={600} height={600} style={{ width: '100%', height: '100%', display: 'block' }} />
-            <GuideOverlay />
-          </div>
-          <label style={{ display: 'block', marginTop: 12, fontSize: 14 }}>
-            Zoom
-            <input
-              type="range"
-              min={1}
-              max={MAX_ZOOM}
-              step={0.01}
-              value={view.zoom}
-              onChange={(e) => zoomTo(Number(e.target.value))}
-              style={{ width: '100%', minHeight: 44 }}
-              data-testid="photo-zoom"
-            />
-          </label>
-          {failure && <p role="alert" className={NOTE_DANGER}>{failure}</p>}
-          <div className="mt-[12px] grid gap-[8px]">
+        <div data-testid="photo-crop" className="grid gap-[12px]">
+          <Card variant="padded" className="p-[14px] [&>*:first-child]:mt-0">
+            <p className={NOTE_MUTED}>
+              Drag to position, pinch or use the slider to zoom. Keep your head and shoulders inside the outline.
+            </p>
+            <div
+              role="application"
+              tabIndex={0}
+              aria-label="Photo crop. Arrow keys move the photo, plus and minus zoom."
+              data-testid="photo-crop-box"
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              onWheel={onWheel}
+              onKeyDown={onKey}
+              style={{ position: 'relative', width: BOX, maxWidth: '100%', aspectRatio: '1 / 1', margin: '12px auto 0', borderRadius: 12, overflow: 'hidden', touchAction: 'none', background: PHOTO_WELL }}
+            >
+              <canvas ref={canvasRef} width={600} height={600} style={{ width: '100%', height: '100%', display: 'block' }} />
+              <GuideOverlay />
+            </div>
+            <label style={{ display: 'block', marginTop: 12, fontSize: 14 }}>
+              Zoom
+              <input
+                type="range"
+                min={1}
+                max={MAX_ZOOM}
+                step={0.01}
+                value={view.zoom}
+                onChange={(e) => zoomTo(Number(e.target.value))}
+                style={{ width: '100%', minHeight: 44 }}
+                data-testid="photo-zoom"
+              />
+            </label>
+            {failure && <p role="alert" className={NOTE_DANGER}>{failure}</p>}
+          </Card>
+          <StickyActions testId="photo-actions">
             <PrimaryButton onClick={() => void makePreview()} testId="photo-crop-done">
               Next
             </PrimaryButton>
@@ -323,44 +338,46 @@ const PhotoScreen = () => {
               Choose a different photo
             </GhostButton>
             {backLink}
-          </div>
+          </StickyActions>
         </div>
       )}
 
       {(phase === 'preview' || phase === 'saving') && previewUrl && (
-        <div data-testid="photo-preview">
-          <div style={{ width: '50%', aspectRatio: '1 / 1', margin: '12px auto 0', borderRadius: 12, overflow: 'hidden', background: '#000' }}>
-            <img src={previewUrl} alt="Your new photo" loading="eager" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          </div>
-          <p className={`${NOTE} rounded-[12px] border border-[var(--line)] px-[12px] py-[10px] text-center text-[var(--fg)]`}>
-            This is how people will see you.
-          </p>
-          {failure && (
-            <p role="alert" data-testid="photo-failure" className={NOTE_DANGER}>
-              {failure}
+        <div data-testid="photo-preview" className="grid gap-[12px]">
+          <Card variant="padded" className="p-[14px] [&>*:first-child]:mt-0">
+            <div style={{ width: '50%', aspectRatio: '1 / 1', margin: '0 auto', borderRadius: 12, overflow: 'hidden', background: PHOTO_WELL }}>
+              <img src={previewUrl} alt="Your new photo" loading="eager" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            </div>
+            <p className={`${NOTE} rounded-[12px] border border-[var(--line)] px-[12px] py-[10px] text-center text-[var(--fg)]`}>
+              This is how people will see you.
             </p>
-          )}
-          {!online && (
-            <p className={NOTE_MUTED}>
-              Use this photo is off until you are back online.
-            </p>
-          )}
-          {profileQuery.isError && (
-            <p className={NOTE_MUTED}>
-              Use this photo is off until your profile has loaded. Press Try again above.
-            </p>
-          )}
-          <div className="mt-[12px] grid gap-[8px]">
+            {failure && (
+              <p role="alert" data-testid="photo-failure" className={NOTE_DANGER}>
+                {failure}
+              </p>
+            )}
+            {!online && (
+              <p className={NOTE_MUTED}>
+                Use this photo is off until you are back online.
+              </p>
+            )}
+            {profileQuery.isError && (
+              <p className={NOTE_MUTED}>
+                Use this photo is off until your profile has loaded. Press Try again above.
+              </p>
+            )}
+          </Card>
+          <StickyActions testId="photo-actions">
             <PrimaryButton disabled={!canUse} onClick={() => void save()} testId="photo-use">
               {phase === 'saving' ? 'Saving\u2026' : failure ? 'Try again' : 'Use this photo'}
             </PrimaryButton>
             <GhostButton disabled={phase === 'saving'} onClick={startOver} testId="photo-another">
               Take another
             </GhostButton>
-          </div>
+          </StickyActions>
         </div>
       )}
-    </Card>
+    </section>
   );
 };
 

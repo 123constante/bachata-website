@@ -1,6 +1,6 @@
-import { daConfetti } from '../shell/confetti';
 import { useCallback } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { daConfetti } from '../shell/confetti';
 import { trackDancerEvent } from '../analytics/events';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchMyDancerEdit, saveMyDancerProfile } from './rpc';

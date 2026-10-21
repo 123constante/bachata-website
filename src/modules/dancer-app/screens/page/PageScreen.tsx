@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Check } from 'lucide-react';
 import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
 import { toDancerError } from '../../api/errors';
 import { fmt, numbersCanRetry, numbersErrorCopy, viewsDetail, VIEWS_WEEK_LABEL } from '../../api/numbersModel';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { useMyNumbers } from '../../api/useMyNumbers';
 import { ACCOUNT_SETTINGS_LABEL } from '../../copy/sharedCopy';
-import { Card, FIELD_CLASS, GhostButton, PrimaryButton, SectionLabel } from '@/modules/organiser/ui';
-import { LINK_GHOST, LINK_PRIMARY, TEXT_ACTION } from '../blocks';
+import { Card, FIELD_CLASS, GhostButton, PrimaryButton } from '@/modules/organiser/ui';
+import { LINK_GHOST, LINK_PRIMARY, ScreenTitle, SectionTitle, StickyActions, TEXT_ACTION } from '../blocks';
 import { shareOrCopy } from '../options/optionsModel';
 import NoProfileWayOut from '../options/NoProfileWayOut';
 import { NO_PROFILE_MESSAGE, PROFILE_HELP_MESSAGE } from '../../api/messageUs';
@@ -15,6 +16,17 @@ import { MessageUsLink } from '../me/ui';
 import { pageModel } from './pageModel';
 
 import { CoupleArt } from '../art';
+
+/** Review N8 (prototype checklist): a filled 20px disc with a tick when the page shows it, an empty ring when not. */
+const TickDisc = ({ done }: { done: boolean }) => (
+  <span
+    aria-hidden="true"
+    data-testid="page-look-tick"
+    className={`inline-flex h-[20px] w-[20px] flex-none items-center justify-center rounded-full ${done ? 'bg-[var(--gold-fg)] text-[var(--bg)]' : 'border-2 border-[var(--line-strong)]'}`}
+  >
+    {done && <Check className="h-[13px] w-[13px]" strokeWidth={3} />}
+  </span>
+);
 
 const PageScreen = () => {
   const profile = useMyDancerEdit({ staleTime: 60_000 });
@@ -26,7 +38,7 @@ const PageScreen = () => {
     const err = toDancerError(profile.error);
     return (
       <Card variant="padded" testId="dancer-screen-page">
-        <h1 className="m-0 text-[18px] font-extrabold">My page</h1>
+        <ScreenTitle>My page</ScreenTitle>
         {(err.code === 'no_profile' || err.code === 'profile_mismatch') && <CoupleArt />}
         <p role="alert" className="my-[8px] text-[14px]">{err.message}</p>
         {err.code === 'no_profile' || err.code === 'profile_mismatch' ? (
@@ -47,13 +59,18 @@ const PageScreen = () => {
 
   return (
     <section data-testid="dancer-screen-page" className="grid gap-[12px]">
-      <h1 className="m-0 text-[18px] font-extrabold">My page</h1>
+      <ScreenTitle>My page</ScreenTitle>
 
       <div>
-        <SectionLabel as="p">How your page looks</SectionLabel>
+        <SectionTitle as="p">How your page looks</SectionTitle>
         <Card variant="padded">
-          <ul data-testid="page-look" className="da-ticks m-0 grid list-none gap-[4px] p-0 text-[14px]">
-            {m.lookLines.map((l) => <li key={l}>{l}</li>)}
+          <ul data-testid="page-look" className="m-0 grid list-none gap-[8px] p-0 text-[15px]">
+            {m.lookLines.map((l) => (
+              <li key={l.text} data-done={String(l.done)} className={`flex items-start gap-[10px] ${l.done ? '' : 'text-[var(--mut)]'}`}>
+                <TickDisc done={l.done} />
+                {l.text}
+              </li>
+            ))}
           </ul>
         </Card>
       </div>
@@ -79,7 +96,8 @@ const PageScreen = () => {
         )}
       </Card>
 
-      <div className="grid gap-[8px]">
+      {/* Review N8: View and Share pinned at the bottom, above the tab bar (prototype .foot). */}
+      <StickyActions testId="page-actions">
         {disabled ? (
           <PrimaryButton disabled aria-disabled="true" aria-describedby="page-why" testId="page-view">View my page</PrimaryButton>
         ) : (
@@ -110,7 +128,7 @@ const PageScreen = () => {
         {copied === 'manual' && m.url && (
           <input readOnly value={m.url} aria-label="Link to my page" data-testid="page-share-field" onFocus={(e) => e.currentTarget.select()} className={`${FIELD_CLASS} min-h-[44px]`} />
         )}
-      </div>
+      </StickyActions>
     </section>
   );
 };

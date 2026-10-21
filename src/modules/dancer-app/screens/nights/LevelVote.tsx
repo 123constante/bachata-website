@@ -70,7 +70,7 @@ export const LevelVote = ({ seriesId, profileComplete }: { seriesId: string; pro
             data-testid={`vote-${seriesId}-${value}`}
             disabled={isRating || !canRate}
             onClick={() => void submit(value)}
-            className={`da-tap rounded-full border px-[6px] text-[13px] font-semibold${mine === value ? ' da-vote-on' : ' border-[var(--line-strong)] bg-transparent text-[var(--fg)]'}`}
+            className={`da-tap inline-flex items-center justify-center rounded-full border px-[6px] text-[13px] font-semibold${mine === value ? ' da-vote-on' : ' border-[var(--line-strong)] bg-transparent text-[var(--fg)]'}`}
           >
             {label}
           </button>
@@ -79,7 +79,7 @@ export const LevelVote = ({ seriesId, profileComplete }: { seriesId: string; pro
       {profileIncomplete && (
         <p className="mb-0 mt-[6px] text-[13px]" data-testid="level-vote-held">
           {PROFILE_INCOMPLETE_COPY} Your answer is saved and will be sent when you finish.{' '}
-          <Link to={DANCER_WELCOME} className="font-bold text-[var(--gold-fg,#f5865a)]">
+          <Link to={DANCER_WELCOME} className="font-bold text-[var(--gold-fg)]">
             Finish my profile
           </Link>
         </p>
