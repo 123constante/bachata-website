@@ -24,6 +24,7 @@ const h = vi.hoisted(() => ({
   dancers: [] as unknown[],
   names: [] as unknown[],
   attendance: [] as unknown[],
+  badges: [] as unknown[],
 }));
 vi.mock('@/hooks/useAuth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
@@ -78,6 +79,7 @@ const DIRECTORY: Record<string, { dancers: unknown[]; names: unknown[] }> = {
       D('d2', 'Fay', { dance_role: 'Leader' }),
       D('d3', 'Eli', { cities: null }),
       D('d4', null),
+      D('d5', null),
     ],
     names: [
       { id: 'd1', surname: 'Lopez', display_name: 'Ana Lopez', public_name: 'Ana Lopez' },
@@ -91,6 +93,8 @@ const BADGES = [
   { id: 'd2', roles: ['dancer'], dj_name: null, next_gig_date: null, dj_has_upcoming: false },
   { id: 'd3', roles: ['teacher', 'dancer'], dj_name: null, next_gig_date: null, dj_has_upcoming: false },
   { id: 'd4', roles: ['teacher'], dj_name: null, next_gig_date: null, dj_has_upcoming: false },
+  // d5: the nameless shape (no first_name, no public name row) WITH the Dancer role, so it is listed
+  { id: 'd5', roles: ['dancer'], dj_name: null, next_gig_date: null, dj_has_upcoming: false },
 ];
 const row = (o: Record<string, unknown>) => ({
   event_id: 'ev1', status: 'going', updated_at: null, name: 'Friday Social', occurrence_date: '2026-10-02',
@@ -130,7 +134,8 @@ describe.each(VIEWPORTS)('directory + attendance at $name', (vp) => {
       h.user = user ? { ...user } : null;
       h.dancers = shape.dancers;
       h.names = shape.names;
-      // d1 dancer+dj+teacher, d2 dancer, d3 dancer+teacher, d4 teacher only (not listed on /dancers)
+      // d1 dancer+dj+teacher, d2 dancer, d3 dancer+teacher, d4 teacher only (not listed on /dancers),
+      // d5 nameless dancer (listed, rendered with the nameless fallback)
       h.badges = shape.dancers.length ? BADGES : [];
       h.attendance = user ? [row({ event_id: 'fut1', occurrence_date: '2099-01-02', type: 'standard' })] : [];
       mount(<Dancers />, '/dancers');

@@ -75,7 +75,16 @@ const Dancers = () => {
   const teacherPagesOpen = flags.teacherDetail;
   const dancerIds = useMemo(() => dancers.map((d) => d.id), [dancers]);
   const { badges, isLoading: badgesLoading } = usePeopleBadges(dancerIds);
-  const shownDancers = useMemo(() => onlyDancers(dancers, badges), [dancers, badges]);
+  // A failed badges read must never empty the page ("No dancers yet" would be false):
+  // show every row unfiltered, without role labels (review C1). Only when there is nothing
+  // to filter by: a failed background refetch keeps the cached badges, so it keeps the filter.
+  // Round 2 R3: a read that SUCCEEDED with an empty map while there are dancer rows is a
+  // broken/empty payload, not "nobody dances", so it shows unfiltered too (an errored read is
+  // never loading, so this one condition covers both).
+  const shownDancers = useMemo(
+    () => (!badgesLoading && badges.size === 0 && dancers.length > 0 ? dancers : onlyDancers(dancers, badges)),
+    [dancers, badges, badgesLoading],
+  );
 
   useEffect(() => {
     const fetchDancers = async () => {
@@ -336,7 +345,7 @@ const Dancers = () => {
               return (
               <StaggerItem key={dancer.id}>
                 <Link
-                  to={dancerHref(dancer.id, teacherPagesOpen) ?? `/dancers/${dancer.id}`}
+                  to={dancerHref(dancer.id, teacherPagesOpen)}
                   onClick={() => emitProfileView({ personId: dancer.id, profileType: 'dancer', context: 'listing:dancers' })}
                   data-testid="dancer-tile"
                   className="block h-full"
@@ -357,9 +366,12 @@ const Dancers = () => {
                     <h3 className="text-sm font-bold text-foreground text-center leading-tight break-words group-hover:text-primary transition-colors">
                       {getDisplayName(dancer)}
                     </h3>
-                    <div className="mt-auto pt-1 h-[26px] box-content flex items-center justify-center gap-1.5 overflow-hidden" data-testid="role-labels">
+                    <div className="mt-auto pt-1 min-h-[26px] box-content flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5" data-testid="role-labels">
                       {tags.map((t) => (
-                        <span key={t.role} className="text-[12px] leading-none text-muted-foreground">{t.label}</span>
+                        <span key={t.role} className="text-[12px] leading-none text-muted-foreground">
+                          <span className="sr-only">, </span>
+                          {t.label}
+                        </span>
                       ))}
                     </div>
                   </Card>

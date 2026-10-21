@@ -1088,13 +1088,15 @@ const SingleRoomScheduleRow = ({
 
 const isPersonKind = (t: string | null): boolean => t === 'dj' || t === 'dancer' || t === 'teacher';
 
-/** One person of a session, link and name from the badges mapping. While the badges load a
- *  DJ/dancer keeps the feed's own (valid) link and a teacher has none, so nothing ever points
- *  at /teachers/ while those pages are closed; once loaded, no badge row means no link. */
-export const mapPersonFromBadges = (p: Person, badge: PersonBadge | undefined, loading: boolean): Person => {
+/** One person of a session, link and name from the badges mapping. While the badges load, or
+ *  when the badges read failed (review C6), a DJ/dancer keeps the feed's own (valid) link and a
+ *  teacher has none, so nothing ever points at /teachers/ while those pages are closed; once
+ *  the read answered, no badge row means no link. `feedFallback` = loading or errored. */
+export const mapPersonFromBadges = (p: Person, badge: PersonBadge | undefined, feedFallback: boolean): Person => {
   if (!isPersonKind(p.profileType)) return p;
   const opts = { teacherPagesOpen: flags.teacherDetail };
-  const href = badge ? linkFor(badge, opts) : loading && p.profileType !== 'teacher' ? p.href : null;
+  const feedHref = p.profileType !== 'teacher' && !p.href?.startsWith('/teachers/') ? p.href : null;
+  const href = badge ? linkFor(badge, opts) : feedFallback ? feedHref : null;
   const name = p.profileType === 'dj' ? nameFor('dj', { name: p.name, djName: badge?.djName }) : p.name;
   return { ...p, href, name };
 };
@@ -1137,13 +1139,14 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
   // People come from the ONE mapping (badges.ts): the link is DJ page, else dancer page, else
   // none (a teacher-only person is plain while the teacher pages are closed); a DJ slot shows
   // the stage name. Vendors and other non-person kinds keep the feed's own link.
-  const { badges: peopleBadges, isLoading: badgesLoading } = usePeopleBadges(
+  const { badges: peopleBadges, isLoading: badgesLoading, isError: badgesError } = usePeopleBadges(
     useMemo(() => normalized.flatMap((s) => s.people.filter((p) => isPersonKind(p.profileType)).map((p) => p.id)), [normalized]),
   );
+  const badgesFeedFallback = badgesLoading || badgesError;
   const sessions = useMemo(() => normalized.map((s) => ({
     ...s,
-    people: s.people.map((p) => mapPersonFromBadges(p, peopleBadges.get(p.id), badgesLoading)),
-  })), [normalized, peopleBadges, badgesLoading]);
+    people: s.people.map((p) => mapPersonFromBadges(p, peopleBadges.get(p.id), badgesFeedFallback)),
+  })), [normalized, peopleBadges, badgesFeedFallback]);
 
   // Multi-room mode = ≥ 2 distinct non-null rooms anywhere in the event's
   // sessions. When false, room names are hidden across the schedule.

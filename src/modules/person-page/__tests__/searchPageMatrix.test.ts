@@ -5,9 +5,10 @@
  * row == the person page's tabs == its chips, and a search click never lands on a 404 or
  * on a Dancer page for someone who does not dance.
  *
- * Search side: searchPublicV3 (the header omnibox and the overlay). The /search page uses
- * the same personSearchRow (tests/searchV7People.test.tsx renders it). Page side: the
- * /people loader's loadPersonSnapshot over faked public reads.
+ * Search side: searchPublicV3 (the header omnibox and the overlay). Since W1 (review M1) the
+ * overlay row links the role pages through badges.ts, as the /search PersonRow does
+ * (tests/searchV7People.test.tsx pins the two agree). Page side: the /people loader's
+ * loadPersonSnapshot over faked public reads, i.e. what a typed /people URL shows.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
@@ -110,14 +111,17 @@ describe('search row == person page (tabs, chips), every prod combination', () =
     const row = rows[0];
     const visible = roles.filter((r) => r !== 'teacher' || teacherOpen);
 
-    // Never a role the flag hides, never a role the person does not hold.
-    expect(row.roles ?? []).toEqual(row.kind === 'person' ? visible : []);
+    // W1 review M1: the search row is the badges mapping's answer (the /search PersonRow's):
+    // every public role as a tag (Teacher plain while closed), link DJ page, else dancer page,
+    // else teacher page while open, else the (city-scoped) search results. Never /people/, never the gate.
+    expect(row.kind).toBe('person');
+    expect(row.roles ?? []).toEqual(roles);
+    const want = roles.includes('dj') ? '/djs/p1' : roles.includes('dancer') ? '/dancers/p1'
+      : roles.includes('teacher') && teacherOpen ? '/teachers/p1' : '/city/london/search?q=Ana';
+    expect(row.href).toBe(want);
 
     if (roles.length === 1 && roles[0] === 'teacher') {
-      // Teacher-only: today's row and today's page (coming-soon gate when the flag is off).
-      expect(row.kind).toBe('teacher');
-      expect(row.href).toBe('/teachers/p1');
-      expect(row.subtitle).toBeNull();
+      expect(row.subtitle).toBe('Teacher');
       // Not reachable from search, but pinned: what a typed /people URL shows for them.
       const direct = await loadPersonSnapshot(new QueryClient(), 'p1');
       if (rpcPresent) {
@@ -131,11 +135,9 @@ describe('search row == person page (tabs, chips), every prod combination', () =
       }
       return;
     }
-    expect(row.kind).toBe('person');
-    expect(row.href).toBe('/people/p1');
-
+    // A typed /people URL (no search row links it any more) never 404s and never shows
+    // Dancing to someone who does not dance.
     const page = await loadPersonSnapshot(new QueryClient(), 'p1');
-    // The search click never 404s and never shows Dancing to someone who does not dance.
     expect(page).not.toBeNull();
     expect(page!.roles.length).toBeGreaterThan(0);
     if (!roles.includes('dancer')) expect(page!.roles).not.toContain('dancer');

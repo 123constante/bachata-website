@@ -18,7 +18,7 @@ export type RoleTag = { role: PersonRole; label: string; href: string | null };
 export type BadgeOpts = { teacherPagesOpen: boolean };
 
 const CHUNK = 300;
-const MIDDOT = '·';
+const MIDDOT = '\u00b7';
 
 // The RPC answers with the public vocabulary (teacher / dj / dancer); the person_roles
 // spellings are accepted too so a raw value can never be dropped by accident.
@@ -74,22 +74,31 @@ async function fetchBadges(ids: string[]): Promise<Map<string, PersonBadge>> {
 const EMPTY: Map<string, PersonBadge> = new Map();
 
 /** Chunks of 300; ids are de-duplicated and sorted for the cache key. Empty ids = no request. */
-export function usePeopleBadges(ids: readonly string[]): { badges: Map<string, PersonBadge>; isLoading: boolean } {
+export function usePeopleBadges(ids: readonly string[]): { badges: Map<string, PersonBadge>; isLoading: boolean; isError: boolean } {
   const key = useMemo(() => Array.from(new Set(ids.filter(Boolean))).sort(), [ids]);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['people-badges', key],
     queryFn: () => fetchBadges(key),
     enabled: key.length > 0,
     staleTime: 5 * 60 * 1000,
   });
-  return { badges: data ?? EMPTY, isLoading: key.length > 0 && isLoading };
+  return { badges: data ?? EMPTY, isLoading: key.length > 0 && isLoading, isError: key.length > 0 && isError };
 }
 
 /** /djs/:id, /dancers/:id, /teachers/:id (the last only while the teacher pages are open). */
+export function hrefForRole(role: 'dj' | 'dancer', id: string, opts: BadgeOpts): string;
+export function hrefForRole(role: PersonRole, id: string, opts: BadgeOpts): string | null;
 export function hrefForRole(role: PersonRole, id: string, opts: BadgeOpts): string | null {
   if (role === 'teacher' && !opts.teacherPagesOpen) return null;
   return hrefFor(role, id);
 }
+
+// The DJ label never repeats the word: "DJ El Rugido" -> "DJ \u00b7 El Rugido" (review 7b).
+// Label only: tile names and the DJ page keep the full stage name (nameFor).
+const stageLabel = (djName: string | null): string => {
+  const bare = djName?.replace(/^dj\s+/i, '').trim();
+  return bare ? `${ROLE_LABEL.dj} ${MIDDOT} ${bare}` : ROLE_LABEL.dj;
+};
 
 /** One tag per role in ROLE_ORDER. The Teacher tag still shows while pages are closed, as plain text. */
 export function roleTagsFor(
@@ -98,7 +107,7 @@ export function roleTagsFor(
 ): RoleTag[] {
   return ROLE_ORDER.filter((r) => badge.roles.includes(r) && r !== opts.exclude).map((role) => ({
     role,
-    label: role === 'dj' && opts.withStageName && badge.djName ? `${ROLE_LABEL.dj} ${MIDDOT} ${badge.djName}` : ROLE_LABEL[role],
+    label: role === 'dj' && opts.withStageName ? stageLabel(badge.djName) : ROLE_LABEL[role],
     href: hrefForRole(role, badge.id, opts),
   }));
 }
@@ -110,12 +119,15 @@ export function nameFor(context: 'dj' | 'other', person: { name: string; djName?
 
 /** Never dead-ends: DJ page, else dancer page, else teacher page only if open, else no link. */
 export function linkFor(badge: PersonBadge | undefined, opts: BadgeOpts): string | null {
+  const role = linkRoleFor(badge, opts);
+  return badge && role ? hrefForRole(role, badge.id, opts) : null;
+}
+
+/** The role whose page linkFor opens (the profile type a click on that link is), or null. */
+export function linkRoleFor(badge: PersonBadge | undefined, opts: BadgeOpts): PersonRole | null {
   if (!badge) return null;
   for (const role of ['dj', 'dancer', 'teacher'] as const) {
-    if (badge.roles.includes(role)) {
-      const href = hrefForRole(role, badge.id, opts);
-      if (href) return href;
-    }
+    if (badge.roles.includes(role) && hrefForRole(role, badge.id, opts)) return role;
   }
   return null;
 }

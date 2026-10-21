@@ -4,6 +4,7 @@ import { render, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import GlobalLayout from '../GlobalLayout';
 import { PAGE_GROUNDS } from '../pageGrounds';
+import { EmbeddedProfileContext } from '@/lib/embeddedProfile';
 
 const mount = (props: Record<string, unknown>) =>
   render(
@@ -65,6 +66,20 @@ describe('GlobalLayout grounds', () => {
     expect(iconWrapper(container)).toBeNull();
     expect(animatedWash(container)).toBeNull();
     expect(document.body.style.background).toBe('');
+  });
+
+  it.each(['default', 'dancer', 'dj'] as const)('%s embedded as a /people/:id tab: <html>/<body> untouched', (palette) => {
+    render(
+      <MemoryRouter>
+        <EmbeddedProfileContext.Provider value={true}>
+          <GlobalLayout showSubheader={false} gradientPalette={palette}>
+            <p>content</p>
+          </GlobalLayout>
+        </EmbeddedProfileContext.Provider>
+      </MemoryRouter>,
+    );
+    expect(document.body.style.background).toBe('');
+    expect(document.documentElement.style.background).toBe('');
   });
 
   it('showGradientBg=false renders no ground and leaves the body alone', () => {

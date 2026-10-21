@@ -2,6 +2,7 @@ import { Suspense, lazy, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Person } from '@/modules/event-page/sections/EventScheduleGrid';
 import { emitProfileView } from '@/lib/profileViewEmit';
+import { hrefFor } from '@/lib/searchEntities';
 import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
 // Lazy: /event/:id has a first-load budget (perf-budgets.json); the flag's code and
 // artwork load only when a person on the programme has a nationality.
@@ -131,6 +132,15 @@ export interface PersonChipProps {
 }
 
 // --- Implementation ---
+
+// The profile a link opens decides the profile type logged (W1 review C7): since the people
+// badges mapping, a lineup teacher who also DJs links /djs/:id, so the feed's profile_type no
+// longer names the destination. Prefixes are the public page routes, read off searchEntities
+// hrefFor (one copy: hrefFor(kind, '') is the route's prefix); anything else keeps the feed's type.
+const LINK_PROFILE_TYPE: ReadonlyArray<readonly [string, string]> = (['dj', 'dancer', 'teacher', 'vendor', 'organiser'] as const)
+  .map((kind) => [hrefFor(kind, ''), kind] as const);
+export const profileTypeForLink = (href: string, fallback: string | null | undefined): string | null | undefined =>
+  LINK_PROFILE_TYPE.find(([prefix]) => href.startsWith(prefix))?.[1] ?? fallback;
 
 // Trimmed on the way in. The chip text below is a trimmed `chipName`, so an
 // untrimmed read here renders a correct name beside a blank circle -- for a
@@ -343,10 +353,12 @@ export const PersonChip = ({
   const cls = `${baseCls} transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 motion-reduce:transition-none`;
 
   // data-* attributes so Phase 3 click instrumentation can attribute discovery
-  // sources without re-touching every callsite.
+  // sources without re-touching every callsite. The profile type is the one the
+  // telemetry logs (the profile the link opens), so the two never disagree.
+  const loggedProfileType = person.href ? profileTypeForLink(person.href, person.profileType) : person.profileType;
   const dataAttrs = {
     'data-person-id': person.id,
-    'data-profile-type': person.profileType ?? 'unknown',
+    'data-profile-type': loggedProfileType ?? 'unknown',
     'data-context': context ?? 'schedule',
     'data-linked': isLinked ? 'true' : 'false',
   };
@@ -358,7 +370,7 @@ export const PersonChip = ({
     const handleClick = () => {
       emitProfileView({
         personId: person.id,
-        profileType: person.profileType,
+        profileType: loggedProfileType,
         context: context ?? 'schedule',
         eventId: eventId ?? null,
       });

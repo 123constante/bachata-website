@@ -12,8 +12,11 @@ const flag = vi.hoisted(() => ({ teacherDetail: false, searchV7: true, organiser
 vi.mock('@/lib/featureFlags', () => ({ flags: flag }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: async () => ({ data: [], error: null }), from: () => ({}) } }));
 vi.mock('@/lib/searchClickTelemetry', () => ({ recordSearchResultClick: () => {} }));
+const emit = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/profileViewEmit', () => ({ emitProfileView: emit }));
 
 import { TeamCircle } from '@/pages/OrganiserProfile';
+import { fireEvent } from '@testing-library/react';
 import { PersonRow } from '@/pages/SearchResults';
 import { mapPersonFromBadges } from '@/modules/event-page/bento/blocks/ScheduleBlock';
 import { linkFor, roleTagsFor, type PersonBadge } from '../badges';
@@ -47,7 +50,11 @@ describe.each(FLAGS)('teacher pages open = %s', (open) => {
       const { container } = render(<MemoryRouter><TeamCircle member={member} badge={b} /></MemoryRouter>);
       expect(Array.from(container.querySelectorAll('[data-team-tag]')).map((e) => e.textContent)).toEqual(want);
       expect(container.querySelector('a')?.getAttribute('href') ?? null).toBe(wantLink);
-      expect(container.querySelector('[data-team-name]')?.textContent).toBe(roles.includes('dj') && djName ? djName : 'Real Name');
+      // Review M2: a team strip is not a DJ thing, so the real name leads; the stage name is
+      // in the DJ tag only.
+      expect(container.querySelector('[data-team-name]')?.textContent).toBe('Real Name');
+      // Review 7d: the organiser-authored title shows next to the tags.
+      expect(container.querySelector('[data-team-title]')?.textContent).toBe('Founder');
       if (!open) expect(container.innerHTML).not.toContain('/teachers/');
     });
 
@@ -73,6 +80,87 @@ describe.each(FLAGS)('teacher pages open = %s', (open) => {
         if (!open) expect(out.href ?? '').not.toContain('/teachers/');
       }
     });
+  });
+});
+
+describe('organiser team strip: the organiser-authored title (review 7d)', () => {
+  const b = badge(['dj', 'dancer'], 'El Rugido');
+  const titleOf = (role: string | null) => {
+    const { container } = render(<MemoryRouter><TeamCircle member={{ ...member, role }} badge={b} /></MemoryRouter>);
+    return container.querySelector('[data-team-title]')?.textContent ?? null;
+  };
+  it.each([
+    ['set', 'Founder', 'Founder'],
+    ['set, padded', '  Head of music ', 'Head of music'],
+    ['null: no "Team" default', null, null],
+    ['blank', '   ', null],
+    ['same word as a tag: not repeated', 'dj', null],
+    // Prod 2026-10-21: all 58 active team rows carry role='Leader' (a system value, not an
+    // authored title), so it is never shown.
+    ['system value Leader: hidden', 'Leader', null],
+    ['system value leader, padded/lowercase: hidden', '  leader ', null],
+  ])('%s', (_n, role, want) => {
+    expect(titleOf(role)).toBe(want);
+  });
+  it('the stage name stays in the DJ tag, never the name line', () => {
+    const { container } = render(<MemoryRouter><TeamCircle member={member} badge={b} /></MemoryRouter>);
+    expect(container.querySelector('[data-team-name]')?.textContent).toBe('Real Name');
+    expect(container.querySelector('[data-team-tag="dj"]')?.textContent).toContain('El Rugido');
+    expect(container.textContent).not.toContain('Team member');
+  });
+});
+
+// Round 2 R2+R4: while the badges read loads, or when it failed, a member with a dancerId keeps
+// the dancer page link (the strip's link before W1), like ScheduleBlock's feedFallback. The
+// title waits for the read (loading: none, so it never flashes then hides on dedupe); on error
+// it shows, since there are no tags to dedupe against.
+describe('organiser team strip while badges load / errored', () => {
+  const draw = (state: 'loading' | 'error' | 'ready', m = member) =>
+    render(<MemoryRouter><TeamCircle member={m} badge={undefined} badgesState={state} /></MemoryRouter>).container;
+  it.each(['loading', 'error'] as const)('%s: a member with a dancerId keeps /dancers/:id', (state) => {
+    flag.teacherDetail = false;
+    expect(draw(state).querySelector('a')?.getAttribute('href')).toBe(`/dancers/${ID}`);
+  });
+  it.each(['loading', 'error'] as const)('%s: no dancerId, no link', (state) => {
+    expect(draw(state, { ...member, dancerId: null }).querySelector('a')).toBeNull();
+  });
+  it('ready with no badge row: no link (the read answered)', () => {
+    expect(draw('ready').querySelector('a')).toBeNull();
+  });
+  it('loading: no title yet (no flash-then-hide)', () => {
+    expect(draw('loading').querySelector('[data-team-title]')).toBeNull();
+    expect(draw('loading', { ...member, role: 'dj' }).querySelector('[data-team-title]')).toBeNull();
+  });
+  it('error: the title shows (no tags to dedupe against)', () => {
+    expect(draw('error').querySelector('[data-team-title]')?.textContent).toBe('Founder');
+    expect(draw('error', { ...member, role: 'dj' }).querySelector('[data-team-title]')?.textContent).toBe('dj');
+    expect(draw('error', { ...member, role: 'Leader' }).querySelector('[data-team-title]')).toBeNull();
+  });
+});
+
+// Round 2 R6: the team link is a clickable profile, so it emits a profile view
+// (.claude/rules/data-contracts.md), typed by the role the link opens.
+describe('organiser team strip: profile view on click', () => {
+  const click = (b: PersonBadge | undefined, state: 'loading' | 'error' | 'ready' = 'ready') => {
+    emit.mockClear();
+    const { container } = render(<MemoryRouter><TeamCircle member={member} badge={b} badgesState={state} /></MemoryRouter>);
+    fireEvent.click(container.querySelector('a')!);
+    return emit.mock.calls.map((c) => [c[0].personId, c[0].profileType]);
+  };
+  it.each([
+    ['DJ page', ['dj', 'dancer'] as PersonRole[], 'dj'],
+    ['dancer page', ['teacher', 'dancer'] as PersonRole[], 'dancer'],
+  ])('%s', (_n, roles, type) => {
+    flag.teacherDetail = false;
+    expect(click(badge(roles, null))).toEqual([[ID, type]]);
+  });
+  it('teacher page while open', () => {
+    flag.teacherDetail = true;
+    expect(click(badge(['teacher'], null))).toEqual([[ID, 'teacher']]);
+    flag.teacherDetail = false;
+  });
+  it('the loading/error fallback link is a dancer view', () => {
+    expect(click(undefined, 'error')).toEqual([[ID, 'dancer']]);
   });
 });
 

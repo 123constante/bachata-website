@@ -178,7 +178,8 @@ const GlobalLayout = ({
   );
 
   const ground = isGroundPalette(gradientPalette) ? PAGE_GROUNDS[gradientPalette] : null;
-  const groundBase = showGradientBg && ground ? ground.base : null;
+  // Embedded (a tab of /people/:id): the person page owns the document paint.
+  const groundBase = !embedded && showGradientBg && ground ? ground.base : null;
 
   // Paint the document so the strip above the footer matches the ground.
   useEffect(() => {

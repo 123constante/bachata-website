@@ -6,8 +6,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
-import { useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
+import { buildBreadcrumbs, renderBreadcrumbListJsonLd } from '@/lib/breadcrumbs';
+import { useEntitySlugOrId, useCanonicalReplaceState, SITE_ORIGIN } from '@/lib/seo';
+import { useEmbeddedProfile } from '@/lib/embeddedProfile';
 import { useProfileProgramAppearances } from '@/hooks/useProfileProgramAppearances';
 import { londonTodayKey } from '@/lib/londonDate';
 import { resolvePublicName } from '@/lib/publicName';
@@ -90,11 +91,25 @@ const DjShare = ({ title, path }: { title: string; path: string }) => {
   };
   const message = outcome ? SHARE_MESSAGES[outcome] : null;
   return (
-    <div className="flex items-center gap-2">
-      {message ? <span role="status" aria-live="polite" className="text-[13px]" style={{ color: GOLD }}>{message}</span> : null}
-      <button type="button" onClick={() => void onShare()} className="inline-flex items-center gap-2 px-2 text-[15px] font-bold" style={{ minHeight: 44, color: GOLD }} data-testid="dj-share">
-        <Share2 className="h-4 w-4" aria-hidden /> Share
-      </button>
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
+        {message ? <span role="status" aria-live="polite" className="text-[13px]" style={{ color: GOLD }}>{message}</span> : null}
+        <button type="button" onClick={() => void onShare()} className="inline-flex items-center gap-2 px-2 text-[15px] font-bold" style={{ minHeight: 44, color: GOLD }} data-testid="dj-share">
+          <Share2 className="h-4 w-4" aria-hidden /> Share
+        </button>
+      </div>
+      {/* 'manual' = no share sheet, no clipboard: the copy above points at this link. */}
+      {outcome === 'manual' ? (
+        <input
+          readOnly
+          value={url}
+          aria-label="Link to this page"
+          onFocus={(e) => e.currentTarget.select()}
+          className="w-[260px] max-w-full rounded-[10px] px-2 text-[14px]"
+          style={{ minHeight: 44, background: 'rgba(246,241,234,0.06)', color: 'var(--dj-cream)' }}
+          data-testid="dj-share-link"
+        />
+      ) : null}
     </div>
   );
 };
@@ -110,6 +125,7 @@ const DJProfile = () => {
     buildPath: (s) => `/djs/${s}`,
   });
   const navigate = useNavigate();
+  const embedded = useEmbeddedProfile();
 
   const { data: dj, isLoading, error } = useQuery({
     queryKey: ['dj-profile', id],
@@ -183,7 +199,7 @@ const DJProfile = () => {
 
   if (isLoading) {
     return (
-      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showGradientBg={false}>
+      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" gradientPalette="dj">
         <div style={{ ...(djInkTheme as React.CSSProperties), background: 'var(--dj-bg)', fontFamily: 'var(--dj-body)' }} className="min-h-screen pb-24">
           <div className="mx-auto w-full max-w-6xl space-y-4 px-3 pt-4 sm:px-5 md:px-8">
             <Skeleton className="h-52 w-full rounded-[22px]" style={{ background: 'rgba(246,241,234,0.06)' }} />
@@ -199,7 +215,7 @@ const DJProfile = () => {
 
   if (error || !dj) {
     return (
-      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showGradientBg={false}>
+      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" gradientPalette="dj">
         <div style={{ ...(djInkTheme as React.CSSProperties), background: 'var(--dj-bg)', color: 'var(--dj-cream)' }} className="flex min-h-[60vh] items-center justify-center px-4">
           <div className="text-center">
             <p className="mb-6" style={{ color: 'rgba(246,241,234,0.6)' }}>This DJ profile doesn&rsquo;t exist or has been removed.</p>
@@ -221,8 +237,19 @@ const DJProfile = () => {
   const hasContact = !!(igLink || webLink || dj.soundcloud || dj.mixcloud || dj.facebook || dj.phone);
   const hasListen = !!(dj.soundcloud || dj.mixcloud);
 
+  // showSubheader={false} drops PageBreadcrumb, which is what normally emits the
+  // BreadcrumbList JSON-LD, so emit it here (same canonical origin). Embedded as a
+  // /people/:id tab, the person page owns the head and the breadcrumbs.
+  const sharePath = resolved.slug ? `/djs/${resolved.slug}` : `/djs/${routeParam ?? dj.id}`;
+  const breadcrumbJsonLd = embedded
+    ? null
+    : renderBreadcrumbListJsonLd({ crumbs: djBreadcrumbs, origin: SITE_ORIGIN, currentUrl: SITE_ORIGIN + sharePath });
+
   return (
     <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false} gradientPalette="dj">
+      {breadcrumbJsonLd ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd }} />
+      ) : null}
       <div
         className="min-h-screen pb-24"
         style={{ ...(djInkTheme as React.CSSProperties), background: 'var(--dj-bg)', color: 'var(--dj-cream)', fontFamily: 'var(--dj-body)' }}
@@ -232,7 +259,7 @@ const DJProfile = () => {
             <Link to="/djs" className="inline-flex items-center gap-2 px-1 text-[15px] font-bold" style={{ minHeight: 44, color: GOLD }} data-testid="dj-back">
               <ArrowLeft className="h-4 w-4" aria-hidden /> Back
             </Link>
-            <DjShare title={`${displayName} on Bachata Calendar`} path={resolved.slug ? `/djs/${resolved.slug}` : `/djs/${routeParam ?? dj.id}`} />
+            <DjShare title={`${displayName} on Bachata Calendar`} path={sharePath} />
           </div>
           <AlsoRoles current="dj" id={id} slug={resolved.slug} className="pt-1" />
         </div>

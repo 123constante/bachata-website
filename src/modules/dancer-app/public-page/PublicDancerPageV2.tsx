@@ -16,8 +16,6 @@ import { SHARE_MESSAGES, joinHref, shareDancerPage, type ContactLink, type Publi
  */
 export type PublicDancerPageV2Props = {
   model: PublicDancerPageModel;
-  /** false = the extras read failed: no contact claims (WhatsApp may exist). */
-  extrasOk?: boolean;
   /** dancer_profiles.id (kept for the caller; the F13 page lists no appearances). */
   profileId: string;
   /** The path to share and to come back to after Join, e.g. "/dancers/ana-lopez". */

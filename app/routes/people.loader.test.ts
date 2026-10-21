@@ -32,7 +32,7 @@ const run = () =>
     request: new Request("https://x.test/people/ana-g"),
   });
 const person = { id: "p1", name: "Ana", avatarUrl: null, djPhoto: null, roles: ["dancer"] };
-const V2 = { extras: {}, extrasOk: true };
+const V2 = { extras: {} };
 
 beforeEach(() => {
   snapshot.mockReset(); pageLoad.mockReset(); tagged.mockClear(); notFound.mockClear();

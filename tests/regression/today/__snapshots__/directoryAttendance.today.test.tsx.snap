@@ -91,17 +91,20 @@ exports[`directory + attendance at '390x844' > /dancers: mixed shapes > signed i
 heading "Create a Profile" level=3
 heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
-link "Ana Lopez TeacherDJ" href=/dancers/d1
+link "Ana Lopez ,Teacher,DJ" href=/dancers/d1
   img
   heading "Ana Lopez" level=3
-  text "TeacherDJ"
+  text ", Teacher, DJ"
 link "F Fay" href=/dancers/d2
   text "F"
   heading "Fay" level=3
-link "EG Eli Gomez Teacher" href=/dancers/d3
+link "EG Eli Gomez ,Teacher" href=/dancers/d3
   text "EG"
   heading "Eli Gomez" level=3
-  text "Teacher"
+  text ", Teacher"
+link "D Dancer" href=/dancers/d5
+  text "D"
+  heading "Dancer" level=3
 heading "YourPlans" level=2
 heading "Events" level=3
 text "1 saved"
@@ -124,17 +127,20 @@ exports[`directory + attendance at '390x844' > /dancers: mixed shapes > signed o
 heading "Create a Profile" level=3
 heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
-link "Ana Lopez TeacherDJ" href=/dancers/d1
+link "Ana Lopez ,Teacher,DJ" href=/dancers/d1
   img
   heading "Ana Lopez" level=3
-  text "TeacherDJ"
+  text ", Teacher, DJ"
 link "F Fay" href=/dancers/d2
   text "F"
   heading "Fay" level=3
-link "EG Eli Gomez Teacher" href=/dancers/d3
+link "EG Eli Gomez ,Teacher" href=/dancers/d3
   text "EG"
   heading "Eli Gomez" level=3
-  text "Teacher"
+  text ", Teacher"
+link "D Dancer" href=/dancers/d5
+  text "D"
+  heading "Dancer" level=3
 heading "YourPlans" level=2
 heading "Events" level=3
 text "0 saved"
@@ -241,17 +247,20 @@ exports[`directory + attendance at 'desktop' > /dancers: mixed shapes > signed i
 heading "Create a Profile" level=3
 heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
-link "Ana Lopez TeacherDJ" href=/dancers/d1
+link "Ana Lopez ,Teacher,DJ" href=/dancers/d1
   img
   heading "Ana Lopez" level=3
-  text "TeacherDJ"
+  text ", Teacher, DJ"
 link "F Fay" href=/dancers/d2
   text "F"
   heading "Fay" level=3
-link "EG Eli Gomez Teacher" href=/dancers/d3
+link "EG Eli Gomez ,Teacher" href=/dancers/d3
   text "EG"
   heading "Eli Gomez" level=3
-  text "Teacher"
+  text ", Teacher"
+link "D Dancer" href=/dancers/d5
+  text "D"
+  heading "Dancer" level=3
 heading "YourPlans" level=2
 heading "Events" level=3
 text "1 saved"
@@ -274,17 +283,20 @@ exports[`directory + attendance at 'desktop' > /dancers: mixed shapes > signed o
 heading "Create a Profile" level=3
 heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
-link "Ana Lopez TeacherDJ" href=/dancers/d1
+link "Ana Lopez ,Teacher,DJ" href=/dancers/d1
   img
   heading "Ana Lopez" level=3
-  text "TeacherDJ"
+  text ", Teacher, DJ"
 link "F Fay" href=/dancers/d2
   text "F"
   heading "Fay" level=3
-link "EG Eli Gomez Teacher" href=/dancers/d3
+link "EG Eli Gomez ,Teacher" href=/dancers/d3
   text "EG"
   heading "Eli Gomez" level=3
-  text "Teacher"
+  text ", Teacher"
+link "D Dancer" href=/dancers/d5
+  text "D"
+  heading "Dancer" level=3
 heading "YourPlans" level=2
 heading "Events" level=3
 text "0 saved"

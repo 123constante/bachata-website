@@ -30,7 +30,7 @@ const mount = (embedded: boolean | undefined) => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   qc.setQueryData(['entity-resolve', 'dancer_profiles', 'id', 'full'], { id: rec.id, slug: 'full' });
   qc.setQueryData(['dancer-profile', rec.id], rec);
-  const page = { extrasOk: true, extras: NO_EXTRAS };
+  const page = { extras: NO_EXTRAS };
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={['/dancers/full']}>

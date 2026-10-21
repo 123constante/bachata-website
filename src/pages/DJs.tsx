@@ -100,7 +100,7 @@ const DJs = () => {
               return (
                 <StaggerItem key={dj.id}>
                   <Link
-                  to={tile.href ?? `/djs/${dj.id}`}
+                  to={tile.href}
                   data-testid="dj-tile"
                   onClick={() => emitProfileView({ personId: dj.id, profileType: 'dj', context: 'listing:djs' })}
                 >
@@ -127,9 +127,12 @@ const DJs = () => {
                         <p className="text-xs text-muted-foreground mb-2 line-clamp-1">{cityName}</p>
                       )}
 
-                      <div className="mt-auto pt-1 h-[26px] box-content flex items-center justify-center gap-1.5 overflow-hidden" data-testid="role-labels">
+                      <div className="mt-auto pt-1 min-h-[26px] box-content flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5" data-testid="role-labels">
                         {tile.tags.map((t) => (
-                          <span key={t.role} className="text-[12px] leading-none text-muted-foreground">{t.label}</span>
+                          <span key={t.role} className="text-[12px] leading-none text-muted-foreground">
+                            <span className="sr-only">, </span>
+                            {t.label}
+                          </span>
                         ))}
                       </div>
                     </motion.div>

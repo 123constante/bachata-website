@@ -160,14 +160,16 @@ describe('helpers', () => {
   });
 });
 
-describe('facts: an unanswered start year is not a fact (W1 S2)', () => {
+describe('facts: an unanswered start year is not a fact; this year is "New this year" (W1 S2, owner 7f)', () => {
   const withYear = (y: number | null) => {
     const rec = { ...SHAPES['complete + all extras'], dancing_role_details: { dance_started_year: y } };
     return buildPublicDancerPage(mapDancerPublicProfile(rec as never), NO_EXTRAS, []);
   };
   it.each([
     [null, null, null],
-    [2026, null, null], // this year = the default a brand-new row carries (Chi-Wei)
+    // Prod: never-edited rows store null; a stored current year is an answer (a real newcomer).
+    [2026, 'New this year', 'Newcomer'],
+    [2027, null, null], // a future start year is not a fact
     [2025, '1 year', 'Rising'],
     [2015, '11 years', 'Veteran'],
   ] as const)('start year %s -> dancing %s, level %s', (y, dancing, level) => {

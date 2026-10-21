@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   LIB_ACCOUNT_MODULES,
   LIB_EVENT_RULES_MODULES,
+  LIB_PEOPLE_MODULES,
+  SINGLE_MODULE_PINS,
   VENDOR_UI_MODAL_PACKAGES,
   VENDOR_UI_SHELL_PACKAGES,
   assertDisjoint,
@@ -148,6 +150,44 @@ describe("classifyChunk -- the second first-party group (lib-account)", () => {
     ]);
     expect(classifyChunk("/repo/src/components/account/profiles/__tests__/avatarFallback.test.ts")).toBeUndefined();
     expect(classifyChunk("/repo/node_modules/x/src/lib/accountRouting.ts")).toBeUndefined();
+  });
+});
+
+describe("classifyChunk -- the third first-party group (lib-people) and its single-module pins", () => {
+  // badges.ts (read by /event's ScheduleBlock and the people pages) rides with
+  // the slug resolver /event already loads. Its two first-party deps are pinned
+  // ALONE so rollup cannot drag them into lib-people: searchEntities is on every
+  // route via root.tsx, and the client would hand every route a supabase edge.
+  it.each(LIB_PEOPLE_MODULES)("%s rides in lib-people", (mod) => {
+    expect(classifyChunk("/repo" + mod)).toBe("lib-people");
+    expect(existsSync(path.join(process.cwd(), mod)), mod + " is not on disk").toBe(true);
+  });
+
+  it("holds exactly the named modules, bounded like lib-event-rules", () => {
+    expect(LIB_PEOPLE_MODULES).toEqual([
+      "/src/lib/seo/useEntitySlugOrId.ts",
+      "/src/lib/seo/resolvePublicEventRef.ts",
+      "/src/modules/person-page/badges.ts",
+    ]);
+    expect(classifyChunk("/repo/src/modules/person-page/__tests__/badges.test.ts")).toBeUndefined();
+    expect(classifyChunk("/repo/src/modules/person-page/searchPerson.ts")).toBeUndefined();
+    expect(classifyChunk("/repo/node_modules/x/src/modules/person-page/badges.ts")).toBeUndefined();
+  });
+
+  it("pins each badge dependency into a group of its own, never into lib-people", () => {
+    expect(SINGLE_MODULE_PINS).toEqual({
+      "/src/integrations/supabase/client.ts": "supabase-client",
+      "/src/lib/searchEntities.ts": "lib-search",
+    });
+    for (const [mod, group] of Object.entries(SINGLE_MODULE_PINS)) {
+      expect(classifyChunk("/repo" + mod)).toBe(group);
+      expect(existsSync(path.join(process.cwd(), mod)), mod + " is not on disk").toBe(true);
+    }
+    const groups = Object.values(SINGLE_MODULE_PINS);
+    expect(new Set(groups).size).toBe(groups.length);
+    expect(classifyChunk("/repo/src/integrations/supabase/types.ts")).toBeUndefined();
+    expect(classifyChunk("/repo/src/lib/searchRpc.ts")).toBeUndefined();
+    expect(classifyChunk("/repo/node_modules/x/src/lib/searchEntities.ts")).toBeUndefined();
   });
 });
 

@@ -16,8 +16,9 @@ import { highlight } from '@/components/search/highlight';
 import { LevelBadge, LevelFilterChips, UnratedLine, parseLevelParam } from '@/components/search/LevelFilter';
 import { flags } from '@/lib/featureFlags';
 import { recordSearchResultClick } from '@/lib/searchClickTelemetry';
-import { hrefFor, orderedRoles, personAriaLabel, telemetryKindFor, type SearchKind } from '@/lib/searchEntities';
-import { usePeopleBadges, roleTagsFor, linkFor, type PersonBadge } from '@/modules/person-page/badges';
+import { hrefFor, personAriaLabel, telemetryKindFor, type SearchKind } from '@/lib/searchEntities';
+import { usePeopleBadges, type PersonBadge } from '@/modules/person-page/badges';
+import { searchPersonView } from '@/modules/person-page/searchPerson';
 import { genreFilterTokens } from '@/lib/genreSynonyms';
 import { resolveEventImage } from '@/lib/utils';
 import { eventResultSubtitle } from '@/lib/searchEventSubtitle';
@@ -115,17 +116,14 @@ type PersonRowData = {
 
 // ONE full-width row per person. Tags, stage name and link come from the people-badges
 // mapping: roles are always public (the Teacher tag shows plain while the teacher pages are
-// closed) and the row links DJ page, else dancer page, else nowhere (/people/:id has no route).
+// closed) and the row links DJ page, else dancer page, else nowhere (owner decision: separate
+// role pages, not /people/:id). The header overlay row (searchRpc mapPersonV7) is the same answer.
 export const PersonRow = ({ p, query, badge }: { p: PersonRowData; query: string; badge: PersonBadge | undefined }) => {
   const opts = { teacherPagesOpen: flags.teacherDetail };
   const [imgFailed, setImgFailed] = useState(false);
-  // The search read carries the roles; the stage name arrives with the badges read.
-  const merged: PersonBadge = {
-    id: p.id, roles: orderedRoles(p.roles), djName: badge?.djName ?? null,
-    djHasUpcoming: badge?.djHasUpcoming ?? false, nextGigDate: badge?.nextGigDate ?? null,
-  };
-  const tags = roleTagsFor(merged, { ...opts, withStageName: true });
-  const to = linkFor(merged, opts);
+  // The search read carries the roles; the stage name arrives with the badges read. The ONE
+  // function the header overlay uses too (searchPerson.ts).
+  const { tags, href: to } = searchPersonView(p.id, p.roles, badge, opts);
   const inner = (
     <>
       <span className="relative shrink-0">
@@ -146,7 +144,7 @@ export const PersonRow = ({ p, query, badge }: { p: PersonRowData; query: string
   );
   const cls = 'flex w-full items-center gap-3 rounded-lg border border-primary/15 bg-card p-3';
   return to ? (
-    <Link to={to} data-person-id={p.id} aria-label={personAriaLabel(p.name, merged.roles)} onClick={() => recordSearchResultClick({ query, kind: telemetryKindFor(p.primaryRole, p.roles), id: p.id })} className={cn(cls, 'min-h-[56px] transition-colors hover:border-primary/40')}>{inner}</Link>
+    <Link to={to} data-person-id={p.id} aria-label={personAriaLabel(p.name, tags.map((t) => t.role))} onClick={() => recordSearchResultClick({ query, kind: telemetryKindFor(p.primaryRole, p.roles), id: p.id })} className={cn(cls, 'min-h-[56px] transition-colors hover:border-primary/40')}>{inner}</Link>
   ) : (
     <div data-person-row="plain" data-person-id={p.id} className={cls}>{inner}</div>
   );

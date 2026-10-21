@@ -34,8 +34,9 @@ vi.mock('@/components/search/DiscoveryPanel', () => ({ DiscoveryPanel: () => nul
 
 import { useSearchResults } from '@/hooks/useSearchResults';
 import { searchPublicV3 } from '@/lib/searchRpc';
+import * as searchEntities from '@/lib/searchEntities';
 import { hrefFor } from '@/lib/searchEntities';
-import SearchResults from '@/pages/SearchResults';
+import SearchResults, { PersonRow } from '@/pages/SearchResults';
 import { SearchOverlay } from '@/components/search/SearchOverlay';
 
 type Role = 'teacher' | 'dj' | 'dancer';
@@ -77,6 +78,12 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+// Round 2 R9: the pre-badges person row mapping (personSearchRow, /people/:id links) had no
+// caller left; a search person row is person-page/searchPerson's answer only.
+it('no second person-row mapping: searchEntities has no personSearchRow', () => {
+  expect(Object.keys(searchEntities)).not.toContain('personSearchRow');
+});
+
 describe('hook + mapper', () => {
   it('flag ON calls search_public_v7 with v6 args and returns people', async () => {
     const { result } = renderHook(() => useSearchResults('first', 'london', { levels: ['mixed'] }), { wrapper });
@@ -102,18 +109,39 @@ describe('hook + mapper', () => {
     expect(rpc.mock.calls[0][0]).toBe('search_public_v7');
     expect(rows.filter((r) => r.id === `p${i}`)).toHaveLength(1);
     const row = rows.find((r) => r.id === `p${i}`)!;
-    if (roles.length === 1 && roles[0] === 'teacher') {
-      // Teacher-only keeps today's Teacher row (review F1): /teachers/:id, no role line.
-      expect(row.kind).toBe('teacher');
-      expect(row.href).toBe(`/teachers/p${i}`);
-      expect(row.subtitle).toBeNull();
-      return;
-    }
+    // W1 review M1: the overlay row is the /search PersonRow's answer (badges mapping):
+    // DJ page, else dancer page, else teacher page (open here); never /people/.
     expect(row.kind).toBe('person');
-    expect(row.href).toBe(`/people/p${i}`);
+    expect(row.href).toBe(roles.includes('dj') ? `/djs/p${i}` : roles.includes('dancer') ? `/dancers/p${i}` : `/teachers/p${i}`);
+    expect(row.subtitle).toBe(roleText(roles));
     expect(row.roles).toEqual(roles);
     expect(row.telemetryKind).toBe(roles[0]);
     expect(row.nationalityCode).toBe(i % 2 ? 'ES' : null);
+  });
+
+  // W1 code-review round 1 F3: a person with no page opens the search results the same way
+  // submitSearch does (city-scoped when the search is), and never a search for an empty name.
+  describe('no-page person fallback (teacher-only, pages closed)', () => {
+    const noPage = (over: Record<string, unknown> = {}) => {
+      flagState.teacherDetail = false;
+      rpc.mockResolvedValue({ data: envelope({ people: [person(0, ['teacher'], over)], total_count: 1 }), error: null });
+    };
+    it('city-scoped search: /city/<slug>/search?q=<name>', async () => {
+      noPage();
+      const [row] = await searchPublicV3('first', 'london', 5, false);
+      expect(row.href).toBe('/city/london/search?q=First0%20Last0');
+    });
+    it('no city: global /search?q=<name>', async () => {
+      noPage();
+      const [row] = await searchPublicV3('first', null, 5, false);
+      expect(row.href).toBe('/search?q=First0%20Last0');
+    });
+    it('empty name: no search for the name (nor for "Unknown"); the typed query instead', async () => {
+      noPage({ display_name: '', first_name: null, surname: null });
+      const [row] = await searchPublicV3('first', 'london', 5, false);
+      expect(row.title).toBe('Unknown');
+      expect(row.href).toBe('/city/london/search?q=first');
+    });
   });
 
   it('hrefFor person; old kinds unchanged', () => {
@@ -127,7 +155,8 @@ describe('hook + mapper', () => {
 describe('/search page', () => {
   // W1 S3: ONE full-width row per person; tags and link are the badges mapping's (roles are
   // always public, so Teacher shows plain while the teacher pages are closed; the row links
-  // DJ page, else dancer page, else nowhere: /people/:id has no route).
+  // DJ page, else dancer page, else teacher page while open, else nowhere). /people/:id is a
+  // live route; the owner decision is separate role pages, so no search row links it.
   const expectedHref = (roles: Role[], open: boolean) =>
     roles.includes('dj') ? hrefFor('dj', 'X') : roles.includes('dancer') ? hrefFor('dancer', 'X') : roles.includes('teacher') && open ? hrefFor('teacher', 'X') : null;
 
@@ -234,6 +263,55 @@ describe('/search page', () => {
   });
 });
 
+// W1 review M1 + 7c: the header overlay (searchPublicV3) and the /search PersonRow give ONE
+// answer for the same person: same link, same role tags (Teacher plain while the teacher
+// pages are closed). The 8 S0 prod shapes (docs/handover/w1-s0-badges.md, people counts in
+// the name). Expected values are written out here, not recomputed with linkFor/roleTagsFor.
+describe('overlay == /search row, the 8 S0 prod shapes', () => {
+  const S0: Array<[string, Role[], { closed: string | null; open: string | null }]> = [
+    ['teacher only (62)', ['teacher'], { closed: null, open: '/teachers/' }],
+    ['dancer+teacher (36)', ['teacher', 'dancer'], { closed: '/dancers/', open: '/dancers/' }],
+    ['dancer+dj+teacher (25)', ['teacher', 'dj', 'dancer'], { closed: '/djs/', open: '/djs/' }],
+    ['dancer only (21)', ['dancer'], { closed: '/dancers/', open: '/dancers/' }],
+    ['dancer+dj (10)', ['dj', 'dancer'], { closed: '/djs/', open: '/djs/' }],
+    ['no public role (5)', [], { closed: null, open: null }],
+    ['dj only (4)', ['dj'], { closed: '/djs/', open: '/djs/' }],
+    ['dj+teacher (1)', ['teacher', 'dj'], { closed: '/djs/', open: '/djs/' }],
+  ];
+  describe.each([false, true])('teacher pages open = %s', (open) => {
+    it.each(S0)('%s', async (_n, roles, links) => {
+      flagState.teacherDetail = open;
+      const want = (open ? links.open : links.closed)?.concat('p0') ?? null;
+      const tags = roles.map((r) => LABEL[r]); // Teacher stays, as plain text, while closed
+      rpc.mockResolvedValue({ data: envelope({ people: [person(0, roles)], total_count: 1 }), error: null });
+
+      // Header overlay row.
+      const [row] = await searchPublicV3('first', 'london', 5, false);
+      expect(row.kind).toBe('person');
+      expect(row.roles).toEqual(roles);
+      expect(row.subtitle).toBe(tags.length ? tags.join(' \u00b7 ') : null);
+      // No page to open: the overlay opens the /search results (where the row is plain),
+      // never /people/ and never the closed /teachers/ gate.
+      expect(row.href).toBe(want ?? '/city/london/search?q=First0%20Last0');
+
+      // /search page row, same person.
+      const p = { id: 'p0', name: 'First0 Last0', image: null, roles, primaryRole: roles[0], nationalityCode: null };
+      const { container } = render(<MemoryRouter><PersonRow p={p} query="" badge={undefined} /></MemoryRouter>);
+      const el = container.querySelector('[data-person-id="p0"]')!;
+      expect(el.getAttribute('href')).toBe(want);
+      expect(Array.from(el.querySelectorAll('[data-person-tag]')).map((e) => e.textContent)).toEqual(tags);
+
+      // The two surfaces agree.
+      expect((row.subtitle ?? '').split(' \u00b7 ').filter(Boolean)).toEqual(tags);
+      if (want) expect(row.href).toBe(el.getAttribute('href'));
+      for (const href of [row.href, el.getAttribute('href') ?? '']) {
+        expect(href).not.toContain('/people/');
+        if (!open) expect(href).not.toContain('/teachers/');
+      }
+    });
+  });
+});
+
 describe('overlay', () => {
   const open = async () => {
     render(
@@ -255,10 +333,10 @@ describe('overlay', () => {
     expect(screen.getByRole('option', { name: 'First4 Last4, Teacher, Dancer' })).toBeTruthy();
   });
 
-  it('click navigates to /people/:id and logs the old kind', async () => {
+  it('click navigates to the role page /search links (DJ page for teacher+DJ) and logs the old kind', async () => {
     await open();
     fireEvent.click(screen.getByRole('option', { name: /^First3 Last3, Teacher, DJ/ }));
     expect(clickLog).toHaveBeenCalledWith(expect.objectContaining({ kind: 'teacher', id: 'p3' }));
-    expect(screen.getByTestId('where').textContent).toBe('/people/p3');
+    expect(screen.getByTestId('where').textContent).toBe('/djs/p3');
   });
 });

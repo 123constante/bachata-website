@@ -88,7 +88,7 @@ describe.each(Object.keys(SHAPES) as ShapeKey[])('%s', (key) => {
   it.each(VIEWERS)('flag open, $name: v2 with its name, Share, Join only when signed out, plans only for the owner', async ({ user, self }) => {
     h.user = user;
     h.persona = self ? SHAPES[key].id : null;
-    mount(key, { extrasOk: true, extras: NO_EXTRAS });
+    mount(key, { extras: NO_EXTRAS });
     await settle();
     expect(q('dancer-page-v2')).not.toBeNull();
     const name = SHAPES[key].display_name ?? 'Dancer';
@@ -118,7 +118,7 @@ describe('extras', () => {
     ['with bio, languages and WhatsApp', EXTRAS.full, true],
     ['without any extras', NO_EXTRAS, false],
   ] as const)('%s', async (_n, extras, on) => {
-    mount('photoless', { extrasOk: true, extras });
+    mount('photoless', { extras });
     await settle();
     expect(q('dancer-bio')).toBeNull(); // owner: the description stays hidden
     expect(q('dancer-languages') !== null).toBe(on);
@@ -128,13 +128,13 @@ describe('extras', () => {
   });
 
   it('many languages: every one is shown', async () => {
-    mount('photoless', { extrasOk: true, extras: EXTRAS.manyLanguages });
+    mount('photoless', { extras: EXTRAS.manyLanguages });
     await settle();
     expect(q('dancer-languages')!.textContent).toContain('English, Spanish, Portuguese, French, Italian, Polish');
   });
 
   it('no contacts and no WhatsApp: no "No public contacts yet" line (W1 S2), Share is on screen', async () => {
-    mount('photoless', { extrasOk: true, extras: NO_EXTRAS });
+    mount('photoless', { extras: NO_EXTRAS });
     await settle();
     expect(q('dancer-connect-empty')).toBeNull();
     expect(q('dancer-connect')).toBeNull();
@@ -142,7 +142,7 @@ describe('extras', () => {
   });
 
   it('favourite songs sit inside the card after Achievements and before Join; none = no block', async () => {
-    mount('complete + all extras', { extrasOk: true, extras: NO_EXTRAS });
+    mount('complete + all extras', { extras: NO_EXTRAS });
     await settle();
     const songs = q('dancer-songs')!;
     expect(songs.textContent).toContain('Obsesion');
@@ -151,27 +151,20 @@ describe('extras', () => {
     expect(order(q('dancer-highlights')!, songs)).toBe(true);
     expect(order(songs, q('dancer-join')!)).toBe(true);
     cleanup();
-    mount('photoless', { extrasOk: true, extras: NO_EXTRAS });
+    mount('photoless', { extras: NO_EXTRAS });
     await settle();
     expect(q('dancer-songs')).toBeNull();
   });
 
   it('no start year stored: no "0 years / Newcomer" facts', async () => {
-    mount('photoless', { extrasOk: true, extras: NO_EXTRAS });
+    mount('photoless', { extras: NO_EXTRAS });
     await settle();
     expect(q('dancer-facts')).toBeNull();
   });
 
-  it('extras read failed: no "no public contacts" claim (a WhatsApp may exist we could not read)', async () => {
-    mount('photoless', { extrasOk: false, extras: NO_EXTRAS });
-    await settle();
-    expect(q('dancer-page-v2')).not.toBeNull();
-    expect(q('dancer-connect')).toBeNull();
-    expect(q('dancer-connect-empty')).toBeNull();
-  });
 
   it('WhatsApp only: one contact row, no "no contacts" line', async () => {
-    mount('photoless', { extrasOk: true, extras: { ...NO_EXTRAS, whatsapp: '+447700900123' } });
+    mount('photoless', { extras: { ...NO_EXTRAS, whatsapp: '+447700900123' } });
     await settle();
     expect(q('dancer-connect-empty')).toBeNull();
     expect(q('dancer-whatsapp')).not.toBeNull();
@@ -180,7 +173,7 @@ describe('extras', () => {
 
 describe('every section of today\'s page is on v2 (complete + all extras)', () => {
   it('role, years, level, style, stamp, achievements, contacts', async () => {
-    mount('complete + all extras', { extrasOk: true, extras: NO_EXTRAS });
+    mount('complete + all extras', { extras: NO_EXTRAS });
     await settle();
     const text = q('dancer-page-v2')!.textContent!;
     for (const s of ['Lead and Follow \u00b7 Manchester', '11 years', 'Veteran', 'Sensual, Dominican', 'Practice partner wanted', 'Goal: footwork', 'Best newcomer 2022', '@carla', 'facebook.com/carla.ruiz', 'carla.example']) {
@@ -191,21 +184,21 @@ describe('every section of today\'s page is on v2 (complete + all extras)', () =
 
 describe('Join', () => {
   it('signs in, then returns to this page', async () => {
-    mount('photoless', { extrasOk: true, extras: NO_EXTRAS });
+    mount('photoless', { extras: NO_EXTRAS });
     await settle();
     expect(q('dancer-join')!.querySelector('a')!.getAttribute('href')).toBe('/auth?mode=signup&returnTo=%2Fdancers%2Fphotoless');
   });
 
   it('never flashes while auth is still resolving (server render / first paint)', async () => {
     h.authStatus = 'resolving';
-    mount('photoless', { extrasOk: true, extras: NO_EXTRAS });
+    mount('photoless', { extras: NO_EXTRAS });
     await settle();
     expect(q('dancer-join')).toBeNull();
   });
 
   it('an anonymous session counts as signed out', async () => {
     h.user = { id: 'anon', is_anonymous: true };
-    mount('photoless', { extrasOk: true, extras: NO_EXTRAS });
+    mount('photoless', { extras: NO_EXTRAS });
     await settle();
     expect(q('dancer-join')).not.toBeNull();
   });
@@ -220,7 +213,7 @@ describe('Share', () => {
   it('uses the phone share sheet with this page\'s link', async () => {
     const share = vi.fn(async () => undefined);
     setNav(share, null);
-    mount('long name', { extrasOk: true, extras: NO_EXTRAS });
+    mount('long name', { extras: NO_EXTRAS });
     await settle();
     await act(async () => { fireEvent.click(q('dancer-share')!); });
     expect(share).toHaveBeenCalledWith({ title: 'Maria-Fernanda Alejandra de los Santos on Bachata Calendar', url: `${window.location.origin}/dancers/long-name` });
@@ -230,7 +223,7 @@ describe('Share', () => {
   it('nameless: shares as NAMELESS_SHARE_TITLE ("Dancer on Bachata Calendar")', async () => {
     const share = vi.fn(async () => undefined);
     setNav(share, null);
-    mount('nameless', { extrasOk: true, extras: NO_EXTRAS });
+    mount('nameless', { extras: NO_EXTRAS });
     await settle();
     await act(async () => { fireEvent.click(q('dancer-share')!); });
     expect(NAMELESS_SHARE_TITLE).toBe('Dancer on Bachata Calendar');
@@ -240,7 +233,7 @@ describe('Share', () => {
   it('no share sheet: copies the link and says so', async () => {
     const writeText = vi.fn(async () => undefined);
     setNav(undefined, writeText);
-    mount('photoless', { extrasOk: true, extras: NO_EXTRAS });
+    mount('photoless', { extras: NO_EXTRAS });
     await settle();
     await act(async () => { fireEvent.click(q('dancer-share')!); });
     expect(writeText).toHaveBeenCalled();
@@ -249,7 +242,7 @@ describe('Share', () => {
 
   it('nothing works: shows the link to copy by hand', async () => {
     setNav(undefined, null);
-    mount('photoless', { extrasOk: true, extras: NO_EXTRAS });
+    mount('photoless', { extras: NO_EXTRAS });
     await settle();
     await act(async () => { fireEvent.click(q('dancer-share')!); });
     expect(q('dancer-share-status')!.textContent).toContain('Copy this link');
@@ -259,14 +252,14 @@ describe('Share', () => {
 
 describe('views and names', () => {
   it('v2 calls no view recorder (the page never did; no second recorder)', async () => {
-    mount('complete + all extras', { extrasOk: true, extras: EXTRAS.full });
+    mount('complete + all extras', { extras: EXTRAS.full });
     await settle();
     expect(h.rpcCalls.filter((n) => /view/.test(n))).toEqual([]);
   });
 
   // F6: the portrait is above the fold, so it loads eagerly (check:images needs an explicit loading attr).
   it('the portrait image loads eagerly', async () => {
-    mount('long name', { extrasOk: true, extras: NO_EXTRAS });
+    mount('long name', { extras: NO_EXTRAS });
     await settle();
     const portrait = screen.getAllByRole('img').find((el) => el.getAttribute('alt') === 'Maria-Fernanda Alejandra de los Santos');
     expect(portrait?.getAttribute('loading')).toBe('eager');
@@ -274,27 +267,27 @@ describe('views and names', () => {
 
   // F4: prod stores ISO codes; the chips show names, and unknown codes never appear raw.
   it('language codes render as names; unknown codes are hidden', async () => {
-    mount('photoless', { extrasOk: true, extras: { ...NO_EXTRAS, languages: ['en', 'es', 'xx'] } });
+    mount('photoless', { extras: { ...NO_EXTRAS, languages: ['en', 'es', 'xx'] } });
     await settle();
     expect(q('dancer-languages')!.textContent).toContain('English, Spanish');
     expect(q('dancer-languages')!.textContent).not.toContain('xx');
   });
 
   it('only unknown language codes: no Speaks section at all', async () => {
-    mount('photoless', { extrasOk: true, extras: EXTRAS.unknownCodes });
+    mount('photoless', { extras: EXTRAS.unknownCodes });
     await settle();
     expect(q('dancer-languages')).toBeNull();
   });
 
   it('surname hidden: no surname on screen', async () => {
-    mount('surname hidden', { extrasOk: true, extras: NO_EXTRAS });
+    mount('surname hidden', { extras: NO_EXTRAS });
     await settle();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Fay');
   });
 
   it('200% text, long name: the heading wraps instead of overflowing', async () => {
     document.documentElement.style.fontSize = '200%';
-    mount('long name', { extrasOk: true, extras: EXTRAS.full });
+    mount('long name', { extras: EXTRAS.full });
     await settle();
     expect(q('dancer-name')!.className).toContain('break-words');
   });

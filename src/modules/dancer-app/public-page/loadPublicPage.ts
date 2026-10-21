@@ -11,7 +11,7 @@ import { NO_EXTRAS, type PublicPageV2Data } from './model';
  *   briefly instead of for the full edge TTL.
  * - Flag open: v2, with the extras from get_public_dancer_extras_v1. An extras
  *   failure is not a reason to hide the page: v2 shows without bio / languages /
- *   WhatsApp, `extrasOk: false`, and `degraded: true`. SQL null (hidden, paused,
+ *   WhatsApp, and `degraded: true`. SQL null (hidden, paused,
  *   archived) cannot happen for a page that renders: anon RLS on dancer_profiles
  *   uses the same visibility predicate, so the loader has already 404'd.
  *
@@ -48,8 +48,8 @@ export const loadPublicPageV2 = async (profileId: string, deadlineMs = PUBLIC_PA
   const remainingMs = Math.max(0, deadlineMs - (Date.now() - startedAt));
   try {
     const extras = await withDeadline(fetchPublicExtras(profileId), remainingMs);
-    return { page: { extras: extras ?? NO_EXTRAS, extrasOk: true }, degraded: false };
+    return { page: { extras: extras ?? NO_EXTRAS }, degraded: false };
   } catch {
-    return { page: { extras: NO_EXTRAS, extrasOk: false }, degraded: true };
+    return { page: { extras: NO_EXTRAS }, degraded: true };
   }
 };

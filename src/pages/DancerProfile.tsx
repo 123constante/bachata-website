@@ -383,7 +383,6 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
           <AlsoRoles current="dancer" id={id} slug={resolved.slug} className="pb-2" />
           <PublicDancerPageV2
             model={buildPublicDancerPage(dancerView, publicPage.extras, galleryList)}
-            extrasOk={publicPage.extrasOk}
             profileId={dancerView.id}
             pathname={resolved.slug ? `/dancers/${resolved.slug}` : `/dancers/${routeParam ?? dancerView.id}`}
             ownerPlans={isSelfView ? ownerPlans : null}

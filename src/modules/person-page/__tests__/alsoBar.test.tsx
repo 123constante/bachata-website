@@ -47,9 +47,9 @@ describe.each(SHAPES)('%s', (_n, badge) => {
   });
 });
 
-it('a linked DJ chip reads "DJ · <stage name>" on the dancer page', () => {
+it('a linked DJ chip reads "DJ \u00b7 <stage name>" on the dancer page', () => {
   render(<MemoryRouter><AlsoBar badge={b(['dj', 'dancer'], 'Oreo Sensual')} current="dancer" teacherPagesOpen={false} /></MemoryRouter>);
-  expect(screen.getByRole('link').textContent).toBe('DJ · Oreo Sensual');
+  expect(screen.getByRole('link').textContent).toBe('DJ \u00b7 Oreo Sensual');
 });
 
 it('no badge yet = nothing (no empty box)', () => {
@@ -76,7 +76,21 @@ describe('role pages use the bar and the role grounds', () => {
 describe('splitInstagramWebsite', () => {
   it.each([
     [null, 'https://www.instagram.com/oreo', 'https://www.instagram.com/oreo', null],
-    [null, 'www.instagram.com', 'www.instagram.com', null],
+    // A link to no person (home page, explore, a post) is dropped, never an "Instagram" button.
+    [null, 'www.instagram.com', null, null],
+    [null, 'https://instagram.com/', null, null],
+    [null, 'https://www.instagram.com/explore/tags/bachata', null, null],
+    [null, 'https://www.instagram.com/p/Cx1abc/', null, null],
+    [null, 'https://instagram.com/reel/Cx1abc', null, null],
+    [null, 'https://instagram.com/reels/Cx1abc', null, null],
+    [null, 'https://instagram.com/stories/oreo/123', null, null],
+    [null, 'https://instagram.com/tv/Cx1abc', null, null],
+    ['@oreo', 'https://instagram.com/explore', '@oreo', null],
+    // A handle segment makes it the Instagram contact; m. host recognised.
+    [null, 'https://m.instagram.com/oreo', 'https://m.instagram.com/oreo', null],
+    [null, 'HTTPS://Instagram.com/Oreo.DJ?igsh=x', 'HTTPS://Instagram.com/Oreo.DJ?igsh=x', null],
+    [null, 'instagram.com/oreo_dj/', 'instagram.com/oreo_dj/', null],
+    [null, 'https://instagram.com.evil.com/oreo', null, 'https://instagram.com.evil.com/oreo'],
     ['https://instagram.com/a', 'https://instagram.com/b', 'https://instagram.com/a', null],
     [null, 'https://oreo.dj', null, 'https://oreo.dj'],
     [null, null, null, null],

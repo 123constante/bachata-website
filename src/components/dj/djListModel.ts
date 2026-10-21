@@ -17,7 +17,7 @@ export type DjTileModel<T extends DjListRow> = {
   name: string;
   playingSoon: boolean;
   tags: RoleTag[];
-  href: string | null;
+  href: string;
 };
 
 export function sortDjsUpcomingFirst<T extends DjListRow>(rows: readonly T[]): T[] {

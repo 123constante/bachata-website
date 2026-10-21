@@ -25,23 +25,31 @@ const SHAPES: Shape[] = [
   { name: 'dancer-only', row: raw(['dancer']), labels: ['Dancer'], stageLabels: ['Dancer'], link: () => dancer, lead: 'dancer' },
   {
     name: 'DJ-only with gig', row: raw(['dj'], { dj_name: 'Kiko', dj_has_upcoming: true, next_gig_date: '2026-11-01' }),
-    labels: ['DJ'], stageLabels: ['DJ · Kiko'], link: () => dj, lead: 'dj',
+    labels: ['DJ'], stageLabels: ['DJ \u00b7 Kiko'], link: () => dj, lead: 'dj',
   },
-  { name: 'DJ-only without gig', row: raw(['dj'], { dj_name: 'Kiko' }), labels: ['DJ'], stageLabels: ['DJ · Kiko'], link: () => dj, lead: 'dj' },
+  { name: 'DJ-only without gig', row: raw(['dj'], { dj_name: 'Kiko' }), labels: ['DJ'], stageLabels: ['DJ \u00b7 Kiko'], link: () => dj, lead: 'dj' },
   {
     name: 'DJ+dancer with gig', row: raw(['dj', 'dancer'], { dj_name: 'Kiko', dj_has_upcoming: true }),
-    labels: ['DJ', 'Dancer'], stageLabels: ['DJ · Kiko', 'Dancer'], link: () => dj, lead: 'dj',
+    labels: ['DJ', 'Dancer'], stageLabels: ['DJ \u00b7 Kiko', 'Dancer'], link: () => dj, lead: 'dj',
   },
   {
     name: 'DJ+dancer without gig', row: raw(['dancer', 'dj'], { dj_name: 'Kiko' }),
-    labels: ['DJ', 'Dancer'], stageLabels: ['DJ · Kiko', 'Dancer'], link: () => dj, lead: 'dancer',
+    labels: ['DJ', 'Dancer'], stageLabels: ['DJ \u00b7 Kiko', 'Dancer'], link: () => dj, lead: 'dancer',
   },
   { name: 'dancer+teacher', row: raw(['dancer', 'teacher']), labels: ['Teacher', 'Dancer'], stageLabels: ['Teacher', 'Dancer'], link: () => dancer, lead: 'dancer' },
   { name: 'teacher-only', row: raw(['teacher']), labels: ['Teacher'], stageLabels: ['Teacher'], link: (o) => (o ? teacher : null), lead: 'teacher' },
   {
     name: 'djName starts with DJ', row: raw(['dj'], { dj_name: 'DJ X' }),
-    labels: ['DJ'], stageLabels: ['DJ · DJ X'], link: () => dj, lead: 'dj',
+    labels: ['DJ'], stageLabels: ['DJ \u00b7 X'], link: () => dj, lead: 'dj',
   },
+  // review 7b: the label never repeats the word ("DJ \u00b7 DJ El Rugido"); the tile/page name keeps it
+  {
+    name: 'djName "DJ El Rugido"', row: raw(['dj', 'dancer'], { dj_name: 'DJ El Rugido' }),
+    labels: ['DJ', 'Dancer'], stageLabels: ['DJ \u00b7 El Rugido', 'Dancer'], link: () => dj, lead: 'dancer',
+  },
+  { name: 'djName lower-case "dj kiko"', row: raw(['dj'], { dj_name: 'dj  kiko' }), labels: ['DJ'], stageLabels: ['DJ \u00b7 kiko'], link: () => dj, lead: 'dj' },
+  { name: 'djName "DJane Kiko" (no space after DJ)', row: raw(['dj'], { dj_name: 'DJane Kiko' }), labels: ['DJ'], stageLabels: ['DJ \u00b7 DJane Kiko'], link: () => dj, lead: 'dj' },
+  { name: 'djName is just "DJ "', row: raw(['dj'], { dj_name: 'DJ ' }), labels: ['DJ'], stageLabels: ['DJ'], link: () => dj, lead: 'dj' },
   { name: 'djName null', row: raw(['dj']), labels: ['DJ'], stageLabels: ['DJ'], link: () => dj, lead: 'dj' },
   { name: 'empty roles', row: raw([]), labels: [], stageLabels: [], link: () => null, lead: null },
   { name: 'unknown roles only', row: raw(['organising', 'filming']), labels: [], stageLabels: [], link: () => null, lead: null },
@@ -75,7 +83,7 @@ describe.each([false, true])('badges, teacherPagesOpen=%s', (open) => {
       const tags = [...roleTagsFor(b, { ...opts, withStageName: true }), ...roleTagsFor(b, opts)];
       for (const t of tags) {
         if (!open && t.href) expect(t.href.startsWith('/teachers/')).toBe(false);
-        expect(t.label === ROLE_LABEL[t.role] || t.label.startsWith(`${ROLE_LABEL.dj} · `)).toBe(true);
+        expect(t.label === ROLE_LABEL[t.role] || t.label.startsWith(`${ROLE_LABEL.dj} \u00b7 `)).toBe(true);
       }
       const link = linkFor(b, opts);
       if (!open) expect(link === null || !link.startsWith('/teachers/')).toBe(true);
