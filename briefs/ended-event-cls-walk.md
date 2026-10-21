@@ -40,3 +40,14 @@ Verified / Not verified (e.g. real phone, real network). Plain words, short.
 - 30% context limit: at 25% start nothing new; by 30% push what you have with a subject ending
   `PARTIAL [worker-done <ticket>]`.
 - Last commit subject ends `[worker-done <ticket>]`. Stop after the push.
+
+## Continuation note (orchestrator, 19:10Z) - read this before step 1
+The first walk worker (dt_67ea08ef9044) stopped because the cloud env's `VITE_SUPABASE_*` point at a non-prod project.
+That is expected; the earlier reviewer had the same env and built with **prod's PUBLIC URL and anon key**.
+Those are public by design (they ship in every visitor's browser bundle), so you may use them:
+- get them read-only from the Supabase connector: `get_project_url` and `get_publishable_keys` for project
+  `stsdtacfauprzrdebmzg` (use the legacy `anon` key if the build expects a JWT anon key);
+- export them only for the two build commands (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and any other
+  `VITE_SUPABASE_*` name the build reads, see `.env.example`); never write them to a committed file or print them.
+Never use a service-role or secret key. Then do steps 1-5 as written. Overwrite the BLOCKED report on
+`claude/walk-ended-event-cls` with the real one.
