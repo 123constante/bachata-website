@@ -1,26 +1,67 @@
 # W1 finish pass: handover (PR #893, branch `claude/w1-people-surfaces`)
 
-Brief: `briefs/W1-finish-brief.md` @ `158fe99` (branch `brief/search-v7-2026-10-20`).
+Finish pass brief: `briefs/W1-finish-brief.md` @ `158fe99`; split pass brief: `briefs/W1-split-brief.md`
+(blob `7a3aa28`), both on branch `brief/search-v7-2026-10-20`.
 Review worked from: `docs/reviews/w1-people-surfaces-review.md` on `claude/w1-review`.
-Ticket: dt_b42abe7dcec8. Base of this pass: `1f00b24`. One push.
+Tickets: finish pass dt_b42abe7dcec8 (base `1f00b24`, head `be098eb`); split pass dt_af7c9127b69d (base `be098eb`).
 
-**`gh` is not authenticated in this sandbox** (`gh auth status`: token login failed), so the PR #893
-body could NOT be replaced and the `automerge-ok` label was not considered (not a docs-only PR anyway).
-**The PR body to paste is the section "PR body (paste into #893)" below.**
+**`gh` is not authenticated in this sandbox**, so the PR #893 body could NOT be replaced.
+**The PR body to paste is the section "PR body (paste into #893)" below** (replaced by the split pass).
 
-## Status: NOT ready. One gate is red and needs an orchestrator decision
+## Split pass (dt_af7c9127b69d, 2026-10-21)
 
-`unit-tests / dancer-area-isolation` fails with 93 violations. It was already red at the committed HEAD
-`1f00b24`, before this pass. W1 edits `src/modules/dancer-app/public-page/*` (the S2 role pages).
-That makes the PR a "dancer-area PR", so rule (a) flags every changed file outside that folder that is not a seam,
-and rule (c) flags `src/pages/DJProfile.tsx` importing `@/modules/dancer-app/public-page/model`.
-The script says "Adding a seam is an orchestrator decision, never a code edit here". I did NOT edit
-`scripts/dancer-area-isolation-allowlist.json`. **The orchestrator needs to choose one:**
-- (A) add the W1 seams to `briefs/dancer-rebuild-INTERFACE.md` section 5 and mirror them into the JSON, or
-- (B) split the `public-page/*` edits into their own PR, or
-- (C) move the shared bits (`model.ts` helpers DJProfile uses) out of `dancer-app/`.
+Orchestrator decision (option B + one seam), applied as briefed.
 
-Every other gate the sandbox can run is green, or fails the same way on `origin/main` (table below).
+### What moved
+1. **`src/modules/dancer-app/` is byte-identical to `origin/main`.** The 7 W1 files there were restored to
+   main (`git restore --source=origin/main`): `public-page/PublicDancerPageV2.tsx`, `loadPublicPage.ts`,
+   `model.ts`, and `__tests__/{embeddedPassThrough.test.tsx,model.test.ts,page.test.tsx,route.test.ts}`.
+   `git diff origin/main -- src/modules/dancer-app` is empty, so #893 is no longer a dancer-area PR (rule c only).
+2. **Behaviour this removes from #893** (it moves to the follow-up PR):
+   - **7f "New this year"** (`model.ts` facts.dancing). Main shows "0 years" for a current-year start.
+   - **C9 `extrasOk` removal** (`model.ts` type, `loadPublicPage.ts`, `PublicDancerPageV2` prop, tests).
+     Main's `extrasOk` stays and `DancerProfile` passes it again.
+   - **S2 in `PublicDancerPageV2.tsx`:** (a) the `showRoleLabel` prop, which hid the DANCER label on the
+     thin `/dancers/:id` page for a person who does not hold the Dancer role (wired from `DancerProfile` via
+     `usePeopleBadges`); (b) the "Favourite songs" card section; (c) removal of the "No public contacts yet.
+     Use Share..." line (main shows it again).
+3. **Seam:** `src/pages/DJProfile.tsx` added to `seams` in `scripts/dancer-area-isolation-allowlist.json`
+   with the briefed `seamNotes` text. No other seam; the check script is untouched.
+4. **Merge of `origin/main` (`fb91b8a`, #870 + #885).** #893 conflicted with main in
+   `src/components/layout/GlobalLayout.tsx` (D84 plain background vs W1 page grounds), so the PR's
+   `pull_request` workflows could not queue. Resolved: plain-background routes (`/invite*`,
+   `/admin/organisers*`) win, then the W1 ground, then velvet/brass/organiser. Main's
+   `plainBackground.test.tsx` reads `data-testid="layout-bg"`, and `'default'` is now a W1 ground, so the
+   ground div carries `data-testid="layout-bg" data-bg="ground"` (was `page-ground`);
+   `GlobalLayout.grounds.test.tsx` selectors updated. Layout tests 21/21.
+
+### Follow-up record (dancer page PR, to be re-applied from `be098eb`)
+Files I changed OUTSIDE `src/modules/dancer-app/` to make #893 build against main's dancer-app:
+| path | what I reverted | why | re-apply? |
+|---|---|---|---|
+| `src/pages/DancerProfile.tsx` | 3 hunks: the `usePeopleBadges` import; the `roleBadges`/`holdsDancerRole` block; `showRoleLabel={holdsDancerRole}` removed and `extrasOk={publicPage.extrasOk}` restored on `<PublicDancerPageV2>`. Kept: `gradientPalette="dancer"`, `AlsoRoles className="pb-2"` | main's V2 has no `showRoleLabel` and requires `extrasOk` | **yes** (seam file; main has not touched it since, so `git checkout be098eb --` is exact) |
+| `app/routes/people.loader.test.ts` | fixture back to `{ extras: {}, extrasOk: true }` | matches main's `PublicPageV2Data` | **no**: the mock is passed through untouched, so the test passes either way; re-applying it is a non-seam, non-`tests/` file and turns rule (a) red (proved below) |
+| `scripts/dancer-area-isolation-allowlist.json` | (added DJProfile seam) | brief step 3 | nothing to re-apply |
+
+Re-application for the follow-up worker, on top of #893's head:
+`git checkout be098eb -- src/modules/dancer-app src/pages/DancerProfile.tsx`
+
+**Proof** (scratch worktree at code head `a1a2276`, not pushed):
+- with `app/routes/people.loader.test.ts` also re-applied: `DANCER_ISOLATION_BASE=a1a2276 node scripts/check-dancer-area-isolation.mjs`
+  = exit 1, 1 violation: rule (a) on `app/routes/people.loader.test.ts`.
+- with the command above (8 files): exit 0, "dancer-area PR: rules a+b+c ... OK".
+- vitest `src/modules/dancer-app/public-page app/routes src/pages/__tests__ src/modules/person-page tests/searchV7People.test.tsx`:
+  1197/1198 in the batch; the 1 failure (DancerFirstGate.matrix returnTo row) passes alone 114/114 (load flake).
+- `npm run typecheck`: 99 errors, the identical set to #893's head and to main.
+
+### Red-first
+- At `be098eb`: `node scripts/check-dancer-area-isolation.mjs` exit **1**, "dancer-area PR: rules a+b+c",
+  105 violations (base merge-base `0ab0ff9`; the finish pass reported 93 on its working tree), the
+  last being rule (c) on `src/pages/DJProfile.tsx`.
+- At this head: exit **0**, "not a dancer-area PR: rule c only ... OK" (base merge-base `fb91b8a` after the merge).
+
+### Status
+See "Gates" in the PR body below. Everything the sandbox can run is green or fails identically on main.
 
 ## PR body (paste into #893)
 
@@ -63,7 +104,9 @@ Every other gate the sandbox can run is green, or fails the same way on `origin/
 >   - EventScheduleGrid takes its role words from `ROLE_LABEL` (M5).
 >   - PersonChip telemetry and `data-profile-type` follow the role of the page the link opens. The route prefixes are derived from `hrefFor` (C7).
 > - **Layout:** an embedded GlobalLayout no longer paints `<html>`/`<body>` (C2).
-> - **Dancer page:** a start year equal to the current year shows "New this year". Null and future years stay hidden (7f). The dead `extrasOk` prop, field and no-op test are removed (C9).
+> - **Thin dancer page wrapper (`DancerProfile.tsx`, outside the dancer-app module):** the dancer ground and the AlsoRoles spacing only. Nothing under `src/modules/dancer-app/` changes in this PR.
+> - **Isolation seam:** `src/pages/DJProfile.tsx` is a named seam (orchestrator 2026-10-21): it reuses the public dancer page's share helper (`SHARE_MESSAGES`, `shareDancerPage`) instead of a second copy.
+> - **Merged `origin/main` `fb91b8a`:** GlobalLayout keeps D84's plain background on `/invite*` and `/admin/organisers*`; every other route gets the W1 ground.
 > - **Fixtures:** the nameless Dancer row is restored in `directoryAttendance`, and `badges` is declared in `vi.hoisted`.
 > - **Bundle:** the `/event` chunk ratchet regression (44 > 43, caused by W1 S3) is fixed by a `lib-people` first-party group in `vite.chunks.ts`, plus single-module pins for `client.ts` and `searchEntities.ts`. No allowance was raised.
 >
@@ -71,27 +114,38 @@ Every other gate the sandbox can run is green, or fails the same way on `origin/
 > - 7b: YES. A leading `/^dj\s+/i` is stripped in the DJ tag label only.
 > - 7d: YES. The authored title shows, with no 'Team' default.
 > - 7e: KEEP. No genre chips on the /djs tiles.
-> - 7f: YES. "New this year".
+> - 7f: YES, but it ships in the follow-up dancer page PR, not here.
+> - Isolation: option B (split) + the one DJProfile seam.
+>
+> ### Follow-up PR (dancer page)
+> These W1 changes were split out so that #893 changes nothing under `src/modules/dancer-app/`. Another worker re-applies them from `be098eb` as their own dancer-area PR (`git checkout be098eb -- src/modules/dancer-app src/pages/DancerProfile.tsx`; proof in `docs/handover/w1-finish.md`, "Split pass"):
+> - 7f: a current-year start shows "New this year", never "0 years".
+> - C9: the dead `extrasOk` prop, field and no-op test are removed.
+> - S2: the thin page hides the DANCER label for someone who does not hold the Dancer role; a "Favourite songs" card; no "No public contacts yet" line.
+>
+> Until it lands, the live dancer page keeps main's behaviour for those items.
 > - 7a: item 19 is done.
 >
-> ### Gates (local; branch / origin/main)
+> ### Gates (split pass, local, final code head `a1a2276`; compared to origin/main `fb91b8a`)
 > | Job / step | Command | Exit | Note |
 > |---|---|---|---|
-> | lint chain | `npm run lint` | 19/20 links PASS; check:integrity 126 (main 126) | The script is mode 644 in git; CI chmods it first. `bash bin/check-integrity.sh` = 0, 2058 files, 0 issues |
-> | eslint (informational) | `eslint .` | 1 / 1 | DJProfile is back to its baseline count after the bad disable comment was removed |
-> | architecture-guard integrity steps | legacy-tables, legacy-program-rpcs, lint:architecture, `AUDIT_STRICT=1 check:images`, image-widths, plan-hygiene, artifact-policy, mojibake, prove:entry-point | all 0 | |
-> | typecheck | `npm run typecheck` | 2 / 2 | 99 errors on both, the identical set |
+> | **dancer-area-isolation** | `npm run check:dancer-area-isolation` (+ `--self-test`) | **0** (was 1 at `be098eb`) / 0 | "not a dancer-area PR: rule c only ... OK" |
+> | lint chain | `npm run lint` | 19/20 links PASS; check:integrity 126 (main 126) | Same on main: the script is mode 644 in git and CI chmods it first. `bash bin/check-integrity.sh` = 0 |
+> | eslint on the files this pass touched | `npx eslint` DancerProfile, GlobalLayout, grounds test, people.loader.test | 4 errors / main 4 | No increase |
+> | architecture-guard steps | PyYAML, integrity, legacy-tables, legacy-program-rpcs, lint:architecture, `AUDIT_STRICT=1 check:images`, image-widths, plan-hygiene self-test, artifact-policy, mojibake canary + grep, prove:entry-point | all 0 | |
 > | typecheck job | check:rpc-typing, check:wallclock-brand | 0 | |
-> | unit (London) | `CI=1 npx vitest run` | 1 / 1 | 16 failures, the same names on main: 10 live-contract tests (sandbox .env key) and 6 integrityCouldNotRun (sandbox PATH). account.today 'organiser-type' flakes on main too (1/5 main, 2/5 branch) |
-> | unit New_York / Sydney / timing | 9-file list, test:unit:timing | 0 | 213 / 213 / 65 passed |
-> | **dancer-area-isolation** | `npm run check:dancer-area-isolation` | **1** / 0 | **Needs orchestrator** (see top). Red since `1f00b24` |
-> | e2e-smoke | `npm run test:e2e` | 0 | 158 passed, 2 flaky (auth-magic-link-returnto, same on main) |
-> | phone-qa | `playwright --config playwright.phone.config.ts` | 1 before the fix: /dancers flag spec (32px/14 vs the S1 48px/22). After the spec update the /dancers rows pass 2/2 | keyboard.phone:358 flake is the same on main. The full phone suite was not re-run after the spec edit |
-> | build-smoke | fake-Supabase build + playwright.build.config | 0 | 66 passed |
-> | perf-budget | self-tests, build, `check:bundle-budget`, first-load-requests, chunk-cycles | all 0 (bundle-budget was 1 at `1f00b24`) | event chunk 44 [OVER] -> 43 [ok]; every other ratchet the same or better |
-> | workflow-lint, offline db-contract steps, other self-tests | (see handover) | all 0 | |
+> | typecheck (not in CI) | `npm run typecheck` | 2 / 2 | 99 errors, the identical set on main |
+> | unit (London, offline as on a PR) | `CI=1 TZ=Europe/London npm run test:unit:offline` | 1 | 10796 passed, 6 failed: all `integrityCouldNotRun` (sandbox PATH); the same 5 fail when that file runs alone on main and on the branch |
+> | unit (London, full incl. contract) | `CI=1 npx vitest run` | 1 | run BEFORE the layout test-id fix: env failures above + 10 `*.contract.test.*` (sandbox .env key) + 5 `plainBackground` rows; those 5 are fixed (the offline run above came after the fix) |
+> | unit New_York / Sydney / timing | 9-file list, test:unit:timing | 0 / 0 / 0 | |
+> | live gate | `node scripts/ci-live-db-gate.mjs` | 0 | |
+> | e2e-smoke | `npm run test:e2e` | 1 | 153 passed, 5 flaky, 2 failed under load (organiser-home:55, organiser-layout:171). Re-run alone with `--retries=0`: both specs 18/18 pass on the branch. Neither touches W1 files |
+> | **phone-qa (FULL suite)** | `npx playwright test --config playwright.phone.config.ts` | **0** | 272 passed, 74 skipped, 0 failed, 0 flaky |
+> | build-smoke | fake-Supabase build + `playwright.build.config.ts` | 0 | 66 passed |
+> | perf-budget | 3 self-tests, `npm run build` (perf env), check:bundle-budget, first-load-requests, chunk-cycles | all 0 | event 380.1 KB / 43 files (budget 381) |
+> | workflow-lint | docs-only self-test, workflow-masking, workflow-notification, no-preview-prefixes | all 0 | |
 > | build | `npm run build` | 0 | |
-> | NOT RUN | live db-contract checks, types-drift, Lighthouse/preview jobs, Docker / local Supabase, real phone | - | They need prod secrets, `SUPABASE_ACCESS_TOKEN`, a Vercel preview, or hardware |
+> | NOT RUN | live db-contract checks, types-drift, Lighthouse/preview jobs, real phone, `npm run pre-ship` | - | prod secrets, `SUPABASE_ACCESS_TOKEN`, a Vercel preview or hardware are not available; the `.githooks` are not executable in this checkout |
 >
 > ## Phone QA
 > The production build ran with prod's public anon key, served by the react-router server build (`node --conditions=production scripts/_serve-build.mjs`; an unknown path returns 404, no SPA fallback). `location.pathname` and the h1 were asserted on every shot. Shots are in `docs/mockups/w1-finish/`.
@@ -111,13 +165,15 @@ Every other gate the sandbox can run is green, or fails the same way on `origin/
 >   - Client navigation / -> /faq and /dancers -> /faq: html, body and the band above the footer are all rgb(14,18,21), identical to a direct load, with no strip.
 >   - `/event/4ec7a3d5-02bb-4e80-9439-9db4766b00b2` (Pura Nights Ealing) lands on `/event/pura-nights-ealing`. The gap above the footer is a smooth graphite gradient with no separate band.
 > - **7a:** on `/djs/carlos-de-la-cruz` the element at the initials' centre is the initials text, and there is no spindle dot.
-> - **7f:** the 2 prod dancers with a 2026 start show "New this year" and never "0 years".
+> - **7f** moved to the follow-up dancer page PR (the finish-pass walk showed it working on `be098eb`).
+> - Split pass: the full phone suite (`playwright.phone.config.ts`) ran once on the final code head, 272 passed / 0 failed. The prod-data browser walk above was NOT repeated; the split only returns the dancer page to main's code.
 >
 > ## Verified / Not verified
 > **Verified:**
 > - Every review item 1-19: each test failed on the pre-fix code and passes now (commands below).
 > - Two code-review rounds, with their findings applied.
-> - The gates in the table above.
+> - The gates in the table above, including the full phone-qa suite and `dancer-area-isolation` = 0.
+> - The follow-up re-application (split pass): isolation 0, tests pass, same typecheck set.
 > - Prod-data browser walk at 390x844 and 360x640 on a local production build.
 > - Read-only prod counts: 0 programme people without a `dancer_profiles` row; 4 have an archived row, so the badges RPC returns nothing for them and their chip loses its link (3 of them on upcoming events); 2 profiles with a 2026 start; all 58 team rows have role 'Leader'.
 >
@@ -127,12 +183,12 @@ Every other gate the sandbox can run is green, or fails the same way on `origin/
 > - A real phone.
 > - Prod Vercel flag values (proxy).
 > - GitHub Actions on #893 were not read (no `gh`).
-> - The full phone-qa suite after the flag-spec edit (only the affected rows were re-run).
-> - `dancer-area-isolation` is red pending the orchestrator.
+> - The prod-data browser walk was not repeated after the split pass (dancer page is main's code again; GlobalLayout merge covered by unit tests and the phone suite).
+> - `npm run pre-ship` and the code-review rounds were not run for the split pass.
 > - #850 is not rebased (7g: rebase or close it before merging; W1 adds no new conflicted file).
 
 ## Owner / orchestrator items raised by this pass
-1. **dancer-area-isolation seams** (above): blocking.
+1. **dancer-area-isolation:** resolved by the split pass (option B + DJProfile seam). Mirror the new seam into `briefs/dancer-rebuild-INTERFACE.md` section 5 on `arc/briefs-dancer-rebuild` (orchestrator).
 2. **Team title "Leader":** in prod, all 58 active `organiser_team_members` rows have `role='Leader'` and `is_leader=true`. That is a system default, not an authored title. The site hides 'leader'; the real fix is in admin, which should store NULL or backfill. Until then, an organiser who really types "Leader" won't see it.
 3. **Overlay link for a person with no page** (teacher-only while closed, or no public role): it goes to `<city>/search?q=<name>`. The alternatives were no link (needs a type change in HeaderSearch/SearchOverlay) or the closed /teachers/ page.
 4. **Overlay stage name:** the overlay does no badges read, so the DJ tag reads "DJ" there and "DJ · El Rugido" on /search once the badges load. Link and roles agree.
@@ -141,7 +197,7 @@ Every other gate the sandbox can run is green, or fails the same way on `origin/
 7. 4 programme people have an archived `dancer_profiles` row, so their lineup chip loses its link after load (3 on upcoming events: 1 DJ, 2 teachers).
 
 ## Next steps
-- Orchestrator: decide item 1, then re-run `npm run check:dancer-area-isolation`.
+- Follow-up worker: the dancer page PR from `be098eb` (see "Split pass", follow-up record).
 - Read CI on #893 at this push, and paste the PR body above.
 - Do the walk on the Vercel preview, then Ricky's phone test.
 
