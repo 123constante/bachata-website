@@ -28,6 +28,8 @@ import {
   type ProfileField,
 } from "@/lib/profileCompletion";
 import { saveMyDancerProfile, type SaveMyDancerProfileInput } from "@/lib/saveMyDancerProfile";
+import { Dancer4Flow } from "@/modules/organiser/home/onboarding/dancer4/Dancer4Flow";
+import { readDancerPrefill } from "@/modules/organiser/home/onboarding/dancer4/prefillStore";
 
 type Draft = { first_name: string; based_city_id: string; dance_role: DanceRoleValue | ""; avatar_url: string };
 
@@ -165,6 +167,9 @@ export const FinishProfileScreen = () => {
         )}
       </div>
     );
+  } else if (gated && completion.profileId) {
+    // Arc 1 dancer 4: behind the dancer-first gate the four questions come one per screen.
+    body = <Dancer4Flow missing={fields} profileId={completion.profileId} prefill={readDancerPrefill()} refetch={completion.refetch} onDone={goBack} />;
   } else {
     body = (
       <form

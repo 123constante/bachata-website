@@ -29,16 +29,16 @@ exports[`/account entry at '390x844' > /account > 'incomplete (name + city, no r
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Finish your profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Still to add: dance role, photo."
+text "Step 1 of 2"
+heading "Do you lead or follow?" level=2
+text "Shown on your profile."
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
-text "Photo"
-button "Upload photo"
-button "Save" [disabled]
-text "Fill in at least one field above to save."
+button "Next" [disabled]
+text "Pick one"
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
 `;
@@ -130,16 +130,16 @@ exports[`/account entry at '390x844' > /account/dancer > 'incomplete (name + cit
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Finish your profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Still to add: dance role, photo."
+text "Step 1 of 2"
+heading "Do you lead or follow?" level=2
+text "Shown on your profile."
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
-text "Photo"
-button "Upload photo"
-button "Save" [disabled]
-text "Fill in at least one field above to save."
+button "Next" [disabled]
+text "Pick one"
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
 `;
@@ -235,16 +235,16 @@ exports[`/account entry at '390x844' > /account/o > 'incomplete (name + city, no
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Finish your profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Still to add: dance role, photo."
+text "Step 1 of 2"
+heading "Do you lead or follow?" level=2
+text "Shown on your profile."
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
-text "Photo"
-button "Upload photo"
-button "Save" [disabled]
-text "Fill in at least one field above to save."
+button "Next" [disabled]
+text "Pick one"
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
 `;
@@ -336,16 +336,16 @@ exports[`/account entry at 'desktop' > /account > 'incomplete (name + city, no r
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Finish your profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Still to add: dance role, photo."
+text "Step 1 of 2"
+heading "Do you lead or follow?" level=2
+text "Shown on your profile."
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
-text "Photo"
-button "Upload photo"
-button "Save" [disabled]
-text "Fill in at least one field above to save."
+button "Next" [disabled]
+text "Pick one"
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
 `;
@@ -437,16 +437,16 @@ exports[`/account entry at 'desktop' > /account/dancer > 'incomplete (name + cit
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Finish your profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Still to add: dance role, photo."
+text "Step 1 of 2"
+heading "Do you lead or follow?" level=2
+text "Shown on your profile."
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
-text "Photo"
-button "Upload photo"
-button "Save" [disabled]
-text "Fill in at least one field above to save."
+button "Next" [disabled]
+text "Pick one"
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
 `;
@@ -542,16 +542,16 @@ exports[`/account entry at 'desktop' > /account/o > 'incomplete (name + city, no
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Finish your profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Still to add: dance role, photo."
+text "Step 1 of 2"
+heading "Do you lead or follow?" level=2
+text "Shown on your profile."
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
-text "Photo"
-button "Upload photo"
-button "Save" [disabled]
-text "Fill in at least one field above to save."
+button "Next" [disabled]
+text "Pick one"
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
 `;

@@ -54,6 +54,11 @@ vi.mock('@/components/ui/city-picker', () => ({
     <button type="button" onClick={() => onChange('city-london')}>Pick city</button>
   ),
 }));
+// Arc 1 dancer 4: behind the gate the city step reads its chips here (the fake backend has no `cities` table).
+vi.mock('@/modules/organiser/home/onboarding/dancer4/dancer4Api', () => ({
+  fetchChipCities: async () => [{ id: 'city-london', name: 'London' }],
+  submitCityRequest: async () => undefined,
+}));
 vi.mock('@/components/profile/AvatarUpload', () => ({
   AvatarUpload: ({ onChange }: { onChange: (u: string) => void }) => (
     <button type="button" onClick={() => onChange('https://img.example/new.jpg')}>Upload photo</button>
@@ -163,17 +168,28 @@ const expectGated = async (target: string) => {
   noDanglingCopy();
 };
 
-/** Fill in every field the Finish screen asks for and save. */
-const finishTheForm = async () => {
-  await screen.findByRole('button', { name: 'Save' });
-  const name = screen.queryByLabelText(/first name/i);
-  if (name) fireEvent.change(name, { target: { value: 'Ana' } });
-  const city = screen.queryByRole('button', { name: 'Pick city' });
-  if (city) fireEvent.click(city);
-  if (screen.queryByRole('radiogroup')) fireEvent.click(screen.getByRole('radio', { name: 'Follower' }));
-  const photo = screen.queryByRole('button', { name: 'Upload photo' });
-  if (photo) fireEvent.click(photo);
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+/**
+ * Answer every question the gated Finish screen asks, one screen at a time (dancer 4),
+ * and return the fields it asked, in order. Stops when the flow leaves the screen.
+ */
+const finishTheForm = async (): Promise<ProfileField[]> => {
+  const asked: ProfileField[] = [];
+  for (let guard = 0; guard < 6; guard += 1) {
+    const form = asked.length === 0 ? await screen.findByTestId('dancer4') : screen.queryByTestId('dancer4');
+    if (!form) break;
+    const step = form.getAttribute('data-step') as ProfileField;
+    asked.push(step);
+    if (step === 'first_name') fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Ana' } });
+    if (step === 'based_city_id') fireEvent.click(await screen.findByRole('button', { name: 'London' }));
+    if (step === 'dance_role') fireEvent.click(screen.getByRole('radio', { name: 'Follower' }));
+    if (step === 'avatar_url') fireEvent.click(screen.getByRole('button', { name: 'Upload photo' }));
+    fireEvent.click(screen.getByRole('button', { name: /^(Next|Finish)$/ }));
+    await waitFor(() => {
+      const now = screen.queryByTestId('dancer4');
+      expect(!now || now.getAttribute('data-step') !== step).toBe(true);
+    });
+  }
+  return asked;
 };
 
 beforeEach(() => {
@@ -277,18 +293,13 @@ describe.each(CELLS)('$shape.name x $role.name', ({ shape, role }) => {
   it('the Finish screen states the same fact and asks for exactly those fields', async () => {
     mount(makeBackend(state()), finishProfileHref('/account'));
     if (fact.kind === 'incomplete') {
-      await screen.findByRole('button', { name: 'Save' });
-      expect(document.body.textContent).toContain(stillToAddText(fact.missing));
-      const asked: Record<ProfileField, boolean> = {
-        first_name: !!screen.queryByLabelText(/first name/i),
-        based_city_id: !!screen.queryByRole('button', { name: 'Pick city' }),
-        dance_role: !!screen.queryByRole('radiogroup'),
-        avatar_url: !!screen.queryByRole('button', { name: 'Upload photo' }),
-      };
-      for (const f of Object.keys(asked) as ProfileField[]) expect(asked[f], f).toBe(fact.missing.includes(f));
+      // One question per screen: the progress line counts exactly the missing fields, and the screens asked are those fields.
+      expect((await screen.findByTestId('dancer4-progress')).textContent).toBe(`Step 1 of ${fact.missing.length}`);
+      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+      expect(await finishTheForm()).toEqual(fact.missing);
     } else {
       expect(await screen.findByText(fact.text)).toBeTruthy();
-      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+      expect(screen.queryByTestId('dancer4')).toBeNull();
     }
     noDanglingCopy();
   });
