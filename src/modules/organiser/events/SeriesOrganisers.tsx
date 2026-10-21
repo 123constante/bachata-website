@@ -1,102 +1,147 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
-import { EventConflict, StepError, useEventSend } from '@/modules/organiser/flows/event';
+import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
+import { EventConflict, StepError } from '@/modules/organiser/flows/event';
+import {
+  cancelInvite, FAILURE_TEXT, inviteOrganiser, leaveEvent, OrganiserApiError, organisersQueryKey, removeOrganiserPage, searchOrganiserPages,
+  useSeriesOrganisers,
+} from '../organisers/organiserApi';
+import { canOffer, viewerRole as viewerRoleOf, withInvited, type OrganiserRow } from '../organisers/organiserModel';
 import { OrganiserShell, ORG_PATHS } from '../shell';
-import { Card, ErrorState, GhostButton, PersonRow, PrimaryButton, SheetView, SkeletonRows, useOpenerRef } from '../ui';
+import { Card, ErrorState, GhostButton, PersonRow, SearchField, SheetView, SkeletonRows, useDebounced, useOpenerRef } from '../ui';
 import { useEventWorkspace } from './eventsApi';
 import type { EventWorkspace } from './eventModel';
-import { fetchOrganiserPages, useSeriesRole } from './programmeSeriesApi';
-import { ADD_NONE_LEFT, ADD_ONLY_YOURS, addablePages, addOrganiser, type LinkedOrganiser, organisersEmpty, organisersCommand, organisersOff, removeOff, removeOrganiser } from './organisersModel';
+import { useSeriesRole } from './programmeSeriesApi';
+import { BLOCK_TEXT, controlFor, INVITE_LABEL, INVITED_LABEL, LEAVE_CONFIRM, LEAVE_LABEL, removeNote, ROLE_WORD, rowAction, SEARCH_ALL_TAKEN, SEARCH_HINT, SEARCH_NONE } from './organisersModel';
 
-/** AW1 B-2: only the viewer's own live pages are offered; the server refuses any other added page. */
-function AddSheet({ open, onClose, offer, onPick }: { open: boolean; onClose: () => void; offer: LinkedOrganiser[]; onPick: (id: string) => void }) {
+/** Search ANY organiser page; tapping a result sends the invite at once. */
+function InviteSheet({ open, onClose, rows, onPick }: { open: boolean; onClose: () => void; rows: OrganiserRow[]; onPick: (page: { id: string; name: string }) => void }) {
   const opener = useOpenerRef(open);
+  const [text, setText] = useState('');
+  const query = useDebounced(text.trim());
+  const found = useQuery({ queryKey: ['org-organiser-search', query], queryFn: () => searchOrganiserPages(query), enabled: open && query.length >= 2, retry: false });
+  const offer = (found.data ?? []).filter((p) => canOffer(rows, p.id));
   return (
-    <SheetView open={open} returnFocusRef={opener} onOpenChange={(next) => { if (!next) onClose(); }} title="Link an organiser page" fullHeight testId="org-add-sheet">
-      <div className="space-y-[12px]" data-testid="org-add-view">
-        {offer.length === 0 ? <p className="text-[14px] text-[var(--mut)]" data-testid="org-add-empty">{ADD_NONE_LEFT}</p> : (
-          <>
-            <p className="text-[13px] text-[var(--mut)]" data-testid="org-add-note">{ADD_ONLY_YOURS}</p>
-            <Card testId="org-add-results">
-              {offer.map((o) => (
-                <PersonRow key={o.id} testId="org-add-result" name={o.name} onPress={() => { onPick(o.id); onClose(); }}
+    <SheetView open={open} returnFocusRef={opener} onOpenChange={(next) => { if (!next) { setText(''); onClose(); } }} title={INVITE_LABEL} fullHeight testId="org-invite-sheet">
+      <div className="space-y-[12px]" data-testid="org-invite-view">
+        <SearchField value={text} onChange={setText} aria-label="Search organiser pages" placeholder="Page name" testId="org-invite-search" autoFocusInSheet />
+        {query.length < 2 ? <p className="text-[14px] text-[var(--mut)]" data-testid="org-invite-hint">{SEARCH_HINT}</p>
+          : found.isLoading ? <SkeletonRows count={3} label="Searching" />
+          : found.isError ? <p className="text-[14px] text-[var(--mut)]" data-testid="org-invite-fail">{FAILURE_TEXT.failed}</p>
+          : offer.length === 0 ? <p className="text-[14px] text-[var(--mut)]" data-testid="org-invite-none">{(found.data ?? []).length ? SEARCH_ALL_TAKEN : SEARCH_NONE}</p> : (
+            <Card testId="org-invite-results">
+              {offer.map((p) => (
+                <PersonRow key={p.id} testId="org-invite-result" name={p.name} onPress={() => { onPick(p); setText(''); onClose(); }}
                   trailing={<Plus aria-hidden="true" className="h-[20px] w-[20px] shrink-0 text-[var(--gold)]" />} />
               ))}
             </Card>
-          </>
-        )}
+          )}
       </div>
     </SheetView>
   );
 }
 
-function OrganisersBody({ ws }: { ws: EventWorkspace }) {
+function LeaveSheet({ open, onClose, busy, onConfirm }: { open: boolean; onClose: () => void; busy: boolean; onConfirm: () => void }) {
+  const opener = useOpenerRef(open);
+  return (
+    <SheetView open={open} returnFocusRef={opener} onOpenChange={(next) => { if (!next) onClose(); }} title={LEAVE_LABEL} testId="org-leave-sheet">
+      <div className="space-y-[12px]" data-testid="org-leave-view">
+        <p className="text-[14px] text-[var(--mut)]" data-testid="org-leave-note">{LEAVE_CONFIRM}</p>
+        <GhostButton testId="org-leave-confirm" disabled={busy} onClick={onConfirm}>{LEAVE_LABEL}</GhostButton>
+        <GhostButton testId="org-leave-stay" onClick={onClose}>Stay on this event</GhostButton>
+      </div>
+    </SheetView>
+  );
+}
+
+const ROW_BTN = 'inline-flex h-[44px] shrink-0 items-center rounded-[12px] px-[12px] text-[14px] font-semibold text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-40';
+
+function OrganisersBody({ ws, rows }: { ws: EventWorkspace; rows: OrganiserRow[] }) {
   const seriesId = ws.series.id;
-  const stored = ws.organiserIds;
-  const [ids, setIds] = useState<string[]>(stored);
-  const [adding, setAdding] = useState(false);
-  const { sendThenDone, busy, conflict, error } = useEventSend(seriesId);
-  const { role, myPages } = useSeriesRole(seriesId);
-  const off = organisersOff({ lifecycle: ws.series.lifecycle_status, isOwner: role === 'owner' });
-  const pages = useQuery({ queryKey: ['org-organiser-pages', ...ids], queryFn: () => fetchOrganiserPages(ids), enabled: ids.length > 0 });
-  const command = organisersCommand(stored, ids);
-  const lastOff = removeOff(ids);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { myPages } = useSeriesRole(seriesId);
+  const myPageIds = myPages.map((p) => p.id);
+  const role = viewerRoleOf(rows, myPageIds);
+  const [inviting, setInviting] = useState(false);
+  const [leaving, setLeaving] = useState<OrganiserRow | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
+  const invite = controlFor(role, ws.series.lifecycle_status, 'invite');
+  const key = organisersQueryKey(seriesId);
+  const done = () => { void queryClient.invalidateQueries({ queryKey: key }); void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY }); };
+  const onFail = (e: unknown) => {
+    const kind = e instanceof OrganiserApiError ? e.kind : 'failed';
+    if (kind === 'conflict') setConflict(true);
+    else setFailure(FAILURE_TEXT[kind]);
+  };
+  const inviteM = useMutation({
+    mutationFn: (page: { id: string; name: string }) => inviteOrganiser(seriesId, page.id),
+    onSuccess: (inviteId, page) => { setFailure(null); queryClient.setQueryData<OrganiserRow[]>(key, (cur) => withInvited(cur ?? rows, page, inviteId)); done(); },
+    onError: onFail,
+  });
+  const cancelM = useMutation({ mutationFn: (r: OrganiserRow) => cancelInvite(r.inviteId ?? ''), onSuccess: () => { setFailure(null); done(); }, onError: onFail });
+  const removeM = useMutation({ mutationFn: (r: OrganiserRow) => removeOrganiserPage(seriesId, r.pageId), onSuccess: () => { setFailure(null); done(); }, onError: onFail });
+  const leaveM = useMutation({
+    mutationFn: (r: OrganiserRow) => leaveEvent(seriesId, r.pageId),
+    onSuccess: () => { setLeaving(null); done(); navigate(ORG_PATHS.home); },
+    onError: (e) => { setLeaving(null); onFail(e); },
+  });
+  const busy = inviteM.isPending || cancelM.isPending || removeM.isPending || leaveM.isPending;
   if (conflict) return <EventConflict seriesId={seriesId} />;
-  const nameOf = (id: string) => pages.data?.find((p) => p.id === id)?.name ?? 'Organiser page';
+  const note = removeNote(role, rows);
   return (
     <>
-      {off && <p id="org-off-reason" className="px-[4px] text-[14px] text-[var(--mut)]" data-testid="org-off-reason">{off}</p>}
-      {ids.length === 0 ? (
-        <p className="px-[4px] text-[14px] text-[var(--mut)]" data-testid="org-empty">{organisersEmpty(off)}</p>
-      ) : pages.isLoading ? <SkeletonRows count={ids.length} label="Loading the organisers" /> : (
-        <Card testId="org-linked">
-          {ids.map((id) => (
-            <div key={id} className="flex items-center gap-[8px] pr-[8px]" data-testid="org-linked-row">
-              <div className="min-w-0 flex-1"><PersonRow name={nameOf(id)} /></div>
-              <button type="button" disabled={!!off || !!lastOff} aria-describedby={off ? 'org-off-reason' : lastOff ? 'org-last-reason' : undefined}
-                onClick={() => setIds((l) => removeOrganiser(l, id))} data-testid="org-remove"
-                className="inline-flex h-[44px] shrink-0 items-center rounded-[12px] px-[12px] text-[14px] font-semibold text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-40">
-                Remove
-              </button>
+      <p className="px-[4px] text-[14px] text-[var(--mut)]" data-testid="org-block-text">{BLOCK_TEXT}</p>
+      <Card testId="org-linked">
+        {rows.map((r) => {
+          const action = rowAction(r, role, myPageIds);
+          const word = r.status === 'invited' ? INVITED_LABEL : ROLE_WORD[r.role];
+          return (
+            <div key={r.pageId} className="flex items-center gap-[8px] pr-[8px]" data-testid="org-linked-row" data-role={r.role} data-status={r.status}>
+              <div className="min-w-0 flex-1">
+                <PersonRow name={r.name} role={word} onRemove={action === 'cancel' ? () => cancelM.mutate(r) : undefined} />
+              </div>
+              {action === 'remove' && <button type="button" disabled={busy} onClick={() => removeM.mutate(r)} data-testid="org-remove" className={ROW_BTN}>Remove</button>}
+              {action === 'leave' && <button type="button" disabled={busy} onClick={() => setLeaving(r)} data-testid="org-leave" className={ROW_BTN}>{LEAVE_LABEL}</button>}
             </div>
-          ))}
-        </Card>
-      )}
-      {!off && lastOff && ids.length > 0 && <p id="org-last-reason" className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="org-last-reason">{lastOff}</p>}
-      <GhostButton size="sm" block={false} disabled={!!off} aria-describedby={off ? 'org-off-reason' : undefined} onClick={() => setAdding(true)} testId="org-add">
-        <Plus aria-hidden="true" className="h-[16px] w-[16px]" /> Link a page
+          );
+        })}
+      </Card>
+      {note && <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="org-remove-note">{note}</p>}
+      <GhostButton size="sm" block={false} disabled={!invite.on || busy} aria-describedby={invite.reason ? 'org-invite-reason' : undefined} onClick={() => setInviting(true)} testId="org-invite">
+        <Plus aria-hidden="true" className="h-[16px] w-[16px]" /> {INVITE_LABEL}
       </GhostButton>
-      <PrimaryButton testId="org-save" loading={busy} aria-disabled={off || !command ? true : undefined}
-        className={off || !command ? 'cursor-not-allowed opacity-60' : undefined}
-        onClick={() => { if (!off && command) void sendThenDone(ws.series.version, command, { title: 'Saved', message: 'Saved' }); }}>
-        Save
-      </PrimaryButton>
-      {(off || !command) && <p className="text-[13px] text-[var(--mut)]" data-testid="org-save-reason">{off ?? 'Nothing changed yet'}</p>}
-      <StepError text={error} />
-      <AddSheet open={adding && !off} onClose={() => setAdding(false)} offer={addablePages(myPages, ids)} onPick={(id) => setIds((l) => addOrganiser(l, id))} />
+      {invite.reason && <p id="org-invite-reason" className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="org-invite-reason">{invite.reason}</p>}
+      <StepError text={failure} />
+      <InviteSheet open={inviting && invite.on} onClose={() => setInviting(false)} rows={rows} onPick={(p) => inviteM.mutate(p)} />
+      <LeaveSheet open={!!leaving} onClose={() => setLeaving(null)} busy={leaveM.isPending} onConfirm={() => { if (leaving) leaveM.mutate(leaving); }} />
     </>
   );
 }
 
 /**
- * /account/o/events/:seriesId/organisers (SW1): the organiser pages linked to the event.
- * Owner only (a manager reads the list, with the reason); the last organiser cannot be
- * removed; ONE series.set_organisers with the complete list, behind the platform gate.
+ * /account/o/events/:seriesId/organisers (ER-C11): who runs the event. Every organiser can invite;
+ * the owner removes a co-organiser; a co-organiser can only leave; nobody removes the owner.
+ * Each change saves at once through its own RPC (no Save button).
  */
 export default function SeriesOrganisers() {
   const { seriesId = '' } = useParams();
   const ws = useEventWorkspace(seriesId);
+  const organisers = useSeriesOrganisers(seriesId);
+  const failed = ws.isError ? ws.error : organisers.isError ? organisers.error : null;
   return (
     <OrganiserShell title="Organisers" back={{ to: ORG_PATHS.eventDetails(seriesId), label: 'Back' }} testId="org-page-organisers">
       <div className="flex flex-col gap-3 p-3">
-        {ws.isError && isAccessRefusal(ws.error) ? <NoAccess />
-          : ws.isError ? <ErrorState onRetry={() => void ws.refetch()} retrying={ws.isFetching} testId="org-organisers-error" />
-          : !ws.data ? <SkeletonRows count={3} label="Loading the organisers" testId="org-organisers-loading" />
-            : <OrganisersBody key={ws.data.series.version} ws={ws.data} />}
+        {failed && isAccessRefusal(failed) ? <NoAccess />
+          : failed ? (
+            <ErrorState onRetry={() => { void ws.refetch(); void organisers.refetch(); }} retrying={ws.isFetching || organisers.isFetching} testId="org-organisers-error" />
+          ) : !ws.data || !organisers.data ? <SkeletonRows count={3} label="Loading the organisers" testId="org-organisers-loading" />
+            : <OrganisersBody key={ws.data.series.version} ws={ws.data} rows={organisers.data} />}
       </div>
     </OrganiserShell>
   );

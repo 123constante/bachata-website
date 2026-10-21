@@ -1,50 +1,39 @@
-// The event's organisers (parity wave 1, SW1): the organiser pages linked to an event.
-// Pure. Owner only (a manager sees the list read-only, with the reason); the last
-// organiser cannot be removed; an added page must be live (the search lists live
-// pages only). The write is series.set_organisers with the COMPLETE ordered id list.
+// The event's organisers screen (ER-C11, replaces SW1). Pure. The rules live in
+// organisers/organiserModel.ts (one table over owner / co / non-member); this file holds what
+// only the screen needs. There is no Save and no series.set_organisers any more: invite, cancel,
+// remove and leave each save at once through their own RPC.
 
-import type { OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
-import { setOrganisersCommand } from '@/modules/organiser/shared/selfServeApi';
-import { AW1_APPLIED, PARITY_GATE_REASON } from '@/modules/organiser/shared/parityGate';
 import { eventLock } from '@/modules/organiser/shared/eventState';
+import { BLOCK_TEXT, controlState, type Control, type ControlState, type OrganiserRow, type ViewerRole } from '../organisers/organiserModel';
 
 export interface LinkedOrganiser { id: string; name: string; avatarUrl: string | null }
 
-export const MANAGER_REASON = 'Only the owner can change who runs this event.';
-export const LAST_ORGANISER_REASON = 'An event needs at least one organiser.';
-export const ORGANISERS_EMPTY = 'No organiser is linked yet. Ask the Bachata Calendar team to link your page.';
-/** The empty list for an owner who can link (Link a page is on screen and on); anyone else asks the team. */
-export const ORGANISERS_EMPTY_OWNER = 'No organiser is linked yet. Use Link a page below to add yours.';
-export const organisersEmpty = (off: string | null): string => (off ? ORGANISERS_EMPTY : ORGANISERS_EMPTY_OWNER);
+export { BLOCK_TEXT };
+export const INVITE_LABEL = 'Invite an organiser';
+export const LEAVE_LABEL = 'Leave this event';
+export const INVITED_LABEL = 'Invited';
+export const SEARCH_HINT = 'Type at least 2 letters of the page name.';
+export const SEARCH_NONE = 'No organiser page found. Check the spelling, or ask them to set up their page first.';
+export const SEARCH_ALL_TAKEN = 'Every page that matches already runs this event or has been invited.';
+export const LEAVE_CONFIRM = 'You will stop being an organiser of this event. The owner can invite you again.';
+export const ROLE_WORD: Record<'owner' | 'co', string> = { owner: 'Owner', co: 'Co-organiser' };
 
-/** AW1 B-2: series.set_organisers refuses an ADDED page the caller does not own or manage. */
-export const ADD_ONLY_YOURS = 'You can only link organiser pages you run. To add another page, ask the Bachata Calendar team.';
-export const ADD_NONE_LEFT = 'Every live organiser page you run is already linked. To add another page, ask the Bachata Calendar team.';
+/** Why Invite is off, or null: the lock on an ended/archived event, else the role table. */
+export const inviteOff = (role: ViewerRole, lifecycle: string): string | null => controlState(role, 'invite', eventLock(lifecycle)).reason;
 
-/** One of the viewer's own pages, from organiser_home_v1 (owner or manager rows only). */
-export interface MyPage { id: string; name: string; avatar_url: string | null; lifecycle_status: string }
+/** The state of one control for this viewer on this event (the one shared mapping). */
+export const controlFor = (role: ViewerRole, lifecycle: string, control: Control): ControlState =>
+  controlState(role, control, control === 'invite' ? eventLock(lifecycle) : null);
 
-/** What Link a page offers: the viewer's own LIVE pages not yet linked, in home order. */
-export const addablePages = (mine: MyPage[], linked: string[]): LinkedOrganiser[] =>
-  mine.filter((p) => p.lifecycle_status === 'live' && !linked.includes(p.id)).map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatar_url }));
-
-/** Why the list cannot change here, or null. */
-export function organisersOff(input: { lifecycle: string; isOwner: boolean; gate?: boolean }): string | null {
-  const lock = eventLock(input.lifecycle);
-  if (lock) return lock;
-  if (!input.isOwner) return MANAGER_REASON;
-  if (!(input.gate ?? AW1_APPLIED)) return PARITY_GATE_REASON;
-  return null;
+/** What each row offers THIS viewer: Remove (owner, on a co), Cancel (an invited row), Leave (co, own row). */
+export type RowAction = 'remove' | 'cancel' | 'leave' | null;
+export function rowAction(row: OrganiserRow, role: ViewerRole, myPageIds: string[]): RowAction {
+  if (role === 'none' || row.role === 'owner') return null;
+  if (row.status === 'invited') return row.inviteId ? 'cancel' : null;
+  if (role === 'owner') return 'remove';
+  return myPageIds.includes(row.pageId) ? 'leave' : null;
 }
 
-/** Why Remove is off for this organiser, or null. */
-export const removeOff = (ids: string[]): string | null => (ids.length <= 1 ? LAST_ORGANISER_REASON : null);
-
-export const addOrganiser = (ids: string[], id: string): string[] => (ids.includes(id) ? ids : [...ids, id]);
-export const removeOrganiser = (ids: string[], id: string): string[] => (removeOff(ids) ? ids : ids.filter((x) => x !== id));
-
-/** ONE series.set_organisers with the complete list; null when it is the stored list (order counts). */
-export function organisersCommand(stored: string[], next: string[]): OwnerCommand | null {
-  const same = stored.length === next.length && stored.every((v, i) => v === next[i]);
-  return same || next.length === 0 ? null : setOrganisersCommand(next);
-}
+/** The one line under the list when the viewer cannot remove others, or null. */
+export const removeNote = (role: ViewerRole, rows: OrganiserRow[]): string | null =>
+  role === 'co' && rows.some((r) => r.role === 'co' && r.status === 'accepted') ? controlState(role, 'removeOrganiser').reason : null;

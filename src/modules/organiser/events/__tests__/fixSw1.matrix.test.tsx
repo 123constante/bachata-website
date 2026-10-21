@@ -191,14 +191,6 @@ describe('S6: the cast line is clamped to 6 names', () => {
   });
 });
 
-describe('N5: the organisers empty state fits the viewer', () => {
-  it('an owner who can link reads the action on screen; anyone else the team', () => {
-    expect(O.organisersEmpty(null)).toMatch(/Link a page/);
-    expect(O.organisersEmpty(PARITY_GATE_REASON)).toBe(O.ORGANISERS_EMPTY);
-    expect(O.organisersEmpty(O.MANAGER_REASON)).toBe(O.ORGANISERS_EMPTY);
-  });
-});
-
 describe('S5: no raw Unicode punctuation in the SW1 sources', () => {
   it.each([
     'events/programmeSeriesModel.ts', 'events/programmeSeriesApi.ts', 'events/ProgrammeSeries.tsx', 'events/ProgrammeSheet.tsx',
