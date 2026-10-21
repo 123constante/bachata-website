@@ -96,7 +96,7 @@ const ROWS: Row[] = [
   {
     name: 'Options: Sign out',
     start: '/app/options',
-    page: <SignOutConfirm buttonStyle={{}} onBusyChange={() => {}} />,
+    page: <SignOutConfirm onBusyChange={() => {}} />,
     steps: [() => tap('opt-signout-confirm')],
     lands: '/',
     everywhere: false,
