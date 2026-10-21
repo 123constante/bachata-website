@@ -66,7 +66,7 @@ function useResolve<A>(fn: (a: A) => Promise<ResolveOutcome>, key: readonly stri
 }
 
 /** "Request a new link" taps on broken links. Send a new link opens that organiser's link form. */
-function LinkRequests({ onSendNewLink }: { onSendNewLink: (o: { id: string; name: string }) => void }) {
+function LinkRequests({ onSendNewLink }: { onSendNewLink: (o: { id: string; name: string; inviteEmail: string | null }) => void }) {
   const q = useQuery({ queryKey: INVITE_REQUESTS_KEY, queryFn: fetchInviteRequests, staleTime: 30_000 });
   const { m, refused } = useResolve((id: string) => resolveInviteRequest(id), INVITE_REQUESTS_KEY);
   const rows = q.data ? pendingInviteRequests(q.data) : null;
@@ -82,7 +82,7 @@ function LinkRequests({ onSendNewLink }: { onSendNewLink: (o: { id: string; name
                 <p className="text-sm font-medium">{r.organiserName}</p>
                 <p className="text-xs text-muted-foreground">{[r.inviteEmail ?? 'Link had no email', when(r.requestedAt) && `asked ${when(r.requestedAt)}`].filter(Boolean).join(' \u00b7 ')}</p>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={BTN_PRIMARY} onClick={() => onSendNewLink({ id: r.organiserId, name: r.organiserName })} data-testid="link-request-send">Send a new link</button>
+                  <button type="button" className={BTN_PRIMARY} onClick={() => onSendNewLink({ id: r.organiserId, name: r.organiserName, inviteEmail: r.inviteEmail })} data-testid="link-request-send">Send a new link</button>
                   <button type="button" className={BTN} disabled={m.isPending} onClick={() => m.mutate(r.id)} data-testid="link-request-done">Mark done</button>
                 </div>
               </li>
@@ -136,7 +136,7 @@ function AccessRequests() {
 }
 
 /** Both admin request lists, on /admin/organisers above the organiser list. */
-export function InviteRequests({ onSendNewLink }: { onSendNewLink: (o: { id: string; name: string }) => void }) {
+export function InviteRequests({ onSendNewLink }: { onSendNewLink: (o: { id: string; name: string; inviteEmail: string | null }) => void }) {
   return (
     <div className="space-y-2" data-testid="invite-requests">
       <LinkRequests onSendNewLink={onSendNewLink} />

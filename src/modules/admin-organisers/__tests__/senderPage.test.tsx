@@ -19,7 +19,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 
 import AdminOrganisersPage from '../AdminOrganisersPage';
-import { ACCESS_REQUESTS_EMPTY, EMAIL_HELP, ISSUE_REFUSAL, ISSUE_REFUSALS, LINK_REQUESTS_EMPTY, NO_EMAIL_NOTE, RESOLVE_REFUSAL } from '../senderModel';
+import { ACCESS_REQUESTS_EMPTY, EMAIL_HELP, PREFILL_NEEDS_EMAIL, ISSUE_REFUSAL, ISSUE_REFUSALS, LINK_REQUESTS_EMPTY, NO_EMAIL_NOTE, RESOLVE_REFUSAL } from '../senderModel';
 
 const TOKEN = 'b'.repeat(64);
 const ok = (data: unknown) => Promise.resolve({ data, error: null });
@@ -126,6 +126,34 @@ describe('the link form', () => {
     await openLinkForm();
     fireEvent.click(screen.getByTestId('link-submit'));
     expect((await screen.findByTestId('invite-error')).textContent).toMatch(/Only an admin can do that/);
+  });
+});
+
+describe('F6: a link request starts the form with the request\u2019s email', () => {
+  it.each([
+    ['a bound request', 'luis@example.com', 'luis@example.com'],
+    ['an unbound request', null, ''],
+  ])('%s', async (_n, inviteEmail, expected) => {
+    linkRequests = [{ id: 'r1', organiser_id: 'o2', organiser_name: 'Bachata Sur', invite_id: 'i1', invite_email: inviteEmail, requested_at: '2026-10-21T10:00:00Z', handled_at: null }];
+    mount();
+    fireEvent.click(await screen.findByTestId('link-requests-toggle'));
+    fireEvent.click(await screen.findByTestId('link-request-send'));
+    await screen.findByTestId('link-form');
+    expect((screen.getByTestId('link-email') as HTMLInputElement).value).toBe(expected);
+  });
+});
+
+describe('F7: first name and city only while there is an email', () => {
+  it.each([
+    ['empty email', '', true],
+    ['blank email', '   ', true],
+    ['an email', 'ana@example.com', false],
+  ])('%s', async (_n, email, disabled) => {
+    await openLinkForm();
+    fireEvent.change(screen.getByTestId('link-email'), { target: { value: email } });
+    expect((screen.getByTestId('link-first-name') as HTMLInputElement).disabled).toBe(disabled);
+    expect((document.getElementById('link-city') as HTMLButtonElement | null)?.disabled ?? false).toBe(disabled);
+    expect(screen.queryByTestId('link-prefill-reason')?.textContent ?? null).toBe(disabled ? PREFILL_NEEDS_EMAIL : null);
   });
 });
 

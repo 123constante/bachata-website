@@ -109,3 +109,7 @@ lists show "This list did not load".
 - Walked: /admin/organisers list, rows in every status, Invite sheet, link form (refusal, bound
   link), one-time link, Copy new link (replace note), both request lists, request -> link form.
 - Not verified: real phone, 360x640.
+
+## Fix pass (PR #930)
+
+F6 request email prefills the link form; F7 first name/city disabled without an email (reason shown); F8 wording left as is, two owner decisions listed in `arc1-pr2-sender-pr-body.md`. Re-run locally: integrity, lint:architecture, check:rpc-typing, build, bundle-budget, first-load-requests, admin-sender build walk all 0; admin-organisers vitest 271/271. PR body for the orchestrator to patch: `docs/handover/arc1-pr2-sender-pr-body.md`.

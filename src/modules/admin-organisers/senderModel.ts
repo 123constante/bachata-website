@@ -91,6 +91,7 @@ export const INVITE_CHOICES: readonly { choice: InviteChoice; title: string; hin
 
 /** Under the email field (owner rule: a mistyped bound email stays allow-listed after a revoke). */
 export const EMAIL_HELP = 'Check the spelling: this address can then sign up.';
+export const PREFILL_NEEDS_EMAIL = 'Add their email to pre-fill these';
 export const NO_EMAIL_NOTE = 'No email: anyone with the link can use it. Only for someone who already has an account.';
 export const REPLACES_NOTE = 'This replaces the live link, so the old one stops working.';
 export const ANOTHER_OWNER_NOTE = 'This page already has an owner. The link adds another owner.';

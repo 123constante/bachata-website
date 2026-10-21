@@ -45,6 +45,7 @@ import {
   NO_EMAIL_NOTE,
   PRIMARY_LABEL,
   PRIMARY_OPENS,
+  PREFILL_NEEDS_EMAIL,
   REPLACES_NOTE,
   SENDER_LABEL,
   linkBlockedReason,
@@ -144,12 +145,12 @@ function AddPerson({ organiser }: { organiser: AdminOrganiser }) {
  * "Send a link": email (binds the link and allow-lists it), optional first name and city (prefill
  * for the newcomer's dancer questions). The three field refusals the RPC returns show under their field.
  */
-function LinkForm({ organiser, status, replaces, onIssued, onCancel }: {
-  organiser: AdminOrganiser; status: AccessStatus | null; replaces: boolean;
+function LinkForm({ organiser, status, replaces, startEmail, onIssued, onCancel }: {
+  organiser: AdminOrganiser; status: AccessStatus | null; replaces: boolean; startEmail: string;
   onIssued: (v: IssuedLinkView) => void; onCancel: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(startEmail);
   const [firstName, setFirstName] = useState('');
   const [cityId, setCityId] = useState('');
   const [refusal, setRefusal] = useState<IssueRefusal | null>(null);
@@ -165,6 +166,8 @@ function LinkForm({ organiser, status, replaces, onIssued, onCancel }: {
     },
   });
   const blocked = linkBlockedReason(email, firstName);
+  // Prefill only reaches the newcomer on a bound link, so these two wait for an email.
+  const noEmail = !email.trim();
   const fieldError = (field: 'email' | 'first_name' | 'city') =>
     refusal && ISSUE_REFUSAL[refusal].field === field
       ? <p role="alert" className="text-sm text-destructive" data-testid={`link-error-${field}`}>{ISSUE_REFUSAL[refusal].text}</p>
@@ -182,13 +185,14 @@ function LinkForm({ organiser, status, replaces, onIssued, onCancel }: {
       {fieldError('email')}
       <label className="block space-y-1 text-xs text-muted-foreground">
         First name (optional)
-        <input type="text" autoComplete="off" value={firstName} onChange={(e) => { setFirstName(e.target.value); setRefusal(null); }} className={FIELD} data-testid="link-first-name" />
+        <input type="text" autoComplete="off" value={firstName} disabled={noEmail} aria-describedby={noEmail ? 'link-prefill-reason' : undefined} onChange={(e) => { setFirstName(e.target.value); setRefusal(null); }} className={FIELD} data-testid="link-first-name" />
       </label>
       {fieldError('first_name')}
       <div className="space-y-1 text-xs text-muted-foreground">
         <label htmlFor="link-city">City (optional)</label>
-        <CityPicker id="link-city" value={cityId || undefined} onChange={(id) => { setCityId(id); setRefusal(null); }} placeholder="Pick their city" className="min-h-[44px] w-full" />
+        <CityPicker id="link-city" value={cityId || undefined} onChange={(id) => { setCityId(id); setRefusal(null); }} placeholder="Pick their city" disabled={noEmail} className="min-h-[44px] w-full" />
       </div>
+      {noEmail && <p id="link-prefill-reason" className="text-xs text-muted-foreground" data-testid="link-prefill-reason">{PREFILL_NEEDS_EMAIL}</p>}
       {fieldError('city')}
       <div className="flex flex-wrap gap-2">
         <button type="submit" className={BTN_PRIMARY} disabled={!!blocked || issue.isPending} aria-describedby={blocked ? 'link-blocked' : undefined} data-testid="link-submit">{issue.isPending ? 'Making link' : replaces ? 'Replace and make link' : 'Make link'}</button>
@@ -218,9 +222,9 @@ function InviteChoices({ organiser, onPick, onCancel }: { organiser: AdminOrgani
 
 export type RowMode = 'idle' | 'choose' | InviteChoice;
 
-function RowDetail({ organiser, status, invites, fresh, issued, warn, loadError, startMode, onIssued, onDone, onRetry }: {
+function RowDetail({ organiser, status, invites, fresh, issued, warn, loadError, startMode, startEmail, onIssued, onDone, onRetry }: {
   organiser: AdminOrganiser; status: AccessStatus | null; invites: readonly InviteRow[]; fresh: boolean;
-  issued: IssuedLinkView | undefined; warn: boolean; loadError: boolean; startMode: RowMode;
+  issued: IssuedLinkView | undefined; warn: boolean; loadError: boolean; startMode: RowMode; startEmail: string;
   onIssued: (v: IssuedLinkView) => void; onDone: () => void; onRetry: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -251,7 +255,7 @@ function RowDetail({ organiser, status, invites, fresh, issued, warn, loadError,
       ) : mode === 'choose' ? (
         <InviteChoices organiser={organiser} onPick={setMode} onCancel={back} />
       ) : mode === 'link' ? (
-        <LinkForm organiser={organiser} status={status} replaces={actions.replacesLiveLink} onIssued={onIssued} onCancel={back} />
+        <LinkForm organiser={organiser} status={status} replaces={actions.replacesLiveLink} startEmail={startEmail} onIssued={onIssued} onCancel={back} />
       ) : mode === 'existing' ? (
         <div className="space-y-2"><AddPerson organiser={organiser} /><button type="button" className={BTN} onClick={back} data-testid="mode-back">Back</button></div>
       ) : mode === 'email' ? (
@@ -279,6 +283,7 @@ function AdminOrganisersBody() {
   const [issued, setIssued] = useState<Record<string, IssuedLinkView>>({});
   // The mode a row opens in: a link request's "Send a new link" opens the link form directly.
   const [startMode, setStartMode] = useState<RowMode>('idle');
+  const [startEmail, setStartEmail] = useState('');
   const [warned, setWarned] = useState(false);
   const queryClient = useQueryClient();
   // Ownership changes behind the page's back (a link is redeemed elsewhere), so the open row re-reads it.
@@ -289,16 +294,18 @@ function AdminOrganisersBody() {
     setWarned(false);
     if (open !== id) refreshOwnership(id);
     setStartMode('idle');
+    setStartEmail('');
     setOpen(open === id ? null : id);
   };
   /** From a link request: show that organiser's row with the link form open. */
-  const sendNewLink = (o: { id: string; name: string }) => {
+  const sendNewLink = (o: { id: string; name: string; inviteEmail: string | null }) => {
     if (open !== null && issued[open]) { setWarned(true); return; }
     setWarned(false);
     setQuery(o.name);
     setLimit(PAGE_SIZE);
     refreshOwnership(o.id);
     setStartMode('link');
+    setStartEmail(o.inviteEmail ?? '');
     setOpen(o.id);
   };
   const forget = (id: string) => { refreshOwnership(id); setWarned(false); setIssued((m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== id))); };
@@ -367,8 +374,8 @@ function AdminOrganisersBody() {
               {open === organiser.id && (
                 <RowDetail
                   organiser={organiser} status={status} invites={invites} fresh={fresh}
-                  key={`${organiser.id}-${startMode}`}
-                  issued={issued[organiser.id]} warn={warned} startMode={startMode}
+                  key={`${organiser.id}-${startMode}-${startEmail}`}
+                  issued={issued[organiser.id]} warn={warned} startMode={startMode} startEmail={startEmail}
                   loadError={retry !== null} onRetry={() => retry?.()}
                   onIssued={(v) => setIssued((m) => ({ ...m, [organiser.id]: v }))}
                   onDone={() => forget(organiser.id)}
