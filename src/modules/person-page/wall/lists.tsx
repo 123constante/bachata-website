@@ -36,6 +36,13 @@ export function DjsWall({ djs, isLoading, badges, badgesFailed, teacherPagesOpen
   );
 }
 
+/**
+ * The /dancers hero "Book a Photoshoot" card with the wall ON: the site's only media-booking page
+ * (= SITE_IA.videographers.path, pinned by wall.test; today's /photographers is unrouted). Literal for
+ * the same chunk reason as ORGANISERS_HREF in PeopleWall.tsx.
+ */
+export const MEDIA_BOOKING_HREF = '/videographers';
+
 type DancerRow = { id: string; avatar_url: string | null; nationality?: string | null };
 
 export function DancersWall<T extends DancerRow>({ dancers, getName, isLoading, badges, badgesFailed, teacherPagesOpen }: {

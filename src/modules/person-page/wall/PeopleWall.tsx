@@ -1,6 +1,5 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { SITE_IA } from '@/lib/breadcrumbs/siteIa';
 import { filterWall, type WallFilter, type WallList, type WallPerson } from './model';
 import { FOCUS_RING, SIZE, WALL } from './tokens';
 import { WallTile } from './WallTile';
@@ -14,8 +13,12 @@ const ROLE_PILLS: Pill[] = [
   { k: 'dj', label: 'DJs' },
 ];
 const TEACHERS_PILL: Pill = { k: 'teacher', label: 'Teachers' };
-/** The Organisers pill is a LINK to the real public organisers page, never a filter state. */
-export const ORGANISERS_HREF = SITE_IA.organisers.path;
+/**
+ * The Organisers pill is a LINK to the real public organisers page, never a filter state.
+ * = SITE_IA.organisers.path (pinned by wall.test). Not imported: importing siteIa here splits it into
+ * its own chunk, one more first-load request on /event, /parties and /classes (perf-budget ratchets).
+ */
+export const ORGANISERS_HREF = '/organisers';
 
 const NONE: Record<WallList, string> = { djs: 'No DJs', dancers: 'No dancers' };
 

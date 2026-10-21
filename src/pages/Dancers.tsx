@@ -4,9 +4,8 @@ import { motion } from 'framer-motion';
 import { Calendar, Heart, Music, Star, Sparkles, Users, UserCheck, UserPlus, Loader2, Camera } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { usePeopleBadges } from '@/modules/person-page/badges';
-import { DancersWall } from '@/modules/person-page/wall/lists';
+import { DancersWall, MEDIA_BOOKING_HREF } from '@/modules/person-page/wall/lists';
 import { HOME_ANNOUNCE_HREF } from '@/lib/homeAnnounceBanner';
-import { SITE_IA } from '@/lib/breadcrumbs/siteIa';
 import { flags } from '@/lib/featureFlags';
 import { dancerHref, dancerTags, onlyDancers } from '@/components/dancers/dancerListModel';
 import GlobalLayout from '@/components/layout/GlobalLayout';
@@ -302,7 +301,7 @@ const Dancers = () => {
 
               {/* Book Media Widget */}
               <motion.div
-                onClick={() => navigate(flags.peopleWall ? SITE_IA.videographers.path : '/photographers')}
+                onClick={() => navigate(flags.peopleWall ? MEDIA_BOOKING_HREF : '/photographers')}
                 className="cursor-pointer p-4 md:p-5 bg-gradient-to-br from-blue-500/20 to-cyan-500/10 backdrop-blur-sm rounded-2xl border border-blue-500/30 shadow-lg w-[140px] md:w-[160px]"
                 whileHover={{ 
                   scale: 1.05, 

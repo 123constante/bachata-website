@@ -9,7 +9,9 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import { installJsdomPolyfills } from '../../../../../tests/client/jsdomPolyfills';
 import type { PersonBadge } from '@/modules/person-page/badges';
-import { DancersWall, DjsWall } from '../lists';
+import { DancersWall, DjsWall, MEDIA_BOOKING_HREF } from '../lists';
+import { ORGANISERS_HREF } from '../PeopleWall';
+import { SITE_IA } from '@/lib/breadcrumbs/siteIa';
 import { initialsOf, wallDateLabel } from '../model';
 import { isRoutable } from '@/lib/__tests__/routeTable';
 
@@ -277,6 +279,11 @@ describe('layout pass: Teachers and Organisers pills', () => {
     expect(org.getAttribute('aria-pressed')).toBeNull();
     const last = screen.queryAllByTestId('wall-filter').pop();
     if (last) expect(last.compareDocumentPosition(org) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('the literal hrefs are the site map\'s own paths (kept literal only to keep siteIa out of this chunk)', () => {
+    expect(ORGANISERS_HREF).toBe(SITE_IA.organisers.path);
+    expect(MEDIA_BOOKING_HREF).toBe(SITE_IA.videographers.path);
   });
 
   it('the wall has no header line of its own (the page hero is the header)', () => {
