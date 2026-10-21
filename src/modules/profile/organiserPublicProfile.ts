@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { ORGANISER_PUBLIC_COLS } from '@/lib/organiserPublicCols';
+import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { NOT_DEACTIVATED } from '@/lib/notDeactivatedFilter';
 
 /**
@@ -47,6 +48,16 @@ export const organiserOccEventsQueryKey = (id: string | undefined) => ['organise
 export const organiserOccEventsPastQueryKey = (id: string | undefined) =>
   ['organiser-occ-events-past', id] as const;
 
+/**
+ * Lifecycle values that are never public (organiser_profiles.lifecycle_status
+ * CHECK: draft, pending_review, live, rejected, archived). is_active is NULL on
+ * most live rows, so NOT_DEACTIVATED alone cannot hide a retired page: an
+ * archived or rejected one must 404 here too. There is no "paused" value; pausing
+ * is is_active = false (above) or archived. Drafts stay readable by RLS for their
+ * owner, so they are not listed.
+ */
+export const NOT_PUBLIC_LIFECYCLE = ["lifecycle_status", "in", "(archived,rejected)"] as const;
+
 export async function fetchOrganiserEntity(id: string) {
   return readOrganiserEntity(id, true);
 }
@@ -73,7 +84,7 @@ async function readOrganiserEntity(id: string, publicOnly: boolean) {
     .from('organiser_profiles')
     .select(ORGANISER_PUBLIC_COLS)
     .eq('id', id);
-  if (publicOnly) query = query.not(...NOT_DEACTIVATED);
+  if (publicOnly) query = query.not(...NOT_DEACTIVATED).not(...NOT_PUBLIC_LIFECYCLE);
   const { data, error } = await query.maybeSingle();
   // A TRANSIENT supabase error must propagate as a retryable failure --
   // swallowing it here would 404 a valid organiser on a DB blip. null = a
@@ -132,4 +143,20 @@ export async function fetchOrganiserPastOccEvents(id: string): Promise<OrgOccRow
   });
   if (error) return [];
   return (data ?? []) as unknown as OrgOccRow[];
+}
+
+export const organiserFullProfileQueryKey = (id: string | undefined) => ['organiser-full-profile', id] as const;
+
+/**
+ * organiser_full_profile_v1(p_organiser_id): true once the owner has reached 100% profile. A
+ * decoration, so anything but a literal true (false, an error, the function not existing yet)
+ * is false and the page shows nothing.
+ */
+export async function fetchOrganiserFullProfile(id: string): Promise<boolean> {
+  try {
+    const { data, error } = await rpcLoose('organiser_full_profile_v1', { p_organiser_id: id });
+    return !error && data === true;
+  } catch {
+    return false;
+  }
 }

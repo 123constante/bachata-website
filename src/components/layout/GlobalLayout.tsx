@@ -1,4 +1,5 @@
-﻿import { useEffect, type CSSProperties, type ReactNode } from 'react';
+﻿import { PLAIN_BACKGROUND_COLOR, isPlainBackgroundPath } from './plainBackground';
+import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import { motion, useScroll, useSpring } from 'framer-motion';
 import { ChevronLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -125,6 +126,8 @@ const GlobalLayout = ({
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
   const location = useLocation();
   const embedded = useEmbeddedProfile();
+  // D84: invite + admin access pages use the organiser area's plain surface, no wash, no doodles.
+  const plainBackground = isPlainBackgroundPath(location.pathname);
 
   // Dev-mode safeguard: warn when a page renders the sub-header (which holds
   // the breadcrumb) but doesn't pass any breadcrumbs. This catches the
@@ -198,7 +201,8 @@ const GlobalLayout = ({
     !!ground ||
     gradientPalette === 'velvet' ||
     gradientPalette === 'brass' ||
-    gradientPalette === 'organiser';
+    gradientPalette === 'organiser' ||
+    plainBackground;
 
   // Role page shown as a tab of /people/:id: the person page owns the chrome.
   if (embedded) return <>{children}</>;
@@ -214,7 +218,9 @@ const GlobalLayout = ({
 
       {showGradientBg && (
         <>
-          {ground ? (
+          {plainBackground ? (
+            <div className="fixed inset-0 -z-10 pointer-events-none" data-testid="layout-bg" data-bg="plain" style={{ backgroundColor: PLAIN_BACKGROUND_COLOR }} />
+          ) : ground ? (
             <div
               className="fixed inset-0 -z-10 pointer-events-none"
               style={ground.wash}
@@ -222,11 +228,11 @@ const GlobalLayout = ({
               data-palette={gradientPalette}
             />
           ) : gradientPalette === 'velvet' ? (
-            <div className="fixed inset-0 -z-10 pointer-events-none" style={VELVET_BG} />
+            <div className="fixed inset-0 -z-10 pointer-events-none" data-testid="layout-bg" data-bg="velvet" style={VELVET_BG} />
           ) : gradientPalette === 'brass' ? (
-            <div className="fixed inset-0 -z-10 pointer-events-none" style={BRASS_BG} />
+            <div className="fixed inset-0 -z-10 pointer-events-none" data-testid="layout-bg" data-bg="brass" style={BRASS_BG} />
           ) : gradientPalette === 'organiser' ? (
-            <div className="fixed inset-0 -z-10 pointer-events-none" style={ORGANISER_BG} />
+            <div className="fixed inset-0 -z-10 pointer-events-none" data-testid="layout-bg" data-bg="organiser" style={ORGANISER_BG} />
           ) : (
             <motion.div
               className={
@@ -234,6 +240,8 @@ const GlobalLayout = ({
                   ? "fixed inset-0 bg-gradient-to-br from-bento-accent/20 via-bento-plum/15 to-bento-surface/30 -z-10 pointer-events-none"
                   : "fixed inset-0 bg-gradient-to-br from-primary/20 via-festival-purple/10 to-festival-pink/20 -z-10 pointer-events-none"
               }
+              data-testid="layout-bg"
+              data-bg="default"
               animate={{ backgroundPosition: ['0% 0%', '100% 100%'] }}
               transition={{ duration: 10, repeat: Infinity, repeatType: 'reverse' }}
               style={{ backgroundSize: '200% 200%' }}

@@ -66,6 +66,8 @@ import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
 import EventRowCard, { type EventRowProps } from '@/components/events/EventRow';
 import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
 import { groupByEventId, stableRowKey } from '@/lib/eventListGrouping';
+import { ReportProblemLink } from '@/lib/contactLinks';
+import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
 import { pickNationalityCode } from '@/components/people/nationality';
 import { usePeopleBadges, roleTagsFor, nameFor, linkRoleFor, hrefForRole, type PersonBadge } from '@/modules/person-page/badges';
@@ -75,6 +77,8 @@ import {
   type EventRow,
   type OrgOccRow,
   fetchOrganiserEntity,
+  fetchOrganiserFullProfile,
+  organiserFullProfileQueryKey,
   fetchOrganiserEvents,
   fetchOrganiserFutureOccEvents,
   fetchOrganiserPastOccEvents,
@@ -353,6 +357,16 @@ const AvatarCircle = ({
       )}
     </div>
   </div>
+);
+
+/** Shown only when organiser_full_profile_v1 is true. Deliberately not the word "Verified". */
+const FullProfileMark = () => (
+  <span
+    data-testid="full-profile-mark"
+    style={{ fontSize: 11, fontWeight: 700, color: D.cream, padding: '2px 8px', borderRadius: 100, background: 'rgba(231,190,110,0.16)', border: '1px solid rgba(231,190,110,0.35)' }}
+  >
+    Full profile
+  </span>
 );
 
 const VerifiedBadge = ({ size }: { size: 'sm' | 'md' }) => {
@@ -680,6 +694,17 @@ const OrganiserProfile = () => {
     queryFn: () => fetchOrganiserEntity(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
+  });
+
+  // A page that is not found (retired, archived, or never existed) is kept out of search.
+  useNoindexMeta(!isLoading && (!!error || !entity));
+
+  const { data: fullProfile = false } = useQuery({
+    queryKey: organiserFullProfileQueryKey(id),
+    queryFn: () => fetchOrganiserFullProfile(id as string),
+    enabled: !!id && !!entity,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
   });
 
   // Ownership comes from entity_members through organiser_ownership_v1 (never the
@@ -1249,6 +1274,7 @@ const OrganiserProfile = () => {
               {metaLine && !eip && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
               {eip?.slot('meta')}
               {ep.is_verified && <VerifiedBadge size="sm" />}
+              {fullProfile && <FullProfileMark />}
               {facts.showBadge && <ManagedBadge size="sm" />}
             </div>
             {/* Static gold gradient, no shimmer sweep -- that mechanical
@@ -1284,6 +1310,7 @@ const OrganiserProfile = () => {
                   {metaLine && !eip && <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
                   {eip?.slot('meta')}
                   {ep.is_verified && <VerifiedBadge size="md" />}
+                  {fullProfile && <FullProfileMark />}
                   {facts.showBadge && <ManagedBadge size="md" />}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...(eip ? { width: 'fit-content', maxWidth: '100%', marginBottom: 12 } : null) }}>
@@ -1562,6 +1589,8 @@ const OrganiserProfile = () => {
           </Suspense>
         )}
       </article>
+
+      <div style={{ color: D.cream }}><ReportProblemLink /></div>
 
       {/* EDIT DIALOG */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
