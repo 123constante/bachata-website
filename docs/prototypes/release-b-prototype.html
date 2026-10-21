@@ -281,6 +281,61 @@ textarea.inp{padding:14px 16px;min-height:120px;font:500 16px/1.45 var(--font);r
 
 .row .openb,.row .ghostb{min-height:44px;cursor:pointer}
 
+/* v2 (D120): home link, top left of every signed-in screen. Plain Ember. */
+.homelink{display:inline-flex;align-items:center;gap:8px;min-height:44px;min-width:44px;padding:0 8px 0 4px;margin-left:-4px;border:0;border-radius:12px;background:none;color:var(--text);font:800 16px var(--font);letter-spacing:-.01em;white-space:nowrap;cursor:pointer;flex:none}
+.homelink .hic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--acc-soft);color:var(--acc);flex:none}
+.homelink:hover{background:var(--card)}
+.nav .sp{flex:1;min-width:0}
+.da .nav{gap:8px;padding:14px 12px 4px}.da .nav .sp{margin-left:-8px}
+.da .homelink{font-size:15px;gap:6px;padding:0 6px 0 2px;margin-left:-2px}.da .homelink .hic{width:28px;height:28px}
+/* v2 (D121): colour layer, ONLY inside the dancer app wrapper (.layer.da). Additive tokens; the Ember tokens above are unchanged. */
+:root{
+  --sun:linear-gradient(120deg,#f0703a 0%,#e8487f 52%,#8a4dff 100%); --sun-scrim:linear-gradient(rgba(18,8,30,.4),rgba(18,8,30,.4));
+  --rose:#ff9cc0; --rose-soft:rgba(255,156,192,.14); --violet:#c9adff; --violet-soft:rgba(201,173,255,.14);
+  --teal:#4fe0cf; --teal-soft:rgba(79,224,207,.14); --gold:#ffcf66; --gold-soft:rgba(255,207,102,.14);
+}
+.da{background:radial-gradient(120% 50% at 100% 0%,rgba(138,77,255,.13),transparent 60%),radial-gradient(90% 40% at 0% 0%,rgba(240,112,58,.10),transparent 60%),var(--ground)}
+.da .homelink .hic{background:var(--sun);color:#fff}
+.da .ring{padding:3px;border-radius:50%;background:var(--sun);display:inline-grid;flex:none}
+.da .ring>.da-av{box-shadow:0 0 0 3px var(--ground)}
+.da .pring{--p:0%;width:52px;height:52px;border-radius:50%;flex:none;display:grid;place-items:center;background:conic-gradient(from 0deg,#f0703a,#e8487f calc(var(--p) * .55),#8a4dff var(--p),var(--card) 0)}
+.da .pring>b{width:42px;height:42px;border-radius:50%;background:var(--card-2);display:grid;place-items:center;font:800 14px var(--font);color:var(--text)}
+.da .pring.big{width:64px;height:64px}.da .pring.big>b{width:52px;height:52px;font-size:16px}
+.da .hero{background:var(--sun-scrim),var(--fly,var(--sun));color:#fff;box-shadow:0 10px 30px -12px rgba(232,72,127,.55);position:relative;overflow:hidden}
+.da .hero b,.da .hero small{color:#fff}.da .hero small.k{font-weight:700;letter-spacing:.02em;text-transform:uppercase;font-size:12px}
+.da .hero .primary:not([disabled]){background:#fff;color:var(--acc-ink);position:relative;z-index:1}
+.da .hero .primary:not([disabled]):hover{background:#ffe9df}
+.da .tint-teal{background:var(--teal-soft)!important}.da .tint-teal .da-big,.da .tint-teal b.k{color:var(--teal)}
+.da .da-strip div.tv{background:var(--violet-soft)}.da .da-strip div.tv span{color:var(--violet)}
+.da .da-strip div.tg{background:var(--gold-soft)}.da .da-strip div.tg span{color:var(--gold)}
+.da .tint-teal small{color:var(--text)}
+.da .partner{background:var(--rose-soft);box-shadow:inset 3px 0 0 var(--rose)}
+.da .partner .hd svg{color:var(--rose);flex:none;margin-top:2px}.da .partner small{color:var(--text)}
+.da .st{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;flex:none;background:var(--card);color:var(--mute)}
+.da .st::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.da .st.going{background:var(--teal-soft);color:var(--teal)}.da .st.interested{background:var(--gold-soft);color:var(--gold)}
+.da .st.went{background:var(--violet-soft);color:var(--violet)}.da .st.was{background:var(--rose-soft);color:var(--rose)}
+.da .da-date.w0,.da .da-date.w6{background:var(--violet-soft);color:var(--violet)}.da .da-date.w1,.da .da-date.w4{background:var(--teal-soft);color:var(--teal)}
+.da .da-date.w2,.da .da-date.w3{background:var(--gold-soft);color:var(--gold)}.da .da-date.w5{background:var(--rose-soft);color:var(--rose)}
+.da .seg .opt[aria-pressed=true],.da .tog[aria-pressed=true]{background:var(--sun-scrim),var(--sun);border-color:transparent;color:#fff}
+.da .opt[disabled],.da .tog[disabled]{background:var(--card-2);color:#8b929c}
+.da .prog i{background:var(--sun)}
+.da .tag.own{background:var(--sun-scrim),var(--sun);color:#fff}
+.da .tabs button{position:relative}
+.da .tabs button[aria-current=page]::before{content:"";position:absolute;top:0;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:0 0 6px 6px;background:var(--sun)}
+.da .tabs button[aria-current=page] svg{filter:drop-shadow(0 0 6px rgba(232,72,127,.55))}
+.da .da-list{list-style:none;padding:8px 10px}
+.da .da-list li{display:flex;gap:10px;align-items:flex-start}
+.da .da-list li::before{content:"";flex:none;width:20px;height:20px;margin-top:1px;border-radius:50%;background:var(--tc,var(--teal)) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4L18 8' fill='none' stroke='%23161320' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat}
+.da .da-list li:nth-child(2){--tc:var(--violet)}.da .da-list li:nth-child(3){--tc:var(--gold)}.da .da-list li:nth-child(4){--tc:var(--rose)}
+.da .da-list li.no::before{background:none;box-shadow:inset 0 0 0 2px var(--hair)}
+.da .art{display:block;margin:0 auto 2px;flex:none}
+.da .empty{background:linear-gradient(160deg,rgba(138,77,255,.12),rgba(240,112,58,.06) 70%),var(--card)}
+.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:30}
+.confetti i{position:absolute;top:-14px;width:8px;height:12px;border-radius:2px;opacity:0;animation:cf .9s cubic-bezier(.2,.6,.4,1) forwards}
+@keyframes cf{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--r))}}
+@media (prefers-reduced-motion:reduce){.confetti{display:none}}
+
 </style>
 </head>
 <body>
@@ -294,7 +349,8 @@ textarea.inp{padding:14px 16px;min-height:120px;font:500 16px/1.45 var(--font);r
  <symbol id="i-org" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
  <symbol id="i-teach" viewBox="0 0 24 24"><path d="M2.5 9L12 4.5 21.5 9 12 13.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M6.5 11v5c3 2.5 8 2.5 11 0v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
  <symbol id="i-dj" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0116 0v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="3" y="14" width="4.5" height="6.5" rx="2" fill="currentColor"/><rect x="16.5" y="14" width="4.5" height="6.5" rx="2" fill="currentColor"/></symbol>
- <symbol id="i-areas" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="4" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="13" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+ <symbol id="i-house" viewBox="0 0 24 24"><path d="M3.5 11L12 4l8.5 7M5.5 9.5V20h13V9.5M10 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+ <symbol id="i-areas"viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="4" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="13" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
 </svg>
 
 <div class="page">
@@ -404,6 +460,13 @@ function toast(t, bad) { S.toast = { t, bad: !!bad }; }
 let PENDING = null;
 function leave(fn) { if (screenDirty()) { PENDING = fn; openSheet('discard', { then: 'fn' }); } else fn(); }
 
+/* v2 (D120): home link to the site landing page, top left of every signed-in screen. */
+const NO_HOME = { signup: 1, signedOut: 1, acctDeleted: 1 };
+const homeScope = id => !NO_HOME[id];
+const isDa = id => /^app/.test(id);
+const homeLink = () => `<button type="button" class="homelink" data-a="siteHome" data-home aria-label="Bachata Calendar home"><span class="hic">${ic('house', 18)}</span>Bachata Calendar</button>`;
+ACT.siteHome = () => leave(() => toast('Opens the site home'));
+const AFTER = []; /* fns run after every render (dancer app celebration) */
 ACT.back = () => back();
 ACT.closeSheet = () => closeSheet();
 ACT.go = v => { const [id, q] = String(v).split('|'); leave(() => go(id, q ? JSON.parse(q) : {})); };
@@ -430,9 +493,13 @@ function frameHTML() {
   const p = P(), c = cur(), sc = SCREENS[c.id] || SCREENS.areas;
   const r = sc.render(p, c.params || {}) || {};
   const backLabel = sc.back ? sc.back(p, c.params || {}) : null;
-  const nav = r.nav === false ? '' : (backLabel != null ? `<div class="nav"><button type="button" class="back" data-a="back" aria-label="Back to ${esc(backLabel)}">${ic('back')}</button><span class="m" style="font-weight:600">${esc(backLabel)}</span>${r.navRight || ''}</div>` : (r.navRight ? `<div class="nav"><span style="flex:1"></span>${r.navRight}</div>` : ''));
+  const split = S.mode === 'dk' && sc.dk === 'split' && SCREENS.__side;
+  /* home link: top left; on the computer split it sits at the top of the left column instead */
+  const hl = homeScope(c.id) && !split ? homeLink() + (S.mode === 'dk' && r.brandTag ? r.brandTag : '') : ''; /* the Dancer tag only fits at computer width */
+  const bk = backLabel != null ? `<button type="button" class="back" data-a="back" aria-label="Back to ${esc(backLabel)}">${ic('back')}</button>` + (hl ? '' : `<span class="m" style="font-weight:600">${esc(backLabel)}</span>`) : '';
+  const nav = r.nav === false ? (hl ? `<div class="nav">${hl}</div>` : '') : (bk || hl || r.navRight ? `<div class="nav">${bk}${hl}<span class="sp"></span>${r.navRight || ''}</div>` : '');
   let body;
-  if (S.mode === 'dk' && sc.dk === 'split' && SCREENS.__side) {
+  if (split) {
     body = `<div class="dkflow"><div class="l"><div class="scroll">${SCREENS.__side(p, c)}</div></div><div class="r" style="padding:0;display:flex;flex-direction:column;min-height:0"><div class="scroll" data-scroll>${nav}${r.html || ''}</div>${r.foot ? `<div class="foot">${r.foot}</div>` : ''}</div></div>`;
   } else if (S.mode === 'dk') {
     body = `<div class="dkcol"><div class="scroll" data-scroll><div class="dkin">${nav}${r.html || ''}${r.foot ? `<div class="foot dkfoot">${r.foot}</div>` : ''}</div></div>${r.tabs || ''}</div>`;
@@ -442,7 +509,7 @@ function frameHTML() {
   let sheet = '';
   if (S.sheet && SHEETS[S.sheet.id]) sheet = `<div class="sheetback" data-a="closeSheet" aria-hidden="true"></div><div class="sheet" role="dialog" aria-modal="true" data-top>${SHEETS[S.sheet.id].render(p, S.sheet.params || {})}</div>`;
   const t = S.toast ? `<div class="toast${S.toast.bad ? ' bad' : ''}" role="status">${esc(S.toast.t)}</div>` : '';
-  return `<div class="layer"${S.sheet ? ' inert' : ' data-top'}>${body}</div>${sheet}${t}`;
+  return `<div class="layer${isDa(c.id) ? ' da' : ''}"${S.sheet ? ' inert' : ' data-top'}>${body}</div>${sheet}${t}`;
 }
 function render() {
   const fr = $('#frame'); if (!fr) return;
@@ -456,6 +523,7 @@ function render() {
   if (k) { const el = fr.querySelector(`[data-k="${CSS.escape(k)}"]`); if (el) { el.focus(); if (ss && 'setSelectionRange' in el) { try { el.setSelectionRange(ss[0], ss[1]); } catch (e) { } } } }
   S.toast = null;
   fit(); syncChrome();
+  AFTER.forEach(f => f(fr));
 }
 function fit() {
   const fr = $('#frame'), st = $('#stage'); if (!fr || !st) return;
@@ -547,6 +615,8 @@ function checks() {
     /* disabled primary must carry a reason */
     top.querySelectorAll('.primary[disabled]').forEach(b => { const n = b.nextElementSibling; if (!n || !n.classList.contains('reason')) fails.push('disabled primary without reason at ' + cur().id); });
   }
+  /* 5. (D120) the way home: an enabled home link in the top layer on every screen in scope */
+  if (!S.sheet && homeScope(cur().id) && top && !top.querySelector('[data-home]:not([disabled])')) fails.push('no home link at ' + cur().id);
   if (!SCREENS[cur().id]) fails.push('unknown screen ' + cur().id);
   return fails;
 }
@@ -665,7 +735,7 @@ SCREENS.areas = {
 };
 SCREENS.__side = (p, c) => {
   const r = { teacherArea: 'teacher', teacherDetails: 'teacher', djArea: 'dj', djDetails: 'dj', orgStub: 'organiser' }[c.id];
-  return `<div class="nav"><button type="button" class="back" data-a="home" data-v="acctHome" aria-label="Back to Account">${ic('back')}</button><span class="m" style="font-weight:600">Account</span></div>` + H.title('Your areas') + H.grp(areaRows(p, false, r));
+  return `<div class="nav"><button type="button" class="back" data-a="home" data-v="acctHome" aria-label="Back to Account">${ic('back')}</button>${homeLink()}</div>` + H.title('Your areas') + H.grp(areaRows(p, false, r));
 };
 ACT.openArea = r => leave(() => {
   if (r === 'dancer') { home('appHome'); return; }
@@ -1117,7 +1187,7 @@ MAKERS.push((id, p) => {
   if (id === 'busy') {
     Object.assign(d.prof, { dn: 'Alex M', fn: 'Alex', sn: 'Moreno', city: 'London', role: 'Leader', nat: 'CO', langs: ['English', 'Spanish'], year: 2018, styles: ['Bachata Moderna', 'Salsa On1', 'Bachata Influence'], songs: ['Obsesion', 'Propuesta Indecente'], ach: ['Workshop helper'], bio: 'Social dancer, Thursdays in Soho.', ig: 'alex.dances', web: 'https://alexdances.example', wa: '+44 7700 900123', waShow: true, photo: 'f3' });
     d.nights = [
-      daNight('s-1', 'Soho Bachata Social', '2026-10-24', 'London', '21:00', 'going'),
+      daNight('s-1', 'Soho Bachata Social', '2026-10-24', 'London', '21:00', 'going', { fly: 'linear-gradient(120deg,#13877d,#5b3fd6)' }),
       daNight('s-2', 'Camden Sensual Night', '2026-10-29', 'London', '20:30', 'interested'),
       daNight('s-9', 'Autumn Bachata Weekender', '2026-11-07', 'Brighton', '18:00', 'going', { fest: true }),
       daNight('s-8', 'Bachata Rooftop Social', null, null, null, 'interested'),
@@ -1147,14 +1217,24 @@ function daTabs(id) {
 }
 const DA_CAL = '<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>';
 function daRight(p, brand) {
-  return (brand ? `<span style="order:-1;flex:1;display:flex;align-items:center;gap:8px;font-weight:800;font-size:16px">Bachata Calendar<span class="tag own">Dancer</span></span>` : '')
-    + `<button type="button" class="quiet" data-a="dExt" data-v="the events calendar" style="display:inline-flex;align-items:center;gap:6px;color:var(--text)">${daSvg(DA_CAL, 16)}Events</button>`
+  /* v2: with a back button and the home link the phone row is full, so Events shows its icon only there */
+  const slim = !brand && S.mode === 'ph';
+  return `<button type="button" class="quiet" data-a="dExt" data-v="the events calendar"${slim ? ' aria-label="Events"' : ''} style="display:inline-flex;align-items:center;justify-content:center;gap:6px;color:var(--text)${slim ? ';min-width:44px;padding:0' : ''}">${daSvg(DA_CAL, slim ? 20 : 16)}${slim ? '' : 'Events'}</button>`
     + `<button type="button" class="avbtn" data-a="switcher" aria-label="Switch profile">${esc((p.first || '?').slice(0, 1).toUpperCase())}</button>`;
 }
-const daFocusRight = () => `<span style="order:-1;flex:1;font-weight:800;font-size:16px">Bachata Calendar</span><button type="button" class="quiet" data-a="dNotNow">Not now</button>`;
+const daFocusRight = () => `<button type="button" class="quiet" data-a="dNotNow">Not now</button>`;
 const daPrev = fb => { const b = S.stack[S.stack.length - 2]; return (b && DA_NAMES[b.id]) || (b && b.id === 'acctHome' ? 'Account' : fb); };
 /* tab screen result */
-const daTab = (p, id, html, extra = {}) => Object.assign({ html, tabs: daTabs(id), navRight: daRight(p, true) }, extra);
+const daTab = (p, id, html, extra = {}) => Object.assign({ html, tabs: daTabs(id), navRight: daRight(p, true), brandTag: DA_TAG }, extra);
+const DA_TAG = `<span class="tag own">Dancer</span>`;
+/* v2 (D121) colour helpers: line-art for empty states (accents only), gradient rings */
+const DA_ART = {
+  couple: `<svg class="art" width="120" height="84" viewBox="0 0 120 84" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="45" cy="14" r="7" stroke="#ff9cc0"/><circle cx="75" cy="16" r="7" stroke="#c9adff"/><path d="M45 22l-4 22 6 14-4 20M41 44l-12 6M47 30l14 8" stroke="#ff9cc0"/><path d="M75 24l3 20-8 16 5 18M78 44l12 8M73 30l-12 8" stroke="#c9adff"/><path d="M41 44c-6 8-10 16-8 24l20 8" stroke="#ff9cc0" opacity=".5"/><path d="M98 10v14a4 4 0 1 1-3-4M14 30v10a3.5 3.5 0 1 1-3-3.5" stroke="#ffcf66"/></svg>`,
+  moon: `<svg class="art" width="120" height="84" viewBox="0 0 120 84" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M70 12a28 28 0 1 0 28 38 22 22 0 0 1-28-38z" stroke="#c9adff"/><path d="M24 20l2 5 5 2-5 2-2 5-2-5-5-2 5-2zM100 14l1.5 3.5L105 19l-3.5 1.5L100 24l-1.5-3.5L95 19l3.5-1.5z" stroke="#ffcf66"/><path d="M28 50v18a5 5 0 1 1-4-5M28 50l10-3v16a5 5 0 1 1-4-5" stroke="#4fe0cf"/></svg>`,
+  notes: `<svg class="art" width="120" height="84" viewBox="0 0 120 84" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M30 60V24l26-8v36" stroke="#4fe0cf"/><circle cx="24" cy="60" r="6" stroke="#4fe0cf"/><circle cx="50" cy="52" r="6" stroke="#4fe0cf"/><path d="M84 54V22l14 6" stroke="#ff9cc0"/><circle cx="78" cy="54" r="6" stroke="#ff9cc0"/><path d="M8 74c16-8 28 4 44-2s30-10 60 0" stroke="#c9adff" opacity=".7"/><path d="M104 46l2 4 4 2-4 2-2 4-2-4-4-2 4-2z" stroke="#ffcf66"/></svg>`,
+};
+const daRing = (p, n) => `<span class="ring">${daAv(p, n)}</span>`;
+const daPRing = (pct, big) => `<span class="pring${big ? ' big' : ''}" style="--p:${pct}%" role="img" aria-label="Profile strength ${pct}%"><b>${pct}%</b></span>`;
 const daCard = (inner, cls = '') => `<div class="state${cls ? ' ' + cls : ''}">${inner}</div>`;
 const daMeter = pr => { const st = daStrength(pr); return H.grp(`<div class="kv"><span>Profile strength</span><span class="v" aria-label="Profile strength ${st.pct}%"><b>${st.pct}%</b></span></div><div class="prog s" style="margin:2px 6px"><i style="width:${st.pct}%"></i></div><p class="da-m">${esc(daNextLine(pr))}</p>`); };
 const daNextAct = pr => { const t = daNext(pr); if (!t) return null; return t.step === 'photo' ? { label: t.label, a: 'go', v: 'appPhoto' } : { label: t.label, a: 'dEdit', v: t.focus }; };
@@ -1180,7 +1260,7 @@ function daHero(p) {
   const n = up[0];
   if (!n) return daCard(`<small>Your next night</small><b style="font-size:20px">No upcoming night yet.</b>${H.primary('Browse events', 'dExt', daProf(p).city ? 'the ' + daProf(p).city + ' calendar' : 'the parties list')}`);
   const k = daDiff(n.date), when = k === 0 ? 'tonight' : k === 1 ? 'tomorrow' : `in ${k} days`;
-  return daCard(`<small style="font-weight:700;color:var(--acc)">Your next night \u00b7 ${when}</small><b style="font-size:22px">${esc(n.name)}</b><small>${esc([daDay(n.date), n.city, n.time, n.status === 'going' ? 'Going' : 'Interested'].filter(Boolean).join(' \u00b7 '))}</small>${H.primary('See event', 'dExt', 'the event page')}`, 'need');
+  return `<div class="state hero"${n.fly ? ` style="--fly:${n.fly}"` : ''}><small class="k">Your next night \u00b7 ${when}</small><b style="font-size:24px;letter-spacing:-.02em">${esc(n.name)}</b><small>${esc([daDay(n.date), n.city, n.time, n.status === 'going' ? 'Going' : 'Interested'].filter(Boolean).join(' \u00b7 '))}</small>${H.primary('See event', 'dExt', 'the event page')}</div>`;
 }
 function daNudge(p) {
   const d = daD$(p), seen = {};
@@ -1194,12 +1274,12 @@ function daNumbers(p) {
   const d = daD$(p), s = d.stats;
   if (d.err.numbers) return daCard(`<b>We could not load your numbers. Check your connection and try again.</b><div class="acts">${daLine('Try again', 'dRetry', 'numbers')}</div>`);
   const detail = s.total === 0 ? (daProf(p).photo ? 'Share your page to get your first visitor.' : 'Add a photo and share your page.') : `${daNum(s.month)} in the last 30 days \u00b7 ${daNum(s.total)} in all`;
-  const strip = (s.been === 0 && s.rated === 0) ? '' : `<div class="da-strip" style="padding:0 0 2px"><div><b>${daNum(s.been)}</b><span>Nights been to</span></div><div><b>${daNum(s.rated)}</b><span>Levels rated</span></div></div>`;
-  return H.grp(`<button type="button" class="row" data-a="go" data-v="appPage" style="align-items:flex-start"><span class="g"><b style="white-space:normal">People who looked at your page this week</b><span class="da-big">${daNum(s.week)}</span><small>${esc(detail)}</small></span>${ic('go', 20, 'color:var(--mute)')}</button>${strip}`);
+  const strip = (s.been === 0 && s.rated === 0) ? '' : `<div class="da-strip" style="padding:0 0 2px"><div class="tv"><b>${daNum(s.been)}</b><span>Nights been to</span></div><div class="tg"><b>${daNum(s.rated)}</b><span>Levels rated</span></div></div>`;
+  return H.grp(`<button type="button" class="row tint-teal" data-a="go" data-v="appPage" style="align-items:flex-start"><span class="g"><b style="white-space:normal">People who looked at your page this week</b><span class="da-big">${daNum(s.week)}</span><small>${esc(detail)}</small></span>${ic('go', 20, 'color:var(--mute)')}</button>${strip}`);
 }
 function daPartner(p) {
   const d = daD$(p), done = d.partner === 'done';
-  return daCard(`<div><b>Partner search: coming soon</b><small>${done ? 'We\u2019ll let you know the moment partner search opens.' : 'Find someone to practise and dance with.'}</small></div><div class="acts">${daLine(done ? 'We\u2019ll tell you' : 'Tell me when it\u2019s ready', 'dPartner', null, { dis: done })}</div>${d.partnerErr ? `<div class="err" role="alert">${esc(d.partnerErr)}</div>` : ''}`);
+  return daCard(`<div class="hd">${daSvg('<path d="M12 20s-7-4.3-7-9.5A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7 2.5C19 15.7 12 20 12 20z"/><path d="M17 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/>', 24)}<div><b>Partner search: coming soon</b><small>${done ? 'We\u2019ll let you know the moment partner search opens.' : 'Find someone to practise and dance with.'}</small></div></div><div class="acts">${daLine(done ? 'We\u2019ll tell you' : 'Tell me when it\u2019s ready', 'dPartner', null, { dis: done })}</div>${d.partnerErr ? `<div class="err" role="alert">${esc(d.partnerErr)}</div>` : ''}`, 'partner');
 }
 function daWeek(p) {
   const d = daD$(p), city = daProf(p).city;
@@ -1215,19 +1295,19 @@ function daWeek(p) {
 function daDateBlock(iso) {
   if (!iso) return `<span class="da-date" aria-label="Date to be confirmed"><b>TBC</b></span>`;
   const dt = daD(iso);
-  return `<span class="da-date" aria-hidden="true">${dt.toLocaleDateString('en-GB', { weekday: 'long' })}<b>${dt.getDate()}</b>${dt.toLocaleDateString('en-GB', { month: 'short' })}</span>`;
+  return `<span class="da-date w${dt.getDay()}" aria-hidden="true">${dt.toLocaleDateString('en-GB', { weekday: 'long' })}<b>${dt.getDate()}</b>${dt.toLocaleDateString('en-GB', { month: 'short' })}</span>`;
 }
 SCREENS.appHome = {
   render: p => {
     const d = daD$(p), pr = d.prof;
-    if (!d.row) return daTab(p, 'appHome', `<div style="height:8px"></div>` + `<div class="empty"><b>We can\u2019t find a dancer profile for you yet.</b><p>Message us and we\u2019ll sort it out.</p></div><div style="height:14px"></div>` + H.grp(daWa()) + daWayOut(p));
+    if (!d.row) return daTab(p, 'appHome', `<div style="height:8px"></div>` + `<div class="empty">${DA_ART.couple}<b>We can\u2019t find a dancer profile for you yet.</b><p>Message us and we\u2019ll sort it out.</p></div><div style="height:14px"></div>` + H.grp(daWa()) + daWayOut(p));
     if (d.err.home) return daTab(p, 'appHome', `<div style="height:8px"></div>` + daCard(`<b>We couldn\u2019t load your home.</b><div class="acts">${H.primary('Try again', 'dRetry', 'home', { cls: 'sm' })}</div>`));
     const h = new Date().getHours(), greet = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
-    let html = `<div class="da-hd">${daAv(p, 52)}<div><div class="sub">${greet}</div><div class="title" style="font-size:24px">${esc(pr.fn || pr.dn || 'there')}</div></div></div>`;
+    let html = `<div class="da-hd">${daRing(p, 52)}<div><div class="sub">${greet}</div><div class="title" style="font-size:24px">${esc(pr.fn || pr.dn || 'there')}</div></div></div>`;
     if (!d.active) html += daCard(`<b>${DA_HIDDEN}</b><div class="acts">${H.btn('da-link', 'Show my profile again', 'go', 'acctSettings')}</div>`, 'need');
     if (d.linked && !d.linkedSeen) html += daCard(`<div><b>We\u2019ve linked your profile</b><small>A profile made for you by the Bachata Calendar team is now yours. Have a look and make it right.</small></div><div class="acts">${H.btn('da-link', 'Check my profile', 'home', 'appMe')}${daLine('Got it', 'dLinkedSeen', null, { attr: ' style="width:auto;padding:0 18px"' })}</div>`);
     html += daHero(p) + daNudge(p);
-    html += H.grp(`<button type="button" class="row" data-a="home" data-v="appMe">${`<span class="ico" aria-label="Profile strength ${daStrength(pr).pct}%" style="font-weight:800;font-size:15px">${daStrength(pr).pct}%</span>`}<span class="g"><b>Profile strength</b><small>${esc(daNextLine(pr))}</small></span>${ic('go', 20, 'color:var(--mute)')}</button>`);
+    html += H.grp(`<button type="button" class="row" data-a="home" data-v="appMe">${daPRing(daStrength(pr).pct)}<span class="g"><b>Profile strength</b><small>${esc(daNextLine(pr))}</small></span>${ic('go', 20, 'color:var(--mute)')}</button>`);
     html += daNumbers(p) + daPartner(p) + daWeek(p);
     return daTab(p, 'appHome', html);
   },
@@ -1249,10 +1329,11 @@ function daVote(p, n, focus) {
     + (d.held[s] ? `<p class="da-m">Finish your profile to rate. Your answer is saved and will be sent when you finish. <button type="button" class="da-link" data-a="go" data-v="appWelcome">Finish my profile</button></p>` : '')
     + (d.voteErr[s] ? `<div class="err" role="alert">Couldn't save your answer. Please try again.</div>` : '') + `</div>`;
 }
+const DA_ST = { going: ['going', 'went'], interested: ['interested', 'was'] }; /* colour per status word; others stay grey */
 function daNightRow(p, n, past, focusS, voteRow) {
   const w = (DA_PILL[n.status] || ['Status unknown', 'Status unknown'])[past ? 1 : 0];
   const sub = (n.city || n.time ? H.small([n.city, n.time].filter(Boolean).join(' \u00b7 ')) : H.small('Place to be confirmed')) + (n.active ? '' : H.small('This event is no longer listed.'));
-  return H.row({ lead: daDateBlock(n.date), t: n.name || 'Untitled event', sub, right: `<span class="tag live" style="flex:none">${esc(w)}</span>`, a: 'dExt', v: n.fest ? 'the festival page' : 'the event page', cur: focusS && voteRow })
+  return H.row({ lead: daDateBlock(n.date), t: n.name || 'Untitled event', sub, right: `<span class="st ${DA_ST[n.status] ? DA_ST[n.status][past ? 1 : 0] : ''}" style="flex:none">${esc(w)}</span>`, a: 'dExt', v: n.fest ? 'the festival page' : 'the event page', cur: focusS && voteRow })
     + (voteRow && n.active && !n.fest && (n.status === 'going' || n.status === 'interested') ? daVote(p, n) : '');
 }
 SCREENS.appNights = {
@@ -1261,9 +1342,9 @@ SCREENS.appNights = {
     /* a held answer is sent once the profile is complete and they come back */
     if (DANCER_LEFT(p) === 0) Object.keys(d.held).forEach(s => { d.votes[s] = d.held[s]; d.change[s] = false; delete d.held[s]; });
     let html = H.title('Nights');
-    if (!d.row) return daTab(p, 'appNights', html + daCard(`<b>${DA_ERR.no_profile}</b>`) + daWayOut(p));
+    if (!d.row) return daTab(p, 'appNights', html + daCard(`${DA_ART.couple}<b>${DA_ERR.no_profile}</b>`) + daWayOut(p));
     if (d.err.nights) return daTab(p, 'appNights', html + daCard(`<b>We couldn\u2019t load your nights.</b><div class="acts">${H.primary('Try again', 'dRetry', 'nights', { cls: 'sm' })}</div>`));
-    if (!d.nights.length) return daTab(p, 'appNights', html + `<div class="empty"><b>No nights saved yet.</b>${H.primary('Browse events', 'dExt', 'the events calendar')}</div>`);
+    if (!d.nights.length) return daTab(p, 'appNights', html + `<div class="empty">${DA_ART.moon}<b>No nights saved yet.</b>${H.primary('Browse events', 'dExt', 'the events calendar')}</div>`);
     const up = d.nights.filter(n => !n.date || daDiff(n.date) >= 0).sort((a, b) => !a.date ? 1 : !b.date ? -1 : a.date < b.date ? -1 : 1);
     const past = d.nights.filter(n => n.date && daDiff(n.date) < 0).sort((a, b) => a.date < b.date ? 1 : -1);
     html += H.lab('Upcoming') + H.grp(up.length ? up.map(n => daNightRow(p, n, false)).join('') : `<p class="da-p">No upcoming nights. <button type="button" class="da-link" data-a="dExt" data-v="the events calendar">Browse events</button></p>`);
@@ -1282,7 +1363,7 @@ ACT.dVoteChange = s => { P().dancer.change[s] = true; };
 
 /* ================= ME ================= */
 function daGate(p, id) {
-  return daTab(p, id, H.title(id === 'appEdit' ? 'Edit my profile' : 'Me') + daCard(`<b>${DA_ERR.no_profile}</b><div class="da-btns">${H.primary('Message us on WhatsApp', 'dExt', 'WhatsApp')}${daLine('Back to the Bachata Calendar website', 'dExt', 'the Bachata Calendar website')}</div>`));
+  return daTab(p, id, H.title(id === 'appEdit' ? 'Edit my profile' : 'Me') + daCard(`${DA_ART.couple}<b>${DA_ERR.no_profile}</b><div class="da-btns">${H.primary('Message us on WhatsApp', 'dExt', 'WhatsApp')}${daLine('Back to the Bachata Calendar website', 'dExt', 'the Bachata Calendar website')}</div>`));
 }
 SCREENS.appMe = {
   render: p => {
@@ -1292,8 +1373,8 @@ SCREENS.appMe = {
     if (!d.active) html += daCard(`<div><b>Your profile is hidden</b><small>Your dancer profile is hidden. Only you can see it. You can show it again in Account settings.</small></div><div class="acts">${daLine('Open account settings', 'go', 'acctSettings', { attr: ' style="width:auto;padding:0 18px"' })}</div>`, 'need');
     const name = daPublicName(pr), rc = [daRole(pr.role), pr.city].filter(Boolean).join(' \u00b7 ') || 'Your role and city are not set yet';
     const st = daStrength(pr), nx = daNextAct(pr);
-    html += H.grp(`<div class="row" style="cursor:default">${daAv(p, 64)}<span class="g"><b>${esc(name || 'No name yet')}</b><small>${esc(rc)}</small></span></div>`
-      + `<div class="kv"><span>Profile strength</span><span class="v"><b>${st.pct}%</b></span></div><div class="prog s" style="margin:2px 6px"><i style="width:${st.pct}%"></i></div><p class="da-m">${esc(daNextLine(pr))}</p>`
+    html += H.grp(`<div class="row" style="cursor:default">${daRing(p, 64)}<span class="g"><b>${esc(name || 'No name yet')}</b><small>${esc(rc)}</small></span></div>`
+      + `<div class="kv" style="min-height:76px"><span>Profile strength</span>${daPRing(st.pct, true)}</div><div class="prog s" style="margin:2px 6px"><i style="width:${st.pct}%"></i></div><p class="da-m">${esc(daNextLine(pr))}</p>`
       + `<div style="padding:4px 2px 2px;display:flex;flex-direction:column">${nx ? H.primary(nx.label, nx.a, nx.v) : H.primary('Edit my profile', 'dEdit', '')}</div>`);
     html += `<div class="grp">${nx ? daLine('Edit my profile', 'dEdit', '') : ''}${daLine('My page: how it looks and who visited', 'go', 'appPage')}${daLine('See my public page', 'dExt', 'your public page', { dis: !d.active })}${!d.active ? '<div class="reason">Your profile is hidden, so there is no public page to see.</div>' : ''}</div>`;
     if (!name) html += `<p class="da-m" style="margin:0 18px">People will not find your page by name until you add one.</p>`;
@@ -1506,6 +1587,27 @@ ACT.obNext = () => {
 };
 ACT.obSkip = () => { const o = daOb(P()), pr = daProf(P()); o.stage = o.stage === 'years' && daOptLeft(pr).includes('styles') ? 'styles' : 'nice'; };
 ACT.obBoost = () => { const o = daOb(P()); o.stage = daOptLeft(daProf(P()))[0] || 'nice'; };
+/* v2 (D121): a short confetti burst on "You're in" and when profile strength reaches 70% / 100%. Never under reduced motion. */
+const DA_CF = ['#f0703a', '#e8487f', '#8a4dff', '#4fe0cf', '#ffcf66', '#ff9cc0'];
+function daConfetti(fr) {
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const box = document.createElement('div'); box.className = 'confetti'; box.setAttribute('aria-hidden', 'true');
+  for (let i = 0; i < 36; i++) {
+    const e = document.createElement('i'), x = 10 + Math.random() * 80;
+    e.style.cssText = `left:${x}%;background:${DA_CF[i % DA_CF.length]};--dx:${(Math.random() - .5) * 160}px;--dy:${300 + Math.random() * 380}px;--r:${(Math.random() - .5) * 720}deg;animation-delay:${Math.random() * .2}s`;
+    box.appendChild(e);
+  }
+  fr.appendChild(box); setTimeout(() => box.remove(), 1150);
+}
+AFTER.push(fr => {
+  const p = P(), c = cur();
+  if (!p || !p.dancer || !isDa(c.id)) return;
+  const d = p.dancer, pct = d.row ? daStrength(daProf(p)).pct : null;
+  const inNow = c.id === 'appWelcome' && !!d.ob && d.ob.stage === 'in';
+  const was = d.cel || { pct, inNow: false };
+  if ((inNow && !was.inNow) || (pct != null && was.pct != null && ((was.pct < 70 && pct >= 70) || (was.pct < 100 && pct === 100)))) daConfetti(fr);
+  d.cel = { pct, inNow };
+});
 ACT.obEnd = () => { const p = P(); daSync(p); p.dancer.ob = null; home('appHome'); };
 
 /* ================= PHOTO ================= */
@@ -1572,7 +1674,7 @@ SCREENS.appOptions = {
   render: p => {
     const d = daD$(p);
     let html = H.title('Options');
-    if (!d.row) return daTab(p, 'appOptions', html + daCard(`<b role="alert">${DA_ERR.no_profile}</b>`) + H.grp(daWa()) + daWayOut(p));
+    if (!d.row) return daTab(p, 'appOptions', html + daCard(`${DA_ART.couple}<b role="alert">${DA_ERR.no_profile}</b>`) + H.grp(daWa()) + daWayOut(p));
     if (d.err.options) return daTab(p, 'appOptions', html + daCard(`<b>We could not load your options. Check your connection and try again.</b>`) + H.grp(H.row({ t: 'Retry', a: 'dRetry', v: 'options' })));
     const share = `<button type="button" class="row" data-a="dShare"${d.active ? '' : ' disabled'}><span class="g"><b>Share my page</b></span></button>` + (d.active ? '' : `<div class="reason">Your dancer profile is hidden. Only you can see it. To share it, tap Show my profile again in Account settings.</div>`) + daShareBlock(d);
     html += H.grp(share
@@ -1639,14 +1741,14 @@ SCREENS.appPage = {
     const d = daD$(p), pr = d.prof, s = d.stats;
     const r = { tabs: daTabs('appPage'), navRight: daRight(p, false) };
     let html = H.title('My page');
-    if (!d.row) return Object.assign(r, { html: html + daCard(`<b>${DA_ERR.no_profile}</b>`) + H.grp(daWa()) + daWayOut(p) });
+    if (!d.row) return Object.assign(r, { html: html + daCard(`${DA_ART.couple}<b>${DA_ERR.no_profile}</b>`) + H.grp(daWa()) + daWayOut(p) });
     const name = daPublicName(pr), rp = DA_PHRASE[pr.role], cp = pr.city ? `you dance in ${pr.city}` : '';
     const rc = rp && cp ? `It says ${rp} and ${cp}.` : rp || cp ? `It says ${rp || cp}.` : 'It does not say your city or dance role yet.';
-    html += H.lab('How your page looks') + H.grp(`<ul class="da-list"><li>${esc(name ? `It shows your name: ${name}.` : 'It has no name yet, so people cannot find it by name.')}</li><li>${pr.photo ? 'It shows your photo.' : 'It has no photo yet. Add one so people recognise you.'}</li><li>${esc(rc)}</li><li>${pr.bio ? 'It shows your bio.' : 'It has no bio yet.'}</li></ul>`);
+    html += H.lab('How your page looks') + H.grp(`<ul class="da-list"><li${name ? '' : ' class="no"'}>${esc(name ? `It shows your name: ${name}.` : 'It has no name yet, so people cannot find it by name.')}</li><li${pr.photo ? '' : ' class="no"'}>${pr.photo ? 'It shows your photo.' : 'It has no photo yet. Add one so people recognise you.'}</li><li${rp && cp ? '' : ' class="no"'}>${esc(rc)}</li><li${pr.bio ? '' : ' class="no"'}>${pr.bio ? 'It shows your bio.' : 'It has no bio yet.'}</li></ul>`);
     const detail = s.total === 0 ? (pr.photo ? 'Share your page to get your first visitor.' : 'Add a photo and share your page.') : `${daNum(s.month)} in the last 30 days \u00b7 ${daNum(s.total)} in all`;
     html += H.lab('People who looked at your page this week') + H.grp(d.err.numbers
       ? `<p class="da-p">We could not load your numbers. Check your connection and try again.</p>${H.btn('da-link', 'Try again', 'dRetry', 'numbers')}`
-      : `<div style="padding:4px 8px 8px"><div class="da-big">${daNum(s.week)}</div><small class="m" style="font-size:14px">${esc(detail)}</small></div>`);
+      : `<div style="padding:4px 8px 8px">${s.total === 0 ? DA_ART.notes : ''}<div class="da-big">${daNum(s.week)}</div><small class="m" style="font-size:14px">${esc(detail)}</small></div>`);
     const ok = d.active && DANCER_LEFT(p) === 0;
     const reason = !d.active ? `Your dancer profile is hidden. Only you can see it. Show it again in Account settings (Show my profile again). <button type="button" data-a="go" data-v="acctSettings">Account settings</button>`
       : !ok ? `Your page is not public yet. Finish your name, city, dance role and photo first. <button type="button" data-a="dEdit" data-v="">Edit my profile</button>` : '';

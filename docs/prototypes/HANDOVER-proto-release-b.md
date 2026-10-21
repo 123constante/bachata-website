@@ -2,7 +2,11 @@
 
 Brief: `bachata-admin` branch `brief/people-d89`, `briefs/people-arc/PROTO-RELEASE-B.md` (sha e6ef299). Ticket dt_e80dffbd4e88.
 
-## State: DONE (full finish, not partial)
+## State: v2 DONE (FIX-PROTO-RELEASE-B, ticket dt_042eb8b957c2, full finish). v1 notes below still hold.
+
+See **v2 changes** at the end: home link on every signed-in screen (D120) and the dancer app colour layer (D121).
+
+## v1 state: DONE (full finish, not partial)
 
 Output: `docs/prototypes/release-b-prototype.html`, one self-contained file, **151,299 bytes** (under 400 KB). Inline SVG
 icons only, no external scripts, one Google Fonts link (Outfit). No product code changed; nothing in `src/` touched. No PR.
@@ -212,3 +216,104 @@ Re-run the self-checks with Playwright: for every `PROTO.JUMPS` index call `PROT
 - Page: profile hidden
 - Page: no visitors yet (newbie after setup)
 - Page: no dancer profile found
+
+## v2 changes (FIX-PROTO-RELEASE-B, D120 + D121)
+
+Brief: `bachata-admin` branch `brief/people-d89`, `briefs/people-arc/FIX-PROTO-RELEASE-B.md` (sha 6a72a5b). One file changed
+(`release-b-prototype.html`, now **162,448 bytes**) plus this handover. No product code, no PR.
+
+### 1. Home link (D120)
+- Core helper `homeLink()` renders a "Bachata Calendar" button with an inline house icon (`#i-house`), `data-home`,
+  min 44x44 px. `ACT.siteHome` = `leave(() => toast('Opens the site home'))`, so a dirty form goes through "Discard changes?"
+  first (verified: Teacher details changed -> home -> Discard sheet -> Discard -> toast).
+- Placed by the core `frameHTML()` on every screen except `signup`, `signedOut`, `acctDeleted` (`NO_HOME`):
+  - nav row = `[back button][home link] ... [right-side controls]`. With the home link present the visible back-label text is
+    dropped (the back button keeps `aria-label="Back to X"`); the screen title carries the context. Screens with no back
+    button get the link in the empty left side; `nav:false` screens (Continue as...) get a nav row with only the link.
+  - Computer split (Your areas + area/details): the link sits at the top of the LEFT column, right of its back button; the
+    right column has none.
+  - Dancer app: the old brand text is now the link. The "Dancer" tag shows next to it at computer width only (no room at
+    390 px). On dancer screens with a back button (Edit, My page) the Events button is icon-only at phone width
+    (`aria-label="Events"`) so the row fits 390 px.
+- Plain Ember look outside the dancer app (ember-soft icon chip); in the dancer app the chip is the sunset gradient.
+- New invariant in `checks()` (#5): when no sheet is open and the screen is in scope, the top layer must contain an enabled
+  `[data-home]`.
+
+### 2. Dancer app colour layer (D121), scoped to `.layer.da` (screen ids `app*` only)
+Tokens added in a second `:root` block (existing tokens untouched):
+
+| Token | Value |
+| --- | --- |
+| `--sun` | `linear-gradient(120deg,#f0703a 0%,#e8487f 52%,#8a4dff 100%)` |
+| `--sun-scrim` | `linear-gradient(rgba(18,8,30,.4),rgba(18,8,30,.4))` (layered over `--sun` wherever text sits on it) |
+| `--rose` / `--rose-soft` | `#ff9cc0` / `rgba(255,156,192,.14)` |
+| `--violet` / `--violet-soft` | `#c9adff` / `rgba(201,173,255,.14)` |
+| `--teal` / `--teal-soft` | `#4fe0cf` / `rgba(79,224,207,.14)` |
+| `--gold` / `--gold-soft` | `#ffcf66` / `rgba(255,207,102,.14)` |
+
+Per screen:
+- **Wrapper**: faint violet/ember glow in the top corners of the graphite ground.
+- **Home**: "Your next night" = full-bleed gradient card (event flyer gradient when the night has one, `fly` field; Alex's
+  Soho Bachata Social has a teal->violet flyer, Maria's shows the sunset) with white text and an inverted white "See event"
+  primary (still one primary). Error / no-night versions of the card stay plain. Greeting avatar in a gradient ring.
+  Profile strength = conic gradient ring with the % in the middle. Page views tile teal, Nights been to violet, Levels rated
+  gold. Partner search card rose-tinted with a rose edge and a heart-sparkle icon.
+- **Nights**: status tags coloured (Going teal, Interested gold, Went violet, Was interested rose; Not going / others grey).
+  Date blocks tinted by weekday (Sun/Sat violet, Mon/Thu teal, Tue/Wed gold, Fri rose). Selected level vote filled with the
+  scrimmed gradient, white text.
+- **Me**: gradient ring on the 64 px avatar; strength shown as a 64 px gradient ring plus the gradient bar.
+- **My page**: "How your page looks" list with coloured round ticks (teal, violet, gold, rose); a missing item gets a hollow
+  grey circle. No-visitors state shows the music-notes art.
+- **Tab bar**: active tab has a gradient pill on its top edge and a soft glow on its icon.
+- **Onboarding**: step tag (`.tag.own`) and meter use the gradient; selected chips/options gradient-filled.
+- **Celebration**: `daConfetti()` (36 small CSS-animated pieces, 0.9 s + up to 0.2 s delay, removed at 1.15 s, no library)
+  fires on entering "You're in" and when profile strength crosses 70% or reaches 100% (e.g. "Use this photo" 55% -> 80%).
+  It returns before creating anything when `prefers-reduced-motion: reduce` matches (CSS also hides `.confetti`).
+- **Empty states**: inline line-art SVGs in the accents: moon + notes (no nights, 443 B), music notes (no visitors, 536 B),
+  dancing couple (no dancer profile found on Home / Nights / Me / Edit / Options / My page, 558 B).
+- Disabled options/chips inside the dancer app are forced grey (`.da .opt[disabled]`, `.da .tog[disabled]`); disabled
+  primaries keep the Ember grey.
+- Account, Your areas, Teacher/DJ, organiser stub and sign-up are untouched (plain Ember).
+
+### Contrast (WCAG ratio, computed from the token values over the real backgrounds)
+| Pair | Ratio |
+| --- | --- |
+| White on `#f0703a` + scrim (gradient light end) | 6.47 |
+| White on `#e8487f` + scrim | 7.59 |
+| White on `#8a4dff` + scrim | 8.66 |
+| White on flyer `#13877d` / `#5b3fd6` + scrim | 8.61 / 11.04 |
+| White at 85% on `#f0703a` + scrim (worst small text) | 5.17 |
+| Ink `#1d0a03` on white (inverted hero button) | 19.14 |
+| Teal on teal-soft over card / card-2 | 6.16 / 5.39 |
+| Gold on gold-soft over card / card-2 | 6.67 / 5.84 |
+| Violet on violet-soft over card / card-2 | 5.34 / 4.68 |
+| Rose on rose-soft over card / card-2 | 5.33 / 4.67 |
+| Text `#f1f2f4` on any soft accent (worst: gold-soft/card-2) | 7.62 |
+| Mute `#a3a9b3` on the tinted empty-state card (violet / ember end) | 5.25 / 5.41 |
+| Mute on the wrapper glow (violet / ember) | 5.95 / 5.89 |
+| Text on card-2 (% inside the ring) | 10.68 |
+
+All >= 4.5:1. Mute grey is never placed on a soft accent (tile labels use the accent colour instead). Note, pre-existing
+and unchanged: Ember `--acc` on `--acc-soft` over card-2 is 3.38 (v1 `.da-date`/`.tag.own`); in the dancer app those now
+use the accents/gradient above.
+
+### v2 self-check results (headless Chromium, Playwright; Outfit stubbed)
+1. **Sweep**: 106 jump entries x (390x844, 1280x800) = 212 visits: **0 console errors, 0 failures** (`checks()` incl. the
+   new home-link invariant, no page overflow, no nav/tabs/foot/grp/row inner overflow, no control outside the frame, home
+   link >= 44 px tall).
+2. **Fuzz** with the home-link invariant: seed 7 x 12,000, seed 11 x 10,000, seed 23 x 10,000 = **32,000 actions,
+   0 failures, 0 console errors** (home link tapped 3,252 times).
+3. **Invariant can fail (mutation)**: home link removed on `acctSettings` only: sweep 8 failures
+   (`no home link at acctSettings`), fuzz failed at action #112 (seed 7), #117 (seed 11), #36 (seed 23). Mutant was a
+   scratch copy; the shipped file is unmutated and is the one the clean runs above used.
+4. **Reduced motion**: emulated `reduce`, 26 onboarding/photo/edit jumps + "You're in" + a real 55% -> 80% photo save:
+   **0 confetti elements created** (MutationObserver + direct count). Normal motion: 1 created on each trigger, gone
+   after 1.3 s.
+5. **Size** 162,448 bytes; inline SVG only; 0 external scripts; 1 Google Fonts link (Outfit).
+
+Not verified: a real phone; Outfit rendering (stubbed, so the measured 390 px header used a wider fallback font, which
+leaves Outfit more room); colour feel is for the owner's tap-through.
+
+### For slice B (the real code)
+- Home link: one shared component in the signed-in shell; the leave guard should reuse the form dirty state.
+- Colour layer: add the tokens above, scope the overrides to the dancer-app wrapper, keep `--sun-scrim` under any text.
