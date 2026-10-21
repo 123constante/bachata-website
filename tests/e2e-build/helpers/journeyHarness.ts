@@ -266,9 +266,9 @@ export const isWelcome = (u: URL) => u.pathname === '/app/welcome';
 export async function signupForm(page: Page, entry: string, shot: Shot, who = { firstName: 'Ana', email: EMAIL }) {
   const details = page.getByText('A little about you');
   if (!new URL(entry, 'https://x.test').searchParams.get('userType')) {
-    await expect(page.getByText('What brings you here?')).toBeVisible();
-    await shot('auth-role', '/auth sign-up step 1 of 3: role (Dancer pre-selected)');
-    await page.getByRole('button', { name: /^Continue as / }).click();
+    await expect(page.getByText('What do you do?')).toBeVisible();
+    await shot('auth-role', '/auth sign-up step 1 of 3: What do you do? (Dancer pre-selected)');
+    await page.getByRole('button', { name: /^Continue$/ }).click();
   }
   await expect(details).toBeVisible();
   await page.locator('#signup-firstname').fill(who.firstName);
