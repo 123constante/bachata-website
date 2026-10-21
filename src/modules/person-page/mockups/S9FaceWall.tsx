@@ -19,14 +19,14 @@ export const WARM = {
   light: { page: '#FFF4E6', card: '#FFFFFF', text: '#3B2216', muted: '#6B4A3A', line: '#EBD6BE' },
   dark: { page: '#1E1410', card: '#2B1D16', text: '#FBEBDD', muted: '#CDB09C', line: '#4A3226' },
 } as const;
-type RoleKey = PersonRole | 'organiser';
+export type RoleKey = PersonRole | 'organiser';
 export const ACCENT: Record<RoleKey, { label: string; chipBg: string; chipText: string; tileBg: string; tileInk: string }> = {
   dj: { label: 'DJ', chipBg: '#F2B632', chipText: '#3B2216', tileBg: '#F6D58A', tileInk: '#5A3A00' },
   dancer: { label: 'Dancer', chipBg: '#0F766E', chipText: '#FFFFFF', tileBg: '#BFE8E1', tileInk: '#0B4F4A' },
   teacher: { label: 'Teacher', chipBg: '#6D28D9', chipText: '#FFFFFF', tileBg: '#E4D7FB', tileInk: '#4C1D95' },
   organiser: { label: 'Organiser', chipBg: '#B93E0B', chipText: '#FFFFFF', tileBg: '#FAD2BE', tileInk: '#7A2606' },
 };
-const SHORT: Record<RoleKey, string> = { dj: 'DJ', dancer: 'Dance', teacher: 'Teach', organiser: 'Org' };
+export const SHORT: Record<RoleKey, string> = { dj: 'DJ', dancer: 'Dance', teacher: 'Teach', organiser: 'Org' };
 
 // Fixture people (REAL prod ids). Why each is here is in docs/handover/s9-facewall.md.
 const IDS = [
@@ -60,7 +60,7 @@ const ORDER: PersonRole[] = ['dj', 'dancer', 'teacher'];
 // Teacher pages are closed on prod (S8 handover), so the teacher role shows only for these verified teachers.
 const TEACHERS = new Set(['04ca2889-870a-4891-9a97-cb6231020d73', '017dee9f-c30a-45e3-b2b9-01dab3cb8062', '0dd8819b-1aa1-4c6e-9747-f09b2c177a0c', '57ef6bdc-e03a-4072-8fde-7a021f538147']);
 
-function useTiles(): { tiles: Tile[] | null; error: string | null } {
+export function useTiles(): { tiles: Tile[] | null; error: string | null } {
   const qc = useQueryClient();
   const djs = useQuery({
     queryKey: ['s9-djs'],
@@ -98,21 +98,21 @@ function useTiles(): { tiles: Tile[] | null; error: string | null } {
   return { tiles, error: djs.error ? String(djs.error) : null };
 }
 
-const dateChip = (k: string) => {
+export const dateChip = (k: string) => {
   const d = new Date(`${k}T12:00:00Z`);
   return `${d.toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })} ${d.getUTCDate()}`;
 };
-const initialsOf = (n: string) => {
+export const initialsOf = (n: string) => {
   const w = n.split(/\s+/).filter(Boolean);
   return ((w[0]?.[0] ?? '?') + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase();
 };
 /** The name a tile shows: DJ filter leads with the stage name, every other filter with the real first name. */
-const tileName = (t: Tile, filter: Filter) => (filter === 'djs' && t.stage ? t.stage : filter === 'djs' && t.roles[0] === 'dj' && t.roles.length === 1 ? t.real : t.first);
+export const tileName = (t: Tile, filter: Filter) => (filter === 'djs' && t.stage ? t.stage : filter === 'djs' && t.roles[0] === 'dj' && t.roles.length === 1 ? t.real : t.first);
 export const leadOf = (t: Tile, filter: Filter): RoleKey => (filter === 'djs' ? 'dj' : filter === 'dancers' ? 'dancer' : filter === 'teachers' ? 'teacher' : t.roles[0] ?? 'dancer');
 
-type Filter = 'all' | 'djs' | 'dancers' | 'teachers';
-const FILTERS: { k: Filter; label: string }[] = [{ k: 'all', label: 'All' }, { k: 'djs', label: 'DJs' }, { k: 'dancers', label: 'Dancers' }, { k: 'teachers', label: 'Teachers' }];
-const FILTER_ROLE: Record<Filter, PersonRole | null> = { all: null, djs: 'dj', dancers: 'dancer', teachers: 'teacher' };
+export type Filter = 'all' | 'djs' | 'dancers' | 'teachers';
+export const FILTERS: { k: Filter; label: string }[] = [{ k: 'all', label: 'All' }, { k: 'djs', label: 'DJs' }, { k: 'dancers', label: 'Dancers' }, { k: 'teachers', label: 'Teachers' }];
+export const FILTER_ROLE: Record<Filter, PersonRole | null> = { all: null, djs: 'dj', dancers: 'dancer', teachers: 'teacher' };
 
 function Face({ t, lead, px, theme }: { t: Tile; lead: RoleKey; px?: number; theme: 'light' | 'dark' }) {
   const [failed, setFailed] = useState<string | null>(null);
