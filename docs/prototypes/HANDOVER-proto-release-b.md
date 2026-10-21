@@ -2,7 +2,7 @@
 
 Brief: `bachata-admin` branch `brief/people-d89`, `briefs/people-arc/PROTO-RELEASE-B.md` (sha e6ef299). Ticket dt_e80dffbd4e88.
 
-## State: v2 DONE (FIX-PROTO-RELEASE-B, ticket dt_042eb8b957c2, full finish). v1 notes below still hold.
+## State: v3 DONE (FIX-PROTO-RELEASE-B-V3, ticket dt_536d1baf548f, full finish). v2 and v1 notes below still hold, except the week list (removed in v3).
 
 See **v2 changes** at the end: home link on every signed-in screen (D120) and the dancer app colour layer (D121).
 
@@ -317,3 +317,53 @@ leaves Outfit more room); colour feel is for the owner's tap-through.
 ### For slice B (the real code)
 - Home link: one shared component in the signed-in shell; the leave guard should reuse the form dirty state.
 - Colour layer: add the tokens above, scope the overrides to the dancer-app wrapper, keep `--sun-scrim` under any text.
+
+## v3 changes (FIX-PROTO-RELEASE-B-V3, D123 + D124)
+
+Brief: `bachata-admin` branch `brief/people-d89`, `briefs/people-arc/FIX-PROTO-RELEASE-B-V3.md` (sha 7335390). Two files
+changed (`release-b-prototype.html`, this handover). No product code, no PR.
+
+1. **D123**: "What's on this week" removed from dancer Home: the section, `daWeek()`, the `DA_WEEK` data and the
+   "Home: week list failed to load" jump. `grep daWeek` = 0 hits. (The `stats.week` page-views number is a different thing and stays.)
+2. **D124**: "Teachers and DJs from your nights" sits where the week list was.
+   - Data: `DA_LINEUP[person][night id]` (public fields only: id, name, roles, optional gradient avatar). `daPeopleList()` keeps
+     nights with attendance going and a past date, one row per person (most recent night wins), newest night first.
+   - Row (`daPRow`): initials avatar (gradient for some), name, role tags (Teacher violet, DJ teal; Lena Ortiz has both = one row, two
+     tags), "On the line-up at <night>, <d Mon>"; tap toasts "Opens <name>'s page". At most 6 rows, then "See all (N)" opens
+     `SHEETS.dPeople` with the full list. Maria has 8 people (so See all shows); Maria gained three past "going" nights
+     (Sensual Sundays 18 Oct, Brixton 3 Oct, Old Kent Road 26 Sep), which also shows in her Nights list.
+   - Empty (newbie after setup, and Alex whose past line-ups were empty): line-art headphones + star in the accents, the brief's copy, ONE
+     secondary "Browse events" action (toast "Opens events"; it is not a `.primary`, because Home's next-night card can already hold the screen's one primary).
+   - Error: "Couldn't load teachers and DJs." + "Try again" (retry succeeds; the generic `dRetry`).
+   - Jumps added: filled (8 people), See all sheet, empty (line-ups were empty), empty (no past nights), failed to load.
+   - Invariant #6 in `checks()`: on `appHome` the section exists exactly once (zero when the profile row is missing or Home failed to load),
+     in exactly one of filled / empty / error; filled has 1 to 6 rows; empty has an enabled action; error has an enabled retry; every
+     `[data-pr]` row (Home and the sheet) is an enabled button with an action.
+3. Small fix: `<symbol id="i-areas" viewBox=` space restored.
+
+### v3 self-check results (headless Chromium, Playwright; Outfit stubbed)
+1. **Sweep**: 110 jump entries x (390x844, 1280x800) = 220 visits: **0 failures, 0 console errors** (`checks()` clean, no page overflow,
+   every people row / See all / action `offsetHeight` >= 44, nothing outside the frame, no row overflow).
+2. **Fuzz**: seed 7 x 12,000, seed 11 x 10,000, seed 23 x 10,000: **32,000 actions, 0 failures, 0 console errors** (seed 7: 12,000; seed 11: 10,000; seed 23: 10,000). Filled and empty states were both visited by the fuzz (hundreds of times); the error state is covered by the sweep.
+3. **Invariant can fail (mutation)**: one row's link removed (`a: null` in `daPRow`) in a scratch copy: sweep 14 failures
+   (`people row without enabled link`), fuzz failed within the first actions. Shipped file unmutated.
+4. **Contrast** (new pairs, computed from the token values):
+
+| Pair | Ratio |
+| --- | --- |
+| Teacher tag: violet on violet-soft over card-2 (row) / card | 4.65 / 5.34 |
+| DJ tag: teal on teal-soft over card-2 / card | 5.37 / 6.17 |
+| Name text `#f1f2f4` on card-2 (also initials) | 10.68 |
+| Mute "On the line-up" line on card-2 | 5.06 |
+| White initials on gradient avatar + scrim (worst, light end) | 6.50 |
+| Empty card: text / mute on the violet-tinted card | 11.04 / 5.23 |
+| "See all" ember link on card | 4.66 |
+
+5. **Size** 166,838 bytes (under 400 KB); inline SVG only; no external scripts; one Google Fonts link (Outfit).
+
+Not verified: a real phone; Outfit rendering (stubbed); the real data (D126: no read returns this today; the section is built
+against the pinned `my_nights_lineup_people_v1()` shape: person id, public slug, display name, avatar, roles, last night name + date).
+
+## Parked questions
+- Q: Should a night the dancer marked "going" but that the organiser later cancelled still count as "went"? Default used: yes, any past going night with a line-up counts (the prototype has no cancelled past night). Cost if wrong: small. Where: release-b-prototype.html `daPeopleList`.
+- Q: Empty-state "Browse events" is a secondary button, not primary. Default used: secondary, so the screen keeps one primary (Home's next-night card). Cost if wrong: small. Where: release-b-prototype.html `daPeople`.

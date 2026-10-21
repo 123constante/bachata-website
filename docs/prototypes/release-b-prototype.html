@@ -331,6 +331,13 @@ textarea.inp{padding:14px 16px;min-height:120px;font:500 16px/1.45 var(--font);r
 .da .da-list li.no::before{background:none;box-shadow:inset 0 0 0 2px var(--hair)}
 .da .art{display:block;margin:0 auto 2px;flex:none}
 .da .empty{background:linear-gradient(160deg,rgba(138,77,255,.12),rgba(240,112,58,.06) 70%),var(--card)}
+.pav{width:48px;height:48px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--card-2);color:var(--text);box-shadow:inset 0 0 0 2px var(--hair);font:800 16px var(--font)}
+.pav.g{background:var(--sun-scrim),var(--sun);color:#fff;box-shadow:none}
+.ptags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:2px}
+.ptag{font-size:13px;font-weight:700;padding:2px 10px;border-radius:999px;line-height:1.4}
+.ptag.te{background:var(--violet-soft);color:var(--violet)}.ptag.dj{background:var(--teal-soft);color:var(--teal)}
+.rowfoot{display:flex;justify-content:center}.rowfoot .da-link{min-height:44px}
+[data-people=empty].empty{border-radius:var(--r,16px)}
 .confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:30}
 .confetti i{position:absolute;top:-14px;width:8px;height:12px;border-radius:2px;opacity:0;animation:cf .9s cubic-bezier(.2,.6,.4,1) forwards}
 @keyframes cf{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--r))}}
@@ -350,7 +357,7 @@ textarea.inp{padding:14px 16px;min-height:120px;font:500 16px/1.45 var(--font);r
  <symbol id="i-teach" viewBox="0 0 24 24"><path d="M2.5 9L12 4.5 21.5 9 12 13.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M6.5 11v5c3 2.5 8 2.5 11 0v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
  <symbol id="i-dj" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0116 0v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="3" y="14" width="4.5" height="6.5" rx="2" fill="currentColor"/><rect x="16.5" y="14" width="4.5" height="6.5" rx="2" fill="currentColor"/></symbol>
  <symbol id="i-house" viewBox="0 0 24 24"><path d="M3.5 11L12 4l8.5 7M5.5 9.5V20h13V9.5M10 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
- <symbol id="i-areas"viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="4" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="13" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+ <symbol id="i-areas" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="4" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="13" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
 </svg>
 
 <div class="page">
@@ -617,6 +624,20 @@ function checks() {
   }
   /* 5. (D120) the way home: an enabled home link in the top layer on every screen in scope */
   if (!S.sheet && homeScope(cur().id) && top && !top.querySelector('[data-home]:not([disabled])')) fails.push('no home link at ' + cur().id);
+  /* 6. (D124) dancer Home: the Teachers and DJs section is in exactly one of three states; every row has an enabled link */
+  if (cur().id === 'appHome' && p.dancer) {
+    const want = (p.dancer.row && !p.dancer.err.home) ? 1 : 0, secs = fr.querySelectorAll('[data-people]');
+    if (secs.length !== want) fails.push(`people section count ${secs.length} want ${want}`);
+    secs.forEach(sc => {
+      const st = sc.dataset.people, rows = sc.querySelectorAll('[data-pr]');
+      if (!['filled', 'empty', 'error'].includes(st)) fails.push('people state ' + st);
+      if ((st === 'filled') !== (rows.length > 0)) fails.push('people rows vs state ' + st);
+      if (st === 'filled' && rows.length > 6) fails.push('people rows > 6');
+      if (st === 'empty' && !sc.querySelector('[data-a="dExt"]:not([disabled])')) fails.push('people empty without action');
+      if (st === 'error' && !sc.querySelector('[data-a="dRetry"]:not([disabled])')) fails.push('people error without retry');
+    });
+  }
+  fr.querySelectorAll('[data-pr]').forEach(r => { if (r.tagName !== 'BUTTON' || r.disabled || !r.dataset.a) fails.push('people row without enabled link'); });
   if (!SCREENS[cur().id]) fails.push('unknown screen ' + cur().id);
   return fails;
 }
@@ -1083,13 +1104,14 @@ const DA_STEP_LABEL = { first_name: 'Add your first name', city: 'Add your city'
 const DA_STEP_FOCUS = { first_name: 'fn', city: 'city', role: 'role', started_year: 'year', styles: 'styles', bio_social: 'bio' };
 const DA_FB_KINDS = [['general', 'Something else'], ['bug', 'Something is broken'], ['idea', 'An idea'], ['praise', 'I like it']];
 const DA_HIDDEN = 'Your dancer profile is hidden. Only you can see it.';
-const DA_WEEK = {
-  London: [
-    { name: 'Thursday Bachata Practice', date: '2026-10-22', loc: 'Soho Dance Studio', time: '19:30' },
-    { name: 'Bachata Rooftop Social', date: '2026-10-23', loc: 'Shoreditch', time: '21:00', cancelled: true },
-    { name: 'Friday Sensual Social', date: '2026-10-23', loc: 'Camden', time: '20:30' },
-    { name: 'Soho Bachata Social', date: '2026-10-24', loc: 'The Rumba Room', time: '21:00' },
-    { name: 'Sensual Sundays', date: '2026-10-25', loc: 'Vauxhall', time: '19:00' }],
+/* D124: who was on the line-up of each night (by night id), public fields only. Alex's past nights have none (empty state). */
+const DA_LINEUP = {
+  maria: {
+    's-3': [{ id: 'p-carlos', n: 'Carlos Vega', r: ['Teacher'] }, { id: 'p-nico', n: 'Nico Ramos', r: ['DJ'] }],
+    's-4': [{ id: 'p-lena', n: 'Lena Ortiz', r: ['Teacher', 'DJ'], av: 'f2' }, { id: 'p-carlos', n: 'Carlos Vega', r: ['Teacher'] }],
+    's-5': [{ id: 'p-sofia', n: 'Sofia Ruiz', r: ['Teacher'], av: 'f4' }, { id: 'p-marco', n: 'Marco Diaz', r: ['DJ'] }],
+    's-6': [{ id: 'p-ana', n: 'Ana Belen', r: ['Teacher'] }, { id: 'p-tito', n: 'Tito Marin', r: ['DJ'], av: 'f1' }, { id: 'p-jay', n: 'Jay Okoro', r: ['DJ'] }],
+  },
 };
 const DA_UPLOAD_FAIL = {
   network: 'Photo upload failed. Check your connection and try again. If it keeps failing, you can add your photo later.',
@@ -1182,6 +1204,10 @@ MAKERS.push((id, p) => {
       daNight('s-1', 'Soho Bachata Social', '2026-10-24', 'London', '21:00', 'going'),
       daNight('s-2', 'Camden Sensual Night', '2026-10-29', 'London', '20:30', 'interested'),
       daNight('s-3', 'Thursday Bachata Practice', '2026-10-15', 'London', '19:30', 'going')];
+    d.nights.push(
+      daNight('s-4', 'Sensual Sundays', '2026-10-18', 'London', '19:00', 'going'),
+      daNight('s-5', 'Brixton Bachata Social', '2026-10-03', 'London', '20:00', 'going'),
+      daNight('s-6', 'Old Kent Road Social', '2026-09-26', 'London', '21:00', 'going'));
     d.stats = { week: 6, month: 18, total: 40, been: 12, rated: 4 };
   }
   if (id === 'busy') {
@@ -1229,6 +1255,7 @@ const daTab = (p, id, html, extra = {}) => Object.assign({ html, tabs: daTabs(id
 const DA_TAG = `<span class="tag own">Dancer</span>`;
 /* v2 (D121) colour helpers: line-art for empty states (accents only), gradient rings */
 const DA_ART = {
+  people: `<svg class="art" width="120" height="84" viewBox="0 0 120 84" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M34 52V44a26 26 0 0 1 52 0v8" stroke="#4fe0cf"/><rect x="28" y="50" width="12" height="20" rx="5" stroke="#4fe0cf"/><rect x="80" y="50" width="12" height="20" rx="5" stroke="#4fe0cf"/><path d="M60 26l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" stroke="#c9adff"/><path d="M16 22l1.5 3.5L21 27l-3.5 1.5L16 32l-1.5-3.5L11 27l3.5-1.5zM104 18l1.5 3.5 3.5 1.5-3.5 1.5L104 28l-1.5-3.5L99 23l3.5-1.5z" stroke="#ff9cc0"/></svg>`,
   couple: `<svg class="art" width="120" height="84" viewBox="0 0 120 84" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="45" cy="14" r="7" stroke="#ff9cc0"/><circle cx="75" cy="16" r="7" stroke="#c9adff"/><path d="M45 22l-4 22 6 14-4 20M41 44l-12 6M47 30l14 8" stroke="#ff9cc0"/><path d="M75 24l3 20-8 16 5 18M78 44l12 8M73 30l-12 8" stroke="#c9adff"/><path d="M41 44c-6 8-10 16-8 24l20 8" stroke="#ff9cc0" opacity=".5"/><path d="M98 10v14a4 4 0 1 1-3-4M14 30v10a3.5 3.5 0 1 1-3-3.5" stroke="#ffcf66"/></svg>`,
   moon: `<svg class="art" width="120" height="84" viewBox="0 0 120 84" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M70 12a28 28 0 1 0 28 38 22 22 0 0 1-28-38z" stroke="#c9adff"/><path d="M24 20l2 5 5 2-5 2-2 5-2-5-5-2 5-2zM100 14l1.5 3.5L105 19l-3.5 1.5L100 24l-1.5-3.5L95 19l3.5-1.5z" stroke="#ffcf66"/><path d="M28 50v18a5 5 0 1 1-4-5M28 50l10-3v16a5 5 0 1 1-4-5" stroke="#4fe0cf"/></svg>`,
   notes: `<svg class="art" width="120" height="84" viewBox="0 0 120 84" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M30 60V24l26-8v36" stroke="#4fe0cf"/><circle cx="24" cy="60" r="6" stroke="#4fe0cf"/><circle cx="50" cy="52" r="6" stroke="#4fe0cf"/><path d="M84 54V22l14 6" stroke="#ff9cc0"/><circle cx="78" cy="54" r="6" stroke="#ff9cc0"/><path d="M8 74c16-8 28 4 44-2s30-10 60 0" stroke="#c9adff" opacity=".7"/><path d="M104 46l2 4 4 2-4 2-2 4-2-4-4-2 4-2z" stroke="#ffcf66"/></svg>`,
@@ -1281,17 +1308,31 @@ function daPartner(p) {
   const d = daD$(p), done = d.partner === 'done';
   return daCard(`<div class="hd">${daSvg('<path d="M12 20s-7-4.3-7-9.5A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7 2.5C19 15.7 12 20 12 20z"/><path d="M17 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/>', 24)}<div><b>Partner search: coming soon</b><small>${done ? 'We\u2019ll let you know the moment partner search opens.' : 'Find someone to practise and dance with.'}</small></div></div><div class="acts">${daLine(done ? 'We\u2019ll tell you' : 'Tell me when it\u2019s ready', 'dPartner', null, { dis: done })}</div>${d.partnerErr ? `<div class="err" role="alert">${esc(d.partnerErr)}</div>` : ''}`, 'partner');
 }
-function daWeek(p) {
-  const d = daD$(p), city = daProf(p).city;
-  let inner;
-  if (!city) inner = `<p class="da-p">Add your city to see what\u2019s on near you. <button type="button" class="da-link" data-a="dEdit" data-v="city">Add my city</button></p>`;
-  else if (d.err.week) inner = `<p class="da-m">We couldn\u2019t load this week\u2019s events.</p>`;
-  else {
-    const ev = (DA_WEEK[city] || []).filter(e => !e.cancelled && daDiff(e.date) >= 0 && daDiff(e.date) <= 7).sort((a, b) => (a.date + a.time) < (b.date + b.time) ? -1 : 1).slice(0, 3);
-    inner = ev.length ? ev.map(e => H.row({ lead: daDateBlock(e.date), t: e.name, sub: H.small(`${e.loc} \u00b7 ${e.time}`), a: 'dExt', v: 'the event page' })).join('') : `<p class="da-m">Nothing listed in your city this week yet.</p>`;
-  }
-  return H.lab('What\u2019s on this week') + H.grp(inner + daExt('Browse events \u2197', city ? 'the ' + city + ' calendar' : 'the parties list'));
+/* D124: Teachers and DJs from your nights (going + past date; one row per person, most recent night first) */
+const DA_SHORT = iso => daD(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+function daPeopleList(p) {
+  const d = daD$(p), lu = DA_LINEUP[p.id] || {}, seen = {}, out = [];
+  d.nights.filter(n => n.date && n.status === 'going' && daDiff(n.date) < 0 && lu[n.s]).sort((a, b) => a.date < b.date ? 1 : -1)
+    .forEach(n => lu[n.s].forEach(x => { if (!seen[x.id]) { seen[x.id] = 1; out.push({ id: x.id, n: x.n, r: x.r, av: x.av, night: n.name, date: n.date }); } }));
+  return out;
 }
+const daPRow = x => H.row({
+  lead: `<span class="pav${x.av ? ' g' : ''}" aria-hidden="true">${esc(x.n.split(' ').map(w => w[0]).slice(0, 2).join(''))}</span>`,
+  t: x.n,
+  sub: `<span class="ptags">${x.r.map(r => `<span class="ptag ${r === 'DJ' ? 'dj' : 'te'}">${r}</span>`).join('')}</span>` + H.small(`On the line-up at ${x.night}, ${DA_SHORT(x.date)}`),
+  a: 'dExt', v: x.n + '\u2019s page',
+}).replace('class="row"', 'class="row" data-pr="1"');
+function daPeople(p) {
+  const d = daD$(p), lab = H.lab('Teachers and DJs from your nights');
+  if (d.err.people) return lab + `<div data-people="error">` + daCard(`<b>Couldn't load teachers and DJs.</b><div class="acts">${daLine('Try again', 'dRetry', 'people')}</div>`) + `</div>`;
+  const all = daPeopleList(p);
+  if (!all.length) return lab + `<div data-people="empty" class="empty">${DA_ART.people}<b>Go to a night and the teachers and DJs you meet show up here.</b><div class="acts">${daLine('Browse events', 'dExt', 'events')}</div></div>`;
+  return lab + `<div data-people="filled">` + H.grp(all.slice(0, 6).map(daPRow).join('') + (all.length > 6 ? `<div class="rowfoot">${H.btn('da-link', `See all (${all.length})`, 'dPeopleAll')}</div>` : '')) + `</div>`;
+}
+SHEETS.dPeople = {
+  render: p => H.title('Teachers and DJs from your nights') + H.grp(daPeopleList(p).map(daPRow).join('')) + `<div class="foot">${daClose()}</div>`,
+};
+ACT.dPeopleAll = () => openSheet('dPeople');
 function daDateBlock(iso) {
   if (!iso) return `<span class="da-date" aria-label="Date to be confirmed"><b>TBC</b></span>`;
   const dt = daD(iso);
@@ -1308,7 +1349,7 @@ SCREENS.appHome = {
     if (d.linked && !d.linkedSeen) html += daCard(`<div><b>We\u2019ve linked your profile</b><small>A profile made for you by the Bachata Calendar team is now yours. Have a look and make it right.</small></div><div class="acts">${H.btn('da-link', 'Check my profile', 'home', 'appMe')}${daLine('Got it', 'dLinkedSeen', null, { attr: ' style="width:auto;padding:0 18px"' })}</div>`);
     html += daHero(p) + daNudge(p);
     html += H.grp(`<button type="button" class="row" data-a="home" data-v="appMe">${daPRing(daStrength(pr).pct)}<span class="g"><b>Profile strength</b><small>${esc(daNextLine(pr))}</small></span>${ic('go', 20, 'color:var(--mute)')}</button>`);
-    html += daNumbers(p) + daPartner(p) + daWeek(p);
+    html += daNumbers(p) + daPartner(p) + daPeople(p);
     return daTab(p, 'appHome', html);
   },
 };
@@ -1769,7 +1810,11 @@ daJ('Home: new dancer after setup (no nights, zero numbers)', 'newbie', p => { d
 daJ('Home: numbers failed to load', 'maria', p => { p.dancer.err.numbers = true; home('appHome'); });
 daJ('Home: partner search, asked already', 'busy', p => { p.dancer.partner = 'done'; home('appHome'); });
 daJ('Home: partner search, limit reached', 'maria', p => { p.dancer.partnerFailNext = true; home('appHome'); ACT.dPartner(); });
-daJ('Home: week list failed to load', 'busy', p => { p.dancer.err.week = true; home('appHome'); });
+daJ('Home: teachers and DJs, filled (8 people, See all)', 'maria', () => home('appHome'));
+daJ('Home: teachers and DJs, See all sheet', 'maria', () => { home('appHome'); openSheet('dPeople'); });
+daJ('Home: teachers and DJs, empty (line-ups were empty)', 'busy', () => home('appHome'));
+daJ('Home: teachers and DJs, empty (no past nights)', 'newbie', p => { daSetup(p); home('appHome'); });
+daJ('Home: teachers and DJs failed to load', 'maria', p => { p.dancer.err.people = true; home('appHome'); });
 daJ('Home: could not load', 'maria', p => { p.dancer.err.home = true; home('appHome'); });
 daJ('Home: no dancer profile found', 'newbie', p => { p.dancer.row = false; home('appHome'); });
 daJ('Nights: Alex (upcoming + past, level votes)', 'busy', () => home('appNights'));
