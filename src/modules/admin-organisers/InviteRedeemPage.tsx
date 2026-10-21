@@ -15,8 +15,9 @@ import { finishProfileHref } from '@/lib/profileCompletion';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { rememberInvitePrefill } from '@/lib/invitePrefill';
+import { rememberCodeStep } from '@/components/MagicLinkConfirmation';
 import { redeemOrganiserInvite } from './adminApi';
-import { fetchInvitePreview, invitePreviewQueryKey, requestNewInvite } from './inviteRedeemApi';
+import { fetchInvitePreview, invitePreviewQueryKey, requestNewInvite, sendInviteSignInEmail } from './inviteRedeemApi';
 import { INVITE_PATH, REDEEM_COPY, TOKEN_RE, interpretRedeem, joiningAsName, newLinkResultCopy, reasonScreen, type InvitePreview, type RedeemCopy, type RedeemOutcome } from './inviteModel';
 
 /**
@@ -25,7 +26,7 @@ import { INVITE_PATH, REDEEM_COPY, TOKEN_RE, interpretRedeem, joiningAsName, new
  * call would answer already_member or used and hide the real outcome). Keyed by
  * token, holds only the promise, and is cleared when the attempt settles.
  */
-const inFlight = new Map<string, Promise<ReturnType<typeof interpretRedeem>>>();
+const inFlight = new Map<string, Promise<RedeemOutcome>>();
 
 /** The one redeem call per token (see inFlight). Shared by the Join press and the used-link check. */
 function attemptRedeem(t: string): Promise<RedeemOutcome> {
@@ -70,7 +71,7 @@ function Card({ copy, children }: { copy: RedeemCopy; children?: React.ReactNode
   return (
     <div className="mx-auto max-w-md space-y-3 px-4 pt-10 text-center" data-testid="invite-card" role="status">
       <h1 className="text-lg font-semibold" data-testid="invite-title">{copy.title}</h1>
-      <p className="text-sm text-muted-foreground" data-testid="invite-body">{copy.body}</p>
+      {copy.body && <p className="text-sm text-muted-foreground" data-testid="invite-body">{copy.body}</p>}
       <div className="flex flex-col gap-2">{children}</div>
     </div>
   );
@@ -145,10 +146,55 @@ function RefusedCard({ token, reason, preview, emailHint }: { token: string; rea
   const screen = reasonScreen(reason, { organiserName: preview?.organiserName, inviterFirstName: preview?.inviterFirstName, emailHint: emailHint ?? preview?.emailHint });
   return (
     <Card copy={screen}>
-      {screen.action === 'sign_in' && <Link to={buildSignInHref(`${INVITE_PATH}/${token}`)} className={BTN} data-testid="invite-sign-in">Sign in{reason === 'email_mismatch' ? ' with that email' : ''}</Link>}
+      {screen.action === 'sign_in' && <Link to={buildSignInHref(`${INVITE_PATH}/${token}`)} className={BTN} data-testid="invite-sign-in">Sign in</Link>}
+      {screen.action === 'switch_account' && <SwitchAccount token={token} reason={reason} label={screen.switchLabel ?? 'Sign in'} />}
       {screen.offerNewLink && <NewLinkRequest token={token} label={screen.newLinkLabel} />}
       <Link to="/" className={LINK} data-testid="invite-home">Go to Bachata Calendar</Link>
     </Card>
+  );
+}
+
+/**
+ * 2d / 2e: the way out for a signed-in person the server refused. A plain link to /auth would loop
+ * (/auth sends a signed-in person straight back here, to the same refusal), so this signs out first
+ * with the shared signOut (it also clears the person's storage), then opens this invite's sign-in,
+ * the link still unused. 2e (email_unproven: the RIGHT email, not proven) first emails a sign-in
+ * code/link to that same address and lands on the code box; 2d leaves the email to the person.
+ */
+function SwitchAccount({ token, reason, label }: { token: string; reason: string; label: string }) {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const go = async () => {
+    setBusy(true);
+    setError(null);
+    const here = `${INVITE_PATH}/${token}`;
+    const email = user?.email?.trim() ?? '';
+    const sendLink = reason === 'email_unproven' && email !== '';
+    if (sendLink) {
+      const sent = await sendInviteSignInEmail(email, here).catch(() => ({ error: new Error('network') }));
+      if (sent.error) {
+        setBusy(false);
+        setError('We could not send the email. Check your connection and try again.');
+        return;
+      }
+    }
+    const outcome = await signOut();
+    if (outcome === 'failed') {
+      setBusy(false);
+      setError('You are still signed in. Check your connection and try again.');
+      return;
+    }
+    // After the sign-out (which clears the code step with the rest of the person's storage), so /auth reopens the code box.
+    if (sendLink) rememberCodeStep(email, 'signin');
+    navigate(buildSignInHref(here), { replace: true });
+  };
+  return (
+    <>
+      <button type="button" className={BTN} disabled={busy} onClick={() => void go()} data-testid="invite-switch-account">{label}</button>
+      {error && <p className="text-sm text-destructive" role="alert" data-testid="invite-switch-error">{error}</p>}
+    </>
   );
 }
 
@@ -265,6 +311,7 @@ function InviteRedeem({ preview }: { preview: InvitePreview | null }) {
     const here = `${INVITE_PATH}/${token}`;
     body = (
       <Card copy={preview ? { title: `${preview.organiserName} invited you`, body: 'Sign in, then you manage its events.', action: 'sign_in', terminal: false } : { title: 'Join your organiser team', body: 'Someone has invited you to manage an organiser on Bachata Calendar. Sign in with your own email, then you will come straight back here and the link is used.', action: 'sign_in', terminal: false }}>
+        {preview?.emailHint && <p className="text-sm font-medium" data-testid="invite-email-hint">This invite is for {preview.emailHint}. Sign in with that email.</p>}
         <Link to={buildSignInHref(here)} className={BTN} data-testid="invite-sign-in">Sign in</Link>
       </Card>
     );

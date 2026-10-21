@@ -58,8 +58,14 @@ const RULES = [
     // Only their boundary file may read the key; it maps it to camelCase.
     // redeem_organiser_invite_v1 (arc PR 4b) answers with the same key; its parser and the specs
     // that feed it a server answer are the only other readers.
+    // series_go_live_check_v1 (People arc A-WEB1a) answers profile_missing[].organiser_id the same way; its
+    // boundary parser and the spec that feeds it a server answer (and a workspace row) read it.
     allowFiles: new Set([
       'src/modules/organiser/shared/selfServeApi.ts',
+      'src/modules/organiser/shared/goLiveCheck.ts',
+      'src/modules/organiser/events/__tests__/goLive.webA1a.test.tsx',
+      'src/modules/organiser/events/__tests__/goLive.profilePage.test.tsx',
+      'src/modules/organiser/shared/__tests__/goLiveCheck.parse.test.ts',
       'src/modules/admin-organisers/inviteModel.ts',
       'src/modules/admin-organisers/__tests__/inviteModel.test.ts',
       'src/modules/admin-organisers/__tests__/inviteReasons.test.tsx',
@@ -67,6 +73,10 @@ const RULES = [
       'src/modules/admin-organisers/__tests__/fixup1.test.tsx',
       'src/modules/admin-organisers/__tests__/inviteWalkthrough.test.tsx',
       'src/modules/admin-organisers/__tests__/inviteJoiningAs.test.tsx',
+      // claim_my_organisers_v1 (people arc A-WEB2) answers {claimed:[{organiser_id, name}]}.
+      'src/lib/claimMyOrganisers.ts',
+      'src/pages/__tests__/AuthCallbackOrganiserClaim.test.tsx',
+      'src/pages/__tests__/AuthCallbackClaimFixPass.test.tsx',
     ]),
   },
   {

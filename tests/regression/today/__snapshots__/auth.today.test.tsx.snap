@@ -63,7 +63,7 @@ text "known @example.com"
 text "8-digit code"
 textbox "8-digit code" value=""
 alert
-button "Resend code in 60s" [disabled]
+button "Send a new code in 60s" [disabled]
 button "Use a different email"
 button "Continue browsing""
 `;
@@ -191,7 +191,7 @@ alert
 text "Entering the code confirms you agree to our and ."
 link "Terms" href=/terms
 link "Privacy Policy" href=/privacy
-button "Resend code in 60s" [disabled]
+button "Send a new code in 60s" [disabled]
 button "Use a different email""
 `;
 
@@ -258,7 +258,7 @@ text "known @example.com"
 text "8-digit code"
 textbox "8-digit code" value=""
 alert
-button "Resend code in 60s" [disabled]
+button "Send a new code in 60s" [disabled]
 button "Use a different email"
 button "Continue browsing""
 `;
@@ -386,7 +386,7 @@ alert
 text "Entering the code confirms you agree to our and ."
 link "Terms" href=/terms
 link "Privacy Policy" href=/privacy
-button "Resend code in 60s" [disabled]
+button "Send a new code in 60s" [disabled]
 button "Use a different email""
 `;
 

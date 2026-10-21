@@ -356,6 +356,47 @@ export const LIB_ACCOUNT_MODULES = [
   "/src/components/account/profiles/avatarFallback.ts",
 ];
 
+// The THIRD first-party group (2026-10-21, W1 people surfaces S3): the people
+// badge lookup (src/modules/person-page/badges.ts) rides with the public-entity
+// slug resolver (src/lib/seo/useEntitySlugOrId.ts + resolvePublicEventRef.ts).
+// S3 made the event page's ScheduleBlock read badges.ts, which the people pages
+// and search already import; that importer set is unique, so rollup cut it into
+// a chunk of its own: /event/:id 44 first-load chunks vs an allowance of 43.
+// The resolver chunk is already in /event's first load, and every route that
+// loads it also loads every dependency badges.ts brings (vendor-query, the
+// Supabase client chunk, searchEntities), so the pairing adds no request
+// anywhere. Bytes move only onto unbudgeted entries: the badge lookup lands on
+// the festival / venue pages, the resolver on the people list and search pages.
+// No budgeted route except /event loads either module.
+export const LIB_PEOPLE_MODULES = [
+  "/src/lib/seo/useEntitySlugOrId.ts",
+  "/src/lib/seo/resolvePublicEventRef.ts",
+  "/src/modules/person-page/badges.ts",
+];
+
+// SINGLE-MODULE pins, and they exist ONLY to stop the group above from
+// swallowing them. Rollup adds every unassigned static dependency of a pinned
+// module to that module's group, so without these the Supabase client and
+// searchEntities (which root.tsx loads on EVERY route) would move into
+// lib-people: every route, the homepage included, would then load the badge
+// lookup and a direct vendor-supabase edge. Each pin holds exactly the one
+// module its old automatic chunk held, so no route's chunk set changes.
+export const SINGLE_MODULE_PINS: Record<string, string> = {
+  "/src/integrations/supabase/client.ts": "supabase-client",
+  "/src/lib/searchEntities.ts": "lib-search",
+};
+
+const isLibPeopleModule = (id: string): boolean =>
+  !id.includes("node_modules") && LIB_PEOPLE_MODULES.some((needle) => id.endsWith(needle));
+
+const singleModulePin = (id: string): string | undefined => {
+  if (id.includes("node_modules")) return undefined;
+  for (const [needle, group] of Object.entries(SINGLE_MODULE_PINS)) {
+    if (id.endsWith(needle)) return group;
+  }
+  return undefined;
+};
+
 const isLibAccountModule = (id: string): boolean =>
   !id.includes("node_modules") && LIB_ACCOUNT_MODULES.some((needle) => id.endsWith(needle));
 
@@ -392,6 +433,9 @@ export function classifyChunk(id: string): string | undefined {
   // one. LIB_EVENT_RULES_MODULES above says what it buys and how it is bounded.
   if (isLibEventRulesModule(id)) return "lib-event-rules";
   if (isLibAccountModule(id)) return "lib-account";
+  if (isLibPeopleModule(id)) return "lib-people";
+  const pinned = singleModulePin(id);
+  if (pinned) return pinned;
   if (!id.includes("node_modules")) return undefined;
   // tslib rides with react, and it is FIRST, for a reason that is
   // not about react at all. DO NOT DELETE THIS BRANCH after

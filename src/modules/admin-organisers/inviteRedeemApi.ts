@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { previewOrganiserInvite } from './adminApi';
 import { parsePreview, type InvitePreview } from './inviteModel';
 
 // Public-side invite RPCs (arc 1). Not in the generated Database type yet, so they go through
@@ -10,11 +11,26 @@ const rpc = (fn: string, args?: Record<string, unknown>) => (supabase as unknown
 
 export const invitePreviewQueryKey = (token: string) => ['invite-preview', token] as const;
 
-/** organiser_invite_preview_v1 (anon-callable). null = unknown or garbled link; a transport error throws. */
+/**
+ * THE preview fetcher: organiser_invite_preview_v1 (anon-callable) through adminApi, parsed by parsePreview
+ * (which runs the hint through safeEmailHint, D36). null = unknown or garbled link; a transport error throws
+ * and the page falls back to the plain flow.
+ */
 export async function fetchInvitePreview(token: string): Promise<InvitePreview | null> {
-  const { data, error } = await rpc('organiser_invite_preview_v1', { p_token: token });
+  const { data, error } = await previewOrganiserInvite(token);
   if (error) throw error;
   return parsePreview(data);
+}
+
+/**
+ * Screen 2e: email a sign-in code + link to the signed-in (unproven) address, coming back to the invite.
+ * Same call as the /auth sign-in send (existing accounts only).
+ */
+export function sendInviteSignInEmail(email: string, returnTo: string) {
+  const callbackUrl = new URL('/auth/callback', window.location.origin);
+  callbackUrl.searchParams.set('mode', 'signin');
+  callbackUrl.searchParams.set('returnTo', returnTo);
+  return supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: callbackUrl.toString() } });
 }
 
 /** request_new_invite_v1: raw answer, interpreted by newLinkResultCopy. */

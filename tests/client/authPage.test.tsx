@@ -100,7 +100,7 @@ describe("/auth code entry", () => {
 
   it("disables Resend during the cooldown", async () => {
     await reachCodeScreen("/auth?mode=signin");
-    const resend = screen.getByRole("button", { name: /resend code in/i }) as HTMLButtonElement;
+    const resend = screen.getByRole("button", { name: /send a new code in/i }) as HTMLButtonElement;
     expect(resend.disabled).toBe(true);
   });
 });

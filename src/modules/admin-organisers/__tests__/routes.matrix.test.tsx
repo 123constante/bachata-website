@@ -226,7 +226,8 @@ describe('/invite/:token x viewer', () => {
     mount(`/invite/${TOKEN}`);
     const link = (await screen.findByTestId('invite-sign-in')) as HTMLAnchorElement;
     expect(decodeURIComponent(link.getAttribute('href') ?? '')).toContain(`returnTo=/invite/${TOKEN}`);
-    expect(h.rpc.mock.calls.map((c) => c[0])).toEqual(['organiser_invite_preview_v1']);
+    // Only the masked-hint preview (D36) may run while signed out; the link is never used.
+    expect(h.rpc.mock.calls.map((c) => c[0]).filter((fn) => fn !== 'organiser_invite_preview_v1')).toEqual([]);
   });
 
   it('signed in (a non-admin is fine): redeems once, strips the token, lands on the dashboard', async () => {
@@ -273,7 +274,8 @@ describe('/invite/:token x viewer', () => {
     fireEvent.click(await screen.findByTestId('invite-join'));
     const { REDEEM_COPY } = await import('../inviteModel');
     expect((await screen.findByTestId('invite-title')).textContent).toBe(REDEEM_COPY[reason].title);
-    expect(screen.getByTestId('invite-body').textContent).toBe(REDEEM_COPY[reason].body);
+    // 2c (withdrawn) has no body in the approved mockup: the ask button carries it.
+    expect(screen.queryByTestId('invite-body')?.textContent ?? '').toBe(REDEEM_COPY[reason].body);
     // every control the message could lean on is the one on screen
     expect(screen.queryByTestId('invite-sign-in') !== null).toBe(REDEEM_COPY[reason].action === 'sign_in');
     expect(screen.queryByTestId('invite-home') !== null).toBe(REDEEM_COPY[reason].action !== 'retry');

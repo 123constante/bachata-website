@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  reasonScreen,
   ACCESS_LABEL,
   ADD_PERSON_CODES,
   ADMIN_COPY,
@@ -117,11 +118,11 @@ describe('redeem: every reason has its own message', () => {
   });
   it.each(REASONS)('%s: says what the person can do, and never points at a control that is not on screen', (reason) => {
     const c = REDEEM_COPY[reason];
-    expect(c.body.length).toBeGreaterThan(20);
+    if (!c.terminal) expect(c.body.length).toBeGreaterThan(20);
     // The screen only ever has a Sign in link, a Try again button and a home link, and the body names none of them.
     expect(c.body).not.toMatch(/\b(tap|click|press|button|menu|tab)\b/i);
-    // Finished-with links say who to ask; recoverable ones say what to do.
-    if (c.terminal) expect(c.body).toMatch(/Ask the admin who sent it for a new link|ask the admin/i);
+    // Finished-with links: the ask button is the way on (mockups 2a-2c); a garbled link has nobody to ask (2f).
+    if (c.terminal) expect(reasonScreen(reason).offerNewLink).toBe(reason !== 'invalid');
     if (c.action === 'sign_in') expect(c.body).toMatch(/[Ss]ign in/);
   });
   it('terminal reasons strip the token; recoverable ones keep it for the retry', () => {

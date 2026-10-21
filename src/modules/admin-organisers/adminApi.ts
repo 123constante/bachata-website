@@ -14,10 +14,15 @@ export const adminInvitesQueryKey = (organiserId: string) => ['admin-organiser-i
 export const adminOwnershipQueryKey = (organiserId: string) => ['admin-organiser-managed', organiserId] as const;
 export const ADMIN_ORGANISERS_KEY = ['admin-organisers'] as const;
 
-/** admin_is_admin() -> is_admin(): the one definition. Never profiles.is_admin. */
+/** admin_is_admin() -> is_admin(): the one definition. Never profiles.is_admin.
+ *  Prod RAISES admin_only (42501, HTTP 403) for a non-admin: that is the ANSWER (false), not an error (D89).
+ *  Any other error still throws, so a real outage keeps its "could not check" screen. */
 export async function fetchIsAdmin(): Promise<boolean> {
   const { data, error } = await supabase.rpc('admin_is_admin');
-  if (error) throw error;
+  if (error) {
+    if ((error as { code?: string }).code === '42501') return false;
+    throw error;
+  }
   return data === true;
 }
 
@@ -95,4 +100,13 @@ export async function addOrganiserPerson(organiserId: string, email: string, rol
 /** The redeem call. The token goes in the argument only; it is never logged. */
 export async function redeemOrganiserInvite(token: string) {
   return rpc('redeem_organiser_invite_v1', { p_token: token });
+}
+
+/**
+ * organiser_invite_preview_v1(p_token) (A-DB2, D36): anon-safe, answers a valid unredeemed token
+ * with {email_hint, organiser_name}, the hint already MASKED. Not on every database yet, so the
+ * caller treats any error or a missing function as "no hint".
+ */
+export async function previewOrganiserInvite(token: string) {
+  return rpc('organiser_invite_preview_v1', { p_token: token });
 }

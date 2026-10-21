@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { trackAnalyticsEvent } from '@/lib/analytics';
-import { OTP_CODE_LENGTH, OTP_RESEND_COOLDOWN_SECONDS } from '@/lib/auth-otp-routing';
+import { OTP_CODE_LENGTH, OTP_LIFETIME_SECONDS, OTP_RESEND_COOLDOWN_SECONDS } from '@/lib/auth-otp-routing';
 import { trackAuthStep } from '@/lib/trackAuthStep';
 import { ConsentLine } from '@/components/auth/ConsentLine';
 // L1: the account pages' one long-email wrap (break before "@", then overflow-wrap:anywhere).
@@ -94,6 +94,19 @@ const storedWrongCodes = (email: string): number => {
   return step && step.email === email ? step.wrong : 0;
 };
 
+/** When the code on screen was sent: the stored step for this address, else now (the parent has just sent it). */
+const storedSentAt = (email: string): number => {
+  const step = readRaw();
+  return step && step.email === email ? step.at : Date.now();
+};
+
+/**
+ * F5: wrong vs run out, decided by the CLIENT clock against the code lifetime. The server's
+ * error shape cannot tell them apart (a wrong code is also "Token has expired or is invalid",
+ * often with code otp_expired), so inside the lifetime every refused code counts as a wrong try.
+ */
+export const isCodeRunOut = (sentAt: number, now: number = Date.now()): boolean => now - sentAt >= OTP_LIFETIME_SECONDS * 1000;
+
 const storeWrongCodes = (email: string, wrong: number) => {
   const step = readRaw();
   if (step && step.email === email) write({ ...step, wrong });
@@ -115,6 +128,7 @@ const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, on
   const [expired, setExpired] = useState(false);
   const locked = wrongCodes >= MAX_WRONG_CODES;
   const verifying = useRef(false);
+  const sentAt = useRef(storedSentAt(email));
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -142,9 +156,8 @@ const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, on
       const { code: errorCode, message: rawMessage } = (error as { code?: unknown; message?: unknown } | null) ?? {};
       const message = String(rawMessage || '').toLowerCase();
       const isInvalid = message.includes('invalid') || message.includes('expired') || errorCode === 'otp_expired';
-      // Supabase answers a wrong code with the ambiguous "Token has expired or is invalid", so the word
-      // "expired" alone proves nothing: only error.code otp_expired (or an "expired" with no "invalid") is expired.
-      const isExpired = errorCode === 'otp_expired' || (message.includes('expired') && !message.includes('invalid'));
+      // Neither the message nor error.code tells wrong from run out (see isCodeRunOut): the send time does.
+      const isExpired = isInvalid && isCodeRunOut(sentAt.current);
       trackAuthStep({ step: 'code_fail', outcome: !isInvalid ? 'error' : isExpired ? 'expired' : 'wrong' });
       let shown: string;
       if (isInvalid && isExpired) {
@@ -174,6 +187,7 @@ const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, on
       // a plain failure can be retried at once. The reason shows under the box (resendError).
       if (outcome !== 'failed') setCountdown(COOLDOWN);
       if (outcome === 'sent') {
+        sentAt.current = Date.now();
         setCode('');
         setCodeError(null);
         setExpired(false);
@@ -260,7 +274,7 @@ const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, on
           disabled={(countdown > 0 && !locked && !expired) || isResending}
           onClick={handleResend}
         >
-          {isResending ? 'Sending\u2026' : locked || expired ? 'Send a new code' : countdown > 0 ? `Resend code in ${countdown}s` : 'Resend code'}
+          {isResending ? 'Sending\u2026' : locked || expired ? 'Send a new code' : countdown > 0 ? `Send a new code in ${countdown}s` : 'Send a new code'}
         </Button>
 
         <Button variant="ghost" className="w-full min-h-[44px] text-muted-foreground" onClick={onChangeEmail}>

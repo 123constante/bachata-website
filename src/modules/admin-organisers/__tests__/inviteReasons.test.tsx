@@ -117,7 +117,9 @@ describe('the reason mapping itself (every reason x ask button x copy rules)', (
   it.each(ALL)('%s has a title and body, and never names a control', (reason) => {
     const s = reasonScreen(reason, { inviterFirstName: 'Marta' });
     expect(s.title.length).toBeGreaterThan(3);
-    expect(s.body.length).toBeGreaterThan(20);
+    // Mockup 2c (withdrawn) has no body; every other screen has one.
+    if (reason === 'revoked') expect(s.body).toBe('');
+    else expect(s.body.length).toBeGreaterThan(15);
     expect(s.body).not.toMatch(/\b(tap|click|press|button|menu|tab)\b/i);
     expect(s.offerNewLink).toBe(ASKABLE.has(reason));
   });

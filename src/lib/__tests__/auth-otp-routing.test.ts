@@ -49,7 +49,7 @@ describe("shouldHonorReturnTo", () => {
 
 describe("callbackErrorCopy", () => {
   it.each([
-    ["expired", "That link expired or was already used. Enter your email for a new one."],
+    ["expired", "That sign-in link has run out. Enter your email and we will send a new one."],
     ["invalid", "That link didn't work. Enter your email for a new one."],
     ["timeout", "Sign-in took too long. Enter your email for a new link."],
     ["manual", "Enter your email and we'll send you a sign-in link."],

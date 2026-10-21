@@ -144,7 +144,8 @@
     "src/components/ListingRequestForm.tsx",
     "src/lib/goingCheckin.ts",
     "src/pages/MyAttendance.tsx",
-    "src/pages/__tests__/MyAttendance.test.tsx"
+    "src/pages/__tests__/MyAttendance.test.tsx",
+    "src/pages/DJProfile.tsx"
   ],
   "seamNotes": {
     "src/modules/event-page/bento/BentoPage.tsx": "R1a step 4 (Round-3): lazy level-rating children",
@@ -272,7 +273,8 @@
     "src/components/ListingRequestForm.tsx": "B1b finish F2 (bundle ratchets, 2026-10-17): submit RPC via rpcLoose so AnimatedRoutes stops hoisting a static vendor-supabase import; no dancer-area import. Needs orchestrator OK (not part of the approved Q4 edit)",
     "src/lib/goingCheckin.ts": "owner 2026-10-18: single switch hiding Going/Interested from visitors until it does something visible",
     "src/pages/MyAttendance.tsx": "owner 2026-10-18: MyAttendance empty-state sentence pointed at the hidden control",
-    "src/pages/__tests__/MyAttendance.test.tsx": "owner 2026-10-18: file exists on main and is moved to tests/client/myAttendance.test.tsx; the deletion counts as a change"
+    "src/pages/__tests__/MyAttendance.test.tsx": "owner 2026-10-18: file exists on main and is moved to tests/client/myAttendance.test.tsx; the deletion counts as a change",
+    "src/pages/DJProfile.tsx": "W1 S2 DJ role page (orchestrator 2026-10-21): reuses the public dancer page's share helper (SHARE_MESSAGES, shareDancerPage) instead of a second copy"
   },
   "protected": [
     "src/pages/Account.tsx",

@@ -373,9 +373,9 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
     const gallery = (dancer as { gallery_urls?: unknown }).gallery_urls;
     const galleryList: unknown[] = Array.isArray(gallery) ? gallery : [];
     return (
-      <GlobalLayout showSubheader={false} backHref="/dancers">
+      <GlobalLayout showSubheader={false} backHref="/dancers" gradientPalette="dancer">
         <div className={`container max-w-xl mx-auto px-4 pt-3${embedded ? '' : ' pb-24'}`}>
-          <AlsoRoles current="dancer" id={id} slug={resolved.slug} />
+          <AlsoRoles current="dancer" id={id} slug={resolved.slug} className="pb-2" />
           <PublicDancerPageV2
             model={buildPublicDancerPage(dancerView, publicPage.extras, galleryList)}
             extrasOk={publicPage.extrasOk}
