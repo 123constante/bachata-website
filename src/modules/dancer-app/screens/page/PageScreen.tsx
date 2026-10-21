@@ -17,6 +17,8 @@ import { pageModel } from './pageModel';
 const ghost: CSSProperties = { ...buttonStyle, background: 'transparent', color: 'var(--da-text)', border: '1px solid var(--da-border)' };
 const off: CSSProperties = { opacity: 0.5, cursor: 'not-allowed' };
 
+import { CoupleArt } from '../art';
+
 const PageScreen = () => {
   const profile = useMyDancerEdit({ staleTime: 60_000 });
   const numbers = useMyNumbers();
@@ -28,6 +30,7 @@ const PageScreen = () => {
     return (
       <section className="da-card" data-testid="dancer-screen-page">
         <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>My page</h1>
+        {(err.code === 'no_profile' || err.code === 'profile_mismatch') && <CoupleArt />}
         <p role="alert" style={{ fontSize: 14, margin: '8px 0' }}>{err.message}</p>
         {err.code === 'no_profile' || err.code === 'profile_mismatch' ? (
           <>
@@ -51,19 +54,19 @@ const PageScreen = () => {
 
       <div className="da-card" style={{ display: 'grid', gap: 6 }}>
         <b style={{ fontSize: 14 }}>How your page looks</b>
-        <ul data-testid="page-look" style={{ margin: 0, paddingLeft: 18, fontSize: 14, display: 'grid', gap: 2 }}>
+        <ul data-testid="page-look" className="da-ticks" style={{ margin: 0, padding: 0, listStyle: 'none', fontSize: 14, display: 'grid', gap: 4 }}>
           {m.lookLines.map((l) => <li key={l}>{l}</li>)}
         </ul>
       </div>
 
-      <div className="da-card" data-testid="page-views" style={{ display: 'grid', gap: 2 }}>
+      <div className="da-card da-tile-teal" data-testid="page-views" style={{ display: 'grid', gap: 2 }}>
         <b style={{ fontSize: 14 }}>{VIEWS_WEEK_LABEL}</b>
         {numbers.isLoading ? (
           <span className="da-muted" style={{ fontSize: 14 }}>Loading&hellip;</span>
         ) : numbers.data ? (
           <>
-            <span style={{ fontSize: 28, fontWeight: 800 }} data-testid="page-views-count">{fmt(numbers.data.viewsWeek)}</span>
-            <span className="da-muted" style={{ fontSize: 13 }} data-testid="page-views-detail">{viewsDetail(numbers.data, hasPhoto)}</span>
+            <span className="da-num" style={{ fontSize: 28, fontWeight: 800 }} data-testid="page-views-count">{fmt(numbers.data.viewsWeek)}</span>
+            <span className="da-tint" style={{ fontSize: 13 }} data-testid="page-views-detail">{viewsDetail(numbers.data, hasPhoto)}</span>
           </>
         ) : (
           <>

@@ -10,21 +10,22 @@
  * phones, so rem-based sizes render about 16% small (CLAUDE.md trap).
  */
 [data-profile="dancer"] {
-  --da-bg: #1C0D22;
-  --da-surface: #2A1433;
-  --da-surface-2: #3A1E47;
-  --da-text: #FFF4F1;
-  --da-text-muted: #D7C0D4;
-  --da-accent: #FF7A66;
-  --da-on-accent: #1C0D22;
-  --da-plum: #D58BE6;
-  --da-border: #5A3468;
-  --da-danger: #FF9A8F;
-  --da-gradient-from: #6E2380;
-  --da-gradient-to: #C23B55;
+  --da-bg: #202226;
+  --da-surface: #2A2D32;
+  --da-surface-2: #33373D;
+  --da-text: #FFFFFF;
+  --da-text-muted: #A3A9B3;
+  --da-accent: #F5865A;
+  --da-on-accent: #1D0A03;
+  --da-plum: #C9ADFF;
+  --da-border: #3D4148;
+  --da-danger: #FF7A6B;
+  --da-gradient-from: #97462F;
+  --da-gradient-mid: #922E58;
+  --da-gradient-to: #5A31A5;
   --da-on-gradient: #FFFFFF;
   --da-focus: #FFC2B8;
-  --da-avatar: #8A5A9C;
+  --da-avatar: #717684;
   --da-radius: 14px;
   --da-tap: 44px;
   --da-header-h: 52px;

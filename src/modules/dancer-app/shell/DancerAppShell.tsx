@@ -1,16 +1,21 @@
-import { Suspense } from 'react';
+import { Suspense, useRef } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, House, Moon, SlidersHorizontal, UserRound } from 'lucide-react';
+import { House, Moon, SlidersHorizontal, UserRound } from 'lucide-react';
+import { EmberWorld } from '@/modules/organiser/ui';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from '@/hooks/useAuth';
 import { FOCUS_NOT_NOW_LABEL } from '@/lib/focusMode';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import '../theme/dancer.css';
+import '../theme/dancer-color.css';
 import { fetchMyDancerEdit } from '../api/rpc';
 import { myDancerEditKey } from '../api/useMyDancerEdit';
 import { mayBeFocus, shellChrome } from './focusChrome';
 import { DANCER_TABS, activeTabFor, type DancerTab } from './routes';
+import { SiteHomeLink } from './SiteHomeLink';
+import { ShellToast } from './shellToast';
+import { LeaveGuardProvider, type LeaveGuard } from './leaveGuard';
 
 const TAB_ICON: Record<DancerTab['id'], typeof House> = {
   home: House,
@@ -20,10 +25,10 @@ const TAB_ICON: Record<DancerTab['id'], typeof House> = {
 };
 
 /**
- * The dancer app frame (mockups v8): header with the logo top-left, the
- * profile-type label, "Events" (the one way back to the main site: audit L9 --
- * the logo also went to "/", so it is now the brand only) and the
- * Switch-profile picture top-right; the screen in the middle; four bottom tabs.
+ * The dancer app frame (Ember look, D115): header with the "Bachata Calendar" home
+ * link top-left (D120: the one way out to the site; D131: no Events button), the
+ * profile-type label, and the Switch-profile picture top-right, shown only for
+ * a person with 2+ profiles (D129); the screen in the middle; four bottom tabs.
  * Every control is at least 44px tall (px, not rem: see theme/dancer.css). The
  * global header, bottom nav and footer are hidden on /app/* by AppChrome, so
  * this is the only chrome on screen.
@@ -40,8 +45,8 @@ const TAB_ICON: Record<DancerTab['id'], typeof House> = {
 // lazy chunk so its organiser reads stay off this shell's first load. Declared
 // here, not through a shared wrapper module: a module both shells import becomes
 // one more first-load chunk on each (perf-budgets.json chunk ratchet).
-const ProfileSwitcher = lazyWithRetry(() => import('@/components/account/profiles/ProfileSwitcher'));
-const DANCER_SWITCHER = { area: 'dancer' } as const;
+// D129: SwitcherGate renders it only for a person with 2+ profiles.
+const SwitcherGate = lazyWithRetry(() => import('./SwitcherGate'));
 
 export const DancerAppShell = () => {
   const { pathname, search } = useLocation();
@@ -56,13 +61,13 @@ export const DancerAppShell = () => {
   });
   const { focus, notNowTo } = shellChrome(pathname, search, candidate ? profile.data : null);
   const active = activeTabFor(pathname);
+  const guardRef = useRef<LeaveGuard | null>(null);
   return (
-    <div data-profile="dancer" className="dancer-app" data-testid="dancer-app-shell" data-chrome={focus ? 'focus' : 'full'}>
+    <EmberWorld data-profile="dancer" className="dancer-app" data-testid="dancer-app-shell" data-chrome={focus ? 'focus' : 'full'}>
+      <LeaveGuardProvider guardRef={guardRef}>
       <header className="da-header" data-testid="dancer-app-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          <span className="da-tap da-logo" data-testid="dancer-app-logo">
-            Bachata Calendar
-          </span>
+          <SiteHomeLink onBeforeLeave={() => (guardRef.current ? guardRef.current('/') : true)} />
           {!focus && (
             <span className="da-type-label" data-testid="dancer-app-type-label">
               Dancer
@@ -75,14 +80,10 @@ export const DancerAppShell = () => {
           </Link>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-            <Link to="/" className="da-tap da-events" data-testid="dancer-app-events">
-              <CalendarDays aria-hidden="true" style={{ width: 16, height: 16, marginRight: 4 }} />
-              Events
-            </Link>
             {/* A fragment fallback: ErrorBoundary treats a falsy one as "show the default error card". */}
             <ErrorBoundary fallback={<></>}>
-              <Suspense fallback={<span aria-hidden="true" style={{ display: 'inline-block', width: 44, height: 44 }} />}>
-                <ProfileSwitcher where={DANCER_SWITCHER} />
+              <Suspense fallback={null}>
+                <SwitcherGate />
               </Suspense>
             </ErrorBoundary>
           </div>
@@ -105,6 +106,9 @@ export const DancerAppShell = () => {
                 key={tab.id}
                 to={tab.path}
                 className="da-tap da-tab"
+                onClick={(e) => {
+                  if (guardRef.current && !guardRef.current(tab.path)) e.preventDefault();
+                }}
                 aria-current={isActive ? 'page' : undefined}
                 data-testid={`dancer-app-tab-${tab.id}`}
               >
@@ -115,7 +119,9 @@ export const DancerAppShell = () => {
           })}
         </nav>
       )}
-    </div>
+      <ShellToast />
+      </LeaveGuardProvider>
+    </EmberWorld>
   );
 };
 

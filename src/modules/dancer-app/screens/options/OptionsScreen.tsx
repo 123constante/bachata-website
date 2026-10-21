@@ -19,6 +19,7 @@ import {
 import { ROW, Sheet } from './optionsUi';
 import FeedbackSheet from './FeedbackSheet';
 import SignOutControl from './SignOutControl';
+import { CoupleArt } from '../art';
 import NoProfileWayOut from './NoProfileWayOut';
 
 const LOAD_FAILED_COPY = 'We could not load your options. Check your connection and try again.';
@@ -38,6 +39,7 @@ const OptionsScreen = () => {
       return (
         <section className="da-card" data-testid="dancer-screen-options">
           <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Options</h1>
+          <CoupleArt />
           <p role="alert" style={{ fontSize: 14, margin: '8px 0' }}>{err.message}</p>
           <MessageUsLink message={err.code === 'no_profile' ? NO_PROFILE_MESSAGE : PROFILE_HELP_MESSAGE} style={ROW} />
           {/* Walk bug 1: never trapped here -- Account settings, Sign out, and the organiser area for an organiser. */}

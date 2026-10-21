@@ -69,15 +69,14 @@ export const LevelVote = ({ seriesId, profileComplete }: { seriesId: string; pro
             data-testid={`vote-${seriesId}-${value}`}
             disabled={isRating || !canRate}
             onClick={() => void submit(value)}
-            className="da-tap"
+            className={`da-tap${mine === value ? ' da-vote-on' : ''}`}
             style={{
               borderRadius: 999,
               fontSize: 13,
               fontWeight: 600,
               padding: '0 6px',
               border: '1px solid var(--da-border)',
-              background: mine === value ? 'var(--da-accent)' : 'transparent',
-              color: mine === value ? 'var(--da-on-accent)' : 'var(--da-text)',
+              ...(mine === value ? null : { background: 'transparent', color: 'var(--da-text)' }),
             }}
           >
             {label}

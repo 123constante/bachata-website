@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import type { MouseEvent } from 'react';
+import { ChevronLeft } from 'lucide-react';
+import { GhostButton, PrimaryButton, SheetView } from '@/modules/organiser/ui';
+import { useLeaveGuard } from '../../shell/leaveGuard';
 import { useMutation } from '@tanstack/react-query';
 import { CityPicker } from '@/components/ui/city-picker';
 import { NationalityPicker } from '@/components/ui/nationality-picker';
@@ -122,6 +126,25 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
     },
   });
 
+  // D119: leaving with unsaved edits asks first. Every way out (back buttons, the tabs, the home link) shares this one guard.
+  const navigate = useNavigate();
+  const dirty = Object.keys(delta).length > 0;
+  const dirtyRef = useRef(dirty);
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+  const [leaveTo, setLeaveTo] = useState<string | null>(null);
+  useLeaveGuard((to) => {
+    if (!dirtyRef.current) return true;
+    setLeaveTo(to);
+    return false;
+  });
+  const leave = (to: string) => (e: MouseEvent) => {
+    if (!dirtyRef.current) return;
+    e.preventDefault();
+    setLeaveTo(to);
+  };
+
   const reason = saveDisabledReason(delta, errors, mutation.isPending);
   // A programmatic submit with an empty delta sends NO request (the button is also disabled).
   const submit = () => {
@@ -167,7 +190,12 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
       }}
       style={{ display: 'grid', gap: 12 }}
     >
-      <h1 className="da-muted" style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Edit my profile</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Link to="/app/me" onClick={leave('/app/me')} className="da-tap" aria-label="Back" data-testid="edit-header-back" style={{ flex: '0 0 44px' }}>
+          <ChevronLeft aria-hidden="true" style={{ width: 24, height: 24 }} />
+        </Link>
+        <h1 className="da-muted" style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Edit my profile</h1>
+      </div>
 
       {topError && (
         <div className="da-card" role="alert" data-testid="edit-top-error" style={{ borderColor: 'var(--da-danger)' }}>
@@ -346,8 +374,22 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
         {saved && reason !== null && !mutation.isPending && (
           <p role="status" data-testid="edit-saved" style={{ fontSize: 14, margin: 0 }}>{SAVE_DONE}</p>
         )}
-        <Link to="/app/me" className="da-tap" style={ghostButton}>Back to Me</Link>
+        <Link to="/app/me" onClick={leave('/app/me')} className="da-tap" style={ghostButton}>Back to Me</Link>
       </div>
+      <SheetView open={leaveTo !== null} onOpenChange={(o) => !o && setLeaveTo(null)} title="Discard changes?" description="You have changes that are not saved yet.">
+        <div style={{ display: 'grid', gap: 8 }}>
+          <PrimaryButton onClick={() => setLeaveTo(null)}>Keep editing</PrimaryButton>
+          <GhostButton
+            onClick={() => {
+              const to = leaveTo;
+              setLeaveTo(null);
+              if (to) navigate(to);
+            }}
+          >
+            Discard
+          </GhostButton>
+        </div>
+      </SheetView>
     </form>
   );
 };

@@ -1,5 +1,5 @@
 /**
- * The dancer theme (plum / coral, mockups v8) as data. theme/dancer.css holds
+ * The dancer theme as data (D115: the Ember graphite ground, ember accent; the old plum / coral set is retired). theme/dancer.css holds
  * the SAME values as CSS custom properties scoped to [data-profile="dancer"];
  * tests/client/dancerAppTheme.test.ts fails if the two drift, if any selector in
  * the sheet escapes that scope, or if a TEXT_PAIRS entry drops below WCAG AA.
@@ -8,22 +8,24 @@
  * this module exists for the tests and for canvas/SVG code that cannot read CSS.
  */
 export const DANCER_TOKENS = {
-  '--da-bg': '#1C0D22',
-  '--da-surface': '#2A1433',
-  '--da-surface-2': '#3A1E47',
-  '--da-text': '#FFF4F1',
-  '--da-text-muted': '#D7C0D4',
-  '--da-accent': '#FF7A66',
-  '--da-on-accent': '#1C0D22',
-  '--da-plum': '#D58BE6',
-  '--da-border': '#5A3468',
-  '--da-danger': '#FF9A8F',
-  '--da-gradient-from': '#6E2380',
-  '--da-gradient-to': '#C23B55',
+  '--da-bg': '#202226',
+  '--da-surface': '#2A2D32',
+  '--da-surface-2': '#33373D',
+  '--da-text': '#FFFFFF',
+  '--da-text-muted': '#A3A9B3',
+  '--da-accent': '#F5865A',
+  '--da-on-accent': '#1D0A03',
+  '--da-plum': '#C9ADFF',
+  '--da-border': '#3D4148',
+  '--da-danger': '#FF7A6B',
+  /** The sunset gradient with its dark scrim already applied (prototype --sun + --sun-scrim): white text on both ends >= 4.5. */
+  '--da-gradient-from': '#97462F',
+  '--da-gradient-mid': '#922E58',
+  '--da-gradient-to': '#5A31A5',
   '--da-on-gradient': '#FFFFFF',
   '--da-focus': '#FFC2B8',
   /** The no-photo avatar disc (audit H4): >= 3:1 on --da-bg and --da-surface, --da-text on it is AA. */
-  '--da-avatar': '#8A5A9C',
+  '--da-avatar': '#717684',
 } as const;
 
 export type DancerToken = keyof typeof DANCER_TOKENS;

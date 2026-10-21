@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, KeyboardEvent, PointerEvent, WheelEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { showShellToast } from '../../shell/shellToast';
 
 import { validateImageFile } from '@/lib/upload-validation';
 import { APP_WELCOME_PATH } from '@/lib/accountRouting';
@@ -211,6 +212,7 @@ const PhotoScreen = () => {
     try {
       const { profile } = await replacePhoto({ blob, current, uploadedUrl: uploadedUrl.current }, photoScreenDeps.flow);
       putProfile(profile);
+      showShellToast('Saved');
       navigate(returnTo, { replace: true });
     } catch (err) {
       const stage = err instanceof PhotoFlowError ? err.stage : 'upload';

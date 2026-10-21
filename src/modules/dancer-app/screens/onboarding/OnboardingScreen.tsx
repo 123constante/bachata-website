@@ -15,6 +15,7 @@ import { StylesCard, YearsCard } from './optional';
 import { CityCard, NameCard, PhotoCard, RoleCard } from './steps';
 import { GhostButton, Meter, PrimaryButton, Question, Tag, linkButton, wrap } from './ui';
 import { resetDancerGate, useMyDancerEdit } from '../../api/useMyDancerEdit';
+import { daConfetti } from '../../shell/confetti';
 
 const gradientCard: CSSProperties = {
   background: 'linear-gradient(145deg, var(--da-gradient-from) 0%, var(--da-gradient-to) 100%)',
@@ -75,6 +76,10 @@ const OnboardingCards = () => {
 
   useEffect(() => {
     if (stage) trackDancerEvent('onboarding_step', { step: stage });
+  }, [stage]);
+  // D121: confetti on "You're in" (a no-op under reduced motion).
+  useEffect(() => {
+    if (stage === 'in') daConfetti();
   }, [stage]);
 
   // Already finished on arrival: straight on to the end.

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { toDancerError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
+import { CoupleArt } from '../art';
 import { NO_NAME_YET, ownPublicName } from '../../api/publicName';
 import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 import { NO_PROFILE_MESSAGE, PROFILE_HELP_MESSAGE, dancerMessageUsUrl } from '../../api/messageUs';
@@ -42,7 +43,7 @@ export const StrengthBar = ({ pct }: { pct: number }) => (
     aria-valuenow={pct}
     style={{ height: 8, borderRadius: 999, background: 'var(--da-surface-2)', overflow: 'hidden' }}
   >
-    <div style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: '100%', background: 'var(--da-accent)' }} />
+    <div className="da-bar-fill" style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: '100%' }} />
   </div>
 );
 
@@ -90,6 +91,7 @@ export const QueryGate = ({ q, id }: { q: UseQueryResult<MyDancerEdit>; id: stri
     const needsUs = err.code === 'no_profile' || err.code === 'profile_mismatch';
     return (
       <section className="da-card" data-testid={`dancer-state-${id}`} role="alert">
+        {needsUs && <CoupleArt />}
         <p style={{ fontSize: 14, margin: '0 0 10px' }} data-testid="load-error">{err.message}</p>
         <div style={{ display: 'grid', gap: 8 }}>
           {needsUs ? (

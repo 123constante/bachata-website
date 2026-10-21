@@ -22,7 +22,7 @@ export const Meter = ({ profile }: { profile: NextStepProfile }) => {
       aria-valuenow={strength.pct}
       style={{ height: 6, borderRadius: 999, background: 'var(--da-surface-2)', marginTop: 6, overflow: 'hidden' }}
     >
-      <div style={{ width: `${strength.pct}%`, height: '100%', background: 'var(--da-accent)', transition: 'width .2s' }} />
+      <div style={{ width: `${strength.pct}%`, height: '100%', background: 'var(--da-sun)', transition: 'width .2s' }} />
     </div>
     {strength.next_step ? (
       <p data-testid="onboarding-next-step" style={{ ...wrap, fontSize: 14, margin: '6px 0 0' }}>
@@ -104,9 +104,9 @@ export const Chip = ({ label, selected, onClick, multi }: { label: string; selec
       padding: '0 14px',
       cursor: 'pointer',
       textAlign: 'left',
-      color: selected ? 'var(--da-on-accent)' : 'var(--da-text)',
-      background: selected ? 'var(--da-accent)' : 'var(--da-surface-2)',
-      border: `1px solid ${selected ? 'var(--da-accent)' : 'var(--da-border)'}`,
+      color: selected ? '#fff' : 'var(--da-text)',
+      background: selected ? 'var(--da-sun-scrim), var(--da-sun)' : 'var(--da-surface-2)',
+      border: `1px solid ${selected ? 'transparent' : 'var(--da-border)'}`,
     }}
   >
     {label}

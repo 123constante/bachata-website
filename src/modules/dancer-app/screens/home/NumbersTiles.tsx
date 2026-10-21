@@ -6,6 +6,8 @@ import { useMyNumbers } from '../../api/useMyNumbers';
 import { linkStyle } from '../nights/nightsStyles';
 
 const PAGE_PATH = '/app/page';
+/** Accent-tinted number tiles (D121): each cell takes the next accent. */
+const TILES = ['da-tile-violet', 'da-tile-gold', 'da-tile-rose', 'da-tile-teal'];
 const cell: CSSProperties = { minWidth: 0, textAlign: 'center', display: 'grid', gap: 2 };
 
 /** The same tiles, from an already-mapped `Numbers` (tests render this table-driven). */
@@ -16,10 +18,10 @@ export const NumbersView = ({ n, hasPhoto }: { n: Numbers; hasPhoto: boolean }) 
   const showStrip = GOING_CHECKIN_ENABLED || !stripEmpty;
   return (
   <>
-    <Link to={PAGE_PATH} data-testid="tile-views" className="da-card" style={{ display: 'grid', gap: 2, color: 'var(--da-text)', textDecoration: 'none', padding: 14 }}>
+    <Link to={PAGE_PATH} data-testid="tile-views" className="da-card da-tile-teal" style={{ display: 'grid', gap: 2, color: 'var(--da-text)', textDecoration: 'none', padding: 14 }}>
       <b style={{ fontSize: 14 }}>{VIEWS_WEEK_LABEL}</b>
-      <span style={{ fontSize: 28, fontWeight: 800 }} data-testid="tile-views-count">{fmt(n.viewsWeek)}</span>
-      <span className="da-muted" style={{ fontSize: 13 }} data-testid="tile-views-detail">{viewsDetail(n, hasPhoto)}</span>
+      <span className="da-num" style={{ fontSize: 28, fontWeight: 800 }} data-testid="tile-views-count">{fmt(n.viewsWeek)}</span>
+      <span className="da-tint" style={{ fontSize: 13 }} data-testid="tile-views-detail">{viewsDetail(n, hasPhoto)}</span>
     </Link>
     {showStrip && (
     <div className="da-card" data-testid="stats-strip" style={{ padding: 12 }}>
@@ -27,10 +29,10 @@ export const NumbersView = ({ n, hasPhoto }: { n: Numbers; hasPhoto: boolean }) 
         <span className="da-muted" style={{ fontSize: 13 }} data-testid="stats-strip-empty">{STRIP_EMPTY_HELP}</span>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))`, gap: 6 }}>
-          {cells.map((c) => (
-            <div key={c.id} style={cell} data-testid={`stat-${c.id}`}>
-              <span style={{ fontSize: 20, fontWeight: 800, overflowWrap: 'anywhere' }} data-testid={`stat-${c.id}-value`}>{fmt(c.value)}</span>
-              <span className="da-muted" style={{ fontSize: 12 }}>{c.label}</span>
+          {cells.map((c, i) => (
+            <div key={c.id} className={`da-card ${TILES[i % TILES.length]}`} style={{ ...cell, padding: 8 }} data-testid={`stat-${c.id}`}>
+              <span className="da-num" style={{ fontSize: 20, fontWeight: 800, overflowWrap: 'anywhere' }} data-testid={`stat-${c.id}-value`}>{fmt(c.value)}</span>
+              <span className="da-tint" style={{ fontSize: 12 }}>{c.label}</span>
             </div>
           ))}
         </div>

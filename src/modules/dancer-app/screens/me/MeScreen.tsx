@@ -36,7 +36,7 @@ const MeScreen = () => {
 
       <div className="da-card" data-testid="me-card" style={{ display: 'grid', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Avatar profile={p} size={64} />
+          <span className="da-ring-avatar"><Avatar profile={p} size={64} /></span>
           <div style={{ minWidth: 0 }}>
             <p data-testid="me-name" style={{ fontSize: 20, fontWeight: 800, margin: 0, overflowWrap: 'anywhere' }}>
               {profileName(p)}

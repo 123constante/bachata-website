@@ -27,9 +27,9 @@ export const PartnerTile = () => {
   const { registered, register, loading } = useFeatureInterest('partner_search');
   const failed = register.isError ? partnerErrorCopy(register.error) : null;
   return (
-    <div className="da-card" data-testid="tile-partner" style={{ display: 'grid', gap: 6, padding: 14 }}>
+    <div className="da-card da-tile-rose" data-testid="tile-partner" style={{ display: 'grid', gap: 6, padding: 14 }}>
       <b style={{ fontSize: 14 }}>{PARTNER_TITLE}</b>
-      <span className="da-muted" style={{ fontSize: 13 }}>{registered ? PARTNER_DONE_BODY : PARTNER_BODY}</span>
+      <span className="da-tint" style={{ fontSize: 13 }}>{registered ? PARTNER_DONE_BODY : PARTNER_BODY}</span>
       <button
         type="button"
         className="da-tap"

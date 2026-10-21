@@ -7,24 +7,23 @@ import { DancerApiError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
 import { trackDancerEvent } from '../../analytics/events';
 import { DANCER_TABS } from '../../shell/routes';
-import { inDaysLabel, nextNight, nudgeCandidates, placeAndTime, shortDate, statusLabel } from '../nights/nightsModel';
+import { fullDate, inDaysLabel, nextNight, nudgeCandidates, placeAndTime, statusLabel } from '../nights/nightsModel';
 import { GOING_TILE_HELP, goingTileValue } from '../../api/numbersModel';
 import { useMyNumbers } from '../../api/useMyNumbers';
 import { buttonStyle, gradientBg, linkStyle } from '../nights/nightsStyles';
-import { useBrowseHref } from '../nights/useBrowseHref';
 import { useMyNights } from '../nights/useMyNights';
 import { greeting } from './homeCopy';
 import { nextStepLine } from '../../api/nextStep';
 import { RateNudge } from './RateNudge';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
-import { WhatsOn } from './WhatsOn';
+import { LineupPeople } from './LineupPeople';
 import { NumbersTiles } from './NumbersTiles';
 import { PartnerTile } from './PartnerTile';
 import NoProfileWayOut from '../options/NoProfileWayOut';
+import { CoupleArt } from '../art';
 import { Avatar, MessageUsLink } from '../me/ui';
 import { NO_PROFILE_MESSAGE } from '../../api/messageUs';
 import { HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../../copy/sharedCopy';
-import { BROWSE_EVENTS_LABEL } from './homeCopy';
 
 const path = (id: 'nights' | 'me' | 'options') => DANCER_TABS.find((t) => t.id === id)?.path ?? '/app';
 
@@ -58,9 +57,10 @@ const Ring = ({ pct }: { pct: number }) => (
   <div
     role="img"
     aria-label={`Profile strength ${pct}%`}
-    style={{ width: 74, height: 74, borderRadius: '50%', background: `conic-gradient(#fff ${pct * 3.6}deg, rgba(255,255,255,.25) 0)`, display: 'grid', placeItems: 'center' }}
+    className="da-strength-ring"
+    style={{ width: 74, height: 74, '--da-pct': `${pct}%` } as CSSProperties}
   >
-    <div style={{ width: 58, height: 58, borderRadius: '50%', background: 'var(--da-gradient-from)', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 16 }}>{pct}%</div>
+    <span style={{ width: 58, height: 58, fontSize: 16 }}>{pct}%</span>
   </div>
 );
 
@@ -71,7 +71,6 @@ const Message = ({ children }: { children: ReactNode }) => (
 const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
   const { user } = useAuth();
   const { nights, todayKey, isError, isLoading } = useMyNights();
-  const browseHref = useBrowseHref(profile.based_city_id);
   const hero = nextNight(nights.upcoming);
   // F7 (owner decision): the tile and the strip read ONE number from ONE source,
   // my_dancer_stats_v1.nights_going_upcoming (scheduled nights only, so a cancelled
@@ -84,7 +83,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Avatar profile={profile} size={52} />
+        <span className="da-ring-avatar"><Avatar profile={profile} size={52} /></span>
         <div style={{ minWidth: 0 }}>
           <div className="da-muted" style={{ fontSize: 14 }}>{greeting(new Date().getHours())}</div>
           <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0, overflowWrap: 'anywhere' }}>{name}</h1>
@@ -121,26 +120,27 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
         </div>
       )}
 
-      <section
-        data-testid="home-hero"
-        style={{ borderRadius: 16, padding: 14, color: 'var(--da-on-gradient)', background: HERO_BACKGROUND }}
-      >
+      <section data-testid="home-hero" className={hero && hero.date ? 'da-hero' : 'da-card'}>
         {hero && hero.date ? (
           <>
             <div style={{ fontSize: 13, fontWeight: 700 }}>Your next night &middot; {inDaysLabel(hero.date, todayKey)}</div>
             <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.15, margin: '4px 0', overflowWrap: 'anywhere' }}>{hero.name}</div>
             <div style={{ fontSize: 14, marginBottom: 10 }}>
-              {[shortDate(hero.date), placeAndTime(hero)].filter(Boolean).join(' \u00B7 ')} &middot; {statusLabel(hero)}
+              {[fullDate(hero.date), placeAndTime(hero)].filter(Boolean).join(' \u00B7 ')} &middot; {statusLabel(hero)}
             </div>
             <a href={hero.href} style={{ ...buttonStyle, background: '#fff', color: '#1A0F0B' }}>See event</a>
           </>
         ) : (
           <>
             <div style={{ fontSize: 13, fontWeight: 700 }}>Your next night</div>
-            <div style={{ fontSize: 20, fontWeight: 800, margin: '4px 0 10px' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, margin: '4px 0 8px' }}>
               {isLoading ? 'Loading\u2026' : isError ? 'We couldn\u2019t load your nights.' : 'No upcoming night yet.'}
             </div>
-            <a href={browseHref} style={{ ...buttonStyle, background: '#fff', color: '#1A0F0B' }}>{BROWSE_EVENTS_LABEL}</a>
+            {!isLoading && !isError && (
+              <p className="da-muted" style={{ margin: 0, fontSize: 14 }}>
+                Find one with the Bachata Calendar link at the top left.
+              </p>
+            )}
           </>
         )}
       </section>
@@ -148,7 +148,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
       <RateNudge candidates={nudgeCandidates(nights.past, todayKey)} todayKey={todayKey} />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Link to={path('me')} data-testid="tile-strength" style={{ ...tile, background: gradientBg, color: 'var(--da-on-gradient)' }}>
+        <Link to={path('me')} data-testid="tile-strength" className="da-card da-tile-rose" style={{ ...tile }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Ring pct={profile.strength.pct} />
           </div>
@@ -170,7 +170,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
 
       <PartnerTile />
 
-      <WhatsOn cityId={profile.based_city_id} />
+      <LineupPeople />
     </div>
   );
 };
@@ -190,6 +190,7 @@ const HomeScreen = () => {
   } else if (profile.error instanceof DancerApiError && profile.error.code === 'no_profile') {
     body = (
       <Message>
+        <CoupleArt />
         <b>We can&rsquo;t find a dancer profile for you yet.</b>
         <p style={{ margin: '4px 0 8px', fontSize: 14 }}>Message us and we&rsquo;ll sort it out.</p>
         {/* The control itself, not a pointer to Options: Options cannot load without a profile either. */}

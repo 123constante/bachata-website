@@ -5,9 +5,8 @@ import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { LevelVote } from './LevelVote';
 import { statusLabel, placeAndTime, type Night } from './nightsModel';
 import { linkStyle } from './nightsStyles';
+import { MoonArt } from '../art';
 import { DateBlock, StatusPill } from './nightsUi';
-import { useBrowseHref } from './useBrowseHref';
-import { BROWSE_EVENTS_LABEL } from '../home/homeCopy';
 
 /**
  * Audit L22 / L14: the zero-nights state names BOTH ways a night gets saved (the
@@ -15,6 +14,8 @@ import { BROWSE_EVENTS_LABEL } from '../home/homeCopy';
  */
 export const NO_NIGHTS_LINE = 'No nights saved yet.';
 export const NO_NIGHTS_HOW = 'Tap I\u2019m Going or Interested on any event and it shows up here.';
+/** D130: no Browse events button anywhere in /app/*; the way on is the home link top left. */
+export const NO_NIGHTS_FIND = 'Find a night with the Bachata Calendar link at the top left.';
 export const NO_UPCOMING_LINE = 'No upcoming nights.';
 import { useMyNights } from './useMyNights';
 
@@ -55,7 +56,6 @@ const NightRow = ({ night, profileComplete, focused, rate }: { night: Night; pro
 const NightsScreen = () => {
   const { isLoading, isError, retry, nights } = useMyNights();
   const profile = useMyDancerEdit();
-  const browseHref = useBrowseHref(profile.data?.based_city_id);
   const [params] = useSearchParams();
   const focus = params.get('focus');
   const complete = profile.data?.complete === true;
@@ -74,9 +74,10 @@ const NightsScreen = () => {
       )}
       {!isLoading && !isError && nights.upcoming.length === 0 && nights.past.length === 0 && (
         <section className="da-card" aria-label="Your nights" data-testid="nights-empty">
+          <MoonArt />
           <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>{NO_NIGHTS_LINE}</p>
           {GOING_CHECKIN_ENABLED && <p className="da-muted" style={{ margin: '2px 0 0', fontSize: 14 }}>{NO_NIGHTS_HOW}</p>}
-          <a href={browseHref} style={linkStyle}>{BROWSE_EVENTS_LABEL}</a>
+          <p className="da-muted" style={{ margin: '2px 0 0', fontSize: 14 }}>{NO_NIGHTS_FIND}</p>
         </section>
       )}
       {!isLoading && !isError && (nights.upcoming.length > 0 || nights.past.length > 0) && (
@@ -85,8 +86,7 @@ const NightsScreen = () => {
             <h2 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 4px' }}>Upcoming</h2>
             {nights.upcoming.length === 0 ? (
               <p style={{ margin: 0, fontSize: 14 }} data-testid="nights-upcoming-empty">
-                {NO_UPCOMING_LINE}{' '}
-                <a href={browseHref} style={linkStyle}>{BROWSE_EVENTS_LABEL}</a>
+                {NO_UPCOMING_LINE} {NO_NIGHTS_FIND}
               </p>
             ) : (
               <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
