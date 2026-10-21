@@ -17,6 +17,8 @@ import type { ProfileEntity } from '../page/profileForm';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { useOrganiserChoice } from '../switch/useOrganiserChoice';
 import { ErrorState, GhostButton, PrimaryButton, SkeletonRows } from '../ui';
+import { fetchMyRoleDetails, roleDetailsQueryKey } from '@/modules/areas/shared/areaApi';
+import { DECLINED_FIELD } from '@/modules/areas/shared/roleWizard';
 import { afterDancerSave, fetchWizardDancer, wizardDancerQueryKey } from './dancerApi';
 import { Celebration, LevelTrack, ProgressBar } from './LevelTrack';
 import { markFinishLater } from './nudgeStore';
@@ -63,6 +65,10 @@ function WizardBody({ organiserId, userId, writers, uploadLogo }: { organiserId:
   const dancer = useQuery({ queryKey: wizardDancerQueryKey(userId), queryFn: fetchWizardDancer });
   const entity = useQuery({ queryKey: ownOrganiserEntityQueryKey(organiserId ?? undefined), queryFn: () => fetchOwnOrganiserEntity(organiserId!), enabled: !!organiserId });
   const contact = useQuery({ queryKey: organiserContactSettingsQueryKey(organiserId ?? undefined, userId), queryFn: () => fetchContactSettings(organiserId!), enabled: !!organiserId });
+  // Teacher / DJ details: read only when the server lists a step of that area.
+  const hasArea = (a: 'teacher' | 'dj') => !!progress.data?.steps.some((s) => s.area === a);
+  const teacher = useQuery({ queryKey: roleDetailsQueryKey('teacher'), queryFn: () => fetchMyRoleDetails('teacher'), enabled: hasArea('teacher') });
+  const dj = useQuery({ queryKey: roleDetailsQueryKey('dj'), queryFn: () => fetchMyRoleDetails('dj'), enabled: hasArea('dj') });
 
   const [handled, setHandled] = useState<ReadonlySet<string>>(new Set());
   const [history, setHistory] = useState<string[]>([]);
@@ -77,7 +83,9 @@ function WizardBody({ organiserId, userId, writers, uploadLogo }: { organiserId:
   const sources = useMemo<WizardSources>(() => ({
     dancer: dancer.data ?? null,
     organiser: entity.data ? { ...(entity.data as ProfileEntity), contact: contact.data ? storedContactFromSettings(contact.data) : null } : null,
-  }), [dancer.data, entity.data, contact.data]);
+    roleDetails: { teacher: teacher.data?.details ?? null, dj: dj.data?.details ?? null },
+    declined: progress.data?.declined ?? [],
+  }), [dancer.data, entity.data, contact.data, teacher.data, dj.data, progress.data?.declined]);
 
   const env = useMemo(() => ({
     uploadLogo: organiserId ? (file: File) => uploadLogo(organiserId, file) : null,
@@ -130,10 +138,13 @@ function WizardBody({ organiserId, userId, writers, uploadLogo }: { organiserId:
   };
 
   let body: ReactNode;
-  const failed = progress.isError || (step?.area === 'dancer' && dancer.isError) || (step?.area === 'organiser' && (entity.isError || contact.isError));
+  // A teacher / DJ field step needs that area's stored details; the "Do you...?" step does not.
+  const roleQuery = step?.area === 'teacher' ? teacher : step?.area === 'dj' ? dj : null;
+  const needsRole = !!roleQuery && step?.field !== DECLINED_FIELD;
+  const failed = progress.isError || (step?.area === 'dancer' && dancer.isError) || (step?.area === 'organiser' && (entity.isError || contact.isError)) || (needsRole && roleQuery.isError);
   if (failed) {
-    body = <ErrorState title="Your profile did not load" onRetry={() => { void progress.refetch(); void dancer.refetch(); void entity.refetch(); void contact.refetch(); }} retrying={progress.isFetching} testId="wizard-error" />;
-  } else if (!p || (step?.area === 'dancer' && !dancer.data) || (step?.area === 'organiser' && (!entity.data || !contact.data))) {
+    body = <ErrorState title="Your profile did not load" onRetry={() => { void progress.refetch(); void dancer.refetch(); void entity.refetch(); void contact.refetch(); void roleQuery?.refetch(); }} retrying={progress.isFetching} testId="wizard-error" />;
+  } else if (!p || (step?.area === 'dancer' && !dancer.data) || (step?.area === 'organiser' && (!entity.data || !contact.data)) || (needsRole && !roleQuery.data)) {
     body = <SkeletonRows count={3} label="Loading your profile" testId="wizard-loading" />;
   } else if (milestone) {
     const nextUp = nextOpenStep(steps, handled);
