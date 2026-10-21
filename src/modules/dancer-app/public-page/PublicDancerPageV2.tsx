@@ -16,6 +16,8 @@ import { SHARE_MESSAGES, joinHref, shareDancerPage, type ContactLink, type Publi
  */
 export type PublicDancerPageV2Props = {
   model: PublicDancerPageModel;
+  /** false = the extras read failed: no contact claims (WhatsApp may exist). */
+  extrasOk?: boolean;
   /** dancer_profiles.id (kept for the caller; the F13 page lists no appearances). */
   profileId: string;
   /** The path to share and to come back to after Join, e.g. "/dancers/ana-lopez". */
@@ -28,8 +30,6 @@ export type PublicDancerPageV2Props = {
    * contacts, share, achievements and the rest stay.
    */
   embedded?: boolean;
-  /** false = the person does not hold the Dancer role: no DANCER label (default true). */
-  showRoleLabel?: boolean;
 };
 
 /**
@@ -138,7 +138,7 @@ const CopyButton = ({ kind, text }: { kind: ContactLink['kind']; text: string })
   );
 };
 
-export function PublicDancerPageV2({ model, pathname, ownerPlans, embedded = false, showRoleLabel = true }: PublicDancerPageV2Props) {
+export function PublicDancerPageV2({ model, extrasOk = true, pathname, ownerPlans, embedded = false }: PublicDancerPageV2Props) {
   const { user, authStatus } = useAuth();
   // Signed-out only, and only once auth has settled (no flash for a signed-in dancer).
   const showJoin = authStatus !== 'resolving' && (!user || user.is_anonymous === true);
@@ -168,8 +168,8 @@ export function PublicDancerPageV2({ model, pathname, ownerPlans, embedded = fal
         {/* Embedded: label, photo and name come from the person page (shown once). */}
         {!embedded && (
           <>
-        {showRoleLabel && <div className="text-[11px] tracking-[2px]" style={{ color: '#CFF3F6' }}>DANCER</div>}
-        <div className={`relative mx-auto ${showRoleLabel ? 'mt-3.5' : 'mt-1'}`} style={{ width: PORTRAIT_PX, height: PORTRAIT_PX }}>
+        <div className="text-[11px] tracking-[2px]" style={{ color: '#CFF3F6' }}>DANCER</div>
+        <div className="relative mx-auto mt-3.5" style={{ width: PORTRAIT_PX, height: PORTRAIT_PX }}>
           <div className="w-full h-full rounded-full box-border flex items-center justify-center overflow-hidden" style={{ border: `4px solid ${TEAL.accent}`, background: '#06303B' }} data-testid={model.avatarUrl ? undefined : 'dancer-portrait-placeholder'}>
             <PersonAvatar photoUrl={model.avatarUrl ? optimizedImageUrl(model.avatarUrl, srcWidthFor(PORTRAIT_PX * 2)) : null} name={model.name} size={PORTRAIT_PX - 8} loading="eager" alt={model.name} />
           </div>
@@ -241,20 +241,15 @@ export function PublicDancerPageV2({ model, pathname, ownerPlans, embedded = fal
           </ul>
         </section>
       )}
+      {model.contacts.length === 0 && extrasOk && (
+        <p className="mt-6 text-[14px]" style={{ color: TEAL.muted }} data-testid="dancer-connect-empty">No public contacts yet. Use Share to send this page to a friend.</p>
+      )}
+
       {model.highlights.length > 0 && (
         <section aria-label="Achievements" data-testid="dancer-highlights">
           <SectionTitle>Achievements</SectionTitle>
           <ul className="rounded-[14px] p-3.5 space-y-1" style={{ background: TEAL.card, border: `1px solid ${TEAL.border}` }}>
             {model.highlights.map((a, i) => <li key={i} className="text-[14px] leading-normal break-words">{a}</li>)}
-          </ul>
-        </section>
-      )}
-
-      {model.songs.length > 0 && (
-        <section aria-label="Favourite songs" data-testid="dancer-songs">
-          <SectionTitle>Favourite songs</SectionTitle>
-          <ul className="rounded-[14px] p-3.5 space-y-1" style={{ background: TEAL.card, border: `1px solid ${TEAL.border}` }}>
-            {model.songs.map((a, i) => <li key={i} className="text-[14px] leading-normal break-words">{a}</li>)}
           </ul>
         </section>
       )}

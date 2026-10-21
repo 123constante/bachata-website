@@ -23,7 +23,6 @@ import { useMyPersonaId } from "@/hooks/useMyPersonaId";
 import { isMyProfile } from "@/lib/myPersona";
 import { useEmbeddedProfile } from "@/lib/embeddedProfile";
 import { AlsoRoles } from "@/modules/person-page/AlsoRoles";
-import { usePeopleBadges } from "@/modules/person-page/badges";
 import { PublicDancerPageV2 } from "@/modules/dancer-app/public-page/PublicDancerPageV2";
 import { buildPublicDancerPage, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
 
@@ -71,10 +70,6 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
     buildPath: (s) => `/dancers/${s}`,
   });
   const navigate = useNavigate();
-  // Thin page: the DANCER label is claimed only by someone who holds the Dancer role. Unknown (SSR, still loading) keeps it.
-  const { badges: roleBadges } = usePeopleBadges(embedded || !id ? [] : [id]);
-  const roleBadge = id ? roleBadges.get(id) : undefined;
-  const holdsDancerRole = roleBadge ? roleBadge.roles.includes("dancer") : true;
   const { data: dancer, isLoading, error: dancerError } = useQuery({
     queryKey: ["dancer-profile", id],
     queryFn: async () => {
@@ -383,11 +378,11 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
           <AlsoRoles current="dancer" id={id} slug={resolved.slug} className="pb-2" />
           <PublicDancerPageV2
             model={buildPublicDancerPage(dancerView, publicPage.extras, galleryList)}
+            extrasOk={publicPage.extrasOk}
             profileId={dancerView.id}
             pathname={resolved.slug ? `/dancers/${resolved.slug}` : `/dancers/${routeParam ?? dancerView.id}`}
             ownerPlans={isSelfView ? ownerPlans : null}
             embedded={embedded}
-            showRoleLabel={holdsDancerRole}
           />
         </div>
       </GlobalLayout>

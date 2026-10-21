@@ -129,7 +129,7 @@ describe.each(Object.entries(SHAPES))('%s', (_name, row) => {
       h.mode = mode;
       const out = await callLoader(row.slug!);
       if (out.kind === 'response') continue;
-      if (mode === 'open') expect(out.publicPage, mode).toEqual({ extras: { bio: 'Hi', languages: ['English'], whatsapp: null } });
+      if (mode === 'open') expect(out.publicPage, mode).toEqual({ extrasOk: true, extras: { bio: 'Hi', languages: ['English'], whatsapp: null } });
       else expect(out.publicPage, mode).toBeNull();
     }
   });
@@ -156,7 +156,7 @@ describe('rules', () => {
     h.mode = 'open';
     h.extras = 'error';
     const out = await callLoader('dani');
-    expect(out.publicPage).toEqual({ extras: { bio: null, languages: [], whatsapp: null } });
+    expect(out.publicPage).toEqual({ extrasOk: false, extras: { bio: null, languages: [], whatsapp: null } });
   });
 
   it('surname hidden: nothing in the v2 payload or the head carries a surname', async () => {
@@ -195,7 +195,7 @@ describe('rules', () => {
     const out = await callLoader('dani');
     expect(Date.now() - t0).toBeLessThan(4000);
     if (out.kind !== 'ok') throw new Error('expected 200');
-    expect(out.publicPage).toEqual({ extras: { bio: null, languages: [], whatsapp: null } });
+    expect(out.publicPage).toEqual({ extrasOk: false, extras: { bio: null, languages: [], whatsapp: null } });
     expect(out.bound).toBe('60');
   });
 

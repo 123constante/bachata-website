@@ -13,7 +13,8 @@ import { buildSignInHref } from '@/lib/authRouting';
  * is closed, or the flag read failed.
  */
 export type PublicPageExtras = { bio: string | null; languages: string[]; whatsapp: string | null };
-export type PublicPageV2Data = { extras: PublicPageExtras };
+/** `extrasOk` false = the extras read failed: the page then claims nothing about contacts it could not read. */
+export type PublicPageV2Data = { extras: PublicPageExtras; extrasOk: boolean };
 
 export const NO_EXTRAS: PublicPageExtras = { bio: null, languages: [], whatsapp: null };
 
@@ -271,10 +272,8 @@ export const buildPublicDancerPage = (
     experience: Number.isFinite(years) && years >= 0 ? { years, level: experienceLevel(years) } : null,
     contacts,
     city: cityOnly(view.city),
-    // An unanswered start year is SQL null (prod: every never-edited row) and stays hidden.
-    // A stored current year is a real answer: "New this year" (owner decision 7f), never "0 years".
     facts: {
-      dancing: !Number.isFinite(years) || years < 0 ? null : years === 0 ? 'New this year' : `${years} ${years === 1 ? 'year' : 'years'}`,
+      dancing: Number.isFinite(years) && years >= 0 ? `${years} ${years === 1 ? 'year' : 'years'}` : null,
       level: Number.isFinite(years) && years >= 0 ? experienceLevel(years) : null,
       style: clean(view.favoriteStyles).join(', ') || null,
     },
