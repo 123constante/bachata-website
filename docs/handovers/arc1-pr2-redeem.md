@@ -23,3 +23,44 @@ Branch `claude/arc1-pr2-redeem`, ticket dt_699a50fbb273. Brief: admin repo `docs
 - `check:integrity` as an npm script fails with Permission denied (exec bit); run via `bash bin/check-integrity.sh` it passes.
 - Real-data shape check of the preview RPC (needs admin PR #912 on prod).
 - `used-by-me` relies on the server `already_member` answer (current members only); a person who used the link and later left sees the plain "already used" screen, by design.
+
+## Fix pass (dt_62409c108d47): review `docs/review/arc1-pr2-review.md` F1-F5, F9
+
+Merged `origin/main` (817a4dd) into the branch and resolved per the review's "Resolution":
+- **One copy map (F2).** `REDEEM_COPY` holds each reason once, at the approved mockup wording.
+  Main's second `email_unproven` / `email_mismatch` keys and `emailMismatchCopy` are gone.
+  `redeemMismatch.ts` is deleted: `interpretRedeemWithMismatch` folded into `interpretRedeem` +
+  `reasonScreen` (one mapping). A test pins that each key appears once in `inviteModel.ts`.
+- **One preview fetcher/parser (F4).** `invitePreview.ts` is deleted. `inviteRedeemApi.fetchInvitePreview`
+  (through `adminApi.previewOrganiserInvite`) + `inviteModel.parsePreview`. `safeEmailHint` now lives in
+  `inviteModel.ts` and guards the preview `email_hint`, redeem's `invite_email_hint` AND `reasonScreen`'s
+  hint. A full address shows nothing and does not mark the link bound.
+  `parsePreview` treats the pre-arc-1 shape `{email_hint, organiser_name}` (no `status`) as open.
+- **Sign-out escape (F1).** New `RedeemAction` `switch_account` for 2d/2e. `SwitchAccount` in
+  `InviteRedeemPage.tsx`: the shared `signOut`, then this invite's `/auth` (no loop). 2e first sends
+  the sign-in code to the signed-in address (`sendInviteSignInEmail`, `shouldCreateUser:false`,
+  returnTo = the invite), then signs out and seeds the code step so `/auth` opens on the code box.
+  A failed send or sign-out stays on the screen and says so. Main's 1a masked-hint line is kept.
+- **Copy (F3).** 2a-2f, 3b/3c (`RequestAccess` title/line/button, 3c "Back to Bachata Calendar"),
+  4a "Send a new code in Ns", 9b `callbackErrorCopy('expired')` + "Send a new link" button on /auth.
+  Table test `mockupCopy.test.ts` (one row per mockup line).
+- **Wrong vs run out (F5).** No GoTrue error code is trusted. `MagicLinkConfirmation` keeps the send
+  time (stored code step, reset on resend) and calls a code run out only past
+  `OTP_LIFETIME_SECONDS` (3600, the hosted default) in `auth-otp-routing.ts`. Inside that, every refused
+  code counts a try. Tested with both error shapes (`code: otp_expired` and message-only), inside and past
+  the lifetime.
+- **F9.** No raw ellipsis in `RequestAccess.tsx`; the disabled Request access button says why.
+- Red-first: the new rows ran against the old head 4bd9430: 28 of 51 failed.
+- `invitePrefill.ts` unchanged (PR 3 integrates prefill).
+
+## Left / next steps
+- **No preview = plain flow.** Prod's `organiser_invite_preview_v1` is still the OLD body: it answers `{}`
+  for used, revoked and expired links (surveyed 2026-10-21). `{}` therefore no longer means "garbled". The
+  page shows the plain sign-in / Join card, and redeem's answer decides the screen (2f for `invalid`, with
+  no ask button). So PR 1 and this PR can deploy in either order. Before PR 1 lands, the pre-sign-in 2a-2c
+  screens appear only after Join.
+- Updated `tests/e2e-build` (code copy, 3-try lock, 9b "run out" / "Send a new link").
+- `OTP_LIFETIME_SECONDS` is not checked against the project's Auth setting (the dashboard is not readable
+  from here). If the owner's setting differs, change that one constant.
+- One wrong code and one expired code against real Supabase Auth: not done. This needs a real mailbox.
+- F6-F8 belong to #930 (sender), not this branch.

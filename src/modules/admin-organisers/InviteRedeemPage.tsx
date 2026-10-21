@@ -101,8 +101,9 @@ export default function InviteRedeemPage() {
   if (!valid) return <InvalidLink />;
   const checking = <GlobalLayout><div className="mx-auto max-w-md space-y-2 px-4 pt-10" data-testid="invite-checking"><Skeleton className="h-6 w-48" /><Skeleton className="h-16 w-full" /></div></GlobalLayout>;
   if (preview.isPending) return checking;
-  // The server knows no such link (garbled or never issued): nobody to ask, so no "ask" button.
-  if (preview.isSuccess && preview.data === null) return <InvalidLink />;
+  // No preview ({} for an unknown link, the pre-arc-1 server's {} for a used / revoked / expired one, or a failed
+  // lookup): the plain flow, and redeem's answer after Join decides the screen. A garbled link still ends at 2f
+  // (redeem answers invalid) with no "ask" button; a well-formed token is never called garbled on a guess.
   const info = preview.data ?? null;
   // A link already finished with is shown as such; the signed-in used-by-me person is sent Home first.
   if (info && info.status !== 'open') return <BrokenLink token={token} preview={info} />;
@@ -204,10 +205,10 @@ function BrokenLink({ token, preview }: { token: string; preview: InvitePreview 
   const queryClient = useQueryClient();
   const [home, setHome] = useState<'checking' | 'no'>('checking');
   useEffect(() => { stripToken(); }, []);
+  // Used by this person (or they are on the team already): redeem answers already_member without using the link. Home, no error.
+  const mayBeMine = Boolean(user) && preview.status === 'used';
   useEffect(() => {
-    if (authStatus === 'resolving') return;
-    // Used by this person (or they are on the team already): redeem answers already_member without using the link. Home, no error.
-    if (!user || preview.status !== 'used') { setHome('no'); return; }
+    if (authStatus === 'resolving' || !mayBeMine) return;
     let live = true;
     void attemptRedeem(token).then((o) => {
       if (!live) return;
@@ -217,8 +218,8 @@ function BrokenLink({ token, preview }: { token: string; preview: InvitePreview 
       } else setHome('no');
     });
     return () => { live = false; };
-  }, [authStatus, user, preview.status, token, navigate, queryClient]);
-  if (home === 'checking') return <GlobalLayout breadcrumbs={buildBreadcrumbs('invite.redeem')}><div className="mx-auto max-w-md space-y-2 px-4 pt-10" data-testid="invite-checking"><Skeleton className="h-6 w-48" /><Skeleton className="h-16 w-full" /></div></GlobalLayout>;
+  }, [authStatus, mayBeMine, token, navigate, queryClient]);
+  if (authStatus === 'resolving' || (mayBeMine && home === 'checking')) return <GlobalLayout breadcrumbs={buildBreadcrumbs('invite.redeem')}><div className="mx-auto max-w-md space-y-2 px-4 pt-10" data-testid="invite-checking"><Skeleton className="h-6 w-48" /><Skeleton className="h-16 w-full" /></div></GlobalLayout>;
   return <GlobalLayout breadcrumbs={buildBreadcrumbs('invite.redeem')}><RefusedCard token={token} reason={preview.status} preview={preview} /></GlobalLayout>;
 }
 

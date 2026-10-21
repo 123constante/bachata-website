@@ -7,6 +7,11 @@ test.use({ viewport: PHONE });
 
 const TOKEN = 'ab12cd34'.repeat(8);
 const SHOTS = 'docs/handovers/arc1-pr2-screens';
+// The route fades in: a shot taken the moment the card exists is blank, so let the transition settle first.
+const shot = async (page: Page, opts: { path: string }) => {
+  await page.waitForTimeout(2500);
+  await page.screenshot(opts);
+};
 const noHScroll = async (page: Page) =>
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
@@ -28,7 +33,7 @@ test('open invite, signed out: names the page and the inviter, offers sign in', 
   await expect(page.getByTestId('invite-card')).toContainText('Ritmo Bachata London');
   await expect(page.getByTestId('invite-sign-in')).toBeVisible();
   await noHScroll(page);
-  await page.screenshot({ path: `${SHOTS}/01-open.png` });
+  await shot(page, { path: `${SHOTS}/01-open.png` });
 });
 
 for (const [i, status] of ['used', 'revoked', 'expired'].entries()) {
@@ -38,10 +43,10 @@ for (const [i, status] of ['used', 'revoked', 'expired'].entries()) {
     await expect(ask).toBeVisible();
     await expect(ask).toContainText('Diego');
     await noHScroll(page);
-    await page.screenshot({ path: `${SHOTS}/0${i + 2}-${status}.png` });
+    await shot(page, { path: `${SHOTS}/0${i + 2}-${status}.png` });
     await ask.click();
     await expect(page.getByTestId('invite-new-link-done')).toBeVisible();
-    await page.screenshot({ path: `${SHOTS}/0${i + 2}-${status}-asked.png` });
+    await shot(page, { path: `${SHOTS}/0${i + 2}-${status}-asked.png` });
   });
 }
 
@@ -49,12 +54,12 @@ test('unknown link: no ask button', async ({ page }) => {
   await openInvite(page, { signedOut: true, preview: {} });
   await expect(page.getByTestId('invite-card')).toBeVisible();
   await expect(page.getByTestId('invite-new-link')).toHaveCount(0);
-  await page.screenshot({ path: `${SHOTS}/05-unknown.png` });
+  await shot(page, { path: `${SHOTS}/05-unknown.png` });
 });
 
-for (const [n, reason, title] of [
-  ['06', 'email_mismatch', 'different email'],
-  ['07', 'email_unproven', 'email link'],
+for (const [n, reason, title, button] of [
+  ['06', 'email_mismatch', 'different email', 'Sign in with that email'],
+  ['07', 'email_unproven', 'email link', 'Email me a sign-in link'],
 ] as const) {
   test(`signed in, ${reason}: refusal screen after Join`, async ({ page }) => {
     await openInvite(page, {
@@ -64,8 +69,11 @@ for (const [n, reason, title] of [
     });
     await page.getByTestId('invite-join').click();
     await expect(page.getByTestId('invite-title')).toContainText(title);
+    // Mockups 2d / 2e: the sign-out escape (review F1), never a plain /auth link.
+    await expect(page.getByTestId('invite-switch-account')).toHaveText(button);
+    await expect(page.getByTestId('invite-sign-in')).toHaveCount(0);
     await noHScroll(page);
-    await page.screenshot({ path: `${SHOTS}/${n}-${reason}.png` });
+    await shot(page, { path: `${SHOTS}/${n}-${reason}.png` });
   });
 }
 
@@ -84,14 +92,14 @@ test('invite-only wall: Request access opens its own screen and sends', async ({
   await page.getByLabel('Email').fill('ana@example.com');
   await page.getByRole('button', { name: 'Email me a link' }).click();
   await expect(page.getByTestId('request-access-open')).toBeVisible();
-  await page.screenshot({ path: `${SHOTS}/08-wall.png` });
+  await shot(page, { path: `${SHOTS}/08-wall.png` });
   await page.getByTestId('request-access-open').click();
   await expect(page.getByTestId('request-access-screen')).toBeVisible();
-  await page.screenshot({ path: `${SHOTS}/09-request-form.png` });
+  await shot(page, { path: `${SHOTS}/09-request-form.png` });
   await page.getByLabel('What events do you run?').fill('Friday socials');
   await page.getByTestId('request-access-send').click();
   await expect(page.getByTestId('request-access-done')).toBeVisible();
-  await page.screenshot({ path: `${SHOTS}/10-request-sent.png` });
+  await shot(page, { path: `${SHOTS}/10-request-sent.png` });
 });
 
 test('sign-in code screen: wrong code shows tries left', async ({ page }) => {
@@ -104,8 +112,8 @@ test('sign-in code screen: wrong code shows tries left', async ({ page }) => {
   await page.getByRole('button', { name: /email me|send|continue/i }).first().click();
   const code = page.getByRole('textbox').first();
   await expect(code).toBeVisible();
-  await page.screenshot({ path: `${SHOTS}/11-code.png` });
+  await shot(page, { path: `${SHOTS}/11-code.png` });
   await code.fill('12345678');
   await expect(page.getByText(/tries? left|new code/i).first()).toBeVisible();
-  await page.screenshot({ path: `${SHOTS}/12-code-wrong.png` });
+  await shot(page, { path: `${SHOTS}/12-code-wrong.png` });
 });

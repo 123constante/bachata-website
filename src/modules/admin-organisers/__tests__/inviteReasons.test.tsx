@@ -89,10 +89,24 @@ describe('preview screen (signed out): broken links', () => {
     expect(newLinkLabel(null)).toBe('Request a new link');
   });
 
-  it('unknown or garbled link ({}): the invalid card, no ask button', async () => {
+  // {} is an unknown link on the arc-1 server, AND a used / revoked / expired one on the pre-arc-1 server (prod
+  // today). Neither is called garbled on a guess: the plain flow, and redeem's answer after Join decides.
+  it('no preview ({}): the plain sign-in card, no ask button, the link unused', async () => {
     preview = {};
     mount();
-    expect((await screen.findByTestId('invite-title')).textContent).toBe(reasonScreen('invalid').title);
+    expect(await screen.findByTestId('invite-sign-in')).toBeTruthy();
+    expect(screen.getByTestId('invite-title').textContent).not.toBe(reasonScreen('invalid').title);
+    expect(screen.queryByTestId('invite-new-link')).toBeNull();
+    expect(h.rpc).not.toHaveBeenCalledWith('redeem_organiser_invite_v1', expect.anything());
+  });
+
+  it('no preview, signed in: Join, then redeem invalid shows 2f with no ask button', async () => {
+    preview = {};
+    h.auth.user = { id: 'u1', email: 'ana@example.com' };
+    redeem = { ok: false, reason: 'invalid' };
+    mount();
+    (await screen.findByTestId('invite-join')).click();
+    await waitFor(() => expect(screen.getByTestId('invite-title').textContent).toBe(reasonScreen('invalid').title));
     expect(screen.queryByTestId('invite-new-link')).toBeNull();
   });
 });
