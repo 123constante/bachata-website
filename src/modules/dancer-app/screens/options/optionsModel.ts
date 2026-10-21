@@ -13,6 +13,7 @@ import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../
  */
 
 export type OptionsRowId =
+  | 'areas'
   | 'switch-organiser'
   | 'share'
   | 'page'
@@ -34,6 +35,8 @@ export type OptionsRow = {
 };
 
 export const PAGE_PATH = '/app/page';
+/** "Your areas" (add a role): D129 moved it here so a one-profile dancer can still reach it. */
+export const AREAS_PATH = '/account/areas';
 export const ORGANISER_AREA_PATH = '/account/o';
 export const ACCOUNT_SETTINGS_PATH = APP_ACCOUNT_SETTINGS_PATH; // from=app: settings shows Back to Options (M4)
 /** The site home (the events feed). The ONE way back to the site from Options (audit L9). */
@@ -91,6 +94,7 @@ export const optionsRows = (profile: Pick<MyDancerEdit, 'other_roles' | 'is_acti
   rows.push({ id: 'feedback', label: "Send feedback: what's missing?" });
   rows.push({ id: 'install', label: "Add to my phone's home screen" });
   rows.push({ id: 'help', label: 'Help and message us', href: messageUsUrl(HELP_MESSAGE) });
+  rows.push({ id: 'areas', label: 'Your areas', href: AREAS_PATH });
   rows.push(
     types.organising
       ? { id: 'switch-organiser', label: 'I run events', href: ORGANISER_AREA_PATH }

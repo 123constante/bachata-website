@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
+import { GhostButton } from '@/modules/organiser/ui';
 import { SIGN_OUT_FAILED, useSignOutToHome } from '@/components/account/profiles/signOutToHome';
 
 /** The one sign-out failure line (owned by signOutToHome, shared with the profile switcher). */
@@ -13,7 +14,7 @@ export const SIGN_OUT_FAILED_COPY = SIGN_OUT_FAILED;
  * same line; if this sheet is still mounted it shows it too. `onBusyChange` lets the sheet
  * disable its Close while the hook waits, so the confirm is never unmounted half way.
  */
-const SignOutConfirm = ({ buttonStyle, onBusyChange }: { buttonStyle: CSSProperties; onBusyChange: (busy: boolean) => void }) => {
+const SignOutConfirm = ({ onBusyChange }: { onBusyChange: (busy: boolean) => void }) => {
   const { signOutToHome, busy } = useSignOutToHome();
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -27,10 +28,10 @@ const SignOutConfirm = ({ buttonStyle, onBusyChange }: { buttonStyle: CSSPropert
 
   return (
     <>
-      {failed && <p role="alert" style={{ fontSize: 14, color: 'var(--da-danger)', margin: '0 0 8px' }}>{SIGN_OUT_FAILED_COPY}</p>}
-      <button type="button" className="da-tap" style={buttonStyle} onClick={() => void doSignOut()} disabled={busy} data-testid="opt-signout-confirm">
+      {failed && <p role="alert" className="mb-[8px] mt-0 text-[14px] text-[var(--danger)]">{SIGN_OUT_FAILED_COPY}</p>}
+      <GhostButton onClick={() => void doSignOut()} disabled={busy} testId="opt-signout-confirm">
         {busy ? <>Signing out&hellip;</> : failed ? 'Retry' : 'Yes, sign out'}
-      </button>
+      </GhostButton>
     </>
   );
 };

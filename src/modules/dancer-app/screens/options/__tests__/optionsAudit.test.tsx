@@ -45,7 +45,7 @@ const OWNED = [
   'src/modules/dancer-app/screens/options/optionsModel.ts',
   'src/modules/dancer-app/screens/home/HomeScreen.tsx',
   'src/modules/dancer-app/screens/home/RateNudge.tsx',
-  'src/modules/dancer-app/screens/home/WhatsOn.tsx',
+  'src/modules/dancer-app/screens/home/LineupPeople.tsx',
   'src/modules/dancer-app/screens/nights/NightsScreen.tsx',
   'src/modules/dancer-app/screens/nights/nightsModel.ts',
 ];

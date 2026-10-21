@@ -20,7 +20,7 @@ export interface CoverProps {
 export function Cover({ src, alt, onChange, changeLabel = `Change ${FLYER_WORD}`, emptyLabel = `No ${FLYER_WORD} yet`, testId, className }: CoverProps) {
   return (
     <div data-testid={testId} className={cn('relative mx-auto aspect-square w-[78%]', className)}>
-      <div className="h-full w-full overflow-hidden rounded-[20px] border border-[var(--line)] bg-[var(--card2)]">
+      <div className="h-full w-full overflow-hidden rounded-[var(--r-cover,20px)] border border-[var(--line)] bg-[var(--card2)]">
         {src ? (
           <img src={src} alt={alt} loading="eager" decoding="async" className="h-full w-full object-cover" />
         ) : (

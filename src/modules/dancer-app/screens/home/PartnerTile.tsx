@@ -1,6 +1,10 @@
 import { useFeatureInterest } from '../../api/useFeatureInterest';
 import { toDancerError } from '../../api/errors';
-import { buttonStyle } from '../nights/nightsStyles';
+import { Card } from '@/modules/organiser/ui';
+
+/** Review S5: a ghost, not a second filled primary (the hero's "See event" is the one primary on Home). */
+const PARTNER_BUTTON_CLASS =
+  'da-tap inline-flex min-h-[48px] items-center justify-center rounded-[var(--r-ctl,12px)] border border-[var(--line)] bg-[var(--card2)] px-[16px] text-[15px] font-bold text-[var(--fg)] disabled:opacity-70';
 
 export const PARTNER_TITLE = 'Partner search: coming soon';
 export const PARTNER_BODY = 'Find someone to practise and dance with.';
@@ -27,21 +31,20 @@ export const PartnerTile = () => {
   const { registered, register, loading } = useFeatureInterest('partner_search');
   const failed = register.isError ? partnerErrorCopy(register.error) : null;
   return (
-    <div className="da-card" data-testid="tile-partner" style={{ display: 'grid', gap: 6, padding: 14 }}>
+    <Card variant="padded" testId="tile-partner" className="da-tile-rose grid gap-[6px] p-[14px]">
       <b style={{ fontSize: 14 }}>{PARTNER_TITLE}</b>
-      <span className="da-muted" style={{ fontSize: 13 }}>{registered ? PARTNER_DONE_BODY : PARTNER_BODY}</span>
+      <span className="da-tint" style={{ fontSize: 13 }}>{registered ? PARTNER_DONE_BODY : PARTNER_BODY}</span>
       <button
         type="button"
-        className="da-tap"
+        className={PARTNER_BUTTON_CLASS}
         data-testid="partner-notify"
         disabled={registered || loading || register.isPending}
-        style={{ ...buttonStyle, opacity: registered || loading || register.isPending ? 0.7 : 1 }}
         onClick={() => register.mutate()}
       >
         {/* A disabled button always says why: done, saving, or still checking (F15). */}
         {registered ? PARTNER_DONE : register.isPending ? 'Saving\u2026' : loading ? PARTNER_LOADING : PARTNER_ASK}
       </button>
       {failed && <span role="alert" data-testid="partner-error" style={{ fontSize: 13, color: 'var(--da-danger)' }}>{failed}</span>}
-    </div>
+    </Card>
   );
 };

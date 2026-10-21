@@ -106,18 +106,20 @@ describe("/auth code entry", () => {
 });
 
 describe("/auth role step", () => {
-  it("pre-selects Dancer and hides the other roles until expanded", async () => {
+  // B-WEB4: "What do you do?" is a multi-select, every choice on screen, Dancer on.
+  it("pre-selects Dancer and shows Organiser, Teacher and DJ beside it", async () => {
     renderAuth("/auth?mode=signup");
 
     const dancer = await screen.findByRole("button", { name: /^dancer/i });
     expect(dancer.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: /continue as dancer/i })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^organiser/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /^teacher/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /^continue$/i })).toBeTruthy();
+    for (const name of [/^organiser/i, /^teacher/i, /^dj/i]) {
+      expect(screen.getByRole("button", { name }).getAttribute("aria-pressed")).toBe("false");
+    }
 
-    fireEvent.click(screen.getByRole("button", { name: /i.m an organiser/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^teacher/i }));
 
-    expect(screen.getByRole("button", { name: /^organiser/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^teacher/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^teacher/i }).getAttribute("aria-pressed")).toBe("true");
+    expect(dancer.getAttribute("aria-pressed")).toBe("true");
   });
 });
