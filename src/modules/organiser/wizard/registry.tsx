@@ -1,16 +1,22 @@
 // The wizard's step components keyed by `area:field` (the server's keys). A
-// server step whose key is not here is skipped (teacher/DJ until Release B, and
-// the fields no self-serve writer takes: dancer gallery / partner_search,
-// organiser contact_email / address / maps_link / gallery).
+// server step whose key is not here is skipped (the fields no self-serve writer
+// takes: dancer gallery / partner_search, organiser contact_email / address /
+// maps_link / gallery). Teacher and DJ steps are B-WEB1's own components
+// (areas/teacher|dj/wizardSteps), plugged in as they are (C15).
 //
 // Writers: a dancer answer goes to save_my_dancer_profile_v2 with its ONE key
 // (toPatch). An organiser answer is a draft of the SAME edit-in-place field keys
 // My page uses, so it goes through draftModel's ONE save (saveDrafts), never a
-// second mapping.
+// second mapping. A teacher / DJ answer goes through B-WEB1's submitRoleWizardStep
+// (save_my_role_v1 with its ONE key, or set_my_role_declined_v1 for "Do you...?").
 import { Link } from 'react-router-dom';
 import { searchCities } from '@/modules/organiser/home/onboarding/citySearch';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import type { WizardStepDef } from '@/modules/areas/wizardStep';
+import { doYouDjStep, djWizardSteps } from '@/modules/areas/dj/wizardSteps';
+import { doYouTeachStep, teacherWizardSteps } from '@/modules/areas/teacher/wizardSteps';
+import { DECLINED_FIELD } from '@/modules/areas/shared/roleWizard';
+import type { Details } from '@/modules/areas/shared/roleModel';
 import { storedInPatchTerms, type EditBase } from '../edit-in-place/draftModel';
 import { CATEGORY_OPTIONS, FIELD_LABEL, checkField, type FieldKey } from '../edit-in-place/fieldRules';
 import { PHOTO_ACCEPT } from '../edit-in-place/organiserPhotoModel';
@@ -22,6 +28,10 @@ export interface WizardSources {
   dancer: WizardDancer | null;
   /** The organiser's stored row plus its private contact (null until loaded). */
   organiser: EditBase | null;
+  /** Teacher / DJ details as my_role_details_v1 holds them (absent until loaded). */
+  roleDetails?: Partial<Record<'teacher' | 'dj', Details | null>>;
+  /** The roles the person said No to (my_profile_progress_v1 `declined`). */
+  declined?: readonly string[];
 }
 
 export interface WizardEntry extends WizardStepDef {
@@ -87,6 +97,17 @@ const orgCheck = (key: FieldKey) => (raw: string) => {
 };
 const orgText = (key: FieldKey) => (raw: string) => raw.trim();
 
+/** A B-WEB1 step as it is. "Do you...?" reads No once declined, else unanswered; a field reads the stored value. */
+function roleEntry(def: WizardStepDef): WizardEntry {
+  const role = def.area as 'teacher' | 'dj';
+  return {
+    ...def,
+    read: (src) => (def.field === DECLINED_FIELD
+      ? (src.declined?.includes(role) ? false : null)
+      : src.roleDetails?.[role]?.[def.field] ?? null),
+  };
+}
+
 const ROLE_OPTIONS = DANCE_ROLE_VALUES.map((r) => ({ value: r, label: r }));
 const CATEGORY = CATEGORY_OPTIONS.map((c) => ({ value: c, label: c }));
 
@@ -133,6 +154,9 @@ const ENTRIES: WizardEntry[] = [
   organiser('bio', 'Tell dancers about your organisation', 'bio', makeTextStep('org-bio', { label: FIELD_LABEL.bio, multiline: true, maxLength: 4000, check: orgCheck('bio'), toValue: orgText('bio') })),
   organiser('website', 'Does it have a website?', 'website', makeTextStep('org-website', { label: FIELD_LABEL.website, inputMode: 'url', placeholder: 'example.com', maxLength: 300, check: orgCheck('website'), toValue: orgText('website') })),
   organiser('facebook', 'Does it have a Facebook page?', 'facebook', makeTextStep('org-facebook', { label: FIELD_LABEL.facebook, inputMode: 'url', placeholder: 'facebook.com/yourpage', maxLength: 300, check: orgCheck('facebook'), toValue: orgText('facebook') })),
+
+  // ---- teacher / DJ (B-WEB1's components) ----------------------------------------------------
+  ...[doYouTeachStep, ...teacherWizardSteps, doYouDjStep, ...djWizardSteps].map(roleEntry),
 ];
 
 export const WIZARD_STEPS: ReadonlyMap<string, WizardEntry> = new Map(ENTRIES.map((e) => [`${e.area}:${e.field}`, e]));
