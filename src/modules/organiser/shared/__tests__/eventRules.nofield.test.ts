@@ -18,7 +18,6 @@ const OFFENDERS = new Set<string>([
   'events/ProgrammeSheet.tsx',
   'flows/add/Time.tsx',
   'flows/change/Time.tsx',
-  'flows/new/NewFlow.tsx',
 ]);
 
 function walk(dir: string): string[] {

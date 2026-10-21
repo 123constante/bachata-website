@@ -408,7 +408,10 @@ const CONFLICTS: ConflictRow[] = [
   { screen: 'stop repeating', seriesId: A, path: () => eventStepPath(A, 'stop'), view: 'event-conflict', act: () => press('event-step-send') },
   {
     screen: 'new event (venue step)', seriesId: DRAFT, path: () => ORG_PATHS.newVenue(DRAFT), view: 'event-conflict',
-    act: async () => { fireEvent.click((await screen.findAllByTestId('org-new-venue-row'))[0]); },
+    act: async () => {
+      fireEvent.change(await screen.findByTestId('venue-search'), { target: { value: 'Salsa' } });
+      fireEvent.click((await within(await screen.findByTestId('venue-results')).findAllByRole('button'))[0]);
+    },
   },
   {
     screen: 'cover photo', seriesId: A, path: () => ORG_PATHS.cover(A), view: 'event-conflict',

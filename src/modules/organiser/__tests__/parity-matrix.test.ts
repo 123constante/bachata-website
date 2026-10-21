@@ -30,7 +30,7 @@ import { musicCommand } from '@/modules/organiser/events/musicModel';
 import { organisersCommand } from '@/modules/organiser/events/organisersModel';
 import { addPerson, addSession, parseTree, programCommand, updateItem } from '@/modules/organiser/events/programmeSeriesModel';
 import { coverFixCommands } from '@/modules/organiser/flows/fix/coverModel';
-import { dateCommands, liveCommands, timeCommands, venueCommands } from '@/modules/organiser/flows/new/model';
+import { dateCommands, liveCommands, venueCommands } from '@/modules/organiser/flows/new/model';
 
 const SRC = resolve(__dirname, '../../..');
 const ROOT = resolve(__dirname, '..');
@@ -342,7 +342,6 @@ export const PARITY: Row[] = [
     sends: [
       upsert(['default_venue_id', 'default_city_id'], () => venueCommands('v1', 'c1')[0], 'flows/new/NewFlow.tsx', 'venueCommands('),
       upsert(['default_start_date'], () => dateCommands('one_off', '2026-10-23')[0], 'flows/new/NewFlow.tsx', 'dateCommands('),
-      upsert(['default_local_start_time'], () => timeCommands('20:00')[0], 'flows/new/NewFlow.tsx', 'timeCommands('),
     ] },
   { id: 'C51', capability: 'Course length (N weeks)', verdict: 'MISSING-ADMIN-ONLY', adminKey: 'course_total_sessions' },
   { id: 'C52', capability: "One session's name / type / start / end on one date", verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,

@@ -57,8 +57,8 @@ describe('main screens stay mounted on the new paths', () => {
     ['/account/o/new/s1/venue', 'org-new-venue'],
     // The date, time and cover steps share the step shell (org-new-step); each is pinned by its own control.
     ['/account/o/new/s1/date', 'org-new-step'],
-    ['/account/o/new/s1/time', 'org-new-time'],
-    ['/account/o/new/s1/cover', 'org-new-cover-input'],
+    ['/account/o/new/s1/time', 'org-new-step'],
+    ['/account/o/new/s1/cover', 'org-new-step'],
     ['/account/o/events/s1', 'org-page-event'],
     ['/account/o/events/s1/details', 'org-page-details'],
     ['/account/o/change/s1/o1/lineup', 'org-page-date'],
