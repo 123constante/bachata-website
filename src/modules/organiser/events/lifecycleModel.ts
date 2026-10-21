@@ -3,6 +3,7 @@
 // go-live RULE is the server's (series_go_live_check_v1, shared/goLiveCheck):
 // this file only lays out its answer, in its order. Pure.
 
+import { isCancelledDate, type SeriesWorkspace } from '@/modules/organiser/shared/seriesModel';
 import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
 import { publicEventPath } from '@/modules/organiser/shared/editorGuards';
 import {
@@ -28,6 +29,20 @@ export const STILL_NEEDED = 'Before you go live';
 /** D82: the heading when nothing is left, and the sub-heading over the recommended rows. */
 export const READY_HEADING = 'Ready to go live';
 export const OPTIONAL_HEADING = 'Optional';
+
+/** The New event last step's reason when no session exists (owner 2026-10-20, Website #885). */
+export const NO_SESSION_REASON = 'Add at least one session first.';
+
+/**
+ * Does a session sit on a date that is still to come and listed? The series
+ * programme runs on every such date; else a session added to one date counts.
+ * Read ONLY by the New event last step, which has no server check (D90): the
+ * event card's Go live reads the server's `session` code instead, never this.
+ */
+export function hasUpcomingSession(ws: Pick<SeriesWorkspace, 'hasSessions' | 'dates'>, today: string): boolean {
+  const listed = ws.dates.filter((d) => d.occurrence_date >= today && !isCancelledDate(d));
+  return ws.hasSessions ? listed.length > 0 : listed.some((d) => d.added_sessions_count > 0);
+}
 
 /** One line of the Go live list: the label from the one map, and the screen that fixes it (null: no screen, no link). */
 export interface GoLiveLine { code: string; label: string; href: string | null; recommended: boolean }

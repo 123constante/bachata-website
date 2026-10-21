@@ -16,7 +16,7 @@ import { ORG_PATHS, type NewEventFormat } from '@/modules/organiser/shell/paths'
 import { EmptyState, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, TitleInput } from '@/modules/organiser/ui';
 import { goDone } from '../doneState';
 import {
-  DRAFT_ONLY_NOTE, DRAFT_SAVED_MESSAGE, NEW_FORMATS, STEP_TITLE, coverCommands, coverStepReason, offerLeave, dateCommands, draftCommand, finishLabel, firstDateChoices, liveCommands, liveMessage,
+  DRAFT_ONLY_NOTE, DRAFT_SAVED_MESSAGE, NEW_FORMATS, NO_SESSION_NEW_REASON, STEP_TITLE, coverCommands, finishReason, offerLeave, dateCommands, draftCommand, finishLabel, firstDateChoices, liveCommands, liveMessage,
   nameBlock, parseFormat, timeBlock, timeCommands, venueCommands,
 } from './model';
 import { useNewSend } from './useNewSend';
@@ -29,10 +29,10 @@ const QUIET = 'min-h-[44px] w-full text-center text-[14px] text-[var(--mut)] und
 const MAX_VENUE_ROWS = 50;
 
 /** After the name step the draft exists: every step offers to leave it as a draft. */
-function LeaveLink({ label = 'Save as draft and leave' }: { label?: string }) {
+function LeaveLink({ label = 'Save as draft and leave', to = ORG_PATHS.home }: { label?: string; to?: string }) {
   const navigate = useNavigate();
   return (
-    <button type="button" className={QUIET} data-testid="org-new-leave" onClick={() => navigate(ORG_PATHS.home, { replace: true })}>
+    <button type="button" className={QUIET} data-testid="org-new-leave" onClick={() => navigate(to, { replace: true })}>
       {label}
     </button>
   );
@@ -270,6 +270,7 @@ function TimeStep({ seriesId }: { seriesId: string }) {
 function CoverStep({ seriesId }: { seriesId: string }) {
   const navigate = useNavigate();
   const draft = useDraft(seriesId);
+  const today = useLondonToday();
   const { send, busy, error, setError, conflict } = useNewSend(seriesId);
   const [picked, setPicked] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -290,7 +291,7 @@ function CoverStep({ seriesId }: { seriesId: string }) {
   };
 
   const goLive = async () => {
-    if (!cover) return;
+    if (finishReason(!!cover, draft.data ?? null, today)) return;
     // A1 not on prod: going live would be refused, so the draft stays a draft and Done says so.
     if (!liveCommands().length) {
       goDone(navigate, { title: 'Saved', message: DRAFT_SAVED_MESSAGE, seriesId });
@@ -317,8 +318,9 @@ function CoverStep({ seriesId }: { seriesId: string }) {
       </label>
       <StepError message={error} />
       {!A1_APPLIED && <p className="text-[14px] text-[var(--mut)]" data-testid="org-new-draft-note">{DRAFT_ONLY_NOTE}</p>}
-      <StepButton label={finishLabel()} reason={coverStepReason(!!cover)} busy={busy && !uploading} onClick={() => void goLive()} testId="org-new-live" />
-      {offerLeave(!!cover) && <LeaveLink />}
+      <StepButton label={finishLabel()} reason={finishReason(!!cover, draft.data ?? null, today)} busy={busy && !uploading} onClick={() => void goLive()} testId="org-new-live" />
+      {/* The session is the only thing missing: leave where it is added. */}
+      {offerLeave(!!cover) && <LeaveLink to={finishReason(!!cover, draft.data ?? null, today) === NO_SESSION_NEW_REASON ? ORG_PATHS.eventProgramme(seriesId) : ORG_PATHS.home} />}
     </Frame>
   );
 }

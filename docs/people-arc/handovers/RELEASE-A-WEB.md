@@ -598,3 +598,60 @@ The 6 failures are not D83/D84/D85 wording: 5 in `tests/integrityCouldNotRun.tes
 | build | `npm run build` | 0 |
 
 Not verified: the live-gate unit job (no secrets here), a browser walk as a non-admin on prod, GitHub Actions.
+
+## Main merge 2 (D90)
+
+Merged `origin/main` (d306e9ad, Website #885 "Go live needs a session") into `claude/people-release-a-web` (c9a9249c), one merge commit, no rebase or force.
+
+### Conflicts and how each was resolved
+
+- `src/modules/organiser/events/lifecycleModel.ts`: kept the branch side (the server list: `goLiveList`, `goLiveState`, `profileFixPath`, no client reason on the draft row). #885's card rule (`goLiveMissing`, `goLiveReason`, `MISSING_SESSION`, `toProgramme`, the `FESTIVAL_REASON` import) is NOT carried: on the card the server's `session` code is the one session line (D90). Kept from #885: `NO_SESSION_REASON` and `hasUpcomingSession` (plus the `isCancelledDate` / `SeriesWorkspace` import), because the New event last step reads them (`flows/new/model.ts` `finishReason`). Their comment now says the card never reads them.
+- `src/modules/organiser/__tests__/fpar.review.test.tsx`: kept the branch side. #885 only changed `draftWs` (adding a programme session) inside the client `GO_CASES` table, which #870 had already replaced with the `goLiveState` table over the server answer.
+- `src/modules/organiser/events/LifecycleActions.tsx` (auto-merged, but wrong): #885 added an "Add a session" link (`org-life-add-session`) under Go live, driven by `rows.goLive.toProgramme`. Removed: it would be a second session line beside the server's `session` row (`org-life-item-session`, "Add a session with a title, start and end", linking to the programme screen). The file is byte-identical to c9a9249c.
+- `flows/new/NewFlow.tsx`, `flows/new/model.ts`: auto-merged, #885's behaviour unchanged. #870 never routed the New event last step through `series_go_live_check_v1`, so it keeps `hasUpcomingSession` (D90). One rule per screen: the card reads only the server; the New step reads only `hasUpcomingSession`.
+
+### #885's tests: what changed and why
+
+- `events/__tests__/goLiveSession.matrix.test.ts`: the card half now drives the server answer: a guard that `goLiveMissing` / `goLiveReason` / `MISSING_SESSION` are not exported (one list), every shape's draft row carries no client reason, and a `session` answer gives Go live `fix` with one session row linking to the programme screen, in the server's order. The New-step half is unchanged (same shapes, same reasons). Removed: "session is the last item, never asked for before a date exists" (it tested the client list's order; the server owns order now) and the `dateFirst` / `onlyMissing` branches it fed.
+- `events/__tests__/goLiveSession.render.test.tsx`: card tests now mock `series_go_live_check_v1`: with `session` missing, Go live is aria-disabled with a reason, the `org-life-item-session` row links to the programme, there is no `org-life-add-session` link and only ONE element on the card mentions a session; with the server ready, Go live sends and no session row shows. The three New-step render tests are unchanged. Deleted: N3 (three tests of `goLiveReason`'s A1-off sentence; the function is gone, the card's A1-off text is `goLiveState`'s and is covered in `fpar.review.test.tsx` section 1) and N4 (the festival card said `FESTIVAL_REASON`; on #870 the card shows the server's `session` row, see difference 4 below).
+
+### D90 rule difference (for the orchestrator; neither rule changed)
+
+Server (`_series_go_live_check_p5`, read on prod 2026-10-21): `session` is missing unless the series has an `event_series_program_item_p5` row with a title, a start AND an end time. Dates are a separate code (`upcoming_date`: a `scheduled` occurrence from today on). #885's `hasUpcomingSession`: a programme item with a start time AND a listed (not cancelled) date from today on, or else an added session (`added_sessions_count > 0`) on a listed date from today on.
+
+Prod shape counts (read-only, counts only, all lifecycle statuses):
+
+| # | shape | client (New step) | server (card) | prod series (drafts) |
+|---|---|---|---|---|
+| 1 | programme item with a start but no title or no end, and an upcoming listed date | session OK | `session` missing | 4 (0): 2 live, 2 archived |
+| 2 | complete programme, no upcoming listed date (past-only or all cancelled) | "add a session" | session OK, `upcoming_date` missing | 71 (0): 35 archived, 19 ended, 17 live |
+| 3 | no programme item, a session added to one upcoming date only | session OK | `session` missing | 0 |
+| 4 | festival, no session | New step: `NO_SESSION_NEW_REASON` | `session` row linking to the programme screen, which says festival days are edited with the platform team | n/a (copy, not rule) |
+| 5 | client "listed" = not cancelled; server = `scheduled` | | | 0 differ today |
+
+Shapes 1 and 3 are the real disagreements: the New step would let Go live be pressed and the server would refuse it (the New step has no server list to show why). Shape 2 blocks on both sides, with a different reason.
+
+### CI (sandbox, merge result)
+
+| job | step | command | exit |
+|---|---|---|---|
+| typecheck | tsc | `npx tsc -p tsconfig.app.json --noEmit` | 114 errors, same count as c9a9249c before the merge; none in a file this merge changed |
+| typecheck | rpc typing | `npm run check:rpc-typing` | 0 |
+| typecheck | wallclock brand | `npm run check:wallclock-brand` | 0 |
+| architecture-guard / lint | chain | `npm run lint` | 1: only `check:integrity` exit 126 (sandbox exec bit, same as D87-D89); other 19 links PASS |
+| architecture-guard | integrity direct | `bash bin/check-integrity.sh` | 0 (2096 files, 0 issues) |
+| architecture-guard | images | `AUDIT_STRICT=1 npm run check:images` | 0 |
+| eslint (changed files) | | `npx eslint` on lifecycleModel, the two goLiveSession tests, flows/new model + NewFlow | 0 |
+| unit (Europe/London, full) | offline suite | `TZ=Europe/London npm run test:unit:offline` (offline placeholder envs, as CI with the live gate false) | 1: 5 failed / 10532 passed / 28 skipped; all 5 in `tests/integrityCouldNotRun.test.ts` (sandbox module resolution, untouched, same as D88/D89) |
+| unit (Europe/London, full) | timing | `npm run test:unit:timing` | 0 (65/65) |
+| unit (targeted) | go live | `npx vitest run` goLiveSession.matrix, goLiveSession.render, fpar.review, goLive.webA1a, lifecycleGate | 0 (111/111) |
+| unit-tests | dancer-area isolation | `npm run check:dancer-area-isolation` | 0 |
+| build | production | `npm run build` | 0 |
+| phone-qa-section | self-test | `node scripts/check-pr-phone-qa.mjs --self-test` | 0 |
+| phone-qa-section | section | `node scripts/check-pr-phone-qa.mjs` with PR #870's Phone QA section and the merge's file list | 0 (58 UI paths) |
+
+The test run rewrote 11 `.snap` files with LF endings only (`git diff --ignore-cr-at-eol` empty); restored, not committed.
+
+### Not verified
+
+e2e smoke and the live-DB unit suites (no secrets here); a browser walk at 390x844 of the card's session row and the New event last step; GitHub Actions on the merge head (the PR was CONFLICTING, so none ran); Vercel preview.
