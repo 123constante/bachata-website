@@ -196,7 +196,7 @@ export function Dancer4Flow({ missing, profileId, prefill = NO_PREFILL, refetch,
       {error && <p role="alert" className="text-sm text-destructive" data-testid="dancer4-error">{error}</p>}
 
       <Button type="submit" className={PILL} disabled={reason !== null || saving} aria-describedby={reason ? 'dancer4-reason' : undefined}>
-        {saving ? 'Saving\u2026' : isLast ? STEP_COPY[field].primary : 'Next'}
+        {saving ? 'Saving\u2026' : isLast ? 'Finish' : 'Next'}
       </Button>
       {reason && <p id="dancer4-reason" className="text-center text-sm text-muted-foreground" data-testid="dancer4-reason">{reason}</p>}
     </form>

@@ -39,14 +39,14 @@ export const planDancer4 = (missing: readonly ProfileField[], prefill: DancerPre
   return { steps: PROFILE_FIELDS.filter((f) => missing.includes(f) && !(f in prefilled)), prefilled };
 };
 
-export type StepCopy = { title: string; why: string; disabledReason: string; primary: string };
+export type StepCopy = { title: string; why: string; disabledReason: string };
 
 /** One mapping for the words of every screen (title, the line under it, why Next is off). */
 export const STEP_COPY: Record<ProfileField, StepCopy> = {
-  first_name: { title: 'Your first name', why: 'Shown on your profile.', disabledReason: 'Type your first name', primary: 'Next' },
-  based_city_id: { title: 'Which city do you dance in?', why: 'Shown on your profile.', disabledReason: 'Pick your city', primary: 'Next' },
-  dance_role: { title: 'Do you lead or follow?', why: 'Shown on your profile.', disabledReason: 'Pick one', primary: 'Next' },
-  avatar_url: { title: 'Add a photo of you', why: 'Shown on your profile.', disabledReason: 'Add a photo', primary: 'Finish' },
+  first_name: { title: 'Your first name', why: 'Shown on your profile.', disabledReason: 'Type your first name' },
+  based_city_id: { title: 'Which city do you dance in?', why: 'Shown on your profile.', disabledReason: 'Pick your city' },
+  dance_role: { title: 'Do you lead or follow?', why: 'Shown on your profile.', disabledReason: 'Pick one' },
+  avatar_url: { title: 'Add a photo of you', why: 'Shown on your profile.', disabledReason: 'Add a photo' },
 };
 
 /** After a city request: the city is still required, so say what to do next. */
