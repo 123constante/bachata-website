@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { filterWall, type WallFilter, type WallList, type WallPerson } from './model';
-import { SIZE, WALL } from './tokens';
+import { FOCUS_RING, SIZE, WALL } from './tokens';
 import { WallTile } from './WallTile';
 
 const FILTERS: { k: WallFilter; label: string }[] = [
@@ -44,7 +44,10 @@ export function PeopleWall({
 }) {
   const [filter, setFilter] = useState<WallFilter>('all');
   const shown = useMemo(() => filterWall(people, filter), [people, filter]);
-  const filters = FILTERS.filter((f) => f.k === 'all' || (filtersWork && (f.k !== 'teacher' || showTeachers)));
+  // Role filters need role data: a failed read, or a read that came back empty (no tile has a
+  // single role tag), offers only "All", so a chip can never empty the wall for lack of data.
+  const rolesKnown = filtersWork && people.some((p) => p.tags.length > 0);
+  const filters = FILTERS.filter((f) => f.k === 'all' || (rolesKnown && (f.k !== 'teacher' || showTeachers)));
   const copy = COPY[list];
   return (
     <div style={{ background: WALL.page, color: WALL.text }} className="px-3 pb-6 pt-3" data-testid="wall-root" data-list={list}>
@@ -60,6 +63,7 @@ export function PeopleWall({
                 type="button"
                 aria-pressed={on}
                 data-testid="wall-filter"
+                className={FOCUS_RING}
                 onClick={() => setFilter(f.k)}
                 style={{
                   minHeight: SIZE.filterHeight, display: 'inline-flex', alignItems: 'center', padding: '0 14px', borderRadius: 999,
@@ -79,7 +83,7 @@ export function PeopleWall({
       ) : shown.length === 0 ? (
         <p className="py-8 text-center text-[14px]" data-testid="wall-empty-filter">
           {copy.none} match this filter.{' '}
-          <button type="button" className="font-bold underline" style={{ minHeight: 44 }} onClick={() => setFilter('all')}>Show everyone</button>
+          <button type="button" className={`font-bold underline ${FOCUS_RING}`} style={{ minHeight: 44 }} onClick={() => setFilter('all')}>Show everyone</button>
         </p>
       ) : (
         <div className="grid" style={{ gridTemplateColumns: `repeat(${SIZE.columns}, minmax(0, 1fr))`, gap: SIZE.gap }} data-testid="wall-grid">

@@ -190,7 +190,7 @@ describe('/dancers wall: person shape table', () => {
 
   it('the tile is ONE link: exactly one anchor per tile, no nested links', () => {
     mountDancers(rows, names, badges);
-    expect(screen.getAllByRole('link')).toHaveLength(rows.length);
+    expect(within(screen.getByTestId('wall-grid')).getAllByRole('link')).toHaveLength(rows.length); // the Join row's links sit outside the grid
     for (const t of screen.getAllByTestId('wall-tile')) expect(t.querySelectorAll('a')).toHaveLength(0);
   });
 
@@ -213,5 +213,13 @@ describe('small helpers', () => {
     expect(wallDateLabel(null)).toBeNull();
     expect(wallDateLabel('soon')).toBeNull();
     expect(wallDateLabel('2026-10-23', '2026-10-23')).toBe('Fri 23'); // today still shows
+  });
+});
+
+describe('fix pass (review R1): no role data, no role filters', () => {
+  it('/dancers with the badges read ok but EMPTY: everyone shows, only All (a Dancers chip would empty the wall)', () => {
+    mountDancers([DN('a'), DN('b')], { a: 'Ana', b: 'Bo' });
+    expect(screen.getAllByTestId('wall-tile')).toHaveLength(2);
+    expect(screen.queryAllByTestId('wall-filter')).toHaveLength(0);
   });
 });

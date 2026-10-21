@@ -56,6 +56,17 @@ for (const [path, tag] of [['/djs', 'djs'], ['/dancers', 'dancers']]) {
     await loc.screenshot({ path: `${dir}${out}-${tag}-${k}.png` });
     report[`${tag}-${k}-text`] = (await loc.innerText()).replace(/\s+/g, ' ');
   }
+  // Fix pass (owner change 1): the Join row under the /dancers wall, absent on /djs.
+  const join = page.locator('[data-testid="wall-join-row"]');
+  report[`${tag}-joinRow`] = await join.count() ? await join.evaluate((r) => ({
+    links: [...r.querySelectorAll('a')].map((a) => ({ text: a.textContent, href: a.getAttribute('href'), h: Math.round(a.getBoundingClientRect().height) })),
+    belowGrid: r.getBoundingClientRect().top >= document.querySelector('[data-testid="wall-grid"]').getBoundingClientRect().bottom,
+  })) : null;
+  if (await join.count()) {
+    await join.evaluate((r) => r.scrollIntoView({ block: 'center' }));
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${dir}${out}-${tag}-bottom.png` });
+  }
   await page.evaluate(() => window.scrollTo(0, 0));
   const chip = page.locator('[data-testid="wall-filter"]', { hasText: tag === 'djs' ? 'Dancers' : 'DJs' });
   if (await chip.count()) {

@@ -21,6 +21,7 @@
  "djs-noPhoto-text": "DC Next gig Thu 22 Daniel Carbonero , Teacher , DJ , Dancer",
  "djs-threeRole-text": "DC Next gig Thu 22 Daniel Carbonero , Teacher , DJ , Dancer",
  "djs-longName-text": "BR Next gig Tue 27 Boadicea Richards , Teacher , DJ , Dancer",
+ "djs-joinRow": null,
  "djs-filtered": {
   "scrollWidth": 390,
   "innerWidth": 390,
@@ -38,25 +39,40 @@
  "dancers-all": {
   "scrollWidth": 390,
   "innerWidth": 390,
-  "tiles": 93,
+  "tiles": 94,
   "tileWidth": 86.40625,
   "columns": 4,
   "namesClipped": 0,
   "maxNameLines": 2,
   "firstTileTop": 219.25,
   "faces": {
-   "photo": 41,
+   "photo": 42,
    "initials": 52
   }
  },
  "dancers-picks": {
   "noPhoto": 0,
-  "threeRole": 21,
-  "longName": 3
+  "threeRole": 22,
+  "longName": 4
  },
- "dancers-noPhoto-text": "M Magda , Dancer",
+ "dancers-noPhoto-text": "B Biskit , Dancer",
  "dancers-threeRole-text": "SS Sergio Suavez , Teacher , DJ , Dancer",
  "dancers-longName-text": "SP Sabrina Guzman Pastor , Dancer",
+ "dancers-joinRow": {
+  "links": [
+   {
+    "text": "Join the wall",
+    "href": "/auth?mode=signup&userType=dancer",
+    "h": 44
+   },
+   {
+    "text": "Book a photoshoot",
+    "href": "/videographers",
+    "h": 44
+   }
+  ],
+  "belowGrid": true
+ },
  "dancers-filtered": {
   "scrollWidth": 390,
   "innerWidth": 390,

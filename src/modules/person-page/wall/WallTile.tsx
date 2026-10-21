@@ -5,7 +5,7 @@ import { optimizedImageUrl } from '@/lib/imageCdn';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import { initialsOf, type WallList, type WallPerson } from './model';
 import { RoleChip } from './RoleChip';
-import { DATE_CHIP, SIZE, TILE, WALL } from './tokens';
+import { DATE_CHIP, FOCUS_RING, SIZE, TILE, WALL } from './tokens';
 
 function Face({ person }: { person: WallPerson }) {
   const a = TILE[person.lead];
@@ -81,7 +81,7 @@ export function WallTile({ person, list }: { person: WallPerson; list: WallList 
   return (
     <Link
       to={person.href}
-      className="block min-w-0"
+      className={`block min-w-0 rounded-[12px] ${FOCUS_RING}`}
       data-testid="wall-tile"
       data-lead={person.lead}
       onClick={() => emitProfileView({ personId: person.id, profileType: person.profileType, context: `listing:${list}` })}

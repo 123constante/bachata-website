@@ -10,6 +10,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { installJsdomPolyfills } from '../../../tests/client/jsdomPolyfills';
+import { isRoutable } from '@/lib/__tests__/routeTable';
 
 const h = vi.hoisted(() => ({ dancers: [] as unknown[], names: [] as unknown[], badges: [] as unknown[], badgesError: false, djs: [] as unknown[] }));
 vi.mock('@/hooks/useAuth', async (importOriginal) => ({
@@ -104,5 +105,33 @@ describe('flags.peopleWall', () => {
     mount(<Dancers />); await wait();
     expect(screen.queryByText(/No dancers yet/)).toBeNull();
     expect(screen.getAllByTestId('wall-tile')).toHaveLength(3);
+  });
+
+  // Owner change 1 (2026-10-21): under the wall on /dancers, "Join the wall" + "Book a photoshoot".
+  // Both hrefs must be REAL routes (the old /create-dancers-profile and /photographers are not).
+  it.each([
+    ['/dancers, flag ON', 'dancers', true, true],
+    ['/djs, flag ON', 'djs', true, false],
+    ['/dancers, flag OFF', 'dancers', false, false],
+  ] as const)('Join row: %s', async (_label, page, on, shown) => {
+    setWall(on);
+    mount(page === 'dancers' ? <Dancers /> : <DJs />); await wait();
+    const row = screen.queryByTestId('wall-join-row');
+    if (!shown) {
+      expect(row).toBeNull();
+      expect(screen.queryByRole('link', { name: 'Join the wall' })).toBeNull();
+      return;
+    }
+    const join = screen.getByRole('link', { name: 'Join the wall' });
+    const shoot = screen.getByRole('link', { name: 'Book a photoshoot' });
+    for (const a of [join, shoot]) {
+      const href = a.getAttribute('href') ?? '';
+      expect(href.startsWith('/')).toBe(true);
+      expect(isRoutable(href)).toBe(true);
+    }
+    expect(join.getAttribute('href')).toBe('/auth?mode=signup&userType=dancer');
+    expect(shoot.getAttribute('href')).toBe('/videographers');
+    // UNDER the wall: the row follows the grid in document order.
+    expect(screen.getByTestId('wall-grid').compareDocumentPosition(row as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

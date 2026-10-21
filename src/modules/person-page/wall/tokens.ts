@@ -30,6 +30,9 @@ export const TILE: Record<WallRole, TileTokens> = {
   organiser: { bg: '#7A2F0E', ink: '#FFD2B8', edge: '#FB8A4B' },
 };
 
+/** Keyboard focus on every wall control: a 2px ring in WALL.text (the site has no global focus style). */
+export const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FBEBDD]';
+
 /** Dark pill with gold text and a gold edge: holds on a gold tile and on a photo. */
 export const DATE_CHIP: ChipTokens = { bg: '#1E1410', text: '#FFD479', border: '#FFD479' };
 
