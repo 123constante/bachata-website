@@ -89,6 +89,9 @@ const parsePerson = (value: unknown, hrefBase: string | null, label: string): Ev
     instagram: asString(raw.instagram),
     facebook: asString(raw.facebook),
     contactPhone: asString(raw.contact_phone),
+    // Co-organising (ER-INTERFACE 4): absent until the server lands -> null.
+    role: asString(raw.role),
+    status: asString(raw.status),
   };
 };
 

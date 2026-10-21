@@ -348,7 +348,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     // Description hides when body is empty. Same null-return guard as
     // DescriptionBlock.
     const body = pageModel.description.body;
-    if (!body || !body.trim()) hidden.add('description');
+    if ((!body || !body.trim()) && pageModel.factLines.length === 0) hidden.add('description');
 
     // Guest list hides when disabled, past event, or data hasn't resolved yet.
     if (over || !guestList || !guestList.enabled) hidden.add('guest');
@@ -481,7 +481,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           />
         );
       case 'description':
-        return <DescriptionBlock body={pageModel.description.body} />;
+        return <DescriptionBlock body={pageModel.description.body} facts={pageModel.factLines} />;
       case 'venue':
         // When the standalone CityBlock is hidden (because PromoBlock is
         // occupying the top-right slot), fold the city name into Venue as a
