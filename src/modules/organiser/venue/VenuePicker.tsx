@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { MapPin, Plus } from 'lucide-react';
-import { useVenueOptions, type VenueOption } from '../shared/publicVenues';
+import { useVenueOptions, venueOptionsQueryKey, type VenueOption } from '../shared/publicVenues';
 import { ErrorState, Field, FIELD_CLASS, GhostButton, PrimaryButton, SearchField, useDebounced } from '../ui';
 import { createVenueDraft, draftVenueOption, similarVenues, VenueApiError, type CreatedVenue, type SimilarVenue } from './venueApi';
 import { lookupPostcode, mapPinUrl, normalisePostcode, POSTCODE_MESSAGES, type PostcodeFailure, type PostcodeFound, type PostcodeResult } from './postcode';
@@ -23,8 +24,9 @@ export interface VenuePickerProps {
 type Step = 'search' | 'details' | 'similar' | 'confirm';
 
 const SAVE_ERRORS: Record<VenueApiError['kind'], string> = {
-  rate_limited: 'You have added a lot of venues just now. Try again later.',
+  rate_limited: 'You can add 5 venues a day. Try again tomorrow, or pick an existing venue.',
   unavailable: 'Adding a venue is not available yet. Pick an existing venue for now.',
+  refused: 'That venue could not be added. Pick an existing venue, or ask the Bachata Calendar team.',
   failed: 'We could not add that venue. Check your connection and try again.',
 };
 
@@ -42,6 +44,29 @@ export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerPro
   const [similar, setSimilar] = useState<SimilarVenue[]>([]);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const searchRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const firstStep = useRef(true);
+
+  // Each step unmounts the button that opened it: move focus to the new step's first field or heading.
+  useEffect(() => {
+    if (firstStep.current) {
+      firstStep.current = false;
+      return;
+    }
+    if (step === 'details') nameRef.current?.focus();
+    else if (step === 'similar' || step === 'confirm') headingRef.current?.focus();
+    else searchRef.current?.focus();
+  }, [step]);
+
+  // Details and Dates name the venue from this cache: a venue picked from outside it goes in at once.
+  const remember = (venue: VenueOption) => {
+    const cached = queryClient.getQueryData<VenueOption[]>(venueOptionsQueryKey);
+    if (!cached) void queryClient.invalidateQueries({ queryKey: venueOptionsQueryKey });
+    else if (!cached.some((o) => o.id === venue.id)) queryClient.setQueryData<VenueOption[]>(venueOptionsQueryKey, [...cached, venue]);
+  };
 
   const settled = useDebounced(query, options ? 0 : 250);
   const search = useMemo(() => searchVenues(all, settled), [all, settled]);
@@ -80,8 +105,11 @@ export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerPro
     setStep(rows.length ? 'similar' : 'confirm');
   };
 
-  const pickSimilar = (v: SimilarVenue) =>
-    onPick({ id: v.venueId, name: v.name, neighbourhood: null, city_name: null, address: null, postcode: v.postcode });
+  const pickSimilar = (v: SimilarVenue) => {
+    const venue = { id: v.venueId, name: v.name, neighbourhood: null, city_name: null, address: null, postcode: v.postcode };
+    remember(venue);
+    onPick(venue);
+  };
 
   const add = async () => {
     if (!place) return;
@@ -89,8 +117,12 @@ export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerPro
     setSaveError(null);
     try {
       const made = await deps.create(name, place);
-      const existing = made.existing ? all.find((v) => v.id === made.venueId) : undefined;
-      onPick(existing ?? draftVenueOption(made.venueId, name, place));
+      const known = made.existing ? all.find((v) => v.id === made.venueId) : undefined;
+      // existing:true carries no name: the similar check returned the stored one, so the typed casing never shows.
+      const stored = made.existing ? similar.find((v) => v.venueId === made.venueId)?.name : undefined;
+      const venue = known ?? draftVenueOption(made.venueId, stored ?? name, place);
+      remember(venue);
+      onPick(venue);
     } catch (e) {
       setSaveError(SAVE_ERRORS[e instanceof VenueApiError ? e.kind : 'failed']);
     } finally {
@@ -101,7 +133,7 @@ export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerPro
   if (step === 'search') {
     return (
       <div className="space-y-[12px]" data-testid="venue-picker">
-        <SearchField value={query} onChange={setQuery} aria-label="Search venues" placeholder="Venue name or postcode" testId="venue-search" autoFocusInSheet />
+        <SearchField ref={searchRef} value={query} onChange={setQuery} aria-label="Search venues" placeholder="Venue name or postcode" testId="venue-search" autoFocusInSheet />
         {loaded.isError && !options && <ErrorState quiet title="Venues did not load" onRetry={() => void loaded.refetch()} testId="venue-load-error" />}
         {search.shape === 'none' && (
           <p className="text-[14px] text-[var(--mut)]" data-testid="venue-none">No venue matches &ldquo;{query.trim()}&rdquo;.</p>
@@ -114,7 +146,7 @@ export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerPro
                   <MapPin aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
                   <span className="min-w-0">
                     <span className="block truncate text-[16px] font-semibold text-[var(--fg)]">{v.name}</span>
-                    <span className="block truncate text-[13px] text-[var(--mut)]">{[v.neighbourhood ?? v.city_name, v.postcode].filter(Boolean).join(' · ')}</span>
+                    <span className="block truncate text-[13px] text-[var(--mut)]">{[v.neighbourhood ?? v.city_name, v.postcode].filter(Boolean).join(' \u00b7 ')}</span>
                   </span>
                 </button>
               </li>
@@ -136,7 +168,7 @@ export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerPro
     return (
       <div className="space-y-[12px]" data-testid="venue-details">
         <Field label="Venue name" htmlFor="venue-name">
-          <input id="venue-name" className={`${FIELD_CLASS} h-[48px]`} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+          <input id="venue-name" ref={nameRef} className={`${FIELD_CLASS} h-[48px]`} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
         </Field>
         <Field label="Postcode" htmlFor="venue-postcode" error={failure === 'bad' ? POSTCODE_MESSAGES.bad : failure === 'not_found' ? POSTCODE_MESSAGES.not_found : null}>
           <input id="venue-postcode" className={`${FIELD_CLASS} h-[48px] uppercase`} value={postcode} onChange={(e) => editPostcode(e.target.value)} autoComplete="postal-code" />
@@ -152,7 +184,7 @@ export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerPro
         ) : (
           <PrimaryButton onClick={() => void findPostcode()} loading={busy} loadingLabel="Looking up" disabled={!shaped} testId="postcode-find">Look up postcode</PrimaryButton>
         )}
-        {!place && !shaped && <p className="text-[13px] text-[var(--mut)]">Postcode needed</p>}
+        {!place && !shaped && <p className="text-[13px] text-[var(--mut)]">Full UK postcode needed</p>}
         <GhostButton onClick={() => setStep('search')}>Back to search</GhostButton>
       </div>
     );
@@ -161,7 +193,7 @@ export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerPro
   if (step === 'similar') {
     return (
       <div className="space-y-[12px]" data-testid="venue-similar">
-        <p className="text-[16px] font-semibold text-[var(--fg)]">Is it one of these?</p>
+        <h3 ref={headingRef} tabIndex={-1} className="text-[16px] font-semibold text-[var(--fg)] outline-none">Is it one of these?</h3>
         <ul className="space-y-[8px]">
           {similar.map((v) => (
             <li key={v.venueId}>
@@ -173,13 +205,14 @@ export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerPro
           ))}
         </ul>
         <GhostButton onClick={() => setStep('confirm')} testId="similar-none">No, it&rsquo;s a new venue</GhostButton>
+        <GhostButton onClick={() => setStep('details')}>Back</GhostButton>
       </div>
     );
   }
 
   return (
     <div className="space-y-[12px]" data-testid="venue-confirm">
-      <p className="text-[16px] font-semibold text-[var(--fg)]">{name.trim()}</p>
+      <h3 ref={headingRef} tabIndex={-1} className="text-[16px] font-semibold text-[var(--fg)] outline-none">{name.trim()}</h3>
       {place && <p className="text-[14px] text-[var(--mut)]">{[place.address, place.postcode].filter(Boolean).join(', ')}</p>}
       {saveError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="venue-save-error">{saveError}</p>}
       <PrimaryButton onClick={() => void add()} loading={busy} loadingLabel="Adding" testId="venue-add">Add venue</PrimaryButton>
