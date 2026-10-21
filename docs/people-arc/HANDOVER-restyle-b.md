@@ -203,3 +203,27 @@ Brief: admin `brief/people-d89` `briefs/people-arc/FIX-RESTYLE-B.md` (blob 3494f
 ### Next steps
 - Orchestrator: merge `origin/main` after #897 (and #902) land; re-run `check:dancer-area-isolation` (expect 0) and `check:bundle-budget` (the merge may move the counts).
 - Decide F1-F5.
+
+## Merge main + N11 (MERGE-925, ticket dt_286ce6e8b3c2)
+
+`origin/main` (5955daf, #897) merged into `claude/dancer-app-ember` with a plain `git merge`, conflict-free. One push.
+
+| Gate | Command | Result |
+|---|---|---|
+| dancer-area-isolation | `npm run check:dancer-area-isolation` | exit 0 ("rules a+b+c: OK", base 5955daf) -- the 20 ER-UI files clear |
+| bundle-budget | `npm run check:bundle-budget` | exit 0; `/app/*` chunk ratchet 53/53, nothing moved, **no allowance change** |
+| production build | `npm run build` | exit 0 |
+| unit | `npm run test:unit` | 4 files / 15 tests red, **the same 4 files fail on main 5955daf** (3 live-DB `*.contract.test.ts`, `integrityCouldNotRun`; `festivalClientState` is listed in the failures here but passed on main in isolation -- treat as load-sensitive, unconfirmed) |
+| typecheck | `npm run typecheck` | exit 2; same `src/` error set as main, EXCEPT one the merge introduced (below, fixed) |
+| lint chain | `npm run lint` | `check:integrity` exit 126 (`bin/check-integrity.sh` not executable here; same on main); other links PASS; eslint link skipped by the chain |
+| e2e dancer-app (7 specs incl. ember-walk at 390x844, 360x640, 1280x800) | `npx playwright test tests/e2e/dancer-app/*.spec.ts --project=chromium` | 95 pass / 3 fail in the full parallel run; the 3 (ember-walk home-filled, home-empty, reachability `/account`) **pass re-run alone** (load timeouts) |
+
+Merge fallout fixed: main's `signOutEntryPoints.test.tsx` passed `buttonStyle` to the dancer-app `SignOutConfirm`, a prop this branch removed in the restyle. The test no longer passes it (8/8 green).
+
+### N11 -- shared SiteHomeLink: NOT switched (parked)
+The isolation rules (a/b/c) do not forbid `dancer-app` importing `src/modules/areas/shared/SiteHomeLink.tsx`, but the two are not drop-in: the shared one has no `onBeforeLeave` prop and uses areas' own `leaveGuard` (`isLeaveDirty`/`requestLeave`), which the dancer shell's `guardRef` Discard sheet does not feed, so a swap would silently drop the dancer Discard prompt. It also renders different markup (Tailwind classes, `Home` icon, no `da-home-chip`), which `emberRestyle`, `shellHeader`, `focusChrome` and the ember-walk spec assert. Local copy kept.
+
+### Parked questions (merge)
+- **M1. Unify SiteHomeLink.** Default used: keep the local copy. Option: add `onBeforeLeave` and a chip slot to the shared component (in `src/modules/areas/**`, off-limits to this slice) and have the dancer shell pass its guard. Cost if wrong: low. Where: `src/modules/dancer-app/shell/SiteHomeLink.tsx`.
+- **M2. Could not run in the sandbox:** `check:integrity` (exec bit), the live-DB contract tests, phone-qa and build-smoke (need PR context / a live deploy). GitHub Actions is the source of truth for those.
+- **M3. Test run rewrote tracked screenshots/snapshots** (`docs/handover/**` PNGs); they were deliberately NOT committed.
