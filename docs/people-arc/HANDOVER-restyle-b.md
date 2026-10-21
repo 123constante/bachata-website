@@ -131,3 +131,75 @@ Merged `origin/claude/er-ui-ember` first: 4b2a3576 (D117) was already an ancesto
 - Q: Onboarding answers (role, years, styles) are block-styled but kept as radio / checkbox buttons, not the pill `Chip`. Default used: keep roles (tests and screen readers rely on them). Options: switch to pills with `aria-pressed`. Cost if wrong: small. Where: `screens/onboarding/ui.tsx` Chip.
 - Q: `.da-tap` / `.da-header` rules kept in `dancer.css`. Default used: keep (shell uses them). Options: move the shell to blocks. Cost if wrong: small. Where: `theme/dancer.css`.
 - Q: Me's "My profile" section label is new (prototype has the three rows in one card under no label). Default used: keep the label. Cost if wrong: small. Where: `screens/me/MeScreen.tsx`.
+
+## Fix pass (FIX-RESTYLE-B, job card jc-0022, ticket dt_94f9f5c6cf50)
+
+Brief: admin `brief/people-d89` `briefs/people-arc/FIX-RESTYLE-B.md` (blob 3494f9e6). Review: `origin/claude/review-restyle-b`
+`docs/people-arc/reviews/RESTYLE-B.md` (at 1fe6d51d). Decisions D138-D140 applied. ER-UI files untouched; nothing under
+`src/modules/areas/**`, `src/pages/Account*.tsx`, `src/components/account/**`, `src/modules/organiser/**`.
+
+### Findings: what was done (test names; "red" = seen failing on 1fe6d51d first)
+
+| Id | Fixed how | Test |
+|---|---|---|
+| B3 | `theme/dancer.css`: `[data-profile="dancer"] .da-tap` now sets ONLY the 44px target, radius and no underline (no `color`, `display`, `align-items`, `justify-content`); `.da-tab`, `.da-not-now`, `.da-home-link` carry their own inline-flex; Edit back link and level-vote buttons got `inline-flex items-center justify-center`. LINK_PRIMARY renders `--btnfg` (#1d0a03) on `--btn`; RateNudge is a block tile again | `tests/client/dancerAppTheme.test.ts` ".da-tap never beats a block's own colour or layout (review B3)" (red); e2e `ember-walk.spec.ts` "ember fills under 4.5:1" on every state + explicit `contrast` on `me-main-action` (red on `me` and `page`, 2.96:1) |
+| B1 (D139) | `vite.chunks.ts`: new first-party group `lib-org-ui` (Card, Chip, Field, SearchField, Skeleton, States, SummaryRow, useKeyboardInset); `src/lib/utils.ts` pinned to `lib-event-rules` (without it the group swallowed `cn` + tailwind-merge and every budgeted route measured +1 chunk). `perf-budgets.json`: /app/* chunk allowance 56 -> 53 (measured), note `//dancer-app-2026-10-21-fix-pass` | `tests/client/dancerAppChunks.test.ts`; `tests/chunkClassifier.test.ts` lib-event-rules list +1 line (the pinned list test) |
+| B2 (D138) | `scripts/dancer-area-isolation-allowlist.json`: `docs/people-arc/` added to `docPrefixes`, seamNote "docPrefixes entry: docs only; orchestrator decision D138 2026-10-21". Nothing else added | `npm run check:dancer-area-isolation`: 70 -> 20 violations, ALL ER-UI (`src/modules/organiser/**` 17, `docs/organiser-rebuild/er/**` 3); they clear when main (with #902/#897) is merged in by the orchestrator |
+| S1 (D140) | Change photo/Add photo goes through `leave()`; the shell's switcher container has an `onClickCapture` that runs the dirty guard (preventDefault, the sheet opens, Discard then follows the row's href); `beforeunload` while dirty | `emberRestyle.test.tsx` "S1: Change photo goes through the sheet...", "S1: a profile-switcher row goes through the sheet...", "S1: ... switches straight away when nothing changed", "S1: closing the tab or reloading asks the browser to confirm only while there are unsaved edits" (red) |
+| S1 gap | History blocker NOT built: `/app/*` runs under a plain `<BrowserRouter>` (`src/App.tsx:151`), no data router, so a getBlocker hook would be a no-op. KNOWN GAP: browser/iOS swipe back loses an unsaved Edit draft (comment at `EditScreen.tsx` beforeunload effect) | - |
+| S2 | Home next-night card error state: TEXT_ACTION "Try again" -> nights `retry` | `homeFixPass.test.tsx` "S2 ..." (red) |
+| S3 | Lineup rows: router `<Link>`, chevron, `emitProfileView({personId, profileType: roles[0], context: 'dancer-app:home-lineup'})` loaded on tap | `homeFixPass.test.tsx` "a tap emits ONE profile view ... router link", "a DJ-only row emits type dj" (red). Cost: /event puller 2 -> 3, see Parked F1 |
+| S4 | RateNudge: icon tile + stacked text + chevron; strength: one full-width "Profile strength" row (ring, subline, chevron); hero "See event": full width, 52px, 18px/800 pill, token colours (`.da-hero-cta`, ~19:1) | `homeFixPass.test.tsx` S4a/S4b/S4c (red) |
+| S5 | Partner button is the ghost look (card2, fg, line border) | `homeFixPass.test.tsx` S5 (red) |
+| S6 | `ScreenTitle` (h1 28px/800, -0.025em, `--fg`) in `screens/blocks.tsx`, used on Me, Edit, Options, My page, Nights, Photo, Onboarding | `screenTitles.test.tsx` "S6: every dancer screen titles itself through ScreenTitle" (red) |
+| S7 | CityPicker gets an Ember className (card2, line-strong border, 16px, 48px); the hide-surname switch box maps the shadcn vars to Ember HSL (light knob, ember on-track) in `theme/dancer-color.css`. Shared components not edited | `screens/edit/__tests__/editPalette.test.tsx` (red). Not covered: the picker's popover list is portalled outside the dancer wrapper |
+| S8 | `SectionTitle` (sentence case 15px/700 `--fg`) on Home lineup, Nights Upcoming/Past, Me "My profile", Page "How your page looks"; lineup chevron (S3) | `screenTitles.test.tsx` "S8: ..." (red) |
+| S9 | ONE `FIND_A_NIGHT` in `copy/sharedCopy.ts` ("Find a night with the Bachata Calendar link at the top left."), used by Home, Nights (`NO_NIGHTS_FIND`) and the lineup empty state | `homeFixPass.test.tsx` S9 x4 (red) |
+| S10 | Left as is: clears with the merge order (#897 adds `/account/areas`) | - |
+| N1 | `shell/confetti.ts`: one burst at a time (a live `.da-confetti` layer blocks a second); import order fixed in `useMyDancerEdit.ts` | `shell/__tests__/confetti.test.tsx` "review N1 ..." (red) |
+| N2 | Lineup renders nothing while there is no user | `homeFixPass.test.tsx` N2 (red) |
+| N3 | Parser dedupes by profile_id (first wins, total reduced); "and N more" only when total > rows | `homeFixPass.test.tsx` N3 x3 (red) |
+| N4 | `NotesArt` deleted; `.da-hero--flyer` and the `.da-ticks` rules (unused after N8) removed. `shortDate` KEPT: RateNudge and `homeAudit.test.tsx` still import it | cleanup, no red |
+| N5 | New `--da-pop-*`/`--da-photo-well` tokens (tokens.ts = dancer.css); confetti, art strokes, PhotoScreen, Home hero use variables; the `,#f5865a` fallbacks dropped | `homeFixPass.test.tsx` no-raw-hex in `screens/home/**` (red); theme hex test |
+| N6 | One `:focus-visible` 2px `--da-focus` ring for a, button, input, select, textarea, role=button/radio/switch (a plain selector list: the theme test splits on commas) | `dancerAppTheme.test.ts` "one focus ring for every control (review N6)" (red) |
+| N7 | Discard is quiet danger text (`--danger`, 44px). The X stays: `SheetView` always renders `Dialog.Close` (organiser file) -- Parked F3 | `emberRestyle.test.tsx` "N7: ..." (red) |
+| N8 | `StickyActions` (sticky above the tab bar) on Page and Photo; Page checklist uses 20px tick discs (`lookLines` -> `{text, done}`); "Dancer" badge kept (Q4) | `screenTitles.test.tsx` "N8: ..." x3 (red), `pageModelRole.test.ts` |
+| N9 | Ember pairs added to the contrast test (btnfg/btn, fg/mut/gold-fg on bg/card/card2, danger/card) | `dancerAppTheme.test.ts` "contrast of the Ember pairs ..." |
+| N10 | PR body updated (no "not yet rebuilt" line) | - |
+| N11 | Stays (switch to slice A's SiteHomeLink after #897) | - |
+| Same fact | PARKED (F2) | - |
+
+### Gates (sandbox, this head; command: exit)
+
+| Job / step | Command | Result |
+|---|---|---|
+| perf-budget | `npm run build` (perf-budget.yml env) | 0 |
+| | `npm run check:bundle-budget` | 0: dancer-app 366.6 KB / 53 chunks / 4 pullers; every other route at its chunk allowance; /event 3 pullers (allowance raised, F1) |
+| | `npm run check:first-load-requests` | 0 (six pins unchanged) |
+| | `npm run check:chunk-cycles` | 0 |
+| | all 87 client entries, static closure vs 1fe6d51d | none gained a chunk; 19 lost 1-6 |
+| dancer-area-isolation | `npm run check:dancer-area-isolation` | 1: 20 violations, all ER-UI (B2) |
+| lint | `npm run lint` | 0 (20 of 20 links) |
+| unit | `TZ=Europe/London npx vitest run` | 1: 11162 passed / 15 failed / 19 skipped: the SAME 15 the review saw on main (live-DB contracts: no valid key; `integrityCouldNotRun` x5: sandbox `NODE_PATH`, 67/14 skipped with `NODE_PATH=`) |
+| unit slice | `npx vitest run src/modules/dancer-app tests/client` | 0 (65 files, 1729 tests) |
+| typecheck | `npm run typecheck` | 2: 100 errors, 0 in dancer-app (pre-existing sandbox errors, review measured 99-101) |
+| e2e-smoke | `npm run test:e2e` | 1: 159 passed, 1 failed, 1 skipped; the failure is `dancer-home.spec.ts:168` toHaveURL on /account/o, the flake the review recorded on 1fe6d51d; re-run alone: passed |
+| walk | `npx playwright test tests/e2e/dancer-app/ember-walk.spec.ts --project=chromium` | 0: 51 passed (17 states x 390x844, 360x640, 1280x800): contrast >= 4.5 on every ember fill, primary not covered, no sideways scroll, tab bar off the last row, zero console errors; 390x844 shots refreshed in `docs/people-arc/restyle-b/` |
+| phone-qa | `npx playwright test --config playwright.phone.config.ts` (390x844 + 360x640) | 0: 272 passed, 74 skipped |
+| build-smoke | fake-Supabase `npm run build` + `npx playwright test --config playwright.build.config.ts` | 0 / 0: 66 passed |
+| integrity | `AUDIT_STRICT=1 npm run check:images` | 0 |
+
+### Verified on real data / Not verified
+- Shape survey (prod `stsdtacfauprzrdebmzg`, read-only counts): 6 claimed, non-archived dancer profiles; 0 without avatar, 0 inactive, 0 without city, 6 without bio; longest display name 16 chars; 0 people with 2+ dancer profiles (the switcher capture is exercised by tests only); `my_nights_lineup_people_v1` now EXISTS on prod (admin #910 landed).
+- Not verified: a real phone; the lineup RPC called as a real user (auth-scoped, mocked in tests and the walk); gradient-surface contrast by pixel sampling (the e2e skips gradient backgrounds); focus trap inside sheets; Onboarding step 1; GitHub Actions on this head (not consulted from the sandbox); Vercel preview (no VERCEL_TOKEN check run).
+
+### Parked questions (fix pass)
+- **F1. /event puller 2 -> 3 from S3.** Question: accept the extra vendor-supabase puller on /event, or fix profileViewEmit? Default used: allowance raised with a note (`perf-budgets.json` `//dancer-app-2026-10-21-fix-pass`); /event chunks and KB unchanged. Options: (a) keep; (b) change `src/lib/profileViewEmit.ts` to use `getSupabase()` (outside this slice's files) and tighten back to 2; (c) drop the telemetry from the lineup rows. Cost if wrong: small. Where: `src/modules/dancer-app/screens/home/LineupPeople.tsx` (tap handler), `perf-budgets.json` pullerRatchet.
+- **F2. Same fact, same words (Home ring vs slice A "N answers left").** Default used: parked; Home keeps `nextStepLine`. Why: slice A's count is `my_profile_progress_v1.required_left`; Home's ring is `my_dancer_edit_v1.strength.missing` (includes optional steps), so at 70% Home would say "0 answers left"; importing `profileProgress` also pulls the eager Supabase client into /app/*. Options: leave; Home calls the progress RPC lazily; add `required_left` to `my_dancer_edit_v1` (admin). Cost if wrong: small. Where: `screens/home/HomeScreen.tsx` strength row.
+- **F3. N7 close X on the discard sheet.** Default used: keep the X. Options: a `hideClose` prop on organiser `SheetView` (organiser slice), or a dancer-local sheet. Cost if wrong: small (cosmetic). Where: `src/modules/organiser/ui/SheetView.tsx:166`.
+- **F4. S1 browser back.** Default used: `beforeunload` only, history blocker recorded as a known gap (no data router). Options: accept; a popstate re-push guard (fragile on iOS); move /app/* to a data router. Cost if wrong: small (a lost unsaved draft). Where: `screens/edit/EditScreen.tsx` beforeunload effect.
+- **F5. tests/chunkClassifier.test.ts** is outside the brief's file list; it pins the lib-event-rules list exactly, so D139's `utils.ts` pin needed one line there. Default used: changed. Cost if wrong: small.
+
+### Next steps
+- Orchestrator: merge `origin/main` after #897 (and #902) land; re-run `check:dancer-area-isolation` (expect 0) and `check:bundle-budget` (the merge may move the counts).
+- Decide F1-F5.
