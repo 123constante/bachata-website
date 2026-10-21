@@ -105,7 +105,7 @@ describe('wizard order is the server order (C15)', () => {
     progress.steps = steps([['teacher', 'years_teaching', false, false], ['dancer', 'bio', false, false]]);
     progress.required_left = 0;
     progress.publish_ready = true;
-    const saveRole = vi.fn(async () => undefined);
+    const saveRole = vi.fn(async (_step: unknown, _value: unknown) => undefined);
     rpc.mockImplementation(async (fn: string) => {
       if (fn === 'organiser_home_v1') return { data: { today: '2026-10-20', organisers: [] }, error: null };
       if (fn === 'my_profile_progress_v1') return { data: progress, error: null };
