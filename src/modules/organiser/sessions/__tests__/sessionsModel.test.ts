@@ -95,7 +95,7 @@ describe('kinds x lengths x start (midnight wrap)', () => {
 describe('impossible ends cannot be chosen', () => {
   const s = newSession('party', '22:00', 'a');
   it.each(['22:00', '21:45', '', 'nope', '25:00'])('setEnd ignores %s', (bad) => {
-    // 21:45 is 23h45 after 22:00: past the 10 h cap, so also impossible
+    // 21:45 is 23h45 after 22:00: past the 12 h cap, so also impossible
     expect(setEnd(s, bad)).toBe(s);
   });
   it('a valid later end after midnight is taken', () => {
@@ -130,10 +130,10 @@ describe('levels', () => {
     const s = toggleLevel(toggleLevel(newSession(kind, '19:00', 'a'), 'beginner'), 'advanced');
     expect(s.levels).toEqual(allowed ? ['beginner', 'advanced'] : []);
   });
-  it.each(rows)('%s: needs one level only where allowed', (kind, allowed) => {
-    const bare = sessionIssues(newSession(kind, '19:00', 'a')).map((i) => i.code);
-    expect(bare.includes('level')).toBe(allowed);
-    if (allowed) expect(sessionIssues(toggleLevel(newSession(kind, '19:00', 'a'), 'improver'))).toEqual([]);
+  // ER-FIX C4-1: level is optional detail (plan rule 11), never an issue.
+  it.each(rows)('%s: no level is never an issue', (kind) => {
+    expect(sessionIssues(newSession(kind, '19:00', 'a'))).toEqual([]);
+    expect(sessionIssues(toggleLevel(newSession(kind, '19:00', 'a'), 'improver'))).toEqual([]);
   });
   it('switching to a kind without level drops them; name follows the kind only while default', () => {
     const c = toggleLevel(newSession('class', '19:00', 'a'), 'beginner');

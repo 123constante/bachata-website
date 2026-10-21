@@ -1,7 +1,8 @@
-import { useEffect, useId, useState } from 'react';
+import { Fragment, useEffect, useId, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Chip, FIELD_CLASS, PersonRow, SearchField, useDebounced } from '../ui';
 import { LEVEL_LABEL } from '../shared/programmeModel';
+import { toMinutes } from '../shared/eventRules';
 import {
   LEVEL_KEYS,
   addPerson,
@@ -24,6 +25,7 @@ import {
   setRoom,
   setStart,
   showQuickLengths,
+  PICK_START,
   startOptions,
   toggleLevel,
   type SessionDraft,
@@ -46,7 +48,7 @@ export interface SessionCardProps {
   recent: readonly SessionPerson[];
   onPicked: (p: SessionPerson) => void;
   search: SearchPeopleFn;
-  /** Show the reason under the card (after the person tried to save). */
+  /** Show the reason under the card. On by default: a card always says what is wrong with it. */
   showIssues?: boolean;
 }
 
@@ -58,7 +60,7 @@ const labelClass = 'text-[13px] font-semibold text-[var(--mut)]';
  * (rule 25). Pure view of a SessionDraft: every change goes up through
  * onChange, built from the pure setters in sessionsModel.
  */
-export function SessionCard({ session: s, title, onChange, onRemove, roomShown, onAddRoom, onRemoveRoom, recent, onPicked, search, showIssues }: SessionCardProps) {
+export function SessionCard({ session: s, title, onChange, onRemove, roomShown, onAddRoom, onRemoveRoom, recent, onPicked, search, showIssues = true }: SessionCardProps) {
   const uid = useId();
   const who = lineupLabel(s.kind);
   const issues = showIssues ? sessionIssues(s) : [];
@@ -90,6 +92,9 @@ export function SessionCard({ session: s, title, onChange, onRemove, roomShown, 
   const shownHits = hits ? hitsFor(hits, s) : null;
   const rec = recentFor(recent, s);
   const quick = showQuickLengths(s);
+  const timed = toMinutes(s.start) !== null;
+  const ends = endOptions(s.start, s.end);
+  const lengths = quickLengthOptions(s.kind);
 
   return (
     <section aria-label={title} data-testid={`session-${s.id}`} className="space-y-[12px] rounded-[16px] border border-[var(--line)] bg-[var(--card)] p-[12px]">
@@ -136,14 +141,15 @@ export function SessionCard({ session: s, title, onChange, onRemove, roomShown, 
             <>
               <span className={labelClass}>Ends</span>
               <div data-testid="session-end-text" className="flex h-[48px] items-center text-[16px] text-[var(--fg)]">
-                {endOptions(s.start, s.end).find((o) => o.value === s.end)?.label ?? s.end}
+                {ends.find((o) => o.value === s.end)?.label ?? s.end}
               </div>
             </>
           ) : (
             <>
               <label htmlFor={`${uid}-end`} className={labelClass}>Ends</label>
-              <select id={`${uid}-end`} data-testid="session-end" className={selectClass} value={s.end} onChange={(e) => onChange(setEnd(s, e.target.value))}>
-                {endOptions(s.start, s.end).map((o) => (
+              <select id={`${uid}-end`} data-testid="session-end" className={selectClass} value={timed ? s.end : ''} disabled={!timed} onChange={(e) => onChange(setEnd(s, e.target.value))}>
+                {!timed && <option value="">{PICK_START}</option>}
+                {ends.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
@@ -152,14 +158,14 @@ export function SessionCard({ session: s, title, onChange, onRemove, roomShown, 
         </div>
       </div>
 
-      {quickLengthOptions(s.kind).length > 0 && (
+      {lengths.length > 0 && (
         <div role="group" aria-label="Length" className="flex flex-wrap gap-[8px]">
-          {quickLengthOptions(s.kind).map((q) => (
-            <Chip key={q.minutes} selected={quickLengthSelected(s, q.minutes)} onToggle={() => onChange(setLength(s, q.minutes))} testId={`length-${q.minutes}`}>
+          {lengths.map((q) => (
+            <Chip key={q.minutes} selected={quickLengthSelected(s, q.minutes)} onToggle={() => onChange(setLength(s, q.minutes))} disabled={!timed} testId={`length-${q.minutes}`}>
               {q.label}
             </Chip>
           ))}
-          <Chip selected={otherLengthSelected(s)} onToggle={() => onChange(chooseOtherLength(s))} testId="length-other">Other</Chip>
+          <Chip selected={timed && otherLengthSelected(s)} onToggle={() => onChange(chooseOtherLength(s))} disabled={!timed} testId="length-other">Other</Chip>
         </div>
       )}
 
@@ -215,7 +221,9 @@ export function SessionCard({ session: s, title, onChange, onRemove, roomShown, 
       </div>
 
       {issues.length > 0 && (
-        <p role="alert" data-testid="session-issues" className="text-[13px] text-[var(--danger)]">{issues.map((i) => i.reason).join(' · ')}</p>
+        <p aria-live="polite" data-testid="session-issues" className="text-[13px] text-[var(--danger)]">{issues.map((i, n) => (
+            <Fragment key={i.code}>{n > 0 && <> &middot; </>}{i.reason}</Fragment>
+          ))}</p>
       )}
     </section>
   );
