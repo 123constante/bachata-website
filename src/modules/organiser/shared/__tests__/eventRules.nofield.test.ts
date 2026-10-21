@@ -15,7 +15,6 @@ const TIME_INPUT = /type=["']time["']|type:\s*["']time["']|<TimeField\b|<TimePic
 /** Offenders as of ER-S1 (2026-10-21), module-relative. */
 const OFFENDERS = new Set<string>([
   'dates/DateSheet.tsx',
-  'events/ProgrammeSheet.tsx',
   'flows/add/Time.tsx',
   'flows/change/Time.tsx',
   'flows/new/NewFlow.tsx',

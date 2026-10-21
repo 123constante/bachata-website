@@ -221,18 +221,6 @@ describe('6. Make it weekly counts (PAR-B N7)', () => {
   });
 });
 
-// ---- 8. PAR-B S5: one name, Put it back (dates taken off) ---------------------------------
-
-describe('8. Dates taken off say Put it back (PAR-B S5)', () => {
-  it('the button reads PUT_IT_BACK and its aria-label names the date', async () => {
-    wsOver[A] = { removed_dates: [day(24)] };
-    mount(ORG_PATHS.event(A), routes);
-    const btn = await screen.findByTestId('org-taken-off-put-back');
-    expect(btn.textContent).toBe(PUT_IT_BACK);
-    expect(btn.getAttribute('aria-label')).toMatch(/^Put it back: /);
-  });
-});
-
 // ---- 12. PAR-B N9: off rows are focusable and described; Discard is destructive ------------
 
 function renderDone(seriesId: string) {

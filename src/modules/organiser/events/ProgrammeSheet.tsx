@@ -6,6 +6,7 @@ import { LEVEL_KEYS, PEOPLE_ROLES, SESSION_TYPES, levelsApplyTo, type PeopleRole
 import { LevelText } from '@/modules/organiser/shared/components/LevelText';
 import { PEOPLE_SEARCH_MIN } from '@/modules/organiser/shared/selfServeApi';
 import { pickerQueryKey, searchPickerRows } from '../dates/peoplePicker';
+import { endOptions, startOptions } from '@/modules/organiser/sessions/sessionsModel';
 import {
   addPerson, addRoleFor, itemName, lengthLine, profileTypeOf, recentFor, removePerson, roleWord, rolesFor, setPersonLevel, setPersonRole, setType,
   toggleLevel, typeWord, whyCannotAddPerson, type ItemProblem, type PItem, type RecentPerson,
@@ -81,12 +82,18 @@ function SessionView({ item, update, problems, onState, announce }: ProgrammeShe
       <div>
         <div className="grid grid-cols-2 gap-[12px]">
           <Field label="Starts" htmlFor={startId}>
-            <input id={startId} type="time" className={`${FIELD_CLASS} h-[48px]`} value={item.start}
-              onChange={(e) => set((it) => ({ ...it, start: e.target.value }))} data-testid="prog-start" />
+            <select id={startId} className={`${FIELD_CLASS} h-[48px]`} value={item.start}
+              onChange={(e) => set((it) => ({ ...it, start: e.target.value }))} data-testid="prog-start">
+              {!item.start && <option value="">Pick a time</option>}
+              {startOptions(item.start).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
           </Field>
           <Field label="Ends" htmlFor={endId}>
-            <input id={endId} type="time" className={`${FIELD_CLASS} h-[48px]`} value={item.end}
-              onChange={(e) => set((it) => ({ ...it, end: e.target.value }))} data-testid="prog-end" />
+            <select id={endId} className={`${FIELD_CLASS} h-[48px]`} value={item.end} disabled={!item.start}
+              onChange={(e) => set((it) => ({ ...it, end: e.target.value }))} data-testid="prog-end">
+              {!item.end && <option value="">{item.start ? 'Pick a time' : 'Pick a start first'}</option>}
+              {endOptions(item.start, item.end).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
           </Field>
         </div>
         {length && <p className="mt-[4px] text-[13px] text-[var(--mut)]" data-testid="prog-length">{length}{item.end && item.end <= item.start ? ', ends the next day' : ''}</p>}

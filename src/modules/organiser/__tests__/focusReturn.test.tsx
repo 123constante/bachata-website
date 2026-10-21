@@ -34,7 +34,7 @@ describe('B-S8 (a): every SheetView call site hands focus back to its opener', (
     .filter(({ file, src }) => file !== 'ui/SheetView.tsx' && /<SheetView\b/.test(src));
   it('the known call sites are all found (the review named four; the leave and onboarding sign-out sheets are two more)', () => {
     expect(sites.map((s) => s.file).sort()).toEqual([
-      'dates/DateSheet.tsx', 'events/EditorSheet.tsx', 'events/ProgrammeSheet.tsx', 'events/SeriesOrganisers.tsx', 'home/onboarding/OrganiserSheet.tsx',
+      'dates/DateSheet.tsx', 'events/EditorSheet.tsx', 'events/EventPage.tsx', 'events/ProgrammeSheet.tsx', 'events/SeriesOrganisers.tsx', 'home/onboarding/OrganiserSheet.tsx',
       'home/onboarding/SignOutLine.tsx', 'more/SignOutSheet.tsx', 'more/index.tsx', 'sessions/SessionSheet.tsx',
     ]);
   });

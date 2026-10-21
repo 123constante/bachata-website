@@ -13,7 +13,6 @@ import { ACTION_LABEL, EventStep, eventActions, eventStepPath, readStep, STEP_PA
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Card, EmptyState, ErrorState, SkeletonRows } from '../ui';
 import { ClosedLines } from './ClosedLines';
-import { DatesTakenOff } from './DatesTakenOff';
 import { DatesList } from './EditorRows';
 import { EventList } from './EventList';
 import { moreLabel, readIsFull, wsCancelledComing, wsComing, type EventWorkspace } from './eventModel';
@@ -24,6 +23,10 @@ import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { nothingComingUp } from '@/modules/organiser/shared/lifeLabel';
 import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { LifecycleActions } from './LifecycleActions';
+import { EventPage } from './EventPage';
+import { useRebuildSwitch } from '../shell/rebuildSwitch';
+import { useOrganiserSeries } from '../shared/useOrganiserSeries';
+import { notFoundText } from '../flows/add/notFoundText';
 
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left text-[15px]';
 const MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -177,6 +180,31 @@ function dayNow(ws: EventWorkspace): string {
 }
 
 /**
+ * The rebuilt event page's route (ER-C8): loading, the not-found split (archived / no access /
+ * gone), a failed read with Try again, then the page. Only with the rebuild switch on.
+ */
+function RebuiltEvent({ seriesId }: { seriesId: string }) {
+  const found = useOrganiserSeries(seriesId);
+  const ws = useEventWorkspace(seriesId);
+  const home = useFlowHome();
+  const today = home.data?.today ?? londonTodayKey();
+  if (found.state === 'found' && ws.data) return <EventPage key={ws.data.series.version} ws={ws.data} today={today} />;
+  const retry = () => { void home.refetch(); void ws.refetch(); if (found.state === 'error') found.retry(); };
+  const body = found.state === 'not-found-archived' || found.state === 'no-access' || found.state === 'gone' ? (
+    <EmptyState title={notFoundText(found.state)} testId={`org-event-${found.state}`} />
+  ) : found.state === 'error' || ws.isError ? (
+    <ErrorState onRetry={retry} retrying={home.isFetching || ws.isFetching} testId="org-event-error" />
+  ) : (
+    <SkeletonRows count={5} label="Loading the event" testId="org-event-loading" />
+  );
+  return (
+    <OrganiserShell title="Event" back={{ to: ORG_PATHS.events, label: 'Events' }} testId="org-page-event">
+      {body}
+    </OrganiserShell>
+  );
+}
+
+/**
  * /account/o/events/:seriesId (C36, D23): leads with its dates -- the month
  * with dots, the coming dates (Home's next dates, "N more" from the
  * workspace), the cancelled ones with Put it back (D46), the dates taken off --
@@ -193,8 +221,10 @@ export default function OneEvent() {
   const one = findSeries(home.data, seriesId);
   const step = readStep(search.get(STEP_PARAM));
   const name = one?.name ?? ws.data?.series.name ?? 'Event';
+  const rebuild = useRebuildSwitch();
 
   if (step && ws.data) return <EventStep ws={ws.data} today={today} step={step} />;
+  if (rebuild) return <RebuiltEvent seriesId={seriesId} />;
 
   const body = ws.isError && isAccessRefusal(ws.error) ? (
     <NoAccess />
@@ -215,8 +245,6 @@ export default function OneEvent() {
       <ClosedLines ws={ws.data} today={today} testId="org-event" />
       <MonthDots ws={ws.data} today={today} />
       <Dates seriesId={seriesId} home={one} ws={ws.data} today={today} />
-      <DatesTakenOff series={ws.data.series} dates={ws.data.dates} today={today} lock={eventLock(ws.data.series.lifecycle_status)}
-        dirty={false} canChooseEnd={!!ownerWeeklyRule(ws.data.series)} />
       <Actions ws={ws.data} today={today} />
       <LifecycleActions ws={ws.data} today={today} />
     </>

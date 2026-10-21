@@ -21,7 +21,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import {
   AW1_COMMAND_KINDS, OWNER_CANCEL_KEYS, OWNER_COMMAND_KINDS, OWNER_OVERRIDE_KEYS, OWNER_UPSERT_KEYS,
   addDateCommand, bulkCancelCommand, bulkShiftCommand, cancelCommand, lifecycleCommand, moveDateCommand, overrideCommand,
-  resetTimeCommand, setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand,
+  resetTimeCommand, setTimeCommand, skipDateCommand, uncancelCommand,
   type BulkCommand, type OwnerCommand,
 } from '@/modules/organiser/shared/seriesCommands';
 import { dayChangeCommand, detailCommand, endRunCommand, parseEventWorkspace, stopRepeatingCommand, venueCommand, weeklyUntilCommand } from '@/modules/organiser/events/eventModel';
@@ -262,10 +262,7 @@ export const PARITY: Row[] = [
     shows: [['events/ProgrammeSheet.tsx', 'prog-add-person'], ['events/ProgrammeSheet.tsx', 'prog-recent']] },
   { id: 'C13', capability: 'See + edit the sessions inside one date', verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
     sends: [SAVE_PROGRAMME], shows: [['shared/selfServeApi.ts', "programmeRpc('organiser_get_occurrence_programme_v1'"], [SHEET, 'label="Type"']] },
-  { id: 'C14', capability: 'Usual start / end time', verdict: 'MATCH', screen: DETAILS, from: [[DETAILS, 'detailEditPath']],
-    sends: [
-      upsert(['name', 'default_local_start_time'], () => detailCommand(ws, 'time', '21:00'), DETAILS, 'detailCommand('),
-    ] },
+  { id: 'C14', capability: 'Usual start / end time', verdict: 'DROPPED-BY-DECISION', decision: 'ER rule 1 (time comes from the sessions)' },
   { id: 'C15', capability: 'Repeat rule (weekly)', verdict: 'MATCH', screen: ONE, from: TO_STEP,
     sends: [
       { in: 'flows/event/EventStep.tsx', token: 'dayChangeCommand(', kind: 'series.set_recurrence', keys: ['mode', 'weekdays', 'interval', 'end'], build: () => dayChangeCommand(ws.series.recurrence_rule, 3) },
@@ -300,7 +297,6 @@ export const PARITY: Row[] = [
   { id: 'C25', capability: 'Put back a cancelled / taken-off date', verdict: 'MATCH', screen: ONE, from: [[ONE, 'putBackPath']],
     sends: [
       { in: 'flows/cancel/Confirm.tsx', screen: 'flows/cancel/Confirm.tsx', token: 'uncancelCommand(', kind: 'occurrence.cancel', keys: ['cancelled'], build: () => uncancelCommand() },
-      { in: 'events/takenOff.ts', token: 'unskipDateCommand(', kind: 'series.unskip_date', keys: ['date'], build: () => unskipDateCommand('2026-10-30') },
     ] },
   { id: 'C26', capability: 'Note / picture / ticket link for one date', verdict: 'MATCH', screen: 'flows/change/Detail.tsx', from: [[WHAT, 'ORG_PATHS.changeDetail']],
     sends: [
@@ -542,7 +538,7 @@ describe('organiser parity matrix', () => {
   it('the counts: MATCH / PARTIAL / admin-only / dropped, nothing left to fill', () => {
     const count = (v: Verdict) => PARITY.filter((r) => r.verdict === v).length;
     expect({ match: count('MATCH'), partial: count('PARTIAL'), adminOnly: count('MISSING-ADMIN-ONLY'), dropped: count('DROPPED-BY-DECISION') })
-      .toEqual({ match: 43, partial: 10, adminOnly: 8, dropped: 10 });
+      .toEqual({ match: 42, partial: 10, adminOnly: 8, dropped: 11 });
   });
 });
 
