@@ -287,7 +287,7 @@ const Dancers = () => {
               
               {/* Create A Profile Widget */}
               <motion.div
-                onClick={() => navigate(flags.peopleWall ? HOME_ANNOUNCE_HREF : '/create-dancers-profile')}
+                onClick={() => (flags.peopleWall ? navigate(HOME_ANNOUNCE_HREF) : navigate('/create-dancers-profile'))}
                 className="cursor-pointer p-4 md:p-5 bg-gradient-to-br from-surface/80 to-surface/40 backdrop-blur-sm rounded-2xl border border-festival-pink/30 shadow-lg w-[140px] md:w-[160px]"
                 whileHover={{ 
                   scale: 1.05, 
@@ -301,7 +301,7 @@ const Dancers = () => {
 
               {/* Book Media Widget */}
               <motion.div
-                onClick={() => navigate(flags.peopleWall ? MEDIA_BOOKING_HREF : '/photographers')}
+                onClick={() => (flags.peopleWall ? navigate(MEDIA_BOOKING_HREF) : navigate('/photographers'))}
                 className="cursor-pointer p-4 md:p-5 bg-gradient-to-br from-blue-500/20 to-cyan-500/10 backdrop-blur-sm rounded-2xl border border-blue-500/30 shadow-lg w-[140px] md:w-[160px]"
                 whileHover={{ 
                   scale: 1.05, 
