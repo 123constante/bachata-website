@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Plus } from 'lucide-react';
 import { searchClaimableOrganisers, type ClaimCandidate, type MyAccessRequest } from '@/modules/organiser/shared/selfServeApi';
+import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
 import { declinedRequests } from '@/modules/organiser/shared/accessRequestModel';
 import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, useDebounced } from '../../ui';
 import { HINT_TEXT, NO_HINT_TEXT, askedOn, rowAction } from './onboardingModel';
@@ -86,8 +87,10 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
     setQuery(name);
   };
 
+  // Every row opens its claim screen (6a-6e) in the sheet; the sheet's buttons act.
   const startClaim = (org: ClaimCandidate) => setTask({ kind: 'claim', org });
-  const startRequest = (org: ClaimCandidate) => setTask({ kind: 'request', org });
+  const startRequest = (org: ClaimCandidate, hint: ClaimHint | null) => setTask({ kind: 'request', org, hint });
+  const openYours = (org: ClaimCandidate) => setTask({ kind: 'yours', org });
   const startCreate = () => setTask({ kind: 'create', name: query.trim() });
   const searchFailed = searched && !search.isFetching && !search.data && (search.isError || search.isPaused);
 
@@ -160,12 +163,12 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
                 </GhostButton>
               )}
               {action === 'request' && (
-                <GhostButton size="sm" block={false} onClick={() => startRequest(org)} testId="onboarding-request">
+                <GhostButton size="sm" block={false} onClick={() => startRequest(org, hint)} testId="onboarding-request">
                   Ask to join
                 </GhostButton>
               )}
               {action === 'home' && (
-                <GhostButton size="sm" block={false} onClick={() => navigate(ORG_PATHS.home)} testId="onboarding-home">
+                <GhostButton size="sm" block={false} onClick={() => openYours(org)} testId="onboarding-home">
                   Home
                 </GhostButton>
               )}

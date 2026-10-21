@@ -27,6 +27,7 @@ describe('ORG_PATHS (v2)', () => {
     expect(evaluate()).toEqual({
       home: '/account/o',
       switch: '/account/o/switch',
+      welcome: '/account/o/welcome?o=s%201',
       change: '/account/o/change',
       changeEvent: '/account/o/change/s%201',
       changeDate: '/account/o/change/s%201/o%2F1',

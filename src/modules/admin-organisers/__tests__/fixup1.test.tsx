@@ -80,6 +80,8 @@ describe('F1 redeem refreshes the organiser home before navigating', () => {
           <Routes>
             <Route path="/invite/:token" element={<InviteRedeemPage />} />
             <Route path="/account/o" element={<HomeProbe fetchHome={fetchHome} />} />
+            {/* Arc 1 7c: a new seat lands on the welcome, which forwards a first page to Home. */}
+            <Route path="/account/o/welcome" element={<HomeProbe fetchHome={fetchHome} />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>,

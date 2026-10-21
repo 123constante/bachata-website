@@ -135,6 +135,12 @@ export const KNOWN_SELF_SERVE_CODES = Object.keys(COPY);
  * by matching the message, most specific first. Raw server text is never
  * shown: anything unmatched gets the generic line.
  */
+/**
+ * Arc 1 flow 9c: the sign-in ended mid-edit, on every save path. Not the mockup's
+ * "What you typed is kept on this phone": no flow keeps a draft across a sign-in.
+ */
+export const SESSION_ENDED = 'Your sign-in ended. Sign in again.';
+
 export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegExpMatchArray) => string) }> = [
   // INT4, the final AW1 contract (admin PR #838): an owner may not delete a session that has per-date changes (named),
   // an id-less or stale-id programme save is refused (reload brings the stored ids), and an owner may only ADD
@@ -187,6 +193,8 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /bulk_too_large/, message: 'Nothing was changed: too many dates at once. Tick fewer dates and do the rest in a second go.' },
   { match: /^undo_conflict/, message: 'Someone changed this after you. Look at the event as it is now before you change it again.' },
   { match: /^not_undoable/, message: 'That change cannot be undone here. Change it back by hand.' },
+  // Arc 1 9c: a sign-in that ended is not a refusal; before the catch-all below, which would say "you cannot".
+  { match: /^(permission_denied: )?authentication_required/, message: SESSION_ENDED },
   { match: /^permission_denied: series\.set_recurrence/, message: 'The weekly pattern could not be saved. Pick one weekday and a first date from today on.' },
   { match: /^permission_denied/, message: 'You cannot make that change here. Ask the Bachata Calendar team.' },
 ];
@@ -323,7 +331,7 @@ export const PEOPLE_GENERIC_COPY = 'We could not save the line-up changes. Check
 
 export const PROGRAMME_COPY: Array<{ match: RegExp; message: string; reload?: boolean }> = [
   { match: /^version_conflict/, message: PROGRAMME_VERSION_CONFLICT, reload: true },
-  { match: /^permission_denied: authentication_required/, message: 'Please sign in again.' },
+  { match: /^(permission_denied: )?authentication_required/, message: SESSION_ENDED },
   { match: /occurrence not found or caller is not an owner or manager/, message: 'You cannot change this date. It may have been removed, or you are no longer on this event\u2019s team.' },
   { match: /on a past date is admin-only/, message: 'This date has already happened, so its schedule can no longer be changed.', reload: true },
   { match: /on an ended or archived series is admin-only/, message: 'This event has ended or is archived, so its schedule cannot be changed here.', reload: true },

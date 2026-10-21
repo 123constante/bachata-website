@@ -3,7 +3,7 @@
 exports[`/auth at '390x844' > sign-in 1`] = `
 "img "Bachata Calendar"
 heading "Welcome back" level=1
-text "Sign in with a link or a code."
+text "Sign in with the email you used before."
 button "Sign in"
 button "Create account"
 heading "Sign in" level=3
@@ -21,7 +21,7 @@ button "Continue browsing""
 exports[`/auth at '390x844' > sign-in error: generic send failure 1`] = `
 "img "Bachata Calendar"
 heading "Welcome back" level=1
-text "Sign in with a link or a code."
+text "Sign in with the email you used before."
 button "Sign in"
 button "Create account"
 heading "Sign in" level=3
@@ -197,7 +197,7 @@ button "Use a different email""
 exports[`/auth at 'desktop' > sign-in 1`] = `
 "img "Bachata Calendar"
 heading "Welcome back" level=1
-text "Sign in with a link or a code."
+text "Sign in with the email you used before."
 button "Sign in"
 button "Create account"
 heading "Sign in" level=3
@@ -215,7 +215,7 @@ button "Continue browsing""
 exports[`/auth at 'desktop' > sign-in error: generic send failure 1`] = `
 "img "Bachata Calendar"
 heading "Welcome back" level=1
-text "Sign in with a link or a code."
+text "Sign in with the email you used before."
 button "Sign in"
 button "Create account"
 heading "Sign in" level=3

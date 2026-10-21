@@ -505,7 +505,8 @@ const AuthContent = () => {
             {mode === "signin" ? "Welcome back" : "Join the community"}
           </h1>
           <p className="text-sm text-muted-foreground text-center">
-            {mode === "signin" ? "Sign in with a link or a code." : "Three quick steps, then we email you a code."}
+            {/* Arc 1 flow 9a: a new phone or an ended session is the same person; the account holds their pages. */}
+            {mode === "signin" ? "Sign in with the email you used before." : "Three quick steps, then we email you a code."}
           </p>
         </div>
 

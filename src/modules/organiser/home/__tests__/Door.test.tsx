@@ -111,7 +111,7 @@ describe('C38 find your page: one row per ClaimHint', () => {
     expect(row.textContent).not.toMatch(/@/);
   });
 
-  it('yours: ONE action, Home', async () => {
+  it('yours: ONE action, the 6a screen, then Home', async () => {
     api.search.mockResolvedValue([org('d', 'Delta', 'yours')]);
     mount();
     search('de');
@@ -119,6 +119,8 @@ describe('C38 find your page: one row per ClaimHint', () => {
     const buttons = within(row).getAllByRole('button');
     expect(buttons).toHaveLength(1);
     fireEvent.click(buttons[0]);
+    // Arc 1 flow 6a: the row opens "Delta is yours" first; its one button goes Home.
+    fireEvent.click(await screen.findByTestId('onboarding-yours-home'));
     expect((await screen.findByTestId('where')).textContent).toBe(ORG_PATHS.home);
   });
 

@@ -164,8 +164,10 @@ describe('screens: one question each', () => {
     const base = rpc.getMockImplementation()!;
     rpc.mockImplementation(async (fn: string, args?: unknown) => (fn === 'organiser_home_v1' ? { data: two, error: null } : base(fn, args)));
     mount('/account/o/new/what?o=org2');
+    // Two pages: Arc 1 flow 7b asks which first, with the linked page ticked.
+    fireEvent.click(await screen.findByTestId('org-new-page-continue'));
     fireEvent.click(await screen.findByTestId('org-new-format-recurring'));
-    await waitFor(() => expect(where()).toBe('/account/o/new/name?format=recurring&o=org2'));
+    await waitFor(() => expect(where()).toBe('/account/o/new/name?format=recurring&o=org2&page=set'));
     fireEvent.change(await screen.findByTestId('org-new-name'), { target: { value: 'Friday Night' } });
     await waitFor(() => expect((screen.getByTestId('org-new-next') as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByTestId('org-new-next'));
