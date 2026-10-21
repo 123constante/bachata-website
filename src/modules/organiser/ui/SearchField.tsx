@@ -30,7 +30,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
         data-sheet-autofocus={autoFocusInSheet || undefined}
         enterKeyHint="search"
         autoComplete="off"
-        className="h-[48px] w-full rounded-[12px] border border-[var(--line-strong)] bg-[var(--card2)] pl-[40px] pr-[44px] text-[16px] text-[var(--fg)] outline-none [&::-webkit-search-cancel-button]:hidden"
+        className="h-[48px] w-full rounded-[var(--r-ctl,12px)] border border-[var(--line-strong)] bg-[var(--card2)] pl-[40px] pr-[44px] text-[16px] text-[var(--fg)] outline-none [&::-webkit-search-cancel-button]:hidden"
       />
       {value && (
         <button

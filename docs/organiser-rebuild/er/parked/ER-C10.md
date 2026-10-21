@@ -1,0 +1,4 @@
+Q: Which search role finds a "Performer" artist? | Default used: same people search as Teacher (role teaching) | Cost if wrong: small | Where: src/modules/organiser/events/festival/FestivalArtists.tsx:14
+Q: Flyer / Details / About entries on the festival Edit bar | Default used: listed, they call onOpenOther(entry) so the shared event editor opens them; this slice owns no editor for them | Cost if wrong: small | Where: src/modules/organiser/events/festival/FestivalEdit.tsx:21
+Q: Maximum festival days | Default used: 14 (live max is 6 days, 14 sessions) | Cost if wrong: small | Where: src/modules/organiser/events/festival/festivalModel.ts:24
+Q: Owner create of the festival format is refused by the server today (AS BUILT) | Default used: FestivalCreate returns a draft through onCreate; C7 decides when to offer it | Cost if wrong: large | Where: festival/FestivalCreate.tsx

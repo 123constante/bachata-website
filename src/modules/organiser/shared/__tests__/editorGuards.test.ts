@@ -115,3 +115,28 @@ describe('Level is no longer set by organisers and never wiped', () => {
     expect('level' in previewModel(form, null, 'Org', '2026-10-05')).toBe(false);
   });
 });
+
+// ER-S1: saving an untouched record sends nothing, over the prod series shapes.
+describe('untouched save sends nothing (prod shapes)', () => {
+  const shapes: Array<[string, Partial<WorkspaceSeries>]> = [
+    ['live recurring with a ticket link', { format: 'recurring', lifecycle_status: 'live', default_ticket_url: 'https://t.example/x' }],
+    ['live festival', { format: 'festival', lifecycle_status: 'live' }],
+    ['ended course', { format: 'course', lifecycle_status: 'ended' }],
+    ['paused one-off', { format: 'one_off', lifecycle_status: 'paused' }],
+    ['draft with nothing in it', { format: null, lifecycle_status: 'draft', name: '', default_description: null }],
+    ['live with passes stored', { lifecycle_status: 'live', passes: [{ name: 'Full', price: '40' }] }],
+  ];
+  it.each(shapes)('%s', (_n, over) => {
+    const series = {
+      id: 's', name: 'Night', slug: null, format: 'recurring', category: null, lifecycle_status: 'live', version: 1, default_venue_id: null,
+      default_local_start_time: null, default_duration: null, default_ticket_url: null, default_description: null,
+      default_cover_image_url: null, default_start_date: null, instagram_url: null, passes: null, created_at: null,
+      recurrence_rule: null, removed_dates: [], ...over,
+    } as WorkspaceSeries;
+    const before = formToDraft(basicsFormFromSeries(series));
+    const again = formToDraft(basicsFormFromSeries(series));
+    expect(hasBasicsChanges(before, again)).toBe(false);
+    // The send is gated by hasBasicsChanges; even the bare payload carries only the required name.
+    expect(Object.keys(basicsPayload(before, again))).toEqual(['name']);
+  });
+});

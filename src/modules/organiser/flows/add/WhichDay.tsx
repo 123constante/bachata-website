@@ -1,8 +1,10 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
-import { addDays, addableSeries, findSeries, seriesLock } from './addModel';
+import { addDays, addableSeries, seriesLock } from './addModel';
 import { useFlowHome, useSeriesWorkspace } from './useFlow';
-import { Failed, Loading, Missing, Refusal, Step, StepList, StepRow } from './parts';
+import { Failed, Loading, Refusal, Step, StepList, StepRow } from './parts';
+import { useOrganiserSeries } from '@/modules/organiser/shared/useOrganiserSeries';
+import { notFoundText } from './notFoundText';
 
 /**
  * C8: which day (also C15, the Home "no dates left" row: the same screen with
@@ -14,7 +16,8 @@ export default function WhichDay() {
   const navigate = useNavigate();
   const { seriesId = '' } = useParams();
   const home = useFlowHome();
-  const one = findSeries(home.data, seriesId);
+  const lookup = useOrganiserSeries(seriesId);
+  const one = lookup.state === 'found' ? lookup.series : null;
   const lock = one ? seriesLock(one.lifecycle_status, 'add') : null;
   const ws = useSeriesWorkspace(seriesId, !!one && !lock);
   // The one-event organiser came straight here: back goes Home, not to a one-row list.
@@ -24,10 +27,10 @@ export default function WhichDay() {
     <Step title={one?.name ?? 'Which day?'} back={back}>
       {home.isError || ws.isError ? (
         <Failed flow="add" error={ws.error} onRetry={() => { void home.refetch(); void ws.refetch(); }} />
-      ) : !home.data ? (
+      ) : !home.data || lookup.state === 'loading' ? (
         <Loading flow="add" />
       ) : !one ? (
-        <Missing flow="add" />
+        <Refusal flow="add" text={notFoundText(lookup.state)} back={ORG_PATHS.home} backLabel="Back to Home" />
       ) : lock ? (
         <Refusal flow="add" text={lock} back={ORG_PATHS.home} backLabel="Back to Home" />
       ) : !ws.data ? (
