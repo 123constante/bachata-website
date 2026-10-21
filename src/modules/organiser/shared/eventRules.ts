@@ -2,12 +2,15 @@
 // live in event-rules.json (byte-identical in the admin repo); this file is the
 // thin typed reader plus the pure functions every organiser screen asks. No React.
 //
-// Times are HH:MM London wall-clock strings. An end at or before its start means
-// "next day" (a party that runs past midnight); sessions starting before the
-// rollover hour on a day that also has later sessions belong to the night before
-// (the same idea as lib/programDayRollover).
+// Times are HH:MM London wall-clock strings. An end before its start means
+// "next day" (a party that runs past midnight), up to the programme editor's one
+// session cap. Sessions starting before the admin rollover hour (08:00,
+// lib/programDayRollover) belong to the night before, but only on a night: a day
+// with a session starting from the evening hour. HH:MM carries no date, so this is
+// the admin rule read on one night, not a second rule.
 
 import rules from './event-rules.json';
+import { LIMITS } from './programmeModel';
 
 export const EVENT_RULES = rules;
 
@@ -29,15 +32,29 @@ export interface RuleDate {
 export interface RuleSeries {
   name: string | null;
   format: string | null;
+  /** lifecycle_status; null for a series not created yet (treated as a draft). */
+  status: string | null;
+  /** The cover / flyer image URL (server codes no_flyer, cover). */
+  flyer: string | null;
   venueId: string | null;
   payment: readonly string[];
   /** The earliest date, or null when the series has none. */
   firstDate: RuleDate | null;
+  /** Festival only: every programme day; each needs a timed session (server no_session_first_date). */
+  programmeDays?: readonly RuleDate[];
   /** London today, YYYY-MM-DD. */
   today: string;
 }
 export interface Blocker { code: BlockerCode; reason: string }
-export interface Readiness { ready: boolean; label: string; blockers: Blocker[] }
+export interface Readiness {
+  ready: boolean;
+  label: string;
+  blockers: Blocker[];
+  /** Facts only the server checks (description: plan rule 11 says optional, the server still requires it). Screens always show the server check too. */
+  serverOnlyBlockers: readonly string[];
+}
+
+const hasOwn = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
 
 // ---- times ---------------------------------------------------------------
 
@@ -55,11 +72,20 @@ export function toHHMM(minutes: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }
 
-/** Valid when both are real times and the end differs from the start; an earlier end is the next day. */
-export function validSessionPair(start: string | null | undefined, end: string | null | undefined): { valid: boolean; nextDay: boolean } {
+/** The ONE session length cap, the programme editor's (12 h). C4 reads it from here. */
+export const maxSessionMinutes: number = LIMITS.sessionMaxMinutes;
+
+/** Valid when both are real times, the end differs from the start and the length is within the cap; an earlier end is the next day. */
+export function validSessionPair(
+  start: string | null | undefined,
+  end: string | null | undefined,
+  cap: number = maxSessionMinutes,
+): { valid: boolean; nextDay: boolean } {
   const s = toMinutes(start);
   const e = toMinutes(end);
   if (s === null || e === null || s === e) return { valid: false, nextDay: false };
+  const length = e > s ? e - s : e + DAY - s;
+  if (length > cap) return { valid: false, nextDay: false };
   return { valid: true, nextDay: e < s };
 }
 
@@ -73,7 +99,8 @@ function spans(sessions: readonly RuleSession[]): Span[] {
     return s === null || e === null || s === e ? [] : [{ s, e }];
   });
   const cut = toMinutes(rules.time.rolloverBefore) ?? 0;
-  const hasEvening = timed.some((x) => x.s >= cut);
+  const evening = toMinutes(rules.time.eveningFrom) ?? DAY;
+  const hasEvening = timed.some((x) => x.s >= evening);
   return timed.map(({ s, e }) => {
     const offset = hasEvening && s < cut ? DAY : 0;
     return { start: s + offset, end: e + offset + (e < s ? DAY : 0) };
@@ -136,12 +163,20 @@ export function parsePaymentMethods(stored: string | null | undefined): PaymentC
   const out: PaymentCode[] = [];
   for (const raw of (stored ?? '').split(rules.payment.separator)) {
     const code = raw.trim();
-    if (code in known && !out.includes(code as PaymentCode)) out.push(code as PaymentCode);
+    if (hasOwn(known, code) && !out.includes(code as PaymentCode)) out.push(code as PaymentCode);
   }
   return out;
 }
 
-export const formatPaymentMethods = (codes: readonly string[]): string => codes.join(rules.payment.separator);
+/** Known codes only, no repeats (the server refuses both). */
+export const formatPaymentMethods = (codes: readonly string[]): string =>
+  parsePaymentMethods(codes.join(rules.payment.separator)).join(rules.payment.separator);
+
+// ---- formats ---------------------------------------------------------------
+
+/** Rule 14 AS BUILT: owner create accepts one_off and recurring only; `formats` still lists all four for readiness. */
+export const ownerCanCreate = (format: string | null | undefined): boolean =>
+  typeof format === 'string' && rules.ownerCreateFormats.includes(format);
 
 // ---- readiness -------------------------------------------------------------
 
@@ -154,15 +189,22 @@ export function blockers(series: RuleSeries): Blocker[] {
   if (!series.name?.trim()) add('name');
   if (!series.format || !(rules.formats as string[]).includes(series.format)) add('format');
   if (!series.venueId) add('venue');
+  if (!series.flyer?.trim()) add('flyer');
+  // Before go-live the rules are the full ones; a live series is never turned "Not ready" by a
+  // client-only rule (rule 28): prod holds 7 live festival sessions over 12 h, which the server allows.
+  const preLive = rules.preLiveStatuses.includes(series.status ?? 'draft');
+  const cap = preLive ? maxSessionMinutes : DAY;
   const first = series.firstDate;
   if (!first || !ISO_DAY.test(first.date)) add('date');
   else {
-    if (first.date < series.today) add('dateInPast');
+    if (first.date < series.today && preLive) add('dateInPast');
     if (first.sessions.length === 0) add('session');
-    else if (first.sessions.some((x) => !validSessionPair(x.start, x.end).valid)) add('sessionTimes');
+    else if (first.sessions.some((x) => !validSessionPair(x.start, x.end, cap).valid)) add('sessionTimes');
   }
+  const timed = (d: RuleDate) => d.sessions.some((x) => validSessionPair(x.start, x.end, cap).valid);
+  if (series.format === 'festival' && (series.programmeDays ?? []).some((d) => !timed(d))) add('festivalDay');
   const allowed = paymentCodes(series.format);
-  const chosen = series.payment.filter((c) => c in rules.payment.codes);
+  const chosen = series.payment.filter((c) => hasOwn(rules.payment.codes, c));
   if (chosen.length < rules.payment.atLeast) add('payment');
   else if (!chosen.every((c) => (allowed as string[]).includes(c))) add('paymentNotAllowed');
   return out;
@@ -170,7 +212,12 @@ export function blockers(series: RuleSeries): Blocker[] {
 
 export function readiness(series: RuleSeries): Readiness {
   const list = blockers(series);
-  return { ready: list.length === 0, label: list.length === 0 ? rules.readiness.ready : rules.readiness.blocked, blockers: list };
+  return {
+    ready: list.length === 0,
+    label: list.length === 0 ? rules.readiness.ready : rules.readiness.blocked,
+    blockers: list,
+    serverOnlyBlockers: rules.serverOnlyBlockers,
+  };
 }
 
 export const cancelReasons: readonly string[] = rules.cancelReasons;

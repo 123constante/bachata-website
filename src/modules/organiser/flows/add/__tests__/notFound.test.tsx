@@ -46,3 +46,29 @@ describe('Add a date: a series with 0 dates', () => {
     expect(screen.queryByText('Not found')).toBeNull();
   });
 });
+
+// ER-FIX-W1 C3-1 red-first: the REAL server reply for an unknown id is
+// P0001 `series_not_found: <id>` (_assert_can_edit_series_p5). Before the fix
+// the screens read it as a network failure ("Did not load").
+const GONE = 'dddddddd-0000-4000-8000-00000000dead';
+const timeRoutes = <Route path="/account/o/add/:seriesId/:date" element={<AddFlow step="time" />} />;
+function serverSaysGone() {
+  const real = rpc.getMockImplementation()!;
+  rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) =>
+    fn === 'admin_event_workspace_p5' && args.p_series_id === GONE
+      ? { data: null, error: { code: 'P0001', message: `series_not_found: ${GONE}` } }
+      : real(fn, args));
+}
+
+describe('Add a date: an id the server does not know', () => {
+  it.each([
+    ['Which day', path(GONE), routes],
+    ['Time', `${path(GONE)}/2026-10-30`, timeRoutes],
+  ])('%s shows Event not found, not Did not load', async (_n, url, r) => {
+    serverSaysGone();
+    mount(url, r);
+    expect(await screen.findByText('Event not found')).toBeTruthy();
+    expect(screen.queryByText(/Did not load/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Try again/ })).toBeNull();
+  });
+});
