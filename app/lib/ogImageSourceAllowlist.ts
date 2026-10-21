@@ -25,6 +25,8 @@ const PATH_PREFIX: Readonly<Record<string, string>> = {
   "stsdtacfauprzrdebmzg.supabase.co": "/storage/v1/object/public/",
 };
 
+const SITE_HOSTS: ReadonlySet<string> = new Set(["www.bachatacalendar.co.uk", "bachatacalendar.co.uk"]);
+
 const HOSTS: ReadonlySet<string> = new Set(OG_IMAGE_SOURCE_HOSTS);
 
 export function isAllowedOgImageSource(raw: string): boolean {
@@ -42,6 +44,9 @@ export function isAllowedOgImageSource(raw: string): boolean {
   const host = u.hostname.toLowerCase();
   if (host.startsWith("[") || /^[\d.]+$/.test(host)) return false;
   if (!HOSTS.has(host)) return false;
+  // The site hosts stay allowed for images, but not their /api/ routes: an
+  // own endpoint as a source would make the card route call itself.
+  if (SITE_HOSTS.has(host) && u.pathname.startsWith("/api/")) return false;
   const prefix = PATH_PREFIX[host];
   return prefix === undefined || u.pathname.startsWith(prefix);
 }

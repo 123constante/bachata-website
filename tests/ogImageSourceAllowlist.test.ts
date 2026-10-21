@@ -64,6 +64,8 @@ describe('fetchImageBytes: refused sources never reach fetch', () => {
     ['supabase signed-object path', 'https://stsdtacfauprzrdebmzg.supabase.co/storage/v1/object/sign/avatars/a.jpg'],
     ['supabase path traversal', 'https://stsdtacfauprzrdebmzg.supabase.co/storage/v1/object/public/../../rest/v1/x'],
     ['other supabase project', 'https://otherproject.supabase.co/storage/v1/object/public/a.jpg'],
+    ['own api endpoint (card)', 'https://www.bachatacalendar.co.uk/api/og/card?kind=image&src=x'],
+    ['own api endpoint (bake, apex)', 'https://bachatacalendar.co.uk/api/og/bake'],
     ['data: url', 'data:image/jpeg;base64,AAAA'],
     ['file: url', 'file:///etc/passwd'],
     ['relative path', '/images/a.jpg'],

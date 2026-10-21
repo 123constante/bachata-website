@@ -55,3 +55,12 @@ These are pinned as a table in the test file.
 ## Next steps
 - Review + one fix pass. After merge, `npm run check:og` against prod: a cover on an unlisted host would now show as
   `cover-unfetchable` (survey says none exist outside example.com test rows).
+
+## Fix pass: review N1 (own `/api/` paths refused)
+- RED (before the fix): `npx vitest run tests/ogImageSourceAllowlist.test.ts` -> 2 failed | 37 passed (39). The new rows
+  `own api endpoint (card)` and `own api endpoint (bake, apex)` got `expected true to be false`.
+- Fix: `app/lib/ogImageSourceAllowlist.ts` refuses `www.bachatacalendar.co.uk` / `bachatacalendar.co.uk` when the path
+  starts with `/api/`. Every other rule unchanged.
+- GREEN: `npx vitest run tests/ogImageSourceAllowlist.test.ts tests/ogCardFallbackMarker.test.ts` -> 2 files, 62 passed.
+- `npm run build` -> built OK (exit 0).
+- Not verified: CI jobs not re-run beyond the above; PR body not edited (orchestrator copies it in).
