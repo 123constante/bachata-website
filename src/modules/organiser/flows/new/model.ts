@@ -69,6 +69,16 @@ export const NOT_READY_REASON = 'Something on the event is not ready yet. Save a
 export type ServerCheck = { status: 'pending' } | { status: 'error' } | { status: 'ready'; check: GoLiveCheck };
 
 /**
+ * The check query as the last step reads it. A refetch in flight (the flyer was just uploaded and the check
+ * invalidated) is still checking: the cached answer predates the upload (N1).
+ */
+export function serverCheckOf(q: { isError: boolean; isFetching: boolean; data: GoLiveCheck | undefined }): ServerCheck {
+  if (q.isFetching) return { status: 'pending' };
+  if (q.isError) return { status: 'error' };
+  return q.data ? { status: 'ready', check: q.data } : { status: 'pending' };
+}
+
+/**
  * Why the last step's button is off: no photo, then the SAME server answer the
  * event card reads (series_go_live_check_v1, D91), a missing session first
  * (#885's reason). A check that could not be read never blocks: the server still
@@ -82,7 +92,8 @@ export function finishReason(hasCover: boolean, server: ServerCheck, a1 = A1_APP
   if (server.status === 'error' || server.check.ready) return null;
   const { check } = server;
   if (check.eventMissing.some((i) => i.code === 'session')) return NO_SESSION_NEW_REASON;
-  const first = check.eventMissing[0];
+  // The photo is on this step, so `cover` in the answer is an older read: never name the flyer after an upload.
+  const first = check.eventMissing.find((i) => i.code !== 'cover');
   if (first) return `${goLiveLabel(first.code)} first.`;
   if (showsProfileRow(check)) return `${profileRowLabel(profileFieldsLeft(check))} first.`;
   return NOT_READY_REASON;

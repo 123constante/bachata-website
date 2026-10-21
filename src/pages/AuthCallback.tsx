@@ -229,7 +229,9 @@ const AuthCallback = () => {
         const signupRoles = isSignupFlow ? readSignupRoles(pendingRoles, user.user_metadata?.[ROLE_INTENT_META_KEY]) : null;
         let holdsOrganiserSeat: boolean | null = claimedRef.current.length > 0 ? true : null;
         if (signupRoles) {
-          await recordRoleIntent(signupRoles);
+          // Only the account's FIRST sign-in records: set_my_role_intent_v1 replaces the stored roles, and the
+          // sign-up form used again on an existing account must not overwrite what it chose then.
+          if (isFirstSignIn(user)) await recordRoleIntent(signupRoles);
           if (holdsOrganiserSeat === null && choseTeacherOrDj(signupRoles)) holdsOrganiserSeat = await readHoldsOrganiserSeat();
           alreadyListedPending.current = showsAlreadyListedStep({ roles: signupRoles, claimStatus: claim.status });
         }

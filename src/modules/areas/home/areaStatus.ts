@@ -1,12 +1,14 @@
-// The ONE status mapping for a person's areas: the Your areas rows, the Switch
-// profile entries and the wizard read it, so the same role reads the same words
-// everywhere. Inputs are the server's own answers: my_roles_v1 (held, complete)
-// and my_profile_progress_v1 (the wizard's steps and declined list, the same
-// query Home's profile ring reads). Nothing here keeps a field list of its own.
+// The ONE status mapping for a person's areas: the Your areas rows
+// (YourAreasPage) and the Switch profile entries (SwitcherAreas) read it, so the
+// same role reads the same words in both. Inputs are the server's own answers:
+// my_roles_v1 (held, complete) and my_profile_progress_v1 (the wizard's steps
+// and declined list, the same query Home's profile ring reads). The open count
+// is worded by requiredLeftText, the one "N left" wording Home and the wizard
+// use. Nothing here keeps a field list of its own.
 import { AREA_PATHS } from '@/lib/areaPaths';
 import { FINISH_PROFILE_PATH } from '@/lib/profileCompletion';
 import { APP_HOME_PATH } from '@/lib/accountRouting';
-import type { ProfileProgress } from '@/modules/organiser/shared/profileProgress';
+import { requiredLeftText, type ProfileProgress } from '@/modules/organiser/shared/profileProgress';
 import { ROLE_NAME } from '../shared/fieldRegistry';
 import type { AreaRole, RoleRow } from './rolesApi';
 
@@ -35,7 +37,8 @@ export const NOT_HELD_WORDS = 'Not added';
 export const DECLINED_WORDS = 'You said no';
 /** Held, not complete, and the step count is not known (progress did not load). */
 export const UNFINISHED_WORDS = 'Not finished';
-export const toFinishWords = (n: number): string => `${n} to finish`;
+/** The open-answers count: requiredLeftText itself, so it reads as it does on Home and in the wizard. */
+export const toFinishWords = requiredLeftText;
 
 /**
  * Steps left in one area, from the wizard's own step list. Required steps first:
@@ -49,12 +52,24 @@ export function stepsLeft(progress: Pick<ProfileProgress, 'steps'> | undefined, 
   return required > 0 ? required : open.length;
 }
 
+/**
+ * Whether an area counts as added, for Your areas AND the switcher (the one rule).
+ * Held (my_roles_v1 active), or a teacher / DJ chosen at sign-up and not yet
+ * saved: my_roles_v1 marks only a saved role active, while the wizard already
+ * lists that role's steps from the intent (the server leaves out a declined
+ * role's steps), so the wizard's own list is the signal (B1).
+ */
+export function isAreaShown(role: AreaRole, row: RoleRow | undefined, progress: Pick<ProfileProgress, 'steps'> | undefined): boolean {
+  if (row?.active) return true;
+  return (role === 'teacher' || role === 'dj') && !!progress?.steps.some((s) => s.area === role);
+}
+
 export function areaStatus(role: AreaRole, row: RoleRow | undefined, progress: Pick<ProfileProgress, 'steps' | 'declined'> | undefined): AreaStatus {
-  if (!row || !row.active) {
+  if (!isAreaShown(role, row, progress)) {
     const declined = (role === 'teacher' || role === 'dj') && !!progress?.declined.includes(role);
     return declined ? { kind: 'declined', words: DECLINED_WORDS } : { kind: 'not-held', words: NOT_HELD_WORDS };
   }
-  if (row.complete) return { kind: 'complete', words: COMPLETE_WORDS };
+  if (row?.active && row.complete) return { kind: 'complete', words: COMPLETE_WORDS };
   const n = stepsLeft(progress, role);
   return { kind: 'to-finish', words: n ? toFinishWords(n) : UNFINISHED_WORDS };
 }

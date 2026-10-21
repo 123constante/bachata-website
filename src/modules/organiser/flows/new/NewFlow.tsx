@@ -17,7 +17,7 @@ import { EmptyState, ErrorState, GhostButton, PrimaryButton, SearchField, Skelet
 import { goDone } from '../doneState';
 import {
   DRAFT_ONLY_NOTE, DRAFT_SAVED_MESSAGE, NEW_FORMATS, NO_SESSION_NEW_REASON, STEP_TITLE, coverCommands, finishReason, offerLeave, dateCommands, draftCommand, finishLabel, firstDateChoices, liveCommands, liveMessage,
-  nameBlock, parseFormat, timeBlock, timeCommands, venueCommands, type ServerCheck,
+  nameBlock, parseFormat, serverCheckOf, timeBlock, timeCommands, venueCommands,
 } from './model';
 import { useNewSend } from './useNewSend';
 import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
@@ -278,7 +278,7 @@ function CoverStep({ seriesId }: { seriesId: string }) {
   const cover = picked ?? draft.data?.series.default_cover_image_url ?? null;
   // D91: the same server answer the event card reads, for this draft series.
   const goLiveCheck = useGoLiveCheck(seriesId, A1_APPLIED);
-  const server: ServerCheck = goLiveCheck.isError ? { status: 'error' } : goLiveCheck.data ? { status: 'ready', check: goLiveCheck.data } : { status: 'pending' };
+  const server = serverCheckOf(goLiveCheck);
   const reason = finishReason(!!cover, server);
 
   const choose = async (file: File | undefined) => {

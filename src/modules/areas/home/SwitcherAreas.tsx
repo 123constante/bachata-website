@@ -1,12 +1,12 @@
 // The Switch profile sheet's area entries: the teacher and DJ areas the person
-// holds, with the same status dot and words as Your areas (areaStatus), then
+// has added (isAreaShown), with the same status dot and words as Your areas (areaStatus), then
 // one "Your areas" link. Read only while the sheet is open.
 import { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { QueryClientContext, useQuery } from '@tanstack/react-query';
 import { AREA_PATHS } from '@/lib/areaPaths';
 import { fetchProfileProgress, profileProgressQueryKey } from '@/modules/organiser/shared/profileProgress';
-import { AREA_HREF, AREA_NAME, YOUR_AREAS_LABEL, areaStatus } from './areaStatus';
+import { AREA_HREF, AREA_NAME, YOUR_AREAS_LABEL, areaStatus, isAreaShown } from './areaStatus';
 import { fetchMyRoles, myRolesQueryKey } from './rolesApi';
 import { StatusDot } from './StatusDot';
 
@@ -16,7 +16,8 @@ export const SWITCHER_AREA_ROLES = ['teacher', 'dj'] as const;
 function Entries({ rowClass, mutedClass, onPick }: SwitcherAreasProps) {
   const roles = useQuery({ queryKey: myRolesQueryKey, queryFn: fetchMyRoles });
   const progress = useQuery({ queryKey: profileProgressQueryKey(null), queryFn: () => fetchProfileProgress(null) });
-  const held = SWITCHER_AREA_ROLES.filter((r) => roles.data?.some((row) => row.role === r && row.active));
+  // The same "added" rule as Your areas (isAreaShown): a teacher / DJ chosen at sign-up is listed too.
+  const held = SWITCHER_AREA_ROLES.filter((r) => isAreaShown(r, roles.data?.find((row) => row.role === r), progress.data));
   return (
     <>
       {held.length > 0 && (

@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { parseEventWorkspace } from '../eventModel';
 import * as life from '../lifecycleModel';
 import { NO_SESSION_REASON, goLiveList, goLiveState, lifecycleRows } from '../lifecycleModel';
-import { CHECKING_REASON, NOT_READY_REASON, NO_SESSION_NEW_REASON, finishReason } from '../../flows/new/model';
+import { CHECKING_REASON, NOT_READY_REASON, NO_SESSION_NEW_REASON, finishReason, serverCheckOf } from '../../flows/new/model';
 import { GO_LIVE_LABEL, type GoLiveCheck } from '../../shared/goLiveCheck';
 import { parseWorkspace } from '../../shared/seriesModel';
 import { ORG_PATHS } from '../../shell/paths';
@@ -109,5 +109,21 @@ describe('Go live needs a session: the New event last step reads the server answ
   });
   it('while the check loads the button is off with a reason', () => {
     expect(finishReason(true, { status: 'pending' }, true)).toBe(CHECKING_REASON);
+  });
+  // N1 (review of Release B): after an upload the cached answer still lists `cover` until the refetch lands.
+  it('a flyer is on the step: an answer that still lists cover never names the flyer', () => {
+    const flyer = `${GO_LIVE_LABEL.cover} first.`;
+    expect(finishReason(true, { status: 'ready', check: answer([['cover', 'cover']]) }, true)).not.toBe(flyer);
+    expect(finishReason(true, { status: 'ready', check: answer([['cover', 'cover'], ['venue', 'venue']]) }, true)).toBe(`${GO_LIVE_LABEL.venue} first.`);
+    // No flyer yet: the step's own photo reason, as before.
+    expect(finishReason(false, { status: 'ready', check: answer([['cover', 'cover']]) }, true)).toBe('Choose a photo to go live.');
+  });
+  it('the check refetching after the upload reads as checking, never as the old answer', () => {
+    const stale = answer([['cover', 'cover']]);
+    expect(serverCheckOf({ isError: false, isFetching: true, data: stale })).toEqual({ status: 'pending' });
+    expect(finishReason(true, serverCheckOf({ isError: false, isFetching: true, data: stale }), true)).toBe(CHECKING_REASON);
+    expect(serverCheckOf({ isError: false, isFetching: false, data: stale })).toEqual({ status: 'ready', check: stale });
+    expect(serverCheckOf({ isError: true, isFetching: false, data: undefined })).toEqual({ status: 'error' });
+    expect(serverCheckOf({ isError: false, isFetching: false, data: undefined })).toEqual({ status: 'pending' });
   });
 });

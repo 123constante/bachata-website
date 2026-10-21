@@ -31,7 +31,9 @@ const getSession = vi.hoisted(() => vi.fn());
 const rpcLoose = vi.hoisted(() => vi.fn());
 const rpc = vi.hoisted(() => vi.fn());
 const toast = vi.hoisted(() => vi.fn());
-const user = vi.hoisted(() => ({ id: 'u1', user_metadata: {} as Record<string, unknown> }));
+// A brand-new account by default: confirmed and signed in at the same moment (isFirstSignIn).
+const NEW_ACCOUNT = { email_confirmed_at: '2026-10-21T09:00:00Z', last_sign_in_at: '2026-10-21T09:00:05Z' };
+const user = vi.hoisted(() => ({ id: 'u1', user_metadata: {} as Record<string, unknown>, email_confirmed_at: '', last_sign_in_at: '' }));
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
@@ -90,6 +92,7 @@ beforeEach(() => {
   h.seat = { data: { organisers: [] }, error: null };
   h.intentAnswer = { data: { roles: [], declined: [], changed: true }, error: null };
   user.user_metadata = {};
+  Object.assign(user, NEW_ACCOUNT);
   toast.mockReset();
   maybeSingle.mockReset().mockResolvedValue({ data: COMPLETE, error: null });
   getSession.mockResolvedValue({ data: { session: { user } } });
@@ -189,6 +192,22 @@ describe('sign-in never records or moves', () => {
       expect(screen.queryByText('Already listed on Bachata Calendar?')).toBeNull();
       expect(intentCalls()).toHaveLength(0);
       expect(seatReads()).toHaveLength(0);
+    });
+  }
+});
+
+// S2 (review of Release B): set_my_role_intent_v1 REPLACES the stored roles, so the sign-up form used again on an
+// account that already exists must not overwrite what that account chose at its real sign-up.
+describe('sign-up mode, existing account -> zero intent calls', () => {
+  for (const carrier of ['link', 'code'] as const) {
+    it(`an account that signed in before taps Create account again (default [dancer], via ${carrier}): no intent call`, async () => {
+      carry(['dancer'], carrier);
+      Object.assign(user, { email_confirmed_at: '2026-10-01T09:00:00Z', last_sign_in_at: '2026-10-21T09:00:00Z' });
+      h.claimStatus = 'linked';
+      mount(signupEntry(false));
+      expect(await screen.findByTestId('landed')).toBeTruthy();
+      expect(intentCalls()).toHaveLength(0);
+      expect(localStorage.getItem('pending_role_intent')).toBeNull();
     });
   }
 });

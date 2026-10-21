@@ -18,12 +18,27 @@ import DjAreaPage from '../dj/DjAreaPage';
 import YourAreasPage from '../home/YourAreasPage';
 import { LINEUP_EMPTY_BODY, LINEUP_EMPTY_TITLE } from '../shared/LineupList';
 import { AREA_ROLES } from '../home/rolesApi';
-import { NOT_HELD_WORDS } from '../home/areaStatus';
+import { SwitcherAreas } from '../home/SwitcherAreas';
+import { AREA_HREF, NOT_HELD_WORDS, OPEN_LABEL } from '../home/areaStatus';
+import { requiredLeftText } from '@/modules/organiser/shared/profileProgress';
 
 const ok = (data: unknown) => Promise.resolve({ data, error: null });
 const EMPTY = {
   teacher: { years_teaching: null, teaching_styles: [], offers_private: null, private_lesson_types: [], private_lesson_locations: [], private_travel_distance: null, partner_role: null },
   dj: { dj_name: null, genres: [], soundcloud: null, mixcloud: null, pricing: null },
+};
+/**
+ * The PROD shape of a sign-up that ticked Dancer + Teacher and saved nothing yet (B1): my_roles_v1 says teacher
+ * `active:false` (only a person_roles row makes it active), while my_profile_progress_v1 already lists the seven
+ * teacher steps from the intent (D40), all optional and open. DJ was not chosen: no DJ steps.
+ */
+const TEACHER_STEPS = Object.keys(EMPTY.teacher).map((field) => ({ area: 'teacher', field, required: false, done: false }));
+const PROD_PROGRESS = {
+  percent: 20,
+  required_left: 1,
+  publish_ready: false,
+  steps: [{ area: 'dancer', field: 'dance_role', required: true, done: false }, { area: 'dancer', field: 'first_name', required: true, done: true }, ...TEACHER_STEPS],
+  declined: [],
 };
 beforeEach(() => {
   h.rpc.mockReset().mockImplementation((fn: string, args?: { p_role?: 'teacher' | 'dj' }) => {
@@ -34,7 +49,7 @@ beforeEach(() => {
       { role: 'teacher', active: false, complete: false },
       { role: 'dj', active: false, complete: false },
     ]);
-    if (fn === 'my_profile_progress_v1') return ok({ percent: 20, required_left: 1, publish_ready: false, steps: [], declined: [] });
+    if (fn === 'my_profile_progress_v1') return ok(PROD_PROGRESS);
     return Promise.resolve({ data: null, error: { message: `unexpected ${fn}` } });
   });
 });
@@ -61,14 +76,26 @@ describe('(a) a new sign-up who chose Teacher / DJ: the area renders an empty st
   });
 });
 
-describe('(b) Your areas for the same new person', () => {
-  it('lists every role, each with one action; teacher and DJ read "Not added" with Add', async () => {
+describe('(b) Your areas for the same new person (chose Dancer + Teacher at sign-up)', () => {
+  const sevenLeft = requiredLeftText(TEACHER_STEPS.length);
+
+  it('lists every role, each with one action; the chosen Teacher reads the open count with Open, DJ reads "Not added" with Add', async () => {
     mount(<YourAreasPage />);
-    await waitFor(() => expect(screen.getByTestId('area-status-teacher').textContent).toBe(NOT_HELD_WORDS));
+    await waitFor(() => expect(screen.getByTestId('area-status-teacher').textContent).toBe(sevenLeft));
     for (const role of AREA_ROLES) {
       const row = screen.getByTestId(`area-row-${role}`);
       expect(within(row).queryAllByRole('link').length + within(row).queryAllByRole('button').length).toBe(1);
     }
-    expect(screen.getAllByTestId('area-action-ask').map((b) => b.textContent)).toEqual(['Add', 'Add']);
+    const teacher = screen.getByTestId('area-row-teacher');
+    expect(within(teacher).getByRole('link', { name: OPEN_LABEL }).getAttribute('href')).toBe(AREA_HREF.teacher);
+    expect(screen.getByTestId('area-status-dj').textContent).toBe(NOT_HELD_WORDS);
+    expect(screen.getAllByTestId('area-action-ask').map((b) => b.textContent)).toEqual(['Add']);
+  });
+
+  it('the Switch profile sheet says the same words for Teacher and lists no DJ entry', async () => {
+    mount(<SwitcherAreas rowClass="" mutedClass="" onPick={() => undefined} />);
+    await waitFor(() => expect(screen.getByTestId('profile-switcher-area-status-teacher').textContent).toBe(sevenLeft));
+    expect(screen.getByTestId('profile-switcher-area-teacher').getAttribute('href')).toBe(AREA_HREF.teacher);
+    expect(screen.queryByTestId('profile-switcher-area-dj')).toBeNull();
   });
 });
