@@ -141,9 +141,13 @@ const otherOrganisersQuery = (currentOrganiserId: string | null, citySlug: strin
     enabled: !!citySlug,
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<OtherOrganiser[]> => {
-      const { data: countsData } = await supabase.rpc('get_organiser_event_counts' as never, {
+      // Throw on error: an empty result here would be cached (and dehydrated
+      // into the edge-cached HTML by prefetchEndedDoor) as a real "no other
+      // organisers", hiding the door for every visitor. Errors are not dehydrated.
+      const { data: countsData, error: countsError } = await supabase.rpc('get_organiser_event_counts' as never, {
         p_city_slug: citySlug,
       } as never);
+      if (countsError) throw countsError;
 
       type CountRow = { entity_id: string; event_count: number };
       const eligible = (((countsData as unknown) as CountRow[]) ?? [])
@@ -157,11 +161,12 @@ const otherOrganisersQuery = (currentOrganiserId: string | null, citySlug: strin
       if (picked.length === 0) return [];
 
       const ids = picked.map((r) => r.entity_id);
-      const { data: orgData } = await supabase
+      const { data: orgData, error: orgError } = await supabase
         .from('organiser_profiles')
         .select('id, name, avatar_url')
         .in('id', ids)
         .not('is_active', 'is', false);
+      if (orgError) throw orgError;
 
       type OrgRow = { id: string; name: string; avatar_url: string | null };
       const byId: Record<string, OrgRow> = Object.fromEntries(

@@ -154,6 +154,7 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
   // its own short budget inside the loader deadline: a stalled door RPC must not
   // turn the page into a timeout. A miss dehydrates nothing for it (pending
   // queries are not dehydrated) and the client fetches it as before.
+  let endedDoorTimer: ReturnType<typeof setTimeout> | undefined;
   const endedDoorPrefetch =
     snap?.event?.lifecycleStatus === "ended" && !isFestival
       ? Promise.race([
@@ -162,8 +163,10 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
             organiserId: snap.organisers[0]?.id ?? null,
             citySlug: snap.locationDefault?.city?.slug ?? null,
           }),
-          new Promise((resolve) => setTimeout(resolve, ENDED_DOOR_BUDGET_MS)),
-        ])
+          new Promise((resolve) => {
+            endedDoorTimer = setTimeout(resolve, ENDED_DOOR_BUDGET_MS);
+          }),
+        ]).finally(() => clearTimeout(endedDoorTimer))
       : Promise.resolve();
 
   // Phase 5 — normalize og:image/twitter:image (prefer the R2-baked card, else

@@ -13,6 +13,8 @@
  * scripts/_serve-build.mjs on its own port and SKIPS when the build is missing
  * or the event slug does not render (placeholder CI keys make every SSR event
  * page 404/500). Phone simulation: CDP CPU 4x.
+ *
+ * serial mode: a red run shows only the first failing case.
  */
 import { test, expect } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -71,15 +73,23 @@ for (const slug of SLUGS) {
     test(`ended event ${slug} does not shift after load at ${vp.width}x${vp.height}`, async ({ browser }) => {
       test.setTimeout(60_000);
       const url = `${BASE}/event/${slug}`;
+      // Say why when skipping: a slug later archived (410) or a build without
+      // real data must not turn this guard into a silent pass. The skip runs
+      // after the try, since test.skip throws and the catch would eat its reason.
+      let skipReason: string | null = null;
       try {
         const res = await fetch(url);
         const html = await res.text();
         // Judge the body, not the status (see event-hydration-421.spec.ts). The
         // 404 page also carries 'routes/event', so require the bento grid too.
         if (res.status === 404 || !html.includes('container-type:inline-size'))
-          test.skip(true, `SSR ${url} -> ${res.status}; needs a production build and real data`);
+          skipReason = `SKIP ${slug}: SSR ${url} -> ${res.status}, no bento grid; slug archived, or no production build / real data`;
       } catch {
-        test.skip(true, 'production server not reachable');
+        skipReason = `SKIP ${slug}: production server not reachable at ${BASE}`;
+      }
+      if (skipReason) {
+        console.warn(skipReason);
+        test.skip(true, skipReason);
       }
 
       const context = await browser.newContext({ viewport: vp, isMobile: true, hasTouch: true });
