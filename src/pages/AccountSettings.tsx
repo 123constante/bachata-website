@@ -5,6 +5,7 @@ import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GhostButton, PrimaryButton, SheetView } from "@/modules/organiser/ui";
 import { AccountShell } from "@/modules/areas/shared/AccountShell";
+import { PAGE_TITLE } from "@/modules/areas/shared/typeScale";
 import { EmailText } from "@/components/account/EmailText";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useAuth } from "@/hooks/useAuth";
@@ -43,12 +44,12 @@ import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from "@/l
  */
 
 const PILL =
-  "inline-flex min-h-[44px] w-full items-center justify-center rounded-[var(--r-ctl)] bg-[var(--btn)] px-[16px] text-[14px] font-semibold text-[var(--btnfg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--fg)] disabled:opacity-50";
+  "inline-flex min-h-[44px] w-full items-center justify-center rounded-[var(--r-ctl)] bg-[var(--btn)] px-[16px] text-[14px] font-semibold text-[var(--btnfg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--fg)] disabled:border-transparent disabled:bg-[var(--card2)] disabled:text-[var(--mut)]";
 const OUTLINE =
-  "inline-flex min-h-[44px] w-full items-center justify-center rounded-[var(--r-ctl)] border border-[var(--line)] px-[16px] text-[14px] font-semibold text-[var(--fg)] disabled:opacity-50";
+  "inline-flex min-h-[44px] w-full items-center justify-center rounded-[var(--r-ctl)] border border-[var(--line)] px-[16px] text-[14px] font-semibold text-[var(--fg)] disabled:border-transparent disabled:bg-[var(--card2)] disabled:text-[var(--mut)]";
 const DANGER =
-  "inline-flex min-h-[44px] w-full items-center justify-center rounded-[var(--r-ctl)] bg-[var(--danger)] px-[16px] text-[14px] font-semibold text-[var(--btnfg)] disabled:opacity-50";
-const CARD = "space-y-2 rounded-[var(--r-card)] border border-[var(--line)] bg-[var(--card)] p-3";
+  "inline-flex min-h-[44px] w-full items-center justify-center rounded-[var(--r-ctl)] bg-[var(--danger)] px-[16px] text-[14px] font-semibold text-[var(--btnfg)] disabled:border-transparent disabled:bg-[var(--card2)] disabled:text-[var(--mut)]";
+const CARD = "space-y-[8px] rounded-[var(--r-card)] border border-[var(--line)] bg-[var(--card)] p-[16px]";
 const NOTE = "text-[13px] text-[var(--mut)]";
 const ERR = "text-[13px] text-[var(--danger)]";
 
@@ -90,7 +91,7 @@ function ExportButton({ testId, label = "Download my data" }: { testId: string; 
     setBusy(false);
   };
   return (
-    <div className="space-y-2">
+    <div className="space-y-[8px]">
       <button type="button" className={OUTLINE} onClick={() => void go()} disabled={busy} data-testid={testId}>
         {busy ? <>Preparing your file&hellip;</> : label}
       </button>
@@ -119,7 +120,7 @@ export function SignOutSection() {
     <Section title="Sign out">
       <p className={NOTE}>{user?.email ? <>Signed in as <EmailText email={user.email} />.</> : <>Signed in.</>}</p>
       {confirming ? (
-        <div className="space-y-2">
+        <div className="space-y-[8px]">
           <button type="button" className={PILL} onClick={() => void go()} disabled={busy} data-testid="settings-signout-yes">
             {busy ? <>Signing out&hellip;</> : "Yes, sign out"}
           </button>
@@ -159,7 +160,7 @@ function SignOutEverywhere() {
     }
   };
   return (
-    <div className="space-y-2 border-t border-[var(--line)] pt-2">
+    <div className="space-y-[8px] border-t border-[var(--line)] pt-[8px]">
       <p className={NOTE}>Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included.</p>
       <button type="button" className={OUTLINE} onClick={() => setAsking(true)} data-testid="settings-signout-all">
         Sign out of all devices
@@ -239,12 +240,12 @@ function EmailSection() {
         autoComplete="email"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="min-h-[44px] w-full rounded-[var(--r-ctl)] border border-[var(--line)] bg-[var(--bg)] px-3 text-[16px]"
+        className="min-h-[44px] w-full rounded-[var(--r-ctl)] border border-[var(--line)] bg-[var(--bg)] px-[12px] text-[16px]"
         data-testid="settings-email-input"
       />
       <button
         type="button"
-        className={PILL}
+        className={OUTLINE}
         disabled={busy || reason !== null}
         onClick={() => void submit()}
         data-testid="settings-email-submit"
@@ -296,9 +297,9 @@ function VisibilitySection() {
   return (
     <Section title="Hide your dancer profile" testId="settings-disable">
       {status === "loading" ? (
-        <Skeleton className="h-11 w-full rounded-full" />
+        <Skeleton className="h-[44px] w-full rounded-full" />
       ) : status === "error" ? (
-        <div className="space-y-2">
+        <div className="space-y-[8px]">
           <p className={NOTE}>We couldn&rsquo;t check your profile just now.</p>
           <button type="button" className={OUTLINE} onClick={() => vis.refetch()}>Try again</button>
         </div>
@@ -315,7 +316,7 @@ function VisibilitySection() {
           </p>
           <button
             type="button"
-            className={hidden ? PILL : OUTLINE}
+            className={OUTLINE}
             disabled={busy}
             onClick={() => (hidden ? void apply(false) : setConfirming(true))}
             data-testid="settings-disable-toggle"
@@ -340,7 +341,8 @@ function VisibilitySection() {
           </SheetView>
         </>
       )}
-      {error && <p role="alert" className={ERR} data-testid="settings-disable-error">{error}</p>}
+      {/* S5: while the sheet is open its own line says it; one alert, not two. */}
+      {error && !confirming && <p role="alert" className={ERR} data-testid="settings-disable-error">{error}</p>}
     </Section>
   );
 }
@@ -348,7 +350,7 @@ function VisibilitySection() {
 function Home() {
   const fromApp = useFromApp();
   return (
-    <div className="space-y-3">
+    <div className="space-y-[12px]">
       <EmailSection />
       <VisibilitySection />
       <Section title="Your data">
@@ -368,10 +370,10 @@ function Home() {
 
 function Blocked({ text, names, code }: { text: string; names: string[]; code: EraseCode | DeleteRefusalCode | null }) {
   return (
-    <div className="space-y-2 rounded-[var(--r-card)] border border-[var(--danger)] p-3" data-testid="delete-blocked" data-code={code ?? ""}>
+    <div className="space-y-[8px] rounded-[var(--r-card)] border border-[var(--danger)] p-[16px]" data-testid="delete-blocked" data-code={code ?? ""}>
       <p className="text-[14px] text-[var(--fg)]">{text}</p>
       {names.length > 0 && (
-        <ul className="list-disc space-y-1 pl-5 text-[14px] font-semibold text-[var(--fg)]">
+        <ul className="list-disc space-y-[4px] pl-[20px] text-[14px] font-semibold text-[var(--fg)]">
           {names.map((n, i) => <li key={`${n}-${i}`}>{n}</li>)}
         </ul>
       )}
@@ -438,9 +440,9 @@ export function Delete() {
         : `The button works once you type ${ERASE_CONFIRM_WORD} in capital letters.`;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-[12px]">
       <Section title="What happens" testId="delete-lost">
-        <ul className="list-disc space-y-1 pl-5 text-[14px] text-[var(--fg)]">
+        <ul className="list-disc space-y-[4px] pl-[20px] text-[14px] text-[var(--fg)]">
           <li>Your profile is hidden from everyone straight away, and you are signed out on every device.</li>
           <li>Sign in within 30 days to undo it: your account comes back as it was.</li>
           <li>
@@ -460,43 +462,48 @@ export function Delete() {
         </Link>
       </Section>
       <Section title="Delete my account">
-        {loading && <Skeleton className="h-11 w-full rounded-[var(--r-ctl)]" />}
+        {loading && <Skeleton className="h-[44px] w-full rounded-[var(--r-ctl)]" />}
         {failed && (
-          <div className="space-y-2" data-testid="delete-check-failed">
+          <div className="space-y-[8px]" data-testid="delete-check-failed">
             <p className={ERR}>We couldn&rsquo;t check your account just now.</p>
             <button type="button" className={OUTLINE} onClick={() => void check.refetch()}>Try again</button>
           </div>
         )}
         {fact && blocked && <Blocked text={fact.text} names={fact.blockerNames} code={late ? late.code : (check.data?.code ?? null)} />}
-        {canType && (
-          // M3: Enter / the keyboard's Done submits; erase() refuses unless the word is typed.
-          <form
-            className="space-y-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void erase();
-            }}
-          >
-            <label htmlFor="delete-type-input" className="block text-[13px] font-semibold text-[var(--fg)]">
-              Type {ERASE_CONFIRM_WORD} to confirm
-            </label>
-            <input
-              id="delete-type-input"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              autoCapitalize="characters"
-              autoCorrect="off"
-              autoComplete="off"
-              spellCheck={false}
-              enterKeyHint="done"
-              className="min-h-[44px] w-full rounded-[var(--r-ctl)] border border-[var(--line)] bg-[var(--bg)] px-3 text-[16px]"
-              data-testid="delete-type-input"
-            />
-          </form>
-        )}
-        <button type="button" className={DANGER} disabled={!enabled} onClick={() => void erase()} data-testid="delete-confirm">
-          {busy ? <>Deleting&hellip;</> : "Delete my account"}
-        </button>
+        {/* Keyboard up: keyboardSafe keeps the Delete button (the "results") on screen under the field. */}
+        <div data-keyboard-scope className="space-y-[8px]">
+          {canType && (
+            // M3: Enter / the keyboard's Done submits; erase() refuses unless the word is typed.
+            <form
+              className="space-y-[8px]"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void erase();
+              }}
+            >
+              <label htmlFor="delete-type-input" className="block text-[13px] font-semibold text-[var(--fg)]">
+                Type {ERASE_CONFIRM_WORD} to confirm
+              </label>
+              <input
+                id="delete-type-input"
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={false}
+                enterKeyHint="done"
+                className="min-h-[44px] w-full rounded-[var(--r-ctl)] border border-[var(--line)] bg-[var(--bg)] px-[12px] text-[16px]"
+                data-testid="delete-type-input"
+              />
+            </form>
+          )}
+          <div data-keyboard-results>
+            <button type="button" className={DANGER} disabled={!enabled} onClick={() => void erase()} data-testid="delete-confirm">
+              {busy ? <>Deleting&hellip;</> : "Delete my account"}
+            </button>
+          </div>
+        </div>
         {!enabled && !busy && (
           <p className={NOTE} data-testid={blocked ? "delete-blocked-reason" : "delete-confirm-reason"}>{reason}</p>
         )}
@@ -530,13 +537,13 @@ export const AccountSettingsScreen = ({ view = "home" }: { view?: View }) => {
           {fromApp && (
             <Link
               to={APP_OPTIONS_PATH}
-              className="inline-flex min-h-[44px] items-center text-[14px] font-semibold text-[var(--gold)] underline underline-offset-2"
+              className="inline-flex min-h-[44px] items-center text-[14px] font-semibold text-[var(--gold-fg)] underline underline-offset-2"
               data-testid="settings-back-to-options"
             >
               {BACK_TO_OPTIONS_LABEL}
             </Link>
           )}
-          <h1 className="text-lg font-bold text-[var(--fg)]">{TITLES[view]}</h1>
+          <h1 className={PAGE_TITLE}>{TITLES[view]}</h1>
           {view === "home" ? <Home /> : <Delete />}
       </AccountShell>
     </GlobalLayout>

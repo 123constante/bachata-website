@@ -33,7 +33,7 @@ function ActionControl({ action, onAsk }: { action: AreaAction; onAsk: (role: 't
   if (action.kind === 'ask') {
     return <button type="button" className={`${ACTION} bg-[var(--card2)] text-[var(--fg)]`} data-testid={testId} onClick={() => onAsk(action.role)}>{action.label}</button>;
   }
-  const tone = action.kind === 'open' ? 'text-[var(--gold)]' : 'bg-[var(--card2)] text-[var(--fg)]';
+  const tone = action.kind === 'open' ? 'text-[var(--gold-fg)]' : 'bg-[var(--card2)] text-[var(--fg)]';
   return <Link to={action.to} className={`${ACTION} ${tone}`} data-testid={testId}>{action.label}</Link>;
 }
 

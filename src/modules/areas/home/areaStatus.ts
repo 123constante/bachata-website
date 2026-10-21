@@ -105,3 +105,19 @@ export function accountAreasWords(
   }
   return OPEN_OR_ADD_WORDS;
 }
+
+export const OPEN_YOUR_AREAS_WORDS = 'Open Your areas';
+
+/**
+ * The Account row's sublabel with the queries' state (review S4): nothing while a query is loading, a neutral
+ * "Open Your areas" when my_roles_v1 failed, and the D112 words once both have settled. A failed progress read gives
+ * the same words Your areas shows without it. Never "Open or add a role" before the data says no area is unfinished.
+ */
+export function accountAreasRowWords(
+  roles: { status: 'pending' | 'error' | 'success'; data?: readonly RoleRow[] },
+  progress: { status: 'pending' | 'error' | 'success'; data?: Pick<ProfileProgress, 'steps' | 'declined'> },
+): string | undefined {
+  if (roles.status === 'error') return OPEN_YOUR_AREAS_WORDS;
+  if (roles.status === 'pending' || progress.status === 'pending') return undefined;
+  return accountAreasWords(roles.data, progress.data);
+}

@@ -69,7 +69,7 @@ export function HideSurnameCard() {
   });
 
   return (
-    <section className="space-y-2" data-testid="dancer-home-hide-surname">
+    <section className="space-y-[8px]" data-testid="dancer-home-hide-surname">
       <HideSurnameSwitch
         checked={checked}
         onChange={(next) => {
@@ -88,10 +88,10 @@ export function HideSurnameCard() {
         {save.isPending ? <>Saving&hellip;</> : "Save"}
       </button>
       {!changed && reason === null && !saved && (
-        <p className="text-xs text-[var(--mut)]">Change the switch, then save.</p>
+        <p className="text-[13px] text-[var(--mut)]">Change the switch, then save.</p>
       )}
       {saved && !changed && (
-        <p role="status" className="text-xs text-[var(--mut)]">Saved.</p>
+        <p role="status" className="text-[13px] text-[var(--mut)]">Saved.</p>
       )}
       {save.isError && (
         <p role="alert" className="text-xs text-[var(--danger)]">

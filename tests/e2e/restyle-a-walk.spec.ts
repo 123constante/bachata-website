@@ -107,12 +107,59 @@ test.describe('390x844 sheets and the sign-up roles step', () => {
     await expect(page.getByTestId('discard-keep')).toBeVisible();
     await page.screenshot({ path: 'docs/people-arc/restyle-a/discard-sheet-390.png' });
   });
+  // Review B3: after Save at the end of the form the page sits on the orange footer; the toast must read over it.
+  test('saved toast over the footer', async ({ page }) => {
+    await open(page, '/account/t/details');
+    await page.route('**/rest/v1/rpc/save_my_role_v1', (r) => json(r, { role: 'teacher', person_id: 'p1', changed: true, changed_keys: ['years_teaching'], details: { ...TEACHER, years_teaching: 9 } }));
+    await page.getByLabel(/years/i).fill('9');
+    await page.getByTestId('save-details').click();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const pill = page.getByTestId('saved-toast').locator('span').first();
+    await expect(pill).toBeVisible();
+    const ratio = await pill.evaluate((el) => {
+      const rgb = (c: string) => (c.match(/[\d.]+/g) ?? []).map(Number);
+      const lum = ([r, g, b]: number[]) => {
+        const f = (v: number) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+      };
+      const cs = getComputedStyle(el);
+      const bg = rgb(cs.backgroundColor);
+      if (bg.length === 4 && bg[3] < 1) return 0; // translucent: what is under it decides, so it fails
+      const [a, b] = [lum(bg), lum(rgb(cs.color))].sort((x, y) => y - x);
+      return (a + 0.05) / (b + 0.05);
+    });
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+    await page.screenshot({ path: 'docs/people-arc/restyle-a/saved-toast-390.png' });
+  });
+  // Review B4: browser Back on the real (data) router asks first; Keep editing keeps the edits.
+  test('browser back with edits asks first', async ({ page }) => {
+    await open(page, '/account/t');
+    await page.getByTestId('edit-details').click();
+    await page.getByLabel(/years/i).fill('9');
+    await page.evaluate(() => window.history.back());
+    await expect(page.getByTestId('discard-keep')).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe('/account/t/details');
+    await page.screenshot({ path: 'docs/people-arc/restyle-a/discard-back-390.png' });
+    await page.getByTestId('discard-keep').click();
+    await expect(page.getByLabel(/years/i)).toHaveValue('9');
+    await page.evaluate(() => window.history.back());
+    await page.getByTestId('discard-leave').click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/account/t');
+  });
   test('sign-up roles step', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
     await open(page, '/auth?mode=signup', { signedOut: true });
     await expect(page.getByTestId('signup-roles-step')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // Review S6: the role buttons get the Ember focus ring from the keyboard, like every other slice-A control.
+    for (let i = 0; i < 40; i++) {
+      await page.keyboard.press('Tab');
+      if (await page.evaluate(() => document.activeElement?.hasAttribute('aria-pressed') ?? false)) break;
+    }
+    const ring = await page.evaluate(() => { const cs = getComputedStyle(document.activeElement as Element); return { style: cs.outlineStyle, width: cs.outlineWidth }; });
+    expect(ring).toEqual({ style: 'solid', width: '2px' });
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await solid(page, 'signup-roles-step');
     await page.screenshot({ path: 'docs/people-arc/restyle-a/signup-roles-390.png' });
     expect(errors.filter((e) => !/favicon|Failed to load resource|Extra attributes from the server|violates the following Content Security Policy|\[hydration\]|fetchPriority/.test(e)).map((e) => e.slice(0, 300))).toEqual([]);

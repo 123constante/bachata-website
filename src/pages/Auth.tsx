@@ -46,8 +46,7 @@ import { AUTH_ACTION_LABELS } from "@/lib/auth-labels";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
 import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { EmberWorld } from "@/modules/organiser/ui/EmberWorld";
-import { PrimaryButton } from "@/modules/organiser/ui/Buttons";
+import { EmberWorld, PrimaryButton } from "@/modules/organiser/ui";
 import { flags } from "@/lib/featureFlags";
 import { SIGNUP_STEPS, getNextStep, getPreviousStep, getStepIndex, type SignupStep } from "@/lib/auth-signup-resolver";
 import { DanceRolePicker } from "@/components/profile/DanceRolePicker";
@@ -692,7 +691,7 @@ const AuthContent = () => {
                           <button
                             key={role.value}
                             type="button"
-                            className={`min-h-[64px] w-full rounded-[var(--r-card)] border px-[14px] py-[10px] text-left transition-colors ${
+                            className={`min-h-[64px] w-full rounded-[var(--r-card)] border px-[14px] py-[10px] text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold)] ${
                               isActive ? "border-[var(--gold)] bg-[var(--card2)]" : "border-[var(--line)] bg-[var(--card)]"
                             }`}
                             aria-pressed={isActive}

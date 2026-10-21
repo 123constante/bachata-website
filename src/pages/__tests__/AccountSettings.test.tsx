@@ -149,7 +149,23 @@ describe('settings home', () => {
     mount(SETTINGS);
     fireEvent.click(await screen.findByTestId('settings-disable-toggle'));
     fireEvent.click(await screen.findByTestId('settings-disable-confirm'));
+    // Review S5: said once, inside the open sheet; not again under the section.
+    expect((await screen.findByTestId('settings-disable-sheet-error')).textContent).toMatch(/no dancer profile/i);
+    expect(screen.queryByTestId('settings-disable-error')).toBeNull();
+    // Keep it visible closes the sheet: then the line under the section carries the reason.
+    fireEvent.click(screen.getByRole('button', { name: 'Keep it visible' }));
     expect((await screen.findByTestId('settings-disable-error')).textContent).toMatch(/no dancer profile/i);
+  });
+
+  // Review S3: settings has no filled (primary-looking) control at rest; Change email and Show again are outlined.
+  it.each(['visible', 'hidden'])('one primary: no filled control on the settings home (%s)', async (status) => {
+    h.visibility = { status };
+    mount(SETTINGS);
+    await screen.findByTestId('settings-disable-toggle');
+    for (const id of ['settings-email-submit', 'settings-disable-toggle', 'settings-signout', 'settings-signout-all']) {
+      expect(screen.getByTestId(id).className, id).not.toContain('bg-[var(--btn)]');
+    }
+    expect(screen.getByTestId('settings-email-submit').className).not.toContain('opacity-50');
   });
 
   it('change email: invalid is disabled with a reason; valid calls updateUser and shows the check-both-inboxes state', async () => {

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { EmberWorld } from '@/modules/organiser/ui/EmberWorld';
+import { EmberWorld } from '@/modules/organiser/ui';
 import '@/modules/organiser/theme.css';
 import { SiteHomeLink } from './SiteHomeLink';
 

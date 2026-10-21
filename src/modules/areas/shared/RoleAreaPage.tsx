@@ -20,11 +20,26 @@ export interface RoleAreaPaths {
   blocked: BlockedPaths;
 }
 
+/**
+ * The prototype's meter line (S2): "N of M" as a big number over the rest, the other sentences at 24px. The text is
+ * exactly the D118 sentence, so every surface that reads completenessLine still matches it.
+ */
+function MeterLine({ line }: { line: string }) {
+  const m = /^(\d+)( of .*)$/.exec(line);
+  if (!m) return <p className="text-[24px] font-extrabold leading-[30px]" data-testid="completeness-line">{line}</p>;
+  return (
+    <p className="text-[34px] font-extrabold leading-none tracking-[-1px] tabular-nums" data-testid="completeness-line">
+      {m[1]}
+      <span className="text-[17px] font-semibold tracking-normal text-[var(--mut)]">{m[2]}</span>
+    </p>
+  );
+}
+
 /** Shown the same way on the teacher and the DJ dashboard. */
 export function CompletenessMeter({ role, filled, total, percent, complete }: { role: Role; filled: number; total: number; percent: number; complete?: boolean }) {
   return (
     <div className="space-y-[8px]">
-      <p className="text-[15px] font-semibold" data-testid="completeness-line">{completenessLine({ filled, total, percent }, { complete })}</p>
+      <MeterLine line={completenessLine({ filled, total, percent }, { complete })} />
       <div
         role="progressbar"
         aria-label={`${ROLE_NAME[role]} details added`}
@@ -58,7 +73,8 @@ export function RoleAreaPage({ role, paths }: { role: Role; paths: RoleAreaPaths
       ) : (
         <>
           <Card label={`Your ${ROLE_NOUN[role]} details`} variant="padded" testId="details-card">
-            {details.status === 'pending' ? (
+            {/* The meter waits for my_roles_v1 too: its "Complete" word decides the zero line (S7, D118). */}
+            {details.status === 'pending' || roles.status === 'pending' ? (
               <SkeletonRows count={2} label={`Loading your ${name} details`} />
             ) : details.status === 'error' ? (
               <ErrorState
