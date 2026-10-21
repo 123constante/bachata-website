@@ -43,6 +43,7 @@ const MockPersonPage = lazyWithRetry(() => import("../modules/person-page/mockup
 const S8Mock = lazyWithRetry(() => import("../modules/person-page/mockups/S8Mock"));
 const S9FaceWall = lazyWithRetry(() => import("../modules/person-page/mockups/S9FaceWall"));
 const S11Person = lazyWithRetry(() => import("../modules/person-page/mockups/S11Person"));
+const S12Hub = lazyWithRetry(() => import("../modules/person-page/mockups/S12Hub"));
 const Vendors = lazyWithRetry(() => import("../pages/Vendors"));
 const VendorDetail = lazyWithRetry(() => import("../pages/VendorDetail"));
 const Raffles = lazyWithRetry(() => import("../pages/Raffles"));
@@ -170,6 +171,7 @@ export const AnimatedRoutes = () => {
             {(import.meta.env.DEV || import.meta.env.VITE_MOCKS === "true") && (<Route path="/__mock/s8/:view/:fixture/:role?/*" element={<S8Mock />} />)}
             {(import.meta.env.DEV || import.meta.env.VITE_MOCKS === "true") && (<Route path="/__mock/s9/:view" element={<S9FaceWall />} />)}
             {(import.meta.env.DEV || import.meta.env.VITE_MOCKS === "true") && (<Route path="/__mock/s11/:view" element={<S11Person />} />)}
+            {(import.meta.env.DEV || import.meta.env.VITE_MOCKS === "true") && (<Route path="/__mock/s12/:view" element={<S12Hub />} />)}
             {/* /djs/:id is a framework route (app/routes/djs.tsx). */}
             <Route path="/venues" element={<PageTransition><Venues /></PageTransition>} />
             <Route path="/city/:slug/venues" element={<PageTransition><Venues /></PageTransition>} />
