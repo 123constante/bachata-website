@@ -16,7 +16,7 @@ export function DateChip({ date, today, testId, className }: DateChipProps) {
   return (
     <span
       data-testid={testId}
-      className={cn('flex h-[52px] w-[48px] shrink-0 flex-col items-center justify-center rounded-[8px] bg-[var(--card2)]', className)}
+      className={cn('flex h-[52px] w-[48px] shrink-0 flex-col items-center justify-center rounded-[var(--r-chip,8px)] bg-[var(--card2)]', className)}
     >
       <span aria-hidden="true" className={cn('font-bold leading-none text-[var(--fg)]', year ? 'text-[18px]' : 'text-[20px]')}>{day}</span>
       <span aria-hidden="true" className="mt-[4px] text-[11px] font-semibold uppercase leading-none tracking-[.03em] text-[var(--mut)]">{month}</span>

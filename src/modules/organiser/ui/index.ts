@@ -4,6 +4,7 @@ export { SectionLabel, type SectionLabelProps } from './SectionLabel';
 export { SummaryRow, type SummaryRowProps } from './SummaryRow';
 export { StatusTag, type StatusTagProps, type StatusTone } from './StatusTag';
 export { Pill, type PillProps } from './Pill';
+export { EmberWorld, loadEmberFont, type EmberWorldProps } from './EmberWorld';
 export { Chip, type ChipProps } from './Chip';
 export { PrimaryButton, GhostButton, type OrgButtonProps } from './Buttons';
 export { AttentionStrip, type AttentionStripProps } from './AttentionStrip';
