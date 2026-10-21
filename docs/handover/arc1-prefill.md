@@ -39,3 +39,11 @@ then `origin/claude/arc1-pr2-redeem` and `origin/main` merged in (main was alrea
   `organiser-home.spec.ts:55` (load failure + Retry), which fails identically without this change.
 - A read with no user id (auth still resolving) returns nothing and keeps the store; only a known
   different user clears it (test added, red before that line).
+
+## CI follow-up (build-smoke)
+- `public-journeys.build.spec.ts` row `team-invite-existing-dancer` (M53) expected Join to land on
+  `/account/o`; the claim slice (1d/7c) lands on `/account/o/welcome?o=<page>`. The journey row, its
+  routing-model walk and its END screen (`org-page-welcome`) now say so. The full build suite
+  (`playwright.build.config.ts`) passes locally: 66 of 66. The prose end text in
+  `docs/account-system/JOURNEY-GRID.md` / `journey-grid.json` and the public-journeys MATRIX still
+  say "`/account/o` Home"; `check:journey-grid` passes either way, so they were not changed here.
