@@ -177,6 +177,7 @@ const ROWS: Row[] = [
   { file: 'src/pages/OrganiserProfile.tsx', picker: 'CityPicker', id: 'city' },
   { file: 'src/pages/VendorDashboardPage.tsx', picker: 'CityPicker', ariaLabel: 'City' },
   { file: 'src/pages/VendorPortal.tsx', picker: 'CityPicker', ariaLabel: 'City' },
+  { file: 'src/modules/admin-organisers/AdminOrganisersPage.tsx', picker: 'CityPicker', id: 'link-city' },
 ];
 
 const ROOT = path.resolve(__dirname, '../../../..');

@@ -76,6 +76,11 @@ const RULES = [
       'src/lib/claimMyOrganisers.ts',
       'src/pages/__tests__/AuthCallbackOrganiserClaim.test.tsx',
       'src/pages/__tests__/AuthCallbackClaimFixPass.test.tsx',
+      // The Arc 1 invite-request list and the issue RPC answer with the same key; the sender
+      // model is their boundary parser, and these specs feed it server answers.
+      'src/modules/admin-organisers/senderModel.ts',
+      'src/modules/admin-organisers/__tests__/senderModel.test.ts',
+      'src/modules/admin-organisers/__tests__/senderPage.test.tsx',
     ]),
   },
   {

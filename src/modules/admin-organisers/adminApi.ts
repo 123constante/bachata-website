@@ -1,5 +1,15 @@
 import { supabase } from '@/integrations/supabase/client';
 import { parseInvites, type InviteRow, type MemberRole } from './inviteModel';
+import {
+  parseAccessRequests,
+  parseInviteRequests,
+  parseIssueResult,
+  parseResolveResult,
+  type AccessRequest,
+  type InviteRequest,
+  type IssueOutcome,
+  type ResolveOutcome,
+} from './senderModel';
 
 // None of the invite RPCs are in the generated Database type yet (a bot
 // regenerates it; never hand-edited), so they go through a string-named
@@ -13,6 +23,8 @@ export const adminCheckQueryKey = (userId: string | undefined) => ['admin-check'
 export const adminInvitesQueryKey = (organiserId: string) => ['admin-organiser-invites', organiserId] as const;
 export const adminOwnershipQueryKey = (organiserId: string) => ['admin-organiser-managed', organiserId] as const;
 export const ADMIN_ORGANISERS_KEY = ['admin-organisers'] as const;
+export const INVITE_REQUESTS_KEY = ['admin-invite-requests'] as const;
+export const ACCESS_REQUESTS_KEY = ['admin-signup-access-requests'] as const;
 
 /** admin_is_admin() -> is_admin(): the one definition. Never profiles.is_admin.
  *  Prod RAISES admin_only (42501, HTTP 403) for a non-admin: that is the ANSWER (false), not an error (D89).
@@ -57,25 +69,28 @@ export async function fetchOrganiserInvites(organiserId: string): Promise<Invite
   return parseInvites(data);
 }
 
-export interface IssuedInvite {
-  inviteId: string;
-  /** Shown once, then dropped: never stored, logged or sent anywhere. */
-  token: string;
-  expiresAt: string | null;
-  revokedPrevious: number;
+export interface IssueInviteArgs {
+  organiserId: string;
+  /** Binds the link to this address and allow-lists it for sign-up. Empty = an unbound link. */
+  email?: string;
+  /** Prefill for the newcomer's dancer questions; both optional. */
+  firstName?: string;
+  cityId?: string;
 }
 
-export async function issueOrganiserInvite(organiserId: string): Promise<IssuedInvite> {
-  const { data, error } = await rpc('admin_issue_organiser_invite_v1', { p_organiser_id: organiserId });
+/**
+ * admin_issue_organiser_invite_v1 (Arc 1 as-built). The three field refusals come back as
+ * {ok:false, reason} for the form to show; not_authorised and friends still raise (adminErrorMessage).
+ */
+export async function adminIssueOrganiserInvite({ organiserId, email, firstName, cityId }: IssueInviteArgs): Promise<IssueOutcome> {
+  const { data, error } = await rpc('admin_issue_organiser_invite_v1', {
+    p_organiser_id: organiserId,
+    p_email: email?.trim() || null,
+    p_first_name: firstName?.trim() || null,
+    p_city_id: cityId || null,
+  });
   if (error) throw error;
-  const row = (data ?? {}) as Record<string, unknown>;
-  if (typeof row.token !== 'string' || typeof row.invite_id !== 'string') throw new Error('malformed_invite_answer');
-  return {
-    inviteId: row.invite_id,
-    token: row.token,
-    expiresAt: typeof row.expires_at === 'string' ? row.expires_at : null,
-    revokedPrevious: Array.isArray(row.revoked_previous) ? row.revoked_previous.length : 0,
-  };
+  return parseIssueResult(data);
 }
 
 export async function revokeOrganiserInvite(organiserId: string): Promise<number> {
@@ -109,4 +124,31 @@ export async function redeemOrganiserInvite(token: string) {
  */
 export async function previewOrganiserInvite(token: string) {
   return rpc('organiser_invite_preview_v1', { p_token: token });
+}
+
+/** admin_list_invite_requests_v1: "Request a new link" taps on broken links. Never a token or hash. */
+export async function fetchInviteRequests(): Promise<InviteRequest[]> {
+  const { data, error } = await rpc('admin_list_invite_requests_v1');
+  if (error) throw error;
+  return parseInviteRequests(data);
+}
+
+export async function resolveInviteRequest(id: string): Promise<ResolveOutcome> {
+  const { data, error } = await rpc('admin_resolve_invite_request_v1', { p_id: id });
+  if (error) throw error;
+  return parseResolveResult(data);
+}
+
+/** admin_list_signup_access_requests_v1: "Request access" from the invite-only sign-up wall. */
+export async function fetchAccessRequests(): Promise<AccessRequest[]> {
+  const { data, error } = await rpc('admin_list_signup_access_requests_v1');
+  if (error) throw error;
+  return parseAccessRequests(data);
+}
+
+/** Approve allow-lists the email (server side); dismiss only closes the request. */
+export async function resolveAccessRequest(id: string, action: 'approve' | 'dismiss'): Promise<ResolveOutcome> {
+  const { data, error } = await rpc('admin_resolve_signup_access_request_v1', { p_id: id, p_action: action });
+  if (error) throw error;
+  return parseResolveResult(data);
 }

@@ -1,27 +1,28 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, MessageCircle, Search, UserPlus } from 'lucide-react';
+import { ChevronRight, Copy, MessageCircle, Search, UserPlus } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CityPicker } from '@/components/ui/city-picker';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { instantDateLabel } from '@/modules/organiser/shared/teamModel';
 import {
   ADMIN_ORGANISERS_KEY,
+  INVITE_REQUESTS_KEY,
   addOrganiserPerson,
   adminInvitesQueryKey,
+  adminIssueOrganiserInvite,
   adminOwnershipQueryKey,
   fetchAdminOrganisers,
   fetchIsManaged,
   fetchOrganiserInvites,
-  issueOrganiserInvite,
   revokeOrganiserInvite,
   type AdminOrganiser,
 } from './adminApi';
 import {
-  ACCESS_LABEL,
   lifecycleLabel,
   notLiveNote,
   ACCESS_ORDER,
@@ -30,20 +31,38 @@ import {
   accessStatus,
   adminErrorMessage,
   inviteUrl,
-  rowActions,
-  statusDetail,
   whatsappHref,
   type AccessStatus,
   type InviteRow,
   type MemberRole,
 } from './inviteModel';
+import {
+  ANOTHER_OWNER_NOTE,
+  EMAIL_HELP,
+  INVITE_CHOICES,
+  LOAD_FAILED_NOTE,
+  ISSUE_REFUSAL,
+  NO_EMAIL_NOTE,
+  PRIMARY_LABEL,
+  PRIMARY_OPENS,
+  REPLACES_NOTE,
+  SENDER_LABEL,
+  linkBlockedReason,
+  linkOnceNote,
+  senderActions,
+  senderDetail,
+  type InviteChoice,
+  type IssueRefusal,
+} from './senderModel';
 
 import { InvitePerson } from './InvitePerson';
+import { InviteRequests } from './InviteRequests';
 import { isPlausibleEmail } from '@/modules/organiser/shared/emailShape';
 
 const PAGE_SIZE = 20;
 const BTN = 'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50';
 const BTN_PRIMARY = 'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50';
+const FIELD = 'w-full min-h-[44px] rounded border border-border bg-background px-2 py-2 text-sm';
 const TONE: Record<AccessStatus, string> = {
   unclaimed: 'bg-muted text-muted-foreground',
   invited: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
@@ -54,15 +73,21 @@ const TONE: Record<AccessStatus, string> = {
 /** The one place a status is drawn: the list, the row and the counts all use it. */
 export function StatusTag({ status }: { status: AccessStatus | null }) {
   if (status === null) return <span data-testid="status-tag" data-status="loading" className="rounded px-1.5 py-0.5 text-xs text-muted-foreground">&hellip;</span>;
-  return <span data-testid="status-tag" data-status={status} className={`rounded px-1.5 py-0.5 text-xs font-medium ${TONE[status]}`}>{ACCESS_LABEL[status]}</span>;
+  return <span data-testid="status-tag" data-status={status} className={`rounded px-1.5 py-0.5 text-xs font-medium ${TONE[status]}`}>{SENDER_LABEL[status]}</span>;
 }
 
-/** The link, shown once. Held in component state only: never in the query cache, storage or a log. */
-function OneTimeLink({ organiser, link, onDone }: { organiser: string; link: string; onDone: () => void }) {
+/** A link just made: the link itself plus the address it is bound to (null = unbound). */
+export interface IssuedLinkView {
+  link: string;
+  boundEmail: string | null;
+}
+
+/** The link, shown once (5c). Held in component state only: never in the query cache, storage or a log. */
+function OneTimeLink({ organiser, issued, onDone }: { organiser: string; issued: IssuedLinkView; onDone: () => void }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(issued.link);
       setCopied(true);
     } catch {
       setCopied(false);
@@ -71,12 +96,12 @@ function OneTimeLink({ organiser, link, onDone }: { organiser: string; link: str
   return (
     <div data-testid="one-time-link" className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
       <p className="text-sm font-medium">Link for {organiser}</p>
-      <input readOnly value={link} aria-label="Invite link" onFocus={(e) => e.currentTarget.select()} className="w-full rounded border border-border bg-background px-2 py-2 text-xs" data-testid="link-field" />
-      <p className="text-xs text-muted-foreground" data-testid="link-once-note">This is the only time the link is shown. Once you tap Done it is gone and cannot be looked up again; generate a new one if you need it. It works once and runs out in 7 days.</p>
+      <input readOnly value={issued.link} aria-label="Invite link" onFocus={(e) => e.currentTarget.select()} className="w-full rounded border border-border bg-background px-2 py-2 text-xs" data-testid="link-field" />
+      <p className="text-xs text-muted-foreground" data-testid="link-once-note">{linkOnceNote(issued.boundEmail)}</p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={BTN} onClick={copy} data-testid="copy-link"><Copy className="h-4 w-4" aria-hidden="true" /> {copied ? 'Copied' : 'Copy'}</button>
-        <a className={BTN} href={whatsappHref(organiser, link)} target="_blank" rel="noopener noreferrer" data-testid="whatsapp-link"><MessageCircle className="h-4 w-4" aria-hidden="true" /> WhatsApp message</a>
-        <button type="button" className={BTN_PRIMARY} onClick={onDone} data-testid="link-done">Done</button>
+        <button type="button" className={BTN_PRIMARY} onClick={copy} data-testid="copy-link"><Copy className="h-4 w-4" aria-hidden="true" /> {copied ? 'Copied' : 'Copy'}</button>
+        <a className={BTN} href={whatsappHref(organiser, issued.link)} target="_blank" rel="noopener noreferrer" data-testid="whatsapp-link"><MessageCircle className="h-4 w-4" aria-hidden="true" /> WhatsApp</a>
+        <button type="button" className={BTN} onClick={onDone} data-testid="link-done">Done</button>
       </div>
     </div>
   );
@@ -115,57 +140,133 @@ function AddPerson({ organiser }: { organiser: AdminOrganiser }) {
   );
 }
 
-function RowDetail({ organiser, status, invites, fresh, issued, warn, loadError, onIssued, onDone, onRetry }: {
-  organiser: AdminOrganiser; status: AccessStatus | null; invites: readonly InviteRow[]; fresh: boolean;
-  issued: string | undefined; warn: boolean; loadError: boolean;
-  onIssued: (link: string) => void; onDone: () => void; onRetry: () => void;
+/**
+ * "Send a link": email (binds the link and allow-lists it), optional first name and city (prefill
+ * for the newcomer's dancer questions). The three field refusals the RPC returns show under their field.
+ */
+function LinkForm({ organiser, status, replaces, onIssued, onCancel }: {
+  organiser: AdminOrganiser; status: AccessStatus | null; replaces: boolean;
+  onIssued: (v: IssuedLinkView) => void; onCancel: () => void;
 }) {
   const queryClient = useQueryClient();
-  const actions = rowActions(status, invites);
-  const [confirming, setConfirming] = useState(false);
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: adminInvitesQueryKey(organiser.id) });
-    void queryClient.invalidateQueries({ queryKey: adminOwnershipQueryKey(organiser.id) });
-  };
-  const generate = useMutation({
-    mutationFn: () => issueOrganiserInvite(organiser.id),
-    onSuccess: (r) => { onIssued(inviteUrl(window.location.origin, r.token)); setConfirming(false); refresh(); },
+  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [cityId, setCityId] = useState('');
+  const [refusal, setRefusal] = useState<IssueRefusal | null>(null);
+  const issue = useMutation({
+    mutationFn: () => adminIssueOrganiserInvite({ organiserId: organiser.id, email, firstName, cityId }),
+    onSuccess: (out) => {
+      if (out.ok === false) { setRefusal(out.reason); return; }
+      onIssued({ link: inviteUrl(window.location.origin, out.link.token), boundEmail: out.link.emailBound ? email.trim().toLowerCase() : null });
+      void queryClient.invalidateQueries({ queryKey: adminInvitesQueryKey(organiser.id) });
+      void queryClient.invalidateQueries({ queryKey: adminOwnershipQueryKey(organiser.id) });
+      // Issuing closes this organiser's waiting "new link" requests on the server.
+      void queryClient.invalidateQueries({ queryKey: INVITE_REQUESTS_KEY });
+    },
   });
-  const revoke = useMutation({ mutationFn: () => revokeOrganiserInvite(organiser.id), onSuccess: refresh });
-  const detail = statusDetail(status, invites, (iso) => instantDateLabel(iso) ?? iso, fresh);
+  const blocked = linkBlockedReason(email, firstName);
+  const fieldError = (field: 'email' | 'first_name' | 'city') =>
+    refusal && ISSUE_REFUSAL[refusal].field === field
+      ? <p role="alert" className="text-sm text-destructive" data-testid={`link-error-${field}`}>{ISSUE_REFUSAL[refusal].text}</p>
+      : null;
+  return (
+    <form data-testid="link-form" className="space-y-2 rounded-lg border border-border p-3" onSubmit={(e) => { e.preventDefault(); if (!blocked && !issue.isPending) { setRefusal(null); issue.mutate(); } }}>
+      <p className="text-sm font-medium">Send a link</p>
+      {replaces && <p className="text-xs text-muted-foreground" data-testid="link-replaces-note">{REPLACES_NOTE}</p>}
+      {status === 'managed' && <p className="text-xs text-muted-foreground" data-testid="link-owner-note">{ANOTHER_OWNER_NOTE}</p>}
+      <label className="block space-y-1 text-xs text-muted-foreground">
+        Their email
+        <input type="email" inputMode="email" autoComplete="off" value={email} onChange={(e) => { setEmail(e.target.value); setRefusal(null); }} placeholder="name@example.com" className={FIELD} aria-describedby="link-email-help" data-testid="link-email" />
+      </label>
+      <p id="link-email-help" className="text-xs text-muted-foreground" data-testid="link-email-help">{email.trim() ? EMAIL_HELP : NO_EMAIL_NOTE}</p>
+      {fieldError('email')}
+      <label className="block space-y-1 text-xs text-muted-foreground">
+        First name (optional)
+        <input type="text" autoComplete="off" value={firstName} onChange={(e) => { setFirstName(e.target.value); setRefusal(null); }} className={FIELD} data-testid="link-first-name" />
+      </label>
+      {fieldError('first_name')}
+      <div className="space-y-1 text-xs text-muted-foreground">
+        <label htmlFor="link-city">City (optional)</label>
+        <CityPicker id="link-city" value={cityId || undefined} onChange={(id) => { setCityId(id); setRefusal(null); }} placeholder="Pick their city" className="min-h-[44px] w-full" />
+      </div>
+      {fieldError('city')}
+      <div className="flex flex-wrap gap-2">
+        <button type="submit" className={BTN_PRIMARY} disabled={!!blocked || issue.isPending} aria-describedby={blocked ? 'link-blocked' : undefined} data-testid="link-submit">{issue.isPending ? 'Making link' : replaces ? 'Replace and make link' : 'Make link'}</button>
+        <button type="button" className={BTN} onClick={onCancel} data-testid="link-cancel">Cancel</button>
+      </div>
+      {blocked && <p id="link-blocked" className="text-xs text-muted-foreground" data-testid="link-blocked">{blocked}</p>}
+      {issue.isError && <p role="alert" className="text-sm text-destructive" data-testid="invite-error">{adminErrorMessage(issue.error)}</p>}
+    </form>
+  );
+}
+
+/** Invite sheet (5b): one Invite button opens these three choices. */
+function InviteChoices({ organiser, onPick, onCancel }: { organiser: AdminOrganiser; onPick: (c: InviteChoice) => void; onCancel: () => void }) {
+  return (
+    <div data-testid="invite-choices" className="space-y-2 rounded-lg border border-border p-3">
+      <p className="text-sm font-medium">Invite to {organiser.name}</p>
+      {INVITE_CHOICES.map((c) => (
+        <button key={c.choice} type="button" className="flex min-h-[48px] w-full items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2 text-left" onClick={() => onPick(c.choice)} data-testid={`choice-${c.choice}`}>
+          <span><span className="block text-sm font-medium">{c.title}</span><span className="block text-xs text-muted-foreground">{c.hint}</span></span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </button>
+      ))}
+      <button type="button" className={BTN} onClick={onCancel} data-testid="choices-cancel">Cancel</button>
+    </div>
+  );
+}
+
+export type RowMode = 'idle' | 'choose' | InviteChoice;
+
+function RowDetail({ organiser, status, invites, fresh, issued, warn, loadError, startMode, onIssued, onDone, onRetry }: {
+  organiser: AdminOrganiser; status: AccessStatus | null; invites: readonly InviteRow[]; fresh: boolean;
+  issued: IssuedLinkView | undefined; warn: boolean; loadError: boolean; startMode: RowMode;
+  onIssued: (v: IssuedLinkView) => void; onDone: () => void; onRetry: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const actions = senderActions(status, invites, loadError);
+  const [mode, setMode] = useState<RowMode>(startMode);
+  const revoke = useMutation({
+    mutationFn: () => revokeOrganiserInvite(organiser.id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: adminInvitesQueryKey(organiser.id) });
+      void queryClient.invalidateQueries({ queryKey: adminOwnershipQueryKey(organiser.id) });
+    },
+  });
+  const detail = senderDetail(status, invites, (iso) => instantDateLabel(iso) ?? iso, fresh);
   const notLive = notLiveNote(organiser.lifecycle);
-  const busy = generate.isPending || revoke.isPending;
-  const err = generate.isError ? generate.error : revoke.isError ? revoke.error : null;
+  const noteId = `primary-note-${organiser.id}`;
+  const back = () => setMode('idle');
   return (
     <div data-testid="row-detail" className="space-y-2 border-t border-border bg-muted/30 p-3">
       {(detail || notLive) && <p className="text-sm text-muted-foreground" data-testid="status-detail">{[detail, notLive].filter(Boolean).join(' ')}</p>}
       {loadError && (
-        <div role="alert" id={`row-error-${organiser.id}`} className="space-y-2" data-testid="row-load-error">
-          <p className="text-sm text-destructive">Could not load this organiser&rsquo;s invite status. Generate and Revoke stay off until it loads.</p>
+        <div role="alert" id={noteId} className="space-y-2" data-testid="row-load-error">
+          <p className="text-sm text-destructive">{LOAD_FAILED_NOTE}</p>
           <button type="button" className={BTN} onClick={onRetry} data-testid="row-retry">Retry</button>
         </div>
       )}
       {issued ? (
-        <OneTimeLink organiser={organiser.name} link={issued} onDone={onDone} />
-      ) : confirming ? (
-        <div role="alertdialog" aria-label="Replace the live link?" data-testid="replace-confirm" className="space-y-2">
-          <p className="text-sm">{organiser.name} already has a live link. A new one replaces it, so the old one stops working.</p>
-          <div className="flex gap-2">
-            <button type="button" className={BTN} onClick={() => setConfirming(false)} data-testid="replace-no">Keep the old link</button>
-            <button type="button" className={BTN_PRIMARY} disabled={busy} onClick={() => generate.mutate()} data-testid="replace-yes">{generate.isPending ? 'Generating' : 'Replace it'}</button>
-          </div>
-        </div>
+        <OneTimeLink organiser={organiser.name} issued={issued} onDone={() => { setMode('idle'); onDone(); }} />
+      ) : mode === 'choose' ? (
+        <InviteChoices organiser={organiser} onPick={setMode} onCancel={back} />
+      ) : mode === 'link' ? (
+        <LinkForm organiser={organiser} status={status} replaces={actions.replacesLiveLink} onIssued={onIssued} onCancel={back} />
+      ) : mode === 'existing' ? (
+        <div className="space-y-2"><AddPerson organiser={organiser} /><button type="button" className={BTN} onClick={back} data-testid="mode-back">Back</button></div>
+      ) : mode === 'email' ? (
+        <div className="space-y-2"><InvitePerson organisers={[organiser]} fixedOrganiser={organiser} /><button type="button" className={BTN} onClick={back} data-testid="mode-back">Back</button></div>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={BTN_PRIMARY} disabled={!actions.canGenerate || busy} onClick={() => (actions.generateConfirms ? setConfirming(true) : generate.mutate())} aria-describedby={loadError ? `row-error-${organiser.id}` : actions.generateNote ? `gen-note-${organiser.id}` : undefined} data-testid="generate-invite">{generate.isPending ? 'Generating' : 'Generate invite'}</button>
-          <button type="button" className={BTN} disabled={!actions.canRevoke || busy} onClick={() => revoke.mutate()} aria-describedby={loadError ? `row-error-${organiser.id}` : actions.revokeNote ? `rev-note-${organiser.id}` : undefined} data-testid="revoke-invite">{revoke.isPending ? 'Revoking' : 'Revoke'}</button>
-        </div>
+        <>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={BTN_PRIMARY} disabled={actions.primaryDisabled !== null} onClick={() => setMode(PRIMARY_OPENS[actions.primary])} aria-describedby={actions.primaryDisabled ? noteId : undefined} data-testid="row-primary" data-kind={actions.primary}>{PRIMARY_LABEL[actions.primary]}</button>
+            {actions.showWithdraw && <button type="button" className={BTN} disabled={actions.withdrawDisabled !== null || revoke.isPending} onClick={() => revoke.mutate()} aria-describedby={actions.withdrawDisabled ? noteId : undefined} data-testid="withdraw-invite">{revoke.isPending ? 'Withdrawing' : 'Withdraw'}</button>}
+          </div>
+          {actions.primaryDisabled && !loadError && <p id={noteId} className="text-xs text-muted-foreground" data-testid="primary-note">{actions.primaryDisabled}</p>}
+        </>
       )}
-      {!issued && !confirming && !loadError && actions.generateNote && <p id={`gen-note-${organiser.id}`} className="text-xs text-muted-foreground" data-testid="generate-note">{actions.generateNote}</p>}
-      {!issued && !confirming && !loadError && actions.revokeNote && <p id={`rev-note-${organiser.id}`} className="text-xs text-muted-foreground" data-testid="revoke-note">{actions.revokeNote}</p>}
       {issued && warn && <p role="alert" className="text-sm text-destructive" data-testid="link-close-warning">Copy the link first: it is shown once.</p>}
-      {err != null && <p role="alert" className="text-sm text-destructive" data-testid="invite-error">{adminErrorMessage(err)}</p>}
-      {actions.canAddPerson && <AddPerson organiser={organiser} />}
+      {revoke.isError && <p role="alert" className="text-sm text-destructive" data-testid="invite-error">{adminErrorMessage(revoke.error)}</p>}
     </div>
   );
 }
@@ -175,7 +276,9 @@ function AdminOrganisersBody() {
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [open, setOpen] = useState<string | null>(null);
   // One-time links by organiser id. Page state only: never the query cache, storage, a log or Sentry.
-  const [issued, setIssued] = useState<Record<string, string>>({});
+  const [issued, setIssued] = useState<Record<string, IssuedLinkView>>({});
+  // The mode a row opens in: a link request's "Send a new link" opens the link form directly.
+  const [startMode, setStartMode] = useState<RowMode>('idle');
   const [warned, setWarned] = useState(false);
   const queryClient = useQueryClient();
   // Ownership changes behind the page's back (a link is redeemed elsewhere), so the open row re-reads it.
@@ -185,7 +288,18 @@ function AdminOrganisersBody() {
     if (open !== null && issued[open]) { setWarned(true); return; }
     setWarned(false);
     if (open !== id) refreshOwnership(id);
+    setStartMode('idle');
     setOpen(open === id ? null : id);
+  };
+  /** From a link request: show that organiser's row with the link form open. */
+  const sendNewLink = (o: { id: string; name: string }) => {
+    if (open !== null && issued[open]) { setWarned(true); return; }
+    setWarned(false);
+    setQuery(o.name);
+    setLimit(PAGE_SIZE);
+    refreshOwnership(o.id);
+    setStartMode('link');
+    setOpen(o.id);
   };
   const forget = (id: string) => { refreshOwnership(id); setWarned(false); setIssued((m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== id))); };
   const list = useQuery({ queryKey: ADMIN_ORGANISERS_KEY, queryFn: fetchAdminOrganisers, staleTime: 60_000 });
@@ -222,6 +336,7 @@ function AdminOrganisersBody() {
   return (
     <div className="mx-auto max-w-2xl space-y-3 px-3 pb-24 pt-3" data-testid="admin-organisers">
       <h1 className="text-lg font-semibold">Organiser access</h1>
+      <InviteRequests onSendNewLink={sendNewLink} />
       <InvitePerson organisers={list.data ?? []} />
       <label className="relative block">
         <Search className="pointer-events-none absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" aria-hidden="true" />
@@ -252,9 +367,10 @@ function AdminOrganisersBody() {
               {open === organiser.id && (
                 <RowDetail
                   organiser={organiser} status={status} invites={invites} fresh={fresh}
-                  issued={issued[organiser.id]} warn={warned}
+                  key={`${organiser.id}-${startMode}`}
+                  issued={issued[organiser.id]} warn={warned} startMode={startMode}
                   loadError={retry !== null} onRetry={() => retry?.()}
-                  onIssued={(link) => setIssued((m) => ({ ...m, [organiser.id]: link }))}
+                  onIssued={(v) => setIssued((m) => ({ ...m, [organiser.id]: v }))}
                   onDone={() => forget(organiser.id)}
                 />
               )}
