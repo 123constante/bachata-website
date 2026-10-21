@@ -51,15 +51,22 @@
   border-bottom: 1px solid var(--da-border);
 }
 
+/* Review B3: the 44px target ONLY. This selector is 0,2,0 and beats any Tailwind class, so it must not set colour or
+   layout: a colour here turned LINK_PRIMARY's dark text white (2.96:1) and display squashed RateNudge into a row.
+   Each control sets its own layout (.da-tab, .da-not-now, .da-home-link below, or its own classes). */
 [data-profile="dancer"] .da-tap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   min-height: var(--da-tap);
   min-width: var(--da-tap);
   border-radius: 10px;
-  color: inherit;
   text-decoration: none;
+}
+
+[data-profile="dancer"] .da-tab,
+[data-profile="dancer"] .da-not-now,
+[data-profile="dancer"] .da-home-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 [data-profile="dancer"] .da-tap:focus-visible {

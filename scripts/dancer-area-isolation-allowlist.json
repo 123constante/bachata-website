@@ -4,7 +4,8 @@
     "docs/handover/",
     "docs/journeys/",
     "docs/review-pack/",
-    "docs/review-packs/"
+    "docs/review-packs/",
+    "docs/people-arc/"
   ],
   "seams": [
     "src/components/AnimatedRoutes.tsx",
@@ -148,6 +149,7 @@
     "src/pages/DJProfile.tsx"
   ],
   "seamNotes": {
+    "docs/people-arc/": "docPrefixes entry: docs only; orchestrator decision D138 2026-10-21",
     "src/modules/event-page/bento/BentoPage.tsx": "R1a step 4 (Round-3): lazy level-rating children",
     "playwright.config.ts": "R1a step 5 (Round-3): deterministic sandbox sign-in",
     "scripts/prove-entry-point-dispatch.mjs": "section 5 item 8: TARGETS registration only",

@@ -204,7 +204,7 @@ describe("classifyChunk -- the one first-party group (lib-event-rules)", () => {
   });
 
   it("holds exactly the named modules -- a sibling in src/lib keeps rollup's chunking", () => {
-    expect(LIB_EVENT_RULES_MODULES).toEqual(["/src/lib/eventCategory.ts", "/src/lib/londonDate.ts", "/src/lib/focusMode.ts", "/src/lib/accountPaths.ts", "/src/lib/authRouting.ts", "/src/modules/dancer-app/gate/useDancerArea.ts", "/src/lib/goingCheckin.ts"]);
+    expect(LIB_EVENT_RULES_MODULES).toEqual(["/src/lib/eventCategory.ts", "/src/lib/londonDate.ts", "/src/lib/focusMode.ts", "/src/lib/accountPaths.ts", "/src/lib/authRouting.ts", "/src/modules/dancer-app/gate/useDancerArea.ts", "/src/lib/utils.ts", "/src/lib/goingCheckin.ts"]);
     expect(classifyChunk("/repo/src/modules/dancer-app/gate/useGoingLock.ts")).toBeUndefined();
     expect(classifyChunk("/repo/src/lib/__tests__/focusMode.test.ts")).toBeUndefined();
     expect(classifyChunk("/repo/src/lib/eventCategoryLabels.ts")).toBeUndefined();
