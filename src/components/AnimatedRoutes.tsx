@@ -66,6 +66,7 @@ const DancerApp = lazyWithRetry(() => import("@/modules/dancer-app/dancer-app"))
 const EraseGuestEntry = lazyWithRetry(() => import("../pages/EraseGuestEntry"));
 const ExportGuestEntry = lazyWithRetry(() => import("../pages/ExportGuestEntry"));
 
+const W2aHeroMock = import.meta.env.VITE_MOCKS === "true" ? lazyWithRetry(() => import("@/modules/person-page/mockups/W2aHeroMock")) : null;
 const RouteFallback = () => (
   <div className="min-h-screen pt-24 px-4 pb-24 bg-background">
     <div className="max-w-4xl mx-auto space-y-4">
@@ -141,6 +142,7 @@ export const AnimatedRoutes = () => {
             } />
             <Route path="/videographers" element={<PageTransition><Videographers /></PageTransition>} />
             <Route path="/choreography" element={<PageTransition><Choreography /></PageTransition>} />
+            {W2aHeroMock && <Route path={"/__mock/w2a-hero/:view"} element={<W2aHeroMock />} />}
             <Route path="/dancers" element={<PageTransition><Dancers /></PageTransition>} />
             {/* /dancers/:id is a framework route (app/routes/dancers.tsx). */}
             {/* Phase 5 listing-request gate: 5 routes wrapped. Flags default true
