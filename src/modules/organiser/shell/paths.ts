@@ -39,6 +39,9 @@ export const ORG_PATHS = {
   cancelEvent: (seriesId: string) => `${ORG_BASE}/cancel/${id(seriesId)}`,
   cancelDate: (seriesId: string, occurrenceId: string) => `${ORG_BASE}/cancel/${id(seriesId)}/${id(occurrenceId)}`,
 
+  /** Arc 1: "Almost live", the quick questions, "All set", Go live. `?series=` the event, `?o=` the page. */
+  goLive: `${ORG_BASE}/go-live`,
+
   /** New event (D44): the format rides in the URL; the server draft is created at the name step. */
   newWhat: `${ORG_BASE}/new/what`,
   /** New event for one page (`?o=`, the id useOrganiserChoice reads); a login with one page needs none (null). */
