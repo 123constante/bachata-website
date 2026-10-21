@@ -14,7 +14,7 @@ import {
   type RuleSession,
   type SessionKind,
 } from '../shared/eventRules';
-import { LEVEL_KEYS, type LevelKey } from '../shared/programmeModel';
+import { LEVEL_KEYS, LIMITS, type LevelKey } from '../shared/programmeModel';
 
 export { LEVEL_KEYS, type LevelKey };
 
@@ -35,16 +35,43 @@ export interface SessionDraft {
   /** "+ Add a room" was pressed on this session. */
   showRoom: boolean;
   people: SessionPerson[];
+  /** Loaded with no stored title: the kind's name fills the field, and it goes back as null unless edited. */
+  titleWasNull?: boolean;
 }
 
 export interface TimeOption { value: string; label: string; nextDay: boolean }
 export interface QuickLength { minutes: number; label: string }
-export interface SessionIssue { code: 'name' | 'end' | 'level'; reason: string }
+/** `level` is no longer produced (level is optional, plan rule 11); kept so importers still compile. */
+export interface SessionIssue { code: 'name' | 'start' | 'end' | 'long' | 'level'; reason: string }
+
+/** One stored session row (event_series_program_item_p5 / the reader): times HH:MM:SS or null, room nullable. */
+export interface StoredSessionRow {
+  id: string;
+  type: string | null;
+  title: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  room: string | null;
+  level_keys: string[] | null;
+}
 
 const STEP = 15;
 const DAY = rules.time.minutesPerDay;
-/** How far past its start a session may end in the picker (matches the prototype). */
-export const MAX_SESSION_MINUTES = 600;
+/** A new non-lesson session (party, showcase, competition) runs this long. */
+const OTHER_DEFAULT_MINUTES = 120;
+/**
+ * The ONE session-length cap: the writer's (programmeModel LIMITS, 12 h). ER-C3's
+ * fix exports the same value as eventRules `maxSessionMinutes`; read that once it lands.
+ */
+export const MAX_SESSION_MINUTES: number = LIMITS.sessionMaxMinutes;
+/** Card reasons: the rules JSON wording where it has one (name, bad times), else here. */
+export const SESSION_REASONS = {
+  name: rules.blockers.name,
+  start: 'Pick a start time',
+  end: rules.blockers.sessionTimes,
+  long: `Over ${MAX_SESSION_MINUTES / 60} hours`,
+} as const;
+export const PICK_START = 'Pick a start';
 /** The most sessions one list holds (a live festival has up to 14). */
 export const MAX_SESSIONS = 14;
 export const RECENT_MAX = 3;
@@ -88,8 +115,9 @@ const timeOption = (value: string, startedAt?: string): TimeOption => {
   return { value, label: nextDay ? `${value} (${NEXT_DAY})` : value, nextDay };
 };
 
-/** Every quarter hour, from the rollover hour round the clock; keeps `keep` when it is off the grid. */
+/** Every quarter hour, from the rollover hour round the clock; keeps `keep` when it is off the grid. An untimed session gets a "Pick a start" placeholder first. */
 export function startOptions(keep?: string): TimeOption[] {
+  const placeholder: TimeOption[] = keep !== undefined && toMinutes(keep) === null ? [{ value: '', label: PICK_START, nextDay: false }] : [];
   const from = mins(rules.time.rolloverBefore);
   const out: string[] = [];
   for (let m = from; m < from + DAY; m += STEP) out.push(toHHMM(m));
@@ -97,20 +125,17 @@ export function startOptions(keep?: string): TimeOption[] {
     out.push(keep);
     out.sort((a, b) => ((mins(a) - from + DAY) % DAY) - ((mins(b) - from + DAY) % DAY));
   }
-  return out.map((v) => timeOption(v));
+  return [...placeholder, ...out.map((v) => timeOption(v))];
 }
 
-/** Only times AFTER the start (up to 10 h on); past midnight is marked "next day". The start itself is never offered. */
+/** Only times AFTER the start (up to the cap); past midnight is marked "next day". The start itself is never offered. A stored end past the cap stays listed (rule 28: no silent change). */
 export function endOptions(start: string, keep?: string): TimeOption[] {
   if (toMinutes(start) === null) return [];
   const out: string[] = [];
   for (let m = STEP; m <= MAX_SESSION_MINUTES; m += STEP) out.push(endAfter(start, m));
   if (keep && validSessionPair(start, keep).valid && !out.includes(keep)) {
-    const len = sessionLength(start, keep) ?? 0;
-    if (len <= MAX_SESSION_MINUTES) {
-      out.push(keep);
-      out.sort((a, b) => (sessionLength(start, a) ?? 0) - (sessionLength(start, b) ?? 0));
-    }
+    out.push(keep);
+    out.sort((a, b) => (sessionLength(start, a) ?? 0) - (sessionLength(start, b) ?? 0));
   }
   return out.map((v) => timeOption(v, start));
 }
@@ -123,10 +148,12 @@ export const isValidEnd = (start: string, end: string): boolean => {
 let counter = 0;
 export const newSessionId = (): string => `s${Date.now().toString(36)}${(counter++).toString(36)}`;
 
+const defaultLength = (kind: SessionKind): number => (isLessonKind(kind) ? rules.lessonLengths.default : OTHER_DEFAULT_MINUTES);
+
 export function newSession(kind: SessionKind, start: string, id: string = newSessionId()): SessionDraft {
-  const quick = quickLengthsFor(kind);
-  const length = quick ? rules.lessonLengths.default : 120;
-  return { id, kind, name: defaultName(kind), start, end: endAfter(start, length), otherLength: false, levels: [], room: '', showRoom: false, people: [] };
+  const length = defaultLength(kind);
+  const timed = toMinutes(start) !== null;
+  return { id, kind, name: defaultName(kind), start: timed ? start : '', end: timed ? endAfter(start, length) : '', otherLength: false, levels: [], room: '', showRoom: false, people: [] };
 }
 
 /** Switching kind: the name follows the kind only while it is still the old default; level drops off non-lesson kinds. */
@@ -140,7 +167,7 @@ export function setKind(s: SessionDraft, kind: SessionKind): SessionDraft {
     kind,
     name: wasDefault ? defaultName(kind) : s.name,
     levels: levelAllowed(kind) ? s.levels : [],
-    end: nowLesson && !isLessonKind(s.kind) ? endAfter(s.start, rules.lessonLengths.default) : s.end,
+    end: nowLesson && !isLessonKind(s.kind) && toMinutes(s.start) !== null ? endAfter(s.start, rules.lessonLengths.default) : s.end,
     otherLength: nowLesson ? (isLessonKind(s.kind) ? s.otherLength || !lengthOk : false) : false,
   };
 }
@@ -148,7 +175,7 @@ export function setKind(s: SessionDraft, kind: SessionKind): SessionDraft {
 /** Changing the start keeps the length, so the end can never fall before it. */
 export function setStart(s: SessionDraft, start: string): SessionDraft {
   if (toMinutes(start) === null) return s;
-  const length = sessionLength(s.start, s.end) ?? rules.lessonLengths.default;
+  const length = sessionLength(s.start, s.end) ?? defaultLength(s.kind);
   return { ...s, start, end: endAfter(start, Math.min(length, MAX_SESSION_MINUTES)) };
 }
 
@@ -157,7 +184,9 @@ export function setEnd(s: SessionDraft, end: string): SessionDraft {
   return isValidEnd(s.start, end) ? { ...s, end } : s;
 }
 
+/** A quick length needs a start to count from; without one it waits. */
 export function setLength(s: SessionDraft, minutes: number): SessionDraft {
+  if (toMinutes(s.start) === null) return s;
   return { ...s, end: endAfter(s.start, minutes), otherLength: false };
 }
 
@@ -166,19 +195,22 @@ export const chooseOtherLength = (s: SessionDraft): SessionDraft => (isLessonKin
 /** True when the quick length `minutes` is the current one (and Other is not chosen). */
 export const quickLengthSelected = (s: SessionDraft, minutes: number): boolean => !s.otherLength && sessionLength(s.start, s.end) === minutes;
 
-/** Lesson kinds show quick lengths + a read-only end time until Other; every other kind shows the end list. */
-export const showQuickLengths = (s: SessionDraft): boolean => isLessonKind(s.kind) && !s.otherLength;
+/** Lesson kinds show quick lengths + a read-only end time until Other (or a length off the list); every other kind shows the end list. */
+export const showQuickLengths = (s: SessionDraft): boolean => isLessonKind(s.kind) && !otherLengthSelected(s);
 export const otherLengthSelected = (s: SessionDraft): boolean =>
   isLessonKind(s.kind) && (s.otherLength || !(quickLengthsFor(s.kind) ?? []).includes(sessionLength(s.start, s.end) ?? -1));
 
 export function toggleLevel(s: SessionDraft, level: LevelKey): SessionDraft {
   if (!levelAllowed(s.kind)) return s;
-  return { ...s, levels: s.levels.includes(level) ? s.levels.filter((l) => l !== level) : LEVEL_KEYS.filter((l) => l === level || s.levels.includes(l)) };
+  if (s.levels.includes(level)) return { ...s, levels: s.levels.filter((l) => l !== level) };
+  // A stored key off the list is kept as is (D1: stored values untouched).
+  const known = (l: string) => (LEVEL_KEYS as readonly string[]).includes(l);
+  return { ...s, levels: [...LEVEL_KEYS.filter((l) => l === level || s.levels.includes(l)), ...s.levels.filter((l) => !known(l))] };
 }
 
 // ---- room: hidden until needed, then shown on every session in the list --------------
 
-export const roomVisible = (list: readonly SessionDraft[]): boolean => list.some((s) => s.showRoom || s.room.trim() !== '');
+export const roomVisible = (list: readonly SessionDraft[]): boolean => list.some((s) => s.showRoom || (s.room ?? '').trim() !== '');
 export const addRoom = (list: readonly SessionDraft[]): SessionDraft[] => list.map((s) => ({ ...s, showRoom: true }));
 /** Remove clears the room from every session and hides the box again. */
 export const removeRoom = (list: readonly SessionDraft[]): SessionDraft[] => list.map((s) => ({ ...s, room: '', showRoom: false }));
@@ -203,7 +235,11 @@ export const hitsFor = (hits: readonly SessionPerson[], s: SessionDraft): Sessio
 
 const rolloverCut = mins(rules.time.rolloverBefore);
 /** Sort key: a start before the rollover hour belongs to the night before, so sorts last. */
-const orderKey = (s: SessionDraft): number => (mins(s.start) < rolloverCut ? mins(s.start) + DAY : mins(s.start));
+const orderKey = (s: SessionDraft): number => {
+  const m = toMinutes(s.start);
+  if (m === null) return 2 * DAY; // untimed: last
+  return m < rolloverCut ? m + DAY : m;
+};
 
 export const sortSessions = (list: readonly SessionDraft[]): SessionDraft[] =>
   list.map((s, i) => ({ s, i })).sort((a, b) => orderKey(a.s) - orderKey(b.s) || a.i - b.i).map((x) => x.s);
@@ -211,8 +247,11 @@ export const sortSessions = (list: readonly SessionDraft[]): SessionDraft[] =>
 /** "Add another session" starts where the latest one ends; the same kind as it. */
 export function addAnother(list: readonly SessionDraft[], max: number = MAX_SESSIONS, id?: string): SessionDraft[] {
   if (list.length >= max) return sortSessions(list);
-  const last = list.length ? sortSessions(list)[list.length - 1] : null;
-  const next = newSession(last?.kind ?? 'class', last?.end ?? '19:00', id);
+  const sorted = sortSessions(list);
+  const last = sorted.length ? sorted[sorted.length - 1] : null;
+  // Start where the latest TIMED session ends; an untimed one has no end to follow.
+  const lastTimed = [...sorted].reverse().find((s) => toMinutes(s.start) !== null && toMinutes(s.end) !== null);
+  const next = newSession(last?.kind ?? 'class', lastTimed?.end ?? '19:00', id);
   const room = roomVisible(list);
   return sortSessions([...list, { ...next, showRoom: room }]);
 }
@@ -227,16 +266,93 @@ export const canRemoveSession = (list: readonly SessionDraft[]): boolean => list
 
 export const toRuleSession = (s: SessionDraft): RuleSession => ({ kind: s.kind, start: s.start, end: s.end });
 
-/** Why a session cannot be saved yet, each 2-4 words; empty when it can. */
+/**
+ * What is wrong with a session, each 2-4 words; empty when nothing is. Level is
+ * optional detail (plan rule 11), so it is never an issue. A stored length past
+ * the cap is reported but does not block Done (rule 28: no change without the owner).
+ */
 export function sessionIssues(s: SessionDraft): SessionIssue[] {
   const out: SessionIssue[] = [];
-  if (!s.name.trim()) out.push({ code: 'name', reason: 'Name needed' });
-  if (!isValidEnd(s.start, s.end)) out.push({ code: 'end', reason: 'End after start' });
-  if (levelAllowed(s.kind) && s.levels.length === 0) out.push({ code: 'level', reason: 'Pick a level' });
+  if (!(s.name ?? '').trim()) out.push({ code: 'name', reason: SESSION_REASONS.name });
+  if (toMinutes(s.start) === null) out.push({ code: 'start', reason: SESSION_REASONS.start });
+  else if (!validSessionPair(s.start, s.end).valid) out.push({ code: 'end', reason: SESSION_REASONS.end });
+  else if (!isValidEnd(s.start, s.end)) out.push({ code: 'long', reason: SESSION_REASONS.long });
   return out;
 }
 
+export const blocksDone = (i: SessionIssue): boolean => i.code !== 'long';
+
 export const listIssues = (list: readonly SessionDraft[]): SessionIssue[] => list.flatMap(sessionIssues);
+
+// ---- stored rows <-> drafts --------------------------------------------------------------
+
+const hhmmOrEmpty = (t: string | null | undefined): string => (typeof t === 'string' && toMinutes(t.slice(0, 5)) !== null ? t.slice(0, 5) : '');
+
+/** Stored type -> kind: the kind whose storedType it is (performance -> showcase), else kept as is. */
+export function kindFromStored(type: string | null): SessionKind {
+  const t = type ?? '';
+  return sessionKinds.find((k) => sessionKindRules(k)?.storedType === t) ?? (t as SessionKind);
+}
+
+/** One stored row as a draft: HH:MM:SS -> HH:MM, null times -> '' (untimed), null room -> '', a missing title -> the kind's name (rule 25), Other pressed when the length is off the quick list. */
+export function fromStored(row: StoredSessionRow, people: SessionPerson[] = []): SessionDraft {
+  const kind = kindFromStored(row.type);
+  const start = hhmmOrEmpty(row.start_time);
+  const end = hhmmOrEmpty(row.end_time);
+  const base: SessionDraft = {
+    id: row.id,
+    kind,
+    name: (row.title ?? '').trim() ? (row.title as string) : defaultName(kind),
+    start,
+    end,
+    otherLength: false,
+    levels: (Array.isArray(row.level_keys) ? row.level_keys : []) as LevelKey[],
+    room: row.room ?? '',
+    showRoom: false,
+    people,
+    ...((row.title ?? '').trim() ? {} : { titleWasNull: true }),
+  };
+  // An untimed lesson starts on the quick lengths (nothing to call "Other" yet).
+  return { ...base, otherLength: start !== '' && end !== '' && otherLengthSelected(base) };
+}
+
+/** A draft as the stored row shape: HH:MM or null, a blank room is null, levels as they are. */
+export function toStored(s: SessionDraft): StoredSessionRow {
+  return {
+    id: s.id,
+    type: sessionKindRules(s.kind)?.storedType ?? (s.kind || null),
+    title: s.titleWasNull && s.name === defaultName(s.kind) ? null : s.name,
+    start_time: toMinutes(s.start) === null ? null : s.start,
+    end_time: toMinutes(s.end) === null ? null : s.end,
+    room: (s.room ?? '').trim() === '' ? null : s.room,
+    level_keys: [...s.levels],
+  };
+}
+
+const savedShape = (s: SessionDraft): string => JSON.stringify({ ...toStored(s), people: s.people.map((p) => p.id) });
+
+/** What a list saves, as one comparable string (compute the initial one once). */
+export const savedSnapshot = (list: readonly SessionDraft[]): string => JSON.stringify(sortSessions(list).map(savedShape));
+
+/** True when nothing that is saved changed (Other pressed or the room box opened is not a change). */
+export const isUntouched = (initial: readonly SessionDraft[], current: readonly SessionDraft[]): boolean =>
+  savedSnapshot(initial) === savedSnapshot(current);
+
+/**
+ * The issues that block Done: only on sessions that are new or were changed. A
+ * stored problem on a session nobody touched (untimed, no name) never traps the
+ * list, and the writer re-checks only what changed.
+ */
+export function blockingIssues(initial: readonly SessionDraft[], current: readonly SessionDraft[]): SessionIssue[] {
+  // Like the writer: a field is checked only when THAT field changed (or the session is new).
+  const before = new Map(initial.map((s) => [s.id, s]));
+  return current.flatMap((s) => {
+    const was = before.get(s.id);
+    const nameChanged = !was || was.name !== s.name;
+    const timesChanged = !was || was.start !== s.start || was.end !== s.end;
+    return sessionIssues(s).filter((i) => blocksDone(i) && (i.code === 'name' ? nameChanged : timesChanged));
+  });
+}
 
 /** "20:00 to 02:00 (next day)" across the list (rule 1), or null when no session has valid times. */
 export function nightSpan(list: readonly SessionDraft[]): string | null {

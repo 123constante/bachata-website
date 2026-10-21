@@ -1,13 +1,14 @@
-import { useState, type RefObject } from 'react';
+import { useId, useMemo, useState, type RefObject } from 'react';
 import { Plus } from 'lucide-react';
 import { GhostButton, PrimaryButton, SheetView } from '../ui';
 import { SessionCard, type SearchPeopleFn } from './SessionCard';
 import {
   addAnother,
   addRoom,
+  blockingIssues,
   canAddAnother,
   canRemoveSession,
-  listIssues,
+  savedSnapshot,
   nightSpan,
   pushRecent,
   removeRoom,
@@ -35,23 +36,24 @@ export interface SessionSheetProps {
 
 /**
  * The session editor in a bottom sheet. Edits a local copy; Done hands the
- * time-ordered list up, Escape or Close drops it. Focus moves into the sheet
+ * time-ordered list up (an untouched list closes without saving), Escape or Close drops it. Focus moves into the sheet
  * and returns to the opener (SheetView).
  */
 export function SessionSheet({ open, onOpenChange, sessions, onSave, search, recent, onRecentChange, max, title = 'Sessions', returnFocusRef }: SessionSheetProps) {
-  const [list, setList] = useState<SessionDraft[]>(() => sortSessions(sessions));
-  const [tried, setTried] = useState(false);
-  const issues = listIssues(list);
+  const [initial] = useState<SessionDraft[]>(() => sortSessions(sessions));
+  const [list, setList] = useState<SessionDraft[]>(initial);
+  const reasonId = useId();
+  const initialSnapshot = useMemo(() => savedSnapshot(initial), [initial]);
+  const untouched = savedSnapshot(list) === initialSnapshot;
+  // Only new or changed sessions block Done: a stored problem never traps the list.
+  const issues = untouched ? [] : blockingIssues(initial, list);
   const rooms = roomVisible(list);
   const span = nightSpan(list);
 
   const change = (next: SessionDraft) => setList((cur) => cur.map((x) => (x.id === next.id ? next : x)));
   const done = () => {
-    if (issues.length > 0) {
-      setTried(true);
-      return;
-    }
-    onSave(sortSessions(list));
+    if (issues.length > 0) return;
+    if (!untouched) onSave(sortSessions(list));
     onOpenChange(false);
   };
 
@@ -65,9 +67,9 @@ export function SessionSheet({ open, onOpenChange, sessions, onSave, search, rec
       footer={
         <div className="space-y-[6px]">
           {issues.length > 0 && (
-            <p className="text-center text-[13px] text-[var(--mut)]" data-testid="sessions-reason">{issues[0].reason}</p>
+            <p id={reasonId} className="text-center text-[13px] text-[var(--mut)]" data-testid="sessions-reason">{issues[0].reason}</p>
           )}
-          <PrimaryButton onClick={done} disabled={issues.length > 0} testId="sessions-done">
+          <PrimaryButton onClick={done} disabled={issues.length > 0} aria-describedby={issues.length > 0 ? reasonId : undefined} testId="sessions-done">
             Done
           </PrimaryButton>
         </div>
@@ -87,7 +89,6 @@ export function SessionSheet({ open, onOpenChange, sessions, onSave, search, rec
             recent={recent}
             onPicked={(p) => onRecentChange(pushRecent(recent, p))}
             search={search}
-            showIssues={tried}
           />
         ))}
         {canAddAnother(list, max) && (
