@@ -73,25 +73,22 @@ afterEach(() => { cleanup(); resetShell(); });
 
 const home = (profile = londoner()) => renderInShell({ path: '/app/home', backend: { profile } });
 
-/** Every colour the hero's background is painted with, resolved through the dancer tokens. */
-const heroColours = (el: HTMLElement): string[] => {
-  const bg = /background[^;]*/.exec(el.getAttribute('style') ?? '')?.[0] ?? '';
-  const vars = [...bg.matchAll(/var\((--da-[a-z-]+)\)/g)].map((m) => DANCER_TOKENS[m[1] as DancerToken]);
-  const hex = [...bg.matchAll(/#[0-9a-fA-F]{6}\b/g)].map((m) => m[0]);
-  return [...vars, ...hex];
-};
-
 describe('M14: hero text contrast', () => {
+  // The hero is painted by the stylesheet now (.da-hero = scrimmed sunset gradient); the ratios of its stops are
+  // computed in tests/client/dancerAppColor.test.ts. Here: the night hero carries the class, the plain card does not.
   it.each([
-    ['0 nights (empty hero)', [] as Record<string, unknown>[]],
-    ['an upcoming night', [row('s1', 'Soho Sensual', 3)]],
-  ])('%s: white text reaches 4.5:1 on every gradient stop', async (_n, rows) => {
+    ['0 nights (empty hero)', [] as Record<string, unknown>[], false],
+    ['an upcoming night', [row('s1', 'Soho Sensual', 3)], true],
+  ])('%s: gradient only where white text sits on it', async (_n, rows, gradient) => {
     h.rows = rows;
     home();
     const hero = await screen.findByTestId('home-hero');
-    const colours = heroColours(hero);
-    expect(colours.length).toBeGreaterThanOrEqual(2);
-    for (const c of colours) expect(contrastRatio(DANCER_TOKENS['--da-on-gradient'], c), c).toBeGreaterThanOrEqual(4.5);
+    await waitFor(() => expect(hero.classList.contains('da-hero')).toBe(gradient));
+  });
+  it('the gradient token pair keeps white text at 4.5:1', () => {
+    for (const t of ['--da-gradient-from', '--da-gradient-mid', '--da-gradient-to'] as DancerToken[]) {
+      expect(contrastRatio(DANCER_TOKENS['--da-on-gradient'], DANCER_TOKENS[t]), t).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });
 
@@ -106,29 +103,6 @@ describe('M19: no dead tiles', () => {
     expect(text.match(/coming soon/gi)).toHaveLength(1);
     expect(screen.getByTestId('tile-partner').textContent).toMatch(/Partner search: coming soon/);
     expect((screen.getByTestId('partner-notify') as HTMLButtonElement).disabled).toBe(false);
-  });
-});
-
-describe("M20: What's On uses the dancer's own city", () => {
-  it('profile city London, site city Madrid: London events and the London calendar', async () => {
-    home();
-    const browse = await screen.findByTestId('whats-on-browse');
-    await waitFor(() => expect(browse.getAttribute('href')).toBe('/city/london-gb/calendar'));
-    expect(h.calendarArgs.filter((a) => a.enabled !== false).every((a) => a.citySlug === 'london-gb')).toBe(true);
-    expect(h.calendarArgs.some((a) => a.citySlug === 'madrid-es' && a.enabled !== false)).toBe(false);
-  });
-
-  it('no city: says what to do and links to the city field; never "Nothing listed"', async () => {
-    home(makeProfile({ first_name: 'Ana' }));
-    const box = await screen.findByTestId('whats-on-no-city');
-    expect(within(box).getByRole('link', { name: 'Add my city' }).getAttribute('href')).toBe('/app/me/edit?focus=city');
-    expect(screen.queryByTestId('whats-on-empty')).toBeNull();
-    expect(screen.getByTestId('whats-on').textContent).not.toMatch(/Nothing listed/);
-  });
-
-  it('a city with no calendar events this week: an honest empty state plus the browse link', async () => {
-    home();
-    expect((await screen.findByTestId('whats-on-empty')).textContent).toMatch(/Nothing listed in your city this week/);
   });
 });
 
@@ -156,13 +130,13 @@ describe('M16: hidden profile on Home', () => {
   });
 });
 
-describe('L14: one browse verb on Home', () => {
-  it('every browse link reads "Browse events"', async () => {
+describe('D130: no Browse events on Home', () => {
+  it.each([['a night', [row('s1', 'Soho Sensual', 3)]], ['no nights', []]])('%s', async (_n, rows) => {
+    h.rows = rows as Record<string, unknown>[];
     home();
-    await screen.findByTestId('whats-on-browse');
-    const text = screen.getByTestId('dancer-screen-home').textContent ?? '';
-    expect(text).not.toMatch(/Browse what.s on|Browse all events/);
-    expect(screen.getAllByRole('link', { name: /^Browse events/ }).length).toBeGreaterThanOrEqual(2);
+    await screen.findByTestId('home-hero');
+    expect(screen.getByTestId('dancer-screen-home').textContent ?? '').not.toMatch(/Browse/i);
+    expect(screen.queryAllByRole('link', { name: /browse/i })).toHaveLength(0);
   });
 });
 
@@ -176,9 +150,8 @@ describe('seeds', () => {
     expect(screen.getByTestId('stat-going-value').textContent).toBe('3');
   });
 
-  it('long name + no city: renders the name in full and the no-city hint', async () => {
+  it('long name + no city: renders the name in full', async () => {
     home(makeProfile({ first_name: LONG_FIRST, surname: 'Rodriguez-Villanueva' }));
     expect((await screen.findByRole('heading', { level: 1 })).textContent).toBe(LONG_FIRST);
-    expect(await screen.findByTestId('whats-on-no-city')).toBeTruthy();
   });
 });

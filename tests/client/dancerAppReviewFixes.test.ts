@@ -193,6 +193,8 @@ describe('S3: "Saved" is in no dancer-app copy', () => {
         readFileSync(p, 'utf8').split('\n').forEach((l, i) => {
           // Comments may name the banned word; code may not.
           if (/^\s*(\*|\/\/|\/\*)/.test(l)) return;
+          // D119 (owner): the ONE visible "Saved" toast after a photo saves. Statuses still never say Saved.
+          if (l.includes("showShellToast('Saved')")) return;
           if (/['"`>]\s*Saved\b/.test(l)) hits.push(`${path.relative(ROOT, p)}:${i + 1}`);
         });
       }

@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { Check, ChevronRight } from 'lucide-react';
+import { TILE_CLASS } from '../blocks';
 import { useSeriesLevelRating } from '@/hooks/useSeriesLevelRating';
 import type { Night } from '../nights/nightsModel';
 import { nightsPath, shortDate } from '../nights/nightsModel';
@@ -27,13 +29,21 @@ const Candidate = ({ candidates, index, todayKey }: { candidates: readonly Night
   return (
     <Link
       to={nightsPath(night.seriesId)}
-      className="da-card da-tap"
+      className={`${TILE_CLASS} da-tap`}
       data-testid="rate-nudge"
-      style={{ display: 'block', textDecoration: 'none', color: 'var(--da-text)' }}
     >
-      <b style={{ display: 'block', fontSize: 15 }}>{nudgeTitle(night.date, todayKey)}</b>
-      <span className="da-muted" style={{ fontSize: 13 }}>
-        {night.name}. How was the dancing level?
+      {/* Review S4: the prototype's row -- tick tile, title over body, chevron. */}
+      <span className="flex items-center gap-[12px]">
+        <span aria-hidden="true" className="da-tone-violet grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[12px]">
+          <Check className="h-[22px] w-[22px]" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <b className="block text-[15px]">{nudgeTitle(night.date, todayKey)}</b>
+          <span className="block text-[13px] text-[var(--mut)]">
+            {night.name}. How was the dancing level?
+          </span>
+        </span>
+        <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
       </span>
     </Link>
   );

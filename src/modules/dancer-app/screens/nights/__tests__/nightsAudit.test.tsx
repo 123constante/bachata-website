@@ -70,30 +70,32 @@ describe('L3: past nights read in the past tense', () => {
 });
 
 describe('L22: zero nights', () => {
-  it('one empty state that covers Going and Interested and offers a browse link', async () => {
+  it('one empty state that covers Going and Interested and says how to find a night (D130: no browse link)', async () => {
     nights();
     const empty = await screen.findByTestId('nights-empty');
     expect(empty.textContent).toMatch(/^No nights saved yet\./);
     expect(empty.textContent).toMatch(/Interested/);
     expect(empty.textContent).toMatch(/Going/);
-    expect(within(empty).getByRole('link', { name: 'Browse events' }).getAttribute('href')).toBe('/city/london-gb/calendar');
+    expect(within(empty).queryAllByRole('link')).toHaveLength(0);
+    expect(empty.textContent).toMatch(/Bachata Calendar link at the top left/);
     expect(screen.queryByText(/not going to anything/)).toBeNull();
   });
 
-  it('only past nights: Upcoming says nothing is coming up, with the browse link', async () => {
+  it('only past nights: Upcoming says nothing is coming up and what to do (D130)', async () => {
     h.rows = [row('c', 'Gamma', -6)];
     nights();
     const up = await screen.findByTestId('nights-upcoming-empty');
     expect(up.textContent).toMatch(/No upcoming nights/);
-    expect(within(up).getByRole('link', { name: 'Browse events' })).toBeTruthy();
+    expect(within(up).queryAllByRole('link')).toHaveLength(0);
+    expect(up.textContent).toMatch(/Bachata Calendar link at the top left/);
   });
 });
 
-describe('L14: one browse verb', () => {
-  it('no "Browse what\'s on" or "Browse all events" on Nights', async () => {
+describe('D130: no browse verb', () => {
+  it('no "Browse" anything on Nights', async () => {
     nights();
     await screen.findByTestId('nights-empty');
-    expect(screen.getByTestId('dancer-screen-nights').textContent).not.toMatch(/Browse what.s on|Browse all events/);
+    expect(screen.getByTestId('dancer-screen-nights').textContent).not.toMatch(/Browse/i);
   });
 });
 

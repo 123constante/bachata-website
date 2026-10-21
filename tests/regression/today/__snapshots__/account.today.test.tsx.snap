@@ -12,6 +12,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -113,6 +114,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -168,6 +170,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -192,6 +195,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -319,6 +323,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -420,6 +425,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -475,6 +481,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -499,6 +506,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."

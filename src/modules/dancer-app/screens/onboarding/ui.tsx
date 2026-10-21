@@ -1,16 +1,18 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { GhostButton as BlockGhost, PrimaryButton as BlockPrimary, Field as BlockField, FIELD_CLASS } from '@/modules/organiser/ui';
 import { nextStepLine, type NextStepProfile } from '../../api/nextStep';
+import { ScreenTitle } from '../blocks';
 
-/** Small presentational pieces for the onboarding cards. Sizes in px (the phone html font-size trap). */
+/** Small presentational pieces for the onboarding cards, on the rebuild's blocks. Sizes in px (the phone html font-size trap). */
 
-export const wrap: CSSProperties = { overflowWrap: 'anywhere', wordBreak: 'break-word' };
+export const WRAP = '[overflow-wrap:anywhere] [word-break:break-word]';
 
 /** The strength meter, with the SAME next-step sentence Home and Me show (api/nextStep.ts, review S2). */
 export const Meter = ({ profile }: { profile: NextStepProfile }) => {
   const { strength } = profile;
   return (
-  <div data-testid="onboarding-meter" style={{ marginBottom: 12 }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700 }}>
+  <div data-testid="onboarding-meter" className="mb-[12px]">
+    <div className="flex justify-between text-[13px] font-bold">
       <span>Profile strength</span>
       <span data-testid="onboarding-pct">{strength.pct}%</span>
     </div>
@@ -20,12 +22,12 @@ export const Meter = ({ profile }: { profile: NextStepProfile }) => {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={strength.pct}
-      style={{ height: 6, borderRadius: 999, background: 'var(--da-surface-2)', marginTop: 6, overflow: 'hidden' }}
+      className="mt-[6px] h-[6px] overflow-hidden rounded-full bg-[var(--card2)]"
     >
-      <div style={{ width: `${strength.pct}%`, height: '100%', background: 'var(--da-accent)', transition: 'width .2s' }} />
+      <div className="da-bar-fill h-full transition-[width] duration-200" style={{ width: `${strength.pct}%` }} />
     </div>
     {strength.next_step ? (
-      <p data-testid="onboarding-next-step" style={{ ...wrap, fontSize: 14, margin: '6px 0 0' }}>
+      <p data-testid="onboarding-next-step" className={`${WRAP} mb-0 mt-[6px] text-[14px]`}>
         {nextStepLine(profile)}
       </p>
     ) : null}
@@ -35,120 +37,67 @@ export const Meter = ({ profile }: { profile: NextStepProfile }) => {
 
 export const Tag = ({ children, onGradient }: { children: ReactNode; onGradient?: boolean }) => (
   <span
-    className="da-type-label"
+    className={`da-type-label mb-[8px] inline-block${onGradient ? ' !bg-black/30 !text-[var(--da-on-gradient)]' : ''}`}
     data-testid="onboarding-tag"
-    style={{ display: 'inline-block', marginBottom: 8, ...(onGradient ? { background: 'rgba(0,0,0,0.28)', color: 'var(--da-on-gradient)' } : null) }}
   >
     {children}
   </span>
 );
 
-export const Question = ({ children }: { children: ReactNode }) => (
-  <h1 style={{ ...wrap, fontSize: 30, lineHeight: 1.1, fontWeight: 700, margin: '0 0 12px' }}>{children}</h1>
-);
-
-const btn: CSSProperties = {
-  minHeight: 48,
-  borderRadius: 12,
-  fontSize: 16,
-  fontWeight: 700,
-  padding: '0 16px',
-  width: '100%',
-  cursor: 'pointer',
-};
+/** The card's question is the screen title (review S6: the ONE title style), wrapping long names. */
+export const Question = ({ children }: { children: ReactNode }) => <ScreenTitle className={`${WRAP} mb-[12px]`}>{children}</ScreenTitle>;
 
 export const PrimaryButton = ({ children, onClick, disabled, busy, testId }: { children: ReactNode; onClick: () => void; disabled?: boolean; busy?: boolean; testId?: string }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled || busy}
-    data-testid={testId ?? 'onboarding-continue'}
-    style={{ ...btn, border: 'none', background: 'var(--da-accent)', color: 'var(--da-on-accent)', opacity: disabled || busy ? 0.55 : 1 }}
-  >
+  <BlockPrimary className="h-[48px]" onClick={onClick} disabled={disabled || busy} testId={testId ?? 'onboarding-continue'}>
     {busy ? 'Saving\u2026' : children}
-  </button>
+  </BlockPrimary>
 );
 
 export const GhostButton = ({ children, onClick, testId }: { children: ReactNode; onClick: () => void; testId?: string }) => (
-  <button type="button" onClick={onClick} data-testid={testId} style={{ ...btn, background: 'transparent', color: 'inherit', border: '1px solid var(--da-border)' }}>
+  <BlockGhost className="h-[48px]" onClick={onClick} testId={testId}>
     {children}
-  </button>
+  </BlockGhost>
 );
 
 /** A reason a button is disabled, in visible text. */
 export const Reason = ({ children }: { children: ReactNode }) => (
-  <p data-testid="onboarding-reason" className="da-muted" style={{ ...wrap, fontSize: 14, margin: '8px 0 0' }}>
+  <p data-testid="onboarding-reason" className={`${WRAP} mb-0 mt-[8px] text-[14px] text-[var(--mut)]`}>
     {children}
   </p>
 );
 
 export const ErrorLine = ({ message }: { message: string | null }) =>
   message ? (
-    <p role="alert" data-testid="onboarding-error" style={{ ...wrap, color: 'var(--da-danger)', fontSize: 14, margin: '8px 0 0' }}>
+    <p role="alert" data-testid="onboarding-error" className={`${WRAP} mb-0 mt-[8px] text-[14px] text-[var(--danger)]`}>
       {message}
     </p>
   ) : null;
 
+/**
+ * One answer in a question card: a full-width 56px option (radio for one answer, checkbox for several). The rebuild's
+ * Chip is a pill toggle (aria-pressed); a list of long answers reads as stacked options, so this keeps the radio and
+ * checkbox roles and takes the colour layer's selected look.
+ */
 export const Chip = ({ label, selected, onClick, multi }: { label: string; selected: boolean; onClick: () => void; multi?: boolean }) => (
   <button
     type="button"
     role={multi ? 'checkbox' : 'radio'}
     aria-checked={selected}
     onClick={onClick}
-    style={{
-      ...wrap,
-      minHeight: 56,
-      borderRadius: 12,
-      fontSize: 16,
-      fontWeight: 600,
-      padding: '0 14px',
-      cursor: 'pointer',
-      textAlign: 'left',
-      color: selected ? 'var(--da-on-accent)' : 'var(--da-text)',
-      background: selected ? 'var(--da-accent)' : 'var(--da-surface-2)',
-      border: `1px solid ${selected ? 'var(--da-accent)' : 'var(--da-border)'}`,
-    }}
+    className={`${WRAP} min-h-[56px] cursor-pointer rounded-[var(--r-ctl,12px)] border px-[14px] text-left text-[16px] font-semibold ${
+      selected ? 'da-vote-on' : 'border-[var(--line-strong)] bg-[var(--card2)] text-[var(--fg)]'
+    }`}
   >
     {label}
   </button>
 );
 
 export const Field = ({ id, label, hint, children }: { id: string; label: string; hint?: string; children: ReactNode }) => (
-  <div style={{ marginBottom: 12 }}>
-    <label htmlFor={id} style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
-      {label}
-    </label>
-    {children}
-    {hint ? (
-      <p className="da-muted" style={{ ...wrap, fontSize: 13, margin: '4px 0 0' }}>
-        {hint}
-      </p>
-    ) : null}
+  <div className="mb-[12px]">
+    <BlockField label={label} htmlFor={id} help={hint}>
+      {children}
+    </BlockField>
   </div>
 );
 
-/** A link that looks like a PrimaryButton (primary) or a GhostButton: same 48px height, centred text. */
-export const linkButton = (primary: boolean): CSSProperties => ({
-  ...btn,
-  ...wrap,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  textAlign: 'center',
-  textDecoration: 'none',
-  boxSizing: 'border-box',
-  background: primary ? 'var(--da-accent)' : 'transparent',
-  color: primary ? 'var(--da-on-accent)' : 'inherit',
-  border: primary ? 'none' : '1px solid var(--da-border)',
-});
-
-export const textInput: CSSProperties = {
-  width: '100%',
-  minHeight: 48,
-  borderRadius: 12,
-  border: '1px solid var(--da-border)',
-  background: 'var(--da-surface-2)',
-  color: 'var(--da-text)',
-  fontSize: 16,
-  padding: '0 12px',
-};
+export const textInput = `${FIELD_CLASS} min-h-[48px]`;
