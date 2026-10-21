@@ -111,6 +111,13 @@ describe('pickChipCities', () => {
     ];
     expect(pickChipCities(rows)).toEqual([{ id: '1', name: 'London' }, { id: '3', name: 'Madrid' }]);
   });
+  it.each([
+    ['inactive city', { is_active: false }],
+    ['active city', { is_active: true }],
+    ['no flag read', {}],
+  ])('chips do not depend on the active flag (%s): the gate only needs a city id', (_l, extra) => {
+    expect(pickChipCities([{ id: '1', name: 'Madrid', ...extra }])).toEqual([{ id: '1', name: 'Madrid' }]);
+  });
   it('is empty when the read gave nothing', () => {
     expect(pickChipCities([])).toEqual([]);
   });

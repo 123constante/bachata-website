@@ -1,7 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
 import { CHIP_CITY_NAMES, pickChipCities, type CityChip } from './dancer4Model';
 
-/** The quick-pick chips: the named cities that exist (public read of `cities`, the same table search_cities reads). */
+/**
+ * The quick-pick chips: the named cities that exist (public read of `cities`, the same table search_cities reads).
+ * Deliberately NO is_active filter: profile_complete_v1 only needs based_city_id non-null and the FK targets
+ * cities(id), so an inactive city satisfies the gate (prod has 1 active of 319).
+ */
 export async function fetchChipCities(): Promise<CityChip[]> {
   const { data, error } = await supabase.from('cities').select('id, name').in('name', [...CHIP_CITY_NAMES]);
   if (error) throw error;
@@ -22,7 +26,9 @@ export async function submitCityRequest(name: string): Promise<void> {
   const { error } = await table.insert({
     requested_name: name,
     requested_by: auth.user.id,
-    context: 'dancer4_onboarding',
+    // city_requests.context is free text (no CHECK); 'general' is the shared picker default. Source goes in notes.
+    context: 'general',
+    notes: 'dancer4_onboarding',
   });
   if (error) throw error;
 }

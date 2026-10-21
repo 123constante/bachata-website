@@ -25,3 +25,8 @@ Brief: admin `docs/briefs/arc1/arc1-pr3-onboarding.md` (sha c3b77f4), common + a
 Verified: vitest on all touched areas (281 tests green), eslint on touched files (0 errors), tsc clean for touched files, `npm run build` ok, `bin/check-integrity.sh` ok, lint chain 19 of 20 links green (the 20th, `check:integrity`, only failed because `bin/check-integrity.sh` is not executable in this sandbox; run through bash it is ok).
 Unit run: 22 failures, all outside this slice and identical on `main` in this sandbox (contract tests need live Supabase; `integrityCouldNotRun` env); one was ours and is fixed (raw U+2026 in source, now `…`).
 Not verified: real phone / keyboard / photo upload, authenticated browser walk at 390x844, Vercel preview, GitHub checks, real invite (prod has 0 bound invites), the prod value of VITE_ENABLE_CITY_REQUESTS.
+
+## Fix pass (PR #927)
+- (5) Chips: read-only prod check of `profile_complete_v1`: it needs `based_city_id IS NOT NULL` only (no active check); FK `dancer_profiles_based_city_id_fkey -> cities(id)`, no city triggers. So an inactive city satisfies the gate and NO filter is added (1 of 319 active would empty the chips). Table test added: chips do not depend on the active flag.
+- (6) `city_requests` has no CHECK on `context` (only status + audit checks); no DB function reads `context` (only approve/reject_city_request). Insert now uses `context: 'general'` (the shared picker default) and puts `dancer4_onboarding` in `notes`. NOT verified: the admin daily digest (it is not in the DB functions; its code lives in the admin repo/edge function, unreadable here), so whether it groups by `context` is unknown; 'general' is the safe known value.
+- Prefill wiring untouched. vitest dancer4 49 green, `npm run build` ok.
