@@ -224,7 +224,8 @@ const GlobalLayout = ({
             <div
               className="fixed inset-0 -z-10 pointer-events-none"
               style={ground.wash}
-              data-testid="page-ground"
+              data-testid="layout-bg"
+              data-bg="ground"
               data-palette={gradientPalette}
             />
           ) : gradientPalette === 'velvet' ? (

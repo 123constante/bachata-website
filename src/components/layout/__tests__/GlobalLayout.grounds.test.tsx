@@ -41,7 +41,7 @@ describe('GlobalLayout grounds', () => {
     const { container } = mount({ gradientPalette: palette, floatingCount: 20 });
     expect(iconWrapper(container)).toBeNull();
     expect(animatedWash(container)).toBeNull();
-    expect(container.querySelector('[data-testid="page-ground"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="layout-bg"][data-bg="ground"]')).not.toBeNull();
     expect(document.body.style.backgroundColor).toBe(rgb(base));
     expect(document.documentElement.style.backgroundColor).toBe(rgb(base));
   });
@@ -62,7 +62,7 @@ describe('GlobalLayout grounds', () => {
 
   it.each(['velvet', 'brass', 'organiser'] as const)('%s: own static wash, no icons, body untouched', (palette) => {
     const { container } = mount({ gradientPalette: palette });
-    expect(container.querySelector('[data-testid="page-ground"]')).toBeNull();
+    expect(container.querySelector('[data-testid="layout-bg"][data-bg="ground"]')).toBeNull();
     expect(iconWrapper(container)).toBeNull();
     expect(animatedWash(container)).toBeNull();
     expect(document.body.style.background).toBe('');
