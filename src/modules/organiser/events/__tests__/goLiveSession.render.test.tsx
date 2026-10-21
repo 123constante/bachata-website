@@ -2,7 +2,7 @@
 /**
  * Go live needs a session, RENDERED on both screens (R-GOLIVE-SESSION F1). D90: the
  * event card shows the server's `session` row (series_go_live_check_v1) and no second
- * client line; D91: the New event last step reads the same server answer. Also N2 (the leave
+ * client line; the New event last step keeps hasUpcomingSession. Also N2 (the leave
  * link). N3 (A1-off wording of the client reason) and N4 (festival client reason) left
  * with the client card rule: the server list is the card's one list.
  */
@@ -110,7 +110,6 @@ describe('event card: Go live and the session (the server list, D90)', () => {
 describe('New event last step: Go live and the session', () => {
   it('a session-less draft: Go live is off with NO_SESSION_NEW_REASON, and Save as draft goes to the programme', async () => {
     workspace = draft(false);
-    serverSession = false;
     newCover();
     await waitFor(() => expect(screen.getByTestId('org-new-live-reason').textContent).toBe(NO_SESSION_NEW_REASON));
     expect((screen.getByTestId('org-new-live') as HTMLButtonElement).disabled).toBe(true);
@@ -120,7 +119,6 @@ describe('New event last step: Go live and the session', () => {
 
   it('with a programme session Go live is on, and Save as draft still goes Home', async () => {
     workspace = draft(true);
-    serverSession = true;
     newCover();
     await waitFor(() => expect((screen.getByTestId('org-new-live') as HTMLButtonElement).disabled).toBe(false));
     expect(screen.queryByTestId('org-new-live-reason')).toBeNull();
@@ -130,7 +128,6 @@ describe('New event last step: Go live and the session', () => {
 
   it('no photo yet: the photo reason stays and the leave link still goes Home', async () => {
     workspace = draft(false, { default_cover_image_url: null });
-    serverSession = false;
     newCover();
     await waitFor(() => expect(screen.getByTestId('org-new-live-reason').textContent).toMatch(/photo/));
     fireEvent.click(screen.getByTestId('org-new-leave'));

@@ -7,8 +7,8 @@ import {
 import { createSeriesCommand } from '@/modules/organiser/shared/selfServeApi';
 import type { NewEventFormat } from '@/modules/organiser/shell/paths';
 import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
-import { NO_SESSION_REASON } from '@/modules/organiser/events/lifecycleModel';
-import { goLiveLabel, profileFieldsLeft, profileRowLabel, showsProfileRow, type GoLiveCheck } from '@/modules/organiser/shared/goLiveCheck';
+import { NO_SESSION_REASON, hasUpcomingSession } from '@/modules/organiser/events/lifecycleModel';
+import type { SeriesWorkspace } from '@/modules/organiser/shared/seriesModel';
 
 /**
  * New event, one question per screen (plan 4.5, D44, D54, D55). Pure: every
@@ -62,41 +62,21 @@ export const coverStepReason = (hasCover: boolean, a1 = A1_APPLIED): string | nu
 export const NO_SESSION_NEW_REASON = `${NO_SESSION_REASON} Save as draft, then add a session from the event.`;
 export const CHECKING_REASON = 'One moment, checking your event.';
 
-/** The server said not ready but listed nothing this step can name. */
-export const NOT_READY_REASON = 'Something on the event is not ready yet. Save as draft, then open the event to see what is left.';
-
-/** The last step's server answer (D91): loading, could not be read, or the answer itself. */
-export type ServerCheck = { status: 'pending' } | { status: 'error' } | { status: 'ready'; check: GoLiveCheck };
-
 /**
- * The check query as the last step reads it. A refetch in flight (the flyer was just uploaded and the check
- * invalidated) is still checking: the cached answer predates the upload (N1).
+ * Why the last step's button is off: no photo, then no session (the SAME rule as
+ * the event page's Go live, hasUpcomingSession). `draft` is null while it loads.
  */
-export function serverCheckOf(q: { isError: boolean; isFetching: boolean; data: GoLiveCheck | undefined }): ServerCheck {
-  if (q.isFetching) return { status: 'pending' };
-  if (q.isError) return { status: 'error' };
-  return q.data ? { status: 'ready', check: q.data } : { status: 'pending' };
-}
-
-/**
- * Why the last step's button is off: no photo, then the SAME server answer the
- * event card reads (series_go_live_check_v1, D91), a missing session first
- * (#885's reason). A check that could not be read never blocks: the server still
- * refuses a series that is not ready, and that refusal is shown.
- */
-export function finishReason(hasCover: boolean, server: ServerCheck, a1 = A1_APPLIED): string | null {
+export function finishReason(
+  hasCover: boolean,
+  draft: Pick<SeriesWorkspace, 'hasSessions' | 'dates'> | null,
+  today: string,
+  a1 = A1_APPLIED,
+): string | null {
   const cover = coverStepReason(hasCover, a1);
   if (cover) return cover;
   if (!a1) return null;
-  if (server.status === 'pending') return CHECKING_REASON;
-  if (server.status === 'error' || server.check.ready) return null;
-  const { check } = server;
-  if (check.eventMissing.some((i) => i.code === 'session')) return NO_SESSION_NEW_REASON;
-  // The photo is on this step, so `cover` in the answer is an older read: never name the flyer after an upload.
-  const first = check.eventMissing.find((i) => i.code !== 'cover');
-  if (first) return `${goLiveLabel(first.code)} first.`;
-  if (showsProfileRow(check)) return `${profileRowLabel(profileFieldsLeft(check))} first.`;
-  return NOT_READY_REASON;
+  if (!draft) return CHECKING_REASON;
+  return hasUpcomingSession(draft, today) ? null : NO_SESSION_NEW_REASON;
 }
 
 /**
