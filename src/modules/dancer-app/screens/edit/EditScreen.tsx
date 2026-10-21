@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import type { MouseEvent } from 'react';
+import { ChevronLeft } from 'lucide-react';
+import { Card, GhostButton, PrimaryButton, SheetView } from '@/modules/organiser/ui';
+import { LINK_GHOST, TEXT_ACTION } from '../blocks';
+import { useLeaveGuard } from '../../shell/leaveGuard';
 import { useMutation } from '@tanstack/react-query';
 import { CityPicker } from '@/components/ui/city-picker';
 import { NationalityPicker } from '@/components/ui/nationality-picker';
@@ -30,8 +35,8 @@ import {
   type YearBand,
 } from '../me/model';
 import { useMyDancerEdit, usePutMyDancerEdit } from '../../api/useMyDancerEdit';
-import { Avatar, QueryGate, ghostButton, mainButton } from '../me/ui';
-import { ChipChoice, ChipListInput, Field, TextInput, inputStyle } from './fields';
+import { Avatar, QueryGate } from '../me/ui';
+import { ChipChoice, ChipListInput, Field, INPUT_CLASS, TextInput } from './fields';
 import { SAVE_DONE, chipFor, nationalityCodeForPick, styleChipOptions } from './editModel';
 
 type ServerErrors = Partial<Record<FormFieldId, string>>;
@@ -61,10 +66,10 @@ const HideSurnameRow = ({ profile }: { profile: MyDancerEdit }) => {
     switchReadable: true,
   });
   return (
-    <div data-testid="edit-hide-surname" style={{ display: 'grid', gap: 4 }}>
+    <div data-testid="edit-hide-surname" className="grid gap-[4px]">
       <HideSurnameSwitch checked={profile.hide_surname_publicly} onChange={(next) => m.mutate(next)} disabledReason={reason} />
       {m.isError && (
-        <p role="alert" data-testid="error-hide_surname_publicly" style={{ fontSize: 13, margin: 0, color: 'var(--da-danger)' }}>
+        <p role="alert" data-testid="error-hide_surname_publicly" className="m-0 text-[13px] text-[var(--danger)]">
           {toDancerError(m.error).message}
         </p>
       )}
@@ -122,6 +127,25 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
     },
   });
 
+  // D119: leaving with unsaved edits asks first. Every way out (back buttons, the tabs, the home link) shares this one guard.
+  const navigate = useNavigate();
+  const dirty = Object.keys(delta).length > 0;
+  const dirtyRef = useRef(dirty);
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+  const [leaveTo, setLeaveTo] = useState<string | null>(null);
+  useLeaveGuard((to) => {
+    if (!dirtyRef.current) return true;
+    setLeaveTo(to);
+    return false;
+  });
+  const leave = (to: string) => (e: MouseEvent) => {
+    if (!dirtyRef.current) return;
+    e.preventDefault();
+    setLeaveTo(to);
+  };
+
   const reason = saveDisabledReason(delta, errors, mutation.isPending);
   // A programmatic submit with an empty delta sends NO request (the button is also disabled).
   const submit = () => {
@@ -165,30 +189,35 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
         e.preventDefault();
         submit();
       }}
-      style={{ display: 'grid', gap: 12 }}
+      className="grid gap-[12px]"
     >
-      <h1 className="da-muted" style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Edit my profile</h1>
+      <div className="flex items-center gap-[4px]">
+        <Link to="/app/me" onClick={leave('/app/me')} className="da-tap flex-none basis-[44px]" aria-label="Back" data-testid="edit-header-back">
+          <ChevronLeft aria-hidden="true" className="h-[24px] w-[24px]" />
+        </Link>
+        <h1 className="m-0 text-[14px] font-bold text-[var(--mut)]">Edit my profile</h1>
+      </div>
 
       {topError && (
-        <div className="da-card" role="alert" data-testid="edit-top-error" style={{ borderColor: 'var(--da-danger)' }}>
-          <p style={{ fontSize: 14, margin: '0 0 8px' }}>{topError}</p>
-          <button type="button" className="da-tap" style={{ ...ghostButton, minHeight: 44 }} onClick={submit} data-testid="edit-retry">
+        <Card variant="padded" role="alert" testId="edit-top-error" className="border-[var(--danger)]">
+          <p className="mb-[8px] mt-0 text-[14px]">{topError}</p>
+          <GhostButton size="sm" onClick={submit} testId="edit-retry">
             Try again
-          </button>
-        </div>
+          </GhostButton>
+        </Card>
       )}
 
-      <div className="da-card" style={{ display: 'grid', gap: 14, borderTop: '3px solid var(--da-accent)' }}>
-        <div data-testid="edit-photo-row" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <Card variant="padded" className="grid gap-[14px] border-t-[3px] border-t-[var(--gold)]">
+        <div data-testid="edit-photo-row" className="flex items-center gap-[12px]">
           <Avatar profile={profile} size={64} />
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <p style={{ fontSize: 15, fontWeight: 700, margin: 0, overflowWrap: 'anywhere' }}>{profileName(profile)}</p>
-            <Link to={`${PHOTO_PATH}?return=/app/me/edit`} className="da-tap" style={{ color: 'var(--da-accent)', fontWeight: 700, fontSize: 15, justifyContent: 'flex-start' }} data-testid="edit-change-photo">
+          <div className="min-w-0 flex-1">
+            <p className="m-0 break-words text-[15px] font-bold">{profileName(profile)}</p>
+            <Link to={`${PHOTO_PATH}?return=/app/me/edit`} className={`${TEXT_ACTION} no-underline`} data-testid="edit-change-photo">
               {profile.avatar_url ? 'Change photo' : 'Add photo'}
             </Link>
           </div>
         </div>
-        {shown('avatar_url') && <p role="alert" style={{ fontSize: 13, margin: 0, color: 'var(--da-danger)' }}>{shown('avatar_url')}</p>}
+        {shown('avatar_url') && <p role="alert" className="m-0 text-[13px] text-[var(--danger)]">{shown('avatar_url')}</p>}
 
         <Field id="display_name" label="Display name" hint="(shown on your page)" error={shown('display_name')} note={note('display_name')}>
           <TextInput id="display_name" value={draft.display_name} maxLength={DISPLAY_NAME_MAX + 20} onChange={(v) => set('display_name', v)} error={shown('display_name')} />
@@ -206,14 +235,14 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
         <Field id="based_city_id" label="City" error={shown('based_city_id')}>
           <CityPicker id="based_city_id" value={draft.based_city_id || undefined} onChange={(id) => set('based_city_id', id)} placeholder="Pick your city" className="min-h-[48px] w-full" />
           {/* Audit M28: the picker's own city request is switched off; this is the way on. */}
-          <p className="da-muted" style={{ fontSize: 14, margin: 0 }}>
+          <p className="m-0 text-[14px] text-[var(--mut)]">
             City not in the list?{' '}
             <a
               href={dancerMessageUsUrl(ADD_CITY_MESSAGE)}
               target="_blank"
               rel="noopener noreferrer"
               data-testid="edit-add-city"
-              style={{ textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}
+              className="inline-flex min-h-[44px] items-center underline"
             >
               Message us to add your city
             </a>
@@ -280,9 +309,9 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
             aria-invalid={shown('bio') ? true : undefined}
             aria-describedby={shown('bio') ? 'bio-error bio-count' : 'bio-count'}
             onChange={(e) => set('bio', e.target.value)}
-            style={{ ...inputStyle, minHeight: 96, padding: 12, resize: 'vertical', borderColor: shown('bio') ? 'var(--da-danger)' : 'var(--da-border)' }}
+            className={`${INPUT_CLASS} min-h-[96px] resize-y py-[12px]${shown('bio') ? ' border-[var(--danger)]' : ''}`}
           />
-          <p id="bio-count" data-testid="bio-count" className="da-muted" style={{ fontSize: 13, margin: 0, textAlign: 'right' }}>
+          <p id="bio-count" data-testid="bio-count" className="m-0 text-right text-[13px] text-[var(--mut)]">
             {bioLen}/{BIO_MAX}
           </p>
         </Field>
@@ -298,12 +327,12 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
         </Field>
 
         {eligibleWhatsapp && (
-          <div data-testid="edit-whatsapp" style={{ display: 'grid', gap: 10 }}>
+          <div data-testid="edit-whatsapp" className="grid gap-[10px]">
             <Field id="whatsapp" label="WhatsApp" hint="(number with country code)" error={shown('whatsapp')} note={note('whatsapp')}>
               <TextInput id="whatsapp" type="tel" inputMode="tel" value={draft.whatsapp} placeholder="+44 7700 900123" onChange={(v) => set('whatsapp', v)} error={shown('whatsapp')} />
             </Field>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 44 }}>
-              <label htmlFor="show_whatsapp_publicly" style={{ fontSize: 15, fontWeight: 600 }}>Show my WhatsApp on my page</label>
+            <div className="flex min-h-[44px] items-center justify-between gap-[12px]">
+              <label htmlFor="show_whatsapp_publicly" className="text-[15px] font-semibold">Show my WhatsApp on my page</label>
               <button
                 id="show_whatsapp_publicly"
                 type="button"
@@ -312,42 +341,53 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
                 disabled={!hasNumber}
                 aria-describedby={hasNumber ? undefined : 'whatsapp-switch-reason'}
                 onClick={() => set('show_whatsapp_publicly', !draft.show_whatsapp_publicly)}
-                style={{
-                  width: 56, height: 44, borderRadius: 999, flex: '0 0 auto', cursor: hasNumber ? 'pointer' : 'not-allowed', opacity: hasNumber ? 1 : 0.5,
-                  border: '1px solid var(--da-border)',
-                  background: draft.show_whatsapp_publicly ? 'var(--da-accent)' : 'var(--da-surface-2)',
-                  color: draft.show_whatsapp_publicly ? 'var(--da-on-accent)' : 'var(--da-text)', fontWeight: 700,
-                }}
+                className={`h-[44px] w-[56px] flex-none rounded-full border border-[var(--line-strong)] font-bold ${
+                  draft.show_whatsapp_publicly ? 'bg-[var(--btn)] text-[var(--btnfg)]' : 'bg-[var(--card2)] text-[var(--fg)]'
+                } ${hasNumber ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
               >
                 {draft.show_whatsapp_publicly ? 'On' : 'Off'}
               </button>
             </div>
             {!hasNumber && (
-              <p id="whatsapp-switch-reason" data-testid="whatsapp-switch-reason" style={{ fontSize: 14, margin: 0, color: 'var(--da-warn, #F2B84B)' }}>
+              <p id="whatsapp-switch-reason" data-testid="whatsapp-switch-reason" className="m-0 text-[14px] text-[var(--warn-fg)]">
                 Add your number above to show it on your page.
               </p>
             )}
-            <p className="da-muted" style={{ fontSize: 13, margin: 0 }}>
+            <p className="m-0 text-[13px] text-[var(--mut)]">
               WhatsApp is only for people who also teach, DJ or organise, so students and partners can reach you. It shows on your page only while this is on.
             </p>
           </div>
         )}
-      </div>
+      </Card>
 
-      <div style={{ display: 'grid', gap: 6 }}>
-        <button type="submit" disabled={reason !== null} aria-describedby="save-reason" data-testid="edit-save" className="da-tap" style={{ ...mainButton, opacity: reason !== null ? 0.5 : 1, cursor: reason !== null ? 'not-allowed' : 'pointer' }}>
+      <div className="grid gap-[6px]">
+        <PrimaryButton type="submit" disabled={reason !== null} aria-describedby="save-reason" testId="edit-save">
           Save changes
-        </button>
+        </PrimaryButton>
         {reason !== null && (
-          <p id="save-reason" data-testid="edit-save-reason" style={{ fontSize: 14, margin: 0, color: 'var(--da-warn, #F2B84B)' }}>
+          <p id="save-reason" data-testid="edit-save-reason" className="m-0 text-[14px] text-[var(--warn-fg)]">
             {reason}
           </p>
         )}
         {saved && reason !== null && !mutation.isPending && (
-          <p role="status" data-testid="edit-saved" style={{ fontSize: 14, margin: 0 }}>{SAVE_DONE}</p>
+          <p role="status" data-testid="edit-saved" className="m-0 text-[14px]">{SAVE_DONE}</p>
         )}
-        <Link to="/app/me" className="da-tap" style={ghostButton}>Back to Me</Link>
+        <Link to="/app/me" onClick={leave('/app/me')} className={LINK_GHOST}>Back to Me</Link>
       </div>
+      <SheetView open={leaveTo !== null} onOpenChange={(o) => !o && setLeaveTo(null)} title="Discard changes?" description="You have changes that are not saved yet.">
+        <div className="grid gap-[8px]">
+          <PrimaryButton onClick={() => setLeaveTo(null)}>Keep editing</PrimaryButton>
+          <GhostButton
+            onClick={() => {
+              const to = leaveTo;
+              setLeaveTo(null);
+              if (to) navigate(to);
+            }}
+          >
+            Discard
+          </GhostButton>
+        </div>
+      </SheetView>
     </form>
   );
 };

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, KeyboardEvent, PointerEvent, WheelEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { showShellToast } from '../../shell/shellToast';
 
 import { validateImageFile } from '@/lib/upload-validation';
 import { APP_WELCOME_PATH } from '@/lib/accountRouting';
@@ -21,27 +22,17 @@ import { DecodeError, type DecodedPhoto } from './decodeImage';
 import { photoScreenDeps, returnPathFor } from './photoScreenDeps';
 import { PhotoFlowError, replacePhoto } from './photoFlow';
 import { useMyDancerEdit, usePutMyDancerEdit } from '../../api/useMyDancerEdit';
+import { Card, GhostButton, PrimaryButton } from '@/modules/organiser/ui';
+import { LINK_GHOST, LINK_PRIMARY } from '../blocks';
 
 const BOX = 300; // CSS px of the square crop box
 const NUDGE = 12; // box px per arrow key press
 
 type Phase = 'pick' | 'crop' | 'preview' | 'saving';
 
-const btn = (primary: boolean) =>
-  ({
-    minHeight: 48,
-    minWidth: 44,
-    borderRadius: 12,
-    fontSize: 15,
-    fontWeight: 700,
-    width: '100%',
-    cursor: 'pointer',
-    border: primary ? 'none' : '1px solid var(--da-border)',
-    background: primary ? 'var(--da-accent)' : 'transparent',
-    color: primary ? 'var(--da-on-accent)' : 'var(--da-text)',
-  }) as const;
-
-const note = { fontSize: 14, margin: '8px 0 0', lineHeight: 1.4 } as const;
+const NOTE = 'mx-0 mb-0 mt-[8px] text-[14px] leading-[1.4]';
+const NOTE_MUTED = `${NOTE} text-[var(--mut)]`;
+const NOTE_DANGER = `${NOTE} text-[var(--danger)]`;
 
 const toBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
   new Promise((resolve, reject) =>
@@ -211,6 +202,7 @@ const PhotoScreen = () => {
     try {
       const { profile } = await replacePhoto({ blob, current, uploadedUrl: uploadedUrl.current }, photoScreenDeps.flow);
       putProfile(profile);
+      showShellToast('Saved');
       navigate(returnTo, { replace: true });
     } catch (err) {
       const stage = err instanceof PhotoFlowError ? err.stage : 'upload';
@@ -229,59 +221,59 @@ const PhotoScreen = () => {
 
   const inputStyle = useMemo(() => ({ display: 'none' }) as const, []);
   const backLink = hasReturn ? (
-    <Link to={returnTo} replace className="da-tap" data-testid="photo-back" style={{ ...btn(false), display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+    <Link to={returnTo} replace className={LINK_GHOST} data-testid="photo-back">
       {backLabel}
     </Link>
   ) : null;
 
   return (
-    <section className="da-card" data-testid="dancer-screen-photo" aria-labelledby="photo-title" style={{ padding: 14 }}>
-      <h1 id="photo-title" style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>
+    <Card variant="padded" data-testid="dancer-screen-photo" aria-labelledby="photo-title" className="p-[14px]">
+      <h1 id="photo-title" className="m-0 text-[20px] font-extrabold">
         Your photo
       </h1>
 
       {profileQuery.isError && (
-        <div role="alert" style={note}>
-          <p style={{ margin: 0, color: 'var(--da-danger)' }}>We could not load your profile, so we cannot save a photo yet. Check your connection and try again.</p>
-          <button type="button" className="da-tap" style={{ ...btn(false), marginTop: 8 }} onClick={() => void profileQuery.refetch()}>
+        <div role="alert" className={NOTE}>
+          <p className="m-0 text-[var(--danger)]">We could not load your profile, so we cannot save a photo yet. Check your connection and try again.</p>
+          <GhostButton className="mt-[8px]" onClick={() => void profileQuery.refetch()}>
             Try again
-          </button>
+          </GhostButton>
         </div>
       )}
-      {profileQuery.isLoading && <p className="da-muted" style={note}>Loading&hellip;</p>}
+      {profileQuery.isLoading && <p className={NOTE_MUTED}>Loading&hellip;</p>}
 
       {!online && (
-        <p role="status" data-testid="photo-offline" style={{ ...note, color: 'var(--da-danger)' }}>
+        <p role="status" data-testid="photo-offline" className={NOTE_DANGER}>
           You are offline. You can still pick and crop a photo; saving needs a connection.
         </p>
       )}
 
       {phase === 'pick' && (
         <div data-testid="photo-pick">
-          <p className="da-muted" style={note}>
+          <p className={NOTE_MUTED}>
             Head and shoulders, facing the camera. This is how people find you.
           </p>
-          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-            <label className="da-tap" style={{ ...btn(true), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="mt-[12px] grid gap-[8px]">
+            <label className={`${LINK_PRIMARY} cursor-pointer`}>
               Take photo
               <input type="file" accept="image/*" capture="user" onChange={onFile} style={inputStyle} data-testid="photo-input-camera" aria-label="Take photo" />
             </label>
-            <label className="da-tap" style={{ ...btn(false), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <label className={`${LINK_GHOST} cursor-pointer`}>
               Choose from my photos
               <input type="file" accept="image/*" onChange={onFile} style={inputStyle} data-testid="photo-input-library" aria-label="Choose from my photos" />
             </label>
             {backLink}
           </div>
-          <p className="da-muted" style={note}>
+          <p className={NOTE_MUTED}>
             If your camera does not open, allow camera access for this site in your browser settings, or choose from your photos instead.
           </p>
           {refusal && (
-            <p role="alert" data-testid="photo-refusal" style={{ ...note, color: 'var(--da-danger)' }}>
+            <p role="alert" data-testid="photo-refusal" className={NOTE_DANGER}>
               {refusal} Pick another photo to carry on.
             </p>
           )}
           {current?.avatar_url && (
-            <p className="da-muted" style={note}>
+            <p className={NOTE_MUTED}>
               Your current photo stays until you save a new one.
             </p>
           )}
@@ -290,7 +282,7 @@ const PhotoScreen = () => {
 
       {phase === 'crop' && decoded && (
         <div data-testid="photo-crop">
-          <p className="da-muted" style={note}>
+          <p className={NOTE_MUTED}>
             Drag to position, pinch or use the slider to zoom. Keep your head and shoulders inside the outline.
           </p>
           <div
@@ -322,14 +314,14 @@ const PhotoScreen = () => {
               data-testid="photo-zoom"
             />
           </label>
-          {failure && <p role="alert" style={{ ...note, color: 'var(--da-danger)' }}>{failure}</p>}
-          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-            <button type="button" className="da-tap" style={btn(true)} onClick={() => void makePreview()} data-testid="photo-crop-done">
+          {failure && <p role="alert" className={NOTE_DANGER}>{failure}</p>}
+          <div className="mt-[12px] grid gap-[8px]">
+            <PrimaryButton onClick={() => void makePreview()} testId="photo-crop-done">
               Next
-            </button>
-            <button type="button" className="da-tap" style={btn(false)} onClick={startOver}>
+            </PrimaryButton>
+            <GhostButton onClick={startOver}>
               Choose a different photo
-            </button>
+            </GhostButton>
             {backLink}
           </div>
         </div>
@@ -340,35 +332,35 @@ const PhotoScreen = () => {
           <div style={{ width: '50%', aspectRatio: '1 / 1', margin: '12px auto 0', borderRadius: 12, overflow: 'hidden', background: '#000' }}>
             <img src={previewUrl} alt="Your new photo" loading="eager" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           </div>
-          <p style={{ ...note, textAlign: 'center', border: '1px solid var(--da-border)', borderRadius: 12, padding: '10px 12px', color: 'var(--da-text)' }}>
+          <p className={`${NOTE} rounded-[12px] border border-[var(--line)] px-[12px] py-[10px] text-center text-[var(--fg)]`}>
             This is how people will see you.
           </p>
           {failure && (
-            <p role="alert" data-testid="photo-failure" style={{ ...note, color: 'var(--da-danger)' }}>
+            <p role="alert" data-testid="photo-failure" className={NOTE_DANGER}>
               {failure}
             </p>
           )}
           {!online && (
-            <p className="da-muted" style={note}>
+            <p className={NOTE_MUTED}>
               Use this photo is off until you are back online.
             </p>
           )}
           {profileQuery.isError && (
-            <p className="da-muted" style={note}>
+            <p className={NOTE_MUTED}>
               Use this photo is off until your profile has loaded. Press Try again above.
             </p>
           )}
-          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-            <button type="button" className="da-tap" style={{ ...btn(true), opacity: canUse ? 1 : 0.55 }} disabled={!canUse} onClick={() => void save()} data-testid="photo-use">
+          <div className="mt-[12px] grid gap-[8px]">
+            <PrimaryButton disabled={!canUse} onClick={() => void save()} testId="photo-use">
               {phase === 'saving' ? 'Saving\u2026' : failure ? 'Try again' : 'Use this photo'}
-            </button>
-            <button type="button" className="da-tap" style={btn(false)} disabled={phase === 'saving'} onClick={startOver} data-testid="photo-another">
+            </PrimaryButton>
+            <GhostButton disabled={phase === 'saving'} onClick={startOver} testId="photo-another">
               Take another
-            </button>
+            </GhostButton>
           </div>
         </div>
       )}
-    </section>
+    </Card>
   );
 };
 

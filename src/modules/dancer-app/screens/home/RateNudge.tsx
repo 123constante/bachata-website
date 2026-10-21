@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { TILE_CLASS } from '../blocks';
 import { useSeriesLevelRating } from '@/hooks/useSeriesLevelRating';
 import type { Night } from '../nights/nightsModel';
 import { nightsPath, shortDate } from '../nights/nightsModel';
@@ -27,12 +28,11 @@ const Candidate = ({ candidates, index, todayKey }: { candidates: readonly Night
   return (
     <Link
       to={nightsPath(night.seriesId)}
-      className="da-card da-tap"
+      className={`${TILE_CLASS} da-tap`}
       data-testid="rate-nudge"
-      style={{ display: 'block', textDecoration: 'none', color: 'var(--da-text)' }}
-    >
+          >
       <b style={{ display: 'block', fontSize: 15 }}>{nudgeTitle(night.date, todayKey)}</b>
-      <span className="da-muted" style={{ fontSize: 13 }}>
+      <span className="text-[13px] text-[var(--mut)]">
         {night.name}. How was the dancing level?
       </span>
     </Link>
