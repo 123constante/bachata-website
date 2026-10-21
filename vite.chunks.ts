@@ -337,6 +337,11 @@ export const LIB_EVENT_RULES_MODULES = [
   "/src/lib/accountPaths.ts",
   "/src/lib/authRouting.ts",
   "/src/modules/dancer-app/gate/useDancerArea.ts",
+  // `cn` (2026-10-21, D139): every route loads it from the root chunk. Pinned here
+  // ONLY so the lib-org-ui group below cannot swallow it -- a pinned group takes its
+  // unassigned static deps along, and then every route loaded lib-org-ui (+1 chunk
+  // on all eight budgeted routes, measured).
+  "/src/lib/utils.ts",
   // One boolean read by the event page, festival hub and dancer app: alone it was
   // its own chunk and one more first-load request on /event and /app.
   "/src/lib/goingCheckin.ts",
@@ -373,6 +378,32 @@ export const LIB_PEOPLE_MODULES = [
   "/src/lib/seo/resolvePublicEventRef.ts",
   "/src/modules/person-page/badges.ts",
 ];
+
+// The FOURTH first-party group (2026-10-21, slice B fix pass, decision D139): the
+// organiser Ember `ui/` blocks the dancer app is built from. Each block has a
+// unique importer set (the organiser screens AND the lazy dancer-app chunk), so
+// rollup cut each into a chunk of its own: /app/* 59 first-load chunks vs an
+// allowance of 56, eight of them one-block chunks. One group, ONE request. Every
+// route that loads any of these blocks (the organiser screens and /app/*) already
+// loads nearly all of them, so the pairing moves only a few KB onto those routes
+// and no bytes onto any budgeted public route. Measured numbers and the per-route
+// table: docs/people-arc/HANDOVER-restyle-b.md "Fix pass", B1. Adding a module
+// here moves its bytes onto every route that loads any block; re-measure every
+// route (`npm run build && npm run check:bundle-budget && npm run
+// check:first-load-requests`) first.
+export const LIB_ORG_UI_MODULES = [
+  "/src/modules/organiser/ui/Card.tsx",
+  "/src/modules/organiser/ui/Chip.tsx",
+  "/src/modules/organiser/ui/Field.tsx",
+  "/src/modules/organiser/ui/SearchField.tsx",
+  "/src/modules/organiser/ui/Skeleton.tsx",
+  "/src/modules/organiser/ui/States.tsx",
+  "/src/modules/organiser/ui/SummaryRow.tsx",
+  "/src/modules/organiser/ui/useKeyboardInset.ts",
+];
+
+const isLibOrgUiModule = (id: string): boolean =>
+  !id.includes("node_modules") && LIB_ORG_UI_MODULES.some((needle) => id.endsWith(needle));
 
 // SINGLE-MODULE pins, and they exist ONLY to stop the group above from
 // swallowing them. Rollup adds every unassigned static dependency of a pinned
@@ -434,6 +465,7 @@ export function classifyChunk(id: string): string | undefined {
   if (isLibEventRulesModule(id)) return "lib-event-rules";
   if (isLibAccountModule(id)) return "lib-account";
   if (isLibPeopleModule(id)) return "lib-people";
+  if (isLibOrgUiModule(id)) return "lib-org-ui";
   const pinned = singleModulePin(id);
   if (pinned) return pinned;
   if (!id.includes("node_modules")) return undefined;

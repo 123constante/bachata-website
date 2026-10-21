@@ -149,7 +149,7 @@ describe('M17: every caller names its combobox (rendered)', () => {
         </Routes>
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByRole('button', { name: /^continue as dancer$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^continue$/i }));
     await screen.findByText('A little about you');
     expect(screen.getByRole('combobox', { name: 'City' })).toBeTruthy();
     const link = screen.getByRole('link', { name: 'Message us to add your city' });

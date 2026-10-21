@@ -104,6 +104,8 @@ test('settings: sign out of all devices is a global sign-out', async ({ page }) 
   await page.getByTestId('settings-signout-all').scrollIntoViewIfNeeded();
   await shot(page, '08-settings-signout-all');
   await page.getByTestId('settings-signout-all').click();
+  // D119 #4: the button opens a confirm sheet; the sign-out runs from its confirm.
+  await page.getByTestId('settings-signout-all-confirm').click();
   await expect.poll(() => calls).toContain('logout:global');
 });
 
@@ -113,7 +115,7 @@ test('settings: sign out of all devices is a global sign-out', async ({ page }) 
 const HOME = /^\/(city\/[a-z0-9-]+)?$/;
 const SIGN_OUT_ROWS = [
   { name: 'settings: Sign out, Yes', at: '/account/settings?from=app', m: {}, taps: ['settings-signout', 'settings-signout-yes'], lands: HOME, scope: 'local' },
-  { name: 'settings: Sign out of all devices', at: '/account/settings?from=app', m: {}, taps: ['settings-signout-all'], lands: HOME, scope: 'global' },
+  { name: 'settings: Sign out of all devices', at: '/account/settings?from=app', m: {}, taps: ['settings-signout-all', 'settings-signout-all-confirm'], lands: HOME, scope: 'global' },
   { name: 'restore (deleted, expired): Sign out', at: SIGN_IN, m: { status: EXPIRED }, taps: ['restore-signout'], lands: HOME, scope: 'local' },
   { name: 'delete: Delete my account', at: '/account/settings/delete?from=app', m: {}, taps: ['delete-type-input', 'delete-confirm'], lands: /^\/account\/deleted$/, scope: 'global' },
 ] as const;

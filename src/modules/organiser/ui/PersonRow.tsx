@@ -32,7 +32,7 @@ export function PersonRow({ name, role, sublabel, onRemove, removed, onUndo, onP
         {sublabel && <span className={cn('block truncate text-[13px]', removed ? 'text-[var(--fg)]' : 'text-[var(--mut)]')}>{sublabel}</span>}
       </span>
       {role && (
-        <span className="shrink-0 rounded-[8px] bg-[var(--card2)] px-[8px] py-[2px] text-[12px] text-[var(--fg)]">{role}</span>
+        <span className="shrink-0 rounded-[var(--r-chip,8px)] bg-[var(--card2)] px-[8px] py-[2px] text-[12px] text-[var(--fg)]">{role}</span>
       )}
     </span>
   );

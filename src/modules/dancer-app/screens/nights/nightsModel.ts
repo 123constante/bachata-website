@@ -137,20 +137,24 @@ export const nudgeCandidates = (past: readonly Night[], todayKey: string): Night
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const FULL_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export type DateParts = { weekday: string; day: number; month: string };
+export type DateParts = { weekday: string; fullWeekday: string; day: number; month: string };
 
 export const dateParts = (key: string): DateParts => {
   const d = new Date(keyToUtcNoon(key));
-  return { weekday: DAYS[d.getUTCDay()], day: d.getUTCDate(), month: MONTHS[d.getUTCMonth()] };
+  return { weekday: DAYS[d.getUTCDay()], fullWeekday: FULL_DAYS[d.getUTCDay()], day: d.getUTCDate(), month: MONTHS[d.getUTCMonth()] };
 };
 
-/** "Sat 18 Oct" */
-export const shortDate = (key: string | null): string => {
+/** "Saturday 18 Oct" (D119: the weekday is always spelled out). */
+export const fullDate = (key: string | null): string => {
   if (!key) return 'Date to be confirmed';
   const p = dateParts(key);
-  return `${p.weekday} ${p.day} ${p.month}`;
+  return `${p.fullWeekday} ${p.day} ${p.month}`;
 };
+
+/** Kept for the callers that already import it; the weekday is spelled out now (D119). */
+export const shortDate = fullDate;
 
 /** "in 4 days", "tonight", "tomorrow". */
 export const inDaysLabel = (key: string, todayKey: string): string => {

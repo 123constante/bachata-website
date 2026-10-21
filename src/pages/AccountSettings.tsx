@@ -3,6 +3,9 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GhostButton, PrimaryButton, SheetView } from "@/modules/organiser/ui";
+import { AccountShell } from "@/modules/areas/shared/AccountShell";
+import { PAGE_TITLE } from "@/modules/areas/shared/typeScale";
 import { EmailText } from "@/components/account/EmailText";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useAuth } from "@/hooks/useAuth";
@@ -41,14 +44,14 @@ import { ACCOUNT_SETTINGS_LABEL, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from "@/l
  */
 
 const PILL =
-  "inline-flex min-h-[44px] w-full items-center justify-center rounded-full bg-primary px-[16px] text-[14px] font-semibold text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-50";
+  "inline-flex min-h-[44px] w-full items-center justify-center rounded-[var(--r-ctl)] bg-[var(--btn)] px-[16px] text-[14px] font-semibold text-[var(--btnfg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--fg)] disabled:border-transparent disabled:bg-[var(--card2)] disabled:text-[var(--mut)]";
 const OUTLINE =
-  "inline-flex min-h-[44px] w-full items-center justify-center rounded-full border border-border px-[16px] text-[14px] font-semibold text-foreground disabled:opacity-50";
+  "inline-flex min-h-[44px] w-full items-center justify-center rounded-[var(--r-ctl)] border border-[var(--line)] px-[16px] text-[14px] font-semibold text-[var(--fg)] disabled:border-transparent disabled:bg-[var(--card2)] disabled:text-[var(--mut)]";
 const DANGER =
-  "inline-flex min-h-[44px] w-full items-center justify-center rounded-full bg-destructive px-[16px] text-[14px] font-semibold text-white disabled:opacity-50";
-const CARD = "space-y-2 rounded-xl border border-border bg-card p-3";
-const NOTE = "text-[13px] text-muted-foreground";
-const ERR = "text-[13px] text-destructive";
+  "inline-flex min-h-[44px] w-full items-center justify-center rounded-[var(--r-ctl)] bg-[var(--danger)] px-[16px] text-[14px] font-semibold text-[var(--btnfg)] disabled:border-transparent disabled:bg-[var(--card2)] disabled:text-[var(--mut)]";
+const CARD = "space-y-[8px] rounded-[var(--r-card)] border border-[var(--line)] bg-[var(--card)] p-[16px]";
+const NOTE = "text-[13px] text-[var(--mut)]";
+const ERR = "text-[13px] text-[var(--danger)]";
 
 const SETTINGS_PATH = "/account/settings";
 /** Old address of the delete step (audit M21): it now opens the delete view itself, so old links still work. */
@@ -64,7 +67,7 @@ const useFromApp = () => isFromApp(useLocation().search);
 function Section({ title, children, testId }: { title: string; children: ReactNode; testId?: string }) {
   return (
     <section className={CARD} data-testid={testId}>
-      <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
+      <h2 className="text-[15px] font-semibold text-[var(--fg)]">{title}</h2>
       {children}
     </section>
   );
@@ -88,7 +91,7 @@ function ExportButton({ testId, label = "Download my data" }: { testId: string; 
     setBusy(false);
   };
   return (
-    <div className="space-y-2">
+    <div className="space-y-[8px]">
       <button type="button" className={OUTLINE} onClick={() => void go()} disabled={busy} data-testid={testId}>
         {busy ? <>Preparing your file&hellip;</> : label}
       </button>
@@ -117,7 +120,7 @@ export function SignOutSection() {
     <Section title="Sign out">
       <p className={NOTE}>{user?.email ? <>Signed in as <EmailText email={user.email} />.</> : <>Signed in.</>}</p>
       {confirming ? (
-        <div className="space-y-2">
+        <div className="space-y-[8px]">
           <button type="button" className={PILL} onClick={() => void go()} disabled={busy} data-testid="settings-signout-yes">
             {busy ? <>Signing out&hellip;</> : "Yes, sign out"}
           </button>
@@ -142,6 +145,7 @@ export function SignOutSection() {
 function SignOutEverywhere() {
   const { signOutToHome, busy } = useSignOutToHome();
   const [note, setNote] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
   const go = async () => {
     setNote(null);
     const outcome = await signOutToHome({ everywhere: true });
@@ -156,12 +160,27 @@ function SignOutEverywhere() {
     }
   };
   return (
-    <div className="space-y-2 border-t border-border pt-2">
+    <div className="space-y-[8px] border-t border-[var(--line)] pt-[8px]">
       <p className={NOTE}>Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included.</p>
-      <button type="button" className={OUTLINE} onClick={() => void go()} disabled={busy} data-testid="settings-signout-all">
-        {busy ? <>Signing out&hellip;</> : "Sign out of all devices"}
+      <button type="button" className={OUTLINE} onClick={() => setAsking(true)} data-testid="settings-signout-all">
+        Sign out of all devices
       </button>
-      {note && <p role="alert" className={ERR} data-testid="settings-signout-all-error">{note}</p>}
+      {/* D119 #4: confirm in a sheet, words from the prototype. */}
+      <SheetView
+        open={asking}
+        onOpenChange={(o) => { if (!o && !busy) setAsking(false); }}
+        title="Sign out of all devices"
+        testId="settings-signout-all-sheet"
+        footer={
+          <div className="space-y-[8px]">
+            <PrimaryButton testId="settings-signout-all-confirm" loading={busy} loadingLabel="Signing out" onClick={() => void go()}>Sign out of all devices</PrimaryButton>
+            <GhostButton disabled={busy} onClick={() => setAsking(false)}>Stay signed in</GhostButton>
+          </div>
+        }
+      >
+        <p className="text-[15px] text-[var(--mut)]">Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included.</p>
+        {note && <p role="alert" className={ERR} data-testid="settings-signout-all-error">{note}</p>}
+      </SheetView>
     </div>
   );
 }
@@ -205,13 +224,13 @@ function EmailSection() {
     <Section title="Email address" testId="settings-email">
       <p className={NOTE}>{current ? <>Your email is <EmailText email={current} />.</> : "Your email isn't shown here."}</p>
       {pending && (
-        <p role="status" className="text-[14px] text-foreground" data-testid="settings-email-pending">
+        <p role="status" className="text-[14px] text-[var(--fg)]" data-testid="settings-email-pending">
           Almost there: check both inboxes. We sent a link to {current ? <EmailText email={current} /> : "your current address"} and to{" "}
           <EmailText email={pending} />. Open both links to switch to <EmailText email={pending} />; until then you still sign in with{" "}
           {current ? <EmailText email={current} /> : "your current email"}.
         </p>
       )}
-      <label className="block text-[13px] font-semibold text-foreground" htmlFor="settings-email-input">
+      <label className="block text-[13px] font-semibold text-[var(--fg)]" htmlFor="settings-email-input">
         New email
       </label>
       <input
@@ -221,12 +240,12 @@ function EmailSection() {
         autoComplete="email"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="min-h-[44px] w-full rounded-lg border border-border bg-background px-3 text-[16px]"
+        className="min-h-[44px] w-full rounded-[var(--r-ctl)] border border-[var(--line)] bg-[var(--bg)] px-[12px] text-[16px]"
         data-testid="settings-email-input"
       />
       <button
         type="button"
-        className={PILL}
+        className={OUTLINE}
         disabled={busy || reason !== null}
         onClick={() => void submit()}
         data-testid="settings-email-submit"
@@ -278,9 +297,9 @@ function VisibilitySection() {
   return (
     <Section title="Hide your dancer profile" testId="settings-disable">
       {status === "loading" ? (
-        <Skeleton className="h-11 w-full rounded-full" />
+        <Skeleton className="h-[44px] w-full rounded-full" />
       ) : status === "error" ? (
-        <div className="space-y-2">
+        <div className="space-y-[8px]">
           <p className={NOTE}>We couldn&rsquo;t check your profile just now.</p>
           <button type="button" className={OUTLINE} onClick={() => vis.refetch()}>Try again</button>
         </div>
@@ -290,35 +309,40 @@ function VisibilitySection() {
         </p>
       ) : (
         <>
-          <p className="text-[14px] text-foreground" data-testid="settings-disable-state">
+          <p className="text-[14px] text-[var(--fg)]" data-testid="settings-disable-state">
             {hidden
               ? `${HIDDEN_STATE_LINE} You can show it again any time.`
               : "Your dancer profile is visible to everyone. Hiding it is not permanent: you can show it again any time."}
           </p>
-          {hidden || !confirming ? (
-            <button
-              type="button"
-              className={hidden ? PILL : OUTLINE}
-              disabled={busy}
-              onClick={() => (hidden ? void apply(false) : setConfirming(true))}
-              data-testid="settings-disable-toggle"
-            >
-              {busy ? <>Working&hellip;</> : hidden ? SHOW_AGAIN_LABEL : "Hide my profile"}
-            </button>
-          ) : (
-            <div className="space-y-2">
-              <p className={NOTE}>Your profile will disappear from the site until you show it again.</p>
-              <button type="button" className={PILL} disabled={busy} onClick={() => void apply(true)} data-testid="settings-disable-confirm">
-                {busy ? <>Hiding&hellip;</> : "Yes, hide it"}
-              </button>
-              <button type="button" className={OUTLINE} disabled={busy} onClick={() => setConfirming(false)}>
-                Keep it visible
-              </button>
-            </div>
-          )}
+          <button
+            type="button"
+            className={OUTLINE}
+            disabled={busy}
+            onClick={() => (hidden ? void apply(false) : setConfirming(true))}
+            data-testid="settings-disable-toggle"
+          >
+            {busy && hidden ? <>Working&hellip;</> : hidden ? SHOW_AGAIN_LABEL : "Hide my profile"}
+          </button>
+          {/* D119 #4: the confirm is a sheet (the sheet's own words), not buttons swapped in place. */}
+          <SheetView
+            open={confirming}
+            onOpenChange={(o) => { if (!o && !busy) setConfirming(false); }}
+            title="Hide your dancer profile"
+            testId="settings-disable-sheet"
+            footer={
+              <div className="space-y-[8px]">
+                <PrimaryButton testId="settings-disable-confirm" loading={busy} loadingLabel="Hiding" onClick={() => void apply(true)}>Yes, hide it</PrimaryButton>
+                <GhostButton disabled={busy} onClick={() => setConfirming(false)}>Keep it visible</GhostButton>
+              </div>
+            }
+          >
+            <p className="text-[15px] text-[var(--mut)]">Your profile will disappear from the site until you show it again.</p>
+            {error && <p role="alert" className={ERR} data-testid="settings-disable-sheet-error">{error}</p>}
+          </SheetView>
         </>
       )}
-      {error && <p role="alert" className={ERR} data-testid="settings-disable-error">{error}</p>}
+      {/* S5: while the sheet is open its own line says it; one alert, not two. */}
+      {error && !confirming && <p role="alert" className={ERR} data-testid="settings-disable-error">{error}</p>}
     </Section>
   );
 }
@@ -326,7 +350,7 @@ function VisibilitySection() {
 function Home() {
   const fromApp = useFromApp();
   return (
-    <div className="space-y-3">
+    <div className="space-y-[12px]">
       <EmailSection />
       <VisibilitySection />
       <Section title="Your data">
@@ -346,10 +370,10 @@ function Home() {
 
 function Blocked({ text, names, code }: { text: string; names: string[]; code: EraseCode | DeleteRefusalCode | null }) {
   return (
-    <div className="space-y-2 rounded-xl border border-destructive/60 p-3" data-testid="delete-blocked" data-code={code ?? ""}>
-      <p className="text-[14px] text-foreground">{text}</p>
+    <div className="space-y-[8px] rounded-[var(--r-card)] border border-[var(--danger)] p-[16px]" data-testid="delete-blocked" data-code={code ?? ""}>
+      <p className="text-[14px] text-[var(--fg)]">{text}</p>
       {names.length > 0 && (
-        <ul className="list-disc space-y-1 pl-5 text-[14px] font-semibold text-foreground">
+        <ul className="list-disc space-y-[4px] pl-[20px] text-[14px] font-semibold text-[var(--fg)]">
           {names.map((n, i) => <li key={`${n}-${i}`}>{n}</li>)}
         </ul>
       )}
@@ -416,9 +440,9 @@ export function Delete() {
         : `The button works once you type ${ERASE_CONFIRM_WORD} in capital letters.`;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-[12px]">
       <Section title="What happens" testId="delete-lost">
-        <ul className="list-disc space-y-1 pl-5 text-[14px] text-foreground">
+        <ul className="list-disc space-y-[4px] pl-[20px] text-[14px] text-[var(--fg)]">
           <li>Your profile is hidden from everyone straight away, and you are signed out on every device.</li>
           <li>Sign in within 30 days to undo it: your account comes back as it was.</li>
           <li>
@@ -438,43 +462,48 @@ export function Delete() {
         </Link>
       </Section>
       <Section title="Delete my account">
-        {loading && <Skeleton className="h-11 w-full rounded-lg" />}
+        {loading && <Skeleton className="h-[44px] w-full rounded-[var(--r-ctl)]" />}
         {failed && (
-          <div className="space-y-2" data-testid="delete-check-failed">
+          <div className="space-y-[8px]" data-testid="delete-check-failed">
             <p className={ERR}>We couldn&rsquo;t check your account just now.</p>
             <button type="button" className={OUTLINE} onClick={() => void check.refetch()}>Try again</button>
           </div>
         )}
         {fact && blocked && <Blocked text={fact.text} names={fact.blockerNames} code={late ? late.code : (check.data?.code ?? null)} />}
-        {canType && (
-          // M3: Enter / the keyboard's Done submits; erase() refuses unless the word is typed.
-          <form
-            className="space-y-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void erase();
-            }}
-          >
-            <label htmlFor="delete-type-input" className="block text-[13px] font-semibold text-foreground">
-              Type {ERASE_CONFIRM_WORD} to confirm
-            </label>
-            <input
-              id="delete-type-input"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              autoCapitalize="characters"
-              autoCorrect="off"
-              autoComplete="off"
-              spellCheck={false}
-              enterKeyHint="done"
-              className="min-h-[44px] w-full rounded-lg border border-border bg-background px-3 text-[16px]"
-              data-testid="delete-type-input"
-            />
-          </form>
-        )}
-        <button type="button" className={DANGER} disabled={!enabled} onClick={() => void erase()} data-testid="delete-confirm">
-          {busy ? <>Deleting&hellip;</> : "Delete my account"}
-        </button>
+        {/* Keyboard up: keyboardSafe keeps the Delete button (the "results") on screen under the field. */}
+        <div data-keyboard-scope className="space-y-[8px]">
+          {canType && (
+            // M3: Enter / the keyboard's Done submits; erase() refuses unless the word is typed.
+            <form
+              className="space-y-[8px]"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void erase();
+              }}
+            >
+              <label htmlFor="delete-type-input" className="block text-[13px] font-semibold text-[var(--fg)]">
+                Type {ERASE_CONFIRM_WORD} to confirm
+              </label>
+              <input
+                id="delete-type-input"
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={false}
+                enterKeyHint="done"
+                className="min-h-[44px] w-full rounded-[var(--r-ctl)] border border-[var(--line)] bg-[var(--bg)] px-[12px] text-[16px]"
+                data-testid="delete-type-input"
+              />
+            </form>
+          )}
+          <div data-keyboard-results>
+            <button type="button" className={DANGER} disabled={!enabled} onClick={() => void erase()} data-testid="delete-confirm">
+              {busy ? <>Deleting&hellip;</> : "Delete my account"}
+            </button>
+          </div>
+        </div>
         {!enabled && !busy && (
           <p className={NOTE} data-testid={blocked ? "delete-blocked-reason" : "delete-confirm-reason"}>{reason}</p>
         )}
@@ -504,21 +533,19 @@ export const AccountSettingsScreen = ({ view = "home" }: { view?: View }) => {
     >
       {/* Walk bug 2 (#789): the crumbs are this page's way out, so each link is a 44 px tap target. */}
       <style>{CRUMB_TAP_CSS}</style>
-      <div className="px-4 pb-24 pt-3">
-        <div className="mx-auto w-full max-w-md space-y-3">
+      <AccountShell testId="settings-shell" homeLink={false}>
           {fromApp && (
             <Link
               to={APP_OPTIONS_PATH}
-              className="inline-flex min-h-[44px] items-center text-[14px] font-semibold text-primary underline underline-offset-2"
+              className="inline-flex min-h-[44px] items-center text-[14px] font-semibold text-[var(--gold-fg)] underline underline-offset-2"
               data-testid="settings-back-to-options"
             >
               {BACK_TO_OPTIONS_LABEL}
             </Link>
           )}
-          <h1 className="text-lg font-bold text-foreground">{TITLES[view]}</h1>
+          <h1 className={PAGE_TITLE}>{TITLES[view]}</h1>
           {view === "home" ? <Home /> : <Delete />}
-        </div>
-      </div>
+      </AccountShell>
     </GlobalLayout>
   );
 };

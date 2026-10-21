@@ -124,7 +124,10 @@ describe.each(VIEWPORTS)('account settings at $name', (vp) => {
       mount('/account/settings');
       fireEvent.click(await screen.findByTestId('settings-disable-toggle'));
       fireEvent.click(await screen.findByTestId('settings-disable-confirm'));
-      await screen.findByTestId('settings-disable-error');
+      // Review S5: the open sheet says it once; the line under the section waits until the sheet closes.
+      await screen.findByTestId('settings-disable-sheet-error');
+      expect(screen.queryByTestId('settings-disable-error')).toBeNull();
+      expect(screen.getAllByRole('alert').filter((n) => /nothing to hide/.test(n.textContent ?? ''))).toHaveLength(1);
       expect(a11yTree()).toMatchSnapshot();
     });
   });
