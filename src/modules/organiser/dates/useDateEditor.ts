@@ -19,7 +19,7 @@ import {
   type DraftSession,
   type Programme,
 } from '@/modules/organiser/shared/programmeModel';
-import { overrideCommand, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
+import { moveDateCommand, overrideCommand, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
 import {
   OFFLINE_SAVE_MESSAGE,
   commandErrorMessage,
@@ -29,6 +29,7 @@ import {
 import { useOwnerCommand } from '@/modules/organiser/shared/useOwnerCommand';
 import { useVenueOptions } from '@/modules/organiser/shared/publicVenues';
 import { venueOverridePatch } from './venueOverride';
+import { copyRowsFrom } from './dateChanges';
 
 /** The save could not be confirmed (no server answer). */
 export const NETWORK_COPY = OFFLINE_SAVE_MESSAGE;
@@ -79,6 +80,8 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
   const [rows, setRows] = useState<DraftSession[]>([]);
   /** undefined: untouched; null: back to the usual venue; else the venue id picked for this date. */
   const [venueDraft, setVenueDraft] = useState<string | null | undefined>(undefined);
+  /** A one-off moved to another day (saved with the rest by Save this date); null: not moving. */
+  const [moveTo, setMoveTo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [syncFailed, setSyncFailed] = useState(false);
   const mounted = useRef(true);
@@ -121,7 +124,8 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
   const venueId = venueDraft !== undefined ? venueDraft ?? series?.default_venue_id ?? null : d?.venueId ?? series?.default_venue_id ?? null;
 
   const programmeDirty = base ? isDirty(rows, base.sessions.length) : false;
-  const dirty = programmeDirty || venueChanged;
+  const moveChanged = moveTo !== null && moveTo !== (base?.occurrenceDate ?? d?.date ?? null);
+  const dirty = programmeDirty || venueChanged || moveChanged;
   const validation = useMemo(() => validateProgramme(rows), [rows]);
 
   const pickVenue = (id: string | null) => {
@@ -144,14 +148,37 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
       return { ok: false, message: validation.rows[0]?.message ?? validation.programme[0] ?? 'Check the sessions and try again.' };
     }
     setSaving(true);
+    let dateVersion = d?.version ?? null;
+    let programmeVersion = base.version;
+    let changed = false;
     try {
+      if (moveChanged && moveTo) {
+        try {
+          await command.mutateAsync({ targetId: occurrenceId, version: dateVersion, command: moveDateCommand(moveTo) });
+          setMoveTo(null);
+          changed = true;
+          // The programme version moved with the date: read both again before the sessions go.
+          const fresh = await detail.refetch();
+          dateVersion = fresh.data?.version ?? dateVersion;
+          if (programmeDirty) {
+            const again = await queryClient.fetchQuery({
+              queryKey: occurrenceProgrammeQueryKey(occurrenceId),
+              queryFn: () => fetchOccurrenceProgramme(occurrenceId),
+              staleTime: 0,
+            });
+            programmeVersion = again.version;
+          }
+        } catch (err) {
+          return { ok: false, message: commandErrorMessage(err) };
+        }
+      }
       if (venueChanged) {
         try {
           // The city follows the venue (G7): sent with it, cleared with it.
           const patch = await venueOverridePatch(venueDraft ?? null, venues.data);
           await command.mutateAsync({
             targetId: occurrenceId,
-            version: d?.version ?? null,
+            version: dateVersion,
             command: overrideCommand(patch),
           });
           setVenueDraft(undefined);
@@ -159,10 +186,10 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
           return { ok: false, message: commandErrorMessage(err) };
         }
       }
-      let changed = venueChanged;
+      changed = changed || venueChanged;
       if (programmeDirty) {
         try {
-          const result = await saveOccurrenceProgramme(occurrenceId, base.version, buildPayload(rows));
+          const result = await saveOccurrenceProgramme(occurrenceId, programmeVersion, buildPayload(rows));
           changed = changed || result.changed;
         } catch (err) {
           if (!isServerRefusal(err)) return { ok: false, message: NETWORK_COPY };
@@ -177,6 +204,21 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
       return { ok: true, changed };
     } finally {
       if (mounted.current) setSaving(false);
+    }
+  };
+
+  /** Copy changes from another date: its sessions and venue become this date's draft (nothing is sent until Save this date). */
+  const copyFrom = async (sourceId: string): Promise<boolean> => {
+    try {
+      const [src, srcDetail] = await Promise.all([
+        queryClient.fetchQuery({ queryKey: occurrenceProgrammeQueryKey(sourceId), queryFn: () => fetchOccurrenceProgramme(sourceId), staleTime: 0 }),
+        queryClient.fetchQuery({ queryKey: dateDetailQueryKey(sourceId), queryFn: () => fetchDateDetail(sourceId), staleTime: 0 }),
+      ]);
+      setRows((cur) => copyRowsFrom(cur, toDraft(src.sessions, src.sessionPeople)));
+      pickVenue(srcDetail.venueOverride);
+      return true;
+    } catch {
+      return false;
     }
   };
 
@@ -211,6 +253,10 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
     venueId,
     venueChanged,
     pickVenue,
+    moveTo,
+    setMoveTo,
+    moveChanged,
+    copyFrom,
     dirty,
     validation,
     saving,

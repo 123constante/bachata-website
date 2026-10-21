@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Ban, Coffee, MapPin, Plus, RotateCcw } from 'lucide-react';
+import { Ban, CalendarDays, Clock, Coffee, Copy, MapPin, Plus, RotateCcw } from 'lucide-react';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import {
   AnnounceRegion,
@@ -33,6 +33,7 @@ import { DateSheet, type SheetState } from './DateSheet';
 import { DatePreview } from './DatePreview';
 import { byTime, dateSpan, peopleLabel, sessionName, sessionSummary, showsTypeChip, shownProblems, spanLabel, typeLabel, typeTone } from './dateModel';
 import { useDateEditor } from './useDateEditor';
+import { cancelWords, copySources, firstStart, ownTag, shiftRows } from './dateChanges';
 
 const cancellationReasonsQueryKey = ['cancellation-reasons'] as const;
 
@@ -82,12 +83,22 @@ export default function DatePage() {
     : series?.lifecycle_status === 'ended' ? 'This event has ended.' : 'This event is archived.';
   const tag = cancelled ? dateTag('', 'cancelled') : series ? seriesLife(series, upcomingDates(ed.workspace.data?.dates ?? [], today).length).tag : null;
 
+  const oneOff = series?.format === 'one_off';
+  const own = cancelled ? null : ownTag(ed.detail.data ?? null, ed.rows, series?.default_local_start_time ?? null);
+  const cancelWord = cancelWords(series?.format ?? null);
+  const first = firstStart(ed.rows);
+  const copyDates = copySources(ed.workspace.data?.dates ?? [], occurrenceId, today).map((d) => ({
+    id: d.id,
+    label: calendarDate(d.occurrence_date, today),
+    sub: d.has_override || d.added_sessions_count > 0 || d.session_overrides_count > 0 ? 'Has its own changes' : 'As usual',
+  }));
+
   const updateRow = (key: string, fn: (r: DraftSession) => DraftSession) => {
     ed.setRows((rows) => rows.map((r) => (r.key === key ? fn(r) : r)));
     setTouched((s) => (s.has(key) ? s : new Set(s).add(key)));
   };
   const problems = shownProblems(ed.validation.rows, touched, saveTried);
-  const bar = saveBarState({ dirty: ed.dirty, saving: ed.saving, locked: !!lock });
+  const bar = saveBarState({ dirty: ed.dirty, saving: ed.saving, locked: !!lock, saveLabel: 'Save this date' });
   const removeSession = (key: string) => {
     const row = ed.rows.find((r) => r.key === key);
     if (!row) return;
@@ -161,6 +172,7 @@ export default function DatePage() {
           </p>
         </div>
         {tag && <StatusTag tone={tag.tone} testId="date-status">{tag.label}</StatusTag>}
+        {own && <StatusTag tone="neutral" testId="date-own">{own}</StatusTag>}
       </header>
 
       {cancelled && (
@@ -191,6 +203,25 @@ export default function DatePage() {
           disabled={!!lock}
           testId="date-venue"
         />
+        <SummaryRow
+          icon={<Clock />}
+          label="Night starts"
+          value={first ?? 'No times yet'}
+          sublabel={first ? 'Moves every session' : undefined}
+          onPress={cancelled || !editable ? undefined : () => setSheet({ view: 'time' })}
+          disabled={!!lock || !editable || !first}
+          testId="date-time"
+        />
+        {oneOff && (
+          <SummaryRow
+            icon={<CalendarDays />}
+            label="Day"
+            value={ed.moveTo && ed.moveChanged ? calendarDate(ed.moveTo, today) : date ? calendarDate(date, today) : label}
+            onPress={cancelled ? undefined : () => setSheet({ view: 'move' })}
+            disabled={!!lock}
+            testId="date-move"
+          />
+        )}
       </Card>
 
       <section aria-labelledby="schedule-label" className="space-y-[8px]">
@@ -226,7 +257,17 @@ export default function DatePage() {
               className="flex min-h-[52px] w-full items-center gap-[8px] px-[16px] text-[15px] font-semibold text-[var(--gold)]"
               data-testid="date-add-session"
             >
-              <Plus aria-hidden="true" className="h-[20px] w-[20px]" /> Add a session
+              <Plus aria-hidden="true" className="h-[20px] w-[20px]" /> Add a session to this date
+            </button>
+          )}
+          {editable && copyDates.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSheet({ view: 'copy' })}
+              className="flex min-h-[52px] w-full items-center gap-[8px] border-t border-[var(--line)] px-[16px] text-[15px] font-semibold text-[var(--gold)]"
+              data-testid="date-copy"
+            >
+              <Copy aria-hidden="true" className="h-[20px] w-[20px]" /> Copy changes from another date
             </button>
           )}
         </div>
@@ -242,7 +283,7 @@ export default function DatePage() {
               <SummaryRow icon={<Coffee />} label={TAKE_OFF.label} sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : TAKE_OFF.sub)}
                 disabled={ed.dirty || !!lock} onPress={() => { setCommandError(null); setSheet({ view: 'break' }); }} testId="date-break" />
             )}
-            <SummaryRow icon={<Ban />} label="Cancel this date" sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : 'Dancers see Cancelled and your reason.')}
+            <SummaryRow icon={<Ban />} label={cancelWord.label} sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : cancelWord.sub)}
               disabled={ed.dirty || !!lock} onPress={() => { setCommandError(null); setSheet({ view: 'cancel' }); }} testId="date-cancel" />
           </>
         )}
@@ -299,6 +340,17 @@ export default function DatePage() {
         onCancelDate={(reason) => void command('occurrence', cancelCommand(reason), `${label} is cancelled.`)}
         onUncancelDate={() => void command('occurrence', uncancelCommand(), `${label} is back on.`)}
         onBreak={() => void command('series', skipDateCommand(occurrenceId), TAKE_OFF.done(label), () => navigate(ORG_PATHS.event(seriesId)))}
+        firstStart={first}
+        onShift={(delta) => {
+          ed.setRows((rows) => shiftRows(rows, delta));
+        }}
+        currentDate={date}
+        today={today}
+        moveTo={ed.moveTo}
+        onMoveTo={ed.setMoveTo}
+        copyDates={copyDates}
+        onCopy={ed.copyFrom}
+        cancelTitle={oneOff ? 'Cancel the event' : `Cancel ${label}`}
         commandBusy={ed.commandBusy}
         commandError={commandError}
       />
