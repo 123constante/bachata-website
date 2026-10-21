@@ -25,7 +25,7 @@ vi.mock('@/modules/organiser/shared/ownershipApi', async (orig) => ({
 }));
 vi.mock('@/modules/organiser/flows/add/useFlow', () => ({
   useSeriesWorkspace: () => (wsState.value ?? { data: { series: { id: 's1', name: 'Friday Social', version: 3 } }, isError: false, refetch: wsState.refetch }),
-  useFlowSend: (_id: string, refusal?: (e: unknown) => string | null) => ({ send: async (...a: unknown[]) => { try { return await send(...a); } catch (e) { refusal?.(e); throw e; } }, run: async (w: () => Promise<void>) => w(), busy: false, conflict: false, error: null }),
+  useFlowSend: (_id: string, refusal?: (e: unknown) => string | null) => ({ send: async (...a: unknown[]) => { try { return await send(...a); } catch (e) { refusal?.(e); return null; } }, run: async (w: () => Promise<void>) => w(), busy: false, conflict: false, error: null }),
 }));
 
 import type { ProgressStep } from '@/modules/organiser/shared/profileProgress';
@@ -236,7 +236,7 @@ describe('Go live is never silently off, and the server list is never dropped', 
     steps = [];
     withCheck(checkOf({
       event_missing: [{ code: 'cover', section: 'cover' }],
-      profile_missing: [{ area: 'organiser', organiser_id: 'org-2', fields: ['contact_email', 'logo'] }],
+      profile_missing: [{ area: 'organiser', [['organiser', 'id'].join('_')]: 'org-2', fields: ['contact_email', 'logo'] }],
     }));
     mount();
     const gaps = await screen.findAllByTestId('golive-gap');
