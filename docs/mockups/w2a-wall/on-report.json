@@ -1,0 +1,75 @@
+{
+ "djs-all": {
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "tiles": 40,
+  "tileWidth": 86.40625,
+  "columns": 4,
+  "namesClipped": 0,
+  "maxNameLines": 2,
+  "firstTileTop": 219.25,
+  "faces": {
+   "photo": 0,
+   "initials": 40
+  }
+ },
+ "djs-picks": {
+  "noPhoto": 0,
+  "threeRole": 0,
+  "longName": 12
+ },
+ "djs-noPhoto-text": "DC Next gig Thu 22 Daniel Carbonero , Teacher , DJ , Dancer",
+ "djs-threeRole-text": "DC Next gig Thu 22 Daniel Carbonero , Teacher , DJ , Dancer",
+ "djs-longName-text": "BR Next gig Tue 27 Boadicea Richards , Teacher , DJ , Dancer",
+ "djs-filtered": {
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "tiles": 35,
+  "tileWidth": 86.40625,
+  "columns": 4,
+  "namesClipped": 0,
+  "maxNameLines": 2,
+  "firstTileTop": 219.25,
+  "faces": {
+   "photo": 0,
+   "initials": 35
+  }
+ },
+ "dancers-all": {
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "tiles": 93,
+  "tileWidth": 86.40625,
+  "columns": 4,
+  "namesClipped": 0,
+  "maxNameLines": 2,
+  "firstTileTop": 219.25,
+  "faces": {
+   "photo": 41,
+   "initials": 52
+  }
+ },
+ "dancers-picks": {
+  "noPhoto": 0,
+  "threeRole": 21,
+  "longName": 3
+ },
+ "dancers-noPhoto-text": "M Magda , Dancer",
+ "dancers-threeRole-text": "SS Sergio Suavez , Teacher , DJ , Dancer",
+ "dancers-longName-text": "SP Sabrina Guzman Pastor , Dancer",
+ "dancers-filtered": {
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "tiles": 35,
+  "tileWidth": 86.40625,
+  "columns": 4,
+  "namesClipped": 0,
+  "maxNameLines": 2,
+  "firstTileTop": 219.25,
+  "faces": {
+   "photo": 0,
+   "initials": 35
+  }
+ },
+ "pageErrors": []
+}

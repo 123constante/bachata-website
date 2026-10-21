@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Calendar, Heart, Music, Star, Sparkles, Users, UserCheck, UserPlus, Loader2, Camera } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { usePeopleBadges } from '@/modules/person-page/badges';
+import { DancersWall } from '@/modules/person-page/wall/lists';
 import { flags } from '@/lib/featureFlags';
 import { dancerHref, dancerTags, onlyDancers } from '@/components/dancers/dancerListModel';
 import GlobalLayout from '@/components/layout/GlobalLayout';
@@ -74,7 +75,7 @@ const Dancers = () => {
   const [isLoading, setIsLoading] = useState(true);
   const teacherPagesOpen = flags.teacherDetail;
   const dancerIds = useMemo(() => dancers.map((d) => d.id), [dancers]);
-  const { badges, isLoading: badgesLoading } = usePeopleBadges(dancerIds);
+  const { badges, isLoading: badgesLoading, isError: badgesFailed } = usePeopleBadges(dancerIds);
   // A failed badges read must never empty the page ("No dancers yet" would be false):
   // show every row unfiltered, without role labels (review C1). Only when there is nothing
   // to filter by: a failed background refetch keeps the cached badges, so it keeps the filter.
@@ -256,7 +257,7 @@ const Dancers = () => {
   return (
     <GlobalLayout
       showSubheader={false}
-      hero={{
+      hero={flags.peopleWall ? undefined : {
         emoji: '💃',
         titleWhite: 'Meet',
         titleOrange: 'Dancers',
@@ -265,6 +266,7 @@ const Dancers = () => {
       }}
     >
       {/* Hero Widgets */}
+      {!flags.peopleWall && (
       <div className='relative z-10 px-4 -mt-6 mb-16'>
           {/* Hero Widgets - 2 small cards */}
           <ScrollReveal animation="scale" delay={0.6}>
@@ -314,8 +316,12 @@ const Dancers = () => {
           </ScrollReveal>
 
       </div>
+      )}
 
       {/* Browse Dancers Directory */}
+      {flags.peopleWall ? (
+        <DancersWall dancers={shownDancers} getName={getDisplayName} isLoading={isLoading || badgesLoading} badges={badges} badgesFailed={badgesFailed} teacherPagesOpen={teacherPagesOpen} />
+      ) : (
       <section id="directory" className="px-4 mb-16">
         <ScrollReveal animation="fadeUp">
           <h2 className="text-3xl md:text-4xl font-black text-center mb-6">
@@ -382,6 +388,7 @@ const Dancers = () => {
           </StaggerContainer>
         )}
       </section>
+      )}
 
       <section className="px-4 mb-16">
         <ScrollReveal animation="fadeUp">
