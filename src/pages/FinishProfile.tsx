@@ -1,3 +1,4 @@
+import { clearInvitePrefill, readInvitePrefill } from "@/lib/invitePrefill";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -63,7 +64,11 @@ export const FinishProfileScreen = () => {
   // Skip -- skipping would only bounce them straight back here.
   const gated = isDancerGatedTarget(returnTo);
 
-  const [draft, setDraft] = useState<Draft>({ first_name: "", based_city_id: "", dance_role: "", avatar_url: "" });
+  const [draft, setDraft] = useState<Draft>(() => {
+    // An invited person's sender may have pre-filled the name and city (lib/invitePrefill).
+    const prefill = readInvitePrefill();
+    return { first_name: prefill?.firstName ?? "", based_city_id: prefill?.cityId ?? "", dance_role: "", avatar_url: "" };
+  });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -86,6 +91,7 @@ export const FinishProfileScreen = () => {
     setNotice(null);
     try {
       await saveMyDancerProfile(pending);
+      clearInvitePrefill();
       // The dancer home's summary (name, city, role, photo) read the row before this save.
       void queryClient.invalidateQueries({ queryKey: [MY_DANCER_SUMMARY_ROOT] });
       // The SAME cache the rating card's gate is published from (ProfileCompletionChrome):

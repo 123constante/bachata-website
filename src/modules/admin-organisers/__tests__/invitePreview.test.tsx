@@ -26,7 +26,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 
 import InviteRedeemPage from '../InviteRedeemPage';
-import { parseInvitePreview } from '../invitePreview';
+import { parsePreview as parseInvitePreview } from '../inviteModel';
 
 const mount = () =>
   render(
@@ -63,8 +63,8 @@ describe('invite landing hint', () => {
   it.each([
     ['function missing', () => h.rpc.mockResolvedValue({ data: null, error: { message: 'Could not find the function public.organiser_invite_preview_v1' } })],
     ['network failure', () => h.rpc.mockRejectedValue(new Error('network'))],
-    ['a full address instead of a hint', () => h.rpc.mockResolvedValue({ data: { email_hint: 'rosa.lima@ymail.com' }, error: null })],
-    ['no hint (used or expired token)', () => h.rpc.mockResolvedValue({ data: null, error: null })],
+    ['a full address instead of a hint', () => h.rpc.mockResolvedValue({ data: { status: 'open', organiser_name: 'Ritmo', email_hint: 'rosa.lima@ymail.com' }, error: null })],
+    ['an unbound link (no hint)', () => h.rpc.mockResolvedValue({ data: { status: 'open', organiser_name: 'Ritmo', email_hint: null }, error: null })],
   ])('%s: no hint line, the sign-in card is unchanged', async (_label, arrange) => {
     arrange();
     mount();
@@ -78,10 +78,11 @@ describe('invite landing hint', () => {
 
 describe('parseInvitePreview', () => {
   it.each([
-    [{ email_hint: 'r...@ymail.com' }, 'r...@ymail.com'],
-    [{ email_hint: 'r***@ymail.com', organiser_name: 'Ritmo' }, 'r***@ymail.com'],
-    [{ email_hint: 'rosa@ymail.com' }, null],
-    [{ email_hint: 5 }, null],
+    [{ email_hint: 'r...@ymail.com', organiser_name: 'Ritmo' }, 'r...@ymail.com'],
+    [{ status: 'open', email_hint: 'r***@ymail.com', organiser_name: 'Ritmo' }, 'r***@ymail.com'],
+    [{ status: 'expired', email_hint: 'rosa@ymail.com', organiser_name: 'Ritmo' }, null],
+    [{ email_hint: 5, organiser_name: 'Ritmo' }, null],
+    [{ email_hint: 'r...@ymail.com' }, null],
     [{}, null],
     [null, null],
     ['r...@ymail.com', null],

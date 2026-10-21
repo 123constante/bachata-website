@@ -48,14 +48,14 @@ describe("shouldHonorReturnTo", () => {
 });
 
 describe("callbackErrorCopy", () => {
-  // Arc 1 flow 9b: the approved, shorter words; each ends on what the person can do.
   it.each([
     ["expired", "That sign-in link has run out. Enter your email and we will send a new one."],
-    ["invalid", "That sign-in link did not work. Enter your email and we will send a new one."],
-    ["timeout", "Signing in took too long. Enter your email and we will send a new one."],
-    ["manual", "To sign in, enter your email and we'll send you a link."],
-  ])("explains %s", (reason, copy) => {
+    ["invalid", "That link didn't work. Enter your email for a new one."],
+    ["timeout", "Sign-in took too long. Enter your email for a new link."],
+    ["manual", "Enter your email and we'll send you a sign-in link."],
+  ])("%s: short, says what to do next", (reason, copy) => {
     expect(callbackErrorCopy(reason)).toBe(copy);
+    expect(copy.length).toBeLessThanOrEqual(80);
   });
 
   it("shows nothing for no reason or an unknown one", () => {

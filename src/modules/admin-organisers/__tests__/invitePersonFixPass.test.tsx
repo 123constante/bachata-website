@@ -21,7 +21,14 @@ vi.mock('@/integrations/supabase/rpcLoose', () => ({ rpcLoose }));
 
 import { InvitePerson } from '../InvitePerson';
 import { INVITE_PERSON_COPY, buildInviteMessage, invitePersonErrorMessage, parsePersonInvite } from '../invitePersonModel';
-import { interpretRedeemWithMismatch } from '../redeemMismatch';
+import { interpretRedeem, reasonScreen } from '../inviteModel';
+
+/** What the landing shows for an answer: interpretRedeem, then the ONE reason -> screen mapping. */
+const shownFor = (answer: unknown) => {
+  const o = interpretRedeem(answer, null);
+  return o.kind === 'refused' ? { ...o, copy: reasonScreen(o.reason, { emailHint: o.emailHint }) } : o;
+};
+
 import { ReportProblemLink } from '@/lib/contactLinks';
 import { fetchOrganiserFullProfile } from '@/modules/profile/organiserPublicProfile';
 
@@ -121,12 +128,12 @@ describe('email_mismatch never shows the full invite email (D36, finding 5)', ()
     ['masked hint', { invite_email_hint: 'r...@ymail.com' }, 'r...@ymail.com'],
     ['masked hint beside a full address', { invite_email_hint: 'r***@ymail.com', invite_email: 'rosa.lima@ymail.com' }, 'r***@ymail.com'],
   ])('%s', (_label, extra, shown) => {
-    const out = interpretRedeemWithMismatch({ ok: false, reason: 'email_mismatch', ...extra }, null);
+    const out = shownFor({ ok: false, reason: 'email_mismatch', ...extra });
     expect(out.kind).toBe('refused');
     const body = out.kind === 'refused' ? out.copy.body : '';
     expect(body).not.toContain('rosa.lima');
     if (shown) expect(body).toContain(shown);
-    else expect(body).toMatch(/a different email address/);
+    else expect(body).toBe('It was sent to another email address.');
   });
 });
 

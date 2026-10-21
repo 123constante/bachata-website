@@ -51,6 +51,7 @@ function rpcImpl(isAdmin: boolean) {
       case 'admin_issue_organiser_invite_v1': return ok({ invite_id: 'i9', token: TOKEN, expires_at: '2026-10-18T10:00:00Z', revoked_previous: [] });
       case 'admin_revoke_organiser_invite_v1': return ok({ revoked: 1 });
       case 'admin_add_entity_member_v1': return ok({ id: 'm1' });
+      case 'organiser_invite_preview_v1': return ok({ status: 'open', organiser_name: 'Salsa Norte', inviter_first_name: 'Marta', email_hint: null });
       case 'redeem_organiser_invite_v1': return ok({ ok: true, status: 'redeemed', organiser_id: 'o1', member_role: 'owner' });
       default: return Promise.reject(new Error(`unexpected rpc ${fn}`));
     }
@@ -102,7 +103,7 @@ describe('/admin/organisers x viewer', () => {
     rpcImpl(true);
     mount('/admin/organisers');
     expect(await screen.findByTestId('auth')).toBeTruthy();
-    expect(h.rpc).not.toHaveBeenCalled();
+    expect(h.rpc).not.toHaveBeenCalledWith('redeem_organiser_invite_v1', expect.anything());
   });
 
   it('signed in, not an admin: a plain page that names nothing about the screen', async () => {
@@ -277,7 +278,8 @@ describe('/invite/:token x viewer', () => {
     fireEvent.click(await screen.findByTestId('invite-join'));
     const { REDEEM_COPY } = await import('../inviteModel');
     expect((await screen.findByTestId('invite-title')).textContent).toBe(REDEEM_COPY[reason].title);
-    expect(screen.getByTestId('invite-body').textContent).toBe(REDEEM_COPY[reason].body);
+    // 2c (withdrawn) has no body in the approved mockup: the ask button carries it.
+    expect(screen.queryByTestId('invite-body')?.textContent ?? '').toBe(REDEEM_COPY[reason].body);
     // every control the message could lean on is the one on screen
     expect(screen.queryByTestId('invite-sign-in') !== null).toBe(REDEEM_COPY[reason].action === 'sign_in');
     expect(screen.queryByTestId('invite-home') !== null).toBe(REDEEM_COPY[reason].action !== 'retry');

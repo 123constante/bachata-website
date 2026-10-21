@@ -66,7 +66,7 @@ text "known @example.com"
 text "8-digit code"
 textbox "8-digit code" value=""
 alert
-button "Resend code in 60s" [disabled]
+button "Send a new code in 60s" [disabled]
 button "Use a different email"
 button "Continue browsing""
 `;
@@ -91,6 +91,7 @@ button "Email me a link"
 alert
   text "We can't create an account for this email yet. New accounts are open to invited people for now. Message us and we'll add your email, then try again."
 link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'm%20trying%20to%20create%20an%20account%20on%20Bachata%20Calendar.
+button "Request access"
 text "Dev tools"
 button "Instant dev login""
 `;
@@ -196,7 +197,7 @@ alert
 text "Entering the code confirms you agree to our and ."
 link "Terms" href=/terms
 link "Privacy Policy" href=/privacy
-button "Resend code in 60s" [disabled]
+button "Send a new code in 60s" [disabled]
 button "Use a different email""
 `;
 
@@ -266,7 +267,7 @@ text "known @example.com"
 text "8-digit code"
 textbox "8-digit code" value=""
 alert
-button "Resend code in 60s" [disabled]
+button "Send a new code in 60s" [disabled]
 button "Use a different email"
 button "Continue browsing""
 `;
@@ -291,6 +292,7 @@ button "Email me a link"
 alert
   text "We can't create an account for this email yet. New accounts are open to invited people for now. Message us and we'll add your email, then try again."
 link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20I'm%20trying%20to%20create%20an%20account%20on%20Bachata%20Calendar.
+button "Request access"
 text "Dev tools"
 button "Instant dev login""
 `;
@@ -396,7 +398,7 @@ alert
 text "Entering the code confirms you agree to our and ."
 link "Terms" href=/terms
 link "Privacy Policy" href=/privacy
-button "Resend code in 60s" [disabled]
+button "Send a new code in 60s" [disabled]
 button "Use a different email""
 `;
 
