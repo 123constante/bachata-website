@@ -17,10 +17,11 @@ import { EmptyState, ErrorState, GhostButton, PrimaryButton, SearchField, Skelet
 import { goDone } from '../doneState';
 import {
   DRAFT_ONLY_NOTE, DRAFT_SAVED_MESSAGE, NEW_FORMATS, NO_SESSION_NEW_REASON, STEP_TITLE, coverCommands, finishReason, offerLeave, dateCommands, draftCommand, finishLabel, firstDateChoices, liveCommands, liveMessage,
-  nameBlock, parseFormat, timeBlock, timeCommands, venueCommands,
+  nameBlock, parseFormat, timeBlock, timeCommands, venueCommands, type ServerCheck,
 } from './model';
 import { useNewSend } from './useNewSend';
 import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
+import { goLiveCheckQueryKey, useGoLiveCheck } from '@/modules/organiser/shared/goLiveCheck';
 import { EventConflict } from '../event/parts';
 
 const TITLE = 'New event';
@@ -270,11 +271,15 @@ function TimeStep({ seriesId }: { seriesId: string }) {
 function CoverStep({ seriesId }: { seriesId: string }) {
   const navigate = useNavigate();
   const draft = useDraft(seriesId);
-  const today = useLondonToday();
+  const qc = useQueryClient();
   const { send, busy, error, setError, conflict } = useNewSend(seriesId);
   const [picked, setPicked] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const cover = picked ?? draft.data?.series.default_cover_image_url ?? null;
+  // D91: the same server answer the event card reads, for this draft series.
+  const goLiveCheck = useGoLiveCheck(seriesId, A1_APPLIED);
+  const server: ServerCheck = goLiveCheck.isError ? { status: 'error' } : goLiveCheck.data ? { status: 'ready', check: goLiveCheck.data } : { status: 'pending' };
+  const reason = finishReason(!!cover, server);
 
   const choose = async (file: File | undefined) => {
     if (!file || busy || uploading) return;
@@ -282,7 +287,10 @@ function CoverStep({ seriesId }: { seriesId: string }) {
     setError(null);
     try {
       const url = await uploadEventPicture(seriesId, file);
-      if (await send(coverCommands(url))) setPicked(url);
+      if (await send(coverCommands(url))) {
+        setPicked(url);
+        void qc.invalidateQueries({ queryKey: goLiveCheckQueryKey(seriesId) });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : commandErrorMessage(err));
     } finally {
@@ -291,7 +299,7 @@ function CoverStep({ seriesId }: { seriesId: string }) {
   };
 
   const goLive = async () => {
-    if (finishReason(!!cover, draft.data ?? null, today)) return;
+    if (reason) return;
     // A1 not on prod: going live would be refused, so the draft stays a draft and Done says so.
     if (!liveCommands().length) {
       goDone(navigate, { title: 'Saved', message: DRAFT_SAVED_MESSAGE, seriesId });
@@ -318,9 +326,9 @@ function CoverStep({ seriesId }: { seriesId: string }) {
       </label>
       <StepError message={error} />
       {!A1_APPLIED && <p className="text-[14px] text-[var(--mut)]" data-testid="org-new-draft-note">{DRAFT_ONLY_NOTE}</p>}
-      <StepButton label={finishLabel()} reason={finishReason(!!cover, draft.data ?? null, today)} busy={busy && !uploading} onClick={() => void goLive()} testId="org-new-live" />
+      <StepButton label={finishLabel()} reason={reason} busy={busy && !uploading} onClick={() => void goLive()} testId="org-new-live" />
       {/* The session is the only thing missing: leave where it is added. */}
-      {offerLeave(!!cover) && <LeaveLink to={finishReason(!!cover, draft.data ?? null, today) === NO_SESSION_NEW_REASON ? ORG_PATHS.eventProgramme(seriesId) : ORG_PATHS.home} />}
+      {offerLeave(!!cover) && <LeaveLink to={reason === NO_SESSION_NEW_REASON ? ORG_PATHS.eventProgramme(seriesId) : ORG_PATHS.home} />}
     </Frame>
   );
 }

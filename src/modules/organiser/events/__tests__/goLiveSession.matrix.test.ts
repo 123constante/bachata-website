@@ -1,13 +1,15 @@
 // Go live needs at least one session (owner 2026-10-20, prod "zz test"). D90: on
 // the event page card the server owns the rule (series_go_live_check_v1 returns the
-// `session` code), so the card shows the server's list and nothing beside it; the
-// New event last step has no server check and keeps hasUpcomingSession.
+// `session` code), so the card shows the server's list and nothing beside it. D91:
+// the New event last step reads the same server answer (no client session rule).
 // Table-driven over the draft shapes seen on prod.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parseEventWorkspace } from '../eventModel';
 import * as life from '../lifecycleModel';
 import { NO_SESSION_REASON, goLiveList, goLiveState, lifecycleRows } from '../lifecycleModel';
-import { NO_SESSION_NEW_REASON, finishReason } from '../../flows/new/model';
+import { CHECKING_REASON, NOT_READY_REASON, NO_SESSION_NEW_REASON, finishReason } from '../../flows/new/model';
 import { GO_LIVE_LABEL, type GoLiveCheck } from '../../shared/goLiveCheck';
 import { parseWorkspace } from '../../shared/seriesModel';
 import { ORG_PATHS } from '../../shell/paths';
@@ -78,19 +80,34 @@ describe('Go live needs a session: the event page card reads the server list (D9
   });
 });
 
-describe('Go live needs a session: the New event last step (hasUpcomingSession)', () => {
+describe('Go live needs a session: the New event last step reads the server answer (D91)', () => {
   it.each(SHAPES)('$name', (s) => {
-    const ws = parseWorkspace(ev(s));
-    const reason = finishReason(!!s.series.default_cover_image_url, ws, TODAY, true);
+    // The server lists `session` exactly when there is none (the event card's own fixture rule above).
+    const check = answer(s.session ? [] : [SESSION]);
+    const reason = finishReason(!!s.series.default_cover_image_url, { status: 'ready', check }, true);
     if (!s.series.default_cover_image_url) expect(reason).toBe('Choose a photo to go live.');
     else if (!s.session) expect(reason).toBe(NO_SESSION_NEW_REASON);
     else expect(reason).toBeNull();
+  });
+  it('the session reason wins over the rest of the server list', () => {
+    expect(finishReason(true, { status: 'ready', check: answer([['venue', 'venue'], SESSION]) }, true)).toBe(NO_SESSION_NEW_REASON);
+  });
+  it('another blocker reads its one label; an empty not-ready list still says what to do', () => {
+    expect(finishReason(true, { status: 'ready', check: answer([['venue', 'venue']]) }, true)).toBe(`${GO_LIVE_LABEL.venue} first.`);
+    expect(finishReason(true, { status: 'ready', check: { ...answer([]), ready: false } }, true)).toBe(NOT_READY_REASON);
+  });
+  it('a check that could not be read never blocks (the server still refuses)', () => {
+    expect(finishReason(true, { status: 'error' }, true)).toBeNull();
+  });
+  it('the step has no client session rule of its own', () => {
+    const src = readFileSync(join(__dirname, '../../flows/new/model.ts'), 'utf8');
+    expect(src).not.toMatch(/hasUpcomingSession/);
   });
   it('the reason says what the person can do', () => {
     expect(NO_SESSION_NEW_REASON).toContain(NO_SESSION_REASON);
     expect(NO_SESSION_NEW_REASON).toContain('Save as draft, then add a session from the event.');
   });
-  it('while the event loads the button is off with a reason', () => {
-    expect(finishReason(true, null, TODAY, true)).toBeTruthy();
+  it('while the check loads the button is off with a reason', () => {
+    expect(finishReason(true, { status: 'pending' }, true)).toBe(CHECKING_REASON);
   });
 });

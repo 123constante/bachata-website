@@ -40,9 +40,9 @@ function Where() {
   return <span data-testid="where">{l.pathname}</span>;
 }
 
-function mount() {
+function mount(extra: Partial<WizardWriters> = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const writers = { saveDancer, saveOrganiser } as unknown as WizardWriters;
+  const writers = { saveDancer, saveOrganiser, ...extra } as unknown as WizardWriters;
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={['/account/o/complete']}>
@@ -93,12 +93,34 @@ describe('wizard order is the server order (C15)', () => {
     await onStep('Which languages do you speak?');
   });
 
-  it('walks the server order; a step with no component (teacher, Release B) is skipped', async () => {
-    progress.steps = steps([['teacher', 'years_teaching', false, false], ['dancer', 'bio', false, false]]);
+  it('walks the server order; a step with no component is skipped', async () => {
+    progress.steps = steps([['dancer', 'gallery', false, false], ['dancer', 'bio', false, false]]);
     progress.required_left = 0;
     progress.publish_ready = true;
     mount();
     await onStep('Tell dancers about you');
+  });
+
+  it('Release B: a teacher step is B-WEB1\'s own component, in server order; its answer goes to the role writer with ONE key', async () => {
+    progress.steps = steps([['teacher', 'years_teaching', false, false], ['dancer', 'bio', false, false]]);
+    progress.required_left = 0;
+    progress.publish_ready = true;
+    const saveRole = vi.fn(async () => undefined);
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'organiser_home_v1') return { data: { today: '2026-10-20', organisers: [] }, error: null };
+      if (fn === 'my_profile_progress_v1') return { data: progress, error: null };
+      if (fn === 'my_dancer_edit_v1') return { data: dancerRow, error: null };
+      if (fn === 'my_role_details_v1') return { data: { role: 'teacher', person_id: 'p1', details: {} }, error: null };
+      return { data: null, error: { message: `unexpected ${fn}` } };
+    });
+    mount({ saveRole });
+    await onStep('How many years have you been teaching?');
+    fireEvent.change(screen.getByLabelText('Years teaching'), { target: { value: '6' } });
+    fireEvent.click(screen.getByTestId('step-continue'));
+    await onStep('Tell dancers about you');
+    expect(saveRole).toHaveBeenCalledTimes(1);
+    expect(saveRole.mock.calls[0][1]).toBe(6);
+    expect(saveDancer).not.toHaveBeenCalled();
   });
 });
 
