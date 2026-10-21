@@ -1,0 +1,1728 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Release B Prototype</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap">
+<style>
+/* D1 prototype v2: organiser events area. Monzo layout, Ember #f0703a, Outfit, graphite ground. Phone 390x844 and a 1280x800 computer frame. Public screens use today's public look (black, amber, Inter): content only. Example data only. */
+:root{
+  --ground:#202226; --card:#2a2d32; --card-2:#33373d; --hair:#3d4148; --text:#f1f2f4; --mute:#a3a9b3;
+  --acc:#f0703a; --acc-ink:#1d0a03; --acc-soft:rgba(240,112,58,.14); --ok:#3ecf8e; --ok-soft:rgba(62,207,142,.14); --ok-text:#7be6b4;
+  --bad:#ff7a6b; --bad-soft:rgba(255,122,107,.14); --bad-ink:#2a0703;
+  --font:"Outfit",system-ui,sans-serif; color-scheme:dark;
+}
+:root:not([data-theme="light"]){color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:#17181b;color:var(--text);font-family:var(--font);padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+::selection{background:var(--acc);color:var(--acc-ink)}
+input,textarea{caret-color:var(--acc)}
+*{scrollbar-width:thin;scrollbar-color:var(--hair) transparent}
+button{font-family:inherit}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.ic{flex:none;display:block}
+
+.page{max-width:1500px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+@media(min-width:1100px){.page{grid-template-columns:260px minmax(0,1fr);align-items:start}}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.bar h1{font-size:20px;margin:0;font-weight:800;letter-spacing:-.02em;flex:1 1 auto}
+.toggle{display:inline-flex;background:var(--card);border-radius:999px;padding:4px;gap:4px}
+.toggle button{min-height:40px;padding:0 16px;border-radius:999px;border:0;background:none;color:var(--mute);font:600 15px var(--font);cursor:pointer}
+.toggle button[aria-pressed=true]{background:var(--text);color:#17181b}
+.ghost{min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--hair);background:none;color:var(--text);font:600 14px var(--font);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.jump{width:100%;min-height:44px;background:var(--card);color:var(--text);border:1px solid var(--hair);border-radius:12px;padding:0 12px;font:600 15px var(--font)}
+.idx{display:none}
+@media(min-width:1100px){.idx{display:flex;flex-direction:column;gap:1px;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto}.jumpwrap{display:none}}
+.idx h2{font-size:13px;color:var(--mute);margin:12px 10px 3px;font-weight:600}
+.idx button{text-align:left;min-height:32px;padding:5px 10px;border-radius:10px;border:0;background:none;color:var(--text);font:500 14px var(--font);cursor:pointer}
+.idx button:hover{background:var(--card)}
+.idx button[aria-current=true]{background:var(--acc-soft);color:var(--acc)}
+.hint{color:var(--mute);font-size:13px;margin:0;line-height:1.45}
+.stage{position:relative;width:100%}
+
+.dev{position:relative;overflow:hidden;background:var(--ground);border:1px solid var(--hair);display:flex;flex-direction:column}
+.dev.ph{width:100%;max-width:390px;height:844px;margin:0 auto;border-radius:34px}
+.dev.dk{width:1280px;height:800px;border-radius:18px;transform-origin:0 0;position:absolute;left:0;top:0}
+.ex{position:absolute;top:8px;right:16px;font-size:11px;color:var(--mute);z-index:3;pointer-events:none}
+.scroll{flex:1;overflow:auto;min-height:0}
+
+.nav{display:flex;align-items:center;gap:12px;padding:16px 16px 4px}
+.back{width:44px;height:44px;border-radius:50%;border:0;background:var(--card);color:var(--text);cursor:pointer;flex:none;display:grid;place-items:center}
+.dots{flex:1;display:flex;gap:5px}.dots i{height:6px;flex:1;border-radius:9px;background:var(--card-2)}.dots i.on{background:var(--acc)}
+.title{font:800 28px/1.1 var(--font);margin:16px 18px 16px;letter-spacing:-.025em;text-wrap:balance}
+.sub{margin:-8px 18px 16px;color:var(--mute);font-size:15px}
+.grp{margin:0 14px 14px;background:var(--card);border-radius:20px;padding:6px;display:flex;flex-direction:column;gap:6px}
+.lab{margin:18px 22px 8px;font-weight:700;font-size:15px;color:var(--text);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.lab .lk{background:none;border:0;color:var(--acc);font:700 15px var(--font);min-height:44px;cursor:pointer;padding:0 2px}
+.cap{margin:4px 22px 8px;font-weight:600;font-size:14px;color:var(--mute)}
+.mini{font-weight:600;font-size:13px;color:var(--mute);padding:4px 8px 0}
+.opt{display:flex;align-items:center;gap:12px;min-height:58px;padding:10px 14px;border-radius:15px;border:0;background:var(--card-2);color:var(--text);font:600 16px var(--font);text-align:left;cursor:pointer;width:100%}
+button.opt:hover{background:#3a3e45}
+.opt .g{flex:1;min-width:0}.opt small{display:block;color:var(--mute);font-weight:400;font-size:14px;margin-top:2px}
+.opt .tick{width:24px;height:24px;border-radius:50%;border:2px solid var(--hair);flex:none}
+.opt[aria-pressed=true]{background:var(--acc);color:var(--acc-ink)}
+.opt[aria-pressed=true] small{color:var(--acc-ink);opacity:.8}
+.opt[aria-pressed=true] .tick{border-color:var(--acc-ink);background:radial-gradient(circle,var(--acc-ink) 40%,transparent 44%)}
+.opt .go{color:var(--mute)}
+.opt.line{justify-content:center;background:none;border:1.5px solid var(--hair)}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.seg.five{grid-template-columns:repeat(5,minmax(0,1fr))}.seg.five .opt{font-size:14px;padding:8px 2px}.seg .opt{min-height:46px;justify-content:center;text-align:center;padding:8px 4px;font-size:15px}
+.inp{width:100%;min-height:58px;background:var(--card-2);border:0;border-radius:15px;color:var(--text);padding:0 16px;font:700 20px var(--font)}
+.inp.sm{min-height:50px;font:600 16px var(--font);border-radius:13px;padding:0 12px}
+.inp::placeholder{color:#8b929c}
+textarea.inp{padding:14px 16px;min-height:120px;font:500 16px/1.45 var(--font);resize:vertical}
+.kv{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:50px;padding:0 12px;border-radius:13px;background:var(--card-2);font-size:15px}
+.kv .v{color:var(--mute);text-align:right}
+.kv input{flex:1;min-width:0;background:none;border:0;color:var(--text);font:600 16px var(--font);text-align:right;min-height:44px}
+.kv input::placeholder{color:#8b929c}
+.sel{appearance:none;background:none;border:0;color:var(--acc);font:700 16px var(--font);text-align:right;min-height:44px;padding:0 2px;cursor:pointer;font-variant-numeric:tabular-nums;max-width:62%}
+.sel option{color:#111}
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--acc);color:var(--acc-ink);border-radius:999px;padding:6px 6px 6px 12px;font-size:14px;font-weight:600;margin:3px}
+.chip.fixed{padding:6px 12px}
+.chip button{background:none;border:0;color:inherit;min-width:28px;min-height:28px;cursor:pointer;display:grid;place-items:center}
+.chip.soft{background:var(--card-2);color:var(--text)}
+.chip.soft em{font-style:normal;color:var(--mute);font-weight:500}
+.chips{padding:4px 6px}
+.tog{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;margin:3px;border-radius:999px;border:1.5px solid var(--hair);background:none;color:var(--text);font:600 14px var(--font);cursor:pointer}
+.tog[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+.sess-h{display:flex;justify-content:space-between;align-items:center;padding:6px 10px 0}
+.sess-h b{font-size:15px}.sess-h button{background:none;border:0;color:var(--mute);font:600 14px var(--font);min-height:44px;cursor:pointer}
+.add{margin:0 14px 14px;width:calc(100% - 28px);min-height:54px;border-radius:18px;border:1.5px dashed var(--hair);background:none;color:var(--text);font:700 16px var(--font);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.grp .add{margin:0;width:100%}
+.add[disabled]{color:#8b929c;cursor:not-allowed}
+.foot{padding:4px 14px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px}
+.primary{min-height:56px;border-radius:999px;border:0;background:var(--acc);color:var(--acc-ink);font:800 18px var(--font);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 22px;transition:transform .15s cubic-bezier(.2,.8,.2,1),background-color .15s}
+.primary:hover{background:#f6824f}.primary:active{transform:scale(.98)}
+.primary[disabled]{background:var(--card-2);color:#8b929c;cursor:not-allowed;transform:none}
+.primary.danger{background:var(--bad);color:var(--bad-ink)}
+.primary.sm{min-height:44px;font-size:15px;padding:0 16px}
+.quiet{min-height:44px;border:0;background:none;color:var(--mute);font:600 15px var(--font);cursor:pointer}
+.quiet.danger{color:var(--bad)}
+.reason{text-align:center;font-size:14px;color:var(--mute)}
+.reason button{background:none;border:0;color:var(--acc);font:600 14px var(--font);text-decoration:underline;text-underline-offset:3px;min-height:44px;padding:0 10px;cursor:pointer}
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--card-2);color:var(--mute);white-space:nowrap}
+.tag.live{background:var(--ok-soft);color:var(--ok-text)}.tag.live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.tag.bad{background:var(--bad-soft);color:var(--bad)}
+.tag.own{background:var(--acc-soft);color:var(--acc)}
+.toast{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);padding:10px 16px;border-radius:999px;font-weight:700;font-size:15px;background:var(--ok);color:#06240f;z-index:20;white-space:nowrap;animation:pop .25s cubic-bezier(.2,.8,.2,1)}
+.toast.bad{background:var(--bad);color:var(--bad-ink)}
+@keyframes pop{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+.dock{position:absolute;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:5;display:flex;flex-direction:column;gap:4px;background:linear-gradient(transparent,var(--ground) 30%);padding-top:18px}
+.dock .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sheetback{position:absolute;inset:0;background:rgba(0,0,0,.55);z-index:10;animation:fade .2s}
+@keyframes fade{from{opacity:0}}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:11;max-height:92%;overflow:auto;background:var(--ground);border-radius:26px 26px 0 0;padding-top:8px;animation:up .25s cubic-bezier(.2,.8,.2,1)}
+@keyframes up{from{transform:translateY(24px);opacity:.4}}
+.sheet .title{font-size:24px;margin-top:6px}
+.flyer{aspect-ratio:4/5;max-height:300px;width:100%;border-radius:15px;display:grid;place-items:end start;padding:14px;color:#fff;font:800 22px/1.1 var(--font);text-shadow:0 1px 8px rgba(0,0,0,.4)}
+.flyer.wide{aspect-ratio:16/9}
+.f0{background:radial-gradient(circle at 70% 25%,#ffcf7a,transparent 50%),linear-gradient(160deg,#a8452a,#1d1416 80%)}
+.f1{background:radial-gradient(circle at 25% 30%,#ffb35c,transparent 55%),linear-gradient(160deg,#6b2d7f,#191c2e 75%)}
+.f2{background:radial-gradient(circle at 80% 70%,#ff8a5c,transparent 50%),linear-gradient(200deg,#1f5a5a,#141a22 80%)}
+.f3{background:radial-gradient(circle at 30% 70%,#f5d06b,transparent 50%),linear-gradient(160deg,#2d3f7f,#14162a 80%)}
+.f4{background:radial-gradient(circle at 60% 30%,#ff9f8a,transparent 50%),linear-gradient(160deg,#5c2a3d,#18141a 80%)}
+.f5{background:radial-gradient(circle at 40% 25%,#ffd36b,transparent 45%),linear-gradient(160deg,#b0302a,#2a0f20 60%,#120b14)}
+.f6{background:linear-gradient(160deg,#4a4f57,#24272c)}
+.noflyer{display:grid;place-items:center;color:var(--mute);font:600 15px var(--font);background:var(--card-2);border:1.5px dashed var(--hair);text-shadow:none}
+.map{height:120px;border-radius:15px;position:relative;background:repeating-linear-gradient(0deg,transparent 0 23px,var(--hair) 23px 24px),repeating-linear-gradient(90deg,transparent 0 23px,var(--hair) 23px 24px),var(--card-2)}
+.map i{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-22px 0 0 -11px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--acc);box-shadow:0 2px 6px rgba(0,0,0,.35)}
+[data-in="nvpc"]{text-transform:uppercase}
+.tnum{font-variant-numeric:tabular-nums}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.tile{aspect-ratio:1;border-radius:13px;position:relative}
+.tile button{position:absolute;top:2px;right:2px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;display:grid;place-items:center;cursor:pointer}
+.tile.addt{border:1.5px dashed var(--hair);background:none;color:var(--text);display:grid;place-items:center;font:700 14px var(--font);cursor:pointer}
+.prog{height:8px;border-radius:9px;background:var(--card-2);overflow:hidden}.prog i{display:block;height:100%;width:60%;background:var(--acc);border-radius:9px;animation:load 1.2s linear}
+@keyframes load{from{width:5%}to{width:100%}}
+.skel{background:linear-gradient(90deg,var(--card) 0,var(--card-2) 50%,var(--card) 100%);background-size:200% 100%;animation:sh 1.2s linear infinite;border-radius:15px}
+@keyframes sh{to{background-position:-200% 0}}
+.row{display:flex;align-items:center;gap:12px;min-height:64px;padding:8px 12px 8px 8px;border-radius:15px;border:0;background:var(--card-2);color:var(--text);text-align:left;cursor:pointer;width:100%;font:600 16px var(--font)}
+.row:hover{background:#3a3e45}
+.row[aria-current=true]{box-shadow:inset 0 0 0 2px var(--acc)}
+.row .thumb{width:48px;height:48px;border-radius:12px;flex:none}
+.row .g{flex:1;min-width:0}.row .g b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.row small{display:block;color:var(--mute);font-weight:400;font-size:14px;margin-top:2px}
+.row small.need{color:var(--acc);font-weight:600}
+.empty{margin:0 14px;background:var(--card);border-radius:20px;padding:28px 20px;display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+.empty b{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.empty p{margin:0;color:var(--mute);font-size:16px}
+.state{margin:0 14px 14px;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--card)}
+.state.need{box-shadow:inset 0 0 0 1.5px var(--acc)}
+.state .hd{display:flex;gap:12px;align-items:flex-start}
+.state .hd .ic{color:var(--acc);margin-top:2px}
+.state b{display:block;font-size:17px;font-weight:700}
+.state small{display:block;color:var(--mute);font-size:14px;margin-top:2px}
+.state .acts{display:flex;gap:8px;flex-wrap:wrap}
+.check{display:flex;align-items:center;gap:12px;min-height:50px;padding:0 12px;border-radius:13px;background:var(--card-2);border:0;color:var(--text);font:600 15px var(--font);text-align:left;width:100%;cursor:pointer}
+.check .dot{width:24px;height:24px;border-radius:50%;flex:none;display:grid;place-items:center;border:2px solid var(--hair)}
+.check.done{cursor:default;color:var(--mute)}.check.done .dot{background:var(--ok);border-color:var(--ok);color:#06240f}
+.check .fix{color:var(--acc);font-weight:700}
+.cb{width:24px;height:24px;border-radius:7px;border:2px solid var(--hair);flex:none;display:grid;place-items:center}
+.cb.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+.past{opacity:.6}
+
+.dkapp{display:grid;grid-template-columns:340px minmax(0,1fr);height:100%;min-height:0}
+.dk-side{border-right:1px solid var(--hair);display:flex;flex-direction:column;min-height:0;background:#1c1e21}
+.dk-side .hdr{display:flex;align-items:center;justify-content:space-between;padding:22px 18px 12px}
+.dk-side .hdr b{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.dk-main{position:relative;display:flex;flex-direction:column;min-height:0}
+.cols{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:4px;align-items:start;padding:0 14px}
+.cols>div>.grp,.cols>div>.state,.cols>div>.add{margin-left:0;margin-right:0}
+.cols .lab{margin-left:8px;margin-right:8px}
+.cols .flyer{max-height:220px;aspect-ratio:16/9}
+.dkhead{display:flex;align-items:flex-end;gap:16px;padding:26px 28px 14px}
+.dkhead .title{margin:0;font-size:34px}
+.dkhead .sub{margin:6px 0 0}
+.ebar{display:flex;align-items:center;gap:8px;overflow-x:auto;padding:0 14px 14px;scrollbar-width:none}.ebar::-webkit-scrollbar{display:none}
+.ebar .tog{margin:0;flex:none}.ebar .ebl{display:inline-flex;align-items:center;gap:6px;color:var(--acc);font-weight:700;font-size:14px;flex:none;padding-left:6px}
+.dkhead+.ebar{padding:0 28px 10px}
+.tbtn{all:unset;cursor:pointer;display:inline-block;min-height:44px;border-radius:8px}.tbtn .ic{display:inline-block;color:var(--acc);vertical-align:-2px;margin-left:8px}.tbtn:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+.dkflow{display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);height:100%;min-height:0}
+.dkflow>.l{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--hair)}
+.dkflow>.r{overflow:auto;padding:28px 40px;background:#1c1e21}
+.pv{max-width:380px;margin:0 auto;background:var(--card);border-radius:22px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.pv h4{margin:6px 8px 0;font-size:22px;font-weight:800;letter-spacing:-.02em}
+.m{color:var(--mute)}
+.pvh{max-width:380px;margin:0 auto 12px;color:var(--mute);font-size:15px;font-weight:600}
+.blank{display:grid;place-items:center;height:100%;color:var(--mute);text-align:center;padding:40px}
+.dk .sheet{left:50%;right:auto;top:50%;bottom:auto;width:520px;transform:translate(-50%,-50%);border-radius:26px;max-height:88%;animation:fade .2s}
+.dk .dock{left:auto;right:28px;width:420px;background:none;padding-top:0}
+.dk .toast{bottom:40px}
+
+/* Public side: today's public look (black, amber, Inter). Content only. */
+.pub{background:#000;color:#fff;font-family:"Inter",system-ui,sans-serif;flex:1;overflow:auto;min-height:0}
+.pub .note{margin:12px;padding:8px 12px;border-radius:10px;background:#212121;color:#aaa;font-size:12px;display:flex;gap:8px;align-items:center;justify-content:space-between}
+.pub .note button{background:none;border:1px solid #333;color:#fff;border-radius:999px;min-height:36px;padding:0 12px;font:600 13px Inter,sans-serif;cursor:pointer}
+.pub h2{font:900 26px/1.1 Inter,sans-serif;letter-spacing:-.03em;margin:12px 12px 4px}
+.pub .meta{color:#aaa;font-size:13px;margin:0 12px 10px}
+.pub .card{background:#121212;border:1px solid #333;border-radius:12px;margin:0 12px 10px;padding:12px}
+.pub .card h3{margin:0 0 8px;font:700 14px Inter,sans-serif;color:#fff}
+.pub .ln{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0;border-top:1px solid #212121}
+.pub .ln:first-of-type{border-top:0}
+.pub .ln span:last-child{color:#aaa;text-align:right}
+.pub .amb{color:#ff9900;font-weight:700}
+.pub .cx{color:#ff7a6b}
+.pub .s{text-decoration:line-through;color:#777}
+.pub .btn{display:flex;justify-content:center;align-items:center;min-height:44px;border-radius:999px;background:#ff9900;color:#000;font:700 14px Inter,sans-serif;margin-top:8px}
+.pub .flyer{margin:0 12px;width:auto;max-height:200px;aspect-ratio:16/9;border-radius:12px;font-family:Inter,sans-serif}
+.pub .pill{display:inline-block;background:#212121;color:#ddd;border-radius:999px;padding:4px 10px;font-size:12px;margin:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.sbar{display:flex;justify-content:space-between;padding:12px 26px 0;font:600 13px var(--font);color:var(--text)}
+.ico{width:48px;height:48px;border-radius:12px;flex:none;display:grid;place-items:center;background:var(--acc-soft);color:var(--acc)}
+.row .act{flex:none}
+.row .ghostb{min-height:40px;padding:0 14px;border-radius:999px;border:1.5px solid var(--hair);background:none;color:var(--text);font:700 14px var(--font);display:inline-flex;align-items:center}
+.row .openb{min-height:40px;padding:0 16px;border-radius:999px;border:0;background:var(--acc);color:var(--acc-ink);font:800 14px var(--font);display:inline-flex;align-items:center}
+.meter{display:flex;flex-direction:column;gap:8px;padding:6px 4px 2px}
+.meter .n{font:800 34px/1 var(--font);letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.meter .n span{font-size:17px;color:var(--mute);font-weight:600;letter-spacing:0}
+.prog.s i{animation:none}
+.field{display:flex;flex-direction:column;gap:6px;padding:8px 8px 10px}
+.field>label{font:700 15px var(--font)}
+.field>.q{font-size:13px;color:var(--mute);margin-top:-4px}
+.yn{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.yn .opt{min-height:48px;justify-content:center}
+.addchip{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 12px;margin:3px;border-radius:999px;border:1.5px dashed var(--hair);background:none;color:var(--text);font:600 14px var(--font)}
+/* Prototype layer */
+.layer{position:absolute;inset:0;display:flex;flex-direction:column;min-height:0}
+.dev.ph{width:100%}
+.dkcol{display:flex;flex-direction:column;height:100%;min-height:0}
+.dkin{max-width:640px;margin:0 auto;padding:12px 0 24px}
+.dkfoot{padding-top:12px}
+.dkflow .l .title{font-size:24px}
+.dkflow .r .dkin{max-width:620px}
+.chip button{position:relative}
+.chip button::after{content:"";position:absolute;left:50%;top:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+.addrow{display:flex;gap:6px;padding:4px 0}
+.addrow .inp{flex:1;min-width:0}
+.addrow .ghost{min-height:50px;border-radius:13px}
+.note2{font-size:13px;color:var(--mute);padding:0 4px}
+.err{font-size:13px;color:var(--bad);padding:0 4px}
+.avbtn{width:44px;height:44px;border-radius:50%;border:0;padding:0;cursor:pointer;flex:none;background:var(--acc-soft);color:var(--acc);font:800 16px var(--font);display:grid;place-items:center}
+.tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--hair);background:#1c1e21;padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs button{min-height:58px;border:0;background:none;color:var(--mute);font:600 12px var(--font);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer}
+.tabs button[aria-current=page]{color:var(--acc)}
+.stub{margin:0 14px;padding:16px;border-radius:20px;border:1.5px dashed var(--hair);color:var(--mute);font-size:15px}
+.kv .v b{color:var(--text)}
+.sw{width:52px;height:32px;border-radius:999px;background:var(--card);border:2px solid var(--hair);position:relative;flex:none;cursor:pointer}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--mute);transition:left .15s}
+.sw[aria-checked=true]{background:var(--acc);border-color:var(--acc)}.sw[aria-checked=true]::after{left:23px;background:var(--acc-ink)}
+.swwrap{min-height:44px;min-width:56px;border:0;background:none;padding:0;display:grid;place-items:center;cursor:pointer}
+.row small.ok{color:var(--ok-text);font-weight:600}
+.dk .dkflow{grid-template-columns:360px minmax(0,1fr)}
+.dkflow .r .scroll>*,.dkflow .r>.foot{max-width:600px;width:100%}
+.dkflow .r .scroll>.blank{max-width:none}
+/* Dancer app (/app/*) on Ember blocks: only what the shared blocks lack. px sizes. */
+.da-av{flex:none;border-radius:50%;display:grid;place-items:center;background:var(--acc-soft);color:var(--acc);font:800 18px var(--font);overflow:hidden}
+.da-hd{display:flex;align-items:center;gap:12px;margin:12px 18px 16px}
+.da-hd .title{margin:0}
+.da-hd .sub{margin:0}
+.da-date{flex:none;width:68px;min-height:52px;border-radius:12px;background:var(--acc-soft);color:var(--acc);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:700;line-height:1.2}
+.da-date b{font-size:20px;font-weight:800;color:var(--text)}
+.da-big{font:800 34px/1 var(--font);letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin:6px 0 2px}
+.da-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.da-strip div{background:var(--card-2);border-radius:13px;padding:10px 12px;display:flex;flex-direction:column}
+.da-strip b{font:800 22px var(--font)}.da-strip span{font-size:12px;color:var(--mute)}
+.da-list{margin:0;padding:8px 12px 8px 28px;display:flex;flex-direction:column;gap:6px;font-size:15px}
+.da-crop{position:relative;width:300px;max-width:100%;aspect-ratio:1;margin:0 auto;background:#000;border-radius:13px;overflow:hidden}
+.da-crop>div{position:absolute;inset:0;transform-origin:50% 40%}
+.da-crop svg{position:absolute;inset:0;width:100%;height:100%}
+.da-prev{width:50%;aspect-ratio:1;border-radius:13px;margin:0 auto}
+.da-box{border:1.5px dashed var(--hair);border-radius:15px;padding:16px;display:grid;place-items:center;color:var(--mute)}
+.da-p{margin:0;padding:4px 8px;font-size:15px;color:var(--text)}
+.da-m{margin:0;padding:4px 8px;font-size:14px;color:var(--mute)}
+.da-link{background:none;border:0;color:var(--acc);font:700 15px var(--font);min-height:44px;padding:0 4px;cursor:pointer;text-align:left}
+.da-btns{display:flex;flex-direction:column;gap:6px}
+.da-btns .opt.line,.grp .opt.line{min-height:48px}
+.opt.line[disabled]{opacity:.5;cursor:not-allowed}
+.tog[disabled]{opacity:.5;cursor:not-allowed}
+.row[disabled]{opacity:.5;cursor:not-allowed}
+.tog.da-t{min-height:44px}
+
+.row .openb,.row .ghostb{min-height:44px;cursor:pointer}
+
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+ <symbol id="i-go" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+ <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+ <symbol id="i-x" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+ <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+ <symbol id="i-dancer" viewBox="0 0 24 24"><circle cx="13" cy="4.5" r="2" fill="currentColor"/><path d="M8 21l3-6-2-4 4-3 3 4h3M11 15l4 2v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+ <symbol id="i-org" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+ <symbol id="i-teach" viewBox="0 0 24 24"><path d="M2.5 9L12 4.5 21.5 9 12 13.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M6.5 11v5c3 2.5 8 2.5 11 0v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+ <symbol id="i-dj" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0116 0v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="3" y="14" width="4.5" height="6.5" rx="2" fill="currentColor"/><rect x="16.5" y="14" width="4.5" height="6.5" rx="2" fill="currentColor"/></symbol>
+ <symbol id="i-areas" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="4" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="13" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+</svg>
+
+<div class="page">
+ <aside class="idx" id="idx" aria-label="Screens"></aside>
+ <main style="display:flex;flex-direction:column;gap:12px;min-width:0">
+  <div class="bar">
+   <h1>Release B prototype</h1>
+   <label class="hint" for="who" style="display:inline-flex;align-items:center;gap:6px">Who am I?<select id="who" class="jump" style="width:auto;min-width:170px"></select></label>
+   <div class="toggle" role="group" aria-label="Screen size"><button type="button" data-mode="ph" aria-pressed="true">Phone</button><button type="button" data-mode="dk" aria-pressed="false">Computer</button></div>
+   <button type="button" class="ghost" id="again">Start again</button>
+  </div>
+  <div class="jumpwrap"><label class="hint" for="jump" style="display:block;margin-bottom:4px">Jump to a screen</label><select id="jump" class="jump"></select></div>
+  <p class="hint">Example people and data only. Nothing is saved anywhere. Words are taken from the built pages.</p>
+  <div class="stage" id="stage"><div id="frame" class="dev ph"></div></div>
+ </main>
+</div>
+<script>
+/* ===== CORE: state machine, rendering helpers, invariants. Example data only. =====
+   CONTRACT for screen modules (areas.js, account.js, dancer.js):
+   - SCREENS[id] = { render(P, params) -> {html, foot?, nav?:false}, back?: (P,params)=>label|null, dk?: 'split'|'col' }
+       html = content inside the scrolling body; foot = HTML for the fixed footer (.foot). Use helpers below.
+   - ACT[name] = (arg, el) => void   wired by data-a="name" data-v="arg" on any <button>. Re-render is automatic.
+   - INP[name] = (value, el) => void wired by data-i="name" data-v="arg" on <input>/<textarea>/<select> (input event).
+       Give every input a stable data-k="unique-key" so focus + caret survive re-render.
+   - go(id, params) pushes; back() pops (asks "Discard changes?" when the screen's dirty() says so); home(id, params) replaces the stack.
+   - SCREENS[id].dirty?(P,params) -> bool: unsaved edits. Leaving runs the Discard sheet.
+   - openSheet(id, params) / closeSheet(): SHEETS[id] = { render(P, params) -> html (title + body + .foot) }.
+   - toast(text, bad?) shows one toast after the next render.
+   - JUMPS.push({group, label, who, run(P)}) : jump-list entries; run() sets the person's state and calls home()/go()/openSheet().
+   - Mark every save form's Save button with data-save="formId" and register FORMS[formId] = {dirty:(P)=>bool}.
+   - Mark status words with data-st="dancer|organiser|teacher|dj" (text must equal statusOf(P, role).words).
+   - The primary-action rule: at most ONE .primary in the top layer (sheet if open, else screen). Disabled ones count.
+   - Every disabled control that cannot work gets a short .reason under it.
+*/
+'use strict';
+const SCREENS = {}, SHEETS = {}, ACT = {}, INP = {}, FORMS = {}, JUMPS = [];
+const S = { who: 'maria', mode: 'ph', stack: [], sheet: null, toast: null, people: {} };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ic = (id, n = 20, st = '') => `<svg class="ic" width="${n}" height="${n}"${st ? ` style="${st}"` : ''} aria-hidden="true"><use href="#i-${id}"/></svg>`;
+const clone = o => JSON.parse(JSON.stringify(o));
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const P = () => S.people[S.who];
+const cur = () => S.stack[S.stack.length - 1] || { id: 'areas', params: {} };
+
+/* ---------- helpers for markup ---------- */
+const H = {
+  title: (t, sub) => `<div class="title">${esc(t)}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}`,
+  lab: (t, link) => `<div class="lab">${esc(t)}${link || ''}</div>`,
+  grp: inner => `<div class="grp">${inner}</div>`,
+  btn: (cls, label, a, v, opt = {}) => `<button type="button" class="${cls}" data-a="${a}"${v != null ? ` data-v="${esc(v)}"` : ''}${opt.dis ? ' disabled' : ''}${opt.attr || ''}>${opt.raw ? label : esc(label)}</button>`,
+  primary: (label, a, v, opt = {}) => H.btn('primary' + (opt.cls ? ' ' + opt.cls : ''), label, a, v, opt) + (opt.dis && opt.reason ? `<div class="reason">${esc(opt.reason)}</div>` : ''),
+  quiet: (label, a, v, opt = {}) => H.btn('quiet' + (opt.cls ? ' ' + opt.cls : ''), label, a, v, opt),
+  /* row(icon, title, sub(html), right(html), a, v, opt) */
+  row: (o) => `<${o.a ? 'button type="button"' : 'div'} class="row"${o.a ? ` data-a="${o.a}"${o.v != null ? ` data-v="${esc(o.v)}"` : ''}` : ''}${o.cur ? ' aria-current="true"' : ''}>${o.lead || ''}<span class="g"><b>${esc(o.t)}</b>${o.sub || ''}</span>${o.right != null ? o.right : (o.a ? ic('go', 20, 'color:var(--mute)') : '')}</${o.a ? 'button' : 'div'}>`,
+  icoTile: (id, off) => `<span class="ico"${off ? ' style="background:var(--card);color:var(--mute)"' : ''}>${ic(id, 24)}</span>`,
+  small: (t, cls) => `<small${cls ? ` class="${cls}"` : ''}>${esc(t)}</small>`,
+  empty: (b, p, act) => `<div class="empty"><b>${esc(b)}</b><p>${esc(p)}</p>${act || ''}</div>`,
+  foot: inner => inner,
+};
+
+/* ---------- shared fact: status of a role (ONE mapping, used by every screen) ---------- */
+const ROLE_NAMES = { dancer: 'Dancer', organiser: 'Organiser', teacher: 'Teacher', dj: 'DJ' };
+const ROLE_ICONS = { dancer: 'dancer', organiser: 'org', teacher: 'teach', dj: 'dj' };
+const ROLE_ORDER = ['dancer', 'organiser', 'teacher', 'dj'];
+const leftWords = n => n === 1 ? '1 answer left' : `${n} answers left`;
+/* answersLeft(P, role): number of open answers; filled by areas.js (teacher/dj) and dancer.js (dancer). */
+const LEFT = {
+  organiser: p => p.org.left,
+  dancer: p => DANCER_LEFT(p),
+  teacher: p => ROLE_LEFT(p, 'teacher'),
+  dj: p => ROLE_LEFT(p, 'dj'),
+};
+let DANCER_LEFT = p => 0; /* replaced by dancer.js */
+let ROLE_LEFT = (p, r) => 0; /* replaced by areas.js */
+function held(p, role) {
+  if (role === 'dancer') return !!p.hasProfile;
+  if (role === 'organiser') return !!p.org.held;
+  return !!p.areas[role].shown;
+}
+function statusOf(p, role) {
+  if (!held(p, role)) {
+    if ((role === 'teacher' || role === 'dj') && p.areas[role].declined) return { kind: 'declined', words: 'You said no' };
+    return { kind: 'not-held', words: 'Not added' };
+  }
+  const n = LEFT[role](p);
+  if (n === 0) return { kind: 'complete', words: 'Complete' };
+  return { kind: 'to-finish', words: leftWords(n) };
+}
+const stCls = k => k === 'complete' ? 'ok' : k === 'to-finish' ? 'need' : '';
+const stSmall = (p, role) => { const s = statusOf(p, role); return `<small class="${stCls(s.kind)}" data-st="${role}">${esc(s.words)}</small>`; };
+
+/* ---------- navigation ---------- */
+function go(id, params = {}) { S.stack.push({ id, params }); S.sheet = null; }
+function home(id, params = {}) { S.stack = [{ id, params }]; S.sheet = null; }
+function screenDirty() { const c = cur(); const sc = SCREENS[c.id]; return !!(sc && sc.dirty && sc.dirty(P(), c.params)); }
+function back(force) {
+  if (!force && screenDirty()) { openSheet('discard', { then: 'back' }); return; }
+  const c = cur(); const sc = SCREENS[c.id];
+  if (sc && sc.onLeave) sc.onLeave(P(), c.params);
+  if (S.stack.length > 1) S.stack.pop(); else { const b = sc && sc.backTo && sc.backTo(P(), c.params); home(b || 'areas'); }
+  S.sheet = null;
+}
+function openSheet(id, params = {}) { S.sheet = { id, params }; }
+function closeSheet() { S.sheet = null; }
+function toast(t, bad) { S.toast = { t, bad: !!bad }; }
+/* leave(): navigate away from a dirty screen through the Discard sheet. fn runs after Discard. */
+let PENDING = null;
+function leave(fn) { if (screenDirty()) { PENDING = fn; openSheet('discard', { then: 'fn' }); } else fn(); }
+
+ACT.back = () => back();
+ACT.closeSheet = () => closeSheet();
+ACT.go = v => { const [id, q] = String(v).split('|'); leave(() => go(id, q ? JSON.parse(q) : {})); };
+ACT.home = v => { const [id, q] = String(v).split('|'); leave(() => home(id, q ? JSON.parse(q) : {})); };
+ACT.keepEditing = () => { PENDING = null; closeSheet(); };
+ACT.discard = () => {
+  const c = cur(); const sc = SCREENS[c.id]; const then = S.sheet && S.sheet.params.then;
+  if (sc && sc.discard) sc.discard(P(), c.params);
+  closeSheet();
+  if (then === 'fn' && PENDING) { const f = PENDING; PENDING = null; f(); } else back(true);
+};
+SHEETS.discard = { render: () => H.title('Discard changes?') + `<div class="foot">${H.primary('Keep editing', 'keepEditing')}${H.quiet('Discard', 'discard', null, { cls: 'danger' })}</div>` };
+
+/* ---------- people ---------- */
+const PEOPLE = {}; /* PEOPLE[id] = {label, make: () => personState}; modules add fields via MAKERS */
+const MAKERS = []; /* (id, p) => void : each module fills its part of a fresh person */
+function makePerson(id) { const p = { id }; MAKERS.forEach(m => m(id, p)); return p; }
+function resetAll() { S.people = {}; Object.keys(PEOPLE).forEach(k => S.people[k] = makePerson(k)); }
+function landing(p) { return PEOPLE[p.id].landing(p); }
+
+/* ---------- render ---------- */
+const $ = s => document.querySelector(s);
+function frameHTML() {
+  const p = P(), c = cur(), sc = SCREENS[c.id] || SCREENS.areas;
+  const r = sc.render(p, c.params || {}) || {};
+  const backLabel = sc.back ? sc.back(p, c.params || {}) : null;
+  const nav = r.nav === false ? '' : (backLabel != null ? `<div class="nav"><button type="button" class="back" data-a="back" aria-label="Back to ${esc(backLabel)}">${ic('back')}</button><span class="m" style="font-weight:600">${esc(backLabel)}</span>${r.navRight || ''}</div>` : (r.navRight ? `<div class="nav"><span style="flex:1"></span>${r.navRight}</div>` : ''));
+  let body;
+  if (S.mode === 'dk' && sc.dk === 'split' && SCREENS.__side) {
+    body = `<div class="dkflow"><div class="l"><div class="scroll">${SCREENS.__side(p, c)}</div></div><div class="r" style="padding:0;display:flex;flex-direction:column;min-height:0"><div class="scroll" data-scroll>${nav}${r.html || ''}</div>${r.foot ? `<div class="foot">${r.foot}</div>` : ''}</div></div>`;
+  } else if (S.mode === 'dk') {
+    body = `<div class="dkcol"><div class="scroll" data-scroll><div class="dkin">${nav}${r.html || ''}${r.foot ? `<div class="foot dkfoot">${r.foot}</div>` : ''}</div></div>${r.tabs || ''}</div>`;
+  } else {
+    body = `<div class="scroll" data-scroll>${nav}${r.html || ''}</div>${r.foot ? `<div class="foot">${r.foot}</div>` : ''}${r.tabs || ''}`;
+  }
+  let sheet = '';
+  if (S.sheet && SHEETS[S.sheet.id]) sheet = `<div class="sheetback" data-a="closeSheet" aria-hidden="true"></div><div class="sheet" role="dialog" aria-modal="true" data-top>${SHEETS[S.sheet.id].render(p, S.sheet.params || {})}</div>`;
+  const t = S.toast ? `<div class="toast${S.toast.bad ? ' bad' : ''}" role="status">${esc(S.toast.t)}</div>` : '';
+  return `<div class="layer"${S.sheet ? ' inert' : ' data-top'}>${body}</div>${sheet}${t}`;
+}
+function render() {
+  const fr = $('#frame'); if (!fr) return;
+  const ae = document.activeElement, k = ae && ae.dataset && ae.dataset.k;
+  const ss = ae && 'selectionStart' in ae ? [ae.selectionStart, ae.selectionEnd] : null;
+  const sc = fr.querySelector('[data-scroll]'); const top = sc ? sc.scrollTop : 0; const sameScreen = fr.dataset.at === cur().id;
+  fr.className = 'dev ' + (S.mode === 'dk' ? 'dk' : 'ph');
+  fr.innerHTML = frameHTML();
+  fr.dataset.at = cur().id;
+  if (sameScreen) { const ns = fr.querySelector('[data-scroll]'); if (ns) ns.scrollTop = top; }
+  if (k) { const el = fr.querySelector(`[data-k="${CSS.escape(k)}"]`); if (el) { el.focus(); if (ss && 'setSelectionRange' in el) { try { el.setSelectionRange(ss[0], ss[1]); } catch (e) { } } } }
+  S.toast = null;
+  fit(); syncChrome();
+}
+function fit() {
+  const fr = $('#frame'), st = $('#stage'); if (!fr || !st) return;
+  if (S.mode === 'dk') { const w = st.clientWidth; const s = Math.min(1, w / 1280); fr.style.transform = `scale(${s})`; st.style.height = (800 * s) + 'px'; }
+  else { fr.style.transform = ''; st.style.height = ''; }
+}
+function syncChrome() {
+  document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)));
+  const w = $('#who'); if (w) w.value = S.who;
+  const j = $('#jump'); if (j && j.value !== S.jumpAt) j.value = S.jumpAt || '';
+  document.querySelectorAll('.idx button[data-j]').forEach(b => b.setAttribute('aria-current', String(b.dataset.j === S.jumpAt)));
+}
+
+/* ---------- events ---------- */
+function onClick(e) {
+  const el = e.target.closest('[data-a]'); if (!el || el.disabled) return;
+  const f = ACT[el.dataset.a]; if (!f) { console.error('no action ' + el.dataset.a); return; }
+  S.jumpAt = null; f(el.dataset.v, el); render();
+}
+function onInput(e) {
+  const el = e.target.closest('[data-i]'); if (!el) return;
+  const f = INP[el.dataset.i]; if (!f) { console.error('no input ' + el.dataset.i); return; }
+  f(el.type === 'checkbox' ? el.checked : el.value, el); render();
+}
+function onKey(e) {
+  if (e.key === 'Enter') { const el = e.target.closest('[data-enter]'); if (el && ACT[el.dataset.enter]) { e.preventDefault(); ACT[el.dataset.enter](el.dataset.v, el); render(); } }
+  if (e.key === 'Escape' && S.sheet) { closeSheet(); render(); }
+}
+function jump(i) {
+  const j = JUMPS[+i]; if (!j) return;
+  resetAll(); S.who = j.who; S.sheet = null; S.stack = []; PENDING = null;
+  j.run(P()); if (!S.stack.length) home(landing(P()));
+  S.jumpAt = String(i); render();
+}
+function setWho(w) { S.who = w; S.sheet = null; PENDING = null; home(landing(P())); S.jumpAt = null; render(); }
+function startAgain() { resetAll(); setWho(S.who); }
+
+function buildChrome() {
+  const groups = {};
+  JUMPS.forEach((j, i) => { (groups[j.group] = groups[j.group] || []).push([i, j]); });
+  $('#jump').innerHTML = '<option value="">Jump to a screen&hellip;</option>' + Object.keys(groups).map(g => `<optgroup label="${esc(g)}">${groups[g].map(([i, j]) => `<option value="${i}">${esc(j.label)}</option>`).join('')}</optgroup>`).join('');
+  $('#idx').innerHTML = Object.keys(groups).map(g => `<h2>${esc(g)}</h2>` + groups[g].map(([i, j]) => `<button type="button" data-j="${i}">${esc(j.label)}</button>`).join('')).join('');
+  $('#who').innerHTML = Object.keys(PEOPLE).map(k => `<option value="${k}">${esc(PEOPLE[k].label)}</option>`).join('');
+  $('#jump').addEventListener('change', e => { if (e.target.value !== '') jump(e.target.value); });
+  $('#idx').addEventListener('click', e => { const b = e.target.closest('[data-j]'); if (b) jump(b.dataset.j); });
+  $('#who').addEventListener('change', e => setWho(e.target.value));
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { S.mode = b.dataset.mode; render(); }));
+  $('#again').addEventListener('click', startAgain);
+  const fr = $('#frame');
+  fr.addEventListener('click', onClick); fr.addEventListener('input', onInput); fr.addEventListener('change', e => { if (e.target.matches('select[data-i],input[type=checkbox][data-i],input[type=file][data-i],input[type=range][data-i]')) onInput(e); }); fr.addEventListener('keydown', onKey);
+  window.addEventListener('resize', fit);
+}
+
+/* ---------- invariants (used by the fuzz; also callable from the console) ---------- */
+function withState(id, params, sheet) {
+  /* render a screen offscreen for the current person without touching the visible frame */
+  const save = { stack: S.stack, sheet: S.sheet, toast: S.toast };
+  S.stack = [{ id, params: params || {} }]; S.sheet = sheet || null; S.toast = null;
+  const d = document.createElement('div'); d.innerHTML = frameHTML();
+  S.stack = save.stack; S.sheet = save.sheet; S.toast = save.toast;
+  return d;
+}
+function checks() {
+  const fails = [], p = P(), fr = $('#frame');
+  /* 1. status words identical everywhere (visible frame + Your areas + switcher + account home + area meters) */
+  const views = [fr, withState('areas'), withState(SCREENS.acctHome ? 'acctHome' : 'areas', {}, { id: 'switcher', params: {} })];
+  if (SCREENS.acctHome) views.push(withState('acctHome'));
+  views.forEach((v, vi) => v.querySelectorAll('[data-st]').forEach(el => {
+    const r = el.dataset.st, w = statusOf(p, r).words, t = el.textContent.trim();
+    if (!(t === w || t === ROLE_NAMES[r] + ': ' + w)) fails.push(`status ${r} view${vi}: "${t}" != "${w}"`);
+  }));
+  ['teacher', 'dj'].forEach(r => {
+    if (!SCREENS[r + 'Area'] || !held(p, r)) return;
+    const m = withState(r + 'Area').querySelector('[data-meter]'); if (!m) { fails.push('no meter ' + r); return; }
+    const n = +m.dataset.n, M = +m.dataset.m, s = statusOf(p, r);
+    if ((s.kind === 'complete') !== (n === M) || (s.kind === 'to-finish' && s.words !== leftWords(M - n))) fails.push(`meter ${r} ${n}/${M} vs ${s.words}`);
+  });
+  /* 2. Save enabled iff dirty */
+  fr.querySelectorAll('[data-save]').forEach(b => { const f = FORMS[b.dataset.save]; if (!f) return; const d = f.dirty(p); if (b.disabled === d) fails.push(`save ${b.dataset.save} disabled=${b.disabled} dirty=${d}`); });
+  /* 3. no dead end: the top layer has an enabled way out (any enabled action) */
+  const top = fr.querySelector('.sheet[data-top]') || fr.querySelector('.layer[data-top]');
+  if (!top) fails.push('no top layer');
+  else {
+    const acts = [...top.querySelectorAll('[data-a],[data-i]')].filter(x => !x.disabled);
+    const ways = acts.filter(x => x.dataset.a && x.dataset.a !== 'noop');
+    if (!ways.length) fails.push('dead end at ' + cur().id);
+    /* 4. one primary */
+    const pr = top.querySelectorAll('.primary').length; if (pr > 1) fails.push(`${pr} primary buttons at ${cur().id}${S.sheet ? '/' + S.sheet.id : ''}`);
+    /* disabled primary must carry a reason */
+    top.querySelectorAll('.primary[disabled]').forEach(b => { const n = b.nextElementSibling; if (!n || !n.classList.contains('reason')) fails.push('disabled primary without reason at ' + cur().id); });
+  }
+  if (!SCREENS[cur().id]) fails.push('unknown screen ' + cur().id);
+  return fails;
+}
+window.PROTO = { S, P, checks, jump, JUMPS, render, statusOf, setWho, resetAll, FORMS, cur, home, go };
+
+function boot() { resetAll(); buildChrome(); S.who = Object.keys(PEOPLE)[0]; home(landing(P())); render(); }
+document.addEventListener('DOMContentLoaded', boot);
+
+/* ===== AREAS (Release B): people, sign-up roles step, Your areas, switcher, Teacher/DJ areas + details. ===== */
+/* Words from origin/claude/people-release-b-web (src/modules/areas/**, Auth.tsx role step), D109 short reasons. */
+PEOPLE.maria = { label: 'Maria Lopez (dancer + teacher)', landing: p => p.hasProfile ? 'appHome' : 'appWelcome' };
+PEOPLE.busy = { label: 'Alex Moreno (busy, four roles)', landing: () => 'acctContinue' };
+PEOPLE.newbie = { label: 'New dancer (no profile)', landing: p => p.hasProfile ? 'appHome' : 'appWelcome' };
+
+const FIELDS = {
+  teacher: [
+    ['About your teaching', [
+      { key: 'years_teaching', label: 'Years teaching', kind: 'years', help: 'A whole number from 0 to 80.' },
+      { key: 'teaching_styles', label: 'Styles you teach', kind: 'list', help: 'For example Sensual, Dominican or Moderna.' },
+      { key: 'partner_role', label: 'Role you dance when teaching', kind: 'text', max: 80, help: 'For example Leader, Follower or Both.' }]],
+    ['Private lessons', [
+      { key: 'offers_private', label: 'Private lessons', kind: 'yesno' },
+      { key: 'private_lesson_types', label: 'Kinds of private lesson', kind: 'list', help: 'For example Couples, Solo or Wedding dance.' },
+      { key: 'private_lesson_locations', label: 'Where you teach privately', kind: 'list', help: 'Areas or studios, one at a time.' },
+      { key: 'private_travel_distance', label: 'How far you travel', kind: 'text', max: 80, help: 'For example Up to 10 miles.' }]]],
+  dj: [
+    ['About your DJing', [
+      { key: 'dj_name', label: 'DJ name', kind: 'text', max: 80 },
+      { key: 'genres', label: 'Music you play', kind: 'list', help: 'For example Bachata, Kizomba or Salsa.' }]],
+    ['Links and pricing', [
+      { key: 'soundcloud', label: 'SoundCloud link', kind: 'link', max: 300 },
+      { key: 'mixcloud', label: 'Mixcloud link', kind: 'link', max: 300 },
+      { key: 'pricing', label: 'Pricing', kind: 'longtext', max: 280, help: 'Up to 280 characters. New lines are fine.' }]]],
+};
+const FLAT = r => FIELDS[r].flatMap(g => g[1]);
+const AREA_WORD = { teacher: 'teacher', dj: 'DJ' };
+const ASK = {
+  teacher: ['Do you teach bachata?', 'Yes lets you add your teaching details next. Every one is optional.'],
+  dj: ['Do you DJ?', 'Yes lets you add your DJ details next. Every one is optional.'],
+};
+const ERR = {
+  years: 'Years must be a whole number from 0 to 80.',
+  text: 'This answer is too long or has a character that cannot be saved, such as a tab. Shorten it or remove that character, then try again.',
+  link: 'Paste the full link, with no spaces, up to 300 characters.',
+};
+const LIST_MAX = 20, ITEM_MAX = 80;
+const emptyVals = r => Object.fromEntries(FLAT(r).map(f => [f.key, f.kind === 'list' ? [] : null]));
+const filled = (f, v) => f.kind === 'list' ? v.length > 0 : v !== null && v !== '';
+ROLE_LEFT = (p, r) => FLAT(r).filter(f => !filled(f, p.areas[r].values[f.key])).length;
+
+const D = iso => { const d = new Date(iso + 'T12:00:00'); const s = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }); return d.getFullYear() !== 2026 ? s + ' ' + d.getFullYear() : s; };
+
+MAKERS.push((id, p) => {
+  const base = { maria: ['Maria Lopez', 'Maria', 'maria@example.com', true], busy: ['Alex Moreno', 'Alex', 'alex@example.com', true], newbie: ['', '', 'new.dancer@example.com', false] }[id];
+  [p.name, p.first, p.email, p.hasProfile] = base;
+  p.org = id === 'busy' ? { held: true, left: 2, name: 'Sensual Sundays London' } : { held: false, left: 0 };
+  p.areas = { teacher: { shown: false, declined: false, values: emptyVals('teacher'), draft: null, lineups: [] }, dj: { shown: false, declined: false, values: emptyVals('dj'), draft: null, lineups: [] } };
+  p.signup = ['dancer'];
+  if (id === 'maria') p.areas.teacher.shown = true; /* chose Teacher at sign-up, nothing saved yet: 7 answers left */
+  if (id === 'busy') {
+    const t = p.areas.teacher; t.shown = true;
+    Object.assign(t.values, { years_teaching: 6, teaching_styles: ['Sensual', 'Dominican'], partner_role: 'Both', offers_private: true });
+    t.lineups = [
+      { name: 'Sensual Sundays', thumb: 'f1', next: '2026-10-25', more: 3 },
+      { name: 'Autumn Bachata Weekender', thumb: 'f0', next: '2026-11-07', more: 0, session: 'Sensual masterclass' },
+      { name: 'Thursday Bachata Social', thumb: 'f3', next: '2026-11-12', more: 1 }];
+    p.areas.dj.declined = true;
+    p.areas.dj.lineups = [{ name: 'Bachata Rooftop Social', thumb: 'f2', next: '2026-10-30', more: 2 }];
+  }
+});
+
+/* ---------- sign-up "What do you do?" (D106: only this step is Ember) ---------- */
+const SIGNUP = [
+  ['dancer', 'Dancer', 'I go to classes, socials and festivals'],
+  ['organiser', 'Organiser', 'I run events, socials or a school'],
+  ['teacher', 'Teacher', 'I teach classes or workshops'],
+  ['dj', 'DJ', 'I play music at events']];
+const cb = on => `<span class="cb${on ? ' on' : ''}"${on ? ' style="border-color:var(--acc-ink);background:var(--acc-ink);color:var(--acc)"' : ''}>${on ? ic('check', 14) : ''}</span>`;
+SCREENS.signup = {
+  render: p => {
+    const sel = p.signup;
+    const opts = SIGNUP.map(([v, l, d]) => { const on = sel.includes(v); return `<button type="button" class="opt" aria-pressed="${on}" data-a="signupToggle" data-v="${v}">${cb(on)}<span class="g">${l}<small>${d}</small></span></button>`; }).join('');
+    return {
+      html: `<div class="nav"><div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div></div>` + H.title('What do you do?', 'Choose all that fit. You can change this later.') + `<div class="grp" role="group" aria-label="What do you do?">${opts}</div><p class="hint" style="margin:0 22px">Prototype note: the email sign-in steps keep the site look (D106).</p>`,
+      foot: H.primary('Continue', 'signupContinue', null, { dis: !sel.length, reason: 'Choose at least one' }),
+    };
+  },
+};
+ACT.signupToggle = v => { const p = P(); p.signup = p.signup.includes(v) ? p.signup.filter(x => x !== v) : SIGNUP.map(s => s[0]).filter(x => x === v || p.signup.includes(x)); };
+ACT.signupContinue = () => {
+  const p = P(); if (!p.signup.length) return;
+  ['teacher', 'dj'].forEach(r => { if (p.signup.includes(r)) p.areas[r].shown = true; });
+  home('acctHome'); go('areas');
+};
+
+/* ---------- Your areas ---------- */
+function areaAction(p, r) {
+  const s = statusOf(p, r);
+  const btn = (cls, label, a, v) => `<span class="act"><button type="button" class="${cls}" data-a="${a}" data-v="${v}">${label}</button></span>`;
+  if (s.kind === 'complete' || s.kind === 'to-finish') return btn('openb', 'Open', 'openArea', r);
+  return btn('ghostb', 'Add', 'addArea', r);
+}
+function areaRows(p, withActions, curRole) {
+  return ROLE_ORDER.map(r => {
+    const s = statusOf(p, r), on = s.kind === 'complete' || s.kind === 'to-finish';
+    return H.row({ lead: H.icoTile(ROLE_ICONS[r], !on), t: ROLE_NAMES[r], sub: stSmall(p, r), right: withActions ? areaAction(p, r) : (on ? ic('go', 20, 'color:var(--mute)') : areaAction(p, r)), a: !withActions && on ? 'openArea' : null, v: r, cur: curRole === r });
+  }).join('');
+}
+SCREENS.areas = {
+  dk: 'split',
+  back: () => 'Account',
+  backTo: () => 'acctHome',
+  render: p => S.mode === 'dk'
+    ? { html: `<div class="blank" style="min-height:600px">Open or add a role on the left.</div>`, nav: false }
+    : { html: H.title('Your areas') + H.grp(areaRows(p, true)) },
+};
+SCREENS.__side = (p, c) => {
+  const r = { teacherArea: 'teacher', teacherDetails: 'teacher', djArea: 'dj', djDetails: 'dj', orgStub: 'organiser' }[c.id];
+  return `<div class="nav"><button type="button" class="back" data-a="home" data-v="acctHome" aria-label="Back to Account">${ic('back')}</button><span class="m" style="font-weight:600">Account</span></div>` + H.title('Your areas') + H.grp(areaRows(p, false, r));
+};
+ACT.openArea = r => leave(() => {
+  if (r === 'dancer') { home('appHome'); return; }
+  const id = { organiser: 'orgStub', teacher: 'teacherArea', dj: 'djArea' }[r];
+  if (S.mode === 'dk' || cur().id !== 'areas') { home('acctHome'); go('areas'); }
+  go(id);
+});
+ACT.addArea = r => leave(() => {
+  if (r === 'dancer') { home('appWelcome'); return; }
+  if (r === 'organiser') { if (cur().id !== 'areas') { home('acctHome'); go('areas'); } go('orgStub'); return; }
+  openSheet('ask', { role: r });
+});
+SHEETS.ask = {
+  render: (p, q) => H.title(ASK[q.role][0], ASK[q.role][1]) + `<div class="foot">${H.primary('Yes', 'askYes', q.role)}${H.quiet('Skip for now', 'askSkip', q.role)}</div>`,
+};
+ACT.askYes = r => {
+  const a = P().areas[r]; a.shown = true; a.declined = false; closeSheet();
+  if (cur().id !== 'areas') { home('acctHome'); go('areas'); }
+  go(r + 'Area'); editDetails(r);
+};
+ACT.askSkip = r => { P().areas[r].declined = true; closeSheet(); };
+
+SCREENS.orgStub = {
+  dk: 'split', back: () => 'Your areas', backTo: () => 'areas',
+  render: p => ({ html: H.title('Organiser area (rebuild)') + `<div class="stub">Prototype stub. The organiser rebuild designs this area (claim your organiser, ask to join one, or create one). ${p.org.held ? esc(p.org.name) + ': ' + esc(statusOf(p, 'organiser').words) + '.' : ''}</div>` }),
+};
+
+/* ---------- Profile menu (switcher): roles you hold, same words, then Your areas ---------- */
+SHEETS.switcher = {
+  render: p => {
+    const c = cur().id;
+    const at = c.startsWith('app') ? 'dancer' : { teacherArea: 'teacher', teacherDetails: 'teacher', djArea: 'dj', djDetails: 'dj', orgStub: 'organiser' }[c];
+    const rows = ROLE_ORDER.filter(r => held(p, r)).map(r => H.row({ lead: H.icoTile(ROLE_ICONS[r]), t: ROLE_NAMES[r], sub: stSmall(p, r), a: 'switchTo', v: r, cur: at === r })).join('');
+    return H.title('Switch profile') + H.grp(rows + H.row({ lead: `<span class="ico" style="background:var(--card);color:var(--text)">${ic('areas', 24)}</span>`, t: 'Your areas', a: 'switchTo', v: 'areas' }));
+  },
+};
+ACT.switcher = () => openSheet('switcher');
+ACT.switchTo = r => { closeSheet(); leave(() => { if (r === 'areas') { home('acctHome'); go('areas'); } else { home('acctHome'); go('areas'); ACT.openArea(r); } }); };
+
+/* ---------- Teacher / DJ area ---------- */
+function meter(p, r) {
+  const M = FLAT(r).length, n = M - ROLE_LEFT(p, r);
+  const line = n === 0 ? 'No details added yet' : n === M ? `All ${M} details added` : null;
+  return `<div class="meter" data-meter data-n="${n}" data-m="${M}">${line ? `<div class="n" style="font-size:24px">${line}</div>` : `<div class="n">${n} <span>of ${M} details added</span></div>`}<div class="prog s" role="img" aria-label="${ROLE_NAMES[r]} details added"><i style="width:${Math.round(n / M * 100)}%"></i></div></div>`;
+}
+function areaScreen(r) {
+  return {
+    dk: 'split', back: () => 'Your areas', backTo: () => 'areas',
+    render: p => {
+      const a = p.areas[r], n = FLAT(r).length - ROLE_LEFT(p, r);
+      const lu = a.lineups.length
+        ? H.grp(a.lineups.map(l => H.row({ lead: `<span class="thumb ${l.thumb}"></span>`, t: l.name, sub: H.small(D(l.next) + (l.session ? ', ' + l.session : '')) + (l.more ? H.small(l.more === 1 ? 'and 1 more date' : `and ${l.more} more dates`) : ''), right: '' })).join(''))
+        : H.empty('No line-ups yet', 'When an organiser adds you to a line-up, it shows here.');
+      return {
+        html: H.title(ROLE_NAMES[r]) +
+          `<div class="state${n === 0 ? ' need' : ''}"><b>Your ${AREA_WORD[r]} details</b>${meter(p, r)}<small style="margin:0">Every detail is optional. Add as many or as few as you like.</small>${H.primary('Edit details', 'editDetails', r, { cls: 'sm' })}</div>` +
+          H.lab('Where you\u2019re on the line-up') + lu,
+      };
+    },
+  };
+}
+SCREENS.teacherArea = areaScreen('teacher');
+SCREENS.djArea = areaScreen('dj');
+function editDetails(r) { const a = P().areas[r]; a.draft = clone(a.values); a.draft._pend = {}; a.draft._err = {}; go(r + 'Details'); }
+ACT.editDetails = r => editDetails(r);
+
+/* ---------- Teacher / DJ details form ---------- */
+function draftOf(p, r) { const a = p.areas[r]; if (!a.draft) { a.draft = clone(a.values); a.draft._pend = {}; a.draft._err = {}; } return a.draft; }
+function listNote(f, list, t) {
+  const v = t.trim();
+  if (list.length >= LIST_MAX) return { note: `You have added the most this list holds (${LIST_MAX}). Remove one to add another.`, full: true };
+  if (!v) return null;
+  if (list.some(x => x.toLowerCase() === v.toLowerCase())) return { note: `${v} is already in the list.` };
+  if (v.length > ITEM_MAX) return { note: `Each item can be up to ${ITEM_MAX} characters.` };
+  return null;
+}
+/* normalise a draft to what Save would send (typed-but-not-added list text counts as added) */
+function normal(r, d) {
+  const out = {};
+  FLAT(r).forEach(f => {
+    let v = d[f.key];
+    if (f.kind === 'list') { v = v.slice(); const t = (d._pend[f.key] || '').trim(); if (t && !listNote(f, v, t)) v.push(t); }
+    else if (f.kind === 'years') { v = v === null || v === '' ? null : (/^\d{1,2}$/.test(String(v)) && +v <= 80 ? +v : String(v)); }
+    else if (f.kind !== 'yesno') { v = v === null || String(v).trim() === '' ? null : String(v); }
+    out[f.key] = v;
+  });
+  return out;
+}
+const isDirty = (p, r) => { const a = p.areas[r]; return !!a.draft && !same(normal(r, a.draft), a.values); };
+function validate(r, n) {
+  const e = {};
+  FLAT(r).forEach(f => {
+    const v = n[f.key]; if (v === null) return;
+    if (f.kind === 'years' && typeof v !== 'number') e[f.key] = ERR.years;
+    if ((f.kind === 'text' || f.kind === 'longtext') && (v.length > f.max || /[\t\u0000-\u0008]/.test(v))) e[f.key] = ERR.text;
+    if (f.kind === 'link' && (/\s/.test(v) || v.length > 300)) e[f.key] = ERR.link;
+  });
+  return e;
+}
+function fieldHTML(r, f, d) {
+  const k = `${r}.${f.key}`, v = d[f.key], err = d._err[f.key];
+  const lab = `<label for="f-${k}">${esc(f.label)} (optional)</label>${f.help ? `<div class="q">${esc(f.help)}</div>` : ''}`;
+  let ctl = '';
+  if (f.kind === 'years') ctl = `<input class="inp sm" id="f-${k}" data-k="${k}" data-i="fieldSet" data-v="${k}" inputmode="numeric" maxlength="2" style="width:120px" value="${esc(v == null ? '' : v)}">`;
+  else if (f.kind === 'text' || f.kind === 'link') ctl = `<input class="inp sm" id="f-${k}" data-k="${k}" data-i="fieldSet" data-v="${k}"${f.kind === 'link' ? ' type="url" autocapitalize="off"' : ''} value="${esc(v || '')}">`;
+  else if (f.kind === 'longtext') ctl = `<textarea class="inp" id="f-${k}" data-k="${k}" data-i="fieldSet" data-v="${k}" style="min-height:112px">${esc(v || '')}</textarea>`;
+  else if (f.kind === 'yesno') { return `<div class="field"><label id="f-${k}">${esc(f.label)} (optional)</label><div class="yn" role="group" aria-labelledby="f-${k}">${['Yes', 'No'].map(w => { const on = v === (w === 'Yes'); return `<button type="button" class="opt" aria-pressed="${on}" data-a="fieldYN" data-v="${k}|${w}">${w}</button>`; }).join('')}</div></div>`; }
+  else if (f.kind === 'list') {
+    const t = d._pend[f.key] || '', n = listNote(f, v, t);
+    const chips = v.map((x, i) => `<span class="chip">${esc(x)}<button type="button" aria-label="Remove ${esc(x)}" data-a="listDel" data-v="${k}|${i}">${ic('x', 14)}</button></span>`).join('');
+    ctl = `<div role="list" aria-label="${esc(f.label)}">${chips}</div><div class="addrow"><input class="inp sm" id="f-${k}" data-k="${k}" data-i="listType" data-v="${k}" data-enter="listAdd" value="${esc(t)}"${n && n.full ? ' disabled' : ''}><button type="button" class="ghost" aria-label="Add to ${esc(f.label)}" data-a="listAdd" data-v="${k}"${!t.trim() || n ? ' disabled' : ''}>${ic('plus', 14)}Add</button></div>${n ? `<div class="note2">${esc(n.note)}</div>` : ''}`;
+  }
+  return `<div class="field">${lab}${ctl}${err ? `<div class="err" role="alert">${esc(err)}</div>` : ''}</div>`;
+}
+function detailsScreen(r) {
+  return {
+    dk: 'split', back: () => ROLE_NAMES[r], backTo: () => r + 'Area',
+    dirty: p => isDirty(p, r),
+    discard: p => { p.areas[r].draft = null; },
+    onLeave: p => { p.areas[r].draft = null; },
+    render: p => {
+      const d = draftOf(p, r), dirty = isDirty(p, r);
+      return {
+        html: H.title(`${ROLE_NAMES[r]} details`, 'Every detail is optional. Fill in what you like and leave the rest.') +
+          FIELDS[r].map(([g, fs]) => H.lab(g) + H.grp(fs.map(f => fieldHTML(r, f, d)).join(''))).join(''),
+        foot: H.primary(`Save ${AREA_WORD[r]} details`, 'saveDetails', r, { dis: !dirty, reason: 'Nothing changed yet', attr: ` data-save="${r}Details"` }),
+      };
+    },
+  };
+}
+SCREENS.teacherDetails = detailsScreen('teacher');
+SCREENS.djDetails = detailsScreen('dj');
+FORMS.teacherDetails = { dirty: p => isDirty(p, 'teacher') };
+FORMS.djDetails = { dirty: p => isDirty(p, 'dj') };
+const fk = v => { const [r, key] = String(v).split('.'); return [r, key, P().areas[r].draft || draftOf(P(), r)]; };
+INP.fieldSet = (val, el) => { const [r, key, d] = fk(el.dataset.v); d[key] = val; delete d._err[key]; };
+INP.listType = (val, el) => { const [r, key, d] = fk(el.dataset.v); d._pend[key] = val; };
+ACT.fieldYN = v => { const [k, w] = v.split('|'); const [r, key, d] = fk(k); const b = w === 'Yes'; d[key] = d[key] === b ? null : b; };
+ACT.listDel = v => { const [k, i] = v.split('|'); const [r, key, d] = fk(k); d[key].splice(+i, 1); };
+ACT.listAdd = v => { const [r, key, d] = fk(v); const f = FLAT(r).find(x => x.key === key); const t = (d._pend[key] || '').trim(); if (!t || listNote(f, d[key], t)) return; d[key].push(t); d._pend[key] = ''; };
+ACT.saveDetails = r => {
+  const p = P(), a = p.areas[r]; if (!isDirty(p, r)) return;
+  const n = normal(r, a.draft), e = validate(r, n);
+  if (Object.keys(e).length) { a.draft._err = e; return; }
+  a.values = n; a.shown = true; a.draft = clone(n); a.draft._pend = {}; a.draft._err = {};
+  toast('Saved');
+};
+
+/* ---------- jumps ---------- */
+const J = (label, who, run) => JUMPS.push({ group: 'Sign-up and areas', label, who, run });
+J('Sign-up: What do you do? (Dancer pre-ticked)', 'newbie', () => home('signup'));
+J('Sign-up: three ticked', 'newbie', p => { p.signup = ['dancer', 'teacher', 'dj']; home('signup'); });
+J('Sign-up: nothing ticked (Continue disabled)', 'newbie', p => { p.signup = []; home('signup'); });
+J('Your areas: Maria (teacher, 7 answers left)', 'maria', () => { home('acctHome'); go('areas'); });
+J('Your areas: busy person', 'busy', () => { home('acctHome'); go('areas'); });
+J('Your areas: new dancer after sign-up (Teacher + DJ ticked)', 'newbie', p => { p.areas.teacher.shown = p.areas.dj.shown = true; home('acctHome'); go('areas'); });
+J('Ask sheet: Do you DJ?', 'maria', () => { home('acctHome'); go('areas'); openSheet('ask', { role: 'dj' }); });
+J('Ask sheet: Do you teach bachata?', 'newbie', () => { home('acctHome'); go('areas'); openSheet('ask', { role: 'teacher' }); });
+J('Your areas: after Skip for now (DJ: You said no)', 'maria', p => { p.areas.dj.declined = true; home('acctHome'); go('areas'); });
+J('Organiser area stub', 'busy', () => { home('acctHome'); go('areas'); go('orgStub'); });
+J('Profile menu: Maria', 'maria', () => { home('appHome'); openSheet('switcher'); });
+J('Profile menu: busy person', 'busy', () => { home('appHome'); openSheet('switcher'); });
+J('Teacher area: no details, no line-ups (Maria)', 'maria', () => { home('acctHome'); go('areas'); go('teacherArea'); });
+J('Teacher area: 4 of 7 with line-ups (busy)', 'busy', () => { home('acctHome'); go('areas'); go('teacherArea'); });
+J('Teacher area: all 7 details added', 'busy', p => { Object.assign(p.areas.teacher.values, { private_lesson_types: ['Couples'], private_lesson_locations: ['Hackney'], private_travel_distance: 'Up to 10 miles' }); home('acctHome'); go('areas'); go('teacherArea'); });
+J('DJ area: 3 of 5 (after Yes)', 'busy', p => { const a = p.areas.dj; a.shown = true; a.declined = false; Object.assign(a.values, { dj_name: 'DJ Luna', genres: ['Bachata', 'Kizomba'], soundcloud: 'soundcloud.com/djluna' }); home('acctHome'); go('areas'); go('djArea'); });
+J('Teacher details: opened, nothing changed', 'busy', () => { home('acctHome'); go('areas'); go('teacherArea'); editDetails('teacher'); });
+J('Teacher details: changed (Save on)', 'busy', p => { home('acctHome'); go('areas'); go('teacherArea'); editDetails('teacher'); p.areas.teacher.draft.years_teaching = '7'; p.areas.teacher.draft.teaching_styles.push('Moderna'); });
+J('Teacher details: list full (20 items)', 'maria', p => { home('acctHome'); go('areas'); go('teacherArea'); editDetails('teacher'); p.areas.teacher.draft.teaching_styles = Array.from({ length: 20 }, (_, i) => 'Style ' + (i + 1)); });
+J('Teacher details: duplicate item note', 'busy', p => { home('acctHome'); go('areas'); go('teacherArea'); editDetails('teacher'); p.areas.teacher.draft._pend.teaching_styles = 'sensual'; });
+J('Teacher details: years out of range (error)', 'maria', p => { home('acctHome'); go('areas'); go('teacherArea'); editDetails('teacher'); p.areas.teacher.draft.years_teaching = '95'; p.areas.teacher.draft._err.years_teaching = ERR.years; });
+J('Teacher details: Discard changes? sheet', 'busy', p => { home('acctHome'); go('areas'); go('teacherArea'); editDetails('teacher'); p.areas.teacher.draft.partner_role = 'Leader'; openSheet('discard', { then: 'back' }); });
+J('DJ details: opened', 'busy', p => { const a = p.areas.dj; a.shown = true; a.declined = false; Object.assign(a.values, { dj_name: 'DJ Luna', genres: ['Bachata', 'Kizomba'], soundcloud: 'soundcloud.com/djluna' }); home('acctHome'); go('areas'); go('djArea'); editDetails('dj'); });
+J('DJ details: bad link (error)', 'busy', p => { const a = p.areas.dj; a.shown = true; a.declined = false; home('acctHome'); go('areas'); go('djArea'); editDetails('dj'); a.draft.mixcloud = 'mix cloud'; a.draft._err.mixcloud = ERR.link; });
+JUMPS.push({ group: 'Computer width', label: 'Computer: Your areas + teacher details', who: 'busy', run: () => { S.mode = 'dk'; home('acctHome'); go('areas'); go('teacherArea'); editDetails('teacher'); } });
+JUMPS.push({ group: 'Computer width', label: 'Computer: Your areas (nothing open)', who: 'maria', run: () => { S.mode = 'dk'; home('acctHome'); go('areas'); } });
+JUMPS.push({ group: 'Computer width', label: 'Computer: DJ area', who: 'busy', run: p => { S.mode = 'dk'; const a = p.areas.dj; a.shown = true; a.declined = false; home('acctHome'); go('areas'); go('djArea'); } });
+
+/* ===== ACCOUNT (D111/D112): Account home (DancerHome), Continue as..., Account settings + delete view. ===== */
+/* Words from origin/main: DancerHome.tsx, HideSurnameCard, ContinueAsPage.tsx, AccountSettings.tsx. */
+let DANCER_CARD = p => ({ city: '', role: '', photo: false, missing: ['first name', 'city', 'dance role', 'photo'] }); /* dancer.js replaces */
+const joinAnd = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+MAKERS.push((id, p) => {
+  p.hidden = false; p.surname = { hide: false, draft: false };
+  p.ui = { signOutAsk: false, newEmail: '', pendingEmail: '', typed: '' };
+});
+const avatar = (p, n = 48) => `<span class="thumb f4" style="width:${n}px;height:${n}px;border-radius:50%;display:grid;place-items:center;color:#fff;font:800 18px var(--font)">${esc((p.first || '?')[0])}</span>`;
+const avBtn = p => `<button type="button" class="avbtn" data-a="switcher" aria-label="Switch profile">${esc((p.first || '?')[0])}</button>`;
+
+/* first unfinished area, in Your areas order (D112): same words as statusOf */
+function firstUnfinished(p) { return ROLE_ORDER.find(r => statusOf(p, r).kind === 'to-finish'); }
+
+/* ---------- Account home ---------- */
+const surnameDirty = p => p.surname.draft !== p.surname.hide;
+FORMS.surname = { dirty: surnameDirty };
+SCREENS.acctHome = {
+  dirty: p => surnameDirty(p),
+  discard: p => { p.surname.draft = p.surname.hide; },
+  onLeave: p => { p.surname.draft = p.surname.hide; p.ui.signOutAsk = false; },
+  render: p => {
+    let h = H.title('Your account');
+    if (p.hidden) h += `<div class="state" role="status"><b>Your dancer profile is hidden. Only you can see it.</b><small>You can show it again in Account settings.</small><div class="acts">${H.btn('ghost', 'Show my profile again', 'go', 'acctSettings')}</div></div>`;
+    let foot = '';
+    if (!p.hasProfile) {
+      h += `<div class="state"><b>Your account does not have a dancer profile yet. Message us and we\u2019ll set one up for you.</b><small>Browsing parties works without it.</small><div class="acts">${H.btn('ghost', 'Message us on WhatsApp', 'extLink', 'WhatsApp')}</div></div>`;
+    } else {
+      const c = DANCER_CARD(p);
+      h += H.grp(H.row({ lead: avatar(p), t: p.name || 'Name not set', sub: H.small(`${c.city || 'City not set'} \u00b7 ${c.role || 'Dance role not set'}`), right: `<span class="act">${H.btn('ghostb', 'Your profile', 'home', 'appMe')}</span>` }));
+      if (c.missing.length) { h += `<p class="sub" style="margin:0 22px 14px">${esc(c.missing.length ? `Add your ${joinAnd(c.missing)} to rate parties.` : 'Finish your profile to rate.')}</p>`; foot = H.primary('Finish your profile', 'home', c.missing.length === 1 && c.missing[0] === 'photo' ? 'appPhoto' : 'appEdit'); }
+      else h += `<p class="sub" style="margin:0 22px 14px">Your profile is complete. You can rate parties now.</p>`;
+    }
+    h += H.lab('Your nights') + H.grp(
+      H.row({ lead: H.icoTile('org'), t: 'My attendance', sub: H.small('Nights you\u2019re going to, and rating the ones you went to'), a: 'home', v: 'appNights' }) +
+      H.row({ lead: H.icoTile('dancer'), t: 'Browse parties', sub: H.small('Find your next night out'), a: 'extLink', v: 'the public parties list' }));
+    const fu = firstUnfinished(p);
+    h += H.lab('Your roles') + H.grp(
+      H.row({ lead: H.icoTile('areas'), t: 'Your areas', sub: fu ? `<small class="need" data-st="${fu}">${esc(ROLE_NAMES[fu] + ': ' + statusOf(p, fu).words)}</small>` : H.small('Open or add a role'), a: 'go', v: 'areas' }) +
+      (p.org.held ? H.row({ lead: H.icoTile('org'), t: 'Back to your organiser home', a: 'go', v: 'orgStub' })
+        : H.row({ lead: H.icoTile('org', true), t: 'I organise events', sub: H.small('Claim your organiser, ask to join one, or create one'), a: 'go', v: 'orgStub' })));
+    if (p.hasProfile) {
+      const d = surnameDirty(p), on = p.surname.draft;
+      h += H.lab('Your surname') + `<div class="grp"><div class="kv" style="min-height:64px"><span id="sw-l">Hide my surname from the public</span><button type="button" class="swwrap" data-a="surnameToggle" aria-labelledby="sw-l"><span class="sw" role="switch" aria-checked="${on}"></span></button></div><div class="note2" style="padding:4px 8px">${on ? 'Anyone viewing your profile or a line-up sees only your first name.' : 'Anyone viewing your profile or a line-up sees your first name and surname.'}</div><div style="padding:4px 4px 6px">${H.btn('ghost', 'Save', 'surnameSave', null, { dis: !d, attr: ' data-save="surname"' })}${d ? '' : '<div class="note2" style="padding-top:4px">Change the switch, then save.</div>'}</div></div>`;
+    }
+    h += `<div class="foot" style="padding-top:8px">${H.quiet('Account settings: email, your data, hide or delete account', 'go', 'acctSettings')}`;
+    h += p.ui.signOutAsk
+      ? `<div class="reason">Signed in as ${esc(p.email)}.</div><div class="acts" style="display:flex;gap:8px;justify-content:center">${H.btn('ghost', 'Yes, sign out', 'signOut')}${H.quiet('Stay signed in', 'signOutCancel')}</div>`
+      : `<div class="reason">Signed in as ${esc(p.email)}. <button type="button" data-a="signOutAsk">Sign out</button></div>`;
+    h += '</div>';
+    return { html: h, foot, navRight: avBtn(p) };
+  },
+};
+ACT.surnameToggle = () => { const s = P().surname; s.draft = !s.draft; };
+ACT.surnameSave = () => { const s = P().surname; if (s.draft === s.hide) return; s.hide = s.draft; toast('Saved.'); };
+ACT.signOutAsk = () => { P().ui.signOutAsk = true; };
+ACT.signOutCancel = () => { P().ui.signOutAsk = false; };
+ACT.signOut = () => leave(() => { P().ui.signOutAsk = false; home('signedOut'); });
+ACT.extLink = v => toast(`Opens ${v} (outside this prototype)`);
+
+/* ---------- Continue as... (2+ sides) ---------- */
+SCREENS.acctContinue = {
+  render: p => {
+    const rows = (p.org.held ? H.row({ lead: `<span class="thumb f5"></span>`, t: p.org.name, sub: H.small('Organiser'), a: 'home', v: 'orgStub' }) : '') +
+      H.row({ lead: avatar(p), t: p.first || 'Your dancer profile', sub: H.small('Dancer'), a: 'home', v: p.hasProfile ? 'appHome' : 'appWelcome' });
+    return { html: H.title('Continue as\u2026', 'You can switch later by tapping your picture, top right.') + H.grp(rows), nav: false };
+  },
+};
+
+/* ---------- Account settings ---------- */
+const emailReason = p => { const v = p.ui.newEmail.trim(); if (!v) return 'Type the new email address you want to use.'; if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return 'That doesn\u2019t look like an email address yet.'; if (v.toLowerCase() === p.email) return 'That\u2019s the email you already use. Type a new one.'; return ''; };
+SCREENS.acctSettings = {
+  back: (p, q) => q.from === 'app' ? 'Options' : 'Your account',
+  backTo: (p, q) => q.from === 'app' ? 'appOptions' : 'acctHome',
+  onLeave: p => { p.ui.signOutAsk = false; },
+  render: (p, q) => {
+    const er = emailReason(p);
+    let h = H.title('Account settings');
+    h += H.lab('Email address') + `<div class="grp"><div class="kv"><span>Your email is ${esc(p.email)}.</span></div>` +
+      (p.ui.pendingEmail ? `<div class="state" role="status" style="margin:0"><small>Almost there: check both inboxes. We sent a link to ${esc(p.email)} and to ${esc(p.ui.pendingEmail)}. Open both links to switch to ${esc(p.ui.pendingEmail)}; until then you still sign in with ${esc(p.email)}.</small></div>` : '') +
+      `<div class="field"><label for="newEmail">New email</label><input class="inp sm" id="newEmail" type="email" data-k="newEmail" data-i="newEmail" value="${esc(p.ui.newEmail)}"></div><div style="padding:0 4px 6px">${H.btn('ghost', 'Change email', 'changeEmail', null, { dis: !!er })}${er ? `<div class="note2" style="padding-top:4px">${esc(er)}</div>` : ''}</div></div>`;
+    h += H.lab('Hide your dancer profile') + `<div class="grp"><div class="field">` + (!p.hasProfile
+      ? `<div class="q" style="margin:0">You have no dancer profile, so there is nothing to hide. You can still download your data or delete your account below.</div>`
+      : p.hidden ? `<div class="q" style="margin:0">Your dancer profile is hidden. Only you can see it. You can show it again any time.</div><div>${H.btn('ghost', 'Show my profile again', 'unhide')}</div>`
+        : `<div class="q" style="margin:0">Your dancer profile is visible to everyone. Hiding it is not permanent: you can show it again any time.</div><div>${H.btn('ghost', 'Hide my profile', 'hideAsk')}</div>`) + `</div></div>`;
+    h += H.lab('Your data') + `<div class="grp"><div class="field"><div class="q" style="margin:0">Saves a file with what we hold about you: your profile, ratings and attendance.</div><div>${H.btn('ghost', 'Download my data', 'download')}</div></div></div>`;
+    h += H.lab('Sign out') + `<div class="grp"><div class="field"><div class="q" style="margin:0">Signed in as ${esc(p.email)}.</div><div style="display:flex;gap:8px;flex-wrap:wrap">${p.ui.signOutAsk ? H.btn('ghost', 'Yes, sign out', 'signOut') + H.btn('ghost', 'Stay signed in', 'signOutCancel') : H.btn('ghost', 'Sign out', 'signOutAsk')}</div></div>` +
+      `<div class="field"><div class="q" style="margin:0">Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included.</div><div>${H.btn('ghost', 'Sign out of all devices', 'signOutAllAsk')}</div></div></div>`;
+    h += H.lab('Delete account') + `<div class="grp"><div class="field"><div class="q" style="margin:0">Your account is hidden from everyone at once. Sign in within 30 days to undo it.</div><div>${H.quiet('Delete account', 'go', 'acctDelete', { cls: 'danger' })}</div></div></div><div style="height:20px"></div>`;
+    return { html: h };
+  },
+};
+INP.newEmail = v => { P().ui.newEmail = v; };
+ACT.changeEmail = () => { const p = P(); if (emailReason(p)) return; p.ui.pendingEmail = p.ui.newEmail.trim(); p.ui.newEmail = ''; };
+ACT.download = () => toast('Your file was saved to this device.');
+ACT.unhide = () => { P().hidden = false; };
+ACT.hideAsk = () => openSheet('hide');
+ACT.signOutAllAsk = () => openSheet('signOutAll');
+SHEETS.hide = { render: () => H.title('Hide your dancer profile', 'Your profile will disappear from the site until you show it again.') + `<div class="foot">${H.primary('Yes, hide it', 'hideYes')}${H.quiet('Keep it visible', 'closeSheet')}</div>` };
+ACT.hideYes = () => { P().hidden = true; closeSheet(); };
+SHEETS.signOutAll = { render: () => H.title('Sign out of all devices', 'Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included.') + `<div class="foot">${H.primary('Sign out of all devices', 'signOutAll')}${H.quiet('Stay signed in', 'closeSheet')}</div>` };
+ACT.signOutAll = () => { closeSheet(); home('signedOut'); };
+
+/* ---------- Delete view ---------- */
+const deleteBlocked = p => p.org.held; /* example: the busy person is the only owner of an organiser page */
+SCREENS.acctDelete = {
+  back: () => 'Account settings', backTo: () => 'acctSettings',
+  onLeave: p => { p.ui.typed = ''; },
+  render: p => {
+    const ok = p.ui.typed.trim() === 'DELETE', bl = deleteBlocked(p);
+    let h = H.title('Delete account');
+    h += H.lab('What happens') + H.grp(['Your profile is hidden from everyone straight away, and you are signed out on every device.', 'Sign in within 30 days to undo it: your account comes back as it was.', 'After that it stays hidden. For a full erase of your data, ask us at support@bachatacalendar.co.uk.'].map(t => `<div class="kv" style="min-height:0;padding:10px 12px;display:block">${esc(t)}</div>`).join(''));
+    h += H.lab('Keep a copy first?') + `<div class="grp"><div class="field"><div class="q" style="margin:0">Download your data now, while you are signed in.</div><div>${H.btn('ghost', 'Download my data', 'download')}</div></div></div>`;
+    h += H.lab('Or just hide your profile') + `<div class="grp"><div class="field"><div class="q" style="margin:0">Hiding is reversible and keeps your account.</div><div>${H.btn('ghost', 'Hide my profile instead', 'back')}</div></div></div>`;
+    h += H.lab('Delete my account') + `<div class="grp">` + (bl
+      ? `<div class="state" style="margin:0;box-shadow:inset 0 0 0 1.5px var(--bad)"><small style="color:var(--text)">You\u2019re the only owner of the organiser page(s) below. Add another owner, or remove the page, then come back to delete your account.</small><small>\u2022 ${esc(p.org.name)}</small></div>`
+      : `<div class="field"><label for="typed">Type DELETE to confirm</label><input class="inp sm" id="typed" data-k="typed" data-i="typed" autocapitalize="characters" autocomplete="off" value="${esc(p.ui.typed)}"></div>`) + `</div>`;
+    const reason = bl ? 'You cannot delete your account yet. See the reason above.' : 'The button works once you type DELETE in capital letters.';
+    return { html: h, foot: H.primary('Delete my account', 'deleteNow', null, { cls: 'danger', dis: bl || !ok, reason }) };
+  },
+};
+INP.typed = v => { P().ui.typed = v; };
+ACT.deleteNow = () => { const p = P(); if (deleteBlocked(p) || p.ui.typed.trim() !== 'DELETE') return; home('acctDeleted'); };
+
+/* ---------- stubs that end a flow (each keeps a way forward) ---------- */
+SCREENS.signedOut = { render: p => ({ html: H.title('Signed out') + `<div class="stub">Prototype stub: sign-out leaves to the site home (public look), then signs out.</div>`, foot: H.primary('Sign in again', 'signBackIn'), nav: false }) };
+SCREENS.acctDeleted = { render: p => ({ html: H.title('Account deleted') + `<div class="stub">Prototype stub for /account/deleted: account hidden and signed out everywhere. Signing in within 30 days undoes it.</div>`, foot: H.primary('Start again', 'restartPerson'), nav: false }) };
+ACT.signBackIn = () => { const p = P(); home(landing(p)); };
+ACT.restartPerson = () => { S.people[S.who] = makePerson(S.who); home(landing(P())); };
+
+/* ---------- jumps ---------- */
+const JA = (label, who, run) => JUMPS.push({ group: 'Account', label, who, run });
+JA('Account home: Maria (Your areas row: Teacher)', 'maria', () => home('acctHome'));
+JA('Account home: busy person', 'busy', () => home('acctHome'));
+JA('Account home: no dancer profile', 'newbie', () => home('acctHome'));
+JA('Account home: profile hidden banner', 'busy', p => { p.hidden = true; home('acctHome'); });
+JA('Account home: surname switch changed', 'busy', p => { p.surname.draft = true; home('acctHome'); });
+JA('Account home: sign-out confirm', 'maria', p => { p.ui.signOutAsk = true; home('acctHome'); });
+JA('Continue as\u2026 (organiser + dancer)', 'busy', () => home('acctContinue'));
+JA('Account settings', 'maria', () => { home('acctHome'); go('acctSettings'); });
+JA('Account settings: email change pending', 'maria', p => { p.ui.pendingEmail = 'maria.l@example.com'; home('acctHome'); go('acctSettings'); });
+JA('Account settings: profile hidden', 'busy', p => { p.hidden = true; home('acctHome'); go('acctSettings'); });
+JA('Account settings: no dancer profile', 'newbie', () => { home('acctHome'); go('acctSettings'); });
+JA('Confirm sheet: hide profile', 'maria', () => { home('acctHome'); go('acctSettings'); openSheet('hide'); });
+JA('Confirm sheet: sign out of all devices', 'maria', () => { home('acctHome'); go('acctSettings'); openSheet('signOutAll'); });
+JA('Delete account: type DELETE', 'maria', () => { home('acctHome'); go('acctSettings'); go('acctDelete'); });
+JA('Delete account: DELETE typed (red button on)', 'maria', p => { p.ui.typed = 'DELETE'; home('acctHome'); go('acctSettings'); go('acctDelete'); });
+JA('Delete account: blocked (only organiser owner)', 'busy', () => { home('acctHome'); go('acctSettings'); go('acctDelete'); });
+JA('Signed out', 'maria', () => home('signedOut'));
+
+/* ===== DANCER APP (/app/*): Home, Nights, Me, Edit, Onboarding, Options, Page, Photo. ===== */
+/* Words from bachata-website main, src/modules/dancer-app/screens/** (GOING_CHECKIN_ENABLED = false: check-in parts hidden). Look = Ember blocks. Example data only. */
+const DA_TODAY = '2026-10-21';
+const DA_YEAR = 2026;
+const DA_REQ = ['fn', 'city', 'role', 'photo'];
+const DA_REQ_STEP = { fn: 'first_name', city: 'city', role: 'role', photo: 'photo' };
+const DA_REQ_WORD = { fn: 'first name', city: 'city', role: 'dance role', photo: 'photo' };
+const DA_CITIES = ['London', 'Manchester', 'Birmingham', 'Bristol', 'Leeds', 'Liverpool', 'Glasgow', 'Edinburgh'];
+const DA_COUNTRIES = [['ES', 'Spain'], ['GB', 'United Kingdom'], ['CO', 'Colombia'], ['DO', 'Dominican Republic'], ['FR', 'France'], ['IT', 'Italy'], ['PL', 'Poland'], ['PT', 'Portugal'], ['BR', 'Brazil'], ['US', 'United States']];
+const DA_ROLES = [['Leader', 'Leader'], ['Follower', 'Follower'], ['Lead and Follow', 'Both']];
+const DA_BANDS = [['new', 'Just started', 0], ['one-two', '1 to 2 years', 1], ['three-five', '3 to 5 years', 4], ['six-plus', '6 years or more', 8]];
+const DA_STYLES = ['Bachata Sensual', 'Bachata Moderna', 'Bachata Tradicional', 'Salsa On1', 'Salsa On2', 'Kizomba', 'Zouk'];
+const DA_LEVELS = ['Mostly beginners', 'Mixed', 'Strong'];
+const DA_GRADS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f0'];
+const DA_NAMES = { appHome: 'Home', appNights: 'Nights', appMe: 'Me', appOptions: 'Options', appEdit: 'Edit profile', appPage: 'My page', appPhoto: 'Photo', appWelcome: 'Setup' };
+const DA_STEP_LABEL = { first_name: 'Add your first name', city: 'Add your city', role: 'Choose how you dance', photo: 'Add your photo', started_year: 'Add when you started dancing', styles: 'Pick your favourite styles', bio_social: 'Add a bio and a link' };
+const DA_STEP_FOCUS = { first_name: 'fn', city: 'city', role: 'role', started_year: 'year', styles: 'styles', bio_social: 'bio' };
+const DA_FB_KINDS = [['general', 'Something else'], ['bug', 'Something is broken'], ['idea', 'An idea'], ['praise', 'I like it']];
+const DA_HIDDEN = 'Your dancer profile is hidden. Only you can see it.';
+const DA_WEEK = {
+  London: [
+    { name: 'Thursday Bachata Practice', date: '2026-10-22', loc: 'Soho Dance Studio', time: '19:30' },
+    { name: 'Bachata Rooftop Social', date: '2026-10-23', loc: 'Shoreditch', time: '21:00', cancelled: true },
+    { name: 'Friday Sensual Social', date: '2026-10-23', loc: 'Camden', time: '20:30' },
+    { name: 'Soho Bachata Social', date: '2026-10-24', loc: 'The Rumba Room', time: '21:00' },
+    { name: 'Sensual Sundays', date: '2026-10-25', loc: 'Vauxhall', time: '19:00' }],
+};
+const DA_UPLOAD_FAIL = {
+  network: 'Photo upload failed. Check your connection and try again. If it keeps failing, you can add your photo later.',
+  s401: 'Your session has expired. Please sign in again, then retry the upload.',
+  s413: 'That file is too large to upload. Photos can be up to 10 MB and videos up to 50 MB.',
+  other: 'We could not upload your photo. Please try again.',
+  save: 'Your photo uploaded but we could not save it to your profile. Check your connection and try again.',
+};
+const DA_ERR = {
+  no_profile: 'We could not find your dancer profile. Message us and we will sort it out.',
+  rate_limited: 'That was a lot of saves in a short time. Wait a few minutes, then try again.',
+  unknown: 'Something went wrong. Check your connection and try again.',
+};
+
+/* ---------- small helpers ---------- */
+const daFilled = v => Array.isArray(v) ? v.length > 0 : v != null && String(v).trim() !== '';
+const daD = iso => new Date(iso + 'T12:00:00');
+const daDay = iso => daD(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
+const daDiff = iso => Math.round((daD(iso) - daD(DA_TODAY)) / 864e5);
+const daNum = n => Number(n).toLocaleString('en-GB');
+const daRole = r => (DA_ROLES.find(x => x[0] === r) || [])[1] || '';
+const daBand = y => { if (y == null) return null; const a = Math.max(0, DA_YEAR - y); return a < 1 ? 'new' : a <= 2 ? 'one-two' : a <= 5 ? 'three-five' : 'six-plus'; };
+const daD$ = p => p.dancer;
+const daProf = p => p.dancer.prof;
+const daSvg = (d, n = 20) => `<svg width="${n}" height="${n}" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const daExt = (label, what, cls = 'da-link') => `<button type="button" class="${cls}" data-a="dExt" data-v="${esc(what)}">${esc(label)}</button>`;
+const daAv = (p, n) => { const pr = daProf(p); return pr.photo ? `<span class="da-av ${pr.photo}" style="width:${n}px;height:${n}px" role="img" aria-label="Your photo"></span>` : `<span class="da-av" style="width:${n}px;height:${n}px" aria-hidden="true">${esc((pr.fn || '?').slice(0, 1).toUpperCase())}</span>`; };
+const daLine = (label, a, v, opt = {}) => H.btn('opt line' + (opt.cls ? ' ' + opt.cls : ''), label, a, v, opt);
+
+/* ---------- the ONE strength mapping (mirror of the server's _dancer_strength_v1) ---------- */
+function daStrength(pr) {
+  const has = { first_name: daFilled(pr.fn), city: daFilled(pr.city), role: daFilled(pr.role), photo: daFilled(pr.photo), started_year: typeof pr.year === 'number', styles: pr.styles.length > 0, bio_social: daFilled(pr.bio) && (daFilled(pr.ig) || daFilled(pr.fb) || daFilled(pr.web)) };
+  const req = has.first_name && has.city && has.role && has.photo;
+  let pct = 10;
+  ['first_name', 'city', 'role', 'photo'].forEach(k => { if (has[k]) pct += 15; });
+  if (req) ['started_year', 'styles', 'bio_social'].forEach(k => { if (has[k]) pct += 10; });
+  const missing = Object.keys(has).filter(k => !has[k]);
+  return { pct, next: missing[0] || null, missing, complete: req };
+}
+function daNext(pr) {
+  const st = daStrength(pr), step = st.next;
+  if (!step) return null;
+  let label = DA_STEP_LABEL[step], focus = DA_STEP_FOCUS[step] || null;
+  if (step === 'bio_social') {
+    const bio = daFilled(pr.bio), link = daFilled(pr.ig) || daFilled(pr.fb) || daFilled(pr.web);
+    if (link && !bio) label = 'Add a short bio';
+    if (bio && !link) { label = 'Add your Instagram, Facebook or website'; focus = 'ig'; }
+  }
+  return { step, label, focus };
+}
+function daNextLine(pr) {
+  const t = daNext(pr); if (!t) return 'Your profile is complete.';
+  const st = daStrength(pr);
+  if (!['first_name', 'city', 'role', 'photo'].includes(t.step)) return `${t.label} towards 100%.`;
+  const left = st.missing.filter(m => ['first_name', 'city', 'role', 'photo'].includes(m)).length;
+  return left <= 1 ? `${t.label} to reach 70%.` : `${t.label} towards 70%.`;
+}
+DANCER_LEFT = p => p.dancer ? DA_REQ.filter(k => !daFilled(p.dancer.prof[k])).length : 0;
+DANCER_CARD = p => {
+  const pr = p.dancer ? p.dancer.prof : null;
+  if (!pr) return { city: '', role: '', photo: false, missing: DA_REQ.map(k => DA_REQ_WORD[k]) };
+  return { city: pr.city || '', role: daRole(pr.role), photo: daFilled(pr.photo), missing: DA_REQ.filter(k => !daFilled(pr[k])).map(k => DA_REQ_WORD[k]) };
+};
+/* after any save: a profile with the four required answers is a held dancer profile */
+function daSync(p) {
+  const pr = daProf(p);
+  if (DANCER_LEFT(p) === 0) p.hasProfile = true;
+  if (pr.fn) { p.first = pr.fn; p.name = [pr.fn, pr.sn].filter(Boolean).join(' '); }
+}
+const daPublicName = pr => { const n = [pr.fn, pr.hide ? '' : pr.sn].filter(daFilled).join(' '); return n || pr.dn || ''; };
+const daOtherRoles = p => !!((p.org && p.org.held) || (p.areas && ((p.areas.teacher && p.areas.teacher.shown) || (p.areas.dj && p.areas.dj.shown))));
+
+/* ---------- people ---------- */
+const daBlank = () => ({ dn: '', fn: '', sn: '', hide: false, city: '', role: '', nat: '', langs: [], year: null, styles: [], songs: [], ach: [], bio: '', ig: '', fb: '', web: '', wa: '', waShow: false, photo: '' });
+const daNight = (s, name, date, city, time, status, extra = {}) => Object.assign({ s, name, date, city, time, status, active: true, fest: false }, extra);
+MAKERS.push((id, p) => {
+  const d = {
+    prof: daBlank(), active: true, linked: false, linkedSeen: false, row: true,
+    nights: [], votes: {}, held: {}, change: {}, voteErr: {}, voteFailNext: false,
+    stats: { week: 0, month: 0, total: 0, been: 0, rated: 0 },
+    partner: 'idle', partnerErr: '', partnerFailNext: false,
+    err: {}, draft: null, ui: { songs: '', ach: '' }, live: false, editErr: '', editFailNext: '',
+    ob: null, ph: { phase: 'pick', grad: '', zoom: 1, fail: '', failNext: '', refuse: '', n: 0 }, offline: false,
+    fb: { kind: 'general', text: '', sent: false, err: '', failNext: '' }, share: null, copyFail: false,
+    so: { failed: false, failNext: false },
+  };
+  if (id === 'maria') {
+    Object.assign(d.prof, { dn: 'Maria L', fn: 'Maria', sn: 'Lopez', city: 'London', role: 'Follower', nat: 'ES', langs: ['English', 'Spanish'], styles: ['Bachata Sensual'] });
+    d.nights = [
+      daNight('s-1', 'Soho Bachata Social', '2026-10-24', 'London', '21:00', 'going'),
+      daNight('s-2', 'Camden Sensual Night', '2026-10-29', 'London', '20:30', 'interested'),
+      daNight('s-3', 'Thursday Bachata Practice', '2026-10-15', 'London', '19:30', 'going')];
+    d.stats = { week: 6, month: 18, total: 40, been: 12, rated: 4 };
+  }
+  if (id === 'busy') {
+    Object.assign(d.prof, { dn: 'Alex M', fn: 'Alex', sn: 'Moreno', city: 'London', role: 'Leader', nat: 'CO', langs: ['English', 'Spanish'], year: 2018, styles: ['Bachata Moderna', 'Salsa On1', 'Bachata Influence'], songs: ['Obsesion', 'Propuesta Indecente'], ach: ['Workshop helper'], bio: 'Social dancer, Thursdays in Soho.', ig: 'alex.dances', web: 'https://alexdances.example', wa: '+44 7700 900123', waShow: true, photo: 'f3' });
+    d.nights = [
+      daNight('s-1', 'Soho Bachata Social', '2026-10-24', 'London', '21:00', 'going'),
+      daNight('s-2', 'Camden Sensual Night', '2026-10-29', 'London', '20:30', 'interested'),
+      daNight('s-9', 'Autumn Bachata Weekender', '2026-11-07', 'Brighton', '18:00', 'going', { fest: true }),
+      daNight('s-8', 'Bachata Rooftop Social', null, null, null, 'interested'),
+      daNight('s-4', 'Sensual Sundays', '2026-10-18', 'London', '19:00', 'going'),
+      daNight('s-3', 'Thursday Bachata Practice', '2026-10-15', 'London', '19:30', 'going'),
+      daNight('s-4', 'Sensual Sundays', '2026-10-11', 'London', '19:00', 'going'),
+      daNight('s-5', 'Brixton Bachata Social', '2026-10-03', 'London', '20:00', 'interested'),
+      daNight('s-6', 'Old Kent Road Social', '2026-09-26', 'London', '21:00', 'going', { active: false }),
+      daNight('s-7', 'Leeds Bachata Night', '2026-09-12', 'Leeds', '20:00', 'not_going')];
+    d.votes = { 's-3': 'Mixed', 's-5': 'Strong' };
+    d.stats = { week: 23, month: 81, total: 1412, been: 37, rated: 15 };
+  }
+  p.dancer = d;
+});
+
+/* ---------- shared chrome ---------- */
+const DA_TAB_ICONS = {
+  appHome: '<path d="M3.5 11L12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5h4v5"/>',
+  appNights: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  appMe: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.5 18.5c1.5-2 3.4-3 5.5-3s4 1 5.5 3"/>',
+  appOptions: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+};
+const DA_TAB_OWNER = { appHome: 'appHome', appNights: 'appNights', appMe: 'appMe', appEdit: 'appMe', appPhoto: 'appMe', appOptions: 'appOptions' };
+function daTabs(id) {
+  const on = DA_TAB_OWNER[id];
+  return `<nav class="tabs" aria-label="Dancer app">${['appHome', 'appNights', 'appMe', 'appOptions'].map(t => `<button type="button" data-a="home" data-v="${t}"${t === on ? ' aria-current="page"' : ''}>${daSvg(DA_TAB_ICONS[t])}<span>${DA_NAMES[t]}</span></button>`).join('')}</nav>`;
+}
+const DA_CAL = '<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>';
+function daRight(p, brand) {
+  return (brand ? `<span style="order:-1;flex:1;display:flex;align-items:center;gap:8px;font-weight:800;font-size:16px">Bachata Calendar<span class="tag own">Dancer</span></span>` : '')
+    + `<button type="button" class="quiet" data-a="dExt" data-v="the events calendar" style="display:inline-flex;align-items:center;gap:6px;color:var(--text)">${daSvg(DA_CAL, 16)}Events</button>`
+    + `<button type="button" class="avbtn" data-a="switcher" aria-label="Switch profile">${esc((p.first || '?').slice(0, 1).toUpperCase())}</button>`;
+}
+const daFocusRight = () => `<span style="order:-1;flex:1;font-weight:800;font-size:16px">Bachata Calendar</span><button type="button" class="quiet" data-a="dNotNow">Not now</button>`;
+const daPrev = fb => { const b = S.stack[S.stack.length - 2]; return (b && DA_NAMES[b.id]) || (b && b.id === 'acctHome' ? 'Account' : fb); };
+/* tab screen result */
+const daTab = (p, id, html, extra = {}) => Object.assign({ html, tabs: daTabs(id), navRight: daRight(p, true) }, extra);
+const daCard = (inner, cls = '') => `<div class="state${cls ? ' ' + cls : ''}">${inner}</div>`;
+const daMeter = pr => { const st = daStrength(pr); return H.grp(`<div class="kv"><span>Profile strength</span><span class="v" aria-label="Profile strength ${st.pct}%"><b>${st.pct}%</b></span></div><div class="prog s" style="margin:2px 6px"><i style="width:${st.pct}%"></i></div><p class="da-m">${esc(daNextLine(pr))}</p>`); };
+const daNextAct = pr => { const t = daNext(pr); if (!t) return null; return t.step === 'photo' ? { label: t.label, a: 'go', v: 'appPhoto' } : { label: t.label, a: 'dEdit', v: t.focus }; };
+
+/* the way out when no dancer profile is found (Home, Options, My page) */
+function daWayOut(p) {
+  return H.grp((p.org && p.org.held ? H.row({ t: 'Go to my organiser area', a: 'go', v: 'orgStub' }) : '')
+    + H.row({ t: 'Account settings', a: 'go', v: 'acctSettings' })
+    + H.row({ t: 'Sign out', a: 'dSignOut' }));
+}
+const daWa = (label = 'Message us on WhatsApp') => H.row({ t: label, a: 'dExt', v: 'WhatsApp' });
+
+ACT.dExt = v => toast('Opens ' + v);
+ACT.dNotNow = () => leave(() => { P().dancer.ob = null; home('acctHome'); });
+ACT.dEdit = v => leave(() => { const d = P().dancer; d.draft = null; d.live = false; d.editErr = ''; go('appEdit', v ? { focus: v } : {}); });
+ACT.dSignOut = () => openSheet('dSignOut');
+
+/* ================= HOME ================= */
+function daHero(p) {
+  const d = daD$(p);
+  if (d.err.nights) return daCard(`<small>Your next night</small><b style="font-size:20px">We couldn\u2019t load your nights.</b>${H.primary('Browse events', 'dExt', 'your city calendar')}`);
+  const up = d.nights.filter(n => n.date && daDiff(n.date) >= 0 && n.active && (n.status === 'going' || n.status === 'interested')).sort((a, b) => a.date < b.date ? -1 : 1);
+  const n = up[0];
+  if (!n) return daCard(`<small>Your next night</small><b style="font-size:20px">No upcoming night yet.</b>${H.primary('Browse events', 'dExt', daProf(p).city ? 'the ' + daProf(p).city + ' calendar' : 'the parties list')}`);
+  const k = daDiff(n.date), when = k === 0 ? 'tonight' : k === 1 ? 'tomorrow' : `in ${k} days`;
+  return daCard(`<small style="font-weight:700;color:var(--acc)">Your next night \u00b7 ${when}</small><b style="font-size:22px">${esc(n.name)}</b><small>${esc([daDay(n.date), n.city, n.time, n.status === 'going' ? 'Going' : 'Interested'].filter(Boolean).join(' \u00b7 '))}</small>${H.primary('See event', 'dExt', 'the event page')}`, 'need');
+}
+function daNudge(p) {
+  const d = daD$(p), seen = {};
+  const c = d.nights.filter(n => n.date && n.status === 'going' && n.active && !n.fest && daDiff(n.date) <= -1 && daDiff(n.date) >= -7)
+    .sort((a, b) => a.date < b.date ? 1 : -1).filter(n => { if (seen[n.s]) return false; seen[n.s] = 1; return true; })
+    .filter(n => !d.votes[n.s]);
+  const n = c[0]; if (!n) return '';
+  return H.grp(H.row({ lead: H.icoTile('check'), t: daDiff(n.date) === -1 ? 'Rate last night' : `Rate ${daDay(n.date)}`, sub: H.small(`${n.name}. How was the dancing level?`), a: 'home', v: 'appNights|' + JSON.stringify({ focus: n.s }) }));
+}
+function daNumbers(p) {
+  const d = daD$(p), s = d.stats;
+  if (d.err.numbers) return daCard(`<b>We could not load your numbers. Check your connection and try again.</b><div class="acts">${daLine('Try again', 'dRetry', 'numbers')}</div>`);
+  const detail = s.total === 0 ? (daProf(p).photo ? 'Share your page to get your first visitor.' : 'Add a photo and share your page.') : `${daNum(s.month)} in the last 30 days \u00b7 ${daNum(s.total)} in all`;
+  const strip = (s.been === 0 && s.rated === 0) ? '' : `<div class="da-strip" style="padding:0 0 2px"><div><b>${daNum(s.been)}</b><span>Nights been to</span></div><div><b>${daNum(s.rated)}</b><span>Levels rated</span></div></div>`;
+  return H.grp(`<button type="button" class="row" data-a="go" data-v="appPage" style="align-items:flex-start"><span class="g"><b style="white-space:normal">People who looked at your page this week</b><span class="da-big">${daNum(s.week)}</span><small>${esc(detail)}</small></span>${ic('go', 20, 'color:var(--mute)')}</button>${strip}`);
+}
+function daPartner(p) {
+  const d = daD$(p), done = d.partner === 'done';
+  return daCard(`<div><b>Partner search: coming soon</b><small>${done ? 'We\u2019ll let you know the moment partner search opens.' : 'Find someone to practise and dance with.'}</small></div><div class="acts">${daLine(done ? 'We\u2019ll tell you' : 'Tell me when it\u2019s ready', 'dPartner', null, { dis: done })}</div>${d.partnerErr ? `<div class="err" role="alert">${esc(d.partnerErr)}</div>` : ''}`);
+}
+function daWeek(p) {
+  const d = daD$(p), city = daProf(p).city;
+  let inner;
+  if (!city) inner = `<p class="da-p">Add your city to see what\u2019s on near you. <button type="button" class="da-link" data-a="dEdit" data-v="city">Add my city</button></p>`;
+  else if (d.err.week) inner = `<p class="da-m">We couldn\u2019t load this week\u2019s events.</p>`;
+  else {
+    const ev = (DA_WEEK[city] || []).filter(e => !e.cancelled && daDiff(e.date) >= 0 && daDiff(e.date) <= 7).sort((a, b) => (a.date + a.time) < (b.date + b.time) ? -1 : 1).slice(0, 3);
+    inner = ev.length ? ev.map(e => H.row({ lead: daDateBlock(e.date), t: e.name, sub: H.small(`${e.loc} \u00b7 ${e.time}`), a: 'dExt', v: 'the event page' })).join('') : `<p class="da-m">Nothing listed in your city this week yet.</p>`;
+  }
+  return H.lab('What\u2019s on this week') + H.grp(inner + daExt('Browse events \u2197', city ? 'the ' + city + ' calendar' : 'the parties list'));
+}
+function daDateBlock(iso) {
+  if (!iso) return `<span class="da-date" aria-label="Date to be confirmed"><b>TBC</b></span>`;
+  const dt = daD(iso);
+  return `<span class="da-date" aria-hidden="true">${dt.toLocaleDateString('en-GB', { weekday: 'long' })}<b>${dt.getDate()}</b>${dt.toLocaleDateString('en-GB', { month: 'short' })}</span>`;
+}
+SCREENS.appHome = {
+  render: p => {
+    const d = daD$(p), pr = d.prof;
+    if (!d.row) return daTab(p, 'appHome', `<div style="height:8px"></div>` + `<div class="empty"><b>We can\u2019t find a dancer profile for you yet.</b><p>Message us and we\u2019ll sort it out.</p></div><div style="height:14px"></div>` + H.grp(daWa()) + daWayOut(p));
+    if (d.err.home) return daTab(p, 'appHome', `<div style="height:8px"></div>` + daCard(`<b>We couldn\u2019t load your home.</b><div class="acts">${H.primary('Try again', 'dRetry', 'home', { cls: 'sm' })}</div>`));
+    const h = new Date().getHours(), greet = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+    let html = `<div class="da-hd">${daAv(p, 52)}<div><div class="sub">${greet}</div><div class="title" style="font-size:24px">${esc(pr.fn || pr.dn || 'there')}</div></div></div>`;
+    if (!d.active) html += daCard(`<b>${DA_HIDDEN}</b><div class="acts">${H.btn('da-link', 'Show my profile again', 'go', 'acctSettings')}</div>`, 'need');
+    if (d.linked && !d.linkedSeen) html += daCard(`<div><b>We\u2019ve linked your profile</b><small>A profile made for you by the Bachata Calendar team is now yours. Have a look and make it right.</small></div><div class="acts">${H.btn('da-link', 'Check my profile', 'home', 'appMe')}${daLine('Got it', 'dLinkedSeen', null, { attr: ' style="width:auto;padding:0 18px"' })}</div>`);
+    html += daHero(p) + daNudge(p);
+    html += H.grp(`<button type="button" class="row" data-a="home" data-v="appMe">${`<span class="ico" aria-label="Profile strength ${daStrength(pr).pct}%" style="font-weight:800;font-size:15px">${daStrength(pr).pct}%</span>`}<span class="g"><b>Profile strength</b><small>${esc(daNextLine(pr))}</small></span>${ic('go', 20, 'color:var(--mute)')}</button>`);
+    html += daNumbers(p) + daPartner(p) + daWeek(p);
+    return daTab(p, 'appHome', html);
+  },
+};
+ACT.dRetry = v => { const d = P().dancer; d.err[v] = false; };
+ACT.dLinkedSeen = () => { P().dancer.linkedSeen = true; };
+ACT.dPartner = () => {
+  const d = P().dancer;
+  if (d.partnerFailNext) { d.partnerFailNext = false; d.partnerErr = 'You can only ask once every 30 days. Please try again next month.'; return; }
+  d.partnerErr = ''; d.partner = 'done';
+};
+
+/* ================= NIGHTS ================= */
+const DA_PILL = { going: ['Going', 'Went'], interested: ['Interested', 'Was interested'], not_going: ['Not going', 'Not going'], registered: ['Registered', 'Registered'], attended: ['Attended', 'Attended'], cancelled: ['Cancelled', 'Cancelled'] };
+function daVote(p, n, focus) {
+  const d = daD$(p), s = n.s, voted = d.votes[s], open = !voted || d.change[s], pick = d.held[s] || voted;
+  if (!open) return `<div class="kv"><span>You said: ${esc(voted)}</span><button type="button" class="da-link" data-a="dVoteChange" data-v="${s}">Change</button></div>`;
+  return `<div class="field"><label id="lv-${s}">What level was it?</label><div class="seg" role="radiogroup" aria-labelledby="lv-${s}">${DA_LEVELS.map(l => `<button type="button" class="opt" role="radio" aria-checked="${l === pick}" aria-pressed="${l === pick}" data-a="dVote" data-v="${s}|${esc(l)}">${esc(l)}</button>`).join('')}</div>`
+    + (d.held[s] ? `<p class="da-m">Finish your profile to rate. Your answer is saved and will be sent when you finish. <button type="button" class="da-link" data-a="go" data-v="appWelcome">Finish my profile</button></p>` : '')
+    + (d.voteErr[s] ? `<div class="err" role="alert">Couldn't save your answer. Please try again.</div>` : '') + `</div>`;
+}
+function daNightRow(p, n, past, focusS, voteRow) {
+  const w = (DA_PILL[n.status] || ['Status unknown', 'Status unknown'])[past ? 1 : 0];
+  const sub = (n.city || n.time ? H.small([n.city, n.time].filter(Boolean).join(' \u00b7 ')) : H.small('Place to be confirmed')) + (n.active ? '' : H.small('This event is no longer listed.'));
+  return H.row({ lead: daDateBlock(n.date), t: n.name || 'Untitled event', sub, right: `<span class="tag live" style="flex:none">${esc(w)}</span>`, a: 'dExt', v: n.fest ? 'the festival page' : 'the event page', cur: focusS && voteRow })
+    + (voteRow && n.active && !n.fest && (n.status === 'going' || n.status === 'interested') ? daVote(p, n) : '');
+}
+SCREENS.appNights = {
+  render: (p, q) => {
+    const d = daD$(p);
+    /* a held answer is sent once the profile is complete and they come back */
+    if (DANCER_LEFT(p) === 0) Object.keys(d.held).forEach(s => { d.votes[s] = d.held[s]; d.change[s] = false; delete d.held[s]; });
+    let html = H.title('Nights');
+    if (!d.row) return daTab(p, 'appNights', html + daCard(`<b>${DA_ERR.no_profile}</b>`) + daWayOut(p));
+    if (d.err.nights) return daTab(p, 'appNights', html + daCard(`<b>We couldn\u2019t load your nights.</b><div class="acts">${H.primary('Try again', 'dRetry', 'nights', { cls: 'sm' })}</div>`));
+    if (!d.nights.length) return daTab(p, 'appNights', html + `<div class="empty"><b>No nights saved yet.</b>${H.primary('Browse events', 'dExt', 'the events calendar')}</div>`);
+    const up = d.nights.filter(n => !n.date || daDiff(n.date) >= 0).sort((a, b) => !a.date ? 1 : !b.date ? -1 : a.date < b.date ? -1 : 1);
+    const past = d.nights.filter(n => n.date && daDiff(n.date) < 0).sort((a, b) => a.date < b.date ? 1 : -1);
+    html += H.lab('Upcoming') + H.grp(up.length ? up.map(n => daNightRow(p, n, false)).join('') : `<p class="da-p">No upcoming nights. <button type="button" class="da-link" data-a="dExt" data-v="the events calendar">Browse events</button></p>`);
+    const first = {};
+    html += H.lab('Past') + H.grp(past.length ? past.map(n => { const f = !first[n.s]; first[n.s] = 1; return daNightRow(p, n, true, q.focus === n.s, f); }).join('') : `<p class="da-m">Your past nights will appear here.</p>`);
+    return daTab(p, 'appNights', html);
+  },
+};
+ACT.dVote = v => {
+  const [s, l] = v.split('|'), d = P().dancer; d.voteErr[s] = false;
+  if (DANCER_LEFT(P()) > 0) { d.held[s] = l; return; }
+  if (d.voteFailNext) { d.voteFailNext = false; d.voteErr[s] = true; return; }
+  d.votes[s] = l; d.change[s] = false;
+};
+ACT.dVoteChange = s => { P().dancer.change[s] = true; };
+
+/* ================= ME ================= */
+function daGate(p, id) {
+  return daTab(p, id, H.title(id === 'appEdit' ? 'Edit my profile' : 'Me') + daCard(`<b>${DA_ERR.no_profile}</b><div class="da-btns">${H.primary('Message us on WhatsApp', 'dExt', 'WhatsApp')}${daLine('Back to the Bachata Calendar website', 'dExt', 'the Bachata Calendar website')}</div>`));
+}
+SCREENS.appMe = {
+  render: p => {
+    const d = daD$(p), pr = d.prof;
+    if (!d.row) return daGate(p, 'appMe');
+    let html = H.title('Me');
+    if (!d.active) html += daCard(`<div><b>Your profile is hidden</b><small>Your dancer profile is hidden. Only you can see it. You can show it again in Account settings.</small></div><div class="acts">${daLine('Open account settings', 'go', 'acctSettings', { attr: ' style="width:auto;padding:0 18px"' })}</div>`, 'need');
+    const name = daPublicName(pr), rc = [daRole(pr.role), pr.city].filter(Boolean).join(' \u00b7 ') || 'Your role and city are not set yet';
+    const st = daStrength(pr), nx = daNextAct(pr);
+    html += H.grp(`<div class="row" style="cursor:default">${daAv(p, 64)}<span class="g"><b>${esc(name || 'No name yet')}</b><small>${esc(rc)}</small></span></div>`
+      + `<div class="kv"><span>Profile strength</span><span class="v"><b>${st.pct}%</b></span></div><div class="prog s" style="margin:2px 6px"><i style="width:${st.pct}%"></i></div><p class="da-m">${esc(daNextLine(pr))}</p>`
+      + `<div style="padding:4px 2px 2px;display:flex;flex-direction:column">${nx ? H.primary(nx.label, nx.a, nx.v) : H.primary('Edit my profile', 'dEdit', '')}</div>`);
+    html += `<div class="grp">${nx ? daLine('Edit my profile', 'dEdit', '') : ''}${daLine('My page: how it looks and who visited', 'go', 'appPage')}${daLine('See my public page', 'dExt', 'your public page', { dis: !d.active })}${!d.active ? '<div class="reason">Your profile is hidden, so there is no public page to see.</div>' : ''}</div>`;
+    if (!name) html += `<p class="da-m" style="margin:0 18px">People will not find your page by name until you add one.</p>`;
+    return daTab(p, 'appMe', html);
+  },
+};
+
+/* ================= EDIT ================= */
+const DA_EK = ['dn', 'fn', 'sn', 'city', 'role', 'nat', 'langs', 'year', 'styles', 'songs', 'ach', 'bio', 'ig', 'fb', 'web', 'wa', 'waShow'];
+const daSplit = s => { const out = []; String(s).split(',').map(x => x.trim()).filter(Boolean).forEach(x => { if (!out.some(o => o.toLowerCase() === x.toLowerCase())) out.push(x); }); return out; };
+const daToDraft = pr => { const o = {}; DA_EK.forEach(k => o[k] = clone(pr[k])); o.langs = pr.langs.join(', '); return o; };
+const daNorm = dr => { const o = clone(dr); ['dn', 'fn', 'sn', 'bio', 'ig', 'fb', 'web', 'wa'].forEach(k => o[k] = String(o[k] || '').trim()); o.langs = daSplit(dr.langs); return o; };
+const daDraft = p => { const d = p.dancer; if (!d.draft) d.draft = daToDraft(d.prof); return d.draft; };
+const daChanged = p => { const d = p.dancer; if (!d.draft) return []; const n = daNorm(d.draft); return DA_EK.filter(k => !same(n[k], d.prof[k])); };
+const DA_HINT = {
+  dn: 'Change this to a name without links or @ next time you save it.',
+  bio: 'Take the link out of your bio and keep it under 280 characters so it can be saved again.',
+  ig: 'Use just your handle here, for example your.handle, so this works as a link.',
+  fb: 'Use just your handle here, for example your.handle, so this works as a link.',
+  web: 'Add https:// at the start so this works as a link.',
+  wa: 'Add your country code, for example +44 7700 900123, so people can reach you.',
+};
+function daRule(k, v, saved) {
+  v = String(v == null ? '' : v).trim();
+  if (k === 'dn') return v && (v.length > 40 || /http|:\/\/|@|[\u0000-\u001f]/i.test(v)) ? 'Display name must be 1 to 40 characters, with no links or @.' : '';
+  if (k === 'fn') return !v && daFilled(saved) ? 'Your first name cannot be empty. You can change it, but not remove it.' : '';
+  if (k === 'city') return !v && daFilled(saved) ? 'Pick your city from the list. You can change it, but not remove it.' : '';
+  if (k === 'bio') { if (v.length > 280) return `Your bio can be up to 280 characters. Remove ${v.length - 280} to save.`; return /https?:\/\/|www\.|\.[a-z]{2,6}\//i.test(v) ? 'Links are not allowed in your bio. Add your Instagram, Facebook or website in their own fields.' : ''; }
+  if (k === 'ig' || k === 'fb') return v && !/^@?[A-Za-z0-9._]{1,50}$/.test(v) ? `That does not look like a valid ${k === 'ig' ? 'Instagram' : 'Facebook'} handle. Use letters, numbers, dots or underscores.` : '';
+  if (k === 'web') return v && !/^https?:\/\//i.test(v) ? 'Your website must start with http:// or https://.' : '';
+  if (k === 'wa') { const n = v.replace(/\D/g, '').length; return v && (n < 7 || n > 15 || !/^\+?[0-9()\- ]+$/.test(v)) ? 'Enter your number with the country code, for example +44 7700 900123.' : ''; }
+  return '';
+}
+function daErrors(p) { const d = p.dancer, ch = daChanged(p), dr = daDraft(p), e = {}; ch.forEach(k => { const m = daRule(k, dr[k], d.prof[k]); if (m) e[k] = m; }); return e; }
+const daEditSavable = p => { if (!p.dancer.draft) return false; return daChanged(p).length > 0 && !Object.keys(daErrors(p)).length; };
+FORMS.dancerEdit = { dirty: p => daEditSavable(p) };
+function daField(p, k, label, hint, ctl) {
+  const e = daErrors(p)[k], d = p.dancer;
+  const calm = !e && !daChanged(p).includes(k) && DA_HINT[k] && daRule(k, d.prof[k], d.prof[k]) ? `<div class="note2">${DA_HINT[k]}</div>` : '';
+  return `<div class="field"><label for="de-${k}">${esc(label)}${hint ? ` <span class="m" style="font-weight:500">${esc(hint)}</span>` : ''}</label>${ctl}${e ? `<div class="err" role="alert">${esc(e)}</div>` : ''}${calm}</div>`;
+}
+const daIn = (p, k, ph = '', type = 'text') => `<input class="inp sm" id="de-${k}" type="${type}" data-i="de" data-v="${k}" data-k="de-${k}" value="${esc(daDraft(p)[k])}"${ph ? ` placeholder="${esc(ph)}"` : ''}${daErrors(p)[k] ? ' aria-invalid="true" style="box-shadow:inset 0 0 0 2px var(--bad)"' : ''}>`;
+const daSel = (p, k, opts, ph) => `<select class="inp sm" id="de-${k}" data-i="de" data-v="${k}" data-k="de-${k}"${daErrors(p)[k] ? ' aria-invalid="true" style="box-shadow:inset 0 0 0 2px var(--bad)"' : ''}><option value="">${esc(ph)}</option>${opts.map(([v, l]) => `<option value="${esc(v)}"${daDraft(p)[k] === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+const daTog = (label, on, a, v, dis) => `<button type="button" class="tog da-t" aria-pressed="${!!on}" data-a="${a}" data-v="${esc(v)}"${dis ? ' disabled' : ''}>${esc(label)}</button>`;
+function daChipList(p, k, ph) {
+  const dr = daDraft(p), d = p.dancer;
+  return `<div class="chips" style="padding:0">${dr[k].map((x, i) => `<span class="chip">${esc(x)}<button type="button" data-a="deRemove" data-v="${k}|${i}" aria-label="Remove ${esc(x)}">\u00d7</button></span>`).join('')}</div>`
+    + `<div class="addrow"><input class="inp sm" id="de-${k}" type="text" data-i="deList" data-v="${k}" data-k="de-${k}" data-enter="deAdd" value="${esc(d.ui[k])}" placeholder="${esc(ph)}"><button type="button" class="ghost" data-a="deAdd" data-v="${k}"${dr[k].length >= 20 || !d.ui[k].trim() ? ' disabled' : ''}>Add</button></div>`;
+}
+SCREENS.appEdit = {
+  back: () => daPrev('Me'),
+  backTo: () => 'appMe',
+  dirty: p => daChanged(p).length > 0,
+  discard: p => { p.dancer.draft = null; p.dancer.ui = { songs: '', ach: '' }; },
+  render: (p, q) => {
+    const d = daD$(p), pr = d.prof;
+    if (!d.row) return Object.assign(daGate(p, 'appEdit'), { navRight: daRight(p, false) });
+    const dr = daDraft(p), err = daErrors(p), changed = daChanged(p);
+    let f = `<div class="row" style="cursor:default">${daAv(p, 64)}<span class="g"><b>${esc(daPublicName(pr) || 'No name yet')}</b></span>${H.btn('da-link', pr.photo ? 'Change photo' : 'Add photo', 'go', 'appPhoto|' + JSON.stringify({ ret: 'appEdit' }))}</div>`;
+    f += daField(p, 'dn', 'Display name', '(shown on your page)', daIn(p, 'dn'));
+    f += daField(p, 'fn', 'First name', '', daIn(p, 'fn'));
+    f += daField(p, 'sn', 'Surname', '(optional)', daIn(p, 'sn'));
+    const hideReason = !(daFilled(pr.fn) && daFilled(pr.city)) ? 'Add your first name and city first, then you can choose.' : '';
+    f += `<div class="kv"><span>Hide my surname from the public</span><button type="button" class="swwrap" role="switch" aria-checked="${pr.hide}" aria-label="Hide my surname from the public" data-a="dHide"${hideReason ? ' disabled' : ''}><span class="sw" aria-checked="${pr.hide}"></span></button></div>`
+      + (hideReason ? `<div class="reason">${hideReason}</div>` : `<div class="note2">${pr.hide ? 'Anyone viewing your profile or a line-up sees only your first name.' : 'Anyone viewing your profile or a line-up sees your first name and surname.'}</div>`);
+    f += daField(p, 'city', 'City', '', daSel(p, 'city', DA_CITIES.map(c => [c, c]), 'Pick your city') + `<p class="da-m" style="padding:0">City not in the list? ${daExt('Message us to add your city', 'WhatsApp')}</p>`);
+    f += daField(p, 'role', 'I dance as', '', `<div class="seg" role="radiogroup">${DA_ROLES.map(([v, l]) => `<button type="button" class="opt" role="radio" aria-checked="${dr.role === v}" aria-pressed="${dr.role === v}" data-a="deRole" data-v="${v}">${l}</button>`).join('')}</div>`);
+    f += daField(p, 'nat', 'Nationality', '', daSel(p, 'nat', DA_COUNTRIES, 'Pick your country'));
+    f += daField(p, 'langs', 'Languages', '(separate with commas)', daIn(p, 'langs', 'English, Spanish'));
+    f += daField(p, 'year', 'Dancing since', '', `<div class="chips" style="padding:0">${DA_BANDS.map(([id, l]) => daTog(l, daBand(dr.year) === id, 'deBand', id)).join('')}</div>`);
+    const extra = dr.styles.filter(s => !DA_STYLES.some(x => x.toLowerCase() === s.toLowerCase()));
+    f += daField(p, 'styles', 'Favourite styles', '', `<div class="chips" style="padding:0">${DA_STYLES.concat(extra).map(s => daTog(s, dr.styles.some(x => x.toLowerCase() === s.toLowerCase()), 'deStyle', s)).join('')}</div>`);
+    f += daField(p, 'songs', 'Favourite songs', '', daChipList(p, 'songs', 'Add a song'));
+    f += daField(p, 'ach', 'Achievements', '', daChipList(p, 'ach', 'Add an achievement'));
+    f += daField(p, 'bio', 'About me', '', `<textarea class="inp" id="de-bio" rows="4" data-i="de" data-v="bio" data-k="de-bio"${err.bio ? ' aria-invalid="true" style="box-shadow:inset 0 0 0 2px var(--bad)"' : ''}>${esc(dr.bio)}</textarea><div class="note2" style="text-align:right">${dr.bio.length}/280</div>`);
+    f += daField(p, 'ig', 'Instagram', '', daIn(p, 'ig', 'your.handle'));
+    f += daField(p, 'fb', 'Facebook', '', daIn(p, 'fb', 'your.handle'));
+    f += daField(p, 'web', 'Website', '', daIn(p, 'web', 'https://', 'url'));
+    if (daOtherRoles(p)) {
+      const noNum = !String(dr.wa).trim();
+      f += daField(p, 'wa', 'WhatsApp', '(number with country code)', daIn(p, 'wa', '+44 7700 900123', 'tel'));
+      f += `<div class="kv"><span>Show my WhatsApp on my page</span><button type="button" class="tog da-t" aria-pressed="${!!dr.waShow && !noNum}" data-a="deWa"${noNum ? ' disabled' : ''}>${dr.waShow && !noNum ? 'On' : 'Off'}</button></div>`
+        + (noNum ? `<div class="reason">Add your number above to show it on your page.</div>` : '')
+        + `<div class="note2">WhatsApp is only for people who also teach, DJ or organise, so students and partners can reach you. It shows on your page only while this is on.</div>`;
+    }
+    let html = H.title('Edit my profile');
+    if (d.editErr) html += daCard(`<b>${esc(d.editErr)}</b><div class="acts">${daLine('Try again', 'deSave', null, { attr: ' style="width:auto;padding:0 18px"', dis: !daEditSavable(p) })}</div>`, 'need');
+    html += `<div class="grp" style="box-shadow:inset 0 3px 0 var(--acc)">${f}</div>`;
+    const reason = Object.keys(err).length ? 'Fix the fields marked above, then save.' : !changed.length ? (d.live ? 'Your changes are live.' : 'Nothing has changed yet. Edit a field above to save.') : '';
+    const foot = H.primary('Save changes', 'deSave', null, { dis: !daEditSavable(p), reason, attr: ' data-save="dancerEdit"' }) + daLine('Back to Me', 'home', 'appMe');
+    return { html: html + `<div class="foot">${foot}</div>`, tabs: daTabs('appEdit'), navRight: daRight(p, false) };
+  },
+};
+INP.de = (v, el) => { const d = P().dancer; daDraft(P())[el.dataset.v] = v; d.live = false; };
+INP.deList = (v, el) => {
+  const d = P().dancer, k = el.dataset.v; d.live = false;
+  if (v.includes(',')) { v.split(',').slice(0, -1).forEach(x => daAddItem(P(), k, x)); d.ui[k] = v.split(',').pop(); } else d.ui[k] = v;
+};
+function daAddItem(p, k, x) { const list = daDraft(p)[k]; x = String(x).trim().slice(0, 60); if (!x || list.length >= 20 || list.some(o => o.toLowerCase() === x.toLowerCase())) return; list.push(x); }
+ACT.deAdd = k => { const d = P().dancer; daAddItem(P(), k, d.ui[k]); d.ui[k] = ''; d.live = false; };
+ACT.deRemove = v => { const [k, i] = v.split('|'); daDraft(P())[k].splice(+i, 1); P().dancer.live = false; };
+ACT.deRole = v => { const dr = daDraft(P()); dr.role = dr.role === v ? '' : v; P().dancer.live = false; };
+ACT.deBand = b => {
+  const dr = daDraft(P()), saved = P().dancer.prof.year;
+  if (daBand(dr.year) === b) dr.year = null;
+  else dr.year = daBand(saved) === b ? saved : DA_YEAR - DA_BANDS.find(x => x[0] === b)[2];
+  P().dancer.live = false;
+};
+ACT.deStyle = s => { const dr = daDraft(P()); const i = dr.styles.findIndex(x => x.toLowerCase() === s.toLowerCase()); if (i >= 0) dr.styles.splice(i, 1); else dr.styles.push(s); P().dancer.live = false; };
+ACT.deWa = () => { const dr = daDraft(P()); dr.waShow = !dr.waShow; P().dancer.live = false; };
+ACT.dHide = () => { const pr = P().dancer.prof; pr.hide = !pr.hide; };
+ACT.deSave = () => {
+  const p = P(), d = p.dancer; if (!daEditSavable(p)) return;
+  if (d.editFailNext) { d.editErr = DA_ERR[d.editFailNext]; d.editFailNext = ''; return; }
+  const n = daNorm(d.draft); DA_EK.forEach(k => d.prof[k] = clone(n[k]));
+  d.draft = daToDraft(d.prof); d.editErr = ''; d.live = true; daSync(p);
+  toast('Your changes are live.');
+};
+
+/* ================= ONBOARDING (/app/welcome) ================= */
+const DA_OB_REQ = [['name', 'fn'], ['city', 'city'], ['role', 'role'], ['photo', 'photo']];
+function daStageFor(pr) {
+  const r = DA_OB_REQ.find(([, k]) => !daFilled(pr[k])); if (r) return r[0];
+  const st = daStrength(pr); return st.missing.includes('started_year') || st.missing.includes('styles') ? 'in' : 'nice';
+}
+const daOptLeft = pr => { const m = daStrength(pr).missing; return ['started_year', 'styles'].filter(x => m.includes(x)).map(x => x === 'started_year' ? 'years' : 'styles'); };
+function daObInit(p) {
+  const pr = daProf(p), stage = daStageFor(pr);
+  p.dancer.ob = { stage, first: stage, req: DA_OB_REQ.filter(([, k]) => !daFilled(pr[k])).map(r => r[0]), fn: pr.fn, dn: pr.dn, city: pr.city, role: pr.role, band: daBand(pr.year), styles: clone(pr.styles), err: '' };
+  return p.dancer.ob;
+}
+const daOb = p => p.dancer.ob || daObInit(p);
+const daObDirty = p => { const o = p.dancer.ob; if (!o) return false; const pr = daProf(p);
+  return { name: o.fn.trim() !== pr.fn || o.dn.trim() !== pr.dn, city: o.city !== pr.city, role: o.role !== pr.role, years: o.band !== daBand(pr.year), styles: !same(o.styles, pr.styles) }[o.stage] || false; };
+function daObCard(p, o) {
+  const pr = daProf(p), st = daStrength(pr), first = pr.fn || 'there';
+  const tagReq = o.req.includes(o.stage) ? `<span class="tag own">${o.req.indexOf(o.stage) + 1} of ${o.req.length}</span>` : '';
+  const tagOpt = `<span class="tag own">Optional \u00b7 +10%</span>`;
+  const note = o.stage === o.first && p.dancer.linked ? `<p class="da-m" style="margin:0 18px">We linked your existing profile. Not you? <button type="button" class="da-link" data-a="dExt" data-v="WhatsApp">Message us</button>.</p>` : '';
+  const err = o.err ? `<div class="err" role="alert" style="margin:0 22px 10px">${esc(o.err)}</div>` : '';
+  const left = daOptLeft(pr), leftWord = left.length === 2 ? 'Two quick questions' : 'One quick question';
+  const endLabel = 'Go to Home';
+  let tag = '', head = '', body = '', foot = '';
+  switch (o.stage) {
+    case 'name':
+      tag = tagReq; head = 'What\u2019s your name?';
+      body = H.grp(`<div class="field"><label for="ob-fn">First name</label><input class="inp sm" id="ob-fn" autocomplete="given-name" enterkeyhint="next" data-i="ob" data-v="fn" data-k="ob-fn" data-enter="obNext" value="${esc(o.fn)}"></div><div class="field"><label for="ob-dn">Name shown on your page (optional)</label><div class="q">Up to 40 characters, no links.</div><input class="inp sm" id="ob-dn" maxlength="40" data-i="ob" data-v="dn" data-k="ob-dn" data-enter="obNext" value="${esc(o.dn)}"></div>`);
+      foot = H.primary('Continue', 'obNext', null, { dis: !o.fn.trim(), reason: 'Enter your first name to continue.' });
+      break;
+    case 'city':
+      tag = tagReq; head = 'Where do you dance?';
+      body = H.grp(`<div class="field"><label for="ob-city">Your city</label><select class="inp sm" id="ob-city" data-i="ob" data-v="city" data-k="ob-city"><option value="">Search for your city</option>${DA_CITIES.map(c => `<option${o.city === c ? ' selected' : ''}>${c}</option>`).join('')}</select><p class="da-m" style="padding:0">City not in the list? ${daExt('Message us to add your city', 'WhatsApp')}</p></div>`);
+      foot = H.primary('Continue', 'obNext', null, { dis: !o.city, reason: 'Pick your city from the list to continue.' });
+      break;
+    case 'role':
+      tag = tagReq; head = 'How do you dance?';
+      body = H.grp(`<div class="seg" role="radiogroup" aria-label="How do you dance?">${DA_ROLES.map(([v, l]) => `<button type="button" class="opt" role="radio" aria-checked="${o.role === v}" aria-pressed="${o.role === v}" data-a="obRole" data-v="${v}">${l}</button>`).join('')}</div>`);
+      foot = H.primary('Continue', 'obNext', null, { dis: !o.role, reason: 'Pick Leader, Follower or Both to continue.' });
+      break;
+    case 'photo':
+      tag = tagReq; head = 'Add your photo';
+      body = H.grp(`<div class="da-box"><svg width="120" height="120" viewBox="0 0 120 120" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5" stroke-dasharray="6 5"><ellipse cx="60" cy="48" rx="22" ry="27"/><path d="M18 116c4-24 20-34 42-34s38 10 42 34"/></svg></div><p class="da-p">Head and shoulders inside the outline. This is how people find you.</p>`);
+      foot = H.primary('Add my photo', 'go', 'appPhoto|' + JSON.stringify({ ret: 'appWelcome' })) + `<div class="reason">A photo is needed to finish setting up your page, so this step cannot be skipped.</div>`;
+      break;
+    case 'in':
+      tag = `<span class="tag live">${st.pct}%${p.dancer.active ? ' \u00b7 Your profile is live' : ''}</span>`; head = `You\u2019re in, ${first}`;
+      body = `<p class="da-p" style="margin:0 14px 14px">${p.dancer.active ? 'People can find your page now.' : DA_HIDDEN}${left.length ? ` ${leftWord} will make it stronger.` : ''}</p>`;
+      foot = (left.length ? H.primary(leftWord, 'obBoost') : '') + H.quiet(endLabel, 'obEnd');
+      break;
+    case 'years':
+      tag = tagOpt; head = 'How long have you been dancing?';
+      body = H.grp(`<div class="chips" role="radiogroup" style="padding:0">${DA_BANDS.map(([id, l]) => daTog(l, o.band === id, 'obBand', id)).join('')}</div>`);
+      foot = H.primary('Continue', 'obNext', null, { dis: !o.band, reason: 'Pick one to continue, or skip this question.' }) + H.quiet('Skip', 'obSkip');
+      break;
+    case 'styles':
+      tag = tagOpt; head = 'Which styles do you love?';
+      body = H.grp(`<div class="chips" style="padding:0">${DA_STYLES.map(s => daTog(s, o.styles.includes(s), 'obStyle', s)).join('')}</div>`);
+      foot = H.primary('Continue', 'obNext', null, { dis: !o.styles.length, reason: 'Pick at least one style to continue, or skip this question.' }) + H.quiet('Skip', 'obSkip');
+      break;
+    default:
+      head = `Nice work, ${first}`;
+      body = `<p class="da-p" style="margin:0 14px 14px">Your profile is at ${st.pct}%. Add a bio and links any time from Me.</p>`;
+      foot = H.primary(endLabel, 'obEnd');
+  }
+  const meter = o.stage === 'nice' || o.stage === 'in' ? '' : daMeter(pr);
+  return { html: meter + `<div style="margin:16px 18px 0">${tag}</div>` + H.title(head) + note + body + err, foot };
+}
+SCREENS.appWelcome = {
+  dirty: p => daObDirty(p),
+  discard: p => { p.dancer.ob = null; },
+  render: p => { const o = daOb(p), c = daObCard(p, o); return { html: c.html, foot: c.foot, navRight: daFocusRight() }; },
+};
+INP.ob = (v, el) => { daOb(P())[el.dataset.v] = v; };
+ACT.obRole = v => { const o = daOb(P()); o.role = o.role === v ? '' : v; };
+ACT.obBand = v => { const o = daOb(P()); o.band = o.band === v ? null : v; };
+ACT.obStyle = s => { const o = daOb(P()); const i = o.styles.indexOf(s); if (i >= 0) o.styles.splice(i, 1); else o.styles.push(s); };
+ACT.obNext = () => {
+  const p = P(), o = daOb(p), pr = daProf(p), from = o.stage;
+  if (from === 'name') { if (!o.fn.trim()) return; pr.fn = o.fn.trim(); pr.dn = o.dn.trim(); }
+  else if (from === 'city') { if (!o.city) return; pr.city = o.city; }
+  else if (from === 'role') { if (!o.role) return; pr.role = o.role; }
+  else if (from === 'years') { if (!o.band) return; pr.year = DA_YEAR - DA_BANDS.find(b => b[0] === o.band)[2]; }
+  else if (from === 'styles') { if (!o.styles.length) return; pr.styles = clone(o.styles); }
+  else return;
+  o.err = ''; daSync(p);
+  const req = DA_OB_REQ.find(([, k]) => !daFilled(pr[k]));
+  if (req) { o.stage = req[0]; return; }
+  if (from === 'years' || from === 'styles') { const other = daOptLeft(pr).filter(x => x !== from); o.stage = other[0] || 'nice'; return; }
+  o.stage = 'in';
+};
+ACT.obSkip = () => { const o = daOb(P()), pr = daProf(P()); o.stage = o.stage === 'years' && daOptLeft(pr).includes('styles') ? 'styles' : 'nice'; };
+ACT.obBoost = () => { const o = daOb(P()); o.stage = daOptLeft(daProf(P()))[0] || 'nice'; };
+ACT.obEnd = () => { const p = P(); daSync(p); p.dancer.ob = null; home('appHome'); };
+
+/* ================= PHOTO ================= */
+function daToRet(id) {
+  const b = S.stack[S.stack.length - 2];
+  if (id === 'appWelcome') P().dancer.ob = null; /* the welcome route re-reads and resumes */
+  if (b && b.id === id) S.stack.pop(); else S.stack[S.stack.length - 1] = { id, params: {} };
+  S.sheet = null;
+}
+const daPhReset = d => { d.ph = { phase: 'pick', grad: '', zoom: 1, fail: '', failNext: d.ph.failNext, refuse: '', n: d.ph.n }; };
+SCREENS.appPhoto = {
+  back: () => null,
+  backTo: () => 'appMe',
+  dirty: p => p.dancer.ph.phase !== 'pick',
+  discard: p => daPhReset(p.dancer),
+  render: (p, q) => {
+    const d = daD$(p), ph = d.ph, pr = d.prof, ret = q.ret || null;
+    const focus = ret === 'appWelcome' && DANCER_LEFT(p) > 0;
+    const backLink = ret ? H.quiet(ret === 'appWelcome' ? 'Back to setup' : 'Back', 'phBack', ret) : '';
+    let html = H.title('Your photo');
+    if (d.offline) html += `<div class="err" role="alert" style="margin:0 22px 12px;font-size:15px">You are offline. You can still pick and crop a photo; saving needs a connection.</div>`;
+    if (!d.row) html += daCard(`<b style="color:var(--bad)">We could not load your profile, so we cannot save a photo yet. Check your connection and try again.</b><div class="acts">${daLine('Try again', 'phReload', null, { attr: ' style="width:auto;padding:0 18px"' })}</div>`);
+    let foot = '';
+    if (ph.phase === 'pick') {
+      html += H.grp(`<p class="da-m">Head and shoulders, facing the camera. This is how people find you.</p>`
+        + (ph.refuse ? `<div class="err" role="alert">${esc(ph.refuse)} Pick another photo to carry on.</div>` : '')
+        + `<p class="da-m">If your camera does not open, allow camera access for this site in your browser settings, or choose from your photos instead.</p>`
+        + (pr.photo ? `<p class="da-m">Your current photo stays until you save a new one.</p>` : ''));
+      foot = H.primary('Take photo', 'phPick') + daLine('Choose from my photos', 'phPick') + backLink;
+    } else if (ph.phase === 'crop') {
+      html += H.grp(`<p class="da-m">Drag to position, pinch or use the slider to zoom. Keep your head and shoulders inside the outline.</p>`
+        + `<div class="da-crop" role="img" tabindex="0" aria-label="Photo crop. Arrow keys move the photo, plus and minus zoom."><div class="${ph.grad}" style="transform:scale(${ph.zoom})"></div><svg viewBox="0 0 100 100" aria-hidden="true" fill="none" stroke="#fff" stroke-width="0.8" stroke-dasharray="3 2"><ellipse cx="50" cy="40" rx="17" ry="21"/><path d="M14 100c3-18 17-28 36-28s33 10 36 28"/></svg></div>`
+        + `<div class="field"><label for="ph-zoom">Zoom</label><input id="ph-zoom" type="range" min="1" max="4" step="0.01" value="${ph.zoom}" data-i="phZoom" data-k="ph-zoom" style="width:100%;min-height:44px;accent-color:var(--acc)"></div>`);
+      foot = H.primary('Next', 'phNext') + daLine('Choose a different photo', 'phAgain') + backLink;
+    } else {
+      const off = d.offline ? 'Use this photo is off until you are back online.' : !d.row ? 'Use this photo is off until your profile has loaded. Press Try again above.' : '';
+      html += H.grp(`<div class="da-prev ${ph.grad}" role="img" aria-label="Your new photo" style="background-size:${ph.zoom * 100}%"></div><div class="kv" style="justify-content:center">This is how people will see you.</div>`
+        + (ph.fail ? `<div class="err" role="alert">${esc(ph.fail)}</div>` : ''));
+      foot = H.primary(ph.fail ? 'Try again' : 'Use this photo', 'phUse', null, { dis: !!off, reason: off }) + daLine('Take another', 'phAgain');
+    }
+    const r = { html, foot, navRight: focus ? daFocusRight() : daRight(p, true) };
+    if (!focus) r.tabs = daTabs('appPhoto');
+    return r;
+  },
+};
+ACT.phPick = () => { const d = P().dancer; d.ph.n = (d.ph.n + 1) % DA_GRADS.length; Object.assign(d.ph, { phase: 'crop', grad: DA_GRADS[d.ph.n], zoom: 1, refuse: '', fail: '' }); };
+INP.phZoom = v => { P().dancer.ph.zoom = Math.min(4, Math.max(1, +v || 1)); };
+ACT.phNext = () => { P().dancer.ph.phase = 'preview'; };
+ACT.phAgain = () => daPhReset(P().dancer);
+ACT.phReload = () => { P().dancer.row = true; };
+ACT.phBack = ret => leave(() => { daPhReset(P().dancer); daToRet(ret); });
+ACT.phUse = () => {
+  const p = P(), d = p.dancer, ph = d.ph;
+  if (d.offline || !d.row) return;
+  if (ph.failNext) { ph.fail = DA_UPLOAD_FAIL[ph.failNext]; ph.failNext = ''; return; }
+  d.prof.photo = ph.grad; daSync(p);
+  const ret = (cur().params || {}).ret || 'appMe';
+  daPhReset(d); daToRet(ret); toast('Saved');
+};
+
+/* ================= OPTIONS ================= */
+const daShareBlock = d => d.share === 'manual' ? `<div class="field"><p class="da-m" style="padding:0">Copying is not available here. Select the link and copy it:</p><input class="inp sm" readonly aria-label="Link to my page" data-k="da-link" value="https://bachatacalendar.com/dancers/example"></div>` : '';
+SCREENS.appOptions = {
+  render: p => {
+    const d = daD$(p);
+    let html = H.title('Options');
+    if (!d.row) return daTab(p, 'appOptions', html + daCard(`<b role="alert">${DA_ERR.no_profile}</b>`) + H.grp(daWa()) + daWayOut(p));
+    if (d.err.options) return daTab(p, 'appOptions', html + daCard(`<b>We could not load your options. Check your connection and try again.</b>`) + H.grp(H.row({ t: 'Retry', a: 'dRetry', v: 'options' })));
+    const share = `<button type="button" class="row" data-a="dShare"${d.active ? '' : ' disabled'}><span class="g"><b>Share my page</b></span></button>` + (d.active ? '' : `<div class="reason">Your dancer profile is hidden. Only you can see it. To share it, tap Show my profile again in Account settings.</div>`) + daShareBlock(d);
+    html += H.grp(share
+      + H.row({ t: 'My page', a: 'go', v: 'appPage' })
+      + H.row({ t: "Send feedback: what's missing?", a: 'dFeedback' })
+      + H.row({ t: "Add to my phone's home screen", a: 'dInstall' })
+      + H.row({ t: 'Help and message us', a: 'dExt', v: 'WhatsApp', right: '' })
+      + H.row({ t: p.org && p.org.held ? 'I run events' : 'Run events? Become an organiser', a: 'go', v: 'orgStub' })
+      + H.row({ t: 'Terms', a: 'dExt', v: 'the terms' })
+      + H.row({ t: 'Privacy policy', a: 'dExt', v: 'the privacy policy' })
+      + H.row({ t: 'Sign out', a: 'dSignOut', right: '' }));
+    html += `<p class="da-m" style="margin:0 18px 14px">Hide your profile, download your data or delete your account: <button type="button" class="da-link" data-a="go" data-v="acctSettings">Account settings</button></p>`;
+    html += H.grp(H.row({ t: '\u2190 Back to the Bachata Calendar website', a: 'dExt', v: 'the events feed', right: '' }));
+    return daTab(p, 'appOptions', html);
+  },
+};
+ACT.dShare = () => { const d = P().dancer; if (!d.active) return; if (d.copyFail) d.share = 'manual'; else toast('Link copied'); };
+ACT.dFeedback = () => { const d = P().dancer; if (d.fb.sent) Object.assign(d.fb, { sent: false, err: '' }); openSheet('dFeedback'); };
+ACT.dInstall = () => openSheet('dInstall');
+const daClose = (dis) => daLine('Close', 'closeSheet', null, { dis });
+SHEETS.dInstall = {
+  render: () => H.title("Add to my phone's home screen")
+    + H.lab('iPhone or iPad (Safari)') + H.grp(`<ol class="da-list"><li>Open this page in Safari.</li><li>Tap the Share button (the square with an arrow).</li><li>Scroll down and tap Add to Home Screen.</li><li>Tap Add.</li></ol>`)
+    + H.lab('Android (Chrome)') + H.grp(`<ol class="da-list"><li>Open this page in Chrome.</li><li>Tap the menu (three dots) at the top right.</li><li>Tap Add to Home screen (or Install app).</li><li>Tap Add.</li></ol>`)
+    + `<div class="foot">${daClose()}</div>`,
+};
+const daFbReason = fb => { const n = fb.text.trim().length; return n === 0 ? 'Write a message to send it.' : n > 2000 ? 'Your message is over 2000 characters. Shorten it to send it.' : ''; };
+FORMS.dFeedback = { dirty: p => !daFbReason(p.dancer.fb) };
+SHEETS.dFeedback = {
+  render: p => {
+    const fb = p.dancer.fb;
+    if (fb.sent) return H.title('Send feedback') + `<p class="da-p" style="margin:0 14px 14px" role="status">Thank you. We read every message.</p><div class="foot">${daClose()}</div>`;
+    const reason = daFbReason(fb);
+    return H.title('Send feedback') + H.grp(`<div class="field"><label for="fb-text">What is missing, broken or good? Write it in your own words.</label><div class="chips" role="group" aria-label="What kind of message is it?" style="padding:0">${DA_FB_KINDS.map(([k, l]) => daTog(l, fb.kind === k, 'fbKind', k)).join('')}</div><textarea class="inp" id="fb-text" rows="5" data-i="fbText" data-k="fb-text">${esc(fb.text)}</textarea><div class="note2" style="text-align:right">${fb.text.trim().length} / 2000</div>${fb.err ? `<div class="err" role="alert">${esc(fb.err)}</div>` : ''}</div>`)
+      + `<div class="foot">${H.primary('Send', 'fbSend', null, { dis: !!reason, reason, attr: ' data-save="dFeedback"' })}${daClose()}</div>`;
+  },
+};
+INP.fbText = v => { P().dancer.fb.text = v; };
+ACT.fbKind = k => { P().dancer.fb.kind = k; };
+ACT.fbSend = () => {
+  const d = P().dancer, fb = d.fb; if (daFbReason(fb)) return;
+  if (d.offline) { fb.err = 'You look offline. Your message is still here: connect and send it again.'; return; }
+  if (fb.failNext) { fb.err = { rate: 'You\u2019ve sent a few today, try again tomorrow.', closed: 'Feedback is not open for your account yet. Close this and use \u201cHelp and message us\u201d instead.' }[fb.failNext]; fb.failNext = ''; return; }
+  Object.assign(fb, { sent: true, text: '', err: '' });
+};
+SHEETS.dSignOut = {
+  render: p => { const so = p.dancer.so;
+    return H.title('Sign out?') + `<p class="da-p" style="margin:0 14px 14px">You can sign back in any time with your email.</p>`
+      + (so.failed ? `<div class="err" role="alert" style="margin:0 22px 10px">Sign-out did not complete. Check your connection and try again.</div>` : '')
+      + `<div class="foot">${H.primary(so.failed ? 'Retry' : 'Yes, sign out', 'dSignOutYes', null, { cls: 'danger' })}${daClose()}</div>`; },
+};
+ACT.dSignOutYes = () => {
+  const so = P().dancer.so;
+  if (so.failNext) { so.failNext = false; so.failed = true; toast('Sign-out did not complete. Check your connection and try again.', true); return; }
+  so.failed = false; closeSheet(); toast('Opens the site home, signed out');
+};
+
+/* ================= MY PAGE ================= */
+const DA_PHRASE = { Leader: 'you lead', Follower: 'you follow', 'Lead and Follow': 'you lead and follow' };
+SCREENS.appPage = {
+  back: () => daPrev('Me'),
+  backTo: () => 'appMe',
+  render: p => {
+    const d = daD$(p), pr = d.prof, s = d.stats;
+    const r = { tabs: daTabs('appPage'), navRight: daRight(p, false) };
+    let html = H.title('My page');
+    if (!d.row) return Object.assign(r, { html: html + daCard(`<b>${DA_ERR.no_profile}</b>`) + H.grp(daWa()) + daWayOut(p) });
+    const name = daPublicName(pr), rp = DA_PHRASE[pr.role], cp = pr.city ? `you dance in ${pr.city}` : '';
+    const rc = rp && cp ? `It says ${rp} and ${cp}.` : rp || cp ? `It says ${rp || cp}.` : 'It does not say your city or dance role yet.';
+    html += H.lab('How your page looks') + H.grp(`<ul class="da-list"><li>${esc(name ? `It shows your name: ${name}.` : 'It has no name yet, so people cannot find it by name.')}</li><li>${pr.photo ? 'It shows your photo.' : 'It has no photo yet. Add one so people recognise you.'}</li><li>${esc(rc)}</li><li>${pr.bio ? 'It shows your bio.' : 'It has no bio yet.'}</li></ul>`);
+    const detail = s.total === 0 ? (pr.photo ? 'Share your page to get your first visitor.' : 'Add a photo and share your page.') : `${daNum(s.month)} in the last 30 days \u00b7 ${daNum(s.total)} in all`;
+    html += H.lab('People who looked at your page this week') + H.grp(d.err.numbers
+      ? `<p class="da-p">We could not load your numbers. Check your connection and try again.</p>${H.btn('da-link', 'Try again', 'dRetry', 'numbers')}`
+      : `<div style="padding:4px 8px 8px"><div class="da-big">${daNum(s.week)}</div><small class="m" style="font-size:14px">${esc(detail)}</small></div>`);
+    const ok = d.active && DANCER_LEFT(p) === 0;
+    const reason = !d.active ? `Your dancer profile is hidden. Only you can see it. Show it again in Account settings (Show my profile again). <button type="button" data-a="go" data-v="acctSettings">Account settings</button>`
+      : !ok ? `Your page is not public yet. Finish your name, city, dance role and photo first. <button type="button" data-a="dEdit" data-v="">Edit my profile</button>` : '';
+    r.foot = H.primary('View my page', 'dExt', 'your public page', { dis: !ok }) + (reason ? `<div class="reason">${reason}</div>` : '') + daLine('Share my page', 'dShare', null, { dis: !ok }) + daShareBlock(d);
+    r.html = html;
+    return r;
+  },
+};
+
+/* ================= JUMPS ================= */
+const daJ = (label, who, run) => JUMPS.push({ group: 'Dancer app', label, who, run });
+const daSetup = p => { Object.assign(p.dancer.prof, { fn: 'Sam', city: 'Manchester', role: 'Leader', photo: 'f2' }); daSync(p); };
+daJ('Home: Maria (1 answer left)', 'maria', () => home('appHome'));
+daJ('Home: Alex (complete, busy)', 'busy', () => home('appHome'));
+daJ('Home: profile hidden', 'busy', p => { p.dancer.active = false; home('appHome'); });
+daJ('Home: profile linked by the team', 'maria', p => { p.dancer.linked = true; home('appHome'); });
+daJ('Home: new dancer after setup (no nights, zero numbers)', 'newbie', p => { daSetup(p); home('appHome'); });
+daJ('Home: numbers failed to load', 'maria', p => { p.dancer.err.numbers = true; home('appHome'); });
+daJ('Home: partner search, asked already', 'busy', p => { p.dancer.partner = 'done'; home('appHome'); });
+daJ('Home: partner search, limit reached', 'maria', p => { p.dancer.partnerFailNext = true; home('appHome'); ACT.dPartner(); });
+daJ('Home: week list failed to load', 'busy', p => { p.dancer.err.week = true; home('appHome'); });
+daJ('Home: could not load', 'maria', p => { p.dancer.err.home = true; home('appHome'); });
+daJ('Home: no dancer profile found', 'newbie', p => { p.dancer.row = false; home('appHome'); });
+daJ('Nights: Alex (upcoming + past, level votes)', 'busy', () => home('appNights'));
+daJ('Nights: from the rate nudge (focused)', 'busy', () => home('appNights', { focus: 's-4' }));
+daJ('Nights: Maria rates before finishing (answer held)', 'maria', p => { home('appNights', { focus: 's-3' }); ACT.dVote('s-3|Mixed'); });
+daJ('Nights: vote failed', 'busy', p => { p.dancer.voteFailNext = true; home('appNights'); ACT.dVote('s-4|Strong'); });
+daJ('Nights: empty (newbie after setup)', 'newbie', p => { daSetup(p); home('appNights'); });
+daJ('Nights: could not load', 'maria', p => { p.dancer.err.nights = true; home('appNights'); });
+daJ('Me: Maria', 'maria', () => home('appMe'));
+daJ('Me: Alex (complete)', 'busy', () => home('appMe'));
+daJ('Me: profile hidden', 'busy', p => { p.dancer.active = false; home('appMe'); });
+daJ('Me: no dancer profile found', 'newbie', p => { p.dancer.row = false; home('appMe'); });
+daJ('Edit: Maria (WhatsApp block: also teaches)', 'maria', () => { home('appMe'); ACT.dEdit(''); });
+daJ('Edit: Alex', 'busy', () => { home('appMe'); ACT.dEdit(''); });
+daJ('Edit: fields marked', 'maria', () => { home('appMe'); ACT.dEdit(''); const dr = daDraft(P()); dr.fn = ''; dr.ig = 'not a handle!'; dr.web = 'alex.example'; });
+daJ('Edit: saved ("Your changes are live.")', 'busy', () => { home('appMe'); ACT.dEdit(''); daDraft(P()).bio = 'Social dancer, Thursdays in Soho and Sundays in Vauxhall.'; ACT.deSave(); });
+daJ('Edit: save failed (too many saves)', 'busy', p => { home('appMe'); ACT.dEdit(''); p.dancer.editFailNext = 'rate_limited'; daDraft(p).sn = 'Moreno Diaz'; ACT.deSave(); });
+daJ('Edit: city not set yet (hide surname off)', 'newbie', p => { Object.assign(p.dancer.prof, { fn: 'Sam' }); home('appMe'); ACT.dEdit(''); });
+daJ('Onboarding step 1: name', 'newbie', () => home('appWelcome'));
+daJ('Onboarding step 1: linked profile note', 'newbie', p => { p.dancer.linked = true; home('appWelcome'); });
+daJ('Onboarding step 2: city', 'newbie', p => { home('appWelcome'); const o = daOb(p); o.fn = 'Sam'; ACT.obNext(); });
+daJ('Onboarding step 3: role', 'newbie', p => { home('appWelcome'); const o = daOb(p); o.fn = 'Sam'; ACT.obNext(); o.city = 'Manchester'; ACT.obNext(); });
+daJ('Onboarding step 4: photo', 'newbie', p => { home('appWelcome'); const o = daOb(p); o.fn = 'Sam'; ACT.obNext(); o.city = 'Manchester'; ACT.obNext(); o.role = 'Leader'; ACT.obNext(); });
+daJ('Onboarding: photo step from setup (focus)', 'newbie', p => { Object.assign(p.dancer.prof, { fn: 'Sam', city: 'Manchester', role: 'Leader' }); home('appWelcome'); go('appPhoto', { ret: 'appWelcome' }); });
+daJ('Onboarding: You\u2019re in', 'newbie', p => { daSetup(p); home('appWelcome'); });
+daJ('Onboarding: Maria resumes on photo', 'maria', () => home('appWelcome'));
+daJ('Onboarding: years (optional)', 'newbie', p => { daSetup(p); home('appWelcome'); ACT.obBoost(); });
+daJ('Onboarding: styles (optional)', 'newbie', p => { daSetup(p); p.dancer.prof.year = 2024; home('appWelcome'); ACT.obBoost(); });
+daJ('Onboarding: Nice work', 'newbie', p => { daSetup(p); Object.assign(p.dancer.prof, { year: 2024, styles: ['Bachata Sensual'] }); home('appWelcome'); daOb(p).stage = 'nice'; });
+daJ('Photo: choose (Maria)', 'maria', () => { home('appMe'); go('appPhoto'); });
+daJ('Photo: crop', 'maria', () => { home('appMe'); go('appPhoto'); ACT.phPick(); });
+daJ('Photo: preview', 'maria', () => { home('appMe'); go('appPhoto'); ACT.phPick(); P().dancer.ph.zoom = 1.6; ACT.phNext(); });
+daJ('Photo: upload failed (connection)', 'maria', p => { home('appMe'); go('appPhoto'); ACT.phPick(); ACT.phNext(); p.dancer.ph.failNext = 'network'; ACT.phUse(); });
+daJ('Photo: upload failed (other)', 'busy', p => { home('appMe'); go('appPhoto'); ACT.phPick(); ACT.phNext(); p.dancer.ph.failNext = 'other'; ACT.phUse(); });
+daJ('Photo: uploaded but not saved', 'maria', p => { home('appMe'); go('appPhoto'); ACT.phPick(); ACT.phNext(); p.dancer.ph.failNext = 'save'; ACT.phUse(); });
+daJ('Photo: session expired', 'maria', p => { home('appMe'); go('appPhoto'); ACT.phPick(); ACT.phNext(); p.dancer.ph.failNext = 's401'; ACT.phUse(); });
+daJ('Photo: offline', 'maria', p => { p.dancer.offline = true; home('appMe'); go('appPhoto'); ACT.phPick(); ACT.phNext(); });
+daJ('Photo: photo too small', 'maria', p => { p.dancer.ph.refuse = 'That photo is too small to use. Choose one at least 256 pixels wide and tall.'; home('appMe'); go('appPhoto'); });
+daJ('Options: Alex', 'busy', () => home('appOptions'));
+daJ('Options: profile hidden (share off)', 'busy', p => { p.dancer.active = false; home('appOptions'); });
+daJ('Options: copying not available', 'maria', p => { p.dancer.copyFail = true; home('appOptions'); ACT.dShare(); });
+daJ('Options: send feedback', 'maria', () => { home('appOptions'); openSheet('dFeedback'); });
+daJ('Options: feedback sent', 'maria', p => { home('appOptions'); openSheet('dFeedback'); p.dancer.fb.text = 'The calendar needs a filter for festivals.'; ACT.fbSend(); });
+daJ('Options: feedback limit reached', 'busy', p => { home('appOptions'); openSheet('dFeedback'); Object.assign(p.dancer.fb, { text: 'Love the new nights tab.', kind: 'praise', failNext: 'rate' }); ACT.fbSend(); });
+daJ('Options: add to home screen', 'maria', () => { home('appOptions'); openSheet('dInstall'); });
+daJ('Options: sign out confirm', 'maria', () => { home('appOptions'); openSheet('dSignOut'); });
+daJ('Options: sign out failed', 'maria', p => { home('appOptions'); openSheet('dSignOut'); p.dancer.so.failNext = true; ACT.dSignOutYes(); });
+daJ('Options: no dancer profile found', 'newbie', p => { p.dancer.row = false; home('appOptions'); });
+daJ('Page: Maria (not public yet)', 'maria', () => { home('appMe'); go('appPage'); });
+daJ('Page: Alex', 'busy', () => { home('appMe'); go('appPage'); });
+daJ('Page: profile hidden', 'busy', p => { p.dancer.active = false; home('appMe'); go('appPage'); });
+daJ('Page: no visitors yet (newbie after setup)', 'newbie', p => { daSetup(p); home('appMe'); go('appPage'); });
+daJ('Page: no dancer profile found', 'newbie', p => { p.dancer.row = false; home('appOptions'); go('appPage'); });
+
+
+</script>
+</body>
+</html>
