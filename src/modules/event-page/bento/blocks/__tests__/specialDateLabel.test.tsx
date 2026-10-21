@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ScheduleSession } from '../../../sections/EventScheduleGrid';
 
 vi.mock('@/integrations/supabase/client', () => ({
@@ -39,9 +40,9 @@ const chipText = (now: string, occurrenceDate: string | null, day: string | null
   vi.setSystemTime(new Date(now));
   program.items = [party(day)];
   const html = renderToStaticMarkup(
-    <MemoryRouter>
+    <QueryClientProvider client={new QueryClient()}><MemoryRouter>
       <ScheduleBlock eventId="evt-1" occurrenceId="occ-1" occurrenceDate={occurrenceDate} />
-    </MemoryRouter>,
+    </MemoryRouter></QueryClientProvider>,
   );
   const m = /data-testid="schedule-special-tonight"[^>]*>(.*?)<\/div>/.exec(html);
   return m ? m[1].replace(/<[^>]+>/g, '') : null;

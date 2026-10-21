@@ -175,6 +175,7 @@ const SURFACES: Surface[] = [
     flagWithoutPhoto: true,
     mount: async (s) => {
       fixtures.table.dancer_profiles = [{ id: ID, display_name: s.name, ...split(s), avatar_url: s.photo, nationality: s.code, dance_role: null, cities: null, dancing_role_details: null }];
+      fixtures.rpc.get_public_people_badges_v1 = [{ id: ID, roles: ['dancer'], dj_name: null, next_gig_date: null, dj_has_upcoming: false }];
       withProviders(<Dancers />);
       await waitName(s.name.split(' ')[0]);
     },

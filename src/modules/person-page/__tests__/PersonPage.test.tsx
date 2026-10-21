@@ -22,7 +22,7 @@ const person = (roles: PersonRole[], over: Partial<PersonSnapshot> = {}): Person
   id: 'p1', name: 'Ana G', avatarUrl: null, city: 'London', instagramUrl: 'https://instagram.com/ana_g', roles, djPhoto: null, ...over,
 });
 
-const mount = (p: PersonSnapshot, slugOrId = 'ana-g', publicPage?: { extras: never; extrasOk: boolean } | null) =>
+const mount = (p: PersonSnapshot, slugOrId = 'ana-g', publicPage?: { extras: never } | null) =>
   render(<MemoryRouter><PersonPage person={p} slugOrId={slugOrId} publicPage={publicPage} /></MemoryRouter>);
 
 beforeEach(() => { window.location.hash = ''; });
@@ -117,7 +117,7 @@ describe('PersonPage', () => {
 });
 
 describe('PersonPage: the Dancing tab and the v2 public page (S2b2)', () => {
-  const V2 = { extras: {} as never, extrasOk: true };
+  const V2 = { extras: {} as never };
   it('v2 open: the dancer body gets the loader\'s publicPage', async () => {
     mount(person(['dancer']), 'ana-g', V2);
     expect(await screen.findByText('dancer:true:v2')).toBeTruthy();

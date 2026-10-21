@@ -282,7 +282,7 @@ const TeacherProfile = () => {
       }}
     >
       <div className="max-w-5xl mx-auto px-4 pb-24">
-        <AlsoRoles current="teacher" id={id} slug={resolved.slug} />
+        <AlsoRoles current="teacher" id={id} slug={resolved.slug} className="pb-3" />
         {/* ═══ Bento Grid ═══ */}
         <motion.div
           variants={containerVariants}
