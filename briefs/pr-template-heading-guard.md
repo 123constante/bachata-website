@@ -13,9 +13,8 @@ template with the Phone QA checker, not the real-data one. Add the missing check
    `parse(filled)` from `scripts/check-pr-real-data-verified.mjs` is `{ ok: true, problems: [] }`; and that the unfilled
    template is `ok: false`. Check the label names the parser expects in that script and fill those.
 2. RED FIRST: temporarily put the old heading back in the template, run `npx vitest run tests/realDataVerified.test.ts`,
-   record the failure, restore the template (git checkout the file), run again green. Both runs (command + result) in the PR body.
-3. Append the result to the PR body's per-job table (`gh pr edit 937 --body-file ...`; keep the rest of the body and the
-   `## Verified on real data` section as is).
+   record the failure, restore the template (git checkout the file), run again green.
+3. Write both runs (command + result) to `docs/handover-pr-template-heading.md` on the branch. Do NOT edit the PR body (`gh pr edit` fails with the bot token); the orchestrator copies it in.
 
 ## Rules
 Plain git only, never `gh api`. No variables/loops/`$(...)` where a plain command works. Never `--no-verify`.
