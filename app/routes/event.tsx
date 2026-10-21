@@ -15,6 +15,7 @@ import { SITE_ORIGIN } from "@/lib/seo";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
 import { hiddenEventResponse } from "../lib/hiddenEventResponse";
 import { buildEventShareDescription } from "@/modules/event-page/endedShareDescription";
+import { prefetchEndedDoor } from "@/modules/event-page/sections/MoreEventsSection";
 import EventPage from "@/pages/EventPage";
 import type { Route } from "./+types/event";
 
@@ -143,6 +144,20 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
       })
     : Promise.resolve();
 
+  // An ended series' BentoPage puts the organiser "door" ABOVE the bento grid.
+  // Client-fetched, it landed ~4.5s after first paint (4x CPU) and shoved the
+  // grid down: CLS 0.12 on a phone. Prefetch it so it is in the first paint.
+  // Same inputs BentoPage passes the door (organisers[0], the default city).
+  // FestivalDetail renders no door, so festivals skip it.
+  const endedDoorPrefetch =
+    snap?.event?.lifecycleStatus === "ended" && !isFestival
+      ? prefetchEndedDoor(qc, {
+          currentEventId: eventId,
+          organiserId: snap.organisers[0]?.id ?? null,
+          citySlug: snap.locationDefault?.city?.slug ?? null,
+        })
+      : Promise.resolve();
+
   // Phase 5 — normalize og:image/twitter:image (prefer the R2-baked card, else
   // a live /api/og/card render) so WhatsApp/Facebook/Twitter/LinkedIn always
   // get a renderable JPEG instead of a raw (often WebP) cover URL. The
@@ -158,6 +173,7 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
       fallbackImage: OG_FALLBACK,
     }),
     festivalPrefetch,
+    endedDoorPrefetch,
   ]);
 
   return taggedData(

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery, type QueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -86,8 +86,11 @@ type OrganiserOccurrenceRow = {
   next_start: string;
 };
 
-const useOrganiserEvents = (organiserId: string | null, currentEventId: string | null) =>
-  useQuery({
+// Query options are factories, not inline in the hooks, so the /event/:id
+// loader can prefetch the ended page's door with the SAME keys and fetchers
+// (prefetchEndedDoor below).
+const organiserEventsQuery = (organiserId: string | null, currentEventId: string | null) =>
+  queryOptions({
     queryKey: ['more-events:organiser-flagship-v2', organiserId, currentEventId],
     enabled: !!organiserId && !!currentEventId,
     staleTime: 5 * 60 * 1000,
@@ -132,8 +135,8 @@ const useOrganiserEvents = (organiserId: string | null, currentEventId: string |
 
 // Fallback when the current event's organiser has no other upcoming events:
 // surface other active organisers in the same city, picked at random.
-const useOtherOrganisers = (currentOrganiserId: string | null, citySlug: string | null) =>
-  useQuery({
+const otherOrganisersQuery = (currentOrganiserId: string | null, citySlug: string | null) =>
+  queryOptions({
     queryKey: ['more-events:other-organisers', currentOrganiserId, citySlug],
     enabled: !!citySlug,
     staleTime: 5 * 60 * 1000,
@@ -290,6 +293,32 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
     {children}
   </div>
 );
+
+const useOrganiserEvents = (organiserId: string | null, currentEventId: string | null) =>
+  useQuery(organiserEventsQuery(organiserId, currentEventId));
+const useOtherOrganisers = (currentOrganiserId: string | null, citySlug: string | null) =>
+  useQuery(otherOrganisersQuery(currentOrganiserId, citySlug));
+
+// Server-side prefetch for the ended page's door (the 'organiser' block that
+// BentoPage renders ABOVE the bento grid). Fetched on the client only, the door
+// arrived seconds after first paint and pushed the whole grid down 120-176px
+// (CLS ~0.12 at 390x844). Prefetched, it is in the server HTML and the
+// dehydrated cache, so it renders in the first paint. Same `enabled` gates as
+// the hooks -- prefetchQuery ignores `enabled`. Errors are swallowed by
+// prefetchQuery (the client fetches as before). This-week is not prefetched: it
+// renders only in the bottom strip, below the grid, where it moves nothing.
+export const prefetchEndedDoor = (
+  qc: QueryClient,
+  { currentEventId, organiserId, citySlug }: {
+    currentEventId: string;
+    organiserId: string | null;
+    citySlug: string | null;
+  },
+): Promise<unknown> =>
+  Promise.all([
+    organiserId ? qc.prefetchQuery(organiserEventsQuery(organiserId, currentEventId)) : null,
+    citySlug ? qc.prefetchQuery(otherOrganisersQuery(organiserId, citySlug)) : null,
+  ]);
 
 export const MoreEventsSection = ({
   currentEventId,
