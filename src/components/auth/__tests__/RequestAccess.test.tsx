@@ -19,6 +19,15 @@ const submit = async (answer: unknown) => {
 };
 
 describe('RequestAccess (invite-only wall, flow 3)', () => {
+  it('opens as its own screen and Back returns to the wall button', () => {
+    render(<RequestAccess />);
+    expect(screen.queryByTestId('request-access-screen')).toBeNull();
+    fireEvent.click(screen.getByTestId('request-access-open'));
+    expect(screen.getByTestId('request-access-screen')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('request-access-back'));
+    expect(screen.queryByTestId('request-access-screen')).toBeNull();
+    expect(screen.getByTestId('request-access-open')).toBeTruthy();
+  });
   it('sends email + note and confirms without promising a time', async () => {
     await submit({ ok: true });
     expect((await screen.findByTestId('request-access-done')).textContent).toBe('Request sent. We will email you when you are in.');

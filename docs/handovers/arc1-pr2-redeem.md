@@ -11,13 +11,15 @@ Branch `claude/arc1-pr2-redeem`, ticket dt_699a50fbb273. Brief: admin repo `docs
 - Code screen (`MagicLinkConfirmation.tsx`): wrong vs expired wording, "N tries left", soft limit 3 (`MAX_WRONG_CODES`), "Send a new code" primary and enabled at once after expiry or lock. 8 digits + auto-submit were already in place.
 - Tests: `inviteReasons.test.tsx` (reason x screen table, ask flow, member-to-Home, prefill), `RequestAccess.test.tsx`, `AuthCodeStep.test.tsx` updated. Red-first confirmed for the code-screen tests against the unchanged component.
 
-## Left / not done
-- `callbackErrorCopy` (`lib/auth-otp-routing.ts`) wording was not shortened (mockup 9b); out of the slice's listed items.
-- No 390x844 Playwright walk with seeded fixtures (see PR body, Not verified).
-- The Request-access form is inline under the wall message; mockup 3b shows it as its own screen. Visual match not checked.
-- `callbackErrorCopy` aside, `used-by-me` relies on the server's `already_member` answer (current members only). A person who used the link and later left sees the plain "already used" screen, by design.
+## Continuation (dt_1894faa29c0f)
+- `callbackErrorCopy` shortened (all four reasons, <= 80 chars each); table-driven test written red-first (4 red before the change).
+- Request access is its own full screen: the wall shows one button; it opens a portalled full-screen view (title, form, Back, sent state). Portal because the wall sits in an animated (transformed) card that trapped `fixed`.
+- `tests/e2e/arc1-invite-redeem-walk.spec.ts`: 9 specs at 390x844 on seeded fixtures (open/used/revoked/expired/unknown, mismatch/unproven after Join, wall + request form + sent, code screen wrong code). Screenshots in `docs/handovers/arc1-pr2-screens/`. Not added to the `test:e2e` gate list.
+- Fixed `tests/client/authPage.test.tsx` (asserted the old "wrong or has expired" wording).
+- The admin brief branch and mockups 9b/3b are in `bachata-admin`, not reachable from this session. Copy and the request screen follow the handover text, NOT the mockups: compare screenshots 09/10/12 and the copy against 9b/3b.
 
-## Next steps
-1. Run the 390x844 walk (invite open/used/revoked/expired/mismatch/unproven, wall + request form, code screen).
-2. Merge with slice B (`claude/arc1-pr2-sender`) in the orchestrator; no shared files (`adminApi.ts`/`AdminOrganisersPage.tsx` are B's).
-3. Once admin PR #912 is on prod, one real-data shape check of the preview RPC (7 existing invite rows).
+## Left / not done
+- Visual check against mockups 9b and 3b (see above).
+- `check:integrity` as an npm script fails with Permission denied (exec bit); run via `bash bin/check-integrity.sh` it passes.
+- Real-data shape check of the preview RPC (needs admin PR #912 on prod).
+- `used-by-me` relies on the server `already_member` answer (current members only); a person who used the link and later left sees the plain "already used" screen, by design.

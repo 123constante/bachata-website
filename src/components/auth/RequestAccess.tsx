@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +9,7 @@ import { requestSignupAccess } from '@/modules/admin-organisers/inviteRedeemApi'
 export const ACCESS_NOTE_MAX = 300;
 
 /**
- * Flow 3b/3c: the invite-only wall's way forward. Email + a line about their events goes to
+ * Flow 3b/3c: the invite-only wall's way forward. The button opens its own full screen (mockup 3b). Email + a line about their events goes to
  * request_signup_access_v1; the answer never says whether the email is already listed.
  */
 export function RequestAccess({ initialEmail = '' }: { initialEmail?: string }) {
@@ -20,9 +21,6 @@ export function RequestAccess({ initialEmail = '' }: { initialEmail?: string }) 
   const emailId = useId();
   const noteId = useId();
 
-  if (result?.ok) {
-    return <p className="text-sm font-medium" role="status" data-testid="request-access-done">{result.text}</p>;
-  }
   if (!open) {
     return (
       <Button type="button" variant="secondary" className="w-full min-h-[44px] rounded-full" onClick={() => setOpen(true)} data-testid="request-access-open">
@@ -46,7 +44,25 @@ export function RequestAccess({ initialEmail = '' }: { initialEmail?: string }) 
     }
   };
 
-  return (
+  // Portal: the wall sits inside an animated (transformed) card, which would trap a fixed overlay.
+  const screen = (body: React.ReactNode) => createPortal(
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-background px-4 pt-8 pb-8" data-testid="request-access-screen">
+      <div className="mx-auto w-full max-w-md space-y-3">
+        <h1 className="text-lg font-semibold">Request access</h1>
+        {body}
+        <Button type="button" variant="ghost" className="w-full min-h-[44px]" onClick={() => setOpen(false)} data-testid="request-access-back">
+          Back
+        </Button>
+      </div>
+    </div>,
+    document.body,
+  );
+
+  if (result?.ok) {
+    return screen(<p className="text-sm font-medium" role="status" data-testid="request-access-done">{result.text}</p>);
+  }
+
+  return screen(
     <form onSubmit={(e) => void submit(e)} className="space-y-2 text-left" data-testid="request-access-form">
       <Label htmlFor={emailId} className="text-sm">Your email</Label>
       <Input id={emailId} type="email" inputMode="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="min-h-[44px] text-[16px]" />
@@ -63,6 +79,6 @@ export function RequestAccess({ initialEmail = '' }: { initialEmail?: string }) 
         {busy ? 'Sending…' : 'Send request'}
       </Button>
       {result && !result.ok && <p className="text-sm text-destructive" role="alert" data-testid="request-access-error">{result.text}</p>}
-    </form>
+    </form>,
   );
 }

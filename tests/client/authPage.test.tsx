@@ -93,7 +93,7 @@ describe("/auth code entry", () => {
     await user.type(screen.getByLabelText("8-digit code"), "00000000");
 
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toMatch(/wrong or has expired/i);
+    expect(alert.textContent).toMatch(/not right.*2 tries left/i);
     expect(screen.getByLabelText("8-digit code").getAttribute("aria-invalid")).toBe("true");
     expect(screen.queryByTestId("callback")).toBeNull();
   });

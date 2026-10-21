@@ -48,11 +48,14 @@ describe("shouldHonorReturnTo", () => {
 });
 
 describe("callbackErrorCopy", () => {
-  it("explains each reason the callback can bounce with", () => {
-    expect(callbackErrorCopy("expired")).toMatch(/expired or was already used/);
-    expect(callbackErrorCopy("invalid")).toMatch(/didn't work/);
-    expect(callbackErrorCopy("timeout")).toMatch(/too long/);
-    expect(callbackErrorCopy("manual")).toMatch(/enter your email/i);
+  it.each([
+    ["expired", "That link expired or was already used. Enter your email for a new one."],
+    ["invalid", "That link didn't work. Enter your email for a new one."],
+    ["timeout", "Sign-in took too long. Enter your email for a new link."],
+    ["manual", "Enter your email and we'll send you a sign-in link."],
+  ])("%s: short, says what to do next", (reason, copy) => {
+    expect(callbackErrorCopy(reason)).toBe(copy);
+    expect(copy.length).toBeLessThanOrEqual(80);
   });
 
   it("shows nothing for no reason or an unknown one", () => {
