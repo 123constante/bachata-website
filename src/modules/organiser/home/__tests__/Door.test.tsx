@@ -25,7 +25,7 @@ import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { homeJobs } from '@/modules/organiser/jobs/homeJobs';
 import { readDoneState } from '../../flows/doneState';
 import { OnboardingView } from '../onboarding/OnboardingView';
-import { NO_EMAIL_COPY } from '../onboarding/onboardingModel';
+import { NO_EMAIL_COPY } from '../onboarding/claimStates';
 
 const org = (id: string, name: string, hint: ClaimHint | null) => ({ id, name, slug: id, avatar_url: null, city_id: null, hint });
 

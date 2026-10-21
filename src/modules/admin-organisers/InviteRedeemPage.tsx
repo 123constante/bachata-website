@@ -158,7 +158,7 @@ function InviteRedeem() {
       stripToken();
       // The person may have opened Home in the last minute and cached "no organisers": refetch it before they land.
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-      // A new seat lands on the welcome (Arc 1 7c: the second-page variant, else Home on it); already a member: Home.
+      // A new seat lands on the welcome (Arc 1 1d for a first page, 7c for another); already a member: Home.
       navigate(outcome.alreadyMember ? ORG_PATHS.home : ORG_PATHS.welcome(outcome.organiserId), { replace: true });
       return;
     }

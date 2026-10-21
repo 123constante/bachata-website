@@ -32,7 +32,8 @@ vi.mock('@/modules/organiser/shared/selfServeApi', async () => ({
 import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
 import { OnboardingView } from '../onboarding/OnboardingView';
 import { ORG_PATHS } from '../../shell/paths';
-import { CLAIM_HINTS, NOT_THIS_ONE, claimScreen } from '../onboarding/claimStates';
+import { CLAIM_HINTS, NOT_THIS_ONE, NO_EMAIL_COPY, claimScreen, hintRowText } from '../onboarding/claimStates';
+import { rowAction } from '../onboarding/onboardingModel';
 
 const NAME = 'Salsa Norte';
 const org = (hint: ClaimHint | null) => ({ id: 'o1', name: NAME, slug: 'o1', avatar_url: null, city_id: null, hint });
@@ -76,10 +77,13 @@ const openRow = async () => {
 beforeEach(() => Object.values(api).forEach((f) => f.mockReset()));
 afterEach(cleanup);
 
-// The approved copy (invite-flows-mockups.html flow 6), per hint. 6a's line is fitted to the
-// server value: 'yours' means ANY seat on the team (organiser_claim_hints_v1), not only owner.
+// The approved copy (invite-flows-mockups.html flow 6), per hint, verbatim (6a keeps the
+// mockup's "owner" wording: owner decision on the PR 3 review). `row` is what the search row
+// says and `rowButton` the button it carries: the row and its screen read ONE map.
 const EXPECTED: Array<{
   hint: ClaimHint | null;
+  row: string;
+  rowButton: string;
   screen: string;
   title: string;
   sub: string;
@@ -87,12 +91,12 @@ const EXPECTED: Array<{
   primaryTestId: string;
   notThisOne: boolean;
 }> = [
-  { hint: 'yours', screen: '6a', title: `${NAME} is yours`, sub: 'You are already on its team.', primary: 'Go to Home', primaryTestId: 'onboarding-yours-home', notThisOne: false },
-  { hint: 'managed', screen: '6b', title: `${NAME} already has an owner`, sub: 'You can ask to join the team.', primary: 'Ask to join', primaryTestId: 'onboarding-request-send', notThisOne: true },
-  { hint: 'email_matches', screen: '6c', title: `Claim ${NAME}`, sub: 'Your email matches the one on file.', primary: 'Claim it', primaryTestId: 'onboarding-claim-confirm', notThisOne: true },
-  { hint: 'email_differs', screen: '6d', title: `Is ${NAME} yours?`, sub: 'The email on file is not yours. Ask to join and we will check.', primary: 'Ask to join', primaryTestId: 'onboarding-request-send', notThisOne: true },
-  { hint: 'no_email', screen: '6e', title: `Is ${NAME} yours?`, sub: 'We have no email for this page. Ask to join and we will check.', primary: 'Ask to join', primaryTestId: 'onboarding-request-send', notThisOne: true },
-  { hint: null, screen: 'unknown', title: `Is ${NAME} yours?`, sub: 'Ask to join and we will check.', primary: 'Ask to join', primaryTestId: 'onboarding-request-send', notThisOne: true },
+  { hint: 'yours', row: 'Yours', rowButton: 'onboarding-home', screen: '6a', title: `${NAME} is yours`, sub: 'You are already its owner.', primary: 'Go to Home', primaryTestId: 'onboarding-yours-home', notThisOne: false },
+  { hint: 'managed', row: 'Has a team', rowButton: 'onboarding-request', screen: '6b', title: `${NAME} already has an owner`, sub: 'You can ask to join the team.', primary: 'Ask to join', primaryTestId: 'onboarding-request-send', notThisOne: true },
+  { hint: 'email_matches', row: 'Email on file is yours', rowButton: 'onboarding-claim', screen: '6c', title: `Claim ${NAME}`, sub: 'Your email matches the one on file.', primary: 'Claim it', primaryTestId: 'onboarding-claim-confirm', notThisOne: true },
+  { hint: 'email_differs', row: 'Has an email on file', rowButton: 'onboarding-request', screen: '6d', title: `Is ${NAME} yours?`, sub: 'The email on file is not yours. Ask to join and we will check.', primary: 'Ask to join', primaryTestId: 'onboarding-request-send', notThisOne: true },
+  { hint: 'no_email', row: NO_EMAIL_COPY, rowButton: 'onboarding-request', screen: '6e', title: `Is ${NAME} yours?`, sub: 'We have no email for this page. Ask to join and we will check.', primary: 'Ask to join', primaryTestId: 'onboarding-request-send', notThisOne: true },
+  { hint: null, row: 'Ask to join', rowButton: 'onboarding-request', screen: 'unknown', title: `Is ${NAME} yours?`, sub: 'Ask to join and we will check.', primary: 'Ask to join', primaryTestId: 'onboarding-request-send', notThisOne: true },
 ];
 
 describe('claimScreen: one mapping for every hint', () => {
@@ -105,6 +109,26 @@ describe('claimScreen: one mapping for every hint', () => {
     expect(s).toMatchObject({ screen: id, title, sub, primaryLabel: primary, notThisOne });
     // Never an address, never a sentence that names one.
     expect(`${s.title} ${s.sub}`).not.toMatch(/@/);
+  });
+});
+
+describe('every hint x every screen: the row and the sheet it opens say the same thing', () => {
+  it.each(EXPECTED)('$screen ($hint): row words, row button, then the screen', async ({ hint, row, rowButton, title, sub }) => {
+    expect(hintRowText(hint)).toBe(row);
+    mount(hint);
+    const result = (await screen.findAllByTestId('onboarding-result'))[0];
+    expect(result.querySelector('[data-testid="onboarding-hint"]')?.textContent).toBe(row);
+    expect(result.querySelector(`[data-testid="${rowButton}"]`)).not.toBeNull();
+    await openRow();
+    expect(screen.getByTestId('onboarding-claim-title').textContent).toBe(title);
+    expect(screen.getByTestId('onboarding-claim-sub').textContent).toBe(sub);
+  });
+
+  it.each(EXPECTED)('$screen ($hint): the row action is the screen primary', ({ hint }) => {
+    const primary = claimScreen(hint, NAME).primary;
+    expect(rowAction(hint, false)).toBe(primary);
+    // An earlier ask replaces every ask-or-claim button, never your own page's Home.
+    expect(rowAction(hint, true)).toBe(primary === 'home' ? 'home' : 'requested');
   });
 });
 

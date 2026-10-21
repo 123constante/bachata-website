@@ -80,6 +80,11 @@ export function shouldHonorReturnTo(input: {
   return !input.isSignupFlow || input.organiserSelfServe;
 }
 
+// Arc 1 flow 9a: the ONE sub line under "Welcome back" on every sign-in visit
+// (plain, with a returnTo, after a bounced link, from the Join tab): a new phone
+// or an ended session is the same person, and the account holds their pages.
+export const SIGN_IN_SUB = "Sign in with the email you used before.";
+
 // What /auth shows after /auth/callback bounced the visitor back with
 // `callbackError` (Lever 2 walk S5: an expired magic link used to land on the
 // plain sign-in form with no explanation). Unknown reasons show nothing.

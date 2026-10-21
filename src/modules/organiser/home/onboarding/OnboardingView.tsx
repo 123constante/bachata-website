@@ -6,7 +6,8 @@ import { searchClaimableOrganisers, type ClaimCandidate, type MyAccessRequest } 
 import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
 import { declinedRequests } from '@/modules/organiser/shared/accessRequestModel';
 import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, useDebounced } from '../../ui';
-import { HINT_TEXT, NO_HINT_TEXT, askedOn, rowAction } from './onboardingModel';
+import { askedOn, rowAction } from './onboardingModel';
+import { hintRowText } from './claimStates';
 import { ORG_PATHS } from '../../shell/paths';
 import { goDone } from '../../flows/doneState';
 import { OrganiserSheet, type SheetTask } from './OrganiserSheet';
@@ -155,7 +156,7 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
             <div key={org.id} className="flex items-center gap-[12px] px-[16px] py-[12px]" data-testid="onboarding-result" data-org={org.id}>
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-2 break-words text-[15px] font-semibold text-[var(--fg)]">{org.name}</p>
-                <p className="text-[13px] text-[var(--mut)]" data-testid="onboarding-hint">{hint ? HINT_TEXT[hint] : NO_HINT_TEXT}</p>
+                <p className="text-[13px] text-[var(--mut)]" data-testid="onboarding-hint">{hintRowText(hint)}</p>
               </div>
               {action === 'claim' && (
                 <GhostButton size="sm" block={false} onClick={() => startClaim(org)} testId="onboarding-claim">

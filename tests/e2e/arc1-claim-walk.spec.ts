@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { CITY, ORG, ORG_NAME, PHONE, openOrganiser, json, type OrganiserFake } from './helpers/organiserFake';
 
 // Arc 1 PR 3 slice C walk at 390x844 (not in the test:e2e gate list): the claim screens 6a-6e,
-// the page question 7b, the second-page welcome 7c, the cannot-create screen 8a/8b. Every call
+// the page question 7b, the welcome 1d (first page) and 7c (second page), the cannot-create screen 8a/8b. Every call
 // is answered in the browser by helpers/organiserFake.ts. Screenshots go to test-results/.
 
 test.use({ viewport: PHONE });
@@ -78,6 +78,15 @@ test('7c: second invite accepted', async ({ page }) => {
   await shot(page, '7c');
   await page.getByTestId('org-welcome-home').click();
   await expect(page.getByTestId('org-page-home')).toBeVisible();
+});
+
+test('1d: first invite accepted', async ({ page }) => {
+  await openOrganiser(page, `/account/o/welcome?o=${ORG}`);
+  await expect(page.getByTestId('org-welcome-title')).toHaveText(`You manage ${ORG_NAME}`);
+  await expect(page.getByTestId('org-welcome-sub')).toHaveText('Add your first event whenever you are ready.');
+  await shot(page, '1d');
+  await page.getByTestId('org-welcome-add-event').click();
+  await expect(page.getByTestId('org-new-format-recurring')).toBeVisible();
 });
 
 test('8a/8b: events are not open to you yet', async ({ page }) => {

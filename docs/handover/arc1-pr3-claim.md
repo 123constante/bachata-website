@@ -27,8 +27,7 @@ the new phone / ended session flow (9). Base: `main` 817a4dd.
    `source='admin_invite'`, which D98 (20261129860000) excludes from arm (b) of
    `_organiser_create_allowed_v1`. So after approval the admin must ALSO issue an email-bound invite
    (arm d) or add a hand row. Needs owner: change approve's source for this note, or accept.
-3. **6a wording fitted to the server value:** hint `yours` = any seat on the team, so 6a says "You
-   are already on its team." (mockup: "its owner").
+3. ~~6a wording fitted to the server value~~ closed: the owner kept the mockup's "You are already its owner." (finishing pass).
 4. **9c "What you typed is kept on this phone" is NOT said**: no flow keeps a draft across a sign-in.
    The mockup's 9c "Sign in" button is not built (copy only).
 5. 9a/9b buttons ("Send code", "Send a new link") keep today's Auth labels; only the words changed.
@@ -49,7 +48,28 @@ slice's. No Home (`home/index.tsx`) edit (slice B owns the go-live card).
 - A review pass + one fix pass (per the brief's worker plan).
 - Phone test by Ricky (final confirmation only).
 
-## Checks run in the sandbox (no PR opened: sub-branch, the orchestrator merges)
+## Finishing pass (dt_775933031045, 2026-10-21)
+
+Merged into `claude/arc1-pr3-claim`, in order: `origin/main` (3bbea89), `origin/claude/arc1-pr3-ten`
+(slice B, FIRST), `origin/claude/arc1-pr3-dancer4` (slice A).
+
+| Item | What |
+|---|---|
+| merge: `NewFlow.tsx` | One conflict (imports). Kept both: `whichPage`/`WhichPage` (7b, this slice) AND `goLivePath`/`profileQuestionsLeft` (slice B). WhatStep keeps the 7b page question; CoverStep keeps slice B's Go live hop. Dancer4 merged clean. |
+| merge fallout: `goLiveModel.openQuestions` | main (#897) registered teacher/DJ wizard steps, so slice B's go-live list started asking `teacher:years_teaching` (its own test went red). Go live needs only dancer + organiser fields (`_series_go_live_check_p5`): the list now keeps those two areas only. |
+| review 7, 6a | Mockup wording back: "You are already its owner." (owner decision; finding 3 above is closed). |
+| review 7, 9a | `SIGN_IN_SUB` (`lib/auth-otp-routing.ts`) is the one sub line under "Welcome back"; `AuthSignInSub.test.tsx` tables it over every sign-in visit (plain, returnTo, each callbackError, unknown reason, from the Join tab). |
+| review 7, 1d | A first-page invite no longer skips the welcome: "You manage X / Add your first event whenever you are ready." + "Add an event" (New event on that page) + "Look around first" (Home on it). 7c unchanged. `joinedWelcome` now always returns a screen (`1d` or `7c`). |
+| review 8 | ONE hint-to-words map: `CLAIM_COPY` in `home/onboarding/claimStates.ts` holds the row words, the screen and the primary per hint (and `unknown`). `HINT_TEXT`/`NO_HINT_TEXT` deleted; the row reads `hintRowText`, `rowAction` reads `claimPrimary`. `ClaimStates.test.tsx` tables every hint x row words x row button x sheet screen x row action. `NO_EMAIL_COPY` moved with it. |
+
+Not done here (by instruction): prefill wiring (a later worker).
+
+### Left / next steps (after this pass)
+
+- Owner calls on findings 2 and 4 above (and whether 9c gets a Sign in button).
+- Phone test by Ricky (final confirmation only).
+
+## Checks run in the sandbox (first pass; this pass's results are in the PR body) (no PR opened: sub-branch, the orchestrator merges)
 
 | Job / step | Command | Result |
 |---|---|---|

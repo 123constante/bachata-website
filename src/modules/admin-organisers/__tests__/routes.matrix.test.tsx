@@ -69,7 +69,7 @@ function mount(path: string) {
           <Route path="/invite/:token" element={<InviteRedeemPage />} />
           <Route path="/invite" element={<InviteRedeemPage />} />
           <Route path="/account/o" element={<p data-testid="landed">dashboard</p>} />
-          {/* Arc 1 7c: a new seat lands on the welcome, which forwards a first page to Home. */}
+          {/* Arc 1 7c: a new seat lands on the welcome (1d for a first page, 7c for another). */}
           <Route path="/account/o/welcome" element={<p data-testid="landed">dashboard</p>} />
           <Route path="/auth" element={<p data-testid="auth">sign in</p>} />
         </Routes>
@@ -259,7 +259,7 @@ describe('/invite/:token x viewer', () => {
       <StrictMode><QueryClientProvider client={client}><MemoryRouter initialEntries={[`/invite/${TOKEN}`]}><Routes>
         <Route path="/invite/:token" element={<InviteRedeemPage />} />
         <Route path="/account/o" element={<p data-testid="landed">dashboard</p>} />
-        {/* Arc 1 7c: a new seat lands on the welcome, which forwards a first page to Home. */}
+        {/* Arc 1 7c: a new seat lands on the welcome (1d for a first page, 7c for another). */}
         <Route path="/account/o/welcome" element={<p data-testid="landed">dashboard</p>} />
       </Routes></MemoryRouter></QueryClientProvider></StrictMode>,
     );

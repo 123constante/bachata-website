@@ -24,6 +24,7 @@ import {
   SIGNED_IN_LANDING_PATH,
   OTP_RATE_LIMITED_MESSAGE,
   SIGNUP_HELP_WHATSAPP_URL,
+  SIGN_IN_SUB,
   isOtpRateLimitedError,
   DEFAULT_SIGNUP_ROLES,
   PENDING_ROLE_INTENT_KEY,
@@ -524,8 +525,7 @@ const AuthContent = () => {
             {mode === "signin" ? "Welcome back" : "Join the community"}
           </h1>
           <p className="text-sm text-muted-foreground text-center">
-            {/* Arc 1 flow 9a: a new phone or an ended session is the same person; the account holds their pages. */}
-            {mode === "signin" ? "Sign in with the email you used before." : "Three quick steps, then we email you a code."}
+            {mode === "signin" ? SIGN_IN_SUB : "Three quick steps, then we email you a code."}
           </p>
         </div>
 

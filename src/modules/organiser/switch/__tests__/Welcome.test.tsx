@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /**
- * Arc 1 flow 7c: an accepted invite to a SECOND page says so ("You now manage
- * X. You also manage Y."); the first page has no extra screen (straight to
- * Home, as today). Table-driven: pages on the login x the page joined.
+ * Arc 1 flows 1d and 7c: an accepted invite to the FIRST page says "You manage
+ * X" and offers its first event (1d); to a SECOND page it says "You now manage
+ * X. You also manage Y." (7c). Table-driven: pages on the login x the page joined.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -42,6 +42,7 @@ function mount(joinedId: string) {
         <Routes>
           <Route path={`${ORG_PATHS.home}/welcome`} element={<WelcomePage />} />
           <Route path={ORG_PATHS.home} element={<span data-testid="at-home" />} />
+          <Route path={ORG_PATHS.newWhat} element={<span data-testid="at-new" />} />
         </Routes>
         <Where />
       </MemoryRouter>
@@ -51,10 +52,10 @@ function mount(joinedId: string) {
 
 describe('joinedWelcome', () => {
   it.each([
-    ['Bachata Club', [], null],
-    ['Bachata Club', ['Salsa Norte'], { title: 'You now manage Bachata Club', sub: 'You also manage Salsa Norte. Switch any time from Home.' }],
-    ['C', ['A', 'B'], { title: 'You now manage C', sub: 'You also manage A and B. Switch any time from Home.' }],
-    ['D', ['A', 'B', 'C'], { title: 'You now manage D', sub: 'You also manage A, B and C. Switch any time from Home.' }],
+    ['Bachata Club', [], { screen: '1d', title: 'You manage Bachata Club', sub: 'Add your first event whenever you are ready.' }],
+    ['Bachata Club', ['Salsa Norte'], { screen: '7c', title: 'You now manage Bachata Club', sub: 'You also manage Salsa Norte. Switch any time from Home.' }],
+    ['C', ['A', 'B'], { screen: '7c', title: 'You now manage C', sub: 'You also manage A and B. Switch any time from Home.' }],
+    ['D', ['A', 'B', 'C'], { screen: '7c', title: 'You now manage D', sub: 'You also manage A, B and C. Switch any time from Home.' }],
   ] as const)('%s with %j', (name, others, expected) => {
     expect(joinedWelcome(name, [...others])).toEqual(expected);
   });
@@ -77,11 +78,32 @@ describe('/account/o/welcome', () => {
     expect(screen.getByTestId('where').textContent).toBe(`${ORG_PATHS.home}?o=org2`);
   });
 
-  it('first page: no extra screen, straight to Home', async () => {
+  it('first page (1d): You manage X, Look around first goes to Home on it', async () => {
     pages = [page('org1', 'Salsa Norte')];
     mount('org1');
+    expect((await screen.findByTestId('org-welcome-title')).textContent).toBe('You manage Salsa Norte');
+    expect(screen.getByTestId('org-welcome-sub').textContent).toBe('Add your first event whenever you are ready.');
+    expect(screen.getByTestId('org-welcome-add-event').textContent).toBe('Add an event');
+    expect(screen.getByTestId('org-welcome-home').textContent).toBe('Look around first');
+    fireEvent.click(screen.getByTestId('org-welcome-home'));
     expect(await screen.findByTestId('at-home')).toBeTruthy();
     expect(screen.getByTestId('where').textContent).toBe(`${ORG_PATHS.home}?o=org1`);
+  });
+
+  it('first page (1d): Add an event opens New event on that page', async () => {
+    pages = [page('org1', 'Salsa Norte')];
+    mount('org1');
+    fireEvent.click(await screen.findByTestId('org-welcome-add-event'));
+    expect(await screen.findByTestId('at-new')).toBeTruthy();
+    expect(screen.getByTestId('where').textContent).toBe(ORG_PATHS.newWhatFor('org1'));
+  });
+
+  it('second page (7c) offers no Add an event (one primary, Go to Home)', async () => {
+    pages = [page('org1', 'Salsa Norte'), page('org2', 'Bachata Club')];
+    mount('org2');
+    await screen.findByTestId('org-welcome-title');
+    expect(screen.queryByTestId('org-welcome-add-event')).toBeNull();
+    expect(screen.getByTestId('org-welcome-home').textContent).toBe('Go to Home');
   });
 
   it('a page not (yet) on the login: Home, never a welcome naming nothing', async () => {

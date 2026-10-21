@@ -41,10 +41,14 @@ export const sectionOf = (s: Pick<ProgressStep, 'area'>): SectionId => (s.area =
 /**
  * The questions to ask: required, not yet answered, and answerable here
  * (registered in the wizard), in the server's order. Taken ONCE at the start so
- * the list does not shrink under the person as each answer saves.
+ * the list does not shrink under the person as each answer saves. Only the
+ * dancer and organiser areas: Go live needs no teacher / DJ answer
+ * (_series_go_live_check_p5), though the wizard registers those steps too.
  */
+const GO_LIVE_AREAS: ReadonlySet<ProgressStep['area']> = new Set(['dancer', 'organiser']);
+
 export function openQuestions(p: Pick<ProfileProgress, 'steps'>): ProgressStep[] {
-  return shownSteps(p.steps, isRegistered).filter((s) => s.required && !s.done);
+  return shownSteps(p.steps, isRegistered).filter((s) => GO_LIVE_AREAS.has(s.area) && s.required && !s.done);
 }
 
 /** "Step k of n" inside the question's own section. */
