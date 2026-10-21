@@ -37,6 +37,8 @@ beforeEach(() => {
     if (a) return Promise.resolve(a);
     if (fn === 'my_role_details_v1') return Promise.resolve(ok({ role: args.p_role, person_id: 'p1', details: DETAILS[args.p_role] }));
     if (fn === 'my_lineup_appearances_v1') return Promise.resolve(ok([]));
+    if (fn === 'my_roles_v1') return Promise.resolve(ok(['dancer', 'organiser', 'teacher', 'dj'].map((role) => ({ role, active: true, complete: false }))));
+    if (fn === 'my_profile_progress_v1') return Promise.resolve(ok({ percent: 50, required_left: 0, publish_ready: true, steps: [], declined: [] }));
     return Promise.resolve(fail(`Could not find the function public.${fn}`));
   });
 });

@@ -64,7 +64,15 @@ describe('(a) a new sign-up who chose Teacher / DJ: the area renders an empty st
   it.each([
     ['teacher', <TeacherAreaPage />, 'No details added yet'],
     ['dj', <DjAreaPage />, 'No details added yet'],
-  ] as [string, ReactElement, string][])('%s', async (_role, ui, line) => {
+  ] as [string, ReactElement, string][])('%s', async (role, ui, line) => {
+    if (role === 'dj') {
+      // A DJ chosen at sign-up and not saved: the wizard already lists the DJ steps from the intent.
+      const base = h.rpc.getMockImplementation()!;
+      const djSteps = Object.keys(EMPTY.dj).map((field) => ({ area: 'dj', field, required: false, done: false }));
+      h.rpc.mockImplementation((fn: string, args?: { p_role?: 'teacher' | 'dj' }) => (
+        fn === 'my_profile_progress_v1' ? ok({ ...PROD_PROGRESS, steps: [...PROD_PROGRESS.steps, ...djSteps] }) : base(fn, args)
+      ));
+    }
     mount(ui);
     expect((await screen.findByTestId('completeness-line')).textContent).toBe(line);
     // The one action, in words; the line-up card says what will fill it.

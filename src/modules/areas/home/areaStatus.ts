@@ -8,6 +8,7 @@
 import { AREA_PATHS } from '@/lib/areaPaths';
 import { FINISH_PROFILE_PATH } from '@/lib/profileCompletion';
 import { APP_HOME_PATH } from '@/lib/accountRouting';
+import type { StatusTone } from '@/modules/organiser/ui';
 import { requiredLeftText, type ProfileProgress } from '@/modules/organiser/shared/profileProgress';
 import { ROLE_NAME } from '../shared/fieldRegistry';
 import { AREA_ROLES, type AreaRole, type RoleRow } from './rolesApi';
@@ -31,6 +32,9 @@ export const AREA_HREF: Record<AreaRole, string> = {
 
 export type AreaStatusKind = 'complete' | 'to-finish' | 'not-held' | 'declined';
 export interface AreaStatus { kind: AreaStatusKind; words: string }
+
+/** The status tag's tone: green for Complete, amber for unfinished, quiet for not added / said no. */
+export const AREA_TONE: Record<AreaStatusKind, StatusTone> = { complete: 'live', 'to-finish': 'draft', 'not-held': 'neutral', declined: 'neutral' };
 
 export const COMPLETE_WORDS = 'Complete';
 export const NOT_HELD_WORDS = 'Not added';

@@ -1,5 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Navigate } from 'react-router-dom';
+import { useProfileProgress } from '@/modules/organiser/shared/profileProgress';
+import { isAreaShown } from '../home/areaStatus';
+import { fetchMyRoles, myRolesQueryKey } from '../home/rolesApi';
 import { AnnounceRegion, Card, ErrorState, Field, PrimaryButton, SkeletonRows, useAnnounce, useShake } from '@/modules/organiser/ui';
 import { fetchMyRoleDetails, roleDetailsQueryKey, saveMyRole, type RoleDetails } from './areaApi';
 import { AreaFrame } from './AreaFrame';
@@ -125,12 +129,18 @@ export function RoleProfilePage({ role, areaPath, blocked }: { role: Role; areaP
       setToast(true);
     },
   });
+  // A role that is not added has no details page: the person goes to the area page, which says why and offers Add (F1).
+  const roles = useQuery({ queryKey: myRolesQueryKey, queryFn: fetchMyRoles });
+  const progress = useProfileProgress(null);
   const name = ROLE_NAME[role];
+  if (roles.status === 'success' && progress.status !== 'pending' && !isAreaShown(role, roles.data.find((r) => r.role === role), progress.data)) {
+    return <Navigate to={areaPath} replace />;
+  }
   return (
     <AreaFrame title={`${name} details`} back={{ to: areaPath, label: name }} testId={`${role}-profile`}>
       <AnnounceRegion message={announcement} />
       <SavedToast show={toast} onDone={hideToast} />
-      {details.status === 'pending' ? (
+      {details.status === 'pending' || roles.status === 'pending' || progress.status === 'pending' ? (
         <SkeletonRows count={4} label={`Loading your ${ROLE_NOUN[role]} details`} />
       ) : details.status === 'error' && blockedCode(details.error) ? (
         <BlockedState code={blockedCode(details.error)!} paths={blocked} />

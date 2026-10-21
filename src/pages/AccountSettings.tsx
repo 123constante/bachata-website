@@ -533,7 +533,7 @@ export const AccountSettingsScreen = ({ view = "home" }: { view?: View }) => {
     >
       {/* Walk bug 2 (#789): the crumbs are this page's way out, so each link is a 44 px tap target. */}
       <style>{CRUMB_TAP_CSS}</style>
-      <AccountShell testId="settings-shell">
+      <AccountShell testId="settings-shell" homeLink={false}>
           {fromApp && (
             <Link
               to={APP_OPTIONS_PATH}

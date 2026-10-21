@@ -14,13 +14,13 @@ const ROLES = [
   { role: 'teacher', active: true, complete: true }, { role: 'dj', active: false, complete: false },
 ];
 
-async function open(page: Page, path: string, o: { signedOut?: boolean } = {}) {
+async function open(page: Page, path: string, o: { signedOut?: boolean; roles?: typeof ROLES } = {}) {
   const fake = new OrganiserFake({ noOrganiser: true, signedOut: o.signedOut });
   await fake.install(page);
   await page.route('**/rest/v1/rpc/_my_dancer_profile_id_v1', (r) => json(r, 'persona-1'));
   await page.route('**/rest/v1/rpc/profile_complete_v1', (r) => json(r, true));
   await page.route('**/rest/v1/rpc/dancer_area_gate_v1', (r) => json(r, { open: false, allowed: false }));
-  await page.route('**/rest/v1/rpc/my_roles_v1', (r) => json(r, ROLES));
+  await page.route('**/rest/v1/rpc/my_roles_v1', (r) => json(r, o.roles ?? ROLES));
   await page.route('**/rest/v1/rpc/my_profile_progress_v1', (r) => json(r, { percent: 60, required_left: 0, publish_ready: true, steps: [], declined: [] }));
   await page.route('**/rest/v1/rpc/my_role_details_v1', (r) => json(r, { role: r.request().postDataJSON()?.p_role, person_id: 'p1', details: r.request().postDataJSON()?.p_role === 'dj' ? DJ : TEACHER }));
   await page.route('**/rest/v1/rpc/my_lineup_appearances_v1', (r) => json(r, []));
@@ -40,15 +40,17 @@ async function solid(page: Page, testId: string) {
   }, testId);
 }
 
-const ROUTES: { name: string; path: string; ready: string; primary?: string; signedOut?: boolean }[] = [
-  { name: 'account-home', path: '/account/dancer', ready: 'account-areas-row' },
-  { name: 'account-settings', path: '/account/settings', ready: 'settings-signout' },
-  { name: 'account-delete', path: '/account/settings/delete', ready: 'delete-confirm' },
+// `crumbs`: the screen sits under GlobalLayout breadcrumbs, whose Home crumb is its one way home (F2).
+const DJ_HELD = ROLES.map((r) => ({ ...r, active: r.active || r.role === 'dj', complete: r.complete || r.role === 'dj' }));
+const ROUTES: { name: string; path: string; ready: string; primary?: string; signedOut?: boolean; crumbs?: boolean; roles?: typeof ROLES }[] = [
+  { name: 'account-home', path: '/account/dancer', ready: 'account-areas-row', crumbs: true },
+  { name: 'account-settings', path: '/account/settings', ready: 'settings-signout', crumbs: true },
+  { name: 'account-delete', path: '/account/settings/delete', ready: 'delete-confirm', crumbs: true },
   { name: 'your-areas', path: '/account/areas', ready: 'area-row-dj' },
   { name: 'teacher-area', path: '/account/t', ready: 'completeness-line', primary: 'edit-details' },
   { name: 'teacher-details', path: '/account/t/details', ready: 'save-details', primary: 'save-details' },
-  { name: 'dj-area', path: '/account/dj', ready: 'completeness-line', primary: 'edit-details' },
-  { name: 'dj-details', path: '/account/dj/details', ready: 'save-details', primary: 'save-details' },
+  { name: 'dj-area', path: '/account/dj', ready: 'completeness-line', primary: 'edit-details', roles: DJ_HELD },
+  { name: 'dj-details', path: '/account/dj/details', ready: 'save-details', primary: 'save-details', roles: DJ_HELD },
 ];
 
 for (const vp of [{ width: 390, height: 844, tag: '390' }, { width: 1280, height: 800, tag: '1280' }]) {
@@ -59,9 +61,15 @@ for (const vp of [{ width: 390, height: 844, tag: '390' }, { width: 1280, height
         const errors: string[] = [];
         page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
         page.on('pageerror', (e) => errors.push(String(e)));
-        await open(page, r.path);
+        await open(page, r.path, { roles: r.roles });
         await expect(page.getByTestId(r.ready)).toBeVisible();
-        await expect(page.getByTestId('site-home-link').first()).toBeVisible();
+        // One way home per screen (F2): the breadcrumb's Home under GlobalLayout, else the Ember link.
+        if (r.crumbs) {
+          await expect(page.getByTestId('site-home-link')).toHaveCount(0);
+          await expect(page.locator('nav[aria-label="breadcrumb"]').getByText('Home', { exact: true }).first()).toBeVisible();
+        } else {
+          await expect(page.getByTestId('site-home-link')).toHaveCount(1);
+        }
         await page.waitForTimeout(600);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
         if (r.primary) {
@@ -84,6 +92,19 @@ for (const vp of [{ width: 390, height: 844, tag: '390' }, { width: 1280, height
 
 test.describe('390x844 sheets and the sign-up roles step', () => {
   test.use({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  // F1: a dancer-only account opening the teacher area by link sees the same words and action as Your areas.
+  test('not-added teacher opening /account/t', async ({ page }) => {
+    const dancerOnly = ROLES.map((r) => ({ ...r, active: r.role === 'dancer' }));
+    await open(page, '/account/t', { roles: dancerOnly });
+    await expect(page.getByTestId('area-status-teacher')).toHaveText('Not added');
+    await expect(page.getByTestId('completeness-line')).toHaveCount(0);
+    await expect(page.getByTestId('edit-details')).toHaveCount(0);
+    await page.screenshot({ path: 'docs/people-arc/restyle-a/teacher-not-added-390.png' });
+    await page.getByTestId('area-action-ask').click();
+    await expect(page.getByRole('button', { name: 'Skip for now' })).toBeVisible();
+    await page.goto('/account/t/details');
+    await expect(page).toHaveURL(/\/account\/t$/);
+  });
   test('ask sheet', async ({ page }) => {
     await open(page, '/account/areas');
     await page.getByTestId('area-action-ask').click();

@@ -124,7 +124,9 @@ describe('settings home', () => {
   it('visible: offers Hide; confirming calls the RPC with true and shows the hidden state', async () => {
     h.setDisabled.mockResolvedValue({ ok: true, disabled: true });
     mount(SETTINGS);
-    expect((await screen.findByTestId('site-home-link')).getAttribute('href')).toBe('/');
+    // F2: the layout's Home breadcrumb is the one way home here; no second SiteHomeLink under it.
+    expect(JSON.parse((await screen.findByTestId('layout')).getAttribute('data-crumbs')!).length).toBeGreaterThan(0);
+    expect(screen.queryByTestId('site-home-link')).toBeNull();
     fireEvent.click(await screen.findByTestId('settings-disable-toggle'));
     // D119 #4: the confirm is a sheet with its own title and the two buttons.
     expect(await screen.findByRole('dialog', { name: 'Hide your dancer profile' })).toBeTruthy();

@@ -64,7 +64,7 @@ export const AccountScreen = ({ view = "resolve" }: { view?: "resolve" | "dancer
 
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs(view === "dancer" ? "dancerProfile" : "dancerHome")} showGradientBg={false}>
-      <AccountShell testId="account-shell">
+      <AccountShell testId="account-shell" homeLink={false}>
           <h1 className={PAGE_TITLE}>{view === "dancer" ? "Your dancer profile" : "Your account"}</h1>
           {view === "resolve" && where === "loading" ? (
             <div className="space-y-[12px]" aria-busy="true" data-testid="account-loading">
@@ -88,7 +88,7 @@ export const AccountScreen = ({ view = "resolve" }: { view?: "resolve" | "dancer
 
 const Checking = ({ view }: { view?: "resolve" | "dancer" }) => (
   <GlobalLayout breadcrumbs={buildBreadcrumbs(view === "dancer" ? "dancerProfile" : "dancerHome")} showGradientBg={false}>
-    <AccountShell>
+    <AccountShell homeLink={false}>
       <div className="space-y-[12px]" aria-busy="true" data-testid="account-loading">
         <Skeleton className="h-24 w-full rounded-[var(--r-card)]" />
         <Skeleton className="h-20 w-full rounded-[var(--r-card)]" />

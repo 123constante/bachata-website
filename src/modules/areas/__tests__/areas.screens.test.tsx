@@ -42,6 +42,9 @@ beforeEach(() => {
     if (a) return Promise.resolve(a);
     if (fn === 'my_role_details_v1') return Promise.resolve(ok({ role: args.p_role, person_id: 'p1', details: DETAILS[args.p_role] }));
     if (fn === 'my_lineup_appearances_v1') return Promise.resolve(ok([]));
+    // The role is held (a not-added role shows the status card instead, F1: areas.notAdded.test.tsx).
+    if (fn === 'my_roles_v1') return Promise.resolve(ok(['dancer', 'organiser', 'teacher', 'dj'].map((role) => ({ role, active: true, complete: false }))));
+    if (fn === 'my_profile_progress_v1') return Promise.resolve(ok({ percent: 50, required_left: 0, publish_ready: true, steps: [], declined: [] }));
     return Promise.resolve(fail(`Could not find the function public.${fn}`));
   });
 });
@@ -63,11 +66,11 @@ const PROFILES: [Role, () => ReactElement, string, string][] = [
 ];
 
 describe.each(AREAS)('%s dashboard', (role, Page, line) => {
-  it('loading: shimmer rows for details and line-up', () => {
+  it('loading: shimmer rows for details and line-up', async () => {
     answers.my_role_details_v1 = 'hang';
     answers.my_lineup_appearances_v1 = 'hang';
     mount(<Page />);
-    expect(screen.getAllByRole('status').length).toBeGreaterThanOrEqual(2);
+    await waitFor(() => expect(screen.getAllByRole('status').length).toBeGreaterThanOrEqual(2));
     expect(screen.queryByTestId('edit-details')).toBeNull();
   });
   it('filled details + empty line-up: completeness, Edit details, empty state says what happens', async () => {
@@ -104,7 +107,7 @@ describe.each(AREAS)('%s dashboard', (role, Page, line) => {
   it('asks only for its own role', async () => {
     mount(<Page />);
     await screen.findByTestId('completeness-line');
-    expect(h.rpc.mock.calls.filter((c) => c[0] !== 'my_roles_v1').every((c) => (c[1] as { p_role: string }).p_role === role)).toBe(true);
+    expect(h.rpc.mock.calls.filter((c) => c[0] !== 'my_roles_v1' && c[0] !== 'my_profile_progress_v1').every((c) => (c[1] as { p_role: string }).p_role === role)).toBe(true);
   });
 });
 

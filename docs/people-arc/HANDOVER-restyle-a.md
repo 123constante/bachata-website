@@ -26,6 +26,43 @@ Link-styled button (account links keep Tailwind pills mapped to ember vars), `Sa
 - The area screens (Your areas, Teacher/DJ area and details) also keep the site header and the orange footer, not only the account screens (N5).
 - Three ways home on Account home and Settings: header logo, breadcrumb Home (48x17, shared chrome) and `SiteHomeLink`; acceptable under D107/D120, for the owner's phone look (N4).
 
+## Fix pass 2 (walk findings F1, F2 on PR #897)
+
+| Finding | Fixed how | Test |
+|---|---|---|
+| F1 | Teacher / DJ area page reads `areaStatus` + `isAreaShown` (one mapping) with the same `my_roles_v1` and progress queries Your areas reads. A role that is not added or said no shows `not-added-card`: the Your areas status words (`areaStatus(...).words`, tone `AREA_TONE`) and the same Add action, which opens the same ask sheet (`home/DoYouSheet.tsx`, moved out of `YourAreasPage`; Yes / Skip for now through the same `answerDoYou` / `setDeclined` writers). No count, no meter, no Edit, no line-up. The details page `<Navigate replace>`s a not-added role to the area page; it shows a skeleton while roles / progress load, so no flash or early redirect. | `areas.notAdded.test.tsx`: role x 7 shapes x 4 surfaces, loading, Skip writer. Red first on 82961805: 8 of 18 failed (not added, declined, chosen-at-sign-up + progress failed, Skip), green after. E2E: `restyle-a-walk` "not-added teacher opening /account/t". |
+| F2 | `AccountShell` takes `homeLink` (default true). `Account.tsx` (both shells) and `AccountSettings.tsx` sit under GlobalLayout breadcrumbs (Home crumb), so they pass `homeLink={false}`. | `areas.homeLink.test.tsx` (one link per frame, sweep of every AccountShell under breadcrumbs, Continue as keeps its one); page tests assert no `site-home-link` under crumbs; e2e walk asserts 0 SiteHomeLink + the Home crumb on account home / settings / delete, exactly 1 elsewhere. |
+
+Sweep of slice A for the same doubling: Account home (`/account`, `/account/dancer`), Account settings, Delete account: doubled, fixed.
+Your areas, teacher / DJ area and details: AreaFrame, no breadcrumbs, one link, unchanged. Continue as: no breadcrumbs, one link, unchanged.
+
+Side effects, all expected: five existing tests pinned the old behaviour and were updated (`areas.screens`, `areas.fixpass` mocks now serve
+`my_roles_v1` / progress with the role held; `releaseBSeams.empty` dj case serves DJ intent steps; the loading test waits for both skeletons);
+`tests/regression/today` snapshots for account and account settings lose the "Bachata Calendar" link line (42 snapshots, only that line and its
+wrapper differ); the e2e walk gives DJ routes a DJ-held fixture.
+
+Roles failed to load on a teacher / DJ area page: shows the "Your areas did not load" error with Retry, never a count (we cannot say the role is added).
+
+### Gates (fix pass 2, this head; exit codes)
+- `npm run test:unit:offline`: exit 1, ONLY pre-existing `tests/integrityCouldNotRun.test.ts` (5 tests; the same 5 fail on the unchanged base: the sandbox cannot resolve the TS helper). The two `tests/regression/today` account snapshot files were failing on the removed link and are updated (76/76 pass).
+- Touched suites `src/modules/areas src/pages src/components/account`: 51 files, 1007 tests pass.
+- `npm run typecheck`: exit 2 from pre-existing generated-type errors (`venuePublicService.ts` etc.); 0 errors in any file this pass touches.
+- `npm run lint` chain: 19 of 20 links PASS; `check:integrity` exit 126 only because `bin/check-integrity.sh` is not executable here; `bash bin/check-integrity.sh` exit 0 (2152 files, 0 issues). eslint link informational (skipped by the chain's rule).
+- `check:rpc-typing`, `check:wallclock-brand`, `check:dancer-area-isolation`: exit 0.
+- `npm run build`: exit 0. perf-budget: `check:bundle-budget`, `check:first-load-requests`, `check:chunk-cycles`: exit 0.
+- build-smoke (`playwright.build.config.ts`): exit 0, 66 passed.
+- phone-qa (`playwright.phone.config.ts -g "account|area"`, 390x844): exit 0, 14 passed. The full phone suite was not run.
+- `tests/e2e/restyle-a-walk.spec.ts`: 25 pass at 390x844 and 1280x800 (one full run showed 6 failures, 4 from the DJ fixture now being correctly "not added" and fixed in the spec, 2 on account home / settings at 390 that passed on re-run once the other 4 were fixed: not reproduced, treat as load flake). Screenshots refreshed: account-home, account-settings, dj-area, dj-details, new teacher-not-added.
+- Not run: Docker / live-DB contract suites, lighthouse, a real phone, the owner's look at the new Not added card.
+
+### Not verified
+Real-data shapes were not re-surveyed this pass (no new query, no new field; the status words come from the existing server answers). A real dancer-only account on a phone: orchestrator walk.
+
+## Parked questions (fix pass 2)
+1. Roles query fails on a teacher / DJ area page. Default: "Your areas did not load" with Retry. Options: show the old page. Cost if wrong: small. `src/modules/areas/shared/RoleAreaPage.tsx` (the `roles.status === 'error'` branch).
+2. After Skip for now on the not-added area page the person stays there and reads "You said no" with Add still offered (same as Your areas). Options: go back to Your areas. Cost if wrong: small. `RoleAreaPage.tsx` `NotAddedCard.done`.
+3. The Not added card has only the status tag and Add (no explanatory sentence), to keep "same words as Your areas". Options: add a line. Cost if wrong: small. `RoleAreaPage.tsx` `NotAddedCard`.
+
 ## Next steps
 Orchestrator: fill "## Phone QA" in PR #897; owner phone look. A review worker should read `leaveGuard.ts` (module-level store) first.
 

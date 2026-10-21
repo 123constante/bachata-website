@@ -3,8 +3,7 @@
 exports[`/account entry at '390x844' > /account > 'complete dancer' 1`] = `
 {
   "landing": "/account",
-  "tree": "link "Bachata Calendar" href=/
-heading "Your account" level=1
+  "tree": "heading "Your account" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -106,8 +105,7 @@ exports[`/account entry at '390x844' > /account > 'signed out' 1`] = `
 exports[`/account entry at '390x844' > /account/dancer > 'complete dancer' 1`] = `
 {
   "landing": "/account/dancer",
-  "tree": "link "Bachata Calendar" href=/
-heading "Your dancer profile" level=1
+  "tree": "heading "Your dancer profile" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -163,8 +161,7 @@ link "Account settings (sign out or delete account)" href=/account/settings",
 exports[`/account entry at '390x844' > /account/dancer > 'open access request (complete)' 1`] = `
 {
   "landing": "/account/dancer",
-  "tree": "link "Bachata Calendar" href=/
-heading "Your dancer profile" level=1
+  "tree": "heading "Your dancer profile" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -189,8 +186,7 @@ button "Sign out"",
 exports[`/account entry at '390x844' > /account/dancer > 'organiser-type (complete)' 1`] = `
 {
   "landing": "/account/dancer",
-  "tree": "link "Bachata Calendar" href=/
-heading "Your dancer profile" level=1
+  "tree": "heading "Your dancer profile" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -318,8 +314,7 @@ exports[`/account entry at '390x844' > /account/o > 'signed out' 1`] = `
 exports[`/account entry at 'desktop' > /account > 'complete dancer' 1`] = `
 {
   "landing": "/account",
-  "tree": "link "Bachata Calendar" href=/
-heading "Your account" level=1
+  "tree": "heading "Your account" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -421,8 +416,7 @@ exports[`/account entry at 'desktop' > /account > 'signed out' 1`] = `
 exports[`/account entry at 'desktop' > /account/dancer > 'complete dancer' 1`] = `
 {
   "landing": "/account/dancer",
-  "tree": "link "Bachata Calendar" href=/
-heading "Your dancer profile" level=1
+  "tree": "heading "Your dancer profile" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -478,8 +472,7 @@ link "Account settings (sign out or delete account)" href=/account/settings",
 exports[`/account entry at 'desktop' > /account/dancer > 'open access request (complete)' 1`] = `
 {
   "landing": "/account/dancer",
-  "tree": "link "Bachata Calendar" href=/
-heading "Your dancer profile" level=1
+  "tree": "heading "Your dancer profile" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -504,8 +497,7 @@ button "Sign out"",
 exports[`/account entry at 'desktop' > /account/dancer > 'organiser-type (complete)' 1`] = `
 {
   "landing": "/account/dancer",
-  "tree": "link "Bachata Calendar" href=/
-heading "Your dancer profile" level=1
+  "tree": "heading "Your dancer profile" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
