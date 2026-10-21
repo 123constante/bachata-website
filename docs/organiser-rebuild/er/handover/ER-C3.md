@@ -26,6 +26,8 @@ Module root below = `src/modules/organiser/`.
 - `fixtures`: `validSessionPair[]`, `timeFromSessions[]`, `readiness[]`: the table BOTH repos run.
 
 ## `shared/eventRules.ts` exports
+
+ADDED by ER-FIX-C3 (nothing renamed): `maxSessionMinutes` (= programmeModel `LIMITS.sessionMaxMinutes`, 720; C4 reads it), `ownerCanCreate(format)`, `validSessionPair(start, end, cap?)` (third argument optional), `RuleSeries.status` / `RuleSeries.flyer` / `RuleSeries.programmeDays?`, `Readiness.serverOnlyBlockers`, blocker codes `flyer` and `festivalDay`, JSON keys `ownerCreateFormats`, `preLiveStatuses`, `serverCodes`, `serverOnlyBlockers`, `time.eveningFrom`. `selfServeErrors.isSeriesNotFound`. See `ER-FIX-C3.md`.
 ```ts
 type SessionKind = 'class'|'workshop'|'masterclass'|'party'|'showcase'|'competition'
 type PaymentCode = 'ticket_link'|'door'|'bank_transfer'|'cash'|'free'
@@ -63,7 +65,7 @@ type OrganiserSeriesState =
  | { state: 'gone' }
  | { state: 'error'; retry: () => void }   // added: a read failed for another reason (offline); never shown as Not found
 ```
-Order: `organiser_home_v1` (shared cache key) first; only if home does not list it, `admin_event_workspace_p5`. `permission_denied` -> `no-access`; no such series -> `gone`; archived (home or workspace) -> `not-found-archived`. A series with 0 dates is `found`. For a workspace-built series `next_dates` holds the first 3 scheduled dates and the counts are from today.
+Order: `organiser_home_v1` (shared cache key) first; only if home does not list it, `admin_event_workspace_p5`. `permission_denied` -> `no-access`; no such series (the real P0001 `series_not_found: <id>`, ER-FIX-C3) -> `gone`; archived (home or workspace) -> `not-found-archived`. A series with 0 dates is `found`. For a workspace-built series `next_dates` holds the first 3 scheduled dates and the counts are from today.
 `findSeries(home, id)` / `allSeries(home)` stay (synchronous, home only); `flows/add/addModel` and `flows/change/changeModel` re-export `findSeries` so existing imports keep working. `events/eventsApi.listedSeries` sits on `listedFromOrganisers`. Use `notFoundText(state)` (flows/add) for the sentence.
 
 ## Switch (ER-S0)

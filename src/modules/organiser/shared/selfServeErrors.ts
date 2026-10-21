@@ -239,6 +239,10 @@ export const isAccessRefusal = (error: unknown) =>
   !!error && typeof error === 'object' &&
   /^permission_denied(?!: authentication_required)/.test(String((error as { message?: unknown }).message ?? ''));
 
+/** `_assert_can_edit_series_p5` raises P0001 `series_not_found: <id>` for an id it does not know (deleted or mistyped). */
+export const isSeriesNotFound = (error: unknown) =>
+  !!error && typeof error === 'object' && /^series_not_found\b/.test(String((error as { message?: unknown }).message ?? ''));
+
 export const isVersionConflict = (error: unknown) =>
   !!error && typeof error === 'object' && /^version_conflict/.test(String((error as { message?: unknown }).message ?? ''));
 

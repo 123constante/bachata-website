@@ -33,7 +33,8 @@ export default function Time() {
 
   return (
     <Step title={one?.name ?? 'Add a date'} back={ORG_PATHS.addEvent(seriesId)}>
-      {home.isError || ws.isError ? (
+      {/* A refused workspace read is the lookup's answer (gone / no access), not a failure: only a real error retries. */}
+      {home.isError || lookup.state === 'error' || (one && ws.isError) ? (
         <Failed flow="add" error={ws.error} onRetry={() => { void home.refetch(); void ws.refetch(); }} />
       ) : !home.data || lookup.state === 'loading' ? (
         <Loading flow="add" />
