@@ -133,11 +133,33 @@ describe('extras', () => {
     expect(q('dancer-languages')!.textContent).toContain('English, Spanish, Portuguese, French, Italian, Polish');
   });
 
-  it('no contacts and no WhatsApp: the empty state says what the visitor can do, and Share is on screen', async () => {
+  it('no contacts and no WhatsApp: no "No public contacts yet" line (W1 S2), Share is on screen', async () => {
     mount('photoless', { extrasOk: true, extras: NO_EXTRAS });
     await settle();
-    expect(q('dancer-connect-empty')!.textContent).toContain('Use Share');
+    expect(q('dancer-connect-empty')).toBeNull();
+    expect(q('dancer-connect')).toBeNull();
     expect(q('dancer-share')).not.toBeNull();
+  });
+
+  it('favourite songs sit inside the card after Achievements and before Join; none = no block', async () => {
+    mount('complete + all extras', { extrasOk: true, extras: NO_EXTRAS });
+    await settle();
+    const songs = q('dancer-songs')!;
+    expect(songs.textContent).toContain('Obsesion');
+    expect(q('dancer-page-v2')!.contains(songs)).toBe(true);
+    const order = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(order(q('dancer-highlights')!, songs)).toBe(true);
+    expect(order(songs, q('dancer-join')!)).toBe(true);
+    cleanup();
+    mount('photoless', { extrasOk: true, extras: NO_EXTRAS });
+    await settle();
+    expect(q('dancer-songs')).toBeNull();
+  });
+
+  it('no start year stored: no "0 years / Newcomer" facts', async () => {
+    mount('photoless', { extrasOk: true, extras: NO_EXTRAS });
+    await settle();
+    expect(q('dancer-facts')).toBeNull();
   });
 
   it('extras read failed: no "no public contacts" claim (a WhatsApp may exist we could not read)', async () => {

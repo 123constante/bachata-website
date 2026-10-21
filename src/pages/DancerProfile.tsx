@@ -23,6 +23,7 @@ import { useMyPersonaId } from "@/hooks/useMyPersonaId";
 import { isMyProfile } from "@/lib/myPersona";
 import { useEmbeddedProfile } from "@/lib/embeddedProfile";
 import { AlsoRoles } from "@/modules/person-page/AlsoRoles";
+import { usePeopleBadges } from "@/modules/person-page/badges";
 import { PublicDancerPageV2 } from "@/modules/dancer-app/public-page/PublicDancerPageV2";
 import { buildPublicDancerPage, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
 
@@ -70,6 +71,10 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
     buildPath: (s) => `/dancers/${s}`,
   });
   const navigate = useNavigate();
+  // Thin page: the DANCER label is claimed only by someone who holds the Dancer role. Unknown (SSR, still loading) keeps it.
+  const { badges: roleBadges } = usePeopleBadges(embedded || !id ? [] : [id]);
+  const roleBadge = id ? roleBadges.get(id) : undefined;
+  const holdsDancerRole = roleBadge ? roleBadge.roles.includes("dancer") : true;
   const { data: dancer, isLoading, error: dancerError } = useQuery({
     queryKey: ["dancer-profile", id],
     queryFn: async () => {
@@ -373,9 +378,9 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
     const gallery = (dancer as { gallery_urls?: unknown }).gallery_urls;
     const galleryList: unknown[] = Array.isArray(gallery) ? gallery : [];
     return (
-      <GlobalLayout showSubheader={false} backHref="/dancers">
+      <GlobalLayout showSubheader={false} backHref="/dancers" gradientPalette="dancer">
         <div className={`container max-w-xl mx-auto px-4 pt-3${embedded ? '' : ' pb-24'}`}>
-          <AlsoRoles current="dancer" id={id} slug={resolved.slug} />
+          <AlsoRoles current="dancer" id={id} slug={resolved.slug} className="pb-2" />
           <PublicDancerPageV2
             model={buildPublicDancerPage(dancerView, publicPage.extras, galleryList)}
             extrasOk={publicPage.extrasOk}
@@ -383,6 +388,7 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
             pathname={resolved.slug ? `/dancers/${resolved.slug}` : `/dancers/${routeParam ?? dancerView.id}`}
             ownerPlans={isSelfView ? ownerPlans : null}
             embedded={embedded}
+            showRoleLabel={holdsDancerRole}
           />
         </div>
       </GlobalLayout>
