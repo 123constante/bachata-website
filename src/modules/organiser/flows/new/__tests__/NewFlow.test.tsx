@@ -35,16 +35,23 @@ const sent = (): Envelope[] => rpc.mock.calls.filter(([fn]) => fn === 'series_co
 let format = 'recurring';
 let conflict = false;
 let nextVersion = 4;
+let cover: string | null = null;
+let profileLeft = false;
 
 beforeEach(() => {
   format = 'recurring';
   conflict = false;
   nextVersion = 4;
+  cover = null;
+  profileLeft = false;
   rpc.mockReset();
   rpc.mockImplementation(async (fn: string) => {
     if (fn === 'organiser_home_v1') return { data: home(), error: null };
     if (fn === 'get_organiser_venue_options_v1') return { data: venues, error: null };
-    if (fn === 'admin_event_workspace_p5') return { data: rawWorkspace({ format, version: 3, default_cover_image_url: null }), error: null };
+    if (fn === 'admin_event_workspace_p5') return { data: rawWorkspace({ format, version: 3, default_cover_image_url: cover }, cover ? [{ id: 'o1', occurrence_date: '2026-10-09', lifecycle_status: 'scheduled', version: 1, added_sessions_count: 1 }] : undefined), error: null };
+    if (fn === 'series_go_live_check_v1') {
+      return { data: { ready: !profileLeft, event_missing: [], recommended: [], profile_rule_applies: true, profile_missing: profileLeft ? [{ area: 'dancer', [['organiser', 'id'].join('_')]: null, fields: ['nationality', 'languages'] }] : [] }, error: null };
+    }
     if (fn === 'series_command_p5') {
       if (conflict) return { data: null, error: { code: 'P0001', message: 'version_conflict: stale' } };
       const v = nextVersion;
@@ -273,6 +280,27 @@ describe('screens: cover, leaving, conflicts', () => {
     expect(screen.getByTestId('org-new-live-reason').textContent).toMatch(/photo/);
     fireEvent.click(live);
     expect(sent()).toHaveLength(0);
+  });
+
+  it('Arc 1 B: Go live with profile answers left opens the Almost live bridge for this event and sends no command', async () => {
+    cover = 'https://img.example/flyer.jpg';
+    profileLeft = true;
+    mount('/account/o/new/s1/cover');
+    const live = (await screen.findByTestId('org-new-live')) as HTMLButtonElement;
+    await waitFor(() => expect(live.disabled).toBe(false));
+    fireEvent.click(live);
+    await waitFor(() => expect(where()).toBe(`${ORG_PATHS.goLive}?series=s1&o=org1`));
+    expect(sent()).toHaveLength(0);
+  });
+
+  it('Arc 1 B: Go live with nothing left in the profile still sends the live command', async () => {
+    cover = 'https://img.example/flyer.jpg';
+    mount('/account/o/new/s1/cover');
+    const live = (await screen.findByTestId('org-new-live')) as HTMLButtonElement;
+    await waitFor(() => expect(live.disabled).toBe(false));
+    fireEvent.click(live);
+    await waitFor(() => expect(sent().length).toBeGreaterThan(0));
+    expect(where()).not.toContain(ORG_PATHS.goLive);
   });
 
   it('every step after the name offers Save as draft and leave, which sends nothing and goes Home', async () => {

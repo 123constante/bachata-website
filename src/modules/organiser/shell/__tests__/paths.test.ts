@@ -44,6 +44,7 @@ describe('ORG_PATHS (v2)', () => {
       cancel: '/account/o/cancel',
       cancelEvent: '/account/o/cancel/s%201',
       cancelDate: '/account/o/cancel/s%201/o%2F1',
+      goLive: '/account/o/go-live',
       newWhat: '/account/o/new/what',
       newWhatFor: '/account/o/new/what?o=s%201',
       newName: '/account/o/new/name?format=recurring',
