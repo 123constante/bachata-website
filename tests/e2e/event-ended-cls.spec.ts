@@ -38,6 +38,10 @@ const VIEWPORTS = [
   { width: 360, height: 640 },
 ];
 
+// One server per file: parallel workers would each spawn on PORT and the
+// first afterAll would kill it under the others.
+test.describe.configure({ mode: 'serial' });
+
 let server: ChildProcess | undefined;
 
 test.beforeAll(async () => {

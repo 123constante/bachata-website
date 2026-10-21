@@ -55,6 +55,14 @@ anon key (`get_publishable_keys` on `stsdtacfauprzrdebmzg`) and run node with
   blocked by the sandbox proxy; no Vercel token).
 - Live events still shift slightly (0.027, the date/venue tiles at ~2.7 s) and
   festivals 0.03-0.05; both under 0.1 and out of scope.
+- Door prefetch has its own 1.5 s budget (`ENDED_DOOR_BUDGET_MS`): on a miss
+  the page renders as before (door late, shift back) rather than timing out.
+- Known residual (review finding): edge-cached HTML older than the door's
+  5-min `staleTime` refetches the door on mount. If the organiser's live events
+  changed since the render (fallback cards <-> event cards, or empty <-> some),
+  the door can change height after load. The fallback's random organiser pick
+  is frozen in cached HTML and swaps after such a refetch (same size, no shift).
+  Not fixed: it needs a cache-purge or refetch policy decision.
 - The bottom strip ('thisWeek') is still client-fetched; it is below the grid
   and moves nothing above it.
 

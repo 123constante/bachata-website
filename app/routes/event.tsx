@@ -25,6 +25,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // so we skip a pointless slug DB query. (Keep in sync with that hook.)
 const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-/i;
 const OG_FALLBACK = `${SITE_ORIGIN}/og-image.jpg`;
+// Ceiling on the ended page's door prefetch (see endedDoorPrefetch below).
+const ENDED_DOOR_BUDGET_MS = 1500;
 
 // SPIKE — the /event/:id server loader. Folds the client-side slug→uuid resolve
 // (useEntitySlugOrId) + snapshot fetch (useEventPageQuery) onto the server, then
@@ -148,14 +150,20 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
   // Client-fetched, it landed ~4.5s after first paint (4x CPU) and shoved the
   // grid down: CLS 0.12 on a phone. Prefetch it so it is in the first paint.
   // Same inputs BentoPage passes the door (organisers[0], the default city).
-  // FestivalDetail renders no door, so festivals skip it.
+  // FestivalDetail renders no door, so festivals skip it. Cosmetic, so it gets
+  // its own short budget inside the loader deadline: a stalled door RPC must not
+  // turn the page into a timeout. A miss dehydrates nothing for it (pending
+  // queries are not dehydrated) and the client fetches it as before.
   const endedDoorPrefetch =
     snap?.event?.lifecycleStatus === "ended" && !isFestival
-      ? prefetchEndedDoor(qc, {
-          currentEventId: eventId,
-          organiserId: snap.organisers[0]?.id ?? null,
-          citySlug: snap.locationDefault?.city?.slug ?? null,
-        })
+      ? Promise.race([
+          prefetchEndedDoor(qc, {
+            currentEventId: eventId,
+            organiserId: snap.organisers[0]?.id ?? null,
+            citySlug: snap.locationDefault?.city?.slug ?? null,
+          }),
+          new Promise((resolve) => setTimeout(resolve, ENDED_DOOR_BUDGET_MS)),
+        ])
       : Promise.resolve();
 
   // Phase 5 — normalize og:image/twitter:image (prefer the R2-baked card, else
