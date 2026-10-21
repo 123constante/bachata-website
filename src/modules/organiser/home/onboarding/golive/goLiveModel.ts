@@ -7,6 +7,9 @@ import type { ProfileProgress, ProgressStep } from '@/modules/organiser/shared/p
 import { isRegistered } from '../../../wizard/registry';
 import { shownSteps, stepKey } from '../../../wizard/wizardModel';
 import type { WizardSources } from '../../../wizard/registry';
+import { WIZARD_STEPS } from '../../../wizard/registry';
+import { PROFILE_WIZARD_PATH } from '@/modules/organiser/shared/profileProgress';
+import { goLiveFixHref, goLiveLabel, withReturnTo, type GoLiveCheck } from '@/modules/organiser/shared/goLiveCheck';
 
 export const ALMOST_LIVE_TITLE = 'Almost live';
 export const ALL_SET_TITLE = 'All set';
@@ -78,3 +81,34 @@ export function goLivePath(seriesId: string, organiserId: string | null): string
 }
 
 export { stepKey };
+
+
+/** One thing the server still wants that no question on the way covered. */
+export interface GoLiveGap { key: string; text: string; href: string | null }
+
+export const GAPS_TITLE = 'Still to do before you can go live';
+export const CHECKING_REASON = 'Checking what is left';
+export const EVENT_LOADING_REASON = 'Loading your event';
+export const EVENT_FAILED_REASON = 'Your event did not load, so Go live cannot start';
+export const RETRY_LABEL = 'Retry';
+
+const humanise = (f: string) => f.replace(/_/g, ' ');
+
+/**
+ * Everything the server says still blocks Go live: event items and profile
+ * answers (any organiser, including fields the wizard has no step for). Each
+ * names what to do; a link only where a screen fixes it. Never a bare refusal.
+ */
+export function goLiveGaps(check: GoLiveCheck, seriesId: string, organiserId: string | null): GoLiveGap[] {
+  const gaps: GoLiveGap[] = check.eventMissing.map((m) => ({ key: `event:${m.code}`, text: goLiveLabel(m.code), href: goLiveFixHref(m.section, seriesId) }));
+  if (!check.profileRuleApplies) return gaps;
+  const back = goLivePath(seriesId, organiserId);
+  for (const p of check.profileMissing) {
+    for (const f of p.fields) {
+      const entry = WIZARD_STEPS.get(`${p.area}:${f}`);
+      const what = entry ? entry.title.replace(/\?$/, '') : `Add your ${p.area === 'dancer' ? '' : 'page '}${humanise(f)}`;
+      gaps.push({ key: `${p.area}:${p.organiserId ?? ''}:${f}`, text: entry ? `${p.area === 'dancer' ? 'About you' : 'About your page'}: ${what}` : what, href: withReturnTo(PROFILE_WIZARD_PATH, back) });
+    }
+  }
+  return gaps;
+}

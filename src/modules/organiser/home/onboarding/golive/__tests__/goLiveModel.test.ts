@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ProgressStep } from '@/modules/organiser/shared/profileProgress';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import {
-  allSetLine, almostLiveLine, goLivePath, mineFor, openQuestions, questionsText, sectionOf, stepInSection,
+  goLiveGaps, allSetLine, almostLiveLine, goLivePath, mineFor, openQuestions, questionsText, sectionOf, stepInSection,
 } from '../goLiveModel';
 
 const s = (area: ProgressStep['area'], field: string, required = true, done = false): ProgressStep => ({ area, field, required, done });
@@ -59,5 +59,29 @@ describe('words (approved prototype copy; one mapping)', () => {
   it('the flow path carries the event and the page', () => {
     expect(goLivePath('s1', 'o1')).toBe(`${ORG_PATHS.goLive}?series=s1&o=o1`);
     expect(goLivePath('s1', null)).toBe(`${ORG_PATHS.goLive}?series=s1`);
+  });
+});
+
+
+describe('every field the server can require is either a question or a named gap', () => {
+  const REQUIRED = [
+    ...['first_name', 'city', 'dance_role', 'photo', 'nationality', 'languages', 'instagram', 'phone_or_whatsapp', 'dance_started_year'].map((f) => ['dancer', f] as const),
+    ...['name', 'city', 'logo', 'category', 'founded_year', 'instagram', 'contact_phone'].map((f) => ['organiser', f] as const),
+  ];
+  it.each(REQUIRED)('%s:%s is a wizard question', (area, field) => {
+    expect(openQuestions({ steps: [s(area, field)] })).toHaveLength(1);
+  });
+  const OTHER = [['dancer', 'gallery'], ['dancer', 'partner_search'], ['organiser', 'contact_email'], ['organiser', 'address'], ['organiser', 'maps_link'], ['organiser', 'gallery']] as const;
+  it.each(OTHER)('%s:%s has no question, so it is named as a gap with words', (area, field) => {
+    expect(openQuestions({ steps: [s(area, field)] })).toHaveLength(0);
+    const gaps = goLiveGaps({ ready: false, eventMissing: [], recommended: [], profileRuleApplies: true, profileMissing: [{ area, organiserId: 'o1', fields: [field] }] }, 's1', 'o1');
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0].text).toMatch(/^Add your /);
+    expect(gaps[0].href).toContain('returnTo=');
+  });
+  it('an unknown event code still reads in plain words', () => {
+    const [g] = goLiveGaps({ ready: false, eventMissing: [{ code: 'zzz', section: 'zzz' }], recommended: [], profileRuleApplies: false, profileMissing: [] }, 's1', null);
+    expect(g.text).toBe('Something else on the event');
+    expect(g.href).toBeNull();
   });
 });

@@ -11,6 +11,8 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 const rpc = vi.hoisted(() => vi.fn());
 const send = vi.hoisted(() => vi.fn());
+const wsState = vi.hoisted(() => ({ value: null as unknown, refetch: vi.fn() }));
+const flowErr = vi.hoisted(() => ({ refusal: undefined as undefined | ((e: unknown) => string | null) }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc, from: vi.fn() } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, session: null }) }));
 vi.mock('@/modules/profile/organiserPublicProfile', async (orig) => ({
@@ -22,8 +24,8 @@ vi.mock('@/modules/organiser/shared/ownershipApi', async (orig) => ({
   fetchContactSettings: async () => ({ contact_email: null, contact_phone: null, show_phone_publicly: true, show_email_publicly: false, claim_email: null }),
 }));
 vi.mock('@/modules/organiser/flows/add/useFlow', () => ({
-  useSeriesWorkspace: () => ({ data: { series: { id: 's1', name: 'Friday Social', version: 3 } } }),
-  useFlowSend: () => ({ send, run: async (w: () => Promise<void>) => w(), busy: false, conflict: false, error: null }),
+  useSeriesWorkspace: () => (wsState.value ?? { data: { series: { id: 's1', name: 'Friday Social', version: 3 } }, isError: false, refetch: wsState.refetch }),
+  useFlowSend: (_id: string, refusal?: (e: unknown) => string | null) => ({ send: async (...a: unknown[]) => { try { return await send(...a); } catch (e) { refusal?.(e); throw e; } }, run: async (w: () => Promise<void>) => w(), busy: false, conflict: false, error: null }),
 }));
 
 import type { ProgressStep } from '@/modules/organiser/shared/profileProgress';
@@ -70,6 +72,8 @@ beforeEach(() => {
   steps = open(TEN);
   saveDancer = vi.fn(async (delta: Record<string, unknown>) => ({ ...dancerRow, ...delta }));
   saveOrganiser = vi.fn(async () => ({ kind: 'saved', stored: null, row: null, unmatched: [] }));
+  wsState.value = null;
+  wsState.refetch.mockReset();
   send.mockReset();
   send.mockResolvedValue({ ok: true });
   rpc.mockReset();
@@ -199,5 +203,55 @@ describe('All set and Go live', () => {
     expect((await screen.findByTestId('golive-line')).textContent).toBe('You can publish your first event.');
     expect(screen.queryByTestId('golive-live')).toBeNull();
     expect(screen.getByTestId('golive-add-first').textContent).toBe('Add your first event');
+  });
+});
+
+
+describe('Go live is never silently off, and the server list is never dropped', () => {
+  const checkOf = (over: Record<string, unknown>) => ({ ready: false, event_missing: [], recommended: [], profile_rule_applies: true, profile_missing: [], ...over });
+  const withCheck = (c: unknown) => {
+    const base = rpc.getMockImplementation()!;
+    rpc.mockImplementation(async (fn: string, a?: unknown) => (fn === 'series_go_live_check_v1' ? { data: c, error: null } : base(fn, a)));
+  };
+
+  it('while the event loads: a reason is shown and Go live is off', async () => {
+    steps = [];
+    wsState.value = { data: undefined, isError: false, refetch: wsState.refetch };
+    mount();
+    expect((await screen.findByTestId('golive-live-reason')).textContent).toBe('Loading your event');
+    expect((screen.getByTestId('golive-live') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('when the event read fails: a reason and a Retry that refetches', async () => {
+    steps = [];
+    wsState.value = { data: undefined, isError: true, refetch: wsState.refetch };
+    mount();
+    expect((await screen.findByTestId('golive-live-reason')).textContent).toContain('did not load');
+    expect((screen.getByTestId('golive-live') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('golive-live-retry'));
+    expect(wsState.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('server items with no question (event items, a field with no wizard step, another page) are named on All set', async () => {
+    steps = [];
+    withCheck(checkOf({
+      event_missing: [{ code: 'cover', section: 'cover' }],
+      profile_missing: [{ area: 'organiser', organiser_id: 'org-2', fields: ['contact_email', 'logo'] }],
+    }));
+    mount();
+    const gaps = await screen.findAllByTestId('golive-gap');
+    expect(gaps.map((g) => g.textContent)).toEqual([
+      'Upload a flyer', 'Add your page contact email', 'About your page: Add your organisation logo',
+    ]);
+    expect(screen.queryByTestId('golive-live-error')).toBeNull();
+  });
+
+  it('a refusal from the server shows its list instead of a bare sentence', async () => {
+    steps = [];
+    send.mockRejectedValueOnce({ message: 'permission_denied: series.set_lifecycle draft -> live needs a ready series: ' + JSON.stringify(checkOf({ event_missing: [{ code: 'venue', section: 'venue' }] })) });
+    mount();
+    await waitFor(() => expect((screen.getByTestId('golive-live') as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId('golive-live'));
+    await waitFor(() => expect(screen.getAllByTestId('golive-gap').map((g) => g.textContent)).toEqual(['Add a venue']));
   });
 });

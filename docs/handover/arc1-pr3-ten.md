@@ -21,3 +21,11 @@ Branch `claude/arc1-pr3-ten`. Brief: admin `docs/briefs/arc1/arc1-pr3-onboarding
 1. Browser walk at 390x844 against a prod-shaped account (needs a signed-in session this sandbox lacks).
 2. Optional: make the home card open `/account/o/go-live` instead of the wizard (needs the People arc's agreement).
 3. `/code-review` round (owner types it), fix pass if any.
+
+
+## Fix pass (PR #929)
+- Server-required steps with no wizard entry are no longer dropped. All set reads `series_go_live_check_v1` (and a Go live refusal's own JSON) and lists every blocker with an action and, where a screen fixes it, a link (`goLiveGaps` in `goLiveModel.ts`). A bare "Not ready to go live yet." only shows when the server gave no list.
+- Table test: all 9 dancer + 7 organiser required fields are wizard questions; the six fields with no step (dancer gallery, partner_search; organiser contact_email, address, maps_link, gallery) are named gaps.
+- Go live is never off without a reason: "Loading your event", or "Your event did not load..." with a Retry; "Checking what is left" while the check reads. A failed check read does not block (server still decides).
+- Prod-shape survey (counts only, 49 organiser pages): name 49, city 49, logo 46, category 47, founded_year 6, instagram 45, phone 43; all seven present on 6. founded_year is the usual open question.
+- Not done by design: no merge of main, NewFlow.tsx claim conflicts left for the later worker.

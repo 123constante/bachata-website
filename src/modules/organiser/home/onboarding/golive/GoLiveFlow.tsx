@@ -4,7 +4,7 @@
 // the People arc's wizard itself is untouched. The list of questions is the
 // server's (my_profile_progress_v1), taken once at the start.
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,7 @@ import { fetchContactSettings, organiserContactSettingsQueryKey } from '@/module
 import { useProfileProgress, type ProgressStep } from '@/modules/organiser/shared/profileProgress';
 import { lifecycleCommand } from '@/modules/organiser/shared/seriesCommands';
 import { eventWorkspaceQueryKey } from '@/modules/organiser/shared/runCommands';
-import { goLiveRefusal } from '@/modules/organiser/shared/goLiveCheck';
+import { goLiveCheckQueryKey, goLiveRefusal, useGoLiveCheck, type GoLiveCheck } from '@/modules/organiser/shared/goLiveCheck';
 import { goDone } from '@/modules/organiser/flows/doneState';
 import { useFlowSend, useSeriesWorkspace } from '@/modules/organiser/flows/add/useFlow';
 import { EventConflict } from '@/modules/organiser/flows/event';
@@ -30,6 +30,7 @@ import { REAL_WRITERS, invalidateAfterAnswer, saveAnswer, type WizardWriters } f
 import { WizardEnvContext } from '../../../wizard/wizardEnv';
 import {
   ALL_SET_TITLE, ALMOST_LIVE_TITLE, BACK_LABEL, CONTINUE_LABEL, GO_LIVE_LABEL, NOT_NOW_LABEL, NOT_YET_LABEL,
+  CHECKING_REASON, EVENT_FAILED_REASON, EVENT_LOADING_REASON, GAPS_TITLE, RETRY_LABEL, goLiveGaps,
   SECTION_LABEL, allSetLine, almostLiveLine, openQuestions, sectionOf, stepInSection, stepKey, mineFor,
 } from './goLiveModel';
 
@@ -72,6 +73,8 @@ function Hero({ title, line }: { title: string; line: string }) {
   );
 }
 
+const EMPTY_CHECK: GoLiveCheck = { ready: true, eventMissing: [], recommended: [], profileRuleApplies: false, profileMissing: [] };
+
 export interface GoLiveFlowProps {
   writers?: WizardWriters;
   uploadLogo?: (organiserId: string, file: File) => Promise<string>;
@@ -112,10 +115,18 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
     returnTo: organiserId ? `${ORG_PATHS.goLive}?o=${encodeURIComponent(organiserId)}${seriesId ? `&series=${encodeURIComponent(seriesId)}` : ''}` : ORG_PATHS.goLive,
   }), [organiserId, seriesId, uploadLogo]);
 
+  const [refused, setRefused] = useState<GoLiveCheck | null>(null);
+  const check = useGoLiveCheck(seriesId ?? '', phase === 'done');
+  useEffect(() => { if (seriesId) void qc.invalidateQueries({ queryKey: goLiveCheckQueryKey(seriesId) }); }, [qc, seriesId]);
   const flow = useFlowSend(seriesId ?? '', (err) => {
-    if (!goLiveRefusal(err)) return null;
+    const r = goLiveRefusal(err);
+    if (!r) return null;
+    setRefused(r);
     return 'Not ready to go live yet.';
   });
+  // What the server still wants: the refusal's own list wins (it is the latest), else the fresh check.
+  const gaps = seriesId ? goLiveGaps(refused ?? (check.data && !check.data.ready ? check.data : { ...EMPTY_CHECK }), seriesId, organiserId) : [];
+  const checking = !!seriesId && !refused && check.isPending && phase === 'done';
 
   const goHome = () => navigate(ORG_PATHS.home);
   const move = (to: Phase, d: Dir, index = at) => { setDir(d); setPhase(to); setAt(index); setError(null); };
@@ -154,6 +165,9 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
   if (flow.conflict && seriesId) return <EventConflict seriesId={seriesId} />;
   const failed = progress.isError || dancer.isError || (!!organiserId && (entity.isError || contact.isError));
   const loading = !failed && (!phase || !questions || !dancer.data || (!!organiserId && (!entity.data || !contact.data)));
+
+  // Why Go live is off, always said: the event is loading or failed, or the server is still being asked.
+  const blockReason = ws.isError ? EVENT_FAILED_REASON : !ws.data ? EVENT_LOADING_REASON : checking ? CHECKING_REASON : null;
 
   let body: ReactNode;
   if (failed) {
@@ -199,11 +213,25 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
     body = (
       <Slide id="done" dir={dir}>
         <Hero title={ALL_SET_TITLE} line={allSetLine(seriesId ? eventName : null)} />
-        {flow.error && <p role="alert" className="text-[14px] text-[var(--warn-fg)]" data-testid="golive-live-error">{flow.error}</p>}
+        {gaps.length > 0 && (
+          <div data-testid="golive-gaps" className="space-y-[8px] rounded-[12px] border border-[var(--line)] p-[12px]">
+            <h3 className="text-[15px] font-bold text-[var(--fg)]">{GAPS_TITLE}</h3>
+            <ul className="space-y-[4px]">
+              {gaps.map((g) => (
+                <li key={g.key} data-testid="golive-gap" className="text-[14px] text-[var(--fg)]">
+                  {g.href ? <Link to={g.href} className="inline-flex min-h-[44px] items-center font-semibold text-[var(--gold)] underline underline-offset-4">{g.text}</Link> : g.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {flow.error && gaps.length === 0 && <p role="alert" className="text-[14px] text-[var(--warn-fg)]" data-testid="golive-live-error">{flow.error}</p>}
         <div className="space-y-[8px]">
           {seriesId ? (
             <>
-              <PrimaryButton testId="golive-live" loading={flow.busy} loadingLabel="Going live" disabled={!ws.data} onClick={() => void liveNow()}>{GO_LIVE_LABEL}</PrimaryButton>
+              {blockReason && <p role="status" data-testid="golive-live-reason" className="text-[14px] text-[var(--mut)]">{blockReason}</p>}
+              {ws.isError && <GhostButton testId="golive-live-retry" onClick={() => void ws.refetch()}>{RETRY_LABEL}</GhostButton>}
+              <PrimaryButton testId="golive-live" loading={flow.busy} loadingLabel="Going live" disabled={!!blockReason} onClick={() => void liveNow()}>{GO_LIVE_LABEL}</PrimaryButton>
               <GhostButton testId="golive-not-yet" onClick={goHome}>{NOT_YET_LABEL}</GhostButton>
             </>
           ) : (
