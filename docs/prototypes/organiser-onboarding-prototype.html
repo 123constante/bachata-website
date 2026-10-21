@@ -247,6 +247,8 @@ textarea.inp{padding:14px 16px;min-height:120px;font:500 16px/1.45 var(--font);r
 .ember-world .pvp .ln span:last-child{color:var(--mute);text-align:right}
 .ember-world .pvp .ln span.set{color:var(--text)}
 .ember-world .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.ember-world .scroll.enter{animation:slidein .22s cubic-bezier(.2,.8,.2,1)}
+@keyframes slidein{from{opacity:0;transform:translateX(14px)}}
 </style>
 
 <div class="page ember-world">
@@ -258,7 +260,7 @@ textarea.inp{padding:14px 16px;min-height:120px;font:500 16px/1.45 var(--font);r
    <button class="ghost" data-jump="invite">Start again</button>
   </div>
   <div class="jumpwrap"><select class="jump" id="jump" aria-label="Jump to a screen"></select></div>
-  <p class="hint">Proposal for owner approval. Tap through it like the real thing, or jump to any screen. Names, emails and the logo are examples; nothing is saved.</p>
+  <p class="hint">Example data. Nothing is saved.</p>
   <div class="stage" id="stage"><div class="dev ph" id="dev"></div></div>
  </div>
 </div>
@@ -276,39 +278,49 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp
 /* ---------- example invite + fixed lists ---------- */
 var INV={org:'Latin Collective London',by:'Marta Diaz',name:'Alex Rivera',email:'alex@example.com'};
 var CITIES=['London','Manchester','Birmingham','Bristol','Leeds','Brighton','Edinburgh','Glasgow'];
-var CATS=['Classes','Parties','Festivals','Workshops','Courses','Socials'];
-var ROLES=['Teacher','DJ','Performer','Social dancer','Photographer','Promoter'];
-var LANGS=['English','Spanish','Portuguese','Italian','French','Polish'];
-var LANGS_MORE=['Romanian','German','Greek','Turkish','Arabic','Russian','Dutch','Mandarin','Hindi','Japanese'];
-var STYLES=['Sensual','Moderna','Dominican','Traditional','Fusion'];
-var TOPC=['United Kingdom','Spain','Dominican Republic','Italy','Poland','Brazil','Colombia','Portugal'];
-var ALLC=['Argentina','Australia','Austria','Belgium','Bolivia','Bulgaria','Canada','Chile','China','Costa Rica','Croatia','Cuba','Czechia','Denmark','Ecuador','Egypt','France','Germany','Greece','Hungary','India','Ireland','Israel','Japan','Lithuania','Mexico','Morocco','Netherlands','Nigeria','Norway','Peru','Philippines','Puerto Rico','Romania','Slovakia','South Africa','Sweden','Switzerland','Turkey','Ukraine','United States','Venezuela'];
+var MORECITIES=['Cardiff','Liverpool','Nottingham','Sheffield','Southampton','Leicester','Oxford','Cambridge','Belfast','Bath','Norwich','York','Madrid','Barcelona','Paris','Berlin','Lisbon','Dublin'];
+var ROLES=['Leader','Follower','Lead and Follow'];
 
-/* Wizard route. req = in the PROPOSED minimum to go live (owner decision). */
+/* The dancer profile gate: these 4 are the whole of it (first name, city, dance role, photo). All required, no skip. */
 var STEPS=[
- {id:'o-name',sec:1,t:'Name and city',why:'Dancers see this on your organiser page and on every event you publish.',req:true},
- {id:'o-logo',sec:1,t:'Logo',why:'Shown next to your events so dancers recognise you. Optional.'},
- {id:'o-cats',sec:1,t:'What you run',why:'Helps dancers find you when they filter the calendar. Optional.'},
- {id:'p-role',sec:2,t:'What you do',why:'Only shown on your own dancer profile, not on the organisation page. Optional.'},
- {id:'p-lang',sec:2,t:'Languages you teach or speak',why:'Shown on your profile so dancers know they can talk to you. Optional.'},
- {id:'p-style',sec:2,t:'Styles you dance',why:'Shown on your profile and used to suggest your events. Optional.'},
- {id:'p-nat',sec:2,t:'Nationality',why:'Shown as a small flag on your profile. Optional, and you can hide it later.'}];
-var SECN={1:'Your organisation',2:'Your dancing profile'};
+ {id:'d-name',t:'Your first name',why:'Shown on your profile.'},
+ {id:'d-city',t:'Which city do you dance in?',why:'Shown on your profile.'},
+ {id:'d-role',t:'Do you lead or follow?',why:'Shown on your profile.'},
+ {id:'d-photo',t:'Add a photo of you',why:'Shown on your profile.'}];
+/* The 10 questions still needed before the first event can go live: one per screen, asked in a row. */
+var TOPC=['United Kingdom','Spain','Dominican Republic','Italy','Poland','Brazil','Colombia','Portugal'];
+var ALLC=['Argentina','Australia','Austria','Belgium','Canada','Chile','Cuba','France','Germany','Greece','Ireland','Mexico','Netherlands','Peru','Romania','Sweden','Turkey','Ukraine','United States','Venezuela'];
+var LANGS=['English','Spanish','Portuguese','Italian','French','Polish','German','Romanian'];
+var KINDS=['Dance School','Event Brand','Community Group','Promoter','Festival Brand'];
+var YEARS=['2025','2024','2023','2022','2021','2020','2019','2018'];
+var QS=[
+ {t:'Which country are you from?',why:'Shown as a flag on your profile.',sec:1},
+ {t:'Which languages do you speak?',why:'Shown on your profile.',sec:1},
+ {t:'Your Instagram',why:'Shown on your profile.',sec:1},
+ {t:'Your WhatsApp number',why:'Private unless you choose to show it.',sec:1},
+ {t:'What year did you start dancing?',why:'Shown on your profile.',sec:1},
+ {t:'Add your organisation logo',why:'Shown next to your events.',sec:2},
+ {t:'What kind of organisation is it?',why:'Shown on your organiser page.',sec:2},
+ {t:'What year did it start?',why:'Shown on your organiser page.',sec:2},
+ {t:'Its Instagram',why:'Shown on your organiser page.',sec:2},
+ {t:'What number can dancers call?',why:'Shown only if you switch it on.',sec:2}];
+var QSEC={1:'About you',2:'About your page'};
+function yearOk(base){var v=S.qa[base+'Other']?S.qa[base+'Txt']:S.qa[base];return /^\d{4}$/.test(v||'')&&+v>=1950&&+v<=2026}
+function digits(v){return (v||'').replace(/\D/g,'').length}
+function qDone(i){var a=S.qa;return [!!a.nat,a.langs.length>0,a.insta.trim().length>1,digits(a.wa)>=7,yearOk('since'),a.logo,!!a.kind,yearOk('oSince'),a.oInsta.trim().length>1,digits(a.phone)>=7][i]}
+function leftCount(){var n=0;for(var i=0;i<QS.length;i++)if(!qDone(i))n++;return n}
+function firstUndone(){for(var i=0;i<QS.length;i++)if(!qDone(i))return i;return 0}
 
 /* ---------- state ---------- */
 var S;
 function init(dev){S={dev:dev||'ph',scr:'invite',mode:'create',name:INV.name,email:'',code:'',sent:false,
- org:{name:INV.org,city:null,cityOther:false,cityq:'',logo:false,up:false,cats:[]},
- me:{roles:[],langs:[],langMore:false,styles:[],nat:null,natq:''},
- step:0,skipped:{},later:false,toast:null}}
+ me:{fname:INV.name.split(' ')[0],city:null,cityq:'',reqOpen:false,reqName:'',cityReq:null,role:null,photo:false,up:false},
+ step:0,toast:null,ev:{fmt:null,name:'',venue:null,date:null,time:null,photo:false,up:false,draft:false,live:false},q:0,qFrom:'home',qa:{nat:null,natq:'',langs:[],insta:'',wa:'',since:null,sinceOther:false,sinceTxt:'',logo:false,up:false,kind:null,oSince:null,oSinceOther:false,oSinceTxt:'',oInsta:'',phone:''}}}
 function cur(){return STEPS[S.step]}
 function okEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v||'')}
-function city(){return S.org.cityOther?S.org.cityq.trim():S.org.city}
-function filled(id){var o=S.org,m=S.me;return {
- 'o-name':!!(o.name.trim()&&city()),'o-logo':o.logo,'o-cats':o.cats.length>0,'p-role':m.roles.length>0,
- 'p-lang':m.langs.length>0,'p-style':m.styles.length>0,'p-nat':!!m.nat}[id]}
-function nDone(){return STEPS.filter(function(s){return filled(s.id)}).length}
+function filled(id){var m=S.me;return {'d-name':!!m.fname.trim(),'d-city':!!m.city,'d-role':!!m.role,'d-photo':m.photo}[id]}
 function initials(n){return n.split(/\s+/).filter(Boolean).slice(0,2).map(function(w){return w[0].toUpperCase()}).join('')||'?'}
+function cityHits(){var q=S.me.cityq.trim().toLowerCase();return q.length<2?[]:CITIES.concat(MORECITIES).filter(function(c){return c.toLowerCase().indexOf(q)>-1}).slice(0,8)}
 
 /* ---------- small builders ---------- */
 function btn(a,label,cls,dis){return '<button class="'+cls+'" data-a="'+a+'"'+(dis?' disabled':'')+'>'+label+'</button>'}
@@ -320,91 +332,113 @@ function why(t){return '<div class="why">'+ic('eye',18)+'<span>'+t+'</span></div
 /* ---------- screen 1: invite landing (signed out) ---------- */
 function scrInvite(){return nav('')+
  '<div class="hero"><div class="av">'+initials(INV.org)+'</div><b>'+esc(INV.by)+' invited you to run '+esc(INV.org)+'</b>'+
- '<p>You will become an <b style="font-size:inherit;color:var(--text)">owner</b> of the organiser page <b style="font-size:inherit;color:var(--text)">'+esc(INV.org)+'</b> on Bachata Calendar. Owners publish events and edit the page.</p></div>'+
- '<div class="lab">What happens next</div><div class="grp ov">'+
- '<div class="check"><span class="dot">1</span><span class="g">Create your account<small>Email and a 6-digit code. No password.</small></span></div>'+
- '<div class="check"><span class="dot">2</span><span class="g">Check your organisation<small>3 quick taps, only the name and city are needed</small></span></div>'+
- '<div class="check"><span class="dot">3</span><span class="g">Your dancing profile<small>4 optional taps, skip any</small></span></div>'+
- '<div class="check"><span class="dot">4</span><span class="g">Add your first event</span></div></div>'+
+ '<p>You will be an <b style="font-size:inherit;color:var(--text)">owner</b>: you can publish events and edit the page. Takes about a minute.</p></div>'+
  '<div class="foot">'+btn('create','Create account','primary')+btn('signin','I already have an account: Sign in','quiet')+'</div>'}
 
 /* ---------- screen 2: create account / email code ---------- */
 function scrAuth(){var cr=S.mode==='create';
  if(S.sent){var c=S.code,cells='';for(var i=0;i<6;i++)cells+='<span class="'+(i===c.length?'cur':'')+'">'+(c[i]||'')+'</span>';
   var keys='';['1','2','3','4','5','6','7','8','9','','0','del'].forEach(function(k){keys+=k===''?'<span></span>':'<button data-a="key" data-v="'+k+'" aria-label="'+(k==='del'?'Delete':k)+'">'+(k==='del'?ic('back'):k)+'</button>'});
-  return nav('authback')+'<h2 class="title">Enter the code</h2><p class="sub">We sent 6 digits to '+esc(S.email)+'. It works for 10 minutes.</p>'+
+  return nav('authback')+'<h2 class="title">Enter the code</h2><p class="sub">Sent to '+esc(S.email)+'</p>'+
    '<div class="grp"><div class="code" aria-label="Code">'+cells+'</div><input class="sr" data-in="code" inputmode="numeric" autocomplete="one-time-code" aria-label="Code" value="'+esc(c)+'"></div>'+
    '<div class="grp keys">'+keys+'</div>'+
-   primaryFoot('verify',cr?'Create account':'Sign in',c.length<6,'Enter all 6 digits to carry on',btn('resend','Send a new code','quiet'))}
+   primaryFoot('verify',cr?'Create account':'Sign in',c.length<6,'Enter all 6 digits',btn('resend','Send a new code','quiet'))}
  return nav('invite')+'<h2 class="title">'+(cr?'Create your account':'Sign in')+'</h2>'+
-  '<p class="sub">'+(cr?'To accept the invite to '+esc(INV.org)+'.':'Use the email you signed up with.')+'</p>'+
+  '<p class="sub">'+(cr?'To join '+esc(INV.org)+'.':'')+'</p>'+
   (cr?'<div class="lab">Your name</div><div class="grp"><input class="inp sm" data-in="name" autocomplete="name" value="'+esc(S.name)+'" aria-label="Your name"></div>':'')+
   '<div class="lab">Email</div><div class="grp"><input class="inp sm" data-in="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" value="'+esc(S.email)+'" aria-label="Email"></div>'+
-  primaryFoot('send','Send me a code',!(okEmail(S.email)&&(!cr||S.name.trim())),!cr||S.name.trim()?'Type your email to get a code':'Type your name and email to get a code',
+  primaryFoot('send','Send me a code',!(okEmail(S.email)&&(!cr||S.name.trim())),!cr||S.name.trim()?'Type your email':'Type your name and email',
    btn('swap',cr?'I already have an account: Sign in':'New here? Create account','quiet'))}
 
-/* ---------- screen 3: confirm join ---------- */
+/* ---------- screen 4: confirm join (after the dancer profile, as on the real site) ---------- */
 function scrConfirm(){return nav('')+
- '<div class="hero"><div class="av">'+initials(S.name)+'</div><b>You are joining as '+esc(S.name.trim())+' at '+esc(INV.org)+'</b><p>Signed in as '+esc(S.email)+'. You will be an owner of this organiser page.</p></div>'+
+ '<div class="hero"><div class="av">'+initials(S.me.fname||S.name)+'</div><b>You are joining as '+esc(S.me.fname.trim())+' at '+esc(INV.org)+'</b><p>Signed in as '+esc(S.email)+'</p></div>'+
  '<div class="foot">'+btn('join','Join '+esc(INV.org),'primary')+btn('signout','Not you? Sign out','quiet')+'</div>'}
 
-/* ---------- screen 4: wizard ---------- */
-function route(){var h='';[1,2].forEach(function(sec){var st=STEPS.filter(function(s){return s.sec===sec}),on=cur().sec===sec;
-  h+='<div><small class="'+(on?'on':'')+'">'+sec+' '+SECN[sec]+'</small><div class="dots">'+st.map(function(s){var i=STEPS.indexOf(s);return '<i class="'+(i<=S.step?'on':'')+'"></i>'}).join('')+'</div></div>'});
- return '<div class="route" aria-label="Route: 2 sections">'+h+'</div>'}
-function head(){var s=cur(),st=STEPS.filter(function(x){return x.sec===s.sec}),k=st.indexOf(s)+1;
- return '<div class="sect"><span class="n">'+s.sec+'</span>'+SECN[s.sec]+'<span class="of">Step '+k+' of '+st.length+'</span></div>'+
-  '<h2 class="title">'+s.t+'</h2>'+why(s.why)}
-function wizBody(){var s=cur(),o=S.org,m=S.me,h='';
- if(s.id==='o-name'){h='<div class="lab">Organisation name <span class="tag own">From your invite</span></div><div class="grp"><input class="inp sm" data-in="oname" value="'+esc(o.name)+'" aria-label="Organisation name"></div>'+
-  '<div class="lab">City</div><div class="grp chips">'+CITIES.map(function(c){return pick('city',c,!o.cityOther&&o.city===c)}).join('')+pick('cityother','Other city',o.cityOther)+'</div>'+
-  (o.cityOther?'<div class="grp"><input class="inp sm" data-in="cityq" placeholder="Type your city" value="'+esc(o.cityq)+'" aria-label="Other city"></div>':'')}
- else if(s.id==='o-logo'){h='<div class="grp" style="padding:16px">'+(o.up?'<div class="logo none">Uploading</div><div class="prog"><i></i></div>':o.logo?'<div class="logo">'+initials(o.name)+'</div>':'<div class="logo none">No logo</div>')+
-  '</div><div class="grp">'+btn('upload',ic('up')+(o.logo?' Change logo':' Choose a picture'),'opt line',o.up)+'</div>'}
- else if(s.id==='o-cats')h='<div class="lab">Pick any</div><div class="grp chips">'+CATS.map(function(c){return pick('cat',c,o.cats.indexOf(c)>-1)}).join('')+'</div>'+
-  '<p class="hint" style="margin:4px 22px 10px">Website, socials and a longer bio can wait. You add them later from your organiser page.</p>'
- else if(s.id==='p-role')h='<div class="lab">Pick any <span class="tag own">Organiser: already set</span></div><div class="grp chips">'+ROLES.map(function(c){return pick('role',c,m.roles.indexOf(c)>-1)}).join('')+'</div>'
- else if(s.id==='p-lang'){h='<div class="lab">Pick any</div><div class="grp chips">'+LANGS.map(function(c){return pick('lang',c,m.langs.indexOf(c)>-1)}).join('')+
-  (m.langMore?LANGS_MORE.map(function(c){return pick('lang',c,m.langs.indexOf(c)>-1)}).join(''):'<button class="pick more" data-a="langmore">'+ic('plus',16)+'Other</button>')+'</div>'}
- else if(s.id==='p-style')h='<div class="lab">Pick any</div><div class="grp chips">'+STYLES.map(function(c){return pick('style',c,m.styles.indexOf(c)>-1)}).join('')+'</div>'
- else if(s.id==='p-nat'){var q=m.natq.trim().toLowerCase(),res=q?TOPC.concat(ALLC).filter(function(c){return c.toLowerCase().indexOf(q)>-1}):[];
-  h='<div class="lab">Most picked</div><div class="grp chips">'+TOPC.map(function(c){return pick('nat',c,m.nat===c)}).join('')+'</div>'+
-  '<div class="lab">Not listed?</div><div class="grp"><input class="inp sm" data-in="natq" placeholder="Search a country" value="'+esc(m.natq)+'" aria-label="Search a country"></div>'+
-  (q?'<div class="grp chips">'+(res.length?res.slice(0,12).map(function(c){return pick('nat',c,m.nat===c)}).join(''):'<p class="hint" style="padding:8px">No country matches "'+esc(m.natq)+'". Check the spelling, or skip for now.</p>')+'</div>':'')+
-  (m.nat&&TOPC.indexOf(m.nat)<0?'<div class="lab">Picked</div><div class="grp chips">'+pick('nat',m.nat,true)+'</div>':'')}
+/* ---------- screen 3: the dancer profile (4 required steps, no skip) ---------- */
+function route(){return '<div class="route" aria-label="Route: 4 steps"><div><small class="on">Your dancing profile</small><div class="dots">'+STEPS.map(function(s,i){return '<i class="'+(i<=S.step?'on':'')+'"></i>'}).join('')+'</div></div></div>'}
+function head(){var s=cur();return '<div class="sect"><span class="n">1</span>Your dancing profile<span class="of">Step '+(S.step+1)+' of '+STEPS.length+'</span></div><h2 class="title">'+s.t+'</h2>'+why(s.why)}
+function wizBody(){var s=cur(),m=S.me,h='';
+ if(s.id==='d-name')h='<div class="lab">First name <span class="tag own">From your invite</span></div><div class="grp"><input class="inp sm" data-in="fname" autocomplete="given-name" value="'+esc(m.fname)+'" aria-label="First name"></div>';
+ else if(s.id==='d-city'){h='<div class="grp chips">'+CITIES.map(function(c){return pick('city',c,m.city===c)}).join('')+'</div>'+
+  '<div class="grp"><input class="inp sm" data-in="cityq" placeholder="Search for your city" value="'+esc(m.cityq)+'" aria-label="Search for your city"></div>'+
+  (m.cityq.trim().length>1?(cityHits().length?'<div class="grp chips">'+cityHits().map(function(c){return pick('city',c,m.city===c)}).join('')+'</div>':'<div class="grp">'+btn('reqopen',"Can't find it? Tell us your city",'opt line',m.reqOpen)+'</div>'):'')+
+  (m.reqOpen?'<div class="grp"><input class="inp sm" data-in="reqname" placeholder="Your city" value="'+esc(m.reqName)+'" aria-label="Your city">'+btn('sendreq','Send request','opt line',m.reqName.trim().length<2)+'</div>':'')+
+  (m.cityReq?'<div class="state need"><div class="hd">'+ic('check')+'<div><b>'+esc(m.cityReq)+'</b><small>We will add it. For now, pick the nearest city above. You can change it later.</small></div></div></div>':'')}
+ else if(s.id==='d-role')h='<div class="grp chips">'+ROLES.map(function(c){return pick('role',c,m.role===c)}).join('')+'</div>';
+ else if(s.id==='d-photo')h='<div class="grp" style="padding:16px">'+(m.up?'<div class="logo none">Uploading</div><div class="prog"><i></i></div>':m.photo?'<div class="logo">'+initials(m.fname||S.name)+'</div>':'<div class="logo none">No photo</div>')+'</div><div class="grp">'+btn('upload',ic('up')+(m.photo?' Change photo':' Choose a picture'),'opt line',m.up)+'</div>';
  return h}
-function wizFoot(){var s=cur(),last=S.step===STEPS.length-1,ok=!s.req||filled(s.id),lbl=last?'Finish':'Next';
- var why2=s.req?(S.org.name.trim()?(S.org.cityOther?'Type your city to carry on':'Pick your city to carry on'):'Type the organisation name to carry on'):'';
- return '<div class="foot">'+btn('next',lbl,'primary',!ok)+(ok?'':'<div class="reason">'+why2+'</div>')+
-  '<div class="finrow">'+btn('skip','Skip for now','quiet',!!s.req)+btn('later','Finish later','quiet')+'</div>'+
-  (s.req?'<div class="reason">Name and city are the only things needed to go live, so this step cannot be skipped</div>':'')+'</div>'}
+function wizFoot(){var s=cur(),last=S.step===STEPS.length-1,ok=filled(s.id),m=S.me;
+ var why2={'d-name':'Type your first name','d-city':m.cityReq?'Pick the nearest city for now':'Pick your city','d-role':'Pick one','d-photo':'Add a photo'}[s.id];
+ return primaryFoot('next',last?'Finish':'Next',!ok,why2)}
 function scrWizard(){return nav(S.step?'prev':'')+route()+head()+wizBody()+wizFoot()}
 
-/* route overview: the proposed minimum (owner decision) */
-function scrOverview(){return nav('')+'<h2 class="title">Two short parts</h2><p class="sub">About 2 minutes. Tap, do not type. Skip anything optional.</p>'+
- '<span class="od">'+ic('lock',14)+' Owner decision: proposed minimum</span>'+
- [1,2].map(function(sec){return '<div class="lab">'+sec+' '+SECN[sec]+'</div><div class="grp ov">'+STEPS.filter(function(s){return s.sec===sec}).map(function(s){
-  return '<div class="check'+(filled(s.id)?' done':'')+'"><span class="dot">'+(filled(s.id)?ic('check',14):'')+'</span><span class="g">'+s.t+'<small>'+(s.req?'Needed to go live':'Optional')+'</small></span></div>'}).join('')+'</div>'}).join('')+
- '<p class="hint" style="margin:0 22px 10px">Organisation first, because that is what dancers see on your events. Your own profile second.</p>'+
- '<div class="foot">'+btn('start','Start with your organisation','primary')+'</div>'}
-
-/* ---------- screen 5: first-win home (the ER "home-empty" screen) ---------- */
-function scrHome(){var left=STEPS.length-nDone();
+/* ---------- screen 5: home, and what is still needed to go live ---------- */
+function scrHome(){var left=leftCount();
  return '<div class="nav"><b style="font-size:24px;font-weight:800;letter-spacing:-.02em;padding:6px 4px">Your events</b></div>'+
- (S.later&&left?'<div class="state need"><div class="hd">'+ic('users')+'<div><b>Finish your profile</b><small>'+left+' optional '+(left===1?'step':'steps')+' left. Your page is live without them.</small></div></div><div class="acts">'+btn('resume','Carry on','opt line')+'</div></div>':'')+
- '<div class="empty"><b>No events yet</b><p>Publish your first night in about two minutes.</p>'+btn('newev',ic('plus')+' Add your first event','primary')+'</div>'}
+ (left?'<div class="state need"><div class="hd">'+ic('users')+'<div><b>Finish to go live</b><small>'+left+' quick question'+(left===1?'':'s')+' before your first event can be published</small></div></div><div class="acts">'+btn('qstart','Start','opt line')+'</div></div>':'')+
+ (S.ev.draft?'<div class="grp"><button class="row" data-a="evopen"><span class="thumb f6"></span><span class="g"><b>'+esc(S.ev.name)+'</b><small class="need">'+(S.ev.live?'Live':(left?'Draft: '+left+' quick questions left':'Draft: ready to go live'))+'</small></span></button></div><div class="foot">'+btn('newev',ic('plus')+' Add an event','primary')+'</div>'
+  :'<div class="empty"><b>No events yet</b>'+btn('newev',ic('plus')+' Add your first event','primary')+'</div>')}
 
-/* ---------- computer: two panes (flow left, live page preview right) ---------- */
-function preview(){var o=S.org,m=S.me;function ln(k,v){return '<div class="ln"><span>'+k+'</span><span class="'+(v?'set':'')+'">'+(v?esc(v):'Not yet')+'</span></div>'}
- return '<div class="pvh">What dancers will see</div><div class="pvp"><div style="display:flex;gap:12px;align-items:center">'+(o.logo?'<div class="av" style="width:56px;height:56px;border-radius:16px;background:radial-gradient(circle at 70% 25%,#ffcf7a,transparent 50%),linear-gradient(160deg,#a8452a,#1d1416 80%);display:grid;place-items:center;font:800 20px var(--font);color:#fff">'+initials(o.name)+'</div>':'')+
-  '<b style="font-size:22px;font-weight:800">'+esc(o.name||'Organisation')+'</b></div>'+ln('City',city())+ln('Runs',o.cats.join(', '))+
-  '<div class="pvh" style="margin:10px 0 0">Your dancer profile</div>'+ln('Name',S.name)+ln('Does',['Organiser'].concat(m.roles).join(', '))+ln('Languages',m.langs.join(', '))+ln('Styles',m.styles.join(', '))+ln('Nationality',m.nat)+'</div>'}
-function mainScreen(){var f={invite:scrInvite,auth:scrAuth,confirm:scrConfirm,overview:scrOverview,wizard:scrWizard,home:scrHome}[S.scr];
+/* ---------- the 10 questions, one per screen ---------- */
+function scrQ(){var i=S.q,q=QS[i],a=S.qa,h='',why2;
+ var k=QS.filter(function(x){return x.sec===q.sec}).indexOf(q)+1,n=QS.filter(function(x){return x.sec===q.sec}).length;
+ var back=i?'qprev':(S.qFrom==='ev'?'evalmost':'home');
+ var dots='<div class="route"><div><div class="dots">'+QS.map(function(x,j){return '<i class="'+(j<=i?'on':'')+'"></i>'}).join('')+'</div></div></div>';
+ var sect='<div class="sect"><span class="n">'+q.sec+'</span>'+QSEC[q.sec]+'<span class="of">Step '+k+' of '+n+'</span></div><h2 class="title">'+q.t+'</h2>'+why(q.why);
+ function yr(base){var o=a[base+'Other'];return '<div class="grp chips">'+YEARS.map(function(y){return pick(base,y,!o&&a[base]===y)}).join('')+pick(base,'earlier',o,'Earlier')+'</div>'+(o?'<div class="grp"><input class="inp sm" data-in="'+base+'Txt" inputmode="numeric" maxlength="4" placeholder="Type the year" value="'+esc(a[base+'Txt'])+'" aria-label="Year"></div>':'')}
+ if(i===0){var qq=a.natq.trim().toLowerCase(),res=qq.length>1?TOPC.concat(ALLC).filter(function(c){return c.toLowerCase().indexOf(qq)>-1}).slice(0,8):[];
+  h='<div class="grp chips">'+TOPC.map(function(c){return pick('nat',c,a.nat===c)}).join('')+'</div><div class="grp"><input class="inp sm" data-in="natq" placeholder="Search a country" value="'+esc(a.natq)+'" aria-label="Search a country"></div>'+(res.length?'<div class="grp chips">'+res.map(function(c){return pick('nat',c,a.nat===c)}).join('')+'</div>':'')+(a.nat&&TOPC.indexOf(a.nat)<0&&!res.length?'<div class="grp chips">'+pick('nat',a.nat,true)+'</div>':'');why2='Pick a country'}
+ else if(i===1){h='<div class="grp chips">'+LANGS.map(function(c){return pick('qlang',c,a.langs.indexOf(c)>-1)}).join('')+'</div>';why2='Pick at least one'}
+ else if(i===2){h='<div class="grp"><input class="inp sm" data-in="insta" autocapitalize="none" placeholder="your.handle" value="'+esc(a.insta)+'" aria-label="Instagram"></div>';why2='Type your handle'}
+ else if(i===3){h='<div class="grp"><input class="inp sm" data-in="wa" type="tel" inputmode="tel" placeholder="+44 7700 900123" value="'+esc(a.wa)+'" aria-label="WhatsApp number"></div>';why2='Type your number with the country code'}
+ else if(i===4){h=yr('since');why2='Pick a year'}
+ else if(i===5){h='<div class="grp" style="padding:16px">'+(a.up?'<div class="logo none">Uploading</div><div class="prog"><i></i></div>':a.logo?'<div class="logo">'+initials(INV.org)+'</div>':'<div class="logo none">No logo</div>')+'</div><div class="grp">'+btn('qupload',ic('up')+(a.logo?' Change logo':' Choose a picture'),'opt line',a.up)+'</div>';why2='Add a logo'}
+ else if(i===6){h='<div class="grp chips">'+KINDS.map(function(c){return pick('kind',c,a.kind===c)}).join('')+'</div>';why2='Pick one'}
+ else if(i===7){h=yr('oSince');why2='Pick a year'}
+ else if(i===8){h=(a.insta.trim()?'<div class="grp chips"><button class="pick more" data-a="useinsta">'+ic('plus',16)+'Use mine</button></div>':'')+'<div class="grp"><input class="inp sm" data-in="oInsta" autocapitalize="none" placeholder="your.page" value="'+esc(a.oInsta)+'" aria-label="Organisation Instagram"></div>';why2='Type the handle'}
+ else {h=(a.wa.trim()?'<div class="grp chips"><button class="pick more" data-a="usewa">'+ic('plus',16)+'Use my WhatsApp number</button></div>':'')+'<div class="grp"><input class="inp sm" data-in="phone" type="tel" inputmode="tel" placeholder="+44 7700 900123" value="'+esc(a.phone)+'" aria-label="Contact phone"></div>';why2='Type a phone number'}
+ return nav(back)+dots+sect+h+primaryFoot('qnext',i===QS.length-1?'Finish':'Next',!qDone(i),why2)}
+function scrQDone(){return nav('')+'<div class="hero"><div class="av">'+ic('check',26)+'</div><b>All set</b><p>'+(S.ev.draft?esc(S.ev.name)+' is ready to go live.':'You can publish your first event.')+'</p></div>'+
+ '<div class="foot">'+(S.ev.draft?btn('evlive','Go live','primary')+btn('home','Not yet','quiet'):btn('newev','Add your first event','primary')+btn('home','Back to my events','quiet'))+'</div>'}
+
+/* ---------- New event (the real flow: one question per screen; the first Next makes a draft) ---------- */
+var EV_VENUES=['Riverside Hall','The Dance Loft','Studio 9','Town Hall Ballroom'];
+var EV_DATES=['Fri 6 Nov','Fri 13 Nov','Fri 20 Nov','Sat 21 Nov'];
+var EV_TIMES=['19:00','20:00','21:00','22:00'];
+var EV_ORDER=['ev-what','ev-name','ev-venue','ev-date','ev-time','ev-photo'];
+function evBack(){var i=EV_ORDER.indexOf(S.scr);return i<=0?'home':'evprev'}
+function evStepHead(t){return nav(evBack())+'<h2 class="title">'+t+'</h2>'}
+function scrEvWhat(){var f=S.ev.fmt;return evStepHead('What are you listing?')+'<div class="grp">'+
+ '<button class="opt" data-a="evfmt" data-v="recurring" aria-pressed="'+(f==='recurring')+'"><span class="g">Weekly night</span></button>'+
+ '<button class="opt" data-a="evfmt" data-v="one_off" aria-pressed="'+(f==='one_off')+'"><span class="g">One night</span></button></div>'+
+ primaryFoot('evnext','Next',!f,'Pick one')}
+function scrEvName(){var e=S.ev;return evStepHead('What is it called?')+'<div class="grp"><input class="inp sm" data-in="evname" placeholder="Friday Social" value="'+esc(e.name)+'" aria-label="Event name"></div>'+
+ primaryFoot('evnext','Next',e.name.trim().length<2,'Type a name')}
+function scrEvVenue(){var e=S.ev;return evStepHead('Where is it?')+'<div class="grp chips">'+EV_VENUES.map(function(v){return pick('evvenue',v,e.venue===v)}).join('')+'</div>'+
+ primaryFoot('evnext','Next',!e.venue,'Pick a venue',btn('evdraft','Save as a draft and leave','quiet'))}
+function scrEvDate(){var e=S.ev;return evStepHead('When is the first one?')+'<div class="grp chips">'+EV_DATES.map(function(v){return pick('evdate',v,e.date===v)}).join('')+'</div>'+
+ primaryFoot('evnext','Next',!e.date,'Pick a date',btn('evdraft','Save as a draft and leave','quiet'))}
+function scrEvTime(){var e=S.ev;return evStepHead('What time does it start?')+'<div class="grp chips">'+EV_TIMES.map(function(v){return pick('evtime',v,e.time===v)}).join('')+'</div>'+
+ primaryFoot('evnext','Next',!e.time,'Pick a time',btn('evdraft','Save as a draft and leave','quiet'))}
+function scrEvPhoto(){var e=S.ev;return evStepHead('Add a photo')+'<div class="grp" style="padding:16px">'+(e.up?'<div class="logo none">Uploading</div><div class="prog"><i></i></div>':e.photo?'<div class="logo">'+initials(e.name||'Event')+'</div>':'<div class="logo none">No photo</div>')+'</div><div class="grp">'+btn('evupload',ic('up')+(e.photo?' Change photo':' Choose a picture'),'opt line',e.up)+'</div>'+
+ primaryFoot('evgolive','Go live',!e.photo,'Choose a photo to go live',btn('evdraft','Save as a draft and leave','quiet'))}
+/* Go live pressed with questions left: a short bridge, not a list. */
+function scrEvAlmost(){var left=leftCount();return nav('')+'<div class="hero"><div class="av">'+ic('check',26)+'</div><b>Almost live</b><p>'+esc(S.ev.name)+' is saved. '+left+' quick question'+(left===1?'':'s')+' and you can publish it.</p></div>'+
+ '<div class="route"><div><div class="dots">'+QS.map(function(x,j){return '<i class="'+(qDone(j)?'on':'')+'"></i>'}).join('')+'</div></div></div>'+
+ '<div class="foot">'+btn('qstart','Continue','primary')+btn('home','Not now','quiet')+'</div>'}
+
+/* ---------- computer: two panes (flow left, live profile preview right) ---------- */
+function preview(){var m=S.me;function ln(k,v){return '<div class="ln"><span>'+k+'</span><span class="'+(v?'set':'')+'">'+(v?esc(v):'Not yet')+'</span></div>'}
+ return '<div class="pvh">What dancers will see</div><div class="pvp"><div style="display:flex;gap:12px;align-items:center">'+(m.photo?'<div class="av" style="width:56px;height:56px;border-radius:16px;background:radial-gradient(circle at 70% 25%,#ffcf7a,transparent 50%),linear-gradient(160deg,#a8452a,#1d1416 80%);display:grid;place-items:center;font:800 20px var(--font);color:#fff">'+initials(m.fname)+'</div>':'')+
+  '<b style="font-size:22px;font-weight:800">'+esc(m.fname||'Your name')+'</b></div>'+ln('City',m.city)+ln('Dance role',m.role)+'</div>'}
+function mainScreen(){var f={invite:scrInvite,auth:scrAuth,wizard:scrWizard,confirm:scrConfirm,home:scrHome,q:scrQ,'q-done':scrQDone,'ev-almost':scrEvAlmost,'ev-what':scrEvWhat,'ev-name':scrEvName,'ev-venue':scrEvVenue,'ev-date':scrEvDate,'ev-time':scrEvTime,'ev-photo':scrEvPhoto}[S.scr];
  return '<div class="scroll">'+f()+'</div>'}
-function deskApp(){var right=S.scr==='wizard'||S.scr==='overview'?preview():S.scr==='home'?'<div class="blank">Your events will show here.</div>':'<div class="blank"><div><div class="logo" style="margin-bottom:16px">'+initials(INV.org)+'</div><b style="font-size:22px">'+esc(INV.org)+'</b><p class="m">Organiser page on Bachata Calendar</p></div></div>';
+function deskApp(){var right=S.scr==='wizard'?preview():S.scr==='home'||S.scr==='q'||S.scr==='q-done'||S.scr==='ev-almost'?'<div class="blank">Your events will show here.</div>':'<div class="blank"><div><div class="logo" style="margin-bottom:16px">'+initials(INV.org)+'</div><b style="font-size:22px">'+esc(INV.org)+'</b><p class="m">Organiser page on Bachata Calendar</p></div></div>';
  return '<div class="dkflow"><div class="l">'+mainScreen()+'</div><div class="r">'+right+'</div></div>'}
+var lastKey='';
 function render(){var dev=document.getElementById('dev');dev.className='dev '+S.dev;
- dev.innerHTML='<span class="ex">Example</span>'+(S.dev==='dk'?deskApp():mainScreen())+(S.toast?'<div class="toast">'+S.toast+'</div>':'');fit();drawIdx()}
+ dev.innerHTML='<span class="ex">Example</span>'+(S.dev==='dk'?deskApp():mainScreen())+(S.toast?'<div class="toast">'+S.toast+'</div>':'');var key=S.dev+'|'+S.scr+'|'+S.step+'|'+S.q;if(key!==lastKey){var sc=dev.querySelector('.scroll');if(sc)sc.classList.add('enter')}lastKey=key;fit();drawIdx()}
 function fit(){var dev=document.getElementById('dev'),stage=document.getElementById('stage');
  if(S.dev==='dk'){var s=Math.min(1,stage.clientWidth/1280);dev.style.transform='scale('+s+')';stage.style.height=(800*s)+'px'}else{dev.style.transform='';stage.style.height=''}}
 window.addEventListener('resize',fit);
@@ -412,29 +446,36 @@ var tt;function toast(m){S.toast=m;clearTimeout(tt);tt=setTimeout(function(){S.t
 
 /* ---------- jump list: every screen and state ---------- */
 function signedIn(){S.email=INV.email;S.sent=false;S.code=''}
-function wizAt(i,fill){signedIn();S.scr='wizard';S.step=i;if(fill){S.org.city='London';S.org.cats=['Classes','Parties'];S.org.logo=true;S.me.roles=['Teacher'];S.me.langs=['English','Spanish']}}
+function wizAt(i,fill){signedIn();S.scr='wizard';S.step=i;if(fill){S.me.city='London';S.me.role='Follower';S.me.photo=true}}
 var JUMPS=[
  ['1 Invite',[['invite','Invite, signed out',function(){}]]],
  ['2 Account',[['auth','Create account',function(){S.scr='auth'}],['auth-ready','Email typed',function(){S.scr='auth';S.email=INV.email}],
   ['auth-signin','Sign in instead',function(){S.scr='auth';S.mode='signin'}],['code','Email code',function(){S.scr='auth';S.email=INV.email;S.sent=true}],
   ['code-full','Code typed',function(){S.scr='auth';S.email=INV.email;S.sent=true;S.code='482913'}]]],
- ['3 Confirm',[['confirm','Confirm join',function(){signedIn();S.scr='confirm'}]]],
- ['4 Wizard',[['overview','Route overview',function(){signedIn();S.scr='overview'}],
-  ['o-name','1 Organisation: name, city',function(){wizAt(0)}],['o-name-other','1 Organisation: other city',function(){wizAt(0);S.org.cityOther=true}],
-  ['o-logo','1 Organisation: logo',function(){wizAt(1)}],['o-logo-done','1 Organisation: logo added',function(){wizAt(1,true)}],
-  ['o-cats','1 Organisation: categories',function(){wizAt(2)}],
-  ['p-role','2 Profile: role',function(){wizAt(3,true)}],['p-lang','2 Profile: languages',function(){wizAt(4,true)}],['p-lang-other','2 Profile: more languages',function(){wizAt(4,true);S.me.langMore=true}],
-  ['p-style','2 Profile: styles',function(){wizAt(5,true)}],['p-nat','2 Profile: nationality',function(){wizAt(6,true)}],
-  ['p-nat-search','2 Profile: country search',function(){wizAt(6,true);S.me.natq='ven'}],['p-nat-none','2 Profile: search, no match',function(){wizAt(6,true);S.me.natq='Atlantis'}]]],
- ['5 First win',[['home','No events yet',function(){signedIn();S.scr='home';S.org.city='London'}],['home-later','Finished later',function(){signedIn();S.scr='home';S.org.city='London';S.later=true}]]]];
+ ['3 Your profile',[['d-name','First name',function(){wizAt(0)}],['d-city','City',function(){wizAt(1)}],['d-city-search','City search',function(){wizAt(1);S.me.cityq='bri'}],
+  ['d-city-none','City not found',function(){wizAt(1);S.me.cityq='Newcastle'}],['d-city-req','Request a city',function(){wizAt(1);S.me.cityq='Newcastle';S.me.reqOpen=true;S.me.reqName='Newcastle'}],
+  ['d-city-sent','Request sent',function(){wizAt(1);S.me.cityReq='Newcastle'}],
+  ['d-role','Lead or follow',function(){wizAt(2,true)}],['d-photo','Photo',function(){wizAt(3);S.me.city='London';S.me.role='Follower'}],['d-photo-done','Photo added',function(){wizAt(3,true)}]]],
+ ['4 Confirm',[['confirm','Confirm join',function(){signedIn();S.scr='confirm';S.me.city='London';S.me.role='Follower';S.me.photo=true}]]],
+ ['5 Home',[['home','No events yet',function(){signedIn();S.scr='home'}],['home-draft','Home with a draft',function(){signedIn();S.scr='home';S.ev.name='Friday Social';S.ev.draft=true}]]],
+ ['6 New event',[['ev-what','What are you listing?',function(){signedIn();S.scr='ev-what'}],['ev-name','What is it called?',function(){signedIn();S.scr='ev-name'}],
+  ['ev-venue','Where is it?',function(){signedIn();S.scr='ev-venue';S.ev.name='Friday Social';S.ev.draft=true}],['ev-date','When is the first one?',function(){signedIn();S.scr='ev-date';S.ev.name='Friday Social';S.ev.venue='Studio 9';S.ev.draft=true}],
+  ['ev-time','What time?',function(){signedIn();S.scr='ev-time';S.ev.name='Friday Social';S.ev.venue='Studio 9';S.ev.date='Fri 6 Nov';S.ev.draft=true}],
+  ['ev-photo','Add a photo',function(){signedIn();S.scr='ev-photo';S.ev.name='Friday Social';S.ev.venue='Studio 9';S.ev.date='Fri 6 Nov';S.ev.time='21:00';S.ev.draft=true}],
+  ['ev-photo-done','Photo added, Go live ready',function(){signedIn();S.scr='ev-photo';S.ev.name='Friday Social';S.ev.venue='Studio 9';S.ev.date='Fri 6 Nov';S.ev.time='21:00';S.ev.photo=true;S.ev.draft=true}],
+  ['ev-almost','Go live pressed: almost live',function(){signedIn();S.scr='ev-almost';S.ev.name='Friday Social';S.ev.draft=true}]]],
+ ['7 Ten quick questions',[['q0','1 Country',function(){signedIn();S.scr='q';S.q=0;S.qFrom='ev';S.ev.name='Friday Social';S.ev.draft=true}],['q1','2 Languages',function(){signedIn();S.scr='q';S.q=1}],['q2','3 Instagram',function(){signedIn();S.scr='q';S.q=2}],
+  ['q3','4 WhatsApp',function(){signedIn();S.scr='q';S.q=3}],['q4','5 Year started dancing',function(){signedIn();S.scr='q';S.q=4}],['q5','6 Logo',function(){signedIn();S.scr='q';S.q=5}],
+  ['q6','7 Kind of organisation',function(){signedIn();S.scr='q';S.q=6}],['q7','8 Year founded',function(){signedIn();S.scr='q';S.q=7}],['q8','9 Organisation Instagram',function(){signedIn();S.scr='q';S.q=8;S.qa.insta='alex.dances'}],
+  ['q9','10 Contact phone',function(){signedIn();S.scr='q';S.q=9;S.qa.wa='+44 7700 900123'}],
+  ['q-done','All set',function(){signedIn();S.scr='q-done';S.ev.name='Friday Social';S.ev.draft=true}],['home-live','Home: event is live',function(){signedIn();S.scr='home';S.ev.name='Friday Social';S.ev.draft=true;S.ev.live=true;S.qa={nat:'Spain',natq:'',langs:['English'],insta:'x',wa:'1234567',since:'2019',sinceOther:false,sinceTxt:'',logo:true,up:false,kind:'Dance School',oSince:'2020',oSinceOther:false,oSinceTxt:'',oInsta:'xx',phone:'1234567'}}]]]];
 function jumpTo(id){var d=S.dev;init(d);JUMPS.forEach(function(g){g[1].forEach(function(j){if(j[0]===id){j[2]();S.at=id}})});render()}
 function drawIdx(){var idx=document.getElementById('idx'),sel=document.getElementById('jump');
  if(!idx.innerHTML){var h='',o='';JUMPS.forEach(function(g){h+='<h2>'+g[0]+'</h2>';o+='<optgroup label="'+g[0]+'">';g[1].forEach(function(j){h+='<button data-jump="'+j[0]+'">'+j[1]+'</button>';o+='<option value="'+j[0]+'">'+j[1]+'</option>'});o+='</optgroup>'});idx.innerHTML=h;sel.innerHTML=o}
  Array.prototype.forEach.call(idx.querySelectorAll('button'),function(b){b.setAttribute('aria-current',b.dataset.jump===S.at?'true':'false')});if(S.at)sel.value=S.at}
 
 /* ---------- events ---------- */
-function tog(list,v){var i=list.indexOf(v);i>-1?list.splice(i,1):list.push(v)}
-function advance(){S.step<STEPS.length-1?S.step++:(S.scr='home',S.later=false,toast(esc(S.org.name)+' is ready'))}
+function advance(){S.step<STEPS.length-1?S.step++:(S.scr='confirm')}
 document.addEventListener('click',function(e){var t;
  if((t=e.target.closest('[data-dev]'))){S.dev=t.dataset.dev;document.querySelectorAll('[data-dev]').forEach(function(b){b.setAttribute('aria-pressed',b===t?'true':'false')});render();return}
  if((t=e.target.closest('[data-jump]'))){jumpTo(t.dataset.jump);return}
@@ -445,26 +486,38 @@ document.addEventListener('click',function(e){var t;
   else if(a==='send'){S.sent=true;S.code=''}else if(a==='authback'){S.sent=false;S.code=''}
   else if(a==='resend'){S.code='';toast('New code sent')}
   else if(a==='key'){var v=t.dataset.v;if(v==='del')S.code=S.code.slice(0,-1);else if(S.code.length<6)S.code+=v}
-  else if(a==='verify'){S.scr='confirm'}
+  else if(a==='verify'){S.scr='wizard';S.step=0;S.me.fname=S.name.split(' ')[0]}
   else if(a==='signout'){init(S.dev);toast('Signed out')}
-  else if(a==='join'){S.scr='overview'}else if(a==='start'){S.scr='wizard';S.step=0}
+  else if(a==='join'){S.scr='home'}
   else if(a==='prev'){S.step--}
   else if(a==='next'){advance()}
-  else if(a==='skip'){S.skipped[cur().id]=true;advance()}
-  else if(a==='later'){S.scr='home';S.later=true;toast('Saved. Carry on any time')}
-  else if(a==='resume'){S.scr='wizard';var nx=STEPS.filter(function(s){return !filled(s.id)})[0];S.step=nx?STEPS.indexOf(nx):0}
-  else if(a==='upload'){S.org.up=true;setTimeout(function(){S.org.up=false;S.org.logo=true;render()},900)}
-  else if(a==='langmore'){S.me.langMore=true}
-  else if(a==='newev'){toast('Opens New event (ER flow)')}
+  else if(a==='upload'){S.me.up=true;setTimeout(function(){S.me.up=false;S.me.photo=true;render()},900)}
+  else if(a==='reqopen'){S.me.reqOpen=true;S.me.reqName=S.me.cityq.trim()}
+  else if(a==='sendreq'){S.me.cityReq=S.me.reqName.trim();S.me.city=null;S.me.reqOpen=false;toast('Request sent')}
+  else if(a==='home'){S.scr='home'}
+  
+  else if(a==='newev'){S.ev={fmt:null,name:'',venue:null,date:null,time:null,photo:false,up:false,draft:false};S.scr='ev-what'}
+  else if(a==='evfmt'){S.ev.fmt=t.dataset.v}
+  else if(a==='evprev'){S.scr=EV_ORDER[EV_ORDER.indexOf(S.scr)-1]}
+  else if(a==='evnext'){if(S.scr==='ev-name')S.ev.draft=true;S.scr=EV_ORDER[EV_ORDER.indexOf(S.scr)+1]}
+  else if(a==='evdraft'){S.ev.draft=true;S.scr='home';toast('Saved as a draft')}
+  else if(a==='evupload'){S.ev.up=true;setTimeout(function(){S.ev.up=false;S.ev.photo=true;render()},900)}
+  else if(a==='evgolive'){if(leftCount())S.scr='ev-almost';else{S.ev.live=true;S.scr='home';toast(esc(S.ev.name)+' is live')}}
+  else if(a==='qstart'){S.qFrom=S.scr==='ev-almost'?'ev':'home';S.q=firstUndone();S.scr='q'}
+  else if(a==='evalmost'){S.scr='ev-almost'}
+  else if(a==='qprev'){S.q--}
+  else if(a==='qnext'){if(S.q<QS.length-1)S.q++;else S.scr='q-done'}
+  else if(a==='qupload'){S.qa.up=true;setTimeout(function(){S.qa.up=false;S.qa.logo=true;render()},900)}
+  else if(a==='useinsta'){S.qa.oInsta=S.qa.insta}else if(a==='usewa'){S.qa.phone=S.qa.wa}
+  else if(a==='evlive'){S.ev.live=true;S.scr='home';toast(esc(S.ev.name)+' is live')}
+  else if(a==='evopen'){if(leftCount()&&!S.ev.live)S.scr='ev-almost'}
   render();return}
- if((t=e.target.closest('.pick[data-k]'))){var k=t.dataset.k,v2=t.dataset.v,o=S.org,m=S.me;S.at=null;
-  if(k==='city'){o.city=v2;o.cityOther=false}else if(k==='cityother'){o.cityOther=!o.cityOther}
-  else if(k==='cat')tog(o.cats,v2);else if(k==='role')tog(m.roles,v2);else if(k==='lang')tog(m.langs,v2);else if(k==='style')tog(m.styles,v2);
-  else if(k==='nat')m.nat=m.nat===v2?null:v2;
+ if((t=e.target.closest('.pick[data-k]'))){var k=t.dataset.k,v2=t.dataset.v,m=S.me;S.at=null;
+  if(k==='city'){m.city=v2;m.reqOpen=false}else if(k==='role')m.role=v2;else if(k==='evvenue')S.ev.venue=v2;else if(k==='evdate')S.ev.date=v2;else if(k==='evtime')S.ev.time=v2;else if(k==='nat')S.qa.nat=S.qa.nat===v2?null:v2;else if(k==='qlang'){var li=S.qa.langs.indexOf(v2);li>-1?S.qa.langs.splice(li,1):S.qa.langs.push(v2)}else if(k==='kind')S.qa.kind=S.qa.kind===v2?null:v2;else if(k==='since'||k==='oSince'){if(v2==='earlier'){S.qa[k+'Other']=true}else{S.qa[k]=v2;S.qa[k+'Other']=false}}
   render()}});
 document.addEventListener('input',function(e){var t=e.target;if(!t.dataset||!t.dataset.in||!t.closest('#dev'))return;var k=t.dataset.in,pos=t.selectionStart;
  if(k==='name')S.name=t.value;else if(k==='email')S.email=t.value.trim();else if(k==='code')S.code=t.value.replace(/\D/g,'').slice(0,6);
- else if(k==='oname')S.org.name=t.value;else if(k==='cityq')S.org.cityq=t.value;else if(k==='natq')S.me.natq=t.value;
+ else if(k==='fname')S.me.fname=t.value;else if(k==='evname')S.ev.name=t.value;else if(k==='natq')S.qa.natq=t.value;else if(k==='insta')S.qa.insta=t.value;else if(k==='wa')S.qa.wa=t.value;else if(k==='sinceTxt')S.qa.sinceTxt=t.value.replace(/\D/g,'').slice(0,4);else if(k==='oSinceTxt')S.qa.oSinceTxt=t.value.replace(/\D/g,'').slice(0,4);else if(k==='oInsta')S.qa.oInsta=t.value;else if(k==='phone')S.qa.phone=t.value;else if(k==='cityq')S.me.cityq=t.value;else if(k==='reqname')S.me.reqName=t.value;
  render();var n=document.querySelector('#dev [data-in="'+k+'"]');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}});
 document.addEventListener('change',function(e){if(e.target.id==='jump')jumpTo(e.target.value)});
 init('ph');render();
