@@ -7,7 +7,7 @@
   "columns": 4,
   "namesClipped": 0,
   "maxNameLines": 2,
-  "firstTileTop": 219.25,
+  "firstTileTop": 419.171875,
   "faces": {
    "photo": 0,
    "initials": 40
@@ -21,7 +21,30 @@
  "djs-noPhoto-text": "DC Next gig Thu 22 Daniel Carbonero , Teacher , DJ , Dancer",
  "djs-threeRole-text": "DC Next gig Thu 22 Daniel Carbonero , Teacher , DJ , Dancer",
  "djs-longName-text": "BR Next gig Tue 27 Boadicea Richards , Teacher , DJ , Dancer",
- "djs-joinRow": null,
+ "djs-layout": {
+  "heroTitle": [
+   "Bachata DJs"
+  ],
+  "pills": [
+   "All",
+   "Dancers",
+   "DJs",
+   "Teachers"
+  ],
+  "organisers": {
+   "tag": "A",
+   "href": "/organisers",
+   "h": 40
+  },
+  "pillsTop": 322.21875,
+  "gridTop": 419.171875,
+  "joinRow": false,
+  "wallHeader": false
+ },
+ "djs-teachers": {
+  "text": "Teachers are coming soon. Meanwhile, browse DJs and dancers.Browse DJsBrowse dancers",
+  "tiles": 0
+ },
  "djs-filtered": {
   "scrollWidth": 390,
   "innerWidth": 390,
@@ -30,10 +53,10 @@
   "columns": 4,
   "namesClipped": 0,
   "maxNameLines": 2,
-  "firstTileTop": 219.25,
+  "firstTileTop": 419.171875,
   "faces": {
-   "photo": 0,
-   "initials": 35
+   "photo": 14,
+   "initials": 21
   }
  },
  "dancers-all": {
@@ -44,10 +67,10 @@
   "columns": 4,
   "namesClipped": 0,
   "maxNameLines": 2,
-  "firstTileTop": 219.25,
+  "firstTileTop": 593.6875,
   "faces": {
-   "photo": 42,
-   "initials": 52
+   "photo": 50,
+   "initials": 44
   }
  },
  "dancers-picks": {
@@ -58,20 +81,29 @@
  "dancers-noPhoto-text": "B Biskit , Dancer",
  "dancers-threeRole-text": "SS Sergio Suavez , Teacher , DJ , Dancer",
  "dancers-longName-text": "SP Sabrina Guzman Pastor , Dancer",
- "dancers-joinRow": {
-  "links": [
-   {
-    "text": "Join the wall",
-    "href": "/auth?mode=signup&userType=dancer",
-    "h": 44
-   },
-   {
-    "text": "Book a photoshoot",
-    "href": "/videographers",
-    "h": 44
-   }
+ "dancers-layout": {
+  "heroTitle": [
+   "Meet Dancers"
   ],
-  "belowGrid": true
+  "pills": [
+   "All",
+   "Dancers",
+   "DJs",
+   "Teachers"
+  ],
+  "organisers": {
+   "tag": "A",
+   "href": "/organisers",
+   "h": 40
+  },
+  "pillsTop": 496.734375,
+  "gridTop": 593.6875,
+  "joinRow": false,
+  "wallHeader": false
+ },
+ "dancers-teachers": {
+  "text": "Teachers are coming soon. Meanwhile, browse DJs and dancers.Browse DJsBrowse dancers",
+  "tiles": 0
  },
  "dancers-filtered": {
   "scrollWidth": 390,
@@ -81,10 +113,10 @@
   "columns": 4,
   "namesClipped": 0,
   "maxNameLines": 2,
-  "firstTileTop": 219.25,
+  "firstTileTop": 593.6875,
   "faces": {
-   "photo": 0,
-   "initials": 35
+   "photo": 27,
+   "initials": 8
   }
  },
  "pageErrors": []

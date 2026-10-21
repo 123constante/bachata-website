@@ -1,4 +1,4 @@
-// Walk script: node docs/mockups/w2a-wall/shot.mjs <baseUrl> <outPrefix> [off]
+// Walk script (layout pass: hero kept, pills, Teachers coming soon, Organisers link): node docs/mockups/w2a-wall/shot.mjs <baseUrl> <outPrefix> [off]
 // Production build, 390x844. Photos on media.bachatacalendar.co.uk are unreachable from the sandbox,
 // so photo tiles fall back to initials here; real photo crops are NOT verified.
 import { chromium } from 'playwright';
@@ -56,17 +56,29 @@ for (const [path, tag] of [['/djs', 'djs'], ['/dancers', 'dancers']]) {
     await loc.screenshot({ path: `${dir}${out}-${tag}-${k}.png` });
     report[`${tag}-${k}-text`] = (await loc.innerText()).replace(/\s+/g, ' ');
   }
-  // Fix pass (owner change 1): the Join row under the /dancers wall, absent on /djs.
-  const join = page.locator('[data-testid="wall-join-row"]');
-  report[`${tag}-joinRow`] = await join.count() ? await join.evaluate((r) => ({
-    links: [...r.querySelectorAll('a')].map((a) => ({ text: a.textContent, href: a.getAttribute('href'), h: Math.round(a.getBoundingClientRect().height) })),
-    belowGrid: r.getBoundingClientRect().top >= document.querySelector('[data-testid="wall-grid"]').getBoundingClientRect().bottom,
-  })) : null;
-  if (await join.count()) {
-    await join.evaluate((r) => r.scrollIntoView({ block: 'center' }));
-    await page.waitForTimeout(400);
-    await page.screenshot({ path: `${dir}${out}-${tag}-bottom.png` });
-  }
+  // Layout pass (owner, 2026-10-21): hero -> pills -> wall; Teachers = coming soon; Organisers = link.
+  report[`${tag}-layout`] = await page.evaluate(() => {
+    const top = (sel) => document.querySelector(sel)?.getBoundingClientRect().top ?? null;
+    const pills = [...document.querySelectorAll('[data-testid="wall-filter"]')].map((b) => b.textContent);
+    const org = document.querySelector('[data-testid="wall-organisers"]');
+    const heroTitle = [...document.querySelectorAll('h1')].map((h) => h.textContent.trim());
+    return { heroTitle, pills, organisers: org ? { tag: org.tagName, href: org.getAttribute('href'), h: Math.round(org.getBoundingClientRect().height) } : null,
+      pillsTop: top('[data-testid="wall-pills"]') + scrollY, gridTop: top('[data-testid="wall-grid"]') + scrollY,
+      joinRow: !!document.querySelector('[data-testid="wall-join-row"]'), wallHeader: document.body.innerText.includes('behind the nights') };
+  });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.locator('[data-testid="wall-pills"]').evaluate((r) => r.scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${dir}${out}-${tag}-pills.png` });
+  await page.locator('[data-testid="wall-filter"]', { hasText: 'Teachers' }).click();
+  await page.waitForTimeout(400);
+  report[`${tag}-teachers`] = await page.evaluate(() => ({
+    text: document.querySelector('[data-testid="wall-teachers-soon"]')?.textContent ?? null,
+    tiles: document.querySelectorAll('[data-testid="wall-tile"]').length,
+  }));
+  await page.screenshot({ path: `${dir}${out}-${tag}-teachers.png` });
+  await page.locator('[data-testid="wall-filter"]', { hasText: 'All' }).click();
+  await page.waitForTimeout(300);
   await page.evaluate(() => window.scrollTo(0, 0));
   const chip = page.locator('[data-testid="wall-filter"]', { hasText: tag === 'djs' ? 'Dancers' : 'DJs' });
   if (await chip.count()) {
