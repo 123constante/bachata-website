@@ -6,7 +6,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn() } }));
 
-import type { VenueOption } from '../../shared/publicVenues';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { venueName, venueOptionsQueryKey, type VenueOption } from '../../shared/publicVenues';
 import { VenuePicker, type VenuePickerDeps } from '../VenuePicker';
 import { lookupPostcode, normalisePostcode } from '../postcode';
 import { searchVenues } from '../venueSearch';
@@ -68,7 +70,8 @@ describe('RPC client (pinned interface, server faked)', () => {
   });
   it.each([
     [{ code: 'PGRST202', message: 'Could not find the function' }, 'unavailable'],
-    [{ message: 'rate limit exceeded' }, 'rate_limited'],
+    [{ code: '54000', message: 'rate_limited' }, 'rate_limited'],
+    [{ message: 'rate limit exceeded' }, 'failed'], // ER-FIX-C5: no substring match, AS BUILT text only
     [{ message: 'boom' }, 'failed'],
   ])('error %j -> %s', async (error, kind) => {
     const rpc = vi.fn().mockResolvedValue({ data: null, error });
@@ -209,5 +212,115 @@ describe('VenuePicker', () => {
     click('Add venue');
     expect((await screen.findByTestId('venue-save-error')).textContent).toMatch(/not available yet/);
     expect(screen.getByTestId('venue-add')).toBeTruthy();
+  });
+});
+
+// ER-FIX-C5: wave 1 review findings C5-1..C5-7. Each row was run RED on the unfixed code first.
+describe('ER-FIX-C5', () => {
+  const place = { postcode: 'E1 6AN', lat: 51.5, lng: -0.07, address: 'a', area: 'b' };
+  it.each([
+    // C5-1 AS BUILT: rate limit = 54000 + rate_limited; other refusals are P0001; a real network failure has no code.
+    [{ code: '54000', message: 'rate_limited' }, 'rate_limited'],
+    [{ code: 'P0001', message: 'permission_denied: authentication_required' }, 'refused'],
+    [{ code: 'P0001', message: 'invalid_payload: p_postcode' }, 'refused'],
+    [{ code: 'P0001', message: 'invalid_payload: separate rate check' }, 'refused'],
+    [{ code: '', message: 'TypeError: Failed to fetch' }, 'failed'],
+  ])('C5-1 error %j -> %s', async (error, kind) => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error });
+    await expect(createVenueDraft('x', place, rpc)).rejects.toMatchObject({ kind });
+  });
+
+  const toConfirm = async () => {
+    type('Search venues', 'Zumba Loft');
+    fireEvent.click(await screen.findByTestId('venue-add-new'));
+    type('Postcode', 'E1 6AN');
+    click('Look up postcode');
+    await screen.findByTestId('postcode-found');
+    click('Next');
+  };
+  it.each([
+    ['rate_limited', 'You can add 5 venues a day. Try again tomorrow, or pick an existing venue.'],
+    ['refused', /could not be added/],
+    ['failed', /Check your connection/],
+  ] as const)('C5-1/C5-3 %s shows its own message', async (kind, text) => {
+    setup({ create: vi.fn().mockRejectedValue(new VenueApiError(kind)) });
+    await toConfirm();
+    await screen.findByTestId('venue-confirm');
+    click('Add venue');
+    const msg = (await screen.findByTestId('venue-save-error')).textContent ?? '';
+    if (typeof text === 'string') expect(msg).toBe(text);
+    else expect(msg).toMatch(text);
+    if (kind !== 'failed') expect(msg).not.toMatch(/connection/);
+  });
+
+  it('C5-2 a created venue lands in the venue options cache at once', async () => {
+    const client = new QueryClient();
+    client.setQueryData(venueOptionsQueryKey, VENUES);
+    const onPick = vi.fn();
+    const deps: VenuePickerDeps = {
+      lookup: vi.fn().mockResolvedValue(await_ok()),
+      similar: vi.fn().mockResolvedValue([]),
+      create: vi.fn().mockResolvedValue({ venueId: 'new1', existing: false }),
+    };
+    render(<QueryClientProvider client={client}><VenuePicker options={VENUES} onPick={onPick} deps={deps} /></QueryClientProvider>);
+    await toConfirm();
+    await screen.findByTestId('venue-confirm');
+    click('Add venue');
+    await waitFor(() => expect(onPick).toHaveBeenCalled());
+    const cached = client.getQueryData<VenueOption[]>(venueOptionsQueryKey) ?? [];
+    expect(venueName(cached, 'new1')).toBe('Zumba Loft');
+    expect(cached).toHaveLength(VENUES.length + 1);
+  });
+
+  it('C5-4 a part postcode says a full one is needed', async () => {
+    setup();
+    type('Search venues', 'Zumba');
+    fireEvent.click(await screen.findByTestId('venue-add-new'));
+    type('Postcode', 'E1 6A');
+    expect(screen.getByText('Full UK postcode needed')).toBeTruthy();
+  });
+
+  it('C5-5 existing:true outside the list uses the stored name, not the typed one', async () => {
+    const { onPick } = setup({
+      similar: vi.fn().mockResolvedValue([{ venueId: 'z9', name: 'Zumba Loft', postcode: 'E1 6AN' }]),
+      create: vi.fn().mockResolvedValue({ venueId: 'z9', existing: true }),
+    });
+    type('Search venues', 'zumba loft');
+    fireEvent.click(await screen.findByTestId('venue-add-new'));
+    type('Postcode', 'E1 6AN');
+    click('Look up postcode');
+    await screen.findByTestId('postcode-found');
+    click('Next');
+    fireEvent.click(await screen.findByTestId('similar-none'));
+    click('Add venue');
+    await waitFor(() => expect(onPick).toHaveBeenCalled());
+    expect(onPick.mock.calls[0][0]).toMatchObject({ id: 'z9', name: 'Zumba Loft' });
+  });
+
+  it('C5-6 venue source files hold no raw non-ASCII', () => {
+    for (const f of ['VenuePicker.tsx', 'venueSearch.ts', 'venueApi.ts', 'postcode.ts']) {
+      const src = readFileSync(resolve(__dirname, '..', f), 'utf8');
+      expect([...src].filter((ch) => ch.charCodeAt(0) > 127), f).toEqual([]);
+    }
+    expect(searchVenues([v('x', 'Café Tango')], 'cafe tango').shape).toBe('exact');
+  });
+
+  it('C5-7 each step moves focus to its heading or first field; "Is it one of these?" has Back', async () => {
+    setup({ similar: vi.fn().mockResolvedValue([{ venueId: 's1', name: 'Zumba Loft Ltd', postcode: null }]) });
+    type('Search venues', 'Zumba Loft');
+    fireEvent.click(await screen.findByTestId('venue-add-new'));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Venue name')));
+    type('Postcode', 'E1 6AN');
+    click('Look up postcode');
+    await screen.findByTestId('postcode-found');
+    click('Next');
+    const heading = await screen.findByRole('heading', { name: 'Is it one of these?' });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+    click('Back');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Venue name')));
+    click('Next');
+    fireEvent.click(await screen.findByTestId('similar-none'));
+    const confirm = await screen.findByRole('heading', { name: 'Zumba Loft' });
+    await waitFor(() => expect(document.activeElement).toBe(confirm));
   });
 });
