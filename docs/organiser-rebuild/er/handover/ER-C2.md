@@ -1,0 +1,5 @@
+# ER-C2 handover (ER-UI, Ember look as variables)
+Done: ui/ember.css (defaults = today under .org-theme; overrides under .ember-world), ui/EmberWorld.tsx (+ context so SheetView portals inherit the class, + loadEmberFont), Chip onRemove with 44px hit area, components read var(--r-*, today), theme.css font via --font-ui, __tests__/ember.test.tsx.
+Left: nothing in scope. Release B adds `<EmberWorld>` (or the class + loadEmberFont()) in its own files.
+Checks (sandbox): vitest src/modules/organiser + src/modules/areas 118 files / 3421 pass (exit 0); build exit 0; check:legacy-tables 0; check:legacy-program-rpcs 0; lint:architecture 0; check:mojibake 0; integrity-guard ok; eslint on touched files 0 errors (2 fast-refresh warnings). tsc: only 2 pre-existing errors in organiser test files and pre-existing ones elsewhere, none in touched files.
+Not verified: 390x844 browser walk and prod shape survey (no visual change by construction; ember look not on any screen yet); real phone; CI on GitHub.

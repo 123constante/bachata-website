@@ -1,6 +1,6 @@
 import { Suspense, useEffect, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useAuth } from '@/hooks/useAuth';
 import { useAccountGate } from '@/lib/accountGate';
@@ -12,6 +12,7 @@ import { SkeletonRows } from '../ui/Skeleton';
 import { ModuleLegacyRedirect } from './LegacyRedirect';
 import { OrganiserShell } from './OrganiserShell';
 import { ORG_PATHS } from './paths';
+import { RebuildSwitchContext, rebuildEnabled } from './rebuildSwitch';
 
 // One lazy chunk per folder. main's screens stay mounted on the R1 paths until
 // their slice swaps them. Every R1 route group has landed (INT2): no route
@@ -87,7 +88,12 @@ function AccountGated({ children }: { children: ReactNode }) {
  */
 export default function OrganiserRoutes() {
   useNoindexMeta(true);
+  // ER-S0: the one flag read. It answers from the home read the shell already holds.
+  const { user } = useAuth();
+  const home = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled: !!user?.id });
+  const rebuildOn = rebuildEnabled(import.meta.env.VITE_ORGANISER_REBUILD, (home.data?.organisers ?? []).map((o) => o.id));
   return (
+    <RebuildSwitchContext.Provider value={rebuildOn}>
     <AuthGuard>
       <PrefetchOrganiserHome />
       <AccountGated>
@@ -151,5 +157,6 @@ export default function OrganiserRoutes() {
         </Suspense>
       </AccountGated>
     </AuthGuard>
+    </RebuildSwitchContext.Provider>
   );
 }

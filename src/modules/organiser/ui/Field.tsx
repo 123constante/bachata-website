@@ -3,7 +3,7 @@ import { fieldNoteId } from './fieldNote';
 
 /** The text input / textarea look: card2, radius 12, 16px text (no iOS zoom), 3:1 border, gold on focus. */
 export const FIELD_CLASS =
-  'block w-full rounded-[12px] border border-[var(--line-strong)] bg-[var(--card2)] px-[12px] text-[16px] text-[var(--fg)] outline-none placeholder:text-[var(--ph)] focus-visible:border-[var(--gold)]';
+  'block w-full rounded-[var(--r-ctl,12px)] border border-[var(--line-strong)] bg-[var(--card2)] px-[12px] text-[16px] text-[var(--fg)] outline-none placeholder:text-[var(--ph)] focus-visible:border-[var(--gold)]';
 
 export interface FieldProps {
   label: string;

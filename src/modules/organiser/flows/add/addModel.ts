@@ -3,24 +3,15 @@
 // nothing is converted through a zone, so a day across 25 October keeps its time.
 
 import type { OrganiserHome } from '@/modules/organiser/shared/selfServeApi';
-import { isListedSeries, type HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
+import type { HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
+import { allSeries, findSeries } from '@/modules/organiser/shared/useOrganiserSeries';
 import { comingDates, comingDays, dayLabel, type DateRow } from '@/modules/organiser/shared/dateList';
 import { dateLock, eventLock } from '@/modules/organiser/shared/eventState';
 import { CAP_NOTE, MAX_UPCOMING } from '@/modules/organiser/events/dateCap';
 import type { SeriesWorkspace } from '@/modules/organiser/shared/seriesModel';
 
-/** Every listed series of the login, across its pages (a series shared by two pages is listed once). */
-function allSeries(home: OrganiserHome | undefined): HomeSeriesFull[] {
-  const seen = new Set<string>();
-  return (home?.organisers ?? []).flatMap((o) => o.series ?? []).filter((s) => {
-    if (!isListedSeries(s) || seen.has(s.id)) return false;
-    seen.add(s.id);
-    return true;
-  });
-}
-
-export const findSeries = (home: OrganiserHome | undefined, seriesId: string): HomeSeriesFull | null =>
-  allSeries(home).find((s) => s.id === seriesId) ?? null;
+// The one lookup lives in shared/useOrganiserSeries (ER-S1); re-exported so importers keep their path.
+export { findSeries };
 
 /** A series a date can be added to: live or draft, the same rule as Home's Add row (homeJobs canAdd). */
 export const canAddTo = (status: string) => status === 'live' || status === 'draft';
