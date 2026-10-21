@@ -1,0 +1,789 @@
+{
+ "viewport": "390x844",
+ "metrics": {
+  "h1": {
+   "firstCtaTop": 307,
+   "pillRowTop": 616,
+   "pillsFullyOnFirstScreen": true,
+   "pillRowHeight": 87,
+   "scrollWidth": 390,
+   "innerWidth": 390,
+   "firstTileTop": 713,
+   "firstTileTopViewport": 713.046875,
+   "screensDown": 0.84,
+   "pageHeight": 2538,
+   "pillsInViewAfterOneScroll": false
+  },
+  "h2": {
+   "firstCtaTop": 307,
+   "pillRowTop": 470,
+   "pillsFullyOnFirstScreen": true,
+   "pillRowHeight": 87,
+   "scrollWidth": 390,
+   "innerWidth": 390,
+   "firstTileTop": 567,
+   "firstTileTopViewport": 566.90625,
+   "screensDown": 0.67,
+   "pageHeight": 2392,
+   "pillsInViewAfterOneScroll": false
+  },
+  "h3": {
+   "firstCtaTop": 282,
+   "pillRowTop": 481,
+   "pillsFullyOnFirstScreen": true,
+   "pillRowHeight": 87,
+   "scrollWidth": 390,
+   "innerWidth": 390,
+   "firstTileTop": 578,
+   "firstTileTopViewport": 578.390625,
+   "screensDown": 0.69,
+   "pageHeight": 2403,
+   "pillsInViewAfterOneScroll": false
+  },
+  "dj1": {
+   "firstCtaTop": 350,
+   "pillRowTop": 659,
+   "pillsFullyOnFirstScreen": true,
+   "pillRowHeight": 87,
+   "scrollWidth": 390,
+   "innerWidth": 390,
+   "firstTileTop": 756,
+   "firstTileTopViewport": 756.25,
+   "screensDown": 0.9,
+   "pageHeight": 2241,
+   "pillsInViewAfterOneScroll": false
+  }
+ },
+ "contrast": {
+  "h1": [
+   {
+    "text": "Search events, venues, people…",
+    "fg": "rgb(171,171,171)",
+    "bg": "rgb(12,9,3)",
+    "ratio": 8.66,
+    "pass": true
+   },
+   {
+    "text": "🎪",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "Organisers",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "🏛️",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "Venues",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "Community",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "Meet",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(14,18,21)",
+    "ratio": 18.82,
+    "pass": true
+   },
+   {
+    "text": "Dancers",
+    "fg": "rgb(255,166,0)",
+    "bg": "rgb(14,18,21)",
+    "ratio": 9.59,
+    "pass": true
+   },
+   {
+    "text": "Find Practice Partners",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,79,74)",
+    "ratio": 7.43,
+    "pass": true
+   },
+   {
+    "text": "Meet people to train with",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,79,74)",
+    "ratio": 7.43,
+    "pass": true
+   },
+   {
+    "text": "or Create a Profile",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,79,74)",
+    "ratio": 7.43,
+    "pass": true
+   },
+   {
+    "text": "Join as a DJ",
+    "fg": "rgb(255,227,160)",
+    "bg": "rgb(107,74,14)",
+    "ratio": 6.41,
+    "pass": true
+   },
+   {
+    "text": "Get listed and get booked",
+    "fg": "rgb(255,227,160)",
+    "bg": "rgb(107,74,14)",
+    "ratio": 6.41,
+    "pass": true
+   },
+   {
+    "text": "Teach with us",
+    "fg": "rgb(228,215,251)",
+    "bg": "rgb(74,45,138)",
+    "ratio": 7.58,
+    "pass": true
+   },
+   {
+    "text": "Share your classes",
+    "fg": "rgb(228,215,251)",
+    "bg": "rgb(74,45,138)",
+    "ratio": 7.58,
+    "pass": true
+   },
+   {
+    "text": "List your event",
+    "fg": "rgb(255,210,184)",
+    "bg": "rgb(122,47,14)",
+    "ratio": 6.77,
+    "pass": true
+   },
+   {
+    "text": "Promote your nights",
+    "fg": "rgb(255,210,184)",
+    "bg": "rgb(122,47,14)",
+    "ratio": 6.77,
+    "pass": true
+   },
+   {
+    "text": "All",
+    "fg": "rgb(30,20,16)",
+    "bg": "rgb(251,235,221)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Dancers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "DJs",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Teachers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Organisers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "J",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,75,71)",
+    "ratio": 7.85,
+    "pass": true
+   }
+  ],
+  "h2": [
+   {
+    "text": "Search events, venues, people…",
+    "fg": "rgb(171,171,171)",
+    "bg": "rgb(12,9,3)",
+    "ratio": 8.66,
+    "pass": true
+   },
+   {
+    "text": "🎪",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "Organisers",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "🏛️",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "Venues",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "Community",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "Meet",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(14,18,21)",
+    "ratio": 18.82,
+    "pass": true
+   },
+   {
+    "text": "Dancers",
+    "fg": "rgb(255,166,0)",
+    "bg": "rgb(14,18,21)",
+    "ratio": 9.59,
+    "pass": true
+   },
+   {
+    "text": "Find Practice Partners",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,79,74)",
+    "ratio": 7.43,
+    "pass": true
+   },
+   {
+    "text": "Meet people to train with",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,79,74)",
+    "ratio": 7.43,
+    "pass": true
+   },
+   {
+    "text": "or Create a Profile",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,79,74)",
+    "ratio": 7.43,
+    "pass": true
+   },
+   {
+    "text": "Join as a DJ",
+    "fg": "rgb(255,227,160)",
+    "bg": "rgb(107,74,14)",
+    "ratio": 6.41,
+    "pass": true
+   },
+   {
+    "text": "Get listed and get booked",
+    "fg": "rgb(255,227,160)",
+    "bg": "rgb(107,74,14)",
+    "ratio": 6.41,
+    "pass": true
+   },
+   {
+    "text": "Teach with us",
+    "fg": "rgb(228,215,251)",
+    "bg": "rgb(107,74,14)",
+    "ratio": 5.9,
+    "pass": true
+   },
+   {
+    "text": "Share your classes",
+    "fg": "rgb(228,215,251)",
+    "bg": "rgb(107,74,14)",
+    "ratio": 5.9,
+    "pass": true
+   },
+   {
+    "text": "List your event",
+    "fg": "rgb(255,210,184)",
+    "bg": "rgb(107,74,14)",
+    "ratio": 5.81,
+    "pass": true
+   },
+   {
+    "text": "Promote your nights",
+    "fg": "rgb(255,210,184)",
+    "bg": "rgb(107,74,14)",
+    "ratio": 5.81,
+    "pass": true
+   },
+   {
+    "text": "All",
+    "fg": "rgb(30,20,16)",
+    "bg": "rgb(251,235,221)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Dancers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "DJs",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Teachers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Organisers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Teacher",
+    "fg": "rgb(30,10,77)",
+    "bg": "rgb(183,156,251)",
+    "ratio": 7.6,
+    "pass": true
+   },
+   {
+    "text": "Dancer",
+    "fg": "rgb(4,48,44)",
+    "bg": "rgb(45,212,191)",
+    "ratio": 7.7,
+    "pass": true
+   },
+   {
+    "text": "Dancer",
+    "fg": "rgb(4,48,44)",
+    "bg": "rgb(45,212,191)",
+    "ratio": 7.7,
+    "pass": true
+   },
+   {
+    "text": "Dancer",
+    "fg": "rgb(4,48,44)",
+    "bg": "rgb(45,212,191)",
+    "ratio": 7.7,
+    "pass": true
+   },
+   {
+    "text": "J",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,75,71)",
+    "ratio": 7.85,
+    "pass": true
+   },
+   {
+    "text": "Dancer",
+    "fg": "rgb(4,48,44)",
+    "bg": "rgb(45,212,191)",
+    "ratio": 7.7,
+    "pass": true
+   }
+  ],
+  "h3": [
+   {
+    "text": "Search events, venues, people…",
+    "fg": "rgb(171,171,171)",
+    "bg": "rgb(12,9,3)",
+    "ratio": 8.66,
+    "pass": true
+   },
+   {
+    "text": "🎪",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "Organisers",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "🏛️",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "Venues",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "Community",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(2,2,3)",
+    "ratio": 20.74,
+    "pass": true
+   },
+   {
+    "text": "Meet",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(14,18,21)",
+    "ratio": 18.82,
+    "pass": true
+   },
+   {
+    "text": "Dancers",
+    "fg": "rgb(255,166,0)",
+    "bg": "rgb(14,18,21)",
+    "ratio": 9.59,
+    "pass": true
+   },
+   {
+    "text": "Dance with us",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,79,74)",
+    "ratio": 7.43,
+    "pass": true
+   },
+   {
+    "text": "Find people to train with, or get on the",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,79,74)",
+    "ratio": 7.43,
+    "pass": true
+   },
+   {
+    "text": "Find Practice Partners",
+    "fg": "rgb(4,48,44)",
+    "bg": "rgb(45,212,191)",
+    "ratio": 7.7,
+    "pass": true
+   },
+   {
+    "text": "Create a Profile",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Also:",
+    "fg": "rgb(205,176,156)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 8.85,
+    "pass": true
+   },
+   {
+    "text": "DJs",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "·",
+    "fg": "rgb(205,176,156)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 8.85,
+    "pass": true
+   },
+   {
+    "text": "Teachers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "·",
+    "fg": "rgb(205,176,156)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 8.85,
+    "pass": true
+   },
+   {
+    "text": "Organisers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "All",
+    "fg": "rgb(30,20,16)",
+    "bg": "rgb(251,235,221)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Dancers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "DJs",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Teachers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Organisers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Teacher",
+    "fg": "rgb(30,10,77)",
+    "bg": "rgb(183,156,251)",
+    "ratio": 7.6,
+    "pass": true
+   },
+   {
+    "text": "Dancer",
+    "fg": "rgb(4,48,44)",
+    "bg": "rgb(45,212,191)",
+    "ratio": 7.7,
+    "pass": true
+   },
+   {
+    "text": "Dancer",
+    "fg": "rgb(4,48,44)",
+    "bg": "rgb(45,212,191)",
+    "ratio": 7.7,
+    "pass": true
+   },
+   {
+    "text": "Dancer",
+    "fg": "rgb(4,48,44)",
+    "bg": "rgb(45,212,191)",
+    "ratio": 7.7,
+    "pass": true
+   },
+   {
+    "text": "J",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,75,71)",
+    "ratio": 7.85,
+    "pass": true
+   },
+   {
+    "text": "Dancer",
+    "fg": "rgb(4,48,44)",
+    "bg": "rgb(45,212,191)",
+    "ratio": 7.7,
+    "pass": true
+   }
+  ],
+  "dj1": [
+   {
+    "text": "Search events, venues, people…",
+    "fg": "rgb(171,171,171)",
+    "bg": "rgb(11,8,1)",
+    "ratio": 8.71,
+    "pass": true
+   },
+   {
+    "text": "🎪",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(1,1,1)",
+    "ratio": 20.87,
+    "pass": true
+   },
+   {
+    "text": "Organisers",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(1,1,1)",
+    "ratio": 20.87,
+    "pass": true
+   },
+   {
+    "text": "🏛️",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(1,1,1)",
+    "ratio": 20.87,
+    "pass": true
+   },
+   {
+    "text": "Venues",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(1,1,1)",
+    "ratio": 20.87,
+    "pass": true
+   },
+   {
+    "text": "Community",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(1,1,1)",
+    "ratio": 20.87,
+    "pass": true
+   },
+   {
+    "text": "Bachata",
+    "fg": "rgb(255,255,255)",
+    "bg": "rgb(10,8,11)",
+    "ratio": 19.95,
+    "pass": true
+   },
+   {
+    "text": "DJs",
+    "fg": "rgb(255,166,0)",
+    "bg": "rgb(10,8,11)",
+    "ratio": 10.17,
+    "pass": true
+   },
+   {
+    "text": "Discover the DJs behind the music — sens",
+    "fg": "rgb(171,171,171)",
+    "bg": "rgb(10,8,11)",
+    "ratio": 8.69,
+    "pass": true
+   },
+   {
+    "text": "Find Practice Partners",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,79,74)",
+    "ratio": 7.43,
+    "pass": true
+   },
+   {
+    "text": "Meet people to train with",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,79,74)",
+    "ratio": 7.43,
+    "pass": true
+   },
+   {
+    "text": "or Create a Profile",
+    "fg": "rgb(167,243,232)",
+    "bg": "rgb(15,79,74)",
+    "ratio": 7.43,
+    "pass": true
+   },
+   {
+    "text": "Join as a DJ",
+    "fg": "rgb(255,227,160)",
+    "bg": "rgb(107,74,14)",
+    "ratio": 6.41,
+    "pass": true
+   },
+   {
+    "text": "Get listed and get booked",
+    "fg": "rgb(255,227,160)",
+    "bg": "rgb(107,74,14)",
+    "ratio": 6.41,
+    "pass": true
+   },
+   {
+    "text": "Teach with us",
+    "fg": "rgb(228,215,251)",
+    "bg": "rgb(74,45,138)",
+    "ratio": 7.58,
+    "pass": true
+   },
+   {
+    "text": "Share your classes",
+    "fg": "rgb(228,215,251)",
+    "bg": "rgb(74,45,138)",
+    "ratio": 7.58,
+    "pass": true
+   },
+   {
+    "text": "List your event",
+    "fg": "rgb(255,210,184)",
+    "bg": "rgb(122,47,14)",
+    "ratio": 6.77,
+    "pass": true
+   },
+   {
+    "text": "Promote your nights",
+    "fg": "rgb(255,210,184)",
+    "bg": "rgb(122,47,14)",
+    "ratio": 6.77,
+    "pass": true
+   },
+   {
+    "text": "All",
+    "fg": "rgb(30,20,16)",
+    "bg": "rgb(251,235,221)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Dancers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "DJs",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Teachers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   },
+   {
+    "text": "Organisers",
+    "fg": "rgb(251,235,221)",
+    "bg": "rgb(30,20,16)",
+    "ratio": 15.51,
+    "pass": true
+   }
+  ]
+ },
+ "pageErrors": []
+}
