@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 /**
- * Go live needs a session, RENDERED on both screens (R-GOLIVE-SESSION F1): the pure
- * functions have their own matrix; these tests fail if either screen stops calling
- * the shared rule. Also N2 (the leave link), N3 (A1-off wording), N4 (festival).
+ * Go live needs a session, RENDERED on both screens (R-GOLIVE-SESSION F1). D90: the
+ * event card shows the server's `session` row (series_go_live_check_v1) and no second
+ * client line; the New event last step keeps hasUpcomingSession. Also N2 (the leave
+ * link). N3 (A1-off wording of the client reason) and N4 (festival client reason) left
+ * with the client card rule: the server list is the card's one list.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -17,7 +19,7 @@ vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-10-20' })
 
 import { LifecycleActions } from '../LifecycleActions';
 import { parseEventWorkspace } from '../eventModel';
-import { goLiveReason } from '../lifecycleModel';
+import { GO_LIVE_LABEL } from '../../shared/goLiveCheck';
 import NewFlow from '../../flows/new/NewFlow';
 import { NO_SESSION_NEW_REASON } from '../../flows/new/model';
 import { ORG_PATHS } from '../../shell/paths';
@@ -26,7 +28,6 @@ const TODAY = '2026-10-20';
 const COVER = 'https://x/c.jpg';
 const PROGRAM = [{ day: { id: 'd' }, sections: [{ section: { id: 's' }, items: [{ item: { id: 'i', start_time: '20:00:00' }, people: [] }] }] }];
 const occ = { id: 'o1', occurrence_date: '2026-11-17', lifecycle_status: 'scheduled', version: 1, added_sessions_count: 0 };
-const NO_SESSION = 'Add at least one session first.';
 
 /** The zz-test shape: one_off draft, venue, cover, a future date, NO session. */
 const draft = (withSession: boolean, over: Record<string, unknown> = {}) => {
@@ -35,10 +36,24 @@ const draft = (withSession: boolean, over: Record<string, unknown> = {}) => {
   return raw;
 };
 
+/** The server's answer (series_go_live_check_v1): with or without the `session` code. */
+const check = (withSession: boolean) => ({
+  ready: withSession,
+  event_missing: withSession ? [] : [{ code: 'session', section: 'programme' }],
+  recommended: [],
+  profile_rule_applies: false,
+  profile_missing: [],
+});
+
 let workspace: ReturnType<typeof draft>;
+let serverSession = false;
 beforeEach(() => {
   rpc.mockReset();
-  rpc.mockImplementation(async (fn: string) => (fn === 'admin_event_workspace_p5' ? { data: workspace, error: null } : { data: null, error: { message: 'unexpected ' + fn } }));
+  rpc.mockImplementation(async (fn: string) => {
+    if (fn === 'admin_event_workspace_p5') return { data: workspace, error: null };
+    if (fn === 'series_go_live_check_v1') return { data: check(serverSession), error: null };
+    return { data: null, error: { message: 'unexpected ' + fn } };
+  });
 });
 afterEach(cleanup);
 
@@ -69,43 +84,26 @@ function newCover() {
   );
 }
 
-describe('event card: Go live and the session', () => {
-  it('zz-test shape: Go live is off with the reason, and Add a session opens the programme', () => {
+describe('event card: Go live and the session (the server list, D90)', () => {
+  it('zz-test shape: Go live is off, and the server session row opens the programme', async () => {
+    serverSession = false;
     card(draft(false));
+    const row = await screen.findByTestId('org-life-item-session');
+    expect(row.textContent).toContain(GO_LIVE_LABEL.session);
+    expect(row.getAttribute('href')?.startsWith(ORG_PATHS.eventProgramme('s1'))).toBe(true);
     expect(screen.getByTestId('org-life-golive').getAttribute('aria-disabled')).toBe('true');
-    expect(screen.getByTestId('org-life-golive-reason').textContent).toBe(NO_SESSION);
-    expect(screen.getByTestId('org-life-add-session').getAttribute('href')).toBe(ORG_PATHS.eventProgramme('s1'));
+    expect(screen.getByTestId('org-life-golive-reason').textContent).toBeTruthy();
+    // One list: no second, client-side session line beside the server row.
+    expect(screen.queryByTestId('org-life-add-session')).toBeNull();
+    expect(screen.getAllByText(/session/i)).toHaveLength(1);
   });
 
-  it('with a session Go live is a pressable button and the link is gone', () => {
+  it('the server says ready: Go live is a pressable button and no session row shows', async () => {
+    serverSession = true;
     card(draft(true));
-    const live = screen.getByTestId('org-life-golive') as HTMLButtonElement;
-    expect(live.tagName).toBe('BUTTON');
-    expect(live.disabled).toBe(false);
-    expect(screen.queryByTestId('org-life-add-session')).toBeNull();
+    await waitFor(() => expect(screen.getByTestId('org-life-golive').getAttribute('data-goes')).toBe('send'));
+    expect(screen.queryByTestId('org-life-item-session')).toBeNull();
     expect(screen.queryByTestId('org-life-golive-reason')).toBeNull();
-  });
-
-  it('N4 a festival draft with no session says the team does it, with no Add a session link', () => {
-    card(draft(false, { format: 'festival' }));
-    expect(screen.getByTestId('org-life-golive-reason').textContent).toBe('Festival days are edited with the platform team for now.');
-    expect(screen.queryByTestId('org-life-add-session')).toBeNull();
-  });
-});
-
-describe('N3 the A1-off reason reads as one sentence', () => {
-  const ws = (raw: ReturnType<typeof draft>) => parseEventWorkspace(raw);
-  it('session only: lower case after "Before then,"', () => {
-    expect(goLiveReason(ws(draft(false)), TODAY, false)).toBe('Needs the next platform update. Before then, add at least one session first.');
-  });
-  it('Details item and session: the session starts a new sentence', () => {
-    expect(goLiveReason(ws(draft(false, { default_venue_id: null })), TODAY, false)).toBe(
-      'Needs the next platform update. Before then, add a venue in Details. Add at least one session first.',
-    );
-  });
-  it('A1 on keeps its text', () => {
-    expect(goLiveReason(ws(draft(false)), TODAY, true)).toBe(NO_SESSION);
-    expect(goLiveReason(ws(draft(false, { default_venue_id: null })), TODAY, true)).toBe('To go live, add a venue in Details. Add at least one session first.');
   });
 });
 

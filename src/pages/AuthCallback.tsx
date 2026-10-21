@@ -3,6 +3,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMyPersonaId } from "@/lib/myPersona";
+import { CLAIM_TOAST_MS, claimMyOrganisers, claimedNoticeText, notYouOrganiserHref, stashClaimNotice, type ClaimedOrganiser } from "@/lib/claimMyOrganisers";
+import { toast } from "@/hooks/use-toast";
+import { ORG_PATHS } from "@/modules/organiser/shell/paths";
 import { claimAtSignIn, shouldArmFinishHop } from "@/lib/claimMyDancerProfile";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -43,10 +46,48 @@ const AuthCallback = () => {
   // 2026-09-12 -- so a successful sign-in ended on "Page not found". The reason
   // was only ever read by that page. Carry on to where they were heading
   // (returnTo, then a stashed one), else home.
+  const claimedRef = useRef<ClaimedOrganiser[]>([]);
+  const claimNoticeShown = useRef(false);
+
+  // Pages claimed at this sign-in: kept for organiser Home, which draws the notice in its own
+  // flow with a 44 px Close until it is closed ("Tell us" is the only way to undo a claim that
+  // skipped the confirm screen). Returns where to land when there is no return path: /account/o
+  // after a claim, else null.
+  const claimLanding = (): string | null => {
+    const claimed = claimedRef.current;
+    if (claimed.length === 0) return null;
+    if (!claimNoticeShown.current) stashClaimNotice(claimed);
+    return ORG_PATHS.home;
+  };
+
+  // Every signed-in landing goes through here. On Home the notice is Home's own line, so no toast
+  // covers its rows (review finding 7). Anywhere else (a return path wins, D37) a SHORT toast says
+  // it on that page too; never Infinity, because the shared toast sits mid-screen.
+  const land = (path: string) => {
+    const claimed = claimedRef.current;
+    if (claimed.length > 0 && !claimNoticeShown.current && path.split(/[?#]/)[0] !== ORG_PATHS.home) {
+      toast({
+        title: claimedNoticeText(claimed),
+        // A plain link in the description, not ToastAction: importing components/ui/toast here
+        // split it into its own first-load chunk on every route (check:first-load-requests).
+        description: (
+          <span>
+            Not you?{" "}
+            <a className="inline-flex min-h-[44px] items-center px-2 underline" href={notYouOrganiserHref(claimed)} target="_blank" rel="noopener noreferrer">Tell us</a>
+          </span>
+        ),
+        duration: CLAIM_TOAST_MS,
+      });
+    }
+    if (claimed.length > 0) claimNoticeShown.current = true;
+    navigate(path, { replace: true });
+  };
+
   const navigateToSignedInFallback = () => {
+    const claimPath = claimLanding();
     const pendingReturnTo = sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY));
     localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
-    navigate(safeReturnTo ?? pendingReturnTo ?? "/", { replace: true });
+    land(safeReturnTo ?? pendingReturnTo ?? claimPath ?? "/");
   };
 
   const navigateToSignInFallback = (reason: "expired" | "invalid" | "manual" | "timeout") => {
@@ -103,6 +144,11 @@ const AuthCallback = () => {
         return;
       }
 
+      // Then, and only for an account that is not hidden (review finding 15), the organiser pages an
+      // admin recorded this email against (automatic, no confirm screen). Never throws and never
+      // holds the sign-in; empty on any failure.
+      claimedRef.current = await claimMyOrganisers();
+
       try {
         const pendingRole = localStorage.getItem("pending_profile_role");
         const isSignupFlow = callbackMode === "signup" || (callbackMode !== "signin" && Boolean(pendingRole));
@@ -154,17 +200,19 @@ const AuthCallback = () => {
         // The routing tail, which used to be spelled out twice -- once per
         // branch -- and had to be kept in step by hand.
         const routeOnwards = async () => {
+          // An explicit returnTo, then the stashed path, still wins over the claim landing (D37).
+          const claimPath = claimLanding();
           // A sign-up honours returnTo too once self-serve is on, so "Sign in
           // to claim" -> new account lands back on the claim card (Lever 2 B3).
           if (safeReturnTo && shouldHonorReturnTo({ returnTo: safeReturnTo, isSignupFlow, organiserSelfServe: flags.organiserSelfServe })) {
-            navigate(safeReturnTo, { replace: true });
+            land(safeReturnTo);
             return;
           }
 
           const pendingReturnTo = sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY));
           if (pendingReturnTo) {
             localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
-            navigate(pendingReturnTo, { replace: true });
+            land(pendingReturnTo);
             return;
           }
 
@@ -172,11 +220,9 @@ const AuthCallback = () => {
           // sign-up) goes to /account/continue, which reads the person's sides
           // and goes straight to the only one or shows "Continue as..."; an
           // organiser-type sign-up goes to the organiser onboarding as before.
+          // Pages claimed at this sign-in land where they are managed.
           const landingRole = normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type);
-          navigate(
-            landingPathAfterAuth({ organiserSelfServe: flags.organiserSelfServe, role: landingRole, isSignup: isSignupFlow }),
-            { replace: true },
-          );
+          land(claimPath ?? landingPathAfterAuth({ organiserSelfServe: flags.organiserSelfServe, role: landingRole, isSignup: isSignupFlow }));
           localStorage.removeItem("pending_profile_role");
         };
 

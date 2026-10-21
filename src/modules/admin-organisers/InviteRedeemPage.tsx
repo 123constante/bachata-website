@@ -14,6 +14,8 @@ import { finishProfileHref } from '@/lib/profileCompletion';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { redeemOrganiserInvite } from './adminApi';
+import { EMAIL_UNPROVEN_REASON, SIGN_IN_AGAIN_REASONS, interpretRedeemWithMismatch } from './redeemMismatch';
+import { fetchInvitePreview } from './invitePreview';
 import { INVITE_PATH, REDEEM_COPY, TOKEN_RE, interpretRedeem, joiningAsName, type RedeemCopy } from './inviteModel';
 
 /**
@@ -22,7 +24,7 @@ import { INVITE_PATH, REDEEM_COPY, TOKEN_RE, interpretRedeem, joiningAsName, typ
  * call would answer already_member or used and hide the real outcome). Keyed by
  * token, holds only the promise, and is cleared when the attempt settles.
  */
-const inFlight = new Map<string, Promise<ReturnType<typeof interpretRedeem>>>();
+const inFlight = new Map<string, Promise<ReturnType<typeof interpretRedeemWithMismatch>>>();
 
 const BTN = 'inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground';
 const LINK = 'inline-flex min-h-[44px] items-center justify-center rounded-lg border border-border px-4 py-2 text-sm font-medium';
@@ -99,6 +101,8 @@ function InviteRedeem() {
   // M57 (owner decision): the link is bearer-style -- whoever is signed in joins -- so it is
   // used only once the person has seen who they are joining as and pressed Join.
   const [joining, setJoining] = useState(false);
+  // The sign-in-again refusal on screen (email_mismatch or email_unproven), null for any other answer.
+  const [mismatch, setMismatch] = useState<string | null>(null);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const { profileId } = useProfileCompletion();
   const nameEnabled = Boolean(user && profileId);
@@ -111,6 +115,17 @@ function InviteRedeem() {
   });
   const tokenRef = useRef(token);
   if (token) tokenRef.current = token;
+
+  // Signed out: say who the invite is for, as a MASKED hint only (D36). Held in state, not the
+  // query cache (the token is the key). No hint on any failure; the sign-in card is unchanged.
+  const [emailHint, setEmailHint] = useState<string | null>(null);
+  const signedOut = authStatus !== 'resolving' && !user;
+  useEffect(() => {
+    if (!signedOut || !TOKEN_RE.test(token)) return;
+    let live = true;
+    void fetchInvitePreview(token).then((p) => { if (live) setEmailHint(p?.emailHint ?? null); });
+    return () => { live = false; };
+  }, [signedOut, token]);
 
   // Never leak the token in a Referer header to anything this page links or loads.
   useEffect(() => {
@@ -132,7 +147,7 @@ function InviteRedeem() {
     let attempt = inFlight.get(t);
     if (!attempt) {
       attempt = redeemOrganiserInvite(t)
-        .then(({ data, error }) => interpretRedeem(data, error))
+        .then(({ data, error }) => interpretRedeemWithMismatch(data, error))
         .catch(() => interpretRedeem(null, { message: 'network' }))
         .finally(() => { inFlight.delete(t); });
       inFlight.set(t, attempt);
@@ -147,6 +162,7 @@ function InviteRedeem() {
       return;
     }
     if (outcome.copy.terminal) stripToken();
+    setMismatch(outcome.kind === 'refused' && SIGN_IN_AGAIN_REASONS.includes(outcome.reason) ? outcome.reason : null);
     setCopy(outcome.copy);
   }, [navigate, queryClient]);
 
@@ -174,6 +190,7 @@ function InviteRedeem() {
     const here = `${INVITE_PATH}/${token}`;
     body = (
       <Card copy={{ title: 'Join your organiser team', body: 'Someone has invited you to manage an organiser on Bachata Calendar. Sign in with your own email, then you will come straight back here and the link is used.', action: 'sign_in', terminal: false }}>
+        {emailHint && <p className="text-sm font-medium" data-testid="invite-email-hint">This invite is for {emailHint}. Sign in with that email.</p>}
         <Link to={buildSignInHref(here)} className={BTN} data-testid="invite-sign-in">Sign in</Link>
       </Card>
     );
@@ -192,6 +209,8 @@ function InviteRedeem() {
         {copy?.action === 'sign_in' && <Link to={buildSignInHref(TOKEN_RE.test(token) ? `${INVITE_PATH}/${token}` : null)} className={BTN} data-testid="invite-sign-in">Sign in</Link>}
         {copy?.action === 'retry' && <button type="button" className={BTN} disabled={busy} onClick={() => void run()} data-testid="invite-retry">Try again</button>}
         {copy?.action === 'finish_profile' && <Link to={finishProfileHref(`${INVITE_PATH}/${token}`)} className={BTN} data-testid="invite-finish-profile">Finish profile</Link>}
+        {mismatch && <button type="button" className={BTN} onClick={() => void notYou()} data-testid="invite-mismatch-signout">{mismatch === EMAIL_UNPROVEN_REASON ? 'Sign in with the email link' : 'Sign out'}</button>}
+        {signOutError && mismatch && <p className="text-sm text-destructive" role="alert">{signOutError}</p>}
         {copy?.action !== 'retry' && copy?.action !== 'finish_profile' && <Link to="/" className={LINK} data-testid="invite-home">Go to Bachata Calendar</Link>}
       </Card>
     );
