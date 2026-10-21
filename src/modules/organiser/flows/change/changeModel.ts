@@ -3,21 +3,12 @@
 // through a zone, so a date moved across 25 October keeps its time.
 
 import type { OrganiserHome } from '@/modules/organiser/shared/selfServeApi';
-import { isListedSeries, type HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
+import type { HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
+import { allSeries, findSeries } from '@/modules/organiser/shared/useOrganiserSeries';
 import { comingDates, comingDays, dayLabel, moreDatesCount, type DateRow, type DayRow } from '@/modules/organiser/shared/dateList';
 import { dateLock, eventLock } from '@/modules/organiser/shared/eventState';
 import type { SeriesWorkspace, WorkspaceDate } from '@/modules/organiser/shared/seriesModel';
 import { addDaysToKey } from '@/lib/londonDate';
-
-/** Every listed series of the login, across its pages (a series shared by two pages is listed once). */
-function allSeries(home: OrganiserHome | undefined): HomeSeriesFull[] {
-  const seen = new Set<string>();
-  return (home?.organisers ?? []).flatMap((o) => o.series ?? []).filter((s) => {
-    if (!isListedSeries(s) || seen.has(s.id)) return false;
-    seen.add(s.id);
-    return true;
-  });
-}
 
 /** C2: the login's LIVE series with at least one coming scheduled date. */
 export function changeableSeries(home: OrganiserHome | undefined): HomeSeriesFull[] {
@@ -25,8 +16,8 @@ export function changeableSeries(home: OrganiserHome | undefined): HomeSeriesFul
   return allSeries(home).filter((s) => s.lifecycle_status === 'live' && comingDates(s, today, 1).length > 0);
 }
 
-export const findSeries = (home: OrganiserHome | undefined, seriesId: string): HomeSeriesFull | null =>
-  allSeries(home).find((s) => s.id === seriesId) ?? null;
+// The one lookup lives in shared/useOrganiserSeries (ER-S1); re-exported so importers keep their path.
+export { findSeries };
 
 /**
  * The series with every date the workspace read holds (home_v1 lists only the
