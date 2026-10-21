@@ -119,7 +119,7 @@ control states why.
   The owner's name is not loaded here. Acceptable if no RPC returns it. Say so in the PR body.
 
 ### F9 (LOW, #928): raw Unicode and a disabled control with no reason
-- `RequestAccess.tsx:79` has `'Sending'` + a raw ellipsis (a raw U+2026). CLAUDE.md asks for entities or `…`,
+- `RequestAccess.tsx:79` has `'Sending'` + a raw ellipsis (a raw U+2026). CLAUDE.md asks for entities or the `\u2026` escape,
   as `MagicLinkConfirmation.tsx:263` does.
 - `RequestAccess.tsx:78` keeps Send disabled while the email is empty, and nothing says why.
 
