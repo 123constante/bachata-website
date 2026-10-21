@@ -45,6 +45,7 @@ function mount() {
         <Routes>
           <Route path="/invite/:token" element={<InviteRedeemPage />} />
           <Route path="/account/o" element={<p data-testid="landed">home</p>} />
+          <Route path="/account/o/welcome" element={<p data-testid="landed">welcome</p>} />
           <Route path="*" element={<p data-testid="elsewhere">elsewhere</p>} />
         </Routes>
       </MemoryRouter>
@@ -204,7 +205,7 @@ describe('prefill rides from redeem to the dancer questions', () => {
     mount();
     fireEvent.click(await screen.findByTestId('invite-join'));
     await screen.findByTestId('landed');
-    expect(readInvitePrefill()).toEqual({ firstName: 'Ana', cityId: 'c1' });
+    expect(readInvitePrefill('u1')).toEqual({ firstName: 'Ana', cityId: 'c1' });
   });
   it('a link with no prefill stores nothing', async () => {
     h.auth.user = { id: 'u1', email: 'ana@example.com' };
@@ -212,6 +213,6 @@ describe('prefill rides from redeem to the dancer questions', () => {
     mount();
     fireEvent.click(await screen.findByTestId('invite-join'));
     await screen.findByTestId('landed');
-    expect(readInvitePrefill()).toBeNull();
+    expect(readInvitePrefill('u1')).toBeNull();
   });
 });

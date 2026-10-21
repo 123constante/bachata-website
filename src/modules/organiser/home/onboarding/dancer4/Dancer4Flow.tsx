@@ -29,7 +29,7 @@ import {
   type Answers,
   type DancerPrefill,
 } from './dancer4Model';
-import { clearDancerPrefill } from './prefillStore';
+import { clearInvitePrefill } from '@/lib/invitePrefill';
 
 export interface Dancer4FlowProps {
   /** The fields the profile is missing (profile completion), read once when the flow opens. */
@@ -97,7 +97,7 @@ export function Dancer4Flow({ missing, profileId, prefill = NO_PREFILL, refetch,
     try {
       const fresh = await refetch();
       if (fresh.status === 'complete') {
-        clearDancerPrefill();
+        clearInvitePrefill();
         onDone();
         return;
       }

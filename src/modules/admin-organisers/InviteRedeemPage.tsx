@@ -271,8 +271,9 @@ function InviteRedeem({ preview }: { preview: InvitePreview | null }) {
     setBusy(false);
     if (outcome.kind === 'redeemed') {
       stripToken();
-      // The sender's name + city for the dancer questions (bound links only; the server sends none otherwise).
-      rememberInvitePrefill(outcome.prefill);
+      // The sender's name + city for the dancer questions: a bound link only, redeemed here BEFORE the dancer
+      // gate (the welcome page's). An unbound link met the gate first, so anything it carries is dropped.
+      rememberInvitePrefill(preview?.emailHint != null ? outcome.prefill : null, user?.id ?? '');
       // The person may have opened Home in the last minute and cached "no organisers": refetch it before they land.
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       // A new seat lands on the welcome (Arc 1 1d for a first page, 7c for another); already a member: Home.
@@ -287,7 +288,7 @@ function InviteRedeem({ preview }: { preview: InvitePreview | null }) {
       setFailed(outcome.copy);
       setRefusal(null);
     }
-  }, [navigate, queryClient]);
+  }, [navigate, queryClient, preview, user]);
 
   const join = () => {
     setJoining(true);
