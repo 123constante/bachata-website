@@ -41,6 +41,7 @@ const Cities = lazyWithRetry(() => import("../pages/Cities"));
 // PROTOTYPE (search v7): the person-page mockups, dev or VITE_MOCKS=true only.
 const MockPersonPage = lazyWithRetry(() => import("../modules/person-page/mockups/MockPersonPage"));
 const S8Mock = lazyWithRetry(() => import("../modules/person-page/mockups/S8Mock"));
+const S9FaceWall = lazyWithRetry(() => import("../modules/person-page/mockups/S9FaceWall"));
 const Vendors = lazyWithRetry(() => import("../pages/Vendors"));
 const VendorDetail = lazyWithRetry(() => import("../pages/VendorDetail"));
 const Raffles = lazyWithRetry(() => import("../pages/Raffles"));
@@ -166,6 +167,7 @@ export const AnimatedRoutes = () => {
             <Route path="/djs" element={<PageTransition><DJs /></PageTransition>} />
             {(import.meta.env.DEV || import.meta.env.VITE_MOCKS === "true") && (<Route path="/__mock/person/:arrangement/:fixture/*" element={<MockPersonPage />} />)}
             {(import.meta.env.DEV || import.meta.env.VITE_MOCKS === "true") && (<Route path="/__mock/s8/:view/:fixture/:role?/*" element={<S8Mock />} />)}
+            {(import.meta.env.DEV || import.meta.env.VITE_MOCKS === "true") && (<Route path="/__mock/s9/:view" element={<S9FaceWall />} />)}
             {/* /djs/:id is a framework route (app/routes/djs.tsx). */}
             <Route path="/venues" element={<PageTransition><Venues /></PageTransition>} />
             <Route path="/city/:slug/venues" element={<PageTransition><Venues /></PageTransition>} />
