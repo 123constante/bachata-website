@@ -67,7 +67,7 @@ describe('/auth create account', () => {
 
   const toDetails = async () => {
     mount();
-    fireEvent.click(screen.getByRole('button', { name: /continue as dancer/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
     fireEvent.change(await screen.findByLabelText(/first name/i), { target: { value: 'Sam' } });
     fireEvent.click(screen.getByRole('button', { name: 'Pick city' }));
   };

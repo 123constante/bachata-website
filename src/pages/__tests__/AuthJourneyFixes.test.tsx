@@ -140,7 +140,7 @@ describe('sign-up steps', () => {
   const toDetails = async () => {
     const user = userEvent.setup();
     renderAuth('/auth?mode=signup');
-    await user.click(await screen.findByRole('button', { name: /^continue as dancer$/i }));
+    await user.click(await screen.findByRole('button', { name: /^continue$/i }));
     await screen.findByText('A little about you');
     return user;
   };

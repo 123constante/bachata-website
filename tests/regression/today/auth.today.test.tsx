@@ -65,7 +65,7 @@ const sendLink = (email: string) => {
   fireEvent.click(screen.getByRole('button', { name: /email me a (sign-in )?link/i }));
 };
 const signUpDetails = async () => {
-  fireEvent.click(screen.getByRole('button', { name: /continue as dancer/i }));
+  fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
   fireEvent.change(await screen.findByLabelText(/first name/i), { target: { value: 'Sam' } });
   fireEvent.click(screen.getByRole('button', { name: 'Pick city' }));
 };

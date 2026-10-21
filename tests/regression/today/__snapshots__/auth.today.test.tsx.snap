@@ -49,11 +49,14 @@ progressbar "Sign-up progress"
 status
   text "No account found"
   text "No account for this email yet. Create one to continue."
-heading "What brings you here?" level=3
-text "You can always add more roles later."
-button "Dancer Find classes, partners, and events" [pressed=true]
-button "I’m an organiser / teacher / DJ / videographer / vendor" [expanded=false]
-button "Continue as Dancer""
+heading "What do you do?" level=3
+text "Choose all that fit. You can change this later."
+group "What do you do?"
+  button "Dancer I go to classes, socials and festivals" [pressed=true]
+  button "Organiser I run events, socials or a school" [pressed=false]
+  button "Teacher I teach classes or workshops" [pressed=false]
+  button "DJ I play music at events" [pressed=false]
+button "Continue""
 `;
 
 exports[`/auth at '390x844' > sign-in: link sent (8-digit code box) 1`] = `
@@ -100,11 +103,14 @@ button "Sign in"
 button "Create account"
 text "Step 2 of 367%"
 progressbar "Sign-up progress"
-heading "What brings you here?" level=3
-text "You can always add more roles later."
-button "Dancer Find classes, partners, and events" [pressed=true]
-button "I’m an organiser / teacher / DJ / videographer / vendor" [expanded=false]
-button "Continue as Dancer""
+heading "What do you do?" level=3
+text "Choose all that fit. You can change this later."
+group "What do you do?"
+  button "Dancer I go to classes, socials and festivals" [pressed=true]
+  button "Organiser I run events, socials or a school" [pressed=false]
+  button "Teacher I teach classes or workshops" [pressed=false]
+  button "DJ I play music at events" [pressed=false]
+button "Continue""
 `;
 
 exports[`/auth at '390x844' > sign-up step 2 error: continue without a dance role 1`] = `
@@ -243,11 +249,14 @@ progressbar "Sign-up progress"
 status
   text "No account found"
   text "No account for this email yet. Create one to continue."
-heading "What brings you here?" level=3
-text "You can always add more roles later."
-button "Dancer Find classes, partners, and events" [pressed=true]
-button "I’m an organiser / teacher / DJ / videographer / vendor" [expanded=false]
-button "Continue as Dancer""
+heading "What do you do?" level=3
+text "Choose all that fit. You can change this later."
+group "What do you do?"
+  button "Dancer I go to classes, socials and festivals" [pressed=true]
+  button "Organiser I run events, socials or a school" [pressed=false]
+  button "Teacher I teach classes or workshops" [pressed=false]
+  button "DJ I play music at events" [pressed=false]
+button "Continue""
 `;
 
 exports[`/auth at 'desktop' > sign-in: link sent (8-digit code box) 1`] = `
@@ -294,11 +303,14 @@ button "Sign in"
 button "Create account"
 text "Step 2 of 367%"
 progressbar "Sign-up progress"
-heading "What brings you here?" level=3
-text "You can always add more roles later."
-button "Dancer Find classes, partners, and events" [pressed=true]
-button "I’m an organiser / teacher / DJ / videographer / vendor" [expanded=false]
-button "Continue as Dancer""
+heading "What do you do?" level=3
+text "Choose all that fit. You can change this later."
+group "What do you do?"
+  button "Dancer I go to classes, socials and festivals" [pressed=true]
+  button "Organiser I run events, socials or a school" [pressed=false]
+  button "Teacher I teach classes or workshops" [pressed=false]
+  button "DJ I play music at events" [pressed=false]
+button "Continue""
 `;
 
 exports[`/auth at 'desktop' > sign-up step 2 error: continue without a dance role 1`] = `
