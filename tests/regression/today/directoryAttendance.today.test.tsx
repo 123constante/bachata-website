@@ -48,6 +48,7 @@ vi.mock('@/integrations/supabase/client', () => {
       from: () => builder(),
       rpc: async (name: string) => {
         if (name === 'get_public_dancer_names_v1') return { data: h.names, error: null };
+        if (name === 'get_public_people_badges_v1') return { data: h.badges, error: null };
         if (name === 'get_my_event_attendance_v2') return { data: h.attendance, error: null };
         return { data: null, error: null };
       },
@@ -85,6 +86,12 @@ const DIRECTORY: Record<string, { dancers: unknown[]; names: unknown[] }> = {
     ],
   },
 };
+const BADGES = [
+  { id: 'd1', roles: ['teacher', 'dj', 'dancer'], dj_name: null, next_gig_date: null, dj_has_upcoming: false },
+  { id: 'd2', roles: ['dancer'], dj_name: null, next_gig_date: null, dj_has_upcoming: false },
+  { id: 'd3', roles: ['teacher', 'dancer'], dj_name: null, next_gig_date: null, dj_has_upcoming: false },
+  { id: 'd4', roles: ['teacher'], dj_name: null, next_gig_date: null, dj_has_upcoming: false },
+];
 const row = (o: Record<string, unknown>) => ({
   event_id: 'ev1', status: 'going', updated_at: null, name: 'Friday Social', occurrence_date: '2026-10-02',
   city_name: 'London', country: 'GB', city_slug: 'london', start_time: null, type: 'party', is_active: true, ...o,
@@ -123,6 +130,8 @@ describe.each(VIEWPORTS)('directory + attendance at $name', (vp) => {
       h.user = user ? { ...user } : null;
       h.dancers = shape.dancers;
       h.names = shape.names;
+      // d1 dancer+dj+teacher, d2 dancer, d3 dancer+teacher, d4 teacher only (not listed on /dancers)
+      h.badges = shape.dancers.length ? BADGES : [];
       h.attendance = user ? [row({ event_id: 'fut1', occurrence_date: '2099-01-02', type: 'standard' })] : [];
       mount(<Dancers />, '/dancers');
       await wait();
