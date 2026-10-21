@@ -11,6 +11,7 @@ import { installJsdomPolyfills } from '../../../../../tests/client/jsdomPolyfill
 import type { PersonBadge } from '@/modules/person-page/badges';
 import { DancersWall, DjsWall } from '../lists';
 import { initialsOf, wallDateLabel } from '../model';
+import { isRoutable } from '@/lib/__tests__/routeTable';
 
 const B = (id: string, roles: PersonBadge['roles'], over: Partial<PersonBadge> = {}): PersonBadge => ({
   id, roles, djName: null, djHasUpcoming: false, nextGigDate: null, ...over,
@@ -29,6 +30,7 @@ const mountDancers = (rows: ReturnType<typeof DN>[], names: Record<string, strin
   render(<MemoryRouter><DancersWall dancers={rows} getName={(d) => names[d.id] ?? 'Dancer'} isLoading={false} badges={badges} badgesFailed={!!o.failed} teacherPagesOpen={!!o.teachers} /></MemoryRouter>);
 
 const tile = (id: string) => screen.getAllByTestId('wall-tile').find((t) => t.getAttribute('href')?.endsWith(`/${id}`)) as HTMLElement;
+const pills = () => screen.queryAllByTestId('wall-filter').map((b) => b.textContent);
 const chips = (el: HTMLElement) => within(el).queryAllByTestId('role-chip').map((c) => (c.textContent ?? '').replace(/^,\s*/, ''));
 
 beforeEach(() => installJsdomPolyfills());
@@ -83,23 +85,25 @@ describe('/djs wall: person shape table', () => {
     expect(tile('three').getAttribute('data-lead')).toBe('dj');
   });
 
-  it('badges read failed: every DJ still shows, as a DJ, only the All filter is offered', () => {
+  it('badges read failed: every DJ still shows, as a DJ, no role filter is offered', () => {
     mountDjs(rows, new Map(), { failed: true });
     expect(screen.getAllByTestId('wall-tile')).toHaveLength(rows.length);
     expect(chips(tile('three'))).toEqual(['DJ']);
-    expect(screen.queryAllByTestId('wall-filter')).toHaveLength(0);
+    expect(pills()).toEqual(['All', 'Teachers']); // Teachers only opens the coming-soon sentence
   });
 
   it('filters: DJs match all, Dancers narrows to the 3-role DJ, empty filter says what to do and Show everyone resets', () => {
     mountDjs(rows, badges);
-    expect(screen.getAllByTestId('wall-filter').map((b) => b.textContent)).toEqual(['All', 'DJs', 'Dancers']); // Teachers hidden: pages closed
+    expect(pills()).toEqual(['All', 'Dancers', 'DJs', 'Teachers']); // owner order
     fireEvent.click(screen.getByRole('button', { name: 'Dancers' }));
     expect(screen.getAllByTestId('wall-tile').map((t) => t.getAttribute('href'))).toEqual(['/djs/three']);
   });
 
-  it('Teachers chip appears only when teacher pages are open', () => {
+  it('Teachers pill filters when teacher pages are open', () => {
     mountDjs(rows, badges, { teachers: true });
-    expect(screen.getAllByTestId('wall-filter').map((b) => b.textContent)).toContain('Teachers');
+    fireEvent.click(screen.getByRole('button', { name: 'Teachers' }));
+    expect(screen.getAllByTestId('wall-tile').map((t) => t.getAttribute('href'))).toEqual(['/djs/three']);
+    expect(screen.queryByTestId('wall-teachers-soon')).toBeNull();
   });
 
   it('empty filter: a sentence with a way out', () => {
@@ -185,12 +189,12 @@ describe('/dancers wall: person shape table', () => {
     expect(screen.getAllByTestId('wall-tile')).toHaveLength(rows.length);
     expect(screen.queryByText(/No dancers yet/)).toBeNull();
     expect(screen.queryAllByTestId('role-chip')).toHaveLength(0);
-    expect(screen.queryAllByTestId('wall-filter')).toHaveLength(0);
+    expect(pills()).toEqual(['All', 'Teachers']);
   });
 
   it('the tile is ONE link: exactly one anchor per tile, no nested links', () => {
     mountDancers(rows, names, badges);
-    expect(within(screen.getByTestId('wall-grid')).getAllByRole('link')).toHaveLength(rows.length); // the Join row's links sit outside the grid
+    expect(within(screen.getByTestId('wall-grid')).getAllByRole('link')).toHaveLength(rows.length); // the Organisers pill link sits outside the grid
     for (const t of screen.getAllByTestId('wall-tile')) expect(t.querySelectorAll('a')).toHaveLength(0);
   });
 
@@ -220,6 +224,65 @@ describe('fix pass (review R1): no role data, no role filters', () => {
   it('/dancers with the badges read ok but EMPTY: everyone shows, only All (a Dancers chip would empty the wall)', () => {
     mountDancers([DN('a'), DN('b')], { a: 'Ana', b: 'Bo' });
     expect(screen.getAllByTestId('wall-tile')).toHaveLength(2);
-    expect(screen.queryAllByTestId('wall-filter')).toHaveLength(0);
+    expect(pills()).toEqual(['All', 'Teachers']);
+  });
+});
+
+// Layout pass (owner, 2026-10-21): pills All, Dancers, DJs, Teachers + an Organisers LINK; Teachers
+// never shows faces while teacher pages are closed. Mutant: let Teachers filter when closed -> red.
+describe('layout pass: Teachers and Organisers pills', () => {
+  const djRows = [DJ('a', 'Ace'), DJ('t', 'Tia')];
+  const djBadges = badgeMap(B('a', ['dj', 'dancer']), B('t', ['teacher', 'dj']));
+  const dnRows = [DN('a'), DN('t')];
+  const dnBadges = badgeMap(B('a', ['dancer']), B('t', ['teacher', 'dancer']));
+  const mountList = (list: 'djs' | 'dancers', o: { failed?: boolean; teachers?: boolean } = {}) =>
+    list === 'djs' ? mountDjs(djRows, o.failed ? new Map() : djBadges, o) : mountDancers(dnRows, { a: 'Ana', t: 'Tia' }, o.failed ? new Map() : dnBadges, o);
+
+  it.each([
+    ['djs', false, ['Browse DJs', 'Browse dancers']],
+    ['dancers', false, ['Browse DJs', 'Browse dancers']],
+    ['djs', true, ['Show everyone']],
+    ['dancers', true, ['Show everyone']],
+  ] as const)('%s, badges failed=%s, teacher pages closed: Teachers shows the coming-soon sentence and zero tiles', (list, failed, actions) => {
+    mountList(list, { failed });
+    fireEvent.click(screen.getByRole('button', { name: 'Teachers' }));
+    const soon = screen.getByTestId('wall-teachers-soon');
+    expect(soon.textContent).toMatch(/Teachers are coming soon\. Meanwhile, browse DJs and dancers\./);
+    expect(screen.queryAllByTestId('wall-tile')).toHaveLength(0);
+    expect(within(soon).getAllByRole('button').map((b) => b.textContent)).toEqual(actions);
+  });
+
+  it.each([['Browse DJs', 'DJs'], ['Browse dancers', 'Dancers']] as const)('coming soon: "%s" switches to the %s pill', (action, pill) => {
+    mountList('dancers');
+    fireEvent.click(screen.getByRole('button', { name: 'Teachers' }));
+    fireEvent.click(screen.getByRole('button', { name: action }));
+    expect(screen.getByRole('button', { name: pill }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByTestId('wall-teachers-soon')).toBeNull();
+  });
+
+  it('teacher pages open but no role data: no Teachers pill (it would empty the wall, review R1)', () => {
+    mountList('dancers', { failed: true, teachers: true });
+    expect(pills()).toEqual([]);
+    expect(screen.getAllByTestId('wall-tile')).toHaveLength(2);
+  });
+
+  it.each([
+    ['djs', {}], ['dancers', {}], ['djs', { failed: true }], ['dancers', { teachers: true }],
+  ] as const)('%s %j: Organisers is a link to the real organisers page, after the filter pills', (list, o) => {
+    mountList(list, o);
+    const org = screen.getByTestId('wall-organisers');
+    expect(org.tagName).toBe('A');
+    expect(org.getAttribute('href')).toBe('/organisers');
+    expect(isRoutable(org.getAttribute('href') ?? '')).toBe(true);
+    expect(org.getAttribute('aria-pressed')).toBeNull();
+    const last = screen.queryAllByTestId('wall-filter').pop();
+    if (last) expect(last.compareDocumentPosition(org) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('the wall has no header line of its own (the page hero is the header)', () => {
+    mountList('dancers');
+    expect(screen.queryByText(/behind the nights/)).toBeNull();
+    expect(screen.queryByText(/Tap a face/)).toBeNull();
+    expect(screen.queryByRole('heading')).toBeNull();
   });
 });

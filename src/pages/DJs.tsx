@@ -55,10 +55,17 @@ const DJs = () => {
   const sorted = useMemo(() => sortDjsUpcomingFirst(djs), [djs]);
   const { badges, isError: badgesFailed } = usePeopleBadges(useMemo(() => djs.map((d) => d.id), [djs]));
 
-  // flags.peopleWall: the face wall replaces the hero and the grid. OFF = the page below, unchanged.
+  const hero = {
+    emoji: '\u{1F3A7}',
+    titleWhite: 'Bachata',
+    titleOrange: 'DJs',
+    subtitle: 'Discover the DJs behind the music — sensual, traditional, and everything in between.',
+  };
+
+  // flags.peopleWall: today's hero stays, the face wall replaces the grid. OFF = the page below, unchanged.
   if (flags.peopleWall) {
     return (
-      <GlobalLayout showSubheader={false} gradientPalette="dj">
+      <GlobalLayout showSubheader={false} gradientPalette="dj" hero={hero}>
         <DjsWall djs={djs} isLoading={isLoading} badges={badges} badgesFailed={badgesFailed} teacherPagesOpen={teacherPagesOpen} />
       </GlobalLayout>
     );
@@ -68,12 +75,7 @@ const DJs = () => {
     <GlobalLayout
       showSubheader={false}
       gradientPalette="dj"
-      hero={{
-        emoji: '\u{1F3A7}',
-        titleWhite: 'Bachata',
-        titleOrange: 'DJs',
-        subtitle: 'Discover the DJs behind the music — sensual, traditional, and everything in between.',
-      }}
+      hero={hero}
     >
       <div className="max-w-6xl mx-auto px-4">
         {/* Grid */}

@@ -6,19 +6,32 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { installJsdomPolyfills } from '../../../tests/client/jsdomPolyfills';
 import { isRoutable } from '@/lib/__tests__/routeTable';
 
-const h = vi.hoisted(() => ({ dancers: [] as unknown[], names: [] as unknown[], badges: [] as unknown[], badgesError: false, djs: [] as unknown[] }));
+const h = vi.hoisted(() => ({ nav: [] as string[], dancers: [] as unknown[], names: [] as unknown[], badges: [] as unknown[], badgesError: false, djs: [] as unknown[] }));
 vi.mock('@/hooks/useAuth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
   useAuth: () => ({ user: null, isLoading: false, authStatus: 'ready' }),
 }));
+// The hero cards navigate imperatively: record the target instead of routing (a real route change
+// re-renders the whole page under the test router for no gain).
+vi.mock('react-router-dom', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react-router-dom')>()),
+  useNavigate: () => (to: string) => { h.nav.push(to); },
+}));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
-vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
+vi.mock('@/components/layout/GlobalLayout', () => ({
+  default: ({ children, hero }: { children: ReactNode; hero?: { emoji: string; titleWhite: string; titleOrange: string; subtitle?: string } }) => (
+    <div>
+      {hero ? <header data-testid="hero">{hero.emoji} {hero.titleWhite} {hero.titleOrange} {hero.subtitle ?? ''}</header> : null}
+      {children}
+    </div>
+  ),
+}));
 vi.mock('@/contexts/CityContext', () => ({ useCity: () => ({ citySlug: 'london-gb' }) }));
 vi.mock('@/integrations/supabase/client', () => {
   const builder = () => {
@@ -52,6 +65,8 @@ const mount = (el: ReactNode) =>
       <MemoryRouter>{el}</MemoryRouter>
     </QueryClientProvider>,
   );
+
+const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 const wait = (ms = 200) => new Promise((r) => setTimeout(r, ms));
 const D = (id: string, first: string) => ({ id, first_name: first, avatar_url: null, nationality: null, dance_role: null, cities: { name: 'London' }, dancing_role_details: null });
 const B = (id: string, roles: string[]) => ({ id, roles, dj_name: null, next_gig_date: null, dj_has_upcoming: false });
@@ -67,6 +82,7 @@ beforeEach(() => {
   ];
   h.badges = [B('d1', ['teacher', 'dancer']), B('d2', ['dancer']), B('d3', ['teacher']), B('j1', ['dj'])];
   h.badgesError = false;
+  h.nav = [];
   h.djs = [DJ('j1', 'DJ El Rugido')];
 });
 afterEach(() => { cleanup(); setWall(false); });
@@ -107,31 +123,72 @@ describe('flags.peopleWall', () => {
     expect(screen.getAllByTestId('wall-tile')).toHaveLength(3);
   });
 
-  // Owner change 1 (2026-10-21): under the wall on /dancers, "Join the wall" + "Book a photoshoot".
-  // Both hrefs must be REAL routes (the old /create-dancers-profile and /photographers are not).
+  // Layout pass (owner, 2026-10-21): with the flag ON the page reads hero -> pills -> wall. Today's
+  // hero (and on /dancers its own cards) stays; no wall header line, no Join row.
+  const HERO = { dancers: /Meet Dancers/, djs: /Bachata DJs Discover the DJs behind the music/ } as const;
   it.each([
-    ['/dancers, flag ON', 'dancers', true, true],
-    ['/djs, flag ON', 'djs', true, false],
-    ['/dancers, flag OFF', 'dancers', false, false],
-  ] as const)('Join row: %s', async (_label, page, on, shown) => {
+    ['dancers', true], ['djs', true], ['dancers', false], ['djs', false],
+  ] as const)('/%s flag ON=%s: page order and pieces', async (page, on) => {
     setWall(on);
     mount(page === 'dancers' ? <Dancers /> : <DJs />); await wait();
-    const row = screen.queryByTestId('wall-join-row');
-    if (!shown) {
-      expect(row).toBeNull();
-      expect(screen.queryByRole('link', { name: 'Join the wall' })).toBeNull();
+    const hero = screen.getByTestId('hero');
+    expect(hero.textContent).toMatch(HERO[page]);
+    expect(screen.queryAllByText(/^Meet$|Meet Dancers|Meet the/).length).toBeLessThanOrEqual(1); // no duplicate "Meet" header
+    expect(screen.queryByText(/behind the nights/)).toBeNull();
+    expect(screen.queryByTestId('wall-join-row')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Join the wall' })).toBeNull();
+    if (!on) {
+      expect(screen.queryByTestId('wall-root')).toBeNull();
+      expect(screen.getAllByTestId(page === 'dancers' ? 'dancer-tile' : 'dj-tile').length).toBeGreaterThan(0);
       return;
     }
-    const join = screen.getByRole('link', { name: 'Join the wall' });
-    const shoot = screen.getByRole('link', { name: 'Book a photoshoot' });
-    for (const a of [join, shoot]) {
-      const href = a.getAttribute('href') ?? '';
-      expect(href.startsWith('/')).toBe(true);
-      expect(isRoutable(href)).toBe(true);
+    const pills = screen.getByTestId('wall-pills');
+    const grid = screen.getByTestId('wall-grid');
+    expect(before(hero, pills) && before(pills, grid)).toBe(true);
+    if (page === 'dancers') {
+      const card = screen.getByText('Create a Profile');
+      expect(before(hero, card) && before(card, pills)).toBe(true);
     }
-    expect(join.getAttribute('href')).toBe('/auth?mode=signup&userType=dancer');
-    expect(shoot.getAttribute('href')).toBe('/videographers');
-    // UNDER the wall: the row follows the grid in document order.
-    expect(screen.getByTestId('wall-grid').compareDocumentPosition(row as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByTestId('wall-filter').map((b) => b.textContent)).toEqual(['All', 'Dancers', 'DJs', 'Teachers']);
+    const org = screen.getByTestId('wall-organisers');
+    expect(org.tagName).toBe('A');
+    expect(isRoutable(org.getAttribute('href') ?? '')).toBe(true);
+  });
+
+  // The hero cards on /dancers: ON they open REAL routes; OFF they keep today's targets (both unrouted,
+  // a separate follow-up, not fixed here).
+  it.each([
+    ['Create a Profile', true, '/auth?mode=signup&userType=dancer'],
+    ['Book a Photoshoot', true, '/videographers'],
+    ['Create a Profile', false, '/create-dancers-profile'],
+    ['Book a Photoshoot', false, '/photographers'],
+  ] as const)('/dancers hero card "%s", flag ON=%s -> %s', async (card, on, target) => {
+    setWall(on);
+    mount(<Dancers />); await wait();
+    // The card is a motion.div: call the onClick React holds for it (a synthetic click through
+    // framer-motion's tap gesture never returns under jsdom).
+    const el = screen.getByText(card).closest('div') as HTMLElement;
+    const key = Object.keys(el).find((k) => k.startsWith('__reactProps$')) as string;
+    (el as unknown as Record<string, { onClick: () => void }>)[key].onClick();
+    expect(h.nav).toEqual([target]);
+    expect(isRoutable(target)).toBe(on);
+  });
+
+  // Flag OFF: the whole rendered page equals the snapshot taken from origin/main's pages (written in a
+  // main worktree, see docs/handover/w2a-wall.md), so OFF stays byte-for-byte today's page.
+  it.each(['dancers', 'djs'] as const)('/%s flag OFF: markup identical to main', async (page) => {
+    setWall(false);
+    const { container } = mount(page === 'dancers' ? <Dancers /> : <DJs />); await wait();
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+
+  // Kept LAST: under jsdom, mounting /dancers (framer-motion) after a pill click in an earlier test
+  // never returns, so the click tests run after every other mount.
+  it.each(['dancers', 'djs'] as const)('/%s ON, teacher pages closed: Teachers pill = coming soon, zero tiles', async (page) => {
+    setWall(true);
+    mount(page === 'dancers' ? <Dancers /> : <DJs />); await wait();
+    fireEvent.click(screen.getByRole('button', { name: 'Teachers' }));
+    expect(screen.getByTestId('wall-teachers-soon').textContent).toMatch(/Teachers are coming soon\./);
+    expect(screen.queryAllByTestId('wall-tile')).toHaveLength(0);
   });
 });

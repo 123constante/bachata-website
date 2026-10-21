@@ -1,19 +1,41 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { SITE_IA } from '@/lib/breadcrumbs/siteIa';
 import { filterWall, type WallFilter, type WallList, type WallPerson } from './model';
 import { FOCUS_RING, SIZE, WALL } from './tokens';
 import { WallTile } from './WallTile';
 
-const FILTERS: { k: WallFilter; label: string }[] = [
-  { k: 'all', label: 'All' },
-  { k: 'dj', label: 'DJs' },
-  { k: 'dancer', label: 'Dancers' },
-  { k: 'teacher', label: 'Teachers' },
-];
+type Pill = { k: WallFilter; label: string };
 
-const COPY: Record<WallList, { title: string; none: string }> = {
-  djs: { title: 'Meet the DJs behind the nights', none: 'No DJs' },
-  dancers: { title: 'Meet the dancers behind the nights', none: 'No dancers' },
-};
+// Owner order (2026-10-21): All, Dancers, DJs, Teachers, then the Organisers link.
+const ROLE_PILLS: Pill[] = [
+  { k: 'all', label: 'All' },
+  { k: 'dancer', label: 'Dancers' },
+  { k: 'dj', label: 'DJs' },
+];
+const TEACHERS_PILL: Pill = { k: 'teacher', label: 'Teachers' };
+/** The Organisers pill is a LINK to the real public organisers page, never a filter state. */
+export const ORGANISERS_HREF = SITE_IA.organisers.path;
+
+const NONE: Record<WallList, string> = { djs: 'No DJs', dancers: 'No dancers' };
+
+/**
+ * Which filter pills to offer. Role filters need role data (review R1): without it only All stays.
+ * Teachers is always offered while teacher pages are closed (it opens the coming-soon sentence, never
+ * filters); once they open it filters like the others, so it follows the role-data rule too.
+ */
+export function wallPills(rolesKnown: boolean, teacherPagesOpen: boolean): Pill[] {
+  const roles = rolesKnown ? ROLE_PILLS : ROLE_PILLS.slice(0, 1);
+  if (!teacherPagesOpen) return [...roles, TEACHERS_PILL];
+  return rolesKnown ? [...roles, TEACHERS_PILL] : [];
+}
+
+const pillStyle = (on: boolean): CSSProperties => ({
+  minHeight: SIZE.filterHeight, display: 'inline-flex', alignItems: 'center', padding: '0 14px', borderRadius: 999,
+  fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', textDecoration: 'none',
+  background: on ? WALL.text : 'transparent', color: on ? WALL.page : WALL.text,
+  border: `1.5px solid ${on ? WALL.text : WALL.line}`,
+});
 
 export function WallSkeleton() {
   return (
@@ -28,8 +50,9 @@ export function WallSkeleton() {
 }
 
 /**
- * The face wall: friendly line, filter chips, four-column grid of one-link tiles.
- * `filtersWork` is false while role data is unknown (badges read failed): only "All" is offered then,
+ * The face wall: filter pills, then a four-column grid of one-link tiles. The page's own hero sits
+ * above it (owner, 2026-10-21), so the wall has no header line of its own.
+ * `filtersWork` is false while role data is unknown (badges read failed): no role filter is offered then,
  * so a filter can never hide everyone because of a missing read.
  */
 export function PeopleWall({
@@ -45,44 +68,51 @@ export function PeopleWall({
   const [filter, setFilter] = useState<WallFilter>('all');
   const shown = useMemo(() => filterWall(people, filter), [people, filter]);
   // Role filters need role data: a failed read, or a read that came back empty (no tile has a
-  // single role tag), offers only "All", so a chip can never empty the wall for lack of data.
+  // single role tag), offers no role filter, so a pill can never empty the wall for lack of data.
   const rolesKnown = filtersWork && people.some((p) => p.tags.length > 0);
-  const filters = FILTERS.filter((f) => f.k === 'all' || (rolesKnown && (f.k !== 'teacher' || showTeachers)));
-  const copy = COPY[list];
+  const pills = wallPills(rolesKnown, showTeachers);
+  // Teacher pages closed: the Teachers pill shows a sentence and a way on, never faces.
+  const teachersSoon = filter === 'teacher' && !showTeachers;
+  const browse = pills.filter((p) => p.k === 'dj' || p.k === 'dancer').reverse();
   return (
     <div style={{ background: WALL.page, color: WALL.text }} className="px-3 pb-6 pt-3" data-testid="wall-root" data-list={list}>
-      <h1 className="text-[20px] font-extrabold leading-tight">{copy.title}</h1>
-      <p className="mb-2 text-[13px]" style={{ color: WALL.muted }}>Tap a face to see who they are and where to find them next.</p>
-      {filters.length > 1 ? (
-        <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="Show">
-          {filters.map((f) => {
-            const on = f.k === filter;
-            return (
-              <button
-                key={f.k}
-                type="button"
-                aria-pressed={on}
-                data-testid="wall-filter"
-                className={FOCUS_RING}
-                onClick={() => setFilter(f.k)}
-                style={{
-                  minHeight: SIZE.filterHeight, display: 'inline-flex', alignItems: 'center', padding: '0 14px', borderRadius: 999,
-                  fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
-                  background: on ? WALL.text : 'transparent', color: on ? WALL.page : WALL.text,
-                  border: `1.5px solid ${on ? WALL.text : WALL.line}`,
-                }}
-              >
-                {f.label}
+      <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="Show" data-testid="wall-pills">
+        {pills.map((f) => {
+          const on = f.k === filter;
+          return (
+            <button
+              key={f.k}
+              type="button"
+              aria-pressed={on}
+              data-testid="wall-filter"
+              className={FOCUS_RING}
+              onClick={() => setFilter(f.k)}
+              style={pillStyle(on)}
+            >
+              {f.label}
+            </button>
+          );
+        })}
+        <Link to={ORGANISERS_HREF} data-testid="wall-organisers" className={FOCUS_RING} style={pillStyle(false)}>
+          Organisers
+        </Link>
+      </div>
+      {teachersSoon ? (
+        <div className="py-8 text-center text-[14px]" data-testid="wall-teachers-soon">
+          <p>Teachers are coming soon. Meanwhile, browse DJs and dancers.</p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {(browse.length ? browse : ROLE_PILLS.slice(0, 1)).map((p) => (
+              <button key={p.k} type="button" className={FOCUS_RING} style={pillStyle(false)} onClick={() => setFilter(p.k)}>
+                {p.k === 'all' ? 'Show everyone' : p.k === 'dj' ? 'Browse DJs' : 'Browse dancers'}
               </button>
-            );
-          })}
+            ))}
+          </div>
         </div>
-      ) : null}
-      {people.length === 0 ? (
+      ) : people.length === 0 ? (
         emptyAll
       ) : shown.length === 0 ? (
         <p className="py-8 text-center text-[14px]" data-testid="wall-empty-filter">
-          {copy.none} match this filter.{' '}
+          {NONE[list]} match this filter.{' '}
           <button type="button" className={`font-bold underline ${FOCUS_RING}`} style={{ minHeight: 44 }} onClick={() => setFilter('all')}>Show everyone</button>
         </p>
       ) : (
