@@ -33,6 +33,7 @@ const TODAY: Record<string, string> = {
   '--ok-bg': '#1f3a2a', '--ok-fg': '#8fe0b0', '--warn-bg': '#3a2d10', '--warn-fg': '#ffd58a',
   '--skel-a': '#1d1a15', '--skel-b': '#2a251d',
   '--r-card': '16px', '--r-ctl': '12px', '--r-chip': '8px', '--r-cover': '20px', '--r-sheet': '24px',
+  '--r-date': '8px', '--gold-fg': '#ffa600',
   '--warn-line': '#5a4118', '--warn-from': '#3a2a10', '--warn-to': '#2a1f10',
 };
 // --r-chip, --r-card, --r-ctl have no default in .org-theme besides the radii below.
@@ -59,6 +60,13 @@ describe('ember tokens', () => {
     expect(ember['--font-ui']).toMatch(/^"Outfit"/);
   });
 
+  it('DateChip has its own radius token, never the full-round chip one (C2-5)', () => {
+    const src = read('ui/DateChip.tsx');
+    expect(src).toContain('rounded-[var(--r-date,8px)]');
+    expect(src).not.toContain('--r-chip');
+    expect(ember['--r-date']).toBe('12px');
+  });
+
   it('every var(--token, fallback) in ui/*.tsx falls back to today\'s value', () => {
     const files = readdirSync(join(root, 'ui')).filter((f) => f.endsWith('.tsx'));
     let seen = 0;
@@ -69,6 +77,30 @@ describe('ember tokens', () => {
       }
     }
     expect(seen).toBeGreaterThan(10);
+  });
+});
+
+/** Every rule's selector list in a stylesheet, comments removed. */
+function selectorLists(css: string): string[][] {
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  return [...bare.matchAll(/([^{}]+)\{[^{}]*\}/g)].map((m) => m[1].split(',').map((s) => s.trim()));
+}
+/** Class count of a plain class selector (`.a .b` or `.a.b`): enough for this file. */
+const classCount = (sel: string) => (sel.match(/\.[\w-]+/g) ?? []).length;
+
+describe('ember.css scope', () => {
+  it('every selector starts with .ember-world or .org-theme (never :root, html, body)', () => {
+    const lists = selectorLists(emberCss);
+    expect(lists.length).toBeGreaterThanOrEqual(2);
+    for (const sel of lists.flat()) expect(sel, sel).toMatch(/^\.(ember-world|org-theme)(?![\w-])/);
+  });
+
+  it('an .org-theme nested inside .ember-world keeps Ember (C2-6)', () => {
+    const override = selectorLists(emberCss).find((l) => l.includes('.org-theme.ember-world'));
+    expect(override).toBeDefined();
+    expect(override).toContain('.ember-world .org-theme');
+    // Every override selector out-ranks the plain .org-theme defaults in theme.css and ember.css.
+    for (const sel of override!) if (sel !== '.ember-world') expect(classCount(sel), sel).toBeGreaterThan(1);
   });
 });
 
@@ -98,8 +130,12 @@ describe('EmberWorld', () => {
 
 describe('Chip remove', () => {
   it('has no remove button unless onRemove is passed (default render unchanged)', () => {
-    render(<Chip selected={false} onToggle={() => {}} testId="c">A</Chip>);
+    const { container } = render(<Chip selected={false} onToggle={() => {}} testId="c">A</Chip>);
     expect(screen.queryByTestId('c-remove')).toBeNull();
+    // Same node as before onRemove existed: the button itself, no wrapper.
+    expect(container.childElementCount).toBe(1);
+    expect(container.firstElementChild?.tagName).toBe('BUTTON');
+    expect(container.firstElementChild?.getAttribute('data-testid')).toBe('c');
   });
 
   it('remove button has a 44px hit area around a 28px disc', () => {
