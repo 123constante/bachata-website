@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnnounceRegion, Card, ErrorState, Field, PrimaryButton, SkeletonRows, useAnnounce, useShake } from '@/modules/organiser/ui';
 import { fetchMyRoleDetails, roleDetailsQueryKey, saveMyRole, type RoleDetails } from './areaApi';
@@ -7,9 +7,11 @@ import { BlockedState, blockedCode, type BlockedPaths } from './BlockedState';
 import { ROLE_ERROR_COPY, roleErrorCode, roleErrorMessage, type RoleErrorCode } from './errorCopy';
 import { ROLE_FIELDS, ROLE_NAME, ROLE_NOUN, type Role } from './fieldRegistry';
 import { FieldInput } from './inputs';
+import { useLeaveGuard } from './leaveGuard';
+import { SavedToast } from './SavedToast';
 import { diffPatch, toDraft, validatePatch, withPendingDraft, type Details, type Draft } from './roleModel';
 
-export const NOTHING_CHANGED = 'Nothing has changed yet, so there is nothing to save.';
+export const NOTHING_CHANGED = 'Nothing changed yet';
 export const SAVED = 'Saved';
 
 export interface RoleProfileFormProps {
@@ -30,6 +32,7 @@ export function RoleProfileForm({ role, details, saving, onSave, serverError }: 
   const [pending, setPending] = useState<Record<string, string>>({});
   const patch = useMemo(() => diffPatch(role, details, withPendingDraft(role, draft, pending)), [role, details, draft, pending]);
   const dirty = Object.keys(patch).length > 0;
+  useLeaveGuard(dirty);
   const groups = useMemo(() => {
     const out: { name: string; fields: (typeof ROLE_FIELDS)[Role][number][] }[] = [];
     for (const f of ROLE_FIELDS[role]) {
@@ -111,18 +114,22 @@ export function RoleProfilePage({ role, areaPath, blocked }: { role: Role; areaP
   const details = useQuery({ queryKey: roleDetailsQueryKey(role), queryFn: () => fetchMyRoleDetails(role) });
   // Bumped after each save so the form restarts from what the server now holds.
   const [formKey, setFormKey] = useState(0);
+  const [toast, setToast] = useState(false);
+  const hideToast = useCallback(() => setToast(false), []);
   const save = useMutation({
     mutationFn: (patch: Record<string, unknown>) => saveMyRole(role, patch),
     onSuccess: (res) => {
       qc.setQueryData<RoleDetails>(roleDetailsQueryKey(role), { role: res.role, personId: res.personId, details: res.details });
       setFormKey((k) => k + 1);
       announce(SAVED);
+      setToast(true);
     },
   });
   const name = ROLE_NAME[role];
   return (
     <AreaFrame title={`${name} details`} back={{ to: areaPath, label: name }} testId={`${role}-profile`}>
       <AnnounceRegion message={announcement} />
+      <SavedToast show={toast} onDone={hideToast} />
       {details.status === 'pending' ? (
         <SkeletonRows count={4} label={`Loading your ${ROLE_NOUN[role]} details`} />
       ) : details.status === 'error' && blockedCode(details.error) ? (

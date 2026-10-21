@@ -5,21 +5,26 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { CalendarDays, GraduationCap, Headphones, User, type LucideIcon } from 'lucide-react';
 import { AREA_PATHS } from '@/lib/areaPaths';
 import { useProfileProgress } from '@/modules/organiser/shared/profileProgress';
-import { Card, ErrorState, SkeletonRows } from '@/modules/organiser/ui';
+import { Card, ErrorState, GhostButton, PrimaryButton, SheetView, SkeletonRows, StatusTag, type StatusTone } from '@/modules/organiser/ui';
 import { AreaFrame } from '../shared/AreaFrame';
 import { BlockedState, blockedCode } from '../shared/BlockedState';
 import { roleErrorMessage } from '../shared/errorCopy';
 import { DANCER_PROFILE_PATH, SIGN_IN_PATH } from '../shared/paths';
 import { doYouDjStep } from '../dj/wizardSteps';
 import { doYouTeachStep } from '../teacher/wizardSteps';
-import { AREA_NAME, YOUR_AREAS_LABEL, areaAction, areaStatus, type AreaAction } from './areaStatus';
-import { AREA_ROLES, REAL_ROLE_WRITERS, fetchMyRoles, myRoleIntentQueryKey, myRolesQueryKey, answerDoYou, type RoleWriters } from './rolesApi';
-import { StatusDot } from './StatusDot';
+import { AREA_NAME, YOUR_AREAS_LABEL, areaAction, areaStatus, type AreaAction, type AreaStatusKind } from './areaStatus';
+import { AREA_ROLES, REAL_ROLE_WRITERS, type AreaRole, fetchMyRoles, myRoleIntentQueryKey, myRolesQueryKey, answerDoYou, type RoleWriters } from './rolesApi';
 
 const DO_YOU = { teacher: doYouTeachStep, dj: doYouDjStep } as const;
 export const ACCOUNT_PATH = '/account';
+
+/** The status tag's tone: green for Complete, amber for unfinished, quiet for not added / said no. */
+const TONE: Record<AreaStatusKind, StatusTone> = { complete: 'live', 'to-finish': 'draft', 'not-held': 'neutral', declined: 'neutral' };
+
+const ROLE_ICON: Record<AreaRole, LucideIcon> = { dancer: User, organiser: CalendarDays, teacher: GraduationCap, dj: Headphones };
 
 const ACTION = 'inline-flex h-[44px] min-w-[64px] shrink-0 items-center justify-center rounded-[12px] px-[12px] text-[15px] font-semibold';
 
@@ -32,31 +37,41 @@ function ActionControl({ action, onAsk }: { action: AreaAction; onAsk: (role: 't
   return <Link to={action.to} className={`${ACTION} ${tone}`} data-testid={testId}>{action.label}</Link>;
 }
 
-/** The wizard's own "Do you...?" step, shown in place for one role. */
-function DoYouPanel({ role, writers, onDone }: { role: 'teacher' | 'dj'; writers: RoleWriters; onDone: (yes: boolean) => void }) {
+/** The ask sheet (D119 #3): the wizard step's own title and line, with Yes / Skip for now. Skip stores the same No. */
+function DoYouSheet({ role, writers, onDone, onClose }: { role: 'teacher' | 'dj'; writers: RoleWriters; onDone: (yes: boolean) => void; onClose: () => void }) {
   const step = DO_YOU[role];
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<'yes' | 'skip' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const answer = async (value: unknown) => {
-    setSaving(true);
+  const answer = async (yes: boolean) => {
+    setSaving(yes ? 'yes' : 'skip');
     setError(null);
     try {
-      await answerDoYou(role, value === true, writers);
-      onDone(value === true);
+      await answerDoYou(role, yes, writers);
+      onDone(yes);
     } catch (e) {
       setError(roleErrorMessage(e));
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   };
   return (
-    <Card variant="padded" testId={`do-you-${role}`}>
-      <div className="space-y-[12px]">
-        <h2 className="text-[17px] font-bold text-[var(--fg)]">{step.title}</h2>
-        {step.unlockLine && <p className="text-[14px] text-[var(--mut)]">{step.unlockLine}</p>}
-        <step.Component field={step.field} value={null} required={false} saving={saving} error={error} onAnswer={(v) => void answer(v)} />
+    <SheetView
+      open
+      onOpenChange={(o) => { if (!o && !saving) onClose(); }}
+      title={step.title}
+      testId={`do-you-${role}`}
+      footer={
+        <div className="space-y-[8px]">
+          <PrimaryButton testId={`do-you-${role}-yes`} loading={saving === 'yes'} disabled={saving !== null} onClick={() => void answer(true)}>Yes</PrimaryButton>
+          <GhostButton testId={`do-you-${role}-skip`} loading={saving === 'skip'} disabled={saving !== null} onClick={() => void answer(false)}>Skip for now</GhostButton>
+        </div>
+      }
+    >
+      <div className="space-y-[8px]">
+        {step.unlockLine && <p className="text-[15px] text-[var(--mut)]">{step.unlockLine}</p>}
+        {error && <p role="alert" className="text-[14px] text-[var(--danger)]">{error}</p>}
       </div>
-    </Card>
+    </SheetView>
   );
 }
 
@@ -95,19 +110,19 @@ export default function YourAreasPage({ writers = REAL_ROLE_WRITERS }: YourAreas
             const status = areaStatus(role, rows.find((r) => r.role === role), progress.data);
             return (
               <div key={role} className="flex min-h-[56px] items-center gap-[12px] px-[16px] py-[8px]" data-testid={`area-row-${role}`} data-status={status.kind}>
+                <span aria-hidden="true" className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-[12px] bg-[var(--card2)] text-[var(--mut)]">
+                  {(() => { const Icon = ROLE_ICON[role]; return <Icon className="h-[20px] w-[20px]" />; })()}
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-semibold text-[var(--fg)]">{AREA_NAME[role]}</span>
-                  <span className="flex items-center gap-[6px] text-[13px] text-[var(--mut)]">
-                    <StatusDot kind={status.kind} />
-                    <span data-testid={`area-status-${role}`}>{status.words}</span>
-                  </span>
+                  <StatusTag tone={TONE[status.kind]} testId={`area-status-${role}`} className="mt-[2px]">{status.words}</StatusTag>
                 </span>
                 <ActionControl action={areaAction(role, status)} onAsk={setAsking} />
               </div>
             );
           })}
         </Card>
-        {asking && <DoYouPanel key={asking} role={asking} writers={writers} onDone={(yes) => done(asking, yes)} />}
+        {asking && <DoYouSheet key={asking} role={asking} writers={writers} onDone={(yes) => done(asking, yes)} onClose={() => setAsking(null)} />}
       </>
     );
   }

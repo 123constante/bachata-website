@@ -2,6 +2,9 @@
 // slice B-WEB3's. Wizard steps import from ./teacher/wizardSteps and ./dj/wizardSteps.
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
+// D120: slice B imports the home link from here.
+export { SiteHomeLink, SITE_HOME_LABEL } from './shared/SiteHomeLink';
+
 export const TeacherAreaPage = lazyWithRetry(() => import('./teacher/TeacherAreaPage'));
 export const TeacherProfilePage = lazyWithRetry(() => import('./teacher/TeacherProfilePage'));
 export const DjAreaPage = lazyWithRetry(() => import('./dj/DjAreaPage'));

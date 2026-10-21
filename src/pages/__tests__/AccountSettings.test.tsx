@@ -124,7 +124,12 @@ describe('settings home', () => {
   it('visible: offers Hide; confirming calls the RPC with true and shows the hidden state', async () => {
     h.setDisabled.mockResolvedValue({ ok: true, disabled: true });
     mount(SETTINGS);
+    expect((await screen.findByTestId('site-home-link')).getAttribute('href')).toBe('/');
     fireEvent.click(await screen.findByTestId('settings-disable-toggle'));
+    // D119 #4: the confirm is a sheet with its own title and the two buttons.
+    expect(await screen.findByRole('dialog', { name: 'Hide your dancer profile' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Keep it visible' })).toBeTruthy();
+    expect(h.setDisabled).not.toHaveBeenCalled();
     fireEvent.click(await screen.findByTestId('settings-disable-confirm'));
     await waitFor(() => expect(h.setDisabled).toHaveBeenCalledWith(true));
     expect((await screen.findByTestId('settings-disable-state')).textContent).toMatch(/hidden/i);
@@ -208,6 +213,9 @@ describe('settings home', () => {
   it('sign out of all devices: global sign-out, then home; a failure says so and stays', async () => {
     mount(SETTINGS);
     fireEvent.click(await screen.findByTestId('settings-signout-all'));
+    expect(await screen.findByRole('dialog', { name: 'Sign out of all devices' })).toBeTruthy();
+    expect(h.signOut).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByTestId('settings-signout-all-confirm'));
     await waitFor(() => expect(h.signOut).toHaveBeenCalledWith(expect.objectContaining({ everywhere: true })));
     expect(await screen.findByText('start')).toBeTruthy();
   });
@@ -219,6 +227,7 @@ describe('settings home', () => {
     h.signOut.mockResolvedValue('failed');
     mount(SETTINGS);
     fireEvent.click(await screen.findByTestId('settings-signout-all'));
+    fireEvent.click(await screen.findByTestId('settings-signout-all-confirm'));
     await waitFor(() => expect(sonner.error).toHaveBeenCalledWith(expect.stringMatching(/did not complete/i)));
     expect(await screen.findByTestId('settings-signout-all')).toBeTruthy();
   });
@@ -386,6 +395,7 @@ describe('sign out everywhere: the other devices are never falsely reassured', (
     h.signOut.mockResolvedValue(outcome);
     mountReal(SETTINGS);
     fireEvent.click(await screen.findByTestId('settings-signout-all'));
+    fireEvent.click(await screen.findByTestId('settings-signout-all-confirm'));
     expect(await screen.findByText('start')).toBeTruthy();
     if (says) expect(toasted()).toMatch(OTHERS);
     else expect(toasted()).not.toMatch(OTHERS);

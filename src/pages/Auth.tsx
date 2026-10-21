@@ -46,6 +46,8 @@ import { AUTH_ACTION_LABELS } from "@/lib/auth-labels";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
 import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import GlobalLayout from "@/components/layout/GlobalLayout";
+import { EmberWorld } from "@/modules/organiser/ui/EmberWorld";
+import { PrimaryButton } from "@/modules/organiser/ui/Buttons";
 import { flags } from "@/lib/featureFlags";
 import { SIGNUP_STEPS, getNextStep, getPreviousStep, getStepIndex, type SignupStep } from "@/lib/auth-signup-resolver";
 import { DanceRolePicker } from "@/components/profile/DanceRolePicker";
@@ -677,12 +679,12 @@ const AuthContent = () => {
                   exit="exit"
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                 >
-                  <CardHeader className="space-y-1 p-3 pb-3">
-                    <CardTitle className="text-lg">What do you do?</CardTitle>
-                    <p className="text-sm text-muted-foreground">Choose all that fit. You can change this later.</p>
-                  </CardHeader>
-                  <CardContent className="space-y-3 p-3 pt-0">
-                    <div role="group" aria-label="What do you do?" className="space-y-2">
+                  <EmberWorld className="space-y-[16px] p-[16px]" data-testid="signup-roles-step">
+                    <div className="space-y-[4px]">
+                      <h2 className="text-[22px] font-bold text-[var(--fg)]">What do you do?</h2>
+                      <p className="text-[15px] text-[var(--mut)]">Choose all that fit. You can change this later.</p>
+                    </div>
+                    <div role="group" aria-label="What do you do?" className="space-y-[8px]">
                       {SIGNUP_ROLE_OPTIONS.map((role) => {
                         const Icon = SIGNUP_ROLE_ICONS[role.value];
                         const isActive = rolesDraft.includes(role.value);
@@ -690,8 +692,8 @@ const AuthContent = () => {
                           <button
                             key={role.value}
                             type="button"
-                            className={`w-full min-h-[44px] text-left rounded-xl border px-3 py-2 transition-colors ${
-                              isActive ? "border-primary bg-secondary" : "bg-card hover:bg-secondary"
+                            className={`min-h-[64px] w-full rounded-[var(--r-card)] border px-[14px] py-[10px] text-left transition-colors ${
+                              isActive ? "border-[var(--gold)] bg-[var(--card2)]" : "border-[var(--line)] bg-[var(--card)]"
                             }`}
                             aria-pressed={isActive}
                             onClick={() => {
@@ -700,15 +702,15 @@ const AuthContent = () => {
                             }}
                           >
                             <div className="flex items-center gap-3">
-                              <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center bg-secondary ${isActive ? "text-primary" : "text-muted-foreground"}`}>
+                              <div className={`flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] bg-[var(--card2)] ${isActive ? "text-[var(--gold)]" : "text-[var(--mut)]"}`}>
                                 <Icon className="w-4 h-4" aria-hidden="true" />
                               </div>
                               <div className="flex-1">
-                                <p className="font-medium text-sm">{role.label}</p>
-                                <p className="text-sm text-muted-foreground">{role.description}</p>
+                                <p className="text-[16px] font-semibold text-[var(--fg)]">{role.label}</p>
+                                <p className="text-[14px] text-[var(--mut)]">{role.description}</p>
                               </div>
                               <span
-                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${isActive ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground"}`}
+                                className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border ${isActive ? "border-[var(--btn)] bg-[var(--btn)] text-[var(--btnfg)]" : "border-[var(--line-strong)]"}`}
                                 aria-hidden="true"
                               >
                                 {isActive && <Check className="h-4 w-4" />}
@@ -720,18 +722,19 @@ const AuthContent = () => {
                     </div>
 
                     <FieldError id="auth-role-error" message={fieldErrors.role} />
-                    {rolesDraft.length === 0 && (
-                      <p id="auth-roles-required" className="text-sm text-muted-foreground">{SIGNUP_ROLES_REQUIRED_ERROR}</p>
-                    )}
-                    <Button
-                      className={primaryButtonClass}
-                      onClick={handleRoleContinue}
-                      disabled={rolesDraft.length === 0}
-                      aria-describedby={rolesDraft.length === 0 ? "auth-roles-required" : undefined}
-                    >
-                      Continue
-                    </Button>
-                  </CardContent>
+                    <div className="space-y-[8px]">
+                      <PrimaryButton
+                        onClick={handleRoleContinue}
+                        disabled={rolesDraft.length === 0}
+                        aria-describedby={rolesDraft.length === 0 ? "auth-roles-required" : undefined}
+                      >
+                        Continue
+                      </PrimaryButton>
+                      {rolesDraft.length === 0 && (
+                        <p id="auth-roles-required" className="text-center text-[13px] text-[var(--mut)]">{SIGNUP_ROLES_REQUIRED_ERROR}</p>
+                      )}
+                    </div>
+                  </EmberWorld>
                 </motion.div>
               )}
 

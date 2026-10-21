@@ -10,7 +10,7 @@ import { FINISH_PROFILE_PATH } from '@/lib/profileCompletion';
 import { APP_HOME_PATH } from '@/lib/accountRouting';
 import { requiredLeftText, type ProfileProgress } from '@/modules/organiser/shared/profileProgress';
 import { ROLE_NAME } from '../shared/fieldRegistry';
-import type { AreaRole, RoleRow } from './rolesApi';
+import { AREA_ROLES, type AreaRole, type RoleRow } from './rolesApi';
 
 export const YOUR_AREAS_LABEL = 'Your areas';
 
@@ -87,4 +87,21 @@ export function areaAction(role: AreaRole, status: AreaStatus): AreaAction {
   if (status.kind === 'complete' || status.kind === 'to-finish') return { kind: 'open', label: OPEN_LABEL, to: AREA_HREF[role] };
   if (role === 'teacher' || role === 'dj') return { kind: 'ask', label: ADD_LABEL, role };
   return { kind: 'add-link', label: ADD_LABEL, to: role === 'dancer' ? FINISH_PROFILE_PATH : AREA_HREF.organiser };
+}
+
+export const OPEN_OR_ADD_WORDS = 'Open or add a role';
+
+/**
+ * Account home's "Your areas" row words (D112): `<Role>: <status words>` for the FIRST unfinished area in
+ * Your areas order (a held area that is not complete), read from areaStatus; "Open or add a role" when none is.
+ */
+export function accountAreasWords(
+  rows: readonly RoleRow[] | undefined,
+  progress: Pick<ProfileProgress, 'steps' | 'declined'> | undefined,
+): string {
+  for (const role of AREA_ROLES) {
+    const status = areaStatus(role, rows?.find((r) => r.role === role), progress);
+    if (status.kind === 'to-finish') return `${AREA_NAME[role]}: ${status.words}`;
+  }
+  return OPEN_OR_ADD_WORDS;
 }

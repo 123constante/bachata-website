@@ -49,7 +49,7 @@ progressbar "Sign-up progress"
 status
   text "No account found"
   text "No account for this email yet. Create one to continue."
-heading "What do you do?" level=3
+heading "What do you do?" level=2
 text "Choose all that fit. You can change this later."
 group "What do you do?"
   button "Dancer I go to classes, socials and festivals" [pressed=true]
@@ -103,7 +103,7 @@ button "Sign in"
 button "Create account"
 text "Step 2 of 367%"
 progressbar "Sign-up progress"
-heading "What do you do?" level=3
+heading "What do you do?" level=2
 text "Choose all that fit. You can change this later."
 group "What do you do?"
   button "Dancer I go to classes, socials and festivals" [pressed=true]
@@ -249,7 +249,7 @@ progressbar "Sign-up progress"
 status
   text "No account found"
   text "No account for this email yet. Create one to continue."
-heading "What do you do?" level=3
+heading "What do you do?" level=2
 text "Choose all that fit. You can change this later."
 group "What do you do?"
   button "Dancer I go to classes, socials and festivals" [pressed=true]
@@ -303,7 +303,7 @@ button "Sign in"
 button "Create account"
 text "Step 2 of 367%"
 progressbar "Sign-up progress"
-heading "What do you do?" level=3
+heading "What do you do?" level=2
 text "Choose all that fit. You can change this later."
 group "What do you do?"
   button "Dancer I go to classes, socials and festivals" [pressed=true]

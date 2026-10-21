@@ -164,7 +164,9 @@ export function completeness(role: Role, details: Details): Completeness {
 }
 
 /** The ONE sentence for completeness, on both dashboards. */
-export function completenessLine(c: Completeness): string {
+export function completenessLine(c: Completeness, opts: { complete?: boolean } = {}): string {
+  // A "Complete" area (the server's word) never reads "No details": zero filled is "0 of M".
+  if (c.filled === 0 && opts.complete) return `0 of ${c.total} details added`;
   if (c.filled === 0) return 'No details added yet';
   if (c.filled === c.total) return `All ${c.total} details added`;
   return `${c.filled} of ${c.total} details added`;

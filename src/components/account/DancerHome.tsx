@@ -31,6 +31,7 @@ import {
 } from "@/lib/profileCompletion";
 import { ORGANISER_HOME_KEY, myAccessRequestsQueryKey, type MyAccessRequest } from "@/modules/organiser/shared/selfServeApi";
 import { NationalityFlag } from "@/components/people/NationalityFlag";
+import { AccountAreasRow } from "@/modules/areas/home/AccountAreasRow";
 import { HideSurnameCard } from "./HideSurnameCard";
 import { PersonAvatar } from "./profiles/PersonAvatar";
 
@@ -39,8 +40,8 @@ import { PersonAvatar } from "./profiles/PersonAvatar";
 const OrganiserOnboardingPanel = lazyWithRetry(() => import("./OrganiserOnboardingPanel"));
 
 const PILL =
-  "inline-flex min-h-[44px] items-center justify-center rounded-full bg-primary px-[16px] text-[14px] font-semibold text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white";
-const CARD = "rounded-xl border border-border bg-card p-3";
+  "inline-flex min-h-[44px] items-center justify-center rounded-[var(--r-ctl)] bg-[var(--btn)] px-[16px] text-[14px] font-semibold text-[var(--btnfg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--fg)]";
+const CARD = "rounded-[var(--r-card)] border border-[var(--line)] bg-[var(--card)] p-3";
 const AVATAR_PX = 56;
 
 /** The ONE PersonAvatar (its no-photo disc is the site's muted tone, never the black background). */
@@ -70,7 +71,7 @@ export function SignOut({ email }: { email: string | null }) {
   };
 
   return (
-    <div className="space-y-2 text-[13px] text-muted-foreground" data-testid="dancer-home-signout">
+    <div className="space-y-2 text-[13px] text-[var(--mut)]" data-testid="dancer-home-signout">
       <p className="break-all">{email ? <>Signed in as {email}.</> : <>Signed in.</>}</p>
       {confirming ? (
         <div className="flex flex-wrap gap-2">
@@ -79,7 +80,7 @@ export function SignOut({ email }: { email: string | null }) {
           </button>
           <button
             type="button"
-            className="inline-flex min-h-[44px] items-center px-[12px] text-[14px] font-semibold text-foreground"
+            className="inline-flex min-h-[44px] items-center px-[12px] text-[14px] font-semibold text-[var(--fg)]"
             onClick={() => setConfirming(false)}
             disabled={busy}
           >
@@ -89,7 +90,7 @@ export function SignOut({ email }: { email: string | null }) {
       ) : (
         <button
           type="button"
-          className="inline-flex min-h-[44px] items-center text-[14px] font-semibold text-primary underline underline-offset-2"
+          className="inline-flex min-h-[44px] items-center text-[14px] font-semibold text-[var(--gold)] underline underline-offset-2"
           onClick={() => setConfirming(true)}
           data-testid="dancer-home-signout-start"
         >
@@ -97,7 +98,7 @@ export function SignOut({ email }: { email: string | null }) {
         </button>
       )}
       {failed && (
-        <p role="alert" className="text-destructive">
+        <p role="alert" className="text-[var(--danger)]">
           Sign-out did not complete. Check your connection and try again.
         </p>
       )}
@@ -172,9 +173,9 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
   return (
     <div className="space-y-3" data-testid="dancer-home">
       {visibility.status === "hidden" && (
-        <div className={`${CARD} space-y-2 border-primary/60`} role="status" data-testid="dancer-home-hidden-banner">
-          <p className="text-[14px] font-semibold text-foreground">{HIDDEN_STATE_LINE}</p>
-          <p className="text-[13px] text-muted-foreground">You can show it again in {ACCOUNT_SETTINGS_LABEL}.</p>
+        <div className={`${CARD} space-y-2 border-[var(--gold)]`} role="status" data-testid="dancer-home-hidden-banner">
+          <p className="text-[14px] font-semibold text-[var(--fg)]">{HIDDEN_STATE_LINE}</p>
+          <p className="text-[13px] text-[var(--mut)]">You can show it again in {ACCOUNT_SETTINGS_LABEL}.</p>
           <Link to={ACCOUNT_SETTINGS_PATH} className={PILL} data-testid="dancer-home-hidden-settings">
             {SHOW_AGAIN_LABEL}
           </Link>
@@ -193,15 +194,15 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
           </div>
         ) : completion.status === "signed_out" ? (
           <div className="space-y-2" data-testid="dancer-home-signed-out">
-            <p className="text-[14px] text-foreground">Sign in with your email to see and finish your profile.</p>
+            <p className="text-[14px] text-[var(--fg)]">Sign in with your email to see and finish your profile.</p>
             <Link to={buildSignInHref(pathname)} className={PILL}>
               Sign in
             </Link>
           </div>
         ) : fact.kind === "no_profile" ? (
           <div className="space-y-2" data-testid="dancer-home-no-profile">
-            <p className="text-[14px] text-foreground">{fact.text}</p>
-            <p className="text-[13px] text-muted-foreground">Browsing parties works without it.</p>
+            <p className="text-[14px] text-[var(--fg)]">{fact.text}</p>
+            <p className="text-[13px] text-[var(--mut)]">Browsing parties works without it.</p>
             <a href={NO_PROFILE_CONTACT_URL} target="_blank" rel="noopener noreferrer" className={PILL}>
               {NO_PROFILE_CONTACT_LABEL}
             </a>
@@ -210,10 +211,10 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
           <div className="space-y-3">
             {detailsFailed ? (
               <div className="flex flex-wrap items-center gap-2" data-testid="dancer-home-details-failed">
-                <p className="text-[13px] text-muted-foreground">We couldn&rsquo;t load your name, city and photo just now.</p>
+                <p className="text-[13px] text-[var(--mut)]">We couldn&rsquo;t load your name, city and photo just now.</p>
                 <button
                   type="button"
-                  className="inline-flex min-h-[44px] items-center text-[14px] font-semibold text-primary underline underline-offset-2"
+                  className="inline-flex min-h-[44px] items-center text-[14px] font-semibold text-[var(--gold)] underline underline-offset-2"
                   // Both reads: when the summary found no row but the completeness answer
                   // did, one of the two cached answers is stale; re-asking only one could not fix it.
                   onClick={() => {
@@ -232,10 +233,10 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
                   <NationalityFlag code={s?.nationalityCode} size={AVATAR_PX} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[16px] font-semibold text-foreground" data-testid="dancer-home-name">
-                    {name ?? <span className="text-muted-foreground">Name not set</span>}
+                  <p className="truncate text-[16px] font-semibold text-[var(--fg)]" data-testid="dancer-home-name">
+                    {name ?? <span className="text-[var(--mut)]">Name not set</span>}
                   </p>
-                  <p className="truncate text-[13px] text-muted-foreground" data-testid="dancer-home-details">
+                  <p className="truncate text-[13px] text-[var(--mut)]" data-testid="dancer-home-details">
                     {city ?? "City not set"} &middot; {role ?? "Dance role not set"}
                   </p>
                 </div>
@@ -243,7 +244,7 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
             )}
             {fact.kind === "incomplete" && (
               <div className="space-y-2" data-testid="dancer-home-incomplete">
-                <p className="text-[14px] text-foreground" data-testid="dancer-home-completeness">
+                <p className="text-[14px] text-[var(--fg)]" data-testid="dancer-home-completeness">
                   {fact.text}
                 </p>
                 <Link to={finishProfileHref(pathname)} className={`${PILL} w-full`} data-testid="dancer-home-finish">
@@ -252,16 +253,16 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
               </div>
             )}
             {fact.kind === "complete" && (
-              <p className="text-[14px] text-foreground" data-testid="dancer-home-completeness">
+              <p className="text-[14px] text-[var(--fg)]" data-testid="dancer-home-completeness">
                 {fact.text}
               </p>
             )}
             {fact.kind === "unknown" && completion.status === "error" && (
               <div className="flex flex-wrap items-center gap-2" data-testid="dancer-home-check-failed">
-                <p className="text-[13px] text-muted-foreground">We couldn&rsquo;t check your profile just now.</p>
+                <p className="text-[13px] text-[var(--mut)]">We couldn&rsquo;t check your profile just now.</p>
                 <button
                   type="button"
-                  className="inline-flex min-h-[44px] items-center text-[14px] font-semibold text-primary underline underline-offset-2"
+                  className="inline-flex min-h-[44px] items-center text-[14px] font-semibold text-[var(--gold)] underline underline-offset-2"
                   onClick={() => void completion.refetch()}
                 >
                   Try again
@@ -273,22 +274,24 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
       </section>
 
       <nav aria-label="Your nights" className="grid grid-cols-2 gap-3">
-        <Link to={MY_ATTENDANCE_PATH} className={`${CARD} flex min-h-[44px] flex-col gap-1 hover:border-primary/50`} data-testid="dancer-home-attendance">
-          <CalendarDays className="h-5 w-5 text-primary" aria-hidden="true" />
-          <span className="text-[15px] font-semibold text-foreground">My attendance</span>
-          <span className="text-[13px] text-muted-foreground">Nights you&rsquo;re going to, and rating the ones you went to</span>
+        <Link to={MY_ATTENDANCE_PATH} className={`${CARD} flex min-h-[44px] flex-col gap-1 hover:border-[var(--gold)]`} data-testid="dancer-home-attendance">
+          <CalendarDays className="h-5 w-5 text-[var(--gold)]" aria-hidden="true" />
+          <span className="text-[15px] font-semibold text-[var(--fg)]">My attendance</span>
+          <span className="text-[13px] text-[var(--mut)]">Nights you&rsquo;re going to, and rating the ones you went to</span>
         </Link>
-        <Link to={partiesPath} className={`${CARD} flex min-h-[44px] flex-col gap-1 hover:border-primary/50`} data-testid="dancer-home-parties">
-          <Music className="h-5 w-5 text-primary" aria-hidden="true" />
-          <span className="text-[15px] font-semibold text-foreground">Browse parties</span>
-          <span className="text-[13px] text-muted-foreground">Find your next night out</span>
+        <Link to={partiesPath} className={`${CARD} flex min-h-[44px] flex-col gap-1 hover:border-[var(--gold)]`} data-testid="dancer-home-parties">
+          <Music className="h-5 w-5 text-[var(--gold)]" aria-hidden="true" />
+          <span className="text-[15px] font-semibold text-[var(--fg)]">Browse parties</span>
+          <span className="text-[13px] text-[var(--mut)]">Find your next night out</span>
         </Link>
       </nav>
 
+      {!loading && completion.status !== "signed_out" && fact.kind !== "no_profile" && <AccountAreasRow />}
+
       {organiserCheckFailed && (
-        <p className="text-[13px] text-muted-foreground" data-testid="dancer-home-organiser-check-failed">
+        <p className="text-[13px] text-[var(--mut)]" data-testid="dancer-home-organiser-check-failed">
           We couldn&rsquo;t check whether you run an organiser just now.{" "}
-          <Link to={ORGANISER_HOME_PATH} className="font-semibold text-primary underline underline-offset-2">
+          <Link to={ORGANISER_HOME_PATH} className="font-semibold text-[var(--gold)] underline underline-offset-2">
             Open the organiser area
           </Link>
         </p>
@@ -297,7 +300,7 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
       {nowOrganiser && (
         <div className={`${CARD} space-y-2`} data-testid="dancer-home-now-organiser">
           {/* The onboarding that said this is replaced by this card, so the card announces it. */}
-          <p role="status" className="text-[14px] text-foreground">
+          <p role="status" className="text-[14px] text-[var(--fg)]">
             {nowOrganiser} Your organiser area has the details.
           </p>
           <Link to={ORGANISER_HOME_PATH} className={`${PILL} w-full`}>
@@ -311,7 +314,7 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
       {organiserSection === "link" && (
         <Link
           to={ORGANISER_HOME_PATH}
-          className="flex min-h-[44px] items-center justify-center text-[14px] font-semibold text-primary underline underline-offset-2"
+          className="flex min-h-[44px] items-center justify-center text-[14px] font-semibold text-[var(--gold)] underline underline-offset-2"
           data-testid="dancer-home-organiser-link"
         >
           Back to your organiser home
@@ -329,14 +332,14 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
           data-testid="dancer-home-organise-toggle"
         >
           <span>
-            <span className="block text-[15px] font-semibold text-foreground">I organise events</span>
-            <span className="block text-[13px] text-muted-foreground">Claim your organiser, ask to join one, or create one</span>
+            <span className="block text-[15px] font-semibold text-[var(--fg)]">I organise events</span>
+            <span className="block text-[13px] text-[var(--mut)]">Claim your organiser, ask to join one, or create one</span>
           </span>
-          <ChevronDown className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform ${organising ? "rotate-180" : ""}`} aria-hidden="true" />
+          <ChevronDown className={`h-5 w-5 shrink-0 text-[var(--mut)] transition-transform ${organising ? "rotate-180" : ""}`} aria-hidden="true" />
         </button>
         <div id={panelId} hidden={!organising} className="mt-3">
           {organising && user && (
-            <Suspense fallback={<Skeleton className="h-28 w-full rounded-xl" />}>
+            <Suspense fallback={<Skeleton className="h-28 w-full rounded-[var(--r-card)]" />}>
               <OrganiserOnboardingPanel
                 user={{ id: user.id, email: user.email ?? null }}
                 accessToken={session?.access_token}
@@ -351,7 +354,7 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
 
       <Link
         to={ACCOUNT_SETTINGS_PATH}
-        className="flex min-h-[44px] items-center justify-center text-[14px] font-semibold text-primary underline underline-offset-2"
+        className="flex min-h-[44px] items-center justify-center text-[14px] font-semibold text-[var(--gold)] underline underline-offset-2"
         data-testid="dancer-home-settings"
       >
         {ACCOUNT_SETTINGS_LABEL}: email, your data, hide or delete account

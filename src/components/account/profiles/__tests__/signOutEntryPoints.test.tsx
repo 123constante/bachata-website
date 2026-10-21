@@ -113,7 +113,7 @@ const ROWS: Row[] = [
     name: 'Account settings: Sign out of all devices',
     start: '/account/settings?from=app',
     page: <SignOutSection />,
-    steps: [() => tap('settings-signout-all')],
+    steps: [() => tap('settings-signout-all'), () => tap('settings-signout-all-confirm')],
     lands: '/',
     everywhere: true,
   },

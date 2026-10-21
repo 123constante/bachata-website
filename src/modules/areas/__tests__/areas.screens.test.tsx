@@ -104,7 +104,7 @@ describe.each(AREAS)('%s dashboard', (role, Page, line) => {
   it('asks only for its own role', async () => {
     mount(<Page />);
     await screen.findByTestId('completeness-line');
-    expect(h.rpc.mock.calls.every((c) => (c[1] as { p_role: string }).p_role === role)).toBe(true);
+    expect(h.rpc.mock.calls.filter((c) => c[0] !== 'my_roles_v1').every((c) => (c[1] as { p_role: string }).p_role === role)).toBe(true);
   });
 });
 
@@ -115,6 +115,7 @@ describe.each(PROFILES)('%s profile edit', (role, Page, label, key) => {
     expect(screen.getAllByText(/\(optional\)$/).length).toBe(role === 'teacher' ? 7 : 5);
     expect((save) as HTMLButtonElement).toHaveProperty('disabled', true);
     expect((screen.getByTestId('save-reason')).textContent).toContain(NOTHING_CHANGED);
+    expect(NOTHING_CHANGED).toBe('Nothing changed yet'); // D109: the short reason, pinned as a literal
     fireEvent.submit(save.closest('form')!);
     expect(calls('save_my_role_v1')).toHaveLength(0);
   });

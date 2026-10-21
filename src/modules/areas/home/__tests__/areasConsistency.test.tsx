@@ -210,7 +210,7 @@ describe('Add: the wizard\'s "Do you...?" step, diff-first through the B-DB1 wri
     fireEvent.click(within(row).getByRole('button', { name: 'Add' }));
     const panel = await screen.findByTestId('do-you-dj');
     expect(within(panel).getByText('Do you DJ?')).toBeTruthy();
-    fireEvent.click(within(panel).getByRole('button', { name: 'No' }));
+    fireEvent.click(within(panel).getByRole('button', { name: 'Skip for now' }));
     await waitFor(() => expect(w.setDeclined).toHaveBeenCalledWith('dj', true));
     await waitFor(() => expect(screen.queryByTestId('do-you-dj')).toBeNull());
     expect(w.setIntent).not.toHaveBeenCalled();

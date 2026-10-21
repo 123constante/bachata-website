@@ -2,7 +2,9 @@
 // has added (isAreaShown), with the same status dot and words as Your areas (areaStatus), then
 // one "Your areas" link. Read only while the sheet is open.
 import { useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import type { MouseEvent } from 'react';
+import { isLeaveDirty, requestLeave } from '../shared/leaveGuard';
 import { QueryClientContext, useQuery } from '@tanstack/react-query';
 import { AREA_PATHS } from '@/lib/areaPaths';
 import { fetchProfileProgress, profileProgressQueryKey } from '@/modules/organiser/shared/profileProgress';
@@ -14,6 +16,15 @@ import { StatusDot } from './StatusDot';
 export const SWITCHER_AREA_ROLES = ['teacher', 'dj'] as const;
 
 function Entries({ rowClass, mutedClass, onPick }: SwitcherAreasProps) {
+  const navigate = useNavigate();
+  // A form with unsaved edits asks "Discard changes?" before the person leaves for another area (D119 #2).
+  const pick = (to: string) => (e: MouseEvent) => {
+    if (isLeaveDirty()) {
+      e.preventDefault();
+      onPick();
+      requestLeave(() => navigate(to));
+    } else onPick();
+  };
   const roles = useQuery({ queryKey: myRolesQueryKey, queryFn: fetchMyRoles });
   const progress = useQuery({ queryKey: profileProgressQueryKey(null), queryFn: () => fetchProfileProgress(null) });
   // The same "added" rule as Your areas (isAreaShown): a teacher / DJ chosen at sign-up is listed too.
@@ -26,7 +37,7 @@ function Entries({ rowClass, mutedClass, onPick }: SwitcherAreasProps) {
             const status = areaStatus(role, roles.data?.find((r) => r.role === role), progress.data);
             return (
               <li key={role}>
-                <Link to={AREA_HREF[role]} onClick={onPick} className={rowClass} data-testid={`profile-switcher-area-${role}`} data-status={status.kind}>
+                <Link to={AREA_HREF[role]} onClick={pick(AREA_HREF[role])} className={rowClass} data-testid={`profile-switcher-area-${role}`} data-status={status.kind}>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{AREA_NAME[role]}</span>
                     <span className={`flex items-center gap-[6px] text-[13px] ${mutedClass}`}>
@@ -40,7 +51,7 @@ function Entries({ rowClass, mutedClass, onPick }: SwitcherAreasProps) {
           })}
         </ul>
       )}
-      <Link to={AREA_PATHS.areas} onClick={onPick} className={`${rowClass} font-semibold`} data-testid="profile-switcher-your-areas">
+      <Link to={AREA_PATHS.areas} onClick={pick(AREA_PATHS.areas)} className={`${rowClass} font-semibold`} data-testid="profile-switcher-your-areas">
         {YOUR_AREAS_LABEL}
       </Link>
     </>

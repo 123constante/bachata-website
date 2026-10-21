@@ -159,7 +159,7 @@ export const SIGNUP_ROLE_OPTIONS: readonly { value: SignupRole; label: string; d
 export const DEFAULT_SIGNUP_ROLES: readonly SignupRole[] = ["dancer"];
 
 /** The reason under the disabled Continue when nothing is chosen. */
-export const SIGNUP_ROLES_REQUIRED_ERROR = "Choose at least one to continue.";
+export const SIGNUP_ROLES_REQUIRED_ERROR = "Choose at least one";
 
 const SIGNUP_ROLE_ORDER = SIGNUP_ROLE_OPTIONS.map((o) => o.value);
 

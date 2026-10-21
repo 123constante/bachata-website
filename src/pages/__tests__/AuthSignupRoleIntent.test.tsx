@@ -83,8 +83,9 @@ describe('/auth sign-up: What do you do?', () => {
 
   it('every choice and Continue is at least 44 px tall (explicit px, not rem)', () => {
     mount();
-    for (const name of ['Dancer', 'Organiser', 'Teacher', 'DJ']) expect(option(name).className).toMatch(/(^|\s)min-h-\[44px\](\s|$)/);
-    expect(screen.getByRole('button', { name: /^continue$/i }).className).toMatch(/(^|\s)min-h-\[44px\](\s|$)/);
+    const px = (el: HTMLElement) => Number(/(?:^|\s)(?:min-)?h-\[(\d+)px\](?:\s|$)/.exec(el.className)?.[1] ?? 0);
+    for (const name of ['Dancer', 'Organiser', 'Teacher', 'DJ']) expect(px(option(name))).toBeGreaterThanOrEqual(44);
+    expect(px(screen.getByRole('button', { name: /^continue$/i }))).toBeGreaterThanOrEqual(44);
   });
 
   it('is a multi-select: several can be on at once, and a second tap turns one off', () => {
@@ -102,6 +103,7 @@ describe('/auth sign-up: What do you do?', () => {
     const cont = screen.getByRole('button', { name: /^continue$/i });
     expect((cont as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(SIGNUP_ROLES_REQUIRED_ERROR)).toBeTruthy();
+    expect(SIGNUP_ROLES_REQUIRED_ERROR).toBe('Choose at least one'); // D109: the short reason, pinned as a literal
     expect(cont.getAttribute('aria-describedby')).toBe('auth-roles-required');
     fireEvent.click(option('Teacher'));
     expect((screen.getByRole('button', { name: /^continue$/i }) as HTMLButtonElement).disabled).toBe(false);

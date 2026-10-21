@@ -2,6 +2,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { APP_HOME_PATH, APP_WELCOME_PATH, ORGANISER_HOME_PATH, signInLanding, type ProfileSide } from '@/lib/accountRouting';
+import { AccountShell } from '@/modules/areas/shared/AccountShell';
 import { SideAvatar, sideKind, sideTitle } from './SideAvatar';
 import { useProfileSides } from './useProfileSides';
 
@@ -36,17 +37,20 @@ export const ContinueAsScreen = () => {
   if (landing.kind === 'go') return <Navigate to={landing.to} replace />;
   if (landing.kind === 'wait') {
     return (
-      <div className="mx-auto w-full max-w-md px-4 pt-6" aria-busy="true" data-testid="continue-as-loading">
-        <p className="text-sm text-muted-foreground">Signing you in&hellip;</p>
-      </div>
+      <AccountShell>
+        <div aria-busy="true" data-testid="continue-as-loading">
+          <p className="text-sm text-[var(--mut)]">Signing you in&hellip;</p>
+        </div>
+      </AccountShell>
     );
   }
   const hint = switchHint(landing.sides);
   return (
-    <div className="mx-auto w-full max-w-md px-4 pb-24 pt-4" data-testid="continue-as">
-      <h1 className="text-lg font-bold text-foreground">Continue as&hellip;</h1>
+    <AccountShell>
+    <div data-testid="continue-as">
+      <h1 className="text-lg font-bold text-[var(--fg)]">Continue as&hellip;</h1>
       {hint && (
-        <p className="mt-1 text-sm text-muted-foreground" data-testid="continue-as-hint">
+        <p className="mt-1 text-sm text-[var(--mut)]" data-testid="continue-as-hint">
           {hint}
         </p>
       )}
@@ -59,14 +63,14 @@ export const ContinueAsScreen = () => {
                 to={side.to}
                 replace
                 data-testid={`continue-as-${side.key}`}
-                className={`flex min-h-[72px] w-full items-center gap-3 rounded-xl border p-3 ${
-                  primary ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground'
+                className={`flex min-h-[72px] w-full items-center gap-3 rounded-[var(--r-card)] border p-3 ${
+                  primary ? 'border-[var(--gold)] bg-[var(--btn)] text-[var(--btnfg)]' : 'border-[var(--line)] bg-[var(--card)] text-[var(--fg)]'
                 }`}
               >
                 <SideAvatar side={side} size={48} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-base font-bold">{sideTitle(side)}</span>
-                  <span className={`block text-sm ${primary ? 'opacity-90' : 'text-muted-foreground'}`}>{sideKind(side)}</span>
+                  <span className={`block text-sm ${primary ? 'opacity-90' : 'text-[var(--mut)]'}`}>{sideKind(side)}</span>
                 </span>
               </Link>
             </li>
@@ -74,6 +78,7 @@ export const ContinueAsScreen = () => {
         })}
       </ul>
     </div>
+    </AccountShell>
   );
 };
 
