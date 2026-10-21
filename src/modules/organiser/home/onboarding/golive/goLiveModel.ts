@@ -44,7 +44,8 @@ export const sectionOf = (s: Pick<ProgressStep, 'area'>): SectionId => (s.area =
  * the list does not shrink under the person as each answer saves.
  */
 export function openQuestions(p: Pick<ProfileProgress, 'steps'>): ProgressStep[] {
-  return shownSteps(p.steps, isRegistered).filter((s) => s.required && !s.done);
+  // Go live's profile rule is the dancer and organiser fields only; a teacher or DJ step (once the wizard can show one) is not a go-live question.
+  return shownSteps(p.steps, isRegistered).filter((s) => (s.area === 'dancer' || s.area === 'organiser') && s.required && !s.done);
 }
 
 /** "Step k of n" inside the question's own section. */
