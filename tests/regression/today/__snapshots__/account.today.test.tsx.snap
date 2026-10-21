@@ -3,7 +3,8 @@
 exports[`/account entry at '390x844' > /account > 'complete dancer' 1`] = `
 {
   "landing": "/account",
-  "tree": "heading "Your account" level=1
+  "tree": "link "Bachata Calendar" href=/
+heading "Your account" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -12,6 +13,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -104,7 +106,8 @@ exports[`/account entry at '390x844' > /account > 'signed out' 1`] = `
 exports[`/account entry at '390x844' > /account/dancer > 'complete dancer' 1`] = `
 {
   "landing": "/account/dancer",
-  "tree": "heading "Your dancer profile" level=1
+  "tree": "link "Bachata Calendar" href=/
+heading "Your dancer profile" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -113,6 +116,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -159,7 +163,8 @@ link "Account settings (sign out or delete account)" href=/account/settings",
 exports[`/account entry at '390x844' > /account/dancer > 'open access request (complete)' 1`] = `
 {
   "landing": "/account/dancer",
-  "tree": "heading "Your dancer profile" level=1
+  "tree": "link "Bachata Calendar" href=/
+heading "Your dancer profile" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -168,6 +173,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -183,7 +189,8 @@ button "Sign out"",
 exports[`/account entry at '390x844' > /account/dancer > 'organiser-type (complete)' 1`] = `
 {
   "landing": "/account/dancer",
-  "tree": "heading "Your dancer profile" level=1
+  "tree": "link "Bachata Calendar" href=/
+heading "Your dancer profile" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -192,6 +199,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -310,7 +318,8 @@ exports[`/account entry at '390x844' > /account/o > 'signed out' 1`] = `
 exports[`/account entry at 'desktop' > /account > 'complete dancer' 1`] = `
 {
   "landing": "/account",
-  "tree": "heading "Your account" level=1
+  "tree": "link "Bachata Calendar" href=/
+heading "Your account" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -319,6 +328,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -411,7 +421,8 @@ exports[`/account entry at 'desktop' > /account > 'signed out' 1`] = `
 exports[`/account entry at 'desktop' > /account/dancer > 'complete dancer' 1`] = `
 {
   "landing": "/account/dancer",
-  "tree": "heading "Your dancer profile" level=1
+  "tree": "link "Bachata Calendar" href=/
+heading "Your dancer profile" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -420,6 +431,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -466,7 +478,8 @@ link "Account settings (sign out or delete account)" href=/account/settings",
 exports[`/account entry at 'desktop' > /account/dancer > 'open access request (complete)' 1`] = `
 {
   "landing": "/account/dancer",
-  "tree": "heading "Your dancer profile" level=1
+  "tree": "link "Bachata Calendar" href=/
+heading "Your dancer profile" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -475,6 +488,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -490,7 +504,8 @@ button "Sign out"",
 exports[`/account entry at 'desktop' > /account/dancer > 'organiser-type (complete)' 1`] = `
 {
   "landing": "/account/dancer",
-  "tree": "heading "Your dancer profile" level=1
+  "tree": "link "Bachata Calendar" href=/
+heading "Your dancer profile" level=1
 heading "Your profile" level=2
 img "Ana's photo"
 text "Ana"
@@ -499,6 +514,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."

@@ -8,6 +8,11 @@ import { organiserEntityQueryKey, ownOrganiserEntityQueryKey } from '@/modules/p
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { organiserContactSettingsQueryKey } from '@/modules/organiser/shared/ownershipApi';
 import { profileProgressQueryKey } from '@/modules/organiser/shared/profileProgress';
+import { roleDetailsQueryKey } from '@/modules/areas/shared/areaApi';
+import { roleErrorMessage } from '@/modules/areas/shared/errorCopy';
+import { DECLINED_FIELD, submitRoleWizardStep } from '@/modules/areas/shared/roleWizard';
+import { myRolesQueryKey } from '@/modules/areas/home/rolesApi';
+import type { WizardStepDef } from '@/modules/areas/wizardStep';
 import { saveDrafts, type Drafts } from '../edit-in-place/draftModel';
 import { saveWizardDancer, type WizardDancer } from './dancerApi';
 import type { WizardEntry, WizardSources } from './registry';
@@ -18,9 +23,11 @@ export type AnswerOutcome = { kind: 'saved' } | { kind: 'nothing' } | { kind: 'f
 export interface WizardWriters {
   saveDancer: (delta: Record<string, unknown>) => Promise<WizardDancer>;
   saveOrganiser: typeof saveDrafts;
+  /** Teacher / DJ: B-WEB1's one sender (absent in older fakes: the real one). */
+  saveRole?: (step: WizardStepDef, value: unknown) => Promise<void>;
 }
 
-export const REAL_WRITERS: WizardWriters = { saveDancer: saveWizardDancer, saveOrganiser: saveDrafts };
+export const REAL_WRITERS: WizardWriters = { saveDancer: saveWizardDancer, saveOrganiser: saveDrafts, saveRole: submitRoleWizardStep };
 
 const NOT_LOADED = 'Your profile has not loaded yet, so nothing was saved. Wait a moment and try again.';
 
@@ -53,6 +60,15 @@ export async function saveAnswer(
     if (outcome.kind === 'nothing') return { kind: 'nothing' };
     return { kind: 'failed', message: outcome.kind === 'refused' && outcome.fieldError ? outcome.fieldError : outcome.message };
   }
+  if (entry.area === 'teacher' || entry.area === 'dj') {
+    if (entry.field !== DECLINED_FIELD && !ctx.sources.roleDetails?.[entry.area]) return { kind: 'failed', message: NOT_LOADED };
+    try {
+      await (writers.saveRole ?? submitRoleWizardStep)(entry, value);
+      return { kind: 'saved' };
+    } catch (e) {
+      return { kind: 'failed', message: roleErrorMessage(e) };
+    }
+  }
   return { kind: 'failed', message: 'This question cannot be answered here yet.' };
 }
 
@@ -65,6 +81,10 @@ export function invalidateAfterAnswer(qc: QueryClient, area: string, organiserId
     void qc.invalidateQueries({ queryKey: organiserEntityQueryKey(organiserId) });
     void qc.invalidateQueries({ queryKey: organiserContactSettingsQueryKey(organiserId, userId) });
     void qc.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+  }
+  if (area === 'teacher' || area === 'dj') {
+    void qc.invalidateQueries({ queryKey: roleDetailsQueryKey(area) });
+    void qc.invalidateQueries({ queryKey: myRolesQueryKey });
   }
 }
 

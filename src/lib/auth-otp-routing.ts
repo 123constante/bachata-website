@@ -1,6 +1,7 @@
 // Pure auth-routing decisions for the magic-link flow, kept out of the page
 // components so they can be unit-tested without a Supabase client.
-import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
+import { WHATSAPP_GET_LISTED_URL, dancerMessageUsUrl } from "@/lib/contactLinks";
+import { AREA_PATHS } from "@/lib/areaPaths";
 
 // Shown when sign-in mode discovers the email has no account (Lever 2 walk B3).
 /**
@@ -136,6 +137,119 @@ export function landingPathAfterAuth(input: {
   if (isSignup && role && role !== "dancer") return "/account/o";
   return SIGNED_IN_LANDING_PATH;
 }
+
+// ---- "What do you do?" at sign-up (people arc B-WEB4) -----------------------
+// The sign-up multi-select. What is chosen rides to /auth/callback the way the
+// sign-up's other answers do (sign-up metadata, plus this browser's storage for
+// the typed-code path), is recorded ONCE there with set_my_role_intent_v1, and
+// changes only where the new account lands. Choosing Organiser grants nothing
+// (C12: an organiser is a person with an owner/manager seat).
+
+/** The values account_role_intent admits, in screen order. */
+export type SignupRole = "dancer" | "organiser" | "teacher" | "dj";
+
+export const SIGNUP_ROLE_OPTIONS: readonly { value: SignupRole; label: string; description: string }[] = [
+  { value: "dancer", label: "Dancer", description: "I go to classes, socials and festivals" },
+  { value: "organiser", label: "Organiser", description: "I run events, socials or a school" },
+  { value: "teacher", label: "Teacher", description: "I teach classes or workshops" },
+  { value: "dj", label: "DJ", description: "I play music at events" },
+];
+
+/** Dancer is on by default. */
+export const DEFAULT_SIGNUP_ROLES: readonly SignupRole[] = ["dancer"];
+
+/** The reason under the disabled Continue when nothing is chosen. */
+export const SIGNUP_ROLES_REQUIRED_ERROR = "Choose at least one";
+
+const SIGNUP_ROLE_ORDER = SIGNUP_ROLE_OPTIONS.map((o) => o.value);
+
+/** Known values only, once each, in screen order. Not a list, or nothing known in it: null. */
+export const parseSignupRoles = (raw: unknown): SignupRole[] | null => {
+  if (!Array.isArray(raw)) return null;
+  const roles = SIGNUP_ROLE_ORDER.filter((v) => raw.includes(v));
+  return roles.length > 0 ? roles : null;
+};
+
+export const toggleSignupRole = (roles: readonly SignupRole[], role: SignupRole): SignupRole[] =>
+  SIGNUP_ROLE_ORDER.filter((v) => (v === role ? !roles.includes(v) : roles.includes(v)));
+
+/**
+ * The single sign-up `user_type` the older routing reads (hasOrganiserIntent, landingPathAfterAuth):
+ * organiser when Organiser is ticked, else dancer. Teacher and DJ land by the roles, not by this.
+ */
+export const signupUserType = (roles: readonly SignupRole[]): "organiser" | "dancer" =>
+  roles.includes("organiser") ? "organiser" : "dancer";
+
+/** Where the chosen roles wait for /auth/callback in this browser (the typed-code path never reads metadata first). */
+export const PENDING_ROLE_INTENT_KEY = "pending_role_intent";
+/** The sign-up metadata key that carries them through the e-mailed link. */
+export const ROLE_INTENT_META_KEY = "role_intent";
+
+/** The roles a sign-up chose: this browser's stash first, then the metadata. Both are user-shaped input. */
+export const readSignupRoles = (stored: string | null, meta: unknown): SignupRole[] | null => {
+  let fromStore: SignupRole[] | null = null;
+  if (stored) {
+    try {
+      fromStore = parseSignupRoles(JSON.parse(stored));
+    } catch {
+      fromStore = null;
+    }
+  }
+  return fromStore ?? parseSignupRoles(meta);
+};
+
+export const SET_MY_ROLE_INTENT_RPC = "set_my_role_intent_v1";
+
+/** set_my_role_intent_v1 answers my_role_intent_v1() plus `changed`; anything without a roles list is a failure. */
+export const parseRoleIntentResult = (data: unknown): boolean =>
+  !!data && typeof data === "object" && Array.isArray((data as { roles?: unknown }).roles);
+
+/** organiser_home_v1 lists the organisers the person holds an owner/manager seat on. Unreadable: null. */
+export const holdsSeatFromOrganiserHome = (data: unknown): boolean | null => {
+  if (!data || typeof data !== "object") return null;
+  const organisers = (data as { organisers?: unknown }).organisers;
+  return Array.isArray(organisers) ? organisers.length > 0 : null;
+};
+
+/** Teacher or DJ chosen: the only choices that move the landing or show the "Already listed?" step. */
+export const choseTeacherOrDj = (roles: readonly SignupRole[] | null): boolean =>
+  !!roles && (roles.includes("teacher") || roles.includes("dj"));
+
+/**
+ * Where a sign-up lands once no returnTo was honoured (a returnTo is decided
+ * before this and always wins). `todays` is the landing it got before the
+ * multi-select: the organiser home after a claim, else landingPathAfterAuth
+ * (an Organiser-only sign-up keeps its create/ask-for-a-page path there).
+ * An organiser seat keeps today's landing; else Teacher; else DJ; else today's.
+ * An unknown seat (the read failed) also keeps today's: never a guess.
+ */
+export const signupIntentLanding = (input: {
+  roles: readonly SignupRole[] | null;
+  holdsOrganiserSeat: boolean | null;
+  todays: string;
+}): string => {
+  const { roles, holdsOrganiserSeat, todays } = input;
+  if (!roles || holdsOrganiserSeat !== false) return todays;
+  if (roles.includes("teacher")) return AREA_PATHS.teacher;
+  if (roles.includes("dj")) return AREA_PATHS.dj;
+  return todays;
+};
+
+/**
+ * C13: before landing, one "Already listed?" screen -- Teacher or DJ chosen and
+ * the dancer claim found NO person for this email. Never after a claim that
+ * linked a record, and not when the claim could not tell (unavailable, ambiguous).
+ */
+export const showsAlreadyListedStep = (input: { roles: readonly SignupRole[] | null; claimStatus: string }): boolean =>
+  choseTeacherOrDj(input.roles) && input.claimStatus === "no_match";
+
+export const ALREADY_LISTED_TITLE = "Already listed on Bachata Calendar?";
+export const ALREADY_LISTED_BODY =
+  "If you teach or DJ at events we list, you may already have a profile here. Ask us and we'll link it to your account.";
+export const ALREADY_LISTED_LINK_LABEL = "Ask us to link your profile";
+export const ALREADY_LISTED_URL = dancerMessageUsUrl(
+  "Hi! I've just made a Bachata Calendar account and I think I'm already listed. Please can you link my profile?",
+);
 
 // ---- Sign-up profile data + the post-login Finish-your-profile prompt --------
 // Shared by both sign-up screens, /auth/callback and /finish-profile. It lives

@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { ChevronLeft, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useKeyboardInset } from './useKeyboardInset';
+import { useInEmberWorld } from './EmberWorld';
 
 /** Set inside a SheetView so a second one inside it is caught at once. */
 const InSheet = createContext(false);
@@ -69,6 +70,7 @@ export function SheetView({
     if (import.meta.env.DEV) throw new Error(NESTED_SHEET_ERROR);
     console.error(NESTED_SHEET_ERROR);
   }
+  const inEmber = useInEmberWorld();
   const { inset, height } = useKeyboardInset(open);
   const contentRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -133,7 +135,8 @@ export function SheetView({
           }}
           style={{ bottom: inset, background: 'var(--sheet)', animationTimingFunction: 'ease-in-out', ...size }}
           className={cn(
-            'org-theme org-sheet fixed inset-x-0 z-[71] mx-auto flex w-full max-w-[640px] flex-col rounded-t-[24px] shadow-[0_-12px_40px_rgba(0,0,0,.55)] outline-none',
+            inEmber && 'ember-world',
+            'org-theme org-sheet fixed inset-x-0 z-[71] mx-auto flex w-full max-w-[640px] flex-col rounded-t-[var(--r-sheet,24px)] shadow-[0_-12px_40px_rgba(0,0,0,.55)] outline-none',
             'duration-300 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom',
           )}
         >
@@ -144,7 +147,7 @@ export function SheetView({
                 type="button"
                 onClick={onBack}
                 data-testid={`${testId}-back`}
-                className="flex h-[44px] min-w-[44px] items-center gap-[2px] rounded-[12px] px-[8px] text-[15px] font-semibold text-[var(--gold)]"
+                className="flex h-[44px] min-w-[44px] items-center gap-[2px] rounded-[var(--r-ctl,12px)] px-[8px] text-[15px] font-semibold text-[var(--gold)]"
               >
                 <ChevronLeft aria-hidden="true" className="h-[20px] w-[20px]" />
                 {backLabel}

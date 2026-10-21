@@ -62,6 +62,9 @@ describe('acting from the dancer home', () => {
         </MemoryRouter>
       </QueryClientProvider>,
     );
+    // Slice A: the Ember home link (D120) and the "Your areas" row (D112) are on Account home.
+    expect((await screen.findByTestId('site-home-link')).getAttribute('href')).toBe('/');
+    expect((await screen.findByTestId('account-areas-row')).textContent).toContain('Your areas');
     fireEvent.click(await screen.findByRole('button', { name: /I organise events/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'Claim it' }));
     expect(await screen.findByTestId('dancer-home-now-organiser')).toBeTruthy();

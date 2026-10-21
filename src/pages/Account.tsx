@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { DancerHome } from "@/components/account/DancerHome";
 import { DancerProfileGate } from "@/components/account/DancerProfileGate";
+import { AccountShell } from "@/modules/areas/shared/AccountShell";
 import { useAuth } from "@/hooks/useAuth";
 import { useNoindexMeta } from "@/hooks/useNoindexMeta";
 import { buildBreadcrumbs } from "@/lib/breadcrumbs";
@@ -61,14 +62,13 @@ export const AccountScreen = ({ view = "resolve" }: { view?: "resolve" | "dancer
   const organiserSection = where === "loading" || nowOrganiser ? "hidden" : where === "organiser" ? "link" : "onboarding";
 
   return (
-    <GlobalLayout breadcrumbs={buildBreadcrumbs(view === "dancer" ? "dancerProfile" : "dancerHome")}>
-      <div className="px-4 pb-24 pt-3">
-        <div className="mx-auto w-full max-w-md space-y-3">
-          <h1 className="text-lg font-bold text-foreground">{view === "dancer" ? "Your dancer profile" : "Your account"}</h1>
+    <GlobalLayout breadcrumbs={buildBreadcrumbs(view === "dancer" ? "dancerProfile" : "dancerHome")} showGradientBg={false}>
+      <AccountShell testId="account-shell">
+          <h1 className="text-lg font-bold text-[var(--fg)]">{view === "dancer" ? "Your dancer profile" : "Your account"}</h1>
           {view === "resolve" && where === "loading" ? (
             <div className="space-y-3" aria-busy="true" data-testid="account-loading">
-              <Skeleton className="h-24 w-full rounded-xl" />
-              <Skeleton className="h-20 w-full rounded-xl" />
+              <Skeleton className="h-24 w-full rounded-[var(--r-card)]" />
+              <Skeleton className="h-20 w-full rounded-[var(--r-card)]" />
             </div>
           ) : (
             <DancerHome
@@ -80,18 +80,19 @@ export const AccountScreen = ({ view = "resolve" }: { view?: "resolve" | "dancer
               requests={requests.data ?? []}
             />
           )}
-        </div>
-      </div>
+      </AccountShell>
     </GlobalLayout>
   );
 };
 
 const Checking = ({ view }: { view?: "resolve" | "dancer" }) => (
-  <GlobalLayout breadcrumbs={buildBreadcrumbs(view === "dancer" ? "dancerProfile" : "dancerHome")}>
-    <div className="mx-auto w-full max-w-md space-y-3 px-4 pt-3" aria-busy="true" data-testid="account-loading">
-      <Skeleton className="h-24 w-full rounded-xl" />
-      <Skeleton className="h-20 w-full rounded-xl" />
-    </div>
+  <GlobalLayout breadcrumbs={buildBreadcrumbs(view === "dancer" ? "dancerProfile" : "dancerHome")} showGradientBg={false}>
+    <AccountShell>
+      <div className="space-y-3" aria-busy="true" data-testid="account-loading">
+        <Skeleton className="h-24 w-full rounded-[var(--r-card)]" />
+        <Skeleton className="h-20 w-full rounded-[var(--r-card)]" />
+      </div>
+    </AccountShell>
   </GlobalLayout>
 );
 
