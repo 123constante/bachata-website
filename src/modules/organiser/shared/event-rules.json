@@ -1,5 +1,5 @@
 {
-  "$comment": "ONE rule set for admin and Website (plan: How one rule set works). Byte-identical copy lives in bachata-admin-11april; scripts/check-event-rules-mirror.mjs compares them. Data only, no code. Times are HH:MM London wall-clock; an end at or before its start means the next day.",
+  "$comment": "ONE rule set for admin and Website (plan: How one rule set works). Byte-identical copy lives in bachata-admin-11april; scripts/check-event-rules-mirror.mjs compares them. Data only, no code. Times are HH:MM London wall-clock; an end before its start means the next day, an end equal to its start is invalid, and a session with neither time is untimed and valid.",
   "version": 1,
   "time": {
     "rolloverBefore": "08:00",
@@ -8,7 +8,8 @@
     "source": "sessions"
   },
   "formats": ["recurring", "one_off", "course", "festival"],
-  "ownerCreateFormats": ["one_off", "recurring"],
+  "ownerCreateFormats": ["one_off", "recurring", "festival"],
+  "formatOff": { "course": "Not available yet" },
   "preLiveStatuses": ["draft", "rejected", "pending_review"],
   "sessionKinds": {
     "class": { "label": "Class", "storedType": "class", "section": "classes", "level": true, "lessonLengths": true, "lineupLabel": "Teacher" },
@@ -33,21 +34,25 @@
   },
   "cancelReasons": ["Venue closed", "Teacher unavailable", "Bank holiday", "Low signups", "Other"],
   "blockers": {
-    "name": "Name needed",
-    "format": "Pick a type",
-    "venue": "Venue needed",
-    "date": "First date needed",
-    "dateInPast": "Date in the past",
-    "session": "Session needed",
-    "sessionTimes": "Session times invalid",
-    "festivalDay": "Session each day",
-    "flyer": "Flyer needed",
-    "payment": "How to pay needed",
-    "paymentNotAllowed": "Ticket link only"
+    "name": "Add an event name",
+    "format": "Pick how often",
+    "venue": "Pick a venue",
+    "date": "Pick a date",
+    "dateInPast": "Pick a future date",
+    "session": "Add a session",
+    "sessionTimes": "Fix the session times",
+    "festivalDay": "Party hours each night",
+    "flyer": "Add a flyer",
+    "payment": "Add how to pay",
+    "paymentNotAllowed": "Use a ticket link"
+  },
+  "blockerVariants": {
+    "ticketUrl": "Add the ticket link",
+    "festival": { "session": "Party hours each night", "payment": "Add a ticket link", "paymentNotAllowed": "Add a ticket link" }
   },
   "serverCodes": {
-    "date": ["no_session_first_date"],
     "session": ["no_session_first_date"],
+    "date": ["no_session_first_date"],
     "festivalDay": ["no_session_first_date"],
     "dateInPast": ["first_date_past"],
     "sessionTimes": ["bad_session_times"],
@@ -62,8 +67,12 @@
   "seriesLookup": {
     "loading": "Loading",
     "notFoundArchived": "This event was archived",
-    "noAccess": "You don't have access to this event",
-    "gone": "Event not found"
+    "notFoundArchivedLine": "It no longer shows on the calendar. Ask us if you need it back.",
+    "noAccess": "You can\u2019t open this event",
+    "noAccessLine": "It belongs to another organiser page. Ask its owner to add you to their team.",
+    "gone": "We can\u2019t find this event",
+    "goneLine": "The link may be old.",
+    "back": "Back to your events"
   },
   "fixtures": {
     "validSessionPair": [
@@ -87,7 +96,7 @@
     "readiness": [
       {
         "name": "complete weekly",
-        "series": { "status": "draft", "flyer": "flyer.jpg", "name": "Friday Social", "format": "recurring", "venueId": "v1", "payment": ["ticket_link"], "firstDate": { "date": "2026-10-30", "sessions": [{ "kind": "party", "start": "21:00", "end": "02:00" }] }, "today": "2026-10-21" },
+        "series": { "status": "draft", "flyer": "flyer.jpg", "name": "Friday Social", "format": "recurring", "venueId": "v1", "payment": ["ticket_link"], "ticketUrl": "https://tickets.example/friday", "firstDate": { "date": "2026-10-30", "sessions": [{ "kind": "party", "start": "21:00", "end": "02:00" }] }, "today": "2026-10-21" },
         "ready": true,
         "blockers": []
       },
@@ -117,7 +126,7 @@
       },
       {
         "name": "no flyer",
-        "series": { "status": "draft", "flyer": null, "name": "Friday Social", "format": "recurring", "venueId": "v1", "payment": ["ticket_link"], "firstDate": { "date": "2026-10-30", "sessions": [{ "kind": "party", "start": "21:00", "end": "02:00" }] }, "today": "2026-10-21" },
+        "series": { "status": "draft", "flyer": null, "name": "Friday Social", "format": "recurring", "venueId": "v1", "payment": ["ticket_link"], "ticketUrl": "https://tickets.example/friday", "firstDate": { "date": "2026-10-30", "sessions": [{ "kind": "party", "start": "21:00", "end": "02:00" }] }, "today": "2026-10-21" },
         "ready": false,
         "blockers": ["flyer"]
       },
@@ -135,7 +144,7 @@
       },
       {
         "name": "festival with a ticket link",
-        "series": { "status": "draft", "flyer": "flyer.jpg", "name": "Fest", "format": "festival", "venueId": "v1", "payment": ["ticket_link"], "firstDate": { "date": "2026-11-20", "sessions": [{ "kind": "party", "start": "22:00", "end": "04:00" }] }, "today": "2026-10-21" },
+        "series": { "status": "draft", "flyer": "flyer.jpg", "name": "Fest", "format": "festival", "venueId": "v1", "payment": ["ticket_link"], "ticketUrl": "https://tickets.example/friday", "firstDate": { "date": "2026-11-20", "sessions": [{ "kind": "party", "start": "22:00", "end": "04:00" }] }, "today": "2026-10-21" },
         "ready": true,
         "blockers": []
       },
@@ -144,6 +153,24 @@
         "series": { "status": "draft", "flyer": "flyer.jpg", "name": "Tonight", "format": "one_off", "venueId": "v1", "payment": ["free"], "firstDate": { "date": "2026-10-21", "sessions": [{ "kind": "party", "start": "21:00", "end": "02:00" }] }, "today": "2026-10-21" },
         "ready": true,
         "blockers": []
+      },
+      {
+        "name": "live weekly with an untimed first-date session",
+        "series": { "status": "live", "flyer": "flyer.jpg", "name": "Old Friday", "format": "recurring", "venueId": "v1", "payment": ["door"], "firstDate": { "date": "2026-01-02", "sessions": [{ "kind": "party", "start": null, "end": null }] }, "today": "2026-10-21" },
+        "ready": true,
+        "blockers": []
+      },
+      {
+        "name": "ticket link chosen with no URL",
+        "series": { "status": "draft", "flyer": "flyer.jpg", "name": "Friday Social", "format": "recurring", "venueId": "v1", "payment": ["ticket_link"], "ticketUrl": "", "firstDate": { "date": "2026-10-30", "sessions": [{ "kind": "party", "start": "21:00", "end": "02:00" }] }, "today": "2026-10-21" },
+        "ready": false,
+        "blockers": ["payment"]
+      },
+      {
+        "name": "half-filled session time",
+        "series": { "status": "draft", "flyer": "flyer.jpg", "name": "Bad", "format": "one_off", "venueId": "v1", "payment": ["cash"], "firstDate": { "date": "2026-10-25", "sessions": [{ "kind": "class", "start": "19:00", "end": null }] }, "today": "2026-10-21" },
+        "ready": false,
+        "blockers": ["sessionTimes"]
       }
     ]
   }

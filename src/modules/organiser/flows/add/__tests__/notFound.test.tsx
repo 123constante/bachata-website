@@ -64,10 +64,12 @@ describe('Add a date: an id the server does not know', () => {
   it.each([
     ['Which day', path(GONE), routes],
     ['Time', `${path(GONE)}/2026-10-30`, timeRoutes],
-  ])('%s shows Event not found, not Did not load', async (_n, url, r) => {
+  ])('%s shows the v7 not-found words, not Did not load', async (_n, url, r) => {
     serverSaysGone();
     mount(url, r);
-    expect(await screen.findByText('Event not found')).toBeTruthy();
+    expect(await screen.findByText('We can\u2019t find this event')).toBeTruthy();
+    expect(screen.getByText('The link may be old.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Back to your events' })).toBeTruthy();
     expect(screen.queryByText(/Did not load/)).toBeNull();
     expect(screen.queryByRole('button', { name: /Try again/ })).toBeNull();
   });

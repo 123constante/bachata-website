@@ -22,6 +22,7 @@ const complete = (over: Partial<RuleSeries> = {}): RuleSeries => ({
   status: 'draft',
   venueId: 'v1',
   payment: ['ticket_link'],
+  ticketUrl: 'https://tickets.example/x',
   flyer: 'https://x/flyer.jpg',
   firstDate: { date: '2026-10-30', sessions: [{ kind: 'party', start: '21:00', end: '02:00' }] },
   today: '2026-10-21',
@@ -77,12 +78,13 @@ describe('C3-3: flyer and festival days, description stays server-only', () => {
   });
 });
 
+// ER-FIX-W2 (owner decision 1): festival create is ON (AD2); course stays off.
 describe('C3-4: owner create offers only what the server accepts', () => {
   it.each([
     ['one_off', true],
     ['recurring', true],
     ['course', false],
-    ['festival', false],
+    ['festival', true],
     ['', false],
     [null, false],
     ['constructor', false],
@@ -91,7 +93,7 @@ describe('C3-4: owner create offers only what the server accepts', () => {
   });
   it('formats is unchanged (readiness still knows all four)', () => {
     expect(EVENT_RULES.formats).toEqual(['recurring', 'one_off', 'course', 'festival']);
-    expect(EVENT_RULES.ownerCreateFormats).toEqual(['one_off', 'recurring']);
+    expect(EVENT_RULES.ownerCreateFormats).toEqual(['one_off', 'recurring', 'festival']);
   });
 });
 

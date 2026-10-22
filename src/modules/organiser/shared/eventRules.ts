@@ -38,6 +38,8 @@ export interface RuleSeries {
   flyer: string | null;
   venueId: string | null;
   payment: readonly string[];
+  /** default_ticket_url. Before go-live a chosen ticket link needs a real https URL (prototype v7 okTicket); missing reads as empty. */
+  ticketUrl?: string | null;
   /** The earliest date, or null when the series has none. */
   firstDate: RuleDate | null;
   /** Festival only: every programme day; each needs a timed session (server no_session_first_date). */
@@ -88,6 +90,9 @@ export function validSessionPair(
   if (length > cap) return { valid: false, nextDay: false };
   return { valid: true, nextDay: e < s };
 }
+
+/** Owner decision 3: a session with neither time is untimed and VALID (prod holds 223); only a half-filled pair is wrong. */
+export const isUntimedSession = (x: RuleSession): boolean => !x.start?.trim() && !x.end?.trim();
 
 interface Span { start: number; end: number }
 
@@ -174,9 +179,21 @@ export const formatPaymentMethods = (codes: readonly string[]): string =>
 
 // ---- formats ---------------------------------------------------------------
 
-/** Rule 14 AS BUILT: owner create accepts one_off and recurring only; `formats` still lists all four for readiness. */
+/** Rule 14 + owner decision 1: owner create accepts one_off, recurring and festival (AD2); `formats` still lists all four for readiness. */
 export const ownerCanCreate = (format: string | null | undefined): boolean =>
   typeof format === 'string' && rules.ownerCreateFormats.includes(format);
+
+/** The 2-4 word reason a format cannot be created yet ("Not available yet" for a course), or null when it can. */
+export function formatOffReason(format: string): string | null {
+  const off = rules.formatOff as Record<string, string>;
+  return hasOwn(off, format) ? off[format] : null;
+}
+
+// ---- ticket link -----------------------------------------------------------
+
+/** Prototype v7 okTicket: an https URL with a dotted host. */
+export const validTicketUrl = (url: string | null | undefined): boolean =>
+  /^https:\/\/[^\s.]+\.[^\s]{2,}/.test((url ?? '').trim());
 
 // ---- readiness -------------------------------------------------------------
 
@@ -185,7 +202,10 @@ const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 /** Rule 10 + rule 3: everything that stops Publish, each with its 2-4 word reason. */
 export function blockers(series: RuleSeries): Blocker[] {
   const out: Blocker[] = [];
-  const add = (code: BlockerCode) => out.push({ code, reason: rules.blockers[code] });
+  const festival = series.format === 'festival';
+  const variants = rules.blockerVariants.festival as Partial<Record<BlockerCode, string>>;
+  const add = (code: BlockerCode, reason?: string) =>
+    out.push({ code, reason: reason ?? (festival ? variants[code] : undefined) ?? rules.blockers[code] });
   if (!series.name?.trim()) add('name');
   if (!series.format || !(rules.formats as string[]).includes(series.format)) add('format');
   if (!series.venueId) add('venue');
@@ -199,14 +219,16 @@ export function blockers(series: RuleSeries): Blocker[] {
   else {
     if (first.date < series.today && preLive) add('dateInPast');
     if (first.sessions.length === 0) add('session');
-    else if (first.sessions.some((x) => !validSessionPair(x.start, x.end, cap).valid)) add('sessionTimes');
+    else if (first.sessions.some((x) => !isUntimedSession(x) && !validSessionPair(x.start, x.end, cap).valid)) add('sessionTimes');
   }
   const timed = (d: RuleDate) => d.sessions.some((x) => validSessionPair(x.start, x.end, cap).valid);
-  if (series.format === 'festival' && (series.programmeDays ?? []).some((d) => !timed(d))) add('festivalDay');
+  if (festival && (series.programmeDays ?? []).some((d) => !timed(d))) add('festivalDay');
   const allowed = paymentCodes(series.format);
   const chosen = series.payment.filter((c) => hasOwn(rules.payment.codes, c));
   if (chosen.length < rules.payment.atLeast) add('payment');
   else if (!chosen.every((c) => (allowed as string[]).includes(c))) add('paymentNotAllowed');
+  // Pre-live only, like the cap: 51 live series carry a ticket link and the server does not check its URL.
+  else if (preLive && chosen.includes('ticket_link') && !validTicketUrl(series.ticketUrl)) add('payment', rules.blockerVariants.ticketUrl);
   return out;
 }
 
@@ -223,3 +245,20 @@ export function readiness(series: RuleSeries): Readiness {
 export const cancelReasons: readonly string[] = rules.cancelReasons;
 export const festivalDefaultHours = { start: rules.festival.defaultStart, end: rules.festival.defaultEnd } as const;
 export const lookupMessages = rules.seriesLookup;
+
+/** Prototype v7 not-found screen: the title and its one-line next step, for archived / no access / gone. */
+export function notFoundLines(state: 'not-found-archived' | 'no-access' | 'gone' | string): { title: string; line: string } {
+  const m = rules.seriesLookup;
+  if (state === 'not-found-archived') return { title: m.notFoundArchived, line: m.notFoundArchivedLine };
+  if (state === 'no-access') return { title: m.noAccess, line: m.noAccessLine };
+  return { title: m.gone, line: m.goneLine };
+}
+
+/**
+ * The blocker a go-live server code means, so the go-live card and the checklist read ONE set of words.
+ * A code several blockers share (no_session_first_date) takes the first in `serverCodes` order.
+ */
+export function serverCodeBlocker(code: string): BlockerCode | null {
+  for (const [key, list] of Object.entries(rules.serverCodes)) if (list.includes(code)) return key as BlockerCode;
+  return null;
+}
