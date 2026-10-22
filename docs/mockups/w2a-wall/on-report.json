@@ -55,8 +55,8 @@
   "maxNameLines": 2,
   "firstTileTop": 419.171875,
   "faces": {
-   "photo": 14,
-   "initials": 21
+   "photo": 13,
+   "initials": 22
   }
  },
  "dancers-all": {
@@ -115,8 +115,8 @@
   "maxNameLines": 2,
   "firstTileTop": 593.6875,
   "faces": {
-   "photo": 27,
-   "initials": 8
+   "photo": 18,
+   "initials": 17
   }
  },
  "pageErrors": []

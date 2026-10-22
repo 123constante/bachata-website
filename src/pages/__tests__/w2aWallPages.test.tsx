@@ -57,6 +57,7 @@ vi.mock('@/integrations/supabase/client', () => {
 import Dancers from '@/pages/Dancers';
 import DJs from '@/pages/DJs';
 import { flags } from '@/lib/featureFlags';
+import { SEAM, WALL, WALL_FADE } from '@/modules/person-page/wall/tokens';
 
 const setWall = (on: boolean) => { (flags as { peopleWall: boolean }).peopleWall = on; };
 const mount = (el: ReactNode) =>
@@ -184,6 +185,39 @@ describe('flags.peopleWall', () => {
 
   // Kept LAST: under jsdom, mounting /dancers (framer-motion) after a pill click in an earlier test
   // never returns, so the click tests run after every other mount.
+  // Seam fix (owner, 2026-10-22: "soft fade"): with the flag ON the wall's own background fades in
+  // from clear over SEAM.height above the pills and back out at the bottom, so neither the hero nor
+  // the section below meets the warm base at a hard line. No layout box is added.
+  it.each([
+    ['dancers', true], ['djs', true], ['dancers', false], ['djs', false],
+  ] as const)('/%s flag ON=%s: soft seam between hero and pills, from the tokens', async (page, on) => {
+    setWall(on);
+    mount(page === 'dancers' ? <Dancers /> : <DJs />); await wait();
+    const seams = document.querySelectorAll('[data-seam]');
+    if (!on) { expect(seams.length).toBe(0); return; }
+    expect(seams.length).toBe(1);
+    const root = screen.getByTestId('wall-root');
+    expect(seams[0]).toBe(root);
+    expect(root.getAttribute('data-seam')).toBe('soft');
+    expect(before(screen.getByTestId('hero'), root)).toBe(true);
+    expect(root.firstElementChild).toBe(screen.getByTestId('wall-pills'));
+    // jsdom normalises colours, so compare against WALL_FADE applied through the same parser.
+    const want = document.createElement('div');
+    Object.assign(want.style, WALL_FADE);
+    for (const k of ['backgroundImage', 'backgroundSize', 'backgroundPosition', 'backgroundRepeat'] as const) {
+      expect(want.style[k]).not.toBe('');
+      expect(root.style[k]).toBe(want.style[k]);
+    }
+    expect(root.style.backgroundColor).toBe('');
+    expect(WALL_FADE.backgroundImage).toBe(
+      `linear-gradient(to bottom, ${SEAM.clear} 0px, ${SEAM.base} ${SEAM.height}px), ` +
+      `linear-gradient(to top, ${SEAM.clear} 0px, ${SEAM.base} ${SEAM.height}px)`,
+    );
+    expect(SEAM.base).toBe(WALL.page);
+    expect(SEAM.height).toBeGreaterThanOrEqual(48);
+    expect(SEAM.height).toBeLessThanOrEqual(72);
+  });
+
   it.each(['dancers', 'djs'] as const)('/%s ON, teacher pages closed: Teachers pill = coming soon, zero tiles', async (page) => {
     setWall(true);
     mount(page === 'dancers' ? <Dancers /> : <DJs />); await wait();

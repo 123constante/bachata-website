@@ -5,6 +5,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { installJsdomPolyfills } from '../../../../../tests/client/jsdomPolyfills';
 import { DjsWall } from '../lists';
+import { SEAM } from '../tokens';
 import type { PersonBadge } from '@/modules/person-page/badges';
 
 const rgb = (s: string): [number, number, number] => {
@@ -33,7 +34,13 @@ describe('wall contrast on the warm dark base', () => {
         <DjsWall djs={[{ id: 'a', display_name: 'Aa', dj_name: 'Aa', has_upcoming_gig: true, next_gig_date: '2099-10-23' }]} isLoading={false} badges={badges} badgesFailed={false} teacherPagesOpen />
       </MemoryRouter>,
     );
-    const page = getComputedStyle(screen.getByTestId('wall-root')).backgroundColor;
+    // The wall paints SEAM.base through its fade layers (no solid background colour since the seam
+    // fix), so the page colour is that base, proven to be in the rendered gradient.
+    const probe = document.createElement('div');
+    probe.style.backgroundColor = SEAM.base;
+    const page = probe.style.backgroundColor;
+    expect(page).toMatch(/^rgb\(/);
+    expect(screen.getByTestId('wall-root').style.backgroundImage).toContain(page);
     expect(ratio(getComputedStyle(screen.getByTestId('tile-name')).color, page)).toBeGreaterThanOrEqual(4.5);
     const chips = screen.getAllByTestId('role-chip');
     expect(chips).toHaveLength(3);

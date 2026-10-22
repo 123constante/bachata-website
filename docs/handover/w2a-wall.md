@@ -2,6 +2,27 @@
 
 Branch `claude/w2a-wall` (from main at #893). No PR opened (gh not authed); the orchestrator opens it from the body at the bottom.
 
+## Seam fix pass (2026-10-22, ticket dt_38e92fd874e7, brief `W2A-seam-brief.md` 3d95a0c0)
+Owner's defect: with the flag ON the kept hero ended in a HARD line against the wall's warm-brown base. Owner decision (click): SOFT FADE, hero untouched.
+- **Fix (flag-ON path only, no OFF markup touched, no layout box added):** the wall's own background is now `WALL_FADE` (`wall/tokens.ts`): clear -> `#1E1410` over the top 64px and back to clear over the bottom 64px, so the page ground under the hero shows through and warms into the wall, and the wall cools back into whatever follows. Tokens: `SEAM = { clear: 'rgba(30, 20, 16, 0)', base: WALL.page, height: 64 }`. Used by `PeopleWall` and `WallSkeleton` (`data-seam="soft"`). Pill and tile positions are unchanged (first tile 594px /dancers, 419px /djs).
+- **Why from clear, not from the sampled hero colour:** I sampled the hero bottom in the browser (/dancers rgb(20,28,33), /djs rgb(10,8,11)); they differ per page and the /dancers ground is a fixed, animated layer, so any hard-coded start colour would draw a new edge. The sampled values are in the `SEAM` comment and `docs/design/924.md`.
+- **Two gradient layers instead of one with `calc()` stops:** same pixels; jsdom drops a gradient with `calc()` stops, which would have left the unit test unable to see the style.
+- **Bottom seam:** it WAS hard too (warm brown -> /dancers Your Plans rgb(14,18,21), -> /djs ground rgb(10,8,11)); same soft treatment. /djs has no Your Plans; the site's orange footer starts ~54px under the wall there (site-wide, same with the flag OFF; not touched).
+- **Browser measurement** (`docs/mockups/w2a-wall/seam.mjs`, production build, flag ON, PROD reads, pixel column x=4, 48px outside to 72px inside each wall edge; exits 1 on any adjacent-row step >= 6 in any channel):
+
+| Seam | Current head 88777931 (red, exit 1) | This pass 360 / 390 / 430 (exit 0) |
+|---|---|---|
+| /dancers hero -> wall | step 16 at the edge: rgb(20,28,33) -> rgb(30,20,16) | 3 / 2 / 3 |
+| /dancers wall -> Your Plans | 16: rgb(30,20,16) -> rgb(14,18,21) | 1 / 1 / 1 |
+| /djs hero -> wall | 20: rgb(10,8,11) -> rgb(30,20,16) | 1 / 1 / 1 |
+| /djs wall -> footer ground | 20: rgb(30,20,16) -> rgb(10,8,11) | 1 / 1 / 1 |
+
+  Raw output: `docs/mockups/w2a-wall/seam-before-390.txt`, `seam-after-390.txt`.
+- **Tests (table-driven, red first):** `w2aWallPages.test.tsx` "soft seam" x {dancers, djs} x {ON, OFF}: ON = exactly one `[data-seam]` element, it is the wall root, after the hero, its first child is the pills, its background props equal `WALL_FADE` (through the same CSS parser), no solid background colour, gradient built from `SEAM` (height 48-72, base = `WALL.page`); OFF = no `[data-seam]` and the OFF markup snapshots unchanged. Red first: the 2 ON cases failed on the unfixed wall code (19 others passed, OFF snapshots included).
+- **Design record:** `docs/design/924.md` (brief, options, tokens, self-running checks, colour-seam inspection, walk, not verified). One self-check FAILS and predates this pass: filter pills and the Organisers link are 40px tall (< 44px). Not changed (seam-only brief); owner call.
+- **Walk** (390x844, production build, flag ON, prod reads): retook `on-dancers-top`, `on-djs-top`, `on-*-pills` (hero bottom + pills + first tiles), new `on-dancers-wall-to-next.png` / `on-djs-wall-to-next.png` (390x1400, end of wall into the next section), plus the rest of the `on-*` set and `on-report.json` from `shot.mjs`. What I saw at each seam: /dancers hero -> pills: the blue-green ground under the cards warms into brown across the pill row, no line. /djs hero -> pills: near-black into brown, no line. Pills -> tiles: same surface, nothing to see. /dancers wall -> Your Plans: brown cools into the Your Plans ground under the last tile row, no line. /djs wall -> footer: brown cools into near-black, then the orange footer (unchanged, site-wide).
+- **Sandbox note:** this container's `VITE_SUPABASE_URL` points at a NON-prod project (fixture names, `get_public_people_badges_v1` 404, 4 DJs). The walk and measurements above were rebuilt against prod (`stsdtacfauprzrdebmzg`, public anon key from the Supabase connector, not committed): 94 dancers, 40 DJs, all pills, matching the layout pass.
+
 ## Layout pass (2026-10-21, ticket dt_f3639454d52e, brief `W2A-layout-brief.md` ba6f67c8)
 Owner decisions (binding): keep today's heroes, no wall header, no new CTA section. With `peopleWall` ON the page order is now exactly:
 1. **Today's hero, untouched.** /dancers: dancer emoji, big "Meet Dancers", faint line art and its own cards (Find Practice Partners, Create a Profile, Book a Photoshoot). /djs: headphones emoji, "Bachata DJs", subtitle. Same JSX as flag OFF (`DJs.tsx` hoists the hero object into one `hero` const used by both paths; `Dancers.tsx` no longer hides the hero or the cards).

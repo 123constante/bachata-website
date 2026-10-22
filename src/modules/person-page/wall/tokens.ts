@@ -36,6 +36,33 @@ export const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-v
 /** Dark pill with gold text and a gold edge: holds on a gold tile and on a photo. */
 export const DATE_CHIP: ChipTokens = { bg: '#1E1410', text: '#FFD479', border: '#FFD479' };
 
+/**
+ * The soft seams above and below the wall (owner, 2026-10-22: "soft fade", no hard line).
+ * The page ground shows through the fade, so it starts from WALL.page at alpha 0, not from a
+ * hard-coded hero colour: the ground differs per page and the /dancers one is animated.
+ * Measured at 390x844 (prod build): hero bottom /dancers rgb(20,28,33), /djs rgb(10,8,11);
+ * below the wall /dancers (Your Plans) rgb(14,18,21), /djs (footer) rgb(10,8,11).
+ */
+export const SEAM = {
+  clear: 'rgba(30, 20, 16, 0)',
+  base: WALL.page,
+  height: 64,
+} as const;
+
+/**
+ * The wall's background (style props): two layers, each solid except its outer SEAM.height, which
+ * fades clear -> base at the top and base -> clear at the bottom. Each covers 51% so they overlap
+ * (no 1px gap at an odd height). Two layers rather than one gradient with calc() stops: same pixels.
+ */
+export const WALL_FADE = {
+  backgroundImage:
+    `linear-gradient(to bottom, ${SEAM.clear} 0px, ${SEAM.base} ${SEAM.height}px), ` +
+    `linear-gradient(to top, ${SEAM.clear} 0px, ${SEAM.base} ${SEAM.height}px)`,
+  backgroundSize: '100% 51%',
+  backgroundPosition: 'top, bottom',
+  backgroundRepeat: 'no-repeat',
+} as const;
+
 /** Explicit px, not rem: the public site sets html font-size to ~13.5px on phones. */
 export const SIZE = {
   columns: 4,

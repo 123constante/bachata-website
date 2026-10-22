@@ -1,7 +1,7 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { filterWall, type WallFilter, type WallList, type WallPerson } from './model';
-import { FOCUS_RING, SIZE, WALL } from './tokens';
+import { FOCUS_RING, SIZE, WALL, WALL_FADE } from './tokens';
 import { WallTile } from './WallTile';
 
 type Pill = { k: WallFilter; label: string };
@@ -42,7 +42,7 @@ const pillStyle = (on: boolean): CSSProperties => ({
 
 export function WallSkeleton() {
   return (
-    <div style={{ background: WALL.page }} className="px-3 pb-6 pt-3" data-testid="wall-skeleton" aria-busy="true">
+    <div style={WALL_FADE} data-seam="soft" className="px-3 pb-6 pt-3" data-testid="wall-skeleton" aria-busy="true">
       <div className="grid" style={{ gridTemplateColumns: `repeat(${SIZE.columns}, minmax(0, 1fr))`, gap: SIZE.gap }}>
         {Array.from({ length: 12 }).map((_, i) => (
           <div key={i} style={{ aspectRatio: '1 / 1', borderRadius: SIZE.tileRadius, background: WALL.card }} />
@@ -78,7 +78,7 @@ export function PeopleWall({
   const teachersSoon = filter === 'teacher' && !showTeachers;
   const browse = pills.filter((p) => p.k === 'dj' || p.k === 'dancer').reverse();
   return (
-    <div style={{ background: WALL.page, color: WALL.text }} className="px-3 pb-6 pt-3" data-testid="wall-root" data-list={list}>
+    <div style={{ ...WALL_FADE, color: WALL.text }} data-seam="soft" className="px-3 pb-6 pt-3" data-testid="wall-root" data-list={list}>
       <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="Show" data-testid="wall-pills">
         {pills.map((f) => {
           const on = f.k === filter;
