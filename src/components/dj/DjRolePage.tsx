@@ -12,6 +12,10 @@ import { datesView, gigRows, kicker, listenLinks, nameSize, noDates, seeMoreLabe
 // Order (owner): hero, upcoming dates (max 3 + "See N more dates"), About, Photos, Listen & book.
 // Explicit px throughout: the phone html font-size is ~13.5px, so rem sizes render small.
 
+/**
+ * Every RPC-derived prop (photoUrl, nationalityCode, cityName, bio, gallery, links, faq, pricing) arrives through
+ * djRoleFields: trimmed text or null, never another shape. The page calls no string method on them.
+ */
 export type DjRolePageProps = {
   id: string | undefined;
   slug: string | null | undefined;
@@ -175,7 +179,7 @@ export function DjRolePage(p: DjRolePageProps) {
         <Label>Upcoming dates</Label>
         <Dates upcoming={p.upcoming} loading={p.datesLoading} failed={p.datesFailed} instagram={instagram} />
 
-        {p.bio?.trim() ? (
+        {p.bio ? (
           <>
             <Label>About</Label>
             <div className="p-3" style={CARD}>
@@ -217,14 +221,14 @@ export function DjRolePage(p: DjRolePageProps) {
           </>
         ) : null}
 
-        {p.pricing?.trim() ? (
+        {p.pricing ? (
           <>
             <Label>Pricing</Label>
             <div className="p-3" style={CARD}><p className="m-0 whitespace-pre-line" style={{ fontSize: 15, lineHeight: '22px' }}>{p.pricing}</p></div>
           </>
         ) : null}
 
-        {p.faq?.trim() ? (
+        {p.faq ? (
           <>
             <Label>FAQ</Label>
             <div className="p-3" style={CARD}><p className="m-0 whitespace-pre-line" style={{ fontSize: 15, lineHeight: '22px' }}>{p.faq}</p></div>

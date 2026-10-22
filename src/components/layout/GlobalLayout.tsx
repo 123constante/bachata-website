@@ -8,7 +8,7 @@ import { useEmbeddedProfile } from '@/lib/embeddedProfile';
 import PageHero, { type HeroWidget } from '@/components/PageHero';
 import PageBreadcrumb, { type BreadcrumbItemType } from '@/components/PageBreadcrumb';
 import { FloatingElements } from '@/components/FloatingElements';
-import { PAGE_GROUNDS, isGroundPalette } from '@/components/layout/pageGrounds';
+import { PAGE_GROUNDS, isGroundPalette, type GroundPalette } from '@/components/layout/pageGrounds';
 
 interface HeroProps {
   // ReactNode so detail pages can render a profile avatar in place of an
@@ -50,7 +50,7 @@ export interface GlobalLayoutProps {
   // accents. 'default' is the static calm-graphite ground (#0E1215) and
   // 'dancer' / 'dj' the role grounds: no animation, no floating icons, and
   // <html>/<body> painted so no band shows above the footer. See pageGrounds.ts.
-  gradientPalette?: 'default' | 'bento' | 'velvet' | 'brass' | 'organiser' | 'dancer' | 'dj';
+  gradientPalette?: GroundPalette | 'bento' | 'velvet' | 'brass' | 'organiser';
   floatingCount?: number;
   heroAfter?: ReactNode;
   children: ReactNode;

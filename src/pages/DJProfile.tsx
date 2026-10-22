@@ -15,6 +15,7 @@ import { resolvePublicName } from '@/lib/publicName';
 import { AlsoRoles } from '@/modules/person-page/AlsoRoles';
 import { flags } from '@/lib/featureFlags';
 import { DjRolePage } from '@/components/dj/DjRolePage';
+import { djRoleFields } from '@/components/dj/djRoleModel';
 import { HUB, WALL, WALL_FADE } from '@/modules/person-page/wall/tokens';
 import { SHARE_MESSAGES, shareDancerPage, type ShareOutcome } from '@/modules/dancer-app/public-page/model';
 import { splitInstagramWebsite } from '@/components/dj/djContacts';
@@ -54,6 +55,8 @@ type DJRow = {
   soundcloud: string | null;
   mixcloud: string | null;
   pricing: string | null;
+  // Prod 2026-10-22: faq is `[]` for 21 of 40 DJs, not a string. The W2-C page reads every field through
+  // djRoleFields; this type stays as today's page reads it.
   faq: string | null;
   gallery_urls: string[] | null;
   languages: string[] | null;
@@ -203,7 +206,7 @@ const DJProfile = () => {
   if (isLoading && flags.personHub && !embedded) {
     // W2-C: the placeholder paints the warm ground the page arrives on (no dark-to-warm flash).
     return (
-      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false}>
+      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false} gradientPalette="wall">
         <div style={{ ...WALL_FADE, minHeight: HUB.groundMinHeight }} className="px-3 pt-2">
           <div className="mx-auto w-full max-w-xl space-y-3">
             <Skeleton className="h-11 w-48 rounded-[12px]" style={{ background: WALL.card }} />
@@ -246,15 +249,6 @@ const DJProfile = () => {
     );
   }
 
-  const genres = Array.isArray(dj.genres) ? dj.genres.filter(Boolean) : [];
-  const gallery = Array.isArray(dj.gallery_urls) ? dj.gallery_urls.filter(Boolean) : [];
-  const photoUrl = firstPhoto(dj.photo_url);
-  const totalGigs = (appearances ?? []).filter((a) => a.event_id).length;
-
-  const { instagram: igLink, website: webLink } = splitInstagramWebsite(dj.instagram, dj.website);
-  const hasContact = !!(igLink || webLink || dj.soundcloud || dj.mixcloud || dj.facebook || dj.phone);
-  const hasListen = !!(dj.soundcloud || dj.mixcloud);
-
   // showSubheader={false} drops PageBreadcrumb, which is what normally emits the
   // BreadcrumbList JSON-LD, so emit it here (same canonical origin). Embedded as a
   // /people/:id tab, the person page owns the head and the breadcrumbs.
@@ -266,8 +260,13 @@ const DJProfile = () => {
   // W2-C (flags.personHub ON): the D-C page on the hub's warm ground, with the Back row + role
   // switcher. Flag OFF, and in a /people/:id tab, the page below is unchanged.
   if (flags.personHub && !embedded) {
+    // Every field through ONE boundary (djRoleFields): the RPC hands back arrays where the type says
+    // string (faq), so this page never reads `dj.*` text raw. It sits above today's reads, which assume strings.
+    const f = djRoleFields(dj as unknown as Record<string, unknown>);
+    // The warm `wall` ground under the page too: its bottom fade otherwise lands on the site's graphite
+    // default (measured: rgb(30,20,16) -> rgb(14,18,21) below Share, docs/design/w2c-build.md).
     return (
-      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false}>
+      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false} gradientPalette="wall">
         {breadcrumbJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd }} />
         ) : null}
@@ -275,23 +274,32 @@ const DJProfile = () => {
           id={id}
           slug={resolved.slug}
           name={displayName}
-          photoUrl={photoUrl}
-          nationalityCode={dj.nationality_code}
-          cityName={dj.city_name}
-          bio={dj.bio}
+          photoUrl={f.photoUrl}
+          nationalityCode={f.nationalityCode}
+          cityName={f.cityName}
+          bio={f.bio}
           isLive={isLive}
           upcoming={upcoming}
           datesLoading={!appearancesFetched}
           datesFailed={appearancesFailed}
-          gallery={gallery}
-          links={{ soundcloud: dj.soundcloud, mixcloud: dj.mixcloud, instagram: igLink, website: webLink, facebook: dj.facebook }}
-          faq={dj.faq}
-          pricing={dj.pricing}
+          gallery={f.gallery}
+          links={f.links}
+          faq={f.faq}
+          pricing={f.pricing}
           share={<DjShare title={`${displayName} on Bachata Calendar`} path={sharePath} />}
         />
       </GlobalLayout>
     );
   }
+
+  const genres = Array.isArray(dj.genres) ? dj.genres.filter(Boolean) : [];
+  const gallery = Array.isArray(dj.gallery_urls) ? dj.gallery_urls.filter(Boolean) : [];
+  const photoUrl = firstPhoto(dj.photo_url);
+  const totalGigs = (appearances ?? []).filter((a) => a.event_id).length;
+
+  const { instagram: igLink, website: webLink } = splitInstagramWebsite(dj.instagram, dj.website);
+  const hasContact = !!(igLink || webLink || dj.soundcloud || dj.mixcloud || dj.facebook || dj.phone);
+  const hasListen = !!(dj.soundcloud || dj.mixcloud);
 
   return (
     <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false} gradientPalette="dj">

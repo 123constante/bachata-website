@@ -1,7 +1,45 @@
 // W2-C DJ page, owner pick D-C "Vinyl kept, centred" (behind flags.personHub). Pure rules, so the
 // table-driven tests cover every shape: the name size steps, the dates shown first, the empty state.
+import { splitInstagramWebsite } from './djContacts';
 import { instagramUrl, normalizeUrl, parseDateParts } from './djFormat';
 import type { DjGig } from './DjTiles';
+
+/**
+ * A text field as the RPC really returns it, made safe to show: string -> trimmed (blank = null);
+ * array of strings -> one per line (empty = null); anything else -> null. Never throws. Prod 2026-10-22:
+ * get_public_dj_v1 `faq` is an ARRAY for 21 of 40 DJs (all `[]`), which crashed a `.trim()`.
+ */
+export function djText(v: unknown): string | null {
+  if (typeof v === 'string') return v.trim() || null;
+  if (Array.isArray(v)) return v.map((x) => (typeof x === 'string' ? x.trim() : '')).filter(Boolean).join('\n') || null;
+  return null;
+}
+
+/** A link or code field: the first non-blank string (an array of links is never joined into one href). */
+export function djFirst(v: unknown): string | null {
+  return (Array.isArray(v) ? v : [v]).map((x) => (typeof x === 'string' ? x.trim() : '')).find(Boolean) ?? null;
+}
+
+/** Every field the W2-C page reads from the get_public_dj_v1 row, through djText / djFirst: the ONE boundary. */
+export function djRoleFields(row: Record<string, unknown>) {
+  const { instagram, website } = splitInstagramWebsite(djFirst(row.instagram), djFirst(row.website));
+  return {
+    bio: djText(row.bio),
+    faq: djText(row.faq),
+    pricing: djText(row.pricing),
+    cityName: djText(row.city_name),
+    nationalityCode: djFirst(row.nationality_code),
+    photoUrl: djFirst(row.photo_url),
+    gallery: Array.isArray(row.gallery_urls) ? row.gallery_urls.map(djFirst).filter((u): u is string => !!u) : [],
+    links: {
+      soundcloud: djFirst(row.soundcloud),
+      mixcloud: djFirst(row.mixcloud),
+      instagram,
+      website,
+      facebook: djFirst(row.facebook),
+    },
+  };
+}
 
 /** Upcoming dates shown before "See N more dates". */
 export const DATES_SHOWN = 3;
@@ -30,9 +68,10 @@ const CLOCK = /^\d{4}-\d{2}-\d{2}[T ](\d{2}):(\d{2})/;
  * dateKey). Midnight on the dot is a date with no time.
  */
 export function gigWhen(iso: string | null): { day: string; mon: string; time: string | null } | null {
-  const d = parseDateParts(iso?.trim() ?? null);
-  if (!d) return null;
-  const t = CLOCK.exec(iso!.trim());
+  const s = djText(iso);
+  const d = parseDateParts(s);
+  if (!s || !d) return null;
+  const t = CLOCK.exec(s);
   return { day: d.day, mon: d.mon, time: t && !(t[1] === '00' && t[2] === '00') ? `${t[1]}:${t[2]}` : null };
 }
 
@@ -40,8 +79,8 @@ export function gigWhen(iso: string | null): { day: string; mon: string; time: s
 export function gigRows(gigs: readonly DjGig[]): GigRow[] {
   return gigs.map((g, i) => {
     const w = gigWhen(g.startTime);
-    const sub = [g.location?.trim() || null, w?.time ?? null].filter(Boolean).join(' \u00b7 ');
-    return { eventId: g.eventId, name: g.name, day: w?.day ?? '-', mon: w?.mon ?? '', sub: sub || null, next: i === 0 };
+    const sub = [djText(g.location), w?.time ?? null].filter(Boolean).join(' \u00b7 ');
+    return { eventId: g.eventId, name: djText(g.name) ?? 'Event', day: w?.day ?? '-', mon: w?.mon ?? '', sub: sub || null, next: i === 0 };
   });
 }
 
