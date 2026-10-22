@@ -13,7 +13,7 @@ no change to `AUTH_FUNNEL_STEPS` / `AUTH_FUNNEL_OUTCOMES` or the contract fixtur
 | `callback` `timeout` | `navigateToSignInFallback("timeout")` | the 15 s timer |
 | `callback` `error` | `navigateToSignInFallback` for expired / manual / invalid | the 9 s no-session check |
 | `landing` `ok` | `AuthCallback` `land()` and the account-restore redirect | where the callback finally navigates; no `S-...` ids (the code has no named landing states) |
-| `onboarding_end` `ok` | `src/modules/dancer-app/screens/onboarding/OnboardingScreen.tsx` | the "You're in" or "Nice work" end card is first shown, once per mount |
+| `onboarding_end` `ok` | `src/modules/dancer-app/screens/onboarding/OnboardingScreen.tsx` | the "You're in" or "Nice work" end card is first shown, once per mount. Loaded with a dynamic `import()`: a static one made `trackAuthStep` its own chunk and put `/app/*` one chunk over its ratchet (bundle-budget). Pinning it into `lib-event-rules` was tried and put /city/:slug over its KB budget. |
 
 `callback` and `landing` are guarded by a ref (survives the StrictMode double effect), so each is sent at most once per page load.
 No call carries an e-mail, id or name.

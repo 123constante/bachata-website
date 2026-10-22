@@ -18,7 +18,6 @@ import { LINK_GHOST, LINK_PRIMARY } from '../blocks';
 import { GhostButton, Meter, PrimaryButton, Question, Tag, WRAP } from './ui';
 import { resetDancerGate, useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { daConfetti } from '../../shell/confetti';
-import { trackAuthStep } from '@/lib/trackAuthStep';
 
 const nameOf = (p: MyDancerEdit) => p.first_name?.trim() || 'there';
 
@@ -80,7 +79,8 @@ const OnboardingCards = () => {
   useEffect(() => {
     if ((stage === 'in' || stage === 'nice') && !finishRecorded.current) {
       finishRecorded.current = true;
-      trackAuthStep({ step: 'onboarding_end', outcome: 'ok' });
+      // Loaded on demand: a static import made it a chunk of its own in /app/*'s first load (bundle-budget).
+      void import('@/lib/trackAuthStep').then((m) => m.trackAuthStep({ step: 'onboarding_end', outcome: 'ok' }), () => undefined);
     }
   }, [stage]);
   // D121: confetti on "You're in" (a no-op under reduced motion).

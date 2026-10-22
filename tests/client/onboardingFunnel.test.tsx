@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Auth funnel counter: onboarding_end ok is recorded once when the setup reaches its end card. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 
 const track = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/trackAuthStep', () => ({ trackAuthStep: track }));
@@ -20,7 +20,7 @@ describe('onboarding_end', () => {
   it('records ok once on the end card, and not again when moving between end cards', async () => {
     renderInShell({ path: '/app/welcome', backend: { shape: 'fourFieldComplete' } });
     await screen.findByTestId('onboarding-in-card');
-    expect(track.mock.calls).toEqual([[{ step: 'onboarding_end', outcome: 'ok' }]]);
+    await waitFor(() => expect(track.mock.calls).toEqual([[{ step: 'onboarding_end', outcome: 'ok' }]]));
     const q = (await screen.findAllByText('Two quick questions')).map((n) => n.closest('button')).find(Boolean);
     fireEvent.click(q as HTMLElement);
     for (let i = 0; i < 2; i++) {
