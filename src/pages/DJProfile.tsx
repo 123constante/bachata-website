@@ -13,6 +13,9 @@ import { useProfileProgramAppearances } from '@/hooks/useProfileProgramAppearanc
 import { londonTodayKey } from '@/lib/londonDate';
 import { resolvePublicName } from '@/lib/publicName';
 import { AlsoRoles } from '@/modules/person-page/AlsoRoles';
+import { flags } from '@/lib/featureFlags';
+import { DjRolePage } from '@/components/dj/DjRolePage';
+import { HUB, WALL, WALL_FADE } from '@/modules/person-page/wall/tokens';
 import { SHARE_MESSAGES, shareDancerPage, type ShareOutcome } from '@/modules/dancer-app/public-page/model';
 import { splitInstagramWebsite } from '@/components/dj/djContacts';
 import { djInkTheme, useDjPageFonts } from '@/components/dj/djPageTheme';
@@ -146,7 +149,7 @@ const DJProfile = () => {
   // first client render are identical, then it fetches client-side.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const { data: appearances } = useProfileProgramAppearances('dj', mounted ? id : undefined, 1000);
+  const { data: appearances, isFetched: appearancesFetched, isError: appearancesFailed } = useProfileProgramAppearances('dj', mounted ? id : undefined, 1000);
 
   // `dj.display_name` is NOT trustworthy as a name: get_public_dj_v1 builds it
   // as COALESCE(dj_name, first+surname, dp.id::text), so for a profile whose
@@ -197,6 +200,21 @@ const DJProfile = () => {
     return { upcoming: up, past: pastGigs, isLive: live };
   }, [appearances]);
 
+  if (isLoading && flags.personHub && !embedded) {
+    // W2-C: the placeholder paints the warm ground the page arrives on (no dark-to-warm flash).
+    return (
+      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false}>
+        <div style={{ ...WALL_FADE, minHeight: HUB.groundMinHeight }} className="px-3 pt-2">
+          <div className="mx-auto w-full max-w-xl space-y-3">
+            <Skeleton className="h-11 w-48 rounded-[12px]" style={{ background: WALL.card }} />
+            <Skeleton className="h-72 w-full rounded-[24px]" style={{ background: WALL.card }} />
+            <Skeleton className="h-40 w-full rounded-[14px]" style={{ background: WALL.card }} />
+          </div>
+        </div>
+      </GlobalLayout>
+    );
+  }
+
   if (isLoading) {
     return (
       <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" gradientPalette="dj">
@@ -244,6 +262,36 @@ const DJProfile = () => {
   const breadcrumbJsonLd = embedded
     ? null
     : renderBreadcrumbListJsonLd({ crumbs: djBreadcrumbs, origin: SITE_ORIGIN, currentUrl: SITE_ORIGIN + sharePath });
+
+  // W2-C (flags.personHub ON): the D-C page on the hub's warm ground, with the Back row + role
+  // switcher. Flag OFF, and in a /people/:id tab, the page below is unchanged.
+  if (flags.personHub && !embedded) {
+    return (
+      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false}>
+        {breadcrumbJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd }} />
+        ) : null}
+        <DjRolePage
+          id={id}
+          slug={resolved.slug}
+          name={displayName}
+          photoUrl={photoUrl}
+          nationalityCode={dj.nationality_code}
+          cityName={dj.city_name}
+          bio={dj.bio}
+          isLive={isLive}
+          upcoming={upcoming}
+          datesLoading={!appearancesFetched}
+          datesFailed={appearancesFailed}
+          gallery={gallery}
+          links={{ soundcloud: dj.soundcloud, mixcloud: dj.mixcloud, instagram: igLink, website: webLink, facebook: dj.facebook }}
+          faq={dj.faq}
+          pricing={dj.pricing}
+          share={<DjShare title={`${displayName} on Bachata Calendar`} path={sharePath} />}
+        />
+      </GlobalLayout>
+    );
+  }
 
   return (
     <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false} gradientPalette="dj">
