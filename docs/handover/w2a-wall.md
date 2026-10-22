@@ -23,6 +23,10 @@ Owner's defect: with the flag ON the kept hero ended in a HARD line against the 
 - **Walk** (390x844, production build, flag ON, prod reads): retook `on-dancers-top`, `on-djs-top`, `on-*-pills` (hero bottom + pills + first tiles), new `on-dancers-wall-to-next.png` / `on-djs-wall-to-next.png` (390x1400, end of wall into the next section), plus the rest of the `on-*` set and `on-report.json` from `shot.mjs`. What I saw at each seam: /dancers hero -> pills: the blue-green ground under the cards warms into brown across the pill row, no line. /djs hero -> pills: near-black into brown, no line. Pills -> tiles: same surface, nothing to see. /dancers wall -> Your Plans: brown cools into the Your Plans ground under the last tile row, no line. /djs wall -> footer: brown cools into near-black, then the orange footer (unchanged, site-wide).
 - **Sandbox note:** this container's `VITE_SUPABASE_URL` points at a NON-prod project (fixture names, `get_public_people_badges_v1` 404, 4 DJs). The walk and measurements above were rebuilt against prod (`stsdtacfauprzrdebmzg`, public anon key from the Supabase connector, not committed): 94 dancers, 40 DJs, all pills, matching the layout pass.
 
+- **Review round (one, `/code-review` medium on the seam commit; 9 findings):** fixed 7: `SEAM.clear` is now derived from `WALL.page` (was a copied literal; test pins it); `WALL_FADE.minHeight` = 2 x SEAM.height so a short wall still reaches the solid base; the contrast test had been silently weakened by the change (it read the root's `backgroundColor`, now empty) and now uses the painted base, proven present in the rendered gradient, PLUS checks pill and name text against the three measured fade-zone grounds; seam.mjs exits 2 if the viewport cuts its window, and falls back to the default Chromium; the copied gradient formula assertion was dropped; the page test waits for the wall root (skeleton timing); the "Kept LAST" comment is back above the click tests. Not fixed, noted: the /dancers animated ground was sampled at one moment (the fade starts from clear and every measured ground keeps >= 14.8:1); seam.mjs is a walk script, not a CI gate. Mutant after the fixes: fade removed from the wall root -> 3 tests RED, restored. Re-measured after the fixes: identical numbers.
+- **Verified (this pass):** the soft seam at both edges of the wall on /dancers and /djs, flag ON, production build, prod reads, 360/390/430, by pixel measurement and by eye in the screenshots; OFF markup snapshots unchanged; layout unchanged (first tile 594 / 419px, pills 497 / 322px, scrollWidth 390, 0 clipped names, 0 page errors).
+- **Not verified (this pass):** a physical phone; landscape / desktop; the animated /dancers ground across its whole cycle; real photo crops (photo host blocked); doc-weight and Lighthouse (need the Vercel preview).
+
 ## Layout pass (2026-10-21, ticket dt_f3639454d52e, brief `W2A-layout-brief.md` ba6f67c8)
 Owner decisions (binding): keep today's heroes, no wall header, no new CTA section. With `peopleWall` ON the page order is now exactly:
 1. **Today's hero, untouched.** /dancers: dancer emoji, big "Meet Dancers", faint line art and its own cards (Find Practice Partners, Create a Profile, Book a Photoshoot). /djs: headphones emoji, "Bachata DJs", subtitle. Same JSX as flag OFF (`DJs.tsx` hoists the hero object into one `hero` const used by both paths; `Dancers.tsx` no longer hides the hero or the cards).
@@ -88,7 +92,24 @@ Chips: `roleTagsFor` (badges.ts: ROLE_ORDER, ROLE_LABEL) so labels are the FULL 
 Layout pass re-read: 182 active dancer profiles, 115 with a photo, 20 with a nationality. Walk: /djs 40 tiles, /dancers 94.
 181 active dancer profiles (`is_active` null or true); 114 with a photo; 19 with a nationality. `list_public_djs_v1(null,200)`: 40 DJs, 17 with `has_upcoming_gig`. Walk against the live reads: /djs 40 tiles; /dancers 93 dancing-role tiles (13 with a photo URL that loads a face attempt, 80 initials because the media host is unreachable here).
 
-## CI: every job step run locally (layout pass; merged origin/main 811d6eb; command, exit)
+## CI: every job step run locally (seam fix pass, head before the final docs commit; command, exit)
+| Job / step | Command | Exit |
+|---|---|---|
+| architecture-guard: integrity, legacy tables, legacy program RPCs, runtime architecture | `bin/check-integrity.sh`, `check:legacy-tables`, `check:legacy-program-rpcs`, `lint:architecture` | 0 / 0 / 0 / 0 |
+| image audit strict, image widths (+ self-test) | `AUDIT_STRICT=1 npm run check:images`, `check:image-widths(:self-test)` | 0 / 0 / 0 |
+| plan-hygiene canary, workflow-artifact-policy (+ self-test), mojibake canary + grep, entry point (+ self-test) | as named | 0 x 7 |
+| unit London | `TZ=Europe/London npm run test:unit:offline` (2 workers; the default pool OOM-restarted this container once) | 1: **5 failed / 11569 passed, all 5 in `tests/integrityCouldNotRun.test.ts`**, the same 5 that fail on clean main 811d6eb (layout pass checked it in a main worktree; still failing here with `bin/*.sh` executable) |
+| unit timing / New_York / Sydney | `test:unit:timing`, the CI tz list under each TZ | 0 / 0 / 0 |
+| dancer-area-isolation (+ self-test) | `check:dancer-area-isolation` | 0 / 0 (a first red was a stale local `origin/main`; after `git fetch origin main` the merge-base is 811d6eb and it passes) |
+| perf-budget: self-tests x3, build, bundle budget, first-load requests, chunk cycles | as named | 0 x 7 |
+| migration authority | `node scripts/check-migration-stamps.mjs` | 0 |
+| lint (whole chain) | `npm run lint` (with `chmod +x bin/*.sh`, as the CI job does) | 0 |
+| e2e-smoke | `npm run test:e2e` | full run alongside the unit suite: 8 failed / 150 passed (account settings, organiser, dancer-app specs, none touch /dancers or /djs); the 8 re-run alone: **8 passed** (load, not this PR) |
+| phone-qa phone suite 390x844 + 360x640 | `playwright.phone.config.ts` | full run: 1 failed / 271 passed (organiser contact sheet); that spec re-run alone: **12 passed** |
+| phone-qa build-smoke | `npm run build` + `playwright.build.config.ts` | 0 (66 passed) |
+| Not runnable here | `check:doc-weight`, `check:lighthouse` (need `GITHUB_REPOSITORY` + a Vercel preview), `check-ci-budget` (needs `CI_BUDGET_GITHUB_TOKEN`), live-DB contract suites, PR body checkers (`check-pr-phone-qa`, `check-pr-real-data-verified`, run on the PR) | - |
+
+## CI: layout pass (kept for the record)
 Full run at 20e593c (layout code + merge), then the two fixes it found re-checked at the final head 2eb3da2.
 | Job / step | Command | Exit |
 |---|---|---|
@@ -133,15 +154,17 @@ NOT verified: REAL PHOTO CROPS. `media.bachatacalendar.co.uk` is refused by the 
 ## PR body (ready to paste)
 ```
 ## Summary
-Face wall on /djs and /dancers behind a new flag `peopleWall` (VITE_ENABLE_PEOPLE_WALL, default OFF). Layout pass (owner decisions 2026-10-21): with the flag ON each page keeps TODAY's hero exactly (on /dancers with its own cards), then filter pills (All, Dancers, DJs, Teachers, and an Organisers link to /organisers), then the four-column face wall, then the rest of the page as today. The wall's own header and the Join row are gone. Teachers pill: "Teachers are coming soon" with Browse DJs / Browse dancers while teacher pages are closed, a normal filter once they open. With the flag ON the /dancers hero cards open real routes (Create a Profile -> /auth?mode=signup&userType=dancer, Book a Photoshoot -> /videographers). No new reads. Flag OFF = pages unchanged (OFF markup snapshot taken from main). Details: docs/handover/w2a-wall.md and docs/handover/w2a-wall-review.md.
+Face wall on /djs and /dancers behind the flag `peopleWall` (VITE_ENABLE_PEOPLE_WALL, default OFF). With the flag ON each page keeps TODAY's hero exactly (on /dancers with its own cards), then filter pills (All, Dancers, DJs, Teachers, and an Organisers link to /organisers), then the four-column face wall, then the rest of the page as today. Teachers pill: "Teachers are coming soon" with Browse DJs / Browse dancers while teacher pages are closed. With the flag ON the /dancers hero cards open real routes (/auth?mode=signup&userType=dancer, /videographers). No new reads. Flag OFF = pages unchanged (OFF markup snapshot taken from main).
+
+Seam fix (owner 2026-10-22, "soft fade"): the hero no longer meets the wall's warm brown at a hard line. The wall's background fades in from clear over 64px at the top and back out over 64px at the bottom (tokens `SEAM` / `WALL_FADE` in wall/tokens.ts), so the page ground under the hero warms into the wall and the wall cools into Your Plans (/dancers) or the page ground (/djs). Hero untouched, no layout change. Measured at 360/390/430: biggest colour step between adjacent pixel rows went from 16-20 to 1-3. Design record: docs/design/924.md. Details: docs/handover/w2a-wall.md.
 
 ## Phone QA
-- Sizes checked: 390x844 production build with flag ON and OFF against prod reads; phone suite at 390x844 and 360x640 (272 passed).
-- Walked: /dancers and /djs top (hero + pills), pills, Teachers tapped (coming soon, 0 tiles), Organisers pill (href /organisers, an anchor), a filter applied, scrolled middle, no-photo / 3-role / long-name tiles, flag-OFF pages; scrollWidth 390, 4 columns, 0 clipped names, max 2 name lines, first tile at 594px (/dancers) and 419px (/djs), 0 page errors.
-- Not verified: real photo crops (cannot be verified in the sandbox), a physical phone, 360x640 by hand.
+- Sizes checked: 390x844 production build, flag ON, prod reads (walk + seam measurement); seam also measured at 360 and 430 wide; phone suite at 390x844 and 360x640.
+- Walked: /dancers and /djs top (hero + pills + first tiles), pills, end of wall into Your Plans (/dancers) and into the footer (/djs), Teachers tapped, a filter applied, middle of the wall; no line at either seam, scrollWidth 390, 0 clipped names, 0 page errors.
+- Not verified: a physical phone, real photo crops (photo host blocked in the sandbox), landscape / desktop.
 
 ## Verified on real data
-- Shapes surveyed: (read-only, counts) 182 active dancer profiles, 115 with a photo, 20 with a nationality; walk showed /djs 40 tiles and /dancers 94.
-- Checks run: table-driven wall + page tests (24 new, red first), one mutant red (Teachers filtering while pages closed), flag-OFF snapshot from a main worktree, every CI job step in the handover table, production-build walk at 390x844 with prod reads.
-- NOT verified: real photos, physical phone, signed-in tap on Create a Profile, seo/doc-weight/Lighthouse (need a preview URL), live-DB contract suites; 5 integrityCouldNotRun tests fail on clean main too.
+- Shapes surveyed: production reads through a production build: /dancers 94 tiles (50 photo faces, 44 initials), /djs 40, 1-3 role chips, flags, gig dates, 2-line names; filtered 35 / 35; Teachers coming soon (0 tiles).
+- Checks run: seam measurement script (docs/mockups/w2a-wall/seam.mjs) red on the old head (step 16-20, exit 1) and green after (1-3, exit 0); table-driven page test for the fade (ON x OFF x both pages, red first); contrast test now also checks pill and name text over the measured fade-zone grounds (>= 14.8:1); mutant (fade removed) turns 3 tests red; every applicable CI job step run locally (table in the handover).
+- NOT verified: physical phone, real photo crops, the /dancers animated ground at every moment (sampled once; the fade starts from clear so it follows the ground), doc-weight / Lighthouse (need the preview), live-DB contract suites; 5 integrityCouldNotRun unit tests fail on clean main too.
 ```
