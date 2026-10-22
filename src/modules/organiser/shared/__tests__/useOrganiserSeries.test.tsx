@@ -75,6 +75,12 @@ describe('useOrganiserSeries states', () => {
     show();
     await waitFor(() => expect(screen.getByTestId('s').textContent).toBe('gone'));
   });
+  it('gone for the REAL server reply to an unknown id (P0001 series_not_found: <id>)', async () => {
+    homeData = homeWith([]);
+    wsAnswer = () => ({ data: null, error: { code: 'P0001', message: `series_not_found: ${ID}` } });
+    show();
+    await waitFor(() => expect(screen.getByTestId('s').textContent).toBe('gone'));
+  });
   it('error (not "Not found") when the read fails for another reason', async () => {
     homeData = homeWith([]);
     wsAnswer = () => ({ data: null, error: { message: 'network down' } });

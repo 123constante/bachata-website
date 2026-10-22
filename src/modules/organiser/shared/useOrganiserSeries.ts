@@ -17,7 +17,7 @@ import {
   type HomeOrganiser,
   type OrganiserHome,
 } from '@/modules/organiser/shared/selfServeApi';
-import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
+import { isAccessRefusal, isSeriesNotFound } from '@/modules/organiser/shared/selfServeErrors';
 import type { SeriesWorkspace } from '@/modules/organiser/shared/seriesModel';
 
 /** Every listed (never archived) series of the login across its pages, once each, in home's order. */
@@ -92,7 +92,10 @@ export function resolveSeries(
   if (archivedInHome(home.data, seriesId)) return { state: 'not-found-archived' };
 
   if (!workspace.enabled) return { state: 'gone' };
-  if (workspace.isError) return isAccessRefusal(workspace.error) ? { state: 'no-access' } : { state: 'error', retry };
+  if (workspace.isError) {
+    if (isSeriesNotFound(workspace.error)) return { state: 'gone' };
+    return isAccessRefusal(workspace.error) ? { state: 'no-access' } : { state: 'error', retry };
+  }
   if (!workspace.data) return { state: 'loading' };
   if (!workspace.data.series.id) return { state: 'gone' };
   if (!isListedSeries(workspace.data.series)) return { state: 'not-found-archived' };

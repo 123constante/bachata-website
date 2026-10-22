@@ -30,15 +30,15 @@ describe('blocker reasons', () => {
     }
   });
   it('an empty draft lists one reason per missing thing, with its text', () => {
-    const list = blockers({ name: '  ', format: null, venueId: null, payment: [], firstDate: null, today: '2026-10-21' });
-    expect(list.map((b) => b.reason)).toEqual(['Name needed', 'Pick a type', 'Venue needed', 'First date needed', 'How to pay needed']);
+    const list = blockers({ name: '  ', format: null, status: null, flyer: null, venueId: null, payment: [], firstDate: null, today: '2026-10-21' });
+    expect(list.map((b) => b.reason)).toEqual(['Add an event name', 'Pick how often', 'Pick a venue', 'Add a flyer', 'Pick a date', 'Add how to pay']);
   });
 });
 
 // The prod shapes (ER-COMMON): formats x lifecycle-free facts the readiness reads.
 describe('readiness over prod payment shapes', () => {
   const base: RuleSeries = {
-    name: 'X', format: 'recurring', venueId: 'v', payment: [], today: '2026-10-21',
+    name: 'X', format: 'recurring', status: 'draft', flyer: 'f.jpg', venueId: 'v', payment: [], ticketUrl: 'https://t.example/x', today: '2026-10-21',
     firstDate: { date: '2026-10-30', sessions: [{ kind: 'party', start: '21:00', end: '02:00' }] },
   };
   it.each([
