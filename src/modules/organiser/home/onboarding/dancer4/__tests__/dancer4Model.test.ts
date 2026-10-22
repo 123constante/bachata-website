@@ -8,7 +8,6 @@ import {
   buildDancer4Save,
   disabledReason,
   normaliseCityRequest,
-  parsePrefill,
   pickChipCities,
   planDancer4,
 } from '../dancer4Model';
@@ -19,12 +18,12 @@ describe('planDancer4: which questions are asked', () => {
   // [label, missing, prefill, expected steps, expected prefilled keys]
   const table: [string, ProfileField[], Parameters<typeof planDancer4>[1], ProfileField[], string[]][] = [
     ['new person, no prefill: all four in the approved order', ALL, NO_PREFILL, ['first_name', 'based_city_id', 'dance_role', 'avatar_url'], []],
-    ['bound link with name + city: two questions', ALL, { first_name: 'Marta', city_id: 'c1' }, ['dance_role', 'avatar_url'], ['first_name', 'based_city_id']],
-    ['name only prefilled', ALL, { first_name: 'Marta', city_id: null }, ['based_city_id', 'dance_role', 'avatar_url'], ['first_name']],
+    ['bound link with name + city: two questions', ALL, { first_name: 'Marta', city_id: 'c1' }, ['first_name', 'dance_role', 'avatar_url'], ['based_city_id']],
+    ['name only prefilled', ALL, { first_name: 'Marta', city_id: null }, ['first_name', 'based_city_id', 'dance_role', 'avatar_url'], []],
     ['city only prefilled', ALL, { first_name: null, city_id: 'c1' }, ['first_name', 'dance_role', 'avatar_url'], ['based_city_id']],
     ['already has a name: prefill name is ignored, never overwrites', ['based_city_id', 'dance_role', 'avatar_url'], { first_name: 'Marta', city_id: null }, ['based_city_id', 'dance_role', 'avatar_url'], []],
     ['half done profile: only what is missing', ['dance_role', 'avatar_url'], NO_PREFILL, ['dance_role', 'avatar_url'], []],
-    ['only name+city missing and both prefilled: nothing to ask', ['first_name', 'based_city_id'], { first_name: 'Marta', city_id: 'c1' }, [], ['first_name', 'based_city_id']],
+    ['only name+city missing and both prefilled: nothing to ask', ['first_name', 'based_city_id'], { first_name: 'Marta', city_id: 'c1' }, ['first_name'], ['based_city_id']],
     ['only the photo missing', ['avatar_url'], { first_name: 'Marta', city_id: 'c1' }, ['avatar_url'], []],
   ];
   it.each(table)('%s', (_label, missing, prefill, steps, prefilled) => {
@@ -32,20 +31,12 @@ describe('planDancer4: which questions are asked', () => {
     expect(plan.steps).toEqual(steps);
     expect(Object.keys(plan.prefilled).sort()).toEqual([...prefilled].sort());
   });
-});
 
-describe('parsePrefill', () => {
-  it.each([
-    [null, NO_PREFILL],
-    [undefined, NO_PREFILL],
-    ['x', NO_PREFILL],
-    [{}, NO_PREFILL],
-    [{ first_name: '  ', city_id: '' }, NO_PREFILL],
-    [{ first_name: 4, city_id: {} }, NO_PREFILL],
-    [{ first_name: ' Marta ', city_id: 'c1' }, { first_name: 'Marta', city_id: 'c1' }],
-    [{ first_name: null, city_id: 'c1' }, { first_name: null, city_id: 'c1' }],
-  ])('%j', (raw, expected) => {
-    expect(parsePrefill(raw)).toEqual(expected);
+  it('a prefilled name is shown on its own step as the editable starting value, never saved unseen', () => {
+    const plan = planDancer4(ALL, { first_name: 'Marta', city_id: null });
+    expect(plan.defaults).toEqual({ first_name: 'Marta' });
+    expect(plan.prefilled).toEqual({});
+    expect(planDancer4(['dance_role'], { first_name: 'Marta', city_id: null }).defaults).toEqual({});
   });
 });
 

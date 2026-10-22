@@ -147,6 +147,27 @@ export function whatsappHref(organiserName: string, link: string): string {
 export const TOKEN_RE = /^[0-9a-f]{64}$/;
 
 /**
+ * Can this signed-in email be the one a masked hint ("z...@d.com" / "z***@d.com") stands for? First character
+ * and domain only; the server stays the authority.
+ */
+export function hintMatchesEmail(hint: string | null | undefined, email: string | null | undefined): boolean {
+  if (!hint || !email) return false;
+  const h = hint.trim().toLowerCase();
+  const e = email.trim().toLowerCase();
+  const hAt = h.lastIndexOf('@');
+  const eAt = e.lastIndexOf('@');
+  if (hAt < 1 || eAt < 1) return false;
+  return h[0] === e[0] && h.slice(hAt + 1) === e.slice(eAt + 1);
+}
+
+/** The organiser (from the person's own home list) a link's page name matches: trim + case-insensitive. */
+export function ownPageForName<T extends { name: string }>(organisers: readonly T[] | null | undefined, name: string | null | undefined): T | null {
+  const want = name?.trim().toLowerCase();
+  if (!want || !organisers) return null;
+  return organisers.find((o) => typeof o.name === 'string' && o.name.trim().toLowerCase() === want) ?? null;
+}
+
+/**
  * Who a signed-in person joins the team as (M57: the link is bearer-style, so the
  * card names the account BEFORE it is used): the dancer first name, else the
  * display name, else the account e-mail.
@@ -210,7 +231,7 @@ export function interpretRedeem(data: unknown, error: { message?: string } | nul
   }
   const row = (data ?? {}) as Record<string, unknown>;
   if (row.ok === true && (row.status === 'redeemed' || row.status === 'already_member') && typeof row.organiser_id === 'string') {
-    return { kind: 'redeemed', organiserId: row.organiser_id, alreadyMember: row.status === 'already_member', prefill: parsePrefill(row.prefill) };
+    return { kind: 'redeemed', organiserId: row.organiser_id, alreadyMember: row.status === 'already_member', prefill: parseInvitePrefill(row.prefill) };
   }
   const reason = typeof row.reason === 'string' ? row.reason : '';
   const copy = REDEEM_COPY[reason];
@@ -218,7 +239,7 @@ export function interpretRedeem(data: unknown, error: { message?: string } | nul
 }
 
 /** redeem's `prefill` key; null when absent or empty, so nothing is stored for a link that carries none. */
-export function parsePrefill(raw: unknown): InvitePrefill | null {
+export function parseInvitePrefill(raw: unknown): InvitePrefill | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
   const firstName = str(r.first_name);

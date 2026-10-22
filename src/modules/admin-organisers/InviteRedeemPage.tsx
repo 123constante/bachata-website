@@ -12,13 +12,13 @@ import { PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
 import { buildSignInHref } from '@/lib/authRouting';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { finishProfileHref } from '@/lib/profileCompletion';
-import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
+import { ORGANISER_HOME_KEY, fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
-import { rememberInvitePrefill } from '@/lib/invitePrefill';
+import { clearInvitePrefill, rememberInvitePrefill } from '@/lib/invitePrefill';
 import { rememberCodeStep } from '@/components/MagicLinkConfirmation';
 import { redeemOrganiserInvite } from './adminApi';
 import { fetchInvitePreview, invitePreviewQueryKey, requestNewInvite, sendInviteSignInEmail } from './inviteRedeemApi';
-import { INVITE_PATH, REDEEM_COPY, TOKEN_RE, interpretRedeem, joiningAsName, newLinkResultCopy, reasonScreen, type InvitePreview, type RedeemCopy, type RedeemOutcome } from './inviteModel';
+import { INVITE_PATH, REDEEM_COPY, TOKEN_RE, hintMatchesEmail, interpretRedeem, joiningAsName, newLinkResultCopy, ownPageForName, reasonScreen, type InvitePreview, type RedeemCopy, type RedeemOutcome } from './inviteModel';
 
 /**
  * One in-flight redeem per token for the whole page lifetime. StrictMode mounts
@@ -43,6 +43,12 @@ function attemptRedeem(t: string): Promise<RedeemOutcome> {
 
 const BTN = 'inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground';
 const LINK = 'inline-flex min-h-[44px] items-center justify-center rounded-lg border border-border px-4 py-2 text-sm font-medium';
+
+/** How long the card waits for the person's own page list before it shows the plain Join card (B). */
+const HOME_WAIT_MS = 1500;
+
+/** The bound-link wording: a link made for one address is never "whoever uses this link". */
+const boundBody = (inviter: string | null | undefined) => (inviter ? `${inviter} invited you to manage it on Bachata Calendar.` : 'You were invited to manage it on Bachata Calendar.');
 
 const JOIN_COPY: RedeemCopy = {
   title: 'Join your organiser team',
@@ -256,6 +262,26 @@ function InviteRedeem({ preview }: { preview: InvitePreview | null }) {
     retry: false,
     staleTime: 60_000,
   });
+  // B: is this page already one the person manages? The peek carries no ids, so it is the person's own cached
+  // organiser list matched by name. Best effort: a failing or slow list leaves today's card (the server still
+  // answers already_member on Join), and the card never waits longer than HOME_WAIT_MS for it.
+  const ownList = useQuery({
+    queryKey: organiserHomeQueryKey(user?.id),
+    queryFn: fetchOrganiserHome,
+    enabled: Boolean(user) && !joining,
+    retry: false,
+    networkMode: 'always',
+    staleTime: 60_000,
+  });
+  const [listGaveUp, setListGaveUp] = useState(false);
+  useEffect(() => {
+    if (!ownList.isPending) return;
+    const t = setTimeout(() => setListGaveUp(true), HOME_WAIT_MS);
+    return () => clearTimeout(t);
+  }, [ownList.isPending]);
+  const listWaiting = Boolean(user) && !joining && ownList.isPending && !listGaveUp;
+  const ownPage = preview ? ownPageForName(ownList.data?.organisers, preview.organiserName) : null;
+  const wrongEmail = Boolean(user) && preview?.emailHint != null && !hintMatchesEmail(preview.emailHint, user?.email);
   const tokenRef = useRef(token);
   if (token) tokenRef.current = token;
 
@@ -271,8 +297,9 @@ function InviteRedeem({ preview }: { preview: InvitePreview | null }) {
     setBusy(false);
     if (outcome.kind === 'redeemed') {
       stripToken();
-      // The sender's name + city for the dancer questions (bound links only; the server sends none otherwise).
-      rememberInvitePrefill(outcome.prefill);
+      // The sender's name + city for the dancer questions: a bound link only, redeemed here BEFORE the dancer
+      // gate (the welcome page's). An unbound link met the gate first, so anything it carries is dropped.
+      rememberInvitePrefill(preview?.emailHint != null ? outcome.prefill : null, user?.id ?? '');
       // The person may have opened Home in the last minute and cached "no organisers": refetch it before they land.
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       // A new seat lands on the welcome (Arc 1 1d for a first page, 7c for another); already a member: Home.
@@ -280,6 +307,9 @@ function InviteRedeem({ preview }: { preview: InvitePreview | null }) {
       return;
     }
     if (outcome.copy.terminal) stripToken();
+    // A redeem that did not land must not leave an earlier invite's prefill behind. email_mismatch is the one
+    // exception: the signed-in person is not who this link is for, so it says nothing about THEIR stored entry.
+    if (!(outcome.kind === 'refused' && outcome.reason === 'email_mismatch')) clearInvitePrefill();
     if (outcome.kind === 'refused') {
       setRefusal({ reason: outcome.reason, copy: outcome.copy, emailHint: outcome.emailHint });
       setFailed(null);
@@ -287,7 +317,7 @@ function InviteRedeem({ preview }: { preview: InvitePreview | null }) {
       setFailed(outcome.copy);
       setRefusal(null);
     }
-  }, [navigate, queryClient]);
+  }, [navigate, queryClient, preview, user]);
 
   const join = () => {
     setJoining(true);
@@ -307,7 +337,7 @@ function InviteRedeem({ preview }: { preview: InvitePreview | null }) {
   };
 
   let body: React.ReactNode;
-  if (authStatus === 'resolving' || (user && !joining && nameEnabled && nameRow.isPending)) {
+  if (authStatus === 'resolving' || (user && !joining && ((nameEnabled && nameRow.isPending) || listWaiting))) {
     body = <div className="mx-auto max-w-md space-y-2 px-4 pt-10" data-testid="invite-checking"><Skeleton className="h-6 w-48" /><Skeleton className="h-16 w-full" /></div>;
   } else if (!user && TOKEN_RE.test(token)) {
     const here = `${INVITE_PATH}/${token}`;
@@ -317,9 +347,26 @@ function InviteRedeem({ preview }: { preview: InvitePreview | null }) {
         <Link to={buildSignInHref(here)} className={BTN} data-testid="invite-sign-in">Sign in</Link>
       </Card>
     );
-  } else if (user && !joining) {
+  } else if (user && !joining && preview && wrongEmail) {
     body = (
-      <Card copy={preview ? { ...JOIN_COPY, title: `Join ${preview.organiserName}`, body: preview.inviterFirstName ? `${preview.inviterFirstName} invited you to manage it on Bachata Calendar.` : JOIN_COPY.body } : JOIN_COPY}>
+      <Card copy={{ title: 'This link is for a different email', body: `You are signed in as ${user.email ?? 'this account'}. Sign in with the email this link was sent to.`, action: 'switch_account', terminal: false }}>
+        <p className="text-sm font-medium" data-testid="invite-email-hint">This invite is for {preview.emailHint}.</p>
+        <button type="button" className={BTN} onClick={() => void notYou()} data-testid="invite-switch-account">Sign in with that email</button>
+        <Link to="/" className={LINK} data-testid="invite-home">Go to Bachata Calendar</Link>
+        {signOutError && <p className="text-sm text-destructive" role="alert" data-testid="invite-signout-error">{signOutError}</p>}
+      </Card>
+    );
+  } else if (user && !joining && preview && ownPage) {
+    body = (
+      <Card copy={{ title: `You are already on ${preview.organiserName}`, body: 'This link is not needed. You already manage this page.', action: 'home', terminal: false }}>
+        <Link to={ORG_PATHS.home} className={BTN} data-testid="invite-go-page" onClick={stripToken}>Go to {preview.organiserName}</Link>
+      </Card>
+    );
+  } else if (user && !joining) {
+    const bound = preview?.emailHint != null;
+    body = (
+      <Card copy={preview ? { ...JOIN_COPY, title: `Join ${preview.organiserName}`, body: bound ? boundBody(preview.inviterFirstName) : preview.inviterFirstName ? `${preview.inviterFirstName} invited you to manage it on Bachata Calendar.` : JOIN_COPY.body } : JOIN_COPY}>
+        {bound && <p className="text-sm font-medium" data-testid="invite-email-hint">This invite is for {preview?.emailHint}.</p>}
         <p className="text-sm font-medium" data-testid="invite-joining-as">You are joining as {joiningAsName(nameRow.data, user.email)}</p>
         <button type="button" className={BTN} onClick={join} data-testid="invite-join">Join the team</button>
         <button type="button" className={LINK} onClick={() => void notYou()} data-testid="invite-not-you">Not you? Sign out</button>
