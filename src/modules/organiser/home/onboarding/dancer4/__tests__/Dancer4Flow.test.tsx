@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ProfileCompletion, ProfileField } from '@/lib/profileCompletion';
 
@@ -198,5 +198,54 @@ describe('Dancer4Flow', () => {
     fireEvent.click(next());
     await waitFor(() => expect(title()).toBe('Do you lead or follow?'));
     expect(save).toHaveBeenLastCalledWith({ first_name: 'Maria' });
+  });
+});
+
+describe('Dancer4Flow: the prefilled-city check always ends (arc 1 prefill fix 2, C)', () => {
+  const PRE = { missing: ['based_city_id', 'dance_role'] as ProfileField[], prefill: { first_name: null, city_id: 'c9' } };
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+  const settle = async (ms: number) => { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); };
+
+  it('never resolves: Loading, then after 3 s the city question', async () => {
+    cityExists.mockReturnValue(new Promise(() => {}));
+    mount(PRE);
+    expect(screen.getByTestId('dancer4-checking')).toBeTruthy();
+    await settle(2900);
+    expect(screen.queryByTestId('dancer4-checking')).not.toBeNull();
+    await settle(200);
+    expect(title()).toBe('Which city do you dance in?');
+  });
+  it('rejects: the city question at once', async () => {
+    cityExists.mockRejectedValue(new Error('offline'));
+    mount(PRE);
+    await settle(10);
+    expect(title()).toBe('Which city do you dance in?');
+  });
+  it('resolves late, after the timer: stays decided, what is typed is kept', async () => {
+    let resolve!: (v: boolean) => void;
+    cityExists.mockReturnValue(new Promise<boolean>((r) => { resolve = r; }));
+    mount(PRE);
+    await settle(3100);
+    expect(title()).toBe('Which city do you dance in?');
+    chips.mockResolvedValue([{ id: 'london', name: 'London' }]);
+    await settle(10);
+    fireEvent.click(screen.getByRole('button', { name: 'London' }));
+    resolve(true);
+    await settle(100);
+    expect(title()).toBe('Which city do you dance in?');
+    expect(screen.getByRole('button', { name: 'London' }).getAttribute('aria-pressed')).toBe('true');
+  });
+  it('resolves in time with true: the city is trusted (its question skipped)', async () => {
+    cityExists.mockResolvedValue(true);
+    mount(PRE);
+    await settle(10);
+    expect(title()).not.toBe('Which city do you dance in?');
+  });
+  it('resolves in time with false: the city question is asked', async () => {
+    cityExists.mockResolvedValue(false);
+    mount(PRE);
+    await settle(10);
+    expect(title()).toBe('Which city do you dance in?');
   });
 });

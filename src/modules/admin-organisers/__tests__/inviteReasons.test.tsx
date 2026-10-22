@@ -36,6 +36,7 @@ const PREVIEW = { status: 'open', organiser_name: 'Salsa Norte', inviter_first_n
 let preview: Record<string, unknown>;
 let redeem: unknown;
 let newLink: unknown;
+let home: () => Promise<unknown> = () => Promise.reject(new Error('no list'));
 
 function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -59,11 +60,13 @@ beforeEach(() => {
   preview = { ...PREVIEW };
   redeem = { ok: true, status: 'redeemed', organiser_id: 'o1' };
   newLink = { ok: true };
+  home = () => Promise.reject(new Error('no list'));
   h.rpc.mockReset();
   h.rpc.mockImplementation((fn: string) => {
     if (fn === 'organiser_invite_preview_v1') return ok(preview);
     if (fn === 'redeem_organiser_invite_v1') return ok(redeem);
     if (fn === 'request_new_invite_v1') return ok(newLink);
+    if (fn === 'organiser_home_v1') return home();
     return Promise.reject(new Error(`unexpected rpc ${fn}`));
   });
 });
@@ -214,5 +217,78 @@ describe('prefill rides from redeem to the dancer questions', () => {
     fireEvent.click(await screen.findByTestId('invite-join'));
     await screen.findByTestId('landed');
     expect(readInvitePrefill('u1')).toBeNull();
+  });
+});
+
+describe('A: a bound link on the signed-in card (arc 1 prefill fix 2)', () => {
+  const BOUND = { ...PREVIEW, email_hint: 'z...@example.test' };
+  it('matching mask: the hint line, no "whoever", the sender named, Join offered', async () => {
+    h.auth.user = { id: 'u1', email: 'zed@example.test' };
+    preview = BOUND;
+    mount();
+    expect((await screen.findByTestId('invite-email-hint')).textContent).toBe('This invite is for z...@example.test.');
+    expect(screen.getByTestId('invite-body').textContent).toBe('Marta invited you to manage it on Bachata Calendar.');
+    expect(screen.getByTestId('invite-join')).toBeTruthy();
+  });
+  it('matching mask, no inviter on file', async () => {
+    h.auth.user = { id: 'u1', email: 'zed@example.test' };
+    preview = { ...BOUND, inviter_first_name: null };
+    mount();
+    expect((await screen.findByTestId('invite-body')).textContent).toBe('You were invited to manage it on Bachata Calendar.');
+  });
+  it('different email: says so, no Join, sign in with that email + home', async () => {
+    h.auth.user = { id: 'u2', email: 'amy@example.test' };
+    preview = BOUND;
+    mount();
+    expect((await screen.findByTestId('invite-title')).textContent).toBe('This link is for a different email');
+    expect(screen.getByTestId('invite-body').textContent).toBe('You are signed in as amy@example.test. Sign in with the email this link was sent to.');
+    expect(screen.queryByTestId('invite-join')).toBeNull();
+    expect(screen.getByTestId('invite-switch-account').textContent).toBe('Sign in with that email');
+    expect(screen.getByTestId('invite-home').textContent).toBe('Go to Bachata Calendar');
+  });
+  it('unbound link keeps the "whoever" wording', async () => {
+    h.auth.user = { id: 'u1', email: 'ana@example.com' };
+    preview = { ...PREVIEW, inviter_first_name: null };
+    mount();
+    expect((await screen.findByTestId('invite-body')).textContent).toContain('Whoever uses this link joins the team');
+    expect(screen.queryByTestId('invite-email-hint')).toBeNull();
+  });
+  it('the server refusal after Join still works when the masks match', async () => {
+    h.auth.user = { id: 'u1', email: 'zed@example.test' };
+    preview = BOUND;
+    redeem = { ok: false, reason: 'email_mismatch', invite_email_hint: 'z...@example.test' };
+    mount();
+    fireEvent.click(await screen.findByTestId('invite-join'));
+    expect((await screen.findByTestId('invite-title')).textContent).toBe(reasonScreen('email_mismatch').title);
+  });
+});
+
+describe('B: already on the team (arc 1 prefill fix 2)', () => {
+  const list = (names: string[]) => () => ok({ today: '2026-10-22', organisers: names.map((name, i) => ({ id: `o${i}`, name, role: 'owner', series: [] })) });
+  beforeEach(() => { h.auth.user = { id: 'u1', email: 'ana@example.com' }; });
+  it('owner of that page: already-on card, Go to, no Join, nothing redeemed', async () => {
+    home = list(['Other', ' salsa norte ']);
+    mount();
+    expect((await screen.findByTestId('invite-title')).textContent).toBe('You are already on Salsa Norte');
+    expect(screen.getByTestId('invite-body').textContent).toBe('This link is not needed. You already manage this page.');
+    expect(screen.getByTestId('invite-go-page').textContent).toBe('Go to Salsa Norte');
+    expect(screen.queryByTestId('invite-join')).toBeNull();
+    expect(h.rpc).not.toHaveBeenCalledWith('redeem_organiser_invite_v1', expect.anything());
+  });
+  it.each([
+    ['a different page with a similar name', () => list(['Salsa Norte Kids'])],
+    ['no organisers', () => list([])],
+    ['the list failing', () => () => Promise.reject(new Error('boom'))],
+  ])('%s: today\'s Join card', async (_l, make) => {
+    home = make();
+    mount();
+    expect(await screen.findByTestId('invite-join')).toBeTruthy();
+    expect(screen.getByTestId('invite-title').textContent).toBe('Join Salsa Norte');
+  });
+  it('a slow list never blocks the card past the short wait', async () => {
+    home = () => new Promise(() => {});
+    mount();
+    expect(screen.queryByTestId('invite-join')).toBeNull();
+    expect(await screen.findByTestId('invite-join', undefined, { timeout: 3000 })).toBeTruthy();
   });
 });

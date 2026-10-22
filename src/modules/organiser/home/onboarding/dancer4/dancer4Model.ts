@@ -12,15 +12,6 @@ export type DancerPrefill = { first_name: string | null; city_id: string | null 
 
 export const NO_PREFILL: DancerPrefill = { first_name: null, city_id: null };
 
-/** Anything off-shape is "no prefill": a bad payload must never block the questions. */
-export const parseDancerPrefill = (raw: unknown): DancerPrefill => {
-  if (!raw || typeof raw !== 'object') return NO_PREFILL;
-  const row = raw as Record<string, unknown>;
-  const first = typeof row.first_name === 'string' ? row.first_name.trim() : '';
-  const city = typeof row.city_id === 'string' ? row.city_id.trim() : '';
-  return { first_name: first || null, city_id: city || null };
-};
-
 export type Answers = Record<ProfileField, string>;
 export const EMPTY_ANSWERS: Answers = { first_name: '', based_city_id: '', dance_role: '', avatar_url: '' };
 

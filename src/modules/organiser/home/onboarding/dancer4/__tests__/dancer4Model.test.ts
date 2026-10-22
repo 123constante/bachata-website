@@ -8,7 +8,6 @@ import {
   buildDancer4Save,
   disabledReason,
   normaliseCityRequest,
-  parseDancerPrefill,
   pickChipCities,
   planDancer4,
 } from '../dancer4Model';
@@ -38,21 +37,6 @@ describe('planDancer4: which questions are asked', () => {
     expect(plan.defaults).toEqual({ first_name: 'Marta' });
     expect(plan.prefilled).toEqual({});
     expect(planDancer4(['dance_role'], { first_name: 'Marta', city_id: null }).defaults).toEqual({});
-  });
-});
-
-describe('parseDancerPrefill', () => {
-  it.each([
-    [null, NO_PREFILL],
-    [undefined, NO_PREFILL],
-    ['x', NO_PREFILL],
-    [{}, NO_PREFILL],
-    [{ first_name: '  ', city_id: '' }, NO_PREFILL],
-    [{ first_name: 4, city_id: {} }, NO_PREFILL],
-    [{ first_name: ' Marta ', city_id: 'c1' }, { first_name: 'Marta', city_id: 'c1' }],
-    [{ first_name: null, city_id: 'c1' }, { first_name: null, city_id: 'c1' }],
-  ])('%j', (raw, expected) => {
-    expect(parseDancerPrefill(raw)).toEqual(expected);
   });
 });
 

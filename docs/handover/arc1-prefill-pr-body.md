@@ -1,23 +1,23 @@
 ## Summary
-Review fix pass on the Arc 1 prefill (F1-F5 of the independent review):
-- F1: a prefilled city is checked to exist (`fetchCityExists`) before its question is skipped; unknown or unverifiable -> the question is asked. A save refused because of a prefilled key is retried without it, the dropped question is asked, and what the person saved stays.
-- F2: the prefilled first name is shown, editable, on its own step (planDancer4 `defaults`), not saved unseen. Only the city is saved without asking.
-- F3: `FinishProfile` reads the prefill keyed on `user?.id` (and derives the draft from edits + prefill), so a late-resolving user still gets it.
-- F4: a failed or refused redeem clears the store; `email_mismatch` leaves it untouched.
-- F5: `parsePrefill` renamed `parseDancerPrefill` (dancer4Model) and `parseInvitePrefill` (inviteModel).
+Second fix pass on the Arc 1 prefill (after the F1-F5 review fixes):
+- A: a bound link no longer shows the wrong person a plain Join card. The signed-in card says `This invite is for {hint}.` and never "Whoever uses this link joins the team" (that wording stays on unbound links only). When the signed-in email visibly cannot be the bound one (`hintMatchesEmail`: first character and domain of the masked hint, case-insensitive), the card is "This link is for a different email", with `Sign in with that email` (sign out, then sign in) and `Go to Bachata Calendar`, and no Join. The server stays the authority: matching masks still Join, and the after-click refusal path is unchanged and tested.
+- B: an open link for a page the signed-in person already manages shows "You are already on {name}" and `Go to {name}` (Home), with no Join and no join spent. Detected from the person's own organiser list (`organiser_home_v1`, same query key Home uses), matched by name (trim, case-insensitive), no new server call. The card waits at most 1.5 s for the list; a failing or slow list keeps today's Join card (the server still answers already_member on click). A name match can only mis-hide Join for two pages with the same name; the server remains the authority.
+- C: `Dancer4Flow` city check uses `networkMode: 'always'` plus a 3 s fallback after which the prefilled city is dropped and the city question is asked. The first verdict is latched, so a late answer never changes the prefill under a question the person is typing in.
+- Cleanup: dead `parseDancerPrefill` and its tests removed (no importers).
+Not changed: the masked hint format (D), the photo step.
 
 ## Verified on real data
-Shapes surveyed: none (no Supabase query run). Prod has no bound invites and `organiser_invites` has no prefill columns yet, so the bound path exists on mocked shapes only. Shapes covered by table-driven tests: valid / unknown / unverifiable city id, prefill refused by the server, genuine offline save failure, failed redeem, refused redeem, email_mismatch, redeemed without prefill, already_member then Home, stale earlier-invite entry, user undefined then defined.
-Checks run:
-- `npx vitest run dancer4 + admin-organisers + pages` -> exit 0 (1018 pass in pages+admin-organisers; dancer4 suites pass)
-- `npx vitest run src/modules/organiser src/modules/admin-organisers src/pages src/lib` -> exit 0 (242 files, 6149 pass, 4 skipped)
-- `npm run typecheck` -> 99 errors, none in touched files (baseline 106)
+Shapes surveyed: none (no Supabase query run). The bound path has no production invites yet, so it is covered on table-driven shapes only: mask styles (`x...@d`, `x***@d`), case, plus-addressing, domain differs, first letter differs, null hint, null email; organiser list = owner of that page / member of a similar-named page / empty / failing / never resolving; city check = never resolves / rejects / resolves late / resolves in time true and false.
+Checks run (sandbox, CI is not paid GitHub):
+- `npx vitest run src/modules/admin-organisers src/modules/organiser` -> exit 0 (162 files, 4252 pass, 2 skipped)
+- `npx vitest run src/modules/admin-organisers src/modules/organiser src/lib` before the final B copy change -> only the then-new B test failed; fixed, rerun above is green
+- `npx tsc --noEmit -p tsconfig.app.json` -> no errors in touched files (pre-existing errors elsewhere)
 - `npm run build` -> exit 0
-- `npx eslint` on touched files -> 0 new errors (pre-existing InviteRedeemPage tokenRef error, FinishProfile fast-refresh warning)
-- Red-first: new tests failed on the unfixed branch (17 in dancer4 suites, 4 in the journey suite) before the fix.
-NOT verified: the other CI jobs in `.github/workflows` (pre-ship, db-contract checks, integrity / check:images, e2e smoke) were not run locally; real-data shape survey; production data.
+- `npx eslint` on touched dirs -> only the pre-existing InviteRedeemPage `tokenRef` refs error (baseline had it)
+- Red-first: with the source files stashed, the new tests failed on the old head (4 in inviteReasons A/B, 2 in Dancer4Flow C; model tests fail on the missing functions).
+NOT verified: the other CI jobs in `.github/workflows` (pre-ship, db-contract checks, integrity / check:images, e2e smoke, `npm run lint` chain) were not run in the sandbox; no real-data survey; no production data.
 
 ## Phone QA
 Sizes checked: none (390x844 not walked)
 Walked: not walked
-Not verified: all visual behaviour; the "Loading..." state while the city is checked is unstyled beyond `text-sm text-muted-foreground`.
+Not verified: all visual behaviour of the three new cards (different-email, already-on, Loading fallback), and the 1.5 s skeleton before the signed-in card.

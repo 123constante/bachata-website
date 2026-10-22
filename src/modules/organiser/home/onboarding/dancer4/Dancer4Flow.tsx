@@ -44,6 +44,9 @@ export interface Dancer4FlowProps {
   onDone: () => void;
 }
 
+/** How long the prefilled city is checked before it is dropped and the city question is asked instead. */
+const CITY_CHECK_FALLBACK_MS = 3000;
+
 const PILL = 'w-full min-h-[44px] rounded-full font-semibold';
 const CHIP = 'min-h-[44px] rounded-full border px-4 text-[14px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
 const chipTone = (on: boolean) => (on ? 'border-primary bg-primary text-black' : 'border-border bg-secondary text-foreground hover:border-primary/60');
@@ -65,10 +68,25 @@ export function Dancer4Flow(props: Dancer4FlowProps) {
     queryFn: () => fetchCityExists(prefill.city_id as string),
     enabled: checkCity,
     retry: false,
+    // Offline the default networkMode would leave the query paused for ever; the fallback below needs it to run or fail.
+    networkMode: 'always',
     staleTime: 60_000,
   });
-  if (checkCity && cityCheck.isPending) return <p className="text-sm text-muted-foreground" role="status" data-testid="dancer4-checking">Loading&hellip;</p>;
-  const trusted: DancerPrefill = checkCity && cityCheck.data !== true ? { ...prefill, city_id: null } : prefill;
+  // Once decided it stays decided: a late answer must not change the prefill under a question the person is typing in.
+  const [latched, setLatched] = useState<DancerPrefill | null>(null);
+  const answered = checkCity && !cityCheck.isPending ? (cityCheck.data === true ? prefill : { ...prefill, city_id: null }) : null;
+  // Latched during render (React's adjust-state-while-rendering pattern): the first verdict stands.
+  if (checkCity && latched === null && answered !== null) setLatched(answered);
+  const decided = latched ?? answered;
+  useEffect(() => {
+    if (!checkCity) return;
+    const t = setTimeout(() => setLatched((prev) => prev ?? { ...prefill, city_id: null }), CITY_CHECK_FALLBACK_MS);
+    return () => clearTimeout(t);
+    // keyed on the city id: a new prefill object per render must not restart the timer
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkCity, prefill.city_id]);
+  if (checkCity && decided === null) return <p className="text-sm text-muted-foreground" role="status" data-testid="dancer4-checking">Loading&hellip;</p>;
+  const trusted: DancerPrefill = checkCity ? (decided as DancerPrefill) : prefill;
   return <Dancer4Questions {...props} prefill={trusted} />;
 }
 

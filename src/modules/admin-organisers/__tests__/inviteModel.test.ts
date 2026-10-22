@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  hintMatchesEmail,
+  ownPageForName,
   reasonScreen,
   ACCESS_LABEL,
   ADD_PERSON_CODES,
@@ -187,4 +189,30 @@ describe('redeem: team_full (S-MERGE) -- the server reason has its own terminal 
     expect(body).toMatch(/ask the Bachata Calendar team/i);
     expect(body).not.toMatch(/\b(remove|add|tap|click|press|button|menu|tab|try again)\b/i);
   });
+});
+
+describe('hintMatchesEmail: can the signed-in email be the one a masked hint stands for', () => {
+  it.each([
+    ['z...@example.test', 'zed@example.test', true],
+    ['z***@example.test', 'zed@example.test', true],
+    ['Z...@Example.Test', 'zed@example.test', true],
+    ['z...@example.test', 'ZED+club@EXAMPLE.test', true],
+    ['z...@example.test', 'zed@other.test', false],
+    ['z...@example.test', 'amy@example.test', false],
+    [null, 'zed@example.test', false],
+    ['z...@example.test', null, false],
+    ['z...@example.test', '', false],
+  ])('%s vs %s -> %s', (hint, email, expected) => {
+    expect(hintMatchesEmail(hint, email)).toBe(expected);
+  });
+});
+
+describe('ownPageForName', () => {
+  const list = [{ name: 'Salsa Norte', id: 'o1' }, { name: 'Other', id: 'o2' }];
+  it.each([
+    ['Salsa Norte', 'o1'], ['  salsa norte ', 'o1'], ['Salsa Norte 2', null], ['', null], [null, null],
+  ])('%j -> %s', (name, id) => {
+    expect(ownPageForName(list, name)?.id ?? null).toBe(id);
+  });
+  it('no list', () => { expect(ownPageForName(null, 'Salsa Norte')).toBeNull(); });
 });
