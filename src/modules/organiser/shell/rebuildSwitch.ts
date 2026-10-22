@@ -4,7 +4,7 @@
 // everyone. Old screens stay mounted until it is "*" and they are deleted after.
 //
 // ER-FIX-W2 (owner decision 2): the switch is PER EVENT. An event's screens are the
-// new ones when its OWNER page (organiser_ids[1] in SQL, the first id here) is on the
+// new ones when its OWNER page (the first linked page, index 1 in SQL) is on the
 // list, so every organiser of that event, co-organisers included, gets the same
 // screens. Screens with no event (Home, New event) keep the per-login answer.
 import { createContext, useContext } from 'react';

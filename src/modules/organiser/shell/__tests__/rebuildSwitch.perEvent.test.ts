@@ -1,5 +1,5 @@
 // ER-FIX-W2 S1 (F11 + owner decision 2): the switch is PER EVENT, by the event's
-// owner page (organiser_ids[1] in SQL, the first id here), and never flashes the
+// owner page (the first linked page, index 1 in SQL), and never flashes the
 // old screen while the home read loads. RED on the unfixed switch (handover ER-FIX2-S1).
 import { describe, expect, it } from 'vitest';
 import { rebuildEnabledForEvent, rebuildPending } from '../rebuildSwitch';
