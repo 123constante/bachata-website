@@ -87,3 +87,27 @@ export const SIZE = {
   filterGap: 6,
   initials: 28,
 } as const;
+
+/**
+ * The person hub (/people/:id behind flags.personHub): same base and accents as the wall (S12 mockup),
+ * explicit px for the same reason as SIZE. Tap targets (back, next event, role cards) are all >= 44px.
+ */
+export const HUB = {
+  face: 112,
+  faceRadius: 18,
+  initials: 38,
+  name: 24,
+  nameLine: 29,
+  sub: 14,
+  body: 15,
+  sectionLabel: 13,
+  headerRadius: 24,
+  cardRadius: 18,
+  cardMinHeight: 72,
+  cardEdge: 8,
+  cardChip: 14,
+  ctaMinHeight: 52,
+  ctaRadius: 16,
+  ctaText: 17,
+  tap: 44,
+} as const;
