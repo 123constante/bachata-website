@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AuthPromptModal } from "@/components/AuthPromptModal";
 import { GOING_CHECKIN_ENABLED } from "@/lib/goingCheckin";
+import { festivalCountLabel } from "@/pages/festivalCountLabel";
 import { setAttendanceRpc, type AttendanceStatus } from "@/hooks/useAttendance";
 import { GOING_LOCK_LINK_LABEL, goingTapLocked, useGoingLock } from "@/modules/dancer-app/gate/useGoingLock";
 
@@ -327,11 +328,13 @@ const FestivalHubInner = () => {
       </section>
 
       {/* Stats */}
-      <div className="flex items-center justify-center gap-2 -mt-4 mb-8 relative z-10">
-        <span className="text-xs text-muted-foreground">
-          {festivals.length} upcoming festivals
-        </span>
-      </div>
+      {festivalCountLabel(festivals.length) && (
+        <div className="flex items-center justify-center gap-2 mt-2 mb-6 relative z-10">
+          <span className="text-xs text-muted-foreground">
+            {festivalCountLabel(festivals.length)}
+          </span>
+        </div>
+      )}
 
       {/* Festival Cards Grid */}
       <section id="festivals" className="px-4 mb-24 relative z-10">
