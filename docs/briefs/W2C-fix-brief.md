@@ -1,0 +1,18 @@
+# W2-C FIX PASS (one push) on claude/w2c-build, PR #956
+
+Repo 123constante/bachata-website. Branch claude/w2c-build (PR #956, head 72f9b0c9). You are a FRESH worker (continuation), the only one on the branch. Read first: docs/handover/w2c-build.md, docs/design/w2c-build.md.
+
+## The failure the orchestrator found walking real prod data (the owner would have hit this on the phone)
+With flags personHub ON, opening the DJ page of **21 of the 40 real DJs shows "Something went wrong"** (e.g. /djs/4a5b915a-d0ad-45e4-9e1c-a6647ab02f9d, "Cherie"). Console: `TypeError: p.faq?.trim is not a function` in <DjRolePage> (src/components/dj/DjRolePage.tsx line ~227). Cause: `get_public_dj_v1` returns `faq` as an ARRAY (all 21 are the empty array `[]`), 19 are null; `pricing` is null for 39 and a string for 1. The code and the fixtures assumed string | null. (Today's page happens to survive because `[]` is truthy and prints an empty FAQ card; that is a separate latent oddity, leave the flag-OFF page byte-for-byte unchanged.)
+The check that would have caught it: a table-driven test feeding the REAL shapes of every text field the page reads.
+
+## Do
+1. FIX THE CLASS, not the instance: normalise every field the flag-ON DJ page reads from the RPC row at ONE boundary function (faq, pricing, bio/about, instagram etc., any field on which the page calls a string method): string -> trimmed string or null if empty; array of strings -> joined with newlines (empty array -> null); anything else -> null. Grep the page and DjRolePage-only helpers for every `.trim(` / `.split(` / `.length` on RPC data. Never throw on a shape.
+2. Tests, table-driven, RED FIRST (run them against the unfixed code and show the red): faq in {null, [], '', '  ', 'text', ['a','b'], [{x:1}], 5}, pricing same, plus a render test of the whole DjRolePage with each shape asserting it renders (no throw), and that an empty FAQ/Pricing card is NOT shown.
+3. COLOUR SEAM to measure and fix: on /djs/<id> with the flag ON, below the Share row the page ground turns from warm brown to a cool blue-grey navy before the orange footer. The approved mock (branch claude/w2c-mock, docs/mockups/w2c/D-C-roger.png) is warm all the way down. Measure it (largest one-row colour step in a column down the page, as the mock report.json does), LOOK at the picture, make the ground warm to the footer, and put before/after numbers in docs/design/w2c-build.md.
+4. Re-walk 390x844 the shapes: DJ with many gigs, DJ with none (empty state with and without Instagram), DJ with pricing string, DJ-only, long name. Retake pictures into docs/design/w2c-build/ and LOOK at each.
+5. Update docs/handover/w2c-build.md (what changed, per-job CI table with command and exit code, Verified / Not verified; ready-to-paste PR body with "Phone QA" and "Verified on real data" sections). PATCH the PR body only by writing it into the handover; the orchestrator updates the PR.
+
+Prod facts (orchestrator survey 2026-10-22, public anon reads, counts only): 40 DJs; upcoming-or-all dates 0:17, 1-3:19, 4+:4; roles dancer+dj 10, dancer+dj+teacher 25, dj 4, dj+teacher 1; faq array 21 / null 19; pricing string 1 / null 39. Teacher pages are closed on prod (flags.teacherDetail false) so the Teacher pill never shows there (your dev env has it ON).
+
+Rules: plain git only (never gh api), never merge/approve/--no-verify, Supabase read-only, no variables/loops/$(...) in shell where avoidable, run every CI job step in your sandbox, check `npm run build`. ONE push at the end, last commit subject ends `[worker-done <ticket>]` (not [skip preview]); at 45% context start nothing new, by 50% push + handover ending `PARTIAL [worker-done <ticket>]`. Stop after the push and report.
