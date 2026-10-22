@@ -27,6 +27,7 @@ import {
   resolveOgEventId,
   type OgCardData,
 } from "../lib/ogCardRender";
+import { isAllowedOgImageSource } from "../lib/ogImageSourceAllowlist";
 import type { Route } from "./+types/api.og.card";
 
 const SITE_URL = "https://www.bachatacalendar.co.uk";
@@ -72,6 +73,7 @@ const FALLBACK_HEADER = "X-OG-Fallback";
 type FallbackReason =
   | "image-missing-src" //        kind=image with no src param
   | "image-source-unfetchable" // kind=image, source fetch failed or was too big
+  | "image-source-disallowed" //  kind=image, src not on the SSRF allow-list (never fetched)
   | "missing-id" //               no id param
   | "unresolvable-id" //          slug/uuid resolved to nothing
   | "card-data-unavailable" //    RPC failed or returned nothing -- GENERIC card
@@ -156,6 +158,10 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
       const etag = makeEtag(kind, idParam, src, occ, v);
       if (ifNoneMatch === etag) return new Response(null, { status: 304 });
       if (!src) return redirectToStatic("image-missing-src");
+      // Checked here as well as inside fetchImageBytes only to NAME the
+      // refusal: a refused src must read as a policy decision, not as a dead
+      // origin. fetchImageBytes refuses it regardless.
+      if (!isAllowedOgImageSource(src)) return redirectToStatic("image-source-disallowed");
       const bytes = await fetchImageBytes(src);
       if (!bytes) return redirectToStatic("image-source-unfetchable");
       return imageResponse(await buildImageCard(bytes), etag);

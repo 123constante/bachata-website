@@ -128,7 +128,7 @@ export default function FieldSheet({ field, initial, storedCategory, initialCity
           const url = await uploadPhoto(file);
           onDone(url);
         } catch (e) {
-          setPhotoError(e instanceof Error ? e.message : 'The photo did not upload. Try again.');
+          setPhotoError(e instanceof Error ? e.message : 'The logo did not upload. Try again.');
         } finally {
           setUploading(false);
         }
@@ -223,7 +223,7 @@ export default function FieldSheet({ field, initial, storedCategory, initialCity
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label className="eip-file" style={{ ...btn, position: 'relative', display: 'inline-flex', alignItems: 'center', background: GOLD, color: INK, border: 'none' }}>
-              {shown ? 'Choose a new photo' : 'Choose a photo'}
+              {shown ? 'Choose a new logo' : 'Choose a logo'}
               <input
                 type="file"
                 accept={PHOTO_ACCEPT}
@@ -241,13 +241,13 @@ export default function FieldSheet({ field, initial, storedCategory, initialCity
             </label>
             {(initial || file) && !removed && (
               <button type="button" onClick={() => { setFile(null); setPreview(null); setRemoved(true); }} style={{ ...btn, background: 'none', border: '1px solid rgba(246,241,234,0.25)', color: CREAM }}>
-                Remove photo
+                Remove logo
               </button>
             )}
           </div>
         </div>
         <p style={{ margin: '8px 0 0', fontSize: 12.5, color: 'rgba(246,241,234,0.6)' }}>JPEG, PNG or WebP. We make it smaller before it uploads.</p>
-        {uploading && <p role="status" style={{ margin: '6px 0 0', fontSize: 13, color: GOLD }}>Uploading your photo&hellip;</p>}
+        {uploading && <p role="status" style={{ margin: '6px 0 0', fontSize: 13, color: GOLD }}>Uploading your logo&hellip;</p>}
         {photoError && <p id={errorId} role="alert" style={{ margin: '6px 0 0', fontSize: 13, color: '#FF8A70' }}>{photoError}</p>}
       </>
     );

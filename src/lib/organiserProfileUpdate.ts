@@ -80,7 +80,8 @@ export const buildOrganiserProfilePatch = (
     name: form.name.trim(),
     avatar_url: form.avatar_url.trim() || null,
     bio: form.bio.trim() || null,
-    city_id: cityId,
+    // Never "": an unknown city leaves the key out (the server then says city_required, not a bad id).
+    ...(cityId ? { city_id: cityId } : {}),
     instagram: ig,
     website: web,
     ...contact,

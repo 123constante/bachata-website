@@ -1,6 +1,7 @@
 // Pure, client-free helpers for the onboarding screens (W1).
 import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
 import { instantDateLabel } from '@/modules/organiser/shared/teamModel';
+import { claimPrimary } from './claimStates';
 
 /**
  * Light client-side checks; the server (invalid_instagram / invalid_website)
@@ -25,32 +26,15 @@ export function websiteProblem(value: string): string | null {
   }
 }
 
-/**
- * R3-5 / D63, verbatim: a page with no email on file has no claim step; the row
- * leads straight to Ask to join.
- */
-export const NO_EMAIL_COPY = 'This page has no email on file yet. Ask to join and Ricky approves it, usually the same day.';
-
-/** What a search result row says about the organiser (D28: words, not sentences, except D63's line). */
-export const HINT_TEXT: Record<ClaimHint, string> = {
-  yours: 'Yours',
-  managed: 'Has a team',
-  email_matches: 'Email on file is yours',
-  // Names only that an email exists, never the address (the client never reads it).
-  email_differs: 'Has an email on file',
-  no_email: NO_EMAIL_COPY,
-};
-
-/** When the hint call failed: say nothing false. */
-export const NO_HINT_TEXT = 'Ask to join';
+// The row's words about a page (hintRowText) live with the claim screens in claimStates.ts: one map.
 
 /** The one action a row offers: claim only when it can succeed; Home for your own; otherwise ask to join. */
 export type RowAction = 'home' | 'claim' | 'request' | 'requested';
 
 export function rowAction(hint: ClaimHint | null, requested: boolean): RowAction {
-  if (hint === 'yours') return 'home';
-  if (requested) return 'requested';
-  return hint === 'email_matches' ? 'claim' : 'request';
+  const primary = claimPrimary(hint);
+  if (primary === 'home') return 'home';
+  return requested ? 'requested' : primary;
 }
 
 /** The code length differs by project (prod uses 8, the default is 6), so accept 6 to 10 digits. */

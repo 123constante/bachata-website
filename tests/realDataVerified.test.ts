@@ -109,3 +109,16 @@ describe('main: exit codes', () => {
   it('0 on a valid body', () => expect(main([], { PR_BODY: section() }, quiet)).toBe(0));
   it('--self-test passes', () => expect(main(['--self-test'], {}, quiet)).toBe(0));
 });
+
+describe('PR template', () => {
+  it('the PR template, filled in as written, passes; unfilled it fails', async () => {
+    const { readFileSync } = await import('node:fs');
+    const template = readFileSync(new URL('../.github/pull_request_template.md', import.meta.url), 'utf8');
+    const filled = template
+      .replace(/^- Shapes surveyed.*$/m, `- Shapes surveyed: ${S}`)
+      .replace(/^- Checks run.*$/m, `- Checks run: ${C}`)
+      .replace(/^- NOT verified.*$/m, `- NOT verified: ${N}`);
+    expect(parse(filled)).toEqual({ ok: true, problems: [] });
+    expect(parse(template).ok).toBe(false);
+  });
+});

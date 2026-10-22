@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Card } from '@/modules/organiser/ui';
+import { LinkRow } from '../blocks';
 import { useAuth } from '@/hooks/useAuth';
 import { APP_ACCOUNT_SETTINGS_PATH, ACCOUNT_SETTINGS_LABEL, ORGANISER_HOME_PATH } from '@/lib/accountRouting';
-import { ROW } from './optionsUi';
 import SignOutControl from './SignOutControl';
 
 export const ORGANISER_AREA_LABEL = 'Go to my organiser area';
@@ -27,13 +27,11 @@ const NoProfileWayOut = () => {
   const home = useQuery({ queryKey: organiserHomeKey(user?.id), queryFn: fetchOrganiserHome, enabled: Boolean(user?.id) });
   const isOrganiser = (home.data?.organisers.length ?? 0) > 0;
   return (
-    <div style={{ display: 'grid', gap: 8, marginTop: 8 }} data-testid="no-profile-way-out">
-      {isOrganiser && (
-        <Link to={ORGANISER_HOME_PATH} style={ROW} data-testid="no-profile-organiser">{ORGANISER_AREA_LABEL}</Link>
-      )}
-      <Link to={APP_ACCOUNT_SETTINGS_PATH} style={ROW} data-testid="no-profile-settings">{ACCOUNT_SETTINGS_LABEL}</Link>
+    <Card className="mt-[8px]" testId="no-profile-way-out">
+      {isOrganiser && <LinkRow to={ORGANISER_HOME_PATH} label={ORGANISER_AREA_LABEL} testId="no-profile-organiser" />}
+      <LinkRow to={APP_ACCOUNT_SETTINGS_PATH} label={ACCOUNT_SETTINGS_LABEL} testId="no-profile-settings" />
       <SignOutControl />
-    </div>
+    </Card>
   );
 };
 

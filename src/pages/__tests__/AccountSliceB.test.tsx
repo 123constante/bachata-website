@@ -163,6 +163,14 @@ describe('M16: one word for the hidden state', () => {
     expect(src).toMatch(/SHOW_AGAIN_LABEL/);
     expect(src).not.toMatch(/>\s*Show my profile again\s*</);
   });
+  // Review S3: one filled action on Account home. Finish your profile is the filled one; the hidden banner's link
+  // is always outlined and the organiser link is outlined while Finish shows, so two filled pills never stack.
+  it('DancerHome: Show again is outlined, the organiser link yields to Finish', () => {
+    const src = read('src/components/account/DancerHome.tsx');
+    expect(src).toMatch(/className=\{OUTLINE\} data-testid="dancer-home-hidden-settings"/);
+    expect(src).toMatch(/className=\{`\$\{fact\.kind === "incomplete" \? OUTLINE : PILL\} w-full`\} data-testid="dancer-home-open-organiser"/);
+    expect(src).toMatch(/className=\{`\$\{PILL\} w-full`\} data-testid="dancer-home-finish"/);
+  });
 });
 
 describe('M21: Delete account, straight to the delete view', () => {

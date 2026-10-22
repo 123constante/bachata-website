@@ -268,15 +268,16 @@ describe('copy and sizes', () => {
     open('fourFieldComplete', { profile: makeProfile({ ...DANCER_SHAPES.fourFieldComplete.profile, first_name: long }) });
     const card = await stage('in');
     expect(card.textContent).not.toMatch(/\bsave/i);
-    expect(card.style.overflowWrap).toBe('anywhere');
+    expect(card.className).toContain('[overflow-wrap:anywhere]');
     for (const el of [...card.querySelectorAll<HTMLElement>('button, a')]) {
-      expect(parseInt(el.style.minHeight || '0', 10), el.textContent ?? '').toBeGreaterThanOrEqual(44);
+      // Sizes are Tailwind px classes now (jsdom does not run the sheet): h-[52px] / min-h-[44px] and up.
+      expect(Number(/\b(?:min-)?h-\[(\d+)px\]/.exec(el.className)?.[1] ?? 0), el.textContent ?? '').toBeGreaterThanOrEqual(44);
     }
   });
 
   it('chips are 56px', async () => {
     open('nameCityOnly');
     await stage('role');
-    for (const r of screen.getAllByRole('radio')) expect(parseInt((r as HTMLElement).style.minHeight, 10)).toBe(56);
+    for (const r of screen.getAllByRole('radio')) expect(r.className).toContain('min-h-[56px]');
   });
 });

@@ -1,0 +1,42 @@
+// Walk harness (scratch): PersonHub with prod-SHAPED fixtures. ?s=<shape> &t=0 (teacher pages closed)
+// (roles = the VISIBLE roles like the loader, heldRoles = what the person holds)
+// &delay=<ms> (timeline arrives after mount, like prod) &wall=1 (arrived from the wall: badges cache seeded).
+import '@/index.css';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { flags } from '@/lib/featureFlags';
+import PersonHub from '@/modules/person-page/hub/PersonHub';
+import type { PersonRole } from '@/lib/searchEntities';
+const q = new URLSearchParams(location.search);
+(flags as { teacherDetail: boolean }).teacherDetail = q.get('t') !== '0';
+const S: Record<string, { name: string | null; roles: PersonRole[]; dj?: string; gig?: boolean; avatar?: string; city?: string | null; nat?: string; years?: number; langs?: string[] }> = {
+  three: { name: 'Roger Cracco', roles: ['teacher', 'dj', 'dancer'], dj: 'DJ Rogelio', gig: true, city: 'London', nat: 'VE', years: 8, langs: ['Spanish', 'English'] },
+  djgig: { name: 'Marta Ruiz', roles: ['dj'], dj: 'DJ El Rugido', gig: true, city: 'London', nat: 'ES', langs: ['Spanish'] },
+  djdancergig: { name: 'Marta Ruiz', roles: ['dj', 'dancer'], dj: 'DJ El Rugido', gig: true, city: 'London', nat: 'ES', years: 5 },
+  djdancer: { name: 'Marta Ruiz', roles: ['dj', 'dancer'], dj: 'DJ El Rugido', city: 'London', nat: 'ES' },
+  noname: { name: null, roles: ['dj', 'dancer'], dj: 'DJ Nova', city: 'London' },
+  nophoto: { name: 'Pierre Henry', roles: ['dancer'], city: 'Paris', nat: 'FR', years: 3 },
+  long: { name: 'Carlos De La Cruz Fernandez-Montenegro', roles: ['dj', 'dancer'], dj: 'DJ Carlos De La Cruz', city: 'Leamington Spa', nat: 'CO' },
+  thin: { name: 'Sam Lee', roles: ['dancer'], city: null },
+  teacherhidden: { name: 'Gatica Morales', roles: ['teacher', 'dancer'], city: 'London', years: 12, nat: 'AR' },
+  brokenphoto: { name: 'Ana Garcia', roles: ['dancer'], avatar: 'https://invalid.example/broken.jpg', city: 'London' },
+};
+const s = S[q.get('s') ?? 'three'];
+const delay = Number(q.get('delay') ?? 0);
+const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+qc.setQueryData(['dancer-profile', 'p1'], { id: 'p1', first_name: s.name, nationality: s.nat ?? null, avatar_url: s.avatar ?? null, cities: s.city ? { name: s.city } : null,
+  dancing_role_details: s.years ? { dance_started_year: new Date().getFullYear() - s.years } : null });
+qc.setQueryData(['dj-profile', 'p1'], s.dj ? { dj_name: s.dj, languages: s.langs ?? null } : null);
+const future = (d: number) => new Date(Date.now() + d * 86400000).toISOString();
+const timeline = s.gig ? [{ event_id: 'e1', event_start_time: future(2) }, { event_id: 'e2', event_start_time: future(9) }] : [];
+(window as unknown as { __timeline: unknown; __delay: number }).__timeline = timeline;
+(window as unknown as { __delay: number }).__delay = delay;
+if (q.get('wall') === '1') {
+  qc.setQueryData(['people-badges', ['p0', 'p1', 'p2']], new Map([['p1', { id: 'p1', roles: s.roles, djName: s.dj ?? null, djHasUpcoming: !!s.gig, nextGigDate: s.gig ? future(2).slice(0, 10) : null }]]));
+}
+createRoot(document.getElementById('root')!).render(
+  <QueryClientProvider client={qc}><BrowserRouter>
+    <PersonHub person={{ id: 'p1', name: s.name, avatarUrl: s.avatar ?? null, city: s.city ?? null, instagramUrl: null, roles: s.roles.filter((r) => r !== 'teacher' || flags.teacherDetail), heldRoles: s.roles, djPhoto: null }} />
+  </BrowserRouter></QueryClientProvider>,
+);

@@ -67,7 +67,8 @@ describe('Continue as...', () => {
       return;
     }
     expect(screen.getByRole('heading').textContent).toBe('Continue as…');
-    const buttons = screen.getAllByRole('link');
+    expect(screen.getByTestId('site-home-link').getAttribute('href')).toBe('/');
+    const buttons = screen.getAllByRole('link').filter((l) => l.getAttribute('data-testid') !== 'site-home-link');
     expect(buttons.map((b) => b.querySelector('.truncate')?.textContent)).toEqual(names);
     // Organisers first and primary; the dancer last.
     expect(buttons.map((b) => b.textContent?.endsWith('Organiser') ? 'Organiser' : 'Dancer')).toEqual(names.map((_, i) => (i < names.length - 1 ? 'Organiser' : 'Dancer')));

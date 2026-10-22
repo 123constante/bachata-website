@@ -18,7 +18,7 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, signOut: vi.fn() }) }));
-// The Move row (C5c) as it runs once admin A1 is applied (P-DATES pins the hidden side).
+// Admin A1 applied, as on prod (the Move row no longer exists at all: C20).
 vi.mock('@/modules/organiser/shared/a1Gate', () => ({ A1_APPLIED: true }));
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: null }) }));
 vi.mock('@/modules/organiser/events/media', async (orig) => ({ ...(await orig<object>()), uploadEventPicture: upload }));
@@ -124,7 +124,6 @@ const ROUTES = (
   <>
     <Route path="/account/o/change/:seriesId/:occurrenceId/time" element={<ChangeFlow step="time" />} />
     <Route path="/account/o/change/:seriesId/:occurrenceId/venue" element={<ChangeFlow step="venue" />} />
-    <Route path="/account/o/change/:seriesId/:occurrenceId/day" element={<ChangeFlow step="day" />} />
     <Route path="/account/o/add" element={<AddFlow step="event" />} />
     <Route path="/account/o/add/:seriesId" element={<AddFlow step="day" />} />
     <Route path="/account/o/add/:seriesId/:date" element={<AddFlow step="time" />} />
@@ -384,10 +383,6 @@ const CONFLICTS: ConflictRow[] = [
       fireEvent.click(await screen.findByText('Dance Hub'));
       fireEvent.click(screen.getByTestId('change-save'));
     },
-  },
-  {
-    screen: 'move to another day', seriesId: A, path: () => ORG_PATHS.changeDay(A, BEFORE), view: 'change-conflict',
-    act: async () => { fireEvent.click(within(await screen.findByTestId('change-day-list')).getAllByRole('button')[0]); },
   },
   {
     screen: 'change the name', seriesId: A, path: () => detailEditPath(A, 'name'), view: 'event-conflict',

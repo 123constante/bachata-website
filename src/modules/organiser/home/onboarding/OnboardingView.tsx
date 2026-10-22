@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Plus } from 'lucide-react';
 import { searchClaimableOrganisers, type ClaimCandidate, type MyAccessRequest } from '@/modules/organiser/shared/selfServeApi';
+import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
 import { declinedRequests } from '@/modules/organiser/shared/accessRequestModel';
 import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, useDebounced } from '../../ui';
-import { HINT_TEXT, NO_HINT_TEXT, askedOn, rowAction } from './onboardingModel';
+import { askedOn, rowAction } from './onboardingModel';
+import { askedToJoinDone, hintRowText } from './claimStates';
 import { ORG_PATHS } from '../../shell/paths';
 import { goDone } from '../../flows/doneState';
 import { OrganiserSheet, type SheetTask } from './OrganiserSheet';
@@ -71,10 +73,10 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
   };
   // Ask to join ends on the shared Done screen (D29); a new page lands on Home (C1b).
   const requested = (org: ClaimCandidate) => {
-    const message = `Asked to join ${org.name}`;
+    const done = askedToJoinDone(org.name);
     setTask(null);
-    onChanged(message);
-    goDone(navigate, { title: message, message, seriesId: null });
+    onChanged(done.title);
+    goDone(navigate, { ...done, seriesId: null });
   };
   const created = (page: { name: string }) => {
     setTask(null);
@@ -86,8 +88,10 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
     setQuery(name);
   };
 
+  // Every row opens its claim screen (6a-6e) in the sheet; the sheet's buttons act.
   const startClaim = (org: ClaimCandidate) => setTask({ kind: 'claim', org });
-  const startRequest = (org: ClaimCandidate) => setTask({ kind: 'request', org });
+  const startRequest = (org: ClaimCandidate, hint: ClaimHint | null) => setTask({ kind: 'request', org, hint });
+  const openYours = (org: ClaimCandidate) => setTask({ kind: 'yours', org });
   const startCreate = () => setTask({ kind: 'create', name: query.trim() });
   const searchFailed = searched && !search.isFetching && !search.data && (search.isError || search.isPaused);
 
@@ -152,7 +156,7 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
             <div key={org.id} className="flex items-center gap-[12px] px-[16px] py-[12px]" data-testid="onboarding-result" data-org={org.id}>
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-2 break-words text-[15px] font-semibold text-[var(--fg)]">{org.name}</p>
-                <p className="text-[13px] text-[var(--mut)]" data-testid="onboarding-hint">{hint ? HINT_TEXT[hint] : NO_HINT_TEXT}</p>
+                <p className="text-[13px] text-[var(--mut)]" data-testid="onboarding-hint">{hintRowText(hint)}</p>
               </div>
               {action === 'claim' && (
                 <GhostButton size="sm" block={false} onClick={() => startClaim(org)} testId="onboarding-claim">
@@ -160,12 +164,12 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
                 </GhostButton>
               )}
               {action === 'request' && (
-                <GhostButton size="sm" block={false} onClick={() => startRequest(org)} testId="onboarding-request">
+                <GhostButton size="sm" block={false} onClick={() => startRequest(org, hint)} testId="onboarding-request">
                   Ask to join
                 </GhostButton>
               )}
               {action === 'home' && (
-                <GhostButton size="sm" block={false} onClick={() => navigate(ORG_PATHS.home)} testId="onboarding-home">
+                <GhostButton size="sm" block={false} onClick={() => openYours(org)} testId="onboarding-home">
                   Home
                 </GhostButton>
               )}

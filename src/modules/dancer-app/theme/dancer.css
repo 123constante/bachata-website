@@ -10,21 +10,29 @@
  * phones, so rem-based sizes render about 16% small (CLAUDE.md trap).
  */
 [data-profile="dancer"] {
-  --da-bg: #1C0D22;
-  --da-surface: #2A1433;
-  --da-surface-2: #3A1E47;
-  --da-text: #FFF4F1;
-  --da-text-muted: #D7C0D4;
-  --da-accent: #FF7A66;
-  --da-on-accent: #1C0D22;
-  --da-plum: #D58BE6;
-  --da-border: #5A3468;
-  --da-danger: #FF9A8F;
-  --da-gradient-from: #6E2380;
-  --da-gradient-to: #C23B55;
+  --da-bg: #202226;
+  --da-surface: #2A2D32;
+  --da-surface-2: #33373D;
+  --da-text: #FFFFFF;
+  --da-text-muted: #A3A9B3;
+  --da-accent: #F5865A;
+  --da-on-accent: #1D0A03;
+  --da-plum: #C9ADFF;
+  --da-border: #3D4148;
+  --da-danger: #FF7A6B;
+  --da-gradient-from: #97462F;
+  --da-gradient-mid: #922E58;
+  --da-gradient-to: #5A31A5;
   --da-on-gradient: #FFFFFF;
   --da-focus: #FFC2B8;
-  --da-avatar: #8A5A9C;
+  --da-avatar: #717684;
+  --da-pop-ember: #F0703A;
+  --da-pop-pink: #E8487F;
+  --da-pop-violet: #8A4DFF;
+  --da-pop-teal: #4FE0CF;
+  --da-pop-gold: #FFCF66;
+  --da-pop-rose: #FF9CC0;
+  --da-photo-well: #000000;
   --da-radius: 14px;
   --da-tap: 44px;
   --da-header-h: 52px;
@@ -50,18 +58,39 @@
   border-bottom: 1px solid var(--da-border);
 }
 
+/* Review B3: the 44px target ONLY. This selector is 0,2,0 and beats any Tailwind class, so it must not set colour or
+   layout: a colour here turned LINK_PRIMARY's dark text white (2.96:1) and display squashed RateNudge into a row.
+   Each control sets its own layout (.da-tab, .da-not-now, .da-home-link below, or its own classes). */
 [data-profile="dancer"] .da-tap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   min-height: var(--da-tap);
   min-width: var(--da-tap);
   border-radius: 10px;
-  color: inherit;
   text-decoration: none;
 }
 
+[data-profile="dancer"] .da-tab,
+[data-profile="dancer"] .da-not-now,
+[data-profile="dancer"] .da-home-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 [data-profile="dancer"] .da-tap:focus-visible {
+  outline: 2px solid var(--da-focus);
+  outline-offset: 2px;
+}
+
+/* Review N6: the same ring on every control, not only .da-tap (rows, chips, links and inputs fell back to the
+   browser's 1px ring). A plain list, not :is(a, button, ...), so every selector starts with the dancer scope. */
+[data-profile="dancer"] a:focus-visible,
+[data-profile="dancer"] button:focus-visible,
+[data-profile="dancer"] input:focus-visible,
+[data-profile="dancer"] select:focus-visible,
+[data-profile="dancer"] textarea:focus-visible,
+[data-profile="dancer"] [role="button"]:focus-visible,
+[data-profile="dancer"] [role="radio"]:focus-visible,
+[data-profile="dancer"] [role="switch"]:focus-visible {
   outline: 2px solid var(--da-focus);
   outline-offset: 2px;
 }
@@ -87,14 +116,6 @@
   border-radius: 999px;
   background: var(--da-surface-2);
   color: var(--da-plum);
-}
-
-[data-profile="dancer"] .da-events {
-  font-size: 14px;
-  font-weight: 700;
-  white-space: nowrap;
-  padding: 0 6px;
-  color: var(--da-accent);
 }
 
 [data-profile="dancer"] .da-content {
@@ -126,13 +147,6 @@
 
 [data-profile="dancer"] .da-tab[aria-current="page"] {
   color: var(--da-accent);
-}
-
-[data-profile="dancer"] .da-card {
-  background: var(--da-surface);
-  border: 1px solid var(--da-border);
-  border-radius: var(--da-radius);
-  padding: 12px;
 }
 
 [data-profile="dancer"] .da-muted {

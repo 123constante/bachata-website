@@ -93,31 +93,33 @@ describe("/auth code entry", () => {
     await user.type(screen.getByLabelText("8-digit code"), "00000000");
 
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toMatch(/wrong or has expired/i);
+    expect(alert.textContent).toMatch(/not right.*2 tries left/i);
     expect(screen.getByLabelText("8-digit code").getAttribute("aria-invalid")).toBe("true");
     expect(screen.queryByTestId("callback")).toBeNull();
   });
 
   it("disables Resend during the cooldown", async () => {
     await reachCodeScreen("/auth?mode=signin");
-    const resend = screen.getByRole("button", { name: /resend code in/i }) as HTMLButtonElement;
+    const resend = screen.getByRole("button", { name: /send a new code in/i }) as HTMLButtonElement;
     expect(resend.disabled).toBe(true);
   });
 });
 
 describe("/auth role step", () => {
-  it("pre-selects Dancer and hides the other roles until expanded", async () => {
+  // B-WEB4: "What do you do?" is a multi-select, every choice on screen, Dancer on.
+  it("pre-selects Dancer and shows Organiser, Teacher and DJ beside it", async () => {
     renderAuth("/auth?mode=signup");
 
     const dancer = await screen.findByRole("button", { name: /^dancer/i });
     expect(dancer.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: /continue as dancer/i })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^organiser/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /^teacher/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /^continue$/i })).toBeTruthy();
+    for (const name of [/^organiser/i, /^teacher/i, /^dj/i]) {
+      expect(screen.getByRole("button", { name }).getAttribute("aria-pressed")).toBe("false");
+    }
 
-    fireEvent.click(screen.getByRole("button", { name: /i.m an organiser/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^teacher/i }));
 
-    expect(screen.getByRole("button", { name: /^organiser/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^teacher/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^teacher/i }).getAttribute("aria-pressed")).toBe("true");
+    expect(dancer.getAttribute("aria-pressed")).toBe("true");
   });
 });

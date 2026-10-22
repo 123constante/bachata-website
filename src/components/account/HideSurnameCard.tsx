@@ -69,7 +69,7 @@ export function HideSurnameCard() {
   });
 
   return (
-    <section className="space-y-2" data-testid="dancer-home-hide-surname">
+    <section className="space-y-[8px]" data-testid="dancer-home-hide-surname">
       <HideSurnameSwitch
         checked={checked}
         onChange={(next) => {
@@ -80,7 +80,7 @@ export function HideSurnameCard() {
       />
       <button
         type="button"
-        className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-primary px-[16px] text-[14px] font-semibold text-black disabled:opacity-50"
+        className="inline-flex min-h-[44px] items-center justify-center rounded-[var(--r-ctl)] border border-[var(--line-strong)] bg-transparent px-[16px] text-[14px] font-semibold text-[var(--fg)] disabled:opacity-50"
         disabled={!changed || reason !== null}
         onClick={() => changed && save.mutate(draft!)}
         data-testid="hide-surname-save"
@@ -88,13 +88,13 @@ export function HideSurnameCard() {
         {save.isPending ? <>Saving&hellip;</> : "Save"}
       </button>
       {!changed && reason === null && !saved && (
-        <p className="text-xs text-muted-foreground">Change the switch, then save.</p>
+        <p className="text-[13px] text-[var(--mut)]">Change the switch, then save.</p>
       )}
       {saved && !changed && (
-        <p role="status" className="text-xs text-muted-foreground">Saved.</p>
+        <p role="status" className="text-[13px] text-[var(--mut)]">Saved.</p>
       )}
       {save.isError && (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-xs text-[var(--danger)]">
           We could not save that. Check your connection and try again.
         </p>
       )}

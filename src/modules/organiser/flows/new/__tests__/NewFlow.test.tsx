@@ -35,16 +35,23 @@ const sent = (): Envelope[] => rpc.mock.calls.filter(([fn]) => fn === 'series_co
 let format = 'recurring';
 let conflict = false;
 let nextVersion = 4;
+let cover: string | null = null;
+let profileLeft = false;
 
 beforeEach(() => {
   format = 'recurring';
   conflict = false;
   nextVersion = 4;
+  cover = null;
+  profileLeft = false;
   rpc.mockReset();
   rpc.mockImplementation(async (fn: string) => {
     if (fn === 'organiser_home_v1') return { data: home(), error: null };
     if (fn === 'get_organiser_venue_options_v1') return { data: venues, error: null };
-    if (fn === 'admin_event_workspace_p5') return { data: rawWorkspace({ format, version: 3, default_cover_image_url: null }), error: null };
+    if (fn === 'admin_event_workspace_p5') return { data: rawWorkspace({ format, version: 3, default_cover_image_url: cover }, cover ? [{ id: 'o1', occurrence_date: '2026-10-09', lifecycle_status: 'scheduled', version: 1, added_sessions_count: 1 }] : undefined), error: null };
+    if (fn === 'series_go_live_check_v1') {
+      return { data: { ready: !profileLeft, event_missing: [], recommended: [], profile_rule_applies: true, profile_missing: profileLeft ? [{ area: 'dancer', [['organiser', 'id'].join('_')]: null, fields: ['nationality', 'languages'] }] : [] }, error: null };
+    }
     if (fn === 'series_command_p5') {
       if (conflict) return { data: null, error: { code: 'P0001', message: 'version_conflict: stale' } };
       const v = nextVersion;
@@ -164,8 +171,10 @@ describe('screens: one question each', () => {
     const base = rpc.getMockImplementation()!;
     rpc.mockImplementation(async (fn: string, args?: unknown) => (fn === 'organiser_home_v1' ? { data: two, error: null } : base(fn, args)));
     mount('/account/o/new/what?o=org2');
+    // Two pages: Arc 1 flow 7b asks which first, with the linked page ticked.
+    fireEvent.click(await screen.findByTestId('org-new-page-continue'));
     fireEvent.click(await screen.findByTestId('org-new-format-recurring'));
-    await waitFor(() => expect(where()).toBe('/account/o/new/name?format=recurring&o=org2'));
+    await waitFor(() => expect(where()).toBe('/account/o/new/name?format=recurring&o=org2&page=set'));
     fireEvent.change(await screen.findByTestId('org-new-name'), { target: { value: 'Friday Night' } });
     await waitFor(() => expect((screen.getByTestId('org-new-next') as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByTestId('org-new-next'));
@@ -237,7 +246,7 @@ describe('screens: venue, date, time', () => {
     const calls = sent();
     expect(calls.map((c) => c.command.kind)).toEqual(['series.upsert', 'series.set_recurrence']);
     expect(calls.map((c) => c.expected_version)).toEqual([3, 4]);
-    expect(calls[0].command.payload).toEqual({ default_start_date: '2026-10-09' });
+    expect(calls[0].command.payload).toEqual({ name: 'Friday Party', default_start_date: '2026-10-09' });
     expect(calls[1].command.payload).toMatchObject({ mode: 'weekly', weekdays: [5] });
   });
 
@@ -259,7 +268,7 @@ describe('screens: venue, date, time', () => {
     await waitFor(() => expect((screen.getByTestId('org-new-next') as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByTestId('org-new-next'));
     await waitFor(() => expect(where()).toBe('/account/o/new/s1/cover'));
-    expect(sent().map((c) => c.command.payload)).toEqual([{ default_local_start_time: '20:30' }]);
+    expect(sent().map((c) => c.command.payload)).toEqual([{ name: 'Friday Party', default_local_start_time: '20:30' }]);
   });
 });
 
@@ -271,6 +280,27 @@ describe('screens: cover, leaving, conflicts', () => {
     expect(screen.getByTestId('org-new-live-reason').textContent).toMatch(/photo/);
     fireEvent.click(live);
     expect(sent()).toHaveLength(0);
+  });
+
+  it('Arc 1 B: Go live with profile answers left opens the Almost live bridge for this event and sends no command', async () => {
+    cover = 'https://img.example/flyer.jpg';
+    profileLeft = true;
+    mount('/account/o/new/s1/cover');
+    const live = (await screen.findByTestId('org-new-live')) as HTMLButtonElement;
+    await waitFor(() => expect(live.disabled).toBe(false));
+    fireEvent.click(live);
+    await waitFor(() => expect(where()).toBe(`${ORG_PATHS.goLive}?series=s1&o=org1`));
+    expect(sent()).toHaveLength(0);
+  });
+
+  it('Arc 1 B: Go live with nothing left in the profile still sends the live command', async () => {
+    cover = 'https://img.example/flyer.jpg';
+    mount('/account/o/new/s1/cover');
+    const live = (await screen.findByTestId('org-new-live')) as HTMLButtonElement;
+    await waitFor(() => expect(live.disabled).toBe(false));
+    fireEvent.click(live);
+    await waitFor(() => expect(sent().length).toBeGreaterThan(0));
+    expect(where()).not.toContain(ORG_PATHS.goLive);
   });
 
   it('every step after the name offers Save as draft and leave, which sends nothing and goes Home', async () => {

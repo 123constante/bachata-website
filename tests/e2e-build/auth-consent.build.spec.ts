@@ -37,7 +37,7 @@ async function rpcLog(page: Page, extrasConsents: unknown[] | null) {
   return log;
 }
 
-test('sign-in code box: send, code, 5 wrong codes lock', async ({ page }) => {
+test('sign-in code box: send, code, 3 wrong codes lock (soft limit, flow 4d)', async ({ page }) => {
   const backend = new Backend(rowFor(EXISTING, 'signin'));
   await wire(page, backend);
   await rpcLog(page, null);
@@ -49,12 +49,14 @@ test('sign-in code box: send, code, 5 wrong codes lock', async ({ page }) => {
   expect(await input.getAttribute('inputmode')).toBe('numeric');
   await expect(page.getByTestId('auth-consent')).toHaveCount(0);
   await shot(page, '1-code');
-  backend.verifyFailures = 5;
-  for (let i = 1; i <= 5; i += 1) {
+  // The server answers every wrong code as otp_expired; inside the code lifetime each one counts a try (review F5).
+  backend.verifyFailures = 3;
+  for (let i = 1; i <= 3; i += 1) {
     await expect(input).toBeEnabled();
     await input.pressSequentially('87654321');
-    if (i < 5) await expect(page.getByText('That code is wrong or has expired')).toBeVisible();
+    if (i < 3) await expect(page.getByText(`${3 - i} ${3 - i === 1 ? 'try' : 'tries'} left`, { exact: false })).toBeVisible();
   }
+  await expect(page.getByText('Too many tries. Send a new code to carry on.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Send a new code' })).toBeVisible();
   await expect(input).toBeDisabled();
   await shot(page, '2-wrong-x5-locked');
