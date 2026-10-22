@@ -35,8 +35,9 @@ export const flags = {
   // chips, filter chips, warm dark base. OFF = both pages exactly as before. Turn on with
   // VITE_ENABLE_PEOPLE_WALL=true (Vercel env) -- no code change.
   peopleWall:          import.meta.env.VITE_ENABLE_PEOPLE_WALL === 'true',
-  // The person hub on /people/:id (src/modules/person-page/hub): face, name, facts, then one big
-  // card per role page; wall tiles open it. OFF = the tabbed /people/:id page and the wall links
+  // The person hub on /people/:id (src/modules/person-page/hub, W2-D option C): one hero card for the
+  // main role + "Also" + About, for people with 2+ held roles; everyone else is forwarded to their one
+  // page, and wall tiles follow the same rule. OFF = the tabbed /people/:id page and the wall links
   // exactly as before. Turn on with VITE_ENABLE_PERSON_HUB=true (Vercel env) -- no code change.
   personHub:           import.meta.env.VITE_ENABLE_PERSON_HUB === 'true',
   // Self-owned RUM (web-vitals -> record_web_vital_v1, see lib/webVitals.ts).
