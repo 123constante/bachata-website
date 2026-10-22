@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { optimizedImageUrl } from '@/lib/imageCdn';
+import { normalizeUrl, parseDateParts } from './djFormat';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
 import { useEmbeddedProfile } from '@/lib/embeddedProfile';
 
@@ -39,25 +40,6 @@ function TileHeader({ title, right }: { title: string; right?: ReactNode }) {
       ) : null}
     </div>
   );
-}
-
-// --- date helpers -------------------------------------------
-// Times are stored naive ("local-as-UTC"); display exactly as stored,
-// never Intl-convert. So parse the Y-M-D directly from the string.
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function parseDateParts(iso: string | null): { day: string; mon: string; monYear: string } | null {
-  if (!iso) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!m) return null;
-  const year = m[1];
-  const monIdx = Math.max(0, Math.min(11, parseInt(m[2], 10) - 1));
-  const day = m[3];
-  return {
-    day,
-    mon: MONTHS[monIdx],
-    monYear: `${MONTHS[monIdx].toUpperCase()} \u2019${year.slice(2)}`,
-  };
 }
 
 // --- shared gig type ----------------------------------------
@@ -100,8 +82,66 @@ function Stat({ value, label, gold }: { value: string; label: string; gold?: boo
   );
 }
 
-// The portrait's box inside the 188px turntable (inset 15%), which the flag pins to.
-const HERO_PORTRAIT = Math.round(188 * 0.7);
+/** The turntable: vinyl grooves spin; the portrait stays still and prominent. 188px on the classic hero; the portrait box (inset 15%) is what the flag pins to. */
+export function DjTurntable({ name, photoUrl, nationalityCode, size = 188 }: {
+  name: string;
+  photoUrl: string | null;
+  nationalityCode?: string | null;
+  size?: number;
+}) {
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size, animation: 'dj-float 6s ease-in-out infinite' }}>
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '50%',
+          background: 'repeating-radial-gradient(circle,#17121a 0 2px,#0c0a0f 2px 5px)',
+          boxShadow: '0 26px 60px rgba(0,0,0,0.75), 0 0 0 1px rgba(246,241,234,0.08), inset 0 0 40px rgba(0,0,0,0.6)',
+          animation: 'dj-spin 9s linear infinite',
+        }}
+      >
+        {!photoUrl ? (
+          <div
+            style={{
+              position: 'absolute',
+              inset: '32%',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              background: 'conic-gradient(from 200deg,#FBEFC4,#E7BE6E 40%,#D2A350 70%,#FBEFC4)',
+              boxShadow: 'inset 0 0 12px rgba(0,0,0,0.25)',
+            }}
+          />
+        ) : null}
+      </div>
+      {/* initials sit OUTSIDE the spinning disc so the text stays still; no spindle dot
+          over them (review 7a) */}
+      {!photoUrl ? (
+        <div style={{ position: 'absolute', inset: '32%' }} className="flex items-center justify-center">
+          <span style={{ color: '#0C0A0D', fontWeight: 800, fontSize: Math.round((17 * size) / 188), letterSpacing: '0.12em' }}>
+            {initials(name)}
+          </span>
+        </div>
+      ) : null}
+      {photoUrl ? (
+        <div
+          style={{
+            position: 'absolute',
+            inset: '15%',
+            borderRadius: '50%',
+            overflow: 'hidden',
+            boxShadow: '0 0 0 3px rgba(231,190,110,0.55), 0 0 0 6px rgba(10,8,11,0.92), inset 0 0 24px rgba(0,0,0,0.5)',
+          }}
+        >
+          <img src={optimizedImageUrl(photoUrl, 480)} alt={name} className="h-full w-full object-cover" loading="eager" />
+        </div>
+      ) : null}
+      <div style={{ position: 'absolute', inset: '15%', pointerEvents: 'none' }}>
+        <NationalityFlag code={nationalityCode} size={Math.round(size * 0.7)} />
+      </div>
+    </div>
+  );
+}
 
 export function DjHero({ name, photoUrl, cityName, nationality, nationalityCode, bio, isLive, stats }: DjHeroProps) {
   const locLine = [cityName, nationality].filter(Boolean).join(' \u00B7 ');
@@ -145,56 +185,7 @@ export function DjHero({ name, photoUrl, cityName, nationality, nationalityCode,
       className="flex flex-col items-center gap-6 p-7 text-center md:flex-row md:items-center md:gap-9 md:p-10 md:text-left"
     >
       {/* turntable: vinyl grooves spin; the portrait stays still and prominent */}
-      <div className="relative shrink-0" style={{ width: 188, height: 188, animation: 'dj-float 6s ease-in-out infinite' }}>
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: '50%',
-            background: 'repeating-radial-gradient(circle,#17121a 0 2px,#0c0a0f 2px 5px)',
-            boxShadow: '0 26px 60px rgba(0,0,0,0.75), 0 0 0 1px rgba(246,241,234,0.08), inset 0 0 40px rgba(0,0,0,0.6)',
-            animation: 'dj-spin 9s linear infinite',
-          }}
-        >
-          {!photoUrl ? (
-            <div
-              style={{
-                position: 'absolute',
-                inset: '32%',
-                borderRadius: '50%',
-                overflow: 'hidden',
-                background: 'conic-gradient(from 200deg,#FBEFC4,#E7BE6E 40%,#D2A350 70%,#FBEFC4)',
-                boxShadow: 'inset 0 0 12px rgba(0,0,0,0.25)',
-              }}
-            />
-          ) : null}
-        </div>
-        {/* initials sit OUTSIDE the spinning disc so the text stays still; no spindle dot
-            over them (review 7a) */}
-        {!photoUrl ? (
-          <div style={{ position: 'absolute', inset: '32%' }} className="flex items-center justify-center">
-            <span style={{ color: '#0C0A0D', fontWeight: 800, fontSize: 17, letterSpacing: '0.12em' }}>
-              {initials(name)}
-            </span>
-          </div>
-        ) : null}
-        {photoUrl ? (
-          <div
-            style={{
-              position: 'absolute',
-              inset: '15%',
-              borderRadius: '50%',
-              overflow: 'hidden',
-              boxShadow: '0 0 0 3px rgba(231,190,110,0.55), 0 0 0 6px rgba(10,8,11,0.92), inset 0 0 24px rgba(0,0,0,0.5)',
-            }}
-          >
-            <img src={optimizedImageUrl(photoUrl, 480)} alt={name} className="h-full w-full object-cover" loading="eager" />
-          </div>
-        ) : null}
-        <div style={{ position: 'absolute', inset: '15%', pointerEvents: 'none' }}>
-          <NationalityFlag code={nationalityCode} size={HERO_PORTRAIT} />
-        </div>
-      </div>
+      <DjTurntable name={name} photoUrl={photoUrl} nationalityCode={nationalityCode} />
 
       {/* identity */}
       <div className="min-w-0 flex-1">
@@ -248,11 +239,6 @@ export type DjContactProps = {
   mixcloud: string | null;
   facebook: string | null;
   phone?: string | null;
-};
-
-const normalizeUrl = (raw: string | null | undefined) => {
-  if (!raw?.trim()) return null;
-  return raw.trim().startsWith('http') ? raw.trim() : `https://${raw.trim()}`;
 };
 
 const phoneDigits = (raw: string) => raw.replace(/[^\d]/g, '');

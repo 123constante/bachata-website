@@ -5,6 +5,7 @@ import { flags } from '@/lib/featureFlags';
 import { cn } from '@/lib/utils';
 import type { PersonRole } from '@/lib/searchEntities';
 import { roleTagsFor, usePeopleBadges, type PersonBadge, type RoleTag } from './badges';
+import { RoleSwitch } from './RoleSwitchBar';
 
 type Props = {
   /** The role page this bar sits on: that role is left out of the bar. */
@@ -55,8 +56,18 @@ export function AlsoBar({ badge, current, teacherPagesOpen, className }: {
   );
 }
 
-/** The Also bar on a role page. Nothing in a tab of /people/:id, and nothing until the badge read answers. */
-export function AlsoRoles({ current, id, className }: Props) {
+/**
+ * The Also bar on a role page. Nothing in a tab of /people/:id, and nothing until the badge read answers.
+ * flags.personHub ON: the W2-C Back row + role switcher instead, bled to the page edge (every caller's
+ * box is px-4) so its soft fade meets the page under it, not a padded box. The caller's classes are
+ * kept; the bar's own fade sets its vertical padding.
+ */
+export function AlsoRoles(props: Props) {
+  if (flags.personHub) return <RoleSwitch current={props.current} id={props.id} slug={props.slug} className={cn('-mx-4 px-4', props.className)} />;
+  return <AlsoRolesRow {...props} />;
+}
+
+function AlsoRolesRow({ current, id, className }: Props) {
   const embedded = useEmbeddedProfile();
   const { badges } = usePeopleBadges(embedded || !id ? [] : [id]);
   if (embedded || !id) return null;

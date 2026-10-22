@@ -1,0 +1,232 @@
+{
+ "dj-many": {
+  "before": {
+   "seamMaxStep": 1,
+   "groundMid": [
+    30,
+    20,
+    16
+   ],
+   "groundAboveFooter": [
+    14,
+    18,
+    21
+   ],
+   "shareBottom": 976,
+   "footerTop": 1064,
+   "scrollWidth": 390,
+   "sections": [
+    "Upcoming dates",
+    "About",
+    "Listen & book"
+   ],
+   "pageErrors": [],
+   "somethingWentWrong": false
+  },
+  "after": {
+   "seamMaxStep": 0,
+   "groundMid": [
+    30,
+    20,
+    16
+   ],
+   "groundAboveFooter": [
+    30,
+    20,
+    16
+   ],
+   "shareBottom": 976,
+   "footerTop": 1064,
+   "scrollWidth": 390,
+   "sections": [
+    "Upcoming dates",
+    "About",
+    "Listen & book"
+   ],
+   "pageErrors": [],
+   "somethingWentWrong": false
+  }
+ },
+ "dj-none-ig": {
+  "before": {
+   "seamMaxStep": 1,
+   "groundMid": [
+    30,
+    20,
+    16
+   ],
+   "groundAboveFooter": [
+    14,
+    18,
+    21
+   ],
+   "shareBottom": 728,
+   "footerTop": 1004,
+   "scrollWidth": 390,
+   "sections": [
+    "Upcoming dates",
+    "Listen & book"
+   ],
+   "pageErrors": [],
+   "somethingWentWrong": false
+  },
+  "after": {
+   "seamMaxStep": 0,
+   "groundMid": [
+    30,
+    20,
+    16
+   ],
+   "groundAboveFooter": [
+    30,
+    20,
+    16
+   ],
+   "shareBottom": 728,
+   "footerTop": 1004,
+   "scrollWidth": 390,
+   "sections": [
+    "Upcoming dates",
+    "Listen & book"
+   ],
+   "pageErrors": [],
+   "somethingWentWrong": false
+  }
+ },
+ "dj-none-noig": {
+  "before": {
+   "seamMaxStep": 1,
+   "groundMid": [
+    30,
+    20,
+    16
+   ],
+   "groundAboveFooter": [
+    14,
+    18,
+    21
+   ],
+   "shareBottom": 701,
+   "footerTop": 1004,
+   "scrollWidth": 390,
+   "sections": [
+    "Upcoming dates"
+   ],
+   "pageErrors": [],
+   "somethingWentWrong": false
+  },
+  "after": {
+   "seamMaxStep": 0,
+   "groundMid": [
+    30,
+    20,
+    16
+   ],
+   "groundAboveFooter": [
+    30,
+    20,
+    16
+   ],
+   "shareBottom": 701,
+   "footerTop": 1004,
+   "scrollWidth": 390,
+   "sections": [
+    "Upcoming dates"
+   ],
+   "pageErrors": [],
+   "somethingWentWrong": false
+  }
+ },
+ "dj-pricing": {
+  "before": {
+   "seamMaxStep": 1,
+   "groundMid": [
+    30,
+    20,
+    16
+   ],
+   "groundAboveFooter": [
+    14,
+    18,
+    21
+   ],
+   "shareBottom": 861,
+   "footerTop": 1004,
+   "scrollWidth": 390,
+   "sections": [
+    "Upcoming dates",
+    "About",
+    "Pricing"
+   ],
+   "pageErrors": [],
+   "somethingWentWrong": false
+  },
+  "after": {
+   "seamMaxStep": 0,
+   "groundMid": [
+    30,
+    20,
+    16
+   ],
+   "groundAboveFooter": [
+    30,
+    20,
+    16
+   ],
+   "shareBottom": 861,
+   "footerTop": 1004,
+   "scrollWidth": 390,
+   "sections": [
+    "Upcoming dates",
+    "About",
+    "Pricing"
+   ],
+   "pageErrors": [],
+   "somethingWentWrong": false
+  }
+ },
+ "dj-long": {
+  "before": {
+   "seamMaxStep": 1,
+   "groundMid": [
+    30,
+    20,
+    16
+   ],
+   "groundAboveFooter": [
+    14,
+    18,
+    21
+   ],
+   "shareBottom": 765,
+   "footerTop": 1004,
+   "scrollWidth": 390,
+   "sections": [
+    "Upcoming dates"
+   ],
+   "pageErrors": [],
+   "somethingWentWrong": false
+  },
+  "after": {
+   "seamMaxStep": 0,
+   "groundMid": [
+    30,
+    20,
+    16
+   ],
+   "groundAboveFooter": [
+    30,
+    20,
+    16
+   ],
+   "shareBottom": 765,
+   "footerTop": 1004,
+   "scrollWidth": 390,
+   "sections": [
+    "Upcoming dates"
+   ],
+   "pageErrors": [],
+   "somethingWentWrong": false
+  }
+ }
+}

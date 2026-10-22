@@ -36,6 +36,7 @@ describe('GlobalLayout grounds', () => {
     ['default', '#0e1215'],
     ['dancer', '#06191F'],
     ['dj', '#0A080B'],
+    ['wall', '#1E1410'],
   ] as const)('%s: static ground, no icons, body painted', (palette, base) => {
     expect(PAGE_GROUNDS[palette].base).toBe(base);
     const { container } = mount({ gradientPalette: palette, floatingCount: 20 });
