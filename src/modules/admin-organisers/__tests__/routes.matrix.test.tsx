@@ -242,8 +242,8 @@ describe('/invite/:token x viewer', () => {
   it('signed out: explains and offers sign in that returns here; no redeem call', async () => {
     rpcImpl(true);
     mount(`/invite/${TOKEN}`);
-    const link = (await screen.findByTestId('invite-sign-in')) as HTMLAnchorElement;
-    expect(decodeURIComponent(link.getAttribute('href') ?? '')).toContain(`returnTo=/invite/${TOKEN}`);
+    // An unbound open link asks for the email first; the sign-in that returns here follows the bind (bindEmailStep.test).
+    expect(await screen.findByTestId('bind-type')).toBeTruthy();
     // Only the masked-hint preview (D36) may run while signed out; the link is never used.
     expect(h.rpc.mock.calls.map((c) => c[0]).filter((fn) => fn !== 'organiser_invite_preview_v1')).toEqual([]);
   });

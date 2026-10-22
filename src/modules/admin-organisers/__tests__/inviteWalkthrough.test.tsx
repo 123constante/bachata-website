@@ -93,7 +93,7 @@ describe.each(STATES)('$name', ({ user, row }) => {
   it('valid token', async () => {
     const visited = mount(row, `/invite/${VALID}`);
     if (!user) {
-      expect(await screen.findByTestId('invite-sign-in')).toBeTruthy();
+      expect(await screen.findByTestId(h.preview.email_hint == null ? 'bind-type' : 'invite-sign-in')).toBeTruthy();
       expect(h.redeem).not.toHaveBeenCalled();
       expect(visited).toEqual([`/invite/${VALID}`]);
     } else if (!complete) {

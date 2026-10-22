@@ -38,3 +38,10 @@ export const requestNewInvite = (token: string) => rpc('request_new_invite_v1', 
 
 /** request_signup_access_v1: raw answer, interpreted by accessResultCopy. */
 export const requestSignupAccess = (email: string, note: string) => rpc('request_signup_access_v1', { p_email: email, p_note: note });
+
+/**
+ * bind_organiser_invite_email_v1: attaches a typed email to an UNBOUND open link. Called from the BROWSER with the
+ * anon key (never a server function: the per-client rate-limit bucket comes from x-forwarded-for). Raw answer,
+ * interpreted by interpretBind; the email is never logged.
+ */
+export const bindOrganiserInviteEmail = (token: string, email: string) => rpc('bind_organiser_invite_email_v1', { p_token: token, p_email: email });

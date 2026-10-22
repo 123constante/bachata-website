@@ -190,7 +190,7 @@ describe('already a member / used by me -> Home', () => {
 describe('the open link names the page and the sender (screen 2a)', () => {
   it('signed out', async () => {
     mount();
-    expect((await screen.findByTestId('invite-title')).textContent).toBe('Salsa Norte invited you');
+    expect((await screen.findByTestId('invite-title')).textContent).toBe('You\u2019ve been invited to manage Salsa Norte');
   });
   it('signed in: the Join card names both', async () => {
     h.auth.user = { id: 'u1', email: 'ana@example.com' };

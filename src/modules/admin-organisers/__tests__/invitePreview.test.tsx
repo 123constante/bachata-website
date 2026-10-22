@@ -65,10 +65,13 @@ describe('invite landing hint', () => {
     ['network failure', () => h.rpc.mockRejectedValue(new Error('network'))],
     ['a full address instead of a hint', () => h.rpc.mockResolvedValue({ data: { status: 'open', organiser_name: 'Ritmo', email_hint: 'rosa.lima@ymail.com' }, error: null })],
     ['an unbound link (no hint)', () => h.rpc.mockResolvedValue({ data: { status: 'open', organiser_name: 'Ritmo', email_hint: null }, error: null })],
-  ])('%s: no hint line, the sign-in card is unchanged', async (_label, arrange) => {
+  ])('%s: no hint line, the sign-in card is unchanged', async (label, arrange) => {
     arrange();
     mount();
-    await screen.findByTestId('invite-sign-in');
+    // An open link with no usable hint is unbound: the type-your-email step comes first (BindEmailStep);
+    // a failed preview keeps the plain sign-in card.
+    const unbound = label === 'an unbound link (no hint)' || label === 'a full address instead of a hint';
+    await screen.findByTestId(unbound ? 'bind-type' : 'invite-sign-in');
     await waitFor(() => expect(h.rpc).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 0));
     expect(screen.queryByTestId('invite-email-hint')).toBeNull();

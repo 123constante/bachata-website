@@ -17,6 +17,7 @@ import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { clearInvitePrefill, rememberInvitePrefill } from '@/lib/invitePrefill';
 import { rememberCodeStep } from '@/components/MagicLinkConfirmation';
 import { redeemOrganiserInvite } from './adminApi';
+import BindEmailStep from './BindEmailStep';
 import { fetchInvitePreview, invitePreviewQueryKey, requestNewInvite, sendInviteSignInEmail } from './inviteRedeemApi';
 import { INVITE_PATH, REDEEM_COPY, TOKEN_RE, hintMatchesEmail, interpretRedeem, joiningAsName, newLinkResultCopy, ownPageForName, reasonScreen, type InvitePreview, type RedeemCopy, type RedeemOutcome } from './inviteModel';
 
@@ -339,6 +340,9 @@ function InviteRedeem({ preview }: { preview: InvitePreview | null }) {
   let body: React.ReactNode;
   if (authStatus === 'resolving' || (user && !joining && ((nameEnabled && nameRow.isPending) || listWaiting))) {
     body = <div className="mx-auto max-w-md space-y-2 px-4 pt-10" data-testid="invite-checking"><Skeleton className="h-6 w-48" /><Skeleton className="h-16 w-full" /></div>;
+  } else if (!user && TOKEN_RE.test(token) && preview && preview.status === 'open' && preview.emailHint == null) {
+    // Unbound open link, signed out: type + confirm the email first (the first bind wins), then the normal sign-in.
+    body = <BindEmailStep token={token} organiserName={preview.organiserName} inviterFirstName={preview.inviterFirstName} />;
   } else if (!user && TOKEN_RE.test(token)) {
     const here = `${INVITE_PATH}/${token}`;
     body = (
