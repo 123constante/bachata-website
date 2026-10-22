@@ -1,5 +1,6 @@
 import { rpcLoose } from "@/integrations/supabase/rpcLoose";
 import { dancerMessageUsUrl } from "@/lib/contactLinks";
+import { rememberInvitePrefill } from "@/lib/invitePrefill";
 
 /**
  * claim_my_organisers_v1() (admin contract): no args, authenticated; returns
@@ -14,10 +15,33 @@ import { dancerMessageUsUrl } from "@/lib/contactLinks";
 export const CLAIM_MY_ORGANISERS_RPC = "claim_my_organisers_v1";
 export const CLAIM_ORGANISERS_TIMEOUT_MS = 4000;
 
+export type ClaimVia = "claim_email" | "invite";
+
+/** The sender's pre-fill on an invite-joined row; the same two facts invitePrefill stores. */
+export interface ClaimPrefill {
+  firstName: string | null;
+  cityId: string | null;
+}
+
 export interface ClaimedOrganiser {
   organiserId: string;
   name: string;
+  /** How the page was joined; absent on the old answer shape or an unknown value. */
+  via?: ClaimVia;
+  /** Only ever used for via 'invite'; any shape problem is null. */
+  prefill?: ClaimPrefill | null;
 }
+
+const parseVia = (v: unknown): ClaimVia | undefined => (v === "claim_email" || v === "invite" ? v : undefined);
+
+const parsePrefill = (v: unknown): ClaimPrefill | null => {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const { first_name, city_id } = v as Record<string, unknown>;
+  if ((first_name != null && typeof first_name !== "string") || (city_id != null && typeof city_id !== "string")) return null;
+  const firstName = typeof first_name === "string" && first_name.trim() ? first_name.trim() : null;
+  const cityId = typeof city_id === "string" && city_id.trim() ? city_id.trim() : null;
+  return firstName || cityId ? { firstName, cityId } : null;
+};
 
 /** Reads the contract's jsonb; rows without an id and a name are dropped. */
 export const parseClaimedOrganisers = (data: unknown): ClaimedOrganiser[] => {
@@ -26,7 +50,11 @@ export const parseClaimedOrganisers = (data: unknown): ClaimedOrganiser[] => {
   const out: ClaimedOrganiser[] = [];
   for (const r of claimed as Record<string, unknown>[]) {
     if (r && typeof r.organiser_id === "string" && typeof r.name === "string" && r.name.trim()) {
-      out.push({ organiserId: r.organiser_id, name: r.name.trim() });
+      const row: ClaimedOrganiser = { organiserId: r.organiser_id, name: r.name.trim() };
+      const via = parseVia(r.via);
+      if (via) row.via = via;
+      if ("prefill" in r) row.prefill = parsePrefill(r.prefill);
+      out.push(row);
     }
   }
   return out;
@@ -46,6 +74,18 @@ export const claimMyOrganisers = async (timeoutMs = CLAIM_ORGANISERS_TIMEOUT_MS)
   } finally {
     if (timer) clearTimeout(timer);
   }
+};
+
+/**
+ * The sign-in step BOTH paths (emailed link, typed code) run: the claim, then the sender's pre-fill
+ * of an invite-joined page into THE one prefill store (lib/invitePrefill) for this person, so the
+ * dancer questions arrive filled in. Never throws, never holds the sign-in past its timeout.
+ */
+export const claimOrganisersAtSignIn = async (userId: string | null | undefined): Promise<ClaimedOrganiser[]> => {
+  const claimed = await claimMyOrganisers();
+  const invite = claimed.find((c) => c.via === "invite" && c.prefill);
+  if (invite?.prefill && userId) rememberInvitePrefill(invite.prefill, userId);
+  return claimed;
 };
 
 /** "You now manage Ritmo." / "You now manage Ritmo and Salsa Club." / "You now manage A, B and C." */
