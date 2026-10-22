@@ -33,8 +33,10 @@ export function wallPills(rolesKnown: boolean, teacherPagesOpen: boolean): Pill[
   return rolesKnown ? [...roles, TEACHERS_PILL] : [];
 }
 
+// 44px tap target; side padding and the row gap sized so all five fit ONE row at 390 (critique 2026-10-22).
 const pillStyle = (on: boolean): CSSProperties => ({
-  minHeight: SIZE.filterHeight, display: 'inline-flex', alignItems: 'center', padding: '0 14px', borderRadius: 999,
+  minHeight: SIZE.filterHeight, minWidth: SIZE.filterHeight, justifyContent: 'center',
+  display: 'inline-flex', alignItems: 'center', padding: `0 ${SIZE.filterPadX}px`, borderRadius: 999,
   fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', textDecoration: 'none',
   background: on ? WALL.text : 'transparent', color: on ? WALL.page : WALL.text,
   border: `1.5px solid ${on ? WALL.text : WALL.line}`,
@@ -79,7 +81,7 @@ export function PeopleWall({
   const browse = pills.filter((p) => p.k === 'dj' || p.k === 'dancer').reverse();
   return (
     <div style={{ ...WALL_FADE, color: WALL.text }} data-seam="soft" className="px-3 pb-6 pt-3" data-testid="wall-root" data-list={list}>
-      <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="Show" data-testid="wall-pills">
+      <div className="mb-3 flex flex-wrap" style={{ gap: SIZE.filterGap }} role="group" aria-label="Show" data-testid="wall-pills">
         {pills.map((f) => {
           const on = f.k === filter;
           return (
@@ -102,7 +104,7 @@ export function PeopleWall({
       </div>
       {teachersSoon ? (
         <div className="py-8 text-center text-[14px]" data-testid="wall-teachers-soon">
-          <p>Teachers are coming soon. Meanwhile, browse DJs and dancers.</p>
+          <p>Teacher pages are coming soon. Meanwhile, browse DJs and dancers.</p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {(browse.length ? browse : ROLE_PILLS.slice(0, 1)).map((p) => (
               <button key={p.k} type="button" className={FOCUS_RING} style={pillStyle(false)} onClick={() => setFilter(p.k)}>

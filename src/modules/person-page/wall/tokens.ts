@@ -81,6 +81,9 @@ export const SIZE = {
   nameLine: 14,
   chip: 10,
   chipLine: 13,
-  filterHeight: 40,
+  /** Pills, the Organisers link, the coming-soon buttons: 44px tall AND wide (tap target). */
+  filterHeight: 44,
+  filterPadX: 10,
+  filterGap: 6,
   initials: 28,
 } as const;

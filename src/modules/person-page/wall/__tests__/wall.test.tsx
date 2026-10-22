@@ -249,7 +249,7 @@ describe('layout pass: Teachers and Organisers pills', () => {
     mountList(list, { failed });
     fireEvent.click(screen.getByRole('button', { name: 'Teachers' }));
     const soon = screen.getByTestId('wall-teachers-soon');
-    expect(soon.textContent).toMatch(/Teachers are coming soon\. Meanwhile, browse DJs and dancers\./);
+    expect(soon.textContent).toMatch(/Teacher pages are coming soon\. Meanwhile, browse DJs and dancers\./);
     expect(screen.queryAllByTestId('wall-tile')).toHaveLength(0);
     expect(within(soon).getAllByRole('button').map((b) => b.textContent)).toEqual(actions);
   });
@@ -279,6 +279,27 @@ describe('layout pass: Teachers and Organisers pills', () => {
     expect(org.getAttribute('aria-pressed')).toBeNull();
     const last = screen.queryAllByTestId('wall-filter').pop();
     if (last) expect(last.compareDocumentPosition(org) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  // Critique pass (2026-10-22): every wall control is a 44px tap target, on both lists. Red at filterHeight 40.
+  it.each([
+    ['filter pills', () => screen.getAllByTestId('wall-filter')],
+    ['Organisers link', () => [screen.getByTestId('wall-organisers')]],
+    ['coming-soon buttons', () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Teachers' }));
+      return within(screen.getByTestId('wall-teachers-soon')).getAllByRole('button');
+    }],
+  ] as const)('%s: at least 44px tall and 44px wide on /djs and /dancers', (_, get) => {
+    for (const list of ['djs', 'dancers'] as const) {
+      mountList(list);
+      const els = get();
+      expect(els.length).toBeGreaterThan(0);
+      for (const el of els) {
+        expect(parseFloat(el.style.minHeight), `${list} ${el.textContent} height`).toBeGreaterThanOrEqual(44);
+        expect(parseFloat(el.style.minWidth), `${list} ${el.textContent} width`).toBeGreaterThanOrEqual(44);
+      }
+      cleanup();
+    }
   });
 
   it('the literal hrefs are the site map\'s own paths (kept literal only to keep siteIa out of this chunk)', () => {

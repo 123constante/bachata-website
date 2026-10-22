@@ -220,7 +220,7 @@ describe('flags.peopleWall', () => {
     setWall(true);
     mount(page === 'dancers' ? <Dancers /> : <DJs />); await wait();
     fireEvent.click(screen.getByRole('button', { name: 'Teachers' }));
-    expect(screen.getByTestId('wall-teachers-soon').textContent).toMatch(/Teachers are coming soon\./);
+    expect(screen.getByTestId('wall-teachers-soon').textContent).toMatch(/Teacher pages are coming soon\./);
     expect(screen.queryAllByTestId('wall-tile')).toHaveLength(0);
   });
 });
