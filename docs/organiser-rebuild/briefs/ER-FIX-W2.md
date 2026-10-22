@@ -14,6 +14,11 @@ Each worker owns ONE slice and ONE branch, reads ONLY its own section plus its o
 7. The public festival line-up does NOT read the new festival-artists storage.
 8. Server truth is ER-INTERFACE.md AS BUILT plus `ER-AD2.md` on admin `claude/er-ad2-admin` (AD2 is not applied on prod yet: write the screens against it, say "needs AD2" where a control depends on it).
 
+9. (click 2026-10-22) Public pay line copy: "How to pay: Cash, Card at the door" (the prototype card wording), plus a line "Message the organiser for bank details" when bank transfer is among the choices. One helper, used on the event page, the festival page and the calendar row.
+10. (click) Untimed dates stay "Time TBC" on the public calendar row (no change).
+11. (click) A one-off's "Cancel the event" means END THE WHOLE EVENT (prototype v7), not cancel one date. It needs a server command that ends an event: the dates worker (S6) and event-page worker (S5) check AD2 for one; if none exists they PARK it (docs/organiser-rebuild/er/parked/) and keep the control disabled WITH the reason "Not available yet", never cancel the date silently.
+12. (click) Public pay line and byline need the server card AD3 (admin ER-AD3.md, branch claude/er-ad3-admin, reserved versions 20261203120000-140000). The S7 worker builds against AD3's pinned shapes (payment codes array, `organiser_byline` text|null, `byline_organisers` array, calendar `level` and `payment_methods` text) and says "server not landed" until the owner applies AD3.
+
 ## Rules for every worker
 - Merge `origin/main` FIRST (every ER branch is about 18 commits behind; Ember UI files conflict). Then merge the finished heads this slice depends on (see ORDER).
 - Fix each finding with a test that is RED on the unfixed code first; say so in the handover. A finding you disagree with gets a one-line reason in the handover, never a silent skip. Tests that pin a SUPERSEDED rule are rewritten, not deleted.
