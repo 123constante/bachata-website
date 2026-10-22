@@ -19,6 +19,9 @@ Each worker owns ONE slice and ONE branch, reads ONLY its own section plus its o
 11. (click) A one-off's "Cancel the event" means END THE WHOLE EVENT (prototype v7), not cancel one date. It needs a server command that ends an event: the dates worker (S6) and event-page worker (S5) check AD2 for one; if none exists they PARK it (docs/organiser-rebuild/er/parked/) and keep the control disabled WITH the reason "Not available yet", never cancel the date silently.
 12. (click) Public pay line and byline need the server card AD3 (admin ER-AD3.md, branch claude/er-ad3-admin, reserved versions 20261203120000-140000). The S7 worker builds against AD3's pinned shapes (payment codes array, `organiser_byline` text|null, `byline_organisers` array, calendar `level` and `payment_methods` text) and says "server not landed" until the owner applies AD3.
 
+13. (click) The public calendar day row shows the FULL byline ("By A, B, C") as AD2/AD3 build it, same as the event page.
+14. (click) S8 New event + festival merges only after BOTH AD2 and AD3 are applied on prod.
+
 ## Rules for every worker
 - Merge `origin/main` FIRST (every ER branch is about 18 commits behind; Ember UI files conflict). Then merge the finished heads this slice depends on (see ORDER).
 - Fix each finding with a test that is RED on the unfixed code first; say so in the handover. A finding you disagree with gets a one-line reason in the handover, never a silent skip. Tests that pin a SUPERSEDED rule are rewritten, not deleted.
