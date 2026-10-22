@@ -4,7 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { rpcLoose } from "@/integrations/supabase/rpcLoose";
 import { fetchMyPersonaId } from "@/lib/myPersona";
-import { CLAIM_TOAST_MS, claimMyOrganisers, claimedNoticeText, notYouOrganiserHref, stashClaimNotice, type ClaimedOrganiser } from "@/lib/claimMyOrganisers";
+import { claimOrganisersAtSignIn, type ClaimedOrganiser } from "@/lib/claimMyOrganisers";
+import { claimLandingPath, claimToastProps, shouldToastClaim } from "@/lib/claimSignInLanding";
 import { toast } from "@/hooks/use-toast";
 import { ORG_PATHS } from "@/modules/organiser/shell/paths";
 import { claimAtSignIn, shouldArmFinishHop } from "@/lib/claimMyDancerProfile";
@@ -114,12 +115,7 @@ const AuthCallback = () => {
   // flow with a 44 px Close until it is closed ("Tell us" is the only way to undo a claim that
   // skipped the confirm screen). Returns where to land when there is no return path: /account/o
   // after a claim, else null.
-  const claimLanding = (): string | null => {
-    const claimed = claimedRef.current;
-    if (claimed.length === 0) return null;
-    if (!claimNoticeShown.current) stashClaimNotice(claimed);
-    return ORG_PATHS.home;
-  };
+  const claimLanding = (): string | null => claimLandingPath(claimedRef.current, claimNoticeShown.current);
 
   // Every signed-in landing goes through here. On Home the notice is Home's own line, so no toast
   // covers its rows (review finding 7). Anywhere else (a return path wins, D37) a SHORT toast says
@@ -131,20 +127,7 @@ const AuthCallback = () => {
       return;
     }
     const claimed = claimedRef.current;
-    if (claimed.length > 0 && !claimNoticeShown.current && path.split(/[?#]/)[0] !== ORG_PATHS.home) {
-      toast({
-        title: claimedNoticeText(claimed),
-        // A plain link in the description, not ToastAction: importing components/ui/toast here
-        // split it into its own first-load chunk on every route (check:first-load-requests).
-        description: (
-          <span>
-            Not you?{" "}
-            <a className="inline-flex min-h-[44px] items-center px-2 underline" href={notYouOrganiserHref(claimed)} target="_blank" rel="noopener noreferrer">Tell us</a>
-          </span>
-        ),
-        duration: CLAIM_TOAST_MS,
-      });
-    }
+    if (shouldToastClaim(claimed, claimNoticeShown.current, path)) toast(claimToastProps(claimed));
     if (claimed.length > 0) claimNoticeShown.current = true;
     navigate(path, { replace: true });
   };
@@ -213,7 +196,7 @@ const AuthCallback = () => {
       // Then, and only for an account that is not hidden (review finding 15), the organiser pages an
       // admin recorded this email against (automatic, no confirm screen). Never throws and never
       // holds the sign-in; empty on any failure.
-      claimedRef.current = await claimMyOrganisers();
+      claimedRef.current = await claimOrganisersAtSignIn(user.id);
 
       try {
         const pendingRole = localStorage.getItem("pending_profile_role");

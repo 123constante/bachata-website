@@ -51,6 +51,7 @@ vi.mock('@/lib/claimMyDancerProfile', () => ({
 vi.mock('@/lib/claimMyOrganisers', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/claimMyOrganisers')>()),
   claimMyOrganisers: async () => h.claimed,
+  claimOrganisersAtSignIn: async () => h.claimed,
 }));
 vi.mock('@/lib/myPersona', () => ({ fetchMyPersonaId: async () => 'p1' }));
 vi.mock('@/lib/accountDeletion', () => ({ signInDeletionTarget: async () => null }));
