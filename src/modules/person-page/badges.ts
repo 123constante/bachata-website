@@ -53,7 +53,7 @@ export function parseBadges(raw: unknown): Map<string, PersonBadge> {
   return out;
 }
 
-async function fetchBadges(ids: string[]): Promise<Map<string, PersonBadge>> {
+export async function fetchBadges(ids: string[]): Promise<Map<string, PersonBadge>> {
   const rpc = supabase.rpc.bind(supabase) as unknown as (
     fn: string, args: Record<string, unknown>,
   ) => Promise<{ data: unknown; error: { message: string } | null }>;
@@ -130,6 +130,17 @@ export function linkRoleFor(badge: PersonBadge | undefined, opts: BadgeOpts): Pe
     if (badge.roles.includes(role) && hrefForRole(role, badge.id, opts)) return role;
   }
   return null;
+}
+
+/**
+ * W2-D, THE one rule for where a person goes (wall tile, the /people/:id redirect, the hub). Count the roles
+ * the person HOLDS, a closed Teacher included: two or more = the person hub; exactly one or none = that role's
+ * page (linkFor), else `ownPage` (the list's own page, e.g. the dancer page every active dancer row has).
+ */
+export type PersonDestination = { to: 'hub'; href: string } | { to: 'page'; href: string | null };
+export function personDestination(badge: PersonBadge | undefined, opts: BadgeOpts, ownPage: string | null): PersonDestination {
+  if (badge && badge.roles.length >= 2 && linkRoleFor(badge, opts)) return { to: 'hub', href: hrefFor('person', badge.id) };
+  return { to: 'page', href: linkFor(badge, opts) ?? ownPage };
 }
 
 /** A DJ with an upcoming gig leads; else dancer; else DJ; else teacher. */

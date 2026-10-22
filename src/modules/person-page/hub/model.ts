@@ -1,11 +1,12 @@
-// Pure model for the person hub (/people/:id behind flags.personHub). No second copy of the
-// role vocabulary, its order, the names or the links: all of it comes from badges.ts
-// (roleTagsFor / nameFor / hrefForRole / linkRoleFor / leadRole) and the wall model.
+// Pure model for the person hub (/people/:id behind flags.personHub), W2-D option C: one hero card for
+// the main role, an "Also" row for every other role the person HOLDS, a short About line. No second copy
+// of the role vocabulary, its order, the names or the links: all of it comes from badges.ts
+// (roleTagsFor / nameFor / hrefForRole / leadRole / personDestination) and the wall model.
 import {
   hrefForRole,
   leadRole,
-  linkRoleFor,
   nameFor,
+  personDestination,
   roleTagsFor,
   type BadgeOpts,
   type PersonBadge,
@@ -14,7 +15,7 @@ import {
 import { bareStage, firstPhoto, wallDateLabel } from '@/modules/person-page/wall/model';
 import { mapDancerPublicProfile } from '@/modules/profile/dancerPublicProfile';
 import { londonTodayKey } from '@/lib/londonDate';
-import type { PersonRole } from '@/lib/searchEntities';
+import { ROLE_LABEL, type PersonRole } from '@/lib/searchEntities';
 import type { PersonSnapshot } from '../reads';
 
 /** The DJ read (get_public_dj_v1, cached by the loader under ['dj-profile', id]): only the fields the hub shows. */
@@ -28,29 +29,28 @@ export type HubDjRow = {
 /** One row of get_profile_event_timeline_v2 (useProfileProgramAppearances). */
 export type HubAppearance = { event_id: string | null; event_start_time: string | null };
 
-/** eventId null = the wall said there is a gig on dateLabel, the timeline has not arrived yet (no link yet). */
-export type NextGig = { eventId: string | null; dateLabel: string };
-
-export type RoleCardModel = { role: PersonRole; label: string; href: string; line: string };
+/** The main role: its page is the one big link. */
+export type HeroModel = { role: PersonRole; href: string; line: string; cta: string; hint: string };
+/** Another held role. href null = no page (a closed Teacher): shown, never a link. */
+export type AlsoCardModel = { role: PersonRole; label: string; href: string | null; line: string };
 
 export type HubModel = {
-  /** The role whose accent colours the face and decides the name (linkRoleFor, like the wall tile). */
-  lead: PersonRole;
+  /** The main role (colours the face, the hero edge and the button); null = no role with a page (empty state). */
+  lead: PersonRole | null;
   heading: string;
   subName: string | null;
   photo: string | null;
   initialsFrom: string;
   flagCode: string | null;
-  city: string | null;
   tags: RoleTag[];
-  facts: string[];
-  nextGig: NextGig | null;
-  cards: RoleCardModel[];
-  cardsHeading: string;
+  hero: HeroModel | null;
+  also: AlsoCardModel[];
+  /** City and facts, the About line; empty = no About. */
+  about: string[];
 };
 
 /** The soonest gig from today on (London calendar day), or null. */
-export function nextGigOf(appearances: readonly HubAppearance[] | undefined, today: string = londonTodayKey()): (NextGig & { count: number }) | null {
+export function nextGigOf(appearances: readonly HubAppearance[] | undefined, today: string = londonTodayKey()): { eventId: string; dateLabel: string; count: number } | null {
   const up = (appearances ?? [])
     .filter((a): a is { event_id: string; event_start_time: string } => !!a.event_id && !!a.event_start_time && !!wallDateLabel(a.event_start_time, today))
     .sort((x, y) => x.event_start_time.localeCompare(y.event_start_time));
@@ -58,7 +58,7 @@ export function nextGigOf(appearances: readonly HubAppearance[] | undefined, tod
   return first ? { eventId: first.event_id, dateLabel: wallDateLabel(first.event_start_time, today) as string, count: up.length } : null;
 }
 
-/** Card order: leadRole, then leadRole of what is left, and so on (the ONE order rule, badges.ts). */
+/** Role order: leadRole, then leadRole of what is left, and so on (the ONE order rule, badges.ts). */
 export function cardOrder(badge: PersonBadge): PersonRole[] {
   const out: PersonRole[] = [];
   let rest = badge;
@@ -70,6 +70,7 @@ export function cardOrder(badge: PersonBadge): PersonRole[] {
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const MIDDOT = ' · ';
 
 /** Facts that exist, nothing else. Level has no public read today, so it never shows. */
 export function factsOf(yearsDancing: string | null, languages: readonly string[] | null | undefined): string[] {
@@ -80,56 +81,71 @@ export function factsOf(yearsDancing: string | null, languages: readonly string[
   ].filter((x): x is string => !!x);
 }
 
-function cardLine(role: PersonRole, gig: { count: number } | null, facts: { years: string | null }): string {
-  if (role === 'dj') return !gig ? 'Their DJ page' : gig.count > 0 ? `${plural(gig.count, 'gig')} coming up` : 'Gigs coming up';
-  if (role === 'dancer') return facts.years && Number(facts.years) > 0 ? `${plural(Number(facts.years), 'year')} dancing` : 'Their dancer page';
-  return 'Their teacher page';
+/** The page word in "Open DJ page" / "their dancer page". */
+const PAGE_WORD: Record<PersonRole, string> = { dj: 'DJ', dancer: 'dancer', teacher: 'teacher' };
+const WHAT: Record<PersonRole, string> = {
+  dj: 'gigs and DJ details',
+  dancer: 'style, level and how to say hi',
+  teacher: 'classes and teacher details',
+};
+
+/**
+ * /people/:id: where a person who should NOT see the hub goes instead (a replace redirect), or null =
+ * show the hub. personDestination on the HELD roles, so the tile, this redirect and the hub agree.
+ */
+export function personPageRedirect(person: PersonSnapshot, opts: BadgeOpts, slugOrId: string = person.id): string | null {
+  const badge: PersonBadge = { id: slugOrId, roles: person.heldRoles ?? person.roles, djName: null, djHasUpcoming: false, nextGigDate: null };
+  const d = personDestination(badge, opts, hrefForRole('dancer', slugOrId, opts));
+  return d.to === 'hub' ? null : d.href;
 }
 
 export function hubModel(input: {
   person: PersonSnapshot;
   dancerRow: unknown;
   dj: HubDjRow;
+  /** undefined = the gig list has not arrived yet. */
   appearances: readonly HubAppearance[] | undefined;
   opts: BadgeOpts;
   today?: string;
   /**
-   * This person's row from the wall's badges read when the visitor came from the wall (already in the
-   * query cache, no read of its own). Used ONLY while the timeline is still loading, so the cards are in
-   * their final order and the next-event button keeps its place on first paint (critique #1).
+   * This person's badges row (the wall's, or the one the loader fetched): no read of its own. It fixes
+   * which role leads on first paint, so the hero never swaps when the gig list arrives late, and it gives
+   * the gig date until the list is in.
    */
   wallBadge?: PersonBadge | null;
 }): HubModel {
   const { person, dj, opts } = input;
   const view = input.dancerRow ? mapDancerPublicProfile(input.dancerRow as never) : null;
   const isDj = person.roles.includes('dj');
-  const hintLabel = input.appearances === undefined && input.wallBadge?.djHasUpcoming
-    ? wallDateLabel(input.wallBadge.nextGigDate, input.today)
-    : null;
-  const gig = !isDj ? null : nextGigOf(input.appearances, input.today) ?? (hintLabel ? { eventId: null, dateLabel: hintLabel, count: 0 } : null);
+  const hint = input.wallBadge;
+  const timelineGig = nextGigOf(input.appearances, input.today);
+  const hintLabel = hint?.djHasUpcoming ? wallDateLabel(hint.nextGigDate, input.today) : null;
+  const gigPending = isDj && input.appearances === undefined;
+  const gig = !isDj ? null : timelineGig ?? (gigPending && hintLabel ? { dateLabel: hintLabel, count: 0 } : null);
+  // Lead decided by the badge when there is one (stable from first paint), else by what is known now.
+  const djHasUpcoming = hint ? !!hintLabel : !!gig;
   const djName = dj?.dj_name?.trim() || null;
-  const badge: PersonBadge = {
-    id: person.id,
-    roles: person.roles,
-    djName,
-    djHasUpcoming: !!gig,
-    nextGigDate: null,
+  const visible: PersonBadge = { id: person.id, roles: person.roles, djName, djHasUpcoming, nextGigDate: null };
+  const held: PersonBadge = { ...visible, roles: person.heldRoles ?? person.roles };
+  const lead = cardOrder(visible).find((r) => hrefForRole(r, person.id, opts)) ?? null;
+
+  const facts = factsOf(view?.yearsDancing ?? null, dj?.languages);
+  const lineOf = (role: PersonRole, href: string | null): string => {
+    if (!href) return `${ROLE_LABEL[role]} pages open soon`;
+    if (role === 'dj') {
+      if (gig) return `Next gig ${gig.dateLabel}${gig.count > 0 ? `${MIDDOT}${gig.count} coming up` : ''}`;
+      return gigPending ? 'Checking for gigs…' : 'No gigs listed right now';
+    }
+    if (role === 'dancer') return facts.join(MIDDOT) || 'Their dancer page';
+    return 'Their teacher page';
   };
-  const lead = linkRoleFor(badge, opts) ?? person.roles[0];
+
   const realName = person.name ?? 'Bachata Calendar profile';
   const heading = nameFor(lead === 'dj' ? 'dj' : 'other', { name: realName, djName });
   const subName = !djName ? null : lead === 'dj' ? (person.name && person.name !== heading ? person.name : null) : `DJ ${bareStage(djName)}`;
   const djPhoto = firstPhoto(dj?.photo_url) ?? person.djPhoto;
   const photo = lead === 'dj' ? djPhoto ?? person.avatarUrl : person.avatarUrl ?? djPhoto;
-  const cards = cardOrder(badge)
-    .map((role) => ({ role, href: hrefForRole(role, person.id, opts) }))
-    .filter((c): c is { role: PersonRole; href: string } => !!c.href)
-    .map(({ role, href }) => ({
-      role,
-      href,
-      label: roleTagsFor(badge, opts).find((t) => t.role === role)?.label ?? role,
-      line: cardLine(role, gig, { years: view?.yearsDancing ?? null }),
-    }));
+  const heroHref = lead ? hrefForRole(lead, person.id, opts) : null;
   return {
     lead,
     heading,
@@ -138,14 +154,23 @@ export function hubModel(input: {
     // No real name and no stage name: "?" rather than the placeholder's initials.
     initialsFrom: !person.name && !djName ? '' : lead === 'dj' ? bareStage(heading) : heading,
     flagCode: view?.nationalityCode ?? dj?.nationality_code ?? null,
-    city: person.city,
-    // Chips from the HELD roles, like the wall tile (a closed Teacher is plain text, href null);
-    // the cards above stay on the visible roles, so no closed page is ever offered.
-    tags: roleTagsFor({ ...badge, roles: person.heldRoles ?? person.roles }, opts),
-    facts: factsOf(view?.yearsDancing ?? null, dj?.languages),
-    nextGig: gig ? { eventId: gig.eventId, dateLabel: gig.dateLabel } : null,
-    cards,
-    // No real name: never split the placeholder ("What Bachata does", critique #2).
-    cardsHeading: cards.length < 2 ? 'Their page' : person.name ? `What ${person.name.split(/\s+/)[0]} does` : 'What they do',
+    // Chips from the HELD roles, like the wall tile (a closed Teacher is plain text).
+    tags: roleTagsFor(held, opts),
+    hero: lead && heroHref
+      ? {
+          role: lead,
+          href: heroHref,
+          line: lineOf(lead, heroHref),
+          cta: `Open ${PAGE_WORD[lead]} page`,
+          hint: `Opens their ${PAGE_WORD[lead]} page: ${WHAT[lead]}.`,
+        }
+      : null,
+    also: !lead ? [] : cardOrder(held)
+      .filter((r) => r !== lead)
+      .map((role) => {
+        const href = hrefForRole(role, person.id, opts);
+        return { role, label: ROLE_LABEL[role], href, line: lineOf(role, href) };
+      }),
+    about: [person.city, ...facts].filter((x): x is string => !!x),
   };
 }

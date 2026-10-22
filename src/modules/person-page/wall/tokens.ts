@@ -89,32 +89,47 @@ export const SIZE = {
 } as const;
 
 /**
- * The person hub (/people/:id behind flags.personHub): same base and accents as the wall (S12 mockup),
- * explicit px for the same reason as SIZE. Tap targets (back, next event, role cards) are all >= 44px.
+ * The person hub (/people/:id behind flags.personHub), W2-D option C (docs/design/w2d-hub.md, c.html): same base
+ * and accents as the wall, explicit px for the same reason as SIZE. Tap targets (back, the big button, Also
+ * cards) are all >= 44px.
  */
 export const HUB = {
-  face: 112,
-  /** The `size` NationalityFlag gets: half the face, as the S12 mock (a 26px sticker that leaves the initials clear). */
+  face: 128,
+  /** The `size` NationalityFlag gets: half the face, as the S12 mock (a sticker that leaves the initials clear). */
   flagFrom: 56,
   /**
    * The hub's warm ground reaches at least the bottom of the first screen (a one-card hub otherwise ends in
    * a cold void above the footer). 106 = where the hub starts under the site header at 360, 390 and 430 wide (prod build, measured).
    */
   groundMinHeight: 'max(128px, calc(100svh - 106px))',
-  faceRadius: 18,
-  initials: 38,
-  name: 24,
-  nameLine: 29,
+  faceRadius: 22,
+  initials: 44,
+  name: 28,
+  nameLine: 32,
   sub: 14,
   body: 15,
+  /** The hero's summary line (next gig / years dancing). */
+  line: 16,
+  lineHeight: 22,
+  /** "Opens their ... page" under the button, the Also lines, the About facts. */
+  small: 13,
+  smallLine: 18,
   sectionLabel: 13,
-  headerRadius: 24,
-  cardRadius: 18,
-  cardMinHeight: 72,
-  cardEdge: 8,
-  cardChip: 14,
+  heroRadius: 24,
+  heroBorder: 2,
+  alsoMinHeight: 72,
+  alsoRadius: 16,
+  alsoTitle: 16,
   ctaMinHeight: 52,
   ctaRadius: 16,
   ctaText: 17,
   tap: 44,
+  /**
+   * The fade from WALL.page into the footer gold (owner: no hard seam). 96px keeps every CSS row step under
+   * 6/255 (the #924 gate); the footer's own top gap is painted gold on the hub route only (index.css).
+   */
+  fade: 96,
 } as const;
+
+/** The footer panel's colour (bg-primary): the hub fade ends on it. A var, not a new colour. */
+export const FOOTER_GOLD = 'hsl(var(--primary))';

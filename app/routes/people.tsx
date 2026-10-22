@@ -1,4 +1,8 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { redirect } from "react-router";
+import { flags } from "@/lib/featureFlags";
+import { fetchBadges } from "@/modules/person-page/badges";
+import { personPageRedirect } from "@/modules/person-page/hub/model";
 import { createServerQueryClient } from "@/App";
 import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_ORIGIN, type SeoInput } from "@/lib/seo";
 import PersonPage from "@/modules/person-page/PersonPage";
@@ -38,9 +42,21 @@ export const loader = withSsrLoaderTimeout("person-loader", async function loade
   // read failed) = the classic embedded grid.
   const publicPageLoad = loadPublicPageV2(ref.id as string);
 
+  // flags.personHub: this person's badges row (the wall's read, same key shape), so the hub knows on first
+  // paint whether a DJ gig leads and never swaps its cards when the gig list lands. Never rejects.
+  const badgeLoad = flags.personHub
+    ? qc.prefetchQuery({ queryKey: ["people-badges", [ref.id]], queryFn: () => fetchBadges([ref.id as string]), staleTime: 5 * 60 * 1000 })
+    : Promise.resolve();
+
   const person = await loadPersonSnapshot(qc, ref.id as string);
+  // W2-D: only people with two or more HELD roles see the hub; everyone else goes straight to the page the
+  // wall tile opens (personDestination, the ONE rule). A redirect, so Back never bounces through /people.
+  if (person && flags.personHub) {
+    const to = personPageRedirect(person, { teacherPagesOpen: flags.teacherDetail }, ref.slug ?? params.id);
+    if (to) throw redirect(to);
+  }
   if (!person || person.roles.length === 0) throwDetailNotFound("Person");
-  const { page: publicPage, degraded } = await publicPageLoad;
+  const [{ page: publicPage, degraded }] = await Promise.all([publicPageLoad, badgeLoad]);
 
   return taggedData(
     {

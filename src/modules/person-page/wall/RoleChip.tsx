@@ -1,7 +1,7 @@
-import { CHIP, SIZE, type WallRole } from './tokens';
+import { CHIP, HUB, SIZE, type WallRole } from './tokens';
 
-/** One role chip. The label is the ONE vocabulary (ROLE_LABEL via roleTagsFor); colour is the role's accent. */
-export function RoleChip({ role, label }: { role: WallRole; label: string }) {
+/** One role chip. The label is the ONE vocabulary (ROLE_LABEL via roleTagsFor); colour is the role's accent. `big` = the hub's size. */
+export function RoleChip({ role, label, big = false }: { role: WallRole; label: string; big?: boolean }) {
   const c = CHIP[role];
   return (
     <span
@@ -9,7 +9,8 @@ export function RoleChip({ role, label }: { role: WallRole; label: string }) {
       data-role={role}
       style={{
         background: c.bg, color: c.text, border: `1.5px solid ${c.border}`,
-        fontSize: SIZE.chip, fontWeight: 700, lineHeight: `${SIZE.chipLine}px`, padding: '0 5px', borderRadius: 999,
+        fontSize: big ? HUB.small : SIZE.chip, fontWeight: big ? 800 : 700,
+        lineHeight: `${big ? HUB.smallLine : SIZE.chipLine}px`, padding: big ? '3px 10px' : '0 5px', borderRadius: 999,
       }}
     >
       <span className="sr-only">, </span>

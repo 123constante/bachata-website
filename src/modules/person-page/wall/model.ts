@@ -3,11 +3,10 @@
 // (roleTagsFor / nameFor / hrefForRole / linkRoleFor) and the existing list models.
 import { djTile, type DjListRow } from '@/components/dj/djListModel';
 import { dancerHref } from '@/components/dancers/dancerListModel';
-import { hrefForRole, linkFor, linkRoleFor, roleTagsFor, type BadgeOpts, type PersonBadge, type RoleTag } from '@/modules/person-page/badges';
+import { linkFor, linkRoleFor, personDestination, roleTagsFor, type BadgeOpts, type PersonBadge, type RoleTag } from '@/modules/person-page/badges';
 import type { PersonRole } from '@/lib/searchEntities';
 import { isRealDateKey, londonTodayKey, weekdayOfKey } from '@/lib/londonDate';
 import { flags } from '@/lib/featureFlags';
-import { hrefFor } from '@/lib/searchEntities';
 
 export type WallList = 'djs' | 'dancers';
 export type WallFilter = 'all' | PersonRole;
@@ -47,13 +46,12 @@ export const firstPhoto = (p: string | string[] | null | undefined): string | nu
 };
 
 /**
- * flags.personHub: a tile opens the person hub (/people/<id>) instead of the lead role page, but only
- * when the badges read says the person has a role with an open page: /people/:id 404s on zero visible
- * roles, and every active dancer row is on /dancers whether or not it has a role. No badge (read failed
- * or missing) = the role page, as today. A tile with no page stays unlinked either way.
+ * flags.personHub: the tile goes where personDestination (badges.ts, W2-D) says: the person hub for two or
+ * more HELD roles, else straight to the one role page (or this list's own page when that role has none).
+ * No badge (read failed or missing) = the role page, as today. A tile with no page stays unlinked either way.
  */
-export const tileHref = (id: string, rolePage: string | null, badge: PersonBadge | undefined, opts: BadgeOpts): string | null =>
-  rolePage && flags.personHub && badge?.roles.some((r) => hrefForRole(r, id, opts)) ? hrefFor('person', id) : rolePage;
+export const tileHref = (_id: string, rolePage: string | null, badge: PersonBadge | undefined, opts: BadgeOpts): string | null =>
+  rolePage && flags.personHub && badge ? personDestination(badge, opts, rolePage).href : rolePage;
 
 export type DjWallRow = DjListRow & {
   photo_url?: string | string[] | null;

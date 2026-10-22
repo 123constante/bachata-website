@@ -1,16 +1,15 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { NationalityFlag, TILE_FLAG_SIZE } from '@/components/people/NationalityFlag';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import { initialsOf, type WallList, type WallPerson } from './model';
 import { RoleChip } from './RoleChip';
+import { usePhotoFallback } from './usePhotoFallback';
 import { DATE_CHIP, FOCUS_RING, SIZE, TILE, WALL } from './tokens';
 
 function Face({ person }: { person: WallPerson }) {
   const a = TILE[person.lead];
-  const [failed, setFailed] = useState<string | null>(null);
-  const showPhoto = !!person.photo && failed !== person.photo;
+  const { showPhoto, imgProps } = usePhotoFallback(person.photo);
   return (
     <div
       data-testid="wall-face"
@@ -24,7 +23,7 @@ function Face({ person }: { person: WallPerson }) {
           alt=""
           loading="lazy"
           className="h-full w-full object-cover"
-          onError={() => setFailed(person.photo)}
+          {...imgProps}
         />
       ) : (
         <div
