@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { finishScreenNotice, type ProfileCompletion, type ProfileField } from '@
 import { saveMyDancerProfile, type SaveMyDancerProfileInput } from '@/lib/saveMyDancerProfile';
 import { searchCities, type CityResult } from '../citySearch';
 import { useDebounced } from '../../../ui/useDebounced';
-import { fetchChipCities, submitCityRequest } from './dancer4Api';
+import { fetchChipCities, fetchCityExists, submitCityRequest } from './dancer4Api';
 import {
   CITY_NOT_FOUND_LABEL,
   CITY_REQUESTED_NOTE,
@@ -56,11 +56,27 @@ type CityPick = { id: string; name: string };
  * save path (save_my_dancer_profile); answered or prefilled questions are not
  * asked. Each Next saves what it has, so a refresh keeps the progress.
  */
-export function Dancer4Flow({ missing, profileId, prefill = NO_PREFILL, refetch, onDone }: Dancer4FlowProps) {
-  // Planned once: the steps must not shift under the person as completion refetches.
-  const plan = useMemo(() => planDancer4(missing, prefill), []); // eslint-disable-line react-hooks/exhaustive-deps
+export function Dancer4Flow(props: Dancer4FlowProps) {
+  const { missing, prefill = NO_PREFILL } = props;
+  // A prefilled city is only trusted once it is known to exist; unknown or unverifiable -> the question is asked.
+  const checkCity = missing.includes('based_city_id') && !!prefill.city_id;
+  const cityCheck = useQuery({
+    queryKey: ['dancer4-prefill-city', prefill.city_id],
+    queryFn: () => fetchCityExists(prefill.city_id as string),
+    enabled: checkCity,
+    retry: false,
+    staleTime: 60_000,
+  });
+  if (checkCity && cityCheck.isPending) return <p className="text-sm text-muted-foreground" role="status" data-testid="dancer4-checking">Loading&hellip;</p>;
+  const trusted: DancerPrefill = checkCity && cityCheck.data !== true ? { ...prefill, city_id: null } : prefill;
+  return <Dancer4Questions {...props} prefill={trusted} />;
+}
+
+function Dancer4Questions({ missing, profileId, prefill = NO_PREFILL, refetch, onDone }: Dancer4FlowProps) {
+  // Planned once, replanned only when a prefilled answer is dropped: the steps must not shift under the person.
+  const [plan, setPlan] = useState(() => planDancer4(missing, prefill));
   const [idx, setIdx] = useState(0);
-  const [answers, setAnswers] = useState<Answers>(() => ({ ...EMPTY_ANSWERS, ...plan.prefilled }));
+  const [answers, setAnswers] = useState<Answers>(() => ({ ...EMPTY_ANSWERS, ...plan.defaults, ...plan.prefilled }));
   const [city, setCity] = useState<CityPick | null>(null);
   const [cityRequested, setCityRequested] = useState<string | null>(null);
   const sent = useRef<Partial<Record<ProfileField, string>>>({});
@@ -72,20 +88,45 @@ export function Dancer4Flow({ missing, profileId, prefill = NO_PREFILL, refetch,
   const set = (key: ProfileField, value: string) => setAnswers((prev) => ({ ...prev, [key]: value }));
 
   // Everything the person has settled so far: prefilled fields plus the steps up to here. True when it landed.
-  const persist = async (upTo: number): Promise<boolean> => {
-    const fields = [...(Object.keys(plan.prefilled) as ProfileField[]), ...plan.steps.slice(0, upTo + 1)];
+  // 'replanned': a prefilled answer was refused, so it is dropped and its question is now one of the steps.
+  const persist = async (upTo: number): Promise<'ok' | 'failed' | 'replanned'> => {
+    const prefilledKeys = Object.keys(plan.prefilled) as ProfileField[];
+    const fields = [...prefilledKeys, ...plan.steps.slice(0, upTo + 1)];
     const body = buildDancer4Save(fields, answers, sent.current);
     setSaving(true);
     setError(null);
     try {
       if (body) {
-        await saveMyDancerProfile(body as SaveMyDancerProfileInput);
-        Object.assign(sent.current, body);
+        try {
+          await saveMyDancerProfile(body as SaveMyDancerProfileInput);
+          Object.assign(sent.current, body);
+          return 'ok';
+        } catch (e) {
+          const unsent = prefilledKeys.filter((k) => k in body);
+          if (unsent.length === 0) throw e;
+          // The invite's prefill is the likely culprit (stale or refused id): save what the person gave without
+          // it, then ask the dropped question. If that fails too it was the connection, not the prefill.
+          const rest = Object.fromEntries(Object.entries(body).filter(([k]) => !unsent.includes(k as ProfileField)));
+          if (Object.keys(rest).length > 0) {
+            await saveMyDancerProfile(rest as SaveMyDancerProfileInput);
+            Object.assign(sent.current, rest);
+          }
+        }
       }
-      return true;
+      if (!prefilledKeys.some((k) => !(k in sent.current))) return 'ok';
+      // Only reached after the fallback above: replan with the dropped fields asked.
+      const dropped = prefilledKeys.filter((k) => !(k in sent.current));
+      const fresh = planDancer4(missing.filter((f) => !(f in sent.current) || dropped.includes(f)), NO_PREFILL);
+      const current = plan.steps[Math.min(upTo, plan.steps.length - 1)];
+      const nextSteps = fresh.steps.filter((f) => !(f in sent.current));
+      setPlan({ ...fresh, steps: nextSteps, prefilled: {}, defaults: {} });
+      setAnswers((prev) => ({ ...prev, ...Object.fromEntries(dropped.map((k) => [k, ''])) }));
+      const target = nextSteps.indexOf(dropped[0]);
+      setIdx(target >= 0 ? target : Math.max(0, nextSteps.indexOf(current)));
+      return 'replanned';
     } catch {
       setError(SAVE_FAILED);
-      return false;
+      return 'failed';
     } finally {
       setSaving(false);
     }
@@ -93,7 +134,7 @@ export function Dancer4Flow({ missing, profileId, prefill = NO_PREFILL, refetch,
 
   // The last save, then the server's word on whether the profile is now complete.
   const finish = async (upTo: number) => {
-    if (!(await persist(upTo))) return;
+    if ((await persist(upTo)) !== 'ok') return;
     try {
       const fresh = await refetch();
       if (fresh.status === 'complete') {
@@ -110,7 +151,7 @@ export function Dancer4Flow({ missing, profileId, prefill = NO_PREFILL, refetch,
   const next = async () => {
     if (!field || saving) return;
     if (idx >= plan.steps.length - 1) await finish(idx);
-    else if (await persist(idx)) setIdx(idx + 1);
+    else if ((await persist(idx)) === 'ok') setIdx(idx + 1);
   };
 
   // Every question was answered by the invite: save it and finish, nothing to ask.

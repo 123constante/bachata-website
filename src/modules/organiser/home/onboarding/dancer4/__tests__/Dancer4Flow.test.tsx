@@ -8,7 +8,8 @@ const save = vi.fn();
 vi.mock('@/lib/saveMyDancerProfile', () => ({ saveMyDancerProfile: (...a: unknown[]) => save(...a) }));
 const request = vi.fn();
 const chips = vi.fn();
-vi.mock('../dancer4Api', () => ({ fetchChipCities: () => chips(), submitCityRequest: (...a: unknown[]) => request(...a) }));
+const cityExists = vi.fn();
+vi.mock('../dancer4Api', () => ({ fetchChipCities: () => chips(), fetchCityExists: (...a: unknown[]) => cityExists(...a), submitCityRequest: (...a: unknown[]) => request(...a) }));
 const search = vi.fn();
 vi.mock('../../citySearch', () => ({ searchCities: (...a: unknown[]) => search(...a) }));
 vi.mock('@/components/profile/AvatarUpload', () => ({
@@ -40,6 +41,7 @@ beforeEach(() => {
   request.mockReset().mockResolvedValue(undefined);
   chips.mockReset().mockResolvedValue([{ id: 'london', name: 'London' }]);
   search.mockReset().mockResolvedValue([]);
+  cityExists.mockReset().mockResolvedValue(true);
 });
 
 describe('Dancer4Flow', () => {
@@ -77,21 +79,64 @@ describe('Dancer4Flow', () => {
     expect(save).toHaveBeenCalledTimes(4);
   });
 
-  it('prefilled name + city skip two questions and are saved with the first answer', async () => {
+  it('prefilled city is skipped and saved with the first answer; the prefilled name is shown, editable, on its step', async () => {
     mount({ prefill: { first_name: 'Marta', city_id: 'c9' } });
-    expect(title()).toBe('Do you lead or follow?');
-    expect(screen.getByTestId('dancer4-progress').textContent).toBe('Step 1 of 2');
-    fireEvent.click(screen.getByRole('radio', { name: 'Leader' }));
+    await waitFor(() => expect(title()).toBe('Your first name'));
+    expect(screen.getByTestId('dancer4-progress').textContent).toBe('Step 1 of 3');
+    expect((screen.getByLabelText('First name') as HTMLInputElement).value).toBe('Marta');
+    fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Martina' } });
     fireEvent.click(next());
-    await waitFor(() => expect(title()).toBe('Add a photo of you'));
-    expect(save).toHaveBeenCalledTimes(1);
-    expect(save).toHaveBeenLastCalledWith({ first_name: 'Marta', based_city_id: 'c9', dance_role: 'Leader' });
+    await waitFor(() => expect(title()).toBe('Do you lead or follow?'));
+    expect(save).toHaveBeenLastCalledWith({ based_city_id: 'c9', first_name: 'Martina' });
+    expect(cityExists).toHaveBeenCalledWith('c9');
   });
 
-  it('a prefill that answers everything missing saves and finishes without asking', async () => {
+  it('a prefill that answers the city and the name saves after the person confirms the name', async () => {
     const { onDone } = mount({ missing: ['first_name', 'based_city_id'], prefill: { first_name: 'Marta', city_id: 'c9' } });
+    await waitFor(() => expect(title()).toBe('Your first name'));
+    fireEvent.click(next());
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
-    expect(save).toHaveBeenCalledWith({ first_name: 'Marta', based_city_id: 'c9' });
+    expect(save).toHaveBeenCalledWith({ based_city_id: 'c9', first_name: 'Marta' });
+  });
+
+  // F1: whatever the invite carried, a city that does not exist (or cannot be checked) is asked, never saved unseen.
+  it.each([
+    ['unknown city id', () => cityExists.mockResolvedValue(false)],
+    ['the city check fails', () => cityExists.mockRejectedValue(new Error('offline'))],
+  ])('%s: the city question is asked and the stale id is never sent', async (_l, arrange) => {
+    arrange();
+    mount({ prefill: { first_name: null, city_id: 'stale' } });
+    await waitFor(() => expect(title()).toBe('Your first name'));
+    expect(screen.getByTestId('dancer4-progress').textContent).toBe('Step 1 of 4');
+    fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Marta' } });
+    fireEvent.click(next());
+    await waitFor(() => expect(title()).toBe('Which city do you dance in?'));
+    expect(save.mock.calls.every(([b]) => !('based_city_id' in b))).toBe(true);
+  });
+
+  it('a prefilled city the server then refuses is dropped, the question is asked, and what was saved stays', async () => {
+    save.mockImplementation(async (b: Record<string, string>) => { if (b.based_city_id === 'c9') throw new Error('SAVE_FAILED'); });
+    mount({ missing: ['based_city_id', 'dance_role'], prefill: { first_name: null, city_id: 'c9' } });
+    await waitFor(() => expect(title()).toBe('Do you lead or follow?'));
+    fireEvent.click(screen.getByRole('radio', { name: 'Leader' }));
+    fireEvent.click(next());
+    await waitFor(() => expect(title()).toBe('Which city do you dance in?'));
+    expect(screen.queryByTestId('dancer4-error')).toBeNull();
+    expect(save).toHaveBeenLastCalledWith({ dance_role: 'Leader' });
+    // the person can now answer it and finish
+    fireEvent.click(await screen.findByRole('button', { name: 'London' }));
+    fireEvent.click(next());
+    await waitFor(() => expect(save).toHaveBeenLastCalledWith({ based_city_id: 'london' }));
+  });
+
+  it('a genuine failure of an unrelated save is still an error, not a dropped prefill', async () => {
+    save.mockRejectedValue(new Error('offline'));
+    mount({ missing: ['based_city_id', 'dance_role'], prefill: { first_name: null, city_id: 'c9' } });
+    await waitFor(() => expect(title()).toBe('Do you lead or follow?'));
+    fireEvent.click(screen.getByRole('radio', { name: 'Leader' }));
+    fireEvent.click(next());
+    expect(await screen.findByTestId('dancer4-error')).toBeTruthy();
+    expect(title()).toBe('Do you lead or follow?');
   });
 
   it('city not found: tell us your city, request sent, the city is still required', async () => {

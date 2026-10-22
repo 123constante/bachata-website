@@ -14,7 +14,7 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { finishProfileHref } from '@/lib/profileCompletion';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
-import { rememberInvitePrefill } from '@/lib/invitePrefill';
+import { clearInvitePrefill, rememberInvitePrefill } from '@/lib/invitePrefill';
 import { rememberCodeStep } from '@/components/MagicLinkConfirmation';
 import { redeemOrganiserInvite } from './adminApi';
 import { fetchInvitePreview, invitePreviewQueryKey, requestNewInvite, sendInviteSignInEmail } from './inviteRedeemApi';
@@ -281,6 +281,9 @@ function InviteRedeem({ preview }: { preview: InvitePreview | null }) {
       return;
     }
     if (outcome.copy.terminal) stripToken();
+    // A redeem that did not land must not leave an earlier invite's prefill behind. email_mismatch is the one
+    // exception: the signed-in person is not who this link is for, so it says nothing about THEIR stored entry.
+    if (!(outcome.kind === 'refused' && outcome.reason === 'email_mismatch')) clearInvitePrefill();
     if (outcome.kind === 'refused') {
       setRefusal({ reason: outcome.reason, copy: outcome.copy, emailHint: outcome.emailHint });
       setFailed(null);

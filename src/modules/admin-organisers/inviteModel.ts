@@ -210,7 +210,7 @@ export function interpretRedeem(data: unknown, error: { message?: string } | nul
   }
   const row = (data ?? {}) as Record<string, unknown>;
   if (row.ok === true && (row.status === 'redeemed' || row.status === 'already_member') && typeof row.organiser_id === 'string') {
-    return { kind: 'redeemed', organiserId: row.organiser_id, alreadyMember: row.status === 'already_member', prefill: parsePrefill(row.prefill) };
+    return { kind: 'redeemed', organiserId: row.organiser_id, alreadyMember: row.status === 'already_member', prefill: parseInvitePrefill(row.prefill) };
   }
   const reason = typeof row.reason === 'string' ? row.reason : '';
   const copy = REDEEM_COPY[reason];
@@ -218,7 +218,7 @@ export function interpretRedeem(data: unknown, error: { message?: string } | nul
 }
 
 /** redeem's `prefill` key; null when absent or empty, so nothing is stored for a link that carries none. */
-export function parsePrefill(raw: unknown): InvitePrefill | null {
+export function parseInvitePrefill(raw: unknown): InvitePrefill | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
   const firstName = str(r.first_name);

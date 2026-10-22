@@ -32,3 +32,10 @@ export async function submitCityRequest(name: string): Promise<void> {
   });
   if (error) throw error;
 }
+
+/** Whether a city id exists (no is_active filter, like the chips: the gate only needs the FK). A prefilled id is checked before it is trusted. */
+export async function fetchCityExists(id: string): Promise<boolean> {
+  const { data, error } = await supabase.from('cities').select('id').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data != null;
+}

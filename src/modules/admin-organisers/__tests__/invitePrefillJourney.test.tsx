@@ -29,7 +29,7 @@ vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock('@/lib/saveMyDancerProfile', () => ({ saveMyDancerProfile: (...a: unknown[]) => h.save(...a) }));
-vi.mock('@/modules/organiser/home/onboarding/dancer4/dancer4Api', () => ({ fetchChipCities: async () => [], submitCityRequest: async () => undefined }));
+vi.mock('@/modules/organiser/home/onboarding/dancer4/dancer4Api', () => ({ fetchChipCities: async () => [], fetchCityExists: async () => true, submitCityRequest: async () => undefined }));
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     rpc: (...a: unknown[]) => h.rpc(...a),
@@ -40,7 +40,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 import InviteRedeemPage from '../InviteRedeemPage';
 import { DancerProfileGate } from '@/components/account/DancerProfileGate';
 import { FinishProfileScreen } from '@/pages/FinishProfile';
-import { readInvitePrefill } from '@/lib/invitePrefill';
+import { readInvitePrefill, rememberInvitePrefill } from '@/lib/invitePrefill';
 import { clearPersonScopedStorage } from '@/lib/personScopedStorage';
 
 const U1 = { id: 'u1', email: 'ana@example.com' };
@@ -108,8 +108,8 @@ const redeemCalls = () => h.rpc.mock.calls.filter(([fn]) => fn === 'redeem_organ
 
 describe('link type x session state: what reaches the dancer questions', () => {
   const ROWS: { link: Link; session: Session; redeemsBeforeGate: boolean; firstStep: string | null; stored: unknown }[] = [
-    // Bound + proven: redeem first, the prefill is stored for this person, name and city are not asked.
-    { link: 'bound', session: 'proven', redeemsBeforeGate: true, firstStep: 'dance_role', stored: { firstName: 'Ana', cityId: 'c1' } },
+    // Bound + proven: redeem first, the prefill is stored for this person; the city is not asked, the name is shown pre-filled.
+    { link: 'bound', session: 'proven', redeemsBeforeGate: true, firstStep: 'first_name', stored: { firstName: 'Ana', cityId: 'c1' } },
     // Bound but the mailbox is not proven: the server refuses (2e) and sends no prefill.
     { link: 'bound', session: 'unproven', redeemsBeforeGate: true, firstStep: null, stored: null },
     // Unbound: the dancer gate comes first, so the questions start empty and redeem waits.
@@ -135,13 +135,17 @@ describe('link type x session state: what reaches the dancer questions', () => {
     expect(readInvitePrefill(U1.id)).toEqual(stored);
   });
 
-  it('bound + proven: the prefilled name and city are saved without asking', async () => {
+  it('bound + proven: the city is saved without asking, the name after the person sees it', async () => {
     mountInvite();
     fireEvent.click(await screen.findByTestId('invite-join'));
+    await waitFor(() => expect(step()).toBe('first_name'));
+    expect((screen.getByLabelText('First name') as HTMLInputElement).value).toBe('Ana');
+    fireEvent.click(screen.getByRole('button', { name: /^next/i }));
+    await waitFor(() => expect(h.save).toHaveBeenCalledWith({ first_name: 'Ana', based_city_id: 'c1' }));
     await waitFor(() => expect(step()).toBe('dance_role'));
     fireEvent.click(screen.getByRole('radio', { name: 'Both' }));
     fireEvent.click(screen.getByRole('button', { name: /^next/i }));
-    await waitFor(() => expect(h.save).toHaveBeenCalledWith({ first_name: 'Ana', based_city_id: 'c1', dance_role: 'Lead and Follow' }));
+    await waitFor(() => expect(h.save).toHaveBeenLastCalledWith({ dance_role: 'Lead and Follow' }));
   });
 
   it('an unbound link whose redeem (after the questions) still carries a prefill stores none', async () => {
@@ -157,19 +161,19 @@ describe('link type x session state: what reaches the dancer questions', () => {
 
 describe('user change: the prefill belongs to the person who redeemed it', () => {
   const ROWS: { change: 'same user' | 'different user signs in' | 'signed out, then back in'; firstStep: string }[] = [
-    { change: 'same user', firstStep: 'dance_role' },
+    { change: 'same user', firstStep: 'first_name' },
     { change: 'different user signs in', firstStep: 'first_name' },
     { change: 'signed out, then back in', firstStep: 'first_name' },
   ];
   it.each(ROWS)('$change', async ({ change, firstStep }) => {
     mountInvite();
     fireEvent.click(await screen.findByTestId('invite-join'));
-    await waitFor(() => expect(step()).toBe('dance_role'));
+    await waitFor(() => expect(step()).toBe('first_name'));
     cleanup();
     if (change === 'different user signs in') h.user = U2;
     if (change === 'signed out, then back in') clearPersonScopedStorage();
     mountGatedFinish();
-    expect(step()).toBe(firstStep);
+    await waitFor(() => expect(step()).toBe(firstStep));
     if (change === 'different user signs in') {
       // Read once by the wrong person, it is gone for good: switching back does not bring it back.
       cleanup();
@@ -182,8 +186,61 @@ describe('user change: the prefill belongs to the person who redeemed it', () =>
   it('a read before auth has resolved (no user id yet) keeps the store for the person', async () => {
     mountInvite();
     fireEvent.click(await screen.findByTestId('invite-join'));
-    await waitFor(() => expect(step()).toBe('dance_role'));
+    await waitFor(() => expect(step()).toBe('first_name'));
     expect(readInvitePrefill(null)).toBeNull();
     expect(readInvitePrefill(U1.id)).toEqual({ firstName: 'Ana', cityId: 'c1' });
+  });
+});
+
+describe('the store across redeem outcomes (Arc 1 F3/F4)', () => {
+  const OLD = { firstName: 'Old', cityId: 'old-city' };
+  const join = async () => {
+    mountInvite();
+    fireEvent.click(await screen.findByTestId('invite-join'));
+    await waitFor(() => expect(redeemCalls()).toBe(1));
+  };
+
+  // [label, what redeem answers, what the store holds afterwards for this person]
+  const ROWS: [string, () => void, unknown][] = [
+    ['failed redeem (server error): an earlier invite\'s entry is gone', () => {
+      h.rpc.mockImplementation((fn: string) => {
+        if (fn === 'organiser_invite_preview_v1') return ok({ status: 'open', organiser_name: 'S', inviter_first_name: 'M', email_hint: 'a**@example.com' });
+        return Promise.resolve({ data: null, error: { message: 'boom' } });
+      });
+    }, null],
+    ['refused redeem (expired): an earlier invite\'s entry is gone', () => { redeem = { ok: false, reason: 'expired' }; }, null],
+    ['email_mismatch: the store is untouched', () => { redeem = { ok: false, reason: 'email_mismatch', invite_email_hint: 'a**@example.com' }; }, OLD],
+    ['redeemed with no prefill: an earlier invite\'s entry never lingers', () => { redeem = { ok: true, status: 'redeemed', [ORG_KEY]: 'o1' }; }, null],
+  ];
+  it.each(ROWS)('%s', async (_l, arrange, expected) => {
+    rememberInvitePrefill(OLD, U1.id);
+    arrange();
+    await join();
+    await waitFor(() => expect(readInvitePrefill(U1.id)).toEqual(expected));
+  });
+
+  it('already a member: the prefill is stored, and Home\'s later dancer questions still apply it', async () => {
+    redeem = { ok: true, status: 'already_member', [ORG_KEY]: 'o1', prefill: PREFILL };
+    await join();
+    await waitFor(() => expect(readInvitePrefill(U1.id)).toEqual({ firstName: 'Ana', cityId: 'c1' }));
+    cleanup();
+    mountGatedFinish();
+    await waitFor(() => expect(step()).toBe('first_name'));
+    expect((screen.getByLabelText('First name') as HTMLInputElement).value).toBe('Ana');
+  });
+
+  it('user undefined on the first render, then defined: the prefill is still applied', async () => {
+    rememberInvitePrefill({ firstName: 'Ana', cityId: 'c1' }, U1.id);
+    h.user = null;
+    const ui = mountGatedFinish();
+    h.user = U1;
+    ui.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={[`/finish-profile?returnTo=${encodeURIComponent('/account/o/welcome?o=o1')}`]}>
+          <Routes><Route path="/finish-profile" element={<FinishProfileScreen />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect((screen.getByLabelText('First name') as HTMLInputElement).value).toBe('Ana'));
   });
 });

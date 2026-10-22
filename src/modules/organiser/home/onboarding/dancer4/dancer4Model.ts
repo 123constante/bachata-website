@@ -13,7 +13,7 @@ export type DancerPrefill = { first_name: string | null; city_id: string | null 
 export const NO_PREFILL: DancerPrefill = { first_name: null, city_id: null };
 
 /** Anything off-shape is "no prefill": a bad payload must never block the questions. */
-export const parsePrefill = (raw: unknown): DancerPrefill => {
+export const parseDancerPrefill = (raw: unknown): DancerPrefill => {
   if (!raw || typeof raw !== 'object') return NO_PREFILL;
   const row = raw as Record<string, unknown>;
   const first = typeof row.first_name === 'string' ? row.first_name.trim() : '';
@@ -27,16 +27,19 @@ export const EMPTY_ANSWERS: Answers = { first_name: '', based_city_id: '', dance
 export type Dancer4Plan = {
   /** The screens to show, in order. Answered and prefilled fields are not here. */
   steps: ProfileField[];
-  /** Prefilled values for fields the profile is missing: saved without asking. */
+  /** Prefilled values for fields the profile is missing: saved without asking (the city only). */
   prefilled: Partial<Record<ProfileField, string>>;
+  /** Starting values for questions that ARE asked: the person sees and can edit them (the first name). */
+  defaults: Partial<Record<ProfileField, string>>;
 };
 
 /** The order is the approved flow (prototype v8): name, city, lead or follow, photo. */
 export const planDancer4 = (missing: readonly ProfileField[], prefill: DancerPrefill = NO_PREFILL): Dancer4Plan => {
   const prefilled: Partial<Record<ProfileField, string>> = {};
-  if (missing.includes('first_name') && prefill.first_name) prefilled.first_name = prefill.first_name;
+  const defaults: Partial<Record<ProfileField, string>> = {};
+  if (missing.includes('first_name') && prefill.first_name) defaults.first_name = prefill.first_name;
   if (missing.includes('based_city_id') && prefill.city_id) prefilled.based_city_id = prefill.city_id;
-  return { steps: PROFILE_FIELDS.filter((f) => missing.includes(f) && !(f in prefilled)), prefilled };
+  return { steps: PROFILE_FIELDS.filter((f) => missing.includes(f) && !(f in prefilled)), prefilled, defaults };
 };
 
 export type StepCopy = { title: string; why: string; disabledReason: string };
