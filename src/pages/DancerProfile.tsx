@@ -23,6 +23,9 @@ import { useMyPersonaId } from "@/hooks/useMyPersonaId";
 import { isMyProfile } from "@/lib/myPersona";
 import { useEmbeddedProfile } from "@/lib/embeddedProfile";
 import { AlsoRoles } from "@/modules/person-page/AlsoRoles";
+import { flags } from "@/lib/featureFlags";
+import { DancerRoleBar } from "@/modules/dancer-app/public-page/DancerRoleBar";
+import { useDancerRoleBar } from "@/modules/dancer-app/public-page/roleBarModel";
 import { PublicDancerPageV2 } from "@/modules/dancer-app/public-page/PublicDancerPageV2";
 import { buildPublicDancerPage, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
 
@@ -64,6 +67,9 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
   const { id: routeParam } = useParams<{ id: string }>();
   const resolved = useEntitySlugOrId(routeParam, 'dancer_profiles');
   const id = resolved.id ?? undefined;
+  // flags.personHub: the role bar shows "Back to <name>"; while it is on screen the public page
+  // drops its own Back (one Back, never two). Null with the flag OFF, embedded, or off the public page.
+  const roleBar = useDancerRoleBar(id, resolved.slug, embedded || !publicPage);
   useCanonicalReplaceState({
     arrivedViaUuid: resolved.arrivedViaUuid,
     slug: resolved.slug,
@@ -375,7 +381,9 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
     return (
       <GlobalLayout showSubheader={false} backHref="/dancers" gradientPalette="dancer">
         <div className={`container max-w-xl mx-auto px-4 pt-3${embedded ? '' : ' pb-24'}`}>
-          <AlsoRoles current="dancer" id={id} slug={resolved.slug} className="pb-2" />
+          {flags.personHub
+            ? roleBar && <DancerRoleBar model={roleBar} className="-mx-4 px-4" />
+            : <AlsoRoles current="dancer" id={id} slug={resolved.slug} className="pb-2" />}
           <PublicDancerPageV2
             model={buildPublicDancerPage(dancerView, publicPage.extras, galleryList)}
             extrasOk={publicPage.extrasOk}
@@ -383,6 +391,7 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
             pathname={resolved.slug ? `/dancers/${resolved.slug}` : `/dancers/${routeParam ?? dancerView.id}`}
             ownerPlans={isSelfView ? ownerPlans : null}
             embedded={embedded}
+            back={!roleBar}
           />
         </div>
       </GlobalLayout>
