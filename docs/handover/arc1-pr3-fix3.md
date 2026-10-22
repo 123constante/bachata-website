@@ -48,3 +48,17 @@ Not run: `check:images` / integrity (needs the full CI image audit), e2e smoke (
 Sizes checked: none (no browser walk in this run).
 Walked: nothing.
 Not verified: 390x844 layout of the new "Almost there" screen, the reason line and Try again button, and the stuck-loading screen. New elements reuse `PrimaryButton`/`GhostButton`/`ErrorState` (44 px tap targets); the reason line is 14 px text above the button, no horizontal scroll expected.
+
+## Fix pass 4
+
+Test-only. `tests/e2e/organiser-onboarding.spec.ts` lines 71 and 80 now expect the done-screen message `We will check your request and the page team will be in touch.` (title still `Asked to join <page>`, so the unit tests and `browseApi.ts` are unaffected; no other assertion on the old message exists in `tests/` or `src/`). `public-journeys` "expired" failure is from #928, deliberately untouched.
+
+| Command | Exit |
+|---|---|
+| `npx vitest run src/modules/organiser/home` (13 files, 238 tests) | 0 |
+| `npx playwright test tests/e2e/organiser-onboarding.spec.ts` first run | 1 (2 of 11 failed on cold start: the :27 and :37 tests) |
+| same two tests rerun alone | 0 (2 passed) |
+| `npx playwright test tests/e2e/organiser-onboarding.spec.ts` full rerun | 0 (11 passed) |
+| `npm run build` | 0 |
+
+Not verified: the cause of the first-run failures of :27 and :37 (not captured; they pass twice on rerun, so likely cold-start timing, not the copy). Real GitHub e2e-smoke on the new head is the check.
