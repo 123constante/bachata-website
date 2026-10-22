@@ -7,7 +7,7 @@
 import { chromium } from 'playwright';
 const [base, label, w = '390', shots] = process.argv.slice(2);
 const dir = new URL('.', import.meta.url).pathname;
-const br = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const br = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' }).catch(() => chromium.launch());
 const ctx = await br.newContext({ viewport: { width: +w, height: 844 }, deviceScaleFactor: 1 });
 const page = await ctx.newPage();
 const out = {};
@@ -33,6 +33,7 @@ for (const path of ['/dancers', '/djs']) {
       for (let y = Math.round(y0) + lo; y <= Math.round(y0) + hi; y++) { if (y < 0 || y >= img.height) continue; const d = g.getImageData(x, y, 1, 1).data; res.push([y - Math.round(y0), d[0], d[1], d[2]]); }
       return res;
     }, { b64: buf.toString('base64'), y0: yy, x: 4, lo, hi });
+    if (rows.length !== hi - lo + 1) { console.error(`${path} ${seam}: window cut by the viewport (${rows.length} of ${hi - lo + 1} rows)`); process.exit(2); }
     let max = 0, at = null;
     for (let i = 1; i < rows.length; i++) { const d = Math.max(...[1, 2, 3].map((k) => Math.abs(rows[i][k] - rows[i - 1][k]))); if (d > max) { max = d; at = rows[i][0]; } }
     const pick = (o) => rows.find((r) => r[0] === o)?.slice(1);

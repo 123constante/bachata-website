@@ -36,6 +36,12 @@ export const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-v
 /** Dark pill with gold text and a gold edge: holds on a gold tile and on a photo. */
 export const DATE_CHIP: ChipTokens = { bg: '#1E1410', text: '#FFD479', border: '#FFD479' };
 
+/** `#RRGGBB` -> the same colour at alpha 0. */
+const clearOf = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, 0)`;
+};
+
 /**
  * The soft seams above and below the wall (owner, 2026-10-22: "soft fade", no hard line).
  * The page ground shows through the fade, so it starts from WALL.page at alpha 0, not from a
@@ -44,7 +50,7 @@ export const DATE_CHIP: ChipTokens = { bg: '#1E1410', text: '#FFD479', border: '
  * below the wall /dancers (Your Plans) rgb(14,18,21), /djs (footer) rgb(10,8,11).
  */
 export const SEAM = {
-  clear: 'rgba(30, 20, 16, 0)',
+  clear: clearOf(WALL.page),
   base: WALL.page,
   height: 64,
 } as const;
@@ -52,7 +58,8 @@ export const SEAM = {
 /**
  * The wall's background (style props): two layers, each solid except its outer SEAM.height, which
  * fades clear -> base at the top and base -> clear at the bottom. Each covers 51% so they overlap
- * (no 1px gap at an odd height). Two layers rather than one gradient with calc() stops: same pixels.
+ * (no 1px gap at an odd height); minHeight keeps a short wall from staying see-through. Two
+ * layers rather than one gradient with calc() stops: same pixels.
  */
 export const WALL_FADE = {
   backgroundImage:
@@ -61,6 +68,8 @@ export const WALL_FADE = {
   backgroundSize: '100% 51%',
   backgroundPosition: 'top, bottom',
   backgroundRepeat: 'no-repeat',
+  // Tall enough that both fades finish and the middle is the solid base.
+  minHeight: `${SEAM.height * 2}px`,
 } as const;
 
 /** Explicit px, not rem: the public site sets html font-size to ~13.5px on phones. */

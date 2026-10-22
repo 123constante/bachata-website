@@ -51,6 +51,13 @@ describe('wall contrast on the warm dark base', () => {
       const edge = Math.max(ratio(s.backgroundColor, page), ratio(s.borderTopColor, page));
       expect(edge).toBeGreaterThanOrEqual(3);
     }
+    // Inside the 64px fades the page ground shows through: pills (top) and the last row's names
+    // (bottom) must also hold on the grounds measured at the seams (docs/design/924.md).
+    const pill = getComputedStyle(screen.getAllByTestId('wall-filter').find((b) => b.getAttribute('aria-pressed') === 'false')!);
+    for (const ground of ['rgb(20, 28, 33)', 'rgb(10, 8, 11)', 'rgb(14, 18, 21)', page]) {
+      expect(ratio(pill.color, ground)).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(getComputedStyle(screen.getByTestId('tile-name')).color, ground)).toBeGreaterThanOrEqual(4.5);
+    }
     const d = getComputedStyle(screen.getByTestId('date-chip'));
     expect(ratio(d.color, d.backgroundColor)).toBeGreaterThanOrEqual(4.5);
   });
