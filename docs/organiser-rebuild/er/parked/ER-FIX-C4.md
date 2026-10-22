@@ -1,0 +1,8 @@
+# Parked questions: ER-FIX-C4 (ticket dt_59c5c7f18fa2)
+
+Supersedes ER-C4 parked items 4 (level/times blocking) and 5 (10 h end list): see below.
+
+Q: 239 stored sessions have no title (224 parties, 15 classes). The card needs a name. | Default used: `fromStored` fills the kind's name (rule 25: "Party", "Class"); it shows in the Name field and goes back as null unless the organiser edits it (`titleWasNull`) | Cost if wrong: small | Where: src/modules/organiser/sessions/sessionsModel.ts (fromStored)
+Q: A stored session longer than the 12 h cap (7 classes; plan rule 28 says no change without the owner) | Default used: the stored end stays a selectable option, the card says "Over 12 hours", and Done is NOT blocked by it (the writer only re-checks times that changed) | Cost if wrong: small | Where: src/modules/organiser/sessions/sessionsModel.ts (sessionIssues, blocksDone)
+Q: An untimed stored session (220 parties) | Default used: "Pick a start" placeholder, End disabled until a start, reason "Pick a start time", and it blocks Done only once THAT session's times are changed (the writer checks a field only when it changed). Done on an untouched list is enabled and just closes | Cost if wrong: small | Where: src/modules/organiser/sessions/sessionsModel.ts (sessionIssues), SessionSheet.tsx (done)
+Q: The v2 pick "a level must keep at least one chip" vs plan rule 11 (level optional) | Default used: level is never required and the last chip CAN be removed (toggleLevel unchanged); C4-1 needs level fully optional for the 134 classes with none | Cost if wrong: small | Where: src/modules/organiser/sessions/sessionsModel.ts (toggleLevel)
