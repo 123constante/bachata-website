@@ -62,7 +62,11 @@ for (const [path, tag] of [['/djs', 'djs'], ['/dancers', 'dancers']]) {
     const pills = [...document.querySelectorAll('[data-testid="wall-filter"]')].map((b) => b.textContent);
     const org = document.querySelector('[data-testid="wall-organisers"]');
     const heroTitle = [...document.querySelectorAll('h1')].map((h) => h.textContent.trim());
-    return { heroTitle, pills, organisers: org ? { tag: org.tagName, href: org.getAttribute('href'), h: Math.round(org.getBoundingClientRect().height) } : null,
+    // Critique pass: every pill + the link is >= 44px, and how many rows the pill row takes.
+    const ctl = [...document.querySelectorAll('[data-testid="wall-filter"],[data-testid="wall-organisers"]')].map((e) => e.getBoundingClientRect());
+    const pillSizes = ctl.map((b) => [Math.round(b.width), Math.round(b.height)]);
+    const pillRows = new Set(ctl.map((b) => Math.round(b.top))).size;
+    return { heroTitle, pills, pillSizes, pillRows, organisers: org ? { tag: org.tagName, href: org.getAttribute('href'), h: Math.round(org.getBoundingClientRect().height) } : null,
       pillsTop: top('[data-testid="wall-pills"]') + scrollY, gridTop: top('[data-testid="wall-grid"]') + scrollY,
       joinRow: !!document.querySelector('[data-testid="wall-join-row"]'), wallHeader: document.body.innerText.includes('behind the nights') };
   });

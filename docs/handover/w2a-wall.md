@@ -2,6 +2,33 @@
 
 Branch `claude/w2a-wall` (from main at #893). No PR opened (gh not authed); the orchestrator opens it from the body at the bottom.
 
+## Critique + fix pass (2026-10-22, independent reviewer, ticket dt_7082432fddd9, brief `W2A-critique-brief.md` 450768fd)
+Fresh worker, not the builder. Critique written FIRST: [`docs/design/924-critique.md`](../design/924-critique.md) (13 items, each with severity and verdict). Then one fix pass, flag-ON path only.
+- **What changed (code):** `wall/tokens.ts` `SIZE.filterHeight` 40 -> **44**, new `SIZE.filterPadX` 10 (was a 14px literal) and `SIZE.filterGap` 6 (was rem `gap-2`, 6.75px on phones); `PeopleWall.tsx` pills / Organisers link / coming-soon buttons get `minWidth` 44 and centred labels; coming-soon sentence now "Teacher pages are coming soon. Meanwhile, browse DJs and dancers." Hero, order, pill set, Teachers coming-soon behaviour and the Organisers link are untouched.
+- **Result (prod build, flag ON, PROD reads, 390x844):** every pill and the link 44px tall (All 44x44, Dancers 75x44, DJs 46x44, Teachers 81x44, Organisers 92x44); the five fit ONE row at 390 and 430 (8px spare at 390); at 360 Organisers still wraps alone to row 2 (accepted, see critique #2). First tile: /dancers 594 -> **551px**, /djs 419 -> **376px**. scrollWidth 390, 0 clipped names, max 2 name lines, /dancers 94 tiles (50 photo / 44 initials), /djs 40, 0 page errors (`on-report.json`, now also `pillSizes` / `pillRows`).
+- **Tests (red first):** `wall.test.tsx` new table: {filter pills, Organisers link, coming-soon buttons} x {/djs, /dancers} >= 44px tall and wide: 3 RED at head a1b655b7 (40px, no min width), green after. The coming-soon wording assertions in `wall.test.tsx` (4) and `w2aWallPages.test.tsx` (2) were changed first: 6 RED, green after. Wall + page files: 68/68.
+- **Seams after this pass** (`seam.mjs`, 360 / 390 / 430, exit 0 each; raw: `seam-critique-390.txt`): /dancers hero -> pills max step 2 / 3 / 3; /dancers wall -> Your Plans 1 / 1 / 1; /djs hero -> pills 1 / 1 / 1; /djs wall -> footer ground 1 / 1 / 1. Pills -> tiles: one surface.
+- **What I saw in the retaken pictures** (all of `docs/mockups/w2a-wall/on-*`, looked at): `on-dancers-pills.png`: the blue-green ground under Book a Photoshoot warms into brown across the single pill row, no line; All is a cream 44px circle, the four outlined pills sit level; faces start right under. `on-djs-teachers.png`: near-black hero into brown at the pills, no line; Teachers selected; the sentence wraps with "dancers." alone on line 2 (nice-to-fix, not done), Browse DJs / Browse dancers 44px under it; below that the empty page ground down to the fold (the coming-soon state is short; pre-existing). `on-djs-wall-to-next.png`: the last tile row's brown cools to near-black with no line, then the site's orange footer (site-wide, unchanged). `on-dancers-wall-to-next.png`: brown cools into the Your Plans ground, no line.
+- **Owner calls (not in code), with my recommendation:** (1) the ~64px empty band under the /dancers hero's last card is the hero's own bottom padding: trim ~40px with the flag ON so faces lift into the first screen; (2) Organisers looks exactly like a filter but leaves the page: add a small chevron (costs ~12px, would re-wrap the row at 390, so only with a shorter label or smaller pills); (3) the light circle on initials tiles reads like a ghost button at 86px: drop it, keep the diagonal texture; (4) balance the coming-soon sentence so "dancers." is not alone on a line.
+- **Not verified (this pass):** a physical phone (font metrics: the one-row fit has 8px spare at 390 with the site's webfont; a fallback font could wrap Organisers again); landscape / desktop; real photo crops (photo host blocked); 360 and 430 were measured (pill rows, seams), not photographed; doc-weight / Lighthouse (need the Vercel preview).
+
+### CI: every job step run locally (critique pass, commit 5568733 code; command, exit)
+| Job / step | Command | Exit |
+|---|---|---|
+| typecheck job | `check:rpc-typing`, `check:wallclock-brand` | 0 / 0 |
+| tsc (not a CI gate) | `npm run typecheck` | 2: 99 errors, same pre-existing count, none in wall files or the two pages |
+| architecture-guard | `bin/check-integrity.sh` (after `chmod +x bin/*.sh`), `check:legacy-tables`, `check:legacy-program-rpcs`, `lint:architecture`, `AUDIT_STRICT=1 check:images`, `check:image-widths` (+ self-test), `check:plan-hygiene:self-test`, `check:mojibake` (+ self-test), `check:workflow-artifact-policy` (+ self-test) | 0 x 12 |
+| workflow-lint | docs-only self-test, masking, notification (+ self-test), no-preview-prefixes (+ self-test) | 0 x 6 |
+| unit-tests: dancer-area-isolation (+ self-test), migration authority | as named | 0 / 0 / 0 |
+| lint (whole chain) | `npm run lint` | 0 |
+| perf-budget | self-tests x3, `npm run build`, `check:bundle-budget`, `check:first-load-requests`, `check:chunk-cycles` | 0 x 7 |
+| unit London | `TZ=Europe/London npm run test:unit:offline` (2 threads) | 1: **5 failed / 11572 passed, all 5 in `tests/integrityCouldNotRun.test.ts`**, the same 5 that fail on clean main (earlier passes checked it in a main worktree) |
+| unit timing / New_York / Sydney | `test:unit:timing`, the CI tz list under each TZ | 0 / 0 / 0 |
+| phone-qa build-smoke | `playwright.build.config.ts` | 0 |
+| phone-qa phone suite | `playwright.phone.config.ts` | full run 1: 3 failed / 269 passed (keyboard x2, organiser contact sheet 360x640); re-run alone: keyboard passed; contact sheet passed **12/12** on a clean tree (none touch /dancers or /djs) |
+| e2e-smoke | `npm run test:e2e` | 1: 2 failed / 158 passed: `organiser-layout` passed alone; `organiser-home.spec.ts:55` (load failure + Retry) **fails on clean main 811d6eb too** (main worktree: 3 failed there), not this PR |
+| Not runnable here | `check:doc-weight`, `check:lighthouse` (need the Vercel preview), `check-ci-budget`, live-DB contract suites, PR body checkers (run on the PR) | - |
+
 ## Seam fix pass (2026-10-22, ticket dt_38e92fd874e7, brief `W2A-seam-brief.md` 3d95a0c0)
 Owner's defect: with the flag ON the kept hero ended in a HARD line against the wall's warm-brown base. Owner decision (click): SOFT FADE, hero untouched.
 - **Fix (flag-ON path only, no OFF markup touched, no layout box added):** the wall's own background is now `WALL_FADE` (`wall/tokens.ts`): clear -> `#1E1410` over the top 64px and back to clear over the bottom 64px, so the page ground under the hero shows through and warms into the wall, and the wall cools back into whatever follows. Tokens: `SEAM = { clear: 'rgba(30, 20, 16, 0)', base: WALL.page, height: 64 }`. Used by `PeopleWall` and `WallSkeleton` (`data-seam="soft"`). Pill and tile positions are unchanged (first tile 594px /dancers, 419px /djs).
@@ -147,24 +174,28 @@ Verified: real prod reads through a production build (flag ON and OFF) at 390x84
 NOT verified: REAL PHOTO CROPS. `media.bachatacalendar.co.uk` is refused by the sandbox proxy, so photo tiles fell back to initials (13 of 93 /dancers tiles tried a photo). Not checked on a physical phone; flag and date-chip legibility on busy photos unverified. 360x640 not walked by hand (the phone suite ran). `tsc` has 99 pre-existing errors in this sandbox, so type-safety of my files rests on zero new errors plus vitest. Lighthouse not run.
 
 ## Owner look-at list
-1. **The wall now starts low.** With your hero kept, the first faces start at 594px on /dancers (bottom third of a 390x844 screen) and 419px on /djs. Look at `on-dancers-top.png`: is that the balance you want?
-2. **Pills wrap to two rows at 390:** All, Dancers, DJs, Teachers on row 1, Organisers alone on row 2 (`on-dancers-pills.png`). Fitting one row needs smaller pills (padding or 12px text), which I did not do without your say. Pills are 40px tall (the wall's existing pill size), under the 44px tap target used elsewhere.
-3. **Teachers coming soon** (`on-djs-teachers.png`): the sentence and the two "Browse DJs / Browse dancers" buttons. And the follow-up: flag OFF still sends Create a Profile to the dead `/create-dancers-profile` and Book a Photoshoot to the dead `/photographers` (left as is per the brief).
+1. **Pills now fit one row at 390** (`on-dancers-pills.png`): 44px tall, tighter sides. At 360 Organisers still drops to a second row alone. Happy with that?
+2. **The empty band under the /dancers hero** (critique #4): trim the hero's bottom padding with the flag ON? It would lift the first faces into the first screen.
+3. **Organisers looks like a filter but opens another page** (critique #5): add a chevron? (would need smaller pills or a shorter word to stay on one row).
+4. **The light circle on initials tiles** (critique #6): keep or drop?
+5. Still open from earlier: flag OFF sends Create a Profile to the dead `/create-dancers-profile` and Book a Photoshoot to the dead `/photographers`.
 
 ## PR body (ready to paste)
 ```
 ## Summary
-Face wall on /djs and /dancers behind the flag `peopleWall` (VITE_ENABLE_PEOPLE_WALL, default OFF). With the flag ON each page keeps TODAY's hero exactly (on /dancers with its own cards), then filter pills (All, Dancers, DJs, Teachers, and an Organisers link to /organisers), then the four-column face wall, then the rest of the page as today. Teachers pill: "Teachers are coming soon" with Browse DJs / Browse dancers while teacher pages are closed. With the flag ON the /dancers hero cards open real routes (/auth?mode=signup&userType=dancer, /videographers). No new reads. Flag OFF = pages unchanged (OFF markup snapshot taken from main).
+Face wall on /djs and /dancers behind the flag `peopleWall` (VITE_ENABLE_PEOPLE_WALL, default OFF). With the flag ON each page keeps TODAY's hero exactly (on /dancers with its own cards), then filter pills (All, Dancers, DJs, Teachers, and an Organisers link to /organisers), then the four-column face wall, then the rest of the page as today. Teachers pill: "Teacher pages are coming soon" with Browse DJs / Browse dancers while teacher pages are closed. With the flag ON the /dancers hero cards open real routes (/auth?mode=signup&userType=dancer, /videographers). No new reads. Flag OFF = pages unchanged (OFF markup snapshot taken from main).
 
-Seam fix (owner 2026-10-22, "soft fade"): the hero no longer meets the wall's warm brown at a hard line. The wall's background fades in from clear over 64px at the top and back out over 64px at the bottom (tokens `SEAM` / `WALL_FADE` in wall/tokens.ts), so the page ground under the hero warms into the wall and the wall cools into Your Plans (/dancers) or the page ground (/djs). Hero untouched, no layout change. Measured at 360/390/430: biggest colour step between adjacent pixel rows went from 16-20 to 1-3. Design record: docs/design/924.md. Details: docs/handover/w2a-wall.md.
+Seam fix (owner 2026-10-22, "soft fade"): the wall's background fades in from clear over 64px at the top and back out over 64px at the bottom (tokens SEAM / WALL_FADE), so there is no hard line at either edge.
+
+Critique pass (independent reviewer, docs/design/924-critique.md): pills, the Organisers link and the coming-soon buttons are now 44px tap targets (were 40) and the five pills fit one row at 390 and 430 (first faces 43px higher); the coming-soon sentence says "Teacher pages" because the wall itself shows Teacher chips. Four owner calls listed in docs/handover/w2a-wall.md. Design record: docs/design/924.md.
 
 ## Phone QA
-- Sizes checked: 390x844 production build, flag ON, prod reads (walk + seam measurement); seam also measured at 360 and 430 wide; phone suite at 390x844 and 360x640.
-- Walked: /dancers and /djs top (hero + pills + first tiles), pills, end of wall into Your Plans (/dancers) and into the footer (/djs), Teachers tapped, a filter applied, middle of the wall; no line at either seam, scrollWidth 390, 0 clipped names, 0 page errors.
-- Not verified: a physical phone, real photo crops (photo host blocked in the sandbox), landscape / desktop.
+- Sizes checked: 390x844 production build, flag ON, prod reads (walk + measurements); pill rows and seams also measured at 360 and 430 wide; phone suite at 390x844 and 360x640.
+- Walked: /dancers and /djs top (hero + pills + first tiles), pills, Teachers tapped, a filter applied, middle of the wall, end of the wall into Your Plans (/dancers) and the footer (/djs). Every pill and the Organisers link 44px tall; one pill row at 390 and 430; no line at either seam (max colour step 1-3); scrollWidth 390; 0 clipped names; 0 page errors.
+- Not verified: a physical phone (the one-row pill fit has 8px spare at 390), real photo crops (photo host blocked in the sandbox), landscape / desktop.
 
 ## Verified on real data
-- Shapes surveyed: production reads through a production build: /dancers 94 tiles (50 photo faces, 44 initials), /djs 40, 1-3 role chips, flags, gig dates, 2-line names; filtered 35 / 35; Teachers coming soon (0 tiles).
-- Checks run: seam measurement script (docs/mockups/w2a-wall/seam.mjs) red on the old head (step 16-20, exit 1) and green after (1-3, exit 0); table-driven page test for the fade (ON x OFF x both pages, red first); contrast test now also checks pill and name text over the measured fade-zone grounds (>= 14.8:1); mutant (fade removed) turns 3 tests red; every applicable CI job step run locally (table in the handover).
-- NOT verified: physical phone, real photo crops, the /dancers animated ground at every moment (sampled once; the fade starts from clear so it follows the ground), doc-weight / Lighthouse (need the preview), live-DB contract suites; 5 integrityCouldNotRun unit tests fail on clean main too.
+- Shapes surveyed: production reads through a production build: /dancers 94 tiles (50 photo faces, 44 initials), /djs 40, 1-3 role chips, flags, gig dates, 2-line names, a filter applied, Teachers coming soon (0 tiles).
+- Checks run: table-driven tap-target test (pills / link / coming-soon buttons x both lists, red at 40px first); wording tests red first; seam measurement at 360/390/430 (exit 0); contrast test; every applicable CI job step run locally (table in the handover).
+- NOT verified: physical phone, real photo crops, doc-weight / Lighthouse (need the preview), live-DB contract suites; 5 integrityCouldNotRun unit tests and e2e organiser-home.spec.ts:55 fail on clean main too.
 ```

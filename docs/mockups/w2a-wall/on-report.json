@@ -7,7 +7,7 @@
   "columns": 4,
   "namesClipped": 0,
   "maxNameLines": 2,
-  "firstTileTop": 419.171875,
+  "firstTileTop": 376.390625,
   "faces": {
    "photo": 0,
    "initials": 40
@@ -31,18 +31,41 @@
    "DJs",
    "Teachers"
   ],
+  "pillSizes": [
+   [
+    44,
+    44
+   ],
+   [
+    75,
+    44
+   ],
+   [
+    46,
+    44
+   ],
+   [
+    81,
+    44
+   ],
+   [
+    92,
+    44
+   ]
+  ],
+  "pillRows": 1,
   "organisers": {
    "tag": "A",
    "href": "/organisers",
-   "h": 40
+   "h": 44
   },
   "pillsTop": 322.21875,
-  "gridTop": 419.171875,
+  "gridTop": 376.390625,
   "joinRow": false,
   "wallHeader": false
  },
  "djs-teachers": {
-  "text": "Teachers are coming soon. Meanwhile, browse DJs and dancers.Browse DJsBrowse dancers",
+  "text": "Teacher pages are coming soon. Meanwhile, browse DJs and dancers.Browse DJsBrowse dancers",
   "tiles": 0
  },
  "djs-filtered": {
@@ -53,10 +76,10 @@
   "columns": 4,
   "namesClipped": 0,
   "maxNameLines": 2,
-  "firstTileTop": 419.171875,
+  "firstTileTop": 376.390625,
   "faces": {
-   "photo": 15,
-   "initials": 20
+   "photo": 3,
+   "initials": 32
   }
  },
  "dancers-all": {
@@ -67,7 +90,7 @@
   "columns": 4,
   "namesClipped": 0,
   "maxNameLines": 2,
-  "firstTileTop": 593.6875,
+  "firstTileTop": 550.90625,
   "faces": {
    "photo": 50,
    "initials": 44
@@ -91,18 +114,41 @@
    "DJs",
    "Teachers"
   ],
+  "pillSizes": [
+   [
+    44,
+    44
+   ],
+   [
+    75,
+    44
+   ],
+   [
+    46,
+    44
+   ],
+   [
+    81,
+    44
+   ],
+   [
+    92,
+    44
+   ]
+  ],
+  "pillRows": 1,
   "organisers": {
    "tag": "A",
    "href": "/organisers",
-   "h": 40
+   "h": 44
   },
   "pillsTop": 496.734375,
-  "gridTop": 593.6875,
+  "gridTop": 550.90625,
   "joinRow": false,
   "wallHeader": false
  },
  "dancers-teachers": {
-  "text": "Teachers are coming soon. Meanwhile, browse DJs and dancers.Browse DJsBrowse dancers",
+  "text": "Teacher pages are coming soon. Meanwhile, browse DJs and dancers.Browse DJsBrowse dancers",
   "tiles": 0
  },
  "dancers-filtered": {
@@ -113,7 +159,7 @@
   "columns": 4,
   "namesClipped": 0,
   "maxNameLines": 2,
-  "firstTileTop": 593.6875,
+  "firstTileTop": 550.90625,
   "faces": {
    "photo": 18,
    "initials": 17
