@@ -47,3 +47,17 @@ then `origin/claude/arc1-pr2-redeem` and `origin/main` merged in (main was alrea
   (`playwright.build.config.ts`) passes locally: 66 of 66. The prose end text in
   `docs/account-system/JOURNEY-GRID.md` / `journey-grid.json` and the public-journeys MATRIX still
   say "`/account/o` Home"; `check:journey-grid` passes either way, so they were not changed here.
+
+## Conflict merge (after #927-#930 squash-merged; #933 head 071e60d9)
+
+Merged `origin/claude/arc1-pr3-claim` (071e60d9) into `claude/arc1-prefill`, then `origin/main` (already contained: "Already up to date").
+Conflicted files, all resolved to the #941 side (it is a strict superset of the same prefill work: per-user store, bound-link-only, fix pass 2 cards):
+- `src/lib/invitePrefill.ts` (add/add): kept #941 (`rememberInvitePrefill(p, userId)`, `readInvitePrefill(userId)`, `clearInvitePrefill`).
+- `src/modules/admin-organisers/InviteRedeemPage.tsx`: kept #941 (bound-link card, already-on-team card, clear on failed redeem).
+- `src/modules/admin-organisers/inviteModel.ts`: kept `parseInvitePrefill` (#941 name); no remaining `parsePrefill` references.
+- `src/modules/admin-organisers/__tests__/inviteModel.test.ts`, `inviteReasons.test.tsx` (add/add): kept #941 tests.
+- `src/pages/FinishProfile.tsx`: kept #941 (`useMemo` per-user read, edits overlay).
+Go-live files, `auth-otp-routing`, `whichPageModel.ts` came in cleanly from #933/main untouched.
+
+Commands: `npm run typecheck` 100 TS errors (baseline 106, no new); `vitest run src/modules/organiser src/modules/admin-organisers src/lib src/pages` 246 files / 6232 tests passed (exit 0); `npm run build` exit 0; `playwright tests/e2e/organiser-onboarding.spec.ts` 11 passed (a first run under load showed 3 failures that passed on re-run, and on the #933 head).
+Not verified: `tests/e2e-build/public-journeys.build.spec.ts`, browser walk, CI on GitHub.
