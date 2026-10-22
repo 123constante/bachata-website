@@ -37,6 +37,7 @@ const HelpPage = lazyWithRetry(() => import('../more/help')); // S7 more/help
 const CoverFlow = lazyWithRetry(() => import('../flows/fix')); // S7 flows/fix
 const DonePage = lazyWithRetry(() => import('../flows/Done')); // S0b flows/Done (wired by S2, its first caller)
 const ProfileWizard = lazyWithRetry(() => import('../wizard/ProfileWizard')); // A-WEB1b PROFILE_WIZARD_PATH
+const GoLiveFlow = lazyWithRetry(() => import('../home/onboarding/golive/GoLiveFlow')); // Arc 1 PR3 B
 
 // The loading frame keeps the header's shape but draws NO Switch-profile button: this
 // frame is thrown away when the gate settles and again when the page chunk arrives, and a
@@ -140,6 +141,7 @@ export default function OrganiserRoutes() {
             <Route path="cover/:seriesId" element={<CoverFlow />} />
             <Route path="done" element={<DonePage />} />
             <Route path="complete" element={<ProfileWizard />} />
+            <Route path="go-live" element={<GoLiveFlow />} />
 
             {/* main's URLs (bookmarks, links already sent) -> their R1 paths. */}
             <Route path="events/new" element={<ModuleLegacyRedirect target="newEvent" />} />

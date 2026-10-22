@@ -22,6 +22,8 @@ import {
 import { useNewSend } from './useNewSend';
 import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
 import { EventConflict } from '../event/parts';
+import { goLivePath } from '@/modules/organiser/home/onboarding/golive/goLiveModel';
+import { profileQuestionsLeft } from '@/modules/organiser/home/onboarding/golive/profileLeft';
 
 const TITLE = 'New event';
 const ROW = 'flex min-h-[56px] w-full items-center rounded-[12px] bg-[var(--card2)] px-[16px] text-left text-[16px] font-semibold text-[var(--fg)]';
@@ -269,6 +271,7 @@ function TimeStep({ seriesId }: { seriesId: string }) {
 
 function CoverStep({ seriesId }: { seriesId: string }) {
   const navigate = useNavigate();
+  const { selected } = useOrganiserChoice();
   const draft = useDraft(seriesId);
   const today = useLondonToday();
   const { send, busy, error, setError, conflict } = useNewSend(seriesId);
@@ -295,6 +298,11 @@ function CoverStep({ seriesId }: { seriesId: string }) {
     // A1 not on prod: going live would be refused, so the draft stays a draft and Done says so.
     if (!liveCommands().length) {
       goDone(navigate, { title: 'Saved', message: DRAFT_SAVED_MESSAGE, seriesId });
+      return;
+    }
+    // Profile answers still open: the "Almost live" bridge, not a refusal. A failed read falls through and the server decides.
+    if (await profileQuestionsLeft(seriesId)) {
+      navigate(goLivePath(seriesId, selected?.id ?? null));
       return;
     }
     if (!(await send(liveCommands()))) return;
