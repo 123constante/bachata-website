@@ -95,6 +95,8 @@ export const CHECKING_REASON = 'Checking what is left';
 export const EVENT_LOADING_REASON = 'Loading your event';
 export const EVENT_FAILED_REASON = 'Your event did not load, so Go live cannot start';
 export const RETRY_LABEL = 'Retry';
+/** How long the questions may load before the screen offers Try again. */
+export const LOAD_TIMEOUT_MS = 8000;
 
 const humanise = (f: string) => f.replace(/_/g, ' ');
 
@@ -115,4 +117,47 @@ export function goLiveGaps(check: GoLiveCheck, seriesId: string, organiserId: st
     }
   }
   return gaps;
+}
+
+export const ALMOST_THERE_TITLE = 'Almost there';
+export const FINISH_LIST_REASON = 'Finish the list above first.';
+export const CHECKING_LABEL = 'Checking...';
+export const CHECK_FAILED_REASON = 'Could not check. Try again.';
+export const TRY_AGAIN_LABEL = 'Try again';
+
+export const thingsLeftLine = (eventName: string, n: number): string =>
+  `${n} ${n === 1 ? 'thing' : 'things'} left before ${eventName} can go live.`;
+
+/** What the person is told when Go live is pressed and the server refuses: the first missing item, plainly. */
+export const notYetLine = (gaps: readonly GoLiveGap[]): string =>
+  gaps.length > 0 ? `Not yet. ${gaps[0].text}.` : 'Not yet. The server says this event is not ready.';
+
+/** What the check answer is, as far as the screen can tell. */
+export type CheckAnswer = { status: 'loading' } | { status: 'failed' } | { status: 'ok'; check: GoLiveCheck };
+
+export interface GoLiveView {
+  state: 'checking' | 'failed' | 'ready' | 'not_ready';
+  title: string;
+  line: string;
+  /** Empty unless the state is not_ready. */
+  gaps: GoLiveGap[];
+  goLiveEnabled: boolean;
+  /** Why Go live is off (null when it is on). */
+  reason: string | null;
+  /** The Try again button shows only when the check failed. */
+  canRetry: boolean;
+}
+
+/**
+ * ONE mapping from the check answer to the All set / Almost there screen. "Ready" words and a "Still to do" list
+ * never show together: any gap (or ready:false) is not ready, whatever else the answer says.
+ */
+export function goLiveView(answer: CheckAnswer, eventName: string | null, seriesId: string, organiserId: string | null): GoLiveView {
+  if (answer.status === 'loading') return { state: 'checking', title: ALL_SET_TITLE, line: allSetLine(eventName), gaps: [], goLiveEnabled: false, reason: CHECKING_LABEL, canRetry: false };
+  if (answer.status === 'failed') return { state: 'failed', title: ALL_SET_TITLE, line: allSetLine(eventName), gaps: [], goLiveEnabled: false, reason: CHECK_FAILED_REASON, canRetry: true };
+  const gaps = goLiveGaps(answer.check, seriesId, organiserId);
+  if (answer.check.ready && gaps.length === 0) return { state: 'ready', title: ALL_SET_TITLE, line: allSetLine(eventName), gaps: [], goLiveEnabled: true, reason: null, canRetry: false };
+  // ready:false with an empty list still reads as not ready (the server said so), with no count to quote.
+  const line = gaps.length > 0 ? thingsLeftLine(eventName ?? 'Your event', gaps.length) : `${eventName ?? 'Your event'} is not ready to go live yet.`;
+  return { state: 'not_ready', title: ALMOST_THERE_TITLE, line, gaps, goLiveEnabled: false, reason: FINISH_LIST_REASON, canRetry: false };
 }

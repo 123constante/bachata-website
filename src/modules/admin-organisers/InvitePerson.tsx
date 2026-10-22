@@ -30,10 +30,11 @@ const leaderNote = (leader: PageLeader | undefined): string => {
  * Invite a person (an organiser, or a teacher or DJ with no page) by email. The person is prefilled
  * from the chosen page's Leader when it has one, otherwise searched. The result is a ready message with
  * the link: held in component state only, never in the query cache, storage or a log.
+ * With `fixedOrganiser` (a row's "Invite by email" choice) it opens at once for that page only.
  */
-export function InvitePerson({ organisers }: { organisers: readonly AdminOrganiser[] }) {
-  const [open, setOpen] = useState(false);
-  const [organiserId, setOrganiserId] = useState<string>('');
+export function InvitePerson({ organisers, fixedOrganiser }: { organisers: readonly AdminOrganiser[]; fixedOrganiser?: AdminOrganiser }) {
+  const [open, setOpen] = useState(!!fixedOrganiser);
+  const [organiserId, setOrganiserId] = useState<string>(fixedOrganiser?.id ?? '');
   const [picked, setPicked] = useState<PersonHit | null>(null);
   const [unpicked, setUnpicked] = useState(false);
   const [search, setSearch] = useState('');
@@ -76,7 +77,7 @@ export function InvitePerson({ organisers }: { organisers: readonly AdminOrganis
       setCopied(false);
     }
   };
-  const reset = () => { setResult(null); setPicked(null); setUnpicked(false); setSearch(''); setEmail(''); setOrganiserId(''); invite.reset(); };
+  const reset = () => { setResult(null); setPicked(null); setUnpicked(false); setSearch(''); setEmail(''); setOrganiserId(fixedOrganiser?.id ?? ''); invite.reset(); };
 
   if (!open) {
     return <button type="button" className={`${BTN} w-full`} onClick={() => setOpen(true)} data-testid="invite-person-open"><UserPlus className="h-4 w-4" aria-hidden="true" /> Invite person</button>;
@@ -103,14 +104,14 @@ export function InvitePerson({ organisers }: { organisers: readonly AdminOrganis
 
   return (
     <form data-testid="invite-person" className="space-y-2 rounded-lg border border-border p-3" onSubmit={(e) => { e.preventDefault(); if (!blocked && !invite.isPending) invite.mutate(); }}>
-      <p className="text-sm font-medium">Invite person</p>
-      <label className="block space-y-1 text-xs text-muted-foreground">
+      <p className="text-sm font-medium">{fixedOrganiser ? `Invite by email to ${fixedOrganiser.name}` : 'Invite person'}</p>
+      {!fixedOrganiser && <label className="block space-y-1 text-xs text-muted-foreground">
         Organiser page (optional)
         <select value={organiserId} onChange={(e) => { setOrganiserId(e.target.value); setPicked(null); setUnpicked(false); setSearch(''); }} className={FIELD} data-testid="invite-person-page">
           <option value="">No page (teacher, DJ or other)</option>
           {organisers.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
-      </label>
+      </label>}
       <div className="space-y-1">
         <p className="text-xs text-muted-foreground">Person</p>
         {person ? (
@@ -135,7 +136,7 @@ export function InvitePerson({ organisers }: { organisers: readonly AdminOrganis
       <input type="email" inputMode="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Their email" aria-label="Email" className={FIELD} data-testid="invite-person-email" />
       <div className="flex flex-wrap gap-2">
         <button type="submit" className={BTN_PRIMARY} disabled={!!blocked || invite.isPending} aria-describedby={blocked ? 'invite-person-note' : undefined} data-testid="invite-person-submit">{invite.isPending ? 'Inviting' : 'Invite'}</button>
-        <button type="button" className={BTN} onClick={() => { setOpen(false); reset(); }} data-testid="invite-person-cancel">Cancel</button>
+        {!fixedOrganiser && <button type="button" className={BTN} onClick={() => { setOpen(false); reset(); }} data-testid="invite-person-cancel">Cancel</button>}
       </div>
       {blocked && <p id="invite-person-note" className="text-xs text-muted-foreground" data-testid="invite-person-note">{blocked}</p>}
       {invite.isError && <p role="alert" className="text-sm text-destructive" data-testid="invite-person-error">{invitePersonErrorMessage(invite.error)}</p>}

@@ -34,7 +34,7 @@ export function ProfileButton({ organiserId, userId, now = Date.now }: { organis
   const level = levelName(levelOf(p));
   // D83's words while required answers are missing (never the level name then: "Ready to publish" contradicted the count); the level name after.
   const todo = p.requiredLeft > 0;
-  const sub = todo ? profileTodoSub(p.requiredLeft) : level;
+  const sub = todo ? profileTodoSub(p.requiredLeft) : `Profile: ${level}`;
   return (
     <div className="space-y-[4px]" data-testid="home-profile">
       <button

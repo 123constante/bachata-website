@@ -157,7 +157,9 @@ describe('Ask to join -> Done', () => {
     const where = await screen.findByTestId('where');
     expect(where.textContent).toBe(ORG_PATHS.done);
     const state = readDoneState(JSON.parse(where.getAttribute('data-state')!));
-    expect(state?.message).toBe('Asked to join Beta');
+    expect(state?.title).toBe('Asked to join Beta');
+    expect(state?.message).not.toBe(state?.title);
+    expect(state?.message).toMatch(/check your request/);
   });
 });
 

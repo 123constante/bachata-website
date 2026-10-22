@@ -72,19 +72,23 @@ export async function saveAnswer(
   return { kind: 'failed', message: 'This question cannot be answered here yet.' };
 }
 
-/** After a save: re-read progress everywhere (pinned file note) and the rows the answer changed. */
-export function invalidateAfterAnswer(qc: QueryClient, area: string, organiserId: string | null, userId: string | undefined): void {
-  void qc.invalidateQueries({ queryKey: profileProgressQueryKey(organiserId) });
-  void qc.invalidateQueries({ queryKey: ['my-profile-progress'] });
+/** After a save: re-read progress everywhere (pinned file note) and the rows the answer changed. Resolves once the active refetches settle (never rejects). */
+export function invalidateAfterAnswer(qc: QueryClient, area: string, organiserId: string | null, userId: string | undefined): Promise<void> {
+  const pending: Array<Promise<unknown>> = [];
+  const inv = (queryKey: readonly unknown[]) => { pending.push(qc.invalidateQueries({ queryKey })); };
+  inv(profileProgressQueryKey(organiserId));
+  inv(['my-profile-progress']);
   if (area === 'organiser' && organiserId) {
-    void qc.invalidateQueries({ queryKey: ownOrganiserEntityQueryKey(organiserId) });
-    void qc.invalidateQueries({ queryKey: organiserEntityQueryKey(organiserId) });
-    void qc.invalidateQueries({ queryKey: organiserContactSettingsQueryKey(organiserId, userId) });
-    void qc.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+    inv(ownOrganiserEntityQueryKey(organiserId));
+    inv(organiserEntityQueryKey(organiserId));
+    inv(organiserContactSettingsQueryKey(organiserId, userId));
+    inv(ORGANISER_HOME_KEY);
   }
   if (area === 'teacher' || area === 'dj') {
-    void qc.invalidateQueries({ queryKey: roleDetailsQueryKey(area) });
-    void qc.invalidateQueries({ queryKey: myRolesQueryKey });
+    inv(roleDetailsQueryKey(area));
+    inv(myRolesQueryKey);
   }
+  // Settled = the refetches finished, so the next answer builds its patch from what the server now holds.
+  return Promise.all(pending).then(() => undefined, () => undefined);
 }
 

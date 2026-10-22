@@ -5,7 +5,7 @@ import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { OrganiserShell } from '@/modules/organiser/shell/OrganiserShell';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { PrimaryButton } from '@/modules/organiser/ui';
-import { WHICH_PAGE_TITLE, pageChosenHref } from './whichPage';
+import { WHICH_PAGE_TITLE, pageChosenHref } from './whichPageModel';
 
 /**
  * Arc 1 flow 7b: the login runs 2 or more pages, so New event first asks which

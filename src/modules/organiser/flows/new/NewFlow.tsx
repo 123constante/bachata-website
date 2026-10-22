@@ -22,7 +22,7 @@ import {
 import { useNewSend } from './useNewSend';
 import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
 import { EventConflict } from '../event/parts';
-import { needsPagePick, withPageChoice } from './whichPage';
+import { needsPagePick, withPageChoice } from './whichPageModel';
 import { WhichPageStep } from './WhichPage';
 import { goLivePath } from '@/modules/organiser/home/onboarding/golive/goLiveModel';
 import { profileQuestionsLeft } from '@/modules/organiser/home/onboarding/golive/profileLeft';

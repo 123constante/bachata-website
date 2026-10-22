@@ -48,7 +48,9 @@ function rpcImpl(isAdmin: boolean) {
       case 'admin_is_admin': return ok(isAdmin);
       case 'organiser_ownership_v1': return ok({ is_managed: managedIds.has(args.p_organiser_id as string) });
       case 'admin_list_organiser_invites_v1': return ok(invitesFor[args.p_organiser_id as string] ?? []);
-      case 'admin_issue_organiser_invite_v1': return ok({ invite_id: 'i9', token: TOKEN, expires_at: '2026-10-18T10:00:00Z', revoked_previous: [] });
+      case 'admin_issue_organiser_invite_v1': return ok({ ok: true, invite_id: 'i9', organiser_id: args.p_organiser_id, token: TOKEN, expires_at: '2026-10-18T10:00:00Z', email_bound: false, revoked_previous: [] });
+      case 'admin_list_invite_requests_v1': return ok([]);
+      case 'admin_list_signup_access_requests_v1': return ok([]);
       case 'admin_revoke_organiser_invite_v1': return ok({ revoked: 1 });
       case 'admin_add_entity_member_v1': return ok({ id: 'm1' });
       case 'organiser_invite_preview_v1': return ok({ status: 'open', organiser_name: 'Salsa Norte', inviter_first_name: 'Marta', email_hint: null });
@@ -161,30 +163,40 @@ describe('row actions x invite state', () => {
     fireEvent.click(row.querySelector('button')!);
     return row;
   };
+  const issueCalls = () => h.rpc.mock.calls.filter((c) => c[0] === 'admin_issue_organiser_invite_v1');
 
+  // One button per row (5a, 5d, 5e, 5f); Withdraw only beside a live link; a live link is replaced only after the form says so.
   it.each([
-    ['Alpha Unclaimed', { revokeDisabled: true, confirms: false }],
-    ['Bravo Invited', { revokeDisabled: false, confirms: true }],
-    ['Charlie Expired', { revokeDisabled: true, confirms: false }],
-    ['Delta Managed', { revokeDisabled: true, confirms: false }],
+    ['Alpha Unclaimed', { primary: 'Invite', choose: true, withdraw: false, replaces: false }],
+    ['Bravo Invited', { primary: 'Copy new link', choose: false, withdraw: true, replaces: true }],
+    ['Charlie Expired', { primary: 'Send a new link', choose: false, withdraw: false, replaces: false }],
+    ['Delta Managed', { primary: 'Add another person', choose: true, withdraw: false, replaces: false }],
   ])('%s', async (name, want) => {
     await open(name);
-    expect((screen.getByTestId('revoke-invite') as HTMLButtonElement).disabled).toBe(want.revokeDisabled);
-    if (want.revokeDisabled) expect(screen.getByTestId('revoke-note').textContent).toMatch(/no live link/);
-    fireEvent.click(screen.getByTestId('generate-invite'));
-    if (want.confirms) {
-      expect(screen.getByTestId('replace-confirm').textContent).toContain('A new one replaces it');
-      expect(h.rpc.mock.calls.some((c) => c[0] === 'admin_issue_organiser_invite_v1')).toBe(false);
-      fireEvent.click(screen.getByTestId('replace-yes'));
+    const primary = screen.getByTestId('row-primary') as HTMLButtonElement;
+    expect(primary.textContent).toBe(want.primary);
+    expect(primary.disabled).toBe(false);
+    expect(screen.queryByTestId('withdraw-invite') !== null).toBe(want.withdraw);
+    fireEvent.click(primary);
+    if (want.choose) {
+      expect(screen.getByTestId('invite-choices').textContent).toContain('Send a link');
+      fireEvent.click(screen.getByTestId('choice-link'));
     }
+    expect(screen.queryByTestId('link-replaces-note') !== null).toBe(want.replaces);
+    expect(issueCalls()).toHaveLength(0);
+    fireEvent.click(screen.getByTestId('link-submit'));
     expect((await screen.findByTestId('link-field') as HTMLInputElement).value).toBe(`${window.location.origin}/invite/${TOKEN}`);
+    expect(issueCalls()[0][1]).toEqual({ p_organiser_id: ORGS.find((o) => o.name === name)!.id, p_email: null, p_first_name: null, p_city_id: null });
   });
 
-  it('shows the link once with a WhatsApp message; Done drops it and the token is nowhere else', async () => {
+  it('shows the link once with a WhatsApp message; Copy is the primary; Done drops it and the token is nowhere else', async () => {
     await open('Alpha Unclaimed');
-    fireEvent.click(screen.getByTestId('generate-invite'));
+    fireEvent.click(screen.getByTestId('row-primary'));
+    fireEvent.click(screen.getByTestId('choice-link'));
+    fireEvent.click(screen.getByTestId('link-submit'));
     await screen.findByTestId('one-time-link');
-    expect(screen.getByTestId('link-once-note').textContent).toMatch(/only time the link is shown/);
+    expect(screen.getByTestId('link-once-note').textContent).toBe('Shown once. Works once, runs out in 7 days.');
+    expect(screen.getByTestId('copy-link').className).toContain('bg-primary');
     const wa = screen.getByTestId('whatsapp-link') as HTMLAnchorElement;
     expect(wa.href.startsWith('https://wa.me/?text=')).toBe(true);
     expect(decodeURIComponent(wa.href)).toContain(TOKEN);
@@ -195,14 +207,16 @@ describe('row actions x invite state', () => {
     expect(JSON.stringify(Object.entries(localStorage))).not.toContain(TOKEN);
   });
 
-  it('revokes a live link', async () => {
+  it('withdraws a live link', async () => {
     await open('Bravo Invited');
-    fireEvent.click(screen.getByTestId('revoke-invite'));
+    fireEvent.click(screen.getByTestId('withdraw-invite'));
     await waitFor(() => expect(h.rpc.mock.calls.some((c) => c[0] === 'admin_revoke_organiser_invite_v1')).toBe(true));
   });
 
-  it('add person: disabled with a reason until an email is entered, then calls the RPC and shows a refusal in plain words', async () => {
+  it('add person ("They already have an account"): disabled with a reason until an email is entered, then calls the RPC', async () => {
     await open('Alpha Unclaimed');
+    fireEvent.click(screen.getByTestId('row-primary'));
+    fireEvent.click(screen.getByTestId('choice-existing'));
     expect((screen.getByTestId('add-submit') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('add-note').textContent).toMatch(/Enter their email/);
     fireEvent.change(screen.getByTestId('add-email'), { target: { value: 'ana@example.com' } });
@@ -214,6 +228,8 @@ describe('row actions x invite state', () => {
 
   it('add person: a refusal reads in plain English', async () => {
     await open('Alpha Unclaimed');
+    fireEvent.click(screen.getByTestId('row-primary'));
+    fireEvent.click(screen.getByTestId('choice-existing'));
     const base = h.rpc.getMockImplementation()!;
     h.rpc.mockImplementation((fn: string, a: Record<string, unknown>) => (fn === 'admin_add_entity_member_v1' ? Promise.resolve({ data: null, error: { message: 'user_not_found' } }) : base(fn, a)));
     fireEvent.change(screen.getByTestId('add-email'), { target: { value: 'ghost@example.com' } });
