@@ -17,6 +17,7 @@ import {
   useShake,
 } from '../ui';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { SeriesLockGate } from '@/modules/organiser/events/ProfileLock';
 import { newSession, notEditableCopy, type DraftSession } from '@/modules/organiser/shared/programmeModel';
 import { fetchCancellationReasons } from '@/modules/organiser/shared/selfServeApi';
 import { cancelCommand, skipDateCommand, uncancelCommand } from '@/modules/organiser/shared/seriesCommands';
@@ -42,7 +43,12 @@ const cancellationReasonsQueryKey = ['cancellation-reasons'] as const;
  * SCHEDULE (sessions with their people), break week and cancel. Every editor is
  * a view of one SheetView; the only primary button is Save in the PreviewBar.
  */
+/** C14: a date's line-up is locked while profiles are unfinished (changing the date itself is not). */
 export default function DatePage() {
+  return <SeriesLockGate title="Sessions"><DateEditorPage /></SeriesLockGate>;
+}
+
+function DateEditorPage() {
   const { seriesId = '', occurrenceId = '' } = useParams();
   const navigate = useNavigate();
   const ed = useDateEditor(seriesId, occurrenceId);

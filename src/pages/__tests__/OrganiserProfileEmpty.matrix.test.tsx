@@ -152,13 +152,13 @@ describe('public organiser page: contact buttons follow get_organiser_public_con
   it('flag off (both null, today in prod): no WhatsApp, no email, no crash', async () => {
     await renderPage({ name: 'x', expect: 'none' });
     expect(document.querySelector('a[href^="mailto:"]')).toBeNull();
-    expect(document.querySelector('a[href*="wa.me"], a[href*="whatsapp"]')).toBeNull();
+    expect(document.querySelector('a[href*="wa.me"]:not([data-testid="report-problem"]), a[href*="whatsapp"]:not([data-testid="report-problem"])')).toBeNull();
   });
 
   it('flag on: both buttons render from the RPC answer', async () => {
     await renderPage({ name: 'x', expect: 'none', contact: { contact_phone: '+44 7700 900000', contact_email: 'hi@example.com' } });
     expect(document.querySelector('a[href="mailto:hi@example.com"]')).not.toBeNull();
-    expect(document.querySelector('a[href*="wa.me"], a[href*="whatsapp"]')).not.toBeNull();
+    expect(document.querySelector('a[href*="wa.me"]:not([data-testid="report-problem"]), a[href*="whatsapp"]:not([data-testid="report-problem"])')).not.toBeNull();
   });
 
   it('a managed organiser shows the badge (flag permitting) from the owner row alone', async () => {

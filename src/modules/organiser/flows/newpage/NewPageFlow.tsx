@@ -7,9 +7,11 @@ import { finishProfileHref } from '@/lib/profileCompletion';
 import { createOrganiserProfile, searchClaimableOrganisers, type ClaimCandidate } from '@/modules/organiser/shared/selfServeApi';
 import { selfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
 import { supportLinks } from '@/modules/organiser/shared/support';
-import { Card, Field, FIELD_CLASS, PrimaryButton, SearchField, SkeletonRows, SummaryRow, useShake } from '../../ui';
+import { Card, Field, FIELD_CLASS, GhostButton, PrimaryButton, SearchField, SkeletonRows, SummaryRow, useShake } from '../../ui';
 import { searchCities } from '../../home/onboarding/citySearch';
 import { CAP_REASON, classifyRefusal, findByName, type NewPageRefusalKind } from './model';
+import { CANNOT_CREATE, OPEN_REQUESTED, openRequestError } from './cannotCreate';
+import { requestOpenAccess } from './openRequestApi';
 
 export type NewPageStep = 'name' | 'city';
 
@@ -31,6 +33,8 @@ interface Props {
   /** `organiser_name_taken` and the page could not be found by name: back to the search with the name. */
   onFindPage: (name: string) => void;
   onHome: () => void;
+  /** The login's email, for "Ask us to open it" (Arc 1 flow 8); without one only the support rows are offered. */
+  email?: string | null;
   /** The kind of refusal on screen (null when none): the sheet heads it with one title, not the step's. */
   onRefusalChange?: (kind: NewPageRefusalKind | null) => void;
 }
@@ -41,7 +45,7 @@ interface Props {
  * here speaks of a draft or a review). A refusal replaces the step with its
  * reason and ONE action.
  */
-export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin, onFindPage, onHome, onRefusalChange }: Props) {
+export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin, onFindPage, onHome, email = null, onRefusalChange }: Props) {
   const [cityQuery, setCityQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
@@ -124,7 +128,7 @@ export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin
             <PrimaryButton onClick={onHome} testId="onboarding-create-home">Back to Home</PrimaryButton>
           </>
         )}
-        {refusal.kind === 'invite' && <InviteRequired message={refusal.message} onHome={onHome} />}
+        {refusal.kind === 'invite' && <CannotCreate email={email} pageName={name} onHome={onHome} />}
         {refusal.kind === 'other' && (
           <>
             <p className="text-[15px] text-[var(--danger)]">{refusal.message}</p>
@@ -197,12 +201,62 @@ export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin
 
 const SUPPORT_ROW = 'flex min-h-[48px] w-full items-center gap-[12px] rounded-[12px] border border-[var(--line)] px-[16px] text-[15px] text-[var(--fg)]';
 
-/** `organiser_invite_required`: why, the support rows that exist (never a dead link), and Home. No retry. */
-function InviteRequired({ message, onHome }: { message: string; onHome: () => void }) {
+/**
+ * `organiser_invite_required` (Arc 1 flow 8): 8a says why and asks to be let in
+ * (request_signup_access_v1, the admin's access-request list); 8b confirms. A
+ * create retry cannot work, so there is none. No email on the login: no request
+ * can carry it, so the support rows that exist (never a dead link) instead.
+ */
+function CannotCreate({ email, pageName, onHome }: { email: string | null; pageName: string; onHome: () => void }) {
+  const [asking, setAsking] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const ask = async () => {
+    if (!email || asking) return;
+    setAsking(true);
+    setError(null);
+    const result = await requestOpenAccess(email, pageName);
+    setAsking(false);
+    if (result === 'sent') setSent(true);
+    else setError(openRequestError(result));
+  };
+  if (sent) {
+    return (
+      <>
+        <div data-testid="onboarding-create-open-sent" className="space-y-[4px]">
+          <h3 className="text-[17px] font-bold text-[var(--fg)]">{OPEN_REQUESTED.title}</h3>
+          <p className="text-[15px] text-[var(--fg)]">{OPEN_REQUESTED.sub}</p>
+        </div>
+        <GhostButton onClick={onHome} testId="onboarding-create-home">{OPEN_REQUESTED.home}</GhostButton>
+      </>
+    );
+  }
+  return (
+    <>
+      <div className="space-y-[4px]">
+        <h3 className="text-[17px] font-bold text-[var(--fg)]" data-testid="onboarding-create-closed-title">{CANNOT_CREATE.title}</h3>
+        <p className="text-[15px] text-[var(--fg)]" data-testid="onboarding-create-invite">{CANNOT_CREATE.sub}</p>
+      </div>
+      {email ? (
+        <>
+          {error && <p className="text-[14px] text-[var(--danger)]" data-testid="onboarding-create-open-error">{error}</p>}
+          <PrimaryButton onClick={() => void ask()} loading={asking} loadingLabel="Sending" testId="onboarding-create-open-ask">
+            {CANNOT_CREATE.ask}
+          </PrimaryButton>
+          <GhostButton onClick={onHome} testId="onboarding-create-home">{OPEN_REQUESTED.home}</GhostButton>
+        </>
+      ) : (
+        <SupportRows onHome={onHome} />
+      )}
+    </>
+  );
+}
+
+/** The support rows that exist (never a dead link), and Home. */
+function SupportRows({ onHome }: { onHome: () => void }) {
   const support = supportLinks();
   return (
     <>
-      <p className="text-[15px] text-[var(--fg)]" data-testid="onboarding-create-invite">{message}</p>
       {support.whatsapp && (
         <a href={support.whatsapp} target="_blank" rel="noopener noreferrer" className={SUPPORT_ROW} data-testid="onboarding-create-support-whatsapp">
           <MessageCircle aria-hidden="true" className="h-[16px] w-[16px] shrink-0 text-[var(--mut)]" />

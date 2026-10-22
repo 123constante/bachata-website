@@ -337,6 +337,11 @@ export const LIB_EVENT_RULES_MODULES = [
   "/src/lib/accountPaths.ts",
   "/src/lib/authRouting.ts",
   "/src/modules/dancer-app/gate/useDancerArea.ts",
+  // `cn` (2026-10-21, D139): every route loads it from the root chunk. Pinned here
+  // ONLY so the lib-org-ui group below cannot swallow it -- a pinned group takes its
+  // unassigned static deps along, and then every route loaded lib-org-ui (+1 chunk
+  // on all eight budgeted routes, measured).
+  "/src/lib/utils.ts",
   // One boolean read by the event page, festival hub and dancer app: alone it was
   // its own chunk and one more first-load request on /event and /app.
   "/src/lib/goingCheckin.ts",
@@ -355,6 +360,73 @@ export const LIB_ACCOUNT_MODULES = [
   "/src/components/account/profiles/PersonAvatar.tsx",
   "/src/components/account/profiles/avatarFallback.ts",
 ];
+
+// The THIRD first-party group (2026-10-21, W1 people surfaces S3): the people
+// badge lookup (src/modules/person-page/badges.ts) rides with the public-entity
+// slug resolver (src/lib/seo/useEntitySlugOrId.ts + resolvePublicEventRef.ts).
+// S3 made the event page's ScheduleBlock read badges.ts, which the people pages
+// and search already import; that importer set is unique, so rollup cut it into
+// a chunk of its own: /event/:id 44 first-load chunks vs an allowance of 43.
+// The resolver chunk is already in /event's first load, and every route that
+// loads it also loads every dependency badges.ts brings (vendor-query, the
+// Supabase client chunk, searchEntities), so the pairing adds no request
+// anywhere. Bytes move only onto unbudgeted entries: the badge lookup lands on
+// the festival / venue pages, the resolver on the people list and search pages.
+// No budgeted route except /event loads either module.
+export const LIB_PEOPLE_MODULES = [
+  "/src/lib/seo/useEntitySlugOrId.ts",
+  "/src/lib/seo/resolvePublicEventRef.ts",
+  "/src/modules/person-page/badges.ts",
+];
+
+// The FOURTH first-party group (2026-10-21, slice B fix pass, decision D139): the
+// organiser Ember `ui/` blocks the dancer app is built from. Each block has a
+// unique importer set (the organiser screens AND the lazy dancer-app chunk), so
+// rollup cut each into a chunk of its own: /app/* 59 first-load chunks vs an
+// allowance of 56, eight of them one-block chunks. One group, ONE request. Every
+// route that loads any of these blocks (the organiser screens and /app/*) already
+// loads nearly all of them, so the pairing moves only a few KB onto those routes
+// and no bytes onto any budgeted public route. Measured numbers and the per-route
+// table: docs/people-arc/HANDOVER-restyle-b.md "Fix pass", B1. Adding a module
+// here moves its bytes onto every route that loads any block; re-measure every
+// route (`npm run build && npm run check:bundle-budget && npm run
+// check:first-load-requests`) first.
+export const LIB_ORG_UI_MODULES = [
+  "/src/modules/organiser/ui/Card.tsx",
+  "/src/modules/organiser/ui/Chip.tsx",
+  "/src/modules/organiser/ui/Field.tsx",
+  "/src/modules/organiser/ui/SearchField.tsx",
+  "/src/modules/organiser/ui/Skeleton.tsx",
+  "/src/modules/organiser/ui/States.tsx",
+  "/src/modules/organiser/ui/SummaryRow.tsx",
+  "/src/modules/organiser/ui/useKeyboardInset.ts",
+];
+
+const isLibOrgUiModule = (id: string): boolean =>
+  !id.includes("node_modules") && LIB_ORG_UI_MODULES.some((needle) => id.endsWith(needle));
+
+// SINGLE-MODULE pins, and they exist ONLY to stop the group above from
+// swallowing them. Rollup adds every unassigned static dependency of a pinned
+// module to that module's group, so without these the Supabase client and
+// searchEntities (which root.tsx loads on EVERY route) would move into
+// lib-people: every route, the homepage included, would then load the badge
+// lookup and a direct vendor-supabase edge. Each pin holds exactly the one
+// module its old automatic chunk held, so no route's chunk set changes.
+export const SINGLE_MODULE_PINS: Record<string, string> = {
+  "/src/integrations/supabase/client.ts": "supabase-client",
+  "/src/lib/searchEntities.ts": "lib-search",
+};
+
+const isLibPeopleModule = (id: string): boolean =>
+  !id.includes("node_modules") && LIB_PEOPLE_MODULES.some((needle) => id.endsWith(needle));
+
+const singleModulePin = (id: string): string | undefined => {
+  if (id.includes("node_modules")) return undefined;
+  for (const [needle, group] of Object.entries(SINGLE_MODULE_PINS)) {
+    if (id.endsWith(needle)) return group;
+  }
+  return undefined;
+};
 
 const isLibAccountModule = (id: string): boolean =>
   !id.includes("node_modules") && LIB_ACCOUNT_MODULES.some((needle) => id.endsWith(needle));
@@ -392,6 +464,10 @@ export function classifyChunk(id: string): string | undefined {
   // one. LIB_EVENT_RULES_MODULES above says what it buys and how it is bounded.
   if (isLibEventRulesModule(id)) return "lib-event-rules";
   if (isLibAccountModule(id)) return "lib-account";
+  if (isLibPeopleModule(id)) return "lib-people";
+  if (isLibOrgUiModule(id)) return "lib-org-ui";
+  const pinned = singleModulePin(id);
+  if (pinned) return pinned;
   if (!id.includes("node_modules")) return undefined;
   // tslib rides with react, and it is FIRST, for a reason that is
   // not about react at all. DO NOT DELETE THIS BRANCH after

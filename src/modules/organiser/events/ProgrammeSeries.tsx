@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
+import { SeriesLockGate } from './ProfileLock';
 import { cn } from '@/lib/utils';
 import { londonTodayKey } from '@/lib/londonDate';
 import { dateLabel } from '@/modules/organiser/shared/homeModel';
@@ -185,7 +186,12 @@ function ProgrammeBody({ ws, today }: { ws: EventWorkspace; today: string }) {
  * complete tree, behind the platform gate (AW1_APPLIED). A festival's day tree is shown
  * read only. A course edits like a recurring series.
  */
+/** C14: the programme is locked while profiles are unfinished. */
 export default function ProgrammeSeries() {
+  return <SeriesLockGate title="Programme"><ProgrammeSeriesScreen /></SeriesLockGate>;
+}
+
+function ProgrammeSeriesScreen() {
   const { seriesId = '' } = useParams();
   const home = useFlowHome();
   const ws = useEventWorkspace(seriesId);

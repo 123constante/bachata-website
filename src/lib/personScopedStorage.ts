@@ -50,6 +50,7 @@ export const PERSON_SCOPED_LOCAL_PATTERNS: readonly RegExp[] = [
 export const PERSON_SCOPED_SESSION_KEYS: readonly string[] = [
   'dancer_app_entered', // dancer app Home: the once-per-session entered event
   'auth_code_step_v1', // components/MagicLinkConfirmation: the code step kept over a reload
+  'invite_prefill_v1', // lib/invitePrefill: the sender's first name + city for the dancer questions
 ];
 
 export const PERSON_SCOPED_SESSION_PREFIXES: readonly string[] = [

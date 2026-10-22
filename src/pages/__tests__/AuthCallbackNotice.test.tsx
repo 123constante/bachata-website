@@ -41,7 +41,7 @@ afterEach(cleanup);
 describe('Auth after a bounced magic link', () => {
   it('explains an expired link on the sign-in form', () => {
     mount('/auth?mode=signin&callbackError=expired&returnTo=%2Forganisers%2Fritmo');
-    expect(screen.getByTestId('auth-callback-notice').textContent).toMatch(/expired or was already used/);
+    expect(screen.getByTestId('auth-callback-notice').textContent).toMatch(/That sign-in link has run out/);
   });
 
   it('shows nothing without a callbackError', () => {

@@ -1,3 +1,4 @@
+import { Card } from '@/modules/organiser/ui';
 import { DANCER_ROUTES, type DancerRouteId } from './routes';
 
 /**
@@ -8,11 +9,11 @@ import { DANCER_ROUTES, type DancerRouteId } from './routes';
 export const PlaceholderScreen = ({ id }: { id: DancerRouteId }) => {
   const route = DANCER_ROUTES.find((r) => r.id === id);
   return (
-    <section className="da-card" data-testid={`dancer-screen-${id}`}>
-      <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>{route?.title ?? id}</h1>
-      <p className="da-muted" style={{ fontSize: 14, marginTop: 4 }}>
+    <Card variant="padded" testId={`dancer-screen-${id}`}>
+      <h1 className="m-0 text-[18px] font-extrabold">{route?.title ?? id}</h1>
+      <p className="mt-[4px] text-[14px] text-[var(--mut)]">
         Coming soon.
       </p>
-    </section>
+    </Card>
   );
 };

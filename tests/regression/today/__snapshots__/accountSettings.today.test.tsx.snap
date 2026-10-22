@@ -36,61 +36,23 @@ button "Sign out of all devices""
 `;
 
 exports[`account settings at '390x844' > /account/settings (home) > hide switch: confirm step, then the hidden state > confirm step 1`] = `
-"heading "Account settings" level=1
-heading "Email address" level=2
-text "Your email is ."
-text "me @x.co"
-text "New email"
-textbox "New email" value=""
-button "Change email" [disabled]
-text "Type the new email address you want to use."
-heading "Hide your dancer profile" level=2
-text "Your dancer profile is visible to everyone. Hiding it is not permanent: you can show it again any time."
-text "Your profile will disappear from the site until you show it again."
-button "Yes, hide it"
-button "Keep it visible"
-heading "Your data" level=2
-text "Saves a file with what we hold about you: your profile, ratings and attendance."
-button "Download my data"
-heading "Delete account" level=2
-text "Your account is hidden from everyone at once. Sign in within 30 days to undo it."
-link "Delete account" href=/account/settings/delete
-heading "Sign out" level=2
-text "Signed in as ."
-text "me @x.co"
-button "Sign out"
-text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
-button "Sign out of all devices""
+"dialog "Hide your dancer profile"
+  heading "Hide your dancer profile" level=2
+  button "Close"
+  text "Your profile will disappear from the site until you show it again."
+  button "Yes, hide it"
+  button "Keep it visible""
 `;
 
 exports[`account settings at '390x844' > /account/settings (home) > hide with no_profile error shows the reason 1`] = `
-"heading "Account settings" level=1
-heading "Email address" level=2
-text "Your email is ."
-text "me @x.co"
-text "New email"
-textbox "New email" value=""
-button "Change email" [disabled]
-text "Type the new email address you want to use."
-heading "Hide your dancer profile" level=2
-text "Your dancer profile is visible to everyone. Hiding it is not permanent: you can show it again any time."
-text "Your profile will disappear from the site until you show it again."
-button "Yes, hide it"
-button "Keep it visible"
-alert
-  text "You have no dancer profile, so there is nothing to hide."
-heading "Your data" level=2
-text "Saves a file with what we hold about you: your profile, ratings and attendance."
-button "Download my data"
-heading "Delete account" level=2
-text "Your account is hidden from everyone at once. Sign in within 30 days to undo it."
-link "Delete account" href=/account/settings/delete
-heading "Sign out" level=2
-text "Signed in as ."
-text "me @x.co"
-button "Sign out"
-text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
-button "Sign out of all devices""
+"dialog "Hide your dancer profile"
+  heading "Hide your dancer profile" level=2
+  button "Close"
+  text "Your profile will disappear from the site until you show it again."
+  alert
+    text "You have no dancer profile, so there is nothing to hide."
+  button "Yes, hide it"
+  button "Keep it visible""
 `;
 
 exports[`account settings at '390x844' > /account/settings (home) > pending email change on arrival 1`] = `
@@ -482,61 +444,23 @@ button "Sign out of all devices""
 `;
 
 exports[`account settings at 'desktop' > /account/settings (home) > hide switch: confirm step, then the hidden state > confirm step 1`] = `
-"heading "Account settings" level=1
-heading "Email address" level=2
-text "Your email is ."
-text "me @x.co"
-text "New email"
-textbox "New email" value=""
-button "Change email" [disabled]
-text "Type the new email address you want to use."
-heading "Hide your dancer profile" level=2
-text "Your dancer profile is visible to everyone. Hiding it is not permanent: you can show it again any time."
-text "Your profile will disappear from the site until you show it again."
-button "Yes, hide it"
-button "Keep it visible"
-heading "Your data" level=2
-text "Saves a file with what we hold about you: your profile, ratings and attendance."
-button "Download my data"
-heading "Delete account" level=2
-text "Your account is hidden from everyone at once. Sign in within 30 days to undo it."
-link "Delete account" href=/account/settings/delete
-heading "Sign out" level=2
-text "Signed in as ."
-text "me @x.co"
-button "Sign out"
-text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
-button "Sign out of all devices""
+"dialog "Hide your dancer profile"
+  heading "Hide your dancer profile" level=2
+  button "Close"
+  text "Your profile will disappear from the site until you show it again."
+  button "Yes, hide it"
+  button "Keep it visible""
 `;
 
 exports[`account settings at 'desktop' > /account/settings (home) > hide with no_profile error shows the reason 1`] = `
-"heading "Account settings" level=1
-heading "Email address" level=2
-text "Your email is ."
-text "me @x.co"
-text "New email"
-textbox "New email" value=""
-button "Change email" [disabled]
-text "Type the new email address you want to use."
-heading "Hide your dancer profile" level=2
-text "Your dancer profile is visible to everyone. Hiding it is not permanent: you can show it again any time."
-text "Your profile will disappear from the site until you show it again."
-button "Yes, hide it"
-button "Keep it visible"
-alert
-  text "You have no dancer profile, so there is nothing to hide."
-heading "Your data" level=2
-text "Saves a file with what we hold about you: your profile, ratings and attendance."
-button "Download my data"
-heading "Delete account" level=2
-text "Your account is hidden from everyone at once. Sign in within 30 days to undo it."
-link "Delete account" href=/account/settings/delete
-heading "Sign out" level=2
-text "Signed in as ."
-text "me @x.co"
-button "Sign out"
-text "Lost a phone, or signed in somewhere else? This signs you out everywhere, this device included."
-button "Sign out of all devices""
+"dialog "Hide your dancer profile"
+  heading "Hide your dancer profile" level=2
+  button "Close"
+  text "Your profile will disappear from the site until you show it again."
+  alert
+    text "You have no dancer profile, so there is nothing to hide."
+  button "Yes, hide it"
+  button "Keep it visible""
 `;
 
 exports[`account settings at 'desktop' > /account/settings (home) > pending email change on arrival 1`] = `

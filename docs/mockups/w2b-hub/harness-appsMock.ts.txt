@@ -1,0 +1,8 @@
+// Harness stand-in for the timeline read: the data a test sets on window, after `delay` ms.
+import { useEffect, useState } from 'react';
+export function useProfileProgramAppearances(_t: string, id: string | undefined, _l: number) {
+  const w = window as unknown as { __timeline: unknown[]; __delay: number };
+  const [data, setData] = useState<unknown[] | undefined>(w.__delay ? undefined : w.__timeline);
+  useEffect(() => { if (!id || !w.__delay) return; const t = setTimeout(() => setData(w.__timeline), w.__delay); return () => clearTimeout(t); }, [id]);
+  return { data: id ? data : undefined };
+}
