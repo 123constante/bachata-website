@@ -3,6 +3,7 @@ import { Headphones } from 'lucide-react';
 import { useMemo } from 'react';
 import { flags } from '@/lib/featureFlags';
 import { usePeopleBadges } from '@/modules/person-page/badges';
+import { DjsWall } from '@/modules/person-page/wall/lists';
 import { djTile, sortDjsUpcomingFirst } from '@/components/dj/djListModel';
 import { Link } from 'react-router-dom';
 import { emitProfileView } from '@/lib/profileViewEmit';
@@ -52,18 +53,29 @@ const DJs = () => {
 
   const teacherPagesOpen = flags.teacherDetail;
   const sorted = useMemo(() => sortDjsUpcomingFirst(djs), [djs]);
-  const { badges } = usePeopleBadges(useMemo(() => djs.map((d) => d.id), [djs]));
+  const { badges, isError: badgesFailed } = usePeopleBadges(useMemo(() => djs.map((d) => d.id), [djs]));
+
+  const hero = {
+    emoji: '\u{1F3A7}',
+    titleWhite: 'Bachata',
+    titleOrange: 'DJs',
+    subtitle: 'Discover the DJs behind the music — sensual, traditional, and everything in between.',
+  };
+
+  // flags.peopleWall: today's hero stays, the face wall replaces the grid. OFF = the page below, unchanged.
+  if (flags.peopleWall) {
+    return (
+      <GlobalLayout showSubheader={false} gradientPalette="dj" hero={hero}>
+        <DjsWall djs={djs} isLoading={isLoading} badges={badges} badgesFailed={badgesFailed} teacherPagesOpen={teacherPagesOpen} />
+      </GlobalLayout>
+    );
+  }
 
   return (
     <GlobalLayout
       showSubheader={false}
       gradientPalette="dj"
-      hero={{
-        emoji: '\u{1F3A7}',
-        titleWhite: 'Bachata',
-        titleOrange: 'DJs',
-        subtitle: 'Discover the DJs behind the music — sensual, traditional, and everything in between.',
-      }}
+      hero={hero}
     >
       <div className="max-w-6xl mx-auto px-4">
         {/* Grid */}

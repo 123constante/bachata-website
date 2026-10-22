@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { Calendar, Heart, Music, Star, Sparkles, Users, UserCheck, UserPlus, Loader2, Camera } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { usePeopleBadges } from '@/modules/person-page/badges';
+import { DancersWall, MEDIA_BOOKING_HREF } from '@/modules/person-page/wall/lists';
+import { HOME_ANNOUNCE_HREF } from '@/lib/homeAnnounceBanner';
 import { flags } from '@/lib/featureFlags';
 import { dancerHref, dancerTags, onlyDancers } from '@/components/dancers/dancerListModel';
 import GlobalLayout from '@/components/layout/GlobalLayout';
@@ -74,7 +76,7 @@ const Dancers = () => {
   const [isLoading, setIsLoading] = useState(true);
   const teacherPagesOpen = flags.teacherDetail;
   const dancerIds = useMemo(() => dancers.map((d) => d.id), [dancers]);
-  const { badges, isLoading: badgesLoading } = usePeopleBadges(dancerIds);
+  const { badges, isLoading: badgesLoading, isError: badgesFailed } = usePeopleBadges(dancerIds);
   // A failed badges read must never empty the page ("No dancers yet" would be false):
   // show every row unfiltered, without role labels (review C1). Only when there is nothing
   // to filter by: a failed background refetch keeps the cached badges, so it keeps the filter.
@@ -285,7 +287,7 @@ const Dancers = () => {
               
               {/* Create A Profile Widget */}
               <motion.div
-                onClick={() => navigate('/create-dancers-profile')}
+                onClick={() => (flags.peopleWall ? navigate(HOME_ANNOUNCE_HREF) : navigate('/create-dancers-profile'))}
                 className="cursor-pointer p-4 md:p-5 bg-gradient-to-br from-surface/80 to-surface/40 backdrop-blur-sm rounded-2xl border border-festival-pink/30 shadow-lg w-[140px] md:w-[160px]"
                 whileHover={{ 
                   scale: 1.05, 
@@ -299,7 +301,7 @@ const Dancers = () => {
 
               {/* Book Media Widget */}
               <motion.div
-                onClick={() => navigate('/photographers')}
+                onClick={() => (flags.peopleWall ? navigate(MEDIA_BOOKING_HREF) : navigate('/photographers'))}
                 className="cursor-pointer p-4 md:p-5 bg-gradient-to-br from-blue-500/20 to-cyan-500/10 backdrop-blur-sm rounded-2xl border border-blue-500/30 shadow-lg w-[140px] md:w-[160px]"
                 whileHover={{ 
                   scale: 1.05, 
@@ -316,6 +318,9 @@ const Dancers = () => {
       </div>
 
       {/* Browse Dancers Directory */}
+      {flags.peopleWall ? (
+        <DancersWall dancers={shownDancers} getName={getDisplayName} isLoading={isLoading || badgesLoading} badges={badges} badgesFailed={badgesFailed} teacherPagesOpen={teacherPagesOpen} />
+      ) : (
       <section id="directory" className="px-4 mb-16">
         <ScrollReveal animation="fadeUp">
           <h2 className="text-3xl md:text-4xl font-black text-center mb-6">
@@ -382,6 +387,7 @@ const Dancers = () => {
           </StaggerContainer>
         )}
       </section>
+      )}
 
       <section className="px-4 mb-16">
         <ScrollReveal animation="fadeUp">
