@@ -29,7 +29,7 @@ import {
 import { useOwnerCommand } from '@/modules/organiser/shared/useOwnerCommand';
 import { useVenueOptions } from '@/modules/organiser/shared/publicVenues';
 import { venueOverridePatch } from './venueOverride';
-import { copyRowsFrom } from './dateChanges';
+import { commandSettled, copyFromDate } from './dateChanges';
 
 /** The save could not be confirmed (no server answer). */
 export const NETWORK_COPY = OFFLINE_SAVE_MESSAGE;
@@ -84,6 +84,8 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
   const [moveTo, setMoveTo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [syncFailed, setSyncFailed] = useState(false);
+  /** Date-only sessions of the last copied date that could not come over (no set time). */
+  const [copySkipped, setCopySkipped] = useState(0);
   const mounted = useRef(true);
   useEffect(() => () => { mounted.current = false; }, []);
 
@@ -214,7 +216,9 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
         queryClient.fetchQuery({ queryKey: occurrenceProgrammeQueryKey(sourceId), queryFn: () => fetchOccurrenceProgramme(sourceId), staleTime: 0 }),
         queryClient.fetchQuery({ queryKey: dateDetailQueryKey(sourceId), queryFn: () => fetchDateDetail(sourceId), staleTime: 0 }),
       ]);
-      setRows((cur) => copyRowsFrom(cur, toDraft(src.sessions, src.sessionPeople)));
+      const copied = copyFromDate(rows, toDraft(src.sessions, src.sessionPeople));
+      setRows(copied.rows);
+      setCopySkipped(copied.skipped);
       pickVenue(srcDetail.venueOverride);
       return true;
     } catch {
@@ -239,6 +243,16 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
       }
       return { ok: true };
     } catch (err) {
+      // A retried cancel / put-back that the server refuses because it already
+      // happened is a success (decision 5): read the date again and see.
+      if (kind === 'occurrence' && cmd.kind === 'occurrence.cancel') {
+        const fresh = await detail.refetch().catch(() => null);
+        if (commandSettled(cmd, fresh?.data?.cancelled)) {
+          void queryClient.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
+          await resync();
+          return { ok: true };
+        }
+      }
       return { ok: false, message: commandErrorMessage(err) };
     }
   };
@@ -257,6 +271,7 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
     setMoveTo,
     moveChanged,
     copyFrom,
+    copySkipped,
     dirty,
     validation,
     saving,

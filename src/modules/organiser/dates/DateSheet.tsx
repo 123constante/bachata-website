@@ -38,14 +38,13 @@ import { PUT_IT_BACK, TAKE_OFF } from '@/modules/organiser/shared/copy';
 import { pickerQueryKey, searchPickerRows } from './peoplePicker';
 import { confirmCopy } from '@/modules/organiser/shared/editorGuards';
 import type { VenueOption } from '@/modules/organiser/shared/publicVenues';
-import { moveDayProblem, shiftOptions } from './dateChanges';
+import { moveDayOptions, moveDayProblem } from './dateChanges';
 import { ROLE_NOUN, addRoleFor, onSessionIds, pickPerson, sessionName, setSessionType, typeLabel, typeTone } from './dateModel';
 
 export type SheetState =
   | { view: 'session'; key: string }
   | { view: 'search'; key: string }
   | { view: 'venue' }
-  | { view: 'time' }
   | { view: 'move' }
   | { view: 'copy' }
   | { view: 'cancel' }
@@ -79,14 +78,13 @@ export interface DateSheetProps {
   reasonsLoading: boolean;
   reasonsError?: boolean;
   onRetryReasons?: () => void;
-  /** Time shift: the first start now, and the shift to apply to every session. */
-  firstStart: string | null;
-  onShift: (delta: number) => void;
   /** Move to another day (one-off only). */
   currentDate: string | null;
   today: string;
   moveTo: string | null;
   onMoveTo: (day: string | null) => void;
+  /** Days the event already holds (never offered as a move target). */
+  moveHeld?: readonly string[];
   /** Copy changes from another date. */
   copyDates: { id: string; label: string; sub: string }[];
   onCopy: (id: string) => Promise<boolean>;
@@ -127,9 +125,6 @@ export function DateSheet(props: DateSheetProps) {
   } else if (state?.view === 'venue') {
     title = 'Venue for this date';
     body = <VenueView {...props} />;
-  } else if (state?.view === 'time') {
-    title = 'Night starts';
-    body = <TimeView {...props} />;
   } else if (state?.view === 'move') {
     title = 'Move to another day';
     body = <MoveView {...props} />;
@@ -460,43 +455,34 @@ function CancelView({ dateLabel, reasons, reasonsLoading, reasonsError, onRetryR
 
 // ---- time shift / move / copy -------------------------------------------------
 
-function TimeView({ firstStart, onShift, onState }: DateSheetProps) {
-  if (!firstStart) return <p className="text-[14px] text-[var(--mut)]" data-testid="date-time-empty">Add a session with a start time first.</p>;
-  return (
-    <div className="space-y-[8px]" data-testid="date-time-view">
-      <p className="text-[13px] text-[var(--mut)]">Every session on this date moves with it.</p>
-      <Card>
-        {shiftOptions(firstStart).map((o) => (
-          <button
-            key={o.delta}
-            type="button"
-            onClick={() => { onShift(o.delta); onState(null); }}
-            aria-pressed={o.delta === 0}
-            data-testid="time-option"
-            className="flex min-h-[48px] w-full items-center px-[16px] text-left text-[15px] text-[var(--fg)]"
-          >
-            {o.label}
-          </button>
-        ))}
-      </Card>
-    </div>
-  );
-}
-
 const moveProblem = (p: Pick<DateSheetProps, 'moveTo' | 'currentDate' | 'today'>) =>
   moveDayProblem(p.moveTo ?? '', p.currentDate, p.today);
 
+/** F-C9-8: a list of valid days (the next 30, minus the days the event holds), never a free date with error lines. */
 function MoveView(props: DateSheetProps) {
-  const id = useId();
-  const problem = props.moveTo ? moveProblem(props) : null;
+  const days = moveDayOptions(props.today, props.currentDate, props.moveHeld);
   return (
-    <div className="space-y-[12px]" data-testid="date-move-view">
-      <Field label="New day" htmlFor={id} error={problem}>
-        <input id={id} type="date" min={props.today} className={`${FIELD_CLASS} h-[48px]`} value={props.moveTo ?? props.currentDate ?? ''}
-          onChange={(e) => props.onMoveTo(e.target.value || null)} data-testid="date-move-input" />
-      </Field>
-      <p className="text-[13px] text-[var(--mut)]">The times stay. Save this date to move it.</p>
-    </div>
+    <Card>
+      <div role="radiogroup" aria-label="New day" data-testid="date-move-view">
+        {days.map((d) => {
+          const on = props.moveTo === d.date;
+          return (
+            <button
+              key={d.date}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => props.onMoveTo(d.date)}
+              data-testid="move-option"
+              className={`flex min-h-[48px] w-full items-center justify-between gap-[8px] px-[16px] text-left text-[15px] ${on ? 'font-semibold text-[var(--gold-fg,#ffa600)]' : 'text-[var(--fg)]'}`}
+            >
+              {d.label}
+              {on && <Check aria-hidden="true" className="h-[18px] w-[18px] shrink-0" />}
+            </button>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 
@@ -506,7 +492,6 @@ function CopyView({ copyDates, onCopy, onState }: DateSheetProps) {
   if (copyDates.length === 0) return <p className="text-[14px] text-[var(--mut)]" data-testid="date-copy-empty">No other coming date to copy from. Add a date first.</p>;
   return (
     <div className="space-y-[8px]" data-testid="date-copy-view">
-      <p className="text-[13px] text-[var(--mut)]">Its sessions, line-up and venue replace this date&rsquo;s. Nothing saves until you save this date.</p>
       {failed && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="date-copy-error">We could not read that date. Try again.</p>}
       <Card>
         {copyDates.map((c) => (

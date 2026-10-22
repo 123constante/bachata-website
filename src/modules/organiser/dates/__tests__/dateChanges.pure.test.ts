@@ -40,26 +40,31 @@ describe('own-changes tag', () => {
 });
 
 describe('cancel wording, move, copy', () => {
-  it('a one-off says Cancel the event; others Cancel this date', () => {
-    expect(cancelWords('one_off').label).toBe('Cancel the event');
-    expect(cancelWords('recurring').label).toBe('Cancel this date');
-    expect(cancelWords('festival').label).toBe('Cancel this date');
+  // ER-FIX2-S6: superseded (decision 11). On the rebuilt screens a one-off's control is
+  // "Cancel the event", parked with its reason; off the switch every format cancels its date.
+  it('a one-off says Cancel the event (parked) on the rebuilt screens; otherwise Cancel this date', () => {
+    expect(cancelWords('one_off', true)).toMatchObject({ label: 'Cancel the event', disabled: true });
+    expect(cancelWords('one_off').label).toBe('Cancel this date');
+    expect(cancelWords('recurring', true).label).toBe('Cancel this date');
+    expect(cancelWords('festival', true).label).toBe('Cancel this date');
   });
   it.each([['', 'Pick a day'], ['2026-10-01', 'Pick a day from today'], ['2026-10-10', 'Pick a different day'], ['2026-10-12', null]])('move to %s', (to, want) => {
     expect(moveDayProblem(to, '2026-10-10', '2026-10-08')).toBe(want);
   });
-  it('copy sources: other, coming, not cancelled', () => {
-    const d = (id: string, date: string, st = 'scheduled') => ({ id, occurrence_date: date, lifecycle_status: st });
-    expect(copySources([d('1', '2026-10-09'), d('2', '2026-10-16', 'cancelled'), d('3', '2026-10-01'), d('4', '2026-10-23')], '1', '2026-10-08').map((x) => x.id)).toEqual(['4']);
+  // ER-FIX2-S6 (F-C9-14): only dates with their own changes are listed.
+  it('copy sources: other, coming, not cancelled, with own changes', () => {
+    const d = (id: string, date: string, st = 'scheduled') => ({ id, occurrence_date: date, lifecycle_status: st, has_override: true });
+    expect(copySources([d('1', '2026-10-09'), d('2', '2026-10-16', 'cancelled'), d('3', '2026-10-01'), d('4', '2026-10-23'), { ...d('5', '2026-10-30'), has_override: false }], '1', '2026-10-08').map((x) => x.id)).toEqual(['4']);
   });
-  it('copying replaces: saved sessions come off, the other date\'s go on as new with people added', () => {
-    const src = toDraft([wire('s1', '19:00', '20:00', { type: 'party' })], [{ series_item_id: 's1', people: [{ profile_id: 'p9', display_name: 'DJ', role: 'djing' }, { profile_id: 'm1', display_name: 'MC', role: 'mc' }] }]);
+  // ER-FIX2-S6 (F-C9-2): superseded. Copy no longer removes the series sessions and re-adds
+  // them as date-only: the same session is edited (erFix2S6.pure.test.ts holds the shapes).
+  it('copying edits the same series sessions, people follow, an unsaved new one is dropped', () => {
+    const src = toDraft([wire('a', '19:00', '20:00', { type: 'party' })], [{ series_item_id: 'a', people: [{ profile_id: 'p9', display_name: 'DJ', role: 'djing' }, { profile_id: 'm1', display_name: 'MC', role: 'mc' }] }]);
     const out = copyRowsFrom([...rows, { ...rows[0], key: 'new:x', original: null }], src);
-    expect(out.filter((r) => r.original).every((r) => r.removed)).toBe(true);
     expect(out.some((r) => r.key === 'new:x')).toBe(false);
-    const fresh = out.filter((r) => !r.original);
-    expect(fresh).toHaveLength(1);
-    expect(fresh[0].start).toBe('19:00');
-    expect(fresh[0].people?.map((p) => [p.id, p.origin])).toEqual([['p9', 'added']]);
+    expect(out.every((r) => r.original && !r.removed)).toBe(true);
+    const a = out.find((r) => r.original?.series_item_id === 'a');
+    expect([a?.start, a?.end]).toEqual(['19:00', '20:00']);
+    expect(a?.people?.map((p) => [p.id, p.origin])).toEqual([['p9', 'added']]);
   });
 });

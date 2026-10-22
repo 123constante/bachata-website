@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Ban, CalendarDays, Clock, Coffee, Copy, MapPin, Plus, RotateCcw } from 'lucide-react';
@@ -29,12 +29,15 @@ import { calendarDate } from '@/modules/organiser/shared/homeModel';
 import { dateLock, dateTag } from '@/modules/organiser/shared/eventState';
 import { seriesLife } from '@/modules/organiser/shared/lifeLabel';
 import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
+import { useEventWorkspace } from '@/modules/organiser/shared/runCommands';
+import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
+import { useRebuildSwitch } from '@/modules/organiser/shell/rebuildSwitch';
 import { londonTodayKey } from '@/lib/londonDate';
 import { DateSheet, type SheetState } from './DateSheet';
 import { DatePreview } from './DatePreview';
 import { byTime, dateSpan, peopleLabel, sessionName, sessionSummary, showsTypeChip, shownProblems, spanLabel, typeLabel, typeTone } from './dateModel';
 import { useDateEditor } from './useDateEditor';
-import { cancelWords, copySources, firstStart, ownTag, shiftRows } from './dateChanges';
+import { cancelWords, copySources, firstStart, nightStartOptions, ownTag, shiftRows } from './dateChanges';
 
 const cancellationReasonsQueryKey = ['cancellation-reasons'] as const;
 
@@ -52,6 +55,11 @@ function DateEditorPage() {
   const { seriesId = '', occurrenceId = '' } = useParams();
   const navigate = useNavigate();
   const ed = useDateEditor(seriesId, occurrenceId);
+  // ER-FIX2-S6 (F-C9-5, decision 2): the C9 controls (night starts, one-off day,
+  // copy, the one-off's "Cancel the event") are the REBUILT screens, on per event;
+  // off, the page is as before C9 (with Take this date off, which rule 9 removes).
+  const eventWs = useEventWorkspace(seriesId);
+  const rebuilt = useRebuildSwitch(eventWs.data?.organiserIds ?? null);
   const venues = useVenueOptions();
   const [sheet, setSheet] = useState<SheetState>(null);
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
@@ -91,7 +99,7 @@ function DateEditorPage() {
 
   const oneOff = series?.format === 'one_off';
   const own = cancelled ? null : ownTag(ed.detail.data ?? null, ed.rows, series?.default_local_start_time ?? null);
-  const cancelWord = cancelWords(series?.format ?? null);
+  const cancelWord = cancelWords(series?.format ?? null, rebuilt);
   const first = firstStart(ed.rows);
   const copyDates = copySources(ed.workspace.data?.dates ?? [], occurrenceId, today).map((d) => ({
     id: d.id,
@@ -152,7 +160,8 @@ function DateEditorPage() {
     after?.();
   };
 
-  const loading = ed.programme.isLoading || (!ed.base && !ed.programme.isError);
+  // The switch answer is part of the page: no flash of the old controls while it loads.
+  const loading = ed.programme.isLoading || (!ed.base && !ed.programme.isError) || eventWs.isLoading;
   const loadError = ed.programme.isError || ed.syncFailed;
 
   const shown = byTime(ed.rows);
@@ -209,16 +218,15 @@ function DateEditorPage() {
           disabled={!!lock}
           testId="date-venue"
         />
-        <SummaryRow
-          icon={<Clock />}
-          label="Night starts"
-          value={first ?? 'No times yet'}
-          sublabel={first ? 'Moves every session' : undefined}
-          onPress={cancelled || !editable ? undefined : () => setSheet({ view: 'time' })}
-          disabled={!!lock || !editable || !first}
-          testId="date-time"
-        />
-        {oneOff && (
+        {rebuilt && (
+          <NightStartRow
+            first={first}
+            usual={series?.default_local_start_time ?? null}
+            disabled={cancelled || !!lock || !editable}
+            onShift={(delta) => ed.setRows((rows) => shiftRows(rows, delta))}
+          />
+        )}
+        {rebuilt && oneOff && A1_APPLIED && (
           <SummaryRow
             icon={<CalendarDays />}
             label="Day"
@@ -266,7 +274,7 @@ function DateEditorPage() {
               <Plus aria-hidden="true" className="h-[20px] w-[20px]" /> Add a session to this date
             </button>
           )}
-          {editable && copyDates.length > 0 && (
+          {rebuilt && editable && copyDates.length > 0 && (
             <button
               type="button"
               onClick={() => setSheet({ view: 'copy' })}
@@ -277,6 +285,11 @@ function DateEditorPage() {
             </button>
           )}
         </div>
+        {ed.copySkipped > 0 && (
+          <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="date-copy-skipped">
+            {ed.copySkipped === 1 ? '1 session' : `${ed.copySkipped} sessions`} with no set time did not copy. Add {ed.copySkipped === 1 ? 'it' : 'them'} with a time.
+          </p>
+        )}
       </section>
 
       <Card label="This date">
@@ -285,12 +298,12 @@ function DateEditorPage() {
             onPress={() => { setCommandError(null); setSheet({ view: 'uncancel' }); }} testId="date-uncancel" />
         ) : (
           <>
-            {ruleDate && (
+            {!rebuilt && ruleDate && (
               <SummaryRow icon={<Coffee />} label={TAKE_OFF.label} sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : TAKE_OFF.sub)}
                 disabled={ed.dirty || !!lock} onPress={() => { setCommandError(null); setSheet({ view: 'break' }); }} testId="date-break" />
             )}
-            <SummaryRow icon={<Ban />} label={cancelWord.label} sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : cancelWord.sub)}
-              disabled={ed.dirty || !!lock} onPress={() => { setCommandError(null); setSheet({ view: 'cancel' }); }} testId="date-cancel" />
+            <SummaryRow icon={<Ban />} label={cancelWord.label} sublabel={lockShort ?? (cancelWord.disabled ? cancelWord.sub : ed.dirty ? 'Save your changes first.' : cancelWord.sub)}
+              disabled={cancelWord.disabled || ed.dirty || !!lock} onPress={() => { setCommandError(null); setSheet({ view: 'cancel' }); }} testId="date-cancel" />
           </>
         )}
       </Card>
@@ -346,17 +359,14 @@ function DateEditorPage() {
         onCancelDate={(reason) => void command('occurrence', cancelCommand(reason), `${label} is cancelled.`)}
         onUncancelDate={() => void command('occurrence', uncancelCommand(), `${label} is back on.`)}
         onBreak={() => void command('series', skipDateCommand(occurrenceId), TAKE_OFF.done(label), () => navigate(ORG_PATHS.event(seriesId)))}
-        firstStart={first}
-        onShift={(delta) => {
-          ed.setRows((rows) => shiftRows(rows, delta));
-        }}
         currentDate={date}
         today={today}
         moveTo={ed.moveTo}
         onMoveTo={ed.setMoveTo}
+        moveHeld={(ed.workspace.data?.dates ?? []).map((x) => x.occurrence_date)}
         copyDates={copyDates}
         onCopy={ed.copyFrom}
-        cancelTitle={oneOff ? 'Cancel the event' : `Cancel ${label}`}
+        cancelTitle={`Cancel ${label}`}
         commandBusy={ed.commandBusy}
         commandError={commandError}
       />
@@ -392,6 +402,37 @@ function SessionRow({ row, problem, onOpen, onUndo }: { row: DraftSession; probl
       ) : body}
       {onUndo && (
         <button type="button" onClick={onUndo} className="min-h-[44px] shrink-0 px-[8px] text-[15px] font-semibold text-[var(--gold)]" data-testid="session-row-undo">Undo</button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * F-C9-12 (prototype v7): "Night starts" is an inline select of valid times, the
+ * series' usual start marked "(usual)". Picking one moves every timed session of
+ * the date by the same minutes (saved with Save this date).
+ */
+function NightStartRow({ first, usual, disabled, onShift }: { first: string | null; usual: string | null; disabled: boolean; onShift: (delta: number) => void }) {
+  const id = useId();
+  return (
+    <div className={`flex min-h-[52px] items-center gap-[12px] px-[16px] py-[2px] ${disabled ? 'opacity-60' : ''}`} data-testid="date-time-row">
+      <span aria-hidden="true" className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] bg-[var(--card2)] text-[var(--mut)] [&_svg]:h-[14px] [&_svg]:w-[14px]">
+        <Clock />
+      </span>
+      <label htmlFor={id} className="min-w-0 flex-1 text-[15px] text-[var(--fg)]">Night starts</label>
+      {first ? (
+        <select
+          id={id}
+          value={0}
+          disabled={disabled}
+          onChange={(e) => onShift(Number(e.target.value))}
+          className="h-[48px] min-w-[132px] rounded-[var(--r-ctl,12px)] border border-[var(--line-strong)] bg-[var(--card2)] px-[12px] text-[15px] text-[var(--fg)] "
+          data-testid="date-time"
+        >
+          {nightStartOptions(first, usual).map((o) => <option key={o.delta} value={o.delta}>{o.label}</option>)}
+        </select>
+      ) : (
+        <span className="text-[15px] text-[var(--mut)]" data-testid="date-time">No times yet</span>
       )}
     </div>
   );
