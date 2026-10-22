@@ -1,8 +1,53 @@
-# Handover: W2-B person hub on /people/:id (branch `claude/w2b-hub`, ticket dt_b07bf3f93dc9)
+# Handover: W2-B person hub on /people/:id (PR #947, branch `claude/w2b-hub`; build ticket dt_b07bf3f93dc9, critique ticket dt_6a53cc3c9770)
 
 Brief: `123constante/bachata-admin` branch `brief/search-v7-2026-10-20`, `briefs/W2B-hub-brief.md`
-(blob 366100ccd683c2f99320f60615c9f9bc70873d69, read first). No PR opened (gh is not authed; the orchestrator opens it
-from the body at the bottom). Nothing merged or approved.
+(blob 366100ccd683c2f99320f60615c9f9bc70873d69, read first). PR #947 was opened by the orchestrator from the body at the bottom (refreshed after stage 5).
+Nothing merged or approved.
+
+
+## Stage 5: independent critique + one fix pass (ticket dt_6a53cc3c9770, a different worker from the builder)
+Brief: `briefs/W2B-critique-brief.md` on the same admin branch (blob 09f15b0b2db56e53a758255bb654dd5421c419f6).
+Critique (written before any edit): [`docs/design/w2b-hub-critique.md`](../design/w2b-hub-critique.md), 13 findings,
+each with severity and verdict. No blocker; 4 "should", all fixed here; the rest "nice" (not a bug, or an owner call).
+
+**What changed, in plain words**
+1. **Cards no longer swap places when the visitor came from the wall.** Before, a DJ with a gig (and another role)
+   first showed the Dancer card on top; ~1 s later the DJ card jumped above it and the gold button pushed everything
+   down (dancer card moved 153 px), so a quick tap could open the wrong page. Now the hub reuses the wall's own answer
+   (the badges read the wall already made, still in memory; no new request) to put the cards in their final order and
+   keep the button's place on first paint. Until the event id arrives (under a second) the button is the same gold
+   box, not yet a link. Measured: layout shift 0.021 -> 0 (from the wall). A direct load (search, shared link) still
+   moves: owner call O1.
+2. **"What Bachata does" is gone.** A person with no public real name and 2+ cards got the placeholder name split
+   into the cards heading. Now: "What they do".
+3. **The flag sticker no longer covers the face.** It is sized from half the face, as the S12 mock (26 px wide instead
+   of 52 px); 0 overlap with the initials at 360 / 390 / 430.
+4. **One-card pages keep the warm base to the bottom of the first screen** instead of ending under the card in a cold
+   empty block above the footer.
+
+**Files (stage 5):** `hub/model.ts` (`wallBadge` input, pending gig, "What they do"), `hub/PersonHub.tsx`
+(`wallBadgeOf`, ground min height), `hub/NextEventButton.tsx` (not-yet-a-link box), `hub/HubFace.tsx` (sticker size),
+`wall/tokens.ts` (`HUB.flagFrom`, `HUB.groundMinHeight`), `hub/__tests__/hubCritique.test.tsx` (new, 14 tests),
+`docs/design/w2b-hub-critique.md` (new), `docs/design/w2b-hub.md` (numbers), this file, retaken pictures in
+`docs/mockups/w2b-hub/` (+ `fixture-noname.png`, `fixture-djdancer-fromwall.png`, `cls.mjs`, harness copies as `.txt`).
+**Reads:** none added. `wallBadgeOf` only looks in the query cache (`['people-badges', ...]`); it never fetches. On a
+direct SSR load neither server nor client has it, so the first client render still matches the server.
+
+**Red first:** `hubCritique.test.tsx` was run against the unfixed code: 6 of 13 red (3 card-order rows, the heading,
+the sticker width "expected 52 to be <= 28", the ground height); all green after the fix. Self-review of the fix then
+found that a FAILED gig-list read would leave the gold box on screen forever, not a link: one more row (failed read ->
+no box), seen red, then fixed (a failed read counts as "no gigs"). 14 of 14 green, with the 31 builder tests and the
+rest of `src/modules/person-page` (476 tests) unchanged and green.
+
+**Owner calls (recommendation each; no code):**
+- **O1. Direct loads still reorder** (DJ with a gig + another role, opened from search or a link). Recommend adding the
+  next gig date to the `/people` loader (one call of the badges read for this id = a new read on this page, so not
+  done). No-read alternative: always DJ card first for a DJ-led person (header already leads with the stage name); that
+  changes the approved "dancer before a DJ without gigs" order.
+- **O2. Chip order vs card order** (chips Teacher, DJ, Dancer like the wall; cards in lead order) and the "Teacher" chip
+  with no Teacher card while teacher pages are closed (61 prod people). Recommend leave as is until teacher pages open.
+- **O3. One-card hub** (the commonest prod shape). Recommend keep; later make the single card a bigger "Open <name>'s
+  dancer page" button. Not removed.
 
 ## Before / after, in plain words
 - **Before:** tapping a face on the wall opened that person's DJ or dancer page. `/people/:id` was a page with tabs
@@ -67,37 +112,34 @@ What the sandbox project has (public anon reads, counts only): 137 active dancer
 31 without photo; 27 without city; `get_public_people_badges_v1` does not exist there (404). It is seed data, not prod-shaped,
 so the multi-role, gig, flag, facts and long-name shapes were walked through the dev harness with prod-SHAPED fixtures.
 
-## CI: every job step run in the sandbox (final code; `npm ci` / Playwright install skipped, deps present)
+## CI: every job step run in the sandbox (stage 5 head; `npm ci` / Playwright install skipped, deps present)
 | Workflow / job | Command | Exit |
 |---|---|---|
-| architecture-guard | `bin/check-integrity.sh` (via `bash`; CI chmods first) | 0 |
+| architecture-guard | `bin/check-integrity.sh` (after `chmod +x bin/*.sh`, as CI) | 0 |
 | architecture-guard | `npm run check:legacy-tables` | 0 |
 | architecture-guard | `npm run check:legacy-program-rpcs` | 0 |
 | architecture-guard | `npm run lint:architecture` | 0 |
 | architecture-guard | `AUDIT_STRICT=1 npm run check:images` | 0 |
-| architecture-guard | `npm run check:image-widths:self-test && npm run check:image-widths` | 0 |
+| architecture-guard | `npm run check:image-widths:self-test` / `npm run check:image-widths` | 0 / 0 |
 | architecture-guard | `npm run check:plan-hygiene:self-test` | 0 |
-| architecture-guard | `npm run check:workflow-artifact-policy:self-test && ...policy` | 0 |
-| architecture-guard | `npm run check:mojibake:self-test` + the mojibake `git grep` | 0 / 0 |
-| architecture-guard | `npm run prove:entry-point:self-test && npm run prove:entry-point` | 0 |
+| architecture-guard | `npm run check:workflow-artifact-policy:self-test` / `...policy` | 0 / 0 |
+| architecture-guard | `npm run check:mojibake:self-test` + the mojibake `git grep` (no hits) | 0 / 0 |
+| architecture-guard | `npm run prove:entry-point:self-test` / `npm run prove:entry-point` | 0 / 0 |
 | typecheck | `npm run check:rpc-typing` | 0 |
 | typecheck | `npm run check:wallclock-brand` | 0 |
-| (not a CI step) | `npm run typecheck` | 2: 100 errors on this branch AND 100 on `origin/main` (worktree compare), none in changed files |
-| unit-tests | `npm run test:unit:offline` | 1: 12 014 tests, only `tests/integrityCouldNotRun.test.ts` red (5). Sandbox-only: `NODE_PATH` points at a global TypeScript; with `env -u NODE_PATH` that file passes (67 passed) |
-| unit-tests | `npm run test:unit:timing` | 0 |
-| unit-tests / dancer-area-isolation | `node scripts/check-dancer-area-isolation.mjs --self-test && npm run check:dancer-area-isolation` | 0 |
+| unit-tests | `npm run test:unit:offline` (with `NODE_PATH` unset: the sandbox points it at a global TypeScript, see the builder's note) | 0: 524 files, 12 010 passed, 18 skipped (re-run on the final code) |
+| unit-tests | `npm run test:unit:timing` | 0: 65 passed |
+| unit-tests / dancer-area-isolation | `node scripts/check-dancer-area-isolation.mjs --self-test` / `npm run check:dancer-area-isolation` | 0 / 0 |
 | perf-budget | `check:bundle-budget:self-test`, `check:first-load-requests:self-test`, `check:chunk-cycles:self-test` | 0 / 0 / 0 |
-| perf-budget | `npm run build` (flag OFF) | 0 |
-| perf-budget | `npm run check:bundle-budget` | 0 |
-| perf-budget | `npm run check:first-load-requests` | 0 |
-| perf-budget | `npm run check:chunk-cycles` | 0 |
-| perf-budget (lighthouse job) | `npm run check:doc-weight` | 1: cannot run here ("previewProbe: GITHUB_REPOSITORY is not set"; it needs the Vercel preview) |
-| lint chain | `npm run lint` (with `bin/*.sh` executable, as CI) | 0: 20 of 20 links green |
+| perf-budget | `npm run build` (flag OFF, as CI) | 0 |
+| perf-budget | `npm run check:bundle-budget` / `check:first-load-requests` / `check:chunk-cycles` | 0 / 0 / 0 |
+| perf-budget (lighthouse job) | `check:lighthouse`, `check:doc-weight` | NOT run (need the Vercel preview) |
+| lint chain | `npm run lint` | 0: 20 of 20 links green (the trailing whole-tree `eslint .` is informational, red on main too) |
 | e2e-smoke, phone-qa, seo-check, live-qa, prod-smoke | need a deploy or Playwright suites against a preview | NOT run |
-| real-data-verified, phone-qa-section | PR-body checkers | body below carries both sections |
+| real-data-verified, phone-qa-section | PR-body checkers | body below run through both scripts (`PR_BODY` env): 0 / 0 |
 
-Production build with `VITE_ENABLE_PERSON_HUB=true VITE_ENABLE_PEOPLE_WALL=true`: exit 0, served by
-`scripts/_serve-build.mjs` (SSR).
+Also: production build with `VITE_ENABLE_PERSON_HUB=true VITE_ENABLE_PEOPLE_WALL=true` exit 0, served by
+`scripts/_serve-build.mjs` (SSR) for the walk.
 
 ## Tests (`src/modules/person-page/hub/__tests__/hub.test.tsx`, 31 tests)
 - Shape table (rendered, flag ON): DJ with gig, DJ no gig, dancer only, DJ+dancer with and without gig, 3-role with gig,
@@ -124,22 +166,42 @@ Screenshots in `docs/mockups/w2b-hub/`; numbers in `report.json` and `docs/desig
 - Media host: no real photo was reachable in any view (the sandbox people have none; fixtures use no photo or a broken URL).
   **Real photo crops are NOT verified.**
 
-## Verified / Not verified
-- **Verified:** flag OFF = old page (tests + production build view); flag ON hub renders under SSR in a production build
-  with 0 hydration warnings and 0 page errors; one h1; no sideways scroll; no clipped text; tap targets >= 44px; text
-  contrast >= 6.41; soft seams (max one-row step 1/255); card order and links; next-event button rules; 404 for zero
-  visible roles; wall tiles never link to a 404 (after the fix); all CI job steps above.
-- **NOT verified:** prod data shapes (no prod access, see above); real photo crops; a DJ with a real upcoming gig on a real
-  event page; the wall -> hub tap with the real badges read (tests only); first-paint card reorder for a DJ+dancer with a gig
-  (by reasoning only); a physical phone; keyboard focus ring in a real browser (asserted by class only); e2e/phone-qa/lighthouse
-  suites that need a preview deploy; Vercel preview (VERCEL_TOKEN present but not exercised; no preview checked).
+- **Stage 5 tests** (`hubCritique.test.tsx`, 14): from-the-wall card order on first paint = final order (DJ+dancer with
+  gig, 3-role with gig, DJ+dancer without gig, DJ only with gig), the pending button is not a link and says the same
+  words, a past wall date is ignored, no wall answer = unchanged, the timeline wins over the wall answer; cards heading
+  for no-name / named x 1 / 2+ cards; a failed gig-list read drops the box; sticker width <= 28; ground min height uses `svh`. **Mutant:** `wallBadgeOf` replaced by `null` in `PersonHub` -> 3 of the from-the-wall rows red; restored -> green.
+  Changed-file eslint: 1 error (`set-state-in-effect` on the builder's `mounted` line, same as before this pass) and one
+  new warning of the kind already there (`wallBadgeOf` exported beside the component, like `goBackTarget`).
+- **Stage 5 walk** (retaken, every picture looked at): production build flag ON `on-dj-real`, `on-dancer-real`,
+  `on-teacher-only-real` (404, unchanged), `on-wall-tap` (sandbox: tile -> dancer page, as before); flag OFF
+  `off-flag-off-dj` (same numbers as the builder's: no hub, contrast 9.14); harness fixtures `fixture-three`, `-djgig`,
+  `-nophoto`, `-long`, `-thin`, `-teacherhidden` (now with the "Teacher" chip and no Teacher card, the prod shape),
+  `-brokenphoto`, new `-noname` and `-djdancer-fromwall`. Also 360 and 430 wide for `three` and `long` (scratch, numbers
+  in the design record). Seams: inside the hub max one-row step 1/255; the only hard edges are the site nav's gold rule
+  and the orange footer, site-wide.
+
+## Verified / Not verified (after stage 5)
+- **Verified:** flag OFF = old page (tests + production build view, same numbers as before); flag ON hub under SSR in a
+  production build with 0 hydration warnings and 0 page errors; one h1; scrollWidth = viewport at 360 / 390 / 430; no
+  clipped text; tap targets >= 44 px; text contrast >= 6.41; seams inside the hub max step 1/255; card order and links;
+  from the wall: 0 card movement and layout shift 0 while the gig list loads (harness, timeline 800 ms late); flag
+  sticker 0 overlap with the initials; no "What Bachata does"; warm ground to the bottom of the first screen on one-card
+  pages; every CI job step in the table above.
+- **NOT verified:** prod data directly (the Supabase connector is not authorised in this session; prod role counts are
+  the orchestrator's 2026-10-22 survey); the wall -> hub tap with the real badges read (the sandbox project has no
+  `get_public_people_badges_v1`, so the from-the-wall path is verified in the harness and unit tests only); the shape of
+  the badges cache on prod (assumed the `Map` that `usePeopleBadges` builds, as in the code); direct-load reorder (still
+  moves, owner call O1); real photo crops (no reachable photo; the smaller sticker on a real photo is not seen); a real
+  gig on a real event page; a physical phone; keyboard focus ring in a real browser; e2e / phone-qa / lighthouse suites
+  and the Vercel preview (not checked here).
 
 ## Owner look-at list (3)
-1. `docs/mockups/w2b-hub/fixture-three.png`: the hub for a 3-role DJ with a gig. Is "Back" (not "People wall") and no
-   "HAPPENING NOW" label right?
-2. Before flipping the flag: confirm on prod that every tile whose badge has a role also gets a hub (badges vs
-   person-roles agree). One SELECT comparing the two functions' role lists for the wall's people would settle it.
-3. Organiser card and a "level" fact need one more public read each; say if you want them (W2-C/W2-D or a new slice).
+1. `docs/mockups/w2b-hub/fixture-teacherhidden.png` (the commonest prod shape: dancer + closed teacher page): one card,
+   a "Teacher" chip with no Teacher card. Keep as is (O2, O3)?
+2. O1: direct loads of a DJ with a gig still reorder the cards. Add the next gig date to the `/people` loader (new
+   read), or always put the DJ card first for a DJ-led person (changes the approved order), or leave it?
+3. Before flipping the flag: one SELECT comparing `get_public_people_badges_v1` and `get_public_person_roles_v1` for the
+   wall's people (the orchestrator's survey says they agree on all 161 people with a role; re-check right before the flip).
 
 ## Ready-to-paste PR body
 
@@ -148,15 +210,21 @@ Screenshots in `docs/mockups/w2b-hub/`; numbers in `report.json` and `docs/desig
 Person hub on `/people/:id` behind `flags.personHub` (`VITE_ENABLE_PERSON_HUB=true`), default OFF. With the flag ON, a
 wall tile opens the hub: face, name (stage name leads for a DJ), city, role chips, facts that exist, "Go to their next
 event" only for a DJ with a gig, then one big card per role page in lead order. OFF = today's tabbed page and wall links,
-unchanged. No new read, no RPC, no migration. Design record: `docs/design/w2b-hub.md`. Handover: `docs/handover/w2b-hub.md`.
+unchanged. No new read, no RPC, no migration. Design record: `docs/design/w2b-hub.md`. Critique (Design Gate stage 5):
+`docs/design/w2b-hub-critique.md`. Handover: `docs/handover/w2b-hub.md`.
+
+Stage 5 fixes (independent reviewer): cards no longer swap places after first paint when the visitor came from the wall
+(reuses the wall's badges answer already in memory; layout shift 0.021 -> 0); "What they do" instead of "What Bachata
+does" for a person with no real name; flag sticker sized like the S12 mock (no longer covers the face); one-card pages
+keep the warm base to the bottom of the first screen.
 
 ## Phone QA
-Sizes checked: 390x844 (production build flag ON and OFF, and the dev fixture harness), isMobile, DPR 2.
-Walked: /people/:id for a sandbox-DB DJ and dancer (prod build, flag ON), teacher-only person (404, unchanged), flag-OFF page, /dancers wall tap; fixture shapes 3-role with gig, DJ with gig, no photo, broken photo, long name, thin (no facts, no city), teacher card hidden. scrollWidth 390, 0 clipped, taps >= 44px, min contrast 6.41, 0 hydration warnings.
-Not verified: a physical phone, real photo crops (no reachable photos), the wall -> hub tap with the real badges read (sandbox lacks it; tests cover it), 360x640.
+Sizes checked: 390x844 (production build flag ON and OFF, and the fixture harness), 360x844 and 430x844 (harness: 3-role and long name), isMobile, DPR 2.
+Walked: /people/:id for a sandbox-DB DJ and dancer (prod build, flag ON), teacher-only person (404, unchanged), flag-OFF page, /dancers wall tap; fixture shapes 3-role with gig, DJ with gig, DJ + dancer arriving from the wall with the gig list 800 ms late, no real name, no photo, broken photo, long name, thin, dancer + closed teacher page. scrollWidth = viewport, 0 clipped, taps >= 44px, min contrast 6.41, 0 hydration warnings, hub seams max step 1/255.
+Not verified: a physical phone, real photo crops (no reachable photos), the wall -> hub tap with the real badges read (sandbox lacks it; harness and tests cover it), card reorder on a direct load (still moves; owner call).
 
 ## Verified on real data
-Shapes surveyed: sandbox Supabase project via public anon reads (137 active dancer rows: 127 no role, 4 DJ, 4 teacher-only, 2 dancer; 0 gigs; 31 no photo; 27 no city); orchestrator's 2026-10-21 prod counts (165 active, 110 photo, 18 flag, 14 languages) used for the fixture shapes.
-Checks run: production build walks against the sandbox DB (DJ, dancer, teacher-only 404, flag OFF, wall tap); 31-test shape x screen matrix plus three mutants shown red; every CI job step from .github/workflows run locally (table in the handover).
-NOT verified: prod data shapes directly (Supabase connector not authorised, no prod anon key in the sandbox); real photo crops; a real DJ gig on a real event page; whether get_public_people_badges_v1 and get_public_person_roles_v1 agree on prod.
+Shapes surveyed: orchestrator's 2026-10-22 prod survey (166 active dancers: teacher-only 62, dancer+teacher 36, dancer+DJ+teacher 25, dancer-only 23, dancer+DJ 10, DJ-only 4, DJ+teacher 1, no role 5; teacher pages closed), used to pick the walked shapes (dancer-only, dancer + hidden teacher, DJ + dancer); sandbox Supabase project via public anon reads for the production-build walks.
+Checks run: production build walks (DJ, dancer, teacher-only 404, flag OFF, wall tap); 31 + 14 test shape x screen matrix, stage 5 tests run red against the unfixed code first; every CI job step from .github/workflows run locally (table in the handover).
+NOT verified: prod data directly (Supabase connector not authorised in these sessions); real photo crops; a real DJ gig on a real event page; the from-the-wall path against the real badges read (harness and unit tests only).
 ```

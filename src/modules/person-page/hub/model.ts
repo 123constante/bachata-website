@@ -28,7 +28,8 @@ export type HubDjRow = {
 /** One row of get_profile_event_timeline_v2 (useProfileProgramAppearances). */
 export type HubAppearance = { event_id: string | null; event_start_time: string | null };
 
-export type NextGig = { eventId: string; dateLabel: string };
+/** eventId null = the wall said there is a gig on dateLabel, the timeline has not arrived yet (no link yet). */
+export type NextGig = { eventId: string | null; dateLabel: string };
 
 export type RoleCardModel = { role: PersonRole; label: string; href: string; line: string };
 
@@ -79,8 +80,8 @@ export function factsOf(yearsDancing: string | null, languages: readonly string[
   ].filter((x): x is string => !!x);
 }
 
-function cardLine(role: PersonRole, gigCount: number, facts: { years: string | null }): string {
-  if (role === 'dj') return gigCount > 0 ? `${plural(gigCount, 'gig')} coming up` : 'Their DJ page';
+function cardLine(role: PersonRole, gig: { count: number } | null, facts: { years: string | null }): string {
+  if (role === 'dj') return !gig ? 'Their DJ page' : gig.count > 0 ? `${plural(gig.count, 'gig')} coming up` : 'Gigs coming up';
   if (role === 'dancer') return facts.years && Number(facts.years) > 0 ? `${plural(Number(facts.years), 'year')} dancing` : 'Their dancer page';
   return 'Their teacher page';
 }
@@ -92,10 +93,20 @@ export function hubModel(input: {
   appearances: readonly HubAppearance[] | undefined;
   opts: BadgeOpts;
   today?: string;
+  /**
+   * This person's row from the wall's badges read when the visitor came from the wall (already in the
+   * query cache, no read of its own). Used ONLY while the timeline is still loading, so the cards are in
+   * their final order and the next-event button keeps its place on first paint (critique #1).
+   */
+  wallBadge?: PersonBadge | null;
 }): HubModel {
   const { person, dj, opts } = input;
   const view = input.dancerRow ? mapDancerPublicProfile(input.dancerRow as never) : null;
-  const gig = person.roles.includes('dj') ? nextGigOf(input.appearances, input.today) : null;
+  const isDj = person.roles.includes('dj');
+  const hintLabel = input.appearances === undefined && input.wallBadge?.djHasUpcoming
+    ? wallDateLabel(input.wallBadge.nextGigDate, input.today)
+    : null;
+  const gig = !isDj ? null : nextGigOf(input.appearances, input.today) ?? (hintLabel ? { eventId: null, dateLabel: hintLabel, count: 0 } : null);
   const djName = dj?.dj_name?.trim() || null;
   const badge: PersonBadge = {
     id: person.id,
@@ -117,7 +128,7 @@ export function hubModel(input: {
       role,
       href,
       label: roleTagsFor(badge, opts).find((t) => t.role === role)?.label ?? role,
-      line: cardLine(role, gig?.count ?? 0, { years: view?.yearsDancing ?? null }),
+      line: cardLine(role, gig, { years: view?.yearsDancing ?? null }),
     }));
   return {
     lead,
@@ -132,6 +143,7 @@ export function hubModel(input: {
     facts: factsOf(view?.yearsDancing ?? null, dj?.languages),
     nextGig: gig ? { eventId: gig.eventId, dateLabel: gig.dateLabel } : null,
     cards,
-    cardsHeading: cards.length > 1 ? `What ${realName.split(/\s+/)[0]} does` : 'Their page',
+    // No real name: never split the placeholder ("What Bachata does", critique #2).
+    cardsHeading: cards.length < 2 ? 'Their page' : person.name ? `What ${person.name.split(/\s+/)[0]} does` : 'What they do',
   };
 }

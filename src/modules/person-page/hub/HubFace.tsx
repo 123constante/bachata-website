@@ -41,7 +41,7 @@ export function HubFace({ photo, name, lead, flagCode }: { photo: string | null;
           </div>
         )}
       </div>
-      <NationalityFlag code={flagCode} size={HUB.face} placement="inset" />
+      <NationalityFlag code={flagCode} size={HUB.flagFrom} placement="inset" />
     </div>
   );
 }

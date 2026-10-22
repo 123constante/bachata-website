@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { ArrowLeft, MapPin } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
@@ -8,6 +8,7 @@ import { flags } from '@/lib/featureFlags';
 import { useProfileProgramAppearances } from '@/hooks/useProfileProgramAppearances';
 import { RoleChip } from '../wall/RoleChip';
 import { FOCUS_RING, HUB, WALL, WALL_FADE } from '../wall/tokens';
+import type { PersonBadge } from '../badges';
 import type { PersonSnapshot } from '../reads';
 import { FactsStrip } from './FactsStrip';
 import { HubFace } from './HubFace';
@@ -25,6 +26,19 @@ export function goBackTarget(referrer: string, origin: string, historyLength: nu
 }
 
 /**
+ * This person's row in the wall's badges answer, when the visitor came from the wall (it is in the
+ * query cache then; no request is made). Direct loads have none on the server or the client, so the
+ * server and first client render still match.
+ */
+export function wallBadgeOf(qc: QueryClient, id: string): PersonBadge | null {
+  for (const [, data] of qc.getQueriesData<Map<string, PersonBadge>>({ queryKey: ['people-badges'] })) {
+    const row = data instanceof Map ? data.get(id) : undefined;
+    if (row) return row;
+  }
+  return null;
+}
+
+/**
  * /people/:id with flags.personHub ON. No read of its own: the dancer and DJ rows are the loader's
  * (dehydrated under the same keys as /dancers/:id and /djs/:id), the gig list is the DJ page's own
  * timeline read, fetched after mount like there (so server and first client render match).
@@ -35,13 +49,16 @@ export default function PersonHub({ person }: { person: PersonSnapshot }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const isDj = person.roles.includes('dj');
-  const { data: appearances } = useProfileProgramAppearances('dj', mounted && isDj ? person.id : undefined, 1000);
+  const timeline = useProfileProgramAppearances('dj', mounted && isDj ? person.id : undefined, 1000);
+  // A failed read counts as "no gigs", so a wall-hinted button never stays a box that cannot work.
+  const appearances = timeline.isError ? [] : timeline.data;
   const dancerRow = qc.getQueryData(['dancer-profile', person.id]);
   const dj = (qc.getQueryData(['dj-profile', person.id]) as HubDjRow | undefined) ?? null;
+  const [wallBadge] = useState(() => wallBadgeOf(qc, person.id));
 
   const m = useMemo(
-    () => hubModel({ person, dancerRow, dj, appearances, opts: { teacherPagesOpen: flags.teacherDetail } }),
-    [person, dancerRow, dj, appearances],
+    () => hubModel({ person, dancerRow, dj, appearances, wallBadge, opts: { teacherPagesOpen: flags.teacherDetail } }),
+    [person, dancerRow, dj, appearances, wallBadge],
   );
 
   const goBack = () => {
@@ -52,7 +69,7 @@ export default function PersonHub({ person }: { person: PersonSnapshot }) {
 
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs('person.detail', { entityName: person.name ?? undefined })} showSubheader={false}>
-      <div data-testid="person-hub" data-lead={m.lead} style={{ ...WALL_FADE, color: WALL.text }}>
+      <div data-testid="person-hub" data-lead={m.lead} style={{ ...WALL_FADE, minHeight: HUB.groundMinHeight, color: WALL.text }}>
         <div className="mx-auto w-full max-w-xl px-3 pb-16 pt-3">
           <button
             type="button"

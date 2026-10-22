@@ -94,6 +94,13 @@ export const SIZE = {
  */
 export const HUB = {
   face: 112,
+  /** The `size` NationalityFlag gets: half the face, as the S12 mock (a 26px sticker that leaves the initials clear). */
+  flagFrom: 56,
+  /**
+   * The hub's warm ground reaches at least the bottom of the first screen (a one-card hub otherwise ends in
+   * a cold void above the footer). 106 = where the hub starts under the site header at 360, 390 and 430 wide (prod build, measured).
+   */
+  groundMinHeight: 'max(128px, calc(100svh - 106px))',
   faceRadius: 18,
   initials: 38,
   name: 24,

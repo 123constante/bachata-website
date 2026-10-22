@@ -1,6 +1,6 @@
 {
  "fixture-three": {
-  "path": "/.harness-w2b/index.html?s=three",
+  "path": "/?s=three",
   "hub": true,
   "h1": 1,
   "h1Text": "DJ Rogelio",
@@ -56,7 +56,7 @@
   "hydrationWarnings": []
  },
  "fixture-djgig": {
-  "path": "/.harness-w2b/index.html?s=djgig&t=0",
+  "path": "/?s=djgig&t=0",
   "hub": true,
   "h1": 1,
   "h1Text": "DJ El Rugido",
@@ -100,7 +100,7 @@
   "hydrationWarnings": []
  },
  "fixture-nophoto": {
-  "path": "/.harness-w2b/index.html?s=nophoto&t=0",
+  "path": "/?s=nophoto&t=0",
   "hub": true,
   "h1": 1,
   "h1Text": "Pierre Henry",
@@ -139,7 +139,7 @@
   "hydrationWarnings": []
  },
  "fixture-long": {
-  "path": "/.harness-w2b/index.html?s=long&t=0",
+  "path": "/?s=long&t=0",
   "hub": true,
   "h1": 1,
   "h1Text": "DJ Carlos De La Cruz",
@@ -184,7 +184,7 @@
   "hydrationWarnings": []
  },
  "fixture-thin": {
-  "path": "/.harness-w2b/index.html?s=thin&t=0",
+  "path": "/?s=thin&t=0",
   "hub": true,
   "h1": 1,
   "h1Text": "Sam Lee",
@@ -223,7 +223,7 @@
   "hydrationWarnings": []
  },
  "fixture-teacherhidden": {
-  "path": "/.harness-w2b/index.html?s=teacherhidden&t=0",
+  "path": "/?s=teacherhidden&t=0",
   "hub": true,
   "h1": 1,
   "h1Text": "Gatica Morales",
@@ -262,7 +262,7 @@
   "hydrationWarnings": []
  },
  "fixture-brokenphoto": {
-  "path": "/.harness-w2b/index.html?s=brokenphoto&t=0",
+  "path": "/?s=brokenphoto&t=0",
   "hub": true,
   "h1": 1,
   "h1Text": "Ana Garcia",
@@ -725,6 +725,101 @@
   "nextEvent": null,
   "cards": [],
   "seams": null,
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "fixture-noname": {
+  "path": "/?s=noname&t=0",
+  "hub": true,
+  "h1": 1,
+  "h1Text": "DJ Nova",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 6.41,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "hub-back",
+    "w": 63,
+    "h": 44
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   }
+  ],
+  "smallTaps": [],
+  "clipped": 0,
+  "face": "initials",
+  "facts": false,
+  "nextEvent": null,
+  "cards": [
+   "dancer -> /dancers/p1",
+   "dj -> /djs/p1"
+  ],
+  "seams": {
+   "hubGround": "linear-gradient(rgba(30, 20, 16, 0) 0px, rgb(30, 20, 16) 64px), linear-gradient(to top, rgba(30, 20, 16, 0) 0px, rgb(30,",
+   "header": "rgb(43, 29, 22)",
+   "headerBorder": "rgb(106, 74, 56)",
+   "card": "rgb(43, 29, 22)"
+  },
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "fixture-djdancer-fromwall": {
+  "path": "/?s=djdancergig&t=0&delay=800&wall=1",
+  "hub": true,
+  "h1": 1,
+  "h1Text": "DJ El Rugido",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 6.41,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "hub-back",
+    "w": 63,
+    "h": 44
+   },
+   {
+    "what": "hub-next-event",
+    "w": 341,
+    "h": 52
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   }
+  ],
+  "smallTaps": [],
+  "clipped": 0,
+  "face": "initials",
+  "facts": true,
+  "nextEvent": "/event/e1",
+  "cards": [
+   "dj -> /djs/p1",
+   "dancer -> /dancers/p1"
+  ],
+  "seams": {
+   "hubGround": "linear-gradient(rgba(30, 20, 16, 0) 0px, rgb(30, 20, 16) 64px), linear-gradient(to top, rgba(30, 20, 16, 0) 0px, rgb(30,",
+   "header": "rgb(43, 29, 22)",
+   "headerBorder": "rgb(106, 74, 56)",
+   "card": "rgb(43, 29, 22)"
+  },
   "tabs": 0,
   "errors": [],
   "hydrationWarnings": []
