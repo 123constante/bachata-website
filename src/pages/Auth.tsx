@@ -1,3 +1,4 @@
+import { RequestAccess } from "@/components/auth/RequestAccess";
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
@@ -494,6 +495,7 @@ const AuthContent = () => {
           Message us on WhatsApp
         </a>
       )}
+      {fieldErrors.send && fieldErrors.sendInviteOnly && <RequestAccess initialEmail={email} />}
     </>
   );
   const danceRoleMissing = step2Touched && !danceRole;
@@ -646,7 +648,7 @@ const AuthContent = () => {
                 onClick={() => void handleSendMagicLink()}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Sending\u2026" : "Email me a sign-in link"}
+                {isSubmitting ? "Sending\u2026" : callbackNotice && searchParams.get("callbackError") === "expired" ? "Send a new link" : "Email me a sign-in link"}
               </Button>
               {sendError}
               <Button type="button" variant="ghost" className="w-full min-h-[44px] text-muted-foreground" onClick={() => navigate(signUpAuthUrl)}>

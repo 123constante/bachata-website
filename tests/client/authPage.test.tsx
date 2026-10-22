@@ -93,14 +93,14 @@ describe("/auth code entry", () => {
     await user.type(screen.getByLabelText("8-digit code"), "00000000");
 
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toMatch(/wrong or has expired/i);
+    expect(alert.textContent).toMatch(/not right.*2 tries left/i);
     expect(screen.getByLabelText("8-digit code").getAttribute("aria-invalid")).toBe("true");
     expect(screen.queryByTestId("callback")).toBeNull();
   });
 
   it("disables Resend during the cooldown", async () => {
     await reachCodeScreen("/auth?mode=signin");
-    const resend = screen.getByRole("button", { name: /resend code in/i }) as HTMLButtonElement;
+    const resend = screen.getByRole("button", { name: /send a new code in/i }) as HTMLButtonElement;
     expect(resend.disabled).toBe(true);
   });
 });

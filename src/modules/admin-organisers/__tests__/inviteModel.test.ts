@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  reasonScreen,
   ACCESS_LABEL,
   ADD_PERSON_CODES,
   ADMIN_COPY,
@@ -117,11 +118,11 @@ describe('redeem: every reason has its own message', () => {
   });
   it.each(REASONS)('%s: says what the person can do, and never points at a control that is not on screen', (reason) => {
     const c = REDEEM_COPY[reason];
-    expect(c.body.length).toBeGreaterThan(20);
+    if (!c.terminal) expect(c.body.length).toBeGreaterThan(20);
     // The screen only ever has a Sign in link, a Try again button and a home link, and the body names none of them.
     expect(c.body).not.toMatch(/\b(tap|click|press|button|menu|tab)\b/i);
-    // Finished-with links say who to ask; recoverable ones say what to do.
-    if (c.terminal) expect(c.body).toMatch(/Ask the admin who sent it for a new link|ask the admin/i);
+    // Finished-with links: the ask button is the way on (mockups 2a-2c); a garbled link has nobody to ask (2f).
+    if (c.terminal) expect(reasonScreen(reason).offerNewLink).toBe(reason !== 'invalid');
     if (c.action === 'sign_in') expect(c.body).toMatch(/[Ss]ign in/);
   });
   it('terminal reasons strip the token; recoverable ones keep it for the retry', () => {
@@ -129,8 +130,8 @@ describe('redeem: every reason has its own message', () => {
     expect(['sign_in_required', 'unconfirmed_account', 'rate_limited', 'authentication_required'].every((r) => !REDEEM_COPY[r].terminal)).toBe(true);
   });
   it('interprets the RPC answers', () => {
-    expect(interpretRedeem({ ok: true, status: 'redeemed', organiser_id: 'o1' }, null)).toEqual({ kind: 'redeemed', organiserId: 'o1', alreadyMember: false });
-    expect(interpretRedeem({ ok: true, status: 'already_member', organiser_id: 'o1', member_role: 'manager' }, null)).toEqual({ kind: 'redeemed', organiserId: 'o1', alreadyMember: true });
+    expect(interpretRedeem({ ok: true, status: 'redeemed', organiser_id: 'o1' }, null)).toEqual({ kind: 'redeemed', organiserId: 'o1', alreadyMember: false, prefill: null });
+    expect(interpretRedeem({ ok: true, status: 'already_member', organiser_id: 'o1', member_role: 'manager' }, null)).toEqual({ kind: 'redeemed', organiserId: 'o1', alreadyMember: true, prefill: null });
     for (const r of REASONS.filter((x) => x !== 'authentication_required')) {
       const out = interpretRedeem({ ok: false, reason: r }, null);
       expect(out).toMatchObject({ kind: 'refused', reason: r });

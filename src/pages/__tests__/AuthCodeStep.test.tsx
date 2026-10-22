@@ -4,7 +4,7 @@
  *  - survives a page reload for 10 minutes (same e-mail, same step: the same
  *    /auth mode), so a person who reloads while fetching the code is not sent
  *    back to type their e-mail again;
- *  - stops accepting codes after 5 wrong ones and offers "Send a new code"
+ *  - stops accepting codes after 3 wrong ones and offers "Send a new code"
  *    (also across a reload).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -27,6 +27,7 @@ vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { c
 vi.mock('@/components/ui/city-picker', () => ({ CityPicker: () => <div /> }));
 
 import Auth from '@/pages/Auth';
+import { OTP_LIFETIME_SECONDS } from '@/lib/auth-otp-routing';
 
 const renderAuth = (url: string) =>
   render(
@@ -111,35 +112,87 @@ describe('the code step survives a reload for 10 minutes', () => {
   });
 });
 
-describe('5 wrong codes: the box stops accepting and offers "Send a new code"', () => {
-  it('locks after the fifth wrong code; a sixth is never sent; a new code unlocks', async () => {
+describe('3 wrong codes: the box stops accepting and offers "Send a new code"', () => {
+  it('locks after the third wrong code; a fourth is never sent; a new code unlocks', async () => {
     const user = await reachCodeScreen();
-    await typeWrongCodes(user, 5);
+    await typeWrongCodes(user, 3);
     await waitFor(() => expect(box().disabled).toBe(true));
     expect(screen.getByRole('alert').textContent).toMatch(/Send a new code/);
     const send = screen.getByRole('button', { name: 'Send a new code' }) as HTMLButtonElement;
     // Offered at once, not after the resend cooldown.
     expect(send.disabled).toBe(false);
     await user.type(box(), '11111111');
-    expect(mocks.verifyOtp).toHaveBeenCalledTimes(5);
+    expect(mocks.verifyOtp).toHaveBeenCalledTimes(3);
     await user.click(send);
     await waitFor(() => expect(mocks.signInWithOtp).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(box().disabled).toBe(false));
   });
 
-  it('four wrong codes still accept a fifth try', async () => {
+  it('two wrong codes still accept a third try, and say how many are left (flow 4b)', async () => {
     const user = await reachCodeScreen();
-    await typeWrongCodes(user, 4);
+    await typeWrongCodes(user, 1);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('That code is not right. Check the latest email. 2 tries left.'));
+    await waitFor(() => expect(box().disabled).toBe(false));
+    await user.type(box(), '00000000');
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('That code is not right. Check the latest email. 1 try left.'));
     await waitFor(() => expect(box().disabled).toBe(false));
     expect(screen.queryByRole('button', { name: 'Send a new code' })).toBeNull();
   });
 
   it('the lock survives a reload', async () => {
     const user = await reachCodeScreen();
-    await typeWrongCodes(user, 5);
+    await typeWrongCodes(user, 3);
     reload();
     await screen.findByText('Check your email');
     expect(box().disabled).toBe(true);
     expect(screen.getByRole('button', { name: 'Send a new code' })).toBeTruthy();
+  });
+});
+
+// F5 (review): GoTrue answers a WRONG code with the same "Token has expired or is invalid" it gives a
+// run-out one, often with error.code otp_expired. So neither shape may decide: the time since the code
+// was sent, against OTP_LIFETIME_SECONDS, does. Both error shapes x inside / past the lifetime.
+const SHAPES = [
+  ['code otp_expired', { code: 'otp_expired', message: 'Token has expired or is invalid' }],
+  ['message only, no code', { message: 'Token has expired or is invalid' }],
+] as const;
+
+describe('wrong vs run out is decided by the send time, never by the error shape (flows 4b / 4c)', () => {
+  it.each(SHAPES)('%s, inside the lifetime: a wrong code, counts a try, says how many are left', async (_n, error) => {
+    mocks.verifyOtp.mockResolvedValue({ error });
+    const user = await reachCodeScreen();
+    await typeWrongCodes(user, 1);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('That code is not right. Check the latest email. 2 tries left.'));
+    expect(JSON.parse(sessionStorage.getItem('auth_code_step_v1') ?? '{}').wrong).toBe(1);
+    expect(box().disabled).toBe(false);
+  });
+
+  it.each(SHAPES)('%s, past the lifetime: run out, offers a new code at once, and does not spend a try', async (_n, error) => {
+    mocks.verifyOtp.mockResolvedValue({ error });
+    const user = await reachCodeScreen();
+    const sent = JSON.parse(sessionStorage.getItem('auth_code_step_v1') ?? '{}').at as number;
+    const now = vi.spyOn(Date, 'now').mockReturnValue(sent + OTP_LIFETIME_SECONDS * 1000 + 1);
+    await typeWrongCodes(user, 1);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('This code has run out. Codes last a few minutes.'));
+    expect(JSON.parse(sessionStorage.getItem('auth_code_step_v1') ?? '{}').wrong).toBe(0);
+    const send = screen.getByRole('button', { name: 'Send a new code' }) as HTMLButtonElement;
+    expect(send.disabled).toBe(false);
+    now.mockRestore();
+    await user.click(send);
+    await waitFor(() => expect(mocks.signInWithOtp).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(box().disabled).toBe(false));
+  });
+
+  it('four wrong-code answers in the otp_expired shape still end at the 3-try limit', async () => {
+    mocks.verifyOtp.mockResolvedValue({ error: SHAPES[0][1] });
+    const user = await reachCodeScreen();
+    await typeWrongCodes(user, 3);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('Too many tries. Send a new code to carry on.'));
+    expect(box().disabled).toBe(true);
+  });
+
+  it('4a: the wait reads "Send a new code in Ns" (mockup wording)', async () => {
+    await reachCodeScreen();
+    expect(screen.getByRole('button', { name: /^Send a new code in \d+s$/ })).toBeTruthy();
   });
 });
