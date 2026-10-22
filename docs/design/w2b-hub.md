@@ -95,3 +95,19 @@ one-row colour step (0-255 per channel):
 
 ## Reviewer
 Builder did not self-approve. Stage 5 critique by a different worker: `docs/design/w2b-hub-critique.md`.
+
+## W2-B fix: the hub's chips read like the wall's (dt_e347a0fee081)
+
+Owner rule: the same fact reads the same on every screen; the wall decides. The wall tile's chips come from the
+badges read, which carries the roles a person HOLDS; the hub built its chips from `PersonSnapshot.roles`, the VISIBLE
+roles (`derivePersonRoles` drops teacher while teacher pages are closed). So about 61 prod people (dancer + teacher 36,
+dancer + DJ + teacher 25, DJ + teacher) read "Teacher, Dancer" on the wall and "Dancer" on their hub.
+
+- `reads.ts`: `PersonSnapshot.heldRoles` = the `get_public_person_roles_v1` answer before the closed-page filter (already
+  fetched, no new request; travels in loader data). Fallback path (function missing) = `roles`. Absent (older loader
+  data) = the hub uses `roles`.
+- `hub/model.ts`: `tags` = `roleTagsFor` over the held roles (a closed Teacher is plain text, href null, same as the wall).
+  Cards, the lead role, the cards heading ("Their page" / "What <name> does", counts visible cards only), the 404 rule
+  (zero VISIBLE roles) and every link stay on the visible roles.
+- Picture: `docs/mockups/w2b-hub/fixture-teacherhidden.png` retaken (byte-identical: the old harness faked the held role into `roles`) with the harness now fed prod-shaped data
+  (`roles` = visible, `heldRoles` = held): chips "Teacher" + "Dancer", one Dancer card, heading "THEIR PAGE".

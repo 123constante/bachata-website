@@ -1,4 +1,5 @@
 // Walk harness (scratch): PersonHub with prod-SHAPED fixtures. ?s=<shape> &t=0 (teacher pages closed)
+// (roles = the VISIBLE roles like the loader, heldRoles = what the person holds)
 // &delay=<ms> (timeline arrives after mount, like prod) &wall=1 (arrived from the wall: badges cache seeded).
 import '@/index.css';
 import { createRoot } from 'react-dom/client';
@@ -36,6 +37,6 @@ if (q.get('wall') === '1') {
 }
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={qc}><BrowserRouter>
-    <PersonHub person={{ id: 'p1', name: s.name, avatarUrl: s.avatar ?? null, city: s.city ?? null, instagramUrl: null, roles: s.roles, djPhoto: null }} />
+    <PersonHub person={{ id: 'p1', name: s.name, avatarUrl: s.avatar ?? null, city: s.city ?? null, instagramUrl: null, roles: s.roles.filter((r) => r !== 'teacher' || flags.teacherDetail), heldRoles: s.roles, djPhoto: null }} />
   </BrowserRouter></QueryClientProvider>,
 );

@@ -131,7 +131,7 @@ describe('hub shapes (rendered, flag ON)', () => {
     if (!s.button) expect(document.body.textContent).not.toMatch(/next event/i);
   });
 
-  it('teacher pages closed: no teacher card, no teacher chip (never a dead link)', () => {
+  it('teacher pages closed: no teacher card (never a dead link); the chip is hubHeldRoles.test', () => {
     setTeacher(false);
     mount({ name: 'x', roles: ['teacher', 'dancer'] });
     expect(screen.getAllByTestId('hub-role-card').map((c) => c.getAttribute('data-role'))).toEqual(['dancer']);

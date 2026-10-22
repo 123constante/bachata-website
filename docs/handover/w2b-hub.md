@@ -4,6 +4,69 @@ Brief: `123constante/bachata-admin` branch `brief/search-v7-2026-10-20`, `briefs
 (blob 366100ccd683c2f99320f60615c9f9bc70873d69, read first). PR #947 was opened by the orchestrator from the body at the bottom (refreshed after stage 5).
 Nothing merged or approved.
 
+## W2-B fix pass: the hub reads the same chips as the wall (ticket dt_e347a0fee081, brief `briefs/W2B-fix-brief.md` blob 107560bf)
+
+**Bug** (orchestrator, prod data, 390x844, flag ON): Vicky Franchi (dancer + teacher, teacher pages closed) reads
+"Teacher, Dancer" on her wall tile and only "Dancer" on her hub. About 61 prod people (dancer+teacher 36,
+dancer+DJ+teacher 25, DJ+teacher). Cause: `PersonSnapshot.roles` is the VISIBLE list (`derivePersonRoles` drops teacher
+while closed) and `hub/model.ts` built the chips from it. Stage 5's critique item 6 assumed the chip showed; only the
+harness fixtures (which passed `teacher` in `roles` with pages closed, a shape the loader never makes) did.
+
+**Fix** (owner rule: the same fact reads the same on every screen; the wall decides):
+- `src/modules/person-page/reads.ts`: new `PersonSnapshot.heldRoles` = the `get_public_person_roles_v1` answer before the
+  closed-page filter (the loader already fetched it: no new read, no RPC, no migration; it travels in loader data, so SSR
+  and hydration see the same value). Fallback path (function missing) = `roles`. Optional in the type: an older snapshot
+  without it falls back to `roles`.
+- `src/modules/person-page/hub/model.ts`: `tags` = `roleTagsFor` over the held roles. A closed Teacher is the same
+  plain-text chip as the wall (href null). Cards, lead role, the cards heading (counts visible cards only: "Their page"
+  for one), the 404 rule (zero VISIBLE roles) and every link stay on the visible roles.
+- Harness (`harness-main.tsx.txt`) now feeds prod-shaped data: `roles` = visible, `heldRoles` = held.
+
+**Tests** (`hub/__tests__/hubHeldRoles.test.tsx`, 14; `__tests__/reads.test.ts` +1 test, +1 assertion):
+- Table, teacher pages closed AND open x {dancer, dancer+teacher, dancer+DJ+teacher with gig, DJ+teacher, DJ only}: hub
+  chips === wall tile chips (role, label, order; model AND rendered), same lead; cards = visible roles; cards heading;
+  closed = no Teacher card and no `/teachers` href anywhere on the page; open = Teacher chip AND card.
+- Vicky's shape pinned: chips "Teacher, Dancer", teacher chip href null, one Dancer card.
+- Teacher-only, closed: zero visible roles (404 unchanged), tile keeps `/dancers/<id>`. No `heldRoles` = old behaviour.
+- Loader: `heldRoles` keeps the closed teacher from the same single roles call; fallback path `heldRoles` = `roles`.
+- **Red first** against the unfixed code: 7 failed / 24 passed (the 3 closed multi-role shapes, Vicky, and the 3 loader
+  cases). Fixed: green. **Mutant** (chips from `person.roles` again): 4 red (3 closed shapes + Vicky); restored: green.
+- Only existing test touched: `hub.test.tsx` title "teacher pages closed: no teacher card, no teacher chip" renamed (its
+  assertions only ever checked cards; its fixture has no `heldRoles`, so it still passes unchanged).
+- Picture retaken and looked at: `docs/mockups/w2b-hub/fixture-teacherhidden.png` now shows chips "Teacher" + "Dancer",
+  one Dancer card, heading "THEIR PAGE" (shot numbers: scrollWidth 390, 1 h1, 0 clipped, min contrast 7.43, 0 errors).
+  The retake is byte-identical to stage 5's file, so git shows no change: stage 5's harness already put `teacher` in
+  `roles` (the shape the loader never made), which is exactly why that picture showed the chip and prod did not. The
+  harness now builds the prod shape (visible `roles`, held `heldRoles`) and the hub draws the same picture from it.
+
+**CI job steps run in this sandbox on the fix head** (`npm ci` / Playwright install skipped, deps present; `NODE_PATH` unset):
+
+| Workflow / job | Command | Exit |
+|---|---|---|
+| architecture-guard | `bin/check-integrity.sh` (after `chmod +x bin/*.sh`, reverted after) | 0 |
+| architecture-guard | `check:legacy-tables`, `check:legacy-program-rpcs`, `lint:architecture` | 0 / 0 / 0 |
+| architecture-guard | `AUDIT_STRICT=1 npm run check:images`; `check:image-widths:self-test` / `check:image-widths` | 0; 0 / 0 |
+| architecture-guard | `check:plan-hygiene:self-test`, `check:workflow-artifact-policy:self-test` / `...policy` | 0, 0 / 0 |
+| architecture-guard | `check:mojibake:self-test`; `prove:entry-point:self-test` / `prove:entry-point` | 0; 0 / 0 |
+| typecheck | `check:rpc-typing`, `check:wallclock-brand` | 0 / 0 |
+| unit-tests | `npm run test:unit:offline` | 0: 525 files, 12 024 passed, 18 skipped |
+| unit-tests | `npm run test:unit:timing` | 0 |
+| unit-tests / dancer-area-isolation | `--self-test` / `check:dancer-area-isolation` | 0 / 0 |
+| perf-budget | `check:bundle-budget:self-test`, `check:first-load-requests:self-test`, `check:chunk-cycles:self-test` | 0 / 0 / 0 |
+| perf-budget | `npm run build` (flag OFF, as CI); `check:bundle-budget` / `check:first-load-requests` / `check:chunk-cycles` | 0; 0 / 0 / 0 |
+| lint chain | `npm run lint` | 0 |
+| (local) | `npm run check:integrity` | 0 |
+| (not a CI step) | whole-tree `npm run typecheck` | 2, red on the unfixed head too (about 100 pre-existing errors elsewhere); none in the files this pass changed |
+| perf-budget lighthouse, e2e-smoke, phone-qa, seo-check, live-qa, prod-smoke | need a deploy / preview | NOT run |
+| real-data-verified, phone-qa-section | PR-body checkers on the body below (`PR_BODY` env) | see the final report |
+
+**Verified (this pass):** hub chips equal the wall tile's for every listed shape, teacher pages closed and open (model
+and rendered DOM); no Teacher card and no teacher link while closed; Teacher chip and card while open; 404 rule and tile
+links unchanged; loader carries held roles from the same single call; red first, mutant red; the retaken harness picture.
+**NOT verified (this pass):** Vicky Franchi's real hub on prod or a preview (no prod DB access here: the Supabase
+connector is not authorised in this session, and the preview needs the flag ON); the prod shape counts are the
+orchestrator's survey, not re-run; a physical phone.
+
 
 ## Stage 5: independent critique + one fix pass (ticket dt_6a53cc3c9770, a different worker from the builder)
 Brief: `briefs/W2B-critique-brief.md` on the same admin branch (blob 09f15b0b2db56e53a758255bb654dd5421c419f6).
@@ -197,7 +260,8 @@ Screenshots in `docs/mockups/w2b-hub/`; numbers in `report.json` and `docs/desig
 
 ## Owner look-at list (3)
 1. `docs/mockups/w2b-hub/fixture-teacherhidden.png` (the commonest prod shape: dancer + closed teacher page): one card,
-   a "Teacher" chip with no Teacher card. Keep as is (O2, O3)?
+   a "Teacher" chip with no Teacher card, now the SAME chips as the wall tile (W2-B fix; before it, prod showed only
+   "Dancer" on the hub). Keep as is (O2, O3)?
 2. O1: direct loads of a DJ with a gig still reorder the cards. Add the next gig date to the `/people` loader (new
    read), or always put the DJ card first for a DJ-led person (changes the approved order), or leave it?
 3. Before flipping the flag: one SELECT comparing `get_public_people_badges_v1` and `get_public_person_roles_v1` for the
@@ -218,13 +282,18 @@ Stage 5 fixes (independent reviewer): cards no longer swap places after first pa
 does" for a person with no real name; flag sticker sized like the S12 mock (no longer covers the face); one-card pages
 keep the warm base to the bottom of the first screen.
 
+W2-B fix: the hub's role chips now read the same as the wall tile's (owner rule: the wall decides). While teacher pages
+are closed a person who teaches (about 61 on prod, e.g. dancer + teacher) shows a plain-text "Teacher" chip on both,
+with still no Teacher card and no teacher link. The loader carries the roles the person holds from the roles read it
+already makes (`PersonSnapshot.heldRoles`); no new read.
+
 ## Phone QA
 Sizes checked: 390x844 (production build flag ON and OFF, and the fixture harness), 360x844 and 430x844 (harness: 3-role and long name), isMobile, DPR 2.
-Walked: /people/:id for a sandbox-DB DJ and dancer (prod build, flag ON), teacher-only person (404, unchanged), flag-OFF page, /dancers wall tap; fixture shapes 3-role with gig, DJ with gig, DJ + dancer arriving from the wall with the gig list 800 ms late, no real name, no photo, broken photo, long name, thin, dancer + closed teacher page. scrollWidth = viewport, 0 clipped, taps >= 44px, min contrast 6.41, 0 hydration warnings, hub seams max step 1/255.
+Walked: /people/:id for a sandbox-DB DJ and dancer (prod build, flag ON), teacher-only person (404, unchanged), flag-OFF page, /dancers wall tap; fixture shapes 3-role with gig, DJ with gig, DJ + dancer arriving from the wall with the gig list 800 ms late, no real name, no photo, broken photo, long name, thin, dancer + closed teacher page (retaken after the W2-B fix with prod-shaped visible/held roles: chips "Teacher" + "Dancer", one Dancer card). scrollWidth = viewport, 0 clipped, taps >= 44px, min contrast 6.41, 0 hydration warnings, hub seams max step 1/255.
 Not verified: a physical phone, real photo crops (no reachable photos), the wall -> hub tap with the real badges read (sandbox lacks it; harness and tests cover it), card reorder on a direct load (still moves; owner call).
 
 ## Verified on real data
 Shapes surveyed: orchestrator's 2026-10-22 prod survey (166 active dancers: teacher-only 62, dancer+teacher 36, dancer+DJ+teacher 25, dancer-only 23, dancer+DJ 10, DJ-only 4, DJ+teacher 1, no role 5; teacher pages closed), used to pick the walked shapes (dancer-only, dancer + hidden teacher, DJ + dancer); sandbox Supabase project via public anon reads for the production-build walks.
-Checks run: production build walks (DJ, dancer, teacher-only 404, flag OFF, wall tap); 31 + 14 test shape x screen matrix, stage 5 tests run red against the unfixed code first; every CI job step from .github/workflows run locally (table in the handover).
-NOT verified: prod data directly (Supabase connector not authorised in these sessions); real photo crops; a real DJ gig on a real event page; the from-the-wall path against the real badges read (harness and unit tests only).
+Checks run: W2-B fix table (dancer, dancer+teacher, dancer+DJ+teacher with gig, DJ+teacher, DJ only, teacher-only; teacher pages closed and open): hub chips === wall tile chips, no Teacher card or teacher link while closed, run red against the unfixed code first (7 red) and against a mutant (4 red); production build walks (DJ, dancer, teacher-only 404, flag OFF, wall tap); 31 + 14 test shape x screen matrix, stage 5 tests run red against the unfixed code first; every CI job step from .github/workflows run locally (table in the handover).
+NOT verified: prod data directly (Supabase connector not authorised in these sessions), including Vicky Franchi's real hub after the fix; real photo crops; a real DJ gig on a real event page; the from-the-wall path against the real badges read (harness and unit tests only).
 ```

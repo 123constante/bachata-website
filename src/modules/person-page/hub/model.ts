@@ -139,7 +139,9 @@ export function hubModel(input: {
     initialsFrom: !person.name && !djName ? '' : lead === 'dj' ? bareStage(heading) : heading,
     flagCode: view?.nationalityCode ?? dj?.nationality_code ?? null,
     city: person.city,
-    tags: roleTagsFor(badge, opts),
+    // Chips from the HELD roles, like the wall tile (a closed Teacher is plain text, href null);
+    // the cards above stay on the visible roles, so no closed page is ever offered.
+    tags: roleTagsFor({ ...badge, roles: person.heldRoles ?? person.roles }, opts),
     facts: factsOf(view?.yearsDancing ?? null, dj?.languages),
     nextGig: gig ? { eventId: gig.eventId, dateLabel: gig.dateLabel } : null,
     cards,
