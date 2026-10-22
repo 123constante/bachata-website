@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { isServerRefusal } from '../shared/selfServeErrors';
 import type { PostcodeFound } from './postcode';
 
 /**
@@ -19,17 +20,24 @@ export interface CreatedVenue {
 type Rpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>;
 const defaultRpc: Rpc = (fn, args) => (supabase.rpc as unknown as Rpc)(fn, args);
 
-/** Why a venue call failed, in words the screen can use. */
+/**
+ * Why a venue call failed, in words the screen can use. `refused` = the server said no
+ * (P0001 `permission_denied: ...` / `invalid_payload: ...`); `failed` = no answer (network).
+ */
 export class VenueApiError extends Error {
-  constructor(readonly kind: 'rate_limited' | 'unavailable' | 'failed') {
+  constructor(readonly kind: 'rate_limited' | 'unavailable' | 'refused' | 'failed') {
     super(kind);
   }
 }
 
+/** AS BUILT (ER-AD1): the 5-a-day limit raises code 54000 with the message `rate_limited`. */
+const RATE_LIMITED = /^rate_limited\b/;
+
 function toError(e: { code?: string; message?: string }): VenueApiError {
-  const text = `${e.code ?? ''} ${e.message ?? ''}`.toLowerCase();
-  if (text.includes('rate')) return new VenueApiError('rate_limited');
-  if (e.code === 'PGRST202' || text.includes('could not find the function')) return new VenueApiError('unavailable');
+  const message = e.message ?? '';
+  if (RATE_LIMITED.test(message)) return new VenueApiError('rate_limited');
+  if (e.code === 'PGRST202' || /could not find the function/i.test(message)) return new VenueApiError('unavailable');
+  if (isServerRefusal(e)) return new VenueApiError('refused');
   return new VenueApiError('failed');
 }
 

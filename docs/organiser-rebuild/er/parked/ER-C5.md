@@ -2,3 +2,4 @@ Q: postcodes.io has no street address; what is `p_address`? | Default used: "war
 Q: Map pin without a key | Default used: OpenStreetMap embed iframe (no key) | Cost if wrong: small | Where: src/modules/organiser/venue/postcode.ts mapPinUrl
 Q: Should the picker be mounted in a screen now? | Default used: no. Brief touches only venue/**; the integrating slice mounts <VenuePicker onPick> in its sheet | Cost if wrong: small | Where: src/modules/organiser/venue/index.ts
 Q: If owner_similar_venues_v1 errors, block the add? | Default used: no, skip to "Add venue" (server still returns existing:true on an exact match) | Cost if wrong: small | Where: venue/VenuePicker.tsx checkSimilar
+Q: `get_organiser_venue_options_v1` returns other people's drafts (review ER-W1, AD1/owner question) | Default used: parked, not fixed in ER-FIX-C5 (server side) | Cost if wrong: small | Where: src/modules/organiser/shared/publicVenues.ts
