@@ -124,7 +124,8 @@ export function hubModel(input: {
     heading,
     subName,
     photo,
-    initialsFrom: lead === 'dj' ? bareStage(heading) : heading,
+    // No real name and no stage name: "?" rather than the placeholder's initials.
+    initialsFrom: !person.name && !djName ? '' : lead === 'dj' ? bareStage(heading) : heading,
     flagCode: view?.nationalityCode ?? dj?.nationality_code ?? null,
     city: person.city,
     tags: roleTagsFor(badge, opts),

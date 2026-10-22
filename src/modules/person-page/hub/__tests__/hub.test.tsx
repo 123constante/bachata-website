@@ -145,6 +145,12 @@ describe('hub shapes (rendered, flag ON)', () => {
     expect(screen.getByTestId('hub-face').querySelector('img')).toBeNull();
   });
 
+  it('no name at all: the page placeholder as heading, "?" on the face (not its initials)', () => {
+    mount({ name: 'x', roles: ['dj'], realName: null, avatar: null });
+    expect(screen.getByTestId('hub-name').textContent).toBe('Bachata Calendar profile');
+    expect(screen.getByTestId('hub-face').textContent).toBe('?');
+  });
+
   it('broken photo URL: falls back to initials, never a broken image', () => {
     mount({ name: 'x', roles: ['dancer'], avatar: 'https://x.test/broken.jpg' });
     const img = screen.getByTestId('hub-face').querySelector('img') as HTMLImageElement;
@@ -170,7 +176,7 @@ describe('hub shapes (rendered, flag ON)', () => {
   it('facts: only those that exist', () => {
     mount({ name: 'x', roles: ['dj', 'dancer'], years: 4, languages: ['Spanish', 'English'] });
     expect(Array.from(screen.getByTestId('hub-facts').querySelectorAll('li')).map((l) => l.textContent)).toEqual([
-      '• 4 years dancing', '• Spanish, English',
+      '\u2022 4 years dancing', '\u2022 Spanish, English',
     ]);
   });
 
@@ -246,13 +252,20 @@ describe('same fact, same reading: hub vs wall tile vs role pages (ONE mapping)'
     expect(m.city).toBe(s.city === undefined ? 'London' : s.city);
   });
 
-  it('wall tiles: flag ON -> /people/<id>; OFF -> the role page; no page -> no link either way', () => {
+  it('wall tiles: flag ON -> /people/<id> only with a visible role; OFF -> the role page; no page -> no link', () => {
+    const b = (roles: PersonRole[]): PersonBadge => ({ id: 'p1', roles, djName: null, djHasUpcoming: false, nextGigDate: null });
     setHub(true);
-    expect(tileHref('p1', '/djs/p1')).toBe('/people/p1');
-    expect(tileHref('p1', null)).toBeNull();
+    expect(tileHref('p1', '/djs/p1', b(['dj']), OPEN)).toBe('/people/p1');
+    expect(tileHref('p1', null, b(['dj']), OPEN)).toBeNull();
+    // Zero roles (every active dancer row is on /dancers): /people/:id would 404, so keep the role page.
+    expect(tileHref('p1', '/dancers/p1', b([]), OPEN)).toBe('/dancers/p1');
+    // Only a closed teacher page: same.
+    expect(tileHref('p1', '/dancers/p1', b(['teacher']), CLOSED)).toBe('/dancers/p1');
+    // Badges read failed / no row: as today.
+    expect(tileHref('p1', '/dancers/p1', undefined, OPEN)).toBe('/dancers/p1');
     setHub(false);
-    expect(tileHref('p1', '/djs/p1')).toBe('/djs/p1');
-    expect(tileHref('p1', null)).toBeNull();
+    expect(tileHref('p1', '/djs/p1', b(['dj']), OPEN)).toBe('/djs/p1');
+    expect(tileHref('p1', null, b(['dj']), OPEN)).toBeNull();
   });
 
   it('teacher closed: the hub never offers a card the tile could not link to', () => {
