@@ -49,14 +49,15 @@ describe('SessionSheet fixes', () => {
     expect(screen.getByTestId('session-b').contains(shown[0])).toBe(true);
   });
 
-  it('C4-3: untimed session: Start shows "Pick a start", End is disabled, reason "Pick a start time"', async () => {
+  // ER-FIX2-S2 (F-C4-1, owner decision 3): untimed is valid, shown as "No set time" with no reason line.
+  it('C4-3: untimed session: Start shows "No set time", End is disabled, no reason', async () => {
     render(<Harness initial={[untimed('a')]} />);
     open();
     const start = (await screen.findByTestId('session-start')) as HTMLSelectElement;
     expect(start.value).toBe('');
-    expect(start.options[start.selectedIndex].textContent).toBe('Pick a start');
+    expect(start.options[start.selectedIndex].textContent).toBe('No set time');
     expect((screen.getByTestId('session-end') as HTMLSelectElement).disabled).toBe(true);
-    expect(screen.getByTestId('session-issues').textContent).toBe('Pick a start time');
+    expect(screen.queryByTestId('session-issues')).toBeNull();
     // Like the writer, a stored untimed session blocks nothing until its times change: a rename saves.
     expect((await done()).disabled).toBe(false);
     fireEvent.change(screen.getByTestId('session-name'), { target: { value: 'Late party' } });
@@ -108,7 +109,7 @@ describe('SessionSheet fixes', () => {
   it('C4-10: the session sources hold no raw non-ASCII', () => {
     for (const f of ['SessionCard.tsx', 'SessionSheet.tsx', 'sessionsModel.ts']) {
       const src = readFileSync(resolve(__dirname, '..', f), 'utf8');
-      expect(src.match(/[^\x00-\x7f]/g) ?? [], f).toEqual([]);
+      expect([...src].filter((c) => c.charCodeAt(0) > 127), f).toEqual([]);
     }
   });
 });

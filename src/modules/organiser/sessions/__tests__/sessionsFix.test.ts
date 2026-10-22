@@ -33,7 +33,7 @@ const row = (patch: Partial<StoredSessionRow>): StoredSessionRow => ({
 // Each prod shape: the stored row, what the card must load, and the reasons it shows.
 const SHAPES: { name: string; row: StoredSessionRow; draft: Partial<SessionDraft>; issues: string[] }[] = [
   { name: 'class, HH:MM:SS, no level, null room (134 classes, 552 null rooms)', row: row({}), draft: { kind: 'class', start: '20:00', end: '21:00', levels: [], room: '', otherLength: false }, issues: [] },
-  { name: 'untimed party (220 rows)', row: row({ type: 'party', title: null, start_time: null, end_time: null }), draft: { kind: 'party', name: 'Party', start: '', end: '' }, issues: ['Pick a start time'] },
+  { name: 'untimed party (220 rows)', row: row({ type: 'party', title: null, start_time: null, end_time: null }), draft: { kind: 'party', name: 'Party', start: '', end: '' }, issues: [] }, // ER-FIX2-S2: untimed is valid (owner decision 3)
   { name: 'party ending at 00:00 (2 rows)', row: row({ type: 'party', start_time: '21:00:00', end_time: '00:00:00' }), draft: { start: '21:00', end: '00:00' }, issues: [] },
   { name: 'off the 15-minute grid (40 rows)', row: row({ type: 'party', start_time: '21:07:00', end_time: '02:07:00' }), draft: { start: '21:07', end: '02:07' }, issues: [] },
   { name: 'class over 12 h (7 rows)', row: row({ start_time: '19:00:00', end_time: '08:00:00' }), draft: { start: '19:00', end: '08:00', otherLength: true }, issues: ['Over 12 hours'] },
@@ -70,9 +70,10 @@ describe('level is optional detail (C4-1, plan rule 11)', () => {
 });
 
 describe('untimed session (C4-3)', () => {
-  it('Start offers a "Pick a start" placeholder first; End offers nothing until a start', () => {
-    expect(startOptions('')[0]).toEqual({ value: '', label: 'Pick a start', nextDay: false });
-    expect(startOptions('20:00').some((o) => o.value === '')).toBe(false);
+  // ER-FIX2-S2 (F-C4-2): "No set time" is always offered, so a timed session can go back to untimed.
+  it('Start offers "No set time" first; End offers nothing until a start', () => {
+    expect(startOptions('')[0]).toEqual({ value: '', label: 'No set time', nextDay: false });
+    expect(startOptions('20:00').filter((o) => o.value === '')).toHaveLength(1);
     expect(endOptions('', '')).toEqual([]);
   });
   it('picking a start gives the kind default length; a quick length waits for a start', () => {
@@ -106,9 +107,10 @@ describe('null room (C4-6)', () => {
 });
 
 describe('wording from the rules (C4-9)', () => {
-  it('bad times and a missing name read the rules JSON', () => {
+  // ER-FIX2-S2: S1 made rules.blockers.name the EVENT name ("Add an event name"); a session keeps "Name needed".
+  it('bad times read the rules JSON; a missing session name says "Name needed"', () => {
     expect(sessionIssues({ ...newSession('party', '22:00', 'a'), end: '22:00' }).map((i) => i.reason)).toEqual([rules.blockers.sessionTimes]);
-    expect(sessionIssues({ ...newSession('party', '22:00', 'a'), name: '' }).map((i) => i.reason)).toEqual([rules.blockers.name]);
+    expect(sessionIssues({ ...newSession('party', '22:00', 'a'), name: '' }).map((i) => i.reason)).toEqual(['Name needed']);
   });
 });
 

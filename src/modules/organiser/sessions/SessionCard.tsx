@@ -41,6 +41,10 @@ export interface SessionCardProps {
   onChange: (next: SessionDraft) => void;
   /** Null when this is the only session. */
   onRemove: (() => void) | null;
+  /** With `onRemove` null: show Remove disabled with this reason instead of hiding it. */
+  removeReason?: string;
+  /** How many sessions in the list hold a room: more than one asks before "Remove rooms" clears them all. */
+  roomsFilled?: number;
   /** True once any session in the list has a room (or "+ Add a room" was pressed). */
   roomShown: boolean;
   onAddRoom: () => void;
@@ -60,13 +64,16 @@ const labelClass = 'text-[13px] font-semibold text-[var(--mut)]';
  * (rule 25). Pure view of a SessionDraft: every change goes up through
  * onChange, built from the pure setters in sessionsModel.
  */
-export function SessionCard({ session: s, title, onChange, onRemove, roomShown, onAddRoom, onRemoveRoom, recent, onPicked, search, showIssues = true }: SessionCardProps) {
+export function SessionCard({ session: s, title, onChange, onRemove, removeReason, roomsFilled = 0, roomShown, onAddRoom, onRemoveRoom, recent, onPicked, search, showIssues = true }: SessionCardProps) {
   const uid = useId();
   const who = lineupLabel(s.kind);
   const issues = showIssues ? sessionIssues(s) : [];
   const [term, setTerm] = useState('');
   const settled = useDebounced(term.trim(), 250);
-  const [found, setFound] = useState<{ key: string; rows: SessionPerson[] } | null>(null);
+  // A failed search is kept apart from "no one found": it says so and offers Retry.
+  const [found, setFound] = useState<{ key: string; rows: SessionPerson[]; failed: boolean } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [confirmRooms, setConfirmRooms] = useState(false);
   const role = searchRole(s.kind);
 
   useEffect(() => {
@@ -74,13 +81,13 @@ export function SessionCard({ session: s, title, onChange, onRemove, roomShown, 
     let live = true;
     const key = `${role}:${settled}`;
     search(settled, role).then(
-      (rows) => live && setFound({ key, rows }),
-      () => live && setFound({ key, rows: [] }),
+      (rows) => live && setFound({ key, rows, failed: false }),
+      () => live && setFound({ key, rows: [], failed: true }),
     );
     return () => {
       live = false;
     };
-  }, [settled, role, search]);
+  }, [settled, role, search, attempt]);
 
   const pick = (p: SessionPerson) => {
     onChange(addPerson(s, p));
@@ -88,8 +95,13 @@ export function SessionCard({ session: s, title, onChange, onRemove, roomShown, 
     setTerm('');
   };
   // Results count only for the term they were fetched for (a stale list never shows).
-  const hits = term.trim() === settled && found?.key === `${role}:${settled}` ? found.rows : null;
-  const shownHits = hits ? hitsFor(hits, s) : null;
+  const current = term.trim() === settled && found?.key === `${role}:${settled}` ? found : null;
+  const failed = current?.failed ?? false;
+  const shownHits = current && !failed ? hitsFor(current.rows, s) : null;
+  const removeRooms = () => {
+    if (roomsFilled > 1) setConfirmRooms(true);
+    else onRemoveRoom();
+  };
   const rec = recentFor(recent, s);
   const quick = showQuickLengths(s);
   const timed = toMinutes(s.start) !== null;
@@ -100,11 +112,18 @@ export function SessionCard({ session: s, title, onChange, onRemove, roomShown, 
     <section aria-label={title} data-testid={`session-${s.id}`} className="space-y-[12px] rounded-[16px] border border-[var(--line)] bg-[var(--card)] p-[12px]">
       <div className="flex items-center justify-between">
         <h3 className="text-[15px] font-bold text-[var(--fg)]">{title}</h3>
-        {onRemove && (
+        {onRemove ? (
           <button type="button" onClick={onRemove} data-testid={`session-${s.id}-remove`} className="min-h-[44px] px-[8px] text-[15px] font-semibold text-[var(--gold)]">
             Remove
           </button>
-        )}
+        ) : removeReason ? (
+          <div className="flex items-center gap-[6px]">
+            <span id={`${uid}-remove-reason`} className="text-[13px] text-[var(--mut)]">{removeReason}</span>
+            <button type="button" disabled aria-describedby={`${uid}-remove-reason`} data-testid={`session-${s.id}-remove`} className="min-h-[44px] cursor-not-allowed px-[8px] text-[15px] font-semibold text-[var(--gold)] opacity-60">
+              Remove
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div role="group" aria-label="Type" className="flex flex-wrap gap-[8px]">
@@ -147,7 +166,7 @@ export function SessionCard({ session: s, title, onChange, onRemove, roomShown, 
           ) : (
             <>
               <label htmlFor={`${uid}-end`} className={labelClass}>Ends</label>
-              <select id={`${uid}-end`} data-testid="session-end" className={selectClass} value={timed ? s.end : ''} disabled={!timed} onChange={(e) => onChange(setEnd(s, e.target.value))}>
+              <select id={`${uid}-end`} data-testid="session-end" className={selectClass} value={timed ? s.end : ''} disabled={!timed} onChange={(e) => e.target.value && onChange(setEnd(s, e.target.value))}>
                 {!timed && <option value="">{PICK_START}</option>}
                 {ends.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -186,10 +205,17 @@ export function SessionCard({ session: s, title, onChange, onRemove, roomShown, 
         <div className="space-y-[4px]">
           <div className="flex items-center justify-between">
             <label htmlFor={`${uid}-room`} className={labelClass}>Room</label>
-            <button type="button" onClick={onRemoveRoom} data-testid="room-remove" aria-label="Remove rooms" className="flex min-h-[44px] items-center gap-[4px] px-[8px] text-[14px] text-[var(--gold)]">
-              <X aria-hidden="true" className="h-[16px] w-[16px]" />Remove
+            <button type="button" onClick={removeRooms} data-testid="room-remove" className="flex min-h-[44px] items-center gap-[4px] px-[8px] text-[14px] text-[var(--gold)]">
+              <X aria-hidden="true" className="h-[16px] w-[16px]" />Remove rooms
             </button>
           </div>
+          {confirmRooms && (
+            <div role="group" aria-label="Remove rooms" data-testid="room-remove-confirm" className="flex flex-wrap items-center gap-[8px] rounded-[12px] bg-[var(--card2)] p-[8px] text-[13px] text-[var(--fg)]">
+              <span>Clear the room on all {roomsFilled} sessions?</span>
+              <button type="button" onClick={() => { setConfirmRooms(false); onRemoveRoom(); }} className="min-h-[44px] px-[8px] font-semibold text-[var(--gold)]">Clear rooms</button>
+              <button type="button" onClick={() => setConfirmRooms(false)} className="min-h-[44px] px-[8px] font-semibold text-[var(--fg)]">Keep rooms</button>
+            </div>
+          )}
           <input id={`${uid}-room`} data-testid="session-room" className={`${FIELD_CLASS} h-[48px]`} value={s.room} maxLength={30} placeholder="Main room" onChange={(e) => onChange(setRoom(s, e.target.value))} />
         </div>
       ) : (
@@ -204,6 +230,12 @@ export function SessionCard({ session: s, title, onChange, onRemove, roomShown, 
           <PersonRow key={p.id} name={p.name} role={who} onRemove={() => onChange(removePerson(s, p.id))} testId={`person-${p.id}`} />
         ))}
         <SearchField value={term} onChange={setTerm} aria-label={`Search for a ${who.toLowerCase()}`} placeholder={`Search for a ${who.toLowerCase()}`} testId="lineup-search" />
+        {term.trim() !== '' && failed && (
+          <div className="flex items-center gap-[8px] text-[13px] text-[var(--mut)]" data-testid="lineup-failed">
+            <span>Search failed.</span>
+            <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-[44px] px-[8px] font-semibold text-[var(--gold)]">Retry</button>
+          </div>
+        )}
         {term.trim() !== '' && shownHits !== null && shownHits.length === 0 && (
           <p className="text-[13px] text-[var(--mut)]" data-testid="lineup-none">No one called &ldquo;{term.trim()}&rdquo;. Only people with a profile can be added.</p>
         )}

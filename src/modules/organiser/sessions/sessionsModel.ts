@@ -5,6 +5,8 @@
 import rules from '../shared/event-rules.json';
 import {
   endFromSessions,
+  isUntimedSession,
+  maxSessionMinutes,
   sessionKindRules,
   sessionKinds,
   startFromSessions,
@@ -14,7 +16,7 @@ import {
   type RuleSession,
   type SessionKind,
 } from '../shared/eventRules';
-import { LEVEL_KEYS, LIMITS, type LevelKey } from '../shared/programmeModel';
+import { LEVEL_KEYS, type LevelKey } from '../shared/programmeModel';
 
 export { LEVEL_KEYS, type LevelKey };
 
@@ -59,25 +61,35 @@ const STEP = 15;
 const DAY = rules.time.minutesPerDay;
 /** A new non-lesson session (party, showcase, competition) runs this long. */
 const OTHER_DEFAULT_MINUTES = 120;
-/**
- * The ONE session-length cap: the writer's (programmeModel LIMITS, 12 h). ER-C3's
- * fix exports the same value as eventRules `maxSessionMinutes`; read that once it lands.
- */
-export const MAX_SESSION_MINUTES: number = LIMITS.sessionMaxMinutes;
-/** Card reasons: the rules JSON wording where it has one (name, bad times), else here. */
+/** The ONE session-length cap: eventRules `maxSessionMinutes` (the writer's LIMITS, 12 h). */
+export const MAX_SESSION_MINUTES: number = maxSessionMinutes;
+/** Card reasons: the rules JSON wording for bad times; the JSON `name` is the EVENT's name, so a session's is here. */
 export const SESSION_REASONS = {
-  name: rules.blockers.name,
+  name: 'Name needed',
   start: 'Pick a start time',
   end: rules.blockers.sessionTimes,
   long: `Over ${MAX_SESSION_MINUTES / 60} hours`,
 } as const;
 export const PICK_START = 'Pick a start';
+/** Start option for a session with no set time (owner decision 3: untimed is valid). */
+export const NO_SET_TIME = 'No set time';
+/** End placeholder when a start is set but no end is stored yet. */
+export const PICK_END = 'Pick an end';
+/** Why "Add another session" is disabled at the cap. */
+export const capReason = (max: number): string => `${max} is the most`;
+/** Why the only session's Remove is disabled. */
+export const LAST_SESSION_REASON = 'One session needed';
 /** The most sessions one list holds (a live festival has up to 14). */
 export const MAX_SESSIONS = 14;
 export const RECENT_MAX = 3;
 export const NEXT_DAY = 'next day';
 
-export const kindLabel = (kind: SessionKind): string => sessionKindRules(kind)?.label ?? kind;
+/** A legacy stored kind off the list (prod: one `show`) reads as a word: "show" -> "Show". Display only. */
+const legacyLabel = (kind: string): string => {
+  const words = kind.replace(/_/g, ' ').trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : kind;
+};
+export const kindLabel = (kind: SessionKind): string => sessionKindRules(kind)?.label ?? legacyLabel(kind);
 /** Rule 25: a new session of a kind is named after the kind. */
 export const defaultName = kindLabel;
 export const levelAllowed = (kind: SessionKind): boolean => sessionKindRules(kind)?.levelAllowed ?? false;
@@ -100,9 +112,12 @@ export const quickLengthOptions = (kind: SessionKind): QuickLength[] =>
 
 const mins = (t: string): number => toMinutes(t) ?? 0;
 
+/** Start and end as a pair, ignoring the length cap (a stored over-cap length is still a pair). */
+const pair = (start: string, end: string) => validSessionPair(start, end, DAY);
+
 /** Minutes from start to end, wrapping past midnight; null when the pair is not valid. */
 export function sessionLength(start: string, end: string): number | null {
-  const { valid, nextDay } = validSessionPair(start, end);
+  const { valid, nextDay } = pair(start, end);
   if (!valid) return null;
   return mins(end) - mins(start) + (nextDay ? DAY : 0);
 }
@@ -111,13 +126,13 @@ export const endAfter = (start: string, minutes: number): string => toHHMM(mins(
 
 /** "20:00" -> option; a stored time off the 15-minute grid is kept so it still shows. */
 const timeOption = (value: string, startedAt?: string): TimeOption => {
-  const nextDay = startedAt !== undefined && validSessionPair(startedAt, value).nextDay;
+  const nextDay = startedAt !== undefined && pair(startedAt, value).nextDay;
   return { value, label: nextDay ? `${value} (${NEXT_DAY})` : value, nextDay };
 };
 
-/** Every quarter hour, from the rollover hour round the clock; keeps `keep` when it is off the grid. An untimed session gets a "Pick a start" placeholder first. */
+/** "No set time" first (untimed is valid, and the way back to it), then every quarter hour from the rollover hour round the clock; keeps `keep` when it is off the grid. */
 export function startOptions(keep?: string): TimeOption[] {
-  const placeholder: TimeOption[] = keep !== undefined && toMinutes(keep) === null ? [{ value: '', label: PICK_START, nextDay: false }] : [];
+  const placeholder: TimeOption[] = [{ value: '', label: NO_SET_TIME, nextDay: false }];
   const from = mins(rules.time.rolloverBefore);
   const out: string[] = [];
   for (let m = from; m < from + DAY; m += STEP) out.push(toHHMM(m));
@@ -128,16 +143,17 @@ export function startOptions(keep?: string): TimeOption[] {
   return [...placeholder, ...out.map((v) => timeOption(v))];
 }
 
-/** Only times AFTER the start (up to the cap); past midnight is marked "next day". The start itself is never offered. A stored end past the cap stays listed (rule 28: no silent change). */
+/** Only times AFTER the start (up to the cap); past midnight is marked "next day". The start itself is never offered. A stored end past the cap stays listed (rule 28: no silent change). A start with no end (`keep` '') opens on "Pick an end". */
 export function endOptions(start: string, keep?: string): TimeOption[] {
   if (toMinutes(start) === null) return [];
+  const placeholder: TimeOption[] = keep === '' ? [{ value: '', label: PICK_END, nextDay: false }] : [];
   const out: string[] = [];
   for (let m = STEP; m <= MAX_SESSION_MINUTES; m += STEP) out.push(endAfter(start, m));
-  if (keep && validSessionPair(start, keep).valid && !out.includes(keep)) {
+  if (keep && pair(start, keep).valid && !out.includes(keep)) {
     out.push(keep);
     out.sort((a, b) => (sessionLength(start, a) ?? 0) - (sessionLength(start, b) ?? 0));
   }
-  return out.map((v) => timeOption(v, start));
+  return [...placeholder, ...out.map((v) => timeOption(v, start))];
 }
 
 export const isValidEnd = (start: string, end: string): boolean => {
@@ -172,8 +188,9 @@ export function setKind(s: SessionDraft, kind: SessionKind): SessionDraft {
   };
 }
 
-/** Changing the start keeps the length, so the end can never fall before it. */
+/** Changing the start keeps the length, so the end can never fall before it. "No set time" ('') clears start and end. */
 export function setStart(s: SessionDraft, start: string): SessionDraft {
+  if (start === '') return { ...s, start: '', end: '' };
   if (toMinutes(start) === null) return s;
   const length = sessionLength(s.start, s.end) ?? defaultLength(s.kind);
   return { ...s, start, end: endAfter(start, Math.min(length, MAX_SESSION_MINUTES)) };
@@ -274,8 +291,10 @@ export const toRuleSession = (s: SessionDraft): RuleSession => ({ kind: s.kind, 
 export function sessionIssues(s: SessionDraft): SessionIssue[] {
   const out: SessionIssue[] = [];
   if (!(s.name ?? '').trim()) out.push({ code: 'name', reason: SESSION_REASONS.name });
+  // Owner decision 3: untimed (no start, no end) is valid; only a half-filled pair or a bad end is an issue.
+  if (isUntimedSession(toRuleSession(s))) return out;
   if (toMinutes(s.start) === null) out.push({ code: 'start', reason: SESSION_REASONS.start });
-  else if (!validSessionPair(s.start, s.end).valid) out.push({ code: 'end', reason: SESSION_REASONS.end });
+  else if (!pair(s.start, s.end).valid) out.push({ code: 'end', reason: SESSION_REASONS.end });
   else if (!isValidEnd(s.start, s.end)) out.push({ code: 'long', reason: SESSION_REASONS.long });
   return out;
 }
@@ -360,7 +379,7 @@ export function nightSpan(list: readonly SessionDraft[]): string | null {
   const start = startFromSessions(rs);
   const end = endFromSessions(rs);
   if (!start || !end) return null;
-  const wraps = mins(end) <= mins(start) || list.some((s) => validSessionPair(s.start, s.end).nextDay);
+  const wraps = mins(end) <= mins(start) || list.some((s) => pair(s.start, s.end).nextDay);
   return `${start} to ${end}${wraps ? ` (${NEXT_DAY})` : ''}`;
 }
 
