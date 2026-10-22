@@ -12,7 +12,7 @@ import { SkeletonRows } from '../ui/Skeleton';
 import { ModuleLegacyRedirect } from './LegacyRedirect';
 import { OrganiserShell } from './OrganiserShell';
 import { ORG_PATHS } from './paths';
-import { RebuildSwitchContext, rebuildEnabled } from './rebuildSwitch';
+import { RebuildSwitchContext, rebuildEnabled, rebuildPending } from './rebuildSwitch';
 
 // One lazy chunk per folder. main's screens stay mounted on the R1 paths until
 // their slice swaps them. Every R1 route group has landed (INT2): no route
@@ -93,12 +93,19 @@ export default function OrganiserRoutes() {
   // ER-S0: the one flag read. It answers from the home read the shell already holds.
   const { user } = useAuth();
   const home = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled: !!user?.id });
-  const rebuildOn = rebuildEnabled(import.meta.env.VITE_ORGANISER_REBUILD, (home.data?.organisers ?? []).map((o) => o.id));
+  const raw = import.meta.env.VITE_ORGANISER_REBUILD;
+  const rebuild = {
+    raw,
+    on: rebuildEnabled(raw, (home.data?.organisers ?? []).map((o) => o.id)),
+    // ER-FIX-W2 F11: an allowlist waits for the home read, so an allowlisted login never sees the old screen flash first.
+    pending: rebuildPending(raw, !!user?.id && !home.data && !home.isError),
+  };
   return (
-    <RebuildSwitchContext.Provider value={rebuildOn}>
+    <RebuildSwitchContext.Provider value={rebuild}>
     <AuthGuard>
       <PrefetchOrganiserHome />
       <AccountGated>
+        {rebuild.pending ? <ShellFallback /> : (
         <Suspense fallback={<ShellFallback />}>
           <Routes>
             <Route index element={<HomePage />} />
@@ -159,6 +166,7 @@ export default function OrganiserRoutes() {
             <Route path="*" element={<Navigate to={ORG_PATHS.home} replace />} />
           </Routes>
         </Suspense>
+        )}
       </AccountGated>
     </AuthGuard>
     </RebuildSwitchContext.Provider>

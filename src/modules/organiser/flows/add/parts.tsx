@@ -52,11 +52,12 @@ export const Failed = ({ flow, onRetry, error }: { flow: FlowName; onRetry: () =
   isAccessRefusal(error) ? <NoAccess /> : <ErrorState title="Did not load" onRetry={onRetry} testId={`${flow}-error`} />;
 
 /** A day, date or event this flow cannot use: the reason (dateLock text verbatim) and ONE way on. */
-export function Refusal({ flow, text, back, backLabel }: { flow: FlowName; text: string; back: string; backLabel: string }) {
+export function Refusal({ flow, text, line, back, backLabel }: { flow: FlowName; text: string; line?: string; back: string; backLabel: string }) {
   const navigate = useNavigate();
   return (
     <div className="flex flex-col gap-3" data-testid={`${flow}-refusal`}>
       <p className="text-[15px] text-[var(--fg)]">{text}</p>
+      {line ? <p className="text-[14px] text-[var(--mut)]" data-testid={`${flow}-refusal-line`}>{line}</p> : null}
       <GhostButton testId={`${flow}-refusal-back`} onClick={() => navigate(back, { replace: true })}>
         {backLabel}
       </GhostButton>

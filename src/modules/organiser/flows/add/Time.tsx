@@ -13,7 +13,8 @@ import { addDayGate, addDoneMessage, type DayGate, seriesLock, timeNotSavedMessa
 import { useFlowHome, useFlowSend, useSeriesWorkspace } from './useFlow';
 import { ErrorLine, Failed, Loading, Refusal, Step } from './parts';
 import { useOrganiserSeries } from '@/modules/organiser/shared/useOrganiserSeries';
-import { notFoundText } from './notFoundText';
+import { notFoundLine, notFoundText } from './notFoundText';
+import { lookupMessages } from '@/modules/organiser/shared/eventRules';
 import { EventConflict } from '../event/parts';
 
 /** C9: the time of the new date, prefilled with the event's usual time; Save adds it (C10 Done, no Undo). */
@@ -33,12 +34,13 @@ export default function Time() {
 
   return (
     <Step title={one?.name ?? 'Add a date'} back={ORG_PATHS.addEvent(seriesId)}>
-      {home.isError || ws.isError ? (
+      {/* A refused workspace read is the lookup's answer (gone / no access), not a failure: only a real error retries. */}
+      {home.isError || lookup.state === 'error' || (one && ws.isError) ? (
         <Failed flow="add" error={ws.error} onRetry={() => { void home.refetch(); void ws.refetch(); }} />
       ) : !home.data || lookup.state === 'loading' ? (
         <Loading flow="add" />
       ) : !one ? (
-        <Refusal flow="add" text={notFoundText(lookup.state)} back={ORG_PATHS.home} backLabel="Back to Home" />
+        <Refusal flow="add" text={notFoundText(lookup.state)} line={notFoundLine(lookup.state)} back={ORG_PATHS.home} backLabel={lookupMessages.back} />
       ) : lock ? (
         <Refusal flow="add" text={lock} back={ORG_PATHS.home} backLabel="Back to Home" />
       ) : !ws.data || !gate ? (
