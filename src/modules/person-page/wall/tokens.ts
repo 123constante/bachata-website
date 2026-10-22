@@ -87,3 +87,34 @@ export const SIZE = {
   filterGap: 6,
   initials: 28,
 } as const;
+
+/**
+ * The person hub (/people/:id behind flags.personHub): same base and accents as the wall (S12 mockup),
+ * explicit px for the same reason as SIZE. Tap targets (back, next event, role cards) are all >= 44px.
+ */
+export const HUB = {
+  face: 112,
+  /** The `size` NationalityFlag gets: half the face, as the S12 mock (a 26px sticker that leaves the initials clear). */
+  flagFrom: 56,
+  /**
+   * The hub's warm ground reaches at least the bottom of the first screen (a one-card hub otherwise ends in
+   * a cold void above the footer). 106 = where the hub starts under the site header at 360, 390 and 430 wide (prod build, measured).
+   */
+  groundMinHeight: 'max(128px, calc(100svh - 106px))',
+  faceRadius: 18,
+  initials: 38,
+  name: 24,
+  nameLine: 29,
+  sub: 14,
+  body: 15,
+  sectionLabel: 13,
+  headerRadius: 24,
+  cardRadius: 18,
+  cardMinHeight: 72,
+  cardEdge: 8,
+  cardChip: 14,
+  ctaMinHeight: 52,
+  ctaRadius: 16,
+  ctaText: 17,
+  tap: 44,
+} as const;

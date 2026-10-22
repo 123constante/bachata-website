@@ -3,9 +3,11 @@
 // (roleTagsFor / nameFor / hrefForRole / linkRoleFor) and the existing list models.
 import { djTile, type DjListRow } from '@/components/dj/djListModel';
 import { dancerHref } from '@/components/dancers/dancerListModel';
-import { linkFor, linkRoleFor, roleTagsFor, type PersonBadge, type RoleTag } from '@/modules/person-page/badges';
+import { hrefForRole, linkFor, linkRoleFor, roleTagsFor, type BadgeOpts, type PersonBadge, type RoleTag } from '@/modules/person-page/badges';
 import type { PersonRole } from '@/lib/searchEntities';
 import { isRealDateKey, londonTodayKey, weekdayOfKey } from '@/lib/londonDate';
+import { flags } from '@/lib/featureFlags';
+import { hrefFor } from '@/lib/searchEntities';
 
 export type WallList = 'djs' | 'dancers';
 export type WallFilter = 'all' | PersonRole;
@@ -44,13 +46,22 @@ export const firstPhoto = (p: string | string[] | null | undefined): string | nu
   return typeof v === 'string' && v.trim() ? v : null;
 };
 
+/**
+ * flags.personHub: a tile opens the person hub (/people/<id>) instead of the lead role page, but only
+ * when the badges read says the person has a role with an open page: /people/:id 404s on zero visible
+ * roles, and every active dancer row is on /dancers whether or not it has a role. No badge (read failed
+ * or missing) = the role page, as today. A tile with no page stays unlinked either way.
+ */
+export const tileHref = (id: string, rolePage: string | null, badge: PersonBadge | undefined, opts: BadgeOpts): string | null =>
+  rolePage && flags.personHub && badge?.roles.some((r) => hrefForRole(r, id, opts)) ? hrefFor('person', id) : rolePage;
+
 export type DjWallRow = DjListRow & {
   photo_url?: string | string[] | null;
   nationality_code?: string | null;
 };
 
 // The DJ chip already says DJ, so the name never repeats the word: "DJ El Rugido" reads "El Rugido".
-const bareStage = (n: string): string => n.replace(/^dj\s+/i, '').trim() || n;
+export const bareStage = (n: string): string => n.replace(/^dj\s+/i, '').trim() || n;
 
 /** Every row of list_public_djs_v1 is a DJ (djTile assumes the role when the badge row is missing). */
 export function djWallPerson(row: DjWallRow, resolvedName: string, badge: PersonBadge | undefined, teacherPagesOpen: boolean): WallPerson {
@@ -65,7 +76,7 @@ export function djWallPerson(row: DjWallRow, resolvedName: string, badge: Person
     name: bareStage(t.name),
     photo: firstPhoto(row.photo_url),
     flagCode: row.nationality_code,
-    href: t.href,
+    href: tileHref(row.id, t.href, badge, opts),
     tags: t.tags,
     lead: linkRoleFor(asBadge, opts) ?? 'dj',
     dateLabel: row.has_upcoming_gig === true ? wallDateLabel(row.next_gig_date) : null,
@@ -87,7 +98,7 @@ export function dancerWallPerson(
     name: resolvedName,
     photo: firstPhoto(row.avatar_url),
     flagCode,
-    href: dancerHref(row.id, teacherPagesOpen) ?? linkFor(badge, opts),
+    href: tileHref(row.id, dancerHref(row.id, teacherPagesOpen) ?? linkFor(badge, opts), badge, opts),
     tags: badge ? roleTagsFor(badge, opts) : [],
     lead: linkRoleFor(badge, opts) ?? 'dancer',
     dateLabel: badge && badge.roles.includes('dj') ? wallDateLabel(badge.nextGigDate) : null,
