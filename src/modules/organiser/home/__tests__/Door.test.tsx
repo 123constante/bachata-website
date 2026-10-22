@@ -25,7 +25,7 @@ import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { homeJobs } from '@/modules/organiser/jobs/homeJobs';
 import { readDoneState } from '../../flows/doneState';
 import { OnboardingView } from '../onboarding/OnboardingView';
-import { NO_EMAIL_COPY } from '../onboarding/onboardingModel';
+import { NO_EMAIL_COPY } from '../onboarding/claimStates';
 
 const org = (id: string, name: string, hint: ClaimHint | null) => ({ id, name, slug: id, avatar_url: null, city_id: null, hint });
 
@@ -111,7 +111,7 @@ describe('C38 find your page: one row per ClaimHint', () => {
     expect(row.textContent).not.toMatch(/@/);
   });
 
-  it('yours: ONE action, Home', async () => {
+  it('yours: ONE action, the 6a screen, then Home', async () => {
     api.search.mockResolvedValue([org('d', 'Delta', 'yours')]);
     mount();
     search('de');
@@ -119,6 +119,8 @@ describe('C38 find your page: one row per ClaimHint', () => {
     const buttons = within(row).getAllByRole('button');
     expect(buttons).toHaveLength(1);
     fireEvent.click(buttons[0]);
+    // Arc 1 flow 6a: the row opens "Delta is yours" first; its one button goes Home.
+    fireEvent.click(await screen.findByTestId('onboarding-yours-home'));
     expect((await screen.findByTestId('where')).textContent).toBe(ORG_PATHS.home);
   });
 
@@ -155,7 +157,9 @@ describe('Ask to join -> Done', () => {
     const where = await screen.findByTestId('where');
     expect(where.textContent).toBe(ORG_PATHS.done);
     const state = readDoneState(JSON.parse(where.getAttribute('data-state')!));
-    expect(state?.message).toBe('Asked to join Beta');
+    expect(state?.title).toBe('Asked to join Beta');
+    expect(state?.message).not.toBe(state?.title);
+    expect(state?.message).toMatch(/check your request/);
   });
 });
 

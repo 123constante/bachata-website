@@ -128,7 +128,7 @@ function WizardBody({ organiserId, userId, writers, uploadLogo }: { organiserId:
     const outcome = await saveAnswer(entry, value, { sources, organiserId, writers, onDancerSaved: (next) => afterDancerSave(qc, userId, next) });
     setSaving(false);
     if (outcome.kind === 'failed') { setError(outcome.message); return; }
-    if (outcome.kind === 'saved') invalidateAfterAnswer(qc, s.area, organiserId, userId);
+    if (outcome.kind === 'saved') void invalidateAfterAnswer(qc, s.area, organiserId, userId);
     advance(s);
   };
 

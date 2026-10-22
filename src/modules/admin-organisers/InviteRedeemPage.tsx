@@ -275,7 +275,8 @@ function InviteRedeem({ preview }: { preview: InvitePreview | null }) {
       rememberInvitePrefill(outcome.prefill);
       // The person may have opened Home in the last minute and cached "no organisers": refetch it before they land.
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-      navigate(ORG_PATHS.home, { replace: true });
+      // A new seat lands on the welcome (Arc 1 1d for a first page, 7c for another); already a member: Home.
+      navigate(outcome.alreadyMember ? ORG_PATHS.home : ORG_PATHS.welcome(outcome.organiserId), { replace: true });
       return;
     }
     if (outcome.copy.terminal) stripToken();

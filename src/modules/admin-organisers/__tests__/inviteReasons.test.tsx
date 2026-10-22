@@ -45,6 +45,7 @@ function mount() {
         <Routes>
           <Route path="/invite/:token" element={<InviteRedeemPage />} />
           <Route path="/account/o" element={<p data-testid="landed">home</p>} />
+          <Route path="/account/o/welcome" element={<p data-testid="landed">welcome</p>} />
           <Route path="*" element={<p data-testid="elsewhere">elsewhere</p>} />
         </Routes>
       </MemoryRouter>

@@ -13,6 +13,8 @@ const changeDate = (seriesId: string, occurrenceId: string) => `${ORG_BASE}/chan
 export const ORG_PATHS = {
   home: ORG_BASE,
   switch: `${ORG_BASE}/switch`,
+  /** Where an accepted invite lands (Arc 1 7c): the second-page welcome, else Home on that page. */
+  welcome: (organiserId: string) => `${ORG_BASE}/welcome?o=${id(organiserId)}`,
 
   change: `${ORG_BASE}/change`,
   changeEvent: (seriesId: string) => `${ORG_BASE}/change/${id(seriesId)}`,

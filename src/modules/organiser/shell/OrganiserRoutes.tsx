@@ -23,6 +23,7 @@ const DatePage = lazyWithRetry(() => import('../dates'));
 const TeamPage = lazyWithRetry(() => import('../team'));
 const PageScreen = lazyWithRetry(() => import('../page')); // S7 page/
 const SwitchFlow = lazyWithRetry(() => import('../switch')); // S1 switch/
+const WelcomePage = lazyWithRetry(() => import('../switch/Welcome')); // Arc 1 7c
 const ChangeFlow = lazyWithRetry(() => import('../flows/change')); // S2 flows/change
 const AddFlow = lazyWithRetry(() => import('../flows/add')); // S3 flows/add
 const CancelFlow = lazyWithRetry(() => import('../flows/cancel')); // S3 flows/cancel
@@ -96,6 +97,7 @@ export default function OrganiserRoutes() {
           <Routes>
             <Route index element={<HomePage />} />
             <Route path="switch" element={<SwitchFlow />} />
+            <Route path="welcome" element={<WelcomePage />} />
 
             <Route path="change" element={<ChangeFlow step="event" />} />
             <Route path="change/:seriesId" element={<ChangeFlow step="date" />} />

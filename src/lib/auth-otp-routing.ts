@@ -87,20 +87,26 @@ export function shouldHonorReturnTo(input: {
   return !input.isSignupFlow || input.organiserSelfServe;
 }
 
+// Arc 1 flow 9a: the ONE sub line under "Welcome back" on every sign-in visit
+// (plain, with a returnTo, after a bounced link, from the Join tab): a new phone
+// or an ended session is the same person, and the account holds their pages.
+export const SIGN_IN_SUB = "Sign in with the email you used before.";
+
 // What /auth shows after /auth/callback bounced the visitor back with
 // `callbackError` (Lever 2 walk S5: an expired magic link used to land on the
 // plain sign-in form with no explanation). Unknown reasons show nothing.
 export function callbackErrorCopy(reason: string | null): string | null {
   switch (reason) {
+    // Arc 1 flow 9b: shorter words, the same three reasons ("run out" covers an
+    // expired and an already-used link alike).
     case "expired":
-      // Mockup 9b.
       return "That sign-in link has run out. Enter your email and we will send a new one.";
     case "invalid":
-      return "That link didn't work. Enter your email for a new one.";
+      return "That sign-in link did not work. Enter your email and we will send a new one.";
     case "timeout":
-      return "Sign-in took too long. Enter your email for a new link.";
+      return "Signing in took too long. Enter your email and we will send a new one.";
     case "manual":
-      return "Enter your email and we'll send you a sign-in link.";
+      return "To sign in, enter your email and we'll send you a link.";
     default:
       return null;
   }

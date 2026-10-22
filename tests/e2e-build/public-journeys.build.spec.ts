@@ -42,7 +42,7 @@ const END_BY_ROW: Record<string, { testId: string; absent?: string; label?: stri
   'organiser-link-organiser-signed-in': { testId: 'home-jobs', absent: 'org-onboarding' },
   'organiser-link-open-request-signed-in': { testId: 'onboarding-pending-row' },
   'signin-unfinished-dancer-with-organiser': { testId: 'home-jobs', absent: 'org-onboarding', label: 'Next: set up your organiser page' },
-  'team-invite-existing-dancer': { testId: 'home-jobs', absent: 'org-onboarding' },
+  'team-invite-existing-dancer': { testId: 'org-page-welcome', absent: 'org-onboarding' },
   // M71: the end card's own button (only the 'in' and 'nice' cards carry it), never a question card.
   'bookmark-app-welcome-finished': { testId: 'onboarding-home', text: 'Go to Home' },
 };

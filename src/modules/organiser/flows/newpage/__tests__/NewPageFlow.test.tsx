@@ -109,7 +109,8 @@ describe('organiser_invite_required (S-ERR)', () => {
     mount();
     fireEvent.click(await toCity());
     const refusal = await screen.findByTestId('onboarding-create-refusal');
-    expect(refusal.textContent).toContain('needs an invite from the Bachata Calendar team');
+    // Arc 1 flow 8a wording; with no email on the login (this harness) the support rows stand in for the ask.
+    expect(refusal.textContent).toContain('New pages are approved by hand during the beta.');
     expect(within(refusal).queryByTestId('onboarding-create-retry')).toBeNull();
     const wa = within(refusal).getByTestId('onboarding-create-support-whatsapp') as HTMLAnchorElement;
     expect(wa.getAttribute('href')).toBe('https://wa.me/447000000000');

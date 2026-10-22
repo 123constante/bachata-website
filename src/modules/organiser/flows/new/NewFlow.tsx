@@ -22,6 +22,8 @@ import {
 import { useNewSend } from './useNewSend';
 import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
 import { EventConflict } from '../event/parts';
+import { needsPagePick, withPageChoice } from './whichPageModel';
+import { WhichPageStep } from './WhichPage';
 import { goLivePath } from '@/modules/organiser/home/onboarding/golive/goLiveModel';
 import { profileQuestionsLeft } from '@/modules/organiser/home/onboarding/golive/profileLeft';
 
@@ -77,18 +79,27 @@ function NewConflict({ seriesId }: { seriesId: string }) {
 
 // ---- C19 what --------------------------------------------------------------------
 
-/** Page and Events open New event with `?o=<organiserId>`; the steps before the draft keep it. */
-const withOrganiser = (path: string, organiserId: string | null) =>
-  organiserId ? `${path}${path.includes('?') ? '&' : '?'}o=${encodeURIComponent(organiserId)}` : path;
+// Page and Events open New event with `?o=<organiserId>`; the steps before the draft keep it
+// (withPageChoice), and with 2 or more pages the page question comes first (Arc 1 flow 7b).
 
 function WhatStep() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const { home, organisers, selected } = useOrganiserChoice();
+  // Never flash the format rows at a login that is about to be asked which page.
+  if (home.isPending && !home.isPaused) {
+    return (
+      <OrganiserShell title={STEP_TITLE.what} back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-new-what">
+        <div className="p-[12px]"><SkeletonRows count={2} label="Loading" /></div>
+      </OrganiserShell>
+    );
+  }
+  if (needsPagePick(organisers.length, params)) return <WhichPageStep organisers={organisers} selectedId={selected?.id ?? null} />;
   return (
     <OrganiserShell title={STEP_TITLE.what} back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-new-what">
       <div className="flex flex-col gap-[12px] p-[12px]">
         {NEW_FORMATS.map((f) => (
-          <button key={f.format} type="button" className={ROW} data-testid={'org-new-format-' + f.format} onClick={() => navigate(withOrganiser(ORG_PATHS.newName(f.format), params.get('o')))}>
+          <button key={f.format} type="button" className={ROW} data-testid={'org-new-format-' + f.format} onClick={() => navigate(withPageChoice(ORG_PATHS.newName(f.format), params))}>
             {f.label}
           </button>
         ))}
@@ -148,7 +159,7 @@ function NameStep({ format }: { format: NewEventFormat }) {
     );
   }
   return (
-    <OrganiserShell title={STEP_TITLE.name} back={{ to: withOrganiser(ORG_PATHS.newWhat, params.get('o')), label: 'Back' }} testId="org-new-name-step">
+    <OrganiserShell title={STEP_TITLE.name} back={{ to: withPageChoice(ORG_PATHS.newWhat, params), label: 'Back' }} testId="org-new-name-step">
       <div className="flex flex-col gap-[12px] p-[12px]">{body}</div>
     </OrganiserShell>
   );
