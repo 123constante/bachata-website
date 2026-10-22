@@ -4,24 +4,35 @@ import { MapPin, Plus } from 'lucide-react';
 import { useVenueOptions, venueOptionsQueryKey, type VenueOption } from '../shared/publicVenues';
 import { ErrorState, Field, FIELD_CLASS, GhostButton, PrimaryButton, SearchField, useDebounced } from '../ui';
 import { createVenueDraft, draftVenueOption, similarVenues, VenueApiError, type CreatedVenue, type SimilarVenue } from './venueApi';
-import { lookupPostcode, mapPinUrl, normalisePostcode, POSTCODE_MESSAGES, type PostcodeFailure, type PostcodeFound, type PostcodeResult } from './postcode';
-import { searchVenues } from './venueSearch';
+import { lookupPostcode, mapPinUrl, normalisePostcode, POSTCODE_MESSAGES, type PostcodeFound, type PostcodeResult } from './postcode';
+import { addVenueBlock, currentLookup, MIN_NAME_LETTERS, similarKey, type LookupAnswer, type SimilarAnswer } from './addVenue';
+import { MIN_ADD_LETTERS, searchVenues } from './venueSearch';
 
 export interface VenuePickerDeps {
   lookup: (postcode: string) => Promise<PostcodeResult>;
   similar: (name: string, postcode: string) => Promise<SimilarVenue[]>;
   create: (name: string, place: PostcodeFound) => Promise<CreatedVenue>;
 }
+/** Prototype v7 name field `maxlength`. */
+const MAX_NAME = 60;
+const SIMILAR_DEBOUNCE_MS = 250;
 const realDeps: VenuePickerDeps = { lookup: lookupPostcode, similar: similarVenues, create: createVenueDraft };
+
+/**
+ * How a venue was picked from the add sheet. `existing`: "Add venue" matched a listed venue (same
+ * name + postcode) and picked it instead of creating one: the caller says ALREADY_LISTED. A tapped
+ * look-alike sends `existing: false`; a pick from the search list sends no info.
+ */
+export interface VenuePickInfo {
+  existing: boolean;
+}
 
 export interface VenuePickerProps {
   /** Venues to search; defaults to the organiser venue list. */
   options?: readonly VenueOption[];
-  onPick: (venue: VenueOption) => void;
+  onPick: (venue: VenueOption, info?: VenuePickInfo) => void;
   deps?: VenuePickerDeps;
 }
-
-type Step = 'search' | 'details' | 'similar' | 'confirm';
 
 const SAVE_ERRORS: Record<VenueApiError['kind'], string> = {
   rate_limited: 'You can add 5 venues a day. Try again tomorrow, or pick an existing venue.',
@@ -30,36 +41,38 @@ const SAVE_ERRORS: Record<VenueApiError['kind'], string> = {
   failed: 'We could not add that venue. Check your connection and try again.',
 };
 
-/** Search venues; "+ Add a new venue" (2+ letters) opens name + postcode, the similar-venue check, then Add venue. */
+/**
+ * Search venues; "+ Add a new venue" (2+ letters) opens ONE sheet (prototype v7): name +
+ * postcode, the postcode looked up as soon as it is whole, look-alikes inline, one "Add venue".
+ */
 export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerProps) {
   const loaded = useVenueOptions();
   const loadedData = loaded.data;
   const all = useMemo(() => options ?? loadedData ?? [], [options, loadedData]);
-  const [step, setStep] = useState<Step>('search');
+  const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState('');
   const [name, setName] = useState('');
   const [postcode, setPostcode] = useState('');
-  const [place, setPlace] = useState<PostcodeFound | null>(null);
-  const [failure, setFailure] = useState<PostcodeFailure | null>(null);
-  const [similar, setSimilar] = useState<SimilarVenue[]>([]);
+  const [attempt, setAttempt] = useState(0);
+  const [lookup, setLookup] = useState<LookupAnswer | null>(null);
+  const [similar, setSimilar] = useState<SimilarAnswer | null>(null);
+  // The look-alike key "No, it's a new venue" answered: a new name or postcode asks again.
+  const [sureKey, setSureKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  const firstStep = useRef(true);
+  const firstView = useRef(true);
 
-  // Each step unmounts the button that opened it: move focus to the new step's first field or heading.
+  // Switching view unmounts the button that opened it: move focus to the new view's first field.
   useEffect(() => {
-    if (firstStep.current) {
-      firstStep.current = false;
+    if (firstView.current) {
+      firstView.current = false;
       return;
     }
-    if (step === 'details') nameRef.current?.focus();
-    else if (step === 'similar' || step === 'confirm') headingRef.current?.focus();
-    else searchRef.current?.focus();
-  }, [step]);
+    (adding ? nameRef : searchRef).current?.focus();
+  }, [adding]);
 
   // Details and Dates name the venue from this cache: a venue picked from outside it goes in at once.
   const remember = (venue: VenueOption) => {
@@ -68,61 +81,87 @@ export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerPro
     else if (!cached.some((o) => o.id === venue.id)) queryClient.setQueryData<VenueOption[]>(venueOptionsQueryKey, [...cached, venue]);
   };
 
-  const settled = useDebounced(query, options ? 0 : 250);
+  const delay = options ? 0 : 250;
+  const settled = useDebounced(query, delay);
   const search = useMemo(() => searchVenues(all, settled), [all, settled]);
-  // Editing the postcode invalidates an earlier lookup.
-  const editPostcode = (value: string) => {
-    setPostcode(value);
-    setPlace(null);
-    setFailure(null);
-  };
+
+  // The postcode is looked up as soon as it is whole; an answer for an older postcode is dropped.
+  const shaped = adding ? normalisePostcode(postcode) : null;
+  // Read deps through a ref: a caller passing them inline must not re-run the calls on every render.
+  const depsRef = useRef(deps);
+  useEffect(() => {
+    depsRef.current = deps;
+  });
+  useEffect(() => {
+    if (!shaped) return;
+    let live = true;
+    depsRef.current
+      .lookup(shaped)
+      .catch((): PostcodeResult => ({ ok: false, failure: 'offline' }))
+      .then((res) => {
+        if (live) setLookup({ postcode: shaped, attempt, found: 'found' in res ? res.found : null, failure: 'found' in res ? null : res.failure });
+      });
+    return () => {
+      live = false;
+    };
+  }, [shaped, attempt]);
+
+  const answer = currentLookup({ postcode, attempt, lookup });
+  const place = answer?.found ?? null;
+  // Look-alikes are asked once the name settles; Add waits for the answer to the name on screen.
+  // Fixed, not tied to `options`: the look-alike check is a network call whatever list is searched.
+  const settledName = useDebounced(name, SIMILAR_DEBOUNCE_MS);
+  const askKey = similarKey(settledName, place);
+  const askName = settledName.trim();
+  const askPostcode = place?.postcode ?? '';
+  useEffect(() => {
+    if (!askKey) return;
+    let live = true;
+    depsRef.current
+      .similar(askName, askPostcode)
+      .catch(() => [] as SimilarVenue[]) // the check is advice; the server still refuses an exact duplicate
+      .then((rows) => {
+        if (live) setSimilar({ key: askKey, rows });
+      });
+    return () => {
+      live = false;
+    };
+  }, [askKey, askName, askPostcode]);
+
+  const lookalikes = similar && similar.key === askKey ? similar.rows : [];
+  // "No" answers the list ON SCREEN (askKey). Add also needs that list to be for the name typed now.
+  const sure = sureKey !== null && sureKey === similarKey(name, place);
+  const block = addVenueBlock({ name, postcode, attempt, lookup, similar, sure });
 
   const startAdd = () => {
-    setName(query.trim());
-    setStep('details');
-  };
-
-  const findPostcode = async () => {
-    setBusy(true);
-    setFailure(null);
-    const res = await deps.lookup(postcode);
-    setBusy(false);
-    if ('found' in res) setPlace(res.found);
-    else setFailure(res.failure);
-  };
-
-  const checkSimilar = async () => {
-    if (!place) return;
-    setBusy(true);
-    let rows: SimilarVenue[] = [];
-    try {
-      rows = await deps.similar(name, place.postcode);
-    } catch {
-      rows = []; // the check is advice; the server still refuses an exact duplicate
-    }
-    setBusy(false);
-    setSimilar(rows);
-    setStep(rows.length ? 'similar' : 'confirm');
+    setName(query.trim().slice(0, MAX_NAME));
+    setPostcode('');
+    setAttempt(0);
+    setLookup(null);
+    setSimilar(null);
+    setSureKey(null);
+    setSaveError(null);
+    setAdding(true);
   };
 
   const pickSimilar = (v: SimilarVenue) => {
     const venue = { id: v.venueId, name: v.name, neighbourhood: null, city_name: null, address: null, postcode: v.postcode };
     remember(venue);
-    onPick(venue);
+    onPick(venue, { existing: false });
   };
 
   const add = async () => {
-    if (!place) return;
+    if (!place || block) return;
     setBusy(true);
     setSaveError(null);
     try {
       const made = await deps.create(name, place);
       const known = made.existing ? all.find((v) => v.id === made.venueId) : undefined;
       // existing:true carries no name: the similar check returned the stored one, so the typed casing never shows.
-      const stored = made.existing ? similar.find((v) => v.venueId === made.venueId)?.name : undefined;
+      const stored = made.existing ? lookalikes.find((v) => v.venueId === made.venueId)?.name : undefined;
       const venue = known ?? draftVenueOption(made.venueId, stored ?? name, place);
       remember(venue);
-      onPick(venue);
+      onPick(venue, { existing: made.existing });
     } catch (e) {
       setSaveError(SAVE_ERRORS[e instanceof VenueApiError ? e.kind : 'failed']);
     } finally {
@@ -130,13 +169,16 @@ export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerPro
     }
   };
 
-  if (step === 'search') {
+  if (!adding) {
+    const typed = query.trim();
     return (
       <div className="space-y-[12px]" data-testid="venue-picker">
         <SearchField ref={searchRef} value={query} onChange={setQuery} aria-label="Search venues" placeholder="Venue name or postcode" testId="venue-search" autoFocusInSheet />
         {loaded.isError && !options && <ErrorState quiet title="Venues did not load" onRetry={() => void loaded.refetch()} testId="venue-load-error" />}
         {search.shape === 'none' && (
-          <p className="text-[14px] text-[var(--mut)]" data-testid="venue-none">No venue matches &ldquo;{query.trim()}&rdquo;.</p>
+          <p className="text-[14px] text-[var(--mut)]" data-testid="venue-none">
+            No venue matches &ldquo;{typed}&rdquo;.{!search.canAdd && ` Type ${MIN_ADD_LETTERS}+ letters to add a venue.`}
+          </p>
         )}
         {search.results.length > 0 && (
           <ul className="space-y-[8px]" data-testid="venue-results" data-shape={search.shape}>
@@ -163,60 +205,47 @@ export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerPro
     );
   }
 
-  if (step === 'details') {
-    const shaped = normalisePostcode(postcode) !== null;
-    return (
-      <div className="space-y-[12px]" data-testid="venue-details">
-        <Field label="Venue name" htmlFor="venue-name">
-          <input id="venue-name" ref={nameRef} className={`${FIELD_CLASS} h-[48px]`} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
-        </Field>
-        <Field label="Postcode" htmlFor="venue-postcode" error={failure === 'bad' ? POSTCODE_MESSAGES.bad : failure === 'not_found' ? POSTCODE_MESSAGES.not_found : null}>
-          <input id="venue-postcode" className={`${FIELD_CLASS} h-[48px] uppercase`} value={postcode} onChange={(e) => editPostcode(e.target.value)} autoComplete="postal-code" />
-        </Field>
-        {failure === 'offline' && <ErrorState quiet title="Postcode lookup failed" body={POSTCODE_MESSAGES.offline} onRetry={() => void findPostcode()} retrying={busy} testId="postcode-offline" />}
-        {place ? (
-          <div className="space-y-[8px]" data-testid="postcode-found">
-            <p className="text-[14px] text-[var(--fg)]">{[place.address, place.postcode].filter(Boolean).join(', ')}</p>
-            <iframe title="Map pin" src={mapPinUrl(place.lat, place.lng)} loading="lazy" className="h-[140px] w-full rounded-[12px] border-0" />
-            <PrimaryButton onClick={() => void checkSimilar()} loading={busy} loadingLabel="Checking" disabled={name.trim().length < 2} testId="venue-next">Next</PrimaryButton>
-            {name.trim().length < 2 && <p className="text-[13px] text-[var(--mut)]">Venue name needed</p>}
-          </div>
-        ) : (
-          <PrimaryButton onClick={() => void findPostcode()} loading={busy} loadingLabel="Looking up" disabled={!shaped} testId="postcode-find">Look up postcode</PrimaryButton>
-        )}
-        {!place && !shaped && <p className="text-[13px] text-[var(--mut)]">Full UK postcode needed</p>}
-        <GhostButton onClick={() => setStep('search')}>Back to search</GhostButton>
-      </div>
-    );
-  }
-
-  if (step === 'similar') {
-    return (
-      <div className="space-y-[12px]" data-testid="venue-similar">
-        <h3 ref={headingRef} tabIndex={-1} className="text-[16px] font-semibold text-[var(--fg)] outline-none">Is it one of these?</h3>
-        <ul className="space-y-[8px]">
-          {similar.map((v) => (
-            <li key={v.venueId}>
-              <button type="button" onClick={() => pickSimilar(v)} className="flex min-h-[56px] w-full flex-col justify-center rounded-[12px] bg-[var(--card2)] px-[12px] text-left" data-testid="similar-venue">
-                <span className="text-[16px] font-semibold text-[var(--fg)]">{v.name}</span>
-                {v.postcode && <span className="text-[13px] text-[var(--mut)]">{v.postcode}</span>}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <GhostButton onClick={() => setStep('confirm')} testId="similar-none">No, it&rsquo;s a new venue</GhostButton>
-        <GhostButton onClick={() => setStep('details')}>Back</GhostButton>
-      </div>
-    );
-  }
-
+  const failure = answer?.failure ?? null;
+  const asking = lookalikes.length > 0 && sureKey !== askKey;
+  const trimmed = name.trim();
   return (
-    <div className="space-y-[12px]" data-testid="venue-confirm">
-      <h3 ref={headingRef} tabIndex={-1} className="text-[16px] font-semibold text-[var(--fg)] outline-none">{name.trim()}</h3>
-      {place && <p className="text-[14px] text-[var(--mut)]">{[place.address, place.postcode].filter(Boolean).join(', ')}</p>}
+    <div className="space-y-[12px]" data-testid="venue-add-sheet">
+      <Field label="Venue name" htmlFor="venue-name">
+        <input id="venue-name" ref={nameRef} className={`${FIELD_CLASS} h-[48px]`} value={name} onChange={(e) => setName(e.target.value)} disabled={busy} maxLength={MAX_NAME} autoComplete="off" />
+      </Field>
+      <Field label="Postcode" htmlFor="venue-postcode" error={failure === 'not_found' ? POSTCODE_MESSAGES.not_found : null}>
+        <input id="venue-postcode" className={`${FIELD_CLASS} h-[48px] uppercase`} value={postcode} onChange={(e) => setPostcode(e.target.value)} placeholder="SW12 9HD" disabled={busy} maxLength={10} autoComplete="postal-code" />
+      </Field>
+      {failure === 'offline' && <ErrorState quiet title="Postcode lookup failed" body={POSTCODE_MESSAGES.offline} onRetry={() => setAttempt((n) => n + 1)} testId="postcode-offline" />}
+      {asking && (
+        <div className="space-y-[8px]" data-testid="venue-similar" role="group" aria-labelledby="venue-similar-title">
+          <p id="venue-similar-title" className="text-[14px] font-semibold text-[var(--fg)]">Is it one of these?</p>
+          <ul className="space-y-[8px]">
+            {lookalikes.map((v) => (
+              <li key={v.venueId}>
+                <button type="button" onClick={() => pickSimilar(v)} disabled={busy} className="flex min-h-[56px] w-full flex-col justify-center rounded-[12px] bg-[var(--card2)] px-[12px] text-left" data-testid="similar-venue">
+                  <span className="text-[16px] font-semibold text-[var(--fg)]">{v.name}</span>
+                  {v.postcode && <span className="text-[13px] text-[var(--mut)]">{v.postcode}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <GhostButton onClick={() => setSureKey(askKey)} disabled={busy} testId="similar-none">No, it&rsquo;s a new venue</GhostButton>
+        </div>
+      )}
+      {place && !asking && (
+        <div className="space-y-[8px]" data-testid="postcode-found">
+          <iframe title="Map pin" src={mapPinUrl(place.lat, place.lng)} loading="lazy" className="h-[140px] w-full rounded-[12px] border-0" />
+          <p className="text-[14px] text-[var(--fg)]">
+            {trimmed.length >= MIN_NAME_LETTERS && <><b>{trimmed}</b>{' '}</>}
+            <span className="text-[var(--mut)]">{[place.area, place.postcode].filter(Boolean).join(', ')}</span>
+          </p>
+        </div>
+      )}
       {saveError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="venue-save-error">{saveError}</p>}
-      <PrimaryButton onClick={() => void add()} loading={busy} loadingLabel="Adding" testId="venue-add">Add venue</PrimaryButton>
-      <GhostButton onClick={() => setStep('details')}>Back</GhostButton>
+      <PrimaryButton onClick={() => void add()} loading={busy} loadingLabel="Adding" disabled={!!block} aria-describedby={block ? 'venue-add-reason' : undefined} testId="venue-add">Add venue</PrimaryButton>
+      <p id="venue-add-reason" aria-live="polite" className={block ? 'text-[13px] text-[var(--mut)]' : 'sr-only'} data-testid="venue-add-reason">{block ?? ''}</p>
+      <GhostButton onClick={() => setAdding(false)} disabled={busy} testId="venue-back">Back to search</GhostButton>
     </div>
   );
 }
