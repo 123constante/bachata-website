@@ -17,7 +17,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
 vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-10-08' }));
 
 import NewFlow from '../NewFlow';
-import { WHICH_PAGE_TITLE, needsPagePick } from '../whichPage';
+import { WHICH_PAGE_TITLE, needsPagePick } from '../whichPageModel';
 import { ORG_PATHS } from '../../../shell/paths';
 
 const page = (id: string, name: string) => ({ ...home().organisers[0], id, name });

@@ -7,7 +7,7 @@ import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
 import { declinedRequests } from '@/modules/organiser/shared/accessRequestModel';
 import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, useDebounced } from '../../ui';
 import { askedOn, rowAction } from './onboardingModel';
-import { hintRowText } from './claimStates';
+import { askedToJoinDone, hintRowText } from './claimStates';
 import { ORG_PATHS } from '../../shell/paths';
 import { goDone } from '../../flows/doneState';
 import { OrganiserSheet, type SheetTask } from './OrganiserSheet';
@@ -73,10 +73,10 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
   };
   // Ask to join ends on the shared Done screen (D29); a new page lands on Home (C1b).
   const requested = (org: ClaimCandidate) => {
-    const message = `Asked to join ${org.name}`;
+    const done = askedToJoinDone(org.name);
     setTask(null);
-    onChanged(message);
-    goDone(navigate, { title: message, message, seriesId: null });
+    onChanged(done.title);
+    goDone(navigate, { ...done, seriesId: null });
   };
   const created = (page: { name: string }) => {
     setTask(null);

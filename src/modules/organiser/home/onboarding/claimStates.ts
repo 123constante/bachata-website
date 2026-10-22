@@ -66,3 +66,9 @@ export function claimScreen(hint: ClaimHint | null, name: string): ClaimScreen {
   const c = copyFor(hint);
   return { screen: c.screen, title: c.title(name), sub: c.sub, primary: c.primary, primaryLabel: PRIMARY_LABEL[c.primary], notThisOne: c.primary !== 'home' };
 }
+
+/** The Done screen after "Ask to join <page>": the title says what happened, the message what happens next (never the same sentence twice). */
+export const askedToJoinDone = (pageName: string): { title: string; message: string } => ({
+  title: `Asked to join ${pageName}`,
+  message: 'We will check your request and the page team will be in touch.',
+});

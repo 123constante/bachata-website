@@ -30,7 +30,8 @@ import { REAL_WRITERS, invalidateAfterAnswer, saveAnswer, type WizardWriters } f
 import { WizardEnvContext } from '../../../wizard/wizardEnv';
 import {
   ALL_SET_TITLE, ALMOST_LIVE_TITLE, BACK_LABEL, CONTINUE_LABEL, GO_LIVE_LABEL, NOT_NOW_LABEL, NOT_YET_LABEL,
-  CHECKING_REASON, EVENT_FAILED_REASON, EVENT_LOADING_REASON, GAPS_TITLE, RETRY_LABEL, goLiveGaps,
+  EVENT_FAILED_REASON, LOAD_TIMEOUT_MS, EVENT_LOADING_REASON, GAPS_TITLE, RETRY_LABEL, TRY_AGAIN_LABEL, goLiveView, notYetLine, goLiveGaps,
+  type CheckAnswer,
   SECTION_LABEL, allSetLine, almostLiveLine, openQuestions, sectionOf, stepInSection, stepKey, mineFor,
 } from './goLiveModel';
 
@@ -73,8 +74,6 @@ function Hero({ title, line }: { title: string; line: string }) {
   );
 }
 
-const EMPTY_CHECK: GoLiveCheck = { ready: true, eventMissing: [], recommended: [], profileRuleApplies: false, profileMissing: [] };
-
 export interface GoLiveFlowProps {
   writers?: WizardWriters;
   uploadLogo?: (organiserId: string, file: File) => Promise<string>;
@@ -115,18 +114,26 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
     returnTo: organiserId ? `${ORG_PATHS.goLive}?o=${encodeURIComponent(organiserId)}${seriesId ? `&series=${encodeURIComponent(seriesId)}` : ''}` : ORG_PATHS.goLive,
   }), [organiserId, seriesId, uploadLogo]);
 
-  const [refused, setRefused] = useState<GoLiveCheck | null>(null);
+  const [refused, setRefused] = useState<{ check: GoLiveCheck; at: number } | null>(null);
+  const [notYet, setNotYet] = useState<string | null>(null);
   const check = useGoLiveCheck(seriesId ?? '', phase === 'done');
   useEffect(() => { if (seriesId) void qc.invalidateQueries({ queryKey: goLiveCheckQueryKey(seriesId) }); }, [qc, seriesId]);
   const flow = useFlowSend(seriesId ?? '', (err) => {
     const r = goLiveRefusal(err);
     if (!r) return null;
-    setRefused(r);
+    if (seriesId) {
+      setRefused({ check: r, at: Date.now() });
+      setNotYet(notYetLine(goLiveGaps(r, seriesId, organiserId)));
+      void qc.invalidateQueries({ queryKey: goLiveCheckQueryKey(seriesId) });
+    }
     return 'Not ready to go live yet.';
   });
-  // What the server still wants: the refusal's own list wins (it is the latest), else the fresh check.
-  const gaps = seriesId ? goLiveGaps(refused ?? (check.data && !check.data.ready ? check.data : { ...EMPTY_CHECK }), seriesId, organiserId) : [];
-  const checking = !!seriesId && !refused && check.isPending && phase === 'done';
+  // A check fetched after the refusal is newer than it; until then the refusal's own list is the latest word.
+  const refusalIsLatest = !!refused && check.dataUpdatedAt < refused.at;
+  const answerNow: CheckAnswer = refusalIsLatest ? { status: 'ok', check: refused!.check }
+    : check.data ? { status: 'ok', check: check.data } : check.isError ? { status: 'failed' } : { status: 'loading' };
+  const view = goLiveView(answerNow, seriesId ? eventName : null, seriesId ?? '', organiserId);
+  const gaps = seriesId ? view.gaps : [];
 
   const goHome = () => navigate(ORG_PATHS.home);
   const move = (to: Phase, d: Dir, index = at) => { setDir(d); setPhase(to); setAt(index); setError(null); };
@@ -141,7 +148,7 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
     const outcome = await saveAnswer(entry, value, { sources, organiserId, writers, onDancerSaved: (next) => afterDancerSave(qc, userId, next) });
     setSaving(false);
     if (outcome.kind === 'failed') { setError(outcome.message); return; }
-    if (outcome.kind === 'saved') invalidateAfterAnswer(qc, s.area, organiserId, userId);
+    if (outcome.kind === 'saved') await invalidateAfterAnswer(qc, s.area, organiserId, userId);
     if (at + 1 >= total) move('done', 'forward', total);
     else move('question', 'forward', at + 1);
   };
@@ -155,6 +162,7 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
 
   const liveNow = async () => {
     if (!ws.data || !seriesId) return;
+    setNotYet(null);
     await flow.run(async () => {
       const r = await flow.send(seriesId, ws.data!.series.version, lifecycleCommand('live'));
       void qc.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
@@ -162,16 +170,25 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
     });
   };
 
-  if (flow.conflict && seriesId) return <EventConflict seriesId={seriesId} />;
   const failed = progress.isError || dancer.isError || (!!organiserId && (entity.isError || contact.isError));
   const loading = !failed && (!phase || !questions || !dancer.data || (!!organiserId && (!entity.data || !contact.data)));
+  // A bounded wait: a read that never answers ends in "Try again", never in grey bars for good.
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    if (!loading) { setStuck(false); return undefined; }
+    const t = setTimeout(() => setStuck(true), LOAD_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [loading]);
+  if (flow.conflict && seriesId) return <EventConflict seriesId={seriesId} />;
 
   // Why Go live is off, always said: the event is loading or failed, or the server is still being asked.
-  const blockReason = ws.isError ? EVENT_FAILED_REASON : !ws.data ? EVENT_LOADING_REASON : checking ? CHECKING_REASON : null;
+  const blockReason = ws.isError ? EVENT_FAILED_REASON : !ws.data ? EVENT_LOADING_REASON : view.reason;
 
   let body: ReactNode;
   if (failed) {
     body = <ErrorState title="Your profile did not load" onRetry={() => { void progress.refetch(); void dancer.refetch(); void entity.refetch(); void contact.refetch(); }} retrying={progress.isFetching} testId="golive-error" />;
+  } else if (loading && stuck) {
+    body = <ErrorState title="Your profile is taking too long" onRetry={() => { setStuck(false); void progress.refetch(); void dancer.refetch(); void entity.refetch(); void contact.refetch(); }} retrying={progress.isFetching || entity.isFetching} testId="golive-stuck" />;
   } else if (loading) {
     body = <SkeletonRows count={3} label="Loading your questions" testId="golive-loading" />;
   } else if (phase === 'bridge') {
@@ -212,7 +229,7 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
   } else {
     body = (
       <Slide id="done" dir={dir}>
-        <Hero title={ALL_SET_TITLE} line={allSetLine(seriesId ? eventName : null)} />
+        <Hero title={seriesId ? view.title : ALL_SET_TITLE} line={seriesId ? view.line : allSetLine(null)} />
         {gaps.length > 0 && (
           <div data-testid="golive-gaps" className="space-y-[8px] rounded-[12px] border border-[var(--line)] p-[12px]">
             <h3 className="text-[15px] font-bold text-[var(--fg)]">{GAPS_TITLE}</h3>
@@ -225,13 +242,15 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
             </ul>
           </div>
         )}
-        {flow.error && gaps.length === 0 && <p role="alert" className="text-[14px] text-[var(--warn-fg)]" data-testid="golive-live-error">{flow.error}</p>}
+        {notYet && <p role="alert" className="text-[14px] font-semibold text-[var(--warn-fg)]" data-testid="golive-not-yet-line">{notYet}</p>}
+        {flow.error && gaps.length === 0 && !notYet && <p role="alert" className="text-[14px] text-[var(--warn-fg)]" data-testid="golive-live-error">{flow.error}</p>}
         <div className="space-y-[8px]">
           {seriesId ? (
             <>
-              {blockReason && <p role="status" data-testid="golive-live-reason" className="text-[14px] text-[var(--mut)]">{blockReason}</p>}
+              {blockReason && <p id="golive-live-reason" role="status" data-testid="golive-live-reason" className="text-[14px] text-[var(--mut)]">{blockReason}</p>}
+              {view.canRetry && !ws.isError && <GhostButton testId="golive-check-retry" onClick={() => void check.refetch()}>{TRY_AGAIN_LABEL}</GhostButton>}
               {ws.isError && <GhostButton testId="golive-live-retry" onClick={() => void ws.refetch()}>{RETRY_LABEL}</GhostButton>}
-              <PrimaryButton testId="golive-live" loading={flow.busy} loadingLabel="Going live" disabled={!!blockReason} onClick={() => void liveNow()}>{GO_LIVE_LABEL}</PrimaryButton>
+              <PrimaryButton testId="golive-live" loading={flow.busy} loadingLabel="Going live" disabled={!!blockReason} aria-describedby={blockReason ? 'golive-live-reason' : undefined} onClick={() => void liveNow()}>{GO_LIVE_LABEL}</PrimaryButton>
               <GhostButton testId="golive-not-yet" onClick={goHome}>{NOT_YET_LABEL}</GhostButton>
             </>
           ) : (

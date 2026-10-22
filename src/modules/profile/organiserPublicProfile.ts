@@ -78,6 +78,8 @@ export async function fetchOwnOrganiserEntity(id: string) {
   return readOrganiserEntity(id, false);
 }
 
+export const CITY_NAME_TIMEOUT_MS = 3000;
+
 async function readOrganiserEntity(id: string, publicOnly: boolean) {
   if (!id) throw new Error('Entity ID is required');
   let query = supabase
@@ -93,12 +95,13 @@ async function readOrganiserEntity(id: string, publicOnly: boolean) {
   if (!data) return null;
   let city = null;
   if (data.city_id) {
-    const { data: cityData } = await supabase
-      .from('cities')
-      .select('name, slug')
-      .eq('id', data.city_id)
-      .maybeSingle();
-    city = cityData;
+    // The name is garnish: slow or failed, the entity still resolves (cities: null) so a screen is never held on it.
+    const lookup = Promise.resolve(supabase.from('cities').select('name, slug').eq('id', data.city_id).maybeSingle())
+      .then((r) => r.data ?? null, () => null);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), CITY_NAME_TIMEOUT_MS); });
+    city = await Promise.race([lookup, late]);
+    clearTimeout(timer);
   }
   return { ...data, cities: city };
 }
