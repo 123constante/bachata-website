@@ -93,7 +93,8 @@ for (const viewport of [PHONE, SHORT]) {
     test('an unfinished dancer profile: /account is the gated Finish screen', async ({ page }) => {
       await openDancer(page, '/account');
       await expectGated(page, '/account');
-      await expect(page.getByText('Still to add: dance role.')).toBeVisible();
+      // Arc 1 dancer 4: one question per screen; only the missing field is asked.
+      await expect(page.getByTestId('dancer4-progress')).toHaveText('Step 1 of 1');
       await expect(page.getByRole('radiogroup')).toBeVisible();
       await page.waitForTimeout(400);
       expect(await shortControls(page, 'main form')).toEqual([]);
@@ -137,11 +138,11 @@ test.describe('flows @390', () => {
   test('gated dancer: untouched sends nothing; a save lands on the dancer home, complete', async ({ page }) => {
     const { saves } = await openDancer(page, '/account');
     await expectGated(page, '/account');
-    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
-    await expect(page.getByText('Fill in at least one field above to save.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Finish' })).toBeDisabled();
+    await expect(page.getByTestId('dancer4-reason')).toHaveText('Pick one');
     expect(saves).toEqual([]);
     await page.getByRole('radio', { name: /Leader/ }).first().click();
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('button', { name: 'Finish' }).click();
     await expect(page).toHaveURL(/\/account$/);
     await expect(page.getByTestId('dancer-home-completeness')).toHaveText('Your profile is complete. You can rate parties now.');
     expect(saves).toHaveLength(1);
@@ -172,7 +173,7 @@ test.describe('flows @390', () => {
     await expectNoHorizontalScroll(page);
     await page.screenshot({ path: 'test-results/organiser-dancer-gate.png', fullPage: false });
     await page.getByRole('radio', { name: /Follower/ }).first().click();
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('button', { name: 'Finish' }).click();
     await expect(page).toHaveURL(/\/account\/o$/);
     await expect(page.getByTestId('org-page-home')).toBeVisible();
     await expect(page.getByTestId('org-dancer-row')).toHaveCount(0);
@@ -202,19 +203,23 @@ test.describe('flows @390', () => {
     await page.screenshot({ path: 'test-results/dancer-profile-for-organiser.png', fullPage: false });
   });
 
-  test('a brand-new account: the account icon goes to the gate, asking all four fields', async ({ page }) => {
-    await openDancer(page, '/vendors/header-account-probe', { row: { ...STUB } });
+  test('a brand-new account: the account icon goes to the gate, asking all four questions one per screen', async ({ page }) => {
+    const { saves } = await openDancer(page, '/vendors/header-account-probe', { row: { ...STUB } });
     await page.getByTestId('header-account-link').click();
     await expectGated(page, '/account');
-    await expect(page.getByText('Still to add: first name, city, dance role, photo.')).toBeVisible();
+    await expect(page.getByTestId('dancer4-progress')).toHaveText('Step 1 of 4');
+    await expect(page.getByTestId('dancer4-title')).toHaveText('Your first name');
     await expect(page.getByLabel('First name')).toBeVisible();
-    await expect(page.getByRole('radiogroup')).toBeVisible();
-    await expect(page.getByText('Your city', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText('Photo', { exact: true })).toBeVisible();
-    // A part-save keeps them on the gate, naming what is left.
+    await expect(page.getByRole('radiogroup')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
+    // Each Next saves that answer and opens the next question; the person stays on the gate.
     await page.getByLabel('First name').fill('Sam');
-    await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByText('Saved. Still to add: city, dance role, photo.')).toBeVisible();
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByTestId('dancer4-title')).toHaveText('Which city do you dance in?');
+    await expect(page.getByTestId('dancer4-progress')).toHaveText('Step 2 of 4');
+    await expect(page.getByLabel('Search for your city')).toBeVisible();
+    await expect(page.getByTestId('dancer4-reason')).toHaveText('Pick your city');
+    expect(saves).toEqual([{ first_name: 'Sam' }]);
     await expect(page).toHaveURL(/\/finish-profile\?returnTo=%2Faccount$/);
     await page.waitForTimeout(400);
     await expectNoHorizontalScroll(page);

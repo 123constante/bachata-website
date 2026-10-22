@@ -12,6 +12,10 @@ export const shortDate = (iso: string, today: string): string => calendarDate(is
 /** C1b: the page is on its first steps (homeJobs gave the first-steps list). */
 export const isFirstSteps = (jobs: readonly Job[]): boolean => jobs.some((j) => j.kind === 'create_first_event');
 
+/** D83: the heading over the numbered jobs, and what the list says when there are none (names the button below). */
+export const TODO_HEADING = 'Your to-do list';
+export const TODO_EMPTY = 'Nothing to do right now. To put something on, tap New event below.';
+
 /** The two rows of two small buttons under New event (D36, D38), in reading order. */
 export const SMALL_BUTTONS: readonly { label: string; to: string }[] = [
   { label: 'Team', to: ORG_PATHS.team },

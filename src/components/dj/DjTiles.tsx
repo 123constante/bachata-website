@@ -166,29 +166,18 @@ export function DjHero({ name, photoUrl, cityName, nationality, nationalityCode,
                 background: 'conic-gradient(from 200deg,#FBEFC4,#E7BE6E 40%,#D2A350 70%,#FBEFC4)',
                 boxShadow: 'inset 0 0 12px rgba(0,0,0,0.25)',
               }}
-              className="flex items-center justify-center"
-            >
-              <span style={{ color: '#0C0A0D', fontWeight: 800, fontSize: 17, letterSpacing: '0.12em' }}>
-                {initials(name)}
-              </span>
-            </div>
-          ) : null}
-          {!photoUrl ? (
-            <div
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                width: 9,
-                height: 9,
-                margin: -4.5,
-                borderRadius: '50%',
-                background: '#0A080B',
-                boxShadow: '0 0 0 1px rgba(231,190,110,0.4)',
-              }}
             />
           ) : null}
         </div>
+        {/* initials sit OUTSIDE the spinning disc so the text stays still; no spindle dot
+            over them (review 7a) */}
+        {!photoUrl ? (
+          <div style={{ position: 'absolute', inset: '32%' }} className="flex items-center justify-center">
+            <span style={{ color: '#0C0A0D', fontWeight: 800, fontSize: 17, letterSpacing: '0.12em' }}>
+              {initials(name)}
+            </span>
+          </div>
+        ) : null}
         {photoUrl ? (
           <div
             style={{

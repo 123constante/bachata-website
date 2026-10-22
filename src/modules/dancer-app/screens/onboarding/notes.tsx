@@ -1,9 +1,8 @@
-import type { CSSProperties } from 'react';
 import { NOT_ME_MESSAGE, dancerMessageUsUrl } from '../../api/messageUs';
-import { wrap } from './ui';
+import { WRAP } from './ui';
 
 /** Inline links still get a 44px tap target. */
-const tapLink: CSSProperties = { textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: 44 };
+const TAP_LINK = 'inline-flex min-h-[44px] items-center underline';
 
 /**
  * Shown on the first card only, and only for a profile we linked from an admin-made one.
@@ -13,10 +12,10 @@ const tapLink: CSSProperties = { textDecoration: 'underline', display: 'inline-f
 const FirstCardNotes = ({ linked }: { linked: boolean }) => {
   if (!linked) return null;
   return (
-    <div style={{ ...wrap, fontSize: 13, marginTop: 12 }} className="da-muted" data-testid="onboarding-first-notes">
-      <p data-testid="onboarding-linked-notice" style={{ margin: 0 }}>
+    <div className={`${WRAP} mt-[12px] text-[13px] text-[var(--mut)]`} data-testid="onboarding-first-notes">
+      <p data-testid="onboarding-linked-notice" className="m-0">
         We linked your existing profile. Not you?{' '}
-        <a href={dancerMessageUsUrl(NOT_ME_MESSAGE)} target="_blank" rel="noopener noreferrer" style={tapLink}>
+        <a href={dancerMessageUsUrl(NOT_ME_MESSAGE)} target="_blank" rel="noopener noreferrer" className={TAP_LINK}>
           Message us
         </a>
         .

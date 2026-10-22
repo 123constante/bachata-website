@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
 import { pickEventCoverSource } from "@/lib/eventCoverImage";
 import { wordForStored, type CategoryWord } from "@/lib/eventCategory";
+import { isAllowedOgImageSource } from "./ogImageSourceAllowlist";
 import { asWallClock, formatWallClockLocalIntl, wallClockDateKey, type WallClock } from "@/lib/time/wallClock";
 import { fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import interSemiBoldUrl from "./ogCardFonts/Inter-SemiBold.ttf";
@@ -580,11 +581,16 @@ export function formatOgDate(wc: WallClock | null): string | null {
   );
 }
 
+// The ONE server-side image fetch for both /api/og/card and /api/og/bake, so
+// the SSRF allow-list lives here: a refused source returns null without ever
+// calling fetch, and redirect "error" stops an allowed host bouncing the
+// request somewhere else (ogImageSourceAllowlist.ts).
 export async function fetchImageBytes(url: string): Promise<Buffer | null> {
+  if (!isAllowedOgImageSource(url)) return null;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 5000);
   try {
-    const r = await fetch(url, { signal: ctrl.signal });
+    const r = await fetch(url, { signal: ctrl.signal, redirect: "error" });
     if (!r.ok) return null;
     const ab = await r.arrayBuffer();
     if (ab.byteLength > 12_000_000) return null;

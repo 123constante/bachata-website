@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
   backend: null as unknown as { client: unknown },
   user: null as null | { id: string; email: string; is_anonymous: boolean },
   redeem: vi.fn(),
+  preview: { status: 'open', organiser_name: 'Salsa Norte', inviter_first_name: 'Marta', email_hint: null } as Record<string, unknown>,
 }));
 vi.mock('@/integrations/supabase/client', () => ({
   get supabase() {
@@ -52,6 +53,7 @@ function mount(row: DancerRow | null, at: string) {
   const baseRpc = backend.client.rpc;
   backend.client.rpc = (name: string, args?: Record<string, unknown>) => {
     if (name === 'redeem_organiser_invite_v1') return h.redeem(args);
+    if (name === 'organiser_invite_preview_v1') return Promise.resolve({ data: h.preview, error: null });
     return baseRpc(name, args);
   };
   h.backend = backend;

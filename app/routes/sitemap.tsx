@@ -4,6 +4,7 @@ import { flags } from "@/lib/featureFlags";
 import { edgeCacheControl } from "../detailLoader";
 import { resolvePublicName, type PublicNameSource } from "@/lib/publicName";
 import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
+import { NOT_PUBLIC_LIFECYCLE } from "@/modules/profile/organiserPublicProfile";
 import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 
 // Live /sitemap.xml resource route (loader-only, no component) - replaces the
@@ -187,7 +188,10 @@ async function fetchOrganiserProfiles(): Promise<UrlRow[]> {
     // loader 404s a row this filter would otherwise submit, which Google reports
     // as "Submitted URL not found (404)". 0 rows are is_active = false today, so
     // this is a latent mismatch being closed, not a live one being repaired.
+    // NOT_PUBLIC_LIFECYCLE is the page read's own constant (one rule, D38): an
+    // archived or rejected page 404s there, so it must not be submitted here.
     .not(...NOT_DEACTIVATED)
+    .not(...NOT_PUBLIC_LIFECYCLE)
     .order("updated_at", { ascending: false })
     .limit(500);
   if (error) throw error;

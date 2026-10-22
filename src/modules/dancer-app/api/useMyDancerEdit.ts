@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { daConfetti } from '../shell/confetti';
 import { trackDancerEvent } from '../analytics/events';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchMyDancerEdit, saveMyDancerProfile } from './rpc';
@@ -37,6 +38,8 @@ export const writeMyDancerEdit = (qc: QueryClient, userId: string | null | undef
   qc.setQueryData(myDancerEditKey(userId), next);
   // A save that changes completeness drops the gate's cached answer -- no stale data.
   if (before?.complete !== next.complete) resetDancerGate(qc);
+  // D121: confetti on crossing 70% or reaching 100% (off under reduced motion; the helper checks).
+  if (before && ((before.strength.pct < 70 && next.strength.pct >= 70) || (before.strength.pct < 100 && next.strength.pct >= 100))) daConfetti();
   if (before && before.strength.pct < 70 && next.strength.pct >= 70 && !crossed70.has(next.profile_id)) {
     if (trackDancerEvent('profile_strength_70', { pct: next.strength.pct })) crossed70.add(next.profile_id);
   }

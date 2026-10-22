@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams, type NavigateFunction } from 'react-router-dom';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { APP_HOME_PATH, RETURN_TO_PARAM, onboardingEnd, onboardingEndLabel } from '@/lib/accountRouting';
@@ -13,15 +13,11 @@ import { REQUIRED_STAGES, requiredMissing, stageAfterSave, stageAfterSkip, stage
 import FirstCardNotes from './notes';
 import { StylesCard, YearsCard } from './optional';
 import { CityCard, NameCard, PhotoCard, RoleCard } from './steps';
-import { GhostButton, Meter, PrimaryButton, Question, Tag, linkButton, wrap } from './ui';
+import { Card } from '@/modules/organiser/ui';
+import { LINK_GHOST, LINK_PRIMARY } from '../blocks';
+import { GhostButton, Meter, PrimaryButton, Question, Tag, WRAP } from './ui';
 import { resetDancerGate, useMyDancerEdit } from '../../api/useMyDancerEdit';
-
-const gradientCard: CSSProperties = {
-  background: 'linear-gradient(145deg, var(--da-gradient-from) 0%, var(--da-gradient-to) 100%)',
-  color: 'var(--da-on-gradient)',
-  borderRadius: 16,
-  padding: 14,
-};
+import { daConfetti } from '../../shell/confetti';
 
 const nameOf = (p: MyDancerEdit) => p.first_name?.trim() || 'there';
 
@@ -76,6 +72,10 @@ const OnboardingCards = () => {
   useEffect(() => {
     if (stage) trackDancerEvent('onboarding_step', { step: stage });
   }, [stage]);
+  // D121: confetti on "You're in" (a no-op under reduced motion).
+  useEffect(() => {
+    if (stage === 'in') daConfetti();
+  }, [stage]);
 
   // Already finished on arrival: straight on to the end.
   useEffect(() => {
@@ -90,15 +90,14 @@ const OnboardingCards = () => {
     const failure = toDancerError(loadError);
     const needsUs = failure.code === 'no_profile' || failure.code === 'profile_mismatch';
     return (
-      <section className="da-card" role="alert" data-testid="onboarding-load-error" style={{ display: 'grid', gap: 8 }}>
-        <p style={{ ...wrap, margin: 0 }}>{failure.message}</p>
+      <Card variant="padded" role="alert" testId="onboarding-load-error" className="grid gap-[8px]">
+        <p className={`${WRAP} m-0`}>{failure.message}</p>
         {needsUs ? (
           <a
             href={dancerMessageUsUrl(failure.code === 'no_profile' ? NO_PROFILE_MESSAGE : PROFILE_HELP_MESSAGE)}
             target="_blank"
             rel="noopener noreferrer"
-            className="da-tap"
-            style={linkButton(true)}
+            className={LINK_PRIMARY}
           >
             Message us on WhatsApp
           </a>
@@ -107,19 +106,19 @@ const OnboardingCards = () => {
             Try again
           </PrimaryButton>
         )}
-        <Link to="/" className="da-tap" style={linkButton(false)}>
+        <Link to="/" className={LINK_GHOST}>
           Back to the calendar
         </Link>
-      </section>
+      </Card>
     );
   }
   if (isPending || !profile || stage === null) {
     return (
-      <section className="da-card" aria-busy="true" aria-label="Loading" data-testid="onboarding-skeleton" style={{ minHeight: 240 }}>
-        <div style={{ height: 14, width: '40%', borderRadius: 8, background: 'var(--da-surface-2)' }} />
-        <div style={{ height: 30, width: '70%', borderRadius: 8, background: 'var(--da-surface-2)', marginTop: 16 }} />
-        <div style={{ height: 48, borderRadius: 12, background: 'var(--da-surface-2)', marginTop: 16 }} />
-      </section>
+      <Card variant="padded" aria-busy="true" aria-label="Loading" testId="onboarding-skeleton" className="min-h-[240px]">
+        <div className="h-[14px] w-[40%] rounded-[8px] bg-[var(--card2)]" />
+        <div className="mt-[16px] h-[30px] w-[70%] rounded-[8px] bg-[var(--card2)]" />
+        <div className="mt-[16px] h-[48px] rounded-[12px] bg-[var(--card2)]" />
+      </Card>
     );
   }
 
@@ -150,33 +149,33 @@ const OnboardingCards = () => {
   const quick = left === 2 ? 'Two quick questions' : 'One quick question';
 
   return (
-    <section data-testid={`onboarding-${stage}`} style={{ ...wrap, maxWidth: 520, margin: '0 auto' }}>
+    <section data-testid={`onboarding-${stage}`} className={`${WRAP} mx-auto max-w-[520px]`}>
       <Meter profile={profile} />
       {stage === 'in' ? (
-        <div style={gradientCard} data-testid="onboarding-in-card">
+        <div className="da-hero" data-testid="onboarding-in-card">
           {/* Audit M8/M24: the server's own pct, plain words, and no claim about RSVPs (the RSVP RPC has no
               profile rule). A hidden profile is not called live. The button says what it opens. */}
           <Tag onGradient>
             {profile.strength.pct}%{profile.is_active ? <> &middot; Your profile is live</> : null}
           </Tag>
           <Question>You&rsquo;re in, {nameOf(profile)}</Question>
-          <p style={{ ...wrap, fontSize: 15, margin: '0 0 14px' }}>
+          <p className={`${WRAP} mx-0 mb-[14px] mt-0 text-[15px]`}>
             {profile.is_active ? 'People can find your page now.' : HIDDEN_STATE_LINE}
             {left > 0 ? ` ${quick} will make it stronger.` : ''}
           </p>
-          <div style={{ display: 'grid', gap: 8 }}>
+          <div className="grid gap-[8px]">
             {left > 0 ? <PrimaryButton testId="onboarding-boost" onClick={() => go(stageForBoost(profile))}>{quick}</PrimaryButton> : null}
             <GhostButton testId="onboarding-home" onClick={() => leaveFor(qc, navigate, end)}>{endLabel}</GhostButton>
           </div>
         </div>
       ) : stage === 'nice' ? (
-        <div className="da-card" data-testid="onboarding-nice-card">
+        <Card variant="padded" testId="onboarding-nice-card">
           <Question>Nice work, {nameOf(profile)}</Question>
-          <p style={{ fontSize: 15, margin: '0 0 14px' }}>Your profile is at {profile.strength.pct}%. Add a bio and links any time from Me.</p>
+          <p className="mx-0 mb-[14px] mt-0 text-[15px]">Your profile is at {profile.strength.pct}%. Add a bio and links any time from Me.</p>
           <PrimaryButton testId="onboarding-home" onClick={() => leaveFor(qc, navigate, end)}>{endLabel}</PrimaryButton>
-        </div>
+        </Card>
       ) : (
-        <div className="da-card">
+        <Card variant="padded" className="p-[12px]">
           {stage === 'name' ? <NameCard {...card} /> : null}
           {stage === 'city' ? <CityCard {...card} /> : null}
           {stage === 'role' ? <RoleCard {...card} /> : null}
@@ -184,7 +183,7 @@ const OnboardingCards = () => {
           {stage === 'years' ? <YearsCard {...card} onSkip={() => go(stageAfterSkip(profile, 'years'))} /> : null}
           {stage === 'styles' ? <StylesCard {...card} onSkip={() => go(stageAfterSkip(profile, 'styles'))} /> : null}
           {first ? <FirstCardNotes linked={profile.linked_from_admin} /> : null}
-        </div>
+        </Card>
       )}
     </section>
   );

@@ -20,11 +20,11 @@ afterEach(() => {
 });
 
 describe('L9: one control per destination in the header', () => {
-  it.each(['/app/home', '/app/nights', '/app/me', '/app/options'])('%s: exactly one header link to "/" (Events)', async (url) => {
+  it.each(['/app/home', '/app/nights', '/app/me', '/app/options'])('%s: exactly one header link to "/" (the home link; D131: no Events)', async (url) => {
     renderInShell({ path: url });
     const header = await screen.findByTestId('dancer-app-header');
     const home = [...header.querySelectorAll('a')].filter((a) => a.getAttribute('href') === '/');
-    expect(home.map((a) => a.getAttribute('data-testid'))).toEqual(['dancer-app-events']);
+    expect(home.map((a) => a.getAttribute('data-testid'))).toEqual(['site-home-link']);
   });
 });
 

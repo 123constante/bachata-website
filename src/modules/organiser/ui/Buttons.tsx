@@ -28,7 +28,7 @@ function makeButton(displayName: string, tone: string) {
         aria-busy={loading || undefined}
         disabled={disabled || loading}
         className={cn(
-          'relative inline-flex items-center justify-center gap-[8px] rounded-[12px] px-[20px] font-bold transition-opacity duration-300 ease-in-out',
+          'relative inline-flex items-center justify-center gap-[8px] rounded-[var(--r-ctl,12px)] px-[20px] font-bold transition-opacity duration-300 ease-in-out',
           size === 'md' ? 'h-[52px] text-[16px]' : 'h-[44px] text-[15px]',
           block && 'w-full',
           tone,

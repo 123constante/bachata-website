@@ -20,7 +20,7 @@ export function Card({ label, testId, variant = 'rows', className, children, ...
     <div
       data-testid={testId}
       className={cn(
-        'overflow-hidden rounded-[16px] border border-[var(--line)] bg-[var(--card)]',
+        'overflow-hidden rounded-[var(--r-card,16px)] border border-[var(--line)] bg-[var(--card)]',
         variant === 'padded' ? 'p-[16px]' : 'divide-y divide-[var(--line)]',
         className,
       )}
