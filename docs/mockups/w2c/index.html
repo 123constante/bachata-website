@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W2-C role pages mockups</title>
+<!--
+  W2-C (Design Gate stage 2): MOCKUPS ONLY. Static page, mock data, nothing in the app imports it.
+  index.html            = gallery of every view, labelled.
+  index.html?view=<id>  = one phone screen (390 wide) for the 390x844 screenshot (shot.mjs).
+  Tokens are copied from src/modules/person-page/wall/tokens.ts (WALL / CHIP / TILE / HUB) so the
+  role pages sit on the same warm dark base as the hub and the wall.
+-->
+<style>
+  :root {
+    --page: #1E1410; --card: #2B1D16; --text: #FBEBDD; --muted: #CDB09C; --line: #6A4A38;
+    --dj: #F2B632; --dj-ink: #2B1A00; --dj-edge: #C9921E; --dj-tile: #6B4A0E; --dj-tile-ink: #FFE3A0;
+    --dancer: #2DD4BF; --dancer-ink: #04302C; --dancer-edge: #2DD4BF; --dancer-tile: #0F4F4A; --dancer-tile-ink: #A7F3E8;
+    --teacher: #B79CFB; --teacher-ink: #1E0A4D; --teacher-edge: #A78BFA;
+    --site: #101214;
+    /* Today's dancer page (PublicDancerPageV2 TEAL) for the P "before" view */
+    --t-page: #06191F; --t-card: #0D3340; --t-border: #1F5566; --t-text: #EAF7FA; --t-muted: #8FBAC7; --t-accent: #5EE0E6;
+    --serif: 'DM Serif Display', Georgia, 'Times New Roman', serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: #0b0b0c; color: #eee; font: 15px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  a { color: inherit; text-decoration: none; }
+
+  /* gallery */
+  .gallery { padding: 16px; }
+  .gallery h1 { font-size: 20px; margin: 0 0 4px; }
+  .gallery .note { color: #aaa; font-size: 13px; margin: 0 0 16px; max-width: 900px; }
+  .group { margin: 0 0 28px; }
+  .group h2 { font-size: 16px; margin: 0 0 8px; }
+  .row { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px; }
+  .cell { flex: 0 0 auto; }
+  .cell .lbl { font-size: 12px; font-weight: 700; color: #ddd; margin: 0 0 6px; max-width: 390px; }
+  .phone { width: 390px; height: 844px; overflow-y: auto; overflow-x: hidden; border-radius: 18px; outline: 1px solid #333; background: var(--site); }
+  body.solo { background: var(--site); }
+  body.solo .phone { width: 100%; height: auto; min-height: 100vh; border-radius: 0; outline: 0; overflow: visible; }
+
+  /* site chrome (stand-in for GlobalLayout's header + footer) */
+  .site-head { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; background: var(--site); border-bottom: 2px solid #B8912F; color: #F6F1EA; font-weight: 800; font-size: 16px; }
+  .site-head .burger { width: 44px; height: 44px; display: grid; place-items: center; font-size: 20px; }
+  .site-foot { background: #E8601C; color: #1a0a00; padding: 18px 12px; font-size: 13px; font-weight: 700; }
+
+  /* warm ground with soft fades at both ends (WALL_FADE: 64px clear -> base) */
+  .ground {
+    color: var(--text); min-height: calc(844px - 58px);
+    background-image: linear-gradient(to bottom, rgba(30,20,16,0) 0px, var(--page) 64px), linear-gradient(to top, rgba(30,20,16,0) 0px, var(--page) 64px);
+    background-size: 100% 51%; background-position: top, bottom; background-repeat: no-repeat;
+  }
+  .wrap { padding: 8px 12px 64px; }
+
+  /* N: back bar + role switcher */
+  .nav { display: flex; align-items: center; gap: 8px; }
+  .back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; min-width: 44px; padding: 0 6px 0 2px; font-weight: 700; font-size: 15px; color: var(--text); border-radius: 10px; white-space: nowrap; }
+  .back svg { width: 20px; height: 20px; flex: 0 0 auto; }
+  .back .who { color: var(--muted); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+  .tabs { display: flex; gap: 6px; }
+  /* N-A: segmented pill bar under the back row */
+  .seg { display: flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; margin-top: 4px; }
+  .seg a { flex: 1 1 0; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 999px; font-weight: 800; font-size: 15px; color: var(--text); }
+  .seg a .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .seg a[aria-current] { color: var(--ink); background: var(--fill); }
+  /* N-B: underline tabs, full width, own row */
+  .uline { display: flex; border-bottom: 1px solid var(--line); margin-top: 2px; }
+  .uline a { flex: 1 1 0; min-height: 48px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: var(--muted); border-bottom: 4px solid transparent; margin-bottom: -1px; }
+  .uline a[aria-current] { color: var(--text); border-bottom-color: var(--fill); }
+  /* N-C: one row: back on the left, role chips on the right */
+  .chips { margin-left: auto; display: flex; gap: 6px; }
+  .chips a { min-height: 44px; min-width: 44px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; font-weight: 800; font-size: 14px; border: 1.5px solid var(--edge); color: var(--text); }
+  .chips a[aria-current] { background: var(--fill); color: var(--ink); border-color: var(--fill); }
+
+  /* shared cards */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 12px; }
+  .label { margin: 18px 4px 8px; font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .chip { display: inline-block; font-size: 13px; font-weight: 800; padding: 2px 10px; border-radius: 999px; }
+  .city { display: inline-flex; align-items: center; gap: 4px; font-size: 15px; }
+  .city svg { width: 16px; height: 16px; color: var(--muted); }
+  p.bio { margin: 0; font-size: 15px; line-height: 1.5; color: var(--text); }
+  .photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .photos div { aspect-ratio: 4 / 3; border-radius: 12px; background: linear-gradient(135deg, #5a3a28, #2B1D16); border: 1px solid var(--line); }
+  .links { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .links a { min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); font-weight: 700; font-size: 15px; }
+  .empty { font-size: 15px; color: var(--text); }
+  .empty .sub { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .empty a.cta { margin-top: 10px; min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 12px; border: 1.5px solid var(--dj-edge); font-weight: 700; color: var(--text); }
+
+  /* gig rows */
+  .gigs { display: grid; gap: 8px; }
+  .gig { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 12px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
+  .gig:not(.next) { padding-left: 19px; }
+  .gig.next { border: 1.5px solid var(--dj-edge); border-left: 8px solid var(--dj-edge); }
+  .gig .date { width: 46px; flex: 0 0 auto; text-align: center; }
+  .gig .date b { display: block; font-family: var(--serif); font-size: 26px; line-height: 1; font-weight: 400; }
+  .gig .date span { display: block; font-size: 12px; font-weight: 800; letter-spacing: 1px; color: var(--dj); }
+  .gig .what { min-width: 0; flex: 1 1 auto; }
+  .gig .what b { display: block; font-size: 15px; overflow-wrap: anywhere; }
+  .gig .what span { display: block; font-size: 14px; color: var(--muted); }
+  .gig .go { width: 24px; height: 24px; color: var(--dj); flex: 0 0 auto; }
+  .more { min-height: 44px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--dj); font-size: 15px; }
+
+  /* D hero bits */
+  .vinyl { position: relative; flex: 0 0 auto; border-radius: 50%; background: repeating-radial-gradient(circle, #2a1d14 0 2px, #160e0a 2px 5px); box-shadow: 0 0 0 1px var(--line), 0 12px 30px rgba(0,0,0,.5); }
+  .vinyl .face { position: absolute; inset: 15%; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: var(--dj-tile-ink); background: var(--dj-tile); box-shadow: 0 0 0 3px rgba(242,182,50,.6); }
+  .vinyl .face.photo { background: radial-gradient(circle at 40% 35%, #c58b5c, #6d3f22 60%, #3a2214); color: transparent; }
+  .name { margin: 0; font-family: var(--serif); font-weight: 400; color: var(--text); overflow-wrap: anywhere; hyphens: auto; }
+  .squareface { flex: 0 0 auto; width: 96px; height: 96px; border-radius: 18px; display: grid; place-items: center; font-size: 34px; font-weight: 800; color: var(--dj-tile-ink); background: var(--dj-tile); border: 2px solid var(--dj-edge); }
+  .squareface.photo { background: radial-gradient(circle at 40% 35%, #c58b5c, #6d3f22 60%, #3a2214); color: transparent; }
+  .nextbtn { margin-top: 12px; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 14px; border-radius: 16px; background: var(--dj); color: var(--dj-ink); font-weight: 800; }
+  .nextbtn small { display: block; font-size: 13px; font-weight: 700; }
+  .nextbtn span { font-size: 17px; overflow-wrap: anywhere; }
+
+  /* P before: today's teal dancer page (PublicDancerPageV2 + the old Also row) */
+  .t-page { background: var(--t-page); color: var(--t-text); padding: 12px 16px 24px; border-radius: 14px; }
+  .also { display: flex; gap: 8px; padding: 12px 16px 8px; }
+  .also a { min-height: 44px; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; font-weight: 700; font-size: 14px; }
+  .t-hero { margin-top: 8px; border-radius: 24px; padding: 22px 16px 12px; text-align: center; background: linear-gradient(160deg,#1C7D93 0%,#0F5468 55%,#0A3A4A 100%); border: 1px solid #2A7C90; }
+  .t-hero .lbl2 { font-size: 11px; letter-spacing: 2px; color: #CFF3F6; }
+  .t-ava { width: 120px; height: 120px; margin: 10px auto 0; border-radius: 50%; border: 4px solid var(--t-accent); background: radial-gradient(circle at 40% 35%, #7fc9c0, #1f6b66 60%, #0d3a38); }
+  .t-hero h1 { font-size: 26px; margin: 12px 0 0; font-weight: 800; }
+  .t-facts { display: flex; justify-content: center; gap: 18px; margin: 12px 0 6px; }
+  .t-facts div { font-size: 15px; font-weight: 700; }
+  .t-facts small { display: block; font-size: 11px; letter-spacing: 2px; color: #BFE9EE; font-weight: 400; }
+  .t-h2 { margin: 22px 0 8px; font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--t-accent); }
+  .t-card { border-radius: 16px; padding: 12px; background: var(--t-card); border: 1px solid var(--t-border); font-size: 15px; }
+  .t-top { display: flex; justify-content: space-between; align-items: center; }
+  .t-top a { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--t-text); }
+
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// ---------- mock data (prod-shaped: no real people) ----------
+const PEOPLE = {
+  roger:   { id: 'roger', name: 'DJ Roger', sub: 'Roger Mart&iacute;nez', city: 'London', roles: ['dj', 'dancer'], photo: true,
+             bio: 'Sensual and moderna sets, mostly Friday socials in Camden and Shoreditch. Ask me for a Romeo Santos deep cut.',
+             gigs: [
+               { d: '24', m: 'OCT', name: 'Bachata Fridays', where: 'Camden &middot; 21:00' },
+               { d: '31', m: 'OCT', name: 'Halloween Sensual Social', where: 'Shoreditch &middot; 20:30' },
+               { d: '07', m: 'NOV', name: 'Latin Collective Weekender', where: 'Brixton &middot; 22:00' },
+               { d: '14', m: 'NOV', name: 'Sunday Sensual', where: 'Islington &middot; 18:00' },
+             ], more: 2 },
+  quiet:   { id: 'quiet', name: 'DJ Nadia', sub: '', city: 'London', roles: ['dj'], photo: false,
+             bio: 'Bachata dominicana and a bit of kizomba at the end of the night.', gigs: [] },
+  long:    { id: 'long', name: 'DJ Carlos De La Cruz Fernandez-Montenegro', sub: 'Carlos De La Cruz', city: 'London', roles: ['teacher', 'dj', 'dancer'], photo: true,
+             bio: 'Twelve years behind the decks in Madrid and London.',
+             gigs: [
+               { d: '25', m: 'OCT', name: 'Bachatanation London International Festival Pre-Party', where: 'Vauxhall &middot; 21:00' },
+               { d: '09', m: 'NOV', name: 'Salsa &amp; Bachata Saturdays', where: 'Soho &middot; 22:00' },
+             ] },
+  // N fixtures
+  two:     { id: 'two', name: 'DJ Roger', roles: ['dj', 'dancer'] },
+  three:   { id: 'three', name: 'Marta Silva', roles: ['teacher', 'dj', 'dancer'] },
+  one:     { id: 'one', name: 'Lena K', roles: ['dancer'] },
+};
+// Teacher pages are closed today (flags.teacherDetail OFF): the switcher shows a role only if its page exists.
+const TEACHER_PAGES_OPEN = false;
+const ROLE = {
+  dj:      { label: 'DJ', fill: 'var(--dj)', ink: 'var(--dj-ink)', edge: 'var(--dj-edge)' },
+  dancer:  { label: 'Dancer', fill: 'var(--dancer)', ink: 'var(--dancer-ink)', edge: 'var(--dancer-edge)' },
+  teacher: { label: 'Teacher', fill: 'var(--teacher)', ink: 'var(--teacher-ink)', edge: 'var(--teacher-edge)' },
+};
+const pageRoles = (p) => p.roles.filter((r) => r !== 'teacher' || TEACHER_PAGES_OPEN);
+
+const ICON = {
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 22s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  go: '<svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
+  share: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg>',
+};
+const initials = (n) => n.replace(/^DJ\s+/, '').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+const vars = (r) => `--fill:${ROLE[r].fill};--ink:${ROLE[r].ink};--edge:${ROLE[r].edge}`;
+
+// ---------- N: back bar + role switcher ----------
+// variant: 'A' segmented pill row, 'B' underline tabs, 'C' back + chips in one row
+function navBar(p, current, variant) {
+  const roles = pageRoles(p);
+  const back = `<a class="back" href="#hub" data-tap>${ICON.back}<span>Back to</span><span class="who">${variant === 'C' ? p.name.replace(/^DJ /, '') : 'hub'}</span></a>`;
+  const switcher = roles.length < 2 ? '' : variant === 'A'
+    ? `<nav class="seg" aria-label="${p.name}&rsquo;s pages">${roles.map((r) => `<a href="#${r}" data-tap style="${vars(r)}" ${r === current ? 'aria-current="page"' : ''}><span class="dot" style="background:${ROLE[r].fill}"></span>${ROLE[r].label}</a>`).join('')}</nav>`
+    : variant === 'B'
+    ? `<nav class="uline" aria-label="${p.name}&rsquo;s pages">${roles.map((r) => `<a href="#${r}" data-tap style="${vars(r)}" ${r === current ? 'aria-current="page"' : ''}>${ROLE[r].label}</a>`).join('')}</nav>`
+    : '';
+  if (variant === 'C') {
+    const chips = roles.length < 2 ? '' : `<nav class="chips" aria-label="${p.name}&rsquo;s pages">${roles.map((r) => `<a href="#${r}" data-tap style="${vars(r)}" ${r === current ? 'aria-current="page"' : ''}>${ROLE[r].label}</a>`).join('')}</nav>`;
+    return `<div class="nav">${back}${chips}</div>`;
+  }
+  return `<div class="nav">${back}</div>${switcher}`;
+}
+
+// ---------- D: DJ page ----------
+function gigList(p, max) {
+  if (!p.gigs.length) {
+    return `<div class="card empty" data-testid="no-gigs"><div>No dates booked right now.</div><div class="sub">Follow on Instagram to hear about the next one.</div><a class="cta" href="#ig" data-tap>Open Instagram</a></div>`;
+  }
+  const rows = p.gigs.slice(0, max).map((g, i) => `<a class="gig${i === 0 ? ' next' : ''}" href="#event" data-tap><div class="date"><b>${g.d}</b><span>${g.m}</span></div><div class="what"><b>${g.name}</b><span>${g.where}</span></div>${ICON.go}</a>`).join('');
+  const extra = (p.gigs.length - max) + (p.more || 0);
+  return `<div class="gigs">${rows}</div>${extra > 0 ? `<a class="more" href="#all" data-tap>See ${extra} more dates</a>` : ''}`;
+}
+const bioBlock = (p) => `<h2 class="label">About</h2><div class="card"><p class="bio">${p.bio}</p></div>`;
+const photoBlock = (p) => p.photo ? `<h2 class="label">Photos</h2><div class="photos"><div></div><div></div><div></div></div>` : '';
+const linkBlock = () => `<h2 class="label">Listen &amp; book</h2><div class="links"><a href="#sc" data-tap>SoundCloud</a><a href="#ig" data-tap>Instagram</a></div>`;
+const cityChip = (p) => `<span class="city">${ICON.pin}${p.city}</span>`;
+const djChip = `<span class="chip" style="background:var(--dj);color:var(--dj-ink)">DJ</span>`;
+const nameSize = (n) => (n.length > 28 ? 26 : n.length > 16 ? 30 : 36);
+
+// D-A "Vinyl strip": small spinning vinyl left, name wraps right; upcoming dates straight under.
+function djA(p, nav) {
+  const face = `<div class="vinyl" style="width:104px;height:104px"><div class="face${p.photo ? ' photo' : ''}" style="font-size:22px">${initials(p.name)}</div></div>`;
+  return `${nav}<section class="card" style="margin-top:8px"><div style="display:flex;gap:12px;align-items:center">${face}<div style="min-width:0;flex:1"><h1 class="name" style="font-size:${nameSize(p.name) - 4}px;line-height:1.08">${p.name}</h1>${p.sub ? `<div style="color:var(--muted);font-size:14px;margin-top:2px">${p.sub}</div>` : ''}<div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">${djChip}${cityChip(p)}</div></div></div></section>`
+    + `<h2 class="label">Upcoming dates</h2>${gigList(p, 3)}${bioBlock(p)}${photoBlock(p)}${linkBlock()}`;
+}
+// D-B "Next gig button": hub-style header card (square face like the hub) with the next date as the big gold button.
+function djB(p, nav) {
+  const face = `<div class="squareface${p.photo ? ' photo' : ''}">${initials(p.name)}</div>`;
+  const next = p.gigs[0];
+  const btn = next ? `<a class="nextbtn" href="#event" data-tap><div style="min-width:0;flex:1"><small>Next on the decks &middot; ${next.d} ${next.m}</small><span>${next.name}</span></div>${ICON.go.replace('class="go"', 'width="24" height="24"')}</a>` : '';
+  const rest = { ...p, gigs: p.gigs.slice(1), more: p.more };
+  return `${nav}<section class="card" style="margin-top:8px;border-radius:24px;padding:16px"><div style="display:flex;gap:14px;align-items:center">${face}<div style="min-width:0;flex:1"><h1 class="name" style="font-family:inherit;font-weight:800;font-size:${p.name.length > 28 ? 22 : 24}px;line-height:1.2">${p.name}</h1>${p.sub ? `<div style="color:var(--muted);font-size:14px">${p.sub}</div>` : ''}<div style="margin-top:4px">${cityChip(p)}</div></div></div>${btn}</section>`
+    + (p.gigs.length ? (rest.gigs.length || rest.more ? `<h2 class="label">Also coming up</h2>${gigList(rest, 3)}` : '') : `<h2 class="label">Upcoming dates</h2>${gigList(p, 3)}`)
+    + `${bioBlock(p)}${photoBlock(p)}${linkBlock()}`;
+}
+// D-C "Vinyl kept, centred": today's turntable (smaller, 152px) with the name UNDER it at full width, then dates.
+function djC(p, nav) {
+  const face = `<div class="vinyl" style="width:152px;height:152px;margin:0 auto"><div class="face${p.photo ? ' photo' : ''}" style="font-size:30px">${initials(p.name)}</div></div>`;
+  return `${nav}<section style="margin-top:8px;padding:18px 12px 16px;text-align:center;border-radius:24px;background:radial-gradient(circle at 82% 12%, rgba(242,182,50,.18), transparent 50%), var(--card);border:1px solid var(--line)">${face}<div style="margin-top:12px;font-size:13px;font-weight:800;letter-spacing:2px;color:var(--dj)">DJ &middot; ${p.city.toUpperCase()}</div><h1 class="name" style="margin-top:4px;font-size:${nameSize(p.name)}px;line-height:1.05">${p.name}</h1>${p.sub ? `<div style="color:var(--muted);font-size:14px;margin-top:4px">${p.sub}</div>` : ''}</section>`
+    + `<h2 class="label">Upcoming dates</h2>${gigList(p, 3)}${bioBlock(p)}${photoBlock(p)}${linkBlock()}`;
+}
+
+// ---------- P: dancer page ----------
+const dancerBody = (p) => `<h2 class="t-h2">Going next</h2><div class="t-card"><b>Bachata Fridays</b><div style="color:var(--t-muted);font-size:14px">Fri 24 Oct &middot; Camden</div></div><h2 class="t-h2">Connect</h2><div class="t-card">@${p.id}.dances</div><h2 class="t-h2">Highlights</h2><div class="t-card">Sensual bootcamp graduate, 2025</div>`;
+const dancerHero = (p) => `<header class="t-hero"><div class="lbl2">DANCER</div><div class="t-ava"></div><h1>${p.name}</h1><div style="font-size:14px;color:#DDF6F8">Leader &amp; follower &middot; London</div><div class="t-facts"><div><small>DANCING</small>4 yrs</div><div><small>LEVEL</small>Improver</div><div><small>STYLE</small>Sensual</div></div></header>`;
+// Before: today. The "Also:" row sits above the teal card; Back goes to /dancers.
+function dancerBefore(p) {
+  const others = p.roles.filter((r) => r !== 'dancer');
+  const also = others.length ? `<nav class="also" aria-label="Other roles">${others.map((r) => r === 'teacher' && !TEACHER_PAGES_OPEN
+    ? `<span class="chip" style="min-height:44px;display:inline-flex;align-items:center;padding:0 12px;border:1px solid rgba(246,241,234,.55);color:#F6F1EA;background:none;font-size:14px">${ROLE[r].label}</span>`
+    : `<a href="#${r}" style="background:#E7BE6E;color:#120c14">${r === 'dj' ? 'DJ Roger' : ROLE[r].label} &#8599;</a>`).join('')}</nav>` : '';
+  return `<div style="background:var(--site);padding-bottom:24px">${also}<div style="padding:0 16px"><div class="t-page"><div class="t-top"><a href="#dancers">${ICON.back.replace('aria-hidden', 'width="20" height="20" aria-hidden')}Back</a><a href="#share" aria-label="Share">${ICON.share}</a></div>${dancerHero(p)}${dancerBody(p)}</div></div></div>`;
+}
+// After: same teal content, the Back-to-hub bar + switcher on the shared warm base above it (no Also row).
+function dancerAfter(p, variant) {
+  return `<div class="ground"><div class="wrap">${navBar(p, 'dancer', variant)}<div class="t-page" style="margin-top:10px"><div class="t-top" style="justify-content:flex-end"><a href="#share" aria-label="Share">${ICON.share}</a></div>${dancerHero(p)}${dancerBody(p)}</div></div></div>`;
+}
+
+// After, warm: no teal page block (that block is a hard teal/brown seam on the shared base). The teal
+// stays as the dancer accent: hero card, section labels, card edges. Share moves into the nav row.
+const warmBody = () => `<h2 class="label" style="color:var(--dancer)">Going next</h2><a class="gig" href="#event" data-tap style="border-left:8px solid var(--dancer-edge);padding-left:12px"><div class="date"><b>24</b><span style="color:var(--dancer)">OCT</span></div><div class="what"><b>Bachata Fridays</b><span>Camden &middot; 21:00</span></div>${ICON.go.replace('class="go"', 'class="go" style="color:var(--dancer)"')}</a><h2 class="label" style="color:var(--dancer)">Connect</h2><div class="links"><a href="#ig" data-tap>Instagram</a><a href="#share" data-tap>${ICON.share} Share</a></div><h2 class="label" style="color:var(--dancer)">Highlights</h2><div class="card"><p class="bio">Sensual bootcamp graduate, 2025</p></div>`;
+function dancerAfterWarm(p) {
+  return `<div class="ground"><div class="wrap">${navBar(p, 'dancer', 'A')}<div style="margin-top:10px">${dancerHero(p).replace('class="t-hero"', 'class="t-hero" style="margin-top:0"')}</div>${warmBody()}</div></div>`;
+}
+
+// ---------- views ----------
+const D = { A: djA, B: djB, C: djC };
+const NAV_PICK = 'A';
+const VIEWS = [];
+const add = (group, id, label, html) => VIEWS.push({ group, id, label, html });
+for (const v of ['A', 'B', 'C']) {
+  const desc = { A: 'Vinyl strip: small vinyl left, name wraps right, dates under the name', B: 'Next-gig button: hub-style card, next date is the big gold button', C: 'Vinyl kept, centred: name full width under the vinyl, dates under it' }[v];
+  for (const [fx, txt] of [['roger', 'with gigs'], ['quiet', 'no gigs'], ['long', 'long stage name']]) {
+    const p = PEOPLE[fx];
+    add(`D${v}`, `D-${v}-${fx}`, `D-${v} ${desc} &mdash; ${txt}`, `<div class="ground"><div class="wrap">${D[v](p, navBar(p, 'dj', NAV_PICK))}</div></div>`);
+  }
+}
+for (const v of ['A', 'B', 'C']) {
+  const desc = { A: 'Back bar + segmented pill switcher (own row)', B: 'Back bar + underline tabs (own row)', C: 'Back + role chips in ONE row' }[v];
+  for (const [fx, txt] of [['two', '2 roles (DJ + Dancer)'], ['three', '3 roles (Teacher closed, so 2 tabs)'], ['one', '1 role: no switcher']]) {
+    const p = PEOPLE[fx];
+    const cur = pageRoles(p).includes('dj') ? 'dj' : 'dancer';
+    const body = cur === 'dj' ? djA({ ...PEOPLE.roger, name: p.name, roles: p.roles, sub: '' }, navBar(p, cur, v)) : `${navBar(p, cur, v)}<div class="t-page" style="margin-top:10px">${dancerHero(p)}${dancerBody(p)}</div>`;
+    add(`N${v}`, `N-${v}-${fx}`, `N-${v} ${desc} &mdash; ${txt}`, `<div class="ground"><div class="wrap">${body}</div></div>`);
+  }
+}
+// The 3-role view with teacher pages OPEN, to show the switcher scales to 3 tabs when that flag flips.
+add('N', 'N-A-three-open', 'N-A with teacher pages open (3 tabs) &mdash; future state only', '');
+add('P', 'P-before', 'P before: dancer page as today (Also row, Back to /dancers)', dancerBefore({ ...PEOPLE.two, name: 'Roger Mart&iacute;nez' }));
+add('P', 'P-after-A', 'P after (N-A), minimal: Back to hub + DJ / Dancer switcher above today&rsquo;s teal block, no Also row', dancerAfter({ ...PEOPLE.two, name: 'Roger Mart&iacute;nez' }, 'A'));
+add('P', 'P-after-B', 'P after (N-A), warm: no teal page block; teal hero card + teal accents on the shared warm base', dancerAfterWarm({ ...PEOPLE.two, name: 'Roger Mart&iacute;nez' }));
+add('P', 'P-after-C', 'P after (N-B underline tabs) with today&rsquo;s teal block', dancerAfter({ ...PEOPLE.two, name: 'Roger Mart&iacute;nez' }, 'B'));
+
+function render(v) {
+  if (v.id === 'N-A-three-open') {
+    return (() => { const p = PEOPLE.three; const roles = p.roles; const nav = `<div class="nav"><a class="back" href="#hub" data-tap>${ICON.back}<span>Back to</span><span class="who">hub</span></a></div><nav class="seg" aria-label="pages">${roles.map((r) => `<a href="#${r}" data-tap style="${vars(r)}" ${r === 'dj' ? 'aria-current="page"' : ''}><span class="dot" style="background:${ROLE[r].fill}"></span>${ROLE[r].label}</a>`).join('')}</nav>`; return `<div class="ground"><div class="wrap">${djA({ ...PEOPLE.roger, name: p.name, sub: '' }, nav)}</div></div>`; })();
+  }
+  return v.html;
+}
+const chrome = (inner) => `<header class="site-head"><span>Bachata Calendar</span><span class="burger" aria-hidden="true">&#9776;</span></header>${inner}<footer class="site-foot">Bachata Calendar &middot; London</footer>`;
+
+const q = new URLSearchParams(location.search).get('view');
+const root = document.getElementById('root');
+if (q) {
+  document.body.classList.add('solo');
+  const v = VIEWS.find((x) => x.id === q);
+  root.innerHTML = v ? `<div class="phone" data-view="${v.id}">${chrome(render(v))}</div>` : `<p>Unknown view ${q}</p>`;
+} else {
+  const groups = [...new Set(VIEWS.map((v) => v.group))];
+  root.innerHTML = `<div class="gallery"><h1>W2-C role pages &mdash; mockups (not live)</h1><p class="note">Mock data only. Warm dark base and role accents from the wall/hub tokens. Each phone is 390 wide; scroll inside it. Open <code>?view=&lt;id&gt;</code> for one screen.</p>`
+    + groups.map((g) => `<div class="group"><h2>${g}</h2><div class="row">${VIEWS.filter((v) => v.group === g).map((v) => `<div class="cell"><p class="lbl">${v.id}: ${v.label}</p><div class="phone">${chrome(render(v))}</div></div>`).join('')}</div></div>`).join('')
+    + `</div>`;
+}
+window.__VIEWS = VIEWS.map((v) => v.id);
+</script>
+</body>
+</html>
