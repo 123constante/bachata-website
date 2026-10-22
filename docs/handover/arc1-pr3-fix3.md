@@ -62,3 +62,20 @@ Test-only. `tests/e2e/organiser-onboarding.spec.ts` lines 71 and 80 now expect t
 | `npm run build` | 0 |
 
 Not verified: the cause of the first-run failures of :27 and :37 (not captured; they pass twice on rerun, so likely cold-start timing, not the copy). Real GitHub e2e-smoke on the new head is the check.
+
+## Conflict merge (origin/main into claude/arc1-pr3-claim)
+
+main carries #927/#928/#929/#930 as squash commits; merged with `git merge origin/main`.
+
+| File | Kept | Why |
+| --- | --- | --- |
+| `src/lib/auth-otp-routing.ts` | #933 + main's `OTP_LIFETIME_SECONDS` | #933 added `SIGN_IN_SUB` (9a, used by `Auth.tsx`) and the 9b copy on purpose; main's code-lifetime constant (from #928) kept. Build broke when main's file was taken whole |
+| `src/lib/__tests__/auth-otp-routing.test.ts` | #933 | tests follow the 9b copy |
+| `src/modules/organiser/flows/new/NewFlow.tsx` | #933 | main lacked the `whichPageModel` / `WhichPage` imports that the file still uses |
+| `golive/GoLiveFlow.tsx`, `goLiveModel.ts`, `__tests__/GoLiveFlow.test.tsx` | #933 | fix pass 3/4 `goLiveView` logic; main's side only had the older version of the same code |
+
+Also taken from f620f524: the three test-file edits so the M53 journey ends on `/account/o/welcome?o=...` (its handover note was not copied).
+
+Outside the conflict set (needed to stay green): `inviteReasons.test.tsx` mount gets a `/account/o/welcome` route, because a redeemed seat now lands on the welcome (#933) while main's test only had `/account/o`.
+
+Checks (all exit 0): `npm run typecheck` 102 errors (baseline 106); `npx vitest run src tests/journeys tests/regression` 397 files / 9081 tests passed (includes goLive not-ready + ready tests and `noCaseOnlyDuplicates`); `npm run build`; `playwright test tests/e2e/organiser-onboarding.spec.ts` 11 passed; `playwright -c playwright.build.config.ts tests/e2e-build/public-journeys.build.spec.ts` 33 passed.

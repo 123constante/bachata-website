@@ -18,7 +18,14 @@ vi.mock('../invitePersonApi', async (orig) => ({ ...(await orig<typeof import('.
 
 import { InvitePerson } from '../InvitePerson';
 import { INVITE_PERSON_COPY, buildInviteMessage, invitePersonErrorMessage, parsePersonInvite } from '../invitePersonModel';
-import { interpretRedeemWithMismatch } from '../redeemMismatch';
+import { interpretRedeem, reasonScreen } from '../inviteModel';
+
+/** What the landing shows for an answer: interpretRedeem, then the ONE reason -> screen mapping. */
+const shownFor = (answer: unknown) => {
+  const o = interpretRedeem(answer, null);
+  return o.kind === 'refused' ? { ...o, copy: reasonScreen(o.reason, { emailHint: o.emailHint }) } : o;
+};
+
 import { reportProblemUrl, ReportProblemLink } from '@/lib/contactLinks';
 
 const ORGS = [{ id: 'o1', name: 'Ritmo', lifecycle: 'live' }];
@@ -128,15 +135,15 @@ describe('invite answer parser', () => {
 
 describe('redeem email_mismatch', () => {
   it('names the masked email hint when the answer carries it, else says to use the invited one', () => {
-    const a = interpretRedeemWithMismatch({ ok: false, reason: 'email_mismatch', invite_email_hint: 'a...@b.co' }, null);
+    const a = shownFor({ ok: false, reason: 'email_mismatch', invite_email_hint: 'a...@b.co' });
     expect(a.kind).toBe('refused');
     expect(a.kind === 'refused' && a.copy.body).toContain('a...@b.co');
-    const b = interpretRedeemWithMismatch({ ok: false, reason: 'email_mismatch' }, null);
+    const b = shownFor({ ok: false, reason: 'email_mismatch' });
     expect(b.kind === 'refused' && b.copy.terminal).toBe(false);
   });
   it('still delegates everything else', () => {
-    expect(interpretRedeemWithMismatch({ ok: false, reason: 'used' }, null).kind).toBe('refused');
-    expect(interpretRedeemWithMismatch(null, { message: 'x' }).kind).toBe('failed');
+    expect(interpretRedeem({ ok: false, reason: 'used' }, null).kind).toBe('refused');
+    expect(interpretRedeem(null, { message: 'x' }).kind).toBe('failed');
   });
 });
 

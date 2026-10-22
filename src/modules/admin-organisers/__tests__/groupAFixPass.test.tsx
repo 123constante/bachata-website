@@ -22,8 +22,7 @@ vi.mock('../invitePersonApi', async (orig) => ({ ...(await orig<typeof import('.
 
 import { InvitePerson } from '../InvitePerson';
 import { buildInviteMessage, parsePersonInvite } from '../invitePersonModel';
-import { interpretRedeemWithMismatch } from '../redeemMismatch';
-import { REDEEM_COPY } from '../inviteModel';
+import { REDEEM_COPY, interpretRedeem, reasonScreen } from '../inviteModel';
 
 const TOKEN = 'ab'.repeat(32);
 const SITE = 'https://bachatacalendar.co.uk';
@@ -194,20 +193,29 @@ describe('Invite person "no hits" line (finding 9)', () => {
 // ---- finding 13: one redeem error-copy map ------------------------------------------------
 
 describe('redeem copy lives in ONE map (finding 13)', () => {
-  it('email_unproven and email_mismatch (no hint) are REDEEM_COPY entries, and the wrapper shows exactly them', () => {
-    const unproven = interpretRedeemWithMismatch({ ok: false, reason: 'email_unproven' }, null);
-    expect(unproven).toEqual({ kind: 'refused', reason: 'email_unproven', copy: REDEEM_COPY.email_unproven });
-    const mismatch = interpretRedeemWithMismatch({ ok: false, reason: 'email_mismatch' }, null);
-    expect(mismatch).toEqual({ kind: 'refused', reason: 'email_mismatch', copy: REDEEM_COPY.email_mismatch });
+  it('email_unproven and email_mismatch (no hint) are REDEEM_COPY entries, and interpretRedeem returns exactly them', () => {
+    const unproven = interpretRedeem({ ok: false, reason: 'email_unproven' }, null);
+    expect(unproven).toEqual({ kind: 'refused', reason: 'email_unproven', copy: REDEEM_COPY.email_unproven, emailHint: null });
+    const mismatch = interpretRedeem({ ok: false, reason: 'email_mismatch' }, null);
+    expect(mismatch).toEqual({ kind: 'refused', reason: 'email_mismatch', copy: REDEEM_COPY.email_mismatch, emailHint: null });
   });
-  it('a masked hint only changes the body of the same entry', () => {
-    const out = interpretRedeemWithMismatch({ ok: false, reason: 'email_mismatch', invite_email_hint: 'r...@example.com' }, null);
-    expect(out.kind === 'refused' && out.copy.title).toBe(REDEEM_COPY.email_mismatch.title);
-    expect(out.kind === 'refused' && out.copy.body).toContain('r...@example.com');
-    expect(out.kind === 'refused' && out.copy.terminal).toBe(false);
+  it('a masked hint only changes the body of the same entry (reasonScreen)', () => {
+    const out = interpretRedeem({ ok: false, reason: 'email_mismatch', invite_email_hint: 'r...@example.com' }, null);
+    expect(out.kind).toBe('refused');
+    if (out.kind !== 'refused') return;
+    const screen = reasonScreen(out.reason, { emailHint: out.emailHint });
+    expect(screen.title).toBe(REDEEM_COPY.email_mismatch.title);
+    expect(screen.body).toBe('It was sent to r...@example.com.');
+    expect(screen.terminal).toBe(false);
   });
-  it('redeemMismatch.ts holds no copy of its own', () => {
-    const src = readFileSync(join(__dirname, '..', 'redeemMismatch.ts'), 'utf8');
-    expect(src).not.toMatch(/\b(title|body)\s*:/);
+  it('no other module in admin-organisers keeps redeem reason copy (the second map is gone)', () => {
+    const dir = join(__dirname, '..');
+    for (const f of ['InviteRedeemPage.tsx', 'inviteRedeemApi.ts', 'adminApi.ts']) {
+      expect(readFileSync(join(dir, f), 'utf8')).not.toMatch(/email_(mismatch|unproven)\s*:\s*\{/);
+    }
+    expect(() => readFileSync(join(dir, 'redeemMismatch.ts'), 'utf8')).toThrow();
+    const model = readFileSync(join(dir, 'inviteModel.ts'), 'utf8');
+    expect(model.match(/^\s*email_mismatch\s*:/gm)).toHaveLength(1);
+    expect(model.match(/^\s*email_unproven\s*:/gm)).toHaveLength(1);
   });
 });

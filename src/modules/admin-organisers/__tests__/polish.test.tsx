@@ -42,7 +42,9 @@ function rpcImpl(managed: boolean, invites: unknown[] = []) {
       case 'admin_is_admin': return ok(true);
       case 'organiser_ownership_v1': return ok({ is_managed: managed });
       case 'admin_list_organiser_invites_v1': return ok(invites);
-      case 'admin_issue_organiser_invite_v1': return ok({ invite_id: 'i9', token: TOKEN, expires_at: '2026-10-18T10:00:00Z', revoked_previous: [] });
+      case 'admin_issue_organiser_invite_v1': return ok({ ok: true, invite_id: 'i9', token: TOKEN, expires_at: '2026-10-18T10:00:00Z', email_bound: false, revoked_previous: [] });
+      case 'admin_list_invite_requests_v1': return ok([]);
+      case 'admin_list_signup_access_requests_v1': return ok([]);
       default: return Promise.reject(new Error(`unexpected rpc ${fn}`));
     }
   });
@@ -148,12 +150,13 @@ describe('5. malformed token + breadcrumbs', () => {
 });
 
 describe('6. red text uses the destructive token (the theme is black; dark: never applies)', () => {
-  it('none of the five red texts uses red-700 or dark:', () => {
+  it('none of the red texts uses red-700 or dark:', () => {
     const src = readFileSync('src/modules/admin-organisers/AdminOrganisersPage.tsx', 'utf8');
     expect(src).not.toMatch(/red-700/);
     expect(src).not.toMatch(/dark:text-red/);
     const lines = src.split('\n').filter((l) => /text-destructive/.test(l));
-    expect(lines.length).toBe(5);
+    // The chip tone, the link form's field error, the load error and the four alerts.
+    expect(lines.length).toBe(7);
     for (const l of lines) expect(l).not.toMatch(/red-700|dark:/);
   });
   it('the rendered link-close warning and add error carry text-destructive', async () => {
@@ -162,7 +165,9 @@ describe('6. red text uses the destructive token (the theme is black; dark: neve
     rpcImpl(false);
     mount('/admin/organisers');
     fireEvent.click(await screen.findByText('Alpha'));
-    fireEvent.click(await screen.findByTestId('generate-invite'));
+    fireEvent.click(await screen.findByTestId('row-primary'));
+    fireEvent.click(screen.getByTestId('choice-link'));
+    fireEvent.click(screen.getByTestId('link-submit'));
     await screen.findByTestId('one-time-link');
     fireEvent.click(screen.getByText('Alpha'));
     const warn = screen.queryByTestId('link-close-warning');

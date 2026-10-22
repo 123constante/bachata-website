@@ -17,6 +17,13 @@ export const OTP_CODE_LENGTH = 8;
  * cooldown only offers a button that fails (audit H7). One value for every code box.
  */
 export const OTP_RESEND_COOLDOWN_SECONDS = 60;
+// How long an emailed sign-in code works (Supabase Auth "Email OTP expiration"; the hosted default is
+// 3600 s). The code screen tells "wrong" from "run out" by the time since the code was sent, not by the
+// error code: GoTrue answers a wrong code AND an expired one with the same "Token has expired or is
+// invalid" (often code otp_expired), so trusting the code would never count a wrong try (review F5).
+// If the project setting is shorter, a truly run-out code reads as wrong and the 3-try limit still
+// ends at "Send a new code"; it never reads a wrong code as run out inside this window.
+export const OTP_LIFETIME_SECONDS = 3600;
 
 /** Supabase's 429 (`over_email_send_rate_limit`, "For security purposes..."). */
 export function isOtpRateLimitedError(error: unknown): boolean {
