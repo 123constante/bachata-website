@@ -258,7 +258,7 @@ describe('programmeErrorCopy: server refusals to plain words', () => {
   const err = (message: string) => ({ message, code: 'P0001' });
   const cases: Array<[string, RegExp, boolean]> = [
     ['version_conflict: expected 7, got 8', /changed somewhere else, so your changes were not saved/, true],
-    ['permission_denied: authentication_required', /sign in/, false],
+    ['permission_denied: authentication_required', /^Your sign-in ended\. Sign in again\.$/, false],
     ['permission_denied: occurrence not found or caller is not an owner or manager of its series', /cannot change this date/, false],
     ['permission_denied: programme edit on a past date is admin-only', /already happened/, true],
     ['permission_denied: programme edit on an ended or archived series is admin-only', /ended or is archived/, true],

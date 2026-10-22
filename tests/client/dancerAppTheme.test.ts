@@ -59,6 +59,47 @@ describe('contrast (WCAG 2.x)', () => {
   });
 });
 
+/** The declarations of the ONE rule whose selector list is exactly `sel`. */
+const ruleBody = (sheet: string, sel: string): string => {
+  const body = sheet.replace(/\/\*[\s\S]*?\*\//g, '');
+  const m = [...body.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find((r) => r[1].trim() === sel);
+  return m ? m[2] : '';
+};
+
+describe('.da-tap never beats a block\'s own colour or layout (review B3)', () => {
+  // `[data-profile="dancer"] .da-tap` is specificity 0,2,0; a Tailwind class is 0,1,0. A colour or display there won
+  // over LINK_PRIMARY's text-[var(--btnfg)] (white on ember, 2.96:1) and over RateNudge's block tile.
+  const tap = ruleBody(css, '[data-profile="dancer"] .da-tap');
+  it('the rule exists and keeps the 44px target', () => {
+    expect(tap).toMatch(/min-height:\s*var\(--da-tap\)/);
+  });
+  it.each(['color', 'display', 'justify-content', 'align-items'])('declares no %s', (prop) => {
+    expect(tap).not.toMatch(new RegExp(`(^|[;\\s])${prop}\\s*:`));
+  });
+});
+
+/** Ember world values (src/modules/organiser/ui/ember.css), which the dancer screens mostly render with (review N9). */
+const emberCss = readFileSync(path.join(ROOT, 'src/modules/organiser/ui/ember.css'), 'utf8');
+const ember = (name: string): string => {
+  const start = emberCss.search(/^\.ember-world,/m);
+  const block = emberCss.slice(start, emberCss.indexOf('}', start));
+  const m = block.match(new RegExp(`--${name}:\\s*(#[0-9a-f]{6});`, 'i'));
+  if (!m) throw new Error(`--${name} not found in the ember-world block`);
+  return m[1];
+};
+
+describe('contrast of the Ember pairs the dancer screens render (review N9)', () => {
+  it.each([
+    ['btnfg', 'btn'], // the primary button and LINK_PRIMARY (B3)
+    ['fg', 'bg'], ['fg', 'card'], ['fg', 'card2'],
+    ['mut', 'bg'], ['mut', 'card'], ['mut', 'card2'],
+    ['gold-fg', 'bg'], ['gold-fg', 'card'], ['gold-fg', 'card2'],
+    ['danger', 'card'],
+  ])('--%s on --%s >= 4.5', (fg, bg) => {
+    expect(contrastRatio(ember(fg), ember(bg))).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe('the sheet is imported by the shell only', () => {
   it('exactly one importer, shell/DancerAppShell.tsx; nothing outside the module imports it', () => {
     const importers = walk(path.join(ROOT, 'src'))
@@ -66,5 +107,26 @@ describe('the sheet is imported by the shell only', () => {
       .filter((f) => /dancer\.css['"]/.test(readFileSync(f, 'utf8')))
       .map((f) => path.relative(ROOT, f).split(path.sep).join('/'));
     expect(importers).toEqual(['src/modules/dancer-app/shell/DancerAppShell.tsx']);
+  });
+});
+
+describe('one focus ring for every control in the dancer app (review N6)', () => {
+  // SummaryRow / Chip buttons, the hero, lineup and nights links and the inputs fell back to the browser's 1px ring;
+  // only .da-tap had the 2px --da-focus one. One rule on the dancer root now covers every focusable kind. Written as a
+  // plain selector list, not :is(a, button, ...): the scope check above splits selector lists on commas.
+  const KINDS = ['a', 'button', 'input', 'select', 'textarea', '[role="button"]', '[role="radio"]', '[role="switch"]'];
+  const want = KINDS.map((k) => `${SCOPE} ${k}:focus-visible`);
+  const body = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = [...body.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find((r) => {
+    const sels = r[1].split(',').map((s) => s.trim());
+    return want.every((w) => sels.includes(w));
+  });
+  const focus = rule ? rule[2] : '';
+  it('ONE rule lists every focusable kind, each scoped to the dancer root', () => {
+    expect(focus).not.toBe('');
+  });
+  it('draws the 2px --da-focus outline, offset 2px', () => {
+    expect(focus).toMatch(/outline:\s*2px solid var\(--da-focus\)/);
+    expect(focus).toMatch(/outline-offset:\s*2px/);
   });
 });

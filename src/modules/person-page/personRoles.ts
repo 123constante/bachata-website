@@ -31,13 +31,13 @@ export type RoleSignals = {
 
 /**
  * With `publicRoles` (the database's answer) the roles are exact, filtered by
- * `visibleRoles` like the search row. Without it (TEMPORARY, until
+ * `visibleRoles`. Without it (TEMPORARY, until
  * get_public_person_roles_v1 is on prod) 'dancer' is inferred: dancer content, or
  * no other VISIBLE role. "Visible" on purpose: 27 of 34 dancing+teaching personas
  * on prod have an empty dancer section, and while the teacher pages are closed
  * their search row says "Dancer"; counting the hidden teacher role here would
- * 404 them. A teacher-only person never reaches /people from search (their row
- * keeps /teachers/:id, see personSearchRow). See docs/handover/person-page-web.md.
+ * 404 them. Search never links /people/ (its person rows open the DJ, dancer or,
+ * while open, teacher page: person-page/searchPerson). See docs/handover/person-page-web.md.
  */
 export function derivePersonRoles(s: RoleSignals): PersonRole[] {
   const open = s.teacherPagesOpen ?? true;

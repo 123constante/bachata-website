@@ -12,7 +12,16 @@ import { MemoryRouter } from 'react-router-dom';
 import type { PersonRole } from '../personRoles';
 
 const h = vi.hoisted(() => ({ roles: [] as PersonRole[] }));
-vi.mock('../usePersonRoles', () => ({ usePersonRoles: () => h.roles }));
+vi.mock('../badges', async (orig) => {
+  const real = await orig<typeof import('../badges')>();
+  return {
+    ...real,
+    usePeopleBadges: () => ({
+      badges: h.roles.length ? new Map([['p1', { id: 'p1', roles: h.roles, djName: null, djHasUpcoming: false, nextGigDate: null }]]) : new Map(),
+      isLoading: false,
+    }),
+  };
+});
 
 import { AlsoRoles } from '../AlsoRoles';
 
@@ -42,7 +51,7 @@ describe('AlsoRoles box', () => {
     const nav = screen.getByRole('navigation', { name: 'Other roles' });
     expect(nav.parentElement).toBe(screen.getByTestId('host'));
     expect(nav.className).toContain(BOX);
-    expect(nav.textContent).toBe('Also:Dancer');
+    expect(nav.textContent).toBe('Dancer');
   });
 
   it.each(['src/pages/DJProfile.tsx', 'src/pages/TeacherProfile.tsx', 'src/pages/DancerProfile.tsx'])(

@@ -12,13 +12,13 @@ export const YearsCard = ({ busy, error, onSubmit, onSkip }: CardProps & { onSki
     <>
       <Tag>Optional &middot; +10%</Tag>
       <Question>How long have you been dancing?</Question>
-      <div role="radiogroup" aria-label="How long you have been dancing" style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+      <div role="radiogroup" aria-label="How long you have been dancing" className="mb-[12px] grid gap-[8px]">
         {EXPERIENCE_BANDS.map((b) => (
           <Chip key={b.id} label={b.label} selected={band === b.id} onClick={() => setBand(b.id)} />
         ))}
       </div>
       <ErrorLine message={error} />
-      <div style={{ display: 'grid', gap: 8 }}>
+      <div className="grid gap-[8px]">
         <PrimaryButton busy={busy} disabled={!band} onClick={() => band && onSubmit({ dance_started_year: startedYearForBand(band) })}>
           Continue
         </PrimaryButton>
@@ -39,13 +39,13 @@ export const StylesCard = ({ profile, busy, error, onSubmit, onSkip }: CardProps
     <>
       <Tag>Optional &middot; +10%</Tag>
       <Question>Which styles do you love?</Question>
-      <div role="group" aria-label="Styles you love" style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+      <div role="group" aria-label="Styles you love" className="mb-[12px] grid gap-[8px]">
         {styles.map((s) => (
           <Chip key={s} multi label={s} selected={picked.includes(s)} onClick={() => toggle(s)} />
         ))}
       </div>
       <ErrorLine message={error} />
-      <div style={{ display: 'grid', gap: 8 }}>
+      <div className="grid gap-[8px]">
         <PrimaryButton busy={busy} disabled={picked.length === 0} onClick={() => onSubmit({ favorite_styles: picked })}>
           Continue
         </PrimaryButton>

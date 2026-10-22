@@ -24,6 +24,7 @@ const DatePage = lazyWithRetry(() => import('../dates'));
 const TeamPage = lazyWithRetry(() => import('../team'));
 const PageScreen = lazyWithRetry(() => import('../page')); // S7 page/
 const SwitchFlow = lazyWithRetry(() => import('../switch')); // S1 switch/
+const WelcomePage = lazyWithRetry(() => import('../switch/Welcome')); // Arc 1 7c
 const ChangeFlow = lazyWithRetry(() => import('../flows/change')); // S2 flows/change
 const AddFlow = lazyWithRetry(() => import('../flows/add')); // S3 flows/add
 const CancelFlow = lazyWithRetry(() => import('../flows/cancel')); // S3 flows/cancel
@@ -37,6 +38,8 @@ const MorePage = lazyWithRetry(() => import('../more')); // S7 more/
 const HelpPage = lazyWithRetry(() => import('../more/help')); // S7 more/help
 const CoverFlow = lazyWithRetry(() => import('../flows/fix')); // S7 flows/fix
 const DonePage = lazyWithRetry(() => import('../flows/Done')); // S0b flows/Done (wired by S2, its first caller)
+const ProfileWizard = lazyWithRetry(() => import('../wizard/ProfileWizard')); // A-WEB1b PROFILE_WIZARD_PATH
+const GoLiveFlow = lazyWithRetry(() => import('../home/onboarding/golive/GoLiveFlow')); // Arc 1 PR3 B
 
 // The loading frame keeps the header's shape but draws NO Switch-profile button: this
 // frame is thrown away when the gate settles and again when the page chunk arrives, and a
@@ -100,13 +103,13 @@ export default function OrganiserRoutes() {
           <Routes>
             <Route index element={<HomePage />} />
             <Route path="switch" element={<SwitchFlow />} />
+            <Route path="welcome" element={<WelcomePage />} />
 
             <Route path="change" element={<ChangeFlow step="event" />} />
             <Route path="change/:seriesId" element={<ChangeFlow step="date" />} />
             <Route path="change/:seriesId/:occurrenceId" element={<ChangeFlow step="what" />} />
             <Route path="change/:seriesId/:occurrenceId/time" element={<ChangeFlow step="time" />} />
             <Route path="change/:seriesId/:occurrenceId/venue" element={<ChangeFlow step="venue" />} />
-            <Route path="change/:seriesId/:occurrenceId/day" element={<ChangeFlow step="day" />} />
             <Route path="change/:seriesId/:occurrenceId/lineup" element={<DatePage />} />
             <Route path="change/:seriesId/pick" element={<ChangeFlow step="pick" />} />
             <Route path="change/:seriesId/:occurrenceId/off" element={<ChangeFlow step="off" />} />
@@ -145,6 +148,8 @@ export default function OrganiserRoutes() {
             <Route path="more/help" element={<HelpPage />} />
             <Route path="cover/:seriesId" element={<CoverFlow />} />
             <Route path="done" element={<DonePage />} />
+            <Route path="complete" element={<ProfileWizard />} />
+            <Route path="go-live" element={<GoLiveFlow />} />
 
             {/* main's URLs (bookmarks, links already sent) -> their R1 paths. */}
             <Route path="events/new" element={<ModuleLegacyRedirect target="newEvent" />} />

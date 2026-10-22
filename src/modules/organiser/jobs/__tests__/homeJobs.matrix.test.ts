@@ -51,20 +51,22 @@ const page = (s: HomeSeriesFull[], over: Partial<HomeOrganiser> = {}): HomeOrgan
 
 const request: IncomingAccessRequest = { requestId: 'r1', userId: 'u2', requesterEmail: 'maya@example.com', message: null, createdAt: daysAgoIso(1) };
 
+/** D83: the short chip each Home problem row stands for (the long Home words live in PROBLEM_COPY). */
+const CHIP_OF: Record<string, string> = { no_dates_left: 'Needs dates', no_cover: 'Needs a flyer', stale_draft: 'Not live yet' };
+
 const kinds = (jobs: Job[]) => jobs.map((j) => j.kind);
 
 describe('homeJobs: the Home matrix (4.5)', () => {
-  it('0 series -> the three first steps, in order, and no change/add/cancel', () => {
+  it('0 series -> the two first steps, in order, and no change/add/cancel; no profile checklist job (C15)', () => {
     const jobs = homeJobs(page([]), [], today());
-    expect(kinds(jobs)).toEqual(['create_first_event', 'add_cover', 'add_manager']);
+    expect(kinds(jobs)).toEqual(['create_first_event', 'add_manager']);
     expect(jobs.map((j) => [j.n, j.title, j.to, j.tone])).toEqual([
-      [1, 'New event', ORG_PATHS.newWhat, 'gold'],
-      [2, 'Add a photo', ORG_PATHS.page, 'plain'],
-      [3, 'Add a manager', ORG_PATHS.teamAdd, 'plain'],
+      [1, 'Create your first event', ORG_PATHS.newWhat, 'gold'],
+      [2, 'Add a manager', ORG_PATHS.teamAdd, 'plain'],
     ]);
   });
 
-  it('first steps drop off once true (photo, a second team member); no WhatsApp step (C69)', () => {
+  it('first steps drop off once true (a second team member); no WhatsApp step (C69)', () => {
     const done = page([], { avatar_url: 'https://img.example/a.jpg', team: [{ user_id: 'u1', member_role: 'owner' }, { user_id: 'u2', member_role: 'manager' }] });
     expect(kinds(homeJobs({ ...done, whatsapp_url: 'https://wa.me/1' } as HomeOrganiser, [], today()))).toEqual(['create_first_event']);
   });
@@ -83,7 +85,7 @@ describe('homeJobs: the Home matrix (4.5)', () => {
     const jobs = homeJobs(page([s]), [], today());
     expect(jobs.map((j) => [j.n, j.kind, j.title, j.sub, j.to, j.tone])).toEqual([
       [1, 'add', 'Add a date', undefined, ORG_PATHS.add, 'plain'],
-      [2, 'no_dates_left', 'Fridays', 'Needs dates', ORG_PATHS.addEvent(s.id), 'problem'],
+      [2, 'no_dates_left', 'Add dates: Fridays', 'No coming dates, so dancers see nothing', ORG_PATHS.addEvent(s.id), 'problem'],
     ]);
   });
 
@@ -91,7 +93,7 @@ describe('homeJobs: the Home matrix (4.5)', () => {
     const s = series({ name: 'Sundays', upcoming_count: 0, cancelled_upcoming_count: 2, next_dates: [] });
     const jobs = homeJobs(page([s]), [], today());
     expect(kinds(jobs)).toEqual(['add', 'no_dates_left']);
-    expect(jobs[1]).toMatchObject({ n: 2, title: 'Sundays', sub: 'Needs dates', to: ORG_PATHS.addEvent(s.id) });
+    expect(jobs[1]).toMatchObject({ n: 2, title: 'Add dates: Sundays', sub: 'No coming dates, so dancers see nothing', to: ORG_PATHS.addEvent(s.id) });
   });
 
   it('draft 9 days old -> stale_draft; draft 2 days old -> none', () => {
@@ -99,7 +101,7 @@ describe('homeJobs: the Home matrix (4.5)', () => {
     const fresh = series({ name: 'New draft', lifecycle_status: 'draft', created_at: daysAgoIso(2), upcoming_count: 0, next_dates: [] });
     const jobs = homeJobs(page([series(), old, fresh]), [], today());
     expect(kinds(jobs)).toEqual(['change', 'add', 'cancel', 'stale_draft']);
-    expect(jobs[3]).toEqual({ kind: 'stale_draft', n: 4, title: 'Old draft', sub: 'Draft, 9 days', to: ORG_PATHS.event(old.id), tone: 'problem' });
+    expect(jobs[3]).toEqual({ kind: 'stale_draft', n: 4, title: 'Finish and go live: Old draft', sub: 'Not live yet, started 9 days ago', to: ORG_PATHS.event(old.id), tone: 'problem' });
   });
 
   it('a draft exactly 7 days old is not stale yet (older than 7 days)', () => {
@@ -110,12 +112,12 @@ describe('homeJobs: the Home matrix (4.5)', () => {
   it('live with no cover -> no_cover', () => {
     const s = series({ name: 'Bare', default_cover_image_url: null });
     const jobs = homeJobs(page([s]), [], today());
-    expect(jobs[3]).toEqual({ kind: 'no_cover', n: 4, title: 'Bare', sub: 'Needs a flyer', to: ORG_PATHS.cover(s.id), tone: 'problem' });
+    expect(jobs[3]).toEqual({ kind: 'no_cover', n: 4, title: 'Add a flyer: Bare', sub: 'Events with a flyer get more clicks', to: ORG_PATHS.cover(s.id), tone: 'problem' });
   });
 
   it('an open join request -> join_request', () => {
     const jobs = homeJobs(page([series()]), [request], today());
-    expect(jobs[3]).toEqual({ kind: 'join_request', n: 4, title: 'Wants to join', sub: 'maya@example.com', to: ORG_PATHS.team, tone: 'problem' });
+    expect(jobs[3]).toEqual({ kind: 'join_request', n: 4, title: 'Answer a request to join', sub: 'maya@example.com', to: ORG_PATHS.team, tone: 'problem' });
   });
 
   it('problems come in D37 order after jobs 1-3', () => {
@@ -135,7 +137,7 @@ describe('homeJobs: the Home matrix (4.5)', () => {
     const live = Array.from({ length: 5 }, () => series({ default_cover_image_url: null }));
     const archived = Array.from({ length: 40 }, () => series({ lifecycle_status: 'archived', upcoming_count: 0, next_dates: [], default_cover_image_url: null }));
     const jobs = homeJobs(page([...archived, ...live]), [], today());
-    expect(jobs.filter((j) => j.kind === 'no_cover').map((j) => j.title)).toEqual(live.map((s) => s.name));
+    expect(jobs.filter((j) => j.kind === 'no_cover').map((j) => j.title)).toEqual(live.map((s) => `Add a flyer: ${s.name}`));
   });
 
   it('paused and ended series are never listed as problems (D6)', () => {
@@ -151,8 +153,8 @@ describe('homeJobs: the Home matrix (4.5)', () => {
   const chipAgreesWithHome = (jobs: Job[], all: HomeSeriesFull[]) => {
     for (const s of all) {
       const chip = seriesChip(s, today());
-      const rows = jobs.filter((j) => j.tone === 'problem' && j.title === s.name);
-      expect(rows.map((r) => r.sub)).toEqual(chip.tone === 'bad' ? [chip.label] : []);
+      const rows = jobs.filter((j) => j.tone === 'problem' && j.title.endsWith(`: ${s.name}`));
+      expect(rows.map((r) => CHIP_OF[r.kind])).toEqual(chip.tone === 'bad' ? [chip.label] : []);
     }
   };
 
@@ -162,21 +164,20 @@ describe('homeJobs: the Home matrix (4.5)', () => {
     const jobs = homeJobs(page([old, fresh]), [], today());
     expect(jobs.map((j) => [j.n, j.kind, j.title, j.sub, j.to, j.tone])).toEqual([
       [1, 'add', 'Add a date', undefined, ORG_PATHS.add, 'plain'],
-      [2, 'stale_draft', 'Old draft', 'Draft, 9 days', ORG_PATHS.event(old.id), 'problem'],
+      [2, 'stale_draft', 'Finish and go live: Old draft', 'Not live yet, started 9 days ago', ORG_PATHS.event(old.id), 'problem'],
     ]);
-    expect(seriesChip(old, today())).toEqual({ label: 'Draft, 9 days', tone: 'bad' });
+    expect(seriesChip(old, today())).toEqual({ label: 'Not live yet', tone: 'bad' });
     expect(seriesChip(fresh, today())).toEqual({ label: 'Draft, 2 days', tone: 'n' });
     chipAgreesWithHome(jobs, [old, fresh]);
   });
 
-  it('paused + ended only -> the three first steps, no change/add/cancel', () => {
+  it('paused + ended only -> the two first steps, no change/add/cancel', () => {
     const paused = series({ name: 'Paused one', lifecycle_status: 'paused', next_dates: [date(2), date(9)] });
     const ended = series({ name: 'Ended one', lifecycle_status: 'ended', upcoming_count: 0, next_dates: [], default_cover_image_url: null });
     const jobs = homeJobs(page([paused, ended]), [], today());
     expect(jobs.map((j) => [j.n, j.kind, j.title, j.to, j.tone])).toEqual([
-      [1, 'create_first_event', 'New event', ORG_PATHS.newWhat, 'gold'],
-      [2, 'add_cover', 'Add a photo', ORG_PATHS.page, 'plain'],
-      [3, 'add_manager', 'Add a manager', ORG_PATHS.teamAdd, 'plain'],
+      [1, 'create_first_event', 'Create your first event', ORG_PATHS.newWhat, 'gold'],
+      [2, 'add_manager', 'Add a manager', ORG_PATHS.teamAdd, 'plain'],
     ]);
     expect(seriesChip(paused, today())).toEqual({ label: 'Paused', tone: 'n' });
     expect(seriesChip(ended, today())).toEqual({ label: 'Ended', tone: 'n' });
@@ -210,7 +211,7 @@ describe('seriesChip: the same fact as the Home row (one mapping)', () => {
     // Decision 3 (INT-B N-9): every coming date cancelled outranks every Home problem on the chip.
     ['live, all cancelled', { upcoming_count: 0, cancelled_upcoming_count: 3, next_dates: [] }, { label: 'Cancelled', tone: 'bad' }],
     ['live, no cover', { default_cover_image_url: null }, { label: 'Needs a flyer', tone: 'bad' }],
-    ['draft 9 days', { lifecycle_status: 'draft', created_at: daysAgoIso(9) }, { label: 'Draft, 9 days', tone: 'bad' }],
+    ['draft 9 days', { lifecycle_status: 'draft', created_at: daysAgoIso(9) }, { label: 'Not live yet', tone: 'bad' }],
     ['draft 2 days', { lifecycle_status: 'draft', created_at: daysAgoIso(2) }, { label: 'Draft, 2 days', tone: 'n' }],
     ['draft today', { lifecycle_status: 'draft', created_at: daysAgoIso(0) }, { label: 'Draft', tone: 'n' }],
     ['draft 1 day', { lifecycle_status: 'draft', created_at: daysAgoIso(1) }, { label: 'Draft, 1 day', tone: 'n' }],
@@ -225,12 +226,12 @@ describe('seriesChip: the same fact as the Home row (one mapping)', () => {
   it.each(shapes)('Home side agrees for %s: a bad chip IS a Home problem row with the chip label, and back', (_name, over) => {
     const s = series(over);
     const chip = seriesChip(s, today());
-    const rows = homeJobs(page([s, series()]), [], today()).filter((j) => j.tone === 'problem' && j.title === s.name);
+    const rows = homeJobs(page([s, series()]), [], today()).filter((j) => j.tone === 'problem' && j.title.endsWith(`: ${s.name}`));
     if (chip.label === 'Cancelled') {
       // A cancelled-only series: the chip states the cancellation (decision 3); Home keeps its job row.
-      expect(rows.map((r) => r.sub)).toEqual(['Needs dates']);
+      expect(rows.map((r) => CHIP_OF[r.kind])).toEqual(['Needs dates']);
     } else if (chip.tone === 'bad') {
-      expect(rows.map((r) => r.sub)).toEqual([chip.label]);
+      expect(rows.map((r) => CHIP_OF[r.kind])).toEqual([chip.label]);
     } else {
       expect(rows).toEqual([]);
     }
@@ -239,7 +240,7 @@ describe('seriesChip: the same fact as the Home row (one mapping)', () => {
   it('a live series with no dates AND no cover: the chip shows the first Home row', () => {
     const s = series({ upcoming_count: 0, next_dates: [], default_cover_image_url: null });
     const rows = homeJobs(page([s]), [], today()).filter((j) => j.tone === 'problem');
-    expect(rows.map((r) => r.sub)).toEqual(['Needs dates', 'Needs a flyer']);
-    expect(seriesChip(s, today()).label).toBe(rows[0].sub);
+    expect(rows.map((r) => CHIP_OF[r.kind])).toEqual(['Needs dates', 'Needs a flyer']);
+    expect(seriesChip(s, today()).label).toBe(CHIP_OF[rows[0].kind]);
   });
 });

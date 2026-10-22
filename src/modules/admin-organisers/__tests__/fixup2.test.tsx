@@ -74,6 +74,7 @@ describe('admin page', () => {
       if (fn === 'organiser_ownership_v1') return ownership(id);
       if (fn === 'admin_list_organiser_invites_v1') return ok(invites[id] ?? []);
       if (fn === 'admin_revoke_organiser_invite_v1') return ok({ revoked: 1 });
+      if (fn === 'admin_list_invite_requests_v1' || fn === 'admin_list_signup_access_requests_v1') return ok([]);
       return Promise.reject(new Error(`unexpected rpc ${fn}`));
     });
   });
@@ -91,11 +92,13 @@ describe('admin page', () => {
     mount();
     await waitFor(() => expect(screen.getByTestId('organiser-row').getAttribute('data-status')).toBe('managed'));
     fireEvent.click(screen.getByRole('button', { name: /Alpha/ }));
-    await waitFor(() => expect(screen.getByTestId('status-detail').textContent).toMatch(/Has an owner\. Link works until/));
-    expect((screen.getByTestId('revoke-invite') as HTMLButtonElement).disabled).toBe(false);
-    expect(screen.getByTestId('generate-note').textContent).toBe(OWNER_NOTE);
-    fireEvent.click(screen.getByTestId('generate-invite'));
-    expect(screen.getByTestId('replace-confirm').textContent).toMatch(/old one stops working/);
+    await waitFor(() => expect(screen.getByTestId('status-detail').textContent).toMatch(/Has an owner\. A link works until/));
+    expect((screen.getByTestId('withdraw-invite') as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByTestId('row-primary').textContent).toBe('Add another person');
+    fireEvent.click(screen.getByTestId('row-primary'));
+    fireEvent.click(screen.getByTestId('choice-link'));
+    expect(screen.getByTestId('link-replaces-note').textContent).toMatch(/old one stops working/);
+    expect(screen.getByTestId('link-owner-note').textContent).toMatch(/adds another owner/);
   });
 
   it('G2: opening a row whose cached ownership is stale ends Managed and never claims the owner left', async () => {
@@ -111,7 +114,7 @@ describe('admin page', () => {
     expect(screen.getByTestId('status-detail').textContent).not.toMatch(/since left/);
     release();
     await waitFor(() => expect(screen.getByTestId('organiser-row').getAttribute('data-status')).toBe('managed'));
-    expect(screen.getByTestId('status-detail').textContent).toBe('Has an owner.');
+    expect(screen.getByTestId('status-detail').textContent).toMatch(/^Has an owner\. Joined /);
     expect(document.body.textContent).not.toMatch(/since left/);
   });
 });

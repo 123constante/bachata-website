@@ -5,13 +5,17 @@ import { finishProfileHref } from '@/lib/profileCompletion';
 import { claimOrganiser, requestOrganiserAccess, type ClaimCandidate } from '@/modules/organiser/shared/selfServeApi';
 import { selfServeErrorCopy, type SelfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
 import { EmailCodeProof } from '../../shared/components/EmailCodeProof';
-import { Field, FIELD_CLASS, PrimaryButton, SheetView, useOpenerRef, useShake } from '../../ui';
+import { Field, FIELD_CLASS, GhostButton, PrimaryButton, SheetView, useOpenerRef, useShake } from '../../ui';
 import { NewPageFlow, type NewPageStep } from '../../flows/newpage';
 import { newPageSheetTitle, type NewPageRefusalKind } from '../../flows/newpage/model';
+import type { ClaimHint } from '../../shared/claimHint';
+import { NOT_THIS_ONE, claimScreen } from './claimStates';
 
+/** Claim, ask to join and your own page carry the database's hint: it words the screen (6a-6e). */
 export type SheetTask =
+  | { kind: 'yours'; org: ClaimCandidate }
   | { kind: 'claim'; org: ClaimCandidate }
-  | { kind: 'request'; org: ClaimCandidate }
+  | { kind: 'request'; org: ClaimCandidate; hint?: ClaimHint | null }
   | { kind: 'create'; name: string };
 
 interface Props {
@@ -85,8 +89,9 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
       }
       setFailure(copy);
       shake();
-      // A refusal meaning "you cannot claim this" turns the claim into a request for the same organiser.
-      if (copy.next === 'request_access' && task?.kind === 'claim') onTaskChange({ kind: 'request', org: task.org });
+      // A refusal meaning "you cannot claim this" turns the claim into a request for the same organiser,
+      // worded as an unknown hint: the claim's "your email matches" line is no longer true.
+      if (copy.next === 'request_access' && task?.kind === 'claim') onTaskChange({ kind: 'request', org: task.org, hint: null });
     } finally {
       setBusy(false);
     }
@@ -105,31 +110,64 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
   let body: ReactNode = null;
   let footer: ReactNode = undefined;
 
-  if (task?.kind === 'claim') {
-    title = `Claim ${task.org.name}`;
+  // 6a-6e: the one line under the title, from the shared mapping.
+  const screen = task && task.kind !== 'create'
+    ? claimScreen(task.kind === 'yours' ? 'yours' : task.kind === 'claim' ? 'email_matches' : task.hint ?? null, task.org.name)
+    : null;
+  // The header truncates (page names reach 34 characters on prod), so the sentence that
+  // decides ("... already has an owner") wraps in the body; the header names the page.
+  const sub = screen && (
+    <div className="space-y-[4px]">
+      <h3 className="break-words text-[17px] font-bold text-[var(--fg)]" data-testid="onboarding-claim-title">{screen.title}</h3>
+      <p className="text-[15px] text-[var(--fg)]" data-testid="onboarding-claim-sub">{screen.sub}</p>
+    </div>
+  );
+  const notThisOne = screen?.notThisOne && (
+    <GhostButton onClick={close} disabled={busy} testId="onboarding-not-this-one">{NOT_THIS_ONE}</GhostButton>
+  );
+  const twoButtons = (primary: ReactNode) => (
+    <div className="flex flex-col gap-[8px]">
+      {primary}
+      {notThisOne}
+    </div>
+  );
+
+  if (task?.kind === 'yours' && screen) {
+    title = task.org.name;
+    body = sub;
+    footer = (
+      <PrimaryButton
+        onClick={() => {
+          close();
+          onHome();
+        }}
+        testId="onboarding-yours-home"
+      >
+        {screen.primaryLabel}
+      </PrimaryButton>
+    );
+  } else if (task?.kind === 'claim' && screen) {
+    title = task.org.name;
     body = (
       <div {...shakeProps} className={cn('space-y-[12px]', shakeProps.className)}>
+        {sub}
         {error}
-        {mailboxProven ? (
-          <p className="text-[15px] text-[var(--fg)]">
-            You&rsquo;re signed in as <strong className="break-all">{email}</strong>, the contact email on this listing.
-          </p>
-        ) : (
-          <EmailCodeProof email={email} onProven={() => void claim(task.org)} />
-        )}
+        {/* Needs a proven mailbox: the code step comes first when the session has not proved it. */}
+        {!mailboxProven && <EmailCodeProof email={email} onProven={() => void claim(task.org)} />}
       </div>
     );
-    if (mailboxProven) {
-      footer = (
-        <PrimaryButton onClick={() => void claim(task.org)} loading={busy} loadingLabel="Claiming" testId="onboarding-claim-confirm">
-          Yes, claim it
-        </PrimaryButton>
-      );
-    }
-  } else if (task?.kind === 'request') {
-    title = `Ask to join ${task.org.name}`;
+    footer = mailboxProven
+      ? twoButtons(
+          <PrimaryButton onClick={() => void claim(task.org)} loading={busy} loadingLabel="Claiming" testId="onboarding-claim-confirm">
+            {screen.primaryLabel}
+          </PrimaryButton>,
+        )
+      : notThisOne || undefined;
+  } else if (task?.kind === 'request' && screen) {
+    title = task.org.name;
     body = (
       <div {...shakeProps} className={cn('space-y-[12px]', shakeProps.className)}>
+        {sub}
         {error}
         <Field label="Who are you? (optional)" htmlFor={`${ids}-note`}>
           <textarea
@@ -146,10 +184,10 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
         </Field>
       </div>
     );
-    footer = (
+    footer = twoButtons(
       <PrimaryButton onClick={() => void request(task.org)} loading={busy} loadingLabel="Sending" testId="onboarding-request-send">
-        Ask to join
-      </PrimaryButton>
+        {screen.primaryLabel}
+      </PrimaryButton>,
     );
   } else if (task?.kind === 'create') {
     title = newPageSheetTitle(step, refusalKind);
@@ -160,6 +198,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
         onRefusalChange={setRefusalKind}
         name={name}
         onName={setName}
+        email={email || null}
         onCreated={(page) => {
           setName('');
           onCreated(page);

@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   ORGANISER_HOME_KEY, fetchSeriesWorkspace, runSeriesCommand, seriesWorkspaceQueryKey,
 } from '@/modules/organiser/shared/selfServeApi';
-import { envelope, newIdempotencyKey, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
+import { envelope, newIdempotencyKey, withSeriesName, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
 import { commandErrorMessage, isVersionConflict } from '@/modules/organiser/shared/selfServeErrors';
 
 /**
@@ -26,8 +26,11 @@ export function useNewSend(seriesId: string) {
     setBusy(true);
     setError(null);
     try {
-      let version = (await fetchSeriesWorkspace(seriesId)).series.version;
-      for (const command of commands) {
+      const { series } = await fetchSeriesWorkspace(seriesId);
+      let version = series.version;
+      for (const bare of commands) {
+        // The upsert handler requires `name` on every call (F1): add it from the fresh read.
+        const command = withSeriesName(bare, series.name);
         const sig = JSON.stringify(command);
         let key = keys.current.get(sig);
         if (!key) {

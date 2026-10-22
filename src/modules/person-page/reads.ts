@@ -17,6 +17,12 @@ export type PersonSnapshot = {
   city: string | null;
   instagramUrl: string | null;
   roles: PersonRole[];
+  /**
+   * The roles the person HOLDS (get_public_person_roles_v1, before the closed-page filter), so the
+   * hub's chips read like the wall's: a closed Teacher is a plain-text chip there. Cards, links and
+   * the 404 rule stay on `roles`. Same as `roles` on the fallback path; absent in older loader data.
+   */
+  heldRoles?: PersonRole[];
   /** First DJ photo, for the og:image when the person has no avatar. */
   djPhoto: string | null;
 };
@@ -106,6 +112,7 @@ export async function loadPersonSnapshot(qc: QueryClient, id: string): Promise<P
     city: view.city,
     instagramUrl: view.connectLinks.instagram,
     roles,
+    heldRoles: publicRoles ?? roles,
     djPhoto: ((Array.isArray(djPhoto) ? djPhoto[0] : djPhoto) as string | null | undefined) ?? null,
   };
 }

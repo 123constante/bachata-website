@@ -103,7 +103,9 @@ describe('Home x attendance shapes', () => {
     if (c.hero) expect(hero.textContent).toMatch(c.hero);
     else {
       expect(hero.textContent).toMatch(/No upcoming night yet/);
-      expect(within(hero).getByRole('link', { name: 'Browse events' })).toBeTruthy();
+      // D130: no Browse events control; the words point at the home link top left.
+      expect(within(hero).queryAllByRole('link')).toHaveLength(0);
+      expect(hero.textContent).toMatch(/Bachata Calendar link at the top left/);
     }
     if (c.nudge) expect(await screen.findByTestId('rate-nudge')).toBeTruthy();
     else {
@@ -182,22 +184,6 @@ describe('Home x profile shapes', () => {
     await screen.findByTestId('home-hero');
     expect(screen.queryByTestId('linked-notice')).toBeNull();
   });
-
-  it('no city: what\'s on is hidden with a hint', async () => {
-    home({ backend: { profile: makeProfile({ first_name: 'Ana' }) } });
-    const hint = await screen.findByTestId('whats-on-no-city');
-    expect(within(hint).getByRole('link', { name: 'Add my city' }).getAttribute('href')).toBe('/app/me/edit?focus=city');
-    expect(screen.queryByTestId('whats-on-row')).toBeNull();
-  });
-
-  it('with a city: 3 events at most, each opening the event page, plus Browse events', async () => {
-    h.calendar = [1, 2, 3, 4].map((i) => ({ event_id: `e${i}`, name: `Event ${i}`, instance_date: day(i), occurrence_starts_at: `${day(i)}T20:00:00`, location: 'Soho', is_cancelled: false }));
-    home();
-    const rows = await screen.findAllByTestId('whats-on-row');
-    expect(rows).toHaveLength(3);
-    expect(rows[0].getAttribute('href')).toBe('/event/e1');
-    expect(screen.getByTestId('whats-on-browse').getAttribute('href')).toBe('/city/london-gb/calendar');
-  });
 });
 
 describe('analytics', () => {
@@ -222,7 +208,8 @@ describe('Nights', () => {
     // Audit L22: zero nights is ONE state covering Going and Interested.
     const empty = await screen.findByTestId('nights-empty');
     expect(empty.textContent).toMatch(/No nights saved yet/);
-    expect(within(empty).getByRole('link', { name: 'Browse events' }).getAttribute('href')).toBe('/city/london-gb/calendar');
+    expect(within(empty).queryAllByRole('link')).toHaveLength(0);
+    expect(empty.textContent).toMatch(/Bachata Calendar link at the top left/);
   });
 
   it('upcoming and past lists with status pills', async () => {

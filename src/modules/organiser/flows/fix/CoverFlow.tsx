@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ORGANISER_HOME_KEY, fetchSeriesWorkspace, runSeriesCommand, seriesWorkspaceQueryKey } from '@/modules/organiser/shared/selfServeApi';
-import { envelope, newIdempotencyKey } from '@/modules/organiser/shared/seriesCommands';
+import { envelope, newIdempotencyKey, withSeriesName } from '@/modules/organiser/shared/seriesCommands';
 import { commandErrorMessage, isAccessRefusal, isVersionConflict } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { uploadEventPicture } from '../../events/media';
@@ -10,6 +10,7 @@ import { OrganiserShell } from '../../shell';
 import { ORG_PATHS } from '../../shell/paths';
 import { ErrorState, SkeletonRows } from '../../ui';
 import { goDone } from '../doneState';
+import { SeriesLockGate } from '../../events/ProfileLock';
 import { EventConflict } from '../event/parts';
 import { FLYER_WORD } from '../../shared/flyerLabel';
 import { COVER_TITLE, coverDone, coverFixCommands } from './coverModel';
@@ -19,7 +20,12 @@ import { COVER_TITLE, coverDone, coverFixCommands } from './coverModel';
  * upload), send ONE series.upsert {default_cover_image_url}, land on Done
  * "Flyer added". The Home no_cover row, New event and Event details link here.
  */
+/** C14: the flyer is locked while profiles are unfinished. */
 export default function CoverFlow() {
+  return <SeriesLockGate title="Flyer"><CoverFlowScreen /></SeriesLockGate>;
+}
+
+function CoverFlowScreen() {
   const { seriesId = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -47,10 +53,11 @@ export default function CoverFlow() {
       return;
     }
     try {
-      const [command] = coverFixCommands(url);
       if (key.current?.url !== url) key.current = { url, key: newIdempotencyKey() };
-      const version = (await fetchSeriesWorkspace(seriesId)).series.version;
-      await runSeriesCommand(envelope(seriesId, version, command, key.current.key));
+      const fresh = (await fetchSeriesWorkspace(seriesId)).series;
+      // The upsert handler requires `name` on every call (F1): add it from the fresh read.
+      const command = withSeriesName(coverFixCommands(url)[0], fresh.name);
+      await runSeriesCommand(envelope(seriesId, fresh.version, command, key.current.key));
       void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       goDone(navigate, coverDone(seriesId));
