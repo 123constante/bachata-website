@@ -118,6 +118,28 @@ All in `scripts/check-*.mjs`, enforced by CI.
   per-row timestamp, so five newer content errors can push parked transport
   errors out of the sample. Closing it needs a counter the RPC does not expose.
 
+- Going RPCs contract (`scripts/check-going-rpcs.mjs`, `npm run check:going-rpcs`,
+  Going P2, 2026-10-23) &mdash; **NOT YET A WORKFLOW STEP and so not numbered**:
+  this repo's agents cannot edit `.github/workflows/*`, so the step to add to
+  `db-contract-check.yml` is in `docs/handovers/going-p2-website.md`; until it
+  lands the check runs only by hand. As anon it asserts the exact key sets at
+  every level of `get_nights_going_v1` and `get_public_dancer_extras_v1`,
+  `people.length <= p_limit`, the anon refusals of `set_my_going_v1` /
+  `get_my_going_v1`, and that no account key appears anywhere. **Its green is
+  anon-only**: the workflow has no signed-in test account, so the signed-in
+  shapes are a printed SKIP on every run, never a pass. Non-vacuous (no P5 ids
+  or no public profile to read is exit 2).
+
+`scripts/check-going-legacy-rpcs.mjs` (`npm run check:going-legacy-rpcs`, Going
+P2) fails on any name of the retired interested/going attendance RPC family
+(`set_attendance`, `set_my_occurrence_attendance_p5_v1`,
+`get_my_event_attendance_v*`, `get_festival_attendance*`,
+`get_event_attendance_counts*`) anywhere under `src/`, generated type files
+excepted. It runs in the `npm run lint` chain and in `pre-ship` (canary first,
+fixture-only), and in **no workflow** &mdash; like the other lint-chain-only
+links, CI does not gate on it until a workflow step is added. Its scope is
+`src/` only by brief: `tests/` (including Playwright mocks) is not scanned.
+
 `check-og-images.mjs` validates OG image shape/size/format against the deployed site; run manually via `npm run check:og`. Not in `db-contract-check.yml` (wrong trigger context &mdash; needs a live deploy, not a DB connection).
 
 **Read its arms before trusting a green.** The `pull_request` arm probes the

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { MouseEvent } from 'react';
 import { ChevronLeft } from 'lucide-react';
@@ -11,6 +11,8 @@ import { NationalityPicker } from '@/components/ui/nationality-picker';
 import { HideSurnameSwitch, hideSurnameDisabledReason } from '@/components/profile/HideSurnameSwitch';
 import { FAVORITE_STYLE_OPTIONS } from '@/components/profile/dancerConstants';
 import { toast } from '@/hooks/use-toast';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { saveMyDancerProfile } from '../../api/rpc';
 import { toDancerError } from '../../api/errors';
 import { ADD_CITY_MESSAGE, dancerMessageUsUrl } from '../../api/messageUs';
@@ -38,6 +40,8 @@ import { useMyDancerEdit, usePutMyDancerEdit } from '../../api/useMyDancerEdit';
 import { Avatar, QueryGate } from '../me/ui';
 import { ChipChoice, ChipListInput, Field, INPUT_CLASS, TextInput } from './fields';
 import { SAVE_DONE, chipFor, nationalityCodeForPick, styleChipOptions } from './editModel';
+
+const GoingPhotoSwitch = lazyWithRetry(() => import('./GoingPhotoSwitch'));
 
 type ServerErrors = Partial<Record<FormFieldId, string>>;
 
@@ -380,6 +384,15 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
               WhatsApp is only for people who also teach, DJ or organise, so students and partners can reach you. It shows on your page only while this is on.
             </p>
           </div>
+        )}
+
+        {/* Going P2: the photo switch. Behind the going switch like every going surface, and
+            lazy (GoingPhotoSwitch.tsx) so the going words stay out of the /app/* first load;
+            the fallback holds the row's height. Saved with Save changes. */}
+        {GOING_CHECKIN_ENABLED && (
+          <Suspense fallback={<div className="min-h-[44px]" aria-hidden="true" />}>
+            <GoingPhotoSwitch checked={draft.show_going_photo} onToggle={() => set('show_going_photo', !draft.show_going_photo)} />
+          </Suspense>
         )}
       </Card>
 

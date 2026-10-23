@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 /**
- * TODAY's event-page Going / Interested (RsvpBlock) and level vote
- * (LevelRatingPrompt) states for signed-out / anonymous / incomplete / complete,
- * and for every closed-night reason, as the accessible tree at 390x844 and
- * desktop. Going is NOT profile-gated today; the level vote is. Both facts are
- * asserted beside the snapshots. The festival hub twin is festivalHub.today.test.tsx.
+ * TODAY's event-page "Who's going" tile (RsvpBlock, Going P2 design A) and level
+ * vote (LevelRatingPrompt) states for signed-out / anonymous / incomplete /
+ * complete, and for every closed-night reason, as the accessible tree at 390x844
+ * and desktop. Since Going P2 BOTH are profile-gated (the database refuses
+ * `profile_incomplete`); both facts are asserted beside the snapshots. The full
+ * shape matrix of the tile is tests/client/rsvpBlock.test.tsx.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
@@ -18,7 +19,7 @@ import { VIEWPORTS, setViewport } from './helpers/viewports';
 const h = vi.hoisted(() => ({
   user: null as null | { id: string; is_anonymous?: boolean },
   rpc: vi.fn(),
-  myStatus: null as string | null,
+  myGoing: false,
   myLevel: null as string | null,
   rate: vi.fn(),
 }));
@@ -34,17 +35,13 @@ import { RsvpBlock } from '@/modules/event-page/bento/blocks/RsvpBlock';
 import { LevelRatingPrompt } from '@/components/LevelRatingPrompt';
 import { ProfileGateContext } from '@/hooks/useAuth';
 import { profileGateValue, type ProfileCompletion } from '@/lib/profileCompletion';
-import { eventPageQueryKey } from '@/modules/event-page/useEventPageQuery';
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
 
-const PAGE_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const PUBLIC_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const OCC = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
-const future = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 19) + '+00:00';
-const londonWall = (offsetMs: number) =>
-  new Date(Date.now() + offsetMs).toLocaleString('sv-SE', { timeZone: 'Europe/London', hour12: false }).replace(' ', 'T');
 const occ = (over: Partial<EventPageSnapshotOccurrence> = {}) =>
-  ({ occurrenceId: OCC, startsAt: future(2), endsAt: future(2.2), timezone: 'Europe/London', isCancelled: false, isPast: false, ...over }) as EventPageSnapshotOccurrence;
+  // Fixed wall clocks: the tile prints the night ("Thursday 29 Oct \u00b7 9 PM"), so a relative date would move the snapshot daily.
+  ({ occurrenceId: OCC, startsAt: '2099-10-29 21:00:00', endsAt: null, timezone: 'Europe/London', isCancelled: false, isPast: false, ...over }) as EventPageSnapshotOccurrence;
 
 const COMPLETE: ProfileCompletion = { status: 'complete', missing: [], profileId: 'p1' };
 const INCOMPLETE: ProfileCompletion = { status: 'incomplete', missing: ['avatar_url'], profileId: 'p1' };
@@ -52,21 +49,14 @@ const NO_PROFILE: ProfileCompletion = { status: 'no_profile', missing: ['first_n
 
 const mountRsvp = (props: { occurrence?: EventPageSnapshotOccurrence; lifecycle?: string } = {}) => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  qc.setQueryData(eventPageQueryKey(PAGE_ID, null), {
-    eventId: PUBLIC_ID,
-    occurrenceId: OCC,
-    attendance: { goingCount: 4, interestedCount: 0, currentUserStatus: null, preview: [] },
-  });
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={['/event/some-night?occurrenceId=' + OCC]}>
         <RsvpBlock
-          snapshotQueryKey={eventPageQueryKey(PAGE_ID).slice(0, 2)}
           publicEventId={PUBLIC_ID}
           occurrenceId={OCC}
           occurrence={props.occurrence ?? occ()}
           seriesLifecycle={props.lifecycle ?? 'live'}
-          goingCountLabel="4 going"
         />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -90,23 +80,39 @@ const mountLevel = (completion: ProfileCompletion | 'no-provider', compact = fal
 
 const settled = async () => {
   await screen.findByTestId('rsvp-block');
-  await waitFor(() => expect(screen.getByTestId('rsvp-block').getAttribute('aria-busy')).not.toBe('true'));
+  await waitFor(() => {
+    expect(screen.getByTestId('rsvp-block').getAttribute('data-state')).not.toBe('loading');
+    expect(screen.getByTestId('going-people')).toBeTruthy();
+  });
   await new Promise((r) => setTimeout(r, 40));
 };
-const setCalls = () => h.rpc.mock.calls.filter(([n]) => n === 'set_my_occurrence_attendance_p5_v1');
+const setCalls = () => h.rpc.mock.calls.filter(([n]) => n === 'set_my_going_v1');
 
 beforeEach(() => {
   installJsdomPolyfills();
   localStorage.clear();
   h.user = null;
-  h.myStatus = null;
+  h.myGoing = false;
   h.myLevel = null;
   h.rate.mockReset().mockResolvedValue({ data: {}, error: null });
-  h.rpc.mockReset().mockImplementation(async (name: string) => {
-    // Outside the dancer area (B1b S1): the Going lock never applies, so today's page is unchanged.
+  h.rpc.mockReset().mockImplementation(async (name: string, args?: { p_occurrence_ids?: string[]; p_going?: boolean }) => {
+    // Outside the dancer area: "Finish your profile" goes to the site's Finish screen.
     if (name === 'dancer_area_gate_v1') return { data: { open: false, allowed: false }, error: null };
-    if (name === 'get_my_occurrence_attendance_p5_v1') return { data: h.myStatus, error: null };
-    if (name === 'set_my_occurrence_attendance_p5_v1') return { data: { status: h.myStatus }, error: null };
+    if (name === 'get_nights_going_v1') {
+      return {
+        data: (args?.p_occurrence_ids ?? []).map((id) => ({
+          occurrence_id: id,
+          going_count: 4,
+          people: [
+            { dancer_profile_id: 'd1', first_name: 'Ana', photo_url: null },
+            { dancer_profile_id: null, first_name: 'Leo', photo_url: null },
+          ],
+        })),
+        error: null,
+      };
+    }
+    if (name === 'get_my_going_v1') return { data: { upcoming: h.myGoing ? [{ occurrence_id: OCC }] : [], past: [] }, error: null };
+    if (name === 'set_my_going_v1') return { data: { occurrence_id: OCC, going: args?.p_going, changed: true, going_count: 5 }, error: null };
     if (name === 'rate_series_level_p5_v1') return h.rate();
     if (name === 'series_level_summary_p5_v1')
       return { data: { series_id: 'ev1', vote_count: 3, threshold: 7, counts: null, derived_level: null, my_level: h.myLevel }, error: null };
@@ -115,25 +121,24 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-const VIEWER_ROWS: { name: string; user: typeof h.user; status: string | null }[] = [
-  { name: 'signed out', user: null, status: null },
-  { name: 'anonymous session', user: { id: 'anon1', is_anonymous: true }, status: null },
-  { name: 'signed in, not going', user: { id: 'u1' }, status: null },
-  { name: 'signed in, going', user: { id: 'u1' }, status: 'going' },
-  { name: 'signed in, interested', user: { id: 'u1' }, status: 'interested' },
+const VIEWER_ROWS: { name: string; user: typeof h.user; going: boolean }[] = [
+  { name: 'signed out', user: null, going: false },
+  { name: 'anonymous session', user: { id: 'anon1', is_anonymous: true }, going: false },
+  { name: 'signed in, not going', user: { id: 'u1' }, going: false },
+  { name: 'signed in, going', user: { id: 'u1' }, going: true },
 ];
 const CLOSED_ROWS: { name: string; props: Parameters<typeof mountRsvp>[0] }[] = [
   { name: 'cancelled night', props: { occurrence: occ({ isCancelled: true }) } },
-  { name: 'ended night', props: { occurrence: occ({ startsAt: londonWall(-4 * 3600e3), endsAt: londonWall(-1 * 3600e3) }) } },
+  { name: 'ended night', props: { occurrence: occ({ startsAt: '2020-01-02 21:00:00', endsAt: '2020-01-03 01:00:00' }) } },
   { name: 'series not live (draft)', props: { lifecycle: 'draft' } },
 ];
 
-describe.each(VIEWPORTS)('event page Going / Interested at $name', (vp) => {
+describe.each(VIEWPORTS)('event page Who\u2019s going at $name', (vp) => {
   beforeEach(() => setViewport(vp));
 
-  it.each(VIEWER_ROWS)('$name', async ({ user, status }) => {
+  it.each(VIEWER_ROWS)('$name', async ({ user, going }) => {
     h.user = user;
-    h.myStatus = status;
+    h.myGoing = going;
     mountRsvp();
     await settled();
     expect(a11yTree()).toMatchSnapshot();
@@ -147,27 +152,33 @@ describe.each(VIEWPORTS)('event page Going / Interested at $name', (vp) => {
   });
 
   it.each([
-    ['incomplete', INCOMPLETE],
-    ['no profile', NO_PROFILE],
-    ['complete', COMPLETE],
-  ] as const)('Going is NOT gated by profile completeness (%s): the tap reaches set_my_occurrence_attendance_p5_v1', async (_n, completion) => {
+    ['incomplete', INCOMPLETE, false],
+    ['no profile', NO_PROFILE, false],
+    ['complete', COMPLETE, true],
+  ] as const)('Going IS gated by profile completeness (%s): only a finished profile reaches set_my_going_v1', async (_n, completion, reaches) => {
     h.user = { id: 'u1' };
-    // RsvpBlock reads ProfileGateContext only for a person INSIDE the dancer area (B1b S1);
-    // outside it (this gate answer) the profile never locks Going.
+    // Going P2: the database refuses an unfinished profile, so the button is off
+    // with the reason, inside the dancer area or not.
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={qc}>
         <MemoryRouter>
           <ProfileGateContext.Provider value={profileGateValue(completion)}>
-            <RsvpBlock snapshotQueryKey={eventPageQueryKey(PAGE_ID).slice(0, 2)} publicEventId={PUBLIC_ID} occurrenceId={OCC} occurrence={occ()} seriesLifecycle="live" goingCountLabel="4 going" />
+            <RsvpBlock publicEventId={PUBLIC_ID} occurrenceId={OCC} occurrence={occ()} seriesLifecycle="live" />
           </ProfileGateContext.Provider>
         </MemoryRouter>
       </QueryClientProvider>,
     );
     await settled();
     fireEvent.click(screen.getByTestId('rsvp-going'));
-    await waitFor(() => expect(setCalls().length).toBe(1));
-    expect(setCalls()[0][1]).toEqual({ p_public_event_id: PUBLIC_ID, p_occurrence_id: OCC, p_status: 'going' });
+    if (reaches) {
+      await waitFor(() => expect(setCalls().length).toBe(1));
+      expect(setCalls()[0][1]).toEqual({ p_occurrence_id: OCC, p_going: true });
+    } else {
+      expect((screen.getByTestId('rsvp-going') as HTMLButtonElement).disabled).toBe(true);
+      await new Promise((r) => setTimeout(r, 40));
+      expect(setCalls()).toHaveLength(0);
+    }
   });
 
   it('signed-out Going sends nothing and asks to sign in', async () => {

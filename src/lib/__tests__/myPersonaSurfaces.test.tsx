@@ -15,7 +15,7 @@
  * - archived-stub URL  : DancerProfile only (the linked account's old stub page)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, renderHook, waitFor } from '@testing-library/react';
+import { cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -251,25 +251,28 @@ describe.each(SHAPES)('persona shape: $name', ({ persona, reads }) => {
   });
 });
 
-describe('DancerProfile: isSelfView (attendance is fetched only on my own page)', () => {
+// The owner-only "Your plans" block (and its read of the retired interested/going
+// attendance RPC) is gone: going is per night now (src/modules/going). Whoever
+// views the page -- me through any persona shape, or a stranger -- DancerProfile
+// reads no attendance at all, so it can never show my plans under someone
+// else's name. The names are matched by pattern, not spelled out, because
+// scripts/check-going-legacy-rpcs.mjs refuses the old names anywhere in src/.
+describe('DancerProfile: no viewer triggers an attendance read', () => {
   it.each([
-    ['linked: my admin-made profile', { kind: 'id', id: ADMIN_PROFILE }, ADMIN_PROFILE, true],
-    ['linked: my archived stub URL', { kind: 'id', id: ADMIN_PROFILE }, ACCOUNT, true],
-    ['linked: a stranger', { kind: 'id', id: ADMIN_PROFILE }, STRANGER, false],
-    ['own stub: my page', { kind: 'id', id: ACCOUNT }, ACCOUNT, true],
-    ['own stub: a stranger', { kind: 'id', id: ACCOUNT }, STRANGER, false],
-    ['no persona: a stranger', { kind: 'id', id: null }, STRANGER, false],
-    ['resolver error: my stub', { kind: 'error' }, ACCOUNT, true],
-    ['resolver error: a stranger', { kind: 'error' }, STRANGER, false],
-  ] as [string, Persona, string, boolean][])('%s', async (_name, persona, viewedId, self) => {
+    ['linked: my admin-made profile', { kind: 'id', id: ADMIN_PROFILE }, ADMIN_PROFILE],
+    ['linked: my archived stub URL', { kind: 'id', id: ADMIN_PROFILE }, ACCOUNT],
+    ['linked: a stranger', { kind: 'id', id: ADMIN_PROFILE }, STRANGER],
+    ['own stub: my page', { kind: 'id', id: ACCOUNT }, ACCOUNT],
+    ['own stub: a stranger', { kind: 'id', id: ACCOUNT }, STRANGER],
+    ['no persona: a stranger', { kind: 'id', id: null }, STRANGER],
+    ['resolver error: my stub', { kind: 'error' }, ACCOUNT],
+    ['resolver error: a stranger', { kind: 'error' }, STRANGER],
+  ] as [string, Persona, string][])('%s', async (_name, persona, viewedId) => {
     h.state.persona = persona;
     h.state.rows[STRANGER] = { ...COMPLETE_ROW };
     render(wrap(<DancerProfile />, `/dancers/${viewedId}`));
-    if (self) {
-      await waitFor(() => expect(h.state.rpcs).toContain('get_my_event_attendance_v2'));
-    } else {
-      await new Promise((r) => setTimeout(r, 80));
-      expect(h.state.rpcs).not.toContain('get_my_event_attendance_v2');
-    }
+    await new Promise((r) => setTimeout(r, 80));
+    expect(h.state.rpcs.filter((name) => /attendance/i.test(name))).toEqual([]);
+    expect(screen.queryByText('Your plans')).toBeNull();
   });
 });

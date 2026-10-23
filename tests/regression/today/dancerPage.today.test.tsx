@@ -112,16 +112,20 @@ describe.each(VIEWPORTS)('/dancers/:id page at $name', (vp) => {
     });
   });
 
-  it('the owner sees "Your plans"; a stranger never sees the owner-only attendance', async () => {
+  // Going P2: the owner-only "Your plans" block (interested/going, read from the
+  // retired attendance RPC) is gone from this page -- owner and stranger alike see
+  // no plans here. Going shows per night (src/modules/going) and, publicly, as the
+  // v2 page's "Going next".
+  it('nobody sees the retired "Your plans" block, the owner included', async () => {
     const shape = SHAPES['four-field complete'];
-    h.user = { id: 'someone-else' };
-    mount(shape);
-    await new Promise((r) => setTimeout(r, 150));
-    expect(document.body.textContent).not.toContain('Friday Social');
-    cleanup();
-    h.user = { id: 'owner' };
-    h.persona = shape.record!.id as string;
-    mount(shape);
-    expect((await screen.findAllByText(/Friday Social/)).length).toBeGreaterThan(0);
+    for (const viewer of [{ user: { id: 'someone-else' }, persona: null }, { user: { id: 'owner' }, persona: shape.record!.id as string }]) {
+      h.user = viewer.user;
+      h.persona = viewer.persona;
+      mount(shape);
+      await new Promise((r) => setTimeout(r, 150));
+      expect(document.body.textContent).not.toContain('Friday Social');
+      expect(screen.queryByText('Your plans')).toBeNull();
+      cleanup();
+    }
   });
 });

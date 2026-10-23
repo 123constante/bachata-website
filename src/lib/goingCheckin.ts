@@ -1,14 +1,34 @@
 /**
- * ONE switch for the public "I'm Going / Interested" (check-in) control.
+ * ONE switch for every public "I'm going" surface (Going P2).
  *
- * Off (owner decision 2026-10-18): nothing visible happens when a visitor taps
- * (3 attendance rows in prod, "who is going" is shown nowhere) and the
- * profile-completeness lock is client-side only. Code, RPCs, tables and hooks
- * are kept; only the surfaces stop rendering.
+ * OFF on production (owner decision; turning it on is the owner's call, not a
+ * PR's). Off = nothing renders and no going RPC runs.
  *
- * Turn it on only when ALL three hold:
- *   1. dancers are shown somewhere ("who is going" is visible to visitors);
- *   2. the lock is enforced server-side (the RPC checks profile completeness);
- *   3. the "Going next" opt-in exists for dancers.
+ * The ONE override, for walks on a preview deploy: ON only when the build is a
+ * Vercel PREVIEW (VERCEL_ENV === 'preview', exposed to the client by
+ * vite.config.ts `define` as import.meta.env.VITE_VERCEL_ENV) AND the Preview-
+ * scoped env var VITE_GOING_PREVIEW is exactly '1'. Production, development, a
+ * local build and a missing env are all OFF whatever VITE_GOING_PREVIEW says
+ * (tests/client/goingSwitch.test.ts).
  */
-export const GOING_CHECKIN_ENABLED = false;
+export type GoingSwitchEnv = { vercelEnv?: string | null; goingPreview?: string | null };
+
+/** The pure decision. */
+export const goingSwitchOn = (env: GoingSwitchEnv): boolean =>
+  env.vercelEnv === 'preview' && env.goingPreview === '1';
+
+// Both keys are `define`d in vite.config.ts, so a build replaces each access with
+// a string literal (no env object is inlined) and this folds to a constant.
+// import.meta.env is absent outside Vite (Playwright imports this file in Node): off.
+const readSwitch = (): boolean => {
+  try {
+    return goingSwitchOn({
+      vercelEnv: import.meta.env.VITE_VERCEL_ENV,
+      goingPreview: import.meta.env.VITE_GOING_PREVIEW,
+    });
+  } catch {
+    return false;
+  }
+};
+
+export const GOING_CHECKIN_ENABLED: boolean = readSwitch();

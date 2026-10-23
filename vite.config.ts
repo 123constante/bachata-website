@@ -15,6 +15,16 @@ import { classifyChunk, vendorChunkCycleGuard } from "./vite.chunks";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ isSsrBuild }) => ({
+  // The going switch's preview-only override (src/lib/goingCheckin.ts) needs to
+  // know a build is a Vercel PREVIEW. VERCEL_ENV is set by Vercel at build time
+  // (production / preview / development); anywhere else it is "" and the switch
+  // stays off. Same value in the client and server builds, so SSR and hydration agree.
+  // VITE_GOING_PREVIEW is defined too (from the Preview-scoped Vercel env var) so both
+  // reads become string literals and no import.meta.env object is inlined.
+  define: {
+    "import.meta.env.VITE_VERCEL_ENV": JSON.stringify(process.env.VERCEL_ENV ?? ""),
+    "import.meta.env.VITE_GOING_PREVIEW": JSON.stringify(process.env.VITE_GOING_PREVIEW ?? ""),
+  },
   server: {
     host: "::",
     port: 8080,

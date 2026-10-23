@@ -1,115 +1,171 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`event page Going / Interested at '390x844' > 'anonymous session' 1`] = `
-"button "I'm Going" [pressed=false]
-button "Interested" [pressed=false]
-text "4 going""
+exports[`event page Who’s going at '390x844' > 'anonymous session' 1`] = `
+"heading "Who’s going" level=2
+text "Thursday 29 Oct · 9 PM"
+text "4 going"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "Sign in to say you’re going"
+text "You’re browsing as a guest. Sign in with a free account to say you’re going.""
 `;
 
-exports[`event page Going / Interested at '390x844' > 'signed in, going' 1`] = `
-"button "You're Going" [pressed=true]
-button "Interested" [pressed=false]
-text "4 going""
+exports[`event page Who’s going at '390x844' > 'signed in, going' 1`] = `
+"heading "Who’s going" level=2
+text "Thursday 29 Oct · 9 PM"
+text "4 going"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "You’re going · Undo" [pressed=true]
+text "Changed your mind? Tap the button again to undo.""
 `;
 
-exports[`event page Going / Interested at '390x844' > 'signed in, interested' 1`] = `
-"button "I'm Going" [pressed=false]
-button "Interested" [pressed=true]
-text "4 going""
+exports[`event page Who’s going at '390x844' > 'signed in, not going' 1`] = `
+"heading "Who’s going" level=2
+text "Thursday 29 Oct · 9 PM"
+text "4 going"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "I’m going" [pressed=false]"
 `;
 
-exports[`event page Going / Interested at '390x844' > 'signed in, not going' 1`] = `
-"button "I'm Going" [pressed=false]
-button "Interested" [pressed=false]
-text "4 going""
+exports[`event page Who’s going at '390x844' > 'signed out' 1`] = `
+"heading "Who’s going" level=2
+text "Thursday 29 Oct · 9 PM"
+text "4 going"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "Sign in to say you’re going"
+text "It’s free: sign in, finish your dancer profile, and your first name shows here.""
 `;
 
-exports[`event page Going / Interested at '390x844' > 'signed out' 1`] = `
-"button "I'm Going" [pressed=false]
-button "Interested" [pressed=false]
-text "4 going""
+exports[`event page Who’s going at '390x844' > closed: 'cancelled night' 1`] = `
+"heading "Who’s going" level=2
+text "Thursday 29 Oct · 9 PM"
+text "4 going"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "Night cancelled" [disabled] [pressed=false]
+text "The organiser cancelled this night.""
 `;
 
-exports[`event page Going / Interested at '390x844' > closed: 'cancelled night' 1`] = `
-"button "I'm Going" [disabled] [pressed=false]
-button "Interested" [disabled] [pressed=false]
-text "This night is cancelled""
+exports[`event page Who’s going at '390x844' > closed: 'ended night' 1`] = `
+"heading "Who went" level=2
+text "Thursday 2 Jan · 9 PM"
+text "4 went"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "Night ended" [disabled] [pressed=false]
+text "This night is over.""
 `;
 
-exports[`event page Going / Interested at '390x844' > closed: 'ended night' 1`] = `
-"button "I'm Going" [disabled] [pressed=false]
-button "Interested" [disabled] [pressed=false]
-text "This night has ended""
+exports[`event page Who’s going at '390x844' > closed: 'series not live (draft)' 1`] = `
+"heading "Who’s going" level=2
+text "Thursday 29 Oct · 9 PM"
+text "4 going"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "I’m going" [disabled] [pressed=false]
+text "This event isn’t taking names right now.""
 `;
 
-exports[`event page Going / Interested at '390x844' > closed: 'series not live (draft)' 1`] = `
-"button "I'm Going" [disabled] [pressed=false]
-button "Interested" [disabled] [pressed=false]
-text "RSVPs are closed for this event""
-`;
-
-exports[`event page Going / Interested at '390x844' > signed-out Going sends nothing and asks to sign in 1`] = `
-"dialog "Save this night"
-  heading "Save this night" level=2
-  text "Sign in or create an account to save this night. Your nights are private to you."
+exports[`event page Who’s going at '390x844' > signed-out Going sends nothing and asks to sign in 1`] = `
+"dialog "Say you’re going"
+  heading "Say you’re going" level=2
+  text "Sign in or create a free account. Your first name shows on the nights you’re going to."
   button "Sign in"
   button "Create account"
   button "Continue browsing"
   button "Close""
 `;
 
-exports[`event page Going / Interested at 'desktop' > 'anonymous session' 1`] = `
-"button "I'm Going" [pressed=false]
-button "Interested" [pressed=false]
-text "4 going""
+exports[`event page Who’s going at 'desktop' > 'anonymous session' 1`] = `
+"heading "Who’s going" level=2
+text "Thursday 29 Oct · 9 PM"
+text "4 going"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "Sign in to say you’re going"
+text "You’re browsing as a guest. Sign in with a free account to say you’re going.""
 `;
 
-exports[`event page Going / Interested at 'desktop' > 'signed in, going' 1`] = `
-"button "You're Going" [pressed=true]
-button "Interested" [pressed=false]
-text "4 going""
+exports[`event page Who’s going at 'desktop' > 'signed in, going' 1`] = `
+"heading "Who’s going" level=2
+text "Thursday 29 Oct · 9 PM"
+text "4 going"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "You’re going · Undo" [pressed=true]
+text "Changed your mind? Tap the button again to undo.""
 `;
 
-exports[`event page Going / Interested at 'desktop' > 'signed in, interested' 1`] = `
-"button "I'm Going" [pressed=false]
-button "Interested" [pressed=true]
-text "4 going""
+exports[`event page Who’s going at 'desktop' > 'signed in, not going' 1`] = `
+"heading "Who’s going" level=2
+text "Thursday 29 Oct · 9 PM"
+text "4 going"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "I’m going" [pressed=false]"
 `;
 
-exports[`event page Going / Interested at 'desktop' > 'signed in, not going' 1`] = `
-"button "I'm Going" [pressed=false]
-button "Interested" [pressed=false]
-text "4 going""
+exports[`event page Who’s going at 'desktop' > 'signed out' 1`] = `
+"heading "Who’s going" level=2
+text "Thursday 29 Oct · 9 PM"
+text "4 going"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "Sign in to say you’re going"
+text "It’s free: sign in, finish your dancer profile, and your first name shows here.""
 `;
 
-exports[`event page Going / Interested at 'desktop' > 'signed out' 1`] = `
-"button "I'm Going" [pressed=false]
-button "Interested" [pressed=false]
-text "4 going""
+exports[`event page Who’s going at 'desktop' > closed: 'cancelled night' 1`] = `
+"heading "Who’s going" level=2
+text "Thursday 29 Oct · 9 PM"
+text "4 going"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "Night cancelled" [disabled] [pressed=false]
+text "The organiser cancelled this night.""
 `;
 
-exports[`event page Going / Interested at 'desktop' > closed: 'cancelled night' 1`] = `
-"button "I'm Going" [disabled] [pressed=false]
-button "Interested" [disabled] [pressed=false]
-text "This night is cancelled""
+exports[`event page Who’s going at 'desktop' > closed: 'ended night' 1`] = `
+"heading "Who went" level=2
+text "Thursday 2 Jan · 9 PM"
+text "4 went"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "Night ended" [disabled] [pressed=false]
+text "This night is over.""
 `;
 
-exports[`event page Going / Interested at 'desktop' > closed: 'ended night' 1`] = `
-"button "I'm Going" [disabled] [pressed=false]
-button "Interested" [disabled] [pressed=false]
-text "This night has ended""
+exports[`event page Who’s going at 'desktop' > closed: 'series not live (draft)' 1`] = `
+"heading "Who’s going" level=2
+text "Thursday 29 Oct · 9 PM"
+text "4 going"
+link "Ana, dancer page" href=/dancers/d1
+text "LLeo"
+text "+2moreand 2 more people"
+button "I’m going" [disabled] [pressed=false]
+text "This event isn’t taking names right now.""
 `;
 
-exports[`event page Going / Interested at 'desktop' > closed: 'series not live (draft)' 1`] = `
-"button "I'm Going" [disabled] [pressed=false]
-button "Interested" [disabled] [pressed=false]
-text "RSVPs are closed for this event""
-`;
-
-exports[`event page Going / Interested at 'desktop' > signed-out Going sends nothing and asks to sign in 1`] = `
-"dialog "Save this night"
-  heading "Save this night" level=2
-  text "Sign in or create an account to save this night. Your nights are private to you."
+exports[`event page Who’s going at 'desktop' > signed-out Going sends nothing and asks to sign in 1`] = `
+"dialog "Say you’re going"
+  heading "Say you’re going" level=2
+  text "Sign in or create a free account. Your first name shows on the nights you’re going to."
   button "Sign in"
   button "Create account"
   button "Continue browsing"

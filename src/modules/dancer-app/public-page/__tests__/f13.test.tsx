@@ -7,18 +7,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { mapDancerPublicProfile } from '@/modules/profile/dancerPublicProfile';
-import { NO_EXTRAS, buildPublicDancerPage, cityOnly, practiceGoalText, type GoingNextEvent, type PublicPageExtras } from '../model';
+import { NO_EXTRAS, buildPublicDancerPage, cityOnly, practiceGoalText, type PublicPageExtras } from '../model';
+import { GOING_COPY, nightLine, type GoingNextNight } from '@/modules/going';
 import { PublicDancerPageV2 } from '../PublicDancerPageV2';
 import { installJsdomPolyfills } from '../../../../../tests/client/jsdomPolyfills';
 
-vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
+const h = vi.hoisted(() => ({ on: true }));
+vi.mock('@/lib/goingCheckin', () => ({ get GOING_CHECKIN_ENABLED() { return h.on; } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null, authStatus: 'ready' }) }));
 
 const rec = (over: Record<string, unknown>) => ({
   id: 'id-x', first_name: 'Ricky', surname: null, display_name: 'Ricky Q', nationality: null, dance_role: null, instagram: null, facebook: null,
   avatar_url: null, website_url: null, gallery_urls: null, cities: null, dancing_role_details: null, ...over,
 });
-const ev = (n: number): GoingNextEvent[] => Array.from({ length: n }, (_, i) => ({ id: `e${i}`, date: `FRI ${i + 1} OCT`, name: `Event ${i}`, venue: 'Venue' }));
+/** get_public_dancer_extras_v1 going_next rows (London wall clock, no zone). */
+const goingNext = (n: number): GoingNextNight[] => Array.from({ length: n }, (_, i) => ({
+  occurrence_id: `occ${i}`, public_event_id: `ev${i}`, event_title: `Event ${i}`, occurrence_date: `2099-01-0${i + 1}`, starts_at_local: `2099-01-0${i + 1}T21:00:00`,
+}));
 
 const THIN = rec({ instagram: '@thin', dancing_role_details: { dance_started_year: 2025 } });
 const OVERFULL = rec({
@@ -29,8 +34,8 @@ const OVERFULL = rec({
 });
 const LANG5: PublicPageExtras = { bio: 'hidden bio', languages: ['en', 'es', 'it', 'de', 'fr'], whatsapp: null };
 
-const build = (r: ReturnType<typeof rec>, extras = NO_EXTRAS, going?: Parameters<typeof buildPublicDancerPage>[3]) =>
-  buildPublicDancerPage(mapDancerPublicProfile(r as never), extras, [], going);
+const build = (r: ReturnType<typeof rec>, extras: PublicPageExtras = NO_EXTRAS) =>
+  buildPublicDancerPage(mapDancerPublicProfile(r as never), extras, []);
 
 const show = (m: ReturnType<typeof build>) =>
   render(<MemoryRouter><PublicDancerPageV2 model={m} profileId="id-x" pathname="/dancers/x" /></MemoryRouter>);
@@ -38,6 +43,7 @@ const q = (id: string) => screen.queryByTestId(id);
 
 beforeEach(() => {
   installJsdomPolyfills();
+  h.on = true;
   vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], now: new Date('2026-10-18T12:00:00Z') });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
@@ -77,21 +83,63 @@ describe('F14b overfull', () => {
   });
 });
 
-describe('Going next (opt-in, OFF by default)', () => {
+describe('Going next (Going P2: ALWAYS shows while the going switch is on; no opt-in)', () => {
+  // going_next 0 / 1 / 2 / 3 (the RPC sends at most 3) x hidden page (extras SQL NULL).
   it.each([
-    ['no input (default)', undefined, null],
-    ['opted out', { optIn: false, events: ev(3) }, null],
-    ['opted in, none', { optIn: true, events: [] }, null],
-    ['one event', { optIn: true, events: ev(1) }, { shown: 1, seeAll: false }],
-    ['two events', { optIn: true, events: ev(2) }, { shown: 2, seeAll: false }],
-    ['six events', { optIn: true, events: ev(6) }, { shown: 2, seeAll: true }],
-  ] as const)('%s', (_n, input, expected) => {
-    const m = build(THIN, NO_EXTRAS, input as never);
-    if (!expected) { expect(m.goingNext).toBeNull(); return; }
+    ['hidden page (extras NULL)', null, null],
+    ['no going_next key', undefined, null],
+    ['0 nights', 0, null],
+    ['1 night: one full-width card', 1, { shown: 1, seeAll: false }],
+    ['2 nights: side by side', 2, { shown: 2, seeAll: false }],
+    ['3 nights: two + See all 3', 3, { shown: 2, seeAll: true }],
+  ] as const)('%s', (_n, count, expected) => {
+    const extras = count === null ? NO_EXTRAS /* the loader maps NULL to NO_EXTRAS */ : count === undefined ? NO_EXTRAS : { ...NO_EXTRAS, goingNext: goingNext(count) };
+    const m = build(THIN, extras);
+    if (!expected) {
+      expect(m.goingNext).toBeNull();
+      show(m);
+      expect(q('dancer-going')).toBeNull();
+      return;
+    }
     expect(m.goingNext!.shown).toHaveLength(expected.shown);
     expect(m.goingNext!.seeAll).toBe(expected.seeAll);
     show(m);
-    expect(q('dancer-going')!.textContent !== '' && (screen.queryByText(/See all 6 events/) !== null)).toBe(expected.seeAll);
+    const section = q('dancer-going')!;
+    expect(section.textContent).toContain(GOING_COPY.goingNextTitle);
+    expect(screen.getAllByTestId('dancer-going-card')).toHaveLength(expected.shown);
+    // Each card is ONE night, its date read AS STORED (full weekday), linked to its event page.
+    const first = screen.getAllByTestId('dancer-going-card')[0];
+    // Same words as the module's nightLine; the time is held together ("9 PM" never splits in the 2-up cards).
+    expect(first.textContent!.replace(/\u00a0/g, ' ')).toContain(nightLine(goingNext(1)[0].starts_at_local)!);
+    expect(first.textContent).toMatch(/\u00b7 9\u00a0PM/);
+    expect(first.getAttribute('href')).toBe('/event/ev0');
+    const seeAll = screen.queryByTestId('dancer-going-see-all');
+    expect(seeAll !== null).toBe(expected.seeAll);
+    if (seeAll) {
+      expect(seeAll.textContent).toBe(GOING_COPY.seeAll(3));
+      expect(seeAll.getAttribute('aria-expanded')).toBe('false');
+      // "See all" opens the rest right here: a working control, never a link back to this page.
+      fireEvent.click(seeAll);
+      expect(screen.getAllByTestId('dancer-going-card')).toHaveLength(3);
+      expect(q('dancer-going-see-all')).toBeNull();
+    }
+  });
+
+  it('switch off: no section even with nights', () => {
+    h.on = false;
+    const m = build(THIN, { ...NO_EXTRAS, goingNext: goingNext(3) });
+    expect(m.goingNext).toBeNull();
+    show(m);
+    expect(q('dancer-going')).toBeNull();
+  });
+
+  it('a night with no public event is a card without a link; a missing time falls back to the date', () => {
+    const [n] = goingNext(1);
+    const m = build(THIN, { ...NO_EXTRAS, goingNext: [{ ...n, public_event_id: null, starts_at_local: null, occurrence_date: '2099-01-02' }] });
+    show(m);
+    const card = screen.getByTestId('dancer-going-card');
+    expect(card.tagName).not.toBe('A');
+    expect(card.textContent).toContain('Friday 2 Jan');
   });
 });
 

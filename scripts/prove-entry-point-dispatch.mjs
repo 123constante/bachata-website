@@ -175,6 +175,8 @@ const TARGETS = [
   { rel: 'scripts/check-event-truth-v1.mjs' },
   { rel: 'scripts/check-firewall-drift.mjs' },
   { rel: 'scripts/check-first-load-requests.mjs' },
+  { rel: 'scripts/check-going-legacy-rpcs.mjs' },
+  { rel: 'scripts/check-going-rpcs.mjs' },
   { rel: 'scripts/check-guest-list-contract.mjs' },
   { rel: 'scripts/check-image-refs-live.mjs' },
   { rel: 'scripts/check-io-health.mjs' },

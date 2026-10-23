@@ -1,19 +1,25 @@
 import { Suspense, useEffect, useState } from 'react';
-import type { QueryKey } from '@tanstack/react-query';
-import { Link, useLocation } from 'react-router-dom';
-import { Check, Heart, Users } from 'lucide-react';
-import { toast } from 'sonner';
+import { useLocation } from 'react-router-dom';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { wallClockToInstant } from '@/lib/time/wallClock';
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
-import {
-  rsvpErrorMessage,
-  useOccurrenceRsvp,
-  type RsvpStatus,
-} from '@/modules/event-page/hooks/useOccurrenceRsvp';
 // Inside this lazy chunk, never the event route chunk (see RsvpBlockPlaceholder).
-import { GOING_LOCK_LINK_LABEL, goingTapLocked, useGoingLock } from '@/modules/dancer-app/gate/useGoingLock';
+import {
+  BENTO_GOING_THEME,
+  GOING_COPY,
+  GoingButton,
+  GoingPeople,
+  goingNightStatus,
+  nightLine,
+  useNightGoing,
+} from '@/modules/going';
+
+// The title, box and night line are mirrored in RsvpBlockPlaceholder (the
+// Suspense fallback): copied, not shared, because a shared module would split the
+// event route chunk. rsvpBlock.test.tsx fails if the two drift apart.
+export const TILE_TITLE_CLASS = 'mb-1.5 text-center text-[13px] font-bold uppercase tracking-[0.04em]';
+export const TILE_BODY_CLASS = 'rounded-[18px] border p-3';
+export const TILE_NIGHT_CLASS = 'text-[12px] font-bold uppercase tracking-[0.05em]';
 
 // Lazy: the dialog stack only matters after a signed-out tap, and a static
 // import added two first-load chunks to /event/:id (perf-budgets chunk ratchet).
@@ -22,192 +28,121 @@ const AuthPromptModal = lazyWithRetry(() =>
 );
 
 type RsvpBlockProps = {
-  /** eventPageQueryKey(routeParam).slice(0, 2), for the optimistic count. */
-  snapshotQueryKey: QueryKey;
-  /** snapshot.eventId -- event_series_p5.public_event_id. */
+  /** snapshot.eventId -- event_series_p5.public_event_id (telemetry only). */
   publicEventId: string | null;
-  /** snapshot.occurrenceId -- the P5 night this page is showing. */
+  /** snapshot.occurrenceId -- the P5 night this page is showing. Going is for this ONE night. */
   occurrenceId: string | null;
   occurrence: EventPageSnapshotOccurrence | null;
-  /** snapshot.event.lifecycleStatus -- only 'live' takes RSVPs. */
+  /** snapshot.event.lifecycleStatus -- only 'live' takes names. */
   seriesLifecycle: string | null;
-  /** pageModel.attendance.goingCountLabel, e.g. "4 going". */
-  goingCountLabel: string;
 };
+
+// The snapshot's starts/ends are naive London wall clocks: the going module reads
+// the digits as stored (never `new Date()`), so the raw stamp is handed over.
+const raw = (wc: unknown): string | null => (typeof wc === 'string' ? wc : null);
 
 /**
- * Same end rule the RPC applies: COALESCE(end, start) as a naive LONDON wall
- * clock against London now -- so London, not occurrence.timezone, and no grace.
- * That is why this is not isPast(), which converts through the occurrence tz and
- * flips 6h later.
+ * Design A "Who's going" tile (Going P2): the night, the count and up to 8
+ * people, and the one "I'm going" button. Every word, rule and state comes from
+ * src/modules/going; this file only places them on the bento.
  */
-const nightHasEnded = (occurrence: EventPageSnapshotOccurrence | null, now: number): boolean => {
-  const anchor = occurrence?.endsAt ?? occurrence?.startsAt;
-  if (!anchor) return false;
-  const t = wallClockToInstant(anchor, 'Europe/London');
-  return t ? t.getTime() <= now : false;
-};
-
-const closedReason = (
-  seriesLifecycle: string | null,
-  occurrence: EventPageSnapshotOccurrence | null,
-  hasEnded: boolean,
-): string | null => {
-  if (seriesLifecycle !== 'live') return 'RSVPs are closed for this event';
-  if (occurrence?.isCancelled) return 'This night is cancelled';
-  if (hasEnded) return 'This night has ended';
-  return null;
-};
-
-// The lock's link sits inline in the meta line: the vertical padding widens the
-// tap area without growing the line, so the box stays the placeholder's.
-const LOCK_LINK = 'py-[14px] font-semibold underline';
-
-// The box, ghost button and meta line are mirrored in RsvpBlockPlaceholder (the
-// Suspense fallback); rsvpBlock.test.tsx fails if the two drift apart.
-const GOING_STYLE: React.CSSProperties = {
-  background: 'linear-gradient(180deg, #FFD64B, #FFB200)',
-  color: '#3A2603',
-};
-const GHOST_STYLE: React.CSSProperties = {
-  background: 'hsl(var(--bento-surface-raised))',
-  color: 'hsl(var(--bento-fg))',
-  border: '1px solid hsl(var(--bento-fg-muted) / 0.25)',
-};
-const BTN =
-  'flex h-[44px] items-center justify-center gap-1.5 rounded-full px-3 text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50';
-
-/**
- * "I'm Going" / "Interested" for the night on screen. Tap sets, tap again
- * clears. Signed-out and anonymous visitors see the same buttons, but a tap
- * opens the site's sign-in prompt and never reaches the RPC.
- */
-const RsvpBlockInner = ({
-  snapshotQueryKey,
-  publicEventId,
-  occurrenceId,
-  occurrence,
-  seriesLifecycle,
-  goingCountLabel,
-}: RsvpBlockProps) => {
+const RsvpBlockInner = ({ publicEventId, occurrenceId, occurrence, seriesLifecycle }: RsvpBlockProps) => {
   const location = useLocation();
   const [authOpen, setAuthOpen] = useState(false);
   // Stays mounted after the first open so the dialog can animate closed.
   const [authMounted, setAuthMounted] = useState(false);
-  // First render reads the snapshot's server-computed isPast so SSR (possibly an
-  // hour-old edge copy) and hydration agree; the clock is consulted after mount
-  // (same split as BentoPage's `past`) and again on every tap, so a page left
-  // open past the end of the night greys out instead of toasting forever.
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => setNow(Date.now()), [occurrence]);
-  const hasEnded = Boolean(occurrence?.isPast) || (now !== null && nightHasEnded(occurrence, now));
-  const reason = closedReason(seriesLifecycle, occurrence, hasEnded);
-  // A closed night wins over the profile lock; the lock blocks only a NEW status.
-  const lock = useGoingLock();
-  const showLock = reason === null && lock.locked;
-  // The read still runs on a closed night, so an RSVP made before the night was
-  // cancelled or ended keeps showing; only the write is blocked.
-  const { status, statusUnknown, statusError, refetchStatus, canRsvp, authLoading, setStatus, isPending } =
-    useOccurrenceRsvp({
-      publicEventId,
-      occurrenceId,
-      snapshotQueryKey,
-      enabled: now !== null,
-    });
+  // The clock is read after mount (server render and hydration agree on "not
+  // ended"), and again on every tap, so a page left open past the end of the
+  // night turns into "Who went" instead of offering a dead button.
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => setNow(new Date()), [occurrence]);
 
-  if (!publicEventId || !occurrenceId) return null;
+  const startsAt = raw(occurrence?.startsAt);
+  const nightFacts = {
+    startsAtLocal: startsAt,
+    endsAtLocal: raw(occurrence?.endsAt),
+    isCancelled: Boolean(occurrence?.isCancelled),
+    eventLive: seriesLifecycle === 'live',
+  };
+  const night = goingNightStatus(nightFacts, now);
+  const going = useNightGoing({ occurrenceId, night, enabled: now !== null });
 
-  const isGoing = status === 'going';
-  const isInterested = status === 'interested';
+  if (!occurrenceId) return null;
 
-  // The read failed, so whether a tap would REMOVE an old RSVP is unknown: leave
-  // the buttons tappable so onTap's "Couldn't load your RSVP" retry can run.
-  const statusReadFailed = statusUnknown && statusError;
-  const tapLocked = (target: RsvpStatus) => !statusReadFailed && goingTapLocked(lock, status, target);
-  const goingLocked = tapLocked('going');
-  const interestedLocked = tapLocked('interested');
+  const past = night === 'ended';
+  // A night with no timed session (the TIME_TBC_LABEL case) shows the date alone.
+  const line = nightLine(occurrence?.hasTimedSession === false ? startsAt?.slice(0, 10) : startsAt);
 
-  const onTap = async (target: RsvpStatus) => {
-    if (reason || now === null || isPending || authLoading) return;
-    if (tapLocked(target)) return;
-    if (nightHasEnded(occurrence, Date.now())) {
-      setNow(Date.now());
+  const onTap = () => {
+    if (goingNightStatus(nightFacts, new Date()) !== night) {
+      setNow(new Date());
       return;
     }
-    if (!canRsvp) {
-      setAuthMounted(true);
-      setAuthOpen(true);
-      return;
-    }
-    if (statusUnknown) {
-      if (statusError) {
-        toast.error("Couldn't load your RSVP. Please try again.");
-        void refetchStatus();
-      }
-      return;
-    }
-    try {
-      await setStatus(status === target ? null : target);
-    } catch (e) {
-      toast.error(rsvpErrorMessage(e));
-    }
+    going.tap();
   };
 
   return (
-    <section
-      className="mt-3 rounded-[18px] border p-3"
-      style={{ background: 'hsl(var(--bento-surface-raised))', borderColor: 'var(--bento-hairline)' }}
-      aria-label="RSVP for this night"
-      aria-busy={(statusUnknown && !statusError) || isPending}
-      data-testid="rsvp-block"
-    >
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void onTap('going')}
-          disabled={reason !== null || goingLocked}
-          aria-pressed={isGoing}
-          className={`${BTN} flex-1`}
-          style={reason || goingLocked ? GHOST_STYLE : GOING_STYLE}
-          data-testid="rsvp-going"
-        >
-          {isGoing ? <Check className="h-4 w-4" strokeWidth={2.4} /> : <Users className="h-4 w-4" />}
-          {isGoing ? "You're Going" : "I'm Going"}
-        </button>
-        <button
-          type="button"
-          onClick={() => void onTap('interested')}
-          disabled={reason !== null || interestedLocked}
-          aria-pressed={isInterested}
-          className={BTN}
-          style={GHOST_STYLE}
-          data-testid="rsvp-interested"
-        >
-          <Heart className="h-4 w-4" fill={isInterested ? 'currentColor' : 'none'} />
-          Interested
-        </button>
-      </div>
-      <p className="mt-2 text-[12px]" style={{ color: 'hsl(var(--bento-fg-muted))' }} data-testid="rsvp-meta">
-        {reason ?? goingCountLabel}
-        {showLock && (
-          <>
-            {' '}&middot;{' '}
-            <span data-testid="rsvp-lock">
-              {`${lock.reason}. `}
-              <Link to={lock.href} className={LOCK_LINK} data-testid="rsvp-lock-link">
-                {GOING_LOCK_LINK_LABEL}
-              </Link>
-            </span>
-          </>
+    <section className="mt-3" aria-label={GOING_COPY.tileLabel} data-testid="rsvp-block" data-state={going.view.state}>
+      <h2 className={TILE_TITLE_CLASS} style={{ color: BENTO_GOING_THEME.accent }}>
+        {past ? GOING_COPY.tileTitlePast : GOING_COPY.tileTitle}
+      </h2>
+      <div
+        className={TILE_BODY_CLASS}
+        style={{ background: BENTO_GOING_THEME.surface, borderColor: BENTO_GOING_THEME.hairline }}
+        aria-busy={going.peopleLoading || going.view.control.busy}
+      >
+        {line && (
+          <p className={TILE_NIGHT_CLASS} style={{ color: BENTO_GOING_THEME.muted }} data-testid="rsvp-night">
+            {line}
+          </p>
         )}
-      </p>
+        <div className="mt-2 min-h-[20px]">
+          {going.peopleError ? (
+            <p className="flex items-center gap-2 text-[12px]" style={{ color: BENTO_GOING_THEME.muted }} data-testid="rsvp-people-error">
+              {GOING_COPY.peopleLoadFailed}
+              <button
+                type="button"
+                onClick={going.refetchPeople}
+                className="min-h-[44px] px-2 font-semibold underline"
+                style={{ color: BENTO_GOING_THEME.fg }}
+              >
+                {GOING_COPY.retry}
+              </button>
+            </p>
+          ) : going.peopleLoading ? (
+            <p className="text-[14px]" style={{ color: BENTO_GOING_THEME.muted }} aria-hidden>
+              &nbsp;
+            </p>
+          ) : (
+            <GoingPeople
+              count={going.count}
+              peopleCount={going.peopleCount}
+              people={going.people}
+              past={past}
+              context="event-page:going"
+              eventId={publicEventId}
+            />
+          )}
+        </div>
+        <div className="mt-3">
+          <GoingButton
+            view={going.view}
+            onTap={onTap}
+            onSignIn={() => {
+              setAuthMounted(true);
+              setAuthOpen(true);
+            }}
+            testId="rsvp-going"
+          />
+        </div>
+      </div>
       {authMounted && (
         <Suspense fallback={null}>
           <AuthPromptModal
             open={authOpen}
             onOpenChange={setAuthOpen}
-            title="Save this night"
-            description="Sign in or create an account to save this night. Your nights are private to you."
+            title={GOING_COPY.signInTitle}
+            description={GOING_COPY.signInBody}
             returnTo={`${location.pathname}${location.search}`}
           />
         </Suspense>
