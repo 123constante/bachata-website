@@ -252,7 +252,7 @@ describe('Go live is never silently off, and the server list is never dropped', 
     mount();
     const gaps = await screen.findAllByTestId('golive-gap');
     expect(gaps.map((g) => g.textContent)).toEqual([
-      'Upload a flyer', 'Add your page contact email', 'About your page: Add your organisation logo',
+      'Add a flyer', 'Add your page contact email', 'About your page: Add your organisation logo',
     ]);
     expect(screen.queryByTestId('golive-live-error')).toBeNull();
   });
@@ -263,8 +263,8 @@ describe('Go live is never silently off, and the server list is never dropped', 
     mount();
     await waitFor(() => expect((screen.getByTestId('golive-live') as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByTestId('golive-live'));
-    await waitFor(() => expect(screen.getAllByTestId('golive-gap').map((g) => g.textContent)).toEqual(['Add a venue']));
-    expect(screen.getByTestId('golive-not-yet-line').textContent).toBe('Not yet. Add a venue.');
+    await waitFor(() => expect(screen.getAllByTestId('golive-gap').map((g) => g.textContent)).toEqual(['Pick a venue']));
+    expect(screen.getByTestId('golive-not-yet-line').textContent).toBe('Not yet. Pick a venue.');
     expect(screen.getByTestId('golive-title').textContent).toBe('Almost there');
     expect((screen.getByTestId('golive-live') as HTMLButtonElement).disabled).toBe(true);
   });
