@@ -1,6 +1,6 @@
 import type { Page, Route } from '@playwright/test';
 import {
-  answer, FAKE_ORIGIN, FAKE_REF, FLAG_DANCER_ID, FLAG_DJ_ID, FLAG_EVENT_SLUG, FLAG_FESTIVAL_SLUG, ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG, ORG3_SLUG, VENDOR_ID,
+  answer, FAKE_ORIGIN, FAKE_REF, goLiveRpcs, FLAG_DANCER_ID, FLAG_DJ_ID, FLAG_EVENT_SLUG, FLAG_FESTIVAL_SLUG, ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG, ORG3_SLUG, VENDOR_ID,
 } from './fakeSupabase.mjs';
 
 export { ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG };
@@ -15,7 +15,10 @@ const b64url = (value: unknown) =>
  * The browser half of the fake (the server half is fakeSupabasePreload.mjs): every
  * call to the Supabase origin is answered by the same answer(). Writes are refused there.
  */
-export async function fakeSupabase(page: Page, opts: { signedInAsOwner?: boolean; realClock?: boolean; asDancer?: string } = {}) {
+export type GoLiveScenario = Parameters<typeof goLiveRpcs>[0];
+
+export async function fakeSupabase(page: Page, opts: { signedInAsOwner?: boolean; realClock?: boolean; asDancer?: string; goLive?: GoLiveScenario } = {}) {
+  const goLive = opts.goLive ? goLiveRpcs(opts.goLive) : null;
   // One fixed "now" in the browser, so date-driven UI (calendar day cells,
   // "today") renders the same every run. Mid-month ON PURPOSE: the calendar's
   // past days include two-digit numbers, and axe reports single-character text
@@ -44,6 +47,13 @@ export async function fakeSupabase(page: Page, opts: { signedInAsOwner?: boolean
     }
     if (opts.asDancer && path === '/rest/v1/rpc/profile_complete_v1') {
       return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: 'true' });
+    }
+    // `goLive`: the "Almost live" / Go live reads for one scenario (fakeSupabase.mjs goLiveRpcs).
+    const rpcName = path.startsWith('/rest/v1/rpc/') ? path.slice('/rest/v1/rpc/'.length) : null;
+    if (goLive && rpcName && Object.prototype.hasOwnProperty.call(goLive, rpcName)) {
+      let args: Record<string, unknown> = {};
+      try { args = JSON.parse(req.postData() || '{}'); } catch { /* no body */ }
+      return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(goLive[rpcName](args)) });
     }
     const res = answer({ method: req.method(), url: req.url(), headers: req.headers(), body: req.postData() });
     return route.fulfill(res);

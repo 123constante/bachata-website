@@ -1,13 +1,14 @@
 # Handover: invite journey W2 (phone + Instagram inputs, "Almost live" DJ/teach, "It's live")
 
 Branch `claude/invite-w2-phone-ig-golive` (off `main` d4bff828). Brief: `brief/invite-journey` `briefs/invite-journey/W2.md` (blob f60a5072).
-Session 1: ticket `dt_9d3af6214f98` (PARTIAL at the context gate). Session 2 (this update): ticket `dt_dc003c66f584`.
+Session 1: ticket `dt_9d3af6214f98` (PARTIAL at the context gate). Session 2: ticket `dt_dc003c66f584`. Session 3 (W2c, this update): ticket `dt_89e4a3aab7b8`.
 **Merges only after A1 is applied** (bachata-admin `claude/invite-a1-golive-phone-ig`, migration 20261205100000).
 
 ## Agreed names (from A1's handover on its branch, head 89791e7)
 - Error codes `invalid_phone`, `invalid_instagram` (SQLSTATE 22023, MESSAGE = the code).
 - Go-live keys in `profile_missing[].fields`: teacher `teaching_styles`; dj `dj_name`, `dj_genres`. The DJ editor FIELD is `genres`; W2 maps `dj_genres` -> `genres` (`ROLE_GO_LIVE_FIELD` in `goLiveCheck.ts`). New entries are `{area: 'teacher' | 'dj', organiser_id: null, fields}`, after dancer and organiser.
 - Instagram is stored lowercase, bare name.
+- **`socials.instagram`: KEEP sending it as today (orchestrator decision, W2c).** A1's trigger folds the key into `instagram` and removes it from `socials`. Removing it here would break the pinned "no partial socials" contract (`draftModel.test.ts`, `organiserProfileUpdate.test.ts`).
 
 ## Done
 Session 1 (kept as is): `PhoneInput` extracted (raffle = thin wrapper, its tests green), `InstagramInput`, dancer edit + organiser edit-in-place use them, `invalid_phone`/`invalid_instagram` in the dancer error map. See git log 10ecbcc.
@@ -22,11 +23,19 @@ Session 2:
 6. Contact sheet phone spec (`tests/e2e-phone/organiser-contact-sheet.phone.spec.ts`) follows PhoneInput (picker + digits, picker >= 44px) at 390/360/412: 12/12 green locally.
 7. Test data updated to the new rule: `whatsappSeat.matrix` saves E.164; organiser Page/More draft phones are `+44 ...`; `goLiveCheck.parse` "bad area" is now `venue`.
 
+Session 3 (W2c):
+8. **dancer-area-isolation (CI red at ccb0981b), FIXED BY SPLITTING, not by loosening.** The rule (`scripts/check-dancer-area-isolation.mjs` rule (a)): a PR that changes anything under `src/modules/dancer-app/` may change only that folder, tests, docs and listed seams. This PR mixed 4 dancer-app files with about 35 organiser/shared files. Adding 35 seams would loosen the check (and seams are an orchestrator decision), so the dancer-app slice is OUT of this PR: `errors.ts` / `types.ts` (`invalid_phone`, `invalid_instagram` copy), `EditScreen.tsx` (InstagramInput + lazy PhoneInput), `me/model.ts` (the shared rules, E.164 / bare-name save), plus their tests `tests/client/dancerAppApi.test.tsx` and `dancerAppRealDataFixes.test.tsx`. Kept byte for byte as **`docs/handover/invite-w2-dancer-edit.patch`** (`git apply` on this branch's base works). The check now reports "not a dancer-area PR: rule c only", OK. No allowlist entry was added.
+9. Go-live route data for the phone suite: `goLiveRpcs(scenario)` in `tests/e2e-phone/fakeSupabase.mjs`, wired browser side only by `fakeSupabase(page, { goLive })` in `helpers.ts` (no other spec changes). `liveOk` alone lets Go live and the role answers succeed. New spec `tests/e2e-phone/invite-w2-golive.phone.spec.ts`: 12/12, every screen checked for sideways scroll, taps >= 44px, axe contrast.
+10. Design record `docs/design/977.md` + 15 screenshots in `docs/design/977/` (390x844).
+11. `/code-review low`: 3 findings, all consequences of item 8 (see Open).
+12. `perf-budgets.json` note updated: after the split /app re-measured 371.2 KB / 52 chunks; budget 372 and allowance 52 unchanged.
+
 ## Open / for the orchestrator
-- **`socials.instagram`** (A1's reader trace: "W2 must stop sending it"): NOT done. `buildOrganiserProfilePatch` still writes `instagram` into `socials`; removing it breaks the pinned "no partial socials" contract in `draftModel.test.ts` (8 cases) and `organiserProfileUpdate.test.ts`. Harmless after A1 (its trigger folds and removes the key), so this is a decision, not a blocker. Phantom "came back different" is already avoided: the edit-in-place sends the bare lowercase name and E.164, which is what the trigger stores.
+- **MERGE ORDER (from item 8 + the review):** once A1's triggers are applied, the dancer edit screen (unchanged on main) sends WhatsApp / Instagram as typed. An edited value the trigger refuses comes back as `invalid_phone` / `invalid_instagram`, which `DANCER_ERROR_CODES` on main does not know: the dancer sees the generic error, not the field copy. Few rows are affected (dancer.whatsapp: 3 filled on prod; only for dancers with other roles), but it is a real gap. **Dispatch a dancer-area PR applying `docs/handover/invite-w2-dancer-edit.patch`, to merge with or before A1.** It touches only `src/modules/dancer-app/**` and `tests/**`, so it passes the isolation rule. It needs `PhoneInput`, `InstagramInput`, `phoneRules`, `instagramHandle` from THIS PR on main first.
+- **`socials.instagram`**: DECIDED (orchestrator, W2c): keep sending it; see Agreed names. History: A1's reader trace said "W2 must stop sending it". `buildOrganiserProfilePatch` still writes `instagram` into `socials`; removing it breaks the pinned "no partial socials" contract in `draftModel.test.ts` (8 cases) and `organiserProfileUpdate.test.ts`. Harmless after A1 (its trigger folds and removes the key), so this is a decision, not a blocker. Phantom "came back different" is already avoided: the edit-in-place sends the bare lowercase name and E.164, which is what the trigger stores.
 - Stale localStorage organiser drafts holding a national-form phone (`07700 ...`) are now refused at Save with the phone copy (never sent).
 - `src/pages/__tests__/SurnameSwitchReachable.test.tsx` fails 1/11 on `main` d4bff82 too (pre-existing, not this branch).
-- PR body still to write: per-CI-job table, "Agreed names" (above), list of overlap files touched (`goLiveCheck.ts` additive; `stepKinds.tsx` exports only; `registry.tsx` 4 entries + 1 import), design record `docs/design/<pr>.md` + 390x844 screenshots. `/code-review` has NOT been run on this diff.
+- PR body written (W2c): CI table, Agreed names, overlap files, Phone QA and Verified on real data sections.
 
 ## Checks run locally (session 2)
 - Unit: full `vitest run` = only env failures (live-DB contract tests, `integrityCouldNotRun`, both also red on main) + the pre-existing surname test above. Touched areas all green.
@@ -36,7 +45,10 @@ Session 2:
 - `test:e2e` (smoke gate): 157 passed, 7 skipped, 1 failed (`organiser-layout.spec.ts:171`, More screen, timed out while a vitest run loaded the box); that spec re-run alone: 12/12 green.
 - Phone suite: `organiser-contact-sheet.phone.spec.ts` 12/12.
 
+## Checks run locally (session 3)
+- `check:dancer-area-isolation`: OK (rule c only). Build + `check:bundle-budget` + `check:first-load-requests` + `check:chunk-cycles`: green. `vitest run src/modules/organiser src/lib src/components src/modules/event-page/bento/modals tests/client`: 264 files, 6932 passed. `npm run lint`: every link green except `check:integrity` (exit 126, file mode, as on main; `bash bin/check-integrity.sh` ok). `tsc -p tsconfig.app.json`: 100 (baseline 106). `AUDIT_STRICT=1 check:images` ok. Phone spec 12/12.
+
 ## Not verified
-- No browser walk of the go-live roles screen or "It's live" at 390x844 (the phone suite's fake backend has no go-live route data); no prod-data walk; no Vercel preview walk.
+- Go-live screens were walked at 390x844 in the phone suite (fake backend), NOT on prod data or a Vercel preview.
 - No prod shape survey this session (A1's counts are in its handover).
 - Full `vitest run`: only env failures remain (live-DB contract tests, `integrityCouldNotRun`; same on main).

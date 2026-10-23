@@ -120,9 +120,6 @@ export const DANCER_ERROR_CODES = [
   'invalid_handle',
   'invalid_url',
   'invalid_whatsapp',
-  // The stored phone / Instagram rule (invite journey A1 triggers; agreed names).
-  'invalid_phone',
-  'invalid_instagram',
   'invalid_list',
   'invalid_body',
   'invalid_kind',

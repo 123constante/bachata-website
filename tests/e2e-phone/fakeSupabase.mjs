@@ -332,6 +332,75 @@ export const RPCS = {
   ] : []),
 };
 
+// ---------------------------------------------------------------------------
+// "Almost live" / Go live (/account/o/go-live?series=..., invite W2): the reads the
+// flow makes, per SCENARIO, served browser side only (helpers.ts `goLive`), so no
+// other spec's /account/o changes. Shapes copied from GoLiveRoles.test.tsx and
+// tests/e2e/helpers/organiserFake.ts. Go live itself (series_command_p5) answers ok
+// (and the role answers) ONLY in a scenario that sets `liveOk`; every other write stays refused.
+// ---------------------------------------------------------------------------
+export const GOLIVE_SERIES_ID = '5e000000-0000-4000-8000-0000000000f1';
+export const GOLIVE_EVENT_NAME = 'Friday Bachata Social';
+const GOLIVE_USER_ID = '11111111-1111-4111-8111-111111111111';
+const goLiveDancer = () => ({
+  profile_id: 'd0000000-0000-4000-8000-0000000000f1', user_id: GOLIVE_USER_ID, first_name: 'Ana', surname: 'Ruiz', based_city_id: CITY_ID,
+  dance_role: 'Follower', avatar_url: PHOTO, nationality: 'ES', languages: ['English'], instagram: 'ana.ruiz', whatsapp: null,
+  phone: '+447700900456', dance_started_year: 2019, other_roles: ['organiser'],
+});
+
+/**
+ * @param {{ steps?: [string, string][], contactPhone?: string | null, intent?: {roles: string[], declined: string[]},
+ *   missing?: {area: string, organiser_id: string | null, fields: string[]}[], liveOk?: boolean }} sc
+ * @returns {Record<string, (args: Record<string, unknown>) => unknown>}
+ */
+export const goLiveRpcs = (sc) => {
+  const steps = (sc.steps ?? []).map(([area, field]) => ({ area, field, required: true, done: false }));
+  const missing = sc.missing ?? [];
+  // Go live flips the series to live, so the reads after it (Done's "See it live") say so.
+  let lifecycle = 'draft';
+  return {
+    organiser_home_v1: () => ({
+      today: '2026-10-23',
+      organisers: [{
+        id: ORG_ID, name: 'Ritmo Phone QA', slug: ORG_SLUG, avatar_url: null, city_id: CITY_ID, lifecycle_status: 'live', role: 'owner',
+        is_primary: true, joined_at: '2026-01-01T00:00:00Z', latest_decision: null, team: [],
+        series: [{ id: GOLIVE_SERIES_ID, name: GOLIVE_EVENT_NAME, slug: 'friday-bachata-social', format: 'social', category: 'party', lifecycle_status: lifecycle,
+          default_local_start_time: '20:00:00', default_venue_name: 'Studio One', upcoming_count: 0, latest_decision: null, version: 3, next_dates: [] }],
+      }],
+    }),
+    // The dancer-first gate: a finished dancer profile.
+    _my_dancer_profile_id_v1: () => goLiveDancer().profile_id,
+    profile_complete_v1: () => true,
+    get_current_user_organiser_ids: () => [ORG_ID],
+    my_profile_progress_v1: () => ({ percent: 60, required_left: steps.length, publish_ready: steps.length === 0, declined: [], steps }),
+    my_dancer_edit_v1: () => goLiveDancer(),
+    my_role_intent_v1: () => sc.intent ?? { roles: ['dancer', 'organiser'], declined: [] },
+    my_roles_v1: () => [],
+    get_organiser_contact_settings_v1: () => ({
+      contact_phone: sc.contactPhone ?? null, contact_email: 'hello@example.com', show_phone_publicly: true, show_email_publicly: false, show_contact_publicly: true, claim_email: null,
+    }),
+    series_go_live_check_v1: () => ({ ready: missing.length === 0, event_missing: [], recommended: [], profile_rule_applies: true, profile_missing: missing }),
+    admin_event_workspace_p5: () => ({
+      meta: { version: 3, has_more: false },
+      series: {
+        series: { id: GOLIVE_SERIES_ID, organiser_id: ORG_ID, name: GOLIVE_EVENT_NAME, slug: 'friday-bachata-social', format: 'social', category: 'party',
+          lifecycle_status: lifecycle, version: 3, default_venue_id: null, default_description: null, default_local_start_time: '20:00:00', default_duration: null,
+          default_level: null, default_cover_image_url: null, instagram_url: null, passes: null, created_at: '2026-10-01T10:00:00+00:00',
+          gallery: [], video_urls: [], default_music_styles: ['Bachata'] },
+        program: [],
+      },
+      occurrences: [],
+    }),
+    // `liveOk`: Go live and the role answers on the way succeed (echoing what was sent), so "It's live" can render.
+    ...(sc.liveOk ? {
+      series_command_p5: () => { lifecycle = 'live'; return { ok: true, data: {}, audit_id: 'a', new_version: 4 }; },
+      set_my_role_intent_v1: () => null,
+      my_role_details_v1: (a) => ({ role: a.p_role, person_id: 'p1', details: {} }),
+      save_my_role_v1: (a) => ({ role: a.p_role, person_id: 'p1', changed: true, changed_keys: Object.keys(a.p_patch ?? {}), details: a.p_patch ?? {} }),
+    } : {}),
+  };
+};
+
 /** RPCs that change state are refused, so an accidental Save can never "succeed" here. */
 const WRITE_RPC_RE = /^(?:record|save|create|update|delete|remove|upsert|insert|submit|set|claim|redeem|upload|add|cancel|publish|invite|accept|reject|transfer|rate|vote)_/;
 
