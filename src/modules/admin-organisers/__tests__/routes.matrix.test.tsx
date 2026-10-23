@@ -53,6 +53,8 @@ function rpcImpl(isAdmin: boolean) {
       case 'admin_list_signup_access_requests_v1': return ok([]);
       case 'admin_revoke_organiser_invite_v1': return ok({ revoked: 1 });
       case 'admin_add_entity_member_v1': return ok({ id: 'm1' });
+      case 'admin_search_people_v1': return ok([{ id: 'p-ana', first_name: 'Ana', surname: 'Perez', display_name: null, claimed_by: null }]);
+      case 'admin_invite_person_v1': return ok({ invite_id: 'i8', token: TOKEN, email: args.p_email, link_path: `/invite/${TOKEN}`, message: `Hello Ana! https://bachatacalendar.co.uk/invite/${TOKEN}` });
       case 'organiser_invite_preview_v1': return ok({ status: 'open', organiser_name: 'Salsa Norte', inviter_first_name: 'Marta', email_hint: null });
       case 'redeem_organiser_invite_v1': return ok({ ok: true, status: 'redeemed', organiser_id: 'o1', member_role: 'owner' });
       default: return Promise.reject(new Error(`unexpected rpc ${fn}`));
@@ -179,7 +181,7 @@ describe('row actions x invite state', () => {
     expect(screen.queryByTestId('withdraw-invite') !== null).toBe(want.withdraw);
     fireEvent.click(primary);
     if (want.choose) {
-      expect(screen.getByTestId('invite-choices').textContent).toContain('Send a link');
+      expect(screen.getByTestId('invite-who').textContent).toContain('Who is this for?');
       fireEvent.click(screen.getByTestId('choice-link'));
     }
     expect(screen.queryByTestId('link-replaces-note') !== null).toBe(want.replaces);
@@ -205,6 +207,25 @@ describe('row actions x invite state', () => {
     expect(screen.queryByTestId('one-time-link')).toBeNull();
     expect(document.body.innerHTML).not.toContain(TOKEN);
     expect(JSON.stringify(Object.entries(localStorage))).not.toContain(TOKEN);
+  });
+
+  it('Who is this for?: the named-person link is shown once; the row cannot close until Done', async () => {
+    const row = await open('Alpha Unclaimed');
+    fireEvent.click(screen.getByTestId('row-primary'));
+    fireEvent.change(screen.getByTestId('who-search'), { target: { value: 'Ana' } });
+    fireEvent.click(await screen.findByText('Ana Perez'));
+    fireEvent.click(screen.getByTestId('who-next'));
+    fireEvent.change(screen.getByTestId('who-email-input'), { target: { value: 'ana@example.com' } });
+    fireEvent.click(screen.getByTestId('who-submit'));
+    await screen.findByTestId('invite-person-result');
+    expect(h.rpc).toHaveBeenCalledWith('admin_invite_person_v1', { p_dancer_profile_id: 'p-ana', p_email: 'ana@example.com', p_organiser_id: 'o-un' });
+    fireEvent.click(row.querySelector('button')!);
+    expect(screen.getByTestId('link-close-warning').textContent).toMatch(/Copy the link first/);
+    expect(screen.getByTestId('invite-person-result')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('invite-person-done'));
+    expect(screen.queryByTestId('invite-person-result')).toBeNull();
+    fireEvent.click(row.querySelector('button')!);
+    expect(screen.queryByTestId('row-detail')).toBeNull();
   });
 
   it('withdraws a live link', async () => {
