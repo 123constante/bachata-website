@@ -119,6 +119,7 @@ const RsvpBlockInner = ({ publicEventId, occurrenceId, occurrence, seriesLifecyc
               peopleCount={going.peopleCount}
               people={going.people}
               past={past}
+              cancelled={night === 'cancelled'}
               context="event-page:going"
               eventId={publicEventId}
             />

@@ -157,12 +157,22 @@ describe('FestivalGoing: count x viewer x night', () => {
     h.user = v.user;
     renderRow(v, n.night);
     const past = n.status === 'ended';
-    await screen.findByText(goingCountText(count, past));
+    // A cancelled night with nobody says nothing (stage 5, C1): no "No one going yet".
+    const countText = goingCountText(count, past, n.status === 'cancelled');
+    if (countText) await screen.findByText(countText);
+    else await screen.findByTestId('going-people');
+    expect(document.body.textContent).not.toMatch(n.status === 'cancelled' ? /going yet|\d going/ : /^$/);
     const expected = goingStateFor({ viewer: v.viewer, night: n.status, going: v.going, count, returnTo: '/festivals' });
     await waitFor(() => expect(screen.getByTestId('festival-going').getAttribute('data-state')).toBe(expected.state));
     const button = screen.getByTestId('festival-going-button') as HTMLButtonElement;
-    expect(button.textContent).toBe(expected.control.label);
-    expect(button.disabled).toBe(!expected.control.enabled);
+    if (expected.link && !expected.control.enabled) {
+      // A refusal with a way on: the way on is the big control (stage 5, C4).
+      expect(button.tagName).toBe('A');
+      expect(button.textContent).toBe(expected.link.label);
+    } else {
+      expect(button.textContent).toBe(expected.control.label);
+      expect(button.disabled).toBe(!expected.control.enabled);
+    }
     // A disabled button always has its reason on screen.
     if (!expected.control.enabled) expect(screen.getByTestId('festival-going-button-message').textContent).toBeTruthy();
     // Up to 8 people; a link only for a non-null id; "+N more" = count - shown.

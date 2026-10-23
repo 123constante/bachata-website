@@ -161,11 +161,14 @@ describe('GoingButton', () => {
     expect(onTap).not.toHaveBeenCalled();
   });
 
-  it('unfinished: disabled, names the field, links to it', () => {
+  // Stage 5 (C4): the way on IS the big control, not a dead grey button over a small link.
+  it('unfinished: the control is "Finish your profile", the line names the field', () => {
     const { btn, onTap } = button({ viewer: { kind: 'unfinished', missing: ['dance_role'] }, night: 'live', going: false, returnTo: '/event/e' });
-    expect(btn.disabled).toBe(true);
+    expect(btn.tagName).toBe('A');
+    expect(btn.textContent).toBe(GOING_COPY.finishLink);
     expect(screen.getByTestId('going-button-message').textContent).toContain('Add your dance role to say you\u2019re going.');
-    expect(screen.getByTestId('going-button-link').getAttribute('href')).toBe('/finish-profile?returnTo=%2Fevent%2Fe');
+    expect(btn.getAttribute('href')).toBe('/finish-profile?returnTo=%2Fevent%2Fe');
+    expect(screen.queryByTestId('going-button-link')).toBeNull();
     expect(btn.getAttribute('aria-describedby')).toBe(screen.getByTestId('going-button-message').id);
     fireEvent.click(btn);
     expect(onTap).not.toHaveBeenCalled();
@@ -197,7 +200,7 @@ describe('GoingButton', () => {
 
   it('no dancer profile: the message-us link opens outside', () => {
     button({ viewer: { kind: 'no_profile' }, night: 'live', going: false });
-    const a = screen.getByTestId('going-button-link');
+    const a = screen.getByTestId('going-button');
     expect(a.getAttribute('target')).toBe('_blank');
     expect(a.textContent).toBe(GOING_COPY.noProfileLink);
   });

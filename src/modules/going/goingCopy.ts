@@ -32,6 +32,8 @@ export const GOING_COPY = {
   /** The button. */
   go: `I${RSQ}m going`,
   going: `You${RSQ}re going ${DOT} Undo`,
+  /** Going, on a night that is over: past tense (un-going stays allowed). */
+  wentUndo: `You went ${DOT} Undo`,
   signIn: `Sign in to say you${RSQ}re going`,
   saving: `Saving${ELLIPSIS}`,
   /** The sign-in prompt a signed-out / guest tap opens. */
@@ -43,7 +45,7 @@ export const GOING_COPY = {
   /** The line under the button, per state. */
   goingUndoHint: `Changed your mind? Tap the button again to undo.`,
   /** The commonest state (shape survey: every upcoming night has 0 going). */
-  beFirst: `Be the first ${MDASH} tap I${RSQ}m going and your friends will see you here.`,
+  beFirst: `Be the first ${MDASH} tap I${RSQ}m going and your first name shows here.`,
   signedOut: `It${RSQ}s free: sign in, finish your dancer profile, and your first name shows here.`,
   anonymous: `You${RSQ}re browsing as a guest. Sign in with a free account to say you${RSQ}re going.`,
   noProfile: `Your account has no dancer profile yet, so you can${RSQ}t say you${RSQ}re going.`,
@@ -76,17 +78,23 @@ export const GOING_COPY = {
   myUpcomingTitle: `Nights you${RSQ}re going to`,
   myPastTitle: 'Nights you went to',
   myUpcomingEmpty: `You haven${RSQ}t said you${RSQ}re going to any nights yet.`,
-  myUpcomingEmptyHow: `Open a night and tap I${RSQ}m going on its page.`,
+  myUpcomingEmptyHow: `Find a night on the calendar, then tap I${RSQ}m going on its page.`,
   myPastEmpty: 'No past nights yet.',
   tagGoing: 'Going',
   tagWent: 'Went',
   tagCancelled: 'Cancelled',
 } as const;
 
-/** "12 going" / "No one going yet"; past nights: "5 went" / "No one went". */
-export const goingCountText = (count: number, past = false): string => {
+/**
+ * "12 going" / "No one going yet"; past nights: "5 went" / "No one said they
+ * were going" (nobody tapped; people may still have gone). A cancelled night
+ * never invites ("yet") and is never "going": "3 had said they were going",
+ * and '' (no line) at 0.
+ */
+export const goingCountText = (count: number, past = false, cancelled = false): string => {
   const n = Math.max(0, Math.floor(count || 0));
-  if (n === 0) return past ? 'No one went' : 'No one going yet';
+  if (cancelled) return n === 0 ? '' : `${n} had said they were going`;
+  if (n === 0) return past ? 'No one said they were going' : 'No one going yet';
   return past ? `${n} went` : `${n} going`;
 };
 

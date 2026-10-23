@@ -264,7 +264,7 @@ describe('copy helpers', () => {
     [0, false, 'No one going yet'],
     [1, false, '1 going'],
     [12, false, '12 going'],
-    [0, true, 'No one went'],
+    [0, true, 'No one said they were going'],
     [5, true, '5 went'],
   ] as const)('goingCountText(%s, past=%s) = %s', (n, past, text) => expect(goingCountText(n, past)).toBe(text));
   it('moreText', () => {

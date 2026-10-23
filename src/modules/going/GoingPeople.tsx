@@ -36,6 +36,8 @@ type Props = {
   people: readonly GoingPerson[];
   /** An ended night: "5 went". */
   past?: boolean;
+  /** A cancelled night: no "No one going yet" invite; "3 had said they were going". */
+  cancelled?: boolean;
   max?: number;
   theme?: GoingTheme;
   /** For the profile-view telemetry of a tapped person. */
@@ -59,6 +61,7 @@ export const GoingPeople = ({
   peopleCount,
   people,
   past = false,
+  cancelled = false,
   max = GOING_PEOPLE_MAX,
   theme = BENTO_GOING_THEME,
   context = 'going-people',
@@ -66,15 +69,16 @@ export const GoingPeople = ({
   hideCount = false,
 }: Props) => {
   const { shown, total, extra } = goingPeopleModel(count, people, max, peopleCount);
+  const countText = goingCountText(total, past, cancelled);
   return (
     <div data-testid="going-people">
-      {!hideCount && (
+      {!hideCount && countText !== '' && (
         <p className="text-[14px] font-semibold" style={{ color: total > 0 ? theme.fg : theme.muted }} data-testid="going-count">
-          {goingCountText(total, past)}
+          {countText}
         </p>
       )}
       {(shown.length > 0 || extra > 0) && (
-        <ul className="mt-2 flex flex-wrap gap-1" aria-label={goingCountText(total, past)}>
+        <ul className="mt-2 flex flex-wrap gap-1" aria-label={countText}>
           {shown.map((p, i) => {
             const inner = (
               <>

@@ -92,6 +92,7 @@ export const FestivalGoing = ({ festivalId, night, nightFailed, onRetryNight, ba
             peopleCount={going.peopleCount}
             people={going.people}
             past={status === 'ended'}
+            cancelled={status === 'cancelled'}
             theme={HUB_GOING_THEME}
             context="festival-hub:going"
             eventId={festivalId}

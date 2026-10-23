@@ -105,7 +105,8 @@ const settled = () =>
 
 const callsOf = (fn: string) => h.rpc.mock.calls.filter(([name]) => name === fn);
 const btn = () => screen.getByTestId('rsvp-going') as HTMLButtonElement;
-const message = () => screen.queryByTestId('rsvp-going-message')?.textContent ?? null;
+// The line under the button is always there (stage 5, C6: no jump); empty = no words.
+const message = () => screen.queryByTestId('rsvp-going-message')?.textContent || null;
 
 const NAMES = ['Ana', 'Leo', 'Mia', 'Sam', 'Kai', 'Zoe', 'Raf', 'Bea'];
 const people = (n: number, over: Partial<GoingPerson> = {}): GoingPerson[] =>
@@ -181,6 +182,22 @@ describe('the tile x night shape', () => {
     await waitFor(() => expect(btn().textContent).toBe(GOING_COPY.going));
     expect(btn().disabled).toBe(false);
     expect(message()).toBe(GOING_COPY.cancelledGoing);
+  });
+});
+
+describe('the tile x cancelled night x count (stage 5, C1: never "No one going yet", never "N going")', () => {
+  it.each([
+    [0, null],
+    [1, '1 had said they were going'],
+    [9, '9 had said they were going'],
+  ] as const)('cancelled, %i going', async (count, text) => {
+    nights = { going_count: count, people: people(count) };
+    await mount({ occurrence: occ({ isCancelled: true }) });
+    await waitFor(() => expect(screen.getByTestId('rsvp-block').getAttribute('data-state')).toBe('night_cancelled'));
+    await screen.findByTestId('going-people');
+    expect(screen.queryByTestId('going-count')?.textContent ?? null).toBe(text);
+    expect(screen.getByTestId('rsvp-block').textContent).not.toMatch(/going yet|\d going/);
+    expect(message()).toBe(GOING_COPY.cancelled);
   });
 });
 
@@ -287,16 +304,18 @@ describe('the tile x viewer', () => {
     [['dance_role'], 'dance role'],
     [['avatar_url'], 'photo'],
     [['dance_role', 'avatar_url'], 'dance role and photo'],
-  ] as const)('unfinished (%j): names it, links to the Finish screen (which comes back here), button off', async (missing, words) => {
+  ] as const)('unfinished (%j): names it; the big control is Finish your profile (which comes back here)', async (missing, words) => {
     gate = { status: 'incomplete', missing: [...missing] };
     await mount();
     await waitFor(() =>
-      expect(screen.getByTestId('rsvp-going-link').getAttribute('href')).toBe(
+      expect(btn().getAttribute('href')).toBe(
         `/finish-profile?returnTo=${encodeURIComponent('/event/some-night?occurrenceId=' + OCC)}`,
       ),
     );
     expect(message()).toContain(`Add your ${words} to say you\u2019re going.`);
-    expect(btn().disabled).toBe(true);
+    expect(btn().tagName).toBe('A');
+    expect(btn().textContent).toBe(GOING_COPY.finishLink);
+    expect(screen.queryByTestId('rsvp-going-link')).toBeNull();
   });
 
   it('finished, going: "You\u2019re going \u00b7 Undo" and how to undo', async () => {
@@ -343,7 +362,9 @@ describe('the tile x viewer', () => {
     await waitFor(() => expect(screen.getByTestId('rsvp-block').getAttribute('data-state')).toBe(state));
     expect(message()?.startsWith(words)).toBe(true);
     expect(screen.getByTestId('going-count').textContent).toBe('2 going');
-    expect(btn().getAttribute('aria-pressed')).toBe('false');
+    // profile_incomplete lands on the Finish link (stage 5, C4); the others keep the unpressed button.
+    if (state === 'profile_unfinished') expect(btn().tagName).toBe('A');
+    else expect(btn().getAttribute('aria-pressed')).toBe('false');
   });
 
   it('network error: rolls back, says check your connection, button still usable', async () => {

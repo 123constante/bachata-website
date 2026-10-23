@@ -14,7 +14,8 @@
  * first_name, based_city_id, dance_role, avatar_url); un-going is always
  * allowed by the database, so a person who is going can take their name off a
  * cancelled night, a paused event or with an unfinished profile. An ENDED night
- * is a record ("Who went") and its button is off.
+ * is a record ("Who went"): its button is off, except for someone who said they
+ * were going, who sees "You went \u00b7 Undo" (past tense) and may take it back.
  */
 import { addDaysToKey, londonWallClockNowIso } from '@/lib/londonDate';
 import { NO_PROFILE_CONTACT_URL, finishProfileHref, listFieldLabels, type ProfileField } from '@/lib/profileCompletion';
@@ -273,7 +274,7 @@ export const goingStateFor = (facts: GoingFacts): GoingView => {
     // 1. The night itself.
     if (night === 'ended') {
       return going
-        ? view('night_ended', true, GOING_COPY.endedGoing, control(true, GOING_COPY.going, 'ungo', true))
+        ? view('night_ended', true, GOING_COPY.endedGoing, control(true, GOING_COPY.wentUndo, 'ungo', true))
         : view('night_ended', false, GOING_COPY.ended,
           control(false, GOING_COPY.nightEnded, 'none', false, GOING_COPY.ended));
     }
