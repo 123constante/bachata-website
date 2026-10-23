@@ -8,6 +8,7 @@ import { OrganiserShell, ORG_PATHS } from '../shell';
 import { AnnounceRegion, Card, EmptyState, ErrorState, GhostButton, SkeletonRows, useAnnounce } from '../ui';
 import { OrganiserSwitcher } from '../profile/OrganiserSwitcher';
 import { Avatar } from './Avatar';
+import { PublicToggle } from './PublicToggle';
 import { useTeamContext } from './useTeamContext';
 
 /**
@@ -66,6 +67,11 @@ export default function TeamPage() {
             <Card label="Team" testId="team-list">
               {members.map((m) => <MemberRow key={m.userId} m={m} />)}
             </Card>
+            {me && (
+              <Card label="Public team" testId="team-public-card">
+                <PublicToggle organiserId={organiser.id} profileId={me.profileId ?? null} onChanged={announce} />
+              </Card>
+            )}
             {canAdd && (
               full ? (
                 <>

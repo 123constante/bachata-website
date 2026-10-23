@@ -53,7 +53,8 @@ test('dancer-only: sign-in lands straight in the dancer app (no chooser)', async
   await open(page, 'dancer-only', '/account/continue');
   await expect(page).toHaveURL(/\/app\/home$/);
   await expect(page.getByTestId('dancer-app-shell')).toBeVisible();
-  await expect(page.getByTestId('profile-switcher-button')).toBeVisible();
+  // D129: a one-profile dancer has nothing to switch to, so no switcher (Sign out and Account settings are in Options).
+  await expect(page.getByTestId('profile-switcher-button')).toHaveCount(0);
   await expectNoHorizontalScroll(page);
   await page.screenshot({ path: `${SHOTS}/01-signin-landing-dancer-only.png` });
 });

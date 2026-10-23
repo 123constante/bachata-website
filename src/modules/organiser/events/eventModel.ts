@@ -4,7 +4,8 @@
 // sends, from the old command builders, and only for the fields that changed.
 
 import { weekdayOfKey } from '@/lib/londonDate';
-import { dateLabel } from '@/modules/organiser/shared/homeModel';
+import { dateLabel, localAsZTime, type HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
+import { comingDates, dayLabel, type DateRow } from '@/modules/organiser/shared/dateList';
 import { linkProblem } from '@/modules/organiser/shared/linkRules';
 import {
   addDateCommand,
@@ -331,6 +332,25 @@ export function moreLabel(ws: EventWorkspace | undefined, shown: number, homeCou
   if (readIsFull(ws, today)) return '100+';
   const n = wsComing(ws, today).length - shown;
   return n > 0 ? `${n} more` : null;
+}
+
+/**
+ * The Coming dates card: its rows and its "N more" from the SAME dates, so it
+ * never reads "1 more" above "No coming dates" (RELEASE-A-WEB fix pass). Home's
+ * next_dates (with their times) lead; when Home lists none but the workspace
+ * holds coming dates (a draft Home lists with no next_dates, or Home not yet
+ * refetched after a date was added) the rows come from the workspace, soonest
+ * first. A count only ever shows under at least one row.
+ */
+export function comingCard(home: HomeSeriesFull | null, ws: EventWorkspace | undefined, today: string, limit = 14): { shown: DateRow[]; more: string | null } {
+  let shown = home ? comingDates(home, today, limit) : [];
+  if (!shown.length && ws && !readIsFull(ws, today)) {
+    shown = wsComing(ws, today).slice(0, limit).map((d) => ({
+      occurrenceId: d.id, date: d.occurrence_date, time: localAsZTime(d.materialised_start_utc), label: dayLabel(d.occurrence_date),
+    }));
+  }
+  const more = shown.length ? moreLabel(ws, shown.length, home?.upcoming_count ?? 0, today) : null;
+  return { shown, more };
 }
 
 /** London today holds a date that is not cancelled: series.end_run then needs today_session. */

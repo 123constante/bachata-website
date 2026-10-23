@@ -1,5 +1,8 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { Card } from '@/modules/organiser/ui';
+import { ChevronRight } from 'lucide-react';
+import { LINK_GHOST_SM, TEXT_ACTION, TILE_CLASS } from '../blocks';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { useAuth } from '@/hooks/useAuth';
 import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
@@ -7,24 +10,23 @@ import { DancerApiError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
 import { trackDancerEvent } from '../../analytics/events';
 import { DANCER_TABS } from '../../shell/routes';
-import { inDaysLabel, nextNight, nudgeCandidates, placeAndTime, shortDate, statusLabel } from '../nights/nightsModel';
+import { fullDate, inDaysLabel, nextNight, nudgeCandidates, placeAndTime, statusLabel } from '../nights/nightsModel';
 import { GOING_TILE_HELP, goingTileValue } from '../../api/numbersModel';
 import { useMyNumbers } from '../../api/useMyNumbers';
 import { buttonStyle, gradientBg, linkStyle } from '../nights/nightsStyles';
-import { useBrowseHref } from '../nights/useBrowseHref';
 import { useMyNights } from '../nights/useMyNights';
 import { greeting } from './homeCopy';
 import { nextStepLine } from '../../api/nextStep';
 import { RateNudge } from './RateNudge';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
-import { WhatsOn } from './WhatsOn';
+import { LineupPeople } from './LineupPeople';
 import { NumbersTiles } from './NumbersTiles';
 import { PartnerTile } from './PartnerTile';
 import NoProfileWayOut from '../options/NoProfileWayOut';
+import { CoupleArt } from '../art';
 import { Avatar, MessageUsLink } from '../me/ui';
 import { NO_PROFILE_MESSAGE } from '../../api/messageUs';
-import { HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../../copy/sharedCopy';
-import { BROWSE_EVENTS_LABEL } from './homeCopy';
+import { FIND_A_NIGHT, HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../../copy/sharedCopy';
 
 const path = (id: 'nights' | 'me' | 'options') => DANCER_TABS.find((t) => t.id === id)?.path ?? '/app';
 
@@ -58,20 +60,20 @@ const Ring = ({ pct }: { pct: number }) => (
   <div
     role="img"
     aria-label={`Profile strength ${pct}%`}
-    style={{ width: 74, height: 74, borderRadius: '50%', background: `conic-gradient(#fff ${pct * 3.6}deg, rgba(255,255,255,.25) 0)`, display: 'grid', placeItems: 'center' }}
+    className="da-strength-ring"
+    style={{ width: 56, height: 56, flex: '0 0 auto', '--da-pct': `${pct}%` } as CSSProperties}
   >
-    <div style={{ width: 58, height: 58, borderRadius: '50%', background: 'var(--da-gradient-from)', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 16 }}>{pct}%</div>
+    <span style={{ width: 46, height: 46, fontSize: 14 }}>{pct}%</span>
   </div>
 );
 
 const Message = ({ children }: { children: ReactNode }) => (
-  <div className="da-card" role="status" data-testid="home-message">{children}</div>
+  <Card variant="padded" role="status" testId="home-message">{children}</Card>
 );
 
 const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
   const { user } = useAuth();
-  const { nights, todayKey, isError, isLoading } = useMyNights();
-  const browseHref = useBrowseHref(profile.based_city_id);
+  const { nights, todayKey, isError, isLoading, retry } = useMyNights();
   const hero = nextNight(nights.upcoming);
   // F7 (owner decision): the tile and the strip read ONE number from ONE source,
   // my_dancer_stats_v1.nights_going_upcoming (scheduled nights only, so a cancelled
@@ -84,7 +86,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Avatar profile={profile} size={52} />
+        <span className="da-ring-avatar"><Avatar profile={profile} size={52} /></span>
         <div style={{ minWidth: 0 }}>
           <div className="da-muted" style={{ fontSize: 14 }}>{greeting(new Date().getHours())}</div>
           <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0, overflowWrap: 'anywhere' }}>{name}</h1>
@@ -92,16 +94,16 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
       </div>
 
       {!profile.is_active && (
-        <div className="da-card" role="status" data-testid="paused-banner" style={{ borderColor: 'var(--da-danger)' }}>
+        <Card variant="padded" role="status" data-testid="paused-banner" className="border-[var(--danger)]">
           <b>{HIDDEN_STATE_LINE}</b>
           <p style={{ margin: '4px 0 0', fontSize: 14 }}>
             <Link to={APP_ACCOUNT_SETTINGS_PATH} style={linkStyle}>{SHOW_AGAIN_LABEL}</Link>
           </p>
-        </div>
+        </Card>
       )}
 
       {profile.linked_from_admin && !noticeGone && user?.id && (
-        <div className="da-card" data-testid="linked-notice">
+        <Card variant="padded" testId="linked-notice">
           <b>We&rsquo;ve linked your profile</b>
           <p style={{ margin: '4px 0 8px', fontSize: 14 }}>A profile made for you by the Bachata Calendar team is now yours. Have a look and make it right.</p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -118,46 +120,55 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
               Got it
             </button>
           </div>
-        </div>
+        </Card>
       )}
 
-      <section
-        data-testid="home-hero"
-        style={{ borderRadius: 16, padding: 14, color: 'var(--da-on-gradient)', background: HERO_BACKGROUND }}
-      >
+      <section data-testid="home-hero" className={hero && hero.date ? 'da-hero' : `${TILE_CLASS} p-[16px]`}>
         {hero && hero.date ? (
           <>
             <div style={{ fontSize: 13, fontWeight: 700 }}>Your next night &middot; {inDaysLabel(hero.date, todayKey)}</div>
             <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.15, margin: '4px 0', overflowWrap: 'anywhere' }}>{hero.name}</div>
             <div style={{ fontSize: 14, marginBottom: 10 }}>
-              {[shortDate(hero.date), placeAndTime(hero)].filter(Boolean).join(' \u00B7 ')} &middot; {statusLabel(hero)}
+              {[fullDate(hero.date), placeAndTime(hero)].filter(Boolean).join(' \u00B7 ')} &middot; {statusLabel(hero)}
             </div>
-            <a href={hero.href} style={{ ...buttonStyle, background: '#fff', color: '#1A0F0B' }}>See event</a>
+            {/* Review S4: full width, 52px+, light fill and dark text from the tokens (the one primary on Home). */}
+            <a href={hero.href} className="da-tap da-hero-cta">See event</a>
           </>
         ) : (
           <>
             <div style={{ fontSize: 13, fontWeight: 700 }}>Your next night</div>
-            <div style={{ fontSize: 20, fontWeight: 800, margin: '4px 0 10px' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, margin: '4px 0 8px' }}>
               {isLoading ? 'Loading\u2026' : isError ? 'We couldn\u2019t load your nights.' : 'No upcoming night yet.'}
             </div>
-            <a href={browseHref} style={{ ...buttonStyle, background: '#fff', color: '#1A0F0B' }}>{BROWSE_EVENTS_LABEL}</a>
+            {!isLoading && !isError && (
+              <p className="da-muted" style={{ margin: 0, fontSize: 14 }}>
+                {FIND_A_NIGHT}
+              </p>
+            )}
+            {/* Review S2: a failure state always has one action. */}
+            {isError && (
+              <button type="button" className={TEXT_ACTION} onClick={retry}>Try again</button>
+            )}
           </>
         )}
       </section>
 
       <RateNudge candidates={nudgeCandidates(nights.past, todayKey)} todayKey={todayKey} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Link to={path('me')} data-testid="tile-strength" style={{ ...tile, background: gradientBg, color: 'var(--da-on-gradient)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Ring pct={profile.strength.pct} />
-          </div>
-          <span style={{ fontSize: 13 }} data-testid="tile-strength-next">
-            {nextStepLine(profile)}
+      {/* Review S4: one column; strength is the prototype's full-width row (ring, title, next step, chevron). */}
+      <div style={{ display: 'grid', gap: 10 }}>
+        <Link to={path('me')} data-testid="tile-strength" className={`${TILE_CLASS} da-tile-rose da-strength-row`}>
+          <Ring pct={profile.strength.pct} />
+          <span style={{ minWidth: 0, flex: 1 }}>
+            <b style={{ display: 'block', fontSize: 15 }}>Profile strength</b>
+            <span style={{ display: 'block', fontSize: 13 }} data-testid="tile-strength-next">
+              {nextStepLine(profile)}
+            </span>
           </span>
+          <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
         </Link>
         {GOING_CHECKIN_ENABLED && (
-        <Link to={path('nights')} data-testid="tile-going" className="da-card" style={{ ...tile }}>
+        <Link to={path('nights')} data-testid="tile-going" className={TILE_CLASS} style={{ ...tile }}>
           <b style={{ fontSize: 14 }}>Upcoming nights</b>
           {/* A number is big; the loading / failed words are body size so they fit the tile. */}
           <span style={{ fontSize: numbers.data ? 28 : 14, fontWeight: 800, overflowWrap: 'anywhere' }} data-testid="tile-going-count">{going}</span>
@@ -170,7 +181,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
 
       <PartnerTile />
 
-      <WhatsOn cityId={profile.based_city_id} />
+      <LineupPeople />
     </div>
   );
 };
@@ -190,10 +201,11 @@ const HomeScreen = () => {
   } else if (profile.error instanceof DancerApiError && profile.error.code === 'no_profile') {
     body = (
       <Message>
+        <CoupleArt />
         <b>We can&rsquo;t find a dancer profile for you yet.</b>
         <p style={{ margin: '4px 0 8px', fontSize: 14 }}>Message us and we&rsquo;ll sort it out.</p>
         {/* The control itself, not a pointer to Options: Options cannot load without a profile either. */}
-        <MessageUsLink message={NO_PROFILE_MESSAGE} style={{ ...linkStyle, display: 'inline-flex', alignItems: 'center', minHeight: 44 }} />
+        <MessageUsLink message={NO_PROFILE_MESSAGE} className={LINK_GHOST_SM} />
         {/* Walk bug 1: never trapped here -- Account settings, Sign out, and the organiser area for an organiser. */}
         <NoProfileWayOut />
       </Message>

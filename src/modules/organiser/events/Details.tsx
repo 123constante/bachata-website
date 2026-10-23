@@ -13,6 +13,7 @@ import { EDIT_PARAM, EventConflict, EventStepShell, SendButton, StepError, detai
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Card, ErrorState, FIELD_CLASS, SkeletonRows } from '../ui';
 import { ScheduleCard } from './EditorRows';
+import { LockNote, useEventLock } from './ProfileLock';
 import { EditorSheet, MAX_DESCRIPTION, type SheetName } from './EditorSheet';
 import {
   DETAIL_LABEL, capInput, detailChanged, detailCommand, detailProblem, detailValue, draftFromWorkspace, venueCommand,
@@ -76,7 +77,11 @@ function shown(ws: EventWorkspace, field: TextDetail): string {
 /** The rows; the venue row opens the event-truth editor sheet, unchanged (4.2). */
 function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
   const seriesId = ws.series.id;
-  const lock = eventLock(ws.series.lifecycle_status);
+  const closedReason = eventLock(ws.series.lifecycle_status);
+  // C14: unfinished profiles lock the details, the programme and the flyer the same read-only way, with the reason above them.
+  const profile = useEventLock(ws);
+  const lock = closedReason ?? (profile.locked ? profile.reason : null);
+  const lockedBy = !closedReason && profile.locked ? 'org-detail-lock-reason' : undefined;
   const venues = useVenueOptions();
   const seriesRole = useSeriesRole(seriesId);
   const { sendThenDone, busy, conflict, error } = useEventSend(seriesId);
@@ -140,7 +145,7 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
   if (conflict) return <EventConflict seriesId={seriesId} />;
   // Gallery and videos open the editor's sheet (C06); a closed event shows them read only.
   const sheetRow = (label: string, value: string, open: SheetName, testId: string) => lock ? (
-    <div key={testId} className={cn(ROW, 'text-[var(--mut)]')} data-testid={testId}>
+    <div key={testId} className={cn(ROW, 'text-[var(--mut)]')} data-testid={testId} aria-describedby={lockedBy} data-locked={lockedBy ? 'true' : undefined}>
       <span className="w-[88px] shrink-0 text-[14px]">{label}</span>
       <span className="min-w-0 flex-1 truncate text-[15px]">{value === 'Add' ? 'None' : value}</span>
     </div>
@@ -159,7 +164,7 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
     format: ws.series.format, lifecycle: ws.series.lifecycle_status, canEdit: seriesRole.loading || seriesRole.role !== null,
   });
   const pageRow = (key: string, label: string, value: string, to: string) => lock ? (
-    <div key={key} className={cn(ROW, 'text-[var(--mut)]')} data-testid={`org-detail-${key}`}>
+    <div key={key} className={cn(ROW, 'text-[var(--mut)]')} data-testid={`org-detail-${key}`} aria-describedby={lockedBy} data-locked={lockedBy ? 'true' : undefined}>
       <span className="w-[88px] shrink-0 text-[14px]">{label}</span>
       <span className="min-w-0 flex-1 truncate text-[15px]">{value === 'Add' ? 'None' : value}</span>
     </div>
@@ -171,7 +176,7 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
     </Link>
   );
   const row = (field: DetailField, value: string) => lock ? (
-    <div key={field} className={cn(ROW, 'text-[var(--mut)]')} data-testid={`org-detail-${field}`}>
+    <div key={field} className={cn(ROW, 'text-[var(--mut)]')} data-testid={`org-detail-${field}`} aria-describedby={lockedBy} data-locked={lockedBy ? 'true' : undefined}>
       <span className="w-[88px] shrink-0 text-[14px]">{DETAIL_LABEL[field]}</span>
       <span className="min-w-0 flex-1 truncate text-[15px]">{value === 'Add' ? 'None' : value}</span>
     </div>
@@ -188,6 +193,7 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
     <>
       <ClosedLines ws={ws} today={today} testId="org-detail" />
       <Card testId="org-detail-rows">
+        {lockedBy && profile.reason && <LockNote reason={profile.reason} seriesId={seriesId} testId="org-detail-lock" />}
         {row('name', shown(ws, 'name'))}
         {row('venue', venueName(venues.data, ws.series.default_venue_id) ?? (ws.series.default_venue_id ? 'Venue' : 'Add'))}
         {(['music', 'tickets', 'about'] as TextDetail[]).map((f) => row(f, shown(ws, f)))}
@@ -198,7 +204,7 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
         </div>
         {pageRow('organisers', 'Organisers', countLabel(ws.organiserIds.length, 'organiser', 'organisers'), ORG_PATHS.eventOrganisers(seriesId))}
         {lock ? (
-          <div className={cn(ROW, 'text-[var(--mut)]')} data-testid="org-detail-cover">
+          <div className={cn(ROW, 'text-[var(--mut)]')} data-testid="org-detail-cover" aria-describedby={lockedBy} data-locked={lockedBy ? 'true' : undefined}>
             <span className="w-[88px] shrink-0 text-[14px]">{FLYER_LABEL}</span>
             <span className="min-w-0 flex-1 truncate text-[15px]">{ws.series.default_cover_image_url ? 'Set' : 'None'}</span>
           </div>
@@ -214,7 +220,7 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
       </Card>
       <StepError text={error ?? cityError} />
       <ScheduleCard seriesId={seriesId} next={firstListedDate(ws.dates, today)} today={today} upcoming={upcoming.length}
-        pastCount={ws.dates.length - upcoming.length} closed={!!lock} />
+        pastCount={ws.dates.length - upcoming.length} closed={!!closedReason} />
       <EditorSheet sheet={sheet} onSheet={onSheet} draft={draft} patch={patch} today={today}
         cap={capInput(ws, draft, today)} venues={venues.data} venuesError={venues.isError} onRetryVenues={() => void venues.refetch()}
         venuesRetrying={venues.isFetching} onUploadGallery={onUploadGallery} uploading={uploading} uploadError={uploadError} />
@@ -236,9 +242,11 @@ export default function Details() {
   const ws = useEventWorkspace(seriesId);
   const today = home.data?.today ?? londonTodayKey();
   const field = readField(search.get(EDIT_PARAM));
+  const profile = useEventLock(ws.data);
 
-  if (field === 'music' && ws.data && !eventLock(ws.data.series.lifecycle_status)) return <MusicEdit ws={ws.data} />;
-  if (field && ws.data && !eventLock(ws.data.series.lifecycle_status)) return <DetailEdit key={field} ws={ws.data} field={field} />;
+  const editable = !!ws.data && !eventLock(ws.data.series.lifecycle_status) && !profile.locked;
+  if (field === 'music' && ws.data && editable) return <MusicEdit ws={ws.data} />;
+  if (field && ws.data && editable) return <DetailEdit key={field} ws={ws.data} field={field} />;
   return (
     <OrganiserShell title={ws.data?.series.name ?? 'Details'} back={{ to: ORG_PATHS.event(seriesId), label: 'Back' }} testId="org-page-details">
       <div className="flex flex-col gap-3 p-3">

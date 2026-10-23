@@ -5,8 +5,26 @@ import { OrganiserShell } from '../shell';
 import { ORG_PATHS } from '../shell/paths';
 import { EmptyState, ErrorState, SkeletonRows, StatusTag, initials } from '../ui';
 import { lifecycleTag } from '@/modules/organiser/shared/eventState';
+import { PROFILE_WIZARD_PATH, requiredLeftText, useProfileProgress } from '@/modules/organiser/shared/profileProgress';
 import type { ProfileEntity } from './profileForm';
 import { useOwnPage } from './useOwnPage';
+
+/**
+ * C15: while required profile answers are missing, ONE line that opens the
+ * wizard (no second checklist here). The number is my_profile_progress_v1's
+ * required_left, the one the ring and the go-live lock read.
+ */
+export function RequiredLine({ organiserId }: { organiserId: string }) {
+  const progress = useProfileProgress(organiserId);
+  const left = progress.data?.requiredLeft ?? 0;
+  if (left <= 0) return null;
+  return (
+    <Link to={PROFILE_WIZARD_PATH} data-testid="page-required-line" className="flex min-h-[48px] items-center gap-[8px] rounded-[12px] border border-[var(--gold)] bg-[var(--card)] px-[16px] text-[15px] font-semibold text-[var(--fg)]">
+      <span className="flex-1">Required to publish: {requiredLeftText(left)}</span>
+      <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] text-[var(--gold)]" />
+    </Link>
+  );
+}
 
 /**
  * /account/o/page (C27, tap-to-edit). The public organiser page's facts as rows
@@ -37,6 +55,7 @@ export default function PageScreen() {
   } else {
     body = (
       <div className="space-y-[12px]" data-testid="page-rows">
+        <RequiredLine organiserId={selected.id} />
         {bridge ? (
           <div className="overflow-hidden rounded-[12px] bg-[#0C0A0D] pt-[16px] text-[#F6F1EA]" data-testid="page-facts">
             <div className="flex flex-col items-center gap-[8px] px-[16px] pb-[16px]">

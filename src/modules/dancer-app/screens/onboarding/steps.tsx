@@ -1,11 +1,12 @@
-import { Suspense, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { Suspense, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import type { DancerDelta, MyDancerEdit } from '../../api/types';
 import { ADD_CITY_MESSAGE, dancerMessageUsUrl } from '../../api/messageUs';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { APP_WELCOME_PATH, appWelcomeHref } from '@/lib/accountRouting';
 import { DISPLAY_NAME_MAX, ROLE_CHOICES } from './model';
-import { Chip, ErrorLine, Field, PrimaryButton, Question, Reason, Tag, linkButton, textInput, wrap } from './ui';
+import { LINK_PRIMARY } from '../blocks';
+import { Chip, ErrorLine, Field, PrimaryButton, Question, Reason, Tag, WRAP, textInput } from './ui';
 
 /**
  * The real CityPicker (319 cities), loaded only when the city card shows: it drags cmdk, the popover and
@@ -51,10 +52,10 @@ export const NameCard = ({ profile, busy, error, onSubmit, tag }: CardProps) => 
       {tag ? <Tag>{tag}</Tag> : null}
       <Question>What&rsquo;s your name?</Question>
       <Field id="ob-first" label="First name">
-        <input id="ob-first" autoComplete="given-name" enterKeyHint="next" value={first} onChange={(e) => setFirst(e.target.value)} onKeyDown={onEnter} style={textInput} />
+        <input id="ob-first" autoComplete="given-name" enterKeyHint="next" value={first} onChange={(e) => setFirst(e.target.value)} onKeyDown={onEnter} className={textInput} />
       </Field>
       <Field id="ob-display" label="Name shown on your page (optional)" hint={`Up to ${DISPLAY_NAME_MAX} characters, no links.`}>
-        <input id="ob-display" enterKeyHint="next" value={display} maxLength={DISPLAY_NAME_MAX} onChange={(e) => setDisplay(e.target.value)} onKeyDown={onEnter} style={textInput} />
+        <input id="ob-display" enterKeyHint="next" value={display} maxLength={DISPLAY_NAME_MAX} onChange={(e) => setDisplay(e.target.value)} onKeyDown={onEnter} className={textInput} />
       </Field>
       <ErrorLine message={error} />
       <PrimaryButton busy={busy} disabled={!ready} onClick={submit}>
@@ -72,13 +73,13 @@ export const CityCard = ({ profile, busy, error, onSubmit, tag }: CardProps) => 
       {tag ? <Tag>{tag}</Tag> : null}
       <Question>Where do you dance?</Question>
       <Field id="ob-city" label="Your city">
-        <Suspense fallback={<div aria-busy="true" style={{ minHeight: 48, borderRadius: 12, background: 'var(--da-surface-2)' }} />}>
+        <Suspense fallback={<div aria-busy="true" className="min-h-[48px] rounded-[12px] bg-[var(--card2)]" />}>
           <CityPicker id="ob-city" value={city} onChange={(id) => setCity(id)} placeholder="Search for your city" className="min-h-[48px] w-full" />
         </Suspense>
         {/* Audit M28: the picker's own request form is switched off, and city is required. */}
-        <p className="da-muted" style={{ ...wrap, fontSize: 14, margin: '4px 0 0' }}>
+        <p className={`${WRAP} mb-0 mt-[4px] text-[14px] text-[var(--mut)]`}>
           City not in the list?{' '}
-          <a href={dancerMessageUsUrl(ADD_CITY_MESSAGE)} target="_blank" rel="noopener noreferrer" style={tapLink}>
+          <a href={dancerMessageUsUrl(ADD_CITY_MESSAGE)} target="_blank" rel="noopener noreferrer" className={TAP_LINK}>
             Message us to add your city
           </a>
         </p>
@@ -98,7 +99,7 @@ export const RoleCard = ({ profile, busy, error, onSubmit, tag }: CardProps) => 
     <>
       {tag ? <Tag>{tag}</Tag> : null}
       <Question>How do you dance?</Question>
-      <div role="radiogroup" aria-label="How you dance" style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+      <div role="radiogroup" aria-label="How you dance" className="mb-[12px] grid gap-[8px]">
         {ROLE_CHOICES.map((c) => (
           <Chip key={c.value} label={c.label} selected={role === c.value} onClick={() => setRole(c.value)} />
         ))}
@@ -120,16 +121,16 @@ export const PhotoCard = ({ tag, returnTo }: Pick<CardProps, 'tag'> & { returnTo
     <div
       aria-hidden="true"
       data-testid="onboarding-photo-guide"
-      style={{ height: 150, borderRadius: 14, border: '2px dashed var(--da-border)', display: 'grid', placeItems: 'center', marginBottom: 8 }}
+      className="mb-[8px] grid h-[150px] place-items-center rounded-[14px] border-2 border-dashed border-[var(--line-strong)]"
     >
       <svg width="120" height="120" viewBox="0 0 120 120" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="5 4" opacity="0.7">
         <ellipse cx="60" cy="42" rx="22" ry="28" />
         <path d="M14 112c4-26 24-36 46-36s42 10 46 36" />
       </svg>
     </div>
-    <p style={{ ...wrap, fontSize: 14, margin: '0 0 12px' }}>Head and shoulders inside the outline. This is how people find you.</p>
+    <p className={`${WRAP} mx-0 mb-[12px] mt-0 text-[14px]`}>Head and shoulders inside the outline. This is how people find you.</p>
     {/* Audit M9: ONE button. The photo screen owns the camera / library choice and the crop. */}
-    <Link to={photoHandoff(returnTo)} className="da-tap" data-testid="onboarding-add-photo" style={linkButton(true)}>
+    <Link to={photoHandoff(returnTo)} className={LINK_PRIMARY} data-testid="onboarding-add-photo">
       Add my photo
     </Link>
     <Reason>A photo is needed to finish setting up your page, so this step cannot be skipped.</Reason>
@@ -137,5 +138,5 @@ export const PhotoCard = ({ tag, returnTo }: Pick<CardProps, 'tag'> & { returnTo
 );
 
 /** Inline links still get a 44px tap target. */
-const tapLink: CSSProperties = { textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', minHeight: 44 };
+const TAP_LINK = 'inline-flex min-h-[44px] items-center underline';
 

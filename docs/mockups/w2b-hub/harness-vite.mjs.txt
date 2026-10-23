@@ -1,0 +1,6 @@
+// Harness copy (text, not built). Run: npx vite --config <this file renamed .mjs>; root, alias and the timeline stand-in path point at a scratch dir holding index.html, main.tsx (harness-main.tsx.txt) and appsMock.ts (harness-appsMock.ts.txt).
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+import path from 'node:path';
+const repo = '/home/user/bachata-website';
+export default defineConfig({ root: '/tmp/claude-0/h', plugins: [react()], css: { postcss: repo }, resolve: { alias: [{ find: '@/hooks/useProfileProgramAppearances', replacement: '/tmp/claude-0/h/appsMock.ts' }, { find: '@', replacement: path.join(repo, 'src') }] }, server: { port: 5199, strictPort: true, fs: { allow: [repo, '/tmp/claude-0/h'] } }, optimizeDeps: { entries: ['main.tsx'] } });

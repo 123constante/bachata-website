@@ -10,13 +10,13 @@ export interface DateChipProps {
   className?: string;
 }
 
-/** card2 tile, radius 8: big day number over a tiny uppercase month. */
+/** card2 tile, radius 8 (--r-date; Ember 12, not the round chip): big day number over a tiny uppercase month. */
 export function DateChip({ date, today, testId, className }: DateChipProps) {
   const { day, month, label, year } = londonDateParts(date, today);
   return (
     <span
       data-testid={testId}
-      className={cn('flex h-[52px] w-[48px] shrink-0 flex-col items-center justify-center rounded-[var(--r-chip,8px)] bg-[var(--card2)]', className)}
+      className={cn('flex h-[52px] w-[48px] shrink-0 flex-col items-center justify-center rounded-[var(--r-date,8px)] bg-[var(--card2)]', className)}
     >
       <span aria-hidden="true" className={cn('font-bold leading-none text-[var(--fg)]', year ? 'text-[18px]' : 'text-[20px]')}>{day}</span>
       <span aria-hidden="true" className="mt-[4px] text-[11px] font-semibold uppercase leading-none tracking-[.03em] text-[var(--mut)]">{month}</span>

@@ -2,8 +2,13 @@ import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { resolveEventImage } from '@/lib/utils';
 import { flags } from '@/lib/featureFlags';
 import { fetchPublicFestivalsList, filterUpcomingFestivals } from '@/lib/festivalsList';
-import { hrefFor, personSearchRow, roleLine, telemetryKindFor, type PersonRole, type SearchKind } from '@/lib/searchEntities';
+import { hrefFor, orderedRoles, roleLine, telemetryKindFor, type PersonRole, type SearchKind } from '@/lib/searchEntities';
 import { londonTodayKey } from '@/lib/londonDate';
+import { buildCityPath } from '@/lib/cityPath';
+import { reportClientErrorLazy } from '@/lib/reportClientErrorLazy';
+
+// One report per page load for a failed searchPerson chunk, not one per keystroke.
+let peopleChunkFailReported = false;
 
 // Re-export the canonical 8-kind SearchKind (defined in searchEntities) so the
 // existing `import { SearchKind } from '@/lib/searchRpc'` call sites keep working.
@@ -136,8 +141,9 @@ interface V3Payload {
   did_you_mean?: string | null;
 }
 
-const personName = (r: V3PersonRow): string =>
-  r.display_name || [r.first_name, r.surname].filter(Boolean).join(' ') || 'Unknown';
+const authoredName = (r: V3PersonRow): string =>
+  r.display_name || [r.first_name, r.surname].filter(Boolean).join(' ');
+const personName = (r: V3PersonRow): string => authoredName(r) || 'Unknown';
 
 export async function searchPublicV3(
   query: string,
@@ -160,6 +166,25 @@ export async function searchPublicV3(
   // match, the shared upcoming window and the section cap are applied here.
   const today = londonTodayKey();
   const needle = term.toLowerCase();
+
+  // W1 review M1: the overlay person row is the /search PersonRow's answer, the same function
+  // (person-page/searchPerson.ts over the badges mapping). Imported lazily: statically it would
+  // put the Supabase client in the header's first-load graph (searchRpc reaches it through
+  // getSupabase on purpose). Started here, alongside the RPC, so the chunk load overlaps the
+  // network round trip. A plain import(), NOT safeDynamicImport: its stale-chunk heal reloads
+  // the page, which here would happen mid-keystroke and throw the typed query away. Any
+  // failure (stale chunk included) is reported once and resolves to null: the people rows
+  // degrade (below) and the rest of the search still returns. Only awaited when the result
+  // has people rows, so a search with no people never waits on the chunk.
+  const peopleMod = flags.searchV7
+    ? import('@/modules/person-page/searchPerson').catch((err: unknown) => {
+        if (!peopleChunkFailReported) {
+          peopleChunkFailReported = true;
+          reportClientErrorLazy(err, 'error');
+        }
+        return null;
+      })
+    : null;
 
   // The accessor is awaited inside the leg rather than hoisted above the
   // Promise.all. This is a shape choice, NOT a latency win: the festivals leg
@@ -199,14 +224,25 @@ export async function searchPublicV3(
     nationalityCode: r.nationality_code ?? null,
   });
 
+  // searchPersonView: link DJ page, else dancer page, else teacher page while open; tags in
+  // ROLE_ORDER with Teacher shown (plain) while the teacher pages are closed. The overlay has
+  // no badges read, so no stage name. Chunk failed to load: the roles from the search read,
+  // the same order and labels, and no page link.
+  const people = payload.people?.length && peopleMod ? await peopleMod : null;
+  // No page to open (teacher-only while closed, no public role, or no mapping chunk): the
+  // search results the way submitSearch opens them (city-scoped when this search is), where
+  // the same row shows plain. Never /people/ and never the closed /teachers/ gate. A person
+  // with no name searches the typed query rather than an empty name or "Unknown".
+  const searchPath = buildCityPath(citySlug, 'search');
   const mapPersonV7 = (r: V3PersonRow): SearchResult => {
-    const row = personSearchRow(r.id, r.roles, flags.teacherDetail);
-    // Teacher-only: exactly today's Teacher row (no role line, no roles).
-    if (row.kind === 'teacher') return mapPerson(r, 'teacher');
+    const base = mapPerson(r, 'person');
+    const view = people?.searchPersonView(r.id, r.roles, undefined, { teacherPagesOpen: flags.teacherDetail });
+    const roles = view ? view.tags.map((t) => t.role) : orderedRoles(r.roles);
     return {
-      ...mapPerson(r, 'person'),
-      subtitle: roleLine(row.roles) || null,
-      roles: row.roles,
+      ...base,
+      href: view?.href ?? `${searchPath}?q=${encodeURIComponent(authoredName(r) || term)}`,
+      subtitle: (view ? view.tags.map((t) => t.label).join(' \u00b7 ') : roleLine(roles)) || null,
+      roles,
       telemetryKind: telemetryKindFor(r.primary_role, r.roles),
     };
   };

@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { ORGANISER_PUBLIC_COLS } from '@/lib/organiserPublicCols';
+import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { NOT_DEACTIVATED } from '@/lib/notDeactivatedFilter';
 
 /**
@@ -47,6 +48,16 @@ export const organiserOccEventsQueryKey = (id: string | undefined) => ['organise
 export const organiserOccEventsPastQueryKey = (id: string | undefined) =>
   ['organiser-occ-events-past', id] as const;
 
+/**
+ * Lifecycle values that are never public (organiser_profiles.lifecycle_status
+ * CHECK: draft, pending_review, live, rejected, archived). is_active is NULL on
+ * most live rows, so NOT_DEACTIVATED alone cannot hide a retired page: an
+ * archived or rejected one must 404 here too. There is no "paused" value; pausing
+ * is is_active = false (above) or archived. Drafts stay readable by RLS for their
+ * owner, so they are not listed.
+ */
+export const NOT_PUBLIC_LIFECYCLE = ["lifecycle_status", "in", "(archived,rejected)"] as const;
+
 export async function fetchOrganiserEntity(id: string) {
   return readOrganiserEntity(id, true);
 }
@@ -67,13 +78,15 @@ export async function fetchOwnOrganiserEntity(id: string) {
   return readOrganiserEntity(id, false);
 }
 
+export const CITY_NAME_TIMEOUT_MS = 3000;
+
 async function readOrganiserEntity(id: string, publicOnly: boolean) {
   if (!id) throw new Error('Entity ID is required');
   let query = supabase
     .from('organiser_profiles')
     .select(ORGANISER_PUBLIC_COLS)
     .eq('id', id);
-  if (publicOnly) query = query.not(...NOT_DEACTIVATED);
+  if (publicOnly) query = query.not(...NOT_DEACTIVATED).not(...NOT_PUBLIC_LIFECYCLE);
   const { data, error } = await query.maybeSingle();
   // A TRANSIENT supabase error must propagate as a retryable failure --
   // swallowing it here would 404 a valid organiser on a DB blip. null = a
@@ -82,12 +95,13 @@ async function readOrganiserEntity(id: string, publicOnly: boolean) {
   if (!data) return null;
   let city = null;
   if (data.city_id) {
-    const { data: cityData } = await supabase
-      .from('cities')
-      .select('name, slug')
-      .eq('id', data.city_id)
-      .maybeSingle();
-    city = cityData;
+    // The name is garnish: slow or failed, the entity still resolves (cities: null) so a screen is never held on it.
+    const lookup = Promise.resolve(supabase.from('cities').select('name, slug').eq('id', data.city_id).maybeSingle())
+      .then((r) => r.data ?? null, () => null);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), CITY_NAME_TIMEOUT_MS); });
+    city = await Promise.race([lookup, late]);
+    clearTimeout(timer);
   }
   return { ...data, cities: city };
 }
@@ -132,4 +146,20 @@ export async function fetchOrganiserPastOccEvents(id: string): Promise<OrgOccRow
   });
   if (error) return [];
   return (data ?? []) as unknown as OrgOccRow[];
+}
+
+export const organiserFullProfileQueryKey = (id: string | undefined) => ['organiser-full-profile', id] as const;
+
+/**
+ * organiser_full_profile_v1(p_organiser_id): true once the owner has reached 100% profile. A
+ * decoration, so anything but a literal true (false, an error, the function not existing yet)
+ * is false and the page shows nothing.
+ */
+export async function fetchOrganiserFullProfile(id: string): Promise<boolean> {
+  try {
+    const { data, error } = await rpcLoose('organiser_full_profile_v1', { p_organiser_id: id });
+    return !error && data === true;
+  } catch {
+    return false;
+  }
 }

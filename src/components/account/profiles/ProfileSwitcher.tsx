@@ -1,9 +1,10 @@
-import { useEffect, useId, useState, type CSSProperties } from 'react';
+import { Suspense, useEffect, useId, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { ACCOUNT_SETTINGS_PATH, APP_ACCOUNT_SETTINGS_PATH, switcherItems, type SwitcherWhere } from '@/lib/accountRouting';
 import { ACCOUNT_SETTINGS_LABEL } from '@/modules/dancer-app/copy/sharedCopy';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { SideAvatar, sideKind, sideTitle } from './SideAvatar';
 import { PersonAvatar } from './PersonAvatar';
 import { useProfileSides } from './useProfileSides';
@@ -11,6 +12,9 @@ import { SIGN_OUT_FAILED, useSignOutToHome } from './signOutToHome';
 
 /** Re-exported for older importers; the one value lives in ./signOutToHome. */
 export { SIGN_OUT_FAILED };
+
+// The area entries load with the open sheet, never on the page's first load.
+const SwitcherAreas = lazyWithRetry(() => import('@/modules/areas/home/SwitcherAreas'));
 
 /** The confirm step's words: the same promise Options makes before it signs out. */
 export const SIGN_OUT_CONFIRM_LINE = 'You can sign back in any time with your email.';
@@ -21,7 +25,8 @@ export const SIGN_OUT_CONFIRM_LINE = 'You can sign back in any time with your em
  * lists every side the person really has (lib/accountRouting switcherItems:
  * organisers first, a tick on the current one), then Account settings and Sign
  * out. One tap switches. A single-side person sees their one side, settings
- * and sign out: nothing to switch, no switching words.
+ * and sign out: nothing to switch, no switching words. Below the sides: the
+ * teacher / DJ areas the person holds and a "Your areas" link (SwitcherAreas).
  *
  * Sign out asks first (audit L23, like Options and Account settings) and goes
  * through useSignOutToHome, which lands on the site home (H10).
@@ -129,6 +134,11 @@ export function ProfileSwitcher({ where }: { where: SwitcherWhere }) {
                 </li>
               ))}
             </ul>
+            {state.status === 'ready' && (
+              <div className="border-b border-border" style={dancer ? { borderColor: 'var(--da-border)' } : undefined}>
+                <Suspense fallback={null}><SwitcherAreas rowClass={row} mutedClass={muted} onPick={close} /></Suspense>
+              </div>
+            )}
             {/* Inside the dancer app, settings keeps "Back to Options" (review #789 S1). */}
             <Link to={where.area === 'dancer' ? APP_ACCOUNT_SETTINGS_PATH : ACCOUNT_SETTINGS_PATH} onClick={close} className={`${row} font-semibold`} data-testid="profile-switcher-settings">
               {ACCOUNT_SETTINGS_LABEL}

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { ROLE_LABEL } from '@/lib/searchEntities';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { cn } from '@/lib/utils';
 import { formatWallClockTime, wallClockDateKey, wallClockExactDateKey } from '@/lib/time/wallClock';
@@ -187,9 +188,9 @@ const hrefFor = (profileType: string | null, profileId: string | null): string |
 };
 
 const roleLabel = (profileType: string | null): string => {
-  if (profileType === 'teacher') return 'Teacher';
-  if (profileType === 'dj') return 'DJ';
-  if (profileType === 'dancer') return 'Dancer';
+  // A person's role word is the ONE vocabulary's (W1 review M5): ROLE_LABEL, the same source
+  // the people-badges tags read, so the same words as every other people surface.
+  if (profileType === 'teacher' || profileType === 'dj' || profileType === 'dancer') return ROLE_LABEL[profileType];
   if (profileType === 'videographer') return 'Videographer';
   if (profileType === 'vendor') return 'Vendor';
   return '';

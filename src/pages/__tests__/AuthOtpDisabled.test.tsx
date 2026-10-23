@@ -113,7 +113,7 @@ describe('Auth sign-in with an email that has no account', () => {
     });
     mount('/auth?mode=signup&userType=dancer');
     // Walk the three sign-up steps: role, first name + city + dance role, email.
-    fireEvent.click(screen.getByRole('button', { name: /continue as dancer/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
     fireEvent.change(await screen.findByLabelText(/first name/i), { target: { value: 'Sam' } });
     fireEvent.click(screen.getByRole('button', { name: 'Pick city' }));
     fireEvent.click(screen.getByRole('radio', { name: 'Follower' }));

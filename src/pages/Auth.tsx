@@ -1,7 +1,8 @@
+import { RequestAccess } from "@/components/auth/RequestAccess";
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
-import { AlertCircle, ArrowLeft, Calendar, Camera, Check, ChevronDown, GraduationCap, Mail, Music, ShoppingBag, Sparkles, User } from "lucide-react";
+import { AlertCircle, ArrowLeft, Calendar, Check, GraduationCap, Mail, Music, Sparkles, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,7 +25,17 @@ import {
   SIGNED_IN_LANDING_PATH,
   OTP_RATE_LIMITED_MESSAGE,
   SIGNUP_HELP_WHATSAPP_URL,
+  SIGN_IN_SUB,
   isOtpRateLimitedError,
+  DEFAULT_SIGNUP_ROLES,
+  PENDING_ROLE_INTENT_KEY,
+  ROLE_INTENT_META_KEY,
+  SIGNUP_ROLES_REQUIRED_ERROR,
+  SIGNUP_ROLE_OPTIONS,
+  parseSignupRoles,
+  signupUserType,
+  toggleSignupRole,
+  type SignupRole,
 } from "@/lib/auth-otp-routing";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
@@ -37,21 +48,32 @@ import { AUTH_ACTION_LABELS } from "@/lib/auth-labels";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
 import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import GlobalLayout from "@/components/layout/GlobalLayout";
+import { EmberWorld, PrimaryButton } from "@/modules/organiser/ui";
 import { flags } from "@/lib/featureFlags";
 import { SIGNUP_STEPS, getNextStep, getPreviousStep, getStepIndex, type SignupStep } from "@/lib/auth-signup-resolver";
 import { DanceRolePicker } from "@/components/profile/DanceRolePicker";
 
-const ROLE_OPTIONS: { label: string; icon: typeof Sparkles; value: EntryRole; description: string }[] = [
-  { label: "Dancer", icon: Sparkles, value: "dancer", description: "Find classes, partners, and events" },
-  { label: "Organiser", icon: Calendar, value: "organiser", description: "Manage and promote your events" },
-  { label: "Teacher", icon: GraduationCap, value: "teacher", description: "Reach students and share your schedule" },
-  { label: "DJ", icon: Music, value: "dj", description: "Showcase mixes and get bookings" },
-  { label: "Videographer", icon: Camera, value: "videographer", description: "Share your work and connect with organisers" },
-  { label: "Vendor", icon: ShoppingBag, value: "vendor", description: "Sell products to the dance community" },
+// The roles a ?userType= link (or a stored older choice) may name. Only the four
+// "What do you do?" choices are offered on screen (SIGNUP_ROLE_OPTIONS).
+const ROLE_OPTIONS: { value: EntryRole }[] = [
+  { value: "dancer" },
+  { value: "organiser" },
+  { value: "teacher" },
+  { value: "dj" },
+  { value: "videographer" },
+  { value: "vendor" },
 ];
 
-const DANCER_ROLE = ROLE_OPTIONS[0];
-const OTHER_ROLES = ROLE_OPTIONS.slice(1);
+const SIGNUP_ROLE_ICONS: Record<SignupRole, typeof Sparkles> = {
+  dancer: Sparkles,
+  organiser: Calendar,
+  teacher: GraduationCap,
+  dj: Music,
+};
+
+/** Dancer on by default, plus the role a link or a stored choice named when it is one of the four. */
+const initialSignupRoles = (role: EntryRole | null | undefined): SignupRole[] =>
+  parseSignupRoles([...DEFAULT_SIGNUP_ROLES, role]) ?? [...DEFAULT_SIGNUP_ROLES];
 
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 80 : -80, opacity: 0 }),
@@ -128,18 +150,12 @@ const AuthContent = () => {
   const validRole = ROLE_OPTIONS.find((r) => r.value === userType)?.value;
   const selectedRoleValue = selectedRole && ROLE_OPTIONS.some((r) => r.value === selectedRole) ? selectedRole : null;
 
-  // The role step shows Dancer pre-selected. The choice is only committed to
-  // the form (and the URL) on Continue, so the pre-selection does not skip
-  // the step the way a stored role would.
-  const [roleDraft, setRoleDraft] = useState<EntryRole>(selectedRoleValue ?? "dancer");
-  const [otherRolesOpen, setOtherRolesOpen] = useState(Boolean(selectedRoleValue && selectedRoleValue !== "dancer"));
-
-  useEffect(() => {
-    if (selectedRoleValue) {
-      setRoleDraft(selectedRoleValue);
-      if (selectedRoleValue !== "dancer") setOtherRolesOpen(true);
-    }
-  }, [selectedRoleValue]);
+  // "What do you do?": a multi-select with Dancer on. The choice is only committed
+  // to the form (and the URL) on Continue, so the pre-selection does not skip the
+  // step the way a stored role would. The single role committed is the older
+  // `user_type` (organiser when Organiser is ticked, else dancer); the full list
+  // rides to /auth/callback beside it and only changes where the account lands.
+  const [rolesDraft, setRolesDraft] = useState<SignupRole[]>(() => initialSignupRoles(selectedRoleValue ?? validRole));
 
   useEffect(() => {
     if (validRole && validRole !== selectedRole) {
@@ -208,8 +224,10 @@ const AuthContent = () => {
   };
 
   const handleRoleContinue = () => {
-    setRole(roleDraft);
-    persistRoleSelection(roleDraft);
+    if (rolesDraft.length === 0) return;
+    const role = signupUserType(rolesDraft);
+    setRole(role);
+    persistRoleSelection(role);
     setFieldErrors((prev) => ({ ...prev, role: undefined }));
     if (mode === "signup") {
       setManualStep(null);
@@ -277,8 +295,10 @@ const AuthContent = () => {
     const isCreateAccount = mode === "signup";
     if (isCreateAccount) {
       localStorage.setItem("pending_profile_role", selectedRole as EntryRole);
+      localStorage.setItem(PENDING_ROLE_INTENT_KEY, JSON.stringify(rolesDraft));
     } else {
       localStorage.removeItem("pending_profile_role");
+      localStorage.removeItem(PENDING_ROLE_INTENT_KEY);
     }
     setIsSubmitting(true);
     try {
@@ -300,6 +320,8 @@ const AuthContent = () => {
             // The stored value (Leader / Follower / Lead and Follow); /auth/callback
             // writes it to the profile stub with the name and city.
             dance_role: danceRole,
+            // "What do you do?" (Dancer / Organiser / Teacher / DJ). Recorded by /auth/callback; grants nothing.
+            [ROLE_INTENT_META_KEY]: rolesDraft,
           } : undefined,
         },
       });
@@ -313,7 +335,11 @@ const AuthContent = () => {
       return "sent";
     } catch (error: any) {
       const isSignupDisabled = isOtpSignupDisabledError(error);
-      trackAuthStep({ step: "code_sent", outcome: isSignupDisabled || isSignupAllowlistRefusal(error, isCreateAccount) ? "refused" : "error" });
+      // A sign-in for an email with no account is not a refusal (it moves on to "Create account"): "fallback".
+      trackAuthStep({
+        step: "code_sent",
+        outcome: isSignupDisabled && !isCreateAccount ? "fallback" : isSignupDisabled || isSignupAllowlistRefusal(error, isCreateAccount) ? "refused" : "error",
+      });
       // Sign-in for an email with no account. The pre-lookup above can't catch
       // it (account_exists_by_email is not anon-callable, so it answers
       // "unknown"), and this 422 is the first time we learn it. Move to
@@ -457,7 +483,6 @@ const AuthContent = () => {
   }
 
   const stepLabelIndex = activeStepIndex + 1;
-  const draftRoleLabel = ROLE_OPTIONS.find((role) => role.value === roleDraft)?.label ?? "Dancer";
 
   const primaryButtonClass = "w-full min-h-[44px] rounded-full font-semibold";
   const emailErrorId = "auth-email-error";
@@ -475,6 +500,7 @@ const AuthContent = () => {
           Message us on WhatsApp
         </a>
       )}
+      {fieldErrors.send && fieldErrors.sendInviteOnly && <RequestAccess initialEmail={email} />}
     </>
   );
   const danceRoleMissing = step2Touched && !danceRole;
@@ -505,7 +531,7 @@ const AuthContent = () => {
             {mode === "signin" ? "Welcome back" : "Join the community"}
           </h1>
           <p className="text-sm text-muted-foreground text-center">
-            {mode === "signin" ? "Sign in with a link or a code." : "Three quick steps, then we email you a code."}
+            {mode === "signin" ? SIGN_IN_SUB : "Three quick steps, then we email you a code."}
           </p>
         </div>
 
@@ -627,7 +653,7 @@ const AuthContent = () => {
                 onClick={() => void handleSendMagicLink()}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Sending\u2026" : "Email me a sign-in link"}
+                {isSubmitting ? "Sending\u2026" : callbackNotice && searchParams.get("callbackError") === "expired" ? "Send a new link" : "Email me a sign-in link"}
               </Button>
               {sendError}
               <Button type="button" variant="ghost" className="w-full min-h-[44px] text-muted-foreground" onClick={() => navigate(signUpAuthUrl)}>
@@ -659,85 +685,62 @@ const AuthContent = () => {
                   exit="exit"
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                 >
-                  <CardHeader className="space-y-1 p-3 pb-3">
-                    <CardTitle className="text-lg">What brings you here?</CardTitle>
-                    <p className="text-sm text-muted-foreground">You can always add more roles later.</p>
-                  </CardHeader>
-                  <CardContent className="space-y-3 p-3 pt-0">
-                    {[DANCER_ROLE].map((role) => {
-                      const Icon = role.icon;
-                      const isActive = roleDraft === role.value;
-                      return (
-                        <button
-                          key={role.value}
-                          type="button"
-                          className={`w-full min-h-[44px] text-left rounded-xl border px-3 py-3 transition-colors ${
-                            isActive ? "border-primary bg-secondary" : "bg-card hover:bg-secondary"
-                          }`}
-                          aria-pressed={isActive}
-                          onClick={() => setRoleDraft(role.value)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center bg-secondary ${isActive ? "text-primary" : "text-muted-foreground"}`}>
-                              <Icon className="w-4 h-4" aria-hidden="true" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{role.label}</p>
-                              <p className="text-sm text-muted-foreground">{role.description}</p>
-                            </div>
-                            {isActive && <Check className="h-4 w-4 text-primary" aria-hidden="true" />}
-                          </div>
-                        </button>
-                      );
-                    })}
-
-                    <button
-                      type="button"
-                      className="flex w-full min-h-[44px] items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-muted-foreground hover:text-foreground"
-                      aria-expanded={otherRolesOpen}
-                      aria-controls="other-roles"
-                      onClick={() => setOtherRolesOpen((open) => !open)}
-                    >
-                      <span>I&rsquo;m an organiser / teacher / DJ / videographer / vendor</span>
-                      <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${otherRolesOpen ? "rotate-180" : ""}`} aria-hidden="true" />
-                    </button>
-
-                    {otherRolesOpen && (
-                      <div id="other-roles" className="space-y-2">
-                        {OTHER_ROLES.map((role) => {
-                          const Icon = role.icon;
-                          const isActive = roleDraft === role.value;
-                          return (
-                            <button
-                              key={role.value}
-                              type="button"
-                              className={`w-full min-h-[44px] text-left rounded-xl border px-3 py-3 transition-colors ${
-                                isActive ? "border-primary bg-secondary" : "bg-card hover:bg-secondary"
-                              }`}
-                              aria-pressed={isActive}
-                              onClick={() => setRoleDraft(isActive ? DANCER_ROLE.value : role.value)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center bg-secondary ${isActive ? "text-primary" : "text-muted-foreground"}`}>
-                                  <Icon className="w-4 h-4" aria-hidden="true" />
-                                </div>
-                                <div className="flex-1">
-                                  <p className="font-medium text-sm">{role.label}</p>
-                                  <p className="text-sm text-muted-foreground">{role.description}</p>
-                                </div>
-                                {isActive && <Check className="h-4 w-4 text-primary" aria-hidden="true" />}
+                  <EmberWorld className="space-y-[16px] p-[16px]" data-testid="signup-roles-step">
+                    <div className="space-y-[4px]">
+                      <h2 className="text-[22px] font-bold text-[var(--fg)]">What do you do?</h2>
+                      <p className="text-[15px] text-[var(--mut)]">Choose all that fit. You can change this later.</p>
+                    </div>
+                    <div role="group" aria-label="What do you do?" className="space-y-[8px]">
+                      {SIGNUP_ROLE_OPTIONS.map((role) => {
+                        const Icon = SIGNUP_ROLE_ICONS[role.value];
+                        const isActive = rolesDraft.includes(role.value);
+                        return (
+                          <button
+                            key={role.value}
+                            type="button"
+                            className={`min-h-[64px] w-full rounded-[var(--r-card)] border px-[14px] py-[10px] text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold)] ${
+                              isActive ? "border-[var(--gold)] bg-[var(--card2)]" : "border-[var(--line)] bg-[var(--card)]"
+                            }`}
+                            aria-pressed={isActive}
+                            onClick={() => {
+                              setRolesDraft((current) => toggleSignupRole(current, role.value));
+                              setFieldErrors((prev) => ({ ...prev, role: undefined }));
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] bg-[var(--card2)] ${isActive ? "text-[var(--gold)]" : "text-[var(--mut)]"}`}>
+                                <Icon className="w-4 h-4" aria-hidden="true" />
                               </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                              <div className="flex-1">
+                                <p className="text-[16px] font-semibold text-[var(--fg)]">{role.label}</p>
+                                <p className="text-[14px] text-[var(--mut)]">{role.description}</p>
+                              </div>
+                              <span
+                                className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border ${isActive ? "border-[var(--btn)] bg-[var(--btn)] text-[var(--btnfg)]" : "border-[var(--line-strong)]"}`}
+                                aria-hidden="true"
+                              >
+                                {isActive && <Check className="h-4 w-4" />}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
 
                     <FieldError id="auth-role-error" message={fieldErrors.role} />
-                    <Button className={primaryButtonClass} onClick={handleRoleContinue}>
-                      Continue as {draftRoleLabel}
-                    </Button>
-                  </CardContent>
+                    <div className="space-y-[8px]">
+                      <PrimaryButton
+                        onClick={handleRoleContinue}
+                        disabled={rolesDraft.length === 0}
+                        aria-describedby={rolesDraft.length === 0 ? "auth-roles-required" : undefined}
+                      >
+                        Continue
+                      </PrimaryButton>
+                      {rolesDraft.length === 0 && (
+                        <p id="auth-roles-required" className="text-center text-[13px] text-[var(--mut)]">{SIGNUP_ROLES_REQUIRED_ERROR}</p>
+                      )}
+                    </div>
+                  </EmberWorld>
                 </motion.div>
               )}
 
