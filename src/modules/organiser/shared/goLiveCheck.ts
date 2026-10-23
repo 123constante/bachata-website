@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { detailEditPath } from '@/modules/organiser/flows/event/eventSteps';
 import { requiredLeftText } from './profileProgress';
+import { EVENT_RULES, serverCodeBlocker } from './eventRules';
 
 // series_go_live_check_v1 is not in the generated Database type yet: string-named boundary (check:rpc-typing).
 type UntypedRpc = {
@@ -28,22 +29,27 @@ export interface GoLiveCheck {
   profileMissing: ProfileMissing[];
 }
 
+/** ER-FIX-W2 S1: every go-live code event-rules.json knows (the five AD1 codes + cover) reads the checklist's word. */
+const RULE_LABELS: Record<string, string> = Object.fromEntries(
+  Object.values(EVENT_RULES.serverCodes).flat().map((code) => [code, EVENT_RULES.blockers[serverCodeBlocker(code)!]]),
+);
+
 /**
  * The ONE label per code (D49, D82): an ACTION, because the card is a to-do list.
- * The six A-DB1 codes, the D55 readiness codes (name, country, organiser) and the
- * recommended ticket link.
+ * The six A-DB1 codes, the D55 readiness codes (name, country, organiser), the
+ * recommended ticket link, and (from event-rules.json, never a second copy) the AD1 codes.
  */
 export const GO_LIVE_LABEL: Readonly<Record<string, string>> = {
-  venue: 'Add a venue',
+  venue: EVENT_RULES.blockers.venue,
   city: 'Add a city',
   upcoming_date: 'Add a date',
   session: 'Add a session with a title, start and end',
-  cover: 'Upload a flyer',
   description: 'Write a description',
-  name: 'Add an event name',
+  name: EVENT_RULES.blockers.name,
   country: 'Pick a city with a country',
   organiser: 'Link an active organiser',
   ticket_link: 'Add a ticket link',
+  ...RULE_LABELS,
 };
 /** The word beside a recommended item: it never blocks. */
 export const RECOMMENDED_WORD = 'Recommended';
