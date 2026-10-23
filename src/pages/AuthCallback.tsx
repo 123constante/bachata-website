@@ -18,6 +18,7 @@ import { signInDeletionTarget } from "@/lib/accountDeletion";
 import { hasDancerProfileBasics, inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { flags } from "@/lib/featureFlags";
+import { trackAuthStep, type AuthFunnelOutcome } from "@/lib/trackAuthStep";
 import { acceptTerms } from "@/lib/termsConsent";
 import {
   ALREADY_LISTED_BODY,
@@ -95,6 +96,19 @@ const AuthCallback = () => {
   const queryClient = useQueryClient();
   const [error] = useState<string | null>(null);
   const resolved = useRef(false);
+  // Funnel counter: callback and landing each record at most once per page load (a ref survives the
+  // StrictMode double effect). Fire-and-forget; carries no e-mail or id.
+  const funnelDone = useRef<{ callback: boolean; landing: boolean }>({ callback: false, landing: false });
+  const recordCallback = (outcome: AuthFunnelOutcome) => {
+    if (funnelDone.current.callback) return;
+    funnelDone.current.callback = true;
+    trackAuthStep({ step: "callback", outcome });
+  };
+  const recordLanding = () => {
+    if (funnelDone.current.landing) return;
+    funnelDone.current.landing = true;
+    trackAuthStep({ step: "landing", outcome: "ok" });
+  };
 
   const safeReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
   const callbackMode = searchParams.get("mode");
@@ -129,6 +143,7 @@ const AuthCallback = () => {
     const claimed = claimedRef.current;
     if (shouldToastClaim(claimed, claimNoticeShown.current, path)) toast(claimToastProps(claimed));
     if (claimed.length > 0) claimNoticeShown.current = true;
+    recordLanding();
     navigate(path, { replace: true });
   };
 
@@ -140,6 +155,7 @@ const AuthCallback = () => {
   };
 
   const navigateToSignInFallback = (reason: "expired" | "invalid" | "manual" | "timeout") => {
+    recordCallback(reason === "timeout" ? "timeout" : "error");
     const returnToParam = safeReturnTo ? `&returnTo=${encodeURIComponent(safeReturnTo)}` : "";
     navigate(`/auth?mode=signin&callbackError=${reason}${returnToParam}`, { replace: true });
   };
@@ -172,6 +188,7 @@ const AuthCallback = () => {
 
       resolved.current = true;
       clearTimeout(timeout);
+      recordCallback("ok");
 
       const user = session.user;
       // Self-claim FIRST (every sign-in; never throws, never holds the sign-in
@@ -189,6 +206,7 @@ const AuthCallback = () => {
       const restoreTo = await signInDeletionTarget(safeReturnTo ?? sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY)));
       if (restoreTo) {
         localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
+        recordLanding();
         navigate(restoreTo, { replace: true });
         return;
       }

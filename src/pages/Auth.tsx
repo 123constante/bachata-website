@@ -335,7 +335,11 @@ const AuthContent = () => {
       return "sent";
     } catch (error: any) {
       const isSignupDisabled = isOtpSignupDisabledError(error);
-      trackAuthStep({ step: "code_sent", outcome: isSignupDisabled || isSignupAllowlistRefusal(error, isCreateAccount) ? "refused" : "error" });
+      // A sign-in for an email with no account is not a refusal (it moves on to "Create account"): "fallback".
+      trackAuthStep({
+        step: "code_sent",
+        outcome: isSignupDisabled && !isCreateAccount ? "fallback" : isSignupDisabled || isSignupAllowlistRefusal(error, isCreateAccount) ? "refused" : "error",
+      });
       // Sign-in for an email with no account. The pre-lookup above can't catch
       // it (account_exists_by_email is not anon-callable, so it answers
       // "unknown"), and this 422 is the first time we learn it. Move to
