@@ -12,7 +12,7 @@ import { CHIP, FOCUS_RING, FOOTER_GOLD, HUB, TILE, WALL } from '../wall/tokens';
 import type { PersonBadge } from '../badges';
 import type { PersonSnapshot } from '../reads';
 import { HubFace } from './HubFace';
-import { hubModel, type AlsoCardModel, type HubDjRow, type HubModel } from './model';
+import { hubModel, MIDDOT, type AlsoCardModel, type HubDjRow, type HubModel } from './model';
 
 /** Back to where the visitor came from when that was this site, else the dancers wall. */
 export function goBackTarget(referrer: string, origin: string, historyLength: number): 'history' | '/dancers' {
@@ -37,11 +37,12 @@ export function wallBadgeOf(qc: QueryClient, id: string): PersonBadge | null {
 
 const LABEL_STYLE = { fontSize: HUB.sectionLabel, letterSpacing: 0.6, color: WALL.muted } as const;
 
-function AlsoCard({ card, personId }: { card: AlsoCardModel; personId: string }) {
+function AlsoCard({ card, personId, twoCol }: { card: AlsoCardModel; personId: string; twoCol: boolean }) {
   const body = (
     <>
       <span className="block break-words font-black" style={{ fontSize: HUB.alsoTitle, lineHeight: '20px' }}>{card.label}</span>
-      <span className="block break-words" style={{ fontSize: HUB.small, lineHeight: `${HUB.smallLine}px`, color: WALL.muted }}>{card.line}</span>
+      {/* Side by side, the DJ line reserves two rows: it swaps when the gig list lands and must not grow the row. */}
+      <span data-testid="hub-also-line" className="block break-words" style={{ fontSize: HUB.small, lineHeight: `${HUB.smallLine}px`, color: WALL.muted, minHeight: twoCol && card.role === 'dj' ? HUB.smallLine * 2 : undefined }}>{card.line}</span>
     </>
   );
   const box = { minHeight: HUB.alsoMinHeight, borderRadius: HUB.alsoRadius, background: WALL.card, color: WALL.text, padding: '10px 12px' };
@@ -92,10 +93,12 @@ function Hero({ m, personId }: { m: HubModel & { lead: NonNullable<HubModel['lea
       ) : null}
       {hero ? (
         <>
-          {/* One line, always reserved: a DJ's gig line fills in when the gig list arrives, nothing moves. */}
-          <p data-testid="hub-line" className="max-w-full break-words font-bold" style={{ fontSize: HUB.line, lineHeight: `${HUB.lineHeight}px`, minHeight: HUB.lineHeight }}>
-            {hero.line}
-          </p>
+          {/* One line, always reserved for a DJ: the gig line fills in when the gig list arrives, nothing moves. */}
+          {hero.line !== null ? (
+            <p data-testid="hub-line" className="max-w-full break-words font-bold" style={{ fontSize: HUB.line, lineHeight: `${HUB.lineHeight}px`, minHeight: HUB.lineHeight }}>
+              {hero.line}
+            </p>
+          ) : null}
           <Link
             to={hero.href}
             data-testid="hub-cta"
@@ -106,7 +109,7 @@ function Hero({ m, personId }: { m: HubModel & { lead: NonNullable<HubModel['lea
             {hero.cta}
             <ArrowRight className="h-5 w-5" aria-hidden="true" />
           </Link>
-          <p data-testid="hub-hint" style={{ fontSize: HUB.small, lineHeight: `${HUB.smallLine}px`, color: WALL.muted }}>{hero.hint}</p>
+          <p data-testid="hub-hint" style={{ fontSize: HUB.small, lineHeight: `${HUB.smallLine}px`, color: WALL.muted, textWrap: 'balance' }}>{hero.hint}</p>
         </>
       ) : null}
     </section>
@@ -185,7 +188,7 @@ export default function PersonHub({ person }: { person: PersonSnapshot }) {
             <>
               <h2 className="mx-1 mb-2 mt-3.5 font-extrabold uppercase" style={LABEL_STYLE}>Also</h2>
               <div data-testid="hub-also" className="grid gap-2" style={{ gridTemplateColumns: m.also.length === 1 ? '1fr' : '1fr 1fr' }}>
-                {m.also.map((c) => <AlsoCard key={c.role} card={c} personId={person.id} />)}
+                {m.also.map((c) => <AlsoCard key={c.role} card={c} personId={person.id} twoCol={m.also.length > 1} />)}
               </div>
             </>
           ) : null}
@@ -193,7 +196,7 @@ export default function PersonHub({ person }: { person: PersonSnapshot }) {
           {m.about.length > 0 ? (
             <div data-testid="hub-about" className="mt-3 pt-2.5" style={{ borderTop: `1px solid ${WALL.line}` }}>
               <h2 className="font-extrabold uppercase" style={LABEL_STYLE}>About</h2>
-              <p className="mt-1 break-words" style={{ fontSize: HUB.body, lineHeight: '20px', color: WALL.muted }}>{m.about.join(' · ')}</p>
+              <p className="mt-1 break-words" style={{ fontSize: HUB.body, lineHeight: '20px', color: WALL.muted }}>{m.about.join(MIDDOT)}</p>
             </div>
           ) : null}
         </div>

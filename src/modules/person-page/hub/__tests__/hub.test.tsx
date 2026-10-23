@@ -79,13 +79,13 @@ describe('hero name, face, gig line', () => {
     mount(['dj', 'dancer'], { badge: { djHasUpcoming: true, nextGigDate: '2099-10-23' } });
     expect(screen.getByTestId('hub-name').textContent).toBe('DJ Rugido');
     expect(screen.getByTestId('hub-subname').textContent).toBe('Ana Garcia');
-    expect(screen.getByTestId('hub-line').textContent).toBe('Next gig Fri 23 · 2 coming up');
+    expect(screen.getByTestId('hub-line').textContent).toBe('Next gig Fri 23 \u00b7 2 coming up');
   });
   it('dancer leads: real name heads, "DJ <stage>" under it, years and languages', () => {
     mount(['dj', 'dancer']);
     expect(screen.getByTestId('hub-name').textContent).toBe('Ana Garcia');
     expect(screen.getByTestId('hub-subname').textContent).toBe('DJ Rugido');
-    expect(screen.getByTestId('hub-line').textContent).toBe('6 years dancing · English, Spanish');
+    expect(screen.getByTestId('hub-line').textContent).toBe('6 years dancing \u00b7 English, Spanish');
   });
   it('a DJ in Also with no gig says so (never a gig the page cannot show)', () => {
     mount(['dj', 'dancer']);
@@ -151,7 +151,7 @@ describe('no swap after first paint (gig list arrives late)', () => {
 describe('About, ground, fade', () => {
   it('About: city and facts that exist; nothing at all = no About', () => {
     mount(['dj', 'dancer']);
-    expect(screen.getByTestId('hub-about').textContent).toMatch(/London · 6 years dancing · English, Spanish/);
+    expect(screen.getByTestId('hub-about').textContent).toMatch(/London \u00b7 6 years dancing \u00b7 English, Spanish/);
     cleanup();
     const m = hubModel({ person: snap(['dancer', 'teacher'], { city: null }), dancerRow: null, dj: null, appearances: [], opts: { teacherPagesOpen: false }, today: TODAY });
     expect(m.about).toEqual([]);
@@ -160,6 +160,53 @@ describe('About, ground, fade', () => {
     mount(['dj', 'dancer']);
     expect(screen.getByTestId('person-hub').style.minHeight).toMatch(/svh/);
     expect(document.querySelector('[data-hub-footer-join]')).toBeTruthy();
+  });
+});
+
+describe('stage-5 critique fixes', () => {
+  it.each([
+    ['dancer leads, no facts: no filler line', ['dancer', 'teacher'] as PersonRole[], null, null],
+    ['dancer leads, facts: the facts', ['dancer', 'teacher'] as PersonRole[], 6, '6 years dancing'],
+    ['DJ leads: the gig line (always)', ['dj', 'teacher'] as PersonRole[], null, 'No gigs listed right now'],
+  ])('hero line: %s', (_n, roles, years, want) => {
+    const row = years === null ? null : { id: 'p1', first_name: 'Ana', dancing_role_details: { dance_started_year: new Date().getFullYear() - years } };
+    const m = hubModel({ person: snap(roles), dancerRow: row, dj: roles.includes('dj') ? { dj_name: 'DJ R' } : null, appearances: [], opts: { teacherPagesOpen: false }, today: TODAY });
+    expect(m.hero?.line ?? null).toBe(want);
+  });
+  it('dancer leads with no facts: no hub-line rendered, never "Their dancer page" in the hero', () => {
+    const qc = new QueryClient();
+    qc.setQueryData(['people-badges', ['p1']], new Map([['p1', { id: 'p1', roles: ['teacher', 'dancer'], djName: null, djHasUpcoming: false, nextGigDate: null }]]));
+    render(<QueryClientProvider client={qc}><MemoryRouter><PersonPage person={snap(['dancer'], { held: ['teacher', 'dancer'] })} slugOrId="x" /></MemoryRouter></QueryClientProvider>);
+    expect(screen.queryByTestId('hub-line')).toBeNull();
+    expect(screen.getByTestId('hub-hero').textContent).not.toMatch(/Their dancer page/);
+  });
+  it.each([
+    ['DJ + Teacher side by side', ['teacher', 'dj', 'dancer'] as PersonRole[], { dj: '36px', teacher: '' }],
+    ['DJ alone (full width)', ['dj', 'dancer'] as PersonRole[], { dj: '' }],
+  ])('Also, %s: only a side-by-side DJ line reserves two rows (its late swap cannot grow the row)', (_n, held, want) => {
+    h.data = undefined;
+    mount(held.filter((r) => r !== 'teacher'), { held, badge: null });
+    const got = Object.fromEntries(screen.getAllByTestId('hub-also-card').map((c) => [c.getAttribute('data-role'), (c.querySelector('[data-testid=hub-also-line]') as HTMLElement).style.minHeight]));
+    expect(got).toEqual(want);
+  });
+  it('teacher leads (pages open): no hero line (never dancer facts on the teacher card)', () => {
+    const row = { id: 'p1', first_name: 'Ana', dancing_role_details: { dance_started_year: new Date().getFullYear() - 6 } };
+    const m = hubModel({ person: snap(['teacher']), dancerRow: row, dj: null, appearances: [], opts: { teacherPagesOpen: true }, today: TODAY });
+    expect(m.lead).toBe('teacher');
+    expect(m.hero?.line).toBeNull();
+  });
+  it('hint wraps balanced (no one-word last line)', () => {
+    mount(['dj', 'dancer']);
+    expect(screen.getByTestId('hub-hint').style.textWrap).toBe('balance');
+  });
+  it('ASCII only in the hub source and its tests (CLAUDE.md: Unicode punctuation as escapes or entities)', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    // __dirname (vitest injects it): not the cwd, and import.meta.url is not a file: URL under jsdom.
+    const dirs = [path.resolve(__dirname, '..'), __dirname];
+    const files = dirs.flatMap((d) => fs.readdirSync(d).filter((f) => /\.tsx?$/.test(f)).map((f) => path.join(d, f)));
+    expect(files.length).toBeGreaterThan(3);
+    for (const f of files) expect([f, /[^\t\n\r -~]/.test(fs.readFileSync(f, 'utf8'))]).toEqual([f, false]);
   });
 });
 

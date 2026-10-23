@@ -24,6 +24,7 @@ Ticket dt_aee601072cb9. Brief: `brief/w2d-hub-build:briefs/W2D-hub-build-brief.m
 - **Bundled fix**: wall tile and hub face share `wall/usePhotoFallback.ts`: `onError` plus a one-off check after mount
   (`img.complete && naturalWidth === 0`) for an SSR'd `<img>` that failed before hydration attached `onError` (React props,
   no inline handler, CSP-safe). Failing test first: `wall/__tests__/photoFallback.test.tsx` was RED on main's WallTile.
+  It covers dead links only; it does not fix the Jxjx tile (that URL serves a real image of an error page).
 
 ## Data shapes (prod survey 2026-10-22, read-only counts; 166 active)
 teacher-only 62, dancer + teacher 36, dancer + DJ + teacher 25 (11 with a gig), dancer-only 23 (my re-count without the brief's filter: 26),
@@ -65,8 +66,27 @@ no role -> /dancers/:slug; `history.length` 2 after landing (the hub is not in h
 `docs/mockups/w2d-hub-build/`: `dancer-teacher.png`, `dancer-dj-gig.png`, `dancer-dj-nogig.png`, `dancer-dj-teacher-gig.png`
 (+ `-full.png`, whole page into the footer), `dancer-dj-teacher-nogig.png`, `dj-teacher.png`, `wall-jxjx-fallback.png`.
 
+## Stage 5: independent critique and one fix pass (ticket dt_35ff972ae82e)
+Full list: [`w2d-hub-critique.md`](w2d-hub-critique.md). Re-walked with `walk.mjs` (screens + `report.json`) and `probe.mjs`.
+
+| Check | Before | After | How |
+|---|---|---|---|
+| Late gig list: About moves (dancer + DJ + teacher, no gig; gig read held 2.5s) | 18px at 360 and 390 | 0 at 360, 390 (all 3 late shapes) | two-column Also lines reserve 2 rows (36px) |
+| Hero filler "Their dancer page" (dancer lead, no facts) | 3 of 6 shapes | 0 | line only when there are facts; DJ line always (reserved row) |
+| Hint last line | one word ("hi.") | balanced, 2 lines | `text-wrap: balance` |
+| Raw U+2026 / U+00B7 in hub source | 3 | 0 | escapes + a test |
+| Back from a one-role role page (`probe.mjs`) | loops: `/dancers/unclaimed-00422bf9` -> same page; `/djs/bobby-blanco` -> same page | **unchanged (owner call)** | patch ready: `docs/handover/w2d-hub-back-loop.patch` |
+| Seam step / lowest contrast / smallest tap / scrollWidth | 3 / 6.41 / 44 / = viewport | same at 360, 390, 430, all 6 shapes | - |
+
+Seams looked at in the new 390 shots and the full-page shot: header (black site chrome, gold rule) over the brown ground:
+the same as on the wall; hero card and Also cards on the ground: one step lighter (`WALL.card`), edges in role colours, no
+halo; ground into the footer: a smooth brown-to-gold fade with no line and no plain band, then the footer's own gold
+padding.
+
 ## Not verified
 - Real photos: the sandbox cannot reach the media host (proxy 403), so every face in the screenshots is the initials
   fallback; photo crops and the Jxjx dead URL itself were not seen in a browser (the fallback is unit-tested both ways).
-- What the Jxjx URL actually returns (if it is a 200 image that SAYS "Page not found", no client check can see it).
+- Jxjx (stage-5 fact, 2026-10-23): its photo URL returns HTTP 200, a 23 KB JPEG that is itself a screenshot of a "Page
+  not found" page. The dead-link fallback cannot catch that and is not meant to; no image-content check is added. Test
+  account, the owner deals with it.
 - A real phone; the Vercel-built site (local dev only); desktop >= 1024px beyond the CSS rule.
