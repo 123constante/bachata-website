@@ -183,6 +183,7 @@
     "docs/handovers/going-p2-website.md",
     "docs/design/going-p2-critique.md",
     "docs/handovers/going-p2-critique.md",
+    "docs/session-handover-2026-10-23-going-p2-fix.md",
     "docs/ci-guard-notes.md"
   ],
   "seamNotes": {
@@ -350,6 +351,7 @@
     "docs/handovers/going-p2-website.md": "Going P2 (orchestrator 2026-10-23): the PR's handover (brief 'Finish')",
     "docs/design/going-p2-critique.md": "Going P2 stage 5 (brief going-p2-critique, orchestrator 2026-10-23): the independent critique (ordered fix list)",
     "docs/handovers/going-p2-critique.md": "Going P2 stage 5 (brief going-p2-critique, orchestrator 2026-10-23): the critique fix pass handover",
+    "docs/session-handover-2026-10-23-going-p2-fix.md": "Going P2 fix round (orchestrator 2026-10-23): that session's handover",
     "docs/ci-guard-notes.md": "Going P2 (orchestrator 2026-10-23): records the two new guards (check-going-rpcs, check-going-legacy-rpcs) and what their green covers"
   },
   "protected": [
