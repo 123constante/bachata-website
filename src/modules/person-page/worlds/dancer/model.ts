@@ -4,8 +4,9 @@
 import { isFestivalByFormat } from '@/lib/eventFormat';
 import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
 import { eventHref } from '@/lib/seo/eventHref';
-import { parseUtcIso } from '@/lib/londonDate';
-import { cityLabel, dateLabel, flagCode, languageLine, londonDayOf, worldNames } from '../../facts';
+import { londonWallClockToInstant } from '@/lib/londonDate';
+import { cityLabel, dateLabel, flagCode, gigDateLabel, languageLine, londonDayOf, timeLabel, wallDayOf, worldNames } from '../../facts';
+import { djWorldView } from '../dj/model';
 import { ROLE_LABEL, rolePagePath, type PersonRole } from '../../personRoles';
 
 /** Owner D6: a dancer with no city gets London's socials, and the copy says "in London". */
@@ -22,6 +23,21 @@ export const INVITE = { lead: 'Dance bachata too?', button: 'Get your own card' 
 
 /** Where "All socials this week" and every socials empty/error state send the person. */
 export const ALL_SOCIALS_HREF = '/parties';
+
+/**
+ * Owner D12: the one button when there is nothing to show ("Find a party" -> /parties), read from the
+ * DJ world so the wording has ONE source (no shared constant in facts/ yet: "needs frame", S2b handover).
+ */
+const NO_DATES = djWorldView({
+  row: {},
+  cityName: null,
+  nationalityCode: null,
+  links: { soundcloud: null, mixcloud: null, instagram: null, website: null, facebook: null },
+  upcoming: [],
+  past: [],
+  pathname: '/',
+}).emptyAction;
+export const PARTY_ACTION = { label: NO_DATES?.label ?? '', href: NO_DATES?.href ?? ALL_SOCIALS_HREF } as const;
 
 export type WorldContact = { kind: 'instagram' | 'facebook' | 'website' | 'email' | 'whatsapp'; href: string; label: string };
 
@@ -77,11 +93,15 @@ export const worldRoles = (roles: readonly PersonRole[]): PersonRole[] => (roles
 
 export type Appearance = { event_name: string | null; event_location: string | null; event_start_time: string | null };
 
-/** The soonest appearance that has not started yet (a class at 19:00 is not "next" at 23:00), or null. */
+/**
+ * The soonest appearance that has not started yet (a class at 19:00 is not "next" at 23:00), or null.
+ * event_start_time is a London WALL CLOCK stamped +00 (S2b): "not started" is London's clock and the
+ * day is the one written, so a 23:30 summer gig stays on its own day.
+ */
 export function nextAppearance<T extends Appearance>(rows: readonly T[] | null | undefined, now: Date = new Date()): T | null {
   const up = (rows ?? [])
-    .map((r) => ({ r, at: parseUtcIso(r.event_start_time) }))
-    .filter((x): x is { r: T; at: Date } => x.at !== null && x.at.getTime() >= now.getTime() && londonDayOf(x.r.event_start_time) !== null)
+    .map((r) => ({ r, at: londonWallClockToInstant(r.event_start_time) }))
+    .filter((x): x is { r: T; at: Date } => x.at !== null && x.at.getTime() >= now.getTime() && wallDayOf(x.r.event_start_time) !== null)
     .sort((a, b) => a.at.getTime() - b.at.getTime());
   return up[0]?.r ?? null;
 }
@@ -92,7 +112,7 @@ const NEXT_LINE: Record<'teacher' | 'dj', string> = { teacher: 'Next class', dj:
 
 /** One preview of another world with an upcoming date (owner D6), linking to that world. */
 export function previewOf(role: 'teacher' | 'dj', slug: string, next: Appearance | null): Preview | null {
-  const day = next ? dateLabel(next.event_start_time) : null;
+  const day = next ? gigDateLabel(next.event_start_time) : null;
   if (!next || !day) return null;
   const detail = [clean(next.event_name), clean(next.event_location)].filter(Boolean).join(' \u00b7 ');
   return { role, kicker: ROLE_LABEL[role], href: rolePagePath(role, slug), line: `${NEXT_LINE[role]} ${day}`, detail: detail || null };
@@ -130,7 +150,8 @@ export type CalendarLike = {
   occurrence_starts_at?: unknown;
 };
 
-export type SocialRow = { key: string; href: string; name: string; venue: string | null };
+/** `time` is the stored clock ("21:00") through facts.timeLabel; null when none is given. */
+export type SocialRow = { key: string; href: string; time: string | null; name: string; venue: string | null };
 export type SocialsDay = { day: string; label: string; rows: SocialRow[] };
 
 /** This week's socials (parties, not festivals, not cancelled, from today on), soonest first, grouped by London day. */
@@ -147,7 +168,8 @@ export function socialsThisWeek(rows: readonly CalendarLike[], today: string, ma
       group = { day, label: dateLabel(day) as string, rows: [] };
       days.push(group);
     }
-    group.rows.push({ key: `${r.event_id}:${r.occurrence_id ?? day}`, href: eventHref(r, r.occurrence_id), name: clean(r.name) as string, venue: clean(r.location) });
+    const at = typeof r.occurrence_starts_at === 'string' ? r.occurrence_starts_at : null;
+    group.rows.push({ key: `${r.event_id}:${r.occurrence_id ?? day}`, href: eventHref(r, r.occurrence_id), time: timeLabel(at), name: clean(r.name) as string, venue: clean(r.location) });
   }
   return { days, total: picked.length };
 }
@@ -157,5 +179,4 @@ export const SOCIALS_COPY = {
   empty: (city: string) => `No socials listed in ${city} this week yet. See every party on the calendar.`,
   error: "This week's socials did not load. You can still see every party on the calendar.",
   all: 'All socials this week',
-  allEmpty: 'See all parties',
 } as const;

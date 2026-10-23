@@ -41,7 +41,8 @@ function audit() {
     }
     return [{ r: 255, g: 255, b: 255, a: 1 }];
   };
-  const root = document.querySelector('[data-testid="dancer-world-page"]');
+  // S2b: the dancer world sits in the shared shell (frame/WorldPage).
+  const root = document.querySelector('[data-testid="world-page"]');
   if (!root) return { error: 'no dancer world on the page' };
   let low = 99; let lowText = '';
   for (const el of root.querySelectorAll('*')) {
@@ -60,6 +61,11 @@ function audit() {
     lower: root.querySelector('[data-testid="dancer-world-lower"]')?.getAttribute('data-kind') ?? null,
     socials: root.querySelector('[data-testid="dancer-world-socials"]')?.getAttribute('data-state') ?? null,
     invite: !!root.querySelector('[data-testid="dancer-world-invite-button"]'),
+    // S2b: the frame box, measured the way the S3 walk measures the DJ world (must be equal).
+    back: (() => { const b = document.querySelector('[data-testid="frame-back"]')?.getBoundingClientRect(); return b ? `L${Math.round(b.left)} T${Math.round(b.top + window.scrollY)}` : null; })(),
+    barW: Math.round(document.querySelector('[data-testid="frame-back"]')?.parentElement.getBoundingClientRect().width ?? 0),
+    footerGap: (() => { const f = document.querySelector('footer'); return f ? Math.round(f.getBoundingClientRect().top - root.getBoundingClientRect().bottom) : null; })(),
+    times: [...root.querySelectorAll('[data-testid="dancer-world-social-time"]')].map((e) => e.textContent),
     text: root.innerText.replace(/\s+/g, ' ').slice(0, 400),
   };
 }
@@ -68,7 +74,9 @@ const proxy = process.env.HTTPS_PROXY ? { server: process.env.HTTPS_PROXY, bypas
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, proxy });
 const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
 const results = [];
-for (const [key, slug, label] of SHAPES.filter(([k]) => !only || only.includes(k))) {
+// S2b: one DJ page in the same build, so the two worlds' frame boxes are compared like for like.
+const DJ = process.env.DJ_SLUG || 'papacito';
+for (const [key, slug, label] of [...SHAPES, ['dj-reference', `../djs/${DJ}`, 'the DJ world, for the frame box']].filter(([k]) => !only || only.includes(k))) {
   for (const [w, hgt] of SIZES) {
     const page = await browser.newPage({ viewport: { width: w, height: hgt }, deviceScaleFactor: 1 });
     await page.goto(`${BASE}/dancers/${slug}`, { waitUntil: 'networkidle', timeout: 20000 }).catch(() => {});
@@ -86,4 +94,4 @@ for (const [key, slug, label] of SHAPES.filter(([k]) => !only || only.includes(k
 }
 await browser.close();
 writeFileSync(join(dir, 'checks.json'), `${JSON.stringify(results, null, 2)}\n`);
-for (const r of results) console.log(r.file, r.error ?? `contrast=${r.contrast} taps<44=${r.smallTaps.length} clipped=${r.clipped.length} sideways=${r.sideways} lower=${r.lower}/${r.socials} invite=${r.invite} tabsTop=${r.tabsTop}`);
+for (const r of results) console.log(r.file, r.error ?? `contrast=${r.contrast} taps<44=${r.smallTaps.length} clipped=${r.clipped.length} sideways=${r.sideways} lower=${r.lower}/${r.socials} invite=${r.invite} tabsTop=${r.tabsTop} back=${r.back} barW=${r.barW} footerGap=${r.footerGap} times=${r.times.join(',')}`);

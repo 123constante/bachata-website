@@ -65,4 +65,21 @@ Run by `docs/people-arc/s2/capture.mjs` on a production build pointed at prod (r
   say if any should come back (most likely the gallery: 1 live dancer has one).
 - The DJ preview's name font is DM Serif Display; this page does not load it (S3's `useDjPageFonts`), so it falls
   back to Georgia. Needs S3/frame.
-- Socials rows have no time ("21:00"): a time label is not in `facts/` yet (S1 handover item 5; facts is S3's).
+- ~~Socials rows have no time~~: done in S2b (`facts.timeLabel`).
+
+## S2b (2026-10-23): one shell with the DJ world, wall-clock gig dates, socials times
+
+- **Shell.** `DancerWorldPage` renders through `frame/WorldPage` (ground, `px-3 pb-6 pt-2`, `max-w-xl`, no min
+  height) in every flag-ON state: loading (`dancer-world-loading`), not found (`dancer-world-missing`, "Back to
+  Dancers" 44px), full. Its own `max-w-xl px-4 pb-10 pt-3` wrapper and ground div are gone.
+- **Frame box, measured** (same build, `capture.mjs`, prod data): Back **L10 T113**, bar **370** at 390 / **340**
+  at 360 on all 11 shapes, equal to the DJ reference (`papacito`) in the same build and to the S3 handover. Tabs
+  at y 163 on every two-role shape (was 166: the shell's `pt-2`). Content to footer **54px** everywhere (D13).
+- **Next gig / next class** read the stored London wall clock (`facts.wallDayOf` / `gigDateLabel`; "not started"
+  through `londonWallClockToInstant`): a 23:30 summer gig stays on its own day.
+- **Socials rows** lead with `facts.timeLabel` ("21:00", accent, bold); a midnight stamp shows no time.
+- **Empty state (D11/D12)**: muted line, then the DJ world's one button "Find a party" -> `/parties`, read from
+  `djWorldView` (one source; a shared constant in `facts/` would be cleaner: "needs frame").
+- **D8' invite**: on every shape (signed out), unchanged.
+
+Gate 4 re-run on this build: lowest contrast 5.06, no tap under 44px, 0 clipped, no sideways scroll at 360 or 390.

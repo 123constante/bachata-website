@@ -14,7 +14,9 @@ import { installJsdomPolyfills } from '../../../../../../tests/client/jsdomPolyf
 import { flags } from '@/lib/featureFlags';
 import { londonTodayKey, addDaysToKey } from '@/lib/londonDate';
 import type { PersonRole } from '../../../personRoles';
-import { DEFAULT_CITY, INVITE, SOCIALS_COPY, dancerCard, lowerHalf, nextAppearance, previewOf, socialsThisWeek, worldRoles } from '../model';
+import { DEFAULT_CITY, INVITE, PARTY_ACTION, SOCIALS_COPY, dancerCard, lowerHalf, nextAppearance, previewOf, socialsThisWeek, worldRoles } from '../model';
+import { djWorldView } from '../../dj';
+import { WORLD_PAGE } from '../../../frame';
 
 const TODAY = londonTodayKey();
 const IN = (days: number) => `${addDaysToKey(TODAY, days)}T19:00:00+00:00`;
@@ -28,13 +30,15 @@ const h = vi.hoisted(() => ({
   city: null as null | { cityId: string; cityName: string; citySlug: string },
   user: null as null | { id: string; is_anonymous?: boolean },
   snapshotIds: [] as (string | undefined)[],
+  /** supabase.from(); the default has no query methods, so the dancer read fails (= not found). */
+  from: (() => ({})) as () => unknown,
 }));
 vi.mock('@/hooks/useAuth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
   useAuth: () => ({ user: h.user, isLoading: false, authStatus: 'ready' }),
 }));
 vi.mock('@/hooks/useMyPersonaId', () => ({ useMyPersonaId: () => null }));
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: async () => ({ data: null, error: null }), from: () => ({}) } }));
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: async () => ({ data: null, error: null }), from: () => h.from() } }));
 vi.mock('@/integrations/supabase/getSupabase', () => ({ getSupabase: async () => ({ rpc: async () => ({ data: null, error: null }) }) }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock('@/modules/person-page/usePersonRoles', () => ({
@@ -176,6 +180,33 @@ describe('D6 lower half', () => {
     expect(nextAppearance([{ event_name: 'Later', event_location: null, event_start_time: IN(1) }], now)?.event_name).toBe('Later');
   });
 
+  // S2b: get_profile_event_timeline_v2 stamps are London WALL CLOCK stored as +00 ("23:30+00" is
+  // 23:30 in London), so the day is the one written and "not started yet" is London's clock.
+  describe('next gig: the stored wall-clock day, never a converted one', () => {
+    const gig = (at: string) => [{ event_name: 'Gig', event_location: 'Club', event_start_time: at }];
+    it.each([
+      // [shape, rows, now, expected line (null = no preview)]
+      ['a 23:30 summer gig stays on its own day', gig('2027-07-10 23:30:00+00'), '2027-07-10T12:00:00Z', 'Next gig Saturday 10 July'],
+      ['a winter gig', gig('2027-01-15 21:00:00+00'), '2027-01-10T12:00:00Z', 'Next gig Friday 15 January'],
+      ['a summer gig that started an hour ago (22:30 London = 21:30 UTC) is past', gig('2027-07-10 22:30:00+00'), '2027-07-10T21:45:00Z', null],
+      ['a past gig', gig('2027-07-01 21:00:00+00'), '2027-07-10T12:00:00Z', null],
+      ['none', [], '2027-07-10T12:00:00Z', null],
+    ] as const)('%s', (_s, rows, now, line) => {
+      expect(previewOf('dj', 's', nextAppearance(rows, new Date(now)))?.line ?? null).toBe(line);
+    });
+  });
+
+  it('socials rows lead with the stored time ("21:00"), none when the clock reads midnight', () => {
+    const s = socialsThisWeek([PARTY({ event_id: 'a', occurrence_starts_at: `${TODAY}T21:00:00` }), PARTY({ event_id: 'b', occurrence_starts_at: `${TODAY}T00:00:00` })], TODAY);
+    expect(s.days[0].rows.map((r) => r.time)).toEqual([null, '21:00']);
+  });
+
+  it('the empty-state button is the DJ world\'s own wording (one source, never a copy)', () => {
+    const dj = djWorldView({ row: {}, cityName: null, nationalityCode: null, links: { soundcloud: null, mixcloud: null, instagram: null, website: null, facebook: null }, upcoming: [], past: [], pathname: '/' });
+    expect(PARTY_ACTION).toEqual({ label: dj.emptyAction?.label, href: dj.emptyAction?.href });
+    expect(PARTY_ACTION).toEqual({ label: 'Find a party', href: '/parties' });
+  });
+
   it('the photo is resized through the image CDN, never the original', () => {
     const card = dancerCard({ name: 'A', photo: 'https://media.example.test/a.jpg', nationality: null, city: null, danceRole: null, languages: [], contacts: [] });
     expect(card.photo).not.toBeNull();
@@ -234,7 +265,8 @@ describe('flag ON: the frame + the dancer world, every shape x every lower half'
         if (!knownCity || l === 'socials empty') expect(empty?.textContent).toBe(SOCIALS_COPY.empty(city));
         else if (l === 'socials error') expect(empty?.textContent).toBe(SOCIALS_COPY.error);
         else expect(empty).toBeNull();
-        if (empty) expect(all.textContent).toBe(SOCIALS_COPY.allEmpty);
+        // Owner D12: the empty state's one button is the DJ world's "Find a party" -> /parties.
+        if (empty) expect(all.textContent).toBe(PARTY_ACTION.label);
       }
 
       // D8 on every shape (signed out): a real button-sized link to the sign-up entry.
@@ -286,6 +318,79 @@ describe('flag ON: the frame + the dancer world, every shape x every lower half'
     mount('photo + London + role', true);
     await settle();
     expect(q('person-frame')).toBeNull();
+  });
+});
+
+/**
+ * S2b: the dancer world sits in the SAME shell as the DJ world (frame/WorldPage), every flag-ON
+ * state. The owner measured Back L10 T113 (DJ) vs L14 T116 (dancer) when each world padded the
+ * frame itself. Same assertion as DJProfileWorlds.test.tsx's expectInShell.
+ */
+const expectInShell = (inner: HTMLElement) => {
+  const page = screen.getByTestId('world-page');
+  const slot = screen.getByTestId('world-page-slot');
+  expect(page.getAttribute('data-world')).toBe('dancer');
+  expect(page.className).toBe(WORLD_PAGE.page);
+  expect(slot.className).toBe(WORLD_PAGE.slot);
+  expect(inner.parentElement).toBe(slot);
+  expect(slot.parentElement).toBe(page);
+  for (let el: HTMLElement | null = inner; el; el = el.parentElement) {
+    expect(el.className).not.toMatch(/min-h-screen|min-h-\[/);
+    expect(el.style.minHeight).toBe('');
+  }
+};
+
+describe('flag ON: one shell for every state (the DJ world\'s)', () => {
+  it.each(KEYS)('full page: %s', async (key) => {
+    setWorlds(true);
+    mount(key);
+    await settle();
+    expectInShell(screen.getByTestId('person-frame'));
+  });
+
+  it('loading', async () => {
+    setWorlds(true);
+    const hang = { select: () => hang, eq: () => hang, not: () => hang, maybeSingle: () => new Promise(() => undefined) };
+    h.from = () => hang;
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(['entity-resolve', 'dancer_profiles', 'id', 'slow'], { id: 'id-slow', slug: 'slow' });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/dancers/slow']}>
+          <Routes><Route path="/dancers/:id" element={<DancerProfile publicPage={null} />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expectInShell(await screen.findByTestId('dancer-world-loading'));
+    h.from = () => ({});
+  });
+
+  it('not found', async () => {
+    setWorlds(true);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(['entity-resolve', 'dancer_profiles', 'id', 'gone'], { id: 'id-gone', slug: 'gone' });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/dancers/gone']}>
+          <Routes><Route path="/dancers/:id" element={<DancerProfile publicPage={null} />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const box = await screen.findByTestId('dancer-world-missing');
+    expectInShell(box);
+    const back = within(box).getByRole('link', { name: /Back to Dancers/ });
+    expect(back.getAttribute('href')).toBe('/dancers');
+    expect((back as HTMLElement).style.minHeight).toBe('44px');
+  });
+
+  it('socials rows show the time first', async () => {
+    setWorlds(true);
+    h.socials = [PARTY({ occurrence_starts_at: `${TODAY}T21:00:00` })];
+    mount('photo + London + role');
+    await settle();
+    await settle();
+    const row = within(q('dancer-world-socials')!).getByRole('link', { name: /Friday Social/ });
+    expect(row.textContent?.startsWith('21:00')).toBe(true);
   });
 });
 

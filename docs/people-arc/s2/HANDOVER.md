@@ -96,3 +96,54 @@ the branch's latest preview (Vite reads it at build time). Without it the previe
 - The Vercel preview, real phones, the live site.
 - `nextAppearance` treats `get_profile_event_timeline_v2.event_start_time` as a UTC instant (as `facts.londonDayOf`
   and the hub do); not re-proved against a BST/GMT edge on prod.
+
+## S2b: the dancer world in the shared shell, wall-clock gig dates, socials times (2026-10-23)
+
+Brief: `briefs/PEOPLE-S2b-continuation-brief.md` on `brief/people-arc` (sha 339572c9). First step: a merge (not a
+rebase) of `origin/claude/people-dj-world` (b62020f), clean, no S3 file touched. Head = `git log -1
+origin/claude/people-dancer-world` (this doc rides the last commit). Design record: the S2b section of
+[`docs/design/people-s2-dancer-world.md`](../../design/people-s2-dancer-world.md).
+
+### Per item
+
+| Item | Change |
+|---|---|
+| 1 shell | `DancerWorldPage` renders `<WorldPage world="dancer">` straight around `PersonFrame`; its own `max-w-xl px-4 pb-10 pt-3` wrapper and ground div are gone. NEW `DancerWorldLoading` / `DancerWorldMissing` (same shell; "Back to Dancers" 44px) for the flag-ON loading (dancer read OR slug resolve in flight) and not-found states. `DancerProfile` no longer wraps the world in its own `GlobalLayout`; breadcrumbs = `buildBreadcrumbs('dancer.detail', ...)` |
+| 2 next gig / class | `nextAppearance`: future check = `londonWallClockToInstant(stamp) >= now`, day check `facts.wallDayOf`; `previewOf` labels with `facts.gigDateLabel`. Matrix rows: 23:30 summer gig (Saturday 10 July, not Sunday 11), winter gig, a summer gig that started an hour ago (past), a past gig, none |
+| 3 socials times | `SocialRow.time = facts.timeLabel(occurrence_starts_at)`; the row leads with it (14px bold accent). Midnight = no time |
+| 4 empty-state button | "Find a party" -> `/parties` (was "See all parties"), read from `djWorldView(...)`'s `emptyAction` so there is ONE source; `SOCIALS_COPY.allEmpty` deleted. The muted line above it stays the socials-specific copy |
+| 5 D13 footer | from the shell (`fitContent`); no own min height. Measured 54px content-to-footer on every shape |
+| 6 D8' invite | unchanged: on every shape (signed out). Signed-in viewers still get none (S2 rule; the DJ world shows it always -- owner call if the two should match) |
+
+Tests (red first: 36 failed on the merged base 3ff4996 + the guard's dancer row): `dancerWorld.matrix.test.tsx`
+(wall-clock rows, socials time, wording-is-the-DJ-world's, "one shell for every state" x 8 shapes + loading + not
+found, rendered time first). `worldShellGuard.test.ts` (S3's) now covers `DancerWorldPage.tsx` and was red before.
+Mutation: a `px-4 pt-3` div put back around `PersonFrame` -> 9 red.
+
+### Frame box per shape (390x844 / 360x800, prod data, flag ON, same build as the DJ reference)
+
+All 11 S2 shapes (carol-y-raul, leoncio, chloe-poyiatz, llf-malva-marina-montenegro, alfredo-andrea,
+unclaimed-8395fee2, aitor-angelica-tbf, alex-boneva, aurora, elias, unclaimed-797fab23): **Back L10 T113, bar W
+370 / 340**, content-to-footer 54. DJ reference `papacito` in the same build: L10 T113, 370 / 340, 54 -- equal, and
+equal to the S3 handover. Tabs y 163 on every two-role shape (S2: 166). Lowest contrast 5.06, no tap under 44px,
+0 clipped, no sideways scroll (`checks.json`, `shots/`).
+
+Walk note: the sandbox's own `VITE_SUPABASE_*` point at a non-prod project, so the walk build used prod's public
+anon key + URL (read-only), `VITE_ENABLE_PERSON_WORLDS=true` and `VITE_ENABLE_TEACHER_DETAIL=true` /
+`VITE_ENABLE_TEACHERS_DIRECTORY=true` (without the teacher flag, teacher roles drop out of the tabs: it is a
+build-time flag). The local SSR server needs `NODE_USE_ENV_PROXY=1` to reach Supabase from this sandbox.
+
+### Needs frame (not mine to edit)
+
+1. The D12 button wording lives inline in `worlds/dj/model.ts`; the dancer world reads it through `djWorldView`.
+   A `NO_DATES_ACTION` constant in `facts/` that both worlds import would be cleaner.
+2. Still open from S2: the DJ preview on a dancer page has no DM Serif Display (`useDjPageFonts` is called by
+   `DjWorld`, not by the dancer preview).
+
+### Not verified (S2b)
+
+- Real photos (media host blocked), the Vercel preview (no token: needs owner), a real phone, 1280 width.
+- The flag-OFF page in a browser (unit-tested; the OFF path is unchanged).
+- The `/code-review` pass (the owner types it).
+- Prod shape counts were not re-run (S2's survey of this morning stands).
+- `check:doc-weight`, `check:seo`, lighthouse: need a live preview.

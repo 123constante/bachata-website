@@ -6,7 +6,7 @@ import { Avatar } from '../../frame';
 import { TAP } from '../../roleSwitch';
 import { FOCUS_RING } from '../../wall/tokens';
 import { FONT, ROLE_COLOUR, WORLD } from '../tokens';
-import { ALL_SOCIALS_HREF, FACE_PX, INVITE, SOCIALS_COPY, type DancerCard, type Preview } from './model';
+import { ALL_SOCIALS_HREF, FACE_PX, INVITE, PARTY_ACTION, SOCIALS_COPY, type DancerCard, type Preview } from './model';
 import type { DancerLower, SocialsState } from './useDancerLower';
 
 const T = WORLD.dancer;
@@ -124,7 +124,7 @@ function Socials({ heading, city, state }: { heading: string; city: string; stat
           <p data-testid="dancer-world-socials-empty" style={{ fontSize: 14, color: T.card.muted }}>
             {state.status === 'error' ? SOCIALS_COPY.error : SOCIALS_COPY.empty(city)}
           </p>
-          <PillLink to={ALL_SOCIALS_HREF} testId="dancer-world-socials-all">{SOCIALS_COPY.allEmpty}</PillLink>
+          <PillLink to={PARTY_ACTION.href} testId="dancer-world-socials-all">{PARTY_ACTION.label}</PillLink>
         </>
       ) : (
         <>
@@ -138,6 +138,11 @@ function Socials({ heading, city, state }: { heading: string; city: string; stat
                   className={`mt-1 flex items-center gap-3 rounded-xl ${FOCUS_RING}`}
                   style={{ minHeight: 52, padding: '6px 12px', background: T.section.row, border: `1px solid ${T.section.border}` }}
                 >
+                  {r.time ? (
+                    <span data-testid="dancer-world-social-time" className="shrink-0 tabular-nums" style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>
+                      {r.time}
+                    </span>
+                  ) : null}
                   <span className="flex min-w-0 flex-col">
                     <b style={{ fontSize: 14, color: T.card.ink, overflowWrap: 'anywhere' }}>{r.name}</b>
                     {r.venue ? <small style={{ fontSize: 13, color: T.card.muted, overflowWrap: 'anywhere' }}>{r.venue}</small> : null}

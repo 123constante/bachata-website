@@ -28,7 +28,8 @@ import { DancerRoleBar } from "@/modules/dancer-app/public-page/DancerRoleBar";
 import { useDancerRoleBar } from "@/modules/dancer-app/public-page/roleBarModel";
 import { PublicDancerPageV2 } from "@/modules/dancer-app/public-page/PublicDancerPageV2";
 import { NO_EXTRAS, buildPublicDancerPage, joinHref, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
-import { DancerWorldPage } from "@/modules/person-page/worlds/dancer/DancerWorldPage";
+import { DancerWorldLoading, DancerWorldMissing, DancerWorldPage } from "@/modules/person-page/worlds/dancer/DancerWorldPage";
+import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 
 type AttendanceRow = {
   event_id: string;
@@ -237,6 +238,18 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
     navigate(item.type === "festival" ? `/festival/${item.id}` : `/event/${item.id}`);
   };
 
+  // People arc S2b (flags.personWorlds, not embedded): every state in the one world shell, so the
+  // frame sits where the DJ world's does. OFF (and embedded) = the states below, unchanged.
+  const worlds = flags.personWorlds && !embedded;
+  const worldCrumbs = worlds
+    ? buildBreadcrumbs('dancer.detail', { entityName: dancerView?.displayName ?? undefined, isLoading: isLoading || resolved.isLoading })
+    : [];
+  if (worlds && (isLoading || resolved.isLoading)) return <DancerWorldLoading breadcrumbs={worldCrumbs} />;
+  if (worlds && (error || !dancer || !dancerView)) {
+    if (dancerError) console.error('DancerProfile error:', dancerError);
+    return <DancerWorldMissing breadcrumbs={worldCrumbs} />;
+  }
+
   if (isLoading) {
     return (
       <GlobalLayout
@@ -379,14 +392,13 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
 
   // People arc S2 (flags.personWorlds): the shared frame + the dancer world. The Dancing tab of
   // /people/:id (embedded) keeps today's page. OFF = everything below, unchanged.
-  if (flags.personWorlds && !embedded) {
+  if (worlds) {
     const extras = publicPage?.extras ?? NO_EXTRAS;
     const worldModel = buildPublicDancerPage(dancerView, extras);
     // The same invite rule as today's page: signed-out (or anonymous) viewers only.
     const showInvite = authStatus !== 'resolving' && (!user || user.is_anonymous === true);
     const worldPath = resolved.slug ? `/dancers/${resolved.slug}` : `/dancers/${routeParam ?? dancerView.id}`;
     return (
-      <GlobalLayout showSubheader={false} backHref="/dancers" gradientPalette="dancer">
         <DancerWorldPage
           // The route-resolved id, like the role bar: a linked profile's canonical row id differs
           // and has no roles of its own (prod: teacher pages showed no tabs and no next class).
@@ -404,8 +416,8 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
           shareTitle={worldModel.shareTitle}
           inviteHref={showInvite ? joinHref(worldPath) : null}
           ownerPlans={isSelfView ? ownerPlans : null}
+          breadcrumbs={worldCrumbs}
         />
-      </GlobalLayout>
     );
   }
 
