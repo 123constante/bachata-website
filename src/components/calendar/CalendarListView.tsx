@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { MONTHS, matchesCategory } from '@/components/calendar/calendarUtils';
 import { useLondonToday } from '@/hooks/useLondonToday';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { TIME_TBC_LABEL } from '@/lib/time/wallClock';
 import { CancelledRedStrip } from '@/modules/event-page/bento/blocks/CancelledRedStrip';
 
@@ -97,6 +98,7 @@ type EventRowProps = {
 };
 
 const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRowProps) => {
+  const goingCount = GOING_CHECKIN_ENABLED ? (event.goingCount ?? 0) : 0;
   const delay = Math.min(delayIndex * 0.04, 0.4);
   return (
     <motion.div
@@ -142,15 +144,15 @@ const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRo
             at {event.venueName}
           </div>
 
-          {((event.goingCount ?? 0) > 0 || (userLocation && event.venueLat != null)) && (
+          {(goingCount > 0 || (userLocation && event.venueLat != null)) && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
-              {(event.goingCount ?? 0) > 0 && (
+              {goingCount > 0 && (
                 <span style={{
                   fontSize: 10, fontWeight: 700, color: '#6b4c2a',
                   background: 'rgba(58,36,24,0.10)', borderRadius: 999,
                   padding: '2px 8px',
                 }}>
-                  {event.goingCount} going
+                  {goingCount} going
                 </span>
               )}
               {userLocation && event.venueLat != null && (
