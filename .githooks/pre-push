@@ -53,6 +53,11 @@ exec >&2
 #      remote. Complements .githooks/pre-commit (source integrity), so combined hook
 #      coverage is integrity + unit. The full lint/typecheck/e2e ladder stays in
 #      `npm run pre-ship`, which is the deliberate one-command ship gate.
+#      It runs on the SIDE LAPTOP (via $HOME/.claude/bin/remote-test.mjs) when that
+#      helper exists, REMOTE_TEST is not `off`, and exactly one commit (HEAD) is
+#      being pushed; helper exit 3 ("could not test there") or any of those not
+#      holding runs it HERE as before. One line says which path ran.
+#      Proof: tests/prePushRemoteUnitGate.test.ts.
 #   2. Review-receipt gate (scripts/ship-gate.mjs) -- has the risky part of this ship
 #      actually been reviewed? exit 1 (a HARD-tier guard/CI/hook file with no fresh
 #      review stamp, or an unresolved blocking finding) BLOCKS the push. exit 2 is
@@ -124,10 +129,41 @@ fi
 # running them on every push was a measured load source behind the 2026-10-04 statement
 # timeout bursts (public SSR 500s). CI still runs them on DB-facing PRs (ci-live-db-gate)
 # and on main; `npm run pre-ship` still runs the full test:unit.
-echo "> pre-push: unit gate (npm run test:unit:offline)..."
-if ! npm run test:unit:offline -- --reporter=dot; then
-    echo "x Unit gate failed -- not pushing. Fix the tests (or push --no-verify to bypass)."
-    exit 1
+# SIDE LAPTOP FIRST (owner, 2026-10-23): the suite runs on the side laptop through
+# $HOME/.claude/bin/remote-test.mjs, which tests the pushed COMMIT, not the working
+# tree. It is used only when exactly one commit is being pushed -- HEAD, with no
+# unscoped ref let through by SHIP_GATE_ALLOW_UNSCOPED_REF and at least one branch
+# ref -- so that commit is the whole push. Helper exit 0 = green there; exit 3 = it
+# could not test there, so the suite runs HERE exactly as before (3 never means
+# pass); any other exit = red there, push refused. REMOTE_TEST=off forces local.
+heads_pushed=$((branch_refs + to_main))
+unit_where="here"
+if [ "${REMOTE_TEST:-}" = "off" ]; then
+    unit_reason="REMOTE_TEST=off"
+elif [ ! -f "$HOME/.claude/bin/remote-test.mjs" ]; then
+    unit_reason="helper not installed"
+elif [ -n "$unscoped" ] || [ -z "$HEAD_SHA" ] || [ "$heads_pushed" -lt 1 ]; then
+    unit_reason="several refs"
+else
+    echo "> pre-push: unit gate on the side laptop ($(printf '%.8s' "$HEAD_SHA"))"
+    node "$HOME/.claude/bin/remote-test.mjs" website "$HEAD_SHA" -- npm run test:unit:offline -- --reporter=dot
+    rc=$?
+    if [ "$rc" -eq 0 ]; then
+        unit_where="laptop"
+    elif [ "$rc" -eq 3 ]; then
+        unit_reason="laptop off/unreachable"
+    else
+        echo "x Unit gate failed -- not pushing. Fix the tests (or push --no-verify to bypass)."
+        exit 1
+    fi
+fi
+if [ "$unit_where" = "here" ]; then
+    echo "> pre-push: unit gate here ($unit_reason)"
+    echo "> pre-push: unit gate (npm run test:unit:offline)..."
+    if ! npm run test:unit:offline -- --reporter=dot; then
+        echo "x Unit gate failed -- not pushing. Fix the tests (or push --no-verify to bypass)."
+        exit 1
+    fi
 fi
 
 # -- 2. Review-receipt gate ----------------------------------------------------
