@@ -13,6 +13,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ScheduleSession } from '../../../sections/EventScheduleGrid';
 
 vi.mock('@/integrations/supabase/client', () => ({
@@ -60,9 +61,9 @@ const mk = (o: Partial<ScheduleSession>): ScheduleSession => ({
 const render = (items: ScheduleSession[], occurrenceId: string | null = null) => {
   program.items = items;
   return renderToStaticMarkup(
-    <MemoryRouter>
+    <QueryClientProvider client={new QueryClient()}><MemoryRouter>
       <ScheduleBlock eventId="evt-1" occurrenceId={occurrenceId} />
-    </MemoryRouter>,
+    </MemoryRouter></QueryClientProvider>,
   );
 };
 

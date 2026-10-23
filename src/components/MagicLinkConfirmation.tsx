@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { trackAnalyticsEvent } from '@/lib/analytics';
-import { OTP_CODE_LENGTH, OTP_RESEND_COOLDOWN_SECONDS } from '@/lib/auth-otp-routing';
+import { OTP_CODE_LENGTH, OTP_LIFETIME_SECONDS, OTP_RESEND_COOLDOWN_SECONDS } from '@/lib/auth-otp-routing';
 import { trackAuthStep } from '@/lib/trackAuthStep';
 import { ConsentLine } from '@/components/auth/ConsentLine';
 // L1: the account pages' one long-email wrap (break before "@", then overflow-wrap:anywhere).
@@ -48,7 +48,7 @@ export const CODE_STEP_KEY = 'auth_code_step_v1';
 /** A reload this long after the send still reopens the code box. */
 export const CODE_STEP_TTL_MS = 10 * 60 * 1000;
 /** Wrong codes accepted before the box stops and asks for a new code. */
-export const MAX_WRONG_CODES = 5;
+export const MAX_WRONG_CODES = 3;
 
 type CodeStep = { email: string; mode: string; at: number; wrong: number };
 
@@ -94,12 +94,29 @@ const storedWrongCodes = (email: string): number => {
   return step && step.email === email ? step.wrong : 0;
 };
 
+/** When the code on screen was sent: the stored step for this address, else now (the parent has just sent it). */
+const storedSentAt = (email: string): number => {
+  const step = readRaw();
+  return step && step.email === email ? step.at : Date.now();
+};
+
+/**
+ * F5: wrong vs run out, decided by the CLIENT clock against the code lifetime. The server's
+ * error shape cannot tell them apart (a wrong code is also "Token has expired or is invalid",
+ * often with code otp_expired), so inside the lifetime every refused code counts as a wrong try.
+ */
+export const isCodeRunOut = (sentAt: number, now: number = Date.now()): boolean => now - sentAt >= OTP_LIFETIME_SECONDS * 1000;
+
 const storeWrongCodes = (email: string, wrong: number) => {
   const step = readRaw();
   if (step && step.email === email) write({ ...step, wrong });
 };
 
-const LOCKED_MESSAGE = 'Too many wrong codes. Send a new code to try again.';
+const LOCKED_MESSAGE = 'Too many tries. Send a new code to carry on.';
+const EXPIRED_MESSAGE = 'This code has run out. Codes last a few minutes.';
+/** Flow 4b: wrong and expired are different problems with different words; the soft limit counts down. */
+export const wrongCodeMessage = (triesLeft: number): string =>
+  `That code is not right. Check the latest email. ${triesLeft} ${triesLeft === 1 ? 'try' : 'tries'} left.`;
 
 const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, onVerified, showConsent, extraAction }: MagicLinkConfirmationProps) => {
   const [countdown, setCountdown] = useState(COOLDOWN);
@@ -108,8 +125,10 @@ const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, on
   const [codeError, setCodeError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [wrongCodes, setWrongCodes] = useState(() => storedWrongCodes(email));
+  const [expired, setExpired] = useState(false);
   const locked = wrongCodes >= MAX_WRONG_CODES;
   const verifying = useRef(false);
+  const sentAt = useRef(storedSentAt(email));
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -137,20 +156,22 @@ const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, on
       const { code: errorCode, message: rawMessage } = (error as { code?: unknown; message?: unknown } | null) ?? {};
       const message = String(rawMessage || '').toLowerCase();
       const isInvalid = message.includes('invalid') || message.includes('expired') || errorCode === 'otp_expired';
-      // Supabase answers a wrong code with the ambiguous "Token has expired or is invalid", so the word
-      // "expired" alone proves nothing: only error.code otp_expired (or an "expired" with no "invalid") is expired.
-      const isExpired = errorCode === 'otp_expired' || (message.includes('expired') && !message.includes('invalid'));
+      // Neither the message nor error.code tells wrong from run out (see isCodeRunOut): the send time does.
+      const isExpired = isInvalid && isCodeRunOut(sentAt.current);
       trackAuthStep({ step: 'code_fail', outcome: !isInvalid ? 'error' : isExpired ? 'expired' : 'wrong' });
-      if (isInvalid) {
+      let shown: string;
+      if (isInvalid && isExpired) {
+        setExpired(true);
+        shown = EXPIRED_MESSAGE;
+      } else if (isInvalid) {
         const wrong = wrongCodes + 1;
         setWrongCodes(wrong);
         storeWrongCodes(email, wrong);
+        shown = wrong >= MAX_WRONG_CODES ? LOCKED_MESSAGE : wrongCodeMessage(MAX_WRONG_CODES - wrong);
+      } else {
+        shown = 'We could not check that code. Please try again.';
       }
-      setCodeError(
-        isInvalid
-          ? 'That code is wrong or has expired. Check it and try again, or resend a new one.'
-          : 'We could not check that code. Please try again.',
-      );
+      setCodeError(shown);
       setCode('');
     } finally {
       verifying.current = false;
@@ -166,8 +187,10 @@ const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, on
       // a plain failure can be retried at once. The reason shows under the box (resendError).
       if (outcome !== 'failed') setCountdown(COOLDOWN);
       if (outcome === 'sent') {
+        sentAt.current = Date.now();
         setCode('');
         setCodeError(null);
+        setExpired(false);
       }
       // A send that landed started a fresh step (rememberCodeStep); a failed one keeps the count.
       setWrongCodes(storedWrongCodes(email));
@@ -209,7 +232,7 @@ const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, on
               if (codeError) setCodeError(null);
             }}
             onComplete={(value) => void verify(value)}
-            disabled={isVerifying || locked}
+            disabled={isVerifying || locked || expired}
             autoFocus
             autoComplete="one-time-code"
             inputMode="numeric"
@@ -246,12 +269,12 @@ const MagicLinkConfirmation = ({ email, onResend, resendError, onChangeEmail, on
 
       <div className="w-full space-y-2">
         <Button
-          variant="secondary"
+          variant={locked || expired ? 'default' : 'secondary'}
           className="w-full min-h-[44px] rounded-full"
-          disabled={(countdown > 0 && !locked) || isResending}
+          disabled={(countdown > 0 && !locked && !expired) || isResending}
           onClick={handleResend}
         >
-          {isResending ? 'Sending\u2026' : locked ? 'Send a new code' : countdown > 0 ? `Resend code in ${countdown}s` : 'Resend code'}
+          {isResending ? 'Sending\u2026' : locked || expired ? 'Send a new code' : countdown > 0 ? `Send a new code in ${countdown}s` : 'Send a new code'}
         </Button>
 
         <Button variant="ghost" className="w-full min-h-[44px] text-muted-foreground" onClick={onChangeEmail}>

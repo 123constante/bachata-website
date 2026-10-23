@@ -266,9 +266,9 @@ export const isWelcome = (u: URL) => u.pathname === '/app/welcome';
 export async function signupForm(page: Page, entry: string, shot: Shot, who = { firstName: 'Ana', email: EMAIL }) {
   const details = page.getByText('A little about you');
   if (!new URL(entry, 'https://x.test').searchParams.get('userType')) {
-    await expect(page.getByText('What brings you here?')).toBeVisible();
-    await shot('auth-role', '/auth sign-up step 1 of 3: role (Dancer pre-selected)');
-    await page.getByRole('button', { name: /^Continue as / }).click();
+    await expect(page.getByText('What do you do?')).toBeVisible();
+    await shot('auth-role', '/auth sign-up step 1 of 3: What do you do? (Dancer pre-selected)');
+    await page.getByRole('button', { name: /^Continue$/ }).click();
   }
   await expect(details).toBeVisible();
   await page.locator('#signup-firstname').fill(who.firstName);
@@ -289,7 +289,8 @@ export async function signinForm(page: Page, shot: Shot, email = EMAIL) {
   await expect(page.locator('#signin-email')).toBeVisible();
   await page.locator('#signin-email').fill(email);
   await shot('auth-signin', '/auth sign in: e-mail filled');
-  await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
+  // After an expired e-mailed link the same button reads "Send a new link" (mockup 9b).
+  await page.getByRole('button', { name: /^(Email me a sign-in link|Send a new link)$/ }).click();
 }
 
 export async function codeStep(page: Page, shot: Shot, backend: Backend, wrongFirst: boolean) {
@@ -299,10 +300,10 @@ export async function codeStep(page: Page, shot: Shot, backend: Backend, wrongFi
   if (wrongFirst) {
     backend.verifyFailures = 1;
     await input.pressSequentially('87654321');
-    await expect(page.getByText('That code is wrong or has expired')).toBeVisible();
+    await expect(page.getByText(/That code is not right/)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
     await expect(page).toHaveURL(/\/auth\?/);
-    await shot('code-wrong', 'wrong code: "That code is wrong or has expired..." shown, still on the code step');
+    await shot('code-wrong', 'wrong code: "That code is not right... 2 tries left" shown, still on the code step');
   }
   await input.pressSequentially(CODE);
 }

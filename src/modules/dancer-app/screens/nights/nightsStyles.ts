@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-export const gradientBg = 'linear-gradient(145deg, var(--da-gradient-from) 0%, var(--da-gradient-to) 100%)';
+export const gradientBg = 'linear-gradient(120deg, var(--da-gradient-from) 0%, var(--da-gradient-mid) 52%, var(--da-gradient-to) 100%)';
 
 export const linkStyle: CSSProperties = {
   color: 'var(--da-accent)',

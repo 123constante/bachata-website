@@ -296,7 +296,8 @@ export const JOURNEYS: Journey[] = [
     person: { signedIn: false, dancer: 'complete', organisers: 0, userType: 'dancer' },
     auth: 'signin',
     then: 'join-team',
-    end: { path: '/account/o', screen: 'organiser Home of the joined organiser', state: 'member of the organiser' },
+    // Arc 1 1d/7c: a new seat lands on the welcome for the joined page (organiserFake ORG), not straight on Home.
+    end: { path: '/account/o/welcome?o=a0000000-0000-4000-8000-000000000001', screen: 'welcome to the joined organiser (Go to Home on it)', state: 'member of the organiser' },
   },
   {
     id: 'team-invite-unfinished-dancer',

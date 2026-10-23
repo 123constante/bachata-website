@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { clearInvitePrefill, readInvitePrefill } from "@/lib/invitePrefill";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,8 @@ import {
   type ProfileField,
 } from "@/lib/profileCompletion";
 import { saveMyDancerProfile, type SaveMyDancerProfileInput } from "@/lib/saveMyDancerProfile";
+import { Dancer4Flow } from "@/modules/organiser/home/onboarding/dancer4/Dancer4Flow";
+import { useAuth } from "@/hooks/useAuth";
 
 type Draft = { first_name: string; based_city_id: string; dance_role: DanceRoleValue | ""; avatar_url: string };
 
@@ -60,8 +63,19 @@ export const FinishProfileScreen = () => {
   // wanted is an account / organiser page. Then the screen says why, and has no
   // Skip -- skipping would only bounce them straight back here.
   const gated = isDancerGatedTarget(returnTo);
+  // An invited person's sender may have pre-filled the name and city (lib/invitePrefill, this person's only).
+  const { user } = useAuth();
+  // Keyed on the user: auth may resolve after the first render, and the store is only that person's to read.
+  const prefill = useMemo(() => readInvitePrefill(user?.id), [user?.id]);
 
-  const [draft, setDraft] = useState<Draft>({ first_name: "", based_city_id: "", dance_role: "", avatar_url: "" });
+  // What the person typed wins; until they type, the invite's prefill (which may arrive after the first render) shows.
+  const [edits, setEdits] = useState<Partial<Draft>>({});
+  const draft: Draft = {
+    first_name: edits.first_name ?? prefill?.firstName ?? "",
+    based_city_id: edits.based_city_id ?? prefill?.cityId ?? "",
+    dance_role: edits.dance_role ?? "",
+    avatar_url: edits.avatar_url ?? "",
+  };
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -84,6 +98,7 @@ export const FinishProfileScreen = () => {
     setNotice(null);
     try {
       await saveMyDancerProfile(pending);
+      clearInvitePrefill();
       // The dancer home's summary (name, city, role, photo) read the row before this save.
       void queryClient.invalidateQueries({ queryKey: [MY_DANCER_SUMMARY_ROOT] });
       // The SAME cache the rating card's gate is published from (ProfileCompletionChrome):
@@ -101,7 +116,7 @@ export const FinishProfileScreen = () => {
     }
   };
 
-  const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((prev) => ({ ...prev, [key]: value }));
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setEdits((prev) => ({ ...prev, [key]: value }));
 
   let body;
   if (mode.kind === "loading") {
@@ -165,6 +180,9 @@ export const FinishProfileScreen = () => {
         )}
       </div>
     );
+  } else if (gated && completion.profileId) {
+    // Arc 1 dancer 4: behind the dancer-first gate the four questions come one per screen.
+    body = <Dancer4Flow key={prefill ? "prefill" : "none"} missing={fields} profileId={completion.profileId} prefill={{ first_name: prefill?.firstName ?? null, city_id: prefill?.cityId ?? null }} refetch={completion.refetch} onDone={goBack} />;
   } else {
     body = (
       <form

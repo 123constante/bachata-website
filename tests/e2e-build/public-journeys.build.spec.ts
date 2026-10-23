@@ -42,7 +42,7 @@ const END_BY_ROW: Record<string, { testId: string; absent?: string; label?: stri
   'organiser-link-organiser-signed-in': { testId: 'home-jobs', absent: 'org-onboarding' },
   'organiser-link-open-request-signed-in': { testId: 'onboarding-pending-row' },
   'signin-unfinished-dancer-with-organiser': { testId: 'home-jobs', absent: 'org-onboarding', label: 'Next: set up your organiser page' },
-  'team-invite-existing-dancer': { testId: 'home-jobs', absent: 'org-onboarding' },
+  'team-invite-existing-dancer': { testId: 'org-page-welcome', absent: 'org-onboarding' },
   // M71: the end card's own button (only the 'in' and 'nice' cards carry it), never a question card.
   'bookmark-app-welcome-finished': { testId: 'onboarding-home', text: 'Go to Home' },
 };
@@ -110,9 +110,9 @@ async function runRow(page: Page, context: BrowserContext, row: Journey, dir: st
         } else {
           await tab.goto(`${link.pathname}${link.search}#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired`);
           await expect(tab).toHaveURL(/\/auth\?mode=signin&callbackError=expired/, { timeout: 20_000 });
-          await expect(tab.getByTestId('auth-callback-notice')).toContainText('expired');
+          await expect(tab.getByTestId('auth-callback-notice')).toContainText('run out');
           expect(new URL(tab.url()).searchParams.get('returnTo')).toBe(new URL(row.entry, 'https://x.test').searchParams.get('returnTo'));
-          await shot('expired-notice', '/auth sign in with the amber "That sign-in link has expired..." notice, returnTo kept');
+          await shot('expired-notice', '/auth sign in with the amber "That sign-in link has run out..." notice and "Send a new link", returnTo kept');
           await signinForm(tab, shot);
           await codeStep(tab, shot, backend, false);
         }
@@ -133,8 +133,8 @@ async function runRow(page: Page, context: BrowserContext, row: Journey, dir: st
         // Device 1 then types the code the link already used up.
         backend.verifyFailures = 1;
         await page.locator('input[autocomplete="one-time-code"]').pressSequentially(CODE);
-        await expect(page.getByText('That code is wrong or has expired')).toBeVisible();
-        await shot('device1-code-used', 'device 1 after the link was used on device 2: "That code is wrong or has expired"');
+        await expect(page.getByText(/That code is not right/)).toBeVisible();
+        await shot('device1-code-used', 'device 1 after the link was used on device 2: "That code is not right"');
         current = phone;
         page = phone;
       } else {

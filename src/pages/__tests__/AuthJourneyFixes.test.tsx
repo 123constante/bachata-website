@@ -83,7 +83,7 @@ afterEach(() => {
 describe('H7: resend on the code step', () => {
   it('starts at a 60 s cooldown', async () => {
     await reopenCodeBox('signin');
-    expect(screen.getByRole('button', { name: /resend code in 60s/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /send a new code in 60s/i })).toBeTruthy();
   });
 
   it('a refused (429) resend says so under the code box and waits again', async () => {
@@ -94,9 +94,9 @@ describe('H7: resend on the code step', () => {
     });
     mocks.signInWithOtp.mockResolvedValue({ error: { status: 429, code: 'over_email_send_rate_limit', message: 'For security purposes, you can only request this after 60 seconds.' } });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    await user.click(await screen.findByRole('button', { name: /^resend code$/i }));
+    await user.click(await screen.findByRole('button', { name: /^send a new code$/i }));
     expect(await screen.findByText(/wait a minute, then try again/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: /resend code in \d+s/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /send a new code in \d+s/i })).toBeTruthy();
   });
 });
 
@@ -140,7 +140,7 @@ describe('sign-up steps', () => {
   const toDetails = async () => {
     const user = userEvent.setup();
     renderAuth('/auth?mode=signup');
-    await user.click(await screen.findByRole('button', { name: /^continue as dancer$/i }));
+    await user.click(await screen.findByRole('button', { name: /^continue$/i }));
     await screen.findByText('A little about you');
     return user;
   };

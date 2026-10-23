@@ -181,13 +181,18 @@ it('a failed save says so and keeps what they typed', async () => {
 
 describe('gated vs plain visits (Skip, intro copy)', () => {
   const gatedAt = `/finish-profile?returnTo=${encodeURIComponent('/account/o')}`;
-  it('gated: explanation shown, NO Skip for now and no Not now, intro names exactly the missing four-field list', () => {
+  it('gated: explanation shown, NO Skip for now and no Not now, one question per screen for exactly the missing fields', () => {
+    // Arc 1 dancer 4: behind the gate the missing fields come one per screen, not as one form.
     h.completion = inc(['based_city_id', 'dance_role', 'avatar_url']);
     mount(gatedAt);
     expect(screen.getByText(/Finish your dancer profile first/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /skip for now/i })).toBeNull();
     expect(screen.queryByText(/not now/i)).toBeNull();
-    expect(screen.getByText('Still to add: city, dance role, photo.')).toBeTruthy();
+    expect(screen.getByTestId('dancer4').getAttribute('data-step')).toBe('based_city_id');
+    expect(screen.getByTestId('dancer4-progress').textContent).toBe('Step 1 of 3');
+    expect(screen.queryByLabelText(/first name/i)).toBeNull();
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+    expect(screen.queryByText(/Still to add/)).toBeNull();
     expect(screen.queryByText(/everything else on the site works/i)).toBeNull();
   });
   it('plain visit: keeps Skip for now and the still-to-add line', () => {
@@ -196,13 +201,23 @@ describe('gated vs plain visits (Skip, intro copy)', () => {
     expect(screen.getByRole('button', { name: /skip for now/i })).toBeTruthy();
     expect(screen.getByText(/Still to add: first name, city, dance role, photo\./)).toBeTruthy();
   });
-  it('partial save: one line only, "Saved. Still to add: ...", never the old intro beside it', async () => {
+  it('gated partial save: the answer is saved and the next question opens, never the old intro', async () => {
     h.completion = inc(['dance_role', 'avatar_url']);
     mount(gatedAt);
+    fireEvent.click(screen.getByRole('radio', { name: 'Both' }));
+    fireEvent.click(screen.getByRole('button', { name: /^next/i }));
+    await waitFor(() => expect(screen.getByTestId('dancer4').getAttribute('data-step')).toBe('avatar_url'));
+    expect(h.save).toHaveBeenCalledWith({ dance_role: 'Lead and Follow' });
+    expect(screen.getByTestId('dancer4-progress').textContent).toBe('Step 2 of 2');
+    expect(screen.queryByText(/^Still to add: dance role, photo/)).toBeNull();
+    expect(screen.queryByText(/rate parties/)).toBeNull();
+  });
+  it('plain (not gated) partial save keeps the one-line "Saved. Still to add: ..." form', async () => {
+    h.completion = inc(['dance_role', 'avatar_url']);
+    mount();
     fireEvent.click(screen.getByRole('radio', { name: 'Both' }));
     fireEvent.click(screen.getByRole('button', { name: /^save/i }));
     expect(await screen.findByText('Saved. Still to add: photo.')).toBeTruthy();
     expect(screen.queryByText(/^Still to add: dance role, photo/)).toBeNull();
-    expect(screen.queryByText(/rate parties/)).toBeNull();
   });
 });

@@ -105,7 +105,7 @@ describe('F8: the fix links on /app/page are 44px tap targets', () => {
     const why = await screen.findByTestId('page-why');
     const link = within(why).getByRole('link', { name: label });
     expect(link.className).toMatch(/\bda-tap\b/);
-    expect((link as HTMLElement).style.minHeight).toBe('44px');
+    expect(link.className).toMatch(/min-h-\[44px\]/);
   });
 });
 

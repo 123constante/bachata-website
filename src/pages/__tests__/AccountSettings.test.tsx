@@ -124,7 +124,14 @@ describe('settings home', () => {
   it('visible: offers Hide; confirming calls the RPC with true and shows the hidden state', async () => {
     h.setDisabled.mockResolvedValue({ ok: true, disabled: true });
     mount(SETTINGS);
+    // F2: the layout's Home breadcrumb is the one way home here; no second SiteHomeLink under it.
+    expect(JSON.parse((await screen.findByTestId('layout')).getAttribute('data-crumbs')!).length).toBeGreaterThan(0);
+    expect(screen.queryByTestId('site-home-link')).toBeNull();
     fireEvent.click(await screen.findByTestId('settings-disable-toggle'));
+    // D119 #4: the confirm is a sheet with its own title and the two buttons.
+    expect(await screen.findByRole('dialog', { name: 'Hide your dancer profile' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Keep it visible' })).toBeTruthy();
+    expect(h.setDisabled).not.toHaveBeenCalled();
     fireEvent.click(await screen.findByTestId('settings-disable-confirm'));
     await waitFor(() => expect(h.setDisabled).toHaveBeenCalledWith(true));
     expect((await screen.findByTestId('settings-disable-state')).textContent).toMatch(/hidden/i);
@@ -144,7 +151,23 @@ describe('settings home', () => {
     mount(SETTINGS);
     fireEvent.click(await screen.findByTestId('settings-disable-toggle'));
     fireEvent.click(await screen.findByTestId('settings-disable-confirm'));
+    // Review S5: said once, inside the open sheet; not again under the section.
+    expect((await screen.findByTestId('settings-disable-sheet-error')).textContent).toMatch(/no dancer profile/i);
+    expect(screen.queryByTestId('settings-disable-error')).toBeNull();
+    // Keep it visible closes the sheet: then the line under the section carries the reason.
+    fireEvent.click(screen.getByRole('button', { name: 'Keep it visible' }));
     expect((await screen.findByTestId('settings-disable-error')).textContent).toMatch(/no dancer profile/i);
+  });
+
+  // Review S3: settings has no filled (primary-looking) control at rest; Change email and Show again are outlined.
+  it.each(['visible', 'hidden'])('one primary: no filled control on the settings home (%s)', async (status) => {
+    h.visibility = { status };
+    mount(SETTINGS);
+    await screen.findByTestId('settings-disable-toggle');
+    for (const id of ['settings-email-submit', 'settings-disable-toggle', 'settings-signout', 'settings-signout-all']) {
+      expect(screen.getByTestId(id).className, id).not.toContain('bg-[var(--btn)]');
+    }
+    expect(screen.getByTestId('settings-email-submit').className).not.toContain('opacity-50');
   });
 
   it('change email: invalid is disabled with a reason; valid calls updateUser and shows the check-both-inboxes state', async () => {
@@ -208,6 +231,9 @@ describe('settings home', () => {
   it('sign out of all devices: global sign-out, then home; a failure says so and stays', async () => {
     mount(SETTINGS);
     fireEvent.click(await screen.findByTestId('settings-signout-all'));
+    expect(await screen.findByRole('dialog', { name: 'Sign out of all devices' })).toBeTruthy();
+    expect(h.signOut).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByTestId('settings-signout-all-confirm'));
     await waitFor(() => expect(h.signOut).toHaveBeenCalledWith(expect.objectContaining({ everywhere: true })));
     expect(await screen.findByText('start')).toBeTruthy();
   });
@@ -219,6 +245,7 @@ describe('settings home', () => {
     h.signOut.mockResolvedValue('failed');
     mount(SETTINGS);
     fireEvent.click(await screen.findByTestId('settings-signout-all'));
+    fireEvent.click(await screen.findByTestId('settings-signout-all-confirm'));
     await waitFor(() => expect(sonner.error).toHaveBeenCalledWith(expect.stringMatching(/did not complete/i)));
     expect(await screen.findByTestId('settings-signout-all')).toBeTruthy();
   });
@@ -386,6 +413,7 @@ describe('sign out everywhere: the other devices are never falsely reassured', (
     h.signOut.mockResolvedValue(outcome);
     mountReal(SETTINGS);
     fireEvent.click(await screen.findByTestId('settings-signout-all'));
+    fireEvent.click(await screen.findByTestId('settings-signout-all-confirm'));
     expect(await screen.findByText('start')).toBeTruthy();
     if (says) expect(toasted()).toMatch(OTHERS);
     else expect(toasted()).not.toMatch(OTHERS);

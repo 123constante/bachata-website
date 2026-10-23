@@ -43,7 +43,7 @@
 ## Reviewer Sign-off
 - [ ] Explicit reviewer approval recorded: “No public phone/whatsapp exposure.”
 
-## Verified on real data (required)
+## Verified on real data
 - Shapes surveyed (read-only, counts):
 - Checks run (matrix tests, every CI job step, browser walk at 390x844):
 - NOT verified (be honest):

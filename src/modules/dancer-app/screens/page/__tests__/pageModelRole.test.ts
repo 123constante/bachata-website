@@ -9,14 +9,15 @@ const shape = (dance_role: string | null, city_name: string | null) =>
 
 describe('pageModel role line, by stored dance_role', () => {
   it.each([
-    ['Leader', 'London', 'It says you lead and you dance in London.'],
-    ['Follower', 'London', 'It says you follow and you dance in London.'],
-    ['Lead and Follow', 'London', 'It says you lead and follow and you dance in London.'],
-    ['Leader', null, 'It says you lead.'],
-    ['Follower', null, 'It says you follow.'],
-    [null, 'London', 'It says you dance in London.'],
-    [null, null, 'It does not say your city or dance role yet.'],
-  ])('%s / %s', (role, city, line) => {
-    expect(pageModel(shape(role, city)).lookLines).toContain(line);
+    ['Leader', 'London', 'It says you lead and you dance in London.', true],
+    ['Follower', 'London', 'It says you follow and you dance in London.', true],
+    ['Lead and Follow', 'London', 'It says you lead and follow and you dance in London.', true],
+    ['Leader', null, 'It says you lead.', false],
+    ['Follower', null, 'It says you follow.', false],
+    [null, 'London', 'It says you dance in London.', false],
+    [null, null, 'It does not say your city or dance role yet.', false],
+  ])('%s / %s', (role, city, line, done) => {
+    // Review N8: the line's tick disc is filled only when the page says both role and city.
+    expect(pageModel(shape(role, city)).lookLines).toContainEqual({ text: line, done });
   });
 });

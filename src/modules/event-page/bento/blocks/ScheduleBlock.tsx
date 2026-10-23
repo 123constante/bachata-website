@@ -1,4 +1,6 @@
 ﻿import { Fragment, useMemo, useState } from 'react';
+import { flags } from '@/lib/featureFlags';
+import { usePeopleBadges, linkFor, nameFor, type PersonBadge } from '@/modules/person-page/badges';
 import { Link } from 'react-router-dom';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
@@ -1084,6 +1086,21 @@ const SingleRoomScheduleRow = ({
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
+const isPersonKind = (t: string | null): boolean => t === 'dj' || t === 'dancer' || t === 'teacher';
+
+/** One person of a session, link and name from the badges mapping. While the badges load, or
+ *  when the badges read failed (review C6), a DJ/dancer keeps the feed's own (valid) link and a
+ *  teacher has none, so nothing ever points at /teachers/ while those pages are closed; once
+ *  the read answered, no badge row means no link. `feedFallback` = loading or errored. */
+export const mapPersonFromBadges = (p: Person, badge: PersonBadge | undefined, feedFallback: boolean): Person => {
+  if (!isPersonKind(p.profileType)) return p;
+  const opts = { teacherPagesOpen: flags.teacherDetail };
+  const feedHref = p.profileType !== 'teacher' && !p.href?.startsWith('/teachers/') ? p.href : null;
+  const href = badge ? linkFor(badge, opts) : feedFallback ? feedHref : null;
+  const name = p.profileType === 'dj' ? nameFor('dj', { name: p.name, djName: badge?.djName }) : p.name;
+  return { ...p, href, name };
+};
+
 export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fallbackTimeLabel, timeToBeConfirmed, occurrenceDate }: ScheduleBlockProps) => {
   // londonDate is already in this route's first load; useLondonToday would add
   // two chunks to every /event view (perf ratchet). The chip renders after the
@@ -1118,7 +1135,18 @@ export const ScheduleBlock = ({ eventId, occurrenceId, occurrenceCancelled, fall
 
   // Nationality flags ride on the programme read itself: event_view_p5 emits
   // nationality_code on every person (parseProgramItems), so no second request.
-  const sessions = useMemo(() => normalize(rawSessions), [rawSessions]);
+  const normalized = useMemo(() => normalize(rawSessions), [rawSessions]);
+  // People come from the ONE mapping (badges.ts): the link is DJ page, else dancer page, else
+  // none (a teacher-only person is plain while the teacher pages are closed); a DJ slot shows
+  // the stage name. Vendors and other non-person kinds keep the feed's own link.
+  const { badges: peopleBadges, isLoading: badgesLoading, isError: badgesError } = usePeopleBadges(
+    useMemo(() => normalized.flatMap((s) => s.people.filter((p) => isPersonKind(p.profileType)).map((p) => p.id)), [normalized]),
+  );
+  const badgesFeedFallback = badgesLoading || badgesError;
+  const sessions = useMemo(() => normalized.map((s) => ({
+    ...s,
+    people: s.people.map((p) => mapPersonFromBadges(p, peopleBadges.get(p.id), badgesFeedFallback)),
+  })), [normalized, peopleBadges, badgesFeedFallback]);
 
   // Multi-room mode = ≥ 2 distinct non-null rooms anywhere in the event's
   // sessions. When false, room names are hidden across the schedule.

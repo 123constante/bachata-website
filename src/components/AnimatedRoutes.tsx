@@ -45,6 +45,8 @@ const Auth = lazyWithRetry(() => import("../pages/Auth"));
 // The organiser area (/account/o). Its AuthGuard lives inside this chunk; the
 // old /account URLs redirect into it (LegacyAccountRedirect, a tiny eager file).
 const OrganiserArea = lazyWithRetry(() => import("@/modules/organiser/shell/OrganiserRoutes"));
+// The person areas (AREA_PATHS): Your areas, teacher, DJ. One lazy chunk; its AuthGuard lives inside it.
+const AreaRoutes = lazyWithRetry(() => import("@/modules/areas/home/AreaRoutes"));
 // Admin organiser access and the invite landing: lazy chunks, no weight on the public first load.
 const AdminOrganisers = lazyWithRetry(() => import("@/modules/admin-organisers/AdminOrganisersPage"));
 const InviteRedeem = lazyWithRetry(() => import("@/modules/admin-organisers/InviteRedeemPage"));
@@ -237,6 +239,10 @@ export const AnimatedRoutes = () => {
                 ? <OrganiserArea />
                 : <Navigate to="/" replace />
             } />
+
+            <Route path="/account/areas" element={<AreaRoutes area="areas" />} />
+            <Route path="/account/t/*" element={<AreaRoutes area="teacher" />} />
+            <Route path="/account/dj/*" element={<AreaRoutes area="dj" />} />
 
             <Route path="/admin/organisers" element={<PageTransition><AdminOrganisers /></PageTransition>} />
             <Route path="/invite" element={<PageTransition><InviteRedeem /></PageTransition>} />

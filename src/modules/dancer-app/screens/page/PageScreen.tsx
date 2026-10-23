@@ -1,43 +1,55 @@
-import { useState, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Check } from 'lucide-react';
 import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
 import { toDancerError } from '../../api/errors';
 import { fmt, numbersCanRetry, numbersErrorCopy, viewsDetail, VIEWS_WEEK_LABEL } from '../../api/numbersModel';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { useMyNumbers } from '../../api/useMyNumbers';
 import { ACCOUNT_SETTINGS_LABEL } from '../../copy/sharedCopy';
-import { buttonStyle, linkStyle } from '../nights/nightsStyles';
+import { Card, FIELD_CLASS, GhostButton, PrimaryButton } from '@/modules/organiser/ui';
+import { LINK_GHOST, LINK_PRIMARY, ScreenTitle, SectionTitle, StickyActions, TEXT_ACTION } from '../blocks';
 import { shareOrCopy } from '../options/optionsModel';
 import NoProfileWayOut from '../options/NoProfileWayOut';
 import { NO_PROFILE_MESSAGE, PROFILE_HELP_MESSAGE } from '../../api/messageUs';
 import { MessageUsLink } from '../me/ui';
-import { ROW } from '../options/optionsUi';
 import { pageModel } from './pageModel';
 
-const ghost: CSSProperties = { ...buttonStyle, background: 'transparent', color: 'var(--da-text)', border: '1px solid var(--da-border)' };
-const off: CSSProperties = { opacity: 0.5, cursor: 'not-allowed' };
+import { CoupleArt } from '../art';
+
+/** Review N8 (prototype checklist): a filled 20px disc with a tick when the page shows it, an empty ring when not. */
+const TickDisc = ({ done }: { done: boolean }) => (
+  <span
+    aria-hidden="true"
+    data-testid="page-look-tick"
+    className={`inline-flex h-[20px] w-[20px] flex-none items-center justify-center rounded-full ${done ? 'bg-[var(--gold-fg)] text-[var(--bg)]' : 'border-2 border-[var(--line-strong)]'}`}
+  >
+    {done && <Check className="h-[13px] w-[13px]" strokeWidth={3} />}
+  </span>
+);
 
 const PageScreen = () => {
   const profile = useMyDancerEdit({ staleTime: 60_000 });
   const numbers = useMyNumbers();
   const [copied, setCopied] = useState<'idle' | 'copied' | 'manual'>('idle');
 
-  if (profile.isLoading) return <div className="da-card" role="status" data-testid="dancer-screen-page">Loading your page&hellip;</div>;
+  if (profile.isLoading) return <Card variant="padded" role="status" testId="dancer-screen-page">Loading your page&hellip;</Card>;
   if (profile.isError || !profile.data) {
     const err = toDancerError(profile.error);
     return (
-      <section className="da-card" data-testid="dancer-screen-page">
-        <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>My page</h1>
-        <p role="alert" style={{ fontSize: 14, margin: '8px 0' }}>{err.message}</p>
+      <Card variant="padded" testId="dancer-screen-page">
+        <ScreenTitle>My page</ScreenTitle>
+        {(err.code === 'no_profile' || err.code === 'profile_mismatch') && <CoupleArt />}
+        <p role="alert" className="my-[8px] text-[14px]">{err.message}</p>
         {err.code === 'no_profile' || err.code === 'profile_mismatch' ? (
           <>
-            <MessageUsLink message={err.code === 'no_profile' ? NO_PROFILE_MESSAGE : PROFILE_HELP_MESSAGE} style={ROW} />
+            <MessageUsLink message={err.code === 'no_profile' ? NO_PROFILE_MESSAGE : PROFILE_HELP_MESSAGE} className={LINK_GHOST} />
             <NoProfileWayOut />
           </>
         ) : (
-          <button type="button" className="da-tap" style={{ ...linkStyle, background: 'none', border: 0 }} onClick={() => void profile.refetch()}>Try again</button>
+          <button type="button" className={TEXT_ACTION} onClick={() => void profile.refetch()}>Try again</button>
         )}
-      </section>
+      </Card>
     );
   }
 
@@ -46,72 +58,77 @@ const PageScreen = () => {
   const hasPhoto = Boolean(profile.data.avatar_url);
 
   return (
-    <section data-testid="dancer-screen-page" style={{ display: 'grid', gap: 12 }}>
-      <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>My page</h1>
+    <section data-testid="dancer-screen-page" className="grid gap-[12px]">
+      <ScreenTitle>My page</ScreenTitle>
 
-      <div className="da-card" style={{ display: 'grid', gap: 6 }}>
-        <b style={{ fontSize: 14 }}>How your page looks</b>
-        <ul data-testid="page-look" style={{ margin: 0, paddingLeft: 18, fontSize: 14, display: 'grid', gap: 2 }}>
-          {m.lookLines.map((l) => <li key={l}>{l}</li>)}
-        </ul>
+      <div>
+        <SectionTitle as="p">How your page looks</SectionTitle>
+        <Card variant="padded">
+          <ul data-testid="page-look" className="m-0 grid list-none gap-[8px] p-0 text-[15px]">
+            {m.lookLines.map((l) => (
+              <li key={l.text} data-done={String(l.done)} className={`flex items-start gap-[10px] ${l.done ? '' : 'text-[var(--mut)]'}`}>
+                <TickDisc done={l.done} />
+                {l.text}
+              </li>
+            ))}
+          </ul>
+        </Card>
       </div>
 
-      <div className="da-card" data-testid="page-views" style={{ display: 'grid', gap: 2 }}>
-        <b style={{ fontSize: 14 }}>{VIEWS_WEEK_LABEL}</b>
+      <Card variant="padded" testId="page-views" className="da-tile-teal grid gap-[2px]">
+        <b className="text-[14px]">{VIEWS_WEEK_LABEL}</b>
         {numbers.isLoading ? (
-          <span className="da-muted" style={{ fontSize: 14 }}>Loading&hellip;</span>
+          <span className="text-[14px] text-[var(--mut)]">Loading&hellip;</span>
         ) : numbers.data ? (
           <>
-            <span style={{ fontSize: 28, fontWeight: 800 }} data-testid="page-views-count">{fmt(numbers.data.viewsWeek)}</span>
-            <span className="da-muted" style={{ fontSize: 13 }} data-testid="page-views-detail">{viewsDetail(numbers.data, hasPhoto)}</span>
+            <span className="da-num text-[28px] font-extrabold" data-testid="page-views-count">{fmt(numbers.data.viewsWeek)}</span>
+            <span className="da-tint text-[13px]" data-testid="page-views-detail">{viewsDetail(numbers.data, hasPhoto)}</span>
           </>
         ) : (
           <>
-            <span role="status" data-testid="page-views-error" style={{ fontSize: 14 }}>{numbersErrorCopy(numbers.error)}</span>
+            <span role="status" data-testid="page-views-error" className="text-[14px]">{numbersErrorCopy(numbers.error)}</span>
             {numbersCanRetry(numbers.error) && (
               <div>
-                <button type="button" className="da-tap" data-testid="page-views-retry" style={{ ...linkStyle, background: 'none', border: 0 }} onClick={() => void numbers.refetch()}>Try again</button>
+                <button type="button" className={TEXT_ACTION} data-testid="page-views-retry" onClick={() => void numbers.refetch()}>Try again</button>
               </div>
             )}
           </>
         )}
-      </div>
+      </Card>
 
-      <div style={{ display: 'grid', gap: 8 }}>
+      {/* Review N8: View and Share pinned at the bottom, above the tab bar (prototype .foot). */}
+      <StickyActions testId="page-actions">
         {disabled ? (
-          <button type="button" disabled aria-disabled="true" aria-describedby="page-why" className="da-tap" style={{ ...buttonStyle, ...off }} data-testid="page-view">View my page</button>
+          <PrimaryButton disabled aria-disabled="true" aria-describedby="page-why" testId="page-view">View my page</PrimaryButton>
         ) : (
-          <a href={m.url ?? undefined} className="da-tap" style={buttonStyle} data-testid="page-view">View my page</a>
+          <a href={m.url ?? undefined} className={LINK_PRIMARY} data-testid="page-view">View my page</a>
         )}
         {disabled ? (
-          <button type="button" disabled aria-disabled="true" aria-describedby="page-why" className="da-tap" style={{ ...ghost, ...off }} data-testid="page-share">Share my page</button>
+          <GhostButton disabled aria-disabled="true" aria-describedby="page-why" testId="page-share">Share my page</GhostButton>
         ) : (
-          <button
-            type="button"
-            className="da-tap"
-            style={ghost}
-            data-testid="page-share"
+          <GhostButton
+            testId="page-share"
             onClick={async () => {
               const out = await shareOrCopy(m.url as string, 'My dancer page');
               setCopied(out === 'copied' || out === 'manual' ? out : 'idle');
             }}
           >
             Share my page
-          </button>
+          </GhostButton>
         )}
         {m.disabledReason && (
-          <p id="page-why" data-testid="page-why" className="da-muted" style={{ fontSize: 13, margin: 0 }}>
+          <p id="page-why" data-testid="page-why" className="m-0 text-[13px] text-[var(--mut)]">
             {m.disabledReason}{' '}
             {/* F8: the only way forward when View and Share are off, so a full 44px tap target (px, not rem). */}
-            {m.fixHint === 'edit' && <Link to="/app/me/edit" className="da-tap" style={linkStyle}>Edit my profile</Link>}
-            {m.fixHint === 'account-settings' && <Link to={APP_ACCOUNT_SETTINGS_PATH} className="da-tap" style={linkStyle}>{ACCOUNT_SETTINGS_LABEL}</Link>}
+            {m.fixHint === 'edit' && <Link to="/app/me/edit" className={TEXT_ACTION}>Edit my profile</Link>}
+            {m.fixHint === 'account-settings' && <Link to={APP_ACCOUNT_SETTINGS_PATH} className={TEXT_ACTION}>{ACCOUNT_SETTINGS_LABEL}</Link>}
           </p>
         )}
-        {copied === 'copied' && <p role="status" className="da-muted" style={{ fontSize: 13, margin: 0 }}>Link copied</p>}
+        {copied === 'copied' && <p role="status" className="m-0 text-[13px] text-[var(--mut)]">Link copied</p>}
         {copied === 'manual' && m.url && (
-          <input readOnly value={m.url} aria-label="Link to my page" data-testid="page-share-field" onFocus={(e) => e.currentTarget.select()} style={{ width: '100%', minHeight: 44, borderRadius: 10, border: '1px solid var(--da-border)', background: 'var(--da-bg)', color: 'var(--da-text)', padding: '0 10px', fontSize: 14 }} />
+          <input readOnly value={m.url} aria-label="Link to my page" data-testid="page-share-field" onFocus={(e) => e.currentTarget.select()} className={`${FIELD_CLASS} min-h-[44px]`} />
         )}
-      </div>
+      </StickyActions>
     </section>
   );
 };
