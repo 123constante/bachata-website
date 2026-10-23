@@ -27,7 +27,8 @@ import { flags } from "@/lib/featureFlags";
 import { DancerRoleBar } from "@/modules/dancer-app/public-page/DancerRoleBar";
 import { useDancerRoleBar } from "@/modules/dancer-app/public-page/roleBarModel";
 import { PublicDancerPageV2 } from "@/modules/dancer-app/public-page/PublicDancerPageV2";
-import { buildPublicDancerPage, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
+import { NO_EXTRAS, buildPublicDancerPage, joinHref, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
+import { DancerWorldPage } from "@/modules/person-page/worlds/dancer/DancerWorldPage";
 
 type AttendanceRow = {
   event_id: string;
@@ -69,7 +70,8 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
   const id = resolved.id ?? undefined;
   // flags.personHub: the role bar shows "Back to <name>"; while it is on screen the public page
   // drops its own Back (one Back, never two). Null with the flag OFF, embedded, or off the public page.
-  const roleBar = useDancerRoleBar(id, resolved.slug, embedded || !publicPage);
+  // flags.personWorlds (not embedded) renders the frame's role tabs instead: no bar, so no bar read.
+  const roleBar = useDancerRoleBar(id, resolved.slug, embedded || !publicPage || flags.personWorlds);
   useCanonicalReplaceState({
     arrivedViaUuid: resolved.arrivedViaUuid,
     slug: resolved.slug,
@@ -96,7 +98,7 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
     enabled: !!id,
     staleTime: 1000 * 60 * 5,
   });
-  const { user } = useAuth();
+  const { user, authStatus } = useAuth();
   const dancerView = dancer ? mapDancerPublicProfile(dancer) : null;
   // No useSeo() here: DancerProfile renders only under app/routes/dancers.tsx,
   // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
@@ -374,6 +376,38 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
           </div>
         </div>
   );
+
+  // People arc S2 (flags.personWorlds): the shared frame + the dancer world. The Dancing tab of
+  // /people/:id (embedded) keeps today's page. OFF = everything below, unchanged.
+  if (flags.personWorlds && !embedded) {
+    const extras = publicPage?.extras ?? NO_EXTRAS;
+    const worldModel = buildPublicDancerPage(dancerView, extras);
+    // The same invite rule as today's page: signed-out (or anonymous) viewers only.
+    const showInvite = authStatus !== 'resolving' && (!user || user.is_anonymous === true);
+    const worldPath = resolved.slug ? `/dancers/${resolved.slug}` : `/dancers/${routeParam ?? dancerView.id}`;
+    return (
+      <GlobalLayout showSubheader={false} backHref="/dancers" gradientPalette="dancer">
+        <DancerWorldPage
+          // The route-resolved id, like the role bar: a linked profile's canonical row id differs
+          // and has no roles of its own (prod: teacher pages showed no tabs and no next class).
+          id={id ?? dancerView.id}
+          slug={resolved.slug}
+          input={{
+            name: dancerView.displayName,
+            photo: dancerView.avatarUrl,
+            nationality: dancerView.nationality,
+            city: dancerView.city,
+            danceRole: dancerView.partnerRole,
+            languages: extras.languages,
+            contacts: worldModel.contacts,
+          }}
+          shareTitle={worldModel.shareTitle}
+          inviteHref={showInvite ? joinHref(worldPath) : null}
+          ownerPlans={isSelfView ? ownerPlans : null}
+        />
+      </GlobalLayout>
+    );
+  }
 
   if (publicPage) {
     const gallery = (dancer as { gallery_urls?: unknown }).gallery_urls;
