@@ -1,0 +1,20 @@
+{
+ "renders": 30,
+ "minContrast": 4.79,
+ "lowContrast": [],
+ "smallTaps": [],
+ "clipped": [],
+ "offscreen": [],
+ "sideways": [],
+ "tabRowWrong": [],
+ "tabY": [
+  "390:164",
+  "360:164"
+ ],
+ "backY": [
+  114
+ ],
+ "fonts": [
+  "ok"
+ ]
+}
