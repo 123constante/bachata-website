@@ -1,4 +1,4 @@
-// "Do you also DJ or teach?" on the way to Go live (invite journey W2). Pure
+// "Do you also teach or DJ?" on the way to Go live (invite journey W2). Pure
 // rules; the screen is RoleQuestion.tsx. Asked once: only the roles the person
 // has neither claimed nor declined (my_role_intent_v1), so an answer, Yes or
 // No, writes person_roles / the decline and the question never repeats. A Yes
@@ -8,7 +8,7 @@ import type { Role } from '@/modules/areas/shared/fieldRegistry';
 import { sameValue, type Details } from '@/modules/areas/shared/roleModel';
 import type { RoleIntent } from '@/modules/areas/home/rolesApi';
 
-export const ROLE_QUESTION_TITLE = 'Do you also DJ or teach?';
+export const ROLE_QUESTION_TITLE = 'Do you also teach or DJ?';
 export const ROLE_QUESTION_HELP = 'A Yes adds a DJ or teacher page to your profile.';
 export const ROLE_QUESTION_REASON_BOTH = 'Answer both questions to continue.';
 export const ROLE_QUESTION_REASON_ONE = 'Answer the question to continue.';

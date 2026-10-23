@@ -10,9 +10,6 @@ import { InstagramInput } from '@/components/forms/InstagramInput';
 import { checkInstagramField } from '@/lib/instagramHandle';
 import { Frame, Hint, StepError, StepFooter, textOf } from './stepKinds';
 
-/** Why Continue is refused while the number is not complete (on screen, as the step error). */
-export const PHONE_INCOMPLETE = 'Finish the number first: pick the country, then type the rest.';
-
 export interface ContactStepConfig {
   label: string;
   help?: ReactNode;
@@ -24,11 +21,12 @@ export function makePhoneStep(key: string, c: ContactStepConfig) {
     const stored = textOf(value);
     const [draft, setDraft] = useState(stored);
     const [valid, setValid] = useState(false);
-    const [local, setLocal] = useState<string | null>(null);
+    // Continue on an incomplete number shows the field's own line ("Looks short. ... 10 digits after +44."), not a second message.
+    const [tried, setTried] = useState(false);
     const blank = draft.trim() === '';
     const send = () => {
       if (draft === stored) { onAnswer(stored || null); return; }
-      if (!valid) { setLocal(PHONE_INCOMPLETE); return; }
+      if (!valid) { setTried(true); return; }
       onAnswer(draft);
     };
     return (
@@ -38,15 +36,17 @@ export function makePhoneStep(key: string, c: ContactStepConfig) {
           <PhoneInput
             inputId={id}
             value={draft}
+            stored={stored}
             disabled={saving}
             autoFocus
-            error={local ?? error}
+            error={error}
             renderError={false}
-            onChange={(e164, ok) => { setDraft(e164); setValid(ok); setLocal(null); }}
+            showShort={tried}
+            onChange={(e164, ok) => { setDraft(e164); setValid(ok); }}
           />
           <Hint id={`${id}-hint`} required={required} help={c.help} />
         </div>
-        <div id={`${id}-error`}><StepError error={local ?? error} /></div>
+        <div id={`${id}-error`}><StepError error={error} /></div>
         <StepFooter blank={blank} required={required} saving={saving} hintId={`${id}-hint`} onContinue={send} onSkip={onSkip} />
       </Frame>
     );

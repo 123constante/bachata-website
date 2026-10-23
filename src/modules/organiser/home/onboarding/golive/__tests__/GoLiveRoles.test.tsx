@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Invite W2: "Do you also DJ or teach?" between the quick questions and All set. Counted as one more
+ * Invite W2: "Do you also teach or DJ?" between the quick questions and All set. Counted as one more
  * quick question; asked only for roles neither claimed nor declined; Continue off with its reason on
  * screen until answered; a Yes opens the minimum inline; the answers go through the role writers.
  * Harness copied from GoLiveFlow.test.tsx (same fakes at the RPC boundary).

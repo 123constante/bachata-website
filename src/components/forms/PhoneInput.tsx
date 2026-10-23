@@ -11,7 +11,10 @@
 //
 // A stored value that is not E.164 (a legacy number saved without its '+') is
 // shown as it is, with a Change button, until the person edits it: nothing is
-// emitted, so an untouched legacy value is never re-sent or blocked.
+// emitted, so an untouched legacy value is never re-sent or blocked. "Legacy" is
+// decided from the STORED value (the `stored` prop, else the value at mount),
+// never from the live draft: a half-typed "+447" is not E.164 either, and
+// reading the draft turned the box into "Saved before" after one digit (#977 W2d).
 // =============================================================================
 
 import React, { useId, useMemo, useRef, useState } from 'react';
@@ -28,8 +31,10 @@ import { cn } from '@/lib/utils';
 export type PhoneInputTone = 'app' | 'raffle';
 
 export interface PhoneInputProps {
-  /** The stored value: E.164, E.164 with spaces, a legacy number, or ''. */
+  /** What the field holds: the stored value at first, then each E.164 the field emitted. */
   value: string;
+  /** The value as saved. Only this can be "legacy"; omitted = the value at mount. */
+  stored?: string | null;
   onChange: (e164: string, isValid: boolean) => void;
   disabled?: boolean;
   autoFocus?: boolean;
@@ -43,9 +48,11 @@ export interface PhoneInputProps {
   renderError?: boolean;
   /** Show a stored value that is not E.164 as it is, until changed (default true). */
   allowLegacy?: boolean;
-  /** Show the grouped number and what will be saved once it is valid (default: app tone). */
+  /** Show the grouped number once it is valid (default: app tone). */
   showConfirm?: boolean;
   placeholder?: string;
+  /** Show the "looks short" line now, without waiting for the box to be left (the form tried to go on). */
+  showShort?: boolean;
 }
 
 const DEFAULT_CODE = 'GB';
@@ -113,11 +120,11 @@ const TONE = {
     menu: 'border border-[rgba(197,148,10,0.3)] bg-[#1A2E2A]',
     search: 'w-full rounded px-2 py-1 text-xs bg-black/30 border border-[rgba(197,148,10,0.25)] text-[#D8CCB0] placeholder:text-[#6f6757] focus:outline-none focus:border-[rgba(245,213,99,0.55)]',
     divider: 'border-[rgba(197,148,10,0.2)]',
-    row: 'py-1.5 text-[#D8CCB0] hover:bg-black/30',
+    row: 'min-h-[44px] py-1.5 text-[#D8CCB0] hover:bg-black/30',
     rowOn: 'bg-black/25 text-[#F5D563]',
     rowDial: 'font-mono text-[11px] text-[#A59474]',
     empty: 'text-xs text-[#6f6757]',
-    input: 'flex-1 min-w-0 h-10 rounded-md border border-[rgba(197,148,10,0.3)] bg-black/25 px-3 text-sm text-white placeholder:text-[#6f6757] focus:border-[rgba(245,213,99,0.55)] focus:outline-none focus:ring-1 focus:ring-[rgba(245,213,99,0.25)] disabled:opacity-50',
+    input: 'flex-1 min-w-0 h-[44px] rounded-md border border-[rgba(197,148,10,0.3)] bg-black/25 px-3 text-sm text-white placeholder:text-[#6f6757] focus:border-[rgba(245,213,99,0.55)] focus:outline-none focus:ring-1 focus:ring-[rgba(245,213,99,0.25)] disabled:opacity-50',
     error: 'text-[11px] text-rose-400',
     warn: 'text-[11px] text-amber-300',
     ok: 'text-[11px] text-emerald-300',
@@ -126,8 +133,10 @@ const TONE = {
 } as const;
 
 function FlagImg({ code, className }: { code: string; className?: string }) {
+  // A flag that does not load (weak signal, blocked CDN) is hidden: the dial code already names the country.
   return (
     <img
+      onError={(e) => { e.currentTarget.style.display = 'none'; }}
       src={`https://flagcdn.com/w20/${code.toLowerCase()}.png`}
       width={20}
       height={15}
@@ -140,6 +149,7 @@ function FlagImg({ code, className }: { code: string; className?: string }) {
 
 export const PhoneInput: React.FC<PhoneInputProps> = ({
   value,
+  stored,
   onChange,
   disabled,
   autoFocus,
@@ -151,6 +161,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
   allowLegacy = true,
   showConfirm,
   placeholder = '7700 900123',
+  showShort = false,
 }) => {
   const t = TONE[tone];
   const fallbackId = useId();
@@ -163,7 +174,9 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
     return r.ok && r.value ? r.value : value;
   }, [value]);
   const [legacyOpen, setLegacyOpen] = useState(false);
-  const legacy = allowLegacy && !legacyOpen && isLegacyPhone(value);
+  const [valueAtMount] = useState(value);
+  const saved = stored === undefined ? valueAtMount : (stored ?? '');
+  const legacy = allowLegacy && !legacyOpen && value === saved && isLegacyPhone(saved);
 
   // Country held in state -- not derived from value -- so selection sticks when digits are empty.
   const [countryCode, setCountryCode] = useState<string>(() => findByPrefix(parsed)?.code ?? DEFAULT_CODE);
@@ -189,7 +202,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
     () => checkLocalDigits(country.code, country.dial, localDigits),
     [country, localDigits],
   );
-  const feedback = phoneFeedback(country, check, touched);
+  const feedback = phoneFeedback(country, check, touched || showShort);
   const valid = (check.status === 'ok' || check.status === 'warn') && isValidE164(`${country.dial}${localDigits}`);
 
   // Ordered list: pinned section first, then rest alphabetical.
@@ -359,7 +372,6 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
         ) : confirm && valid ? (
           <div id={feedbackId} data-testid={`${feedbackTestId}-ok`} className={cn('mt-1', t.ok)}>
             <span aria-hidden="true">&#10003; </span>{groupedPhone(country, localDigits)}
-            <span className={cn('block', t.mut)}>Saved as {country.dial}{localDigits}</span>
           </div>
         ) : null}
       </div>

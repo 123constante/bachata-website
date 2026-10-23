@@ -12,7 +12,7 @@ export const OFFER_TITLE: Record<OfferRole, string> = {
 };
 export const OFFER_LINE: Record<OfferRole, string> = {
   teacher: 'Add your experience, classes and a photo, so dancers know who they are learning from.',
-  dj: 'Add a photo and the music you play, so dancers know whose set they are coming to.',
+  dj: 'Add a photo and a few words about your sets, so dancers know whose set they are coming to.',
 };
 export const OFFER_OPEN_LABEL: Record<OfferRole, string> = { teacher: 'Open my teacher page', dj: 'Open my DJ page' };
 export const MAYBE_LATER_LABEL = 'Maybe later';

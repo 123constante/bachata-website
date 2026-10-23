@@ -7,14 +7,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc: vi.fn(), from: vi.fn() } }));
 
 import { WIZARD_STEPS } from '../registry';
 import { SKIP_LABEL } from '../stepKinds';
-import { PHONE_INCOMPLETE } from '../contactSteps';
 import { INSTAGRAM_POST_LINK, INSTAGRAM_PROBLEM_COPY } from '@/lib/instagramHandle';
 import { dancerSaveMessage } from '../dancerApi';
+import { selfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
 
 afterEach(cleanup);
 
@@ -44,12 +45,35 @@ describe.each(['dancer:phone_or_whatsapp', 'organiser:contact_phone'])('phone st
     expect(onAnswer).toHaveBeenCalledWith('+447700900123');
   });
 
+  it('typed digit by digit (a real phone keyboard), the box stays and the number saves as E.164', async () => {
+    const onAnswer = mountStep(key);
+    const user = userEvent.setup();
+    await user.type(box(), '7');
+    expect(screen.queryByTestId('phone-legacy')).toBeNull();
+    await user.type(box(), '700900123');
+    expect(box().value).toBe('7700900123');
+    cont();
+    expect(onAnswer).toHaveBeenCalledWith('+447700900123');
+  });
+
+  it('typed "77" digit by digit: the box keeps 77 and, once left, says the number is short', async () => {
+    mountStep(key);
+    const user = userEvent.setup();
+    await user.type(box(), '77');
+    expect(screen.queryByTestId('phone-legacy')).toBeNull();
+    expect(box().value).toBe('77');
+    await user.tab();
+    expect(screen.getByTestId('phone-feedback').textContent).toBe('Looks short. United Kingdom numbers have 10 digits after +44.');
+  });
+
   it('an incomplete number sends nothing and says what to do', () => {
     const onAnswer = mountStep(key);
     fireEvent.change(box(), { target: { value: '7700' } });
     cont();
     expect(onAnswer).not.toHaveBeenCalled();
-    expect(screen.getByTestId('step-error').textContent).toBe(PHONE_INCOMPLETE);
+    // One message, the field's own, saying what is missing (never a second step error).
+    expect(screen.getByTestId('phone-feedback').textContent).toBe('Looks short. United Kingdom numbers have 10 digits after +44.');
+    expect(screen.queryByTestId('step-error')).toBeNull();
   });
 
   it('an untouched legacy number is shown as it is and Continue sends the same value (no change)', () => {
@@ -103,5 +127,11 @@ describe('server refusal copy', () => {
     const m = dancerSaveMessage(`new row violates: ${code}`);
     expect(m).not.toMatch(/invalid_/);
     expect(m).not.toMatch(/not saved\. Try again/);
+  });
+
+  it('the organiser and dancer Instagram refusals say the same rule: bare name, @name or a link', () => {
+    const organiser = selfServeErrorCopy({ message: 'invalid_instagram' }).message;
+    expect(organiser).toBe(dancerSaveMessage('invalid_instagram'));
+    expect(organiser).toMatch(/yourname or @yourname, or your profile link/);
   });
 });

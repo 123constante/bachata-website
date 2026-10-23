@@ -1,4 +1,4 @@
-// The "Do you also DJ or teach?" screen on the way to Go live (invite journey
+// The "Do you also teach or DJ?" screen on the way to Go live (invite journey
 // W2). Rules and copy: ./roleQuestion.ts. Yes / No per role; a Yes opens the
 // minimum inline; Continue stays off, with its reason on screen, until every
 // role is answered. Writing is the caller's (saveRoleAnswers).

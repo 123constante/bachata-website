@@ -1,14 +1,18 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { checkOverflow, fakeSupabase, frames, type GoLiveScenario } from './helpers';
-import { GOLIVE_SERIES_ID, GOLIVE_EVENT_NAME } from './fakeSupabase.mjs';
+import { checkOverflow, fakeSupabase, frames, settled, ORG2_SLUG, type GoLiveScenario } from './helpers';
+import { FLAG_EVENT_SLUG, GOLIVE_SERIES_ID, GOLIVE_EVENT_NAME } from './fakeSupabase.mjs';
 
 /**
  * Invite W2 on a PHONE (390x844): the phone and Instagram fields, "Do you also DJ
  * or teach?", the go-live gaps that link to the role editor, and "It's live" with
  * the DJ / teacher offer. All inside /account/o/go-live, on the fake's goLive
- * scenarios (fakeSupabase.mjs goLiveRpcs). Every screen is checked for: no
- * sideways scroll, every visible control >= 44px tall, axe colour contrast (AA).
+ * scenarios (fakeSupabase.mjs goLiveRpcs). The same phone field in the organiser
+ * Contact details sheet and the event-page raffle dialog (W2d), both outside
+ * `main`, so their checks are scoped to the dialog. Every screen is checked for:
+ * no sideways scroll, every visible control >= 44px tall, axe colour contrast (AA).
+ * The phone box is always TYPED key by key (pressSequentially), never fill():
+ * fill() sets the whole number in one event and hid the "Saved before" bug (#977 W2d).
  * SHOTS=<dir> writes the design record screenshots (docs/design/977/).
  */
 
@@ -20,16 +24,16 @@ const shot = async (page: Page, name: string) => {
   await page.screenshot({ path });
 };
 
-/** The self-running checks every screen gets. */
-async function screenChecks(page: Page, label: string) {
+/** The self-running checks every screen gets. `scope` is where the taps and contrast are read (a dialog sits outside main). */
+async function screenChecks(page: Page, label: string, scope = 'main', tapScope = scope) {
   expect(await checkOverflow(page), `${label}: no sideways scroll`).toEqual([]);
-  const small = await page.evaluate(() => [...document.querySelectorAll('main button, main a[href], main input, main textarea, main select')]
+  const small = await page.evaluate((s) => [...document.querySelectorAll(['button', 'a[href]', 'input', 'textarea', 'select'].map((t) => `${s} ${t}`).join(', '))]
     .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; })
     .filter((el) => !(el instanceof HTMLInputElement && el.type === 'hidden'))
     .map((el) => ({ el: (el.getAttribute('data-testid') ?? el.textContent ?? el.tagName).trim().slice(0, 40), h: Math.round(el.getBoundingClientRect().height) }))
-    .filter((x) => x.h < 44));
+    .filter((x) => x.h < 44), tapScope);
   expect(small, `${label}: taps >= 44px`).toEqual([]);
-  const axe = await new AxeBuilder({ page }).include('main').withRules(['color-contrast']).analyze();
+  const axe = await new AxeBuilder({ page }).include(scope).withRules(['color-contrast']).analyze();
   expect(axe.violations.flatMap((v) => v.nodes.map((n) => n.target.join(' '))), `${label}: contrast >= 4.5`).toEqual([]);
 }
 
@@ -59,14 +63,21 @@ test.describe('phone field (organiser contact_phone question)', () => {
     await screenChecks(page, 'phone empty');
     await shot(page, 'phone-empty');
 
-    await box.fill('7700900123');
-    await expect(step.getByTestId('phone-feedback-ok')).toBeVisible();
+    // Key by key, as a phone keyboard types: the box must survive the first digit.
+    await box.pressSequentially('7');
+    await expect(step.getByTestId('phone-legacy')).toHaveCount(0);
+    await box.pressSequentially('700900123');
+    await expect(box).toHaveValue('7700900123');
+    await expect(step.getByTestId('phone-feedback-ok')).toHaveText(/^\S*\s*\+44 7700 900123$/);
     await screenChecks(page, 'phone valid');
     await shot(page, 'phone-valid');
 
-    await box.fill('77');
+    await box.clear();
+    await box.pressSequentially('77');
+    await expect(step.getByTestId('phone-legacy')).toHaveCount(0);
     await step.getByRole('button', { name: 'Continue' }).click();
-    await expect(step).toContainText('Finish the number first');
+    await expect(box).toHaveValue('77');
+    await expect(step.getByTestId('phone-feedback')).toHaveText('Looks short. United Kingdom numbers have 10 digits after +44.');
     await screenChecks(page, 'phone invalid');
     await shot(page, 'phone-invalid');
   });
@@ -102,7 +113,7 @@ test.describe('Instagram field (organiser instagram question)', () => {
   }
 });
 
-test.describe('"Do you also DJ or teach?"', () => {
+test.describe('"Do you also teach or DJ?"', () => {
   const answers: [string, { teacher: boolean; dj: boolean }][] = [
     ['roles-no', { teacher: false, dj: false }],
     ['roles-dj-yes', { teacher: false, dj: true }],
@@ -112,7 +123,7 @@ test.describe('"Do you also DJ or teach?"', () => {
   for (const [name, a] of answers) {
     test(name, async ({ page }) => {
       await open(page, {});
-      await continueTo(page, 'Do you also DJ or teach?');
+      await continueTo(page, 'Do you also teach or DJ?');
       await screenChecks(page, `${name} unanswered`);
       if (name === 'roles-no') await shot(page, 'roles-unanswered');
       await page.getByTestId(`golive-role-teacher-${a.teacher ? 'yes' : 'no'}`).click();
@@ -151,7 +162,7 @@ test('go-live gaps link to the role editor', async ({ page }) => {
 
 test("It's live with the DJ / teacher offer", async ({ page }) => {
   await open(page, { liveOk: true });
-  await continueTo(page, 'Do you also DJ or teach?');
+  await continueTo(page, 'Do you also teach or DJ?');
   await page.getByTestId('golive-role-teacher-yes').click();
   await page.getByTestId('golive-role-teacher-teaching_styles').fill('Bachata Sensual');
   await page.getByTestId('golive-role-dj-yes').click();
@@ -167,4 +178,101 @@ test("It's live with the DJ / teacher offer", async ({ page }) => {
   await expect(page.getByTestId('org-done-offer-dj')).toBeVisible();
   await screenChecks(page, "it's live");
   await shot(page, 'its-live-offer');
+});
+
+// W2d: the same phone field in the organiser Contact details sheet (document.body, ink/cream).
+test.describe('phone field in the Contact details sheet', () => {
+  const SHEET = '[data-testid="eip-contact-sheet"]';
+  async function openSheet(page: Page, contactPhone: string | null) {
+    await fakeSupabase(page, { signedInAsOwner: true, realClock: true, contactPhone });
+    await page.goto(`/organisers/${ORG2_SLUG}`);
+    await page.getByTestId('eip-contact').waitFor();
+    await settled(page);
+    await page.getByTestId('eip-contact').getByRole('button', { name: 'Edit contact details' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Contact details' });
+    await expect(sheet).toBeVisible();
+    return sheet;
+  }
+
+  test('empty, valid, too short', async ({ page }) => {
+    const sheet = await openSheet(page, null);
+    const box = sheet.getByLabel('Phone', { exact: true });
+    await expect(box).toHaveValue('');
+    await screenChecks(page, 'sheet phone empty', SHEET);
+    await shot(page, 'sheet-phone-empty');
+
+    await box.pressSequentially('7');
+    await expect(sheet.getByTestId('phone-legacy')).toHaveCount(0);
+    await box.pressSequentially('700900123');
+    await expect(box).toHaveValue('7700900123');
+    await expect(sheet.getByTestId('eip-phone-feedback-ok')).toContainText('+44 7700 900123');
+    await screenChecks(page, 'sheet phone valid', SHEET);
+    await shot(page, 'sheet-phone-valid');
+
+    await box.clear();
+    await box.pressSequentially('77');
+    await box.blur();
+    await expect(box).toHaveValue('77');
+    await expect(sheet.getByTestId('eip-phone-feedback')).toHaveText('Looks short. United Kingdom numbers have 10 digits after +44.');
+    await expect(sheet.getByRole('button', { name: 'Done' })).toBeDisabled();
+    await screenChecks(page, 'sheet phone too short', SHEET);
+    await shot(page, 'sheet-phone-short');
+  });
+
+  test('a legacy stored number: shown as it is, Change opens the field', async ({ page }) => {
+    const sheet = await openSheet(page, '07700900123');
+    await expect(sheet.getByTestId('phone-legacy-value')).toHaveText('07700900123');
+    await expect(sheet.getByRole('button', { name: 'Done' })).toBeEnabled();
+    await screenChecks(page, 'sheet phone legacy', SHEET);
+    await shot(page, 'sheet-phone-legacy');
+    await sheet.getByTestId('phone-legacy-change').click();
+    await expect(sheet.getByRole('button', { name: /^Country: / })).toBeVisible();
+    await screenChecks(page, 'sheet phone legacy changed', SHEET);
+    await shot(page, 'sheet-phone-legacy-change');
+  });
+});
+
+// W2d: the raffle wrapper (gold tone) on the event page. The entry is never submitted.
+test.describe('phone field in the raffle', () => {
+  const DIALOG = '[role="dialog"]';
+  // Taps are read on the phone field (the raffle tone's own controls); contrast on the whole dialog.
+  const FIELD = '[role="dialog"] form';
+  test('empty, valid, too short', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await fakeSupabase(page, { realClock: true, raffle: true });
+    await page.goto(`/event/${FLAG_EVENT_SLUG}`);
+    await settled(page);
+    await page.getByRole('button', { name: 'Pull the lever to enter the raffle' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Enter the raffle' });
+    const box = dialog.locator('#raffle-phone');
+    await expect(box).toBeVisible();
+    await expect(box).toHaveValue('');
+    const country = dialog.getByRole('button', { name: /^Country: / });
+    for (const [what, el] of [['phone box', box], ['country button', country]] as const) {
+      const b = await el.boundingBox();
+      expect(b!.height, `raffle ${what} height`).toBeGreaterThanOrEqual(44);
+    }
+    await screenChecks(page, 'raffle phone empty', DIALOG, `${FIELD} .flex.items-stretch`);
+    await shot(page, 'raffle-phone-empty');
+
+    await box.pressSequentially('7700900123');
+    await expect(box).toHaveValue('7700900123');
+    await expect(dialog.getByTestId('raffle-phone-feedback')).toHaveCount(0);
+    await screenChecks(page, 'raffle phone valid', DIALOG, `${FIELD} .flex.items-stretch`);
+    await shot(page, 'raffle-phone-valid');
+
+    await box.clear();
+    await box.pressSequentially('77');
+    await box.blur();
+    await expect(box).toHaveValue('77');
+    await expect(dialog.getByTestId('raffle-phone-feedback')).toHaveText('Looks short. United Kingdom numbers have 10 digits after +44.');
+    await screenChecks(page, 'raffle phone too short', DIALOG, `${FIELD} .flex.items-stretch`);
+    await shot(page, 'raffle-phone-short');
+
+    // The country list: every row a 44px tap.
+    await country.click();
+    const rows = dialog.getByRole('option');
+    const heights = await rows.evaluateAll((els) => els.slice(0, 12).map((el) => Math.round(el.getBoundingClientRect().height)));
+    expect(heights.filter((h) => h < 44), 'raffle country rows >= 44px').toEqual([]);
+  });
 });

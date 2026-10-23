@@ -1,5 +1,5 @@
 /**
- * Invite W2 "Do you also DJ or teach?": tables over role combinations x what is already saved.
+ * Invite W2 "Do you also teach or DJ?": tables over role combinations x what is already saved.
  * The question never repeats (claimed or declined roles are not asked); a Yes sends ONLY the
  * minimum keys that differ; an answer that changes nothing sends nothing.
  */

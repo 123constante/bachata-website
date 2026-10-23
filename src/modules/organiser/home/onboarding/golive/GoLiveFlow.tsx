@@ -101,7 +101,7 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo, roleWriters 
   const contact = useQuery({ queryKey: organiserContactSettingsQueryKey(organiserId ?? undefined, userId), queryFn: () => fetchContactSettings(organiserId!), enabled: !!organiserId });
   const ws = useSeriesWorkspace(seriesId ?? '', !!seriesId);
   const eventName = ws.data?.series.name ?? null;
-  // "Do you also DJ or teach?" is asked only on the way to publishing an event; an intent that fails to load skips it.
+  // "Do you also teach or DJ?" is asked only on the way to publishing an event; an intent that fails to load skips it.
   const intent = useQuery({ queryKey: myRoleIntentQueryKey, queryFn: fetchMyRoleIntent, enabled: !!seriesId, retry: false });
   const intentSettled = !seriesId || !!intent.data || intent.isError;
 

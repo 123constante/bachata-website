@@ -11,6 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
+import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ProfileEntity } from '@/modules/organiser/profile/profileForm';
@@ -21,6 +22,9 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn() } })
 import EditInPlaceLayer from '../EditInPlaceLayer';
 import type { EipBridge } from '../bridge';
 import { CONTACT_COPY } from '../contactModel';
+import { PHONE_FIELD_TOKENS } from '../sheetStyles';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const ID = '22222222-2222-4222-8222-222222222222';
 const ENTITY = {
@@ -204,14 +208,24 @@ describe('the Contact details sheet', () => {
     expect(patches(rpc)[0]).not.toHaveProperty('contact_phone');
   });
 
-  it('changing a legacy number: Change opens the picker; a short number blocks Done with what to do', async () => {
+  it('changing a legacy number: Change opens the picker; a short number blocks Done and the field says what is missing (one message)', async () => {
     setup(settings({ contact_phone: '2345678' }));
     const d = await openSheet();
     fireEvent.click(within(d).getByTestId('phone-legacy-change'));
     fireEvent.change(within(d).getByLabelText('Phone'), { target: { value: '7700 9' } });
     const done = within(d).getByRole('button', { name: 'Done' }) as HTMLButtonElement;
     expect(done.disabled).toBe(true);
-    expect(within(d).getByRole('alert').textContent).toMatch(/Pick the country, then type the number/);
+    expect(within(d).getByTestId('eip-phone-feedback').textContent).toBe('Looks short. United Kingdom numbers have 10 digits after +44.');
+    expect(within(d).queryByRole('alert')).toBeNull();
+  });
+
+  it('the phone field carries the organiser tokens itself (the public page has no theme.css), equal to .org-theme', async () => {
+    const css = readFileSync(resolve(__dirname, '../../theme.css'), 'utf8');
+    const block = css.slice(css.indexOf('.org-theme {'), css.indexOf('}', css.indexOf('.org-theme {')));
+    for (const [k, v] of Object.entries(PHONE_FIELD_TOKENS)) expect(block, k).toMatch(new RegExp(`${k}:\\s*${v};`));
+    setup(settings({}));
+    const d = await openSheet();
+    expect(within(d).getByTestId('eip-contact-phone').style.getPropertyValue('--danger')).toBe(PHONE_FIELD_TOKENS['--danger']);
   });
 
   it('an empty phone: the switch is disabled WITH the reason; typing a phone enables it', async () => {
@@ -223,6 +237,27 @@ describe('the Contact details sheet', () => {
     fireEvent.change(within(d).getByLabelText('Phone'), { target: { value: '07700 900123' } });
     expect((sw(d, 'Phone') as HTMLButtonElement).disabled).toBe(false);
     expect(sw(d, 'Phone').getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('typing digit by digit into an empty phone keeps the box (never the "Saved before" legacy box)', async () => {
+    setup(settings({ contact_phone: null }));
+    const d = await openSheet();
+    const user = userEvent.setup();
+    await user.type(within(d).getByLabelText('Phone'), '7');
+    expect(within(d).queryByTestId('phone-legacy')).toBeNull();
+    await user.type(within(d).getByLabelText('Phone'), '700900123');
+    expect((within(d).getByLabelText('Phone') as HTMLInputElement).value).toBe('7700900123');
+    expect((within(d).getByRole('button', { name: 'Done' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('typing a new number over a stored one, digit by digit, keeps the box', async () => {
+    setup(settings({}));
+    const d = await openSheet();
+    const user = userEvent.setup();
+    await user.clear(within(d).getByLabelText('Phone'));
+    await user.type(within(d).getByLabelText('Phone'), '77');
+    expect(within(d).queryByTestId('phone-legacy')).toBeNull();
+    expect((within(d).getByLabelText('Phone') as HTMLInputElement).value).toBe('77');
   });
 
   it('clearing the phone turns its switch off and disabled, and the preview never says public', async () => {
@@ -238,7 +273,8 @@ describe('the Contact details sheet', () => {
     setup(settings({}));
     const d = await openSheet();
     fireEvent.change(within(d).getByLabelText('Phone'), { target: { value: '12' } });
-    expect(within(d).getByRole('alert').textContent).toBeTruthy();
+    // The reason is the field's own line, shown at once because Done is off (one message, W2d).
+    expect(within(d).getByTestId('eip-phone-feedback').textContent).toBe('Looks short. United Kingdom numbers have 10 digits after +44.');
     expect((within(d).getByRole('button', { name: 'Done' }) as HTMLButtonElement).disabled).toBe(true);
   });
 

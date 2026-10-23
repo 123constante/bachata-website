@@ -9,14 +9,14 @@
 // (useKeyboardInset), so Done stays above the phone keyboard; 16px inputs; a
 // modal dialog with focus in the phone box on open, Tab trapped, Escape and the
 // overlay close it, and the caller returns focus to the "Edit contact details" row.
-import { useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { useKeyboardInset } from '@/modules/organiser/ui/useKeyboardInset';
 import { CONTACT_COPY, contactDraftsFor, contactItems, contactWillSave, type ContactItem, type StoredContact } from './contactModel';
 import type { Drafts } from './draftModel';
 import { checkField } from './fieldRules';
 import { inBody } from './layers';
 import { CREAM, GOLD, INK } from './parts';
-import { btn, inputStyle, sheetFrame, trapTab } from './sheetStyles';
+import { PHONE_FIELD_TOKENS, btn, inputStyle, sheetFrame, trapTab } from './sheetStyles';
 import { PhoneInput } from '@/components/forms/PhoneInput';
 
 export interface ContactSheetProps {
@@ -84,7 +84,8 @@ export default function ContactSheet({ stored, drafts, onDone, onClose }: Contac
   const check = useMemo(() => checkField('contact_phone', phone), [phone]);
   // A stored number saved before the one phone rule (no '+') is kept as it is until it is changed: never a blocked Done.
   const phoneOk = check.ok || phone === (stored.phone ?? '');
-  const showError = (touched || phone !== initialPhone) && !phoneOk ? check.error : null;
+  // An edited number is the field's to explain, at once, since Done is off ("Looks short. ..."); the sheet speaks only for an untouched stored draft it refuses (one message, never two).
+  const showError = touched && phone === initialPhone && !phoneOk ? check.error : null;
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') {
@@ -113,8 +114,8 @@ export default function ContactSheet({ stored, drafts, onDone, onClose }: Contac
 
         <label htmlFor={phoneId} style={label}>Phone</label>
         {/* The ONE phone field (country first, saved as E.164). The sheet sits in document.body, so it carries the theme itself. */}
-        <div className="org-theme" style={{ background: 'transparent' }} data-testid="eip-contact-phone">
-          <PhoneInput inputId={phoneId} value={phone} onChange={(e164) => setPhone(e164)} autoFocus error={showError} feedbackTestId="eip-phone-feedback" />
+        <div className="org-theme" style={{ ...PHONE_FIELD_TOKENS, background: 'transparent' } as CSSProperties} data-testid="eip-contact-phone">
+          <PhoneInput inputId={phoneId} value={phone} stored={stored.phone ?? ''} onChange={(e164) => setPhone(e164)} autoFocus error={showError} feedbackTestId="eip-phone-feedback" showShort={phone !== initialPhone && !phoneOk} />
         </div>
         <SwitchRow item={items.phone} onToggle={() => setShowPhone(!items.phone.isPublic)} />
 
