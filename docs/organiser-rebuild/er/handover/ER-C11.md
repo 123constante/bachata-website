@@ -5,7 +5,8 @@ Branch `claude/er-c11-organisers` from `claude/er-wave1`. Server NOT landed (AD1
 ## Pinned interface for later slices
 `import { InvitationsList, ... } from '@/modules/organiser/organisers'`
 - `<InvitationsList />` for Home "Invitations" (C12 mounts it; renders nothing when empty or the server is absent). Accept / Decline call `series_invite_respond_v1`.
-- `controlState(role: 'owner'|'co'|'none', control, closedText?)` is the ONE role x control table (invite, cancelInvite, removeOrganiser, leave, end, stopRepeating, deleteDraft, cancelOneOff). The integrating slice should use it to hide/disable End, Stop repeating, Delete draft, Cancel one-off for co-organisers (those files are outside this card). `OWNER_ONLY_REASON` is the reason text.
+- `controlState(role: 'owner'|'co'|'none', control, closedText?)` is the ONE role x control table (invite, cancelInvite, removeOrganiser, leave, end, stopRepeating, deleteDraft, cancelOneOff).
+- **WITHDRAWN by ER-FIX2-S4 (owner decision 4, 2026-10-22):** the earlier line here told C12/integrators to hide or disable End, Stop repeating, Delete draft and Cancel one-off for co-organisers. Do NOT do that: everyone on an event has full control. `OWNER_ONLY` and `OWNER_ONLY_REASON` no longer exist. See `ER-FIX2-S4.md`.
 - `useSeriesOrganisers(seriesId)` (series_organisers_v1), `viewerRole(rows, myPageIds)`, `publicLine(rows)` ("By owner, co" accepted only; the public page is not wired here).
 - Client: `inviteOrganiser`, `cancelInvite`, `respondToInvite`, `leaveEvent`, `removeOrganiserPage`, `searchOrganiserPages`; `OrganiserApiError(kind)`.
 

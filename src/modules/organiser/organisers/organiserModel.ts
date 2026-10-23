@@ -1,6 +1,11 @@
 // Co-organisers (ER-C11): who runs an event, who may do what, and the invite rules.
 // Pure (no client import). Built to ER-INTERFACE section 4 + the AS BUILT block:
 // series_organisers_v1 is its own read; organiser changes save at once.
+// ER-FIX2-S4 (owner decision 4, AD2 live on prod): everyone on an event has FULL
+// control. The only difference left between owner and co is Leave: the owner page
+// cannot leave (the server refuses it) and nobody removes the owner page.
+
+import { eventLock } from '@/modules/organiser/shared/eventState';
 
 export type OrganiserRole = 'owner' | 'co';
 export type OrganiserStatus = 'accepted' | 'invited';
@@ -28,11 +33,12 @@ export interface Invitation {
 /** The viewer's place on ONE event. 'none' = not on it (or only invited). */
 export type ViewerRole = 'owner' | 'co' | 'none';
 
-export const BLOCK_TEXT = 'Every organiser can edit. Only the owner can end the event.';
-export const OWNER_ONLY_REASON = 'Only the owner can do this.';
-export const REMOVE_OWNER_ONLY_REASON = 'Only the owner can remove an organiser.';
+export const BLOCK_TEXT = 'Every organiser on this event can edit it, invite, remove a co-organiser and end it.';
+export const OWNER_CANNOT_LEAVE = 'The owner page cannot leave this event.';
 export const NOT_ON_EVENT_REASON = 'You are not an organiser of this event.';
-export const NO_ORGANISERS = 'No organiser is listed for this event yet.';
+export const NO_ORGANISERS = 'No organiser page is listed for this event yet.';
+/** F5: the empty list says what the person can do when Invite is on. */
+export const emptyText = (inviteOn: boolean): string => (inviteOn ? `${NO_ORGANISERS} Use Invite an organiser below to add a page.` : NO_ORGANISERS);
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 
@@ -78,6 +84,21 @@ export function viewerRole(rows: OrganiserRow[], myPageIds: string[]): ViewerRol
   return mine.length ? 'co' : 'none';
 }
 
+/** What the event read and Home say about the viewer, for when the organiser list cannot. */
+export interface EventStanding { organiserIds: readonly string[]; homeRole: 'owner' | 'manager' | null }
+
+/**
+ * F5: the viewer's role on THIS event. An accepted list is the truth. With no accepted row
+ * (571 of 747 prod series link no page) the event read decides: my page first in its
+ * organiser ids -> owner; linked, or the event listed under my page on Home -> co.
+ */
+export function viewerRoleOnEvent(rows: OrganiserRow[], myPageIds: string[], ev: EventStanding): ViewerRole {
+  if (rows.some((r) => r.status === 'accepted')) return viewerRole(rows, myPageIds);
+  if (ev.organiserIds[0] && myPageIds.includes(ev.organiserIds[0])) return 'owner';
+  if (ev.organiserIds.some((id) => myPageIds.includes(id)) || ev.homeRole) return 'co';
+  return 'none';
+}
+
 /** Pages that must not be offered again: already linked or already invited. */
 export const takenPageIds = (rows: OrganiserRow[]): string[] => rows.map((r) => r.pageId);
 
@@ -92,32 +113,18 @@ export function withInvited(rows: OrganiserRow[], page: { id: string; name: stri
 export type Control = 'invite' | 'cancelInvite' | 'removeOrganiser' | 'leave' | 'end' | 'stopRepeating' | 'deleteDraft' | 'cancelOneOff';
 export interface ControlState { on: boolean; reason: string | null }
 
-/** The controls only the owner's team has (server: the owner organiser page's owner or manager seat). */
-export const OWNER_ONLY: readonly Control[] = ['removeOrganiser', 'end', 'stopRepeating', 'deleteDraft', 'cancelOneOff'];
-
 /**
  * ONE table for what each role may do (owner / co / none), shared by this screen and any screen that
- * shows an owner-only control. `closed` is the ended/archived lock text: the server refuses an invite
- * to such an event; the rest stays as is.
+ * asks. Full control (decision 4): every control is on for owner and co, except Leave for the owner.
+ * `closed` is the ended/archived lock text: the server refuses an invite to such an event.
  */
 export function controlState(role: ViewerRole, control: Control, closed: string | null = null): ControlState {
   if (role === 'none') return { on: false, reason: NOT_ON_EVENT_REASON };
   if (control === 'invite') return closed ? { on: false, reason: closed } : { on: true, reason: null };
   if (control === 'cancelInvite') return { on: true, reason: null };
-  if (control === 'leave') return role === 'co' ? { on: true, reason: null } : { on: false, reason: 'The owner cannot leave.' };
-  if (OWNER_ONLY.includes(control)) {
-    if (role === 'owner') return { on: true, reason: null };
-    return { on: false, reason: control === 'removeOrganiser' ? REMOVE_OWNER_ONLY_REASON : OWNER_ONLY_REASON };
-  }
-  return { on: false, reason: null };
+  if (control === 'leave') return role === 'co' ? { on: true, reason: null } : { on: false, reason: OWNER_CANNOT_LEAVE };
+  return { on: true, reason: null };
 }
-
-/** Whether Remove shows on THIS row: never on the owner, never on an invited row (that one is Cancel). */
-export const rowCanBeRemoved = (row: OrganiserRow): boolean => row.role === 'co' && row.status === 'accepted';
-
-/** Whether the viewer's own row is the one they may leave. */
-export const isMyLeaveRow = (row: OrganiserRow, role: ViewerRole, myPageIds: string[]): boolean =>
-  role === 'co' && rowCanBeRemoved(row) && myPageIds.includes(row.pageId);
 
 /** The public line: "By <owner>, <co-organisers>" with accepted pages only. */
 export function publicLine(rows: OrganiserRow[]): string {
@@ -128,3 +135,31 @@ export function publicLine(rows: OrganiserRow[]): string {
 export const INVITATIONS_TITLE = 'Invitations';
 /** An invitation never promises more than it does: the event shows on the page only after Accept. */
 export const invitationLine = (i: Invitation): string => `${i.invitedByName} invited ${i.invitedPageName} to run ${i.seriesName}`;
+
+// ---- Screen helpers (moved from events/organisersModel.ts by ER-FIX2-S4: one organisers model file) ----
+export const INVITE_LABEL = 'Invite an organiser';
+export const LEAVE_LABEL = 'Leave this event';
+/** F11: the row keeps the short word so a long page name is not squeezed; the sheet keeps the full words. */
+export const LEAVE_ROW_LABEL = 'Leave';
+export const INVITED_LABEL = 'Invited';
+export const SEARCH_HINT = 'Type at least 2 letters of the page name.';
+export const SEARCH_NONE = 'No organiser page found. Check the spelling, or ask them to set up their page first.';
+export const SEARCH_ALL_TAKEN = 'Every page that matches already runs this event or has been invited.';
+/** F10: the search returns at most this many pages. */
+export const SEARCH_LIMIT = 20;
+export const searchMore = (found: number): string | null => (found >= SEARCH_LIMIT ? `Showing the first ${SEARCH_LIMIT}. Type more of the name.` : null);
+export const LEAVE_CONFIRM = 'You will stop being an organiser of this event. Any organiser on the event can invite you again.';
+export const ROLE_WORD: Record<'owner' | 'co', string> = { owner: 'Owner', co: 'Co-organiser' };
+
+/** The state of one control for this viewer on this event (the one shared mapping). */
+export const controlFor = (role: ViewerRole, lifecycle: string, control: Control): ControlState =>
+  controlState(role, control, control === 'invite' ? eventLock(lifecycle) : null);
+
+/** What each row offers THIS viewer: Remove (anyone on the event, on another co), Cancel (an invited row), Leave (co, own row). */
+export type RowAction = 'remove' | 'cancel' | 'leave' | null;
+export function rowAction(row: OrganiserRow, role: ViewerRole, myPageIds: string[]): RowAction {
+  if (role === 'none' || row.role === 'owner') return null;
+  if (row.status === 'invited') return row.inviteId ? 'cancel' : null;
+  if (myPageIds.includes(row.pageId)) return role === 'co' ? 'leave' : null;
+  return 'remove';
+}

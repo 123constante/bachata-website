@@ -27,6 +27,7 @@ import {
 import { dayChangeCommand, detailCommand, endRunCommand, parseEventWorkspace, stopRepeatingCommand, venueCommand, weeklyUntilCommand } from '@/modules/organiser/events/eventModel';
 import { mediaCommand } from '@/modules/organiser/events/seriesExtras';
 import { musicCommand } from '@/modules/organiser/events/musicModel';
+import { organisersCommand } from '@/modules/organiser/events/organisersModel';
 import { addPerson, addSession, parseTree, programCommand, updateItem } from '@/modules/organiser/events/programmeSeriesModel';
 import { coverFixCommands } from '@/modules/organiser/flows/fix/coverModel';
 import { dateCommands, liveCommands, timeCommands, venueCommands } from '@/modules/organiser/flows/new/model';
@@ -226,6 +227,10 @@ const SEND_PROGRAM: Send = {
   in: 'events/ProgrammeSeries.tsx', token: 'programCommand(', kind: 'series.set_program', keys: ['days'], a1Gate: 'events/programmeSeriesModel.ts',
   build: () => { const { was, now } = withLineup(); return programCommand(now, was); },
 };
+const SEND_ORGANISERS: Send = {
+  in: 'events/SeriesOrganisers.tsx', token: 'organisersCommand(', kind: 'series.set_organisers', keys: [ORG_LIST_KEY], a1Gate: 'events/organisersModel.ts',
+  build: () => organisersCommand(['a'], ['a', 'b']),
+};
 
 export const PARITY: Row[] = [
   { id: 'C01', capability: 'Event name', verdict: 'MATCH', screen: DETAILS, from: TO_DETAILS,
@@ -252,7 +257,7 @@ export const PARITY: Row[] = [
   { id: 'C09b', capability: 'Price list (name, price, currency)', verdict: 'DROPPED-BY-DECISION', decision: 'S-FEEDBACK-1' },
   { id: 'C10', capability: 'Instagram link', verdict: 'DROPPED-BY-DECISION', decision: 'S-FEEDBACK-1' },
   // SW1 (parity wave 1): C11, C12 and C57 are built, behind the AW1 platform gate (shared/parityGate.ts).
-  { id: 'C11', capability: 'Co-organisers on the event', verdict: 'PARTIAL', screen: SERIES_ORGS, from: [[DETAILS, 'ORG_PATHS.eventOrganisers']] },
+  { id: 'C11', capability: 'Co-organisers on the event', verdict: 'PARTIAL', screen: SERIES_ORGS, from: [[DETAILS, 'ORG_PATHS.eventOrganisers']], sends: [SEND_ORGANISERS] },
   { id: 'C12', capability: 'Line-up at series level', verdict: 'PARTIAL', screen: SERIES_PROG, from: [[DETAILS, 'ORG_PATHS.eventProgramme']], sends: [SEND_PROGRAM],
     shows: [['events/ProgrammeSheet.tsx', 'prog-add-person'], ['events/ProgrammeSheet.tsx', 'prog-recent']] },
   { id: 'C13', capability: 'See + edit the sessions inside one date', verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
@@ -402,9 +407,9 @@ export const PARITY: Row[] = [
   { id: 'SW1-music', capability: 'Music styles as chips', verdict: 'MATCH', screen: DETAILS, from: TO_DETAILS,
     sends: [upsert(['name', 'default_music_styles'], () => musicCommand(ws, ['Bachata', 'Salsa']), 'events/MusicEdit.tsx', 'musicCommand(')],
     shows: [['events/MusicEdit.tsx', 'org-music-chip']] },
-  { id: 'SW1-organisers', capability: 'Event organisers: invite, cancel, remove, leave (ER-C11; each saves at once through its own RPC)', verdict: 'PARTIAL',
-    screen: SERIES_ORGS, from: [[DETAILS, 'ORG_PATHS.eventOrganisers']],
-    shows: [['events/SeriesOrganisers.tsx', 'org-block-text'], ['events/SeriesOrganisers.tsx', 'org-remove-note'], ['events/organisersModel.ts', 'rowAction']] },
+  { id: 'SW1-organisers', capability: 'Event organisers: link, remove, never the last (owner only)', verdict: 'PARTIAL',
+    screen: SERIES_ORGS, from: [[DETAILS, 'ORG_PATHS.eventOrganisers']], sends: [SEND_ORGANISERS],
+    shows: [['events/SeriesOrganisers.tsx', 'org-last-reason'], ['events/SeriesOrganisers.tsx', 'org-add-note'], ['events/organisersModel.ts', 'addablePages']] },
 ];
 
 const isBuilt = (r: Row) => r.verdict === 'MATCH' || r.verdict === 'PARTIAL';

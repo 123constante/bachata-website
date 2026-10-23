@@ -45,6 +45,7 @@ import {
   CHANGED_SESSION_REMOVE_CONFIRM, FESTIVAL_REASON, type PTree,
 } from '../programmeSeriesModel';
 import { MUSIC_VOCAB, isOn, musicChips, musicCommand, toggleStyle } from '../musicModel';
+import { ADD_NONE_LEFT, ADD_ONLY_YOURS, LAST_ORGANISER_REASON, MANAGER_REASON, organisersCommand, organisersOff, removeOff, removeOrganiser } from '../organisersModel';
 import { parseEventWorkspace } from '../eventModel';
 
 const GATE_REASON = 'Needs the next platform update';
@@ -191,6 +192,20 @@ describe('who can change what, and why not (one mapping per fact)', () => {
     [{ ...base, canEdit: false, gate: true }, expect.stringContaining('Only the people who run this event')],
   ])('programmeOff %# ', (input, reason) => {
     expect(programmeOff(input)).toEqual(reason);
+  });
+
+  it('organisers: owner only, never the last one, closed events refuse', () => {
+    expect(organisersOff({ lifecycle: 'live', isOwner: true, gate: false })).toBe(GATE_REASON);
+    expect(organisersOff({ lifecycle: 'live', isOwner: true, gate: true })).toBeNull();
+    expect(organisersOff({ lifecycle: 'live', isOwner: false, gate: true })).toBe(MANAGER_REASON);
+    expect(organisersOff({ lifecycle: 'ended', isOwner: true, gate: true })).toContain('has ended');
+    expect(removeOff(['a'])).toBe(LAST_ORGANISER_REASON);
+    expect(removeOff(['a', 'b'])).toBeNull();
+    expect(removeOrganiser(['a'], 'a')).toEqual(['a']);
+    expect(removeOrganiser(['a', 'b'], 'a')).toEqual(['b']);
+    expect(organisersCommand(['a', 'b'], ['a', 'b'])).toBeNull();
+    expect(organisersCommand(['a'], ['a', 'b'])).toEqual({ kind: 'series.set_organisers', payload: { [ORG_LIST_KEY]: ['a', 'b'] } });
+    expect(organisersCommand(['a'], [])).toBeNull();
   });
 
   it('music chips: the vocabulary, stored spellings match ignoring case, an unknown stored style stays', () => {
@@ -555,6 +570,84 @@ describe('Programme screen across the shapes', () => {
       await flush();
       expect(commandsOf(rpc)).toEqual([]);
     });
+  });
+});
+
+describe('Organisers screen', () => {
+  it('gate OFF: the list shows, Link and Remove are off with the reason, nothing is sent', async () => {
+    over.organisers = ['org1', 'org2'];
+    mount(ORG_PATHS.eventOrganisers(A), routes);
+    expect((await screen.findByTestId('org-off-reason')).textContent).toBe(GATE_REASON);
+    expect((await screen.findAllByTestId('org-linked-row')).map((r) => r.textContent?.replace('Remove', ''))).toEqual(expect.arrayContaining([expect.stringContaining('Bachata Nights'), expect.stringContaining('Salsa Crew')]));
+    screen.getAllByTestId('org-remove').forEach((b) => expect((b as HTMLButtonElement).disabled).toBe(true));
+    expect((screen.getByTestId('org-add') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('org-save'));
+    await flush();
+    expect(commandsOf(rpc)).toEqual([]);
+  });
+
+  it('a manager reads the list with the owner-only reason', async () => {
+    gate.on = true;
+    over.role = 'manager';
+    mount(ORG_PATHS.eventOrganisers(A), routes);
+    expect((await screen.findByTestId('org-off-reason')).textContent).toBe(MANAGER_REASON);
+    expect((screen.getByTestId('org-add') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('the last organiser cannot be removed (off with the reason)', async () => {
+    gate.on = true;
+    mount(ORG_PATHS.eventOrganisers(A), routes);
+    await screen.findByTestId('org-linked-row');
+    expect((screen.getByTestId('org-remove') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('org-last-reason').textContent).toBe(LAST_ORGANISER_REASON);
+  });
+
+  it('owner, gate ON: remove one of two -> ONE series.set_organisers with the remaining ids; link a live page adds it', async () => {
+    gate.on = true;
+    over.organisers = ['org1', 'org2'];
+    over.extraHome = [{ id: 'org3', name: 'Zouk Club', lifecycle_status: 'live', role: 'manager' }];
+    const { container } = mount(ORG_PATHS.eventOrganisers(A), routes);
+    await screen.findAllByTestId('org-linked-row');
+    expect(screen.getByTestId('org-save').getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(screen.getAllByTestId('org-remove')[1]);
+    await waitFor(() => expect(screen.getAllByTestId('org-linked-row')).toHaveLength(1));
+    fireEvent.click(screen.getByTestId('org-add'));
+    press((await screen.findAllByTestId('org-add-result', {}, { timeout: 3000 }))[0]);
+    await waitFor(() => expect(screen.getAllByTestId('org-linked-row')).toHaveLength(2));
+    expect(tooSmall(container.ownerDocument.body)).toEqual([]);
+    await click('org-save');
+    expect(commandsOf(rpc)).toHaveLength(1);
+    expect(lastCommand()).toEqual({ kind: 'series.set_organisers', payload: { [ORG_LIST_KEY]: ['org1', 'org3'] } });
+  });
+});
+
+// INT4 (AW1 B-2): series.set_organisers refuses an ADDED page the caller does not own or manage, so the picker
+// offers only the viewer's own live pages (organiser_home_v1, already loaded for the role) and never a stranger's.
+describe('Organisers: the add picker offers only pages the viewer runs (AW1)', () => {
+  it('lists live owned and managed pages not yet linked; never a stranger page, a draft page or a linked one', async () => {
+    gate.on = true;
+    over.extraHome = [
+      { id: 'org3', name: 'Zouk Club', lifecycle_status: 'live', role: 'manager' },
+      { id: 'org4', name: 'Kizomba Draft', lifecycle_status: 'draft', role: 'owner' },
+    ];
+    pages.rows = [...pages.rows, { id: 'org9', name: 'Stranger Socials', avatar_url: null, lifecycle_status: 'live' }];
+    mount(ORG_PATHS.eventOrganisers(A), routes);
+    await screen.findByTestId('org-linked-row');
+    fireEvent.click(screen.getByTestId('org-add'));
+    const rows = await screen.findAllByTestId('org-add-result', {}, { timeout: 3000 });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('Zouk Club');
+    expect(screen.getByTestId('org-add-view').textContent).not.toMatch(/Stranger|Kizomba|Bachata Nights/);
+    expect(screen.getByTestId('org-add-note').textContent).toBe(ADD_ONLY_YOURS);
+  });
+
+  it('nothing left to add: says so and how to get another page added', async () => {
+    gate.on = true;
+    mount(ORG_PATHS.eventOrganisers(A), routes);
+    await screen.findByTestId('org-linked-row');
+    fireEvent.click(screen.getByTestId('org-add'));
+    expect((await screen.findByTestId('org-add-empty')).textContent).toBe(ADD_NONE_LEFT);
+    expect(screen.queryByTestId('org-add-result')).toBeNull();
   });
 });
 

@@ -31,7 +31,7 @@ const CancelFlow = lazyWithRetry(() => import('../flows/cancel')); // S3 flows/c
 const NewFlow = lazyWithRetry(() => import('../flows/new'));
 const EventDetails = lazyWithRetry(() => import('../events/Details'));
 const ProgrammeSeries = lazyWithRetry(() => import('../events/ProgrammeSeries')); // SW1 series programme
-const SeriesOrganisers = lazyWithRetry(() => import('../events/SeriesOrganisers')); // SW1 event organisers
+const SeriesOrganisers = lazyWithRetry(() => import('../organisers/OrganisersRoute')); // SW1 event organisers; the rebuilt screen per event (ER-FIX2-S4)
 const TeamFlow = lazyWithRetry(() => import('../team/TeamFlow')); // S6 team/ (add, person)
 const HandoverFlow = lazyWithRetry(() => import('../flows/handover')); // S6 flows/handover
 const MorePage = lazyWithRetry(() => import('../more')); // S7 more/
