@@ -19,10 +19,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useEmbeddedProfile } from "@/lib/embeddedProfile";
 import { AlsoRoles } from "@/modules/person-page/AlsoRoles";
 import { flags } from "@/lib/featureFlags";
+import { useAuth } from "@/hooks/useAuth";
 import { DancerRoleBar } from "@/modules/dancer-app/public-page/DancerRoleBar";
 import { useDancerRoleBar } from "@/modules/dancer-app/public-page/roleBarModel";
 import { PublicDancerPageV2 } from "@/modules/dancer-app/public-page/PublicDancerPageV2";
-import { buildPublicDancerPage, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
+import { NO_EXTRAS, buildPublicDancerPage, joinHref, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
+import { DancerWorldLoading, DancerWorldMissing, DancerWorldPage } from "@/modules/person-page/worlds/dancer/DancerWorldPage";
+import { showsJoinInvite } from "@/modules/person-page/facts";
+import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 
 type DancerProfileProps = {
   /** From the route loader: v2 when the dancer area is open, else null/absent = today's page. */
@@ -39,7 +43,8 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
   const id = resolved.id ?? undefined;
   // flags.personHub: the role bar shows "Back to <name>"; while it is on screen the public page
   // drops its own Back (one Back, never two). Null with the flag OFF, embedded, or off the public page.
-  const roleBar = useDancerRoleBar(id, resolved.slug, embedded || !publicPage);
+  // flags.personWorlds (not embedded) renders the frame's role tabs instead: no bar, so no bar read.
+  const roleBar = useDancerRoleBar(id, resolved.slug, embedded || !publicPage || flags.personWorlds);
   useCanonicalReplaceState({
     arrivedViaUuid: resolved.arrivedViaUuid,
     slug: resolved.slug,
@@ -74,7 +79,21 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
   // already fetched. Which useSeo calls are inert and which are live is a census,
   // not a rule of thumb -- see BentoPage.tsx before deleting another (arc W22).
 
+  // The world shell's join invite reads the viewer (signed-out / anonymous only).
+  const { user } = useAuth();
   const error = dancerError ? (dancerError as Error).message || "Failed to load dancer profile" : null;
+  // People arc S2b (flags.personWorlds, not embedded): every state in the one world shell, so the
+  // frame sits where the DJ world's does. OFF (and embedded) = the states below, unchanged.
+  const worlds = flags.personWorlds && !embedded;
+  const worldCrumbs = worlds
+    ? buildBreadcrumbs('dancer.detail', { entityName: dancerView?.displayName ?? undefined, isLoading: isLoading || resolved.isLoading })
+    : [];
+  if (worlds && (isLoading || resolved.isLoading)) return <DancerWorldLoading breadcrumbs={worldCrumbs} invite={showsJoinInvite(user)} />;
+  if (worlds && (error || !dancer || !dancerView)) {
+    if (dancerError) console.error('DancerProfile error:', dancerError);
+    return <DancerWorldMissing breadcrumbs={worldCrumbs} />;
+  }
+
   if (isLoading) {
     return (
       <GlobalLayout
@@ -129,6 +148,36 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
           </Button>
         </div>
       </GlobalLayout>
+    );
+  }
+
+  // People arc S2 (flags.personWorlds): the shared frame + the dancer world. The Dancing tab of
+  // /people/:id (embedded) keeps today's page. OFF = everything below, unchanged.
+  if (worlds) {
+    const extras = publicPage?.extras ?? NO_EXTRAS;
+    const worldModel = buildPublicDancerPage(dancerView, extras);
+    // Owner D8'': signed-out (or anonymous) visitors only, the DJ world's rule too (facts/).
+    const showInvite = showsJoinInvite(user);
+    const worldPath = resolved.slug ? `/dancers/${resolved.slug}` : `/dancers/${routeParam ?? dancerView.id}`;
+    return (
+        <DancerWorldPage
+          // The route-resolved id, like the role bar: a linked profile's canonical row id differs
+          // and has no roles of its own (prod: teacher pages showed no tabs and no next class).
+          id={id ?? dancerView.id}
+          slug={resolved.slug}
+          input={{
+            name: dancerView.displayName,
+            photo: dancerView.avatarUrl,
+            nationality: dancerView.nationality,
+            city: dancerView.city,
+            danceRole: dancerView.partnerRole,
+            languages: extras.languages,
+            contacts: worldModel.contacts,
+          }}
+          shareTitle={worldModel.shareTitle}
+          inviteHref={showInvite ? joinHref(worldPath) : null}
+          breadcrumbs={worldCrumbs}
+        />
     );
   }
 

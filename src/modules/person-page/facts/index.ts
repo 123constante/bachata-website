@@ -99,3 +99,56 @@ export const initials = (name: string | null | undefined): string => {
   const out = first(words[0]) + (words.length > 1 ? first(words[words.length - 1]) : '');
   return out.toUpperCase() || '?';
 };
+
+// People arc S3: gig times. Event times arrive from the RPCs as a London WALL CLOCK stamped +00
+// ("2026-10-23 22:00:00+00" = 22:00 in London; see londonDate.ts londonWallClockToInstant), so
+// these read the stored digits and never convert a zone. (londonDayOf above converts, which is
+// right for a true instant but moves a 23:30 BST gig to the next day.)
+const WALL = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/;
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** The calendar day of a stored wall-clock stamp, as written ("2026-10-23 23:30:00+00" -> "2026-10-23"). null when unreadable. */
+export const wallDayOf = (raw: string | null | undefined): string | null => {
+  const m = typeof raw === 'string' ? WALL.exec(raw.trim()) : null;
+  const key = m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+  return key && isRealDateKey(key) ? key : null;
+};
+
+/** "Friday 23 October" for a stored gig time (the day as written, through dateLabel's own format). */
+export const gigDateLabel = (raw: string | null | undefined): string | null => dateLabel(wallDayOf(raw));
+
+/** The day of the month ("23", no leading zero) for the big number on a gig row. null when unreadable. */
+export const dayNumber = (raw: string | null | undefined): string | null => {
+  const key = wallDayOf(raw);
+  return key ? String(Number(key.slice(8))) : null;
+};
+
+/** "19:30": the stored clock, as written. Midnight on the dot means "no time given" -> null. */
+export const timeLabel = (raw: string | null | undefined): string | null => {
+  const m = typeof raw === 'string' && wallDayOf(raw) ? WALL.exec(raw.trim()) : null;
+  if (!m || m[4] === undefined) return null;
+  const [h, min] = [Number(m[4]), Number(m[5])];
+  if (h > 23 || min > 59 || (h === 0 && min === 0)) return null;
+  return `${m[4]}:${m[5]}`;
+};
+
+/**
+ * Owner D12: the one button on every world when nothing is coming up (a DJ with no dates, a dancer
+ * whose city has no socials this week). One copy, so the worlds never drift apart.
+ */
+export const FIND_A_PARTY = { label: 'Find a party', href: '/parties' } as const;
+
+/**
+ * Owner D8'' (2026-10-23): "Dance bachata too? Get your own card" is for signed-out visitors, on
+ * every world; a signed-in visitor already has an account. An anonymous guest session counts as
+ * signed out. Auth still resolving with no user yet also counts as signed out, so a signed-out
+ * visitor (the shared-link reader) sees it from the first paint and it never arrives late.
+ */
+export const showsJoinInvite = (user: { is_anonymous?: boolean | null } | null | undefined): boolean =>
+  !user || user.is_anonymous === true;
+
+/** "October 2026": the "Played at" record label (month + year, the gig is in the past). */
+export const monthLabel = (raw: string | null | undefined): string | null => {
+  const key = wallDayOf(raw);
+  return key ? `${MONTH_NAMES[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}` : null;
+};
