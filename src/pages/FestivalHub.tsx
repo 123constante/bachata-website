@@ -11,11 +11,13 @@ import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/Scroll
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { supabase } from "@/integrations/supabase/client";
-import { FESTIVALS_LIST_QUERY_KEY, fetchPublicFestivalsList } from "@/lib/festivalsList";
+import { FESTIVALS_LIST_QUERY_KEY, fetchPublicFestivalsList, filterUpcomingFestivals, type FestivalListItem } from "@/lib/festivalsList";
+import { londonTodayKey } from "@/lib/londonDate";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AuthPromptModal } from "@/components/AuthPromptModal";
 import { GOING_CHECKIN_ENABLED } from "@/lib/goingCheckin";
+import { festivalCountLabel } from "@/pages/festivalCountLabel";
 import { setAttendanceRpc, type AttendanceStatus } from "@/hooks/useAttendance";
 import { GOING_LOCK_LINK_LABEL, goingTapLocked, useGoingLock } from "@/modules/dancer-app/gate/useGoingLock";
 
@@ -102,6 +104,9 @@ const FestivalHubInner = () => {
     // attendance/status queries below stay short-lived (they're personalised
     // and never dehydrated).
     staleTime: 1000 * 60 * 60,
+    // The RPC returns every public festival, past included; the shared rule (as the
+    // home rail) keeps upcoming only. select re-runs on render, so London midnight rolls over.
+    select: (rows: FestivalListItem[]) => filterUpcomingFestivals(rows, londonTodayKey()),
   });
 
   const festivalIds = useMemo(() => festivals.map((festival) => festival.id), [festivals]);
@@ -327,11 +332,13 @@ const FestivalHubInner = () => {
       </section>
 
       {/* Stats */}
-      <div className="flex items-center justify-center gap-2 -mt-4 mb-8 relative z-10">
-        <span className="text-xs text-muted-foreground">
-          {festivals.length} upcoming festivals
-        </span>
-      </div>
+      {festivalCountLabel(festivals.length) && (
+        <div className="flex items-center justify-center gap-2 mt-2 mb-6 relative z-10">
+          <span className="text-xs text-muted-foreground">
+            {festivalCountLabel(festivals.length)}
+          </span>
+        </div>
+      )}
 
       {/* Festival Cards Grid */}
       <section id="festivals" className="px-4 mb-24 relative z-10">

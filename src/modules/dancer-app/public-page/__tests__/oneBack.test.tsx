@@ -93,11 +93,13 @@ const DANCERS: [string, ShapeKey, PublicPageV2Data][] = [
   ['no photo', 'photoless', { extrasOk: true, extras: NO_EXTRAS }],
   ['long name', 'long name', { extrasOk: true, extras: EXTRAS.manyLanguages }],
 ];
-// Prod role shapes for a dancer row (badges survey 2026-10-22): no public role, dancer only,
+// Prod role shapes for a dancer row (badges survey 2026-10-22): no public role,
 // teacher+dancer (teacher page closed = one role page), dj+dancer (two role pages).
+// Dancer-only is left out on purpose: whether one held role gets the bar is decided by
+// person-page roleSwitchModel (W2-D: /people/<slug> 302s a one-role person back to this
+// page, so no bar) and pinned in person-page/__tests__/roleSwitch.test.tsx.
 const ROLES: [string, PersonRole[], boolean][] = [
   ['no public role (hub would 404)', [], false],
-  ['one role', ['dancer'], true],
   ['one role page (teacher closed)', ['teacher', 'dancer'], true],
   ['two roles', ['dj', 'dancer'], true],
 ];
