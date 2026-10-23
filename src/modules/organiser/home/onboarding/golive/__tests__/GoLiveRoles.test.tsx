@@ -5,7 +5,7 @@
  * screen until answered; a Yes opens the minimum inline; the answers go through the role writers.
  * Harness copied from GoLiveFlow.test.tsx (same fakes at the RPC boundary).
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -39,6 +39,7 @@ import type { ProgressStep } from '@/modules/organiser/shared/profileProgress';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import type { WizardWriters } from '../../../../wizard/wizardApi';
 import { GoLiveFlowScreen } from '../GoLiveFlow';
+import type { Role } from '@/modules/areas/shared/fieldRegistry';
 import Done from '@/modules/organiser/flows/Done';
 import { DEFAULT_AREA_PATHS } from '@/modules/areas/shared/paths';
 import { ROLE_MINIMUM_REASON, ROLE_QUESTION_REASON_BOTH, ROLE_QUESTION_TITLE, ROLE_SAVE_FAILED, type RoleQuestionWriters } from '../roleQuestion';
@@ -55,7 +56,7 @@ let steps: ReturnType<typeof open>;
 let saveDancer: ReturnType<typeof vi.fn>;
 let saveOrganiser: ReturnType<typeof vi.fn>;
 let intent: { roles: string[]; declined: string[] } | 'error';
-let roleWriters: RoleQuestionWriters & Record<string, ReturnType<typeof vi.fn>>;
+let roleWriters: { [K in keyof RoleQuestionWriters]: Mock<Parameters<RoleQuestionWriters[K]>, ReturnType<RoleQuestionWriters[K]>> };
 
 function Where() {
   const l = useLocation();
@@ -84,7 +85,7 @@ beforeEach(() => {
   dancerRow = { profile_id: 'p1', user_id: 'u1', first_name: 'Ana', based_city_id: 'c1', dance_role: 'Follower', avatar_url: 'x', nationality: null, languages: [], instagram: null, whatsapp: null, dance_started_year: null, other_roles: ['organiser'] };
   steps = open([['organiser', 'category', false]]);
   intent = { roles: ['dancer', 'organiser'], declined: [] };
-  roleWriters = { answerDoYou: vi.fn(async () => 1), fetchDetails: vi.fn(async () => ({})), saveMyRole: vi.fn(async () => ({})) };
+  roleWriters = { answerDoYou: vi.fn(async (_r: Role, _y: boolean) => 1), fetchDetails: vi.fn(async (_r: Role) => ({})), saveMyRole: vi.fn(async (_r: Role, _p: Record<string, unknown>) => ({}) as unknown) };
   entityState.city = 'c1';
   entityState.delay = 0;
   entityState.hang = false;

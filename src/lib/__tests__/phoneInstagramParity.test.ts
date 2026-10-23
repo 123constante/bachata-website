@@ -24,7 +24,7 @@ const PINNED_SHA = '4c5ce98d828463e413d070325ee1499bd158b27550b6cf4595dd99d7a432
 describe('phone-instagram-cases.json', () => {
   it('is the pinned, ASCII-only file', () => {
     const lf = raw.replace(/\r\n/g, '\n');
-    expect(/^[\x00-\x7f]*$/.test(lf)).toBe(true);
+    expect([...lf].every((ch) => ch.charCodeAt(0) < 128)).toBe(true);
     expect(createHash('sha256').update(lf).digest('hex')).toBe(PINNED_SHA);
   });
 

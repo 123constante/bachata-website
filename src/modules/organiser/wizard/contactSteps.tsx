@@ -63,10 +63,10 @@ export function makeInstagramStep(key: string, c: ContactStepConfig) {
     const blank = draft.trim() === '';
     const untouched = draft === stored;
     const check = untouched ? null : checkInstagramField(draft);
-    const local = check && !check.ok ? check.error : null;
+    const local = check && 'error' in check ? check.error : null;
     const send = () => {
       if (untouched) { onAnswer(stored || null); return; }
-      if (check?.ok) onAnswer(check.handle);
+      if (check && 'handle' in check) onAnswer(check.handle);
       // A refused box sends nothing; the reason is already on screen.
     };
     return (

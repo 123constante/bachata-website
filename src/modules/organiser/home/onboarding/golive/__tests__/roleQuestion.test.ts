@@ -3,11 +3,12 @@
  * The question never repeats (claimed or declined roles are not asked); a Yes sends ONLY the
  * minimum keys that differ; an answer that changes nothing sends nothing.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import {
   ROLE_MINIMUM_REASON, ROLE_QUESTION_REASON_BOTH, ROLE_QUESTION_REASON_ONE, listFromText, minimumPatch,
   roleQuestionBlock, rolesToAsk, saveRoleAnswers, type RoleQuestionWriters,
 } from '../roleQuestion';
+import type { Role } from '@/modules/areas/shared/fieldRegistry';
 
 describe('rolesToAsk: every combination of claimed x declined', () => {
   it.each([
@@ -60,11 +61,11 @@ describe('minimumPatch: changed keys only', () => {
   });
 });
 
-function writers(details: Record<string, Record<string, unknown>> = {}, doYouWrites = 1): RoleQuestionWriters & Record<string, ReturnType<typeof vi.fn>> {
+function writers(details: Record<string, Record<string, unknown>> = {}, doYouWrites = 1): { [K in keyof RoleQuestionWriters]: Mock<Parameters<RoleQuestionWriters[K]>, ReturnType<RoleQuestionWriters[K]>> } {
   return {
-    answerDoYou: vi.fn(async () => doYouWrites),
-    fetchDetails: vi.fn(async (r: string) => details[r] ?? {}),
-    saveMyRole: vi.fn(async () => ({})),
+    answerDoYou: vi.fn(async (_r: Role, _y: boolean) => doYouWrites),
+    fetchDetails: vi.fn(async (r: Role) => details[r] ?? {}),
+    saveMyRole: vi.fn(async (_r: Role, _p: Record<string, unknown>) => ({}) as unknown),
   };
 }
 
