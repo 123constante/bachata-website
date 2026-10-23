@@ -406,13 +406,14 @@ describe('saveDrafts', () => {
 
   it('a contact change goes out in the ONE call with ONLY the changed keys (never the legacy flag)', async () => {
     const e = withContact();
-    const drafts = { show_email_publicly: 'true', contact_phone: '07700 900456', bio: 'Hi' };
+    // The sheet's PhoneInput hands over E.164 (invite journey W2: one phone rule).
+    const drafts = { show_email_publicly: 'true', contact_phone: '+447700900456', bio: 'Hi' };
     // The RPC's profile carries contact_phone but not the flags: a flag is never "came back different".
-    const rpc = rpcOk({ ...profileFrom(e, drafts), contact_phone: '07700 900456' });
+    const rpc = rpcOk({ ...profileFrom(e, drafts), contact_phone: '+447700900456' });
     expect(await saveDrafts({ rpc } as never, e.id, e, drafts)).toMatchObject({ kind: 'saved', unmatched: [] });
     expect(rpc).toHaveBeenCalledTimes(1);
     const args = (rpc.mock.calls[0] as unknown as [string, { p_patch: Record<string, unknown> }])[1];
-    expect(args.p_patch).toMatchObject({ show_email_publicly: true, contact_phone: '07700 900456', bio: 'Hi' });
+    expect(args.p_patch).toMatchObject({ show_email_publicly: true, contact_phone: '+447700900456', bio: 'Hi' });
     expect(args.p_patch).not.toHaveProperty('show_phone_publicly');
     expect(args.p_patch).not.toHaveProperty('show_contact_publicly');
     expect(args.p_patch).not.toHaveProperty('contact_email');

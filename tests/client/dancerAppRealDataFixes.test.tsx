@@ -150,6 +150,7 @@ describe('F3: the WhatsApp switch cannot read On over an empty number', () => {
     expect(screen.queryByTestId('whatsapp-switch-reason')).toBeNull();
     fireEvent.click(saveBtn());
     await waitFor(() => expect(backend.writes).toBe(1));
-    expect(saves(backend)[0].args).toEqual({ whatsapp: '+44 7700 900123' });
+    // Stored as E.164 (invite journey W2: one phone rule); the typed spaces are not kept.
+    expect(saves(backend)[0].args).toEqual({ whatsapp: '+447700900123' });
   });
 });

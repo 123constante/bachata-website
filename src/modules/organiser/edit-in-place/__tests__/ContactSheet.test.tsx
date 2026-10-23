@@ -122,8 +122,10 @@ describe('the Contact details sheet', () => {
     const d = await openSheet();
     expect(d.textContent).toContain(CONTACT_COPY.sub);
     expect(d.textContent).toContain(CONTACT_COPY.hint);
-    expect((within(d).getByLabelText('Phone') as HTMLInputElement).value).toBe(PHONE);
+    // The ONE phone field: country first (the stored +44 number opens on +44), then the national digits.
+    expect((within(d).getByLabelText('Phone') as HTMLInputElement).value).toBe('7700900123');
     expect((within(d).getByLabelText('Phone') as HTMLInputElement).type).toBe('tel');
+    expect(within(d).getByRole('button', { name: /^Country: .* \+44$/ })).toBeTruthy();
     const email = within(d).getByLabelText('Email') as HTMLInputElement;
     expect(email.type).toBe('email');
     expect(email.value).toBe(EMAIL);
@@ -131,7 +133,8 @@ describe('the Contact details sheet', () => {
     expect(email.readOnly).toBe(true);
     expect(d.textContent).toContain(CONTACT_COPY.emailAdminOnly);
     // Inputs are 16px: no zoom on iOS.
-    expect(within(d).getByLabelText('Phone').style.fontSize).toBe('16px');
+    // The phone box is the shared PhoneInput: 16px by its class, not an inline style.
+    expect(within(d).getByLabelText('Phone').className).toContain('text-[16px]');
     // Switches keep a 44px tap target.
     expect(sw(d, 'Phone').style.minHeight).toBe('44px');
     expect(sw(d, 'Phone').style.minWidth).toBe('44px');
@@ -181,8 +184,34 @@ describe('the Contact details sheet', () => {
     fireEvent.click(within(screen.getByTestId('eip-bar')).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
     const p = patches(rpc)[0];
-    expect(p).toMatchObject({ contact_phone: '07700 900456', show_phone_publicly: false });
+    // Saved as E.164: the UK trunk zero dropped, no spaces (invite journey W2).
+    expect(p).toMatchObject({ contact_phone: '+447700900456', show_phone_publicly: false });
     for (const k of ['show_email_publicly', 'show_contact_publicly', 'contact_email']) expect(p).not.toHaveProperty(k);
+  });
+
+  it('a legacy number saved without its country is shown as it is, never blocks Done, and is never re-sent', async () => {
+    const { rpc } = setup(settings({ contact_phone: '2345678' }));
+    const d = await openSheet();
+    expect(within(d).getByTestId('phone-legacy-value').textContent).toBe('2345678');
+    expect(within(d).queryByRole('alert')).toBeNull();
+    const done = within(d).getByRole('button', { name: 'Done' }) as HTMLButtonElement;
+    expect(done.disabled).toBe(false);
+    fireEvent.click(sw(d, 'Email'));
+    fireEvent.click(done);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    fireEvent.click(within(screen.getByTestId('eip-bar')).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+    expect(patches(rpc)[0]).not.toHaveProperty('contact_phone');
+  });
+
+  it('changing a legacy number: Change opens the picker; a short number blocks Done with what to do', async () => {
+    setup(settings({ contact_phone: '2345678' }));
+    const d = await openSheet();
+    fireEvent.click(within(d).getByTestId('phone-legacy-change'));
+    fireEvent.change(within(d).getByLabelText('Phone'), { target: { value: '7700 9' } });
+    const done = within(d).getByRole('button', { name: 'Done' }) as HTMLButtonElement;
+    expect(done.disabled).toBe(true);
+    expect(within(d).getByRole('alert').textContent).toMatch(/Pick the country, then type the number/);
   });
 
   it('an empty phone: the switch is disabled WITH the reason; typing a phone enables it', async () => {
