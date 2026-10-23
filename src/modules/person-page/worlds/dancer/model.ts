@@ -5,8 +5,7 @@ import { isFestivalByFormat } from '@/lib/eventFormat';
 import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
 import { eventHref } from '@/lib/seo/eventHref';
 import { londonWallClockToInstant } from '@/lib/londonDate';
-import { cityLabel, dateLabel, flagCode, gigDateLabel, languageLine, londonDayOf, timeLabel, wallDayOf, worldNames } from '../../facts';
-import { djWorldView } from '../dj/model';
+import { FIND_A_PARTY, cityLabel, dateLabel, flagCode, gigDateLabel, languageLine, londonDayOf, timeLabel, wallDayOf, worldNames } from '../../facts';
 import { ROLE_LABEL, rolePagePath, type PersonRole } from '../../personRoles';
 
 /** Owner D6: a dancer with no city gets London's socials, and the copy says "in London". */
@@ -24,20 +23,8 @@ export const INVITE = { lead: 'Dance bachata too?', button: 'Get your own card' 
 /** Where "All socials this week" and every socials empty/error state send the person. */
 export const ALL_SOCIALS_HREF = '/parties';
 
-/**
- * Owner D12: the one button when there is nothing to show ("Find a party" -> /parties), read from the
- * DJ world so the wording has ONE source (no shared constant in facts/ yet: "needs frame", S2b handover).
- */
-const NO_DATES = djWorldView({
-  row: {},
-  cityName: null,
-  nationalityCode: null,
-  links: { soundcloud: null, mixcloud: null, instagram: null, website: null, facebook: null },
-  upcoming: [],
-  past: [],
-  pathname: '/',
-}).emptyAction;
-export const PARTY_ACTION = { label: NO_DATES?.label ?? '', href: NO_DATES?.href ?? ALL_SOCIALS_HREF } as const;
+/** Owner D12: the one button when there is nothing to show ("Find a party" -> /parties), shared with the DJ world. */
+export const PARTY_ACTION = FIND_A_PARTY;
 
 export type WorldContact = { kind: 'instagram' | 'facebook' | 'website' | 'email' | 'whatsapp'; href: string; label: string };
 

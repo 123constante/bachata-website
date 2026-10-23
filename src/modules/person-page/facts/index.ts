@@ -132,6 +132,21 @@ export const timeLabel = (raw: string | null | undefined): string | null => {
   return `${m[4]}:${m[5]}`;
 };
 
+/**
+ * Owner D12: the one button on every world when nothing is coming up (a DJ with no dates, a dancer
+ * whose city has no socials this week). One copy, so the worlds never drift apart.
+ */
+export const FIND_A_PARTY = { label: 'Find a party', href: '/parties' } as const;
+
+/**
+ * Owner D8'' (2026-10-23): "Dance bachata too? Get your own card" is for signed-out visitors, on
+ * every world; a signed-in visitor already has an account. An anonymous guest session counts as
+ * signed out. Auth still resolving with no user yet also counts as signed out, so a signed-out
+ * visitor (the shared-link reader) sees it from the first paint and it never arrives late.
+ */
+export const showsJoinInvite = (user: { is_anonymous?: boolean | null } | null | undefined): boolean =>
+  !user || user.is_anonymous === true;
+
 /** "October 2026": the "Played at" record label (month + year, the gig is in the past). */
 export const monthLabel = (raw: string | null | undefined): string | null => {
   const key = wallDayOf(raw);

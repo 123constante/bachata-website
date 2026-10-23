@@ -18,6 +18,11 @@ const h = vi.hoisted(() => ({
   flags: { personWorlds: true, personHub: false } as Record<string, boolean>,
   app: { data: [] as Appearance[], isFetched: true, isError: false, refetch: vi.fn() },
   roles: { snapshot: null as { roles: PersonRole[] } | null, answered: true },
+  auth: { user: null as null | { id: string; is_anonymous?: boolean }, authStatus: 'ready' as string },
+}));
+vi.mock('@/hooks/useAuth', async (orig) => ({
+  ...(await orig<typeof import('@/hooks/useAuth')>()),
+  useAuth: () => ({ user: h.auth.user, isLoading: h.auth.authStatus === 'resolving', authStatus: h.auth.authStatus }),
 }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (fn: string, args: unknown) => h.rpc(fn, args) } }));
 vi.mock('@/lib/featureFlags', () => ({ flags: new Proxy({}, { get: (_t, k: string) => h.flags[k] ?? false }) }));
@@ -90,6 +95,7 @@ beforeEach(() => {
   h.flags.personWorlds = true;
   h.app = { data: [], isFetched: true, isError: false, refetch: vi.fn() };
   h.roles = { snapshot: null, answered: true };
+  h.auth = { user: null, authStatus: 'ready' };
 });
 afterEach(cleanup);
 
@@ -134,6 +140,31 @@ describe.each(SHAPES)('DJ world (flag ON): $who', (s) => {
     expect(invite.getAttribute('href')).toBe('/auth?mode=signup&returnTo=%2Fdjs%2Fpapacito');
     expect(invite.style.minHeight).toBe('44px');
     for (const row of screen.queryAllByTestId('dj-gig')) expect(row.getAttribute('href')).toMatch(/^\/event\/e\d$/);
+  });
+});
+
+// Owner D8'' (2026-10-23): hidden from a signed-in visitor, shown to every signed-out one (an
+// anonymous guest session is signed out; so is the first paint, before auth answers), on every
+// world: the same rule as the dancer world (facts.showsJoinInvite).
+const VIEWERS: [who: string, user: { id: string; is_anonymous?: boolean } | null, status: string, shown: boolean][] = [
+  ['signed out', null, 'ready', true],
+  ['auth still resolving, no user yet', null, 'resolving', true],
+  ['anonymous guest session', { id: 'g', is_anonymous: true }, 'ready', true],
+  ['signed in', { id: 'u1' }, 'ready', false],
+  ['signed in, auth not yet ready', { id: 'u1' }, 'resolving', false],
+];
+
+describe.each(SHAPES)("DJ world (flag ON) D8'' invite per viewer: $who", (s) => {
+  it.each(VIEWERS)('%s -> invite %s', async (_who, user, status, shown) => {
+    h.rpc.mockResolvedValue({ data: { ...ROW, ...s.row }, error: null });
+    h.app.data = s.gigs;
+    h.roles = { snapshot: { roles: s.roles }, answered: true };
+    h.auth = { user, authStatus: status };
+    mount();
+    await screen.findByTestId('dj-world');
+    const invite = screen.queryByTestId('dj-invite');
+    expect(!!invite).toBe(shown);
+    if (invite) expect(invite.getAttribute('href')).toBe('/auth?mode=signup&returnTo=%2Fdjs%2Fpapacito');
   });
 });
 

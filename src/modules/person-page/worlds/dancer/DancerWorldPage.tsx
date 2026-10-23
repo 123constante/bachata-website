@@ -6,7 +6,7 @@ import { PersonFrame, WorldPage } from '../../frame';
 import { TAP } from '../../roleSwitch';
 import { FOCUS_RING } from '../../wall/tokens';
 import { WORLD } from '../tokens';
-import { DancerWorld } from './DancerWorld';
+import { DancerWorld, DancerWorldSkeleton } from './DancerWorld';
 import { dancerCard, type DancerWorldInput } from './model';
 import { useDancerLower } from './useDancerLower';
 
@@ -44,12 +44,12 @@ export function DancerWorldPage({ id, slug, input, shareTitle, inviteHref, owner
 }
 
 /** The dancer read in flight: the frame's boxes on the dancer ground, in the same shell (no jump). */
-export function DancerWorldLoading({ breadcrumbs }: { breadcrumbs: BreadcrumbItemType[] }) {
+export function DancerWorldLoading({ breadcrumbs, invite }: { breadcrumbs: BreadcrumbItemType[]; invite: boolean }) {
   return (
     <WorldPage world="dancer" breadcrumbs={breadcrumbs} backHref="/dancers">
-      <div className="space-y-3" data-testid="dancer-world-loading" aria-busy>
+      <div data-testid="dancer-world-loading" aria-busy>
         <div className="h-11 w-full animate-pulse rounded-[12px]" style={{ background: T.section.background }} />
-        <div className="h-80 w-full animate-pulse rounded-[20px]" style={{ background: T.section.background }} />
+        <DancerWorldSkeleton invite={invite} />
       </div>
     </WorldPage>
   );

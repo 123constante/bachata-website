@@ -147,3 +147,110 @@ build-time flag). The local SSR server needs `NODE_USE_ENV_PROXY=1` to reach Sup
 - The `/code-review` pass (the owner types it).
 - Prod shape counts were not re-run (S2's survey of this morning stands).
 - `check:doc-weight`, `check:seo`, lighthouse: need a live preview.
+
+## S2 critique: independent design critique + one fix pass (2026-10-23)
+
+Brief: `briefs/PEOPLE-S2-critique-brief.md` on `brief/people-arc` (sha d1b2953a). Critic: a fresh worker. Critique
+(ordered fix list, verdicts): [`docs/design/people-s2-critique.md`](../../design/people-s2-critique.md); numbers in
+the design record's "S2 critique" section. Head = `git log -1 origin/claude/people-dancer-world` (this doc rides
+the last commit).
+
+### What changed
+
+| Item | Change |
+|---|---|
+| D8'' invite, ONE rule | NEW `facts.showsJoinInvite(user)`: hidden for a signed-in visitor, shown to every signed-out one (anonymous guest = signed out), from the first paint (no wait for auth). DJ world: `DjWorldInput.viewer` (`useAuth().user` from `DJProfile`), `invite` nullable, `DjWorld` renders it only when set. Dancer: `DancerProfile` uses the same rule (its `useAuth()` line is main's again: `authStatus` no longer read) |
+| D12 action, ONE constant | NEW `facts.FIND_A_PARTY` `{ label: 'Find a party', href: '/parties' }`; `djWorldView`'s `emptyAction` spreads it; the dancer's `PARTY_ACTION` is it (no more `djWorldView(...)` call to borrow the words) |
+| DJ serif in the dancer page | `DancerWorld` mounts the ref-counted `useDjPageFonts` while a DJ preview is on screen |
+| Layout shift | `DancerWorldLoading` = bar + `DancerWorldSkeleton` (card 233, a week of socials, the invite's room when `showsJoinInvite`); the undecided lower half and the socials-loading state = `SkeletonWeek` (heading, day label, 6 rows, button). No new read |
+| Flag sticker | photo 14 px under the DANCER kicker (was 10; the sticker touched it) |
+
+DJ-file changes are only the invite rule (and the shared constant): `worlds/dj/model.ts`, the 2-line conditional
+in `DjWorld.tsx`, the `useAuth()` + `viewer` lines in `DJProfile.tsx`, and their test rows.
+
+Tests (red first, on e749849 + only the new tests: 24 failed for the rules, then 4 for the waiting states, 2 for the
+serif): `sharedWorldRules.test.ts` (rule per viewer, constant, both worlds import them, no second copy),
+`DJProfileWorlds.test.tsx` (6 shapes x 5 viewers: signed out / resolving / anonymous / signed in / signed in not
+ready), `dancerWorld.matrix.test.tsx` (the same 5 viewers; every waiting state holds a full week + button; the
+loading box with and without the invite room), `djPageFonts.test.tsx` (DJ preview loads it, teacher-only does not).
+Mutations, each turned tests red: DJ invite always shown (13), 3 skeleton rows instead of 6 (4), serif call removed (2).
+
+### Owner calls (not in code)
+
+1. **Tabs row on multi-role dancer pages arrives late** (58 px push, 0.052). The DJ fix (hold the row while roles are
+   read) would hurt 159 of 189 dancers (no other role) to spare 30. Recommendation: add the role list (or a "has
+   other roles" flag) to the dancer read in the admin repo, then hold the row only when known.
+2. **Preview / empty-city pages shrink once** (0.04-0.07) because the waiting state is sized for a week of socials.
+   Same missing fact as 1.
+3. Lower-half heading "Coming up" (build) vs "<Name> also" (mock). Recommendation: keep "Coming up".
+4. The invite's form differs between worlds (panel + filled button vs one outlined pill). Recommendation: the dancer
+   form on both (it reads as a question and an answer).
+5. Still open from S2: the bio (2 dancers), and the `dancer-app` `languageName(s)` / `cityOnly` follow-up PR.
+
+### Walk (prod data, flag ON, same build; `docs/people-arc/s2/critique/probe.mjs`, `capture.mjs`)
+
+Frame: Back L10 T113 63x44, Share 70x44, tabs y 163 h 52 at 360 / 390 / 430 on every shape, equal to `/djs/papacito`,
+`/djs/jeff`, `/djs/brito`; tab hop DJ -> Dancer keeps the tabs at 163. Gate 4 (11 shapes x 2 widths): contrast >=
+5.06, no tap under 44, 0 clipped, no sideways scroll, content to footer 54. Layout shift at 390 (before -> after):
+leoncio 0.127 -> 0, chloe-poyiatz 0.144 -> 0.052, aurora 0.234 -> 0.052, aitor-angelica-tbf 0.116 -> 0.093,
+alex-boneva 0.088 -> 0.100, elias 0.244 -> 0.122, carol-y-raul 0.284 -> 0.144, llf-malva 0.289 -> 0.112.
+
+What I saw in each picture (`shots/`): header (black, gold rule) -> dancer ground: no step, same as the DJ world.
+Teal card on the ground reads as a card; contact and socials rows a step lighter, also cards. The flag on
+`photo-city-role` / `langs-nat` / `long-name` now clears DANCER. `dj-dated`: the DJ preview's dark sleeve sits on
+the teal ground with the serif "Next gig Friday 6 November". `madrid-nameless`: muted line, then "Find a party",
+then the invite: nothing points off screen. Page -> footer: a ~54 px band of ground, then the amber footer's hard
+edge, as on the DJ world and the mock. Socials rows lead with the time; each time equals its event page
+(`critique/times.mjs`).
+
+### CI, every applicable job step, run locally
+
+| Job (workflow) | Result |
+|---|---|
+| unit (unit-tests): ci-live-db-gate, test:unit, dancer-area-isolation (+self-test) | test:unit 15 failed / 12776 passed: the same 15 as main in this sandbox (3 live-DB contract files on the sandbox's non-prod key + `integrityCouldNotRun`). isolation: OK ("not a dancer-area PR"), self-test 48/48 |
+| typecheck: check:rpc-typing, check:wallclock-brand | pass. `tsc -p tsconfig.app.json` 116 errors (117 on e749849), none in touched lines |
+| guard (architecture-guard): integrity, legacy-tables, legacy-program-rpcs, lint:architecture, check:images AUDIT_STRICT=1, image-widths (+self-test), plan-hygiene self-test, workflow-artifact-policy (+self-test), mojibake (+self-test), prove:entry-point (+self-test) | pass (`bash bin/check-integrity.sh`: not executable in the sandbox, CI runs chmod first) |
+| lint chain | 19 of 20 links pass; the 20th is that integrity exit 126. eslint on touched files: 5 errors, the same 5 as before this change (none in changed lines) |
+| bundle (perf-budget): 3 self-tests, build, bundle-budget, first-load-requests, chunk-cycles | pass. lighthouse / check:doc-weight need a preview |
+| e2e (e2e-smoke): test:e2e | 154 passed, 4 failed, 7 skipped; the 4 (account-settings x2, auth-magic-link-returnto, organiser-onboarding header Sign in) rerun alone: 22 passed |
+| phone-qa: phone suite, production-build smoke | phone suite 272 passed, 0 failed, 74 skipped; production-build smoke (fake Supabase build) 67 passed |
+| workflow-lint | no workflow file changed; no-preview-prefixes (+self-test) pass in the lint chain |
+| seo-check, check:og | need a live preview |
+
+### Verified on real data
+
+- Prod shape counts (read-only SELECT, counts only, 2026-10-23): 189 dancing-role persons, 159 with no teacher or
+  DJ role, 30 with one; S2's 171-dancer survey for the rest.
+- Browser walk at 390x844, 360x800 and 430x932 on a production build reading prod (public anon key, read-only):
+  11 S2 shapes + 3 DJ references; layout shift measured before and after on the same shapes.
+- Socials times against the linked event pages (4 rows).
+
+### Not verified
+
+- Signed-in invite in a real browser (no account in the sandbox): unit-tested per viewer on both worlds.
+- Real photos (media host blocked), the Vercel preview (**needs owner: Vercel token**; the preview also needs
+  `VITE_ENABLE_PERSON_WORLDS=true` for this branch), a real phone, lighthouse / doc-weight / seo-check.
+- The `/code-review` pass (the owner types it).
+
+### Ready-to-paste PR body
+
+```markdown
+## Summary
+People arc S2 -- the dancer world, plus the S2 critique's fix pass (docs/design/people-s2-critique.md).
+- D8'': one invite rule in facts/ (`showsJoinInvite`), both worlds: hidden when signed in, shown to every signed-out visitor from the first paint.
+- D12: one `FIND_A_PARTY` constant in facts/, both worlds.
+- The DJ preview on a dancer page loads DM Serif Display.
+- Waiting states hold the room of the page they turn into: layout shift on the common dancer shape 0.127 -> 0.
+- The flag sticker no longer touches the DANCER kicker.
+Behind `flags.personWorlds` (default OFF); OFF = today's page.
+
+## Verified on real data
+- Shapes surveyed (read-only, counts): 189 dancing-role persons, 159 dancer-only / 30 with another role; S2's 171-dancer survey (photo, city, languages, nationality, roles, dates).
+- Checks run: matrix tests (6 DJ shapes x 5 viewers, dancer shapes x lower halves x viewers, waiting states), every CI job step locally (table in docs/people-arc/s2/HANDOVER.md), browser walk at 390x844 / 360x800 / 430x932 on prod data with layout-shift numbers before/after.
+- NOT verified: signed-in invite in a real browser (unit-tested), real photos, the Vercel preview (needs the flag env var + owner token), a real phone, lighthouse.
+
+## Phone QA
+- Sizes checked: 390x844, 360x800, 430x932 (and the phone suite at 390x844 / 360x640)
+- Walked: /dancers/:id on 11 prod shapes, /djs/papacito, /djs/jeff, /djs/brito, tab hop DJ -> Dancer, socials row -> event page
+- Not verified: a real phone, signed-in visitor in the browser, real photos
+```

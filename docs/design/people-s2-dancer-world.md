@@ -83,3 +83,25 @@ Run by `docs/people-arc/s2/capture.mjs` on a production build pointed at prod (r
 - **D8' invite**: on every shape (signed out), unchanged.
 
 Gate 4 re-run on this build: lowest contrast 5.06, no tap under 44px, 0 clipped, no sideways scroll at 360 or 390.
+
+## S2 critique (2026-10-23): numbers after the one fix pass
+
+Full list: [`people-s2-critique.md`](people-s2-critique.md). What changed on the page, measured on prod data
+(same build for every number, flag ON, Chromium):
+
+- **Layout shift** (sum per page load, 390x844): `leoncio` 0.127 -> **0**, `chloe-poyiatz` 0.144 -> 0.052,
+  `aurora` 0.234 -> 0.052, `aitor-angelica-tbf` 0.116 -> 0.093, `alex-boneva` 0.088 -> 0.100 (its own-font text
+  move, 0.005, plus the preview shrink), `elias` 0.244 -> 0.122, `carol-y-raul` 0.284 -> 0.144, `llf-malva` 0.289
+  -> 0.112. What is left: the tabs row on multi-role pages (0.052, owner call) and the shrink on preview / empty
+  pages (0.04-0.07). DJ world in the same build: 0.024-0.094.
+- **Waiting states** hold the page's room: the dancer read in flight = bar 44 + card 233 + a week of socials
+  (heading, day label, 6 rows of 52, the 44 button) + the invite's room for a signed-out visitor; the undecided
+  lower half and the socials-loading state = the same week.
+- **Invite (D8'')**: `facts.showsJoinInvite(user)`, the DJ world's rule too: signed in -> none; signed out or
+  anonymous -> shown from the first paint (it no longer waits for auth).
+- **"Find a party"**: `facts.FIND_A_PARTY`, imported by both worlds.
+- **DJ preview** in DM Serif Display (`useDjPageFonts` while a DJ preview is on screen).
+- **Flag sticker**: photo 14 px under the kicker (was 10): 3 px clear at 360 / 390 / 430.
+
+Gate 4 re-run (`capture.mjs`, 11 shapes x 390 / 360): lowest contrast 5.06, no tap under 44, 0 clipped, no
+sideways scroll, Back L10 T113, bar 370 / 340, tabs y 163, content to footer 54 -- equal to the DJ reference.

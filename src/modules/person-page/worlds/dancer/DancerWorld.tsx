@@ -2,11 +2,12 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
+import { useDjPageFonts } from '@/components/dj/djPageTheme';
 import { Avatar } from '../../frame';
 import { TAP } from '../../roleSwitch';
 import { FOCUS_RING } from '../../wall/tokens';
 import { FONT, ROLE_COLOUR, WORLD } from '../tokens';
-import { ALL_SOCIALS_HREF, FACE_PX, INVITE, PARTY_ACTION, SOCIALS_COPY, type DancerCard, type Preview } from './model';
+import { ALL_SOCIALS_HREF, FACE_PX, INVITE, PARTY_ACTION, SOCIALS_COPY, SOCIALS_MAX, type DancerCard, type Preview } from './model';
 import type { DancerLower, SocialsState } from './useDancerLower';
 
 const T = WORLD.dancer;
@@ -27,7 +28,8 @@ function Card({ card }: { card: DancerCard }) {
       style={{ padding: '14px 14px 16px', borderRadius: 20, background: T.card.background, border: `1px solid ${T.card.border}`, color: T.card.ink }}
     >
       <Kicker>DANCER</Kicker>
-      <div className="relative mx-auto mt-[10px]" style={{ width: FACE, height: FACE }}>
+      {/* 14px, not 10: the flag sticker rides 7px above the photo and touched the DANCER kicker. */}
+      <div className="relative mx-auto mt-[14px]" style={{ width: FACE, height: FACE }}>
         <Avatar name={card.name} photo={card.photo} world="dancer" size={FACE} />
         {card.flag ? <NationalityFlag code={card.flag} size={FACE} placement="corner" /> : null}
       </div>
@@ -85,6 +87,12 @@ const PillLink = ({ to, children, testId }: { to: string; children: ReactNode; t
   </Link>
 );
 
+/** The DJ preview's line is set in the DJ serif: load it while one is on screen (ref-counted hook). */
+function DjSerif() {
+  useDjPageFonts();
+  return null;
+}
+
 function PreviewRow({ p }: { p: Preview }) {
   const w = WORLD[p.role];
   return (
@@ -109,16 +117,32 @@ function PreviewRow({ p }: { p: Preview }) {
   );
 }
 
+/**
+ * A week of socials before it is known (S2 critique: the page moved 0.09-0.29 as reads answered).
+ * It holds the room most lower halves turn into -- 159 of 189 dancers hold no other role, so they
+ * get socials, and a London week fills all SOCIALS_MAX rows -- so the invite and the footer below
+ * stay put. `heading` false = the real heading is already on screen.
+ */
+function SkeletonWeek({ heading = true }: { heading?: boolean }) {
+  return (
+    <div aria-hidden>
+      {heading ? <div data-testid="dancer-world-skeleton-heading" className="animate-pulse rounded-md" style={{ height: 23, width: '70%', marginBottom: 6, background: T.section.row }} /> : null}
+      {/* The first day's label sits above the first row. */}
+      <div style={{ height: 30 }} />
+      {Array.from({ length: SOCIALS_MAX }, (_, i) => (
+        <div key={i} data-testid="dancer-world-skeleton-row" className="mt-1 animate-pulse rounded-xl" style={{ height: 52, background: T.section.row }} />
+      ))}
+      <div data-testid="dancer-world-skeleton-button" className="mt-[10px] rounded-full" style={{ height: TAP, border: `1px solid ${T.section.border}` }} />
+    </div>
+  );
+}
+
 function Socials({ heading, city, state }: { heading: string; city: string; state: SocialsState }) {
   return (
     <section data-testid="dancer-world-socials" data-state={state.status} aria-busy={state.status === 'loading'}>
       <H2>{heading}</H2>
       {state.status === 'loading' ? (
-        <div aria-hidden>
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="mt-1 animate-pulse rounded-xl" style={{ height: 52, background: T.section.row }} />
-          ))}
-        </div>
+        <SkeletonWeek heading={false} />
       ) : state.status === 'error' || state.days.length === 0 ? (
         <>
           <p data-testid="dancer-world-socials-empty" style={{ fontSize: 14, color: T.card.muted }}>
@@ -164,7 +188,7 @@ function Lower({ lower }: { lower: DancerLower }) {
   if (!half) {
     return (
       <div data-testid="dancer-world-lower" data-kind="loading" aria-busy className="mt-4">
-        <div className="animate-pulse rounded-[14px]" style={{ height: 64, background: T.section.row }} />
+        <SkeletonWeek />
       </div>
     );
   }
@@ -173,11 +197,34 @@ function Lower({ lower }: { lower: DancerLower }) {
       {half.kind === 'previews' ? (
         <section>
           <H2>{half.heading}</H2>
+          {half.items.some((p) => p.role === 'dj') ? <DjSerif /> : null}
           {half.items.map((p) => <PreviewRow key={p.role} p={p} />)}
         </section>
       ) : (
         <Socials heading={half.heading} city={half.city} state={lower.socials} />
       )}
+    </div>
+  );
+}
+
+/** The card's height with a name and one sub line, no languages (measured at 390 and 360 on prod data). */
+const CARD_SKELETON_PX = 233;
+
+/**
+ * The dancer read in flight: the world's own boxes at the sizes the page turns into (card, a week
+ * of socials, the invite when this visitor will get it), so nothing below moves when it answers.
+ */
+export function DancerWorldSkeleton({ invite }: { invite: boolean }) {
+  return (
+    <div className="mt-3" aria-hidden>
+      <div data-testid="dancer-world-skeleton-card" className="animate-pulse rounded-[20px]" style={{ height: CARD_SKELETON_PX, background: T.section.background }} />
+      <div className="mt-4"><SkeletonWeek /></div>
+      {invite ? (
+        <div data-testid="dancer-world-skeleton-invite" className="mt-6 rounded-[14px] p-3" style={{ background: T.section.background, border: `1px solid ${T.section.border}` }}>
+          <div style={{ height: 22 }} />
+          <div className="mt-2" style={{ height: TAP }} />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -29,6 +29,7 @@ import { useDancerRoleBar } from "@/modules/dancer-app/public-page/roleBarModel"
 import { PublicDancerPageV2 } from "@/modules/dancer-app/public-page/PublicDancerPageV2";
 import { NO_EXTRAS, buildPublicDancerPage, joinHref, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
 import { DancerWorldLoading, DancerWorldMissing, DancerWorldPage } from "@/modules/person-page/worlds/dancer/DancerWorldPage";
+import { showsJoinInvite } from "@/modules/person-page/facts";
 import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 
 type AttendanceRow = {
@@ -99,7 +100,7 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
     enabled: !!id,
     staleTime: 1000 * 60 * 5,
   });
-  const { user, authStatus } = useAuth();
+  const { user } = useAuth();
   const dancerView = dancer ? mapDancerPublicProfile(dancer) : null;
   // No useSeo() here: DancerProfile renders only under app/routes/dancers.tsx,
   // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
@@ -244,7 +245,7 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
   const worldCrumbs = worlds
     ? buildBreadcrumbs('dancer.detail', { entityName: dancerView?.displayName ?? undefined, isLoading: isLoading || resolved.isLoading })
     : [];
-  if (worlds && (isLoading || resolved.isLoading)) return <DancerWorldLoading breadcrumbs={worldCrumbs} />;
+  if (worlds && (isLoading || resolved.isLoading)) return <DancerWorldLoading breadcrumbs={worldCrumbs} invite={showsJoinInvite(user)} />;
   if (worlds && (error || !dancer || !dancerView)) {
     if (dancerError) console.error('DancerProfile error:', dancerError);
     return <DancerWorldMissing breadcrumbs={worldCrumbs} />;
@@ -395,8 +396,8 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
   if (worlds) {
     const extras = publicPage?.extras ?? NO_EXTRAS;
     const worldModel = buildPublicDancerPage(dancerView, extras);
-    // The same invite rule as today's page: signed-out (or anonymous) viewers only.
-    const showInvite = authStatus !== 'resolving' && (!user || user.is_anonymous === true);
+    // Owner D8'': signed-out (or anonymous) visitors only, the DJ world's rule too (facts/).
+    const showInvite = showsJoinInvite(user);
     const worldPath = resolved.slug ? `/dancers/${resolved.slug}` : `/dancers/${routeParam ?? dancerView.id}`;
     return (
         <DancerWorldPage

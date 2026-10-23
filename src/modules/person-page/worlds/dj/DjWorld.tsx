@@ -168,6 +168,7 @@ export function DjWorld({ view, photo, bio, dates, onRetry }: {
         </a>
       ) : null}
 
+      {view.invite ? (
       <Link
         to={view.invite.href}
         data-testid="dj-invite"
@@ -176,6 +177,7 @@ export function DjWorld({ view, photo, bio, dates, onRetry }: {
       >
         {view.invite.label}
       </Link>
+      ) : null}
     </div>
   );
 }

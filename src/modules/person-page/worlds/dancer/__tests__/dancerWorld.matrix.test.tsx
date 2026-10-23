@@ -14,7 +14,7 @@ import { installJsdomPolyfills } from '../../../../../../tests/client/jsdomPolyf
 import { flags } from '@/lib/featureFlags';
 import { londonTodayKey, addDaysToKey } from '@/lib/londonDate';
 import type { PersonRole } from '../../../personRoles';
-import { DEFAULT_CITY, INVITE, PARTY_ACTION, SOCIALS_COPY, dancerCard, lowerHalf, nextAppearance, previewOf, socialsThisWeek, worldRoles } from '../model';
+import { DEFAULT_CITY, INVITE, PARTY_ACTION, SOCIALS_COPY, SOCIALS_MAX, dancerCard, lowerHalf, nextAppearance, previewOf, socialsThisWeek, worldRoles } from '../model';
 import { djWorldView } from '../../dj';
 import { WORLD_PAGE } from '../../../frame';
 
@@ -26,16 +26,18 @@ const h = vi.hoisted(() => ({
   teacher: [] as unknown[],
   dj: [] as unknown[],
   socials: [] as unknown[],
+  rolesPending: false,
   socialsFail: false,
   city: null as null | { cityId: string; cityName: string; citySlug: string },
   user: null as null | { id: string; is_anonymous?: boolean },
+  authStatus: 'ready' as string,
   snapshotIds: [] as (string | undefined)[],
   /** supabase.from(); the default has no query methods, so the dancer read fails (= not found). */
   from: (() => ({})) as () => unknown,
 }));
 vi.mock('@/hooks/useAuth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
-  useAuth: () => ({ user: h.user, isLoading: false, authStatus: 'ready' }),
+  useAuth: () => ({ user: h.user, isLoading: h.authStatus === 'resolving', authStatus: h.authStatus }),
 }));
 vi.mock('@/hooks/useMyPersonaId', () => ({ useMyPersonaId: () => null }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: async () => ({ data: null, error: null }), from: () => h.from() } }));
@@ -44,7 +46,7 @@ vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { c
 vi.mock('@/modules/person-page/usePersonRoles', () => ({
   usePersonSnapshot: (id: string | undefined) => {
     h.snapshotIds.push(id);
-    return { snapshot: id ? { roles: h.roles } : null, answered: !!id };
+    return h.rolesPending ? { snapshot: null, answered: false } : { snapshot: id ? { roles: h.roles } : null, answered: !!id };
   },
   usePersonRoles: () => h.roles,
 }));
@@ -110,7 +112,7 @@ const q = (id: string) => screen.queryByTestId(id);
 beforeEach(() => {
   installJsdomPolyfills();
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
-  Object.assign(h, { roles: [], teacher: [], dj: [], socials: [PARTY()], socialsFail: false, city: null, user: null, snapshotIds: [] });
+  Object.assign(h, { roles: [], teacher: [], dj: [], socials: [PARTY()], rolesPending: false, socialsFail: false, city: null, user: null, authStatus: 'ready', snapshotIds: [] });
 });
 afterEach(() => {
   cleanup();
@@ -202,7 +204,7 @@ describe('D6 lower half', () => {
   });
 
   it('the empty-state button is the DJ world\'s own wording (one source, never a copy)', () => {
-    const dj = djWorldView({ row: {}, cityName: null, nationalityCode: null, links: { soundcloud: null, mixcloud: null, instagram: null, website: null, facebook: null }, upcoming: [], past: [], pathname: '/' });
+    const dj = djWorldView({ row: {}, cityName: null, nationalityCode: null, links: { soundcloud: null, mixcloud: null, instagram: null, website: null, facebook: null }, upcoming: [], past: [], pathname: '/', viewer: null });
     expect(PARTY_ACTION).toEqual({ label: dj.emptyAction?.label, href: dj.emptyAction?.href });
     expect(PARTY_ACTION).toEqual({ label: 'Find a party', href: '/parties' });
   });
@@ -292,12 +294,22 @@ describe('flag ON: the frame + the dancer world, every shape x every lower half'
     expect(h.snapshotIds).toContain('person-77');
   });
 
-  it('signed in: no invite (the sign-up entry would bounce them)', async () => {
+  // Owner D8'' (2026-10-23): hidden from a signed-in visitor, shown to every signed-out one, on every
+  // world (facts.showsJoinInvite, the DJ world's rule too). Shown from the first paint: it never
+  // waits for auth, so a signed-out visitor never sees it arrive late.
+  it.each([
+    ['signed out', null, 'ready', true],
+    ['auth still resolving, no user yet', null, 'resolving', true],
+    ['anonymous guest session', { id: 'g', is_anonymous: true }, 'ready', true],
+    ['signed in', { id: 'u1' }, 'ready', false],
+    ['signed in, auth not yet ready', { id: 'u1' }, 'resolving', false],
+  ] as const)("D8'' invite: %s -> %s", async (_who, user, status, shown) => {
     setWorlds(true);
-    h.user = { id: 'u1' };
+    h.user = user ? { ...user } : null;
+    h.authStatus = status;
     mount('photo + London + role');
     await settle();
-    expect(q('dancer-world-invite')).toBeNull();
+    expect(!!q('dancer-world-invite')).toBe(shown);
   });
 
   it('role tabs: two roles -> tabs with Dancer current; one role -> none', async () => {
@@ -382,6 +394,54 @@ describe('flag ON: one shell for every state (the DJ world\'s)', () => {
     expect(back.getAttribute('href')).toBe('/dancers');
     expect((back as HTMLElement).style.minHeight).toBe('44px');
   });
+
+// S2 critique: measured in Chromium on prod data, the dancer page moved 0.09-0.29 (layout shift) as
+// its reads answered, against 0.02-0.09 on the DJ world: the loading box was 117 px shorter than the
+// page it turns into, and the lower half grew from one 64 px box to a week of socials. Every waiting
+// state now holds the room of what most pages turn into (a full week of socials: 159 of 189 dancers
+// hold no other role, so their lower half is socials) and the invite's room for a signed-out visitor.
+describe('flag ON: every waiting state holds the room of the page it turns into', () => {
+  const rows = (root: HTMLElement) => within(root).queryAllByTestId('dancer-world-skeleton-row').length;
+
+  it.each([
+    ['roles and dates still being read', () => { h.rolesPending = true; }],
+    ["this week's socials still being read", () => { h.socials = new Promise(() => undefined) as unknown as unknown[]; }],
+  ] as const)('%s: a heading, a full week of rows and the button', async (_who, arrange) => {
+    setWorlds(true);
+    arrange();
+    mount('photo + London + role');
+    const lower = await screen.findByTestId('dancer-world-lower');
+    const box = lower.getAttribute('data-kind') === 'loading' ? lower : within(lower).getByTestId('dancer-world-socials');
+    expect(rows(box)).toBe(SOCIALS_MAX);
+    // The real heading once the lower half is known, a bar of its height before.
+    expect(box.querySelector('h2, [data-testid="dancer-world-skeleton-heading"]')).toBeTruthy();
+    expect(within(box).getByTestId('dancer-world-skeleton-button')).toBeTruthy();
+  });
+
+  it.each([
+    ['signed out', null, true],
+    ['signed in', { id: 'u1' }, false],
+  ] as const)('the dancer read in flight (%s): bar, card, lower half, and the invite room only when it will show', async (_who, user, invite) => {
+    setWorlds(true);
+    h.user = user ? { ...user } : null;
+    const hang = { select: () => hang, eq: () => hang, not: () => hang, maybeSingle: () => new Promise(() => undefined) };
+    h.from = () => hang;
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(['entity-resolve', 'dancer_profiles', 'id', 'slow'], { id: 'id-slow', slug: 'slow' });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/dancers/slow']}>
+          <Routes><Route path="/dancers/:id" element={<DancerProfile publicPage={null} />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const box = await screen.findByTestId('dancer-world-loading');
+    expect(rows(box)).toBe(SOCIALS_MAX);
+    expect(within(box).getByTestId('dancer-world-skeleton-card')).toBeTruthy();
+    expect(!!within(box).queryByTestId('dancer-world-skeleton-invite')).toBe(invite);
+    h.from = () => ({});
+  });
+});
 
   it('socials rows show the time first', async () => {
     setWorlds(true);
