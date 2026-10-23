@@ -308,6 +308,7 @@ const DJProfile = () => {
               roles={person.snapshot?.roles ?? []}
               current="dj"
               slug={resolved.slug}
+              rolesPending={!person.answered}
             >
               <DjWorld
                 view={view}

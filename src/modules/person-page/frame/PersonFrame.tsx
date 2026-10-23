@@ -9,12 +9,15 @@ import { RoleTabs } from './RoleTabs';
 import { sharePage } from './share';
 import { backGoesToHistory, currentHistoryIdx } from './backRule';
 
+/** The tabs row as RoleTabs draws it: a 44px tab + 3px padding and a 1px border, top and bottom. */
+const TABS_HEIGHT = TAP + 2 * 3 + 2 * 1;
+
 /**
  * The shared frame on top of every people world, right under the site header: Back (left)
  * and Share (right) in one bar, then the role tabs above the photo. Identical on every world,
  * so the tabs sit at the same y; each world owns everything below it (children).
  */
-export function PersonFrame({ backHref, backLabel = 'Back', shareTitle, roles, current, slug, children }: {
+export function PersonFrame({ backHref, backLabel = 'Back', shareTitle, roles, current, slug, rolesPending = false, children }: {
   /** Where Back goes when there is no page of this site to go back to (a shared link, a new tab): the world's list. */
   backHref: string;
   backLabel?: string;
@@ -23,6 +26,11 @@ export function PersonFrame({ backHref, backLabel = 'Back', shareTitle, roles, c
   roles: readonly PersonRole[];
   current: PersonRole;
   slug: string | null | undefined;
+  /**
+   * The roles read has not answered yet: keep the tabs' row so the world does not jump down
+   * when they arrive (most people hold 2+ roles: 36 of 40 DJs on prod, 2026-10-23).
+   */
+  rolesPending?: boolean;
   children?: ReactNode;
 }) {
   // The Back rule (owner D9): the previous page when it was on this site, else backHref. The
@@ -59,7 +67,11 @@ export function PersonFrame({ backHref, backLabel = 'Back', shareTitle, roles, c
           Share
         </button>
       </div>
-      <RoleTabs roles={roles} current={current} slug={slug} />
+      {rolesPending && roles.length < 2 ? (
+        <div aria-hidden data-testid="role-tabs-pending" style={{ height: TABS_HEIGHT }} />
+      ) : (
+        <RoleTabs roles={roles} current={current} slug={slug} />
+      )}
       {children}
     </div>
   );

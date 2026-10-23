@@ -192,6 +192,38 @@ describe('DJ world (flag ON): dates and facts', () => {
   });
 });
 
+// S3 critique: nothing moves when a late read answers (measured in Chromium: the tabs pushed the
+// world down 58 px on 36 of 40 DJs, and the booking row jumped when the dates came in).
+describe('DJ world (flag ON): no jump when the late reads answer', () => {
+  beforeEach(() => {
+    h.rpc.mockResolvedValue({ data: { ...ROW, dj_name: 'Morcilla', instagram: 'dj_morcilla' }, error: null });
+  });
+
+  it.each([
+    { state: 'roles read pending', roles: { snapshot: null, answered: false }, slot: true, tabs: false },
+    { state: 'answered, DJ + dancer', roles: { snapshot: { roles: ['dj', 'dancer'] as PersonRole[] }, answered: true }, slot: false, tabs: true },
+    { state: 'answered, DJ only', roles: { snapshot: { roles: ['dj'] as PersonRole[] }, answered: true }, slot: false, tabs: false },
+    { state: 'answered, read failed', roles: { snapshot: null, answered: true }, slot: false, tabs: false },
+  ])('tabs row: $state', async ({ roles, slot, tabs }) => {
+    h.roles = roles;
+    mount();
+    await screen.findByTestId('dj-world');
+    expect(!!screen.queryByTestId('role-tabs-pending')).toBe(slot);
+    expect(!!screen.queryByTestId('role-tabs')).toBe(tabs);
+  });
+
+  it.each([
+    { dates: 'loading', isFetched: false, isError: false, book: false },
+    { dates: 'ready', isFetched: true, isError: false, book: true },
+    { dates: 'failed', isFetched: true, isError: true, book: true },
+  ])('booking row while the dates are $dates', async ({ isFetched, isError, book }) => {
+    h.app = { data: [], isFetched, isError, refetch: vi.fn() };
+    mount();
+    await screen.findByTestId('dj-world');
+    expect(!!screen.queryByTestId('dj-book')).toBe(book);
+  });
+});
+
 describe('flag OFF: today\'s page, unchanged', () => {
   it.each(SHAPES)('$who', async (s) => {
     h.flags.personWorlds = false;

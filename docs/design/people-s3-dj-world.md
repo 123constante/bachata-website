@@ -19,7 +19,7 @@ record sleeve:
 | Upcoming | one row per gig: big day number, "Friday 23 October &middot; 21:00", event, venue; the next gig highlighted | `facts.dayNumber`, `gigDateLabel`, `timeLabel` |
 | Played at | dashed records: "OCTOBER 2026" + event | `facts.monthLabel` |
 | No dates at all | one "Parties this week" button to `/parties` (so a thin page ends on something to do) | model |
-| Book | "BOOK MORCILLA" + the first link (SoundCloud, Mixcloud, Instagram, website, Facebook order), opens in a new tab | `listenLinks` |
+| Book | "BOOK MORCILLA" + the first link (SoundCloud, Mixcloud, Instagram, website, Facebook order), opens in a new tab; shown once the dates read answered (so it does not jump) | `listenLinks` |
 | Invite (D8) | "Dance bachata too? Get your own card", 44 px tall, to `/auth?mode=signup&returnTo=<this page>` (the dancer page's own `joinHref` entry); only once the roles read answered and the person is not a dancer | `buildSignInHref` |
 
 Dropped from the DJ page (owner): the guestbook. Share moved from the bottom into the frame (top right).
@@ -67,3 +67,17 @@ control that is not on screen.
 Known, not S3's to change: the site's `GlobalLayout` wrapper is `min-h-screen`, so on a thin page the DJ
 ground runs to the bottom of the screen before the footer (the approved design lifted the footer; that is a
 site-wide layout change).
+
+## Stage 5 critique (2026-10-23, fresh worker): layout shift
+
+Full list: [`people-s3-critique.md`](people-s3-critique.md). Measured with `docs/people-arc/s3/critique-probe.mjs`
+(Chromium layout-shift entries, prod data, 390x844). Prod: 36 of 40 DJs hold 2+ roles, 4 are DJ-only.
+
+| Shape | Before | After |
+|---|---|---|
+| multi-role (papacito, jeff, ramiro-zapata, nico, chong, brito) | 0.033-0.054 (tabs arrive: world 142 -> 200) + 0.022-0.035 (booking row moves when the dates arrive) | 0.0003-0.0008 (font swap only) |
+| DJ-only (carlos-de-la-cruz, bobby-blanco, dj-chino-bzuk26) | 0.0002-0.0006 | 0.031-0.038 (the kept tabs row closes: 200 -> 142) |
+
+Fix: `PersonFrame` `rolesPending` keeps the 52 px tabs row while the roles read is out (no new read); the booking
+row waits for the dates. The DJ-only trade is accepted (4 of 40); removing it needs the roles in the first read
+(owner call, not built).

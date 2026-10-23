@@ -143,7 +143,8 @@ export function DjWorld({ view, photo, bio, dates, onRetry }: {
         </Link>
       ) : null}
 
-      {view.book ? (
+      {/* After the dates, so it does not jump down when they arrive. */}
+      {dates !== 'loading' && view.book ? (
         <a
           href={view.book.href}
           target="_blank"
