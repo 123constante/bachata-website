@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Plain closures, not vi.fn: a spy that returns a rejected promise or throws is itself reported as a test error.
 const h = vi.hoisted(() => ({ impl: (() => undefined) as () => unknown, calls: [] as unknown[][] }));
@@ -35,5 +35,22 @@ describe('trackAuthStep never blocks', () => {
     h.impl = () => Promise.resolve({ error: null });
     trackAuthStep({ step: 'landing', outcome: 'S-HOME-1' });
     expect(Object.keys(h.calls[0][1] as object).sort()).toEqual(['p_outcome', 'p_step']);
+  });
+});
+
+describe('trackAuthStep under automation', () => {
+  const setWebdriver = (v: boolean) =>
+    vi.stubGlobal('navigator', { webdriver: v });
+  afterEach(() => { vi.unstubAllGlobals(); });
+  it('navigator.webdriver = true: no RPC call', () => {
+    setWebdriver(true);
+    trackAuthStep({ step: 'code_ok', outcome: 'ok' });
+    expect(h.calls).toEqual([]);
+  });
+  it('navigator.webdriver = false: one RPC call', () => {
+    setWebdriver(false);
+    h.impl = () => Promise.resolve({ error: null });
+    trackAuthStep({ step: 'code_ok', outcome: 'ok' });
+    expect(h.calls).toHaveLength(1);
   });
 });
