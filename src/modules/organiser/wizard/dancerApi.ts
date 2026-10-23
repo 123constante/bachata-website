@@ -37,6 +37,8 @@ export const needsTeamHelp = (message: string | null): boolean => message === WH
 
 const COPY: Record<string, string> = {
   invalid_handle: 'Enter just the handle, like your.handle.',
+  invalid_phone: 'Use the number with its country code, like +44 7700 900123.',
+  invalid_instagram: 'Use your Instagram name, like @yourname, or your profile link.',
   whatsapp_not_allowed: WHATSAPP_NOT_ALLOWED_COPY,
   rate_limited: 'That was a lot of saves in a short time. Wait a few minutes, then try again.',
   not_signed_in: 'You are signed out. Sign in again, then answer this question.',

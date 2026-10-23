@@ -22,6 +22,7 @@ import { CATEGORY_OPTIONS, FIELD_LABEL, checkField, type FieldKey } from '../edi
 import { PHOTO_ACCEPT } from '../edit-in-place/organiserPhotoModel';
 import { countryNameFor, wizardCountries } from './wizardCountries';
 import { DANCE_ROLE_VALUES, type WizardDancer } from './dancerApi';
+import { makeInstagramStep, makePhoneStep } from './contactSteps';
 import { makeChoiceStep, makeElsewhereStep, makeListStep, makePickStep, makeTextStep, makeUploadStep, textOf, type PickResult } from './stepKinds';
 
 export interface WizardSources {
@@ -124,10 +125,8 @@ const ENTRIES: WizardEntry[] = [
   })),
   dancer('nationality', 'What is your nationality?', 'nationality', makePickStep('nationality', { label: 'Nationality', placeholder: 'Search for a country', search: searchCountries, currentLabel: countryName }), { advanceOnAnswer: true }),
   dancer('languages', 'Which languages do you speak?', 'languages', makeListStep('languages', { label: 'Languages', placeholder: 'English' })),
-  dancer('instagram', 'What is your Instagram?', 'instagram', makeTextStep('instagram', { label: 'Instagram', placeholder: 'your.handle', maxLength: 100, autoComplete: 'off' })),
-  dancer('phone_or_whatsapp', 'What is your WhatsApp number?', 'whatsapp', makeTextStep('phone_or_whatsapp', {
-    label: 'WhatsApp', inputMode: 'tel', placeholder: '+44 7700 900123', maxLength: 40, autoComplete: 'tel', help: 'With the country code. It stays private unless you choose to show it.',
-  })),
+  dancer('instagram', 'What is your Instagram?', 'instagram', makeInstagramStep('instagram', { label: 'Instagram' })),
+  dancer('phone_or_whatsapp', 'What is your WhatsApp number?', 'whatsapp', makePhoneStep('phone_or_whatsapp', { label: 'WhatsApp', help: 'It stays private unless you choose to show it.' })),
   dancer('dance_started_year', 'What year did you start dancing?', 'dance_started_year', makeTextStep('dance_started_year', {
     label: 'Year you started', inputMode: 'numeric', placeholder: '2018', maxLength: 4, check: checkYear, toValue: (raw) => Number(raw.trim()),
   })),
@@ -145,9 +144,9 @@ const ENTRIES: WizardEntry[] = [
   organiser('founded_year', 'What year did it start?', 'founded_year', makeTextStep('org-founded', {
     label: FIELD_LABEL.founded_year, inputMode: 'numeric', placeholder: '2018', maxLength: 4, check: orgCheck('founded_year'), toValue: orgText('founded_year'),
   })),
-  organiser('instagram', 'What is its Instagram?', 'instagram', makeTextStep('org-instagram', { label: FIELD_LABEL.instagram, placeholder: 'your.handle', maxLength: 100, check: orgCheck('instagram'), toValue: orgText('instagram') })),
-  organiser('contact_phone', 'What number can dancers call?', 'contact_phone', makeTextStep('org-phone', {
-    label: FIELD_LABEL.contact_phone, inputMode: 'tel', placeholder: '+44 7700 900123', maxLength: 40, check: orgCheck('contact_phone'), toValue: orgText('contact_phone'),
+  organiser('instagram', 'What is its Instagram?', 'instagram', makeInstagramStep('org-instagram', { label: FIELD_LABEL.instagram })),
+  organiser('contact_phone', 'What number can dancers call?', 'contact_phone', makePhoneStep('org-phone', {
+    label: FIELD_LABEL.contact_phone,
     // The switch itself is on My page (Edit contact details), so the help links there.
     help: <>It shows on your page only if you switch that on in <Link to={ORG_PATHS.page} className="inline-flex min-h-[44px] items-center font-semibold text-[var(--gold)] underline underline-offset-4">My page</Link>.</>,
   })),
