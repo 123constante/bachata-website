@@ -62,6 +62,9 @@ test('sign-in code box: send, code, 5 wrong codes lock', async ({ page }) => {
 
 test('sign-up code box: consent line, recorded once on success', async ({ page }) => {
   const backend = new Backend(rowFor(NEW, 'signup'));
+  // trackAuthStep skips automation (navigator.webdriver); this test asserts the (mocked) funnel call, so it
+  // presents as a normal browser. Test-only: no URL flag or app code path does this in production.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'webdriver', { get: () => false }));
   await wire(page, backend);
   const log = await rpcLog(page, null);
   await page.goto('/auth?mode=signup&userType=dancer');
