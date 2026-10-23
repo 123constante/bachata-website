@@ -7,7 +7,8 @@ import {
   organiserHomeQueryKey,
   type HomeOrganiser,
 } from '@/modules/organiser/shared/selfServeApi';
-import { isListedSeries, type HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
+import type { HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
+import { listedFromOrganisers } from '@/modules/organiser/shared/useOrganiserSeries';
 
 // The two event-truth reads every R1 flow sends through (plan 4.3 #11): kept
 // here as re-exports so the old import path keeps working.
@@ -23,9 +24,7 @@ export type ListedSeries = HomeSeriesFull & { default_venue_name?: string | null
 
 /** Every listed series (R3-4: never archived) across the caller's organisers, once each, by name. */
 export function listedSeries(organisers: HomeOrganiser[] | undefined): ListedSeries[] {
-  const seen = new Map<string, ListedSeries>();
-  (organisers ?? []).forEach((o) => o.series.filter(isListedSeries).forEach((s) => { if (!seen.has(s.id)) seen.set(s.id, s as ListedSeries); }));
-  return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return (listedFromOrganisers(organisers) as ListedSeries[]).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** The sessions of one date (the line-up row, EditorRows.ScheduleCard). */
