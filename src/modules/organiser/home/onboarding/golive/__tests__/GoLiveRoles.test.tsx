@@ -39,6 +39,8 @@ import type { ProgressStep } from '@/modules/organiser/shared/profileProgress';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import type { WizardWriters } from '../../../../wizard/wizardApi';
 import { GoLiveFlowScreen } from '../GoLiveFlow';
+import Done from '@/modules/organiser/flows/Done';
+import { DEFAULT_AREA_PATHS } from '@/modules/areas/shared/paths';
 import { ROLE_MINIMUM_REASON, ROLE_QUESTION_REASON_BOTH, ROLE_QUESTION_TITLE, ROLE_SAVE_FAILED, type RoleQuestionWriters } from '../roleQuestion';
 
 type Step = [ProgressStep['area'], string, boolean];
@@ -68,6 +70,7 @@ function mount(entry = `${ORG_PATHS.goLive}?series=s1&o=org-1`) {
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path={ORG_PATHS.goLive} element={<GoLiveFlowScreen writers={writers} roleWriters={roleWriters} uploadLogo={async () => 'https://img.example/logo.jpg'} />} />
+          <Route path={ORG_PATHS.done} element={<Done />} />
           <Route path="*" element={<Where />} />
         </Routes>
       </MemoryRouter>
@@ -182,5 +185,51 @@ describe('the roles question', () => {
     fireEvent.click(screen.getAllByTestId('step-choice')[0]);
     await waitFor(() => expect(screen.queryByTestId('golive-question')).toBeNull());
     expect(screen.queryByTestId('golive-roles')).toBeNull();
+  });
+});
+
+/** Go live once the button is on (the check is re-read after a role answer). */
+const goLive = async () => {
+  await waitFor(() => expect((screen.getByTestId('golive-live') as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByTestId('golive-live'));
+};
+
+describe("It's live", () => {
+  it('after a Yes to DJ: title, "<event> is live." and ONE offer into the DJ editor; Maybe later hides it', async () => {
+    mount();
+    await toRoles();
+    fireEvent.click(screen.getByTestId('golive-role-teacher-no'));
+    fireEvent.click(screen.getByTestId('golive-role-dj-yes'));
+    fireEvent.change(screen.getByTestId('golive-role-dj-dj_name'), { target: { value: 'DJ Ana' } });
+    fireEvent.change(screen.getByTestId('golive-role-dj-genres'), { target: { value: 'Bachata' } });
+    fireEvent.click(screen.getByTestId('golive-roles-continue'));
+    await goLive();
+    expect((await screen.findByTestId('org-done-message')).textContent).toBe('Friday Social is live.');
+    expect(screen.queryByTestId('org-done-offer-teacher')).toBeNull();
+    expect(screen.getByTestId('org-done-offer-dj').textContent).toContain('Make your DJ page stand out');
+    expect(screen.getByTestId('org-done-offer-dj-open').getAttribute('href')).toBe(DEFAULT_AREA_PATHS.dj.profile);
+    fireEvent.click(screen.getByTestId('org-done-offer-dj-later'));
+    expect(screen.queryByTestId('org-done-offer')).toBeNull();
+  });
+
+  it('no role claimed and both No: no offer at all', async () => {
+    intent = { roles: [], declined: [] };
+    mount();
+    await toRoles();
+    fireEvent.click(screen.getByTestId('golive-role-teacher-no'));
+    fireEvent.click(screen.getByTestId('golive-role-dj-no'));
+    fireEvent.click(screen.getByTestId('golive-roles-continue'));
+    await goLive();
+    expect((await screen.findByTestId('org-done-message')).textContent).toBe('Friday Social is live.');
+    expect(screen.queryByTestId('org-done-offer')).toBeNull();
+  });
+
+  it('a teacher already: offered without being asked', async () => {
+    intent = { roles: ['teacher'], declined: ['dj'] };
+    steps = [];
+    mount();
+    await goLive();
+    expect((await screen.findByTestId('org-done-offer-teacher-open')).getAttribute('href')).toBe(DEFAULT_AREA_PATHS.teacher.profile);
+    expect(screen.queryByTestId('org-done-offer-dj')).toBeNull();
   });
 });

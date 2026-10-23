@@ -101,3 +101,13 @@ export async function saveRoleAnswers(asked: readonly Role[], answers: RoleAnswe
   }
   return writes;
 }
+
+// ---- "It's live" ------------------------------------------------------------------------------
+
+export const ITS_LIVE_TITLE = "It's live";
+export const itsLiveLine = (eventName: string): string => `${eventName} is live.`;
+
+/** The role pages "It's live" offers: roles already claimed, plus a Yes given on the way here. Teacher first. */
+export function offerRoles(intent: RoleIntent | null, answers: RoleAnswers): Role[] {
+  return ASKABLE.filter((r) => intent?.roles.includes(r) || answers[r]?.yes === true);
+}

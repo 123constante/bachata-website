@@ -38,7 +38,7 @@ import { fetchMyRoleIntent, myRoleIntentQueryKey, myRolesQueryKey, answerDoYou }
 import { fetchMyRoleDetails, saveMyRole } from '@/modules/areas/shared/areaApi';
 import type { Role } from '@/modules/areas/shared/fieldRegistry';
 import { RoleQuestion } from './RoleQuestion';
-import { ROLE_QUESTION_TITLE, ROLE_SAVE_FAILED, rolesToAsk, saveRoleAnswers, type RoleAnswers, type RoleQuestionWriters } from './roleQuestion';
+import { ITS_LIVE_TITLE, ROLE_QUESTION_TITLE, ROLE_SAVE_FAILED, itsLiveLine, offerRoles, rolesToAsk, saveRoleAnswers, type RoleAnswers, type RoleQuestionWriters } from './roleQuestion';
 
 /** The real role writers: the Your areas Yes/No (B-DB1) and save_my_role_v1, changed keys only. */
 export const REAL_ROLE_QUESTION_WRITERS: RoleQuestionWriters = {
@@ -212,7 +212,7 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo, roleWriters 
     await flow.run(async () => {
       const r = await flow.send(seriesId, ws.data!.series.version, lifecycleCommand('live'));
       void qc.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
-      if (r) goDone(navigate, { title: 'Live', message: `Live - ${ws.data!.series.name}`, seriesId });
+      if (r) goDone(navigate, { title: ITS_LIVE_TITLE, message: itsLiveLine(ws.data!.series.name), seriesId, offer: offerRoles(intent.data ?? null, roleAnswers) });
     });
   };
 

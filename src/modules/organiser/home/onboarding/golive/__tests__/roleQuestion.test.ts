@@ -128,3 +128,26 @@ describe('go-live check with teacher / DJ entries: role combinations x missing k
     expect(() => check([{ area: 'venue', organiser_id: null, fields: ['x'] }])).toThrow('go_live_bad_shape');
   });
 });
+
+// ---- "It's live" offer --------------------------------------------------------------------------
+import { readDoneState } from '@/modules/organiser/flows/doneState';
+import { offerRoles } from '../roleQuestion';
+
+describe("It's live offer", () => {
+  it.each([
+    [null, {}, []],
+    [{ roles: ['dancer', 'organiser'], declined: [] }, {}, []],
+    [{ roles: ['dj'], declined: [] }, {}, ['dj']],
+    [{ roles: [], declined: [] }, { teacher: { yes: true, fields: {} } }, ['teacher']],
+    [{ roles: ['dj'], declined: [] }, { teacher: { yes: true, fields: {} } }, ['teacher', 'dj']],
+    [{ roles: [], declined: [] }, { teacher: { yes: false, fields: {} }, dj: { yes: false, fields: {} } }, []],
+  ] as const)('intent %j, answers %j -> %j', (intent, answers, want) => {
+    expect(offerRoles(intent as never, answers as never)).toEqual(want);
+  });
+
+  it('router state keeps only known roles, teacher first; none -> no offer key', () => {
+    expect(readDoneState({ title: 't', message: 'm', offer: ['dj', 'venue', 'teacher'] })?.offer).toEqual(['teacher', 'dj']);
+    expect(readDoneState({ title: 't', message: 'm', offer: [] })).not.toHaveProperty('offer');
+    expect(readDoneState({ title: 't', message: 'm', offer: 'dj' })).not.toHaveProperty('offer');
+  });
+});

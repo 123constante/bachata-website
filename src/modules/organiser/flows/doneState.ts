@@ -13,7 +13,12 @@ export interface DoneState {
   next?: string;
   /** The `next` button's words; defaults to NEXT_LABEL (Cancel's put-back; Team's removal says "Add them back", C26b). */
   nextLabel?: string;
+  /** "It's live" (invite W2): the role pages to offer a link into, teacher first. */
+  offer?: OfferRole[];
 }
+
+export type OfferRole = 'teacher' | 'dj';
+const OFFER_ROLES: readonly OfferRole[] = ['teacher', 'dj'];
 
 /** The second button's words. R1 has one `next` (D61, Cancel -> put it back). */
 export const NEXT_LABEL = 'Put it back';
@@ -33,5 +38,7 @@ export function readDoneState(raw: unknown): DoneState | null {
     seriesId: typeof s.seriesId === 'string' ? s.seriesId : null,
     ...(typeof s.next === 'string' && s.next ? { next: s.next } : {}),
     ...(typeof s.nextLabel === 'string' && s.nextLabel ? { nextLabel: s.nextLabel } : {}),
+    ...(Array.isArray(s.offer) && s.offer.some((r) => OFFER_ROLES.includes(r))
+      ? { offer: OFFER_ROLES.filter((r) => (s.offer as unknown[]).includes(r)) } : {}),
   };
 }
