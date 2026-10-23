@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import type { GoingView } from './goingState';
 import { BENTO_GOING_THEME, type GoingTheme } from './goingTheme';
+import { GOING_COPY } from './goingCopy';
 
 type Props = {
   view: GoingView;
@@ -14,6 +15,8 @@ type Props = {
   /** Drop the line under the button (a surface that prints view.words itself). */
   hideMessage?: boolean;
   testId?: string;
+  /** The viewer's own-list read failed: a Try again after the line (useNightGoing retryMine). */
+  onRetry?: () => void;
 };
 
 // The link sits on its OWN 44px line under the message (explicit px: html is ~13.5px on
@@ -36,7 +39,7 @@ const MESSAGE_CLASS = 'mt-1.5 min-h-[33px] text-[12px] leading-snug';
  * A refusal that has a way on (Finish your profile / Message us) makes that way
  * on the big gold control, in place of a dead grey button (stage 5, C4).
  */
-export const GoingButton = ({ view, onTap, onSignIn, theme = BENTO_GOING_THEME, hideMessage = false, testId = 'going-button' }: Props) => {
+export const GoingButton = ({ view, onTap, onSignIn, theme = BENTO_GOING_THEME, hideMessage = false, testId = 'going-button', onRetry }: Props) => {
   const { control, link } = view;
   const msgId = useId();
   // In flight: "Saving..." is the line. Disabled: the reason is the line if the state has no words.
@@ -98,6 +101,14 @@ export const GoingButton = ({ view, onTap, onSignIn, theme = BENTO_GOING_THEME, 
       {!hideMessage && (
         <p id={msgId} className={MESSAGE_CLASS} style={{ color: theme.muted }} data-testid={`${testId}-message`}>
           {message}
+          {onRetry && (
+            <>
+              {message ? ' ' : null}
+              <button type="button" onClick={onRetry} className={LINK_CLASS} style={{ color: theme.fg }} data-testid={`${testId}-retry`}>
+                {GOING_COPY.retry}
+              </button>
+            </>
+          )}
           {inlineLink && (
             <>
               {message ? ' ' : null}

@@ -64,6 +64,8 @@ export const GOING_COPY = {
   error: 'Something went wrong. Please try again.',
   loading: `Checking${ELLIPSIS}`,
   peopleLoadFailed: `Couldn${RSQ}t load who${RSQ}s going.`,
+  /** The viewer's own list (get_my_going_v1) failed: going is unknown, never "not going". */
+  mineLoadFailed: `Couldn${RSQ}t check if you${RSQ}re going.`,
   retry: 'Try again',
 
   /** Settings switch (dancer app Edit / Options). */

@@ -99,16 +99,29 @@ Owner decisions applied as binding: R1&ndash;R5 accepted as built. The calendar 
 | Rename | `VITE_GOING_PREVIEW=1` became **`VITE_ENABLE_GOING_PREVIEW=true`**. The rule is unchanged: ON only when `VERCEL_ENV === 'preview'` AND the flag is exactly `'true'` (`'1'`, `'TRUE'` and `'false'` are all OFF). Changed in `goingCheckin.ts`, `vite.config.ts`, `goingSwitch.test.ts` and the docs. The owner steps above now have no Vercel dashboard step. | `goingSwitch.test.ts` table, 12 rows. |
 | R9 | `REQUIRE_GOING_PEOPLE=1` (default off) turns `PEOPLE_SKIP` / `GOING_NEXT_SKIP` into exit 2. **When to set it:** once prod has real going rows on sampled nights AND a public profile with a `going_next` night. Before that the job would be red every run. | Self-test +6 cases (3 red before the change). |
 | R10 | `festivalHubGoing.test.tsx` spells out the per-night line (`N going` / `N went` / `No one going yet` / `No one said they were going`) and asserts the other tense is absent. | Mutant (`goingCountText` always "going"): 30 red. |
-| R11 | `check-going-legacy-rpcs.mjs` now matches the unversioned and `_vN` names, any `set_my_occurrence_attendance*`, in any letter case. The canary has 10 new mutants, one per new spelling. | 7 of the 10 were red before the regex change. |
+| R11 | `check-going-legacy-rpcs.mjs` now matches the unversioned and `_vN` names, any `set_my_occurrence_attendance*`, and any `set_attendance_p5*` / `get_my_event_attendance*` suffix, in any letter case. The canary has 12 new mutants, one per new spelling. | 7 of the first 10 were red before the regex change. |
 | R12 | `goingHidden.test.tsx` checks `/attendance/`. | &mdash; |
-| R13 | A failed `get_my_going_v1` now leaves going UNKNOWN (`null`, the loading state, button off), never `false`. The tile shows "Couldn&rsquo;t load who&rsquo;s going &middot; Try again", and the retry re-reads the own list too. | `useNightGoing.test.tsx`, finished + unfinished viewer: red before. |
+| R13 | A failed `get_my_going_v1` now leaves going UNKNOWN (`null`, button off), never `false`. The people and count that DID load stay on screen. Under the button: "Couldn&rsquo;t check if you&rsquo;re going. Try again" (`GOING_COPY.mineLoadFailed`, `GoingButton onRetry`, `useNightGoing` `mineError` / `retryMine`), on the event tile and the festival hub. | `useNightGoing.test.tsx` and `rsvpBlock.test.tsx`, finished + unfinished viewer: red before. |
 | R14 | Deleted `src/modules/event-page/sections/EventAttendanceSection.tsx`. A grep over every `.ts/.tsx/.mjs/.json` file found 0 importers. Added to the dancer-area seam list with the brief as the reason, since the deletion is a change outside the module. | &mdash; |
 | Calendar | `CalendarListView.tsx`: `goingCount > 0 && !event.isCancelled`. Nothing else in the calendar files changed. | `goingCountSwitch.test.tsx` +5 rows: 3 red before. |
-| R6 dashboard | `dancerCompletion()` in `src/lib/profileCompletion.ts` uses main&rsquo;s five steps in main&rsquo;s order. Step 3 (main&rsquo;s attendance list) is now the viewer&rsquo;s `get_my_going_v1` upcoming + past count, which is read only while the switch is on. No old RPC is called. The % shows ONCE (the header badge): the lone Completion tile and the % bar are gone, and the hero card is full width. Compact padding is `p-3`/`gap-3`. "Find your next event" is back as main&rsquo;s step 3. Its helper never points at a button that is not on screen: switch off, "Browse socials, classes and festivals near you."; switch on, "Open a night and tap I&rsquo;m going to add it here." | `tests/client/dancerCompletion.test.ts`: main&rsquo;s code is the oracle. It runs 18 profile shapes (the 10 prod shapes + edges) x 3 night counts; the branch&rsquo;s 4-step formula fails all 55. `tests/client/dancerDashboardCompletion.test.tsx`: "60% ready" once, under every RPC mode. |
+| R6 dashboard | `dancerCompletion()` in `src/lib/profileCompletion.ts` uses main&rsquo;s five steps in main&rsquo;s order. Step 3 (main&rsquo;s attendance list) is now the viewer&rsquo;s `get_my_going_v1` upcoming + past count, which is read only while the switch is on. No old RPC is called. The % shows ONCE (the header badge): the lone Completion tile and the % bar are gone, and the hero card is full width. Compact padding is `p-3`/`gap-3`. "Find your next event" is back as main&rsquo;s step 3. The Calendar tile&rsquo;s Live / Needs action now reads the same `hasActivity` fact (one mapping). The skeleton holds while the own list loads, so the % does not jump. Its helper never points at a button that is not on screen: switch off, "Browse socials, classes and festivals near you."; switch on, "Open a night and tap I&rsquo;m going to add it here." | `tests/client/dancerCompletion.test.ts`: main&rsquo;s code is the oracle. It runs 18 profile shapes (the 10 prod shapes + edges) x 3 night counts; the branch&rsquo;s 4-step formula fails all 55. `tests/client/dancerDashboardCompletion.test.tsx`: "60% ready" once, under every RPC mode. |
 
 **Where main&rsquo;s % and this one can still differ (honest):** main counted step 3 from old `event_attendance` rows (going OR interested). This branch counts `get_my_going_v1` nights, and only while the switch is on. Prod on 2026-10-23 had **5 accounts** with any going/interested row and 5 P5 going rows. While the switch is off, each of those accounts shows 20 points less than main did. Everyone else (the other ~184 profiles) gets main&rsquo;s exact number.
 
 Screenshots (390x844, scratch Vite harness with mocked reads; the harness was not committed): [`docs/handover/going-p2/fix-round/`](../handover/going-p2/fix-round/INDEX.md).
+
+### Self-review (one round, `/code-review` medium, on the fix-round diff)
+
+7 candidates came back. Fixed:
+- own-list failure no longer hides a count that loaded;
+- the dashboard holds its skeleton while the own list loads;
+- the `nextStep` memo deps;
+- the Calendar tile reads `hasActivity`;
+- the regex covers `_p5` suffixes.
+
+Not fixed, by owner rule:
+- **The switch-off dashboard caps at 80% with "Find your next event" for a dancer with no nights.** This is main&rsquo;s exact behaviour for a dancer with no rows, and the owner said "the SAME number main showed".
+- **The calendar list prints "N going" on a past night where the tile says "N went".** The owner said "touch nothing else in calendar files". Owner call: allow `goingCountText(count, past)` in `CalendarListView`.
 
 ### R8: the two workflow steps (this sandbox cannot edit workflows)
 

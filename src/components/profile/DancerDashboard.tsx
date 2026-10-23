@@ -686,7 +686,7 @@ export const DancerDashboard = () => {
       helper: 'Keep your profile sharp and current.',
       onClick: () => openEditor('career'),
     };
-  }, [hasActivity, hasEngagement, hasIdentity, hasMedia, hasSocial]);
+  }, [calendarPath, hasActivity, hasEngagement, hasIdentity, hasMedia, hasSocial, navigate]);
 
   const tiles: CoreTile[] = [
     {
@@ -703,10 +703,11 @@ export const DancerDashboard = () => {
     {
       key: 'activity',
       title: 'Calendar',
-      subtitle: 'Find your next night',
+      // The same fact as completion step 3 (hasActivity): one mapping, never two.
+      subtitle: hasActivity ? 'Nights in your list' : 'Find your next night',
       preview: 'Socials, classes and festivals near you',
       actionLabel: 'Open calendar',
-      status: 'live',
+      status: hasActivity ? 'live' : 'attention',
       icon: CalendarDays,
       sizeClass: 'col-span-6 lg:col-span-4 lg:row-span-1',
       onAction: () => navigate(calendarPath),
@@ -754,7 +755,9 @@ export const DancerDashboard = () => {
     },
   ];
 
-  if (isLoading) {
+  // While the own going list is in flight (switch on only), hold the skeleton: the % would
+  // otherwise show one number and then jump (main read it inside the same load).
+  if (isLoading || myGoing.isLoading) {
     return (
       <div className="pb-24 pt-28 px-4">
         <div className="max-w-6xl mx-auto space-y-3">

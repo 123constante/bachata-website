@@ -134,6 +134,7 @@ const RsvpBlockInner = ({ publicEventId, occurrenceId, occurrence, seriesLifecyc
               setAuthOpen(true);
             }}
             testId="rsvp-going"
+            onRetry={going.mineError ? going.retryMine : undefined}
           />
         </div>
       </div>

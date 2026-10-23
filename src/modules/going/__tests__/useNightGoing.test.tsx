@@ -129,7 +129,7 @@ describe('the viewer\'s own going is unknown when get_my_going_v1 fails (review 
   it.each([
     ['finished profile', finished],
     ['unfinished profile', unfinished],
-  ] as const)('%s: never "not going"; the retry state, and the retry re-reads the own list', async (_n, viewer) => {
+  ] as const)('%s: never "not going"; the people still show; its own retry re-reads the own list', async (_n, viewer) => {
     let mineFails = true;
     h.rpc.mockImplementation(async (fn: string, a: { p_occurrence_ids?: string[] }) => {
       if (fn === 'get_nights_going_v1') return { data: (a.p_occurrence_ids ?? []).map((id) => ({ occurrence_id: id, going_count: 1, people: [] })), error: null };
@@ -141,16 +141,21 @@ describe('the viewer\'s own going is unknown when get_my_going_v1 fails (review 
       return { data: null, error: null };
     });
     const { result } = renderHook(() => useNightGoing({ occurrenceId: 'a', night: 'live', viewer }), { wrapper });
-    await waitFor(() => expect(result.current.peopleError).toBe(true));
+    await waitFor(() => expect(result.current.mineError).toBe(true));
+    // The nights read worked: its count stays on screen (review round 2).
+    expect(result.current.peopleError).toBe(false);
+    expect(result.current.countKnown).toBe(true);
     expect(result.current.view.state).toBe('loading');
+    expect(result.current.view.words).toBe(GOING_COPY.mineLoadFailed);
+    expect(result.current.view.control.enabled).toBe(false);
     expect(result.current.view.going).not.toBe(true);
     expect(result.current.view.state).not.toBe('unfinished');
     act(() => result.current.tap());
     expect(callsOf('set_my_going_v1')).toHaveLength(0);
     mineFails = false;
-    act(() => result.current.refetchPeople());
+    act(() => result.current.retryMine());
     await waitFor(() => expect(result.current.view.going).toBe(true));
-    expect(result.current.peopleError).toBe(false);
+    expect(result.current.mineError).toBe(false);
     expect(result.current.view.control.action).toBe('ungo');
   });
 });

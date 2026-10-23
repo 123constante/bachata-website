@@ -424,3 +424,30 @@ describe('the placeholder', () => {
     expect(screen.getByTestId('rsvp-block').textContent).not.toMatch(/interested/i);
   });
 });
+
+describe('the viewer\'s own list failed (review R13)', () => {
+  it.each([
+    ['finished profile', { status: 'complete' } as Gate],
+    ['unfinished profile', { status: 'incomplete', missing: ['first_name'] } as Gate],
+  ])('%s: people + count stay, the button is off with its reason, Try again re-reads the own list', async (_n, g) => {
+    gate = g;
+    nights = { going_count: 3, people: people(3) };
+    myGoing = true;
+    let mineFails = true;
+    const base = h.rpc.getMockImplementation()!;
+    h.rpc.mockImplementation(async (fn, args) =>
+      fn === 'get_my_going_v1' && mineFails ? { data: null, error: { message: 'boom' } } : base(fn, args),
+    );
+    await mount();
+    await screen.findByTestId('rsvp-going-retry');
+    expect(screen.getByText(goingCountText(3))).toBeTruthy();
+    expect(screen.queryByTestId('rsvp-people-error')).toBeNull();
+    expect(message()).toContain(GOING_COPY.mineLoadFailed);
+    expect(btn().disabled).toBe(true);
+    expect(btn().textContent).not.toMatch(/Finish/);
+    mineFails = false;
+    fireEvent.click(screen.getByTestId('rsvp-going-retry'));
+    await waitFor(() => expect(btn().getAttribute('aria-pressed')).toBe('true'));
+    expect(screen.queryByTestId('rsvp-going-retry')).toBeNull();
+  });
+});

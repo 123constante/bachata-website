@@ -99,7 +99,7 @@ export const FestivalGoing = ({ festivalId, night, nightFailed, onRetryNight, ba
           />
         )}
       </div>
-      <GoingButton view={going.view} onTap={going.tap} onSignIn={onSignIn} theme={HUB_GOING_THEME} testId="festival-going-button" />
+      <GoingButton view={going.view} onTap={going.tap} onSignIn={onSignIn} theme={HUB_GOING_THEME} testId="festival-going-button" onRetry={going.mineError ? going.retryMine : undefined} />
     </div>
   );
 };

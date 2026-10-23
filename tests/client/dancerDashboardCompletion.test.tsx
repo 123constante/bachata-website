@@ -241,5 +241,8 @@ describe.each(['data', 'empty', 'error'] as RpcMode[])('RPC answers: %s', (mode)
     expect(document.body.textContent?.match(/\d+%/g)).toEqual(['60%']);
     expect(screen.queryByText(/core tiles live/)).toBeNull();
     expect(screen.queryByText(/^Completion$/)).toBeNull();
+    // The Calendar tile reads the same fact as step 3 (no nights): not 'Live'.
+    expect(screen.getByText('Find your next night')).toBeTruthy();
+    expect(screen.queryByText('Nights in your list')).toBeNull();
   });
 });

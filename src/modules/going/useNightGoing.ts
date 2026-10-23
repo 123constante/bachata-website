@@ -20,6 +20,7 @@ import {
   type GoingView,
   type GoingViewer,
 } from './goingState';
+import { GOING_COPY } from './goingCopy';
 import { useGoingReturnTo, useGoingViewer } from './useGoingViewer';
 
 /**
@@ -149,10 +150,11 @@ export type NightGoingResult = {
   peopleCount: number;
   people: NightGoing['people'];
   peopleLoading: boolean;
-  /** The nights read failed or dropped the id, OR the viewer's own list failed: show the retry line. */
   peopleError: boolean;
-  /** Re-reads the nights and, when it failed, the viewer's own list. */
   refetchPeople: () => void;
+  /** The viewer's own list failed: going is unknown (the button is off) until retryMine succeeds. */
+  mineError: boolean;
+  retryMine: () => void;
   /** Do what view.control.action says (go / ungo). sign_in and none are the caller's to handle. */
   tap: () => void;
 };
@@ -227,7 +229,7 @@ export const useNightGoing = (args: UseNightGoingArgs): NightGoingResult => {
   const going: boolean | null = !signedIn ? false : mine.data ? isInMyGoing(mine.data, id) : null;
   const mineError = signedIn && mine.isError && !mine.data;
 
-  const view = goingStateFor({
+  const baseView = goingStateFor({
     viewer,
     night,
     going: mutation.isPending && mutation.variables !== undefined ? mutation.variables : going,
@@ -236,6 +238,8 @@ export const useNightGoing = (args: UseNightGoingArgs): NightGoingResult => {
     count: countKnown ? count : null,
     returnTo,
   });
+  // The people and count still show (they loaded); only the viewer's own line says why the button is off.
+  const view = mineError && baseView.state === 'loading' ? { ...baseView, words: GOING_COPY.mineLoadFailed } : baseView;
 
   return {
     view,
@@ -245,11 +249,10 @@ export const useNightGoing = (args: UseNightGoingArgs): NightGoingResult => {
     people: row?.people ?? [],
     peopleLoading: nights.isPending && nights.fetchStatus !== 'idle',
     // A dropped id (no row for it) is as unknown as a failed read: the retry state, never "0 going".
-    peopleError: nights.isError || (nights.isSuccess && !countKnown) || mineError,
-    refetchPeople: () => {
-      void nights.refetch();
-      if (mineError) void mine.refetch();
-    },
+    peopleError: nights.isError || (nights.isSuccess && !countKnown),
+    refetchPeople: () => void nights.refetch(),
+    mineError,
+    retryMine: () => void mine.refetch(),
     tap: () => {
       if (!id || !view.control.enabled || mutation.isPending) return;
       if (view.control.action === 'go') mutation.mutate(true);
