@@ -175,7 +175,8 @@ describe.each(VIEWPORTS)('event page Who\u2019s going at $name', (vp) => {
       await waitFor(() => expect(setCalls().length).toBe(1));
       expect(setCalls()[0][1]).toEqual({ p_occurrence_id: OCC, p_going: true });
     } else {
-      expect((screen.getByTestId('rsvp-going') as HTMLButtonElement).disabled).toBe(true);
+      // Going P2 stage 5 (C4): the control is the way on (Finish / Message us), never an I'm going tap.
+      expect(screen.getByTestId('rsvp-going').tagName).toBe('A');
       await new Promise((r) => setTimeout(r, 40));
       expect(setCalls()).toHaveLength(0);
     }

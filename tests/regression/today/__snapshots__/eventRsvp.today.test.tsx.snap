@@ -46,7 +46,7 @@ text "It’s free: sign in, finish your dancer profile, and your first name show
 exports[`event page Who’s going at '390x844' > closed: 'cancelled night' 1`] = `
 "heading "Who’s going" level=2
 text "Thursday 29 Oct · 9 PM"
-text "4 going"
+text "4 had said they were going"
 link "Ana, dancer page" href=/dancers/d1
 text "LLeo"
 text "+2moreand 2 more people"
@@ -132,7 +132,7 @@ text "It’s free: sign in, finish your dancer profile, and your first name show
 exports[`event page Who’s going at 'desktop' > closed: 'cancelled night' 1`] = `
 "heading "Who’s going" level=2
 text "Thursday 29 Oct · 9 PM"
-text "4 going"
+text "4 had said they were going"
 link "Ana, dancer page" href=/dancers/d1
 text "LLeo"
 text "+2moreand 2 more people"

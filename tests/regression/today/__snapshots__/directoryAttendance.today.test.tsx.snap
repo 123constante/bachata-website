@@ -9,7 +9,7 @@ button "Friday Social Cancelled Friday 2 Jan · 9 PMCamden Club The organiser ca
 exports[`directory + attendance at '390x844' > /account/attendance: empty > renders 1`] = `
 "heading "My Event Attendance" level=1
 text "You haven’t said you’re going to any nights yet."
-text "Open a night and tap I’m going on its page."
+text "Find a night on the calendar, then tap I’m going on its page."
 button "Browse events""
 `;
 
@@ -33,7 +33,7 @@ link "Rate the dancing level" href=/event/past1#level-rating"
 
 exports[`directory + attendance at '390x844' > /account/attendance: past party > renders 1`] = `
 "heading "My Event Attendance" level=1
-text "You haven’t said you’re going to any nights yet. Open a night and tap I’m going on its page."
+text "You haven’t said you’re going to any nights yet. Find a night on the calendar, then tap I’m going on its page."
 link "Browse events" href=/city/london-gb/calendar
 heading "Nights you went to" level=2
 button "Friday Social Went Friday 2 Jan · 9 PMCamden Club"
@@ -125,7 +125,7 @@ button "Friday Social Cancelled Friday 2 Jan · 9 PMCamden Club The organiser ca
 exports[`directory + attendance at 'desktop' > /account/attendance: empty > renders 1`] = `
 "heading "My Event Attendance" level=1
 text "You haven’t said you’re going to any nights yet."
-text "Open a night and tap I’m going on its page."
+text "Find a night on the calendar, then tap I’m going on its page."
 button "Browse events""
 `;
 
@@ -149,7 +149,7 @@ link "Rate the dancing level" href=/event/past1#level-rating"
 
 exports[`directory + attendance at 'desktop' > /account/attendance: past party > renders 1`] = `
 "heading "My Event Attendance" level=1
-text "You haven’t said you’re going to any nights yet. Open a night and tap I’m going on its page."
+text "You haven’t said you’re going to any nights yet. Find a night on the calendar, then tap I’m going on its page."
 link "Browse events" href=/city/london-gb/calendar
 heading "Nights you went to" level=2
 button "Friday Social Went Friday 2 Jan · 9 PMCamden Club"

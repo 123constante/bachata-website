@@ -97,19 +97,19 @@ describe('C5 copy', () => {
   it('myUpcomingEmptyHow says where nights are', () => expect(GOING_COPY.myUpcomingEmptyHow).toMatch(/on the calendar/));
 });
 
-describe('C6 no layout shift: the placeholder and the tile both hold the line under the button', () => {
-  it('placeholder reserves the message line', () => {
+describe('C6 no layout shift in the commonest states: the placeholder holds the two-line message', () => {
+  it('placeholder reserves two message lines', () => {
     render(<RsvpBlockPlaceholder />);
     const line = screen.getByTestId('rsvp-placeholder-message');
-    expect(line.className).toContain('min-h-[17px]');
+    expect(line.className).toContain('min-h-[33px]');
     expect(line.className).toContain('mt-1.5');
   });
-  it('a state with no words still holds the line (can tap, people going)', () => {
+  it('a state with no words adds no empty line (no dead space under the button)', () => {
     render(
       <MemoryRouter>
         <GoingButton view={goingStateFor({ viewer: { kind: 'finished' }, night: 'live', going: false, count: 3 })} onTap={() => {}} onSignIn={() => {}} />
       </MemoryRouter>,
     );
-    expect(screen.getByTestId('going-button-message').className).toContain('min-h-[17px]');
+    expect(screen.queryByTestId('going-button-message')).toBeNull();
   });
 });

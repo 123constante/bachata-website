@@ -54,9 +54,8 @@ text "5 going"
 link "Ana, dancer page" href=/dancers/d1
 text "BBen"
 text "+3moreand 3 more people"
-button "I’m going" [disabled] [pressed=false]
-text "Add your photo to say you’re going."
 link "Finish your profile" href=/finish-profile?returnTo=%2Ffestivals
+text "Add your photo to say you’re going."
 text "View details & find crew"
 text "Š"
 heading "More festivals coming soon!" level=3
@@ -148,9 +147,8 @@ text "5 going"
 link "Ana, dancer page" href=/dancers/d1
 text "BBen"
 text "+3moreand 3 more people"
-button "I’m going" [disabled] [pressed=false]
-text "Add your photo to say you’re going."
 link "Finish your profile" href=/finish-profile?returnTo=%2Ffestivals
+text "Add your photo to say you’re going."
 text "View details & find crew"
 text "Š"
 heading "More festivals coming soon!" level=3

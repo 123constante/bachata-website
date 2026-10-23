@@ -180,6 +180,8 @@
     "scripts/pre-ship.mjs",
     "docs/design/going-p2-website.md",
     "docs/handovers/going-p2-website.md",
+    "docs/design/going-p2-critique.md",
+    "docs/handovers/going-p2-critique.md",
     "docs/ci-guard-notes.md"
   ],
   "seamNotes": {
@@ -344,6 +346,8 @@
     "scripts/pre-ship.mjs": "Going P2 (orchestrator 2026-10-23): CHECKS mirrors the lint chain (tests/reviewScope.test.ts), so check:going-legacy-rpcs and its self-test join it; no dancer-area import",
     "docs/design/going-p2-website.md": "Going P2 (orchestrator 2026-10-23): the PR's design record (Design Gate stage 3)",
     "docs/handovers/going-p2-website.md": "Going P2 (orchestrator 2026-10-23): the PR's handover (brief 'Finish')",
+    "docs/design/going-p2-critique.md": "Going P2 stage 5 (brief going-p2-critique, orchestrator 2026-10-23): the independent critique (ordered fix list)",
+    "docs/handovers/going-p2-critique.md": "Going P2 stage 5 (brief going-p2-critique, orchestrator 2026-10-23): the critique fix pass handover",
     "docs/ci-guard-notes.md": "Going P2 (orchestrator 2026-10-23): records the two new guards (check-going-rpcs, check-going-legacy-rpcs) and what their green covers"
   },
   "protected": [

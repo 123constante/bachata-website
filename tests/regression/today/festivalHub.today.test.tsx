@@ -143,12 +143,14 @@ describe.each(VIEWPORTS)('festival hub at $name', (vp) => {
   it.each([
     ['incomplete', { status: 'incomplete', missing: ['avatar_url'], profileId: 'p1' } as ProfileCompletion],
     ['no profile', { status: 'no_profile', missing: ['first_name'], profileId: null } as ProfileCompletion],
-  ])('signed-in, %s: the button is disabled with its reason and no write is sent', async (_n, completion) => {
+  ])('signed-in, %s: the control is the way on (a link, not I\u2019m going), with its reason, and no write is sent', async (_n, completion) => {
     h.user = { id: 'u1' };
     mount(completion);
     await settled();
-    const button = screen.getByTestId('festival-going-button') as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
+    // Going P2 stage 5 (C4): Finish your profile / Message us is the big control.
+    const button = screen.getByTestId('festival-going-button');
+    expect(button.tagName).toBe('A');
+    expect(screen.queryByRole('button', { name: 'I\u2019m going' })).toBeNull();
     expect(screen.getByTestId('festival-going-button-message').textContent).toMatch(/you.re going/);
     fireEvent.click(button);
     await act(async () => {

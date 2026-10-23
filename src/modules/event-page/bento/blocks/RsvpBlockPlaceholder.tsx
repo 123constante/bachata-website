@@ -10,7 +10,8 @@ import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 export const PLACEHOLDER_TITLE_CLASS = 'mb-1.5 text-center text-[13px] font-bold uppercase tracking-[0.04em]';
 export const PLACEHOLDER_BODY_CLASS = 'rounded-[18px] border p-3';
 export const PLACEHOLDER_NIGHT_CLASS = 'text-[12px] font-bold uppercase tracking-[0.05em]';
-export const PLACEHOLDER_MESSAGE_CLASS = 'mt-1.5 min-h-[17px] text-[12px] leading-snug';
+/** Two message lines (2 x 16.5px): signed out and "Be the first" both wrap to two at 360-390px. */
+export const PLACEHOLDER_MESSAGE_CLASS = 'mt-1.5 min-h-[33px] text-[12px] leading-snug';
 /** = GOING_COPY.tileTitle / .tileLabel / .go (pinned by rsvpBlock.test.tsx). */
 export const PLACEHOLDER_WORDS = {
   title: 'Who\u2019s going',
@@ -52,7 +53,7 @@ const RsvpBlockPlaceholderInner = () => (
         >
           {PLACEHOLDER_WORDS.go}
         </button>
-        {/* = GoingButton's MESSAGE_CLASS: the line under the button is held, so the tile does not jump. */}
+        {/* GoingButton's message line, held two lines tall, so the commonest tiles do not jump. */}
         <p className={PLACEHOLDER_MESSAGE_CLASS} aria-hidden data-testid="rsvp-placeholder-message">
           &nbsp;
         </p>
