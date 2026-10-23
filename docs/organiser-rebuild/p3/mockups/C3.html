@@ -153,7 +153,7 @@ div.row { cursor: default; }
 .notice .grow { flex: 1; }
 
 /* date strip */
-.strip { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px 8px; margin: 0 -16px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.strip { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px 8px; margin: 0 -16px; scroll-snap-type: x mandatory; scroll-padding-left: 16px; scrollbar-width: none; }
 .strip::-webkit-scrollbar { display: none; }
 .date { flex: none; width: 68px; min-height: 100px; border-radius: var(--r-date); border: 1px solid var(--line); background: var(--card); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font: inherit; color: var(--fg); cursor: pointer; scroll-snap-align: start; padding: 6px 2px; position: relative; }
 .date .d, .date .m { font-size: 13px; color: var(--mut); }
@@ -239,16 +239,18 @@ label.f { display: block; font-size: 15px; font-weight: 500; margin: 16px 0 6px;
 .thm { min-width: 44px; min-height: 44px; border-radius: 22px; border: 1px solid var(--line); background: var(--card); color: var(--fg); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex: none; margin-left: auto; padding: 0; }
 .thm svg { width: 20px; height: 20px; }
 .previewbar .thm { background: #1d0a03; color: #fff; border: 0; min-width: 44px; padding: 0; }
-.tour { position: absolute; left: 12px; top: 8px; z-index: 7; }
 /* session timeline */
 .tl { position: relative; }
 .ses { display: flex; gap: 12px; align-items: flex-start; width: 100%; min-height: 64px; padding: 12px 16px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .ses + .ses, .ses + .row, .row + .ses { border-top: 1px solid var(--line); }
-.ses .tt { width: 58px; flex: none; font-weight: 600; font-size: 15px; line-height: 1.25; }
+.ses .tt { width: 64px; flex: none; font-weight: 600; font-size: 15px; line-height: 1.25; }
 .ses .tt small { display: block; font-weight: 400; color: var(--mut); font-size: 13px; }
 .ses .grow { flex: 1; min-width: 0; }
+.ses .t, .ses .s { display: block; }
 .ses .t { font-weight: 600; overflow-wrap: anywhere; }
-.ses .s { font-size: 14px; color: var(--mut); overflow-wrap: anywhere; }
+.ses .s { font-size: 14px; color: var(--mut); overflow-wrap: anywhere; margin-top: 2px; }
+.ses .tt small { white-space: nowrap; }
+.chips.kinds { display: grid; grid-template-columns: 1fr 1fr; }
 .ses.off .t, .ses.off .tt { text-decoration: line-through; color: var(--mut); }
 .kd { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--card2); color: var(--mut); margin-right: 6px; vertical-align: 1px; }
 .kd.social { background: var(--warn-bg); color: var(--warn-fg); }
@@ -300,6 +302,10 @@ label.f { display: block; font-size: 15px; font-weight: 500; margin: 16px 0 6px;
 .star[disabled] { cursor: not-allowed; }
 /* stats chart (one accent, table fallback) */
 .chart { width: 100%; height: 150px; display: block; }
+.chart path, .chart line { vector-effect: non-scaling-stroke; }
+.chartax { display: flex; justify-content: space-between; font-size: 12px; color: var(--mut); margin-top: 2px; }
+.chartwrap { display: grid; grid-template-columns: 28px 1fr; gap: 4px; }
+.chartwrap .yl { display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; color: var(--mut); padding: 4px 0 18px; text-align: right; }
 .chart .ax { stroke: var(--line); stroke-width: 1; }
 .chart .ln { stroke: var(--chart); stroke-width: 2.5; fill: none; }
 .chart .ar { fill: var(--chart-soft); }
@@ -335,6 +341,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
 .fpub .pr i { font-style: normal; color: #fdba74; width: 56px; flex: none; font-weight: 600; }
 /* desktop: phone-first, wider layout from 1024px (left rail, two-column event page) */
 .ev2 > div + div { margin-top: 0; }
+.sheet h3[tabindex] { outline: none; }
 @media (min-width: 1024px) {
   body { display: block; }
   .phone { width: 100%; height: 100vh; border-radius: 0; box-shadow: none; }
@@ -343,8 +350,13 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   .tabs button { flex-direction: row; justify-content: flex-start; gap: 14px; padding: 0 16px; font-size: 16px; border-radius: 12px; min-height: 52px; flex: none; }
   .tabs button[aria-current="page"] { background: var(--card2); }
   .scr { left: 232px; padding: 0 max(40px, calc((100% - 1040px) / 2)) 120px; }
-  .bottombar, .bottombar.above-tabs { left: 232px; bottom: 0; padding: 12px 40px 24px; }
-  .bottombar > * { max-width: 420px; margin-left: auto; }
+  .bottombar, .bottombar.above-tabs { left: 232px; right: 0; bottom: 0; padding: 12px max(40px, calc((100% - 1040px) / 2)) 20px; background: var(--bg); border-top: 1px solid var(--line); }
+  .bottombar.on { display: flex; flex-direction: column; align-items: flex-end; }
+  .bottombar > * { width: 100%; max-width: 420px; }
+  .phone.takeover .tabs { display: none !important; }
+  .phone.takeover .scr, .phone.takeover .bottombar { left: 0; }
+  .ev2 > div { min-width: 0; overflow: hidden; padding: 0 4px 4px; margin: 0 -4px; }
+  .grab { display: none; }
   .sheet { left: 50%; right: auto; width: 540px; top: 50%; bottom: auto; border-radius: var(--r-sheet); transform: translate(-50%, -40%); max-height: 86vh; }
   .sheet.on { transform: translate(-50%, -50%); }
   .toast { left: auto; right: 40px; width: 420px; }
@@ -352,7 +364,6 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   .ev2 > div > h2:first-child { margin-top: 20px; }
   .hm2 { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 32px; align-items: start; }
   .hero .cover { height: 200px; }
-  .tour { left: 244px; }
 }
 </style>
 </head>
@@ -410,15 +421,14 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   /* ================= LABELS: every user-visible word for a shared thing ================= */
   var L = {
     cancelOne: 'Cancel this date', cancelMany: 'Cancel these dates', cancelled: 'Cancelled', bringBack: 'Bring it back',
-    cancelledTonight: 'Cancelled tonight', live: 'Live', paused: 'Paused', ended: 'Ended', noDates: 'No dates coming up',
+    cancelledTonight: 'Cancelled tonight', live: 'Live', paused: 'Paused', ended: 'Finished', noDates: 'No dates coming up',
     moved: 'Moved', pause: 'Pause this event', turnOn: 'Turn back on', views: 'views',
     preview: 'See what dancers see', back: 'Back', lineup: 'Line-up', changeLineup: 'Change line&#8209;up',
     thisOnly: 'This date only', thisLater: 'This and later ones', notSet: 'Not set yet &mdash; add it',
     savesSoon: 'Saves are coming soon.', askUs: 'Want it gone for good? Ask us', nothingChanged: 'Nothing changed yet',
     addName: 'Add their name instead', whatsapp: 'Message us on WhatsApp',
     payOpts: [['cash', 'On the door, cash'], ['card', 'On the door, card'], ['online', 'Online, with the ticket link']],
-    kind: { weekly: 'Weekly social', monthly: 'Monthly social', course: 'Course', oneoff: 'One-off party', custom: 'Social', festival: 'Festival' },
-    levels: ['Beginners', 'Improvers', 'All levels'],
+    kind: { weekly: 'Weekly social', monthly: 'Monthly social', course: 'Course', oneoff: 'One-off party', custom: 'Dates I pick', festival: 'Festival' },
     /* C3 additions */
     draft: 'Draft (only you see it)', allDone: 'All classes done', sessions: 'Sessions', extra: 'Extra, this date only', onlyThis: 'Only this date', changed: 'Changed',
     notRunning: 'Not running this date', removeOne: 'Remove (only this date)', removeAll: 'Remove from every date', addSessOne: 'Add a session to this date only',
@@ -427,12 +437,14 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     notSaved: 'Not saved yet', undoMine: 'Undo my changes', going: 'going', whosGoing: 'Who&rsquo;s going', makeCopy: 'Make a copy', history: 'History', share: 'Share',
     finished: 'This has finished (end it)', backDraft: 'Take it off the calendar (back to draft)', stopRepeat: 'Stop repeating, I will add dates myself', saveLater: 'Save for later',
     moreOpts: 'More options', askCity: 'Ask us to change the city', askOrg: 'Ask us to change it', pickDates: 'Pick dates', checkedSoon: 'We check new venues within a day.',
-    sessKind: [['class', 'Class'], ['workshop', 'Workshop'], ['social', 'Party (social)'], ['show', 'Show']],
+    sessKind: [['class', 'Class'], ['workshop', 'Workshop'], ['social', 'Party'], ['show', 'Show']],
     roles: [['teach', 'Teaches'], ['dj', 'DJs'], ['perform', 'Performs']],
+    /* the role as a noun after a name: "Marco &amp; Sofia, teachers" / "DJ Kizzy, DJ" */
+    roleNoun: { teach: ['teacher', 'teachers'], dj: ['DJ', 'DJs'], perform: ['performer', 'performers'] },
     lvls: ['Beginners', 'Improvers', 'Intermediate', 'Advanced', 'All levels'],
     music: ['Bachata', 'Sensual', 'Dominican', 'Moderna', 'Fusion', 'Salsa', 'Kizomba', 'Zouk'],
     reasons: ['The venue isn&rsquo;t available', 'A teacher or DJ is ill', 'Holiday break', 'Bad weather or travel problems', 'Something else came up'],
-    kindWord: { class: 'Class night', social: 'Social', mix: 'Social with classes', course: 'Course', none: 'Not worked out yet (add a session)', festival: 'Festival' }
+    kindWord: { class: 'Class night', social: 'Party', mix: 'Party with classes', course: 'Course', none: 'Not worked out yet (add a session)', festival: 'Festival' }
   };
   var WA = 'https://wa.me/440000000000'; /* PLACEHOLDER: the real support number goes in at build time */
 
@@ -529,7 +541,8 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   /* W3 stand-in festival (no LLB festival on prod) */
   EV.fest = ev({ name: 'London Loves Bachata Weekender', kind: 'festival', time: '20:00', place: 'BPM Dance Studios', ph: 'ph6', views: 120, ticket: 'https://tickets.example/weekender',
     dates: list(['2027-02-05']), days: 3, sess: [] });
-  ORGS.llb.ids.push('camp', 'picnic', 'fest');
+  /* mockup stand-ins: on Events, Home and Stats, never in the first-day count ("We found your 9 events") */
+  ORGS.llb.extra = ['camp', 'picnic', 'fest']; ORGS.leeds.extra = [];
   /* per-date changes on Sensual Fridays (real shapes: one-date added class, a cancelled session, a session time change) */
   (function () {
     var f = EV.fri, cls = f.sess[0], party = f.sess[1];
@@ -540,7 +553,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   })();
   /* every event: derived start / end, going count (flagged slot), runs, history, details */
   var VENUES = {
-    'Colab Tower': { addr: 'Colab Tower, 8 Pipers Close, SE1 7PF', town: 'London', rooms: [] },
+    'Colab Tower': { addr: '8 Pipers Close, SE1 7PF', town: 'London', rooms: [] },
     'Studio 68': { addr: '68 Hanbury St, E1 5JL', town: 'London', rooms: [] },
     'Waterloo Action Centre': { addr: '14 Baylis Rd, SE1 7AA', town: 'London', rooms: [] },
     'BPM Dance Studios': { addr: '1 Rufus St, N1 6PE', town: 'London', rooms: [] },
@@ -567,7 +580,8 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     { who: 'You', what: 'Added &ldquo;Masterclass with Sofie Lane&rdquo; to Fri 30 Oct only', when: 'Yesterday, 18:31', undo: 1 },
     { who: 'Jess', what: 'Changed the cover photo', when: 'Mon 19 Oct, 21:05', undo: 0, why: 'Photos can&rsquo;t be undone: the old photo is deleted when you save a new one.' },
     { who: 'You', what: 'Changed the place to Colab Tower', when: 'Sun 4 Oct, 12:20', undo: 0, why: 'Older than a day. Change it back by hand from Where.' }];
-  EV.fest.artists = [['Ronald &amp; Alba', 'teach', 1, 1], ['Marco &amp; Sofia', 'teach', 1, 1], ['Daniel y Tom', 'teach', 1, 1], ['Korke &amp; Judith', 'teach', 1, 0], ['DJ Kizzy', 'dj', 1, 1], ['DJ Tropical', 'dj', 0, 0], ['Sofie Lane', 'teach', 0, 0]];
+  EV.fest.artists = [['Ronald &amp; Alba', 'teach', 1, 1, 'Bachata Sensual'], ['Marco &amp; Sofia', 'teach', 1, 1, ''], ['Daniel y Tom', 'teach', 1, 1, 'Dominican'], ['Korke &amp; Judith', 'teach', 1, 0, ''], ['DJ Kizzy', 'dj', 1, 0, ''], ['DJ Tropical', 'dj', 0, 0, ''], ['Sofie Lane', 'teach', 0, 0, ''], ['Alex &amp; Desiree', 'teach', 1, 0, '']];
+  EV.fest.music = ['Bachata'];
   EV.fest.fsess = [
     [S('workshop', 'Welcome workshop', '19:00', '20:00'), S('social', 'Opening party', '20:00', '03:00')],
     [S('workshop', 'Sensual musicality', '12:00', '13:30'), S('workshop', 'Dominican footwork', '13:45', '15:00'), S('show', 'Artist showcase', '22:00', '22:30'), S('social', 'Main party', '21:00', '04:00')],
@@ -653,12 +667,25 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     return { s: st, e: last.e, nd: on.some(nextDay) };
   }
   function spanText(list) { var p = span(list); return p ? tm(p.s) + ' to ' + tm(p.e) + (p.nd ? ' (ends the next day)' : '') : 'No sessions yet'; }
-  function kindLbl(k) { return L.sessKind.filter(function (x) { return x[0] === k; })[0][1].replace(' (social)', ''); }
+  function kindLbl(k) { return L.sessKind.filter(function (x) { return x[0] === k; })[0][1]; }
   function roleLbl(r) { return L.roles.filter(function (x) { return x[0] === r; })[0][1]; }
-  function pplText(ppl) { return ppl.map(function (p) { return p[0] + ' (' + roleLbl(p[1]).toLowerCase() + ')'; }).join(', '); }
+  /* a pair or a group ("Marco &amp; Sofia", "Daniel y Tom", "Pao Pao Army") takes the plural noun */
+  function isGroup(n) { return /&amp;|&| y | and |Army|Crew|Company/.test(n); }
+  function roleNoun(n, r) { var w = L.roleNoun[r] || L.roleNoun.teach; return w[isGroup(n) ? 1 : 0]; }
+  function pplText(ppl) { return ppl.map(function (p) { return p[0] + ', ' + roleNoun(p[0], p[1]); }).join(' &middot; '); }
   function roomsOf(e, x) { var v = VENUES[(x && x.own && x.own.place) || e.place]; return v ? v.rooms : []; }
   function sessTitle(s) { return s.t || '<span class="mut">No name yet</span>'; }
-  function cast(e) { var seen = {}, out = []; e.sess.forEach(function (s) { s.ppl.forEach(function (p) { if (!seen[p[0]]) { seen[p[0]] = 1; out.push(p); } }); }); return out; }
+  /* everyone on the event: the sessions for every date, plus people set on dates still to come */
+  function cast(e) {
+    var seen = {}, out = [], addP = function (p) { if (!seen[p[0]]) { seen[p[0]] = 1; out.push(p); } };
+    e.sess.forEach(function (s) { s.ppl.forEach(addP); });
+    upcoming(e).forEach(function (x) { if (x.st === 'cancelled' || x.st === 'skip') return; dsess(e, x).forEach(function (m) { if (!m.cx) m.ppl.forEach(addP); }); });
+    return out;
+  }
+  /* ONE class count: cancelled dates and breaks are not classes */
+  function classCount(e) { return e.dates.filter(function (x) { return x.st !== 'cancelled' && x.st !== 'skip'; }).length; }
+  /* ONE start time for a date: the first session that runs (a date has no time of its own) */
+  function dStart(e, x) { var p = x ? span(dsess(e, x)) : null; return p ? p.s : e.sess.length ? span(e.sess).s : e.time; }
   /* differences from usual on one date, in plain words (replaces the editor's T / V / OVR / S-n / +n badges) */
   function diffWords(e, x) {
     var w = [];
@@ -677,15 +704,15 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   function initials(n) { return n.replace(/&amp;/g, '').replace(/[^A-Z]/g, '').slice(0, 2) || '?'; }
   function names(e) { return e.lineup.map(function (p) { return p[0]; }).join(', '); }
   function payText(e) { return e.pay.map(function (k) { return L.payOpts.filter(function (o) { return o[0] === k; })[0][1]; }).join(' &middot; '); }
-  function orgIds() { return ORGS[org].ids; }
-  function nextKey(k) { var e = EV[k], x = liveDates(e)[0]; return x ? iso(x.d) + (x.time || e.time) : 'z'; }
+  function orgIds() { return ORGS[org].ids.concat(ORGS[org].extra || []); }
+  function nextKey(k) { var e = EV[k], x = liveDates(e)[0]; return x ? iso(x.d) + dStart(e, x) : 'z'; }
   function sortByNext(ids) { return ids.slice().sort(function (a, b) { return nextKey(a) < nextKey(b) ? -1 : nextKey(a) > nextKey(b) ? 1 : 0; }); }
   function nextUp() {
     var best = null;
     orgIds().forEach(function (k) {
       var e = EV[k]; if (e.status === 'paused') return;
       var x = liveDates(e)[0]; if (!x) return;
-      var key = iso(x.d) + (x.time || e.time);
+      var key = iso(x.d) + dStart(e, x);
       if (!best || key < best.key) best = { k: k, x: x, i: e.dates.indexOf(x), key: key };
     });
     return best;
@@ -731,7 +758,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var o = ORGS[org], h = TOP('Hi, ' + o.name);
     if (homeNotice) h += '<div class="notice" role="status"><span class="grow">' + homeNotice + '</span><button class="link" data-dismiss style="color:inherit;min-width:44px;justify-content:center">OK</button></div>';
     /* changed-state cards: what the organiser just did stays visible here */
-    o.ids.forEach(function (k) {
+    orgIds().forEach(function (k) {
       var e = EV[k], s = status(e);
       if (s[0] === 'cancel') h += '<div class="card pad" style="margin-top:12px"><div style="display:flex;gap:8px;align-items:center">' + chip(e) + '<span class="small mut">' + fmt(TODAY) + '</span></div>' +
         '<div class="t" style="font-weight:600;margin-top:8px">' + e.name + '</div><p class="small mut" style="margin:2px 0 10px">Dancers see &ldquo;' + L.cancelled + '&rdquo;. Your other dates stay as they are.</p>' +
@@ -741,14 +768,14 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     });
     var n = nextUp(), hasBar = !!R.home.bar();
     if (n) {
-      var e = EV[n.k], t = n.x.time || e.time;
+      var e = EV[n.k], t = dStart(e, n.x), np = []; dsess(e, n.x).forEach(function (m) { if (!m.cx) m.ppl.forEach(function (p) { if (np.indexOf(p[0]) < 0) np.push(p[0]); }); });
       h += '<div class="card hero" style="margin-top:12px"><div class="cover ' + (e.ph || 'nophoto') + '">' + (e.ph ? '' : 'No photo yet') + chip(e) + '</div><div class="pad">' +
         '<div class="when">Next up &middot; ' + dayWord(n.x.d) + ', ' + tm(t) + '</div><div class="big" style="font-size:24px">' + e.name + '</div>' +
         '<div class="mut">' + e.place + ' &middot; ' + spanText(dsess(e, n.x)) + '</div>' +
-        '<div class="mut small" style="margin-top:2px">' + (cast(e).length ? cast(e).map(function (p) { return p[0]; }).join(', ') : 'no line-up yet') + '</div>' +
+        '<div class="mut small" style="margin-top:2px">' + (np.length ? np.join(', ') : 'No line-up yet') + '</div>' +
         /* GoingNightSummary variant="compact" (src/modules/going/) renders here behind the Going flag */
         (e.going ? '<!-- GoingNightSummary variant="compact" --><button class="link" data-going="' + n.k + '" data-gi="' + n.i + '" style="padding:0">' + e.going + ' ' + L.going + ' &middot; see who</button>' : '') +
-        '<div class="qa"><button class="btn' + (hasBar ? ' quiet' : '') + '" data-lineup-next="' + n.k + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M17 11h4M19 9v4"/></svg>' + L.changeLineup + '</button>' +
+        '<div class="qa"><button class="btn' + (hasBar ? ' quiet' : '') + '" data-lineup-next="' + n.k + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M17 11h4M19 9v4"/></svg>' + L.lineup + '</button>' +
         '<button class="btn quiet" data-preview="' + n.k + '" data-pi="' + n.i + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>' + L.preview + '</button></div>' +
         '<div class="under"><button class="link danger" data-cancelnext="' + n.k + '" data-ci="' + n.i + '">' + L.cancelOne + '</button></div></div></div>';
     }
@@ -760,8 +787,8 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     h += '<h2>Last 30 days</h2>';
     if (o.views) h += '<button class="card stat" data-tab-go="stats" style="width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;display:block"><div class="n">' + o.views + '</div><div class="l">' + L.views + ' of your events</div><div class="small mut" style="margin-top:6px">' + L.savesSoon + '</div></button>';
     else h += '<div class="card pad"><div class="t" style="font-weight:600">No views yet</div><p class="small mut" style="margin:4px 0 12px">Views show up here the day after dancers start finding your event. Sharing the link on Instagram or WhatsApp helps.</p><button class="btn line" data-toast="Link copied. Paste it into WhatsApp or your Instagram bio.">Copy my event link</button></div>';
-    var ids = sortByNext(o.ids).filter(function (k) { return status(EV[k])[0] !== 'ended'; });
-    h += '<h2 style="display:flex;align-items:center">All your events <span style="flex:1"></span>' + (ids.length > 4 ? '<button class="link" data-tab-go="events">See all ' + o.ids.length + '</button>' : '') + '</h2><div class="card">' + ids.slice(0, 4).map(evRow).join('') + '</div>';
+    var ids = sortByNext(orgIds()).filter(function (k) { return status(EV[k])[0] !== 'ended'; });
+    h += '<h2 style="display:flex;align-items:center">All your events <span style="flex:1"></span>' + (ids.length > 4 ? '<button class="link" data-tab-go="events">See all ' + orgIds().length + '</button>' : '') + '</h2><div class="card">' + ids.slice(0, 4).map(evRow).join('') + '</div>';
     h += '<div class="quietspot"><div style="font-weight:600">Want more dancers to find you?</div><div class="small mut">Featured spots on the calendar are coming later. Nothing to do now.</div></div>';
     return h;
   };
@@ -783,7 +810,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     item('pay', noPay.length, noPay.length === 1 ? '1 event doesn&rsquo;t say how to pay' : noPay.length + ' events don&rsquo;t say how to pay', 'Dancers ask this most. Start with ' + (noPay[0] ? EV[noPay[0]].name : '') + '.', 'data-edit="pay" data-k="' + noPay[0] + '"', 'How to pay added');
     if (org === 'llb') {
       var c = EV.wedc;
-      item('teach', liveDates(c).length && !c.lineup.length ? 1 : 0, 'Add the teachers for the Sensual Wednesdays course', 'Last class ' + fmt(c.dates[2].d) + ' &middot; dancers ask who is teaching', 'data-lineup-all="wedc"', 'Teachers added');
+      item('teach', liveDates(c).length && !cast(c).length ? 1 : 0, 'Add the teachers for the Sensual Wednesdays course', 'Last class ' + fmt(c.dates[2].d) + ' &middot; dancers ask who is teaching', 'data-lineup-all="wedc"', 'Teachers added');
       var nd = ids.filter(function (k) { return status(EV[k])[0] === 'warn'; });
       item('dates', nd.length, nd.length === 1 ? '1 event is live but has no dates coming up' : nd.length + ' events are live but have no dates coming up', nd.map(function (k) { return EV[k].name + (EV[k].kind === 'course' ? ' (Sep course)' : ''); }).join(', ') + ' &middot; add dates or end ' + (nd.length === 1 ? 'it' : 'them'), 'data-open="' + nd[0] + '"', 'Dates added');
       var dr = ids.filter(function (k) { return EV[k].life === 'draft'; });
@@ -813,10 +840,9 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var W = 340, H = 150, max = 0; DAILY.forEach(function (x) { max = Math.max(max, x[1]); }); max = Math.ceil(max / 20) * 20;
     var pts = DAILY.map(function (x, i) { return [24 + i * (W - 34) / 29, 12 + (H - 34) * (1 - x[1] / max)]; });
     var line = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
-    return '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Views per day over the last 30 days, highest ' + max + '"><line class="ax" x1="24" y1="' + (H - 22) + '" x2="' + W + '" y2="' + (H - 22) + '"/><line class="ax" x1="24" y1="12" x2="' + W + '" y2="12" stroke-dasharray="3 4"/>' +
-      '<text x="0" y="16">' + max + '</text><text x="8" y="' + (H - 18) + '">0</text>' +
-      '<path class="ar" d="' + line + ' L' + pts[29][0].toFixed(1) + ' ' + (H - 22) + ' L24 ' + (H - 22) + ' Z"/><path class="ln" d="' + line + '"/>' +
-      '<text x="24" y="' + (H - 4) + '">' + fmtDM(DAILY[0][0]) + '</text><text x="' + (W - 40) + '" y="' + (H - 4) + '">Today</text></svg>';
+    return '<div class="chartwrap"><div class="yl" aria-hidden="true"><span>' + max + '</span><span>0</span></div><div><svg class="chart" viewBox="24 0 ' + (W - 24) + ' ' + (H - 18) + '" preserveAspectRatio="none" role="img" aria-label="Views per day over the last 30 days, highest ' + max + '" style="height:132px"><line class="ax" x1="24" y1="' + (H - 22) + '" x2="' + W + '" y2="' + (H - 22) + '"/><line class="ax" x1="24" y1="12" x2="' + W + '" y2="12" stroke-dasharray="3 4"/>' +
+      '<path class="ar" d="' + line + ' L' + pts[29][0].toFixed(1) + ' ' + (H - 22) + ' L24 ' + (H - 22) + ' Z"/><path class="ln" d="' + line + '"/></svg>' +
+      '<div class="chartax" aria-hidden="true"><span>' + fmtDM(DAILY[0][0]) + '</span><span>Today</span></div></div></div>';
   }
   R.stats = function () {
     var ids = orgIds().filter(function (k) { return EV[k].life !== 'draft'; }), f = RANGE[range], max = 1, tot = 0;
@@ -864,7 +890,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var p = PROF, f = function (id, lbl, val, ph, extra) { return '<label class="f" for="' + id + '">' + lbl + '</label><input class="in" id="' + id + '" value="' + esc(val) + '" placeholder="' + ph + '"' + (extra || '') + '>'; };
     return BACK + '<div class="big">Your organiser page</div><p class="mut">Dancers see this when they tap &ldquo;Run by London Loves Bachata&rdquo;.</p>' +
       '<div style="display:flex;gap:14px;align-items:center;margin-top:8px"><div class="av ' + p.logo + '" style="width:72px;height:72px;font-size:24px">LL</div><button class="btn quiet sm" data-proflogo>Change logo</button></div>' +
-      f('prname', 'Name', p.name, 'Your organiser name') + '<div class="err" id="prerr" role="alert" style="display:none">Another organiser already uses that name. Add your town, e.g. &ldquo;Bachata Nights Leeds&rdquo;.</div>' +
+      f('prname', 'Name', p.name, 'Your organiser name') + '<div class="err" id="prerr" role="alert" style="display:none">Another organiser already uses that name. Add your city, e.g. &ldquo;Bachata Nights Leeds&rdquo;.</div>' +
       '<label class="f" for="prbio">About you</label><textarea class="in" id="prbio" rows="3" style="padding:12px 14px;min-height:96px" placeholder="Two lines about your nights and classes">' + esc(p.bio) + '</textarea>' +
       f('prig', 'Instagram', p.ig, '@yourname') + f('prwa', 'WhatsApp number', p.wa, 'e.g. 07700 900000', ' inputmode="tel"') + '<div class="hint">Dancers tap it to message you. (Needs a storage decision before launch.)</div>' +
       f('prweb', 'Website', p.web, 'yoursite.com', ' inputmode="url"') +
@@ -872,7 +898,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       '<button class="sw" role="switch" data-psw="showPhone" aria-checked="' + p.showPhone + '"><span class="grow">Show my phone on my page</span><span class="k"></span></button>' +
       '<div style="padding:12px 16px"><div class="s mut small">Email</div><div>' + p.email + '</div><div class="small mut">Only we can change your email. <button class="link" data-sheet="help">Ask us</button></div></div>' +
       '<button class="sw" role="switch" data-psw="showEmail" aria-checked="' + p.showEmail + '"><span class="grow">Show my email on my page</span><span class="k"></span></button></div>' +
-      '<div class="card pad" style="margin-top:16px"><div class="s mut small">Town</div><div style="font-weight:600">London</div><div class="small mut">Set from your places. <button class="link" data-sheet="help">' + L.askCity + '</button></div></div>';
+      '<div class="card pad" style="margin-top:16px"><div class="s mut small">City</div><div style="font-weight:600">London</div><div class="small mut">Set from your places. <button class="link" data-sheet="help">' + L.askCity + '</button></div></div>';
   };
   R.profile.bar = function () { return '<button class="btn" id="saveprof">Save my page</button>'; };
 
@@ -902,7 +928,10 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       '<button class="chg" data-photo="' + cur + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>' + (e.ph ? 'Change photo' : 'Add a photo') + '</button></div>' +
       '<div class="pad"><div class="when">' + L.kind[e.kind] + (kindWord(e) !== L.kind[e.kind] ? ' &middot; ' + kindWord(e) : '') + '</div><button class="link" data-go="details" style="padding:0;color:var(--fg);text-align:left"><span class="big" style="font-size:24px;margin:4px 0">' + e.name + '</span></button><div class="mut">' + cadence(e) + ' &middot; ' + (e.place || 'No place yet') + '</div>' +
       '<div class="small mut" style="margin-top:4px">' + (e.sess.length ? 'Starts ' + tm(span(e.sess).s) + ' (from the first session), ends ' + tm(span(e.sess).e) + (span(e.sess).nd ? ' the next day' : '') : 'Times come from your sessions. Add one below.') + '</div></div></div>';
-    if (e.life === 'ended') h += '<div class="card pad" style="margin-top:12px"><div style="font-weight:600">This has ended. It ran until ' + fmt(e.dates[e.dates.length - 1].d) + '.</div><p class="small mut" style="margin:4px 0 12px">It stays here so you can look back or copy it. Dancers see it as finished.</p><button class="btn quiet" data-go="copy">' + L.makeCopy + '</button></div>';
+    var stSub = e.life === 'draft' ? 'Put it live, or keep it as a draft' : e.life === 'ended' ? 'Make a copy to run it again' : e.status === 'paused' ? 'Turn it back on, or end it' : 'Pause or end it';
+    h += '<div class="card" style="margin-top:12px"><button class="row" data-sheet="status"><div class="grow"><div class="t">' + s[1] + ' &middot; ' + stSub + '</div><div class="s">Status</div></div>' + CHEV + '</button>' +
+      (e.life === 'live' && e.status !== 'paused' ? '<button class="row" data-sheet="pause"><div class="grow"><div class="t">' + L.pause + '</div><div class="s">Hidden until you turn it back on. Dates kept.</div></div>' + CHEV + '</button>' : '') + '</div>';
+    if (e.life === 'ended') h += '<div class="card pad" style="margin-top:12px"><div style="font-weight:600">This has finished. It ran until ' + fmt(e.dates[e.dates.length - 1].d) + '.</div><p class="small mut" style="margin:4px 0 12px">It stays here so you can look back or copy it. Dancers see it as finished.</p><button class="btn quiet" data-go="copy">' + L.makeCopy + '</button></div>';
     if (e.life === 'draft') h += '<div class="card pad" style="margin-top:12px"><div style="font-weight:600">Draft &middot; only you see it</div><p class="small mut" style="margin:4px 0 0">' + draftBlock(e) + '</p></div>';
     if (s[0] === 'paused') h += '<div class="card pad" style="margin-top:12px"><div style="font-weight:600">Paused &middot; dancers can&rsquo;t see it</div><div class="small mut">Your dates are kept. Turn it back on and they show again.</div></div>';
     if (rw) h += '<div class="note warn" style="margin-top:12px">' + rw + (e.kind === 'course' ? '. The last class was ' + fmt(e.dates[e.dates.length - 1].d) + '. ' : '. ') + '<button class="link" data-sheet="' + (e.kind === 'course' ? 'status' : 'adddate') + '" style="min-height:44px">' + (e.kind === 'course' ? 'Add classes or end it' : 'Add a date') + '</button></div>';
@@ -919,14 +948,14 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       h += '<div class="strip" role="list">' + shown.slice(0, n).map(function (x) { var c = dateChip(e, x, e.dates.indexOf(x), py, x === firstNext); py = x.d.getFullYear(); return c; }).join('') + '</div>';
       var off = up.filter(function (x) { return x.st === 'cancelled'; }).length, brk = e.dates.filter(function (x) { return x.st === 'skip'; });
       var leg = [];
-      if (e.kind === 'course') { var cls = e.dates.filter(function (x) { return x.st !== 'cancelled' && x.st !== 'skip'; }); leg.push(cls.length + ' classes'); if (off) leg.push(off + ' ' + L.cancelled.toLowerCase()); leg.push('last class ' + fmt(cls[cls.length - 1].d)); }
+      if (e.kind === 'course') { var cls = e.dates.filter(function (x) { return x.st !== 'cancelled' && x.st !== 'skip'; }); leg.push(classCount(e) + ' classes'); if (off) leg.push(off + ' ' + L.cancelled.toLowerCase()); leg.push('last class ' + fmt(cls[cls.length - 1].d)); }
       else if (openEnded(e)) { leg.push('No end date'); if (off) leg.push(off + ' ' + L.cancelled.toLowerCase()); }
       var chg = up.filter(function (x) { return diffWords(e, x).length; }).length; if (chg) leg.push('<span><span class="dot" style="display:inline-block;color:var(--warn-fg)"></span> ' + chg + ' changed for that date</span>');
       h += '<div class="legend">' + leg.map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</div>';
       if (brk.length) h += '<div class="small mut" style="margin-top:4px">Breaks: ' + brk.map(function (x) { return fmtDM(x.d); }).join(', ') + '</div>';
       h += '<div class="pair" style="margin-top:10px">' + ((shown.length > n || openEnded(e) || e.kind === 'course') ? '<button class="btn line" data-go="alldates">See all dates</button>' : '') + (e.kind === 'festival' ? '' : '<button class="btn line" data-sheet="adddate">' + (e.kind === 'oneoff' ? 'Add another date' : 'Add a date') + '</button>') + '</div>';
     }
-    if (e.kind !== 'oneoff' && e.kind !== 'festival') h += '<div class="card" style="margin-top:12px"><button class="row" data-go="repeat"><div class="grow"><div class="t">' + (e.kind === 'custom' ? 'Dates you add yourself' : 'Repeats') + '</div><div class="s">' + repeatSummary(e) + '</div></div>' + CHEV + '</button></div>';
+    if (e.kind !== 'oneoff' && e.kind !== 'festival') h += '<div class="card" style="margin-top:12px"><button class="row" data-go="repeat"><div class="grow"><div class="t">' + (e.kind === 'custom' ? 'Dates I pick' : 'Repeats') + '</div><div class="s">' + repeatSummary(e) + '</div></div>' + CHEV + '</button></div>';
     /* sessions (every date) */
     h += '<h2 style="display:flex;align-items:center">' + L.sessions + ' <span class="small mut" style="font-weight:400;margin-left:8px">every date</span></h2>';
     if (!e.sess.length) h += '<div class="card pad"><div style="font-weight:600">No sessions yet</div><p class="small mut" style="margin:4px 0 12px">A session is one part of the night: a class, a workshop or the party. Times on the calendar come from them.</p><button class="btn" data-addsess="first">Add the first session</button></div>';
@@ -939,7 +968,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       }).join('');
       var ex = []; up.forEach(function (x) { (x.extra || []).forEach(function (s2) { ex.push('Extra on ' + fmt(x.d) + ': ' + s2.t); }); });
       h += (ex.length ? '<div class="pad small mut" style="border-top:1px solid var(--line)">' + ex.join('<br>') + '</div>' : '') + '</div>';
-      if (removedSess.length && removedSess[0].k === cur) h += '<div class="note warn">Removed, not saved yet: ' + removedSess.map(function (r) { return r.s.t || 'class'; }).join(', ') + ' <button class="link" data-unremove>Undo</button></div>';
+      if (removedSess.length && removedSess[0].k === cur) h += '<div class="note warn">Removed from every date: ' + removedSess.map(function (r) { return r.s.t || kindLbl(r.s.k); }).join(', ') + ' &middot; <button class="link" data-unremove>Undo</button></div>';
       h += '<button class="btn line" style="margin-top:10px" data-addsess="next">' + L.addNext + '</button><div class="hint">Starts when the last one ends, same length' + (roomsOf(e).length > 1 ? ' and room' : '') + '.</div>';
     }
     var cs = cast(e);
@@ -948,8 +977,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     /* details */
     var v = VENUES[e.place];
     h += '<h2>About this event</h2><div class="card">' +
-      aboutRow('where', 'Where', e.place ? e.place + (v ? '<br>' + v.addr : '') : '') +
-      '<div class="row"><div class="grow"><div class="t">Town</div><div class="s">' + (v ? v.town : 'Set by the place') + ' &middot; set by the place</div></div><button class="link" data-sheet="help">' + L.askCity + '</button></div>' +
+      aboutRow('where', 'Where', e.place ? e.place + (v ? '<br>' + v.addr.replace(e.place + ', ', '') : '') : '') +
       '<button class="row" data-go="details"><div class="grow"><div class="t">About this event</div><div class="s' + (e.desc ? '' : ' todo-s') + '">' + (e.desc || L.notSet) + '</div></div>' + CHEV + '</button>' +
       '<button class="row" data-go="details"><div class="grow"><div class="t">Music</div><div class="s' + (e.music.length ? '' : ' todo-s') + '">' + (e.music.length ? e.music.join(', ') : L.notSet) + '</div></div>' + CHEV + '</button>' +
       aboutRow('pay', 'How to pay', payText(e)) +
@@ -957,15 +985,19 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       aboutRow('ticket', 'Ticket link', e.ticket ? e.ticket.replace('https://', '') : '') +
       '<button class="row" data-photo="' + cur + '"><div class="grow"><div class="t">Photos</div><div class="s">' + (e.ph ? 'Cover' + (e.gallery.length ? ' + ' + e.gallery.length + ' more' : '') : L.notSet) + '</div></div>' + CHEV + '</button>' +
       (e.going ? '<!-- GoingPeopleSheet entry (src/modules/going/) --><button class="row" data-going="' + cur + '" data-gi="' + (lv[0] ? e.dates.indexOf(lv[0]) : 0) + '"><div class="grow"><div class="t">' + L.whosGoing + ' (' + e.going + ')</div><div class="s">Next date</div></div>' + CHEV + '</button>' : '') +
-      '<button class="row" data-go="team"><div class="grow"><div class="t">People who run it</div><div class="s">' + team.filter(function (p) { return p.st === 'in'; }).map(function (p) { return p.name; }).join(' and ') + '</div></div>' + CHEV + '</button>' +
-      '<div class="row"><div class="grow"><div class="t">Run by</div><div class="s">' + ORGS[org].name + ' (your organiser page)</div></div><button class="link" data-sheet="help">' + L.askOrg + '</button></div>' +
-      '<button class="row" data-tab-go="stats"><div class="grow"><div class="t">' + e.views + ' ' + L.views + '</div><div class="s">Last 30 days' + (e.runs ? ' &middot; ran ' + e.runs[0] + ' times since ' + e.runs[1] : '') + '</div></div>' + CHEV + '</button></div>';
-    h += '<div class="qa" style="grid-template-columns:1fr 1fr"><button class="btn quiet" data-share>' + L.share + '</button><button class="btn quiet" data-go="history">' + L.history + '</button><button class="btn quiet" data-go="copy">' + L.makeCopy + '</button><button class="btn quiet" data-sheet="status">Status: ' + s[1] + '</button></div>';
+      '</div>';
+    /* More options: read-only or rare rows (moved here from the main card, critique #13) */
     h += '<details class="fold"><summary>' + L.moreOpts + '</summary><div class="card">' +
+      '<button class="row" data-go="history"><div class="grow"><div class="t">' + L.history + '</div><div class="s">Every change, who made it, Undo where it can</div></div>' + CHEV + '</button>' +
+      '<button class="row" data-go="copy"><div class="grow"><div class="t">' + L.makeCopy + '</div><div class="s">Name and first date, starts as a draft</div></div>' + CHEV + '</button>' +
+      '<button class="row" data-tab-go="stats"><div class="grow"><div class="t">' + e.views + ' ' + L.views + '</div><div class="s">Last 30 days' + (e.runs ? ' &middot; ran ' + e.runs[0] + ' times since ' + e.runs[1] : '') + '</div></div>' + CHEV + '</button>' +
+      '<div class="row"><div class="grow"><div class="t">City</div><div class="s">' + (v ? v.town : 'Set by the place') + ' &middot; set by the place</div></div><button class="link" data-sheet="help">' + L.askCity + '</button></div>' +
+      '<div class="row"><div class="grow"><div class="t">Run by</div><div class="s">' + ORGS[org].name + ' (your organiser page)</div></div><button class="link" data-sheet="help">' + L.askOrg + '</button></div>' +
+      '<button class="row" data-go="team"><div class="grow"><div class="t">People who run it</div><div class="s">' + team.filter(function (p) { return p.st === 'in'; }).map(function (p) { return p.name; }).join(' and ') + '</div></div>' + CHEV + '</button>' +
       '<button class="row" data-sheet="chat"><div class="grow"><div class="t">WhatsApp group link</div><div class="s">' + (e.chat || 'Not set &middot; dancers see a &ldquo;Join the group&rdquo; button when you add one') + '</div></div>' + CHEV + '</button>' +
       '<button class="row" data-sheet="socials"><div class="grow"><div class="t">Instagram, Facebook, website</div><div class="s">Uses your organiser page links unless you add others</div></div>' + CHEV + '</button>' +
       '<button class="row" data-photo="' + cur + '" data-video="1"><div class="grow"><div class="t">Short video</div><div class="s">A 30-second clip or a YouTube link</div></div>' + CHEV + '</button>' +
-      '<div class="row"><div class="grow"><div class="t">Rooms</div><div class="s">' + (roomsOf(e).length > 1 ? roomsOf(e).join(' and ') + ' &middot; pick a room on each session' : 'This place has one room, so sessions don&rsquo;t ask for one') + '</div></div></div>' +
+      (roomsOf(e).length > 1 ? '<div class="row"><div class="grow"><div class="t">Rooms</div><div class="s">' + roomsOf(e).join(' and ') + ' &middot; pick a room on each session</div></div></div>' : '') +
       (e.kind !== 'festival' ? '<button class="row" data-sheet="convert"><div class="grow"><div class="t">Change the kind</div><div class="s">One-off, repeating or a course</div></div>' + CHEV + '</button>' : '') +
       '</div></details>';
     h += '<p class="small mut" style="text-align:center;margin-top:10px"><button class="link" data-sheet="help">' + L.askUs + '</button></p></div></div>';
@@ -978,7 +1010,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   }
   function repeatSummary(e) {
     if (e.kind === 'custom') return liveDates(e).length + ' coming up &middot; add or remove dates one by one';
-    if (e.kind === 'course') { var n = e.dates.filter(function (x) { return x.st !== 'skip'; }).length; return n + ' classes, every ' + WDL[e.wd] + ' &middot; breaks don&rsquo;t count'; }
+    if (e.kind === 'course') { var n = classCount(e); return n + ' classes, every ' + WDL[e.wd] + ' &middot; breaks don&rsquo;t count'; }
     return (e.rule || (e.kind === 'monthly' ? 'Every month on the first ' + WDL[e.wd] : 'Every ' + WDL[e.wd])) + ', keeps going';
   }
   function aboutRow(key, label, val) {
@@ -989,7 +1021,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (e.life === 'draft') { var ok = e.sess.length && e.place; return '<button class="btn" id="golive2"' + (ok ? '' : ' disabled') + '>' + (ok ? 'Put it live' : (e.sess.length ? 'Pick a place to put it live' : 'Add a session to put it live')) + '</button>'; }
     if (e.life === 'ended') return '<button class="btn" data-go="copy">' + L.makeCopy + '</button>';
     if (e.status === 'paused') return '<button class="btn" data-unpause="' + cur + '">' + L.turnOn + '</button>';
-    var lv = liveDates(e); return '<button class="btn" data-preview="' + cur + '" data-pi="' + (lv[0] ? e.dates.indexOf(lv[0]) : 0) + '">' + L.preview + '</button>';
+    var lv = liveDates(e); return '<div class="pair" style="grid-template-columns:1fr 2fr"><button class="btn quiet" data-share>' + L.share + '</button><button class="btn" data-preview="' + cur + '" data-pi="' + (lv[0] ? e.dates.indexOf(lv[0]) : 0) + '">' + L.preview + '</button></div>';
   };
 
   var adf = 'all', adq = '', pick = null;   /* All dates: filter, search, Pick dates mode */
@@ -1013,10 +1045,11 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var cno = 0;
     list.forEach(function (x) {
       var i = e.dates.indexOf(x), past = x.d < TODAY, m = MO[x.d.getMonth()] + ' ' + x.d.getFullYear(), dw = past ? [] : diffWords(e, x);
-      if (e.kind === 'course' && x.st !== 'skip') cno = e.dates.filter(function (y) { return y.st !== 'skip' && y.d <= x.d; }).length;
+      var isCls = e.kind === 'course' && x.st !== 'skip' && x.st !== 'cancelled';
+      if (isCls) cno = e.dates.filter(function (y) { return y.st !== 'skip' && y.st !== 'cancelled' && y.d <= x.d; }).length;
       if (m !== lastM) { h += '<div class="row" style="min-height:44px;background:var(--card2)"><div class="grow"><div class="s" style="font-weight:600">' + (x.d.getMonth() === 0 || !lastM ? m : MO[x.d.getMonth()]) + '</div></div></div>'; lastM = m; }
       var tag = past ? '<span class="tag ended">Done</span>' : x.st === 'cancelled' ? '<span class="tag cancel">' + L.cancelled + '</span>' : x.st === 'skip' ? '<span class="tag paused">' + L.skipped + '</span>' : x.st === 'moved' ? '<span class="tag warn">' + L.moved + '</span>' : '';
-      var sub = (e.kind === 'course' && x.st !== 'skip' ? 'Class ' + cno + ' of ' + e.dates.filter(function (y) { return y.st !== 'skip'; }).length + ' &middot; ' : '') + spanText(dsess(e, x)) + (dw.length ? '<br><span style="color:var(--warn-fg)">Changed for this date: ' + dw.join(', ') + '</span>' : '');
+      var sub = (isCls ? 'Class ' + cno + ' of ' + classCount(e) + ' &middot; ' : '') + spanText(dsess(e, x)) + (dw.length ? '<br><span style="color:var(--warn-fg)">Changed for this date: ' + dw.join(', ') + '</span>' : '');
       var can = !past && x.st !== 'cancelled' && x.st !== 'skip';
       if (pick) h += '<button class="choice" role="checkbox" style="border-radius:0;border:0;border-top:1px solid var(--line)" ' + (can ? 'data-pk="' + i + '"' : 'disabled') + ' aria-checked="' + (pick.indexOf(i) > -1) + '"><span class="box">' + (pick.indexOf(i) > -1 ? TICK : '') + '</span><span class="grow"><b>' + fmt(x.d) + '</b><br><span class="small mut">' + (can ? sub : 'Can&rsquo;t pick: ' + (past ? 'already done' : 'already ' + (x.st === 'skip' ? 'a break' : 'cancelled'))) + '</span></span></button>';
       else h += (past ? '<div class="row">' : '<button class="row" data-date="' + i + '">') + '<div class="grow"><div class="t">' + fmt(x.d) + '</div><div class="s">' + sub + '</div></div>' + tag + (past ? '</div>' : CHEV + '</button>');
@@ -1048,7 +1081,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   function roleOf(prof) { return /DJ/.test(prof) ? 'dj' : /erform/.test(prof) && !/Teach/.test(prof) ? 'perform' : 'teach'; }
   R.lineup = function () {
     var e = EV[lu.k];
-    return BACK + '<div class="when">' + e.name + ' &middot; ' + lu.label + '</div><div class="big">Who&rsquo;s on?</div><p class="mut">People sit on a session, with what they do. Pick real people so dancers can tap through to them.</p>' +
+    return BACK + '<div class="when">' + e.name + ' &middot; ' + lu.label + '</div><div class="big">' + L.lineup + '</div><p class="mut">People sit on a session, with what they do. Pick real people so dancers can tap through to them.</p>' +
       '<div id="lunow"></div><label class="f" for="psearch" id="pslabel"></label><input class="in" id="psearch" placeholder="Type a name, e.g. Sofia" autocomplete="off"><div class="card" id="presults" style="margin-top:10px"></div>';
   };
   R.lineup.after = function () { drawLineup(); drawResults(''); };
@@ -1061,7 +1094,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
         (list.length ? list.map(function (p, i) {
           return '<div class="row" style="flex-wrap:wrap"><div class="av ' + p[2] + '">' + initials(p[0]) + '</div><div class="grow"><div class="t">' + p[0] + '</div><div class="s">' + (p[3] ? 'On Bachata Calendar' : 'Name only &middot; no profile yet &middot; <button class="link" data-invitep="' + esc(p[0]) + '" style="min-height:44px;padding:0">Send them an invite link</button>') + '</div></div><button class="btn quiet sm" data-rm="' + m.id + ':' + i + '">Remove</button>' +
             '<div class="chips" role="group" aria-label="What they do" style="width:100%;padding-left:56px">' + L.roles.map(function (r) { return '<button data-role="' + m.id + ':' + i + ':' + r[0] + '" aria-pressed="' + (p[1] === r[0]) + '">' + r[1] + '</button>'; }).join('') + '</div></div>';
-        }).join('') : '<div class="pad small mut" style="padding-top:0">Nobody yet.</div>') +
+        }).join('') : '<div class="pad small mut" style="padding-top:0">Nobody yet. Search below to add a teacher or DJ.</div>') +
         (on ? '' : '<div style="padding:0 16px 12px"><button class="link" data-lutarget="' + m.id + '">Add someone to this session</button></div>') + '</div>';
     }).join('') : '<div class="card pad mut">No sessions on this date yet. Add a session first, then the people on it.</div>';
     var t = ss.filter(function (m) { return m.id === lu.target; })[0];
@@ -1084,14 +1117,14 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var e = EV[mv.k], x = e.dates[mv.i];
     var h = BACK + '<div class="when">' + e.name + ' &middot; ' + (mv.scope === 'one' ? fmt(x.d) + ' only' : 'from ' + fmt(x.d)) + '</div>';
     if (mv.scope === 'one') {
-      h += '<div class="big">Move it to when?</div><label class="f" for="movedate">New date</label><input class="in" id="movedate" type="date" value="' + mv.date + '">' +
-        '<label class="f" for="movetime">Starts at</label><input class="in" id="movetime" type="time" value="' + mv.time + '">';
+      h += '<div class="big">Move to another day</div><label class="f" for="movedate">New date</label><input class="in" id="movedate" type="date" value="' + mv.date + '">';
     } else {
       h += '<div class="big">Which day of the week now?</div><div class="pick days" role="group" aria-label="Day of the week">' + [1, 2, 3, 4, 5, 6, 0].map(function (d) {
         return '<button data-mwd="' + d + '" aria-pressed="' + (mv.wd === d) + '">' + WD[d] + '</button>';
-      }).join('') + '</div><label class="f" for="movetime">Starts at</label><input class="in" id="movetime" type="time" value="' + mv.time + '">';
+      }).join('') + '</div>';
     }
-    return h + '<div class="hint" id="movehint" aria-live="polite">' + moveHint() + '</div>';
+    /* a date has no time of its own: times come from the sessions (FIELD-INVENTORY trap 2) */
+    return h + '<div class="hint" id="movehint" aria-live="polite">' + moveHint() + '</div><div class="note">To change the time, open the date and use &ldquo;Change the time on this date&rdquo;. The sessions move with it.</div>';
   };
   function movePlan() {
     var e = EV[mv.k];
@@ -1105,7 +1138,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     });
   }
   function moveHint() {
-    var e = EV[mv.k], p = movePlan(), t = tm(mv.time || e.time);
+    var e = EV[mv.k], p = movePlan(), t = tm(dStart(e, e.dates[mv.i]));
     if (!p.length) return mv.scope === 'one' ? 'Pick a new date.' : 'Pick a day to see what changes.';
     if (mv.scope === 'one') return 'Dancers see &ldquo;Moved to ' + fmt(p[0].to) + ', ' + t + '&rdquo; on ' + fmt(p[0].x.d) + '.';
     if (openEnded(e)) return 'From ' + fmt(p[0].to) + ': every ' + (e.kind === 'monthly' ? 'first ' : '') + WDL[mv.wd] + ', ' + t + ' (no end date).';
@@ -1139,7 +1172,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       return '<button class="choice" role="checkbox" data-payopt="' + o[0] + '" aria-checked="' + (sel.indexOf(o[0]) > -1) + '"><span class="box">' + (sel.indexOf(o[0]) > -1 ? TICK : '') + '</span><span class="grow">' + o[1] + '</span></button>';
     }).join('') + '</div><div class="hint">Dancers see exactly what you tick. Tick nothing and we show nothing.</div>';
   }
-  R.where = function () { return BACK + '<div class="when">' + EV[edit.k].name + (edit.di > -1 ? ' &middot; ' + fmt(EV[edit.k].dates[edit.di].d) + ' only' : '') + '</div><div class="big">' + (edit.di > -1 ? 'Different place this date' : 'Where is it?') + '</div><p class="small mut">All places on Bachata Calendar, not only yours.</p>' + whereBody(edit.val, edit.q) + '<div class="small mut" style="margin-top:8px">The town comes from the place. <button class="link" data-sheet="help">' + L.askCity + '</button></div>'; };
+  R.where = function () { return BACK + '<div class="when">' + EV[edit.k].name + (edit.di > -1 ? ' &middot; ' + fmt(EV[edit.k].dates[edit.di].d) + ' only' : '') + '</div><div class="big">' + (edit.di > -1 ? 'Different place this date' : 'Where is it?') + '</div><p class="small mut">All places on Bachata Calendar, not only yours.</p>' + whereBody(edit.val, edit.q) + '<div class="small mut" style="margin-top:8px">The city comes from the place. <button class="link" data-sheet="help">' + L.askCity + '</button></div>'; };
   R.pay = function () { return BACK + '<div class="when">' + EV[edit.k].name + '</div><div class="big">How can dancers pay?</div><p class="mut">Tick all that apply.</p>' + payBody(edit.val); };
   R.ticket = function () {
     return BACK + '<div class="when">' + EV[edit.k].name + '</div><div class="big">Ticket link</div><p class="mut">Where dancers buy a ticket. Paste the whole link.</p>' +
@@ -1174,15 +1207,21 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
 
   /* ---------- public preview: ONLY what the rows hold ---------- */
   R.preview = function () {
-    var e = EV[cur], x = e.dates[previewIdx] || e.dates[0], t = x ? (x.time || e.time) : e.time;
+    var e = EV[cur], x = e.dates[previewIdx] || e.dates[0], t = dStart(e, x), ds = x ? dsess(e, x) : [];
     var own = function (key, what) { return '<button class="own" data-edit="' + key + '" data-k="' + cur + '">' + L.notSet + '<span>Only you see this. Dancers see nothing here until you add ' + what + '.</span></button>'; };
+    var ownGo = function (scr, what) { return '<button class="own" data-go="' + scr + '">' + L.notSet + '<span>Only you see this. Dancers see nothing here until you add ' + what + '.</span></button>'; };
+    /* Line-up block (C2 had it): the people on this date's sessions, with what they do */
+    var crew = []; ds.forEach(function (m) { if (!m.cx) m.ppl.forEach(function (p) { if (!crew.some(function (c) { return c[0] === p[0]; })) crew.push(p); }); });
     return '<div class="previewbar"><span class="grow">' + L.preview + '</span>' + THM + '<button data-back>' + L.back + '</button></div><div class="pub"><div class="cover ' + (e.ph || 'nophoto') + '"></div><div class="body">' +
       (x && x.st === 'cancelled' ? '<div class="gone">' + L.cancelled + ' &middot; ' + fmt(x.d) + (x.reason ? '<div style="font-weight:400">' + x.reason + '</div>' : '') + '</div>' : '') +
       '<div class="k">' + (x ? fmt(x.d).toUpperCase() + ' &middot; ' + tm(t).toUpperCase() : '') + '</div><div style="font-size:26px;font-weight:600;margin:6px 0;overflow-wrap:anywhere">' + e.name + '</div>' +
       '<span class="pill">' + L.kind[e.kind] + '</span>' +
       '<div class="h">Where</div>' + (e.place ? '<div class="k">' + e.place + '</div>' : own('where', 'a place')) +
-      '<div class="h">Programme</div>' + (x && dsess(e, x).length ? dsess(e, x).map(function (m) { return '<div class="k" style="display:flex;gap:10px;margin-top:6px' + (m.cx ? ';text-decoration:line-through' : '') + '"><span style="width:54px;flex:none;color:#f6f1e7">' + tm(m.s) + '</span><span>' + (m.t || kindLbl(m.k)) + (m.ppl.length ? ' &middot; ' + m.ppl.map(function (p) { return p[0]; }).join(', ') : '') + (m.cx ? ' (not running this date)' : '') + '</span></div>'; }).join('') : '<button class="own" data-go="event">' + L.notSet + '<span>Only you see this. Add a session so dancers know what happens and when.</span></button>') +
-      (x && !cast(e).length && dsess(e, x).length ? '<button class="own" data-lineup-ask="' + cur + '">Line-up: ' + L.notSet + '<span>Only you see this. Dancers see nothing here until you add someone.</span></button>' : '') +
+      '<div class="h">Programme</div>' + (ds.length ? ds.map(function (m) { return '<div class="k" style="display:flex;gap:10px;margin-top:6px' + (m.cx ? ';text-decoration:line-through' : '') + '"><span style="width:54px;flex:none;color:#f6f1e7">' + tm(m.s) + '</span><span>' + (m.t || kindLbl(m.k)) + (m.ppl.length ? ' &middot; ' + m.ppl.map(function (p) { return p[0]; }).join(', ') : '') + (m.cx ? ' (not running this date)' : '') + '</span></div>'; }).join('') : '<button class="own" data-go="event">' + L.notSet + '<span>Only you see this. Add a session so dancers know what happens and when.</span></button>') +
+      '<div class="h">' + L.lineup + '</div>' + (crew.length ? crew.map(function (p) { return '<div class="k" style="margin-top:4px">' + p[0] + ', ' + roleNoun(p[0], p[1]) + '</div>'; }).join('') : '<button class="own" data-lineup-ask="' + cur + '">' + L.notSet + '<span>Only you see this. Dancers see nothing here until you add someone.</span></button>') +
+      '<div class="h">About</div>' + (e.desc ? '<div class="k">' + e.desc + '</div>' : ownGo('details', 'a few lines about it')) +
+      '<div class="h">Music</div>' + (e.music.length ? '<div>' + e.music.map(function (m) { return '<span class="pill">' + m + '</span>'; }).join('') + '</div>' : ownGo('details', 'the music')) +
+      '<div class="h">Prices</div>' + (e.free ? '<div class="k">Free</div>' : e.prices.length ? e.prices.map(function (p) { return '<div class="k">' + p[0] + ' &middot; &pound;' + p[1] + '</div>'; }).join('') : ownGo('prices', 'prices')) +
       '<div class="h">How to pay</div>' + (e.pay.length ? '<div class="k">' + payText(e) + '</div>' : own('pay', 'how to pay')) +
       '<div class="h">Tickets</div>' + (e.ticket ? '<div style="margin-top:8px;border-radius:15px;background:#f0703a;color:#1d0a03;text-align:center;padding:14px;font-weight:600">Get tickets</div>' : own('ticket', 'a ticket link')) +
       '</div></div>';
@@ -1215,11 +1254,12 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   }
   function stepHint() {
     var w = whenText();
-    if (flow.kind === 'weekly') return (w ? w + '.' : 'Pick a day.') + ' Skipping a week later? Cancel just that date.';
+    var off = ' Need a week off later? Open that date and choose ' + L.skip + '.';
+    if (flow.kind === 'weekly') return (w ? w + '.' : 'Pick a day.') + off;
     if (flow.kind === 'oneoff') return w ? w + '.' : 'Pick a date.';
     if (flow.kind === 'monthly') return w ? w + ', no end date.' : 'Pick a day.';
     if (flow.kind === 'custom' || flow.kind === 'festival') return w ? w + '.' : 'Pick a date.';
-    return w + '. Skipping a week? Cancel that date afterwards.';
+    return w + '.' + off;
   }
   function stepBlock() {
     var s = FLOWS[flow.kind].steps[flow.i];
@@ -1253,12 +1293,12 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
         '<div class="pair" style="margin-top:10px"><button class="btn line" data-fsessadd="before">Add one before</button><button class="btn line" data-fsessadd="next">' + L.addNext + '</button></div>' +
         '<div class="hint">' + (list.length ? 'Starts ' + tm(span(list).s) + ', ends ' + tm(span(list).e) + (span(list).nd ? ' the next day' : '') + '. Add teachers and DJs after it&rsquo;s live.' : '') + '</div>';
     }
-    if (s === 'cdates') h += '<div class="big">When does it start, and for how many weeks?</div><label class="f" for="fstart">First class</label><input class="in" id="fstart" type="date" value="' + flow.start + '">' +
-      '<label class="f">How many weeks</label><div class="pick" role="group" aria-label="Weeks">' + [4, 6, 8, 10].map(function (w) { return '<button data-fweeks="' + w + '" aria-pressed="' + (flow.weeks === w) + '">' + w + '</button>'; }).join('') + '</div>' +
+    if (s === 'cdates') h += '<div class="big">When does it start, and how many classes?</div><label class="f" for="fstart">First class</label><input class="in" id="fstart" type="date" value="' + flow.start + '">' +
+      '<label class="f">How many classes</label><div style="display:flex;align-items:center;gap:12px"><button class="btn quiet sm" data-fweeksd="-1" aria-label="One fewer" style="min-width:52px">&minus;</button><b style="font-size:28px;min-width:48px;text-align:center" id="fwn">' + flow.weeks + '</b><button class="btn quiet sm" data-fweeksd="1" aria-label="One more" style="min-width:52px">+</button><span class="mut">classes, one a week</span></div>' +
       '<label class="f" for="ftime">Class starts at</label><input class="in" id="ftime" type="time" value="' + flow.time + '"><div class="hint" id="fhint">' + stepHint() + '</div>';
     if (s === 'where') h += '<div class="big">Where is it?</div>' + whereBody(flow.place, flow.q);
     if (s === 'pay') h += '<div class="big">How can dancers pay?</div><p class="mut">Tick all that apply. Not sure yet? Skip it &mdash; you can add it later.</p>' + payBody(flow.pay);
-    if (s === 'level') h += '<div class="big">Who is it for?</div><p class="mut">Dancers pick a course by level first.</p><div role="radiogroup" aria-label="Level">' + L.levels.map(function (l) { return '<button class="choice" role="radio" data-level="' + l + '" aria-checked="' + (flow.level === l) + '"><span class="radio"></span><span class="grow">' + l + '</span></button>'; }).join('') + '</div>';
+    if (s === 'level') h += '<div class="big">Who is it for?</div><p class="mut">Dancers pick a course by level first.</p><div role="radiogroup" aria-label="Level">' + L.lvls.map(function (l) { return '<button class="choice" role="radio" data-level="' + l + '" aria-checked="' + (flow.level === l) + '"><span class="radio"></span><span class="grow">' + l + '</span></button>'; }).join('') + '</div>';
     if (s === 'check') {
       var idx = function (k) { return F.steps.indexOf(k); };
       var row = function (lbl, val, j, empty) { return '<button class="row" data-fstep="' + j + '"><div class="grow"><div class="s">' + lbl + '</div><div class="t' + (val ? '' : ' mut') + '">' + (val || empty) + '</div></div><span class="link">Change</span></button>'; };
@@ -1290,15 +1330,42 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var x = di > -1 ? e.dates[di] : null, f = findSess(e, x, sid);
     if (!f) return;
     if (sc === 'all' || di < 0 || f.extra) { for (var k in patch) f.s[k] = patch[k]; return; }
-    var ds = sc === 'later' ? e.dates.slice(di).filter(function (y) { return y.d >= TODAY && y.st !== 'cancelled' && y.st !== 'skip'; }) : [x];
-    ds.forEach(function (y) { y.so = y.so || {}; var o = y.so[sid] || {}; delete o.cx; for (var k2 in patch) o[k2] = cl(patch[k2]); y.so[sid] = o; });
+    var ds = sc === 'later' ? laterDates(e, di) : [x];
+    /* "not running" on a later date stays: a change from this date on never brings a session back (critique #5) */
+    ds.forEach(function (y) { y.so = y.so || {}; var o = y.so[sid] || {}; for (var k2 in patch) o[k2] = cl(patch[k2]); y.so[sid] = o; });
+  }
+  function laterDates(e, di) { return e.dates.slice(di).filter(function (y) { return y.d >= TODAY && y.st !== 'cancelled' && y.st !== 'skip'; }); }
+  /* the later dates that already differ for this session (or any session when sid is empty), said before the save */
+  function laterNotes(e, di, sid) {
+    var out = [];
+    laterDates(e, di).slice(1).forEach(function (y) {
+      Object.keys(y.so || {}).forEach(function (id) {
+        if (sid && id !== sid) return;
+        var b = e.sess.filter(function (m) { return m.id === id; })[0], nm = b ? (b.t || kindLbl(b.k)) : 'a session';
+        out.push(fmt(y.d) + (y.so[id].cx ? ': ' + nm + ' stays not running.' : ' had its own ' + nm + ' change: it changes too.'));
+      });
+    });
+    return out;
+  }
+  function consLine(e, di, what, sc, sid) {
+    if (sc !== 'later') return oneLine(e, di);
+    var n = laterNotes(e, di, sid);
+    return laterLine(e, di, what) + (n.length ? '<br>' + n.join('<br>') : '');
+  }
+  /* move and cancel scope sheets: the same honest line, before the tap */
+  function actLine(e, di, sc) {
+    if (sc !== 'later') return action === 'cancel' ? 'Only ' + fmt(e.dates[di].d) + ' is cancelled. Every other date stays on.' : oneLine(e, di);
+    if (action === 'cancel') return 'Cancels ' + laterText(e, di) + '. Earlier dates stay on.';
+    if (action === 'move') return 'Moves from ' + fmt(e.dates[di].d) + ' onwards. Earlier dates stay where they are.';
+    return consLine(e, di, 'line-up', 'later');
   }
   /* the honest consequence line for "this and later" (phase 4 builds the server path; drawn now per owner answer W1) */
   function laterLine(e, di, what) { return 'Changes from ' + fmt(e.dates[di].d) + ' onwards. Earlier dates keep the old ' + what + '.'; }
   function oneLine(e, di) { return 'Only ' + fmt(e.dates[di].d) + ' changes. Every other date stays as usual.'; }
   function saveLineup() {
     var e = EV[lu.k], sn = snap2(e), changed = Object.keys(lu.map).filter(function (id) { return lu.map[id].map(function (p) { return p[0] + ':' + p[1]; }).sort().join('|') !== lu.orig[id]; });
-    changed.forEach(function (id) { setSessOn(e, lu.di, id, { ppl: lu.map[id] }, lu.scope); });
+    /* Pick dates: the same line-up goes on EVERY picked date (critique #6), not only the first */
+    (lu.dates || [lu.di]).forEach(function (di) { changed.forEach(function (id) { setSessOn(e, di, id, { ppl: lu.map[id] }, lu.dates ? 'one' : lu.scope); }); });
     var msg = lu.scope === 'later' ? laterLine(e, lu.di, 'line-up') : 'Line-up saved for ' + lu.label + '.';
     back(); toast(msg + ' Dancers see it now.', function () { restore2(e, sn); });
   }
@@ -1322,15 +1389,15 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var where = ss.di < 0 ? 'Every date' : ss.extra ? L.extra + ' (' + fmt(x.d) + ')' : fmt(x.d) + (ss.cx ? ' &middot; ' + L.notRunning : '');
     var h = '<h3 id="sheettitle">' + (ss.isNew ? 'New session' : (d.t || kindLbl(d.k))) + '</h3><p class="mut small" style="margin:0 0 4px">' + e.name + ' &middot; ' + where + '</p>' + (ss.note ? '<div class="note ok">' + ss.note + '</div>' : '');
     if (ss.cx) return h + '<p class="mut">This session is not running on ' + fmt(x.d) + '. Dancers see it struck through. The other dates keep it.</p><div class="stack"><button class="btn" data-ssundo>' + L.bringBack + '</button><button class="btn quiet" data-close>Leave it off</button></div>';
-    h += '<label class="f">What is it?</label><div class="chips" role="group" aria-label="What is it">' + L.sessKind.map(function (k) { return '<button data-sk="' + k[0] + '" aria-pressed="' + (d.k === k[0]) + '">' + k[1] + '</button>'; }).join('') + '</div>' +
+    h += '<label class="f">What is it?</label><div class="chips kinds" role="group" aria-label="What is it">' + L.sessKind.map(function (k) { return '<button data-sk="' + k[0] + '" aria-pressed="' + (d.k === k[0]) + '">' + k[1] + '</button>'; }).join('') + '</div>' +
       '<label class="f" for="ssname">Name</label><input class="in" id="ssname" value="' + esc(d.t.replace(/&mdash;/g, '\u2014').replace(/&amp;/g, '&')) + '" placeholder="' + (d.k === 'social' ? 'e.g. Party' : 'e.g. Bachata Sensual, improvers') + '" autocomplete="off">' +
       '<div class="pair"><div><label class="f" for="sss">Starts</label><input class="in" id="sss" type="time" step="900" value="' + d.s + '"></div><div><label class="f" for="sse">Ends</label><input class="in" id="sse" type="time" step="900" value="' + d.e + '"></div></div>' +
-      '<div class="hint" id="ssnd">' + (nextDay(d) ? 'Ends the next day (' + tm(d.e) + ').' : '&nbsp;') + '</div>' +
+      '<div class="hint" id="ssnd"' + (nextDay(d) ? '>Ends the next day (' + tm(d.e) + ').' : ' hidden>') + '</div>' +
       (ss.o.s !== d.s || ss.o.e !== d.e ? '<div class="was">Was: ' + tm(ss.o.s) + ' to ' + tm(ss.o.e) + ' &middot; <button class="link" data-sstime-undo style="min-height:44px">undo</button></div>' : '');
     if (rooms.length > 1) h += '<label class="f">Room</label><div class="chips" role="group" aria-label="Room">' + rooms.map(function (r) { return '<button data-sroom="' + esc(r) + '" aria-pressed="' + (d.room === r) + '">' + r + '</button>'; }).join('') + '</div>';
     if (lvOk) h += '<label class="f">Level</label><div class="chips" role="group" aria-label="Level">' + L.lvls.map(function (l) { return '<button data-slv="' + l + '" aria-pressed="' + (d.lv.indexOf(l) > -1) + '">' + l + '</button>'; }).join('') + '</div>';
-    h += '<label class="f">Who&rsquo;s on?</label><div class="card">' + (d.ppl.length ? d.ppl.map(function (p) { return '<div class="row" style="min-height:56px"><div class="av ' + p[2] + '">' + initials(p[0]) + '</div><div class="grow"><div class="t">' + p[0] + '</div><div class="s">' + roleLbl(p[1]) + (p[3] ? '' : ' &middot; name only') + '</div></div></div>'; }).join('') : '<div class="pad small mut">Nobody yet.</div>') + '</div>' +
-      (ss.isNew ? '<div class="hint">Add people after you add the session.</div>' : '<div style="margin-top:8px"><button class="btn line" data-sspeople>Change who&rsquo;s on</button></div>');
+    h += '<label class="f">' + L.lineup + '</label><div class="card">' + (d.ppl.length ? d.ppl.map(function (p) { return '<div class="row" style="min-height:56px"><div class="av ' + p[2] + '">' + initials(p[0]) + '</div><div class="grow"><div class="t">' + p[0] + '</div><div class="s">' + roleNoun(p[0], p[1]) + (p[3] ? '' : ' &middot; name only') + '</div></div></div>'; }).join('') : '<div class="pad small mut">Nobody yet.</div>') + '</div>' +
+      (ss.isNew ? '<div class="hint">Add people after you add the session.</div>' : '<div style="margin-top:8px"><button class="btn line" data-sspeople>' + L.changeLineup + '</button></div>');
     var ch = ssChanged() || ss.isNew;
     h += '<div style="margin-top:16px" class="stack"><button class="btn" data-sssave' + (ch ? '' : ' disabled') + '>' + (!ch ? L.nothingChanged : ss.isNew ? 'Add this session' : ss.di < 0 ? L.saveAll : ss.extra ? L.saveOne : 'Save') + '</button>' + (ss.isNew ? '<button class="btn quiet" data-close>Don&rsquo;t add it</button>' : '');
     if (!ss.isNew) {
@@ -1352,7 +1419,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var what = ssWhat();
     setSessOn(e, ss.di, ss.sid, patch, sc);
     closeSheet(); refreshUnder();
-    toast((sc === 'later' ? laterLine(e, ss.di, what) : sc === 'one' ? fmt(x.d) + ' only: ' + what + ' changed.' : 'Saved for every date.') + ' Dancers see it now.', function () { restore2(e, sn); });
+    toast((sc === 'later' ? consLine(e, ss.di, what, 'later', ss.sid) : sc === 'one' ? fmt(x.d) + ' only: ' + what + ' changed.' : 'Saved for every date.') + ' Dancers see it now.', function () { restore2(e, sn); });
   }
   function refreshUnder() { refresh(); }
 
@@ -1364,7 +1431,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
         '<button class="choice" role="radio" data-sscope="one" aria-checked="' + (scope === 'one') + '"><span class="radio"></span><span class="grow"><b>' + L.thisOnly + '</b><br><span class="small mut">' + fmt(e.dates[ss.di].d) + '</span></span></button>' +
         '<button class="choice" role="radio" data-sscope="later" aria-checked="' + (scope === 'later') + '"><span class="radio"></span><span class="grow"><b>' + L.thisLater + '</b><br><span class="small mut">' + laterText(e, ss.di) + '</span></span></button></div>' +
         /* phase 4: the server has no "this and later" path for programmes yet (FIELD-INVENTORY section 4); drawn per owner answer W1 */
-        '<div class="note" id="sscons" aria-live="polite">' + (scope === 'later' ? laterLine(e, ss.di, what) : oneLine(e, ss.di)) + '</div>' +
+        '<div class="note" id="sscons" aria-live="polite">' + consLine(e, ss.di, what, scope, ss.sid) + '</div>' +
         '<div style="margin-top:16px"><button class="btn" data-sscope-go>' + (scope === 'later' ? 'Save for these dates' : L.saveOne) + '</button></div>';
     },
     removeall: function () {
@@ -1378,18 +1445,20 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       if (x.st === 'skip') return '<h3 id="sheettitle">' + fmt(x.d) + ' &middot; ' + L.skipped + '</h3><p class="mut">A break week: dancers don&rsquo;t see this date at all.</p><div class="stack"><button class="btn" data-unskip>' + L.unskip + '</button><button class="btn quiet" data-close>Keep the break</button></div>';
       var h = '<h3 id="sheettitle">' + fmt(x.d) + ', ' + spanText(ds) + '</h3><p class="mut" style="margin-bottom:4px">' + e.name + (x.own && x.own.place ? ' &middot; at ' + x.own.place + ' <span class="ftag own">' + L.onlyThis + '</span>' : '') + '</p>' +
         (dw.length ? '<div class="note warn">Changed for this date: ' + dw.join(', ') + '</div>' : '<div class="small mut">' + L.sameUsual + '</div>') +
-        '<div class="hint" style="margin-top:4px">To change times, change the sessions below. <button class="link" data-sheet="dtime" style="min-height:44px">Move every session</button></div>';
+        '<div class="hint" style="margin-top:4px">Times come from the sessions. <button class="link" data-sheet="dtime" style="min-height:44px">Change the time on this date</button></div>';
       h += '<div class="card tl" style="margin-top:8px">' + (ds.length ? ds.map(function (m) { return sessRow(e, m, 'data-dsess="' + m.id + '"', x); }).join('') : '<div class="pad small mut">No sessions on this date yet. Add one so dancers know what happens and when.</div>') + '</div>' +
-        '<button class="btn line" style="margin-top:8px" data-addsess="one">' + L.addSessOne + '</button><div class="hint">For a one-off masterclass or a guest teacher. Other dates don&rsquo;t get it.</div>';
+        '<button class="btn line" style="margin-top:8px" data-addsess="one">' + L.addSessOne + '</button>';
       if (e.going && x === liveDates(e)[0]) h += '<!-- GoingPeopleSheet trigger (src/modules/going/) --><div class="card" style="margin-top:10px"><button class="row" data-going="' + cur + '" data-gi="' + dateIdx + '"><div class="grow"><div class="t">' + L.whosGoing + ' (' + e.going + ')</div><div class="s">See the people</div></div>' + CHEV + '</button></div>';
+      /* critique #12: two choices first; the rest sit in one fold (nothing removed) */
       h += '<div class="stack" style="margin-top:12px">' +
         '<button class="choice" data-act="lineup"><span class="grow"><b>' + L.changeLineup + '</b><br><span class="small mut">Who teaches or DJs, per session</span></span></button>' +
-        '<button class="choice" data-act="move"><span class="grow"><b>Move it</b><br><span class="small mut">Another day or time</span></span></button>' +
-        '<button class="choice" data-sheet="dayown"><span class="grow"><b>Different details this date</b><br><span class="small mut">Place, about, ticket link, photo</span></span></button>' +
-        (e.kind !== 'oneoff' ? '<button class="choice" data-sheet="skip"><span class="grow"><b>' + L.skip + '</b><br><span class="small mut">Not running that week. No notice, the date just isn&rsquo;t there</span></span></button>' : '') +
         '<button class="choice" data-act="cancel"><span class="grow"><b style="color:var(--danger)">' + L.cancelOne + '</b><br><span class="small mut">Dancers see &ldquo;' + L.cancelled + '&rdquo; and your reason</span></span></button></div>';
       if (x.own) h += '<div style="margin-top:8px"><button class="link" data-sheet="resetdate">' + L.resetDate + '</button></div>';
-      h += '<details class="fold"><summary>' + L.moreOpts + '</summary><button class="btn quiet" data-sheet="copyfrom">Copy changes from another date</button></details>';
+      h += '<details class="fold"><summary>More for this date</summary><div class="stack">' +
+        '<button class="choice" data-act="move"><span class="grow"><b>Move to another day</b><br><span class="small mut">The sessions keep their times</span></span></button>' +
+        '<button class="choice" data-sheet="dayown"><span class="grow"><b>Different details this date</b><br><span class="small mut">Place, about, ticket link</span></span></button>' +
+        (e.kind !== 'oneoff' ? '<button class="choice" data-sheet="skip"><span class="grow"><b>' + L.skip + '</b><br><span class="small mut">Not running that week. No notice, the date just isn&rsquo;t there</span></span></button>' : '') +
+        '<button class="choice" data-sheet="copyfrom"><span class="grow"><b>Copy changes from another date</b><br><span class="small mut">Sessions, line-up and details</span></span></button></div></details>';
       return h;
     },
     dtime: function () {
@@ -1399,7 +1468,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     },
     skip: function () {
       var e = EV[cur], x = e.dates[dateIdx], has = diffWords(e, x).length;
-      return '<h3 id="sheettitle">Skip ' + fmt(x.d) + '?</h3><p class="mut">A break week. Dancers won&rsquo;t see this date at all &mdash; no &ldquo;Cancelled&rdquo; notice.' + (e.kind === 'course' ? ' Breaks don&rsquo;t count as a class, so the course gets one week longer.' : '') + '</p>' +
+      return '<h3 id="sheettitle">Skip ' + fmt(x.d) + '?</h3><p class="mut">A break week. Dancers won&rsquo;t see this date at all &mdash; no &ldquo;Cancelled&rdquo; notice.' + (e.kind === 'course' ? ' Breaks don&rsquo;t count as a class, so we add one class after the last one: the course then ends ' + fmt(add(e.dates[e.dates.length - 1].d, 7)) + '.' : '') + '</p>' +
         (has ? '<div class="note bad">This date&rsquo;s own changes go with it: ' + diffWords(e, x).join(', ') + '.</div>' : '') +
         '<p class="small mut">Already told dancers it&rsquo;s on? Cancel it instead, so they see why.</p><div class="stack"><button class="btn" data-doskip>Yes, skip this week</button><button class="btn quiet" data-close>Keep it</button></div>';
     },
@@ -1439,9 +1508,9 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
         (e.life === 'live' && e.status !== 'paused' ? o('data-sheet="pause"', L.pause, 'Hidden until you turn it back on. Dates kept.') : '') +
         (e.status === 'paused' ? o('data-unpause="' + cur + '"', L.turnOn, 'Dancers see it again') : '') +
         (e.life === 'live' ? o('data-dodraft', L.backDraft, 'Only you see it. Put it live again any time.') : '') +
-        (e.life === 'live' ? o('data-sheet="endit"', L.finished, 'It moves to Finished. Dancers see it as ended.', e.runs || e.dates.some(function (x) { return x.d <= TODAY; }) ? '' : 'It hasn&rsquo;t run yet, so it can&rsquo;t end. Take it off the calendar instead.') : '') +
+        (e.life === 'live' ? o('data-sheet="endit"', L.finished, 'It moves to Finished. Dancers see it as finished.', e.runs || e.dates.some(function (x) { return x.d <= TODAY; }) ? '' : 'It hasn&rsquo;t run yet, so it can&rsquo;t end. Take it off the calendar instead.') : '') +
         (rep && e.life === 'live' ? o('data-sheet="stoprep"', L.stopRepeat, 'Keep the dates you choose, then add more one by one') : '') +
-        (e.life === 'ended' ? o('', 'Turn it back on', '', 'Ended events stay ended. Make a copy to run it again.') : '') +
+        (e.life === 'ended' ? o('', 'Turn it back on', '', 'Finished events stay finished. Make a copy to run it again.') : '') +
         '</div><p class="small mut" style="text-align:center;margin-top:8px"><button class="link" data-sheet="help">' + L.askUs + '</button></p>';
     },
     endit: function () {
@@ -1451,7 +1520,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       var need = todayX && !endAns;
       return '<h3 id="sheettitle">End ' + e.name + '?</h3>' +
         (todayX ? '<p style="font-weight:600;margin:10px 0 6px">Did tonight happen?</p><div class="pair"><button class="btn ' + (endAns === 'yes' ? '' : 'line') + '" data-endans="yes">Yes, it ran</button><button class="btn ' + (endAns === 'no' ? '' : 'line') + '" data-endans="no">No</button></div>' : '') +
-        '<div class="card pad" style="margin-top:12px"><div class="small mut">Last night</div><div style="font-weight:600">' + (last ? fmt(last.d) : 'None yet') + '</div></div>' +
+        '<div class="card pad" style="margin-top:12px"><div class="small mut">Last date it ran</div><div style="font-weight:600">' + (last ? fmt(last.d) : 'None yet') + '</div></div>' +
         (gone.length ? '<div class="note bad">These dates coming up will go (' + gone.length + '): ' + gone.slice(0, 4).map(function (x) { return fmtDM(x.d); }).join(', ') + (gone.length > 4 ? ' and ' + (gone.length - 4) + ' more' : '') + '</div>' : '') +
         '<div class="stack" style="margin-top:14px"><button class="btn danger-fill" data-doend' + (need ? ' disabled' : '') + '>' + (need ? 'Answer the question to carry on' : 'Yes, it has finished') + '</button><button class="btn quiet" data-close>Keep it going</button></div>';
     },
@@ -1510,21 +1579,21 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   function startRepeat() {
     var e = EV[cur];
     rp = { k: cur, mode: e.kind === 'monthly' ? 'month' : 'week', days: [e.wd === undefined ? 5 : e.wd], every: 1, nth: ['1'], runs: 'keep', times: 10, until: '2027-03-26', first: e.dates.length ? iso(liveDates(e)[0] ? liveDates(e)[0].d : e.dates[0].d) : '2026-11-06',
-      classes: e.dates.filter(function (x) { return x.st !== 'skip'; }).length, cend: 'count', cuntil: '2026-12-16' };
+      classes: classCount(e), cend: 'count', cuntil: '2026-12-16' };
     rp.o = JSON.stringify(rp);
   }
-  function rpDates() {
-    var out = [], d = D(rp.first), guard = 0, max = rp.runs === 'times' ? rp.times : 8;
+  function rpDates(toD) {
+    var out = [], d = D(rp.first), guard = 0, cap = rp.runs === 'times' ? rp.times : 1e4, max = toD ? cap : Math.min(cap, 8), lim = toD ? 4000 : 400;
     if (rp.mode === 'week') {
       var wk0 = add(d, -d.getDay());
-      while (out.length < Math.min(max, 8) && guard++ < 400) { var wk = Math.round((add(d, -d.getDay()) - wk0) / 6048e5); if (rp.days.indexOf(d.getDay()) > -1 && wk % rp.every === 0 && (rp.runs !== 'until' || d <= D(rp.until))) out.push(d); d = add(d, 1); }
+      while (out.length < max && (!toD || d <= toD) && guard++ < lim) { var wk = Math.round((add(d, -d.getDay()) - wk0) / 6048e5); if (rp.days.indexOf(d.getDay()) > -1 && wk % rp.every === 0 && (rp.runs !== 'until' || d <= D(rp.until))) out.push(d); d = add(d, 1); }
     } else {
       var y = d.getFullYear(), m = d.getMonth();
-      while (out.length < Math.min(max, 8) && guard++ < 40) {
+      while (out.length < max && (!toD || new Date(y, m, 1) <= toD) && guard++ < (toD ? 400 : 40)) {
         rp.nth.forEach(function (n) { var f = firstWd(y, m, rp.days[0]), x; if (n === 'L') { x = add(f, 28); if (x.getMonth() !== f.getMonth()) x = add(x, -7); } else x = add(f, (+n - 1) * 7); if (x >= D(rp.first) && (rp.runs !== 'until' || x <= D(rp.until))) out.push(x); });
         m++; if (m > 11) { m = 0; y++; }
       }
-      out.sort(function (a, b) { return a - b; }); out = out.slice(0, Math.min(max, 8));
+      out.sort(function (a, b) { return a - b; }); out = out.slice(0, max);
     }
     return out;
   }
@@ -1541,9 +1610,11 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
         '<div class="hint">Breaks don&rsquo;t count. Skip a week from that date and the course gets one week longer.</div>' +
         '<details class="fold"' + (rp.cend === 'date' ? ' open' : '') + '><summary>' + L.moreOpts + '</summary><div class="seg" role="group" aria-label="How it ends" style="grid-template-columns:1fr 1fr"><button data-rpcend="count" aria-pressed="' + (rp.cend === 'count') + '">Number of classes</button><button data-rpcend="date" aria-pressed="' + (rp.cend === 'date') + '">Ends on a date</button></div>' +
         (rp.cend === 'date' ? '<label class="f" for="rpcu">Last class</label><input class="in" id="rpcu" type="date" value="' + rp.cuntil + '">' : '') + '</details>' +
-        (rp.classes < e.dates.length ? '<div class="note bad">This removes ' + (e.dates.length - rp.classes) + ' class' + (e.dates.length - rp.classes === 1 ? '' : 'es') + ' already on the calendar.</div>' : '');
+        (rp.classes < classCount(e) ? '<div class="note bad">This removes ' + (classCount(e) - rp.classes) + ' class' + (classCount(e) - rp.classes === 1 ? '' : 'es') + ' already on the calendar.</div>' : '');
     }
-    var ds = rpDates(), was = JSON.stringify(rp) !== rp.o, rem = was ? Math.max(0, liveDates(e).filter(function (x) { return !ds.some(function (y) { return same(y, x.d); }); }).slice(0, 8).length) : 0;
+    var ds = rpDates(), was = JSON.stringify(rp) !== rp.o, lvR = liveDates(e), full = was && lvR.length ? rpDates(lvR[lvR.length - 1].d) : [];
+    /* compare every live date with the WHOLE new rule up to the last live date, not the 8 shown */
+    var rem = was ? lvR.filter(function (x) { return !full.some(function (y) { return same(y, x.d); }); }).length : 0;
     var own = liveDates(e).filter(function (x) { return x.so; }).length;
     var h = BACK + '<div class="when">' + e.name + '</div><div class="big">Repeats</div>' +
       '<div class="seg" role="group" aria-label="Repeats" style="grid-template-columns:1fr 1fr"><button data-rpmode="week" aria-pressed="' + (rp.mode === 'week') + '">Every week</button><button data-rpmode="month" aria-pressed="' + (rp.mode === 'month') + '">Every month</button></div>';
@@ -1624,7 +1695,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   /* ---------- festival (W3): weekend, day tabs + timeline, ONE room, ticket link only, artists + stars ---------- */
   var fday = 0;
   R.fest = function () {
-    var e = EV.fest, d0 = e.dates[0].d, stars = e.artists.filter(function (a) { return a[3]; }).length;
+    var e = EV.fest, d0 = e.dates[0].d, stars = e.artists.filter(function (a) { return a[3] && a[1] === 'teach'; }).length;
     var h = BACK + '<div class="ev2"><div><div class="card hero"><div class="cover ' + e.ph + '">' + chip(e) + '<button class="chg" data-photo="fest">Change photo</button></div><div class="pad"><div class="when">Festival &middot; ' + e.days + ' days</div><div class="big" style="font-size:24px">' + e.name + '</div><div class="mut">' + cadence(e) + ' &middot; ' + e.place + '</div></div></div>' +
       '<h2>Programme</h2><div class="daytabs" role="group" aria-label="Day">' + e.fsess.slice(0, e.days).map(function (x, i) { var d = add(d0, i); return '<button data-fday="' + i + '" aria-pressed="' + (fday === i) + '">' + WD[d.getDay()] + ' ' + d.getDate() + '</button>'; }).join('') + '</div>';
     var list = e.fsess[fday].slice().sort(bySt), p = span(list), long = p && ((mins(p.e) <= mins(p.s) ? mins(p.e) + 1440 : mins(p.e)) - mins(p.s)) > 20 * 60;
@@ -1632,9 +1703,10 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       (long ? '<div class="note warn">This day runs over 20 hours. Check the end times.</div>' : '') +
       '<button class="btn line" style="margin-top:10px" data-faddsess>' + L.addNext + '</button><div class="hint">One room for the whole festival, so sessions don&rsquo;t ask for one.</div></div><div>';
     h += '<h2 style="display:flex;align-items:center">Artists <span style="flex:1"></span><span class="small mut" style="font-weight:500">Headliners ' + stars + ' of 6</span></h2><div class="card">' +
-      e.artists.map(function (a, i) { var full = !a[3] && stars >= 6; return '<div class="row"><div class="av a' + (i % 5 + 1) + '">' + initials(a[0]) + '</div><div class="grow"><div class="t">' + a[0] + '</div><div class="s">' + (a[1] === 'dj' ? 'DJ' : a[0].indexOf('&amp;') > -1 || a[0].indexOf(' y ') > -1 ? 'Teachers (a couple)' : 'Teacher') + '</div></div><button class="star" data-fstar="' + i + '" aria-pressed="' + !!a[3] + '"' + (full ? ' disabled aria-label="6 headliners already"' : ' aria-label="Star ' + a[0] + '"') + '>' + (a[3] ? '&#9733;' : '&#9734;') + '</button><button class="btn quiet sm" data-frm="' + i + '">Remove</button></div>'; }).join('') + '</div>' +
+      e.artists.map(function (a, i) { var full = !a[3] && stars >= 6, dj = a[1] === 'dj'; return '<div class="row"><div class="av a' + (i % 5 + 1) + '">' + initials(a[0]) + '</div><div class="grow"><div class="t">' + a[0] + '</div><div class="s">' + (dj ? 'DJ &middot; DJs appear in the programme' : isGroup(a[0]) ? 'Teachers (a couple)' : 'Teacher') + '</div></div>' + (dj ? '' : '<button class="star" data-fstar="' + i + '" aria-pressed="' + !!a[3] + '"' + (full ? ' disabled aria-label="6 headliners already"' : ' aria-label="Star ' + a[0] + '"') + '>' + (a[3] ? '&#9733;' : '&#9734;') + '</button>') + '<button class="btn quiet sm" data-frm="' + i + '">Remove</button></div>'; }).join('') + '</div>' +
+      '<div class="small mut" style="margin-top:6px">Star teachers to make them headliners. No stars: dancers see every teacher.</div>' +
       (stars >= 6 ? '<div class="small mut" style="margin-top:6px">6 headliners is the most. Unstar one to star another.</div>' : '') + '<button class="btn line" style="margin-top:10px" data-faddart>Add an artist</button>' +
-      '<h2>About this festival</h2><div class="card">' + aboutRow('where', 'Where (main venue)', e.place) + '<div class="row"><div class="grow"><div class="t">Town</div><div class="s">London &middot; set by the place</div></div><button class="link" data-sheet="help">' + L.askCity + '</button></div>' +
+      '<h2>About this festival</h2><div class="card">' + aboutRow('where', 'Where (main venue)', e.place) + '<div class="row"><div class="grow"><div class="t">City</div><div class="s">London &middot; set by the place</div></div><button class="link" data-sheet="help">' + L.askCity + '</button></div>' +
       aboutRow('ticket', 'Ticket link', e.ticket.replace('https://', '')) +
       '<!-- GoingNightSummary: one count for the whole festival --><button class="row" data-going="fest" data-gi="0"><div class="grow"><div class="t">' + L.whosGoing + ' (' + e.going + ')</div><div class="s">One count for the whole weekend</div></div>' + CHEV + '</button>' +
       '<div class="row"><div class="grow"><div class="t">' + e.views + ' ' + L.views + '</div><div class="s">Last 30 days</div></div></div></div>' +
@@ -1642,11 +1714,26 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     return h;
   };
   R.fest.bar = function () { return '<button class="btn" data-go="fpreview">' + L.preview + '</button>'; };
+  /* ports of src/pages/FestivalDetail.tsx splitTitleIntoLines and src/lib/londonDate.ts formatKeyRange(..., 'long') */
+  function splitTitle(name) {
+    var cleaned = name.trim().split(/\s+[\u2013\u2014-]\s+/)[0], w = cleaned.split(/\s+/);
+    if (w.length <= 3) return w.length ? w : [cleaned];
+    var mid = Math.ceil(w.length / 2); return [w.slice(0, mid).join(' '), w.slice(mid).join(' ')];
+  }
+  var MOL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function keyRangeLong(a, b) {
+    var day = function (d) { return WD[d.getDay()] + ' ' + d.getDate(); }, tail = function (d) { return day(d) + ' ' + MOL[d.getMonth()] + ' ' + d.getFullYear(); };
+    if (same(a, b)) return tail(a);
+    var sy = a.getFullYear() === b.getFullYear(), sm = sy && a.getMonth() === b.getMonth();
+    return [day(a), sm ? null : MOL[a.getMonth()], sy ? null : String(a.getFullYear())].filter(Boolean).join(' ') + ' \u2013 ' + tail(b);
+  }
   R.fpreview = function () {
-    var e = EV.fest, d0 = e.dates[0].d, words = e.name.replace(/&amp;/g, '&').split(' '), half = Math.ceil(words.length / 2), stars = e.artists.filter(function (a) { return a[3]; });
-    return '<div class="previewbar"><span class="grow">' + L.preview + '</span>' + THM + '<button data-back>' + L.back + '</button></div><div class="fpub"><div class="pre">' + ORGS.llb.name.toUpperCase() + ' PRESENTS</div><h1>' + esc(words.slice(0, half).join(' ')) + '<br><span class="out">' + esc(words.slice(half).join(' ')) + '</span></h1>' +
-      '<div class="dl">' + fmt(d0).toUpperCase() + ' &ndash; ' + fmt(add(d0, e.days - 1)).toUpperCase() + ' &middot; ' + e.place.toUpperCase() + '</div><div class="cta">Get Tickets</div>' +
-      '<div class="nl"><h2>Headliners</h2><hr><span>' + stars.length + ' Acts</span></div><div class="grid">' + stars.map(function (a, i) { return '<div class="act ph' + (i % 7 + 1) + '"><span>' + a[0] + '<small>' + (a[1] === 'dj' ? 'DJ' : 'Bachata Sensual') + '</small></span></div>'; }).join('') + '</div>' +
+    var e = EV.fest, d0 = e.dates[0].d, lines = splitTitle(e.name.replace(/&amp;/g, '&').replace(/&ndash;/g, '\u2013'));
+    /* the live page: headliners = starred teachers; none starred = every teacher; no teachers = no section. DJs never headline. */
+    var teachers = e.artists.filter(function (a) { return a[1] === 'teach'; }), starred = teachers.filter(function (a) { return a[3]; }), heads = starred.length ? starred : teachers;
+    return '<div class="previewbar"><span class="grow">' + L.preview + '<span style="display:block;font-weight:500;font-size:13px">Close to what dancers see: gallery, venue, passes not shown</span></span>' + THM + '<button data-back>' + L.back + '</button></div><div class="fpub"><div class="pre">' + ORGS.llb.name.toUpperCase() + ' PRESENTS</div><h1>' + lines.map(function (l, i) { return i === 1 ? '<span class="out">' + esc(l) + '</span>' : esc(l); }).join('<br>') + '</h1>' +
+      '<div class="dl">' + keyRangeLong(d0, add(d0, e.days - 1)) + '</div>' + (e.ticket ? '<div class="cta">Get Tickets</div>' : '<div class="cta" aria-disabled="true" style="opacity:0.5">Tickets TBA</div>') +
+      (heads.length ? '<div class="nl"><h2>Headliners</h2><hr><span>' + heads.length + (heads.length === 1 ? ' Act' : ' Acts') + '</span></div><div class="grid">' + heads.map(function (a, i) { return '<div class="act ph' + (i % 7 + 1) + '"><span>' + a[0] + '<small>' + (a[4] || e.music[0] || 'Lineup') + '</small></span></div>'; }).join('') + '</div>' : '') +
       '<div class="nl"><h2>Programme</h2><hr></div><div class="dt">' + e.fsess.slice(0, e.days).map(function (x, i) { var d = add(d0, i); return '<b class="' + (i === 0 ? 'on' : '') + '">' + WD[d.getDay()] + ' ' + d.getDate() + '</b>'; }).join('') + '</div>' +
       e.fsess[0].slice().sort(bySt).map(function (m) { return '<div class="pr"><i>' + tm(m.s) + '</i><span>' + m.t + '</span></div>'; }).join('') + '</div>';
   };
@@ -1677,6 +1764,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     $$('.scr').forEach(function (s) { s.classList.remove('on'); });
     var s = $('#s-' + id), top = s.scrollTop; s.classList.add('on');
     $('#tabs').classList.toggle('hide', s.dataset.tabs !== '1');
+    $('#phone').classList.toggle('takeover', id === 'welcome' || id === 'invitee');
     if (s.dataset.tab) $$('#tabs button').forEach(function (b) { if (b.dataset.tabGo === s.dataset.tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
     closeSheet(); $('#phone').classList.remove('typing');
     render(id); s.scrollTop = keepScroll ? top : 0;
@@ -1696,7 +1784,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     date: function () {
       var e = EV[cur], x = e.dates[dateIdx];
       if (x.st === 'cancelled') return '<h3 id="sheettitle">' + fmt(x.d) + '</h3><p class="mut">This date is cancelled. Dancers see &ldquo;' + L.cancelled + '&rdquo;.</p><div class="stack"><button class="btn" data-restoredate>' + L.bringBack + '</button><button class="btn quiet" data-close>Leave it cancelled</button></div>';
-      return '<h3 id="sheettitle">' + fmt(x.d) + ', ' + tm(x.time || e.time) + '</h3><p class="mut">' + e.name + '. What do you want to do?</p><div class="stack">' +
+      return '<h3 id="sheettitle">' + fmt(x.d) + ', ' + tm(dStart(e, x)) + '</h3><p class="mut">' + e.name + '. What do you want to do?</p><div class="stack">' +
         '<button class="choice" data-act="lineup"><span class="grow"><b>' + L.changeLineup + '</b><br><span class="small mut">Who teaches or DJs</span></span></button>' +
         '<button class="choice" data-act="move"><span class="grow"><b>Move it</b><br><span class="small mut">Another day or time</span></span></button>' +
         '<button class="choice" data-act="cancel"><span class="grow"><b>' + L.cancelOne + '</b><br><span class="small mut">Dancers see &ldquo;' + L.cancelled + '&rdquo;</span></span></button></div>';
@@ -1707,11 +1795,13 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       return '<h3 id="sheettitle">' + verb + ' which dates?</h3><p class="mut">' + e.name + ', starting ' + fmt(x.d) + '.</p><div role="radiogroup" aria-label="Which dates">' +
         '<button class="choice" role="radio" data-scope="one" aria-checked="' + (scope === 'one') + '"><span class="radio"></span><span class="grow"><b>' + L.thisOnly + '</b><br><span class="small mut">' + fmt(x.d) + '</span></span></button>' +
         '<button class="choice" role="radio" data-scope="later" aria-checked="' + (scope === 'later') + '"><span class="radio"></span><span class="grow"><b>' + L.thisLater + '</b><br><span class="small mut">' + laterText(e, dateIdx) + '</span></span></button></div>' +
+        '<div class="note" id="sscons" aria-live="polite">' + actLine(e, dateIdx, scope) + '</div>' +
         '<div style="margin-top:16px"><button class="btn" data-scope-go>Next</button></div>';
     },
     cancelconfirm: function () {
       var e = EV[cur], x = e.dates[dateIdx], one = scope === 'one';
       return '<h3 id="sheettitle">' + (one ? 'Cancel ' + fmt(x.d) + '?' : L.cancelMany + '?') + '</h3><p class="mut">' + (one ? 'Dancers will see &ldquo;' + L.cancelled + '&rdquo; on that date. The other dates stay as they are.' : laterText(e, dateIdx) + '. Dancers will see &ldquo;' + L.cancelled + '&rdquo; on each one.') + ' You can bring ' + (one ? 'it' : 'them') + ' back any time.</p>' +
+        '<div class="note" id="sscons">' + actLine(e, dateIdx, scope) + '</div>' +
         (!one && openEnded(e) ? '<p class="small mut">Stopping for good? Pausing the event is easier.</p>' : '') +
         reasonPick() + '<div class="stack" style="margin-top:14px"><button class="btn danger-fill" data-docancel="' + (one ? 1 : 0) + '"' + (cxReason ? '' : ' disabled') + '>' + (cxReason ? 'Yes, ' + (one ? L.cancelOne : L.cancelMany).toLowerCase() : 'Pick a reason to carry on') + '</button><button class="btn quiet" data-close>Keep ' + (one ? 'it' : 'them') + '</button></div>';
     },
@@ -1720,6 +1810,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       return '<h3 id="sheettitle">Change the line-up for which dates?</h3><p class="mut">' + e.name + '</p><div role="radiogroup" aria-label="Which dates">' +
         '<button class="choice" role="radio" data-scope="one" aria-checked="' + (scope === 'one') + '"><span class="radio"></span><span class="grow"><b>' + L.thisOnly + '</b><br><span class="small mut">' + fmt(x.d) + ' (the next one)</span></span></button>' +
         '<button class="choice" role="radio" data-scope="later" aria-checked="' + (scope === 'later') + '"><span class="radio"></span><span class="grow"><b>' + L.thisLater + '</b><br><span class="small mut">' + laterText(e, dateIdx) + '</span></span></button></div>' +
+        '<div class="note" id="sscons" aria-live="polite">' + consLine(e, dateIdx, 'line-up', scope) + '</div>' +
         '<div style="margin-top:16px"><button class="btn" data-lineup-go>Next</button></div>';
     },
     pause: function () {
@@ -1732,17 +1823,17 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
         '<button class="choice" data-flow="oneoff"><span class="grow"><b>A one-off party</b><br><span class="small mut">Just one date</span></span>' + CHEV + '</button>' +
         '<button class="choice" data-flow="course"><span class="grow"><b>A course</b><br><span class="small mut">Classes over a few weeks, e.g. 6 Wednesdays</span></span>' + CHEV + '</button>' +
         '<button class="choice" data-flow="monthly"><span class="grow"><b>A monthly social</b><br><span class="small mut">E.g. the first Saturday of every month</span></span>' + CHEV + '</button>' +
-        '<button class="choice" data-flow="custom"><span class="grow"><b>Dates I pick myself</b><br><span class="small mut">No pattern: add the dates from your poster</span></span>' + CHEV + '</button>' +
+        '<button class="choice" data-flow="custom"><span class="grow"><b>Dates I pick</b><br><span class="small mut">No pattern: add the dates from your poster</span></span>' + CHEV + '</button>' +
         '<button class="choice" data-flow="festival"><span class="grow"><b>A festival</b><br><span class="small mut">A weekend, 2 or 3 days (wave 3)</span></span>' + CHEV + '</button></div>';
     },
     adddate: function () {
-      return '<h3 id="sheettitle">Add a date to ' + EV[cur].name + '</h3><label class="f" for="adate">Date</label><input class="in" id="adate" type="date" value="2026-11-14"><label class="f" for="atime">Starts at</label><input class="in" id="atime" type="time" value="' + EV[cur].time + '">' +
+      return '<h3 id="sheettitle">Add a date to ' + EV[cur].name + '</h3><label class="f" for="adate">Date</label><input class="in" id="adate" type="date" value="2026-11-14"><div class="hint">It gets the usual sessions: ' + spanText(EV[cur].sess) + '. Change them on that date after.</div>' +
         '<div style="margin-top:16px"><button class="btn" data-doadddate>Add this date</button></div>';
     },
     addplace: function () {
       return '<h3 id="sheettitle">Add a place</h3><p class="mut">You can use it straight away. ' + L.checkedSoon + '</p><label class="f" for="pname">Place name</label><input class="in" id="pname" placeholder="e.g. The Dance Studio">' +
         '<div id="pdym"></div><label class="f" for="paddr">Street and postcode</label><input class="in" id="paddr" placeholder="e.g. 12 High St, SE1 7PB"><div class="err" id="perr" role="alert" style="display:none">Add the place name and the postcode so dancers can find it.</div>' +
-        '<div class="map" aria-label="Map pin from the postcode"><span class="pin"></span></div><div class="small mut" style="margin-top:4px" id="ptown">Town: worked out from the postcode</div>' +
+        '<div class="map" aria-label="Map pin from the postcode"><span class="pin"></span></div><div class="small mut" style="margin-top:4px" id="ptown">City: worked out from the postcode</div>' +
         '<div style="margin-top:16px"><button class="btn" data-doaddplace>Add this place</button></div>';
     },
     invite: function () {
@@ -1762,9 +1853,9 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     help: function () {
       return '<h3 id="sheettitle">Help</h3><div class="card">' +
         '<div class="row"><div class="grow"><div class="t">Do my changes go live straight away?</div><div class="s">Yes. Dancers see them as soon as you tap Save.</div></div></div>' +
-        '<div class="row"><div class="grow"><div class="t">Can I undo?</div><div class="s">For 10 seconds after a change, tap Undo or ' + L.bringBack + '. After that, change it back by hand.</div></div></div>' +
+        '<div class="row"><div class="grow"><div class="t">Can I undo?</div><div class="s">Right after a change, tap Undo. For changes from today, open History on the event.</div></div></div>' +
         '<div class="row"><div class="grow"><div class="t">Want an event gone for good?</div><div class="s">Only we can delete events. Message us and we&rsquo;ll do it the same day. Until then, Pause hides it.</div></div></div>' +
-        '<div class="row"><div class="grow"><div class="t">Wrong town, or wrong organiser?</div><div class="s">The town comes from the place, and only we can change who runs an event. Message us and we fix it within a day.</div></div></div></div>' +
+        '<div class="row"><div class="grow"><div class="t">Wrong city, or wrong organiser?</div><div class="s">The city comes from the place, and only we can change who runs an event. Message us and we fix it within a day.</div></div></div></div>' +
         '<div style="margin-top:16px"><a class="btn" href="' + WA + '" target="_blank" rel="noopener">' + L.whatsapp + '</a></div><p class="small mut" style="margin-top:8px;text-align:center">A real person answers, usually within the hour.</p>';
     }
   };
@@ -1773,7 +1864,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     $('#toast').classList.remove('on');
     $('#sheetbody').innerHTML = SH[name]();
     $('#scrim').classList.add('on'); $('#sheet').classList.add('on');
-    var f = $('#sheet button, #sheet input'); if (f) f.focus({ preventScroll: true });
+    var f = $('#sheettitle'); if (f) { f.setAttribute('tabindex', '-1'); f.focus({ preventScroll: true }); }
   }
   function closeSheet() {
     if (document.activeElement && $('#sheet').contains(document.activeElement)) document.activeElement.blur();
@@ -1784,7 +1875,8 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   var toastTimer, undoFn;
   function placeToast() {
     var ph = $('#phone').getBoundingClientRect(), top = ph.bottom;
-    [$('#tabs'), $('#bb')].forEach(function (b) { var r = b.getBoundingClientRect(); if (r.height && getComputedStyle(b).display !== 'none') top = Math.min(top, r.top); });
+    /* on desktop the tabs are the left rail (top 0): only the bottom bar counts (critique #20) */
+    (matchMedia('(min-width:1024px)').matches ? [$('#bb')] : [$('#tabs'), $('#bb')]).forEach(function (b) { var r = b.getBoundingClientRect(); if (r.height && getComputedStyle(b).display !== 'none') top = Math.min(top, r.top); });
     $('#toast').style.bottom = (ph.bottom - top + 8) + 'px';
   }
   function toast(msg, onUndo, undoLabel) {
@@ -1807,8 +1899,8 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   }
   function applyMove() {
     var e = EV[mv.k], s = snap(e), p = movePlan(), msg = moveHint().replace(/^Dancers see &ldquo;Moved to (.*?)&rdquo;.*$/, 'Moved to $1.');
-    p.forEach(function (m) { m.x.d = m.to; m.x.st = 'moved'; m.x.time = mv.time; });
-    if (mv.scope === 'later') { e.wd = mv.wd; e.time = mv.time; }
+    p.forEach(function (m) { m.x.d = m.to; m.x.st = 'moved'; });
+    if (mv.scope === 'later') e.wd = mv.wd;
     e.dates.sort(function (a, b) { return a.d - b.d; });
     var k = mv.k; back(); toast(msg + ' Dancers see it now.', function () { restore(EV[k], s); });
   }
@@ -1852,12 +1944,12 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       if (e6.kind === 'oneoff' || laterCount(e6, dateIdx) <= 1) { scope = 'one'; return scopeGo(); }
       openSheet('scope'); return;
     }
-    if (d.scope) { scope = d.scope; $$('[data-scope]').forEach(function (b) { b.setAttribute('aria-checked', String(b === t)); }); return; }
+    if (d.scope) { scope = d.scope; $$('[data-scope]').forEach(function (b) { b.setAttribute('aria-checked', String(b === t)); }); var cn = $('#sscons'); if (cn) cn.innerHTML = curSheet === 'lineupscope' ? consLine(EV[cur], dateIdx, 'line-up', scope) : actLine(EV[cur], dateIdx, scope); return; }
     if (d.scopeGo !== undefined) { scopeGo(); return; }
     if (d.dopause !== undefined) { var e7 = EV[cur], s7 = snap(e7); e7.status = 'paused'; closeSheet(); refresh(); toast('Paused. Dancers can&rsquo;t see it now.', function () { restore(e7, s7); }); return; }
     if (d.doadddate !== undefined) {
       var v = $('#adate').value; if (!v) return; var e8 = EV[cur], s8 = snap(e8);
-      e8.dates.push({ d: D(v), st: 'on', time: $('#atime').value }); e8.dates.sort(function (a, b) { return a.d - b.d; });
+      e8.dates.push({ d: D(v), st: 'on' }); e8.dates.sort(function (a, b) { return a.d - b.d; });
       closeSheet(); refresh(); toast(fmt(D(v)) + ' added. Dancers see it now.', function () { restore(e8, s8); }); return;
     }
     /* line-up */
@@ -1918,7 +2010,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     /* create flow */
     if (d.flow) { startFlow(d.flow); go('step'); return; }
     if (d.fwd !== undefined) { flow.wd = +d.fwd; refresh(); return; }
-    if (d.fweeks) { flow.weeks = +d.fweeks; refresh(); return; }
+    if (d.fweeksd) { flow.weeks = Math.max(1, Math.min(30, flow.weeks + +d.fweeksd)); refresh(); return; }
     if (d.level) { flow.level = d.level; refresh(); return; }
     if (d.fstep !== undefined) { flow.i = +d.fstep; flow.back = 1; refresh(); return; }
     if (t.id === 'fnext') { if (stepBlock()) return; flow.i = flow.back ? FLOWS[flow.kind].steps.length - 1 : flow.i + 1; flow.back = 0; refresh(); $('#s-step').scrollTop = 0; return; }
@@ -1928,13 +2020,13 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       else if (flow.kind === 'oneoff') ne = { kind: 'oneoff', dates: list([flow.date]) };
       else ne = { kind: 'course', wd: D(flow.start).getDay(), dates: courseDates().map(function (x) { return { d: x, st: 'on' }; }) };
       ne.name = nm; ne.time = flow.time; ne.place = flow.place; ne.ph = ''; ne.views = 0; ne.ticket = ''; ne.pay = flow.pay.slice();
-      EV[id] = ev(ne); ORGS[org].ids.push(id); flow = null; tab('home'); toast(nm + ' is live. Dancers can find it now.'); return;
+      EV[id] = ev(ne); ORGS[org].extra.push(id); flow = null; tab('home'); toast(nm + ' is live. Dancers can find it now.'); return;
     }
   });
   function scopeGo() {
     var e = EV[cur], x = e.dates[dateIdx];
     if (action === 'cancel') { openSheet('cancelconfirm'); return; }
-    if (action === 'move') { mv = { k: cur, i: dateIdx, scope: scope, date: scope === 'one' ? iso(add(x.d, 1)) : '', wd: null, time: x.time || e.time }; go('move'); return; }
+    if (action === 'move') { mv = { k: cur, i: dateIdx, scope: scope, date: scope === 'one' ? iso(add(x.d, 1)) : '', wd: null }; go('move'); return; }
     startLineup(cur, scope === 'one' ? fmt(x.d) + ' only' : laterText(e, dateIdx).replace(/^Every/, 'every'), dateIdx, scope); go('lineup');
   }
 
@@ -1971,7 +2063,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     else ne = { kind: 'course', wd: D(flow.start).getDay(), dates: courseDates().map(function (x) { return { d: x, st: 'on' }; }) };
     ne.name = nm; ne.time = flow.sess.length ? flow.sess.slice().sort(bySt)[0].s : flow.time; ne.place = flow.place; ne.ph = ''; ne.views = 0; ne.ticket = ne.ticket || ''; ne.pay = flow.pay.slice();
     ne.sess = flow.sess; ne.life = draft ? 'draft' : 'live'; ne.desc = ''; ne.music = []; ne.prices = []; ne.gallery = []; ne.hist = []; ne.going = 0; ne.chat = '';
-    EV[id] = ev(ne); ORGS[org].ids.push(id); flow = null;
+    EV[id] = ev(ne); ORGS[org].extra.push(id); flow = null;
     if (k === 'festival' && !draft) { EV.fest = EV[id]; }
     tab('home'); toast(draft ? nm + ' is saved as a draft. Only you see it.' : nm + ' is live. Dancers can find it now.');
   }
@@ -2013,7 +2105,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       var ev2 = EV[ss.k]; if (laterCount(ev2, ss.di) <= 1) { ssSave('one'); return; }
       scope = 'one'; openSheet('sessscope'); return;
     }
-    if (d.sscope) { scope = d.sscope; $$('[data-sscope]').forEach(function (b) { b.setAttribute('aria-checked', String(b === t)); }); $('#sscons').innerHTML = scope === 'later' ? laterLine(EV[ss.k], ss.di, ssWhat()) : oneLine(EV[ss.k], ss.di); $('[data-sscope-go]').textContent = scope === 'later' ? 'Save for these dates' : 'Save for this date'; return; }
+    if (d.sscope) { scope = d.sscope; $$('[data-sscope]').forEach(function (b) { b.setAttribute('aria-checked', String(b === t)); }); $('#sscons').innerHTML = consLine(EV[ss.k], ss.di, ssWhat(), scope, ss.sid); $('[data-sscope-go]').textContent = scope === 'later' ? 'Save for these dates' : 'Save for this date'; return; }
     if (d.sscopeGo !== undefined) { ssSave(scope); return; }
     if (d.sscx !== undefined) { var e3 = EV[ss.k], x3 = e3.dates[ss.di], sn3 = snap2(e3); x3.so = x3.so || {}; x3.so[ss.sid] = { cx: 1 }; var nm3 = ss.o.t || kindLbl(ss.o.k); closeSheet(); refresh(); toast(nm3 + ' is not running on ' + fmt(x3.d) + '. Dancers see it struck through.', function () { restore2(e3, sn3); }, L.bringBack); return; }
     if (d.ssundo !== undefined) { var e4 = EV[ss.k], x4 = e4.dates[ss.di]; delete x4.so[ss.sid]; if (!Object.keys(x4.so).length) delete x4.so; closeSheet(); refresh(); toast('Back on for ' + fmt(x4.d) + '. Dancers see it now.'); return; }
@@ -2029,7 +2121,11 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       dsess(e, x9).forEach(function (m) { if (m.extra) { m.base.s = shiftTime(m.s, delta); m.base.e = shiftTime(m.e, delta); } else { x9.so = x9.so || {}; var o9 = x9.so[m.id] || {}; if (o9.cx) return; o9.s = shiftTime(m.s, delta); o9.e = shiftTime(m.e, delta); x9.so[m.id] = o9; } });
       closeSheet(); refresh(); toast(fmt(x9.d) + ' now runs ' + spanText(dsess(e, x9)) + '. Dancers see it now.', function () { restore2(e, sn9); }); return;
     }
-    if (d.doskip !== undefined) { var xs = e.dates[dateIdx], sns = snap2(e); xs.st = 'skip'; delete xs.so; delete xs.extra; delete xs.own; closeSheet(); refresh(); toast(fmt(xs.d) + ' is a break week. Dancers don&rsquo;t see it.', function () { restore2(e, sns); }); return; }
+    if (d.doskip !== undefined) {
+      var xs = e.dates[dateIdx], sns = snap2(e), tail = ''; xs.st = 'skip'; delete xs.so; delete xs.extra; delete xs.own;
+      if (e.kind === 'course') { var endD = add(e.dates[e.dates.length - 1].d, 7); e.dates.push({ d: endD, st: 'on' }); tail = ' Course now ends ' + fmt(endD) + '.'; }
+      closeSheet(); refresh(); toast(fmt(xs.d) + ' is a break week. Dancers don&rsquo;t see it.' + tail, function () { restore2(e, sns); }); return;
+    }
     if (d.unskip !== undefined) { e.dates[dateIdx].st = 'on'; closeSheet(); refresh(); toast(fmt(e.dates[dateIdx].d) + ' is back on.'); return; }
     if (d.doreset !== undefined) { var xr = e.dates[dateIdx], snr = snap2(e); delete xr.own; closeSheet(); refresh(); toast(fmt(xr.d) + ' is back to normal. Sessions stay as they were.', function () { restore2(e, snr); }); return; }
     if (d.copyfrom !== undefined) { var src = e.dates[+d.copyfrom], xd = e.dates[dateIdx], snc = snap2(e); xd.so = cl(src.so); xd.own = cl(src.own); xd.extra = (src.extra || []).map(function (m) { return S(m.k, m.t, m.s, m.e, { room: m.room, lv: m.lv.slice(), ppl: cl(m.ppl) }); }); closeSheet(); refresh(); toast('Copied the changes from ' + fmt(src.d) + '.', function () { restore2(e, snc); }); return; }
@@ -2046,7 +2142,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (d.dodraft !== undefined) { var snd = snap2(e); e.life = 'draft'; closeSheet(); refresh(); toast('Taken off the calendar. Only you see it now.', function () { restore2(e, snd); }); return; }
     if (t.id === 'golive2') { e.life = 'live'; e.status = 'live'; closeSheet(); refresh(); toast('Live now. Dancers can find it.'); return; }
     if (d.endans) { endAns = d.endans; openSheet('endit'); return; }
-    if (d.doend !== undefined) { var sne = snap2(e); e.dates = e.dates.filter(function (x) { return x.d < TODAY || (same(x.d, TODAY) && endAns === 'yes'); }); e.life = 'ended'; endAns = ''; closeSheet(); refresh(); toast('Ended. It moves to Finished.', function () { restore2(e, sne); }); return; }
+    if (d.doend !== undefined) { var sne = snap2(e); e.dates = e.dates.filter(function (x) { return x.d < TODAY || (same(x.d, TODAY) && endAns === 'yes'); }); e.life = 'ended'; endAns = ''; closeSheet(); refresh(); toast('Done. It moves to Finished.', function () { restore2(e, sne); }); return; }
     if (d.keep !== undefined) { var ki = keepDates.indexOf(+d.keep); if (ki > -1) keepDates.splice(ki, 1); else keepDates.push(+d.keep); openSheet('stoprep'); return; }
     if (d.dostoprep !== undefined) { var lvd = liveDates(e), snp = snap2(e); e.dates = e.dates.filter(function (x) { var i = lvd.indexOf(x); return i < 0 ? x.d < TODAY : keepDates.indexOf(i) > -1; }); e.kind = 'custom'; closeSheet(); refresh(); toast('It no longer repeats. Add dates one by one.', function () { restore2(e, snp); e.kind = 'weekly'; }); return; }
     if (d.dochat !== undefined) { var cv = $('#chatin').value.trim(); if (cv && !/^https:\/\/chat\.whatsapp\.com\/\S+/.test(cv)) { $('#chaterr').style.display = 'block'; $('#chatin').classList.add('bad'); return; } e.chat = cv; closeSheet(); refresh(); toast('Saved. Dancers see &ldquo;Join the group&rdquo;.'); return; }
@@ -2065,7 +2161,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (d.pk !== undefined) { var pi = pick.indexOf(+d.pk); if (pi > -1) pick.splice(pi, 1); else pick.push(+d.pk); refresh(); return; }
     if (d.bulk === 'cancel') { cxReason = ''; openSheet('bulkcancel'); return; }
     if (d.bulk === 'more') { openSheet('bulkmore'); return; }
-    if (d.bulk === 'lineup') { closeSheet(); var p0 = pick.slice().sort(function (a, b) { return a - b; }); startLineup(cur, p0.length + ' picked dates (' + p0.map(function (i) { return fmtDM(e.dates[i].d); }).join(', ') + ')', p0[0], 'one'); go('lineup'); return; }
+    if (d.bulk === 'lineup') { closeSheet(); var p0 = pick.slice().sort(function (a, b) { return a - b; }); startLineup(cur, p0.length + ' picked dates (' + p0.map(function (i) { return fmtDM(e.dates[i].d); }).join(', ') + ')', p0[0], 'one'); lu.dates = p0; go('lineup'); return; }
     if (d.bulk === 'shift') { var n0 = +$('#shiftn').value || 0, snb = snap2(e); pick.forEach(function (i) { e.dates[i].d = add(e.dates[i].d, n0); e.dates[i].st = 'moved'; }); e.dates.sort(function (a, b) { return a.d - b.d; }); var c0 = pick.length; pick = null; closeSheet(); refresh(); toast(c0 + ' dates moved by ' + n0 + ' days. Dancers see it now.', function () { restore2(e, snb); }); return; }
     if (d.dobulkcancel !== undefined) { var snx = snap2(e), c1 = pick.length; pick.forEach(function (i) { e.dates[i].st = 'cancelled'; e.dates[i].reason = cxReason; }); pick = null; closeSheet(); refresh(); toast(c1 + ' dates cancelled. Dancers see &ldquo;' + L.cancelled + '&rdquo; and your reason.', function () { restore2(e, snx); }, L.bringBack); return; }
     /* repeat */
@@ -2092,10 +2188,10 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     /* history */
     if (d.hundo !== undefined) { var hx = e.hist[+d.hundo]; hx.undone = 1; refresh(); toast('Undone: ' + hx.what.charAt(0).toLowerCase() + hx.what.slice(1) + '.'); return; }
     /* copy */
-    if (t.id === 'docopy') { var src2 = EV[cur], idc = 'copy' + Date.now(), first = D(cp.first); EV[idc] = ev({ name: esc(cp.name.trim()), kind: src2.kind, wd: first.getDay(), time: src2.time, place: src2.place, ph: src2.ph, views: 0, ticket: src2.ticket, life: 'draft', pay: src2.pay.slice(), dates: src2.kind === 'course' ? weekly(cp.first, src2.dates.length) : openEnded(src2) ? weekly(cp.first, 16) : list([cp.first]), sess: cl(src2.sess), desc: src2.desc, music: src2.music.slice(), prices: cl(src2.prices), gallery: src2.gallery.slice(), hist: [], going: 0, chat: '' }); ORGS[org].ids.push(idc); cur = idc; stack = ['events', 'event']; show('event'); toast('Copy made. It&rsquo;s a draft: only you see it.'); return; }
+    if (t.id === 'docopy') { var src2 = EV[cur], idc = 'copy' + Date.now(), first = D(cp.first); EV[idc] = ev({ name: esc(cp.name.trim()), kind: src2.kind, wd: first.getDay(), time: src2.time, place: src2.place, ph: src2.ph, views: 0, ticket: src2.ticket, life: 'draft', pay: src2.pay.slice(), dates: src2.kind === 'course' ? weekly(cp.first, src2.dates.length) : openEnded(src2) ? weekly(cp.first, 16) : list([cp.first]), sess: cl(src2.sess), desc: src2.desc, music: src2.music.slice(), prices: cl(src2.prices), gallery: src2.gallery.slice(), hist: [], going: 0, chat: '' }); ORGS[org].extra.push(idc); cur = idc; stack = ['events', 'event']; show('event'); toast('Copy made. It&rsquo;s a draft: only you see it.'); return; }
     /* festival */
     if (d.fday !== undefined) { fday = +d.fday; refresh(); return; }
-    if (d.fstar !== undefined) { var a0 = EV.fest.artists[+d.fstar]; a0[3] = a0[3] ? 0 : 1; refresh(); return; }
+    if (d.fstar !== undefined) { var a0 = EV.fest.artists[+d.fstar]; if (a0[1] !== 'teach') return; a0[3] = a0[3] ? 0 : 1; refresh(); return; }
     if (d.frm !== undefined) { var gone2 = EV.fest.artists.splice(+d.frm, 1)[0]; refresh(); toast(gone2[0] + ' removed.', function () { EV.fest.artists.splice(+d.frm, 0, gone2); }); return; }
     if (d.faddart !== undefined) { EV.fest.artists.push(['Sofia Ramos', 'teach', 1, 0]); refresh(); toast('Added Sofia Ramos. Star her to make her a headliner.'); return; }
     if (d.faddsess !== undefined) { var fl2 = EV.fest.fsess[fday], la = fl2.slice().sort(bySt).pop(); fl2.push(S(la ? la.k : 'workshop', 'New session', la ? la.e : '12:00', la ? shiftTime(la.e, 60) : '13:00')); refresh(); toast('Added after the last session.'); return; }
@@ -2138,9 +2234,9 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   SH.fsess = function () {
     var d = ss.d, lvOk = d.k === 'class' || d.k === 'workshop';
     return '<h3 id="sheettitle">' + (ss.isNew ? 'New session' : (d.t || kindLbl(d.k))) + '</h3>' + (ss.note ? '<div class="note ok">' + ss.note + '</div>' : '') +
-      '<label class="f">What is it?</label><div class="chips" role="group" aria-label="What is it">' + L.sessKind.map(function (k) { return '<button data-sk="' + k[0] + '" aria-pressed="' + (d.k === k[0]) + '">' + k[1] + '</button>'; }).join('') + '</div>' +
+      '<label class="f">What is it?</label><div class="chips kinds" role="group" aria-label="What is it">' + L.sessKind.map(function (k) { return '<button data-sk="' + k[0] + '" aria-pressed="' + (d.k === k[0]) + '">' + k[1] + '</button>'; }).join('') + '</div>' +
       '<label class="f" for="ssname">Name</label><input class="in" id="ssname" value="' + esc(d.t) + '" placeholder="' + (d.k === 'social' ? 'e.g. Party' : 'e.g. Beginners class') + '" autocomplete="off">' +
-      '<div class="pair"><div><label class="f" for="sss">Starts</label><input class="in" id="sss" type="time" step="900" value="' + d.s + '"></div><div><label class="f" for="sse">Ends</label><input class="in" id="sse" type="time" step="900" value="' + d.e + '"></div></div><div class="hint" id="ssnd">' + (nextDay(d) ? 'Ends the next day (' + tm(d.e) + ').' : '&nbsp;') + '</div>' +
+      '<div class="pair"><div><label class="f" for="sss">Starts</label><input class="in" id="sss" type="time" step="900" value="' + d.s + '"></div><div><label class="f" for="sse">Ends</label><input class="in" id="sse" type="time" step="900" value="' + d.e + '"></div></div><div class="hint" id="ssnd"' + (nextDay(d) ? '>Ends the next day (' + tm(d.e) + ').' : ' hidden>') + '</div>' +
       (lvOk ? '<label class="f">Level</label><div class="chips" role="group" aria-label="Level">' + L.lvls.map(function (l) { return '<button data-slv="' + l + '" aria-pressed="' + (d.lv.indexOf(l) > -1) + '">' + l + '</button>'; }).join('') + '</div>' : '') +
       '<div class="stack" style="margin-top:16px"><button class="btn" data-sssave>' + (ss.isNew ? 'Add this session' : 'Done') + '</button>' + (!ss.isNew && flow.sess.length > 1 ? '<button class="link danger" data-fsessrm style="justify-content:center;width:100%">Remove this session</button>' : '') + '</div>';
   };
@@ -2153,11 +2249,10 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var t = evt.target;
     if (t.id === 'psearch') { drawResults(t.value); var r = $('#presults'); if (r.scrollIntoView) r.scrollIntoView({ block: 'nearest' }); }
     if (t.id === 'movedate') { mv.date = t.value; $('#movehint').innerHTML = moveHint(); setBar(); }
-    if (t.id === 'movetime') { mv.time = t.value || mv.time; $('#movehint').innerHTML = moveHint(); }
     if (t.id === 'wsearch') { var q = t.value; if (flow && stack[stack.length - 1] === 'step') flow.q = q; else edit.q = q; $('#wlist').innerHTML = wList(flow && stack[stack.length - 1] === 'step' ? flow.place : edit.val, q); }
     if (t.id === 'tlink') { edit.val = t.value.trim(); $('#terr').style.display = 'none'; t.classList.remove('bad'); setBar(); }
     if (t.id === 'ssname' && ss) { ss.d.t = t.value; var sb = $('[data-sssave]'); if (sb && !ss.flow) { var ch = ssChanged() || ss.isNew; sb.disabled = !ch; sb.textContent = !ch ? L.nothingChanged.replace('&mdash;', '\u2014') : ss.isNew ? 'Add this session' : ss.di < 0 ? 'Save for all dates' : ss.extra ? 'Save for this date' : 'Save'; } }
-    if ((t.id === 'sss' || t.id === 'sse') && ss) { if (t.value) ss.d[t.id === 'sss' ? 's' : 'e'] = t.value; $('#ssnd').innerHTML = nextDay(ss.d) ? 'Ends the next day (' + tm(ss.d.e) + ').' : '&nbsp;'; var sb2 = $('[data-sssave]'); if (sb2 && !ss.flow) { sb2.disabled = !(ssChanged() || ss.isNew); if (!sb2.disabled && !ss.isNew) sb2.textContent = ss.di < 0 ? 'Save for all dates' : ss.extra ? 'Save for this date' : 'Save'; } }
+    if ((t.id === 'sss' || t.id === 'sse') && ss) { if (t.value) ss.d[t.id === 'sss' ? 's' : 'e'] = t.value; var nd0 = $('#ssnd'); nd0.hidden = !nextDay(ss.d); nd0.innerHTML = nextDay(ss.d) ? 'Ends the next day (' + tm(ss.d.e) + ').' : ''; var sb2 = $('[data-sssave]'); if (sb2 && !ss.flow) { sb2.disabled = !(ssChanged() || ss.isNew); if (!sb2.disabled && !ss.isNew) sb2.textContent = ss.di < 0 ? 'Save for all dates' : ss.extra ? 'Save for this date' : 'Save'; } }
     if (t.id === 'dtst') { var e0 = EV[cur], x0 = e0.dates[dateIdx], p0 = span(dsess(e0, x0)); if (p0 && t.value) { var dl = mins(t.value) - mins(p0.s); $('#dthint').textContent = 'New times: ' + tm(shiftTime(p0.s, dl)) + ' to ' + tm(shiftTime(p0.e, dl)) + ' (every session moves ' + (dl >= 0 ? 'later' : 'earlier') + ' by ' + Math.abs(dl) + ' minutes).'; } }
     if (t.id === 'adq') { adq = t.value; var pos = t.selectionStart; refresh(); var q2 = $('#adq'); q2.focus(); q2.setSelectionRange(pos, pos); }
     if (t.id === 'dtname' || t.id === 'dtdesc') { dt[t.id === 'dtname' ? 'name' : 'desc'] = t.value; var tray = $('#s-details .pending'), pl = pendingList().length; setBar(); if (t.id === 'dtname') { t.classList.toggle('bad', !t.value.trim()); } if (!tray && pl || tray && !pl) { var pos2 = t.selectionStart, id2 = t.id; refresh(); var el = $('#' + id2); el.focus(); el.setSelectionRange(pos2, pos2); } else if (tray) tray.querySelector('.grow').innerHTML = L.notSaved + ' &middot; ' + pl + (pl === 1 ? ' change' : ' changes') + ' (tap to see)'; }
@@ -2169,7 +2264,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (t.id === 'rpfirst') { rp.first = t.value || rp.first; setBar(); }
     if (t.id === 'fticket' && flow) flow.fticket = t.value.trim();
     if (t.id === 'pname') { var q3 = t.value.trim().toLowerCase(), hit = q3.length > 3 && PLACES.filter(function (p) { return p.toLowerCase().indexOf(q3) > -1 || q3.indexOf(p.toLowerCase().split(' ')[0]) > -1 && p.toLowerCase().split(' ')[0].length > 3; })[0]; $('#pdym').innerHTML = hit ? '<div class="note warn">Did you mean <b>' + hit + '</b>? ' + (VENUES[hit] ? VENUES[hit].addr : '') + ' <button class="link" data-place="' + esc(hit) + '">Use that one</button></div>' : ''; }
-    if (t.id === 'paddr') { var pc = /([A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2})/i.test(t.value); $('#ptown').textContent = pc ? 'Town: London (from the postcode). Pin placed on the map.' : 'Town: worked out from the postcode'; }
+    if (t.id === 'paddr') { var pc = /([A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2})/i.test(t.value); $('#ptown').textContent = pc ? 'City: London (from the postcode). Pin placed on the map.' : 'City: worked out from the postcode'; }
     if (flow) {
       if (t.id === 'fname') { flow.name = t.value; setBar(); }
       if (t.id === 'fdate') flow.date = t.value;
