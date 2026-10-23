@@ -133,6 +133,24 @@ How: in the same Playwright run that made the screenshots, `audit()` measures in
 - Pre-existing, not going: `/account/attendance` header "3 nights" counts non-cancelled upcoming
   nights (`goingUpcomingCount`, the same number as Home) while a cancelled upcoming row also shows.
 
+## Stage 5 &mdash; independent critique (2026-10-23): what changed, new numbers
+
+Critique and ordered fix list: [`going-p2-critique.md`](going-p2-critique.md). Re-shot states (17 PNGs, 390x844, plus 360x800 / 430x932 for the first three):
+[`docs/handover/going-p2/critique/`](../handover/going-p2/critique/). The handover is [`docs/handovers/going-p2-critique.md`](../handovers/going-p2-critique.md).
+
+| Change | Before | After |
+|---|---|---|
+| Cancelled night count line | "No one going yet" / "3 going" | no line at 0 / "3 had said they were going" |
+| Ended night, viewer going | "You&rsquo;re going &middot; Undo" | "You went &middot; Undo" (un-going still allowed) |
+| Ended night, 0 | "No one went" | "No one said they were going" |
+| Unfinished / no profile | grey disabled "I&rsquo;m going" + 12px link on its own 44px line | the 48px gold control IS "Finish your profile" / "Message us on WhatsApp"; the line names what is missing |
+| Tile height at 390, placeholder &rarr; loading &rarr; loaded (0 going, signed in) | 172 &rarr; 172 &rarr; 194 (+22); unfinished 238 (+66) | 187 &rarr; 187 &rarr; 187 (0); unfinished 187 (0); same at 360 (186.8) and 430 (187.4) |
+| Line under the button | only when there were words | always holds two lines (`min-h-[33px]`), in the placeholder too |
+| `beFirst` | "&hellip; your friends will see you here." | "&hellip; your first name shows here." |
+| `myUpcomingEmptyHow` | "Open a night and tap I&rsquo;m going on its page." | "Find a night on the calendar, then tap I&rsquo;m going on its page." |
+
+Still moving: a night WITH people grows by the people row (+56px) when the people read lands. The placeholder can&rsquo;t know the count, and holding the space would need a new read (owner call). Cost of the steady height: one-line and wordless states keep 16&ndash;33px of empty space under the button.
+
 ## How these were made
 
 Scratch walk (not in the repo, not in `test:e2e`): a Vite harness mounting the REAL components
