@@ -31,11 +31,11 @@ const WIZARD = '/account/o/complete';
 
 /** D49: the words, written out here so a change to the one map is red in every render below. */
 const SIX: Array<[code: string, section: string, word: string, screen: (id: string) => string]> = [
-  ['venue', 'venue', 'Add a venue', (id) => ORG_PATHS.eventDetails(id)],
+  ['venue', 'venue', 'Pick a venue', (id) => ORG_PATHS.eventDetails(id)],
   ['city', 'venue', 'Add a city', (id) => ORG_PATHS.eventDetails(id)],
   ['upcoming_date', 'dates', 'Add a date', (id) => ORG_PATHS.addEvent(id)],
   ['session', 'programme', 'Add a session with a title, start and end', (id) => ORG_PATHS.eventProgramme(id)],
-  ['cover', 'cover', 'Upload a flyer', (id) => ORG_PATHS.cover(id)],
+  ['cover', 'cover', 'Add a flyer', (id) => ORG_PATHS.cover(id)],
   ['description', 'about', 'Write a description', (id) => `${ORG_PATHS.eventDetails(id)}?edit=about`],
 ];
 
@@ -142,7 +142,7 @@ describe('Go live renders the server list, one label per code (D49)', () => {
     refusal = { message: `permission_denied: series.set_lifecycle draft -> live needs a ready series: ${JSON.stringify(notReady('cover', 'cover'))}`, details: null, code: 'P0001' };
     mount(ORG_PATHS.event(DRAFT), routes);
     fireEvent.click(await screen.findByTestId('org-life-golive'));
-    expect(words(await screen.findByTestId('org-life-item-cover'))).toBe('Upload a flyer');
+    expect(words(await screen.findByTestId('org-life-item-cover'))).toBe('Add a flyer');
   });
 
   it('mutating the one map changes the Go live list AND the refusal render', async () => {
@@ -173,11 +173,11 @@ describe('Go live renders the server list, one label per code (D49)', () => {
  * names (owner rule: no text points at a control that is not on screen).
  */
 const NINE: Array<[code: string, section: string, word: string, to: (id: string) => string, control: string]> = [
-  ['venue', 'venue', 'Add a venue', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
+  ['venue', 'venue', 'Pick a venue', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
   ['city', 'venue', 'Add a city', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
   ['upcoming_date', 'dates', 'Add a date', (id) => ORG_PATHS.addEvent(id), 'landed-dates'],
   ['session', 'programme', 'Add a session with a title, start and end', (id) => ORG_PATHS.eventProgramme(id), 'landed'],
-  ['cover', 'cover', 'Upload a flyer', (id) => ORG_PATHS.cover(id), 'landed-cover'],
+  ['cover', 'cover', 'Add a flyer', (id) => ORG_PATHS.cover(id), 'landed-cover'],
   ['description', 'about', 'Write a description', (id) => `${ORG_PATHS.eventDetails(id)}?edit=about`, 'org-detail-input'],
   ['name', 'basics', 'Add an event name', (id) => ORG_PATHS.eventDetails(id), 'org-detail-name'],
   ['country', 'venue', 'Pick a city with a country', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
@@ -329,11 +329,13 @@ describe('D82: the Go live card, every state', () => {
 
   it('every code the parser accepts has an action label (none falls back to the generic line)', async () => {
     const { GO_LIVE_LABEL, goLiveLabel, UNKNOWN_ITEM_LABEL } = await import('@/modules/organiser/shared/goLiveCheck');
-    const codes = [...SIX.map(([c]) => c), ...NINE.map(([c]) => c), 'ticket_link'];
+    const { EVENT_RULES } = await import('@/modules/organiser/shared/eventRules');
+    // ER-FIX-W2 S1: plus every go-live code event-rules.json knows (the five AD1 codes + cover).
+    const codes = [...SIX.map(([c]) => c), ...NINE.map(([c]) => c), 'ticket_link', ...Object.values(EVENT_RULES.serverCodes).flat()];
     for (const code of codes) {
       expect(GO_LIVE_LABEL[code], code).toBeTruthy();
       expect(goLiveLabel(code), code).not.toBe(UNKNOWN_ITEM_LABEL);
-      expect(goLiveLabel(code), code).toMatch(/^(Add|Upload|Write|Pick|Link) /);
+      expect(goLiveLabel(code), code).toMatch(/^(Add|Upload|Write|Pick|Link|Fix) /);
     }
     expect(Object.keys(GO_LIVE_LABEL).sort()).toEqual([...new Set(codes)].sort());
   });
