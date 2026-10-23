@@ -53,6 +53,28 @@ function setProp(property: string, content: string) {
   el.setAttribute('content', content);
 }
 
+// The robots meta this hook adds carries a marker, and only a marked one is ever removed.
+// A framework route's meta() renders its own <meta name="robots"> through React Router's
+// <Meta />, so React owns that node: removing it from here made React's next commit throw
+// `NotFoundError: removeChild` (wall -> /people/:id -> any role page, people arc S1).
+const OWN_ROBOTS = 'meta[name="robots"][data-use-seo]';
+
+// Each noindex page adds its OWN node and its cleanup removes only that node, so a late cleanup
+// from the previous page can never take away the noindex the next page has just set.
+function addOwnRobots(content: string): HTMLMetaElement {
+  const m = document.createElement('meta');
+  m.name = 'robots';
+  m.setAttribute('data-use-seo', '');
+  m.setAttribute('content', content);
+  document.head.appendChild(m);
+  return m;
+}
+
+/** An indexable page clears every robots meta an earlier useSeo page left (never a route's own). */
+function removeAllOwnRobots() {
+  document.head.querySelectorAll(OWN_ROBOTS).forEach((m) => m.remove());
+}
+
 function withSuffix(t: string): string {
   return t.includes(SITE_NAME) ? t : `${t} | ${SITE_NAME}`;
 }
@@ -135,10 +157,11 @@ export function useSeo(input: SeoInput | null | undefined) {
     setName('twitter:description', description);
     setName('twitter:image', ogImage);
 
+    let ownRobots: HTMLMetaElement | null = null;
     if (input.noindex) {
-      setName('robots', 'noindex,nofollow');
+      ownRobots = addOwnRobots('noindex,nofollow');
     } else {
-      document.head.querySelector('meta[name="robots"]')?.remove();
+      removeAllOwnRobots();
     }
 
     const stopScroll =
@@ -151,7 +174,7 @@ export function useSeo(input: SeoInput | null | undefined) {
       document.title = b.title;
       setName('description', b.description);
       ensureLink('canonical').href = b.canonical;
-      document.head.querySelector('meta[name="robots"]')?.remove();
+      ownRobots?.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: re-running on every new `input` object reference (most pages pass a fresh literal) would thrash document.head on every render. The field-level deps below are the actual change drivers.
   }, [routeOwnsHead, input?.title, input?.description, input?.canonical, input?.ogImage, input?.ogType, input?.noindex]);

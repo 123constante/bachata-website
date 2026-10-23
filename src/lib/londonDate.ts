@@ -258,8 +258,8 @@ export const clampRangeEndKey = (startKey: string, endKey: string | null | undef
  */
 const keyLabelFormatters = new Map<string, Intl.DateTimeFormat>();
 const fmtKeyPart = (d: Date, opts: Intl.DateTimeFormatOptions): string => {
-  // Cached per option shape (three exist: short weekday, long month, short
-  // month) -- construction is the expensive part of the Intl API, and a list
+  // Cached per option shape (four exist: short and long weekday, long and
+  // short month) -- construction is the expensive part of the Intl API, and a list
   // surface adopting formatKeyRange would otherwise pay it per card.
   const cacheKey = JSON.stringify(opts);
   let fmt = keyLabelFormatters.get(cacheKey);
@@ -268,6 +268,17 @@ const fmtKeyPart = (d: Date, opts: Intl.DateTimeFormatOptions): string => {
     keyLabelFormatters.set(cacheKey, fmt);
   }
   return fmt.format(d);
+};
+
+/**
+ * "Friday 23 October": full weekday, day, full month -- the ONE date label of the
+ * people worlds (src/modules/person-page/facts). Same UTC-noon anchor as
+ * formatKeyRange, so SSR and every client timezone agree. null for an unreal key.
+ */
+export const formatKeyDayLabel = (key: string | null | undefined): string | null => {
+  if (!key || !isRealDateKey(key)) return null;
+  const d = new Date(keyToUtcNoon(key));
+  return `${fmtKeyPart(d, { weekday: 'long' })} ${d.getUTCDate()} ${fmtKeyPart(d, { month: 'long' })}`;
 };
 
 export const formatKeyRange = (
