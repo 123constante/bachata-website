@@ -1,7 +1,7 @@
 # Handover: invite journey W2 (phone + Instagram inputs, "Almost live" DJ/teach, "It's live")
 
 Branch `claude/invite-w2-phone-ig-golive` (off `main` d4bff828). Brief: `brief/invite-journey` `briefs/invite-journey/W2.md` (blob f60a5072).
-Session 1: ticket `dt_9d3af6214f98` (PARTIAL at the context gate). Session 2: ticket `dt_dc003c66f584`. Session 3 (W2c, this update): ticket `dt_89e4a3aab7b8`.
+Session 1: ticket `dt_9d3af6214f98` (PARTIAL at the context gate). Session 2: ticket `dt_dc003c66f584`. Session 3 (W2c): ticket `dt_89e4a3aab7b8`. Session 4 (W2d, the design-critique fix-up): ticket `dt_0972ae40cfde`, see the W2d section at the end.
 **Merges only after A1 is applied** (bachata-admin `claude/invite-a1-golive-phone-ig`, migration 20261205100000).
 
 ## Agreed names (from A1's handover on its branch, head 89791e7)
@@ -52,3 +52,94 @@ Session 3 (W2c):
 - Go-live screens were walked at 390x844 in the phone suite (fake backend), NOT on prod data or a Vercel preview.
 - No prod shape survey this session (A1's counts are in its handover).
 - Full `vitest run`: only env failures remain (live-DB contract tests, `integrityCouldNotRun`; same on main).
+
+## W2d (fix-up of PR #977 after the design critique; ticket `dt_0972ae40cfde`)
+Started from head `5b46b191`. Critique: `claude/review-design-977` `docs/reviews/design-977-critique.md` (VERDICT FIX: 1 blocker, 2 should-fix, 5 nits, 1 copy gap).
+
+### Each finding -> change -> proving test
+| # | Finding | Change | Proving test |
+|---|---|---|---|
+| 1 BLOCKER | Phone box became "Saved before: +447 / No country" after the first digit (wizard step, so "Almost live", and the contact sheet) | **Class fix:** `PhoneInput` decides "legacy" only from the STORED value: new `stored` prop (as `InstagramInput` has), else the value frozen at mount; `legacy = allowLegacy && !legacyOpen && value === saved && isLegacyPhone(saved)`. Both callers pass `stored` (`contactSteps.tsx`, `ContactSheet.tsx`). | `contactSteps.test.tsx` "typed digit by digit..." + "typed 77 digit by digit..." (x2 steps); `ContactSheet.test.tsx` "typing digit by digit into an empty phone..." + "typing a new number over a stored one..."; phone spec (pressSequentially, never fill() for the phone box) in the wizard, the sheet and the raffle |
+| 2 SHOULD-FIX | No sheet / raffle shots | Spec gains "phone field in the Contact details sheet" (empty, valid, too short, legacy + Change, after Change) and "phone field in the raffle" (empty, valid, too short, country rows). `screenChecks(page, label, scope, tapScope)`: axe contrast scoped to the dialog (outside `main`), taps, overflow. `helpers.ts` `fakeSupabase` gains `contactPhone` and `raffle` options (browser side only). 8 shots in `docs/design/977/`, listed in `docs/design/977.md`. | the two new describes, 15/15 |
+| 2b (found by the new shots) | In the sheet the field's tokens did not resolve (the public organiser page does not load `theme.css`): every colour fell back to cream, so "Looks short" read as plain text; and the sheet showed TWO messages (the field's line + its own "Pick the country..." alert) | `PHONE_FIELD_TOKENS` (sheetStyles.ts) set inline on the sheet's field wrapper; an edited number is explained by the field's own line (shown at once, since Done is off); the sheet's alert is kept only for an untouched stored draft it refuses | `ContactSheet.test.tsx` "the phone field carries the organiser tokens itself..." (pins every value to `.org-theme` in theme.css), "changing a legacy number...one message", "a phone that is not a phone number..." (now the field's line); `sheet-phone-short.png` |
+| 3 SHOULD-FIX | Raffle taps 40px (34px measured: rem under the 13.5px root) | raffle tone: input `h-[44px]` (country button follows by `h-full`), rows `min-h-[44px]`; colours unchanged; wrapper untouched | raffle spec: box + country button >= 44, first 12 country rows >= 44 |
+| 4 nit | `PHONE_INCOMPLETE` sent the person to the country picker | constant removed; Continue on an incomplete number sets the field's `showShort`, so its own line shows ("Looks short. United Kingdom numbers have 10 digits after +44."), no second step error | `contactSteps.test.tsx` "an incomplete number sends nothing and says what to do" (field line, `step-error` absent); spec `phone-invalid.png` |
+| 5 nit | Broken flag icon | `FlagImg` `onError` hides the img | visual (shots, flagcdn unreachable in the sandbox: no broken glyph now) |
+| 6 nit | Number said twice | "Saved as +44..." line dropped | spec: `phone-feedback-ok` is exactly the grouped number |
+| 7 nit | DJ offer copy | "Add a photo and a few words about your sets, so dancers know whose set they are coming to." | ItsLiveOffer tests green |
+| 8 nit | Title order | "Do you also teach or DJ?" everywhere (roleQuestion.ts, screen, flow comment, tests, spec, record) | `GoLiveRoles.test.tsx`, `roleQuestion.test.ts`, spec |
+| 9 | `selfServeErrors.ts` Instagram line | "Use your Instagram name, like yourname or @yourname, or your profile link." (wizard `dancerApi` uses the same words) | `contactSteps.test.tsx` "the organiser and dancer Instagram refusals say the same rule" |
+
+**Sweep for the same draft-vs-stored shape:** `InstagramInput` already compares the box to `stored` (correct; wizard step and dancer patch pass it). No other field decides a stored-only state from the draft (`grep isLegacy`). The held-back dancer patch `docs/handover/invite-w2-dancer-edit.patch` mounted `PhoneInput` without `stored`: fixed on that `+` line (`stored={profile.whatsapp ?? ''}`); `git apply --check` on origin/main still passes.
+
+Shared fixture `src/lib/__fixtures__/phone-instagram-cases.json`: byte-identical to 5b46b191 (`git diff --quiet` ok).
+
+### Red first (on 5b46b191, the new tests copied in, before the fix)
+Unit:
+```
+--- Failed Tests 6 ---
+ FAIL  src/modules/organiser/edit-in-place/__tests__/ContactSheet.test.tsx > the Contact details sheet > typing digit by digit into an empty phone keeps the box (never the "Saved before" legacy box)
+ FAIL  src/modules/organiser/edit-in-place/__tests__/ContactSheet.test.tsx > the Contact details sheet > typing a new number over a stored one, digit by digit, keeps the box
+ FAIL  src/modules/organiser/wizard/__tests__/contactSteps.test.tsx > phone step dancer:phone_or_whatsapp > typed digit by digit (a real phone keyboard), the box stays and the number saves as E.164
+ FAIL  src/modules/organiser/wizard/__tests__/contactSteps.test.tsx > phone step organiser:contact_phone > typed digit by digit (a real phone keyboard), the box stays and the number saves as E.164
+ FAIL  src/modules/organiser/wizard/__tests__/contactSteps.test.tsx > phone step dancer:phone_or_whatsapp > typed "77" digit by digit: the box keeps 77 and, once left, says the number is short
+ FAIL  src/modules/organiser/wizard/__tests__/contactSteps.test.tsx > phone step organiser:contact_phone > typed "77" digit by digit: the box keeps 77 and, once left, says the number is short
+      Tests  6 failed | 67 passed (73)
+```
+Phone spec (worktree at 5b46b191 with the new spec + helpers):
+```
+x wizard "empty, valid, invalid":  expect(step.getByTestId('phone-legacy')).toHaveCount(0)  Expected: 0  Received: 1   (line 68, after pressSequentially('7'))
+x sheet  "empty, valid, too short": expect(sheet.getByTestId('phone-legacy')).toHaveCount(0) Expected: 0  Received: 1   (line 205)
+x raffle "empty, valid, too short": raffle phone box height  Expected: >= 44  Received: 33.921875
+3 failed
+```
+After the fix: the same unit tests 27/27 + sheet suite green; phone spec 15/15.
+
+### Per-job table (local, this sandbox, head = the W2d commit)
+| CI job (workflow) | Step(s) run locally | Result |
+|---|---|---|
+| unit-tests (Europe/London, full) | `test:unit:offline` + `test:unit:timing` | 542/543 files, 12530 passed; 5 failed, all in `tests/integrityCouldNotRun.test.ts` (temp-repo typescript probe, sandbox; red on main too). Timing pass green |
+| unit-tests (America/New_York) | tz-sensitive file list, `--no-file-parallelism` | green |
+| unit-tests (Australia/Sydney) | same | green |
+| dancer-area-isolation (unit-tests.yml) | `--self-test`, `check:dancer-area-isolation` | green (rule c only: not a dancer-area PR) |
+| architecture-guard / integrity | `bin/check-integrity.sh` (via `bash`: the file is 100644 here, CI chmods), legacy-tables, legacy-program-rpcs, `lint:architecture`, `AUDIT_STRICT=1 check:images`, image-widths, plan-hygiene canary, workflow-artifact policy, mojibake canary + guard, entry-point proof | all green (integrity: "ok, 2348 files, 0 issues") |
+| typecheck | `check:rpc-typing`, `check:wallclock-brand`; `tsc -p tsconfig.app.json` | green; tsc 100 errors (baseline 106, none in touched files) |
+| perf-budget | 3 self-tests, `build`, `check:bundle-budget`, `check:first-load-requests`, `check:chunk-cycles` | all green (/event 43 chunks, /app 52, allowances unchanged) |
+| phone-qa (phone suite) | `playwright test --config playwright.phone.config.ts` (all projects) | 286 passed, 89 skipped, 1 failed: `invite-w2-golive` "empty, valid, invalid" at the pre-existing `phone-empty` screenshot, "Protocol error: Unable to capture screenshot" under the local full-suite load (default workers; CI uses 2 workers + 1 retry). That test re-run alone: passed; and 15/15 in three earlier spec runs |
+| phone-qa (build-smoke) | `playwright test --config playwright.build.config.ts` | 67/67 |
+| lint chain (`npm run lint`) | every link | 19/20 green; `check:integrity` exit 126 (file mode, as on main) |
+| e2e-smoke (`test:e2e`) | not re-run this session | the spec list does not include the phone specs; W2c ran it |
+| phone-qa-section, real-data-verified | PR-body checks | the text below carries both sections |
+
+### Verified
+- The blocker is gone on every surface it reached, proven by key-by-key tests that were red on 5b46b191: wizard step (so "Almost live"), the contact sheet, and the raffle (where `allowLegacy` is false).
+- Real data shapes (read-only counts, prod `stsdtacfauprzrdebmzg`): organiser `contact_phone` 37 E.164, 5 "+ with spaces", 1 no-"+" legacy, 7 empty; dancer `whatsapp` 2 E.164, 1 legacy, 186 empty. Each shape has a test: empty -> typing key by key (the blocker path, the 7 organisers who will type a first number); E.164 -> typing over a stored number; "+ with spaces" -> the sheet suite's stored `+44 7700 900123`; legacy -> the legacy box, untouched never re-sent, Change.
+- 390x844 shots of every new state, each opened and read (wizard too-short, sheet x5, raffle x3).
+
+### Not verified
+- No Vercel preview walk and no real phone (fake backend in the phone suite only).
+- The raffle submit (never pressed; the fake refuses writes).
+- The Ember world colours for the sheet field (the public organiser page is not in Ember).
+- `integrityCouldNotRun.test.ts` (5 tests) and `check:integrity` exit 126 in the lint chain fail here for sandbox reasons (file mode / temp-repo typescript), as on main; `bash bin/check-integrity.sh` = ok.
+
+### PR-body text for the orchestrator to paste (I cannot edit the PR body)
+**Merges only after A1 is applied** (bachata-admin `claude/invite-a1-golive-phone-ig`, migration 20261205100000).
+
+## W2d: design critique fixed (`docs/reviews/design-977-critique.md`, VERDICT FIX)
+- **Blocker:** the phone box no longer turns into "Saved before: +447 / No country" after the first digit. `PhoneInput` decides "legacy" only from the STORED value (`stored` prop, else the value at mount), never from the draft; the wizard step and the contact sheet pass `stored`. Key-by-key tests (userEvent.type, pressSequentially) were red on 5b46b191 and are green now.
+- Contact sheet + raffle: 8 new 390x844 shots with overflow, taps and dialog-scoped axe (`docs/design/977.md`). The new shots surfaced two more sheet defects, both fixed: the field's colours did not resolve (no theme.css on the public page), and the sheet showed two messages at once.
+- Raffle phone taps are 44px (box, country button, country rows); raffle colours unchanged.
+- Nits: one "too short" message (the field's own); hidden broken flag; no second "Saved as" line; DJ offer copy; "Do you also teach or DJ?"; organiser Instagram refusal says bare name, @name or link.
+
+## Phone QA
+Sizes checked: 390x844 (all W2 screens incl. the contact sheet and the raffle); the contact-sheet spec also at 360x640 and 412x915
+Walked: Go live wizard phone step (empty, valid typed key by key, too short "77", legacy stored), Instagram step (4 inputs), "Do you also teach or DJ?" (5 states), go-live gaps, "It's live" offer; organiser Contact details sheet phone (empty, valid, too short, legacy + Change); event-page raffle phone (empty, valid, too short, country list); every screen machine-checked for sideways scroll, taps >= 44px and axe contrast
+Not verified: a real phone and a Vercel preview (fake backend only); the raffle submit; Ember-world colours for the sheet field
+
+## Verified on real data
+- Shapes surveyed (read-only, counts): organiser `contact_phone` 37 E.164, 5 "+ with spaces", 1 no-"+" legacy, 7 empty; dancer `whatsapp` 2 E.164, 1 legacy, 186 empty. Each shape has a test (empty -> typing key by key, the blocker path; E.164 -> typing over a stored number; "+ with spaces" -> stored `+44 7700 900123`; legacy -> legacy box, never re-sent, Change).
+- Checks run (matrix tests, every CI job step, browser walk at 390x844): unit in London / New York / Sydney, dancer-area-isolation, architecture-guard + integrity, typecheck, perf-budget, phone suite, build-smoke; per-job table in `docs/session-handover-2026-10-23-invite-w2.md` (W2d).
+- NOT verified (be honest): no Vercel preview or real phone walk; `integrityCouldNotRun.test.ts` (5) and the lint chain's `check:integrity` link fail in the sandbox only, as on main; one phone-suite test hit a screenshot protocol error under local full-suite load and passed when re-run alone.
+
+## Files shared with the open organiser-rebuild PRs (#903, #904, #905, #912, #914, #917, #919, #896)
+Unchanged from W2c: `src/modules/organiser/shared/goLiveCheck.ts` (+ its tests). W2d touched none of them.

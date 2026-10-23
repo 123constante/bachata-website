@@ -80,7 +80,7 @@ index 899cb6c..d238701 100644
 -              <TextInput id="whatsapp" type="tel" inputMode="tel" value={draft.whatsapp} placeholder="+44 7700 900123" onChange={(v) => set('whatsapp', v)} error={shown('whatsapp')} />
 +            <Field id="whatsapp" label="WhatsApp" error={shown('whatsapp')} note={note('whatsapp')}>
 +              <Suspense fallback={<div className="h-[48px]" aria-hidden="true" />}>
-+                <PhoneInput inputId="whatsapp" value={draft.whatsapp} onChange={(e164) => set('whatsapp', e164)} error={shown('whatsapp')} renderError={false} />
++                <PhoneInput inputId="whatsapp" value={draft.whatsapp} stored={profile.whatsapp ?? ''} onChange={(e164) => set('whatsapp', e164)} error={shown('whatsapp')} renderError={false} />
 +              </Suspense>
              </Field>
              <div className="flex min-h-[44px] items-center justify-between gap-[12px]">
