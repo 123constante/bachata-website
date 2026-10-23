@@ -181,7 +181,7 @@ probe('S4', 'Not running: struck on that date only', async () => { await open('f
 probe('S5', 'Not running: Bring it back', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-date': '2' }); await B({ 'data-dsess': c }); const t = await sheet(); await tap('[data-ssundo]'); const so = await ev(() => window.__c2.EV.fri.dates[2].so); return [/Bring it back/.test(t) && !so, JSON.stringify(so)]; });
 probe('S6', 'consequence line (later)', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-date': '4' }); await B({ 'data-dsess': c }); await setVal('#sss', '20:15'); await tap('[data-sssave]'); await tap('[data-sscope="later"]'); const t = await txt('#sscons'); return [/Changes from Fri 20 Nov onwards\. Earlier dates keep the old time\./.test(t), t]; });
 probe('S7', 'consequence line (one)', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-date': '4' }); await B({ 'data-dsess': c }); await setVal('#sss', '20:15'); await tap('[data-sssave]'); const t = await txt('#sscons'); return [/Only Fri 20 Nov changes/.test(t), t]; });
-probe('S8', 'later applies forward only', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-date': '4' }); await B({ 'data-dsess': c }); await setVal('#sss', '20:15'); await tap('[data-sssave]'); await tap('[data-sscope="later"]'); await tap('[data-sscope-go]'); const r = await ev((c) => window.__c2.EV.fri.dates.map((x) => (x.so && x.so[c] && x.so[c].s) || ''), c); return [r[3] === '' && r[4] === '20:15' && r[6] === '20:15' && r[0] === '', r.slice(0, 7).join(',')]; });
+probe('S8', 'later applies forward only (ONE forward segment from 20 Nov, no per-date copies; changed from the per-date shape of 5c52b54)', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-date': '4' }); await B({ 'data-dsess': c }); await setVal('#sss', '20:15'); await tap('[data-sssave]'); await tap('[data-sscope="later"]'); await tap('[data-sscope-go]'); const r = await ev((c) => { const q = window.__c2.EV.fri, g = q.sess[0].from || []; return [g.length, g[0] && +g[0].d === +q.dates[4].d, g[0] && g[0].p.s, q.dates.filter((x) => x.so && x.so[c] && x.so[c].s).length]; }, c); return [r[0] === 1 && r[1] === true && r[2] === '20:15' && r[3] === 0, r.join(',')]; });
 probe('S9', 'line-up later consequence', async () => { await open('fri'); await B({ 'data-lineup-ask': 'fri' }); await tap('[data-scope="later"]'); await tap('[data-lineup-go]'); await tap('[data-rm]'); await tap('#savelineup'); const t = await toastT(); return [/Earlier dates keep the old line-up/.test(t), t]; });
 probe('S10', 'extra session: "Remove (only this date)"', async () => { await open('fri'); const x = await ev(() => window.__c2.EV.fri.dates[1].extra[0].id); await B({ 'data-date': '1' }); await B({ 'data-dsess': x }); const t = await sheet(); return [/Remove \(only this date\)/.test(t), 'ok?']; });
 probe('R-toast', 'this-and-later session save: toast is one line, no per-date notes, short', async () => {
@@ -198,6 +198,43 @@ probe('R-notrun', 'this-and-later across Fri 6 Nov (class not running): scope sh
   await ev(() => { const t = [...document.querySelectorAll('#sheet input')].find((i) => /^\d\d:\d\d$/.test(i.value)); if (t) { t.value = '20:30'; t.dispatchEvent(new Event('input', { bubbles: true })); t.dispatchEvent(new Event('change', { bubbles: true })); } });
   await tap('[data-sssave]'); await tap('[data-sscope="later"]'); const t = await sheet(); return [/Fri 6 Nov: [^\n]*stays not running/.test(t), t.replace(/\n/g, ' / ').slice(0, 200)];
 });
+/* ---------- red-first: "this and later" is ONE forward change, not N per-date overrides (walk find) ---------- */
+const tour3 = async () => {
+  await open('fri'); await B({ 'data-date': '4' }); await B({ 'data-dsess': await sid('fri', 0) });
+  await ev(() => { const t = [...document.querySelectorAll('#sheet input')].find((i) => /^\d\d:\d\d$/.test(i.value)); if (t) { t.value = '20:30'; t.dispatchEvent(new Event('input', { bubbles: true })); t.dispatchEvent(new Event('change', { bubbles: true })); } });
+  await tap('[data-sssave]'); await tap('[data-sscope="later"]'); await tap('[data-sscope-go]');
+};
+const classRow = async () => (await ev(() => { const r = [...document.querySelectorAll('#s-event [data-sess]')][0]; return r ? r.innerText : ''; })).replace(/\n/g, ' / ');
+const legendT = () => txt('#s-event .legend');
+probe('R-fwd-row', 'tour 3 then the event page: class row says "From Fri 20 Nov: 8:30pm", no "Different on" naming 20 Nov, at most the pre-save override (6 Nov)', async () => {
+  await tour3(); await B({ 'data-back': '' }).catch(() => {}); const r = await classRow();
+  const dif = (r.match(/Different on[^/]*/) || [''])[0];
+  return [/From Fri 20 Nov: 8:30pm/.test(r) && !/20 Nov/.test(dif) && !/27 Nov/.test(dif) && (dif === '' || /^Different on 1 date: 6 Nov\s*$/.test(dif)), r.slice(0, 200)];
+}, 1);
+probe('R-fwd-legend', 'the legend count of changed dates is the same before and after the tour-3 save', async () => {
+  await open('fri'); const a = (await legendT()).match(/(\d+) (?:dates? with|changed for)/); 
+  await tour3(); const b = (await legendT()).match(/(\d+) (?:dates? with|changed for)/);
+  return [!!a && !!b && a[1] === b[1], (a && a[0]) + ' -> ' + (b && b[0])];
+}, 1);
+probe('R-fwd-date', 'after the save Fri 27 Nov shows the class at 8:30pm with no chip dot; Fri 13 Nov still 8pm', async () => {
+  await tour3();
+  const dot = await ev(() => { const c = document.querySelector('#s-event [data-date="5"]'); return c ? !!c.querySelector('.cdot') : null; });
+  await B({ 'data-date': '5' }); const t27 = await sheet(); await tap('[data-close]');
+  await B({ 'data-date': '3' }); const t = await sheet();
+  const c = await ev(() => { const q = window.__c2.EV.fri, id = q.sess[0].id; return q.dates.filter((x) => x.so && x.so[id]).length; });
+  return [dot === false && /8:30pm/.test(t27) && /Fri 13 Nov, 8pm/.test(t) && c <= 1, 'dot=' + dot + ' 27Nov=' + t27.replace(/\n/g, ' / ').slice(0, 120) + ' | 13Nov=' + t.replace(/\n/g, ' / ').slice(0, 60) + ' | perDateOverrides(class)=' + c];
+}, 1);
+probe('R-fwd-undo', 'Undo on the toast returns the row to "8pm to 9pm" with no "From" line', async () => {
+  await tour3(); const pre = await classRow(); await tap('#toast [data-undo], #toast button'); const r = await classRow();
+  return [/From Fri 20 Nov/.test(pre) && /8pm/.test(r) && !/From /.test(r), 'before: ' + pre.slice(0, 90) + ' | after: ' + r.slice(0, 90)];
+}, 1);
+probe('R-fwd-lineup', 'line-up "This and later" from 20 Nov gives a "From Fri 20 Nov" line, not a date list', async () => {
+  await open('fri'); await B({ 'data-date': '4' }); await B({ 'data-act': 'lineup' }); await tap('[data-scope="later"]'); await tap('[data-scope-go]');
+  await setVal('#psearch', 'Sofia R'); await tap('#presults [data-add]'); await tap('#savelineup');
+  const r = await classRow(); const r2 = await ev(() => [...document.querySelectorAll('#s-event [data-sess]')].map((e) => e.innerText).join(' / ')).then((z) => z.replace(/\n/g, ' '));
+  return [/From Fri 20 Nov/.test(r2) && !/Different on \d+ dates/.test(r2), r2.slice(0, 260)];
+}, 1);
+
 probe('S11', 'series session on the page: "Remove from every date"', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-sess': c }); const t = await sheet(); return [/Remove from every date/.test(t), 'ok?']; });
 probe('S12', 'remove confirm points to Not running', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-sess': c }); await tap('[data-sheet="removeall"]'); const t = await sheet(); return [/Not running this date/.test(t), 'ok?']; });
 probe('S13', 'series session on a date: "Not running this date", no delete', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-date': '4' }); await B({ 'data-dsess': c }); const t = await sheet(); return [/Not running this date/.test(t) && !/Remove from every date</.test(t), 'ok?']; });

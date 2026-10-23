@@ -648,6 +648,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   function dsess(e, x) {
     var out = e.sess.map(function (s) {
       var o = (x && x.so && x.so[s.id]) || null, m = {}; for (var key in s) m[key] = s[key];
+      (s.from || []).forEach(function (g) { if (x && g.d <= x.d) for (var k1 in g.p) m[k1] = g.p[k1]; });
       if (o) { for (var k2 in o) if (k2 !== 'cx') m[k2] = o[k2]; }
       m.base = s; m.cx = !!(o && o.cx); m.chg = !!(o && !o.cx); m.extra = false; return m;
     });
@@ -950,7 +951,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       var leg = [];
       if (e.kind === 'course') { var cls = e.dates.filter(function (x) { return x.st !== 'cancelled' && x.st !== 'skip'; }); leg.push(classCount(e) + ' classes'); if (off) leg.push(off + ' ' + L.cancelled.toLowerCase()); leg.push('last class ' + fmt(cls[cls.length - 1].d)); }
       else if (openEnded(e)) { leg.push('No end date'); if (off) leg.push(off + ' ' + L.cancelled.toLowerCase()); }
-      var chg = up.filter(function (x) { return diffWords(e, x).length; }).length; if (chg) leg.push('<span><span class="dot" style="display:inline-block;color:var(--warn-fg)"></span> ' + chg + ' changed for that date</span>');
+      var chg = up.filter(function (x) { return diffWords(e, x).length; }).length; if (chg) leg.push('<span><span class="dot" style="display:inline-block;color:var(--warn-fg)"></span> ' + chg + (chg === 1 ? ' date with its own changes' : ' dates with their own changes') + '</span>');
       h += '<div class="legend">' + leg.map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</div>';
       if (brk.length) h += '<div class="small mut" style="margin-top:4px">Breaks: ' + brk.map(function (x) { return fmtDM(x.d); }).join(', ') + '</div>';
       h += '<div class="pair" style="margin-top:10px">' + ((shown.length > n || openEnded(e) || e.kind === 'course') ? '<button class="btn line" data-go="alldates">See all dates</button>' : '') + (e.kind === 'festival' ? '' : '<button class="btn line" data-sheet="adddate">' + (e.kind === 'oneoff' ? 'Add another date' : 'Add a date') + '</button>') + '</div>';
@@ -963,6 +964,8 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       h += '<div class="card tl">' + e.sess.slice().sort(bySt).map(function (m) {
         var od = ownDates(e, m.id), mm = {}; for (var key in m) mm[key] = m[key]; mm.cx = false; mm.chg = false; mm.extra = false;
         var r = sessRow(e, mm, 'data-sess="' + m.id + '"');
+        var fw = (m.from || []).map(function (g) { return '<span class="s" style="display:block;color:var(--warn-fg)">' + fromWords(e, m, g) + '</span>'; }).join('');
+        if (fw) r = r.replace('</span>' + CHEV, fw + '</span>' + CHEV);
         if (od.length) r = r.replace('</span>' + CHEV, '<span class="s" style="display:block;color:var(--warn-fg)">Different on ' + od.length + (od.length === 1 ? ' date: ' : ' dates: ') + od.map(function (x) { return fmtDM(x.d); }).join(', ') + '</span></span>' + CHEV);
         return r;
       }).join('');
@@ -1029,7 +1032,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var e = EV[cur], base = e.kind === 'course' ? e.dates : upcoming(e), lastM = '';
     var nChg = base.filter(function (x) { return x.d >= TODAY && diffWords(e, x).length; }).length, nCx = base.filter(function (x) { return x.st === 'cancelled'; }).length;
     var nOn = base.filter(function (x) { return x.d >= TODAY && x.st !== 'cancelled' && x.st !== 'skip'; }).length;
-    var h = BACK + '<div class="when">' + e.name + '</div><div class="big">All dates</div><p class="mut small">' + nOn + ' coming up &middot; ' + nChg + ' changed for that date &middot; ' + nCx + ' ' + L.cancelled.toLowerCase() + '</p>';
+    var h = BACK + '<div class="when">' + e.name + '</div><div class="big">All dates</div><p class="mut small">' + nOn + ' coming up &middot; ' + nChg + (nChg === 1 ? ' date with its own changes' : ' dates with their own changes') + ' &middot; ' + nCx + ' ' + L.cancelled.toLowerCase() + '</p>';
     h += '<div class="seg" role="group" aria-label="Show">' + [['all', 'All'], ['chg', 'Changed'], ['cx', L.cancelled]].map(function (f) { return '<button data-adf="' + f[0] + '" aria-pressed="' + (adf === f[0]) + '">' + f[1] + '</button>'; }).join('') + '</div>';
     if (base.length > 6) h += '<label class="f" for="adq">Find a date</label><input class="in" id="adq" placeholder="e.g. 13 Nov or Dec" autocomplete="off" value="' + esc(adq) + '">';
     if (!pick) h += '<div style="display:flex;justify-content:flex-end;margin-top:6px"><button class="link" data-pickmode>' + L.pickDates + '</button></div>';
@@ -1320,7 +1323,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   /* ================= C3: per-date changes, undo snapshots ================= */
   function cl(o) { return o === undefined ? undefined : JSON.parse(JSON.stringify(o)); }
   function snap2(e) { return { sess: cl(e.sess), life: e.life, status: e.status, dates: e.dates.map(function (x) { return { d: x.d, st: x.st, time: x.time, reason: x.reason, so: cl(x.so), extra: cl(x.extra), own: cl(x.own) }; }) }; }
-  function restore2(e, s) { e.sess = s.sess; e.dates = s.dates; e.life = s.life; e.status = s.status; }
+  function restore2(e, s) { s.sess.forEach(function (m) { (m.from || []).forEach(function (g) { g.d = new Date(g.d); }); }); e.sess = s.sess; e.dates = s.dates; e.life = s.life; e.status = s.status; }
   function findSess(e, x, sid) {
     var b = e.sess.filter(function (m) { return m.id === sid; })[0]; if (b) return { s: b, extra: false };
     var ex = x && (x.extra || []).filter(function (m) { return m.id === sid; })[0]; return ex ? { s: ex, extra: true } : null;
@@ -1330,9 +1333,34 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var x = di > -1 ? e.dates[di] : null, f = findSess(e, x, sid);
     if (!f) return;
     if (sc === 'all' || di < 0 || f.extra) { for (var k in patch) f.s[k] = patch[k]; return; }
-    var ds = sc === 'later' ? laterDates(e, di) : [x];
-    /* "not running" on a later date stays: a change from this date on never brings a session back (critique #5) */
-    ds.forEach(function (y) { y.so = y.so || {}; var o = y.so[sid] || {}; for (var k2 in patch) o[k2] = cl(patch[k2]); y.so[sid] = o; });
+    if (sc === 'later') {
+      /* ONE forward change on the series session (not N per-date overrides). A later date's own change to the same
+       * thing goes (the scope sheet said it changes too); "not running" stays: a change never brings a session back (critique #5) */
+      var sg = f.s.from = f.s.from || [], hit = sg.filter(function (g) { return +g.d === +x.d; })[0];
+      if (!hit) { hit = { d: x.d, p: {} }; sg.push(hit); sg.sort(function (a, b) { return a.d - b.d; }); }
+      for (var k3 in patch) hit.p[k3] = cl(patch[k3]);
+      laterDates(e, di).forEach(function (y) {
+        if (!y.so || !y.so[sid]) return;
+        for (var k4 in patch) delete y.so[sid][k4];
+        if (!Object.keys(y.so[sid]).length) delete y.so[sid];
+        if (!Object.keys(y.so).length) delete y.so;
+      });
+      return;
+    }
+    x.so = x.so || {}; var o = x.so[sid] || {}; for (var k2 in patch) o[k2] = cl(patch[k2]); x.so[sid] = o;
+  }
+  /* a forward segment in plain words, as of its own date: "From Fri 20 Nov: 8:30pm to 9pm" */
+  function fromWords(e, s, g) {
+    var m = {}; for (var k in s) m[k] = s[k];
+    s.from.forEach(function (h) { if (h.d <= g.d) for (var k5 in h.p) m[k5] = h.p[k5]; });
+    var w = [], p = g.p;
+    if ('s' in p || 'e' in p) w.push(tm(m.s) + ' to ' + tm(m.e));
+    if ('k' in p) w.push(kindLbl(m.k));
+    if ('t' in p) w.push(m.t || 'no name');
+    if ('lv' in p) w.push(m.lv.length ? m.lv.join(', ') : 'no level');
+    if ('room' in p) w.push(m.room || 'no room');
+    if ('ppl' in p) w.push(m.ppl.length ? pplText(m.ppl) : 'nobody on');
+    return 'From ' + fmt(g.d) + ': ' + w.join(' &middot; ');
   }
   function laterDates(e, di) { return e.dates.slice(di).filter(function (y) { return y.d >= TODAY && y.st !== 'cancelled' && y.st !== 'skip'; }); }
   /* the later dates that already differ for this session (or any session when sid is empty), said before the save */
