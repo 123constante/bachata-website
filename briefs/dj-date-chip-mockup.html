@@ -1,0 +1,110 @@
+<title>DJ Date Chip Options</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: one column of options; each option shows the real wall at 360 and 390 wide, side by side, scrolling inside its own row. */
+:root {
+  color-scheme: dark;
+  --page: #1E1410; --card: #2B1D16; --text: #FBEBDD; --muted: #CDB09C; --line: #6A4A38;
+  --gold: #FFD479; --warn: #FB8A4B;
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+body { background: var(--page); color: var(--text); font-family: var(--font); }
+.wrap { max-width: 900px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
+h1 { font-size: 24px; margin: 0; text-wrap: balance; }
+.lede { color: var(--muted); font-size: 15px; line-height: 22px; margin: 6px 0 0; max-width: 62ch; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+section h2 { font-size: 20px; margin: 0; display: flex; gap: 10px; align-items: baseline; }
+section h2 b { color: var(--gold); }
+.what { font-size: 15px; line-height: 22px; margin: 0; }
+ul.pc { margin: 0; padding-left: 18px; font-size: 14px; line-height: 21px; color: var(--muted); }
+ul.pc li.warn { color: var(--warn); }
+.frames { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 6px; }
+.frame { flex: none; display: grid; gap: 6px; }
+.frame small { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.phone { background: #1E1410; border: 1px solid var(--line); border-radius: 18px; padding: 12px 10px 16px; }
+/* The wall, from src/modules/person-page/wall/tokens.ts (SIZE + TILE.dj + CHIP + DATE_CHIP) */
+.grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 8px; }
+.face { position: relative; aspect-ratio: 1/1; border-radius: 12px; background: #6B4A0E; border: 1.5px solid #C9921E; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #FFE3A0;
+  background-image: radial-gradient(circle at 20% 15%, rgba(255,255,255,.25) 0 18%, transparent 19%), repeating-linear-gradient(135deg, rgba(0,0,0,.05) 0 6px, transparent 6px 12px); }
+.face span.ini { font-size: 28px; font-weight: 800; letter-spacing: 1px; }
+.flag { position: absolute; top: 3px; right: 3px; font-size: 15px; line-height: 1; }
+.dchip { position: absolute; bottom: 4px; left: 4px; background: #1E1410; color: #FFD479; border: 1px solid #FFD479; font-size: 10px; font-weight: 800; line-height: 14px; padding: 0 6px; border-radius: 999px; }
+.name { margin-top: 4px; text-align: center; color: #FBEBDD; font-size: 11px; font-weight: 700; line-height: 14px; overflow-wrap: anywhere; }
+.dline { margin-top: 1px; text-align: center; color: #FFD479; font-size: 10px; font-weight: 800; line-height: 13px; }
+.tags { margin-top: 4px; display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
+.rc { font-size: 10px; font-weight: 700; line-height: 13px; padding: 0 5px; border-radius: 999px; border: 1.5px solid; }
+.rc.dj { background: #F2B632; color: #2B1A00; border-color: #FFD479; }
+.rc.dancer { background: #2DD4BF; color: #04302C; border-color: #8DF0E2; }
+.rc.teacher { background: #B79CFB; color: #1E0A4D; border-color: #D8C8FD; }
+.note { font-size: 13px; color: var(--muted); line-height: 19px; margin: 0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>The DJ date on the wall</h1>
+    <p class="lede">The full date "Friday 23 October" no longer fits on one line of a wall tile, so it wraps to two rows and covers about 40% of the face. Below are three ways to fix it, drawn with the wall's real sizes and colours and the first 12 DJs on /djs today. Each option is shown at 360 and 390 wide. The person page (hub) keeps the full "Friday 23 October" in every option.</p>
+  </header>
+
+  <section id="a">
+    <h2><b>A</b> Short date on the tile</h2>
+    <p class="what">The tile chip says "Fri 23 Oct" on one line. The full date stays on the person page.</p>
+    <ul class="pc">
+      <li>Face stays clear; tiles stay the same height as before.</li>
+      <li class="warn">Breaks your copy rule "Friday, not Fri". It would be the one place on the site with a short day name.</li>
+    </ul>
+    <div class="frames" data-opt="a"></div>
+  </section>
+
+  <section id="b">
+    <h2><b>B</b> Date under the name</h2>
+    <p class="what">No chip on the face. "Friday 23 October" sits in gold under the name, full words.</p>
+    <ul class="pc">
+      <li>Keeps your full-weekday rule; the face is fully visible.</li>
+      <li>The date wraps to two short lines under the name, so DJ tiles get taller and the wall is a little longer to scroll.</li>
+    </ul>
+    <div class="frames" data-opt="b"></div>
+  </section>
+
+  <section id="c">
+    <h2><b>C</b> Keep it as it is now</h2>
+    <p class="what">The chip on the face with the full date, wrapping to two rows. This is what #963 does today.</p>
+    <ul class="pc">
+      <li>No change needed.</li>
+      <li class="warn">Covers the lower part of the face (initials or photo) on every DJ tile with a gig.</li>
+    </ul>
+    <div class="frames" data-opt="c"></div>
+  </section>
+
+  <p class="note">Drawn from the tokens in src/modules/person-page/wall/tokens.ts on PR #963. Photos are shown as initials here (this page cannot load the site's images); flags are approximations.</p>
+</div>
+
+<script>
+const DJS = [
+  ['El Rugido', 'ER', '', 'Friday 23 October', 'Fri 23 Oct', ['teacher','dj','dancer']],
+  ['Elias', 'E', '', 'Friday 23 October', 'Fri 23 Oct', ['dj','dancer']],
+  ['Morcilla', 'M', '🇿🇦', 'Friday 23 October', 'Fri 23 Oct', ['dj','dancer']],
+  ['Roger Cracco', 'RC', '🇻🇪', 'Friday 23 October', 'Fri 23 Oct', ['teacher','dj','dancer']],
+  ['Mr M', 'MM', '🇨🇴', 'Saturday 24 October', 'Sat 24 Oct', ['teacher','dj','dancer']],
+  ['Fadi Kassem', 'FK', '', 'Sunday 25 October', 'Sun 25 Oct', ['teacher','dj','dancer']],
+  ['Oreo Sensual', 'OS', '', 'Sunday 25 October', 'Sun 25 Oct', ['teacher','dj','dancer']],
+  ['Jeff', 'J', '', 'Monday 26 October', 'Mon 26 Oct', ['teacher','dj','dancer']],
+  ['Boadicea Richards', 'BR', '', 'Tuesday 27 October', 'Tue 27 Oct', ['teacher','dj','dancer']],
+  ['Melita Somos', 'MS', '🇩🇪', 'Tuesday 27 October', 'Tue 27 Oct', ['teacher','dj','dancer']],
+  ['Daniel Carbonero', 'DC', '🇪🇸', 'Thursday 29 October', 'Thu 29 Oct', ['teacher','dj','dancer']],
+  ['Carlos De La Cruz', 'CC', '', 'Thursday 29 October', 'Thu 29 Oct', ['dj']],
+];
+const LABEL = { dj: 'DJ', dancer: 'Dancer', teacher: 'Teacher' };
+function tile(d, opt) {
+  const [name, ini, flag, full, short, tags] = d;
+  const chip = opt === 'a' ? `<span class="dchip">${short}</span>` : opt === 'c' ? `<span class="dchip">${full}</span>` : '';
+  const line = opt === 'b' ? `<div class="dline">${full}</div>` : '';
+  return `<div><div class="face"><span class="ini">${ini}</span>${flag ? `<span class="flag">${flag}</span>` : ''}${chip}</div>`
+    + `<div class="name">${name}</div>${line}<div class="tags">${tags.map(t => `<span class="rc ${t}">${LABEL[t]}</span>`).join('')}</div></div>`;
+}
+document.querySelectorAll('.frames').forEach(el => {
+  const opt = el.dataset.opt;
+  el.innerHTML = [360, 390].map(w => `<div class="frame"><small>${w} px wide phone</small><div class="phone" style="width:${w}px"><div class="grid">${DJS.map(d => tile(d, opt)).join('')}</div></div></div>`).join('');
+});
+</script>
