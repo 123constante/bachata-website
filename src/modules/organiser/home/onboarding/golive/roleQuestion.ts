@@ -9,7 +9,7 @@ import { sameValue, type Details } from '@/modules/areas/shared/roleModel';
 import type { RoleIntent } from '@/modules/areas/home/rolesApi';
 
 export const ROLE_QUESTION_TITLE = 'Do you also DJ or teach?';
-export const ROLE_QUESTION_HELP = 'A Yes adds a DJ or teacher page to your profile. You can change it later in Your areas.';
+export const ROLE_QUESTION_HELP = 'A Yes adds a DJ or teacher page to your profile.';
 export const ROLE_QUESTION_REASON_BOTH = 'Answer both questions to continue.';
 export const ROLE_QUESTION_REASON_ONE = 'Answer the question to continue.';
 export const ROLE_MINIMUM_REASON = 'Fill in the boxes under each Yes to continue.';
