@@ -11,7 +11,7 @@ export interface VenueSearch {
   canAdd: boolean;
 }
 
-const fold = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+const fold = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
 
 /** Exact name matches first, then names that start with the text, then names or postcodes containing it. */
 export function searchVenues(options: readonly VenueOption[], query: string): VenueSearch {
