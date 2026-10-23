@@ -62,7 +62,19 @@ component level (C1).
 
 ## CI, every applicable job step, run locally on the final code
 
-CI_TABLE
+| Job (workflow) | Step | Result |
+|---|---|---|
+| typecheck | `check:rpc-typing`, `check:wallclock-brand` | PASS |
+| architecture-guard | `bin/check-integrity.sh` (2379 files, 0 issues), `check:legacy-tables`, `check:legacy-program-rpcs`, `lint:architecture`, `check:images` (`AUDIT_STRICT=1`), `check:image-widths`, `check:plan-hygiene:self-test`, `check:workflow-artifact-policy`, `check:mojibake:self-test`, `prove:entry-point` | PASS |
+| unit-tests | `check-dancer-area-isolation --self-test`, `check:dancer-area-isolation` (after adding the 2 docs to the allow-list) | PASS |
+| unit-tests | `test:unit:offline` | 12949 passed, **5 failed**: all in `tests/integrityCouldNotRun.test.ts`, which also fails on the unfixed branch in this sandbox (it needs the Windows-mount TS helper) |
+| unit-tests | `test:unit` | 12985 passed, **15 failed**: `integrityCouldNotRun` (5) plus 3 live-DB contract suites (`eventViewCompat`, `occurrenceProgram`, `publicEventPageLineup`; no prod secrets here). The same 15 fail on the unfixed branch; none touch going |
+| lint | `npm run lint` | PASS, 22 of 22 links |
+| perf-budget | `build`, `check:bundle-budget`, `check:first-load-requests` (pins unchanged), `check:chunk-cycles` | PASS |
+| perf-budget | `check:doc-weight` | could not run: needs `GITHUB_REPOSITORY` (CI-only) |
+| e2e-smoke | `test:e2e` | 153 passed, 4 failed in the full run (`account-settings` x2, `home-nights` upcoming-going, `organiser-onboarding` sign-in link): each was a 15s first-render timeout under load. Re-run of those 3 specs alone: **24 passed, 0 failed** |
+| db-contract-check | `check:going-rpcs` | not run (prod secrets; this branch changes no RPC) |
+| phone-qa / real-data-verified | PR-body sections | in the ready-to-paste body below |
 
 ## Owner calls (recommendation; not in code)
 
