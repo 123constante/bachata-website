@@ -19,8 +19,9 @@ You own `app/routes/djs.tsx`, `src/pages/DJProfile.tsx`, `src/components/dj/**`,
 - (b) FRAME JUMP (owner spotted the frame mismatch at 17:05Z; my combined walk measured it): each world's page owns the
   padding around `PersonFrame` -- DJ page `px-3 pt-2`, dancer page `px-4 pt-3` -- so switching tab moves the Back button
   4px right and 3px down and the bar gets 7px narrower (Back L10 T113 vs L14 T116; bar W361 vs W354). Fix the CLASS:
-  export ONE shared shell from `frame/` (e.g. `WorldPage`) that renders `GlobalLayout` + the page padding + `PersonFrame`
-  slot, so worlds never wrap the frame themselves. Use it for every flag-ON DJ state (loading, not-found/thin, full).
+  export ONE shared shell from `frame/` (e.g. `WorldPage`) that renders `GlobalLayout` + the world ground + the page padding
+  AND max width (the dancer page uses `max-w-xl`, the DJ page its own width -- pick one for every world, check it at 390 and
+  at 1280) + `PersonFrame` slot, so worlds never wrap the frame themselves. Use it for every flag-ON DJ state (loading, not-found/thin, full).
   Add a test that renders each world page that exists on this branch through the shell and asserts the frame sits inside the
   shell with identical classes/styles, and a guard test that fails if a world file wraps `PersonFrame` in its own padding
   (S2 will adopt it; write the API so a dancer page can drop `px-4 pt-3` and call the shell -- document it in the handover).
