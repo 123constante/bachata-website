@@ -13,6 +13,6 @@ describe('a new session needs both times', () => {
     ['stored untimed, renamed', [stored({ start: '', end: '' })], [stored({ start: '', end: '', name: 'Late party' })], []],
     ['stored timed, made untimed (the way back, F-C4-2)', [stored()], [stored({ start: '', end: '' })], []],
   ] as const)('%s', (_n, initial, current, codes) => {
-    expect(blockingIssues(initial as SessionDraft[], current as SessionDraft[]).map((i) => i.code)).toEqual(codes);
+    expect(blockingIssues([...initial] as SessionDraft[], [...current] as SessionDraft[]).map((i) => i.code)).toEqual([...codes]);
   });
 });

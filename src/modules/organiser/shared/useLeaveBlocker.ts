@@ -16,15 +16,13 @@ let blockerSeq = 0;
 export function useLeaveBlocker(shouldBlock: BlockerFunction, prefix = 'org-leave'): Blocker {
   const router = useContext(UNSAFE_DataRouterContext)?.router;
   const blockers = useContext(UNSAFE_DataRouterStateContext)?.blockers;
-  const [key, setKey] = useState('');
+  const [key] = useState(() => `${prefix}-${++blockerSeq}`);
   useEffect(() => {
-    if (!router) return;
-    const k = `${prefix}-${++blockerSeq}`;
-    setKey(k);
-    return () => router.deleteBlocker(k);
-  }, [router, prefix]);
-  useEffect(() => {
-    if (router && key) router.getBlocker(key, shouldBlock);
+    if (router) router.getBlocker(key, shouldBlock);
   }, [router, key, shouldBlock]);
-  return (key && blockers?.get(key)) || IDLE_BLOCKER;
+  useEffect(() => {
+    if (!router) return undefined;
+    return () => router.deleteBlocker(key);
+  }, [router, key]);
+  return blockers?.get(key) || IDLE_BLOCKER;
 }

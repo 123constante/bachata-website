@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, type BlockerFunction } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, ExternalLink, Pencil, Plus } from 'lucide-react';
@@ -104,10 +104,11 @@ export function EventPage({ ws, today }: { ws: EventWorkspace; today: string }) 
   // draft: the person's changes stay, the rest follows the read. The page is keyed on the id only.
   const [seen, setSeen] = useState(base);
   if (seen !== base) {
-    latest.current = rebaseDraft(seen, base, latest.current);
     setSeen(base);
-    setDraft(latest.current);
+    setDraft(rebaseDraft(seen, base, draft));
   }
+  // The handlers build on `latest` (several patches in one tick); it follows every committed draft.
+  useLayoutEffect(() => { latest.current = draft; }, [draft]);
   const set = (p: Partial<PageDraft>) => { latest.current = { ...latest.current, ...p }; setDraft(latest.current); };
   const patch = (p: Partial<EventDraft>) => set({ fields: { ...latest.current.fields, ...p } });
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -153,7 +154,8 @@ export function EventPage({ ws, today }: { ws: EventWorkspace; today: string }) 
   // asks first while something is pending. `allow` lets the page's own navigations through.
   const allow = useRef(false);
   const prompt = useRef(false);
-  prompt.current = shouldPromptLeave(pending, flow.busy) && !closed;
+  const promptNow = shouldPromptLeave(pending, flow.busy) && !closed;
+  useLayoutEffect(() => { prompt.current = promptNow; }, [promptNow]);
   const shouldBlock = useCallback<BlockerFunction>(
     ({ currentLocation, nextLocation }) => !allow.current && prompt.current && currentLocation.pathname !== nextLocation.pathname,
     [],
@@ -192,7 +194,7 @@ export function EventPage({ ws, today }: { ws: EventWorkspace; today: string }) 
     if (res) { refresh(); go(() => goDone(navigate, { ...done, seriesId })); }
   });
   const discard = () => { latest.current = base; setDraft(base); setOverlay(null); };
-  const goBack = () => (prompt.current ? setOverlay('leave') : navigate(ORG_PATHS.events));
+  const goBack = () => (promptNow ? setOverlay('leave') : navigate(ORG_PATHS.events));
   const keepEditing = () => { if (blocked) leave.reset?.(); setOverlay(null); };
   const discardAndGo = () => { discard(); if (blocked) go(() => leave.proceed?.()); else go(() => navigate(ORG_PATHS.events)); };
 
