@@ -10,6 +10,7 @@ import { buildBreadcrumbs, renderBreadcrumbListJsonLd } from '@/lib/breadcrumbs'
 import { useEntitySlugOrId, useCanonicalReplaceState, SITE_ORIGIN } from '@/lib/seo';
 import { useEmbeddedProfile } from '@/lib/embeddedProfile';
 import { useProfileProgramAppearances } from '@/hooks/useProfileProgramAppearances';
+import { useAuth } from '@/hooks/useAuth';
 import { londonTodayKey } from '@/lib/londonDate';
 import { resolvePublicName } from '@/lib/publicName';
 import { AlsoRoles } from '@/modules/person-page/AlsoRoles';
@@ -136,6 +137,8 @@ const DJProfile = () => {
   });
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  // D8'': the world's invite is for signed-out visitors (reading it renders nothing on the flag-OFF page).
+  const { user } = useAuth();
   const embedded = useEmbeddedProfile();
   // People arc S3: the DJ world on the shared frame (flags.personWorlds), never inside a /people/:id tab.
   const worlds = flags.personWorlds && !embedded;
@@ -306,6 +309,7 @@ const DJProfile = () => {
       upcoming,
       past,
       pathname,
+      viewer: user,
     });
     return (
       <WorldPage

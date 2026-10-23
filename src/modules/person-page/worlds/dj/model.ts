@@ -4,7 +4,7 @@ import { buildSignInHref } from '@/lib/authRouting';
 import { resolvePublicName } from '@/lib/publicName';
 import { listenLinks } from '@/components/dj/djRoleModel';
 import type { DjGig } from '@/components/dj/DjTiles';
-import { cityLabel, countLabel, dayNumber, flagCode, gigDateLabel, monthLabel, timeLabel, worldNames } from '../../facts';
+import { FIND_A_PARTY, cityLabel, countLabel, dayNumber, flagCode, gigDateLabel, monthLabel, showsJoinInvite, timeLabel, worldNames } from '../../facts';
 
 export type DjWorldInput = {
   /** The get_public_dj_v1 row, read through djRoleFields for the text fields. */
@@ -16,6 +16,8 @@ export type DjWorldInput = {
   past: readonly DjGig[];
   /** This page's path, where sign-up returns to. */
   pathname: string;
+  /** The visitor (useAuth().user): D8'' shows the invite to signed-out visitors only. */
+  viewer: { is_anonymous?: boolean | null } | null | undefined;
 };
 
 export type DjGigRow = { eventId: string; day: string | null; when: string | null; name: string; venue: string | null; next: boolean };
@@ -35,8 +37,8 @@ export type DjWorldView = {
    */
   emptyAction: { note: string; label: string; href: string } | null;
   book: { label: string; value: string; href: string } | null;
-  /** D8': on every person page, whatever the person's roles: it speaks to the visitor. */
-  invite: { label: string; href: string };
+  /** D8'': on every person page, whatever the person's roles, for a signed-out visitor; null when signed in. */
+  invite: { label: string; href: string } | null;
 };
 
 const text = (v: string | null | undefined): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
@@ -71,8 +73,8 @@ export function djWorldView(p: DjWorldInput): DjWorldView {
     played,
     emptyAction: upcoming.length
       ? null
-      : { note: played.length ? 'No dates coming up yet.' : 'No dates on the calendar yet.', label: 'Find a party', href: '/parties' },
+      : { note: played.length ? 'No dates coming up yet.' : 'No dates on the calendar yet.', ...FIND_A_PARTY },
     book: first ? { label: `Book ${big}`, value: linkText(first.href), href: first.href } : null,
-    invite: { label: 'Dance bachata too? Get your own card', href: buildSignInHref(p.pathname, 'signup') },
+    invite: showsJoinInvite(p.viewer) ? { label: 'Dance bachata too? Get your own card', href: buildSignInHref(p.pathname, 'signup') } : null,
   };
 }
