@@ -2,7 +2,7 @@
 
 - Branch: `claude/people-dj-world` (from `main` 7cfedc6). Brief: `briefs/PEOPLE-S3-dj-world-brief.md` on
   `brief/people-arc` (sha 0a8eb15f). PR: **#984**.
-- Content commit: `b69f547`. The head is the handover commit right after it (`git log -1 origin/claude/people-dj-world`).
+- Content commit: `b69f547`. Stage 5 critique + fix pass: the commit after `001d3bf` (head = `git log -1 origin/claude/people-dj-world`).
 - Design record (shape table, Gate 4 self-checks, screenshots): [`docs/design/people-s3-dj-world.md`](../../design/people-s3-dj-world.md).
 - Behind `flags.personWorlds`. Flag OFF = today's `/djs/:id`, unchanged (tested over every shape). The `/people/:id` tab is unchanged too.
 
@@ -76,3 +76,115 @@ The flag-ON path uses only facts/frame. Delete the old copies when the flag is r
   design lifted the footer. That layout is not S3's file.
 - The local CI run is on b69f547 (per-job table in the PR body). The unit failures (15) are the same as main's in
   this sandbox. The 2 phone-suite failures passed when rerun alone.
+
+## Stage 5: independent critique + one fix pass (2026-10-23)
+
+Brief: `briefs/PEOPLE-S3-critique-brief.md` on `brief/people-arc` (sha 9919ea49). Fresh worker, not the builder.
+Full ordered list with severities and verdicts: [`docs/design/people-s3-critique.md`](../../design/people-s3-critique.md).
+
+### What changed
+
+| Finding | Severity | Change |
+|---|---|---|
+| The world jumped down 58 px when the role tabs arrived (layout shift 0.033-0.054; 36 of 40 DJs hold 2+ roles) | should | `PersonFrame` takes an optional `rolesPending` (default false, so S2's call is unchanged) and keeps the 52 px tabs row while the roles read is out; `/djs/:id` passes `!person.answered`. No new read. After: 0 on every multi-role DJ walked. The 4 DJ-only people now see the kept row close (0.031-0.038) |
+| The booking row jumped when the dates arrived (0.022-0.035) | should | the row waits for the dates read (shows on ready and on failed) |
+
+Tests: `DJProfileWorlds.test.tsx` "no jump when the late reads answer" (4 roles states x the tabs row, 3 dates states x the
+booking row). Red on the unfixed code (2 failures: the pending slot, the booking row while loading), green after.
+Mutations: the count at 1 and the "DJ " prefix put back each turn the matrix red.
+
+### Owner calls (not built)
+
+1. Thin and past-only pages say nothing about dates. Recommend a muted line: "No dates on the calendar yet." above
+   "Parties this week" (0 dates), "No dates coming up yet." on a past-only DJ. New copy, so yours to approve.
+2. Thin page: ~430 px of DJ ground before the footer (`GlobalLayout` `min-h-screen`, site-wide). Recommend a
+   later opt-out for the worlds.
+3. "Parties this week" lands on `/parties` ("Find Your Next Party", a calendar). Recommend "Find a party".
+4. No name at all (2 in prod): h1 "DJ", initial "D" (the D5 fallback).
+5. The DJ-only trade in the shift fix (4 of 40 move up once). Removing it needs the roles in the first read.
+
+### Seams (looked at every retaken shot, 390 and 360, plus papacito at 430)
+
+Header (black 85%) to the DJ ground: no step, the site's gold rule between. Sleeve and section cards: a warm brown
+edge on the ground, read as cards. Page to footer: dark to the amber footer, the same edge as every page and the
+mock. Thin pages (brito, chino, carlos, bobby): the sleeve, then the action(s), then empty ground (owner call 2).
+Focus ring: cream 2 px outline seen on the gig row and Back by keyboard.
+
+### CI, every applicable job step, run locally on the fix commit
+
+| Job (workflow) | Result |
+|---|---|
+| unit (unit-tests): ci-live-db-gate, test:unit:offline, test:unit, test:unit:timing, dancer-area-isolation (+self-test) | test:unit 15 failed / 12611 passed: the same 15 as main in this sandbox (3 live-DB contract files on the sandbox's non-prod key, `integrityCouldNotRun`); offline 5 (`integrityCouldNotRun` only). Every other step passes |
+| typecheck: check:rpc-typing, check:wallclock-brand | pass. `npm run typecheck` 100 errors (baseline 106), none in touched files |
+| guard (architecture-guard): integrity, legacy-tables, legacy-program-rpcs, lint:architecture, check:images AUDIT_STRICT=1 | pass (`bin/check-integrity.sh` is not executable in the sandbox, exit 126; `bash bin/check-integrity.sh` = ok, 0 issues; CI runs chmod first) |
+| lint chain | 19 of 20 links pass; the 20th is the same integrity exit 126. eslint on the touched files: only the unchanged `setMounted` line |
+| bundle (perf-budget): 3 self-tests, build, bundle-budget, first-load-requests, chunk-cycles | pass. lighthouse needs a preview |
+| seo-check: self-test / check:seo | self-test pass / check:seo needs a live preview (0 pages fetched from the sandbox) |
+| e2e (e2e-smoke): test:e2e | 154 passed, 4 failed (account-settings x2, magic-link returnTo, organiser header Sign in), 7 skipped; the 4 failed specs' files rerun alone: 22 passed, 0 failed |
+| phone-qa: phone suite / build smoke | 271 passed, 1 failed (organiser contact sheet 360x640), rerun alone: 12 passed / build smoke 67 passed |
+| workflow-lint | pass |
+
+### Verified / Not verified (this pass)
+
+- Verified: production build, prod data, flag ON, Chromium at 390x844 and 360x800 (9 DJs) and 430x932 (papacito):
+  lowest contrast 5.91, every tap >= 44 px, no clipping, no sideways scroll, no page errors, tabs at y = 163; layout
+  shift measured before and after; Back: fresh tab -> `/djs`, dancer page -> DJ -> Back -> the dancer page; the gig
+  time 21:00 matches the event page's own start (9:00 PM).
+- Not verified: real photos (image host blocked), the Vercel preview (no token here: needs owner), a real phone,
+  the share sheet, flag OFF in a browser (unit-tested), the `/code-review` pass (the owner types it).
+
+### PR body (ready to paste)
+
+````markdown
+## Summary
+- **What changed:** with `flags.personWorlds` ON, `/djs/:id` renders `PersonFrame` (Back, Share top right, role tabs above the photo) and then the new DJ world (`src/modules/person-page/worlds/dj/`): the record sleeve (vinyl, DM Serif Display name, the real name small under it, a count only from 2), Upcoming rows, Played at records, a "Book <DJ>" row, and the D8 invite ("Dance bachata too? Get your own card", 44px, to the existing `/auth?mode=signup&returnTo=...` entry). The guestbook is gone. A DJ with no dates gets one "Parties this week" button.
+- **Frame Back rule (D9):** history back when the previous page was on this site; a shared link or a new tab goes to `backHref`. Rule: `frame/backRule.ts`.
+- **facts/:** `wallDayOf`, `gigDateLabel`, `dayNumber`, `timeLabel` ("19:30"), `monthLabel` ("October 2026"), reading the stored London wall clock.
+- **Stage 5 critique + fix pass (fresh worker):** `PersonFrame` takes an optional `rolesPending` and keeps the tabs row while the roles read is out, so the world no longer jumps 58 px when the tabs arrive (36 of 40 DJs hold 2+ roles); the booking row waits for the dates read so it no longer jumps. No new read. Critique: `docs/design/people-s3-critique.md`.
+- **Flag OFF:** today's page, unchanged (tested over every shape). `rolesPending` defaults to false, so S2's frame call is unchanged.
+- Design record: `docs/design/people-s3-dj-world.md`. Handover: `docs/people-arc/s3/HANDOVER.md`.
+
+## Owner calls (in the handover, not built)
+1. A muted "No dates on the calendar yet." line on thin pages (and "No dates coming up yet." on past-only DJs).
+2. Thin pages: ~430 px of DJ ground before the footer (site-wide `GlobalLayout` `min-h-screen`).
+3. "Parties this week" lands on `/parties` (a calendar, "Find Your Next Party"): suggest "Find a party".
+4. No name at all (2 in prod): h1 "DJ", initial "D".
+5. DJ-only people (4 of 40) see the kept tabs row close once (58 px up) when the roles read answers.
+
+## Scope
+- [x] Only S3's files: `src/pages/DJProfile.tsx`, `person-page/frame/**`, `facts/**`, `worlds/dj/**`, tests and docs. No DB change.
+- [x] Additive, backwards compatible frame/facts API.
+
+## Privacy Gates (Hard Requirement)
+- [x] The DJ world renders no `phone` or `whatsapp`. The booking row uses `listenLinks` only.
+
+## CI (every applicable job step run locally on the critique fix commit)
+| Job (workflow) | Result |
+|---|---|
+| unit (unit-tests): live-db gate, test:unit:offline, test:unit, test:unit:timing, dancer-area-isolation (+self-test) | test:unit 15 failed / 12611 passed, the same 15 as main in this sandbox (3 live-DB contract files on a non-prod key, `integrityCouldNotRun`); the rest pass. New tests pass, and were red on the unfixed code |
+| typecheck: check:rpc-typing, check:wallclock-brand | pass (`tsc` 100 errors, baseline 106, none in touched files) |
+| guard (architecture-guard): integrity, legacy-tables, legacy-program-rpcs, lint:architecture, check:images AUDIT_STRICT=1 | pass (integrity: exit 126 = not executable in the sandbox; `bash bin/check-integrity.sh` ok, 0 issues) |
+| lint chain | 19 of 20 links pass, the 20th is that integrity exit 126; eslint on touched files: only the unchanged `setMounted` line |
+| bundle (perf-budget): self-tests, build, bundle-budget, first-load-requests, chunk-cycles | pass; lighthouse needs a preview |
+| seo-check | self-test pass; check:seo needs a live preview |
+| e2e (e2e-smoke): test:e2e | 154 passed, 4 failed (auth/account/organiser specs), rerun alone: 22 passed, 0 failed |
+| phone-qa: phone suite / build smoke | 271 passed, 1 failed (organiser contact sheet), rerun alone: 12 passed / 67 passed |
+| workflow-lint | pass |
+
+## Verified on real data
+- Shapes surveyed: read-only on prod, counts only. 40 public DJs: 0 upcoming gigs for 23, 1 for 10, 2+ for 7 (max 4); 11 with played-at; 12 whose DJ name differs from the public name; 28 with no DJ name; 5 with a "DJ " prefix; 5 no photo; 5 no city; 2 no name at all. Roles: 36 hold 2+ roles, 4 are DJ-only.
+- Checks run: a table-driven vitest matrix (6 prod shapes x flag ON, the same x flag OFF unchanged), the late-read matrix (4 roles states x the tabs row, 3 dates states x the booking row; red on the unfixed code), dates loading/failed/Try again, invite waiting on roles, gig time facts, the Back rule. Mutations (count at 1, "DJ " prefix back) turn the matrix red. A production build on prod data, flag ON, Chromium at 390x844 and 360x800 over 9 real DJs and 430x932 on papacito: lowest contrast 5.91, taps >= 44px, no clipping, no sideways scroll, no page errors, tabs at y=163; layout shift measured before/after (multi-role 0.033-0.054 + 0.022-0.035 -> 0.0003-0.0008). Back in Chromium: direct open -> /djs; dancer page -> DJ -> Back -> the dancer page. Gig time 21:00 matches the event page's start (9:00 PM).
+- NOT verified: real photos (image host blocked, initials rendered), the Vercel preview (no token: needs owner), a real phone, the share sheet, the flag OFF page in a browser (unit-tested), the `/code-review` pass (the owner types it).
+
+## Phone QA
+- Sizes checked: 390x844, 360x800, 430x932 (production build, prod data, flag ON)
+- Walked: 9 real DJs covering every surveyed shape (screenshots in `docs/people-arc/s3/shots/`), Back from a direct open and from the dancer page, gig row to the event page, keyboard focus ring
+- Not verified: real photos, a real phone, the Vercel preview, the share sheet
+
+## Preview
+Needs `VITE_ENABLE_PERSON_WORLDS=true` on the Vercel Preview environment for branch `claude/people-dj-world`, then a redeploy.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+https://claude.ai/code/session_01PbLkKWGt2Eeb35ACJbqzUd
+````
