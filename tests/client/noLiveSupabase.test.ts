@@ -12,7 +12,9 @@ describe('unit tests cannot reach live Supabase', () => {
   });
   it('the real client is blocked end to end', async () => {
     const { supabase } = await import('@/integrations/supabase/client');
-    const res = await supabase.rpc('record_auth_funnel_step_v1' as never, { p_step: 'auth_view', p_outcome: 'ok' } as never);
+    // Same untyped call shape as src/lib/trackAuthStep.ts (the RPC is not in the generated types).
+    const rpc = supabase.rpc as unknown as (fn: string, args: Record<string, string>) => PromiseLike<{ error: unknown }>;
+    const res = await rpc.call(supabase, 'record_auth_funnel_step_v1', { p_step: 'auth_view', p_outcome: 'ok' });
     expect(res.error).toBeTruthy();
   });
 });
