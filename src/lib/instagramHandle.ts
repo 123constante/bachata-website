@@ -9,11 +9,10 @@
 // reels, tv, explore, stories, accounts), else `invalid_instagram`. Parity is a
 // test, not a copy: both sides run src/lib/__fixtures__/phone-instagram-cases.json.
 //
-// Display still goes through extractIgHandle (organiserLinkLabels), so a legacy
-// stored link and a new bare name read the same '@name' everywhere.
+// Import-free on purpose: the dancer app and the organiser screens share it, and
+// an import of organiserLinkLabels dragged two more chunks onto /app (budget).
 // =============================================================================
 
-import { IG_NON_HANDLE_PATHS, extractIgHandle } from '@/lib/organiserLinkLabels';
 
 /** The server's refusal code for an Instagram name that breaks the rule (agreed name, A1). */
 export const INVALID_INSTAGRAM = 'invalid_instagram';
@@ -83,7 +82,7 @@ export function checkInstagramField(raw: string): InstagramFieldCheck {
   if (/[/:]/.test(t) || /^(www\.|m\.)?instagram\.com/i.test(t)) {
     const m = t.match(PROFILE_LINK);
     if (!m) return { ok: false, error: INSTAGRAM_NOT_PROFILE_LINK };
-    if (IG_NON_HANDLE_PATHS.includes(m[3].toLowerCase())) return { ok: false, error: INSTAGRAM_POST_LINK };
+    if ((INSTAGRAM_RESERVED as readonly string[]).includes(m[3].toLowerCase())) return { ok: false, error: INSTAGRAM_POST_LINK };
   }
   const r = normalizeInstagramHandle(raw);
   if ('problem' in r) return { ok: false, error: INSTAGRAM_PROBLEM_COPY[r.problem] };
@@ -93,5 +92,3 @@ export function checkInstagramField(raw: string): InstagramFieldCheck {
 /** The profile link the "tap to check it's you" line opens. */
 export const instagramProfileUrl = (handle: string): string => `https://instagram.com/${encodeURIComponent(handle)}`;
 
-/** '@name' for any stored value (bare name, @name or a legacy link), else 'Instagram'. */
-export const instagramDisplay = (stored: string | null | undefined): string => extractIgHandle(stored ?? null);

@@ -19,7 +19,7 @@
 // verification, so the lever stays available for the retry.
 // =============================================================================
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
@@ -27,7 +27,11 @@ import { toast } from 'sonner';
 import { triggerMicroConfetti } from '@/lib/confetti';
 import { getRaffleSessionId } from '@/lib/raffleSession';
 import { sendWaConfirmation, pollWaVerifyStatus } from '@/lib/raffleWaVerify';
-import { RafflePhoneInput } from './RafflePhoneInput';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+// The phone field (the shared PhoneInput + its country list) loads when the dialog
+// opens, not with /event: shared with the dancer app and organiser screens since
+// invite W2, it was one more first-load chunk on the event page (bundle budget).
+const RafflePhoneInput = lazyWithRetry(() => import('./RafflePhoneInput').then((m) => ({ default: m.RafflePhoneInput })));
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { Sparkles } from 'lucide-react';
 
@@ -351,12 +355,14 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
                 Phone <span className="text-rose-400">*</span>
                 <span className="text-[#A59474] ml-1">(must have WhatsApp)</span>
               </label>
-              <RafflePhoneInput
-                inputId="raffle-phone"
-                value={phoneE164}
-                onChange={(e164, valid) => { setPhoneE164(e164); setPhoneValid(valid); }}
-                disabled={phase !== 'form'}
-              />
+              <Suspense fallback={<div className="h-[44px]" aria-hidden="true" />}>
+                <RafflePhoneInput
+                  inputId="raffle-phone"
+                  value={phoneE164}
+                  onChange={(e164, valid) => { setPhoneE164(e164); setPhoneValid(valid); }}
+                  disabled={phase !== 'form'}
+                />
+              </Suspense>
             </div>
 
             <label className="flex items-start gap-2 text-[11px] leading-snug text-[#D8CCB0] select-none cursor-pointer">

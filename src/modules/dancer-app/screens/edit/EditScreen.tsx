@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { MouseEvent } from 'react';
 import { ChevronLeft } from 'lucide-react';
@@ -8,7 +8,9 @@ import { useLeaveGuard } from '../../shell/leaveGuard';
 import { useMutation } from '@tanstack/react-query';
 import { CityPicker } from '@/components/ui/city-picker';
 import { InstagramInput } from '@/components/forms/InstagramInput';
-import { PhoneInput } from '@/components/forms/PhoneInput';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+// The phone field (+ its country list) loads with this screen, not with /app (bundle budget, invite W2).
+const PhoneInput = lazyWithRetry(() => import('@/components/forms/PhoneInput').then((m) => ({ default: m.PhoneInput })));
 import { NationalityPicker } from '@/components/ui/nationality-picker';
 import { HideSurnameSwitch, hideSurnameDisabledReason } from '@/components/profile/HideSurnameSwitch';
 import { FAVORITE_STYLE_OPTIONS } from '@/components/profile/dancerConstants';
@@ -354,7 +356,9 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
         {eligibleWhatsapp && (
           <div data-testid="edit-whatsapp" className="grid gap-[10px]">
             <Field id="whatsapp" label="WhatsApp" error={shown('whatsapp')} note={note('whatsapp')}>
-              <PhoneInput inputId="whatsapp" value={draft.whatsapp} onChange={(e164) => set('whatsapp', e164)} error={shown('whatsapp')} renderError={false} />
+              <Suspense fallback={<div className="h-[48px]" aria-hidden="true" />}>
+                <PhoneInput inputId="whatsapp" value={draft.whatsapp} onChange={(e164) => set('whatsapp', e164)} error={shown('whatsapp')} renderError={false} />
+              </Suspense>
             </Field>
             <div className="flex min-h-[44px] items-center justify-between gap-[12px]">
               <label htmlFor="show_whatsapp_publicly" className="text-[15px] font-semibold">Show my WhatsApp on my page</label>
