@@ -138,20 +138,17 @@ describe('the quiet actions under the page: status x format x who', () => {
     ['paused', 'recurring', true, ['end']],
     ['ended', 'recurring', true, []],
     ['archived', 'one_off', false, []],
-  ] as const)('owner, %s %s repeats=%s', (status, format, repeats, expected) => {
-    expect(pageActions(status, format, repeats, true)).toEqual(expected);
+  ] as const)('%s %s repeats=%s, for everyone on the event', (status, format, repeats, expected) => {
+    expect(pageActions(status, format, repeats)).toEqual(expected);
   });
 
   it('a live event is never deleted; only a draft is', () => {
-    for (const status of ['live', 'paused', 'ended', 'archived']) expect(pageActions(status, 'recurring', true, true)).not.toContain('delete');
-    expect(pageActions('draft', 'recurring', false, true)).toContain('delete');
+    for (const status of ['live', 'paused', 'ended', 'archived']) expect(pageActions(status, 'recurring', true)).not.toContain('delete');
+    expect(pageActions('draft', 'recurring', false)).toContain('delete');
   });
 
-  it('a co-organiser never gets End, Stop repeating or Delete draft', () => {
-    for (const status of ['draft', 'live', 'paused']) {
-      const a = pageActions(status, 'recurring', true, false);
-      for (const owner of ['end', 'stop', 'delete'] as const) expect(a).not.toContain(owner);
-    }
+  it('everyone on the event gets the same actions (owner decision 4: no owner argument at all)', () => {
+    expect(pageActions.length).toBe(3);
   });
 
   it('Stop repeating asks for the last night: every coming date up to it stays', () => {

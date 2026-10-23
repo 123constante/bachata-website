@@ -205,7 +205,8 @@ function RebuiltEvent({ seriesId }: { seriesId: string }) {
   const ws = useEventWorkspace(seriesId);
   const home = useFlowHome();
   const today = home.data?.today ?? londonTodayKey();
-  if (found.state === 'found' && ws.data) return <EventPage key={ws.data.series.version} ws={ws.data} today={today} />;
+  // EP-2: keyed on the event, never its version: a new read rebases the person's draft instead of throwing it away.
+  if (found.state === 'found' && ws.data) return <EventPage key={ws.data.series.id} ws={ws.data} today={today} />;
   const retry = () => { void home.refetch(); void ws.refetch(); if (found.state === 'error') found.retry(); };
   const body = found.state === 'not-found-archived' || found.state === 'no-access' || found.state === 'gone' ? (
     <EmptyState title={notFoundText(found.state)} testId={`org-event-${found.state}`} />
@@ -238,7 +239,9 @@ export default function OneEvent() {
   const one = findSeries(home.data, seriesId);
   const step = readStep(search.get(STEP_PARAM));
   const name = one?.name ?? ws.data?.series.name ?? 'Event';
-  const rebuild = useRebuildSwitch();
+  // Decision 2: per event (its owner page on the allowlist), so every organiser on it gets the same screen.
+  // Until the event is read this is false and the page below shows its own loading state.
+  const rebuild = useRebuildSwitch(ws.data?.organiserIds ?? null);
   const lock = useEventLock(ws.data);
 
   // A locked step reached by its URL says why instead of opening (C14).

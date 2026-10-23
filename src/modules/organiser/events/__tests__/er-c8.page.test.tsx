@@ -227,11 +227,11 @@ describe('live events: payment nudge and Stop repeating', () => {
     expect(h.send.mock.calls[0][2]).toEqual({ kind: 'series.stop_repeating', payload: { keep_occurrence_ids: ['o0', 'o1', 'o2'] } });
   });
 
-  it('a co-organiser sees Pause only: no End, Stop repeating or Delete', () => {
+  it('a co-organiser gets the same actions as the owner (owner decision 4)', () => {
     h.role = null;
     mount(ws());
     expect(screen.getByTestId('org-action-pause')).toBeTruthy();
-    for (const a of ['end', 'stop', 'delete']) expect(testId(`org-action-${a}`)).toBeNull();
+    expect(screen.getByTestId('org-action-stop')).toBeTruthy();
   });
 
   it('See it live is a link only on a live event', () => {

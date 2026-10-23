@@ -9,12 +9,16 @@ import {
   type OwnerCommand,
 } from '@/modules/organiser/shared/seriesCommands';
 import {
+  EVENT_RULES,
   blockers,
   formatPaymentMethods,
   parsePaymentMethods,
   sessionKindRules,
   sessionKinds,
   validSessionPair,
+  serverCodeBlocker,
+  validTicketUrl,
+  type BlockerCode,
   type PaymentCode,
   type RuleSeries,
   type RuleSession,
@@ -35,7 +39,9 @@ import {
   type PItem,
   type PTree,
 } from './programmeSeriesModel';
+import { goLiveLabel } from '@/modules/organiser/shared/goLiveCheck';
 import {
+  changedFields,
   savePlan,
   stopRepeatingCommand,
   wsComing,
@@ -168,6 +174,25 @@ export function pendingParts(base: PageDraft, draft: PageDraft, tree: PTree, cha
   return parts;
 }
 
+/**
+ * EP-2: the event was read again (a save that half went through, or another organiser's
+ * save) while the person has changes. Keep every part they changed, take the new read
+ * for everything else; what now equals the new read simply stops being pending.
+ */
+export function rebaseDraft(oldBase: PageDraft, newBase: PageDraft, draft: PageDraft): PageDraft {
+  const fields = { ...newBase.fields };
+  for (const f of changedFields(oldBase.fields, draft.fields)) (fields as Record<string, unknown>)[f] = draft.fields[f];
+  return {
+    fields,
+    payment: sameList(oldBase.payment, draft.payment) ? newBase.payment : draft.payment,
+    sessions: JSON.stringify(oldBase.sessions) === JSON.stringify(draft.sessions) ? newBase.sessions : draft.sessions,
+  };
+}
+
+/** EP-3: "Ticket link" chosen as the way to pay with no real link to go with it; null when fine. */
+export const ticketGap = (draft: PageDraft): string | null =>
+  draft.payment.includes('ticket_link') && !validTicketUrl(draft.fields.ticketUrl) ? EVENT_RULES.blockerVariants.ticketUrl : null;
+
 /** Live: "Update live event". Paused (and a draft being edited): "Save changes". */
 export const updateLabel = (status: string): string => (status === 'live' ? 'Update live event' : 'Save changes');
 
@@ -221,8 +246,8 @@ export function pageCommands(base: PageDraft, draft: PageDraft, ws: EventWorkspa
 
 // ---- draft: what is still missing -------------------------------------------
 
-export type CheckKey = 'venue' | 'date' | 'session' | 'flyer' | 'pay';
-export interface CheckItem { key: CheckKey; done: boolean; done_label: string; fix: string }
+export type CheckKey = 'venue' | 'date' | 'session' | 'flyer' | 'pay' | 'other';
+export interface CheckItem { key: CheckKey; done: boolean; done_label: string; fix: string; code?: string }
 
 const FIX: Record<CheckKey, { done: string; fix: string }> = {
   venue: { done: 'Venue', fix: 'Pick a venue' },
@@ -230,7 +255,24 @@ const FIX: Record<CheckKey, { done: string; fix: string }> = {
   session: { done: 'Session', fix: 'Add a session' },
   flyer: { done: 'Flyer', fix: 'Add a flyer' },
   pay: { done: 'How to pay', fix: 'Add how to pay' },
+  other: { done: '', fix: '' },
 };
+const ROWS: CheckKey[] = ['venue', 'date', 'session', 'flyer', 'pay'];
+
+/** The row a rule blocker belongs to; name and format have none (the page always holds them). */
+const BLOCKER_ROW: Partial<Record<BlockerCode, CheckKey>> = {
+  venue: 'venue', date: 'date', dateInPast: 'date', session: 'session', sessionTimes: 'session', festivalDay: 'session',
+  flyer: 'flyer', payment: 'pay', paymentNotAllowed: 'pay',
+};
+/** The A-DB1 go-live codes that are not rule codes (series_go_live_check_v1). */
+const SERVER_ROW: Record<string, CheckKey> = { venue: 'venue', upcoming_date: 'date', session: 'session' };
+
+/** The checklist row a server go-live code turns undone; 'other' when it has no row of its own. */
+export function serverCodeRow(code: string): CheckKey {
+  if (SERVER_ROW[code]) return SERVER_ROW[code];
+  const b = serverCodeBlocker(code);
+  return (b && BLOCKER_ROW[b]) || 'other';
+}
 
 const ruleSessions = (tree: PTree): RuleSession[] =>
   allItems(tree).map((it) => ({ kind: it.type, start: it.start || null, end: it.end || null }));
@@ -250,18 +292,32 @@ export function ruleSeries(ws: EventWorkspace, today: string, tree: PTree): Rule
   };
 }
 
-/** The draft's checklist, in the order a person fixes it; the first undone item is the Publish blocker. */
-export function draftChecklist(ws: EventWorkspace, today: string, tree: PTree): CheckItem[] {
-  const codes = new Set(blockers(ruleSeries(ws, today, tree)).map((b) => b.code));
+/**
+ * The draft's checklist, in the order a person fixes it; the first undone item is the Publish
+ * blocker. EP-13: `serverCodes` (series_go_live_check_v1, the ONE publish rule) can only add
+ * to what the client rule finds, never clear it; a code with no row of its own gets one in
+ * plain words. Without a server answer (loading, offline) the client rule stands alone.
+ */
+export function draftChecklist(ws: EventWorkspace, today: string, tree: PTree, serverCodes: readonly string[] = []): CheckItem[] {
+  const found = blockers(ruleSeries(ws, today, tree));
+  const codes = new Set(found.map((b) => b.code));
+  const fromServer = new Set(serverCodes.map(serverCodeRow));
   const sessions = ruleSessions(tree);
-  const done: Record<CheckKey, boolean> = {
+  const done: Record<Exclude<CheckKey, 'other'>, boolean> = {
     venue: !codes.has('venue'),
     date: !codes.has('date') && !codes.has('dateInPast'),
     session: sessions.length > 0 && sessions.every((s) => validSessionPair(s.start, s.end).valid) && !codes.has('session') && !codes.has('sessionTimes'),
     flyer: !codes.has('flyer'),
     pay: !codes.has('payment') && !codes.has('paymentNotAllowed'),
   };
-  return (Object.keys(FIX) as CheckKey[]).map((key) => ({ key, done: done[key], done_label: FIX[key].done, fix: FIX[key].fix }));
+  const payReason = found.find((b) => b.code === 'payment' || b.code === 'paymentNotAllowed')?.reason;
+  const rows: CheckItem[] = ROWS.map((key) => {
+    const ok = done[key as Exclude<CheckKey, 'other'>] && !fromServer.has(key);
+    return { key, done: ok, done_label: FIX[key].done, fix: key === 'pay' && payReason ? payReason : FIX[key].fix };
+  });
+  const extra = [...new Set(serverCodes.filter((c) => serverCodeRow(c) === 'other'))]
+    .map((code): CheckItem => ({ key: 'other', code, done: false, done_label: goLiveLabel(code), fix: goLiveLabel(code) }));
+  return [...rows, ...extra];
 }
 
 /** Publish is off with the first thing missing as its reason; null when it can be pressed. */
@@ -275,14 +331,12 @@ export type PageAction = 'pause' | 'end' | 'stop' | 'delete';
 
 /**
  * The quiet actions under the page. A live event can only be paused or ended, never
- * deleted; only a draft is deleted. End, Stop repeating and Delete draft are the owner
- * team's: anyone else on the event only sees Pause. (Leave this event waits on the
- * organiser-invites slice, so no control for it is drawn here.)
+ * deleted; only a draft is deleted. Everyone on the event gets the same actions (owner
+ * decision 4, AD2 live on prod); Leave this event is on the Organisers screen.
  */
-export function pageActions(status: string, format: string | null, repeats: boolean, owner: boolean): PageAction[] {
+export function pageActions(status: string, format: string | null, repeats: boolean): PageAction[] {
   if (isClosed(status)) return [];
   const stop: PageAction = repeats && format !== 'course' ? 'stop' : 'end';
-  if (!owner) return status === 'live' ? ['pause'] : [];
   if (status === 'draft') return ['delete'];
   if (status === 'live') return ['pause', stop];
   if (status === 'paused') return ['end'];
@@ -290,6 +344,18 @@ export function pageActions(status: string, format: string | null, repeats: bool
 }
 
 export const DELETE_DRAFT = lifecycleCommand('archived');
+
+/** The End action's words: a one-off is cancelled as a whole (prototype v7, owner click 11). */
+export const endLabel = (format: string | null): string => (format === 'one_off' ? 'Cancel the event' : 'End event');
+export const END_OFF_REASON = 'Not available yet';
+/**
+ * Why End is off, or null. A one-off's "Cancel the event" ends the whole event; the server
+ * command for that (admin PR #963, series.cancel_one_off) is not on prod yet, so the control
+ * stays visible and off and never sends occurrence.cancel (parked/ER-C8.md).
+ */
+export const endOffReason = (format: string | null): string | null => (format === 'one_off' ? END_OFF_REASON : null);
+export const END_LINE = 'Coming dates come off the calendar. Past dates stay.';
+export const PAUSE_LINE = 'Hidden from the calendar until you resume it.';
 
 /** "Stop repeating" asks for the last night: the coming dates to pick from (soonest first). */
 export const lastNightChoices = (ws: EventWorkspace, today: string) => wsComing(ws, today);
@@ -301,7 +367,7 @@ export function stopAfterCommand(ws: EventWorkspace, today: string, lastNight: s
 
 export const STOP_REASON = 'Pick the last night';
 
-/** "+ Add a date" is always there on an open event (one-off: only while it has none coming). */
+/** "+ Add a date" is always there on an open event, a one-off included (the C8 card says always; parked/ER-C8.md EP-11). */
 export const canAddDate = (status: string): boolean => status === 'live' || status === 'paused' || status === 'draft';
 
 // ---- the states -------------------------------------------------------------
