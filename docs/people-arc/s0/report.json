@@ -1,0 +1,124 @@
+{
+  "djs-360": {
+    "tiles": 40,
+    "dates": 17,
+    "dateSamples": [
+      "Next gig Friday 23 October",
+      "Next gig Friday 23 October",
+      "Next gig Friday 23 October"
+    ],
+    "dateOnFace": 0,
+    "dateRows": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "clipped": [],
+    "longestName": "Boadicea  Richards",
+    "sideways": false
+  },
+  "djs-390": {
+    "tiles": 40,
+    "dates": 17,
+    "dateSamples": [
+      "Next gig Friday 23 October",
+      "Next gig Friday 23 October",
+      "Next gig Friday 23 October"
+    ],
+    "dateOnFace": 0,
+    "dateRows": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "clipped": [],
+    "longestName": "Boadicea  Richards",
+    "sideways": false
+  },
+  "dancers-360": {
+    "tiles": 97,
+    "dates": 14,
+    "dateSamples": [
+      "Next gig Monday 26 October",
+      "Next gig Thursday 29 October",
+      "Next gig Saturday 7 November"
+    ],
+    "dateOnFace": 0,
+    "dateRows": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "clipped": [],
+    "longestName": "Sabrina Guzman Pastor",
+    "sideways": false
+  },
+  "dancers-390": {
+    "tiles": 97,
+    "dates": 14,
+    "dateSamples": [
+      "Next gig Monday 26 October",
+      "Next gig Thursday 29 October",
+      "Next gig Saturday 7 November"
+    ],
+    "dateOnFace": 0,
+    "dateRows": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "clipped": [],
+    "longestName": "Sabrina Guzman Pastor",
+    "sideways": false
+  }
+}
