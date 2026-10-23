@@ -537,7 +537,7 @@ describe('organiser parity matrix', () => {
   it('the counts: MATCH / PARTIAL / admin-only / dropped, nothing left to fill', () => {
     const count = (v: Verdict) => PARITY.filter((r) => r.verdict === v).length;
     expect({ match: count('MATCH'), partial: count('PARTIAL'), adminOnly: count('MISSING-ADMIN-ONLY'), dropped: count('DROPPED-BY-DECISION') })
-      .toEqual({ match: 42, partial: 9, adminOnly: 8, dropped: 11 });
+      .toEqual({ match: 42, partial: 9, adminOnly: 8, dropped: 12 });
   });
 });
 

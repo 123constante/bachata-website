@@ -343,7 +343,8 @@ describe('D82: the Go live card, every state', () => {
 
 // The controls C14 turns off on One event (series A: live, weekly) and the draft's Go live.
 const LOCKED_ON_EVENT = ['org-event-pause', 'org-event-end', 'org-event-day', 'org-event-stop', 'org-coming-sessions'];
-const LOCKED_ON_DETAILS = ['org-detail-name', 'org-detail-venue', 'org-detail-time', 'org-detail-music', 'org-detail-tickets', 'org-detail-about',
+// ER-C8 removed the usual-time row from Details (ER rule 1: time comes from the sessions).
+const LOCKED_ON_DETAILS = ['org-detail-name', 'org-detail-venue', 'org-detail-music', 'org-detail-tickets', 'org-detail-about',
   'org-detail-programme', 'org-detail-organisers', 'org-detail-cover', 'org-detail-gallery', 'org-detail-videos'];
 const REASON = 'Finish your profiles first, 4 answers left';
 

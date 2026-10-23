@@ -240,8 +240,11 @@ export function ruleSeries(ws: EventWorkspace, today: string, tree: PTree): Rule
   return {
     name: ws.series.name,
     format: ws.series.format,
+    status: ws.series.lifecycle_status,
+    flyer: ws.series.default_cover_image_url,
     venueId: ws.series.default_venue_id,
     payment: paymentOf(ws),
+    ticketUrl: ws.series.default_ticket_url,
     firstDate: first ? { date: first.occurrence_date, sessions: ruleSessions(tree) } : null,
     today,
   };
@@ -255,7 +258,7 @@ export function draftChecklist(ws: EventWorkspace, today: string, tree: PTree): 
     venue: !codes.has('venue'),
     date: !codes.has('date') && !codes.has('dateInPast'),
     session: sessions.length > 0 && sessions.every((s) => validSessionPair(s.start, s.end).valid) && !codes.has('session') && !codes.has('sessionTimes'),
-    flyer: !!ws.series.default_cover_image_url,
+    flyer: !codes.has('flyer'),
     pay: !codes.has('payment') && !codes.has('paymentNotAllowed'),
   };
   return (Object.keys(FIX) as CheckKey[]).map((key) => ({ key, done: done[key], done_label: FIX[key].done, fix: FIX[key].fix }));

@@ -19,6 +19,8 @@ vi.mock('@/modules/organiser/flows/add/useFlow', () => ({ useFlowHome: () => h.h
 vi.mock('../../shell/rebuildSwitch', () => ({ useRebuildSwitch: () => h.rebuild }));
 vi.mock('../EventPage', () => ({ EventPage: () => createElement('div', { 'data-testid': 'rebuilt-page' }) }));
 vi.mock('../EventList', () => ({ EventList: () => null }));
+// The C14 lock reads its own query; the route's states do not depend on it.
+vi.mock('../ProfileLock', async (orig) => ({ ...(await orig<object>()), useEventLock: () => ({ locked: false, reason: null }) }));
 
 import OneEvent from '../OneEvent';
 
