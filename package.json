@@ -13,6 +13,8 @@
     "check:rpc-typing": "node scripts/check-rpc-typing.mjs",
     "check:journey-grid": "node scripts/check-journey-grid.mjs",
     "check:journey-grid:self-test": "node scripts/check-journey-grid.mjs --self-test",
+    "check:event-rules-mirror": "node scripts/check-event-rules-mirror.mjs",
+    "check:event-rules-mirror:self-test": "node scripts/check-event-rules-mirror.mjs --self-test",
     "check:script-conventions": "node scripts/check-script-conventions.mjs",
     "check:script-conventions:self-test": "node scripts/check-script-conventions.mjs --self-test",
     "check:guest-list-contract": "node scripts/check-guest-list-contract.mjs",

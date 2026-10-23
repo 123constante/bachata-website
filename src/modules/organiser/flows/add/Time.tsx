@@ -9,16 +9,19 @@ import type { SeriesWorkspace } from '@/modules/organiser/shared/seriesModel';
 import { goDone } from '@/modules/organiser/flows/doneState';
 import { FIELD_CLASS, PrimaryButton } from '@/modules/organiser/ui';
 import { cn } from '@/lib/utils';
-import { addDayGate, addDoneMessage, type DayGate, findSeries, seriesLock, timeNotSavedMessage, usualTime } from './addModel';
+import { addDayGate, addDoneMessage, type DayGate, seriesLock, timeNotSavedMessage, usualTime } from './addModel';
 import { useFlowHome, useFlowSend, useSeriesWorkspace } from './useFlow';
-import { ErrorLine, Failed, Loading, Missing, Refusal, Step } from './parts';
+import { ErrorLine, Failed, Loading, Refusal, Step } from './parts';
+import { useOrganiserSeries } from '@/modules/organiser/shared/useOrganiserSeries';
+import { notFoundText } from './notFoundText';
 import { EventConflict } from '../event/parts';
 
 /** C9: the time of the new date, prefilled with the event's usual time; Save adds it (C10 Done, no Undo). */
 export default function Time() {
   const { seriesId = '', date = '' } = useParams();
   const home = useFlowHome();
-  const one = findSeries(home.data, seriesId);
+  const lookup = useOrganiserSeries(seriesId);
+  const one = lookup.state === 'found' ? lookup.series : null;
   const lock = one ? seriesLock(one.lifecycle_status, 'add') : null;
   const ws = useSeriesWorkspace(seriesId, !!one && !lock);
   const today = home.data?.today ?? '';
@@ -30,12 +33,13 @@ export default function Time() {
 
   return (
     <Step title={one?.name ?? 'Add a date'} back={ORG_PATHS.addEvent(seriesId)}>
-      {home.isError || ws.isError ? (
+      {/* A refused workspace read is the lookup's answer (gone / no access), not a failure: only a real error retries. */}
+      {home.isError || lookup.state === 'error' || (one && ws.isError) ? (
         <Failed flow="add" error={ws.error} onRetry={() => { void home.refetch(); void ws.refetch(); }} />
-      ) : !home.data ? (
+      ) : !home.data || lookup.state === 'loading' ? (
         <Loading flow="add" />
       ) : !one ? (
-        <Missing flow="add" />
+        <Refusal flow="add" text={notFoundText(lookup.state)} back={ORG_PATHS.home} backLabel="Back to Home" />
       ) : lock ? (
         <Refusal flow="add" text={lock} back={ORG_PATHS.home} backLabel="Back to Home" />
       ) : !ws.data || !gate ? (
