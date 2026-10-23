@@ -150,7 +150,7 @@ Legend:
 | M53 | W3 | signed out, Sign in on the card | `/auth?mode=signin&returnTo=/invite/<t>`, then the card, then `/account/o` Home of the joined organiser | J:team-invite-existing-dancer | 7 |
 | M54 | W2 | signed in | Gate: `/finish-profile?returnTo=/invite/<t>`, then onboarding ("Next: join the team"), then the card | J:team-invite-unfinished-dancer | 7 |
 | M55 | W5 / W8 | already a member | `already_member`, so `/account/o`, with no message | U `inviteModel.test.ts` (interpretRedeem) | 4 |
-| M56 | any | used / revoked / expired token | A terminal card with a Home link; the token is stripped from the URL | U `inviteModel.test.ts`, `inviteWalkthrough.test.tsx` | 1 open invite |
+| M56 | any | used / revoked / expired token | A terminal card with a Home link; the token is stripped from the URL | U `inviteModel.test.ts`, `join/__tests__/joinJourney.test.tsx` | 1 open invite |
 | M57 | W3 signed in as person B, invite was sent to person A | opens A's invite | **DECISION NEEDED**: the token is bearer-style, so B joins A's team silently (no e-mail check in the client). Claude's default: keep bearer, but the card names the signed-in e-mail ("Joining as b@...") before redeeming | E:`account-edges.build.spec.ts` "a different signed-in person opens an invite: the card names who is joining (M57)"; U `inviteJoiningAs.test.tsx` | 7 |
 | M58 | W0 | magic link on a second device | Device 2 ends on the card; returnTo is in the link URL | J:organiser-link-magic-link-other-device (representative: the same magic-link mechanism; returnTo rides the link URL) | new |
 

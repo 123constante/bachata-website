@@ -51,7 +51,7 @@ vi.mock('@/components/layout/GlobalLayout', () => ({
   ),
 }));
 vi.mock('@/lib/claimMyDancerProfile', () => ({ claimAtSignIn: (...a: unknown[]) => h.claim(...a) }));
-vi.mock('@/lib/clientErrorReporter', () => ({ reportClientError: (...a: unknown[]) => h.report(...a) }));
+vi.mock('@/lib/reportClientErrorLazy', () => ({ reportClientErrorLazy: (...a: unknown[]) => h.report(...a) }));
 vi.mock('@/lib/saveMyDancerProfile', () => ({ saveMyDancerProfile: (...a: unknown[]) => h.save(...a) }));
 vi.mock('@/components/ui/city-picker', () => ({
   CityPicker: ({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) => <input id={id} data-testid="join-city-input" value={value} onChange={(e) => onChange(e.target.value)} />,
@@ -242,7 +242,7 @@ describe('refusals when the code is sent: each its own screen, each says what to
     await sendEmail('ana@blocked.example');
     await stopIs('blocked_domain');
     expect(screen.getByTestId('join-help').getAttribute('href')).toBe(JOIN_COPY.blockedDomain.helpUrl);
-    expect(h.report).toHaveBeenCalledWith('error', expect.objectContaining({ message: 'invite_join:send:blocked_domain' }));
+    expect(h.report).toHaveBeenCalledWith(expect.objectContaining({ message: 'invite_join:send:blocked_domain' }), 'error');
     fireEvent.click(screen.getByTestId('join-dismiss'));
     await stepIs('email');
     expect(screen.getByTestId('join-step').getAttribute('data-stop')).toBeNull();
@@ -273,7 +273,7 @@ describe('refusals when the code is sent: each its own screen, each says what to
     mount();
     await sendEmail();
     await stopIs('rate_limited');
-    for (const call of h.report.mock.calls) expect(JSON.stringify(call) + String((call[1] as Error).message)).not.toMatch(new RegExp(`${TOKEN}|${ME.email}`));
+    for (const call of h.report.mock.calls) expect(JSON.stringify(call) + String((call[0] as Error).message)).not.toMatch(new RegExp(`${TOKEN}|${ME.email}`));
   });
 });
 
@@ -357,7 +357,7 @@ describe('the code step', () => {
     expect(screen.getByTestId('join-not-linked-body').textContent).toBe(JOIN_COPY.notLinked.body('Ricky'));
     expect(redeems()).toHaveLength(1);
     expect(screen.queryByTestId('join-done')).toBeNull();
-    expect(h.report).toHaveBeenCalledWith('error', expect.objectContaining({ message: 'invite_join:claim:not_linked' }));
+    expect(h.report).toHaveBeenCalledWith(expect.objectContaining({ message: 'invite_join:claim:not_linked' }), 'error');
   });
 
   it('person-bound, the claim linked the profile: no stop, straight on', async () => {

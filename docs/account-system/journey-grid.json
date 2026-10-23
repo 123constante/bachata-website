@@ -991,12 +991,12 @@
    "entry": "TI",
    "state": "S-DANCER-PART",
    "action": "signed in",
-   "end": "`/finish-profile?returnTo=/invite/<t>`, onboarding \"Next: join the team\", then the card",
+   "end": "`/invite/<t>` stays (W1 Option B, PR #978): About you inline (first name, city, role, photo), then the Join card",
    "transition": "T-ONBOARD,T-INVITE-REDEEM",
    "covered_by": [
     {
      "kind": "U",
-     "ref": "src/modules/admin-organisers/__tests__/inviteWalkthrough.test.tsx"
+     "ref": "src/modules/admin-organisers/join/__tests__/joinJourney.test.tsx"
     },
     {
      "kind": "J",
@@ -1042,7 +1042,7 @@
     },
     {
      "kind": "U",
-     "ref": "src/modules/admin-organisers/__tests__/inviteWalkthrough.test.tsx"
+     "ref": "src/modules/admin-organisers/join/__tests__/joinJourney.test.tsx"
     }
    ],
    "people": "1 open invite",

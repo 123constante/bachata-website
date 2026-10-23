@@ -1,7 +1,7 @@
 // The join journey's calls. Every function here is thin: the words and the next step live in joinModel /
 // joinCopy. The token goes into RPC arguments only; it is never logged, tagged or sent to the error reporter.
 import { supabase } from '@/integrations/supabase/client';
-import { reportClientError } from '@/lib/clientErrorReporter';
+import { reportClientErrorLazy } from '@/lib/reportClientErrorLazy';
 import { PENDING_ROLE_INTENT_KEY, ROLE_INTENT_META_KEY, SET_MY_ROLE_INTENT_RPC, isFirstSignIn, parseRoleIntentResult } from '@/lib/auth-otp-routing';
 import { previewOrganiserInvite, redeemOrganiserInvite } from '../adminApi';
 import { INVITE_PATH } from '../inviteModel';
@@ -90,13 +90,12 @@ export function attemptRedeem(token: string): Promise<JoinRedeemOutcome> {
   return attempt;
 }
 
-/** Observability (PLAN.md section 3): the step and the outcome code reach the error reporter; no PII, no token. */
+/**
+ * Observability (PLAN.md section 3): the step and the outcome code reach the error reporter; no PII, no
+ * token. Through the ONE lazy call site, so the reporter stays off the first-load path (tests/clientErrorReporterLazy).
+ */
 export function reportJoinFailure(step: string, code: string): void {
-  try {
-    reportClientError('error', new Error(failureTag(step, code)));
-  } catch {
-    /* reporting never breaks the journey */
-  }
+  reportClientErrorLazy(new Error(failureTag(step, code)), 'error');
 }
 
 /** The token leaves the address bar (history, share sheet, Referer) once the link is finished with. */

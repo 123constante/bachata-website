@@ -1,6 +1,8 @@
-# Session handover 2026-10-23: W1 Option B join on /invite (PARTIAL, context gate)
+# Session handover 2026-10-23: W1 Option B join on /invite
 
-Ticket `dt_7d96daf5d47c`. Branch `claude/invite-w1-join` (off `main` d4bff82). Brief: `brief/invite-journey` `briefs/invite-journey/W1.md` (sha 7b951ef4), with `COMMON.md` and `PLAN.md` section 4 "W1". Supersedes PR #959 (not closed). **Merges only after admin A2 is applied** (`not_linked` outcome, `organiser_invites.person_profile_id`).
+**Session 2 (ticket `dt_a9584944d044`, PARTIAL at the 30% context gate): session 1's open items 1-6 are DONE; what is left is in "Still open after session 2" at the end (first: two build-smoke specs).** PR #978.
+
+Session 1 ticket `dt_7d96daf5d47c`, session 2 ticket `dt_a9584944d044`. Branch `claude/invite-w1-join` (off `main` d4bff82). Brief: `brief/invite-journey` `briefs/invite-journey/W1.md` (sha 7b951ef4), with `COMMON.md` and `PLAN.md` section 4 "W1". Supersedes PR #959 (not closed). **Merges only after admin A2 is applied** (`not_linked` outcome, `organiser_invites.person_profile_id`).
 
 Both prototypes were opened and read (join v3 Option B `TYZuWuVfoSLc6MqyHWSB1G`; linking `3gL4uGiZLMX9QgQrNsUQnk`).
 
@@ -17,8 +19,8 @@ Both prototypes were opened and read (join v3 Option B `TYZuWuVfoSLc6MqyHWSB1G`;
 - Table test `join/__tests__/joinMachine.table.test.tsx`: 9 rows x 4 persons = 36, green now. **Red first on main's journey: 36/36 failed** (`docs/invite-w1-red-run-main.txt`, main d4bff82).
 - `tsc -p tsconfig.app.json --noEmit`: clean on the touched files. eslint on `join/`: 0 errors after fixes (not re-run after the last edit).
 
-## Agreed names (added by W1, for A2 to confirm or change)
-Preview keys the client reads when present: `person_profile_id`, `person_first_name`, `person_avatar_url`, `person_city`, `prefill_first_name`, `prefill_city_id`. Absent `person_profile_id` = page invite. Redeem outcome `not_linked` as agreed. Today's prod preview has only `status`, `organiser_name`, `inviter_first_name`, `email_hint` (+ `self_bound`).
+## Agreed names (orchestrator contract decision, 2026-10-23; replaces session 1's flat keys)
+Preview: `person` = `{ first_name, avatar_url, city }` (object present = person-bound invite; absent = page invite; NO `person_profile_id` is exposed) and `prefill` = `{ first_name, city_id }`. Redeem refusal `{ ok: false, reason: 'not_linked' }`. Implemented in `parseJoinPreview` (`JoinPerson` / `JoinPrefill`), `PersonCard`, `AboutStep`; tested in `joinModel.test.ts`. Today's prod preview has only `status`, `organiser_name`, `inviter_first_name`, `email_hint` (+ `self_bound`).
 
 ## Real data (read-only, prod stsdtacfauprzrdebmzg, counts only)
 organiser_invites: 11 rows: open unbound 2, open self-bound 1, expired 1, revoked 2, used 5 (2 of them bound). No `person_profile_id` column yet (A2). redeem attempts: 5, all `redeemed`. dancer_profiles 187, 181 unclaimed, 69 without a photo. Preview function body read: 4 keys + self_bound, never an email.
@@ -36,3 +38,24 @@ organiser_invites: 11 rows: open unbound 2, open self-bound 1, expired 1, revoke
 - Done screen sends to `/account/o` (PLAN table), not the Arc 1 welcome page the old code used.
 - `already_bound` from bind: continue when the fresh hint matches the typed email, else stop "tied to another email".
 - Bind RPC missing on the server = continue without binding (the redeem still guards the address).
+
+## Session 2 (dt_a9584944d044): what was done
+- Contract: `person` / `prefill` objects (above).
+- Page fixes found by the new tests: a thrown transport error from `signInWithOtp` / `verifyOtp` was an unhandled rejection (now a network stop); the persona read is paused BEFORE `verifyOtp` (the SIGNED_IN event fires inside it; otherwise one render could read the persona before the claim); `email_mismatch` after Join shows the wrong-account screen (sign out and continue), not the generic refusal.
+- `joinCopy.ts`: the two Unicode glyphs are `\u` escapes now (the copy-rule test fails on any raw glyph).
+- Tests: `join/__tests__/joinJourney.test.tsx` (49: every screen, every refusal, claim-before-persona order, roles, StrictMode one redeem, home list refreshed, sign-out stays on the page), `joinModel.test.ts` (159: contract, step-table edges, mappings, copy rule), `inviteGate.test.tsx` (21: folds #959's `inviteSelfBoundGate`; path list + gate component + every link kind x incomplete profile -> About inline, never /finish-profile), table test 36 unchanged. Old-journey specs: `invitePrefillJourney`, `inviteJoiningAs`, `inviteWalkthrough` deleted (intent carried into joinJourney); `routes.matrix`, `fixup1`, `polish`, `inviteReasons`, `redeemUnproven`, `invitePreview` trimmed to their admin / pure parts.
+- E2E: `tests/e2e/arc1-invite-redeem-walk.spec.ts` rewritten to the Option B journey (OrganiserFake; whole journey with a reload at the code step, person card, not_linked after the code, dead links, refusals after Join); `tests/e2e-phone/invite-join.phone.spec.ts` (26 cases x 390x844 and 360x640; SHOTS=docs/design/978 writes the pack at 390). Both run against mocks; the real E2E project does not carry A2 yet.
+- Design record `docs/design/978.md` + 28 shots in `docs/design/978/`.
+- eslint allow-list: `JoinScreens.tsx` PersonCard `<img>` (the person's OWN pre-made profile photo), next to the auth / onboarding entries.
+- CI steps run locally: see the PR body's per-job table.
+
+## Still open after session 2 (do these in order)
+1. **phone-qa job, "production-build smoke" (`npx playwright test --config playwright.build.config.ts`) is RED: two specs encode the old journey.**
+   - `tests/e2e-build/account-edges.build.spec.ts:147` (M57 "a different signed-in person opens an invite"): expects `invite-card` with "You are joining as ..." and a "Sign out" control; it now sees "This link does not work" because `wire()` in `tests/e2e-build/helpers/journeyHarness.ts` routes only `redeem_organiser_invite_v1`, never `organiser_invite_preview_v1`, so the fake answers 404 and the new parser treats the link as unknown. Fix: route the preview in `wire()` (`{ status: 'open', organiser_name: <fake org name>, inviter_first_name: 'Diego', email_hint: null }`) for every row that opens `/invite/...`, then rewrite the M57 assertions to Option B: `join-org-card` names the page, `invite-not-you` ("Not you? Use another email") signs out and shows the email step on /invite.
+   - `tests/e2e-build/public-journeys.build.spec.ts` rows with `then: 'join-team'` (e.g. `team-invite-existing-dancer`, END `org-page-welcome`): `runRow` (line 190-201) clicks a `/join/i` button inside `invite-card` and expects the URL to leave `/invite` for the organiser welcome; Option B ends on `/invite` with `join-done` and a "Open your organiser home" link (`join-done-home`, to `/account/o`). The END map entry for `/invite/<token>` (line 32: `invite-card`, label "Next: join the team") also predates Option B. Fix: in `runRow`, for `join-team` rows click `invite-join`, expect `join-done`, then click `join-done-home` and continue to the row's END; add the preview route as above. Run only that config to confirm, then the whole phone suite once (`npx playwright test --config playwright.phone.config.ts`, 390 and 360).
+2. Full `npm run test:unit` re-run: the first full run on this branch had 18 failures: `tests/integrityCouldNotRun.test.ts` (5, red on main too), `tests/*.contract.test.ts` (10, need the live DB; `scripts/ci-live-db-gate.mjs` decides in CI) and 3 real regressions, since fixed and green in isolation (`clientErrorReporterLazy` -> joinApi reports through `reportClientErrorLazy`; `pickerAccessibleName` -> AboutStep row added; `focusChrome` -> Not now from `returnTo=/invite/x` now returns to the invite, row updated with the reason). A second full run was started and not awaited (context gate); re-run and paste the summary.
+3. `npm run lint`: 19 of 20 links green; `check:integrity` exits 126 here only because `bin/check-integrity.sh` is not executable in this checkout (CI chmods first); `bash bin/check-integrity.sh` passes (2339 files, 0 issues).
+4. PR body: refresh the per-job table after 1-2; mark the PR ready (it is a draft).
+5. Vercel: `VERCEL_TOKEN` is set but `api.vercel.com` is refused by the sandbox proxy (needs owner: Vercel token / network). The final push below carries no `[skip preview]`, so a preview build should exist; the orchestrator walks it (stage 6, FRESH invite).
+6. Contrast of the two new tags (emerald / amber on 15% tints) not measured by script.
+7. `scripts/dancer-area-isolation-allowlist.json` still lists the two deleted specs (`inviteJoiningAs`, `inviteWalkthrough`); the check passes; remove the entries when touching that file.
