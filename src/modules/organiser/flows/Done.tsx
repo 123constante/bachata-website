@@ -7,6 +7,7 @@ import { GhostButton, PrimaryButton } from '@/modules/organiser/ui';
 import { useEventWorkspace } from '@/modules/organiser/events/eventsApi';
 import { lifecycleRows } from '@/modules/organiser/events/lifecycleModel';
 import { NEXT_LABEL, readDoneState } from './doneState';
+import { ItsLiveOffer } from './ItsLiveOffer';
 
 /** C38: the public page of the event this flow changed: a link when live, off with the reason for a draft. */
 function SeeItLive({ seriesId }: { seriesId: string }) {
@@ -55,6 +56,7 @@ export default function Done() {
           </GhostButton>
         )}
         {state.seriesId && <SeeItLive seriesId={state.seriesId} />}
+        {state.offer && <ItsLiveOffer roles={state.offer} />}
       </div>
     </OrganiserShell>
   );

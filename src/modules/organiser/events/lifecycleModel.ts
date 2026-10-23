@@ -17,6 +17,7 @@ import {
 } from '@/modules/organiser/shared/goLiveCheck';
 import { PROFILE_WIZARD_PATH } from '@/modules/organiser/shared/profileProgress';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
+import { DEFAULT_AREA_PATHS } from '@/modules/areas/shared/paths';
 import type { EventWorkspace } from './eventModel';
 
 /** Going live from a draft waits on the admin A1 migration; plain words, no jargon. */
@@ -80,6 +81,10 @@ export function goLiveList(check: GoLiveCheck, seriesId: string, linked = true):
  * page that happened to be selected and Go live stayed blocked.
  */
 export function profileFixPath(check: GoLiveCheck): string {
+  // Only a role (A1's teacher / DJ entries) left: that role's own editor fixes it, not the profile wizard.
+  const left = check.profileMissing.filter((p) => p.fields.length > 0);
+  const role = left[0]?.area;
+  if (left.length > 0 && left.every((p) => p.area === role) && (role === 'teacher' || role === 'dj')) return DEFAULT_AREA_PATHS[role].profile;
   const page = check.profileMissing.find((p) => p.area === 'organiser' && p.organiserId && p.fields.length > 0)?.organiserId;
   return page ? `${PROFILE_WIZARD_PATH}?o=${encodeURIComponent(page)}` : PROFILE_WIZARD_PATH;
 }

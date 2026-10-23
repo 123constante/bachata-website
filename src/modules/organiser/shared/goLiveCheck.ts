@@ -17,7 +17,12 @@ type UntypedRpc = {
 const rpc = (fn: string, args?: Record<string, unknown>) => (supabase as unknown as UntypedRpc).rpc(fn, args);
 
 export interface GoLiveItem { code: string; section: string }
-export interface ProfileMissing { area: 'dancer' | 'organiser'; organiserId: string | null; fields: string[] }
+export interface ProfileMissing { area: GoLiveArea; organiserId: string | null; fields: string[] }
+/** A1 (invite journey) adds `teacher` and `dj` entries after dancer and organiser, organiser_id null. */
+export type GoLiveArea = 'dancer' | 'organiser' | 'teacher' | 'dj';
+const GO_LIVE_AREAS: ReadonlySet<string> = new Set<GoLiveArea>(['dancer', 'organiser', 'teacher', 'dj']);
+/** A1's go-live keys for the role areas -> the role editor's field (the DJ key `dj_genres` is the field `genres`). */
+export const ROLE_GO_LIVE_FIELD: Readonly<Record<string, string>> = { teaching_styles: 'teaching_styles', dj_name: 'dj_name', dj_genres: 'genres' };
 export interface GoLiveCheck {
   ready: boolean;
   /** What blocks going live, in the server's order (fix the first one first). */
@@ -101,9 +106,9 @@ export function parseGoLiveCheck(raw: unknown): GoLiveCheck {
     profileRuleApplies: applies,
     profileMissing: profile.map((p) => {
       const r = (p ?? {}) as Record<string, unknown>;
-      if ((r.area !== 'dancer' && r.area !== 'organiser') || !(r.organiser_id === null || typeof r.organiser_id === 'string')
+      if (typeof r.area !== 'string' || !GO_LIVE_AREAS.has(r.area) || !(r.organiser_id === null || typeof r.organiser_id === 'string')
         || !Array.isArray(r.fields) || !r.fields.every((f) => typeof f === 'string')) throw new Error('go_live_bad_shape');
-      return { area: r.area, organiserId: r.organiser_id as string | null, fields: r.fields as string[] };
+      return { area: r.area as GoLiveArea, organiserId: r.organiser_id as string | null, fields: r.fields as string[] };
     }),
   };
 }

@@ -34,8 +34,20 @@ import {
   type CheckAnswer,
   SECTION_LABEL, allSetLine, almostLiveLine, openQuestions, sectionOf, stepInSection, stepKey, mineFor,
 } from './goLiveModel';
+import { fetchMyRoleIntent, myRoleIntentQueryKey, myRolesQueryKey, answerDoYou } from '@/modules/areas/home/rolesApi';
+import { fetchMyRoleDetails, saveMyRole } from '@/modules/areas/shared/areaApi';
+import type { Role } from '@/modules/areas/shared/fieldRegistry';
+import { RoleQuestion } from './RoleQuestionScreen';
+import { ITS_LIVE_TITLE, ROLE_QUESTION_TITLE, ROLE_SAVE_FAILED, itsLiveLine, offerRoles, rolesToAsk, saveRoleAnswers, type RoleAnswers, type RoleQuestionWriters } from './roleQuestion';
 
-type Phase = 'bridge' | 'question' | 'done';
+/** The real role writers: the Your areas Yes/No (B-DB1) and save_my_role_v1, changed keys only. */
+export const REAL_ROLE_QUESTION_WRITERS: RoleQuestionWriters = {
+  answerDoYou: (role, yes) => answerDoYou(role, yes),
+  fetchDetails: async (role) => (await fetchMyRoleDetails(role)).details,
+  saveMyRole,
+};
+
+type Phase = 'bridge' | 'question' | 'roles' | 'done';
 type Dir = 'forward' | 'back';
 
 /** One screen, slid in from the side it came from (0.3 s, none under reduced motion). */
@@ -77,9 +89,10 @@ function Hero({ title, line }: { title: string; line: string }) {
 export interface GoLiveFlowProps {
   writers?: WizardWriters;
   uploadLogo?: (organiserId: string, file: File) => Promise<string>;
+  roleWriters?: RoleQuestionWriters;
 }
 
-function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organiserId: string | null; userId: string; seriesId: string | null } & Required<GoLiveFlowProps>) {
+function Body({ organiserId, userId, seriesId, writers, uploadLogo, roleWriters }: { organiserId: string | null; userId: string; seriesId: string | null } & Required<GoLiveFlowProps>) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const progress = useProfileProgress(organiserId);
@@ -88,8 +101,13 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
   const contact = useQuery({ queryKey: organiserContactSettingsQueryKey(organiserId ?? undefined, userId), queryFn: () => fetchContactSettings(organiserId!), enabled: !!organiserId });
   const ws = useSeriesWorkspace(seriesId ?? '', !!seriesId);
   const eventName = ws.data?.series.name ?? null;
+  // "Do you also DJ or teach?" is asked only on the way to publishing an event; an intent that fails to load skips it.
+  const intent = useQuery({ queryKey: myRoleIntentQueryKey, queryFn: fetchMyRoleIntent, enabled: !!seriesId, retry: false });
+  const intentSettled = !seriesId || !!intent.data || intent.isError;
 
   const [questions, setQuestions] = useState<ProgressStep[] | null>(null);
+  const [asked, setAsked] = useState<Role[]>([]);
+  const [roleAnswers, setRoleAnswers] = useState<RoleAnswers>({});
   const [phase, setPhase] = useState<Phase | null>(null);
   const [at, setAt] = useState(0);
   const [dir, setDir] = useState<Dir>('forward');
@@ -99,10 +117,12 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
   // Take the list ONCE, from a fresh read, and open on the bridge (with an event) or the first question.
   useEffect(() => { void qc.invalidateQueries({ queryKey: ['my-profile-progress'] }); }, [qc]);
   const p = progress.data;
-  if (p && !questions && !progress.isFetching) {
+  if (p && !questions && !progress.isFetching && intentSettled) {
     const list = openQuestions(p);
+    const roles = seriesId && intent.data ? rolesToAsk(intent.data) : [];
     setQuestions(list);
-    setPhase(list.length === 0 ? 'done' : seriesId ? 'bridge' : 'question');
+    setAsked(roles);
+    setPhase(list.length === 0 && roles.length === 0 ? 'done' : seriesId ? 'bridge' : 'question');
   }
 
   const sources = useMemo<WizardSources>(() => ({
@@ -139,7 +159,11 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
   const move = (to: Phase, d: Dir, index = at) => { setDir(d); setPhase(to); setAt(index); setError(null); };
 
   const current = questions && phase === 'question' ? questions[at] : null;
-  const total = questions?.length ?? 0;
+  const asksRoles = asked.length > 0;
+  const qCount = questions?.length ?? 0;
+  // The roles screen counts as one more quick question (bridge line, dots), in "About your page".
+  const total = qCount + (asksRoles ? 1 : 0);
+  const afterQuestions = (d: Dir = 'forward') => (asksRoles ? move('roles', d, qCount) : move('done', d, total));
 
   const answer = async (s: ProgressStep, value: unknown) => {
     const entry = WIZARD_STEPS.get(stepKey(s))!;
@@ -149,14 +173,36 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
     setSaving(false);
     if (outcome.kind === 'failed') { setError(outcome.message); return; }
     if (outcome.kind === 'saved') await invalidateAfterAnswer(qc, s.area, organiserId, userId);
-    if (at + 1 >= total) move('done', 'forward', total);
+    if (at + 1 >= qCount) afterQuestions();
     else move('question', 'forward', at + 1);
+  };
+
+  const answerRoles = async (answers: RoleAnswers) => {
+    setRoleAnswers(answers);
+    setSaving(true);
+    setError(null);
+    try {
+      const writes = await saveRoleAnswers(asked, answers, roleWriters);
+      if (writes > 0) {
+        void qc.invalidateQueries({ queryKey: myRoleIntentQueryKey });
+        void qc.invalidateQueries({ queryKey: myRolesQueryKey });
+        if (seriesId) void qc.invalidateQueries({ queryKey: goLiveCheckQueryKey(seriesId) });
+      }
+      setSaving(false);
+      move('done', 'forward', total);
+    } catch {
+      setSaving(false);
+      setError(ROLE_SAVE_FAILED);
+    }
   };
 
   const back = () => {
     if (phase === 'question' && at > 0) move('question', 'back', at - 1);
     else if (phase === 'question' && seriesId) move('bridge', 'back', 0);
-    else if (phase === 'done' && total > 0) move('question', 'back', total - 1);
+    else if (phase === 'roles' && qCount > 0) move('question', 'back', qCount - 1);
+    else if (phase === 'roles') move('bridge', 'back', 0);
+    else if (phase === 'done' && asksRoles) move('roles', 'back', qCount);
+    else if (phase === 'done' && qCount > 0) move('question', 'back', qCount - 1);
     else goHome();
   };
 
@@ -166,7 +212,7 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
     await flow.run(async () => {
       const r = await flow.send(seriesId, ws.data!.series.version, lifecycleCommand('live'));
       void qc.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
-      if (r) goDone(navigate, { title: 'Live', message: `Live - ${ws.data!.series.name}`, seriesId });
+      if (r) goDone(navigate, { title: ITS_LIVE_TITLE, message: itsLiveLine(ws.data!.series.name), seriesId, offer: offerRoles(intent.data ?? null, roleAnswers) });
     });
   };
 
@@ -197,7 +243,7 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
         <Hero title={ALMOST_LIVE_TITLE} line={almostLiveLine(eventName ?? 'Your event', total)} />
         <Dots total={total} at={-1} />
         <div className="space-y-[8px]">
-          <PrimaryButton testId="golive-continue" onClick={() => move('question', 'forward', 0)}>{CONTINUE_LABEL}</PrimaryButton>
+          <PrimaryButton testId="golive-continue" onClick={() => (qCount > 0 ? move('question', 'forward', 0) : afterQuestions())}>{CONTINUE_LABEL}</PrimaryButton>
           <GhostButton testId="golive-not-now" onClick={goHome}>{NOT_NOW_LABEL}</GhostButton>
         </div>
       </Slide>
@@ -206,7 +252,8 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
     const entry = WIZARD_STEPS.get(stepKey(current))!;
     const Step = entry.Component;
     const sec = sectionOf(current);
-    const { k, n } = stepInSection(questions!, at);
+    const { k, n: inSection } = stepInSection(questions!, at);
+    const n = inSection + (asksRoles && sec === 'page' ? 1 : 0);
     const mine = mineFor(current, sources);
     body = (
       <Slide id={stepKey(current)} dir={dir}>
@@ -224,6 +271,19 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
         <div data-step={stepKey(current)} data-required="true">
           <Step key={stepKey(current)} field={current.field} value={entry.read(sources)} required saving={saving} error={error} onAnswer={(v) => void answer(current, v)} />
         </div>
+      </Slide>
+    );
+  } else if (phase === 'roles') {
+    const pageQuestions = questions!.filter((q) => sectionOf(q) === 'page').length;
+    body = (
+      <Slide id="roles" dir={dir}>
+        <Dots total={total} at={qCount} />
+        <p className="flex items-center justify-between text-[13px] text-[var(--mut)]" data-testid="golive-section">
+          <span className="font-semibold text-[var(--fg)]">{SECTION_LABEL.page}</span>
+          <span>Step {pageQuestions + 1} of {pageQuestions + 1}</span>
+        </p>
+        <h2 className="text-[20px] font-bold leading-[26px] text-[var(--fg)]" data-testid="golive-question" tabIndex={-1}>{ROLE_QUESTION_TITLE}</h2>
+        <RoleQuestion asked={asked} saving={saving} error={error} initial={roleAnswers} onContinue={(a) => void answerRoles(a)} />
       </Slide>
     );
   } else {
@@ -283,7 +343,7 @@ function Body({ organiserId, userId, seriesId, writers, uploadLogo }: { organise
   );
 }
 
-export function GoLiveFlowScreen({ writers = REAL_WRITERS, uploadLogo = uploadOrganiserPhoto }: GoLiveFlowProps) {
+export function GoLiveFlowScreen({ writers = REAL_WRITERS, uploadLogo = uploadOrganiserPhoto, roleWriters = REAL_ROLE_QUESTION_WRITERS }: GoLiveFlowProps) {
   const { user, home, selected } = useOrganiserChoice();
   const [params] = useSearchParams();
   if (!user) return null;
@@ -294,7 +354,7 @@ export function GoLiveFlowScreen({ writers = REAL_WRITERS, uploadLogo = uploadOr
       </OrganiserShell>
     );
   }
-  return <Body key={`${selected?.id ?? 'none'}:${params.get('series') ?? ''}`} organiserId={selected?.id ?? null} userId={user.id} seriesId={params.get('series')} writers={writers} uploadLogo={uploadLogo} />;
+  return <Body key={`${selected?.id ?? 'none'}:${params.get('series') ?? ''}`} organiserId={selected?.id ?? null} userId={user.id} seriesId={params.get('series')} writers={writers} uploadLogo={uploadLogo} roleWriters={roleWriters} />;
 }
 
 export default function GoLiveFlow() {

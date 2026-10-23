@@ -33,7 +33,7 @@ export function SkipButton({ onSkip, disabled }: { onSkip: () => void; disabled:
 }
 
 /** "Optional." (plus the help) on optional steps; the required reason on required ones. */
-function Hint({ id, required, help }: { id: string; required: boolean; help?: ReactNode }) {
+export function Hint({ id, required, help }: { id: string; required: boolean; help?: ReactNode }) {
   const text = required ? (help ? <>{help} {REQUIRED_HINT}</> : REQUIRED_HINT) : help ? <>Optional. {help}</> : 'Optional.';
   return <p id={id} data-testid="step-hint" className="text-[13px] text-[var(--mut)]">{text}</p>;
 }
@@ -64,7 +64,7 @@ function TeamHelp() {
   );
 }
 
-function StepError({ error }: { error: string | null }) {
+export function StepError({ error }: { error: string | null }) {
   if (!error) return null;
   return (
     <>
@@ -75,7 +75,7 @@ function StepError({ error }: { error: string | null }) {
 }
 
 /** Continue once something is entered; else Skip (optional) or a disabled Continue with its reason (required). */
-function StepFooter({ blank, required, saving, hintId, onContinue, onSkip }: {
+export function StepFooter({ blank, required, saving, hintId, onContinue, onSkip }: {
   blank: boolean; required: boolean; saving: boolean; hintId: string; onContinue: () => void; onSkip?: () => void;
 }) {
   if (blank && !required) return onSkip ? <SkipButton onSkip={onSkip} disabled={saving} /> : null;
@@ -86,7 +86,7 @@ function StepFooter({ blank, required, saving, hintId, onContinue, onSkip }: {
   );
 }
 
-function Frame({ testId, children }: { testId: string; children: ReactNode }) {
+export function Frame({ testId, children }: { testId: string; children: ReactNode }) {
   return <div className="space-y-[16px]" data-testid={testId}>{children}</div>;
 }
 
