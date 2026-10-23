@@ -11,7 +11,8 @@ import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/Scroll
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { supabase } from "@/integrations/supabase/client";
-import { FESTIVALS_LIST_QUERY_KEY, fetchPublicFestivalsList } from "@/lib/festivalsList";
+import { FESTIVALS_LIST_QUERY_KEY, fetchPublicFestivalsList, filterUpcomingFestivals, type FestivalListItem } from "@/lib/festivalsList";
+import { londonTodayKey } from "@/lib/londonDate";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AuthPromptModal } from "@/components/AuthPromptModal";
@@ -102,6 +103,9 @@ const FestivalHubInner = () => {
     // attendance/status queries below stay short-lived (they're personalised
     // and never dehydrated).
     staleTime: 1000 * 60 * 60,
+    // The RPC returns every public festival, past included; the shared rule (as the
+    // home rail) keeps upcoming only. select re-runs on render, so London midnight rolls over.
+    select: (rows: FestivalListItem[]) => filterUpcomingFestivals(rows, londonTodayKey()),
   });
 
   const festivalIds = useMemo(() => festivals.map((festival) => festival.id), [festivals]);
