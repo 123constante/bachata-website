@@ -141,3 +141,12 @@ Not fixed, by owner rule:
           node scripts/check-going-legacy-rpcs.mjs --self-test
           npm run check:going-legacy-rpcs
 ```
+
+### Fix round: CI results on the final head, and what is next
+
+- Local CI, every applicable step: architecture-guard, typecheck, tz legs, dancer-area-isolation, perf-budget, lint (22/22) and pre-commit all PASS.
+- Unit tests: the same 15 sandbox-only failures as on main (3 contract files hitting the non-prod key; `integrityCouldNotRun`).
+- e2e: 164 of 165 green. `organiser-home.spec.ts:55` also fails on `origin/main`.
+- Live anon contract check against prod: PASS. With `REQUIRE_GOING_PEOPLE=1` it gives exit 2, as designed.
+- Next: the orchestrator walks a preview built with `VITE_ENABLE_GOING_PREVIEW=true`, and pastes the two R8 YAML steps.
+- Owner calls still open: the Privacy copy before switch-on; whether the calendar list may use past-tense counts (`goingCountText(count, past)`).
