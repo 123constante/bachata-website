@@ -33,3 +33,13 @@ same one-row removal in your working tree only (never commit it), and show oneBa
 
 ## Push
 ONE push. Last commit subject ends `[worker-done <ticket>]` (NOT [skip preview]).
+
+## Two owner wording decisions (2026-10-23, owner picked both) -- person-page files only
+1. Gig count only from 2: one upcoming gig reads "Next gig Friday 23 October" with NO "1 coming up"; 2+ keeps " &middot; N coming up"
+   (N = total, as today). Where: `hub/model.ts` (nextGigOf / the line builder) and anything on the wall that prints the same count.
+2. Gig date with the month and the FULL weekday (owner copy rule: "Friday", never "Fri"): "Friday 23 October". Change the ONE
+   date label the wall and the hub share (`wallDateLabel`, wall/model.ts or wherever it lives) so both surfaces change together;
+   London date, same day-rollover as today. Check the longer line still fits at 360px (no clipping, the reserved two-row line
+   in the Also card still holds; re-measure the late-data shift, must stay 0).
+Table-driven tests, red first, for both (0, 1, 2, 5 gigs; a date this month and next month). Update the design record numbers.
+Do NOT touch the language codes ("es, en"): that is a separate dancer-area PR later.
