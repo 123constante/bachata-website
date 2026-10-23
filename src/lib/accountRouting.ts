@@ -126,7 +126,8 @@ export const isDancerGatedPath = (pathname: string): boolean => {
   if (path === ACCOUNT_SETTINGS_PATH || path.startsWith(`${ACCOUNT_SETTINGS_PATH}/`) || path === ACCOUNT_DELETED_PATH) return false;
   // The sign-in landing only reads; each side it opens is gated where it lives.
   if (path === CONTINUE_AS_PATH || path === `${CONTINUE_AS_PATH}/`) return false;
-  return isAccountPath(path) || path === INVITE_PATH || path.startsWith(`${INVITE_PATH}/`);
+  // /invite is NOT gated (W1, Option B): the invite page asks the dancer questions inline and never leaves.
+  return isAccountPath(path);
 };
 
 /**
