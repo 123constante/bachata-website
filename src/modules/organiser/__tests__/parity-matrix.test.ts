@@ -81,6 +81,7 @@ const PROD_UPSERT_KEYS = [
   'default_duration_minutes', 'default_start_date', 'default_level', 'default_ticket_url',
   'default_description', 'default_cover_image_url', 'default_music_styles', 'default_gallery',
   'default_video_urls', 'timezone', 'category', 'default_passes', 'instagram_url',
+  'payment_methods', // ER AD1, on prod (v_owner_upsert_keys read 2026-10-23)
 ];
 const PROD_OVERRIDE_KEYS = ['venue_id', 'city_id', 'cancellation_reason_label', 'cover_image_url', 'ticket_url', 'description'];
 const PROD_CANCEL_KEYS = ['cancelled', 'reason'];
@@ -262,10 +263,7 @@ export const PARITY: Row[] = [
     shows: [['events/ProgrammeSheet.tsx', 'prog-add-person'], ['events/ProgrammeSheet.tsx', 'prog-recent']] },
   { id: 'C13', capability: 'See + edit the sessions inside one date', verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
     sends: [SAVE_PROGRAMME], shows: [['shared/selfServeApi.ts', "programmeRpc('organiser_get_occurrence_programme_v1'"], [SHEET, 'label="Type"']] },
-  { id: 'C14', capability: 'Usual start / end time', verdict: 'MATCH', screen: DETAILS, from: [[DETAILS, 'detailEditPath']],
-    sends: [
-      upsert(['name', 'default_local_start_time'], () => detailCommand(ws, 'time', '21:00'), DETAILS, 'detailCommand('),
-    ] },
+  { id: 'C14', capability: 'Usual start / end time', verdict: 'DROPPED-BY-DECISION', decision: 'ER rule 1 (time comes from the sessions)' },
   { id: 'C15', capability: 'Repeat rule (weekly)', verdict: 'MATCH', screen: ONE, from: TO_STEP,
     sends: [
       { in: 'flows/event/EventStep.tsx', token: 'dayChangeCommand(', kind: 'series.set_recurrence', keys: ['mode', 'weekdays', 'interval', 'end'], build: () => dayChangeCommand(ws.series.recurrence_rule, 3) },
@@ -541,7 +539,7 @@ describe('organiser parity matrix', () => {
   it('the counts: MATCH / PARTIAL / admin-only / dropped, nothing left to fill', () => {
     const count = (v: Verdict) => PARITY.filter((r) => r.verdict === v).length;
     expect({ match: count('MATCH'), partial: count('PARTIAL'), adminOnly: count('MISSING-ADMIN-ONLY'), dropped: count('DROPPED-BY-DECISION') })
-      .toEqual({ match: 43, partial: 9, adminOnly: 8, dropped: 11 });
+      .toEqual({ match: 42, partial: 9, adminOnly: 8, dropped: 12 });
   });
 });
 

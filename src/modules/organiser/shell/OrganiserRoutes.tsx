@@ -1,6 +1,6 @@
 import { Suspense, useEffect, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useAuth } from '@/hooks/useAuth';
 import { useAccountGate } from '@/lib/accountGate';
@@ -12,6 +12,7 @@ import { SkeletonRows } from '../ui/Skeleton';
 import { ModuleLegacyRedirect } from './LegacyRedirect';
 import { OrganiserShell } from './OrganiserShell';
 import { ORG_PATHS } from './paths';
+import { RebuildSwitchContext, rebuildEnabled, rebuildPending } from './rebuildSwitch';
 
 // One lazy chunk per folder. main's screens stay mounted on the R1 paths until
 // their slice swaps them. Every R1 route group has landed (INT2): no route
@@ -30,7 +31,7 @@ const CancelFlow = lazyWithRetry(() => import('../flows/cancel')); // S3 flows/c
 const NewFlow = lazyWithRetry(() => import('../flows/new'));
 const EventDetails = lazyWithRetry(() => import('../events/Details'));
 const ProgrammeSeries = lazyWithRetry(() => import('../events/ProgrammeSeries')); // SW1 series programme
-const SeriesOrganisers = lazyWithRetry(() => import('../events/SeriesOrganisers')); // SW1 event organisers
+const SeriesOrganisers = lazyWithRetry(() => import('../organisers/OrganisersRoute')); // SW1 event organisers; the rebuilt screen per event (ER-FIX2-S4)
 const TeamFlow = lazyWithRetry(() => import('../team/TeamFlow')); // S6 team/ (add, person)
 const HandoverFlow = lazyWithRetry(() => import('../flows/handover')); // S6 flows/handover
 const MorePage = lazyWithRetry(() => import('../more')); // S7 more/
@@ -89,10 +90,22 @@ function AccountGated({ children }: { children: ReactNode }) {
  */
 export default function OrganiserRoutes() {
   useNoindexMeta(true);
+  // ER-S0: the one flag read. It answers from the home read the shell already holds.
+  const { user } = useAuth();
+  const home = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled: !!user?.id });
+  const raw = import.meta.env.VITE_ORGANISER_REBUILD;
+  const rebuild = {
+    raw,
+    on: rebuildEnabled(raw, (home.data?.organisers ?? []).map((o) => o.id)),
+    // ER-FIX-W2 F11: an allowlist waits for the home read, so an allowlisted login never sees the old screen flash first.
+    pending: rebuildPending(raw, !!user?.id && !home.data && !home.isError),
+  };
   return (
+    <RebuildSwitchContext.Provider value={rebuild}>
     <AuthGuard>
       <PrefetchOrganiserHome />
       <AccountGated>
+        {rebuild.pending ? <ShellFallback /> : (
         <Suspense fallback={<ShellFallback />}>
           <Routes>
             <Route index element={<HomePage />} />
@@ -153,7 +166,9 @@ export default function OrganiserRoutes() {
             <Route path="*" element={<Navigate to={ORG_PATHS.home} replace />} />
           </Routes>
         </Suspense>
+        )}
       </AccountGated>
     </AuthGuard>
+    </RebuildSwitchContext.Provider>
   );
 }

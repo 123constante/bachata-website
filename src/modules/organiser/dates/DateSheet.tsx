@@ -38,12 +38,15 @@ import { PUT_IT_BACK, TAKE_OFF } from '@/modules/organiser/shared/copy';
 import { pickerQueryKey, searchPickerRows } from './peoplePicker';
 import { confirmCopy } from '@/modules/organiser/shared/editorGuards';
 import type { VenueOption } from '@/modules/organiser/shared/publicVenues';
+import { moveDayOptions, moveDayProblem } from './dateChanges';
 import { ROLE_NOUN, addRoleFor, onSessionIds, pickPerson, sessionName, setSessionType, typeLabel, typeTone } from './dateModel';
 
 export type SheetState =
   | { view: 'session'; key: string }
   | { view: 'search'; key: string }
   | { view: 'venue' }
+  | { view: 'move' }
+  | { view: 'copy' }
   | { view: 'cancel' }
   | { view: 'uncancel' }
   | { view: 'break' }
@@ -75,6 +78,17 @@ export interface DateSheetProps {
   reasonsLoading: boolean;
   reasonsError?: boolean;
   onRetryReasons?: () => void;
+  /** Move to another day (one-off only). */
+  currentDate: string | null;
+  today: string;
+  moveTo: string | null;
+  onMoveTo: (day: string | null) => void;
+  /** Days the event already holds (never offered as a move target). */
+  moveHeld?: readonly string[];
+  /** Copy changes from another date. */
+  copyDates: { id: string; label: string; sub: string }[];
+  onCopy: (id: string) => Promise<boolean>;
+  cancelTitle: string;
   onCancelDate: (reason: string) => void;
   onUncancelDate: () => void;
   onBreak: () => void;
@@ -111,8 +125,15 @@ export function DateSheet(props: DateSheetProps) {
   } else if (state?.view === 'venue') {
     title = 'Venue for this date';
     body = <VenueView {...props} />;
+  } else if (state?.view === 'move') {
+    title = 'Move to another day';
+    body = <MoveView {...props} />;
+    footer = <PrimaryButton onClick={close} testId="date-move-done" disabled={moveProblem(props) !== null}>Use this day</PrimaryButton>;
+  } else if (state?.view === 'copy') {
+    title = 'Copy changes from';
+    body = <CopyView {...props} />;
   } else if (state?.view === 'cancel') {
-    title = `Cancel ${props.dateLabel}`;
+    title = props.cancelTitle;
     body = <CancelView {...props} />;
   } else if (state?.view === 'uncancel') {
     title = `Put ${props.dateLabel} back on`;
@@ -428,6 +449,65 @@ function CancelView({ dateLabel, reasons, reasonsLoading, reasonsError, onRetryR
       <PrimaryButton disabled={!reason || !ack} loading={commandBusy} onClick={() => reason && onCancelDate(reason)} testId="date-cancel-confirm">
         {copy.confirmLabel}
       </PrimaryButton>
+    </div>
+  );
+}
+
+// ---- time shift / move / copy -------------------------------------------------
+
+const moveProblem = (p: Pick<DateSheetProps, 'moveTo' | 'currentDate' | 'today'>) =>
+  moveDayProblem(p.moveTo ?? '', p.currentDate, p.today);
+
+/** F-C9-8: a list of valid days (the next 30, minus the days the event holds), never a free date with error lines. */
+function MoveView(props: DateSheetProps) {
+  const days = moveDayOptions(props.today, props.currentDate, props.moveHeld);
+  return (
+    <Card>
+      <div role="radiogroup" aria-label="New day" data-testid="date-move-view">
+        {days.map((d) => {
+          const on = props.moveTo === d.date;
+          return (
+            <button
+              key={d.date}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => props.onMoveTo(d.date)}
+              data-testid="move-option"
+              className={`flex min-h-[48px] w-full items-center justify-between gap-[8px] px-[16px] text-left text-[15px] ${on ? 'font-semibold text-[var(--gold-fg,#ffa600)]' : 'text-[var(--fg)]'}`}
+            >
+              {d.label}
+              {on && <Check aria-hidden="true" className="h-[18px] w-[18px] shrink-0" />}
+            </button>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function CopyView({ copyDates, onCopy, onState }: DateSheetProps) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (copyDates.length === 0) return <p className="text-[14px] text-[var(--mut)]" data-testid="date-copy-empty">No other coming date to copy from. Add a date first.</p>;
+  return (
+    <div className="space-y-[8px]" data-testid="date-copy-view">
+      {failed && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="date-copy-error">We could not read that date. Try again.</p>}
+      <Card>
+        {copyDates.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            disabled={busy}
+            onClick={async () => { setBusy(true); setFailed(false); const ok = await onCopy(c.id); setBusy(false); if (ok) onState(null); else setFailed(true); }}
+            data-testid="copy-option"
+            className="flex min-h-[52px] w-full flex-col justify-center px-[16px] py-[8px] text-left"
+          >
+            <span className="text-[15px] text-[var(--fg)]">{c.label}</span>
+            <span className="text-[13px] text-[var(--mut)]">{c.sub}</span>
+          </button>
+        ))}
+      </Card>
     </div>
   );
 }

@@ -1,10 +1,11 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { isRuleDate } from '@/modules/organiser/shared/seriesModel';
 import { notEditableCopy } from '@/modules/organiser/shared/programmeModel';
 import { TAKE_OFF } from '@/modules/organiser/shared/copy';
 import { cancelFromChangePath } from '@/modules/organiser/flows/cancel/cancelModel';
-import { useNextDateProgramme } from '@/modules/organiser/events/eventsApi';
+import { useEventWorkspace, useNextDateProgramme } from '@/modules/organiser/events/eventsApi';
+import { useRebuildSwitch } from '@/modules/organiser/shell/rebuildSwitch';
 import { DateStep } from './DateStep';
 import { DETAIL_LABEL, FESTIVAL_TIME, isFestival, type DetailField } from './changeModel';
 import { StepList, StepRow } from './parts';
@@ -20,6 +21,13 @@ export const OFF_ONLY_RULE = 'Only a date of the weekly repeat can be taken off.
  */
 export default function WhatChanges() {
   const navigate = useNavigate();
+  // ER-FIX2-S6 (F-C9-5, duplicates): on the rebuilt screens the date page owns
+  // the time (Night starts), copy and cancel; Take this date off is gone (rule 9).
+  const { seriesId: routeSeriesId = '' } = useParams();
+  const eventWs = useEventWorkspace(routeSeriesId);
+  const rebuilt = useRebuildSwitch(eventWs.data?.organiserIds ?? null);
+  // Never a flash of the old rows while the switch is still being read.
+  const oldRows = !rebuilt && !eventWs.isLoading;
   return (
     <DateStep back={(s) => ORG_PATHS.changeEvent(s)}>
       {({ seriesId, occurrenceId, ws, date }) => {
@@ -31,22 +39,24 @@ export default function WhatChanges() {
             <StepList testId="change-what">
               <LineupRow seriesId={seriesId} occurrenceId={occurrenceId} />
               {/* F-PAR-final N2: set_time refuses a festival; Sessions and line-up above is the way on. */}
-              <StepRow testId="change-time" label="Change the time" sub={festival ? FESTIVAL_TIME : undefined} disabled={festival}
-                onClick={() => navigate(ORG_PATHS.changeTime(seriesId, occurrenceId))} />
+              {oldRows && (
+                <StepRow testId="change-time" label="Change the time" sub={festival ? FESTIVAL_TIME : undefined} disabled={festival}
+                  onClick={() => navigate(ORG_PATHS.changeTime(seriesId, occurrenceId))} />
+              )}
               <StepRow testId="change-venue" label="Different venue this date only" onClick={() => navigate(ORG_PATHS.changeVenue(seriesId, occurrenceId))} />
               {DETAILS.map((f) => (
                 <StepRow key={f} testId={`change-${f}`} label={DETAIL_LABEL[f]} onClick={() => navigate(ORG_PATHS.changeDetail(seriesId, occurrenceId, f))} />
               ))}
-              <StepRow testId="change-copy" label="Copy changes from another date" onClick={() => navigate(ORG_PATHS.changeCopy(seriesId, occurrenceId))} />
+              {oldRows && <StepRow testId="change-copy" label="Copy changes from another date" onClick={() => navigate(ORG_PATHS.changeCopy(seriesId, occurrenceId))} />}
             </StepList>
             <StepList testId="change-what-off">
-              <StepRow
+              {oldRows && <StepRow
                 testId="change-off"
                 label={TAKE_OFF.label}
                 sub={ruleDate ? TAKE_OFF.sub : OFF_ONLY_RULE}
                 disabled={!ruleDate}
                 onClick={() => navigate(ORG_PATHS.changeOff(seriesId, occurrenceId))}
-              />
+              />}
               <StepRow
                 testId="change-cancel"
                 label="Cancel this date"

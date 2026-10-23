@@ -24,6 +24,10 @@ import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { nothingComingUp } from '@/modules/organiser/shared/lifeLabel';
 import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { LifecycleActions } from './LifecycleActions';
+import { EventPage } from './EventPage';
+import { useRebuildSwitch } from '../shell/rebuildSwitch';
+import { useOrganiserSeries } from '../shared/useOrganiserSeries';
+import { notFoundText } from '../flows/add/notFoundText';
 import { goLiveLeads } from './lifecycleModel';
 import { LockedRow, LockedScreen, LockNote, useEventLock, type EventLock } from './ProfileLock';
 
@@ -194,6 +198,32 @@ function dayNow(ws: EventWorkspace): string {
 }
 
 /**
+ * The rebuilt event page's route (ER-C8): loading, the not-found split (archived / no access /
+ * gone), a failed read with Try again, then the page. Only with the rebuild switch on.
+ */
+function RebuiltEvent({ seriesId }: { seriesId: string }) {
+  const found = useOrganiserSeries(seriesId);
+  const ws = useEventWorkspace(seriesId);
+  const home = useFlowHome();
+  const today = home.data?.today ?? londonTodayKey();
+  // EP-2: keyed on the event, never its version: a new read rebases the person's draft instead of throwing it away.
+  if (found.state === 'found' && ws.data) return <EventPage key={ws.data.series.id} ws={ws.data} today={today} />;
+  const retry = () => { void home.refetch(); void ws.refetch(); if (found.state === 'error') found.retry(); };
+  const body = found.state === 'not-found-archived' || found.state === 'no-access' || found.state === 'gone' ? (
+    <EmptyState title={notFoundText(found.state)} testId={`org-event-${found.state}`} />
+  ) : found.state === 'error' || ws.isError ? (
+    <ErrorState onRetry={retry} retrying={home.isFetching || ws.isFetching} testId="org-event-error" />
+  ) : (
+    <SkeletonRows count={5} label="Loading the event" testId="org-event-loading" />
+  );
+  return (
+    <OrganiserShell title="Event" back={{ to: ORG_PATHS.events, label: 'Events' }} testId="org-page-event">
+      {body}
+    </OrganiserShell>
+  );
+}
+
+/**
  * /account/o/events/:seriesId (C36, D23): leads with its dates -- the month
  * with dots, the coming dates (Home's next dates, "N more" from the
  * workspace), the cancelled ones with Put it back (D46), the dates taken off --
@@ -210,6 +240,9 @@ export default function OneEvent() {
   const one = findSeries(home.data, seriesId);
   const step = readStep(search.get(STEP_PARAM));
   const name = one?.name ?? ws.data?.series.name ?? 'Event';
+  // Decision 2: per event (its owner page on the allowlist), so every organiser on it gets the same screen.
+  // Until the event is read this is false and the page below shows its own loading state.
+  const rebuild = useRebuildSwitch(ws.data?.organiserIds ?? null);
   const lock = useEventLock(ws.data);
 
   // A locked step reached by its URL says why instead of opening (C14).
@@ -221,6 +254,7 @@ export default function OneEvent() {
     );
   }
   if (step && ws.data) return <EventStep ws={ws.data} today={today} step={step} />;
+  if (rebuild) return <RebuiltEvent seriesId={seriesId} />;
 
   const body = ws.isError && isAccessRefusal(ws.error) ? (
     <NoAccess />
@@ -242,6 +276,7 @@ export default function OneEvent() {
       {goLiveLeads(ws.data) && <LifecycleActions ws={ws.data} today={today} lock={lock} />}
       <MonthDots ws={ws.data} today={today} />
       <Dates seriesId={seriesId} home={one} ws={ws.data} today={today} lock={lock} />
+      {/* Switch OFF keeps main's Dates taken off (the date sheet's "Take a week off" points here); rule 9 drops it on the rebuilt page only. */}
       <DatesTakenOff series={ws.data.series} dates={ws.data.dates} today={today} lock={eventLock(ws.data.series.lifecycle_status)}
         dirty={false} canChooseEnd={!!ownerWeeklyRule(ws.data.series)} />
       <Actions ws={ws.data} today={today} lock={lock} />

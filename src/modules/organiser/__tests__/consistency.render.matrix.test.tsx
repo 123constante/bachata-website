@@ -246,13 +246,6 @@ const OFF_ROWS: OffRow[] = [
     reason: () => screen.queryByTestId('event-step-reason'),
     says: () => /\S/,
   },
-  {
-    row: 'change the event time: an untouched Save',
-    path: () => detailEditPath(A, 'time'),
-    control: () => screen.findByTestId('org-detail-save'),
-    reason: () => screen.queryByTestId('event-step-reason'),
-    says: () => /\S/,
-  },
 ];
 
 const isOff = (el: HTMLElement) => el.getAttribute('aria-disabled') === 'true' || (el as HTMLButtonElement).disabled === true;
@@ -323,7 +316,6 @@ const UNTOUCHED: UntouchedRow[] = [
     untouch: () => fireEvent.click(screen.getByText('Salsa Bar')),
   },
   { screen: 'change the name', path: () => detailEditPath(A, 'name'), save: 'org-detail-save', ...typed('org-detail-input', 'Friday Social Club') },
-  { screen: 'change the event time', path: () => detailEditPath(A, 'time'), save: 'org-detail-save', ...typed('org-detail-input', '21:30') },
 ];
 
 describe('Save is off until the value differs, and an untouched Save sends NO command', () => {
@@ -478,56 +470,6 @@ describe('A-B2: a login the event workspace refuses sees the no-access copy, wit
     open(ORG_PATHS.event(A));
     expect(await screen.findByTestId('org-event-error-retry')).toBeTruthy();
     expect(screen.queryByTestId(NO_ACCESS_TESTID)).toBeNull();
-  });
-});
-
-describe('A-S1: Put back on One event is a CONFLICTS row (R3-7 view, one button) and reuses its key on a retry', () => {
-  // Friday 13 November 2026: a weekly-Friday rule date, taken off. Not day(10): AFTER is listed there, and
-  // takenOffView never offers a date that is still listed (INT4: the test had never passed).
-  const TAKEN = day(24);
-  const takeOff = () => {
-    const prev = rpc.getMockImplementation() as (f: string, a: Record<string, unknown>) => Promise<{ data: { series: { series: Record<string, unknown> } } }>;
-    rpc.mockImplementation(async (f: string, a: Record<string, unknown>) => {
-      const res = await prev(f, a);
-      if (f === 'admin_event_workspace_p5') res.data.series.series.removed_dates = [TAKEN];
-      return res;
-    });
-  };
-
-  it('put a taken-off date back: version_conflict ends on the R3-7 view, ONE button, to the event', async () => {
-    world.command = () => CONFLICT;
-    takeOff();
-    open(ORG_PATHS.event(A));
-    await press('org-taken-off-put-back');
-    await waitFor(() => expect(writes().length).toBeGreaterThan(0));
-    await flush();
-    const box = await screen.findByTestId('event-conflict');
-    expect(box.textContent).toContain(VERSION_CONFLICT);
-    const buttons = within(box).queryAllByRole('button');
-    expect(buttons).toHaveLength(1);
-    expect(screen.queryByTestId('org-taken-off-error')).toBeNull();
-    fireEvent.click(buttons[0]);
-    await waitFor(() => expect(where()).toBe(ORG_PATHS.event(A)));
-    // Back on the event, looking again: the conflict view is gone and Put back is offered afresh.
-    await waitFor(() => expect(screen.queryByTestId('event-conflict')).toBeNull());
-    expect(await screen.findByTestId('org-taken-off-put-back')).toBeTruthy();
-    expect(commandsOf(rpc)).toHaveLength(1);
-  });
-
-  it('a lost reply then a retry sends the SAME idempotency key (the server replays, no second write)', async () => {
-    let n = 0;
-    world.command = () => (++n === 1 ? { data: null, error: { message: 'Failed to fetch' } } : { data: { ok: true, new_version: 10 }, error: null });
-    takeOff();
-    open(ORG_PATHS.event(A));
-    await press('org-taken-off-put-back');
-    await screen.findByTestId('org-taken-off-error');
-    await press('org-taken-off-put-back');
-    await waitFor(() => expect(commandsOf(rpc)).toHaveLength(2));
-    const [first, second] = commandsOf(rpc);
-    expect(first.env.command.payload).toEqual({ date: TAKEN });
-    expect(second.env.command).toEqual(first.env.command);
-    expect(first.env.idempotency_key).toMatch(/\S/);
-    expect(second.env.idempotency_key).toBe(first.env.idempotency_key);
   });
 });
 

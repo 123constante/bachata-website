@@ -198,7 +198,7 @@ describe('11a/b: a new session', () => {
 // ---- 11d: the save bar -----------------------------------------------------------
 
 describe('11d: the date page save bar reads like the event page', () => {
-  it('says Saved while nothing changed, Save changes once something did', async () => {
+  it('says Saved while nothing changed, Save this date once something did', async () => {
     await readyDate();
     await screen.findAllByTestId('session-row');
     const action = screen.getByTestId('date-preview-bar-action') as HTMLButtonElement;
@@ -206,7 +206,7 @@ describe('11d: the date page save bar reads like the event page', () => {
     expect(action.disabled).toBe(true);
     fireEvent.click(within(screen.getAllByTestId('session-row')[0]).getByTestId('session-row-open'));
     fireEvent.change(await screen.findByTestId('session-name'), { target: { value: 'Basics 2' } });
-    expect((screen.getByTestId('date-preview-bar-action') as HTMLButtonElement).textContent).toContain('Save changes');
+    expect((screen.getByTestId('date-preview-bar-action') as HTMLButtonElement).textContent).toContain('Save this date');
   });
 
   it('a locked (past) date shows no save bar', async () => {

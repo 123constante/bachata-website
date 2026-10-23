@@ -30,9 +30,9 @@ import { MusicEdit } from './MusicEdit';
 import { castEmptyLine, castLine, castOf, parseTree, programmeOff, sessionCount } from './programmeSeriesModel';
 import { useSeriesRole } from './programmeSeriesApi';
 
-const TEXT_FIELDS: TextDetail[] = ['name', 'time', 'music', 'tickets', 'about'];
+const TEXT_FIELDS: TextDetail[] = ['name', 'music', 'tickets', 'about'];
 const ROW = 'flex min-h-[52px] w-full items-center gap-[12px] px-[16px] py-[8px] text-left';
-const MAX_LEN: Record<TextDetail, number> = { name: 120, time: 5, level: 60, music: 300, tickets: 500, instagram: 300, about: MAX_DESCRIPTION };
+const MAX_LEN: Record<TextDetail, number> = { name: 120, level: 60, music: 300, tickets: 500, about: MAX_DESCRIPTION };
 
 const readField = (raw: string | null): TextDetail | null => TEXT_FIELDS.find((f) => f === raw) ?? null;
 
@@ -57,8 +57,8 @@ function DetailEdit({ ws, field }: { ws: EventWorkspace; field: TextDetail }) {
         <>
           {field === 'about'
             ? <textarea {...props} rows={6} className={cn(FIELD_CLASS, 'min-h-[132px] py-[10px]')} />
-            : <input {...props} type="text" inputMode={field === 'time' ? 'numeric' : field === 'tickets' ? 'url' : 'text'}
-                placeholder={field === 'time' ? '20:00' : field === 'music' ? 'Bachata, Kizomba' : undefined} className={cn(FIELD_CLASS, 'h-[48px]')} />}
+            : <input {...props} type="text" inputMode={field === 'tickets' ? 'url' : 'text'}
+                placeholder={field === 'music' ? 'Bachata, Kizomba' : undefined} className={cn(FIELD_CLASS, 'h-[48px]')} />}
           {problem && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="org-detail-problem">{problem}</p>}
           <SendButton label="Save" testId="org-detail-save" reason={!changed ? 'Nothing changed yet' : problem} busy={busy} onSend={save} />
           <StepError text={error} />
@@ -196,7 +196,6 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
         {lockedBy && profile.reason && <LockNote reason={profile.reason} seriesId={seriesId} testId="org-detail-lock" />}
         {row('name', shown(ws, 'name'))}
         {row('venue', venueName(venues.data, ws.series.default_venue_id) ?? (ws.series.default_venue_id ? 'Venue' : 'Add'))}
-        {row('time', shown(ws, 'time'))}
         {(['music', 'tickets', 'about'] as TextDetail[]).map((f) => row(f, shown(ws, f)))}
         {pageRow('programme', 'Programme', countLabel(sessionCount(tree), 'session', 'sessions'), ORG_PATHS.eventProgramme(seriesId))}
         <div className={cn(ROW, 'text-[var(--mut)]')} data-testid="org-detail-cast">

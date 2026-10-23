@@ -195,7 +195,7 @@ describe('SHOULD-3: the venue row writes on sheet close', () => {
 });
 
 describe('NOTE-2: detailCommand is null for an unchanged value, on its own', () => {
-  const FIELDS: TextDetail[] = ['name', 'time', 'level', 'music', 'tickets', 'instagram', 'about'];
+  const FIELDS: TextDetail[] = ['name', 'level', 'music', 'tickets', 'about'];
   it.each(FIELDS)('%s', (field) => {
     world = defaultWorld();
     wsOver = { [A]: { default_level: 'All levels', default_ticket_url: 'https://t.example.com/x', instagram_url: 'https://www.instagram.com/x', default_music_styles: ['Bachata', 'Kizomba'] } };

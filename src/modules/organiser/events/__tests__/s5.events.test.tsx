@@ -168,17 +168,6 @@ describe('C36 one event: dates first (D23)', () => {
     expect(put.getAttribute('href')).toBeNull();
     expect(within(row).getByTestId('org-put-back-reason').textContent).toBe(RESTORE_CAP_NOTE);
   });
-
-  it('a taken-off date is put back with ONE series.unskip_date', async () => {
-    wsOver[A] = { removed_dates: [day(24)] };
-    mount(ORG_PATHS.event(A), routes);
-    fireEvent.click(await screen.findByTestId('org-taken-off-put-back'));
-    await flush();
-    const sent = commandsOf(rpc);
-    expect(sent).toHaveLength(1);
-    expect(sent[0].env.command).toEqual({ kind: 'series.unskip_date', payload: { date: day(24) } });
-    expect(sent[0].env.expected_version).toBe(world.seriesVersion);
-  });
 });
 
 type Case = { name: string; id: string; step: Parameters<typeof eventStepPath>[1]; pick?: string; kind: string; payload: Record<string, unknown>; done: RegExp };
@@ -251,7 +240,6 @@ describe('C42-C44: each action sends exactly ONE command, then Done', () => {
 type Field = { field: Parameters<typeof detailEditPath>[1]; value: string; key: string; sent: unknown };
 const FIELDS: Field[] = [
   { field: 'name', value: 'Friday Social Club', key: 'name', sent: 'Friday Social Club' },
-  { field: 'time', value: '21:30', key: 'default_local_start_time', sent: '21:30' },
   // 'music' is chips since SW1: events/__tests__/sw1.parity.test.tsx
   { field: 'tickets', value: 'https://tickets.example.com/x', key: 'default_ticket_url', sent: 'https://tickets.example.com/x' },
   { field: 'about', value: 'Open social, all levels.', key: 'default_description', sent: 'Open social, all levels.' },
@@ -260,13 +248,14 @@ const FIELDS: Field[] = [
 describe('C37 details: tap-to-edit rows, ONE series.upsert each', () => {
   it('lists the rows, the cover link and the existing line-up row (EditorRows ScheduleCard)', async () => {
     const { container } = mount(ORG_PATHS.eventDetails(A), routes);
-    for (const f of ['name', 'venue', 'time', 'music', 'tickets', 'about']) {
+    for (const f of ['name', 'venue', 'music', 'tickets', 'about']) {
       expect(await screen.findByTestId(`org-detail-${f}`)).toBeTruthy();
     }
     // S-FEEDBACK 1: the owner's four rows are not on the event page.
-    for (const f of ['ends', 'level', 'instagram', 'prices']) expect(screen.queryByTestId(`org-detail-${f}`)).toBeNull();
+    // ER-C8 rule 1: no Time row either (time comes from the sessions).
+    for (const f of ['time', 'ends', 'level', 'instagram', 'prices']) expect(screen.queryByTestId(`org-detail-${f}`)).toBeNull();
     const card = screen.getByTestId('org-detail-rows').textContent ?? '';
-    for (const word of ['Ends', 'Level', 'Instagram', 'Prices']) expect(card).not.toContain(word);
+    for (const word of ['Time', 'Ends', 'Level', 'Instagram', 'Prices']) expect(card).not.toContain(word);
     expect(screen.getByTestId('org-detail-cover').getAttribute('href')).toBe(ORG_PATHS.cover(A));
     expect(screen.getByTestId('org-detail-cover').textContent).toContain(FLYER_LABEL);
     expect(await screen.findByTestId('org-schedule')).toBeTruthy();

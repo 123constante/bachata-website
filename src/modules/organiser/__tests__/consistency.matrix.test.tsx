@@ -305,7 +305,4 @@ describe('G2: one conflict view, one conflict detector, no raw punctuation on On
     expect(code('flows/new/useNewSend.ts')).toMatch(/\bisVersionConflict\b/);
     expect(code('flows/fix/CoverFlow.tsx')).toMatch(/\bisVersionConflict\b/);
   });
-  it('events/DatesTakenOff.tsx has no raw Unicode punctuation (B-N8)', () => {
-    expect(readFileSync(join(ROOT, 'events/DatesTakenOff.tsx'), 'utf8').match(/[\u2014\u2026\u2018\u2019\u201C\u201D]/g) ?? []).toEqual([]);
-  });
 });

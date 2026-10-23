@@ -17,7 +17,8 @@
 // Team card and its "Add a person" picker (TeamSheet). Team adds are live once
 // Done answers: team access is not page content, so it is not in the draft.
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { UNSAFE_DataRouterContext, UNSAFE_DataRouterStateContext, type Blocker, type BlockerFunction } from 'react-router-dom';
+import { UNSAFE_DataRouterContext, type BlockerFunction } from 'react-router-dom';
+import { useLeaveBlocker } from '@/modules/organiser/shared/useLeaveBlocker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { resolveCanonicalCity } from '@/lib/city-canonical';
@@ -457,33 +458,6 @@ function buildShown(entity: ProfileEntity, drafts: Drafts): Partial<Record<'inst
   return out;
 }
 
-const IDLE_BLOCKER = { state: 'unblocked', proceed: undefined, reset: undefined, location: undefined } as Blocker;
-let blockerSeq = 0;
-
-/**
- * react-router's useBlocker, rebuilt on the router's own getBlocker/deleteBlocker.
- * Importing useBlocker itself puts its code in the SHARED react-router chunk,
- * which is on every route's first load (+0.3 KB gz, measured: /classes went
- * over its perf-budgets.json budget). Here it stays in this lazy owner chunk.
- * The predicate compares pathnames only, so react-router's basename strip is
- * not needed (the site has no basename either).
- */
-function useLeaveBlocker(shouldBlock: BlockerFunction): Blocker {
-  const router = useContext(UNSAFE_DataRouterContext)?.router;
-  const blockers = useContext(UNSAFE_DataRouterStateContext)?.blockers;
-  const [key, setKey] = useState('');
-  useEffect(() => {
-    if (!router) return;
-    const k = `eip-${++blockerSeq}`;
-    setKey(k);
-    return () => router.deleteBlocker(k);
-  }, [router]);
-  useEffect(() => {
-    if (router && key) router.getBlocker(key, shouldBlock);
-  }, [router, key, shouldBlock]);
-  return (key && blockers?.get(key)) || IDLE_BLOCKER;
-}
-
 /**
  * Leaving in-app (the back link, any route change) with a draft. Only mounted
  * under a data router (the blocker needs one); the public page always is one.
@@ -493,7 +467,7 @@ function LeaveGuard({ active, onSave, onDiscard }: { active: boolean; onSave: ()
     ({ currentLocation, nextLocation }) => active && currentLocation.pathname !== nextLocation.pathname,
     [active],
   );
-  const blocker = useLeaveBlocker(shouldBlock);
+  const blocker = useLeaveBlocker(shouldBlock, 'eip');
   const firstRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   // What had focus before the dialog: Stay here gives it back (B-S8 c).
