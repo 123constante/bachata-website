@@ -54,12 +54,16 @@ export async function lookupPostcode(raw: string, fetchImpl: FetchLike = (u) => 
   const lat = r?.latitude;
   const lng = r?.longitude;
   if (!r || typeof lat !== 'number' || typeof lng !== 'number') return { ok: false, failure: 'not_found' };
-  const ward = str(r.admin_ward) || str(r.parish);
-  const district = str(r.admin_district);
-  const area = ward || district;
-  const address = [ward, district].filter((p, i, a) => p && a.indexOf(p) === i).join(', ');
-  return { ok: true, found: { postcode: str(r.postcode) || postcode, lat, lng, address, area } };
+  const area = str(r.admin_ward) || str(r.parish) || str(r.admin_district);
+  const found = str(r.postcode) || postcode;
+  return { ok: true, found: { postcode: found, lat, lng, address: placeLine({ area, postcode: found }), area } };
 }
+
+/**
+ * The place line the Add-a-venue sheet shows ('Area, POSTCODE'), and the address a new
+ * draft venue stores: owner click F-C5-5, the stored address is exactly what the person saw.
+ */
+export const placeLine = (place: { area: string; postcode: string }): string => [place.area, place.postcode].filter(Boolean).join(', ');
 
 /** OpenStreetMap embed for the map pin; no key. */
 export function mapPinUrl(lat: number, lng: number): string {

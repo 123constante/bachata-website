@@ -369,7 +369,11 @@ export function blockingIssues(initial: readonly SessionDraft[], current: readon
     const was = before.get(s.id);
     const nameChanged = !was || was.name !== s.name;
     const timesChanged = !was || was.start !== s.start || was.end !== s.end;
-    return sessionIssues(s).filter((i) => blocksDone(i) && (i.code === 'name' ? nameChanged : timesChanged));
+    const issues = sessionIssues(s).filter((i) => blocksDone(i) && (i.code === 'name' ? nameChanged : timesChanged));
+    // Owner click (ER-FIX2-S5): no untimed NEW session, both times when adding (the server refuses one too:
+    // "session % needs both start_time and end_time"). A stored untimed session stays valid (decision 3).
+    if (!was && isUntimedSession(toRuleSession(s))) issues.push({ code: 'start', reason: SESSION_REASONS.start });
+    return issues;
   });
 }
 

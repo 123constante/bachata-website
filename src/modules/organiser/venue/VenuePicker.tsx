@@ -4,7 +4,7 @@ import { MapPin, Plus } from 'lucide-react';
 import { useVenueOptions, venueOptionsQueryKey, type VenueOption } from '../shared/publicVenues';
 import { ErrorState, Field, FIELD_CLASS, GhostButton, PrimaryButton, SearchField, useDebounced } from '../ui';
 import { createVenueDraft, draftVenueOption, similarVenues, VenueApiError, type CreatedVenue, type SimilarVenue } from './venueApi';
-import { lookupPostcode, mapPinUrl, normalisePostcode, POSTCODE_MESSAGES, type PostcodeFound, type PostcodeResult } from './postcode';
+import { lookupPostcode, mapPinUrl, placeLine, normalisePostcode, POSTCODE_MESSAGES, type PostcodeFound, type PostcodeResult } from './postcode';
 import { addVenueBlock, currentLookup, MIN_NAME_LETTERS, similarKey, type LookupAnswer, type SimilarAnswer } from './addVenue';
 import { MIN_ADD_LETTERS, searchVenues } from './venueSearch';
 
@@ -238,7 +238,7 @@ export function VenuePicker({ options, onPick, deps = realDeps }: VenuePickerPro
           <iframe title="Map pin" src={mapPinUrl(place.lat, place.lng)} loading="lazy" className="h-[140px] w-full rounded-[12px] border-0" />
           <p className="text-[14px] text-[var(--fg)]">
             {trimmed.length >= MIN_NAME_LETTERS && <><b>{trimmed}</b>{' '}</>}
-            <span className="text-[var(--mut)]">{[place.area, place.postcode].filter(Boolean).join(', ')}</span>
+            <span className="text-[var(--mut)]">{placeLine(place)}</span>
           </p>
         </div>
       )}

@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { isServerRefusal } from '../shared/selfServeErrors';
-import type { PostcodeFound } from './postcode';
+import { placeLine, type PostcodeFound } from './postcode';
 
 /**
  * Client for the pinned venue RPCs (ER-INTERFACE section 3). Built to the pinned names; the
@@ -59,7 +59,7 @@ export async function createVenueDraft(name: string, place: PostcodeFound, rpc: 
     p_postcode: place.postcode,
     p_lat: place.lat,
     p_lng: place.lng,
-    p_address: place.address,
+    p_address: placeLine(place),
     p_area: place.area,
   });
   if (error) throw toError(error);
@@ -70,5 +70,5 @@ export async function createVenueDraft(name: string, place: PostcodeFound, rpc: 
 
 /** A draft venue as a picker option, so it can be chosen on the event at once. */
 export function draftVenueOption(venueId: string, name: string, place: PostcodeFound) {
-  return { id: venueId, name: name.trim(), neighbourhood: place.area || null, city_name: null, address: place.address || null, postcode: place.postcode };
+  return { id: venueId, name: name.trim(), neighbourhood: place.area || null, city_name: null, address: placeLine(place) || null, postcode: place.postcode };
 }

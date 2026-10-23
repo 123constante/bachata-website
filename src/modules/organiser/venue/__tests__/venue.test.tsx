@@ -41,9 +41,9 @@ const GOOD = { result: { postcode: 'E1 6AN', latitude: 51.5, longitude: -0.07, a
 
 describe('postcode shapes', () => {
   it.each([['e16an', 'E1 6AN'], [' SW1A 1AA ', 'SW1A 1AA'], ['nope', null], ['12345', null], ['', null]])('normalise %j', (raw, out) => expect(normalisePostcode(raw)).toBe(out));
-  it('found: address, area, lat/lng', async () => {
+  it('found: address (the sheet line, F-C5-5), area, lat/lng', async () => {
     const r = await lookupPostcode('e16an', ok(GOOD));
-    expect(r).toEqual({ ok: true, found: { postcode: 'E1 6AN', lat: 51.5, lng: -0.07, address: 'Spitalfields, Tower Hamlets', area: 'Spitalfields' } });
+    expect(r).toEqual({ ok: true, found: { postcode: 'E1 6AN', lat: 51.5, lng: -0.07, address: 'Spitalfields, E1 6AN', area: 'Spitalfields' } });
   });
   it('bad shape never calls the network', async () => {
     const f = vi.fn();
@@ -63,7 +63,7 @@ describe('RPC client (pinned interface, server faked)', () => {
   it('create sends the pinned arguments and parses existing', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: { venue_id: 'n1', existing: true }, error: null });
     expect(await createVenueDraft(' New ', place, rpc)).toEqual({ venueId: 'n1', existing: true });
-    expect(rpc).toHaveBeenCalledWith('owner_create_venue_draft_v1', { p_name: 'New', p_postcode: 'E1 6AN', p_lat: 51.5, p_lng: -0.07, p_address: 'a', p_area: 'b' });
+    expect(rpc).toHaveBeenCalledWith('owner_create_venue_draft_v1', { p_name: 'New', p_postcode: 'E1 6AN', p_lat: 51.5, p_lng: -0.07, p_address: 'b, E1 6AN', p_area: 'b' });
   });
   it('similar parses rows and drops malformed ones', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: { venues: [{ venue_id: 'a', name: 'A', postcode: 'E1 6AN' }, { name: 'bad' }] }, error: null });

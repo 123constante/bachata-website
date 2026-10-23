@@ -82,6 +82,11 @@ const PAIRS: Pair[] = [
   { what: 'Accent text button on sheet', fg: '--gold', bg: ['--sheet'], file: 'ui/SheetView.tsx', uses: ['font-semibold text-[var(--gold)]'] },
   { what: 'Accent text button on card', fg: '--gold', bg: ['--card'], file: 'ui/PersonRow.tsx', uses: ['font-semibold text-[var(--gold)]'] },
   { what: 'Button label on accent', fg: '--btnfg', bg: ['--btn'], file: 'ui/Buttons.tsx', uses: ['var(--btnfg)'] },
+  // ER-FIX2-S5 (S4 Not verified): the danger words on the event page (actions on the ground, End in the
+  // No coming dates card, the failed-update line in the dock sheet) and the danger-filled confirm buttons.
+  ...(['--bg', '--card', '--card2', '--sheet'] as const).map((s): Pair => (
+    { what: `Danger text on ${s}`, fg: '--danger', bg: [s], file: 'events/EventPage.tsx', uses: ["'text-[var(--danger)]'"] })),
+  { what: 'Button label on danger', fg: '--btnfg', bg: ['--danger'], file: 'events/EventPage.tsx', uses: ['bg-[var(--danger)] text-[var(--btnfg)]'] },
 ];
 
 describe('Ember text contrast is at least 4.5:1', () => {
