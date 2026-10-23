@@ -114,10 +114,10 @@ export default function InviteRedeemPage() {
   const info = preview.data ?? null;
   // A link already finished with is shown as such; the signed-in used-by-me person is sent Home first.
   if (info && info.status !== 'open') return <BrokenLink token={token} preview={info} />;
-  // A BOUND link redeems before the dancer questions (the server skips its profile check for the proven address),
-  // so the sender's pre-fill can reach them; every other link keeps the dancer-first gate.
-  const bound = info?.emailHint != null;
-  if (bound) return <InviteRedeem preview={info} />;
+  // Bound by the SENDER skips the dancer gate (the server skips its profile check for the proven address, so the
+  // pre-fill reaches them); self-bound and unbound links finish the dancer profile first.
+  const skipGate = info?.emailHint != null && info.selfBound !== true;
+  if (skipGate) return <InviteRedeem preview={info} />;
   return (
     <DancerProfileGate fallback={checking}>
       <InviteRedeem preview={info} />

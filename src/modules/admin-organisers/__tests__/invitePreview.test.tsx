@@ -93,3 +93,17 @@ describe('parseInvitePreview', () => {
     expect(parseInvitePreview(v)?.emailHint ?? null).toBe(hint);
   });
 });
+
+describe('parseInvitePreview self_bound', () => {
+  it.each([
+    [true, true],
+    [false, false],
+    [undefined, false],
+    [null, false],
+    ['true', false],
+  ])('self_bound %j -> selfBound %s', (v, expected) => {
+    const raw: Record<string, unknown> = { status: 'open', email_hint: 'r...@ymail.com', organiser_name: 'Ritmo' };
+    if (v !== undefined) raw.self_bound = v;
+    expect(parseInvitePreview(raw)?.selfBound).toBe(expected);
+  });
+});

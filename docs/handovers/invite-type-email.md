@@ -16,3 +16,10 @@ Brief: bachata-admin `docs/briefs/auto-join/web-invite-email.md` (sha 57b6268).
 
 ## Left
 Phone walk at 390x844 and a wider size once #952 is applied; owner applies the migration.
+
+## Continuation 2026-10-22: self-bound gate
+
+**Done.** `InvitePreview.selfBound` (`r.self_bound === true`); `InviteRedeemPage` skips DancerProfileGate only for an admin-bound link (`emailHint != null && selfBound !== true`). Self-bound and unbound links finish the dancer profile first. Redeem is still only from the Join click.
+Tests: parser table (true/false/absent/null/"true") in `invitePreview.test.tsx`; `inviteSelfBoundGate.test.tsx` (unbound / admin-bound / self-bound / key-absent x profile complete / incomplete, signed in, no redeem without Join). All 430 admin-organisers tests, `tsc --noEmit` and eslint on the folder pass.
+**Left.** PR body edit (Self-bound paragraph); admin #956 must be applied before the path is live.
+**Not verified.** The self-bound path cannot be walked on prod until #956 is applied. No browser walk, and the CI job steps were not all run locally.
