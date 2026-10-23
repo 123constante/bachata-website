@@ -1417,9 +1417,11 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var patch = {}; ['k', 's', 'e', 'room', 'lv', 'ppl'].forEach(function (k) { if (JSON.stringify(ss.d[k]) !== JSON.stringify(ss.o[k])) patch[k] = cl(ss.d[k]); });
     if (ss.d.t !== ss.o.t) patch.t = esc(ss.d.t);
     var what = ssWhat();
+    /* the message is worked out BEFORE the write: after it every later date carries the change; the per-date notes were on the scope sheet before the tap */
+    var msg = sc === 'later' ? laterLine(e, ss.di, what) : sc === 'one' ? fmt(x.d) + ' only: ' + what + ' changed.' : 'Saved for every date.';
     setSessOn(e, ss.di, ss.sid, patch, sc);
     closeSheet(); refreshUnder();
-    toast((sc === 'later' ? consLine(e, ss.di, what, 'later', ss.sid) : sc === 'one' ? fmt(x.d) + ' only: ' + what + ' changed.' : 'Saved for every date.') + ' Dancers see it now.', function () { restore2(e, sn); });
+    toast(msg + ' Dancers see it now.', function () { restore2(e, sn); });
   }
   function refreshUnder() { refresh(); }
 

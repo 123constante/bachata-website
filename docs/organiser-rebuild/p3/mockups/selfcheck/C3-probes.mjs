@@ -184,6 +184,20 @@ probe('S7', 'consequence line (one)', async () => { await open('fri'); const c =
 probe('S8', 'later applies forward only', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-date': '4' }); await B({ 'data-dsess': c }); await setVal('#sss', '20:15'); await tap('[data-sssave]'); await tap('[data-sscope="later"]'); await tap('[data-sscope-go]'); const r = await ev((c) => window.__c2.EV.fri.dates.map((x) => (x.so && x.so[c] && x.so[c].s) || ''), c); return [r[3] === '' && r[4] === '20:15' && r[6] === '20:15' && r[0] === '', r.slice(0, 7).join(',')]; });
 probe('S9', 'line-up later consequence', async () => { await open('fri'); await B({ 'data-lineup-ask': 'fri' }); await tap('[data-scope="later"]'); await tap('[data-lineup-go]'); await tap('[data-rm]'); await tap('#savelineup'); const t = await toastT(); return [/Earlier dates keep the old line-up/.test(t), t]; });
 probe('S10', 'extra session: "Remove (only this date)"', async () => { await open('fri'); const x = await ev(() => window.__c2.EV.fri.dates[1].extra[0].id); await B({ 'data-date': '1' }); await B({ 'data-dsess': x }); const t = await sheet(); return [/Remove \(only this date\)/.test(t), 'ok?']; });
+probe('R-toast', 'this-and-later session save: toast is one line, no per-date notes, short', async () => {
+  await open('fri'); await B({ 'data-date': '4' }); await B({ 'data-dsess': await sid('fri', 0) });
+  await ev(() => { const i = document.querySelector('#sheet [data-sstime], #sheet input[type=time]'); });
+  const st = await ev(() => { const w = window.__c2.EV.fri; return w.sess[0].s; });
+  await ev(() => { const t = [...document.querySelectorAll('#sheet input')].find((i) => /^\d\d:\d\d$/.test(i.value)); if (t) { t.value = '20:30'; t.dispatchEvent(new Event('input', { bubbles: true })); t.dispatchEvent(new Event('change', { bubbles: true })); } });
+  await tap('[data-sssave]'); await tap('[data-sscope="later"]'); await tap('[data-sscope-go]');
+  const t = await toastT(); const h = await ev(() => document.querySelector('#toast').getBoundingClientRect().height);
+  return [!/had its own/.test(t) && /Changes from Fri 20 Nov onwards/.test(t) && h <= 120, 'h=' + Math.round(h) + ' | ' + t.replace(/\n/g, ' / ').slice(0, 140)];
+}, 1);
+probe('R-notrun', 'this-and-later across Fri 6 Nov (class not running): scope sheet lists "stays not running" BEFORE the tap', async () => {
+  await open('fri'); await B({ 'data-date': '1' }); await B({ 'data-dsess': 's1' });
+  await ev(() => { const t = [...document.querySelectorAll('#sheet input')].find((i) => /^\d\d:\d\d$/.test(i.value)); if (t) { t.value = '20:30'; t.dispatchEvent(new Event('input', { bubbles: true })); t.dispatchEvent(new Event('change', { bubbles: true })); } });
+  await tap('[data-sssave]'); await tap('[data-sscope="later"]'); const t = await sheet(); return [/Fri 6 Nov: [^\n]*stays not running/.test(t), t.replace(/\n/g, ' / ').slice(0, 200)];
+});
 probe('S11', 'series session on the page: "Remove from every date"', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-sess': c }); const t = await sheet(); return [/Remove from every date/.test(t), 'ok?']; });
 probe('S12', 'remove confirm points to Not running', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-sess': c }); await tap('[data-sheet="removeall"]'); const t = await sheet(); return [/Not running this date/.test(t), 'ok?']; });
 probe('S13', 'series session on a date: "Not running this date", no delete', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-date': '4' }); await B({ 'data-dsess': c }); const t = await sheet(); return [/Not running this date/.test(t) && !/Remove from every date</.test(t), 'ok?']; });
