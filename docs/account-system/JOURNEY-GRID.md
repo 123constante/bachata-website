@@ -142,7 +142,7 @@ The check cannot verify that a walk asserts the stated END. That stays a review 
 | `ti.dancer-part` | S-DANCER-PART | signed in | `/invite/<t>` stays (W1 Option B, PR #978): About you inline (first name, city, role, photo), then the Join card | U:src/modules/admin-organisers/join/__tests__/joinJourney.test.tsx; J:team-invite-unfinished-dancer | required | 7 |
 | `ti.member` | S-ORG1 | already a member | `already_member`: `/account/o`; link stays open | U:src/modules/admin-organisers/__tests__/inviteModel.test.ts | required | 4 |
 | `ti.dead-token` | any | used / revoked / expired / malformed token | terminal card with Home link; token stripped | U:src/modules/admin-organisers/__tests__/inviteModel.test.ts; U:src/modules/admin-organisers/join/__tests__/joinJourney.test.tsx | required | 1 open invite |
-| `ti.other-person` | S-DANCER signed in as B, invite meant for A | opens A's invite | card says "Joining as <B's e-mail>" + "Not you? Sign out"; B joins on confirm (O3) | R:a different signed-in person opens an invite: the card names who is joining (M57) | required | 5 |
+| `ti.other-person` | S-DANCER signed in as B, invite meant for A | opens A's invite | Option B (PR #978): the join step names the page ("Join <org>?"); "Not you? Use another email" signs B out to the e-mail step, still on /invite; B joins on the one tap (O3) | R:a different signed-in person opens an invite: the join card names the page and offers a way out (M57) | required | 5 |
 | `ti.new.other-device` | S-NEW | magic link on a second device | device 2 ends on the card | **MISSING** | required | new |
 
 ### Claim link `/organisers/<slug>?claim=1`

@@ -1,5 +1,5 @@
 import { expect, type Page, type Route } from '@playwright/test';
-import { ME, OrganiserFake, json, projectRefFromUrl } from '../../e2e/helpers/organiserFake';
+import { ME, ORG_NAME, OrganiserFake, json, projectRefFromUrl } from '../../e2e/helpers/organiserFake';
 import { FAKE_REF } from '../../e2e-phone/fakeSupabase.mjs';
 import type { Journey } from '../../journeys/publicEntryJourneys';
 import { CITY_LONDON, makeProfile, withDerived } from '../../../src/modules/dancer-app/api/fixtures';
@@ -238,6 +238,11 @@ export async function wire(page: Page, backend: Backend): Promise<OrganiserFake>
     fake.myRequests.push({ request_id: `r-open-${i}`, organiser_id: c.id, organiser_name: c.name, status: 'open', created_at: '2026-10-01T10:00:00+00:00', resolved_at: null });
   }
   await fake.install(page);
+  // Option B (PR #978): /invite reads the invite preview first (a page invite: no `person`); without it the link reads
+  // as unknown. Routed for every row: the edge specs open /invite from rows whose entry is elsewhere (M57).
+  await page.route('**/rest/v1/rpc/organiser_invite_preview_v1', (route) =>
+    json(route, { status: 'open', organiser_name: fake.organisers[0]?.name ?? ORG_NAME, inviter_first_name: 'Diego', email_hint: null }),
+  );
   if (backend.row.then === 'join-team') {
     // The invite redeems: the person joins the fake's own organiser (the server adds the member row).
     await page.route('**/rest/v1/rpc/redeem_organiser_invite_v1', (route) => {
@@ -430,6 +435,31 @@ export async function onboarding(page: Page, shot: Shot, endLabel: string | unde
     }
   }
   throw new Error('onboarding never ended');
+}
+
+/**
+ * Option B (PR #978): an unfinished dancer who opens an invite fills the missing fields INLINE on /invite ("About you",
+ * step 2 of 3: role and photo for the Backend's 'incomplete' stub), never a hop to /finish-profile; then the join step.
+ */
+export async function aboutInline(page: Page, shot: Shot) {
+  const form = page.getByTestId('join-about-form');
+  await expect(form).toBeVisible({ timeout: 30_000 });
+  await expect(page).toHaveURL(/\/invite\//);
+  await expect(page.getByTestId('join-about-save')).toBeDisabled();
+  await shot('about', 'About you inline on /invite: only the missing fields, Continue disabled until they are in');
+  await form.getByRole('radio', { name: 'Follower', exact: true }).click();
+  await form.locator('input[type="file"]').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: PIXEL });
+  await expect(page.getByTestId('join-about-save')).toBeEnabled({ timeout: 20_000 });
+  await shot('about-filled', 'About you: role and photo added, Continue enabled');
+  // AvatarUpload raises a "Photo uploaded!" toast that never auto-dismisses (use-toast TOAST_REMOVE_DELAY), and the shared
+  // toast close button (ui/toast.tsx) has no accessible name: axe `button-name` (critical) at the END. Pre-existing, outside
+  // the join work (recorded in the PR as a follow-up): the person dismisses it, as the END axe pass is about the join step.
+  const toastClose = page.locator('[toast-close]');
+  await expect(toastClose).toHaveCount(1);
+  await toastClose.click({ force: true });
+  await expect(toastClose).toHaveCount(0);
+  await page.getByTestId('join-about-save').click();
+  await expect(page.getByTestId('invite-join')).toBeVisible({ timeout: 30_000 });
 }
 
 export async function pressEnd(page: Page, endLabel: string | undefined) {

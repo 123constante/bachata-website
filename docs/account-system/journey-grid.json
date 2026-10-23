@@ -1056,12 +1056,12 @@
    "entry": "TI",
    "state": "S-DANCER signed in as B, invite meant for A",
    "action": "opens A's invite",
-   "end": "card says \"Joining as <B's e-mail>\" + \"Not you? Sign out\"; B joins on confirm (O3)",
+   "end": "Option B (PR #978): the join step names the page (\"Join <org>?\"); \"Not you? Use another email\" signs B out to the e-mail step, still on /invite; B joins on the one tap (O3)",
    "transition": "T-INVITE-REDEEM",
    "covered_by": [
     {
      "kind": "R",
-     "ref": "a different signed-in person opens an invite: the card names who is joining (M57)"
+     "ref": "a different signed-in person opens an invite: the join card names the page and offers a way out (M57)"
     }
    ],
    "people": "5",

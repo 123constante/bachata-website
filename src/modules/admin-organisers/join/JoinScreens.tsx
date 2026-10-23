@@ -74,7 +74,7 @@ export function PersonCard({ preview }: { preview: JoinPreview }) {
         <div className="min-w-0">
           <p className="text-[17px] font-bold" data-testid="join-person-hi">{JOIN_COPY.person.hi(first)}</p>
           {city && <p className="text-[13px] text-muted-foreground">{city}</p>}
-          <span className="mt-1 inline-block rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-300">{JOIN_COPY.person.tag}</span>
+          <span className="mt-1 inline-block rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-emerald-300" data-testid="join-person-tag">{JOIN_COPY.person.tag}</span>
         </div>
       </div>
       <p className="text-[13px] text-muted-foreground">{JOIN_COPY.person.body}</p>
@@ -255,7 +255,7 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
     case 'not_linked':
       return (
         <div className="flex flex-col gap-2">
-          <span className="self-start rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-300">{JOIN_COPY.notLinked.tag}</span>
+          <span className="self-start rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-300" data-testid="join-not-linked-tag">{JOIN_COPY.notLinked.tag}</span>
           <Heading>{JOIN_COPY.notLinked.heading}</Heading>
           <Lead testId="join-not-linked-body">{JOIN_COPY.notLinked.body(inviter)}</Lead>
           <p className="rounded-xl border border-border p-3 text-[13px] text-muted-foreground">{JOIN_COPY.notLinked.note}</p>

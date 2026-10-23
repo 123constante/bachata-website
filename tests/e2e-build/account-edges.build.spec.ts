@@ -144,14 +144,19 @@ test('two tabs mid-onboarding: tab 2 save after tab 1 finished ends /app/home, n
   await expect(tab2.getByTestId('dancer-screen-home')).toBeVisible();
 });
 
-test('a different signed-in person opens an invite: the card names who is joining (M57)', async ({ page }) => {
-  // The token is bearer-style (owner decision M57): before anything is used, the card says who joins and offers a way out.
+test('a different signed-in person opens an invite: the join card names the page and offers a way out (M57)', async ({ page }) => {
+  // The token is bearer-style (owner decision M57). Option B (PR #978): before anything is used, the join step names the
+  // page ("Join <org>?") and "Not you? Use another email" signs this person out and shows the e-mail step, still on /invite.
   await wire(page, new Backend(rowFor({ signedIn: true, dancer: 'complete', organisers: 0, userType: 'dancer' })));
   await page.goto(INVITE);
-  const card = page.getByTestId('invite-card');
-  await expect(card).toContainText(new RegExp(`You are joining as (Ana|${EMAIL.replace(/\./g, '\\.')})`));
-  await expect(card).toContainText('Not you?');
-  await expect(card.getByRole('button', { name: 'Sign out' }).or(card.getByRole('link', { name: 'Sign out' }))).toBeVisible();
+  await expect(page.getByTestId('join-org-card')).toContainText(ORG_NAME);
+  await expect(page.getByTestId('invite-join')).toHaveText(`Join ${ORG_NAME}`);
+  await expect(page.getByTestId('invite-card')).toHaveCount(0);
+  await page.getByTestId('invite-not-you').click();
+  await expect(page.getByTestId('join-email-input')).toBeVisible();
+  await expect(page).toHaveURL((u) => u.pathname === INVITE);
+  await expect(page.getByTestId('invite-join')).toHaveCount(0);
+  await expectNoHorizontalScroll(page);
 });
 
 test('sign out, then an organiser (B) signs in on the same phone: B sees B\'s sides and nothing of A (M77)', async ({ page }) => {

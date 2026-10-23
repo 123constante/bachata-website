@@ -315,3 +315,48 @@ test.describe('error screens (no prototype: the owner reviews these shots)', () 
     await screenOk(page, 'E12-wrong-account-after-join', 'invite-switch-account');
   });
 });
+
+/** WCAG contrast of a text element against its composited background: every ancestor's alpha background over the canvas. */
+async function contrastOf(page: Page, testId: string) {
+  return page.getByTestId(testId).evaluate((el) => {
+    const parse = (s: string) => {
+      const m = /rgba?\(([^)]+)\)/.exec(s);
+      if (!m) return null;
+      const parts = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+      return { r: parts[0], g: parts[1], b: parts[2], a: parts.length > 3 ? parts[3] : 1 };
+    };
+    const layers: { r: number; g: number; b: number; a: number }[] = [];
+    for (let n: Element | null = el; n; n = n.parentElement) {
+      const c = parse(getComputedStyle(n).backgroundColor);
+      if (c && c.a > 0) layers.push(c);
+    }
+    let bg = { r: 255, g: 255, b: 255 };
+    for (const c of layers.reverse()) bg = { r: c.r * c.a + bg.r * (1 - c.a), g: c.g * c.a + bg.g * (1 - c.a), b: c.b * c.a + bg.b * (1 - c.a) };
+    const lin = (v: number) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+    const lum = (c: { r: number; g: number; b: number }) => 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+    const fg = parse(getComputedStyle(el).color)!;
+    const [hi, lo] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+    const rgb = (c: { r: number; g: number; b: number }) => `rgb(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)})`;
+    return { ratio: Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100, fg: rgb(fg), bg: rgb(bg) };
+  });
+}
+
+test.describe('the two new tags: contrast measured in the browser (WCAG AA small text, >= 4.5:1)', () => {
+  // The site runs its `:root` theme (no `.dark` toggle today); the `dark:` variants are measured under a forced `.dark` too.
+  for (const dark of [false, true]) {
+    test(`"This is your profile" and "Not linked" tags${dark ? ' under .dark' : ''}`, async ({ page }) => {
+      await openInvite(page, { preview: previewOf('open', PERSON) });
+      if (dark) await page.evaluate(() => document.documentElement.classList.add('dark'));
+      const person = await contrastOf(page, 'join-person-tag');
+      await openInvite(page, { signedIn: true, preview: previewOf('open', PERSON), redeem: { ok: false, reason: 'not_linked' } });
+      if (dark) await page.evaluate(() => document.documentElement.classList.add('dark'));
+      await page.getByTestId('invite-join').click();
+      await expectStep(page, 'join', 'not_linked');
+      const notLinked = await contrastOf(page, 'join-not-linked-tag');
+      test.info().annotations.push({ type: 'contrast', description: JSON.stringify({ dark, person, notLinked }) });
+      console.log(`[contrast] dark=${dark} person=${JSON.stringify(person)} notLinked=${JSON.stringify(notLinked)}`);
+      expect(person.ratio, `person tag ${JSON.stringify(person)}`).toBeGreaterThanOrEqual(4.5);
+      expect(notLinked.ratio, `not-linked tag ${JSON.stringify(notLinked)}`).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+});
