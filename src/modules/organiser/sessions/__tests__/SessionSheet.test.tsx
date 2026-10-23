@@ -51,13 +51,13 @@ describe('SessionSheet', () => {
     expect(labels).toContain('01:00 (next day)');
   });
 
-  it('Done is disabled with a reason until a class has a level', async () => {
+  it('a class level is optional; the levels picked are saved', async () => {
     const onSave = vi.fn();
     render(<Harness initial={[newSession('class', '19:00', 'a')]} onSave={onSave} />);
     open();
     const done = (await screen.findByTestId('sessions-done')) as HTMLButtonElement;
-    expect(done.disabled).toBe(true);
-    expect(screen.getByTestId('sessions-reason').textContent).toBe('Pick a level');
+    expect(done.disabled).toBe(false);
+    expect(screen.queryByTestId('sessions-reason')).toBeNull();
     fireEvent.click(screen.getByTestId('level-beginner'));
     fireEvent.click(screen.getByTestId('level-improver'));
     expect(done.disabled).toBe(false);
