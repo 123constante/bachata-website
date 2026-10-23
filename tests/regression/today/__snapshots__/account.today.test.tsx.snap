@@ -12,6 +12,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -29,16 +30,16 @@ exports[`/account entry at '390x844' > /account > 'incomplete (name + city, no r
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Finish your profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Still to add: dance role, photo."
+text "Step 1 of 2"
+heading "Do you lead or follow?" level=2
+text "Shown on your profile."
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
-text "Photo"
-button "Upload photo"
-button "Save" [disabled]
-text "Fill in at least one field above to save."
+button "Next" [disabled]
+text "Pick one"
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
 `;
@@ -83,8 +84,8 @@ exports[`/account entry at '390x844' > /account > 'organiser-type (complete)' 1`
   "tree": "heading "Org 0" level=1
 button "Your account" [expanded=false]
 status
-button "New event"
-button "Add a photo"
+heading "Your to-do list" level=2
+button "Create your first event"
 button "Add a manager"
 button "New event"
 button "Team"
@@ -113,6 +114,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -130,16 +132,16 @@ exports[`/account entry at '390x844' > /account/dancer > 'incomplete (name + cit
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Finish your profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Still to add: dance role, photo."
+text "Step 1 of 2"
+heading "Do you lead or follow?" level=2
+text "Shown on your profile."
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
-text "Photo"
-button "Upload photo"
-button "Save" [disabled]
-text "Fill in at least one field above to save."
+button "Next" [disabled]
+text "Pick one"
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
 `;
@@ -168,6 +170,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -192,6 +195,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -235,16 +239,16 @@ exports[`/account entry at '390x844' > /account/o > 'incomplete (name + city, no
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Finish your profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Still to add: dance role, photo."
+text "Step 1 of 2"
+heading "Do you lead or follow?" level=2
+text "Shown on your profile."
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
-text "Photo"
-button "Upload photo"
-button "Save" [disabled]
-text "Fill in at least one field above to save."
+button "Next" [disabled]
+text "Pick one"
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
 `;
@@ -289,8 +293,8 @@ exports[`/account entry at '390x844' > /account/o > 'organiser-type (complete)' 
   "tree": "heading "Org 0" level=1
 button "Your account" [expanded=false]
 status
-button "New event"
-button "Add a photo"
+heading "Your to-do list" level=2
+button "Create your first event"
 button "Add a manager"
 button "New event"
 button "Team"
@@ -319,6 +323,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -336,16 +341,16 @@ exports[`/account entry at 'desktop' > /account > 'incomplete (name + city, no r
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Finish your profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Still to add: dance role, photo."
+text "Step 1 of 2"
+heading "Do you lead or follow?" level=2
+text "Shown on your profile."
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
-text "Photo"
-button "Upload photo"
-button "Save" [disabled]
-text "Fill in at least one field above to save."
+button "Next" [disabled]
+text "Pick one"
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
 `;
@@ -390,8 +395,8 @@ exports[`/account entry at 'desktop' > /account > 'organiser-type (complete)' 1`
   "tree": "heading "Org 0" level=1
 button "Your account" [expanded=false]
 status
-button "New event"
-button "Add a photo"
+heading "Your to-do list" level=2
+button "Create your first event"
 button "Add a manager"
 button "New event"
 button "Team"
@@ -420,6 +425,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -437,16 +443,16 @@ exports[`/account entry at 'desktop' > /account/dancer > 'incomplete (name + cit
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Finish your profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Still to add: dance role, photo."
+text "Step 1 of 2"
+heading "Do you lead or follow?" level=2
+text "Shown on your profile."
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
-text "Photo"
-button "Upload photo"
-button "Save" [disabled]
-text "Fill in at least one field above to save."
+button "Next" [disabled]
+text "Pick one"
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
 `;
@@ -475,6 +481,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -499,6 +506,7 @@ text "Your profile is complete. You can rate parties now."
 navigation "Your nights"
   link "My attendanceNights you’re going to, and rating the ones you went to" href=/account/attendance
   link "Browse partiesFind your next night out" href=/city/london-gb/parties
+button "Your areasOpen or add a role"
 text "Hide my surname from the public"
 switch "Hide my surname from the public" [checked=false]
 text "Anyone viewing your profile or a line-up sees your first name and surname."
@@ -542,16 +550,16 @@ exports[`/account entry at 'desktop' > /account/o > 'incomplete (name + city, no
   "landing": "/finish-profile?returnTo=<encoded>",
   "tree": "heading "Finish your profile" level=1
 text "Finish your dancer profile first, then you can set up your organiser page."
-text "Still to add: dance role, photo."
+text "Step 1 of 2"
+heading "Do you lead or follow?" level=2
+text "Shown on your profile."
 text "Dance role"
 radiogroup "Dance role"
   radio "Leader" [checked=false]
   radio "Follower" [checked=false]
   radio "Both" [checked=false]
-text "Photo"
-button "Upload photo"
-button "Save" [disabled]
-text "Fill in at least one field above to save."
+button "Next" [disabled]
+text "Pick one"
 link "Account settings (sign out or delete account)" href=/account/settings",
 }
 `;
@@ -596,8 +604,8 @@ exports[`/account entry at 'desktop' > /account/o > 'organiser-type (complete)' 
   "tree": "heading "Org 0" level=1
 button "Your account" [expanded=false]
 status
-button "New event"
-button "Add a photo"
+heading "Your to-do list" level=2
+button "Create your first event"
 button "Add a manager"
 button "New event"
 button "Team"

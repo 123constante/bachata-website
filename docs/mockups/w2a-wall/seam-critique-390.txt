@@ -1,0 +1,98 @@
+critique 390 {
+ "/dancers top": {
+  "maxRowDelta": 3,
+  "atOffset": 4,
+  "above48": [
+   21,
+   29,
+   33
+  ],
+  "above8": [
+   21,
+   28,
+   33
+  ],
+  "below8": [
+   22,
+   27,
+   31
+  ],
+  "below48": [
+   28,
+   22,
+   20
+  ]
+ },
+ "/dancers bottom": {
+  "maxRowDelta": 1,
+  "atOffset": -62,
+  "above48": [
+   26,
+   19,
+   17
+  ],
+  "above8": [
+   16,
+   18,
+   20
+  ],
+  "below8": [
+   14,
+   18,
+   21
+  ],
+  "below48": [
+   14,
+   18,
+   21
+  ]
+ },
+ "/djs top": {
+  "maxRowDelta": 1,
+  "atOffset": 1,
+  "above48": [
+   10,
+   8,
+   11
+  ],
+  "above8": [
+   10,
+   8,
+   11
+  ],
+  "below8": [
+   13,
+   10,
+   12
+  ],
+  "below48": [
+   25,
+   17,
+   15
+  ]
+ },
+ "/djs bottom": {
+  "maxRowDelta": 1,
+  "atOffset": -63,
+  "above48": [
+   25,
+   17,
+   15
+  ],
+  "above8": [
+   13,
+   10,
+   12
+  ],
+  "below8": [
+   10,
+   8,
+   11
+  ],
+  "below48": [
+   10,
+   8,
+   11
+  ]
+ }
+}

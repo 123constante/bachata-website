@@ -116,8 +116,8 @@ describe('P-DATES matrix: one date’s Change screen', () => {
     expect(off.hasAttribute('disabled')).toBe(!weekly);
     if (!weekly) expect(off.textContent).toContain(OFF_ONLY_RULE);
     expect(screen.getByTestId('change-lineup')).toBeTruthy();
-    // A1 is applied on prod, so Move to another day is offered on every shape.
-    expect(screen.getByTestId('change-day')).toBeTruthy();
+    // C20 (owner decision 2026-10-20): no shape offers Move to another day.
+    expect(screen.queryByTestId('change-day')).toBeNull();
     // F-PAR-final N2: set_time refuses a festival, so its row is off with the shared words.
     const time = screen.getByTestId('change-time');
     expect(time.hasAttribute('disabled')).toBe(isFestival(s));

@@ -11,7 +11,7 @@ import { FLYER_WORD } from '@/modules/organiser/shared/flyerLabel';
 import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { parseTeam, type IncomingAccessRequest } from '@/modules/organiser/shared/teamModel';
 
-export type JobKind = 'change'|'add'|'cancel'|'no_dates_left'|'join_request'|'stale_draft'|'no_cover'|'create_first_event'|'add_cover'|'add_manager';
+export type JobKind = 'change'|'add'|'cancel'|'no_dates_left'|'join_request'|'stale_draft'|'no_cover'|'create_first_event'|'add_manager';
 
 export interface Job { kind: JobKind; n: number; title: string; sub?: string; to: string; tone: 'gold'|'plain'|'problem' }
 
@@ -46,6 +46,10 @@ function seriesProblems(series: HomeSeriesFull, today: string): SeriesProblem[] 
   return problems;
 }
 
+/** Not live yet: the chip for every draft, and the start of the stale-draft sub-line. */
+const NOT_LIVE_YET = 'Not live yet';
+
+/** A draft that is not a Home problem yet keeps the shared status word and its age ("Draft, 2 days"). */
 function draftLabel(series: HomeSeriesFull, today: string): string {
   const age = draftAgeDays(series, today);
   const word = lifecycleTag('draft').label;
@@ -53,14 +57,29 @@ function draftLabel(series: HomeSeriesFull, today: string): string {
   return `${word}, ${age} ${age === 1 ? 'day' : 'days'}`;
 }
 
-/** The words for a problem: the Home row's sub-line AND the My events chip. */
-function problemLabel(problem: SeriesProblem, series: HomeSeriesFull, today: string): string {
-  switch (problem) {
-    case 'no_dates_left': return 'Needs dates';
-    case 'no_cover': return `Needs a ${FLYER_WORD}`;
-    case 'stale_draft': return draftLabel(series, today);
-  }
+/** Whole days a draft has waited, in words ("started 9 days ago"); null under a day. */
+function startedAgo(series: HomeSeriesFull, today: string): string | null {
+  const age = draftAgeDays(series, today);
+  return age && age >= 1 ? `started ${age} ${age === 1 ? 'day' : 'days'} ago` : null;
 }
+
+/**
+ * D83: the words for each problem, ONE map. `chip` is the short My events tag;
+ * `title(name)` is the Home row's action naming the event; `sub` says why in plain words.
+ */
+const PROBLEM_COPY: Record<SeriesProblem, {
+  chip: string;
+  title: (name: string) => string;
+  sub: (series: HomeSeriesFull, today: string) => string;
+}> = {
+  no_dates_left: { chip: 'Needs dates', title: (n) => `Add dates: ${n}`, sub: () => 'No coming dates, so dancers see nothing' },
+  no_cover: { chip: `Needs a ${FLYER_WORD}`, title: (n) => `Add a ${FLYER_WORD}: ${n}`, sub: () => `Events with a ${FLYER_WORD} get more clicks` },
+  stale_draft: {
+    chip: NOT_LIVE_YET,
+    title: (n) => `Finish and go live: ${n}`,
+    sub: (series, today) => [NOT_LIVE_YET, startedAgo(series, today)].filter(Boolean).join(', '),
+  },
+};
 
 /** Every coming date is cancelled (dancers see the cancellation): what an open event's chip says first. */
 const cancelledOnly = (series: HomeSeriesFull) =>
@@ -75,7 +94,7 @@ const cancelledOnly = (series: HomeSeriesFull) =>
 export function seriesChip(series: HomeSeriesFull, today: string): { label: string; tone: 'ok'|'bad'|'n' } {
   if (cancelledOnly(series)) return { label: CANCELLED_WORD, tone: 'bad' };
   const [first] = seriesProblems(series, today);
-  if (first) return { label: problemLabel(first, series, today), tone: 'bad' };
+  if (first) return { label: PROBLEM_COPY[first].chip, tone: 'bad' };
   if (series.lifecycle_status === 'draft') return { label: draftLabel(series, today), tone: 'n' };
   return { label: lifecycleTag(series.lifecycle_status).label, tone: series.lifecycle_status === 'live' ? 'ok' : 'n' };
 }
@@ -83,7 +102,7 @@ export function seriesChip(series: HomeSeriesFull, today: string): { label: stri
 /**
  * The chip on My events and One event (W3 d31): a live series with nothing coming up reads
  * Finished / Nothing coming up from the ONE life mapping (lifeLabel), the words the Past section
- * uses; every other series keeps seriesChip. Home's job row keeps its own actionable "Needs dates".
+ * uses; every other series keeps seriesChip. Home's job row keeps its own actionable words (PROBLEM_COPY).
  */
 export function lifeChip(series: HomeSeriesFull, today: string): { label: string; tone: 'ok'|'bad'|'n' } {
   if (series.lifecycle_status === 'live' && series.upcoming_count <= 0 && !cancelledOnly(series)) {
@@ -103,8 +122,8 @@ type Draft = Omit<Job, 'n'>;
 
 /** The first steps of a page with no events (C1b): each drops off once done. */
 function firstSteps(home: HomeOrganiser): Draft[] {
-  const steps: Draft[] = [{ kind: 'create_first_event', title: 'New event', to: ORG_PATHS.newWhat, tone: 'gold' }];
-  if (!home.avatar_url) steps.push({ kind: 'add_cover', title: 'Add a photo', to: ORG_PATHS.page, tone: 'plain' });
+  const steps: Draft[] = [{ kind: 'create_first_event', title: 'Create your first event', to: ORG_PATHS.newWhat, tone: 'gold' }];
+  // No photo step (C15): the logo is a profile question, asked by Home's ONE "Complete your profile" button.
   // No WhatsApp step (C69): no organiser table has a WhatsApp column and My page has no such field (prod, 2026-10-17).
   if (parseTeam(home.team).length < 2) steps.push({ kind: 'add_manager', title: 'Add a manager', to: ORG_PATHS.teamAdd, tone: 'plain' });
   return steps;
@@ -132,10 +151,10 @@ export function homeJobs(home: HomeOrganiser, requests: IncomingAccessRequest[],
   const problems = listed.flatMap((s) => seriesProblems(s, today).map((problem) => ({ s, problem })));
   const rows = (problem: SeriesProblem) => problems
     .filter((p) => p.problem === problem)
-    .map(({ s }): Draft => ({ kind: problem, title: s.name, sub: problemLabel(problem, s, today), to: PROBLEM_TO[problem](s.id), tone: 'problem' }));
+    .map(({ s }): Draft => ({ kind: problem, title: PROBLEM_COPY[problem].title(s.name), sub: PROBLEM_COPY[problem].sub(s, today), to: PROBLEM_TO[problem](s.id), tone: 'problem' }));
   drafts.push(...rows('no_dates_left'));
   drafts.push(...requests.map((r): Draft => ({
-    kind: 'join_request', title: 'Wants to join', ...(r.requesterEmail ? { sub: r.requesterEmail } : {}), to: ORG_PATHS.team, tone: 'problem',
+    kind: 'join_request', title: 'Answer a request to join', ...(r.requesterEmail ? { sub: r.requesterEmail } : {}), to: ORG_PATHS.team, tone: 'problem',
   })));
   drafts.push(...rows('stale_draft'), ...rows('no_cover'));
   return drafts.map((d, i) => ({ ...d, n: i + 1 }));

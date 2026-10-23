@@ -58,6 +58,8 @@ function mount() {
         <Routes>
           <Route path="/invite/:token" element={<InviteRedeemPage />} />
           <Route path="/account/o" element={<p data-testid="landed">dashboard</p>} />
+          {/* Arc 1 7c: a new seat lands on the welcome (1d for a first page, 7c for another). */}
+          <Route path="/account/o/welcome" element={<p data-testid="landed">dashboard</p>} />
           <Route path="/auth" element={<p data-testid="auth">auth</p>} />
         </Routes>
       </MemoryRouter>

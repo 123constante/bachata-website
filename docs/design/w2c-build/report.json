@@ -1,0 +1,76 @@
+{
+ "dj-roger": {
+  "minContrast": 7.97,
+  "minAt": "Camden · 20:00",
+  "smallTaps": [],
+  "clipped": [],
+  "scrollWidth": 390,
+  "h1": 1,
+  "h1Lines": 1,
+  "height": 1131,
+  "seamMaxStep": 3,
+  "seamAtY": 59
+ },
+ "dj-quiet-ig": {
+  "minContrast": 1.21,
+  "minAt": "DN",
+  "smallTaps": [],
+  "clipped": [],
+  "scrollWidth": 390,
+  "h1": 1,
+  "h1Lines": 1,
+  "height": 876,
+  "seamMaxStep": 3,
+  "seamAtY": 66
+ },
+ "dj-quiet-noig": {
+  "minContrast": 1.21,
+  "minAt": "DN",
+  "smallTaps": [],
+  "clipped": [],
+  "scrollWidth": 390,
+  "h1": 1,
+  "h1Lines": 1,
+  "height": 862,
+  "seamMaxStep": 3,
+  "seamAtY": 66
+ },
+ "dj-long": {
+  "minContrast": 6.77,
+  "minAt": "On the decks tonight",
+  "smallTaps": [],
+  "clipped": [
+   "Back to Carlos De La Cruz Fern"
+  ],
+  "scrollWidth": 390,
+  "h1": 1,
+  "h1Lines": 2,
+  "height": 1172,
+  "seamMaxStep": 3,
+  "seamAtY": 59
+ },
+ "dj-one": {
+  "minContrast": 7.97,
+  "minAt": "Camden · 20:00",
+  "smallTaps": [],
+  "clipped": [],
+  "scrollWidth": 390,
+  "h1": 1,
+  "h1Lines": 1,
+  "height": 1072,
+  "seamMaxStep": 3,
+  "seamAtY": 59
+ },
+ "dancer-two": {
+  "minContrast": 3.66,
+  "minAt": "Style",
+  "smallTaps": [],
+  "clipped": [],
+  "scrollWidth": 390,
+  "h1": 1,
+  "h1Lines": 1,
+  "height": 844,
+  "seamMaxStep": 2,
+  "seamAtY": 67
+ }
+}

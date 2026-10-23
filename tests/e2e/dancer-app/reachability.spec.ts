@@ -61,8 +61,8 @@ test.describe('dancer app 390x844', () => {
       await open(page, path);
       await expect(page.getByTestId(`dancer-screen-${id}`)).toBeVisible();
       await expect(page).toHaveURL(new RegExp(`${path.replace(/\//g, '\\/')}$`));
-      await expect(page.getByTestId('dancer-app-logo')).toHaveText('Bachata Calendar');
-      await expect(page.getByTestId('dancer-app-events')).toBeVisible();
+      await expect(page.getByTestId('site-home-link')).toHaveText('Bachata Calendar');
+      await expect(page.getByTestId('dancer-app-events')).toHaveCount(0);
       await expect(page.getByTestId('dancer-app-type-label')).toHaveText('Dancer');
       await expect(page.getByTestId('dancer-app-tabs')).toBeVisible();
       // The site's own chrome is gone on /app.

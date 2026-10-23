@@ -31,6 +31,14 @@ export const flags = {
   // instead of separate teachers / djs / dancers arrays. OFF until /people/:id
   // ships (a result row links there); OFF = every search path is unchanged.
   searchV7:            import.meta.env.VITE_ENABLE_SEARCH_V7 === 'true',
+  // The face wall on /djs and /dancers (src/modules/person-page/wall): 4-column big faces, role
+  // chips, filter chips, warm dark base. OFF = both pages exactly as before. Turn on with
+  // VITE_ENABLE_PEOPLE_WALL=true (Vercel env) -- no code change.
+  peopleWall:          import.meta.env.VITE_ENABLE_PEOPLE_WALL === 'true',
+  // The person hub on /people/:id (src/modules/person-page/hub): face, name, facts, then one big
+  // card per role page; wall tiles open it. OFF = the tabbed /people/:id page and the wall links
+  // exactly as before. Turn on with VITE_ENABLE_PERSON_HUB=true (Vercel env) -- no code change.
+  personHub:           import.meta.env.VITE_ENABLE_PERSON_HUB === 'true',
   // Self-owned RUM (web-vitals -> record_web_vital_v1, see lib/webVitals.ts).
   // OFF until the admin-repo migration ships the RPC; flipping this in Vercel
   // env enables reporting with no code change.

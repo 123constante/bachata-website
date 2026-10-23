@@ -260,7 +260,11 @@ describe('cancel and break', () => {
     fireEvent.click(screen.getByTestId('cancel-ack'));
     fireEvent.click(screen.getByTestId('date-cancel-confirm'));
     await waitFor(() => expect(calls('occurrence_command_p5')).toHaveLength(1));
-    await waitFor(() => expect(client.getQueryState(['org-event-workspace', 's1'])?.isInvalidated).toBe(true));
+    // The C14 lock gate (A-WEB1a) observes that entry, so the invalidation refetches it at once: stale, or already re-read.
+    await waitFor(() => {
+      const st = client.getQueryState(['org-event-workspace', 's1']);
+      expect(!!st?.isInvalidated || (st?.dataUpdateCount ?? 0) + (st?.errorUpdateCount ?? 0) > 1).toBe(true);
+    });
   });
 
   it('a daily-cap refusal shows the plain copy', async () => {

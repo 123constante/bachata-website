@@ -1,0 +1,86 @@
+{
+ "parties": {
+  "bodyBg": "rgb(0, 0, 0)",
+  "htmlBg": "rgba(0, 0, 0, 0)",
+  "icons": 20,
+  "docH": 1487,
+  "contrast": {
+   "white": 21,
+   "muted": 8.1,
+   "amber": 9.78
+  },
+  "footerTop": 361
+ },
+ "faq": {
+  "bodyBg": "rgb(0, 0, 0)",
+  "htmlBg": "rgba(0, 0, 0, 0)",
+  "icons": 20,
+  "docH": 4094,
+  "contrast": {
+   "white": 21,
+   "muted": 8.1,
+   "amber": 9.78
+  },
+  "footerTop": 361
+ },
+ "dancers": {
+  "bodyBg": "rgb(0, 0, 0)",
+  "htmlBg": "rgba(0, 0, 0, 0)",
+  "icons": 20,
+  "docH": 4750,
+  "contrast": {
+   "white": 21,
+   "muted": 8.1,
+   "amber": 9.78
+  },
+  "footerTop": 361
+ },
+ "search": {
+  "bodyBg": "rgb(0, 0, 0)",
+  "htmlBg": "rgba(0, 0, 0, 0)",
+  "icons": 20,
+  "docH": 3130,
+  "contrast": {
+   "white": 21,
+   "muted": 8.1,
+   "amber": 9.78
+  },
+  "footerTop": 361
+ },
+ "classes": {
+  "bodyBg": "rgb(0, 0, 0)",
+  "htmlBg": "rgba(0, 0, 0, 0)",
+  "icons": 20,
+  "docH": 1487,
+  "contrast": {
+   "white": 21,
+   "muted": 8.1,
+   "amber": 9.78
+  },
+  "footerTop": 361
+ },
+ "notfound": {
+  "bodyBg": "rgb(0, 0, 0)",
+  "htmlBg": "rgba(0, 0, 0, 0)",
+  "icons": 20,
+  "docH": 1487,
+  "contrast": {
+   "white": 21,
+   "muted": 8.1,
+   "amber": 9.78
+  },
+  "footerTop": 361
+ },
+ "venues": {
+  "bodyBg": "rgb(0, 0, 0)",
+  "htmlBg": "rgba(0, 0, 0, 0)",
+  "icons": 0,
+  "docH": 2672,
+  "contrast": {
+   "white": 21,
+   "muted": 8.1,
+   "amber": 9.78
+  },
+  "footerTop": 362
+ }
+}

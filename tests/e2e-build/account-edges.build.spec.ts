@@ -16,12 +16,15 @@ const noShot: Shot = async () => {};
 const rowFor = (person: Person, auth?: 'signup' | 'signin'): Journey => ({
   id: 'account-edge', title: 'account edge', entry: '/', person, auth, end: { path: '/', screen: '', state: '' },
 });
-/** Sign out from the switch sheet. Where it lands is not the point here (the sheet asks for '/', the dancer app's AuthGuard may win with /auth). */
+/**
+ * Sign out of a dancer-only person from the dancer app. D129: one profile has no switcher, so Sign out lives in Options
+ * (row, then its own confirm sheet). Where it lands is not the point here (the app asks for '/', the dancer app's AuthGuard may win with /auth).
+ */
 async function signOutFromSheet(page: Page) {
-  await page.getByTestId('profile-switcher-button').click();
-  await page.getByTestId('profile-switcher-sign-out').click();
-  // Slice B: the sheet asks first (its own confirm step), then signs out.
-  await page.getByTestId('profile-switcher-signout-confirm').click();
+  await expect(page.getByTestId('profile-switcher-button')).toHaveCount(0);
+  await page.getByTestId('dancer-app-tab-options').click();
+  await page.getByTestId('opt-sign-out').click();
+  await page.getByTestId('opt-signout-confirm').click();
   await expect(page).not.toHaveURL(/\/app\//);
 }
 

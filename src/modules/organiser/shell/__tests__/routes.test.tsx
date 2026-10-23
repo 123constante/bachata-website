@@ -105,7 +105,6 @@ describe('Change a date (S2) owns its six paths', () => {
     '/account/o/change/s1/o1',
     '/account/o/change/s1/o1/time',
     '/account/o/change/s1/o1/venue',
-    '/account/o/change/s1/o1/day',
   ])('%s renders the flow (reads pending: loading), not a placeholder', async (path) => {
     at(path);
     expect(await screen.findByTestId('change-loading', {}, COLD)).toBeTruthy();

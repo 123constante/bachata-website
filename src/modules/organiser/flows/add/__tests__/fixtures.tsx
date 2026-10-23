@@ -11,7 +11,11 @@ import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
 import { readDoneState } from '@/modules/organiser/flows/doneState';
 
 export const FROZEN = new Date('2026-10-20T12:00:00Z');
-export const today = () => londonTodayKey();
+// Derived from FROZEN, never the ambient clock: table rows built at describe
+// time run BEFORE each file's beforeEach sets the system time, and read the
+// real date (main went red at London midnight 23 Oct 2026). The product reads
+// the frozen Date at render, so both sides agree on 20 October.
+export const today = () => londonTodayKey(FROZEN);
 export const day = (n: number) => addDaysToKey(today(), n);
 
 export const A = 'aaaaaaaa-0000-4000-8000-000000000001';

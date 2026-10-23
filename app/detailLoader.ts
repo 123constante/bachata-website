@@ -12,6 +12,8 @@ import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
 // are unaffected.
 import { edgeCacheControl, EDGE_STORE_MARGIN_SECONDS } from "./edgeCacheControl";
 export { edgeCacheControl, EDGE_STORE_MARGIN_SECONDS };
+// Shared with middleware.ts (Edge) -- one definition, see that file's header.
+import { sameHostImage } from "./sameHostImage";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-/i;
@@ -306,24 +308,6 @@ async function fetchBakedOgImage(
   } catch {
     return null;
   }
-}
-
-/** og:image MUST be an absolute URL on the host the crawler actually fetched —
- *  otherwise WhatsApp/Facebook silently drop the preview card (they don't
- *  follow redirects on og:image, and a relative URL isn't valid at all). */
-function sameHostImage(imageUrl: string, requestOrigin: string): string {
-  try {
-    const ro = new URL(requestOrigin);
-    const img = new URL(imageUrl, ro);
-    if (img.hostname === ro.hostname || /(^|\.)bachatacalendar\.co\.uk$/i.test(img.hostname)) {
-      img.protocol = ro.protocol;
-      img.host = ro.host;
-      return img.toString();
-    }
-  } catch {
-    /* unparseable even with a base — leave as-is */
-  }
-  return imageUrl;
 }
 
 /** Resolve the og:image/twitter:image URL for an event or festival: prefer the

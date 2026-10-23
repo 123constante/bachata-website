@@ -49,7 +49,7 @@ export function PreviewBar({ preview, actionLabel, onAction, loading, disabled, 
   return (
     <div data-testid={testId} className={`space-y-[8px] px-[16px] py-[12px] ${shakeProps?.className ?? ''}`} onAnimationEnd={shakeProps?.onAnimationEnd}>
       {preview && !typing && (
-        <div data-testid={`${testId}-preview`} data-keyboard-hide className="max-h-[22dvh] overflow-hidden rounded-[12px] border border-[var(--line)] bg-[var(--card)]">
+        <div data-testid={`${testId}-preview`} data-keyboard-hide className="max-h-[22dvh] overflow-hidden rounded-[var(--r-ctl,12px)] border border-[var(--line)] bg-[var(--card)]">
           {preview}
         </div>
       )}

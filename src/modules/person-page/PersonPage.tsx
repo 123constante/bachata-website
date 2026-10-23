@@ -6,6 +6,8 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { EmbeddedProfileContext } from '@/lib/embeddedProfile';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { Skeleton } from '@/components/ui/skeleton';
+import { flags } from '@/lib/featureFlags';
+import PersonHub from './hub/PersonHub';
 import {
   ROLE_LABEL,
   TAB_HASH,
@@ -50,7 +52,12 @@ type Props = {
   publicPage?: PublicPageV2Data | null;
 };
 
-export default function PersonPage({ person, slugOrId, publicPage = null }: Props) {
+/** flags.personHub ON = the person hub (face, facts, one card per role page); OFF = the tabbed page below, unchanged. */
+export default function PersonPage(props: Props) {
+  return flags.personHub ? <PersonHub person={props.person} /> : <TabbedPersonPage {...props} />;
+}
+
+function TabbedPersonPage({ person, slugOrId, publicPage = null }: Props) {
   const { roles } = person;
   const navigate = useNavigate();
   // The hash is client-only, so the server and the first client render both show

@@ -53,7 +53,7 @@ export const moreDatesCount = (series: HomeSeriesFull, shown: readonly DateRow[]
 /**
  * The next `days` calendar days from today minus every day that already holds
  * a date of this series (scheduled OR cancelled: a cancelled date is put back,
- * not added again). Feeds Add a date and Move to another day.
+ * not added again). Feeds Add a date.
  *
  * `next_dates` carries only the first three dates, so a weekly series holds
  * more days inside 30 than it lists: pass every date the workspace read

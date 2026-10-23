@@ -7,6 +7,8 @@ import {
 import { createSeriesCommand } from '@/modules/organiser/shared/selfServeApi';
 import type { NewEventFormat } from '@/modules/organiser/shell/paths';
 import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
+import { NO_SESSION_REASON, hasUpcomingSession } from '@/modules/organiser/events/lifecycleModel';
+import type { SeriesWorkspace } from '@/modules/organiser/shared/seriesModel';
 
 /**
  * New event, one question per screen (plan 4.5, D44, D54, D55). Pure: every
@@ -55,6 +57,27 @@ export const liveCommands = (a1 = A1_APPLIED): OwnerCommand[] => (a1 ? [lifecycl
 /** Why the last step's button is off: no photo yet (it does not promise going live while A1 waits). */
 export const coverStepReason = (hasCover: boolean, a1 = A1_APPLIED): string | null =>
   hasCover ? null : a1 ? 'Choose a photo to go live.' : 'Choose a photo first.';
+
+/** The wizard has no session step: say what to do instead (the empty state names the way out). */
+export const NO_SESSION_NEW_REASON = `${NO_SESSION_REASON} Save as draft, then add a session from the event.`;
+export const CHECKING_REASON = 'One moment, checking your event.';
+
+/**
+ * Why the last step's button is off: no photo, then no session (the SAME rule as
+ * the event page's Go live, hasUpcomingSession). `draft` is null while it loads.
+ */
+export function finishReason(
+  hasCover: boolean,
+  draft: Pick<SeriesWorkspace, 'hasSessions' | 'dates'> | null,
+  today: string,
+  a1 = A1_APPLIED,
+): string | null {
+  const cover = coverStepReason(hasCover, a1);
+  if (cover) return cover;
+  if (!a1) return null;
+  if (!draft) return CHECKING_REASON;
+  return hasUpcomingSession(draft, today) ? null : NO_SESSION_NEW_REASON;
+}
 
 /**
  * "Save as draft and leave": with A1 on, always; with A1 off only while the main

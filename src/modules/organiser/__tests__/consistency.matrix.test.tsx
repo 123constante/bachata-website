@@ -110,8 +110,8 @@ describe('INT3: one name for a rule date taken off: "Take this date off" on Chan
   });
 });
 
-describe('INT3: Go live (P-SERIES) and Move a date (P-DATES) follow ONE A1 gate', () => {
-  const USERS = ['events/lifecycleModel.ts', 'flows/change/Day.tsx', 'flows/change/WhatChanges.tsx', 'flows/new/model.ts'];
+describe('INT3: Go live (P-SERIES) follows ONE A1 gate', () => {
+  const USERS = ['events/lifecycleModel.ts', 'flows/new/model.ts'];
   it('only shared/a1Gate.ts defines A1_APPLIED', () => {
     expect(ALL.filter(({ src }) => /\bA1_APPLIED\s*[:=]/.test(stripComments(src))).map((f) => f.file)).toEqual(['shared/a1Gate.ts']);
   });
