@@ -1,8 +1,8 @@
 import { chromium } from 'playwright';
 const BASE = 'http://localhost:4173';
 const OUT = '/home/user/bachata-website/docs/people-arc/s3/shots';
-const SLUGS = ['papacito', 'jeff', 'ramiro-zapata', 'nico', 'carlos-de-la-cruz', 'chong', 'bobby-blanco', 'brito', 'dj-chino-bzuk26'];
-const SIZES = [[390, 844], [360, 800]];
+const SLUGS = (process.env.SLUGS || 'papacito,jeff,brito,chong,carlos-de-la-cruz,dj-chino-bzuk26,bobby-blanco').split(',');
+const SIZES = process.env.SIZES ? JSON.parse(process.env.SIZES) : [[390, 844], [360, 800]];
 const browser = await chromium.launch();
 const results = [];
 if (!process.env.BACKONLY) for (const slug of SLUGS) for (const [w, h] of SIZES) {
@@ -36,7 +36,11 @@ if (!process.env.BACKONLY) for (const slug of SLUGS) for (const [w, h] of SIZES)
       worst: Math.round(worst * 100) / 100, worstText, small, clipped,
       name: t('dj-name'), real: t('dj-real-name'), count: t('dj-count'),
       gigs: document.querySelectorAll('[data-testid="dj-gig"]').length, records: document.querySelectorAll('[data-testid="dj-record"]').length,
-      empty: !!t('dj-empty-action'), invite: !!t('dj-invite'), book: !!t('dj-book'), tabs: tabs ? [...tabs.querySelectorAll('a')].map((a) => a.textContent).join('/') : null,
+      empty: t('dj-empty-action'), note: t('dj-empty-note'),
+      // S3b: the frame box (must match on every shape and world) and the gap from the content to the footer.
+      back: (() => { const b = document.querySelector('[data-testid="frame-back"]').getBoundingClientRect(); return `L${Math.round(b.left)} T${Math.round(b.top + scrollY)}`; })(),
+      barW: Math.round(document.querySelector('[data-testid="frame-back"]').parentElement.getBoundingClientRect().width),
+      footerGap: (() => { const f = document.querySelector('footer'); const w = document.querySelector('[data-testid="world-page"]'); return f && w ? Math.round(f.getBoundingClientRect().top - w.getBoundingClientRect().bottom) : null; })(), invite: !!t('dj-invite'), book: !!t('dj-book'), tabs: tabs ? [...tabs.querySelectorAll('a')].map((a) => a.textContent).join('/') : null,
       tabsY: tabs ? Math.round(tabs.getBoundingClientRect().top + scrollY) : null, photo: document.querySelector('[data-testid="person-avatar"]')?.getAttribute('data-photo'),
     };
   });

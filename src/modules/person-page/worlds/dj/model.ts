@@ -5,7 +5,6 @@ import { resolvePublicName } from '@/lib/publicName';
 import { listenLinks } from '@/components/dj/djRoleModel';
 import type { DjGig } from '@/components/dj/DjTiles';
 import { cityLabel, countLabel, dayNumber, flagCode, gigDateLabel, monthLabel, timeLabel, worldNames } from '../../facts';
-import type { PersonRole } from '../../personRoles';
 
 export type DjWorldInput = {
   /** The get_public_dj_v1 row, read through djRoleFields for the text fields. */
@@ -15,9 +14,6 @@ export type DjWorldInput = {
   links: { soundcloud: string | null; mixcloud: string | null; instagram: string | null; website: string | null; facebook: string | null };
   upcoming: readonly DjGig[];
   past: readonly DjGig[];
-  /** The person's visible roles, and whether that read has answered (the invite waits for it). */
-  roles: readonly PersonRole[];
-  rolesAnswered: boolean;
   /** This page's path, where sign-up returns to. */
   pathname: string;
 };
@@ -33,11 +29,14 @@ export type DjWorldView = {
   count: string | null;
   upcoming: DjGigRow[];
   played: DjRecord[];
-  /** No dates at all: one button to what the visitor CAN do (the parties list). */
-  emptyAction: { label: string; href: string } | null;
+  /**
+   * Nothing coming up (owner D11/D12): a muted line saying so ("No dates on the calendar yet." with no
+   * dates at all, "No dates coming up yet." with only past ones), then one button to the parties list.
+   */
+  emptyAction: { note: string; label: string; href: string } | null;
   book: { label: string; value: string; href: string } | null;
-  /** D8: shown once the roles read answered and the person is not a dancer yet. */
-  invite: { label: string; href: string } | null;
+  /** D8': on every person page, whatever the person's roles: it speaks to the visitor. */
+  invite: { label: string; href: string };
 };
 
 const text = (v: string | null | undefined): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
@@ -70,10 +69,10 @@ export function djWorldView(p: DjWorldInput): DjWorldView {
     count: countLabel(upcoming.length, 'gigs coming up'),
     upcoming,
     played,
-    emptyAction: upcoming.length || played.length ? null : { label: 'Parties this week', href: '/parties' },
+    emptyAction: upcoming.length
+      ? null
+      : { note: played.length ? 'No dates coming up yet.' : 'No dates on the calendar yet.', label: 'Find a party', href: '/parties' },
     book: first ? { label: `Book ${big}`, value: linkText(first.href), href: first.href } : null,
-    invite: p.rolesAnswered && !p.roles.includes('dancer')
-      ? { label: 'Dance bachata too? Get your own card', href: buildSignInHref(p.pathname, 'signup') }
-      : null,
+    invite: { label: 'Dance bachata too? Get your own card', href: buildSignInHref(p.pathname, 'signup') },
   };
 }

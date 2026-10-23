@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
+import { useDjPageFonts } from '@/components/dj/djPageTheme';
 import { Avatar } from '../../frame/Avatar';
 import { TAP } from '../../roleSwitch';
 import { FOCUS_RING } from '../../wall/tokens';
@@ -28,6 +29,7 @@ function Section({ title, children, testId }: { title: string; children: React.R
  * flag, the DJ name big in DM Serif Display and the real name small, a count only from 2), then
  * Upcoming, Played at, booking and the dancer invite. Thin pages end after the sleeve with one
  * action, so a DJ with no dates still looks finished. All copy comes in on `view` (model.ts).
+ * It loads DM Serif Display itself, so it reads right wherever it is shown (S3b).
  */
 export function DjWorld({ view, photo, bio, dates, onRetry }: {
   view: DjWorldView;
@@ -37,6 +39,7 @@ export function DjWorld({ view, photo, bio, dates, onRetry }: {
   dates: 'loading' | 'failed' | 'ready';
   onRetry: () => void;
 }) {
+  useDjPageFonts();
   return (
     <div data-testid="dj-world" className="flex flex-col gap-3" style={{ fontFamily: FONT.body, color: T.ink }}>
       <div data-testid="dj-sleeve" className="rounded-[22px] px-3 pb-4 pt-4 text-center" style={{ background: T.card.background, border: `1px solid ${T.card.border}` }}>
@@ -89,6 +92,21 @@ export function DjWorld({ view, photo, bio, dates, onRetry }: {
         </Section>
       ) : null}
 
+      {/* Where Upcoming would be: nothing coming up says so, then what the visitor can do. */}
+      {dates === 'ready' && view.emptyAction ? (
+        <div data-testid="dj-empty" className="flex flex-col gap-2">
+          <p data-testid="dj-empty-note" className="m-0 text-center" style={{ fontSize: 14, color: T.card.muted }}>{view.emptyAction.note}</p>
+          <Link
+            to={view.emptyAction.href}
+            data-testid="dj-empty-action"
+            className={`flex items-center justify-center rounded-full font-bold ${FOCUS_RING}`}
+            style={{ minHeight: TAP, fontSize: 14, color: T.accent, border: `1px solid ${T.avatar.ring}` }}
+          >
+            {view.emptyAction.label}
+          </Link>
+        </div>
+      ) : null}
+
       {dates === 'ready' && view.upcoming.length ? (
         <Section title="Upcoming" testId="dj-upcoming">
           <div className="flex flex-col gap-[6px]">
@@ -132,17 +150,6 @@ export function DjWorld({ view, photo, bio, dates, onRetry }: {
         </Section>
       ) : null}
 
-      {dates === 'ready' && view.emptyAction ? (
-        <Link
-          to={view.emptyAction.href}
-          data-testid="dj-empty-action"
-          className={`flex items-center justify-center rounded-full font-bold ${FOCUS_RING}`}
-          style={{ minHeight: TAP, fontSize: 14, color: T.accent, border: `1px solid ${T.avatar.ring}` }}
-        >
-          {view.emptyAction.label}
-        </Link>
-      ) : null}
-
       {/* After the dates, so it does not jump down when they arrive. */}
       {dates !== 'loading' && view.book ? (
         <a
@@ -161,16 +168,14 @@ export function DjWorld({ view, photo, bio, dates, onRetry }: {
         </a>
       ) : null}
 
-      {view.invite ? (
-        <Link
-          to={view.invite.href}
-          data-testid="dj-invite"
-          className={`flex items-center justify-center rounded-full px-3 text-center font-bold ${FOCUS_RING}`}
-          style={{ minHeight: TAP, fontSize: 14, color: WORLD.dancer.avatar.ink, background: WORLD.dancer.avatar.background, border: `1px solid ${WORLD.dancer.avatar.ring}` }}
-        >
-          {view.invite.label}
-        </Link>
-      ) : null}
+      <Link
+        to={view.invite.href}
+        data-testid="dj-invite"
+        className={`flex items-center justify-center rounded-full px-3 text-center font-bold ${FOCUS_RING}`}
+        style={{ minHeight: TAP, fontSize: 14, color: WORLD.dancer.avatar.ink, background: WORLD.dancer.avatar.background, border: `1px solid ${WORLD.dancer.avatar.ring}` }}
+      >
+        {view.invite.label}
+      </Link>
     </div>
   );
 }

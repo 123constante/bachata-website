@@ -32,7 +32,7 @@ import {
   DjGuestbookStub,
   type DjGig,
 } from '@/components/dj/DjTiles';
-import { PersonFrame } from '@/modules/person-page/frame';
+import { PersonFrame, WorldPage } from '@/modules/person-page/frame';
 import { DjWorld, djWorldView } from '@/modules/person-page/worlds/dj';
 import { WORLD } from '@/modules/person-page/worlds/tokens';
 import { usePersonSnapshot } from '@/modules/person-page/usePersonRoles';
@@ -212,17 +212,31 @@ const DJProfile = () => {
   }, [appearances]);
 
   if (isLoading && worlds) {
-    // The DJ ground and the frame's boxes, so the page arrives without a jump.
+    // The DJ ground and the frame's boxes in the world shell, so the page arrives without a jump.
     return (
-      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false} gradientPalette="dj">
-        {/* No own ground: the 'dj' page ground runs under the world and below it (no seam above the footer). */}
-        <div className="px-3 pb-6 pt-2" data-testid="dj-world-loading">
-          <div className="mx-auto w-full max-w-xl space-y-3">
-            <Skeleton className="h-11 w-full rounded-[12px]" style={{ background: WORLD.dj.section.background }} />
-            <Skeleton className="h-80 w-full rounded-[22px]" style={{ background: WORLD.dj.section.background }} />
-          </div>
+      <WorldPage world="dj" breadcrumbs={djBreadcrumbs} backHref="/djs">
+        <div className="space-y-3" data-testid="dj-world-loading">
+          <Skeleton className="h-11 w-full rounded-[12px]" style={{ background: WORLD.dj.section.background }} />
+          <Skeleton className="h-80 w-full rounded-[22px]" style={{ background: WORLD.dj.section.background }} />
         </div>
-      </GlobalLayout>
+      </WorldPage>
+    );
+  }
+
+  if (worlds && (error || !dj)) {
+    return (
+      <WorldPage world="dj" breadcrumbs={djBreadcrumbs} backHref="/djs">
+        <div className="flex flex-col items-center gap-3 py-10 text-center" data-testid="dj-world-missing">
+          <p className="m-0" style={{ fontSize: 15, color: WORLD.dj.card.muted }}>This DJ profile doesn&rsquo;t exist or has been removed.</p>
+          <Link
+            to="/djs"
+            className="inline-flex items-center gap-2 rounded-full px-4 font-bold"
+            style={{ minHeight: 44, fontSize: 14, color: WORLD.dj.accent, border: `1px solid ${WORLD.dj.avatar.ring}` }}
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden /> Back to DJs
+          </Link>
+        </div>
+      </WorldPage>
     );
   }
 
@@ -291,36 +305,32 @@ const DJProfile = () => {
       links: f.links,
       upcoming,
       past,
-      roles: person.snapshot?.roles ?? [],
-      rolesAnswered: person.answered,
       pathname,
     });
     return (
-      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false} gradientPalette="dj">
-        {breadcrumbJsonLd ? (
-          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd }} />
-        ) : null}
-        <div className="px-3 pb-6 pt-2" style={{ color: WORLD.dj.ink }}>
-          <div className="mx-auto w-full max-w-xl">
-            <PersonFrame
-              backHref="/djs"
-              shareTitle={`${view.big} on Bachata Calendar`}
-              roles={person.snapshot?.roles ?? []}
-              current="dj"
-              slug={resolved.slug}
-              rolesPending={!person.answered}
-            >
-              <DjWorld
-                view={view}
-                photo={f.photoUrl}
-                bio={f.bio}
-                dates={appearancesFailed ? 'failed' : appearancesFetched ? 'ready' : 'loading'}
-                onRetry={() => void refetchAppearances()}
-              />
-            </PersonFrame>
-          </div>
-        </div>
-      </GlobalLayout>
+      <WorldPage
+        world="dj"
+        breadcrumbs={djBreadcrumbs}
+        backHref="/djs"
+        head={breadcrumbJsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd }} /> : null}
+      >
+        <PersonFrame
+          backHref="/djs"
+          shareTitle={`${view.big} on Bachata Calendar`}
+          roles={person.snapshot?.roles ?? []}
+          current="dj"
+          slug={resolved.slug}
+          rolesPending={!person.answered}
+        >
+          <DjWorld
+            view={view}
+            photo={f.photoUrl}
+            bio={f.bio}
+            dates={appearancesFailed ? 'failed' : appearancesFetched ? 'ready' : 'loading'}
+            onRetry={() => void refetchAppearances()}
+          />
+        </PersonFrame>
+      </WorldPage>
     );
   }
 

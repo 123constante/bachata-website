@@ -81,3 +81,28 @@ Full list: [`people-s3-critique.md`](people-s3-critique.md). Measured with `docs
 Fix: `PersonFrame` `rolesPending` keeps the 52 px tabs row while the roles read is out (no new read); the booking
 row waits for the dates. The DJ-only trade is accepted (4 of 40); removing it needs the roles in the first read
 (owner call, not built).
+
+## S3b (2026-10-23): invite everywhere, one world shell, thin wording, short-page footer, serif
+
+Owner decisions D8', D11, D12, D13 and the frame-jump fix. Production build, prod data, flag ON, Chromium.
+Walk: `docs/people-arc/s3/walk.mjs` (now also records the frame box and the footer gap). Shots retaken for the
+7 slugs below (nico and ramiro-zapata keep their S3 shots: their shape did not change).
+
+| Slug | Shape | Invite | Thin line / button | Back (L, T) | Bar W 390 / 360 | Content to footer | Lowest contrast | Taps < 44 | Sideways |
+|---|---|---|---|---|---|---|---|---|---|
+| papacito | 2 upcoming, 2 played, DJ + dancer | yes | - | L10 T113 | 370 / 340 | 54 px | 5.91 | 0 | no |
+| jeff | 4 upcoming, 1 played, DJ + dancer | yes | - | L10 T113 | 370 / 340 | 54 px | 5.91 | 0 | no |
+| brito | no dates at all | yes | "No dates on the calendar yet." / Find a party | L10 T113 | 370 / 340 | 54 px | 5.91 | 0 | no |
+| chong | past only (3 played) | yes | "No dates coming up yet." / Find a party | L10 T113 | 370 / 340 | 54 px | 5.91 | 0 | no |
+| carlos-de-la-cruz | 1 upcoming, DJ only | yes | - | L10 T113 | 370 / 340 | 54 px | 7.52 | 0 | no |
+| dj-chino-bzuk26 | no name, no dates, DJ only | yes | "No dates on the calendar yet." / Find a party | L10 T113 | 370 / 340 | 54 px | 8.15 | 0 | no |
+| bobby-blanco | 1 upcoming, DJ only | yes | - | L10 T113 | 370 / 340 | 54 px | 7.52 | 0 | no |
+
+- Frame box: Back at L10 T113 and the bar 370 px (390) / 340 px (360) on every shape, both widths. At 1280x800
+  (papacito, brito): Back L352 T68, bar 576 px (the `max-w-xl` column, centred). Bar W = the Back/Share row's width.
+- Content to footer: 54 px on every shape = the site footer's own `mt-16` (the same on `/parties`), on the DJ
+  ground. Before: 177-307 px of empty ground on thin pages. Two holds were released: `GlobalLayout`'s
+  `min-h-screen` and the route wrapper's `.route-shell` min height (index.css), both for the worlds only.
+- The muted thin line is `card.muted` #E3CDB9 on the ground: inside the 5.91 floor above.
+- DM Serif Display: the name renders in the serif on every shot (`DjWorld` now loads the font itself).
+- No page errors on any render.

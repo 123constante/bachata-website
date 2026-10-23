@@ -53,6 +53,10 @@ export interface GlobalLayoutProps {
   gradientPalette?: GroundPalette | 'bento' | 'velvet' | 'brass' | 'organiser';
   floatingCount?: number;
   heroAfter?: ReactNode;
+  // People arc S3b (owner D13): drop the full-screen min height so the footer comes straight after
+  // a short page. Only the people worlds pass it (frame/WorldPage); every other page keeps the default.
+  // It also releases the route wrapper's own min height (.route-shell, index.css) for this page only.
+  fitContent?: boolean;
   children: ReactNode;
 }
 
@@ -108,6 +112,9 @@ const ORGANISER_BG: CSSProperties = {
 // - Without hero: sticky at viewport-top+60px so the row pins under the
 //   global header on scroll. Takes its natural height.
 //
+/** The route wrapper (.route-shell) holds every page at least one screen tall; a fitContent page lets go. */
+export const FIT_CONTENT_CSS = '.route-shell:has(> [data-fit-content]){min-height:0}';
+
 const GlobalLayout = ({
   breadcrumbs = DEFAULT_BREADCRUMBS,
   hero,
@@ -120,6 +127,7 @@ const GlobalLayout = ({
   gradientPalette = 'default',
   floatingCount = 20,
   heroAfter,
+  fitContent = false,
   children,
 }: GlobalLayoutProps) => {
   const { scrollYProgress } = useScroll();
@@ -208,7 +216,9 @@ const GlobalLayout = ({
   if (embedded) return <>{children}</>;
 
   return (
-    <div className="min-h-screen text-foreground overflow-x-clip relative">
+    <div className={`${fitContent ? '' : 'min-h-screen '}text-foreground overflow-x-clip relative`} data-fit-content={fitContent || undefined}>
+      {/* In the served HTML too, so the footer does not move up on hydration. */}
+      {fitContent ? <style>{FIT_CONTENT_CSS}</style> : null}
       {showProgressBar && (
         <motion.div
           className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-festival-pink to-festival-purple z-40 origin-left"

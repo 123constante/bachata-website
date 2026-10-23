@@ -54,23 +54,23 @@ type Shape = {
   count: string | null;
   upcoming: number;
   played: number;
-  empty: boolean;
-  invite: boolean;
+  /** D11: the muted line above "Find a party" (null = the DJ has dates coming up, no button). */
+  note: string | null;
   tabs: boolean;
 };
 
 const SHAPES: Shape[] = [
   { who: 'thin: no DJ name, no photo, no city, no gigs, DJ only', row: { first_name: 'Bobby', surname: 'Blanco' }, gigs: [], roles: ['dj'],
-    big: 'Bobby Blanco', small: null, count: null, upcoming: 0, played: 0, empty: true, invite: true, tabs: false },
-  { who: 'no name at all', row: {}, gigs: [], roles: [], big: 'DJ', small: null, count: null, upcoming: 0, played: 0, empty: true, invite: true, tabs: false },
+    big: 'Bobby Blanco', small: null, count: null, upcoming: 0, played: 0, note: 'No dates on the calendar yet.', tabs: false },
+  { who: 'no name at all', row: {}, gigs: [], roles: [], big: 'DJ', small: null, count: null, upcoming: 0, played: 0, note: 'No dates on the calendar yet.', tabs: false },
   { who: 'one upcoming, "DJ " prefix, photo, city', row: { dj_name: 'DJ  Nadia', first_name: 'Nadia', surname: 'Ruiz', photo_url: ['https://x/p.jpg'], city_name: 'London SE1 7PB' },
-    gigs: [gig(1, 3)], roles: ['dj'], big: 'Nadia', small: 'Nadia Ruiz', count: null, upcoming: 1, played: 0, empty: false, invite: true, tabs: false },
+    gigs: [gig(1, 3)], roles: ['dj'], big: 'Nadia', small: 'Nadia Ruiz', count: null, upcoming: 1, played: 0, note: null, tabs: false },
   { who: 'Papacito: DJ name differs, 2 upcoming + past, DJ + dancer', row: { dj_name: 'Morcilla', first_name: 'Papacito', city_name: 'London', nationality_code: 'za', instagram: 'dj_morcilla' },
-    gigs: [gig(1, 0), gig(2, 69, '21:30:00'), gig(3, -20), gig(4, -50)], roles: ['dj', 'dancer'], big: 'Morcilla', small: 'Papacito', count: '2 gigs coming up', upcoming: 2, played: 2, empty: false, invite: false, tabs: true },
+    gigs: [gig(1, 0), gig(2, 69, '21:30:00'), gig(3, -20), gig(4, -50)], roles: ['dj', 'dancer'], big: 'Morcilla', small: 'Papacito', count: '2 gigs coming up', upcoming: 2, played: 2, note: null, tabs: true },
   { who: 'past only (played at), DJ + teacher', row: { first_name: 'Nick', surname: 'Chata' }, gigs: [gig(1, -3), gig(2, -40), gig(3, -90)], roles: ['dj', 'teacher'],
-    big: 'Nick Chata', small: null, count: null, upcoming: 0, played: 3, empty: false, invite: true, tabs: true },
+    big: 'Nick Chata', small: null, count: null, upcoming: 0, played: 3, note: 'No dates coming up yet.', tabs: true },
   { who: 'long name (20), DJ name equal to the public name', row: { dj_name: 'Alessandro Bellomont', first_name: 'Alessandro', surname: 'Bellomont' },
-    gigs: [gig(1, 1), gig(2, 2), gig(3, 3), gig(4, 4)], roles: ['dj', 'dancer', 'teacher'], big: 'Alessandro Bellomont', small: null, count: '4 gigs coming up', upcoming: 4, played: 0, empty: false, invite: false, tabs: true },
+    gigs: [gig(1, 1), gig(2, 2), gig(3, 3), gig(4, 4)], roles: ['dj', 'dancer', 'teacher'], big: 'Alessandro Bellomont', small: null, count: '4 gigs coming up', upcoming: 4, played: 0, note: null, tabs: true },
 ];
 
 const mount = (path = '/djs/papacito') =>
@@ -116,21 +116,23 @@ describe.each(SHAPES)('DJ world (flag ON): $who', (s) => {
     expect(document.body.textContent).not.toMatch(/guestbook|coming soon/i);
   });
 
-  it('shows Upcoming, Played at, the empty action and the invite only when they apply', async () => {
+  it('shows Upcoming, Played at and the empty action only when they apply, and the invite always (D8\')', async () => {
     mount();
     await screen.findByTestId('dj-world');
     expect(screen.queryAllByTestId('dj-gig')).toHaveLength(s.upcoming);
     expect(screen.queryAllByTestId('dj-record')).toHaveLength(s.played);
     expect(!!screen.queryByTestId('dj-upcoming')).toBe(s.upcoming > 0);
     expect(!!screen.queryByTestId('dj-played')).toBe(s.played > 0);
-    expect(screen.queryByTestId('dj-empty-action')?.getAttribute('href') ?? null).toBe(s.empty ? '/parties' : null);
-    const invite = screen.queryByTestId('dj-invite');
-    expect(!!invite).toBe(s.invite);
-    if (invite) {
-      expect(invite.textContent).toBe('Dance bachata too? Get your own card');
-      expect(invite.getAttribute('href')).toBe('/auth?mode=signup&returnTo=%2Fdjs%2Fpapacito');
-      expect(invite.style.minHeight).toBe('44px');
-    }
+    // D11/D12: one muted line, then "Find a party" to /parties, whenever nothing is coming up.
+    const action = screen.queryByTestId('dj-empty-action');
+    expect(action?.getAttribute('href') ?? null).toBe(s.note ? '/parties' : null);
+    expect(action?.textContent ?? null).toBe(s.note ? 'Find a party' : null);
+    expect(screen.queryByTestId('dj-empty-note')?.textContent ?? null).toBe(s.note);
+    // D8': the invite speaks to the visitor, so every person page has it, whatever the person's roles.
+    const invite = screen.getByTestId('dj-invite');
+    expect(invite.textContent).toBe('Dance bachata too? Get your own card');
+    expect(invite.getAttribute('href')).toBe('/auth?mode=signup&returnTo=%2Fdjs%2Fpapacito');
+    expect(invite.style.minHeight).toBe('44px');
     for (const row of screen.queryAllByTestId('dj-gig')) expect(row.getAttribute('href')).toMatch(/^\/event\/e\d$/);
   });
 });
@@ -176,11 +178,11 @@ describe('DJ world (flag ON): dates and facts', () => {
     expect(screen.queryByTestId('dj-empty-action')).toBeNull();
   });
 
-  it('the invite waits for the roles read', async () => {
+  it('the invite does not wait for the roles read (D8\': it never depends on the roles)', async () => {
     h.roles = { snapshot: null, answered: false };
     mount();
     await screen.findByTestId('dj-world');
-    expect(screen.queryByTestId('dj-invite')).toBeNull();
+    expect(screen.getByTestId('dj-invite')).toBeTruthy();
   });
 
   it('the booking row opens the first link and names the DJ', async () => {
@@ -221,6 +223,48 @@ describe('DJ world (flag ON): no jump when the late reads answer', () => {
     mount();
     await screen.findByTestId('dj-world');
     expect(!!screen.queryByTestId('dj-book')).toBe(book);
+  });
+});
+
+// S3b (b, d): every flag-ON state sits in the ONE world shell (frame/WorldPage): the same padding and
+// width, so switching world never moves Back or the bar, and no min height, so the footer comes
+// straight after the content. The owner measured Back 4px right / 3px down between worlds.
+const SHELL = { page: 'px-3 pb-6 pt-2', slot: 'mx-auto w-full max-w-xl' };
+const expectInShell = (inner: HTMLElement) => {
+  const page = screen.getByTestId('world-page');
+  const slot = screen.getByTestId('world-page-slot');
+  expect(page.className).toBe(SHELL.page);
+  expect(slot.className).toBe(SHELL.slot);
+  expect(inner.parentElement).toBe(slot);
+  expect(slot.parentElement).toBe(page);
+  // Nothing between the layout root and the frame holds the page open.
+  for (let el: HTMLElement | null = inner; el; el = el.parentElement) {
+    expect(el.className).not.toMatch(/min-h-screen|min-h-\[/);
+    expect(el.style.minHeight).toBe('');
+  }
+};
+
+describe('DJ world (flag ON): one shell for every state', () => {
+  it.each(SHAPES)('full page: $who', async (s) => {
+    h.rpc.mockResolvedValue({ data: { ...ROW, ...s.row }, error: null });
+    h.app.data = s.gigs;
+    h.roles = { snapshot: { roles: s.roles }, answered: true };
+    mount();
+    expectInShell(await screen.findByTestId('person-frame'));
+  });
+
+  it('loading', async () => {
+    h.rpc.mockReturnValue(new Promise(() => undefined));
+    mount();
+    expectInShell(await screen.findByTestId('dj-world-loading'));
+  });
+
+  it('not found', async () => {
+    h.rpc.mockResolvedValue({ data: null, error: null });
+    mount();
+    const box = await screen.findByTestId('dj-world-missing');
+    expectInShell(box);
+    expect(within(box).getByRole('link', { name: /Back to DJs/ }).getAttribute('href')).toBe('/djs');
   });
 });
 
