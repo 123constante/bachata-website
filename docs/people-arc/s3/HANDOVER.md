@@ -188,3 +188,80 @@ Needs `VITE_ENABLE_PERSON_WORLDS=true` on the Vercel Preview environment for bra
 
 https://claude.ai/code/session_01PbLkKWGt2Eeb35ACJbqzUd
 ````
+
+## S3b: invite everywhere, one world shell, thin wording, short-page footer, serif (2026-10-23)
+
+Brief: `briefs/PEOPLE-S3b-continuation-brief.md` on `brief/people-arc` (sha e3fbb034). Content commit: the
+`feat(people): S3b ...` commit; head = `git log -1 origin/claude/people-dj-world` (this doc rides the last commit).
+Design record + walk table: [`docs/design/people-s3-dj-world.md`](../../design/people-s3-dj-world.md#s3b-2026-10-23-invite-everywhere-one-world-shell-thin-wording-short-page-footer-serif).
+
+### What changed
+
+| Item | Change |
+|---|---|
+| (a) D8' invite | `djWorldView` always returns `invite` (type no longer nullable). The role condition and the `roles` / `rolesAnswered` inputs are gone from `DjWorldInput`: shown always, so it never appears late (no jump from the roles read). Matrix: every shape asserts it |
+| (b) frame jump | NEW `frame/WorldPage.tsx`: `GlobalLayout` (no sub-header, the world's ground, `fitContent`) + `px-3 pb-6 pt-2` + `mx-auto w-full max-w-xl` + a slot. Every flag-ON DJ state uses it: loading, NEW flag-ON not-found box (`dj-world-missing`, "Back to DJs" 44 px), full. Padding pick: the compact DJ one (`px-3 pt-2`, density rule), width `max-w-xl` (576 px at 1280) |
+| (c) D11/D12 thin | `emptyAction` = `{ note, label: 'Find a party', href: '/parties' }` whenever nothing is coming up: note "No dates on the calendar yet." (0 dates) / "No dates coming up yet." (past only). Rendered where Upcoming would be (above Played at), muted `card.muted` |
+| (d) D13 footer | `GlobalLayout` `fitContent` (default false): drops `min-h-screen` AND releases `.route-shell`'s min height for that page only via an inline `.route-shell:has(> [data-fit-content]){min-height:0}` (in the served HTML, so no move on hydration). The second hold was found in the walk: dropping `min-h-screen` alone left 177-307 px. No world sets its own min height on the flag-ON path |
+| (e) serif | `DjWorld` calls `useDjPageFonts()` itself, so any DJ preview that renders it gets DM Serif Display. The hook is ref-counted now: the link is removed when the LAST user unmounts (before: the first unmount removed it while another user was still on screen) |
+
+Tests (red first, on e64b952: 18 failed): `DJProfileWorlds.test.tsx` (invite per shape, thin note + label per shape,
+"one shell for every state" x 6 shapes + loading + not found: frame inside `world-page-slot`, identical classes,
+no min height on any ancestor), `GlobalLayout.fitContent.test.tsx` (default keeps `min-h-screen`, no release),
+`worldShellGuard.test.ts` (every file rendering `<PersonFrame` does so straight inside `<WorldPage`, no
+padding / width / min-height between; canary), `djPageFonts.test.tsx` (one link, ref-count, DjWorld loads it).
+Mutations, each turned a test red: invite made conditional (7), shell padding `px-4 pt-3` (8), past-only wording
+(1), `fitContent` removed from the shell (8), font call removed (1), ref-count broken (1), a `px-4 pt-3` wrapper
+put around PersonFrame in DJProfile (guard, 1).
+
+### Shell API for S2 (dancer page)
+
+```tsx
+import { PersonFrame, WorldPage } from '@/modules/person-page/frame';
+
+<WorldPage
+  world="dancer"                                  // PersonRole: picks the ground ('dancer') and the ink
+  breadcrumbs={buildBreadcrumbs('dancer.detail', { entityName, isLoading })}
+  backHref="/dancers"
+  head={jsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} /> : null}  // optional
+>
+  <PersonFrame backHref="/dancers" ... current="dancer">...</PersonFrame>   // or the loading / not-found box
+</WorldPage>
+```
+
+S2 deletes: its own `<GlobalLayout ... gradientPalette="dancer">` wrapper, the `px-4 pt-3` (and any `pb-*`)
+padding div, the `max-w-xl` div, and any `min-h-screen` / `HUB.groundMinHeight` on the flag-ON path. Its
+loading and not-found states go in the same shell. `worldShellGuard.test.ts` fails if a world pads the frame
+itself. `WORLD_PAGE` (the two class strings) is exported for tests. The teacher world has no ground yet
+(`default` until S4 adds one to `pageGrounds.ts`).
+
+### Frame box per shape (390x844 / 360x800, prod data)
+
+Back L10 T113 and bar W 370 / 340 on papacito, jeff, brito, chong, carlos-de-la-cruz, dj-chino-bzuk26,
+bobby-blanco (identical on every shape). 1280x800: Back L352 T68, bar 576. Content to footer: 54 px everywhere
+(the site footer's own `mt-16`). Bar W = the Back/Share row's width (the brief's 361 / 354 were measured on
+another box; the rule that matters, equal on every shape, holds).
+
+### Not verified (S3b)
+
+- The dancer page through the shell: S2's file, not on this branch. Only the DJ world is checked; the
+  equal-box claim across worlds holds once S2 adopts `WorldPage`.
+- Real photos (image host blocked), the Vercel preview (no token: needs owner), a real phone.
+- The flag-OFF page in a browser (unit-tested; its code path is unchanged; `fitContent` defaults off).
+- The `/code-review` pass (the owner types it).
+- Prod shape counts were not re-run: the S3 survey from this morning (23 of 40 with no upcoming gig, 11 with
+  played-at) stands; the thin wording was checked on brito / dj-chino (0 dates) and chong (past only).
+
+### CI, every applicable job step, run locally on b570a69
+
+| Job (workflow) | Result |
+|---|---|
+| unit (unit-tests): ci-live-db-gate, test:unit, dancer-area-isolation (+self-test) | test:unit 15 failed / 12627 passed: the same 15 as main in this sandbox (3 live-DB contract files on the sandbox's non-prod key, `integrityCouldNotRun`). The new tests pass and were red on e64b952 |
+| typecheck: check:rpc-typing, check:wallclock-brand | pass. `npm run typecheck` 100 errors (= S3's count, baseline 106), none in touched files |
+| guard (architecture-guard): integrity, legacy-tables, legacy-program-rpcs, lint:architecture, check:images AUDIT_STRICT=1 | pass (`bash bin/check-integrity.sh`; the file is not executable in the sandbox, CI runs chmod first) |
+| lint chain | 19 of 20 links pass, the 20th is that integrity exit 126. eslint on touched files: only the unchanged `setMounted` line in DJProfile |
+| bundle (perf-budget): 3 self-tests, build, bundle-budget, first-load-requests, chunk-cycles | pass. lighthouse needs a preview |
+| check:doc-weight, seo-check check:seo | need a live preview (GITHUB_REPOSITORY / preview URL), not runnable here |
+| e2e (e2e-smoke): test:e2e | 163 passed, 1 failed (organiser-profile "About saved"), 1 skipped; that spec rerun alone: 4 passed |
+| phone-qa: phone suite | 272 passed, 0 failed, 74 skipped |
+| workflow-lint: masking, notification (+self-test), no-preview-prefixes, docs-only self-test | pass |
