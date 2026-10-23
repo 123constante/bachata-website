@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { isMissingRpc, parseDryRun, parseDuplicates, parseJoinResult, refusalCode, type DryRun, type DuplicatePair } from './duplicatesModel';
+import { isMissingRpc, parseDryRun, parseDuplicates, parseJoinResult, refusalCode, type DryRun, type DuplicatePair, type DuplicatesList } from './duplicatesModel';
 import { JOIN_REFUSAL_COPY } from './duplicatesCopy';
 
 // A2's RPCs are not in the generated Database type (and may not exist yet), so they go through one
@@ -12,7 +12,7 @@ const rpc = (fn: string, args?: Record<string, unknown>) => (supabase as unknown
 /** Computed live each time the admin page opens (staleTime 0): never a cached count. */
 export const DUPLICATES_KEY = ['admin-invitee-duplicates'] as const;
 
-export type DuplicatesAnswer = { kind: 'unavailable' } | { kind: 'ok'; pairs: DuplicatePair[] };
+export type DuplicatesAnswer = { kind: 'unavailable' } | ({ kind: 'ok' } & DuplicatesList);
 
 const KNOWN = Object.keys(JOIN_REFUSAL_COPY);
 
@@ -22,9 +22,9 @@ export async function fetchDuplicates(): Promise<DuplicatesAnswer> {
     if (isMissingRpc(error)) return { kind: 'unavailable' };
     throw error;
   }
-  const pairs = parseDuplicates(data);
-  if (!pairs) throw new Error('malformed_duplicates_answer');
-  return { kind: 'ok', pairs };
+  const list = parseDuplicates(data);
+  if (!list) throw new Error('malformed_duplicates_answer');
+  return { kind: 'ok', ...list };
 }
 
 const joinArgs = (p: DuplicatePair, dryRun: boolean) => ({ p_keep_profile: p.keepId, p_fold_profile: p.foldId, p_dry_run: dryRun });
@@ -43,9 +43,9 @@ export async function joinPeople(p: DuplicatePair): Promise<{ ok: true } | { ok:
   return parseJoinResult(data);
 }
 
-/** "Not the same person": A2's dismiss table, written through its admin RPC; hidden for good. */
+/** "Not the same person": A2's dismiss table, written through admin_dismiss_invitee_duplicate_v1; hidden for good. */
 export async function dismissPair(p: DuplicatePair): Promise<{ ok: true } | { ok: false; code: string }> {
-  const { error } = await rpc('admin_dismiss_duplicate_pair_v1', { p_keep_profile: p.keepId, p_fold_profile: p.foldId });
+  const { error } = await rpc('admin_dismiss_invitee_duplicate_v1', { p_profile_a: p.keepId, p_profile_b: p.foldId, p_dismiss: true });
   if (error) return { ok: false, code: isMissingRpc(error) ? 'unavailable' : refusalCode(error, KNOWN) ?? 'error' };
   return { ok: true };
 }

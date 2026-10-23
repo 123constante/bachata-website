@@ -47,7 +47,9 @@ module each: `invitePersonModel.ts` (`WHO_COPY`, `refusalScreen`) and `duplicate
 | This email cannot be used for this invite (after A2) | `email_in_use` once the switch exists | `w3-08-refused-email-in-use-after-a2.png` |
 | The profile already has a login someone uses | `login_has_signed_in` (proposed A2 code) | `w3-07-refused-login-has-signed-in.png` |
 | Hiding a pair before its RPC exists | dismiss RPC missing | `w3-14-dismiss-not-available.png` |
-| Two used logins | dry run `refused: both_signed_in` | `w3-15-refused-both-signed-in.png` |
+| Two used logins | dry run `refused: two_real_logins` (file name kept from the first cut) | `w3-15-refused-both-signed-in.png` |
+| Other join refusals | `keep_profile_archived`, `no_signed_in_login`, `anonymous_login`, `keep_claimed_by_other`, `login_has_other_persona`, `already_done`: one plain line each in `JOIN_REFUSAL_COPY` (unit-tested, no screenshot) | - |
+| A paused join | `not_linked` entry: its own row, "<person> tried to join <page>; the join is paused", counted in the alert, no join button unless a pair for the same invited profile is listed | `w3-09-duplicates-alert.png` |
 
 ## Stage 3: build notes
 - Nothing is sent before the second confirm: `admin_join_duplicate_people_v1` with `p_dry_run=false` is
@@ -80,11 +82,15 @@ Done by the orchestrator (independent critique, owner walk). Not done here.
 
 ## Handover (worker W3, 2026-10-23)
 - Done: everything in PLAN.md section 4 "W3" on the Website side; tests and screenshots above.
-- Left for A2 (server): `check_invitee_duplicates_v1`, `admin_join_duplicate_people_v1`, and the dismiss
-  RPC `admin_dismiss_duplicate_pair_v1(p_keep_profile, p_fold_profile)` (a PROPOSED name: A2 matches it, or
-  W3 renames one string in `duplicates/duplicatesApi.ts`). The check's row shape and the refusal codes
-  `both_signed_in`, `already_joined`, `login_has_signed_in` are W3's proposal too (see the PR's "Agreed names").
+- Fix-up (dt_98e601914736): A2's database contract wins (orchestrator decision). The duplicates screens now read
+  A2's real bodies (bachata-admin `claude/invite-a2-identity-join`, 20261205330000 / 20261205340000):
+  `check_invitee_duplicates_v1()` -> `{pairs: [{premade_*, login_*, kind: 'team_stub'}], not_linked: [...]}`
+  (keep = premade, fold = login); dismiss is `admin_dismiss_invitee_duplicate_v1(p_profile_a, p_profile_b,
+  p_dismiss)`; the join's refusal codes are A2's six plus `already_done`.
+- Open, outside this fix-up: A2's `admin_invite_person_v1` raises `shadow_login` for a never-used own login;
+  the invite screens still expect `login_has_signed_in`, which A2 never raises. `shadow_login` falls to the
+  generic refusal until W3's invite copy is aligned.
 - Until A2 is applied: the alert says "available soon", the dismiss says so too, and `email_in_use` names
   the old-login switch as "available soon". Nothing is a broken button.
 - Next: orchestrator stages 5-6; after the A2 apply, re-walk on the preview with real data (a fresh
-  invite from the owner), and confirm the A2 row shape matches `parseDuplicates`.
+  invite from the owner), and walk the duplicates alert against the live check.

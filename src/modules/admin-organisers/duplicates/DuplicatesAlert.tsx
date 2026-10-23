@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DUPLICATES_KEY, fetchDuplicates } from './duplicatesApi';
-import { DUP_COPY, alertTitle, pairSentence } from './duplicatesCopy';
+import { DUP_COPY, alertTitle, pairSentence, pausedSentence } from './duplicatesCopy';
 import { DuplicateReview } from './DuplicateReview';
 import type { DuplicatePair } from './duplicatesModel';
 
@@ -42,16 +42,24 @@ export function DuplicatesAlert() {
       </div>
     );
   }
-  const pairs = q.data.pairs;
-  if (pairs.length === 0) return <p className="text-xs text-muted-foreground" data-testid="dup-none">{DUP_COPY.none}</p>;
+  const { pairs, notLinked } = q.data;
+  // A paused join is counted (the admin should know) but is never a pair of its own.
+  const total = pairs.length + notLinked.length;
+  if (total === 0) return <p className="text-xs text-muted-foreground" data-testid="dup-none">{DUP_COPY.none}</p>;
   return (
-    <section className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3" data-testid="dup-alert" aria-label={alertTitle(pairs.length)}>
-      <p className="text-sm font-semibold" data-testid="dup-count">{alertTitle(pairs.length)}</p>
+    <section className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3" data-testid="dup-alert" aria-label={alertTitle(total)}>
+      <p className="text-sm font-semibold" data-testid="dup-count">{alertTitle(total)}</p>
       <ul className="space-y-2">
         {pairs.map((p) => (
           <li key={`${p.keepId}:${p.foldId}`} className="flex items-start justify-between gap-2" data-testid="dup-pair" data-kind={p.kind}>
             <span className="min-w-0 text-sm">{pairSentence(p)}</span>
             <button type="button" className={`${BTN} shrink-0`} onClick={() => setOpen(p)} data-testid="dup-review">{DUP_COPY.review}</button>
+          </li>
+        ))}
+        {notLinked.map((n) => (
+          <li key={`nl:${n.inviteId}:${n.personProfileId ?? ''}`} className="flex items-start justify-between gap-2" data-testid="dup-paused">
+            <span className="min-w-0 text-sm">{pausedSentence(n)}</span>
+            {n.pair && <button type="button" className={`${BTN} shrink-0`} onClick={() => setOpen(n.pair)} data-testid="dup-paused-review">{DUP_COPY.review}</button>}
           </li>
         ))}
       </ul>

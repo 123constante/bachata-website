@@ -24,21 +24,30 @@ const PEOPLE = [
 ];
 // Not on the team list: found by the admin search RPC, which (unlike a table read) returns claimed_by.
 const ROSA = { id: 'p-rosa', first_name: 'Rosa', surname: 'Lima', display_name: null, claimed_by: 'u-rosa' };
-const PAIRS = [
-  { keep_profile_id: 'p-papa', keep_name: 'Papacito', fold_profile_id: 'p-jin', fold_name: 'Jinder', organiser_name: 'Sensual Vibes', kind: 'stub', keep_facts: ['Made by you 15 Apr', 'Photo, DJ role', 'On the Sensual Vibes team'], fold_facts: ['Made at sign-up 22 Oct', 'Their real login', 'Owner of Sensual Vibes'] },
-  { keep_profile_id: 'p-tom', keep_name: 'Tom Reyes', fold_profile_id: 'p-tom2', fold_name: 'Tom', organiser_name: 'Sensual Vibes', kind: 'not_linked', keep_facts: ['Made by you 2 May'], fold_facts: ['Signed up himself in September'] },
+// A2's real answer shape (bachata-admin claude/invite-a2-identity-join, 20261205330000). A paused join is not a pair.
+const NOT_LINKED = [
+  { invite_id: 'i-tom', organiser_id: 'o-sv', organiser_name: 'Sensual Vibes', user_id: 'u-tom', person_profile_id: 'p-tom', person_label: 'Tom Reyes', attempted_at: '2026-10-22T10:00:00Z' },
 ];
+const dupAnswer = (pairs: unknown[], notLinked: unknown[]) => ({
+  healthy: pairs.length + notLinked.length === 0, count: pairs.length, pairs, not_linked_count: notLinked.length, not_linked: notLinked,
+  dismissed_count: 0, measured_as: 'authenticated', checked_at: '2026-10-23T09:00:00Z',
+});
+const PAIRS = [
+  { organiser_id: 'o-sv', organiser_name: 'Sensual Vibes', login_profile_id: 'p-jin', login_label: 'Jinder', premade_profile_id: 'p-papa', premade_label: 'Papacito', kind: 'team_stub' },
+];
+// The texts A2's dry run writes (20261205340000), for the Papacito shape.
 const CHANGES = {
   changes: [
-    { kind: 'claim', text: 'Their login (the sensualvibes.co.uk email) now owns the Papacito profile.' },
-    { kind: 'seat', text: 'They stay owner of Sensual Vibes.' },
-    { kind: 'retire', text: 'The empty Jinder profile is retired. Its second team-list row goes.' },
-    { kind: 'login', text: 'The old unused April login is switched off.' },
-    { kind: 'keep', text: 'Events, DJ page and photos are unchanged.' },
+    { kind: 'team_drop', text: 'Remove the duplicate "Jinder" entry from the Sensual Vibes team list ("Papacito" stays on it)' },
+    { kind: 'field_fill', text: 'Fill the empty description of "Papacito" from "Jinder"' },
+    { kind: 'claim', text: '"Papacito" becomes the profile of the signed-in account; its pages and seats stay' },
+    { kind: 'archive', text: 'Archive the duplicate profile "Jinder" (kept, not deleted)' },
+    { kind: 'login_disable', text: 'Disable the unused sign-in that was never used (no email is sent)' },
   ],
+  applied: false,
 };
 
-interface World { a2: boolean; pairs: unknown[]; invite: 'ok' | 'email_in_use' | 'login_has_signed_in'; dry: 'ok' | 'both_signed_in'; dismiss: 'ok' | 'missing' }
+interface World { a2: boolean; pairs: unknown[]; notLinked: unknown[]; invite: 'ok' | 'email_in_use' | 'login_has_signed_in'; dry: 'ok' | 'two_real_logins'; dismiss: 'ok' | 'missing' }
 const missing = (route: Route, fn: string) => json(route, { code: 'PGRST202', message: `Could not find the function public.${fn}` }, 404);
 
 async function install(page: Page, w: World, calls: { fn: string; body: Record<string, unknown> }[]) {
@@ -62,12 +71,12 @@ async function install(page: Page, w: World, calls: { fn: string; body: Record<s
         case 'admin_list_invite_requests_v1': return json(route, []);
         case 'admin_list_signup_access_requests_v1': return json(route, []);
         case 'admin_search_people_v1': return json(route, String(body.p_query).toLowerCase().startsWith('ro') ? [ROSA] : []);
-        case 'check_invitee_duplicates_v1': return w.a2 ? json(route, w.pairs) : missing(route, fn);
+        case 'check_invitee_duplicates_v1': return w.a2 ? json(route, dupAnswer(w.pairs, w.notLinked)) : missing(route, fn);
         case 'admin_join_duplicate_people_v1':
           if (!w.a2) return missing(route, fn);
-          if (body.p_dry_run === false) { w.pairs = w.pairs.slice(1); return json(route, { ok: true }); }
-          return json(route, w.dry === 'ok' ? CHANGES : { changes: [], refused: 'both_signed_in' });
-        case 'admin_dismiss_duplicate_pair_v1': return w.dismiss === 'missing' ? missing(route, fn) : json(route, null);
+          if (body.p_dry_run === false) { w.pairs = w.pairs.slice(1); return json(route, { changes: CHANGES.changes, applied: true }); }
+          return json(route, w.dry === 'ok' ? CHANGES : { changes: [], refused: 'two_real_logins', applied: false });
+        case 'admin_dismiss_invitee_duplicate_v1': return w.dismiss === 'missing' ? missing(route, fn) : json(route, { ok: true, dismissed: true });
         case 'admin_invite_person_v1':
           if (w.invite !== 'ok') return refuse(route, w.invite);
           return json(route, { invite_id: 'i9', token: TOKEN, email: body.p_email, link_path: `/invite/${TOKEN}`, message: `Hello Papacito! You are invited to manage Sensual Vibes on Bachata Calendar.\n\nOpen this link and sign in with ${body.p_email}:\nhttps://bachatacalendar.co.uk/invite/${TOKEN}\n\nThe link works for 7 days.` });
@@ -96,7 +105,7 @@ const openWho = async (page: Page) => {
   await page.getByTestId('row-primary').click();
   await expect(page.getByTestId('invite-who')).toContainText('Who is this for?');
 };
-const world = (over: Partial<World> = {}): World => ({ a2: false, pairs: [], invite: 'ok', dry: 'ok', dismiss: 'ok', ...over });
+const world = (over: Partial<World> = {}): World => ({ a2: false, pairs: [], notLinked: [], invite: 'ok', dry: 'ok', dismiss: 'ok', ...over });
 
 test('who is this for: the Leader pre-selected, email once, link ready (A2 not applied)', async ({ page }) => {
   const calls: { fn: string; body: Record<string, unknown> }[] = [];
@@ -178,9 +187,11 @@ test('possible duplicates: alert, Same person?, What will change, second confirm
   const calls: { fn: string; body: Record<string, unknown> }[] = [];
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await install(page, world({ a2: true, pairs: [...PAIRS] }), calls);
+  await install(page, world({ a2: true, pairs: [...PAIRS], notLinked: [...NOT_LINKED] }), calls);
   await page.goto('/admin/organisers');
   await expect(page.getByTestId('dup-count')).toHaveText('2 possible duplicates');
+  await expect(page.getByTestId('dup-paused')).toContainText('Tom Reyes tried to join Sensual Vibes; the join is paused.');
+  await expect(page.getByTestId('dup-paused').getByRole('button')).toHaveCount(0);
   await noSideScroll(page);
   await shot(page, 'w3-09-duplicates-alert');
   await page.getByTestId('dup-review').first().click();
@@ -188,7 +199,7 @@ test('possible duplicates: alert, Same person?, What will change, second confirm
   await noSideScroll(page);
   await shot(page, 'w3-10-same-person');
   await page.getByTestId('dup-show-changes').click();
-  await expect(page.getByTestId('dup-change-list')).toContainText('now owns the Papacito profile');
+  await expect(page.getByTestId('dup-change-list')).toContainText('"Papacito" becomes the profile of the signed-in account');
   await shot(page, 'w3-11-what-will-change');
   await page.getByTestId('dup-join').click();
   await expect(page.getByTestId('dup-confirm')).toContainText('Join these two into one?');
@@ -206,7 +217,7 @@ test('possible duplicates: alert, Same person?, What will change, second confirm
 });
 
 test('duplicates refusals: two used logins; dismiss before its RPC exists', async ({ page }) => {
-  await install(page, world({ a2: true, pairs: [PAIRS[0]], dry: 'both_signed_in', dismiss: 'missing' }), []);
+  await install(page, world({ a2: true, pairs: [PAIRS[0]], dry: 'two_real_logins', dismiss: 'missing' }), []);
   await page.goto('/admin/organisers');
   await page.getByTestId('dup-review').click();
   await page.getByTestId('dup-not-same').click();

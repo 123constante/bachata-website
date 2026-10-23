@@ -1,59 +1,89 @@
-// Pure model for "Possible duplicates": parsers for A2's two RPCs and the one
+// Pure model for "Possible duplicates": parsers for A2's RPCs and the one
 // "is this RPC missing?" test that switches the screens to "available soon".
 // Copy lives in duplicatesCopy.ts; network calls in duplicatesApi.ts.
+// Contract: bachata-admin claude/invite-a2-identity-join, migrations 20261205330000 and 20261205340000.
 
 /**
- * stub: a login's sign-up profile sits on a team list beside an unclaimed profile the admin made
- * (the Papacito / Jinder shape). not_linked: an invite join was paused because the login did not
- * land on the invited profile (W1 / A2 record it); the invite stays open until this is sorted.
+ * A team_stub pair (the server's only pair kind, shown as 'stub'): a login's sign-up profile sits on a team
+ * list beside an unclaimed profile the admin made (the Papacito / Jinder shape).
  */
-export type DuplicateKind = 'stub' | 'not_linked';
+export type DuplicateKind = 'stub';
 
 export interface DuplicatePair {
-  /** The profile that stays: the one the admin made. */
+  /** The profile that stays: the one the admin made (premade_profile_id). */
   keepId: string;
   keepName: string;
-  /** The profile folded into it: the sign-up stub. */
+  /** The profile folded into it: the sign-up stub (login_profile_id). */
   foldId: string;
   foldName: string;
+  organiserId: string | null;
   organiserName: string | null;
   kind: DuplicateKind;
-  /** Short facts for the side-by-side cards, as the server words them. */
-  keepFacts: string[];
-  foldFacts: string[];
+}
+
+/**
+ * A paused invite join (redeem outcome not_linked): NOT a pair. It has nothing to join on its own; it is
+ * counted in the alert and shown as its own row, with a Review button only when a pair for the same
+ * invited profile is listed (`pair`).
+ */
+export interface PausedJoin {
+  inviteId: string;
+  organiserName: string | null;
+  personProfileId: string | null;
+  personLabel: string;
+  attemptedAt: string | null;
+  pair: DuplicatePair | null;
+}
+
+export interface DuplicatesList {
+  pairs: DuplicatePair[];
+  notLinked: PausedJoin[];
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
-const strList = (v: unknown): string[] => (Array.isArray(v) ? v.map(str).filter((s): s is string => s !== null) : []);
+const rowsOf = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? v.map((r) => (r ?? {}) as Record<string, unknown>) : []);
 
 /**
- * check_invitee_duplicates_v1 -> a JSON array of pairs, or {pairs: [...]}. Each pair:
- * {keep_profile_id, keep_name, fold_profile_id, fold_name, organiser_name, kind, keep_facts?, fold_facts?}.
- * A row without both ids or with an unknown kind is dropped (never shown half-filled); an answer that
- * is not a list at all is null (the caller shows "did not load", not "no duplicates").
+ * check_invitee_duplicates_v1() -> {healthy, count, pairs: [{organiser_id, organiser_name, login_profile_id,
+ * login_label, premade_profile_id, premade_label, kind: 'team_stub'}], not_linked_count, not_linked: [{invite_id,
+ * organiser_id, organiser_name, user_id, person_profile_id, person_label, attempted_at}], dismissed_count,
+ * measured_as, checked_at}. A pair without both ids or with an unknown kind is dropped (never shown half-filled);
+ * an answer without a `pairs` list is null (the caller shows "did not load", not "no duplicates").
  */
-export function parseDuplicates(data: unknown): DuplicatePair[] | null {
-  const rows = Array.isArray(data) ? data : Array.isArray((data as { pairs?: unknown } | null)?.pairs) ? (data as { pairs: unknown[] }).pairs : null;
-  if (!rows) return null;
-  const out: DuplicatePair[] = [];
-  for (const raw of rows) {
-    const r = (raw ?? {}) as Record<string, unknown>;
-    const keepId = str(r.keep_profile_id);
-    const foldId = str(r.fold_profile_id);
-    const kind = r.kind === 'stub' || r.kind === 'not_linked' ? r.kind : null;
-    if (!keepId || !foldId || keepId === foldId || !kind) continue;
-    out.push({
+export function parseDuplicates(data: unknown): DuplicatesList | null {
+  const d = (data ?? {}) as { pairs?: unknown; not_linked?: unknown };
+  if (!Array.isArray(d.pairs)) return null;
+  const pairs: DuplicatePair[] = [];
+  for (const r of rowsOf(d.pairs)) {
+    const keepId = str(r.premade_profile_id);
+    const foldId = str(r.login_profile_id);
+    if (!keepId || !foldId || keepId === foldId || r.kind !== 'team_stub') continue;
+    pairs.push({
       keepId,
-      keepName: str(r.keep_name) ?? 'Unnamed profile',
+      keepName: str(r.premade_label) ?? 'Unnamed profile',
       foldId,
-      foldName: str(r.fold_name) ?? 'Unnamed profile',
+      foldName: str(r.login_label) ?? 'Unnamed profile',
+      organiserId: str(r.organiser_id),
       organiserName: str(r.organiser_name),
-      kind,
-      keepFacts: strList(r.keep_facts),
-      foldFacts: strList(r.fold_facts),
+      kind: 'stub',
     });
   }
-  return out;
+  const notLinked: PausedJoin[] = [];
+  for (const r of rowsOf(d.not_linked)) {
+    const inviteId = str(r.invite_id);
+    if (!inviteId) continue;
+    const personProfileId = str(r.person_profile_id);
+    const organiserId = str(r.organiser_id);
+    notLinked.push({
+      inviteId,
+      organiserName: str(r.organiser_name),
+      personProfileId,
+      personLabel: str(r.person_label) ?? 'Someone',
+      attemptedAt: str(r.attempted_at),
+      pair: (personProfileId && pairs.find((p) => p.keepId === personProfileId && (!organiserId || !p.organiserId || p.organiserId === organiserId))) || null,
+    });
+  }
+  return { pairs, notLinked };
 }
 
 export interface ChangeLine {
@@ -63,11 +93,15 @@ export interface ChangeLine {
 
 export type DryRun = { kind: 'changes'; changes: ChangeLine[] } | { kind: 'refused'; code: string };
 
-/** admin_join_duplicate_people_v1(..., p_dry_run => true) -> {changes: [{kind, text}], refused?: code} (COMMON.md). */
+/**
+ * admin_join_duplicate_people_v1(..., p_dry_run => true) -> {changes: [{kind, text}], applied, refused?, already_done?}.
+ * already_done (the two are one profile already) is shown as a refusal: there is nothing to join.
+ */
 export function parseDryRun(data: unknown): DryRun | null {
   const r = (data ?? {}) as Record<string, unknown>;
   const refused = str(r.refused);
   if (refused) return { kind: 'refused', code: refused };
+  if (r.already_done === true) return { kind: 'refused', code: 'already_done' };
   if (!Array.isArray(r.changes)) return null;
   const changes: ChangeLine[] = [];
   for (const c of r.changes) {
@@ -77,10 +111,12 @@ export function parseDryRun(data: unknown): DryRun | null {
   return { kind: 'changes', changes };
 }
 
-/** The real run: {refused: code} is a refusal; anything else without one is done. */
+/** The real run: {refused: code} is a refusal; {already_done: true} or {applied: true} is done. */
 export function parseJoinResult(data: unknown): { ok: true } | { ok: false; code: string } {
-  const refused = str((data as { refused?: unknown } | null)?.refused);
-  return refused ? { ok: false, code: refused } : { ok: true };
+  const r = (data ?? {}) as Record<string, unknown>;
+  const refused = str(r.refused);
+  if (refused) return { ok: false, code: refused };
+  return r.applied === true || r.already_done === true ? { ok: true } : { ok: false, code: 'error' };
 }
 
 /** The RPC does not exist yet (A2 not applied): PostgREST PGRST202, Postgres 42883, or HTTP 404. */

@@ -12,12 +12,12 @@ export type ReviewStep = 'same' | 'changes' | 'confirm' | 'joined';
 
 const refusedCode = (out: { ok: boolean; code?: string } | undefined): string | null => (out && !out.ok ? out.code ?? 'error' : null);
 
-function Card({ tag, name, facts, keep }: { tag: string; name: string; facts: readonly string[]; keep: boolean }) {
+function Card({ tag, name, fact, keep }: { tag: string; name: string; fact: string; keep: boolean }) {
   return (
     <div className={`min-w-0 space-y-1 rounded-lg border p-3 ${keep ? 'border-emerald-500/60' : 'border-border'}`} data-testid={keep ? 'dup-keep' : 'dup-fold'}>
       <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${keep ? 'bg-emerald-500/15 text-emerald-300' : 'bg-muted text-muted-foreground'}`}>{tag}</span>
       <p className="break-words text-sm font-semibold">{name}</p>
-      {facts.length > 0 && <ul className="list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">{facts.map((f) => <li key={f}>{f}</li>)}</ul>}
+      <p className="text-xs text-muted-foreground">{fact}</p>
     </div>
   );
 }
@@ -81,8 +81,8 @@ export function DuplicateReview({ pair, onClose }: { pair: DuplicatePair; onClos
         <h3 ref={heading} tabIndex={-1} className="text-base font-semibold outline-none">{DUP_COPY.sameTitle}</h3>
         <p className="text-sm text-muted-foreground">{pairSentence(pair)}</p>
         <div className="grid grid-cols-2 gap-2">
-          <Card tag={DUP_COPY.keep} name={pair.keepName} facts={pair.keepFacts} keep />
-          <Card tag={DUP_COPY.fold} name={pair.foldName} facts={pair.foldFacts} keep={false} />
+          <Card tag={DUP_COPY.keep} name={pair.keepName} fact={DUP_COPY.keepFact} keep />
+          <Card tag={DUP_COPY.fold} name={pair.foldName} fact={DUP_COPY.foldFact} keep={false} />
         </div>
         <p className="text-sm text-muted-foreground">{DUP_COPY.sameLead(pair)}</p>
         <button type="button" className={`${BTN_PRIMARY} w-full`} onClick={() => setStep('changes')} data-testid="dup-show-changes">{DUP_COPY.showChanges}</button>
