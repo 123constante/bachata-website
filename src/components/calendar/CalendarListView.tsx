@@ -100,8 +100,9 @@ type EventRowProps = {
 
 const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRowProps) => {
   // goingCount is set only for a night the going read answered for (EventCalendar);
-  // unset = unknown (a legacy occurrence id), so no count shows. 0 shows nothing either.
-  const goingCount = GOING_CHECKIN_ENABLED ? (event.goingCount ?? 0) : 0;
+  // unset = unknown (a legacy occurrence id), so no count shows. 0 shows nothing either,
+  // and neither does a cancelled night (owner, 2026-10-23).
+  const goingCount = GOING_CHECKIN_ENABLED && !event.isCancelled ? (event.goingCount ?? 0) : 0;
   const delay = Math.min(delayIndex * 0.04, 0.4);
   return (
     <motion.div

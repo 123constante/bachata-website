@@ -11,11 +11,14 @@
  *
  * Refused names (whole identifiers, anywhere in a file: a call, a test mock, a
  * comment, a README -- a mention is how a call comes back):
- *   set_attendance
- *   set_my_occurrence_attendance_p5_v1
- *   get_my_event_attendance_v1, get_my_event_attendance_v2 (any _vN)
+ *   set_attendance, set_attendance_vN
+ *   set_my_occurrence_attendance (any suffix: _p5_v1, _p5_v2, _v1, ...)
+ *   get_my_event_attendance, get_my_event_attendance_vN
  *   get_festival_attendance, get_festival_attendance_batch (any suffix)
  *   get_event_attendance_counts, get_event_attendance_counts_by_range (any suffix)
+ *
+ * Any letter case (SQL names are case-insensitive). Template or split strings are
+ * out of reach for a regex and are not claimed.
  *
  * Exempt: the generated schema mirrors (src/integrations/supabase/types.ts,
  * src/types/supabase.ts) -- they list every function the database still has, and
@@ -34,7 +37,7 @@ import { isEntryPoint } from './lib/entry-point.mjs';
 import { REPO_ROOT } from './lib/review-scope.mjs';
 
 export const LEGACY_NAME =
-  /\b(set_attendance|set_my_occurrence_attendance_p5_v1|get_my_event_attendance_v\d+|get_festival_attendance\w*|get_event_attendance_counts\w*)\b/g;
+  /\b(set_attendance(?:_v\d+)?|set_my_occurrence_attendance\w*|get_my_event_attendance(?:_v\w*)?|get_festival_attendance\w*|get_event_attendance_counts\w*)\b/gi;
 
 export const SCAN_ROOT = 'src';
 export const EXEMPT = new Set(['src/integrations/supabase/types.ts', 'src/types/supabase.ts']);
@@ -93,6 +96,19 @@ function selfTest(log = console) {
     ['a suffixed name is caught', scan(fake(many, (r) => (r === 'src/f5.ts' ? 'get_event_attendance_counts_by_range' : ''))), 1, 'legacy-name'],
     ['a batch name is caught', scan(fake(many, (r) => (r === 'src/f6.ts' ? 'get_festival_attendance_batch' : ''))), 1, 'legacy-name'],
     ['the P5 event-page write is caught', scan(fake(many, (r) => (r === 'src/f7.ts' ? 'set_my_occurrence_attendance_p5_v1' : ''))), 1, 'legacy-name'],
+    // R11: the unversioned and _vN spellings of every name, and any letter case.
+    ...[
+      'get_my_event_attendance',
+      'get_my_event_attendance_v3',
+      'set_attendance_v2',
+      'set_my_occurrence_attendance',
+      'set_my_occurrence_attendance_p5_v2',
+      'set_my_occurrence_attendance_v1',
+      'get_festival_attendance_v2',
+      'get_event_attendance_counts_v1',
+      'SET_ATTENDANCE',
+      'Get_My_Event_Attendance_V2',
+    ].map((name) => ['mutant ' + name + ' is caught', scan(fake(many, (r) => (r === 'src/f8.ts' ? "rpc('" + name + "')" : ''))), 1, 'legacy-name']),
     ['a README mention is caught', scan(fake([...many, 'src/x/README.md'], (r) => (r.endsWith('.md') ? 'reads get_my_event_attendance_v1' : ''))), 1, 'legacy-name'],
     ['generated types are exempt', scan(fake([...many, 'src/integrations/supabase/types.ts', 'src/types/supabase.ts'], (r) => (r.includes('supabase') ? 'set_attendance: {' : ''))), 0, 'clean'],
     ['the going RPCs are allowed', scan(fake(many, () => "rpc('set_my_going_v1'); rpc('get_nights_going_v1'); rpc('get_my_going_v1')")), 0, 'clean'],

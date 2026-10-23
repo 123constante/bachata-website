@@ -114,6 +114,21 @@ describe('CalendarListView going count', () => {
   });
 });
 
+describe('CalendarListView: a cancelled night never shows a going count (owner, 2026-10-23)', () => {
+  it.each([
+    [false, 1, true],
+    [false, 7, true],
+    [true, 1, false],
+    [true, 7, false],
+    [true, 200, false],
+  ])('cancelled %s, goingCount %s: count shown = %s', (isCancelled, count, shows) => {
+    h.on = true;
+    renderList([ev({ isCancelled, goingCount: count })]);
+    if (shows) expect(screen.getByText(goingCountText(count))).toBeTruthy();
+    else expect(document.body.textContent).not.toMatch(/\d+ going/);
+  });
+});
+
 const mount = () =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>

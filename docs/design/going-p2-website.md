@@ -160,7 +160,7 @@ Supabase client, and `ProfileGateContext` per state; every `auth/v1` and `rest/v
 `page.route` with prod-shaped rows (`get_nights_going_v1` people with photo / no photo / null id;
 `get_my_going_v1`; `set_my_going_v1` ok / refusal codes / network abort / hang). The dancer app and
 `/account/attendance` ran on the real `react-router dev` server built with `VERCEL_ENV=preview
-VITE_GOING_PREVIEW=1`, mocked with `tests/e2e/helpers/organiserFake.ts`. The event page, festival
+VITE_GOING_PREVIEW=1` (renamed `VITE_ENABLE_GOING_PREVIEW=true` in the fix round), mocked with `tests/e2e/helpers/organiserFake.ts`. The event page, festival
 hub and dancer page are SSR routes whose loaders a browser mock cannot reach (see
 `playwright.config.ts`), hence the harness for those three. Clock fixed at Friday 23 Oct 2026 13:00
 London (dancer app: the organiser fake&rsquo;s 8 Oct 2026).

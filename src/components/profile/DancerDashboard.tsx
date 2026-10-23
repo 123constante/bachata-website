@@ -37,6 +37,9 @@ import { CityPicker } from '@/components/ui/city-picker';
 import { ExperiencePicker } from '@/components/profile/ExperiencePicker';
 import { dateStringFromDanceStartedYear, saveMyDancerProfile } from '@/lib/saveMyDancerProfile';
 import { fetchMyDancerContact } from '@/lib/myDancerContact';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
+import { useMyGoing } from '@/modules/going/useNightGoing';
+import { dancerCompletion } from '@/lib/profileCompletion';
 import {
   buildDashboardSectionPayload,
   dancerRoleFromStored,
@@ -365,17 +368,19 @@ export const DancerDashboard = () => {
     fetchData();
   }, [user, queryClient]);
 
-  const hasIdentity = Boolean(profile?.first_name?.trim()) && Boolean(profile?.based_city_id);
-  const hasMedia = Boolean(profile?.photo_url?.trim());
-  const hasEngagement = Boolean(profile?.looking_for_partner) || Boolean(profile?.dance_role);
-  const hasSocial = Boolean(profile?.instagram || profile?.facebook || profile?.whatsapp || profile?.website);
-
-  // Going is not a profile step: it belongs to a night, and lives on the event
-  // page (src/modules/going). The old interested/going list that fed an
-  // Activity step here wrote a retired attendance RPC (P5 drops it).
-  const completionSteps = [hasIdentity, hasMedia, hasEngagement, hasSocial];
-  const completionCount = completionSteps.filter(Boolean).length;
-  const completionPercent = Math.round((completionCount / completionSteps.length) * 100);
+  // Main's five steps, unchanged (owner, 2026-10-23). The nights step reads the
+  // viewer's going list (get_my_going_v1), which only runs while the going
+  // switch is on; off, the step is unmet, as main showed a dancer with no rows.
+  const myGoing = useMyGoing();
+  const nightsInMyList = myGoing.data ? myGoing.data.upcoming.length + myGoing.data.past.length : 0;
+  const {
+    hasIdentity,
+    hasMedia,
+    hasActivity,
+    hasEngagement,
+    hasSocial,
+    percent: completionPercent,
+  } = dancerCompletion(profile, nightsInMyList);
   const danceYears = profile?.dance_started_year
     ? Math.max(0, new Date().getFullYear() - profile.dance_started_year)
     : 0;
@@ -650,6 +655,17 @@ export const DancerDashboard = () => {
         onClick: () => openEditor('identity'),
       };
     }
+    if (!hasActivity) {
+      return {
+        label: 'Find your next event',
+        // No copy that points at a control the page does not have: the I'm
+        // going button only exists while the going switch is on.
+        helper: GOING_CHECKIN_ENABLED
+          ? 'Open a night and tap I\u2019m going to add it here.'
+          : 'Browse socials, classes and festivals near you.',
+        onClick: () => navigate(calendarPath),
+      };
+    }
     if (!hasEngagement) {
       return {
         label: 'Activate partner mode',
@@ -670,7 +686,7 @@ export const DancerDashboard = () => {
       helper: 'Keep your profile sharp and current.',
       onClick: () => openEditor('career'),
     };
-  }, [hasEngagement, hasIdentity, hasMedia, hasSocial]);
+  }, [hasActivity, hasEngagement, hasIdentity, hasMedia, hasSocial]);
 
   const tiles: CoreTile[] = [
     {
@@ -772,8 +788,8 @@ export const DancerDashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
           >
-            <Card className="col-span-12 lg:col-span-7 lg:row-span-2 rounded-2xl border border-cyan-400/30 bg-slate-950/75 backdrop-blur-xl shadow-[0_24px_60px_rgba(14,116,144,0.25)]">
-              <CardContent className="p-5 sm:p-6 h-full flex flex-col justify-between gap-5">
+            <Card className="col-span-12 rounded-2xl border border-cyan-400/30 bg-slate-950/75 backdrop-blur-xl shadow-[0_24px_60px_rgba(14,116,144,0.25)]">
+              <CardContent className="p-3 h-full flex flex-col justify-between gap-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="h-14 w-14 rounded-full border border-cyan-400/30 bg-slate-900/70 overflow-hidden flex items-center justify-center">
@@ -792,21 +808,11 @@ export const DancerDashboard = () => {
                       <p className="text-xs text-slate-300">{profile.cities?.name || 'City missing'} • {danceYears} year(s) dancing</p>
                     </div>
                   </div>
-                  <Badge className="border border-cyan-300/40 bg-cyan-500/15 text-cyan-100">{completionPercent}% ready</Badge>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2">
-                  <div className="rounded-xl border border-cyan-400/35 bg-slate-900/65 p-3">
-                    <p className="text-[11px] text-slate-300">Completion</p>
-                    <p className="text-lg font-semibold text-white">{completionPercent}%</p>
-                    <p className="text-[11px] text-slate-400">{completionCount}/{completionSteps.length} core tiles live</p>
-                  </div>
+                  {/* The completion % is shown ONCE, here (owner, 2026-10-23). */}
+                  <Badge className="border border-cyan-300/40 bg-cyan-500/15 text-cyan-100" data-testid="dashboard-completion">{completionPercent}% ready</Badge>
                 </div>
 
                 <div className="space-y-2">
-                  <div className="h-2 rounded-full bg-slate-900 overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-orange-400 via-cyan-300 to-emerald-300 transition-all duration-700" style={{ width: `${completionPercent}%` }} />
-                  </div>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Button className="h-10 bg-gradient-to-r from-orange-400 to-cyan-300 text-black font-semibold hover:opacity-95" onClick={nextStep.onClick}>
                       {nextStep.label}
@@ -836,7 +842,7 @@ export const DancerDashboard = () => {
                   whileHover={{ y: -4, scale: 1.01 }}
                 >
                   <Card className="h-full rounded-2xl border border-slate-700/70 bg-slate-950/80 backdrop-blur-xl transition-all duration-300 hover:border-cyan-300/45 hover:shadow-[0_0_0_1px_rgba(103,232,249,0.22),0_20px_40px_rgba(15,23,42,0.45)]">
-                    <CardContent className="p-4 h-full flex flex-col justify-between gap-4">
+                    <CardContent className="p-3 h-full flex flex-col justify-between gap-3">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <div className="inline-flex items-center gap-2">

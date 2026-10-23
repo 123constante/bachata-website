@@ -149,7 +149,9 @@ export type NightGoingResult = {
   peopleCount: number;
   people: NightGoing['people'];
   peopleLoading: boolean;
+  /** The nights read failed or dropped the id, OR the viewer's own list failed: show the retry line. */
   peopleError: boolean;
+  /** Re-reads the nights and, when it failed, the viewer's own list. */
   refetchPeople: () => void;
   /** Do what view.control.action says (go / ungo). sign_in and none are the caller's to handle. */
   tap: () => void;
@@ -218,13 +220,12 @@ export const useNightGoing = (args: UseNightGoingArgs): NightGoingResult => {
   const countKnown = !nights.isError && nightGoingKnown(row);
   const count = countKnown ? row.going_count : 0;
   const peopleCount = countKnown ? (row.people_count ?? row.going_count) : 0;
-  const going: boolean | null = !signedIn
-    ? false
-    : mine.data
-      ? isInMyGoing(mine.data, id)
-      : mine.isError
-        ? false
-        : null;
+  // A failed own-list read leaves "is the viewer going?" UNKNOWN (null = the
+  // loading state, button off), never "not going": that would show someone who
+  // IS going the go / Finish-your-profile control and no way to take their name
+  // off. The retry below re-reads it (review R13).
+  const going: boolean | null = !signedIn ? false : mine.data ? isInMyGoing(mine.data, id) : null;
+  const mineError = signedIn && mine.isError && !mine.data;
 
   const view = goingStateFor({
     viewer,
@@ -244,8 +245,11 @@ export const useNightGoing = (args: UseNightGoingArgs): NightGoingResult => {
     people: row?.people ?? [],
     peopleLoading: nights.isPending && nights.fetchStatus !== 'idle',
     // A dropped id (no row for it) is as unknown as a failed read: the retry state, never "0 going".
-    peopleError: nights.isError || (nights.isSuccess && !countKnown),
-    refetchPeople: () => void nights.refetch(),
+    peopleError: nights.isError || (nights.isSuccess && !countKnown) || mineError,
+    refetchPeople: () => {
+      void nights.refetch();
+      if (mineError) void mine.refetch();
+    },
     tap: () => {
       if (!id || !view.control.enabled || mutation.isPending) return;
       if (view.control.action === 'go') mutation.mutate(true);

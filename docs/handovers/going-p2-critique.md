@@ -101,7 +101,7 @@ Nice, not done: the cancelled-0 empty band under the date; the single word "here
 
 **Not verified**
 - The full SSR `/event/:id` and `/festivals` pages around the tile (the same limit as the builder). The festival hub card was NOT re-shot; it is covered by `festivalHubGoing.test.tsx` only.
-- A real sign-in, a real Supabase, and a phone. No preview walk: the switch is off on preview until the owner sets `VITE_GOING_PREVIEW=1`.
+- A real sign-in, a real Supabase, and a phone. No preview walk: the switch is off on preview until a preview is built with `VITE_ENABLE_GOING_PREVIEW=true` (renamed from `VITE_GOING_PREVIEW=1` in the fix round).
 - No Supabase read was run by this worker; the prod facts are the brief&rsquo;s.
 - Photo avatars (every person in the shots is an initials circle, as on prod today).
 - The dancer app, `/account/attendance` and the dancer page were not re-shot. Their only change is the `myUpcomingEmptyHow` sentence, pinned by the `today` snapshots and `journeyConsistency`.

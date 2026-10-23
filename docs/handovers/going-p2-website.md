@@ -12,7 +12,7 @@ Screenshots (390x844, every state per surface): [`docs/handover/going-p2/INDEX.m
 | Surface | Change |
 |---|---|
 | **Module** `src/modules/going/` | One mapping (`goingState.ts`: every viewer x night x refusal code -> words + control + link); one copy file (`goingCopy.ts`, import-free); typed RPC callers (`goingRpc.ts`); `useNightGoing` (batched `get_nights_going_v1`, chunked at 200; `set_my_going_v1` with optimistic update + rollback; `invalidateGoing`); `useMyGoing`; `GoingButton`; `GoingPeople`; `CalendarGoingFeed` (lazy). The browser-only `useGoingLock` is gone, folded into the module. |
-| **Switch** `src/lib/goingCheckin.ts` | `GOING_CHECKIN_ENABLED` is OFF on production. ON only when `VERCEL_ENV === 'preview'` AND `VITE_GOING_PREVIEW === '1'`. Both values are `define`d in `vite.config.ts`, so they fold to constants. Production/development/local/missing env are all OFF (`tests/client/goingSwitch.test.ts`). |
+| **Switch** `src/lib/goingCheckin.ts` | `GOING_CHECKIN_ENABLED` is OFF on production. ON only when `VERCEL_ENV === 'preview'` AND `VITE_ENABLE_GOING_PREVIEW === 'true'` (renamed in the fix round). Both values are `define`d in `vite.config.ts`, so they fold to constants. Production/development/local/missing env are all OFF (`tests/client/goingSwitch.test.ts`). |
 | **Event page** `RsvpBlock.tsx` + placeholder | Design A "Who's going" tile on bento tokens: count, up to 8 people, "+N more", one I'm going button. `useOccurrenceRsvp.ts` deleted. |
 | **Festival hub** `FestivalHub.tsx`, new `FestivalHubGoing.tsx`, `festivalHubNights.ts` | Each card shows its count, people and own button. The P5 night id comes from `event_view_p5` (anon), then ONE nights request for all cards. Interested, the old previews and the WhatsApp progress bar (driven by going+interested) are removed. |
 | **Calendar** `EventCalendar.tsx`, `CalendarListView.tsx` | ONLY the going count changed. It reads the module through the lazy `CalendarGoingFeed`, which mounts only while the switch is on (the P0.5 rule holds). The chip colour changed to the file's own `INK` (contrast 4.32 -> 8.78). Layout and density are untouched. |
@@ -57,14 +57,13 @@ Screenshots (390x844, every state per surface): [`docs/handover/going-p2/INDEX.m
           node scripts/check-going-rpcs.mjs
 ```
 
-## Owner steps: turn the switch on for PREVIEW walks only
+## Turning the switch on for PREVIEW walks only (fix round: NO Vercel dashboard step)
 
-1. Vercel dashboard -> the **bachata-website** project -> **Settings** -> **Environment Variables**.
-2. **Add New**: Key `VITE_GOING_PREVIEW`, Value `1`.
-3. Environments: tick **Preview** ONLY. Untick Production and Development.
-4. Save. Then **Deployments** -> the preview for `claude/going-p2-website` -> **...** -> **Redeploy**. The value is baked in at build time, so an old build will not see it.
-5. Check: on the preview URL the event page shows the "Who's going" tile. On production nothing changes. Even if the variable were added to Production by mistake, `VERCEL_ENV` is `production` there, so the switch stays off (tested).
-6. To turn it off again: delete the variable (or set it to `0`) and redeploy the preview.
+The orchestrator's preview tool builds a preview with `VITE_ENABLE_GOING_PREVIEW=true` for that one build. Nothing is set in the Vercel dashboard.
+
+1. Ask the preview tool for a build of `claude/going-p2-website` with `VITE_ENABLE_GOING_PREVIEW=true`.
+2. Check: on that preview URL the event page shows the "Who's going" tile. Production does not change. Even with the flag set, a production build (`VERCEL_ENV=production`) folds the switch to `false`. A real Vite build proves this in `tests/client/goingSwitchFold.test.ts`.
+3. To turn it off, build the preview again with the flag `false` or not set. The value is baked in at build time, so an old build keeps what it was built with.
 
 ## Screenshots
 
@@ -74,14 +73,14 @@ Screenshots (390x844, every state per surface): [`docs/handover/going-p2/INDEX.m
 
 - **Privacy page copy is wrong once the switch is on.** `src/pages/Privacy.tsx:39,53` still say "Your nights (going or interested) are private to you. Only anonymous totals per event are shown to others." Owner decision 1 makes first names (and opted-in photos) public. The owner must approve the replacement sentence; this PR does not change legal copy.
 - **Festivals lost the "no level vote" exclusion.** `get_my_going_v1` has no event type, so after a festival night the dancer app could offer a level vote, and `/account/attendance` a "Rate the dancing level" link. Neither applies to a festival: `FestivalDetail` has no rating control. Prod has 0 festival going rows today. Fix in admin: add the event type (or an `is_festival` flag) to `get_my_going_v1`'s Night, then restore the exclusion in `nightsModel` / `MyAttendance`.
-- **Never promote a preview deployment built with `VITE_GOING_PREVIEW=1` to production without a rebuild.** The switch is baked in at build time. A production build always folds the switch to off, but check that Vercel's "Promote to Production" rebuilds with production env and does not just re-point the preview build. Not verified here.
+- **Never promote a preview deployment built with `VITE_ENABLE_GOING_PREVIEW=true` to production without a rebuild.** The switch is baked in at build time. A production build always folds the switch to off, but check that Vercel's "Promote to Production" rebuilds with production env and does not just re-point the preview build. Not verified here.
 - **Contract check URL:** `scripts/check-going-rpcs.mjs` must run against prod `stsdtacfauprzrdebmzg`. The workflow's secrets do this. A local shell whose `VITE_SUPABASE_URL` points at the e2e project gets PGRST202 (the RPCs don't exist there).
 
 ## What is left
 
 - Admin: P5 ids in the calendar RPC (above). Until then about 92% of calendar rows can never show a count.
 - Add the db-contract step (above).
-- Stage 5 (independent critique) and Stage 6 (walk on the preview with `VITE_GOING_PREVIEW=1`).
+- Stage 5 (independent critique) and Stage 6 (walk on a preview built with `VITE_ENABLE_GOING_PREVIEW=true`).
 - Mockup A linked ended/cancelled nights to the next night of the series; not built (out of scope here).
 - Copy question: `GOING_COPY.myUpcomingEmptyHow` ("Open a night and tap I&rsquo;m going on its page.") is vague about where "its page" is.
 - DESIGN.md: none exists in the repo, and the impeccable-documenter agent was unavailable, so nothing was updated.
@@ -89,3 +88,43 @@ Screenshots (390x844, every state per surface): [`docs/handover/going-p2/INDEX.m
 - The dancer-app strip "Went" now counts `get_my_going_v1.past` once the going feed loads (same source as Nights). That list is capped at 100 past nights, and stats are shown until it loads. Today prod has 0 going rows.
 - Review: one independent review round (9 findings, none blocking). 6 were fixed with red-first tests (un-going an ended night, the Saving overlay, the dead old-lock API, the Went source, contract-check SKIP lines for empty people/going_next, fetch failure = exit 2). The other 3 are listed above (Privacy, festival level vote) or noted in the module (anon un-go of old rows). No second round was run, and no review stamp was minted.
 - P3 (organiser view), P5 (retire old RPCs in the database): later phases.
+
+## Fix round (brief `going-p2-fix`, review on `claude/going-p2-review`, 2026-10-23)
+
+Owner decisions applied as binding: R1&ndash;R5 accepted as built. The calendar change is approved, plus a hidden count on cancelled rows. R6 dashboard tidied. Every behaviour fix got a red test first: each new test failed on the unfixed code, or against a mutant.
+
+| Item | What changed | Proof |
+|---|---|---|
+| R7 build fold | `tests/client/goingSwitchFold.test.ts` runs a real Vite `build()` of a tiny entry that imports `src/lib/goingCheckin.ts`, with the `define` from `vite.config.ts` evaluated under each env. The test imports the built file and reads the value. 6 cases: production + flag true = `false`; production + flag + a faked `VITE_VERCEL_ENV=preview` = `false`; preview + flag true = `true`; preview + flag false / no flag = `false`; local + flag = `false`. It also asserts that no `import.meta.env` read survives, and that `vercelEnv` is the literal of `VERCEL_ENV`. | Mutant (define hard-coded to `"preview"`): 3 red. |
+| Rename | `VITE_GOING_PREVIEW=1` became **`VITE_ENABLE_GOING_PREVIEW=true`**. The rule is unchanged: ON only when `VERCEL_ENV === 'preview'` AND the flag is exactly `'true'` (`'1'`, `'TRUE'` and `'false'` are all OFF). Changed in `goingCheckin.ts`, `vite.config.ts`, `goingSwitch.test.ts` and the docs. The owner steps above now have no Vercel dashboard step. | `goingSwitch.test.ts` table, 12 rows. |
+| R9 | `REQUIRE_GOING_PEOPLE=1` (default off) turns `PEOPLE_SKIP` / `GOING_NEXT_SKIP` into exit 2. **When to set it:** once prod has real going rows on sampled nights AND a public profile with a `going_next` night. Before that the job would be red every run. | Self-test +6 cases (3 red before the change). |
+| R10 | `festivalHubGoing.test.tsx` spells out the per-night line (`N going` / `N went` / `No one going yet` / `No one said they were going`) and asserts the other tense is absent. | Mutant (`goingCountText` always "going"): 30 red. |
+| R11 | `check-going-legacy-rpcs.mjs` now matches the unversioned and `_vN` names, any `set_my_occurrence_attendance*`, in any letter case. The canary has 10 new mutants, one per new spelling. | 7 of the 10 were red before the regex change. |
+| R12 | `goingHidden.test.tsx` checks `/attendance/`. | &mdash; |
+| R13 | A failed `get_my_going_v1` now leaves going UNKNOWN (`null`, the loading state, button off), never `false`. The tile shows "Couldn&rsquo;t load who&rsquo;s going &middot; Try again", and the retry re-reads the own list too. | `useNightGoing.test.tsx`, finished + unfinished viewer: red before. |
+| R14 | Deleted `src/modules/event-page/sections/EventAttendanceSection.tsx`. A grep over every `.ts/.tsx/.mjs/.json` file found 0 importers. Added to the dancer-area seam list with the brief as the reason, since the deletion is a change outside the module. | &mdash; |
+| Calendar | `CalendarListView.tsx`: `goingCount > 0 && !event.isCancelled`. Nothing else in the calendar files changed. | `goingCountSwitch.test.tsx` +5 rows: 3 red before. |
+| R6 dashboard | `dancerCompletion()` in `src/lib/profileCompletion.ts` uses main&rsquo;s five steps in main&rsquo;s order. Step 3 (main&rsquo;s attendance list) is now the viewer&rsquo;s `get_my_going_v1` upcoming + past count, which is read only while the switch is on. No old RPC is called. The % shows ONCE (the header badge): the lone Completion tile and the % bar are gone, and the hero card is full width. Compact padding is `p-3`/`gap-3`. "Find your next event" is back as main&rsquo;s step 3. Its helper never points at a button that is not on screen: switch off, "Browse socials, classes and festivals near you."; switch on, "Open a night and tap I&rsquo;m going to add it here." | `tests/client/dancerCompletion.test.ts`: main&rsquo;s code is the oracle. It runs 18 profile shapes (the 10 prod shapes + edges) x 3 night counts; the branch&rsquo;s 4-step formula fails all 55. `tests/client/dancerDashboardCompletion.test.tsx`: "60% ready" once, under every RPC mode. |
+
+**Where main&rsquo;s % and this one can still differ (honest):** main counted step 3 from old `event_attendance` rows (going OR interested). This branch counts `get_my_going_v1` nights, and only while the switch is on. Prod on 2026-10-23 had **5 accounts** with any going/interested row and 5 P5 going rows. While the switch is off, each of those accounts shows 20 points less than main did. Everyone else (the other ~184 profiles) gets main&rsquo;s exact number.
+
+Screenshots (390x844, scratch Vite harness with mocked reads; the harness was not committed): [`docs/handover/going-p2/fix-round/`](../handover/going-p2/fix-round/INDEX.md).
+
+### R8: the two workflow steps (this sandbox cannot edit workflows)
+
+1. `db-contract-check.yml`: the step in "Needs owner / needs admin" above, unchanged. Add `REQUIRE_GOING_PEOPLE: '1'` to its `env:` only when real going rows exist (see R9).
+
+2. `architecture-guard.yml` (`pull_request`). Paste it after "Entry-point dispatch proof":
+
+```yaml
+      # Going P2: the Website names none of the retired interested/going
+      # attendance RPCs (set_attendance*, set_my_occurrence_attendance*,
+      # get_my_event_attendance*, get_festival_attendance*,
+      # get_event_attendance_counts*; any case) anywhere under src/, generated
+      # types exempt. Canary first: it proves the guard can still go red.
+      - name: Going legacy-RPC guard (canary, then the guard)
+        if: steps.changes.outputs.docs_only != 'true'
+        run: |
+          node scripts/check-going-legacy-rpcs.mjs --self-test
+          npm run check:going-legacy-rpcs
+```

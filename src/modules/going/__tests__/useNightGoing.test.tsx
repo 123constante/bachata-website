@@ -124,6 +124,37 @@ describe('a count the database did not give is never claimed', () => {
   });
 });
 
+describe('the viewer\'s own going is unknown when get_my_going_v1 fails (review R13)', () => {
+  const unfinished = { kind: 'unfinished', missing: ['first_name'] } as const;
+  it.each([
+    ['finished profile', finished],
+    ['unfinished profile', unfinished],
+  ] as const)('%s: never "not going"; the retry state, and the retry re-reads the own list', async (_n, viewer) => {
+    let mineFails = true;
+    h.rpc.mockImplementation(async (fn: string, a: { p_occurrence_ids?: string[] }) => {
+      if (fn === 'get_nights_going_v1') return { data: (a.p_occurrence_ids ?? []).map((id) => ({ occurrence_id: id, going_count: 1, people: [] })), error: null };
+      if (fn === 'get_my_going_v1') {
+        return mineFails
+          ? { data: null, error: { message: 'boom' } }
+          : { data: { upcoming: [{ occurrence_id: 'a', is_cancelled: false }], past: [] }, error: null };
+      }
+      return { data: null, error: null };
+    });
+    const { result } = renderHook(() => useNightGoing({ occurrenceId: 'a', night: 'live', viewer }), { wrapper });
+    await waitFor(() => expect(result.current.peopleError).toBe(true));
+    expect(result.current.view.state).toBe('loading');
+    expect(result.current.view.going).not.toBe(true);
+    expect(result.current.view.state).not.toBe('unfinished');
+    act(() => result.current.tap());
+    expect(callsOf('set_my_going_v1')).toHaveLength(0);
+    mineFails = false;
+    act(() => result.current.refetchPeople());
+    await waitFor(() => expect(result.current.view.going).toBe(true));
+    expect(result.current.peopleError).toBe(false);
+    expect(result.current.view.control.action).toBe('ungo');
+  });
+});
+
 describe('keys and invalidation', () => {
   it('a nights key is the sorted, de-duplicated id set', () => {
     expect(goingKeys.nights(['b', 'a', 'b'])).toEqual(['going', 'nights', 8, 'a', 'b']);

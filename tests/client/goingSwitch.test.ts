@@ -1,7 +1,8 @@
 /**
  * The going switch: OFF on production. The ONE override is a Vercel PREVIEW
- * build with VITE_GOING_PREVIEW=1; production, development, a local build or a
- * missing env are OFF whatever VITE_GOING_PREVIEW says.
+ * build with VITE_ENABLE_GOING_PREVIEW=true; production, development, a local
+ * build or a missing env are OFF whatever that flag says. The real-build fold
+ * is goingSwitchFold.test.ts.
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -10,18 +11,19 @@ import { GOING_CHECKIN_ENABLED, goingSwitchOn } from '@/lib/goingCheckin';
 
 describe('goingSwitchOn', () => {
   it.each([
-    ['preview', '1', true],
-    ['preview', '0', false],
-    ['preview', 'true', false],
+    ['preview', 'true', true],
+    ['preview', 'false', false],
+    ['preview', '1', false],
+    ['preview', 'TRUE', false],
     ['preview', undefined, false],
-    ['production', '1', false],
+    ['production', 'true', false],
     ['production', undefined, false],
-    ['development', '1', false],
-    ['', '1', false],
-    [undefined, '1', false],
-    [null, '1', false],
-    ['Preview', '1', false],
-  ] as const)('VERCEL_ENV=%s VITE_GOING_PREVIEW=%s -> %s', (vercelEnv, goingPreview, on) => {
+    ['development', 'true', false],
+    ['', 'true', false],
+    [undefined, 'true', false],
+    [null, 'true', false],
+    ['Preview', 'true', false],
+  ] as const)('VERCEL_ENV=%s VITE_ENABLE_GOING_PREVIEW=%s -> %s', (vercelEnv, goingPreview, on) => {
     expect(goingSwitchOn({ vercelEnv, goingPreview })).toBe(on);
   });
 

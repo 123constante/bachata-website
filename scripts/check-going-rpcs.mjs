@@ -49,7 +49,10 @@
  * EMPTY PEOPLE / going_next ARE A PRINTED SKIP, NOT A PASS. The person and
  * going_next assertions only bite on entries that exist; prod had 0 going
  * everywhere at launch, so the run counts the entries it checked and prints a
- * SKIP line naming the unchecked assertions whenever a count is 0.
+ * SKIP line naming the unchecked assertions whenever a count is 0. Set
+ * REQUIRE_GOING_PEOPLE=1 (default off) once prod has real going rows and a public
+ * profile with a going_next night: then either SKIP is exit 2 instead of 0, so a
+ * run that never checked a person cannot be green.
  *
  * A NETWORK FAILURE IS "COULD NOT MEASURE". supabase-js does not throw on a fetch
  * failure: it returns {error: {message: 'TypeError: fetch failed', code: ''},
@@ -504,6 +507,26 @@ async function selfTest(log = console) {
     }
   }
 
+  // REQUIRE_GOING_PEOPLE=1: a SKIP becomes exit 2 (the person / going_next checks
+  // must have run); unset, the same runs stay 0 with their SKIP line.
+  const required = async (patch, envExtra) =>
+    main([], { err: () => {}, out: () => {}, env: { ...CREDS, ...envExtra }, readEnvFile: () => null, api: () => fakeApi(patch) });
+  const requireCases = [
+    ['REQUIRE + both empty', noPeople, { REQUIRE_GOING_PEOPLE: '1' }, 2],
+    ['REQUIRE + people empty only', { ...noPeople, get_public_dancer_extras_v1: extrasWith([NEXT]) }, { REQUIRE_GOING_PEOPLE: '1' }, 2],
+    ['REQUIRE + going_next empty only', {}, { REQUIRE_GOING_PEOPLE: '1' }, 2],
+    ['REQUIRE + both present', { get_public_dancer_extras_v1: extrasWith([NEXT]) }, { REQUIRE_GOING_PEOPLE: '1' }, 0],
+    ['REQUIRE=0 + both empty', noPeople, { REQUIRE_GOING_PEOPLE: '0' }, 0],
+    ['no REQUIRE + both empty', noPeople, {}, 0],
+  ];
+  for (const [name, patch, envExtra, want] of requireCases) {
+    const got = await required(patch, envExtra);
+    if (got !== want) {
+      failed += 1;
+      log.error('FAIL require ' + name + ': expected exit ' + want + ', got ' + got);
+    }
+  }
+
   // Branch pinning: two branches return 2, so the KIND must be the one we meant.
   const kinds = [
     ['vacuous ids', grade({ occurrenceIds: [] }).kind, 'vacuous-ids'],
@@ -521,7 +544,7 @@ async function selfTest(log = console) {
     log.error('FAIL self-test -- ' + failed + ' case(s).');
     return false;
   }
-  log.log('PASS self-test -- ' + (cases.length + skips.length + kinds.length) + ' cases, both directions.');
+  log.log('PASS self-test -- ' + (cases.length + skips.length + requireCases.length + kinds.length) + ' cases, both directions.');
   return true;
 }
 
@@ -568,6 +591,13 @@ export async function main(argv = [], deps = {}) {
   const verdict = grade(obs);
   for (const line of verdict.lines) (verdict.code === 0 ? out : err)(line);
   out(SIGNED_IN_SKIP);
+  // REQUIRE_GOING_PEOPLE=1 (set once prod has real going rows): a run whose
+  // person or going_next checks never bit is "could not measure", not green.
+  if (verdict.code === 0 && env.REQUIRE_GOING_PEOPLE === '1' && (verdict.peopleChecked === 0 || verdict.goingNextChecked === 0)) {
+    err('REQUIRE_GOING_PEOPLE=1: ' + verdict.peopleChecked + ' people and ' + verdict.goingNextChecked +
+      ' going_next entries checked; both must be above 0. Exit 2.');
+    return 2;
+  }
   return verdict.code;
 }
 

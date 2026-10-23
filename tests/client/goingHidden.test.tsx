@@ -140,7 +140,7 @@ describe('GOING_CHECKIN_ENABLED', () => {
       expect(text).not.toMatch(GOING_WORDS);
       expect(container.querySelector('section, button')).toBeNull();
     }
-    expect(h.rpc.mock.calls.filter(([n]) => /occurrence_attendance/.test(n as string))).toEqual([]);
+    expect(h.rpc.mock.calls.filter(([n]) => /attendance/.test(n as string))).toEqual([]);
   });
 
   it('off: the all-zero strip leaves no empty card behind', async () => {

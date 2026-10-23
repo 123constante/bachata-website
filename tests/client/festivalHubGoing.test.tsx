@@ -161,7 +161,16 @@ describe('FestivalGoing: count x viewer x night', () => {
     const countText = goingCountText(count, past, n.status === 'cancelled');
     if (countText) await screen.findByText(countText);
     else await screen.findByTestId('going-people');
-    expect(document.body.textContent).not.toMatch(n.status === 'cancelled' ? /going yet|\d going/ : /^$/);
+    if (n.status === 'cancelled') {
+      expect(document.body.textContent).not.toMatch(/going yet|\d going/);
+    } else {
+      // The real per-night line, spelled out here (not from goingCountText), and
+      // never the other tense next to it (review R10).
+      const line = count === 0 ? (past ? 'No one said they were going' : 'No one going yet') : past ? `${count} went` : `${count} going`;
+      const other = count === 0 ? (past ? 'No one going yet' : 'No one said they were going') : past ? `${count} going` : `${count} went`;
+      expect(document.body.textContent).toContain(line);
+      expect(document.body.textContent).not.toContain(other);
+    }
     const expected = goingStateFor({ viewer: v.viewer, night: n.status, going: v.going, count, returnTo: '/festivals' });
     await waitFor(() => expect(screen.getByTestId('festival-going').getAttribute('data-state')).toBe(expected.state));
     const button = screen.getByTestId('festival-going-button') as HTMLButtonElement;
