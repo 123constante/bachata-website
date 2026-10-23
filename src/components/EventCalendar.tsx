@@ -14,6 +14,7 @@ import { CalendarListView } from '@/components/calendar/CalendarListView';
 import { DayDetailModal } from '@/components/calendar/DayDetailModal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { supabase } from '@/integrations/supabase/client';
 
 const CalendarSkeleton = ({ view, month, year }: { view: ViewType; month: number; year: number }) => {
@@ -168,7 +169,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
       });
       return map;
     },
-    enabled: true,
+    enabled: GOING_CHECKIN_ENABLED,
     staleTime: 1000 * 60 * 2,
   });
 
