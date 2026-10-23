@@ -1,9 +1,12 @@
 # People arc S2b -- dancer world continuation: adopt the shared world shell, wall-clock gig dates, socials times
 
 Continue on branch `claude/people-dancer-world` (PR #986). Lane: normal. Website only, no database change.
-FIRST: rebase (or merge) onto origin/main -- the DJ world S3 (#984) has merged there with the shared shell, the frame's Back
-rule, `facts.wallDayOf` / `gigDateLabel` / `timeLabel`, and the GlobalLayout opt-out. Read `docs/people-arc/s3/HANDOVER.md`
-(the "S3b" section: shell API, what a world deletes) and your own `docs/people-arc/s2/HANDOVER.md`.
+FIRST: `git merge origin/claude/people-dj-world` (head b62020f) into your branch (a merge, NOT a rebase; also merge
+origin/main if it moved). #984 (the DJ world, S3) is green but is held so the owner merges #984 and #986 together after one
+combined walk; until then #986's diff will show S3's files too, which is expected. #984 brings the shared shell
+`WorldPage`, the frame's Back rule, `facts.wallDayOf` / `gigDateLabel` / `timeLabel`, and the GlobalLayout `fitContent`
+opt-in. Read `docs/people-arc/s3/HANDOVER.md` (the "S3b" section: shell API, what a world deletes) and your own
+`docs/people-arc/s2/HANDOVER.md`. Never edit S3's files in this merge; a conflict there = take theirs.
 Everything stays behind `flags.personWorlds`; flag OFF stays exactly as main.
 
 ## File ownership
