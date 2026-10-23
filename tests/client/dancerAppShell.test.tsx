@@ -69,10 +69,10 @@ describe('reachability: an allowed, complete person reaches every route inside t
     expect(screen.getByTestId('dancer-app-shell').getAttribute('data-profile')).toBe('dancer');
     // H5: /app/welcome keeps the setup frame until the profile read says the required steps are done.
     await waitFor(() => expect(screen.getByTestId('dancer-app-shell').getAttribute('data-chrome')).toBe('full'));
-    // Audit L9: "Events" is the one way to "/"; the logo is the brand, not a second link there.
-    expect(screen.getByTestId('dancer-app-logo').getAttribute('href')).toBeNull();
-    expect(screen.getByTestId('dancer-app-logo').textContent).toBe('Bachata Calendar');
-    expect(screen.getByTestId('dancer-app-events').getAttribute('href')).toBe('/');
+    // D120/D131: the "Bachata Calendar" home link is the one way to "/"; there is no Events button.
+    expect(screen.getByTestId('site-home-link').getAttribute('href')).toBe('/');
+    expect(screen.getByTestId('site-home-link').textContent).toBe('Bachata Calendar');
+    expect(screen.queryByTestId('dancer-app-events')).toBeNull();
     expect(screen.getByTestId('dancer-app-type-label').textContent).toBe('Dancer');
     expect(DANCER_TABS.map((t) => screen.getByTestId(`dancer-app-tab-${t.id}`).getAttribute('href'))).toEqual(DANCER_TABS.map((t) => t.path));
     const current = DANCER_TABS.filter((t) => screen.getByTestId(`dancer-app-tab-${t.id}`).getAttribute('aria-current') === 'page');

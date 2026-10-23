@@ -140,7 +140,7 @@ describe('draft states x bar / tags', () => {
     const card = screen.getByTestId('eip-complete-card');
     expect(within(card).getByTestId('eip-card-progress').textContent).toBe('2 of 3 done');
     expect(within(card).getByRole('button', { name: 'Change year started' })).toBeTruthy();
-    expect(within(card).getByRole('button', { name: 'Add photo' })).toBeTruthy();
+    expect(within(card).getByRole('button', { name: 'Add organisation logo' })).toBeTruthy();
     // Link rows show the value as it will read, never the raw typing.
     const links = screen.getByTestId('eip-links');
     expect(within(links).getByText('@ritmo')).toBeTruthy();

@@ -84,9 +84,9 @@ const walk = (row: Journey): Walk => {
         next = landing.to;
       }
     } else if (row.then === 'join-team' && p.startsWith('/invite/') && st.dancer === 'complete') {
-      // The invite page redeems and replaces itself with the organiser Home (InviteRedeemPage).
+      // The invite page redeems and replaces itself with the welcome for the joined page (InviteRedeemPage, Arc 1 1d/7c).
       st.organisers += 1;
-      next = ORG_PATHS.home;
+      next = ORG_PATHS.welcome('a0000000-0000-4000-8000-000000000001');
     } else if (st.dancer !== 'complete' && isDancerGatedTarget(`${p}${at.search}`)) {
       next = finishProfileHref(`${p}${at.search}`);
     } else if (p === '/finish-profile') {

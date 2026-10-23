@@ -13,13 +13,14 @@ const changeDate = (seriesId: string, occurrenceId: string) => `${ORG_BASE}/chan
 export const ORG_PATHS = {
   home: ORG_BASE,
   switch: `${ORG_BASE}/switch`,
+  /** Where an accepted invite lands (Arc 1 7c): the second-page welcome, else Home on that page. */
+  welcome: (organiserId: string) => `${ORG_BASE}/welcome?o=${id(organiserId)}`,
 
   change: `${ORG_BASE}/change`,
   changeEvent: (seriesId: string) => `${ORG_BASE}/change/${id(seriesId)}`,
   changeDate,
   changeTime: (seriesId: string, occurrenceId: string) => `${changeDate(seriesId, occurrenceId)}/time`,
   changeVenue: (seriesId: string, occurrenceId: string) => `${changeDate(seriesId, occurrenceId)}/venue`,
-  changeDay: (seriesId: string, occurrenceId: string) => `${changeDate(seriesId, occurrenceId)}/day`,
   /** One date's line-up (sessions and their people): main's date editor, kept as is (4.2); S5 links it from the event. */
   dateLineup: (seriesId: string, occurrenceId: string) => `${changeDate(seriesId, occurrenceId)}/lineup`,
   /** One date's note / ticket link / picture (P-DATES, C26). */
@@ -39,6 +40,9 @@ export const ORG_PATHS = {
   cancel: `${ORG_BASE}/cancel`,
   cancelEvent: (seriesId: string) => `${ORG_BASE}/cancel/${id(seriesId)}`,
   cancelDate: (seriesId: string, occurrenceId: string) => `${ORG_BASE}/cancel/${id(seriesId)}/${id(occurrenceId)}`,
+
+  /** Arc 1: "Almost live", the quick questions, "All set", Go live. `?series=` the event, `?o=` the page. */
+  goLive: `${ORG_BASE}/go-live`,
 
   /** New event (D44): the format rides in the URL; the server draft is created at the name step. */
   newWhat: `${ORG_BASE}/new/what`,

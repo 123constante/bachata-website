@@ -67,8 +67,8 @@ describe('the shell renders the mapping', () => {
     await screen.findByTestId('dancer-app-shell');
     // Wait for the profile read to settle the chrome.
     await waitFor(() => expect(screen.getByTestId('dancer-app-shell').getAttribute('data-chrome')).toBe(focus ? 'focus' : 'full'));
-    const logo = screen.getByTestId('dancer-app-logo');
-    expect(logo.tagName).not.toBe('A');
+    // D120: the brand is the home link in BOTH chromes (focus included); D131: the top-bar Events button is gone.
+    expect(screen.getByTestId('site-home-link').getAttribute('href')).toBe('/');
     if (focus) {
       expect(screen.queryByTestId('dancer-app-tabs')).toBeNull();
       expect(screen.queryByTestId('dancer-app-events')).toBeNull();
@@ -79,7 +79,7 @@ describe('the shell renders the mapping', () => {
       expect(notNow.getAttribute('href')).toBe('/');
     } else {
       expect(screen.getByTestId('dancer-app-tabs')).toBeTruthy();
-      expect(screen.getByTestId('dancer-app-events').getAttribute('href')).toBe('/');
+      expect(screen.queryByTestId('dancer-app-events')).toBeNull();
       expect(screen.queryByTestId('dancer-app-not-now')).toBeNull();
     }
   });

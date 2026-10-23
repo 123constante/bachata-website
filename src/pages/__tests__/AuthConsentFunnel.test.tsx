@@ -180,9 +180,11 @@ describe('round 1 fixes', () => {
   });
 
   it.each([
+    // Review F5: inside the code lifetime every refused code is a wrong try, whatever its shape
+    // (GoTrue sends otp_expired for wrong codes too); run out is decided by the send time (AuthCodeStep.test).
     ['the combined Supabase message', { message: 'Token has expired or is invalid' }, 'wrong'],
-    ['error.code otp_expired', { code: 'otp_expired', message: 'Token has expired or is invalid' }, 'expired'],
-    ['an expired-only message', { message: 'Email link has expired' }, 'expired'],
+    ['error.code otp_expired', { code: 'otp_expired', message: 'Token has expired or is invalid' }, 'wrong'],
+    ['an expired-only message', { message: 'Email link has expired' }, 'wrong'],
   ])('S3: %s is counted as %s', async (_label, err, outcome) => {
     setRpc({ funnel: 'ok', consents: [] });
     mocks.verifyOtp.mockResolvedValue({ error: err });

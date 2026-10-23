@@ -16,12 +16,16 @@ import { ORG_PATHS, type NewEventFormat } from '@/modules/organiser/shell/paths'
 import { EmptyState, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, TitleInput } from '@/modules/organiser/ui';
 import { goDone } from '../doneState';
 import {
-  DRAFT_ONLY_NOTE, DRAFT_SAVED_MESSAGE, NEW_FORMATS, STEP_TITLE, coverCommands, coverStepReason, offerLeave, dateCommands, draftCommand, finishLabel, firstDateChoices, liveCommands, liveMessage,
+  DRAFT_ONLY_NOTE, DRAFT_SAVED_MESSAGE, NEW_FORMATS, NO_SESSION_NEW_REASON, STEP_TITLE, coverCommands, finishReason, offerLeave, dateCommands, draftCommand, finishLabel, firstDateChoices, liveCommands, liveMessage,
   nameBlock, parseFormat, timeBlock, timeCommands, venueCommands,
 } from './model';
 import { useNewSend } from './useNewSend';
 import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
 import { EventConflict } from '../event/parts';
+import { needsPagePick, withPageChoice } from './whichPageModel';
+import { WhichPageStep } from './WhichPage';
+import { goLivePath } from '@/modules/organiser/home/onboarding/golive/goLiveModel';
+import { profileQuestionsLeft } from '@/modules/organiser/home/onboarding/golive/profileLeft';
 
 const TITLE = 'New event';
 const ROW = 'flex min-h-[56px] w-full items-center rounded-[12px] bg-[var(--card2)] px-[16px] text-left text-[16px] font-semibold text-[var(--fg)]';
@@ -29,10 +33,10 @@ const QUIET = 'min-h-[44px] w-full text-center text-[14px] text-[var(--mut)] und
 const MAX_VENUE_ROWS = 50;
 
 /** After the name step the draft exists: every step offers to leave it as a draft. */
-function LeaveLink({ label = 'Save as draft and leave' }: { label?: string }) {
+function LeaveLink({ label = 'Save as draft and leave', to = ORG_PATHS.home }: { label?: string; to?: string }) {
   const navigate = useNavigate();
   return (
-    <button type="button" className={QUIET} data-testid="org-new-leave" onClick={() => navigate(ORG_PATHS.home, { replace: true })}>
+    <button type="button" className={QUIET} data-testid="org-new-leave" onClick={() => navigate(to, { replace: true })}>
       {label}
     </button>
   );
@@ -75,18 +79,27 @@ function NewConflict({ seriesId }: { seriesId: string }) {
 
 // ---- C19 what --------------------------------------------------------------------
 
-/** Page and Events open New event with `?o=<organiserId>`; the steps before the draft keep it. */
-const withOrganiser = (path: string, organiserId: string | null) =>
-  organiserId ? `${path}${path.includes('?') ? '&' : '?'}o=${encodeURIComponent(organiserId)}` : path;
+// Page and Events open New event with `?o=<organiserId>`; the steps before the draft keep it
+// (withPageChoice), and with 2 or more pages the page question comes first (Arc 1 flow 7b).
 
 function WhatStep() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const { home, organisers, selected } = useOrganiserChoice();
+  // Never flash the format rows at a login that is about to be asked which page.
+  if (home.isPending && !home.isPaused) {
+    return (
+      <OrganiserShell title={STEP_TITLE.what} back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-new-what">
+        <div className="p-[12px]"><SkeletonRows count={2} label="Loading" /></div>
+      </OrganiserShell>
+    );
+  }
+  if (needsPagePick(organisers.length, params)) return <WhichPageStep organisers={organisers} selectedId={selected?.id ?? null} />;
   return (
     <OrganiserShell title={STEP_TITLE.what} back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-new-what">
       <div className="flex flex-col gap-[12px] p-[12px]">
         {NEW_FORMATS.map((f) => (
-          <button key={f.format} type="button" className={ROW} data-testid={'org-new-format-' + f.format} onClick={() => navigate(withOrganiser(ORG_PATHS.newName(f.format), params.get('o')))}>
+          <button key={f.format} type="button" className={ROW} data-testid={'org-new-format-' + f.format} onClick={() => navigate(withPageChoice(ORG_PATHS.newName(f.format), params))}>
             {f.label}
           </button>
         ))}
@@ -146,7 +159,7 @@ function NameStep({ format }: { format: NewEventFormat }) {
     );
   }
   return (
-    <OrganiserShell title={STEP_TITLE.name} back={{ to: withOrganiser(ORG_PATHS.newWhat, params.get('o')), label: 'Back' }} testId="org-new-name-step">
+    <OrganiserShell title={STEP_TITLE.name} back={{ to: withPageChoice(ORG_PATHS.newWhat, params), label: 'Back' }} testId="org-new-name-step">
       <div className="flex flex-col gap-[12px] p-[12px]">{body}</div>
     </OrganiserShell>
   );
@@ -269,7 +282,9 @@ function TimeStep({ seriesId }: { seriesId: string }) {
 
 function CoverStep({ seriesId }: { seriesId: string }) {
   const navigate = useNavigate();
+  const { selected } = useOrganiserChoice();
   const draft = useDraft(seriesId);
+  const today = useLondonToday();
   const { send, busy, error, setError, conflict } = useNewSend(seriesId);
   const [picked, setPicked] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -290,10 +305,15 @@ function CoverStep({ seriesId }: { seriesId: string }) {
   };
 
   const goLive = async () => {
-    if (!cover) return;
+    if (finishReason(!!cover, draft.data ?? null, today)) return;
     // A1 not on prod: going live would be refused, so the draft stays a draft and Done says so.
     if (!liveCommands().length) {
       goDone(navigate, { title: 'Saved', message: DRAFT_SAVED_MESSAGE, seriesId });
+      return;
+    }
+    // Profile answers still open: the "Almost live" bridge, not a refusal. A failed read falls through and the server decides.
+    if (await profileQuestionsLeft(seriesId)) {
+      navigate(goLivePath(seriesId, selected?.id ?? null));
       return;
     }
     if (!(await send(liveCommands()))) return;
@@ -317,8 +337,9 @@ function CoverStep({ seriesId }: { seriesId: string }) {
       </label>
       <StepError message={error} />
       {!A1_APPLIED && <p className="text-[14px] text-[var(--mut)]" data-testid="org-new-draft-note">{DRAFT_ONLY_NOTE}</p>}
-      <StepButton label={finishLabel()} reason={coverStepReason(!!cover)} busy={busy && !uploading} onClick={() => void goLive()} testId="org-new-live" />
-      {offerLeave(!!cover) && <LeaveLink />}
+      <StepButton label={finishLabel()} reason={finishReason(!!cover, draft.data ?? null, today)} busy={busy && !uploading} onClick={() => void goLive()} testId="org-new-live" />
+      {/* The session is the only thing missing: leave where it is added. */}
+      {offerLeave(!!cover) && <LeaveLink to={finishReason(!!cover, draft.data ?? null, today) === NO_SESSION_NEW_REASON ? ORG_PATHS.eventProgramme(seriesId) : ORG_PATHS.home} />}
     </Frame>
   );
 }

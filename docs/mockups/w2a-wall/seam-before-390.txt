@@ -1,0 +1,98 @@
+BEFORE 390 {
+ "/dancers top": {
+  "maxRowDelta": 16,
+  "atOffset": 0,
+  "above48": [
+   20,
+   28,
+   33
+  ],
+  "above8": [
+   20,
+   28,
+   33
+  ],
+  "below8": [
+   30,
+   20,
+   16
+  ],
+  "below48": [
+   30,
+   20,
+   16
+  ]
+ },
+ "/dancers bottom": {
+  "maxRowDelta": 16,
+  "atOffset": 0,
+  "above48": [
+   30,
+   20,
+   16
+  ],
+  "above8": [
+   30,
+   20,
+   16
+  ],
+  "below8": [
+   14,
+   18,
+   21
+  ],
+  "below48": [
+   14,
+   18,
+   21
+  ]
+ },
+ "/djs top": {
+  "maxRowDelta": 20,
+  "atOffset": 0,
+  "above48": [
+   10,
+   8,
+   11
+  ],
+  "above8": [
+   10,
+   8,
+   11
+  ],
+  "below8": [
+   30,
+   20,
+   16
+  ],
+  "below48": [
+   30,
+   20,
+   16
+  ]
+ },
+ "/djs bottom": {
+  "maxRowDelta": 20,
+  "atOffset": 0,
+  "above48": [
+   30,
+   20,
+   16
+  ],
+  "above8": [
+   30,
+   20,
+   16
+  ],
+  "below8": [
+   10,
+   8,
+   11
+  ],
+  "below48": [
+   10,
+   8,
+   11
+  ]
+ }
+}

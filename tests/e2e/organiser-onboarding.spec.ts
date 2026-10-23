@@ -68,7 +68,7 @@ test('a refused claim turns into a request with the reason shown', async ({ page
   await page.getByTestId('onboarding-request-note').fill('I run the Tuesday classes');
   await page.getByTestId('onboarding-request-send').click();
   // Ask to join ends on the shared Done screen.
-  await expect(page.getByTestId('org-done-message')).toHaveText('Asked to join Ritmo Latino Leeds');
+  await expect(page.getByTestId('org-done-message')).toHaveText('We will check your request and the page team will be in touch.');
   expect(fake.sent('request_organiser_access_v1')).toEqual([{ p_organiser_id: LEEDS, p_message: 'I run the Tuesday classes' }]);
 });
 
@@ -77,7 +77,7 @@ test('ask to join another organiser sends the note', async ({ page }) => {
   await result(page, 'Ritmo Manchester').getByTestId('onboarding-request').click();
   await page.getByTestId('onboarding-request-note').fill('I teach there on Mondays');
   await page.getByTestId('onboarding-request-send').click();
-  await expect(page.getByTestId('org-done-message')).toHaveText('Asked to join Ritmo Manchester');
+  await expect(page.getByTestId('org-done-message')).toHaveText('We will check your request and the page team will be in touch.');
   expect(fake.sent('request_organiser_access_v1')).toEqual([{ p_organiser_id: MANCHESTER, p_message: 'I teach there on Mondays' }]);
 });
 

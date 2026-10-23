@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { isRuleDate } from '@/modules/organiser/shared/seriesModel';
 import { notEditableCopy } from '@/modules/organiser/shared/programmeModel';
-import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
 import { TAKE_OFF } from '@/modules/organiser/shared/copy';
 import { cancelFromChangePath } from '@/modules/organiser/flows/cancel/cancelModel';
 import { useNextDateProgramme } from '@/modules/organiser/events/eventsApi';
@@ -16,7 +15,8 @@ export const OFF_ONLY_RULE = 'Only a date of the weekly repeat can be taken off.
 /**
  * C4: what changes on this one date. A tap advances (D35). Everything an
  * owner/manager may do to a date on prod (PARITY-GAP C13 C19 C21-C26 C59
- * C60); Move waits on admin A1 (C20), so its row is hidden until then.
+ * C60). There is no "move to another day" (owner decision 2026-10-20, C20):
+ * a weekly night has an identity; cancel a date and add a new one.
  */
 export default function WhatChanges() {
   const navigate = useNavigate();
@@ -38,9 +38,6 @@ export default function WhatChanges() {
                 <StepRow key={f} testId={`change-${f}`} label={DETAIL_LABEL[f]} onClick={() => navigate(ORG_PATHS.changeDetail(seriesId, occurrenceId, f))} />
               ))}
               <StepRow testId="change-copy" label="Copy changes from another date" onClick={() => navigate(ORG_PATHS.changeCopy(seriesId, occurrenceId))} />
-              {A1_APPLIED && (
-                <StepRow testId="change-day" label="Move to another day" onClick={() => navigate(ORG_PATHS.changeDay(seriesId, occurrenceId))} />
-              )}
             </StepList>
             <StepList testId="change-what-off">
               <StepRow

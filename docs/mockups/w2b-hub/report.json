@@ -1,0 +1,827 @@
+{
+ "fixture-three": {
+  "path": "/?s=three",
+  "hub": true,
+  "h1": 1,
+  "h1Text": "DJ Rogelio",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 6.41,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "hub-back",
+    "w": 63,
+    "h": 44
+   },
+   {
+    "what": "hub-next-event",
+    "w": 341,
+    "h": 52
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   }
+  ],
+  "smallTaps": [],
+  "clipped": 0,
+  "face": "initials",
+  "facts": true,
+  "nextEvent": "/event/e1",
+  "cards": [
+   "dj -> /djs/p1",
+   "dancer -> /dancers/p1",
+   "teacher -> /teachers/p1"
+  ],
+  "seams": {
+   "hubGround": "linear-gradient(rgba(30, 20, 16, 0) 0px, rgb(30, 20, 16) 64px), linear-gradient(to top, rgba(30, 20, 16, 0) 0px, rgb(30,",
+   "header": "rgb(43, 29, 22)",
+   "headerBorder": "rgb(106, 74, 56)",
+   "card": "rgb(43, 29, 22)"
+  },
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "fixture-djgig": {
+  "path": "/?s=djgig&t=0",
+  "hub": true,
+  "h1": 1,
+  "h1Text": "DJ El Rugido",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 6.41,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "hub-back",
+    "w": 63,
+    "h": 44
+   },
+   {
+    "what": "hub-next-event",
+    "w": 341,
+    "h": 52
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   }
+  ],
+  "smallTaps": [],
+  "clipped": 0,
+  "face": "initials",
+  "facts": true,
+  "nextEvent": "/event/e1",
+  "cards": [
+   "dj -> /djs/p1"
+  ],
+  "seams": {
+   "hubGround": "linear-gradient(rgba(30, 20, 16, 0) 0px, rgb(30, 20, 16) 64px), linear-gradient(to top, rgba(30, 20, 16, 0) 0px, rgb(30,",
+   "header": "rgb(43, 29, 22)",
+   "headerBorder": "rgb(106, 74, 56)",
+   "card": "rgb(43, 29, 22)"
+  },
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "fixture-nophoto": {
+  "path": "/?s=nophoto&t=0",
+  "hub": true,
+  "h1": 1,
+  "h1Text": "Pierre Henry",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 7.43,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "hub-back",
+    "w": 63,
+    "h": 44
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   }
+  ],
+  "smallTaps": [],
+  "clipped": 0,
+  "face": "initials",
+  "facts": true,
+  "nextEvent": null,
+  "cards": [
+   "dancer -> /dancers/p1"
+  ],
+  "seams": {
+   "hubGround": "linear-gradient(rgba(30, 20, 16, 0) 0px, rgb(30, 20, 16) 64px), linear-gradient(to top, rgba(30, 20, 16, 0) 0px, rgb(30,",
+   "header": "rgb(43, 29, 22)",
+   "headerBorder": "rgb(106, 74, 56)",
+   "card": "rgb(43, 29, 22)"
+  },
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "fixture-long": {
+  "path": "/?s=long&t=0",
+  "hub": true,
+  "h1": 1,
+  "h1Text": "DJ Carlos De La Cruz",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 6.41,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "hub-back",
+    "w": 63,
+    "h": 44
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   }
+  ],
+  "smallTaps": [],
+  "clipped": 0,
+  "face": "initials",
+  "facts": false,
+  "nextEvent": null,
+  "cards": [
+   "dancer -> /dancers/p1",
+   "dj -> /djs/p1"
+  ],
+  "seams": {
+   "hubGround": "linear-gradient(rgba(30, 20, 16, 0) 0px, rgb(30, 20, 16) 64px), linear-gradient(to top, rgba(30, 20, 16, 0) 0px, rgb(30,",
+   "header": "rgb(43, 29, 22)",
+   "headerBorder": "rgb(106, 74, 56)",
+   "card": "rgb(43, 29, 22)"
+  },
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "fixture-thin": {
+  "path": "/?s=thin&t=0",
+  "hub": true,
+  "h1": 1,
+  "h1Text": "Sam Lee",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 7.43,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "hub-back",
+    "w": 63,
+    "h": 44
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   }
+  ],
+  "smallTaps": [],
+  "clipped": 0,
+  "face": "initials",
+  "facts": false,
+  "nextEvent": null,
+  "cards": [
+   "dancer -> /dancers/p1"
+  ],
+  "seams": {
+   "hubGround": "linear-gradient(rgba(30, 20, 16, 0) 0px, rgb(30, 20, 16) 64px), linear-gradient(to top, rgba(30, 20, 16, 0) 0px, rgb(30,",
+   "header": "rgb(43, 29, 22)",
+   "headerBorder": "rgb(106, 74, 56)",
+   "card": "rgb(43, 29, 22)"
+  },
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "fixture-teacherhidden": {
+  "path": "/?s=teacherhidden&t=0",
+  "hub": true,
+  "h1": 1,
+  "h1Text": "Gatica Morales",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 7.43,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "hub-back",
+    "w": 63,
+    "h": 44
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   }
+  ],
+  "smallTaps": [],
+  "clipped": 0,
+  "face": "initials",
+  "facts": true,
+  "nextEvent": null,
+  "cards": [
+   "dancer -> /dancers/p1"
+  ],
+  "seams": {
+   "hubGround": "linear-gradient(rgba(30, 20, 16, 0) 0px, rgb(30, 20, 16) 64px), linear-gradient(to top, rgba(30, 20, 16, 0) 0px, rgb(30,",
+   "header": "rgb(43, 29, 22)",
+   "headerBorder": "rgb(106, 74, 56)",
+   "card": "rgb(43, 29, 22)"
+  },
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "fixture-brokenphoto": {
+  "path": "/?s=brokenphoto&t=0",
+  "hub": true,
+  "h1": 1,
+  "h1Text": "Ana Garcia",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 7.43,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "hub-back",
+    "w": 63,
+    "h": 44
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   }
+  ],
+  "smallTaps": [],
+  "clipped": 0,
+  "face": "initials",
+  "facts": false,
+  "nextEvent": null,
+  "cards": [
+   "dancer -> /dancers/p1"
+  ],
+  "seams": {
+   "hubGround": "linear-gradient(rgba(30, 20, 16, 0) 0px, rgb(30, 20, 16) 64px), linear-gradient(to top, rgba(30, 20, 16, 0) 0px, rgb(30,",
+   "header": "rgb(43, 29, 22)",
+   "headerBorder": "rgb(106, 74, 56)",
+   "card": "rgb(43, 29, 22)"
+  },
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "off-flag-off-dj": {
+  "path": "/people/2dc6b99c-38a2-4d5e-a959-15fc7a72433c",
+  "hub": false,
+  "h1": 1,
+  "h1Text": "Bachata Calendar profile",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 9.14,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "Skip to content",
+    "w": 1,
+    "h": 1
+   },
+   {
+    "what": "",
+    "w": 145,
+    "h": 58
+   },
+   {
+    "what": "🌙Tonight",
+    "w": 0,
+    "h": 0
+   },
+   {
+    "what": "🎪Organisers",
+    "w": 0,
+    "h": 0
+   },
+   {
+    "what": "🏛️Venues",
+    "w": 0,
+    "h": 0
+   },
+   {
+    "what": "Community",
+    "w": 0,
+    "h": 0
+   },
+   {
+    "what": "Search events, venues, people…",
+    "w": 205,
+    "h": 44
+   },
+   {
+    "what": "🎪Organisers",
+    "w": 87,
+    "h": 44
+   },
+   {
+    "what": "🏛️Venues",
+    "w": 70,
+    "h": 44
+   },
+   {
+    "what": "Community",
+    "w": 93,
+    "h": 44
+   },
+   {
+    "what": "",
+    "w": 44,
+    "h": 44
+   },
+   {
+    "what": "dj-back",
+    "w": 64,
+    "h": 44
+   },
+   {
+    "what": "dj-share",
+    "w": 76,
+    "h": 44
+   },
+   {
+    "what": "Open full DJ page",
+    "w": 102,
+    "h": 44
+   },
+   {
+    "what": "Parties",
+    "w": 39,
+    "h": 14
+   },
+   {
+    "what": "Classes",
+    "w": 44,
+    "h": 14
+   },
+   {
+    "what": "Festivals",
+    "w": 49,
+    "h": 14
+   },
+   {
+    "what": "Tonight",
+    "w": 42,
+    "h": 14
+   },
+   {
+    "what": "Venues",
+    "w": 42,
+    "h": 14
+   },
+   {
+    "what": "London Bachata Guide",
+    "w": 127,
+    "h": 14
+   },
+   {
+    "what": "Beginners",
+    "w": 56,
+    "h": 14
+   },
+   {
+    "what": "FAQ",
+    "w": 23,
+    "h": 14
+   },
+   {
+    "what": "Monday",
+    "w": 45,
+    "h": 14
+   },
+   {
+    "what": "Tuesday",
+    "w": 47,
+    "h": 14
+   },
+   {
+    "what": "Wednesday",
+    "w": 66,
+    "h": 14
+   },
+   {
+    "what": "Thursday",
+    "w": 53,
+    "h": 14
+   },
+   {
+    "what": "Friday",
+    "w": 35,
+    "h": 14
+   },
+   {
+    "what": "Saturday",
+    "w": 50,
+    "h": 14
+   },
+   {
+    "what": "Sunday",
+    "w": 42,
+    "h": 14
+   },
+   {
+    "what": "Get listed↗ (opens in a new ta",
+    "w": 62,
+    "h": 14
+   },
+   {
+    "what": "WhatsApp↗ (opens in a new tab)",
+    "w": 68,
+    "h": 14
+   },
+   {
+    "what": "Instagram↗ (opens in a new tab",
+    "w": 65,
+    "h": 14
+   },
+   {
+    "what": "Privacy",
+    "w": 42,
+    "h": 14
+   },
+   {
+    "what": "Terms",
+    "w": 35,
+    "h": 14
+   }
+  ],
+  "smallTaps": [
+   {
+    "what": "Skip to content",
+    "w": 1,
+    "h": 1
+   },
+   {
+    "what": "🌙Tonight",
+    "w": 0,
+    "h": 0
+   },
+   {
+    "what": "🎪Organisers",
+    "w": 0,
+    "h": 0
+   },
+   {
+    "what": "🏛️Venues",
+    "w": 0,
+    "h": 0
+   },
+   {
+    "what": "Community",
+    "w": 0,
+    "h": 0
+   },
+   {
+    "what": "Parties",
+    "w": 39,
+    "h": 14
+   },
+   {
+    "what": "Classes",
+    "w": 44,
+    "h": 14
+   },
+   {
+    "what": "Festivals",
+    "w": 49,
+    "h": 14
+   },
+   {
+    "what": "Tonight",
+    "w": 42,
+    "h": 14
+   },
+   {
+    "what": "Venues",
+    "w": 42,
+    "h": 14
+   },
+   {
+    "what": "London Bachata Guide",
+    "w": 127,
+    "h": 14
+   },
+   {
+    "what": "Beginners",
+    "w": 56,
+    "h": 14
+   },
+   {
+    "what": "FAQ",
+    "w": 23,
+    "h": 14
+   },
+   {
+    "what": "Monday",
+    "w": 45,
+    "h": 14
+   },
+   {
+    "what": "Tuesday",
+    "w": 47,
+    "h": 14
+   },
+   {
+    "what": "Wednesday",
+    "w": 66,
+    "h": 14
+   },
+   {
+    "what": "Thursday",
+    "w": 53,
+    "h": 14
+   },
+   {
+    "what": "Friday",
+    "w": 35,
+    "h": 14
+   },
+   {
+    "what": "Saturday",
+    "w": 50,
+    "h": 14
+   },
+   {
+    "what": "Sunday",
+    "w": 42,
+    "h": 14
+   },
+   {
+    "what": "Get listed↗ (opens in a new ta",
+    "w": 62,
+    "h": 14
+   },
+   {
+    "what": "WhatsApp↗ (opens in a new tab)",
+    "w": 68,
+    "h": 14
+   },
+   {
+    "what": "Instagram↗ (opens in a new tab",
+    "w": 65,
+    "h": 14
+   },
+   {
+    "what": "Privacy",
+    "w": 42,
+    "h": 14
+   },
+   {
+    "what": "Terms",
+    "w": 35,
+    "h": 14
+   }
+  ],
+  "clipped": 0,
+  "face": null,
+  "facts": false,
+  "nextEvent": null,
+  "cards": [],
+  "seams": null,
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "on-dj-real": {
+  "path": "/people/2dc6b99c-38a2-4d5e-a959-15fc7a72433c",
+  "hub": true,
+  "h1": 1,
+  "h1Text": "Bachata Calendar profile",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 6.41,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "hub-back",
+    "w": 63,
+    "h": 44
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   }
+  ],
+  "smallTaps": [],
+  "clipped": 0,
+  "face": "initials",
+  "facts": false,
+  "nextEvent": null,
+  "cards": [
+   "dj -> /djs/2dc6b99c-38a2-4d5e-a959-15fc7a72433c"
+  ],
+  "seams": {
+   "hubGround": "linear-gradient(rgba(30, 20, 16, 0) 0px, rgb(30, 20, 16) 64px), linear-gradient(to top, rgba(30, 20, 16, 0) 0px, rgb(30,",
+   "header": "rgb(43, 29, 22)",
+   "headerBorder": "rgb(106, 74, 56)",
+   "card": "rgb(43, 29, 22)"
+  },
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "on-dancer-real": {
+  "path": "/people/df85843f-3f6f-4385-9a53-f2c1bb5bf417",
+  "hub": true,
+  "h1": 1,
+  "h1Text": "Firstrun",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 7.43,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "hub-back",
+    "w": 63,
+    "h": 44
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   }
+  ],
+  "smallTaps": [],
+  "clipped": 0,
+  "face": "initials",
+  "facts": false,
+  "nextEvent": null,
+  "cards": [
+   "dancer -> /dancers/df85843f-3f6f-4385-9a53-f2c1bb5bf417"
+  ],
+  "seams": {
+   "hubGround": "linear-gradient(rgba(30, 20, 16, 0) 0px, rgb(30, 20, 16) 64px), linear-gradient(to top, rgba(30, 20, 16, 0) 0px, rgb(30,",
+   "header": "rgb(43, 29, 22)",
+   "headerBorder": "rgb(106, 74, 56)",
+   "card": "rgb(43, 29, 22)"
+  },
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "on-teacher-only-real": {
+  "path": "/people/018dbbd4-566f-4f6a-b11c-75d21fe0265f",
+  "hub": false,
+  "h1": 1,
+  "h1Text": "Page not found",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 9.14,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "Back to the calendar",
+    "w": 171,
+    "h": 37
+   }
+  ],
+  "smallTaps": [
+   {
+    "what": "Back to the calendar",
+    "w": 171,
+    "h": 37
+   }
+  ],
+  "clipped": 0,
+  "face": null,
+  "facts": false,
+  "nextEvent": null,
+  "cards": [],
+  "seams": null,
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "fixture-noname": {
+  "path": "/?s=noname&t=0",
+  "hub": true,
+  "h1": 1,
+  "h1Text": "DJ Nova",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 6.41,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "hub-back",
+    "w": 63,
+    "h": 44
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   }
+  ],
+  "smallTaps": [],
+  "clipped": 0,
+  "face": "initials",
+  "facts": false,
+  "nextEvent": null,
+  "cards": [
+   "dancer -> /dancers/p1",
+   "dj -> /djs/p1"
+  ],
+  "seams": {
+   "hubGround": "linear-gradient(rgba(30, 20, 16, 0) 0px, rgb(30, 20, 16) 64px), linear-gradient(to top, rgba(30, 20, 16, 0) 0px, rgb(30,",
+   "header": "rgb(43, 29, 22)",
+   "headerBorder": "rgb(106, 74, 56)",
+   "card": "rgb(43, 29, 22)"
+  },
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ },
+ "fixture-djdancer-fromwall": {
+  "path": "/?s=djdancergig&t=0&delay=800&wall=1",
+  "hub": true,
+  "h1": 1,
+  "h1Text": "DJ El Rugido",
+  "scrollWidth": 390,
+  "innerWidth": 390,
+  "minTextContrast": 6.41,
+  "lowContrast": [],
+  "taps": [
+   {
+    "what": "hub-back",
+    "w": 63,
+    "h": 44
+   },
+   {
+    "what": "hub-next-event",
+    "w": 341,
+    "h": 52
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   },
+   {
+    "what": "hub-role-card",
+    "w": 370,
+    "h": 77
+   }
+  ],
+  "smallTaps": [],
+  "clipped": 0,
+  "face": "initials",
+  "facts": true,
+  "nextEvent": "/event/e1",
+  "cards": [
+   "dj -> /djs/p1",
+   "dancer -> /dancers/p1"
+  ],
+  "seams": {
+   "hubGround": "linear-gradient(rgba(30, 20, 16, 0) 0px, rgb(30, 20, 16) 64px), linear-gradient(to top, rgba(30, 20, 16, 0) 0px, rgb(30,",
+   "header": "rgb(43, 29, 22)",
+   "headerBorder": "rgb(106, 74, 56)",
+   "card": "rgb(43, 29, 22)"
+  },
+  "tabs": 0,
+  "errors": [],
+  "hydrationWarnings": []
+ }
+}

@@ -118,10 +118,20 @@ describe('loadPersonSnapshot: roles from the database', () => {
     expect((await load())?.roles).toEqual(['teacher', 'dancer']);
   });
 
+  it('heldRoles keeps the closed Teacher (the wall\'s chips), from the same read, no second call', async () => {
+    ok(['teacher', 'dj', 'dancer']);
+    flag.teacherDetail = false;
+    const p = await load();
+    expect(p?.roles).toEqual(['dj', 'dancer']);
+    expect(p?.heldRoles).toEqual(['teacher', 'dj', 'dancer']);
+    expect(rolesCall).toHaveBeenCalledTimes(1);
+  });
+
   it.each([['42883'], ['PGRST202']])('function missing (%s): falls back to the inferred signals', async (code) => {
     rolesResult = { data: null, error: { code } };
     teacherRows = [{ entity_id: 'p1' }]; djRow = { id: 'p1' };
     expect((await load())?.roles).toEqual(['teacher', 'dj']);
+    expect((await load())?.heldRoles).toEqual(['teacher', 'dj']);
   });
 
   it('any OTHER error is surfaced, never a silent guess', async () => {

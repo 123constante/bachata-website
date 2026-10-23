@@ -45,9 +45,9 @@ export function hrefFor(kind: SearchKind, id: string, slug?: string | null): str
   }
 }
 
-// THE person-role vocabulary (review F1+F2): role order, labels, the role line, the
-// teacher-visibility rule and the search row for a person. Search (the header omnibox,
-// the overlay, /search) and /people/:id (chips, tabs, the "Also" row, via
+// THE person-role vocabulary (review F1+F2): role order, labels, the role line and the
+// teacher-visibility rule. Search (the header omnibox, the overlay, /search, through the
+// badges mapping) and /people/:id (chips, tabs, the "Also" row, via
 // modules/person-page/personRoles.ts) all read it from here; there is no second copy.
 // Lives here (not its own module): a new file is a new first-load chunk on every route
 // (chunk ratchet).
@@ -67,7 +67,9 @@ export function orderedRoles(roles: readonly string[] | null | undefined): Perso
 /**
  * The roles a visitor may see: `teacher` only while the teacher pages are open
  * (flags.teacherDetail; closed, /teachers/:id is a coming-soon gate). The ONE rule
- * for the search row, the person page's chips and tabs, and the "Also" row.
+ * for the person page's chips and tabs and the "Also" row. (A search person row is
+ * person-page/searchPerson's answer: badges tags, and a DJ/dancer/teacher page link,
+ * never /people/.)
  */
 export function visibleRoles(roles: readonly string[] | null | undefined, teacherPagesOpen: boolean): PersonRole[] {
   return orderedRoles(roles).filter((r) => r !== 'teacher' || teacherPagesOpen);
@@ -78,22 +80,6 @@ export function roleLine(roles: readonly string[] | null | undefined): string {
   return orderedRoles(roles).map((r) => ROLE_LABEL[r]).join(' \u00b7 ');
 }
 
-/**
- * Where a search_public_v7 person row goes and which roles it shows. A teacher-only
- * person keeps TODAY's row: kind Teacher, /teachers/:id (the coming-soon gate while the
- * teacher pages are closed). Everyone else: one Person row, the visible roles, /people/:id.
- * Teacher-only goes to /teachers/:id with the flag on too: with get_public_person_roles_v1
- * missing, /people cannot tell a teacher-only person from a dancer (see personRoles.ts).
- */
-export function personSearchRow(
-  id: string,
-  roles: readonly string[] | null | undefined,
-  teacherPagesOpen: boolean,
-): { kind: 'person' | 'teacher'; roles: PersonRole[]; href: string } {
-  const all = orderedRoles(roles);
-  if (all.length === 1 && all[0] === 'teacher') return { kind: 'teacher', roles: [], href: hrefFor('teacher', id) };
-  return { kind: 'person', roles: visibleRoles(all, teacherPagesOpen), href: hrefFor('person', id) };
-}
 
 /** "Carlos Mendez, Teacher, DJ, Dancer" for aria-label. */
 export function personAriaLabel(name: string, roles: readonly string[] | null | undefined): string {

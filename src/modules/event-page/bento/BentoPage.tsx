@@ -1,4 +1,5 @@
 ﻿import { Suspense, memo, useEffect, useMemo, useState, type ComponentProps } from 'react';
+import { ReportProblemLink } from '@/lib/contactLinks';
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import GlobalLayout from '@/components/layout/GlobalLayout';
@@ -845,6 +846,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           dangerouslySetInnerHTML={{ __html: serialiseJsonLd(eventJsonLd) }}
         />
       )}
+      <ReportProblemLink />
     </GlobalLayout>
   );
 };
