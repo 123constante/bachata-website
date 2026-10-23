@@ -37,7 +37,7 @@ import {
 import { fetchMyRoleIntent, myRoleIntentQueryKey, myRolesQueryKey, answerDoYou } from '@/modules/areas/home/rolesApi';
 import { fetchMyRoleDetails, saveMyRole } from '@/modules/areas/shared/areaApi';
 import type { Role } from '@/modules/areas/shared/fieldRegistry';
-import { RoleQuestion } from './RoleQuestion';
+import { RoleQuestion } from './RoleQuestionScreen';
 import { ITS_LIVE_TITLE, ROLE_QUESTION_TITLE, ROLE_SAVE_FAILED, itsLiveLine, offerRoles, rolesToAsk, saveRoleAnswers, type RoleAnswers, type RoleQuestionWriters } from './roleQuestion';
 
 /** The real role writers: the Your areas Yes/No (B-DB1) and save_my_role_v1, changed keys only. */
