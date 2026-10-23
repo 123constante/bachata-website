@@ -2,8 +2,8 @@
 
 - Branch: `claude/people-foundation` (from `main` d4bff82). Brief: `briefs/PEOPLE-S1-foundation-brief.md` on
   `brief/people-arc` (sha b8df17f3).
-- Content commit: `@@CONTENT_SHA@@`; the head is the handover commit right after it
-  (`git log -1 origin/claude/people-foundation`). PR: #@@PR@@.
+- Content commit: `2421617`; the head is the handover commit right after it
+  (`git log -1 origin/claude/people-foundation`). PR: #980.
 - No page uses the new modules yet. `flags.personWorlds` (`VITE_ENABLE_PERSON_WORLDS=true`) is added, default OFF,
   and read by nothing yet: S2-S4 wire the worlds behind it.
 - `src/modules/person-page/wall/**` is untouched (S0 owns it).
@@ -124,3 +124,7 @@ list in `scripts/dancer-area-isolation-allowlist.json`), deleting the old copies
 - Real photos: the image host is unreachable from the sandbox, so the photo path in the browser walk was the failure path.
 - Initials rule: first + last (the live wall's rule); the worlds reference drew first + second. Owner may pick.
 - Vercel preview not checked (not needed per brief).
+- Local CI runs (PR #980 body has the per-job table): `test:unit` 12555 passed, 15 failed, the same 15 as clean main in
+  this sandbox (live-DB contract suites + `integrityCouldNotRun`). `test:e2e` 154 passed, 4 failed; 3 passed on rerun, and
+  `organiser-home.spec.ts:55` also fails with main's `useSeo.ts`. The pre-push hook is not executable in the container, so
+  git did not run it; run by hand, it failed only on `integrityCouldNotRun`. No `--no-verify` used.
