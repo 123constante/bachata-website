@@ -9,6 +9,7 @@ import { shownSteps, stepKey } from '../../../wizard/wizardModel';
 import type { WizardSources } from '../../../wizard/registry';
 import { WIZARD_STEPS } from '../../../wizard/registry';
 import { PROFILE_WIZARD_PATH } from '@/modules/organiser/shared/profileProgress';
+import { DEFAULT_AREA_PATHS } from '@/modules/areas/shared/paths';
 import { goLiveFixHref, goLiveLabel, withReturnTo, type GoLiveCheck } from '@/modules/organiser/shared/goLiveCheck';
 
 export const ALMOST_LIVE_TITLE = 'Almost live';
@@ -110,6 +111,11 @@ export function goLiveGaps(check: GoLiveCheck, seriesId: string, organiserId: st
   if (!check.profileRuleApplies) return gaps;
   const back = goLivePath(seriesId, organiserId);
   for (const p of check.profileMissing) {
+    if (p.area === 'teacher' || p.area === 'dj') {
+      const role = p.area;
+      for (const f of p.fields) gaps.push({ key: `${role}::${f}`, text: roleGapText(role, f), href: withReturnTo(DEFAULT_AREA_PATHS[role].profile, back) });
+      continue;
+    }
     for (const f of p.fields) {
       const entry = WIZARD_STEPS.get(`${p.area}:${f}`);
       const what = entry ? entry.title.replace(/\?$/, '') : `Add your ${p.area === 'dancer' ? '' : 'page '}${humanise(f)}`;
@@ -118,6 +124,15 @@ export function goLiveGaps(check: GoLiveCheck, seriesId: string, organiserId: st
   }
   return gaps;
 }
+
+/** A role gap (A1's teacher / DJ keys), linking to that role's editor. */
+const ROLE_GAP_TEXT: Readonly<Record<string, string>> = {
+  teaching_styles: 'Your teacher page: add the styles you teach',
+  dj_name: 'Your DJ page: add your DJ name',
+  dj_genres: 'Your DJ page: add the music you play',
+};
+export const roleGapText = (role: 'teacher' | 'dj', key: string): string =>
+  ROLE_GAP_TEXT[key] ?? `Your ${role === 'dj' ? 'DJ' : 'teacher'} page: add your ${humanise(key)}`;
 
 export const ALMOST_THERE_TITLE = 'Almost there';
 export const FINISH_LIST_REASON = 'Finish the list above first.';
