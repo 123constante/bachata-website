@@ -44,8 +44,8 @@ export function AboutStep({ completion, preview, linked, onSaved }: {
   const queryClient = useQueryClient();
   const fields = fieldsToAsk(completion);
   const [draft, setDraft] = useState<Draft>({
-    first_name: preview.prefillFirstName ?? '',
-    based_city_id: preview.prefillCityId ?? '',
+    first_name: preview.prefill?.firstName ?? '',
+    based_city_id: preview.prefill?.cityId ?? '',
     dance_role: '',
     avatar_url: '',
   });

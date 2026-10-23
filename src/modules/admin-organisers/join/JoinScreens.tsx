@@ -60,18 +60,20 @@ export function Progress({ n, total, label }: { n: number; total: number; label:
 
 /** Person-bound invite: "Hi Papacito" (linking prototype). First name, photo and city only, never an email. */
 export function PersonCard({ preview }: { preview: JoinPreview }) {
-  const first = preview.personFirstName ?? 'there';
+  const first = preview.person?.firstName ?? 'there';
+  const avatar = preview.person?.avatarUrl ?? null;
+  const city = preview.person?.city ?? null;
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3" data-testid="join-person-card">
       <div className="flex items-center gap-3">
-        {preview.personAvatarUrl ? (
-          <img src={preview.personAvatarUrl} alt="" width={56} height={56} loading="lazy" className="h-14 w-14 flex-none rounded-full object-cover" />
+        {avatar ? (
+          <img src={avatar} alt="" width={56} height={56} loading="lazy" className="h-14 w-14 flex-none rounded-full object-cover" />
         ) : (
           <span aria-hidden="true" className="grid h-14 w-14 flex-none place-items-center rounded-full bg-primary/20 text-[22px] font-bold">{first.slice(0, 1)}</span>
         )}
         <div className="min-w-0">
           <p className="text-[17px] font-bold" data-testid="join-person-hi">{JOIN_COPY.person.hi(first)}</p>
-          {preview.personCity && <p className="text-[13px] text-muted-foreground">{preview.personCity}</p>}
+          {city && <p className="text-[13px] text-muted-foreground">{city}</p>}
           <span className="mt-1 inline-block rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-300">{JOIN_COPY.person.tag}</span>
         </div>
       </div>
@@ -206,8 +208,8 @@ export function NoProfileScreen() {
 }
 
 /** Refusals and failures, each with what to do next. `onRetry` re-runs the action that failed; `onSwitch` signs out and continues. */
-export function StopScreen({ stop, preview, busy, error, onRetry, onSwitch, onDismiss }: {
-  stop: JoinStop; preview: JoinPreview | null; busy: boolean; error: string | null;
+export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, onSwitch, onDismiss }: {
+  stop: JoinStop; preview: JoinPreview | null; signedInAs: string; busy: boolean; error: string | null;
   onRetry: () => void; onSwitch: () => void; onDismiss: () => void;
 }) {
   const inviter = preview?.inviterFirstName ?? null;
@@ -261,6 +263,8 @@ export function StopScreen({ stop, preview, busy, error, onRetry, onSwitch, onDi
           <ErrorLine id="join-signout-error">{error}</ErrorLine>
         </div>
       );
+    case 'wrong_account':
+      return <WrongAccountScreen signedInAs={signedInAs} hint={stop.emailHint ?? preview?.emailHint ?? 'another email'} busy={busy} error={error} onSwitch={onSwitch} />;
     case 'already_bound':
       return (
         <div className="flex flex-col gap-2">

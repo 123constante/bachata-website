@@ -1,10 +1,10 @@
 // THE copy module for the /invite join journey (PLAN.md section 3 copy rule): plain English, one
 // place per screen, and every error says what the person can do next -- never a raw code. Unicode
-// punctuation is escaped (’, …): the Cowork -> FUSE -> NTFS pipeline corrupts raw glyphs.
+// punctuation is written as \u escapes (right quote, ellipsis): the Cowork -> FUSE -> NTFS pipeline corrupts raw glyphs.
 import { OTP_RATE_LIMITED_MESSAGE, SIGNUP_HELP_WHATSAPP_URL } from '@/lib/auth-otp-routing';
 
-const APOS = '’';
-const ELLIPSIS = '…';
+const APOS = '\u2019';
+const ELLIPSIS = '\u2026';
 
 /** The person who sent the link, for "Ask <inviter>" wording. */
 export const inviterName = (inviter: string | null | undefined): string => (inviter?.trim() ? inviter.trim() : 'the person who sent it');

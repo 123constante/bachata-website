@@ -9,38 +9,46 @@ import { hintMatchesEmail, parsePreview, type InvitePreview } from '../inviteMod
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null);
 
+/** The profile a person-bound invite is for: a first name, a photo and a city, never an email or an id. */
+export interface JoinPerson {
+  firstName: string | null;
+  avatarUrl: string | null;
+  city: string | null;
+}
+
+/** What the sender typed for a new person: pre-fills About you (it is never saved by itself). */
+export interface JoinPrefill {
+  firstName: string | null;
+  cityId: string | null;
+}
+
 /**
- * The preview plus the A2 person keys. `person_profile_id` absent = a page invite (owner decision: treat it
- * so until A2 is applied). The person card reads only a first name, a photo and a city: never an email.
- * Agreed names (added by W1, for A2): person_profile_id, person_first_name, person_avatar_url, person_city,
- * prefill_first_name, prefill_city_id.
+ * The preview plus A2's two objects (orchestrator contract decision, 2026-10-23):
+ * `person` = { first_name, avatar_url, city } -- present = a person-bound invite, absent = a page invite
+ * (no person_profile_id is exposed); `prefill` = { first_name, city_id }. Agreed names: person, prefill.
  */
 export interface JoinPreview extends InvitePreview {
-  personProfileId: string | null;
-  personFirstName: string | null;
-  personAvatarUrl: string | null;
-  personCity: string | null;
-  prefillFirstName: string | null;
-  prefillCityId: string | null;
+  person: JoinPerson | null;
+  prefill: JoinPrefill | null;
 }
+
+const obj = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
 
 export function parseJoinPreview(raw: unknown): JoinPreview | null {
   const base = parsePreview(raw);
   if (!base) return null;
   const r = raw as Record<string, unknown>;
+  const person = obj(r.person);
+  const prefill = obj(r.prefill);
   return {
     ...base,
-    personProfileId: str(r.person_profile_id),
-    personFirstName: str(r.person_first_name),
-    personAvatarUrl: str(r.person_avatar_url),
-    personCity: str(r.person_city),
-    prefillFirstName: str(r.prefill_first_name),
-    prefillCityId: str(r.prefill_city_id),
+    person: person ? { firstName: str(person.first_name), avatarUrl: str(person.avatar_url), city: str(person.city) } : null,
+    prefill: prefill ? { firstName: str(prefill.first_name), cityId: str(prefill.city_id) } : null,
   };
 }
 
 /** A person-bound invite: the server named the profile this link is for. */
-export const isPersonBound = (p: JoinPreview | null | undefined): boolean => Boolean(p?.personProfileId);
+export const isPersonBound = (p: JoinPreview | null | undefined): boolean => p?.person != null;
 
 // ---- the step table -------------------------------------------------------------------------
 
@@ -149,6 +157,8 @@ export type JoinStop =
   | { kind: 'network'; from: 'send' | 'verify' | 'join' | 'bind' }
   | { kind: 'email_unproven' }
   | { kind: 'not_linked' }
+  /** email_mismatch answered AFTER the Join tap (the preview carried no hint): the same wrong-account screen. */
+  | { kind: 'wrong_account'; emailHint: string | null }
   | { kind: 'already_bound' }
   | { kind: 'refused'; reason: string; emailHint: string | null };
 

@@ -125,7 +125,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const clearStep = useCallback(() => navigate(pathname, { replace: true }), [navigate, pathname]);
 
   const fail = (from: string, s: JoinStop) => {
-    reportJoinFailure(from, s.kind === 'refused' ? s.reason : s.kind);
+    reportJoinFailure(from, s.kind === 'refused' ? s.reason : s.kind === 'wrong_account' ? 'email_mismatch' : s.kind);
     setStop(s);
   };
 
@@ -160,7 +160,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         }
         // unavailable: the function is not on the server yet; the redeem still guards the address.
       }
-      const { error } = await sendJoinCode(check.email, token);
+      const { error } = await sendJoinCode(check.email, token).catch((e: unknown) => ({ error: e instanceof Error ? e : new Error('network') }));
       if (error) {
         const s = classifySendError(error);
         if (resend && s.kind === 'rate_limited') return setCodeError(JOIN_COPY.code.rateLimited);
@@ -183,15 +183,18 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     setBusy(true);
     setCodeError(null);
     setCodeNotice(null);
-    const { data, error } = await verifyJoinCode(email, code);
+    // Paused BEFORE verifyOtp: the SIGNED_IN event fires inside it, and a render with a session and no pause
+    // would read the persona before the claim (the /auth/callback order, PLAN.md section 4).
+    setLinking(true);
+    const { data, error } = await verifyJoinCode(email, code).catch((e: unknown) => ({ data: null, error: e instanceof Error ? e : new Error('network') }));
     if (error) {
+      setLinking(false);
       setBusy(false);
       const why = classifyVerifyError(error);
       if (why === 'wrong_code') return setCodeError(JOIN_COPY.code.wrong);
       if (why === 'rate_limited') return setCodeError(JOIN_COPY.code.rateLimited);
       return fail('verify', { kind: 'network', from: 'verify' });
     }
-    setLinking(true);
     try {
       const claim = await claimAtSignIn(queryClient);
       claimRef.current = claim;
@@ -225,7 +228,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
           return;
         case 'not_linked': return fail('join', { kind: 'not_linked' });
         case 'dead': await refetchPreview(); return;
-        case 'wrong_account': return fail('join', { kind: 'refused', reason: 'email_mismatch', emailHint: outcome.emailHint });
+        case 'wrong_account': return fail('join', { kind: 'wrong_account', emailHint: outcome.emailHint });
         case 'email_unproven': return fail('join', { kind: 'email_unproven' });
         case 'rate_limited': return fail('join', { kind: 'rate_limited', from: 'join' });
         case 'profile_incomplete': await completion.refetch(); return;
@@ -271,7 +274,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     return (
       <StepFrame step={step} stop={stop.kind}>
         {header}
-        <StopScreen stop={stop} preview={info} busy={busy} error={signOutError} onRetry={() => void retry()} onSwitch={() => void switchAccount()} onDismiss={() => { setStop(null); clearStep(); }} />
+        <StopScreen stop={stop} preview={info} signedInAs={user?.email ?? 'another account'} busy={busy} error={signOutError} onRetry={() => void retry()} onSwitch={() => void switchAccount()} onDismiss={() => { setStop(null); clearStep(); }} />
       </StepFrame>
     );
   }

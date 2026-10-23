@@ -30,8 +30,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 
 import AdminOrganisersPage from '../AdminOrganisersPage';
-import InviteRedeemPage from '../InviteRedeemPage';
-import { ADMIN_COPY, TOKEN_RE, lifecycleLabel, notLiveNote } from '../inviteModel';
+import { ADMIN_COPY, lifecycleLabel, notLiveNote } from '../inviteModel';
 import { LAST_OWNER_NOTE } from '@/modules/organiser/shared/teamModel';
 import { TEAM_COPY } from '@/modules/organiser/shared/selfServeErrors';
 
@@ -56,7 +55,6 @@ function mount(path: string) {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/admin/organisers" element={<AdminOrganisersPage />} />
-          <Route path="/invite/:token" element={<InviteRedeemPage />} />
           <Route path="/account/o" element={<p data-testid="landed">dashboard</p>} />
         </Routes>
       </MemoryRouter>
@@ -124,30 +122,7 @@ describe('4. organiser/** does not import admin-organisers/**', () => {
   });
 });
 
-describe('5. malformed token + breadcrumbs', () => {
-  it.each([
-    ['not-a-token', false], ['not-a-token', true],
-    ['ab'.repeat(31), false], ['AB'.repeat(32), true],
-    [TOKEN, false],
-  ])('token %s signedIn=%s', async (token, signedIn) => {
-    h.auth.user = signedIn ? { id: 'u1' } : null;
-    h.rpc.mockImplementation((fn: string) => Promise.reject(new Error(fn)));
-    mount(`/invite/${token}`);
-    if (!TOKEN_RE.test(token)) {
-      expect((await screen.findByTestId('invite-title')).textContent).toBe('This link does not work');
-      expect(screen.queryByTestId('invite-sign-in')).toBeNull();
-    } else {
-      expect(await screen.findByTestId('invite-sign-in')).toBeTruthy();
-    }
-    expect(h.rpc).not.toHaveBeenCalledWith('redeem_organiser_invite_v1', expect.anything());
-  });
-  it('passes breadcrumbs from the central map', async () => {
-    h.auth.user = null;
-    mount(`/invite/${TOKEN}`);
-    await screen.findByTestId('invite-sign-in');
-    expect(screen.getByTestId('layout').getAttribute('data-crumbs')).not.toBe('');
-  });
-});
+// 5. malformed token + breadcrumbs: now in join/__tests__/joinJourney.test.tsx (W1, Option B).
 
 describe('6. red text uses the destructive token (the theme is black; dark: never applies)', () => {
   it('none of the red texts uses red-700 or dark:', () => {
