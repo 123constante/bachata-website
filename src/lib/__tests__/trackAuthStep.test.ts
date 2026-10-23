@@ -41,7 +41,7 @@ describe('trackAuthStep never blocks', () => {
 describe('trackAuthStep under automation', () => {
   const setWebdriver = (v: boolean) =>
     vi.stubGlobal('navigator', { webdriver: v });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); });
   it('navigator.webdriver = true: no RPC call', () => {
     setWebdriver(true);
     trackAuthStep({ step: 'code_ok', outcome: 'ok' });
