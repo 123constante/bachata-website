@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Share2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,6 +32,10 @@ import {
   DjGuestbookStub,
   type DjGig,
 } from '@/components/dj/DjTiles';
+import { PersonFrame, WorldPage } from '@/modules/person-page/frame';
+import { DjWorld, djWorldView } from '@/modules/person-page/worlds/dj';
+import { WORLD } from '@/modules/person-page/worlds/tokens';
+import { usePersonSnapshot } from '@/modules/person-page/usePersonRoles';
 
 type DJRow = {
   id: string;
@@ -131,7 +135,11 @@ const DJProfile = () => {
     buildPath: (s) => `/djs/${s}`,
   });
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const embedded = useEmbeddedProfile();
+  // People arc S3: the DJ world on the shared frame (flags.personWorlds), never inside a /people/:id tab.
+  const worlds = flags.personWorlds && !embedded;
+  const person = usePersonSnapshot(worlds ? id : undefined);
 
   const { data: dj, isLoading, error } = useQuery({
     queryKey: ['dj-profile', id],
@@ -152,7 +160,7 @@ const DJProfile = () => {
   // first client render are identical, then it fetches client-side.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const { data: appearances, isFetched: appearancesFetched, isError: appearancesFailed } = useProfileProgramAppearances('dj', mounted ? id : undefined, 1000);
+  const { data: appearances, isFetched: appearancesFetched, isError: appearancesFailed, refetch: refetchAppearances } = useProfileProgramAppearances('dj', mounted ? id : undefined, 1000);
 
   // `dj.display_name` is NOT trustworthy as a name: get_public_dj_v1 builds it
   // as COALESCE(dj_name, first+surname, dp.id::text), so for a profile whose
@@ -202,6 +210,35 @@ const DJProfile = () => {
     up.sort((x, y) => (x.startTime ?? '').localeCompare(y.startTime ?? ''));
     return { upcoming: up, past: pastGigs, isLive: live };
   }, [appearances]);
+
+  if (isLoading && worlds) {
+    // The DJ ground and the frame's boxes in the world shell, so the page arrives without a jump.
+    return (
+      <WorldPage world="dj" breadcrumbs={djBreadcrumbs} backHref="/djs">
+        <div className="space-y-3" data-testid="dj-world-loading">
+          <Skeleton className="h-11 w-full rounded-[12px]" style={{ background: WORLD.dj.section.background }} />
+          <Skeleton className="h-80 w-full rounded-[22px]" style={{ background: WORLD.dj.section.background }} />
+        </div>
+      </WorldPage>
+    );
+  }
+
+  if (worlds && (error || !dj)) {
+    return (
+      <WorldPage world="dj" breadcrumbs={djBreadcrumbs} backHref="/djs">
+        <div className="flex flex-col items-center gap-3 py-10 text-center" data-testid="dj-world-missing">
+          <p className="m-0" style={{ fontSize: 15, color: WORLD.dj.card.muted }}>This DJ profile doesn&rsquo;t exist or has been removed.</p>
+          <Link
+            to="/djs"
+            className="inline-flex items-center gap-2 rounded-full px-4 font-bold"
+            style={{ minHeight: 44, fontSize: 14, color: WORLD.dj.accent, border: `1px solid ${WORLD.dj.avatar.ring}` }}
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden /> Back to DJs
+          </Link>
+        </div>
+      </WorldPage>
+    );
+  }
 
   if (isLoading && flags.personHub && !embedded) {
     // W2-C: the placeholder paints the warm ground the page arrives on (no dark-to-warm flash).
@@ -256,6 +293,46 @@ const DJProfile = () => {
   const breadcrumbJsonLd = embedded
     ? null
     : renderBreadcrumbListJsonLd({ crumbs: djBreadcrumbs, origin: SITE_ORIGIN, currentUrl: SITE_ORIGIN + sharePath });
+
+  // People arc S3 (flags.personWorlds ON): PersonFrame (Back, Share, role tabs) and the DJ world.
+  // Flag OFF, and in a /people/:id tab, everything below is unchanged.
+  if (worlds) {
+    const f = djRoleFields(dj as unknown as Record<string, unknown>);
+    const view = djWorldView({
+      row: dj,
+      cityName: f.cityName,
+      nationalityCode: f.nationalityCode,
+      links: f.links,
+      upcoming,
+      past,
+      pathname,
+    });
+    return (
+      <WorldPage
+        world="dj"
+        breadcrumbs={djBreadcrumbs}
+        backHref="/djs"
+        head={breadcrumbJsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd }} /> : null}
+      >
+        <PersonFrame
+          backHref="/djs"
+          shareTitle={`${view.big} on Bachata Calendar`}
+          roles={person.snapshot?.roles ?? []}
+          current="dj"
+          slug={resolved.slug}
+          rolesPending={!person.answered}
+        >
+          <DjWorld
+            view={view}
+            photo={f.photoUrl}
+            bio={f.bio}
+            dates={appearancesFailed ? 'failed' : appearancesFetched ? 'ready' : 'loading'}
+            onRetry={() => void refetchAppearances()}
+          />
+        </PersonFrame>
+      </WorldPage>
+    );
+  }
 
   // W2-C (flags.personHub ON): the D-C page on the hub's warm ground, with the Back row + role
   // switcher. Flag OFF, and in a /people/:id tab, the page below is unchanged.
