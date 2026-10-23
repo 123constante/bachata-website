@@ -46,8 +46,28 @@ Red-first record: the two new files (`er-c8.fix2.model.test.ts`, `er-c8.fix2.pag
 - Covered by tests: every status x the main formats, draft checklist with and without a server answer, one-off with one date, live with no coming date, 20 coming dates, ticket link with/without URL, refetch mid-edit, half-failed save, per-event switch (owner page / co page / `*` / unset).
 - Not covered: a festival page beyond the common blocks (C10's), a date today on End (logic reused from EndStep, untested on this page), 58-date stop list in a browser.
 
-## CI per job (sandbox)
-See the table appended below by the run.
+## Switch OFF regression found by the e2e gate (fixed)
+C8 had deleted `DatesTakenOff.tsx` / `takenOff.ts` (and their matrix test) and took the section off the OLD event screen too, so with the switch OFF (every user today) a week off could not be put back and the date sheet's "put it back later from Dates taken off" pointed at nothing (`organiser-date.spec.ts:217` red). Restored main's files byte for byte, the OLD screen mounts the section again, and the parity row C25 `series.unskip_date` is back. Rule 9 (no Take this date off) applies to the rebuilt page only. NOTE, not changed: C8 also removed the usual-time row from the OLD Details screen (rule 1); the audit passed that, so it stays, but it is a switch-OFF change too.
+
+## CI per job (sandbox, head before the docs commit)
+| Job / step | Command | Result |
+|---|---|---|
+| architecture-guard: integrity | `bash bin/check-integrity.sh` | 0 |
+| architecture-guard: legacy tables / program RPCs | `check:legacy-tables`, `check:legacy-program-rpcs` | 0, 0 |
+| architecture-guard: runtime architecture | `lint:architecture` | 0 |
+| architecture-guard: images | `AUDIT_STRICT=1 npm run check:images` | 0 |
+| architecture-guard: image widths, plan hygiene, workflow artifact policy | self-tests + checks | 0, 0, 0 |
+| architecture-guard: mojibake | `check:mojibake:self-test && check:mojibake` | 0 |
+| architecture-guard: entry point | `prove:entry-point:self-test && prove:entry-point` | 0 |
+| typecheck | `check:rpc-typing`, `check:wallclock-brand` | 0, 0 |
+| typecheck (tsc) | `npm run typecheck` | 100 errors (baseline 106; same 100 as after the main merge, none in this slice's files) |
+| unit-tests: dancer isolation | self-test + `check:dancer-area-isolation` | 0 |
+| lint chain | `npm run lint` | 19/20; `check:integrity` exit 126 (no exec bit in this sandbox; CI runs `chmod +x bin/*.sh`; the same script via bash = 0) |
+| eslint on touched files | `npx eslint` (EventPage, eventPageModel, OneEvent, useLeaveBlocker, venue, sessions) | 0 new; EditInPlaceLayer keeps its 3 pre-existing errors; the moved blocker hook's setState-in-effect is gone |
+| build | `npm run build` | 0 |
+| unit-tests | `npm run test:unit` | 15 failed / 13134 passed: only `eventViewCompat`, `occurrenceProgram`, `publicEventPageLineup` contract files (live DB, no secrets here) and `integrityCouldNotRun` (sandbox tooling), as S4 recorded on main. The datesCard main-red is gone |
+| organiser suite | `npx vitest run src/modules/organiser` | 4688 passed, 2 skipped (after the switch-OFF restore) |
+| e2e-smoke | `npm run test:e2e` | full run: 155 passed, 3 failed, 7 skipped. `organiser-date:217` was this branch's (fixed above; rerun green). `auth-magic-link-returnto:113` passed on a rerun (load flake). `dancer-home:169` fails on `origin/main` too (checked in a main worktree) |
 
 ## Verified
 - Red-first for every fixed finding (above), green after; organiser suite and every CI step run here (table).

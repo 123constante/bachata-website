@@ -21,7 +21,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import {
   AW1_COMMAND_KINDS, OWNER_CANCEL_KEYS, OWNER_COMMAND_KINDS, OWNER_OVERRIDE_KEYS, OWNER_UPSERT_KEYS,
   addDateCommand, bulkCancelCommand, bulkShiftCommand, cancelCommand, lifecycleCommand, overrideCommand,
-  resetTimeCommand, setTimeCommand, skipDateCommand, uncancelCommand,
+  resetTimeCommand, setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand,
   type BulkCommand, type OwnerCommand,
 } from '@/modules/organiser/shared/seriesCommands';
 import { dayChangeCommand, detailCommand, endRunCommand, parseEventWorkspace, stopRepeatingCommand, venueCommand, weeklyUntilCommand } from '@/modules/organiser/events/eventModel';
@@ -297,6 +297,7 @@ export const PARITY: Row[] = [
   { id: 'C25', capability: 'Put back a cancelled / taken-off date', verdict: 'MATCH', screen: ONE, from: [[ONE, 'putBackPath']],
     sends: [
       { in: 'flows/cancel/Confirm.tsx', screen: 'flows/cancel/Confirm.tsx', token: 'uncancelCommand(', kind: 'occurrence.cancel', keys: ['cancelled'], build: () => uncancelCommand() },
+      { in: 'events/takenOff.ts', token: 'unskipDateCommand(', kind: 'series.unskip_date', keys: ['date'], build: () => unskipDateCommand('2026-10-30') },
     ] },
   { id: 'C26', capability: 'Note / picture / ticket link for one date', verdict: 'MATCH', screen: 'flows/change/Detail.tsx', from: [[WHAT, 'ORG_PATHS.changeDetail']],
     sends: [

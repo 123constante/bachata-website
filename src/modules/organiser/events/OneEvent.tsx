@@ -2,7 +2,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { londonTodayKey, weekdayOfKey } from '@/lib/londonDate';
-import { ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
+import { eventLock, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
 import { dayLabel } from '@/modules/organiser/shared/dateList';
 import type { HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
 import { lifeChip } from '@/modules/organiser/jobs/homeJobs';
@@ -13,6 +13,7 @@ import { ACTION_LABEL, EventStep, eventActions, eventStepPath, readStep, STEP_PA
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Card, EmptyState, ErrorState, SkeletonRows } from '../ui';
 import { ClosedLines } from './ClosedLines';
+import { DatesTakenOff } from './DatesTakenOff';
 import { DatesList } from './EditorRows';
 import { EventList } from './EventList';
 import { comingCard, readIsFull, wsCancelledComing, wsComing, type EventWorkspace } from './eventModel';
@@ -275,6 +276,9 @@ export default function OneEvent() {
       {goLiveLeads(ws.data) && <LifecycleActions ws={ws.data} today={today} lock={lock} />}
       <MonthDots ws={ws.data} today={today} />
       <Dates seriesId={seriesId} home={one} ws={ws.data} today={today} lock={lock} />
+      {/* Switch OFF keeps main's Dates taken off (the date sheet's "Take a week off" points here); rule 9 drops it on the rebuilt page only. */}
+      <DatesTakenOff series={ws.data.series} dates={ws.data.dates} today={today} lock={eventLock(ws.data.series.lifecycle_status)}
+        dirty={false} canChooseEnd={!!ownerWeeklyRule(ws.data.series)} />
       <Actions ws={ws.data} today={today} lock={lock} />
       {!goLiveLeads(ws.data) && <LifecycleActions ws={ws.data} today={today} lock={lock} />}
     </>
