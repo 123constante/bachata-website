@@ -79,7 +79,16 @@ describe('hero name, face, gig line', () => {
     mount(['dj', 'dancer'], { badge: { djHasUpcoming: true, nextGigDate: '2099-10-23' } });
     expect(screen.getByTestId('hub-name').textContent).toBe('DJ Rugido');
     expect(screen.getByTestId('hub-subname').textContent).toBe('Ana Garcia');
-    expect(screen.getByTestId('hub-line').textContent).toBe('Next gig Fri 23 \u00b7 2 coming up');
+    expect(screen.getByTestId('hub-line').textContent).toBe('Next gig Friday 23 October \u00b7 2 coming up');
+  });
+  it('DJ leads: the gig line reserves two rows, so the late " \u00b7 N coming up" never moves the page (360px)', () => {
+    h.data = undefined;
+    mount(['dj', 'dancer'], { badge: { djHasUpcoming: true, nextGigDate: '2099-10-23' } });
+    expect(screen.getByTestId('hub-line').style.minHeight).toBe('44px');
+  });
+  it('dancer leads: the facts line reserves one row', () => {
+    mount(['dj', 'dancer']);
+    expect(screen.getByTestId('hub-line').style.minHeight).toBe('22px');
   });
   it('dancer leads: real name heads, "DJ <stage>" under it, years and languages', () => {
     mount(['dj', 'dancer']);
@@ -122,7 +131,7 @@ describe('no swap after first paint (gig list arrives late)', () => {
     h.data = undefined;
     const r = mount(['dj', 'dancer'], { badge: { djHasUpcoming: true, nextGigDate: '2099-10-23' } });
     expect(screen.getByTestId('hub-hero').getAttribute('data-role')).toBe('dj');
-    expect(screen.getByTestId('hub-line').textContent).toBe('Next gig Fri 23');
+    expect(screen.getByTestId('hub-line').textContent).toBe('Next gig Friday 23 October');
     h.data = GIG;
     r.rerender(<QueryClientProvider client={r.qc}><MemoryRouter><PersonPage person={snap(['dj', 'dancer'])} slugOrId="x" /></MemoryRouter></QueryClientProvider>);
     expect(screen.getByTestId('hub-hero').getAttribute('data-role')).toBe('dj');
@@ -135,7 +144,7 @@ describe('no swap after first paint (gig list arrives late)', () => {
     h.data = GIG;
     r.rerender(<QueryClientProvider client={r.qc}><MemoryRouter><PersonPage person={snap(['dj', 'dancer'], { badge: null })} slugOrId="x" /></MemoryRouter></QueryClientProvider>);
     expect(screen.getByTestId('hub-hero').getAttribute('data-role')).toBe('dancer');
-    expect(screen.getAllByTestId('hub-also-card')[0].textContent).toMatch(/Next gig Fri 23/);
+    expect(screen.getAllByTestId('hub-also-card')[0].textContent).toMatch(/Next gig Friday 23 October/);
   });
   it('the gig list read fails: the line never stays on "Checking"', () => {
     h.data = undefined; h.isError = true;
@@ -218,7 +227,7 @@ describe('model helpers', () => {
     expect(cardOrder(badge([]))).toEqual([]);
   });
   it('nextGigOf: soonest from today, past ignored, none = null', () => {
-    expect(nextGigOf([{ event_id: 'old', event_start_time: '2020-01-01T20:00:00Z' }, ...GIG], TODAY)).toEqual({ eventId: 'e1', dateLabel: 'Fri 23', count: 2 });
+    expect(nextGigOf([{ event_id: 'old', event_start_time: '2020-01-01T20:00:00Z' }, ...GIG], TODAY)).toEqual({ eventId: 'e1', dateLabel: 'Friday 23 October', count: 2 });
     expect(nextGigOf([], TODAY)).toBeNull();
     expect(nextGigOf(undefined, TODAY)).toBeNull();
   });

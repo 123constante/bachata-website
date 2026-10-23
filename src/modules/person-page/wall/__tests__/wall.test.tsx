@@ -50,7 +50,7 @@ describe('/djs wall: person shape table', () => {
   const badges = badgeMap(B('three', ['teacher', 'dj', 'dancer']), B('gig', ['dj']), B('stage', ['dj'], { djName: 'DJ El Rugido' }));
 
   it.each([
-    ['gig', { name: 'Bisket', date: 'Fri 23', chips: ['DJ'], flag: true, href: '/djs/gig' }],
+    ['gig', { name: 'Bisket', date: 'Friday 23 October', chips: ['DJ'], flag: true, href: '/djs/gig' }],
     ['nogig', { name: 'Roger', date: null, chips: ['DJ'], flag: false, href: '/djs/nogig' }],
     ['stage', { name: 'El Rugido', date: null, chips: ['DJ'], flag: false, href: '/djs/stage' }],
     ['long', { name: 'Carlos De La Cruz', date: null, chips: ['DJ'], flag: false, href: '/djs/long' }],
@@ -158,7 +158,7 @@ describe('/dancers wall: person shape table', () => {
 
   it('only dancers with the Dancer role are the page\'s business: the page filters, the wall shows what it is given; a gig date shows for a DJ-dancer only', () => {
     mountDancers(rows, names, badges);
-    expect(within(tile('djgig')).getByTestId('date-chip').textContent).toContain('Fri 23');
+    expect(within(tile('djgig')).getByTestId('date-chip').textContent).toContain('Friday 23 October');
     expect(within(tile('plain')).queryByTestId('date-chip')).toBeNull();
   });
 
@@ -212,13 +212,13 @@ describe('small helpers', () => {
     expect(initialsOf('Sobolewska')).toBe('S');
     expect(initialsOf('')).toBe('?');
   });
-  it('wallDateLabel: Fri 23, hidden when past, empty or garbage', () => {
-    expect(wallDateLabel('2099-10-23')).toBe('Fri 23');
-    expect(wallDateLabel('2099-10-23T19:00:00+00')).toBe('Fri 23');
+  it('wallDateLabel: Friday 23 October, hidden when past, empty or garbage', () => {
+    expect(wallDateLabel('2099-10-23')).toBe('Friday 23 October');
+    expect(wallDateLabel('2099-10-23T19:00:00+00')).toBe('Friday 23 October');
     expect(wallDateLabel('2020-10-23')).toBeNull();
     expect(wallDateLabel(null)).toBeNull();
     expect(wallDateLabel('soon')).toBeNull();
-    expect(wallDateLabel('2026-10-23', '2026-10-23')).toBe('Fri 23'); // today still shows
+    expect(wallDateLabel('2026-10-23', '2026-10-23')).toBe('Friday 23 October'); // today still shows
   });
 });
 

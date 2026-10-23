@@ -9,7 +9,7 @@ const LATE = {
   'dancer-dj-teacher-gig': '005a7329-90a3-4d81-8854-296a4a6db673',
   'dancer-dj-nogig': '061c6300-763c-4496-9556-2f883b3b7723',
 };
-const b = await chromium.launch();
+const b = await chromium.launch(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY, bypass: '127.0.0.1,localhost' } } : {});
 const out = { back: {}, shift: {} };
 for (const [name, id] of Object.entries(ONE_ROLE)) {
   const p = await b.newPage({ viewport: { width: 390, height: 844 } });

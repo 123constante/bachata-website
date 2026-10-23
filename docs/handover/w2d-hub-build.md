@@ -1,21 +1,48 @@
 # Handover: W2-D person hub (option C), build + stage-5 critique
 
 Branch `claude/w2d-hub-build`, PR #963. Built by ticket dt_aee601072cb9 (head a5f770f7); critiqued and fixed once by
-ticket dt_35ff972ae82e (a different worker). Head SHA: the commit carrying this file (subject ends
-`[worker-done dt_35ff972ae82e]`). Design record: [`docs/design/w2d-hub-build.md`](../design/w2d-hub-build.md).
+ticket dt_35ff972ae82e (a different worker); step 2 (Back loop + owner wording) by ticket dt_ee031c530f23. Head SHA: the
+commit carrying this file (subject ends `[worker-done dt_ee031c530f23]`). Design record: [`docs/design/w2d-hub-build.md`](../design/w2d-hub-build.md).
 Critique: [`docs/design/w2d-hub-critique.md`](../design/w2d-hub-critique.md).
 
-## READ FIRST: one blocker is NOT fixed in this PR (owner call)
-On a one-role person's dancer or DJ page the role bar's "Back to <name>" goes to `/people/<slug>`, which this PR now 302s
-straight back to the same page: **Back loops** (measured on prod ids: `/dancers/unclaimed-00422bf9` and `/djs/bobby-blanco`).
-About 29 active people (dancer-only and DJ-only). Prod has `flags.personHub` ON, so merging this PR alone ships the loop.
-- Fix is ready: `docs/handover/w2d-hub-back-loop.patch` (`roleSwitchModel` asks `personDestination` whether there is a hub;
-  no hub = no bar, the page keeps its own Back). Tests in the patch were red on the unfixed code (15 table cases).
-- It is not applied because it must change one line in `src/modules/dancer-app/public-page/__tests__/oneBack.test.tsx`,
-  which makes this a "dancer-area PR" for `check-dancer-area-isolation`; rule (a) then fails on 14 person-page files.
-  Adding a seam is an orchestrator decision.
-- Recommendation: orchestrator allows it (seam `src/modules/person-page/roleSwitch.ts`, or exempt `__tests__` files from
-  the dancer-area trigger), then `git apply docs/handover/w2d-hub-back-loop.patch` on this branch before merge.
+## Step 2 (ticket dt_ee031c530f23, 2026-10-23): Back loop FIXED, owner wording applied
+- **Back loop: fixed.** Applied the person-page hunks of `docs/handover/w2d-hub-back-loop.patch`
+  (`git apply --exclude='src/modules/dancer-app/*'`): `roleSwitchModel` asks `personDestination` whether
+  `/people/<slug>` would show the hub; no hub = no role bar, the page keeps its own Back. Measured on prod ids at 390x844
+  (`docs/mockups/w2d-hub-build/backloop.mjs`, `backloop-report.json`, `backloop-*.png`): `/dancers/unclaimed-00422bf9` ->
+  no bar, its own "Back" -> `/dancers`; `/djs/bobby-blanco` -> no bar, "Back to DJs" -> `/djs`; no loop. Two-role
+  `/djs/elias` and `/dancers/elias` keep the bar and "Back to Elias" lands on the hub `/people/elias`.
+- Red first: the patch's roleSwitch tests on the unfixed `roleSwitch.ts`: 15 of 67 fail; after the fix 67/67.
+- No file under `src/modules/dancer-app/` is touched: `check-dancer-area-isolation` says "not a dancer-area PR".
+- **Expected red until `claude/oneback-no-hub-row` merges:** `src/modules/dancer-app/public-page/__tests__/oneBack.test.tsx`
+  row 'one role' (4 cases, one per dancer shape) expects the bar this PR removes. Proved: with that PR's one-row change
+  applied in the working tree only (never committed), oneBack is 52/52. **#963 merges after the oneBack PR.**
+- **Owner wording 1 (count only from 2):** one gig reads "Next gig Friday 23 October"; 2+ keeps " &middot; N coming up"
+  (N = total). `hub/model.ts`. Owner wording 2 (full weekday + month): the ONE shared label `wallDateLabel`
+  (`wall/model.ts`) now reads "Friday 23 October" (London key, same rollover), so the wall chip and the hub change together.
+  Table-driven `hub/__tests__/gigWording.test.ts` (0/1/2/5 gigs; this month, next month, next year): 8 red first, then green.
+- **Late-data shift found and fixed:** at 360px the longer line wraps when " &middot; 2 coming up" arrives, so About moved
+  22px. The DJ-lead hero line now reserves two rows (44px) while a gig line is expected (badge hint or gig list; a
+  no-gig DJ keeps one row, from review), like the two-column Also lines: 0px at 360 and 390 on all 3 late shapes
+  (`probe-report.json`). Tests added (red without the change).
+- `/code-review` (one round, medium) on this step's diff: 7 findings. Fixed: the always-two-rows reservation (now only
+  while a gig line is expected). Left, with reasons:
+  - Wall chip wraps (owner call below).
+  - The bar reads `badge.roles` (badges RPC) while `/people` redirects on `heldRoles` (person roles RPC), and the patch
+    no longer counts `current`: if the two RPCs disagree for a person, a loop or a missing bar is still possible. The
+    brief pins the patch ("apply it, do not redesign"); a follow-up should make both read one source. The test's hub
+    predicate is likewise its own copy of the rule.
+  - `nextGigOf` slices the UTC `event_start_time` as a London key: a gig 00:00-01:00 BST shows the previous day (now
+    also the previous month on the 1st). Pre-existing; the brief says keep today's rollover. Worth a follow-up.
+  - `home-map/venueNights.ts` `dateLabel` already makes "Friday 11 Sep" (short month, by its own wrap rule); the owner
+    asked for the full month here, so the wall/hub keep their own label.
+
+
+### NEW owner call: the wall date chip
+"Friday 23 October" no longer fits on one row of the wall's date chip: on `/djs` the tiles are 79px wide at 360 and
+86px at 390, so every chip wraps to 2 rows (30px instead of 14px) and covers the lower ~40% of the face
+(`backloop-wall-djs-360.png`). Nothing overflows sideways. Options: (a) accept; (b) the chip keeps a short form while the
+hub keeps the long one (two labels, breaks "change both together"); (c) move the date under the name. Not changed here.
 
 ## What the build did (dt_aee601072cb9)
 - Hub option C behind `flags.personHub`: hero card for the main role (big "Open <role> page" button and what it opens),
@@ -40,35 +67,38 @@ About 29 active people (dancer-only and DJ-only). Prod has `flags.personHub` ON,
   the ground with role-colour edges; ground into the footer a smooth fade, no line, no plain band.
 
 ## Owner calls (not in code)
-1. **Back loop** (blocker): above.
+1. **Back loop**: fixed in step 2 (above). 3 and 4 below: applied in step 2. NEW: the wall date chip (above).
 2. **Language codes** (should): the hub shows "es, en" where the dancer page shows "Spanish, English". The one mapping
    (`languageNames`) lives in the dancer-app module and the isolation guard forbids importing it. Recommend moving it to
    `src/lib/` in a dancer-area PR, then the hub uses it.
 3. "Next gig Fri 23 · 1 coming up" counts the next gig itself (wording from the approved mock): recommend the count only at 2+.
 4. Gig date without a month ("Fri 23") is the wall's `wallDateLabel`: change both or neither (low priority).
 
-## CI jobs run in the sandbox (this head)
+## CI jobs run in the sandbox (this head, step 2)
 | Job | Result |
 |---|---|
-| architecture-guard (integrity, legacy tables/RPCs, lint:architecture, check:images AUDIT_STRICT=1, image-widths, plan-hygiene, mojibake, workflow-artifact-policy, prove:entry-point) | pass |
+| architecture-guard (integrity, legacy tables/RPCs, lint:architecture, check:images AUDIT_STRICT=1, image-widths + self-test, plan-hygiene, mojibake + self-test, workflow-artifact-policy + self-test, prove:entry-point + self-test) | pass |
 | lint (`npm run lint`, 20 links) | pass (after a local `chmod +x bin/*.sh`, as CI does; not committed) |
-| typecheck | 100 errors = builder's count, below baseline 106; none in files this pass touched |
-| unit-tests London (`npm run test:unit`) | 16 fail, all sandbox-only: live contract suites (sandbox has no prod secrets), `integrityCouldNotRun`, `datesCard.consistency` (both also fail on base a48ccd3). Same 16 as the build |
+| typecheck (check:rpc-typing, check:wallclock-brand) | pass |
+| unit-tests London (`npm run test:unit`) | 21 fail: 4 = oneBack 'one role' (**expected until `claude/oneback-no-hub-row` merges**; 52/52 with that row change in the working tree); 16 = the same sandbox-only set as before (live contract suites without prod secrets, `integrityCouldNotRun`, `datesCard.consistency`); 1 = `festivalClientState` under full-suite load (8/8 alone, untouched code) |
 | dancer-area-isolation | pass ("not a dancer-area PR: rule c only") |
 | perf-budget (bundle-budget, first-load-requests, chunk-cycles + self-tests, build) | pass |
 | perf-budget doc-weight | could not run here: needs the Vercel preview URL (CI only) |
-| e2e-smoke (`npm run test:e2e`) | 155 passed, 7 skipped, 3 failed under full-suite load (organiser-layout:171, organiser-legacy-redirects:27, organiser-onboarding:143: organiser code, not touched here); all 3 pass on a re-run alone |
+| e2e-smoke (`npm run test:e2e`, CI env) | 158 passed, 7 skipped, 0 failed |
 | phone-qa-section, real-data-verified | need the PR body below |
 
 ## Verified
-- Prod-shaped data: all 6 hub shapes and 4 redirect shapes on real prod ids (anon reads), 360/390/430.
-- Late-data shift 0px; seam 3; lowest contrast 6.41; taps >= 44; no clipped text; no sideways scroll.
-- Redirects land on the role page with the hub not in history.
+- Prod-shaped data: all 6 hub shapes and 4 redirect shapes on real prod ids (anon reads), 360/390/430; no clipped text,
+  no sideways scroll, lowest contrast 6.41, taps >= 44, seam 3.
+- Back: one-role dancer and DJ pages have no bar and no loop; two-role pages keep the bar and Back lands on the hub.
+- Late-data shift 0px at 360 and 390 (3 late shapes) with the longer gig line.
+- Wording: one gig = no count; 2+ = " &middot; N coming up"; "Friday 23 October" on the hub and the wall (seen).
 
 ## Not verified
 - Real photos: the sandbox gets 403 from the media host, so every face seen is initials.
 - A real phone; the Vercel build of this branch; desktop beyond the CSS rule.
 - Live contract suites and doc-weight (CI secrets / preview URL).
+- The bar/redirect role-source disagreement (review finding) was not measured on prod.
 
 ## Ready-to-paste PR body
 ```
@@ -77,24 +107,34 @@ About 29 active people (dancer-only and DJ-only). Prod has `flags.personHub` ON,
   no-role people skip the hub (/people/:id 302s to their role page). Footer fade on the hub route only. Dead photo link -> initials.
 - Stage-5 critique (separate worker): late gig line no longer moves the page (18px -> 0), no filler hero line, balanced hint,
   Unicode escapes. Full list: docs/design/w2d-hub-critique.md.
-- BLOCKER NOT FIXED HERE: Back on a one-role person's dancer/DJ page loops (/people 302s back). Patch ready:
-  docs/handover/w2d-hub-back-loop.patch; needs an orchestrator call on check-dancer-area-isolation. Do not merge without it.
+- Step 2: Back loop FIXED. A role page shows the role bar only when /people/<slug> would show the hub
+  (personDestination); a one-role person's page keeps its own Back, so Back never loops. Person-page files only.
+- Owner wording: gig count only from 2; gig date "Friday 23 October" (full weekday + month) on the hub and the wall
+  (one shared label). DJ-lead hero line reserves two rows while a gig line is expected, so the late count moves nothing.
+- Merge order: #963 merges AFTER the claude/oneback-no-hub-row PR (it drops oneBack's one-role row, which this PR
+  makes red: 4 cases, expected until then).
+- Owner call: on the wall the long date wraps the chip to two rows over the lower ~40% of the face (see
+  docs/handover/w2d-hub-build.md).
 
 ## Verified on real data
 - Shapes surveyed (read-only, counts): 166 active; teacher-only 62, dancer+teacher 36, dancer+DJ+teacher 25 (11 with a gig),
   dancer-only 23-26, dancer+DJ 10 (3 with a gig), DJ-only 4, DJ+teacher 1, no role 5; 47 of 83 dancer rows have no photo.
-- Checks run (matrix tests, every CI job step, browser walk at 390x844): destinationMatrix + hub tests (red first), every
-  CI job step in the sandbox (see docs/handover/w2d-hub-build.md), walk at 360x844, 390x844 and 430x844 on prod ids, late-data probe.
+- Checks run (matrix tests, every CI job step, browser walk at 390x844): roleSwitch matrix (15 red first), gigWording
+  table (0/1/2/5 gigs, this/next month; 8 red first), hub tests; every CI job step in the sandbox (see
+  docs/handover/w2d-hub-build.md); walk at 360x844, 390x844 and 430x844 on prod ids; Back walk (backloop.mjs); late-data probe.
 - NOT verified (be honest): real photos (media host blocked, initials only), a real phone, the Vercel build, live contract
-  suites; the Back loop is measured and NOT fixed in this PR.
+  suites; the badges-vs-person-roles source disagreement (review finding, pinned patch) not measured.
 
 ## Phone QA
 - Sizes checked: 360x844, 390x844, 430x844
-- Walked: 6 hub shapes + 4 redirects on prod ids (walk.mjs), Back from one-role role pages and late gig list (probe.mjs), e2e smoke suite
+- Walked: 6 hub shapes + 4 redirects on prod ids (walk.mjs), Back from one-role and two-role role pages (backloop.mjs),
+  late gig list (probe.mjs), /djs wall date chips, e2e smoke suite
 - Not verified: real phone, real photos (media host 403 in the sandbox), Vercel preview
 ```
 
 ## Next steps
-1. Orchestrator: decide the isolation question, then apply the Back-loop patch on this branch.
-2. Check PR #963 checks on GitHub; paste the PR body above.
-3. Owner phone test after merge + deploy.
+1. Merge the `claude/oneback-no-hub-row` PR first, then #963 (paste the PR body above).
+2. Owner: the wall date chip (accept the two-row chip, or pick a short form for the wall only).
+3. Follow-ups (not here): one role source for the bar and the /people redirect; London-key the gig date from the instant;
+   language names ("es, en") in a dancer-area PR.
+4. Owner phone test after merge + deploy.

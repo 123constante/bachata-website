@@ -3,7 +3,7 @@
 // ONE people mapping (badges.ts roleTagsFor -> ROLE_LABEL / hrefForRole), the same one the wall
 // and the hub read: no second copy of either.
 import { orderedRoles } from '@/lib/searchEntities';
-import { roleTagsFor, type PersonBadge } from './badges';
+import { personDestination, roleTagsFor, type PersonBadge } from './badges';
 import { peoplePath, type PersonRole } from './personRoles';
 import { SEAM, WALL } from './wall/tokens';
 
@@ -47,8 +47,10 @@ export function roleSwitchModel(input: {
 }): RoleSwitch | null {
   const { badge, current, slugOrId, name, teacherPagesOpen } = input;
   if (!badge || !slugOrId) return null;
-  // The hub 404s when the person has no role with an open page: then there is nothing to go back to.
-  if (!roleTagsFor(badge, { teacherPagesOpen }).some((t) => t.href)) return null;
+  // Back goes to /people/<slug>, which shows the hub only to a person the ONE rule sends there (two or more
+  // held roles, one with an open page); anyone else is 302'd straight back to this page, or 404s. No hub = no
+  // bar (the page keeps its own Back), so Back never loops onto the page the visitor is on.
+  if (personDestination(badge, { teacherPagesOpen }, null).to !== 'hub') return null;
   const roles = orderedRoles([...badge.roles, current]);
   // Pill links use the slug the page was opened with, like Back (every role page resolves it on
   // dancer_profiles), so a switch lands on the canonical URL with no UUID rewrite.

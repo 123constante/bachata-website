@@ -1,0 +1,308 @@
+{
+ "dancer-one-role": {
+  "landed": "/dancers/unclaimed-00422bf9",
+  "bar": null,
+  "backs": [
+   {
+    "tag": "A",
+    "text": "Back",
+    "href": "/dancers"
+   }
+  ],
+  "afterTap": "/dancers",
+  "onHub": false,
+  "loops": false
+ },
+ "dj-one-role": {
+  "landed": "/djs/bobby-blanco",
+  "bar": null,
+  "backs": [
+   {
+    "tag": "A",
+    "text": "Back to DJs",
+    "href": "/djs"
+   }
+  ],
+  "afterTap": "/djs",
+  "onHub": false,
+  "loops": false
+ },
+ "two-role-dj": {
+  "landed": "/djs/elias",
+  "bar": {
+   "text": "Back to Elias",
+   "href": "/people/elias"
+  },
+  "backs": [
+   {
+    "tag": "A",
+    "text": "Back to Elias",
+    "href": "/people/elias"
+   }
+  ],
+  "afterTap": "/people/elias",
+  "onHub": true,
+  "loops": false
+ },
+ "two-role-dancer": {
+  "landed": "/dancers/elias",
+  "bar": {
+   "text": "Back to Elias",
+   "href": "/people/elias"
+  },
+  "backs": [
+   {
+    "tag": "A",
+    "text": "Back to Elias",
+    "href": "/people/elias"
+   }
+  ],
+  "afterTap": "/people/elias",
+  "onHub": true,
+  "loops": false
+ },
+ "wall": {
+  "360": [
+   {
+    "text": "Next gig Friday 23 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Friday 23 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Friday 23 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Friday 23 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Saturday 24 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Sunday 25 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Sunday 25 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Monday 26 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Tuesday 27 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Tuesday 27 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Thursday 29 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Thursday 29 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Thursday 29 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Thursday 29 October",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Saturday 7 November",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Saturday 7 November",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Saturday 7 November",
+    "chipW": 76,
+    "chipH": 30,
+    "tileW": 79,
+    "overflowRight": 0
+   }
+  ],
+  "390": [
+   {
+    "text": "Next gig Friday 23 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Friday 23 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Friday 23 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Friday 23 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Saturday 24 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Sunday 25 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Sunday 25 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Monday 26 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Tuesday 27 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Tuesday 27 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Thursday 29 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Thursday 29 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Thursday 29 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Thursday 29 October",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Saturday 7 November",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Saturday 7 November",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   },
+   {
+    "text": "Next gig Saturday 7 November",
+    "chipW": 83,
+    "chipH": 30,
+    "tileW": 86,
+    "overflowRight": 0
+   }
+  ]
+ }
+}

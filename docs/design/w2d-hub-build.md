@@ -19,7 +19,7 @@ Ticket dt_aee601072cb9. Brief: `brief/w2d-hub-build:briefs/W2D-hub-build-brief.m
   100vh min height is released so the fade sits at the bottom of the first screen. Every other route: unchanged.
 - **Late gig list**: the loader fetches this person's badges row (`get_public_people_badges_v1`, key `['people-badges', [id]]`,
   the wall's key shape), so the lead role is known on first paint (SSR) and never swaps. The hero line keeps a reserved
-  22px row; a DJ line reads "Checking for gigs..." until the list lands, "No gigs listed right now" if none or the read fails.
+  22px row (44px, two rows, when the DJ leads with a gig expected: step 2); a DJ line reads "Checking for gigs..." until the list lands, "No gigs listed right now" if none or the read fails.
   With no badges row at all (its read failed) the lead painted first stays (a DJ with gigs then sits in Also, not the hero).
 - **Bundled fix**: wall tile and hub face share `wall/usePhotoFallback.ts`: `onError` plus a one-off check after mount
   (`img.complete && naturalWidth === 0`) for an SSR'd `<img>` that failed before hydration attached `onError` (React props,
@@ -75,7 +75,7 @@ Full list: [`w2d-hub-critique.md`](w2d-hub-critique.md). Re-walked with `walk.mj
 | Hero filler "Their dancer page" (dancer lead, no facts) | 3 of 6 shapes | 0 | line only when there are facts; DJ line always (reserved row) |
 | Hint last line | one word ("hi.") | balanced, 2 lines | `text-wrap: balance` |
 | Raw U+2026 / U+00B7 in hub source | 3 | 0 | escapes + a test |
-| Back from a one-role role page (`probe.mjs`) | loops: `/dancers/unclaimed-00422bf9` -> same page; `/djs/bobby-blanco` -> same page | **unchanged (owner call)** | patch ready: `docs/handover/w2d-hub-back-loop.patch` |
+| Back from a one-role role page (`probe.mjs`) | loops: `/dancers/unclaimed-00422bf9` -> same page; `/djs/bobby-blanco` -> same page | fixed in step 2 (below) | patch applied in step 2 |
 | Seam step / lowest contrast / smallest tap / scrollWidth | 3 / 6.41 / 44 / = viewport | same at 360, 390, 430, all 6 shapes | - |
 
 Seams looked at in the new 390 shots and the full-page shot: header (black site chrome, gold rule) over the brown ground:
@@ -90,3 +90,17 @@ padding.
   not found" page. The dead-link fallback cannot catch that and is not meant to; no image-content check is added. Test
   account, the owner deals with it.
 - A real phone; the Vercel-built site (local dev only); desktop >= 1024px beyond the CSS rule.
+
+## Step 2: Back-loop fix + owner wording (ticket dt_ee031c530f23, 2026-10-23)
+Re-walked with `walk.mjs`, `probe.mjs` and `backloop.mjs` (reports: `report.json`, `probe-report.json`, `backloop-report.json`).
+
+| Check | Before | After | How |
+|---|---|---|---|
+| Back from a one-role role page | loops (same page) | no role bar; the page's own Back: `/dancers/unclaimed-00422bf9` -> `/dancers`, `/djs/bobby-blanco` -> `/djs`; no loop | `roleSwitchModel` asks `personDestination`: no hub = no bar (patch, person-page hunks only) |
+| Two-role role page (`/djs/elias`, `/dancers/elias`) | bar, Back -> hub | same: "Back to Elias" -> `/people/elias`, hub renders | - |
+| roleSwitch table cases red on the unfixed code | - | 15 of 67 red, then 67/67 green | - |
+| Gig count | "1 coming up" for one gig | none for one gig; " &middot; N coming up" from 2 (N = total) | `hub/model.ts` `count > 1` |
+| Gig date (wall chip + hub, ONE label) | "Fri 23" | "Friday 23 October" (London key, same rollover) | `wall/model.ts` `wallDateLabel` |
+| Late gig list at 360, DJ leads, 2+ gigs: About moves | 22px (the count wraps the line to a 2nd row) | 0 at 360, 390 (all 3 late shapes) | DJ-lead hero line reserves 2 rows (44px) while a gig line is expected (badge hint or gig list); a no-gig DJ keeps 1 row |
+| Hub clipped text / scrollWidth / contrast / tap / seam | - | none / = viewport / 6.41 / 44 / 3, all 6 shapes x 360, 390, 430 | - |
+| Wall date chip (`/djs`, 4-col tiles 79px at 360, 86px at 390) | one row, 14px | **two rows, 30px**, covers the lower ~40% of the face; no sideways overflow | owner call, see handover |

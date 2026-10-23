@@ -11,7 +11,7 @@ const HUBS = {
   'dj-teacher': 'a8f270d4-4d39-46da-920f-81da41135a0e',
 };
 const REDIRECTS = { dancer: '00422bf9-1f6e-4d15-b598-dcfbc1a7d5f3', dj: '59150b2d-0963-4cea-80fd-76c2d48ab23c', teacher: '0786f332-8082-4574-aad4-df56be2be5d7', none: '0f5f2045-167c-483f-a725-a5e8890ccfa3' };
-const b = await chromium.launch();
+const b = await chromium.launch(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY, bypass: '127.0.0.1,localhost' } } : {});
 const report = { hubs: {}, redirects: {} };
 const measure = () => {
   const lum = (c) => { const m = c.match(/[\d.]+/g).map(Number); const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return [0.2126 * f(m[0]) + 0.7152 * f(m[1]) + 0.0722 * f(m[2]), m[3] ?? 1]; };

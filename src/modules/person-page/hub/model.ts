@@ -30,7 +30,8 @@ export type HubDjRow = {
 export type HubAppearance = { event_id: string | null; event_start_time: string | null };
 
 /** The main role: its page is the one big link. */
-export type HeroModel = { role: PersonRole; href: string; line: string | null; cta: string; hint: string };
+/** lineRows: rows the line reserves, 2 while a DJ gig line may still grow by " \u00b7 N coming up" (it wraps at 360px). */
+export type HeroModel = { role: PersonRole; href: string; line: string | null; lineRows: 1 | 2; cta: string; hint: string };
 /** Another held role. href null = no page (a closed Teacher): shown, never a link. */
 export type AlsoCardModel = { role: PersonRole; label: string; href: string | null; line: string };
 
@@ -135,7 +136,8 @@ export function hubModel(input: {
   const lineOf = (role: PersonRole, href: string | null): string => {
     if (!href) return `${ROLE_LABEL[role]} pages open soon`;
     if (role === 'dj') {
-      if (gig) return `Next gig ${gig.dateLabel}${gig.count > 0 ? `${MIDDOT}${gig.count} coming up` : ''}`;
+      // The count only from 2 (owner, 2026-10-23): one gig is just its date.
+      if (gig) return `Next gig ${gig.dateLabel}${gig.count > 1 ? `${MIDDOT}${gig.count} coming up` : ''}`;
       return gigPending ? 'Checking for gigs\u2026' : 'No gigs listed right now';
     }
     if (role === 'dancer') return dancerLine || 'Their dancer page';
@@ -165,6 +167,7 @@ export function hubModel(input: {
           // The DJ line always shows (its row is reserved for the late gig list); a dancer line only when there
           // are facts; a teacher hero has none of its own. Never a filler that repeats the button under it.
           line: lead === 'dj' ? lineOf(lead, heroHref) : lead === 'dancer' ? dancerLine || null : null,
+          lineRows: lead === 'dj' && (hintLabel || gig) ? 2 : 1,
           cta: `Open ${PAGE_WORD[lead]} page`,
           hint: `Opens their ${PAGE_WORD[lead]} page: ${WHAT[lead]}.`,
         }

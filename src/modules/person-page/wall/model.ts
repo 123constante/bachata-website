@@ -20,18 +20,20 @@ export type WallPerson = {
   tags: RoleTag[];
   /** The role whose accent colours the tile (linkRoleFor, else the list's own role). */
   lead: PersonRole;
-  /** "Fri 23", only for a DJ with an upcoming gig. */
+  /** "Friday 23 October", only for a DJ with an upcoming gig. */
   dateLabel: string | null;
   profileType: 'dj' | 'dancer';
 };
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+// Full weekday, never "Fri" (owner copy rule, 2026-10-23), and the month: the wall and the hub share this label.
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] as const;
 
-/** "Fri 23" from a calendar key (UTC-noon anchored in londonDate, so it is the same in every timezone). */
+/** "Friday 23 October" from a calendar key (UTC-noon anchored in londonDate, so it is the same in every timezone). */
 export function wallDateLabel(raw: string | null | undefined, today: string = londonTodayKey()): string | null {
   const key = typeof raw === 'string' ? raw.slice(0, 10) : '';
   if (!key || !isRealDateKey(key) || key < today) return null;
-  return `${DAYS[weekdayOfKey(key)]} ${Number(key.slice(8, 10))}`;
+  return `${DAYS[weekdayOfKey(key)]} ${Number(key.slice(8, 10))} ${MONTHS[Number(key.slice(5, 7)) - 1]}`;
 }
 
 /** First + last initial, "?" when there is no name at all. */

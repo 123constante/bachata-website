@@ -59,9 +59,11 @@ describe.each(SHAPES)('%s', (_n, roles) => {
   describe.each(PAGES)('on the %s page', (current) => {
     it.each([false, true])('teacher pages open=%s', (open) => {
       const m = roleSwitchModel({ badge: b(roles), current, slugOrId: 'marta', name: 'Marta Silva', teacherPagesOpen: open });
-      // The hub 404s with no open role page: no bar, so no Back link into a 404.
-      const openOwn = roleTagsFor(b(roles), { teacherPagesOpen: open }).filter((t) => t.href);
-      if (openOwn.length === 0) { expect(m).toBeNull(); return; }
+      // Back goes to /people/<slug>, and only a person with two or more HELD roles, one of them with an open
+      // page, sees the hub there; everyone else is 302'd straight back to this page (W2-D), and no open role
+      // page = a 404. So no hub = no bar (the page keeps its own Back), never a Back link that loops or 404s.
+      const hub = roles.length >= 2 && (roles.includes('dancer') || roles.includes('dj') || open);
+      if (!hub) { expect(m).toBeNull(); return; }
       expect(m).not.toBeNull();
       expect(m!.back).toEqual({ href: '/people/marta', label: 'Back to Marta Silva' });
       // The ONE mapping, with the page the visitor is on counted as one of their roles.
@@ -108,8 +110,8 @@ describe('the rendered bar', () => {
     expect((pills[1].querySelector('[data-testid="role-dot"]') as HTMLElement).style.background).toBe(rgb(CHIP.dancer.bg));
   });
 
-  it('one role: the back row only, no pills', () => {
-    view(['dj'], 'dj');
+  it('one role with a page (DJ + closed Teacher): the back row only, no pills', () => {
+    view(['teacher', 'dj'], 'dj');
     expect(screen.getByTestId('role-switch-back').textContent).toBe('Back to Marta Silva');
     expect(screen.queryByRole('navigation', { name: 'Roles' })).toBeNull();
     expect(screen.queryAllByTestId('role-pill')).toHaveLength(0);

@@ -93,9 +93,10 @@ function Hero({ m, personId }: { m: HubModel & { lead: NonNullable<HubModel['lea
       ) : null}
       {hero ? (
         <>
-          {/* One line, always reserved for a DJ: the gig line fills in when the gig list arrives, nothing moves. */}
+          {/* Reserved rows (hero.lineRows): the gig line fills in when the gig list arrives, and " \u00b7 N coming up" wraps
+              it to a second row at 360px ("Friday 23 October", owner 2026-10-23), so nothing moves. */}
           {hero.line !== null ? (
-            <p data-testid="hub-line" className="max-w-full break-words font-bold" style={{ fontSize: HUB.line, lineHeight: `${HUB.lineHeight}px`, minHeight: HUB.lineHeight }}>
+            <p data-testid="hub-line" className="max-w-full break-words font-bold" style={{ fontSize: HUB.line, lineHeight: `${HUB.lineHeight}px`, minHeight: HUB.lineHeight * hero.lineRows }}>
               {hero.line}
             </p>
           ) : null}

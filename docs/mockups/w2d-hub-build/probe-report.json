@@ -1,0 +1,126 @@
+{
+ "back": {
+  "dancer": {
+   "landed": "/dancers/unclaimed-00422bf9",
+   "back": {
+    "text": "Back",
+    "href": "/dancers"
+   },
+   "afterTap": "/dancers",
+   "loops": false
+  },
+  "dj": {
+   "landed": "/djs/bobby-blanco",
+   "back": {
+    "text": "Back to DJs",
+    "href": "/djs"
+   },
+   "afterTap": "/djs",
+   "loops": false
+  }
+ },
+ "shift": {
+  "dancer-dj-teacher-nogig": {
+   "360": {
+    "before": {
+     "djCard": "DJChecking for gigs…Open ",
+     "alsoH": 101,
+     "aboutTop": 664,
+     "lineH": 0
+    },
+    "done": {
+     "djCard": "DJNo gigs listed right nowOpen ",
+     "alsoH": 101,
+     "aboutTop": 664,
+     "lineH": 0
+    },
+    "aboutMoved": 0,
+    "alsoGrew": 0
+   },
+   "390": {
+    "before": {
+     "djCard": "DJChecking for gigs…Open ",
+     "alsoH": 101,
+     "aboutTop": 664,
+     "lineH": 0
+    },
+    "done": {
+     "djCard": "DJNo gigs listed right nowOpen ",
+     "alsoH": 101,
+     "aboutTop": 664,
+     "lineH": 0
+    },
+    "aboutMoved": 0,
+    "alsoGrew": 0
+   }
+  },
+  "dancer-dj-teacher-gig": {
+   "360": {
+    "before": {
+     "line": "Next gig Friday 23 October",
+     "alsoH": 83,
+     "aboutTop": 651,
+     "lineH": 44
+    },
+    "done": {
+     "line": "Next gig Friday 23 October · 2 coming up",
+     "alsoH": 83,
+     "aboutTop": 651,
+     "lineH": 44
+    },
+    "aboutMoved": 0,
+    "alsoGrew": 0
+   },
+   "390": {
+    "before": {
+     "line": "Next gig Friday 23 October",
+     "alsoH": 83,
+     "aboutTop": 651,
+     "lineH": 44
+    },
+    "done": {
+     "line": "Next gig Friday 23 October · 2 coming up",
+     "alsoH": 83,
+     "aboutTop": 651,
+     "lineH": 44
+    },
+    "aboutMoved": 0,
+    "alsoGrew": 0
+   }
+  },
+  "dancer-dj-nogig": {
+   "360": {
+    "before": {
+     "djCard": "DJChecking for gigs…Open ",
+     "alsoH": 83,
+     "aboutTop": 618,
+     "lineH": 0
+    },
+    "done": {
+     "djCard": "DJNo gigs listed right nowOpen ",
+     "alsoH": 83,
+     "aboutTop": 618,
+     "lineH": 0
+    },
+    "aboutMoved": 0,
+    "alsoGrew": 0
+   },
+   "390": {
+    "before": {
+     "djCard": "DJChecking for gigs…Open ",
+     "alsoH": 83,
+     "aboutTop": 618,
+     "lineH": 0
+    },
+    "done": {
+     "djCard": "DJNo gigs listed right nowOpen ",
+     "alsoH": 83,
+     "aboutTop": 618,
+     "lineH": 0
+    },
+    "aboutMoved": 0,
+    "alsoGrew": 0
+   }
+  }
+ }
+}
