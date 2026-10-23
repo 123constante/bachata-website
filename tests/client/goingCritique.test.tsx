@@ -97,19 +97,25 @@ describe('C5 copy', () => {
   it('myUpcomingEmptyHow says where nights are', () => expect(GOING_COPY.myUpcomingEmptyHow).toMatch(/on the calendar/));
 });
 
-describe('C6 no layout shift in the commonest states: the placeholder holds the two-line message', () => {
+describe('C6 no layout shift: placeholder and tile both hold a two-line message', () => {
   it('placeholder reserves two message lines', () => {
     render(<RsvpBlockPlaceholder />);
     const line = screen.getByTestId('rsvp-placeholder-message');
     expect(line.className).toContain('min-h-[33px]');
     expect(line.className).toContain('mt-1.5');
   });
-  it('a state with no words adds no empty line (no dead space under the button)', () => {
+  // Placeholder -> loading ("Checking...") -> loaded keep one height: the line under the
+  // button holds two lines in every state, worded or not.
+  it.each([
+    ['loading', { viewer: { kind: 'loading' }, night: 'live', going: null }],
+    ['can tap, people going (no words)', { viewer: { kind: 'finished' }, night: 'live', going: false, count: 3 }],
+    ['unfinished (one line)', { viewer: { kind: 'unfinished', missing: ['dance_role'] }, night: 'live', going: false, count: 0 }],
+  ] as const)('%s: the message line holds two lines', (_n, facts) => {
     render(
       <MemoryRouter>
-        <GoingButton view={goingStateFor({ viewer: { kind: 'finished' }, night: 'live', going: false, count: 3 })} onTap={() => {}} onSignIn={() => {}} />
+        <GoingButton view={goingStateFor(facts as GoingFacts)} onTap={() => {}} onSignIn={() => {}} />
       </MemoryRouter>,
     );
-    expect(screen.queryByTestId('going-button-message')).toBeNull();
+    expect(screen.getByTestId('going-button-message').className).toContain('min-h-[33px]');
   });
 });

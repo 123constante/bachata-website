@@ -21,10 +21,12 @@ type Props = {
 // ~44px and left a gap mid-paragraph (Going P2 stage 4, unfinished-all-four at 390).
 const LINK_CLASS = 'flex min-h-[44px] w-fit items-center font-semibold underline';
 const BIG_CLASS = 'flex h-[48px] min-h-[48px] w-full items-center justify-center gap-1.5 rounded-full px-3 text-[14px] font-bold';
-// RsvpBlockPlaceholder holds TWO of these lines (12px x leading-snug = 16.5px each): the
-// two commonest states (signed out; "Be the first" at 0 going) wrap to two lines at
-// 360-390px, so the tile does not jump when its data lands (stage 5, C6, measured).
-const MESSAGE_CLASS = 'mt-1.5 text-[12px] leading-snug';
+// The line under the button always holds TWO lines (12px x leading-snug = 16.5px each),
+// as RsvpBlockPlaceholder does: every state's words are one or two lines at 360-430px
+// (the commonest, signed out and "Be the first", are two at 360-390), so placeholder ->
+// loading ("Checking...") -> loaded keeps one height (stage 5, C6, measured: holding
+// one line, or none for wordless states, still moved the tile 16.5px at every width).
+const MESSAGE_CLASS = 'mt-1.5 min-h-[33px] text-[12px] leading-snug';
 
 /**
  * The ONE "I'm going" button (never "Interested"). Its label, enabled state,
@@ -93,7 +95,7 @@ export const GoingButton = ({ view, onTap, onSignIn, theme = BENTO_GOING_THEME, 
           {control.label}
         </button>
       )}
-      {!hideMessage && (message || inlineLink) && (
+      {!hideMessage && (
         <p id={msgId} className={MESSAGE_CLASS} style={{ color: theme.muted }} data-testid={`${testId}-message`}>
           {message}
           {inlineLink && (
