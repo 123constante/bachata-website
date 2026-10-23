@@ -5,3 +5,4 @@ export { RoleTabs } from './RoleTabs';
 export { roleTabs, type RoleTab } from './roleTabsModel';
 export { Avatar } from './Avatar';
 export { usePhotoFallback } from './usePhotoFallback';
+export { backGoesToHistory, currentHistoryIdx } from './backRule';
