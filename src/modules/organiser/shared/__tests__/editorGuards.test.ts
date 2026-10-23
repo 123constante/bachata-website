@@ -136,6 +136,8 @@ describe('untouched save sends nothing (prod shapes)', () => {
     const before = formToDraft(basicsFormFromSeries(series));
     const again = formToDraft(basicsFormFromSeries(series));
     expect(hasBasicsChanges(before, again)).toBe(false);
+    // ER-FIX-W2 F12: the same check must SEE an edit, or an always-false hasBasicsChanges would pass the line above.
+    expect(hasBasicsChanges(before, { ...again, name: `${again.name} edited` })).toBe(true);
     // The send is gated by hasBasicsChanges; even the bare payload carries only the required name.
     expect(Object.keys(basicsPayload(before, again))).toEqual(['name']);
   });
