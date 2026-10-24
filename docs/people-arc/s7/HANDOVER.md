@@ -47,6 +47,7 @@ world. Walked one of each (below).
 | typecheck | `check:rpc-typing`, `check:wallclock-brand` (the job is message-scoped) | green; full `tsc` shows 0 errors in touched files (pre-existing errors elsewhere) |
 | perf-budget | 3 self-tests, `npm run build`, `check:bundle-budget`, `check:first-load-requests`, `check:chunk-cycles` | green (flag-OFF build) |
 | e2e-smoke | `npm run test:e2e` with the job's env | 157 pass, 6 fail; re-run of the 6 on `main` and on this branch: the SAME 3 fail on both (`account-settings.spec.ts:64`, `:75`, `organiser-home.spec.ts:55`: pre-existing in this sandbox), the other 3 pass on both (load timing). None opens `/dancers/:id` |
+| unit-tests: dancer-area-isolation | `--self-test`, `npm run check:dancer-area-isolation` | red on the first push (person-page imported a dancer-app constant), fixed (the route passes the deadline); green |
 | eslint ratchet (pre-ship) | per touched file, base vs branch error count | 0/0, 1/1 (pre-existing `set-state-in-effect` in `usePersonRoles.ts`), 0 new |
 | seo-check, og, live-qa, prod-smoke | need a deploy | NOT run |
 

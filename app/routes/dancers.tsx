@@ -7,7 +7,7 @@ import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 import { flags } from "@/lib/featureFlags";
 import { seedPersonSnapshot } from "@/modules/person-page/seedPersonSnapshot";
 import DancerProfile from "@/pages/DancerProfile";
-import { DEGRADED_EDGE_TTL_SECONDS, loadPublicPageV2 } from "@/modules/dancer-app/public-page/loadPublicPage";
+import { DEGRADED_EDGE_TTL_SECONDS, PUBLIC_PAGE_DEADLINE_MS, loadPublicPageV2 } from "@/modules/dancer-app/public-page/loadPublicPage";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import {
   resolveEntityInLoader,
@@ -66,7 +66,7 @@ export const loader = withSsrLoaderTimeout("dancer-loader", async function loade
   // Started AFTER the dancer read above is issued, so ['dancer-profile'] runs THIS file's query body
   // (the snapshot's own dancer read joins it). Never rejects, own deadline; a miss = the hook reads
   // after mount. Body only: no meta / cache header / edge-TTL change.
-  const rolesSeed = flags.personWorlds ? seedPersonSnapshot(qc, ref.id as string) : null;
+  const rolesSeed = flags.personWorlds ? seedPersonSnapshot(qc, ref.id as string, PUBLIC_PAGE_DEADLINE_MS) : null;
   const dancer = await dancerRead;
   if (!dancer) throwDetailNotFound("Dancer");
 
