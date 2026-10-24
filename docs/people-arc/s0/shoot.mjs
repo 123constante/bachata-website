@@ -3,7 +3,7 @@
 import { chromium } from 'playwright';
 import { writeFileSync } from 'node:fs';
 const BASE = 'http://127.0.0.1:5199';
-const OUT = 'docs/people-arc/s0';
+const OUT = process.env.SHOOT_OUT ?? 'docs/people-arc/s0';
 const b = await chromium.launch(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY, bypass: '127.0.0.1,localhost' } } : {});
 const report = {};
 for (const path of ['djs', 'dancers']) {
@@ -30,8 +30,26 @@ for (const path of ['djs', 'dancers']) {
         sideways: document.documentElement.scrollWidth > innerWidth,
       };
     });
-    const wall = await p.$('[data-testid=wall-root]');
-    await wall.scrollIntoViewIfNeeded();
+    // S5 (S0 critique F3): scrollIntoViewIfNeeded() left the first row under the fixed/sticky
+    // header. Scroll so the first row holding a dated tile (else the first row) starts just
+    // below whatever is pinned at the top, so the whole tile row is in the shot.
+    await p.evaluate(() => {
+      const tiles = [...document.querySelectorAll('[data-testid=wall-tile]')];
+      const target = tiles.find((t) => t.querySelector('[data-testid=tile-date]')) ?? tiles[0];
+      // The row's top = the highest tile on the target's line (a dated tile is taller, not higher).
+      const top = (el) => el.getBoundingClientRect().top;
+      const row = tiles.filter((t) => Math.abs(top(t) - top(target)) < target.getBoundingClientRect().height / 2);
+      window.scrollBy(0, Math.min(...row.map(top)));
+      // Measured AFTER the scroll, so a sticky sub-header that only pins once scrolled counts too.
+      const pinned = [...document.querySelectorAll('body *')].filter((el) => {
+        const cs = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        return (cs.position === 'fixed' || cs.position === 'sticky') && r.top <= 1 && r.height > 0 && r.height < innerHeight / 2;
+      });
+      const headerBottom = Math.max(0, ...pinned.map((el) => el.getBoundingClientRect().bottom));
+      window.scrollBy(0, -(headerBottom + 8));
+    });
+    await p.waitForTimeout(300);
     await p.screenshot({ path: `${OUT}/${path}-${w}x${h}.png` });
     await p.close();
   }

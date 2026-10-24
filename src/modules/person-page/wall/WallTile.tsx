@@ -63,7 +63,7 @@ export function WallTile({ person, list }: { person: WallPerson; list: WallList 
           className="text-center"
           style={{ color: DATE_LINE.text, fontSize: SIZE.dateLine, fontWeight: 800, lineHeight: `${SIZE.dateLineHeight}px`, marginTop: 1 }}
         >
-          <span className="sr-only">Next gig </span>
+          <span className="sr-only">, next gig </span>
           {person.dateLabel}
         </div>
       ) : null}

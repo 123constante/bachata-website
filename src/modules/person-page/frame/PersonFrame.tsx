@@ -59,7 +59,7 @@ export function PersonFrame({ backHref, backLabel = 'Back', shareTitle, roles, c
         <button
           type="button"
           data-testid="frame-share"
-          onClick={() => void sharePage(shareTitle)}
+          onClick={() => void sharePage(shareTitle, current, slug)}
           className={`inline-flex shrink-0 items-center gap-2 px-1 font-bold ${FOCUS_RING}`}
           style={{ minHeight: TAP, minWidth: TAP, fontSize: 15, color: FRAME.tabInk }}
         >
