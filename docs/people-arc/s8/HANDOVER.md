@@ -3,7 +3,7 @@
 - Branch: `claude/people-instagram-label` (from `main` 049f157). Brief: `briefs/PEOPLE-S8-instagram-label-brief.md`
   on `brief/people-arc`. Head: the last commit on the branch (`git log -1 origin/claude/people-instagram-label`);
   this file is in that commit. PR: opened by the repo bot (bot-pr.yml) on the push; the number is in the worker's final report.
-- Design record: [`docs/design/people-s8-instagram-label.md`](../../design/people-s8-instagram-label.md).
+- Design record: [`DESIGN.md`](DESIGN.md). It lives here, not in `docs/design/`, because this PR changes `src/modules/dancer-app/` and the `dancer-area-isolation` job (rule (a)) only allows doc changes under `docs/handover/`, `docs/journeys/`, `docs/review-pack(s)/` and `docs/people-arc/`.
 - Lane: normal. No SQL, no migration, no RPC. Every changed source file is inside `src/modules/dancer-app/`.
 
 ## Ready-to-paste PR body
@@ -89,6 +89,11 @@ Some dancers stored an Instagram URL as their website, so the contact row read
 | e2e-smoke (`test:e2e`) | 160 passed, 3 load timeouts that pass alone |
 | phone-qa / real-data-verified (PR-body checks) | depend on the PR body, so paste the sections above |
 | db-contract-check | not run (live DB, no DB change) |
+| unit-tests / dancer-area-isolation (`--self-test` + `check:dancer-area-isolation`) | pass (added by the S8 continuation; was red on CI) |
+| unit-tests / `test:unit:timing` + the America/New_York and Australia/Sydney tz-sensitive legs | pass (added by the S8 continuation) |
+| workflow-lint (docs-only self-test, workflow masking lint, notification lint self-test) | pass (added by the S8 continuation) |
+| ci-budget-guard | self-test pass; the live check needs `CI_BUDGET_GITHUB_TOKEN` (not set locally), not run |
+| seo-check | `check:seo:self-test` pass; `check:seo` needs the preview URL, not run |
 
 ## Left / follow-ups
 
@@ -97,3 +102,29 @@ Some dancers stored an Instagram URL as their website, so the contact row read
   with a different handle. Making it match this rule is outside the dancer-app folder and outside this brief.
 - A Facebook URL that is not profile-shaped (`profile.php?id=`, groups, pages) stays a website row with the
   cleaned label, as the brief asks. There are 0 such rows on prod today.
+
+## S8 continuation
+
+- What changed: `docs/design/people-s8-instagram-label.md` moved to `docs/people-arc/s8/DESIGN.md` (`git mv`),
+  and the "Design record" link above now points at it. No other file referenced the old path. No source change;
+  the allow-list and the isolation script are untouched.
+- Why: CI job `dancer-area-isolation` (in `unit-tests.yml`) was red with one rule (a) violation: a dancer-area
+  PR may only change docs under `docs/handover/`, `docs/journeys/`, `docs/review-pack(s)/` and `docs/people-arc/`.
+  The builder's check table did not include that job; it is in the table now, with the other steps it missed.
+- Check output (run on the branch after the move):
+  - `node scripts/check-dancer-area-isolation.mjs --self-test` -> `self-test: 44 cases, all behave`
+  - `DANCER_ISOLATION_BASE=origin/main node scripts/check-dancer-area-isolation.mjs` ->
+    `base origin/main @ 049f1579a6; 11 changed file(s); 8 protected file(s) checked.` /
+    `dancer-area PR: rules a+b+c` / `dancer-area isolation: OK`
+  - `bin/check-integrity.sh` -> `integrity-guard: ok (2501 files checked, 0 issues)`
+  - `npx vitest run src/modules/dancer-app/public-page` -> `Test Files 8 passed (8)`, `Tests 228 passed (228)`
+  - `npm run test:unit:timing` -> 6 files, 65 tests passed; tz-sensitive leg under America/New_York and
+    Australia/Sydney -> 9 files, 213 tests passed each
+  - `docs-only.mjs --self-test` -> `42 cases, 20 mutants, ok`; `lint-workflow-masking.mjs` -> 33 files, clean;
+    `lint-workflow-notification.mjs --self-test` -> pass; `check-ci-budget.mjs --self-test` -> 98 cases pass;
+    `check:seo:self-test` -> 73 cases pass
+- Owner call: should a dancer-app PR be allowed a `docs/design/` record? Recommendation: no; keep the allow-list
+  as it is and keep each arc's design record under `docs/people-arc/<step>/`, so the isolation rule stays narrow.
+- Verified: the isolation check is OK locally against `origin/main`, and the checks above pass.
+- Not verified: the CI run on the new head (it starts on this push); the live `ci-budget-guard` check (no
+  token); `check:seo` against the preview; everything the builder already listed as not verified.
