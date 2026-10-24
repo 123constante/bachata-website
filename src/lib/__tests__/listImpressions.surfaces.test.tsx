@@ -14,6 +14,9 @@ import VenueWhatsOnList from '@/components/venue/VenueWhatsOnList';
 import { DjUpcoming } from '@/components/dj/DjTiles';
 import EventRow from '@/components/events/EventRow';
 import { useListImpressions } from '@/lib/listImpressions';
+import { TeacherWorld } from '@/modules/person-page/worlds/teacher/TeacherWorld';
+import { teacherWorldView } from '@/modules/person-page/worlds/teacher/model';
+import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
 
 let observed: Element[] = [];
 let fire: (els: Element[]) => void = () => {};
@@ -65,6 +68,21 @@ describe('rendered surfaces send one batched call', () => {
     expectOneBatch('profile', ['d1', 'd2']);
   });
 
+  it('profile (teacher world, Next classes)', async () => {
+    const today = londonTodayKey();
+    const row = {
+      entity_id: 't1', first_name: 'Ana', surname: 'Ruiz', photo_url: null, gallery_urls: [], city_id: 'c1', city: 'Madrid',
+      nationality: null, nationality_code: null, years_teaching: null, teaching_styles: [], languages: [], achievements: null, faq: null,
+      journey: null, offers_private: false, availability: null, private_lesson_types: [], private_lesson_locations: [], private_travel_distance: null,
+      website: null, instagram: null, facebook: null, email: null, phone: null,
+    };
+    const cls = (id: string, days: number) => ({ event_id: id, event_name: id, event_start_time: `${addDaysToKey(today, days)}T19:30:00+00:00`, event_location: 'Studio' });
+    const view = teacherWorldView({ row: row as never, classes: [cls('t1', 1), cls('t2', 3)], today, classesHref: '/c', pathname: '/teachers/ana-ruiz', viewer: null });
+    const { unmount } = render(<MemoryRouter><TeacherWorld view={view} photo={null} classes="ready" onRetry={() => {}} /></MemoryRouter>);
+    await seeAllThenLeave(unmount);
+    expectOneBatch('profile', ['t1', 't2']);
+  });
+
   it('organiser (shared EventRow with impressionRef)', async () => {
     const Harness = () => {
       const t = useListImpressions('organiser');
@@ -97,6 +115,7 @@ describe('every surface is wired (static table)', () => {
     ['festivals', 'src/pages/FestivalHub.tsx', /useListImpressions\('festivals'\)[\s\S]*ref=\{trackImpression\(/],
     ['venue', 'src/components/venue/VenueWhatsOnList.tsx', /useListImpressions\('venue'\)[\s\S]*ref=\{track\(/],
     ['profile', 'src/components/dj/DjTiles.tsx', /useListImpressions\('profile'\)[\s\S]*ref=\{track\(/],
+    ['profile', 'src/modules/person-page/worlds/teacher/TeacherWorld.tsx', /useListImpressions\('profile'\)[\s\S]*ref=\{track\(c\.eventId\)\}/],
   ];
   it.each(rows)('%s', (_surface, file, re) => {
     expect(readFileSync(file, 'utf8')).toMatch(re);

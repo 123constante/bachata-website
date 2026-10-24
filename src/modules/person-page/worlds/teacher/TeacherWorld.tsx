@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
+import { useListImpressions } from '@/lib/listImpressions';
 import { Avatar } from '../../frame/Avatar';
 import { TAP } from '../../roleSwitch';
 import { FOCUS_RING } from '../../wall/tokens';
@@ -37,6 +38,7 @@ export function TeacherWorld({ view, photo, classes, onRetry }: {
   classes: 'loading' | 'failed' | 'ready';
   onRetry: () => void;
 }) {
+  const track = useListImpressions('profile');
   return (
     <div data-testid="teacher-world" className="flex flex-col gap-3" style={{ fontFamily: FONT.body, color: T.ink }}>
       <div data-testid="teacher-card" className="overflow-hidden rounded-[18px]" style={{ background: T.card.background, color: T.card.ink, boxShadow: '0 10px 30px #00000066' }}>
@@ -109,6 +111,7 @@ export function TeacherWorld({ view, photo, classes, onRetry }: {
             {view.upcoming.map((c) => (
               <Link
                 key={c.eventId}
+                ref={track(c.eventId)}
                 to={`/event/${c.eventId}`}
                 data-testid="teacher-class"
                 className={`flex items-center gap-[14px] rounded-[14px] px-3 py-2 ${FOCUS_RING}`}
