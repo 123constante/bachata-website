@@ -14,10 +14,14 @@ import { seedPersonSnapshot } from './seedPersonSnapshot';
 import { personSnapshotKey } from './usePersonRoles';
 
 const SNAP = { id: 'p1', name: 'Ana', avatarUrl: null, city: null, instagramUrl: null, roles: ['dj', 'dancer'], djPhoto: null };
+// S7c: a role read the snapshot swallowed failed: the answer is still worth seeding, but not complete.
+const PARTIAL = { ...SNAP, roles: ['dancer'], partial: true };
 const DEADLINE = 2500;
 
 const CASES = [
   { name: 'answers in time', impl: () => Promise.resolve(SNAP), seeded: true, value: SNAP, fast: true },
+  // Written (better than nothing) but false: the route bounds the edge TTL as for a missed seed.
+  { name: 'answers partial (written, not complete)', impl: () => Promise.resolve(PARTIAL), seeded: false, written: true, value: PARTIAL, fast: true },
   { name: 'answers null (no public person)', impl: () => Promise.resolve(null), seeded: true, value: null, fast: true },
   { name: 'read fails', impl: () => Promise.reject(new Error('boom')), seeded: false, value: undefined, fast: true },
   { name: 'never answers (past the deadline)', impl: () => new Promise(() => {}), seeded: false, value: undefined, fast: false },
@@ -34,7 +38,7 @@ describe('seedPersonSnapshot: settles by its deadline, never rejects, leaves no 
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it.each(CASES)('$name: seeded $seeded', async (c) => {
+  it.each(CASES)('$name: complete $seeded', async (c) => {
     read.impl = c.impl as () => Promise<unknown>;
     const qc = new QueryClient();
     let settled: boolean | 'rejected' | undefined;
@@ -53,6 +57,9 @@ describe('seedPersonSnapshot: settles by its deadline, never rejects, leaves no 
     await vi.runAllTimersAsync();
     expect(vi.getTimerCount()).toBe(0);
     expect(qc.getQueryData(personSnapshotKey('p1'))).toEqual(c.value);
-    expect(qc.getQueryState(personSnapshotKey('p1')) !== undefined).toBe(c.seeded);
+    expect(qc.getQueryState(personSnapshotKey('p1')) !== undefined).toBe('written' in c ? c.written : c.seeded);
+    // S7c: a partial answer is written as already stale, so the client hook reads it again after mount.
+    if ('written' in c) expect(qc.getQueryState(personSnapshotKey('p1'))?.dataUpdatedAt).toBe(0);
+    else if (c.seeded) expect(qc.getQueryState(personSnapshotKey('p1'))?.dataUpdatedAt).toBeGreaterThan(0);
   });
 });

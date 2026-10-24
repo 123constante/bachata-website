@@ -21,7 +21,10 @@
 // canonical pages once ("warm") to start Vercel's re-render, wait for it to
 // settle, and pass 2 purges again. Visitors after pass 2 get the fresh render.
 // Only the canonical pages are warmed (each warm is one SSR render on the
-// Hobby CPU budget); the other URLs get both purges but no warm.
+// Hobby CPU budget); the other URLs get both purges but no warm. A person tag
+// (S7c) warms the slug page under each of its base paths: every one of them was
+// soft-invalidated on Vercel, and an unwarmed one comes back stale (up to 4 renders
+// for a write that touches all three roles).
 //
 // Import-light on purpose (same reason as ./cacheTags): the Supabase lookups
 // are injected (see app/lib/cloudflarePurgeResolver.ts) so this file and its
@@ -75,8 +78,9 @@ const ZONE_ID_RE = /^[0-9a-f]{32}$/i;
 export type CfEntityTable = "events" | "dancer_profiles" | "venues";
 
 export type CfUrlRule =
-  // One page per entity: <basePath>/<slug> (canonical) and <basePath>/<uuid>.
-  | { kind: "entity"; basePath: string; table: CfEntityTable }
+  // The entity's page under EACH base path: <base>/<slug> (canonical, warmed) and <base>/<uuid>.
+  // Several base paths = several pages stamp the tag (People arc S7c, below).
+  | { kind: "entity"; basePaths: readonly [string, ...string[]]; table: CfEntityTable }
   // /city/<slug> named by the tag itself.
   | { kind: "city" }
   // /city/<slug> for every active city (the tag names none).
@@ -108,14 +112,26 @@ const COLLECTION_REASON =
 
 // Tag kind (placeholder form, as in ./cacheTags ALL_ROUTE_STAMPS) -> URLs.
 // cloudflarePurge.test.ts requires an entry for every tag a route stamps or a
-// write purges.
+// write purges, and (S7c) a base path for every page a route stamps the tag on.
+//
+// People arc S7c: /dancers/:id (flags.personWorlds) and /people/:id (flags.personHub) serve the
+// person's DJ / Teaching tabs and stamp dj-<id> / teacher-<id>, and /people/:id stamps dancer-<id>.
+// So a person tag purges every page of that person that carries it. The paths are listed whatever
+// the flags (the rule is right the moment a flag flips). With a flag OFF the page does not carry the
+// tag, so Vercel is not purged for it: Cloudflare drops its copy and the warm re-fetches the same one
+// from Vercel -- no gain, no harm, one wasted warm render per such write. (/dancers with personWorlds
+// OFF does not serve the tabs, so its copy is not stale; /people with personHub OFF -- the tabbed
+// page -- does, and stays stale: an owner call, docs/people-arc/s7c/HANDOVER.md.)
+// A person with all three roles: 4 pages x (uuid + slug) x (page + .data) = 16 URLs, under
+// CF_MAX_URLS_PER_CALL (30), so still one call per pass.
+const PERSON_TABLE = "dancer_profiles" as const;
 export const CF_URL_RULES: Record<string, CfUrlRule> = {
-  [eventTag(ID)]: { kind: "entity", basePath: "/event", table: "events" },
-  [festivalTag(ID)]: { kind: "entity", basePath: "/festival", table: "events" },
-  [dancerTag(ID)]: { kind: "entity", basePath: "/dancers", table: "dancer_profiles" },
-  [djTag(ID)]: { kind: "entity", basePath: "/djs", table: "dancer_profiles" },
-  [teacherTag(ID)]: { kind: "entity", basePath: "/teachers", table: "dancer_profiles" },
-  [venueTag(ID)]: { kind: "entity", basePath: "/venue-entity", table: "venues" },
+  [eventTag(ID)]: { kind: "entity", basePaths: ["/event"], table: "events" },
+  [festivalTag(ID)]: { kind: "entity", basePaths: ["/festival"], table: "events" },
+  [dancerTag(ID)]: { kind: "entity", basePaths: ["/dancers", "/people"], table: PERSON_TABLE },
+  [djTag(ID)]: { kind: "entity", basePaths: ["/djs", "/dancers", "/people"], table: PERSON_TABLE },
+  [teacherTag(ID)]: { kind: "entity", basePaths: ["/teachers", "/dancers", "/people"], table: PERSON_TABLE },
+  [venueTag(ID)]: { kind: "entity", basePaths: ["/venue-entity"], table: "venues" },
   [cityTag(SLUG)]: { kind: "city" },
   [HOME_FEED]: { kind: "active-cities" },
   [FESTIVALS_LIST]: { kind: "static", paths: ["/festivals"], warm: true },
@@ -251,9 +267,11 @@ export async function planCloudflarePurge(
           break;
         }
         const slug = await slugFor(rule.table, id);
-        pages.add(`${rule.basePath}/${id}`);
-        if (slug) pages.add(`${rule.basePath}/${slug}`);
-        warm.add(`${rule.basePath}/${slug ?? id}`);
+        for (const base of rule.basePaths) {
+          pages.add(`${base}/${id}`);
+          if (slug) pages.add(`${base}/${slug}`);
+          warm.add(`${base}/${slug ?? id}`);
+        }
         break;
       }
     }

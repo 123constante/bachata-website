@@ -20,6 +20,7 @@ import {
 } from "../detailLoader";
 import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { stampDancer } from "../cacheTags";
+import { personPageTtlBound } from "../personPageTtl";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/dancers";
 
@@ -73,8 +74,9 @@ export const loader = withSsrLoaderTimeout("dancer-loader", async function loade
 
   const view = mapDancerPublicProfile(dancer as never);
   const { page: publicPage, degraded } = await publicPageLoad;
-  // false = the seed failed or missed its deadline: the page is served without tabs (S7b).
-  const seeded = rolesSeed ? await rolesSeed : true;
+  // false = the seed failed or missed its deadline: the page is served without tabs (S7b); or it
+  // answered partial: seeded, but a tab may be missing (S7c).
+  const snapshotComplete = rolesSeed ? await rolesSeed : true;
   return taggedData(
     {
       dehydratedState: dehydrate(qc),
@@ -96,9 +98,9 @@ export const loader = withSsrLoaderTimeout("dancer-loader", async function loade
     },
     // S7b: with the role tabs served, a DJ or teacher write must purge this page too.
     stampDancer(ref.id, flags.personWorlds),
-    // A failed flag / extras read, or a roles seed that did not answer, is cached briefly, never for
-    // the full edge TTL.
-    degraded || !seeded ? { edgeTtlBoundSeconds: DEGRADED_EDGE_TTL_SECONDS } : undefined,
+    // A failed flag / extras read, or a roles seed that did not answer completely, is cached briefly,
+    // never for the full edge TTL.
+    personPageTtlBound(degraded, snapshotComplete, DEGRADED_EDGE_TTL_SECONDS),
   );
 });
 

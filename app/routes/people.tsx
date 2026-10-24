@@ -2,6 +2,7 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createServerQueryClient } from "@/App";
 import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_ORIGIN, type SeoInput } from "@/lib/seo";
 import PersonPage from "@/modules/person-page/PersonPage";
+import { flags } from "@/lib/featureFlags";
 import { DEGRADED_EDGE_TTL_SECONDS, loadPublicPageV2 } from "@/modules/dancer-app/public-page/loadPublicPage";
 import { loadPersonSnapshot } from "@/modules/person-page/reads";
 import { ROLE_PAGE_BASE, strongestRole } from "@/modules/person-page/personRoles";
@@ -16,6 +17,7 @@ import {
 } from "../detailLoader";
 import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { stampDancer } from "../cacheTags";
+import { personPageTtlBound } from "../personPageTtl";
 import { seoInputToMeta } from "../seoMeta";
 import type { Route } from "./+types/people";
 
@@ -54,9 +56,14 @@ export const loader = withSsrLoaderTimeout("person-loader", async function loade
         fallbackImage: DEFAULT_OG_IMAGE,
       }),
     },
-    stampDancer(ref.id),
+    // S7c, flags.personHub ON (the hub, with its DJ / teacher cards): a DJ or teacher write purges
+    // this page too, as /dancers/:id, and a partial snapshot (a role read failed, a card may be
+    // missing) is cached briefly, the /dancers/:id rule. Flag OFF: today's tag and TTL, as the brief
+    // pins -- although the flag-OFF tabbed page shows DJ / Teaching tabs too, so it keeps today's
+    // staleness: an owner call, docs/people-arc/s7c/HANDOVER.md.
+    stampDancer(ref.id, flags.personHub),
     // A failed flag / extras read is cached briefly, never for the full edge TTL.
-    degraded ? { edgeTtlBoundSeconds: DEGRADED_EDGE_TTL_SECONDS } : undefined,
+    personPageTtlBound(degraded, !(flags.personHub && person.partial), DEGRADED_EDGE_TTL_SECONDS),
   );
 });
 
