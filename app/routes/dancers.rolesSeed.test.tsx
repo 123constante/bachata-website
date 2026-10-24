@@ -5,7 +5,8 @@
  * on dancers who also DJ). Table-driven over the prod shapes (survey 2026-10-24, counts only): dancer
  * only / DJ holder / teacher holder with teacher pages closed / holds both, each with a slug. The
  * chain under test is the real one: loader -> dehydrate -> hydrate -> renderToString -> hydrateRoot.
- * Flag OFF, a failed read and a late read must serve exactly what main serves (no tabs, same meta/TTL).
+ * Flag OFF, a failed read and a late read must serve exactly what main serves (no tabs, same meta);
+ * since S7b a failed or late read bounds the edge TTL (app/routes/dancers.cacheTags.test.ts).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
@@ -232,13 +233,13 @@ describe('S7: everything else stays as main serves it', () => {
     h.flags.personWorlds = true;
     return r;
   };
-  const same = (a: Loaded, b: Loaded) => {
+  // bounded: S7b (owner call 2) -- a seed that did not answer caps the edge TTL at 60 s; all else as main.
+  const same = (a: Loaded, b: Loaded, bounded = false) => {
     expect(a.d.entityName).toBe(b.d.entityName);
     expect(a.d.entitySlug).toBe(b.d.entitySlug);
     expect(a.d.ogImage).toBe(b.d.ogImage);
     expect(a.d.publicPage).toBe(b.d.publicPage);
-    expect(a.tag).toBe(b.tag);
-    expect(a.opts).toEqual(b.opts);
+    expect(a.opts).toEqual(bounded ? { edgeTtlBoundSeconds: 60 } : b.opts);
   };
 
   it('flag OFF: no roles read and only the dancer read in the dehydrated state', async () => {
@@ -248,26 +249,27 @@ describe('S7: everything else stays as main serves it', () => {
     expect(tabs(serve(r.d.dehydratedState))).toEqual([]);
   });
 
-  it('flag ON: meta, tag and TTL equal flag OFF', async () => {
+  // stampDancer is mocked here: the real tag ON vs OFF is asserted in dancers.cacheTags.test.ts (S7b).
+  it('flag ON: meta and TTL equal flag OFF', async () => {
     h.snapshot.mockResolvedValue(snap(['dj', 'dancer']));
     same(await run(), await baseline());
   });
 
-  it('read fails: page still served, no tabs, no seed, same meta and TTL', async () => {
+  it('read fails: page still served, no tabs, no seed, same meta, TTL bounded (S7b)', async () => {
     h.snapshot.mockRejectedValue(new Error('boom'));
     const r = await run();
     expect(r.d.dehydratedState.queries.some((q) => q.queryKey[0] === 'person-snapshot')).toBe(false);
     expect(tabs(serve(r.d.dehydratedState))).toEqual([]);
-    same(r, await baseline());
+    same(r, await baseline(), true);
   });
 
-  it('read late (past its deadline): page served without waiting for it, no tabs, same meta and TTL', async () => {
+  it('read late (past its deadline): page served without waiting for it, no tabs, same meta, TTL bounded (S7b)', async () => {
     let answer: (v: unknown) => void = () => {};
     h.snapshot.mockReturnValue(new Promise((res) => { answer = res; }));
     const r = await run();
     expect(r.d.dehydratedState.queries.some((q) => q.queryKey[0] === 'person-snapshot')).toBe(false);
     expect(tabs(serve(r.d.dehydratedState))).toEqual([]);
     answer(snap(['dj', 'dancer']));
-    same(r, await baseline());
+    same(r, await baseline(), true);
   });
 });

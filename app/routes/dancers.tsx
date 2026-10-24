@@ -65,14 +65,15 @@ export const loader = withSsrLoaderTimeout("dancer-loader", async function loade
   // seeded into the dehydrated cache so the served HTML holds the role tabs and the preview reserve.
   // Started AFTER the dancer read above is issued, so ['dancer-profile'] runs THIS file's query body
   // (the snapshot's own dancer read joins it). Never rejects, own deadline; a miss = the hook reads
-  // after mount. Body only: no meta / cache header / edge-TTL change.
+  // after mount. Meta unchanged; the tag and edge TTL change below (S7b).
   const rolesSeed = flags.personWorlds ? seedPersonSnapshot(qc, ref.id as string, PUBLIC_PAGE_DEADLINE_MS) : null;
   const dancer = await dancerRead;
   if (!dancer) throwDetailNotFound("Dancer");
 
   const view = mapDancerPublicProfile(dancer as never);
   const { page: publicPage, degraded } = await publicPageLoad;
-  if (rolesSeed) await rolesSeed;
+  // false = the seed failed or missed its deadline: the page is served without tabs (S7b).
+  const seeded = rolesSeed ? await rolesSeed : true;
   return taggedData(
     {
       dehydratedState: dehydrate(qc),
@@ -90,9 +91,11 @@ export const loader = withSsrLoaderTimeout("dancer-loader", async function loade
       // Mirrors middleware.ts's ogNormalizedImage; lets the /dancers matcher be retired.
       ogImage: normalizeOgImage({ rawUrl: dancer.avatar_url as string | null, request, fallbackImage: DEFAULT_OG_IMAGE }),
     },
-    stampDancer(ref.id),
-    // A failed flag / extras read is cached briefly, never for the full edge TTL.
-    degraded ? { edgeTtlBoundSeconds: DEGRADED_EDGE_TTL_SECONDS } : undefined,
+    // S7b: with the role tabs served, a DJ or teacher write must purge this page too.
+    stampDancer(ref.id, flags.personWorlds),
+    // A failed flag / extras read, or a roles seed that did not answer, is cached briefly, never for
+    // the full edge TTL.
+    degraded || !seeded ? { edgeTtlBoundSeconds: DEGRADED_EDGE_TTL_SECONDS } : undefined,
   );
 });
 
