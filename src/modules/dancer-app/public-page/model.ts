@@ -3,6 +3,7 @@ import { buildSignInHref } from '@/lib/authRouting';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { nightLine } from '@/modules/going/goingCopy';
 import type { GoingNextNight } from '@/modules/going/goingRpc';
+import { linkText } from '@/modules/person-page/worlds/dj/model';
 
 /**
  * Public dancer page v2 (W2f / B1b S2): everything the page SHOWS, as plain data,
@@ -168,6 +169,45 @@ export const facebookLabel = (url: string | null): string | null => {
 /** `label` is what the row shows (the handle or address); `copyText` is the FULL text the Copy button copies. */
 export type ContactLink = { kind: 'instagram' | 'facebook' | 'website' | 'email' | 'whatsapp'; href: string; label: string; copyText: string };
 
+// First path segments that are not a profile (a post, a reel, a group...): no handle is guessed from them.
+const IG_NOT_PROFILE = new Set(['p', 'reel', 'reels', 'tv', 'explore', 'stories', 'accounts', 'direct']);
+const FB_NOT_PROFILE = new Set(['profile.php', 'people', 'groups', 'pages', 'events', 'share', 'sharer', 'sharer.php', 'watch', 'p', 'photo', 'photo.php', 'story.php', 'permalink.php', 'login']);
+
+const parseUrl = (url: string | null): URL | null => {
+  if (!url?.trim()) return null;
+  try {
+    return new URL(/^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`);
+  } catch {
+    return null;
+  }
+};
+
+/** The handle of a PROFILE url on `site` (bare, www. or m.): exactly one path segment, not a post/reel/group. */
+const profileHandle = (u: URL | null, site: 'instagram' | 'facebook', notProfile: ReadonlySet<string>): string | null => {
+  if (!u || !new RegExp(`^(?:(?:www|m)\\.)?${site}\\.com$`).test(u.hostname)) return null;
+  const segs = u.pathname.split('/').filter(Boolean);
+  return segs.length === 1 && /^[\w.]+$/.test(segs[0]) && !notProfile.has(segs[0].toLowerCase()) ? segs[0] : null;
+};
+
+const sameText = (a: string, b: string | null): boolean => b !== null && a.toLowerCase() === b.toLowerCase();
+
+/**
+ * People S8: the stored "website" as a contact row (the flag-OFF page and the dancer world
+ * both read it). An Instagram or Facebook PROFILE url is filed under that kind with that
+ * kind's label; null when the dancer's own Instagram/Facebook link already shows the same
+ * handle (one row, not two). Anything else stays a website, labelled without scheme, www.,
+ * query, hash or trailing slash (linkText, the DJ and teacher worlds' own rule). The href is
+ * always the stored url.
+ */
+export const websiteContact = (website: string, links: { instagram: string | null; facebook: string | null }): ContactLink | null => {
+  const u = parseUrl(website);
+  const ig = profileHandle(u, 'instagram', IG_NOT_PROFILE);
+  if (ig) return sameText(`@${ig}`, instagramLabel(links.instagram)) ? null : { kind: 'instagram', href: website, label: `@${ig}`, copyText: `@${ig}` };
+  const fb = profileHandle(u, 'facebook', FB_NOT_PROFILE);
+  if (fb) return sameText(`facebook.com/${fb}`, facebookLabel(links.facebook)) ? null : { kind: 'facebook', href: website, label: `facebook.com/${fb}`, copyText: website };
+  return { kind: 'website', href: website, label: linkText(u ? `${u.host}${u.pathname}` : website.trim()), copyText: website };
+};
+
 /** One "Going next" card: one NIGHT (an occurrence). `href` null = no public event, no link. */
 export type GoingNextEvent = { id: string; date: string; name: string; href: string | null };
 /**
@@ -274,7 +314,8 @@ export const buildPublicDancerPage = (
   if (links.instagram && ig) contacts.push({ kind: 'instagram', href: links.instagram, label: ig, copyText: ig });
   const fb = facebookLabel(links.facebook);
   if (links.facebook && fb) contacts.push({ kind: 'facebook', href: links.facebook, label: fb, copyText: links.facebook });
-  if (links.website) contacts.push({ kind: 'website', href: links.website, label: links.website.replace(/^https?:\/\//, '').replace(/\/$/, ''), copyText: links.website });
+  const site = links.website ? websiteContact(links.website, links) : null;
+  if (site) contacts.push(site);
   if (links.email) contacts.push({ kind: 'email', href: `mailto:${links.email}`, label: links.email, copyText: links.email });
 
   const hasPractice =
