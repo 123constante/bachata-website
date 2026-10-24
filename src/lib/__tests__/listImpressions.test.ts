@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn() } }));
+vi.mock('@/integrations/supabase/getSupabase', () => ({ getSupabase: vi.fn() }));
 vi.mock('@/lib/viewerSession', () => ({ getViewerSession: vi.fn(() => 'sess-1') }));
 vi.mock('@/lib/featureFlags', () => ({ flags: { listImpressions: true, enableEventTracking: true } }));
 

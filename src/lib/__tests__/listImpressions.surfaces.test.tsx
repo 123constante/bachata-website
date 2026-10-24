@@ -5,7 +5,9 @@ import { render, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const rpc = vi.fn((..._a: unknown[]) => Promise.resolve({ data: null, error: null }));
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...a: unknown[]) => rpc(...a) } }));
+vi.mock('@/integrations/supabase/getSupabase', () => ({
+  getSupabase: () => Promise.resolve({ rpc: (...a: unknown[]) => rpc(...a) }),
+}));
 vi.mock('@/lib/viewerSession', () => ({ getViewerSession: () => 'sess-1' }));
 
 import VenueWhatsOnList from '@/components/venue/VenueWhatsOnList';
@@ -32,10 +34,12 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-const seeAllThenLeave = (unmount: () => void) => {
+const seeAllThenLeave = async (unmount: () => void) => {
   fire(observed);
   vi.advanceTimersByTime(1000);
   unmount();
+  await Promise.resolve();
+  await Promise.resolve();
 };
 
 const expectOneBatch = (surface: string, ids: string[]) => {
@@ -47,21 +51,21 @@ const expectOneBatch = (surface: string, ids: string[]) => {
 };
 
 describe('rendered surfaces send one batched call', () => {
-  it('venue', () => {
+  it('venue', async () => {
     const ev = (n: string) => ({ event_id: n, occurrence_id: `o${n}`, instance_start: '2026-11-01T20:00:00Z', name: n, poster_url: null, type: null });
     const { unmount } = render(<MemoryRouter><VenueWhatsOnList events={[ev('v1'), ev('v2')]} venueName="V" onSeeAll={() => {}} /></MemoryRouter>);
-    seeAllThenLeave(unmount);
+    await seeAllThenLeave(unmount);
     expectOneBatch('venue', ['v1', 'v2']);
   });
 
-  it('profile (DJ upcoming)', () => {
+  it('profile (DJ upcoming)', async () => {
     const g = (n: string) => ({ eventId: n, name: n, startTime: '2026-11-01T20:00:00', location: null });
     const { unmount } = render(<MemoryRouter><DjUpcoming gigs={[g('d1'), g('d2')]} /></MemoryRouter>);
-    seeAllThenLeave(unmount);
+    await seeAllThenLeave(unmount);
     expectOneBatch('profile', ['d1', 'd2']);
   });
 
-  it('organiser (shared EventRow with impressionRef)', () => {
+  it('organiser (shared EventRow with impressionRef)', async () => {
     const Harness = () => {
       const t = useListImpressions('organiser');
       return (
@@ -73,7 +77,7 @@ describe('rendered surfaces send one batched call', () => {
       );
     };
     const { unmount } = render(<Harness />);
-    seeAllThenLeave(unmount);
+    await seeAllThenLeave(unmount);
     expectOneBatch('organiser', ['o1', 'o2']);
   });
 });

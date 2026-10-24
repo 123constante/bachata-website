@@ -7,7 +7,7 @@
 // swallowed (fire and forget).
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { getViewerSession } from '@/lib/viewerSession';
 import { flags } from '@/lib/featureFlags';
 
@@ -27,13 +27,17 @@ export type ImpressionSender = (
 ) => void;
 
 const defaultSender: ImpressionSender = (surface, ids, sessionId) => {
-  void supabase
-    .rpc('record_list_impressions_v1', {
-      p_event_ids: ids,
-      p_surface: surface,
-      p_viewer_session_id: sessionId,
-      p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-    })
+  // getSupabase(), not a static client import: the client is vendor-supabase, which
+  // must stay out of every list route's first-load graph (puller ratchet).
+  void getSupabase()
+    .then((supabase) =>
+      supabase.rpc('record_list_impressions_v1', {
+        p_event_ids: ids,
+        p_surface: surface,
+        p_viewer_session_id: sessionId,
+        p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      }),
+    )
     .then(() => undefined, () => undefined);
 };
 
