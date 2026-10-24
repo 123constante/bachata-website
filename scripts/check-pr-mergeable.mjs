@@ -63,7 +63,11 @@
  * lives under `briefs/`; no file was RENAMED or COPIED (GraphQL shows only the
  * new path, so moving code into docs/ would read as docs); and the whole list
  * was read (an integer totalCount equal to the paths fetched, at least one
- * file). A list longer than the page is NOT docs-only, never a guess. Files are
+ * file). The list is read page by page, up to FILES_PAGE_CAP pages (1000
+ * files); a longer list, or a cursor that does not advance, is NOT docs-only,
+ * never a guess, and paging a PR stops at its first non-docs file (the live
+ * sweep of 2026-10-24 skipped 0 of 73 on one page: the 12 docs-only PRs had
+ * 144-448 files each). Files are
  * read only for conflicting claude/ PRs, in a separate query, so the detail
  * query does not grow back toward the 504. A skipped PR is never silent and
  * never OK: one `SKIPPED docs-only #N <head>` line each and a
@@ -178,6 +182,9 @@ const GATE_APP_SLUG = 'github-actions';
 const WORKER_HEAD_PREFIX = 'claude/';
 const BRIEFS_DIR = 'briefs/';
 const FILES_PAGE_SIZE = 100;
+/** Pages of files read per PR (1000 files); a longer list is NOT docs-only. */
+const FILES_PAGE_CAP = 10;
+const FILES_FIELDS = '{totalCount pageInfo{hasNextPage endCursor} nodes{path changeType}}';
 /** A rename or copy shows only its new path, so only these are judged by path. */
 const PATH_ONLY_CHANGE_TYPES = new Set(['ADDED', 'MODIFIED', 'DELETED', 'CHANGED']);
 
@@ -185,11 +192,14 @@ export function isDocsPath(path) {
   return typeof path === 'string' && (path.startsWith(BRIEFS_DIR) || isDocsOnlyPaths([path]));
 }
 
+const allDocsFiles = (nodes) =>
+  nodes.every((node) => Boolean(node) && PATH_ONLY_CHANGE_TYPES.has(node.changeType) && isDocsPath(node.path));
+
 /** `files` is a GraphQL connection: { totalCount, nodes: [{ path, changeType }] }. */
 export function isDocsOnly(files) {
   if (!files || !Array.isArray(files.nodes) || files.nodes.length === 0) return false;
   if (!Number.isInteger(files.totalCount) || files.totalCount !== files.nodes.length) return false;
-  return files.nodes.every((node) => PATH_ONLY_CHANGE_TYPES.has(node.changeType) && isDocsPath(node.path));
+  return allDocsFiles(files.nodes);
 }
 
 // ---------------------------------------------------------------------------
@@ -799,34 +809,78 @@ async function fetchPrs(ctx, repo, { number = null } = {}) {
 }
 
 /**
+ * Takes one page of a PR's file list into `state`. Answers 'more' when the
+ * next page must be read, else the verdict (true = docs-only). Paging stops,
+ * NOT docs-only and never a guess, at the first page holding a file that is
+ * not docs (the PR is judged anyway, so the live cost stays with the docs-only
+ * PRs), at FILES_PAGE_CAP pages, at a cursor that is missing or does not
+ * advance, and at a page whose totalCount differs from the first page's (the
+ * list moved between reads). The whole list must hold no path twice.
+ */
+function takeFilesPage(state, page) {
+  if (!page || !Array.isArray(page.nodes) || !allDocsFiles(page.nodes)) return false;
+  if (state.pages > 0 && page.totalCount !== state.totalCount) return false;
+  state.totalCount = page.totalCount;
+  state.nodes.push(...page.nodes);
+  state.pages += 1;
+  if (!page.pageInfo?.hasNextPage) {
+    const unique = new Set(state.nodes.map((node) => node.path)).size === state.nodes.length;
+    return unique && isDocsOnly({ totalCount: state.totalCount, nodes: state.nodes });
+  }
+  if (state.pages >= FILES_PAGE_CAP) return false;
+  const next = page.pageInfo.endCursor;
+  if (typeof next !== 'string' || next === '' || next === state.cursor) return false;
+  state.cursor = next;
+  return 'more';
+}
+
+/**
  * The PRs among `candidates` whose changed files are docs-only, read in the
- * same DETAIL_BATCH_SIZE batches as fetchPrDetails. At the first outage the
- * rest are returned as `unread`, the same stop fetchPrDetails makes; any other
- * error (401, a bad query) is thrown, because it is a broken guard.
+ * same DETAIL_BATCH_SIZE batches as fetchPrDetails. A batch is read in rounds:
+ * round 1 is every PR's first page, and each later round is ONE call holding
+ * the next page of every PR still docs so far (an alias and a cursor variable
+ * each), so a sweep spends at most FILES_PAGE_CAP calls per batch. At the
+ * first outage the PRs not yet decided are returned as `unread`, the same stop
+ * fetchPrDetails makes; any other error (401, a bad query) is thrown, because
+ * it is a broken guard.
  */
 async function fetchDocsOnly(ctx, repo, candidates) {
   const docsOnly = new Set();
   for (let at = 0; at < candidates.length; at += ctx.batchSize) {
     const batch = candidates.slice(at, at + ctx.batchSize);
-    const fields = batch
-      .map(
-        (n) =>
-          'f' + n + ':pullRequest(number:' + n + '){files(first:' + FILES_PAGE_SIZE + '){totalCount nodes{path changeType}}}',
-      )
-      .join(' ');
-    let data;
-    try {
-      data = await graphql(
-        ctx,
-        'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){' + fields + '}}',
-        repo,
-      );
-    } catch (error) {
-      if (!error.outage) throw error;
-      return { docsOnly, unread: candidates.slice(at), outage: 'reading changed files: ' + error.message };
-    }
-    for (const n of batch) {
-      if (isDocsOnly(data?.repository?.['f' + n]?.files)) docsOnly.add(n);
+    const states = new Map(batch.map((n) => [n, { nodes: [], pages: 0, totalCount: null, cursor: null }]));
+    let pending = batch;
+    for (let round = 1; pending.length > 0; round += 1) {
+      const paging = round > 1;
+      const fields = pending
+        .map(
+          (n) =>
+            'f' + n + ':pullRequest(number:' + n + '){files(first:' + FILES_PAGE_SIZE + (paging ? ',after:$a' + n : '') + ')' +
+            FILES_FIELDS + '}',
+        )
+        .join(' ');
+      const params = paging ? pending.map((n) => ',$a' + n + ':String!').join('') : '';
+      const variables = { ...repo };
+      if (paging) for (const n of pending) variables['a' + n] = states.get(n).cursor;
+      let data;
+      try {
+        data = await graphql(
+          ctx,
+          'query($owner:String!,$name:String!' + params + '){repository(owner:$owner,name:$name){' + fields + '}}',
+          variables,
+        );
+      } catch (error) {
+        if (!error.outage) throw error;
+        const unread = [...pending, ...candidates.slice(at + ctx.batchSize)];
+        return { docsOnly, unread, outage: 'reading changed files (page ' + round + '): ' + error.message };
+      }
+      const more = [];
+      for (const n of pending) {
+        const verdict = takeFilesPage(states.get(n), data?.repository?.['f' + n]?.files);
+        if (verdict === 'more') more.push(n);
+        else if (verdict) docsOnly.add(n);
+      }
+      pending = more;
     }
   }
   return { docsOnly, unread: [], outage: null };
@@ -849,7 +903,10 @@ async function skipDocsOnly(ctx, repo, prs, verdicts) {
   for (const n of candidates) {
     if (docsOnly.has(n)) console.log('  SKIPPED docs-only #' + n + ' ' + heads.get(n));
   }
-  console.log('  skipped docs-only: ' + docsOnly.size + ' (of ' + candidates.length + ' conflicting claude/ PR(s) checked)');
+  console.log(
+    '  skipped docs-only: ' + docsOnly.size + ' (of ' + candidates.length + ' conflicting claude/ PR(s) checked' +
+      (unread.length > 0 ? ', ' + unread.length + ' of them NOT read' : '') + ')',
+  );
   const dropped = new Set([...docsOnly, ...unread]);
   return { verdicts: verdicts.filter((v) => !dropped.has(v.number)), skipped: docsOnly.size, unread, outage };
 }
@@ -1387,10 +1444,30 @@ async function selfTest() {
         const lazy = reads[pr.number] <= (unknownReads[pr.number] ?? 0);
         repository['p' + pr.number] = prNode(lazy ? { ...pr, mergeable: 'UNKNOWN' } : pr);
       }
+      // Files are served in pages of the `first:` the query asks for, from the
+      // PR's `a<n>` cursor variable ('d' + index). `stuckCursor` serves page 1
+      // forever with the same endCursor; `nullCursorAfter` gives every later
+      // page a null endCursor; `moveAfterFirst(files)` is the list a push left
+      // behind for every later page (offset cursors, as GitHub's are).
       for (const pr of prs) {
         if (!query.includes('f' + pr.number + ':pullRequest(')) continue;
-        const files = (pr.files ?? ['src/app.ts']).map((f) => (typeof f === 'string' ? { path: f, changeType: 'MODIFIED' } : f));
-        repository['f' + pr.number] = { files: { totalCount: 'fileTotal' in pr ? pr.fileTotal : files.length, nodes: files } };
+        const asked = (pr.files ?? ['src/app.ts']).map((f) => (typeof f === 'string' ? { path: f, changeType: 'MODIFIED' } : f));
+        const after = variables['a' + pr.number];
+        const paged = after !== undefined;
+        const files = paged && pr.moveAfterFirst ? pr.moveAfterFirst(asked) : asked;
+        const pageSize = parseInt(query.split('files(first:')[1], 10);
+        const start = after && !pr.stuckCursor ? Number(after.slice(1)) : 0;
+        const end = Math.min(start + pageSize, files.length);
+        repository['f' + pr.number] = {
+          files: {
+            totalCount: 'fileTotal' in pr ? pr.fileTotal : files.length,
+            pageInfo: {
+              hasNextPage: Boolean(pr.stuckCursor) || end < files.length,
+              endCursor: paged && pr.nullCursorAfter ? null : 'd' + (pr.stuckCursor ? pageSize : end),
+            },
+            nodes: files.slice(start, end),
+          },
+        };
       }
       return reply(200, { data: { repository } });
     };
@@ -1720,6 +1797,140 @@ async function selfTest() {
       return [skipShape(r), notJudged].join('/');
     },
     '1/  SKIPPED docs-only #1 claude/docs-x/1/NOT JUDGED (1): #3',
+  );
+  // --- DOCS-ONLY, LONG FILE LISTS (2026-10-24 live sweep: skipped 0 of 73) ---
+  // The 12 conflicting docs-only worker PRs had 144-448 files each, more than
+  // one page of 100, so none was skipped. The list is now read whole, page by
+  // page, up to FILES_PAGE_CAP pages; anything beyond is NOT docs-only.
+  const manyDocs = (count) => Array.from({ length: count }, (_, i) => 'docs/f' + i + '.md');
+  const filesReads = (r) => r.calls.filter((c) => c.query.includes('files(')).length;
+  add(
+    'docs-long: 250 docs files across 3 pages is SKIPPED, in 3 files reads',
+    async () => {
+      const r = await drive([], fakeGitHub(board(1, { 1: { ...DOCS, files: manyDocs(250) } })));
+      return [skipShape(r), filesReads(r)].join('/');
+    },
+    '0/  SKIPPED docs-only #1 claude/docs-x/1/3',
+  );
+  add(
+    'docs-long: 250 docs files plus one code file on page 3 FAILs',
+    () => skipsWith({ files: [...manyDocs(250), 'src/x.ts'] }),
+    '1//0',
+  );
+  add(
+    'docs-long: a list over the page cap FAILs, never a guess, and stops at the cap',
+    async () => {
+      const r = await drive([], fakeGitHub(board(1, { 1: { ...DOCS, files: manyDocs(FILES_PAGE_CAP * FILES_PAGE_SIZE + 1) } })));
+      return [skipShape(r), filesReads(r)].join('/');
+    },
+    '1//0/' + FILES_PAGE_CAP,
+  );
+  add(
+    'docs-long: a list of exactly the cap is read whole and SKIPPED',
+    () => skipsWith({ files: manyDocs(FILES_PAGE_CAP * FILES_PAGE_SIZE) }),
+    '0/  SKIPPED docs-only #1 claude/docs-x/1',
+  );
+  add(
+    'docs-long: a code file on page 1 stops paging that PR (early exit, 1 files read)',
+    async () => {
+      const r = await drive([], fakeGitHub(board(1, { 1: { ...DOCS, files: ['src/x.ts', ...manyDocs(250)] } })));
+      return [skipShape(r), filesReads(r)].join('/');
+    },
+    '1//0/1',
+  );
+  add(
+    'docs-long: a code file on page 2 of 3 stops paging after page 2',
+    async () => {
+      const r = await drive([], fakeGitHub(board(1, { 1: { ...DOCS, files: [...manyDocs(150), 'src/x.ts', ...manyDocs(99)] } })));
+      return [skipShape(r), filesReads(r)].join('/');
+    },
+    '1//0/2',
+  );
+  add(
+    'docs-long: a cursor that never advances FAILs in 2 files reads, never loops',
+    async () => {
+      const r = await drive([], fakeGitHub(board(1, { 1: { ...DOCS, files: manyDocs(250), stuckCursor: true } })));
+      return [skipShape(r), filesReads(r)].join('/');
+    },
+    '1//0/2',
+  );
+  add(
+    'docs-long: a totalCount that disagrees with the assembled pages FAILs',
+    () => skipsWith({ files: manyDocs(250), fileTotal: 251 }),
+    '1//0',
+  );
+  add(
+    'docs-long: a 5xx on page 2 leaves the PR NOT JUDGED, never a verdict and never a pass',
+    async () => {
+      const github = fakeGitHub(board(2, { 1: { ...DOCS, files: manyDocs(250) } }), {
+        plan: [undefined, undefined, undefined, GATEWAY_504, GATEWAY_504, GATEWAY_504],
+      });
+      const r = await drive([], github);
+      const notJudged = r.out.split(NL).find((line) => line.startsWith('NOT JUDGED')) ?? '';
+      return [skipShape(r), notJudged, judgedOrder(r.out), r.out.includes('guard passed')].join('/');
+    },
+    '0//0/NOT JUDGED (1): #1/2/false',
+  );
+  add(
+    'docs-long: a 5xx on page 2 keeps every PR page 1 decided (a code PR still FAILs, exit 1)',
+    async () => {
+      const github = fakeGitHub(
+        board(3, { 1: DOCS, 2: { ...DOCS, files: manyDocs(250) }, 3: { ...DOCS, files: ['src/x.ts'] } }),
+        { plan: [undefined, undefined, undefined, GATEWAY_504, GATEWAY_504, GATEWAY_504] },
+      );
+      const r = await drive([], github);
+      const notJudged = r.out.split(NL).find((line) => line.startsWith('NOT JUDGED')) ?? '';
+      return [skipShape(r), notJudged, judgedOrder(r.out), r.out.includes('1 of them NOT read')].join('/');
+    },
+    '1/  SKIPPED docs-only #1 claude/docs-x/1/NOT JUDGED (1): #2/3/true',
+  );
+  add(
+    'docs-long: two long docs PRs share each later-page call (3 files reads, both SKIPPED)',
+    async () => {
+      const long = { ...DOCS, files: manyDocs(250) };
+      const r = await drive([], fakeGitHub(board(2, { 1: long, 2: long })));
+      return [skipShape(r), filesReads(r)].join('/');
+    },
+    '0/  SKIPPED docs-only #1 claude/docs-x|  SKIPPED docs-only #2 claude/docs-x/2/3',
+  );
+  add(
+    'docs-long: a null endCursor on a later page FAILs in 2 files reads',
+    async () => {
+      const r = await drive([], fakeGitHub(board(1, { 1: { ...DOCS, files: manyDocs(250), nullCursorAfter: true } })));
+      return [skipShape(r), filesReads(r)].join('/');
+    },
+    '1//0/2',
+  );
+  add(
+    'docs-long: a code file pushed before the cursor between reads FAILs, never skipped unseen',
+    () => skipsWith({ files: manyDocs(250), moveAfterFirst: (files) => [{ path: '.github/x.md', changeType: 'ADDED' }, ...files] }),
+    '1//0',
+  );
+  add(
+    'docs-long: a file dropped between reads (totalCount moves, no repeat) FAILs',
+    () => skipsWith({ files: manyDocs(250), moveAfterFirst: (files) => files.slice(1) }),
+    '1//0',
+  );
+  add(
+    'docs-long: a path served twice across pages (totalCount steady) FAILs',
+    () => skipsWith({ files: manyDocs(250), moveAfterFirst: (files) => [...files.slice(0, 100), files[99], ...files.slice(101)] }),
+    '1//0',
+  );
+  add(
+    'docs-long: a null file node is NOT docs-only, never a crash',
+    () => skipsWith({ files: [null, 'docs/a.md'] }),
+    '1//0',
+  );
+  add(
+    'docs-long: a 401 on page 2 is a broken guard (exit 2), not NOT JUDGED',
+    async () => {
+      const github = fakeGitHub(board(1, { 1: { ...DOCS, files: manyDocs(250) } }), {
+        plan: [undefined, undefined, undefined, reply(401, { message: 'Bad credentials' })],
+      });
+      const r = await drive([], github);
+      return [r.code, r.out.includes('cannot run')].join('/');
+    },
+    '2/true',
   );
   add(
     'docs-only: a 401 on the files read is a broken guard (exit 2), not a silent judge',

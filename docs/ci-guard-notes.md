@@ -419,9 +419,11 @@ a CONFLICTING PR with a `claude/` head whose every changed file passes
 whole list read, prints `SKIPPED docs-only #N <head>` plus a `skipped docs-only:
 K` total instead of failing, and gets no status, no place in the ok tally and no
 effect on the exit code. Files are read only for those candidates (a separate
-20-per-call query); a human or Dependabot head, a MERGEABLE PR with an empty
-board, a list over 100 files or a 5xx on that read (NOT JUDGED) keeps the PR out
-of the skip.
+20-per-call query; a later page of every PR still docs so far shares one call
+per round, at most 10 rounds); a human or Dependabot head, a MERGEABLE PR with
+an empty board, a list over 1000 files, a list that moved between page reads, or
+a 5xx on any page (NOT JUDGED for the PRs still undecided and every later
+candidate; a PR already decided keeps its verdict) keeps the PR out of the skip.
 
 ---
 
