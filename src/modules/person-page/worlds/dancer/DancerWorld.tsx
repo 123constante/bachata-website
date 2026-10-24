@@ -7,8 +7,8 @@ import { Avatar } from '../../frame';
 import { TAP } from '../../roleSwitch';
 import { FOCUS_RING } from '../../wall/tokens';
 import { FONT, ROLE_COLOUR, WORLD } from '../tokens';
-import { ALL_SOCIALS_HREF, FACE_PX, INVITE, PARTY_ACTION, SOCIALS_COPY, SOCIALS_MAX, type DancerCard, type Preview } from './model';
-import type { DancerLower, SocialsState } from './useDancerLower';
+import { FACE_PX, INVITE, type DancerCard, type Preview } from './model';
+import type { DancerLower } from './useDancerLower';
 
 const T = WORLD.dancer;
 /** Explicit px throughout: html is ~13.5px on phones, so rem sizes render small. */
@@ -76,22 +76,14 @@ const H2 = ({ children }: { children: ReactNode }) => (
   <h2 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 800, color: T.card.ink }}>{children}</h2>
 );
 
-const PillLink = ({ to, children, testId }: { to: string; children: ReactNode; testId?: string }) => (
-  <Link
-    to={to}
-    data-testid={testId}
-    className={`mt-[10px] flex items-center justify-center rounded-full ${FOCUS_RING}`}
-    style={{ minHeight: TAP, border: `1px solid ${T.avatar.ring}`, color: T.avatar.ink, fontWeight: 700, fontSize: 14 }}
-  >
-    {children}
-  </Link>
-);
-
 /** The DJ preview's line is set in the DJ serif: load it while one is on screen (ref-counted hook). */
 function DjSerif() {
   useDjPageFonts();
   return null;
 }
+
+/** One preview row's height (px): the reserve below holds exactly this, the owner's S6 rule. */
+const PREVIEW_ROW_PX = 64;
 
 function PreviewRow({ p }: { p: Preview }) {
   const w = WORLD[p.role];
@@ -100,7 +92,7 @@ function PreviewRow({ p }: { p: Preview }) {
       to={p.href}
       data-testid={`dancer-world-preview-${p.role}`}
       className={`mt-2 flex items-center gap-3 rounded-[14px] ${FOCUS_RING}`}
-      style={{ minHeight: 64, padding: '10px 12px', background: w.card.background, border: `1px solid ${w.card.border}`, color: w.card.ink }}
+      style={{ minHeight: PREVIEW_ROW_PX, padding: '10px 12px', background: w.card.background, border: `1px solid ${w.card.border}`, color: w.card.ink }}
     >
       <span
         className="shrink-0 rounded-full"
@@ -118,91 +110,27 @@ function PreviewRow({ p }: { p: Preview }) {
 }
 
 /**
- * A week of socials before it is known (S2 critique: the page moved 0.09-0.29 as reads answered).
- * It holds the room most lower halves turn into -- 159 of 189 dancers hold no other role, so they
- * get socials, and a London week fills all SOCIALS_MAX rows -- so the invite and the footer below
- * stay put. `heading` false = the real heading is already on screen.
+ * S6 (owner): the lower half is the dancer's own dated worlds or nothing. While a teacher / DJ
+ * person's dates load it holds ONE preview row (no heading: it may turn into nothing); a
+ * dancer-only person, or one whose roles are still being read, gets no box at all.
  */
-function SkeletonWeek({ heading = true }: { heading?: boolean }) {
-  return (
-    <div aria-hidden>
-      {heading ? <div data-testid="dancer-world-skeleton-heading" className="animate-pulse rounded-md" style={{ height: 23, width: '70%', marginBottom: 6, background: T.section.row }} /> : null}
-      {/* The first day's label sits above the first row. */}
-      <div style={{ height: 30 }} />
-      {Array.from({ length: SOCIALS_MAX }, (_, i) => (
-        <div key={i} data-testid="dancer-world-skeleton-row" className="mt-1 animate-pulse rounded-xl" style={{ height: 52, background: T.section.row }} />
-      ))}
-      <div data-testid="dancer-world-skeleton-button" className="mt-[10px] rounded-full" style={{ height: TAP, border: `1px solid ${T.section.border}` }} />
-    </div>
-  );
-}
-
-function Socials({ heading, city, state }: { heading: string; city: string; state: SocialsState }) {
-  return (
-    <section data-testid="dancer-world-socials" data-state={state.status} aria-busy={state.status === 'loading'}>
-      <H2>{heading}</H2>
-      {state.status === 'loading' ? (
-        <SkeletonWeek heading={false} />
-      ) : state.status === 'error' || state.days.length === 0 ? (
-        <>
-          <p data-testid="dancer-world-socials-empty" style={{ fontSize: 14, color: T.card.muted }}>
-            {state.status === 'error' ? SOCIALS_COPY.error : SOCIALS_COPY.empty(city)}
-          </p>
-          <PillLink to={PARTY_ACTION.href} testId="dancer-world-socials-all">{PARTY_ACTION.label}</PillLink>
-        </>
-      ) : (
-        <>
-          {state.days.map((d) => (
-            <div key={d.day}>
-              <h3 style={{ margin: '10px 0 4px', fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700, color: T.accent }}>{d.label}</h3>
-              {d.rows.map((r) => (
-                <Link
-                  key={r.key}
-                  to={r.href}
-                  className={`mt-1 flex items-center gap-3 rounded-xl ${FOCUS_RING}`}
-                  style={{ minHeight: 52, padding: '6px 12px', background: T.section.row, border: `1px solid ${T.section.border}` }}
-                >
-                  {r.time ? (
-                    <span data-testid="dancer-world-social-time" className="shrink-0 tabular-nums" style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>
-                      {r.time}
-                    </span>
-                  ) : null}
-                  <span className="flex min-w-0 flex-col">
-                    <b style={{ fontSize: 14, color: T.card.ink, overflowWrap: 'anywhere' }}>{r.name}</b>
-                    {r.venue ? <small style={{ fontSize: 13, color: T.card.muted, overflowWrap: 'anywhere' }}>{r.venue}</small> : null}
-                  </span>
-                  <Arrow />
-                </Link>
-              ))}
-            </div>
-          ))}
-          <PillLink to={ALL_SOCIALS_HREF} testId="dancer-world-socials-all">{SOCIALS_COPY.all}</PillLink>
-        </>
-      )}
-    </section>
-  );
-}
-
 function Lower({ lower }: { lower: DancerLower }) {
   const half = lower.half;
   if (!half) {
+    if (!lower.reserve) return null;
     return (
       <div data-testid="dancer-world-lower" data-kind="loading" aria-busy className="mt-4">
-        <SkeletonWeek />
+        <div data-testid="dancer-world-preview-reserve" aria-hidden className="mt-2 animate-pulse rounded-[14px]" style={{ height: PREVIEW_ROW_PX, background: T.section.row }} />
       </div>
     );
   }
   return (
-    <div data-testid="dancer-world-lower" data-kind={half.kind} className="mt-4">
-      {half.kind === 'previews' ? (
-        <section>
-          <H2>{half.heading}</H2>
-          {half.items.some((p) => p.role === 'dj') ? <DjSerif /> : null}
-          {half.items.map((p) => <PreviewRow key={p.role} p={p} />)}
-        </section>
-      ) : (
-        <Socials heading={half.heading} city={half.city} state={lower.socials} />
-      )}
+    <div data-testid="dancer-world-lower" data-kind="previews" className="mt-4">
+      <section>
+        <H2>{half.heading}</H2>
+        {half.items.some((p) => p.role === 'dj') ? <DjSerif /> : null}
+        {half.items.map((p) => <PreviewRow key={p.role} p={p} />)}
+      </section>
     </div>
   );
 }
@@ -211,14 +139,13 @@ function Lower({ lower }: { lower: DancerLower }) {
 const CARD_SKELETON_PX = 233;
 
 /**
- * The dancer read in flight: the world's own boxes at the sizes the page turns into (card, a week
- * of socials, the invite when this visitor will get it), so nothing below moves when it answers.
+ * The dancer read in flight: the world's own boxes at the sizes most pages turn into (the card and
+ * the invite when this visitor will get it; no lower half, S6), so nothing below moves when it answers.
  */
 export function DancerWorldSkeleton({ invite }: { invite: boolean }) {
   return (
     <div className="mt-3" aria-hidden>
       <div data-testid="dancer-world-skeleton-card" className="animate-pulse rounded-[20px]" style={{ height: CARD_SKELETON_PX, background: T.section.background }} />
-      <div className="mt-4"><SkeletonWeek /></div>
       {invite ? (
         <div data-testid="dancer-world-skeleton-invite" className="mt-6 rounded-[14px] p-3" style={{ background: T.section.background, border: `1px solid ${T.section.border}` }}>
           <div style={{ height: 22 }} />
@@ -230,7 +157,7 @@ export function DancerWorldSkeleton({ invite }: { invite: boolean }) {
 }
 
 /**
- * The dancer world (people arc S2): the teal card, contacts, the D6 lower half and the D8
+ * The dancer world (people arc S2): the teal card, contacts, the D6 previews (S6: or nothing) and the D8
  * invite. Formats nothing itself: the card is `dancerCard()`, the lower half `useDancerLower()`.
  */
 export function DancerWorld({ card, lower, inviteHref, ownerPlans }: {

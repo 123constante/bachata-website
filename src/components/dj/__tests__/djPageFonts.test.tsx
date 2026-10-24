@@ -50,7 +50,7 @@ describe('useDjPageFonts', () => {
     ['a DJ and a teacher preview', [preview('teacher'), preview('dj')], 1],
     ['a teacher preview only', [preview('teacher')], 0],
   ] as const)('a dancer page with %s loads the DJ serif only for a DJ preview', (_who, items, n) => {
-    const lower = { roles: [], socials: { status: 'loading' as const }, half: { kind: 'previews' as const, heading: 'Coming up', items: [...items] } };
+    const lower = { roles: [], reserve: false, half: { heading: 'Coming up' as const, items: [...items] } };
     const r = render(<MemoryRouter><DancerWorld card={card} lower={lower} inviteHref={null} /></MemoryRouter>);
     expect(links()).toHaveLength(n);
     r.unmount();

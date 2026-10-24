@@ -1,30 +1,16 @@
 // People arc S2: the dancer world as plain data, so the matrix tests check every shape
 // without rendering. Every fact goes through facts/ (the one shared mapping); this file
 // only decides WHICH facts show and which lower half the page gets (owner D3/D6/D8).
-import { isFestivalByFormat } from '@/lib/eventFormat';
 import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
-import { eventHref } from '@/lib/seo/eventHref';
 import { londonWallClockToInstant } from '@/lib/londonDate';
-import { FIND_A_PARTY, cityLabel, dateLabel, flagCode, gigDateLabel, languageLine, londonDayOf, timeLabel, wallDayOf, worldNames } from '../../facts';
+import { cityLabel, flagCode, gigDateLabel, languageLine, wallDayOf, worldNames } from '../../facts';
 import { ROLE_LABEL, rolePagePath, type PersonRole } from '../../personRoles';
-
-/** Owner D6: a dancer with no city gets London's socials, and the copy says "in London". */
-export const DEFAULT_CITY = 'London';
 
 /** The card photo's diameter (px); the photo is fetched at 2x this through the image CDN. */
 export const FACE_PX = 112;
 
-/** At most this many socials rows; the "All socials this week" button opens the rest. */
-export const SOCIALS_MAX = 6;
-
 /** Owner D8: the invite under every dancer world (the button goes to the site's sign-up entry). */
 export const INVITE = { lead: 'Dance bachata too?', button: 'Get your own card' } as const;
-
-/** Where "All socials this week" and every socials empty/error state send the person. */
-export const ALL_SOCIALS_HREF = '/parties';
-
-/** Owner D12: the one button when there is nothing to show ("Find a party" -> /parties), shared with the DJ world. */
-export const PARTY_ACTION = FIND_A_PARTY;
 
 export type WorldContact = { kind: 'instagram' | 'facebook' | 'website' | 'email' | 'whatsapp'; href: string; label: string };
 
@@ -105,65 +91,15 @@ export function previewOf(role: 'teacher' | 'dj', slug: string, next: Appearance
   return { role, kicker: ROLE_LABEL[role], href: rolePagePath(role, slug), line: `${NEXT_LINE[role]} ${day}`, detail: detail || null };
 }
 
-export type LowerHalf =
-  | { kind: 'previews'; heading: string; items: Preview[] }
-  | { kind: 'socials'; heading: string; city: string };
+/** Owner D6 + S6: "Coming up" with the dancer's own dated worlds. There is no other lower half. */
+export type LowerHalf = { heading: 'Coming up'; items: Preview[] };
 
 /**
- * Owner D6: another world with an upcoming date -> its preview; otherwise the socials in the
- * person's city this week, London (and the copy says so) when they have no city.
+ * Owner D6: another world with an upcoming date -> its preview. S6 (owner, phone test 2026-10-24):
+ * otherwise nothing (null) -- the "Socials in <city> this week" filler read as the dancer's own plans,
+ * so the invite follows the card and contacts directly. Never a heading without an item under it.
  */
-export function lowerHalf(previews: readonly (Preview | null)[], city: string | null | undefined): LowerHalf {
+export function lowerHalf(previews: readonly (Preview | null)[]): LowerHalf | null {
   const items = previews.filter((p): p is Preview => p !== null);
-  if (items.length) return { kind: 'previews', heading: 'Coming up', items };
-  const where = cityLabel(city) ?? DEFAULT_CITY;
-  return { kind: 'socials', heading: `Socials in ${where} this week`, city: where };
+  return items.length ? { heading: 'Coming up', items } : null;
 }
-
-export type CalendarLike = {
-  event_id: string;
-  slug?: string | null;
-  occurrence_id?: string | null;
-  name: string | null;
-  location?: string | null;
-  /** Festival rows (one per festival day) are not socials: the calendar lists festivals apart. */
-  type?: string | null;
-  format?: string | null;
-  has_party?: boolean | null;
-  is_cancelled?: boolean | null;
-  /** The occurrence's calendar day ("2026-10-23"). The day comes from here, never from a wall clock. */
-  instance_date?: string | null;
-  /** A WallClock (London local, not an instant): used only to order a day's rows. */
-  occurrence_starts_at?: unknown;
-};
-
-/** `time` is the stored clock ("21:00") through facts.timeLabel; null when none is given. */
-export type SocialRow = { key: string; href: string; time: string | null; name: string; venue: string | null };
-export type SocialsDay = { day: string; label: string; rows: SocialRow[] };
-
-/** This week's socials (parties, not festivals, not cancelled, from today on), soonest first, grouped by London day. */
-export function socialsThisWeek(rows: readonly CalendarLike[], today: string, max = SOCIALS_MAX): { days: SocialsDay[]; total: number } {
-  const picked = rows
-    .filter((r) => r.has_party && !r.is_cancelled && !isFestivalByFormat({ format: r.format ?? null, type: r.type ?? null }) && clean(r.name))
-    .map((r) => ({ r, day: londonDayOf(r.instance_date ?? null) }))
-    .filter((x): x is { r: CalendarLike; day: string } => x.day !== null && x.day >= today)
-    .sort((a, b) => a.day.localeCompare(b.day) || String(a.r.occurrence_starts_at ?? '').localeCompare(String(b.r.occurrence_starts_at ?? '')));
-  const days: SocialsDay[] = [];
-  for (const { r, day } of picked.slice(0, max)) {
-    let group = days.find((d) => d.day === day);
-    if (!group) {
-      group = { day, label: dateLabel(day) as string, rows: [] };
-      days.push(group);
-    }
-    const at = typeof r.occurrence_starts_at === 'string' ? r.occurrence_starts_at : null;
-    group.rows.push({ key: `${r.event_id}:${r.occurrence_id ?? day}`, href: eventHref(r, r.occurrence_id), time: timeLabel(at), name: clean(r.name) as string, venue: clean(r.location) });
-  }
-  return { days, total: picked.length };
-}
-
-/** The socials states, each saying what the person can do. */
-export const SOCIALS_COPY = {
-  empty: (city: string) => `No socials listed in ${city} this week yet. See every party on the calendar.`,
-  error: "This week's socials did not load. You can still see every party on the calendar.",
-  all: 'All socials this week',
-} as const;

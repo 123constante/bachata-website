@@ -3,6 +3,7 @@
 // footer comes straight after a short page. Every other page keeps min-h-screen (the default).
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import GlobalLayout from '../GlobalLayout';
 
@@ -33,5 +34,19 @@ describe('GlobalLayout fitContent', () => {
     const el = root({});
     expect(el.hasAttribute('data-fit-content')).toBe(false);
     expect(el.querySelector('style')).toBeNull();
+  });
+  // S6 walk (2026-10-24): React escaped the rule's ">" in the SERVED html ("&gt;"), so the browser
+  // dropped it, the route wrapper kept a full screen until hydration, and the footer then jumped up
+  // on every short world page (CLS 0.05-0.12 on a dancer-only page at 390x844).
+  it('fitContent: the served html carries the rule as written, not entity-escaped', () => {
+    const html = renderToString(
+      <MemoryRouter>
+        <GlobalLayout showSubheader={false} fitContent gradientPalette="dancer">
+          <p>content</p>
+        </GlobalLayout>
+      </MemoryRouter>,
+    );
+    expect(html).toContain('<style>.route-shell:has(> [data-fit-content]){min-height:0}</style>');
+    expect(html).not.toContain(':has(&gt;');
   });
 });

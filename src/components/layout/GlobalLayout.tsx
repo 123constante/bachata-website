@@ -217,8 +217,9 @@ const GlobalLayout = ({
 
   return (
     <div className={`${fitContent ? '' : 'min-h-screen '}text-foreground overflow-x-clip relative`} data-fit-content={fitContent || undefined}>
-      {/* In the served HTML too, so the footer does not move up on hydration. */}
-      {fitContent ? <style>{FIT_CONTENT_CSS}</style> : null}
+      {/* In the served HTML too, so the footer does not move up on hydration. As raw HTML: a text
+          child is entity-escaped on the server (">" -> "&gt;"), which voids the rule until hydration. */}
+      {fitContent ? <style dangerouslySetInnerHTML={{ __html: FIT_CONTENT_CSS }} /> : null}
       {showProgressBar && (
         <motion.div
           className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-festival-pink to-festival-purple z-40 origin-left"
