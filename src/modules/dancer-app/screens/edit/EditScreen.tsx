@@ -7,6 +7,10 @@ import { LINK_GHOST, ScreenTitle, TEXT_ACTION } from '../blocks';
 import { useLeaveGuard } from '../../shell/leaveGuard';
 import { useMutation } from '@tanstack/react-query';
 import { CityPicker } from '@/components/ui/city-picker';
+import { InstagramInput } from '@/components/forms/InstagramInput';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+// The phone field (+ its country list) loads with this screen, not with /app (bundle budget, invite W2).
+const PhoneInput = lazyWithRetry(() => import('@/components/forms/PhoneInput').then((m) => ({ default: m.PhoneInput })));
 import { NationalityPicker } from '@/components/ui/nationality-picker';
 import { HideSurnameSwitch, hideSurnameDisabledReason } from '@/components/profile/HideSurnameSwitch';
 import { FAVORITE_STYLE_OPTIONS } from '@/components/profile/dancerConstants';
@@ -344,7 +348,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
         </Field>
 
         <Field id="instagram" label="Instagram" error={shown('instagram')} note={note('instagram')}>
-          <TextInput id="instagram" value={draft.instagram} placeholder="your.handle" onChange={(v) => set('instagram', v)} error={shown('instagram')} />
+          <InstagramInput id="instagram" value={draft.instagram} stored={profile.instagram} onChange={(v) => set('instagram', v)} error={shown('instagram')} renderError={false} />
         </Field>
         <Field id="facebook" label="Facebook" error={shown('facebook')} note={note('facebook')}>
           <TextInput id="facebook" value={draft.facebook} placeholder="your.handle" onChange={(v) => set('facebook', v)} error={shown('facebook')} />
@@ -355,8 +359,10 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
 
         {eligibleWhatsapp && (
           <div data-testid="edit-whatsapp" className="grid gap-[10px]">
-            <Field id="whatsapp" label="WhatsApp" hint="(number with country code)" error={shown('whatsapp')} note={note('whatsapp')}>
-              <TextInput id="whatsapp" type="tel" inputMode="tel" value={draft.whatsapp} placeholder="+44 7700 900123" onChange={(v) => set('whatsapp', v)} error={shown('whatsapp')} />
+            <Field id="whatsapp" label="WhatsApp" error={shown('whatsapp')} note={note('whatsapp')}>
+              <Suspense fallback={<div className="h-[48px]" aria-hidden="true" />}>
+                <PhoneInput inputId="whatsapp" value={draft.whatsapp} stored={profile.whatsapp ?? ''} onChange={(e164) => set('whatsapp', e164)} error={shown('whatsapp')} renderError={false} />
+              </Suspense>
             </Field>
             <div className="flex min-h-[44px] items-center justify-between gap-[12px]">
               <label htmlFor="show_whatsapp_publicly" className="text-[15px] font-semibold">Show my WhatsApp on my page</label>

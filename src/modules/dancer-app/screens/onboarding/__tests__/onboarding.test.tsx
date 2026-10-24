@@ -92,13 +92,16 @@ describe('disabled with a visible reason', () => {
     expect(screen.getByTestId('onboarding-reason').textContent).toMatch(/Leader, Follower or Both/);
   });
 
-  it('the photo card cannot be skipped: no Continue, no Skip, only the hand-off', async () => {
+  it('the photo card has no Continue/Skip; its sentence names the header "Not now", which is present', async () => {
     open('adminUnclaimedPhotoless');
     await stage('photo');
     expect(screen.queryByRole('button', { name: /continue|skip/i })).toBeNull();
     // Audit M9: ONE button to the photo screen (it owns the camera / library choice).
     expect(screen.getByTestId('onboarding-add-photo').getAttribute('href')).toBe('/app/me/photo?return=/app/welcome');
-    expect(screen.getByTestId('onboarding-reason').textContent).toMatch(/cannot be skipped/);
+    const reason = screen.getByTestId('onboarding-reason').textContent ?? '';
+    expect(reason).toMatch(/"Not now"/);
+    expect(reason).not.toMatch(/cannot be skipped/);
+    expect(screen.getByTestId('dancer-app-not-now').textContent).toMatch(/Not now/);
   });
 });
 

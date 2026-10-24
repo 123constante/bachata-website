@@ -82,7 +82,7 @@ const OptionsScreen = () => {
       return external ? (
         <LinkRow key={row.id} href={row.href} external label={row.label} testId={`opt-${row.id}`} />
       ) : (
-        <LinkRow key={row.id} to={row.href} label={row.label} testId={`opt-${row.id}`} />
+        <LinkRow key={row.id} to={row.href} label={row.label} sublabel={row.sublabel} testId={`opt-${row.id}`} />
       );
     }
     const onClick = async () => {
