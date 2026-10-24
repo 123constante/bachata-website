@@ -391,6 +391,28 @@ check:pr-mergeable`.
 **not** a `pull_request` workflow — that trigger is what fails to queue on a
 conflicting PR in the first place.
 
+**Paging and retries (2026-10-24).** The sweep used to be ONE query for every
+open PR with its rollup (100 PRs x 100 contexts, ~10,100 nodes); GitHub
+answered HTTP 504 about 11 s in on every run, and 136 PRs were open, beyond
+that one page anyway. Now it is two light steps: PR numbers are listed by
+cursor (100 per call, numbers only), then full fields are read 20 PRs per call
+as aliases (~2,020 nodes), and only open PRs still `UNKNOWN` are re-polled. A
+list shorter than GitHub's open count is refused (exit 2). Status POSTs are
+skipped when the PR already carries the same state and description, which keeps
+~136 writes per sweep under `GITHUB_TOKEN`'s REST limit. Both GraphQL and the
+status POST retry 502/503/504 and network errors: 3 attempts (2 s, then 5 s),
+30 s per request, at most 180 s of failed attempts plus waits per run. A 4xx
+or a GraphQL `errors` body never retries and exits 2. If GitHub is still down
+after the retries, the guard prints `GITHUB-OUTAGE`, names every PR it could
+not judge (`NOT JUDGED (n): #...`) or publish to, publishes nothing for them,
+raises an Actions `::warning::`, never prints the pass line, and exits **0**.
+It exits 0 because the workflow reds on any non-zero exit, and an outage is not
+a verdict. `PR_GUARD_OUTAGE_STRICT=1` makes it exit 2 instead. A conflict that
+WAS judged still exits 1 first. **The `--sha` canary still exits 2 in an
+outage, and the workflow's canary-health step then reds the job.** Fixing that
+needs a workflow edit, which is in the record:
+`docs/guard-notes/mergeable-sweep-504/HANDOVER.md`.
+
 ---
 
 ## Workflow inventory
