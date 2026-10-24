@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { optimizedImageUrl } from '@/lib/imageCdn';
+import { useListImpressions } from '@/lib/listImpressions';
 import { normalizeUrl, parseDateParts } from './djFormat';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
 import { useEmbeddedProfile } from '@/lib/embeddedProfile';
@@ -413,6 +414,7 @@ export function DjGenresEq({ genres, weights }: { genres: string[]; weights?: nu
 // Upcoming gigs (future timeline events)
 // ============================================================
 export function DjUpcoming({ gigs }: { gigs: DjGig[] }) {
+  const track = useListImpressions('profile');
   if (!gigs.length) return null;
   return (
     <div style={TILE}>
@@ -424,6 +426,7 @@ export function DjUpcoming({ gigs }: { gigs: DjGig[] }) {
           return (
             <Link
               key={g.eventId}
+              ref={track(g.eventId)}
               to={`/event/${g.eventId}`}
               className="flex items-center gap-4 px-4 py-3.5"
               style={{

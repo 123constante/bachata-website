@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Camera, Mail, MessageCircle, X } from 'lucide-react';
 import { supportLinks } from '@/modules/organiser/shared/support';
+import { REQUIRED_HINT } from '@/modules/organiser/shared/goLiveKeys';
 import type { WizardStepProps } from '@/modules/areas/wizardStep';
 import { Chip, FIELD_CLASS, PrimaryButton, useDebounced } from '../ui';
 import { needsTeamHelp } from './dancerApi';
@@ -16,7 +17,7 @@ import { useWizardEnv, type WizardEnv } from './wizardEnv';
 import { LIST_ITEM_MAX, LIST_MAX_ITEMS, isBlankAnswer, withPendingItem } from './wizardModel';
 
 export const SKIP_LABEL = 'Skip for now';
-export const REQUIRED_HINT = 'Needed before your events can go live.';
+export { REQUIRED_HINT };
 /** Why a list step's Add is off while nothing is typed (on screen, linked to the button). */
 export const LIST_ADD_HINT = 'Type one first, then tap Add.';
 /** Why it is off once the list is full. */
@@ -33,7 +34,7 @@ export function SkipButton({ onSkip, disabled }: { onSkip: () => void; disabled:
 }
 
 /** "Optional." (plus the help) on optional steps; the required reason on required ones. */
-function Hint({ id, required, help }: { id: string; required: boolean; help?: ReactNode }) {
+export function Hint({ id, required, help }: { id: string; required: boolean; help?: ReactNode }) {
   const text = required ? (help ? <>{help} {REQUIRED_HINT}</> : REQUIRED_HINT) : help ? <>Optional. {help}</> : 'Optional.';
   return <p id={id} data-testid="step-hint" className="text-[13px] text-[var(--mut)]">{text}</p>;
 }
@@ -64,7 +65,7 @@ function TeamHelp() {
   );
 }
 
-function StepError({ error }: { error: string | null }) {
+export function StepError({ error }: { error: string | null }) {
   if (!error) return null;
   return (
     <>
@@ -75,7 +76,7 @@ function StepError({ error }: { error: string | null }) {
 }
 
 /** Continue once something is entered; else Skip (optional) or a disabled Continue with its reason (required). */
-function StepFooter({ blank, required, saving, hintId, onContinue, onSkip }: {
+export function StepFooter({ blank, required, saving, hintId, onContinue, onSkip }: {
   blank: boolean; required: boolean; saving: boolean; hintId: string; onContinue: () => void; onSkip?: () => void;
 }) {
   if (blank && !required) return onSkip ? <SkipButton onSkip={onSkip} disabled={saving} /> : null;
@@ -86,7 +87,7 @@ function StepFooter({ blank, required, saving, hintId, onContinue, onSkip }: {
   );
 }
 
-function Frame({ testId, children }: { testId: string; children: ReactNode }) {
+export function Frame({ testId, children }: { testId: string; children: ReactNode }) {
   return <div className="space-y-[16px]" data-testid={testId}>{children}</div>;
 }
 

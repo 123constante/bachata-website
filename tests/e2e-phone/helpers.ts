@@ -1,6 +1,6 @@
 import type { Page, Route } from '@playwright/test';
 import {
-  answer, FAKE_ORIGIN, FAKE_REF, FLAG_DANCER_ID, FLAG_DJ_ID, FLAG_EVENT_SLUG, FLAG_FESTIVAL_SLUG, ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG, ORG3_SLUG, VENDOR_ID,
+  answer, FAKE_ORIGIN, FAKE_REF, goLiveRpcs, FLAG_DANCER_ID, FLAG_DJ_ID, FLAG_EVENT_SLUG, FLAG_FESTIVAL_SLUG, ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG, ORG3_SLUG, VENDOR_ID,
 } from './fakeSupabase.mjs';
 
 export { ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG };
@@ -15,7 +15,10 @@ const b64url = (value: unknown) =>
  * The browser half of the fake (the server half is fakeSupabasePreload.mjs): every
  * call to the Supabase origin is answered by the same answer(). Writes are refused there.
  */
-export async function fakeSupabase(page: Page, opts: { signedInAsOwner?: boolean; realClock?: boolean; asDancer?: string } = {}) {
+export type GoLiveScenario = Parameters<typeof goLiveRpcs>[0];
+
+export async function fakeSupabase(page: Page, opts: { signedInAsOwner?: boolean; realClock?: boolean; asDancer?: string; goLive?: GoLiveScenario; contactPhone?: string | null; raffle?: boolean } = {}) {
+  const goLive = opts.goLive ? goLiveRpcs(opts.goLive) : null;
   // One fixed "now" in the browser, so date-driven UI (calendar day cells,
   // "today") renders the same every run. Mid-month ON PURPOSE: the calendar's
   // past days include two-digit numbers, and axe reports single-character text
@@ -44,6 +47,27 @@ export async function fakeSupabase(page: Page, opts: { signedInAsOwner?: boolean
     }
     if (opts.asDancer && path === '/rest/v1/rpc/profile_complete_v1') {
       return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: 'true' });
+    }
+    // `goLive`: the "Almost live" / Go live reads for one scenario (fakeSupabase.mjs goLiveRpcs).
+    const rpcName = path.startsWith('/rest/v1/rpc/') ? path.slice('/rest/v1/rpc/'.length) : null;
+    // `contactPhone`: the stored contact phone of every organiser (e.g. a legacy number saved without its '+').
+    if (opts.contactPhone !== undefined && rpcName === 'get_organiser_contact_settings_v1') {
+      const body = { contact_phone: opts.contactPhone, contact_email: 'hello@example.com', show_phone_publicly: true, show_email_publicly: false, show_contact_publicly: true, claim_email: null };
+      return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    }
+    // `raffle`: every event has an open raffle (the entry dialog; submit is never pressed).
+    if (opts.raffle && rpcName === 'get_event_raffle') {
+      const body = {
+        enabled: true, config_source: 'custom', entry_count: 3, total_winners: 0, prize_text: 'A free pass', draw_date: null,
+        cutoff_at: '2099-11-20T19:00:00.000Z', cutoff_offset_minutes: null, cutoff_time: '19:00', cutoff_passed: false,
+        consent_version: 'v1', winner_display: null, my_status: null,
+      };
+      return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    }
+    if (goLive && rpcName && Object.prototype.hasOwnProperty.call(goLive, rpcName)) {
+      let args: Record<string, unknown> = {};
+      try { args = JSON.parse(req.postData() || '{}'); } catch { /* no body */ }
+      return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(goLive[rpcName](args)) });
     }
     const res = answer({ method: req.method(), url: req.url(), headers: req.headers(), body: req.postData() });
     return route.fulfill(res);

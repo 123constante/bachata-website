@@ -29,6 +29,7 @@ import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
 import OptionsScreen_ from '../OptionsScreen';
 import {
   BECOME_ORGANISER_LABEL,
+  BECOME_ORGANISER_BETA_NOTE,
   HIDDEN_SHARE_REASON,
   detectPlatform,
   installOrder,
@@ -91,11 +92,13 @@ describe('options model x every production shape', () => {
     const organiser = rows.find((r) => r.id === 'switch-organiser')!;
     if (runsEvents) {
       expect(organiser.label).toBe('I run events');
+      expect(organiser.sublabel).toBeUndefined();
       expect(organiser.href).toBe('/account/o');
       expect(organiser.disabledReason).toBeUndefined();
     } else {
       // The organiser onboarding (find and claim, request access, or create) lives at /account/o.
       expect(organiser.label).toBe(BECOME_ORGANISER_LABEL);
+      expect(organiser.sublabel).toBe(BECOME_ORGANISER_BETA_NOTE);
       expect(organiser.href).toBe('/account/o');
       expect(organiser.disabledReason).toBeUndefined();
       expect(rows.some((r) => r.label === 'I run events')).toBe(false);
@@ -136,6 +139,7 @@ describe('options screen', () => {
     const { location } = await shown({ backend: { profile: makeProfile({ other_roles: [] }) } });
     expect(screen.queryByText('I run events')).toBeNull();
     expect(screen.getByTestId('opt-switch-organiser').textContent).toContain(BECOME_ORGANISER_LABEL);
+    expect(screen.getByTestId('opt-switch-organiser').textContent).toContain('During the beta, new organiser pages are approved by hand.');
     fireEvent.click(screen.getByTestId('opt-switch-organiser'));
     await waitFor(() => expect(location()).toBe('/account/o'));
   });

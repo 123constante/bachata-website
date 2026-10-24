@@ -220,3 +220,10 @@ jobs:
         run: |
           npm run prove:entry-point:self-test
           npm run prove:entry-point
+
+      - name: Going legacy-RPC guard (canary, then the guard)
+        if: steps.changes.outputs.docs_only != 'true'
+        timeout-minutes: 2
+        run: |
+          node scripts/check-going-legacy-rpcs.mjs --self-test
+          npm run check:going-legacy-rpcs

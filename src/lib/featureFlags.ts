@@ -39,6 +39,10 @@ export const flags = {
   // card per role page; wall tiles open it. OFF = the tabbed /people/:id page and the wall links
   // exactly as before. Turn on with VITE_ENABLE_PERSON_HUB=true (Vercel env) -- no code change.
   personHub:           import.meta.env.VITE_ENABLE_PERSON_HUB === 'true',
+  // The three people worlds (teacher timetable, DJ sleeve, dancer card) built on
+  // src/modules/person-page/{facts,frame,worlds}. OFF = every role page exactly as before.
+  // Turn on with VITE_ENABLE_PERSON_WORLDS=true (Vercel env) -- no code change.
+  personWorlds:        import.meta.env.VITE_ENABLE_PERSON_WORLDS === 'true',
   // Self-owned RUM (web-vitals -> record_web_vital_v1, see lib/webVitals.ts).
   // OFF until the admin-repo migration ships the RPC; flipping this in Vercel
   // env enables reporting with no code change.
@@ -48,6 +52,9 @@ export const flags = {
   // external storage (Vercel KV / S3). Re-enable after Phase 2 completes.
   // Default: true in dev, false in prod until Phase 2 migration lands.
   enableEventTracking: import.meta.env.VITE_ENABLE_EVENT_TRACKING !== 'false',
+  // "Seen in lists" impressions (src/lib/listImpressions.ts -> record_list_impressions_v1).
+  // ON unless the env var is exactly 'false' (the off switch); also honours enableEventTracking.
+  listImpressions: import.meta.env.VITE_ENABLE_LIST_IMPRESSIONS !== 'false',
   enableProfileTracking: import.meta.env.VITE_ENABLE_PROFILE_TRACKING !== 'false',
   // Organiser self-serve (Lever 2: /account, onboarding, organiser home).
   // OFF in production until launch; the route redirects home and the header

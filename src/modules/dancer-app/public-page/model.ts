@@ -1,5 +1,8 @@
 import type { DancerPublicViewModel } from '@/modules/profile/dancerPublicProfile';
 import { buildSignInHref } from '@/lib/authRouting';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
+import { nightLine } from '@/modules/going/goingCopy';
+import type { GoingNextNight } from '@/modules/going/goingRpc';
 
 /**
  * Public dancer page v2 (W2f / B1b S2): everything the page SHOWS, as plain data,
@@ -12,7 +15,13 @@ import { buildSignInHref } from '@/lib/authRouting';
  * HTML and the first paint agree. `null` = today's page, byte-for-byte: the flag
  * is closed, or the flag read failed.
  */
-export type PublicPageExtras = { bio: string | null; languages: string[]; whatsapp: string | null };
+export type PublicPageExtras = {
+  bio: string | null;
+  languages: string[];
+  whatsapp: string | null;
+  /** get_public_dancer_extras_v1 going_next (max 3); absent = none. */
+  goingNext?: readonly GoingNextNight[];
+};
 /** `extrasOk` false = the extras read failed: the page then claims nothing about contacts it could not read. */
 export type PublicPageV2Data = { extras: PublicPageExtras; extrasOk: boolean };
 
@@ -159,11 +168,14 @@ export const facebookLabel = (url: string | null): string | null => {
 /** `label` is what the row shows (the handle or address); `copyText` is the FULL text the Copy button copies. */
 export type ContactLink = { kind: 'instagram' | 'facebook' | 'website' | 'email' | 'whatsapp'; href: string; label: string; copyText: string };
 
-/** One "Going next" card. Built from the dancer's own opt-in list; see GoingNextInput. */
-export type GoingNextEvent = { id: string; date: string; name: string; venue: string | null };
-export type GoingNextInput = { optIn: boolean; events: readonly GoingNextEvent[] };
-/** 1 event = one full-width card, 2 = side by side, more = the first two plus "See all N events". */
-export type GoingNextModel = { shown: GoingNextEvent[]; total: number; seeAll: boolean };
+/** One "Going next" card: one NIGHT (an occurrence). `href` null = no public event, no link. */
+export type GoingNextEvent = { id: string; date: string; name: string; href: string | null };
+/**
+ * F13 layout: 1 night = one full-width card, 2 = side by side, 3 = the first two plus
+ * "See all 3", which opens the rest IN PLACE (the RPC sends at most 3, so the page
+ * already holds them all: no other page to send the visitor to).
+ */
+export type GoingNextModel = { shown: GoingNextEvent[]; rest: GoingNextEvent[]; total: number; seeAll: boolean };
 
 /**
  * F13 teal card facts. A column exists only when its value does; none = no row.
@@ -186,10 +198,25 @@ export const practiceGoalText = (goals: readonly string[]): string | null => {
   return picked.length ? picked.join(' and ') : null;
 };
 
-export const goingNextModel = (input: GoingNextInput | undefined): GoingNextModel | null => {
-  // Going is private and beta-only today: OFF unless the dancer opted in.
-  if (!input?.optIn || input.events.length === 0) return null;
-  return { shown: input.events.slice(0, 2), total: input.events.length, seeAll: input.events.length > 2 };
+/** "Thursday 29 Oct \u00b7 9 PM" from starts_at_local AS STORED (never new Date()). */
+const goingNextCard = (n: GoingNextNight): GoingNextEvent => ({
+  id: n.occurrence_id,
+  // The time is held together ("9 PM" with a no-break space): in the 2-up cards the
+  // line wraps, and a plain space let "PM" fall onto a line of its own.
+  date: nightLine(n.starts_at_local)?.replace(/ (AM|PM)$/, '\u00a0$1') ?? nightLine(n.occurrence_date) ?? 'Date to be confirmed',
+  name: n.event_title?.trim() || 'Untitled event',
+  href: n.public_event_id ? `/event/${n.public_event_id}` : null,
+});
+
+/**
+ * Going P2 (owner decision 5): "Going next" ALWAYS shows on a public page while the going
+ * switch is on -- there is no opt-in. A hidden page has no extras (SQL NULL), so no section;
+ * no nights = no section (nothing to show a visitor, and no control a visitor could use).
+ */
+export const goingNextModel = (nights: readonly GoingNextNight[] | undefined, on: boolean = GOING_CHECKIN_ENABLED): GoingNextModel | null => {
+  if (!on || !nights || nights.length === 0) return null;
+  const cards = nights.map(goingNextCard);
+  return { shown: cards.slice(0, 2), rest: cards.slice(2), total: cards.length, seeAll: cards.length > 2 };
 };
 
 export type PublicDancerPageModel = {
@@ -236,7 +263,6 @@ export const buildPublicDancerPage = (
   view: DancerPublicViewModel,
   extras: PublicPageExtras,
   galleryUrls: readonly unknown[] = [],
-  goingNext?: GoingNextInput,
 ): PublicDancerPageModel => {
   const name = view.displayName ?? 'Dancer';
   const years = view.yearsDancing !== null ? Number(view.yearsDancing) : NaN;
@@ -278,7 +304,7 @@ export const buildPublicDancerPage = (
       style: clean(view.favoriteStyles).join(', ') || null,
     },
     stamp: view.lookingForPartner ? { goal: practiceGoalText(clean(view.partnerPracticeGoals)) } : null,
-    goingNext: goingNextModel(goingNext),
+    goingNext: goingNextModel(extras.goingNext),
     practice: hasPractice
       ? {
           status: view.lookingForPartner ? 'Up for practice' : 'Not right now',

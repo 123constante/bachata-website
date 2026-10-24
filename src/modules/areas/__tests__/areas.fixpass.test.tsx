@@ -121,7 +121,7 @@ describe('finding 2 (D27): a typed list item that was not added is kept', () => 
   it('profile: type, no Add -> Save is enabled and sends the term', async () => {
     answers.save_my_role_v1 = ok({ role: 'teacher', person_id: 'p1', changed: true, changed_keys: ['teaching_styles'], details: { ...DETAILS.teacher, teaching_styles: ['Sensual', 'Moderna'] } });
     mount(<TeacherProfilePage />);
-    fireEvent.change(await screen.findByLabelText('Styles you teach (optional)'), { target: { value: '  Moderna ' } });
+    fireEvent.change(await screen.findByLabelText('Styles you teach', { selector: 'input' }), { target: { value: '  Moderna ' } });
     const save = screen.getByTestId('save-details') as HTMLButtonElement;
     expect(save.disabled).toBe(false);
     expect(screen.queryByTestId('save-reason')).toBeNull();
@@ -131,7 +131,7 @@ describe('finding 2 (D27): a typed list item that was not added is kept', () => 
   });
   it('profile: a typed duplicate is de-duplicated, so nothing changes', async () => {
     mount(<TeacherProfilePage />);
-    fireEvent.change(await screen.findByLabelText('Styles you teach (optional)'), { target: { value: 'sensual' } });
+    fireEvent.change(await screen.findByLabelText('Styles you teach', { selector: 'input' }), { target: { value: 'sensual' } });
     expect((screen.getByTestId('save-details') as HTMLButtonElement).disabled).toBe(true);
   });
   it('wizard: Continue sends the typed term', () => {

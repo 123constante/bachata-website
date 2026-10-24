@@ -135,6 +135,10 @@ export const CHECKS = [
   ["check:mojibake", "cp1252 mojibake scan"],
   ["check:legacy-tables", "no references to retired tables"],
   ["check:legacy-program-rpcs", "no references to retired program RPCs"],
+  // Canary BEFORE the check (fixture-only: it builds its own tree, so a live
+  // violation cannot red it ahead of the guard).
+  ["check:going-legacy-rpcs:self-test", "the retired attendance RPC names are still detected"],
+  ["check:going-legacy-rpcs", "no Website caller of the retired attendance RPCs (Going P2)"],
   ["check:no-social-word", "banned-copy scan"],
   ["lint:architecture", "runtime architecture lint"],
   ["check:route-boundaries", "every route has an error boundary"],
@@ -208,12 +212,12 @@ export const CHECKS = [
   //
   //   check:mojibake:self-test  (link 2)   .claude/settings.local.json is
   //     collected -- see the note at that entry; tracked-file dependent.
-  //   check:script-conventions:self-test  (link 12)   R5 run over the live
+  //   check:script-conventions:self-test  (link 14)   R5 run over the live
   //     source of scripts/check-ci-budget.mjs -- check-script-conventions.mjs
   //     :1191 reads it, :1630 asserts r5(referenceSource) is clean. Refactor
   //     that file's exit tail into a shape R5 scores differently and the canary
   //     reds ahead of its check.
-  //   check:workflow-artifact-policy:self-test  (link 15)   A5 fan-out measured
+  //   check:workflow-artifact-policy:self-test  (link 17)   A5 fan-out measured
   //     over the live .github/workflows -- check-workflow-artifact-policy.mjs
   //     :4560. See that entry below.
   //
@@ -262,8 +266,8 @@ export const CHECKS = [
   // the live directory at check-workflow-artifact-policy.mjs:4560 and asserts
   // `unreadable === 0 && max <= FANOUT_CAP_LEGS`. So one live-subject
   // assertion still gates this check: a workflow whose matrix expands past the
-  // cap, or one this parser cannot read, reds the CANARY at link 15 and the
-  // check at link 16 never runs. That case defends itself in its own comment --
+  // cap, or one this parser cannot read, reds the CANARY at link 17 and the
+  // check at link 18 never runs. That case defends itself in its own comment --
   // it "cannot red on ordinary work, because the only way past it is the rule
   // genuinely firing, and then the guard is red anyway and names the upload" --
   // and that is precisely the fallacy: the guard names the upload only if it is

@@ -1,37 +1,21 @@
 import { useMemo, useState, useEffect, type MouseEvent } from "react";
 import { PageErrorBoundary } from "@/components/ErrorBoundary";
-import { motion, AnimatePresence } from "framer-motion";
-import { Users, Home, Car, Heart, MessageCircle, ChevronRight, Plane, Music, Star, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import { Users, Home, Car, Heart, ChevronRight, Plane, Music, Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Link, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
 import GlobalLayout from "@/components/layout/GlobalLayout";
-import { optimizedImageUrl } from '@/lib/imageCdn';
-import { supabase } from "@/integrations/supabase/client";
+import { useListImpressions } from '@/lib/listImpressions';
 import { FESTIVALS_LIST_QUERY_KEY, fetchPublicFestivalsList, filterUpcomingFestivals, type FestivalListItem } from "@/lib/festivalsList";
 import { londonTodayKey } from "@/lib/londonDate";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
 import { AuthPromptModal } from "@/components/AuthPromptModal";
 import { GOING_CHECKIN_ENABLED } from "@/lib/goingCheckin";
 import { festivalCountLabel } from "@/pages/festivalCountLabel";
-import { setAttendanceRpc, type AttendanceStatus } from "@/hooks/useAttendance";
-import { GOING_LOCK_LINK_LABEL, goingTapLocked, useGoingLock } from "@/modules/dancer-app/gate/useGoingLock";
-
-type AttendanceCounts = {
-  interested_count: number;
-  going_count: number;
-};
-
-type AttendeePreview = {
-  event_id: string;
-  user_id: string;
-  avatar_url: string | null;
-  username: string | null;
-};
+import { GOING_COPY } from "@/modules/going/goingCopy";
+import { fetchFestivalNight, festivalNightQueryKey } from "@/pages/festivalHubNights";
+import { FestivalGoing } from "@/pages/FestivalHubGoing";
 
 // Confetti particle component
 const ConfettiParticle = ({ delay, startX }: { delay: number; startX: number }) => (
@@ -52,25 +36,19 @@ const ConfettiParticle = ({ delay, startX }: { delay: number; startX: number }) 
     className="absolute text-lg pointer-events-none"
     style={{ left: `${startX}%` }}
   >
-    {["‰", "Š", "¨", "­", "ª", " ", "¡", "¥³", "’ƒ", "•º"][Math.floor(Math.random() * 10)]}
+    {["\u{1F389}", "\u{1F38A}", "\u{1F3A8}", "\u{1F3AD}", "\u{1F3AA}", "\u{1F3A0}", "\u{1F3A1}", "\u{1F973}", "\u{1F483}", "\u{1F57A}"][Math.floor(Math.random() * 10)]}
   </motion.div>
 );
 
 const FestivalHubInner = () => {
+  const trackImpression = useListImpressions('festivals');
   // No useSeo() here: FestivalHub renders only under app/routes/festivals.tsx,
   // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
   // useSeo returns before touching the head. That route's meta() owns it, from the
   // same buildSeoForRoute('festivals'). Which useSeo calls are inert and which are
   // live is a census, not a rule of thumb -- see BentoPage.tsx (arc W22).
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { toast } = useToast();
-  // Same lock as the event page's RsvpBlock: one mapping for both surfaces.
-  const goingLock = useGoingLock();
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authReturnTo, setAuthReturnTo] = useState<string | null>(null);
-  const [pendingByEvent, setPendingByEvent] = useState<Record<string, AttendanceStatus | null>>({});
-  const [optimisticStatusByEvent, setOptimisticStatusByEvent] = useState<Record<string, AttendanceStatus | null>>({});
   const [, setTick] = useState(0);
   // The countdown is time-derived (getCountdown reads `now`), so its text differs
   // between the build-time prerender and the client's first render → React #425
@@ -101,8 +79,8 @@ const FestivalHubInner = () => {
     queryFn: fetchPublicFestivalsList,
     // Matches the ISR edge window (s-maxage=3600) -- the /festivals loader
     // dehydrates this key; see useEventPageQuery for the full rationale. The
-    // attendance/status queries below stay short-lived (they're personalised
-    // and never dehydrated).
+    // going reads below stay short-lived (they're personalised and never
+    // dehydrated).
     staleTime: 1000 * 60 * 60,
     // The RPC returns every public festival, past included; the shared rule (as the
     // home rail) keeps upcoming only. select re-runs on render, so London midnight rolls over.
@@ -111,176 +89,23 @@ const FestivalHubInner = () => {
 
   const festivalIds = useMemo(() => festivals.map((festival) => festival.id), [festivals]);
 
-  const {
-    data: countRows = [],
-    refetch: refetchCounts,
-  } = useQuery({
-    queryKey: ['festival-attendance-counts', festivalIds],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_event_attendance_counts', {
-        p_event_ids: festivalIds,
-      });
-      if (!error) {
-        return (data || []) as Array<{ event_id: string; interested_count: number; going_count: number }>;
-      }
-
-      // Re-throw all errors — RPC is the canonical source for counts
-      throw error;
-    },
-    enabled: festivalIds.length > 0,
-    staleTime: 1000 * 30,
+  // Each festival's ONE night (its P5 occurrence id), only while the going switch
+  // is on: off = no request at all. One small read per card; the going read
+  // itself is ONE batched request for every card (FestivalGoing's batchIds).
+  const nightQueries = useQueries({
+    queries: festivalIds.map((id) => ({
+      queryKey: festivalNightQueryKey(id),
+      queryFn: () => fetchFestivalNight(id),
+      enabled: GOING_CHECKIN_ENABLED,
+      staleTime: 1000 * 60 * 5,
+    })),
   });
-
-  const countsByEvent = useMemo(() => {
-    const map = new Map<string, AttendanceCounts>();
-    countRows.forEach((row) => {
-      map.set(row.event_id, {
-        interested_count: row.interested_count,
-        going_count: row.going_count,
-      });
-    });
-    return map;
-  }, [countRows]);
-
-  // Read current user's festival attendance status via new public RPC
-  const {
-    data: statusRows = [],
-    refetch: refetchStatuses,
-  } = useQuery({
-    queryKey: ['festival-attendance-status', festivalIds, user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-
-      const { data: allAttendance, error: attError } = await supabase.rpc('get_my_event_attendance_v1');
-
-      if (attError) throw attError;
-
-      return (allAttendance || [])
-        .filter((row: any) => festivalIds.includes(row.event_id))
-        .map((row: any) => ({
-          event_id: row.event_id,
-          status: row.status,
-        }));
-    },
-    enabled: festivalIds.length > 0 && Boolean(user?.id),
-    staleTime: 1000 * 15,
-  });
-
-  const statusByEvent = useMemo(() => {
-    const map = new Map<string, AttendanceStatus>();
-    statusRows.forEach((row: { event_id: string; status: string }) => {
-      if (row.status === 'going' || row.status === 'interested') {
-        map.set(row.event_id, row.status);
-      }
-    });
-    return map;
-  }, [statusRows]);
-
-  // Attendee previews via get_festival_attendance RPC for each festival
-  const { data: attendeePreviews = [] } = useQuery({
-    queryKey: ['festival-attendee-previews', festivalIds],
-    queryFn: async () => {
-      if (!festivalIds.length) return [] as AttendeePreview[];
-
-      // Batch fetch attendance for all festivals in single RPC call
-      const { data: batchData, error } = await (supabase.rpc as any)(
-        'get_festival_attendance_batch',
-        { p_event_ids: festivalIds } as any,
-      );
-
-      if (error || !batchData) return [];
-
-      const batch = batchData as Record<string, { going: any[]; interested: any[] }>;
-      return festivalIds.flatMap((eventId) => {
-        const payload = batch[eventId] ?? { going: [], interested: [] };
-        const rows: Array<{ user_id: string; avatar_url?: string | null; username?: string | null }> = [
-          ...(payload.going ?? []),
-          ...(payload.interested ?? []),
-        ];
-        return rows.slice(0, 5).map((row) => ({
-          event_id: eventId,
-          user_id: row.user_id,
-          avatar_url: row.avatar_url ?? null,
-          username: row.username ?? null,
-        } as AttendeePreview));
-      });
-    },
-    enabled: festivalIds.length > 0,
-    staleTime: 1000 * 30,
-  });
-
-  const attendeePreviewsByEvent = useMemo(() => {
-    const map = new Map<string, AttendeePreview[]>();
-    attendeePreviews.forEach((preview) => {
-      const current = map.get(preview.event_id) ?? [];
-      if (current.length < 3) {
-        current.push(preview);
-        map.set(preview.event_id, current);
-      }
-    });
-    return map;
-  }, [attendeePreviews]);
-
-  const resolveStatus = (eventId: string) => {
-    if (Object.prototype.hasOwnProperty.call(optimisticStatusByEvent, eventId)) {
-      return optimisticStatusByEvent[eventId] ?? null;
-    }
-    return statusByEvent.get(eventId) ?? null;
-  };
-
-  const handleStatus = async (festivalId: string, status: AttendanceStatus) => {
-    if (!user) {
-      setAuthReturnTo(`/event/${festivalId}`);
-      setShowAuthModal(true);
-      return;
-    }
-
-    const currentStatus = resolveStatus(festivalId);
-    if (goingTapLocked(goingLock, currentStatus, status)) return;
-    const nextStatus = currentStatus === status ? null : status;
-
-    setPendingByEvent((prev) => ({ ...prev, [festivalId]: status }));
-    setOptimisticStatusByEvent((prev) => ({ ...prev, [festivalId]: nextStatus }));
-
-    try {
-      await setAttendanceRpc(festivalId, nextStatus);
-      await Promise.all([refetchCounts(), refetchStatuses()]);
-      setOptimisticStatusByEvent((prev) => {
-        const next = { ...prev };
-        delete next[festivalId];
-        return next;
-      });
-    } catch (error: any) {
-      setOptimisticStatusByEvent((prev) => ({ ...prev, [festivalId]: currentStatus }));
-      toast({
-        title: 'Could not update attendance',
-        description: error?.message || 'Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setPendingByEvent((prev) => {
-        const next = { ...prev };
-        delete next[festivalId];
-        return next;
-      });
-    }
-  };
-
-  const handleAvatarClick = (event: MouseEvent<HTMLButtonElement>, festivalId: string) => {
-    event.stopPropagation();
-    const returnTo = `/event/${festivalId}`;
-
-    if (!user) {
-      setAuthReturnTo(returnTo);
-      setShowAuthModal(true);
-      return;
-    }
-
-    navigate(returnTo);
-  };
-
-  const WHATSAPP_THRESHOLD = 10;
-  const showProfiles = Boolean(user);
+  const nightsReady = GOING_CHECKIN_ENABLED && nightQueries.every((q) => !q.isPending);
+  // Keyed on the ids, not the query objects (useQueries returns a fresh array every render).
+  const nightIdsKey = nightQueries.map((q) => q.data?.occurrenceId).filter(Boolean).join(',');
+  const nightIds = useMemo(() => (nightIdsKey ? nightIdsKey.split(',') : []), [nightIdsKey]);
+  // The clock for "night ended", read after mount (see `mounted`).
+  const now = mounted ? new Date() : null;
 
   const heroWidgets = [
     { emoji: "🎪", title: "Festivals", desc: "Upcoming events", sectionId: "festivals" },
@@ -342,36 +167,20 @@ const FestivalHubInner = () => {
 
       {/* Festival Cards Grid */}
       <section id="festivals" className="px-4 mb-24 relative z-10">
-        {/* The Going lock is the same for every card: say it once, above the list. */}
-        {GOING_CHECKIN_ENABLED && goingLock.locked && (
-          <p className="mb-3 text-[12px] text-muted-foreground" data-testid="festival-going-lock">
-            {`${goingLock.reason}. `}
-            <Link to={goingLock.href} className="py-[14px] font-semibold text-primary underline">
-              {GOING_LOCK_LINK_LABEL}
-            </Link>
-          </p>
-        )}
         <StaggerContainer staggerDelay={0.15} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-          {festivals.map((festival) => {
-            const counts = countsByEvent.get(festival.id) || { interested_count: 0, going_count: 0 };
-            const totalAttendees = counts.going_count + counts.interested_count;
-            const progress = Math.min((totalAttendees / WHATSAPP_THRESHOLD) * 100, 100);
-            const whatsappActive = totalAttendees >= WHATSAPP_THRESHOLD;
-            const status = resolveStatus(festival.id);
-            const attendeePreviewsForFestival = attendeePreviewsByEvent.get(festival.id) ?? [];
-            const visiblePreviews = attendeePreviewsForFestival.slice(0, 3);
+          {festivals.map((festival, index) => {
+            const nightQuery = nightQueries[index];
             const startDateRaw = festival.date || festival.start_time;
             const startDate = startDateRaw ? new Date(startDateRaw) : null;
             const dateLabel = startDate
               ? startDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Europe/London' })
               : 'Date TBA';
             const locationLabel = festival.city || 'Location TBA';
-            const isPending = Boolean(pendingByEvent[festival.id]);
-            const pendingStatus = pendingByEvent[festival.id];
 
             return (
               <StaggerItem key={festival.id}>
                 <motion.div
+                  ref={trackImpression(festival.id)}
                   whileHover={{ scale: 1.02, y: -4 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -409,111 +218,18 @@ const FestivalHubInner = () => {
                       </span>
                     </div>
 
+                    {/* Who's going to this festival's night (Going P2): behind the switch. */}
                     {GOING_CHECKIN_ENABLED && (
-                    <>
-                    {/* Attendance Stats */}
-                    <div className="flex items-center gap-4 mb-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm">‹</span>
-                        <span className="text-xs font-medium text-foreground">
-                          Going:{' '}
-                          <motion.span
-                            key={counts.going_count}
-                            initial={{ y: -4, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ duration: 0.2 }}
-                            className="inline-block"
-                          >
-                            {counts.going_count}
-                          </motion.span>
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm">‘€</span>
-                        <span className="text-xs text-muted-foreground">
-                          Interested:{' '}
-                          <motion.span
-                            key={counts.interested_count}
-                            initial={{ y: -4, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ duration: 0.2 }}
-                            className="inline-block"
-                          >
-                            {counts.interested_count}
-                          </motion.span>
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
-                      <Users className="w-3 h-3" />
-                      <span>{totalAttendees} attending</span>
-                    </div>
-
-                    {visiblePreviews.length > 0 && (
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="flex -space-x-2">
-                          {visiblePreviews.map((attendee) => (
-                            <button
-                              key={attendee.user_id}
-                              type="button"
-                              onClick={(event) => handleAvatarClick(event, festival.id)}
-                              className="focus:outline-none"
-                            >
-                              <div
-                                className={`w-7 h-7 rounded-full border border-background bg-primary/20 overflow-hidden flex items-center justify-center text-[10px] uppercase ${showProfiles ? '' : 'blur-sm'}`}
-                              >
-                                {attendee.avatar_url ? (
-                                  <img
-                                    src={optimizedImageUrl(attendee.avatar_url, 96)}
-                                    alt={attendee.username ?? 'Attendee'}
-                                    className="w-full h-full object-cover" loading="lazy"/>
-                                ) : (
-                                  <span>{(attendee.username ?? 'Member').slice(0, 1)}</span>
-                                )}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                        {!showProfiles && (
-                          <span className="text-[10px] text-muted-foreground">Sign in to see profiles</span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* WhatsApp Progress */}
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] text-muted-foreground">WhatsApp Group</span>
-                        <span className="text-[10px] font-medium text-primary">{totalAttendees}/{WHATSAPP_THRESHOLD}</span>
-                      </div>
-                      <div className="relative">
-                        <Progress value={progress} label={`WhatsApp group: ${totalAttendees} of ${WHATSAPP_THRESHOLD} attending`} className="h-2" />
-                        <motion.div
-                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                          animate={{ x: ["-100%", "100%"] }}
-                          transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                        />
-                      </div>
-                      <AnimatePresence>
-                        {whatsappActive ? (
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="flex items-center gap-1 mt-1"
-                          >
-                            <MessageCircle className="w-3 h-3 text-green-500" />
-                            <span className="text-[10px] text-green-500 font-medium">WhatsApp group active!</span>
-                          </motion.div>
-                        ) : (
-                          <motion.span className="text-[10px] text-muted-foreground mt-1 block">
-                            ”“ {WHATSAPP_THRESHOLD - totalAttendees} more needed for WhatsApp group!
-                          </motion.span>
-                        )}
-                      </AnimatePresence>
-                    </div>
-
-                    </>
+                      <FestivalGoing
+                        festivalId={festival.id}
+                        night={nightQuery?.data}
+                        nightFailed={Boolean(nightQuery?.isError)}
+                        onRetryNight={() => void nightQuery?.refetch()}
+                        batchIds={nightIds}
+                        ready={nightsReady}
+                        now={now}
+                        onSignIn={() => setShowAuthModal(true)}
+                      />
                     )}
                     {/* Crew Finder Stats */}
                     <div className="flex items-center gap-2 mb-3">
@@ -531,47 +247,6 @@ const FestivalHubInner = () => {
                       </div>
                     </div>
 
-                    {GOING_CHECKIN_ENABLED && (
-                    <>
-                    {/* Action Buttons. A disabled Button has pointer-events: none, so a tap on a
-                        locked or pending one lands here: stop it opening the festival card. */}
-                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                      <motion.div className="flex-1" whileTap={{ scale: 0.95 }}>
-                        <Button
-                          variant={status === "going" ? "default" : "outline"}
-                          size="sm"
-                          className="w-full text-xs h-9"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleStatus(festival.id, "going");
-                          }}
-                          disabled={isPending || goingTapLocked(goingLock, status, "going")}
-                        >
-                          {isPending && pendingStatus === 'going' ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : status === "going" ? "“ Going" : "‹ I'm Going"}
-                        </Button>
-                      </motion.div>
-                      <motion.div className="flex-1" whileTap={{ scale: 0.95 }}>
-                        <Button
-                          variant={status === "interested" ? "default" : "outline"}
-                          size="sm"
-                          className="w-full text-xs h-9"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleStatus(festival.id, "interested");
-                          }}
-                          disabled={isPending || goingTapLocked(goingLock, status, "interested")}
-                        >
-                          {isPending && pendingStatus === 'interested' ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : status === "interested" ? "“ Interested" : "‘€ Interested"}
-                        </Button>
-                      </motion.div>
-                    </div>
-
-                    </>
-                    )}
                     {/* View Details Arrow */}
                     <div className="flex items-center justify-center mt-3 text-primary">
                       <span className="text-[10px]">View details & find crew</span>
@@ -603,13 +278,10 @@ const FestivalHubInner = () => {
 
       <AuthPromptModal
         open={showAuthModal}
-        onOpenChange={(open) => {
-          setShowAuthModal(open);
-          if (!open) setAuthReturnTo(null);
-        }}
-        title="Sign in required"
-        description="Sign in to view attendee profiles and update attendance."
-        returnTo={authReturnTo}
+        onOpenChange={setShowAuthModal}
+        title={GOING_COPY.signInTitle}
+        description={GOING_COPY.signInBody}
+        returnTo="/festivals"
       />
     </GlobalLayout>
   );

@@ -84,11 +84,18 @@ describe('C40 name, C40b city', () => {
     await waitFor(() => expect(cb.onCreated).toHaveBeenCalledTimes(1));
   });
 
-  it('no copy about a draft, a review or the team approving: the page is live on creation', async () => {
+  // W2 walk fix 8 (owner): the beta gate is said up front, in ONE place (the beta note); no other copy talks drafts or reviews.
+  const outsideBetaNote = () => {
+    const body = document.body.cloneNode(true) as HTMLElement;
+    body.querySelectorAll('[data-testid="onboarding-beta-note"]').forEach((n) => n.remove());
+    return body.textContent;
+  };
+  it('no copy about a draft, a review or the team approving, outside the one beta note', async () => {
     mount();
-    expect(document.body.textContent).not.toMatch(/draft|review|approve|checks new/i);
+    expect(screen.getByTestId('onboarding-beta-note').textContent).toMatch(/beta/i);
+    expect(outsideBetaNote()).not.toMatch(/draft|review|approve|checks new/i);
     await toCity();
-    expect(document.body.textContent).not.toMatch(/draft|review|approve|checks new/i);
+    expect(outsideBetaNote()).not.toMatch(/draft|review|approve|checks new/i);
   });
 
   it('every control is at least 44px', async () => {

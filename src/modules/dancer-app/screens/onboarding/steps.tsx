@@ -133,7 +133,7 @@ export const PhotoCard = ({ tag, returnTo }: Pick<CardProps, 'tag'> & { returnTo
     <Link to={photoHandoff(returnTo)} className={LINK_PRIMARY} data-testid="onboarding-add-photo">
       Add my photo
     </Link>
-    <Reason>A photo is needed to finish setting up your page, so this step cannot be skipped.</Reason>
+    <Reason>A photo is needed to finish your page. &quot;Not now&quot; at the top keeps what you have done; you can add the photo later.</Reason>
   </>
 );
 

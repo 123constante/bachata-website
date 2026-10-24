@@ -63,6 +63,7 @@ import {
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { organiserEmptyState } from '@/modules/profile/organiserEmptyState';
 import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
+import { useListImpressions } from '@/lib/listImpressions';
 import EventRowCard, { type EventRowProps } from '@/components/events/EventRow';
 import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
 import { groupByEventId, stableRowKey } from '@/lib/eventListGrouping';
@@ -646,6 +647,7 @@ const EditInPlaceLayer = lazyWithRetry(() => import('@/modules/organiser/edit-in
 
 const OrganiserProfile = () => {
   const { id: routeParam } = useParams<{ id: string }>();
+  const trackImpression = useListImpressions('organiser');
   const resolved = useEntitySlugOrId(routeParam, 'organiser_profiles');
   const id = resolved.id ?? undefined;
   useCanonicalReplaceState({
@@ -1469,10 +1471,11 @@ const OrganiserProfile = () => {
             <div className="flex flex-col gap-2">
               {visibleItems.map((item, i) =>
                 item.kind === 'single' ? (
-                  <EventRowCard key={stableRowKey(item.event.occurrenceId, item.event.id, i)} {...buildEventRowProps(item.event, todayKey, i)} />
+                  <EventRowCard key={stableRowKey(item.event.occurrenceId, item.event.id, i)} impressionRef={trackImpression(item.event.id)} {...buildEventRowProps(item.event, todayKey, i)} />
                 ) : (
                   <EventRowCard
                     key={item.eventId}
+                    impressionRef={trackImpression(item.eventId)}
                     {...buildEventRowProps(item.dates[0], todayKey, i, {
                       name: item.name,
                       posterUrl: item.posterUrl,

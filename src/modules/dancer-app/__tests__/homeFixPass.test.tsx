@@ -8,6 +8,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // S2 / S4 exercise the nights hero (behind the going switch)
 vi.mock('@/hooks/useAuth', async (importOriginal) =>
   (await import('@/modules/dancer-app/shell/testAuth')).authModuleMock(importOriginal));
 
@@ -19,7 +20,7 @@ const h = vi.hoisted(() => ({
 vi.mock('@/integrations/supabase/rpcLoose', () => ({
   rpcLoose: async (fn: string) => {
     if (fn === 'my_nights_lineup_people_v1') return h.lineup();
-    if (fn === 'get_my_event_attendance_v2') return h.attendance();
+    if (fn === 'get_my_going_v1') return h.attendance();
     return { data: null, error: { message: `unexpected rpc ${fn}` } };
   },
 }));
@@ -32,22 +33,20 @@ import { FIND_A_NIGHT } from '../copy/sharedCopy';
 import { NO_NIGHTS_FIND } from '../screens/nights/NightsScreen';
 import { LineupPeople } from '../screens/home/LineupPeople';
 import { parseLineupPeople } from '../api/lineupPeople';
-import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
+import { night as goingNight } from '../screens/nights/__tests__/goingShapes';
 
 const person = (id: string, name: string, roles: string[], path: string) => ({
   profile_id: id, roles, display_name: name, avatar_url: null, public_path: path,
   last_night: { series_id: 's1', event_name: 'Sensual Sundays', slug: null, on_date: '2026-10-18' },
 });
 const PEOPLE = { total: 2, people: [person('p1', 'Lena Ortiz', ['teacher', 'dj'], '/teachers/lena-ortiz'), person('p2', 'Marco Vidal', ['dj'], '/djs/marco-vidal')] };
-const night = (n: number) => ({
-  event_id: 'e1', status: 'going', updated_at: null, name: 'Brixton Bachata', occurrence_date: addDaysToKey(londonTodayKey(), n),
-  city_name: 'London', start_time: '21:00:00', type: 'party', is_active: true,
-});
+/** get_my_going_v1 with one upcoming night `n` days out. */
+const mine = (n: number) => ({ upcoming: [goingNight('e1', 'Brixton Bachata', n)], past: [] });
 
 beforeEach(() => {
   h.emits = [];
   h.lineup = async () => ({ data: PEOPLE, error: null });
-  h.attendance = async () => ({ data: [], error: null });
+  h.attendance = async () => ({ data: { upcoming: [], past: [] }, error: null });
   localStorage.clear();
   sessionStorage.clear();
 });
@@ -62,7 +61,7 @@ describe('S2: the next-night card has an action when loading fails', () => {
     renderInShell({ path: '/app/home' });
     const hero = await screen.findByTestId('home-hero');
     await waitFor(() => expect(hero.textContent).toMatch(/couldn.t load your nights/));
-    h.attendance = async () => ({ data: [night(2)], error: null });
+    h.attendance = async () => ({ data: mine(2), error: null });
     fireEvent.click(within(hero).getByRole('button', { name: /try again/i }));
     await waitFor(() => expect(screen.getByTestId('home-hero').textContent).toContain('Brixton Bachata'));
   });
@@ -70,7 +69,7 @@ describe('S2: the next-night card has an action when loading fails', () => {
 
 describe('S4: hero "See event" is full width, 52px+, token colours', () => {
   it('is a full-width class link with no inline hex', async () => {
-    h.attendance = async () => ({ data: [night(2)], error: null });
+    h.attendance = async () => ({ data: mine(2), error: null });
     renderInShell({ path: '/app/home' });
     const link = await screen.findByRole('link', { name: 'See event' });
     expect(link.className).toContain('da-hero-cta');

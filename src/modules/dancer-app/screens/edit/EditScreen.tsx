@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { MouseEvent } from 'react';
 import { ChevronLeft } from 'lucide-react';
@@ -7,10 +7,16 @@ import { LINK_GHOST, ScreenTitle, TEXT_ACTION } from '../blocks';
 import { useLeaveGuard } from '../../shell/leaveGuard';
 import { useMutation } from '@tanstack/react-query';
 import { CityPicker } from '@/components/ui/city-picker';
+import { InstagramInput } from '@/components/forms/InstagramInput';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+// The phone field (+ its country list) loads with this screen, not with /app (bundle budget, invite W2).
+const PhoneInput = lazyWithRetry(() => import('@/components/forms/PhoneInput').then((m) => ({ default: m.PhoneInput })));
 import { NationalityPicker } from '@/components/ui/nationality-picker';
 import { HideSurnameSwitch, hideSurnameDisabledReason } from '@/components/profile/HideSurnameSwitch';
 import { FAVORITE_STYLE_OPTIONS } from '@/components/profile/dancerConstants';
 import { toast } from '@/hooks/use-toast';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { saveMyDancerProfile } from '../../api/rpc';
 import { toDancerError } from '../../api/errors';
 import { ADD_CITY_MESSAGE, dancerMessageUsUrl } from '../../api/messageUs';
@@ -38,6 +44,8 @@ import { useMyDancerEdit, usePutMyDancerEdit } from '../../api/useMyDancerEdit';
 import { Avatar, QueryGate } from '../me/ui';
 import { ChipChoice, ChipListInput, Field, INPUT_CLASS, TextInput } from './fields';
 import { SAVE_DONE, chipFor, nationalityCodeForPick, styleChipOptions } from './editModel';
+
+const GoingPhotoSwitch = lazyWithRetry(() => import('./GoingPhotoSwitch'));
 
 type ServerErrors = Partial<Record<FormFieldId, string>>;
 
@@ -340,7 +348,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
         </Field>
 
         <Field id="instagram" label="Instagram" error={shown('instagram')} note={note('instagram')}>
-          <TextInput id="instagram" value={draft.instagram} placeholder="your.handle" onChange={(v) => set('instagram', v)} error={shown('instagram')} />
+          <InstagramInput id="instagram" value={draft.instagram} stored={profile.instagram} onChange={(v) => set('instagram', v)} error={shown('instagram')} renderError={false} />
         </Field>
         <Field id="facebook" label="Facebook" error={shown('facebook')} note={note('facebook')}>
           <TextInput id="facebook" value={draft.facebook} placeholder="your.handle" onChange={(v) => set('facebook', v)} error={shown('facebook')} />
@@ -351,8 +359,10 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
 
         {eligibleWhatsapp && (
           <div data-testid="edit-whatsapp" className="grid gap-[10px]">
-            <Field id="whatsapp" label="WhatsApp" hint="(number with country code)" error={shown('whatsapp')} note={note('whatsapp')}>
-              <TextInput id="whatsapp" type="tel" inputMode="tel" value={draft.whatsapp} placeholder="+44 7700 900123" onChange={(v) => set('whatsapp', v)} error={shown('whatsapp')} />
+            <Field id="whatsapp" label="WhatsApp" error={shown('whatsapp')} note={note('whatsapp')}>
+              <Suspense fallback={<div className="h-[48px]" aria-hidden="true" />}>
+                <PhoneInput inputId="whatsapp" value={draft.whatsapp} stored={profile.whatsapp ?? ''} onChange={(e164) => set('whatsapp', e164)} error={shown('whatsapp')} renderError={false} />
+              </Suspense>
             </Field>
             <div className="flex min-h-[44px] items-center justify-between gap-[12px]">
               <label htmlFor="show_whatsapp_publicly" className="text-[15px] font-semibold">Show my WhatsApp on my page</label>
@@ -380,6 +390,15 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
               WhatsApp is only for people who also teach, DJ or organise, so students and partners can reach you. It shows on your page only while this is on.
             </p>
           </div>
+        )}
+
+        {/* Going P2: the photo switch. Behind the going switch like every going surface, and
+            lazy (GoingPhotoSwitch.tsx) so the going words stay out of the /app/* first load;
+            the fallback holds the row's height. Saved with Save changes. */}
+        {GOING_CHECKIN_ENABLED && (
+          <Suspense fallback={<div className="min-h-[44px]" aria-hidden="true" />}>
+            <GoingPhotoSwitch checked={draft.show_going_photo} onToggle={() => set('show_going_photo', !draft.show_going_photo)} />
+          </Suspense>
         )}
       </Card>
 
