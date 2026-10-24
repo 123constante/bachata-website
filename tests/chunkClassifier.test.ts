@@ -147,6 +147,7 @@ describe("classifyChunk -- the second first-party group (lib-account)", () => {
       "/src/lib/accountRouting.ts",
       "/src/components/account/profiles/PersonAvatar.tsx",
       "/src/components/account/profiles/avatarFallback.ts",
+      "/src/modules/dancer-app/screens/nights/nightsDates.ts",
     ]);
     expect(classifyChunk("/repo/src/components/account/profiles/__tests__/avatarFallback.test.ts")).toBeUndefined();
     expect(classifyChunk("/repo/node_modules/x/src/lib/accountRouting.ts")).toBeUndefined();

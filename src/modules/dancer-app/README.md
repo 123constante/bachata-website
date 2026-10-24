@@ -48,7 +48,9 @@ import { trackDancerEvent } from '@/modules/dancer-app/analytics/events';
 Reuse from the main site (plan section 4.3), never copy: `ProfileGateContext`
 (`@/hooks/useAuth`), `HideSurnameSwitch`, `CityPicker`, `uploadToR2` + `validateImageFile`,
 `accountSettings.signOut`, `useSeriesLevelRating` + `levelRatingModel` + `pendingLevelRating`,
-the attendance reads (`get_my_event_attendance_v2`).
+the going reads and writes (`src/modules/going`: `get_my_going_v1`, `get_nights_going_v1`,
+`set_my_going_v1`; the old interested/going attendance RPCs are retired and refused by
+`scripts/check-going-legacy-rpcs.mjs`).
 
 ## Rules a screen must keep (owner's definition of done)
 

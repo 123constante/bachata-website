@@ -26,7 +26,7 @@ beforeEach(() => installJsdomPolyfills());
 afterEach(() => cleanup());
 
 describe('wall contrast on the warm dark base', () => {
-  it('text >= 4.5 (name, chip text, date chip) and chip edge >= 3 vs the page', () => {
+  it('text >= 4.5 (name, chip text, date line) and chip edge >= 3 vs the page', () => {
     const roles: PersonBadge['roles'] = ['teacher', 'dj', 'dancer'];
     const badges = new Map([['a', { id: 'a', roles, djName: null, djHasUpcoming: true, nextGigDate: '2099-10-23' }]]);
     render(
@@ -57,8 +57,9 @@ describe('wall contrast on the warm dark base', () => {
     for (const ground of ['rgb(20, 28, 33)', 'rgb(10, 8, 11)', 'rgb(14, 18, 21)', page]) {
       expect(ratio(pill.color, ground)).toBeGreaterThanOrEqual(4.5);
       expect(ratio(getComputedStyle(screen.getByTestId('tile-name')).color, ground)).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(getComputedStyle(screen.getByTestId('tile-date')).color, ground)).toBeGreaterThanOrEqual(4.5);
     }
-    const d = getComputedStyle(screen.getByTestId('date-chip'));
-    expect(ratio(d.color, d.backgroundColor)).toBeGreaterThanOrEqual(4.5);
+    // The date line sits under the name on the wall's own ground, not on a pill.
+    expect(ratio(getComputedStyle(screen.getByTestId('tile-date')).color, page)).toBeGreaterThanOrEqual(4.5);
   });
 });

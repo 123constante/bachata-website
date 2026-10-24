@@ -3,7 +3,9 @@
  * W2b: Home (/app/home) and Nights (/app/nights), every screen x every shape.
  * The server is a small in-memory fake behind the SAME client modules the app
  * uses (getSupabase / supabase.rpc), so the real mapper, the real level-vote
- * hook and the real pendingLevelRating are exercised.
+ * hook and the real pendingLevelRating are exercised. Going P2: the nights are
+ * get_my_going_v1's (going only; the fake splits upcoming / past by date the way
+ * the RPC does, past most recent first).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
@@ -26,8 +28,17 @@ const h = vi.hoisted(() => ({
   rpc: null as unknown as (fn: string, args?: Record<string, unknown>) => Promise<unknown>,
 }));
 h.rpc = async (fn, args) => {
-  if (fn === 'get_my_event_attendance_v2') {
-    return h.attendanceFails ? { data: null, error: { message: 'boom' } } : { data: h.rows, error: null };
+  if (fn === 'get_my_going_v1') {
+    if (h.attendanceFails) return { data: null, error: { message: 'boom' } };
+    const t = londonTodayKey();
+    const key = (r: Record<string, unknown>) => String(r.occurrence_date);
+    return {
+      data: {
+        upcoming: h.rows.filter((r) => key(r) >= t).sort((a, b) => key(a).localeCompare(key(b))),
+        past: h.rows.filter((r) => key(r) < t).sort((a, b) => key(b).localeCompare(key(a))),
+      },
+      error: null,
+    };
   }
   if (fn === 'series_level_summary_p5_v1') {
     const id = String(args?.p_series_id);
@@ -64,11 +75,15 @@ import { DANCER_SHAPES, DANCER_SHAPE_NAMES, FAKE_PROFILE_ID, makeProfile, CITY_L
 import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
 import { PENDING_LEVEL_RATING_KEY } from '@/lib/pendingLevelRating';
 import { HIDDEN_STATE_LINE } from '@/modules/dancer-app/copy/sharedCopy';
+import { GOING_COPY } from '@/modules/going';
 
 const today = londonTodayKey();
 const day = (n: number) => addDaysToKey(today, n);
-const row = (id: string, name: string, n: number, status = 'going', over: Record<string, unknown> = {}) => ({
-  event_id: id, status, updated_at: null, name, occurrence_date: day(n), city_name: 'London', start_time: '21:00:00', type: 'party', is_active: true, ...over,
+let occ = 0;
+/** One get_my_going_v1 night of series (public event) `id`, `n` days from today, 9 PM London, no zone. */
+const row = (id: string, name: string, n: number, over: Record<string, unknown> = {}) => ({
+  occurrence_id: `occ-${(occ += 1)}`, public_event_id: id, event_title: name, occurrence_date: day(n), starts_at_local: `${day(n)}T21:00:00`,
+  venue_id: 'v1', venue_name: 'Camden Club', event_lifecycle: 'live', night_lifecycle: 'scheduled', is_cancelled: false, ...over,
 });
 
 beforeEach(() => {
@@ -81,19 +96,18 @@ const home = (opts: Parameters<typeof renderInShell>[0] = {}) => renderInShell({
 const nights = (opts: Parameters<typeof renderInShell>[0] = {}) => renderInShell({ path: '/app/nights', ...opts });
 
 describe('Home x attendance shapes', () => {
-  // Review F7 (owner decision): `count` is the "Upcoming nights" tile, which reads
-  // my_dancer_stats_v1 (the fake backend's zero shape here), NOT this list. So it stays 0
-  // whatever the list says; the tile === strip table is in dancer-app/__tests__/b1bFinishFixes.
+  // F7 + Going P2: `count` is the "Upcoming nights" tile = the count over get_my_going_v1's
+  // upcoming list (not cancelled); the tile === strip table is in dancer-app/__tests__/b1bFinishFixes.
   const cases: Array<{ name: string; rows: () => Record<string, unknown>[]; hero: RegExp | null; count: string; nudge: boolean }> = [
-    { name: 'no attendance', rows: () => [], hero: null, count: '0', nudge: false },
-    { name: 'one upcoming Going', rows: () => [row('s1', 'Soho Sensual', 4)], hero: /Soho Sensual/, count: '0', nudge: false },
-    { name: 'one Interested', rows: () => [row('s2', 'Camden Social', 3, 'interested')], hero: /Camden Social/, count: '0', nudge: false },
+    { name: 'no nights', rows: () => [], hero: null, count: '0', nudge: false },
+    { name: 'one upcoming', rows: () => [row('s1', 'Soho Sensual', 4)], hero: /Soho Sensual/, count: '1', nudge: false },
+    { name: 'one upcoming, cancelled (no hero, not counted)', rows: () => [row('s2', 'Camden Social', 3, { is_cancelled: true, night_lifecycle: 'cancelled' })], hero: null, count: '0', nudge: false },
     { name: 'past unrated, 2 days ago (nudge)', rows: () => [row('s3', 'Last Thursday', -2)], hero: null, count: '0', nudge: true },
     { name: 'past unrated, 7 days ago (nudge)', rows: () => [row('s3', 'Last Thursday', -7)], hero: null, count: '0', nudge: true },
     { name: 'past unrated, 8 days ago (no nudge)', rows: () => [row('s3', 'Last Thursday', -8)], hero: null, count: '0', nudge: false },
-    { name: 'past Interested only (no nudge)', rows: () => [row('s3', 'Last Thursday', -2, 'interested')], hero: null, count: '0', nudge: false },
+    { name: 'past cancelled (no nudge)', rows: () => [row('s3', 'Last Thursday', -2, { is_cancelled: true, night_lifecycle: 'cancelled' })], hero: null, count: '0', nudge: false },
     { name: 'past rated (no nudge)', rows: () => { h.votes.s3 = 'mixed'; return [row('s3', 'Last Thursday', -2)]; }, hero: null, count: '0', nudge: false },
-    { name: 'past festival (no nudge)', rows: () => [row('s3', 'Big Fest', -2, 'going', { type: 'festival' })], hero: null, count: '0', nudge: false },
+    { name: 'past, event since ended (no nudge)', rows: () => [row('s3', 'Old Series', -2, { event_lifecycle: 'ended' })], hero: null, count: '0', nudge: false },
   ];
   it.each(cases)('$name', async (c) => {
     h.rows = c.rows();
@@ -117,19 +131,22 @@ describe('Home x attendance shapes', () => {
   it('shows no fake numbers and no dead "Coming soon" tiles (audit M19)', async () => {
     home();
     await screen.findByTestId('home-hero');
-    expect(screen.queryByTestId('tile-views')).toBeNull();
+    // The W2b "Coming soon" views / partners placeholders are gone. tile-views is the REAL views
+    // tile since B1b S3 (homeAudit.test.tsx M19 asserts it), so it is awaited, never asserted
+    // absent: that old assertion only held while the numbers were still loading (a race).
+    expect(await screen.findByTestId('tile-views')).toBeTruthy();
     expect(screen.queryByTestId('tile-partners')).toBeNull();
     expect(screen.queryByText(/12 views/)).toBeNull();
   });
 
   it('hero card opens the normal event page and is the NEXT night', async () => {
-    h.rows = [row('later', 'Later', 9), row('soon', 'Sooner', 2, 'interested')];
+    h.rows = [row('later', 'Later', 9), row('soon', 'Sooner', 2)];
     home();
     const hero = await screen.findByTestId('home-hero');
     await waitFor(() => expect(hero.textContent).toMatch(/Sooner/));
     expect(within(hero).getByRole('link', { name: 'See event' }).getAttribute('href')).toBe('/event/soon');
     // F7: the tile no longer repeats the list's next date (the hero above shows it); it says what it counts.
-    expect(screen.getByTestId('tile-going').textContent).toMatch(/Nights you said Going to/);
+    expect(screen.getByTestId('tile-going').textContent).toContain(GOING_COPY.myUpcomingTitle);
   });
 });
 
@@ -205,25 +222,25 @@ describe('analytics', () => {
 describe('Nights', () => {
   it('empty states name controls that exist', async () => {
     nights();
-    // Audit L22: zero nights is ONE state covering Going and Interested.
+    // Audit L22: zero nights is ONE state (Going P2: going only, the module's words).
     const empty = await screen.findByTestId('nights-empty');
-    expect(empty.textContent).toMatch(/No nights saved yet/);
+    expect(empty.textContent).toContain(GOING_COPY.myUpcomingEmpty);
     expect(within(empty).queryAllByRole('link')).toHaveLength(0);
     expect(empty.textContent).toMatch(/Bachata Calendar link at the top left/);
   });
 
   it('upcoming and past lists with status pills', async () => {
-    h.rows = [row('a', 'Alpha', 3), row('b', 'Beta', 5, 'interested'), row('c', 'Gamma', -20)];
+    h.rows = [row('a', 'Alpha', 3), row('b', 'Beta', 5, { is_cancelled: true, night_lifecycle: 'cancelled' }), row('c', 'Gamma', -20)];
     nights();
     const up = await screen.findByTestId('nights-upcoming');
     expect(within(up).getAllByTestId('night-row').map((r) => r.textContent)).toEqual([
-      expect.stringMatching(/Alpha.*Going/), expect.stringMatching(/Beta.*Interested/),
+      expect.stringMatching(/Alpha.*Going/), expect.stringMatching(/Beta.*Cancelled/),
     ]);
     expect(within(screen.getByTestId('nights-past')).getAllByTestId('night-row')).toHaveLength(1);
   });
 
   it('the same night reads the same on Home and Nights (one mapper)', async () => {
-    h.rows = [row('a', 'Alpha Social', 3, 'interested')];
+    h.rows = [row('a', 'Alpha Social', 3)];
     const n = nights();
     const nightRow = (await screen.findAllByTestId('night-row'))[0].textContent ?? '';
     n.unmount(); resetShell();
@@ -231,7 +248,7 @@ describe('Nights', () => {
     const heroEl = await screen.findByTestId('home-hero');
     await waitFor(() => expect(heroEl.textContent).toContain('Alpha Social'));
     const hero = heroEl.textContent ?? '';
-    for (const bit of ['Alpha Social', 'Interested', '21:00', 'London']) {
+    for (const bit of ['Alpha Social', GOING_COPY.tagGoing, '9 PM', 'Camden Club']) {
       expect(nightRow).toContain(bit);
       expect(hero).toContain(bit);
     }
