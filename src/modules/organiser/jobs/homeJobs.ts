@@ -10,8 +10,10 @@ import { seriesLife } from '@/modules/organiser/shared/lifeLabel';
 import { FLYER_WORD } from '@/modules/organiser/shared/flyerLabel';
 import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { parseTeam, type IncomingAccessRequest } from '@/modules/organiser/shared/teamModel';
+import { goLiveLeft, thingsLeftText } from '@/modules/organiser/shared/goLiveKeys';
+import type { GoLiveCheck } from '@/modules/organiser/shared/goLiveCheck';
 
-export type JobKind = 'change'|'add'|'cancel'|'no_dates_left'|'join_request'|'stale_draft'|'no_cover'|'create_first_event'|'add_manager';
+export type JobKind = 'change'|'add'|'cancel'|'no_dates_left'|'join_request'|'stale_draft'|'go_live'|'no_cover'|'create_first_event'|'add_manager';
 
 export interface Job { kind: JobKind; n: number; title: string; sub?: string; to: string; tone: 'gold'|'plain'|'problem' }
 
@@ -120,6 +122,27 @@ const PROBLEM_TO: Record<SeriesProblem, (seriesId: string) => string> = {
 
 type Draft = Omit<Job, 'n'>;
 
+/** A draft's go-live answer (series_go_live_check_v1), by series id; a series not here has not loaded (or failed). */
+export type GoLiveChecks = Readonly<Record<string, GoLiveCheck | undefined>>;
+
+export const READY_TO_GO_LIVE = 'Ready to go live';
+
+/**
+ * W2 walk fix 4: every draft gets ONE row that reads the event's Go live list (the
+ * one mapping, goLiveKeys.goLiveLeft): "8 things left", never a lone "Add a date"
+ * while the event lists 8. Until its check loads, a stale draft keeps its D6 words
+ * and a fresh one says it is not live yet. The tap opens the event, whose card is the list.
+ */
+function goLiveRow(series: HomeSeriesFull, check: GoLiveCheck | undefined, today: string): Draft {
+  const stale = seriesProblems(series, today).includes('stale_draft');
+  const ago = startedAgo(series, today);
+  const left = check ? goLiveLeft(check) : null;
+  const sub = left === null
+    ? (stale ? PROBLEM_COPY.stale_draft.sub(series, today) : NOT_LIVE_YET)
+    : [left > 0 ? thingsLeftText(left) : READY_TO_GO_LIVE, stale ? ago : null].filter(Boolean).join(', ');
+  return { kind: 'go_live', title: PROBLEM_COPY.stale_draft.title(series.name), sub, to: ORG_PATHS.event(series.id), tone: stale || (left ?? 0) > 0 ? 'problem' : 'plain' };
+}
+
 /** The first steps of a page with no events (C1b): each drops off once done. */
 function firstSteps(home: HomeOrganiser): Draft[] {
   const steps: Draft[] = [{ kind: 'create_first_event', title: 'Create your first event', to: ORG_PATHS.newWhat, tone: 'gold' }];
@@ -136,7 +159,7 @@ function firstSteps(home: HomeOrganiser): Draft[] {
  * problems by kind: no dates left, join requests, stale drafts, no cover. A
  * page where neither Change nor Add applies gets the first steps instead.
  */
-export function homeJobs(home: HomeOrganiser, requests: IncomingAccessRequest[], today: string): Job[] {
+export function homeJobs(home: HomeOrganiser, requests: IncomingAccessRequest[], today: string, checks: GoLiveChecks = {}): Job[] {
   const listed = home.series.filter(isListedSeries);
   const hasComingDate = listed.some((s) => s.lifecycle_status === 'live' && s.upcoming_count > 0);
   const canAdd = listed.some((s) => s.lifecycle_status === 'live' || s.lifecycle_status === 'draft');
@@ -156,6 +179,8 @@ export function homeJobs(home: HomeOrganiser, requests: IncomingAccessRequest[],
   drafts.push(...requests.map((r): Draft => ({
     kind: 'join_request', title: 'Answer a request to join', ...(r.requesterEmail ? { sub: r.requesterEmail } : {}), to: ORG_PATHS.team, tone: 'problem',
   })));
-  drafts.push(...rows('stale_draft'), ...rows('no_cover'));
+  // Where the stale-draft rows were: one go-live row per draft, stale or not (fix 4).
+  drafts.push(...listed.filter((s) => s.lifecycle_status === 'draft').map((s) => goLiveRow(s, checks[s.id], today)));
+  drafts.push(...rows('no_cover'));
   return drafts.map((d, i) => ({ ...d, n: i + 1 }));
 }

@@ -5,7 +5,8 @@
 // every /app/* view (the dancer-app chunk ratchet, check:bundle-budget).
 import { safeDynamicImport } from '@/lib/lazyWithRetry';
 
-export interface WizardCountry { code: string; name: string }
+/** `demonym`: the English word for its people ("British"), so a search for the nationality finds the country (W2 walk fix 9). */
+export interface WizardCountry { code: string; name: string; demonym?: string }
 
 let cached: WizardCountry[] | null = null;
 
@@ -16,12 +17,28 @@ export async function wizardCountries(): Promise<WizardCountry[]> {
   for (const c of world) {
     const code = c.cca2?.toUpperCase();
     const name = c.name?.common?.trim();
-    if (c.unMember && code && code.length === 2 && name) byCode.set(code, { code, name });
+    const demonym = c.demonyms?.eng?.m?.trim() || undefined;
+    if (c.unMember && code && code.length === 2 && name) byCode.set(code, { code, name, demonym });
   }
-  byCode.set('PS', { code: 'PS', name: 'Palestine' });
-  byCode.set('VA', { code: 'VA', name: 'Vatican City' });
+  byCode.set('PS', { code: 'PS', name: 'Palestine', demonym: 'Palestinian' });
+  byCode.set('VA', { code: 'VA', name: 'Vatican City', demonym: 'Vatican' });
   cached = [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name));
   return cached;
+}
+
+/** Words people type for a country that neither its name nor its demonym holds. */
+const ALSO: Readonly<Record<string, readonly string[]>> = {
+  GB: ['UK', 'English', 'Scottish', 'Welsh', 'Northern Irish', 'Great Britain', 'England', 'Scotland', 'Wales'],
+  US: ['USA', 'America'],
+  AE: ['UAE', 'Emirati'],
+  NL: ['Holland'],
+};
+
+/** The countries a search finds: by name, by nationality ("Brit"), or by a common other word ("UK"). */
+export function matchCountries(list: readonly WizardCountry[], q: string): WizardCountry[] {
+  const term = q.trim().toLowerCase();
+  if (!term) return [...list];
+  return list.filter((c) => [c.name, c.demonym ?? '', ...(ALSO[c.code] ?? [])].some((w) => w.toLowerCase().includes(term)));
 }
 
 /** The name for a stored code, once the list has loaded (else the code itself). */

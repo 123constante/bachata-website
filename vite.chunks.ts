@@ -412,7 +412,29 @@ export const LIB_ORG_UI_MODULES = [
   "/src/modules/organiser/ui/States.tsx",
   "/src/modules/organiser/ui/SummaryRow.tsx",
   "/src/modules/organiser/ui/useKeyboardInset.ts",
+  // Invite W2 (2026-10-23): the ONE Instagram field and its rule. Imported by the
+  // dancer app and the organiser screens, which load this group already; alone
+  // they were more first-load chunks on /app/*.
+  "/src/components/forms/InstagramInput.tsx",
+  "/src/lib/instagramHandle.ts",
+  // ...and the ONE phone rule (no imports), read statically by the same importers.
+  "/src/lib/phoneRules.ts",
 ];
+
+// The FIFTH first-party group (2026-10-23, invite W2): the ONE phone field
+// (src/components/forms/PhoneInput.tsx, extracted from the raffle) and the country
+// list only it imports. The raffle, the dancer edit screen and the organiser
+// screens share it, and the raffle and the dancer edit screen load it LAZILY (it
+// is not in /event's or /app's first load); this group keeps it ONE chunk.
+// Its rule, src/lib/phoneRules.ts, is NOT here: the dancer app reads it
+// statically, so it rides lib-org-ui above (the country list must not).
+export const LIB_PHONE_MODULES = [
+  "/src/components/forms/PhoneInput.tsx",
+  "/src/lib/countryDialCodes.ts",
+];
+
+const isLibPhoneModule = (id: string): boolean =>
+  !id.includes("node_modules") && LIB_PHONE_MODULES.some((needle) => id.endsWith(needle));
 
 const isLibOrgUiModule = (id: string): boolean =>
   !id.includes("node_modules") && LIB_ORG_UI_MODULES.some((needle) => id.endsWith(needle));
@@ -478,6 +500,7 @@ export function classifyChunk(id: string): string | undefined {
   if (isLibAccountModule(id)) return "lib-account";
   if (isLibPeopleModule(id)) return "lib-people";
   if (isLibOrgUiModule(id)) return "lib-org-ui";
+  if (isLibPhoneModule(id)) return "lib-phone";
   const pinned = singleModulePin(id);
   if (pinned) return pinned;
   if (!id.includes("node_modules")) return undefined;

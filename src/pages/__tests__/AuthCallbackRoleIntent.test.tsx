@@ -11,8 +11,10 @@
  * Landing (no honoured returnTo): an organiser seat keeps today's landing;
  * else Teacher -> /account/t; else DJ -> /account/dj; else today's landing
  * (/account/o for an Organiser sign-up, its create/ask-for-a-page path; else
- * /account/continue). A returnTo wins over all of these. Paths are literals
- * here on purpose: the test must not share the code's constants.
+ * /account/continue). A returnTo wins over all of these, except that an
+ * Organiser sign-up drops a plain public-page returnTo (/event/e1 here; W2
+ * walk fix 7) and lands by the rule above. Paths are literals here on purpose:
+ * the test must not share the code's constants.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -119,7 +121,7 @@ const carry = (roles: Role[], carrier: 'link' | 'code') => {
 
 /** The rule, written out independently of the code. */
 const expectedLanding = (roles: Role[], seat: boolean, returnTo: boolean): string => {
-  if (returnTo) return '/event/e1';
+  if (returnTo && !roles.includes('organiser')) return '/event/e1';
   const todays = roles.includes('organiser') ? '/account/o' : '/account/continue';
   if (seat) return todays;
   if (roles.includes('teacher')) return '/account/t';

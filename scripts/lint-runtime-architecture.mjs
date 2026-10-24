@@ -66,6 +66,10 @@ const RULES = [
       'src/modules/organiser/events/__tests__/goLive.webA1a.test.tsx',
       'src/modules/organiser/events/__tests__/goLive.profilePage.test.tsx',
       'src/modules/organiser/shared/__tests__/goLiveCheck.parse.test.ts',
+      // Invite W2: the same server answer with A1's teacher / DJ entries.
+      'src/modules/organiser/shared/__tests__/goLiveCheck.roles.test.ts',
+      // Invite W2 walk: the Go live x every screen matrix feeds the same server answer.
+      'src/modules/organiser/shared/__tests__/goLiveWalk.matrix.test.tsx',
       'src/modules/admin-organisers/inviteModel.ts',
       'src/modules/admin-organisers/__tests__/inviteModel.test.ts',
       'src/modules/admin-organisers/__tests__/inviteReasons.test.tsx',
