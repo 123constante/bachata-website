@@ -47,6 +47,40 @@ describe("shouldHonorReturnTo", () => {
   });
 });
 
+// W2 walk finding 7: "Sign in" on a public page, then sign up as an Organiser, landed back on that
+// page, so the new organiser never reached /account/o. A plain public browse page gives way to the
+// organiser landing; a claim or invite returnTo is the task itself and is kept; a sign-in is unchanged.
+describe("shouldHonorReturnTo: an organiser sign-up", () => {
+  const signup = (returnTo: string) => shouldHonorReturnTo({ returnTo, isSignupFlow: true, organiserSelfServe: true, organiserSignup: true });
+
+  it.each(["/", "/parties", "/classes", "/event/abc-123", "/dancers/ana", "/bachata-parties-london", "/festivals?city=london"])(
+    "a plain public page (%s) gives way to /account/o",
+    (rt) => {
+      expect(signup(rt)).toBe(false);
+    },
+  );
+
+  it.each([
+    "/organisers/ritmo?claim=1",
+    "/event/abc-123?claim=1",
+    "/organisers/ritmo",
+    "/invite/tok-1",
+    "/invite?token=tok-1",
+    "/account/o/events/s1",
+    "/finish-profile?returnTo=%2Faccount%2Fo",
+  ])("a claim, invite or account returnTo (%s) is kept", (rt) => {
+    expect(signup(rt)).toBe(true);
+  });
+
+  it("a sign-in is unchanged, whatever the role", () => {
+    expect(shouldHonorReturnTo({ returnTo: "/parties", isSignupFlow: false, organiserSelfServe: true, organiserSignup: true })).toBe(true);
+  });
+
+  it("a dancer sign-up is unchanged", () => {
+    expect(shouldHonorReturnTo({ returnTo: "/parties", isSignupFlow: true, organiserSelfServe: true, organiserSignup: false })).toBe(true);
+  });
+});
+
 describe("callbackErrorCopy", () => {
   // Arc 1 flow 9b: the approved, shorter words; each ends on what the person can do.
   it.each([
