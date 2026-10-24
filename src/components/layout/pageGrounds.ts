@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react';
 // also painted on <html>/<body> (so the strip above the footer is never a
 // black band) plus an optional `wash` drawn on the fixed backdrop. No
 // animation, no floating icons.
-export type GroundPalette = 'default' | 'dancer' | 'dj' | 'wall';
+export type GroundPalette = 'default' | 'dancer' | 'dj' | 'teacher' | 'wall';
 
 export interface PageGround {
   base: string;
@@ -24,6 +24,10 @@ export const PAGE_GROUNDS: Record<GroundPalette, PageGround> = {
   // Role grounds from S12Mock (TEAL_INK / DJ_BG).
   dancer: { base: '#06191F', wash: { background: '#06191F' } },
   dj: { base: '#0A080B', wash: { background: '#0A080B' } },
+  // People arc S4: the teacher world's dark violet (= worlds/tokens WORLD.teacher.ground, pinned by a
+  // test). The timetable grid is drawn by frame/WorldPage, not here: this file is in every route's first
+  // load and /event sits on its budget.
+  teacher: { base: '#15102A', wash: { background: '#15102A' } },
   // The people wall / hub warm ground (= person-page wall/tokens WALL.page, pinned by a test). The W2-C DJ
   // page (flags.personHub) stands on it, so its soft bottom fade lands on warm, not graphite, before the footer.
   wall: { base: '#1E1410', wash: { background: '#1E1410' } },

@@ -20,6 +20,11 @@ import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
 import { AlsoRoles } from '@/modules/person-page/AlsoRoles';
 import { buildMailtoHref, buildTelHref } from '@/lib/contactValidation';
+import { flags } from '@/lib/featureFlags';
+import { useEmbeddedProfile } from '@/lib/embeddedProfile';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { resolvePublicName } from '@/lib/publicName';
+import { TeacherWorldLoading, TeacherWorldMissing, TeacherWorldPage } from '@/modules/person-page/worlds/teacher';
 
 type TeacherRow = {
   id: string;
@@ -41,6 +46,8 @@ type TeacherRow = {
   public_email: string | null;
   phone: string | null;
   nationality: string | null;
+  /** People arc S4: the world draws the flag from this (the old page printed `nationality` as text). */
+  nationality_code: string | null;
   languages: string[] | null;
   achievements: string[] | null;
   availability: string | null;
@@ -148,6 +155,8 @@ const TeacherProfile = () => {
             facebook: string | null;
             email: string | null;
             phone: string | null;
+            /** Not in the generated types yet (the RPC returns it): optional so the cast still checks. */
+            nationality_code?: string | null;
           }
         | undefined;
       if (!row) throw new Error('Teacher not found');
@@ -172,6 +181,7 @@ const TeacherProfile = () => {
         public_email: row.email,
         phone: row.phone,
         nationality: row.nationality,
+        nationality_code: row.nationality_code ?? null,
         languages: row.languages,
         achievements: row.achievements,
         availability: row.availability,
@@ -199,6 +209,39 @@ const TeacherProfile = () => {
   // LIVE -- do not generalise from route type (arc W22).
   const { citySlug } = useCity();
   const classesPath = buildCityPath(citySlug, 'classes');
+
+  // People arc S4 (flags.personWorlds ON, not inside a /people/:id tab): every state in the one world
+  // shell, PersonFrame (Back, Share, role tabs) and the teacher world. Flag OFF, everything below is
+  // unchanged (AlsoRoles stays only there).
+  const embedded = useEmbeddedProfile();
+  if (flags.personWorlds && !embedded) {
+    const name = teacher ? resolvePublicName({ id: teacher.id, first_name: teacher.first_name, surname: teacher.surname }) : null;
+    const breadcrumbs = buildBreadcrumbs('teacher.detail', { entityName: name ?? undefined, isLoading });
+    if (isLoading) return <TeacherWorldLoading breadcrumbs={breadcrumbs} />;
+    if (error || !teacher || !id) return <TeacherWorldMissing breadcrumbs={breadcrumbs} />;
+    return (
+      <TeacherWorldPage
+        id={id}
+        slug={resolved.slug}
+        photo={teacher.photo_url}
+        breadcrumbs={breadcrumbs}
+        row={{
+          entity_id: teacher.id,
+          first_name: teacher.first_name,
+          surname: teacher.surname,
+          city: teacher.city?.name ?? null,
+          nationality_code: teacher.nationality_code,
+          languages: teacher.languages,
+          website: teacher.website,
+          instagram: teacher.instagram,
+          facebook: teacher.facebook,
+          years_teaching: teacher.years_teaching,
+          teaching_styles: teacher.teaching_styles,
+          offers_private: teacher.offers_private,
+        }}
+      />
+    );
+  }
 
   /* ── loading ──── */
   if (isLoading) {

@@ -3,10 +3,23 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import type { GroundPalette } from '@/components/layout/pageGrounds';
 import type { BreadcrumbItemType } from '@/components/PageBreadcrumb';
 import type { PersonRole } from '../personRoles';
-import { WORLD } from '../worlds/tokens';
+import { TEACHER_PAPER, WORLD } from '../worlds/tokens';
 
-/** The page ground under each world. The teacher world has no ground of its own yet (S4 adds one). */
-const GROUND: Record<PersonRole, GroundPalette> = { dj: 'dj', dancer: 'dancer', teacher: 'default' };
+/** The page ground under each world (S4 added the teacher grid). */
+const GROUND: Record<PersonRole, GroundPalette> = { dj: 'dj', dancer: 'dancer', teacher: 'teacher' };
+
+/**
+ * The teacher world's timetable grid, on the page box (a lazy chunk) rather than in pageGrounds (every first load).
+ * The layout's plain ground runs on below the box to the footer, so the grid fades into it over the box's last
+ * 48px (its pb-6 and a little of the content) instead of stopping in a hard line (S4 critique).
+ */
+const line = (deg: number) => `repeating-linear-gradient(${deg}deg, ${TEACHER_PAPER.grid} 0 1px, transparent 1px 28px)`;
+export const TEACHER_GRID = {
+  backgroundImage: `linear-gradient(180deg, transparent, ${WORLD.teacher.ground}), ${line(0)}, ${line(90)}`,
+  backgroundSize: '100% 48px, auto, auto',
+  backgroundPosition: 'left bottom, 0 0, 0 0',
+  backgroundRepeat: 'no-repeat, repeat, repeat',
+} as const;
 
 /**
  * The page box around PersonFrame, ONE for every world (S3b). The owner saw Back move 4px right
@@ -34,7 +47,7 @@ export function WorldPage({ world, breadcrumbs, backHref, head, children }: {
   return (
     <GlobalLayout breadcrumbs={breadcrumbs} backHref={backHref} showSubheader={false} gradientPalette={GROUND[world]} fitContent>
       {head}
-      <div data-testid="world-page" data-world={world} className={WORLD_PAGE.page} style={{ color: WORLD[world].ink }}>
+      <div data-testid="world-page" data-world={world} className={WORLD_PAGE.page} style={{ color: WORLD[world].ink, ...(world === 'teacher' ? TEACHER_GRID : null) }}>
         <div data-testid="world-page-slot" className={WORLD_PAGE.slot}>
           {children}
         </div>

@@ -82,3 +82,19 @@ export const WORLD: Record<PersonRole, WorldTokens> = {
     nameFont: FONT.teacherDisplay,
   },
 };
+
+/** The teacher world's studio-timetable details (S4), from the approved reference's .t-* rules. */
+export const TEACHER_PAPER = {
+  /** The TEACHER band across the top of the card, and its two punched holes (the ground showing through). */
+  band: '#4B2A9E',
+  bandInk: '#F5F0FF',
+  /** The ruled lines on the card, and the grid lines on the ground. */
+  rule: '#E6DCFB',
+  grid: '#1D1738',
+  /** Class rows: the date / contact value, the time, and the small line under the date. */
+  rowInk: '#FFFFFF',
+  time: '#D9CBFF',
+  rowMuted: '#D3C8F2',
+  /** The contact row's small label. */
+  contactKey: '#CDB9FF',
+} as const;
