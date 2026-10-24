@@ -264,3 +264,61 @@ describe('parsers', () => {
     expect(isMissingRpc(null)).toBe(false);
   });
 });
+
+// A profile with no first name comes back as the literal "(no name)"; every shape of "no name" must read
+// as "no name yet" on every screen, never as the raw text or "Unnamed profile".
+const NONAME_SHAPES: [string, unknown][] = [['literal (no name)', '(no name)'], ['empty', ''], ['whitespace', '   '], ['null', null], ['missing', undefined]];
+const BAD = /\(no name\)|unnamed profile|undefined|null/i;
+
+describe.each(NONAME_SHAPES)('nameless label shape: %s', (_shape, label) => {
+  const keepless = { ...STUB, premade_label: label };
+  const foldless = { ...STUB, login_label: label };
+  const both = { ...STUB, premade_label: label, login_label: label };
+
+  it.each([['keep side', keepless], ['fold side', foldless], ['both sides', both]] as const)('%s: no screen shows the raw text', async (_s, pair) => {
+    notLinked = [{ ...NL, person_profile_id: pair.premade_profile_id, person_label: label }];
+    pairs = [pair];
+    mount();
+    const row = await screen.findByTestId('dup-pair');
+    expect(row.textContent).not.toMatch(BAD);
+    expect(row.textContent).toMatch(/team list next to .+, a profile you made\.(Review)?$/);
+    if (pair.premade_label === label) expect(row.textContent).toContain('next to a profile with no name yet, a profile you made.');
+    if (pair.login_label === label) expect(row.textContent).toMatch(/^Someone who signed up is on the Sensual Vibes team list/);
+    const paused = screen.getByTestId('dup-paused');
+    expect(paused.textContent).not.toMatch(BAD);
+    expect(paused.textContent).toMatch(/^Someone tried to join Sensual Vibes; the join is paused\./);
+    fireEvent.click(screen.getByTestId('dup-review'));
+    expect(screen.getByTestId('dup-same').textContent).not.toMatch(BAD);
+    expect(screen.getByTestId('dup-same').textContent).toMatch(/one profile( with no name yet)?[:,]/);
+    h.answers.admin_join_duplicate_people_v1 = () => ({ data: { changes: [{ kind: 'claim', text: '"(no name)" becomes the profile of the signed-in account' }, { kind: 'archive', text: 'Archive the duplicate profile "(no name)"' }], applied: false }, error: null });
+    fireEvent.click(screen.getByTestId('dup-show-changes'));
+    const list = await screen.findByTestId('dup-change-list');
+    expect(list.textContent).not.toMatch(BAD);
+    expect(list.textContent).toContain('The profile with no name yet becomes the profile');
+    fireEvent.click(screen.getByTestId('dup-join'));
+    expect(screen.getByTestId('dup-confirm').textContent).not.toMatch(BAD);
+    h.rpc.mockImplementation((fn: string, args: Record<string, unknown>) =>
+      Promise.resolve(fn === 'admin_join_duplicate_people_v1' && args.p_dry_run === false ? { data: { changes: [], applied: true }, error: null } : h.answers[fn]()));
+    fireEvent.click(screen.getByTestId('dup-confirm-yes'));
+    const joined = (await screen.findByTestId('dup-joined')).textContent ?? '';
+    expect(joined).not.toMatch(BAD);
+    if (pair.premade_label === label) expect(joined).toBe('Joined. This profile has no name yet and is one profile now, owned by their login.Close');
+  });
+
+  it('a paused join whose pair has a nameless fold reads grammatically', async () => {
+    pairs = [foldless];
+    notLinked = [{ ...NL, person_profile_id: 'k1', person_label: 'Papacito' }];
+    mount();
+    expect((await screen.findByTestId('dup-paused')).textContent).toContain('It matches the pair with someone who signed up: review it to join them.');
+  });
+});
+
+describe('ordering', () => {
+  it('pairs with a nameless side go last, stable otherwise', () => {
+    const a = { ...STUB, login_profile_id: 'a', premade_profile_id: 'a2', premade_label: '(no name)' };
+    const b = { ...STUB, login_profile_id: 'b', premade_profile_id: 'b2' };
+    const c = { ...STUB, login_profile_id: 'c', premade_profile_id: 'c2', login_label: '(no name)' };
+    const d = { ...STUB, login_profile_id: 'd', premade_profile_id: 'd2' };
+    expect(parseDuplicates(answer([a, b, c, d]))?.pairs.map((p) => p.foldId)).toEqual(['b', 'd', 'a', 'c']);
+  });
+});

@@ -47,7 +47,7 @@ const CHANGES = {
   applied: false,
 };
 
-interface World { a2: boolean; pairs: unknown[]; notLinked: unknown[]; invite: 'ok' | 'email_in_use' | 'login_has_signed_in'; dry: 'ok' | 'two_real_logins'; dismiss: 'ok' | 'missing' }
+interface World { a2: boolean; pairs: unknown[]; notLinked: unknown[]; invite: 'ok' | 'email_in_use' | 'login_has_signed_in'; dry: 'ok' | 'two_real_logins' | 'nameless'; dismiss: 'ok' | 'missing' }
 const missing = (route: Route, fn: string) => json(route, { code: 'PGRST202', message: `Could not find the function public.${fn}` }, 404);
 
 async function install(page: Page, w: World, calls: { fn: string; body: Record<string, unknown> }[]) {
@@ -75,6 +75,7 @@ async function install(page: Page, w: World, calls: { fn: string; body: Record<s
         case 'admin_join_duplicate_people_v1':
           if (!w.a2) return missing(route, fn);
           if (body.p_dry_run === false) { w.pairs = w.pairs.slice(1); return json(route, { changes: CHANGES.changes, applied: true }); }
+          if (w.dry === 'nameless') return json(route, { changes: [{ kind: 'claim', text: '"(no name)" becomes the profile of the signed-in account; its pages and seats stay' }, { kind: 'archive', text: 'Archive the duplicate profile "Jinder" (kept, not deleted)' }], applied: false });
           return json(route, w.dry === 'ok' ? CHANGES : { changes: [], refused: 'two_real_logins', applied: false });
         case 'admin_dismiss_invitee_duplicate_v1': return w.dismiss === 'missing' ? missing(route, fn) : json(route, { ok: true, dismissed: true });
         case 'admin_invite_person_v1':
@@ -228,4 +229,28 @@ test('duplicates refusals: two used logins; dismiss before its RPC exists', asyn
   await expect(page.getByTestId('dup-join')).toBeDisabled();
   await noSideScroll(page);
   await shot(page, 'w3-15-refused-both-signed-in');
+});
+
+// Mocked shape: the RPC labels a profile an admin made with no first name as the literal "(no name)".
+test('nameless profile: reads "no name yet" on every duplicates screen, never "(no name)"', async ({ page }) => {
+  if (process.env.WALK_VIEWPORT === '360x640') await page.setViewportSize({ width: 360, height: 640 });
+  const pair = { ...PAIRS[0], premade_label: '(no name)' };
+  await install(page, world({ a2: true, pairs: [pair], notLinked: [], dry: 'nameless' }), []);
+  await page.goto('/admin/organisers');
+  const row = page.getByTestId('dup-pair');
+  await expect(row).toContainText('Jinder signed up and is on the Sensual Vibes team list next to a profile with no name yet, a profile you made.');
+  await noSideScroll(page);
+  await shot(page, 'noname-01-alert');
+  await page.getByTestId('dup-review').click();
+  await expect(page.getByTestId('dup-same')).toContainText('see one profile with no name yet');
+  await shot(page, 'noname-02-same-person');
+  await page.getByTestId('dup-show-changes').click();
+  await expect(page.getByTestId('dup-change-list')).toContainText('The profile with no name yet becomes the profile');
+  await page.getByTestId('dup-join').click();
+  await page.getByTestId('dup-confirm-yes').click();
+  await expect(page.getByTestId('dup-joined')).toContainText('Joined. This profile has no name yet and is one profile now');
+  await noSideScroll(page);
+  await shot(page, 'noname-03-joined');
+  const text = (await page.locator('body').innerText());
+  expect(text).not.toMatch(/\(no name\)|Unnamed profile/);
 });

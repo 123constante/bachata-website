@@ -12,10 +12,11 @@ export type DuplicateKind = 'stub';
 export interface DuplicatePair {
   /** The profile that stays: the one the admin made (premade_profile_id). */
   keepId: string;
-  keepName: string;
+  /** null = the profile has no name yet (the RPC's "(no name)" text never leaves the parser). */
+  keepName: string | null;
   /** The profile folded into it: the sign-up stub (login_profile_id). */
   foldId: string;
-  foldName: string;
+  foldName: string | null;
   organiserId: string | null;
   organiserName: string | null;
   kind: DuplicateKind;
@@ -30,7 +31,7 @@ export interface PausedJoin {
   inviteId: string;
   organiserName: string | null;
   personProfileId: string | null;
-  personLabel: string;
+  personLabel: string | null;
   attemptedAt: string | null;
   pair: DuplicatePair | null;
 }
@@ -41,6 +42,14 @@ export interface DuplicatesList {
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+/**
+ * A profile label from check_invitee_duplicates_v1. A profile with no name comes back as the literal text
+ * "(no name)" (or, defensively, null / empty / whitespace); all of those become null = "no name yet".
+ */
+export const labelOf = (v: unknown): string | null => {
+  const s = str(v);
+  return s && !/^\(?\s*no name\s*\)?$/i.test(s) && !/^unnamed profile$/i.test(s) ? s : null;
+};
 const rowsOf = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? v.map((r) => (r ?? {}) as Record<string, unknown>) : []);
 
 /**
@@ -60,9 +69,9 @@ export function parseDuplicates(data: unknown): DuplicatesList | null {
     if (!keepId || !foldId || keepId === foldId || r.kind !== 'team_stub') continue;
     pairs.push({
       keepId,
-      keepName: str(r.premade_label) ?? 'Unnamed profile',
+      keepName: labelOf(r.premade_label),
       foldId,
-      foldName: str(r.login_label) ?? 'Unnamed profile',
+      foldName: labelOf(r.login_label),
       organiserId: str(r.organiser_id),
       organiserName: str(r.organiser_name),
       kind: 'stub',
@@ -78,13 +87,20 @@ export function parseDuplicates(data: unknown): DuplicatesList | null {
       inviteId,
       organiserName: str(r.organiser_name),
       personProfileId,
-      personLabel: str(r.person_label) ?? 'Someone',
+      personLabel: labelOf(r.person_label),
       attemptedAt: str(r.attempted_at),
       pair: (personProfileId && pairs.find((p) => p.keepId === personProfileId && (!organiserId || !p.organiserId || p.organiserId === organiserId))) || null,
     });
   }
+  // Pairs with a nameless side go last (stable otherwise).
+  const nameless = (p: DuplicatePair) => (p.keepName === null || p.foldName === null ? 1 : 0);
+  pairs.sort((a, b) => nameless(a) - nameless(b));
   return { pairs, notLinked };
 }
+
+/** The server's change lines quote labels; a quoted "(no name)" reads as "the profile with no name yet". */
+const noNameYet = (t: string): string =>
+  t.replace(/^"\(no name\)"/i, 'The profile with no name yet').replace(/"\(no name\)"/gi, 'the profile with no name yet');
 
 export interface ChangeLine {
   kind: string;
@@ -105,7 +121,8 @@ export function parseDryRun(data: unknown): DryRun | null {
   if (!Array.isArray(r.changes)) return null;
   const changes: ChangeLine[] = [];
   for (const c of r.changes) {
-    const text = str((c as { text?: unknown } | null)?.text);
+    const raw = str((c as { text?: unknown } | null)?.text);
+    const text = raw && noNameYet(raw);
     if (text) changes.push({ kind: str((c as { kind?: unknown }).kind) ?? 'other', text });
   }
   return { kind: 'changes', changes };

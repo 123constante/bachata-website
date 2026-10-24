@@ -81,8 +81,8 @@ export function DuplicateReview({ pair, onClose }: { pair: DuplicatePair; onClos
         <h3 ref={heading} tabIndex={-1} className="text-base font-semibold outline-none">{DUP_COPY.sameTitle}</h3>
         <p className="text-sm text-muted-foreground">{pairSentence(pair)}</p>
         <div className="grid grid-cols-2 gap-2">
-          <Card tag={DUP_COPY.keep} name={pair.keepName} fact={DUP_COPY.keepFact} keep />
-          <Card tag={DUP_COPY.fold} name={pair.foldName} fact={DUP_COPY.foldFact} keep={false} />
+          <Card tag={DUP_COPY.keep} name={pair.keepName ?? DUP_COPY.noNameCard} fact={DUP_COPY.keepFact} keep />
+          <Card tag={DUP_COPY.fold} name={pair.foldName ?? DUP_COPY.signedUpCard} fact={DUP_COPY.foldFact} keep={false} />
         </div>
         <p className="text-sm text-muted-foreground">{DUP_COPY.sameLead(pair)}</p>
         <button type="button" className={`${BTN_PRIMARY} w-full`} onClick={() => setStep('changes')} data-testid="dup-show-changes">{DUP_COPY.showChanges}</button>
