@@ -35,7 +35,7 @@ const ConfettiParticle = ({ delay, startX }: { delay: number; startX: number }) 
     className="absolute text-lg pointer-events-none"
     style={{ left: `${startX}%` }}
   >
-    {["‰", "Š", "¨", "­", "ª", " ", "¡", "¥³", "’ƒ", "•º"][Math.floor(Math.random() * 10)]}
+    {["\u{1F389}", "\u{1F38A}", "\u{1F3A8}", "\u{1F3AD}", "\u{1F3AA}", "\u{1F3A0}", "\u{1F3A1}", "\u{1F973}", "\u{1F483}", "\u{1F57A}"][Math.floor(Math.random() * 10)]}
   </motion.div>
 );
 
