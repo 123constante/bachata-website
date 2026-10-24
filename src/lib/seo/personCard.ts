@@ -41,7 +41,8 @@ export function personCardDescription(role: PersonCardRole, input: PersonCardInp
     case 'dj':
       return `${who} plays bachata${where}. Upcoming sets and where to hear them.`;
     case 'dancer':
-      return `${who} - bachata dancer${where}, on Bachata Calendar.`;
+      // Wording kept from before S5 (byte-identical for a London dancer); only the city is real now.
+      return `${who} - profile on Bachata Calendar${city ? ` ${city}` : ''}.`;
   }
 }
 

@@ -36,7 +36,7 @@ function EXPECT(role: Role, s: Shape, slug: string) {
   const description = {
     teacher: `${who} teaches bachata${where}. Classes, schedule and styles.`,
     dj: `${who} plays bachata${where}. Upcoming sets and where to hear them.`,
-    dancer: `${who} - bachata dancer${where}, on Bachata Calendar.`,
+    dancer: `${who} - profile on Bachata Calendar${s.city ? ` ${s.city}` : ''}.`,
   }[role];
   const raw = Array.isArray(s.photo) ? s.photo.find((p) => p) ?? null : s.photo;
   return {
