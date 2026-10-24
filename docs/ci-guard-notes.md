@@ -413,6 +413,16 @@ outage, and the workflow's canary-health step then reds the job.** Fixing that
 needs a workflow edit, which is in the record:
 `docs/guard-notes/mergeable-sweep-504/HANDOVER.md`.
 
+**Conflicting docs-only worker PRs are skipped, visibly** (owner, 2026-10-24):
+a CONFLICTING PR with a `claude/` head whose every changed file passes
+`scripts/ci/docs-only.mjs` (or lives under `briefs/`), none renamed or copied,
+whole list read, prints `SKIPPED docs-only #N <head>` plus a `skipped docs-only:
+K` total instead of failing, and gets no status, no place in the ok tally and no
+effect on the exit code. Files are read only for those candidates (a separate
+20-per-call query); a human or Dependabot head, a MERGEABLE PR with an empty
+board, a list over 100 files or a 5xx on that read (NOT JUDGED) keeps the PR out
+of the skip.
+
 ---
 
 ## Workflow inventory
