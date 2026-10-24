@@ -5,8 +5,8 @@ import type { BreadcrumbItemType } from '@/components/PageBreadcrumb';
 import type { PersonRole } from '../personRoles';
 import { WORLD } from '../worlds/tokens';
 
-/** The page ground under each world. The teacher world has no ground of its own yet (S4 adds one). */
-const GROUND: Record<PersonRole, GroundPalette> = { dj: 'dj', dancer: 'dancer', teacher: 'default' };
+/** The page ground under each world (S4 added the teacher grid). */
+const GROUND: Record<PersonRole, GroundPalette> = { dj: 'dj', dancer: 'dancer', teacher: 'teacher' };
 
 /**
  * The page box around PersonFrame, ONE for every world (S3b). The owner saw Back move 4px right
