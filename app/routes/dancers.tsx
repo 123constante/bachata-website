@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { DANCER_PUBLIC_COLS, attachPublicDancerName, mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
 import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
+import { flags } from "@/lib/featureFlags";
+import { seedPersonSnapshot } from "@/modules/person-page/seedPersonSnapshot";
 import DancerProfile from "@/pages/DancerProfile";
-import { DEGRADED_EDGE_TTL_SECONDS, loadPublicPageV2 } from "@/modules/dancer-app/public-page/loadPublicPage";
+import { DEGRADED_EDGE_TTL_SECONDS, PUBLIC_PAGE_DEADLINE_MS, loadPublicPageV2 } from "@/modules/dancer-app/public-page/loadPublicPage";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import {
   resolveEntityInLoader,
@@ -41,7 +43,7 @@ export const loader = withSsrLoaderTimeout("dancer-loader", async function loade
   // Return null on a genuine miss (→ 404 below) but let a TRANSIENT supabase
   // error propagate — a swallowing catch would 404+noindex a valid dancer on a
   // DB blip (mirrors app/routes/event.tsx).
-  const dancer = await qc.fetchQuery({
+  const dancerRead = qc.fetchQuery({
     queryKey: ["dancer-profile", ref.id],
     queryFn: async () => {
       // Must match app/routes/sitemap.tsx's fetchDancerProfiles() gate exactly --
@@ -59,10 +61,18 @@ export const loader = withSsrLoaderTimeout("dancer-loader", async function loade
     },
     staleTime: 1000 * 60 * 5,
   });
+  // People arc S7 (flags.personWorlds only): the person's roles, read beside the reads here and
+  // seeded into the dehydrated cache so the served HTML holds the role tabs and the preview reserve.
+  // Started AFTER the dancer read above is issued, so ['dancer-profile'] runs THIS file's query body
+  // (the snapshot's own dancer read joins it). Never rejects, own deadline; a miss = the hook reads
+  // after mount. Body only: no meta / cache header / edge-TTL change.
+  const rolesSeed = flags.personWorlds ? seedPersonSnapshot(qc, ref.id as string, PUBLIC_PAGE_DEADLINE_MS) : null;
+  const dancer = await dancerRead;
   if (!dancer) throwDetailNotFound("Dancer");
 
   const view = mapDancerPublicProfile(dancer as never);
   const { page: publicPage, degraded } = await publicPageLoad;
+  if (rolesSeed) await rolesSeed;
   return taggedData(
     {
       dehydratedState: dehydrate(qc),
