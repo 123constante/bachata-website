@@ -53,6 +53,8 @@ export interface PhoneInputProps {
   placeholder?: string;
   /** Show the "looks short" line now, without waiting for the box to be left (the form tried to go on). */
   showShort?: boolean;
+  /** Enter in the digits box (the keyboard's Done / Go key): the form's own submit, with the keyboard's label. */
+  onEnter?: () => void;
 }
 
 const DEFAULT_CODE = 'GB';
@@ -162,6 +164,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
   showConfirm,
   placeholder = '7700 900123',
   showShort = false,
+  onEnter,
 }) => {
   const t = TONE[tone];
   const fallbackId = useId();
@@ -226,8 +229,9 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
     onChange(e164, (nextCheck.status === 'ok' || nextCheck.status === 'warn') && isValidE164(e164));
   };
 
-  // A full international number typed or pasted into the digits box ("+44 7700 900123", "0044...")
+  // A full international number pasted or autofilled into the digits box ("+44 7700 900123", "0044...")
   // picks its own country, instead of being read as national digits after the current dial code.
+  // Typed key by key it is not: the box holds digits only (numeric keypad, no "+"), so the country is the picker's.
   const handleDigitsChange = (text: string) => {
     const intl = text.trim().match(/^(\+|00)(.*)$/);
     if (intl) {
@@ -353,6 +357,8 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
           inputMode="numeric"
           autoComplete="tel-national"
           autoFocus={autoFocus}
+          enterKeyHint={onEnter ? 'done' : undefined}
+          onKeyDown={onEnter ? (e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter(); } } : undefined}
           disabled={disabled}
           value={localDigits}
           onChange={(e) => handleDigitsChange(e.target.value)}

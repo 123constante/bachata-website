@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
+import { sanitizeReturnTo } from '@/lib/authRouting';
 import { useProfileProgress } from '@/modules/organiser/shared/profileProgress';
 import { isAreaShown } from '../home/areaStatus';
 import { fetchMyRoles, myRolesQueryKey } from '../home/rolesApi';
@@ -17,6 +18,8 @@ import { diffPatch, toDraft, validatePatch, withPendingDraft, type Details, type
 
 export const NOTHING_CHANGED = 'Nothing changed yet';
 export const SAVED = 'Saved';
+/** Back's label when the page was opened from a task (a Go live gap) that it returns to. */
+export const BACK_TO_TASK = 'Back';
 
 export interface RoleProfileFormProps {
   role: Role;
@@ -134,11 +137,14 @@ export function RoleProfilePage({ role, areaPath, blocked }: { role: Role; areaP
   const roles = useQuery({ queryKey: myRolesQueryKey, queryFn: fetchMyRoles });
   const progress = useProfileProgress(null);
   const name = ROLE_NAME[role];
+  // A Go live gap link opens this page with ?returnTo= (the event or the Go live flow): Back goes there.
+  const [params] = useSearchParams();
+  const returnTo = sanitizeReturnTo(params.get('returnTo'));
   if (roles.status === 'success' && progress.status !== 'pending' && !isAreaShown(role, roles.data.find((r) => r.role === role), progress.data)) {
     return <Navigate to={areaPath} replace />;
   }
   return (
-    <AreaFrame title={`${name} details`} back={{ to: areaPath, label: name }} testId={`${role}-profile`}>
+    <AreaFrame title={`${name} details`} back={returnTo ? { to: returnTo, label: BACK_TO_TASK } : { to: areaPath, label: name }} testId={`${role}-profile`}>
       <AnnounceRegion message={announcement} />
       <SavedToast show={toast} onDone={hideToast} />
       {details.status === 'pending' || roles.status === 'pending' || progress.status === 'pending' ? (

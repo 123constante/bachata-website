@@ -50,9 +50,9 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-function mount(ui: ReactElement) {
+function mount(ui: ReactElement, entry = '/') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={qc}><MemoryRouter>{ui}</MemoryRouter></QueryClientProvider>);
+  return render(<QueryClientProvider client={qc}><MemoryRouter initialEntries={[entry]}>{ui}</MemoryRouter></QueryClientProvider>);
 }
 const calls = (fn: string) => h.rpc.mock.calls.filter((c) => c[0] === fn);
 
@@ -112,10 +112,12 @@ describe.each(AREAS)('%s dashboard', (role, Page, line) => {
 });
 
 describe.each(PROFILES)('%s profile edit', (role, Page, label, key) => {
-  it('every field is marked optional; untouched Save is disabled with a visible reason and sends nothing', async () => {
+  it('every field but the go-live ones is marked optional; untouched Save is disabled with a visible reason and sends nothing', async () => {
     mount(<Page />);
     const save = await screen.findByTestId('save-details');
-    expect(screen.getAllByText(/\(optional\)$/).length).toBe(role === 'teacher' ? 7 : 5);
+    // W2 walk fix 3: teacher styles, DJ name + music are needed to go live, never "(optional)".
+    expect(screen.getAllByText(/\(optional\)$/).length).toBe(role === 'teacher' ? 6 : 3);
+    expect(screen.getAllByText(/Needed before your events can go live\./).length).toBe(role === 'teacher' ? 1 : 2);
     expect((save) as HTMLButtonElement).toHaveProperty('disabled', true);
     expect((screen.getByTestId('save-reason')).textContent).toContain(NOTHING_CHANGED);
     expect(NOTHING_CHANGED).toBe('Nothing changed yet'); // D109: the short reason, pinned as a literal
@@ -139,6 +141,23 @@ describe.each(PROFILES)('%s profile edit', (role, Page, label, key) => {
     fireEvent.click(screen.getByTestId('save-details'));
     expect((await screen.findByTestId('save-error')).textContent).toContain(ROLE_ERROR_COPY[code]);
   });
+  // A Go live gap link carries ?returnTo= (the event): Back goes there, never to the area page; an off-site one is dropped.
+  it.each([
+    ['/account/o/events/s1', '/account/o/events/s1', 'Back'],
+    ['//evil.example', null, null],
+    [null, null, null],
+  ])('returnTo %s -> Back to %s', async (rt, to, label) => {
+    mount(<Page />, rt ? `/x?returnTo=${encodeURIComponent(rt)}` : '/x');
+    await screen.findByTestId('save-details');
+    const back = screen.getByTestId('area-back');
+    if (to) {
+      expect(back.getAttribute('href')).toBe(to);
+      expect(back.textContent).toContain(label);
+    } else {
+      expect(back.getAttribute('href')).not.toContain('evil');
+      expect(back.getAttribute('href')).not.toBe('/x');
+    }
+  });
 });
 
 it('a value over the limit is refused on the phone, and nothing is sent', async () => {
@@ -151,7 +170,7 @@ it('a value over the limit is refused on the phone, and nothing is sent', async 
 
 it('list input: add, refuse a duplicate with a reason, remove', async () => {
   mount(<TeacherProfilePage />);
-  const input = await screen.findByLabelText('Styles you teach (optional)');
+  const input = await screen.findByLabelText('Styles you teach', { selector: 'input' });
   fireEvent.change(input, { target: { value: 'sensual' } });
   expect(screen.getByText('sensual is already in the list.')).toBeTruthy();
   expect((screen.getByRole('button', { name: 'Add to Styles you teach' })) as HTMLButtonElement).toHaveProperty('disabled', true);
@@ -204,7 +223,7 @@ describe('wizard steps', () => {
     expect(onAnswer).toHaveBeenCalledWith(false);
   });
   it('unlock lines promise nothing but the next questions', () => {
-    for (const s of [doYouTeachStep, doYouDjStep]) expect(s.unlockLine).toMatch(/^Yes lets you add your .* details next\. Every one is optional\.$/);
+    for (const s of [doYouTeachStep, doYouDjStep]) expect(s.unlockLine).toMatch(/^Yes lets you add your .* details next\. Only .* (is|are) needed before your events can go live\.$/);
   });
 });
 

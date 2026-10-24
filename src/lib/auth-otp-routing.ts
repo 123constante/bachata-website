@@ -96,7 +96,10 @@ export function shouldHonorReturnTo(input: {
   return !input.organiserSignup || isTaskReturnTo(input.returnTo);
 }
 
-const TASK_PATHS = ["/invite", "/account", "/app", "/finish-profile", "/organisers"];
+// The task path itself and anything under it.
+const TASK_PATHS = ["/invite", "/account", "/app", "/finish-profile"];
+// Only UNDER it: /organisers/<page> holds the claim card; /organisers alone is the browse directory.
+const TASK_PREFIXES = ["/organisers/"];
 
 /** A returnTo that carries a task (claim, invite, a signed-in screen), not just a page someone was browsing. */
 export function isTaskReturnTo(returnTo: string): boolean {
@@ -104,7 +107,7 @@ export function isTaskReturnTo(returnTo: string): boolean {
   const [path, query = ""] = beforeHash.split("?");
   if (query.split("&").includes("claim=1")) return true;
   const p = path.toLowerCase();
-  return TASK_PATHS.some((t) => p === t || p.startsWith(`${t}/`));
+  return TASK_PATHS.some((t) => p === t || p.startsWith(`${t}/`)) || TASK_PREFIXES.some((t) => p.startsWith(t) && p.length > t.length);
 }
 
 // Arc 1 flow 9a: the ONE sub line under "Welcome back" on every sign-in visit

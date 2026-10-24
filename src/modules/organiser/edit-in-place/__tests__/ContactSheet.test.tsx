@@ -193,6 +193,20 @@ describe('the Contact details sheet', () => {
     for (const k of ['show_email_publicly', 'show_contact_publicly', 'contact_email']) expect(p).not.toHaveProperty(k);
   });
 
+  it("the keyboard's Done key (Enter in the phone box) is Done; a short number stays open", async () => {
+    setup(settings({}));
+    const d = await openSheet();
+    const box = within(d).getByLabelText('Phone');
+    expect(box.getAttribute('enterkeyhint')).toBe('done');
+    fireEvent.change(box, { target: { value: '12' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    fireEvent.change(box, { target: { value: '07700 900456' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByTestId('eip-bar-count').textContent).toBe('1 change not saved');
+  });
+
   it('a legacy number saved without its country is shown as it is, never blocks Done, and is never re-sent', async () => {
     const { rpc } = setup(settings({ contact_phone: '2345678' }));
     const d = await openSheet();

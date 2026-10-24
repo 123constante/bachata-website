@@ -115,7 +115,7 @@ export default function ContactSheet({ stored, drafts, onDone, onClose }: Contac
         <label htmlFor={phoneId} style={label}>Phone</label>
         {/* The ONE phone field (country first, saved as E.164). The sheet sits in document.body, so it carries the theme itself. */}
         <div className="org-theme" style={{ ...PHONE_FIELD_TOKENS, background: 'transparent' } as CSSProperties} data-testid="eip-contact-phone">
-          <PhoneInput inputId={phoneId} value={phone} stored={stored.phone ?? ''} onChange={(e164) => setPhone(e164)} autoFocus error={showError} feedbackTestId="eip-phone-feedback" showShort={phone !== initialPhone && !phoneOk} />
+          <PhoneInput inputId={phoneId} value={phone} stored={stored.phone ?? ''} onChange={(e164) => setPhone(e164)} autoFocus error={showError} feedbackTestId="eip-phone-feedback" showShort={phone !== initialPhone && !phoneOk} onEnter={done} />
         </div>
         <SwitchRow item={items.phone} onToggle={() => setShowPhone(!items.phone.isPublic)} />
 

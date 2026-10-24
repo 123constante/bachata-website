@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Camera, Mail, MessageCircle, X } from 'lucide-react';
 import { supportLinks } from '@/modules/organiser/shared/support';
+import { REQUIRED_HINT } from '@/modules/organiser/shared/goLiveKeys';
 import type { WizardStepProps } from '@/modules/areas/wizardStep';
 import { Chip, FIELD_CLASS, PrimaryButton, useDebounced } from '../ui';
 import { needsTeamHelp } from './dancerApi';
@@ -16,7 +17,7 @@ import { useWizardEnv, type WizardEnv } from './wizardEnv';
 import { LIST_ITEM_MAX, LIST_MAX_ITEMS, isBlankAnswer, withPendingItem } from './wizardModel';
 
 export const SKIP_LABEL = 'Skip for now';
-export const REQUIRED_HINT = 'Needed before your events can go live.';
+export { REQUIRED_HINT };
 /** Why a list step's Add is off while nothing is typed (on screen, linked to the button). */
 export const LIST_ADD_HINT = 'Type one first, then tap Add.';
 /** Why it is off once the list is full. */

@@ -47,7 +47,7 @@ test.beforeEach(({ page: _page }, info) => {
 test('fix 5: the Go live list names every server code, each with a link; the flyer twins show once', async ({ page }) => {
   await as(page, { eventMissing: EVERY_CODE });
   await page.goto(EVENT);
-  const card = page.getByTestId('org-golive-list');
+  const card = page.getByTestId('org-life-list');
   await expect(card).toBeVisible();
   await expect(card).not.toContainText(UNKNOWN);
   await expect(card.getByText('Upload a flyer')).toHaveCount(1);

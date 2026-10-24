@@ -1,4 +1,4 @@
-# Handover: #977 W2 walk-through fixes 1-9 (PARTIAL, context gate)
+# Handover: #977 W2 walk-through fixes 1-9 (session 2: complete)
 
 Branch `claude/invite-w2-phone-ig-golive`, PR #977. Brief: `brief/invite-w2-phone-ig-golive:briefs/invite-journey/W2-walk-fixes.md` (sha 4c18e66). Dispatch ticket dt_8c2b6db0a69a.
 This session stopped at the owner's cloud context gate (30%). The code for every in-scope finding is in; CI-job runs, the browser walk and the PR body are NOT done yet.
@@ -40,3 +40,21 @@ No database change, nothing under `supabase/**`.
 
 - Verified: prod shapes by read-only SELECT (`_series_go_live_check_p5` codes/sections, `my_profile_progress_v1` required flags, `_role_required_keys_v1`, `_payment_methods_problem_v1`, owner allowlist has `payment_methods`, payment set on 0/72 series, `my_dancer_edit` returns `city_name`); the 4 new test files green; typecheck has no error in touched files.
 - Not verified: the full unit suite, every CI job, the phone spec, any browser walk, the payment save against a real server (the fake refuses writes).
+
+## Session 2 (dispatch dt_224877544d5b): done
+
+All six "Not done" items above are closed.
+
+1. **Stale tests fixed to the new rules** (never the reverse): `AuthCallbackRoleIntent` (fix 7: an Organiser sign-up drops a plain public returnTo), `areas.screens` / `areas.fixpass` (fix 3 copy; the styles list and input share a label, so the input is picked by `selector: 'input'`), `goLive.webA1a` (the one map is `GO_LIVE_BLOCKERS`; 5 later prod codes added), `HomeTodo` / `homeJobs.matrix` (fix 4: every draft is ONE `go_live` row; fresh = plain "Not live yet"), `NewPageFlow` (fix 8: the beta note is the one place that talks approval), `account.today` snapshots (+ the beta note line only). The 15 env-bound failures fail identically on `origin/main` here.
+2. **Every CI job locally**: table in the PR body. Two real fixes: `lint:architecture` (the new matrix spec joins the `organiser_id` allowlist like its siblings) and the bundle ratchet (dancer-app 52 -> 51, the measured win). `REQUIRED_HINT` had two copies (`stepKinds.tsx` and `goLiveKeys.ts`); `stepKinds` now re-exports the one.
+3. **Phone suite**: `invite-w2-walk` 5/5 (the spec used a test id that does not exist, `org-golive-list` -> `org-life-list`) + `invite-w2-golive` 15/15. Shots `docs/design/977/walk-*.png`, `docs/design/977.md` updated.
+4. **/code-review (high)**, 10 findings, fixed (red first where testable):
+   - Teacher / DJ editors ignored `?returnTo=` from a Go live gap: Back now goes there (`RoleProfilePage`, test in `areas.screens`).
+   - Festival with a stored non-ticket method: the save sends only what the event may offer (`paymentModel.toSend`; NEW `paymentModel.test.ts`, the editor had no unit test).
+   - Contact sheet lost Enter-to-Done + `enterKeyHint` in the PhoneInput swap: `PhoneInput.onEnter` (test in `ContactSheet.test`).
+   - `/organisers` (the directory) counted as a task returnTo: only `/organisers/<page>` does now.
+   - `PhoneInput` comment claimed "typed": it is paste / autofill only (digits-only box).
+   Not fixed, with reasons: workspace read lacks `payment_methods` (NOT REAL: `_snapshot_series_p5` is `to_jsonb` of the whole `event_series_p5` row); one go-live RPC per draft on Home (prod has 4 drafts of 748 series); three Instagram reserved lists (two pre-date this PR, one in the event page module; consolidation is a follow-up); role minimum restated by hand in 3 places and `profileFixPath` for mixed role gaps (design-level, follow-up; both are covered by the matrix today).
+5. **PR body** rewritten: walk fixes table, per-job table, Phone QA, Verified on real data (both body checks pass locally).
+
+Still open for the owner: fix 8 "Become an organiser" and fix 9 photo step (dancer-app, isolation rule; proposed words above); a prod-data browser walk of fixes 1-9; the Vercel preview.

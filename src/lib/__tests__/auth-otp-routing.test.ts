@@ -53,7 +53,7 @@ describe("shouldHonorReturnTo", () => {
 describe("shouldHonorReturnTo: an organiser sign-up", () => {
   const signup = (returnTo: string) => shouldHonorReturnTo({ returnTo, isSignupFlow: true, organiserSelfServe: true, organiserSignup: true });
 
-  it.each(["/", "/parties", "/classes", "/event/abc-123", "/dancers/ana", "/bachata-parties-london", "/festivals?city=london"])(
+  it.each(["/", "/parties", "/classes", "/event/abc-123", "/dancers/ana", "/bachata-parties-london", "/festivals?city=london", "/organisers", "/organisers/", "/organisers?city=london"])(
     "a plain public page (%s) gives way to /account/o",
     (rt) => {
       expect(signup(rt)).toBe(false);
