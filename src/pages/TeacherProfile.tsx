@@ -235,6 +235,9 @@ const TeacherProfile = () => {
           website: teacher.website,
           instagram: teacher.instagram,
           facebook: teacher.facebook,
+          years_teaching: teacher.years_teaching,
+          teaching_styles: teacher.teaching_styles,
+          offers_private: teacher.offers_private,
         }}
       />
     );

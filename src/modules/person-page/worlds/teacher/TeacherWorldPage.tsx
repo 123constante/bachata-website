@@ -8,11 +8,13 @@ import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { londonTodayKey } from '@/lib/londonDate';
 import { PersonFrame, WorldPage } from '../../frame';
+import { TABS_HEIGHT } from '../../frame/PersonFrame';
+import { showsJoinInvite } from '../../facts';
 import { TAP } from '../../roleSwitch';
 import { usePersonSnapshot } from '../../usePersonRoles';
 import { FOCUS_RING } from '../../wall/tokens';
 import { TEACHER_PAPER, WORLD } from '../tokens';
-import { TeacherWorld } from './TeacherWorld';
+import { TeacherWorld, TEACHER_ROOM } from './TeacherWorld';
 import { teacherWorldView, type TeacherWorldInput } from './model';
 
 const T = WORLD.teacher;
@@ -68,13 +70,28 @@ export function TeacherWorldPage({ id, slug, row, photo, breadcrumbs }: {
   );
 }
 
-/** The teacher read in flight: the frame's boxes on the teacher ground, in the same shell (no jump). */
+/**
+ * The teacher read in flight (the loader does not dehydrate it, so this is also the server's HTML):
+ * the room of the page it turns into, box for box -- the frame bar, the tabs row (most teachers hold
+ * 2+ roles), the card, one class, the contact row (46 of 59 teachers have a link) and, for a
+ * signed-out visitor, the invite. S4 critique: the old two boxes made the page shift 0.5 as it loaded.
+ */
 export function TeacherWorldLoading({ breadcrumbs }: { breadcrumbs: BreadcrumbItemType[] }) {
+  const { user } = useAuth();
+  const box = (id: string, height: number, background: string, round: string) => (
+    <div data-testid={`teacher-skeleton-${id}`} className={`w-full animate-pulse ${round}`} style={{ height, background }} />
+  );
   return (
     <WorldPage world="teacher" breadcrumbs={breadcrumbs} backHref="/teachers">
-      <div data-testid="teacher-world-loading" aria-busy>
-        <div className="h-11 w-full animate-pulse rounded-[12px]" style={{ background: T.section.background }} />
-        <div className="mt-3 h-[168px] w-full animate-pulse rounded-[18px]" style={{ background: T.section.row }} />
+      <div data-testid="teacher-world-loading" aria-busy className="flex flex-col gap-[6px]">
+        {box('bar', TAP, 'transparent', '')}
+        {box('tabs', TABS_HEIGHT, T.section.background, 'rounded-[12px]')}
+        <div className="flex flex-col gap-3">
+          {box('card', TEACHER_ROOM.card, T.section.row, 'rounded-[18px]')}
+          {box('classes', TEACHER_ROOM.classes, T.section.background, 'rounded-[18px]')}
+          {box('contact', TEACHER_ROOM.contact, T.section.background, 'rounded-[14px]')}
+          {showsJoinInvite(user) ? box('invite', TAP, T.section.background, 'rounded-full') : null}
+        </div>
       </div>
     </WorldPage>
   );

@@ -10,7 +10,7 @@ import { sharePage } from './share';
 import { backGoesToHistory, currentHistoryIdx } from './backRule';
 
 /** The tabs row as RoleTabs draws it: a 44px tab + 3px padding and a 1px border, top and bottom. */
-const TABS_HEIGHT = TAP + 2 * 3 + 2 * 1;
+export const TABS_HEIGHT = TAP + 2 * 3 + 2 * 1;
 
 /**
  * The shared frame on top of every people world, right under the site header: Back (left)

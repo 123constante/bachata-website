@@ -14,10 +14,20 @@ const SECTION = { background: T.section.background, border: `1px solid ${T.secti
 const OUTLINE = { minHeight: TAP, fontSize: 14, color: T.accent, border: `1px solid ${T.avatar.ring}` } as const;
 
 /**
+ * The room each block takes, shared with the loading page (TeacherWorldLoading) so nothing jumps when
+ * the reads answer (S4 critique: the page shifted 0.5 as it loaded). card = band 34 + 14 + face 100 + 18
+ * (px, not rem: the phone root font is 13.5px, so a rem padding made the card 2px off its skeleton);
+ * classes = the "Next class" box with one row (the commonest shape with a class); contact = the row's
+ * fixed height (its two lines and py-2 fit inside it).
+ */
+export const TEACHER_ROOM = { card: 34 + 14 + FACE + 18, classes: 122, contact: 56 } as const;
+
+/**
  * The teacher world (people arc S4): the studio timetable. A light lilac card (owner D7) with the
  * TEACHER band, the face (photo or initials), the name in Fraunces with the flag (never the code as
  * text), "Teaches in <city>" and "Speaks <languages>"; then the next classes, time first; then ONE
- * contact row and the dancer invite. A teacher with nothing coming up gets one button to the classes
+ * contact row and the dancer invite; the extra detail (years, styles, private lessons) only when
+ * filled, under the classes. A teacher with nothing coming up gets one button to the classes
  * calendar, so a thin page still looks finished. All copy comes in on `view` (model.ts).
  */
 export function TeacherWorld({ view, photo, classes, onRetry }: {
@@ -42,7 +52,7 @@ export function TeacherWorld({ view, photo, classes, onRetry }: {
           />
         </div>
         <div
-          className="flex items-center gap-[14px] px-[14px] pb-[18px] pt-4"
+          className="flex items-center gap-[14px] px-[14px] pb-[18px] pt-[14px]"
           style={{ backgroundImage: `repeating-linear-gradient(0deg, ${P.rule} 0 1px, transparent 1px 26px)`, backgroundPosition: '0 6px' }}
         >
           <div className="relative flex-none" style={{ width: FACE, height: FACE }}>
@@ -65,7 +75,7 @@ export function TeacherWorld({ view, photo, classes, onRetry }: {
       </div>
 
       {classes === 'loading' ? (
-        <div data-testid="teacher-classes-loading" aria-busy="true" aria-label="Loading classes" className="h-[120px] animate-pulse rounded-[18px]" style={SECTION} />
+        <div data-testid="teacher-classes-loading" aria-busy="true" aria-label="Loading classes" className="animate-pulse rounded-[18px]" style={{ ...SECTION, height: TEACHER_ROOM.classes }} />
       ) : null}
 
       {classes === 'failed' ? (
@@ -107,7 +117,7 @@ export function TeacherWorld({ view, photo, classes, onRetry }: {
                 {c.time ? <span data-testid="teacher-class-time" className="flex-none" style={{ ...display, fontSize: 22, color: P.time }}>{c.time}</span> : null}
                 <span className="flex min-w-0 flex-1 flex-col">
                   {c.date ? <b data-testid="teacher-class-date" style={{ fontSize: 15, color: P.rowInk }}>{c.date}</b> : null}
-                  <small style={{ fontSize: 13, color: P.rowMuted, overflowWrap: 'anywhere' }}>{c.venue ? `${c.name} · ${c.venue}` : c.name}</small>
+                  <small style={{ fontSize: 13, color: P.rowMuted, overflowWrap: 'anywhere' }}>{c.venue ? `${c.name} \u00B7 ${c.venue}` : c.name}</small>
                 </span>
                 <ChevronRight className="h-4 w-4 flex-none" style={{ color: P.rowMuted }} aria-hidden />
               </Link>
@@ -116,15 +126,27 @@ export function TeacherWorld({ view, photo, classes, onRetry }: {
         </section>
       ) : null}
 
-      {/* After the classes, so it does not jump down when they arrive. */}
-      {classes !== 'loading' && view.contact ? (
+      {/* Owner: the extra detail only when filled, under the classes. */}
+      {view.details.length ? (
+        <dl data-testid="teacher-details" className="m-0 flex flex-col gap-2 rounded-[18px] px-3 py-3" style={SECTION}>
+          {view.details.map((d) => (
+            <div key={d.label} className="flex items-baseline justify-between gap-3">
+              <dt className="flex-none font-bold uppercase" style={{ fontSize: 11, letterSpacing: '0.12em', color: P.contactKey }}>{d.label}</dt>
+              <dd className="m-0 min-w-0 text-right" style={{ fontSize: 14, color: P.rowInk, overflowWrap: 'anywhere' }}>{d.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
+      {/* Shown while the classes load too (it comes from the teacher row): it used to arrive with them, 58 px lower. */}
+      {view.contact ? (
         <a
           href={view.contact.href}
           target="_blank"
           rel="noopener noreferrer"
           data-testid="teacher-contact"
           className={`flex items-center gap-3 rounded-[14px] px-3 py-2 ${FOCUS_RING}`}
-          style={{ minHeight: TAP, ...SECTION }}
+          style={{ minHeight: TEACHER_ROOM.contact, ...SECTION }}
         >
           <span className="flex min-w-0 flex-1 flex-col">
             <small className="font-bold uppercase" style={{ fontSize: 11, letterSpacing: '0.12em', color: P.contactKey }}>{view.contact.label}</small>

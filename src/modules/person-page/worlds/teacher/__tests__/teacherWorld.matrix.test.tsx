@@ -21,6 +21,10 @@ import { WORLD_PAGE, WorldPage } from '../../../frame';
 import { TEACHER_GRID } from '../../../frame/WorldPage';
 import type { PersonRole } from '../../../personRoles';
 import { CLASSES_LABEL, INVITE_LABEL, teacherWorldView, type TeacherClass, type TeacherWorldInput } from '../model';
+import { TEACHER_ROOM } from '../TeacherWorld';
+import { TeacherWorldLoading } from '../TeacherWorldPage';
+import { TABS_HEIGHT } from '../../../frame/PersonFrame';
+import { TAP } from '../../../roleSwitch';
 
 const TODAY = londonTodayKey();
 /** An RPC stamp: the London wall clock written +00 (the timeline's shape). */
@@ -35,6 +39,7 @@ const h = vi.hoisted(() => ({
   rpcNames: [] as string[],
   classes: [] as unknown[],
   classesFail: false,
+  classesPending: false,
   roles: [] as string[],
   user: null as null | { id: string; is_anonymous?: boolean },
   palettes: [] as unknown[],
@@ -58,7 +63,7 @@ vi.mock('@/hooks/useAuth', async (importOriginal) => ({
 }));
 vi.mock('@/hooks/useProfileProgramAppearances', () => ({
   useProfileProgramAppearances: (_t: string, id: string | undefined) =>
-    id
+    id && !h.classesPending
       ? { data: h.classesFail ? undefined : h.classes, isFetched: true, isError: h.classesFail, refetch: vi.fn() }
       : { data: undefined, isFetched: false, isError: false, refetch: vi.fn() },
 }));
@@ -105,7 +110,7 @@ const q = (id: string) => screen.queryByTestId(id);
 beforeEach(() => {
   installJsdomPolyfills();
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
-  Object.assign(h, { row: ROW(), rpcError: null, rpcNames: [], classes: [], classesFail: false, roles: ['teacher'], user: null, palettes: [] });
+  Object.assign(h, { row: ROW(), rpcError: null, rpcNames: [], classes: [], classesFail: false, classesPending: false, roles: ['teacher'], user: null, palettes: [] });
 });
 afterEach(() => {
   cleanup();
@@ -120,7 +125,7 @@ describe('teacherWorldView: every prod shape', () => {
   const base = ROW() as TeacherWorldInput['row'];
   it.each([
     ['photo, city, flag, languages (the full card)', base, ['Teaches in Madrid', 'Speaks Spanish, English'], 'BO'],
-    ['no city -> London (owner rule)', { ...base, city: null }, ['Teaches in London', 'Speaks Spanish, English'], 'BO'],
+    ['no city -> no "Teaches in" line (owner rule)', { ...base, city: null }, ['Speaks Spanish, English'], 'BO'],
     ['a postcode in the city field is cut', { ...base, city: 'London SE1 7PB' }, ['Teaches in London', 'Speaks Spanish, English'], 'BO'],
     ['no nationality, no languages', { ...base, nationality_code: null, languages: [] }, ['Teaches in Madrid'], null],
     ['unknown language codes are dropped', { ...base, languages: ['zz', 'es', 'es'] }, ['Teaches in Madrid', 'Speaks Spanish'], 'BO'],
@@ -305,5 +310,134 @@ describe('the one world shell: DJ, dancer and teacher', () => {
     expect(shapes[0]).toBe(`${WORLD_PAGE.page}|${WORLD_PAGE.slot}`);
     expect(PAGE_GROUNDS.teacher.base).toBe(WORLD.teacher.ground);
     expect(TEACHER_GRID.backgroundImage).toContain(TEACHER_PAPER.grid);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------
+// S4 critique (docs/design/people-s4-critique.md). Written red against the builder's head (42ab2538 /
+// d1b9980) before the fix pass. The owner will relax the RPC gate (no photo / city / first name), so
+// those shapes are covered here even though 0 of them render on prod today.
+// ---------------------------------------------------------------------------------------------------
+describe('S4 critique: owner decisions the world must keep', () => {
+  const base = ROW() as TeacherWorldInput['row'];
+
+  it.each([
+    ['no city: NO "Teaches in" line (owner rule, not "London")', { ...base, city: null }, ['Speaks Spanish, English']],
+    ['no city, no languages: no lines at all', { ...base, city: '  ', languages: null }, []],
+  ] as const)('%s', (_n, row, lines) => {
+    expect(view(row).lines).toEqual(lines);
+  });
+
+  it.each([
+    ['no first name, no surname', { first_name: null, surname: null }, 'Teacher', 'Learn more'],
+    ['blank first name, a surname', { first_name: ' ', surname: 'Ruiz' }, 'Ruiz', 'Learn with Ruiz'],
+    ['a first name', { first_name: 'Ana', surname: null }, 'Ana', 'Learn with Ana'],
+  ] as const)('names: %s -> the h1 is never empty, the contact never "Learn with Teacher"', (_n, names, big, label) => {
+    const v = view({ ...base, ...names });
+    expect(v.big).toBe(big);
+    expect(v.contact?.label).toBe(label);
+  });
+
+  it.each([
+    ['nothing filled (56 of 59 on prod)', {}, []],
+    ['1 year', { years_teaching: 1 }, [{ label: 'Teaching for', value: '1 year' }]],
+    ['6 years', { years_teaching: 6 }, [{ label: 'Teaching for', value: '6 years' }]],
+    ['0 years is not a fact worth a line', { years_teaching: 0 }, []],
+    ['styles, trimmed, each once', { teaching_styles: ['Bachata Sensual', ' Zouk ', '', 'Zouk'] }, [{ label: 'Styles', value: 'Bachata Sensual, Zouk' }]],
+    ['private lessons offered', { offers_private: true }, [{ label: 'Private lessons', value: 'Offered' }]],
+    ['private lessons false / null: nothing', { offers_private: false }, []],
+    ['all three, in this order', { years_teaching: 3, teaching_styles: ['Bachata'], offers_private: true }, [
+      { label: 'Teaching for', value: '3 years' }, { label: 'Styles', value: 'Bachata' }, { label: 'Private lessons', value: 'Offered' },
+    ]],
+  ] as const)('extra detail only when filled: %s', (_n, extra, details) => {
+    expect(view({ ...base, ...extra } as TeacherWorldInput['row']).details).toEqual(details);
+  });
+});
+
+describe('S4 critique: the page', () => {
+  beforeEach(() => setWorlds(true));
+
+  it('no first name and no surname: the h1 still says something ("Teacher")', async () => {
+    h.row = ROW({ first_name: null, surname: null });
+    mount();
+    await settle();
+    expect(screen.getByTestId('teacher-name').textContent?.trim()).toBe('Teacher');
+  });
+
+  it('no city: the card has no "Teaches in" line', async () => {
+    h.row = ROW({ city: null, city_id: null });
+    mount();
+    await settle();
+    expect(screen.getByTestId('teacher-card').textContent).not.toMatch(/Teaches in/);
+  });
+
+  it.each([
+    ['a class coming up', [cls(2)], 'teacher-classes'],
+    ['nothing coming up', [], 'teacher-empty'],
+  ] as const)('extra detail sits under the classes and above the contact row (%s)', async (_n, classes, above) => {
+    Object.assign(h, { row: ROW({ years_teaching: 4, teaching_styles: ['Bachata Sensual'], offers_private: true }), classes: [...classes] });
+    mount();
+    await settle();
+    const world = screen.getByTestId('teacher-world');
+    const order = [...world.children].map((e) => e.getAttribute('data-testid'));
+    expect(order.indexOf('teacher-details')).toBe(order.indexOf(above) + 1);
+    expect(order.indexOf('teacher-contact')).toBe(order.indexOf('teacher-details') + 1);
+    expect(screen.getByTestId('teacher-details').textContent).toMatch(/Teaching for.*4 years.*Styles.*Bachata Sensual.*Private lessons.*Offered/);
+  });
+
+  it('nothing extra filled: no detail box', async () => {
+    mount();
+    await settle();
+    expect(q('teacher-details')).toBeNull();
+  });
+
+  it('the contact row is there while the classes are still being read (it moved down 58 px when they arrived)', async () => {
+    h.classesPending = true;
+    mount();
+    await settle();
+    expect(q('teacher-classes-loading')).not.toBeNull();
+    expect(q('teacher-contact')).not.toBeNull();
+  });
+});
+
+describe('S4 critique: the loading page holds the room of the page it turns into', () => {
+  const mountLoading = () =>
+    render(
+      <MemoryRouter>
+        <TeacherWorldLoading breadcrumbs={[]} />
+      </MemoryRouter>,
+    );
+  const px = (id: string) => parseFloat((screen.getByTestId(id) as HTMLElement).style.height);
+
+  it.each([
+    ['signed out', null, true],
+    ['signed in', { id: 'u1', is_anonymous: false }, false],
+  ] as const)('%s: the frame bar, the tabs row, the card, the classes box, the contact row (and the invite)', (_n, user, invite) => {
+    h.user = user ? { ...user } : null;
+    mountLoading();
+    expect(px('teacher-skeleton-bar')).toBe(TAP);
+    expect(px('teacher-skeleton-tabs')).toBe(TABS_HEIGHT);
+    expect(px('teacher-skeleton-card')).toBe(TEACHER_ROOM.card);
+    expect(px('teacher-skeleton-classes')).toBe(TEACHER_ROOM.classes);
+    expect(px('teacher-skeleton-contact')).toBe(TEACHER_ROOM.contact);
+    expect(!!q('teacher-skeleton-invite')).toBe(invite);
+    if (invite) expect(px('teacher-skeleton-invite')).toBe(TAP);
+  });
+
+  it('the classes placeholder on the page is the same room as the skeleton\'s', async () => {
+    setWorlds(true);
+    h.classesPending = true;
+    mount();
+    await settle();
+    expect(parseFloat(screen.getByTestId('teacher-classes-loading').style.height)).toBe(TEACHER_ROOM.classes);
+  });
+});
+
+describe('S4 critique: the grid ground does not stop in a hard line above the footer', () => {
+  it('the page box fades the grid into the plain ground at its bottom', () => {
+    expect(TEACHER_GRID.backgroundImage.startsWith(`linear-gradient(180deg, transparent, ${WORLD.teacher.ground})`)).toBe(true);
+    expect(TEACHER_GRID.backgroundSize.split(',')[0].trim()).toBe('100% 48px');
+    expect(TEACHER_GRID.backgroundPosition.split(',')[0].trim()).toBe('left bottom');
+    expect(TEACHER_GRID.backgroundRepeat.split(',')[0].trim()).toBe('no-repeat');
   });
 });

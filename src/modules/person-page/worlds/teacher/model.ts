@@ -6,8 +6,6 @@ import { instagramUrl, normalizeUrl } from '@/components/dj/djFormat';
 import { cityLabel, flagCode, gigDateLabel, languageLine, publicName, showsJoinInvite, timeLabel, wallDayOf, worldNames } from '../../facts';
 import { linkText } from '../dj/model';
 
-/** Owner: a person with no city is shown in London ("Teaches in London"). */
-export const DEFAULT_CITY = 'London';
 export const CLASSES_LABEL = 'Classes this week';
 export const INVITE_LABEL = 'Dance bachata too? Get your own card';
 
@@ -26,6 +24,10 @@ export type TeacherWorldInput = {
     website?: string | null;
     instagram?: string | null;
     facebook?: string | null;
+    /** The extra detail (owner: only when filled, under the classes). Prod 2026-10-24: 1 / 6 / 1 filled. */
+    years_teaching?: number | null;
+    teaching_styles?: readonly (string | null)[] | null;
+    offers_private?: boolean | null;
   };
   /** Every timeline row, any order; split here on the London wall-clock day. */
   classes: readonly TeacherClass[];
@@ -44,12 +46,14 @@ export type TeacherClassRow = { eventId: string; time: string | null; date: stri
 export type TeacherWorldView = {
   big: string;
   flag: string | null;
-  /** "Teaches in Madrid", "Speaks Spanish, English": each only when it has something to say. */
+  /** "Teaches in Madrid", "Speaks Spanish, English": each only when it has something to say (no city = no line). */
   lines: string[];
   heading: 'Next class' | 'Next classes';
   upcoming: TeacherClassRow[];
   /** Nothing coming up (D11): a muted line, then one button to the classes calendar. */
   emptyAction: { note: string; label: string; href: string } | null;
+  /** Years teaching, styles, private lessons: each only when filled, shown under the classes. */
+  details: { label: string; value: string }[];
   /** ONE contact row (the old page showed the website twice): website, else Instagram, else Facebook. */
   contact: { label: string; value: string; href: string } | null;
   invite: { label: string; href: string } | null;
@@ -57,12 +61,24 @@ export type TeacherWorldView = {
 
 const text = (v: string | null | undefined): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
+function detailsOf(row: TeacherWorldInput['row']): TeacherWorldView['details'] {
+  const years = typeof row.years_teaching === 'number' && row.years_teaching >= 1 ? Math.floor(row.years_teaching) : null;
+  const styles = [...new Set((row.teaching_styles ?? []).map((s) => text(s)).filter((s): s is string => !!s))];
+  return [
+    years ? { label: 'Teaching for', value: years === 1 ? '1 year' : `${years} years` } : null,
+    styles.length ? { label: 'Styles', value: styles.join(', ') } : null,
+    row.offers_private === true ? { label: 'Private lessons', value: 'Offered' } : null,
+  ].filter((d): d is { label: string; value: string } => !!d);
+}
+
 export function teacherWorldView(p: TeacherWorldInput): TeacherWorldView {
   const name = resolvePublicName({ id: p.row.entity_id, first_name: p.row.first_name, surname: p.row.surname });
   const { big } = worldNames({ name }, 'teacher');
-  const first = publicName(p.row.first_name)?.split(' ')[0] ?? big.split(' ')[0];
+  // No name at all: the h1 says "Teacher" (worldNames), but "Learn with Teacher" reads like a bug.
+  const first = (publicName(p.row.first_name) ?? publicName(name))?.split(' ')[0] ?? null;
+  const city = cityLabel(p.row.city);
   const langs = languageLine(p.row.languages);
-  const lines = [`Teaches in ${cityLabel(p.row.city) ?? DEFAULT_CITY}`, langs ? `Speaks ${langs}` : null].filter((l): l is string => !!l);
+  const lines = [city ? `Teaches in ${city}` : null, langs ? `Speaks ${langs}` : null].filter((l): l is string => !!l);
 
   const dated = p.classes.filter((c) => c.event_id);
   const upcoming = dated
@@ -87,7 +103,8 @@ export function teacherWorldView(p: TeacherWorldInput): TeacherWorldView {
     emptyAction: upcoming.length
       ? null
       : { note: hadPast ? 'No classes coming up yet.' : 'No classes on the calendar yet.', label: CLASSES_LABEL, href: p.classesHref },
-    contact: link ? { label: `Learn with ${first}`, value: linkText(link), href: link } : null,
+    details: detailsOf(p.row),
+    contact: link ? { label: first ? `Learn with ${first}` : 'Learn more', value: linkText(link), href: link } : null,
     invite: showsJoinInvite(p.viewer) ? { label: INVITE_LABEL, href: buildSignInHref(p.pathname, 'signup') } : null,
   };
 }
