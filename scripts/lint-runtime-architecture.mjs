@@ -75,8 +75,12 @@ const RULES = [
       'src/modules/admin-organisers/__tests__/inviteReasons.test.tsx',
       'src/modules/admin-organisers/__tests__/routes.matrix.test.tsx',
       'src/modules/admin-organisers/__tests__/fixup1.test.tsx',
-      'src/modules/admin-organisers/__tests__/inviteWalkthrough.test.tsx',
-      'src/modules/admin-organisers/__tests__/inviteJoiningAs.test.tsx',
+      // W1 (Option B join, PR #978): join/joinModel.ts is the redeem answer's parser on /invite; its specs
+      // feed it server answers.
+      'src/modules/admin-organisers/join/joinModel.ts',
+      'src/modules/admin-organisers/join/__tests__/joinModel.test.ts',
+      'src/modules/admin-organisers/join/__tests__/joinJourney.test.tsx',
+      'src/modules/admin-organisers/join/__tests__/joinMachine.table.test.tsx',
       // claim_my_organisers_v1 (people arc A-WEB2) answers {claimed:[{organiser_id, name}]}.
       'src/lib/claimMyOrganisers.ts',
       'src/pages/__tests__/AuthCallbackOrganiserClaim.test.tsx',
