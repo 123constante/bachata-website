@@ -19,7 +19,7 @@
  */
 import { addDaysToKey, londonWallClockNowIso } from '@/lib/londonDate';
 import { NO_PROFILE_CONTACT_URL, finishProfileHref, listFieldLabels, type ProfileField } from '@/lib/profileCompletion';
-import { GOING_COPY, unfinishedWords } from './goingCopy';
+import { GOING_COPY, nightLine, organiserNightText, unfinishedWords } from './goingCopy';
 
 /** "Add your dance role to say you're going." -- names every missing field (words: goingCopy). */
 export const unfinishedText = (missing: readonly ProfileField[]): string =>
@@ -42,10 +42,19 @@ export const GOING_REFUSAL_CODES = [
   'too_many_ids',
 ] as const;
 export type GoingRefusalCode = (typeof GOING_REFUSAL_CODES)[number];
-/** A refusal, a network failure, or anything else. */
-export type GoingErrorCode = GoingRefusalCode | 'network' | 'unknown';
+/**
+ * Every refusal get_my_event_going_v1 (the organiser read, Going P3) raises.
+ * not_signed_in and not_found are shared with the dancer side; not_organiser is
+ * its own (the caller holds no owner/manager seat on the event's series).
+ */
+export const ORGANISER_GOING_REFUSAL_CODES = ['not_signed_in', 'not_found', 'not_organiser'] as const;
+export type OrganiserGoingRefusalCode = (typeof ORGANISER_GOING_REFUSAL_CODES)[number];
 
-const isRefusal = (v: string): v is GoingRefusalCode => (GOING_REFUSAL_CODES as readonly string[]).includes(v);
+/** A refusal, a network failure, or anything else. */
+export type GoingErrorCode = GoingRefusalCode | OrganiserGoingRefusalCode | 'network' | 'unknown';
+
+const ALL_REFUSALS: readonly string[] = [...GOING_REFUSAL_CODES, ...ORGANISER_GOING_REFUSAL_CODES];
+const isRefusal = (v: string): v is GoingRefusalCode | OrganiserGoingRefusalCode => ALL_REFUSALS.includes(v);
 
 /** The error of a going RPC (or a thrown fetch) -> its code. Never parses display text. */
 export const goingErrorCode = (error: unknown): GoingErrorCode => {
@@ -347,3 +356,94 @@ export const goingStateFor = (facts: GoingFacts): GoingView => {
 /** The state a refusal code lands in, for a viewer who was otherwise free to tap. */
 export const goingStateForRefusal = (code: GoingErrorCode, going = false): GoingStateKind =>
   goingStateFor({ viewer: { kind: 'finished' }, night: 'live', going, error: code, count: 1 }).state;
+
+// ---------------------------------------------------------------- organiser (Going P3)
+
+/**
+ * The organiser read (get_my_event_going_v1, useMyEventGoing) as ONE state:
+ *   off           -- the going switch is off: render nothing
+ *   loading       -- auth or the read is still out
+ *   ready         -- nights are in (each night then reads organiserNightView)
+ *   not_signed_in / not_found / not_organiser -- the RPC's refusals, each with words + what to do
+ *   error         -- anything else (network, unknown): words + Try again
+ */
+export type OrganiserGoingStateKind = 'off' | 'loading' | 'ready' | 'not_signed_in' | 'not_found' | 'not_organiser' | 'error';
+
+export type OrganiserGoingAction = { kind: 'retry' | 'sign_in'; label: string };
+
+export type OrganiserGoingView = {
+  state: OrganiserGoingStateKind;
+  /** null = no line (off / ready). */
+  words: string | null;
+  /** The one control the state offers; null = none (the words say what to do). */
+  action: OrganiserGoingAction | null;
+};
+
+export type OrganiserGoingFacts = {
+  /** GOING_CHECKIN_ENABLED. */
+  enabled: boolean;
+  /** Auth resolved and the viewer is signed in (not anonymous); null = auth not resolved yet. */
+  signedIn: boolean | null;
+  status: 'pending' | 'error' | 'success';
+  error?: GoingErrorCode | null;
+};
+
+const orgView = (state: OrganiserGoingStateKind, words: string | null, action: OrganiserGoingAction | null = null): OrganiserGoingView =>
+  ({ state, words, action });
+
+/** THE organiser mapping: facts -> state, words, control. Pure. */
+export const organiserGoingStateFor = (f: OrganiserGoingFacts): OrganiserGoingView => {
+  if (!f.enabled) return orgView('off', null);
+  if (f.signedIn === null) return orgView('loading', GOING_COPY.orgLoading);
+  const signIn = { kind: 'sign_in', label: GOING_COPY.orgSignIn } as const;
+  if (!f.signedIn) return orgView('not_signed_in', GOING_COPY.orgNotSignedIn, signIn);
+  if (f.status === 'pending') return orgView('loading', GOING_COPY.orgLoading);
+  if (f.status === 'success') return orgView('ready', null);
+  switch (f.error) {
+    case 'not_signed_in':
+    case 'anonymous_session':
+      return orgView('not_signed_in', GOING_COPY.orgNotSignedIn, signIn);
+    case 'not_found':
+    case 'invalid_argument':
+      return orgView('not_found', GOING_COPY.orgNotFound);
+    case 'not_organiser':
+      return orgView('not_organiser', GOING_COPY.orgNotOrganiser);
+    default:
+      return orgView('error', GOING_COPY.peopleLoadFailed, { kind: 'retry', label: GOING_COPY.retry });
+  }
+};
+
+export type OrganiserNightKind = 'cancelled' | 'nobody' | 'some';
+
+export type OrganiserNightView = {
+  kind: OrganiserNightKind;
+  /** The count line: "12 going" / the 0 words / "This date is cancelled". */
+  text: string;
+  /** "Thursday 29 Oct \u00b7 9 PM" from starts_at_local as stored; null = unreadable. */
+  when: string | null;
+  /** There is a list to open (somebody is, or had been, going). */
+  openable: boolean;
+  /** going_count, never below the people listed. */
+  count: number;
+  /** Going but not listed (over the 200 the RPC lists). */
+  extra: number;
+};
+
+/** One night of get_my_event_going_v1 -> what the organiser sees. Cancelled wins over the count. */
+export const organiserNightView = (night: {
+  starts_at_local: string | null;
+  is_cancelled: boolean;
+  going_count: number;
+  people: readonly unknown[];
+}): OrganiserNightView => {
+  const count = Math.max(Math.max(0, Math.floor(night.going_count || 0)), night.people.length);
+  const kind: OrganiserNightKind = night.is_cancelled ? 'cancelled' : count === 0 ? 'nobody' : 'some';
+  return {
+    kind,
+    text: organiserNightText(count, night.is_cancelled),
+    when: nightLine(night.starts_at_local),
+    openable: count > 0,
+    count,
+    extra: count - night.people.length,
+  };
+};

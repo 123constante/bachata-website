@@ -38,17 +38,29 @@ export const goingKeys = {
     ['going', 'nights', limit, ...[...new Set(occurrenceIds.filter(Boolean))].sort()] as const,
   mine: (userId: string | null | undefined) => ['going', 'mine', userId ?? null] as const,
   minePrefix: ['going', 'mine'] as const,
+  /** get_my_event_going_v1 (Going P3, the organiser read), per viewer and event. */
+  event: (userId: string | null | undefined, publicEventId: string | null | undefined) =>
+    ['going', 'event', userId ?? null, publicEventId ?? null] as const,
+  eventPrefix: ['going', 'event'] as const,
 };
 
 /** Does a nights key cover this occurrence? */
 const nightsKeyHas = (key: QueryKey, occurrenceId: string): boolean =>
   key[0] === 'going' && key[1] === 'nights' && key.slice(3).includes(occurrenceId);
 
-/** Invalidate every nights read that covers this occurrence, and the viewer's own list. */
+/** Invalidate every nights read that covers this occurrence, the viewer's own list and the organiser reads. */
 export const invalidateGoing = (qc: QueryClient, occurrenceId: string): Promise<void> =>
   Promise.all([
     qc.invalidateQueries({ predicate: (q) => nightsKeyHas(q.queryKey, occurrenceId) }),
     qc.invalidateQueries({ queryKey: goingKeys.minePrefix }),
+    // Only the organiser reads that hold this night (or have not loaded yet).
+    qc.invalidateQueries({
+      queryKey: goingKeys.eventPrefix,
+      predicate: (q) => {
+        const nights = (q.state.data as { nights?: { occurrence_id: string }[] } | undefined)?.nights;
+        return !nights || nights.some((n) => n.occurrence_id === occurrenceId);
+      },
+    }),
   ]).then(() => undefined);
 
 const GOING_STALE_MS = 30_000;

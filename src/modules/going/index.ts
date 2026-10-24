@@ -9,4 +9,6 @@ export * from './goingTheme';
 export * from './useGoingViewer';
 export * from './useNightGoing';
 export { GoingButton } from './GoingButton';
-export { GoingPeople, GOING_PEOPLE_MAX, goingInitial, goingPeopleModel } from './GoingPeople';
+export { GoingFace, GoingPeople, GOING_PEOPLE_MAX, goingInitial, goingPeopleModel } from './GoingPeople';
+export * from './useMyEventGoing';
+export { GoingLoadState, GoingNightSummary, GoingPeopleSheet, ORGANISER_GOING_TAP_PX } from './OrganiserGoing';

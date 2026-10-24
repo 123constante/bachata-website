@@ -22,7 +22,7 @@
  *       going_next has at most 3 entries of EXACTLY {occurrence_id, public_event_id,
  *       event_title, occurrence_date, starts_at_local}, starts_at_local a zone-less
  *       London wall clock (YYYY-MM-DDTHH:MM:SS)
- *   set_my_going_v1 / get_my_going_v1
+ *   set_my_going_v1 / get_my_going_v1 / get_my_event_going_v1 (Going P3, organiser read)
  *     - refused for anon: either no EXECUTE grant (42501, today's prod) or the
  *       function's own not_signed_in / anonymous_session. Data must be null.
  *
@@ -218,7 +218,7 @@ export function grade(obs) {
     }
   }
 
-  for (const [label, res] of [['set_my_going_v1', obs.anonSet], ['get_my_going_v1', obs.anonMy]]) {
+  for (const [label, res] of [['set_my_going_v1', obs.anonSet], ['get_my_going_v1', obs.anonMy], ['get_my_event_going_v1', obs.anonMyEvent]]) {
     if (!isRefusal(res)) {
       bad(label + ' as anon was not refused (want 42501 or ' + ANON_REFUSALS.join('/') + '; got ' +
         (res?.error ? res.error.code + ' ' + res.error.message : 'data') + ')');
@@ -343,12 +343,14 @@ export async function collect(api, now = new Date()) {
     tooMany: await api.rpc('get_nights_going_v1', { p_occurrence_ids: tooManyIds, p_limit: PEOPLE_LIMIT }),
     anonSet: await api.rpc('set_my_going_v1', { p_occurrence_id: occurrenceIds[0] ?? UNKNOWN_ID, p_going: true }),
     anonMy: await api.rpc('get_my_going_v1', {}),
+    anonMyEvent: await api.rpc('get_my_event_going_v1', { p_public_event_id: UNKNOWN_ID }),
     extrasUnknown: await api.rpc('get_public_dancer_extras_v1', { p_profile_id: UNKNOWN_ID }),
     extras,
   };
   const answers = [
     ['get_nights_going_v1', obs.nights], ['get_nights_going_v1', obs.nightsOne], ['get_nights_going_v1', obs.badLimit],
     ['get_nights_going_v1', obs.tooMany], ['set_my_going_v1', obs.anonSet], ['get_my_going_v1', obs.anonMy],
+    ['get_my_event_going_v1', obs.anonMyEvent],
     ['get_public_dancer_extras_v1', obs.extrasUnknown], ...extras.map((e) => ['get_public_dancer_extras_v1', e.res]),
   ];
   for (const [name, res] of answers) {
@@ -379,6 +381,7 @@ function fakeApi(patch = {}) {
     },
     set_my_going_v1: () => fail('42501', 'permission denied for function set_my_going_v1'),
     get_my_going_v1: () => fail('42501', 'permission denied for function get_my_going_v1'),
+    get_my_event_going_v1: () => fail('42501', 'permission denied for function get_my_event_going_v1'),
     get_public_dancer_extras_v1: (a) =>
       ok(a.p_profile_id === PROF ? { bio: null, languages: [], whatsapp: null, going_next: [] } : null),
     ...patch,
@@ -453,6 +456,8 @@ async function selfTest(log = console) {
     ['anon set_my_going_v1 succeeding fails', 1, () =>
       run({ set_my_going_v1: () => ok({ occurrence_id: OCC, going: true, changed: true, going_count: 1 }) })],
     ['anon get_my_going_v1 succeeding fails', 1, () => run({ get_my_going_v1: () => ok({ upcoming: [], past: [] }) })],
+    ['anon get_my_event_going_v1 succeeding fails', 1, () =>
+      run({ get_my_event_going_v1: () => ok({ public_event_id: UNKNOWN_ID, nights: [] }) })],
     ['anon refused for the wrong reason fails', 1, () =>
       run({ get_my_going_v1: () => ({ data: null, error: { code: 'P0001', message: 'rate_limited' } }) })],
     ['unknown profile not null fails', 1, () => run({ get_public_dancer_extras_v1: () =>

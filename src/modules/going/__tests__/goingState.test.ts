@@ -39,6 +39,8 @@ describe('every refusal code maps to a state', () => {
     profile_incomplete: { notGoing: 'profile_unfinished', going: 'going' },
     rate_limited: { notGoing: 'rate_limited', going: 'rate_limited' },
     too_many_ids: { notGoing: 'error', going: 'error' },
+    // The organiser read's own refusal (get_my_event_going_v1); set_my_going_v1 never raises it.
+    not_organiser: { notGoing: 'error', going: 'error' },
     network: { notGoing: 'error', going: 'error' },
     unknown: { notGoing: 'error', going: 'error' },
   };
