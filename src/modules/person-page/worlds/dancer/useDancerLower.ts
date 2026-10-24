@@ -21,11 +21,13 @@ export type DancerLower = {
 };
 
 /**
- * Client-only (after mount, so the server HTML and the first paint match): the person's roles and
- * their teacher / DJ next date. Every read is an existing public one; the calendar is never read (S6).
+ * The person's roles and their teacher / DJ next date. Every read is an existing public one; the
+ * calendar is never read (S6). S7: when the /dancers/:id loader seeded the snapshot, the SERVER renders
+ * the roles and the reserve too (the date reads are still in flight there and on the first client
+ * paint, so both match); anything rendered here must therefore be the same on server and client.
  */
 export function useDancerLower(id: string | undefined, slug: string | null | undefined): DancerLower {
-  // usePersonSnapshot reads only after mount, and every later read waits for its answer.
+  // usePersonSnapshot reads after mount (or arrives seeded by the loader); every later read waits for it.
   const { snapshot, answered } = usePersonSnapshot(id);
   const held = useMemo(() => snapshot?.roles ?? [], [snapshot]);
   const teacher = useProfileProgramAppearances('teacher', answered && held.includes('teacher') ? id : undefined, TIMELINE_LIMIT);
