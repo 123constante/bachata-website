@@ -68,23 +68,16 @@ const openLinkForm = async (name = 'Salsa Norte') => {
 };
 const calls = (fn: string) => h.rpc.mock.calls.filter((c) => c[0] === fn);
 
-describe('5b the Invite sheet', () => {
-  it('one Invite button opens three choices; each opens its own path', async () => {
+describe('5b the Invite sheet (W3: starts with Who is this for?)', () => {
+  it('one Invite button opens Who is this for?; Someone new and They already have an account open their own paths', async () => {
     await openLinkForm();
     fireEvent.click(screen.getByTestId('link-cancel'));
     fireEvent.click(screen.getByTestId('row-primary'));
-    const sheet = screen.getByTestId('invite-choices');
-    expect(within(sheet).getAllByRole('button').map((b) => b.textContent)).toEqual([
-      'Send a linkCopy or WhatsApp. Works once, 7 days.',
-      'They already have an accountAdd them now by email.',
-      'Invite by emailA ready message for one address.',
-      'Cancel',
-    ]);
-    fireEvent.click(screen.getByTestId('choice-email'));
-    expect(screen.getByTestId('invite-person').textContent).toContain('Invite by email to Salsa Norte');
-    expect(screen.queryByTestId('invite-person-page')).toBeNull();
-    fireEvent.click(screen.getByTestId('mode-back'));
-    fireEvent.click(screen.getByTestId('row-primary'));
+    const sheet = screen.getByTestId('invite-who');
+    expect(sheet.textContent).toContain('Who is this for?');
+    expect(within(sheet).getByTestId('choice-link').textContent).toBe('Someone new, not on Bachata Calendar yetA link with no profile. They make their profile when they join.');
+    expect(within(sheet).getByTestId('choice-existing').textContent).toBe('They already have an accountAdd them now by the email they sign in with.');
+    expect(within(sheet).queryByTestId('choice-email')).toBeNull();
     fireEvent.click(screen.getByTestId('choice-existing'));
     expect(screen.getByTestId('add-person')).toBeTruthy();
   });

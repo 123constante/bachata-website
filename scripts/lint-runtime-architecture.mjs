@@ -91,6 +91,10 @@ const RULES = [
       'src/modules/admin-organisers/senderModel.ts',
       'src/modules/admin-organisers/__tests__/senderModel.test.ts',
       'src/modules/admin-organisers/__tests__/senderPage.test.tsx',
+      // check_invitee_duplicates_v1 (invite journey A2) answers pairs[] / not_linked[] with the same key;
+      // the duplicates model is its boundary parser, and this spec feeds it server answers.
+      'src/modules/admin-organisers/duplicates/duplicatesModel.ts',
+      'src/modules/admin-organisers/duplicates/__tests__/duplicates.matrix.test.tsx',
     ]),
   },
   {
