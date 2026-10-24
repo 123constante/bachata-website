@@ -129,8 +129,8 @@ probe('F12', '#12 date sheet: 2 choices up front, the rest in "More for this dat
   await open('fri'); await B({ 'data-date': '4' }); const r = await ev(() => { const s = document.querySelector('#sheetbody'); const top = [...s.querySelectorAll(':scope > .stack .choice')].length; const fold = [...s.querySelectorAll('details.fold .choice')].map((c) => c.innerText.split('\n')[0]); return [top, fold]; });
   return [r[0] === 2 && r[1].length === 4, JSON.stringify(r)];
 });
-probe('F13', '#13 event page: status row + Pause this event under the hero', async () => {
-  await open('fri'); const t = await txt(on('event') + ' .ev2 > div:first-child'); return [/Live · Pause or end it/.test(t) && /Pause this event/.test(t), t.slice(0, 200).replace(/\n/g, ' / ')];
+probe('F13', '#13 event page: ONE status row "Live · Pause or end it" (no second Pause row, sim fix 9)', async () => {
+  await open('fri'); const t = await txt(on('event') + ' .ev2 > div:first-child'); return [/Live · Pause or end it/.test(t) && !/Pause this event/.test(t), t.slice(0, 200).replace(/\n/g, ' / ')];
 });
 probe('F19', '#19 first day screen counts the 9 real events', async () => {
   await fresh(); const t = await txt(on('welcome')); return [/We found your 9 events/.test(t), (t.match(/We found your \d+ events/) || [''])[0]];
@@ -159,7 +159,7 @@ probe('#8b', 'then Next up is the 9pm Halloween party', async () => { await B({ 
 probe('#8c', 'pause: Paused chip + Turn back on on the page', async () => { await open('fri'); await B({ 'data-sheet': 'pause' }); await tap('[data-dopause]'); const t = await txt(on('event')); const b = await txt('#bb'); return [/Paused/.test(t) && /Turn back on/.test(b), b]; });
 probe('#8d', 'pause: Home shows Paused + Turn back on', async () => { await open('fri'); await B({ 'data-sheet': 'pause' }); await tap('[data-dopause]'); await B({ 'data-tab-go': 'home' }); const t = await txt(on('home')); return [/Turn back on/.test(t), 'ok?']; });
 probe('#9', 'toast sits above the bottom bar, bar button clickable', async () => { await open('fri'); await B({ 'data-share': '' }); const r = await ev(() => [document.querySelector('#toast').getBoundingClientRect().bottom, document.querySelector('#bb').getBoundingClientRect().top]); return [r[0] <= r[1], JSON.stringify(r)]; });
-probe('#10', 'keyboard: bars hide while typing', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-next]'); await page.focus('#psearch'); const r = await ev(() => [getComputedStyle(document.querySelector('#bb')).display, getComputedStyle(document.querySelector('#tabs')).display]); return [r[0] === 'none' && r[1] === 'none', r.join()]; });
+probe('#10', 'keyboard: the tab bar hides while typing, the bottom bar NEVER does (sim fix M2)', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-next]'); await page.focus('#psearch'); const r = await ev(() => [getComputedStyle(document.querySelector('#bb')).display, getComputedStyle(document.querySelector('#tabs')).display]); return [r[0] !== 'none' && r[1] === 'none', r.join()]; });
 probe('#11', 'swap the DJ: Save line-up enabled', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-next]'); await tap('[data-rm]'); const d = await ev(() => document.querySelector('#savelineup').disabled); return [!d, 'disabled=' + d]; });
 probe('#12', 'Where, How to pay and Ticket link are rows on the event page', async () => { await open('fri'); const r = await ev(() => ['where', 'pay', 'ticket'].every((k) => document.querySelector('#s-event [data-edit="' + k + '"]'))); return [r, String(r)]; });
 probe('#13', 'preview: empty How to pay shows the organiser-only box', async () => { await open('fri'); await B({ 'data-preview': 'fri', 'data-pi': '0' }); const t = await txt(on('preview') + ' [data-edit="pay"]'); return [/Not set yet/.test(t), t]; });
@@ -252,6 +252,97 @@ probe('S24', 'a course starts with a class', async () => { await B({ 'data-flow'
 probe('S25', 'Tour has 5 steps', async () => { await B({ 'data-tab-go': 'home' }); await B({ 'data-sheet': 'tour' }); const n = await ev(() => document.querySelectorAll('#sheet [data-tourgo]').length); return [n === 5, String(n)]; });
 probe('S26', 'Who’s going opens a people list', async () => { await open('fri'); await B({ 'data-going': 'fri', 'data-gi': '0' }); const t = await sheet(); return [/going \(14\)/.test(t), t.slice(0, 40)]; });
 probe('S27', 'History: Undo where possible, why where not', async () => { await open('fri'); await B({ 'data-go': 'history' }); const t = await txt(on('history')); return [/Undo/.test(t) && /Photos can.t be undone/.test(t), 'ok?']; });
+
+/* ---------- red-first probes for the C3 sim fix pass (fail on be017c5a, pass after) ---------- */
+const hdr = () => txt(on('event') + ' .ev2 > div:first-child');
+const saveClassTime = async (t) => { await open('fri'); await B({ 'data-sess': await sid('fri', 0) }); await setVal('#sss', t); await tap('[data-sssave]'); await tap('[data-sswhich-go]'); };
+probe('R-sim-m1-header', 'M1 after "all dates" 8:30pm: event header, Events row, Home row, Stats row all say 8:30pm', async () => {
+  await saveClassTime('20:30');
+  const h = await hdr(); const line = (h.split('\n').find((l) => /^Every Friday/.test(l)) || '');
+  await B({ 'data-tab-go': 'events' }); const ev1 = await txt('#s-events [data-open="fri"]');
+  await B({ 'data-tab-go': 'home' }); const ho = await txt('#s-home .row[data-open="fri"]');
+  await B({ 'data-tab-go': 'stats' }); const st = await txt('#s-stats [data-open="fri"]');
+  return [[line, ev1, ho, st].every((x) => /8:30pm/.test(x)), [line, ev1.replace(/\n/g, ' / '), ho.replace(/\n/g, ' / '), st.replace(/\n/g, ' / ')].join(' || ').slice(0, 330)];
+}, 1);
+probe('R-sim-m2-bar', 'M2 one keystroke in the ticket link field: the bar shows an enabled Save (same for the wizard name step)', async () => {
+  await open('sat'); await B({ 'data-edit': 'ticket', 'data-k': 'sat' }); await page.focus('#tlink'); await page.keyboard.type('x');
+  const a = await ev(() => { const b = document.querySelector('#bb #saveedit'); return [getComputedStyle(document.querySelector('#bb')).display, !!b && !b.disabled && /Save/.test(b.textContent)]; });
+  await fresh(); await B({ 'data-flow': 'course' }); await page.focus('#fname'); await page.keyboard.type('A');
+  const b2 = await ev(() => { const b = document.querySelector('#bb #fnext'); return [getComputedStyle(document.querySelector('#bb')).display, !!b && !b.disabled && /Next/.test(b.textContent)]; });
+  return [a[0] !== 'none' && a[1] && b2[0] !== 'none' && b2[1], 'ticket ' + a.join() + ' | wizard ' + b2.join()];
+}, 1);
+const monthlyTo9pm = async () => {
+  await B({ 'data-flow': 'monthly' }); await setVal('#fname', 'First Saturday Social'); await tap('#fnext'); await tap('[data-fwd="6"]'); await setVal('#ftime', '21:00');
+  await tap('#fnext'); await B({ 'data-fsessadd': 'before' }); await tap('[data-sssave]'); await B({ 'data-fstep': '5' });
+};
+probe('R-sim-m3-review', 'M3 monthly 9pm + a class before: review "When" names Party 9pm and class from 8pm, no bare 8pm', async () => {
+  await monthlyTo9pm(); const t = await txt(on('step')); const w = (t.split('\n').find((l) => /^Every month/.test(l)) || '');
+  return [/Party 9pm/.test(w) && /class from 8pm/.test(w) && !/8pm/.test(w.replace('class from 8pm', '')), w];
+}, 1);
+probe('R-sim-m3-live', 'M3 + small 2: "Put it live" opens the new event page and its header says Party 9pm', async () => {
+  await monthlyTo9pm(); await tap('#golive'); const st = await ev(() => window.__c2.state().stack); const h = await hdr();
+  return [st[st.length - 1] === 'event' && /Party 9pm, class from 8pm/.test(h), st.join('>') + ' | ' + h.replace(/\n/g, ' / ').slice(0, 150)];
+}, 1);
+probe('R-sim-m3-heading', 'M3 wizard step 2 asks "When does the social start?" (the type\'s own word)', async () => {
+  await B({ 'data-flow': 'monthly' }); await setVal('#fname', 'X'); await tap('#fnext'); const t = await txt(on('step')); return [/When does the social start\?/.test(t), t.replace(/\n/g, ' / ').slice(0, 160)];
+}, 1);
+probe('R-sim-m4-scope', 'M4 session sheet offers Every date / From Fri 30 Oct on / Just Fri 23 Oct; "From" leaves tonight at 8pm, changes the next date, class row shows a From line', async () => {
+  await open('fri'); const c = await sid('fri', 0); await B({ 'data-sess': c }); await setVal('#sss', '20:30'); await tap('[data-sssave]');
+  const n = await ev(() => document.querySelectorAll('#sheet [data-sswhich]').length); const sh = await sheet();
+  const labels = /Every date/.test(sh) && /From Fri 30 Oct on/.test(sh) && /Just Fri 23 Oct/.test(sh);
+  const def = await ev(() => document.querySelector('[data-sswhich="all"]').getAttribute('aria-checked'));
+  await tap('[data-sswhich="later"]'); await tap('[data-sswhich-go]');
+  await B({ 'data-date': '0' }); const t0 = await sheet(); await tap('[data-close]'); await B({ 'data-date': '1' }); const t1 = await sheet(); await tap('[data-close]');
+  const row = await txt(on('event') + ' [data-sess="' + c + '"]');
+  return [n === 3 && labels && def === 'true' && !/8:30pm/.test(t0) && /8pm/.test(t0) && /8:30pm/.test(t1) && /From Fri 30 Oct/.test(row), 'n=' + n + ' def=' + def + ' | ' + t0.slice(0, 30) + ' | ' + t1.slice(0, 30) + ' | ' + row.replace(/\n/g, ' / ').slice(0, 120)];
+}, 1);
+probe('R-sim-m4-just', 'M4 "Just Fri 23 Oct" changes tonight only; every other date keeps 8pm', async () => {
+  await open('fri'); const c = await sid('fri', 0); await B({ 'data-sess': c }); await setVal('#sss', '20:30'); await tap('[data-sssave]'); await tap('[data-sswhich="one"]'); await tap('[data-sswhich-go]');
+  await B({ 'data-date': '0' }); const t0 = await sheet(); await tap('[data-close]'); await B({ 'data-date': '1' }); const t1 = await sheet();
+  return [/8:30pm/.test(t0) && !/8:30pm/.test(t1) && /8pm/.test(t1), t0.slice(0, 30) + ' | ' + t1.slice(0, 30)];
+}, 1);
+probe('R-sim-stats-sum', 'stats: the date-by-date rows add up to the "By event" total, for every event that has a table, and on screen', async () => {
+  const r = await ev(() => Object.keys(window.__c2.STATW).map((k) => [k, window.__c2.statRows(k).reduce((a, x) => a + x.v, 0), window.__c2.EV[k].views]));
+  await B({ 'data-tab-go': 'stats' });
+  const dom = await ev(() => { const rows = [...document.querySelectorAll('#s-stats h2')].find((h) => /date by date/.test(h.textContent)).nextElementSibling.querySelectorAll('tbody tr'); let sum = 0; rows.forEach((tr) => { sum += +tr.children[1].textContent; }); const by = document.querySelector('#s-stats [data-open="fri"] .s').textContent.match(/(\d+) views/); return [sum, by && +by[1]]; });
+  return [r.length >= 2 && r.every((x) => x[1] === x[2]) && dom[0] === dom[1], JSON.stringify(r) + ' dom=' + dom.join('/')];
+}, 1);
+probe('R-sim-s1-people', 'small 1: Home card names the roles: "Teaching: Marco & Sofia · DJ: Kizzy"', async () => {
+  await B({ 'data-tab-go': 'home' }); const t = await txt('#s-home .hero'); return [/Teaching: Marco & Sofia · DJ: Kizzy/.test(t), t.replace(/\n/g, ' / ').slice(0, 200)];
+}, 1);
+probe('R-sim-s3-classname', 'small 3: a class added with "Add a class before" is named Class, never "No name yet"', async () => {
+  await monthlyTo9pm(); await B({ 'data-fstep': '2' }); const t = await txt(on('step')); return [/Class/.test(t) && !/No name yet/.test(t), t.replace(/\n/g, ' / ').slice(0, 220)];
+}, 1);
+probe('R-sim-s4-tile', 'small 4: the big Stats tile says "views, all your events"', async () => {
+  await B({ 'data-tab-go': 'stats' }); const t = await txt('#s-stats .pair .stat'); return [/893/.test(t) && /all your events/.test(t), t.replace(/\n/g, ' / ')];
+}, 1);
+probe('R-sim-s6-taps', 'small 6: the Home title opens the event; the time line opens the date sheet; the event-page time line scrolls to Sessions', async () => {
+  await B({ 'data-tab-go': 'home' }); await tap('#s-home .hero [data-open]'); const a = await ev(() => window.__c2.state().stack.join('>'));
+  await fresh(); await B({ 'data-tab-go': 'home' }); await tap('#s-home .hero [data-homedate]'); const sh = await sheet();
+  await fresh(); await open('fri'); await tap('[data-tosess]'); const y = await ev(() => Math.round(document.querySelector('#sess-h').getBoundingClientRect().top));
+  return [/event$/.test(a) && /^Fri 23 Oct/.test(sh) && y < 300, a + ' | ' + sh.slice(0, 30) + ' | y=' + y];
+}, 1);
+probe('R-sim-s7-toasts', 'small 7: toasts name what changed: ticket link saved; cancel carries the reason', async () => {
+  await open('sat'); await B({ 'data-edit': 'ticket', 'data-k': 'sat' }); await setVal('#tlink', 'https://tickets.example/sat-new'); await tap('#saveedit'); const t1 = await toastT();
+  await fresh(); await open('sat'); await B({ 'data-date': '1' }); await B({ 'data-act': 'cancel' }); await tap('[data-scope-go]'); await tap('[data-reason]'); await tap('[data-docancel]'); const t2 = await toastT();
+  return [/^Ticket link saved\. Dancers see it now\./.test(t1) && /^Sat 31 Oct cancelled: .*isn.t available\. Dancers see it now\./.test(t2), t1 + ' | ' + t2];
+}, 1);
+probe('R-sim-s8-return', 'small 8: after saving the ticket link the event page keeps the Ticket link row in view (not the top)', async () => {
+  await open('sat'); await B({ 'data-edit': 'ticket', 'data-k': 'sat' }); await setVal('#tlink', 'https://tickets.example/sat-new'); await tap('#saveedit');
+  const r = await ev(() => { const e = document.querySelector('#s-event [data-edit="ticket"]').getBoundingClientRect(); return [Math.round(e.top), Math.round(e.bottom), innerHeight, document.querySelector('#s-event').scrollTop]; });
+  return [r[0] >= 0 && r[1] <= r[2] && r[3] > 0, r.join()];
+}, 1);
+probe('R-sim-s10-words', 'small 10: "Don’t cancel", "Add a class before", "52 nights since 2024"', async () => {
+  await open('sat'); await B({ 'data-date': '1' }); await B({ 'data-act': 'cancel' }); await tap('[data-scope-go]'); const a = await sheet();
+  await fresh(); await B({ 'data-flow': 'weekly' }); await B({ 'data-fstep': '2' }); const b = await txt(on('step'));
+  await fresh(); await B({ 'data-tab-go': 'stats' }); const c = await txt(on('stats'));
+  return [/Don.t cancel/.test(a) && !/Keep it/.test(a) && /Add a class before/.test(b) && /52 nights since 2024/.test(c) && !/Ran 52/.test(c), 'cancel:' + /Don.t cancel/.test(a) + ' before:' + /Add a class before/.test(b) + ' nights:' + /52 nights since 2024/.test(c)];
+}, 1);
+probe('R-sim-s11-order', 'small 11: "Different on N dates" lists the date just changed first', async () => {
+  await open('fri'); const c = await sid('fri', 0); await B({ 'data-date': '4' }); await B({ 'data-dsess': c }); await setVal('#ssname', 'Foo'); await tap('[data-sssave]'); await tap('[data-sscope-go]');
+  const row = await txt(on('event') + ' [data-sess="' + c + '"]'); const m = row.match(/Different on (\d+) dates?: ([^\n]*)/);
+  return [!!m && /^20 Nov/.test(m[2]), m ? m[0] : row.replace(/\n/g, ' / ').slice(0, 160)];
+}, 1);
 
 let pass = 0, fail = 0;
 for (const p of P) {

@@ -61,7 +61,10 @@ const STATES = {
   shPause: [...FRI, B({ 'data-sheet': 'pause' })], shNotmine: [T('[data-notmine]')], shGalsel: [...FRI, B({ 'data-photo': 'fri' }), T('[data-galsel]')],
   shVideoerr: [...FRI, B({ 'data-photo': 'fri', 'data-video': '1' }), B({ 'data-sheet': 'videoerr' })], shPhotoerr: [...FRI, B({ 'data-photo': 'fri' }), B({ 'data-sheet': 'photoerr' })],
   shErr: [B({ 'data-go': 'errors' }), T('[data-errk]')], shFsess: [B({ 'data-tourgo': 'create' }), T('[data-fsessadd="before"]')],
-  tour3: [B({ 'data-tourgo': 'later' })]
+  tour3: [B({ 'data-tourgo': 'later' })],
+  /* sim fix pass: the series-session "which dates" step, the new event page after "Put it live" */
+  shSessWhich: [...FRI, T('[data-sess]'), V('#sss', '20:30'), T('[data-sssave]')],
+  evMonthlyLive: [B({ 'data-flow': 'monthly' }), V('#fname', 'First Saturday Social'), T('#fnext'), T('[data-fwd="6"]'), T('#fnext'), T('[data-fsessadd="before"]'), T('[data-sssave]'), B({ 'data-fstep': '5' }), T('#golive')]
 };
 const KEYS = { kbLineup: [...STATES.lineupNext, { f: '#psearch' }], kbName: [B({ 'data-flow': 'course' }), { f: '#fname' }], kbPlace: [...STATES.where, { f: '#wsearch' }],
   kbTicket: [...STATES.ticket, { f: '#tlink' }], kbDetails: [...STATES.details, { f: '#dtdesc' }], kbFind: [...STATES.allFri, { f: '#adq' }] };
@@ -128,7 +131,7 @@ function measure(kb) {
   (sheetOn || scr).querySelectorAll('.ses').forEach((s) => { const t = s.querySelector('.t'), d = s.querySelector('.s'); if (!t || !d || !vis(s)) return; if (d.getBoundingClientRect().top < t.getBoundingClientRect().bottom - 1) out.k1.push(t.textContent.slice(0, 20)); });
   const thmRoot = scr.querySelector('.thm') || (sheetOn && sheetOn.querySelector('.thm'));
   out.theme = !!thmRoot;
-  if (kb) { out.kb = [getComputedStyle(document.querySelector('#bb')).display, getComputedStyle(document.querySelector('#tabs')).display]; const a = document.activeElement.getBoundingClientRect(); out.kbOn = a.top >= 0 && a.bottom <= innerHeight; }
+  if (kb) { out.kb = [getComputedStyle(document.querySelector('#bb')).display, getComputedStyle(document.querySelector('#tabs')).display]; const a = document.activeElement.getBoundingClientRect(), bb = document.querySelector('#bb'), bbOn = getComputedStyle(bb).display !== 'none' && bb.innerHTML.trim() !== ''; out.kbBar = bbOn || bb.innerHTML.trim() === ''; out.kbOn = a.top >= 0 && a.bottom <= (bbOn ? bb.getBoundingClientRect().top : innerHeight); }
   return out;
 }
 
@@ -161,7 +164,7 @@ for (const [w, h] of sizes) for (const th of themes) {
       await page.goto('file://' + file); runs++;
       try { await run(page, steps); } catch (e) { errs.push(st + ': ' + String(e).slice(0, 100)); continue; }
       const m = await page.evaluate(measure, true);
-      if (m.kb[0] !== 'none' || m.kb[1] !== 'none' || !m.kbOn) add('keyboard', 0, st, '390x514', th, [JSON.stringify(m.kb) + ' focusedOnScreen=' + m.kbOn]);
+      if (!m.kbBar || m.kb[1] !== 'none' || !m.kbOn) add('keyboard', 0, st, '390x514', th, [JSON.stringify(m.kb) + ' focusedOnScreen=' + m.kbOn]);
       add('contrast', 0, st, '390x514', th, m.contrast); add('taps', 0, st, '390x514', th, m.taps); add('overflow', 0, st, '390x514', th, m.overflow);
     }
   }

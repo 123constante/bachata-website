@@ -100,7 +100,7 @@ div.row { cursor: default; }
 .bottombar { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 16px 24px; background: linear-gradient(to top, var(--bg) 70%, transparent); z-index: 5; display: none; }
 .bottombar.on { display: block; }
 .bottombar.above-tabs { bottom: 80px; padding-bottom: 12px; }
-.phone.typing .bottombar, .phone.typing .tabs { display: none !important; }
+.phone.typing .tabs { display: none !important; }
 
 .hero { overflow: hidden; }
 .cover { height: 132px; position: relative; }
@@ -612,17 +612,17 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   }
   function chip(e) { var s = status(e); return '<span class="tag ' + s[0] + '">' + (s[0] === 'live' ? '<span class="dot"></span>' : '') + s[1] + '</span>'; }
   function openEnded(e) { return e.kind === 'weekly' || e.kind === 'monthly'; }
-  function cadence(e) {
-    var t = tm(e.time);
-    if (e.kind === 'weekly') return 'Every ' + WDL[e.wd] + ', ' + t;
-    if (e.kind === 'monthly') return 'First ' + WDL[e.wd] + ' of the month, ' + t;
+  function cadence(e, long) {
+    var t = startPhrase(e.sess, e.time, long), sp = long && t.indexOf(' from ') > -1 ? ' &middot; ' : ', ';
+    if (e.kind === 'weekly') return 'Every ' + WDL[e.wd] + sp + t;
+    if (e.kind === 'monthly') return 'First ' + WDL[e.wd] + ' of the month' + sp + t;
     if (e.kind === 'festival') return fmt(e.dates[0].d) + ' to ' + fmt(add(e.dates[0].d, e.days - 1)) + ' &middot; ' + e.days + ' days';
-    if (e.kind === 'oneoff') return e.dates.length ? fmt(e.dates[0].d) + ', ' + t : 'No date yet';
+    if (e.kind === 'oneoff') return e.dates.length ? fmt(e.dates[0].d) + sp + t : 'No date yet';
     if (e.kind === 'course') {
       var on = e.dates.filter(function (x) { return x.st !== 'cancelled'; }), left = liveDates(e).length;
       return 'Course &middot; ' + fmtDM(on[0].d) + ' to ' + fmtDM(on[on.length - 1].d) + ' &middot; ' + (left ? left + (left === 1 ? ' class left' : ' classes left') : 'all classes done');
     }
-    var lv = liveDates(e); return lv.length ? 'Next ' + fmt(lv[0].d) + ', ' + t : L.noDates;
+    var lv = liveDates(e); return lv.length ? 'Next ' + fmt(lv[0].d) + sp + t : L.noDates;
   }
   /* Second line on every list: tells the two "Sensual Wednesdays" apart. */
   function rowSub(e) { return e.kind === 'course' ? cadence(e) + ' &middot; ' + e.place : cadence(e) + ' &middot; ' + e.place; }
@@ -668,6 +668,16 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     return { s: st, e: last.e, nd: on.some(nextDay) };
   }
   function spanText(list) { var p = span(list); return p ? tm(p.s) + ' to ' + tm(p.e) + (p.nd ? ' (ends the next day)' : '') : 'No sessions yet'; }
+  /* ONE start-time phrase for an event, derived from its sessions (never a stored string).
+   * short: the earliest start ("8:30pm"). long: when the main session (the party) starts later than the first one,
+   * both are named: "Party 9pm, class from 8pm". */
+  function startPhrase(list, fb, long) {
+    var srt = (list || []).filter(function (m) { return !m.cx; }).slice().sort(bySt);
+    if (!srt.length) return tm(fb);
+    var first = srt[0], main = srt.filter(function (m) { return m.k === 'social'; })[0];
+    if (!long || !main || main.s === first.s) return tm(first.s);
+    return kindLbl(main.k) + ' ' + tm(main.s) + ', ' + kindLbl(first.k).toLowerCase() + ' from ' + tm(first.s);
+  }
   function kindLbl(k) { return L.sessKind.filter(function (x) { return x[0] === k; })[0][1]; }
   function roleLbl(r) { return L.roles.filter(function (x) { return x[0] === r; })[0][1]; }
   /* a pair or a group ("Marco &amp; Sofia", "Daniel y Tom", "Pao Pao Army") takes the plural noun */
@@ -720,6 +730,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   }
 
   /* ================= state for flows ================= */
+  var CHG = 0;   /* change counter: the date changed last is listed first in "Different on N dates" */
   var cur = 'fri', dateIdx = 0, scope = 'one', action = '', previewIdx = 0;
   var lu = null;       /* line-up context { k, label, orig } */
   var mv = null;       /* move context */
@@ -769,11 +780,12 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     });
     var n = nextUp(), hasBar = !!R.home.bar();
     if (n) {
-      var e = EV[n.k], t = dStart(e, n.x), np = []; dsess(e, n.x).forEach(function (m) { if (!m.cx) m.ppl.forEach(function (p) { if (np.indexOf(p[0]) < 0) np.push(p[0]); }); });
+      var e = EV[n.k], t = dStart(e, n.x), np = { teach: [], dj: [], perform: [] }; dsess(e, n.x).forEach(function (m) { if (!m.cx) m.ppl.forEach(function (p) { var r = np[p[1]] ? p[1] : 'teach'; if (np[r].indexOf(p[0]) < 0) np[r].push(p[0]); }); });
+      var npText = [['teach', 'Teaching'], ['dj', 'DJ'], ['perform', 'Performing']].filter(function (x) { return np[x[0]].length; }).map(function (x) { return x[1] + ': ' + np[x[0]].map(function (nm) { return nm.replace(/^DJ /, ''); }).join(', '); }).join(' &middot; ');
       h += '<div class="card hero" style="margin-top:12px"><div class="cover ' + (e.ph || 'nophoto') + '">' + (e.ph ? '' : 'No photo yet') + chip(e) + '</div><div class="pad">' +
-        '<div class="when">Next up &middot; ' + dayWord(n.x.d) + ', ' + tm(t) + '</div><div class="big" style="font-size:24px">' + e.name + '</div>' +
-        '<div class="mut">' + e.place + ' &middot; ' + spanText(dsess(e, n.x)) + '</div>' +
-        '<div class="mut small" style="margin-top:2px">' + (np.length ? np.join(', ') : 'No line-up yet') + '</div>' +
+        '<div class="when">Next up &middot; ' + dayWord(n.x.d) + ', ' + tm(t) + '</div><button class="link" data-open="' + n.k + '" style="padding:0;color:var(--fg);text-align:left;display:block"><span class="big" style="font-size:24px;display:block">' + e.name + '</span></button>' +
+        '<button class="link" data-homedate="' + n.k + '" data-hi="' + n.i + '" style="padding:0;color:var(--mut);text-align:left;font:inherit;display:block">' + e.place + ' &middot; ' + spanText(dsess(e, n.x)) + '</button>' +
+        '<div class="mut small" style="margin-top:2px">' + (npText || 'No line-up yet') + '</div>' +
         /* GoingNightSummary variant="compact" (src/modules/going/) renders here behind the Going flag */
         (e.going ? '<!-- GoingNightSummary variant="compact" --><button class="link" data-going="' + n.k + '" data-gi="' + n.i + '" style="padding:0">' + e.going + ' ' + L.going + ' &middot; see who</button>' : '') +
         '<div class="qa"><button class="btn' + (hasBar ? ' quiet' : '') + '" data-lineup-next="' + n.k + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M17 11h4M19 9v4"/></svg>' + L.lineup + '</button>' +
@@ -837,6 +849,17 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   /* views over 30 days: stand-in daily numbers that sum to the 893 total (shape follows Fri/Sat peaks) */
   var DAILY = (function () { var a = [], tot = 0; for (var i = 29; i >= 0; i--) { var d = add(TODAY, -i), w = d.getDay(); var v = w === 5 ? 52 : w === 6 ? 44 : w === 4 ? 30 : 18; v += (i * 7) % 5; a.push([d, v]); tot += v; } var f = 893 / tot, s2 = 0; a.forEach(function (x, j) { x[1] = Math.round(x[1] * f); s2 += x[1]; }); a[29][1] += 893 - s2; return a; })();
   var statTable = false;
+  /* date-by-date views for one event are CUT FROM its 30-day total (largest remainder), so the rows always add up to "By event" */
+  var STATW = { fri: [['2026-10-02', 41, 0], ['2026-10-09', 38, 0], ['2026-10-16', 47, 0], ['2026-10-23', 52, 14], ['2026-10-30', 19, 6]],
+    sat: [['2026-10-03', 30, 0], ['2026-10-10', 34, 0], ['2026-10-17', 41, 0], ['2026-10-24', 46, 9], ['2026-10-31', 22, 5]] };
+  function statRows(k) {
+    var e = EV[k], w = STATW[k]; if (!w) return [];
+    var sw = w.reduce(function (a, r) { return a + r[1]; }, 0);
+    var rows = w.map(function (r) { var q = r[1] * e.views / sw; return { d: r[0], v: Math.floor(q), f: q - Math.floor(q), g: r[2] }; });
+    var left = e.views - rows.reduce(function (a, r) { return a + r.v; }, 0);
+    rows.slice().sort(function (a, b) { return b.f - a.f; }).slice(0, left).forEach(function (r) { r.v++; });
+    return rows;
+  }
   function chartSvg() {
     var W = 340, H = 150, max = 0; DAILY.forEach(function (x) { max = Math.max(max, x[1]); }); max = Math.ceil(max / 20) * 20;
     var pts = DAILY.map(function (x, i) { return [24 + i * (W - 34) / 29, 12 + (H - 34) * (1 - x[1] / max)]; });
@@ -852,18 +875,18 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var goingTot = ids.reduce(function (m, k) { return m + EV[k].going; }, 0);
     var h = TOP('How you&rsquo;re doing') + '<div class="seg" role="group" aria-label="Time range">' +
       [['d', 'Today'], ['w', '7 days'], ['m', '30 days']].map(function (r) { return '<button data-range="' + r[0] + '" aria-pressed="' + (range === r[0]) + '">' + r[1] + '</button>'; }).join('') + '</div>' +
-      '<div class="pair" style="margin-top:12px"><div class="card stat"><div class="n">' + tot + '</div><div class="l">' + L.views + '</div></div><div class="card stat"><!-- GoingNightSummary slot (Stats total) --><div class="n">' + goingTot + '</div><div class="l">' + L.going + ' to your next dates</div></div></div>';
+      '<div class="pair" style="margin-top:12px"><div class="card stat"><div class="n">' + tot + '</div><div class="l">' + L.views + ', all your events</div></div><div class="card stat"><!-- GoingNightSummary slot (Stats total) --><div class="n">' + goingTot + '</div><div class="l">' + L.going + ' to your next dates</div></div></div>';
     if (!ORGS[org].views) return h + '<div class="card pad" style="margin-top:12px"><div style="font-weight:600">No views yet</div><p class="small mut" style="margin:4px 0 0">Views show up the day after dancers start finding your event. Share your link on WhatsApp or Instagram to get the first ones.</p></div>';
     h += '<h2 style="display:flex;align-items:center">Views, last 30 days <span style="flex:1"></span><button class="link" data-stattable>' + (statTable ? 'Show the chart' : 'Show as a table') + '</button></h2><div class="card' + (statTable ? '' : ' pad') + '">';
     h += statTable ? '<table class="tb"><thead><tr><th>Day</th><th class="n">Views</th></tr></thead><tbody>' + DAILY.slice().reverse().slice(0, 10).map(function (x) { return '<tr><td>' + fmt(x[0]) + '</td><td class="n">' + x[1] + '</td></tr>'; }).join('') + '</tbody></table><div class="pad small mut">Showing the last 10 days.</div>' : chartSvg() + '<div class="small mut">Fridays and Saturdays bring the most views.</div>';
     h += '</div><h2>By event</h2><div class="card">' + ids.map(function (k) {
       var e = EV[k], v = Math.round(e.views * f);
       return '<button class="row" data-open="' + k + '" style="display:block"><div style="display:flex;gap:12px;align-items:baseline"><div class="t" style="flex:1;min-width:0">' + e.name + '</div><div class="s" style="white-space:nowrap">' + v + ' ' + L.views + '</div></div>' +
-        '<div class="s">' + (e.runs ? 'Ran ' + e.runs[0] + ' times since ' + e.runs[1] + ' &middot; ' : '') + (e.going ? e.going + ' ' + L.going + ' &middot; ' : '') + rowSub(e) + '</div><div class="bar"><i style="width:' + Math.max(2, Math.round(e.views / max * 100)) + '%"></i></div></button>';
+        '<div class="s">' + (e.runs ? e.runs[0] + ' nights since ' + e.runs[1] + ' &middot; ' : '') + (e.going ? e.going + ' ' + L.going + ' &middot; ' : '') + rowSub(e) + '</div><div class="bar"><i style="width:' + Math.max(2, Math.round(e.views / max * 100)) + '%"></i></div></button>';
     }).join('') + '</div>';
     var fr = EV.fri;
-    h += '<h2>Sensual Fridays, date by date</h2><div class="card"><table class="tb"><thead><tr><th>Date</th><th class="n">Views</th><th class="n">Going</th></tr></thead><tbody>' +
-      [['2026-10-02', 41, 0], ['2026-10-09', 38, 0], ['2026-10-16', 47, 0], ['2026-10-23', 52, 14], ['2026-10-30', 19, 6]].map(function (r) { return '<tr><td>' + fmt(D(r[0])) + (D(r[0]) < TODAY ? ' <span class="mut">done</span>' : '') + '</td><td class="n">' + r[1] + '</td><td class="n">' + (r[2] || '&ndash;') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    h += '<h2>Sensual Fridays, date by date <span class="sl">last 30 days</span></h2><div class="card"><table class="tb"><thead><tr><th>Date</th><th class="n">Views</th><th class="n">Going</th></tr></thead><tbody>' +
+      statRows('fri').map(function (r) { return '<tr><td>' + fmt(D(r.d)) + (D(r.d) < TODAY ? ' <span class="mut">done</span>' : '') + '</td><td class="n">' + r.v + '</td><td class="n">' + (r.g || '&ndash;') + '</td></tr>'; }).join('') + '</tbody></table></div>';
     h += '<h2>Where views come from <span class="sl">stand-in</span></h2><div class="card">' +
       [['Bachata Calendar search and lists', 46], ['Instagram links', 27], ['WhatsApp shares', 18], ['Google', 9]].map(function (r) { return '<div class="hbar"><span>' + r[0] + '</span><b style="text-align:right">' + r[1] + '%</b><div class="bar"><i style="width:' + r[1] + '%"></i></div></div>'; }).join('') +
       '<div class="pad small mut" style="padding-top:0">Stand-in numbers: we don&rsquo;t track where views come from yet. This box shows what it will look like.</div></div>';
@@ -921,17 +944,17 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     return '<button class="ses' + (m.cx ? ' off' : '') + '" ' + attrs + '><span class="tt">' + tm(m.s) + '<small>to ' + tm(m.e) + (nextDay(m) ? ' +1' : '') + '</small></span><span class="grow"><span class="t"><span class="kd' + (m.k === 'social' ? ' social' : '') + '">' + kindLbl(m.k) + '</span>' + sessTitle(m) + '</span>' +
       '<span class="s">' + meta.join(' &middot; ') + '</span>' + (tag ? '<span class="s" style="display:block;margin-top:4px">' + tag + (nextDay(m) && !m.cx ? ' <span class="small">ends the next day</span>' : '') + '</span>' : nextDay(m) ? '<span class="s" style="display:block">Ends the next day</span>' : '') + '</span>' + CHEV + '</button>';
   }
-  function ownDates(e, sid) { return e.dates.filter(function (x) { return x.d >= TODAY && x.so && x.so[sid]; }); }
+  function ownDates(e, sid) { return e.dates.filter(function (x) { return x.d >= TODAY && x.so && x.so[sid]; }).sort(function (a, b) { return (b.at || 0) - (a.at || 0) || a.d - b.d; }); }
   var removedSess = [];   /* removed from the event page, not saved yet */
   R.event = function () {
     var e = EV[cur], s = status(e), up = upcoming(e), lv = liveDates(e), rw = runway(e);
     var h = BACK + '<div class="ev2"><div><div class="card hero"><div class="cover ' + (e.ph || 'nophoto') + '">' + (e.ph ? '' : 'No photo yet') + chip(e) +
       '<button class="chg" data-photo="' + cur + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>' + (e.ph ? 'Change photo' : 'Add a photo') + '</button></div>' +
-      '<div class="pad"><div class="when">' + L.kind[e.kind] + (kindWord(e) !== L.kind[e.kind] ? ' &middot; ' + kindWord(e) : '') + '</div><button class="link" data-go="details" style="padding:0;color:var(--fg);text-align:left"><span class="big" style="font-size:24px;margin:4px 0">' + e.name + '</span></button><div class="mut">' + cadence(e) + ' &middot; ' + (e.place || 'No place yet') + '</div>' +
+      '<div class="pad"><div class="when">' + L.kind[e.kind] + (kindWord(e) !== L.kind[e.kind] ? ' &middot; ' + kindWord(e) : '') + '</div><button class="link" data-go="details" style="padding:0;color:var(--fg);text-align:left"><span class="big" style="font-size:24px;margin:4px 0">' + e.name + '</span></button><button class="link" data-tosess style="padding:0;color:var(--mut);text-align:left;font:inherit;display:block">' + cadence(e, true) + ' &middot; ' + (e.place || 'No place yet') + '</button>' +
       '<div class="small mut" style="margin-top:4px">' + (e.sess.length ? 'Starts ' + tm(span(e.sess).s) + ' (from the first session), ends ' + tm(span(e.sess).e) + (span(e.sess).nd ? ' the next day' : '') : 'Times come from your sessions. Add one below.') + '</div></div></div>';
     var stSub = e.life === 'draft' ? 'Put it live, or keep it as a draft' : e.life === 'ended' ? 'Make a copy to run it again' : e.status === 'paused' ? 'Turn it back on, or end it' : 'Pause or end it';
     h += '<div class="card" style="margin-top:12px"><button class="row" data-sheet="status"><div class="grow"><div class="t">' + s[1] + ' &middot; ' + stSub + '</div><div class="s">Status</div></div>' + CHEV + '</button>' +
-      (e.life === 'live' && e.status !== 'paused' ? '<button class="row" data-sheet="pause"><div class="grow"><div class="t">' + L.pause + '</div><div class="s">Hidden until you turn it back on. Dates kept.</div></div>' + CHEV + '</button>' : '') + '</div>';
+      '</div>';
     if (e.life === 'ended') h += '<div class="card pad" style="margin-top:12px"><div style="font-weight:600">This has finished. It ran until ' + fmt(e.dates[e.dates.length - 1].d) + '.</div><p class="small mut" style="margin:4px 0 12px">It stays here so you can look back or copy it. Dancers see it as finished.</p><button class="btn quiet" data-go="copy">' + L.makeCopy + '</button></div>';
     if (e.life === 'draft') h += '<div class="card pad" style="margin-top:12px"><div style="font-weight:600">Draft &middot; only you see it</div><p class="small mut" style="margin:4px 0 0">' + draftBlock(e) + '</p></div>';
     if (s[0] === 'paused') h += '<div class="card pad" style="margin-top:12px"><div style="font-weight:600">Paused &middot; dancers can&rsquo;t see it</div><div class="small mut">Your dates are kept. Turn it back on and they show again.</div></div>';
@@ -958,7 +981,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     }
     if (e.kind !== 'oneoff' && e.kind !== 'festival') h += '<div class="card" style="margin-top:12px"><button class="row" data-go="repeat"><div class="grow"><div class="t">' + (e.kind === 'custom' ? 'Dates I pick' : 'Repeats') + '</div><div class="s">' + repeatSummary(e) + '</div></div>' + CHEV + '</button></div>';
     /* sessions (every date) */
-    h += '<h2 style="display:flex;align-items:center">' + L.sessions + ' <span class="small mut" style="font-weight:400;margin-left:8px">every date</span></h2>';
+    h += '<h2 id="sess-h" style="display:flex;align-items:center">' + L.sessions + ' <span class="small mut" style="font-weight:400;margin-left:8px">every date</span></h2>';
     if (!e.sess.length) h += '<div class="card pad"><div style="font-weight:600">No sessions yet</div><p class="small mut" style="margin:4px 0 12px">A session is one part of the night: a class, a workshop or the party. Times on the calendar come from them.</p><button class="btn" data-addsess="first">Add the first session</button></div>';
     else {
       h += '<div class="card tl">' + e.sess.slice().sort(bySt).map(function (m) {
@@ -1247,13 +1270,13 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   function flowSessText() { return flow.sess.slice().sort(bySt).map(function (m) { return tm(m.s) + ' ' + (m.t || kindLbl(m.k)); }).join(', ') + ' &middot; ' + spanText(flow.sess); }
   function courseDates() { var a = [], d = D(flow.start); for (var i = 0; i < flow.weeks; i++) { a.push(d); d = add(d, 7); } return a; }
   function whenText() {
-    var t = tm(flow.sess && flow.sess.length ? span(flow.sess).s : flow.time);
-    if (flow.kind === 'weekly') return flow.wd === null ? '' : 'Every ' + WDL[flow.wd] + ', ' + t + ', no end date';
-    if (flow.kind === 'monthly') return flow.wd === null ? '' : 'Every month on the ' + NTH.filter(function (n) { return n[0] === flow.nth; })[0][1] + ' ' + WDL[flow.wd] + ', ' + t;
+    var t = startPhrase(flow.sess, flow.time, true), sp = t.indexOf(' from ') > -1 ? ' &middot; ' : ', ';
+    if (flow.kind === 'weekly') return flow.wd === null ? '' : 'Every ' + WDL[flow.wd] + sp + t + ', no end date';
+    if (flow.kind === 'monthly') return flow.wd === null ? '' : 'Every month on the ' + NTH.filter(function (n) { return n[0] === flow.nth; })[0][1] + ' ' + WDL[flow.wd] + sp + t;
     if (flow.kind === 'custom') return flow.more.length ? flow.more.length + (flow.more.length === 1 ? ' date: ' : ' dates: ') + flow.more.map(function (x) { return fmtDM(D(x)); }).join(', ') : '';
     if (flow.kind === 'festival') return flow.date ? fmt(D(flow.date)) + ' to ' + fmt(add(D(flow.date), flow.fdays - 1)) + ' (' + flow.fdays + ' days)' : '';
-    if (flow.kind === 'oneoff') return flow.date ? fmt(D(flow.date)) + ', ' + t : '';
-    var c = courseDates(); return flow.weeks + ' classes, every ' + WDL[c[0].getDay()] + ', ' + fmtDM(c[0]) + ' to ' + fmtDM(c[c.length - 1]) + ', ' + t;
+    if (flow.kind === 'oneoff') return flow.date ? fmt(D(flow.date)) + sp + t : '';
+    var c = courseDates(); return flow.weeks + ' classes, every ' + WDL[c[0].getDay()] + ', ' + fmtDM(c[0]) + ' to ' + fmtDM(c[c.length - 1]) + sp + t;
   }
   function stepHint() {
     var w = whenText();
@@ -1277,14 +1300,15 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   }
   R.step = function () {
     var F = FLOWS[flow.kind], s = F.steps[flow.i], n = F.steps.length, noun = flow.kind === 'course' ? 'course' : flow.kind === 'festival' ? 'festival' : flow.kind === 'weekly' || flow.kind === 'monthly' ? 'social' : flow.kind === 'custom' ? 'event' : 'party';
+    var startQ = 'When does the ' + (flow.kind === 'course' ? 'class' : noun) + ' start?';
     var h = BACK + '<div class="steps">' + F.steps.map(function (x, j) { return '<i class="' + (j <= flow.i ? 'on' : '') + '"></i>'; }).join('') + '</div><div class="when">' + F.title + ' &middot; ' + (flow.i + 1) + ' of ' + n + '</div>';
     if (s === 'name') h += '<div class="big">What&rsquo;s the ' + noun + ' called?</div><label class="f" for="fname">Name</label><input class="in" id="fname" autocomplete="off" placeholder="' + (flow.kind === 'course' ? 'e.g. Sensual Bachata Beginners' : flow.kind === 'weekly' ? 'e.g. Sensual Thursdays' : 'e.g. Christmas Bachata Party') + '" value="' + esc(flow.name) + '"><div class="hint">Dancers see this on the calendar. You can change it later.</div>';
     if (s === 'day') h += '<div class="big">Which night, and what time?</div><label class="f">Every</label><div class="pick days" role="group" aria-label="Day of the week">' + [1, 2, 3, 4, 5, 6, 0].map(function (d) { return '<button data-fwd="' + d + '" aria-pressed="' + (flow.wd === d) + '">' + WD[d] + '</button>'; }).join('') + '</div>' +
-      '<label class="f" for="ftime">Starts at</label><input class="in" id="ftime" type="time" value="' + flow.time + '"><div class="hint" id="fhint">' + stepHint() + '</div>';
-    if (s === 'date') h += '<div class="big">When is it?</div><label class="f" for="fdate">Date</label><input class="in" id="fdate" type="date" value="' + flow.date + '"><label class="f" for="ftime">Starts at</label><input class="in" id="ftime" type="time" value="' + flow.time + '"><div class="hint" id="fhint">' + stepHint() + '</div>' +
+      '<label class="f" for="ftime">' + startQ + '</label><input class="in" id="ftime" type="time" value="' + flow.time + '"><div class="hint" id="fhint">' + stepHint() + '</div>';
+    if (s === 'date') h += '<div class="big">When is it?</div><label class="f" for="fdate">Date</label><input class="in" id="fdate" type="date" value="' + flow.date + '"><label class="f" for="ftime">' + startQ + '</label><input class="in" id="ftime" type="time" value="' + flow.time + '"><div class="hint" id="fhint">' + stepHint() + '</div>' +
       (flow.date ? '<p class="small" style="margin-top:12px">Same party on more dates? <button class="link" data-fmakerepeat>Add another date</button></p>' : '');
     if (s === 'mday') h += '<div class="big">Which week of the month?</div><div class="chips" role="group" aria-label="Which week">' + NTH.map(function (x) { return '<button data-fnth="' + x[0] + '" aria-pressed="' + (flow.nth === x[0]) + '">' + x[1][0].toUpperCase() + x[1].slice(1) + '</button>'; }).join('') + '</div><label class="f">Day</label><div class="pick days" role="group" aria-label="Day of the week">' + [1, 2, 3, 4, 5, 6, 0].map(function (d) { return '<button data-fwd="' + d + '" aria-pressed="' + (flow.wd === d) + '">' + WD[d] + '</button>'; }).join('') + '</div>' +
-      '<label class="f" for="ftime">Starts at</label><input class="in" id="ftime" type="time" value="' + flow.time + '"><div class="hint" id="fhint">' + stepHint() + '</div>';
+      '<label class="f" for="ftime">' + startQ + '</label><input class="in" id="ftime" type="time" value="' + flow.time + '"><div class="hint" id="fhint">' + stepHint() + '</div>';
     if (s === 'mdates') h += '<div class="big">Add the dates from your poster</div><p class="mut">Add them one by one. You can add more later.</p><div class="card">' + (flow.more.length ? flow.more.map(function (x, i) { return '<div class="row"><div class="grow"><div class="t">' + fmt(D(x)) + '</div></div><button class="btn quiet sm" data-fmrm="' + i + '">Remove</button></div>'; }).join('') : '<div class="pad small mut">No dates yet.</div>') + '</div>' +
       '<label class="f" for="fmdate">Date</label><div class="pair" style="grid-template-columns:1fr auto"><input class="in" id="fmdate" type="date" value="2026-11-20"><button class="btn sm" data-fmadd style="min-height:52px">Add</button></div>' + (flow.more.length >= 3 ? '<div class="note">Same night every week? <button class="link" data-fflowto="weekly">Make it repeat</button> instead.</div>' : '');
     if (s === 'fdays') h += '<div class="big">When is the weekend?</div><label class="f" for="fdate">First day</label><input class="in" id="fdate" type="date" value="' + flow.date + '"><label class="f">How many days</label><div class="pick" role="group" aria-label="Days" style="grid-template-columns:1fr 1fr"><button data-ffd="2" aria-pressed="' + (flow.fdays === 2) + '">2 days</button><button data-ffd="3" aria-pressed="' + (flow.fdays === 3) + '">3 days</button></div><div class="hint" id="fhint">' + stepHint() + '</div>';
@@ -1293,19 +1317,19 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       var list = flow.sess.slice().sort(bySt);
       h += '<div class="big">What happens, and when?</div><p class="mut">Each part of the night is a session: a class, a workshop, the party. We started one for you.</p><div class="card tl">' +
         (list.length ? list.map(function (m) { var c = {}; for (var key in m) c[key] = m[key]; return sessRow({ place: flow.place }, c, 'data-fsessedit="' + m.id + '"'); }).join('') : '<div class="pad small mut">No sessions yet.</div>') + '</div>' +
-        '<div class="pair" style="margin-top:10px"><button class="btn line" data-fsessadd="before">Add one before</button><button class="btn line" data-fsessadd="next">' + L.addNext + '</button></div>' +
+        '<div class="pair" style="margin-top:10px"><button class="btn line" data-fsessadd="before">Add a class before</button><button class="btn line" data-fsessadd="next">' + L.addNext + '</button></div>' +
         '<div class="hint">' + (list.length ? 'Starts ' + tm(span(list).s) + ', ends ' + tm(span(list).e) + (span(list).nd ? ' the next day' : '') + '. Add teachers and DJs after it&rsquo;s live.' : '') + '</div>';
     }
     if (s === 'cdates') h += '<div class="big">When does it start, and how many classes?</div><label class="f" for="fstart">First class</label><input class="in" id="fstart" type="date" value="' + flow.start + '">' +
       '<label class="f">How many classes</label><div style="display:flex;align-items:center;gap:12px"><button class="btn quiet sm" data-fweeksd="-1" aria-label="One fewer" style="min-width:52px">&minus;</button><b style="font-size:28px;min-width:48px;text-align:center" id="fwn">' + flow.weeks + '</b><button class="btn quiet sm" data-fweeksd="1" aria-label="One more" style="min-width:52px">+</button><span class="mut">classes, one a week</span></div>' +
-      '<label class="f" for="ftime">Class starts at</label><input class="in" id="ftime" type="time" value="' + flow.time + '"><div class="hint" id="fhint">' + stepHint() + '</div>';
+      '<label class="f" for="ftime">' + startQ + '</label><input class="in" id="ftime" type="time" value="' + flow.time + '"><div class="hint" id="fhint">' + stepHint() + '</div>';
     if (s === 'where') h += '<div class="big">Where is it?</div>' + whereBody(flow.place, flow.q);
     if (s === 'pay') h += '<div class="big">How can dancers pay?</div><p class="mut">Tick all that apply. Not sure yet? Skip it &mdash; you can add it later.</p>' + payBody(flow.pay);
     if (s === 'level') h += '<div class="big">Who is it for?</div><p class="mut">Dancers pick a course by level first.</p><div role="radiogroup" aria-label="Level">' + L.lvls.map(function (l) { return '<button class="choice" role="radio" data-level="' + l + '" aria-checked="' + (flow.level === l) + '"><span class="radio"></span><span class="grow">' + l + '</span></button>'; }).join('') + '</div>';
     if (s === 'check') {
       var idx = function (k) { return F.steps.indexOf(k); };
       var row = function (lbl, val, j, empty) { return '<button class="row" data-fstep="' + j + '"><div class="grow"><div class="s">' + lbl + '</div><div class="t' + (val ? '' : ' mut') + '">' + (val || empty) + '</div></div><span class="link">Change</span></button>'; };
-      h += '<div class="big">Looks good?</div><div class="card">' + row('Name', esc(flow.name), 0) + row('When', whenText(), 1) + (idx('sessions') > -1 ? row('Sessions', flowSessText(), idx('sessions')) : '') + row('Where', flow.place, idx('where')) +
+      h += '<div class="big">Looks good?</div><div class="card">' + row('Name', esc(flow.name), 0) + row('When', whenText(), 1) + (idx('sessions') > -1 ? row('Sessions', flowSessText(), idx('sessions')) : '') + row('Where', flow.place, idx('where'), 'Not set yet') +
         (flow.kind === 'festival' ? row('Ticket link', esc(flow.fticket), idx('fticket'), 'Not set yet') : '') +
         (idx('pay') > -1 ? row('How to pay', flow.pay.map(function (k) { return L.payOpts.filter(function (o) { return o[0] === k; })[0][1]; }).join(' &middot; '), idx('pay'), 'Not set yet &mdash; dancers see nothing here') : '') +
         (flow.kind === 'course' ? row('Who is it for', flow.level, idx('level'), 'Not set yet') : '') + '</div>' +
@@ -1322,7 +1346,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
 
   /* ================= C3: per-date changes, undo snapshots ================= */
   function cl(o) { return o === undefined ? undefined : JSON.parse(JSON.stringify(o)); }
-  function snap2(e) { return { sess: cl(e.sess), life: e.life, status: e.status, dates: e.dates.map(function (x) { return { d: x.d, st: x.st, time: x.time, reason: x.reason, so: cl(x.so), extra: cl(x.extra), own: cl(x.own) }; }) }; }
+  function snap2(e) { return { sess: cl(e.sess), life: e.life, status: e.status, dates: e.dates.map(function (x) { return { d: x.d, st: x.st, time: x.time, reason: x.reason, so: cl(x.so), extra: cl(x.extra), own: cl(x.own), at: x.at }; }) }; }
   function restore2(e, s) { s.sess.forEach(function (m) { (m.from || []).forEach(function (g) { g.d = new Date(g.d); }); }); e.sess = s.sess; e.dates = s.dates; e.life = s.life; e.status = s.status; }
   function findSess(e, x, sid) {
     var b = e.sess.filter(function (m) { return m.id === sid; })[0]; if (b) return { s: b, extra: false };
@@ -1332,7 +1356,11 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   function setSessOn(e, di, sid, patch, sc) {
     var x = di > -1 ? e.dates[di] : null, f = findSess(e, x, sid);
     if (!f) return;
-    if (sc === 'all' || di < 0 || f.extra) { for (var k in patch) f.s[k] = patch[k]; return; }
+    if (sc === 'all' || di < 0 || f.extra) {
+      for (var k in patch) f.s[k] = patch[k];
+      if (!f.extra && f.s.from) { f.s.from.forEach(function (g) { for (var kk in patch) delete g.p[kk]; }); f.s.from = f.s.from.filter(function (g) { return Object.keys(g.p).length; }); if (!f.s.from.length) delete f.s.from; }
+      return;
+    }
     if (sc === 'later') {
       /* ONE forward change on the series session (not N per-date overrides). A later date's own change to the same
        * thing goes (the scope sheet said it changes too); "not running" stays: a change never brings a session back (critique #5) */
@@ -1347,7 +1375,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       });
       return;
     }
-    x.so = x.so || {}; var o = x.so[sid] || {}; for (var k2 in patch) o[k2] = cl(patch[k2]); x.so[sid] = o;
+    x.so = x.so || {}; var o = x.so[sid] || {}; for (var k2 in patch) o[k2] = cl(patch[k2]); x.so[sid] = o; x.at = ++CHG;
   }
   /* a forward segment in plain words, as of its own date: "From Fri 20 Nov: 8:30pm to 9pm" */
   function fromWords(e, s, g) {
@@ -1446,15 +1474,36 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (ss.d.t !== ss.o.t) patch.t = esc(ss.d.t);
     var what = ssWhat();
     /* the message is worked out BEFORE the write: after it every later date carries the change; the per-date notes were on the scope sheet before the tap */
-    var msg = sc === 'later' ? laterLine(e, ss.di, what) : sc === 'one' ? fmt(x.d) + ' only: ' + what + ' changed.' : 'Saved for every date.';
+    var msg = sc === 'later' ? laterLine(e, ss.di, what) : sc === 'one' ? fmt(x.d) + ' only: ' + what + ' changed.' : what.charAt(0).toUpperCase() + what.slice(1) + ' saved for every date.';
     setSessOn(e, ss.di, ss.sid, patch, sc);
     closeSheet(); refreshUnder();
     toast(msg + ' Dancers see it now.', function () { restore2(e, sn); });
   }
   function refreshUnder() { refresh(); }
+  /* "Which dates?" for a session changed from "Sessions every date": every date / from the next date after tonight / just tonight */
+  function whichOpts(e) {
+    var lv = liveDates(e), n0 = lv[0]; if (!n0) return null;
+    var tonight = same(n0.d, TODAY), n1 = tonight ? lv[1] : n0;
+    return { just: tonight ? n0 : null, from: n1 || null };
+  }
 
+  function whichLine(e, w) {
+    if (scope === 'later') return 'Changes from ' + fmt(w.from.d) + ' onwards. ' + (w.just ? fmt(w.just.d) + ' and earlier dates keep the old ' + ssWhat() + '.' : 'Earlier dates keep the old ' + ssWhat() + '.');
+    if (scope === 'one') return 'Only ' + fmt(w.just.d) + ' changes. Every other date stays as usual.';
+    return 'Every date changes' + (w.just ? ', ' + fmt(w.just.d) + ' included' : '') + '.';
+  }
+  function whichBtn(w) { return scope === 'later' ? 'Save from ' + fmt(w.from.d) + ' on' : scope === 'one' ? 'Save for ' + fmt(w.just.d) + ' only' : L.saveAll; }
   var SH2 = {
     sess: ssBody,
+    sesswhich: function () {
+      var e = EV[ss.k], what = ssWhat(), w = whichOpts(e), ch = function (v, b, sub) { return '<button class="choice" role="radio" data-sswhich="' + v + '" aria-checked="' + (scope === v) + '"><span class="radio"></span><span class="grow"><b>' + b + '</b><br><span class="small mut">' + sub + '</span></span></button>'; };
+      return '<h3 id="sheettitle">Change the ' + what + ' for which dates?</h3><p class="mut">' + (ss.d.t || kindLbl(ss.d.k)) + ' &middot; ' + e.name + '</p><div role="radiogroup" aria-label="Which dates">' +
+        ch('all', L.everyDate, laterText(e, e.dates.indexOf(liveDates(e)[0]))) +
+        (w.from ? ch('later', 'From ' + fmt(w.from.d) + ' on', (w.just ? fmt(w.just.d) + ' stays as it is' : 'Earlier dates stay as they are')) : '') +
+        (w.just ? ch('one', 'Just ' + fmt(w.just.d), 'Every other date stays as usual') : '') + '</div>' +
+        '<div class="note" id="sscons" aria-live="polite">' + whichLine(e, w) + '</div>' +
+        '<div style="margin-top:16px"><button class="btn" data-sswhich-go>' + whichBtn(w) + '</button></div>';
+    },
     sessscope: function () {
       var e = EV[ss.k], what = ssWhat();
       return '<h3 id="sheettitle">Change the ' + what + ' for which dates?</h3><p class="mut">' + (ss.d.t || kindLbl(ss.d.k)) + ' &middot; ' + e.name + '</p><div role="radiogroup" aria-label="Which dates">' +
@@ -1801,6 +1850,8 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   }
   function go(id) { stack.push(id); show(id); }
   function back() { if (stack.length > 1) stack.pop(); show(stack[stack.length - 1], true); }
+  /* back to the screen you came from, with the row you just changed scrolled into view (not the top) */
+  function backTo(sel) { back(); var r = document.querySelector('#s-' + stack[stack.length - 1] + ' ' + sel); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'center' }); }
   function tab(id) { stack = [id]; show(id); }
   function refresh() { var id = stack[stack.length - 1], s = $('#s-' + id), t = s.scrollTop; render(id); s.scrollTop = t; }
 
@@ -1809,7 +1860,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     cancelnext: function () {
       var e = EV[cur], x = e.dates[dateIdx], tonight = same(x.d, TODAY);
       return '<h3 id="sheettitle">' + (tonight ? 'Cancel tonight&rsquo;s ' + e.name + '?' : 'Cancel ' + e.name + ' on ' + fmt(x.d) + '?') + '</h3><p class="mut">Dancers will see &ldquo;' + L.cancelled + '&rdquo; on ' + fmt(x.d) + '. ' + (e.dates.length > 1 ? 'Your other dates stay as they are.' : '') + ' You can bring it back any time.</p>' +
-        reasonPick() + '<div class="stack" style="margin-top:14px"><button class="btn danger-fill" data-docancel="1"' + (cxReason ? '' : ' disabled') + '>' + (cxReason ? 'Yes, cancel this date' : 'Pick a reason to carry on') + '</button><button class="btn quiet" data-close>Keep it</button></div>';
+        reasonPick() + '<div class="stack" style="margin-top:14px"><button class="btn danger-fill" data-docancel="1"' + (cxReason ? '' : ' disabled') + '>' + (cxReason ? 'Yes, cancel this date' : 'Pick a reason to carry on') + '</button><button class="btn quiet" data-close>Don&rsquo;t cancel</button></div>';
     },
     date: function () {
       var e = EV[cur], x = e.dates[dateIdx];
@@ -1833,7 +1884,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       return '<h3 id="sheettitle">' + (one ? 'Cancel ' + fmt(x.d) + '?' : L.cancelMany + '?') + '</h3><p class="mut">' + (one ? 'Dancers will see &ldquo;' + L.cancelled + '&rdquo; on that date. The other dates stay as they are.' : laterText(e, dateIdx) + '. Dancers will see &ldquo;' + L.cancelled + '&rdquo; on each one.') + ' You can bring ' + (one ? 'it' : 'them') + ' back any time.</p>' +
         '<div class="note" id="sscons">' + actLine(e, dateIdx, scope) + '</div>' +
         (!one && openEnded(e) ? '<p class="small mut">Stopping for good? Pausing the event is easier.</p>' : '') +
-        reasonPick() + '<div class="stack" style="margin-top:14px"><button class="btn danger-fill" data-docancel="' + (one ? 1 : 0) + '"' + (cxReason ? '' : ' disabled') + '>' + (cxReason ? 'Yes, ' + (one ? L.cancelOne : L.cancelMany).toLowerCase() : 'Pick a reason to carry on') + '</button><button class="btn quiet" data-close>Keep ' + (one ? 'it' : 'them') + '</button></div>';
+        reasonPick() + '<div class="stack" style="margin-top:14px"><button class="btn danger-fill" data-docancel="' + (one ? 1 : 0) + '"' + (cxReason ? '' : ' disabled') + '>' + (cxReason ? 'Yes, ' + (one ? L.cancelOne : L.cancelMany).toLowerCase() : 'Pick a reason to carry on') + '</button><button class="btn quiet" data-close>Don&rsquo;t cancel</button></div>';
     },
     lineupscope: function () {
       var e = EV[cur], x = e.dates[dateIdx];
@@ -1925,7 +1976,8 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (one) { x.st = 'cancelled'; x.reason = cxReason; } else e.dates.slice(dateIdx).forEach(function (y) { if (y.st !== 'skip') { y.st = 'cancelled'; y.reason = cxReason; } });
     closeSheet(); refresh();
     var k = cur;
-    toast((one ? (tonight ? 'Tonight is cancelled.' : fmt(x.d) + ' is cancelled.') : 'Those dates are cancelled.') + ' Dancers see it now.', function () { restore(EV[k], s); }, L.bringBack);
+    var why = cxReason ? ': ' + cxReason.charAt(0).toLowerCase() + cxReason.slice(1) : '';
+    toast((one ? (tonight ? 'Tonight cancelled' : fmt(x.d) + ' cancelled') : 'Those dates cancelled') + why + '. Dancers see it now.', function () { restore(EV[k], s); }, L.bringBack);
   }
   function applyMove() {
     var e = EV[mv.k], s = snap(e), p = movePlan(), msg = moveHint().replace(/^Dancers see &ldquo;Moved to (.*?)&rdquo;.*$/, 'Moved to $1.');
@@ -1943,6 +1995,8 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (d.go) { go(d.go); return; }
     if (d.tabGo) { tab(d.tabGo); return; }
     if (d.open) { cur = d.open; go('event'); return; }
+    if (d.homedate) { cur = d.homedate; dateIdx = +d.hi; go('event'); openSheet('date'); return; }
+    if (d.tosess !== undefined) { var sh = $('#sess-h'); if (sh && sh.scrollIntoView) sh.scrollIntoView({ block: 'start' }); return; }
     if (d.sheet) { openSheet(d.sheet); return; }
     if (d.themeFlip !== undefined) { flipTheme(); return; }
     if (d.org) { org = d.org; homeNotice = ''; tab('home'); return; }
@@ -2017,8 +2071,9 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (t.id === 'saveedit') {
       if (edit.key === 'ticket' && edit.val && !/^https?:\/\/\S+\.\S+/.test(edit.val)) { $('#terr').style.display = 'block'; $('#tlink').classList.add('bad'); return; }
       var e11 = EV[edit.k], prop = edit.key === 'where' ? 'place' : edit.key, prev = e11[prop];
-      e11[prop] = edit.key === 'pay' ? edit.val.slice() : edit.val; back();
-      toast('Saved. Dancers see it now.', function () { e11[prop] = prev; }); return;
+      var tnm = { ticket: 'Ticket link', where: 'Place', pay: 'How to pay' }[edit.key], ek = edit.key, gone0 = edit.key === 'ticket' && !edit.val;
+      e11[prop] = edit.key === 'pay' ? edit.val.slice() : edit.val; backTo('[data-edit="' + ek + '"]');
+      toast(gone0 ? 'Ticket link removed. Dancers no longer see it.' : tnm + ' saved. Dancers see it now.', function () { e11[prop] = prev; }); return;
     }
     /* photo */
     if (d.photo) { photo = { k: d.photo, picked: '' }; go('photo'); return; }
@@ -2095,7 +2150,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     ne.sess = flow.sess; ne.life = draft ? 'draft' : 'live'; ne.desc = ''; ne.music = []; ne.prices = []; ne.gallery = []; ne.hist = []; ne.going = 0; ne.chat = '';
     EV[id] = ev(ne); ORGS[org].extra.push(id); flow = null;
     if (k === 'festival' && !draft) { EV.fest = EV[id]; }
-    tab('home'); toast(draft ? nm + ' is saved as a draft. Only you see it.' : nm + ' is live. Dancers can find it now.');
+    tab('events'); cur = id; go('event'); toast(draft ? nm + ' is saved as a draft. Only you see it.' : nm + ' is live. Dancers can find it now.');
   }
   function shiftTime(t, delta) { var m = (mins(t) + delta + 1440 * 2) % 1440; return ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + (m % 60)).slice(-2); }
 
@@ -2131,12 +2186,19 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (d.sstimeUndo !== undefined) { ss.d.s = ss.o.s; ss.d.e = ss.o.e; openSheet('sess'); return; }
     if (d.sssave !== undefined) {
       if (flowSessEditing) { saveFlowSess(); return; }
+      if (ss.di < 0 && !ss.isNew && whichOpts(EV[ss.k]) && (whichOpts(EV[ss.k]).from || whichOpts(EV[ss.k]).just)) { scope = 'all'; openSheet('sesswhich'); return; }
       if (ss.isNew || ss.di < 0 || ss.extra) { ssSave(ss.di < 0 ? 'all' : 'one'); return; }
       var ev2 = EV[ss.k]; if (laterCount(ev2, ss.di) <= 1) { ssSave('one'); return; }
       scope = 'one'; openSheet('sessscope'); return;
     }
     if (d.sscope) { scope = d.sscope; $$('[data-sscope]').forEach(function (b) { b.setAttribute('aria-checked', String(b === t)); }); $('#sscons').innerHTML = consLine(EV[ss.k], ss.di, ssWhat(), scope, ss.sid); $('[data-sscope-go]').textContent = scope === 'later' ? 'Save for these dates' : 'Save for this date'; return; }
     if (d.sscopeGo !== undefined) { ssSave(scope); return; }
+    if (d.sswhich) { var ew = EV[ss.k], ww = whichOpts(ew); scope = d.sswhich; $$('[data-sswhich]').forEach(function (b) { b.setAttribute('aria-checked', String(b === t)); }); $('#sscons').innerHTML = whichLine(ew, ww); $('[data-sswhich-go]').textContent = whichBtn(ww); return; }
+    if (d.sswhichGo !== undefined) {
+      var ew2 = EV[ss.k], ww2 = whichOpts(ew2);
+      if (scope === 'all') { ssSave('all'); return; }
+      ss.di = ew2.dates.indexOf(scope === 'later' ? ww2.from : ww2.just); ss.extra = false; ssSave(scope); return;
+    }
     if (d.sscx !== undefined) { var e3 = EV[ss.k], x3 = e3.dates[ss.di], sn3 = snap2(e3); x3.so = x3.so || {}; x3.so[ss.sid] = { cx: 1 }; var nm3 = ss.o.t || kindLbl(ss.o.k); closeSheet(); refresh(); toast(nm3 + ' is not running on ' + fmt(x3.d) + '. Dancers see it struck through.', function () { restore2(e3, sn3); }, L.bringBack); return; }
     if (d.ssundo !== undefined) { var e4 = EV[ss.k], x4 = e4.dates[ss.di]; delete x4.so[ss.sid]; if (!Object.keys(x4.so).length) delete x4.so; closeSheet(); refresh(); toast('Back on for ' + fmt(x4.d) + '. Dancers see it now.'); return; }
     if (d.ssremove1 !== undefined) { var e5 = EV[ss.k], x5 = e5.dates[ss.di], sn5 = snap2(e5); x5.extra = x5.extra.filter(function (m) { return m.id !== ss.sid; }); if (!x5.extra.length) delete x5.extra; closeSheet(); refresh(); toast('Removed from ' + fmt(x5.d) + '. No other date had it.', function () { restore2(e5, sn5); }); return; }
@@ -2175,7 +2237,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (d.doend !== undefined) { var sne = snap2(e); e.dates = e.dates.filter(function (x) { return x.d < TODAY || (same(x.d, TODAY) && endAns === 'yes'); }); e.life = 'ended'; endAns = ''; closeSheet(); refresh(); toast('Done. It moves to Finished.', function () { restore2(e, sne); }); return; }
     if (d.keep !== undefined) { var ki = keepDates.indexOf(+d.keep); if (ki > -1) keepDates.splice(ki, 1); else keepDates.push(+d.keep); openSheet('stoprep'); return; }
     if (d.dostoprep !== undefined) { var lvd = liveDates(e), snp = snap2(e); e.dates = e.dates.filter(function (x) { var i = lvd.indexOf(x); return i < 0 ? x.d < TODAY : keepDates.indexOf(i) > -1; }); e.kind = 'custom'; closeSheet(); refresh(); toast('It no longer repeats. Add dates one by one.', function () { restore2(e, snp); e.kind = 'weekly'; }); return; }
-    if (d.dochat !== undefined) { var cv = $('#chatin').value.trim(); if (cv && !/^https:\/\/chat\.whatsapp\.com\/\S+/.test(cv)) { $('#chaterr').style.display = 'block'; $('#chatin').classList.add('bad'); return; } e.chat = cv; closeSheet(); refresh(); toast('Saved. Dancers see &ldquo;Join the group&rdquo;.'); return; }
+    if (d.dochat !== undefined) { var cv = $('#chatin').value.trim(); if (cv && !/^https:\/\/chat\.whatsapp\.com\/\S+/.test(cv)) { $('#chaterr').style.display = 'block'; $('#chatin').classList.add('bad'); return; } e.chat = cv; closeSheet(); refresh(); toast('WhatsApp group link saved. Dancers see &ldquo;Join the group&rdquo;.'); return; }
     if (d.dosoc !== undefined) { closeSheet(); toast('Saved. Dancers see these links on the event.'); return; }
     if (d.conv) { convTo = d.conv; convKeep = -1; openSheet('convert'); return; }
     if (d.convkeep !== undefined) { convKeep = +d.convkeep; openSheet('convert'); return; }
@@ -2209,12 +2271,12 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (d.dtundo) { dt.name = JSON.parse(dt.o).name; refresh(); return; }
     if (d.dtdiscard !== undefined) { var o0 = JSON.parse(dt.o); dt.name = o0.name; dt.desc = o0.desc; dt.music = o0.music; refresh(); toast('Your changes are undone.'); return; }
     if (d.pendtray !== undefined) { openSheet('leave'); $('#sheettitle').textContent = pendingList().length + ' changes not saved yet'; return; }
-    if (t.id === 'savedetails') { var ed = EV[dt.k], snd2 = { name: ed.name, desc: ed.desc, music: ed.music }; ed.name = esc(dt.name.trim()); ed.desc = esc(dt.desc); ed.music = dt.music.slice(); dt = null; back(); toast('Saved and checked. Dancers now see the new details.', function () { ed.name = snd2.name; ed.desc = snd2.desc; ed.music = snd2.music; }); return; }
+    if (t.id === 'savedetails') { var ed = EV[dt.k], snd2 = { name: ed.name, desc: ed.desc, music: ed.music }; ed.name = esc(dt.name.trim()); ed.desc = esc(dt.desc); ed.music = dt.music.slice(); dt = null; backTo('[data-go="details"]:not(.link)'); toast('Saved and checked. Dancers now see the new details.', function () { ed.name = snd2.name; ed.desc = snd2.desc; ed.music = snd2.music; }); return; }
     /* prices */
     if (d.free !== undefined) { pr.free = !pr.free; refresh(); return; }
     if (d.pradd !== undefined) { pr.rows.push(['', '', '']); refresh(); return; }
     if (d.prrm !== undefined) { pr.rows.splice(+d.prrm, 1); refresh(); return; }
-    if (t.id === 'saveprices') { var bad0 = pr.rows.some(function (r) { return (r[0] || r[1]) && !(r[0] && r[1]); }); if (bad0 && !pr.free) { toast('Add a name and a price to each row, or remove it.'); return; } var epr = EV[cur], old0 = [epr.prices, epr.free]; epr.prices = pr.rows.filter(function (r) { return r[0] && r[1]; }); epr.free = pr.free; back(); toast('Prices saved. Dancers see them now.', function () { epr.prices = old0[0]; epr.free = old0[1]; }); return; }
+    if (t.id === 'saveprices') { var bad0 = pr.rows.some(function (r) { return (r[0] || r[1]) && !(r[0] && r[1]); }); if (bad0 && !pr.free) { toast('Add a name and a price to each row, or remove it.'); return; } var epr = EV[cur], old0 = [epr.prices, epr.free]; epr.prices = pr.rows.filter(function (r) { return r[0] && r[1]; }); epr.free = pr.free; backTo('[data-go="prices"]'); toast('Prices saved. Dancers see them now.', function () { epr.prices = old0[0]; epr.free = old0[1]; }); return; }
     /* history */
     if (d.hundo !== undefined) { var hx = e.hist[+d.hundo]; hx.undone = 1; refresh(); toast('Undone: ' + hx.what.charAt(0).toLowerCase() + hx.what.slice(1) + '.'); return; }
     /* copy */
@@ -2246,9 +2308,9 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (d.fflowto) { var keepName = flow.name, keepS = flow.sess; startFlow(d.fflowto); flow.name = keepName; flow.sess = keepS; flow.i = 1; refresh(); return; }
     if (d.fsessadd) {
       var lst = flow.sess.slice().sort(bySt), ns2;
-      if (d.fsessadd === 'before') { var f0 = lst[0]; ns2 = S('class', '', shiftTime(f0.s, -60), f0.s, { lv: ['All levels'] }); ns2.note = 'Starts one hour before ' + (f0.t || 'the first session') + ', so it ends when that starts.'; }
+      if (d.fsessadd === 'before') { var f0 = lst[0]; ns2 = S('class', 'Class', shiftTime(f0.s, -60), f0.s, { lv: ['All levels'] }); ns2.note = 'Starts one hour before ' + (f0.t || 'the first session') + ', so it ends when that starts.'; }
       else { var l0 = lst[lst.length - 1], ln = (mins(l0.e) <= mins(l0.s) ? mins(l0.e) + 1440 : mins(l0.e)) - mins(l0.s); ns2 = S(l0.k, '', l0.e, shiftTime(l0.e, Math.min(ln, 120)), { room: l0.room, lv: l0.lv.slice() }); ns2.note = 'Copied from the last session: starts when it ends, same kind.'; }
-      flowSessEditing = true; ss = { k: null, di: -1, sid: ns2.id, isNew: true, extra: false, cx: false, d: { k: ns2.k, t: '', s: ns2.s, e: ns2.e, room: '', lv: ns2.lv.slice(), ppl: [] }, o: { k: ns2.k, t: '', s: ns2.s, e: ns2.e, room: '', lv: ns2.lv.slice(), ppl: [] }, note: ns2.note, flow: 1 }; openSheet('fsess'); return;
+      flowSessEditing = true; ss = { k: null, di: -1, sid: ns2.id, isNew: true, extra: false, cx: false, d: { k: ns2.k, t: ns2.t, s: ns2.s, e: ns2.e, room: '', lv: ns2.lv.slice(), ppl: [] }, o: { k: ns2.k, t: ns2.t, s: ns2.s, e: ns2.e, room: '', lv: ns2.lv.slice(), ppl: [] }, note: ns2.note, flow: 1 }; openSheet('fsess'); return;
     }
     if (d.fsessedit) { var fm = flow.sess.filter(function (m) { return m.id === d.fsessedit; })[0]; flowSessEditing = true; ss = { k: null, di: -1, sid: fm.id, isNew: false, extra: false, cx: false, d: { k: fm.k, t: fm.t, s: fm.s, e: fm.e, room: '', lv: fm.lv.slice(), ppl: [] }, o: { k: fm.k, t: fm.t, s: fm.s, e: fm.e, room: '', lv: fm.lv.slice(), ppl: [] }, flow: 1 }; openSheet('fsess'); return; }
     if (d.fsessrm !== undefined) { flow.sess = flow.sess.filter(function (m) { return m.id !== ss.sid; }); flowSessEditing = false; closeSheet(); refresh(); return; }
@@ -2316,7 +2378,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var r = document.documentElement, c = r.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     r.dataset.theme = c === 'dark' ? 'light' : 'dark';
   }
-  window.__c2 = { EV: EV, go: go, tab: tab, state: function () { return { cur: cur, stack: stack.slice(), lu: lu, mv: mv, ss: ss, flow: flow }; } }; /* for the scripted self-checks */
+  window.__c2 = { EV: EV, statRows: statRows, STATW: STATW, startPhrase: startPhrase, go: go, tab: tab, state: function () { return { cur: cur, stack: stack.slice(), lu: lu, mv: mv, ss: ss, flow: flow }; } }; /* for the scripted self-checks */
   show('welcome');
 })();
 </script>
