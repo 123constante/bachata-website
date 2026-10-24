@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calm Ember</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Mockup A "Calm Ember". Dark tokens = ember.css .ember-world (unchanged values).
+   Light tokens are NEW (named --*-l in A.md); same names so components never branch. */
+:root {
+  --bg: #202226; --card: #2a2d32; --card2: #33373d; --sheet: #2a2d32;
+  --line: #3d4148; --line-strong: #7b828d;
+  --fg: #f1f2f4; --mut: #a3a9b3; --ph: #9aa1ab;
+  --gold: #f0703a; --gold-fg: #f5865a; --btn: #f0703a; --btnfg: #1d0a03;
+  --danger: #ff7a6b; --ok-bg: rgba(62,207,142,.14); --ok-fg: #7be6b4;
+  --warn-bg: rgba(240,112,58,.14); --warn-fg: #ff9a6a;
+  --pause-bg: rgba(163,169,179,.16);
+  --r-card: 20px; --r-ctl: 15px; --r-chip: 999px; --r-cover: 20px; --r-sheet: 28px;
+  --shadow: 0 1px 0 rgba(255,255,255,.03);
+  --desk: #121315;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f7f4f1; --card: #ffffff; --card2: #f0ebe6; --sheet: #ffffff;
+    --line: #e6dfd8; --line-strong: #8a8178;
+    --fg: #1f1a17; --mut: #635a53; --ph: #6f665e;
+    --gold: #f0703a; --gold-fg: #b2461a; --btn: #f0703a; --btnfg: #1d0a03;
+    --danger: #b3261e; --ok-bg: #e3f5ec; --ok-fg: #1d6b47;
+    --warn-bg: #fdeee6; --warn-fg: #9c3d14; --pause-bg: #ece8e4;
+    --shadow: 0 1px 2px rgba(31,26,23,.06);
+    --desk: #e4ded8;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f7f4f1; --card: #ffffff; --card2: #f0ebe6; --sheet: #ffffff;
+  --line: #e6dfd8; --line-strong: #8a8178;
+  --fg: #1f1a17; --mut: #635a53; --ph: #6f665e;
+  --gold: #f0703a; --gold-fg: #b2461a; --btn: #f0703a; --btnfg: #1d0a03;
+  --danger: #b3261e; --ok-bg: #e3f5ec; --ok-fg: #1d6b47;
+  --warn-bg: #fdeee6; --warn-fg: #9c3d14; --pause-bg: #ece8e4;
+  --shadow: 0 1px 2px rgba(31,26,23,.06);
+  --desk: #e4ded8;
+  color-scheme: light;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { background: var(--desk); font-family: "Outfit", system-ui, sans-serif; color: var(--fg);
+  display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; }
+input { font: inherit; color: var(--fg); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.phone { width: 390px; height: 844px; background: var(--bg); border-radius: 44px; overflow: hidden;
+  position: relative; box-shadow: 0 30px 80px rgba(0,0,0,.35), 0 0 0 10px #0b0b0c; }
+@media (max-width: 500px) { body { display: block; } .phone { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; } }
+
+.screen { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; display: none; padding: 0 20px 120px; }
+.screen.on { display: block; animation: in .22s ease-out; }
+@media (prefers-reduced-motion: reduce) { .screen.on, .toast.on { animation: none; } }
+@keyframes in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+
+/* Top bar: back (44px) + optional title, theme toggle on the right */
+.top { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 6px;
+  height: 64px; margin: 0 -20px 4px; padding: 10px 12px 0; background: var(--bg); }
+.top .t { font-size: 17px; font-weight: 600; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.iconbtn { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; flex: none; }
+.iconbtn:active { background: var(--card2); }
+.iconbtn svg { width: 22px; height: 22px; stroke: var(--fg); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.themebtn { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; margin-left: auto; color: var(--mut); font-size: 22px; }
+
+h1 { font-size: 28px; line-height: 1.15; font-weight: 600; letter-spacing: -.01em; }
+h2 { font-size: 13px; font-weight: 600; color: var(--mut); text-transform: uppercase; letter-spacing: .06em; margin: 28px 4px 10px; }
+.lede { color: var(--mut); font-size: 16px; line-height: 1.45; margin-top: 8px; }
+.small { font-size: 14px; color: var(--mut); line-height: 1.4; }
+
+.card { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow); }
+.group { background: var(--card); border-radius: var(--r-card); overflow: hidden; box-shadow: var(--shadow); }
+
+/* ActionRow: label + quiet value + chevron, 60px tall */
+.row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 60px; padding: 10px 16px; }
+.group .row + .row { border-top: 1px solid var(--line); }
+.row:active { background: var(--card2); }
+.main { flex: 1; min-width: 0; }
+.row .lbl { font-size: 16px; font-weight: 500; }
+.row .val { font-size: 14px; color: var(--mut); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .val.wrap { white-space: normal; }
+.row .val.todo { color: var(--warn-fg); }
+.chev { width: 18px; height: 18px; flex: none; stroke: var(--mut); fill: none; stroke-width: 2; }
+
+/* Event list row */
+.ev { display: flex; gap: 14px; align-items: center; width: 100%; padding: 12px 16px; min-height: 84px; }
+.group .ev + .ev { border-top: 1px solid var(--line); }
+.ev:active { background: var(--card2); }
+.thumb { width: 60px; height: 60px; border-radius: 14px; flex: none; position: relative; overflow: hidden; }
+.thumb.none { background: var(--card2); display: grid; place-items: center; }
+.thumb.none svg { width: 24px; height: 24px; stroke: var(--mut); fill: none; stroke-width: 1.8; }
+.ev .name { font-size: 16px; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ev .when { font-size: 14px; color: var(--mut); margin-top: 3px; }
+
+/* Covers: CSS stand-ins for photos */
+.c1 { background: radial-gradient(circle at 30% 30%, #ffb38a 0 18%, transparent 19%), linear-gradient(135deg, #f0703a, #7a2a52); }
+.c2 { background: radial-gradient(circle at 70% 60%, #ffd6a0 0 14%, transparent 15%), linear-gradient(160deg, #3a3f8f, #c0457a); }
+.c3 { background: linear-gradient(200deg, #1f6f6b, #e8a145); }
+.c4 { background: radial-gradient(ellipse at 50% 120%, #ff9f6e 0 40%, transparent 41%), linear-gradient(180deg, #2b1d3a, #8b3a3a); }
+.c5 { background: linear-gradient(135deg, #c9405a, #f0a03a 70%); }
+.c6 { background: repeating-linear-gradient(45deg, #2f5b8a 0 14px, #3a6a9c 14px 28px); }
+.c7 { background: linear-gradient(120deg, #6b3fa0, #f0703a); }
+.c8 { background: radial-gradient(circle at 20% 80%, #ffe0b0 0 20%, transparent 21%), linear-gradient(90deg, #503020, #a05030); }
+
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: var(--r-chip); font-size: 13px; font-weight: 600; flex: none; }
+.chip.live { background: var(--ok-bg); color: var(--ok-fg); }
+.chip.live::before { content: ""; width: 7px; height: 7px; border-radius: 9px; background: currentColor; }
+.chip.paused { background: var(--pause-bg); color: var(--mut); }
+.chip.off { background: var(--warn-bg); color: var(--fg); }
+
+/* Buttons */
+.btn { display: flex; align-items: center; justify-content: center; width: 100%; height: 54px; border-radius: var(--r-ctl);
+  background: var(--btn); color: var(--btnfg); font-weight: 600; font-size: 17px; text-align: center; }
+.btn:active { filter: brightness(.94); }
+.btn[aria-disabled="true"] { background: var(--card2); color: var(--mut); }
+.quiet { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; border-radius: var(--r-ctl);
+  color: var(--fg); font-weight: 500; font-size: 16px; text-align: center; border: 1px solid var(--line-strong); }
+.link { color: var(--gold-fg); font-weight: 600; font-size: 15px; min-height: 44px; min-width: 44px; justify-content: center; display: inline-flex; align-items: center; padding: 0 4px; }
+.danger { color: var(--danger); }
+.dock { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 20px 26px; background: linear-gradient(to top, var(--bg) 70%, transparent); z-index: 4; display: none; }
+.dock.on { display: block; }
+.dock .reason { font-size: 13px; color: var(--mut); text-align: center; margin-top: 8px; }
+
+/* Stats tile */
+.stats { display: flex; align-items: center; padding: 16px; gap: 0; }
+.stats .s { flex: 1; }
+.stats .s + .s { border-left: 1px solid var(--line); padding-left: 16px; }
+.stats .n { font-size: 26px; font-weight: 600; letter-spacing: -.01em; }
+.stats .k { font-size: 13px; color: var(--mut); margin-top: 2px; }
+.range { display: flex; gap: 6px; padding: 0 16px 14px; }
+.range button { min-height: 44px; padding: 0 14px; border-radius: var(--r-chip); font-size: 14px; color: var(--mut); }
+.range button[aria-pressed="true"] { background: var(--card2); color: var(--fg); font-weight: 600; }
+
+/* Event page header */
+.hero { height: 190px; border-radius: var(--r-cover); margin-top: 4px; position: relative; }
+.hero .edit { position: absolute; right: 10px; bottom: 10px; min-height: 44px; padding: 0 14px; border-radius: 999px;
+  background: rgba(0,0,0,.55); color: #fff; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; }
+.title-row { display: flex; gap: 10px; align-items: flex-start; margin-top: 18px; }
+.title-row h1 { flex: 1; }
+.meta { margin-top: 8px; font-size: 15px; color: var(--mut); line-height: 1.5; }
+.peek { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 0 16px; margin-top: 16px;
+  border-radius: var(--r-ctl); border: 1px solid var(--line-strong); font-weight: 600; font-size: 16px; }
+.peek svg { width: 20px; height: 20px; stroke: var(--gold-fg); fill: none; stroke-width: 2; }
+
+/* Lists of dates, people */
+.daterow { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; padding: 10px 16px; }
+.group .daterow + .daterow { border-top: 1px solid var(--line); }
+.cal { width: 44px; text-align: center; flex: none; }
+.cal .d { font-size: 20px; font-weight: 600; line-height: 1; }
+.cal .m { font-size: 12px; color: var(--mut); text-transform: uppercase; letter-spacing: .05em; margin-top: 3px; }
+.daterow.cut .d, .daterow.cut .lbl { text-decoration: line-through; color: var(--mut); }
+.avatar { width: 44px; height: 44px; border-radius: 999px; flex: none; display: grid; place-items: center; font-weight: 600; font-size: 15px; color: #fff; }
+.a1 { background: #a0482c; } .a2 { background: #4b5aa0; } .a3 { background: #2f7a62; } .a4 { background: #8a3e78; } .a5 { background: #6b6f2a; }
+
+/* Choice list (radio) */
+.choice { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 60px; padding: 10px 16px; }
+.group .choice + .choice { border-top: 1px solid var(--line); }
+.dot { width: 22px; height: 22px; border-radius: 99px; border: 2px solid var(--line-strong); flex: none; display: grid; place-items: center; }
+.choice[aria-checked="true"] .dot { border-color: var(--gold); }
+.choice[aria-checked="true"] .dot::after { content: ""; width: 10px; height: 10px; border-radius: 9px; background: var(--gold); }
+.tick { width: 24px; height: 24px; border-radius: 8px; border: 2px solid var(--line-strong); flex: none; display: grid; place-items: center; }
+.choice[aria-checked="true"] .tick { background: var(--gold); border-color: var(--gold); }
+.choice[aria-checked="true"] .tick::after { content: ""; width: 6px; height: 11px; border: solid var(--btnfg); border-width: 0 2.5px 2.5px 0; transform: rotate(45deg) translate(-1px,-1px); }
+
+/* Fields */
+.field { margin-top: 18px; }
+.field label { display: block; font-size: 14px; font-weight: 500; color: var(--mut); margin: 0 4px 8px; }
+.input { width: 100%; height: 54px; border-radius: var(--r-ctl); background: var(--card); border: 1px solid var(--line-strong); padding: 0 16px; font-size: 17px; }
+.input::placeholder { color: var(--ph); }
+.input.bad { border-color: var(--danger); }
+.err { display: flex; gap: 8px; margin: 8px 4px 0; font-size: 14px; color: var(--danger); line-height: 1.4; }
+.hint { margin: 8px 4px 0; font-size: 14px; color: var(--mut); line-height: 1.4; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* Step frame */
+.steps { display: flex; gap: 6px; margin: 4px 0 18px; }
+.steps i { flex: 1; height: 4px; border-radius: 4px; background: var(--card2); }
+.steps i.on { background: var(--gold); }
+
+/* Photo grid */
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.grid3 > * { aspect-ratio: 1; border-radius: 12px; }
+.add-tile { border: 1.5px dashed var(--line-strong); display: grid; place-items: center; color: var(--mut); font-size: 14px; font-weight: 500; }
+
+/* Empty state */
+.empty { text-align: center; padding: 28px 20px; }
+.empty .ico { width: 56px; height: 56px; border-radius: 99px; background: var(--card2); display: grid; place-items: center; margin: 0 auto 14px; }
+.empty .ico svg { width: 26px; height: 26px; stroke: var(--gold-fg); fill: none; stroke-width: 1.8; }
+.empty b { display: block; font-size: 17px; font-weight: 600; }
+.empty p { color: var(--mut); font-size: 15px; margin: 6px 0 16px; line-height: 1.45; }
+
+/* Banner / note */
+.note { display: flex; gap: 12px; padding: 14px 16px; border-radius: var(--r-card); background: var(--warn-bg); color: var(--fg); font-size: 15px; line-height: 1.45; margin-top: 16px; }
+.note b, .note .link { color: var(--warn-fg); }
+.soon { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--r-card); border: 1px dashed var(--line-strong); color: var(--mut); font-size: 14px; margin-top: 24px; line-height: 1.4; }
+
+/* Toast with undo */
+.toast { position: absolute; left: 16px; right: 16px; bottom: 28px; z-index: 9; background: var(--fg); color: var(--bg); border-radius: 16px;
+  display: none; align-items: center; gap: 10px; padding: 6px 6px 6px 16px; min-height: 56px; font-size: 15px; }
+.toast.on { display: flex; animation: up .2s ease-out; }
+.toast span { flex: 1; }
+.toast button { min-height: 44px; padding: 0 14px; font-weight: 600; color: var(--bg); text-decoration: underline; }
+@keyframes up { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Public preview */
+.pv-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; background: var(--card2); font-size: 14px; color: var(--mut); margin-bottom: 14px; }
+.pv { background: #fff; color: #1b1b1f; border-radius: var(--r-card); overflow: hidden; }
+.pv .ph { height: 200px; }
+.pv .body { padding: 18px; }
+.pv h3 { font-size: 24px; font-weight: 700; line-height: 1.2; }
+.pv .k { font-size: 14px; color: #5a5a66; margin-top: 10px; line-height: 1.5; }
+.pv .pill { display: inline-block; margin: 14px 6px 0 0; padding: 7px 12px; border-radius: 999px; background: #f2f1f6; font-size: 13px; font-weight: 600; color: #333; }
+.pv .ppl { display: flex; gap: 10px; margin-top: 16px; }
+.pv .ppl div { text-align: center; font-size: 12px; color: #444; width: 64px; }
+.pv .ppl .avatar { margin: 0 auto 6px; width: 52px; height: 52px; }
+.pv .cta { margin-top: 18px; height: 50px; border-radius: 12px; background: #1b1b1f; color: #fff; display: grid; place-items: center; font-weight: 600; }
+
+.found { display: flex; gap: 12px; align-items: center; padding: 12px 16px; min-height: 72px; }
+.group .found + .found { border-top: 1px solid var(--line); }
+.found .thumb { width: 48px; height: 48px; border-radius: 12px; }
+.spacer { height: 16px; }
+.center { text-align: center; }
+.mt { margin-top: 12px; } .mt2 { margin-top: 24px; }
+.demo { margin-top: 32px; padding: 14px 16px; border-radius: 14px; border: 1px dashed var(--line); font-size: 13px; color: var(--mut); }
+.demo button { color: var(--gold-fg); font-weight: 600; min-height: 44px; }
+</style>
+</head>
+<body>
+<div class="phone" id="phone">
+
+<!-- ============ FIRST DAY: we found your events ============ -->
+<section class="screen" id="welcome">
+  <div class="top"><button class="themebtn" data-theme-toggle aria-label="Switch light or dark">&#9680;</button></div>
+  <div style="height:8px"></div>
+  <div class="empty" style="padding:8px 0 0;text-align:left">
+    <div class="ico" style="margin:0 0 18px"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div>
+  </div>
+  <h1>Welcome, London Loves Bachata</h1>
+  <p class="lede">We found your 6 events already on the calendar. They&rsquo;re yours now &mdash; nothing to claim, nothing to set up.</p>
+  <h2>Your events</h2>
+  <div class="group">
+    <div class="found"><div class="thumb c1"></div><div class="main"><div class="lbl">Bachata Flow</div><div class="small">Mondays &middot; Be At One</div></div></div>
+    <div class="found"><div class="thumb c2"></div><div class="main"><div class="lbl">Sensual Fridays</div><div class="small">Fridays &middot; Colab Tower</div></div></div>
+    <div class="found"><div class="thumb c3"></div><div class="main"><div class="lbl">Sensual Saturdays</div><div class="small">Saturdays &middot; Studio 68</div></div></div>
+    <div class="found"><div class="thumb c4"></div><div class="main"><div class="lbl">Sensual Wednesdays</div><div class="small">Course &middot; Waterloo Action Centre</div></div></div>
+    <div class="found"><div class="thumb c5"></div><div class="main"><div class="lbl">Mambo City x LLB</div><div class="small">First Saturday &middot; Marlborough Primary School</div></div></div>
+    <div class="found"><div class="thumb c6"></div><div class="main"><div class="lbl">London Loves BOS</div><div class="small">Monthly &middot; The Vault</div></div></div>
+  </div>
+  <p class="hint" style="margin-top:14px">Something missing or not yours? <button class="link" data-go="help">Tell us</button></p>
+  <div class="dock on" data-for="welcome"><button class="btn" data-go="home" data-reset>Go to my events</button></div>
+</section>
+
+<!-- ============ HOME ============ -->
+<section class="screen" id="home">
+  <div class="top"><span class="t">&nbsp;</span><button class="themebtn" data-theme-toggle aria-label="Switch light or dark">&#9680;</button></div>
+  <p class="small">Hi, London Loves Bachata</p>
+  <h1 style="margin-top:4px">Your events</h1>
+
+  <div class="card mt2">
+    <div class="stats">
+      <div class="s"><div class="n" id="st-v">893</div><div class="k">people saw your events</div></div>
+      <div class="s"><div class="n" id="st-s">142</div><div class="k">saved one</div></div>
+    </div>
+    <div class="range" role="group" aria-label="Time range">
+      <button data-range="7">7 days</button><button data-range="30" aria-pressed="true">30 days</button><button data-range="90">90 days</button>
+    </div>
+  </div>
+
+  <h2>Live &middot; 6</h2>
+  <div class="group">
+    <button class="ev" data-go="event"><div class="thumb c1"></div><div class="main"><div class="name">Bachata Flow</div><div class="when">Next: Mon 26 Oct, 7pm</div></div><span class="chip live">Live</span></button>
+    <button class="ev" data-go="event"><div class="thumb c2"></div><div class="main"><div class="name">Sensual Fridays</div><div class="when">Tonight, 8pm</div></div><span class="chip live">Live</span></button>
+    <button class="ev" data-go="event"><div class="thumb c3"></div><div class="main"><div class="name">Sensual Saturdays</div><div class="when">Next: Sat 24 Oct, 8pm</div></div><span class="chip live">Live</span></button>
+    <button class="ev" data-go="event"><div class="thumb c4"></div><div class="main"><div class="name">Sensual Wednesdays</div><div class="when">Course &middot; week 3 of 3 on Wed 28 Oct</div></div><span class="chip live">Live</span></button>
+    <button class="ev" data-go="event"><div class="thumb c6"></div><div class="main"><div class="name">London Loves BOS</div><div class="when">Next: Sat 31 Oct, 8pm</div></div><span class="chip live">Live</span></button>
+    <button class="ev" data-go="event"><div class="thumb c5"></div><div class="main"><div class="name">Mambo City x LLB</div><div class="when">Next: Sat 7 Nov, 8pm</div></div><span class="chip live">Live</span></button>
+  </div>
+
+  <h2>Finished</h2>
+  <div class="group">
+    <button class="row" data-go="finished"><div class="main"><div class="lbl">5 finished events</div><div class="val">Kept for your records. Copy one to start again.</div></div><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+  </div>
+
+  <div class="demo">Mockup only &mdash; other cases:
+    <button data-go="welcome">First day takeover</button> &middot;
+    <button data-go="home-empty">New organiser, one event, no photo</button>
+  </div>
+
+  <div class="dock on" data-for="home"><button class="btn" data-go="add">Add an event</button></div>
+</section>
+
+<!-- ============ HOME: new organiser (empty + long name) ============ -->
+<section class="screen" id="home-empty">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t"></span><button class="themebtn" data-theme-toggle aria-label="Switch light or dark">&#9680;</button></div>
+  <p class="small">Hi, Bachata Sur</p>
+  <h1 style="margin-top:4px">Your events</h1>
+  <div class="card mt2">
+    <div class="stats"><div class="s"><div class="n">&mdash;</div><div class="k">No views yet</div></div><div class="s"><div class="n">&mdash;</div><div class="k">No saves yet</div></div></div>
+    <p class="small" style="padding:0 16px 16px">Numbers start the day your event is seen. Adding a photo helps people stop and look.</p>
+  </div>
+  <h2>Live &middot; 1</h2>
+  <div class="group">
+    <button class="ev" data-go="photos"><div class="thumb none"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="12" cy="12" r="3"/></svg></div><div class="main"><div class="name">Bachata Sensual Social &amp; Practice Night at The Old Royal Oak Function Room</div><div class="when">Next: Thu 29 Oct, 8:30pm</div></div><span class="chip live">Live</span></button>
+  </div>
+  <div class="note"><div><b>Add a photo.</b> Events with a photo get noticed more on the calendar. It takes a minute. <button class="link" data-go="photos" style="padding:0">Add a photo</button></div></div>
+  <div class="dock on" data-for="home-empty"><button class="btn" data-go="add">Add an event</button></div>
+</section>
+
+<!-- ============ FINISHED ============ -->
+<section class="screen" id="finished">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">Finished events</span></div>
+  <p class="small" style="margin:4px 4px 14px">Dancers no longer see these. Copy one to bring it back with new dates.</p>
+  <div class="group">
+    <div class="ev"><div class="thumb c4"></div><div class="main"><div class="name">Sensual Wednesdays</div><div class="when">Course &middot; ended 30 Sep</div></div></div>
+    <div class="ev"><div class="thumb c8"></div><div class="main"><div class="name">Sensual Wednesdays</div><div class="when">Course &middot; ended 26 Aug</div></div></div>
+    <div class="ev"><div class="thumb c4"></div><div class="main"><div class="name">Sensual Wednesdays</div><div class="when">Course &middot; ended 23 Jul</div></div></div>
+    <div class="ev"><div class="thumb c7"></div><div class="main"><div class="name">LLB</div><div class="when">Ended 29 Aug</div></div></div>
+    <div class="ev"><div class="thumb c3"></div><div class="main"><div class="name">Sensual Wednesdays</div><div class="when">Ended 24 Jun</div></div></div>
+  </div>
+</section>
+
+<!-- ============ EVENT PAGE ============ -->
+<section class="screen" id="event">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t"></span></div>
+  <div class="hero c1"><button class="edit" data-go="photos">Change photo</button></div>
+  <div class="title-row"><h1>Bachata Flow</h1><span class="chip live" id="ev-chip" style="margin-top:6px">Live</span></div>
+  <p class="meta">Every Monday, 7pm to 11pm<br>Be At One &middot; London</p>
+  <p class="small mt">Seen by <b style="color:var(--fg)">214</b> people and saved by <b style="color:var(--fg)">31</b> in the last 30 days.</p>
+  <button class="peek" data-go="preview"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>See what dancers see</button>
+
+  <h2>Your event</h2>
+  <div class="group">
+    <button class="row" data-go="dates"><div class="main"><div class="lbl">Dates</div><div class="val">Every Monday &middot; next Mon 26 Oct</div></div><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+    <button class="row" data-go="lineup"><div class="main"><div class="lbl">Line-up</div><div class="val">2 teachers, 1 DJ</div></div><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+    <button class="row" data-go="photos"><div class="main"><div class="lbl">Photos</div><div class="val">Cover and 4 photos</div></div><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+    <button class="row" data-go="where"><div class="main"><div class="lbl">Where</div><div class="val">Be At One, Shoreditch</div></div><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+    <button class="row" data-go="pay"><div class="main"><div class="lbl">How to pay</div><div class="val todo">Not added yet &mdash; dancers ask this most</div></div><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+    <button class="row" data-go="coorg"><div class="main"><div class="lbl">Co-organisers</div><div class="val">You and 1 other</div></div><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+  </div>
+
+  <h2>About</h2>
+  <div class="group">
+    <button class="row" data-go="about"><div class="main"><div class="lbl">Name and description</div><div class="val">Monday classes and social with a friendly crowd&hellip;</div></div><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+  </div>
+
+  <div class="soon"><span>&#9734;</span><span>Featured listings are coming later. We&rsquo;ll let you know.</span></div>
+
+  <h2>If plans change</h2>
+  <div class="group">
+    <button class="row" data-go="pause"><div class="main"><div class="lbl" id="pause-lbl">Pause this event</div><div class="val wrap" id="pause-val">Hide every date from the calendar. Bring it back any time.</div></div><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+  </div>
+  <p class="hint" style="margin-top:12px">To take off one night, open <b>Dates</b>. Need it deleted? <button class="link" data-go="help" style="padding:0">Ask us</button></p>
+</section>
+
+<!-- ============ ABOUT (name) ============ -->
+<section class="screen" id="about">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">Name and description</span></div>
+  <div class="field"><label for="nm">Event name</label><input class="input" id="nm" value="Bachata Flow"></div>
+  <div class="field"><label for="ds">Description</label>
+    <textarea class="input" id="ds" style="height:150px;padding:14px 16px;resize:none;line-height:1.45">Monday classes and social with a friendly crowd. Beginners class at 7pm, improvers at 8pm, then social dancing until 11pm.</textarea>
+    <p class="hint">Say who it&rsquo;s for and what happens when. Dancers read this on their phone.</p></div>
+  <div class="dock on" data-for="about"><button class="btn" data-save="Saved. Dancers see the new text now.">Save</button></div>
+</section>
+
+<!-- ============ DATES (many) ============ -->
+<section class="screen" id="dates">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">Dates</span></div>
+  <div class="group">
+    <button class="row" data-go="repeat"><div class="main"><div class="lbl">Repeats</div><div class="val">Every Monday, 7pm to 11pm, no end date</div></div><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+  </div>
+  <h2>Coming up &middot; tap a date to change it</h2>
+  <div class="group" id="datelist"></div>
+  <button class="quiet mt" id="more-dates">Show 13 more dates</button>
+  <div class="dock on" data-for="dates"><button class="quiet" style="background:var(--bg)" data-go="adddate">Add an extra date</button></div>
+</section>
+
+<!-- ============ ONE DATE ============ -->
+<section class="screen" id="date">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t"></span></div>
+  <h1 id="date-h">Monday 2 November</h1>
+  <p class="meta">7pm to 11pm &middot; Be At One</p>
+  <p class="small mt" id="date-state">This date is on. 18 people have saved it.</p>
+  <h2>Just this date</h2>
+  <div class="group">
+    <button class="row" data-go="move"><div class="main"><div class="lbl">Move it</div><div class="val">New day, time or place for this one night</div></div><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+    <button class="row" data-go="lineup"><div class="main"><div class="lbl">Line-up for this night</div><div class="val">Same as usual</div></div><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+    <button class="row" data-go="cancel1"><div class="main"><div class="lbl danger">Cancel this date</div><div class="val">The rest of your Mondays stay as they are</div></div><svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+  </div>
+</section>
+
+<!-- ============ CANCEL ONE DATE ============ -->
+<section class="screen" id="cancel1">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t"></span></div>
+  <h1>Cancel Monday 2 November?</h1>
+  <p class="lede">Dancers will see &ldquo;Cancelled&rdquo; on this date, so nobody turns up to a closed door. Your other Mondays stay on.</p>
+  <div class="field"><label for="why">Tell dancers why (optional)</label><input class="input" id="why" placeholder="For example: venue closed for a private event"></div>
+  <p class="hint">You can undo this straight after, or turn the date back on later from Dates.</p>
+  <div class="dock on" data-for="cancel1"><button class="btn" id="do-cancel">Cancel this date</button><button class="quiet mt" style="border:0" data-back>Keep it on</button></div>
+</section>
+
+<!-- ============ MOVE ONE DATE ============ -->
+<section class="screen" id="move">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">Move a date</span></div>
+  <h1>Move Monday 2 November</h1>
+  <div class="field"><label for="mv-d">New day</label><input class="input" id="mv-d" value="Tuesday 3 November"></div>
+  <div class="two">
+    <div class="field"><label for="mv-s">Starts</label><input class="input" id="mv-s" value="7pm"></div>
+    <div class="field"><label for="mv-e">Ends</label><input class="input" id="mv-e" value="11pm"></div>
+  </div>
+  <h2>Change which dates?</h2>
+  <div class="group" role="radiogroup" data-radio>
+    <button class="choice" role="radio" aria-checked="true"><span class="dot"></span><div class="main"><div class="lbl">Only this date</div><div class="val">2 November moves; the rest stay on Mondays</div></div></button>
+    <button class="choice" role="radio" aria-checked="false"><span class="dot"></span><div class="main"><div class="lbl">This and all later dates</div><div class="val">From 2 November on, it&rsquo;s every Tuesday</div></div></button>
+  </div>
+  <div class="dock on" data-for="move"><button class="btn" data-save="Moved to Tuesday 3 November." data-backafter>Save</button></div>
+</section>
+
+<!-- ============ ADD A DATE / REPEAT (light) ============ -->
+<section class="screen" id="adddate">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">Add an extra date</span></div>
+  <p class="lede" style="margin-top:0">For a one-off night outside your usual Mondays, like a Christmas special.</p>
+  <div class="field"><label for="ad-d">Day</label><input class="input" id="ad-d" placeholder="Pick a day"></div>
+  <div class="two"><div class="field"><label for="ad-s">Starts</label><input class="input" id="ad-s" value="7pm"></div><div class="field"><label for="ad-e">Ends</label><input class="input" id="ad-e" value="11pm"></div></div>
+  <div class="dock on" data-for="adddate"><button class="btn" aria-disabled="true">Add date</button><p class="reason">Pick a day first</p></div>
+</section>
+<section class="screen" id="repeat">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">Repeats</span></div>
+  <h2 style="margin-top:8px">How often</h2>
+  <div class="group" role="radiogroup" data-radio>
+    <button class="choice" role="radio" aria-checked="true"><span class="dot"></span><div class="main"><div class="lbl">Every week</div></div></button>
+    <button class="choice" role="radio" aria-checked="false"><span class="dot"></span><div class="main"><div class="lbl">Every two weeks</div></div></button>
+    <button class="choice" role="radio" aria-checked="false"><span class="dot"></span><div class="main"><div class="lbl">Once a month</div><div class="val">For example, the first Saturday</div></div></button>
+  </div>
+  <h2>Until</h2>
+  <div class="group" role="radiogroup" data-radio>
+    <button class="choice" role="radio" aria-checked="true"><span class="dot"></span><div class="main"><div class="lbl">No end date</div></div></button>
+    <button class="choice" role="radio" aria-checked="false"><span class="dot"></span><div class="main"><div class="lbl">Stop on a date</div></div></button>
+  </div>
+  <div class="dock on" data-for="repeat"><button class="btn" data-save="Saved. Your dates are updated." data-backafter>Save</button></div>
+</section>
+
+<!-- ============ LINE-UP ============ -->
+<section class="screen" id="lineup">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">Line-up</span></div>
+  <p class="small" style="margin:4px 4px 0">The usual line-up for every date. Change one night from its date.</p>
+  <h2>Teachers</h2>
+  <div class="group" id="teachers">
+    <div class="row"><span class="avatar a1">MR</span><div class="main"><div class="lbl">Marco R.</div><div class="val">Teacher &middot; 7pm beginners</div></div><button class="link" data-remove>Remove</button></div>
+    <div class="row"><span class="avatar a2">EL</span><div class="main"><div class="lbl">Elena L.</div><div class="val">Teacher &middot; 8pm improvers</div></div><button class="link" data-remove>Remove</button></div>
+  </div>
+  <button class="quiet mt" data-go="picker">Add a teacher</button>
+  <h2>DJs</h2>
+  <div class="group">
+    <div class="row"><span class="avatar a3">DK</span><div class="main"><div class="lbl">DJ Kiko</div><div class="val">DJ &middot; 9pm to 11pm</div></div><button class="link" data-remove>Remove</button></div>
+  </div>
+  <button class="quiet mt" data-go="picker">Add a DJ</button>
+  <div class="dock on" data-for="lineup"><button class="btn" data-save="Saved. The line-up is on your page." data-backafter>Save</button></div>
+</section>
+
+<!-- ============ PEOPLE PICKER ============ -->
+<section class="screen" id="picker">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">Add a teacher</span></div>
+  <input class="input" id="q" placeholder="Search by name" value="sof" aria-label="Search by name">
+  <p class="hint">These are real dancer profiles, so your page links to them.</p>
+  <div class="group mt" role="listbox" data-radio>
+    <button class="choice" role="option" aria-checked="true"><span class="avatar a4">SV</span><div class="main"><div class="lbl">Sofia V.</div><div class="val">Teacher &middot; London</div></div><span class="tick"></span></button>
+    <button class="choice" role="option" aria-checked="false"><span class="avatar a5">SB</span><div class="main"><div class="lbl">Sofiane B.</div><div class="val">Teacher, DJ &middot; London</div></div><span class="tick"></span></button>
+    <button class="choice" role="option" aria-checked="false"><span class="avatar a2">SP</span><div class="main"><div class="lbl">Sofi P.</div><div class="val">Teacher &middot; Manchester</div></div><span class="tick"></span></button>
+  </div>
+  <div class="empty" style="padding-top:20px"><p style="margin:0 0 4px">Can&rsquo;t find them?</p><button class="link" data-go="help">Ask us to add their profile</button></div>
+  <div class="dock on" data-for="picker"><button class="btn" data-back data-toast="Sofia V. added. Save the line-up to show it.">Add Sofia V.</button></div>
+</section>
+
+<!-- ============ PHOTOS ============ -->
+<section class="screen" id="photos">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">Photos</span></div>
+  <h2 style="margin-top:8px">Cover</h2>
+  <div class="hero c1" style="height:170px"><button class="edit">Change cover</button></div>
+  <p class="hint">This is the first thing dancers see. A wide photo of people dancing works best.</p>
+  <h2>More photos &middot; 4</h2>
+  <div class="grid3"><div class="c2"></div><div class="c3"></div><div class="c5"></div><div class="c8"></div><button class="add-tile">+ Add</button></div>
+  <h2>No cover yet looks like this</h2>
+  <div class="card empty"><div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="12" cy="12" r="3"/></svg></div>
+    <b>No photo yet</b><p>Add one from your phone. A photo from your last night is perfect.</p><button class="quiet">Add a photo</button></div>
+  <div class="dock on" data-for="photos"><button class="btn" data-save="Saved. Your photos are on your page." data-backafter>Save</button></div>
+</section>
+
+<!-- ============ WHERE ============ -->
+<section class="screen" id="where">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">Where</span></div>
+  <input class="input" placeholder="Search for a venue" aria-label="Search for a venue">
+  <h2>Chosen</h2>
+  <div class="group" role="radiogroup" data-radio>
+    <button class="choice" role="radio" aria-checked="true"><span class="dot"></span><div class="main"><div class="lbl">Be At One</div><div class="val">Shoreditch, London</div></div></button>
+  </div>
+  <h2>Your other venues</h2>
+  <div class="group" role="radiogroup" data-radio>
+    <button class="choice" role="radio" aria-checked="false"><span class="dot"></span><div class="main"><div class="lbl">Studio 68</div><div class="val">London</div></div></button>
+    <button class="choice" role="radio" aria-checked="false"><span class="dot"></span><div class="main"><div class="lbl">Colab Tower</div><div class="val">London</div></div></button>
+    <button class="choice" role="radio" aria-checked="false"><span class="dot"></span><div class="main"><div class="lbl">Waterloo Action Centre</div><div class="val">London</div></div></button>
+  </div>
+  <p class="hint mt">Not listed? <button class="link" style="padding:0">Add a new venue</button></p>
+  <div class="dock on" data-for="where"><button class="btn" data-save="Saved. All dates use Be At One." data-backafter>Save</button></div>
+</section>
+
+<!-- ============ HOW TO PAY ============ -->
+<section class="screen" id="pay">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">How to pay</span></div>
+  <p class="lede" style="margin-top:0">Tell dancers how they pay. Tick all that apply.</p>
+  <div class="group mt" data-multi>
+    <button class="choice" role="checkbox" aria-checked="true"><span class="tick"></span><div class="main"><div class="lbl">Pay on the door</div></div></button>
+    <button class="choice" role="checkbox" aria-checked="false"><span class="tick"></span><div class="main"><div class="lbl">Bank transfer</div></div></button>
+    <button class="choice" role="checkbox" aria-checked="false"><span class="tick"></span><div class="main"><div class="lbl">Buy online</div><div class="val">A link to your ticket page</div></div></button>
+  </div>
+  <div class="field"><label for="price">Price</label><input class="input" id="price" value="&pound;12, or &pound;10 before 8pm"></div>
+  <div class="dock on" data-for="pay"><button class="btn" data-save="Saved. Dancers now see how to pay." data-backafter>Save</button></div>
+</section>
+
+<!-- ============ CO-ORGANISERS ============ -->
+<section class="screen" id="coorg">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">Co-organisers</span></div>
+  <p class="small" style="margin:4px 4px 0">Everyone here can change everything about this event. Nobody is the boss.</p>
+  <div class="group mt">
+    <div class="row"><span class="avatar a1">LL</span><div class="main"><div class="lbl">London Loves Bachata</div><div class="val">You</div></div></div>
+    <div class="row"><span class="avatar a3">BF</span><div class="main"><div class="lbl">Bachata Flow London</div><div class="val">Since June</div></div><button class="link">Remove</button></div>
+  </div>
+  <h2>Waiting to join</h2>
+  <div class="group">
+    <div class="row"><span class="avatar a5">?</span><div class="main"><div class="lbl">07&hellip;482</div><div class="val">Invited 2 days ago</div></div><button class="link">Cancel</button></div>
+  </div>
+  <div class="dock on" data-for="coorg"><button class="btn" data-go="invite">Invite someone</button></div>
+</section>
+
+<!-- ============ INVITE (with kind error) ============ -->
+<section class="screen" id="invite">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">Invite someone</span></div>
+  <h1>Who runs Bachata Flow with you?</h1>
+  <p class="lede">We&rsquo;ll send them a link by text. Once they join, they can change everything, just like you.</p>
+  <div class="field"><label for="ph">Their mobile number</label><input class="input bad" id="ph" inputmode="tel" value="0779 12"><div class="err" role="alert">That number looks short. UK mobiles have 11 digits, starting 07.</div></div>
+  <p class="hint">No phone? <button class="link" style="padding:0">Use their email instead</button></p>
+  <div class="dock on" data-for="invite"><button class="btn" data-back data-toast="Invite sent. We&rsquo;ll tell you when they join.">Send invite</button></div>
+</section>
+
+<!-- ============ PAUSE ============ -->
+<section class="screen" id="pause">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t"></span></div>
+  <h1>Pause Bachata Flow?</h1>
+  <p class="lede">Every date comes off the calendar until you turn it back on. Nothing is deleted &mdash; your dates, line-up and photos wait for you.</p>
+  <div class="note"><div><b>Just one night off?</b> Cancel that date instead, from Dates. <button class="link" data-go="dates" style="padding:0">Go to Dates</button></div></div>
+  <div class="dock on" data-for="pause"><button class="btn" id="do-pause">Pause event</button><button class="quiet mt" style="border:0" data-back>Keep it live</button></div>
+</section>
+
+<!-- ============ PUBLIC PREVIEW ============ -->
+<section class="screen" id="preview">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">What dancers see</span></div>
+  <div class="pv-bar">&#128065;&#65039; This is your page right now, exactly as it shows on the calendar.</div>
+  <div class="pv">
+    <div class="ph c1"></div>
+    <div class="body">
+      <h3>Bachata Flow</h3>
+      <p class="k">Mon 26 Oct &middot; 7pm to 11pm<br>Be At One, Shoreditch</p>
+      <span class="pill">Class + social</span><span class="pill">Every Monday</span>
+      <div class="ppl"><div><span class="avatar a1">MR</span>Marco R.</div><div><span class="avatar a2">EL</span>Elena L.</div><div><span class="avatar a3">DK</span>DJ Kiko</div></div>
+      <p class="k" style="margin-top:16px">Monday classes and social with a friendly crowd. Beginners class at 7pm, improvers at 8pm&hellip;</p>
+      <div class="cta">I&rsquo;m going</div>
+    </div>
+  </div>
+  <div class="note"><div><b>Missing: how to pay.</b> Dancers often ask before they come. <button class="link" data-go="pay" style="padding:0">Add it</button></div></div>
+  <div class="dock on" data-for="preview"><button class="quiet" style="background:var(--bg)" data-back>Back to my event</button></div>
+</section>
+
+<!-- ============ ADD AN EVENT: choose kind ============ -->
+<section class="screen" id="add">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t"></span></div>
+  <h1>What are you adding?</h1>
+  <div class="group mt2" role="radiogroup" data-radio>
+    <button class="choice" role="radio" aria-checked="false"><span class="dot"></span><div class="main"><div class="lbl">A regular night</div><div class="val">Same day every week or month</div></div></button>
+    <button class="choice" role="radio" aria-checked="true"><span class="dot"></span><div class="main"><div class="lbl">A course</div><div class="val">A set number of weekly classes, like 4 weeks</div></div></button>
+    <button class="choice" role="radio" aria-checked="false"><span class="dot"></span><div class="main"><div class="lbl">A one-off party</div><div class="val">Just one date</div></div></button>
+  </div>
+  <div class="dock on" data-for="add"><button class="btn" data-go="c1">Next</button></div>
+</section>
+
+<!-- ============ CREATE A COURSE: 3 steps + check ============ -->
+<section class="screen" id="c1">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">New course</span></div>
+  <div class="steps"><i class="on"></i><i></i><i></i><i></i></div>
+  <h1>What&rsquo;s the course called?</h1>
+  <div class="field"><label for="cn">Course name</label><input class="input" id="cn" value="Sensual Wednesdays: Beginners"></div>
+  <p class="hint">Dancers search by this, so keep it simple.</p>
+  <div class="dock on" data-for="c1"><button class="btn" data-go="c2">Next</button></div>
+</section>
+<section class="screen" id="c2">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">New course</span></div>
+  <div class="steps"><i class="on"></i><i class="on"></i><i></i><i></i></div>
+  <h1>When does it run?</h1>
+  <div class="field"><label for="cs">First class</label><input class="input" id="cs" value="Wednesday 4 November"></div>
+  <div class="field"><label>How many weeks</label>
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="iconbtn card" id="wk-dn" aria-label="One week fewer" style="width:54px;height:54px;font-size:24px">&minus;</button>
+      <div class="input" style="display:grid;place-items:center;font-weight:600" id="wk">4 weeks</div>
+      <button class="iconbtn card" id="wk-up" aria-label="One week more" style="width:54px;height:54px;font-size:24px">+</button>
+    </div>
+  </div>
+  <div class="two"><div class="field"><label for="ct1">Starts</label><input class="input" id="ct1" value="6:45pm"></div><div class="field"><label for="ct2">Ends</label><input class="input" id="ct2" value="8:15pm"></div></div>
+  <p class="hint" id="wk-hint">4 Wednesdays: 4, 11, 18 and 25 November.</p>
+  <div class="dock on" data-for="c2"><button class="btn" data-go="c3">Next</button></div>
+</section>
+<section class="screen" id="c3">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">New course</span></div>
+  <div class="steps"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+  <h1>Where is it?</h1>
+  <div class="group mt2" role="radiogroup" data-radio>
+    <button class="choice" role="radio" aria-checked="true"><span class="dot"></span><div class="main"><div class="lbl">Waterloo Action Centre</div><div class="val">Used last time</div></div></button>
+    <button class="choice" role="radio" aria-checked="false"><span class="dot"></span><div class="main"><div class="lbl">Studio 68</div></div></button>
+    <button class="choice" role="radio" aria-checked="false"><span class="dot"></span><div class="main"><div class="lbl">Somewhere else</div><div class="val">Search for a venue</div></div></button>
+  </div>
+  <div class="dock on" data-for="c3"><button class="btn" data-go="c4">Next</button></div>
+</section>
+<section class="screen" id="c4">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">New course</span></div>
+  <div class="steps"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+  <h1>Check and go live</h1>
+  <p class="lede">It goes on the calendar straight away. You can change anything later.</p>
+  <div class="group mt2">
+    <button class="row" data-go="c1"><div class="main"><div class="val" style="margin:0">Name</div><div class="lbl">Sensual Wednesdays: Beginners</div></div><span class="link">Change</span></button>
+    <button class="row" data-go="c2"><div class="main"><div class="val" style="margin:0">When</div><div class="lbl">4 Wednesdays from 4 Nov, 6:45pm</div></div><span class="link">Change</span></button>
+    <button class="row" data-go="c3"><div class="main"><div class="val" style="margin:0">Where</div><div class="lbl">Waterloo Action Centre</div></div><span class="link">Change</span></button>
+  </div>
+  <p class="hint mt">Add teachers, photos and how to pay next &mdash; it&rsquo;s fine to go live first.</p>
+  <div class="dock on" data-for="c4"><button class="btn" id="golive">Go live</button></div>
+</section>
+
+<!-- ============ HELP ============ -->
+<section class="screen" id="help">
+  <div class="top"><button class="iconbtn" data-back aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button><span class="t">Ask us</span></div>
+  <h1>How can we help?</h1>
+  <p class="lede">A real person reads this and replies by text, usually the same day.</p>
+  <div class="field"><label for="hq">Your message</label><textarea class="input" id="hq" style="height:140px;padding:14px 16px;resize:none" placeholder="For example: please delete my old Sensual Fridays"></textarea></div>
+  <div class="dock on" data-for="help"><button class="btn" data-back data-toast="Sent. We&rsquo;ll reply by text.">Send</button></div>
+</section>
+
+<div class="toast" id="toast" role="status"><span id="toast-t"></span><button id="toast-u" hidden>Undo</button></div>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var stack = [];
+  var toastTimer;
+  function $(s, el) { return (el || document).querySelector(s); }
+  function $$(s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); }
+
+  function show(id) {
+    $$('.screen').forEach(function (s) { s.classList.toggle('on', s.id === id); });
+    var s = document.getElementById(id); if (s) s.scrollTop = 0;
+    var t = $('.top .t', s); if (t && !t.textContent.trim()) t.innerHTML = '&nbsp;';
+  }
+  function go(id) { stack.push(id); show(id); }
+  function back() { if (stack.length > 1) { stack.pop(); show(stack[stack.length - 1]); } }
+  window.addEventListener('keydown', function (e) { if (e.key === 'Escape') back(); });
+
+  function toast(msg, undo) {
+    $('#toast-t').innerHTML = msg;
+    var u = $('#toast-u'); u.hidden = !undo; u.onclick = function () { undo(); hide(); };
+    $('#toast').classList.add('on');
+    clearTimeout(toastTimer); toastTimer = setTimeout(hide, 5000);
+  }
+  function hide() { $('#toast').classList.remove('on'); }
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('button'); if (!el) return;
+    if (el.hasAttribute('data-theme-toggle')) {
+      var dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+      root.dataset.theme = dark ? 'light' : 'dark'; return;
+    }
+    if (el.getAttribute('aria-disabled') === 'true') return;
+    var grp = el.closest('[data-radio]');
+    if (grp && el.classList.contains('choice')) { $$('.choice', grp).forEach(function (c) { c.setAttribute('aria-checked', c === el); }); }
+    if (el.closest('[data-multi]') && el.classList.contains('choice')) { el.setAttribute('aria-checked', el.getAttribute('aria-checked') !== 'true'); }
+    if (el.hasAttribute('data-remove')) { var row = el.closest('.row'); row.style.display = 'none'; toast('Removed from the line-up.', function () { row.style.display = ''; }); return; }
+    if (el.hasAttribute('data-range')) {
+      $$('[data-range]').forEach(function (b) { b.setAttribute('aria-pressed', b === el); });
+      var m = { 7: [212, 38], 30: [893, 142], 90: [2410, 371] }[el.dataset.range];
+      $('#st-v').textContent = m[0].toLocaleString('en-GB'); $('#st-s').textContent = m[1]; return;
+    }
+    if (el.hasAttribute('data-reset')) { stack = []; }
+    if (el.dataset.go) { go(el.dataset.go); return; }
+    if (el.dataset.save) { if (el.hasAttribute('data-backafter')) back(); toast(el.dataset.save); return; }
+    if (el.hasAttribute('data-back')) { back(); if (el.dataset.toast) toast(el.dataset.toast); }
+  });
+
+  /* Dates: 13 weekly Mondays, then 13 more; one date already cancelled */
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var full = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var list = $('#datelist');
+  function addDates(from, n) {
+    var d = new Date(2026, 9, 26 + from * 7);
+    for (var i = 0; i < n; i++) {
+      var y = d.getFullYear(), cut = (from + i === 4);
+      var b = document.createElement('button');
+      b.className = 'daterow' + (cut ? ' cut' : '');
+      b.dataset.go = 'date';
+      b.dataset.label = 'Monday ' + d.getDate() + ' ' + full[d.getMonth()] + (y !== 2026 ? ' ' + y : '');
+      b.innerHTML = '<div class="cal"><div class="d">' + d.getDate() + '</div><div class="m">' + months[d.getMonth()] + (y !== 2026 ? ' ' + String(y).slice(2) : '') + '</div></div>' +
+        '<div class="main"><div class="lbl">Monday' + (y !== 2026 ? ' ' + y : '') + ', 7pm</div><div class="val">' + (cut ? 'Cancelled &mdash; venue closed' : (i === 0 && from === 0 ? 'Next up' : 'On')) + '</div></div>' +
+        (cut ? '<span class="chip off">Cancelled</span>' : '') +
+        '<svg class="chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>';
+      list.appendChild(b);
+      d.setDate(d.getDate() + 7);
+    }
+  }
+  addDates(0, 13);
+  $('#more-dates').addEventListener('click', function () { addDates(13, 13); this.remove(); });
+  list.addEventListener('click', function (e) {
+    var b = e.target.closest('.daterow'); if (!b) return;
+    var label = b.dataset.label;
+    $('#date-h').textContent = label;
+    $('#cancel1 h1').textContent = 'Cancel ' + label + '?';
+    $('#move h1').textContent = 'Move ' + label;
+    $('#date-state').textContent = b.classList.contains('cut') ? 'This date is cancelled. Dancers see \u201cCancelled\u201d.' : 'This date is on. 18 people have saved it.';
+    window.__date = b;
+  }, true);
+
+  $('#do-cancel').addEventListener('click', function () {
+    var b = window.__date || $('#datelist .daterow');
+    var was = b.innerHTML, wasCls = b.className;
+    b.classList.add('cut'); $('.val', b).innerHTML = 'Cancelled';
+    if (!$('.chip', b)) b.insertAdjacentHTML('beforeend', '<span class="chip off">Cancelled</span>');
+    stack.pop(); stack.pop(); show('dates');
+    toast('Date cancelled. Dancers see it now.', function () { b.innerHTML = was; b.className = wasCls; });
+  });
+
+  $('#do-pause').addEventListener('click', function () {
+    var chip = $('#ev-chip'); chip.className = 'chip paused'; chip.textContent = 'Paused';
+    $('#pause-lbl').textContent = 'Turn back on'; $('#pause-val').textContent = 'Paused. Dancers can\u2019t see any dates right now.';
+    back();
+    toast('Paused. Nothing is deleted.', function () { chip.className = 'chip live'; chip.textContent = 'Live'; $('#pause-lbl').textContent = 'Pause this event'; $('#pause-val').textContent = 'Hide every date from the calendar. Bring it back any time.'; });
+  });
+
+  var weeks = 4;
+  function wk() {
+    var days = []; for (var i = 0; i < weeks; i++) { days.push(new Date(2026, 10, 4 + i * 7)); }
+    $('#wk').textContent = weeks + (weeks === 1 ? ' week' : ' weeks');
+    var last = days[days.length - 1];
+    $('#wk-hint').textContent = weeks + (weeks === 1 ? ' Wednesday: ' : ' Wednesdays: 4 November to ') + last.getDate() + ' ' + full[last.getMonth()] + (last.getFullYear() !== 2026 ? ' ' + last.getFullYear() : '') + '.';
+    $('#c4 [data-go="c2"] .lbl').textContent = weeks + (weeks === 1 ? ' Wednesday' : ' Wednesdays') + ' from 4 Nov, 6:45pm';
+  }
+  $('#wk-dn').addEventListener('click', function () { if (weeks > 1) { weeks--; wk(); } });
+  $('#wk-up').addEventListener('click', function () { if (weeks < 20) { weeks++; wk(); } });
+  wk();
+
+  $('#golive').addEventListener('click', function () { stack = ['home']; show('home'); toast('Your course is live on the calendar.'); });
+
+  stack = ['welcome']; show('welcome');
+})();
+</script>
+</body>
+</html>
