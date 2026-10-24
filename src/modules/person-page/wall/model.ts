@@ -23,7 +23,8 @@ export type WallPerson = {
   lead: PersonRole;
   /** "Friday 23 October", only for a DJ with an upcoming gig. */
   dateLabel: string | null;
-  profileType: WallProfileType;
+  /** The profile type a click opens (emitProfileView): the strongest world under S5, else the list's own. */
+  profileType: PersonRole;
 };
 
 type WallProfileType = 'dj' | 'dancer';
@@ -65,14 +66,15 @@ export const tileHref = (id: string, rolePage: string | null, badge: PersonBadge
  * its page is open), so a DJ who also dances lands in the DJ world from /dancers too. No badge (read
  * failed or missing) or flag off = the list's own page, as before.
  */
-export function worldHref(id: string, listRole: WallProfileType, listPage: string | null, badge: PersonBadge | undefined, opts: BadgeOpts): string | null {
-  if (!flags.personWorlds || !badge) return listPage;
+export function worldRole(id: string, listRole: WallProfileType, badge: PersonBadge | undefined, opts: BadgeOpts): PersonRole | null {
+  if (!flags.personWorlds || !badge) return null;
   // The list's own role always counts: every /djs row is a DJ even when the badge row lags.
-  for (const role of ROLE_ORDER) {
-    const href = role === listRole || badge.roles.includes(role) ? hrefForRole(role, id, opts) : null;
-    if (href) return href;
-  }
-  return listPage;
+  return ROLE_ORDER.find((role) => (role === listRole || badge.roles.includes(role)) && hrefForRole(role, id, opts)) ?? null;
+}
+
+export function worldHref(id: string, listRole: WallProfileType, listPage: string | null, badge: PersonBadge | undefined, opts: BadgeOpts): string | null {
+  const role = worldRole(id, listRole, badge, opts);
+  return role ? hrefForRole(role, id, opts) : listPage;
 }
 
 export type DjWallRow = DjListRow & {
@@ -100,7 +102,7 @@ export function djWallPerson(row: DjWallRow, resolvedName: string, badge: Person
     tags: t.tags,
     lead: linkRoleFor(asBadge, opts) ?? 'dj',
     dateLabel: row.has_upcoming_gig === true ? wallDateLabel(row.next_gig_date) : null,
-    profileType: 'dj',
+    profileType: worldRole(row.id, 'dj', badge, opts) ?? 'dj',
   };
 }
 
@@ -122,7 +124,7 @@ export function dancerWallPerson(
     tags: badge ? roleTagsFor(badge, opts) : [],
     lead: linkRoleFor(badge, opts) ?? 'dancer',
     dateLabel: badge && badge.roles.includes('dj') ? wallDateLabel(badge.nextGigDate) : null,
-    profileType: 'dancer',
+    profileType: worldRole(row.id, 'dancer', badge, opts) ?? 'dancer',
   };
 }
 

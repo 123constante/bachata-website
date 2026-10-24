@@ -202,7 +202,8 @@ async function fetchTeacherMeta(id: string, url: string): Promise<OgMeta | null>
     slug: null,
     city: typeof t.city === 'string' ? t.city : null,
   };
-  const title = truncate(`${personCardTitle('teacher', card)} | Bachata Calendar`, 90);
+  // Not truncated: the SSR title is not either, and the two must be the same string.
+  const title = `${personCardTitle('teacher', card)} | Bachata Calendar`;
   const description = truncate(personCardDescription('teacher', card), 160);
 
   const image = ogNormalizedImage(personCardPhoto(null, t.photo_url));
@@ -322,9 +323,10 @@ export default async function middleware(request: Request): Promise<Response> {
       meta = ref ? await fetchTeacherMeta(ref.id, canonicalUrl) : null;
       if (meta && ref) {
         meta.canonicalHref = `${SITE_URL}/teachers/${ref.slug || ref.id}`;
-        // S5: og:url is the canonical, as the SSR route emits it -- never request.url with its
-        // ?utm_source / ?fbclid, which split the card's share count across query variants.
-        meta.url = meta.canonicalHref;
+        // S5: og:url is the page's own path with no ?utm_source / ?fbclid (they split the card's
+        // share count across query variants), as the SSR route emits it. Kept on the fetched host,
+        // not SITE_URL, so the og:url <-> og:image host invariant (app/sameHostImage.ts) holds.
+        meta.url = `${url.origin}/teachers/${ref.slug || ref.id}`;
         cacheTag = teacherTag(ref.id);
       }
       break;

@@ -122,13 +122,13 @@ beforeAll(async () => {
 }, 60_000);
 afterEach(() => vi.unstubAllGlobals());
 
-const mwCard = async (s: Shape, path: string, ua: string) => {
+const mwCard = async (s: Shape, path: string, ua: string, origin = ORIGIN) => {
   vi.stubGlobal('fetch', vi.fn(async (u: string) => {
     if (String(u).includes('/rest/v1/dancer_profiles')) return new Response(JSON.stringify([{ id: '0a0a0a0a-0000-4000-8000-000000000001', slug: 'p-slug' }]), { status: 200 });
     const [first_name, ...rest] = (s.name ?? '').split(' ');
     return new Response(JSON.stringify([{ first_name: first_name || null, surname: rest.join(' ') || null, city: s.city, photo_url: s.photo, teaching_styles: [], years_teaching: null }]), { status: 200 });
   }));
-  const res = await middleware(new Request(`${ORIGIN}${path}`, { headers: { 'user-agent': ua } }));
+  const res = await middleware(new Request(`${origin}${path}`, { headers: { 'user-agent': ua } }));
   const html = await res.text();
   const attr = (re: RegExp) => {
     const m = html.match(re);
@@ -172,5 +172,29 @@ describe('image choice: the role’s own photo, then the avatar, then the defaul
   ])('role %j, avatar %j -> %j', async (rolePhoto, avatar, want) => {
     const { personCardPhoto } = await import('../src/lib/seo/personCard');
     expect(personCardPhoto(rolePhoto, avatar)).toBe(want);
+  });
+});
+
+describe('middleware og:url stays on the host the bot fetched (og:url <-> og:image invariant)', () => {
+  it('an apex fetch: og:url and og:image both on the apex, query dropped', async () => {
+    const apex = 'https://bachatacalendar.co.uk';
+    const r = await mwCard(SHAPES[0], '/teachers/p-slug?fbclid=x', 'WhatsApp/2.23', apex);
+    expect(r.url).toBe(`${apex}/teachers/p-slug`);
+    expect(r.canonical).toBe(`${ORIGIN}/teachers/p-slug`);
+  });
+});
+
+describe('wall telemetry: the profile type sent is the world the tile opens', () => {
+  it('a DJ who dances, from /dancers, with worlds ON', async () => {
+    const { flags } = await import('../src/lib/featureFlags');
+    const { dancerWallPerson } = await import('../src/modules/person-page/wall/model');
+    const was = flags.personWorlds;
+    (flags as { personWorlds: boolean }).personWorlds = true;
+    try {
+      const p = dancerWallPerson({ id: 'p', avatar_url: null }, 'P', null, { id: 'p', roles: ['dj', 'dancer'], djName: null, djHasUpcoming: false, nextGigDate: null }, false);
+      expect([p.href, p.profileType]).toEqual(['/djs/p', 'dj']);
+    } finally {
+      (flags as { personWorlds: boolean }).personWorlds = was;
+    }
   });
 });
