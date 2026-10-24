@@ -9,7 +9,7 @@ import { fetchMyRoleDetails, roleDetailsQueryKey, saveMyRole, type RoleDetails }
 import { AreaFrame } from './AreaFrame';
 import { BlockedState, blockedCode, type BlockedPaths } from './BlockedState';
 import { ROLE_ERROR_COPY, roleErrorCode, roleErrorMessage, type RoleErrorCode } from './errorCopy';
-import { ROLE_FIELDS, ROLE_NAME, ROLE_NOUN, type Role } from './fieldRegistry';
+import { REQUIRED_HINT, ROLE_FIELDS, ROLE_NAME, ROLE_NOUN, ROLE_REQUIRED_LEAD, isGoLiveField, type Role } from './fieldRegistry';
 import { FieldInput } from './inputs';
 import { useLeaveGuard } from './leaveGuard';
 import { SavedToast } from './SavedToast';
@@ -27,7 +27,7 @@ export interface RoleProfileFormProps {
   serverError: string | null;
 }
 
-/** Every role field, grouped, each marked optional. Untouched = Save disabled, with the reason on screen. */
+/** Every role field, grouped: a go-live key says it is needed, every other one is marked optional. Untouched = Save disabled, with the reason on screen. */
 export function RoleProfileForm({ role, details, saving, onSave, serverError }: RoleProfileFormProps) {
   const [draft, setDraft] = useState<Draft>(() => toDraft(role, details));
   const [errors, setErrors] = useState<Record<string, RoleErrorCode>>({});
@@ -67,18 +67,19 @@ export function RoleProfileForm({ role, details, saving, onSave, serverError }: 
         submit();
       }}
     >
-      <p className="px-[4px] text-[14px] text-[var(--mut)]">Every detail is optional. Fill in what you like and leave the rest.</p>
+      <p className="px-[4px] text-[14px] text-[var(--mut)]" data-testid="role-required-lead">{ROLE_REQUIRED_LEAD[role]}</p>
       {groups.map((g) => (
         <Card key={g.name} label={g.name} variant="padded">
           <div className="space-y-[16px]">
             {g.fields.map((f) => {
               const id = `${role}-${f.key}`;
+              const needed = isGoLiveField(role, f.key);
               return (
                 <Field
                   key={f.key}
-                  label={`${f.label} (optional)`}
+                  label={needed ? f.label : `${f.label} (optional)`}
                   htmlFor={f.kind === 'yesno' ? undefined : id}
-                  help={f.help}
+                  help={needed ? [REQUIRED_HINT, f.help].filter(Boolean).join(' ') : f.help}
                   error={errors[f.key] ? ROLE_ERROR_COPY[errors[f.key]] : null}
                   testId={`field-${f.key}`}
                 >

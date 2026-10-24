@@ -10,7 +10,8 @@ import { supportLinks } from '@/modules/organiser/shared/support';
 import { Card, Field, FIELD_CLASS, GhostButton, PrimaryButton, SearchField, SkeletonRows, SummaryRow, useShake } from '../../ui';
 import { searchCities } from '../../home/onboarding/citySearch';
 import { CAP_REASON, classifyRefusal, findByName, type NewPageRefusalKind } from './model';
-import { CANNOT_CREATE, OPEN_REQUESTED, openRequestError } from './cannotCreate';
+import { BETA_NOTE, CANNOT_CREATE, OPEN_REQUESTED, PAGE_NAME_HINT, PAGE_NAME_NEXT_REASON, openRequestError, signupCityLabel } from './cannotCreate';
+import { fetchWizardDancer, wizardDancerQueryKey } from '../../wizard/dancerApi';
 import { requestOpenAccess } from './openRequestApi';
 
 export type NewPageStep = 'name' | 'city';
@@ -37,6 +38,8 @@ interface Props {
   email?: string | null;
   /** The kind of refusal on screen (null when none): the sheet heads it with one title, not the step's. */
   onRefusalChange?: (kind: NewPageRefusalKind | null) => void;
+  /** The login: its sign-up city is offered on the city step in one tap (W2 walk fix 9). */
+  userId?: string;
 }
 
 /**
@@ -45,7 +48,7 @@ interface Props {
  * here speaks of a draft or a review). A refusal replaces the step with its
  * reason and ONE action.
  */
-export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin, onFindPage, onHome, email = null, onRefusalChange }: Props) {
+export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin, onFindPage, onHome, email = null, onRefusalChange, userId }: Props) {
   const [cityQuery, setCityQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
@@ -66,6 +69,10 @@ export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin
     enabled: step === 'city' && !refusal && cityQuery.trim().length >= 2,
     staleTime: 300_000,
   });
+  // The sign-up city (my_dancer_edit_v1, the wizard's read and cache): offered first, never required.
+  const dancer = useQuery({ queryKey: wizardDancerQueryKey(userId ?? ''), queryFn: fetchWizardDancer, enabled: !!userId && step === 'city', retry: false, staleTime: 300_000 });
+  const signupCity = typeof dancer.data?.based_city_id === 'string' && typeof dancer.data?.city_name === 'string' && dancer.data.city_name.trim()
+    ? { id: dancer.data.based_city_id, label: dancer.data.city_name.trim() } : null;
 
   const create = async (cityId: string) => {
     if (sending.current) return;
@@ -149,7 +156,8 @@ export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin
         className="space-y-[16px]"
         data-testid="onboarding-create-form"
       >
-        <Field label="Page name" htmlFor={nameId}>
+        <p className="text-[13px] text-[var(--mut)]" data-testid="onboarding-beta-note">{BETA_NOTE}</p>
+        <Field label="Page name" htmlFor={nameId} help={PAGE_NAME_HINT}>
           <input
             id={nameId}
             data-sheet-autofocus
@@ -160,7 +168,8 @@ export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin
             data-testid="onboarding-create-name"
           />
         </Field>
-        <PrimaryButton type="submit" disabled={!named} testId="onboarding-create-next">Next</PrimaryButton>
+        <PrimaryButton type="submit" disabled={!named} aria-describedby={named ? undefined : `${nameId}-why`} testId="onboarding-create-next">Next</PrimaryButton>
+        {!named && <p id={`${nameId}-why`} className="text-center text-[13px] text-[var(--mut)]" data-testid="onboarding-create-next-reason">{PAGE_NAME_NEXT_REASON}</p>}
       </form>
     );
   }
@@ -170,7 +179,10 @@ export function NewPageFlow({ step, onStep, name, onName, onCreated, onAskToJoin
       <Card>
         <SummaryRow label="Page name" value={name.trim()} affordance="pencil" onPress={() => onStep('name')} testId="onboarding-create-name-row" />
       </Card>
-      <SearchField value={cityQuery} onChange={setCityQuery} aria-label="Search cities" placeholder="Search cities" autoFocusInSheet testId="onboarding-city-search" />
+      {signupCity && !busy && (
+        <PrimaryButton onClick={() => void create(signupCity.id)} testId="onboarding-city-suggested">{signupCityLabel(signupCity.label)}</PrimaryButton>
+      )}
+      <SearchField value={cityQuery} onChange={setCityQuery} aria-label="Search cities" placeholder={signupCity ? 'Or search another city' : 'Search cities'} autoFocusInSheet={!signupCity} testId="onboarding-city-search" />
       {busy ? (
         <SkeletonRows count={1} label="Creating your page" />
       ) : cities.isFetching && !cities.data ? (

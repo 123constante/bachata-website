@@ -350,18 +350,25 @@ const goLiveDancer = () => ({
 
 /**
  * @param {{ steps?: [string, string][], contactPhone?: string | null, intent?: {roles: string[], declined: string[]},
- *   missing?: {area: string, organiser_id: string | null, fields: string[]}[], liveOk?: boolean }} sc
+ *   missing?: {area: string, organiser_id: string | null, fields: string[]}[], liveOk?: boolean,
+ *   eventMissing?: [string, string][], progressSteps?: [string, string, boolean][], noPages?: boolean }} sc
+ * W2 walk fixes: `eventMissing` the check's event codes [code, section]; `progressSteps` the wizard's
+ * steps with their required flag [area, field, required]; `noPages` a login with no organiser page yet.
  * @returns {Record<string, (args: Record<string, unknown>) => unknown>}
  */
 export const goLiveRpcs = (sc) => {
-  const steps = (sc.steps ?? []).map(([area, field]) => ({ area, field, required: true, done: false }));
+  const steps = sc.progressSteps
+    ? sc.progressSteps.map(([area, field, required]) => ({ area, field, required, done: false }))
+    : (sc.steps ?? []).map(([area, field]) => ({ area, field, required: true, done: false }));
+  const requiredLeft = steps.filter((st) => st.required).length;
   const missing = sc.missing ?? [];
+  const eventMissing = (sc.eventMissing ?? []).map(([code, section]) => ({ code, section }));
   // Go live flips the series to live, so the reads after it (Done's "See it live") say so.
   let lifecycle = 'draft';
   return {
     organiser_home_v1: () => ({
       today: '2026-10-23',
-      organisers: [{
+      organisers: sc.noPages ? [] : [{
         id: ORG_ID, name: 'Ritmo Phone QA', slug: ORG_SLUG, avatar_url: null, city_id: CITY_ID, lifecycle_status: 'live', role: 'owner',
         is_primary: true, joined_at: '2026-01-01T00:00:00Z', latest_decision: null, team: [],
         series: [{ id: GOLIVE_SERIES_ID, name: GOLIVE_EVENT_NAME, slug: 'friday-bachata-social', format: 'social', category: 'party', lifecycle_status: lifecycle,
@@ -371,15 +378,17 @@ export const goLiveRpcs = (sc) => {
     // The dancer-first gate: a finished dancer profile.
     _my_dancer_profile_id_v1: () => goLiveDancer().profile_id,
     profile_complete_v1: () => true,
-    get_current_user_organiser_ids: () => [ORG_ID],
-    my_profile_progress_v1: () => ({ percent: 60, required_left: steps.length, publish_ready: steps.length === 0, declined: [], steps }),
+    get_current_user_organiser_ids: () => (sc.noPages ? [] : [ORG_ID]),
+    my_profile_progress_v1: () => ({ percent: 60, required_left: requiredLeft, publish_ready: requiredLeft === 0, declined: [], steps }),
     my_dancer_edit_v1: () => goLiveDancer(),
     my_role_intent_v1: () => sc.intent ?? { roles: ['dancer', 'organiser'], declined: [] },
     my_roles_v1: () => [],
     get_organiser_contact_settings_v1: () => ({
       contact_phone: sc.contactPhone ?? null, contact_email: 'hello@example.com', show_phone_publicly: true, show_email_publicly: false, show_contact_publicly: true, claim_email: null,
     }),
-    series_go_live_check_v1: () => ({ ready: missing.length === 0, event_missing: [], recommended: [], profile_rule_applies: true, profile_missing: missing }),
+    series_go_live_check_v1: () => ({ ready: missing.length === 0 && eventMissing.length === 0, event_missing: eventMissing, recommended: [], profile_rule_applies: true, profile_missing: missing }),
+    // The role editors' reads (also outside liveOk): nothing filled yet.
+    my_role_details_v1: (a) => ({ role: a.p_role, person_id: 'p1', details: {} }),
     admin_event_workspace_p5: () => ({
       meta: { version: 3, has_more: false },
       series: {

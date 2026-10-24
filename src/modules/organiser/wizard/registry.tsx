@@ -20,7 +20,7 @@ import type { Details } from '@/modules/areas/shared/roleModel';
 import { storedInPatchTerms, type EditBase } from '../edit-in-place/draftModel';
 import { CATEGORY_OPTIONS, FIELD_LABEL, checkField, type FieldKey } from '../edit-in-place/fieldRules';
 import { PHOTO_ACCEPT } from '../edit-in-place/organiserPhotoModel';
-import { countryNameFor, wizardCountries } from './wizardCountries';
+import { countryNameFor, matchCountries, wizardCountries } from './wizardCountries';
 import { DANCE_ROLE_VALUES, type WizardDancer } from './dancerApi';
 import { makeInstagramStep, makePhoneStep } from './contactSteps';
 import { makeChoiceStep, makeElsewhereStep, makeListStep, makePickStep, makeTextStep, makeUploadStep, textOf, type PickResult } from './stepKinds';
@@ -54,10 +54,16 @@ function checkYear(raw: string): string | null {
 }
 
 async function searchCountries(q: string): Promise<PickResult[]> {
-  const term = q.trim().toLowerCase();
-  const all = await wizardCountries();
-  return all.filter((c) => c.name.toLowerCase().includes(term)).slice(0, 12).map((c) => ({ id: c.code, label: c.name }));
+  return matchCountries(await wizardCountries(), q).slice(0, 12).map((c) => ({ id: c.code, label: c.name }));
 }
+
+/**
+ * W2 walk fix 6: show_phone_publicly defaults TRUE (guard-pinned), so the number
+ * shows unless the organiser hides it; the help says so, and where to hide it.
+ */
+export const ORG_PHONE_HELP = (
+  <>It shows on your page so dancers can reach you. You can hide it in <Link to={ORG_PATHS.page} className="inline-flex min-h-[44px] items-center font-semibold text-[var(--gold)] underline underline-offset-4">My page</Link>.</>
+);
 
 const countryName = (v: unknown): string | null => {
   if (typeof v !== 'string' || !v) return null;
@@ -123,7 +129,7 @@ const ENTRIES: WizardEntry[] = [
     help: 'You crop it on the next screen, then come back here.',
     to: (returnTo) => `${DANCER_PHOTO_PATH}?return=${encodeURIComponent(returnTo)}`,
   })),
-  dancer('nationality', 'What is your nationality?', 'nationality', makePickStep('nationality', { label: 'Nationality', placeholder: 'Search for a country', search: searchCountries, currentLabel: countryName }), { advanceOnAnswer: true }),
+  dancer('nationality', 'What is your nationality?', 'nationality', makePickStep('nationality', { label: 'Nationality', placeholder: 'Search for a country', help: 'Type your country or nationality, for example United Kingdom or British, then tap the right one.', search: searchCountries, currentLabel: countryName }), { advanceOnAnswer: true }),
   dancer('languages', 'Which languages do you speak?', 'languages', makeListStep('languages', { label: 'Languages', placeholder: 'English' })),
   dancer('instagram', 'What is your Instagram?', 'instagram', makeInstagramStep('instagram', { label: 'Instagram' })),
   dancer('phone_or_whatsapp', 'What is your WhatsApp number?', 'whatsapp', makePhoneStep('phone_or_whatsapp', { label: 'WhatsApp', help: 'It stays private unless you choose to show it.' })),
@@ -148,7 +154,7 @@ const ENTRIES: WizardEntry[] = [
   organiser('contact_phone', 'What number can dancers call?', 'contact_phone', makePhoneStep('org-phone', {
     label: FIELD_LABEL.contact_phone,
     // The switch itself is on My page (Edit contact details), so the help links there.
-    help: <>It shows on your page only if you switch that on in <Link to={ORG_PATHS.page} className="inline-flex min-h-[44px] items-center font-semibold text-[var(--gold)] underline underline-offset-4">My page</Link>.</>,
+    help: ORG_PHONE_HELP,
   })),
   organiser('bio', 'Tell dancers about your organisation', 'bio', makeTextStep('org-bio', { label: FIELD_LABEL.bio, multiline: true, maxLength: 4000, check: orgCheck('bio'), toValue: orgText('bio') })),
   organiser('website', 'Does it have a website?', 'website', makeTextStep('org-website', { label: FIELD_LABEL.website, inputMode: 'url', placeholder: 'example.com', maxLength: 300, check: orgCheck('website'), toValue: orgText('website') })),

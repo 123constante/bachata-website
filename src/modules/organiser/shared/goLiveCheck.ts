@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { detailEditPath } from '@/modules/organiser/flows/event/eventSteps';
 import { requiredLeftText } from './profileProgress';
+import { GO_LIVE_BLOCKERS } from './goLiveKeys';
 
 // series_go_live_check_v1 is not in the generated Database type yet: string-named boundary (check:rpc-typing).
 type UntypedRpc = {
@@ -21,8 +22,8 @@ export interface ProfileMissing { area: GoLiveArea; organiserId: string | null; 
 /** A1 (invite journey) adds `teacher` and `dj` entries after dancer and organiser, organiser_id null. */
 export type GoLiveArea = 'dancer' | 'organiser' | 'teacher' | 'dj';
 const GO_LIVE_AREAS: ReadonlySet<string> = new Set<GoLiveArea>(['dancer', 'organiser', 'teacher', 'dj']);
-/** A1's go-live keys for the role areas -> the role editor's field (the DJ key `dj_genres` is the field `genres`). */
-export const ROLE_GO_LIVE_FIELD: Readonly<Record<string, string>> = { teaching_styles: 'teaching_styles', dj_name: 'dj_name', dj_genres: 'genres' };
+/** A1's go-live keys for the role areas -> the role editor's field: from the one mapping (goLiveKeys). */
+export { ROLE_GO_LIVE_FIELD } from './goLiveKeys';
 export interface GoLiveCheck {
   ready: boolean;
   /** What blocks going live, in the server's order (fix the first one first). */
@@ -34,38 +35,17 @@ export interface GoLiveCheck {
 }
 
 /**
- * The ONE label per code (D49, D82): an ACTION, because the card is a to-do list.
- * The six A-DB1 codes, the D55 readiness codes (name, country, organiser) and the
- * recommended ticket link.
+ * The ONE label per code (D49, D82) lives in the one go-live mapping (goLiveKeys,
+ * W2 walk fix 5): every code the server sends, the recommended ticket link, and
+ * the twin codes that show once. Re-exported here for the screens that read it.
  */
-export const GO_LIVE_LABEL: Readonly<Record<string, string>> = {
-  venue: 'Add a venue',
-  city: 'Add a city',
-  upcoming_date: 'Add a date',
-  session: 'Add a session with a title, start and end',
-  cover: 'Upload a flyer',
-  description: 'Write a description',
-  name: 'Add an event name',
-  country: 'Pick a city with a country',
-  organiser: 'Link an active organiser',
-  ticket_link: 'Add a ticket link',
-};
+export const GO_LIVE_LABEL: Readonly<Record<string, string>> = Object.fromEntries(Object.entries(GO_LIVE_BLOCKERS).map(([c, d]) => [c, d.label]));
 /** The word beside a recommended item: it never blocks. */
 export const RECOMMENDED_WORD = 'Recommended';
-/** A code the map does not know yet still shows, in plain words, never as the code. */
-export const UNKNOWN_ITEM_LABEL = 'Something else on the event';
-
-export const goLiveLabel = (code: string): string =>
-  Object.prototype.hasOwnProperty.call(GO_LIVE_LABEL, code) ? GO_LIVE_LABEL[code] : UNKNOWN_ITEM_LABEL;
+export { UNKNOWN_ITEM_LABEL, goLiveLabel, profileFieldsLeft, showsProfileRow, thingsLeftText } from './goLiveKeys';
 
 /** The one profile row: how many profile fields are still to fill, in the ONE "N left" wording. */
 export const profileRowLabel = (left: number) => `Finish your profile (${requiredLeftText(left)})`;
-export const profileFieldsLeft = (c: GoLiveCheck): number => c.profileMissing.reduce((n, p) => n + p.fields.length, 0);
-/** The ONE "N things left" formatter (D82): the card's count line. */
-export const thingsLeftText = (n: number): string => (n === 1 ? '1 thing left' : `${n} things left`);
-
-/** The profile row shows only when the rule applies to this person and something is left. */
-export const showsProfileRow = (c: GoLiveCheck): boolean => c.profileRuleApplies && profileFieldsLeft(c) > 0;
 
 /**
  * The organiser-area screen that fixes a section, or null when no screen does
@@ -81,6 +61,7 @@ export function goLiveFixHref(section: string, seriesId: string): string | null 
     programme: ORG_PATHS.eventProgramme(seriesId),
     cover: ORG_PATHS.cover(seriesId),
     organisers: ORG_PATHS.eventOrganisers(seriesId),
+    payment: detailEditPath(seriesId, 'payment'),
   } as Record<string, string | undefined>)[section];
   return to ? withReturnTo(to, ORG_PATHS.event(seriesId)) : null;
 }

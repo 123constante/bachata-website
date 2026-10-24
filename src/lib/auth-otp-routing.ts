@@ -78,13 +78,33 @@ export function isSignupAllowlistRefusal(error: unknown, shouldCreateUser: boole
 // create-<role>-profile pages), but with organiser self-serve on those pages
 // are retired and the destination is /account, so a brand-new organiser who
 // came from "Sign in to claim" must land back on the claim card instead.
+// W2 walk fix 7: an ORGANISER sign-up whose returnTo is a plain public browse
+// page (it tapped Sign in on /parties, an event, a landing page) lands on the
+// organiser onboarding instead, or it never reaches /account/o. A returnTo that
+// IS the task is kept: a claim (?claim=1, or an organiser page, where the claim
+// card lives), an invite, or a signed-in screen (/account, /app, /finish-profile).
 export function shouldHonorReturnTo(input: {
   returnTo: string | null;
   isSignupFlow: boolean;
   organiserSelfServe: boolean;
+  /** The sign-up chose Organiser (or its legacy role says organiser). */
+  organiserSignup?: boolean;
 }): boolean {
   if (!input.returnTo) return false;
-  return !input.isSignupFlow || input.organiserSelfServe;
+  if (!input.isSignupFlow) return true;
+  if (!input.organiserSelfServe) return false;
+  return !input.organiserSignup || isTaskReturnTo(input.returnTo);
+}
+
+const TASK_PATHS = ["/invite", "/account", "/app", "/finish-profile", "/organisers"];
+
+/** A returnTo that carries a task (claim, invite, a signed-in screen), not just a page someone was browsing. */
+export function isTaskReturnTo(returnTo: string): boolean {
+  const [beforeHash] = returnTo.split("#", 1);
+  const [path, query = ""] = beforeHash.split("?");
+  if (query.split("&").includes("claim=1")) return true;
+  const p = path.toLowerCase();
+  return TASK_PATHS.some((t) => p === t || p.startsWith(`${t}/`));
 }
 
 // Arc 1 flow 9a: the ONE sub line under "Welcome back" on every sign-in visit

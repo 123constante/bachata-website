@@ -27,6 +27,8 @@ import { uploadEventPicture } from './media';
 import { countLabel, mediaCommand } from './seriesExtras';
 import { FLYER_LABEL } from '../shared/flyerLabel';
 import { MusicEdit } from './MusicEdit';
+import { PaymentEdit } from './PaymentEdit';
+import { parsePayment, paymentText } from './paymentModel';
 import { castEmptyLine, castLine, castOf, parseTree, programmeOff, sessionCount } from './programmeSeriesModel';
 import { useSeriesRole } from './programmeSeriesApi';
 
@@ -198,6 +200,7 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
         {row('venue', venueName(venues.data, ws.series.default_venue_id) ?? (ws.series.default_venue_id ? 'Venue' : 'Add'))}
         {row('time', shown(ws, 'time'))}
         {(['music', 'tickets', 'about'] as TextDetail[]).map((f) => row(f, shown(ws, f)))}
+        {row('payment', paymentText(parsePayment(ws.series.payment_methods)) || 'Add')}
         {pageRow('programme', 'Programme', countLabel(sessionCount(tree), 'session', 'sessions'), ORG_PATHS.eventProgramme(seriesId))}
         <div className={cn(ROW, 'text-[var(--mut)]')} data-testid="org-detail-cast">
           <span className="w-[88px] shrink-0 text-[14px]">Cast</span>
@@ -247,6 +250,7 @@ export default function Details() {
 
   const editable = !!ws.data && !eventLock(ws.data.series.lifecycle_status) && !profile.locked;
   if (field === 'music' && ws.data && editable) return <MusicEdit ws={ws.data} />;
+  if (search.get(EDIT_PARAM) === 'payment' && ws.data && editable) return <PaymentEdit ws={ws.data} />;
   if (field && ws.data && editable) return <DetailEdit key={field} ws={ws.data} field={field} />;
   return (
     <OrganiserShell title={ws.data?.series.name ?? 'Details'} back={{ to: ORG_PATHS.event(seriesId), label: 'Back' }} testId="org-page-details">
