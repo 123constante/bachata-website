@@ -32,7 +32,7 @@ export function DancerWorldPage({ id, slug, input, shareTitle, inviteHref, owner
     () => dancerCard({ name, photo, nationality, city, danceRole, languages, contacts }),
     [name, photo, nationality, city, danceRole, languages, contacts],
   );
-  const lower = useDancerLower(id, slug, city);
+  const lower = useDancerLower(id, slug);
   return (
     <WorldPage world="dancer" breadcrumbs={breadcrumbs} backHref="/dancers">
       {/* Owner D9: Back goes where they came from (the frame's history rule). */}

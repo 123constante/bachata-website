@@ -133,8 +133,8 @@ export const timeLabel = (raw: string | null | undefined): string | null => {
 };
 
 /**
- * Owner D12: the one button on every world when nothing is coming up (a DJ with no dates, a dancer
- * whose city has no socials this week). One copy, so the worlds never drift apart.
+ * Owner D12: the one button when nothing is coming up (a DJ with no dates). One copy, so no world
+ * spells it out. S6: the dancer world no longer has one (no dated world = just the invite).
  */
 export const FIND_A_PARTY = { label: 'Find a party', href: '/parties' } as const;
 

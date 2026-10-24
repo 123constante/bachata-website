@@ -31,13 +31,19 @@ describe('D12: the one empty-state action', () => {
 });
 
 const WORLDS = join(__dirname, '..', 'worlds');
-const SOURCES = ['dj/model.ts', 'dancer/model.ts'];
+// S6 (owner, 2026-10-24): the dancer world has no "nothing coming up" button any more (its
+// lower half is previews or nothing), so only the DJ world carries D12; neither spells it out.
+const SOURCES = ['dj/model.ts'];
 
-describe('both worlds import the shared rules (no second copy)', () => {
+describe('the worlds import the shared rules (no second copy)', () => {
   it.each(SOURCES)('%s', (file) => {
     const src = readFileSync(join(WORLDS, file), 'utf8');
     expect(src).toMatch(/\bFIND_A_PARTY\b/);
     expect(src).not.toMatch(/'Find a party'/);
+  });
+
+  it('the dancer model carries no party button of its own (S6)', () => {
+    expect(readFileSync(join(WORLDS, 'dancer/model.ts'), 'utf8')).not.toMatch(/FIND_A_PARTY|'Find a party'|\/parties/);
   });
 
   it('the dancer model no longer reads the DJ world to get the wording', () => {
