@@ -11,4 +11,6 @@ export * from './useNightGoing';
 export { GoingButton } from './GoingButton';
 export { GoingFace, GoingPeople, GOING_PEOPLE_MAX, goingInitial, goingPeopleModel } from './GoingPeople';
 export * from './useMyEventGoing';
+export * from './useMyOrganiserGoingTotal';
 export { GoingLoadState, GoingNightSummary, GoingPeopleSheet, ORGANISER_GOING_TAP_PX } from './OrganiserGoing';
+export { GoingTotalStat } from './GoingTotalStat';

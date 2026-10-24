@@ -95,7 +95,42 @@ export const GOING_COPY = {
   orgSignIn: 'Sign in again',
   orgNotFound: `We couldn${RSQ}t find this event. Go back to your events and open it again.`,
   orgNotOrganiser: `Only this event${RSQ}s owner and managers can see who${RSQ}s going. Ask the owner to add you as a manager.`,
+
+  /** Stats total (get_my_organiser_going_total_v1) at 0: the headline, then what the organiser can do. */
+  orgTotalNone: 'No one going yet',
+  orgTotalNoneHint: `Share your event link on WhatsApp or Instagram. When dancers say they${RSQ}re going to one of your nights, it counts here.`,
+  /** A re-read failed while a total is on screen: it stays, with this note and Try again. */
+  orgTotalStale: `Couldn${RSQ}t refresh. This may be out of date.`,
 } as const;
+
+/** organiserTotalText: the Stats total in words. */
+export type OrganiserTotalText = {
+  /** The whole line in one string (a host's aria-label or share text): "7 going across 4 nights" / "No one going yet". */
+  text: string;
+  /** The big number, grouped ("123,456"); null at 0 (the headline is words, never a bare 0). */
+  figure: string | null;
+  /** Beside / under the number: "going across 4 nights"; at 0 the headline itself. */
+  label: string;
+  /** The second line at 0 (what the organiser can do); null otherwise. */
+  hint: string | null;
+};
+
+/**
+ * The organiser's going total across their upcoming nights. The number is
+ * going TAPS, not people (one dancer going to 3 nights counts 3), so the words
+ * never say "people": "3 going across 1 night". 0 is "No one going yet" plus
+ * what to do -- never "0 going across 0 nights". Cancelled nights are not in
+ * the total and are never named. A total with no night (an inconsistent
+ * reply) still names one night: a tap is always on a night.
+ */
+export const organiserTotalText = (total: { going_total: number; nights: number }): OrganiserTotalText => {
+  const going = Math.max(0, Math.floor(total.going_total || 0));
+  if (going === 0) return { text: GOING_COPY.orgTotalNone, figure: null, label: GOING_COPY.orgTotalNone, hint: GOING_COPY.orgTotalNoneHint };
+  const nights = Math.max(1, Math.floor(total.nights || 0));
+  const label = `going across ${nights} ${nights === 1 ? 'night' : 'nights'}`;
+  const figure = going.toLocaleString('en-GB');
+  return { text: `${figure} ${label}`, figure, label, hint: null };
+};
 
 /**
  * The organiser's count line for one night: "12 going", or the 0 words. A
