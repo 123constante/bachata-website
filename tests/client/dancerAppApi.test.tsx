@@ -58,6 +58,9 @@ const INTERFACE_CODES = [
   'invalid_url',
   'invalid_whatsapp',
   'invalid_list',
+  // Invite journey A1: the phone / Instagram triggers on dancer_profiles (agreed names).
+  'invalid_phone',
+  'invalid_instagram',
 ];
 
 /** Codes the DB raises with a DETAIL naming the field, and the DETAIL values it can send. */
@@ -77,6 +80,7 @@ const DETAIL_CASES: Array<[DancerErrorCode, string, string]> = [
   ['invalid_list', 'favorite_songs', 'favourite songs'],
   ['invalid_list', 'achievements', 'achievements'],
   ['invalid_list', 'languages', 'languages'],
+  ['invalid_phone', 'whatsapp', 'WhatsApp number'],
 ];
 
 describe('errors.ts: one map, every code', () => {
@@ -95,6 +99,14 @@ describe('errors.ts: one map, every code', () => {
   it('no two codes share copy (each tells the person something different)', () => {
     const all = DANCER_ERROR_CODES.map(copyFor);
     expect(new Set(all).size).toBe(all.length);
+  });
+
+  // The save-time phone line must be true for short, long AND missing-country numbers.
+  it('invalid_phone copy is true for every cause (never claims the country is missing)', () => {
+    for (const copy of [copyFor('invalid_phone'), copyFor('invalid_phone', 'whatsapp')]) {
+      expect(copy).not.toMatch(/needs its country|pick the country/i);
+      expect(copy).toMatch(/not complete/i);
+    }
   });
 
   it('fields point at real save keys', () => {
