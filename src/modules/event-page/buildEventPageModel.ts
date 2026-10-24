@@ -1,5 +1,6 @@
 import { resolveHeroImage } from '@/lib/utils';
 import type { EventPageModel, EventPageSnapshot } from '@/modules/event-page/types';
+import { publicFactLines } from '@/modules/event-page/publicFacts';
 import { formatWallClockLocal, formatWallClockLocalIntl, isTimeToBeConfirmed, type WallClock } from '@/lib/time/wallClock';
 
 type BuildEventPageModelArgs = {
@@ -66,6 +67,7 @@ const EMPTY_PAGE_MODEL: EventPageModel = {
   galleryUrls: [],
   videoUrls: [],
   metaDataPublic: {},
+  factLines: [],
 };
 
 const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): EventPageModel => {
@@ -122,6 +124,16 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
   const meta = snapshot.event.metaDataPublic;
   const dressCode = typeof meta.dress_code === 'string' && meta.dress_code.trim() ? meta.dress_code.trim() : null;
   const ageRestriction = typeof meta.age_restriction === 'string' && meta.age_restriction.trim() ? meta.age_restriction.trim() : null;
+  const program = Array.isArray(meta.program) ? (meta.program as Array<Record<string, unknown>>) : null;
+  const workshopCount = program
+    ? program.filter((i) => i?.type === 'class' || i?.type === 'workshop' || i?.type === 'masterclass').length
+    : null;
+  const factLines = publicFactLines({
+    paymentMethods: snapshot.event.paymentMethods,
+    organisers: snapshot.organisers.map((o) => ({ name: o.displayName, role: o.role, status: o.status })),
+    format: snapshot.event.format,
+    workshopCount,
+  });
   const lineupGroups: EventPageModel['lineup']['groups'] = ([
     { key: 'teachers' as const, label: 'Teachers', items: lineup.teachers.map(p => ({ ...p, href: `/teachers/${p.id}` })) },
     { key: 'djs' as const, label: 'DJs', items: lineup.djs.map(p => ({ ...p, href: `/djs/${p.id}` })) },
@@ -267,6 +279,7 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
     galleryUrls: snapshot.event.galleryUrls,
     videoUrls: snapshot.event.videoUrls,
     metaDataPublic: snapshot.event.metaDataPublic,
+    factLines,
   };
 };
 

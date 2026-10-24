@@ -5,7 +5,18 @@ import { DescriptionModal } from '@/modules/event-page/bento/modals/DescriptionM
 
 type DescriptionBlockProps = {
   body: string | null;
+  /** ER-C6 plain facts, one line each, above the body. */
+  facts?: readonly string[];
 };
+
+const FactLines = ({ facts }: { facts: readonly string[] }) =>
+  facts.length === 0 ? null : (
+    <ul className="mb-1.5 space-y-0.5 text-[13px] font-semibold" style={{ color: 'hsl(var(--bento-fg))' }}>
+      {facts.map((f) => (
+        <li key={f}>{f}</li>
+      ))}
+    </ul>
+  );
 
 // Min length before the stacked reveal UI appears.
 const TRUNCATE_AT = 240;
@@ -24,10 +35,17 @@ function splitBody(text: string): [string, string] {
   return [text.slice(0, 120), text.slice(120)];
 }
 
-export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
+export const DescriptionBlock = ({ body, facts = [] }: DescriptionBlockProps) => {
   const [open, setOpen] = useState(false);
 
-  if (!body || !body.trim()) return null;
+  if (!body || !body.trim()) {
+    if (facts.length === 0) return null;
+    return (
+      <BentoTile title={BLOCK_TITLES.description} color={BLOCK_COLORS.description}>
+        <FactLines facts={facts} />
+      </BentoTile>
+    );
+  }
 
   const trimmed = body.trim();
   const surface = BLOCK_COLORS.description;
@@ -35,6 +53,7 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
   if (trimmed.length <= TRUNCATE_AT) {
     return (
       <BentoTile title={BLOCK_TITLES.description} color={surface}>
+        <FactLines facts={facts} />
         <p
           className="whitespace-pre-wrap text-[13px] leading-[1.5]"
           style={{
@@ -59,6 +78,7 @@ export const DescriptionBlock = ({ body }: DescriptionBlockProps) => {
         mode="tappable"
         onClick={() => setOpen(true)}
       >
+        <FactLines facts={facts} />
         <p
           className="whitespace-pre-wrap text-[13px] leading-[1.5]"
           style={{

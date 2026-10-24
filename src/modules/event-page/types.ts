@@ -17,6 +17,9 @@ export type EventPagePerson = {
   instagram?: string | null;
   facebook?: string | null;
   contactPhone?: string | null;
+  /** 'owner' | 'co' and 'accepted' | 'invited'; null until the server sends them. */
+  role?: string | null;
+  status?: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -351,6 +354,8 @@ export type EventPageModel = {
   galleryUrls: string[];
   videoUrls: string[];
   metaDataPublic: Record<string, unknown>;
+  /** ER-C6: plain-fact lines (byline, how to pay, timetable) for the About tile. */
+  factLines: string[];
 };
 
 // ---------------------------------------------------------------------------
