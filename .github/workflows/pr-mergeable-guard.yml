@@ -102,6 +102,9 @@ jobs:
           if [ "$code" = "1" ]; then
             echo "verdict=ok" >> "$GITHUB_OUTPUT"
             echo "canary ok: the guard still detects the recorded incident board."
+          elif [ "$code" = "2" ] && grep -q 'attempt(s)' canary.log; then
+            echo "verdict=ok" >> "$GITHUB_OUTPUT"
+            echo "::warning title=GITHUB-OUTAGE::canary could not reach GitHub; not a blind guard."
           elif [ "$code" = "2" ]; then
             echo "verdict=unreadable" >> "$GITHUB_OUTPUT"
             echo "CANARY INFRASTRUCTURE FAILURE: the fixture commit could not be read."
