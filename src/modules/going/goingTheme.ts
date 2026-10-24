@@ -47,3 +47,23 @@ export const BENTO_GOING_THEME: GoingTheme = {
     border: '2px solid hsl(var(--bento-surface-raised))',
   },
 };
+
+/**
+ * The organiser surfaces (Going P3): the organiser's own tokens, the ones every
+ * organiser screen paints with (src/modules/organiser/theme.css .org-theme and
+ * ui/ember.css .ember-world, the C2 mockup's names: --fg, --mut, --card,
+ * --card2, --line, --gold-fg, --btn). No value of its own, so the components
+ * follow whichever organiser look they are mounted in. Muted text is --mut,
+ * which ember's contrast test holds to 4.5:1 on --card and --card2.
+ */
+export const ORGANISER_GOING_THEME: GoingTheme = {
+  fg: 'var(--fg)',
+  muted: 'var(--mut)',
+  surface: 'var(--card)',
+  hairline: 'var(--line)',
+  accent: 'var(--gold-fg)',
+  primary: { background: 'var(--btn)', color: 'var(--btnfg)', border: '1px solid transparent' },
+  on: { background: 'var(--card2)', color: 'var(--fg)', border: '1px solid var(--gold)' },
+  ghost: { background: 'var(--card2)', color: 'var(--fg)', border: '1px solid var(--line-strong)' },
+  face: { background: 'var(--card2)', color: 'var(--fg)', border: '2px solid var(--card)' },
+};

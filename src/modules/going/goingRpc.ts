@@ -10,6 +10,8 @@
  *     -> [{occurrence_id, going_count, people: [Person]}]   anon OK, max 200 ids
  *   get_my_going_v1() -> {upcoming: [Night], past: [Night]}
  *   get_public_dancer_extras_v1(p_profile_id) -> {..., going_next: [...]} | null
+ *   get_my_event_going_v1(p_public_event_id uuid)   (Going P3, owner/manager only)
+ *     -> {public_event_id, nights: [MyEventGoingNight]}   upcoming nights, cancelled included
  *
  * `starts_at_local` is a London wall clock with NO zone: render as is, never
  * `new Date()` it.
@@ -22,6 +24,7 @@ export const GOING_RPC = {
   nights: 'get_nights_going_v1',
   mine: 'get_my_going_v1',
   dancerExtras: 'get_public_dancer_extras_v1',
+  myEvent: 'get_my_event_going_v1',
 } as const;
 
 /** The database's cap on ids per get_nights_going_v1 call. */
@@ -207,3 +210,51 @@ export const fetchNightsGoing = async (
 
 /** The signed-in viewer's nights (upcoming + past). */
 export const fetchMyGoing = async (): Promise<MyGoing> => parseMyGoing(await call(GOING_RPC.mine));
+
+// ---------------------------------------------------------------- organiser (Going P3)
+
+/** The most people get_my_event_going_v1 lists per night. */
+export const MY_EVENT_GOING_MAX_PEOPLE = 200;
+
+/** One upcoming night of get_my_event_going_v1, exactly as the RPC returns it. */
+export type MyEventGoingNight = {
+  occurrence_id: string;
+  occurrence_date: string | null;
+  /** London wall clock, no zone ('YYYY-MM-DDTHH:mm:ss'): render as is, never `new Date()` it. */
+  starts_at_local: string | null;
+  /** Cancelled nights are included: say so, never "0 going". */
+  is_cancelled: boolean;
+  going_count: number;
+  /** In "said going" order, up to 200. */
+  people: GoingPerson[];
+};
+
+export type MyEventGoing = { public_event_id: string; nights: MyEventGoingNight[] };
+
+export const parseMyEventGoingNight = (v: Record<string, unknown>): MyEventGoingNight | null => {
+  const base = parseNightGoing(v);
+  if (!base) return null;
+  return {
+    occurrence_id: base.occurrence_id,
+    occurrence_date: str(v.occurrence_date),
+    starts_at_local: str(v.starts_at_local),
+    is_cancelled: v.is_cancelled === true,
+    going_count: base.going_count,
+    people: base.people,
+  };
+};
+
+export const parseMyEventGoing = (v: unknown, publicEventId: string): MyEventGoing => {
+  const r = isRecord(v) ? v : {};
+  return {
+    public_event_id: str(r.public_event_id) ?? publicEventId,
+    nights: list(r.nights).map(parseMyEventGoingNight).filter((n): n is MyEventGoingNight => n !== null),
+  };
+};
+
+/**
+ * An event's upcoming nights with who is going, for its owner/managers.
+ * Refusals (GoingRpcError.code): not_signed_in, not_found, not_organiser.
+ */
+export const fetchMyEventGoing = async (publicEventId: string): Promise<MyEventGoing> =>
+  parseMyEventGoing(await call(GOING_RPC.myEvent, { p_public_event_id: publicEventId }), publicEventId);

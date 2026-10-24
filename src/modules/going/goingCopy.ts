@@ -85,7 +85,30 @@ export const GOING_COPY = {
   tagGoing: 'Going',
   tagWent: 'Went',
   tagCancelled: 'Cancelled',
+
+  /** Organiser view (Going P3, get_my_event_going_v1): one event's upcoming nights. */
+  orgSheetTitle: `Who${RSQ}s going`,
+  orgNobody: `Nobody has said they${RSQ}re going yet`,
+  orgCancelled: 'This date is cancelled',
+  orgLoading: `Loading who${RSQ}s going${ELLIPSIS}`,
+  orgNotSignedIn: `You${RSQ}re signed out. Sign in again to see who${RSQ}s going.`,
+  orgSignIn: 'Sign in again',
+  orgNotFound: `We couldn${RSQ}t find this event. Go back to your events and open it again.`,
+  orgNotOrganiser: `Only this event${RSQ}s owner and managers can see who${RSQ}s going. Ask the owner to add you as a manager.`,
 } as const;
+
+/**
+ * The organiser's count line for one night: "12 going", or the 0 words. A
+ * cancelled night never says "0 going": "This date is cancelled", plus
+ * "3 had said they were going" when anyone had.
+ */
+export const organiserNightText = (count: number, cancelled: boolean): string => {
+  if (cancelled) {
+    const had = goingCountText(count, false, true);
+    return had === '' ? GOING_COPY.orgCancelled : `${GOING_COPY.orgCancelled} ${DOT} ${had}`;
+  }
+  return Math.max(0, Math.floor(count || 0)) === 0 ? GOING_COPY.orgNobody : goingCountText(count);
+};
 
 /**
  * "12 going" / "No one going yet"; past nights: "5 went" / "No one said they
@@ -106,6 +129,10 @@ export const moreText = (extra: number): string => (extra > 0 ? `+${extra} more`
 /** Screen-reader name of the "+N more" chip. */
 export const moreLabel = (extra: number): string =>
   extra === 1 ? 'and 1 more person' : `and ${extra} more people`;
+
+/** The organiser list's last line when more are going than it lists: "And 50 more people". */
+export const moreSentence = (extra: number): string =>
+  extra === 1 ? 'And 1 more person' : `And ${extra} more people`;
 
 /**
  * "Add your dance role to say you're going." -- `fields` is the missing fields

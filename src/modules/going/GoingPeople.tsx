@@ -50,6 +50,42 @@ type Props = {
 const FACE = 32;
 
 /**
+ * One person's face: the photo only when photo_url is set (the dancer switched
+ * it on, page public), else the initials circle. Decorative: the first name
+ * beside it is the accessible text.
+ */
+export const GoingFace = ({
+  person,
+  size = FACE,
+  theme = BENTO_GOING_THEME,
+}: {
+  person: Pick<GoingPerson, 'first_name' | 'photo_url'>;
+  size?: number;
+  theme?: GoingTheme;
+}) =>
+  person.photo_url ? (
+    <img
+      src={person.photo_url}
+      alt=""
+      loading="lazy"
+      width={size}
+      height={size}
+      className="shrink-0 rounded-full object-cover"
+      style={{ width: size, height: size, border: theme.face.border }}
+      data-testid="going-photo"
+    />
+  ) : (
+    <span
+      aria-hidden
+      className="flex shrink-0 items-center justify-center rounded-full font-bold"
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.4), ...theme.face }}
+      data-testid="going-initial"
+    >
+      {goingInitial(person.first_name)}
+    </span>
+  );
+
+/**
  * The count and up to 8 people going to ONE night: first name always, photo
  * only when the dancer switched it on (photo_url non-null), an initials circle
  * otherwise. A person links to their dancer page only when dancer_profile_id is
@@ -82,27 +118,7 @@ export const GoingPeople = ({
           {shown.map((p, i) => {
             const inner = (
               <>
-                {p.photo_url ? (
-                  <img
-                    src={p.photo_url}
-                    alt=""
-                    loading="lazy"
-                    width={FACE}
-                    height={FACE}
-                    className="rounded-full object-cover"
-                    style={{ width: FACE, height: FACE, border: theme.face.border }}
-                    data-testid="going-photo"
-                  />
-                ) : (
-                  <span
-                    aria-hidden
-                    className="flex items-center justify-center rounded-full text-[13px] font-bold"
-                    style={{ width: FACE, height: FACE, ...theme.face }}
-                    data-testid="going-initial"
-                  >
-                    {goingInitial(p.first_name)}
-                  </span>
-                )}
+                <GoingFace person={p} theme={theme} />
                 <span className="block w-full truncate text-center text-[11px] leading-tight" style={{ color: theme.fg }}>
                   {p.first_name}
                 </span>

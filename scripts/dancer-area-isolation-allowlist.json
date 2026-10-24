@@ -184,6 +184,11 @@
     "docs/design/going-p2-critique.md",
     "docs/handovers/going-p2-critique.md",
     "docs/session-handover-2026-10-23-going-p2-fix.md",
+    "src/modules/going/OrganiserGoing.tsx",
+    "src/modules/going/useMyEventGoing.ts",
+    "src/modules/going/__tests__/organiserGoing.test.tsx",
+    "docs/design/going-p3-organiser.md",
+    "docs/handovers/going-p3-organiser.md",
     "docs/ci-guard-notes.md"
   ],
   "seamNotes": {
@@ -352,6 +357,11 @@
     "docs/design/going-p2-critique.md": "Going P2 stage 5 (brief going-p2-critique, orchestrator 2026-10-23): the independent critique (ordered fix list)",
     "docs/handovers/going-p2-critique.md": "Going P2 stage 5 (brief going-p2-critique, orchestrator 2026-10-23): the critique fix pass handover",
     "docs/session-handover-2026-10-23-going-p2-fix.md": "Going P2 fix round (orchestrator 2026-10-23): that session's handover",
+    "src/modules/going/OrganiserGoing.tsx": "Going P3 (brief going-p3-organiser, organiser-rebuild lane agreement 2026-10-23): the organiser's who-is-going parts in the going module; no routing, no organiser-module change, imports nothing from src/modules/dancer-app",
+    "src/modules/going/useMyEventGoing.ts": "Going P3 (brief going-p3-organiser, organiser-rebuild lane agreement 2026-10-23): the organiser's who-is-going parts in the going module; no routing, no organiser-module change, imports nothing from src/modules/dancer-app",
+    "src/modules/going/__tests__/organiserGoing.test.tsx": "Going P3 (brief going-p3-organiser, organiser-rebuild lane agreement 2026-10-23): the organiser's who-is-going parts in the going module; no routing, no organiser-module change, imports nothing from src/modules/dancer-app",
+    "docs/design/going-p3-organiser.md": "Going P3 (brief going-p3-organiser, organiser-rebuild lane agreement 2026-10-23): the organiser's who-is-going parts in the going module; no routing, no organiser-module change, imports nothing from src/modules/dancer-app",
+    "docs/handovers/going-p3-organiser.md": "Going P3 (brief going-p3-organiser, organiser-rebuild lane agreement 2026-10-23): the organiser's who-is-going parts in the going module; no routing, no organiser-module change, imports nothing from src/modules/dancer-app",
     "docs/ci-guard-notes.md": "Going P2 (orchestrator 2026-10-23): records the two new guards (check-going-rpcs, check-going-legacy-rpcs) and what their green covers"
   },
   "protected": [
