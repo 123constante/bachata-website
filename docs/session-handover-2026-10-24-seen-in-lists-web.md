@@ -40,3 +40,8 @@ Branch `claude/seen-in-lists-web`. Ticket dt_b47c23db6b86.
 - Decision recorded: `profile` covers DJ only (TeacherProfile has no upcoming list); `city` = SEO city list (`LiveEventsSection`).
 - CI steps run locally: see PR body table. Phone e2e at 390x844 NOT run; the orchestrator walks the preview.
 - Test runs rewrote some `__snapshots__` files in the working tree (line endings); those were deliberately not committed.
+
+## W1 follow-up: bundle-budget (2026-10-24)
+- `listImpressions.ts` no longer imports the Supabase client statically (getSupabase()), clearing the puller ratchet.
+- It was then its own 2 KB shared chunk (+1 first-load request on home, event, parties, classes). Folded into `lib-event-rules` (vite.chunks.ts, pinned list in tests/chunkClassifier.test.ts). Measured on a clean local build: every route loads 2-3 fewer chunks than the old allowances; chunkRatchet and firstLoadRequestRatchet tightened to the measured values; dancer-app KB budget 372 -> 373 (372.3 measured).
+- Local: check:bundle-budget, check:first-load-requests, check:chunk-cycles all pass. CI is the final word (local KB reads 0.2-0.4 above CI).
