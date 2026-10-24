@@ -1,4 +1,6 @@
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
+import type { GoingNextNight } from '@/modules/going/goingRpc';
 import { DancerApiError, codeFromMessage, toDancerError } from './errors';
 import { DANCER_GATE_RPC, backendOverride, fetchGateRaw, type DancerBackend } from './gateRpc';
 import { DANCE_ROLES, FEEDBACK_KINDS, STRENGTH_STEPS, type DanceRole, type DancerDelta, type DancerGate, type FeatureKey, type FeedbackKind, type FeedbackReceipt, type MyDancerEdit, type MyDancerStats, type MyFeatureInterest, type MyProfileViews, type PublicDancerExtras, type StrengthStep } from './types';
@@ -101,6 +103,8 @@ export const parseMyDancerEdit = (data: unknown): MyDancerEdit => {
     website_url: str(data.website_url),
     whatsapp: str(data.whatsapp),
     show_whatsapp_publicly: data.show_whatsapp_publicly !== false,
+    // OFF unless the server says true (owner decision: off by default).
+    show_going_photo: data.show_going_photo === true,
     avatar_url: str(data.avatar_url),
     dance_started_year: typeof data.dance_started_year === 'number' ? data.dance_started_year : null,
     favorite_styles: strings(data.favorite_styles),
@@ -119,10 +123,14 @@ export const parseMyDancerEdit = (data: unknown): MyDancerEdit => {
   };
 };
 
-export const parsePublicExtras = (data: unknown): PublicDancerExtras => {
+/**
+ * `goingNext` = the going module's parseGoingNext over the same reply, passed in so this
+ * file (in the /app/* first load) has no static going import; [] while the switch is off.
+ */
+export const parsePublicExtras = (data: unknown, goingNext: GoingNextNight[] = []): PublicDancerExtras => {
   if (data === null || data === undefined) return null;
   if (!isRecord(data)) throw new DancerApiError('unknown', 'get_public_dancer_extras_v1 returned an unexpected shape');
-  return { bio: str(data.bio), languages: strings(data.languages), whatsapp: str(data.whatsapp) };
+  return { bio: str(data.bio), languages: strings(data.languages), whatsapp: str(data.whatsapp), goingNext };
 };
 
 /** A count from the server: a whole number >= 0, anything else (null, NaN, text, negative) is 0 -- never NaN on a screen. */
@@ -135,7 +143,6 @@ export const parseMyStats = (data: unknown): MyDancerStats => {
     member_since: str(data.member_since),
     nights_going_upcoming: count(data.nights_going_upcoming),
     nights_went: count(data.nights_went),
-    interested_upcoming: count(data.interested_upcoming),
     level_votes: count(data.level_votes),
     views_30_days: count(data.views_30_days),
     views_total: count(data.views_total),
@@ -173,7 +180,12 @@ const realBackend: DancerBackend = {
   fetchGate: fetchGateRaw,
   fetchMyDancerEdit: async () => parseMyDancerEdit(await call(DANCER_RPC.myEdit)),
   saveMyDancerProfile: async (delta) => parseMyDancerEdit(await call(DANCER_RPC.save, { p_payload: delta })),
-  fetchPublicExtras: async (profileId) => parsePublicExtras(await call(DANCER_RPC.publicExtras, { p_profile_id: profileId })),
+  fetchPublicExtras: async (profileId) => {
+    const data = await call(DANCER_RPC.publicExtras, { p_profile_id: profileId });
+    // The going parser loads only while the going switch is on (nothing going renders off).
+    const goingNext = GOING_CHECKIN_ENABLED ? (await import('@/modules/going/goingRpc')).parseGoingNext(data) : [];
+    return parsePublicExtras(data, goingNext);
+  },
   fetchMyStats: async () => parseMyStats(await call(DANCER_RPC.stats)),
   fetchMyViews: async () => parseMyViews(await call(DANCER_RPC.views)),
   submitFeedback: async (body, kind, page) => parseFeedbackReceipt(await call(DANCER_RPC.feedback, { p_body: body, p_kind: kind, p_page: page })),

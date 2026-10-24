@@ -355,10 +355,22 @@ export const LIB_EVENT_RULES_MODULES = [
 // ratchet 59 vs 58). accountRouting is in the first load of every one of those
 // importers already; among the budgeted routes only dancer-app loads it, so the
 // pairing moves ~0.6 KB gz onto no budgeted route that did not already pay it.
+//
+// src/modules/dancer-app/screens/nights/nightsDates.ts (2026-10-23, Going P2): the PURE
+// half of the nights model (dates, the nights path, the switch-off line). The /app/*
+// first load reads it (Home's lineup and nudge, the date blocks, the switch-off Nights
+// screen) and so does /account/attendance (through nightsModel, the one nights
+// mapping), so rollup cut it into a chunk of its own: one more first-load request on
+// /app/* (53 vs 52). Both importers already load lib-account (accountRouting), so the
+// pairing adds no request anywhere. It brings its one unassigned dep along,
+// src/modules/dancer-app/shell/routes.ts (import-free, the dancer tab paths): ~0.9 KB gz
+// in all, moved onto the lazy account pages only; no budgeted route except /app/* loads
+// lib-account. Re-measure every route before moving it out again.
 export const LIB_ACCOUNT_MODULES = [
   "/src/lib/accountRouting.ts",
   "/src/components/account/profiles/PersonAvatar.tsx",
   "/src/components/account/profiles/avatarFallback.ts",
+  "/src/modules/dancer-app/screens/nights/nightsDates.ts",
 ];
 
 // The THIRD first-party group (2026-10-21, W1 people surfaces S3): the people

@@ -6,6 +6,7 @@
  *
  * Strength is NEVER computed here: it is `profile.strength` from the server.
  */
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { diffDelta } from '../../api/delta';
 // Client-side refusals read the SAME copy the DB's refusal maps to (one mapping, api/errors.ts).
 import { copyFor } from '../../api/errors';
@@ -133,6 +134,8 @@ export type EditDraft = {
   website_url: string;
   whatsapp: string;
   show_whatsapp_publicly: boolean;
+  /** Going P2: "Show my photo when I'm going" (default OFF). Sent only while the going switch is on and it changed. */
+  show_going_photo: boolean;
 };
 
 export const draftFromProfile = (p: MyDancerEdit): EditDraft => ({
@@ -153,6 +156,7 @@ export const draftFromProfile = (p: MyDancerEdit): EditDraft => ({
   website_url: p.website_url ?? '',
   whatsapp: p.whatsapp ?? '',
   show_whatsapp_publicly: p.show_whatsapp_publicly,
+  show_going_photo: p.show_going_photo,
 });
 
 export type FieldMessages = Partial<Record<FormFieldId, string>>;
@@ -247,6 +251,9 @@ export const buildDelta = (current: MyDancerEdit, d: EditDraft): DancerDelta => 
     candidate.whatsapp = text(d.whatsapp);
     candidate.show_whatsapp_publicly = d.show_whatsapp_publicly;
   }
+  // Every going surface sits behind the going switch: while it is off this key is never sent.
+  // diffDelta drops it when untouched (absent = unchanged in save_my_dancer_profile_v2).
+  if (GOING_CHECKIN_ENABLED) candidate.show_going_photo = d.show_going_photo;
   return diffDelta(current, candidate);
 };
 
@@ -263,4 +270,4 @@ export const saveDisabledReason = (delta: DancerDelta, errors: Partial<Record<Fo
 
 /** The delta key -> the form field that shows its server error. */
 export const fieldForKey = (key: SaveKey): FormFieldId | null =>
-  key === 'hide_surname_publicly' || key === 'show_whatsapp_publicly' ? null : (key as FormFieldId);
+  key === 'hide_surname_publicly' || key === 'show_whatsapp_publicly' || key === 'show_going_photo' ? null : (key as FormFieldId);
